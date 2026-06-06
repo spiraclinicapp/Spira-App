@@ -1,0 +1,25 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+dist-ssr/
+*.local
+
+# Variables de entorno / secretos (NUNCA commitear claves de Supabase)
+.env
+.env.*
+!.env.example
+
+# Supabase (estado local del CLI)
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Editores / SO
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.log
