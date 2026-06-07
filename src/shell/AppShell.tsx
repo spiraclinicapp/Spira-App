@@ -3,10 +3,8 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
 import { useTheme } from '../lib/theme'
+import { useAuth } from '../lib/auth'
 import { MODULES } from '../modules/registry'
-
-/* Usuario placeholder — en el próximo paso viene de Supabase Auth. */
-const USER = { name: 'Dra. Lucía Méndez', role: 'Coordinadora', center: 'Centro Cardiológico BA' }
 
 /* Etiqueta del botón de acción según módulo/submódulo (voseo, sentence case). */
 const ACTION_LABELS: Record<string, string> = {
@@ -30,8 +28,12 @@ const iconBtn: CSSProperties = {
 
 export function AppShell() {
   const { theme, toggle } = useTheme()
-  const [moduleKey, setModuleKey] = useState('track')
+  const { profile, modules: userModules, signOut } = useAuth()
+  const [moduleKey, setModuleKey] = useState('inicio')
   const [subKey, setSubKey] = useState('resumen')
+
+  /* 'inicio' siempre disponible; el resto, según los roles reales del usuario. */
+  const isAllowed = (key: string) => key === 'inicio' || (userModules as string[]).includes(key)
 
   const mod = MODULES.find((m) => m.key === moduleKey) ?? MODULES[0]
   const sub = mod.submodules.find((s) => s.key === subKey) ?? mod.submodules[0]
@@ -39,12 +41,14 @@ export function AppShell() {
 
   const selectModule = (key: string) => {
     const m = MODULES.find((x) => x.key === key)
-    if (!m || !m.allowed) return
+    if (!m || !isAllowed(m.key)) return
     setModuleKey(key)
     setSubKey(m.submodules[0].key)
   }
 
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
+  const userName = profile?.fullName ?? 'Usuario'
+  const initial = userName.trim().charAt(0).toUpperCase() || 'U'
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--spira-paper)', color: 'var(--spira-ink)' }}>
@@ -82,17 +86,20 @@ export function AppShell() {
 
           <span style={{ width: 1, height: 26, background: 'var(--spira-line)', margin: '0 4px' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, height: 42, padding: '0 8px 0 6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, height: 42, padding: '0 4px 0 6px' }}>
             <span
               style={{
                 width: 32, height: 32, borderRadius: 9, background: 'var(--spira-primary)', color: 'var(--spira-on-accent)',
                 display: 'grid', placeItems: 'center', fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 13,
               }}
             >
-              {USER.name.split(' ').slice(-1)[0]?.[0] ?? 'U'}
+              {initial}
             </span>
-            <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', color: 'var(--spira-muted)' }}>{USER.name}</span>
+            <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', color: 'var(--spira-muted)' }}>{userName}</span>
           </div>
+          <button onClick={() => { void signOut() }} style={iconBtn} title="Cerrar sesión">
+            <Icon name="logout" size={18} color="var(--spira-muted)" />
+          </button>
         </div>
       </header>
 
@@ -107,7 +114,7 @@ export function AppShell() {
         >
           {MODULES.map((m) => {
             const on = m.key === moduleKey
-            const locked = !m.allowed
+            const locked = !isAllowed(m.key)
             return (
               <button
                 key={m.key}
@@ -182,7 +189,7 @@ export function AppShell() {
             </button>
           </div>
 
-          {/* placeholder de contenido — se reemplaza por las vistas reales en los próximos pasos */}
+          {/* placeholder — se reemplaza por las vistas reales en los próximos pasos */}
           <div style={{ flex: 1, overflow: 'auto', padding: '16px 26px 26px' }}>
             <div
               style={{
