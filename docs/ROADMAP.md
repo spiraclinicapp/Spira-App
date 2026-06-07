@@ -21,18 +21,22 @@ en Supabase real y validado en vivo.
 
 ---
 
-## Paso 2 · Merge — el core de la app · ⏳ SIGUIENTE
+## Paso 2 · Merge — el core de la app · 🔄 EN CURSO
 
-Construir la app React sobre la base ya desplegada. Va al **mismo repo**, en `src/`. Sub-orden:
+Construir la app React sobre la base ya desplegada. Va al **mismo repo**, en `src/`.
+Stack: **Vite + React 19 + TypeScript + @supabase/supabase-js**.
 
-1. **Core** (lo primero — el esqueleto donde todo se enchufa):
-   - Shell único: login, sidebar, frame, routing entre módulos.
-   - Capa de datos contra Supabase (queries + realtime), reemplazando el `localStorage` de los MVPs.
-   - Auth (Supabase Auth) + gating por rol (`user_module_roles`).
-   - Design system compartido (tokens/theme/primitivos) — base, no el pulido final (eso es Paso 3).
-2. **Portar Track** como módulo (ya es modular → entra más derecho).
-3. **Portar Pharma** como módulo (hoy es un monolito → se desarma pieza por pieza).
-4. **Cablear el handoff** Track→Pharma: solicitud → dispensación + realtime entre módulos.
+1. **Core** — ✅ HECHO (2026-06-07):
+   - Shell único (`src/shell/AppShell.tsx`): top bar, riel de módulos, panel de submódulos, navegación 2 niveles.
+   - Design system portado a TS (`src/styles/tokens.css`, `src/components/Icon.tsx`, `Vilano.tsx`, `src/lib/theme.ts`).
+   - Auth real (`src/lib/auth.tsx` + `src/lib/supabase.ts`): login, sesión, perfil, roles.
+   - Gating de módulos por rol real (`user_module_roles`).
+   - Niveles de rol estrictos en la base (migración `0009`, verificada y probada).
+2. **Portar vistas a datos reales** — ⏳ PENDIENTE (hoy el contenido de cada submódulo es placeholder).
+   Empezar por una vista, ej. Track → Pacientes.
+3. **Panel de gerencia** — ⏳ PENDIENTE: que Pablo (gerencia) asigne roles con clicks (perfiles
+   predefinidos que rellenan `user_module_roles`). Hoy se hace por SQL.
+4. **Portar Track y Pharma** completos como módulos + **cablear el handoff** (solicitud → dispensación + realtime).
 
 > El App Shell que ya prototipaste (`FinalShell` componiendo Track + Pharma) es el boceto del core.
 
