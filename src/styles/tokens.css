@@ -1,0 +1,84 @@
+/* ============================================================
+   Spira · tokens (fuente de verdad: Identidad Visual "Sereno")
+   Petróleo + papel cálido · Schibsted Grotesk + Hanken Grotesk.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  /* —— Color · base —— */
+  --spira-ink:      #14302E;
+  --spira-primary:  #0F5F57;
+  --spira-paper:    #F4F1EA;
+  --spira-surface:  #FBFAF6;
+  --spira-white:    #FFFFFF;
+  --spira-muted:    #7C8C87;
+  --spira-faint:    #A6B0AC;
+  --spira-line:     #E4DECF;
+  --spira-line-2:   #D8CBB0;
+
+  /* —— Color · semántico —— */
+  --spira-good:     #5C8A5A;
+  --spira-warn:     #B0823F;
+  --spira-danger:   #A6483B;
+
+  /* —— Acentos por módulo (constantes en ambos temas) —— */
+  --spira-track:        #2E7D74;
+  --spira-pharma:       #C9A24A;
+  --spira-pharma-solid: #A8842F;
+  --spira-lab:          #5C8A5A;
+  --spira-contable:     #3A6B8C;
+
+  /* —— Constantes de tema —— */
+  --spira-on-accent:  #F4F1EA;
+  --spira-brand-mark: #0F5F57;
+
+  /* —— Tipografía —— */
+  --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif;
+  --spira-font-text:    'Hanken Grotesk', system-ui, sans-serif;
+  --spira-font-mono:    'IBM Plex Mono', ui-monospace, monospace;
+
+  /* —— Radios —— */
+  --spira-radius-sm: 8px;
+  --spira-radius-md: 10px;
+  --spira-radius-lg: 16px;
+  --spira-radius-pill: 999px;
+
+  /* —— Sombras (suaves, cálidas) —— */
+  --spira-shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.06);
+  --spira-shadow-md: 0 12px 32px rgba(20, 48, 46, 0.10);
+  --spira-shadow-lg: 0 18px 40px rgba(20, 48, 46, 0.14);
+}
+
+/* —— Tema oscuro —— (acentos/primario/semánticos se mantienen) */
+[data-theme='dark'] {
+  --spira-ink:      #E9F2EF;
+  --spira-paper:    #0E1B1A;
+  --spira-surface:  #142523;
+  --spira-white:    #17302C;
+  --spira-muted:    #8AA39D;
+  --spira-faint:    #5E726D;
+  --spira-line:     #27403B;
+  --spira-line-2:   #34504A;
+  --spira-brand-mark: #9DE6D6;
+}
+
+/* —— Estilos tipográficos semánticos —— */
+.spira-display { font-family: var(--spira-font-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: var(--spira-ink); }
+.spira-h1      { font-family: var(--spira-font-display); font-weight: 700; font-size: 40px; letter-spacing: -0.02em; line-height: 1.05; color: var(--spira-ink); }
+.spira-h2      { font-family: var(--spira-font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; color: var(--spira-ink); }
+.spira-h3      { font-family: var(--spira-font-display); font-weight: 700; font-size: 17px; color: var(--spira-ink); }
+.spira-eyebrow { font-family: var(--spira-font-text); font-weight: 700; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--spira-faint); }
+.spira-mono    { font-family: var(--spira-font-mono); font-variant-numeric: tabular-nums; }
+
+/* —— Base —— */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--spira-paper);
+  color: var(--spira-ink);
+  font-family: var(--spira-font-text);
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: inherit; }
