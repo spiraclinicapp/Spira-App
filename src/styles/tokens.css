@@ -82,3 +82,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 button { font-family: inherit; }
+
+/* —— Foco visible por teclado (accesibilidad) —— */
+:where(button, input, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--spira-primary);
+  outline-offset: 2px;
+  border-radius: var(--spira-radius-sm);
+}

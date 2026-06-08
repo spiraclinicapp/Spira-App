@@ -5,6 +5,7 @@ import { Vilano } from '../components/Vilano'
 import { useTheme } from '../lib/theme'
 import { useAuth } from '../lib/auth'
 import { MODULES } from '../modules/registry'
+import { resolveView } from '../views/registry'
 
 /* Etiqueta del botón de acción según módulo/submódulo (voseo, sentence case). */
 const ACTION_LABELS: Record<string, string> = {
@@ -28,7 +29,7 @@ const iconBtn: CSSProperties = {
 
 export function AppShell() {
   const { theme, toggle } = useTheme()
-  const { profile, modules: userModules, signOut } = useAuth()
+  const { profile, modules: userModules, signOut, hasMinRole } = useAuth()
   const [moduleKey, setModuleKey] = useState('inicio')
   const [subKey, setSubKey] = useState('resumen')
 
@@ -47,6 +48,8 @@ export function AppShell() {
   }
 
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
+  /* El botón de acción de Pacientes solo se muestra si el rol puede crear (RLS: track operator+). */
+  const showAction = moduleKey === 'track' && sub.key === 'pacientes' ? hasMinRole('track', 'operator') : true
   const userName = profile?.fullName ?? 'Usuario'
   const initial = userName.trim().charAt(0).toUpperCase() || 'U'
 
@@ -178,35 +181,25 @@ export function AppShell() {
               </div>
               <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', marginTop: 1 }}>{sub.name}</div>
             </div>
-            <button
-              style={{
-                marginLeft: 'auto', height: 38, padding: '0 15px', border: 'none', borderRadius: 10,
-                background: mod.accentSolid, color: 'var(--spira-on-accent)', fontFamily: 'var(--spira-font-text)',
-                fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
-              }}
-            >
-              <Icon name="plus" size={16} color="var(--spira-on-accent)" /> {action}
-            </button>
+            {showAction && (
+              <button
+                style={{
+                  marginLeft: 'auto', height: 38, padding: '0 15px', border: 'none', borderRadius: 10,
+                  background: mod.accentSolid, color: 'var(--spira-on-accent)', fontFamily: 'var(--spira-font-text)',
+                  fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
+                }}
+              >
+                <Icon name="plus" size={16} color="var(--spira-on-accent)" /> {action}
+              </button>
+            )}
           </div>
 
-          {/* placeholder — se reemplaza por las vistas reales en los próximos pasos */}
+          {/* contenido: router de vistas (fallback a Placeholder para lo aún no portado) */}
           <div style={{ flex: 1, overflow: 'auto', padding: '16px 26px 26px' }}>
-            <div
-              style={{
-                height: '100%', minHeight: 320, display: 'grid', placeItems: 'center',
-                background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16,
-              }}
-            >
-              <div style={{ textAlign: 'center', maxWidth: 380 }}>
-                <span style={{ display: 'inline-grid', placeItems: 'center', width: 52, height: 52, borderRadius: 14, background: accent + '14', marginBottom: 14 }}>
-                  <Icon name={sub.icon} size={24} color={accent} stroke={1.9} />
-                </span>
-                <div className="spira-h3" style={{ marginBottom: 6 }}>{sub.name}</div>
-                <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', lineHeight: 1.5 }}>
-                  Vista en construcción. La conectamos a la base de datos en el próximo paso.
-                </div>
-              </div>
-            </div>
+            {(() => {
+              const View = resolveView(moduleKey, sub.key)
+              return <View module={mod} submodule={sub} />
+            })()}
           </div>
         </main>
       </div>

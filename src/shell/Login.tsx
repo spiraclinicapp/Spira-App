@@ -7,7 +7,6 @@ const inputStyle: CSSProperties = {
   width: '100%', height: 44, padding: '0 14px', borderRadius: 10,
   border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
   color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14,
-  outline: 'none',
 }
 
 export function Login() {
