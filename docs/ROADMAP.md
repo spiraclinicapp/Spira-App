@@ -32,8 +32,11 @@ Stack: **Vite + React 19 + TypeScript + @supabase/supabase-js**.
    - Auth real (`src/lib/auth.tsx` + `src/lib/supabase.ts`): login, sesión, perfil, roles.
    - Gating de módulos por rol real (`user_module_roles`).
    - Niveles de rol estrictos en la base (migración `0009`, verificada y probada).
-2. **Portar vistas a datos reales** — ⏳ PENDIENTE (hoy el contenido de cada submódulo es placeholder).
-   Empezar por una vista, ej. Track → Pacientes.
+2. **Portar vistas a datos reales** — 🔄 EN CURSO (2026-06-08): se construyó el **router de contenido**
+   reutilizable (`src/views/registry.tsx` + fallback a `Placeholder`) y se portó la **primera vista:
+   Track → Pacientes** (`src/views/track/PatientsView.tsx`, solo lectura) sobre un hook genérico
+   `useSupabaseQuery` y niveles de rol en el front (`hasMinRole`). Falta: alta de paciente y el resto
+   de los submódulos (siguen en placeholder).
 3. **Panel de gerencia** — ⏳ PENDIENTE: que Pablo (gerencia) asigne roles con clicks (perfiles
    predefinidos que rellenan `user_module_roles`). Hoy se hace por SQL.
 4. **Portar Track y Pharma** completos como módulos + **cablear el handoff** (solicitud → dispensación + realtime).
