@@ -38,7 +38,6 @@ export const MODULES: ModuleDef[] = [
     submodules: [
       { key: 'resumen', name: 'Resumen', icon: 'dashboard' },
       { key: 'protocolos', name: 'Protocolos', icon: 'file' },
-      { key: 'pacientes', name: 'Pacientes', icon: 'users' },
       { key: 'agenda', name: 'Agenda', icon: 'calendar' },
       { key: 'plantillas', name: 'Plantillas', icon: 'clipboardCheck' },
     ],
@@ -58,7 +57,6 @@ export const MODULES: ModuleDef[] = [
     accent: '#C9A24A', accentSolid: '#A8842F', allowed: true,
     submodules: [
       { key: 'resumen', name: 'Resumen', icon: 'dashboard' },
-      { key: 'pacientes', name: 'Pacientes', icon: 'users' },
       { key: 'protocolos', name: 'Protocolos', icon: 'file' },
       { key: 'medicamentos', name: 'Medicamentos', icon: 'pill' },
       { key: 'dispensaciones', name: 'Dispensaciones', icon: 'box' },

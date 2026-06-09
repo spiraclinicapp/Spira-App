@@ -35,6 +35,7 @@ const ICONS = {
   moon: (<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />),
   x: (<><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>),
   alertCircle: (<><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" /></>),
+  arrowLeft: (<><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></>),
 }
 
 export type IconName = keyof typeof ICONS

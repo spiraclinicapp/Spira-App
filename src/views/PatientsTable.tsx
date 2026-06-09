@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Icon } from '../../components/Icon'
-import type { IconName } from '../../components/Icon'
-import { usePatients } from '../../data/patients'
-import type { PatientProtocol, PatientRow, PatientStatus } from '../../data/patients'
-import type { ViewProps } from '../types'
+import { Icon } from '../components/Icon'
+import type { IconName } from '../components/Icon'
+import { EmptyState } from '../components/EmptyState'
+import type { PatientProtocol, PatientRow, PatientStatus } from '../data/patients'
 
 /* Grilla compartida entre encabezado y filas: código · nombre · estado · protocolos · nacimiento. */
 const COLS = '150px minmax(0, 1fr) 110px minmax(0, 1.3fr) 120px'
@@ -30,34 +29,31 @@ function formatBirthDate(value: string | null): string {
   return y && m && d ? `${d}/${m}/${y}` : value
 }
 
-export function PatientsView({ module, submodule }: ViewProps) {
-  const accent = module.accent
-  const accentSolid = module.accentSolid
-  const { data, loading, error, refetch } = usePatients()
+interface PatientsTableProps {
+  /** Pacientes ya scopeados (todos, o los de un protocolo). La búsqueda local filtra sobre esto. */
+  patients: PatientRow[]
+  accent: string
+  accentSolid: string
+  /** Estado vacío cuando no hay pacientes (no por búsqueda). Default ícono `users`. */
+  emptyIcon?: IconName
+  emptyTitle?: string
+  emptyDescription?: string
+}
+
+/**
+ * Tabla de pacientes (solo lectura) con búsqueda local. Presentacional: recibe la lista ya
+ * traída y filtrada por el contenedor. Reusada por la vista de protocolo y por "ver todos".
+ */
+export function PatientsTable({
+  patients,
+  accent,
+  accentSolid,
+  emptyIcon = 'users',
+  emptyTitle = 'Sin pacientes',
+  emptyDescription = 'Todavía no hay pacientes para mostrar.',
+}: PatientsTableProps) {
   const [query, setQuery] = useState('')
 
-  if (loading) {
-    return <StateCard accent={accent} icon={submodule.icon} title="Cargando pacientes…" muted="Un momento." />
-  }
-
-  if (error) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
-          <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
-          No pudimos cargar los pacientes. Probá de nuevo.
-        </div>
-        <button
-          onClick={refetch}
-          style={{ alignSelf: 'flex-start', height: 38, padding: '0 15px', border: '1px solid var(--spira-line-2)', borderRadius: 10, background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer' }}
-        >
-          Reintentá
-        </button>
-      </div>
-    )
-  }
-
-  const patients = data ?? []
   const q = query.trim().toLowerCase()
   const filtered = q
     ? patients.filter((p) => p.code.toLowerCase().includes(q) || p.full_name.toLowerCase().includes(q))
@@ -96,11 +92,11 @@ export function PatientsView({ module, submodule }: ViewProps) {
 
       {/* tabla o estado vacío */}
       {filtered.length === 0 ? (
-        <StateCard
+        <EmptyState
           accent={accent}
-          icon={submodule.icon}
-          title={q ? 'Sin resultados' : 'Sin pacientes'}
-          muted={q ? 'No encontramos pacientes con ese criterio.' : 'Todavía no hay pacientes para mostrar.'}
+          icon={emptyIcon}
+          title={q ? 'Sin resultados' : emptyTitle}
+          description={q ? 'No encontramos pacientes con ese criterio.' : emptyDescription}
         />
       ) : (
         <div role="table" aria-label="Pacientes" style={{ background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, overflow: 'hidden' }}>
@@ -158,20 +154,6 @@ function PatientRowItem({ patient, accent, accentSolid, last }: { patient: Patie
         )}
       </span>
       <span role="cell" className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-muted)' }}>{formatBirthDate(patient.birth_date)}</span>
-    </div>
-  )
-}
-
-function StateCard({ accent, icon, title, muted }: { accent: string; icon: IconName; title: string; muted: string }) {
-  return (
-    <div style={{ display: 'grid', placeItems: 'center', minHeight: 320, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16 }}>
-      <div style={{ textAlign: 'center', maxWidth: 380, padding: 24 }}>
-        <span style={{ display: 'inline-grid', placeItems: 'center', width: 52, height: 52, borderRadius: 14, background: accent + '14', marginBottom: 14 }}>
-          <Icon name={icon} size={24} color={accent} stroke={1.9} />
-        </span>
-        <div className="spira-h3" style={{ marginBottom: 6 }}>{title}</div>
-        <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', lineHeight: 1.5 }}>{muted}</div>
-      </div>
     </div>
   )
 }

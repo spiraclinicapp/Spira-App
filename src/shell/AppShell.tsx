@@ -11,12 +11,10 @@ import { resolveView } from '../views/registry'
 const ACTION_LABELS: Record<string, string> = {
   'track/resumen': 'Nueva visita',
   'track/protocolos': 'Nuevo protocolo',
-  'track/pacientes': 'Nuevo paciente',
   'track/agenda': 'Nueva visita',
   'track/plantillas': 'Nuevo ítem',
   'pharma/dispensaciones': 'Nueva dispensación',
   'pharma/medicamentos': 'Agregar medicamento',
-  'pharma/pacientes': 'Nuevo paciente',
   'pharma/protocolos': 'Nuevo protocolo',
   'pharma/reportes': 'Generar reporte',
 }
@@ -29,7 +27,7 @@ const iconBtn: CSSProperties = {
 
 export function AppShell() {
   const { theme, toggle } = useTheme()
-  const { profile, modules: userModules, signOut, hasMinRole } = useAuth()
+  const { profile, modules: userModules, signOut } = useAuth()
   const [moduleKey, setModuleKey] = useState('inicio')
   const [subKey, setSubKey] = useState('resumen')
 
@@ -48,8 +46,8 @@ export function AppShell() {
   }
 
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
-  /* El botón de acción de Pacientes solo se muestra si el rol puede crear (RLS: track operator+). */
-  const showAction = moduleKey === 'track' && sub.key === 'pacientes' ? hasMinRole('track', 'operator') : true
+  /* Protocolos trae sus propios botones de acción contextuales (dentro de la vista); acá se suprime. */
+  const showAction = sub.key !== 'protocolos'
   const userName = profile?.fullName ?? 'Usuario'
   const initial = userName.trim().charAt(0).toUpperCase() || 'U'
 

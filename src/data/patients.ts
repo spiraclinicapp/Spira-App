@@ -5,6 +5,7 @@ export type PatientStatus = 'activo' | 'inactivo'
 
 /** Protocolo embebido (to-one) dentro de un enrolamiento. */
 export interface PatientProtocol {
+  id: string
   code: string
   name: string
 }
@@ -33,7 +34,7 @@ export function usePatients() {
     (c) =>
       c
         .from('patients')
-        .select('id, code, full_name, status, birth_date, enrollments(protocol:protocols(code, name))')
+        .select('id, code, full_name, status, birth_date, enrollments(protocol:protocols(id, code, name))')
         .order('code', { ascending: true })
         .returns<PatientRow[]>(),
     [],
