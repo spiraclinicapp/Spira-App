@@ -37,6 +37,10 @@ Stack: **Vite + React 19 + TypeScript + @supabase/supabase-js**.
    Track → Pacientes** (`src/views/track/PatientsView.tsx`, solo lectura) sobre un hook genérico
    `useSupabaseQuery` y niveles de rol en el front (`hasMinRole`). Falta: alta de paciente y el resto
    de los submódulos (siguen en placeholder).
+   **(2026-06-09)** Refresh visual del **selector de Protocolos** (cards con estado-punto, hover sobrio,
+   descripción nueva → columna `description`, migración `0011`) + estándar de micro-interacción global.
+   La **vista de tablero del protocolo** (KPIs + chips de visita) quedó **diseñada y diferida**
+   (ver [`bitacora/2026-06-09.md`](./bitacora/2026-06-09.md)).
 3. **Panel de gerencia** — ⏳ PENDIENTE: que Pablo (gerencia) asigne roles con clicks (perfiles
    predefinidos que rellenan `user_module_roles`). Hoy se hace por SQL.
 4. **Portar Track y Pharma** completos como módulos + **cablear el handoff** (solicitud → dispensación + realtime).
@@ -52,6 +56,9 @@ Pulido de coherencia visual, para que Track y Pharma se vean como **un solo prod
 - Unificar los dos `spira-design-tokens.js` (que divergieron) en **uno solo**.
 - Unificar el theme (dark/light).
 - Alinear colores, tipografía y espaciados para que **no se note la costura** entre módulos.
+- **(2026-06-09, adelantado)** Estándar de **micro-interacción**: todo lo pulsable se levanta ~1px al
+  hover y se asienta al pulsar (global en `tokens.css`, opt-out `.spira-no-press`, respeta
+  `prefers-reduced-motion`). Documentado en `identidad-visual/README.md` §3 "Movimiento".
 
 La identidad visual ya está armada → este paso es **alinear**, no diseñar de cero. Va al final a
 propósito: Paso 2 = "que se vea armado"; Paso 3 = "que se vea pulido".
@@ -72,3 +79,6 @@ propósito: Paso 2 = "que se vea armado"; Paso 3 = "que se vea pulido".
 - Edge Function de IVRS (PDF → Claude API) que pre-llena `dispensation_requests`.
 - Verificar contra `App.jsx` de Track la elección de plantilla al materializar checklist.
 - A futuro, si la farmacia se segrega por sponsor: tabla `pharma_assignments` (hoy Pharma es central).
+- **Vista de tablero del protocolo** (KPIs + tabla con chips de visita por estado): diseñada y diferida;
+  4 preguntas de datos por resolver antes de construir (ver [`bitacora/2026-06-09.md`](./bitacora/2026-06-09.md) §3).
+- Campos de paciente para el tablero: `sex` (F/M/Otro) y número de paciente del sistema (global vs por protocolo).
