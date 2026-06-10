@@ -89,3 +89,36 @@ button { font-family: inherit; }
   outline-offset: 2px;
   border-radius: var(--spira-radius-sm);
 }
+
+/* —— Buscador: foco sobrio (elevación suave en vez del recuadro duro) ——
+   El foco se marca con una sombra cálida tenue + un leve levante, sin outline
+   ni bordes de color. Sigue siendo visible para teclado (accesible). */
+.spira-search-input {
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+.spira-search-input:focus,
+.spira-search-input:focus-visible {
+  outline: none;
+  border-radius: var(--spira-radius-md);
+  box-shadow: 0 5px 14px rgba(20, 48, 46, 0.1);
+  transform: translateY(-1px);
+}
+
+/* —— Micro-interacción estándar de Spira ——
+   Todo lo pulsable (botones, links, role=button) se levanta apenas (~1px) en hover y se
+   asienta al pulsar. Es la señal universal de "esto se toca", sin depender del cursor.
+   Coherente con §3 "Movimiento" del sistema de diseño (docs/identidad-visual/README.md).
+   Excepciones: deshabilitados/bloqueados (no se mueven) y cualquier elemento marcado con
+   .spira-no-press (p. ej. la navegación, que se señala por resaltado y no por movimiento).
+   Respeta prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, a[href], [role='button'], summary):not(:disabled):not([aria-disabled='true']):not(.spira-no-press) {
+    transition: transform 0.12s ease;
+  }
+  :where(button, a[href], [role='button'], summary):not(:disabled):not([aria-disabled='true']):not(.spira-no-press):hover {
+    transform: translateY(-1px);
+  }
+  :where(button, a[href], [role='button'], summary):not(:disabled):not([aria-disabled='true']):not(.spira-no-press):active {
+    transform: translateY(0);
+  }
+}

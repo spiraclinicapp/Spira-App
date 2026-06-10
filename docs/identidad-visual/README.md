@@ -74,6 +74,13 @@ empleado, administrativo). Los módulos sin permiso aparecen bloqueados.
   La card "hero" del dashboard puede ir en el acento pleno del módulo (texto en papel).
 - **Movimiento:** sutil. Transiciones de opacidad/posición cortas (.12–.18s). Sin
   bounces ni animaciones llamativas — coherente con la calma de la marca.
+  **Micro-interacción estándar:** todo elemento pulsable (botones, cards, controles)
+  se levanta ~1px al *hover* y se asienta al pulsar — la señal de "esto se toca" que no
+  depende del cursor. Está implementada **global** en `src/styles/tokens.css`
+  (`@media (prefers-reduced-motion: no-preference)` sobre
+  `:where(button, a[href], [role=button])`), así que cualquier control nuevo la hereda
+  solo. Los **deshabilitados/bloqueados no se mueven**; para excluir un caso puntual
+  (p. ej. la navegación, que se marca por resaltado) se usa la clase `.spira-no-press`.
 - **Estados:** hover = tinte del acento al ~8–16% o fondo `surface`; activo = tinte de
   acento + texto en acento + barra/indicador. Foco visible.
 - **Transparencia/blur:** popups y overlays sobrios; el menú de foco usa blur sutil.

@@ -50,11 +50,10 @@ function btnPrimary(accentSolid: string): CSSProperties {
     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
   }
 }
-function statusBadge(status: ProtocolStatus): CSSProperties {
-  return {
-    display: 'inline-block', padding: '2px 10px', borderRadius: 'var(--spira-radius-pill)', fontSize: 12, fontWeight: 600,
-    color: statusVar(status), background: `color-mix(in srgb, ${statusVar(status)} 15%, transparent)`,
-  }
+/* Estado del protocolo como punto de color + texto en gris (más calmo que un pill). */
+const statusDot: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600,
+  color: 'var(--spira-muted)', whiteSpace: 'nowrap',
 }
 
 /* Grilla de las filas de resultado de pacientes: código · nombre · protocolos. */
@@ -198,27 +197,31 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
         onMouseLeave={() => setHoveredId((h) => (h === p.id ? null : h))}
         style={{
           ...cardBase,
-          border: `1px solid ${on ? accent : 'var(--spira-line)'}`,
+          border: `1px solid ${on ? 'var(--spira-line-2)' : 'var(--spira-line)'}`,
           boxShadow: on ? 'var(--spira-shadow-md)' : 'none',
-          transition: 'box-shadow .15s ease, border-color .15s ease',
+          transform: on ? 'translateY(-1px)' : 'none',
+          transition: 'box-shadow .15s ease, border-color .15s ease, transform .15s ease',
           cursor: 'pointer', textAlign: 'left', font: 'inherit', color: 'inherit',
           display: 'flex', flexDirection: 'column', gap: 8,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em', color: accent }}>{highlight(p.code, q, accent)}</span>
-          <span style={statusBadge(p.status)}>{statusLabel(p.status)}</span>
+          <span style={statusDot}>
+            <span style={{ width: 7, height: 7, borderRadius: '999px', background: statusVar(p.status) }} />
+            {statusLabel(p.status)}
+          </span>
         </div>
-        <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{highlight(p.name, q, accent)}</div>
-        {p.sponsor && (
-          <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 600, color: 'var(--spira-muted)', background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', padding: '2px 9px', borderRadius: 'var(--spira-radius-pill)' }}>{p.sponsor}</span>
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{highlight(p.name, q, accent)}</div>
+        {p.description && (
+          <div title={p.description} style={{ fontSize: 13, color: 'var(--spira-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>
         )}
-        <div style={{ marginTop: 6, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
-          <div>
-            <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24 }}>{count}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{count === 1 ? 'paciente' : 'pacientes'}</div>
-          </div>
-          <Icon name="chevronRight" size={18} color={on ? accent : 'var(--spira-faint)'} />
+        <div style={{ height: 1, background: 'var(--spira-line)', margin: '5px 0' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)', fontVariantNumeric: 'tabular-nums' }}>
+            {count} {count === 1 ? 'paciente' : 'pacientes'}
+          </span>
+          <Icon name="chevronRight" size={18} color={on ? 'var(--spira-muted)' : 'var(--spira-faint)'} />
         </div>
       </button>
     )
@@ -260,10 +263,11 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
       {/* toolbar: búsqueda unificada (protocolos + pacientes) + acciones */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={searchWrap}>
-          <span style={{ position: 'absolute', left: 11, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+          <span style={{ position: 'absolute', left: 11, display: 'grid', placeItems: 'center', pointerEvents: 'none', zIndex: 1 }}>
             <Icon name="search" size={16} color="var(--spira-muted)" />
           </span>
           <input
+            className="spira-search-input"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar protocolos o pacientes"

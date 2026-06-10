@@ -16,6 +16,9 @@ supabase/.branches/
 supabase/.temp/
 supabase/.env
 
+# Brainstorm companion (mockups efímeros)
+.superpowers/
+
 # Editores / SO
 .vscode/*
 !.vscode/extensions.json

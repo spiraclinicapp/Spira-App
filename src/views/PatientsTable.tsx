@@ -64,10 +64,11 @@ export function PatientsTable({
       {/* toolbar: búsqueda local + contador */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={searchWrap}>
-          <span style={{ position: 'absolute', left: 11, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+          <span style={{ position: 'absolute', left: 11, display: 'grid', placeItems: 'center', pointerEvents: 'none', zIndex: 1 }}>
             <Icon name="search" size={16} color="var(--spira-muted)" />
           </span>
           <input
+            className="spira-search-input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar por código o nombre"
