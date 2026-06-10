@@ -1,4 +1,5 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
+import { supabase } from '../lib/supabase'
 
 /** Estado del paciente (enum patient_status de la base). */
 export type PatientStatus = 'activo' | 'inactivo'
@@ -39,4 +40,34 @@ export function usePatients() {
         .returns<PatientRow[]>(),
     [],
   )
+}
+
+/** Datos para el alta de un paciente + su enrolamiento en un protocolo. */
+export interface NewPatientInput {
+  code: string
+  full_name: string
+  birth_date: string | null
+  protocol_id: string
+  enrollment_date: string
+  treating_physician: string | null
+}
+
+/**
+ * Alta atómica de paciente + enrolamiento vía la función RPC `create_patient_with_enrollment`
+ * (migración 0012). El actor (created_by/enrolled_by) lo fija el server con auth.uid();
+ * la autorización (coordinador asignado + operator) se valida dentro de la función.
+ */
+export async function createPatientWithEnrollment(
+  input: NewPatientInput,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('create_patient_with_enrollment', {
+    p_code: input.code,
+    p_full_name: input.full_name,
+    p_protocol_id: input.protocol_id,
+    p_enrollment_date: input.enrollment_date,
+    p_birth_date: input.birth_date,
+    p_treating_physician: input.treating_physician,
+  })
+  if (error) return { error: error.message, code: error.code }
+  return { error: null }
 }
