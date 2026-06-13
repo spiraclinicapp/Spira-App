@@ -1,0 +1,217 @@
+import type { CSSProperties, ReactNode } from 'react'
+import { Icon } from '../components/Icon'
+import { PrivacyAvatar } from '../components/PrivacyAvatar'
+import { EmptyState } from '../components/EmptyState'
+import type { ProtocolRow } from '../data/protocols'
+import type { PatientRow } from '../data/patients'
+import { usePatientVisits, useVisitAlerts } from '../data/visits'
+import {
+  adherence, ageFromBirth, currentVisit, visitIndex, weekNumber,
+  FERTILITY_LABELS, SEX_LABELS,
+} from '../lib/visits'
+import { VISIT_STATES } from './visitStates'
+import { dayLabel, daysDiffISO, formatAR, todayISO } from '../lib/dates'
+import { PdVisitFlow } from './track/PdVisitFlow'
+import { PdFullSchedule } from './track/PdFullSchedule'
+
+const card: CSSProperties = {
+  background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, padding: '18px 20px',
+}
+const backBtn: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 11px 0 7px',
+  border: '1px solid var(--spira-line-2)', borderRadius: 8, background: 'var(--spira-white)', cursor: 'pointer',
+  fontFamily: 'var(--spira-font-text)', fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap',
+}
+
+export interface PatientFichaViewProps {
+  patient: PatientRow
+  protocol: ProtocolRow
+  accent: string
+  accentSolid: string
+  canWrite: boolean
+  onBack: () => void
+  onReschedule: () => void
+  onRegister: () => void
+}
+
+/** Ficha del paciente: demográficos + contexto + adherencia + alertas | próxima visita + cronograma. */
+export function PatientFichaView(props: PatientFichaViewProps) {
+  const { patient, protocol, accent, accentSolid, canWrite, onBack, onReschedule, onRegister } = props
+  const visitsQ = usePatientVisits(patient.id, protocol.id)
+  const alertsQ = useVisitAlerts()
+
+  const rows = visitsQ.data ?? []
+  const idx = visitIndex(rows)
+  const current = currentVisit(rows)
+  const adh = adherence(rows)
+  const medico = rows[0]?.treating_physician ?? '—'
+  const enrollmentDate = rows[0]?.enrollment_date ?? null
+  const age = ageFromBirth(patient.birth_date)
+
+  const statusColor = current ? VISIT_STATES[current.computed_status].color : patient.status === 'activo' ? 'var(--spira-good)' : 'var(--spira-muted)'
+  const statusLabel = current ? VISIT_STATES[current.computed_status].label : patient.status === 'activo' ? 'Activo' : 'Inactivo'
+
+  const alerts = (alertsQ.data ?? []).filter((a) => a.patient_id === patient.id)
+
+  const row = (label: string, value: ReactNode) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
+      <span style={{ color: 'var(--spira-muted)' }}>{label}</span>
+      <span style={{ fontWeight: 600, textAlign: 'right' }}>{value}</span>
+    </div>
+  )
+  const dash = <span style={{ color: 'var(--spira-faint)' }}>—</span>
+
+  /* ventana: días hasta que cierra (window_end − hoy); "Vencida" si ya pasó. */
+  let ventanaTxt = '—'
+  if (current && current.real_date === null) {
+    const d = daysDiffISO(todayISO(), current.window_end)
+    ventanaTxt = d < 0 ? 'Vencida' : `${d} d`
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0, flex: 1 }}>
+      {/* barra */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={onBack} style={backBtn}>
+          <Icon name="chevronLeft" size={15} color="var(--spira-muted)" /> <span className="spira-mono">{protocol.code}</span>
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)', minWidth: 0 }}>
+          Protocolos <Icon name="chevronRight" size={13} color="var(--spira-faint)" /> <span className="spira-mono" style={{ color: 'var(--spira-muted)', fontWeight: 600 }}>{protocol.code}</span>
+          <Icon name="chevronRight" size={13} color="var(--spira-faint)" /> <span className="spira-mono" style={{ color: accent, fontWeight: 600 }}>{patient.code}</span>
+        </div>
+        {canWrite && current && current.real_date === null && (
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+            <button onClick={onReschedule} style={{ height: 36, padding: '0 13px', border: '1px solid var(--spira-line-2)', borderRadius: 9, background: 'var(--spira-white)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, color: 'var(--spira-ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
+              <Icon name="calendar" size={15} color="var(--spira-muted)" /> Reprogramar
+            </button>
+            <button onClick={onRegister} style={{ height: 36, padding: '0 14px', border: 'none', borderRadius: 9, background: accentSolid, color: 'var(--spira-on-accent)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 7 }}>
+              <Icon name="clipboardCheck" size={15} color="var(--spira-on-accent)" /> Registrar visita
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* cuerpo */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, minHeight: 0 }}>
+        {/* ficha lateral */}
+        <div style={{ ...card, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', rowGap: 10 }}>
+            <PrivacyAvatar fullName={patient.full_name} size={52} color={current ? statusColor : accent} />
+            <div style={{ minWidth: 0 }}>
+              <div className="spira-mono" style={{ fontSize: 16, fontWeight: 500, color: 'var(--spira-ink)', whiteSpace: 'nowrap' }}>{patient.code}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3 }}>{medico}</div>
+            </div>
+            <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 13px', borderRadius: 10, background: statusColor + '14', border: `1px solid ${statusColor}38`, color: statusColor, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, flex: '0 0 auto' }} />{statusLabel}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
+            {row('Edad', age !== null ? `${age} años` : dash)}
+            {row('Sexo', patient.sex ? (SEX_LABELS[patient.sex] ?? patient.sex) : dash)}
+            {row('Fertilidad', patient.fertility ? (FERTILITY_LABELS[patient.fertility] ?? patient.fertility) : dash)}
+            {row('Fecha de ingreso', enrollmentDate ? formatAR(enrollmentDate) : dash)}
+            {row('Código interno', protocol.internal_code || dash)}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
+            {row('Protocolo', <span><span className="spira-mono">{protocol.code}</span> · {protocol.name}</span>)}
+            {row('Sponsor', protocol.sponsor || dash)}
+            {row('Investigador', protocol.principal_investigator || dash)}
+            {row('Especialidad', protocol.specialty || dash)}
+          </div>
+
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--spira-muted)', marginBottom: 7 }}>
+              <span>Adherencia del paciente</span>
+              <span style={{ fontWeight: 600, color: accent, fontVariantNumeric: 'tabular-nums' }}>{adh.pct}%</span>
+            </div>
+            <div style={{ height: 7, borderRadius: 'var(--spira-radius-pill)', background: 'var(--spira-line)', overflow: 'hidden' }}>
+              <div style={{ width: `${adh.pct}%`, height: '100%', background: accent, borderRadius: 'var(--spira-radius-pill)' }} />
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
+            <div className="spira-eyebrow" style={{ marginBottom: 10 }}>Alertas del paciente</div>
+            {alerts.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '12px 13px', borderRadius: 11, background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', color: 'var(--spira-muted)', fontSize: 13 }}>
+                <Icon name="check" size={16} color="var(--spira-good)" /> Sin alertas activas
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {alerts.map((a) => {
+                  const c = VISIT_STATES[a.computed_status].color
+                  const motivo = a.computed_status === 'ventana_vencida' ? `Ventana vencida · ${a.visit_name}` : `Ítem de checklist vencido · ${a.visit_name}`
+                  return (
+                    <div key={a.id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
+                      <Icon name={a.computed_status === 'ventana_vencida' ? 'alert' : 'clock'} size={18} color={c} style={{ flex: '0 0 auto', marginTop: 1 }} />
+                      <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', lineHeight: 1.4 }}>{motivo}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* columna derecha */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
+          {visitsQ.error ? (
+            <div style={{ ...card }}>
+              <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>No pudimos cargar las visitas del paciente.</div>
+            </div>
+          ) : rows.length === 0 ? (
+            <EmptyState accent={accent} icon="calendar" title="Sin visitas programadas" description="Este paciente no tiene cronograma de visitas todavía (el protocolo necesita un esquema de visitas)." />
+          ) : (
+            <>
+              {/* próxima visita */}
+              <div style={card}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{current && current.real_date === null ? 'Próxima visita' : 'Última visita'}</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 3 }}>
+                      <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', color: current ? (VISIT_STATES[current.computed_status].color === '#7C8C87' ? 'var(--spira-ink)' : VISIT_STATES[current.computed_status].color) : 'var(--spira-ink)' }}>
+                        {current ? dayLabel(current.estimated_date) : '—'}
+                      </span>
+                      {ventanaTxt !== '—' && <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>ventana {ventanaTxt}</span>}
+                    </div>
+                  </div>
+                  {current && (
+                    <div style={{ display: 'flex', gap: 28 }}>
+                      <div>
+                        <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>Visita actual</div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 3 }}>
+                          <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 25, color: accent, fontVariantNumeric: 'tabular-nums' }}>V{idx.get(current.id)}</span>
+                          <span style={{ fontSize: 12, color: 'var(--spira-faint)' }}>de {rows.length}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>Semana</div>
+                        <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 25, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>W{weekNumber(current)}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
+                  <PdVisitFlow visits={rows} currentId={current?.id ?? null} accent={accent} />
+                </div>
+              </div>
+
+              {/* cronograma */}
+              <div style={{ ...card, padding: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '15px 20px', borderBottom: '1px solid var(--spira-line)' }}>
+                  <Icon name="calendar" size={17} color={accent} />
+                  <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 16 }}>Cronograma de visitas</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--spira-muted)' }}>{rows.length} visitas programadas</span>
+                </div>
+                <div style={{ overflow: 'auto', padding: '6px 20px 14px' }}>
+                  <PdFullSchedule visits={rows} currentId={current?.id ?? null} accent={accent} />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

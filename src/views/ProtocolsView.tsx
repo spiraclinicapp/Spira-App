@@ -11,6 +11,7 @@ import { PatientsTable } from './PatientsTable'
 import { NewProtocolForm } from './NewProtocolForm'
 import { NewPatientForm } from './NewPatientForm'
 import { ProtocolDetailView } from './ProtocolDetailView'
+import { PatientFichaView } from './PatientFichaView'
 import type { ViewProps } from './types'
 
 /* Estado de navegación interno: grilla de protocolos → detalle de un protocolo →
@@ -179,12 +180,25 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
     )
   }
 
-  // ---- Modo: ficha de un paciente (placeholder hasta la Etapa 3) ----
-  if (nav.mode === 'patient' && proto) {
+  // ---- Modo: ficha de un paciente ----
+  const fichaPatient = nav.mode === 'patient' ? allPatients.find((p) => p.id === nav.patientId) : undefined
+  if (nav.mode === 'patient' && proto && fichaPatient) {
     return (
-      <EmptyState accent={accent} icon="users" title="Ficha del paciente" description="Próximamente." />
+      <PatientFichaView
+        key={fichaPatient.id}
+        patient={fichaPatient}
+        protocol={proto}
+        accent={accent}
+        accentSolid={accentSolid}
+        canWrite={canCreatePatient}
+        onBack={() => setNav({ mode: 'protocol', protocolId: proto.id })}
+        onReschedule={() => { /* Etapa 4: Reprogramar */ }}
+        onRegister={() => { /* Etapa 4: Registrar visita */ }}
+      />
     )
   }
+  // Si el modo es patient/protocol pero el registro ya no es visible (p. ej. tras un
+  // refetch), se cae naturalmente al render de la grilla de abajo.
 
   // ---- Modo: todos los pacientes ----
   if (nav.mode === 'all') {
