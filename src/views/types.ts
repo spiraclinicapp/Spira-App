@@ -8,6 +8,8 @@ import type { ModuleDef, SubModule } from '../modules/registry'
 export interface ViewProps {
   module: ModuleDef
   submodule: SubModule
+  /** Navegar a otro módulo/submódulo (lo provee el shell). Opcional: no todas las vistas navegan. */
+  onNavigate?: (moduleKey: string, subKey: string) => void
 }
 
 export type ViewComponent = (props: ViewProps) => ReactElement

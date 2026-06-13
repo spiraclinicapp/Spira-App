@@ -12,6 +12,7 @@ import { NewProtocolForm } from './NewProtocolForm'
 import { NewPatientForm } from './NewPatientForm'
 import { ProtocolDetailView } from './ProtocolDetailView'
 import { PatientFichaView } from './PatientFichaView'
+import { EditProtocolForm } from './EditProtocolForm'
 import type { ViewProps } from './types'
 
 /* Estado de navegación interno: grilla de protocolos → detalle de un protocolo →
@@ -94,7 +95,7 @@ function highlight(text: string, q: string, accent: string): ReactNode {
   return out
 }
 
-export function ProtocolsView({ module, submodule }: ViewProps) {
+export function ProtocolsView({ module, submodule, onNavigate }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
   const { hasMinRole, profile } = useAuth()
@@ -104,6 +105,7 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState<null | 'protocol' | 'patient'>(null)
+  const [editingProtocol, setEditingProtocol] = useState(false)
 
   /* Crear protocolos/pacientes solo desde Track (la RLS lo permite a track leader/operator).
      En Pharma estos botones no aparecen porque el usuario pharma no tiene roles de track. */
@@ -163,9 +165,8 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
           onBack={() => setNav({ mode: 'list' })}
           onOpenPatient={(patientId) => setNav({ mode: 'patient', protocolId: proto.id, patientId })}
           onNewPatient={() => setCreating('patient')}
-          onEdit={() => { /* Etapa 4: Editar protocolo */ }}
-          onGoAgenda={() => { /* Etapa 4: Ver agenda del protocolo */ }}
-          onExport={() => { /* Etapa 4: Exportar reporte */ }}
+          onEdit={() => setEditingProtocol(true)}
+          onGoAgenda={() => onNavigate?.('track', 'agenda')}
         />
         {creating === 'patient' && (
           <NewPatientForm
@@ -174,6 +175,14 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
             protocols={allProtocols}
             onClose={() => setCreating(null)}
             onCreated={() => { setCreating(null); patients.refetch() }}
+          />
+        )}
+        {editingProtocol && (
+          <EditProtocolForm
+            protocol={proto}
+            accentSolid={accentSolid}
+            onClose={() => setEditingProtocol(false)}
+            onUpdated={() => { setEditingProtocol(false); protocols.refetch() }}
           />
         )}
       </>
@@ -192,8 +201,6 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
         accentSolid={accentSolid}
         canWrite={canCreatePatient}
         onBack={() => setNav({ mode: 'protocol', protocolId: proto.id })}
-        onReschedule={() => { /* Etapa 4: Reprogramar */ }}
-        onRegister={() => { /* Etapa 4: Registrar visita */ }}
       />
     )
   }

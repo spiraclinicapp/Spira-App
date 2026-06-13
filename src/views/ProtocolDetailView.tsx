@@ -8,6 +8,8 @@ import type { PatientRow } from '../data/patients'
 import { useProtocolVisits } from '../data/visits'
 import type { TrackVisitRow } from '../data/visits'
 import { useProtocolKpis } from '../data/protocolKpis'
+import { toCsv, downloadCsv } from '../lib/csv'
+import { visitIndex } from '../lib/visits'
 import { PdPatientRow } from './track/PdPatientRow'
 
 const card: CSSProperties = {
@@ -39,15 +41,27 @@ export interface ProtocolDetailViewProps {
   onNewPatient: () => void
   onEdit: () => void
   onGoAgenda: () => void
-  onExport: () => void
 }
 
 /** Detalle de Protocolo: ficha lateral (KPIs/adherencia/acciones) + lista de pacientes con tracker. */
 export function ProtocolDetailView(props: ProtocolDetailViewProps) {
-  const { protocol, patients, accent, accentSolid, canEdit, canCreatePatient, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda, onExport } = props
+  const { protocol, patients, accent, accentSolid, canEdit, canCreatePatient, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda } = props
   const kpis = useProtocolKpis(protocol.id)
   const visits = useProtocolVisits(protocol.id)
   const [filter, setFilter] = useState<'activos' | 'todos'>('todos')
+
+  /* Exportar reporte: CSV client-side, una fila por visita. PRIVACIDAD: exporta el
+     código del paciente, nunca el nombre. */
+  const handleExport = () => {
+    const rows = visits.data ?? []
+    const idx = visitIndex(rows)
+    const headers = ['Paciente', 'Visita', 'Codigo', 'Nombre visita', 'Estimada', 'Real', 'Estado', 'Ventana inicio', 'Ventana fin']
+    const data = rows.map((v) => [
+      v.patient_code, `V${idx.get(v.id)}`, v.visit_code ?? '', v.visit_name,
+      v.estimated_date, v.real_date ?? '', v.computed_status, v.window_start, v.window_end,
+    ])
+    downloadCsv(`${protocol.code}-visitas.csv`, toCsv(headers, data))
+  }
 
   /* Visitas agrupadas por paciente (para el tracker de cada fila). */
   const visitsByPatient = useMemo(() => {
@@ -85,7 +99,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
     const primary = kind === 'primary'
     return (
       <button
-        onClick={primary ? onGoAgenda : icon === 'settings' ? onEdit : onExport}
+        onClick={primary ? onGoAgenda : icon === 'settings' ? onEdit : handleExport}
         onMouseEnter={(e) => { if (primary) e.currentTarget.style.filter = 'brightness(1.06)'; else { e.currentTarget.style.borderColor = accent; e.currentTarget.style.background = 'var(--spira-white)' } }}
         onMouseLeave={(e) => { if (primary) e.currentTarget.style.filter = 'none'; else { e.currentTarget.style.borderColor = 'var(--spira-line-2)'; e.currentTarget.style.background = 'var(--spira-surface)' } }}
         style={{

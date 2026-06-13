@@ -49,6 +49,14 @@ export function AppShell() {
     setSubKey(m.submodules[0].key)
   }
 
+  /* Navegación programática desde una vista (ej. "Ver agenda del protocolo" → track/agenda). */
+  const navigate = (mKey: string, sKey: string) => {
+    const m = MODULES.find((x) => x.key === mKey)
+    if (!m || !isAllowed(m.key) || !m.submodules.some((s) => s.key === sKey)) return
+    setModuleKey(mKey)
+    setSubKey(sKey)
+  }
+
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
   const showAction = !HIDE_ACTION.has(`${moduleKey}/${sub.key}`)
   const userName = profile?.fullName ?? 'Usuario'
@@ -203,7 +211,7 @@ export function AppShell() {
           <div style={{ flex: 1, overflow: 'auto', padding: '16px 26px 26px' }}>
             {(() => {
               const View = resolveView(moduleKey, sub.key)
-              return <View module={mod} submodule={sub} />
+              return <View module={mod} submodule={sub} onNavigate={navigate} />
             })()}
           </div>
         </main>

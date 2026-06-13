@@ -1,10 +1,15 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useState } from 'react'
+import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { EmptyState } from '../components/EmptyState'
+import { Modal } from '../components/Modal'
+import { FormField, fieldInput } from '../components/FormField'
+import { btnOutline, btnPrimary } from '../components/buttons'
 import type { ProtocolRow } from '../data/protocols'
 import type { PatientRow } from '../data/patients'
-import { usePatientVisits, useVisitAlerts } from '../data/visits'
+import { registerVisit, usePatientVisits, useVisitAlerts } from '../data/visits'
+import type { TrackVisitRow } from '../data/visits'
 import {
   adherence, ageFromBirth, currentVisit, visitIndex, weekNumber,
   FERTILITY_LABELS, SEX_LABELS,
@@ -13,6 +18,7 @@ import { VISIT_STATES } from './visitStates'
 import { dayLabel, daysDiffISO, formatAR, todayISO } from '../lib/dates'
 import { PdVisitFlow } from './track/PdVisitFlow'
 import { PdFullSchedule } from './track/PdFullSchedule'
+import { RescheduleModal } from './track/RescheduleModal'
 
 const card: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, padding: '18px 20px',
@@ -30,15 +36,59 @@ export interface PatientFichaViewProps {
   accentSolid: string
   canWrite: boolean
   onBack: () => void
-  onReschedule: () => void
-  onRegister: () => void
+}
+
+/** Modal de confirmación para registrar una visita como realizada. */
+function RegisterVisitModal({ visit, accentSolid, idxLabel, onClose, onDone }: {
+  visit: TrackVisitRow
+  accentSolid: string
+  idxLabel: string
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [date, setDate] = useState(todayISO())
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    const res = await registerVisit(visit.id, date)
+    setBusy(false)
+    if (res.error) { setError(res.error); return }
+    onDone()
+  }
+
+  return (
+    <Modal title="Registrar visita" onClose={onClose}>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ fontSize: 13, color: 'var(--spira-muted)', lineHeight: 1.5 }}>
+          Vas a marcar <strong style={{ color: 'var(--spira-ink)' }}>{idxLabel} · {visit.visit_name}</strong> como realizada. Se genera su checklist a partir de la plantilla.
+        </div>
+        <FormField label="Fecha de realización">
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required autoFocus style={fieldInput} />
+        </FormField>
+        {error && (
+          <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" onClick={onClose} style={btnOutline}>Cancelá</button>
+          <button type="submit" disabled={busy} style={{ ...btnPrimary(accentSolid), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
+            {busy ? 'Guardando…' : 'Registrá visita'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
 }
 
 /** Ficha del paciente: demográficos + contexto + adherencia + alertas | próxima visita + cronograma. */
 export function PatientFichaView(props: PatientFichaViewProps) {
-  const { patient, protocol, accent, accentSolid, canWrite, onBack, onReschedule, onRegister } = props
+  const { patient, protocol, accent, accentSolid, canWrite, onBack } = props
   const visitsQ = usePatientVisits(patient.id, protocol.id)
   const alertsQ = useVisitAlerts()
+  const [modal, setModal] = useState<null | 'reschedule' | 'register'>(null)
 
   const rows = visitsQ.data ?? []
   const idx = visitIndex(rows)
@@ -81,15 +131,22 @@ export function PatientFichaView(props: PatientFichaViewProps) {
         </div>
         {canWrite && current && current.real_date === null && (
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
-            <button onClick={onReschedule} style={{ height: 36, padding: '0 13px', border: '1px solid var(--spira-line-2)', borderRadius: 9, background: 'var(--spira-white)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, color: 'var(--spira-ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <button onClick={() => setModal('reschedule')} style={{ height: 36, padding: '0 13px', border: '1px solid var(--spira-line-2)', borderRadius: 9, background: 'var(--spira-white)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, color: 'var(--spira-ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
               <Icon name="calendar" size={15} color="var(--spira-muted)" /> Reprogramar
             </button>
-            <button onClick={onRegister} style={{ height: 36, padding: '0 14px', border: 'none', borderRadius: 9, background: accentSolid, color: 'var(--spira-on-accent)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 7 }}>
+            <button onClick={() => setModal('register')} style={{ height: 36, padding: '0 14px', border: 'none', borderRadius: 9, background: accentSolid, color: 'var(--spira-on-accent)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 7 }}>
               <Icon name="clipboardCheck" size={15} color="var(--spira-on-accent)" /> Registrar visita
             </button>
           </div>
         )}
       </div>
+
+      {modal === 'reschedule' && current && (
+        <RescheduleModal visit={current} accentSolid={accentSolid} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
+      )}
+      {modal === 'register' && current && (
+        <RegisterVisitModal visit={current} accentSolid={accentSolid} idxLabel={`Visita ${idx.get(current.id)}`} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
+      )}
 
       {/* cuerpo */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, minHeight: 0 }}>
