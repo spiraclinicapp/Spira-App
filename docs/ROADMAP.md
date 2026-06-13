@@ -4,7 +4,9 @@ Unificación de **Spira Track** (coordinación clínica) y **Spira Pharma** (far
 investigación) en **una sola plataforma**: un shell con módulos, sobre Supabase. Hoy son dos
 módulos (Track + Pharma); el diseño deja lugar para sumar más a futuro (lab, contable, etc.).
 
-El trabajo está organizado en **3 pasos**, en orden de dependencia.
+El trabajo está organizado en **3 pasos**, en orden de dependencia. Los hitos se taguean en
+git (convención de versionado en el [`README.md`](../README.md#versionado)): `v0.2.0` = Paso 2
+con el módulo Track completo; `1.0.0` recién en producción con pacientes reales (Fase 3).
 
 ---
 
