@@ -23,6 +23,10 @@ export interface PatientRow {
   full_name: string
   status: PatientStatus
   birth_date: string | null
+  /** Sexo: 'F' | 'M' | 'Otro' (nullable). Migración 0017. */
+  sex: string | null
+  /** Fertilidad: valor ascii ('fertil'|'no_fertil'|...) que el front mapea a label. Nullable. Migración 0017. */
+  fertility: string | null
   enrollments: PatientEnrollment[]
 }
 
@@ -35,7 +39,7 @@ export function usePatients() {
     (c) =>
       c
         .from('patients')
-        .select('id, code, full_name, status, birth_date, enrollments(protocol:protocols(id, code, name))')
+        .select('id, code, full_name, status, birth_date, sex, fertility, enrollments(protocol:protocols(id, code, name))')
         .order('code', { ascending: true })
         .returns<PatientRow[]>(),
     [],
@@ -50,12 +54,17 @@ export interface NewPatientInput {
   protocol_id: string
   enrollment_date: string
   treating_physician: string | null
+  /** Sexo 'F'|'M'|'Otro' (opcional). Migración 0017/0018. */
+  sex: string | null
+  /** Fertilidad (valor ascii, opcional). Migración 0017/0018. */
+  fertility: string | null
 }
 
 /**
  * Alta atómica de paciente + enrolamiento vía la función RPC `create_patient_with_enrollment`
- * (migración 0012). El actor (created_by/enrolled_by) lo fija el server con auth.uid();
- * la autorización (coordinador asignado + operator) se valida dentro de la función.
+ * (v2, migración 0018: suma sex/fertility). El actor (created_by/enrolled_by) lo fija el
+ * server con auth.uid(); la autorización (coordinador asignado + operator, o gerencia/admin)
+ * se valida dentro de la función.
  */
 export async function createPatientWithEnrollment(
   input: NewPatientInput,
@@ -67,6 +76,8 @@ export async function createPatientWithEnrollment(
     p_enrollment_date: input.enrollment_date,
     p_birth_date: input.birth_date,
     p_treating_physician: input.treating_physician,
+    p_sex: input.sex,
+    p_fertility: input.fertility,
   })
   if (error) return { error: error.message, code: error.code }
   return { error: null }

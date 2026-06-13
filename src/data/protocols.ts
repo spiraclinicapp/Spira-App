@@ -13,7 +13,17 @@ export interface ProtocolRow {
   status: ProtocolStatus
   /** Descripción/pista corta y libre (ej. "Asma leve"). Nullable. Se muestra recortada en la card. */
   description: string | null
+  /** Investigador principal (texto libre). Nullable. Migración 0017. */
+  principal_investigator: string | null
+  /** Especialidad / área terapéutica. Nullable. Migración 0017. */
+  specialty: string | null
+  /** Fase del ensayo (ej. "Fase III"). Nullable. Migración 0017. */
+  phase: string | null
+  /** Código interno del sponsor, distinto del code público. Nullable. Migración 0017. */
+  internal_code: string | null
 }
+
+const PROTOCOL_COLS = 'id, code, name, sponsor, status, description, principal_investigator, specialty, phase, internal_code'
 
 /**
  * Protocolos visibles para el usuario actual. La RLS scopea sola: una coordinadora ve
@@ -25,7 +35,7 @@ export function useProtocols() {
     (c) =>
       c
         .from('protocols')
-        .select('id, code, name, sponsor, status, description')
+        .select(PROTOCOL_COLS)
         .order('code', { ascending: true })
         .returns<ProtocolRow[]>(),
     [],
@@ -50,5 +60,30 @@ export async function createProtocol(
 ): Promise<{ error: string | null; code?: string }> {
   const { error } = await supabase.from('protocols').insert(input)
   if (error) return { error: error.message, code: error.code }
+  return { error: null }
+}
+
+/** Campos editables de un protocolo. NO incluye code ni legal_entity (inmutables desde la UI). */
+export interface EditProtocolInput {
+  name: string
+  sponsor: string | null
+  description: string | null
+  principal_investigator: string | null
+  specialty: string | null
+  phase: string | null
+  internal_code: string | null
+}
+
+/**
+ * Edita un protocolo existente (UPDATE directo; la RLS "lideres editan protocolos"
+ * exige operator+ de track). Devuelve error claro si la RLS filtra en silencio.
+ */
+export async function updateProtocol(
+  id: string,
+  input: EditProtocolInput,
+): Promise<{ error: string | null; code?: string }> {
+  const { data, error } = await supabase.from('protocols').update(input).eq('id', id).select('id')
+  if (error) return { error: error.message, code: error.code }
+  if (!data || data.length === 0) return { error: 'No tenés permiso para editar este protocolo.' }
   return { error: null }
 }

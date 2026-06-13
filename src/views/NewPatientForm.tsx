@@ -6,6 +6,7 @@ import { btnOutline, btnPrimary } from '../components/buttons'
 import { createPatientWithEnrollment } from '../data/patients'
 import type { ProtocolRow } from '../data/protocols'
 import { todayISO } from '../lib/dates'
+import { FERTILITY_OPTIONS } from '../lib/visits'
 
 /** Traduce el código de error de Postgres a un mensaje sereno en castellano. */
 function friendlyError(code?: string, message?: string): string {
@@ -33,6 +34,8 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
   const [enrollmentDate, setEnrollmentDate] = useState(todayISO())
   const [birthDate, setBirthDate] = useState('')
   const [physician, setPhysician] = useState('')
+  const [sex, setSex] = useState('')
+  const [fertility, setFertility] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -47,6 +50,8 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
       protocol_id: protocol,
       enrollment_date: enrollmentDate,
       treating_physician: physician.trim() || null,
+      sex: sex || null,
+      fertility: fertility || null,
     })
     setBusy(false)
     if (res.error) { setError(friendlyError(res.code, res.error)); return }
@@ -75,6 +80,20 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
         </FormField>
         <FormField label="Fecha de nacimiento (opcional)">
           <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} style={fieldInput} />
+        </FormField>
+        <FormField label="Sexo (opcional)">
+          <select value={sex} onChange={(e) => setSex(e.target.value)} style={fieldInput}>
+            <option value="">Sin especificar</option>
+            <option value="F">Femenino</option>
+            <option value="M">Masculino</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </FormField>
+        <FormField label="Fertilidad (opcional)">
+          <select value={fertility} onChange={(e) => setFertility(e.target.value)} style={fieldInput}>
+            <option value="">Sin especificar</option>
+            {FERTILITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         </FormField>
         <FormField label="Médico tratante (opcional)">
           <input value={physician} onChange={(e) => setPhysician(e.target.value)}

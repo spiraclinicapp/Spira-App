@@ -17,6 +17,7 @@ const ICONS = {
   chevronLeft: (<path d="m15 18-6-6 6-6" />),
   chevronDown: (<path d="m6 9 6 6 6-6" />),
   chevronUp: (<path d="m18 15-6-6-6 6" />),
+  arrowRight: (<><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></>),
   pencil: (<><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></>),
   trash: (<><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></>),
   plus: (<><path d="M5 12h14" /><path d="M12 5v14" /></>),
@@ -40,6 +41,7 @@ const ICONS = {
   moon: (<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />),
   x: (<><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>),
   alertCircle: (<><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" /></>),
+  alert: (<><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></>),
   arrowLeft: (<><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></>),
 }
 
