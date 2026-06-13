@@ -22,6 +22,7 @@ copias que diverjan). Para una vista combinada: `cat migrations/*.sql` o `supaba
 | 0012 | `create_patient_with_enrollment.sql` | RPC de alta atómica paciente+enrolamiento (SECURITY DEFINER con authz a mano, actor server-side) |
 | 0013 | `v_track_visits.sql` | vista plana visita+definición+protocolo+paciente (security_invoker) para Resumen/Agenda de Track |
 | 0014 | `checklist_templates_scoping.sql` | scoping de plantillas: global → track admin/gerencia; por protocolo → coordinadora asignada (operator+); + cierra la lectura de ítems sin scopear |
+| 0015 | `track_rpcs.sql` | RPCs de Track: alta de paciente con bypass gerencia/track-admin + `create_protocol_template` (atómica) + `swap_template_item_order` (atómica) |
 
 Además, `seed_smoke_test.sql` (en `supabase/`, fuera de `migrations/`) carga datos demo
 para validar el aislamiento de RLS. NO es para producción — ver instrucciones en su cabecera.

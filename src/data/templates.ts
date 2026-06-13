@@ -107,61 +107,35 @@ export async function deleteTemplateItem(id: string): Promise<MutationResult> {
   return { error: null }
 }
 
-/** Intercambia el orden de dos ítems (dos UPDATEs secuenciales; aceptable para v1). */
+/**
+ * Intercambia el orden de dos ítems en UN solo UPDATE atómico vía la RPC
+ * `swap_template_item_order` (migración 0015). Evita el sort_order duplicado que
+ * dejaban dos UPDATEs separados si el segundo fallaba.
+ */
 export async function swapItemOrder(
   a: { id: string; sort_order: number },
   b: { id: string; sort_order: number },
 ): Promise<MutationResult> {
-  const r1 = await supabase.from('checklist_template_items').update({ sort_order: b.sort_order }).eq('id', a.id)
-  if (r1.error) return { error: r1.error.message, code: r1.error.code }
-  const r2 = await supabase.from('checklist_template_items').update({ sort_order: a.sort_order }).eq('id', b.id)
-  if (r2.error) return { error: r2.error.message, code: r2.error.code }
-  return { error: null }
+  const { error } = await supabase.rpc('swap_template_item_order', { p_a: a.id, p_b: b.id })
+  return { error: error?.message ?? null, code: error?.code }
 }
 
 /**
- * Crea la plantilla de un protocolo clonando los ítems de la plantilla origen
- * (la global). Es el modelo del trigger `materialize_checklist`: usa la del
- * protocolo si existe, si no la global — la copia permite personalizar sin
- * tocar la madre. No atómico: si el insert de ítems falla queda la plantilla
- * vacía, editable a mano.
+ * Crea la plantilla de un protocolo y clona (opcional) los ítems de otra plantilla
+ * (la global) en UNA transacción, vía la RPC `create_protocol_template` (migración
+ * 0015). Atómico: nunca deja un template huérfano sin ítems (que suprimiría el
+ * checklist global vía materialize_checklist). La authz la valida la RPC.
  */
 export async function createProtocolTemplate(
   protocolId: string,
   name: string,
   cloneFromTemplateId: string | null,
 ): Promise<MutationResult & { id: string | null }> {
-  let cloneItems: TemplateItem[] = []
-  if (cloneFromTemplateId) {
-    const { data, error } = await supabase
-      .from('checklist_template_items')
-      .select('id, template_id, description, deadline_hours, mandatory, sort_order')
-      .eq('template_id', cloneFromTemplateId)
-      .order('sort_order', { ascending: true })
-      .returns<TemplateItem[]>()
-    if (error) return { error: error.message, code: error.code, id: null }
-    cloneItems = data ?? []
-  }
-
-  const { data, error } = await supabase
-    .from('checklist_templates')
-    .insert({ protocol_id: protocolId, name })
-    .select('id')
-    .single()
+  const { data, error } = await supabase.rpc('create_protocol_template', {
+    p_protocol_id: protocolId,
+    p_name: name,
+    p_clone_from: cloneFromTemplateId,
+  })
   if (error) return { error: error.message, code: error.code, id: null }
-  const id = (data as { id: string }).id
-
-  if (cloneItems.length > 0) {
-    const { error: itemsError } = await supabase.from('checklist_template_items').insert(
-      cloneItems.map((it) => ({
-        template_id: id,
-        description: it.description,
-        deadline_hours: it.deadline_hours,
-        mandatory: it.mandatory,
-        sort_order: it.sort_order,
-      })),
-    )
-    if (itemsError) return { error: itemsError.message, code: itemsError.code, id }
-  }
-  return { error: null, id }
+  return { error: null, id: (data as string) ?? null }
 }
