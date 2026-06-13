@@ -12,6 +12,10 @@
 -- → respetan la RLS de las tablas base.
 -- ============================================================================
 
+-- IMPORTANTE: `create or replace view` solo permite AGREGAR columnas al FINAL
+-- (no reordenar ni renombrar las existentes). Por eso las 3 nuevas
+-- (offset_days, enrollment_date, treating_physician) van al final, manteniendo
+-- el orden de 0013 intacto. El front usa select('*') y mapea por nombre.
 create or replace view public.v_track_visits
 with (security_invoker = true) as
 select
@@ -28,16 +32,17 @@ select
   vd.name        as visit_name,
   vd.visit_type,
   vd.sort_order,
-  vd.offset_days,
   e.protocol_id,
   e.patient_id,
   e.status       as enrollment_status,
-  e.enrollment_date,
-  e.treating_physician,
   pr.code        as protocol_code,
   pr.name        as protocol_name,
   pa.code        as patient_code,
-  pa.full_name   as patient_name
+  pa.full_name   as patient_name,
+  -- columnas nuevas (0016), al final:
+  vd.offset_days,
+  e.enrollment_date,
+  e.treating_physician
 from public.v_patient_visits v
 join public.visit_definitions vd on vd.id = v.visit_def_id
 join public.enrollments e        on e.id  = v.enrollment_id

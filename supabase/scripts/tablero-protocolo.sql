@@ -13,17 +13,18 @@
 
 -- ── 0016 · v_track_visits ampliada + v_protocol_kpis ────────────────────────
 
+-- create or replace view solo permite AGREGAR columnas al final: las 3 nuevas
+-- van al final, manteniendo intacto el orden de 0013.
 create or replace view public.v_track_visits
 with (security_invoker = true) as
 select
   v.id, v.enrollment_id, v.visit_def_id, v.estimated_date, v.real_date,
   v.window_start, v.window_end, v.notes, v.computed_status,
   vd.code as visit_code, vd.name as visit_name, vd.visit_type, vd.sort_order,
-  vd.offset_days,
   e.protocol_id, e.patient_id, e.status as enrollment_status,
-  e.enrollment_date, e.treating_physician,
   pr.code as protocol_code, pr.name as protocol_name,
-  pa.code as patient_code, pa.full_name as patient_name
+  pa.code as patient_code, pa.full_name as patient_name,
+  vd.offset_days, e.enrollment_date, e.treating_physician
 from public.v_patient_visits v
 join public.visit_definitions vd on vd.id = v.visit_def_id
 join public.enrollments e        on e.id  = v.enrollment_id
@@ -138,6 +139,10 @@ $$;
 
 revoke all on function public.create_patient_with_enrollment(text, text, uuid, date, date, text, text, text) from public;
 grant execute on function public.create_patient_with_enrollment(text, text, uuid, date, date, text, text, text) to authenticated;
+
+
+-- ── Recargar el schema cache de PostgREST (para que vea la vista nueva ya) ──
+notify pgrst, 'reload schema';
 
 
 -- ── Verificación ────────────────────────────────────────────────────────────
