@@ -57,3 +57,4 @@ Cada tag debería poder leerse contra la bitácora del día y el `ROADMAP.md`.
 | Tag | Hito |
 |---|---|
 | `v0.2.0` | Paso 2 — módulo **Track** completo (protocolos+pacientes, Resumen, Agenda, Plantillas) sobre datos reales, con RLS revisada |
+| `v0.3.0` | Tablero del protocolo + ficha de paciente (KPIs, cronograma de visitas, acciones) + privacidad de paciente en toda la app |

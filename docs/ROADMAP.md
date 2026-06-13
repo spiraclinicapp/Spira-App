@@ -89,10 +89,12 @@ propósito: Paso 2 = "que se vea armado"; Paso 3 = "que se vea pulido".
 - Edge Function de IVRS (PDF → Claude API) que pre-llena `dispensation_requests`.
 - Verificar contra `App.jsx` de Track la elección de plantilla al materializar checklist.
 - A futuro, si la farmacia se segrega por sponsor: tabla `pharma_assignments` (hoy Pharma es central).
-- **Vista de tablero del protocolo**: el diseño lo lleva el usuario en Claude Design. De las 4
-  preguntas de datos, 3 ya están respondidas (falla = screen failure · KPI = próximas 7 días ·
-  número de sujeto = IVRS, ver [`bitacora/2026-06-12.md`](./bitacora/2026-06-12.md) §2); falta el header.
-  Con el tablero va la migración del enum: `alter type enrollment_status add value 'falla_screening'`.
+- **Vista de tablero del protocolo + ficha de paciente**: ✅ implementada (2026-06-13, rama
+  `feat/tablero-protocolo-ficha`, migraciones 0016–0018). Detalle de Protocolo (KPIs/adherencia/
+  acciones + lista de pacientes con tracker) y Ficha de Paciente (demográficos/contexto/próxima
+  visita/cronograma), con privacidad de paciente en toda la app. Ver
+  [`bitacora/2026-06-13.md`](./bitacora/2026-06-13.md). Pendiente: aplicar el script SQL y validar
+  en vivo + taggear v0.3.0.
 - Campos de paciente para el tablero: `sex` (F/M/Otro).
 - Notas del día en Agenda: la tabla `agenda_notes` existe; falta `unique (user_id, note_date)` para
   upsert + policy DELETE (migración 0015 futura). Impresión de la agenda (`@media print`) también pendiente.
