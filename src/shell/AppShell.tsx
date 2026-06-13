@@ -19,6 +19,10 @@ const ACTION_LABELS: Record<string, string> = {
   'pharma/reportes': 'Generar reporte',
 }
 
+/* Vistas portadas que traen sus propias acciones contextuales (o son de solo
+   lectura): para ellas se suprime el botón de acción genérico del shell. */
+const HIDE_ACTION = new Set(['track/resumen', 'track/protocolos', 'pharma/protocolos'])
+
 const iconBtn: CSSProperties = {
   width: 38, height: 38, borderRadius: 10, border: 'none',
   background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center',
@@ -46,8 +50,7 @@ export function AppShell() {
   }
 
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
-  /* Protocolos trae sus propios botones de acción contextuales (dentro de la vista); acá se suprime. */
-  const showAction = sub.key !== 'protocolos'
+  const showAction = !HIDE_ACTION.has(`${moduleKey}/${sub.key}`)
   const userName = profile?.fullName ?? 'Usuario'
   const initial = userName.trim().charAt(0).toUpperCase() || 'U'
 

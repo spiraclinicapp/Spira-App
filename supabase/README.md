@@ -20,6 +20,7 @@ copias que diverjan). Para una vista combinada: `cat migrations/*.sql` o `supaba
 | 0010 | `pharma_read_enrollments.sql` | pharma puede LEER enrollments (read-only) para la vista protocolo→pacientes |
 | 0011 | `protocols_description.sql` | columna `description` (libre, nullable) en `protocols` + seed demo — pista corta para la card del selector |
 | 0012 | `create_patient_with_enrollment.sql` | RPC de alta atómica paciente+enrolamiento (SECURITY DEFINER con authz a mano, actor server-side) |
+| 0013 | `v_track_visits.sql` | vista plana visita+definición+protocolo+paciente (security_invoker) para Resumen/Agenda de Track |
 
 Además, `seed_smoke_test.sql` (en `supabase/`, fuera de `migrations/`) carga datos demo
 para validar el aislamiento de RLS. NO es para producción — ver instrucciones en su cabecera.

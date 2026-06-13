@@ -5,6 +5,7 @@ import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
 import { createPatientWithEnrollment } from '../data/patients'
 import type { ProtocolRow } from '../data/protocols'
+import { todayISO } from '../lib/dates'
 
 /** Traduce el código de error de Postgres a un mensaje sereno en castellano. */
 function friendlyError(code?: string, message?: string): string {
@@ -15,12 +16,6 @@ function friendlyError(code?: string, message?: string): string {
   }
   if (code === '23502' || code === '23503') return 'Faltan datos obligatorios. Revisá el formulario.'
   return 'No pudimos guardar el paciente. Probá de nuevo.'
-}
-
-/** Fecha de hoy en formato ISO local (YYYY-MM-DD), sin corrimiento por zona horaria. */
-function todayISO(): string {
-  const d = new Date()
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 }
 
 interface NewPatientFormProps {
