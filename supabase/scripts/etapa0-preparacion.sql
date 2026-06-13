@@ -3,14 +3,16 @@
 -- Correr COMPLETO en el SQL Editor del dashboard de Supabase (como postgres).
 -- Es idempotente: se puede correr más de una vez sin romper nada.
 --
--- Hace 4 cosas:
+-- Hace 6 cosas:
 --   1. Aplica la migración 0012 (RPC de alta atómica paciente+enrolamiento).
---   2. Asigna la cuenta demo como coordinadora de TODOS los protocolos
+--   2. Aplica la migración 0013 (vista v_track_visits para Resumen/Agenda).
+--   3. Aplica la migración 0014 (scoping de plantillas de checklist).
+--   4. Asigna la cuenta demo como coordinadora de TODOS los protocolos
 --      (la RPC exige is_assigned_coordinator, sin bypass de gerencia).
---   3. Si los protocolos demo no tienen esquema de visitas, lo crea y
+--   5. Si los protocolos demo no tienen esquema de visitas, lo crea y
 --      retro-genera las visitas de los enrolamientos existentes (el trigger
 --      solo corre en el INSERT del enrolamiento, no retro-genera).
---   4. Si no existe la plantilla global de checklist, la crea con ítems demo.
+--   6. Si no existe la plantilla global de checklist, la crea con ítems demo.
 -- ============================================================================
 
 
@@ -77,7 +79,88 @@ revoke all on function public.create_patient_with_enrollment(text, text, uuid, d
 grant execute on function public.create_patient_with_enrollment(text, text, uuid, date, date, text) to authenticated;
 
 
--- ── 2 · Cuenta demo coordina todos los protocolos ───────────────────────────
+-- ── 2 · Migración 0013 (idéntica a supabase/migrations/0013_...sql) ─────────
+
+create or replace view public.v_track_visits
+with (security_invoker = true) as
+select
+  v.id,
+  v.enrollment_id,
+  v.visit_def_id,
+  v.estimated_date,
+  v.real_date,
+  v.window_start,
+  v.window_end,
+  v.notes,
+  v.computed_status,
+  vd.code   as visit_code,
+  vd.name   as visit_name,
+  vd.visit_type,
+  vd.sort_order,
+  e.protocol_id,
+  e.patient_id,
+  e.status  as enrollment_status,
+  pr.code   as protocol_code,
+  pr.name   as protocol_name,
+  pa.code   as patient_code,
+  pa.full_name as patient_name
+from public.v_patient_visits v
+join public.visit_definitions vd on vd.id = v.visit_def_id
+join public.enrollments e        on e.id  = v.enrollment_id
+join public.protocols pr         on pr.id = e.protocol_id
+join public.patients pa          on pa.id = e.patient_id;
+
+comment on view public.v_track_visits is
+  'Visita + definición + protocolo + paciente en una fila (para Resumen/Agenda de Track). security_invoker: respeta RLS.';
+
+revoke all on public.v_track_visits from anon;
+grant select on public.v_track_visits to authenticated;
+
+
+-- ── 3 · Migración 0014 (idéntica a supabase/migrations/0014_...sql) ─────────
+
+alter policy "lideres plantillas" on public.checklist_templates
+  using (
+    public.has_module('gerencia')
+    or public.has_min_role('track', 'admin')
+    or (checklist_templates.protocol_id is not null
+        and public.has_min_role('track', 'operator')
+        and public.is_assigned_coordinator(checklist_templates.protocol_id))
+  )
+  with check (
+    public.has_module('gerencia')
+    or public.has_min_role('track', 'admin')
+    or (checklist_templates.protocol_id is not null
+        and public.has_min_role('track', 'operator')
+        and public.is_assigned_coordinator(checklist_templates.protocol_id))
+  );
+
+alter policy "lideres items plantilla" on public.checklist_template_items
+  using (
+    public.has_module('gerencia')
+    or public.has_min_role('track', 'admin')
+    or exists (
+      select 1 from public.checklist_templates t
+      where t.id = checklist_template_items.template_id
+        and t.protocol_id is not null
+        and public.has_min_role('track', 'operator')
+        and public.is_assigned_coordinator(t.protocol_id)
+    )
+  )
+  with check (
+    public.has_module('gerencia')
+    or public.has_min_role('track', 'admin')
+    or exists (
+      select 1 from public.checklist_templates t
+      where t.id = checklist_template_items.template_id
+        and t.protocol_id is not null
+        and public.has_min_role('track', 'operator')
+        and public.is_assigned_coordinator(t.protocol_id)
+    )
+  );
+
+
+-- ── 4 · Cuenta demo coordina todos los protocolos ───────────────────────────
 
 insert into public.protocol_coordinators (protocol_id, user_id)
 select p.id, au.id
@@ -86,7 +169,7 @@ cross join (select id from auth.users where email = 'spiraclinic.dev@gmail.com')
 on conflict (protocol_id, user_id) do nothing;
 
 
--- ── 3 · Esquema de visitas demo + retro-generación ──────────────────────────
+-- ── 5 · Esquema de visitas demo + retro-generación ──────────────────────────
 -- Solo para los 3 protocolos demo (EFC18244, EFC18419, ACT18301) y solo si
 -- todavía no tienen visit_definitions. Esquema tipo Track: V1 screening día 0,
 -- V2 baseline +14 ±3, V3 +28 ±3, CT1 telefónica +35 ±2, V4 +56 ±5.
@@ -120,7 +203,7 @@ join public.visit_definitions vd on vd.protocol_id = e.protocol_id
 where not exists (select 1 from public.patient_visits pv where pv.enrollment_id = e.id);
 
 
--- ── 4 · Plantilla global de checklist (si falta) ────────────────────────────
+-- ── 6 · Plantilla global de checklist (si falta) ────────────────────────────
 
 insert into public.checklist_templates (name)
 select 'Plantilla global'
