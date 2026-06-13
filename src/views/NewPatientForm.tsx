@@ -61,9 +61,10 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
   return (
     <Modal title="Nuevo paciente" onClose={onClose}>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <FormField label="Código">
+        {/* El número de sujeto lo asigna el IVRS del sponsor (es dato que se carga, no lo genera Spira). */}
+        <FormField label="Número de sujeto (IVRS)">
           <input value={code} onChange={(e) => setCode(e.target.value)} required autoFocus
-            placeholder="PAC-001" className="spira-mono" style={{ ...fieldInput, fontVariantNumeric: 'tabular-nums' }} />
+            placeholder="Número asignado por el IVRS" className="spira-mono" style={{ ...fieldInput, fontVariantNumeric: 'tabular-nums' }} />
         </FormField>
         <FormField label="Nombre completo">
           <input value={fullName} onChange={(e) => setFullName(e.target.value)} required

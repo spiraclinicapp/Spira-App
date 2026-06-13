@@ -8,6 +8,8 @@ import type { ProtocolRow, ProtocolStatus } from '../data/protocols'
 import { usePatients } from '../data/patients'
 import type { PatientProtocol, PatientRow } from '../data/patients'
 import { PatientsTable } from './PatientsTable'
+import { NewProtocolForm } from './NewProtocolForm'
+import { NewPatientForm } from './NewPatientForm'
 import type { ViewProps } from './types'
 
 /* Estado de navegación interno (profundidad 1): lista de protocolos → pacientes de uno → todos. */
@@ -88,12 +90,13 @@ function highlight(text: string, q: string, accent: string): ReactNode {
 export function ProtocolsView({ module, submodule }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
-  const { hasMinRole } = useAuth()
+  const { hasMinRole, profile } = useAuth()
   const protocols = useProtocols()
   const patients = usePatients()
   const [nav, setNav] = useState<Nav>({ mode: 'list' })
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [creating, setCreating] = useState<null | 'protocol' | 'patient'>(null)
 
   /* Crear protocolos/pacientes solo desde Track (la RLS lo permite a track leader/operator).
      En Pharma estos botones no aparecen porque el usuario pharma no tiene roles de track. */
@@ -150,7 +153,7 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
             </div>
           </div>
           {canCreatePatient && (
-            <button style={{ ...btnPrimary(accentSolid), marginLeft: 'auto' }}>
+            <button onClick={() => setCreating('patient')} style={{ ...btnPrimary(accentSolid), marginLeft: 'auto' }}>
               <Icon name="plus" size={16} color="var(--spira-on-accent)" /> Nuevo paciente
             </button>
           )}
@@ -164,6 +167,15 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
           emptyTitle="Sin pacientes"
           emptyDescription="Este protocolo todavía no tiene pacientes."
         />
+        {creating === 'patient' && (
+          <NewPatientForm
+            accentSolid={accentSolid}
+            protocolId={proto.id}
+            protocols={allProtocols}
+            onClose={() => setCreating(null)}
+            onCreated={() => { setCreating(null); patients.refetch() }}
+          />
+        )}
       </div>
     )
   }
@@ -285,12 +297,21 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
             <Icon name="users" size={16} color="var(--spira-muted)" /> Ver pacientes
           </button>
           {canCreateProtocol && (
-            <button style={btnPrimary(accentSolid)}>
+            <button onClick={() => setCreating('protocol')} style={btnPrimary(accentSolid)}>
               <Icon name="plus" size={16} color="var(--spira-on-accent)" /> Nuevo protocolo
             </button>
           )}
         </div>
       </div>
+
+      {creating === 'protocol' && profile && (
+        <NewProtocolForm
+          accentSolid={accentSolid}
+          userId={profile.id}
+          onClose={() => setCreating(null)}
+          onCreated={() => { setCreating(null); protocols.refetch() }}
+        />
+      )}
 
       {q ? (
         /* resultados de búsqueda: protocolos + pacientes, con coincidencias resaltadas */

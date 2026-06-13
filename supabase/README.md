@@ -19,9 +19,12 @@ copias que diverjan). Para una vista combinada: `cat migrations/*.sql` o `supaba
 | 0009 | `role_levels.sql` | niveles de rol estrictos (viewer<operator<leader<admin) + `role_rank` / `has_min_role` |
 | 0010 | `pharma_read_enrollments.sql` | pharma puede LEER enrollments (read-only) para la vista protocolo→pacientes |
 | 0011 | `protocols_description.sql` | columna `description` (libre, nullable) en `protocols` + seed demo — pista corta para la card del selector |
+| 0012 | `create_patient_with_enrollment.sql` | RPC de alta atómica paciente+enrolamiento (SECURITY DEFINER con authz a mano, actor server-side) |
 
 Además, `seed_smoke_test.sql` (en `supabase/`, fuera de `migrations/`) carga datos demo
 para validar el aislamiento de RLS. NO es para producción — ver instrucciones en su cabecera.
+En `scripts/etapa0-preparacion.sql` hay un script idempotente para el SQL Editor que aplica
+la 0012 y deja datos demo de Track (coordinaciones, esquema de visitas, plantilla global).
 
 El orden respeta dependencias: enums → tablas → funciones → vistas → índices → RLS → realtime.
 
