@@ -10,10 +10,16 @@ import type { PatientProtocol, PatientRow } from '../data/patients'
 import { PatientsTable } from './PatientsTable'
 import { NewProtocolForm } from './NewProtocolForm'
 import { NewPatientForm } from './NewPatientForm'
+import { ProtocolDetailView } from './ProtocolDetailView'
 import type { ViewProps } from './types'
 
-/* Estado de navegación interno (profundidad 1): lista de protocolos → pacientes de uno → todos. */
-type Nav = { mode: 'list' } | { mode: 'protocol'; protocolId: string } | { mode: 'all' }
+/* Estado de navegación interno: grilla de protocolos → detalle de un protocolo →
+   ficha de un paciente (el patientId lleva su protocolId de contexto), + "todos". */
+type Nav =
+  | { mode: 'list' }
+  | { mode: 'all' }
+  | { mode: 'protocol'; protocolId: string }
+  | { mode: 'patient'; protocolId: string; patientId: string }
 
 /* Estado del protocolo → token de color (theme-aware). activo resalta, cerrado apaga. */
 function statusVar(status: ProtocolStatus): string {
@@ -103,6 +109,8 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
   const isTrack = module.key === 'track'
   const canCreateProtocol = isTrack && hasMinRole('track', 'leader')
   const canCreatePatient = isTrack && hasMinRole('track', 'operator')
+  /* Editar protocolo: la RLS "lideres editan protocolos" exige operator+ (no leader). */
+  const canEditProtocol = isTrack && hasMinRole('track', 'operator')
 
   if (protocols.loading || patients.loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title="Cargando protocolos…" description="Un momento." />
@@ -135,37 +143,28 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
     }
   }
 
-  // ---- Modo: pacientes de un protocolo ----
+  // ---- Modo: detalle de un protocolo (tablero) ----
   // Si el protocolo ya no está visible (p. ej. tras un refetch), se cae a la lista.
-  const proto = nav.mode === 'protocol' ? allProtocols.find((p) => p.id === nav.protocolId) : undefined
+  const detailProtocolId = nav.mode === 'protocol' || nav.mode === 'patient' ? nav.protocolId : undefined
+  const proto = detailProtocolId ? allProtocols.find((p) => p.id === detailProtocolId) : undefined
   if (nav.mode === 'protocol' && proto) {
     const forProtocol = allPatients.filter((pt) => pt.enrollments.some((e) => e.protocol?.id === proto.id))
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => setNav({ mode: 'list' })} aria-label="Volver a protocolos" title="Volver" style={backBtn}>
-            <Icon name="arrowLeft" size={18} color="var(--spira-ink)" />
-          </button>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>Protocolo</div>
-            <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 18, letterSpacing: '-0.01em' }}>
-              <span className="spira-mono" style={{ color: accent }}>{proto.code}</span> · {proto.name}
-            </div>
-          </div>
-          {canCreatePatient && (
-            <button onClick={() => setCreating('patient')} style={{ ...btnPrimary(accentSolid), marginLeft: 'auto' }}>
-              <Icon name="plus" size={16} color="var(--spira-on-accent)" /> Nuevo paciente
-            </button>
-          )}
-        </div>
-        <PatientsTable
+      <>
+        <ProtocolDetailView
           key={proto.id}
+          protocol={proto}
           patients={forProtocol}
           accent={accent}
           accentSolid={accentSolid}
-          emptyIcon="users"
-          emptyTitle="Sin pacientes"
-          emptyDescription="Este protocolo todavía no tiene pacientes."
+          canEdit={canEditProtocol}
+          canCreatePatient={canCreatePatient}
+          onBack={() => setNav({ mode: 'list' })}
+          onOpenPatient={(patientId) => setNav({ mode: 'patient', protocolId: proto.id, patientId })}
+          onNewPatient={() => setCreating('patient')}
+          onEdit={() => { /* Etapa 4: Editar protocolo */ }}
+          onGoAgenda={() => { /* Etapa 4: Ver agenda del protocolo */ }}
+          onExport={() => { /* Etapa 4: Exportar reporte */ }}
         />
         {creating === 'patient' && (
           <NewPatientForm
@@ -176,7 +175,14 @@ export function ProtocolsView({ module, submodule }: ViewProps) {
             onCreated={() => { setCreating(null); patients.refetch() }}
           />
         )}
-      </div>
+      </>
+    )
+  }
+
+  // ---- Modo: ficha de un paciente (placeholder hasta la Etapa 3) ----
+  if (nav.mode === 'patient' && proto) {
+    return (
+      <EmptyState accent={accent} icon="users" title="Ficha del paciente" description="Próximamente." />
     )
   }
 
