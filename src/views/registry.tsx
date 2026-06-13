@@ -1,6 +1,7 @@
 import { Placeholder } from './Placeholder'
 import { ProtocolsView } from './ProtocolsView'
 import { TrackResumenView } from './TrackResumenView'
+import { AgendaView } from './AgendaView'
 import type { ViewComponent } from './types'
 
 /**
@@ -11,6 +12,7 @@ import type { ViewComponent } from './types'
 const VIEW_REGISTRY: Record<string, ViewComponent> = {
   'track/resumen': TrackResumenView,
   'track/protocolos': ProtocolsView,
+  'track/agenda': AgendaView,
   'pharma/protocolos': ProtocolsView,
 }
 
