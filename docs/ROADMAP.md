@@ -41,6 +41,14 @@ Stack: **Vite + React 19 + TypeScript + @supabase/supabase-js**.
    descripción nueva → columna `description`, migración `0011`) + estándar de micro-interacción global.
    La **vista de tablero del protocolo** (KPIs + chips de visita) quedó **diseñada y diferida**
    (ver [`bitacora/2026-06-09.md`](./bitacora/2026-06-09.md)).
+   **(2026-06-12)** Traspaso grande de Track: **altas cableadas** (protocolo/paciente, label
+   "Número de sujeto (IVRS)") + **Resumen** (KPIs, próximas visitas 7 días, alertas; migración
+   `0013` `v_track_visits`) + **Agenda semanal** (reagendado por click con validación de ventana;
+   mueve solo `estimated_date`) + **Plantillas de checklist** (global/por protocolo con clonación;
+   migración `0014` cierra el scoping de RLS). Decisiones de dominio: falla = screen failure ·
+   4º KPI = próximas 7 días · número de sujeto lo asigna el IVRS. ⚠️ Correr
+   `supabase/scripts/etapa0-preparacion.sql` en prod (aplica 0012–0014 + datos demo).
+   Ver [`bitacora/2026-06-12.md`](./bitacora/2026-06-12.md).
 3. **Panel de gerencia** — ⏳ PENDIENTE: que Pablo (gerencia) asigne roles con clicks (perfiles
    predefinidos que rellenan `user_module_roles`). Hoy se hace por SQL.
 4. **Portar Track y Pharma** completos como módulos + **cablear el handoff** (solicitud → dispensación + realtime).
@@ -79,6 +87,12 @@ propósito: Paso 2 = "que se vea armado"; Paso 3 = "que se vea pulido".
 - Edge Function de IVRS (PDF → Claude API) que pre-llena `dispensation_requests`.
 - Verificar contra `App.jsx` de Track la elección de plantilla al materializar checklist.
 - A futuro, si la farmacia se segrega por sponsor: tabla `pharma_assignments` (hoy Pharma es central).
-- **Vista de tablero del protocolo** (KPIs + tabla con chips de visita por estado): diseñada y diferida;
-  4 preguntas de datos por resolver antes de construir (ver [`bitacora/2026-06-09.md`](./bitacora/2026-06-09.md) §3).
-- Campos de paciente para el tablero: `sex` (F/M/Otro) y número de paciente del sistema (global vs por protocolo).
+- **Vista de tablero del protocolo**: el diseño lo lleva el usuario en Claude Design. De las 4
+  preguntas de datos, 3 ya están respondidas (falla = screen failure · KPI = próximas 7 días ·
+  número de sujeto = IVRS, ver [`bitacora/2026-06-12.md`](./bitacora/2026-06-12.md) §2); falta el header.
+  Con el tablero va la migración del enum: `alter type enrollment_status add value 'falla_screening'`.
+- Campos de paciente para el tablero: `sex` (F/M/Otro).
+- Notas del día en Agenda: la tabla `agenda_notes` existe; falta `unique (user_id, note_date)` para
+  upsert + policy DELETE (migración 0015 futura). Impresión de la agenda (`@media print`) también pendiente.
+- Confirmar decisión de Agenda: al reagendar se mueve solo `estimated_date` (ventana del sponsor fija);
+  si se prefiere paridad con el legacy (desplazar ventana), es un cambio trivial.
