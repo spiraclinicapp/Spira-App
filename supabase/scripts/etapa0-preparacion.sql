@@ -115,6 +115,7 @@ comment on view public.v_track_visits is
 
 revoke all on public.v_track_visits from anon;
 grant select on public.v_track_visits to authenticated;
+revoke insert, update, delete, truncate, references, trigger on public.v_track_visits from authenticated;
 
 
 -- ── 3 · Migración 0014 (idéntica a supabase/migrations/0014_...sql) ─────────
@@ -159,6 +160,20 @@ alter policy "lideres items plantilla" on public.checklist_template_items
     )
   );
 
+-- cierra el hueco preexistente de lectura de ítems sin scoping por protocolo
+alter policy "ver items plantilla" on public.checklist_template_items
+  using (
+    public.has_module('gerencia')
+    or (
+      public.has_module('track')
+      and exists (
+        select 1 from public.checklist_templates t
+        where t.id = checklist_template_items.template_id
+          and (t.protocol_id is null or public.is_assigned_coordinator(t.protocol_id))
+      )
+    )
+  );
+
 
 -- ── 4 · Cuenta demo coordina todos los protocolos ───────────────────────────
 
@@ -188,8 +203,12 @@ cross join (values
 where p.code in ('EFC18244', 'EFC18419', 'ACT18301')
   and not exists (select 1 from public.visit_definitions vd where vd.protocol_id = p.id);
 
--- Retro-generar visitas para enrolamientos que quedaron sin ninguna
+-- Retro-generar visitas para enrolamientos que quedaron sin ellas
 -- (misma lógica que public.generate_patient_visits, el trigger de 0003).
+-- Scopeado a los 3 protocolos demo (igual que el seed de arriba) para no tocar
+-- enrolamientos de protocolos reales. Guard por (enrollment, visit_def) en vez
+-- de "el enrollment no tiene NINGUNA visita": así es idempotente Y self-healing
+-- (completa las visitas faltantes sin duplicar las que ya están).
 insert into public.patient_visits
   (enrollment_id, visit_def_id, estimated_date, window_start, window_end)
 select
@@ -199,8 +218,13 @@ select
   e.enrollment_date + vd.offset_days - vd.window_minus,
   e.enrollment_date + vd.offset_days + vd.window_plus
 from public.enrollments e
+join public.protocols p          on p.id = e.protocol_id
 join public.visit_definitions vd on vd.protocol_id = e.protocol_id
-where not exists (select 1 from public.patient_visits pv where pv.enrollment_id = e.id);
+where p.code in ('EFC18244', 'EFC18419', 'ACT18301')
+  and not exists (
+    select 1 from public.patient_visits pv
+    where pv.enrollment_id = e.id and pv.visit_def_id = vd.id
+  );
 
 
 -- ── 6 · Plantilla global de checklist (si falta) ────────────────────────────

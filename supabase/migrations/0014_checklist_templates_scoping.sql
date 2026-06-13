@@ -48,3 +48,24 @@ alter policy "lideres items plantilla" on public.checklist_template_items
         and public.is_assigned_coordinator(t.protocol_id)
     )
   );
+
+-- Cierra un hueco PREEXISTENTE (de 0006): la lectura de ítems de plantilla estaba
+-- abierta a todo track sin scoping por protocolo (`has_module('track')`), mientras
+-- que la lectura de la fila template (`ver plantillas`) sí scopeaba. Un viewer de
+-- track podía leer los ítems de la plantilla de cualquier protocolo ajeno vía
+-- PostgREST. Se alinea con `ver plantillas`: global (protocol_id null) visible a
+-- todo track; las de protocolo, solo a la coordinadora asignada. Admin/gerencia
+-- conservan acceso por el `using` de "lideres items plantilla" (OR de policies en
+-- SELECT). El trigger materialize_checklist es SECURITY DEFINER → no se ve afectado.
+alter policy "ver items plantilla" on public.checklist_template_items
+  using (
+    public.has_module('gerencia')
+    or (
+      public.has_module('track')
+      and exists (
+        select 1 from public.checklist_templates t
+        where t.id = checklist_template_items.template_id
+          and (t.protocol_id is null or public.is_assigned_coordinator(t.protocol_id))
+      )
+    )
+  );

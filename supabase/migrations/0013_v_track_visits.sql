@@ -44,3 +44,8 @@ comment on view public.v_track_visits is
 -- Mismo criterio que 0007: nada para anon, lectura para autenticados.
 revoke all on public.v_track_visits from anon;
 grant select on public.v_track_visits to authenticated;
+-- La vista es de SOLO LECTURA. Los `default privileges` de 0007 (`grant all on
+-- tables`) le otorgan a `authenticated` también insert/update/delete al crearla;
+-- como la vista es un join (no actualizable) eso es inerte, pero se revoca por
+-- higiene y para que el contrato "solo lectura" sea explícito.
+revoke insert, update, delete, truncate, references, trigger on public.v_track_visits from authenticated;

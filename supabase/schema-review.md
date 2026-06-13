@@ -240,3 +240,79 @@ alter table public.stock_movements add constraint check_stock_movement_reference
 **NO está listo para producción.** Defecto sistémico de aislamiento multi-protocolo: casi todas las policies de escritura de `track`/`pharma` validan solo el módulo y no el protocolo coordinado, y varias inserciones de auditoría permiten falsificar el actor. Un coordinador puede leer, falsificar registros y disparar flujos de farmacia sobre protocolos ajenos de extremo a extremo — incompatible con la trazabilidad ANMAT exigida.
 
 **Bloqueantes para liberar:** (1) cerrar el bloque RLS Alto (A1-A9) + M1/M4/M5; (2) resolver la decisión M14 (¿pharma central o segregado?), que define el alcance de A8/A9/M3; (3) las correcciones de integridad/auditoría A10-A14 y M9-M13 para un audit trail íntegro. El hardening (M7), los DELETE de gerencia (M8) y los constraints menores (Bajo) son obligatorios pero no condicionan la arquitectura.
+
+---
+
+# Ronda 2 — Traspaso de Track (2026-06-12)
+
+> ✅ **ESTADO: RESUELTO.** Revisión adversarial de los cambios SQL del traspaso de Track
+> (migraciones `0013` `v_track_visits`, `0014` scoping de plantillas, y el script
+> `scripts/etapa0-preparacion.sql`) **antes** de aplicarlos en prod. Dos revisores
+> independientes (RLS/privilegios + integridad/idempotencia), cada hallazgo verificado a
+> mano. Veredicto: los cambios **no introducen fuga de aislamiento ni escalada**; se
+> aplicaron 4 endurecimientos. Quedan 2 mejoras de atomicidad del cliente (no-RLS) como
+> recomendación.
+
+## Verificado sin agujero (falsos positivos descartados)
+
+- **Vista `v_track_visits` (0013) NO filtra el aislamiento por protocolo.** `security_invoker = true`
+  encadenado con `v_patient_visits` (también invoker): cada tabla base del join
+  (patient_visits, enrollments, protocols, patients, visit_definitions) tiene su SELECT
+  scopeado por `protocol_coordinators`. El INNER JOIN colapsa a vacío para protocolos no
+  coordinados. **Pharma ve la vista vacía** (no tiene SELECT en patient_visits). Correcto.
+- **0014 no afloja la escritura.** Un operator no-asignado NO puede crear/editar la plantilla
+  global ni una de protocolo ajeno; no puede colgar ítems de un template ajeno ni crear un
+  template con `protocol_id null` "disfrazado". Admin/gerencia conservan acceso. El trigger
+  `materialize_checklist` (SECURITY DEFINER) no se ve afectado.
+- **El script no rompe invariantes ni dispara guards.** Solo inserta (no UPDATE → guards de
+  inmutabilidad no corren); `patient_visits` INSERT no dispara auditoría (su trigger es
+  AFTER UPDATE/DELETE) ni materialización (es AFTER UPDATE de `real_date`). La aritmética de
+  la retro-generación es idéntica al trigger `generate_patient_visits`. Nombres de columna y
+  JOINs de la vista verificados contra el schema.
+
+## Aplicado (4 endurecimientos)
+
+**R2-1 (BAJO/higiene) · grant de escritura residual en `v_track_visits`.** Los `default
+privileges` de 0007 (`grant all on tables`) le dan a `authenticated` insert/update/delete sobre
+toda vista nueva; el `grant select` de 0013 no lo revocaba. Inerte hoy (la vista es un join, no
+actualizable), pero se revocó por higiene y para que el contrato "solo lectura" sea explícito.
+→ `revoke insert,update,delete,truncate,references,trigger ... from authenticated` en 0013 y en el script.
+
+**R2-2 (MEDIO) · lectura de ítems de plantilla sin scopear (hueco preexistente de 0006).**
+`"ver items plantilla"` era `has_module('track')` — cualquier viewer de track leía vía PostgREST
+los ítems de la plantilla de cualquier protocolo ajeno (mientras que `"ver plantillas"`, la fila
+template, sí scopeaba). 0014 endurecía la escritura pero dejaba esta lectura abierta. Se alineó con
+`"ver plantillas"`: global visible a todo track; las de protocolo, solo a la coordinadora asignada;
+admin/gerencia por el `using` de "lideres items plantilla". → nuevo `alter policy` en 0014.
+
+**R2-3 (MEDIO) · retro-generación de `patient_visits` no scopeada a los protocolos demo.** El
+INSERT de `visit_definitions` filtraba por los 3 códigos demo, pero el de `patient_visits` no:
+iteraba sobre todo enrolamiento cuyo protocolo tuviera defs. Se agregó el mismo filtro de código
+demo. → `where p.code in ('EFC18244','EFC18419','ACT18301')` en el script.
+
+**R2-4 (MEDIO) · guard de la retro-generación a nivel enrolamiento entero.** El `not exists` por
+enrolamiento saltea el enrolamiento completo si tiene visitas *parciales* → nunca completa las
+faltantes (silencioso). Se cambió a guard por par `(enrollment_id, visit_def_id)`: idempotente y
+self-healing. → en el script.
+
+## Recomendado (atomicidad del cliente — NO es RLS, diferido a decisión del usuario)
+
+**R2-5 (MEDIO) · `createProtocolTemplate` no atómico** (`src/data/templates.ts`). Inserta el
+template y luego sus ítems en dos llamadas; si la 2ª falla queda un **template de protocolo vacío**.
+Como `materialize_checklist` prioriza la plantilla del protocolo aunque esté vacía, suprime
+silenciosamente el checklist global para ese protocolo → visitas que saltan a `completa` sin
+checklist. Baja probabilidad (solo ante fallo de red entre las dos llamadas) y visible/recuperable
+en la UI. **Fix propuesto:** RPC `SECURITY DEFINER` que inserte template+ítems en una transacción,
+con authz a mano (mismo patrón que `create_patient_with_enrollment` 0012).
+
+**R2-6 (BAJO) · `swapItemOrder` no atómico** (`src/data/templates.ts`). Dos UPDATEs de `sort_order`;
+si el 2º falla quedan dos ítems con el mismo orden (orden no determinista entre ellos). Cosmético,
+recuperable, sin pérdida de datos. **Fix propuesto:** RPC con un único `update ... set sort_order =
+case id ...` (atómico).
+
+## Veredicto Ronda 2
+
+**Los cambios SQL del traspaso (0013, 0014, script) son seguros de aplicar en prod tras los 4
+endurecimientos R2-1..R2-4** (ya incorporados). No introducen fuga de aislamiento por protocolo ni
+escalada. R2-5/R2-6 son mejoras de atomicidad del cliente (no afectan la seguridad RLS de la SQL que
+se pega) y quedan como recomendación para una migración 0015 con RPCs si se quiere cerrarlas.
