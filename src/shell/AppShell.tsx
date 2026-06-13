@@ -147,7 +147,7 @@ export function AppShell() {
         </aside>
 
         {/* panel de submódulos */}
-        <aside style={{ width: 208, flex: '0 0 208px', background: 'var(--spira-surface)', borderRight: '1px solid var(--spira-line)', padding: '18px 12px' }}>
+        <aside style={{ width: 208, flex: '0 0 208px', background: 'var(--spira-surface)', borderRight: '1px solid var(--spira-line)', padding: '18px 12px', display: 'flex', flexDirection: 'column' }}>
           <div className="spira-eyebrow" style={{ padding: '2px 12px 0' }}>Submódulos</div>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 14 }}>
             {mod.submodules.map((s) => {
@@ -169,6 +169,10 @@ export function AppShell() {
               )
             })}
           </nav>
+          {/* versión: info de sistema, al pie, discreta (mono + faint) */}
+          <div className="spira-mono spira-no-press" style={{ marginTop: 'auto', padding: '0 12px', fontSize: 11, letterSpacing: '0.02em', color: 'var(--spira-faint)' }} title="Versión de Spira">
+            v{__APP_VERSION__}
+          </div>
         </aside>
 
         {/* contenido */}
