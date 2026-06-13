@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
+import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { useAuth } from '../lib/auth'
 import { useProtocols } from '../data/protocols'
 import type { ProtocolRow, ProtocolStatus } from '../data/protocols'
@@ -280,7 +281,8 @@ export function ProtocolsView({ module, submodule, onNavigate }: ViewProps) {
         }}
       >
         <span className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-ink)' }}>{highlight(pt.code, q, accent)}</span>
-        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{highlight(pt.full_name, q, accent)}</span>
+        {/* Privacidad: avatar en vez del nombre; la búsqueda sigue matcheando el nombre internamente. */}
+        <span style={{ display: 'flex', alignItems: 'center' }}><PrivacyAvatar fullName={pt.full_name} size={28} color={accent} /></span>
         <span style={{ display: 'flex', gap: 6, overflow: 'hidden' }}>
           {ptProtocols.length === 0 ? (
             <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>Sin protocolo</span>

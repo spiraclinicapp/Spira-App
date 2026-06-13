@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
+import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
 import { useUpcomingVisits, useVisitAlerts } from '../data/visits'
@@ -118,10 +119,13 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
                   </div>
                   {g.visits.map((v) => (
                     <div key={v.id} style={{ display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', gap: 10, padding: '9px 0', borderTop: '1px solid var(--spira-line)' }}>
-                      <span style={{ fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {v.patient_name}{' '}
-                        <span style={{ color: 'var(--spira-faint)' }}>
-                          · <span className="spira-mono" style={{ fontSize: 12.5 }}>{v.protocol_code}</span>{v.visit_code ? ` · ${v.visit_code}` : ''}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <PrivacyAvatar fullName={v.patient_name} size={24} color={accent} />
+                        <span style={{ fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span className="spira-mono" style={{ fontSize: 12.5 }}>{v.patient_code}</span>
+                          <span style={{ color: 'var(--spira-faint)' }}>
+                            {' '}· <span className="spira-mono" style={{ fontSize: 12.5 }}>{v.protocol_code}</span>{v.visit_code ? ` · ${v.visit_code}` : ''}
+                          </span>
                         </span>
                       </span>
                       <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{TIPO_LABEL[v.visit_type]}</span>
@@ -155,8 +159,9 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
                       <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={18} color={c} />
                     </span>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600 }}>
-                        {a.patient_name}{' '}
+                      <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <PrivacyAvatar fullName={a.patient_name} size={22} color={c} />
+                        <span className="spira-mono" style={{ fontSize: 12.5 }}>{a.patient_code}</span>
                         <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span className="spira-mono" style={{ fontSize: 12.5 }}>{a.protocol_code}</span></span>
                       </div>
                       <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>

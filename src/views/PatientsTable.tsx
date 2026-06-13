@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
+import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import type { PatientProtocol, PatientRow, PatientStatus } from '../data/patients'
 
 /* Grilla compartida entre encabezado y filas: código · nombre · estado · protocolos · nacimiento. */
@@ -127,8 +128,9 @@ function PatientRowItem({ patient, accent, accentSolid, last }: { patient: Patie
   return (
     <div role="row" style={{ display: 'grid', gridTemplateColumns: COLS, gap: 16, padding: '13px 18px', alignItems: 'center', borderBottom: last ? 'none' : '1px solid var(--spira-line)' }}>
       <span role="cell" className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-ink)' }}>{patient.code}</span>
-      <span role="cell" style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {patient.full_name}
+      <span role="cell" style={{ display: 'flex', alignItems: 'center' }}>
+        {/* Privacidad: el nombre real no se muestra como texto, solo en el tooltip del avatar. */}
+        <PrivacyAvatar fullName={patient.full_name} size={28} color={accent} />
       </span>
       <span role="cell">
         <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 'var(--spira-radius-pill)', fontSize: 12, fontWeight: 600, color: statusVar(patient.status), background: `color-mix(in srgb, ${statusVar(patient.status)} 15%, transparent)` }}>
