@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
@@ -6,6 +6,25 @@ import { useTheme } from '../lib/theme'
 import { useAuth } from '../lib/auth'
 import { MODULES } from '../modules/registry'
 import { resolveView } from '../views/registry'
+import type { ViewHeader, ViewHeaderCrumb } from '../views/types'
+
+/* Crumb del breadcrumb del encabezado: clickeable si trae onClick (subraya al hover). */
+function Crumb({ crumb, color }: { crumb: ViewHeaderCrumb; color: string }) {
+  if (!crumb.onClick) {
+    return <span className={crumb.mono ? 'spira-mono' : undefined} style={{ color, fontWeight: 600 }}>{crumb.label}</span>
+  }
+  return (
+    <button
+      onClick={crumb.onClick}
+      className={'spira-no-press' + (crumb.mono ? ' spira-mono' : '')}
+      onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+      onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+      style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', color, fontWeight: 600, fontSize: 'inherit', fontFamily: 'inherit' }}
+    >
+      {crumb.label}
+    </button>
+  )
+}
 
 /* Etiqueta del botón de acción según módulo/submódulo (voseo, sentence case). */
 const ACTION_LABELS: Record<string, string> = {
@@ -29,11 +48,32 @@ const iconBtn: CSSProperties = {
   color: 'var(--spira-ink)',
 }
 
+/* Botones de acción del encabezado (acciones que registra la vista activa). */
+const ghostActionBtn: CSSProperties = {
+  height: 38, padding: '0 15px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
+  background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)',
+  fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
+}
+function primaryActionBtn(accentSolid: string): CSSProperties {
+  return {
+    height: 38, padding: '0 15px', border: 'none', borderRadius: 10, background: accentSolid,
+    color: 'var(--spira-on-accent)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5,
+    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
+  }
+}
+
 export function AppShell() {
   const { theme, toggle } = useTheme()
   const { profile, modules: userModules, signOut } = useAuth()
   const [moduleKey, setModuleKey] = useState('inicio')
   const [subKey, setSubKey] = useState('resumen')
+  /* Encabezado contextual que registra la vista activa (breadcrumb + acciones). */
+  const [viewHeader, setViewHeader] = useState<ViewHeader | null>(null)
+
+  /* Al cambiar de módulo/submódulo, limpiar el encabezado contextual (que no quede
+     pegado de otra vista). La navegación INTERNA de una vista no cambia subKey, así
+     que la vista conserva el control de su encabezado mientras esté en su submódulo. */
+  useEffect(() => { setViewHeader(null) }, [moduleKey, subKey])
 
   /* 'inicio' siempre disponible; el resto, según los roles reales del usuario. */
   const isAllowed = (key: string) => key === 'inicio' || (userModules as string[]).includes(key)
@@ -186,32 +226,41 @@ export function AppShell() {
         {/* contenido */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 26px 4px' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)', flexWrap: 'wrap' }}>
                 {mod.full}
                 <Icon name="chevronRight" size={13} color="var(--spira-faint)" />
-                <span style={{ color: 'var(--spira-ink)', fontWeight: 600 }}>{sub.name}</span>
+                {/* nombre del submódulo: clickeable si la vista registró rootOnClick (vuelve a su raíz) */}
+                <Crumb crumb={{ label: sub.name, onClick: viewHeader?.rootOnClick }} color={viewHeader?.rootOnClick ? 'var(--spira-muted)' : 'var(--spira-ink)'} />
+                {(viewHeader?.crumbs ?? []).map((c, i) => (
+                  <Fragment key={i}>
+                    <Icon name="chevronRight" size={13} color="var(--spira-faint)" />
+                    <Crumb crumb={c} color={accent} />
+                  </Fragment>
+                ))}
               </div>
               <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', marginTop: 1 }}>{sub.name}</div>
             </div>
-            {showAction && (
-              <button
-                style={{
-                  marginLeft: 'auto', height: 38, padding: '0 15px', border: 'none', borderRadius: 10,
-                  background: mod.accentSolid, color: 'var(--spira-on-accent)', fontFamily: 'var(--spira-font-text)',
-                  fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
-                }}
-              >
+            {viewHeader?.actions && viewHeader.actions.length > 0 ? (
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                {viewHeader.actions.map((a) => (
+                  <button key={a.key} onClick={a.onClick} style={a.primary ? primaryActionBtn(mod.accentSolid) : ghostActionBtn}>
+                    <Icon name={a.icon} size={16} color={a.primary ? 'var(--spira-on-accent)' : 'var(--spira-ink)'} /> {a.label}
+                  </button>
+                ))}
+              </div>
+            ) : showAction ? (
+              <button style={{ ...primaryActionBtn(mod.accentSolid), marginLeft: 'auto' }}>
                 <Icon name="plus" size={16} color="var(--spira-on-accent)" /> {action}
               </button>
-            )}
+            ) : null}
           </div>
 
           {/* contenido: router de vistas (fallback a Placeholder para lo aún no portado) */}
           <div style={{ flex: 1, overflow: 'auto', padding: '16px 26px 26px' }}>
             {(() => {
               const View = resolveView(moduleKey, sub.key)
-              return <View module={mod} submodule={sub} onNavigate={navigate} />
+              return <View module={mod} submodule={sub} onNavigate={navigate} setHeader={setViewHeader} />
             })()}
           </div>
         </main>

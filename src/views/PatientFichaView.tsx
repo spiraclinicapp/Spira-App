@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { PrivacyAvatar } from '../components/PrivacyAvatar'
@@ -19,14 +19,10 @@ import { dayLabel, daysDiffISO, formatAR, todayISO } from '../lib/dates'
 import { PdVisitFlow } from './track/PdVisitFlow'
 import { PdFullSchedule } from './track/PdFullSchedule'
 import { RescheduleModal } from './track/RescheduleModal'
+import type { ViewHeader } from './types'
 
 const card: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, padding: '18px 20px',
-}
-const backBtn: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 11px 0 7px',
-  border: '1px solid var(--spira-line-2)', borderRadius: 8, background: 'var(--spira-white)', cursor: 'pointer',
-  fontFamily: 'var(--spira-font-text)', fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap',
 }
 
 export interface PatientFichaViewProps {
@@ -35,7 +31,11 @@ export interface PatientFichaViewProps {
   accent: string
   accentSolid: string
   canWrite: boolean
+  setHeader?: (header: ViewHeader | null) => void
+  /** Volver al detalle del protocolo (clic en el crumb del código de protocolo). */
   onBack: () => void
+  /** Volver a la grilla de protocolos (clic en el crumb "Protocolos"). */
+  onGoList: () => void
 }
 
 /** Modal de confirmación para registrar una visita como realizada. */
@@ -85,7 +85,7 @@ function RegisterVisitModal({ visit, accentSolid, idxLabel, onClose, onDone }: {
 
 /** Ficha del paciente: demográficos + contexto + adherencia + alertas | próxima visita + cronograma. */
 export function PatientFichaView(props: PatientFichaViewProps) {
-  const { patient, protocol, accent, accentSolid, canWrite, onBack } = props
+  const { patient, protocol, accent, accentSolid, canWrite, setHeader, onBack, onGoList } = props
   const visitsQ = usePatientVisits(patient.id, protocol.id)
   const alertsQ = useVisitAlerts()
   const [modal, setModal] = useState<null | 'reschedule' | 'register'>(null)
@@ -94,6 +94,28 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   const idx = visitIndex(rows)
   const current = currentVisit(rows)
   const adh = adherence(rows)
+  const canAct = canWrite && current !== null && current.real_date === null
+
+  /* Encabezado contextual del shell: Protocolos (→ grilla) › CÓDIGO (→ detalle) › PACIENTE,
+     + Reprogramar / Registrar visita a la derecha. Callbacks por ref (deps primitivas). */
+  const cb = useRef({ onGoList, onBack, reschedule: () => setModal('reschedule'), register: () => setModal('register') })
+  cb.current = { onGoList, onBack, reschedule: () => setModal('reschedule'), register: () => setModal('register') }
+  useEffect(() => {
+    setHeader?.({
+      rootOnClick: () => cb.current.onGoList(),
+      crumbs: [
+        { label: protocol.code, mono: true, onClick: () => cb.current.onBack() },
+        { label: patient.code, mono: true },
+      ],
+      actions: canAct
+        ? [
+            { key: 'reprogramar', label: 'Reprogramar', icon: 'calendar', onClick: () => cb.current.reschedule() },
+            { key: 'registrar', label: 'Registrar visita', icon: 'clipboardCheck', primary: true, onClick: () => cb.current.register() },
+          ]
+        : [],
+    })
+    return () => setHeader?.(null)
+  }, [protocol.code, patient.code, canAct, setHeader])
   const medico = rows[0]?.treating_physician ?? '—'
   const enrollmentDate = rows[0]?.enrollment_date ?? null
   const age = ageFromBirth(patient.birth_date)
@@ -119,28 +141,9 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0, flex: 1 }}>
-      {/* barra */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={backBtn}>
-          <Icon name="chevronLeft" size={15} color="var(--spira-muted)" /> <span className="spira-mono">{protocol.code}</span>
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)', minWidth: 0 }}>
-          Protocolos <Icon name="chevronRight" size={13} color="var(--spira-faint)" /> <span className="spira-mono" style={{ color: 'var(--spira-muted)', fontWeight: 600 }}>{protocol.code}</span>
-          <Icon name="chevronRight" size={13} color="var(--spira-faint)" /> <span className="spira-mono" style={{ color: accent, fontWeight: 600 }}>{patient.code}</span>
-        </div>
-        {canWrite && current && current.real_date === null && (
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
-            <button onClick={() => setModal('reschedule')} style={{ height: 36, padding: '0 13px', border: '1px solid var(--spira-line-2)', borderRadius: 9, background: 'var(--spira-white)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, color: 'var(--spira-ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
-              <Icon name="calendar" size={15} color="var(--spira-muted)" /> Reprogramar
-            </button>
-            <button onClick={() => setModal('register')} style={{ height: 36, padding: '0 14px', border: 'none', borderRadius: 9, background: accentSolid, color: 'var(--spira-on-accent)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 7 }}>
-              <Icon name="clipboardCheck" size={15} color="var(--spira-on-accent)" /> Registrar visita
-            </button>
-          </div>
-        )}
-      </div>
-
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+      {/* el breadcrumb (Protocolos › CÓDIGO › PACIENTE) y los botones Reprogramar/Registrar
+          viven en el encabezado del shell (registrado por el efecto de arriba). */}
       {modal === 'reschedule' && current && (
         <RescheduleModal visit={current} accentSolid={accentSolid} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
       )}

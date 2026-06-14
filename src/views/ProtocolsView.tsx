@@ -96,7 +96,7 @@ function highlight(text: string, q: string, accent: string): ReactNode {
   return out
 }
 
-export function ProtocolsView({ module, submodule, onNavigate }: ViewProps) {
+export function ProtocolsView({ module, submodule, onNavigate, setHeader }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
   const { hasMinRole, profile } = useAuth()
@@ -163,6 +163,7 @@ export function ProtocolsView({ module, submodule, onNavigate }: ViewProps) {
           accentSolid={accentSolid}
           canEdit={canEditProtocol}
           canCreatePatient={canCreatePatient}
+          setHeader={setHeader}
           onBack={() => setNav({ mode: 'list' })}
           onOpenPatient={(patientId) => setNav({ mode: 'patient', protocolId: proto.id, patientId })}
           onNewPatient={() => setCreating('patient')}
@@ -201,7 +202,9 @@ export function ProtocolsView({ module, submodule, onNavigate }: ViewProps) {
         accent={accent}
         accentSolid={accentSolid}
         canWrite={canCreatePatient}
+        setHeader={setHeader}
         onBack={() => setNav({ mode: 'protocol', protocolId: proto.id })}
+        onGoList={() => setNav({ mode: 'list' })}
       />
     )
   }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
@@ -11,14 +11,10 @@ import { useProtocolKpis } from '../data/protocolKpis'
 import { toCsv, downloadCsv } from '../lib/csv'
 import { visitIndex } from '../lib/visits'
 import { PdPatientRow } from './track/PdPatientRow'
+import type { ViewHeader } from './types'
 
 const card: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, padding: '18px 20px',
-}
-const backBtn: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 11px 0 7px',
-  border: '1px solid var(--spira-line-2)', borderRadius: 8, background: 'var(--spira-white)', cursor: 'pointer',
-  fontFamily: 'var(--spira-font-text)', fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap',
 }
 
 function Bar({ pct, color }: { pct: number; color: string }) {
@@ -36,6 +32,7 @@ export interface ProtocolDetailViewProps {
   accentSolid: string
   canEdit: boolean
   canCreatePatient: boolean
+  setHeader?: (header: ViewHeader | null) => void
   onBack: () => void
   onOpenPatient: (patientId: string) => void
   onNewPatient: () => void
@@ -45,10 +42,24 @@ export interface ProtocolDetailViewProps {
 
 /** Detalle de Protocolo: ficha lateral (KPIs/adherencia/acciones) + lista de pacientes con tracker. */
 export function ProtocolDetailView(props: ProtocolDetailViewProps) {
-  const { protocol, patients, accent, accentSolid, canEdit, canCreatePatient, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda } = props
+  const { protocol, patients, accent, accentSolid, canEdit, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda } = props
   const kpis = useProtocolKpis(protocol.id)
   const visits = useProtocolVisits(protocol.id)
   const [filter, setFilter] = useState<'activos' | 'todos'>('todos')
+
+  /* Registra el encabezado contextual del shell: "Protocolos" (clickeable → grilla) ›
+     CÓDIGO, + el botón "Nuevo paciente" a la derecha. Las funciones se leen por ref para
+     que el efecto solo dependa de valores primitivos (sin re-registrar en cada render). */
+  const cb = useRef({ onBack, onNewPatient })
+  cb.current = { onBack, onNewPatient }
+  useEffect(() => {
+    setHeader?.({
+      rootOnClick: () => cb.current.onBack(),
+      crumbs: [{ label: protocol.code, mono: true }],
+      actions: canCreatePatient ? [{ key: 'nuevo-paciente', label: 'Nuevo paciente', icon: 'plus', primary: true, onClick: () => cb.current.onNewPatient() }] : [],
+    })
+    return () => setHeader?.(null)
+  }, [protocol.code, canCreatePatient, setHeader])
 
   /* Exportar reporte: CSV client-side, una fila por visita. PRIVACIDAD: exporta el
      código del paciente, nunca el nombre. */
@@ -118,23 +129,9 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0, flex: 1 }}>
-      {/* barra: back + breadcrumb + nuevo paciente */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={backBtn}>
-          <Icon name="chevronLeft" size={15} color="var(--spira-muted)" /> Protocolos
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)', minWidth: 0 }}>
-          Spira Track <Icon name="chevronRight" size={13} color="var(--spira-faint)" /> Protocolos
-          <Icon name="chevronRight" size={13} color="var(--spira-faint)" /> <span className="spira-mono" style={{ color: accent, fontWeight: 600 }}>{protocol.code}</span>
-        </div>
-        {canCreatePatient && (
-          <button onClick={onNewPatient} style={{ marginLeft: 'auto', height: 36, padding: '0 14px', border: 'none', borderRadius: 9, background: accentSolid, color: 'var(--spira-on-accent)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-            <Icon name="plus" size={15} color="var(--spira-on-accent)" /> Nuevo paciente
-          </button>
-        )}
-      </div>
-
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+      {/* el breadcrumb (Protocolos › CÓDIGO) y el botón "Nuevo paciente" viven en el
+          encabezado del shell (registrado por el efecto de arriba). */}
       {/* cuerpo: ficha lateral + lista */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '316px 1fr', gap: 14, minHeight: 0 }}>
         {/* ficha lateral */}
