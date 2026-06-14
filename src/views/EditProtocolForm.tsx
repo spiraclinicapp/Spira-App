@@ -69,23 +69,23 @@ export function EditProtocolForm({ protocol, accentSolid, onClose, onUpdated }: 
           <FormField label="Nombre">
             <input value={name} onChange={(e) => setName(e.target.value)} required style={fieldInput} />
           </FormField>
-          <FormField label="Código interno (opcional)">
+          <FormField label="Código interno">
             <input value={internalCode} onChange={(e) => setInternalCode(e.target.value)} placeholder="ej. BO42451" className="spira-mono" style={fieldInput} />
           </FormField>
-          <FormField label="Patrocinante (opcional)">
+          <FormField label="Patrocinante">
             <input value={sponsor} onChange={(e) => setSponsor(e.target.value)} placeholder="Sponsor" style={fieldInput} />
           </FormField>
-          <FormField label="Investigador principal (opcional)">
+          <FormField label="Investigador principal">
             <input value={investigator} onChange={(e) => setInvestigator(e.target.value)} placeholder="ej. Dr. Ricardo Funes" style={fieldInput} />
           </FormField>
-          <FormField label="Especialidad (opcional)">
+          <FormField label="Especialidad">
             <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="ej. Cardiología" style={fieldInput} />
           </FormField>
-          <FormField label="Fase (opcional)">
+          <FormField label="Fase">
             <input value={phase} onChange={(e) => setPhase(e.target.value)} placeholder="ej. Fase III" style={fieldInput} />
           </FormField>
           <div style={{ gridColumn: '1 / -1' }}>
-            <FormField label="Descripción (opcional)">
+            <FormField label="Descripción">
               <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Pista corta del ensayo" style={fieldInput} />
             </FormField>
           </div>
@@ -106,16 +106,16 @@ export function EditProtocolForm({ protocol, accentSolid, onClose, onUpdated }: 
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" onClick={() => setConfirming(false)} style={btnOutline}>Volvé</button>
+              <button type="button" onClick={() => setConfirming(false)} style={btnOutline}>Volver</button>
               <button type="button" onClick={() => void doSave()} disabled={busy} style={{ ...btnPrimary(accentSolid), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
-                {busy ? 'Guardando…' : 'Sí, guardá'}
+                {busy ? 'Guardando…' : 'Sí, guardar'}
               </button>
             </div>
           </div>
         ) : (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <button type="button" onClick={onClose} style={btnOutline}>Cancelá</button>
-            <button type="submit" style={btnPrimary(accentSolid)}>Guardá cambios</button>
+            <button type="button" onClick={onClose} style={btnOutline}>Cancelar</button>
+            <button type="submit" style={btnPrimary(accentSolid)}>Guardar cambios</button>
           </div>
         )}
       </form>
