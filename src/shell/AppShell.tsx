@@ -8,8 +8,10 @@ import { MODULES } from '../modules/registry'
 import { resolveView } from '../views/registry'
 import type { ViewHeader, ViewHeaderCrumb } from '../views/types'
 
-/* Crumb del breadcrumb del encabezado: clickeable si trae onClick (subraya al hover). */
-function Crumb({ crumb, color }: { crumb: ViewHeaderCrumb; color: string }) {
+/* Crumb del breadcrumb del encabezado. Color uniforme tipo breadcrumb (sin acento):
+   el actual (sin onClick) en tinta; los padres clickeables en gris. Subraya al hover. */
+function Crumb({ crumb }: { crumb: ViewHeaderCrumb }) {
+  const color = crumb.onClick ? 'var(--spira-muted)' : 'var(--spira-ink)'
   if (!crumb.onClick) {
     return <span className={crumb.mono ? 'spira-mono' : undefined} style={{ color, fontWeight: 600 }}>{crumb.label}</span>
   }
@@ -231,11 +233,11 @@ export function AppShell() {
                 {mod.full}
                 <Icon name="chevronRight" size={13} color="var(--spira-faint)" />
                 {/* nombre del submódulo: clickeable si la vista registró rootOnClick (vuelve a su raíz) */}
-                <Crumb crumb={{ label: sub.name, onClick: viewHeader?.rootOnClick }} color={viewHeader?.rootOnClick ? 'var(--spira-muted)' : 'var(--spira-ink)'} />
+                <Crumb crumb={{ label: sub.name, onClick: viewHeader?.rootOnClick }} />
                 {(viewHeader?.crumbs ?? []).map((c, i) => (
                   <Fragment key={i}>
                     <Icon name="chevronRight" size={13} color="var(--spira-faint)" />
-                    <Crumb crumb={c} color={accent} />
+                    <Crumb crumb={c} />
                   </Fragment>
                 ))}
               </div>
