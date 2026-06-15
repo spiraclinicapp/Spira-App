@@ -26,6 +26,7 @@ copias que diverjan). Para una vista combinada: `cat migrations/*.sql` o `supaba
 | 0016 | `v_track_visits_extend_and_kpis.sql` | amplía `v_track_visits` (offset_days, enrollment_date, treating_physician) + crea `v_protocol_kpis` (tablero del protocolo) |
 | 0017 | `protocols_patients_new_columns.sql` | columnas nuevas: protocols (investigador/especialidad/código interno), patients (sex, fertility) |
 | 0018 | `create_patient_with_enrollment_v2.sql` | RPC de alta v2: suma `p_sex`/`p_fertility` (drop+recreate de la de 6 params) |
+| 0019 | `enrollments_update_gerencia.sql` | gerencia puede editar el enrolamiento (médico tratante); alinea la policy de UPDATE de `enrollments` con el resto (gerencia OR coordinadora asignada) |
 
 Además, `seed_smoke_test.sql` (en `supabase/`, fuera de `migrations/`) carga datos demo
 para validar el aislamiento de RLS. NO es para producción — ver instrucciones en su cabecera.
