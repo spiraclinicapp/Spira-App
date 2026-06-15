@@ -19,6 +19,7 @@ import { dayLabel, daysDiffISO, formatAR, todayISO } from '../lib/dates'
 import { PdVisitFlow } from './track/PdVisitFlow'
 import { PdFullSchedule } from './track/PdFullSchedule'
 import { RescheduleModal } from './track/RescheduleModal'
+import { EditPatientForm } from './EditPatientForm'
 import type { ViewHeader } from './types'
 
 const card: CSSProperties = {
@@ -36,6 +37,8 @@ export interface PatientFichaViewProps {
   onBack: () => void
   /** Volver a la grilla de protocolos (clic en el crumb "Protocolos"). */
   onGoList: () => void
+  /** Refetch de la lista de pacientes tras editar (los datos viven en usePatients del padre). */
+  onPatientUpdated: () => void
 }
 
 /** Modal de confirmación para registrar una visita como realizada. */
@@ -85,10 +88,14 @@ function RegisterVisitModal({ visit, accentSolid, idxLabel, onClose, onDone }: {
 
 /** Ficha del paciente: demográficos + contexto + adherencia + alertas | próxima visita + cronograma. */
 export function PatientFichaView(props: PatientFichaViewProps) {
-  const { patient, protocol, accent, accentSolid, canWrite, setHeader, onBack, onGoList } = props
+  const { patient, protocol, accent, accentSolid, canWrite, setHeader, onBack, onGoList, onPatientUpdated } = props
   const visitsQ = usePatientVisits(patient.id, protocol.id)
   const alertsQ = useVisitAlerts()
-  const [modal, setModal] = useState<null | 'reschedule' | 'register'>(null)
+  const [modal, setModal] = useState<null | 'reschedule' | 'register' | 'edit' | 'alerts'>(null)
+
+  /* Enrolamiento del protocolo en contexto: de ahí salen el médico y la fecha de
+     ingreso (sin depender de que existan visitas). */
+  const enrollment = patient.enrollments.find((e) => e.protocol?.id === protocol.id)
 
   const rows = visitsQ.data ?? []
   const idx = visitIndex(rows)
@@ -116,14 +123,17 @@ export function PatientFichaView(props: PatientFichaViewProps) {
     })
     return () => setHeader?.(null)
   }, [protocol.code, patient.code, canAct, setHeader])
-  const medico = rows[0]?.treating_physician ?? '—'
-  const enrollmentDate = rows[0]?.enrollment_date ?? null
+  const medico = enrollment?.treating_physician ?? '—'
+  const enrollmentDate = enrollment?.enrollment_date ?? null
   const age = ageFromBirth(patient.birth_date)
 
   const statusColor = current ? VISIT_STATES[current.computed_status].color : patient.status === 'activo' ? 'var(--spira-good)' : 'var(--spira-muted)'
   const statusLabel = current ? VISIT_STATES[current.computed_status].label : patient.status === 'activo' ? 'Activo' : 'Inactivo'
 
   const alerts = (alertsQ.data ?? []).filter((a) => a.patient_id === patient.id)
+  const alertColor = alerts.some((a) => a.computed_status === 'ventana_vencida')
+    ? VISIT_STATES.ventana_vencida.color
+    : VISIT_STATES.item_vencido.color
 
   const row = (label: string, value: ReactNode) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
@@ -149,6 +159,32 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       )}
       {modal === 'register' && current && (
         <RegisterVisitModal visit={current} accentSolid={accentSolid} idxLabel={`Visita ${idx.get(current.id)}`} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
+      )}
+      {modal === 'edit' && enrollment && (
+        <EditPatientForm
+          patient={patient}
+          enrollmentId={enrollment.id}
+          currentPhysician={enrollment.treating_physician}
+          accentSolid={accentSolid}
+          onClose={() => setModal(null)}
+          onUpdated={() => { setModal(null); onPatientUpdated(); visitsQ.refetch() }}
+        />
+      )}
+      {modal === 'alerts' && (
+        <Modal title="Alertas del paciente" onClose={() => setModal(null)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {alerts.map((a) => {
+              const c = VISIT_STATES[a.computed_status].color
+              const motivo = a.computed_status === 'ventana_vencida' ? `Ventana vencida · ${a.visit_name}` : `Ítem de checklist vencido · ${a.visit_name}`
+              return (
+                <div key={a.id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
+                  <Icon name={a.computed_status === 'ventana_vencida' ? 'alert' : 'clock'} size={18} color={c} style={{ flex: '0 0 auto', marginTop: 1 }} />
+                  <div style={{ fontSize: 13, color: 'var(--spira-ink)', lineHeight: 1.4 }}>{motivo}</div>
+                </div>
+              )
+            })}
+          </div>
+        </Modal>
       )}
 
       {/* cuerpo */}
@@ -191,24 +227,33 @@ export function PatientFichaView(props: PatientFichaViewProps) {
             </div>
           </div>
 
-          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
-            <div className="spira-eyebrow" style={{ marginBottom: 10 }}>Alertas del paciente</div>
-            {alerts.length === 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '12px 13px', borderRadius: 11, background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', color: 'var(--spira-muted)', fontSize: 13 }}>
-                <Icon name="check" size={16} color="var(--spira-good)" /> Sin alertas activas
-              </div>
+          {/* acciones de la ficha: editar paciente + alertas (en botón con contador) */}
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {canWrite && (
+              <button
+                onClick={() => setModal('edit')}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.background = 'var(--spira-white)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--spira-line-2)'; e.currentTarget.style.background = 'var(--spira-surface)' }}
+                style={{ width: '100%', height: 40, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-surface)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)', display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px', transition: 'border-color .14s, background .14s' }}
+              >
+                <Icon name="pencil" size={16} color={accent} />
+                <span style={{ flex: 1, textAlign: 'left' }}>Editar paciente</span>
+                <Icon name="chevronRight" size={15} color="var(--spira-faint)" />
+              </button>
+            )}
+            {alerts.length > 0 ? (
+              <button
+                onClick={() => setModal('alerts')}
+                style={{ width: '100%', height: 40, borderRadius: 10, border: `1px solid ${alertColor}40`, background: alertColor + '0E', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600, color: alertColor, display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px' }}
+              >
+                <Icon name="alert" size={16} color={alertColor} />
+                <span style={{ flex: 1, textAlign: 'left' }}>Alertas ({alerts.length})</span>
+                <Icon name="chevronRight" size={15} color={alertColor} />
+              </button>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {alerts.map((a) => {
-                  const c = VISIT_STATES[a.computed_status].color
-                  const motivo = a.computed_status === 'ventana_vencida' ? `Ventana vencida · ${a.visit_name}` : `Ítem de checklist vencido · ${a.visit_name}`
-                  return (
-                    <div key={a.id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
-                      <Icon name={a.computed_status === 'ventana_vencida' ? 'alert' : 'clock'} size={18} color={c} style={{ flex: '0 0 auto', marginTop: 1 }} />
-                      <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', lineHeight: 1.4 }}>{motivo}</div>
-                    </div>
-                  )
-                })}
+              <div style={{ width: '100%', height: 40, borderRadius: 10, border: '1px solid var(--spira-line)', background: 'var(--spira-surface)', fontSize: 13, fontWeight: 600, color: 'var(--spira-muted)', display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px' }}>
+                <Icon name="check" size={16} color="var(--spira-good)" />
+                <span>Sin alertas activas</span>
               </div>
             )}
           </div>

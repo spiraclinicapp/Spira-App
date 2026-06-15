@@ -205,6 +205,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
         setHeader={setHeader}
         onBack={() => setNav({ mode: 'protocol', protocolId: proto.id })}
         onGoList={() => setNav({ mode: 'list' })}
+        onPatientUpdated={() => patients.refetch()}
       />
     )
   }
