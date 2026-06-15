@@ -95,7 +95,7 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
             {FERTILITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </FormField>
-        <FormField label="Médico tratante (opcional)">
+        <FormField label="Médico tratante">
           <input value={physician} onChange={(e) => setPhysician(e.target.value)}
             placeholder="Médico tratante" style={fieldInput} />
         </FormField>

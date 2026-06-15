@@ -29,7 +29,7 @@ export interface TrackVisitRow {
   enrollment_status: string
   /** Fecha de ingreso del paciente al protocolo (del enrollment). Migración 0016. */
   enrollment_date: string
-  /** Médico tratante del enrollment en contexto. Nullable. Migración 0016. */
+  /** Médico tratante del paciente. Nullable. Migración 0016 (origen movido a patients en 0020). */
   treating_physician: string | null
   protocol_code: string
   protocol_name: string

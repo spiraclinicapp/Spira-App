@@ -123,7 +123,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
     })
     return () => setHeader?.(null)
   }, [protocol.code, patient.code, canAct, setHeader])
-  const medico = enrollment?.treating_physician ?? '—'
+  const medico = patient.treating_physician ?? '—'
   const enrollmentDate = enrollment?.enrollment_date ?? null
   const age = ageFromBirth(patient.birth_date)
 
@@ -160,11 +160,9 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       {modal === 'register' && current && (
         <RegisterVisitModal visit={current} accentSolid={accentSolid} idxLabel={`Visita ${idx.get(current.id)}`} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
       )}
-      {modal === 'edit' && enrollment && (
+      {modal === 'edit' && (
         <EditPatientForm
           patient={patient}
-          enrollmentId={enrollment.id}
-          currentPhysician={enrollment.treating_physician}
           accentSolid={accentSolid}
           onClose={() => setModal(null)}
           onUpdated={() => { setModal(null); onPatientUpdated(); visitsQ.refetch() }}

@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
-import { updatePatient, updateEnrollmentPhysician } from '../data/patients'
+import { updatePatient } from '../data/patients'
 import type { PatientRow, PatientStatus } from '../data/patients'
 import { FERTILITY_OPTIONS } from '../lib/visits'
 
@@ -16,9 +16,6 @@ const DANGER_BORDER = 'rgba(166, 72, 59, 0.28)'
 
 interface EditPatientFormProps {
   patient: PatientRow
-  /** Enrolamiento del protocolo en contexto (para editar el médico). */
-  enrollmentId: string
-  currentPhysician: string | null
   accentSolid: string
   onClose: () => void
   onUpdated: () => void
@@ -26,8 +23,8 @@ interface EditPatientFormProps {
 
 /**
  * Edición del paciente (modal ancho, 2 columnas, guardar con confirmación). Edita
- * datos de `patients` (número de sujeto IVRS, nombre, nacimiento, sexo, fertilidad,
- * estado) y el médico tratante del enrolamiento en contexto.
+ * todos los datos de `patients`: número de sujeto IVRS, nombre, nacimiento, sexo,
+ * fertilidad, estado y médico tratante (todos en una sola tabla → un solo UPDATE).
  *
  * El número de sujeto (`code`) es el identificador primario del paciente, visible
  * en toda la app y `unique` en la base. Editarlo es legítimo pero sensible: si
@@ -35,14 +32,14 @@ interface EditPatientFormProps {
  * número nuevo) para prevenir el error humano de tipear mal una identidad clínica.
  * El cambio queda auditado por trigger en la base (audit_log, before/after).
  */
-export function EditPatientForm({ patient, enrollmentId, currentPhysician, accentSolid, onClose, onUpdated }: EditPatientFormProps) {
+export function EditPatientForm({ patient, accentSolid, onClose, onUpdated }: EditPatientFormProps) {
   const [code, setCode] = useState(patient.code)
   const [fullName, setFullName] = useState(patient.full_name)
   const [birthDate, setBirthDate] = useState(patient.birth_date ?? '')
   const [sex, setSex] = useState(patient.sex ?? '')
   const [fertility, setFertility] = useState(patient.fertility ?? '')
   const [status, setStatus] = useState<PatientStatus>(patient.status)
-  const [physician, setPhysician] = useState(currentPhysician ?? '')
+  const [physician, setPhysician] = useState(patient.treating_physician ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -71,16 +68,9 @@ export function EditPatientForm({ patient, enrollmentId, currentPhysician, accen
       sex: sex || null,
       fertility: fertility || null,
       status,
+      treating_physician: physician.trim() || null,
     })
     if (res.error) { setBusy(false); setError(res.error); setConfirming(false); return }
-
-    /* El médico vive en enrollments; solo se actualiza si cambió (la RLS pide
-       coordinadora asignada, distinta de la de patients). */
-    const newPhysician = physician.trim() || null
-    if (newPhysician !== (currentPhysician || null)) {
-      const r2 = await updateEnrollmentPhysician(enrollmentId, newPhysician)
-      if (r2.error) { setBusy(false); setError(r2.error); setConfirming(false); return }
-    }
     setBusy(false)
     onUpdated()
   }
