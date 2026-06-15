@@ -66,7 +66,7 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
           onClick={() => { protocols.refetch(); patients.refetch(); upcoming.refetch(); alerts.refetch() }}
           style={{ ...btnOutline, alignSelf: 'flex-start' }}
         >
-          Reintentá
+          Reintentar
         </button>
       </div>
     )

@@ -73,9 +73,9 @@ function RegisterVisitModal({ visit, accentSolid, idxLabel, onClose, onDone }: {
           <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
         )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" onClick={onClose} style={btnOutline}>Cancelá</button>
+          <button type="button" onClick={onClose} style={btnOutline}>Cancelar</button>
           <button type="submit" disabled={busy} style={{ ...btnPrimary(accentSolid), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
-            {busy ? 'Guardando…' : 'Registrá visita'}
+            {busy ? 'Guardando…' : 'Registrar visita'}
           </button>
         </div>
       </form>

@@ -81,9 +81,9 @@ export function NewProtocolForm({ accentSolid, userId, onClose, onCreated }: New
         )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 2 }}>
-          <button type="button" onClick={onClose} style={btnOutline}>Cancelá</button>
+          <button type="button" onClick={onClose} style={btnOutline}>Cancelar</button>
           <button type="submit" disabled={busy} style={{ ...btnPrimary(accentSolid), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
-            {busy ? 'Guardando…' : 'Creá protocolo'}
+            {busy ? 'Guardando…' : 'Crear protocolo'}
           </button>
         </div>
       </form>

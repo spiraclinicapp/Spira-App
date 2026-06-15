@@ -72,9 +72,9 @@ function ItemForm({ initial, accentSolid, busy, onSave, onCancel }: {
         Obligatorio
       </label>
       <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-        <button type="button" onClick={onCancel} style={{ ...btnOutline, height: 38, fontSize: 13.5 }}>Cancelá</button>
+        <button type="button" onClick={onCancel} style={{ ...btnOutline, height: 38, fontSize: 13.5 }}>Cancelar</button>
         <button type="submit" disabled={busy} style={{ ...btnPrimary(accentSolid), height: 38, fontSize: 13.5, opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
-          {busy ? 'Guardando…' : 'Guardá ítem'}
+          {busy ? 'Guardando…' : 'Guardar ítem'}
         </button>
       </div>
     </form>
@@ -116,7 +116,7 @@ export function TemplatesView({ module, submodule }: ViewProps) {
           No pudimos cargar las plantillas. Probá de nuevo.
         </div>
         <button onClick={() => { templates.refetch(); protocols.refetch(); items.refetch() }} style={{ ...btnOutline, alignSelf: 'flex-start', height: 38, fontSize: 13.5 }}>
-          Reintentá
+          Reintentar
         </button>
       </div>
     )
@@ -232,7 +232,7 @@ export function TemplatesView({ module, submodule }: ViewProps) {
             style={{ ...tabPill(false), borderStyle: 'dashed' }}
           >
             <Icon name="plus" size={13} color="var(--spira-muted)" />
-            Personalizá <span className="spira-mono">{p.code}</span>
+            Personalizar <span className="spira-mono">{p.code}</span>
           </button>
         ))}
       </div>
@@ -279,9 +279,9 @@ export function TemplatesView({ module, submodule }: ViewProps) {
                       <span style={{ fontSize: 14, color: 'var(--spira-muted)', textDecoration: 'line-through', flex: 1, minWidth: 160 }}>{it.description}</span>
                       <span style={{ fontSize: 13, color: 'var(--spira-ink)' }}>¿Borrás este ítem?</span>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => setConfirmDelete(null)} style={{ ...btnOutline, height: 32, fontSize: 13, padding: '0 12px' }}>Cancelá</button>
+                        <button onClick={() => setConfirmDelete(null)} style={{ ...btnOutline, height: 32, fontSize: 13, padding: '0 12px' }}>Cancelar</button>
                         <button onClick={() => void removeItem(it.id)} disabled={busy} style={{ ...btnPrimary('var(--spira-danger)'), height: 32, fontSize: 13, padding: '0 12px', opacity: busy ? 0.7 : 1 }}>
-                          {busy ? 'Borrando…' : 'Borrá'}
+                          {busy ? 'Borrando…' : 'Borrar'}
                         </button>
                       </div>
                     </div>
@@ -305,10 +305,10 @@ export function TemplatesView({ module, submodule }: ViewProps) {
                         <button onClick={() => void move(i, 1)} disabled={i === rows.length - 1 || busy} aria-label="Bajar ítem" title="Bajá" className="spira-no-press" style={{ ...iconBtn, opacity: i === rows.length - 1 ? 0.3 : 1, cursor: i === rows.length - 1 ? 'default' : 'pointer' }}>
                           <Icon name="chevronDown" size={15} color="var(--spira-muted)" />
                         </button>
-                        <button onClick={() => { setEditing({ mode: 'edit', item: it }); setConfirmDelete(null); setMutError(null) }} aria-label="Editar ítem" title="Editá" style={iconBtn}>
+                        <button onClick={() => { setEditing({ mode: 'edit', item: it }); setConfirmDelete(null); setMutError(null) }} aria-label="Editar ítem" title="Editar" style={iconBtn}>
                           <Icon name="pencil" size={14} color="var(--spira-muted)" />
                         </button>
-                        <button onClick={() => { setConfirmDelete(it.id); setEditing(null); setMutError(null) }} aria-label="Borrar ítem" title="Borrá" style={iconBtn}>
+                        <button onClick={() => { setConfirmDelete(it.id); setEditing(null); setMutError(null) }} aria-label="Borrar ítem" title="Borrar" style={iconBtn}>
                           <Icon name="trash" size={14} color="var(--spira-muted)" />
                         </button>
                       </span>
@@ -334,7 +334,7 @@ export function TemplatesView({ module, submodule }: ViewProps) {
           {canEdit && !editing && (
             <div style={{ marginTop: 12 }}>
               <button onClick={() => { setEditing({ mode: 'new' }); setConfirmDelete(null); setMutError(null) }} style={{ ...btnOutline, height: 38, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 7 }}>
-                <Icon name="plus" size={16} color="var(--spira-ink)" /> Agregá ítem
+                <Icon name="plus" size={16} color="var(--spira-ink)" /> Agregar ítem
               </button>
             </div>
           )}

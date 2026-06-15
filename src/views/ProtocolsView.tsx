@@ -128,7 +128,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
           No pudimos cargar los protocolos. Probá de nuevo.
         </div>
         <button onClick={() => { protocols.refetch(); patients.refetch() }} style={{ ...btnOutline, alignSelf: 'flex-start' }}>
-          Reintentá
+          Reintentar
         </button>
       </div>
     )

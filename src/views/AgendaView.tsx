@@ -41,7 +41,7 @@ export function AgendaView({ module, submodule }: ViewProps) {
           No pudimos cargar la agenda. Probá de nuevo.
         </div>
         <button onClick={() => week.refetch()} style={{ ...btnOutline, alignSelf: 'flex-start', height: 38, fontSize: 13.5 }}>
-          Reintentá
+          Reintentar
         </button>
       </div>
     )

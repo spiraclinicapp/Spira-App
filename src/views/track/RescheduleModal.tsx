@@ -72,9 +72,9 @@ export function RescheduleModal({ visit, accentSolid, onClose, onDone }: {
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" onClick={() => setConfirming(false)} style={btnOutline}>Volvé</button>
+              <button type="button" onClick={() => setConfirming(false)} style={btnOutline}>Volver</button>
               <button type="button" onClick={() => void save()} disabled={busy} style={{ ...btnPrimary('var(--spira-warn)'), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
-                {busy ? 'Guardando…' : 'Confirmá igual'}
+                {busy ? 'Guardando…' : 'Confirmar igual'}
               </button>
             </div>
           </>
@@ -89,9 +89,9 @@ export function RescheduleModal({ visit, accentSolid, onClose, onDone }: {
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" onClick={onClose} style={btnOutline}>Cancelá</button>
+              <button type="button" onClick={onClose} style={btnOutline}>Cancelar</button>
               <button type="submit" disabled={busy} style={{ ...btnPrimary(accentSolid), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
-                {busy ? 'Guardando…' : 'Guardá fecha'}
+                {busy ? 'Guardando…' : 'Guardar fecha'}
               </button>
             </div>
           </form>

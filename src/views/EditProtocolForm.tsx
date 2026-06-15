@@ -38,7 +38,7 @@ export function EditProtocolForm({ protocol, accentSolid, onClose, onUpdated }: 
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
-  /* Primer "Guardá cambios" → pide confirmación; no guarda todavía. */
+  /* Primer "Guardar cambios" → pide confirmación; no guarda todavía. */
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
