@@ -88,8 +88,14 @@ export async function createPatientWithEnrollment(
   return { error: null }
 }
 
-/** Campos editables de un paciente (tabla patients). NO incluye code (número IVRS). */
+/**
+ * Campos editables de un paciente (tabla patients). Incluye `code` (número de
+ * sujeto IVRS): es el identificador primario y `unique` en la base, así que
+ * editarlo puede chocar con la constraint (ver updatePatient). El PK real es
+ * `id` (uuid); cambiar el code no afecta integridad referencial.
+ */
 export interface EditPatientInput {
+  code: string
   full_name: string
   birth_date: string | null
   sex: string | null
@@ -97,17 +103,27 @@ export interface EditPatientInput {
   status: PatientStatus
 }
 
+/** Traduce el código de error de Postgres a un mensaje sereno para la edición. */
+function updateErrorMessage(code: string | undefined, raw: string): string {
+  if (code === '23505') return 'Ya existe un paciente con ese número de sujeto. Probá con otro.'
+  if (code === '23502') return 'El número de sujeto no puede quedar vacío.'
+  if (code === '42501') return 'No tenés permiso para editar este paciente.'
+  return raw || 'No pudimos guardar los cambios. Probá de nuevo.'
+}
+
 /**
  * Edita los datos del paciente (UPDATE directo a patients; la RLS "track edita
- * pacientes propios" permite gerencia o coordinadora asignada). Devuelve error
- * claro si la RLS filtra en silencio.
+ * pacientes propios" permite gerencia o coordinadora asignada). El cambio queda
+ * auditado por trigger (audit_log, before/after). Devuelve un mensaje claro ante
+ * código duplicado (23505), vacío (23502), permiso (42501) o RLS que filtra en
+ * silencio (0 filas afectadas).
  */
 export async function updatePatient(
   patientId: string,
   input: EditPatientInput,
 ): Promise<{ error: string | null; code?: string }> {
   const { data, error } = await supabase.from('patients').update(input).eq('id', patientId).select('id')
-  if (error) return { error: error.message, code: error.code }
+  if (error) return { error: updateErrorMessage(error.code, error.message), code: error.code }
   if (!data || data.length === 0) return { error: 'No tenés permiso para editar este paciente.' }
   return { error: null }
 }
