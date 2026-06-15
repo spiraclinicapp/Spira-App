@@ -17,13 +17,11 @@ export interface ProtocolRow {
   principal_investigator: string | null
   /** Especialidad / área terapéutica. Nullable. Migración 0017. */
   specialty: string | null
-  /** Fase del ensayo (ej. "Fase III"). Nullable. Migración 0017. */
-  phase: string | null
   /** Código interno del sponsor, distinto del code público. Nullable. Migración 0017. */
   internal_code: string | null
 }
 
-const PROTOCOL_COLS = 'id, code, name, sponsor, status, description, principal_investigator, specialty, phase, internal_code'
+const PROTOCOL_COLS = 'id, code, name, sponsor, status, description, principal_investigator, specialty, internal_code'
 
 /**
  * Protocolos visibles para el usuario actual. La RLS scopea sola: una coordinadora ve
@@ -70,7 +68,6 @@ export interface EditProtocolInput {
   description: string | null
   principal_investigator: string | null
   specialty: string | null
-  phase: string | null
   internal_code: string | null
 }
 

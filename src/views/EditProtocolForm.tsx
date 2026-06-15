@@ -32,7 +32,6 @@ export function EditProtocolForm({ protocol, accentSolid, onClose, onUpdated }: 
   const [description, setDescription] = useState(protocol.description ?? '')
   const [investigator, setInvestigator] = useState(protocol.principal_investigator ?? '')
   const [specialty, setSpecialty] = useState(protocol.specialty ?? '')
-  const [phase, setPhase] = useState(protocol.phase ?? '')
   const [internalCode, setInternalCode] = useState(protocol.internal_code ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -54,7 +53,6 @@ export function EditProtocolForm({ protocol, accentSolid, onClose, onUpdated }: 
       description: description.trim() || null,
       principal_investigator: investigator.trim() || null,
       specialty: specialty.trim() || null,
-      phase: phase.trim() || null,
       internal_code: internalCode.trim() || null,
     })
     setBusy(false)
@@ -80,9 +78,6 @@ export function EditProtocolForm({ protocol, accentSolid, onClose, onUpdated }: 
           </FormField>
           <FormField label="Especialidad">
             <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="ej. Cardiología" style={fieldInput} />
-          </FormField>
-          <FormField label="Fase">
-            <input value={phase} onChange={(e) => setPhase(e.target.value)} placeholder="ej. Fase III" style={fieldInput} />
           </FormField>
           <div style={{ gridColumn: '1 / -1' }}>
             <FormField label="Descripción">

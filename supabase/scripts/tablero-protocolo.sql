@@ -59,10 +59,12 @@ revoke insert, update, delete, truncate, references, trigger on public.v_protoco
 
 -- ── 0017 · Columnas nuevas ──────────────────────────────────────────────────
 
+-- 'phase' (fase del ensayo) se descartó: se dropea por si quedó de una corrida previa.
+alter table public.protocols drop column if exists phase;
+
 alter table public.protocols
   add column if not exists principal_investigator text,
   add column if not exists specialty              text,
-  add column if not exists phase                  text,
   add column if not exists internal_code          text;
 
 alter table public.patients

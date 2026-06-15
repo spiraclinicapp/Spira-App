@@ -24,7 +24,7 @@ copias que diverjan). Para una vista combinada: `cat migrations/*.sql` o `supaba
 | 0014 | `checklist_templates_scoping.sql` | scoping de plantillas: global → track admin/gerencia; por protocolo → coordinadora asignada (operator+); + cierra la lectura de ítems sin scopear |
 | 0015 | `track_rpcs.sql` | RPCs de Track: alta de paciente con bypass gerencia/track-admin + `create_protocol_template` (atómica) + `swap_template_item_order` (atómica) |
 | 0016 | `v_track_visits_extend_and_kpis.sql` | amplía `v_track_visits` (offset_days, enrollment_date, treating_physician) + crea `v_protocol_kpis` (tablero del protocolo) |
-| 0017 | `protocols_patients_new_columns.sql` | columnas nuevas: protocols (investigador/especialidad/fase/código interno), patients (sex, fertility) |
+| 0017 | `protocols_patients_new_columns.sql` | columnas nuevas: protocols (investigador/especialidad/código interno), patients (sex, fertility) |
 | 0018 | `create_patient_with_enrollment_v2.sql` | RPC de alta v2: suma `p_sex`/`p_fertility` (drop+recreate de la de 6 params) |
 
 Además, `seed_smoke_test.sql` (en `supabase/`, fuera de `migrations/`) carga datos demo

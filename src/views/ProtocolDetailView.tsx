@@ -152,7 +152,6 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
             {metaRow('Sponsor', protocol.sponsor)}
             {metaRow('Investigador', protocol.principal_investigator)}
             {metaRow('Especialidad', protocol.specialty)}
-            {metaRow('Fase', protocol.phase)}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
