@@ -122,6 +122,7 @@ export async function updatePatient(
   patientId: string,
   input: EditPatientInput,
 ): Promise<{ error: string | null; code?: string }> {
+  if (!patientId) return { error: 'No se pudo identificar al paciente. Recargá la página e intentá de nuevo.' }
   const { data, error } = await supabase.from('patients').update(input).eq('id', patientId).select('id')
   if (error) return { error: updateErrorMessage(error.code, error.message), code: error.code }
   if (!data || data.length === 0) return { error: 'No tenés permiso para editar este paciente.' }
@@ -137,6 +138,7 @@ export async function updateEnrollmentPhysician(
   enrollmentId: string,
   physician: string | null,
 ): Promise<{ error: string | null; code?: string }> {
+  if (!enrollmentId) return { error: 'No se pudo identificar el enrolamiento del paciente. Recargá la página.' }
   const { data, error } = await supabase
     .from('enrollments')
     .update({ treating_physician: physician })

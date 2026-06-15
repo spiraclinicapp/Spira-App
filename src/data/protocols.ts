@@ -79,6 +79,7 @@ export async function updateProtocol(
   id: string,
   input: EditProtocolInput,
 ): Promise<{ error: string | null; code?: string }> {
+  if (!id) return { error: 'No se pudo identificar el protocolo. Recargá la página e intentá de nuevo.' }
   const { data, error } = await supabase.from('protocols').update(input).eq('id', id).select('id')
   if (error) return { error: error.message, code: error.code }
   if (!data || data.length === 0) return { error: 'No tenés permiso para editar este protocolo.' }
