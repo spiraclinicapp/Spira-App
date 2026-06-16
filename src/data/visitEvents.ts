@@ -32,6 +32,25 @@ export const POST_RANDO_KINDS: VisitKind[] = ['vnp', 'retest']
 /** Tipos de los que solo puede haber uno por enrolamiento (singletons). */
 export const SINGLETON_KINDS: VisitKind[] = ['firma', 'screening', 'firma_screening', 'randomizacion']
 
+/**
+ * Tipos de visita suelta disponibles para registrar, según la etapa y lo ya registrado.
+ * Espeja las reglas que valida el RPC server-side (singletons, exclusiones, randomización
+ * exige firma+screening, pre/post rando). Para que la UI no ofrezca algo que el RPC rechazaría.
+ */
+export function availableEventKinds(randomizationDate: string | null, used: VisitKind[]): VisitKind[] {
+  if (randomizationDate != null) return ['vnp', 'retest'] // post-rando
+  const has = (k: VisitKind) => used.includes(k)
+  const out: VisitKind[] = []
+  if (!has('firma') && !has('firma_screening')) out.push('firma')
+  if (!has('screening') && !has('firma_screening')) out.push('screening')
+  if (!has('firma_screening') && !has('firma') && !has('screening')) out.push('firma_screening')
+  out.push('vnp') // ilimitada
+  const firmaSat = has('firma') || has('firma_screening')
+  const screeningSat = has('screening') || has('firma_screening')
+  if (!has('randomizacion') && firmaSat && screeningSat) out.push('randomizacion')
+  return out
+}
+
 function eventError(code?: string, raw?: string): string {
   if (code === '42501') return raw || 'No tenés permiso para registrar esta visita.'
   if (code === '23502') return 'La fecha es obligatoria.'

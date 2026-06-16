@@ -1,15 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CSSProperties, FormEvent, ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
-import { FormField, fieldInput } from '../components/FormField'
-import { btnOutline, btnPrimary } from '../components/buttons'
 import type { ProtocolRow } from '../data/protocols'
 import type { PatientRow } from '../data/patients'
-import { registerVisit, usePatientVisits, useVisitAlerts } from '../data/visits'
-import type { TrackVisitRow } from '../data/visits'
+import { usePatientVisits, useVisitAlerts } from '../data/visits'
 import {
   adherence, ageFromBirth, currentVisit, visitIndex, weekNumber,
   FERTILITY_LABELS, SEX_LABELS,
@@ -19,6 +16,7 @@ import { dayLabel, daysDiffISO, formatAR, todayISO } from '../lib/dates'
 import { PdVisitFlow } from './track/PdVisitFlow'
 import { PdFullSchedule } from './track/PdFullSchedule'
 import { RescheduleModal } from './track/RescheduleModal'
+import { RegisterVisitFlow } from './track/RegisterVisitFlow'
 import { EditPatientForm } from './EditPatientForm'
 import type { ViewHeader } from './types'
 
@@ -41,51 +39,6 @@ export interface PatientFichaViewProps {
   onPatientUpdated: () => void
 }
 
-/** Modal de confirmación para registrar una visita como realizada. */
-function RegisterVisitModal({ visit, accentSolid, idxLabel, onClose, onDone }: {
-  visit: TrackVisitRow
-  accentSolid: string
-  idxLabel: string
-  onClose: () => void
-  onDone: () => void
-}) {
-  const [date, setDate] = useState(todayISO())
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const submit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setBusy(true)
-    setError(null)
-    const res = await registerVisit(visit.id, date)
-    setBusy(false)
-    if (res.error) { setError(res.error); return }
-    onDone()
-  }
-
-  return (
-    <Modal title="Registrar visita" onClose={onClose}>
-      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ fontSize: 13, color: 'var(--spira-muted)', lineHeight: 1.5 }}>
-          Vas a marcar <strong style={{ color: 'var(--spira-ink)' }}>{idxLabel} · {visit.visit_name}</strong> como realizada. Se genera su checklist a partir de la plantilla.
-        </div>
-        <FormField label="Fecha de realización">
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required autoFocus style={fieldInput} />
-        </FormField>
-        {error && (
-          <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
-        )}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" onClick={onClose} style={btnOutline}>Cancelar</button>
-          <button type="submit" disabled={busy} style={{ ...btnPrimary(accentSolid), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
-            {busy ? 'Guardando…' : 'Registrar visita'}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  )
-}
-
 /** Ficha del paciente: demográficos + contexto + adherencia + alertas | próxima visita + cronograma. */
 export function PatientFichaView(props: PatientFichaViewProps) {
   const { patient, protocol, accent, accentSolid, canWrite, setHeader, onBack, onGoList, onPatientUpdated } = props
@@ -103,8 +56,18 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   const adh = adherence(rows)
   const canAct = canWrite && current !== null && current.real_date === null
 
+  /* Para el flujo "Registrar visita": tipos ya registrados (filtra el selector) y la próxima
+     programada pendiente (post-rando, para marcarla como realizada). */
+  const usedKinds = rows.map((r) => r.kind)
+  const nextScheduled = current && current.real_date === null ? current : null
+  const nextScheduledLabel = nextScheduled
+    ? `Visita ${idx.get(nextScheduled.id) ?? ''}${nextScheduled.visit_name ? ` · ${nextScheduled.visit_name}` : ''}`
+    : ''
+
   /* Encabezado contextual del shell: Protocolos (→ grilla) › CÓDIGO (→ detalle) › PACIENTE,
-     + Reprogramar / Registrar visita a la derecha. Callbacks por ref (deps primitivas). */
+     + Reprogramar / Registrar visita a la derecha. Callbacks por ref (deps primitivas).
+     Registrar visita está disponible siempre (pre y post rando); Reprogramar solo si hay una
+     visita programada actual. */
   const cb = useRef({ onGoList, onBack, reschedule: () => setModal('reschedule'), register: () => setModal('register') })
   cb.current = { onGoList, onBack, reschedule: () => setModal('reschedule'), register: () => setModal('register') }
   useEffect(() => {
@@ -114,15 +77,13 @@ export function PatientFichaView(props: PatientFichaViewProps) {
         { label: protocol.code, mono: true, onClick: () => cb.current.onBack() },
         { label: patient.code ?? 'Sin IVRS', mono: true },
       ],
-      actions: canAct
-        ? [
-            { key: 'reprogramar', label: 'Reprogramar', icon: 'calendar', onClick: () => cb.current.reschedule() },
-            { key: 'registrar', label: 'Registrar visita', icon: 'clipboardCheck', primary: true, onClick: () => cb.current.register() },
-          ]
-        : [],
+      actions: [
+        ...(canAct ? [{ key: 'reprogramar', label: 'Reprogramar', icon: 'calendar' as const, onClick: () => cb.current.reschedule() }] : []),
+        ...(canWrite ? [{ key: 'registrar', label: 'Registrar visita', icon: 'clipboardCheck' as const, primary: true, onClick: () => cb.current.register() }] : []),
+      ],
     })
     return () => setHeader?.(null)
-  }, [protocol.code, patient.code, canAct, setHeader])
+  }, [protocol.code, patient.code, canAct, canWrite, setHeader])
   const medico = patient.treating_physician ?? '—'
   const enrollmentDate = enrollment?.enrollment_date ?? null
   const age = ageFromBirth(patient.birth_date)
@@ -157,8 +118,17 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       {modal === 'reschedule' && current && (
         <RescheduleModal visit={current} accentSolid={accentSolid} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
       )}
-      {modal === 'register' && current && (
-        <RegisterVisitModal visit={current} accentSolid={accentSolid} idxLabel={`Visita ${idx.get(current.id)}`} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
+      {modal === 'register' && enrollment && (
+        <RegisterVisitFlow
+          enrollmentId={enrollment.id}
+          randomizationDate={enrollment.randomization_date}
+          usedKinds={usedKinds}
+          nextScheduled={nextScheduled}
+          nextScheduledLabel={nextScheduledLabel}
+          accentSolid={accentSolid}
+          onClose={() => setModal(null)}
+          onDone={() => { setModal(null); visitsQ.refetch() }}
+        />
       )}
       {modal === 'edit' && (
         <EditPatientForm
