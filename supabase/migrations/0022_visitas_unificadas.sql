@@ -117,6 +117,67 @@ create trigger trg_materialize_checklist
 -- 5 · screening_date ya no se usa (el screening es una visita suelta)
 alter table public.enrollments drop column if exists screening_date;
 
+-- 5b · RPC de alta v5: SIN fechas de estudio (screening/randomización son visitas).
+--      IMPRESCINDIBLE: la v4 (0021) insertaba enrollments.screening_date, columna recién
+--      eliminada → sin esto, el alta de paciente falla. La randomización ya no ocurre en el
+--      alta (solo registrando su visita), así que también se saca p_randomization_date.
+drop function if exists public.create_patient_with_enrollment(text, text, uuid, date, text, text, text, date, date);
+
+create or replace function public.create_patient_with_enrollment(
+  p_code               text,
+  p_full_name          text,
+  p_protocol_id        uuid,
+  p_birth_date         date default null,
+  p_treating_physician text default null,
+  p_sex                text default null,
+  p_fertility          text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_uid     uuid := auth.uid();
+  v_patient uuid;
+begin
+  if v_uid is null then raise exception 'No autenticado' using errcode = '42501'; end if;
+  if p_protocol_id is null then raise exception 'Falta el protocolo' using errcode = '23502'; end if;
+  if not (
+    public.has_module('gerencia') or public.has_min_role('track', 'admin')
+    or (public.has_min_role('track', 'operator') and public.is_assigned_coordinator(p_protocol_id))
+  ) then
+    raise exception 'No tenés permiso para enrolar pacientes en este protocolo' using errcode = '42501';
+  end if;
+  if p_full_name is null or btrim(p_full_name) = '' then
+    raise exception 'El nombre es obligatorio' using errcode = '23502';
+  end if;
+
+  insert into public.patients (code, full_name, birth_date, sex, fertility, treating_physician, created_by)
+  values (
+    nullif(btrim(coalesce(p_code, '')), ''),
+    btrim(p_full_name), p_birth_date,
+    nullif(btrim(coalesce(p_sex, '')), ''),
+    nullif(btrim(coalesce(p_fertility, '')), ''),
+    nullif(btrim(coalesce(p_treating_physician, '')), ''),
+    v_uid
+  )
+  returning id into v_patient;
+
+  -- enrollment_date = fecha de alta (hoy). El cronograma se genera al registrar la randomización.
+  insert into public.enrollments (patient_id, protocol_id, enrolled_by, enrollment_date)
+  values (v_patient, p_protocol_id, v_uid, current_date);
+
+  return v_patient;
+end;
+$$;
+
+comment on function public.create_patient_with_enrollment is
+  'Alta atomica paciente + enrolamiento (v5): IVRS opcional, sin fechas de estudio (screening/rando son visitas). enrollment_date = current_date. SECURITY DEFINER con authz server-side.';
+
+revoke all on function public.create_patient_with_enrollment(text, text, uuid, date, text, text, text) from public;
+grant execute on function public.create_patient_with_enrollment(text, text, uuid, date, text, text, text) to authenticated;
+
 -- 6 · RPC: registrar una visita SUELTA (valida reglas + authz + ancla la rando)
 create or replace function public.register_visit_event(
   p_enrollment_id uuid, p_kind visit_kind, p_date date, p_notes text default null
