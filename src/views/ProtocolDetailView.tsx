@@ -6,10 +6,9 @@ import { EmptyState } from '../components/EmptyState'
 import type { ProtocolRow } from '../data/protocols'
 import type { PatientRow } from '../data/patients'
 import { useProtocolVisits } from '../data/visits'
-import type { TrackVisitRow } from '../data/visits'
 import { useProtocolKpis } from '../data/protocolKpis'
 import { toCsv, downloadCsv } from '../lib/csv'
-import { visitIndex } from '../lib/visits'
+import { groupVisitsByPatient, visitIndex } from '../lib/visits'
 import { PdPatientRow } from './track/PdPatientRow'
 import type { ViewHeader } from './types'
 
@@ -75,15 +74,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
   }
 
   /* Visitas agrupadas por paciente (para el tracker de cada fila). */
-  const visitsByPatient = useMemo(() => {
-    const map = new Map<string, TrackVisitRow[]>()
-    for (const v of visits.data ?? []) {
-      const list = map.get(v.patient_id)
-      if (list) list.push(v)
-      else map.set(v.patient_id, [v])
-    }
-    return map
-  }, [visits.data])
+  const visitsByPatient = useMemo(() => groupVisitsByPatient(visits.data ?? []), [visits.data])
 
   const k = kpis.data
   const adherencePct = k && k.visits_total > 0 ? Math.round((k.visits_done / k.visits_total) * 100) : 0

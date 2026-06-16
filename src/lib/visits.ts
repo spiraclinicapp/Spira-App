@@ -6,6 +6,17 @@ import type { TrackVisitRow } from '../data/visits'
  * y la tarjeta "Próxima visita". No mutan la entrada.
  */
 
+/** Agrupa visitas por patient_id (para alimentar el tracker de cada fila en listas). */
+export function groupVisitsByPatient(rows: TrackVisitRow[]): Map<string, TrackVisitRow[]> {
+  const map = new Map<string, TrackVisitRow[]>()
+  for (const v of rows) {
+    const list = map.get(v.patient_id)
+    if (list) list.push(v)
+    else map.set(v.patient_id, [v])
+  }
+  return map
+}
+
 /** Ordena por sort_order asc; desempata por estimated_date. */
 export function orderVisits(rows: TrackVisitRow[]): TrackVisitRow[] {
   return [...rows].sort((a, b) =>

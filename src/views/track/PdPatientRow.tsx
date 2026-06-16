@@ -15,10 +15,13 @@ const microLabel: CSSProperties = { fontSize: 9.5, textTransform: 'uppercase', l
  * código + médico) + tracker Anterior→Actualidad→Próxima + "Abrir ficha". Click en la
  * fila despliega el tracker horizontal completo; "Abrir ficha" navega (stopPropagation).
  */
-export function PdPatientRow({ patient, visits, accent, onOpen }: {
+export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: {
   patient: PatientRow
   visits: TrackVisitRow[]
   accent: string
+  /** Código del protocolo, opcional: se muestra como chip junto al IVRS en listas
+   * cruza-protocolos (Todos los pacientes). El tablero de un protocolo lo omite. */
+  protocolCode?: string
   onOpen: (patientId: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -49,7 +52,12 @@ export function PdPatientRow({ patient, visits, accent, onOpen }: {
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
             <PrivacyAvatar fullName={patient.full_name} size={40} color={accent} />
             <div style={{ minWidth: 0 }}>
-              <div className="spira-mono" style={{ fontSize: 14.5, fontWeight: 500, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <span className="spira-mono" style={{ fontSize: 14.5, fontWeight: 500, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</span>
+                {protocolCode && (
+                  <span className="spira-mono" style={{ fontSize: 11.5, padding: '1px 8px', borderRadius: 'var(--spira-radius-pill)', background: accent + '14', color: accent, whiteSpace: 'nowrap', flex: '0 0 auto' }}>{protocolCode}</span>
+                )}
+              </div>
               <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{medico}</div>
             </div>
           </div>

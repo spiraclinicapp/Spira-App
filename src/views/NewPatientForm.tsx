@@ -40,8 +40,6 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
   const [fertility, setFertility] = useState('')
   const [code, setCode] = useState('')
   const [physician, setPhysician] = useState('')
-  const [screeningDate, setScreeningDate] = useState('')
-  const [randomizationDate, setRandomizationDate] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -57,8 +55,6 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
       sex: sex || null,
       fertility: fertility || null,
       treating_physician: physician.trim() || null,
-      screening_date: screeningDate || null,
-      randomization_date: randomizationDate || null,
     })
     setBusy(false)
     if (res.error) { setError(friendlyError(res.code, res.error)); return }
@@ -115,19 +111,7 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
           <FormField label="Médico tratante">
             <input value={physician} onChange={(e) => setPhysician(e.target.value)} placeholder="Médico tratante" style={fieldInput} />
           </FormField>
-          <FormField label="Fecha de screening">
-            <input type="date" value={screeningDate} onChange={(e) => setScreeningDate(e.target.value)} style={fieldInput} />
-          </FormField>
-          <FormField label="Fecha de randomización">
-            <input type="date" value={randomizationDate} onChange={(e) => setRandomizationDate(e.target.value)} style={fieldInput} />
-          </FormField>
         </div>
-
-        {randomizationDate && (
-          <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', lineHeight: 1.4 }}>
-            Con la randomización cargada, el cronograma de visitas se genera al crear el paciente.
-          </div>
-        )}
 
         {error && (
           <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>

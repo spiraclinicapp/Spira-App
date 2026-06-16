@@ -103,6 +103,25 @@ export function useProtocolVisits(protocolId: string | null) {
 }
 
 /**
+ * Todas las visitas visibles para el usuario (sin filtro de protocolo; la RLS de
+ * v_track_visits con security_invoker las scopea). Para la vista "Todos los pacientes":
+ * se agrupan por paciente en el front para alimentar el tracker de cada fila. Mismo
+ * orden estable patient_code → sort_order que useProtocolVisits.
+ */
+export function useAllVisits() {
+  return useSupabaseQuery<TrackVisitRow[]>(
+    (c) =>
+      c
+        .from('v_track_visits')
+        .select('*')
+        .order('patient_code', { ascending: true })
+        .order('sort_order', { ascending: true })
+        .returns<TrackVisitRow[]>(),
+    [],
+  )
+}
+
+/**
  * Visitas de un paciente en un protocolo concreto (para la Ficha del Paciente).
  * Se filtra por patient_id + protocol_id porque un paciente puede estar en varios
  * protocolos; el cronograma/ficha es el del enrollment en contexto.

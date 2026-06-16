@@ -16,9 +16,8 @@ export interface PatientEnrollment {
   id: string
   /** Fecha de alta al protocolo (inmutable). Migración 0021: dejó de ser el ancla de visitas. */
   enrollment_date: string
-  /** Fecha de screening. Nullable. Migración 0021. */
-  screening_date: string | null
-  /** Fecha de randomización: ancla del cronograma (al cargarla se generan las visitas). Nullable. Migración 0021. */
+  /** Fecha de randomización: ancla del cronograma + flag de etapa (null = pre-rando). La setea el
+   * registro de la visita de randomización. Nullable. Migración 0021. */
   randomization_date: string | null
   protocol: PatientProtocol | null
 }
@@ -49,7 +48,7 @@ export function usePatients() {
     (c) =>
       c
         .from('patients')
-        .select('id, code, full_name, status, birth_date, sex, fertility, treating_physician, enrollments(id, enrollment_date, screening_date, randomization_date, protocol:protocols(id, code, name))')
+        .select('id, code, full_name, status, birth_date, sex, fertility, treating_physician, enrollments(id, enrollment_date, randomization_date, protocol:protocols(id, code, name))')
         .order('code', { ascending: true })
         .returns<PatientRow[]>(),
     [],
@@ -68,17 +67,13 @@ export interface NewPatientInput {
   sex: string | null
   /** Fertilidad (valor ascii). Migración 0017/0018. */
   fertility: string | null
-  /** Fecha de screening (opcional). Migración 0021. */
-  screening_date: string | null
-  /** Fecha de randomización (opcional): al cargarla se genera el cronograma. Migración 0021. */
-  randomization_date: string | null
 }
 
 /**
- * Alta atómica de paciente + enrolamiento vía la función RPC `create_patient_with_enrollment`
- * (v4, migración 0021: IVRS opcional + fechas screening/randomization, sin enrollment_date —
- * la fecha de alta la fija el server con current_date). El actor (created_by/enrolled_by) lo
- * fija el server con auth.uid(); la autorización se valida dentro de la función.
+ * Alta atómica de paciente + enrolamiento vía la función RPC `create_patient_with_enrollment`.
+ * El paciente nace SIN visitas y SIN fechas de estudio: el screening/randomización se registran
+ * después como visitas (modelo 0022). El actor (created_by/enrolled_by) lo fija el server con
+ * auth.uid(); la fecha de alta la pone el server con current_date; la autorización se valida adentro.
  */
 export async function createPatientWithEnrollment(
   input: NewPatientInput,
@@ -91,8 +86,6 @@ export async function createPatientWithEnrollment(
     p_treating_physician: input.treating_physician,
     p_sex: input.sex,
     p_fertility: input.fertility,
-    p_screening_date: input.screening_date,
-    p_randomization_date: input.randomization_date,
   })
   if (error) return { error: error.message, code: error.code }
   return { error: null }
@@ -139,28 +132,5 @@ export async function updatePatient(
   const { data, error } = await supabase.from('patients').update(input).eq('id', patientId).select('id')
   if (error) return { error: updateErrorMessage(error.code, error.message), code: error.code }
   if (!data || data.length === 0) return { error: 'No tenés permiso para editar este paciente.' }
-  return { error: null }
-}
-
-/** Fechas del estudio editables en un enrolamiento (no incluye enrollment_date, que es inmutable). */
-export interface EnrollmentDatesInput {
-  screening_date: string | null
-  randomization_date: string | null
-}
-
-/**
- * Carga/edita las fechas de screening y randomización de un enrolamiento (UPDATE a
- * enrollments; la RLS permite gerencia o coordinadora asignada). Al setear la
- * randomización por primera vez, un trigger genera el cronograma de visitas.
- * Solo se llama si alguna fecha cambió.
- */
-export async function updateEnrollmentDates(
-  enrollmentId: string,
-  input: EnrollmentDatesInput,
-): Promise<{ error: string | null; code?: string }> {
-  if (!enrollmentId) return { error: 'No se pudo identificar el enrolamiento del paciente. Recargá la página.' }
-  const { data, error } = await supabase.from('enrollments').update(input).eq('id', enrollmentId).select('id')
-  if (error) return { error: error.message, code: error.code }
-  if (!data || data.length === 0) return { error: 'No tenés permiso para editar las fechas de este paciente.' }
   return { error: null }
 }

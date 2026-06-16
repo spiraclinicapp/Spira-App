@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
-import { updatePatient, updateEnrollmentDates } from '../data/patients'
+import { updatePatient } from '../data/patients'
 import type { PatientRow, PatientStatus } from '../data/patients'
 import { FERTILITY_OPTIONS } from '../lib/visits'
 
@@ -16,10 +16,6 @@ const DANGER_BORDER = 'rgba(166, 72, 59, 0.28)'
 
 interface EditPatientFormProps {
   patient: PatientRow
-  /** Enrolamiento del protocolo en contexto (para editar las fechas del estudio). */
-  enrollmentId: string
-  screeningDate: string | null
-  randomizationDate: string | null
   accentSolid: string
   onClose: () => void
   onUpdated: () => void
@@ -27,15 +23,14 @@ interface EditPatientFormProps {
 
 /**
  * Edición del paciente (modal ancho, 2 columnas, guardar con confirmación). Edita los
- * datos de `patients` (IVRS, nombre, nacimiento, sexo, fertilidad, estado, médico) y las
- * fechas del estudio del enrolamiento en contexto (screening / randomización).
+ * datos de `patients` (IVRS, nombre, nacimiento, sexo, fertilidad, estado, médico).
  *
  * El IVRS (`code`) es opcional (se asigna en randomización) pero, una vez cargado, es el
  * identificador primario del paciente: cambiarlo refuerza la confirmación con un patrón
- * type-to-confirm. Cargar la fecha de randomización por primera vez dispara la generación
- * del cronograma de visitas (trigger en la base).
+ * type-to-confirm. Las fechas del estudio (screening/randomización) ya no se editan acá:
+ * se registran como visitas (modelo 0022).
  */
-export function EditPatientForm({ patient, enrollmentId, screeningDate, randomizationDate, accentSolid, onClose, onUpdated }: EditPatientFormProps) {
+export function EditPatientForm({ patient, accentSolid, onClose, onUpdated }: EditPatientFormProps) {
   const originalCode = patient.code ?? ''
   const [code, setCode] = useState(originalCode)
   const [fullName, setFullName] = useState(patient.full_name)
@@ -44,8 +39,6 @@ export function EditPatientForm({ patient, enrollmentId, screeningDate, randomiz
   const [fertility, setFertility] = useState(patient.fertility ?? '')
   const [status, setStatus] = useState<PatientStatus>(patient.status)
   const [physician, setPhysician] = useState(patient.treating_physician ?? '')
-  const [screening, setScreening] = useState(screeningDate ?? '')
-  const [randomization, setRandomization] = useState(randomizationDate ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -54,8 +47,6 @@ export function EditPatientForm({ patient, enrollmentId, screeningDate, randomiz
   /* Reconfirmación reforzada SOLO cuando ya había un IVRS y se cambia (riesgo de
      pisar una identidad clínica). Agregar uno donde no había no necesita type-to-confirm. */
   const codeIdentityChange = originalCode.trim() !== '' && code.trim() !== originalCode.trim()
-  /* La randomización dispara el cronograma: avisar si se carga por primera vez. */
-  const willGenerateVisits = !randomizationDate && randomization.trim() !== ''
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -77,15 +68,6 @@ export function EditPatientForm({ patient, enrollmentId, screeningDate, randomiz
       treating_physician: physician.trim() || null,
     })
     if (res.error) { setBusy(false); setError(res.error); setConfirming(false); return }
-
-    /* Las fechas viven en enrollments; solo se actualizan si cambiaron. Setear la
-       randomización por primera vez genera el cronograma (trigger). */
-    const newScreening = screening || null
-    const newRand = randomization || null
-    if (newScreening !== (screeningDate || null) || newRand !== (randomizationDate || null)) {
-      const r2 = await updateEnrollmentDates(enrollmentId, { screening_date: newScreening, randomization_date: newRand })
-      if (r2.error) { setBusy(false); setError(r2.error); setConfirming(false); return }
-    }
     setBusy(false)
     onUpdated()
   }
@@ -130,11 +112,6 @@ export function EditPatientForm({ patient, enrollmentId, screeningDate, randomiz
             </FormField>
           </div>
 
-          {/* ── Datos del estudio ── */}
-          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--spira-faint)' }}>Datos del estudio</span>
-            <div style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
-          </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <FormField label="Número de sujeto (IVRS)">
               <input value={code} onChange={(e) => setCode(e.target.value)}
@@ -148,18 +125,6 @@ export function EditPatientForm({ patient, enrollmentId, screeningDate, randomiz
               </div>
             )}
           </div>
-          <FormField label="Fecha de screening">
-            <input type="date" value={screening} onChange={(e) => setScreening(e.target.value)} style={fieldInput} />
-          </FormField>
-          <FormField label="Fecha de randomización">
-            <input type="date" value={randomization} onChange={(e) => setRandomization(e.target.value)} style={fieldInput} />
-          </FormField>
-          {willGenerateVisits && (
-            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, fontSize: 12.5, lineHeight: 1.4, color: 'var(--spira-muted)' }}>
-              <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="clock" size={15} color="var(--spira-muted)" /></span>
-              <span>Al guardar se generará el cronograma de visitas desde la fecha de randomización.</span>
-            </div>
-          )}
         </div>
 
         {error && (

@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { useAuth } from '../lib/auth'
+import { groupVisitsByPatient } from '../lib/visits'
 import { useProtocols } from '../data/protocols'
 import type { ProtocolRow, ProtocolStatus } from '../data/protocols'
 import { usePatients } from '../data/patients'
 import type { PatientProtocol, PatientRow } from '../data/patients'
+import { useAllVisits } from '../data/visits'
 import { PatientsTable } from './PatientsTable'
+import { PdPatientRow } from './track/PdPatientRow'
 import { NewProtocolForm } from './NewProtocolForm'
 import { NewPatientForm } from './NewPatientForm'
 import { ProtocolDetailView } from './ProtocolDetailView'
@@ -214,6 +217,14 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
 
   // ---- Modo: todos los pacientes ----
   if (nav.mode === 'all') {
+    /* "Abrir ficha" desde acá: la ficha necesita el protocolo de contexto. Como un
+       paciente puede estar en varios, se toma su enrolamiento primario (primero con
+       protocolo visible), igual que la búsqueda unificada. Sin protocolo → no-op. */
+    const openFromAll = (patientId: string) => {
+      const pt = allPatients.find((p) => p.id === patientId)
+      const protocolId = pt?.enrollments.find((e) => e.protocol != null)?.protocol?.id ?? null
+      if (protocolId) setNav({ mode: 'patient', protocolId, patientId })
+    }
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -222,7 +233,13 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
           </button>
           <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 18, letterSpacing: '-0.01em' }}>Todos los pacientes</div>
         </div>
-        <PatientsTable key="all" patients={allPatients} accent={accent} accentSolid={accentSolid} />
+        {/* Track: filas plegables con tracker de visitas. Pharma no ve patient_visits
+            (sin SELECT en RLS), así que mantiene la tabla plana de siempre. */}
+        {isTrack ? (
+          <AllPatientsList patients={allPatients} accent={accent} onOpenPatient={openFromAll} />
+        ) : (
+          <PatientsTable key="all" patients={allPatients} accent={accent} accentSolid={accentSolid} />
+        )}
       </div>
     )
   }
@@ -380,6 +397,96 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {allProtocols.map((p) => renderCard(p))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Lista de "Todos los pacientes" (Track): filas plegables `PdPatientRow` con el tracker
+ * de visitas, reusando el mismo componente del tablero de protocolo. Trae todas las
+ * visitas visibles de una (RLS las scopea) y las agrupa por paciente; cada fila muestra
+ * solo las del protocolo primario del paciente (evita mezclar V1..Vn entre protocolos).
+ * Subcomponente para aislar los hooks (el branch que lo invoca es un return temprano).
+ */
+function AllPatientsList({ patients, accent, onOpenPatient }: {
+  patients: PatientRow[]
+  accent: string
+  onOpenPatient: (patientId: string) => void
+}) {
+  const visits = useAllVisits()
+  const [query, setQuery] = useState('')
+  const visitsByPatient = useMemo(() => groupVisitsByPatient(visits.data ?? []), [visits.data])
+
+  const q = query.trim().toLowerCase()
+  const filtered = q
+    ? patients.filter((p) => (p.code ?? '').toLowerCase().includes(q) || p.full_name.toLowerCase().includes(q))
+    : patients
+
+  if (visits.error) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
+          <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
+          No pudimos cargar las visitas. Probá de nuevo.
+        </div>
+        <button onClick={() => visits.refetch()} style={{ ...btnOutline, alignSelf: 'flex-start' }}>Reintentar</button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* toolbar: búsqueda local + contador (misma semántica que PatientsTable) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={searchWrap}>
+          <span style={{ position: 'absolute', left: 11, display: 'grid', placeItems: 'center', pointerEvents: 'none', zIndex: 1 }}>
+            <Icon name="search" size={16} color="var(--spira-muted)" />
+          </span>
+          <input
+            className="spira-search-input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar por código o nombre"
+            aria-label="Buscar pacientes"
+            style={searchInput}
+          />
+          {query && (
+            <button onClick={() => setQuery('')} title="Limpiar" aria-label="Limpiar búsqueda" style={{ position: 'absolute', right: 7, width: 24, height: 24, border: 'none', borderRadius: 7, background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+              <Icon name="x" size={15} color="var(--spira-muted)" />
+            </button>
+          )}
+        </div>
+        <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--spira-muted)' }}>
+          {visits.loading ? 'Cargando…' : `${filtered.length} ${filtered.length === 1 ? 'paciente' : 'pacientes'}`}
+        </span>
+      </div>
+
+      {/* filas plegables o estado vacío */}
+      {filtered.length === 0 ? (
+        <EmptyState
+          accent={accent}
+          icon="users"
+          title={q ? 'Sin resultados' : 'Sin pacientes'}
+          description={q ? 'No encontramos pacientes con ese criterio.' : 'Todavía no hay pacientes para mostrar.'}
+        />
+      ) : (
+        <div>
+          {filtered.map((pt) => {
+            const proto = pt.enrollments.find((e) => e.protocol != null)?.protocol ?? null
+            const ptVisits = proto ? (visitsByPatient.get(pt.id) ?? []).filter((v) => v.protocol_id === proto.id) : []
+            return (
+              <PdPatientRow
+                key={pt.id}
+                patient={pt}
+                visits={ptVisits}
+                accent={accent}
+                protocolCode={proto?.code}
+                onOpen={onOpenPatient}
+              />
+            )
+          })}
         </div>
       )}
     </div>

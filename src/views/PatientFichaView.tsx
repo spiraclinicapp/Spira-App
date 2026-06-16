@@ -160,12 +160,9 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       {modal === 'register' && current && (
         <RegisterVisitModal visit={current} accentSolid={accentSolid} idxLabel={`Visita ${idx.get(current.id)}`} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
       )}
-      {modal === 'edit' && enrollment && (
+      {modal === 'edit' && (
         <EditPatientForm
           patient={patient}
-          enrollmentId={enrollment.id}
-          screeningDate={enrollment.screening_date}
-          randomizationDate={enrollment.randomization_date}
           accentSolid={accentSolid}
           onClose={() => setModal(null)}
           onUpdated={() => { setModal(null); onPatientUpdated(); visitsQ.refetch() }}
