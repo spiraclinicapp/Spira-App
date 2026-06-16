@@ -17,16 +17,29 @@ export function groupVisitsByPatient(rows: TrackVisitRow[]): Map<string, TrackVi
   return map
 }
 
-/** Ordena por sort_order asc; desempata por estimated_date. */
-export function orderVisits(rows: TrackVisitRow[]): TrackVisitRow[] {
-  return [...rows].sort((a, b) =>
-    a.sort_order !== b.sort_order ? a.sort_order - b.sort_order : a.estimated_date.localeCompare(b.estimated_date),
-  )
+/** Fecha "efectiva" para ordenar/ubicar: estimada (programadas) o real (sueltas). */
+function effectiveDate(v: TrackVisitRow): string {
+  return v.estimated_date ?? v.real_date ?? ''
 }
 
-/** Mapa id → V# (1-based sobre el orden). */
+/** Solo las visitas del cronograma (kind 'programada'); las sueltas son historial. */
+export function scheduledVisits(rows: TrackVisitRow[]): TrackVisitRow[] {
+  return rows.filter((v) => v.kind === 'programada')
+}
+
+/** Ordena cronológicamente por fecha efectiva; desempata por sort_order (sueltas al final del empate). */
+export function orderVisits(rows: TrackVisitRow[]): TrackVisitRow[] {
+  return [...rows].sort((a, b) => {
+    const da = effectiveDate(a)
+    const db = effectiveDate(b)
+    if (da !== db) return da.localeCompare(db)
+    return (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER)
+  })
+}
+
+/** Mapa id → V# (1-based) SOLO sobre las visitas programadas (las sueltas se etiquetan por kind). */
 export function visitIndex(rows: TrackVisitRow[]): Map<string, number> {
-  const ordered = orderVisits(rows)
+  const ordered = orderVisits(scheduledVisits(rows))
   const map = new Map<string, number>()
   ordered.forEach((v, i) => map.set(v.id, i + 1))
   return map
@@ -34,20 +47,20 @@ export function visitIndex(rows: TrackVisitRow[]): Map<string, number> {
 
 /**
  * Semana del estudio de una visita: offset_days / 7 redondeado. Es una etiqueta
- * de presentación — si los offsets no son múltiplos de 7 da el más cercano.
+ * de presentación. null para las sueltas (no tienen offset).
  */
-export function weekNumber(row: TrackVisitRow): number {
-  return Math.round(row.offset_days / 7)
+export function weekNumber(row: TrackVisitRow): number | null {
+  return row.offset_days == null ? null : Math.round(row.offset_days / 7)
 }
 
 /**
- * "Actualidad" del paciente: primera visita no realizada en estado próxima; si no
- * hay, la más antigua con ventana vencida sin realizar; si todas están realizadas,
- * la última realizada. null si no hay visitas.
+ * "Actualidad" del paciente en el CRONOGRAMA: primera programada no realizada en estado próxima; si no
+ * hay, la más antigua con ventana vencida sin realizar; si todas están realizadas, la última realizada.
+ * null si no hay programadas (p. ej. pre-randomización).
  */
 export function currentVisit(rows: TrackVisitRow[]): TrackVisitRow | null {
-  if (rows.length === 0) return null
-  const ordered = orderVisits(rows)
+  const ordered = orderVisits(scheduledVisits(rows))
+  if (ordered.length === 0) return null
   const proxima = ordered.find((v) => v.real_date === null && v.computed_status === 'proxima')
   if (proxima) return proxima
   const vencida = ordered.find((v) => v.real_date === null && v.computed_status === 'ventana_vencida')
@@ -57,13 +70,13 @@ export function currentVisit(rows: TrackVisitRow[]): TrackVisitRow | null {
   return ordered[ordered.length - 1]
 }
 
-/** Tracker de 3 columnas: anterior realizada, actual, próxima no realizada. */
+/** Tracker de 3 columnas del cronograma: anterior programada, actual, próxima programada. */
 export function prevCurrentNext(rows: TrackVisitRow[]): {
   prev: TrackVisitRow | null
   current: TrackVisitRow | null
   next: TrackVisitRow | null
 } {
-  const ordered = orderVisits(rows)
+  const ordered = orderVisits(scheduledVisits(rows))
   const current = currentVisit(rows)
   if (!current) return { prev: null, current: null, next: null }
   const idx = ordered.findIndex((v) => v.id === current.id)
@@ -74,10 +87,11 @@ export function prevCurrentNext(rows: TrackVisitRow[]): {
   }
 }
 
-/** Adherencia = realizadas / programadas. pct = 0 si no hay visitas. */
+/** Adherencia = realizadas / programadas (solo cuentan las del cronograma; las sueltas no). */
 export function adherence(rows: TrackVisitRow[]): { done: number; planned: number; pct: number } {
-  const planned = rows.length
-  const done = rows.filter((v) => v.real_date !== null).length
+  const sch = scheduledVisits(rows)
+  const planned = sch.length
+  const done = sch.filter((v) => v.real_date !== null).length
   return { done, planned, pct: planned === 0 ? 0 : Math.round((done / planned) * 100) }
 }
 

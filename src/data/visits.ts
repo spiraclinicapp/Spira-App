@@ -1,29 +1,38 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
 import { addDaysISO, todayISO } from '../lib/dates'
+import type { VisitKind } from './visitEvents'
 
 /** Estado calculado de la visita (enum visit_status; lo deriva v_patient_visits al leer). */
 export type VisitStatus = 'futura' | 'proxima' | 'realizada' | 'completa' | 'item_vencido' | 'ventana_vencida'
 
 export type VisitType = 'presencial' | 'telefonica'
 
-/** Fila de la vista `v_track_visits` (migración 0013): visita + definición + protocolo + paciente. */
+/**
+ * Fila de la vista `v_track_visits` (migración 0013, kind en 0022): visita + definición + protocolo +
+ * paciente. Las visitas SUELTAS (kind <> 'programada') no tienen definición ni ventana → las columnas
+ * que vienen del `left join visit_definitions` (visit_def_id/estimated_date/window/visit_name/code/
+ * sort_order/offset_days) son nullables para ellas.
+ */
 export interface TrackVisitRow {
   id: string
   enrollment_id: string
-  visit_def_id: string
-  estimated_date: string
+  /** Tipo de visita. 'programada' = del cronograma; el resto, suelta. Migración 0022. */
+  kind: VisitKind
+  visit_def_id: string | null
+  estimated_date: string | null
   real_date: string | null
-  window_start: string
-  window_end: string
+  window_start: string | null
+  window_end: string | null
   notes: string | null
   computed_status: VisitStatus
   visit_code: string | null
-  visit_name: string
+  /** Nombre de la definición (null para sueltas → usar KIND_LABELS[kind]). */
+  visit_name: string | null
   visit_type: VisitType
-  sort_order: number
-  /** Offset en días de la definición de visita (para derivar Semana W#). Migración 0016. */
-  offset_days: number
+  sort_order: number | null
+  /** Offset en días de la definición de visita (para derivar Semana W#). Null para sueltas. Migración 0016. */
+  offset_days: number | null
   protocol_id: string
   patient_id: string
   enrollment_status: string
@@ -33,7 +42,7 @@ export interface TrackVisitRow {
   treating_physician: string | null
   protocol_code: string
   protocol_name: string
-  patient_code: string
+  patient_code: string | null
   patient_name: string
 }
 

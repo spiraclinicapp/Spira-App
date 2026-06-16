@@ -1,0 +1,74 @@
+import { supabase } from '../lib/supabase'
+
+/** Tipo de visita (enum visit_kind, migración 0022). `programada` = del cronograma; el resto, sueltas. */
+export type VisitKind = 'programada' | 'firma' | 'screening' | 'firma_screening' | 'randomizacion' | 'vnp' | 'retest'
+
+/** Etiqueta legible por tipo (para tracker y selector). */
+export const KIND_LABELS: Record<VisitKind, string> = {
+  programada: 'Programada',
+  firma: 'Firma',
+  screening: 'Screening',
+  firma_screening: 'Firma y Screening',
+  randomizacion: 'Randomización',
+  vnp: 'VNP',
+  retest: 'Retest',
+}
+
+/** Etiqueta corta por tipo (para el tracker horizontal, columnas angostas). */
+export const KIND_SHORT: Record<VisitKind, string> = {
+  programada: '',
+  firma: 'Firma',
+  screening: 'Scr',
+  firma_screening: 'F+S',
+  randomizacion: 'Rando',
+  vnp: 'VNP',
+  retest: 'Retest',
+}
+
+/** Tipos sueltos que se pueden registrar ANTES de la randomización. */
+export const PRE_RANDO_KINDS: VisitKind[] = ['firma', 'screening', 'firma_screening', 'vnp', 'randomizacion']
+/** Tipos sueltos que se pueden registrar DESPUÉS de la randomización. */
+export const POST_RANDO_KINDS: VisitKind[] = ['vnp', 'retest']
+/** Tipos de los que solo puede haber uno por enrolamiento (singletons). */
+export const SINGLETON_KINDS: VisitKind[] = ['firma', 'screening', 'firma_screening', 'randomizacion']
+
+function eventError(code?: string, raw?: string): string {
+  if (code === '42501') return raw || 'No tenés permiso para registrar esta visita.'
+  if (code === '23502') return 'La fecha es obligatoria.'
+  if (code === '23505') return 'Esa visita ya está registrada.'
+  return raw || 'No pudimos registrar la visita. Probá de nuevo.'
+}
+
+/**
+ * Registra una visita suelta (firma/screening/firma_screening/vnp/retest/randomizacion).
+ * Las reglas (singletons, exclusiones, etapa, randomización exige firma+screening) las valida
+ * el RPC server-side. Si es randomización, setea el ancla y genera el cronograma.
+ */
+export async function registerVisitEvent(
+  enrollmentId: string, kind: VisitKind, date: string, notes: string | null,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('register_visit_event', {
+    p_enrollment_id: enrollmentId, p_kind: kind, p_date: date, p_notes: notes,
+  })
+  if (error) return { error: eventError(error.code, error.message) }
+  return { error: null }
+}
+
+/** Edita la fecha/nota de una visita suelta (UPDATE directo; RLS de track operator+). */
+export async function editVisitEvent(
+  id: string, date: string, notes: string | null,
+): Promise<{ error: string | null }> {
+  const { data, error } = await supabase.from('patient_visits')
+    .update({ real_date: date, notes }).eq('id', id).select('id')
+  if (error) return { error: error.message }
+  if (!data || data.length === 0) return { error: 'No tenés permiso para editar esta visita.' }
+  return { error: null }
+}
+
+/** Borra una visita suelta (policy DELETE acotada a kind <> programada/randomizacion + operator+). */
+export async function deleteVisitEvent(id: string): Promise<{ error: string | null }> {
+  const { data, error } = await supabase.from('patient_visits').delete().eq('id', id).select('id')
+  if (error) return { error: error.message }
+  if (!data || data.length === 0) return { error: 'No se pudo borrar (es una visita programada/randomización o no tenés permiso).' }
+  return { error: null }
+}

@@ -29,7 +29,7 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
   const { prev, current, next } = prevCurrentNext(visits)
   const medico = visits[0]?.treating_physician ?? '—'
 
-  const cell = (v: typeof prev) => (v ? `V${idx.get(v.id)} · ${formatShortAR(v.estimated_date)}` : '—')
+  const cell = (v: typeof prev) => (v && v.estimated_date ? `V${idx.get(v.id)} · ${formatShortAR(v.estimated_date)}` : '—')
 
   const col = (label: string, value: string, isNow: boolean) => (
     <div style={{ minWidth: 88, textAlign: 'center' }}>

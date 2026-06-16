@@ -19,13 +19,15 @@ export function RescheduleModal({ visit, accentSolid, onClose, onDone }: {
   onClose: () => void
   onDone: () => void
 }) {
-  const [date, setDate] = useState(visit.estimated_date)
+  const [date, setDate] = useState(visit.estimated_date ?? '')
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /* Strings YYYY-MM-DD comparan bien lexicográficamente. */
-  const outsideWindow = date < visit.window_start || date > visit.window_end
+  /* Strings YYYY-MM-DD comparan bien lexicográficamente. Solo se reagendan programadas
+     (con ventana); el guard de null es defensivo. */
+  const outsideWindow = visit.window_start != null && visit.window_end != null
+    && (date < visit.window_start || date > visit.window_end)
 
   const save = async () => {
     setBusy(true)
@@ -57,7 +59,7 @@ export function RescheduleModal({ visit, accentSolid, onClose, onDone }: {
             {visit.visit_code ? <> · <span className="spira-mono">{visit.visit_code}</span></> : null} · {visit.visit_name}
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
-            Ventana permitida: <span className="spira-mono">{formatAR(visit.window_start)} – {formatAR(visit.window_end)}</span>
+            Ventana permitida: <span className="spira-mono">{visit.window_start ? formatAR(visit.window_start) : '—'} – {visit.window_end ? formatAR(visit.window_end) : '—'}</span>
           </div>
         </div>
 

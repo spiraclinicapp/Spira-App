@@ -49,6 +49,8 @@ export function AgendaView({ module, submodule }: ViewProps) {
 
   const byDay = new Map<string, TrackVisitRow[]>()
   for (const v of week.data ?? []) {
+    // La Agenda es del cronograma: las sueltas (sin estimated_date) no aplican.
+    if (!v.estimated_date) continue
     const list = byDay.get(v.estimated_date)
     if (list) list.push(v)
     else byDay.set(v.estimated_date, [v])

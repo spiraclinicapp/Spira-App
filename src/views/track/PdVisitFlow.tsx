@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
+import { KIND_SHORT } from '../../data/visitEvents'
 import { flowWindow, visitIndex, weekNumber } from '../../lib/visits'
 import { VISIT_STATES } from '../visitStates'
 import { formatShortAR } from '../../lib/dates'
@@ -65,12 +66,16 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
 
   const col = (v: TrackVisitRow) => {
     const cur = v.id === currentId
+    const n = idx.get(v.id)
+    const label = n != null ? `V${n}` : KIND_SHORT[v.kind]
+    const w = weekNumber(v)
+    const fecha = v.estimated_date ?? v.real_date
     return (
       <div key={v.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 72, flex: '0 0 auto' }}>
         <div style={{ height: 32, display: 'flex', alignItems: 'center' }}>{dot(v)}</div>
-        <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 12.5, color: cur ? accent : 'var(--spira-ink)', marginTop: 6, whiteSpace: 'nowrap' }}>V{idx.get(v.id)}</div>
-        <div style={{ fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>W{weekNumber(v)}</div>
-        <div className="spira-mono" style={{ fontSize: 10.5, color: 'var(--spira-faint)', marginTop: 1, whiteSpace: 'nowrap' }}>{formatShortAR(v.estimated_date)}</div>
+        <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 12.5, color: cur ? accent : 'var(--spira-ink)', marginTop: 6, whiteSpace: 'nowrap' }}>{label}</div>
+        <div style={{ fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>{w != null ? `W${w}` : 'suelta'}</div>
+        <div className="spira-mono" style={{ fontSize: 10.5, color: 'var(--spira-faint)', marginTop: 1, whiteSpace: 'nowrap' }}>{fecha ? formatShortAR(fecha) : '—'}</div>
       </div>
     )
   }

@@ -145,7 +145,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
 
   /* ventana: días hasta que cierra (window_end − hoy); "Vencida" si ya pasó. */
   let ventanaTxt = '—'
-  if (current && current.real_date === null) {
+  if (current && current.real_date === null && current.window_end) {
     const d = daysDiffISO(todayISO(), current.window_end)
     ventanaTxt = d < 0 ? 'Vencida' : `${d} d`
   }
@@ -274,7 +274,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                     <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{current && current.real_date === null ? 'Próxima visita' : 'Última visita'}</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 3 }}>
                       <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', color: current ? (VISIT_STATES[current.computed_status].color === '#7C8C87' ? 'var(--spira-ink)' : VISIT_STATES[current.computed_status].color) : 'var(--spira-ink)' }}>
-                        {current ? dayLabel(current.estimated_date) : '—'}
+                        {current && current.estimated_date ? dayLabel(current.estimated_date) : '—'}
                       </span>
                       {ventanaTxt !== '—' && <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>ventana {ventanaTxt}</span>}
                     </div>

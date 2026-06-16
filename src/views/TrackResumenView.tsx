@@ -6,6 +6,7 @@ import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
 import { useUpcomingVisits, useVisitAlerts } from '../data/visits'
 import type { TrackVisitRow, VisitType } from '../data/visits'
+import { KIND_LABELS } from '../data/visitEvents'
 import { dayLabel, formatAR } from '../lib/dates'
 import { VISIT_STATES, VisitChip } from './visitStates'
 import type { ViewProps } from './types'
@@ -84,6 +85,7 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
   /* Próximas visitas agrupadas por día (vienen ordenadas por fecha de la query). */
   const groups: { date: string; visits: TrackVisitRow[] }[] = []
   for (const v of upcomingRows) {
+    if (!v.estimated_date) continue // próximas visitas = del cronograma (las sueltas no tienen estimada)
     const last = groups[groups.length - 1]
     if (last && last.date === v.estimated_date) last.visits.push(v)
     else groups.push({ date: v.estimated_date, visits: [v] })
@@ -150,9 +152,10 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {alertRows.map((a) => {
                 const c = VISIT_STATES[a.computed_status].color
+                const vName = a.visit_name ?? KIND_LABELS[a.kind]
                 const motivo = a.computed_status === 'ventana_vencida'
-                  ? `Ventana vencida el ${formatAR(a.window_end)} · ${a.visit_name}`
-                  : `Ítem de checklist fuera de plazo · ${a.visit_name}`
+                  ? `Ventana vencida el ${a.window_end ? formatAR(a.window_end) : '—'} · ${vName}`
+                  : `Ítem de checklist fuera de plazo · ${vName}`
                 return (
                   <div key={a.id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
                     <span style={{ flex: '0 0 auto', marginTop: 1 }}>
