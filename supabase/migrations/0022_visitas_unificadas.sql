@@ -114,6 +114,29 @@ create trigger trg_materialize_checklist
   after insert or update on public.patient_visits
   for each row execute function public.materialize_checklist();
 
+-- 4b · generate_patient_visits: el guard anti-duplicado debe mirar SOLO las PROGRAMADAS.
+--      Con el modelo unificado, las sueltas (firma/screening/randomizacion) ya viven en
+--      patient_visits antes de randomizar; el guard de 0021 ('¿hay alguna visita?') las veía y
+--      NO generaba el cronograma. Ahora chequea kind='programada' (cronograma realmente generado).
+create or replace function public.generate_patient_visits()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.randomization_date is null then return new; end if;
+  if exists (select 1 from public.patient_visits where enrollment_id = new.id and kind = 'programada') then
+    return new;
+  end if;
+  insert into public.patient_visits
+    (enrollment_id, visit_def_id, kind, estimated_date, window_start, window_end)
+  select
+    new.id, vd.id, 'programada',
+    new.randomization_date + vd.offset_days,
+    new.randomization_date + vd.offset_days - vd.window_minus,
+    new.randomization_date + vd.offset_days + vd.window_plus
+  from public.visit_definitions vd
+  where vd.protocol_id = new.protocol_id;
+  return new;
+end; $$;
+
 -- 5 · screening_date ya no se usa (el screening es una visita suelta)
 alter table public.enrollments drop column if exists screening_date;
 
