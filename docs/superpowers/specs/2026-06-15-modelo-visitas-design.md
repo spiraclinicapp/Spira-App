@@ -3,7 +3,7 @@
 **Fecha:** 2026-06-15
 **Autor:** Lautaro Molina (con Claude)
 **Módulo:** Spira Track
-**Estado:** Diseño aprobado (enfoque B). Pendiente: review del usuario → plan de implementación.
+**Estado:** Diseño aprobado (**enfoque A — tabla unificada**). Pendiente: review del usuario → plan.
 
 ---
 
@@ -11,22 +11,23 @@
 
 Modelar el ciclo real de visitas de un paciente en un protocolo, que tiene **dos etapas**:
 
-1. **Pre-randomización** — eventos sueltos que se registran a medida que pasan (firma, screening,
+1. **Pre-randomización** — visitas sueltas que se registran a medida que pasan (firma, screening,
    visitas no programadas), sin cronograma fijo.
 2. **Post-randomización** — el cronograma del protocolo (V1, V2, V3…), que aparece anclado en la fecha
    de randomización y avanza visita por visita, con la posibilidad de registrar extras (VNP, retest).
 
-El alta de paciente deja de pedir fechas de estudio: el paciente nace sin visitas y todo se va
-registrando desde la ficha.
+El alta de paciente deja de pedir fechas de estudio: el paciente nace **sin visitas** y todo se va
+registrando desde la ficha. **Toda visita** (programada o suelta) lleva su checklist.
 
 ---
 
 ## 2. Modelo de dominio (reglas)
 
-### Tipos de evento (`kind`)
-`firma · screening · firma_screening · randomizacion · vnp · retest`
+### Tipo de visita (`kind`)
+`programada · firma · screening · firma_screening · randomizacion · vnp · retest`
+(`programada` = visita del cronograma del protocolo; el resto = visitas sueltas.)
 
-### Reglas
+### Reglas de las visitas sueltas
 
 | Tipo | Etapa | Cantidad | Notas |
 |---|---|---|---|
@@ -38,188 +39,196 @@ registrando desde la ficha.
 | **Retest** | **post-rando** | ilimitadas | repetición de una evaluación |
 
 - "Firma satisfecha" = existe `firma` **o** `firma_screening`. "Screening satisfecho" = existe
-  `screening` **o** `firma_screening`. La randomización exige ambas satisfechas.
+  `screening` **o** `firma_screening`. La randomización exige ambas.
 - **Etapa** se determina por `enrollments.randomization_date`: `null` = pre-rando; con valor = post-rando.
 - **No** contemplamos re-randomización (caso raro → manual; ver §10).
 
 ---
 
-## 3. Arquitectura (enfoque B — aprobado)
+## 3. Arquitectura (enfoque A — aprobado)
 
-Dos almacenamientos separados, una sola experiencia de usuario:
-
-- **`enrollment_events`** (tabla nueva): los hitos y extras (todos los `kind`).
-- **`patient_visits`** (intacta): el cronograma de visitas programadas, generado desde
-  `visit_definitions`.
-- **Puente:** registrar la **Randomización** setea `enrollments.randomization_date = event_date`, lo
-  que dispara el trigger `generate_patient_visits` (ya existente, migración 0021) y genera el
-  cronograma anclado en esa fecha.
-
-Por qué B y no "todo en `patient_visits`": no desestabiliza la maquinaria del cronograma (ventanas,
-estado calculado en `v_patient_visits`/`v_track_visits`, checklists). Los eventos son point-in-time
-(se registran después de ocurrir, siempre "realizados"), no encajan en el modelo de ventana/estado de
-las visitas programadas. La separación es más simple y de menor riesgo.
+**Todo en `patient_visits`**, con una columna `kind` que distingue la visita programada de las sueltas.
+Motivo del cambio respecto del primer borrador (que proponía una tabla aparte): el sistema de
+**checklists** ya está pegado a `patient_visits` (trigger de materialización). Como el usuario definió
+que **todas** las visitas llevan checklist, una tabla aparte obligaría a duplicar el aparato de
+checklist (tabla de ítems polimórfica + segundo trigger) y a mezclar dos fuentes en el tracker.
+Unificando: un solo origen, un solo trigger de checklist, un solo tracker. El costo es aflojar unas
+columnas de `patient_visits` (las sueltas no tienen ventana ni definición) y ajustar el cálculo de
+estado para ellas.
 
 ---
 
 ## 4. Esquema de datos
 
-### 4.1 Enum
+### 4.1 Enum + columna `kind`
 ```sql
-create type enrollment_event_kind as enum
-  ('firma', 'screening', 'firma_screening', 'randomizacion', 'vnp', 'retest');
-```
+create type visit_kind as enum
+  ('programada', 'firma', 'screening', 'firma_screening', 'randomizacion', 'vnp', 'retest');
 
-### 4.2 Tabla `enrollment_events`
+alter table public.patient_visits add column kind visit_kind not null default 'programada';
+```
+- Las filas existentes quedan en `programada` (el default + backfill explícito).
+
+### 4.2 Aflojar columnas (las visitas sueltas son point-in-time, sin ventana ni definición)
 ```sql
-create table public.enrollment_events (
-  id            uuid primary key default uuid_generate_v4(),
-  enrollment_id uuid not null references public.enrollments(id) on delete cascade,
-  kind          enrollment_event_kind not null,
-  event_date    date not null,
-  notes         text,
-  created_by    uuid not null references public.users(id),
-  created_at    timestamptz not null default now()
+alter table public.patient_visits
+  alter column visit_def_id  drop not null,
+  alter column estimated_date drop not null,
+  alter column window_start  drop not null,
+  alter column window_end    drop not null;
+
+-- Consistencia: programada ⟺ tiene definición y ventana; suelta ⟺ no.
+alter table public.patient_visits add constraint patient_visits_kind_shape check (
+  (kind = 'programada' and visit_def_id is not null and estimated_date is not null
+     and window_start is not null and window_end is not null)
+  or
+  (kind <> 'programada' and visit_def_id is null)
 );
 ```
-- Índice por `(enrollment_id, event_date)`.
-- Auditada por el trigger genérico de auditoría (como el resto).
-- Sin `updated_at`: los eventos son inmutables salvo borrado (ver §8 para política de edición/borrado —
-  decisión abierta menor).
+- Las sueltas guardan `real_date` (la fecha en que pasaron) y opcional `notes`; `estimated_date`/
+  ventana en `null`.
 
-### 4.3 Ajustes a `enrollments`
-- Se **mantiene** `randomization_date` (anclaje del cronograma, seteado por el RPC al registrar la
-  randomización; también sirve para saber si está randomizado).
-- Se **elimina** `screening_date` (agregada en 0021): el screening ahora es un evento; no hace falta
-  denormalizar. (Si la ficha quiere mostrar la fecha de screening, la lee del evento.)
-
-### 4.4 `patient_visits`
-Sin cambios. El cronograma se genera vía el trigger de 0021 cuando se setea `randomization_date`.
+### 4.3 `enrollments`
+- Se **mantiene** `randomization_date` (anclaje del cronograma + flag de "ya randomizado"). Lo setea
+  el RPC al registrar la visita de randomización → dispara el trigger de 0021 (ver §5).
+- Se **elimina** `screening_date` (agregada en 0021): el screening ahora es una visita suelta.
 
 ---
 
-## 5. RPC `register_enrollment_event` (SECURITY DEFINER)
+## 5. Triggers (cronograma + checklist + estado)
 
-Punto único de entrada server-side. Valida reglas + autoriza + (si randomización) setea el ancla.
+### 5.1 Generación del cronograma — reusar 0021
+Sin cambios: el trigger `generate_patient_visits` se dispara cuando se setea
+`enrollments.randomization_date` y genera las visitas `programada` ancladas en esa fecha.
+
+### 5.2 Materialización del checklist — extender a INSERT
+Hoy `materialize_checklist` corre `after update` cuando `real_date` pasa de null a un valor. Las
+visitas sueltas se **insertan** con `real_date` ya cargado, así que el trigger debe correr también
+`after insert` cuando `real_date is not null`. Misma plantilla (protocolo o global). Resultado: toda
+visita (programada al registrarse, o suelta al crearse) materializa su checklist.
+
+### 5.3 Estado calculado (`v_patient_visits` / `v_track_visits`)
+- **`programada`:** lógica actual (futura/proxima/realizada/completa/item_vencido/ventana_vencida) por
+  ventana + checklist.
+- **suelta:** no tiene ventana → nunca `ventana_vencida`/`futura`/`proxima`. Siempre tiene `real_date`
+  → estado por **checklist**: `realizada` → `completa` (todo el checklist ok) / `item_vencido` (ítem
+  obligatorio vencido).
+- **`v_track_visits`:** `left join visit_definitions` (antes inner) para no perder las sueltas; se
+  expone `kind`; para las sueltas el "nombre" sale del `kind` (Firma, Screening, VNP…) y el orden por
+  `real_date`.
+
+---
+
+## 6. RPC `register_visit_event` (SECURITY DEFINER) + edición/borrado
+
+Las visitas `programada` se siguen registrando con el `registerVisit` actual (UPDATE `real_date`). Las
+**sueltas** se crean/editan/borran por RPC, que centraliza reglas + authz:
 
 ```
-register_enrollment_event(p_enrollment_id uuid, p_kind enrollment_event_kind,
-                          p_event_date date, p_notes text) returns uuid
+register_visit_event(p_enrollment_id uuid, p_kind visit_kind, p_date date, p_notes text) returns uuid
 ```
+1. **Authz:** gerencia, track-admin, o coordinadora asignada (operator+) del protocolo.
+2. **Etapa** (por `randomization_date`): pre-rando permite firma/screening/firma_screening/vnp/
+   randomizacion; post-rando solo vnp/retest. `programada` nunca se crea por este RPC.
+3. **Singletons + exclusiones** (§2). **Randomización** exige firma + screening satisfechas.
+4. **Insert** en `patient_visits` (`kind`, `real_date = p_date`, `visit_def_id null`, `created`…).
+5. **Si `randomizacion`:** `update enrollments set randomization_date = p_date` → genera el cronograma.
 
-Lógica:
-1. **Authz:** gerencia, track-admin, o coordinadora asignada (operator+) del protocolo del enrolamiento.
-   (Mismo criterio que el alta / edición.)
-2. **Etapa:** leer `randomization_date` del enrolamiento.
-   - pre-rando (`null`): permitir `firma`, `screening`, `firma_screening`, `vnp`, `randomizacion`.
-   - post-rando (con valor): permitir solo `vnp`, `retest`.
-   - Rechazar lo no permitido con mensaje claro (errcode `42501`/`check_violation`).
-3. **Singletons + exclusiones:** `firma`/`screening`/`firma_screening`/`randomizacion` máx. 1;
-   `firma_screening` excluye `firma` y `screening` y viceversa.
-4. **Randomización exige** firma satisfecha + screening satisfecha.
-5. **Insertar** el evento (con `created_by = auth.uid()`).
-6. **Si `kind = randomizacion`:** `update enrollments set randomization_date = p_event_date where id = …`
-   → dispara `generate_patient_visits` (0021) → aparece el cronograma.
-
-Errores con mensajes serenos en castellano (patrón ya usado en el resto de RPCs).
+- **Editar** una visita suelta (fecha/nota): `update patient_visits` (RLS de track). El `kind` no se
+  edita: para cambiarlo se borra y se recrea.
+- **Borrar** una visita suelta: permitido para `kind <> 'programada'` (RPC `delete_visit_event` o
+  policy DELETE acotada por kind + coordinador/gerencia). **Excepción:** la `randomizacion` no se borra
+  desde la UI una vez generado el cronograma (edge case → manual; ver §10).
 
 ---
 
-## 6. Flujo de UI
+## 7. Flujo de UI
 
-### 6.1 Alta de paciente (`NewPatientForm`)
-- **Se quitan** los campos "Fecha de screening" y "Fecha de randomización" (agregados en 0021).
-- Quedan: obligatorios (Nombre, Protocolo, Nacimiento, Sexo, Fertilidad) + opcionales (IVRS, Médico).
-- El **RPC de alta pasa a v5**: se le sacan `p_screening_date`/`p_randomization_date`. Importante para
-  correctitud: la randomización debe ocurrir **solo** vía `register_enrollment_event` (que valida
-  firma+screening). Si el alta pudiera setear `randomization_date`, se saltearía esa regla y se
-  generaría el cronograma sin firma/screening. El alta crea el paciente + enrolamiento **sin** visitas.
+### 7.1 Alta de paciente (`NewPatientForm`)
+- Se quitan los campos "Fecha de screening" y "Fecha de randomización" (0021).
+- El **RPC de alta pasa a v5** sin `p_screening_date`/`p_randomization_date`. La randomización ocurre
+  **solo** vía `register_visit_event` (que valida firma+screening); el alta nunca genera cronograma.
 
-### 6.2 "Registrar visita" en la ficha (un solo botón, comportamiento por etapa)
-- **Pre-rando:** abre un selector de tipo con los permitidos (Firma / Screening / Firma y Screening /
-  VNP / Randomización, filtrando los ya usados según reglas) + fecha (default hoy) + nota →
-  `register_enrollment_event`. Si es Randomización, al confirmar aparece el cronograma.
-- **Post-rando:** propone la **próxima visita programada** (marca `real_date` vía `registerVisit`
-  existente). Un control secundario permite registrar **VNP** o **Retest** → `register_enrollment_event`
-  (no consume la visita programada).
+### 7.2 "Registrar visita" en la ficha (un botón, comportamiento por etapa)
+- **Pre-rando:** selector de tipo (permitidos según reglas) + fecha (default hoy) + nota →
+  `register_visit_event`. Si es Randomización, al confirmar aparece el cronograma.
+- **Post-rando:** propone la **próxima `programada`** (marca `real_date` con `registerVisit`); control
+  secundario para **VNP/Retest** → `register_visit_event` (no consume la programada).
 
-### 6.3 Tracker ("pelotitas") — ficha
-Se combinan en el front dos fuentes ordenadas por fecha:
-- **eventos** (`enrollment_events`): firma, screening, rando, VNP, retest — siempre "realizados".
-- **visitas programadas** (`patient_visits` vía `v_track_visits`): post-rando, con su estado/ventana.
+### 7.3 Tracker ("pelotitas")
+Una sola fuente (`patient_visits` vía `v_track_visits`), ordenada por fecha. Pre-rando: solo las
+sueltas. Post-rando: historial de sueltas + cronograma con su progreso. **Adherencia** = realizadas/
+programadas cuenta **solo `kind = 'programada'`** (las sueltas son extras, no entran al denominador).
 
-Pre-rando: solo crecen los eventos. Post-rando: historial de eventos + el cronograma con su progreso.
-
-### 6.4 Editar paciente (`EditPatientForm`)
-- Se **quita** la sección "Datos del estudio" (inputs de fecha screening/randomización) agregada en la
-  iteración anterior: esas fechas ahora son eventos. (El IVRS opcional y el resto quedan igual.)
+### 7.4 Editar paciente (`EditPatientForm`)
+- Se quita la sección "Datos del estudio" (inputs de fecha) agregada antes: esas fechas ahora son
+  visitas. (IVRS opcional y el resto quedan igual.)
 
 ---
 
-## 7. Cambios al código existente
+## 8. Cambios al código
 
-**Revertir de la iteración 0021/anterior (no eran necesarios bajo el modelo B):**
-- `NewPatientForm`: sacar campos de fecha de estudio + sus props/estado.
-- RPC de alta → **v5** sin `p_screening_date`/`p_randomization_date` (la randomización solo vía el RPC
-  de eventos; el alta nunca genera cronograma).
-- `EditPatientForm`: sacar la sección "Datos del estudio"; sacar `updateEnrollmentDates` y las props
+**Revertir de la iteración 0021/anterior:**
+- `NewPatientForm`: sacar campos de fecha de estudio; RPC de alta → **v5** sin esas fechas.
+- `EditPatientForm`: sacar sección "Datos del estudio"; sacar `updateEnrollmentDates` y props
   `screeningDate`/`randomizationDate`.
-- `data/patients.ts`: sacar `screening_date`/`randomization_date` del embed de `usePatients` y de
-  `PatientEnrollment` (la ficha lee randomización del enrolamiento si la necesita, screening de eventos);
-  sacar `EnrollmentDatesInput`/`updateEnrollmentDates`; el RPC de alta deja de mandar las fechas.
+- `data/patients.ts`: sacar `screening_date` del embed/`PatientEnrollment`; **mantener**
+  `randomization_date` (para saber etapa en la UI); sacar `EnrollmentDatesInput`/`updateEnrollmentDates`.
 
-**Reutilizar (no tocar):**
-- `enrollments.randomization_date` + el trigger `generate_patient_visits` (0021).
-- `patient_visits`, `v_track_visits`, `v_patient_visits`, ventanas, estados, checklists.
-- `registerVisit` / `rescheduleVisit` para las visitas programadas post-rando.
+**Reutilizar (no tocar la lógica, solo extender donde dice §5):**
+- `enrollments.randomization_date` + `generate_patient_visits` (0021).
+- `registerVisit`/`rescheduleVisit` para las `programada`.
 
 **Nuevo:**
-- Migración: enum + tabla `enrollment_events` + RLS + RPC `register_enrollment_event` + drop
-  `enrollments.screening_date`.
-- `data/enrollmentEvents.ts`: `useEnrollmentEvents(enrollmentId)` + `registerEnrollmentEvent(...)`.
-- UI: selector de tipo + integración en la ficha y en el tracker.
+- Migración: enum `visit_kind` + columna + aflojar columnas + check + drop `screening_date` + extender
+  `materialize_checklist` a insert + ajustar `v_patient_visits`/`v_track_visits` (left join + estado de
+  sueltas + exponer `kind`) + RPC `register_visit_event` (+ borrado de sueltas).
+- `data/visits.ts`: `TrackVisitRow += kind`, columnas nullables; `registerVisitEvent`/`editVisitEvent`/
+  `deleteVisitEvent`; ajustar helpers de `lib/visits.ts` (current/próxima/adherencia consideran `kind`).
+- UI: selector de tipo + integración del "Registrar visita" por etapa en la ficha; el tracker
+  (`PdVisitFlow`/`PdFullSchedule`) muestra `kind` y las sueltas.
 
 ---
 
-## 8. Seguridad / auditoría / RLS
+## 9. Seguridad / auditoría / RLS
 
-- **`enrollment_events` con RLS:** SELECT = gerencia o coordinadora asignada del protocolo (vía
-  enrollment→protocol_coordinators); INSERT solo vía el RPC (SECURITY DEFINER); UPDATE/DELETE: gerencia
-  o coordinadora asignada (o append-only — **decisión abierta menor**, ver §10).
-- **Auditoría:** trigger genérico de auditoría sobre `enrollment_events` (before/after + actor).
-- El RPC fija `created_by = auth.uid()` (anti-spoofing del actor).
-
----
-
-## 9. Decisiones por defecto (a confirmar en review)
-
-1. **Los eventos no llevan checklist** (solo fecha + nota). Los checklists siguen siendo de las visitas
-   programadas.
-2. **`event_date`** por defecto hoy, editable.
-3. **El tracker mezcla en el front** (no se crea una vista SQL union por ahora).
-4. **Edición/borrado de eventos:** permitir borrar un evento (con la misma RLS); editar la fecha/nota
-   sí; cambiar el `kind` no (se borra y se recrea). *Alternativa:* append-only puro.
+- INSERT de visitas sueltas: **solo vía RPC** (SECURITY DEFINER). UPDATE: RLS de track existente
+  (coordinadora asignada/gerencia). DELETE: acotado a `kind <> 'programada'` + coordinadora/gerencia.
+- `materialize_checklist` y `generate_patient_visits` ya son SECURITY DEFINER (owner postgres).
+- Auditoría: `patient_visits` ya está auditada (trigger genérico). El cambio de `kind`/inserción queda
+  registrado.
 
 ---
 
-## 10. Pendientes / limitaciones conocidas
+## 10. Pendientes / limitaciones
 
-- **Re-randomización:** si se corrige la fecha de randomización después de generado el cronograma, hoy
-  no se regenera (guard anti-duplicado de 0021). Manual por ahora.
-- **Tracker del Detalle de Protocolo (`PdPatientRow`):** hoy muestra solo el cronograma. Para que
-  refleje a los pacientes pre-rando (que solo tienen eventos) habrá que sumarle los eventos. Se puede
-  hacer en una **segunda fase** (primero la ficha, después el tablero).
-- **`visit_definitions` anclados en randomización:** las definiciones de visita del protocolo deben
-  representar el cronograma **post-rando** (offset 0 = randomización). Revisar que los esquemas demo
-  estén cargados con ese criterio.
+- **Re-randomización:** corregir la fecha de rando con cronograma ya generado no regenera (guard
+  anti-duplicado de 0021). Manual. Tampoco se borra la visita de randomización desde la UI.
+- **Tracker del Detalle de Protocolo (`PdPatientRow`):** **2ª fase** (primero la ficha). Pre-rando
+  muestra las sueltas; hasta entonces puede decir "sin cronograma todavía".
+- **`visit_definitions` anclados en randomización:** las definiciones del protocolo representan el
+  cronograma **post-rando** (offset 0 = randomización). Revisar que los esquemas demo estén así.
+- **Estado de las sueltas:** se asume que una visita suelta está "realizada" al registrarse (se carga
+  después de que pasó). No tienen ventana.
 
 ---
 
-## 11. Fases de implementación (sugerido)
+## 11. Decisiones tomadas (review del usuario)
 
-1. **Base:** migración (enum + tabla + RLS + RPC + drop screening_date) + revertir las fechas del front
-   (alta/edición/data layer).
-2. **Registrar eventos:** `data/enrollmentEvents.ts` + selector de tipo + flujo "Registrar visita" por
-   etapa en la ficha.
-3. **Tracker ficha:** mezclar eventos + cronograma en `PdVisitFlow`/`PdFullSchedule`.
-4. **(Fase 2)** Tracker del Detalle de Protocolo + ajustes finos.
+1. **Checklist en TODAS las visitas** (sueltas incluidas) → motivó el enfoque A. Misma plantilla del
+   protocolo por ahora (checklists por tipo de visita = futuro).
+2. **Visitas sueltas editables** (fecha/nota) **y borrables** (salvo randomización post-cronograma).
+3. **Tracker del Detalle de Protocolo = 2ª fase.**
+4. `event_date`/`real_date` por defecto hoy, editable.
+
+---
+
+## 12. Fases de implementación (sugerido)
+
+1. **Base de datos:** migración completa (enum + columna + aflojar + check + drop screening_date +
+   triggers/vistas + RPCs). Verificar en vivo.
+2. **Reverts de front:** alta (v5, sin fechas) + editar paciente (sin "Datos del estudio") + data layer.
+3. **Registrar visitas sueltas:** data layer (`registerVisitEvent`/edit/delete) + selector de tipo +
+   flujo "Registrar visita" por etapa en la ficha + checklist de la suelta.
+4. **Tracker de la ficha:** `PdVisitFlow`/`PdFullSchedule` muestran sueltas + programadas + `kind`.
+5. **(Fase 2)** Tracker del Detalle de Protocolo.
