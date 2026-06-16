@@ -23,8 +23,15 @@ alter table public.patient_visits add constraint patient_visits_kind_shape check
   (kind =  'programada' and visit_def_id is not null and estimated_date is not null
      and window_start is not null and window_end is not null)
   or
-  (kind <> 'programada' and visit_def_id is null)
+  (kind <> 'programada' and visit_def_id is null and estimated_date is null
+     and window_start is null and window_end is null)
 );
+
+-- Singletons a nivel motor: a lo sumo una firma/screening/firma_screening/randomizacion por
+-- enrolamiento (ademas de la validacion del RPC; blinda carreras e inserts fuera del RPC).
+create unique index if not exists uq_pv_singleton_kind
+  on public.patient_visits (enrollment_id, kind)
+  where kind in ('firma','screening','firma_screening','randomizacion');
 
 -- 3 · recrear vistas para exponer kind (v_patient_visits usa pv.* → recrear;
 --     v_track_visits depende de ella → dropear primero).
@@ -180,10 +187,41 @@ grant execute on function public.register_visit_event(uuid, visit_kind, date, te
 drop policy if exists "track borra visitas sueltas" on public.patient_visits;
 create policy "track borra visitas sueltas" on public.patient_visits for delete using (
   kind <> 'programada' and kind <> 'randomizacion'
-  and (public.has_module('gerencia') or exists (
+  and (public.has_module('gerencia') or (public.has_min_role('track','operator') and exists (
     select 1 from public.enrollments e
     join public.protocol_coordinators pc on pc.protocol_id = e.protocol_id
-    where e.id = patient_visits.enrollment_id and pc.user_id = auth.uid()))
+    where e.id = patient_visits.enrollment_id and pc.user_id = auth.uid())))
 );
+
+-- 8 · auditar tambien el INSERT de patient_visits (las sueltas nacen por INSERT;
+--     el trigger original era solo update/delete → quedaban sin traza).
+drop trigger if exists trg_audit_patient_visits on public.patient_visits;
+create trigger trg_audit_patient_visits
+  after insert or update or delete on public.patient_visits
+  for each row execute function public.audit_row();
+
+-- 9 · v_protocol_kpis: los KPIs del protocolo son del CRONOGRAMA → contar solo
+--     visitas programadas (las sueltas no inflan visits_total/visits_done).
+create or replace view public.v_protocol_kpis
+with (security_invoker = true) as
+select
+  pr.id as protocol_id,
+  count(distinct e.id)                                          as enrolled,
+  count(distinct e.id) filter (where e.status = 'activo')       as active,
+  count(pv.id) filter (where pv.kind = 'programada')            as visits_total,
+  count(pv.id) filter (where pv.kind = 'programada' and pv.real_date is not null) as visits_done,
+  count(pv.id) filter (
+    where pv.kind = 'programada' and pv.real_date is null
+      and pv.window_end between current_date and current_date + 7
+  )                                                             as windows_due_7d
+from public.protocols pr
+left join public.enrollments e     on e.protocol_id = pr.id
+left join public.patient_visits pv on pv.enrollment_id = e.id
+group by pr.id;
+comment on view public.v_protocol_kpis is
+  'KPIs por protocolo (solo visitas programadas, no las sueltas). security_invoker: respeta RLS.';
+revoke all on public.v_protocol_kpis from anon;
+grant select on public.v_protocol_kpis to authenticated;
+revoke insert, update, delete, truncate, references, trigger on public.v_protocol_kpis from authenticated;
 
 notify pgrst, 'reload schema';
