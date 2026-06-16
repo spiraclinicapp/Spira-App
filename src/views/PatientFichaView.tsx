@@ -112,7 +112,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       rootOnClick: () => cb.current.onGoList(),
       crumbs: [
         { label: protocol.code, mono: true, onClick: () => cb.current.onBack() },
-        { label: patient.code, mono: true },
+        { label: patient.code ?? 'Sin IVRS', mono: true },
       ],
       actions: canAct
         ? [
@@ -160,9 +160,12 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       {modal === 'register' && current && (
         <RegisterVisitModal visit={current} accentSolid={accentSolid} idxLabel={`Visita ${idx.get(current.id)}`} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
       )}
-      {modal === 'edit' && (
+      {modal === 'edit' && enrollment && (
         <EditPatientForm
           patient={patient}
+          enrollmentId={enrollment.id}
+          screeningDate={enrollment.screening_date}
+          randomizationDate={enrollment.randomization_date}
           accentSolid={accentSolid}
           onClose={() => setModal(null)}
           onUpdated={() => { setModal(null); onPatientUpdated(); visitsQ.refetch() }}
@@ -192,7 +195,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', rowGap: 10 }}>
             <PrivacyAvatar fullName={patient.full_name} size={52} color={current ? statusColor : accent} />
             <div style={{ minWidth: 0 }}>
-              <div className="spira-mono" style={{ fontSize: 16, fontWeight: 500, color: 'var(--spira-ink)', whiteSpace: 'nowrap' }}>{patient.code}</div>
+              <div className="spira-mono" style={{ fontSize: 16, fontWeight: 500, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</div>
               <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3 }}>{medico}</div>
             </div>
             <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 13px', borderRadius: 10, background: statusColor + '14', border: `1px solid ${statusColor}38`, color: statusColor, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>

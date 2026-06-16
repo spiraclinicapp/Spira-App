@@ -49,7 +49,7 @@ export function PdPatientRow({ patient, visits, accent, onOpen }: {
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
             <PrivacyAvatar fullName={patient.full_name} size={40} color={accent} />
             <div style={{ minWidth: 0 }}>
-              <div className="spira-mono" style={{ fontSize: 14.5, fontWeight: 500, color: 'var(--spira-ink)', whiteSpace: 'nowrap' }}>{patient.code}</div>
+              <div className="spira-mono" style={{ fontSize: 14.5, fontWeight: 500, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</div>
               <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{medico}</div>
             </div>
           </div>

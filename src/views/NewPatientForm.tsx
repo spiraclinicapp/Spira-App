@@ -5,12 +5,11 @@ import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
 import { createPatientWithEnrollment } from '../data/patients'
 import type { ProtocolRow } from '../data/protocols'
-import { todayISO } from '../lib/dates'
 import { FERTILITY_OPTIONS } from '../lib/visits'
 
 /** Traduce el código de error de Postgres a un mensaje sereno en castellano. */
 function friendlyError(code?: string, message?: string): string {
-  if (code === '23505') return 'Ese código de paciente ya existe. Probá con otro.'
+  if (code === '23505') return 'Ese número de sujeto (IVRS) ya existe. Probá con otro.'
   if (code === '42501') {
     if (message && /coordin/i.test(message)) return 'No coordinás este protocolo, no podés enrolar pacientes ahí.'
     return 'No tenés permiso para crear pacientes.'
@@ -27,15 +26,22 @@ interface NewPatientFormProps {
   onCreated: () => void
 }
 
+/**
+ * Alta de paciente (modal ancho, 2 columnas). Primero los datos obligatorios de la
+ * persona, después los opcionales del estudio. El IVRS es opcional (se asigna en
+ * randomización). El cronograma de visitas se genera recién cuando se carga la fecha
+ * de randomización (acá o más tarde editando al paciente).
+ */
 export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, onCreated }: NewPatientFormProps) {
-  const [code, setCode] = useState('')
   const [fullName, setFullName] = useState('')
   const [protocol, setProtocol] = useState(protocolId)
-  const [enrollmentDate, setEnrollmentDate] = useState(todayISO())
   const [birthDate, setBirthDate] = useState('')
-  const [physician, setPhysician] = useState('')
   const [sex, setSex] = useState('')
   const [fertility, setFertility] = useState('')
+  const [code, setCode] = useState('')
+  const [physician, setPhysician] = useState('')
+  const [screeningDate, setScreeningDate] = useState('')
+  const [randomizationDate, setRandomizationDate] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -46,12 +52,13 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
     const res = await createPatientWithEnrollment({
       code: code.trim(),
       full_name: fullName.trim(),
-      birth_date: birthDate || null,
       protocol_id: protocol,
-      enrollment_date: enrollmentDate,
-      treating_physician: physician.trim() || null,
+      birth_date: birthDate || null,
       sex: sex || null,
       fertility: fertility || null,
+      treating_physician: physician.trim() || null,
+      screening_date: screeningDate || null,
+      randomization_date: randomizationDate || null,
     })
     setBusy(false)
     if (res.error) { setError(friendlyError(res.code, res.error)); return }
@@ -59,46 +66,68 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
   }
 
   return (
-    <Modal title="Nuevo paciente" onClose={onClose}>
-      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* El número de sujeto lo asigna el IVRS del sponsor (es dato que se carga, no lo genera Spira). */}
-        <FormField label="Número de sujeto (IVRS)">
-          <input value={code} onChange={(e) => setCode(e.target.value)} required autoFocus
-            placeholder="Número asignado por el IVRS" className="spira-mono" style={{ ...fieldInput, fontVariantNumeric: 'tabular-nums' }} />
-        </FormField>
-        <FormField label="Nombre completo">
-          <input value={fullName} onChange={(e) => setFullName(e.target.value)} required
-            placeholder="Nombre y apellido" style={fieldInput} />
-        </FormField>
-        <FormField label="Protocolo">
-          <select value={protocol} onChange={(e) => setProtocol(e.target.value)} required style={fieldInput}>
-            {protocols.map((p) => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
-          </select>
-        </FormField>
-        <FormField label="Fecha de enrolamiento">
-          <input type="date" value={enrollmentDate} onChange={(e) => setEnrollmentDate(e.target.value)} required style={fieldInput} />
-        </FormField>
-        <FormField label="Fecha de nacimiento (opcional)">
-          <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} style={fieldInput} />
-        </FormField>
-        <FormField label="Sexo (opcional)">
-          <select value={sex} onChange={(e) => setSex(e.target.value)} style={fieldInput}>
-            <option value="">Sin especificar</option>
-            <option value="F">Femenino</option>
-            <option value="M">Masculino</option>
-            <option value="Otro">Otro</option>
-          </select>
-        </FormField>
-        <FormField label="Fertilidad (opcional)">
-          <select value={fertility} onChange={(e) => setFertility(e.target.value)} style={fieldInput}>
-            <option value="">Sin especificar</option>
-            {FERTILITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </FormField>
-        <FormField label="Médico tratante">
-          <input value={physician} onChange={(e) => setPhysician(e.target.value)}
-            placeholder="Médico tratante" style={fieldInput} />
-        </FormField>
+    <Modal title="Nuevo paciente" onClose={onClose} maxWidth={640}>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          {/* ── Obligatorios ── */}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <FormField label="Nombre completo">
+              <input value={fullName} onChange={(e) => setFullName(e.target.value)} required autoFocus
+                placeholder="Nombre y apellido" style={fieldInput} />
+            </FormField>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <FormField label="Protocolo">
+              <select value={protocol} onChange={(e) => setProtocol(e.target.value)} required style={fieldInput}>
+                {protocols.map((p) => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
+              </select>
+            </FormField>
+          </div>
+          <FormField label="Fecha de nacimiento">
+            <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} required style={fieldInput} />
+          </FormField>
+          <FormField label="Sexo">
+            <select value={sex} onChange={(e) => setSex(e.target.value)} required style={fieldInput}>
+              <option value="">Elegí una opción</option>
+              <option value="F">Femenino</option>
+              <option value="M">Masculino</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </FormField>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <FormField label="Fertilidad">
+              <select value={fertility} onChange={(e) => setFertility(e.target.value)} required style={fieldInput}>
+                <option value="">Elegí una opción</option>
+                {FERTILITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </FormField>
+          </div>
+
+          {/* ── Opcionales ── */}
+          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--spira-faint)' }}>Opcionales</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
+          </div>
+          <FormField label="Número de sujeto (IVRS)">
+            <input value={code} onChange={(e) => setCode(e.target.value)}
+              placeholder="Se asigna en randomización" className="spira-mono" style={{ ...fieldInput, fontVariantNumeric: 'tabular-nums' }} />
+          </FormField>
+          <FormField label="Médico tratante">
+            <input value={physician} onChange={(e) => setPhysician(e.target.value)} placeholder="Médico tratante" style={fieldInput} />
+          </FormField>
+          <FormField label="Fecha de screening">
+            <input type="date" value={screeningDate} onChange={(e) => setScreeningDate(e.target.value)} style={fieldInput} />
+          </FormField>
+          <FormField label="Fecha de randomización">
+            <input type="date" value={randomizationDate} onChange={(e) => setRandomizationDate(e.target.value)} style={fieldInput} />
+          </FormField>
+        </div>
+
+        {randomizationDate && (
+          <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', lineHeight: 1.4 }}>
+            Con la randomización cargada, el cronograma de visitas se genera al crear el paciente.
+          </div>
+        )}
 
         {error && (
           <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>

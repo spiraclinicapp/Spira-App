@@ -284,7 +284,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
           background: 'transparent', cursor: target ? 'pointer' : 'default', font: 'inherit', color: 'inherit',
         }}
       >
-        <span className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-ink)' }}>{highlight(pt.code, q, accent)}</span>
+        <span className="spira-mono" style={{ fontSize: 13, color: pt.code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>{pt.code ? highlight(pt.code, q, accent) : 'Sin IVRS'}</span>
         {/* Privacidad: avatar en vez del nombre; la búsqueda sigue matcheando el nombre internamente. */}
         <span style={{ display: 'flex', alignItems: 'center' }}><PrivacyAvatar fullName={pt.full_name} size={28} color={accent} /></span>
         <span style={{ display: 'flex', gap: 6, overflow: 'hidden' }}>
@@ -301,7 +301,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
   }
 
   const matchedProtocols = allProtocols.filter((p) => includesCI(p.code, q) || includesCI(p.name, q))
-  const matchedPatients = allPatients.filter((pt) => includesCI(pt.code, q) || includesCI(pt.full_name, q))
+  const matchedPatients = allPatients.filter((pt) => includesCI(pt.code ?? '', q) || includesCI(pt.full_name, q))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

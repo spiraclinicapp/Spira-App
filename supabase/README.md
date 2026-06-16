@@ -28,6 +28,7 @@ copias que diverjan). Para una vista combinada: `cat migrations/*.sql` o `supaba
 | 0018 | `create_patient_with_enrollment_v2.sql` | RPC de alta v2: suma `p_sex`/`p_fertility` (drop+recreate de la de 6 params) |
 | 0019 | `enrollments_update_gerencia.sql` | gerencia puede editar el enrolamiento (médico tratante); alinea la policy de UPDATE de `enrollments` con el resto (gerencia OR coordinadora asignada). **Superada por 0020** (queda inocua) |
 | 0020 | `treating_physician_to_patients.sql` | mueve `treating_physician` de `enrollments` a `patients` (es atributo de la persona): columna + backfill + recrea `v_track_visits` y el RPC de alta + dropea la columna vieja |
+| 0021 | `deferred_visits_optional_ivrs.sql` | visitas ancladas en `randomization_date` (generación diferida: al cargarla); `enrollments += screening_date/randomization_date`; `patients.code` opcional (IVRS se asigna en randomización); RPC de alta v4 |
 
 Además, `seed_smoke_test.sql` (en `supabase/`, fuera de `migrations/`) carga datos demo
 para validar el aislamiento de RLS. NO es para producción — ver instrucciones en su cabecera.

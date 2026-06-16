@@ -57,7 +57,7 @@ export function PatientsTable({
 
   const q = query.trim().toLowerCase()
   const filtered = q
-    ? patients.filter((p) => p.code.toLowerCase().includes(q) || p.full_name.toLowerCase().includes(q))
+    ? patients.filter((p) => (p.code ?? '').toLowerCase().includes(q) || p.full_name.toLowerCase().includes(q))
     : patients
 
   return (
@@ -127,7 +127,7 @@ function PatientRowItem({ patient, accent, accentSolid, last }: { patient: Patie
 
   return (
     <div role="row" style={{ display: 'grid', gridTemplateColumns: COLS, gap: 16, padding: '13px 18px', alignItems: 'center', borderBottom: last ? 'none' : '1px solid var(--spira-line)' }}>
-      <span role="cell" className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-ink)' }}>{patient.code}</span>
+      <span role="cell" className="spira-mono" style={{ fontSize: 13, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>{patient.code ?? 'Sin IVRS'}</span>
       <span role="cell" style={{ display: 'flex', alignItems: 'center' }}>
         {/* Privacidad: el nombre real no se muestra como texto, solo en el tooltip del avatar. */}
         <PrivacyAvatar fullName={patient.full_name} size={28} color={accent} />
