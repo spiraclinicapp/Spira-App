@@ -4,7 +4,8 @@ import { Icon } from '../../components/Icon'
 import { PrivacyAvatar } from '../../components/PrivacyAvatar'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
-import { prevCurrentNext, visitIndex } from '../../lib/visits'
+import { KIND_LABELS } from '../../data/visitEvents'
+import { orderVisits, prevCurrentNext, scheduledVisits, visitIndex } from '../../lib/visits'
 import { formatShortAR } from '../../lib/dates'
 import { PdVisitFlow } from './PdVisitFlow'
 
@@ -27,7 +28,12 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
   const [open, setOpen] = useState(false)
   const idx = visitIndex(visits)
   const { prev, current, next } = prevCurrentNext(visits)
-  const medico = visits[0]?.treating_physician ?? '—'
+  const medico = patient.treating_physician ?? '—'
+
+  /* Hay cronograma si existen visitas programadas (post-randomización). Si no, el paciente está
+     en etapa pre-rando: mostramos las visitas sueltas registradas en vez del tracker de 3 columnas. */
+  const hasCronograma = scheduledVisits(visits).length > 0
+  const sueltasResumen = orderVisits(visits).map((v) => KIND_LABELS[v.kind]).join(' · ')
 
   const cell = (v: typeof prev) => (v && v.estimated_date ? `V${idx.get(v.id)} · ${formatShortAR(v.estimated_date)}` : '—')
 
@@ -61,13 +67,18 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
               <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{medico}</div>
             </div>
           </div>
-          {/* tracker */}
-          {visits.length > 0 ? (
+          {/* tracker: cronograma (3 columnas) post-rando · sueltas pre-rando · vacío */}
+          {hasCronograma ? (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               {col('Anterior', cell(prev), false)}{arrow}{col('Actualidad', cell(current), true)}{arrow}{col('Próxima', cell(next), false)}
             </div>
+          ) : visits.length > 0 ? (
+            <div style={{ textAlign: 'center', minWidth: 0, maxWidth: 300 }}>
+              <div style={{ ...microLabel, color: accent }}>Pre-randomización</div>
+              <div style={{ fontSize: 12.5, marginTop: 3, color: 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sueltasResumen}</div>
+            </div>
           ) : (
-            <div style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>Sin esquema de visitas</div>
+            <div style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>Sin visitas registradas</div>
           )}
           {/* acción */}
           <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: 10 }}>
