@@ -88,8 +88,10 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   const enrollmentDate = enrollment?.enrollment_date ?? null
   const age = ageFromBirth(patient.birth_date)
 
-  const statusColor = current ? VISIT_STATES[current.computed_status].color : patient.status === 'activo' ? 'var(--spira-good)' : 'var(--spira-muted)'
-  const statusLabel = current ? VISIT_STATES[current.computed_status].label : patient.status === 'activo' ? 'Activo' : 'Inactivo'
+  /* El badge del header refleja el estado del PACIENTE (activo/inactivo). El estado de la VISITA
+     vive en el cronograma (centro), no en el header al lado del IVRS. */
+  const statusColor = patient.status === 'activo' ? 'var(--spira-good)' : 'var(--spira-muted)'
+  const statusLabel = patient.status === 'activo' ? 'Activo' : 'Inactivo'
 
   const alerts = (alertsQ.data ?? []).filter((a) => a.patient_id === patient.id)
   const alertColor = alerts.some((a) => a.computed_status === 'ventana_vencida')
@@ -160,7 +162,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
         {/* ficha lateral */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', rowGap: 10 }}>
-            <PrivacyAvatar fullName={patient.full_name} size={52} color={current ? statusColor : accent} />
+            <PrivacyAvatar fullName={patient.full_name} size={52} color={accent} />
             <div style={{ minWidth: 0 }}>
               <div className="spira-mono" style={{ fontSize: 16, fontWeight: 500, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</div>
               <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3 }}>{medico}</div>
