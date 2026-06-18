@@ -43,6 +43,14 @@ export function formatShortAR(iso: string): string {
   return `${d}/${m}`
 }
 
+const MONTH_ABBR = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+/** `YYYY-MM-DD` → `dd mmm` ("26 may") para el tracker de visitas. */
+export function formatDayMonth(iso: string): string {
+  const [, m, d] = iso.split('-')
+  return `${d} ${MONTH_ABBR[Number(m) - 1]}`
+}
+
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const MONTH_NAMES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',

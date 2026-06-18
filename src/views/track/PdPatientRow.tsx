@@ -6,7 +6,7 @@ import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
 import { KIND_SHORT } from '../../data/visitEvents'
 import { todaySplit, visitIndex } from '../../lib/visits'
-import { formatShortAR, todayISO } from '../../lib/dates'
+import { formatDayMonth, todayISO } from '../../lib/dates'
 import { PdVisitFlow } from './PdVisitFlow'
 
 const microLabel: CSSProperties = { fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }
@@ -42,7 +42,7 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
     const n = idx.get(v.id)
     const label = n != null ? `V${n}` : KIND_SHORT[v.kind]
     const fecha = v.estimated_date ?? v.real_date
-    return fecha ? `${label} · ${formatShortAR(fecha)}` : label
+    return fecha ? `${label} · ${formatDayMonth(fecha)}` : label
   }
 
   const col = (label: string, value: string, isNow: boolean) => (
@@ -51,11 +51,7 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
       <div className="spira-mono" style={{ fontSize: 12.5, marginTop: 3, whiteSpace: 'nowrap', color: isNow ? 'var(--spira-ink)' : 'var(--spira-muted)', fontWeight: isNow ? 700 : 400 }}>{value}</div>
     </div>
   )
-  /* Conector entre columnas: lleno (accent) hasta "Hoy", vacío después → la línea queda a medio
-     llenar cuando hoy cae entre dos visitas. */
-  const conn = (filled: boolean) => (
-    <div style={{ width: 26, height: 3, marginTop: 9, borderRadius: 2, background: filled ? accent : 'var(--spira-line-2)', flex: '0 0 auto' }} />
-  )
+  const arrow = <Icon name="arrowRight" size={15} color={accent} style={{ flex: '0 0 auto', marginTop: 8 }} />
 
   return (
     <div
@@ -79,12 +75,12 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
               <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{medico}</div>
             </div>
           </div>
-          {/* tracker Anterior · Hoy · Próxima sobre la línea de tiempo completa (sueltas + cronograma).
-              "Hoy" es la fecha actual; el conector queda lleno hasta hoy y vacío después. */}
+          {/* tracker Anterior → Actualidad → Próxima sobre la línea de tiempo (sueltas + cronograma).
+              "Actualidad" es la fecha de hoy; el detalle "a medio llenar" vive en el flow desplegado. */}
           {expandable ? (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-              {col('Anterior', cell(prev), false)}{conn(prev !== null)}
-              {col('Hoy', todayVisit ? cell(todayVisit) : formatShortAR(today), true)}{conn(false)}
+              {col('Anterior', cell(prev), false)}{arrow}
+              {col('Actualidad', todayVisit ? cell(todayVisit) : formatDayMonth(today), true)}{arrow}
               {col('Próxima', cell(next), false)}
             </div>
           ) : (
