@@ -57,4 +57,5 @@ Cada tag debería poder leerse contra la bitácora del día y el `ROADMAP.md`.
 | Tag | Hito |
 |---|---|
 | `v0.2.0` | Paso 2 — módulo **Track** completo (protocolos+pacientes, Resumen, Agenda, Plantillas) sobre datos reales, con RLS revisada |
-| `v0.3.0` | Tablero del protocolo + ficha de paciente (KPIs, cronograma de visitas, acciones) + privacidad de paciente en toda la app |
+| `v0.3.0` | Tablero del protocolo + ficha de paciente (KPIs, cronograma de visitas, acciones) + privacidad de paciente en toda la app *(no se taggeó por separado; quedó incluido en `v0.4.0`)* |
+| `v0.4.0` | Ciclo de visitas unificado pre/post randomización (RPC `register_visit_event`, cronograma diferido, checklist en todas) + edición de protocolo/paciente, médico tratante e IVRS opcional + **tracker del Detalle de Protocolo según diseño** (pre-rando con sus sueltas, línea de tiempo, hover y tipografía uniformes; badge de la ficha = estado del paciente) |

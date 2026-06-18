@@ -1,8 +1,8 @@
-# Mail de avance — Spira (al 16/06/2026)
+# Mail de avance — Spira (al 17/06/2026)
 
-> Borrador de correo de avance para dirección. Período cubierto: 30/05 → 16/06/2026
+> Borrador de correo de avance para dirección. Período cubierto: 30/05 → 17/06/2026
 > (de hecho, toda la vida del proyecto: el repositorio nace el 06/06). Redactado el 13/06,
-> actualizado el 16/06.
+> actualizado el 16/06 y el 17/06.
 
 ---
 
@@ -72,7 +72,8 @@ usuarios menos técnicos).
 ## Estado actual
 
 - **Paso 1 (base de datos):** completo y en producción.
-- **Paso 2 (la app):** el módulo **Track quedó completo** sobre datos reales. Marca el hito **v0.3.0**.
+- **Paso 2 (la app):** el módulo **Track quedó completo** sobre datos reales, con el ciclo de visitas
+  pre/post randomización y el tablero por protocolo (tracker de visitas) ya según diseño. Marca el hito **v0.4.0**.
 - **Pendiente:** el módulo **Pharma** (dispensaciones y stock) sigue como vista provisoria, el
   **panel de gerencia** (para asignar roles con clics, hoy se hace a mano) y el pulido visual final.
 
@@ -108,6 +109,7 @@ Detalle por jornada y referencias de implementación.
 | 14/06 | Encabezado/breadcrumb unificado, modal editar protocolo, botones a infinitivo, baja del campo "fase", **editar paciente** (incl. estado y médico); gerencia puede editar el médico | migración `0019` |
 | 15/06 | Médico tratante → atributo de `patients`; IVRS opcional + 1er intento de visitas diferidas; brainstorm → spec → plan del modelo de visitas (`docs/superpowers/`) | migraciones `0020`, `0021` |
 | 16/06 | **Modelo de visitas unificado** (pre/post randomización: `kind`, RPC `register_visit_event`, generación diferida del cronograma, checklist en todas, registrar visita por etapa). Revisión adversarial de la migración + verificación en vivo (cazó 2 bugs: RPC de alta v5 y guard del cronograma) | migración `0022` |
+| 17/06 | **Tracker del Detalle de Protocolo según diseño**: pre-rando con sus visitas sueltas en la grilla, línea de tiempo Anterior·Hoy·Próxima (media carga hasta hoy), randomización antes de V1, sin "Suelta"; fechas en Hanken/tabular y hover uniforme con Protocolos; fix del header de la ficha (badge = Activo/Inactivo del paciente, no estado de visita). **Hito v0.4.0** | `src/views/track/*`, `src/views/PatientFichaView.tsx` |
 
 **Estado de despliegue:**
 - Las migraciones **0012–0022 están aplicadas y validadas en vivo**: alta de paciente, Resumen,
@@ -117,16 +119,16 @@ Detalle por jornada y referencias de implementación.
 - Para ver el cronograma con más visitas en los protocolos reales (THESEUS, CEREN-2, AIRLYMPUS) falta
   cargarles el esquema de visitas (`visit_definitions`); hoy casi no lo tienen, por eso randomizar
   genera pocas o ninguna visita programada (es esperado, no un error).
-- Pendiente menor (para mañana): en la grilla del Detalle de Protocolo, los pacientes pre-randomización
-  todavía muestran "sin esquema" en lugar de sus visitas sueltas (la ficha individual sí las muestra).
+- Resuelto (17/06): en la grilla del Detalle de Protocolo, los pacientes pre-randomización ahora
+  muestran sus visitas sueltas (ya no "sin esquema"); el tracker quedó según el diseño de referencia.
 - Ramas sin mergear a `main`: `feat/protocolos-unifica-pacientes` y `feat/tablero-protocolo-ficha`.
-  Decidir merge y taggear **v0.3.0**.
+  Tag **v0.4.0** creado en la punta de `feat/tablero-protocolo-ficha`; falta decidir el merge a `main`.
 
 **Decisiones de dominio tomadas (no re-discutir):** falla = falla de screening · 4º KPI = próximas
 visitas a 7 días · número de sujeto lo asigna el IVRS (texto libre) · al reprogramar se mueve solo la
 fecha estimada (la ventana del patrocinador queda fija, a confirmar) · adherencia = visitas realizadas /
 programadas · privacidad en toda la app.
 
-**Referencias:** bitácoras en `docs/bitacora/` (06, 07, 08, 09, 12, 13, 14, 15 y 16 de junio),
+**Referencias:** bitácoras en `docs/bitacora/` (06, 07, 08, 09, 12, 13, 14, 15, 16 y 17 de junio),
 diseño del modelo de visitas en `docs/superpowers/specs/` y `docs/superpowers/plans/`, `docs/ROADMAP.md`,
 índice de migraciones en `supabase/README.md` (0001–0022).
