@@ -27,13 +27,22 @@ export function scheduledVisits(rows: TrackVisitRow[]): TrackVisitRow[] {
   return rows.filter((v) => v.kind === 'programada')
 }
 
-/** Ordena cronológicamente por fecha efectiva; desempata por sort_order (sueltas al final del empate). */
+/* Desempate cuando dos visitas caen en la misma fecha efectiva. La randomización comparte fecha con
+   la V1 (offset 0) y siempre va ANTES (es el evento que abre el cronograma); el resto de las
+   programadas por su sort_order; las demás sueltas al final del empate. */
+function tieRank(v: TrackVisitRow): number {
+  if (v.kind === 'randomizacion') return -1
+  if (v.kind === 'programada') return v.sort_order ?? 0
+  return v.sort_order ?? Number.MAX_SAFE_INTEGER
+}
+
+/** Ordena cronológicamente por fecha efectiva; desempata con tieRank (randomización antes de V1). */
 export function orderVisits(rows: TrackVisitRow[]): TrackVisitRow[] {
   return [...rows].sort((a, b) => {
     const da = effectiveDate(a)
     const db = effectiveDate(b)
     if (da !== db) return da.localeCompare(db)
-    return (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER)
+    return tieRank(a) - tieRank(b)
   })
 }
 
