@@ -26,6 +26,7 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
   onOpen: (patientId: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const idx = visitIndex(visits)
   /* "Hoy" en la línea de tiempo: anterior (última visita pasada), hoy, próxima (siguiente). */
   const today = todayISO()
@@ -55,9 +56,13 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
 
   return (
     <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        border: `1px solid ${open ? accent + '55' : 'var(--spira-line)'}`, borderRadius: 14, background: 'var(--spira-white)',
-        marginBottom: 10, boxShadow: open ? `0 8px 22px ${accent}14` : 'none', transition: 'border-color .15s, box-shadow .15s',
+        border: `1px solid ${hovered || open ? 'var(--spira-line-2)' : 'var(--spira-line)'}`, borderRadius: 14, background: 'var(--spira-white)',
+        marginBottom: 10, boxShadow: hovered || open ? 'var(--spira-shadow-md)' : 'none',
+        transform: hovered ? 'translateY(-1px)' : 'none',
+        transition: 'box-shadow .15s ease, border-color .15s ease, transform .15s ease',
       }}
     >
       <div onClick={() => { if (expandable) setOpen((o) => !o) }} style={{ cursor: expandable ? 'pointer' : 'default', padding: '13px 16px' }}>
