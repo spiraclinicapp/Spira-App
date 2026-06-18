@@ -49,7 +49,7 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
   const col = (label: string, value: string, isNow: boolean) => (
     <div style={{ minWidth: 88, textAlign: 'center' }}>
       <div style={{ ...microLabel, color: isNow ? accent : 'var(--spira-faint)' }}>{label}</div>
-      <div className="spira-mono" style={{ fontSize: 12.5, marginTop: 3, whiteSpace: 'nowrap', color: isNow ? 'var(--spira-ink)' : 'var(--spira-muted)', fontWeight: isNow ? 700 : 400 }}>{value}</div>
+      <div style={{ fontFamily: 'var(--spira-font-text)', fontVariantNumeric: 'tabular-nums', fontSize: 12.5, marginTop: 3, whiteSpace: 'nowrap', color: isNow ? 'var(--spira-ink)' : 'var(--spira-muted)', fontWeight: isNow ? 700 : 400 }}>{value}</div>
     </div>
   )
   const arrow = <Icon name="arrowRight" size={15} color={accent} style={{ flex: '0 0 auto', marginTop: 8 }} />

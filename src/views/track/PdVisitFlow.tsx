@@ -109,7 +109,7 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
         <div style={{ height: 32, display: 'flex', alignItems: 'center' }}>{dot(v)}</div>
         <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 12.5, color: cur ? accent : 'var(--spira-ink)', marginTop: 6, whiteSpace: 'nowrap' }}>{label}</div>
         {w != null && <div style={{ fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>{`W${w}`}</div>}
-        <div className="spira-mono" style={{ fontSize: 10.5, color: 'var(--spira-faint)', marginTop: 1, whiteSpace: 'nowrap' }}>{fecha ? formatDayMonth(fecha) : '—'}</div>
+        <div style={{ fontFamily: 'var(--spira-font-text)', fontVariantNumeric: 'tabular-nums', fontSize: 10.5, color: 'var(--spira-faint)', marginTop: 1, whiteSpace: 'nowrap' }}>{fecha ? formatDayMonth(fecha) : '—'}</div>
       </div>
     )
   }
