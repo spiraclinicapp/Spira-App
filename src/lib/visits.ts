@@ -37,6 +37,29 @@ export function orderVisits(rows: TrackVisitRow[]): TrackVisitRow[] {
   })
 }
 
+/**
+ * Posición de "hoy" entre las visitas ordenadas por fecha efectiva: la última con fecha anterior a
+ * hoy (`prev`), la primera con fecha posterior (`next`), y la que cae justo hoy (`todayVisit`, si hay).
+ * Sirve para marcar "Hoy" en la línea de tiempo (con el tramo a medio llenar cuando cae entre dos).
+ */
+export function todaySplit(rows: TrackVisitRow[], today: string): {
+  prev: TrackVisitRow | null
+  next: TrackVisitRow | null
+  todayVisit: TrackVisitRow | null
+} {
+  let prev: TrackVisitRow | null = null
+  let next: TrackVisitRow | null = null
+  let todayVisit: TrackVisitRow | null = null
+  for (const v of orderVisits(rows)) {
+    const d = effectiveDate(v)
+    if (!d) continue
+    if (d < today) prev = v
+    else if (d === today) todayVisit = v
+    else if (next === null) next = v
+  }
+  return { prev, next, todayVisit }
+}
+
 /** Mapa id → V# (1-based) SOLO sobre las visitas programadas (las sueltas se etiquetan por kind). */
 export function visitIndex(rows: TrackVisitRow[]): Map<string, number> {
   const ordered = orderVisits(scheduledVisits(rows))
@@ -54,30 +77,40 @@ export function weekNumber(row: TrackVisitRow): number | null {
 }
 
 /**
- * "Actualidad" del paciente en el CRONOGRAMA: primera programada no realizada en estado próxima; si no
- * hay, la más antigua con ventana vencida sin realizar; si todas están realizadas, la última realizada.
- * null si no hay programadas (p. ej. pre-randomización).
+ * Elige la visita "actual" de una lista YA ordenada: primera no realizada (próxima → ventana
+ * vencida → cualquiera) o, si están todas hechas, la última. null si la lista está vacía.
  */
-export function currentVisit(rows: TrackVisitRow[]): TrackVisitRow | null {
-  const ordered = orderVisits(scheduledVisits(rows))
+function pickCurrent(ordered: TrackVisitRow[]): TrackVisitRow | null {
   if (ordered.length === 0) return null
-  const proxima = ordered.find((v) => v.real_date === null && v.computed_status === 'proxima')
-  if (proxima) return proxima
-  const vencida = ordered.find((v) => v.real_date === null && v.computed_status === 'ventana_vencida')
-  if (vencida) return vencida
-  const futura = ordered.find((v) => v.real_date === null)
-  if (futura) return futura
-  return ordered[ordered.length - 1]
+  return (
+    ordered.find((v) => v.real_date === null && v.computed_status === 'proxima') ??
+    ordered.find((v) => v.real_date === null && v.computed_status === 'ventana_vencida') ??
+    ordered.find((v) => v.real_date === null) ??
+    ordered[ordered.length - 1]
+  )
 }
 
-/** Tracker de 3 columnas del cronograma: anterior programada, actual, próxima programada. */
+/**
+ * "Actualidad" del paciente en el CRONOGRAMA (solo programadas): para el "Visita actual V#" de
+ * la ficha y la adherencia. null si no hay programadas (p. ej. pre-randomización).
+ */
+export function currentVisit(rows: TrackVisitRow[]): TrackVisitRow | null {
+  return pickCurrent(orderVisits(scheduledVisits(rows)))
+}
+
+/**
+ * Tracker de 3 columnas sobre la línea de tiempo COMPLETA (sueltas pre/post-rando + programadas,
+ * ordenadas por fecha): anterior, actual y próxima. La "actual" es la primera no realizada o, si
+ * están todas hechas, la última. Así las visitas previas a la randomización se trackean igual que
+ * las del cronograma (a diferencia de `currentVisit`, que mira solo el cronograma).
+ */
 export function prevCurrentNext(rows: TrackVisitRow[]): {
   prev: TrackVisitRow | null
   current: TrackVisitRow | null
   next: TrackVisitRow | null
 } {
-  const ordered = orderVisits(scheduledVisits(rows))
-  const current = currentVisit(rows)
+  const ordered = orderVisits(rows)
+  const current = pickCurrent(ordered)
   if (!current) return { prev: null, current: null, next: null }
   const idx = ordered.findIndex((v) => v.id === current.id)
   return {

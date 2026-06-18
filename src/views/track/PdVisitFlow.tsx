@@ -3,9 +3,9 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
 import { KIND_SHORT } from '../../data/visitEvents'
-import { flowWindow, visitIndex, weekNumber } from '../../lib/visits'
+import { flowWindow, todaySplit, visitIndex, weekNumber } from '../../lib/visits'
 import { VISIT_STATES } from '../visitStates'
-import { formatShortAR } from '../../lib/dates'
+import { formatShortAR, todayISO } from '../../lib/dates'
 
 type DotState = 'done' | 'current' | 'danger' | 'future'
 
@@ -54,9 +54,31 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
     )
   }
 
-  const line = (leftDone: boolean) => (
-    <div style={{ flex: 1, minWidth: 8, height: 2.5, marginTop: 15, borderRadius: 2, background: leftDone ? accent : 'var(--spira-line)' }} />
-  )
+  /* Estado del tramo según HOY: lleno si la visita derecha ya pasó; "half" (a medio llenar, con
+     marcador "Hoy") si hoy cae entre ambas y no hay visita justo hoy; vacío si es futuro. */
+  const today = todayISO()
+  const hasToday = todaySplit(visits, today).todayVisit !== null
+  const eff = (v: TrackVisitRow) => v.estimated_date ?? v.real_date ?? ''
+  const segState = (left: TrackVisitRow, right: TrackVisitRow): 'full' | 'half' | 'empty' => {
+    const ld = eff(left)
+    const rd = eff(right)
+    if (rd && rd <= today) return 'full'
+    if (!hasToday && ld && ld < today && rd && rd > today) return 'half'
+    return 'empty'
+  }
+  const lineEl = (state: 'full' | 'half' | 'empty') => {
+    if (state === 'half') {
+      return (
+        <div style={{ flex: 1, minWidth: 26, position: 'relative', marginTop: 15 }}>
+          <div style={{ height: 2.5, borderRadius: 2, background: 'var(--spira-line)' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '50%', height: 2.5, borderRadius: 2, background: accent }} />
+          <div style={{ position: 'absolute', top: -3, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, borderRadius: '50%', background: accent, border: '2px solid var(--spira-white)' }} />
+          <div style={{ position: 'absolute', top: -18, left: '50%', transform: 'translateX(-50%)', fontSize: 9.5, fontWeight: 700, color: accent, whiteSpace: 'nowrap' }}>Hoy</div>
+        </div>
+      )
+    }
+    return <div style={{ flex: 1, minWidth: 8, height: 2.5, marginTop: 15, borderRadius: 2, background: state === 'full' ? accent : 'var(--spira-line)' }} />
+  }
 
   const pillCol = (txt: string) => (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '0 0 auto' }}>
@@ -82,14 +104,14 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
 
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-      {moreBefore > 0 && <Fragment>{pillCol('+' + moreBefore)}{line(true)}</Fragment>}
+      {moreBefore > 0 && <Fragment>{pillCol('+' + moreBefore)}{lineEl('full')}</Fragment>}
       {window.map((v, k) => (
         <Fragment key={v.id}>
-          {k > 0 && line(window[k - 1].real_date !== null)}
+          {k > 0 && lineEl(segState(window[k - 1], v))}
           {col(v)}
         </Fragment>
       ))}
-      {moreAfter > 0 && <Fragment>{line(false)}{pillCol('+' + moreAfter)}</Fragment>}
+      {moreAfter > 0 && <Fragment>{lineEl('empty')}{pillCol('+' + moreAfter)}</Fragment>}
     </div>
   )
 }

@@ -4,9 +4,9 @@ import { Icon } from '../../components/Icon'
 import { PrivacyAvatar } from '../../components/PrivacyAvatar'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
-import { KIND_LABELS } from '../../data/visitEvents'
-import { orderVisits, prevCurrentNext, scheduledVisits, visitIndex } from '../../lib/visits'
-import { formatShortAR } from '../../lib/dates'
+import { KIND_SHORT } from '../../data/visitEvents'
+import { todaySplit, visitIndex } from '../../lib/visits'
+import { formatShortAR, todayISO } from '../../lib/dates'
 import { PdVisitFlow } from './PdVisitFlow'
 
 const microLabel: CSSProperties = { fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }
@@ -27,15 +27,23 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
 }) {
   const [open, setOpen] = useState(false)
   const idx = visitIndex(visits)
-  const { prev, current, next } = prevCurrentNext(visits)
+  /* "Hoy" en la línea de tiempo: anterior (última visita pasada), hoy, próxima (siguiente). */
+  const today = todayISO()
+  const { prev, next, todayVisit } = todaySplit(visits, today)
+  const flowCurrentId = todayVisit?.id ?? next?.id ?? prev?.id ?? null
   const medico = patient.treating_physician ?? '—'
+  /* La fila solo se despliega si hay algo que trackear; sin visitas no hay tracker que mostrar. */
+  const expandable = visits.length > 0
 
-  /* Hay cronograma si existen visitas programadas (post-randomización). Si no, el paciente está
-     en etapa pre-rando: mostramos las visitas sueltas registradas en vez del tracker de 3 columnas. */
-  const hasCronograma = scheduledVisits(visits).length > 0
-  const sueltasResumen = orderVisits(visits).map((v) => KIND_LABELS[v.kind]).join(' · ')
-
-  const cell = (v: typeof prev) => (v && v.estimated_date ? `V${idx.get(v.id)} · ${formatShortAR(v.estimated_date)}` : '—')
+  /* Etiqueta de la celda del tracker: V# para las programadas; el tipo (Scr/Firma/Rando…) para
+     las sueltas. La fecha sale de la estimada (programadas) o la real (sueltas). */
+  const cell = (v: typeof prev) => {
+    if (!v) return '—'
+    const n = idx.get(v.id)
+    const label = n != null ? `V${n}` : KIND_SHORT[v.kind]
+    const fecha = v.estimated_date ?? v.real_date
+    return fecha ? `${label} · ${formatShortAR(fecha)}` : label
+  }
 
   const col = (label: string, value: string, isNow: boolean) => (
     <div style={{ minWidth: 88, textAlign: 'center' }}>
@@ -43,7 +51,11 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
       <div className="spira-mono" style={{ fontSize: 12.5, marginTop: 3, whiteSpace: 'nowrap', color: isNow ? 'var(--spira-ink)' : 'var(--spira-muted)', fontWeight: isNow ? 700 : 400 }}>{value}</div>
     </div>
   )
-  const arrow = <Icon name="arrowRight" size={15} color={accent} style={{ flex: '0 0 auto', marginTop: 8 }} />
+  /* Conector entre columnas: lleno (accent) hasta "Hoy", vacío después → la línea queda a medio
+     llenar cuando hoy cae entre dos visitas. */
+  const conn = (filled: boolean) => (
+    <div style={{ width: 26, height: 3, marginTop: 9, borderRadius: 2, background: filled ? accent : 'var(--spira-line-2)', flex: '0 0 auto' }} />
+  )
 
   return (
     <div
@@ -52,7 +64,7 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
         marginBottom: 10, boxShadow: open ? `0 8px 22px ${accent}14` : 'none', transition: 'border-color .15s, box-shadow .15s',
       }}
     >
-      <div onClick={() => setOpen((o) => !o)} style={{ cursor: 'pointer', padding: '13px 16px' }}>
+      <div onClick={() => { if (expandable) setOpen((o) => !o) }} style={{ cursor: expandable ? 'pointer' : 'default', padding: '13px 16px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12 }}>
           {/* identidad */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
@@ -67,15 +79,13 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
               <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{medico}</div>
             </div>
           </div>
-          {/* tracker: cronograma (3 columnas) post-rando · sueltas pre-rando · vacío */}
-          {hasCronograma ? (
+          {/* tracker Anterior · Hoy · Próxima sobre la línea de tiempo completa (sueltas + cronograma).
+              "Hoy" es la fecha actual; el conector queda lleno hasta hoy y vacío después. */}
+          {expandable ? (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-              {col('Anterior', cell(prev), false)}{arrow}{col('Actualidad', cell(current), true)}{arrow}{col('Próxima', cell(next), false)}
-            </div>
-          ) : visits.length > 0 ? (
-            <div style={{ textAlign: 'center', minWidth: 0, maxWidth: 300 }}>
-              <div style={{ ...microLabel, color: accent }}>Pre-randomización</div>
-              <div style={{ fontSize: 12.5, marginTop: 3, color: 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sueltasResumen}</div>
+              {col('Anterior', cell(prev), false)}{conn(prev !== null)}
+              {col('Hoy', todayVisit ? cell(todayVisit) : formatShortAR(today), true)}{conn(false)}
+              {col('Próxima', cell(next), false)}
             </div>
           ) : (
             <div style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>Sin visitas registradas</div>
@@ -94,13 +104,15 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
             >
               Abrir ficha <Icon name="arrowRight" size={14} color="currentColor" />
             </button>
-            <Icon name="chevronDown" size={17} color={open ? accent : 'var(--spira-muted)'} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s, color .15s', flex: '0 0 auto' }} />
+            {expandable && (
+              <Icon name="chevronDown" size={17} color={open ? accent : 'var(--spira-muted)'} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s, color .15s', flex: '0 0 auto' }} />
+            )}
           </div>
         </div>
       </div>
-      {open && visits.length > 0 && (
+      {open && expandable && (
         <div style={{ padding: '6px 16px 16px 70px' }}>
-          <PdVisitFlow visits={visits} currentId={current?.id ?? null} accent={accent} />
+          <PdVisitFlow visits={visits} currentId={flowCurrentId} accent={accent} />
         </div>
       )}
     </div>
