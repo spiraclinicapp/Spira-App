@@ -133,7 +133,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
             </span>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', color: accent, whiteSpace: 'nowrap' }}>{protocol.code}</div>
-              {protocol.internal_code && <div className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)', marginTop: 2 }}>{protocol.internal_code}</div>}
+              {protocol.name && <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)', marginTop: 2, lineHeight: 1.3 }}>{protocol.name}</div>}
             </div>
           </div>
 
