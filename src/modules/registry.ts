@@ -37,9 +37,11 @@ export const MODULES: ModuleDef[] = [
     accent: '#2E7D74', accentSolid: '#2E7D74', allowed: true,
     submodules: [
       { key: 'resumen', name: 'Resumen', icon: 'dashboard' },
-      { key: 'protocolos', name: 'Protocolos', icon: 'file' },
+      { key: 'protocolos', name: 'Pacientes', icon: 'file' },
+      { key: 'visitas', name: 'Visitas', icon: 'activity' },
+      { key: 'para-ver-medico', name: 'Para ver médico', icon: 'users' },
       { key: 'agenda', name: 'Agenda', icon: 'calendar' },
-      { key: 'plantillas', name: 'Plantillas', icon: 'clipboardCheck' },
+      { key: 'alertas', name: 'Alertas', icon: 'bell' },
     ],
   },
   {

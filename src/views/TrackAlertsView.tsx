@@ -1,0 +1,164 @@
+import { useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
+import { Icon } from '../components/Icon'
+import { EmptyState } from '../components/EmptyState'
+import { PrivacyAvatar } from '../components/PrivacyAvatar'
+import { useVisitAlerts } from '../data/visits'
+import type { TrackVisitRow } from '../data/visits'
+import { useProtocols } from '../data/protocols'
+import { KIND_LABELS } from '../data/visitEvents'
+import { formatAR, todayISO, daysDiffISO } from '../lib/dates'
+import { VISIT_STATES } from './visitStates'
+import type { ViewProps } from './types'
+
+const card: CSSProperties = {
+  background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
+  borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
+}
+const btnOutline: CSSProperties = {
+  height: 38, padding: '0 15px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
+  background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)',
+  fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
+}
+const fieldSelect: CSSProperties = {
+  height: 38, padding: '0 12px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
+  background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)',
+  fontSize: 13.5, cursor: 'pointer',
+}
+const code: CSSProperties = { fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }
+
+const AGE_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: 'Cualquier antigüedad' },
+  { value: 7, label: 'Últimos 7 días' },
+  { value: 14, label: 'Últimos 14 días' },
+  { value: 30, label: 'Últimos 30 días' },
+]
+
+/** Fecha de referencia de una alerta para el filtro de antigüedad. */
+function refDate(a: TrackVisitRow): string | null {
+  return a.window_end ?? a.estimated_date ?? null
+}
+
+/**
+ * Vista Alertas: promueve el card de alertas del Resumen a vista full con filtros por
+ * protocolo y por antigüedad. Reusa useVisitAlerts() + VISIT_STATES. Solo lectura
+ * ("marcar visto/cerrado" es fase 2). Filtrado en el front sobre las filas del hook.
+ */
+export function TrackAlertsView({ module, submodule }: ViewProps) {
+  const accent = module.accent
+  const alerts = useVisitAlerts()
+  const protocols = useProtocols()
+  const [protocolFilter, setProtocolFilter] = useState<string>('all')
+  const [ageDays, setAgeDays] = useState<number>(0)
+
+  const loading = alerts.loading || protocols.loading
+  const error = alerts.error || protocols.error
+
+  const allRows = useMemo(() => alerts.data ?? [], [alerts.data])
+
+  const filtered = useMemo(() => {
+    const today = todayISO()
+    return allRows.filter((a) => {
+      if (protocolFilter !== 'all' && a.protocol_id !== protocolFilter) return false
+      if (ageDays > 0) {
+        const ref = refDate(a)
+        if (!ref) return false
+        const age = daysDiffISO(ref, today)
+        if (age > ageDays) return false
+      }
+      return true
+    })
+  }, [allRows, protocolFilter, ageDays])
+
+  if (loading) {
+    return <EmptyState accent={accent} icon={submodule.icon} title="Cargando alertas…" description="Un momento." />
+  }
+  if (error) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
+          <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
+          No pudimos cargar las alertas. Probá de nuevo.
+        </div>
+        <button onClick={() => { alerts.refetch(); protocols.refetch() }} style={{ ...btnOutline, alignSelf: 'flex-start' }}>
+          Reintentar
+        </button>
+      </div>
+    )
+  }
+
+  const protoOptions = (() => {
+    const byId = new Map<string, string>()
+    for (const a of allRows) byId.set(a.protocol_id, a.protocol_code)
+    const list = (protocols.data ?? []).filter((p) => byId.has(p.id))
+    return list.map((p) => ({ id: p.id, code: p.code }))
+  })()
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <select
+          value={protocolFilter}
+          onChange={(e) => setProtocolFilter(e.target.value)}
+          style={{ ...fieldSelect, minWidth: 180 }}
+          aria-label="Filtrar por protocolo"
+        >
+          <option value="all">Todos los protocolos</option>
+          {protoOptions.map((p) => (
+            <option key={p.id} value={p.id}>{p.code}</option>
+          ))}
+        </select>
+        <select
+          value={ageDays}
+          onChange={(e) => setAgeDays(Number(e.target.value))}
+          style={{ ...fieldSelect, minWidth: 170 }}
+          aria-label="Filtrar por antigüedad"
+        >
+          {AGE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--spira-muted)' }}>
+          {filtered.length} de {allRows.length} {allRows.length === 1 ? 'alerta' : 'alertas'}
+        </span>
+      </div>
+
+      <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+        {filtered.length === 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
+            <Icon name="check" size={16} color="var(--spira-good)" />
+            {allRows.length === 0 ? 'Sin alertas. Todo al día.' : 'Ninguna alerta coincide con los filtros.'}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {filtered.map((a) => {
+              const c = VISIT_STATES[a.computed_status].color
+              const vName = a.visit_name ?? KIND_LABELS[a.kind]
+              const motivo = a.computed_status === 'ventana_vencida'
+                ? `Ventana vencida el ${a.window_end ? formatAR(a.window_end) : '—'} · ${vName}`
+                : `Ítem de checklist fuera de plazo · ${vName}`
+              return (
+                <div key={a.id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
+                  <span style={{ flex: '0 0 auto', marginTop: 1 }}>
+                    <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={18} color={c} />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <PrivacyAvatar fullName={a.patient_name} size={22} color={c} />
+                      <span style={code}>{a.patient_code ?? '—'}</span>
+                      <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{a.protocol_code}</span></span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--spira-line)', fontSize: 11.5, color: 'var(--spira-faint)' }}>
+          Ventana vencida (roja) · Ítem vencido (ámbar)
+        </div>
+      </div>
+    </div>
+  )
+}
