@@ -1,9 +1,9 @@
 /* ============================================================
    Spira · tokens (fuente de verdad: Identidad Visual "Sereno")
-   Petróleo + papel cálido · Schibsted Grotesk + Hanken Grotesk.
+   Petróleo + papel cálido · Schibsted Grotesk (títulos) + Inter (texto y códigos).
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
   /* —— Color · base —— */
@@ -35,8 +35,8 @@
 
   /* —— Tipografía —— */
   --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif;
-  --spira-font-text:    'Hanken Grotesk', system-ui, sans-serif;
-  --spira-font-mono:    'IBM Plex Mono', ui-monospace, monospace;
+  --spira-font-text:    'Inter', system-ui, sans-serif;
+  --spira-font-mono:    'Inter', system-ui, sans-serif; /* códigos/IVRS: Inter con tabular-nums vía .spira-mono (ya no IBM Plex Mono) */
 
   /* —— Radios —— */
   --spira-radius-sm: 8px;
