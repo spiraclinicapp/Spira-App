@@ -3,73 +3,70 @@ import type { OperationalStage } from '../../data/dayVisits'
 import { OPERATIONAL_STAGES, STAGE_ORDER } from '../visitStates'
 
 /**
- * Stepper horizontal de las 5 etapas operativas (Por llegar → En el sitio → Atendido →
- * Listo para irse → Fuera del sitio). Marca la etapa actual y las ya cumplidas; un único
- * botón avanza a la etapa siguiente. Sin hora (las marcas guardan timestamp solo para
- * auditoría). El gating de quién puede avanzar lo decide el padre (canAdvance).
+ * Stepper compacto: track de puntos (sin etiquetas) + etapa actual como texto +
+ * botón de avance a la etapa siguiente. El gating lo decide el padre (canAdvance).
+ * Sin hora (los timestamps son sólo para auditoría).
  */
 export function VisitStepper({ stage, accent, canAdvance, busy, onAdvance }: {
   stage: OperationalStage
   accent: string
-  /** ¿El usuario puede marcar la etapa SIGUIENTE? (rol + handoff lo evalúa el padre.) */
   canAdvance: boolean
   busy: boolean
-  /** Avanza a la etapa next (el padre llama a la mutación correspondiente). */
   onAdvance: (next: OperationalStage) => void
 }) {
   const curIdx = STAGE_ORDER.indexOf(stage)
+  const curMeta = OPERATIONAL_STAGES[stage]
   const next: OperationalStage | null = curIdx >= 0 && curIdx < STAGE_ORDER.length - 1 ? STAGE_ORDER[curIdx + 1] : null
   const nextMeta = next ? OPERATIONAL_STAGES[next] : null
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-      {/* pasos */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, flexWrap: 'nowrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 auto' }}>
+      {/* Track de puntos compacto (sin etiquetas) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
         {STAGE_ORDER.map((s, i) => {
-          const meta = OPERATIONAL_STAGES[s]
           const done = i < curIdx
           const current = i === curIdx
-          const dotColor = done ? accent : current ? meta.color : 'var(--spira-line-2)'
-          const labelColor = current ? meta.color : done ? 'var(--spira-muted)' : 'var(--spira-faint)'
+          const color = done ? accent : current ? curMeta.color : 'var(--spira-line-2)'
           return (
-            <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
+            <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
               <span
                 style={{
-                  width: 16, height: 16, borderRadius: '50%', display: 'grid', placeItems: 'center', flex: '0 0 auto',
-                  background: done ? accent : current ? meta.color + '22' : 'transparent',
-                  border: `1.5px solid ${dotColor}`,
+                  width: current ? 9 : 6, height: current ? 9 : 6, borderRadius: '50%', flex: '0 0 auto',
+                  background: done ? accent : current ? curMeta.color : 'transparent',
+                  border: `1.5px solid ${color}`,
                 }}
-              >
-                {done && <Icon name="check" size={9} color="var(--spira-on-accent)" stroke={3} />}
-              </span>
-              <span style={{ fontSize: 11.5, fontWeight: current ? 700 : 500, color: labelColor, whiteSpace: 'nowrap' }}>
-                {meta.label}
-              </span>
+              />
               {i < STAGE_ORDER.length - 1 && (
-                <span style={{ width: 14, height: 1.5, background: i < curIdx ? accent : 'var(--spira-line)', flex: '0 0 auto' }} />
+                <span style={{ width: 10, height: 1.5, flex: '0 0 auto', background: done ? accent + '80' : 'var(--spira-line)' }} />
               )}
             </span>
           )
         })}
       </div>
 
-      {/* botón de avance a la etapa siguiente */}
+      {/* Etapa actual */}
+      <span style={{ fontSize: 12, fontWeight: 700, color: curMeta.color, whiteSpace: 'nowrap' }}>
+        {curMeta.label}
+      </span>
+
+      {/* Botón avanzar */}
       {next && nextMeta && (
         <button
           onClick={() => { if (canAdvance && !busy) onAdvance(next) }}
           disabled={!canAdvance || busy}
-          title={canAdvance ? `Marcar ${nextMeta.label}` : 'No tenés permiso para esta marca'}
+          title={canAdvance ? `Marcar: ${nextMeta.label}` : 'No tenés permiso para esta marca'}
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 8,
+            display: 'inline-flex', alignItems: 'center', gap: 5, height: 28, padding: '0 10px', borderRadius: 8,
             border: `1px solid ${canAdvance ? accent + '59' : 'var(--spira-line-2)'}`,
             background: canAdvance ? accent + '10' : 'transparent',
             color: canAdvance ? accent : 'var(--spira-faint)',
             cursor: canAdvance && !busy ? 'pointer' : 'default',
-            fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap',
+            fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap',
             opacity: busy ? 0.6 : 1, flex: '0 0 auto', transition: 'background .14s, color .14s',
           }}
         >
-          {busy ? 'Guardando…' : nextMeta.label} <Icon name="arrowRight" size={14} color="currentColor" />
+          {busy ? 'Guardando…' : nextMeta.label}
+          <Icon name="arrowRight" size={13} color="currentColor" />
         </button>
       )}
     </div>

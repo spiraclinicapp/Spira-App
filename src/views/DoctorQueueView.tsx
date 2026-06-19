@@ -91,7 +91,7 @@ export function DoctorQueueView({ module, submodule }: ViewProps) {
         </div>
 
         <div style={{ marginTop: 6 }}>
-          {rows.map((v) => {
+          {rows.map((v, idx) => {
             const vName = v.visit_name ?? KIND_LABELS[v.kind]
             const busy = busyId === v.id
             return (
@@ -100,6 +100,16 @@ export function DoctorQueueView({ module, submodule }: ViewProps) {
                 style={{ display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', gap: 12, padding: '11px 0', borderTop: '1px solid var(--spira-line)' }}
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+                  {/* Número de posición en cola (1 = llegó primero / más tiempo esperando) */}
+                  <span style={{
+                    flex: '0 0 auto', width: 24, height: 24, borderRadius: '50%',
+                    display: 'grid', placeItems: 'center',
+                    background: idx === 0 ? accent + '18' : 'var(--spira-line)',
+                    fontSize: 11, fontWeight: 700,
+                    color: idx === 0 ? accent : 'var(--spira-muted)',
+                  }}>
+                    {idx + 1}
+                  </span>
                   <PrivacyAvatar fullName={v.patient_name} size={28} color={accent} />
                   <span style={{ minWidth: 0, overflow: 'hidden' }}>
                     <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
