@@ -37,7 +37,7 @@ en orden. Detalle e índice en [`supabase/README.md`](supabase/README.md).
 | `src/lib/` | Auth, cliente Supabase, theme, helpers de fecha |
 | `supabase/migrations/` | Fuente de verdad del schema (numeradas) |
 | `supabase/schema-review.md` | Revisiones de seguridad adversariales (RLS) |
-| `docs/ROADMAP.md` | Los 3 pasos del proyecto y su estado |
+| `docs/#4- ROADMAP.md` | Los 3 pasos del proyecto y su estado |
 | `docs/bitacora/` | Bitácoras por jornada (changelog narrado + handoffs) |
 | `docs/identidad-visual/` | Marca, tokens, reglas de diseño |
 
