@@ -61,8 +61,12 @@ export interface VisitChecklistItem {
  * Orden estable: patient_code asc.
  */
 export function useVisitsForDay(date: string): QueryResult<DayVisitRow[]> {
-  const dayEnd = `${date}T23:59:59.999`
-  const dayStart = `${date}T00:00:00`
+  // Las marcas operativas (arrived/ready/left) son timestamptz (UTC); `date` es el día
+  // LOCAL (Argentina, UTC-3). Hay que anclar la ventana a -03:00: sin el offset PostgREST
+  // compara en UTC y se cuelan visitas marcadas la noche anterior (bug "visitas pegadas").
+  // AR no observa horario de verano → -03:00 es fijo (mismo criterio que v_patient_visits).
+  const dayEnd = `${date}T23:59:59.999-03:00`
+  const dayStart = `${date}T00:00:00-03:00`
   return useSupabaseQuery<DayVisitRow[]>(
     (c) =>
       c
@@ -90,8 +94,9 @@ export function useVisitsForDay(date: string): QueryResult<DayVisitRow[]> {
  */
 export function useDoctorQueue(): QueryResult<DayVisitRow[]> {
   const today = todayISO()
-  const dayEnd = `${today}T23:59:59.999`
-  const dayStart = `${today}T00:00:00`
+  // Mismo anclaje a hora local (-03:00) que useVisitsForDay: las marcas son timestamptz (UTC).
+  const dayEnd = `${today}T23:59:59.999-03:00`
+  const dayStart = `${today}T00:00:00-03:00`
   return useSupabaseQuery<DayVisitRow[]>(
     (c) =>
       c
