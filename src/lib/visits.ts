@@ -175,13 +175,15 @@ export type DotVisual = 'agendada' | 'en_curso' | 'completa'
 /**
  * Color/relleno de la pelotita según el recorrido operativo:
  *  · agendada → GRIS    (todavía no atendida: agendada / por llegar / en el sitio = sin real_date)
- *  · en_curso → CONTORNO verde (atendida, checklist pendiente: atendido / listo / fuera del sitio)
- *  · completa → RELLENO verde   (checklist 100 %)
- * El contorno verde aparece recién cuando se marca "Atendido" (real_date); antes queda gris.
+ *  · en_curso → CONTORNO verde (atendida, todavía en curso: atendido / listo / fuera con pendientes)
+ *  · completa → RELLENO verde   (visita CERRADA: el paciente se retiró y no queda checklist pendiente)
+ * El contorno verde aparece al marcar "Atendido" (real_date) y se mantiene mientras la visita sigue
+ * abierta. Solo se rellena cuando se cierra (left_at + sin checklist pendiente): así una visita sin
+ * checklist NO se rellena apenas la atendés (antes quedaba 'completa' al instante por no tener ítems).
  */
 export function dotVisual(v: TrackVisitRow): DotVisual {
-  if (v.computed_status === 'completa') return 'completa'
   if (v.real_date === null) return 'agendada'
+  if (v.left_at !== null && v.computed_status === 'completa') return 'completa'
   return 'en_curso'
 }
 
@@ -194,7 +196,9 @@ export type VisitStateLabel =
  * día") + el checklist. `today` (ISO) distingue Agendada (futura) de Por llegar (hoy, sin llegar).
  */
 export function visitStateLabel(v: TrackVisitRow, today: string): VisitStateLabel {
-  if (v.computed_status === 'completa') return 'Completa'
+  // "Completa" solo cuando la visita está CERRADA (se retiró + sin checklist pendiente);
+  // así coincide con el relleno del punto (ver dotVisual). Antes de eso, la etapa operativa.
+  if (v.left_at !== null && v.computed_status === 'completa') return 'Completa'
   if (v.left_at !== null) return 'Fuera del sitio'
   if (v.ready_at !== null) return 'Listo para irse'
   if (v.real_date !== null) return 'Atendido'
