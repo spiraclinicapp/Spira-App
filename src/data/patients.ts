@@ -134,3 +134,43 @@ export async function updatePatient(
   if (!data || data.length === 0) return { error: 'No tenés permiso para editar este paciente.' }
   return { error: null }
 }
+
+/** Conteo de impacto del borrado (resumen para la zona de peligro). */
+export interface PatientFootprint {
+  visits: number
+  dispensations: number
+}
+
+/**
+ * Huella clínica del paciente: cantidad de visitas y de dispensaciones. Dos counts
+ * PostgREST (head: true, sin traer filas), filtrando por patient_id (ambas fuentes lo
+ * exponen: v_track_visits y track_dispensations). Scopeado por RLS (gerencia ve todo;
+ * coordinadora ve lo suyo). Es informativo — el freno real del borrado es el
+ * type-to-confirm — así que un conteo aproximado por RLS es aceptable.
+ */
+export async function patientFootprint(patientId: string): Promise<PatientFootprint> {
+  const [visitsRes, dispRes] = await Promise.all([
+    supabase.from('v_track_visits').select('id', { count: 'exact', head: true }).eq('patient_id', patientId),
+    supabase.from('track_dispensations').select('id', { count: 'exact', head: true }).eq('patient_id', patientId),
+  ])
+  return { visits: visitsRes.count ?? 0, dispensations: dispRes.count ?? 0 }
+}
+
+/** Traduce el error del borrado a un mensaje sereno. */
+function deleteErrorMessage(code: string | undefined, raw: string): string {
+  if (code === '42501') return 'No tenés permiso para eliminar pacientes.'
+  if (code === '23503') return 'Ese paciente ya no existe.'
+  return raw || 'No pudimos eliminar el paciente. Probá de nuevo.'
+}
+
+/**
+ * Elimina un paciente por completo vía RPC delete_patient (SECURITY DEFINER, gateado a
+ * gerencia o track leader+). Borra en cascada toda su cadena clínica; queda el rastro en
+ * audit_log (recuperable). Irreversible desde la UI.
+ */
+export async function deletePatient(patientId: string): Promise<{ error: string | null }> {
+  if (!patientId) return { error: 'No se pudo identificar al paciente. Recargá la página e intentá de nuevo.' }
+  const { error } = await supabase.rpc('delete_patient', { p_patient_id: patientId })
+  if (error) return { error: deleteErrorMessage(error.code, error.message) }
+  return { error: null }
+}
