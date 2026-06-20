@@ -1,15 +1,29 @@
 -- Spira · Migración 0026 — Gestión del cronograma del protocolo
 -- Ver spec: docs/superpowers/specs/2026-06-20-cronograma-protocolo-design.md
--- RLS de escritura sobre visit_definitions + RPCs sync_protocol_schedule / delete_visit_definition.
+-- AJUSTA la RLS YA EXISTENTE de visit_definitions (no la habilita: 0006 ya la prendió
+-- y definió select + edit). Acá ENDURECEMOS:
+--   · edición admin-only (gerencia o track-admin) vía INSERT/UPDATE — antes 0006/0009
+--     dejaban editar a track-operator con un único policy "lideres editan visit_definitions"
+--     que era FOR ALL (incluía DELETE directo);
+--   · cerramos el borrado directo (NO se crea policy de delete; el DELETE pasa por la RPC
+--     delete_visit_definition, SECURITY DEFINER, que valida la regla de integridad);
+--   · sumamos lectura para track-admin (gerencia + coordinadoras asignadas ya leen vía 0006).
+-- + RPCs sync_protocol_schedule / delete_visit_definition.
 -- ============================================================================
 
-alter table public.visit_definitions enable row level security;
+-- visit_definitions YA tiene RLS habilitada desde 0006; no la re-habilitamos.
 
--- Lectura: si NO existe ya una policy de select (ver Step 1), habilitarla para autenticados.
--- (Las vistas security_invoker la necesitan; idempotente.)
-drop policy if exists "ver visit_definitions" on public.visit_definitions;
-create policy "ver visit_definitions" on public.visit_definitions for select
-  using (auth.uid() is not null);
+-- Lectura: NO tocamos el policy de select de 0006 ("ver visit_definitions": gerencia / pharma
+-- / coordinadora asignada). Sumamos un policy aparte para que track-admin lea TODOS los
+-- cronogramas (gestiona el protocolo globalmente, no por asignación).
+drop policy if exists "track-admin ve visit_definitions" on public.visit_definitions;
+create policy "track-admin ve visit_definitions" on public.visit_definitions for select
+  using (public.has_min_role('track','admin'));
+
+-- Cerramos la edición amplia de 0006/0009: ese policy era FOR ALL con has_min_role('track','operator'),
+-- así que habilitaba a track-operator a escribir Y BORRAR directo. Lo borramos; sin policy de
+-- delete, ya nadie borra directo (el borrado va por delete_visit_definition).
+drop policy if exists "lideres editan visit_definitions" on public.visit_definitions;
 
 -- Escritura: gerencia o track-admin gestionan el cronograma del protocolo.
 drop policy if exists "gestiona visit_definitions (insert)" on public.visit_definitions;
@@ -102,7 +116,8 @@ begin
            window_end     = e.randomization_date + vd.offset_days + vd.window_plus
     from public.enrollments e, public.visit_definitions vd
     where pv.enrollment_id = e.id and pv.visit_def_id = vd.id
-      and e.protocol_id = p_protocol_id and pv.kind='programada' and pv.real_date is null
+      and e.protocol_id = p_protocol_id and e.status = 'activo'
+      and pv.kind='programada' and pv.real_date is null
       and (pv.estimated_date is distinct from e.randomization_date + vd.offset_days
         or pv.window_start  is distinct from e.randomization_date + vd.offset_days - vd.window_minus
         or pv.window_end    is distinct from e.randomization_date + vd.offset_days + vd.window_plus);
@@ -110,7 +125,7 @@ begin
     -- BORRAR las programadas huérfanas no atendidas (su def ya no existe)
     delete from public.patient_visits pv
     using public.enrollments e
-    where pv.enrollment_id = e.id and e.protocol_id = p_protocol_id
+    where pv.enrollment_id = e.id and e.protocol_id = p_protocol_id and e.status = 'activo'
       and pv.kind='programada' and pv.real_date is null
       and not exists (select 1 from public.visit_definitions vd where vd.id = pv.visit_def_id);
   end if;
