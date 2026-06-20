@@ -44,6 +44,9 @@ export interface TrackVisitRow {
   protocol_name: string
   patient_code: string | null
   patient_name: string
+  arrived_at: string | null
+  ready_at: string | null
+  left_at: string | null
 }
 
 /** Visitas no realizadas que caen dentro de los próximos 7 días (KPI + lista del Resumen). */

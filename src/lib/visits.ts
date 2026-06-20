@@ -165,6 +165,20 @@ export function flowWindow(
   }
 }
 
+export type DotVisual =
+  | 'agendada' | 'en_curso' | 'terminada' | 'completa'
+  | 'ventana_vencida' | 'item_vencido'
+
+/** Estado visual de la pelotita = función pura de real_date + left_at + computed_status. */
+export function dotVisual(v: TrackVisitRow): DotVisual {
+  if (v.computed_status === 'ventana_vencida') return 'ventana_vencida'
+  if (v.computed_status === 'completa') return 'completa'
+  if (v.real_date === null) return 'agendada'
+  if (v.computed_status === 'item_vencido') return 'item_vencido'
+  if (v.left_at !== null) return 'terminada'   // se retiró, checklist pendiente
+  return 'en_curso'                            // atendida, presente
+}
+
 /** Edad en años desde una fecha ISO de nacimiento (YYYY-MM-DD). null si no hay fecha. */
 export function ageFromBirth(birthISO: string | null): number | null {
   if (!birthISO) return null

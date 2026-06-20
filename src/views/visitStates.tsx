@@ -1,5 +1,6 @@
 import type { VisitStatus } from '../data/visits'
 import type { OperationalStage } from '../data/dayVisits'
+import type { DotVisual } from '../lib/visits'
 
 /**
  * Paleta de los 6 estados de visita (de la identidad visual, TrackContent.jsx).
@@ -12,6 +13,15 @@ export const VISIT_STATES: Record<VisitStatus, { label: string; color: string }>
   completa:        { label: 'Completa',        color: '#4E7A3F' },
   item_vencido:    { label: 'Ítem vencido',    color: '#B0823F' },
   ventana_vencida: { label: 'Ventana vencida', color: '#A6483B' },
+}
+
+export const DOT_VISUALS: Record<DotVisual, { label: string; color: string }> = {
+  agendada:        { label: 'Agendada',        color: VISIT_STATES.futura.color },
+  en_curso:        { label: 'En curso',        color: VISIT_STATES.proxima.color },
+  terminada:       { label: 'Terminada',       color: VISIT_STATES.realizada.color },
+  completa:        { label: 'Completa',        color: VISIT_STATES.completa.color },
+  item_vencido:    { label: 'Ítem vencido',    color: VISIT_STATES.item_vencido.color },
+  ventana_vencida: { label: 'Ventana vencida', color: VISIT_STATES.ventana_vencida.color },
 }
 
 /**
