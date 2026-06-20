@@ -69,9 +69,13 @@ export function todaySplit(rows: TrackVisitRow[], today: string): {
   return { prev, next, todayVisit }
 }
 
-/** Mapa id → V# (1-based) SOLO sobre las visitas programadas (las sueltas se etiquetan por kind). */
+/**
+ * Mapa id → número de visita (1-based) sobre TODAS las visitas del paciente (programadas
+ * + sueltas), en orden cronológico. Es el conteo de "cuántas veces vino": cada visita lleva
+ * su número independientemente del tipo.
+ */
 export function visitIndex(rows: TrackVisitRow[]): Map<string, number> {
-  const ordered = orderVisits(scheduledVisits(rows))
+  const ordered = orderVisits(rows)
   const map = new Map<string, number>()
   ordered.forEach((v, i) => map.set(v.id, i + 1))
   return map
@@ -165,18 +169,38 @@ export function flowWindow(
   }
 }
 
-export type DotVisual =
-  | 'agendada' | 'en_curso' | 'terminada' | 'completa'
-  | 'ventana_vencida' | 'item_vencido'
+/** Los 3 estados de COLOR/relleno de la pelotita (el label granular lo da visitStateLabel). */
+export type DotVisual = 'agendada' | 'en_curso' | 'completa'
 
-/** Estado visual de la pelotita = función pura de real_date + left_at + computed_status. */
+/**
+ * Color/relleno de la pelotita según el recorrido operativo:
+ *  · agendada → GRIS    (todavía no atendida: agendada / por llegar / en el sitio = sin real_date)
+ *  · en_curso → CONTORNO verde (atendida, checklist pendiente: atendido / listo / fuera del sitio)
+ *  · completa → RELLENO verde   (checklist 100 %)
+ * El contorno verde aparece recién cuando se marca "Atendido" (real_date); antes queda gris.
+ */
 export function dotVisual(v: TrackVisitRow): DotVisual {
-  if (v.computed_status === 'ventana_vencida') return 'ventana_vencida'
   if (v.computed_status === 'completa') return 'completa'
   if (v.real_date === null) return 'agendada'
-  if (v.computed_status === 'item_vencido') return 'item_vencido'
-  if (v.left_at !== null) return 'terminada'   // se retiró, checklist pendiente
-  return 'en_curso'                            // atendida, presente
+  return 'en_curso'
+}
+
+export type VisitStateLabel =
+  | 'Agendada' | 'Por llegar' | 'En el sitio'
+  | 'Atendido' | 'Listo para irse' | 'Fuera del sitio' | 'Completa'
+
+/**
+ * Etiqueta del estado de la visita según el recorrido operativo (lo que pasa en "Visitas del
+ * día") + el checklist. `today` (ISO) distingue Agendada (futura) de Por llegar (hoy, sin llegar).
+ */
+export function visitStateLabel(v: TrackVisitRow, today: string): VisitStateLabel {
+  if (v.computed_status === 'completa') return 'Completa'
+  if (v.left_at !== null) return 'Fuera del sitio'
+  if (v.ready_at !== null) return 'Listo para irse'
+  if (v.real_date !== null) return 'Atendido'
+  if (v.arrived_at !== null) return 'En el sitio'
+  const d = v.estimated_date ?? v.real_date ?? ''
+  return d && d <= today ? 'Por llegar' : 'Agendada'
 }
 
 /** Edad en años desde una fecha ISO de nacimiento (YYYY-MM-DD). null si no hay fecha. */

@@ -1,69 +1,47 @@
 import type { ReactNode } from 'react'
-import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
-import { dotVisual } from '../../lib/visits'
-import { DOT_LABELS, dotColor } from '../visitStates'
+import { dotVisual, visitStateLabel } from '../../lib/visits'
+import { dotColor } from '../visitStates'
 
 /**
- * Pelotita de estado de una visita. El estado lo deriva dotVisual(visit) (de real_date +
- * left_at + computed_status). El COLOR del ciclo es el VERDE DE LA MARCA (`accent`):
- *   · agendada      → contorno gris (pendiente)
- *   · en_curso      → contorno verde, SIN rellenar (se está atendiendo)
- *   · terminada     → contorno verde con check (se retiró, checklist pendiente)
- *   · completa      → RELLENO verde + check blanco (checklist 100 %)
- *   · item/ventana  → contorno ámbar/rojo (alertas)
- * Solo "completa" se rellena; el resto es contorno. `isToday` resalta la actual con el verde
- * de la marca + halo (ortogonal al estado).
+ * Pelotita de una visita: muestra el NÚMERO de visita (conteo de cuántas veces vino) y refleja
+ * el recorrido operativo con el color/relleno (dotVisual):
+ *   · agendada (sin atender: agendada / por llegar / en el sitio) → GRIS, contorno
+ *   · en_curso (atendida, checklist pendiente: atendido / listo / fuera) → CONTORNO verde marca
+ *   · completa (checklist 100 %) → RELLENO verde marca
+ * `isToday` agranda + halo (resalta la actual, sin cambiar el color del estado).
  */
-export function VisitDot({ visit, number, size = 28, isToday = false, accent }: {
+export function VisitDot({ visit, number, today, size = 28, isToday = false, accent }: {
   visit: TrackVisitRow
   number: ReactNode
+  today: string
   size?: number
   isToday?: boolean
   accent: string
 }) {
   const dv = dotVisual(visit)
-  const color = dotColor(dv, accent)
+  const color = dotColor(dv, accent) // gris (#7C8C87) o verde de la marca
   const sz = isToday ? size + 4 : size
-  const check = dv === 'completa' || dv === 'terminada' || dv === 'item_vencido'
+  const filled = dv === 'completa'
+  const agendada = dv === 'agendada'
 
-  let background: string
-  let border: string
-  let contentColor: string
-  if (dv === 'completa') {
-    // Único estado RELLENO: verde de la marca, check blanco.
-    background = color
-    border = 'none'
-    contentColor = '#fff'
-  } else if (dv === 'agendada' && !isToday) {
-    // Pendiente y neutra: contorno gris claro, número tenue.
-    background = 'var(--spira-surface)'
-    border = '1.5px solid var(--spira-line-2)'
-    contentColor = 'var(--spira-faint)'
-  } else {
-    // En curso / terminada / alertas / la actual: CONTORNO (sin rellenar) del color.
-    // La actual (isToday) se resalta con el verde de la marca aunque siga agendada.
-    const ring = isToday ? accent : color
-    background = 'var(--spira-white)'
-    border = `2px solid ${ring}`
-    contentColor = ring
-  }
+  const background = filled ? color : agendada ? 'var(--spira-surface)' : 'var(--spira-white)'
+  const border = filled ? 'none' : agendada ? '1.5px solid var(--spira-line-2)' : `2px solid ${color}`
+  const contentColor = filled ? '#fff' : agendada ? 'var(--spira-faint)' : color
 
   return (
     <span
-      title={DOT_LABELS[dv]}
+      title={visitStateLabel(visit, today)}
       style={{
         width: sz, height: sz, flex: '0 0 auto', borderRadius: '50%',
         display: 'grid', placeItems: 'center',
         fontFamily: 'var(--spira-font-display)', fontWeight: 700,
         fontSize: isToday ? 14 : 12.5,
-        background, border,
-        boxShadow: isToday ? `0 0 0 4px ${accent}1F` : 'none',
+        background, border, color: contentColor,
+        boxShadow: isToday ? `0 0 0 4px ${color}1F` : 'none',
       }}
     >
-      {check
-        ? <Icon name="check" size={Math.round(sz * 0.5)} color={contentColor} stroke={3} />
-        : <span style={{ color: contentColor }}>{number}</span>}
+      {number}
     </span>
   )
 }

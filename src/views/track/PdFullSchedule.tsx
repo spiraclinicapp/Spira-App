@@ -1,33 +1,34 @@
 import type { TrackVisitRow } from '../../data/visits'
 import { KIND_LABELS } from '../../data/visitEvents'
-import { dotVisual, orderVisits, visitIndex, weekNumber } from '../../lib/visits'
-import { DOT_LABELS, dotColor } from '../visitStates'
-import { formatShortAR } from '../../lib/dates'
+import { dotVisual, orderVisits, visitIndex, visitStateLabel, weekNumber } from '../../lib/visits'
+import { dotColor } from '../visitStates'
+import { formatShortAR, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 
 /**
- * Cronograma vertical: todas las visitas del paciente (programadas + sueltas). Por fila: círculo de
- * estado (check si realizada, número si pendiente, actual con anillo + halo), nombre ("Visita N" para
- * las del cronograma o el tipo para las sueltas), semana/fecha y pill del estado calculado.
+ * Cronograma vertical: todas las visitas del paciente (programadas + sueltas). Por fila: pelotita con
+ * el NÚMERO de visita (gris sin atender, contorno verde atendida, relleno verde completa), nombre
+ * ("Visita N", conteo de todas las visitas), semana/fecha y pill del estado operativo (Atendido,
+ * Fuera del sitio, etc.).
  */
 export function PdFullSchedule({ visits, currentId, accent }: { visits: TrackVisitRow[]; currentId: string | null; accent: string }) {
   const ordered = orderVisits(visits)
   const idx = visitIndex(visits)
+  const today = todayISO()
 
   return (
     <div>
       {ordered.map((v, k) => {
         const cur = v.id === currentId
-        const dv = dotVisual(v)
-        const estColor = dotColor(dv, accent)
-        const estLabel = DOT_LABELS[dv]
+        const estColor = dotColor(dotVisual(v), accent)
+        const estLabel = visitStateLabel(v, today)
         const n = idx.get(v.id)
         const label = n != null ? `Visita ${n}` : KIND_LABELS[v.kind]
         const w = weekNumber(v)
         const fecha = v.estimated_date ?? v.real_date
         return (
           <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 4px', borderTop: k ? '1px solid var(--spira-line)' : 'none' }}>
-            <VisitDot visit={v} number={n ?? '·'} size={26} isToday={cur} accent={accent} />
+            <VisitDot visit={v} number={n ?? '·'} today={today} size={26} isToday={cur} accent={accent} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: cur ? accent : 'var(--spira-ink)', whiteSpace: 'nowrap' }}>{label}</div>
               {w != null && <div style={{ fontSize: 11.5, color: 'var(--spira-muted)', marginTop: 1 }}>{`Semana W${w}`}</div>}
