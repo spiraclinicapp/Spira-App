@@ -59,7 +59,7 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
   /* Type-to-confirm: se reescribe el IVRS si existe; si no, el nombre completo. */
   const delTarget = (patient.code ?? '').trim() || patient.full_name.trim()
   const delLabel = patient.code ? 'el número IVRS' : 'el nombre completo'
-  const delReady = delConfirm.trim() === delTarget
+  const delReady = delTarget.length > 0 && delConfirm.trim() === delTarget
 
   const openDanger = async () => {
     setDeleting(true)
@@ -248,7 +248,7 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <button type="button" onClick={() => setDeleting(false)} style={btnOutline}>Cancelar</button>
                 <button type="button" onClick={() => void doDelete()} disabled={delBusy || !delReady}
-                  style={{ height: 38, padding: '0 15px', borderRadius: 10, border: 'none', background: DANGER, color: '#fff', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, cursor: delBusy || !delReady ? 'default' : 'pointer', opacity: delBusy || !delReady ? 0.6 : 1 }}>
+                  style={{ height: 40, padding: '0 15px', borderRadius: 10, border: 'none', background: DANGER, color: '#fff', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, cursor: delBusy || !delReady ? 'default' : 'pointer', opacity: delBusy || !delReady ? 0.6 : 1 }}>
                   {delBusy ? 'Eliminando…' : 'Eliminar definitivamente'}
                 </button>
               </div>
