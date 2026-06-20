@@ -15,13 +15,27 @@ export const VISIT_STATES: Record<VisitStatus, { label: string; color: string }>
   ventana_vencida: { label: 'Ventana vencida', color: '#A6483B' },
 }
 
-export const DOT_VISUALS: Record<DotVisual, { label: string; color: string }> = {
-  agendada:        { label: 'Agendada',        color: VISIT_STATES.futura.color },
-  en_curso:        { label: 'En curso',        color: VISIT_STATES.proxima.color },
-  terminada:       { label: 'Terminada',       color: VISIT_STATES.realizada.color },
-  completa:        { label: 'Completa',        color: VISIT_STATES.completa.color },
-  item_vencido:    { label: 'Ítem vencido',    color: VISIT_STATES.item_vencido.color },
-  ventana_vencida: { label: 'Ventana vencida', color: VISIT_STATES.ventana_vencida.color },
+/** Etiquetas del ciclo de vida de la visita (las pelotitas del tracker). El color NO es fijo:
+ *  ver `dotColor` — el ciclo usa el verde de la marca (accent), no un color por estado. */
+export const DOT_LABELS: Record<DotVisual, string> = {
+  agendada: 'Agendada',
+  en_curso: 'En curso',
+  terminada: 'Terminada',
+  completa: 'Completa',
+  item_vencido: 'Ítem vencido',
+  ventana_vencida: 'Ventana vencida',
+}
+
+/**
+ * Color de la pelotita/pill según el estado del ciclo. El ciclo (en_curso/terminada/completa)
+ * usa el VERDE DE LA MARCA (`accent` del módulo), no un color fijo; las alertas su rojo/ámbar;
+ * la agendada, gris. Devuelve hex (sirve para concatenar alpha en las pills).
+ */
+export function dotColor(dv: DotVisual, accent: string): string {
+  if (dv === 'ventana_vencida') return VISIT_STATES.ventana_vencida.color
+  if (dv === 'item_vencido') return VISIT_STATES.item_vencido.color
+  if (dv === 'agendada') return VISIT_STATES.futura.color
+  return accent // en_curso · terminada · completa → verde de la marca
 }
 
 /**

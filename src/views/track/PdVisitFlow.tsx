@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import type { TrackVisitRow } from '../../data/visits'
 import { KIND_SHORT } from '../../data/visitEvents'
 import { dotVisual, flowWindow, todaySplit, visitIndex, weekNumber } from '../../lib/visits'
-import { DOT_VISUALS } from '../visitStates'
+import { DOT_LABELS } from '../visitStates'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 
@@ -32,9 +32,9 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
 
   /* Pie: ubica "Hoy" respecto del cronograma + el estado de la visita en juego. */
   let caption = ''
-  if (todayVisit) caption = `Hoy · ${labelOf(todayVisit)} · ${DOT_VISUALS[dotVisual(todayVisit)].label}`
-  else if (tPrev && tNext) caption = `Hoy · entre ${labelOf(tPrev)} y ${labelOf(tNext)} · ${DOT_VISUALS[dotVisual(tNext)].label}`
-  else if (tNext) caption = `Hoy · antes de ${labelOf(tNext)} · ${DOT_VISUALS[dotVisual(tNext)].label}`
+  if (todayVisit) caption = `Hoy · ${labelOf(todayVisit)} · ${DOT_LABELS[dotVisual(todayVisit)]}`
+  else if (tPrev && tNext) caption = `Hoy · entre ${labelOf(tPrev)} y ${labelOf(tNext)} · ${DOT_LABELS[dotVisual(tNext)]}`
+  else if (tNext) caption = `Hoy · antes de ${labelOf(tNext)} · ${DOT_LABELS[dotVisual(tNext)]}`
   else if (tPrev) caption = `Hoy · después de ${labelOf(tPrev)}`
 
   /* Estado del tramo según HOY: lleno si la visita derecha ya pasó; "half" (a medio llenar, con punto
@@ -75,7 +75,7 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
     return (
       <div key={v.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 72, flex: '0 0 auto' }}>
         <div style={{ height: 32, display: 'flex', alignItems: 'center' }}>
-          <VisitDot visit={v} number={idx.get(v.id) ?? '·'} size={28} isToday={v.id === highlightId} />
+          <VisitDot visit={v} number={idx.get(v.id) ?? '·'} size={28} isToday={v.id === highlightId} accent={accent} />
         </div>
         <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 12.5, color: cur ? accent : 'var(--spira-ink)', marginTop: 6, whiteSpace: 'nowrap' }}>{label}</div>
         {w != null && <div style={{ fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>{`W${w}`}</div>}
