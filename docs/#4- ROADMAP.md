@@ -101,9 +101,10 @@ propósito: Paso 2 = "que se vea armado"; Paso 3 = "que se vea pulido".
   dispensación mínima de Track, vista Alertas). (b) **Eliminar paciente** (líderes+): borrado en cascada
   auditado/recuperable (RPC `delete_patient`, con guarda contra dispensaciones de farmacia). (c) **Ciclo
   de vida unificado**: registrar = agendar (0025: `register_visit_event` setea `estimated_date`, no
-  `real_date`) + las pelotitas del tracker reflejan el flujo (Agendada → En curso → Terminada → Completa
-  verde con checklist 100%). Ver [`bitacora/2026-06-19.md`](./bitacora/2026-06-19.md). Pendiente: aplicar
-  **0025**, e2e del ciclo de vida, Task V completa, decidir merge a `main` + taggear **v0.5.0**.
+  `real_date`) + las pelotitas del tracker reflejan el recorrido operativo (gris sin atender → contorno
+  verde atendida → relleno verde al cerrar, con el número de visita). Migraciones 0023–0025 **aplicadas**;
+  **taggeado `v0.5.0`** (en la punta de la rama). Ver [`bitacora/2026-06-20.md`](./bitacora/2026-06-20.md).
+  Pendiente: **merge a `main`** + Task V completa (opcional).
 - Campos de paciente para el tablero: `sex` (F/M/Otro).
 - Notas del día en Agenda: la tabla `agenda_notes` existe; falta `unique (user_id, note_date)` para
   upsert + policy DELETE (migración 0015 futura). Impresión de la agenda (`@media print`) también pendiente.
