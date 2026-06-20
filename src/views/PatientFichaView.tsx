@@ -271,7 +271,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '15px 20px', borderBottom: '1px solid var(--spira-line)' }}>
                   <Icon name="calendar" size={17} color={accent} />
                   <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 16 }}>Cronograma de visitas</span>
-                  <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--spira-muted)' }}>{rows.length} visitas programadas</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--spira-muted)' }}>{rows.length} visitas</span>
                 </div>
                 <div style={{ overflow: 'auto', padding: '6px 20px 14px' }}>
                   <PdFullSchedule visits={rows} currentId={current?.id ?? null} accent={accent} />

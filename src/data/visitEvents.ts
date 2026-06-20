@@ -73,12 +73,21 @@ export async function registerVisitEvent(
   return { error: null }
 }
 
-/** Edita la fecha/nota de una visita suelta (UPDATE directo; RLS de track operator+). */
+/**
+ * Edita la fecha/nota de una visita suelta (UPDATE directo; RLS de track operator+).
+ * Una suelta AGENDADA (real_date NULL, modelo 0025) edita su `estimated_date`; una ya
+ * atendida (real_date set) edita su `real_date` — así editar la fecha no la marca atendida
+ * por error ni dispara la materialización del checklist antes de tiempo.
+ */
 export async function editVisitEvent(
   id: string, date: string, notes: string | null,
 ): Promise<{ error: string | null }> {
+  const { data: cur, error: readErr } = await supabase
+    .from('patient_visits').select('real_date').eq('id', id).maybeSingle()
+  if (readErr) return { error: readErr.message }
+  const patch = cur && cur.real_date !== null ? { real_date: date, notes } : { estimated_date: date, notes }
   const { data, error } = await supabase.from('patient_visits')
-    .update({ real_date: date, notes }).eq('id', id).select('id')
+    .update(patch).eq('id', id).select('id')
   if (error) return { error: error.message }
   if (!data || data.length === 0) return { error: 'No tenés permiso para editar esta visita.' }
   return { error: null }
