@@ -4,9 +4,10 @@ import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
-import { updatePatient } from '../data/patients'
-import type { PatientRow, PatientStatus } from '../data/patients'
+import { updatePatient, deletePatient, patientFootprint } from '../data/patients'
+import type { PatientRow, PatientStatus, PatientFootprint } from '../data/patients'
 import { FERTILITY_OPTIONS } from '../lib/visits'
+import { useAuth } from '../lib/auth'
 
 /* Tinte danger para el callout de cambio de número (no hay hex de --spira-danger
    para concatenar alfa, así que se usan rgba literales del mismo tono). */
@@ -19,6 +20,8 @@ interface EditPatientFormProps {
   accentSolid: string
   onClose: () => void
   onUpdated: () => void
+  /** Tras eliminar el paciente: cerrar, refetch y navegar fuera de la ficha (ya no existe). */
+  onDeleted: () => void
 }
 
 /**
@@ -30,7 +33,7 @@ interface EditPatientFormProps {
  * type-to-confirm. Las fechas del estudio (screening/randomización) ya no se editan acá:
  * se registran como visitas (modelo 0022).
  */
-export function EditPatientForm({ patient, accentSolid, onClose, onUpdated }: EditPatientFormProps) {
+export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDeleted }: EditPatientFormProps) {
   const originalCode = patient.code ?? ''
   const [code, setCode] = useState(originalCode)
   const [fullName, setFullName] = useState(patient.full_name)
@@ -43,6 +46,37 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated }: Ed
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [confirmCode, setConfirmCode] = useState('')
+
+  // ── Zona de peligro (eliminar paciente) ──
+  const { hasMinRole, modules } = useAuth()
+  const canDelete = hasMinRole('track', 'leader') || modules.includes('gerencia')
+  const [deleting, setDeleting] = useState(false)
+  const [footprint, setFootprint] = useState<PatientFootprint | null>(null)
+  const [delConfirm, setDelConfirm] = useState('')
+  const [delBusy, setDelBusy] = useState(false)
+  const [delError, setDelError] = useState<string | null>(null)
+
+  /* Type-to-confirm: se reescribe el IVRS si existe; si no, el nombre completo. */
+  const delTarget = (patient.code ?? '').trim() || patient.full_name.trim()
+  const delLabel = patient.code ? 'el número IVRS' : 'el nombre completo'
+  const delReady = delConfirm.trim() === delTarget
+
+  const openDanger = async () => {
+    setDeleting(true)
+    setDelError(null)
+    setDelConfirm('')
+    setFootprint(null)
+    setFootprint(await patientFootprint(patient.id))
+  }
+
+  const doDelete = async () => {
+    setDelBusy(true)
+    setDelError(null)
+    const res = await deletePatient(patient.id)
+    setDelBusy(false)
+    if (res.error) { setDelError(res.error); return }
+    onDeleted()
+  }
 
   /* Reconfirmación reforzada SOLO cuando ya había un IVRS y se cambia (riesgo de
      pisar una identidad clínica). Agregar uno donde no había no necesita type-to-confirm. */
@@ -174,6 +208,54 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated }: Ed
           </div>
         )}
       </form>
+
+      {canDelete && (
+        <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
+          {!deleting ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', lineHeight: 1.4 }}>
+                <span style={{ fontWeight: 600, color: 'var(--spira-ink)' }}>Eliminar paciente.</span>{' '}
+                Borra al paciente y todo su historial de forma permanente.
+              </div>
+              <button type="button" onClick={() => void openDanger()}
+                style={{ ...btnOutline, flex: '0 0 auto', color: DANGER, borderColor: DANGER_BORDER }}>
+                <Icon name="trash" size={15} color={DANGER} /> Eliminar paciente
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 11, padding: '13px 14px', borderRadius: 11, background: DANGER_BG, border: `1px solid ${DANGER_BORDER}` }}>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="alert" size={18} color={DANGER} /></span>
+                <div style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--spira-ink)' }}>
+                  <div style={{ fontWeight: 600, marginBottom: 3 }}>Eliminar definitivamente</div>
+                  {footprint == null ? (
+                    'Calculando el impacto…'
+                  ) : (
+                    <>Se eliminarán <b>{footprint.visits}</b> {footprint.visits === 1 ? 'visita' : 'visitas'} y{' '}
+                    <b>{footprint.dispensations}</b> {footprint.dispensations === 1 ? 'dispensación' : 'dispensaciones'},
+                    y todo el checklist del paciente. Es permanente.</>
+                  )}
+                  <div style={{ marginTop: 8 }}>
+                    Reescribí {delLabel} (<span className="spira-mono" style={{ fontWeight: 600 }}>{delTarget}</span>) para confirmar.
+                  </div>
+                </div>
+              </div>
+              <input value={delConfirm} onChange={(e) => setDelConfirm(e.target.value)}
+                placeholder={`Reescribí ${delTarget}`} autoFocus
+                className={patient.code ? 'spira-mono' : undefined}
+                style={{ ...fieldInput, ...(patient.code ? { fontVariantNumeric: 'tabular-nums' } : {}) }} />
+              {delError && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{delError}</div>}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button type="button" onClick={() => setDeleting(false)} style={btnOutline}>Cancelar</button>
+                <button type="button" onClick={() => void doDelete()} disabled={delBusy || !delReady}
+                  style={{ height: 38, padding: '0 15px', borderRadius: 10, border: 'none', background: DANGER, color: '#fff', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, cursor: delBusy || !delReady ? 'default' : 'pointer', opacity: delBusy || !delReady ? 0.6 : 1 }}>
+                  {delBusy ? 'Eliminando…' : 'Eliminar definitivamente'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </Modal>
   )
 }

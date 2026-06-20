@@ -138,6 +138,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
           accentSolid={accentSolid}
           onClose={() => setModal(null)}
           onUpdated={() => { setModal(null); onPatientUpdated(); visitsQ.refetch() }}
+          onDeleted={() => { setModal(null); onPatientUpdated(); onBack() }}
         />
       )}
       {modal === 'alerts' && (
