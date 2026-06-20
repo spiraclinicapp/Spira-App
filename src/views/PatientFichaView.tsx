@@ -56,13 +56,8 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   const adh = adherence(rows)
   const canAct = canWrite && current !== null && current.real_date === null
 
-  /* Para el flujo "Registrar visita": tipos ya registrados (filtra el selector) y la próxima
-     programada pendiente (post-rando, para marcarla como realizada). */
+  /* Para el flujo "Agendar visita": tipos ya registrados (filtra el selector). */
   const usedKinds = rows.map((r) => r.kind)
-  const nextScheduled = current && current.real_date === null ? current : null
-  const nextScheduledLabel = nextScheduled
-    ? `Visita ${idx.get(nextScheduled.id) ?? ''}${nextScheduled.visit_name ? ` · ${nextScheduled.visit_name}` : ''}`
-    : ''
 
   /* Encabezado contextual del shell: Protocolos (→ grilla) › CÓDIGO (→ detalle) › PACIENTE,
      + Reprogramar / Registrar visita a la derecha. Callbacks por ref (deps primitivas).
@@ -79,7 +74,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       ],
       actions: [
         ...(canAct ? [{ key: 'reprogramar', label: 'Reprogramar', icon: 'calendar' as const, onClick: () => cb.current.reschedule() }] : []),
-        ...(canWrite ? [{ key: 'registrar', label: 'Registrar visita', icon: 'clipboardCheck' as const, primary: true, onClick: () => cb.current.register() }] : []),
+        ...(canWrite ? [{ key: 'registrar', label: 'Agendar visita', icon: 'clipboardCheck' as const, primary: true, onClick: () => cb.current.register() }] : []),
       ],
     })
     return () => setHeader?.(null)
@@ -125,8 +120,6 @@ export function PatientFichaView(props: PatientFichaViewProps) {
           enrollmentId={enrollment.id}
           randomizationDate={enrollment.randomization_date}
           usedKinds={usedKinds}
-          nextScheduled={nextScheduled}
-          nextScheduledLabel={nextScheduledLabel}
           accentSolid={accentSolid}
           onClose={() => setModal(null)}
           onDone={() => { setModal(null); visitsQ.refetch() }}
