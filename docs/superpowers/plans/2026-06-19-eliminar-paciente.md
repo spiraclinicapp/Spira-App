@@ -71,8 +71,21 @@ begin
   end if;
   select exists(select 1 from public.patients where id = p_patient_id) into v_exists;
   if not v_exists then raise exception 'Ese paciente ya no existe' using errcode='23503'; end if;
-  -- enrollments es RESTRICT respecto de patients → borrar primero; la cascada se
-  -- encarga de patient_visits → checklist_items/track_dispensations → checklist_completions.
+  -- Guarda Pharma: dispensation_requests.visit_id → patient_visits es ON DELETE RESTRICT
+  -- (registros de dispensación de farmacia, regulados, NO se borran en cascada; sus
+  -- propios hijos también son RESTRICT). Si el paciente tiene alguna solicitud de
+  -- dispensación, bloquear con un mensaje claro en vez de fallar con un error de FK crudo.
+  if exists (
+    select 1 from public.dispensation_requests dr
+    join public.patient_visits pv on pv.id = dr.visit_id
+    join public.enrollments    e  on e.id = pv.enrollment_id
+    where e.patient_id = p_patient_id
+  ) then
+    raise exception 'No se puede eliminar: el paciente tiene dispensaciones de farmacia registradas. Marcalo como Inactivo en lugar de borrarlo.'
+      using errcode='check_violation';
+  end if;
+  -- enrollments es RESTRICT respecto de patients → borrar primero; la cascada se encarga de
+  -- patient_visits → checklist_items / patient_timeline / track_dispensations → checklist_completions.
   delete from public.enrollments where patient_id = p_patient_id;
   delete from public.patients    where id = p_patient_id;
 end; $$;

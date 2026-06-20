@@ -51,11 +51,26 @@ tocar SQL, incluso si el paciente ya tiene actividad registrada.
 | `checklist_items.visit_id → patient_visits` | CASCADE |
 | `checklist_completions.item_id → checklist_items` | CASCADE |
 | `track_dispensations.patient_visit_id → patient_visits` | CASCADE |
+| `patient_timeline.visit_id → patient_visits` | CASCADE |
 | `enrollments.patient_id → patients` | **RESTRICT** → por eso enrollments se borra **antes** que el paciente |
+| `dispensation_requests.visit_id → patient_visits` (Pharma) | **RESTRICT** → ver guarda abajo |
 
-Borrar `enrollments` arrastra en cascada visitas, checklist y dispensaciones; después el
-paciente queda sin referencias y se borra. `track_dispensations.patient_id → patients` no
-tiene cascada, pero esas filas ya se eliminaron vía `patient_visit_id` antes de tocar `patients`.
+Borrar `enrollments` arrastra en cascada visitas, checklist, timeline y dispensaciones de
+Track; después el paciente queda sin referencias y se borra. `track_dispensations.patient_id
+→ patients` no tiene cascada, pero esas filas ya se eliminaron vía `patient_visit_id` antes de
+tocar `patients`.
+
+### Guarda Pharma (dispensation_requests es RESTRICT)
+
+`dispensation_requests` (solicitudes de dispensación de farmacia, que la coordinadora crea
+desde Track) referencia `patient_visits` con **`ON DELETE RESTRICT`** —y sus propios hijos
+también son RESTRICT— porque son registros de medicación regulados que no se borran en
+cascada. Por eso el RPC, **antes** de borrar, chequea si el paciente tiene alguna
+`dispensation_request`; si la tiene, **bloquea** el borrado con un mensaje claro
+(`errcode='check_violation'`, mensaje que el front muestra vía el fallback `raw`): *"No se
+puede eliminar: el paciente tiene dispensaciones de farmacia registradas. Marcalo como
+Inactivo en lugar de borrarlo."* Los pacientes TEST/erróneos (el caso de uso) no tienen
+solicitudes de farmacia → borran sin problema. (Hallazgo de la revisión de integración.)
 
 ### Auditoría (recuperabilidad)
 
