@@ -25,9 +25,7 @@ export function RegisterVisitFlow({ enrollmentId, randomizationDate, usedKinds, 
   onDone: () => void
 }) {
   const kinds = availableEventKinds(randomizationDate, usedKinds)
-  const options: { value: string; label: string }[] = [
-    ...kinds.map((k) => ({ value: k, label: KIND_LABELS[k] })),
-  ]
+  const options: { value: string; label: string }[] = kinds.map((k) => ({ value: k, label: KIND_LABELS[k] }))
 
   const [choice, setChoice] = useState(options[0]?.value ?? '')
   const [date, setDate] = useState(todayISO())

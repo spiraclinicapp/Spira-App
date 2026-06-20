@@ -60,8 +60,8 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   const usedKinds = rows.map((r) => r.kind)
 
   /* Encabezado contextual del shell: Protocolos (→ grilla) › CÓDIGO (→ detalle) › PACIENTE,
-     + Reprogramar / Registrar visita a la derecha. Callbacks por ref (deps primitivas).
-     Registrar visita está disponible siempre (pre y post rando); Reprogramar solo si hay una
+     + Reprogramar / Agendar visita a la derecha. Callbacks por ref (deps primitivas).
+     Agendar visita está disponible siempre (pre y post rando); Reprogramar solo si hay una
      visita programada actual. */
   const cb = useRef({ onGoList, onBack, reschedule: () => setModal('reschedule'), register: () => setModal('register') })
   cb.current = { onGoList, onBack, reschedule: () => setModal('reschedule'), register: () => setModal('register') }
