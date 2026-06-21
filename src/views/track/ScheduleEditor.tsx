@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
@@ -61,6 +61,9 @@ export function ScheduleEditor({
   const [busy, setBusy] = useState(false)
   const [reordering, setReordering] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /* Contador del request de impacto vigente: descarta respuestas obsoletas si se abre el confirm
+     de otra def antes de que resuelva la anterior (mismo patrón que el flag `active` de useSupabaseQuery). */
+  const impactReq = useRef(0)
 
   const rows = defs.data ?? []
 
@@ -68,7 +71,10 @@ export function ScheduleEditor({
   const askDelete = (d: VisitDefinition) => {
     setConfirmDelete(d)
     setImpact(null)
-    void countDeleteImpact(d.id).then(setImpact)
+    const req = ++impactReq.current
+    void countDeleteImpact(d.id).then((r) => {
+      if (impactReq.current === req) setImpact(r)
+    })
   }
 
   const onSubmit = async (input: DefinitionInput) => {
@@ -222,7 +228,8 @@ export function ScheduleEditor({
         <Modal title="Quitar visita del cronograma" onClose={() => setConfirmDelete(null)} maxWidth={420}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--spira-ink)' }}>
-              Vas a quitar <span className="spira-mono" style={{ fontWeight: 600 }}>{confirmDelete.code ?? confirmDelete.name}</span> del cronograma.
+              {(impact?.attended ?? 0) > 0 ? 'Querés quitar ' : 'Vas a quitar '}
+              <span className="spira-mono" style={{ fontWeight: 600 }}>{confirmDelete.code ?? confirmDelete.name}</span> del cronograma.
             </div>
             <div style={{ fontSize: 13.5, lineHeight: 1.5, color: (impact?.attended ?? 0) > 0 ? 'var(--spira-warn)' : 'var(--spira-muted)' }}>
               {impact === null
