@@ -29,6 +29,11 @@ copias que diverjan). Para una vista combinada: `cat migrations/*.sql` o `supaba
 | 0019 | `enrollments_update_gerencia.sql` | gerencia puede editar el enrolamiento (médico tratante); alinea la policy de UPDATE de `enrollments` con el resto (gerencia OR coordinadora asignada). **Superada por 0020** (queda inocua) |
 | 0020 | `treating_physician_to_patients.sql` | mueve `treating_physician` de `enrollments` a `patients` (es atributo de la persona): columna + backfill + recrea `v_track_visits` y el RPC de alta + dropea la columna vieja |
 | 0021 | `deferred_visits_optional_ivrs.sql` | visitas ancladas en `randomization_date` (generación diferida: al cargarla); `enrollments += screening_date/randomization_date`; `patients.code` opcional (IVRS se asigna en randomización); RPC de alta v4 |
+| 0022 | `visitas_unificadas.sql` | modelo de visitas unificado: enum `visit_kind` + columna `kind` (`programada` vs sueltas pre-randomización); recrea las vistas en orden de dependencia |
+| 0023 | `track_visita_dia.sql` | "Visitas del día": etapas operativas (marcas timestamptz) sobre `patient_visits` + flag `dispenses` en `visit_definitions` + tabla mínima `track_dispensations` |
+| 0024 | `delete_patient.sql` | RPC `delete_patient` (gerencia o track leader/admin): borra el paciente en cascada (FK `ON DELETE CASCADE`), auditado |
+| 0025 | `register_as_schedule.sql` | registrar una visita suelta = AGENDAR (`estimated_date`, `real_date` NULL); la atención se marca después en "Visitas del día" |
+| 0026 | `protocol_schedule.sql` | gestión del cronograma del protocolo: endurece la RLS de `visit_definitions` (edición gerencia/track-admin, cierra el borrado directo) + RPCs `sync_protocol_schedule` y `delete_visit_definition` |
 
 Además, `seed_smoke_test.sql` (en `supabase/`, fuera de `migrations/`) carga datos demo
 para validar el aislamiento de RLS. NO es para producción — ver instrucciones en su cabecera.
