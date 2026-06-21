@@ -94,3 +94,15 @@ El front, antes de avanzar a `listo`, mira el `role` de la visita y muestra la a
 - **`mark_ready` extendida vs wrapper**: decidir firma; mantener la authz actual (clínico/coordinador).
 - **Permisos del IVRS**: setear `patients.code` desde el cierre de visita respetando RLS/unique.
 - **Migración de sueltas legacy**: decidir convertir vs dejar legacy.
+
+## Revisión /autoplan (2026-06-21) — ajustes al diseño
+
+Tras el review CEO/Diseño/Eng, el usuario decidió y se ajustó el diseño:
+
+- **Datos legacy → borrón y cuenta nueva.** Lo cargado es data de **beta/prueba**; en vez de migrar, se hace un reset review-first (lo corre el usuario). No hay conversión de sueltas legacy.
+- **Cutover del camino viejo.** Cuando el protocolo tiene cuadro (definiciones con `role <> 'comun'`), screening/firma/randomización dejan de poder cargarse como sueltas: `register_visit_event` las rechaza y "Agendar" solo ofrece VNP/retest. Una sola ruta para la realidad clínica.
+- **Editor: un solo select "Etapa de la visita"** (Screening / Randomización / Tratamiento-automática / Otra-manual) que deriva `role`+`date_mode` internamente. No se exponen los dos enums crudos.
+- **"No randomizó" → recitar o marcar fallo.** El camino triste ofrece: recitar otra randomización, o **marcar fallo de screening** (`discontinue_enrollment` → status `discontinuado`, paciente inactivado).
+- **Randomización idempotente.** `mark_ready_with_outcome` fija `randomization_date` **solo si era NULL**; randomizar de nuevo falla con mensaje claro (no se pisa la fecha ni se mueve el cronograma).
+- **Salvaguarda.** Alerta si una randomización quedó atendida sin confirmar (el tratamiento no se generó).
+- **Mecánicas:** `sync` (MOVER) y la generación filtran `date_mode='automatica'` (no pisan fechas manuales); `v_protocol_kpis` excluye las libres; `v_track_visits` se recrea desde la versión 0023; display compacto usa código corto y "código - nombre" solo en títulos anchos; `KIND_LABELS` pasa a un módulo puro.
