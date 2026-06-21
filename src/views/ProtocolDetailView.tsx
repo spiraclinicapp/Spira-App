@@ -10,6 +10,7 @@ import { useProtocolKpis } from '../data/protocolKpis'
 import { toCsv, downloadCsv } from '../lib/csv'
 import { groupVisitsByPatient, visitIndex } from '../lib/visits'
 import { PdPatientRow } from './track/PdPatientRow'
+import { ScheduleEditor } from './track/ScheduleEditor'
 import type { ViewHeader } from './types'
 
 const card: CSSProperties = {
@@ -30,6 +31,8 @@ export interface ProtocolDetailViewProps {
   accent: string
   accentSolid: string
   canEdit: boolean
+  /** Gestionar el cronograma del protocolo (gerencia o track-admin). Habilita la pestaña "Cronograma". */
+  canManageSchedule: boolean
   canCreatePatient: boolean
   setHeader?: (header: ViewHeader | null) => void
   onBack: () => void
@@ -41,10 +44,12 @@ export interface ProtocolDetailViewProps {
 
 /** Detalle de Protocolo: ficha lateral (KPIs/adherencia/acciones) + lista de pacientes con tracker. */
 export function ProtocolDetailView(props: ProtocolDetailViewProps) {
-  const { protocol, patients, accent, accentSolid, canEdit, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda } = props
+  const { protocol, patients, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda } = props
   const kpis = useProtocolKpis(protocol.id)
   const visits = useProtocolVisits(protocol.id)
   const [filter, setFilter] = useState<'activos' | 'todos'>('todos')
+  /* Pestaña de la columna derecha. La de "Cronograma" solo existe para quien puede gestionarlo. */
+  const [rightTab, setRightTab] = useState<'pacientes' | 'cronograma'>('pacientes')
 
   /* Registra el encabezado contextual del shell: "Protocolos" (clickeable → grilla) ›
      CÓDIGO, + el botón "Nuevo paciente" a la derecha. Las funciones se leen por ref para
@@ -169,30 +174,61 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
           </div>
         </div>
 
-        {/* lista de pacientes */}
+        {/* columna derecha: pacientes / cronograma (pestañas si se puede gestionar el cronograma) */}
         <div style={{ ...card, padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '15px 20px', borderBottom: '1px solid var(--spira-line)' }}>
-            <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 17 }}>Pacientes</span>
-            <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{shown.length} de {patients.length}</span>
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-              {(['activos', 'todos'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setFilter(t)}
-                  className="spira-no-press"
-                  style={{
-                    fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 'var(--spira-radius-pill)', cursor: 'pointer',
-                    color: filter === t ? accent : 'var(--spira-muted)', background: filter === t ? accent + '14' : 'transparent',
-                    border: filter === t ? 'none' : '1px solid var(--spira-line)', textTransform: 'capitalize', fontFamily: 'var(--spira-font-text)',
-                  }}
-                >
-                  {t === 'activos' ? 'Activos' : 'Todos'}
-                </button>
-              ))}
-            </div>
+            {canManageSchedule ? (
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['pacientes', 'cronograma'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setRightTab(t)}
+                    className="spira-no-press"
+                    style={{
+                      fontSize: 13, fontWeight: 600, padding: '6px 13px', borderRadius: 'var(--spira-radius-pill)', cursor: 'pointer',
+                      color: rightTab === t ? accent : 'var(--spira-muted)', background: rightTab === t ? accent + '14' : 'transparent',
+                      border: rightTab === t ? 'none' : '1px solid var(--spira-line)', fontFamily: 'var(--spira-font-text)',
+                    }}
+                  >
+                    {t === 'pacientes' ? 'Pacientes' : 'Cronograma'}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 17 }}>Pacientes</span>
+            )}
+            {rightTab === 'pacientes' && (
+              <>
+                <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{shown.length} de {patients.length}</span>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                  {(['activos', 'todos'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setFilter(t)}
+                      className="spira-no-press"
+                      style={{
+                        fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 'var(--spira-radius-pill)', cursor: 'pointer',
+                        color: filter === t ? accent : 'var(--spira-muted)', background: filter === t ? accent + '14' : 'transparent',
+                        border: filter === t ? 'none' : '1px solid var(--spira-line)', textTransform: 'capitalize', fontFamily: 'var(--spira-font-text)',
+                      }}
+                    >
+                      {t === 'activos' ? 'Activos' : 'Todos'}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
           <div style={{ overflow: 'auto', padding: '12px 14px', flex: 1 }}>
-            {visits.error ? (
+            {rightTab === 'cronograma' ? (
+              <ScheduleEditor
+                protocolId={protocol.id}
+                accent={accent}
+                accentSolid={accentSolid}
+                canEdit={canManageSchedule}
+                onChanged={() => { visits.refetch(); kpis.refetch() }}
+              />
+            ) : visits.error ? (
               <div style={{ fontSize: 13, color: 'var(--spira-danger)', padding: '8px 4px' }}>No pudimos cargar las visitas.</div>
             ) : shown.length === 0 ? (
               <EmptyState accent={accent} icon="users" title="Sin pacientes" description="Este protocolo todavía no tiene pacientes para mostrar." minHeight={220} />

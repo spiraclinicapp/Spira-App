@@ -102,7 +102,7 @@ function highlight(text: string, q: string, accent: string): ReactNode {
 export function ProtocolsView({ module, submodule, onNavigate, setHeader }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
-  const { hasMinRole, profile } = useAuth()
+  const { hasMinRole, modules, profile } = useAuth()
   const protocols = useProtocols()
   const patients = usePatients()
   const [nav, setNav] = useState<Nav>({ mode: 'list' })
@@ -118,6 +118,9 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
   const canCreatePatient = isTrack && hasMinRole('track', 'operator')
   /* Editar protocolo: la RLS "lideres editan protocolos" exige operator+ (no leader). */
   const canEditProtocol = isTrack && hasMinRole('track', 'operator')
+  /* Gestionar el cronograma del protocolo: espejo de la RLS de visit_definitions en 0026
+     (gerencia o track-admin). NO depende del módulo en el que estés parado. */
+  const canManageSchedule = hasMinRole('track', 'admin') || modules.includes('gerencia')
 
   if (protocols.loading || patients.loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title="Cargando protocolos…" description="Un momento." />
@@ -165,6 +168,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
           accent={accent}
           accentSolid={accentSolid}
           canEdit={canEditProtocol}
+          canManageSchedule={canManageSchedule}
           canCreatePatient={canCreatePatient}
           setHeader={setHeader}
           onBack={() => setNav({ mode: 'list' })}
