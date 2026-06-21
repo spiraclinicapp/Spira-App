@@ -53,7 +53,6 @@ export interface DefinitionInput {
 /** Traduce el código de error de Postgres a un mensaje sereno (patrón *ErrorMessage del repo). */
 function definitionErrorMessage(code?: string): string {
   if (code === '42501') return 'No tenés permiso para editar el cronograma.'
-  if (code === '23505') return 'Ya existe una visita con ese código en este protocolo.'
   if (code === '23502') return 'Faltan datos obligatorios de la visita.'
   return 'No pudimos guardar la visita. Probá de nuevo.'
 }
@@ -104,6 +103,21 @@ export async function deleteDefinition(id: string): Promise<{ error: string | nu
     return { error: error.message }
   }
   return { error: null }
+}
+
+/**
+ * Cuántas visitas programadas NO atendidas referencian esta definición = el impacto de
+ * borrarla (las que `delete_visit_definition` eliminaría). Se lee por la vista
+ * `v_track_visits` (security_invoker), que solo expone visitas con definición. Si la RLS
+ * no devuelve nada, cae a 0. Para mostrar el impacto antes de confirmar el borrado.
+ */
+export async function countDeletableVisits(defId: string): Promise<number> {
+  const { count } = await supabase
+    .from('v_track_visits')
+    .select('id', { count: 'exact', head: true })
+    .eq('visit_def_id', defId)
+    .is('real_date', null)
+  return count ?? 0
 }
 
 /**

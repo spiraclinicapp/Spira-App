@@ -77,12 +77,13 @@ export function ScheduleSyncModal({
               <li>
                 <b>{plan.deletes}</b> visitas a borrar (no atendidas)
               </li>
-              {plan.attended_divergent > 0 && (
-                <li style={{ color: 'var(--spira-warn)' }}>
-                  {plan.attended_divergent} atendidas difieren del cronograma (se dejan intactas)
-                </li>
-              )}
             </ul>
+          )}
+          {/* Las atendidas nunca se tocan; si difieren del cronograma se avisa, haya o no cambios. */}
+          {plan.attended_divergent > 0 && (
+            <div style={{ fontSize: 13, color: 'var(--spira-warn)', lineHeight: 1.5 }}>
+              {plan.attended_divergent} {plan.attended_divergent === 1 ? 'visita atendida difiere' : 'visitas atendidas difieren'} del cronograma. Se dejan intactas.
+            </div>
           )}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <button type="button" style={btnOutline} onClick={onClose}>

@@ -10,6 +10,7 @@ import {
   updateDefinition,
   deleteDefinition,
   reorderDefinitions,
+  countDeletableVisits,
 } from '../../data/visitDefinitions'
 import type { VisitDefinition, DefinitionInput } from '../../data/visitDefinitions'
 import { ScheduleDefinitionForm } from './ScheduleDefinitionForm'
@@ -54,10 +55,20 @@ export function ScheduleEditor({
   const [editing, setEditing] = useState<VisitDefinition | 'new' | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<VisitDefinition | null>(null)
+  /* Impacto del borrado (cuántas programadas no atendidas se irían). null = aún calculando. */
+  const [deletable, setDeletable] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
+  const [reordering, setReordering] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const rows = defs.data ?? []
+
+  /* Abre el confirm de borrado y dispara el cálculo del impacto en segundo plano. */
+  const askDelete = (d: VisitDefinition) => {
+    setConfirmDelete(d)
+    setDeletable(null)
+    void countDeletableVisits(d.id).then(setDeletable)
+  }
 
   const onSubmit = async (input: DefinitionInput) => {
     if (editing === 'new') {
@@ -88,14 +99,19 @@ export function ScheduleEditor({
     onChanged() // el borrado de la def elimina sus programadas no atendidas → cambia las visitas
   }
 
-  /* Mueve la fila `index` una posición en `dir` y persiste el nuevo sort_order de todas. */
+  /* Mueve la fila `index` una posición en `dir` y persiste el nuevo sort_order de todas.
+     Se bloquea mientras haya un reorder en vuelo: evita que dos clicks rápidos manden
+     planes de orden solapados (reorderDefinitions no es atómico). */
   const move = async (index: number, dir: -1 | 1) => {
+    if (reordering) return
     const next = index + dir
     if (next < 0 || next >= rows.length) return
     const order = rows.map((r) => r.id)
     ;[order[index], order[next]] = [order[next], order[index]]
     setError(null)
+    setReordering(true)
     const res = await reorderDefinitions(order)
+    setReordering(false)
     if (res.error) {
       setError(res.error)
       return
@@ -149,10 +165,10 @@ export function ScheduleEditor({
               <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {canEdit && (
                   <>
-                    <button type="button" onClick={() => void move(i, -1)} disabled={i === 0} title="Subir" aria-label="Subir" style={reorderBtn(i === 0)}>
+                    <button type="button" onClick={() => void move(i, -1)} disabled={i === 0 || reordering} title="Subir" aria-label="Subir" style={reorderBtn(i === 0 || reordering)}>
                       <Icon name="chevronUp" size={13} color="var(--spira-muted)" />
                     </button>
-                    <button type="button" onClick={() => void move(i, 1)} disabled={i === rows.length - 1} title="Bajar" aria-label="Bajar" style={reorderBtn(i === rows.length - 1)}>
+                    <button type="button" onClick={() => void move(i, 1)} disabled={i === rows.length - 1 || reordering} title="Bajar" aria-label="Bajar" style={reorderBtn(i === rows.length - 1 || reordering)}>
                       <Icon name="chevronDown" size={13} color="var(--spira-muted)" />
                     </button>
                   </>
@@ -170,7 +186,7 @@ export function ScheduleEditor({
                   <button type="button" onClick={() => setEditing(d)} title="Editar" aria-label="Editar" style={iconBtn}>
                     <Icon name="pencil" size={14} color="var(--spira-muted)" />
                   </button>
-                  <button type="button" onClick={() => setConfirmDelete(d)} title="Quitar" aria-label="Quitar" style={iconBtn}>
+                  <button type="button" onClick={() => askDelete(d)} title="Quitar" aria-label="Quitar" style={iconBtn}>
                     <Icon name="trash" size={14} color="var(--spira-muted)" />
                   </button>
                 </span>
@@ -205,7 +221,13 @@ export function ScheduleEditor({
         <Modal title="Quitar visita del cronograma" onClose={() => setConfirmDelete(null)} maxWidth={420}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--spira-ink)' }}>
-              Vas a quitar <span className="spira-mono" style={{ fontWeight: 600 }}>{confirmDelete.code ?? confirmDelete.name}</span> del cronograma. Se borrarán sus visitas <b>programadas no atendidas</b>; si alguna ya ocurrió, no se podrá quitar.
+              Vas a quitar <span className="spira-mono" style={{ fontWeight: 600 }}>{confirmDelete.code ?? confirmDelete.name}</span> del cronograma.{' '}
+              {deletable === null
+                ? 'Se borrarán sus visitas programadas no atendidas.'
+                : deletable === 0
+                  ? 'No tiene visitas programadas no atendidas para borrar.'
+                  : <>Se borrarán <b>{deletable}</b> {deletable === 1 ? 'visita programada no atendida' : 'visitas programadas no atendidas'}.</>}{' '}
+              Si alguna ya ocurrió, no se podrá quitar.
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button type="button" style={btnOutline} onClick={() => setConfirmDelete(null)}>
