@@ -1,29 +1,8 @@
 import { supabase } from '../lib/supabase'
-
-/** Tipo de visita (enum visit_kind, migración 0022). `programada` = del cronograma; el resto, sueltas. */
-export type VisitKind = 'programada' | 'firma' | 'screening' | 'firma_screening' | 'randomizacion' | 'vnp' | 'retest'
-
-/** Etiqueta legible por tipo (para tracker y selector). */
-export const KIND_LABELS: Record<VisitKind, string> = {
-  programada: 'Programada',
-  firma: 'Firma',
-  screening: 'Screening',
-  firma_screening: 'Firma y Screening',
-  randomizacion: 'Randomización',
-  vnp: 'VNP',
-  retest: 'Retest',
-}
-
-/** Etiqueta corta por tipo (para el tracker horizontal, columnas angostas). */
-export const KIND_SHORT: Record<VisitKind, string> = {
-  programada: '',
-  firma: 'Firma',
-  screening: 'Scr',
-  firma_screening: 'F+S',
-  randomizacion: 'Rando',
-  vnp: 'VNP',
-  retest: 'Retest',
-}
+// Las etiquetas viven en lib/visitLabels (módulo puro). Se re-exportan acá por compat.
+export type { VisitKind } from '../lib/visitLabels'
+export { KIND_LABELS, KIND_SHORT } from '../lib/visitLabels'
+import type { VisitKind } from '../lib/visitLabels'
 
 /** Tipos sueltos que se pueden registrar ANTES de la randomización. */
 export const PRE_RANDO_KINDS: VisitKind[] = ['firma', 'screening', 'firma_screening', 'vnp', 'randomizacion']

@@ -7,6 +7,7 @@ import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { btnOutline } from '../components/buttons'
 import { useAuth } from '../lib/auth'
 import { todayISO } from '../lib/dates'
+import { visitTitle } from '../lib/visits'
 import { useMyCoordinations } from '../data/templates'
 import {
   useVisitsForDay, markArrived, markAttended, markReady, markLeft, toggleWantsDoctor,
@@ -179,7 +180,7 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
             <PrivacyAvatar fullName={openVisit.patient_name} size={40} color={accent} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)' }}>
-                {openVisit.visit_name ?? 'Visita suelta'}
+                {visitTitle(openVisit)}
               </div>
               <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>
                 {openVisit.real_date ? 'Atendida' : 'Aún sin atender'}

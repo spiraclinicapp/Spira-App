@@ -1,6 +1,5 @@
 import type { TrackVisitRow } from '../../data/visits'
-import { KIND_LABELS } from '../../data/visitEvents'
-import { dotVisual, orderVisits, visitIndex, visitStateLabel, weekNumber } from '../../lib/visits'
+import { dotVisual, orderVisits, visitIndex, visitStateLabel, visitTitle, weekNumber } from '../../lib/visits'
 import { dotColor } from '../visitStates'
 import { formatShortAR, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
@@ -23,7 +22,7 @@ export function PdFullSchedule({ visits, currentId, accent }: { visits: TrackVis
         const estColor = dotColor(dotVisual(v), accent)
         const estLabel = visitStateLabel(v, today)
         const n = idx.get(v.id)
-        const label = n != null ? `Visita ${n}` : KIND_LABELS[v.kind]
+        const label = visitTitle(v)
         const w = weekNumber(v)
         const fecha = v.estimated_date ?? v.real_date
         return (

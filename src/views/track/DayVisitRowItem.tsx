@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { PrivacyAvatar } from '../../components/PrivacyAvatar'
-import { KIND_LABELS } from '../../data/visitEvents'
+import { visitTitle } from '../../lib/visits'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { VisitStepper } from './VisitStepper'
 
@@ -30,7 +30,7 @@ export function DayVisitRowItem({
 }) {
   const stage = visit.operational_stage
   const busy = busyId === visit.id
-  const vName = visit.visit_name ?? KIND_LABELS[visit.kind]
+  const vName = visitTitle(visit)
 
   /* Quién puede marcar la etapa SIGUIENTE según el flujo (handoff incluido):
      - en_el_sitio (siguiente de por_llegar) y fuera (siguiente de listo) → recepción.
@@ -70,7 +70,7 @@ export function DayVisitRowItem({
             </span>
           </div>
           <div style={{ fontSize: 12, color: 'var(--spira-muted)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {visit.visit_code ? <span className="spira-mono">{visit.visit_code} · </span> : null}{vName}
+            {vName}
           </div>
         </div>
         <div style={{ minWidth: 0, overflowX: 'auto' }}>

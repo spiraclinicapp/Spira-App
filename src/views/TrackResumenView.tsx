@@ -6,7 +6,7 @@ import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
 import { useUpcomingVisits, useVisitAlerts } from '../data/visits'
 import type { TrackVisitRow, VisitType } from '../data/visits'
-import { KIND_LABELS } from '../data/visitEvents'
+import { visitTitle } from '../lib/visits'
 import { dayLabel, formatAR } from '../lib/dates'
 import { VISIT_STATES, VisitChip } from './visitStates'
 import type { ViewProps } from './types'
@@ -152,7 +152,7 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {alertRows.map((a) => {
                 const c = VISIT_STATES[a.computed_status].color
-                const vName = a.visit_name ?? KIND_LABELS[a.kind]
+                const vName = visitTitle(a)
                 const motivo = a.computed_status === 'ventana_vencida'
                   ? `Ventana vencida el ${a.window_end ? formatAR(a.window_end) : '—'} · ${vName}`
                   : `Ítem de checklist fuera de plazo · ${vName}`

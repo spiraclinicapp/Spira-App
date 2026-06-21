@@ -1,10 +1,29 @@
 import type { TrackVisitRow } from '../data/visits'
+import { KIND_LABELS, KIND_SHORT } from './visitLabels'
 
 /**
  * Lógica de cronograma de visitas de un paciente, en helpers puros sobre
  * `TrackVisitRow[]`. Reusado por el Detalle de Protocolo, la Ficha del Paciente
  * y la tarjeta "Próxima visita". No mutan la entrada.
  */
+
+/**
+ * Título ancho de una visita: "V1 - Screening" (def con código y nombre) o el label
+ * del kind para las sueltas ("VNP", "Retest"). Para títulos de modal, ficha, lista vertical.
+ */
+export function visitTitle(v: TrackVisitRow): string {
+  if (v.visit_code) return v.visit_name ? `${v.visit_code} - ${v.visit_name}` : v.visit_code
+  return v.visit_name ?? KIND_LABELS[v.kind]
+}
+
+/**
+ * Código corto para rótulos COMPACTOS (bajo la burbuja, celdas angostas): "V1" (def)
+ * o el short del kind / "V{n}". La burbuja muestra el número cronológico `n`; este es
+ * el identificador del cuadro (cuál visita es), que conviven sin chocar.
+ */
+export function visitCode(v: TrackVisitRow, n?: number | null): string {
+  return v.visit_code ?? (KIND_SHORT[v.kind] || (n != null ? `V${n}` : ''))
+}
 
 /** Agrupa visitas por patient_id (para alimentar el tracker de cada fila en listas). */
 export function groupVisitsByPatient(rows: TrackVisitRow[]): Map<string, TrackVisitRow[]> {

@@ -4,8 +4,7 @@ import { Icon } from '../../components/Icon'
 import { PrivacyAvatar } from '../../components/PrivacyAvatar'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
-import { KIND_SHORT } from '../../data/visitEvents'
-import { todaySplit, visitIndex } from '../../lib/visits'
+import { todaySplit, visitIndex, visitCode } from '../../lib/visits'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { PdVisitFlow } from './PdVisitFlow'
 
@@ -40,8 +39,7 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
      las sueltas. La fecha sale de la estimada (programadas) o la real (sueltas). */
   const cell = (v: typeof prev) => {
     if (!v) return '—'
-    const n = idx.get(v.id)
-    const label = n != null ? `V${n}` : KIND_SHORT[v.kind]
+    const label = visitCode(v, idx.get(v.id))
     const fecha = v.estimated_date ?? v.real_date
     return fecha ? `${label} · ${formatDayMonth(fecha)}` : label
   }

@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { useDoctorQueue, toggleWantsDoctor } from '../data/dayVisits'
-import { KIND_LABELS } from '../data/visitEvents'
+import { visitTitle } from '../lib/visits'
 import type { ViewProps } from './types'
 
 const card: CSSProperties = {
@@ -92,7 +92,7 @@ export function DoctorQueueView({ module, submodule }: ViewProps) {
 
         <div style={{ marginTop: 6 }}>
           {rows.map((v, idx) => {
-            const vName = v.visit_name ?? KIND_LABELS[v.kind]
+            const vName = visitTitle(v)
             const busy = busyId === v.id
             return (
               <div

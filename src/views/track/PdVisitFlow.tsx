@@ -1,8 +1,7 @@
 import { Fragment } from 'react'
 import type { CSSProperties } from 'react'
 import type { TrackVisitRow } from '../../data/visits'
-import { KIND_SHORT } from '../../data/visitEvents'
-import { flowWindow, todaySplit, visitIndex, visitStateLabel, weekNumber } from '../../lib/visits'
+import { flowWindow, todaySplit, visitIndex, visitCode, visitStateLabel, weekNumber } from '../../lib/visits'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 
@@ -27,7 +26,7 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
   /* Se resalta un punto SOLO si hoy cae justo en una visita; si cae entre dos, el indicador es el
      marcador "Hoy" sobre la línea (ningún punto con anillo). */
   const highlightId = todayVisit?.id ?? null
-  const labelOf = (v: TrackVisitRow) => { const n = idx.get(v.id); return n != null ? `V${n}` : KIND_SHORT[v.kind] }
+  const labelOf = (v: TrackVisitRow) => visitCode(v, idx.get(v.id))
 
   /* Pie: ubica "Hoy" respecto del cronograma + el estado de la visita en juego. */
   let caption = ''
@@ -68,7 +67,7 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
   const col = (v: TrackVisitRow) => {
     const cur = v.id === highlightId
     const n = idx.get(v.id)
-    const label = n != null ? `V${n}` : KIND_SHORT[v.kind]
+    const label = visitCode(v, n)
     const w = weekNumber(v)
     const fecha = v.estimated_date ?? v.real_date
     return (
