@@ -35,6 +35,7 @@ copias que diverjan). Para una vista combinada: `cat migrations/*.sql` o `supaba
 | 0025 | `register_as_schedule.sql` | registrar una visita suelta = AGENDAR (`estimated_date`, `real_date` NULL); la atención se marca después en "Visitas del día" |
 | 0026 | `protocol_schedule.sql` | gestión del cronograma del protocolo: endurece la RLS de `visit_definitions` (edición gerencia/track-admin, cierra el borrado directo) + RPCs `sync_protocol_schedule` y `delete_visit_definition` |
 | 0027 | `count_deletable_visits.sql` | RPC `count_deletable_visits` (SECURITY DEFINER): impacto de borrar una definición `{deletable, attended}` con la authz del borrado (no bajo la RLS de lectura del caller) |
+| 0028 | `track_admin_ve_protocolos.sql` | suma una rama `has_min_role('track','admin')` a la SELECT de `protocols` (era `leader` exacto): alinea la visibilidad de protocolos con quién gestiona el cronograma. Aditivo; no toca la visibilidad de patients/visits |
 
 Además, `seed_smoke_test.sql` (en `supabase/`, fuera de `migrations/`) carga datos demo
 para validar el aislamiento de RLS. NO es para producción — ver instrucciones en su cabecera.
