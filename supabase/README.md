@@ -34,6 +34,7 @@ copias que diverjan). Para una vista combinada: `cat migrations/*.sql` o `supaba
 | 0024 | `delete_patient.sql` | RPC `delete_patient` (gerencia o track leader/admin): borra el paciente en cascada (FK `ON DELETE CASCADE`), auditado |
 | 0025 | `register_as_schedule.sql` | registrar una visita suelta = AGENDAR (`estimated_date`, `real_date` NULL); la atención se marca después en "Visitas del día" |
 | 0026 | `protocol_schedule.sql` | gestión del cronograma del protocolo: endurece la RLS de `visit_definitions` (edición gerencia/track-admin, cierra el borrado directo) + RPCs `sync_protocol_schedule` y `delete_visit_definition` |
+| 0027 | `count_deletable_visits.sql` | RPC `count_deletable_visits` (SECURITY DEFINER): impacto de borrar una definición `{deletable, attended}` con la authz del borrado (no bajo la RLS de lectura del caller) |
 
 Además, `seed_smoke_test.sql` (en `supabase/`, fuera de `migrations/`) carga datos demo
 para validar el aislamiento de RLS. NO es para producción — ver instrucciones en su cabecera.

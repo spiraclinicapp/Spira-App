@@ -10,9 +10,9 @@ import {
   updateDefinition,
   deleteDefinition,
   reorderDefinitions,
-  countDeletableVisits,
+  countDeleteImpact,
 } from '../../data/visitDefinitions'
-import type { VisitDefinition, DefinitionInput } from '../../data/visitDefinitions'
+import type { VisitDefinition, DefinitionInput, DeleteImpact } from '../../data/visitDefinitions'
 import { ScheduleDefinitionForm } from './ScheduleDefinitionForm'
 import { ScheduleSyncModal } from './ScheduleSyncModal'
 
@@ -55,19 +55,20 @@ export function ScheduleEditor({
   const [editing, setEditing] = useState<VisitDefinition | 'new' | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<VisitDefinition | null>(null)
-  /* Impacto del borrado (cuántas programadas no atendidas se irían). null = aún calculando. */
-  const [deletable, setDeletable] = useState<number | null>(null)
+  /* Impacto del borrado (programadas no atendidas a borrar + atendidas que bloquean).
+     null = aún calculando o sin dato (copy genérico). */
+  const [impact, setImpact] = useState<DeleteImpact | null>(null)
   const [busy, setBusy] = useState(false)
   const [reordering, setReordering] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const rows = defs.data ?? []
 
-  /* Abre el confirm de borrado y dispara el cálculo del impacto en segundo plano. */
+  /* Abre el confirm de borrado y dispara el cálculo del impacto (server-side) en segundo plano. */
   const askDelete = (d: VisitDefinition) => {
     setConfirmDelete(d)
-    setDeletable(null)
-    void countDeletableVisits(d.id).then(setDeletable)
+    setImpact(null)
+    void countDeleteImpact(d.id).then(setImpact)
   }
 
   const onSubmit = async (input: DefinitionInput) => {
@@ -112,11 +113,10 @@ export function ScheduleEditor({
     setReordering(true)
     const res = await reorderDefinitions(order)
     setReordering(false)
-    if (res.error) {
-      setError(res.error)
-      return
-    }
+    // Refetch siempre: en éxito refleja el orden nuevo; en error resincroniza la tabla con
+    // el estado real de la base (reorderDefinitions no es atómico → puede quedar a medio renumerar).
     defs.refetch()
+    if (res.error) setError(res.error)
   }
 
   if (defs.loading) {
@@ -139,6 +139,7 @@ export function ScheduleEditor({
         </div>
       )}
 
+      {reordering && <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>Guardando orden…</div>}
       {error && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{error}</div>}
 
       {rows.length === 0 ? (
@@ -221,19 +222,27 @@ export function ScheduleEditor({
         <Modal title="Quitar visita del cronograma" onClose={() => setConfirmDelete(null)} maxWidth={420}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--spira-ink)' }}>
-              Vas a quitar <span className="spira-mono" style={{ fontWeight: 600 }}>{confirmDelete.code ?? confirmDelete.name}</span> del cronograma.{' '}
-              {deletable === null
-                ? 'Se borrarán sus visitas programadas no atendidas.'
-                : deletable === 0
-                  ? 'No tiene visitas programadas no atendidas para borrar.'
-                  : <>Se borrarán <b>{deletable}</b> {deletable === 1 ? 'visita programada no atendida' : 'visitas programadas no atendidas'}.</>}{' '}
-              Si alguna ya ocurrió, no se podrá quitar.
+              Vas a quitar <span className="spira-mono" style={{ fontWeight: 600 }}>{confirmDelete.code ?? confirmDelete.name}</span> del cronograma.
+            </div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.5, color: (impact?.attended ?? 0) > 0 ? 'var(--spira-warn)' : 'var(--spira-muted)' }}>
+              {impact === null
+                ? 'Se borrarán sus visitas programadas no atendidas; si alguna ya ocurrió, no se podrá quitar.'
+                : impact.attended > 0
+                  ? `No se puede quitar: tiene ${impact.attended} ${impact.attended === 1 ? 'visita atendida' : 'visitas atendidas'} que ya ocurrieron.`
+                  : impact.deletable > 0
+                    ? `Se borrarán ${impact.deletable} ${impact.deletable === 1 ? 'visita programada no atendida' : 'visitas programadas no atendidas'}.`
+                    : 'No tiene visitas generadas; se quitará solo la definición.'}
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button type="button" style={btnOutline} onClick={() => setConfirmDelete(null)}>
                 Cancelar
               </button>
-              <button type="button" style={{ ...btnPrimary(accentSolid), opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' }} disabled={busy} onClick={() => void doDelete()}>
+              <button
+                type="button"
+                style={{ ...btnPrimary(accentSolid), opacity: busy || (impact?.attended ?? 0) > 0 ? 0.6 : 1, cursor: busy || (impact?.attended ?? 0) > 0 ? 'default' : 'pointer' }}
+                disabled={busy || (impact?.attended ?? 0) > 0}
+                onClick={() => void doDelete()}
+              >
                 {busy ? 'Quitando…' : 'Quitar'}
               </button>
             </div>

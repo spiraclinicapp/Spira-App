@@ -9,17 +9,20 @@
 --    descomentalas a mano cuando quieras ejecutarlas, sobre un protocolo elegido.
 --
 -- Reemplazá <PROTOCOL_ID> por el id real del protocolo a verificar/backfillear.
+-- Requiere 0026 Y 0027 aplicadas (0027 = RPC count_deletable_visits del impacto de borrado).
 -- ============================================================================
 
 
--- ── 0 · Confirmar que 0026 está aplicada ────────────────────────────────────
--- Espera: rpc_sync = 1, rpc_delete = 1, trg_audit = 1, policies_escritura = 2
+-- ── 0 · Confirmar que 0026 + 0027 están aplicadas ───────────────────────────
+-- Espera: rpc_sync = 1, rpc_delete = 1, rpc_count = 1, trg_audit = 1, policies_escritura = 2
 --   (insert + update; el delete directo NO tiene policy, va por la RPC).
 select
   (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.proname = 'sync_protocol_schedule')            as rpc_sync,
   (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.proname = 'delete_visit_definition')           as rpc_delete,
+  (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'count_deletable_visits')            as rpc_count,
   (select count(*) from pg_trigger
      where tgrelid = 'public.visit_definitions'::regclass
        and tgname = 'trg_audit_visit_definitions')                                   as trg_audit,

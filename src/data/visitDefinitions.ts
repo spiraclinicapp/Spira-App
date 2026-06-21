@@ -100,24 +100,34 @@ export async function deleteDefinition(id: string): Promise<{ error: string | nu
   const { error } = await supabase.rpc('delete_visit_definition', { p_def_id: id })
   if (error) {
     if (error.code === '42501') return { error: 'No tenés permiso para editar el cronograma.' }
-    return { error: error.message }
+    // 23503: la RPC no encontró la definición (otro admin la borró en paralelo).
+    if (error.code === '23503') return { error: 'Esa visita ya no está en el cronograma. Actualizá la lista.' }
+    return { error: error.message } // incluye el copy intencional "no se puede quitar una visita que ya ocurrió"
   }
   return { error: null }
 }
 
+/** Impacto de borrar una definición (lo calcula la RPC `count_deletable_visits`, migración 0027). */
+export interface DeleteImpact {
+  /** Programadas no atendidas que se borrarían. */
+  deletable: number
+  /** Atendidas que referencian la definición → bloquean el borrado. */
+  attended: number
+}
+
 /**
- * Cuántas visitas programadas NO atendidas referencian esta definición = el impacto de
- * borrarla (las que `delete_visit_definition` eliminaría). Se lee por la vista
- * `v_track_visits` (security_invoker), que solo expone visitas con definición. Si la RLS
- * no devuelve nada, cae a 0. Para mostrar el impacto antes de confirmar el borrado.
+ * Impacto de borrar una definición, vía RPC `count_deletable_visits` (SECURITY DEFINER):
+ * cuántas programadas no atendidas se borrarían y cuántas atendidas lo bloquean. Es
+ * server-side a propósito: el borrado (`delete_visit_definition`) también es SECURITY DEFINER
+ * y opera sin RLS, así que contar desde el cliente bajo la RLS de lectura del usuario
+ * subestimaría el impacto (un track-admin no asignado al protocolo no ve `patient_visits`).
+ * Devuelve null si la RPC falla → el front cae a un copy genérico.
  */
-export async function countDeletableVisits(defId: string): Promise<number> {
-  const { count } = await supabase
-    .from('v_track_visits')
-    .select('id', { count: 'exact', head: true })
-    .eq('visit_def_id', defId)
-    .is('real_date', null)
-  return count ?? 0
+export async function countDeleteImpact(defId: string): Promise<DeleteImpact | null> {
+  const { data, error } = await supabase.rpc('count_deletable_visits', { p_def_id: defId })
+  if (error || !data) return null
+  const d = data as { deletable: number; attended: number }
+  return { deletable: d.deletable ?? 0, attended: d.attended ?? 0 }
 }
 
 /**
