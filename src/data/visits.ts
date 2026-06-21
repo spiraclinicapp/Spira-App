@@ -47,6 +47,10 @@ export interface TrackVisitRow {
   arrived_at: string | null
   ready_at: string | null
   left_at: string | null
+  /** Rol de la definición (migración 0029); null para sueltas sin def. */
+  role: 'screening' | 'randomizacion' | 'comun' | null
+  /** Modo de fecha de la definición (libre/automatica); null para sueltas. */
+  date_mode: 'libre' | 'automatica' | null
 }
 
 /** Visitas no realizadas que caen dentro de los próximos 7 días (KPI + lista del Resumen). */

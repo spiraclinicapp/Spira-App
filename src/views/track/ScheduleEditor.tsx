@@ -16,8 +16,15 @@ import type { VisitDefinition, DefinitionInput, DeleteImpact } from '../../data/
 import { ScheduleDefinitionForm } from './ScheduleDefinitionForm'
 import { ScheduleSyncModal } from './ScheduleSyncModal'
 
-/* orden · código · nombre · día · ventana · tipo · acciones */
+/* orden · código · nombre · día · ventana · etapa · acciones */
 const COLS = '40px 60px minmax(0, 1fr) 48px 80px 118px auto'
+
+/** Etiqueta corta de la etapa derivada de role + date_mode (columna del editor). */
+function etapaLabel(d: { role: 'screening' | 'randomizacion' | 'comun'; date_mode: 'libre' | 'automatica' }): string {
+  if (d.role === 'screening') return 'Screening'
+  if (d.role === 'randomizacion') return 'Randomización'
+  return d.date_mode === 'libre' ? 'Manual' : 'Tratamiento'
+}
 
 const iconBtn: CSSProperties = {
   width: 30, height: 30, border: '1px solid var(--spira-line-2)', borderRadius: 8,
@@ -164,7 +171,7 @@ export function ScheduleEditor({
             <span className="spira-eyebrow">Nombre</span>
             <span className="spira-eyebrow">Día</span>
             <span className="spira-eyebrow">Ventana</span>
-            <span className="spira-eyebrow">Tipo</span>
+            <span className="spira-eyebrow">Etapa</span>
             <span />
           </div>
           {rows.map((d, i) => (
@@ -186,7 +193,7 @@ export function ScheduleEditor({
               <span style={{ color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums' }}>{d.offset_days}</span>
               <span style={{ color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums' }}>−{d.window_minus}/+{d.window_plus}</span>
               <span style={{ color: 'var(--spira-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {d.visit_type === 'telefonica' ? 'Telefónica' : 'Presencial'}{d.dispenses ? ' · dispensa' : ''}
+                {etapaLabel(d)}{d.visit_type === 'telefonica' ? ' · tel.' : ''}{d.dispenses ? ' · disp.' : ''}
               </span>
               {canEdit ? (
                 <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>

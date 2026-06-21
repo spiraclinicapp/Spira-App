@@ -3,12 +3,11 @@ import { supabase } from '../lib/supabase'
 import type { VisitType } from './visits'
 
 /**
- * Fila de `visit_definitions` (el cronograma de un protocolo). Columnas base de la
- * migración 0002; `dispenses` la sumó la 0023. La tabla además tiene `date_mode` y
- * `anchor_visit_def_id`, pero el editor del cronograma no los gestiona: la generación
- * de visitas ancla todo al enrolamiento (offset desde la randomización), así que acá
- * solo modelamos lo que el editor lee/escribe. `code` es nullable en la base (filas
- * cargadas por SQL antes de esta UI podrían no tenerlo).
+ * Fila de `visit_definitions` (el cuadro de actividades de un protocolo). Columnas base
+ * de 0002; `dispenses` la sumó 0023; `role` la 0029. `date_mode` ('libre'|'automatica')
+ * existe desde 0002 y la usa el cuadro completo: 'libre' = pre-rando manual (el offset es
+ * referencia), 'automatica' = post-rando autogenerada desde la randomización. `code` es
+ * nullable en la base (filas cargadas por SQL antes de esta UI podrían no tenerlo).
  */
 export interface VisitDefinition {
   id: string
@@ -21,6 +20,10 @@ export interface VisitDefinition {
   window_plus: number
   sort_order: number
   dispenses: boolean
+  /** Rol clínico (0029): screening/randomizacion disparan alerta al cerrar; comun no. */
+  role: 'screening' | 'randomizacion' | 'comun'
+  /** 'libre' = pre-rando manual (offset referencia) / 'automatica' = post-rando autogenerada. */
+  date_mode: 'libre' | 'automatica'
 }
 
 /** Definiciones (cronograma) de un protocolo, en su orden de visita. */
@@ -48,6 +51,8 @@ export interface DefinitionInput {
   window_minus: number
   window_plus: number
   dispenses: boolean
+  role: 'screening' | 'randomizacion' | 'comun'
+  date_mode: 'libre' | 'automatica'
 }
 
 /** Traduce el código de error de Postgres a un mensaje sereno (patrón *ErrorMessage del repo). */

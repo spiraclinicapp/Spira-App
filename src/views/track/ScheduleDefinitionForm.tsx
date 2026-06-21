@@ -10,10 +10,32 @@ const TYPES: { value: VisitType; label: string }[] = [
   { value: 'telefonica', label: 'Telefónica' },
 ]
 
+/* Una sola "etapa de la visita" de dominio que deriva role + date_mode, en vez de
+   exponer los dos enums crudos (que permitirían combinaciones sin sentido como
+   "screening automática"). screening/randomización son siempre pre-rando (libres). */
+type Etapa = 'screening' | 'randomizacion' | 'tratamiento' | 'manual'
+const ETAPA_OPTS: { value: Etapa; label: string }[] = [
+  { value: 'tratamiento', label: 'Tratamiento / seguimiento — se genera desde la randomización' },
+  { value: 'screening', label: 'Screening — se agenda a mano' },
+  { value: 'randomizacion', label: 'Randomización — se agenda a mano' },
+  { value: 'manual', label: 'Otra manual (selección, etc.)' },
+]
+function etapaToFields(e: Etapa): { role: 'screening' | 'randomizacion' | 'comun'; date_mode: 'libre' | 'automatica' } {
+  if (e === 'screening') return { role: 'screening', date_mode: 'libre' }
+  if (e === 'randomizacion') return { role: 'randomizacion', date_mode: 'libre' }
+  if (e === 'manual') return { role: 'comun', date_mode: 'libre' }
+  return { role: 'comun', date_mode: 'automatica' } // tratamiento
+}
+function fieldsToEtapa(role: string, dateMode: string): Etapa {
+  if (role === 'screening') return 'screening'
+  if (role === 'randomizacion') return 'randomizacion'
+  return dateMode === 'libre' ? 'manual' : 'tratamiento'
+}
+
 /**
- * Alta / edición de una definición del cronograma (V1, V2…) en un modal sobrio, siguiendo
- * el patrón de EditProtocolForm. No persiste directo: delega en `onSubmit` (la capa de datos
- * decide create vs update). El día (offset) puede ser negativo a propósito; las ventanas no.
+ * Alta / edición de una definición del cuadro (V1, V2…) en un modal sobrio. No persiste
+ * directo: delega en `onSubmit`. La "etapa" deriva role + date_mode. Para las libres
+ * (screening/rando/manual) el día es solo referencia; para tratamiento es el offset real.
  */
 export function ScheduleDefinitionForm({
   initial,
@@ -28,6 +50,7 @@ export function ScheduleDefinitionForm({
 }) {
   const [code, setCode] = useState(initial?.code ?? '')
   const [name, setName] = useState(initial?.name ?? '')
+  const [etapa, setEtapa] = useState<Etapa>(initial ? fieldsToEtapa(initial.role, initial.date_mode) : 'tratamiento')
   const [visitType, setVisitType] = useState<VisitType>(initial?.visit_type ?? 'presencial')
   const [offset, setOffset] = useState(String(initial?.offset_days ?? 0))
   const [wMinus, setWMinus] = useState(String(initial?.window_minus ?? 0))
@@ -36,11 +59,12 @@ export function ScheduleDefinitionForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /* Válido = código y nombre con texto + las 3 cantidades son números finitos. */
+  /* Válido = código y nombre con texto + las cantidades parsean a número (vacío → 0).
+     El offset no se exige para libres (es referencia); igual default 0. */
   const valid =
     code.trim() !== '' &&
     name.trim() !== '' &&
-    [offset, wMinus, wPlus].every((v) => v.trim() !== '' && Number.isFinite(Number(v)))
+    [offset, wMinus, wPlus].every((v) => Number.isFinite(Number(v)))
 
   const submit = async () => {
     setBusy(true)
@@ -49,10 +73,11 @@ export function ScheduleDefinitionForm({
       code: code.trim(),
       name: name.trim(),
       visit_type: visitType,
-      offset_days: Number(offset),
-      window_minus: Number(wMinus),
-      window_plus: Number(wPlus),
+      offset_days: Number(offset || 0),
+      window_minus: Number(wMinus || 0),
+      window_plus: Number(wPlus || 0),
       dispenses,
+      ...etapaToFields(etapa),
     })
     setBusy(false)
     if (res.error) {
@@ -62,16 +87,27 @@ export function ScheduleDefinitionForm({
     onClose()
   }
 
+  const esLibre = etapa !== 'tratamiento'
+
   return (
-    <Modal title={initial ? 'Editar visita del cronograma' : 'Nueva visita del cronograma'} onClose={onClose} maxWidth={460}>
+    <Modal title={initial ? 'Editar visita del cuadro' : 'Nueva visita del cuadro'} onClose={onClose} maxWidth={460}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <FormField label="Código">
           <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="V1" className="spira-mono" style={fieldInput} />
         </FormField>
         <FormField label="Nombre">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Visita 1" style={fieldInput} />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Screening" style={fieldInput} />
         </FormField>
-        <FormField label="Tipo">
+        <FormField label="Tipo de visita">
+          <select value={etapa} onChange={(e) => setEtapa(e.target.value as Etapa)} style={fieldInput}>
+            {ETAPA_OPTS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Modalidad">
           <select value={visitType} onChange={(e) => setVisitType(e.target.value as VisitType)} style={fieldInput}>
             {TYPES.map((t) => (
               <option key={t.value} value={t.value}>
@@ -80,7 +116,7 @@ export function ScheduleDefinitionForm({
             ))}
           </select>
         </FormField>
-        <FormField label="Día (offset desde la randomización)">
+        <FormField label={esLibre ? 'Día de referencia (ventana del protocolo)' : 'Día (offset desde la randomización)'}>
           <input type="number" value={offset} onChange={(e) => setOffset(e.target.value)} style={fieldInput} />
         </FormField>
         <div style={{ display: 'flex', gap: 12 }}>
