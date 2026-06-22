@@ -19,6 +19,10 @@ supabase/.env
 # Brainstorm companion (mockups efímeros)
 .superpowers/
 
+# gstack: worktrees locales y estado local (no van al repo)
+.claude/worktrees/
+.gstack/
+
 # Editores / SO
 .vscode/*
 !.vscode/extensions.json
