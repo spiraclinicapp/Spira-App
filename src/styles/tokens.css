@@ -104,6 +104,57 @@ button { font-family: inherit; }
   transform: translateY(-1px);
 }
 
+/* —— Pantallas de acceso (Login / definir contraseña) ——
+   Dos mitades: a la izquierda un panel VERDE (marca) con el logo de Spira arriba y la foto
+   INSERTADA con bordes rectos (un recuadro centrado, NO de fondo); a la derecha el formulario.
+   Mobile-first: en angosto se oculta la foto y queda sólo el formulario; desde ~900px aparece. */
+.spira-auth { min-height: 100%; display: flex; }
+.spira-auth-cover {
+  display: none; /* oculta en angosto; se muestra en el media query de abajo */
+  position: relative; overflow: hidden; /* contiene la marca de agua del Vilano */
+  flex: 1 1 50%;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 28px;
+  padding: 48px;
+  background: linear-gradient(150deg, var(--spira-primary), var(--spira-ink));
+}
+/* Vilano grande y tenue de fondo (marca de agua). Posición DESCENTRADA + rotada a propósito:
+   cruza por detrás de la foto de forma orgánica, sin quedar simétrico. */
+.spira-auth-cover-bg {
+  position: absolute; top: 52%; left: 64%;
+  transform: translate(-50%, -50%) rotate(21deg);
+  opacity: 0.12; pointer-events: none; z-index: 0;
+}
+.spira-auth-cover-brand { align-self: flex-start; position: relative; z-index: 1; } /* logo + bajada arriba a la izquierda */
+.spira-auth-cover-img {
+  /* Foto insertada con MARCO BLANCO y bordes rectos; se ve completa, con sombra para dar
+     profundidad sobre el verde. Va por encima de la marca de agua del Vilano. */
+  position: relative; z-index: 1;
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 240px); /* deja lugar para el logo + paddings */
+  width: auto; height: auto;
+  border: 10px solid var(--spira-white); /* marco blanco */
+  border-radius: 0;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+.spira-auth-panel {
+  flex: 1 1 50%; display: flex; flex-direction: column;
+  padding: 24px; background: var(--spira-paper); overflow-y: auto;
+}
+/* El formulario ocupa el alto disponible y se centra ahí (no lo descoloca el footer). */
+.spira-auth-form {
+  flex: 1; display: flex; align-items: center; justify-content: center; width: 100%;
+}
+/* © fijo abajo, como footer; no entra en el centrado del formulario. */
+.spira-auth-foot {
+  flex-shrink: 0; text-align: center; color: var(--spira-faint); font-size: 12px; padding-top: 16px;
+}
+@media (min-width: 900px) {
+  .spira-auth-cover { display: flex; }
+}
+
 /* —— Micro-interacción estándar de Spira ——
    Todo lo pulsable (botones, links, role=button) se levanta apenas (~1px) en hover y se
    asienta al pulsar. Es la señal universal de "esto se toca", sin depender del cursor.

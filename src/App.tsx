@@ -1,6 +1,7 @@
 import { AuthProvider, useAuth } from './lib/auth'
 import { AppShell } from './shell/AppShell'
 import { Login } from './shell/Login'
+import { SetNewPassword } from './shell/SetNewPassword'
 import { Vilano } from './components/Vilano'
 
 function Splash() {
@@ -15,8 +16,11 @@ function Splash() {
 }
 
 function Gate() {
-  const { session, loading } = useAuth()
+  const { session, loading, recovering } = useAuth()
   if (loading) return <Splash />
+  // Recuperación de contraseña ANTES que session→AppShell: el link de reset deja una sesión de
+  // recovery activa, así que sin este chequeo el usuario entraría al shell sin fijar la clave nueva.
+  if (recovering) return <SetNewPassword />
   return session ? <AppShell /> : <Login />
 }
 

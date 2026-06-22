@@ -1,78 +1,151 @@
 import { useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
-import { Vilano } from '../components/Vilano'
+import { AuthLayout } from './AuthLayout'
+import { GoogleG } from './GoogleG'
 import { useAuth } from '../lib/auth'
+import { FormField, fieldInput, fieldLabelStyle } from '../components/FormField'
+import { PasswordInput } from '../components/PasswordInput'
+import { Icon } from '../components/Icon'
+import { btnOutline, btnPrimary } from '../components/buttons'
+import { Vilano } from '../components/Vilano'
 
-const inputStyle: CSSProperties = {
-  width: '100%', height: 44, padding: '0 14px', borderRadius: 10,
-  border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
-  color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14,
+const errorBox: CSSProperties = {
+  fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)',
+  borderRadius: 8, padding: '8px 12px',
+}
+// Nota serena (confirmación de envío de reset / pista). Tinte primario tenue, no de error.
+const noteBox: CSSProperties = {
+  fontSize: 13, color: 'var(--spira-ink)', background: 'rgba(15, 95, 87, 0.08)',
+  borderRadius: 8, padding: '8px 12px', lineHeight: 1.45,
+}
+const linkStyle: CSSProperties = {
+  background: 'transparent', border: 'none', color: 'var(--spira-primary)',
+  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', padding: 0,
 }
 
 export function Login() {
-  const { signIn } = useAuth()
+  const { signIn, signInWithGoogle, requestPasswordReset } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [googleBusy, setGoogleBusy] = useState(false)
+  const [resetBusy, setResetBusy] = useState(false)
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setBusy(true)
     setError(null)
+    setNote(null)
+    setBusy(true)
     const res = await signIn(email.trim(), password)
-    if (res.error) setError('No pudimos ingresar. Revisá el email y la contraseña.')
+    if (res.error) setError(res.error)
     setBusy(false)
   }
 
+  const onGoogle = async () => {
+    setError(null)
+    setNote(null)
+    setGoogleBusy(true)
+    const res = await signInWithGoogle()
+    // Si funciona, el navegador redirige a Google y esta página se va. Si falla (p. ej. el proveedor
+    // todavía no está configurado en el dashboard), seguimos acá y mostramos el mensaje sereno.
+    if (res.error) {
+      setError(res.error)
+      setGoogleBusy(false)
+    }
+  }
+
+  const onForgot = async () => {
+    setError(null)
+    setNote(null)
+    const mail = email.trim()
+    if (!mail) {
+      setNote('Ingresá tu email arriba primero.')
+      return
+    }
+    setResetBusy(true)
+    const res = await requestPasswordReset(mail)
+    setResetBusy(false)
+    if (res.error) {
+      setError(res.error)
+      return
+    }
+    // No revelamos si la cuenta existe (privacidad): mensaje neutro siempre.
+    setNote('Si hay una cuenta con ese mail, te enviamos un enlace para restablecer la contraseña.')
+  }
+
   return (
-    <div style={{ height: '100%', display: 'grid', placeItems: 'center', background: 'var(--spira-paper)', padding: 24 }}>
-      <div
-        style={{
-          width: '100%', maxWidth: 380, background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
-          borderRadius: 16, boxShadow: 'var(--spira-shadow-md)', padding: '32px 28px',
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 22 }}>
-          <Vilano size={56} />
-          <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 26, letterSpacing: '-0.02em', marginTop: 6 }}>Spira</div>
-          <div className="spira-eyebrow" style={{ marginTop: 10 }}>Acceso al sistema</div>
+    <AuthLayout>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Vilano size={30} />
+            <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' }}>Spira</span>
+          </div>
+          <div>
+            <h2 style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 26, letterSpacing: '-0.02em', margin: 0, color: 'var(--spira-ink)' }}>
+              Ingresá a tu cuenta
+            </h2>
+            <p style={{ color: 'var(--spira-muted)', fontSize: 14, marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
+              Acceso al sistema de la Fundación.
+            </p>
+          </div>
         </div>
 
-        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)' }}>Email</span>
+        <button
+          type="button"
+          onClick={onGoogle}
+          disabled={googleBusy}
+          style={{
+            ...btnOutline, width: '100%', height: 44, display: 'inline-flex', alignItems: 'center',
+            justifyContent: 'center', gap: 10, opacity: googleBusy ? 0.7 : 1, cursor: googleBusy ? 'default' : 'pointer',
+          }}
+        >
+          <GoogleG size={18} />
+          {googleBusy ? 'Conectando…' : 'Continuar con Google'}
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
+          <span style={{ color: 'var(--spira-faint)', fontSize: 12, fontWeight: 600 }}>o</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
+        </div>
+
+        <FormField label="Email">
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: 12, top: 0, height: 44, display: 'grid', placeItems: 'center', color: 'var(--spira-muted)', pointerEvents: 'none' }}>
+              <Icon name="mail" size={18} />
+            </span>
             <input
               type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-              placeholder="vos@ejemplo.com" autoComplete="email" required style={inputStyle}
+              placeholder="vos@ejemplo.com" autoComplete="email" required
+              style={{ ...fieldInput, paddingLeft: 40 }}
             />
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)' }}>Contraseña</span>
-            <input
-              type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••" autoComplete="current-password" required style={inputStyle}
-            />
-          </label>
+          </div>
+        </FormField>
 
-          {error && (
-            <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
-              {error}
-            </div>
-          )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <label htmlFor="password" style={fieldLabelStyle}>Contraseña</label>
+            <button type="button" onClick={onForgot} disabled={resetBusy} className="spira-no-press" style={linkStyle}>
+              {resetBusy ? 'Enviando…' : 'Olvidé mi contraseña'}
+            </button>
+          </div>
+          <PasswordInput id="password" value={password} onChange={setPassword} autoComplete="current-password" />
+        </div>
 
-          <button
-            type="submit" disabled={busy}
-            style={{
-              height: 44, marginTop: 4, border: 'none', borderRadius: 10, background: 'var(--spira-primary)',
-              color: 'var(--spira-on-accent)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 14.5,
-              cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.7 : 1,
-            }}
-          >
-            {busy ? 'Ingresando…' : 'Ingresá'}
-          </button>
-        </form>
-      </div>
-    </div>
+        {note && <div style={noteBox}>{note}</div>}
+        {error && <div style={errorBox}>{error}</div>}
+
+        <button
+          type="submit"
+          disabled={busy}
+          style={{ ...btnPrimary('var(--spira-primary)'), width: '100%', height: 44, fontSize: 14.5, marginTop: 2, opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}
+        >
+          {busy ? 'Ingresando…' : 'Ingresá'}
+        </button>
+      </form>
+    </AuthLayout>
   )
 }
