@@ -101,9 +101,13 @@ begin
       where x.real_date is null and (x.estimated_date is distinct from d.estimated_date
         or x.window_start is distinct from d.window_start
         or x.window_end is distinct from d.window_end)),
-    (select count(*) from existing x
-       left join desired d on d.enrollment_id=x.enrollment_id and d.visit_def_id=x.visit_def_id
-      where d.enrollment_id is null and x.real_date is null),
+    -- v_deletes cuenta EXACTAMENTE lo que borra el DELETE de abajo: programadas no
+    -- atendidas cuya definición ya no existe (huérfanas). No cuenta las de defs vivas
+    -- (incluidas las flipeadas a 'libre'), que el apply tampoco toca → preview == apply.
+    (select count(*) from public.patient_visits pv2
+       join public.enrollments e2 on e2.id = pv2.enrollment_id
+      where e2.protocol_id = p_protocol_id and pv2.kind = 'programada' and pv2.real_date is null
+        and not exists (select 1 from public.visit_definitions vd where vd.id = pv2.visit_def_id)),
     (select count(*) from existing x join desired d
        on d.enrollment_id=x.enrollment_id and d.visit_def_id=x.visit_def_id
       where x.real_date is not null and x.estimated_date is distinct from d.estimated_date)

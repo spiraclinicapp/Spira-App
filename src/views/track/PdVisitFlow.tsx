@@ -75,7 +75,7 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
         <div style={{ height: 32, display: 'flex', alignItems: 'center' }}>
           <VisitDot visit={v} number={idx.get(v.id) ?? '·'} today={today} size={28} isToday={v.id === highlightId} accent={accent} />
         </div>
-        <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 12.5, color: cur ? accent : 'var(--spira-ink)', marginTop: 6, whiteSpace: 'nowrap' }}>{label}</div>
+        <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 12.5, color: cur ? accent : 'var(--spira-ink)', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</div>
         {w != null && <div style={{ fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>{`W${w}`}</div>}
         <div style={{ fontFamily: 'var(--spira-font-text)', fontVariantNumeric: 'tabular-nums', fontSize: 10.5, color: 'var(--spira-faint)', marginTop: 1, whiteSpace: 'nowrap' }}>{fecha ? formatDayMonth(fecha) : '—'}</div>
       </div>

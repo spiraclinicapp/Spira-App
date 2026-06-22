@@ -29,7 +29,7 @@ export function PdFullSchedule({ visits, currentId, accent }: { visits: TrackVis
           <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 4px', borderTop: k ? '1px solid var(--spira-line)' : 'none' }}>
             <VisitDot visit={v} number={n ?? '·'} today={today} size={26} isToday={cur} accent={accent} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: cur ? accent : 'var(--spira-ink)', whiteSpace: 'nowrap' }}>{label}</div>
+              <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: cur ? accent : 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
               {w != null && <div style={{ fontSize: 11.5, color: 'var(--spira-muted)', marginTop: 1 }}>{`Semana W${w}`}</div>}
             </div>
             <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', minWidth: 56, textAlign: 'right', whiteSpace: 'nowrap' }}>{fecha ? formatShortAR(fecha) : '—'}</span>

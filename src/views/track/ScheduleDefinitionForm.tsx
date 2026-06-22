@@ -98,7 +98,7 @@ export function ScheduleDefinitionForm({
         <FormField label="Nombre">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Screening" style={fieldInput} />
         </FormField>
-        <FormField label="Tipo de visita">
+        <FormField label="Etapa">
           <select value={etapa} onChange={(e) => setEtapa(e.target.value as Etapa)} style={fieldInput}>
             {ETAPA_OPTS.map((o) => (
               <option key={o.value} value={o.value}>
