@@ -11,12 +11,16 @@ import { visitTitle } from '../lib/visits'
 import { useMyCoordinations } from '../data/templates'
 import {
   useVisitsForDay, markArrived, markAttended, markReady, markLeft, toggleWantsDoctor,
+  markReadyWithOutcome, discontinueEnrollment,
 } from '../data/dayVisits'
 import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
+import { useRandoAttendedWithoutDate } from '../data/visits'
 import { DayVisitRowItem } from './track/DayVisitRowItem'
 import { DispenseModal } from './track/DispenseModal'
 import { VisitChecklist } from './track/VisitChecklist'
 import { RescheduleModal } from './track/RescheduleModal'
+import { ReadyOutcomeModal } from './track/ReadyOutcomeModal'
+import { RegisterVisitFlow } from './track/RegisterVisitFlow'
 import type { TrackVisitRow } from '../data/visits'
 import type { ViewProps } from './types'
 
@@ -40,6 +44,7 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
   const { profile, hasMinRole } = useAuth()
   const day = useVisitsForDay(todayISO())
   const coords = useMyCoordinations(profile?.id ?? null)
+  const randoPending = useRandoAttendedWithoutDate()
 
   const [filter, setFilter] = useState<Filter>('todas')
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -47,11 +52,16 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
   const [noShow, setNoShow] = useState<TrackVisitRow | null>(null)
   const [openVisit, setOpenVisit] = useState<DayVisitRow | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  // Cierre clínico (screening/randomización) y recitación. TrackVisitRow: sirve para una fila
+  // del día (DayVisitRow lo extiende) o una de la salvaguarda (que no es de hoy).
+  const [readyOutcome, setReadyOutcome] = useState<TrackVisitRow | null>(null)
+  const [recitar, setRecitar] = useState<TrackVisitRow | null>(null)
+  const [feedback, setFeedback] = useState<string | null>(null)
 
   const canReception = hasMinRole('track', 'operator')
   const isTrackAdmin = hasMinRole('track', 'admin')
   const coordSet = useMemo(() => new Set((coords.data ?? []).map((c) => c.protocol_id)), [coords.data])
-  const canClinical = (v: DayVisitRow) =>
+  const canClinical = (v: Pick<TrackVisitRow, 'protocol_id'>) =>
     isTrackAdmin || (hasMinRole('track', 'operator') && coordSet.has(v.protocol_id))
 
   const rows = day.data ?? []
@@ -61,8 +71,16 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
     return true
   })
 
-  /* Despacha la mutación de la etapa SIGUIENTE. 'atendido' reusa markAttended (real_date=hoy). */
+  /* Despacha la mutación de la etapa SIGUIENTE. 'atendido' reusa markAttended (real_date=hoy).
+     "Listo" de una visita de screening/randomización (rol del cuadro) NO marca directo: abre el
+     cierre clínico (ReadyOutcomeModal) que captura IVRS / confirma randomización. El resto va directo. */
   const advance = async (visit: DayVisitRow, next: OperationalStage) => {
+    if (next === 'listo' && (visit.role === 'screening' || visit.role === 'randomizacion')) {
+      setActionError(null)
+      setFeedback(null)
+      setReadyOutcome(visit)
+      return
+    }
     setBusyId(visit.id)
     setActionError(null)
     const res =
@@ -127,6 +145,40 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
         </div>
       )}
 
+      {feedback && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-ink)', background: 'rgba(15, 95, 87, 0.08)', borderRadius: 8, padding: '8px 12px' }}>
+          <Icon name="check" size={16} color="var(--spira-good)" />
+          {feedback}
+        </div>
+      )}
+
+      {/* Salvaguarda: randomizaciones atendidas que nunca se confirmaron (sin fecha → sin tratamiento). */}
+      {(randoPending.data?.length ?? 0) > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 11, border: '1px solid var(--spira-warn)', background: 'var(--spira-surface)', padding: '12px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)' }}>
+            <Icon name="alertCircle" size={17} color="var(--spira-warn)" />
+            Randomización atendida sin confirmar
+          </div>
+          {(randoPending.data ?? []).map((v) => (
+            <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span className="spira-mono">{v.patient_code ?? 'Sin IVRS'}</span>
+                <span style={{ color: 'var(--spira-faint)' }}> · <span className="spira-mono">{v.protocol_code}</span></span>
+                <span style={{ color: 'var(--spira-muted)' }}> — generá el tratamiento o marcá el resultado</span>
+              </span>
+              {canClinical(v) && (
+                <button
+                  onClick={() => { setActionError(null); setFeedback(null); setReadyOutcome(v) }}
+                  style={{ ...btnOutline, height: 30, fontSize: 12.5, padding: '0 12px' }}
+                >
+                  Resolver
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <EmptyState
           accent={accent}
@@ -168,6 +220,48 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
           accentSolid={accentSolid}
           onClose={() => setNoShow(null)}
           onDone={() => { setNoShow(null); day.refetch() }}
+        />
+      )}
+      {readyOutcome && (readyOutcome.role === 'screening' || readyOutcome.role === 'randomizacion') && (
+        <ReadyOutcomeModal
+          role={readyOutcome.role}
+          accentSolid={accentSolid}
+          onClose={() => setReadyOutcome(null)}
+          onConfirm={async (opts) => {
+            const res = await markReadyWithOutcome(readyOutcome.id, opts)
+            if (!res.error) {
+              setFeedback(
+                readyOutcome.role === 'screening'
+                  ? (opts.ivrs ? 'Listo. Código de paciente asignado.' : 'Listo.')
+                  : opts.randomized ? 'Listo. Randomización confirmada — se generó el tratamiento.' : 'Listo.',
+              )
+              day.refetch()
+              randoPending.refetch()
+            }
+            return res
+          }}
+          onReschedule={() => setRecitar(readyOutcome)}
+          onDiscontinue={async () => {
+            const res = await discontinueEnrollment(readyOutcome.enrollment_id)
+            if (!res.error) {
+              setFeedback('Paciente inactivado (fallo de screening).')
+              day.refetch()
+              randoPending.refetch()
+            }
+            return res
+          }}
+        />
+      )}
+      {recitar && (
+        <RegisterVisitFlow
+          enrollmentId={recitar.enrollment_id}
+          protocolId={recitar.protocol_id}
+          randomizationDate={recitar.enrollment_randomization_date}
+          usedKinds={[]}
+          preselectDefId={recitar.visit_def_id}
+          accentSolid={accentSolid}
+          onClose={() => setRecitar(null)}
+          onDone={() => { setRecitar(null); day.refetch(); randoPending.refetch() }}
         />
       )}
       {openVisit && (

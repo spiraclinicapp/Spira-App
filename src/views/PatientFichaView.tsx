@@ -118,6 +118,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       {modal === 'register' && enrollment && (
         <RegisterVisitFlow
           enrollmentId={enrollment.id}
+          protocolId={protocol.id}
           randomizationDate={enrollment.randomization_date}
           usedKinds={usedKinds}
           accentSolid={accentSolid}

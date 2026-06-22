@@ -15,9 +15,18 @@ export const SINGLETON_KINDS: VisitKind[] = ['firma', 'screening', 'firma_screen
  * Tipos de visita suelta disponibles para registrar, según la etapa y lo ya registrado.
  * Espeja las reglas que valida el RPC server-side (singletons, exclusiones, randomización
  * exige firma+screening, pre/post rando). Para que la UI no ofrezca algo que el RPC rechazaría.
+ *
+ * `protocolHasCuadro` = el protocolo modela screening/randomización en el cuadro (defs role<>comun).
+ * Si lo tiene, esas etapas se agendan DESDE el cuadro y acá solo quedan las sueltas reales:
+ * VNP siempre, Retest solo post-rando. Espeja el cutover del RPC register_visit_event (0030).
  */
-export function availableEventKinds(randomizationDate: string | null, used: VisitKind[]): VisitKind[] {
+export function availableEventKinds(
+  randomizationDate: string | null,
+  used: VisitKind[],
+  protocolHasCuadro = false,
+): VisitKind[] {
   if (randomizationDate != null) return ['vnp', 'retest'] // post-rando
+  if (protocolHasCuadro) return ['vnp'] // pre-rando con cuadro: screening/rando van por el cuadro
   const has = (k: VisitKind) => used.includes(k)
   const out: VisitKind[] = []
   if (!has('firma') && !has('firma_screening')) out.push('firma')

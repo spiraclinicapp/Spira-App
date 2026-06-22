@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Modal } from '../../components/Modal'
 import { FormField, fieldInput } from '../../components/FormField'
 import { btnOutline, btnPrimary } from '../../components/buttons'
@@ -9,6 +9,11 @@ const TYPES: { value: VisitType; label: string }[] = [
   { value: 'presencial', label: 'Presencial' },
   { value: 'telefonica', label: 'Telefónica' },
 ]
+
+/* Hint de validación bajo un campo: texto chico y sereno en color de peligro. */
+function Hint({ children }: { children: ReactNode }) {
+  return <div style={{ marginTop: 4, fontSize: 12, color: 'var(--spira-danger)' }}>{children}</div>
+}
 
 /* Una sola "etapa de la visita" de dominio que deriva role + date_mode, en vez de
    exponer los dos enums crudos (que permitirían combinaciones sin sentido como
@@ -59,12 +64,17 @@ export function ScheduleDefinitionForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /* Válido = código y nombre con texto + las cantidades parsean a número (vacío → 0).
-     El offset no se exige para libres (es referencia); igual default 0. */
+  /* Válido = código y nombre con texto + las cantidades en días son enteras (vacío → 0).
+     El offset admite negativos (screening pre-rando); las ventanas son magnitudes, no
+     pueden ser negativas ni fraccionarias (la columna es `integer` y un negativo invertiría
+     la ventana en silencio al sincronizar). */
+  const isInt = (v: string) => Number.isInteger(Number(v))
+  const isNonNegInt = (v: string) => Number.isInteger(Number(v)) && Number(v) >= 0
+  const offsetInvalid = !isInt(offset)
+  const wMinusInvalid = !isNonNegInt(wMinus)
+  const wPlusInvalid = !isNonNegInt(wPlus)
   const valid =
-    code.trim() !== '' &&
-    name.trim() !== '' &&
-    [offset, wMinus, wPlus].every((v) => Number.isFinite(Number(v)))
+    code.trim() !== '' && name.trim() !== '' && !offsetInvalid && !wMinusInvalid && !wPlusInvalid
 
   const submit = async () => {
     setBusy(true)
@@ -117,17 +127,20 @@ export function ScheduleDefinitionForm({
           </select>
         </FormField>
         <FormField label={esLibre ? 'Día de referencia (ventana del protocolo)' : 'Día (offset desde la randomización)'}>
-          <input type="number" value={offset} onChange={(e) => setOffset(e.target.value)} style={fieldInput} />
+          <input type="number" step="1" value={offset} onChange={(e) => setOffset(e.target.value)} style={fieldInput} />
+          {offsetInvalid && <Hint>Tiene que ser un número entero de días.</Hint>}
         </FormField>
         <div style={{ display: 'flex', gap: 12 }}>
           <div style={{ flex: 1 }}>
             <FormField label="Ventana − (días)">
-              <input type="number" min="0" value={wMinus} onChange={(e) => setWMinus(e.target.value)} style={fieldInput} />
+              <input type="number" min="0" step="1" value={wMinus} onChange={(e) => setWMinus(e.target.value)} style={fieldInput} />
+              {wMinusInvalid && <Hint>Un entero de 0 o más.</Hint>}
             </FormField>
           </div>
           <div style={{ flex: 1 }}>
             <FormField label="Ventana + (días)">
-              <input type="number" min="0" value={wPlus} onChange={(e) => setWPlus(e.target.value)} style={fieldInput} />
+              <input type="number" min="0" step="1" value={wPlus} onChange={(e) => setWPlus(e.target.value)} style={fieldInput} />
+              {wPlusInvalid && <Hint>Un entero de 0 o más.</Hint>}
             </FormField>
           </div>
         </div>

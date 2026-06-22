@@ -51,6 +51,8 @@ export interface TrackVisitRow {
   role: 'screening' | 'randomizacion' | 'comun' | null
   /** Modo de fecha de la definición (libre/automatica); null para sueltas. */
   date_mode: 'libre' | 'automatica' | null
+  /** randomization_date del enrolamiento (migración 0030); null si todavía no randomizó. Para la salvaguarda. */
+  enrollment_randomization_date: string | null
 }
 
 /** Visitas no realizadas que caen dentro de los próximos 7 días (KPI + lista del Resumen). */
@@ -80,6 +82,26 @@ export function useVisitAlerts() {
         .select('*')
         .in('computed_status', ['ventana_vencida', 'item_vencido'])
         .order('estimated_date', { ascending: true })
+        .returns<TrackVisitRow[]>(),
+    [],
+  )
+}
+
+/**
+ * Salvaguarda: visitas de randomización ATENDIDAS (real_date no nulo) cuyo enrolamiento sigue
+ * SIN randomization_date — se atendió la visita pero no se confirmó la randomización, así que el
+ * tratamiento no se generó. role='randomizacion' lo trae el cuadro (las sueltas no aplican).
+ */
+export function useRandoAttendedWithoutDate() {
+  return useSupabaseQuery<TrackVisitRow[]>(
+    (c) =>
+      c
+        .from('v_track_visits')
+        .select('*')
+        .eq('role', 'randomizacion')
+        .not('real_date', 'is', null)
+        .is('enrollment_randomization_date', null)
+        .order('real_date', { ascending: true })
         .returns<TrackVisitRow[]>(),
     [],
   )

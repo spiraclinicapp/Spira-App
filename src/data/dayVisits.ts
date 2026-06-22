@@ -204,6 +204,45 @@ export async function markReady(visitId: string): Promise<{ error: string | null
   return { error: null }
 }
 
+/**
+ * Marca "Listo para irse" capturando el desenlace clínico según el rol de la visita (cuadro):
+ * screening → `ivrs` (se guarda en patients.code) · randomización → `randomized` (fija
+ * randomization_date y dispara la generación del tratamiento). IDEMPOTENTE server-side: si el
+ * paciente ya está randomizado, vuelve con un error claro (no pisa la fecha). RPC 0030.
+ */
+export async function markReadyWithOutcome(
+  visitId: string,
+  opts: { ivrs?: string; randomized?: boolean },
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('mark_ready_with_outcome', {
+    p_visit_id: visitId,
+    p_ivrs: opts.ivrs ?? null,
+    p_randomized: opts.randomized ?? null,
+  })
+  if (error) {
+    if (error.code === '23505') return { error: 'Ese número de IVRS ya está asignado a otro paciente.' }
+    if (error.code === '42501') return { error: 'No tenés permiso para esta acción.' }
+    return { error: error.message } // incluye "El paciente ya está randomizado" / "Marcá la visita como atendida…"
+  }
+  return { error: null }
+}
+
+/**
+ * Inactiva un enrolamiento (fallo de screening): status='discontinuado' + motivo en notes, vía
+ * RPC `discontinue_enrollment` (SECURITY DEFINER, 0030). Authz gerencia / track-admin / operator asignado.
+ */
+export async function discontinueEnrollment(
+  enrollmentId: string,
+  reason?: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('discontinue_enrollment', {
+    p_enrollment_id: enrollmentId,
+    p_reason: reason ?? null,
+  })
+  if (error) return { error: error.code === '42501' ? 'No tenés permiso para esta acción.' : error.message }
+  return { error: null }
+}
+
 /** Marca "Fuera del sitio" (left_at = now()). Requiere ready_at (handoff). Recepción/Admin o gerencia. */
 export async function markLeft(visitId: string): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('mark_left', { p_visit_id: visitId })

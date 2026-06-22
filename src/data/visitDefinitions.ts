@@ -42,6 +42,50 @@ export function useProtocolDefinitions(protocolId: string | null) {
   )
 }
 
+/**
+ * Definiciones LIBRES de un protocolo (las que se agendan a mano: screening, randomización,
+ * manuales). Las automáticas se generan al randomizar, no se agendan → quedan fuera. Alimenta
+ * el selector de "Agendar visita" cuando el protocolo tiene cuadro. Migración 0030.
+ */
+export function useSchedulableDefinitions(protocolId: string | null) {
+  return useSupabaseQuery<VisitDefinition[]>(
+    (c) =>
+      protocolId
+        ? c
+            .from('visit_definitions')
+            .select('*')
+            .eq('protocol_id', protocolId)
+            .eq('date_mode', 'libre')
+            .order('sort_order', { ascending: true })
+            .returns<VisitDefinition[]>()
+        : Promise.resolve({ data: [], error: null }),
+    [protocolId],
+  )
+}
+
+/**
+ * Agenda a mano una visita LIBRE del cuadro (kind='programada', sin ventanas) vía RPC
+ * `schedule_protocol_visit` (SECURITY DEFINER, 0030): valida que la def sea del protocolo y
+ * 'libre', y la authz server-side (gerencia / track-admin / operator asignado).
+ */
+export async function scheduleProtocolVisit(
+  enrollmentId: string,
+  visitDefId: string,
+  date: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('schedule_protocol_visit', {
+    p_enrollment_id: enrollmentId,
+    p_visit_def_id: visitDefId,
+    p_date: date,
+  })
+  if (error) {
+    if (error.code === '42501') return { error: 'No tenés permiso para agendar esta visita.' }
+    if (error.code === '23502') return { error: 'La fecha es obligatoria.' }
+    return { error: error.message } // incluye "La definición no pertenece al protocolo" / "se generan al randomizar"
+  }
+  return { error: null }
+}
+
 /** Campos editables de una definición (sin id/protocol_id/sort_order: los maneja la capa). */
 export interface DefinitionInput {
   code: string
@@ -59,6 +103,8 @@ export interface DefinitionInput {
 function definitionErrorMessage(code?: string): string {
   if (code === '42501') return 'No tenés permiso para editar el cronograma.'
   if (code === '23502') return 'Faltan datos obligatorios de la visita.'
+  // 22P02/22003: día o ventana no entero/fuera de rango — la UI ya lo valida, esto es defensa.
+  if (code === '22P02' || code === '22003') return 'El día y las ventanas tienen que ser números enteros de días.'
   return 'No pudimos guardar la visita. Probá de nuevo.'
 }
 
@@ -141,8 +187,14 @@ export async function countDeleteImpact(defId: string): Promise<DeleteImpact | n
  */
 export async function reorderDefinitions(ids: string[]): Promise<{ error: string | null }> {
   for (let i = 0; i < ids.length; i++) {
-    const { error } = await supabase.from('visit_definitions').update({ sort_order: i }).eq('id', ids[i])
+    const { data, error } = await supabase
+      .from('visit_definitions')
+      .update({ sort_order: i })
+      .eq('id', ids[i])
+      .select('id')
     if (error) return { error: definitionErrorMessage(error.code) }
+    // RLS filtra en silencio: 0 filas afectadas = sin permiso, no éxito (convención del repo).
+    if (!data || data.length === 0) return { error: 'No tenés permiso para editar el cronograma.' }
   }
   return { error: null }
 }
