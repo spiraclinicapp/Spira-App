@@ -43,7 +43,7 @@ npm run build       # typecheck + build de producción
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
-   número. La última aplicada va por la `0028` (ver `supabase/README.md`).
+   número. La última aplicada va por la `0029` (ver `supabase/README.md`).
 4. **El preview es una sesión de navegador aparte de la del usuario.** No podés precargarle
    formularios ni ver su estado; verificá las escrituras recargando tu propia instancia.
 

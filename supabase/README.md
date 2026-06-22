@@ -36,6 +36,7 @@ copias que diverjan). Para una vista combinada: `cat migrations/*.sql` o `supaba
 | 0026 | `protocol_schedule.sql` | gestión del cronograma del protocolo: endurece la RLS de `visit_definitions` (edición gerencia/track-admin, cierra el borrado directo) + RPCs `sync_protocol_schedule` y `delete_visit_definition` |
 | 0027 | `count_deletable_visits.sql` | RPC `count_deletable_visits` (SECURITY DEFINER): impacto de borrar una definición `{deletable, attended}` con la authz del borrado (no bajo la RLS de lectura del caller) |
 | 0028 | `track_admin_ve_protocolos.sql` | suma una rama `has_min_role('track','admin')` a la SELECT de `protocols` (era `leader` exacto): alinea la visibilidad de protocolos con quién gestiona el cronograma. Aditivo; no toca la visibilidad de patients/visits |
+| 0029 | `visit_role_y_generacion.sql` | cuadro de actividades completo (Fase 1): `visit_definitions.role` (screening/randomizacion/comun); recrea `v_track_visits` (+`role`/`date_mode`) y `v_protocol_kpis`; `generate_patient_visits` y `sync_protocol_schedule` toman solo `date_mode='automatica'` |
 
 Además, `seed_smoke_test.sql` (en `supabase/`, fuera de `migrations/`) carga datos demo
 para validar el aislamiento de RLS. NO es para producción — ver instrucciones en su cabecera.
