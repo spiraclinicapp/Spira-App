@@ -105,6 +105,17 @@ propósito: Paso 2 = "que se vea armado"; Paso 3 = "que se vea pulido".
   verde atendida → relleno verde al cerrar, con el número de visita). Migraciones 0023–0025 **aplicadas**;
   **taggeado `v0.5.0`** (en la punta de la rama). Ver [`bitacora/2026-06-20.md`](./bitacora/2026-06-20.md).
   Pendiente: **merge a `main`** + Task V completa (opcional).
+- **Track · Cronograma del protocolo → cuadro de actividades completo**: 🔄 (2026-06-21, rama
+  `feat/cronograma-protocolo`). El **cronograma** (migraciones **0026–0028**, aplicadas) cierra el bug
+  "Próximas visitas: 0": editor del cronograma por protocolo (pestaña "Cronograma" en el Detalle de
+  Protocolo) + generar/sincronizar las visitas de los randomizados. **Evolución a cuadro de actividades
+  completo — Fase 1** (migración **0029**, aplicada): `role`/`date_mode` en `visit_definitions`, título
+  **"código - nombre"**, generación/KPIs solo automáticas, editor con un select "Etapa". Diseño revisado
+  con `/autoplan`. **Fase 2** (flujo operativo: agendar desde el cuadro + confirmación al "Listo para irse"
+  con IVRS / ¿randomizó? / recitar / marcar fallo) **planificada, NO implementada** (spec/plan
+  `docs/superpowers/*/2026-06-21-cronograma-cuadro-completo*`). Aparte, mismo día: **rediseño de Login**
+  + Google OAuth + reset de contraseña **mergeado a `main` (PR #1)**. Ver
+  [`bitacora/2026-06-21.md`](./bitacora/2026-06-21.md). Pendiente: Fase 2 + merge de la rama.
 - Campos de paciente para el tablero: `sex` (F/M/Otro).
 - Notas del día en Agenda: la tabla `agenda_notes` existe; falta `unique (user_id, note_date)` para
   upsert + policy DELETE (migración 0015 futura). Impresión de la agenda (`@media print`) también pendiente.
