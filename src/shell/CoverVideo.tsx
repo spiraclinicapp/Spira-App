@@ -3,6 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 const YT_ID = 'QeTZRAqycfY'
 const START = 11 // arranca (y reloopea) en el segundo 11
 
+/* Miniatura estática del video. Sirve de poster de fondo del card (si el iframe de YouTube no
+   carga —firewall del centro, sin red— igual se ve la imagen) y de imagen en reduced-motion. */
+export const COVER_POSTER = `https://i.ytimg.com/vi/${YT_ID}/maxresdefault.jpg`
+
 /* Tipos mínimos de la IFrame Player API (el repo no tiene @types/youtube). */
 type YTPlayer = {
   mute: () => void
@@ -94,7 +98,7 @@ export function CoverVideo() {
         rel="noopener noreferrer"
         aria-label="Ver el video institucional de la Fundación Scherbovsky"
       >
-        <img src={`https://i.ytimg.com/vi/${YT_ID}/maxresdefault.jpg`} alt="Video institucional de la Fundación Scherbovsky" />
+        <img src={COVER_POSTER} alt="Video institucional de la Fundación Scherbovsky" />
       </a>
     )
   }

@@ -42,6 +42,11 @@ interface AuthState {
       PASSWORD_RECOVERY): hay una sesión de recuperación activa y hay que pedirle la clave nueva
       antes de dejarlo entrar (ver el Gate en App.tsx). */
   recovering: boolean
+  /** Aviso para mostrar en el login (p. ej. el link de recuperación venció o es inválido).
+      Se setea leyendo el error que Supabase devuelve en el hash de la URL. */
+  authNotice: string | null
+  /** Descarta el aviso del login (lo llaman las acciones del formulario al empezar). */
+  clearAuthNotice: () => void
   /** ¿El usuario tiene en `module` un nivel >= `min`? Espejo de public.has_min_role. */
   hasMinRole: (module: ModuleKey, min: ModuleRole) => boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
@@ -63,9 +68,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<Partial<Record<ModuleKey, ModuleRole>>>({})
   const [loading, setLoading] = useState(true)
   const [recovering, setRecovering] = useState(false)
+  const [authNotice, setAuthNotice] = useState<string | null>(null)
 
   // sesión inicial + suscripción a cambios de auth
   useEffect(() => {
+    // Si el link de recuperación venció o es inválido, Supabase nos devuelve con el error en el
+    // hash de la URL (#error=...&error_code=otp_expired) y NO crea sesión. Lo leemos ANTES de que
+    // el SDK limpie el hash y dejamos un aviso para el login, así el usuario no queda sin explicación.
+    const hash = window.location.hash
+    if (hash.includes('error')) {
+      const params = new URLSearchParams(hash.replace(/^#/, ''))
+      const code = params.get('error_code')
+      if (params.get('error') || code) {
+        setAuthNotice(
+          code === 'otp_expired'
+            ? 'El enlace para restablecer la contraseña venció. Pedí uno nuevo desde "Olvidé mi contraseña".'
+            : 'El enlace no es válido o ya se usó. Pedí uno nuevo desde "Olvidé mi contraseña".',
+        )
+        // Limpiamos el hash para que el aviso no reaparezca al recargar.
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setLoading(false)
@@ -74,7 +98,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // El link de "olvidé mi contraseña" vuelve a la app y dispara PASSWORD_RECOVERY dejando una
       // sesión de recuperación activa. Marcamos el modo para que el Gate muestre "definí tu nueva
       // contraseña" en lugar de entrar al shell con esa sesión a medias (ver App.tsx).
-      if (event === 'PASSWORD_RECOVERY') setRecovering(true)
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecovering(true)
+        setAuthNotice(null) // arrancamos un flujo de recovery nuevo: limpiamos cualquier aviso viejo
+      }
+      // Si la sesión se cae (logout, o la sesión de recovery expira mientras se fija la clave),
+      // salimos del modo recovering: si no, el Gate seguiría mostrando "Definí tu nueva contraseña"
+      // sobre una sesión nula y el guardado fallaría con un mensaje genérico.
+      if (!next) setRecovering(false)
       setSession(next)
     })
     return () => sub.subscription.unsubscribe()
@@ -151,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         session, profile, modules, roles, loading, recovering, hasMinRole,
+        authNotice, clearAuthNotice: () => setAuthNotice(null),
         signIn, signInWithGoogle, requestPasswordReset, updatePassword, signOut,
       }}
     >

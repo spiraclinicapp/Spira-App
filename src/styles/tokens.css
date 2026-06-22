@@ -137,6 +137,9 @@ button { font-family: inherit; }
   aspect-ratio: 16 / 9;
   border-radius: 16px; overflow: hidden;
   box-shadow: 0 22px 50px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.14);
+  /* Poster (background-image inline desde AuthLayout): se ve si el iframe de YouTube no carga.
+     El iframe/img van por encima con object-fit:cover y lo tapan cuando sí cargan. */
+  background-size: cover; background-position: center; background-repeat: no-repeat;
 }
 /* Capa clickeable que llena el card (button para togglear sonido; <a> en reduced-motion). */
 .spira-auth-cover-hit {

@@ -24,7 +24,7 @@ const linkStyle: CSSProperties = {
 }
 
 export function Login() {
-  const { signIn, signInWithGoogle, requestPasswordReset } = useAuth()
+  const { signIn, signInWithGoogle, requestPasswordReset, authNotice, clearAuthNotice } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -37,6 +37,7 @@ export function Login() {
     e.preventDefault()
     setError(null)
     setNote(null)
+    clearAuthNotice()
     setBusy(true)
     const res = await signIn(email.trim(), password)
     if (res.error) setError(res.error)
@@ -46,6 +47,7 @@ export function Login() {
   const onGoogle = async () => {
     setError(null)
     setNote(null)
+    clearAuthNotice()
     setGoogleBusy(true)
     const res = await signInWithGoogle()
     // Si funciona, el navegador redirige a Google y esta página se va. Si falla (p. ej. el proveedor
@@ -59,6 +61,7 @@ export function Login() {
   const onForgot = async () => {
     setError(null)
     setNote(null)
+    clearAuthNotice()
     const mail = email.trim()
     if (!mail) {
       setNote('Ingresá tu email arriba primero.')
@@ -135,6 +138,7 @@ export function Login() {
           <PasswordInput id="password" value={password} onChange={setPassword} autoComplete="current-password" />
         </div>
 
+        {authNotice && !note && !error && <div style={errorBox}>{authNotice}</div>}
         {note && <div style={noteBox}>{note}</div>}
         {error && <div style={errorBox}>{error}</div>}
 

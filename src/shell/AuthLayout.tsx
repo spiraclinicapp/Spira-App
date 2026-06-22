@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Vilano } from '../components/Vilano'
-import { CoverVideo } from './CoverVideo'
+import { CoverVideo, COVER_POSTER } from './CoverVideo'
 
 interface AuthLayoutProps {
   children: ReactNode
@@ -32,7 +32,8 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           </div>
         </div>
 
-        <div className="spira-auth-cover-card">
+        {/* El poster va de fondo del card: si el iframe de YouTube no carga, igual se ve la imagen. */}
+        <div className="spira-auth-cover-card" style={{ backgroundImage: `url(${COVER_POSTER})` }}>
           <CoverVideo />
         </div>
       </div>
