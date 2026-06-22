@@ -24,6 +24,7 @@ const THUMB_FALLBACK = `https://i.ytimg.com/vi/${YT_ID}/mqdefault.jpg`
 export function AuthLayout({ children }: AuthLayoutProps) {
   const [coverFailed, setCoverFailed] = useState(false)
   const [thumbSrc, setThumbSrc] = useState(THUMB_MAXRES)
+  const [playing, setPlaying] = useState(false)
 
   return (
     <div className="spira-auth">
@@ -46,23 +47,35 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             </div>
           </div>
 
-          <a
-            className="spira-auth-cover-card spira-no-press"
-            href={`https://www.youtube.com/watch?v=${YT_ID}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Ver el video institucional de la Fundación Scherbovsky"
-          >
-            <img
-              src={thumbSrc}
-              alt="Video institucional de la Fundación Scherbovsky"
-              className="spira-auth-cover-img"
-              onError={() => (thumbSrc === THUMB_FALLBACK ? setCoverFailed(true) : setThumbSrc(THUMB_FALLBACK))}
-            />
-            <span className="spira-auth-cover-play" aria-hidden="true">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-            </span>
-          </a>
+          {playing ? (
+            <div className="spira-auth-cover-card">
+              <iframe
+                className="spira-auth-cover-frame"
+                src={`https://www.youtube-nocookie.com/embed/${YT_ID}?autoplay=1&rel=0`}
+                title="Video institucional de la Fundación Scherbovsky"
+                allow="autoplay; encrypted-media; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="spira-auth-cover-card spira-no-press"
+              onClick={() => setPlaying(true)}
+              aria-label="Reproducir el video institucional de la Fundación Scherbovsky"
+            >
+              <img
+                src={thumbSrc}
+                alt="Video institucional de la Fundación Scherbovsky"
+                className="spira-auth-cover-img"
+                onError={() => (thumbSrc === THUMB_FALLBACK ? setCoverFailed(true) : setThumbSrc(THUMB_FALLBACK))}
+              />
+              <span className="spira-auth-cover-play" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+              </span>
+            </button>
+          )}
         </div>
       )}
 
