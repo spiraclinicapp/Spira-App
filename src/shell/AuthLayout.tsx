@@ -6,16 +6,24 @@ interface AuthLayoutProps {
   children: ReactNode
 }
 
-/** Shell pre-auth en dos mitades: a la izquierda un panel VERDE (color de marca) con el Vilano
-    grande y tenue de fondo (marca de agua), el logo de Spira arriba y la foto INSERTADA con
-    bordes rectos (un recuadro, no de fondo); a la derecha el formulario centrado. Lo comparten
-    Login y SetNewPassword.
+/* Miniatura del video institucional para el panel de marca. `maxresdefault` puede no existir en
+   todos los videos → si falla, se cae a `mqdefault` (16:9 garantizado) antes de ocultar la mitad. */
+const YT_ID = 'cJALP1onzAY'
+const THUMB_MAXRES = `https://i.ytimg.com/vi/${YT_ID}/maxresdefault.jpg`
+const THUMB_FALLBACK = `https://i.ytimg.com/vi/${YT_ID}/mqdefault.jpg`
 
-    La foto va en public/login-cover.jpg. Si falla (404), se oculta toda la mitad izquierda y el
-    formulario queda centrado a pantalla completa. En pantallas angostas la foto también se oculta
+/** Shell pre-auth en dos mitades: a la izquierda un panel VERDE (color de marca) con el Vilano
+    grande y tenue de fondo (marca de agua), el logo de Spira arriba y la MINIATURA del video
+    institucional insertada con marco blanco (un recuadro, no de fondo); a la derecha el formulario
+    centrado. Lo comparten Login y SetNewPassword.
+
+    La miniatura sale de YouTube (16:9): llena el ancho del panel con alto automático para no
+    deformarla. Si maxres y el fallback fallan (404 / sin red), se oculta toda la mitad izquierda y
+    el formulario queda centrado a pantalla completa. En pantallas angostas también se oculta
     (clases .spira-auth-* en tokens.css). */
 export function AuthLayout({ children }: AuthLayoutProps) {
   const [coverFailed, setCoverFailed] = useState(false)
+  const [thumbSrc, setThumbSrc] = useState(THUMB_MAXRES)
 
   return (
     <div className="spira-auth">
@@ -39,10 +47,10 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           </div>
 
           <img
-            src="/login-cover.jpg"
-            alt="Material informativo de la Fundación"
+            src={thumbSrc}
+            alt="Video institucional de la Fundación Scherbovsky"
             className="spira-auth-cover-img"
-            onError={() => setCoverFailed(true)}
+            onError={() => (thumbSrc === THUMB_FALLBACK ? setCoverFailed(true) : setThumbSrc(THUMB_FALLBACK))}
           />
         </div>
       )}

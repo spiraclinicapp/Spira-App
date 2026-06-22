@@ -128,13 +128,14 @@ button { font-family: inherit; }
 }
 .spira-auth-cover-brand { align-self: flex-start; position: relative; z-index: 1; } /* logo + bajada arriba a la izquierda */
 .spira-auth-cover-img {
-  /* Foto insertada con MARCO BLANCO y bordes rectos; se ve completa, con sombra para dar
-     profundidad sobre el verde. Va por encima de la marca de agua del Vilano. */
+  /* Miniatura del video (16:9) con MARCO BLANCO y bordes rectos, con sombra para dar
+     profundidad sobre el verde. Va por encima de la marca de agua del Vilano. Llena el ANCHO
+     del panel y deja el alto en auto → no se deforma (una sola dimensión fija). En pantallas
+     muy bajas el panel (overflow:hidden) recorta en vez de achatar la imagen. */
   position: relative; z-index: 1;
   display: block;
-  max-width: 100%;
-  max-height: calc(100vh - 240px); /* deja lugar para el logo + paddings */
-  width: auto; height: auto;
+  width: 100%; height: auto;
+  box-sizing: border-box;
   border: 10px solid var(--spira-white); /* marco blanco */
   border-radius: 0;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
