@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 
-const YT_ID = 'cJALP1onzAY'
+const YT_ID = 'QeTZRAqycfY'
 const START = 11 // arranca (y reloopea) en el segundo 11
 
 /* Tipos mínimos de la IFrame Player API (el repo no tiene @types/youtube). */
 type YTPlayer = {
   mute: () => void
+  unMute: () => void
   playVideo: () => void
   seekTo: (seconds: number, allowSeekAhead: boolean) => void
   destroy: () => void
@@ -21,28 +22,29 @@ declare global {
 }
 
 /**
- * Video de fondo del panel de marca: el institucional en MUTE, autoplay y loop, arrancando y
- * RELOOPEANDO en el segundo 11, sin controles (decorativo). Usa la IFrame Player API porque el
- * `loop` nativo de YouTube reinicia en 0, no en `start`: al terminar (estado ENDED = 0) hacemos
- * seekTo(START). Respeta `prefers-reduced-motion` → muestra una miniatura estática en su lugar.
- * El <iframe>/imagen lo estiliza `.spira-auth-cover-card iframe|img` (llena el card 16:9).
+ * Video de fondo del panel de marca, HÍBRIDO: arranca en MUTE + autoplay + loop (arrancando y
+ * reloopeando en el seg. 11, sin controles), y al clickearlo activa/silencia el sonido (botón de
+ * bocina). El loop nativo de YouTube reinicia en 0, no en `start` → al terminar (ENDED=0) hacemos
+ * seekTo(START). El iframe lleva pointer-events:none para que el click lo capture nuestro botón.
+ * Respeta `prefers-reduced-motion` → miniatura estática que linkea al video (no autoplay).
  */
 export function CoverVideo() {
   const ref = useRef<HTMLDivElement>(null)
+  const playerRef = useRef<YTPlayer | null>(null)
   const [reduced] = useState(
     () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
   )
+  const [muted, setMuted] = useState(true)
 
   useEffect(() => {
     if (reduced) return
-    let player: YTPlayer | undefined
     let cancelled = false
 
     const create = () => {
       const el = ref.current
       const YT = window.YT
       if (cancelled || !el || !YT?.Player) return
-      player = new YT.Player(el, {
+      playerRef.current = new YT.Player(el, {
         videoId: YT_ID,
         host: 'https://www.youtube-nocookie.com',
         playerVars: {
@@ -61,7 +63,6 @@ export function CoverVideo() {
     if (window.YT?.Player) {
       create()
     } else {
-      // Encadena el callback global por si otro componente ya lo registró; carga el script una vez.
       const prev = window.onYouTubeIframeAPIReady
       window.onYouTubeIframeAPIReady = () => { prev?.(); create() }
       if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
@@ -73,13 +74,50 @@ export function CoverVideo() {
 
     return () => {
       cancelled = true
-      try { player?.destroy() } catch { /* el iframe ya pudo desmontarse */ }
+      try { playerRef.current?.destroy() } catch { /* el iframe ya pudo desmontarse */ }
+      playerRef.current = null
     }
   }, [reduced])
 
-  if (reduced) {
-    return <img src={`https://i.ytimg.com/vi/${YT_ID}/maxresdefault.jpg`} alt="Video institucional de la Fundación Scherbovsky" />
+  const toggleSound = () => {
+    const p = playerRef.current
+    if (!p) return
+    if (muted) { p.unMute(); p.playVideo(); setMuted(false) } else { p.mute(); setMuted(true) }
   }
-  // La API reemplaza este div por el <iframe>.
-  return <div ref={ref} />
+
+  if (reduced) {
+    return (
+      <a
+        className="spira-auth-cover-hit spira-no-press"
+        href={`https://www.youtube.com/watch?v=${YT_ID}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Ver el video institucional de la Fundación Scherbovsky"
+      >
+        <img src={`https://i.ytimg.com/vi/${YT_ID}/maxresdefault.jpg`} alt="Video institucional de la Fundación Scherbovsky" />
+      </a>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className="spira-auth-cover-hit spira-no-press"
+      onClick={toggleSound}
+      aria-label={muted ? 'Activar el sonido del video' : 'Silenciar el video'}
+    >
+      <div ref={ref} />
+      <span className="spira-auth-cover-sound" aria-hidden="true">
+        {muted ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11 5 6 9H2v6h4l5 4z" /><line x1="22" y1="9" x2="16" y2="15" /><line x1="16" y1="9" x2="22" y2="15" />
+          </svg>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11 5 6 9H2v6h4l5 4z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M19 5a9 9 0 0 1 0 14" />
+          </svg>
+        )}
+      </span>
+    </button>
+  )
 }

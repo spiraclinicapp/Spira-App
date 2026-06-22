@@ -127,21 +127,43 @@ button { font-family: inherit; }
   opacity: 0.12; pointer-events: none; z-index: 0;
 }
 .spira-auth-cover-brand { align-self: flex-start; position: relative; z-index: 1; } /* logo + bajada arriba a la izquierda */
-/* Card del video de fondo (decorativo): el institucional en mute/autoplay/loop, sin controles.
-   `aspect-ratio: 16/9` le da una caja fija sin deformar; bordes redondeados + ring sutil + sombra
-   le dan entidad sobre el verde. pointer-events:none → es fondo, no se interactúa (no se pausa al
-   clickear). El <iframe> (o la miniatura estática en prefers-reduced-motion) llena el card. */
+/* Card del video de fondo HÍBRIDO: mute/autoplay/loop como fondo, clickeable para activar el
+   sonido. `aspect-ratio: 16/9` le da caja fija sin deformar; bordes redondeados + ring + sombra
+   le dan entidad. El <hit> (button o link) cubre el card y captura el click; el iframe va con
+   pointer-events:none para que el click no se lo coma YouTube. */
 .spira-auth-cover-card {
   position: relative; z-index: 1;
   width: 100%; box-sizing: border-box;
   aspect-ratio: 16 / 9;
   border-radius: 16px; overflow: hidden;
   box-shadow: 0 22px 50px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.14);
-  pointer-events: none;
+}
+/* Capa clickeable que llena el card (button para togglear sonido; <a> en reduced-motion). */
+.spira-auth-cover-hit {
+  position: absolute; inset: 0; z-index: 1;
+  display: block; width: 100%; height: 100%;
+  padding: 0; border: 0; margin: 0; background: transparent; appearance: none;
+  cursor: pointer;
 }
 .spira-auth-cover-card iframe,
 .spira-auth-cover-card img {
   display: block; width: 100%; height: 100%; border: 0; object-fit: cover;
+  pointer-events: none; /* el click lo maneja .spira-auth-cover-hit, no el iframe de YouTube */
+}
+/* Botón de bocina (estado de sonido): abajo a la derecha, decorativo (el click es del card). */
+.spira-auth-cover-sound {
+  position: absolute; bottom: 10px; right: 10px; z-index: 2;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(20, 48, 46, 0.6);
+  display: grid; place-items: center;
+  color: var(--spira-on-accent);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+.spira-auth-cover-hit:hover .spira-auth-cover-sound {
+  background: rgba(20, 48, 46, 0.82);
+  transform: scale(1.06);
 }
 .spira-auth-panel {
   flex: 1 1 50%; display: flex; flex-direction: column;
