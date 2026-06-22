@@ -7,6 +7,10 @@ export const fieldInput: CSSProperties = {
   color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14,
 }
 
+/** Estilo del texto de label de formulario (sentence case, muted). Exportado para reusarlo en
+    filas de label custom (p. ej. el login, donde el label comparte renglón con "olvidé clave"). */
+export const fieldLabelStyle: CSSProperties = { fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)' }
+
 interface FormFieldProps {
   label: string
   children: ReactNode
@@ -16,7 +20,7 @@ interface FormFieldProps {
 export function FormField({ label, children }: FormFieldProps) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)' }}>{label}</span>
+      <span style={fieldLabelStyle}>{label}</span>
       {children}
     </label>
   )
