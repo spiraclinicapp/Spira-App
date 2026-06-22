@@ -127,18 +127,37 @@ button { font-family: inherit; }
   opacity: 0.12; pointer-events: none; z-index: 0;
 }
 .spira-auth-cover-brand { align-self: flex-start; position: relative; z-index: 1; } /* logo + bajada arriba a la izquierda */
-.spira-auth-cover-img {
-  /* Miniatura del video (16:9) con MARCO BLANCO y bordes rectos, con sombra para dar
-     profundidad sobre el verde. Va por encima de la marca de agua del Vilano. Llena el ANCHO
-     del panel y deja el alto en auto → no se deforma (una sola dimensión fija). En pantallas
-     muy bajas el panel (overflow:hidden) recorta en vez de achatar la imagen. */
+/* Card del video: miniatura 16:9 CLICKEABLE (abre el video en una pestaña). Sin marco blanco;
+   la entidad se la dan los bordes redondeados + un ring sutil + la sombra. Llena el ANCHO del
+   panel y deja el alto en auto → no se deforma. Levanta apenas al hover (micro-interacción
+   propia; usa .spira-no-press para no doblar el transform del estándar global). */
+.spira-auth-cover-card {
   position: relative; z-index: 1;
-  display: block;
-  width: 100%; height: auto;
-  box-sizing: border-box;
-  border: 10px solid var(--spira-white); /* marco blanco */
-  border-radius: 0;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  display: block; width: 100%; box-sizing: border-box;
+  border-radius: 16px; overflow: hidden;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.spira-auth-cover-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 30px 64px rgba(0, 0, 0, 0.46), 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+.spira-auth-cover-img { display: block; width: 100%; height: auto; }
+/* Botón de play centrado: señal de "video" + affordance de click. */
+.spira-auth-cover-play {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 66px; height: 66px; border-radius: 50%;
+  background: rgba(20, 48, 46, 0.58);
+  display: grid; place-items: center;
+  color: var(--spira-on-accent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.spira-auth-cover-card:hover .spira-auth-cover-play {
+  transform: translate(-50%, -50%) scale(1.08);
+  background: rgba(20, 48, 46, 0.74);
 }
 .spira-auth-panel {
   flex: 1 1 50%; display: flex; flex-direction: column;
