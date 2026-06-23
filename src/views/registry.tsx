@@ -1,4 +1,5 @@
 import { Placeholder } from './Placeholder'
+import { InicioResumenView } from './InicioResumenView'
 import { ProtocolsView } from './ProtocolsView'
 import { TrackResumenView } from './TrackResumenView'
 import { AgendaView } from './AgendaView'
@@ -14,6 +15,7 @@ import type { ViewComponent } from './types'
  * Protocolos es compartida por Track y Pharma (los pacientes viven adentro).
  */
 const VIEW_REGISTRY: Record<string, ViewComponent> = {
+  'inicio/resumen': InicioResumenView,
   'track/resumen': TrackResumenView,
   'track/protocolos': ProtocolsView,
   'track/visitas': DayVisitsView,

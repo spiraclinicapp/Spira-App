@@ -41,7 +41,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 /* Vistas portadas que traen sus propias acciones contextuales (o son de solo
    lectura): para ellas se suprime el botón de acción genérico del shell. */
-const HIDE_ACTION = new Set(['track/resumen', 'track/protocolos', 'track/visitas', 'track/para-ver-medico', 'track/agenda', 'track/alertas', 'pharma/protocolos'])
+const HIDE_ACTION = new Set(['inicio/resumen', 'inicio/tareas', 'inicio/alertas', 'track/resumen', 'track/protocolos', 'track/visitas', 'track/para-ver-medico', 'track/agenda', 'track/alertas', 'pharma/protocolos'])
 
 const iconBtn: CSSProperties = {
   width: 38, height: 38, borderRadius: 10, border: 'none',
@@ -114,8 +114,16 @@ export function AppShell() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-          <Vilano size={30} />
-          <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, letterSpacing: '-0.02em' }}>Spira</span>
+          {/* Logo = hub: vuelve al inicio de Spira (inicio/resumen). */}
+          <button
+            onClick={() => selectModule('inicio')}
+            title="Ir al inicio de Spira"
+            className="spira-no-press"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 11, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', fontFamily: 'inherit' }}
+          >
+            <Vilano size={30} />
+            <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, letterSpacing: '-0.02em' }}>Spira</span>
+          </button>
           <span style={{ width: 1, height: 26, background: 'var(--spira-line)', margin: '0 5px' }} />
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             <span style={{ width: 26, height: 26, borderRadius: 7, background: accent + '18', display: 'grid', placeItems: 'center' }}>
@@ -195,7 +203,8 @@ export function AppShell() {
           </button>
         </aside>
 
-        {/* panel de submódulos */}
+        {/* panel de submódulos — oculto en Inicio: su única vista es Resumen (la home) */}
+        {moduleKey !== 'inicio' && (
         <aside style={{ width: 208, flex: '0 0 208px', background: 'var(--spira-surface)', borderRight: '1px solid var(--spira-line)', padding: '18px 12px', display: 'flex', flexDirection: 'column' }}>
           <div className="spira-eyebrow" style={{ padding: '2px 12px 0' }}>Submódulos</div>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 14 }}>
@@ -223,6 +232,7 @@ export function AppShell() {
             v{__APP_VERSION__}
           </div>
         </aside>
+        )}
 
         {/* contenido */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
