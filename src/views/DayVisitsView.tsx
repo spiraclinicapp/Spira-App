@@ -71,6 +71,20 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
     return true
   })
 
+  /* Tablero del día en dos secciones: las "EN EL CENTRO" (en curso) arriba, separadas del resto.
+     Dentro, la más avanzada primero (Listo → Atendido → En el sitio) y, a igual etapa, por orden
+     de llegada (quien llegó primero, arriba). El resto: por llegar y luego las que ya se fueron. */
+  const byArrival = (a: DayVisitRow, b: DayVisitRow) => (a.arrived_at ?? '').localeCompare(b.arrived_at ?? '')
+  const rankIn = (s: OperationalStage) => ['listo', 'atendido', 'en_el_sitio'].indexOf(s)
+  const rankRest = (s: OperationalStage) => ['por_llegar', 'fuera'].indexOf(s)
+  const inCenterRows = filtered
+    .filter((v) => inCenter(v.operational_stage))
+    .sort((a, b) => rankIn(a.operational_stage) - rankIn(b.operational_stage) || byArrival(a, b))
+  const restRows = filtered
+    .filter((v) => !inCenter(v.operational_stage))
+    .sort((a, b) => rankRest(a.operational_stage) - rankRest(b.operational_stage) || byArrival(a, b))
+  const showSections = inCenterRows.length > 0 && restRows.length > 0
+
   /* Despacha la mutación de la etapa SIGUIENTE. 'atendido' reusa markAttended (real_date=hoy).
      "Listo" de una visita de screening/randomización (rol del cuadro) NO marca directo: abre el
      cierre clínico (ReadyOutcomeModal) que captura IVRS / confirma randomización. El resto va directo. */
@@ -127,6 +141,26 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
     color: active ? accent : 'var(--spira-muted)',
     fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13,
   })
+
+  const sectionHead: CSSProperties = {
+    fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
+    color: 'var(--spira-faint)', fontWeight: 700, padding: '0 0 8px 2px',
+  }
+  const renderRow = (v: DayVisitRow) => (
+    <DayVisitRowItem
+      key={v.id}
+      visit={v}
+      accent={accent}
+      canReception={canReception}
+      canClinical={canClinical(v)}
+      busyId={busyId}
+      onAdvance={advance}
+      onToggleDoctor={toggleDoctor}
+      onDispense={(vv) => setDispensing(vv)}
+      onNoShow={(vv) => setNoShow(vv)}
+      onOpen={(vv) => setOpenVisit(vv)}
+    />
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -187,22 +221,19 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
           description={filter === 'todas' ? 'Cuando haya visitas programadas o registradas hoy van a aparecer acá.' : 'Probá con otro filtro.'}
         />
       ) : (
-        <div>
-          {filtered.map((v) => (
-            <DayVisitRowItem
-              key={v.id}
-              visit={v}
-              accent={accent}
-              canReception={canReception}
-              canClinical={canClinical(v)}
-              busyId={busyId}
-              onAdvance={advance}
-              onToggleDoctor={toggleDoctor}
-              onDispense={(vv) => setDispensing(vv)}
-              onNoShow={(vv) => setNoShow(vv)}
-              onOpen={(vv) => setOpenVisit(vv)}
-            />
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: showSections ? 18 : 0 }}>
+          {inCenterRows.length > 0 && (
+            <div>
+              {showSections && <div style={sectionHead}>En el centro · {inCenterRows.length}</div>}
+              {inCenterRows.map(renderRow)}
+            </div>
+          )}
+          {restRows.length > 0 && (
+            <div>
+              {showSections && <div style={sectionHead}>Resto del día · {restRows.length}</div>}
+              {restRows.map(renderRow)}
+            </div>
+          )}
         </div>
       )}
 

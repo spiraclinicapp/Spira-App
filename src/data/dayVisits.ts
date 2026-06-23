@@ -1,7 +1,6 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import type { QueryResult } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
-import { todayISO } from '../lib/dates'
 import { registerVisit } from './visits'
 import type { TrackVisitRow } from './visits'
 
@@ -27,6 +26,8 @@ export interface DayVisitRow extends TrackVisitRow {
   ready_at: string | null
   left_at: string | null
   wants_doctor: boolean
+  /** Marca "Atendido por el médico" (migración 0031); null = todavía no lo vio. */
+  doctor_seen_at: string | null
   /** coalesce(visit_definitions.dispenses, false): si la visita entrega medicación. */
   dispenses: boolean
   operational_stage: OperationalStage
@@ -88,34 +89,34 @@ export function useVisitsForDay(date: string): QueryResult<DayVisitRow[]> {
 }
 
 /**
- * Cola "Para ver médico": visitas con wants_doctor = true que siguen en el centro
- * (left_at IS NULL), del día de hoy. Semilla del futuro módulo Médicos.
- * Orden: por llegada (arrived_at asc, nulls al final) y luego patient_code.
+ * Cola "Para ver médico" del día `date` (ISO 'YYYY-MM-DD'): visitas con wants_doctor = true de
+ * ese día. NO filtra por left_at: la cola es por día y el paciente queda en la lista aunque se
+ * haya retirado (se navega entre días y quedan registrados). Orden: por llegada (arrived_at asc,
+ * sin llegar al final) y luego patient_code. Semilla del futuro módulo Médicos.
  */
-export function useDoctorQueue(): QueryResult<DayVisitRow[]> {
-  const today = todayISO()
+export function useDoctorQueue(date: string): QueryResult<DayVisitRow[]> {
   // Mismo anclaje a hora local (-03:00) que useVisitsForDay: las marcas son timestamptz (UTC).
-  const dayEnd = `${today}T23:59:59.999-03:00`
-  const dayStart = `${today}T00:00:00-03:00`
+  const dayEnd = `${date}T23:59:59.999-03:00`
+  const dayStart = `${date}T00:00:00-03:00`
   return useSupabaseQuery<DayVisitRow[]>(
     (c) =>
       c
         .from('v_track_visits')
         .select('*')
         .eq('wants_doctor', true)
-        .is('left_at', null)
         .or(
           [
-            `estimated_date.eq.${today}`,
-            `real_date.eq.${today}`,
+            `estimated_date.eq.${date}`,
+            `real_date.eq.${date}`,
             `and(arrived_at.gte.${dayStart},arrived_at.lte.${dayEnd})`,
             `and(ready_at.gte.${dayStart},ready_at.lte.${dayEnd})`,
+            `and(left_at.gte.${dayStart},left_at.lte.${dayEnd})`,
           ].join(','),
         )
         .order('arrived_at', { ascending: true, nullsFirst: false })
         .order('patient_code', { ascending: true })
         .returns<DayVisitRow[]>(),
-    [],
+    [date],
   )
 }
 
@@ -253,6 +254,17 @@ export async function markLeft(visitId: string): Promise<{ error: string | null 
 /** Toggle "Quiere ver el médico" (wants_doctor = value). Clínico/coordinador o gerencia. */
 export async function toggleWantsDoctor(visitId: string, value: boolean): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('toggle_wants_doctor', { p_visit_id: visitId, p_value: value })
+  if (error) return { error: rpcError(error.code, error.message) }
+  return { error: null }
+}
+
+/**
+ * Marca / desmarca "Atendido por el médico" (doctor_seen_at). A diferencia de apagar wants_doctor,
+ * deja al paciente visible como ATENDIDO en la cola (no desaparece) y pone el indicador "Médico"
+ * en Visitas del día. RPC SECURITY DEFINER (0031). Clínico/coordinador o gerencia.
+ */
+export async function markDoctorSeen(visitId: string, seen = true): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('mark_doctor_seen', { p_visit_id: visitId, p_seen: seen })
   if (error) return { error: rpcError(error.code, error.message) }
   return { error: null }
 }

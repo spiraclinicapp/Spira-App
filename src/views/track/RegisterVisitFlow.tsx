@@ -7,7 +7,8 @@ import { btnOutline, btnPrimary } from '../../components/buttons'
 import { registerVisitEvent, availableEventKinds, KIND_LABELS } from '../../data/visitEvents'
 import type { VisitKind } from '../../data/visitEvents'
 import { useSchedulableDefinitions, scheduleProtocolVisit } from '../../data/visitDefinitions'
-import { todayISO } from '../../lib/dates'
+import type { TrackVisitRow } from '../../data/visits'
+import { todayISO, addDaysISO, formatAR } from '../../lib/dates'
 
 /**
  * Modal único de "Agendar visita". Dos caminos según el protocolo:
@@ -25,6 +26,7 @@ export function RegisterVisitFlow({
   randomizationDate,
   usedKinds,
   preselectDefId,
+  referenceVisits,
   accentSolid,
   onClose,
   onDone,
@@ -34,6 +36,8 @@ export function RegisterVisitFlow({
   randomizationDate: string | null
   usedKinds: VisitKind[]
   preselectDefId?: string | null
+  /** Visitas ya agendadas del paciente (para estimar la fecha de una visita libre del cuadro). */
+  referenceVisits?: TrackVisitRow[]
   accentSolid: string
   onClose: () => void
   onDone: () => void
@@ -59,7 +63,7 @@ export function RegisterVisitFlow({
       ? `def:${preselectDefId}`
       : options[0]?.value ?? ''
   const [picked, setPicked] = useState<string | null>(null)
-  const [date, setDate] = useState(todayISO())
+  const [pickedDate, setPickedDate] = useState<string | null>(null)
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,6 +76,20 @@ export function RegisterVisitFlow({
   const choice = picked && options.some((o) => o.value === picked) ? picked : initialChoice
 
   const isRandoEvent = choice === 'evt:randomizacion'
+
+  // Fecha ESTIMADA para una visita libre del cuadro: tomamos una visita ya agendada como
+  // referencia (su fecha − su offset = "día 0" = randomización) y le sumamos el offset de la
+  // elegida. Sirve para sugerir cuándo caería (p. ej. la randomización a partir del screening).
+  // Es solo una sugerencia editable: la fecha se agenda a mano.
+  const selectedDef = choice.startsWith('def:') ? schedDefs.find((d) => `def:${d.id}` === choice) : undefined
+  const refVisit = (referenceVisits ?? []).find(
+    (v) => v.estimated_date != null && v.offset_days != null && v.visit_def_id !== selectedDef?.id,
+  )
+  const estimatedDate =
+    selectedDef && selectedDef.offset_days != null && refVisit?.estimated_date != null && refVisit.offset_days != null
+      ? addDaysISO(refVisit.estimated_date, selectedDef.offset_days - refVisit.offset_days)
+      : null
+  const date = pickedDate ?? estimatedDate ?? todayISO()
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -121,7 +139,12 @@ export function RegisterVisitFlow({
             </select>
           </FormField>
           <FormField label="Fecha de la visita">
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={fieldInput} />
+            <input type="date" value={date} onChange={(e) => setPickedDate(e.target.value)} required style={fieldInput} />
+            {estimatedDate && pickedDate == null && (
+              <div style={{ marginTop: 4, fontSize: 12, color: 'var(--spira-muted)' }}>
+                Estimada según el cronograma: {formatAR(estimatedDate)} · ajustala si hace falta.
+              </div>
+            )}
           </FormField>
           {/* Las notas solo aplican a las sueltas (register_visit_event); las del cuadro no las toman. */}
           {choice.startsWith('evt:') && (

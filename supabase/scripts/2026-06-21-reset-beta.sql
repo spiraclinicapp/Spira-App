@@ -19,16 +19,20 @@ select
   (select count(*) from public.visit_definitions)    as definiciones_de_cuadro;
 
 
--- ── B · BORRAR (ESCRIBE — descomentar a conciencia) ─────────────────────────
--- Borra pacientes y, en cascada, sus enrolamientos → visitas → checklist/dispensaciones de Track.
--- El alcance es TODO por defecto; si querés acotar a un protocolo, agregá un WHERE (ver más abajo).
+-- ⚠️ ORDEN DE BORRADO (importante): `enrollments.patient_id` y `track_dispensations.patient_id`
+--    son `on delete restrict` → NO se puede borrar `patients` primero. La cascada va por
+--    `patient_visits.enrollment_id` (on delete cascade): borrar `enrollments` se lleva sus
+--    patient_visits y, por cascada, checklist/timeline/track_dispensations. Por eso el orden es
+--    SIEMPRE: enrollments → (opcional patients) → (opcional visit_definitions).
+
+
+-- ── B · BORRAR TODO (ESCRIBE — descomentar a conciencia) ────────────────────
 -- El audit_log es inmutable y conserva el rastro (la data real ya se recuperó de ahí una vez).
 --
 -- begin;
---   -- borra todos los pacientes de prueba (cascada definida en el schema):
---   delete from public.patients;
---
---   -- (opcional) limpiar también los cuadros para redefinirlos desde cero:
+--   delete from public.enrollments;        -- cascada: patient_visits → checklist/timeline/track_dispensations
+--   delete from public.patients;           -- ahora sin enrolamientos que los referencien
+--   -- (opcional) limpiar los cuadros para redefinirlos desde cero:
 --   -- delete from public.visit_definitions;
 --
 --   -- Revisá los recuentos DENTRO de la transacción antes de confirmar:
@@ -38,11 +42,19 @@ select
 -- commit;   -- ← cambiá por `rollback;` si los números no son los esperados
 
 
--- ── B' · Variante ACOTADA a un protocolo (alternativa a la de arriba) ────────
--- Borra solo los pacientes que SOLO están en <PROTOCOL_ID> (no toca pacientes multi-protocolo).
+-- ── B' · Variante ACOTADA a un protocolo (por CÓDIGO, sin pegar UUID) ────────
+-- Limpia un protocolo para redefinir su cuadro. Reemplazá 'ACT18301' por el código real.
 -- begin;
---   delete from public.patients pa
---    where exists (select 1 from public.enrollments e where e.patient_id=pa.id and e.protocol_id='<PROTOCOL_ID>')
---      and not exists (select 1 from public.enrollments e where e.patient_id=pa.id and e.protocol_id<>'<PROTOCOL_ID>');
---   -- delete from public.visit_definitions where protocol_id='<PROTOCOL_ID>';   -- (opcional) limpiar su cuadro
+--   -- 1) enrolamientos del protocolo → la cascada borra sus patient_visits (+ hijos)
+--   delete from public.enrollments
+--    where protocol_id in (select id from public.protocols where code='ACT18301');
+--   -- 2) (opcional) borrar pacientes que quedaron SIN ningún enrolamiento (huérfanos)
+--   --    delete from public.patients pa where not exists (select 1 from public.enrollments e where e.patient_id=pa.id);
+--   -- 3) (opcional) las definiciones viejas del cuadro (ya sin visitas que las referencien)
+--   delete from public.visit_definitions
+--    where protocol_id in (select id from public.protocols where code='ACT18301');
+--
+--   select
+--     (select count(*) from public.enrollments      where protocol_id in (select id from public.protocols where code='ACT18301')) as enrol_post,
+--     (select count(*) from public.visit_definitions where protocol_id in (select id from public.protocols where code='ACT18301')) as defs_post;
 -- commit;   -- ← o `rollback;`

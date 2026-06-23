@@ -83,7 +83,18 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
             <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} required style={fieldInput} />
           </FormField>
           <FormField label="Sexo">
-            <select value={sex} onChange={(e) => setSex(e.target.value)} required style={fieldInput}>
+            <select
+              value={sex}
+              onChange={(e) => {
+                const v = e.target.value
+                setSex(v)
+                // Masculino → fertilidad N/A automática; si se cambia a otro sexo, se libera el N/A auto.
+                if (v === 'M') setFertility('na')
+                else if (fertility === 'na') setFertility('')
+              }}
+              required
+              style={fieldInput}
+            >
               <option value="">Elegí una opción</option>
               <option value="F">Femenino</option>
               <option value="M">Masculino</option>
@@ -92,7 +103,13 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
           </FormField>
           <div style={{ gridColumn: '1 / -1' }}>
             <FormField label="Fertilidad">
-              <select value={fertility} onChange={(e) => setFertility(e.target.value)} required style={fieldInput}>
+              <select
+                value={fertility}
+                onChange={(e) => setFertility(e.target.value)}
+                required
+                disabled={sex === 'M'}
+                style={sex === 'M' ? { ...fieldInput, background: 'var(--spira-surface)', color: 'var(--spira-muted)', cursor: 'default' } : fieldInput}
+              >
                 <option value="">Elegí una opción</option>
                 {FERTILITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>

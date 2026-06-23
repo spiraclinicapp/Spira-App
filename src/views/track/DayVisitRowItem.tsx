@@ -90,7 +90,15 @@ export function DayVisitRowItem({
             <Icon name="calendar" size={14} color="currentColor" /> No vino
           </button>
         )}
-        {canClinical && stage !== 'por_llegar' && stage !== 'fuera' && (
+        {visit.doctor_seen_at ? (
+          /* Indicador estático: ya lo atendió el médico (no es un botón). */
+          <span
+            title="Atendido por el médico"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 28, padding: '0 10px', borderRadius: 8, border: '1px solid var(--spira-good)', background: '#5C8A5A22', color: 'var(--spira-good)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap' }}
+          >
+            <Icon name="check" size={14} color="var(--spira-good)" /> Médico
+          </span>
+        ) : canClinical && stage !== 'por_llegar' && stage !== 'fuera' ? (
           <button
             onClick={() => { if (!busy) onToggleDoctor(visit) }}
             disabled={busy}
@@ -99,7 +107,7 @@ export function DayVisitRowItem({
           >
             <Icon name="users" size={14} color="currentColor" /> {visit.wants_doctor ? 'En cola médico' : 'Quiere médico'}
           </button>
-        )}
+        ) : null}
         {canClinical && visit.dispenses && stage !== 'por_llegar' && (
           <button onClick={() => { if (!busy) onDispense(visit) }} disabled={busy} title="Dispensar medicación" style={sideBtn(false, true)}>
             <Icon name="pill" size={14} color="currentColor" /> Dispensar

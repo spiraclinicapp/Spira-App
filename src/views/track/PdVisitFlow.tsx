@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import type { CSSProperties } from 'react'
 import type { TrackVisitRow } from '../../data/visits'
-import { flowWindow, todaySplit, visitIndex, visitCode, visitStateLabel, weekNumber } from '../../lib/visits'
+import { flowWindow, todaySplit, visitIndex, visitCode, visitStateLabel, studyTime } from '../../lib/visits'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 
@@ -68,7 +68,7 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
     const cur = v.id === highlightId
     const n = idx.get(v.id)
     const label = visitCode(v, n)
-    const w = weekNumber(v)
+    const st = studyTime(v)
     const fecha = v.estimated_date ?? v.real_date
     return (
       <div key={v.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 72, flex: '0 0 auto' }}>
@@ -76,7 +76,7 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
           <VisitDot visit={v} number={idx.get(v.id) ?? '·'} today={today} size={28} isToday={v.id === highlightId} accent={accent} />
         </div>
         <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 12.5, color: cur ? accent : 'var(--spira-ink)', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</div>
-        {w != null && <div style={{ fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>{`W${w}`}</div>}
+        {st != null && <div style={{ fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>{st.unit === 'dia' ? `${st.value}d` : `W${st.value}`}</div>}
         <div style={{ fontFamily: 'var(--spira-font-text)', fontVariantNumeric: 'tabular-nums', fontSize: 10.5, color: 'var(--spira-faint)', marginTop: 1, whiteSpace: 'nowrap' }}>{fecha ? formatDayMonth(fecha) : '—'}</div>
       </div>
     )

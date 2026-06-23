@@ -46,13 +46,16 @@ export function scheduledVisits(rows: TrackVisitRow[]): TrackVisitRow[] {
   return rows.filter((v) => v.kind === 'programada')
 }
 
-/* Desempate cuando dos visitas caen en la misma fecha efectiva. La randomización comparte fecha con
-   la V1 (offset 0) y siempre va ANTES (es el evento que abre el cronograma); el resto de las
-   programadas por su sort_order; las demás sueltas al final del empate. */
+/* Desempate cuando dos visitas caen en la misma fecha efectiva. Orden clínico de las SUELTAS
+   pre-rando: firma → screening → randomización, y la randomización ANTES de la V1 de tratamiento
+   (programada offset 0, sort_order ≥ 0) porque abre el cronograma. Las programadas por su
+   sort_order; las demás sueltas (vnp/retest) al final del empate. */
 function tieRank(v: TrackVisitRow): number {
-  if (v.kind === 'randomizacion') return -1
   if (v.kind === 'programada') return v.sort_order ?? 0
-  return v.sort_order ?? Number.MAX_SAFE_INTEGER
+  if (v.kind === 'firma') return -3
+  if (v.kind === 'firma_screening' || v.kind === 'screening') return -2
+  if (v.kind === 'randomizacion') return -1
+  return Number.MAX_SAFE_INTEGER
 }
 
 /** Ordena cronológicamente por fecha efectiva; desempata con tieRank (randomización antes de V1). */
@@ -101,11 +104,17 @@ export function visitIndex(rows: TrackVisitRow[]): Map<string, number> {
 }
 
 /**
- * Semana del estudio de una visita: offset_days / 7 redondeado. Es una etiqueta
- * de presentación. null para las sueltas (no tienen offset).
+ * Tiempo de estudio de una visita, para mostrar:
+ *  · TRATAMIENTO (date_mode 'automatica'): semana relativa a la randomización = round(offset/7)
+ *    → "Semana W4". La randomización es la semana 0.
+ *  · PRE-RANDO (date_mode 'libre': screening/run-in/rando): el DÍA de referencia crudo (-28, -59…)
+ *    → "Día -28". La semana negativa ("W-8") confunde en estas visitas, así que se muestra el día.
+ *  null para las sueltas (no tienen offset).
  */
-export function weekNumber(row: TrackVisitRow): number | null {
-  return row.offset_days == null ? null : Math.round(row.offset_days / 7)
+export function studyTime(v: TrackVisitRow): { unit: 'semana' | 'dia'; value: number } | null {
+  if (v.offset_days == null) return null
+  if (v.date_mode === 'libre') return { unit: 'dia', value: v.offset_days }
+  return { unit: 'semana', value: Math.round(v.offset_days / 7) }
 }
 
 /**

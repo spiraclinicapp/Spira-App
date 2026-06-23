@@ -4,7 +4,7 @@ import { Icon } from '../../components/Icon'
 import { PrivacyAvatar } from '../../components/PrivacyAvatar'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
-import { todaySplit, visitIndex, visitCode } from '../../lib/visits'
+import { orderVisits, todaySplit, visitIndex, visitCode } from '../../lib/visits'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { PdVisitFlow } from './PdVisitFlow'
 
@@ -27,9 +27,15 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
   const [open, setOpen] = useState(false)
   const [hovered, setHovered] = useState(false)
   const idx = visitIndex(visits)
-  /* "Hoy" en la línea de tiempo: anterior (última visita pasada), hoy, próxima (siguiente). */
+  /* "Hoy" en la línea de tiempo: anterior, hoy, próxima. */
   const today = todayISO()
-  const { prev, next, todayVisit } = todaySplit(visits, today)
+  const { prev: prevByDate, next, todayVisit } = todaySplit(visits, today)
+  /* "Anterior" = la visita inmediatamente anterior a la de hoy en la SECUENCIA, aunque sea del
+     mismo día (p. ej. screening + run-in el mismo día: la anterior es la previa, no "—"). Si hoy
+     no hay visita, la última con fecha pasada (lo que da todaySplit). */
+  const ordered = orderVisits(visits)
+  const todayIdx = todayVisit ? ordered.findIndex((v) => v.id === todayVisit.id) : -1
+  const prev = todayIdx > 0 ? (ordered[todayIdx - 1] ?? null) : prevByDate
   const flowCurrentId = todayVisit?.id ?? next?.id ?? prev?.id ?? null
   const medico = patient.treating_physician ?? '—'
   /* La fila solo se despliega si hay algo que trackear; sin visitas no hay tracker que mostrar. */

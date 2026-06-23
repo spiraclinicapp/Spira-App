@@ -37,6 +37,19 @@ function fieldsToEtapa(role: string, dateMode: string): Etapa {
   return dateMode === 'libre' ? 'manual' : 'tratamiento'
 }
 
+/* El nombre se DERIVA de la etapa: Screening/Randomización son fijos; Tratamiento es la SEMANA
+   (Día ÷ 7, con "W" adelante: W1, W2…); "Otra manual" es texto libre. Devuelve null para manual
+   → el input queda editable. */
+function forcedName(etapa: Etapa, offset: string): string | null {
+  if (etapa === 'screening') return 'Screening'
+  if (etapa === 'randomizacion') return 'Randomización'
+  if (etapa === 'tratamiento') {
+    const n = Number(offset)
+    return `W${Number.isFinite(n) ? Math.round(n / 7) : 0}`
+  }
+  return null
+}
+
 /**
  * Alta / edición de una definición del cuadro (V1, V2…) en un modal sobrio. No persiste
  * directo: delega en `onSubmit`. La "etapa" deriva role + date_mode. Para las libres
@@ -58,11 +71,16 @@ export function ScheduleDefinitionForm({
   const [etapa, setEtapa] = useState<Etapa>(initial ? fieldsToEtapa(initial.role, initial.date_mode) : 'tratamiento')
   const [visitType, setVisitType] = useState<VisitType>(initial?.visit_type ?? 'presencial')
   const [offset, setOffset] = useState(String(initial?.offset_days ?? 0))
-  const [wMinus, setWMinus] = useState(String(initial?.window_minus ?? 0))
-  const [wPlus, setWPlus] = useState(String(initial?.window_plus ?? 0))
+  // Ventana simétrica ±N días (un solo campo: window_minus = window_plus). Edición: si la fila
+  // legacy era asimétrica, tomamos window_plus como referencia y al guardar queda simétrica.
+  const [windowDays, setWindowDays] = useState(String(initial?.window_plus ?? initial?.window_minus ?? 0))
   const [dispenses, setDispenses] = useState(initial?.dispenses ?? false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  /* El nombre se deriva de la etapa (forcedName); solo "manual" usa el texto libre `name`. */
+  const forced = forcedName(etapa, offset)
+  const effectiveName = forced ?? name
 
   /* Válido = código y nombre con texto + las cantidades en días son enteras (vacío → 0).
      El offset admite negativos (screening pre-rando); las ventanas son magnitudes, no
@@ -71,21 +89,20 @@ export function ScheduleDefinitionForm({
   const isInt = (v: string) => Number.isInteger(Number(v))
   const isNonNegInt = (v: string) => Number.isInteger(Number(v)) && Number(v) >= 0
   const offsetInvalid = !isInt(offset)
-  const wMinusInvalid = !isNonNegInt(wMinus)
-  const wPlusInvalid = !isNonNegInt(wPlus)
+  const windowInvalid = !isNonNegInt(windowDays)
   const valid =
-    code.trim() !== '' && name.trim() !== '' && !offsetInvalid && !wMinusInvalid && !wPlusInvalid
+    code.trim() !== '' && effectiveName.trim() !== '' && !offsetInvalid && !windowInvalid
 
   const submit = async () => {
     setBusy(true)
     setError(null)
     const res = await onSubmit({
       code: code.trim(),
-      name: name.trim(),
+      name: effectiveName.trim(),
       visit_type: visitType,
       offset_days: Number(offset || 0),
-      window_minus: Number(wMinus || 0),
-      window_plus: Number(wPlus || 0),
+      window_minus: Number(windowDays || 0),
+      window_plus: Number(windowDays || 0),
       dispenses,
       ...etapaToFields(etapa),
     })
@@ -106,7 +123,20 @@ export function ScheduleDefinitionForm({
           <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="V1" className="spira-mono" style={fieldInput} />
         </FormField>
         <FormField label="Nombre">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Screening" style={fieldInput} />
+          <input
+            value={effectiveName}
+            onChange={(e) => setName(e.target.value)}
+            disabled={forced !== null}
+            placeholder="Nombre de la visita"
+            style={forced !== null
+              ? { ...fieldInput, background: 'var(--spira-surface)', color: 'var(--spira-muted)', cursor: 'default' }
+              : fieldInput}
+          />
+          {etapa === 'tratamiento' && (
+            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--spira-muted)' }}>
+              El nombre es la semana: se calcula desde el Día (Día ÷ 7).
+            </div>
+          )}
         </FormField>
         <FormField label="Etapa">
           <select value={etapa} onChange={(e) => setEtapa(e.target.value as Etapa)} style={fieldInput}>
@@ -130,20 +160,10 @@ export function ScheduleDefinitionForm({
           <input type="number" step="1" value={offset} onChange={(e) => setOffset(e.target.value)} style={fieldInput} />
           {offsetInvalid && <Hint>Tiene que ser un número entero de días.</Hint>}
         </FormField>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <FormField label="Ventana − (días)">
-              <input type="number" min="0" step="1" value={wMinus} onChange={(e) => setWMinus(e.target.value)} style={fieldInput} />
-              {wMinusInvalid && <Hint>Un entero de 0 o más.</Hint>}
-            </FormField>
-          </div>
-          <div style={{ flex: 1 }}>
-            <FormField label="Ventana + (días)">
-              <input type="number" min="0" step="1" value={wPlus} onChange={(e) => setWPlus(e.target.value)} style={fieldInput} />
-              {wPlusInvalid && <Hint>Un entero de 0 o más.</Hint>}
-            </FormField>
-          </div>
-        </div>
+        <FormField label="Ventana (± días)">
+          <input type="number" min="0" step="1" value={windowDays} onChange={(e) => setWindowDays(e.target.value)} style={fieldInput} />
+          {windowInvalid && <Hint>Un entero de 0 o más.</Hint>}
+        </FormField>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, cursor: 'pointer' }}>
           <input type="checkbox" checked={dispenses} onChange={(e) => setDispenses(e.target.checked)} />
           Entrega medicación

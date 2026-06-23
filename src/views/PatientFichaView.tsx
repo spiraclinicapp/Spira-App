@@ -8,7 +8,7 @@ import type { ProtocolRow } from '../data/protocols'
 import type { PatientRow } from '../data/patients'
 import { usePatientVisits, useVisitAlerts } from '../data/visits'
 import {
-  adherence, ageFromBirth, currentVisit, visitIndex, visitTitle, weekNumber,
+  adherence, ageFromBirth, currentVisit, orderVisits, visitTitle, studyTime,
   FERTILITY_LABELS, SEX_LABELS,
 } from '../lib/visits'
 import { VISIT_STATES } from './visitStates'
@@ -51,8 +51,16 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   const enrollment = patient.enrollments.find((e) => e.protocol?.id === protocol.id)
 
   const rows = visitsQ.data ?? []
-  const idx = visitIndex(rows)
   const current = currentVisit(rows)
+  /* "Visita actual" del card derecho = la última visita REALIZADA HOY (real_date = hoy), sea
+     programada o SUELTA (una VNP, retest, firma/screening pre-rando): el paciente puede venir un
+     día solo a una VNP y esa ES su visita actual. Por eso miramos TODAS las visitas (no solo el
+     cronograma). Si hoy no se realizó ninguna (estamos entre visitas) no hay "actual": se muestra
+     la PRÓXIMA programada con el rótulo "Próxima visita". */
+  const realizedToday = orderVisits(rows).filter((v) => v.real_date === todayISO())
+  const statVisit = realizedToday.length ? realizedToday[realizedToday.length - 1] : current
+  const statIsActual = realizedToday.length > 0
+  const statStudyTime = statVisit ? studyTime(statVisit) : null
   const adh = adherence(rows)
   const canAct = canWrite && current !== null && current.real_date === null
 
@@ -121,6 +129,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
           protocolId={protocol.id}
           randomizationDate={enrollment.randomization_date}
           usedKinds={usedKinds}
+          referenceVisits={rows}
           accentSolid={accentSolid}
           onClose={() => setModal(null)}
           onDone={() => { setModal(null); visitsQ.refetch() }}
@@ -246,19 +255,29 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                       {ventanaTxt !== '—' && <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>ventana {ventanaTxt}</span>}
                     </div>
                   </div>
-                  {current && (
+                  {statVisit && (
                     <div style={{ display: 'flex', gap: 28 }}>
                       <div>
-                        <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>Visita actual</div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 3 }}>
-                          <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 25, color: accent, fontVariantNumeric: 'tabular-nums' }}>V{idx.get(current.id)}</span>
-                          <span style={{ fontSize: 12, color: 'var(--spira-faint)' }}>de {rows.length}</span>
+                        <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{statIsActual ? 'Visita actual' : 'Próxima visita'}</div>
+                        {/* Identidad de la visita (código + nombre, o el label de la suelta: "VNP"),
+                            no el conteo "V# de N": en la diaria importa CUÁL visita es, no cuántas van. */}
+                        <div
+                          title={visitTitle(statVisit)}
+                          style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 19, color: accent, marginTop: 3, maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        >
+                          {visitTitle(statVisit)}
                         </div>
                       </div>
-                      <div>
-                        <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>Semana</div>
-                        <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 25, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>W{weekNumber(current)}</div>
-                      </div>
+                      {/* Día/Semana solo para visitas del cronograma (tienen offset). Las sueltas
+                          —VNP, retest— no tienen tiempo de estudio → se omite (no "Semana —"). */}
+                      {statStudyTime != null && (
+                        <div>
+                          <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{statStudyTime.unit === 'dia' ? 'Día' : 'Semana'}</div>
+                          <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 25, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
+                            {statStudyTime.unit === 'dia' ? statStudyTime.value : `W${statStudyTime.value}`}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -275,7 +294,10 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                   <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--spira-muted)' }}>{rows.length} visitas</span>
                 </div>
                 <div style={{ overflow: 'auto', padding: '6px 20px 14px' }}>
-                  <PdFullSchedule visits={rows} currentId={current?.id ?? null} accent={accent} />
+                  {/* Resalta la misma visita que el stat "Visita actual" (statVisit): la realizada
+                      hoy si la hay, si no la próxima. Así el resaltado del cronograma coincide con
+                      el "V# de N" de arriba a la derecha (no con `current`, que es solo la próxima). */}
+                  <PdFullSchedule visits={rows} currentId={statVisit?.id ?? null} accent={accent} />
                 </div>
               </div>
             </>
