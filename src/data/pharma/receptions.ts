@@ -5,13 +5,15 @@ import { pharmaErrorMessage } from './errors'
 /** Estado de una recepción (enum `reception_status` de la base). */
 export type ReceptionStatus = 'pendiente' | 'verificada'
 
-/** Renglón de una recepción (tabla `reception_items`). */
+/** Renglón de una recepción (tabla `reception_items`, con el medicamento embebido para mostrar). */
 export interface ReceptionItemRow {
   id: string
   medication_id: string
   lot_number: string
   expiry_date: string | null
   quantity: number
+  /** Medicamento (to-one) para mostrar el nombre en la cola. */
+  medication: { name: string } | null
 }
 
 /** Recepción de medicación, con sus renglones (tablas `medication_receptions` + `reception_items`). */
@@ -27,7 +29,7 @@ export interface ReceptionRow {
 
 const RECEPTION_COLS =
   'id, protocol_id, reception_date, status, verified_at, notes, ' +
-  'items:reception_items(id, medication_id, lot_number, expiry_date, quantity)'
+  'items:reception_items(id, medication_id, lot_number, expiry_date, quantity, medication:medications(name))'
 
 /** Recepciones de un protocolo (cola; más nuevas primero), con sus renglones. */
 export function useReceptions(protocolId: string | null) {

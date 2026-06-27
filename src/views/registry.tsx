@@ -8,6 +8,7 @@ import { DayVisitsView } from './DayVisitsView'
 import { DoctorQueueView } from './DoctorQueueView'
 import { TrackAlertsView } from './TrackAlertsView'
 import { MedicamentosView } from './pharma/MedicamentosView'
+import { RecepcionView } from './pharma/RecepcionView'
 import type { ViewComponent } from './types'
 
 /**
@@ -26,6 +27,7 @@ const VIEW_REGISTRY: Record<string, ViewComponent> = {
   'track/plantillas': TemplatesView,
   'pharma/protocolos': ProtocolsView,
   'pharma/medicamentos': MedicamentosView,
+  'pharma/recepcion': RecepcionView,
 }
 
 export function resolveView(moduleKey: string, subKey: string): ViewComponent {
