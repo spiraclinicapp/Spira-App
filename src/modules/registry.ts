@@ -61,6 +61,7 @@ export const MODULES: ModuleDef[] = [
       { key: 'resumen', name: 'Resumen', icon: 'dashboard' },
       { key: 'protocolos', name: 'Protocolos', icon: 'file' },
       { key: 'medicamentos', name: 'Medicamentos', icon: 'pill' },
+      { key: 'recepcion', name: 'Recepción', icon: 'clipboardCheck' },
       { key: 'dispensaciones', name: 'Dispensaciones', icon: 'box' },
       { key: 'reportes', name: 'Reportes', icon: 'barChart' },
     ],
