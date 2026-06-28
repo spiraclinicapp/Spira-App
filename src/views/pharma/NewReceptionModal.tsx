@@ -1,10 +1,10 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { Modal } from '../../components/Modal'
 import { FormField, fieldInput } from '../../components/FormField'
 import { Icon } from '../../components/Icon'
 import { btnOutline, btnPrimary } from '../../components/buttons'
-import { useProtocolMedications, resolveCode, assignMedicationToProtocol, createReception } from '../../data/pharma'
+import { useProtocolMedications, useMedications, resolveCode, linkCode, assignMedicationToProtocol, createReception } from '../../data/pharma'
 
 interface Props {
   accentSolid: string
@@ -29,6 +29,8 @@ interface ItemRow {
 export function NewReceptionModal({ accentSolid, protocolId, onClose, onCreated }: Props) {
   const protocolMeds = useProtocolMedications(protocolId)
   const assigned = (protocolMeds.data ?? []).flatMap((pm) => (pm.medication ? [pm.medication] : []))
+  const catalog = useMedications()
+  const allMeds = catalog.data ?? []
 
   const today = new Date().toISOString().slice(0, 10)
   const [receptionDate, setReceptionDate] = useState(today)
@@ -39,6 +41,18 @@ export function NewReceptionModal({ accentSolid, protocolId, onClose, onCreated 
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const keyRef = useRef(0)
+
+  // Asociación on-demand de un código escaneado que no se reconoció (guarda código→medicamento).
+  const [unknownCode, setUnknownCode] = useState<string | null>(null)
+  const [linkMedId, setLinkMedId] = useState('')
+  const [linking, setLinking] = useState(false)
+  const [linkError, setLinkError] = useState<string | null>(null)
+  const linkSelectRef = useRef<HTMLSelectElement>(null)
+
+  // Al aparecer el panel, llevamos el foco al desplegable (el operador tiene el escáner en la mano).
+  useEffect(() => {
+    if (unknownCode) linkSelectRef.current?.focus()
+  }, [unknownCode])
 
   const addRow = (medicationId = '') => {
     keyRef.current += 1
@@ -56,7 +70,10 @@ export function NewReceptionModal({ accentSolid, protocolId, onClose, onCreated 
     setScanMsg(null)
     const med = await resolveCode(code)
     if (!med) {
-      setScanMsg(`Código "${code}" no reconocido. Agregá el renglón a mano y elegí el medicamento.`)
+      // Código desconocido: ofrecemos asociarlo a un medicamento del catálogo (on-demand).
+      setUnknownCode(code)
+      setLinkMedId('')
+      setLinkError(null)
       return
     }
     if (!assigned.some((m) => m.id === med.id)) {
@@ -66,6 +83,28 @@ export function NewReceptionModal({ accentSolid, protocolId, onClose, onCreated 
     }
     addRow(med.id)
     setScanMsg(`Agregado: ${med.name}`)
+  }
+
+  // Confirma la asociación del código desconocido: lo guarda, asigna el medicamento al protocolo si
+  // falta y agrega el renglón ya precargado. El mapeo código→medicamento es verdad de catálogo:
+  // persiste aunque después se cancele la recepción.
+  const confirmLink = async () => {
+    if (!unknownCode || !linkMedId) return
+    setLinking(true)
+    setLinkError(null)
+    const res = await linkCode(unknownCode, linkMedId)
+    if (res.error) { setLinking(false); setLinkError(res.error); return }
+    if (!assigned.some((m) => m.id === linkMedId)) {
+      const ares = await assignMedicationToProtocol(protocolId, linkMedId)
+      if (ares.error) { setLinking(false); setLinkError(ares.error); return }
+      protocolMeds.refetch()
+    }
+    addRow(linkMedId)
+    const med = allMeds.find((m) => m.id === linkMedId)
+    setScanMsg(med ? `Código guardado y renglón agregado: ${med.name}` : 'Código guardado y renglón agregado.')
+    setUnknownCode(null)
+    setLinkMedId('')
+    setLinking(false)
   }
 
   const onScanKey = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -125,6 +164,43 @@ export function NewReceptionModal({ accentSolid, protocolId, onClose, onCreated 
         </FormField>
         {scanMsg && <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{scanMsg}</div>}
 
+        {/* Asociación on-demand de un código no reconocido. Fondo warn (ámbar): falta una decisión,
+            no es un error — el rojo queda para el error real (código ya mapeado a otro medicamento). */}
+        {unknownCode && (
+          <div style={linkPanel}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <Icon name="alertCircle" size={16} color="var(--spira-warn)" />
+              <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', lineHeight: 1.45 }}>
+                Código <span className="spira-mono" style={{ fontWeight: 600, color: 'var(--spira-ink)' }}>{unknownCode}</span> sin asociar. Elegí a qué medicamento corresponde.
+              </span>
+            </div>
+            <FormField label="Medicamento">
+              <select ref={linkSelectRef} value={linkMedId} onChange={(e) => setLinkMedId(e.target.value)} style={{ ...fieldInput, height: 38 }}>
+                <option value="" disabled>Elegí el medicamento</option>
+                {allMeds.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </FormField>
+            {linkError && (
+              <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
+                {linkError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => void confirmLink()}
+                disabled={!linkMedId || linking}
+                style={{ ...btnPrimary(accentSolid), height: 38, opacity: !linkMedId || linking ? 0.6 : 1, cursor: !linkMedId || linking ? 'default' : 'pointer' }}
+              >
+                <Icon name="check" size={15} color="var(--spira-on-accent)" /> {linking ? 'Asociando…' : 'Asociar y agregar'}
+              </button>
+              <button type="button" onClick={() => { setUnknownCode(null); setLinkError(null) }} style={{ ...btnOutline, height: 38 }}>
+                No asociar
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Renglones */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {items.map((it) => (
@@ -165,4 +241,9 @@ export function NewReceptionModal({ accentSolid, protocolId, onClose, onCreated 
 const removeBtn = {
   width: 38, height: 38, border: '1px solid var(--spira-line-2)', borderRadius: 8,
   background: 'var(--spira-white)', cursor: 'pointer', display: 'grid', placeItems: 'center',
+} as const
+
+const linkPanel = {
+  border: '1px solid rgba(176, 130, 63, 0.38)', background: 'rgba(176, 130, 63, 0.10)',
+  borderRadius: 10, padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 10,
 } as const

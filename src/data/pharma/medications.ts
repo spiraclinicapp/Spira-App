@@ -85,3 +85,27 @@ export async function resolveCode(code: string): Promise<MedicationRow | null> {
   const row = data as { medication: MedicationRow | null } | null
   return row?.medication ?? null
 }
+
+/**
+ * Asocia un código de barra escaneado a un medicamento del catálogo (insert directo en
+ * `medication_codes`; la RLS "pharma administra codigos" lo permite a pharma operator+). Es el
+ * guardado on-demand desde la recepción cuando un código no se reconoce. `code` es único global
+ * (0032) → 23505 si ya está mapeado a otro medicamento. `code_type` queda en 'ean13' por el
+ * default de la columna (DataMatrix/GS1 = Tajada 1b).
+ */
+export async function linkCode(
+  code: string,
+  medicationId: string,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase
+    .from('medication_codes')
+    .insert({ medication_id: medicationId, code: code.trim() })
+  if (error) return { error: linkCodeMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/** Mensajes serenos para `linkCode`: el 23505 (código único ya mapeado) merece texto propio. */
+function linkCodeMessage(code: string | undefined, raw: string): string {
+  if (code === '23505') return 'Ese código ya figura asociado a otro medicamento.'
+  return pharmaErrorMessage(code, raw)
+}
