@@ -6,7 +6,7 @@ import type { ReceptionKind } from '../../data/pharma'
 import { Step0Setup } from './wizard/Step0Setup'
 import { Step1Scan } from './wizard/Step1Scan'
 import { Step2Lots } from './wizard/Step2Lots'
-// (Step3Summary se importa en Task 8)
+import { Step3Summary } from './wizard/Step3Summary'
 
 /** Borrador de un lote a recibir (se construye en el Paso 2). */
 export interface LotDraft { key: number; lotNumber: string; expiryDate: string; quantity: string }
@@ -29,7 +29,7 @@ interface Props {
  * protocolo, medicamentos/lotes, fecha y notas. La validación por paso (`canAdvance`)
  * habilita el avance; cambiar tipo o cancelar con datos cargados pide confirmación.
  */
-export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, onClose, onCreated: _onCreated }: Props) {
+export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, onClose, onCreated }: Props) {
   const [step, setStep] = useState(0)
   const [maxReached, setMaxReached] = useState(0)
   const [tipo, setTipo] = useState<ReceptionKind>(initialTipo)
@@ -72,12 +72,6 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   }
   const back = () => setStep((s) => Math.max(0, s - 1))
 
-  // Silencia la advertencia de unused vars para notas/fecha mientras los Steps 3 aún no existen.
-  void notes
-  void setNotes
-  void receptionDate
-  void setReceptionDate
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       {/* Encabezado: stepper + botón cancelar */}
@@ -98,7 +92,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
       )}
       {step === 1 && <Step1Scan tipo={tipo} protocolId={protocolId} accentSolid={accentSolid} meds={meds} setMeds={setMeds} />}
       {step === 2 && <Step2Lots meds={meds} setMeds={setMeds} accentSolid={accentSolid} />}
-      {/* step === 3 → <Step3Summary ... onCreated={onCreated} /> (Task 8) */}
+      {step === 3 && <Step3Summary tipo={tipo} protocolId={protocolId} meds={meds} receptionDate={receptionDate} notes={notes} setReceptionDate={setReceptionDate} setNotes={setNotes} accentSolid={accentSolid} onCreated={onCreated} />}
 
       {/* Navegación inferior */}
       <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--spira-line)', paddingTop: 14 }}>
