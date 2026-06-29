@@ -35,6 +35,7 @@ export function Step1Scan({ tipo, protocolId, accentSolid, meds, setMeds }: Prop
     if (!med) { setUnknown(code); setLinkId(''); setLinkErr(null); return }
     const aerr = await ensureAssigned(med.id); if (aerr) { setMsg(aerr); return }
     bump(med.id, med.name); setMsg(`+1 ${med.name}`)
+    scanRef.current?.focus()
   }
   const confirmLink = async () => {
     if (!unknown || !linkId) return
@@ -42,11 +43,9 @@ export function Step1Scan({ tipo, protocolId, accentSolid, meds, setMeds }: Prop
     const aerr = await ensureAssigned(linkId); if (aerr) { setLinkErr(aerr); return }
     const m = all.find((x) => x.id === linkId); if (m) bump(m.id, m.name)
     setUnknown(null); setLinkId(''); setMsg('Código guardado y +1')
+    scanRef.current?.focus()
   }
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); void handleScan() } }
-
-  // scanRef se mantiene para futuras mejoras (re-foco post-confirmación, etc.)
-  void scanRef
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -56,7 +55,7 @@ export function Step1Scan({ tipo, protocolId, accentSolid, meds, setMeds }: Prop
           <button type="button" onClick={() => void handleScan()} style={btnOutline}>Buscar</button>
         </div>
       </FormField>
-      {msg && <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }} aria-live="polite">{msg}</div>}
+      <div aria-live="polite" style={{ fontSize: 12.5, color: 'var(--spira-muted)', minHeight: 18 }}>{msg ?? ''}</div>
 
       {unknown && (
         <div style={linkPanel}>
@@ -76,7 +75,7 @@ export function Step1Scan({ tipo, protocolId, accentSolid, meds, setMeds }: Prop
       <div style={{ borderTop: '1px solid var(--spira-line)', paddingTop: 12 }}>
         <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)' }}>Agregar a mano</span>
         <div style={{ marginTop: 6 }}>
-          <MedicationPicker accent={accentSolid} onPick={async (id) => { const m = all.find((x) => x.id === id); if (!m) return; const e = await ensureAssigned(id); if (e) { setMsg(e); return } bump(id, m.name) }} />
+          <MedicationPicker accent={accentSolid} onPick={async (id) => { try { const m = all.find((x) => x.id === id); if (!m) return; const e = await ensureAssigned(id); if (e) { setMsg(e); return } bump(id, m.name) } catch (err) { setMsg(err instanceof Error ? err.message : 'No se pudo agregar el medicamento') } }} />
         </div>
       </div>
 
@@ -99,7 +98,6 @@ export function Step1Scan({ tipo, protocolId, accentSolid, meds, setMeds }: Prop
     </div>
   )
 }
-
 
 const linkPanel = { border: '1px solid rgba(176,130,63,0.38)', background: 'rgba(176,130,63,0.10)', borderRadius: 10, padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 10 } as const
 const errorBox = { fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 8, padding: '8px 12px' } as const
