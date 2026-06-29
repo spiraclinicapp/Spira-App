@@ -36,8 +36,11 @@ export function Step3Summary({
   const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
-    setBusy(true)
-    setError(null)
+    // Guards defensivos: el botón es type="button", no hay validación nativa del form.
+    if (!receptionDate) {
+      setError('La fecha de recepción es obligatoria.')
+      return
+    }
     const items = meds.flatMap((m) =>
       m.lots.map((l) => ({
         medication_id: m.medicationId,
@@ -46,6 +49,12 @@ export function Step3Summary({
         quantity: Number(l.quantity),
       })),
     )
+    if (items.length === 0) {
+      setError('Agregá al menos un ítem antes de crear la recepción.')
+      return
+    }
+    setBusy(true)
+    setError(null)
     const res = await createReception({
       tipo,
       protocol_id: tipo === 'ambulatoria' ? null : protocolId,
