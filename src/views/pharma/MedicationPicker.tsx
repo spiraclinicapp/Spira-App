@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { fieldInput } from '../../components/FormField'
 import { useMedications } from '../../data/pharma'
 
@@ -16,7 +16,7 @@ export function MedicationPicker({ onPick, accent }: Props) {
   const all = meds.data ?? []
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
-  const boxRef = useRef<HTMLDivElement>(null)
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
 
   const matches = useMemo(() => {
     const t = q.trim().toLowerCase()
@@ -37,7 +37,7 @@ export function MedicationPicker({ onPick, accent }: Props) {
   }
 
   return (
-    <div ref={boxRef} style={{ position: 'relative' }}>
+    <div style={{ position: 'relative' }}>
       <input
         value={q}
         onChange={(e) => { setQ(e.target.value); setOpen(true) }}
@@ -52,14 +52,14 @@ export function MedicationPicker({ onPick, accent }: Props) {
       />
       {open && matches.length > 0 && (
         <ul role="listbox" style={listBox}>
-          {matches.map((m) => (
+          {matches.map((m, idx) => (
             <li key={m.id}>
               <button
                 type="button"
                 onMouseDown={(e) => { e.preventDefault(); pick(m.id) }}
-                style={itemBtn(accent)}
-                /* El hover se aplica vía la clase global spira-picker-item */
-                className="spira-picker-item"
+                onMouseEnter={() => setHoveredIdx(idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+                style={itemBtn(hoveredIdx === idx ? accent : null)}
               >
                 <span style={{ fontWeight: 600, color: 'var(--spira-ink)' }}>{m.name}</span>
                 {m.drug && (
@@ -70,15 +70,6 @@ export function MedicationPicker({ onPick, accent }: Props) {
           ))}
         </ul>
       )}
-      {/* Estilos de hover referenciando `accent` como color de fondo al pasar el mouse.
-          El <style> es scoped a esta instancia gracias a la clase dinámica generada por
-          el atributo `data-accent`. Si el mismo componente se monta dos veces con colores
-          distintos cada uno tiene su propio bloque de reglas. */}
-      <style>{`
-        .spira-picker-item:hover {
-          background: ${accent}1a;
-        }
-      `}</style>
     </div>
   )
 }
@@ -100,18 +91,16 @@ const listBox: React.CSSProperties = {
   overflow: 'auto',
 }
 
-const itemBtn = (accent: string): React.CSSProperties => ({
+const itemBtn = (accent: string | null): React.CSSProperties => ({
   width: '100%',
   textAlign: 'left',
   border: 'none',
-  /* Transparente en reposo; el hover lo maneja la regla CSS dinámica en el <style> de arriba,
-     que aplica el `accent` con 10% de opacidad (sufijo hex `1a`). */
-  background: 'transparent',
-  padding: '10px 10px',
+  /* Transparente en reposo; cuando `accent` no es null el ítem está bajo el cursor
+     y se pinta con el color del módulo al 10% de opacidad (sufijo hex `1a`). */
+  background: accent ? `${accent}1a` : 'transparent',
+  padding: '10px',
   borderRadius: 8,
   cursor: 'pointer',
   fontSize: 14,
   minHeight: 44,
-  /* La propiedad custom expone el accent al DOM para posibles extensiones futuras. */
-  ['--picker-accent' as string]: accent,
 })
