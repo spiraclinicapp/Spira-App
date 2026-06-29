@@ -2,6 +2,9 @@ import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import { supabase } from '../../lib/supabase'
 import { pharmaErrorMessage } from './errors'
 
+/** Ámbito/tipo de la recepción (enum `reception_kind`, migración 0035). */
+export type ReceptionKind = 'protocolo' | 'investigacion' | 'ambulatoria'
+
 /** Estado de una recepción (enum `reception_status` de la base). */
 export type ReceptionStatus = 'pendiente' | 'verificada'
 
@@ -19,7 +22,8 @@ export interface ReceptionItemRow {
 /** Recepción de medicación, con sus renglones (tablas `medication_receptions` + `reception_items`). */
 export interface ReceptionRow {
   id: string
-  protocol_id: string
+  tipo: ReceptionKind
+  protocol_id: string | null
   reception_date: string
   status: ReceptionStatus
   verified_at: string | null
@@ -28,18 +32,20 @@ export interface ReceptionRow {
 }
 
 const RECEPTION_COLS =
-  'id, protocol_id, reception_date, status, verified_at, notes, ' +
+  'id, tipo, protocol_id, reception_date, status, verified_at, notes, ' +
   'items:reception_items(id, medication_id, lot_number, expiry_date, quantity, medication:medications(name))'
 
-/** Recepciones de un protocolo (cola; más nuevas primero), con sus renglones. */
-export function useReceptions(protocolId: string | null) {
+/** Recepciones de un ámbito (cola; más nuevas primero), con sus renglones.
+ *  protocolo/investigacion → filtra por tipo + protocolo; ambulatoria → por tipo (sin protocolo). */
+export function useReceptions(tipo: ReceptionKind, protocolId: string | null) {
   return useSupabaseQuery<ReceptionRow[]>(
     (c) => {
-      let q = c.from('medication_receptions').select(RECEPTION_COLS)
-      if (protocolId) q = q.eq('protocol_id', protocolId)
+      let q = c.from('medication_receptions').select(RECEPTION_COLS).eq('tipo', tipo)
+      if (tipo === 'ambulatoria') q = q.is('protocol_id', null)
+      else if (protocolId) q = q.eq('protocol_id', protocolId)
       return q.order('reception_date', { ascending: false }).returns<ReceptionRow[]>()
     },
-    [protocolId],
+    [tipo, protocolId],
   )
 }
 
@@ -51,9 +57,10 @@ export interface ReceptionItemInput {
   quantity: number
 }
 
-/** Datos para crear una recepción. */
+/** Datos para crear una recepción tipada (migración 0035). */
 export interface NewReceptionInput {
-  protocol_id: string
+  tipo: ReceptionKind
+  protocol_id: string | null
   reception_date: string
   notes: string | null
   items: ReceptionItemInput[]
@@ -61,13 +68,14 @@ export interface NewReceptionInput {
 
 /**
  * Crea una recepción (estado 'pendiente') con sus renglones, atómico (RPC `create_reception`,
- * pharma leader+). Valida que cada medicamento esté asignado al protocolo. Devuelve el id.
- * `p_items` viaja como array JS (supabase-js lo serializa a jsonb).
+ * pharma leader+). Valida que cada medicamento esté asignado al protocolo cuando aplica.
+ * Devuelve el id. `p_items` viaja como array JS (supabase-js lo serializa a jsonb).
  */
 export async function createReception(
   input: NewReceptionInput,
 ): Promise<{ error: string | null; code?: string; id?: string }> {
   const { data, error } = await supabase.rpc('create_reception', {
+    p_tipo: input.tipo,
     p_protocol_id: input.protocol_id,
     p_reception_date: input.reception_date,
     p_notes: input.notes,
