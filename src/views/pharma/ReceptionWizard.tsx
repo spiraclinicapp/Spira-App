@@ -4,7 +4,8 @@ import { Modal } from '../../components/Modal'
 import { btnOutline, btnPrimary } from '../../components/buttons'
 import type { ReceptionKind } from '../../data/pharma'
 import { Step0Setup } from './wizard/Step0Setup'
-// (Step1Scan, Step2Lots, Step3Summary se importan en Tasks 6-8)
+import { Step1Scan } from './wizard/Step1Scan'
+// (Step2Lots, Step3Summary se importan en Tasks 7-8)
 
 /** Borrador de un lote a recibir (se construye en el Paso 2). */
 export interface LotDraft { key: number; lotNumber: string; expiryDate: string; quantity: string }
@@ -83,7 +84,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
           onProtocol={setProtocolId}
         />
       )}
-      {/* step === 1 → <Step1Scan ... /> (Task 6) */}
+      {step === 1 && <Step1Scan tipo={tipo} protocolId={protocolId} accentSolid={accentSolid} meds={meds} setMeds={setMeds} />}
       {/* step === 2 → <Step2Lots ... /> (Task 7) */}
       {/* step === 3 → <Step3Summary ... onCreated={onCreated} /> (Task 8) */}
 
