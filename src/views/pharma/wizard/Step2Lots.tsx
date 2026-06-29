@@ -17,10 +17,13 @@ export function Step2Lots({ meds, setMeds, accentSolid: _accentSolid }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {meds.map((m) => {
+        const t = today()
         const sum = m.lots.reduce((s, l) => s + (Number(l.quantity) || 0), 0)
         const rest = m.quantity - sum
         const lotNums = m.lots.map((l) => l.lotNumber.trim()).filter(Boolean)
+        const hasEmpty = m.lots.some((l) => !l.lotNumber.trim())
         const dup = new Set(lotNums).size !== lotNums.length
+        const hasPast = m.lots.some((l) => l.expiryDate && l.expiryDate < t)
         return (
           <div key={m.medicationId} style={{ border: '1px solid var(--spira-line)', borderRadius: 14, padding: '12px 14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -31,7 +34,7 @@ export function Step2Lots({ meds, setMeds, accentSolid: _accentSolid }: Props) {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
               {m.lots.map((l) => {
-                const past = l.expiryDate && l.expiryDate < today()
+                const past = l.expiryDate && l.expiryDate < t
                 return (
                   <div key={l.key} style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 0.7fr auto', gap: 8, alignItems: 'center' }}>
                     <input value={l.lotNumber} onChange={(e) => patch(m.medicationId, l.key, { lotNumber: e.target.value })} placeholder="Lote" className="spira-mono" style={{ ...fieldInput, height: 38 }} />
@@ -44,8 +47,12 @@ export function Step2Lots({ meds, setMeds, accentSolid: _accentSolid }: Props) {
                 )
               })}
             </div>
-            {dup && <div style={{ fontSize: 12.5, color: 'var(--spira-danger)', marginTop: 6 }} aria-live="assertive">Hay lotes repetidos en este medicamento.</div>}
-            {m.lots.some((l) => l.expiryDate && l.expiryDate < today()) && <div style={{ fontSize: 12.5, color: 'var(--spira-warn)', marginTop: 6 }}>Hay un lote con vencimiento pasado — revisalo (no bloquea).</div>}
+            {(dup || hasEmpty) && (
+              <div style={{ fontSize: 12.5, color: 'var(--spira-danger)', marginTop: 6 }} aria-live="assertive">
+                {dup ? 'Hay lotes repetidos en este medicamento.' : 'Cada lote necesita un número de lote.'}
+              </div>
+            )}
+            {hasPast && <div style={{ fontSize: 12.5, color: 'var(--spira-warn)', marginTop: 6 }}>Hay un lote con vencimiento pasado — revisalo (no bloquea).</div>}
             <button type="button" onClick={() => addLot(m.medicationId)} style={{ ...btnOutline, height: 34, marginTop: 8 }}>
               <Icon name="plus" size={15} color="var(--spira-muted)" /> Dividir en varios lotes
             </button>
