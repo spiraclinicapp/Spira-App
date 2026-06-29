@@ -5,7 +5,8 @@ import { btnOutline, btnPrimary } from '../../components/buttons'
 import type { ReceptionKind } from '../../data/pharma'
 import { Step0Setup } from './wizard/Step0Setup'
 import { Step1Scan } from './wizard/Step1Scan'
-// (Step2Lots, Step3Summary se importan en Tasks 7-8)
+import { Step2Lots } from './wizard/Step2Lots'
+// (Step3Summary se importa en Task 8)
 
 /** Borrador de un lote a recibir (se construye en el Paso 2). */
 export interface LotDraft { key: number; lotNumber: string; expiryDate: string; quantity: string }
@@ -48,16 +49,27 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   const canAdvance = (): boolean => {
     if (step === 0) return tipo === 'ambulatoria' || (tipo === 'protocolo' && !!protocolId)
     if (step === 1) return meds.length > 0 && meds.every((m) => m.quantity > 0)
-    if (step === 2) return meds.every(
-      (m) =>
-        m.lots.every((l) => l.lotNumber.trim()) &&
-        m.lots.reduce((s, l) => s + (Number(l.quantity) || 0), 0) === m.quantity,
-    )
+    if (step === 2) return meds.every((m) => {
+      const lotNums = m.lots.map((l) => l.lotNumber.trim()).filter(Boolean)
+      const noDups = new Set(lotNums).size === lotNums.length && lotNums.length === m.lots.length
+      return (
+        noDups &&
+        m.lots.reduce((s, l) => s + (Number(l.quantity) || 0), 0) === m.quantity
+      )
+    })
     return !!receptionDate
   }
 
+  /** Para cada medicamento sin lotes, crea un lote default con la cantidad total. */
+  const seedLots = (list: CountedMed[]): CountedMed[] =>
+    list.map((m) => (m.lots.length ? m : { ...m, lots: [{ key: 1, lotNumber: '', expiryDate: '', quantity: String(m.quantity) }] }))
+
   const goto = (i: number) => { setStep(i); setMaxReached((m) => Math.max(m, i)) }
-  const next = () => canAdvance() && goto(step + 1)
+  const next = () => {
+    if (!canAdvance()) return
+    if (step === 1) setMeds(seedLots)
+    goto(step + 1)
+  }
   const back = () => setStep((s) => Math.max(0, s - 1))
 
   // Silencia la advertencia de unused vars para notas/fecha mientras los Steps 3 aún no existen.
@@ -85,7 +97,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
         />
       )}
       {step === 1 && <Step1Scan tipo={tipo} protocolId={protocolId} accentSolid={accentSolid} meds={meds} setMeds={setMeds} />}
-      {/* step === 2 → <Step2Lots ... /> (Task 7) */}
+      {step === 2 && <Step2Lots meds={meds} setMeds={setMeds} accentSolid={accentSolid} />}
       {/* step === 3 → <Step3Summary ... onCreated={onCreated} /> (Task 8) */}
 
       {/* Navegación inferior */}
