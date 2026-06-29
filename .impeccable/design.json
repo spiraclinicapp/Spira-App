@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-29",
+  "title": "Design System: Spira",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Petróleo", "canonical": "#0F5F57", "tonalRamp": ["#06231F", "#0A352F", "#0F5F57", "#14746A", "#2E9488", "#6FB7AD", "#AFD8D1", "#E3F1EE"] },
+      "ink": { "role": "neutral", "displayName": "Petróleo tinta", "canonical": "#14302E", "tonalRamp": ["#0A1817", "#102524", "#14302E", "#1E433F", "#355F59", "#5E827C", "#9DB3AE", "#D9E4E1"] },
+      "paper": { "role": "neutral", "displayName": "Papel cálido", "canonical": "#F4F1EA", "tonalRamp": ["#2B2822", "#45423A", "#635E53", "#8B8576", "#B3AD9C", "#D5CFBF", "#E8E3D7", "#F4F1EA"] },
+      "track": { "role": "secondary", "displayName": "Teal Track", "canonical": "#2E7D74", "tonalRamp": ["#11302C", "#1B453F", "#245F58", "#2E7D74", "#46998E", "#74B7AD", "#A8D4CC", "#DCEFEB"] },
+      "pharma": { "role": "secondary", "displayName": "Ámbar Pharma", "canonical": "#C9A24A", "tonalRamp": ["#3D2F0E", "#5E4915", "#836623", "#A8842F", "#C9A24A", "#DCBE7E", "#ECD9B1", "#F8EFDB"] },
+      "lab": { "role": "secondary", "displayName": "Salvia Lab", "canonical": "#5C8A5A", "tonalRamp": ["#1E2E1D", "#2E472D", "#41633F", "#5C8A5A", "#79A577", "#9DC09B", "#C4DBC2", "#E7F1E6"] },
+      "contable": { "role": "secondary", "displayName": "Azul acero Contable", "canonical": "#3A6B8C", "tonalRamp": ["#142634", "#1E3B50", "#2C5170", "#3A6B8C", "#5688A9", "#82A9C3", "#B2CBDC", "#DEE9F1"] },
+      "danger": { "role": "tertiary", "displayName": "Terracota riesgo", "canonical": "#A6483B", "tonalRamp": ["#351512", "#51201B", "#743128", "#A6483B", "#C0685B", "#D49185", "#E6BBB3", "#F5E2DE"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display / H1", "purpose": "Título de página. Schibsted Grotesk 700, tracking apretado." },
+      "headline": { "displayName": "Headline / H2", "purpose": "Secciones y títulos de modal." },
+      "title": { "displayName": "Title / H3", "purpose": "Subtítulos y encabezados de card." },
+      "body": { "displayName": "Body", "purpose": "Texto y controles; Inter 14px." },
+      "label": { "displayName": "Eyebrow / rótulo", "purpose": "Rótulos puntuales en MAYÚSCULAS con tracking (SOLO LECTURA)." }
+    },
+    "shadows": [
+      { "name": "sm", "value": "0 1px 2px rgba(20,48,46,0.06)", "purpose": "Elevación apenas perceptible para cards que se despegan un punto del papel." },
+      { "name": "md", "value": "0 12px 32px rgba(20,48,46,0.10)", "purpose": "Overlays — la card del modal." },
+      { "name": "lg", "value": "0 18px 40px rgba(20,48,46,0.14)", "purpose": "Popovers / menús que flotan más alto." },
+      { "name": "focus-search", "value": "0 5px 14px rgba(20,48,46,0.10)", "purpose": "Foco sobrio del buscador (con translateY(-1px)), sin outline duro." }
+    ],
+    "motion": [
+      { "name": "press", "value": "transform .12s ease", "purpose": "Micro-interacción global: lo pulsable se levanta translateY(-1px) al hover y se asienta al :active. Opt-out con .spira-no-press; respeta prefers-reduced-motion." },
+      { "name": "state", "value": "all .16s ease", "purpose": "Transiciones cortas de estado (color, sombra, posición). Sin bounce ni elastic." }
+    ],
+    "breakpoints": [
+      { "name": "auth-cover", "value": "900px", "purpose": "Desde 900px aparece el panel de marca (foto/video) del login; abajo queda solo el formulario." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botón primario",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal; relleno sólido del módulo activo, texto papel.",
+      "html": "<button class=\"ds-btn-primary\">Guardar cambios</button>",
+      "css": ".ds-btn-primary{height:40px;padding:0 16px;border:none;border-radius:10px;background:var(--spira-primary);color:var(--spira-on-accent);font-family:'Inter',system-ui,sans-serif;font-weight:600;font-size:14px;cursor:pointer;transition:transform .12s ease}.ds-btn-primary:hover{transform:translateY(-1px)}.ds-btn-primary:active{transform:translateY(0)}.ds-btn-primary:focus-visible{outline:2px solid var(--spira-primary);outline-offset:2px}"
+    },
+    {
+      "name": "Botón contorno (secundario)",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Acción no primaria; contorno cálido sobre blanco.",
+      "html": "<button class=\"ds-btn-outline\">Cancelar</button>",
+      "css": ".ds-btn-outline{height:40px;padding:0 16px;border:1px solid var(--spira-line-2);border-radius:10px;background:var(--spira-white);color:var(--spira-ink);font-family:'Inter',system-ui,sans-serif;font-weight:600;font-size:14px;cursor:pointer;transition:transform .12s ease}.ds-btn-outline:hover{transform:translateY(-1px)}.ds-btn-outline:active{transform:translateY(0)}.ds-btn-outline:focus-visible{outline:2px solid var(--spira-primary);outline-offset:2px}"
+    },
+    {
+      "name": "Campo de texto",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Input de formulario; foco sobrio con sombra cálida y levante, sin outline duro.",
+      "html": "<input class=\"ds-input\" placeholder=\"Código de estudio\" />",
+      "css": ".ds-input{width:240px;height:44px;padding:0 14px;border:1px solid var(--spira-line-2);border-radius:10px;background:var(--spira-white);color:var(--spira-ink);font-family:'Inter',system-ui,sans-serif;font-size:14px;transition:box-shadow .16s ease,transform .16s ease}.ds-input::placeholder{color:var(--spira-muted)}.ds-input:focus{outline:none;box-shadow:0 5px 14px rgba(20,48,46,.10);transform:translateY(-1px)}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Contenedor base; blanco, borde fino, radio 16, plano por defecto.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">Resumen del protocolo</div><p class=\"ds-card-text\">Trazabilidad completa de tus estudios clínicos, en un solo lugar.</p></div>",
+      "css": ".ds-card{background:var(--spira-white);border:1px solid var(--spira-line);border-radius:16px;padding:22px 24px;max-width:360px}.ds-card-title{font-family:'Schibsted Grotesk',system-ui,sans-serif;font-weight:700;font-size:17px;color:var(--spira-ink);margin-bottom:6px}.ds-card-text{font-family:'Inter',system-ui,sans-serif;font-size:13.5px;line-height:1.5;color:var(--spira-muted);margin:0}"
+    },
+    {
+      "name": "Badge / rótulo",
+      "kind": "chip",
+      "refersTo": "badge-pill",
+      "description": "Rótulo pill en MAYÚSCULAS con tracking (estado, p. ej. SOLO LECTURA).",
+      "html": "<span class=\"ds-badge\">SOLO LECTURA</span>",
+      "css": ".ds-badge{display:inline-block;padding:3px 10px;border-radius:999px;background:var(--spira-surface);border:1px solid var(--spira-line);color:var(--spira-muted);font-family:'Inter',system-ui,sans-serif;font-weight:700;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase}"
+    },
+    {
+      "name": "Botón de ícono",
+      "kind": "button",
+      "refersTo": "icon-button",
+      "description": "Acción de ícono del top bar; 38×38 transparente, ícono Lucide.",
+      "html": "<button class=\"ds-icon-btn\" aria-label=\"Buscar\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"></circle><path d=\"m21 21-4.3-4.3\"></path></svg></button>",
+      "css": ".ds-icon-btn{width:38px;height:38px;border:none;border-radius:10px;background:transparent;color:var(--spira-ink);display:grid;place-items:center;cursor:pointer;transition:transform .12s ease}.ds-icon-btn:hover{transform:translateY(-1px)}.ds-icon-btn:active{transform:translateY(0)}.ds-icon-btn:focus-visible{outline:2px solid var(--spira-primary);outline-offset:2px}"
+    },
+    {
+      "name": "Chip de módulo",
+      "kind": "nav",
+      "refersTo": "module-chip",
+      "description": "Identificador del módulo activo en el top bar; acento del módulo teñido al ~12%.",
+      "html": "<span class=\"ds-module-chip\"><span class=\"ds-module-dot\"></span>Track</span>",
+      "css": ".ds-module-chip{display:inline-flex;align-items:center;gap:8px;font-family:'Schibsted Grotesk',system-ui,sans-serif;font-weight:700;font-size:15px;color:var(--spira-ink)}.ds-module-dot{width:26px;height:26px;border-radius:7px;background:rgba(46,125,116,.12);display:inline-block}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Sereno",
+    "overview": "El sistema visual de Spira existe para que coordinadoras, farmacéuticas y médicos operen un flujo regulado (ANMAT / ICH-GCP), con datos sensibles y bajo presión de tiempo, sin que la pantalla sume tensión. El nombre viene de spirare (respirar); el isotipo es el vilano del diente de león. Todo persigue la misma sensación: respirar tranquilidad — confianza clínica y calma, nunca alarma, nunca frialdad. En la práctica: paleta de baja saturación (petróleo sobre papel cálido), jerarquía tipográfica clara sin gritar, mucho aire, color con intención y movimiento apenas perceptible. Cada módulo tiene su acento dentro de la misma familia, así que todo se siente la misma app.",
+    "keyCharacteristics": [
+      "Petróleo #0F5F57 sobre papel cálido #F4F1EA; baja saturación, mucho aire.",
+      "Schibsted Grotesk para títulos/números, Inter para cuerpo y datos. Sin italic.",
+      "Color con intención: marca, acento del módulo activo, estados. Nunca decorativo.",
+      "Plano con borde por defecto; sombra cálida suave solo en overlays y foco.",
+      "Movimiento sutil: lo pulsable se levanta ~1px al hover y se asienta al pulsar.",
+      "Tema claro y oscuro; los acentos y el primario se mantienen en ambos."
+    ],
+    "rules": [
+      { "name": "La regla del color con intención", "body": "El color significa algo: marca, acento del módulo activo, o estado. Nunca es decorativo.", "section": "colors" },
+      { "name": "La regla del acento apagado", "body": "Atención es ámbar tostado y Riesgo es terracota, no amarillo ni rojo de semáforo. El estado se nota por contexto + ícono + texto, no por saturación.", "section": "colors" },
+      { "name": "La regla sin italic", "body": "El italic suena demasiado editorial para lo clínico; no se usa. El énfasis va por peso o tamaño.", "section": "typography" },
+      { "name": "La regla del rótulo, no del eyebrow", "body": "Las MAYÚSCULAS con tracking son para rótulos puntuales (SOLO LECTURA), nunca un eyebrow decorativo arriba de cada sección.", "section": "typography" },
+      { "name": "La regla de los números tabulares", "body": "Cifras, códigos de estudio y lote van en .spira-mono (Inter + tabular-nums) para que alineen en columnas.", "section": "typography" },
+      { "name": "La regla del borde antes que la sombra", "body": "En reposo, separá con borde --spira-line, no con sombra. La sombra es para lo que flota (modales) o reacciona (foco), nunca decorativa.", "section": "elevation" },
+      { "name": "La regla de la sombra cálida", "body": "Toda sombra usa rgba(20,48,46,…) (petróleo tinta), nunca negro puro. Una sombra fría delata el sistema.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do usar petróleo #0F5F57 sobre papel cálido #F4F1EA como base; baja saturación y mucho aire.",
+      "Do reservar el color para significar (marca, acento del módulo activo, estado); el acento del módulo activo manda el tono de la pantalla.",
+      "Do separar superficies en reposo con borde --spira-line; usar sombra cálida solo en overlays y foco.",
+      "Do preferir desplegables y valores preestablecidos al texto libre — el error del operador es un riesgo regulatorio.",
+      "Do escribir copy en español rioplatense con voseo, sentence case en títulos y botones; cifras y códigos en .spira-mono.",
+      "Do dejar que lo pulsable se levante ~1px al hover; mantener foco visible por teclado."
+    ],
+    "donts": [
+      "Don't parecerte al SaaS cripto/fintech oscuro: nada de glows, gradientes violeta/cyan ni tarjetas-métrica gigantes.",
+      "Don't parecerte al software médico legacy: nada de gris institucional, tablas infinitas ni rojo de alarma por todos lados.",
+      "Don't parecerte a una app de consumo gamificada: sin emojis, ilustraciones, saturación alta ni confeti.",
+      "Don't parecerte a una landing de startup genérica: sin eyebrows en mayúscula sobre cada sección, cards idénticas, gradientes ni copy marketinero.",
+      "Don't usar gradientes, texturas, glassmorphism decorativo ni background-clip: text.",
+      "Don't usar border-left/border-right de color como franja de acento en cards o alertas.",
+      "Don't usar italic, emoji, ni íconos en unicode.",
+      "Don't animar con bounce ni elastic; el movimiento es corto (.12–.18s) y se asienta.",
+      "Don't usar sombras negras o duras; toda sombra es cálida y mínima."
+    ]
+  }
+}

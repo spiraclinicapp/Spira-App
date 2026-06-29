@@ -84,6 +84,20 @@ react-query: la navegación es estado propio del shell.
 - **Privacidad de paciente** es transversal (`components/PrivacyAvatar.tsx`); respetala en
   vistas nuevas que muestren personas.
 
+## Contexto de diseño
+
+El sistema visual **"Sereno"** (petróleo + papel cálido, calma clínica) está documentado para
+que cualquier agente diseñe on-brand. Leelo antes de tocar UI:
+
+- **[`PRODUCT.md`](PRODUCT.md)** — el *qué/quién/por qué*: usuarios, propósito, personalidad de
+  marca, anti-referencias, principios y accesibilidad (WCAG 2.1 AA).
+- **[`DESIGN.md`](DESIGN.md)** — el *cómo se ve*: tokens, color, tipografía, elevación,
+  componentes y "Do's and Don'ts" (formato spec; `.impeccable/design.json` lo extiende).
+- Marca de origen y tokens vivos: `docs/identidad-visual/` + `src/styles/tokens.css`.
+
+Generados con la skill **impeccable** (`/impeccable document` regenera `DESIGN.md`;
+`/impeccable critique|audit|polish <archivo>` revisan una vista).
+
 ## Seguridad
 
 RLS en todas las tablas + `audit_log` transversal (inmutable, recuperable) + operaciones

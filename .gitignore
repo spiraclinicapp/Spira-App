@@ -23,6 +23,10 @@ supabase/.env
 .claude/worktrees/
 .gstack/
 
+# impeccable (live mode): la config (.impeccable/live/config.json) SÍ se versiona;
+# el journal de sesiones es estado local de recuperación y no va al repo.
+.impeccable/live/sessions/
+
 # Editores / SO
 .vscode/*
 !.vscode/extensions.json
