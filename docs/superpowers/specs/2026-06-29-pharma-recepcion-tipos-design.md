@@ -138,8 +138,72 @@ no deja avanzar). El vencimiento es opcional por lote.
 **"Crear recepción"**: arma los `items` planos (un renglón por lote) y llama a `createReception` con
 `tipo` + protocolo (o sin protocolo en ambulatoria).
 
-**Navegación.** Atrás/Siguiente por paso; Cancelar vuelve a la cola. Cambiar el tipo en el Paso 0
-resetea el estado dependiente (no arrastra renglones de otro ámbito).
+**Navegación.** Stepper de 4 pasos: se puede **volver a un paso completado tocándolo** (los pasos
+futuros quedan bloqueados hasta validar el actual); lo cargado se conserva. Atrás/Siguiente además.
+**Cancelar** y **cambiar el tipo en el Paso 0** piden **confirmación si ya hay ítems cargados**
+(descarta la carga en curso); sin ítems, directo.
+
+## Diseño de UI (revisión de diseño, 2026-06-29)
+
+> Resultado de `/plan-design-review` (clasificado **App UI**), calibrado contra
+> [`DESIGN.md`](../../../DESIGN.md) ("Sereno"). Sube la completitud de diseño del plan de 5/10 a ~9/10.
+
+### Jerarquía por paso
+- **Paso 0:** héroe = selector de tipo (segmented); el desplegable de protocolo es secundario
+  (aparece solo en Protocolo); `Siguiente` al pie.
+- **Paso 1:** héroe = input del escáner (autofocus) + lista de conteo en vivo; el total por
+  medicamento es lo que el ojo busca. "Agregar a mano" es secundario.
+- **Paso 2:** héroe = filas de lote por medicamento; el **resto en vivo** es el feedback clave.
+- **Paso 3:** héroe = resumen + `Crear recepción`; fecha/notas secundarias.
+
+### Estados de interacción (lo que VE el usuario)
+
+| Paso / pieza | Cargando | Vacío | Error | Éxito |
+|---|---|---|---|---|
+| Paso 0 · protocolos | desplegable deshabilitado + "Cargando…"; `Siguiente` off | sin protocolos → "No hay protocolos" (no se avanza en Protocolo) | error de carga → línea roja + "Reintentar" | protocolo elegido |
+| Paso 1 · escáner | beep → resolviendo el código (breve) | lista vacía → copy cálido "Escaneá el primer medicamento…" con el escáner listo | código desconocido → panel **ámbar** (linkCode); código ya mapeado a otro → línea **roja** "Ese código ya es de {X}" | +1 a la cantidad / renglón sumado |
+| Paso 2 · lotes | — | siempre hay al menos los medicamentos del Paso 1 | resto no cierra → validación inline "faltan/sobran N", `Siguiente` off; lote duplicado → rojo; vencido/próximo → **ámbar** (avisa, no bloquea) | resto = 0 por medicamento |
+| Paso 3 · crear | botón busy "Creando…" | — | `pharmaErrorMessage` (RLS 0 filas = "sin permiso", 23505 duplicado, 23502 faltante, check = coherencia) en caja roja | vuelve a la cola con la recepción nueva **resaltada** |
+
+### Recorrido / arco emocional
+Farmacéutica recibiendo ~30 productos: **confianza** (ve el total contado en vivo), **control**
+(edita cantidades y lotes, vuelve a cualquier paso), **cierre** (resumen antes de confirmar +
+recepción resaltada al volver). Un escaneo equivocado se corrige con `−` o quitando el renglón, sin
+perder el resto.
+
+### Anti-slop (App UI)
+- El selector de tipo del Paso 0 es un **segmented control / lista**, **no** una grilla de 3 cards
+  con íconos (patrón AI prototípico).
+- "Investigación" deshabilitado: gris + badge "próximamente" + `aria-disabled`, claramente
+  intencional (no roto).
+- Sin `border-left` de color como acento; tokens de Sereno, sin gradientes ni sombras decorativas.
+
+### Alineación a Sereno
+- **Reuso:** `btnPrimary('var(--spira-pharma-solid)')` (#A8842F) para primarios, `btnOutline`
+  secundarios, `FormField`/`fieldInput`, `EmptyState` para la lista vacía, el panel ámbar de `linkCode`.
+- **Piezas nuevas (mínimas, dentro de Sereno):** (1) el **stepper** — paso activo en acento Pharma,
+  hechos con check, línea `--spira-line`; (2) el **segmented** de tipo — seleccionado = tinte de
+  acento + borde; (3) el **typeahead** de "agregar a mano" (input `fieldInput` + lista filtrada).
+- `−/+` con tamaño táctil ≥44px; heredan la micro-interacción de pulsado.
+
+### Responsive + accesibilidad (WCAG 2.1 AA)
+- **Dispositivo:** mostrador de recepción → **tablet** y desktop. El wizard a pantalla completa
+  sirve en ambos; las filas de lote reflowean en angosto; el stepper colapsa a "Paso 2 de 4".
+- **Táctil:** targets ≥44px (`−/+`, segmented, Atrás/Siguiente).
+- **Teclado/foco:** autofocus del escáner al entrar al Paso 1; el foco va al encabezado del paso al
+  cambiar de paso; orden de tab lógico.
+- **Lectores:** `−/+` con `aria-label` ("Sumar uno"/"Restar uno"); "Investigación" `aria-disabled`;
+  validación del Paso 2 y errores en `aria-live`.
+- **Contraste:** verificar el ámbar `#A8842F` con texto papel (botón primario Pharma) ≥4.5:1; cuidar
+  el texto `muted` sobre papel (regla de Sereno).
+
+### Decisiones de diseño resueltas
+1. **Vencimiento:** avisar, no bloquear (ámbar, confirma) — recibir stock vencido/próximo es real.
+2. **Cancelar / cambiar tipo con ítems:** confirmar descarte.
+3. **Agregar a mano:** desplegable con **búsqueda/typeahead** (clave con 48+ ítems y ambulatoria abierta).
+4. **Stepper:** volver a pasos completados con click; futuros bloqueados hasta validar.
+5. **Éxito:** volver a la cola con la recepción nueva resaltada.
+6. **Lista vacía (Paso 1):** copy cálido + escáner listo, no "sin resultados".
 
 ## Capa de datos (frontend)
 
