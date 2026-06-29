@@ -77,12 +77,19 @@ async function main() {
   if (mErr) { console.error('No se pudieron leer los medicamentos:', mErr.message); process.exit(1) }
   const have = new Set(existingMeds.map((m) => m.name))
   let medsCreated = 0
+  let dosisUpdated = 0
   for (const med of medications) {
-    if (have.has(med.name)) continue
     const did = drugId.get(med.drug)
     if (!did) { console.error(`  ✗ "${med.name}": no encontré la droga "${med.drug}"`); continue }
+    if (have.has(med.name)) {
+      // Ya existe (sembrado previo sin dosis): completamos la dosis. RLS update = pharma leader.
+      const { error } = await supabase.from('medications').update({ dosis: med.dosis ?? null }).eq('name', med.name)
+      if (error) console.error(`  ✗ dosis de "${med.name}": ${error.message}`)
+      else dosisUpdated++
+      continue
+    }
     const { error } = await supabase.rpc('create_medication', {
-      p_drug_id: did, p_name: med.name, p_unit: med.unit, p_low_stock_threshold: 5, p_gtin: null,
+      p_drug_id: did, p_name: med.name, p_unit: med.unit, p_low_stock_threshold: 5, p_gtin: null, p_dosis: med.dosis ?? null,
     })
     if (error) { console.error(`  ✗ "${med.name}": ${error.message}`); continue }
     have.add(med.name)
@@ -90,7 +97,7 @@ async function main() {
     console.log(`  + medicamento: ${med.name}`)
   }
 
-  console.log(`\nListo. Drogas nuevas: ${drugsCreated}/${drugs.length} · Medicamentos nuevos: ${medsCreated}/${medications.length}`)
+  console.log(`\nListo. Drogas nuevas: ${drugsCreated}/${drugs.length} · Medicamentos nuevos: ${medsCreated}/${medications.length} · Dosis completadas: ${dosisUpdated}`)
   await supabase.auth.signOut()
 }
 

@@ -19,8 +19,8 @@
                   "Mometasona furoato",
                   "Montelukast",
                   "Noretisterona enantato + Estradiol valerato",
+                  "Otros",
                   "Piridostigmina (bromuro)",
-                  "Productos únicos: 48.  Excluidos por no ser fármaco o ser estado: Test de embarazo, Falla, Discontinuado, [COMPLETAR].  Celdas en amarillo: requieren validación contra vademécum / envase antes de uso operativo.",
                   "Salbutamol",
                   "Tiotropio",
                   "Umeclidinio",
@@ -30,247 +30,290 @@
                         {
                             "drug":  "Azatioprina",
                             "name":  "Azatioprina 50 mg",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  "50 mg"
                         },
                         {
                             "drug":  "Budesonida",
                             "name":  "Neumocort 200 mcg",
-                            "unit":  "Aerosol (IDM)"
+                            "unit":  "Aerosol (IDM)",
+                            "dosis":  "200 mcg"
                         },
                         {
                             "drug":  "Budesonida + Formoterol",
                             "name":  "Frevia 160/4,5 mcg",
-                            "unit":  "Aerosol (IDM)"
+                            "unit":  "Aerosol (IDM)",
+                            "dosis":  "160/4,5 mcg"
                         },
                         {
                             "drug":  "Budesonida + Formoterol",
                             "name":  "Hexaler Bronquial Duo 400/10 mcg",
-                            "unit":  "Polvo seco"
+                            "unit":  "Polvo seco",
+                            "dosis":  "400/10 mcg"
                         },
                         {
                             "drug":  "Budesonida + Formoterol",
                             "name":  "Lierbron 400/12 mcg",
-                            "unit":  "Polvo seco"
+                            "unit":  "Polvo seco",
+                            "dosis":  "400/12 mcg"
                         },
                         {
                             "drug":  "Budesonida + Formoterol",
                             "name":  "Neumocort Plus 200/6 mcg",
-                            "unit":  "Cápsulas para inhalación"
+                            "unit":  "Cápsulas para inhalación",
+                            "dosis":  "200/6 mcg"
                         },
                         {
                             "drug":  "Budesonida + Formoterol",
                             "name":  "Neumoterol 160/4,5 mcg",
-                            "unit":  "Cápsulas para inhalación"
+                            "unit":  "Cápsulas para inhalación",
+                            "dosis":  "160/4,5 mcg"
                         },
                         {
                             "drug":  "Budesonida + Formoterol",
                             "name":  "Neumoterol 200/6 mcg",
-                            "unit":  "Cápsulas para inhalación"
+                            "unit":  "Cápsulas para inhalación",
+                            "dosis":  "200/6 mcg"
                         },
                         {
                             "drug":  "Budesonida + Formoterol",
                             "name":  "Neumoterol 400/12 mcg",
-                            "unit":  "Cápsulas para inhalación"
+                            "unit":  "Cápsulas para inhalación",
+                            "dosis":  "400/12 mcg"
                         },
                         {
                             "drug":  "Budesonida + Formoterol",
                             "name":  "Symbicort 160/4,5 mcg",
-                            "unit":  "Polvo seco (Turbuhaler)"
+                            "unit":  "Polvo seco (Turbuhaler)",
+                            "dosis":  "160/4,5 mcg"
                         },
                         {
                             "drug":  "Budesonida + Formoterol",
                             "name":  "Symbicort Forte 320/9 mcg",
-                            "unit":  "Polvo seco (Turbuhaler)"
+                            "unit":  "Polvo seco (Turbuhaler)",
+                            "dosis":  "320/9 mcg"
                         },
                         {
                             "drug":  "Budesonida + Glicopirronio + Formoterol",
                             "name":  "Breztri 160/7,2/5 mcg",
-                            "unit":  "Aerosol (IDM)"
+                            "unit":  "Aerosol (IDM)",
+                            "dosis":  "160/7,2/5 mcg"
                         },
                         {
                             "drug":  "Donepecilo",
                             "name":  "Donepecilo 10 mg",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  "10 mg"
                         },
                         {
                             "drug":  "Drospirenona",
                             "name":  "Drospirenona 4 mg",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  "4 mg"
                         },
                         {
                             "drug":  "Fluticasona",
                             "name":  "Fluticasona",
-                            "unit":  "Spray nasal"
+                            "unit":  "Spray nasal",
+                            "dosis":  null
                         },
                         {
                             "drug":  "Fluticasona furoato + Umeclidinio + Vilanterol",
                             "name":  "Trelegy Ellipta (200) 200/62,5/25 mcg",
-                            "unit":  "Polvo seco (Ellipta)"
+                            "unit":  "Polvo seco (Ellipta)",
+                            "dosis":  "200/62,5/25 mcg"
                         },
                         {
                             "drug":  "Fluticasona furoato + Umeclidinio + Vilanterol",
                             "name":  "Trelegy Ellipta (92) 92/55/22 mcg",
-                            "unit":  "Polvo seco (Ellipta)"
+                            "unit":  "Polvo seco (Ellipta)",
+                            "dosis":  "92/55/22 mcg"
                         },
                         {
                             "drug":  "Fluticasona furoato + Vilanterol",
                             "name":  "Alvetide 92/22 mcg",
-                            "unit":  "Polvo seco"
+                            "unit":  "Polvo seco",
+                            "dosis":  "92/22 mcg"
                         },
                         {
                             "drug":  "Fluticasona furoato + Vilanterol",
                             "name":  "Alvetide 184/22 mcg",
-                            "unit":  "Polvo seco"
+                            "unit":  "Polvo seco",
+                            "dosis":  "184/22 mcg"
                         },
                         {
                             "drug":  "Fluticasona furoato + Vilanterol",
                             "name":  "Relvar Ellipta 92/22 mcg",
-                            "unit":  "Polvo seco (Ellipta)"
+                            "unit":  "Polvo seco (Ellipta)",
+                            "dosis":  "92/22 mcg"
                         },
                         {
                             "drug":  "Fluticasona furoato + Vilanterol",
                             "name":  "Relvar Ellipta 184/22 mcg",
-                            "unit":  "Polvo seco (Ellipta)"
+                            "unit":  "Polvo seco (Ellipta)",
+                            "dosis":  "184/22 mcg"
                         },
                         {
                             "drug":  "Fluticasona propionato + Salmeterol",
                             "name":  "Fluticort 125 mcg",
-                            "unit":  "Aerosol (IDM)"
+                            "unit":  "Aerosol (IDM)",
+                            "dosis":  "125 mcg"
                         },
                         {
                             "drug":  "Fluticasona propionato + Salmeterol",
                             "name":  "Fluticort 250 mcg",
-                            "unit":  "Aerosol (IDM)"
+                            "unit":  "Aerosol (IDM)",
+                            "dosis":  "250 mcg"
                         },
                         {
                             "drug":  "Fluticasona propionato + Salmeterol",
                             "name":  "Flutivent 125/25 mcg",
-                            "unit":  "Aerosol (IDM)"
+                            "unit":  "Aerosol (IDM)",
+                            "dosis":  "125/25 mcg"
                         },
                         {
                             "drug":  "Fluticasona propionato + Salmeterol",
                             "name":  "Flutivent 250/25 mcg",
-                            "unit":  "Aerosol (IDM)"
+                            "unit":  "Aerosol (IDM)",
+                            "dosis":  "250/25 mcg"
                         },
                         {
                             "drug":  "Fluticasona propionato + Salmeterol",
                             "name":  "Inhalan Bronquial 500/50 mcg",
-                            "unit":  "Polvo seco"
+                            "unit":  "Polvo seco",
+                            "dosis":  "500/50 mcg"
                         },
                         {
                             "drug":  "Fluticasona propionato + Salmeterol",
                             "name":  "Neumotide 500/50 mcg",
-                            "unit":  "Polvo seco (Diskus)"
+                            "unit":  "Polvo seco (Diskus)",
+                            "dosis":  "500/50 mcg"
                         },
                         {
                             "drug":  "Fluticasona propionato + Salmeterol",
                             "name":  "Proair Bronquial 250/50 mcg",
-                            "unit":  "Polvo seco"
+                            "unit":  "Polvo seco",
+                            "dosis":  "250/50 mcg"
                         },
                         {
                             "drug":  "Fluticasona propionato + Salmeterol",
                             "name":  "Seretide aerosol 125/25 mcg",
-                            "unit":  "Aerosol (IDM)"
+                            "unit":  "Aerosol (IDM)",
+                            "dosis":  "125/25 mcg"
                         },
                         {
                             "drug":  "Fluticasona propionato + Salmeterol",
                             "name":  "Seretide aerosol 250/50 mcg",
-                            "unit":  "Aerosol (IDM)"
+                            "unit":  "Aerosol (IDM)",
+                            "dosis":  "250/50 mcg"
                         },
                         {
                             "drug":  "Fluticasona propionato + Salmeterol",
                             "name":  "Seretide Diskus 250/50 mcg",
-                            "unit":  "Polvo seco (Diskus)"
+                            "unit":  "Polvo seco (Diskus)",
+                            "dosis":  "250/50 mcg"
                         },
                         {
                             "drug":  "Fluticasona propionato + Salmeterol",
                             "name":  "Seretide Diskus 500/50 mcg",
-                            "unit":  "Polvo seco (Diskus)"
+                            "unit":  "Polvo seco (Diskus)",
+                            "dosis":  "500/50 mcg"
                         },
                         {
                             "drug":  "Gestodeno + Etinilestradiol",
                             "name":  "Femiden",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  null
                         },
                         {
                             "drug":  "Levocetirizina",
                             "name":  "Levocetirizina 5 mg",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  "5 mg"
                         },
                         {
                             "drug":  "Levonorgestrel + Etinilestradiol",
                             "name":  "Norgestrel Plus 0,15/0,03 mg",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  "0,15/0,03 mg"
                         },
                         {
                             "drug":  "Memantina",
                             "name":  "Memantina 10 mg",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  "10 mg"
                         },
                         {
                             "drug":  "Meprednisona",
                             "name":  "Meprednisona 10 mg",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  "10 mg"
                         },
                         {
                             "drug":  "Meprednisona",
                             "name":  "Meprednisona 20 mg",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  "20 mg"
                         },
                         {
                             "drug":  "Micofenolato mofetilo",
                             "name":  "Micofenolato mofetilo 500 mg",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  "500 mg"
                         },
                         {
                             "drug":  "Mometasona furoato",
                             "name":  "Mometasona furoato 50 mcg",
-                            "unit":  "Spray nasal"
+                            "unit":  "Spray nasal",
+                            "dosis":  "50 mcg"
                         },
                         {
                             "drug":  "Montelukast",
                             "name":  "Montelukast 10 mg",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  "10 mg"
                         },
                         {
                             "drug":  "Noretisterona enantato + Estradiol valerato",
                             "name":  "Mesigyna 50/5 mg",
-                            "unit":  "Inyectable IM mensual"
+                            "unit":  "Inyectable IM mensual",
+                            "dosis":  "50/5 mg"
                         },
                         {
                             "drug":  "Piridostigmina (bromuro)",
                             "name":  "Mestinon 60 mg",
-                            "unit":  "Comprimido oral"
+                            "unit":  "Comprimido oral",
+                            "dosis":  "60 mg"
                         },
                         {
                             "drug":  "Salbutamol",
                             "name":  "Ventolin 100 mcg",
-                            "unit":  "Aerosol (IDM)"
+                            "unit":  "Aerosol (IDM)",
+                            "dosis":  "100 mcg"
                         },
                         {
                             "drug":  "Tiotropio",
                             "name":  "Neumotropio 10 mcg",
-                            "unit":  "Cápsulas para inhalación"
+                            "unit":  "Cápsulas para inhalación",
+                            "dosis":  "10 mcg"
                         },
                         {
                             "drug":  "Tiotropio",
                             "name":  "Spiriva 18 mcg",
-                            "unit":  "Cápsulas para inhalación"
+                            "unit":  "Cápsulas para inhalación",
+                            "dosis":  "18 mcg"
                         },
                         {
                             "drug":  "Umeclidinio",
                             "name":  "Incruse Ellipta 55 mcg",
-                            "unit":  "Polvo seco (Ellipta)"
+                            "unit":  "Polvo seco (Ellipta)",
+                            "dosis":  "55 mcg"
                         },
                         {
                             "drug":  "Umeclidinio + Vilanterol",
                             "name":  "Anoro Ellipta 55/22 mcg",
-                            "unit":  "Polvo seco (Ellipta)"
-                        },
-                        {
-                            "drug":  "Productos únicos: 48.  Excluidos por no ser fármaco o ser estado: Test de embarazo, Falla, Discontinuado, [COMPLETAR].  Celdas en amarillo: requieren validación contra vademécum / envase antes de uso operativo.",
-                            "name":  "Productos únicos: 48.  Excluidos por no ser fármaco o ser estado: Test de embarazo, Falla, Discontinuado, [COMPLETAR].  Celdas en amarillo: requieren validación contra vademécum / envase antes de uso operativo.",
-                            "unit":  "s/d"
+                            "unit":  "Polvo seco (Ellipta)",
+                            "dosis":  "55/22 mcg"
                         }
                     ]
 }

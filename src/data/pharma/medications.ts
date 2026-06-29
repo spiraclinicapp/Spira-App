@@ -15,7 +15,9 @@ export interface MedicationDrug {
 export interface MedicationRow {
   id: string
   name: string
-  /** Unidad de presentación ('vial' | 'comprimidos' | 'ml' | ...). */
+  /** Dosis / concentración (ej. '100 mcg', '160/4,5 mcg'). Opcional. Migración 0034. */
+  dosis: string | null
+  /** Formato de presentación ('Comprimido oral' | 'Aerosol (IDM)' | ...). */
   unit: string
   /** Umbral de stock bajo (default 5 en la base). */
   low_stock_threshold: number
@@ -23,7 +25,7 @@ export interface MedicationRow {
   drug: MedicationDrug | null
 }
 
-const MEDICATION_COLS = 'id, name, unit, low_stock_threshold, drug:drugs(id, name)'
+const MEDICATION_COLS = 'id, name, dosis, unit, low_stock_threshold, drug:drugs(id, name)'
 
 /** Catálogo global de medicamentos (con su droga). Visible a pharma/gerencia/contable (RLS). */
 export function useMedications() {
@@ -46,6 +48,19 @@ export function useMedicationVariants(drugId: string | null) {
   )
 }
 
+/** Dosis ya cargada en el catálogo (para el desplegable de dosis). Migración 0034. */
+interface DoseRow {
+  dosis: string | null
+}
+
+/** Dosis distintas ya usadas en el catálogo (alimenta el desplegable de dosis del alta). */
+export function useDoses() {
+  return useSupabaseQuery<DoseRow[]>(
+    (c) => c.from('medications').select('dosis').not('dosis', 'is', null).order('dosis').returns<DoseRow[]>(),
+    [],
+  )
+}
+
 /** Datos para el alta de un medicamento global. El GTIN (opcional) se guarda en `medication_codes`. */
 export interface NewMedicationInput {
   drug_id: string
@@ -54,6 +69,10 @@ export interface NewMedicationInput {
   low_stock_threshold: number
   /** Código de barras EAN/GTIN (opcional). Se mapea a `medication_codes`. */
   gtin?: string | null
+  /** Laboratorio / titular (opcional). Migración 0033. */
+  laboratorio_id?: string | null
+  /** Dosis / concentración (opcional). Migración 0034. */
+  dosis?: string | null
 }
 
 /** Alta de medicamento (RPC `create_medication`, pharma leader+). Devuelve el id creado. */
@@ -66,6 +85,8 @@ export async function createMedication(
     p_unit: input.unit,
     p_low_stock_threshold: input.low_stock_threshold,
     p_gtin: input.gtin ?? null,
+    p_laboratorio_id: input.laboratorio_id ?? null,
+    p_dosis: input.dosis ?? null,
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null, id: data as string }
