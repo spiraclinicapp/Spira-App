@@ -17,7 +17,7 @@ export function Stepper({ steps, current, maxReached, onJump, accent }: StepperP
             <button
               type="button"
               onClick={() => reachable && onJump(i)}
-              disabled={!reachable}
+              aria-disabled={!reachable || undefined}
               aria-current={active ? 'step' : undefined}
               className={reachable ? undefined : 'spira-no-press'}
               style={{

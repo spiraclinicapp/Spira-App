@@ -42,6 +42,8 @@ export function useReceptions(tipo: ReceptionKind, protocolId: string | null) {
     (c) => {
       let q = c.from('medication_receptions').select(RECEPTION_COLS).eq('tipo', tipo)
       if (tipo === 'ambulatoria') q = q.is('protocol_id', null)
+      // protocolo/investigacion con protocolId === null: no se aplica filtro de protocolo
+      // (retorna todas las recepciones de ese tipo) — intencional para callers sin protocolo específico.
       else if (protocolId) q = q.eq('protocol_id', protocolId)
       return q.order('reception_date', { ascending: false }).returns<ReceptionRow[]>()
     },

@@ -53,6 +53,17 @@ export function Step3Summary({
       setError('Agregá al menos un ítem antes de crear la recepción.')
       return
     }
+    // Guard defensivo: detecta medicamentos cuya suma de lotes no coincide con la cantidad
+    // contada (puede pasar si se llega al paso 3 por un salto sin semillar correctamente).
+    const bad = meds.find(
+      (m) =>
+        m.lots.length === 0 ||
+        m.lots.reduce((s, l) => s + (Number(l.quantity) || 0), 0) !== m.quantity,
+    )
+    if (bad) {
+      setError(`Revisá los lotes de ${bad.name}: la suma de lotes no coincide con la cantidad contada.`)
+      return
+    }
     setBusy(true)
     setError(null)
     const res = await createReception({

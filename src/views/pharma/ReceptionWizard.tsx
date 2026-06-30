@@ -64,10 +64,15 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   const seedLots = (list: CountedMed[]): CountedMed[] =>
     list.map((m) => (m.lots.length ? m : { ...m, lots: [{ key: 1, lotNumber: '', expiryDate: '', quantity: String(m.quantity) }] }))
 
-  const goto = (i: number) => { setStep(i); setMaxReached((m) => Math.max(m, i)) }
+  // Al entrar a cualquier paso ≥ 2 (por avance o salto), sembramos los lotes faltantes.
+  // seedLots es idempotente: solo rellena medicamentos sin lotes, nunca pisa los editados.
+  const goto = (i: number) => {
+    if (i >= 2) setMeds(seedLots)
+    setStep(i)
+    setMaxReached((m) => Math.max(m, i))
+  }
   const next = () => {
     if (!canAdvance()) return
-    if (step === 1) setMeds(seedLots)
     goto(step + 1)
   }
   const back = () => setStep((s) => Math.max(0, s - 1))

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { EmptyState } from '../../components/EmptyState'
@@ -31,6 +31,13 @@ export function RecepcionView({ module, submodule }: ViewProps) {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+
+  // Auto-limpia el highlight tras 5 s para no dejar el resaltado indefinidamente.
+  useEffect(() => {
+    if (!highlightId) return
+    const t = setTimeout(() => setHighlightId(null), 5000)
+    return () => clearTimeout(t)
+  }, [highlightId])
 
   // Para ambulatoria no se necesita protocolo; para protocolo se pasa el id (o null).
   const receptions = useReceptions(tipo, tipo === 'ambulatoria' ? null : protocolId || null)
