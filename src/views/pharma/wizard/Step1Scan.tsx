@@ -51,7 +51,7 @@ export function Step1Scan({ tipo, protocolId, accentSolid, meds, setMeds }: Prop
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <FormField label="Escáner (código de barras)">
         <div style={{ display: 'flex', gap: 8 }}>
-          <input ref={scanRef} value={scan} onChange={(e) => setScan(e.target.value)} onKeyDown={onKey} autoFocus className="spira-mono" placeholder="Escaneá o tipeá el código y Enter" style={{ ...fieldInput, flex: 1 }} />
+          <input ref={scanRef} value={scan} onChange={(e) => setScan(e.target.value)} onKeyDown={onKey} autoFocus className="spira-mono spira-search-input" placeholder="Escaneá o tipeá el código y Enter" style={{ ...fieldInput, flex: 1 }} />
           <button type="button" onClick={() => void handleScan()} style={btnOutline}>Buscar</button>
         </div>
       </FormField>

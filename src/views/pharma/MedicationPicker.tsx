@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { fieldInput } from '../../components/FormField'
 import { useMedications } from '../../data/pharma'
 
@@ -17,6 +17,17 @@ export function MedicationPicker({ onPick, accent }: Props) {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Cerrar el desplegable al clickear afuera (Escape también cierra).
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
 
   const matches = useMemo(() => {
     const t = q.trim().toLowerCase()
@@ -37,8 +48,9 @@ export function MedicationPicker({ onPick, accent }: Props) {
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={containerRef} style={{ position: 'relative' }}>
       <input
+        className="spira-search-input"
         value={q}
         onChange={(e) => { setQ(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
