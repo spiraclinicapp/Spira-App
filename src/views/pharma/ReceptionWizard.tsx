@@ -11,6 +11,19 @@ import { Step3Summary } from './wizard/Step3Summary'
 /** Borrador de un lote a recibir (se construye en el Paso 2). */
 export interface LotDraft { key: number; lotNumber: string; expiryDate: string; quantity: string }
 
+/** Borrador de una unidad de IP escaneada (Paso 1 del wizard, rama investigación). */
+export interface IpUnitDraft {
+  key: number
+  kitNumber: string
+  rawCode: string
+  gtin: string
+  lotNumber: string
+  expiryDate: string
+  drugId: string      // '' = cegado
+  drugName: string    // etiqueta para mostrar
+  manual: boolean     // cargado a mano (fallback GS1)
+}
+
 /** Medicamento con cantidad y lotes ya contados (se arma en el Paso 1 y se detalla en el Paso 2). */
 export interface CountedMed { medicationId: string; name: string; quantity: number; lots: LotDraft[] }
 
