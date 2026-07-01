@@ -48,7 +48,7 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
 
   const ambitoControl = (
     <SegmentedControl<Ambito>
-      accent={accent}
+      accent={accentSolid}
       value={ambito}
       onChange={(v) => { setAmbito(v); setSearch(''); setIpSearch('') }}
       options={[
