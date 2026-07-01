@@ -69,5 +69,6 @@ export function parseGs1(raw: string): Gs1Parsed {
   const lotNumber = ais['10'] || undefined
   const expiryDate = ais['17'] ? gs1Date(ais['17']) : undefined
   const kitNumber = ais['21'] || undefined // ⚠️ supuesto: el N° de kit viene en el serial (21)
-  return { ais, gtin, kitNumber, lotNumber, expiryDate, isGs1: matched && Object.keys(ais).length > 0 }
+  // matched se pone en true recién al agregar un AI a `ais`, así que ya implica ais no vacío.
+  return { ais, gtin, kitNumber, lotNumber, expiryDate, isGs1: matched }
 }
