@@ -36,9 +36,9 @@ export interface CreateIpReceptionInput {
 
 /** Stock de IP en un protocolo (unidades en_stock). Lee v_ip_units. */
 export function useIpUnits(protocolId: string | null) {
-  return useSupabaseQuery<IpUnitRow[]>(async () => {
-    if (!protocolId) return { data: [], error: null }
-    return await supabase
+  return useSupabaseQuery<IpUnitRow[]>((c) => {
+    if (!protocolId) return Promise.resolve({ data: [], error: null })
+    return c
       .from('v_ip_units')
       .select('*')
       .eq('protocol_id', protocolId)
