@@ -13,8 +13,8 @@ interface Props {
 
 /**
  * Paso 0 del wizard de recepción: selección de tipo (Protocolo / Investigación / Ambulatoria)
- * y, si aplica, el protocolo correspondiente. "Investigación" aparece deshabilitado con badge
- * "próximamente" — es la segunda tajada del modelo IP (pendiente de rediseño fundacional).
+ * y, si aplica, el protocolo correspondiente. Tanto Protocolo como Producto Investigación
+ * exigen elegir un protocolo antes de avanzar.
  */
 export function Step0Setup({ accentSolid, tipo, protocolId, onTipo, onProtocol }: Props) {
   const protocols = useProtocols()
@@ -27,12 +27,12 @@ export function Step0Setup({ accentSolid, tipo, protocolId, onTipo, onProtocol }
           onChange={onTipo}
           options={[
             { value: 'protocolo' as ReceptionKind, label: 'Farmacia Protocolo' },
-            { value: 'investigacion' as ReceptionKind, label: 'Producto Investigación', disabled: true, badge: 'próximamente' },
+            { value: 'investigacion' as ReceptionKind, label: 'Producto Investigación' },
             { value: 'ambulatoria' as ReceptionKind, label: 'Farmacia Ambulatoria' },
           ]}
         />
       </FormField>
-      {tipo === 'protocolo' && (
+      {(tipo === 'protocolo' || tipo === 'investigacion') && (
         <FormField label="Protocolo">
           <select value={protocolId} onChange={(e) => onProtocol(e.target.value)} required style={fieldInput}>
             <option value="" disabled>Elegí un protocolo</option>

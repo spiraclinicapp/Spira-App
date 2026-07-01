@@ -62,12 +62,13 @@ export function RecepcionView({ module, submodule }: ViewProps) {
       onChange={(v) => { setTipo(v); setHighlightId(null) }}
       options={[
         { value: 'protocolo', label: 'Farmacia Protocolo' },
+        { value: 'investigacion', label: 'Producto Investigación' },
         { value: 'ambulatoria', label: 'Farmacia Ambulatoria' },
       ]}
     />
   )
 
-  const protocolSelect = tipo === 'protocolo' ? (
+  const protocolSelect = tipo !== 'ambulatoria' ? (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)' }}>Protocolo</span>
       <select value={protocolId} onChange={(e) => { setProtocolId(e.target.value); setHighlightId(null) }} style={{ ...fieldInput, height: 40, maxWidth: 380 }}>
@@ -79,8 +80,8 @@ export function RecepcionView({ module, submodule }: ViewProps) {
     </div>
   ) : null
 
-  // Gating: protocolo sin elegir → EmptyState orientativo.
-  if (tipo === 'protocolo' && !protocolId) {
+  // Gating: protocolo o investigación sin elegir protocolo → EmptyState orientativo.
+  if (tipo !== 'ambulatoria' && !protocolId) {
     return (
       <div style={wrap}>
         {ambitoControl}
