@@ -60,7 +60,7 @@ export function Step2ReviewIp({ accentSolid, units, setUnits }: Props) {
               <input type="date" value={u.expiryDate} onChange={(e) => patch(u.key, { expiryDate: e.target.value })} style={{ ...fieldInput, height: 36 }} />
               {/* Droga: chip clickeable para quitar, o chip "Cegado" (estado válido, no error). */}
               {u.drugId
-                ? <span style={chip} onClick={() => patch(u.key, { drugId: '', drugName: '' })} title="Quitar droga">{u.drugName} ✕</span>
+                ? <button type="button" aria-label={`Quitar droga ${u.drugName}`} style={chip} onClick={() => patch(u.key, { drugId: '', drugName: '' })}>{u.drugName} ✕</button>
                 : <span style={cegadoChip}>Cegado</span>}
             </div>
           </li>
@@ -74,7 +74,7 @@ export function Step2ReviewIp({ accentSolid, units, setUnits }: Props) {
 const rowCard = { display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--spira-line)', borderRadius: 12, background: 'var(--spira-white)', padding: '10px 12px' } as const
 
 // Chip de droga asignada: clicable para quitar. Tono ink sobre surface.
-const chip = { fontSize: 12.5, padding: '4px 10px', borderRadius: 999, background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: 'pointer', textAlign: 'center' } as const
+const chip = { fontSize: 12.5, padding: '4px 10px', borderRadius: 999, background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: 'pointer', border: 'none', textAlign: 'center' } as const
 
 // Chip "Cegado": estado válido y final, tono muted sobre surface — neutro, no warning.
 const cegadoChip = { fontSize: 12.5, padding: '4px 10px', borderRadius: 999, background: 'var(--spira-surface)', color: 'var(--spira-muted)', textAlign: 'center' } as const

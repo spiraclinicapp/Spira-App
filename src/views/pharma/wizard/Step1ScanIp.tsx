@@ -97,7 +97,7 @@ export function Step1ScanIp({ accentSolid, units, setUnits }: Props) {
               </div>
               <div style={{ width: 220 }}>
                 {u.drugId
-                  ? <span style={chip} onClick={() => setDrug(u.key, '', '')} title="Quitar droga">{u.drugName} ✕</span>
+                  ? <button type="button" aria-label={`Quitar droga ${u.drugName}`} style={chip} onClick={() => setDrug(u.key, '', '')}>{u.drugName} ✕</button>
                   : <DrugPicker accent={accentSolid} onPick={(id, name) => setDrug(u.key, id, name)} placeholder="Cegado — o elegí droga" />}
               </div>
               <button type="button" aria-label="Quitar unidad" onClick={() => remove(u.key)} style={delBtn}>✕</button>
@@ -110,6 +110,6 @@ export function Step1ScanIp({ accentSolid, units, setUnits }: Props) {
 }
 
 const rowCard = { display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--spira-line)', borderRadius: 12, background: 'var(--spira-white)', padding: '10px 14px' } as const
-const chip = { display: 'inline-block', fontSize: 12.5, padding: '4px 10px', borderRadius: 999, background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: 'pointer' } as const
+const chip = { display: 'inline-block', fontSize: 12.5, padding: '4px 10px', borderRadius: 999, background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: 'pointer', border: 'none' } as const
 const manualTag = { marginLeft: 8, fontSize: 11, color: 'var(--spira-warn)', border: '1px solid var(--spira-warn)', borderRadius: 6, padding: '1px 6px' } as const
 const delBtn = { width: 36, height: 36, borderRadius: 8, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', cursor: 'pointer', color: 'var(--spira-muted)' } as const

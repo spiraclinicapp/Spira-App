@@ -33,12 +33,12 @@ export function Step3SummaryIp({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Métricas agregadas del lote a recibir. `porVencer` incluye ya vencidas
-  // (comparamos contra hoy porque la base hace lo mismo en el trigger).
+  // Métricas agregadas del lote a recibir. `porVencer` abarca las ya vencidas más las que
+  // vencen en los próximos 30 días, alineado con los flags `vencida`/`por_vencer` de v_ip_units.
   const agg = useMemo(() => {
     const conDroga = units.filter((u) => u.drugId).length
-    const today = new Date().toISOString().slice(0, 10)
-    const porVencer = units.filter((u) => u.expiryDate && u.expiryDate < today).length
+    const in30 = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10)
+    const porVencer = units.filter((u) => u.expiryDate && u.expiryDate < in30).length
     return { total: units.length, conDroga, cegadas: units.length - conDroga, porVencer }
   }, [units])
 

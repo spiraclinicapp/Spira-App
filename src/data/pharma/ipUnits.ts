@@ -44,6 +44,7 @@ export function useIpUnits(protocolId: string | null) {
       .eq('protocol_id', protocolId)
       .eq('status', 'en_stock')
       .order('expiry_date', { ascending: true, nullsFirst: false })
+      .returns<IpUnitRow[]>()
   }, [protocolId])
 }
 

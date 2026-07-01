@@ -117,7 +117,7 @@ Más dos triggers espejo de los patrones del repo (**van en la 0037**, ver §7):
 **RLS** (Pharma es central — ve todos los protocolos):
 
 - `SELECT` → `has_module('pharma') or has_module('gerencia')`.
-- `INSERT` / `UPDATE` → `has_module('pharma')` (**operator+**, igual que `medication_lots` en la 0006).
+- `INSERT` / `UPDATE` → `has_min_role('pharma','operator')` (igual que `medication_lots` en la 0006).
 - `DELETE` → `has_module('gerencia')`.
 - `grant select, insert, update on public.ip_units to authenticated` (PostgREST lo exige aunque la
   RLS filtre). La **creación pasa por el RPC `SECURITY DEFINER` `leader+`** (§4), que bypassa la RLS;
