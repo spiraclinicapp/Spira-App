@@ -7,6 +7,9 @@ import { Step0Setup } from './wizard/Step0Setup'
 import { Step1Scan } from './wizard/Step1Scan'
 import { Step2Lots } from './wizard/Step2Lots'
 import { Step3Summary } from './wizard/Step3Summary'
+import { Step1ScanIp } from './wizard/Step1ScanIp'
+import { Step2ReviewIp } from './wizard/Step2ReviewIp'
+import { Step3SummaryIp } from './wizard/Step3SummaryIp'
 
 /** Borrador de un lote a recibir (se construye en el Paso 2). */
 export interface LotDraft { key: number; lotNumber: string; expiryDate: string; quantity: string }
@@ -27,7 +30,7 @@ export interface IpUnitDraft {
 /** Medicamento con cantidad y lotes ya contados (se arma en el Paso 1 y se detalla en el Paso 2). */
 export interface CountedMed { medicationId: string; name: string; quantity: number; lots: LotDraft[] }
 
-const STEPS = ['Setup', 'Escaneo', 'Lotes', 'Resumen']
+// STEPS se calcula dentro del componente según el tipo (ver abajo).
 
 interface Props {
   accentSolid: string
@@ -48,19 +51,31 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   const [tipo, setTipo] = useState<ReceptionKind>(initialTipo)
   const [protocolId, setProtocolId] = useState(initialProtocolId)
   const [meds, setMeds] = useState<CountedMed[]>([])
+  const [ipUnits, setIpUnits] = useState<IpUnitDraft[]>([])
   const [receptionDate, setReceptionDate] = useState(new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState('')
   // Guardamos la acción a confirmar; `null | (() => void)` para evitar el colapso de
   // useState con una función inicializadora que TS no puede discriminar.
   const [confirmDiscard, setConfirmDiscard] = useState<null | (() => void)>(null)
 
-  const hasData = meds.length > 0
-  // guard: si hay medicamentos cargados, pide confirmación antes de ejecutar la acción.
+  const isIp = tipo === 'investigacion'
+  const STEPS = isIp ? ['Setup', 'Escaneo', 'Revisión', 'Resumen'] : ['Setup', 'Escaneo', 'Lotes', 'Resumen']
+
+  const hasData = isIp ? ipUnits.length > 0 : meds.length > 0
+  // guard: si hay datos cargados (medicamentos o unidades IP), pide confirmación antes de ejecutar la acción.
   const guard = (action: () => void) => { if (hasData) setConfirmDiscard(() => action); else action() }
 
-  /** Validación por paso. El Paso 3 solo necesita fecha (siempre hay una por default). */
+  /** Validación por paso. El Paso 3 solo necesita fecha (siempre hay una por default).
+   *  El Paso 0 exige protocolo tanto para 'protocolo' como 'investigacion'.
+   *  Los pasos 1/2 se ramifican por isIp. */
   const canAdvance = (): boolean => {
-    if (step === 0) return tipo === 'ambulatoria' || (tipo === 'protocolo' && !!protocolId)
+    if (step === 0) return tipo === 'ambulatoria' || !!protocolId
+    if (isIp) {
+      if (step === 1) return ipUnits.length > 0
+      if (step === 2) return true   // droga opcional; lote/vto editables en Step2ReviewIp
+      return !!receptionDate
+    }
+    // Rama base (protocolo / ambulatoria)
     if (step === 1) return meds.length > 0 && meds.every((m) => m.quantity > 0)
     if (step === 2) return meds.every((m) => {
       const lotNums = m.lots.map((l) => l.lotNumber.trim()).filter(Boolean)
@@ -77,10 +92,10 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   const seedLots = (list: CountedMed[]): CountedMed[] =>
     list.map((m) => (m.lots.length ? m : { ...m, lots: [{ key: 1, lotNumber: '', expiryDate: '', quantity: String(m.quantity) }] }))
 
-  // Al entrar a cualquier paso ≥ 2 (por avance o salto), sembramos los lotes faltantes.
-  // seedLots es idempotente: solo rellena medicamentos sin lotes, nunca pisa los editados.
+  // Al entrar a cualquier paso ≥ 2 (por avance o salto), sembramos los lotes faltantes solo en la
+  // rama de base. seedLots es idempotente: solo rellena medicamentos sin lotes, nunca pisa los editados.
   const goto = (i: number) => {
-    if (i >= 2) setMeds(seedLots)
+    if (i >= 2 && !isIp) setMeds(seedLots)
     setStep(i)
     setMaxReached((m) => Math.max(m, i))
   }
@@ -104,13 +119,19 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
           accentSolid={accentSolid}
           tipo={tipo}
           protocolId={protocolId}
-          onTipo={(t) => guard(() => { setTipo(t); if (t === 'ambulatoria') setProtocolId(''); setMeds([]) })}
+          onTipo={(t) => guard(() => { setTipo(t); if (t === 'ambulatoria') setProtocolId(''); setMeds([]); setIpUnits([]) })}
           onProtocol={setProtocolId}
         />
       )}
-      {step === 1 && <Step1Scan tipo={tipo} protocolId={protocolId} accentSolid={accentSolid} meds={meds} setMeds={setMeds} />}
-      {step === 2 && <Step2Lots meds={meds} setMeds={setMeds} accentSolid={accentSolid} />}
-      {step === 3 && <Step3Summary tipo={tipo} protocolId={protocolId} meds={meds} receptionDate={receptionDate} notes={notes} setReceptionDate={setReceptionDate} setNotes={setNotes} accentSolid={accentSolid} onCreated={onCreated} />}
+      {step === 1 && (isIp
+        ? <Step1ScanIp accentSolid={accentSolid} units={ipUnits} setUnits={setIpUnits} />
+        : <Step1Scan tipo={tipo} protocolId={protocolId} accentSolid={accentSolid} meds={meds} setMeds={setMeds} />)}
+      {step === 2 && (isIp
+        ? <Step2ReviewIp accentSolid={accentSolid} units={ipUnits} setUnits={setIpUnits} />
+        : <Step2Lots meds={meds} setMeds={setMeds} accentSolid={accentSolid} />)}
+      {step === 3 && (isIp
+        ? <Step3SummaryIp protocolId={protocolId} units={ipUnits} receptionDate={receptionDate} notes={notes} setReceptionDate={setReceptionDate} setNotes={setNotes} accentSolid={accentSolid} onCreated={onCreated} />
+        : <Step3Summary tipo={tipo} protocolId={protocolId} meds={meds} receptionDate={receptionDate} notes={notes} setReceptionDate={setReceptionDate} setNotes={setNotes} accentSolid={accentSolid} onCreated={onCreated} />)}
 
       {/* Navegación inferior */}
       <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--spira-line)', paddingTop: 14 }}>
