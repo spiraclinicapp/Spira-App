@@ -52,10 +52,10 @@ create policy "pharma/gerencia ven IP" on public.ip_units for select
   using (public.has_module('pharma') or public.has_module('gerencia'));
 drop policy if exists "pharma inserta IP" on public.ip_units;
 create policy "pharma inserta IP" on public.ip_units for insert
-  with check (public.has_module('pharma'));
+  with check (public.has_min_role('pharma','operator'));
 drop policy if exists "pharma edita IP" on public.ip_units;
 create policy "pharma edita IP" on public.ip_units for update
-  using (public.has_module('pharma')) with check (public.has_module('pharma'));
+  using (public.has_min_role('pharma','operator')) with check (public.has_min_role('pharma','operator'));
 drop policy if exists "gerencia borra IP" on public.ip_units;
 create policy "gerencia borra IP" on public.ip_units for delete
   using (public.has_module('gerencia'));
