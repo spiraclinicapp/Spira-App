@@ -33,15 +33,18 @@ export function Step1ScanIp({ accentSolid, units, setUnits }: Props) {
   const nextKey = useRef(1)
 
   // Agrega una unidad arriba (última escaneada visible). Dedup por kit_number, o por raw_code si no hubo kit.
+  // El feedback se calcula dentro del updater (puro) y se emite después: nada de side-effects en el updater.
   const addUnit = (u: Omit<IpUnitDraft, 'key'>) => {
+    let feedback = ''
     setUnits((prev) => {
       const dupe = prev.some((p) =>
         (u.kitNumber && p.kitNumber === u.kitNumber) ||
         (!u.kitNumber && u.rawCode && p.rawCode === u.rawCode))
-      if (dupe) { setMsg('Esa unidad ya fue escaneada.'); return prev }
-      setMsg(`+1 ${u.kitNumber || u.rawCode || 'unidad'}`)
+      if (dupe) { feedback = 'Esa unidad ya fue escaneada.'; return prev }
+      feedback = `+1 ${u.kitNumber || u.rawCode || 'unidad'}`
       return [{ ...u, key: nextKey.current++ }, ...prev]
     })
+    setMsg(feedback)
   }
 
   const handleScan = () => {
