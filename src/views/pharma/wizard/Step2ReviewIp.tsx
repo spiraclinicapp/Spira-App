@@ -27,9 +27,12 @@ export function Step2ReviewIp({ accentSolid, units, setUnits }: Props) {
   // Selecciona solo las unidades sin droga asignada (cegadas).
   const selectBlind = () => setSelected(new Set(units.filter((u) => !u.drugId).map((u) => u.key)))
 
-  // Aplica la droga elegida a todas las unidades seleccionadas.
-  const applyDrug = (drugId: string, drugName: string) =>
+  // Aplica la droga elegida a todas las unidades seleccionadas y limpia la selección
+  // (si no, el picker queda abierto y el contador muestra filas que ya tienen droga).
+  const applyDrug = (drugId: string, drugName: string) => {
     setUnits((prev) => prev.map((u) => selected.has(u.key) ? { ...u, drugId, drugName } : u))
+    setSelected(new Set())
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
