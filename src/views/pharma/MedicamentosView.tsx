@@ -2,18 +2,21 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { EmptyState } from '../../components/EmptyState'
+import { SegmentedControl } from '../../components/SegmentedControl'
 import { btnOutline, btnPrimary } from '../../components/buttons'
 import { fieldInput } from '../../components/FormField'
 import { useAuth } from '../../lib/auth'
 import { useProtocols } from '../../data/protocols'
-import { useStock } from '../../data/pharma'
-import type { StockRow } from '../../data/pharma'
+import { useStock, useIpUnits } from '../../data/pharma'
+import type { StockRow, IpUnitRow } from '../../data/pharma'
 import { NewMedicationForm } from './NewMedicationForm'
 import { AssignMedicationForm } from './AssignMedicationForm'
 import { AdjustStockModal } from './AdjustStockModal'
 import type { ViewProps } from '../types'
 
 type StockFilter = 'todos' | 'bajo' | 'sin'
+type IpFilter = 'todas' | 'por_vencer' | 'vencidas'
+type Ambito = 'base' | 'investigacion'
 
 /**
  * Pharma → Medicamentos. El catálogo es global; el stock se muestra por protocolo
@@ -28,13 +31,32 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
 
   const protocols = useProtocols()
   const [protocolId, setProtocolId] = useState('')
-  const stock = useStock(protocolId || null)
+  const [ambito, setAmbito] = useState<Ambito>('base')
+
+  // Stock de medicación de base (cantidad) — solo se consulta en ámbito 'base'
+  const stock = useStock(ambito === 'base' ? (protocolId || null) : null)
+  // Stock de IP (unidades) — solo se consulta en ámbito 'investigacion'
+  const ip = useIpUnits(ambito === 'investigacion' ? (protocolId || null) : null)
 
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<StockFilter>('todos')
+  const [ipFilter, setIpFilter] = useState<IpFilter>('todas')
+  const [ipSearch, setIpSearch] = useState('')
   const [creating, setCreating] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [adjusting, setAdjusting] = useState<{ medicationId: string; name: string } | null>(null)
+
+  const ambitoControl = (
+    <SegmentedControl<Ambito>
+      accent={accent}
+      value={ambito}
+      onChange={(v) => { setAmbito(v); setSearch(''); setIpSearch('') }}
+      options={[
+        { value: 'base', label: 'Medicación de base' },
+        { value: 'investigacion', label: 'Producto Investigación' },
+      ]}
+    />
+  )
 
   const protocolSelect = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -54,23 +76,106 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
     </div>
   )
 
+  // ── Gating: protocolo no elegido ────────────────────────────────────────────
   if (!protocolId) {
     return (
       <div style={wrap}>
+        {ambitoControl}
         {protocolSelect}
         <EmptyState
           accent={accent}
           icon={submodule.icon}
           title="Elegí un protocolo"
-          description="Mostramos el stock de medicación del protocolo que selecciones."
+          description="Mostramos el stock del protocolo que selecciones."
         />
       </div>
     )
   }
 
+  // ── Rama IP (unidades rastreables) ──────────────────────────────────────────
+  if (ambito === 'investigacion') {
+    if (ip.loading) {
+      return (
+        <div style={wrap}>
+          {ambitoControl}
+          {protocolSelect}
+          <EmptyState accent={accent} icon={submodule.icon} title="Cargando…" description="Un momento." />
+        </div>
+      )
+    }
+
+    if (ip.error) {
+      return (
+        <div style={wrap}>
+          {ambitoControl}
+          {protocolSelect}
+          <div style={errorBox}>
+            <Icon name="alertCircle" size={18} color="var(--spira-danger)" /> No pudimos cargar el stock de IP.
+          </div>
+          <button onClick={() => ip.refetch()} style={btnOutline}>Reintentar</button>
+        </div>
+      )
+    }
+
+    const ipRows = (ip.data ?? []).filter((u) => {
+      const q = ipSearch.trim().toLowerCase()
+      if (q && !u.kit_number.toLowerCase().includes(q)) return false
+      if (ipFilter === 'vencidas') return u.vencida
+      if (ipFilter === 'por_vencer') return u.por_vencer && !u.vencida
+      return true
+    })
+
+    return (
+      <div style={wrap}>
+        {ambitoControl}
+        {protocolSelect}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={searchWrap}>
+            <span style={{ position: 'absolute', left: 11, display: 'grid', placeItems: 'center' }}>
+              <Icon name="search" size={16} color="var(--spira-muted)" />
+            </span>
+            <input
+              value={ipSearch}
+              onChange={(e) => setIpSearch(e.target.value)}
+              placeholder="Buscar por N° de kit"
+              style={searchInput}
+            />
+          </div>
+          <select
+            value={ipFilter}
+            onChange={(e) => setIpFilter(e.target.value as IpFilter)}
+            style={{ ...fieldInput, height: 40, width: 'auto' }}
+          >
+            <option value="todas">Todas</option>
+            <option value="por_vencer">Por vencer</option>
+            <option value="vencidas">Vencidas</option>
+          </select>
+        </div>
+
+        {ipRows.length === 0 ? (
+          <EmptyState
+            accent={accent}
+            icon={submodule.icon}
+            title="Sin unidades en stock"
+            description="No hay unidades de IP en stock para este protocolo (o ninguna coincide con el filtro)."
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {ipRows.map((u) => (
+              <IpUnitCard key={u.id} u={u} />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Rama base (medicación por cantidad) ─────────────────────────────────────
   if (stock.loading) {
     return (
       <div style={wrap}>
+        {ambitoControl}
         {protocolSelect}
         <EmptyState accent={accent} icon={submodule.icon} title="Cargando…" description="Un momento." />
       </div>
@@ -80,6 +185,7 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
   if (stock.error) {
     return (
       <div style={wrap}>
+        {ambitoControl}
         {protocolSelect}
         <div style={errorBox}>
           <Icon name="alertCircle" size={18} color="var(--spira-danger)" /> No pudimos cargar el stock.
@@ -99,6 +205,7 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
 
   return (
     <div style={wrap}>
+      {ambitoControl}
       {protocolSelect}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -176,6 +283,32 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
           onAdjusted={() => { setAdjusting(null); stock.refetch() }}
         />
       )}
+    </div>
+  )
+}
+
+function IpUnitCard({ u }: { u: IpUnitRow }) {
+  const badge = u.vencida
+    ? { label: 'Vencida', color: 'var(--spira-danger)', bg: 'rgba(166,72,59,0.10)' }
+    : u.por_vencer
+      ? { label: 'Por vencer', color: 'var(--spira-warn)', bg: 'rgba(176,130,63,0.12)' }
+      : { label: 'En stock', color: 'var(--spira-good)', bg: 'rgba(92,138,90,0.12)' }
+  return (
+    <div style={rowCard}>
+      <div style={{ minWidth: 0 }}>
+        {/* N° de kit como identificador principal, en mono para lectura de códigos */}
+        <div className="spira-mono" style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--spira-ink)' }}>{u.kit_number}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>
+          {u.lot_number ? `lote ${u.lot_number}` : 'sin lote'}{u.expiry_date ? ` · vence ${u.expiry_date}` : ''}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' }}>
+        {/* Chip de droga: neutro cuando está cegado (no warning — es intencional en el diseño del ensayo) */}
+        <span style={{ ...badgeStyle, color: 'var(--spira-muted)', background: 'var(--spira-surface)' }}>
+          {u.drug_name ?? 'Cegado'}
+        </span>
+        <span style={{ ...badgeStyle, color: badge.color, background: badge.bg }}>{badge.label}</span>
+      </div>
     </div>
   )
 }
