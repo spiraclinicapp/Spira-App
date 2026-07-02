@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { Badge } from '../../components/Badge'
+import { Chip } from '../../components/Chip'
 import { EmptyState } from '../../components/EmptyState'
 import { SegmentedControl } from '../../components/SegmentedControl'
 import { btnOutline, btnPrimary } from '../../components/buttons'
@@ -143,15 +144,11 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
               style={searchInput}
             />
           </div>
-          <select
-            value={ipFilter}
-            onChange={(e) => setIpFilter(e.target.value as IpFilter)}
-            style={{ ...fieldInput, height: 40, width: 'auto' }}
-          >
-            <option value="todas">Todas</option>
-            <option value="por_vencer">Por vencer</option>
-            <option value="vencidas">Vencidas</option>
-          </select>
+          <div role="radiogroup" aria-label="Filtro de vencimiento" style={{ display: 'flex', gap: 7 }}>
+            {([['todas', 'Todas'], ['por_vencer', 'Por vencer'], ['vencidas', 'Vencidas']] as [IpFilter, string][]).map(([v, label]) => (
+              <Chip key={v} label={label} selected={ipFilter === v} onClick={() => setIpFilter(v)} accent={accentSolid} />
+            ))}
+          </div>
         </div>
 
         {ipRows.length === 0 ? (
@@ -221,11 +218,11 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
             style={searchInput}
           />
         </div>
-        <select value={filter} onChange={(e) => setFilter(e.target.value as StockFilter)} style={{ ...fieldInput, height: 40, width: 'auto' }}>
-          <option value="todos">Todos</option>
-          <option value="bajo">Stock bajo</option>
-          <option value="sin">Sin stock</option>
-        </select>
+        <div role="radiogroup" aria-label="Filtro de stock" style={{ display: 'flex', gap: 7 }}>
+          {([['todos', 'Todos'], ['bajo', 'Stock bajo'], ['sin', 'Sin stock']] as [StockFilter, string][]).map(([v, label]) => (
+            <Chip key={v} label={label} selected={filter === v} onClick={() => setFilter(v)} accent={accentSolid} />
+          ))}
+        </div>
         {canManage && (
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
             <button onClick={() => setAssigning(true)} style={btnOutline}>
@@ -345,9 +342,10 @@ const errorBox: CSSProperties = {
 }
 const searchWrap: CSSProperties = { position: 'relative', flex: 1, maxWidth: 320, display: 'flex', alignItems: 'center' }
 const searchInput: CSSProperties = {
-  width: '100%', height: 40, padding: '0 12px 0 34px', borderRadius: 10,
+  width: '100%', height: 40, padding: '0 12px 0 34px', borderRadius: 999,
   border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
   color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14,
+  boxShadow: 'var(--spira-shadow-sm)',
 }
 const rowCard: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 14, border: '1px solid var(--spira-line)',
