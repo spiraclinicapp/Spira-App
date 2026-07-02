@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
+import { Badge } from '../../components/Badge'
 import { EmptyState } from '../../components/EmptyState'
 import { SegmentedControl } from '../../components/SegmentedControl'
 import { btnOutline, btnPrimary } from '../../components/buttons'
@@ -288,11 +289,11 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
 }
 
 function IpUnitCard({ u }: { u: IpUnitRow }) {
-  const badge = u.vencida
-    ? { label: 'Vencida', color: 'var(--spira-danger)', bg: 'rgba(166,72,59,0.10)' }
+  const estado = u.vencida
+    ? { tone: 'danger' as const, label: 'Vencida' }
     : u.por_vencer
-      ? { label: 'Por vencer', color: 'var(--spira-warn)', bg: 'rgba(176,130,63,0.12)' }
-      : { label: 'En stock', color: 'var(--spira-good)', bg: 'rgba(92,138,90,0.12)' }
+      ? { tone: 'warn' as const, label: 'Por vencer' }
+      : { tone: 'good' as const, label: 'En stock' }
   return (
     <div style={rowCard}>
       <div style={{ minWidth: 0 }}>
@@ -304,10 +305,8 @@ function IpUnitCard({ u }: { u: IpUnitRow }) {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' }}>
         {/* Chip de droga: neutro cuando está cegado (no warning — es intencional en el diseño del ensayo) */}
-        <span style={{ ...badgeStyle, color: 'var(--spira-muted)', background: 'var(--spira-surface)' }}>
-          {u.drug_name ?? 'Cegado'}
-        </span>
-        <span style={{ ...badgeStyle, color: badge.color, background: badge.bg }}>{badge.label}</span>
+        <Badge>{u.drug_name ?? 'Cegado'}</Badge>
+        <Badge tone={estado.tone}>{estado.label}</Badge>
       </div>
     </div>
   )
@@ -322,9 +321,7 @@ function StockRowItem({ row, canManage, onAdjust }: { row: StockRow; canManage: 
         <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>{row.unit}</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto' }}>
-        <span style={{ ...badgeStyle, color: badge.color, background: badge.bg }}>
-          {badge.label} · {row.total_stock}
-        </span>
+        <Badge tone={badge.tone}>{badge.label} · {row.total_stock}</Badge>
         {canManage && (
           <button onClick={onAdjust} style={sideBtn}>
             <Icon name="pencil" size={14} color="var(--spira-muted)" /> Ajustar
@@ -335,10 +332,10 @@ function StockRowItem({ row, canManage, onAdjust }: { row: StockRow; canManage: 
   )
 }
 
-function stockBadge(r: StockRow): { label: string; color: string; bg: string } {
-  if (r.total_stock === 0) return { label: 'Sin stock', color: 'var(--spira-danger)', bg: 'rgba(166,72,59,0.10)' }
-  if (r.is_low_stock) return { label: 'Stock bajo', color: 'var(--spira-warn)', bg: 'rgba(176,130,63,0.12)' }
-  return { label: 'En stock', color: 'var(--spira-good)', bg: 'rgba(92,138,90,0.12)' }
+function stockBadge(r: StockRow): { label: string; tone: 'good' | 'warn' | 'danger' } {
+  if (r.total_stock === 0) return { label: 'Sin stock', tone: 'danger' }
+  if (r.is_low_stock) return { label: 'Stock bajo', tone: 'warn' }
+  return { label: 'En stock', tone: 'good' }
 }
 
 const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16 }
@@ -356,7 +353,6 @@ const rowCard: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 14, border: '1px solid var(--spira-line)',
   borderRadius: 14, background: 'var(--spira-white)', padding: '13px 16px',
 }
-const badgeStyle: CSSProperties = { fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap' }
 const sideBtn: CSSProperties = {
   height: 32, padding: '0 12px', border: '1px solid var(--spira-line-2)', borderRadius: 8,
   background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)',

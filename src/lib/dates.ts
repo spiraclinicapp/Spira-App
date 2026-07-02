@@ -94,3 +94,27 @@ export function weekLabel(days: string[]): string {
   }
   return `${a.getDate()} de ${MONTH_NAMES[a.getMonth()]} – ${b.getDate()} de ${MONTH_NAMES[b.getMonth()]} ${b.getFullYear()}`
 }
+
+/** Etiqueta de grupo por día para listas históricas (recepciones): "Hoy" / "Ayer" / "Jueves 26 jun".
+ *  Espeja dayLabel() pero mira hacia atrás (una cola de recepciones no tiene "Mañana"). */
+export function dayGroupLabel(iso: string): string {
+  const diff = daysDiffISO(todayISO(), iso)
+  if (diff === 0) return 'Hoy'
+  if (diff === -1) return 'Ayer'
+  return `${dayName(iso)} ${formatDayMonth(iso)}`
+}
+
+/**
+ * Agrupa filas por su fecha ISO preservando el orden de entrada (pensado para listas
+ * ya ordenadas desc por fecha: los grupos salen del más nuevo al más viejo).
+ */
+export function groupByDay<T>(rows: T[], getDate: (r: T) => string): { date: string; label: string; items: T[] }[] {
+  const order: string[] = []
+  const byDay = new Map<string, T[]>()
+  for (const r of rows) {
+    const d = getDate(r)
+    if (!byDay.has(d)) { byDay.set(d, []); order.push(d) }
+    byDay.get(d)!.push(r)
+  }
+  return order.map((d) => ({ date: d, label: dayGroupLabel(d), items: byDay.get(d)! }))
+}
