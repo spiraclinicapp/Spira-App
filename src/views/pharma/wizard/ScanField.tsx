@@ -13,9 +13,10 @@ interface Props {
 
 /**
  * Buscador central de escaneo (lenguaje 2a del handoff), compartido por la rama base y la IP.
- * El borde ámbar va SIEMPRE visible (no es un estado de foco): es la affordance de la acción
- * primaria del paso, que además vive autofocuseada. `0x1f` ≈ 12% de alfa para el halo.
- * Enter y el botón "Buscar" disparan el mismo onSubmit.
+ * Input sobrio (borde neutro 1px) con el foco suave ESTÁNDAR de Spira —elevación + sombra, sin
+ * recuadro de color— igual que el buscador de Pacientes (`.spira-search-input`). El acento del
+ * módulo queda en el ícono de barras y en el botón "Buscar", no en el borde. Vive autofocuseado;
+ * Enter y "Buscar" disparan el mismo onSubmit.
  */
 export function ScanField({ label, placeholder, value, onChange, onSubmit, accentSolid, inputRef }: Props) {
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); onSubmit() } }
@@ -30,12 +31,12 @@ export function ScanField({ label, placeholder, value, onChange, onSubmit, accen
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={onKey}
             autoFocus
-            className="spira-mono"
+            className="spira-mono spira-search-input"
             placeholder={placeholder}
             style={{
               width: '100%', height: 50, padding: '0 48px 0 16px', borderRadius: 12,
-              background: 'var(--spira-white)', border: `2px solid ${accentSolid}`,
-              boxShadow: `0 0 0 3px ${accentSolid}1f`, color: 'var(--spira-ink)', fontSize: 15,
+              background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)',
+              color: 'var(--spira-ink)', fontSize: 15,
             }}
           />
           <span style={{ position: 'absolute', right: 15, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>

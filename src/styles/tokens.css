@@ -84,24 +84,39 @@ body {
 button { font-family: inherit; }
 
 /* —— Foco visible por teclado (accesibilidad) —— */
-:where(button, input, a, [tabindex]):focus-visible {
+/* Botones, links y focusables custom: outline petróleo accesible (2px). */
+:where(button, a, [tabindex]):focus-visible {
   outline: 2px solid var(--spira-primary);
   outline-offset: 2px;
   border-radius: var(--spira-radius-sm);
 }
 
-/* —— Buscador: foco sobrio (elevación suave en vez del recuadro duro) ——
-   El foco se marca con una sombra cálida tenue + un leve levante, sin outline
-   ni bordes de color. Sigue siendo visible para teclado (accesible). */
+/* —— Foco de controles de formulario: ELEVACIÓN SUAVE (estándar de Spira) ——
+   TODO input/select/textarea marca el foco con una sombra cálida tenue + un leve levante —
+   sin outline ni borde de color (nada de recuadro verde). Es el mismo tratamiento del
+   buscador de Pacientes, ahora por DEFAULT: las vistas nuevas lo heredan sin clase extra.
+   La sombra queda como señal de foco visible para teclado (accesible).
+   `.spira-search-input` se conserva como alias explícito del mismo tratamiento. */
+:where(input, select, textarea),
 .spira-search-input {
-  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  transition: box-shadow 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
 }
+:where(input, select, textarea):focus,
+:where(input, select, textarea):focus-visible,
 .spira-search-input:focus,
 .spira-search-input:focus-visible {
   outline: none;
-  border-radius: var(--spira-radius-md);
   box-shadow: 0 5px 14px rgba(20, 48, 46, 0.1);
   transform: translateY(-1px);
+}
+/* Reduced-motion: se mantiene la sombra (señal de foco) sin el levante ni la transición. */
+@media (prefers-reduced-motion: reduce) {
+  :where(input, select, textarea),
+  .spira-search-input { transition: none; }
+  :where(input, select, textarea):focus,
+  :where(input, select, textarea):focus-visible,
+  .spira-search-input:focus,
+  .spira-search-input:focus-visible { transform: none; }
 }
 
 /* —— Pantallas de acceso (Login / definir contraseña) ——
