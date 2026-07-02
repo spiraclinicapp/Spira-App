@@ -190,11 +190,17 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {/* Encabezado: stepper + botón cancelar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Stepper steps={STEPS} current={step} maxReached={maxReached} onJump={goto} accent={accentSolid} />
-        <button type="button" onClick={() => guard(onClose)} style={{ ...btnOutline, marginLeft: 'auto', flex: '0 0 auto' }}>Cancelar</button>
+    // minHeight:100% llena el área de contenido → la barra de abajo (margin-top:auto) queda
+    // pegada al fondo aun cuando el paso es corto (estado vacío), sin sliver de paper.
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minHeight: '100%' }}>
+      {/* Encabezado: stepper CENTRADO (grid 1fr·auto·1fr → alineado al centro de la barra de
+          abajo, entre Atrás y Siguiente) + botón cancelar arriba a la derecha. */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12 }}>
+        <span aria-hidden="true" />
+        <div style={{ width: 680, maxWidth: '100%' }}>
+          <Stepper steps={STEPS} current={step} maxReached={maxReached} onJump={goto} accent={accentSolid} />
+        </div>
+        <button type="button" onClick={() => guard(onClose)} style={{ ...btnOutline, justifySelf: 'end' }}>Cancelar</button>
       </div>
 
       {/* Renderizado del paso actual */}
@@ -268,7 +274,12 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
 
 const footerBar: CSSProperties = {
   position: 'sticky', bottom: 0, zIndex: 10,
-  margin: '0 -26px -26px', padding: '14px 26px',
+  // margin-top:auto la empuja al fondo cuando el paso es corto (junto al minHeight:100% del
+  // wizard); sticky la mantiene visible cuando el contenido scrollea. Los -26 laterales e
+  // inferior sangran sobre el padding del contenedor del shell (16px 26px 26px) → la barra
+  // llega a los bordes y tapa el sliver de paper de abajo.
+  marginTop: 'auto', marginLeft: -26, marginRight: -26, marginBottom: -26,
+  padding: '14px 26px',
   borderTop: '1px solid var(--spira-line)', background: 'var(--spira-white)',
   display: 'flex', alignItems: 'center',
 }

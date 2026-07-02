@@ -26,7 +26,7 @@ export function Step3SummaryIp({ units, receptionDate, notes, setReceptionDate, 
   }, [units])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 780 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 780, width: '100%', margin: '0 auto' }}>
       {/* Fecha y notas */}
       <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 14 }}>
         <label>

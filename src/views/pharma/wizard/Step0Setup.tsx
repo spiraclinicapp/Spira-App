@@ -30,7 +30,7 @@ const TIPOS: { value: ReceptionKind; title: string; desc: string; icon: IconName
 export function Step0Setup({ accentSolid, tipo, protocolId, onTipo, onProtocol }: Props) {
   const protocols = useProtocols()
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 22, maxWidth: 780 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 22, maxWidth: 780, width: '100%', margin: '0 auto' }}>
       <div>
         <div className="spira-eyebrow" style={{ marginBottom: 11 }}>Tipo de recepción</div>
         <div role="radiogroup" aria-label="Tipo de recepción" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>

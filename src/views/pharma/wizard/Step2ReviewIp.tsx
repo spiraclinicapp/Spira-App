@@ -57,7 +57,7 @@ export function Step2ReviewIp({ accentSolid, units, setUnits }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 900 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 900, width: '100%', margin: '0 auto' }}>
       {/* Acciones masivas: selección + aplicar droga o lote/vto a las seleccionadas. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

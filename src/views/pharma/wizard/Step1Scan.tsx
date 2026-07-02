@@ -59,7 +59,7 @@ export function Step1Scan({ tipo, protocolId, accentSolid, meds, setMeds }: Prop
   const totalItems = meds.reduce((s, m) => s + m.quantity, 0)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 820 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 820, width: '100%', margin: '0 auto' }}>
       <ScanField
         label="Escáner (código de barras)"
         placeholder="Escaneá o tipeá el código y Enter"

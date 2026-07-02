@@ -60,7 +60,7 @@ export function Step1ScanIp({ accentSolid, units, setUnits }: Props) {
   const remove = (key: number) => setUnits((prev) => prev.filter((u) => u.key !== key))
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 820 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 820, width: '100%', margin: '0 auto' }}>
       {/* Escáner + contador: sticky, fuera del scroll de la lista. */}
       <div style={{ position: 'sticky', top: 0, background: 'var(--spira-paper)', zIndex: 5, paddingBottom: 8 }}>
         <ScanField

@@ -21,7 +21,7 @@ export function Step2Lots({ meds, setMeds, accentSolid: _accentSolid }: Props) {
     setMeds((prev) => prev.map((m) => m.medicationId !== mi || m.lots.length <= 1 ? m : { ...m, lots: m.lots.filter((l) => l.key !== key) }))
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 840 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 840, width: '100%', margin: '0 auto' }}>
       {meds.map((m) => {
         const t = today()
         const sum = m.lots.reduce((s, l) => s + (Number(l.quantity) || 0), 0)
