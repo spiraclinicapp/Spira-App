@@ -24,7 +24,7 @@ export interface IpUnitDraft {
   expiryDate: string
   drugId: string      // '' = cegado
   drugName: string    // etiqueta para mostrar
-  manual: boolean     // cargado a mano (fallback GS1)
+  manual: boolean     // vestigial del flujo GS1: hoy siempre false (el IP no parsea). Futuro: marcar carga a mano para auditoría.
 }
 
 /** Medicamento con cantidad y lotes ya contados (se arma en el Paso 1 y se detalla en el Paso 2). */

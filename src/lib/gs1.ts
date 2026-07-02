@@ -1,13 +1,16 @@
 /**
- * Parser puro de DataMatrix GS1 (Tajada 1b). Descompone la cadena que emite el lector 2D en sus
+ * Parser puro de DataMatrix GS1: descompone la cadena que emite el lector 2D en sus
  * Application Identifiers (AIs). Sin dependencias, sin estado.
  *
- * Ojo (documentado en la spec): los AIs de longitud FIJA (01 GTIN=14, 17 vto=6) vienen pegados al
- * siguiente AI; solo los de longitud VARIABLE (10 lote, 21 serial) terminan en el separador FNC1
- * (GS, \x1d) o en fin de string. El lector 2D DEBE estar configurado para emitir FNC1.
+ * ⚠️ NO se usa para el Producto de Investigación (IP). Escaneos reales del sponsor (2026-07-01)
+ * confirmaron que los kits de IP traen un código propietario lineal simple que ES, tal cual, el
+ * N° de kit — sin GTIN/lote/vto embebidos (esos van impresos y se tipean). El flujo de IP toma
+ * el código crudo como `kit_number`, sin parsear (ver `Step1ScanIp`).
  *
- * ⚠️ El AI del N° de kit no está confirmado con el sponsor: por ahora kitNumber = serial (21).
- * Se devuelve el mapa COMPLETO de AIs para poder re-mapear sin re-escanear.
+ * Queda reservado para el escaneo de medicación COMERCIAL (Tajada 1b), donde el DataMatrix sí
+ * trae GTIN + lote + vto en AIs. Ojo: los AIs de longitud FIJA (01 GTIN=14, 17 vto=6) vienen
+ * pegados al siguiente AI; solo los de longitud VARIABLE (10 lote, 21 serial) terminan en el
+ * separador FNC1 (GS, \x1d) o en fin de string. El lector 2D debe emitir FNC1.
  */
 export interface Gs1Parsed {
   ais: Record<string, string>

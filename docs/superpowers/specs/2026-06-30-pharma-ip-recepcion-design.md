@@ -13,8 +13,11 @@ Spec de diseño · 2026-06-30 · **Rama:** `feat/pharma-ip` · **Migración base
 > según randomización, comprobante, lectora de egreso). Se construye después, pero el modelo ya
 > nace con las columnas-gancho (nullable) para no reabrir la tabla — ver §3.
 >
-> **⚠️ Blocker antes de aplicar la 0037:** conseguir un **escaneo real de un kit del sponsor** que
-> confirme qué Application Identifier del DataMatrix trae el N° de kit (ver §4bis y §9).
+> **✅ Blocker RESUELTO (2026-07-01):** escaneos reales del sponsor confirmaron que los kits de IP
+> **no usan DataMatrix GS1**: traen un código propietario **lineal** simple que **ES** el N° de kit,
+> sin lote/vto embebidos (esos van impresos y se tipean). El parser GS1 **no aplica al IP**;
+> `kit_number = código crudo escaneado`. La **0037 se puede aplicar tal cual** (sin riesgo de
+> re-mapeo del `unique`). Detalle en **§12**.
 
 ## 1. Resumen
 
@@ -194,7 +197,11 @@ El kit duplicado sale del RPC como `check_violation` con texto propio que **cita
 para `23505` hoy es genérico y **no** tiene passthrough — por eso el RPC usa `check_violation`
 (que sí pasa por el passthrough del 23514), en vez de depender del `23505`.
 
-## 4bis. Parser GS1 (Tajada 1b — ahora en scope) · ⚠️ blocker
+## 4bis. Parser GS1 · ⚠️ SUPERADO POR §12 (los kits de IP no usan GS1)
+
+> **Leer junto a §12.** Esta sección quedó como contexto histórico: se diseñó asumiendo que el kit
+> traía un DataMatrix GS1 con kit+lote+vto. Los escaneos reales lo desmienten. El parser existe pero
+> se **reserva para medicación comercial** (Tajada 1b real), no para el IP.
 
 Util puro `parseGs1(raw)` en `src/lib/gs1.ts`. Es el **corazón del flujo IP** (de él dependen las 3
 columnas autocompletadas + la dedup + el `unique`), así que se especifica con criterios de
@@ -371,3 +378,33 @@ sin solape (Eng M1), `trg_audit`/`trg_updated_at` en la migración (Eng M3/L3), 
    auditoría).
 5. **Flujo de baja/corrección** de una recepción de IP mal cargada (`status='baja'` + motivo): definir
    en la Tajada 2 o como follow-up chico.
+
+## 12. Resolución del blocker del escaneo (2026-07-01)
+
+El Director pasó **escaneos reales de kits del sponsor** (ej. `D9010081114208`, `D9449974449536`,
+`1053076`, `171700`, `K248476`). Contrastados con `parseGs1` y confirmados con el Director:
+
+- **No son DataMatrix GS1.** Son códigos **propietarios lineales** (Code 39/128, según pinta), cortos y
+  heterogéneos entre protocolos (`D…`, `K…`, numéricos). El parser corta en `isGs1=false` para casi
+  todos; un código que arranca con `10` (`1053076`) hasta se malinterpretaba como AI 10 → lote fantasma.
+- **Cada código = un kit distinto**, y su **única barra ES el N° de kit** (identificador IVRS/IWRS). No
+  hay varias barras por kit.
+- **Lote y vencimiento van impresos** (texto legible), **no** en el código → se cargan **a mano** en el
+  Paso 2 (Revisión), que ya tiene esos campos editables.
+
+**Cambios de diseño (respecto de §2.4, §4, §4bis):**
+
+1. El escaneo del IP **no parsea**: `kit_number = raw_code = string escaneado` (trim). Se elimina el uso
+   de `parseGs1` en `Step1ScanIp`; el parser queda **reservado para medicación comercial** (Tajada 1b).
+2. **Sin GTIN/lote/vto del código.** El `gtin` del draft queda vacío; lote/vto se tipean en Revisión.
+   Se saca el tag "manual" (ya no hay fallback de parseo: escanear siempre captura el kit).
+3. **La 0037 se aplica tal cual.** El riesgo de §4bis (re-mapear el `kit_number` tras aplicar el
+   `unique` y colapsar filas) **desaparece**: no hay parseo ni re-mapeo. `unique(protocol_id, kit_number)`
+   es seguro. Las columnas `gtin`/`raw_code` quedan (inocuas; `raw_code == kit_number` en IP).
+4. **Hardware:** alcanza un **lector lineal**; no hace falta imager 2D ni configurar FNC1 (§9 quedó
+   sobredimensionada para el IP).
+
+Lo aplicado en código el 2026-07-01 (rama `feat/pharma-ip`, `typecheck` verde): `Step1ScanIp.tsx`
+(escaneo sin parser, copy y estado vacío actualizados, sin tag "manual") y el header de `src/lib/gs1.ts`
+(reservado a comercial). **Sigue pendiente para mergear:** aplicar la 0037 + verificación en navegador
+(pharma-leader, `TEST-*`) por el Director.
