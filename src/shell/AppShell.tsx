@@ -270,8 +270,11 @@ export function AppShell() {
             ) : null}
           </div>
 
-          {/* contenido: router de vistas (fallback a Placeholder para lo aún no portado) */}
-          <div style={{ flex: 1, overflow: 'auto', padding: '16px 26px 26px' }}>
+          {/* contenido: router de vistas (fallback a Placeholder para lo aún no portado).
+              Sin padding-bottom: la barra fija del wizard de recepción llega al borde inferior
+              (un padding-bottom acá dejaba un hilo de paper debajo). Las vistas manejan su propio
+              respiro inferior; el contenido corto igual queda con aire por el flex:1. */}
+          <div style={{ flex: 1, overflow: 'auto', padding: '16px 26px 0' }}>
             {(() => {
               const View = resolveView(moduleKey, sub.key)
               return <View module={mod} submodule={sub} onNavigate={navigate} setHeader={setViewHeader} />

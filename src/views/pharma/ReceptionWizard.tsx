@@ -275,10 +275,10 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
 const footerBar: CSSProperties = {
   position: 'sticky', bottom: 0, zIndex: 10,
   // margin-top:auto la empuja al fondo cuando el paso es corto (junto al minHeight:100% del
-  // wizard); sticky la mantiene visible cuando el contenido scrollea. Los -26 laterales e
-  // inferior sangran sobre el padding del contenedor del shell (16px 26px 26px) → la barra
-  // llega a los bordes y tapa el sliver de paper de abajo.
-  marginTop: 'auto', marginLeft: -26, marginRight: -26, marginBottom: -26,
+  // wizard); sticky la mantiene visible cuando el contenido scrollea. Los -26 laterales sangran
+  // sobre el padding lateral del shell → la barra llega a los bordes. El contenedor del shell ya
+  // NO tiene padding-bottom, así que la barra queda al ras del borde inferior (sin sliver).
+  marginTop: 'auto', marginLeft: -26, marginRight: -26, marginBottom: 0,
   padding: '14px 26px',
   borderTop: '1px solid var(--spira-line)', background: 'var(--spira-white)',
   display: 'flex', alignItems: 'center',
