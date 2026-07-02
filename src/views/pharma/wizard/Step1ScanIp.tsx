@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
-import type { KeyboardEvent } from 'react'
-import { fieldInput, FormField } from '../../../components/FormField'
 import { EmptyState } from '../../../components/EmptyState'
+import { Icon } from '../../../components/Icon'
 import { DrugPicker } from '../DrugPicker'
+import { ScanField } from './ScanField'
 import type { IpUnitDraft } from '../ReceptionWizard'
 
 interface Props { accentSolid: string; units: IpUnitDraft[]; setUnits: React.Dispatch<React.SetStateAction<IpUnitDraft[]>> }
@@ -54,47 +54,59 @@ export function Step1ScanIp({ accentSolid, units, setUnits }: Props) {
     addUnit({ kitNumber: code, rawCode: code, gtin: '', lotNumber: '', expiryDate: '', drugId: '', drugName: '', manual: false })
     scanRef.current?.focus()
   }
-  const onKey = (e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); handleScan() } }
 
   const setDrug = (key: number, drugId: string, drugName: string) =>
     setUnits((prev) => prev.map((u) => u.key === key ? { ...u, drugId, drugName } : u))
   const remove = (key: number) => setUnits((prev) => prev.filter((u) => u.key !== key))
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 820 }}>
       {/* Escáner + contador: sticky, fuera del scroll de la lista. */}
-      <div style={{ position: 'sticky', top: 0, background: 'var(--spira-white)', zIndex: 5, paddingBottom: 8 }}>
-        <FormField label="Escáner (código del kit)">
-          <input ref={scanRef} value={scan} onChange={(e) => setScan(e.target.value)} onKeyDown={onKey} autoFocus
-            className="spira-mono spira-search-input" placeholder="Escaneá el kit y Enter" style={{ ...fieldInput }} />
-        </FormField>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+      <div style={{ position: 'sticky', top: 0, background: 'var(--spira-paper)', zIndex: 5, paddingBottom: 8 }}>
+        <ScanField
+          label="Escáner (código del kit)"
+          placeholder="Escaneá el kit y Enter"
+          value={scan}
+          onChange={setScan}
+          onSubmit={handleScan}
+          accentSolid={accentSolid}
+          inputRef={scanRef}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8 }}>
           <span aria-live="polite" style={{ fontSize: 12.5, color: 'var(--spira-muted)', minHeight: 18 }}>{msg ?? ''}</span>
-          <span style={{ fontSize: 12.5, fontWeight: 700 }}>{units.length} {units.length === 1 ? 'unidad' : 'unidades'}</span>
+          <span style={{ fontSize: 13, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
+            <strong className="spira-mono" style={{ color: 'var(--spira-ink)', fontWeight: 700, fontFamily: 'var(--spira-font-display)', fontSize: 15 }}>{units.length}</strong>
+            {' '}{units.length === 1 ? 'unidad' : 'unidades'}
+          </span>
         </div>
       </div>
 
       {units.length === 0 ? (
         <EmptyState accent={accentSolid} icon="box" title="Escaneá el primer kit" description="Cada beep agrega una unidad. El lote y el vencimiento se cargan después, en Revisión." minHeight={200} />
       ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 460, overflowY: 'auto' }}>
-          {units.map((u) => (
-            <li key={u.key} style={rowCard}>
+        <ul style={listCard}>
+          {units.map((u, i) => (
+            <li key={u.key} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 16px', borderTop: i > 0 ? '1px solid var(--spira-line)' : 'none' }}>
+              <span style={iconSq}>
+                <Icon name="flask" size={19} color="var(--spira-pharma-solid)" stroke={1.9} />
+              </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="spira-mono" style={{ fontWeight: 700 }}>
+                <div className="spira-mono" style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                   {u.kitNumber || <span style={{ color: 'var(--spira-warn)' }}>Sin N° de kit</span>}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--spira-muted)' }}>
-                  {u.lotNumber ? `lote ${u.lotNumber}` : 'sin lote'}
+                <div style={{ fontSize: 12, color: 'var(--spira-muted)', marginTop: 1 }}>
+                  {u.lotNumber ? <>lote <span className="spira-mono">{u.lotNumber}</span></> : 'sin lote'}
                   {u.expiryDate ? ` · vence ${u.expiryDate}` : ''}
                 </div>
               </div>
-              <div style={{ width: 220 }}>
+              <div style={{ width: 220, flex: '0 0 auto' }}>
                 {u.drugId
-                  ? <button type="button" aria-label={`Quitar droga ${u.drugName}`} style={chip} onClick={() => setDrug(u.key, '', '')}>{u.drugName} ✕</button>
+                  ? <button type="button" aria-label={`Quitar droga ${u.drugName}`} style={drugChip} onClick={() => setDrug(u.key, '', '')}>{u.drugName} ✕</button>
                   : <DrugPicker accent={accentSolid} onPick={(id, name) => setDrug(u.key, id, name)} placeholder="Cegado — o elegí droga" />}
               </div>
-              <button type="button" aria-label="Quitar unidad" onClick={() => remove(u.key)} style={delBtn}>✕</button>
+              <button type="button" aria-label="Quitar unidad" onClick={() => remove(u.key)} style={delBtn}>
+                <Icon name="x" size={16} color="var(--spira-faint)" />
+              </button>
             </li>
           ))}
         </ul>
@@ -103,6 +115,7 @@ export function Step1ScanIp({ accentSolid, units, setUnits }: Props) {
   )
 }
 
-const rowCard = { display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--spira-line)', borderRadius: 12, background: 'var(--spira-white)', padding: '10px 14px' } as const
-const chip = { display: 'inline-block', fontSize: 12.5, padding: '4px 10px', borderRadius: 999, background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: 'pointer', border: 'none' } as const
-const delBtn = { width: 36, height: 36, borderRadius: 8, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', cursor: 'pointer', color: 'var(--spira-muted)' } as const
+const listCard = { listStyle: 'none', margin: 0, padding: 0, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, boxShadow: 'var(--spira-shadow-sm)', maxHeight: 460, overflowY: 'auto' } as const
+const iconSq = { width: 38, height: 38, flex: '0 0 auto', borderRadius: 10, background: 'rgba(168,132,47,.13)', display: 'grid', placeItems: 'center' } as const
+const drugChip = { display: 'inline-block', fontSize: 12.5, padding: '4px 10px', borderRadius: 999, background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: 'pointer', border: 'none' } as const
+const delBtn = { width: 40, height: 44, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' } as const

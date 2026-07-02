@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { fieldInput } from '../../../components/FormField'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
+import { Badge } from '../../../components/Badge'
 import { DrugPicker } from '../DrugPicker'
 import type { IpUnitDraft } from '../ReceptionWizard'
 
@@ -56,7 +57,7 @@ export function Step2ReviewIp({ accentSolid, units, setUnits }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 900 }}>
       {/* Acciones masivas: selección + aplicar droga o lote/vto a las seleccionadas. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -79,37 +80,38 @@ export function Step2ReviewIp({ accentSolid, units, setUnits }: Props) {
         )}
       </div>
 
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 480, overflowY: 'auto' }}>
-        {units.map((u) => (
-          <li key={u.key} style={rowCard}>
-            <input type="checkbox" checked={selected.has(u.key)} onChange={() => toggle(u.key)} aria-label="Seleccionar unidad" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr 1.4fr', gap: 8, flex: 1, alignItems: 'center' }}>
+      {/* Card única: encabezado de columnas + filas editables divididas (estética Sereno). */}
+      <div style={{ background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, boxShadow: 'var(--spira-shadow-sm)', overflow: 'hidden' }}>
+        <div style={{ ...rowGrid, padding: '9px 16px', background: 'var(--spira-surface)', borderBottom: '1px solid var(--spira-line)', fontSize: 11.5, color: 'var(--spira-faint)' }}>
+          <span /><span>N° de kit</span><span>Lote</span><span>Vencimiento</span><span>Droga</span>
+        </div>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 440, overflowY: 'auto' }}>
+          {units.map((u, i) => (
+            <li key={u.key} style={{ ...rowGrid, padding: '9px 16px', borderTop: i > 0 ? '1px solid var(--spira-line)' : 'none' }}>
+              <input type="checkbox" checked={selected.has(u.key)} onChange={() => toggle(u.key)} aria-label="Seleccionar unidad" />
               {/* N° de kit: identificador físico del kit de IP. */}
               <input value={u.kitNumber} onChange={(e) => patch(u.key, { kitNumber: e.target.value })} placeholder="N° de kit" className="spira-mono" style={{ ...fieldInput, height: 36 }} />
-              {/* Lote: puede venir del código GS1 o cargarse a mano. */}
+              {/* Lote: se carga a mano (no viene en el código del kit — spec §12). */}
               <input value={u.lotNumber} onChange={(e) => patch(u.key, { lotNumber: e.target.value })} placeholder="Lote" className="spira-mono" style={{ ...fieldInput, height: 36 }} />
               {/* Vencimiento: siempre <input type="date">, nunca texto libre. */}
               <input type="date" value={u.expiryDate} onChange={(e) => patch(u.key, { expiryDate: e.target.value })} style={{ ...fieldInput, height: 36 }} />
               {/* Droga: chip clickeable para quitar, o chip "Cegado" (estado válido, no error). */}
               {u.drugId
-                ? <button type="button" aria-label={`Quitar droga ${u.drugName}`} style={chip} onClick={() => patch(u.key, { drugId: '', drugName: '' })}>{u.drugName} ✕</button>
-                : <span style={cegadoChip}>Cegado</span>}
-            </div>
-          </li>
-        ))}
-      </ul>
+                ? <button type="button" aria-label={`Quitar droga ${u.drugName}`} style={drugChip} onClick={() => patch(u.key, { drugId: '', drugName: '' })}>{u.drugName} ✕</button>
+                : <span style={{ justifySelf: 'start' }}><Badge>Cegado</Badge></span>}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }
 
+// Grilla compartida por encabezado y filas: checkbox + kit + lote + vto + droga.
+const rowGrid = { display: 'grid', gridTemplateColumns: '24px 1fr 1.2fr 1fr 1.4fr', gap: 8, alignItems: 'center' } as const
+
 // Panel de acciones masivas: agrupa droga + lote/vto sobre una superficie tenue.
 const bulkPanel = { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 12px', border: '1px solid var(--spira-line)', borderRadius: 12, background: 'var(--spira-surface)' } as const
 
-// Tarjeta de fila: borde sutil, fondo blanco, rounding generoso (estética Sereno).
-const rowCard = { display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--spira-line)', borderRadius: 12, background: 'var(--spira-white)', padding: '10px 12px' } as const
-
 // Chip de droga asignada: clicable para quitar. Tono ink sobre surface.
-const chip = { fontSize: 12.5, padding: '4px 10px', borderRadius: 999, background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: 'pointer', border: 'none', textAlign: 'center' } as const
-
-// Chip "Cegado": estado válido y final, tono muted sobre surface — neutro, no warning.
-const cegadoChip = { fontSize: 12.5, padding: '4px 10px', borderRadius: 999, background: 'var(--spira-surface)', color: 'var(--spira-muted)', textAlign: 'center' } as const
+const drugChip = { fontSize: 12.5, padding: '4px 10px', borderRadius: 999, background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: 'pointer', border: 'none', textAlign: 'center', justifySelf: 'stretch' } as const
