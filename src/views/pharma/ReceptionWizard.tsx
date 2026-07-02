@@ -5,34 +5,24 @@ import { Stepper } from '../../components/Stepper'
 import { Modal } from '../../components/Modal'
 import { btnOutline, btnPrimary } from '../../components/buttons'
 import { createReception, createIpReception } from '../../data/pharma'
-import type { ReceptionKind } from '../../data/pharma'
+import type { ReceptionKind, StorageLocation } from '../../data/pharma'
 import { Step0Setup } from './wizard/Step0Setup'
 import { Step1Scan } from './wizard/Step1Scan'
 import { Step2Lots } from './wizard/Step2Lots'
 import { Step3Summary } from './wizard/Step3Summary'
-import { Step1ScanIp } from './wizard/Step1ScanIp'
-import { Step2ReviewIp } from './wizard/Step2ReviewIp'
-import { Step3SummaryIp } from './wizard/Step3SummaryIp'
+import { Step1ControlCargaIp } from './wizard/Step1ControlCargaIp'
+import { Step2DobleCheckIp } from './wizard/Step2DobleCheckIp'
+import { Step3CierreIp } from './wizard/Step3CierreIp'
 
 /** Borrador de un lote a recibir (se construye en el Paso 2). */
 export interface LotDraft { key: number; lotNumber: string; expiryDate: string; quantity: string }
 
-/** Borrador de una unidad de IP escaneada (Paso 1 del wizard, rama investigación). */
-export interface IpUnitDraft {
-  key: number
-  kitNumber: string
-  rawCode: string
-  gtin: string
-  lotNumber: string
-  expiryDate: string
-  drugId: string      // '' = cegado
-  drugName: string    // etiqueta para mostrar
-  manual: boolean     // vestigial del flujo GS1: hoy siempre false (el IP no parsea). Futuro: marcar carga a mano para auditoría.
-}
-
 /** Medicamento con cantidad y lotes ya contados (se arma en el Paso 1 y se detalla en el Paso 2).
  *  `code` es el código escaneado/asociado (para mostrar el EAN en la lista; a mano queda vacío). */
 export interface CountedMed { medicationId: string; name: string; quantity: number; lots: LotDraft[]; code?: string }
+
+/** Estado del control de temperatura del ingreso de IP. `null` = sin elegir. */
+export type TempStatus = 'ok' | 'excursion' | null
 
 interface Props {
   accentSolid: string
@@ -43,19 +33,21 @@ interface Props {
 }
 
 /**
- * Wizard de recepción tipada (4 pasos). Maneja el estado global del wizard: tipo,
- * protocolo, medicamentos/lotes, fecha y notas. La validación por paso (`canAdvance`)
- * habilita el avance; cambiar tipo o cancelar con datos cargados pide confirmación.
- * El submit (base e IP) vive ACÁ (no en los Step3) porque el CTA "Crear recepción"
- * está en la barra de acciones fija de abajo (handoff 1d).
+ * Wizard de recepción tipada (4 pasos). Maneja el estado global del wizard y la validación por paso
+ * (`canAdvance`); cambiar tipo o cancelar con datos cargados pide confirmación. El submit vive ACÁ
+ * (no en los Step3) porque el CTA de cierre está en la barra fija de abajo.
+ *
+ * Dos ramas por `tipo`:
+ *  - **Base** (protocolo / ambulatoria): escaneo de medicamentos + lotes por cantidad (sin cambios).
+ *  - **IP** (investigación): ingreso MACRO por cargamento (0038) — Setup (protocolo+coordinador) →
+ *    Carga general (temperatura OK/Excursión + cantidad total + rango) → Doble check (documentación +
+ *    IRT) → Cierre (ubicación + Confirmar). NO escanea kit por kit; el stock se lleva por cantidad.
  */
 export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, onClose, onCreated }: Props) {
   const [step, setStep] = useState(0)
   const [maxReached, setMaxReached] = useState(0)
   const [tipo, setTipo] = useState<ReceptionKind>(initialTipo)
   const [protocolId, setProtocolId] = useState(initialProtocolId)
-  const [meds, setMeds] = useState<CountedMed[]>([])
-  const [ipUnits, setIpUnits] = useState<IpUnitDraft[]>([])
   const [receptionDate, setReceptionDate] = useState(new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState('')
   const [submitBusy, setSubmitBusy] = useState(false)
@@ -64,22 +56,51 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   // useState con una función inicializadora que TS no puede discriminar.
   const [confirmDiscard, setConfirmDiscard] = useState<null | (() => void)>(null)
 
-  const isIp = tipo === 'investigacion'
-  const STEPS = isIp ? ['Setup', 'Escaneo', 'Revisión', 'Resumen'] : ['Setup', 'Escaneo', 'Lotes', 'Resumen']
+  // ── Estado rama base ────────────────────────────────────────────────────────
+  const [meds, setMeds] = useState<CountedMed[]>([])
 
-  const hasData = isIp ? ipUnits.length > 0 : meds.length > 0
-  // guard: si hay datos cargados (medicamentos o unidades IP), pide confirmación antes de ejecutar la acción.
+  // ── Estado rama IP macro (0038) ─────────────────────────────────────────────
+  const [coordinatorId, setCoordinatorId] = useState('')
+  const [tempStatus, setTempStatus] = useState<TempStatus>(null)
+  const [totalKits, setTotalKits] = useState('')          // numérico como string
+  const [rangeFrom, setRangeFrom] = useState('')
+  const [rangeTo, setRangeTo] = useState('')
+  const [docsSigned, setDocsSigned] = useState(false)
+  const [irtNotified, setIrtNotified] = useState(false)
+  const [storageLocation, setStorageLocation] = useState<StorageLocation | ''>('')
+  // Inicio administrativo del proceso: se captura al montar el wizard (Paso 1 del manual).
+  const [startedAt] = useState(() => new Date().toISOString())
+
+  const isIp = tipo === 'investigacion'
+  const STEPS = isIp
+    ? ['Setup', 'Carga general', 'Doble check', 'Cierre']
+    : ['Setup', 'Escaneo', 'Lotes', 'Resumen']
+
+  // Limpia el estado de ambas ramas (al cambiar de tipo).
+  const resetBranches = () => {
+    setMeds([])
+    setCoordinatorId(''); setTempStatus(null); setTotalKits(''); setRangeFrom(''); setRangeTo('')
+    setDocsSigned(false); setIrtNotified(false); setStorageLocation('')
+  }
+
+  const hasData = isIp
+    ? (!!coordinatorId || !!totalKits.trim() || tempStatus !== null)
+    : meds.length > 0
+  // guard: si hay datos cargados, pide confirmación antes de ejecutar la acción.
   const guard = (action: () => void) => { if (hasData) setConfirmDiscard(() => action); else action() }
 
-  /** Validación por paso. El Paso 3 solo necesita fecha (siempre hay una por default).
-   *  El Paso 0 exige protocolo tanto para 'protocolo' como 'investigacion'.
-   *  Los pasos 1/2 se ramifican por isIp. */
+  /** Validación por paso, ramificada por `isIp`. El Paso 3 se cierra con el botón Confirmar (abajo),
+   *  no con "Siguiente", así que su gate real vive en el `disabled` del botón. */
   const canAdvance = (): boolean => {
-    if (step === 0) return tipo === 'ambulatoria' || !!protocolId
+    if (step === 0) {
+      if (tipo === 'ambulatoria') return true
+      if (!protocolId) return false
+      return isIp ? !!coordinatorId : true          // IP también exige coordinador
+    }
     if (isIp) {
-      if (step === 1) return ipUnits.length > 0
-      if (step === 2) return true   // droga opcional; lote/vto editables en Step2ReviewIp
-      return !!receptionDate
+      if (step === 1) return tempStatus === 'ok' && Number(totalKits) > 0   // Excursión bloquea
+      if (step === 2) return docsSigned && irtNotified                       // doble check obligatorio
+      return !!storageLocation                                              // Cierre
     }
     // Rama base (protocolo / ambulatoria)
     if (step === 1) return meds.length > 0 && meds.every((m) => m.quantity > 0)
@@ -94,15 +115,13 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
     return !!receptionDate
   }
 
-  /** Para cada medicamento sin lotes, crea un lote default con la cantidad total. */
+  /** Para cada medicamento sin lotes, crea un lote default con la cantidad total (rama base). */
   const seedLots = (list: CountedMed[]): CountedMed[] =>
     list.map((m) => (m.lots.length ? m : { ...m, lots: [{ key: 1, lotNumber: '', expiryDate: '', quantity: String(m.quantity) }] }))
 
-  // Al entrar a cualquier paso ≥ 2 (por avance o salto), sembramos los lotes faltantes solo en la
-  // rama de base. seedLots es idempotente: solo rellena medicamentos sin lotes, nunca pisa los editados.
+  // Al entrar a un paso ≥ 2 (por avance o salto) sembramos los lotes faltantes solo en la rama base.
   const goto = (i: number) => {
     if (i >= 2 && !isIp) setMeds(seedLots)
-    // Paridad con el submit por-paso previo: al salir del Resumen se descarta el error.
     if (step === 3 && i !== 3) setSubmitError(null)
     setStep(i)
     setMaxReached((m) => Math.max(m, i))
@@ -114,33 +133,25 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   const back = () => { if (step === 3) setSubmitError(null); setStep((s) => Math.max(0, s - 1)) }
 
   /**
-   * Submit lifteado de los Step3 (guards portados verbatim). Rama IP: exige protocolo,
-   * fecha y N° de kit en toda unidad. Rama base: fecha, ≥1 ítem y suma de lotes == cantidad.
-   * Errores del RPC ya llegan serenos desde la capa de datos.
+   * Cierre de la recepción. Rama IP: crea el cargamento MACRO ya finalizado (create_ip_reception 0038)
+   * — el doble-check ES la verificación. Rama base: crea la recepción 'pendiente' con sus ítems.
    */
   const submitReception = async () => {
     if (isIp) {
-      if (!protocolId || !receptionDate || ipUnits.length === 0) return
-      // Guard: toda unidad necesita N° de kit (el fallback manual pudo quedar vacío).
-      const sinKit = ipUnits.filter((u) => !u.kitNumber.trim()).length
-      if (sinKit > 0) {
-        setSubmitError(`Hay ${sinKit} unidad(es) sin N° de kit. Completá en Revisión.`)
-        return
-      }
+      if (!protocolId || !coordinatorId || tempStatus !== 'ok' || Number(totalKits) <= 0
+          || !docsSigned || !irtNotified || !storageLocation || !receptionDate) return
       setSubmitBusy(true)
       setSubmitError(null)
       const res = await createIpReception({
         protocolId,
+        coordinatorId,
         receptionDate,
+        totalKits: Number(totalKits),
+        kitRangeFrom: rangeFrom.trim() || null,
+        kitRangeTo: rangeTo.trim() || null,
+        storageLocation,
+        startedAt,
         notes: notes.trim() || null,
-        units: ipUnits.map((u) => ({
-          kit_number: u.kitNumber.trim(),
-          raw_code: u.rawCode || null,
-          gtin: u.gtin || null,
-          lot_number: u.lotNumber || null,
-          expiry_date: u.expiryDate || null,
-          drug_id: u.drugId || null,
-        })),
       })
       setSubmitBusy(false)
       if (res.error) { setSubmitError(res.error); return }
@@ -164,8 +175,6 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
       setSubmitError('Agregá al menos un ítem antes de crear la recepción.')
       return
     }
-    // Guard defensivo: detecta medicamentos cuya suma de lotes no coincide con la cantidad
-    // contada (puede pasar si se llega al paso 3 por un salto sin semillar correctamente).
     const bad = meds.find(
       (m) =>
         m.lots.length === 0 ||
@@ -189,6 +198,13 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
     onCreated(res.id!)
   }
 
+  // Gate del botón de cierre (Paso 3). IP: ubicación elegida. Base: siempre habilitado (los guards
+  // del submit avisan si falta algo).
+  const closeDisabled = submitBusy || (isIp && !storageLocation)
+  const closeLabel = submitBusy
+    ? (isIp ? 'Confirmando…' : 'Creando…')
+    : (isIp ? 'Confirmar recepción' : 'Crear recepción')
+
   return (
     // minHeight:100% llena el área de contenido → la barra de abajo (margin-top:auto) queda
     // pegada al fondo aun cuando el paso es corto (estado vacío), sin sliver de paper.
@@ -209,26 +225,35 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
           accentSolid={accentSolid}
           tipo={tipo}
           protocolId={protocolId}
-          onTipo={(t) => guard(() => { setTipo(t); if (t === 'ambulatoria') setProtocolId(''); setMeds([]); setIpUnits([]) })}
-          onProtocol={setProtocolId}
+          coordinatorId={coordinatorId}
+          onTipo={(t) => guard(() => { setTipo(t); if (t === 'ambulatoria') setProtocolId(''); resetBranches() })}
+          onProtocol={(id) => { setProtocolId(id); setCoordinatorId('') }}
+          onCoordinator={setCoordinatorId}
         />
       )}
       {step === 1 && (isIp
-        ? <Step1ScanIp accentSolid={accentSolid} units={ipUnits} setUnits={setIpUnits} />
+        ? <Step1ControlCargaIp
+            tempStatus={tempStatus} setTempStatus={setTempStatus}
+            totalKits={totalKits} setTotalKits={setTotalKits}
+            rangeFrom={rangeFrom} setRangeFrom={setRangeFrom}
+            rangeTo={rangeTo} setRangeTo={setRangeTo} />
         : <Step1Scan tipo={tipo} protocolId={protocolId} accentSolid={accentSolid} meds={meds} setMeds={setMeds} />)}
       {step === 2 && (isIp
-        ? <Step2ReviewIp accentSolid={accentSolid} units={ipUnits} setUnits={setIpUnits} />
+        ? <Step2DobleCheckIp
+            accentSolid={accentSolid}
+            docsSigned={docsSigned} setDocsSigned={setDocsSigned}
+            irtNotified={irtNotified} setIrtNotified={setIrtNotified} />
         : <Step2Lots meds={meds} setMeds={setMeds} accentSolid={accentSolid} />)}
       {step === 3 && (isIp
-        ? <Step3SummaryIp units={ipUnits} receptionDate={receptionDate} notes={notes} setReceptionDate={setReceptionDate} setNotes={setNotes} />
+        ? <Step3CierreIp
+            accentSolid={accentSolid}
+            storageLocation={storageLocation} setStorageLocation={setStorageLocation}
+            totalKits={totalKits} receptionDate={receptionDate} setReceptionDate={setReceptionDate}
+            notes={notes} setNotes={setNotes} />
         : <Step3Summary meds={meds} receptionDate={receptionDate} notes={notes} setReceptionDate={setReceptionDate} setNotes={setNotes} />)}
 
-      {/* Barra de acciones fija abajo (handoff 1d). Los márgenes negativos sangran sobre el
-          padding del contenedor de contenido del shell (16px 26px 26px) para que la barra
-          llegue a los bordes; sticky la pega al viewport de scroll. "Atrás" no aparece en
-          el primer paso (regla del handoff). El error del submit vive DENTRO de la barra:
-          el CTA está siempre visible (sticky), así que su feedback también tiene que estarlo
-          (afuera podría quedar scrolleado fuera de pantalla y parecer que "no pasó nada"). */}
+      {/* Barra de acciones fija abajo. El error del submit vive DENTRO de la barra (el CTA es sticky,
+          así que su feedback también tiene que estarlo). "Atrás" no aparece en el primer paso. */}
       <div style={footerBar}>
         {step > 0 && (
           <button type="button" onClick={back} style={{ ...btnOutline, height: 44, display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
@@ -249,10 +274,10 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
           <button
             type="button"
             onClick={() => void submitReception()}
-            disabled={submitBusy || (isIp && ipUnits.length === 0)}
-            style={{ ...btnPrimary(accentSolid), height: 44, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, opacity: submitBusy ? 0.7 : 1 }}
+            disabled={closeDisabled}
+            style={{ ...btnPrimary(accentSolid), height: 44, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, opacity: closeDisabled ? 0.6 : 1 }}
           >
-            {submitBusy ? (isIp ? `Creando ${ipUnits.length} unidades…` : 'Creando…') : 'Crear recepción'}
+            {closeLabel}
             {!submitBusy && <Icon name="check" size={16} color="var(--spira-on-accent)" />}
           </button>
         )}
@@ -261,7 +286,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
       {/* Modal de confirmación de descarte (se muestra solo si `confirmDiscard` tiene una acción) */}
       {confirmDiscard && (
         <Modal title="¿Descartar la recepción en curso?" onClose={() => setConfirmDiscard(null)}>
-          <p style={{ fontSize: 14, color: 'var(--spira-muted)', lineHeight: 1.5 }}>Cargaste medicamentos en esta recepción. Si seguís, se pierden.</p>
+          <p style={{ fontSize: 14, color: 'var(--spira-muted)', lineHeight: 1.5 }}>Cargaste datos en esta recepción. Si seguís, se pierden.</p>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
             <button type="button" onClick={() => setConfirmDiscard(null)} style={btnOutline}>Volver</button>
             <button type="button" onClick={() => { const a = confirmDiscard; setConfirmDiscard(null); a?.() }} style={btnPrimary('var(--spira-danger)')}>Descartar</button>

@@ -3,32 +3,42 @@ import { fieldInput } from '../../../components/FormField'
 import { Icon } from '../../../components/Icon'
 import type { IconName } from '../../../components/Icon'
 import { useProtocols } from '../../../data/protocols'
+import { useProtocolCoordinators } from '../../../data/pharma'
+import { useAuth } from '../../../lib/auth'
 import type { ReceptionKind } from '../../../data/pharma'
 
 interface Props {
   accentSolid: string
   tipo: ReceptionKind
   protocolId: string
+  /** Coordinador responsable (solo IP). */
+  coordinatorId: string
   onTipo: (t: ReceptionKind) => void
   onProtocol: (id: string) => void
+  onCoordinator: (id: string) => void
 }
 
-/** Cards de tipo (handoff 1d): ícono teñido + título display + descripción. En el mock el IP
- *  estaba "Próximamente"; acá está habilitado (post-merge de feat/pharma-ip) [PRESERVAR]. */
+/** Cards de tipo: ícono teñido + título display + descripción. */
 const TIPOS: { value: ReceptionKind; title: string; desc: string; icon: IconName; tint: string; iconColor: string }[] = [
   { value: 'protocolo', title: 'Farmacia Protocolo', desc: 'Medicación del estudio, asociada a un protocolo.', icon: 'file', tint: 'rgba(168,132,47,.14)', iconColor: 'var(--spira-pharma-solid)' },
-  { value: 'investigacion', title: 'Producto Investigación', desc: 'Kits del sponsor rastreados por unidad (N° de kit).', icon: 'flask', tint: 'rgba(15,95,87,.10)', iconColor: 'var(--spira-primary)' },
+  { value: 'investigacion', title: 'Producto Investigación', desc: 'Ingreso macro de kits del sponsor por cargamento.', icon: 'flask', tint: 'rgba(15,95,87,.10)', iconColor: 'var(--spira-primary)' },
   { value: 'ambulatoria', title: 'Farmacia Ambulatoria', desc: 'Medicación de farmacia general, sin protocolo.', icon: 'pill', tint: 'rgba(58,107,140,.12)', iconColor: 'var(--spira-contable)' },
 ]
 
 /**
- * Paso 0 del wizard de recepción: selección de tipo (cards) y, si aplica, el protocolo.
- * Tanto Protocolo como Producto Investigación exigen elegir un protocolo antes de avanzar
- * (lo valida `canAdvance` en el wizard). Cambiar de tipo con datos cargados pasa por el
- * guard de descarte (el wizard envuelve onTipo).
+ * Paso 0 (Setup) del wizard de recepción: tipo (cards) + protocolo. En la rama IP suma el
+ * **coordinador responsable** (control cruzado) y la **farmacéutica** (usuario logueado, solo
+ * lectura) — el inicio administrativo de la recepción macro (0038). El gate de avance vive en
+ * `canAdvance` del wizard (Protocolo/IP exigen protocolo; IP exige además coordinador).
  */
-export function Step0Setup({ accentSolid, tipo, protocolId, onTipo, onProtocol }: Props) {
+export function Step0Setup({ accentSolid, tipo, protocolId, coordinatorId, onTipo, onProtocol, onCoordinator }: Props) {
   const protocols = useProtocols()
+  const { profile } = useAuth()
+  const isIp = tipo === 'investigacion'
+  // Coordinadores del protocolo (RPC SECURITY DEFINER; la RLS de users no deja leerlos directo).
+  const coordinators = useProtocolCoordinators(isIp ? (protocolId || null) : null)
+  const coordList = coordinators.data ?? []
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22, maxWidth: 780, width: '100%', margin: '0 auto' }}>
       <div>
@@ -60,7 +70,8 @@ export function Step0Setup({ accentSolid, tipo, protocolId, onTipo, onProtocol }
           })}
         </div>
       </div>
-      {(tipo === 'protocolo' || tipo === 'investigacion') && (
+
+      {(tipo === 'protocolo' || isIp) && (
         <label style={{ maxWidth: 480 }}>
           <div className="spira-eyebrow" style={{ marginBottom: 9 }}>Protocolo</div>
           <select value={protocolId} onChange={(e) => onProtocol(e.target.value)} required style={fieldInput}>
@@ -69,8 +80,35 @@ export function Step0Setup({ accentSolid, tipo, protocolId, onTipo, onProtocol }
               <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
             ))}
           </select>
-          <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', marginTop: 8 }}>Vas a recibir medicación para el protocolo seleccionado.</div>
+          {!isIp && (
+            <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', marginTop: 8 }}>Vas a recibir medicación para el protocolo seleccionado.</div>
+          )}
         </label>
+      )}
+
+      {/* Setup del ingreso macro de IP: coordinador responsable + farmacéutica (solo lectura). */}
+      {isIp && protocolId && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, maxWidth: 620 }}>
+          <label>
+            <div className="spira-eyebrow" style={{ marginBottom: 9 }}>Coordinador responsable</div>
+            <select value={coordinatorId} onChange={(e) => onCoordinator(e.target.value)} required style={fieldInput} disabled={coordList.length === 0}>
+              <option value="" disabled>{coordList.length === 0 ? 'Sin coordinadores asignados' : 'Elegí el coordinador'}</option>
+              {coordList.map((c) => (
+                <option key={c.id} value={c.id}>{c.full_name}</option>
+              ))}
+            </select>
+            {coordList.length === 0 && (
+              <div style={{ fontSize: 12.5, color: 'var(--spira-warn)', marginTop: 8 }}>Este protocolo no tiene coordinadores asignados en Track.</div>
+            )}
+          </label>
+          <label>
+            <div className="spira-eyebrow" style={{ marginBottom: 9 }}>Farmacéutica responsable</div>
+            {/* Toma el usuario logueado; no editable (queda como received_by en la base). */}
+            <div style={{ ...fieldInput, display: 'flex', alignItems: 'center', color: 'var(--spira-ink)', background: 'var(--spira-surface)' }}>
+              {profile?.fullName ?? 'Usuario actual'}
+            </div>
+          </label>
+        </div>
       )}
     </div>
   )

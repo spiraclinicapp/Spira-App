@@ -30,16 +30,18 @@ export interface ReceptionRow {
   notes: string | null
   /** Código del protocolo (to-one) para mostrar/buscar en la lista transversal. */
   protocol: { code: string } | null
-  /** Conteo de unidades IP (agregado PostgREST). Vacío en recepciones de base. */
-  ip_units: { count: number }[]
+  /** Cantidad total de kits del cargamento IP (macro, 0038). NULL en recepciones de base. */
+  total_kits: number | null
+  /** Destino físico del IP: heladera | estante | ambiente (0038). NULL en base. */
+  storage_location: string | null
   items: ReceptionItemRow[]
 }
 
 const RECEPTION_COLS =
   'id, tipo, protocol_id, reception_date, status, verified_at, notes, ' +
-  // protocol.code para mostrar/buscar en la lista transversal; ip_units(count) porque las
-  // recepciones IP no tienen reception_items (las unidades viven en ip_units, 0037).
-  'protocol:protocols(code), ip_units(count), ' +
+  // protocol.code para mostrar/buscar en la lista transversal; total_kits/storage_location son el
+  // ingreso MACRO del IP (0038): la recepción IP no tiene reception_items (lleva la cantidad total).
+  'total_kits, storage_location, protocol:protocols(code), ' +
   'items:reception_items(id, medication_id, lot_number, expiry_date, quantity, medication:medications(name))'
 
 /** Recepciones (cola; más nuevas primero), con renglones, protocolo e ítems/unidades.

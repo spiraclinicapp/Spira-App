@@ -9,15 +9,14 @@ import { btnOutline, btnPrimary } from '../../components/buttons'
 import { fieldInput } from '../../components/FormField'
 import { useAuth } from '../../lib/auth'
 import { useProtocols } from '../../data/protocols'
-import { useStock, useIpUnits } from '../../data/pharma'
-import type { StockRow, IpUnitRow } from '../../data/pharma'
+import { useStock, useIpStock } from '../../data/pharma'
+import type { StockRow } from '../../data/pharma'
 import { NewMedicationForm } from './NewMedicationForm'
 import { AssignMedicationForm } from './AssignMedicationForm'
 import { AdjustStockModal } from './AdjustStockModal'
 import type { ViewProps } from '../types'
 
 type StockFilter = 'todos' | 'bajo' | 'sin'
-type IpFilter = 'todas' | 'por_vencer' | 'vencidas'
 type Ambito = 'base' | 'investigacion'
 
 /**
@@ -35,15 +34,13 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
   const [protocolId, setProtocolId] = useState('')
   const [ambito, setAmbito] = useState<Ambito>('base')
 
-  // Stock de medicación de base (cantidad) — solo se consulta en ámbito 'base'
+  // Stock de medicación de base (cantidad por lote) — solo se consulta en ámbito 'base'
   const stock = useStock(ambito === 'base' ? (protocolId || null) : null)
-  // Stock de IP (unidades) — solo se consulta en ámbito 'investigacion'
-  const ip = useIpUnits(ambito === 'investigacion' ? (protocolId || null) : null)
+  // Stock de IP (cantidad total de kits por protocolo, 0038) — solo en ámbito 'investigacion'
+  const ip = useIpStock(ambito === 'investigacion' ? (protocolId || null) : null)
 
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<StockFilter>('todos')
-  const [ipFilter, setIpFilter] = useState<IpFilter>('todas')
-  const [ipSearch, setIpSearch] = useState('')
   const [creating, setCreating] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [adjusting, setAdjusting] = useState<{ medicationId: string; name: string } | null>(null)
@@ -52,7 +49,7 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
     <SegmentedControl<Ambito>
       accent={accentSolid}
       value={ambito}
-      onChange={(v) => { setAmbito(v); setSearch(''); setIpSearch('') }}
+      onChange={(v) => { setAmbito(v); setSearch('') }}
       options={[
         { value: 'base', label: 'Medicación de base' },
         { value: 'investigacion', label: 'Producto Investigación' },
@@ -94,7 +91,7 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
     )
   }
 
-  // ── Rama IP (unidades rastreables) ──────────────────────────────────────────
+  // ── Rama IP (cantidad total de kits por protocolo, 0038) ────────────────────
   if (ambito === 'investigacion') {
     if (ip.loading) {
       return (
@@ -119,50 +116,37 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
       )
     }
 
-    const ipRows = (ip.data ?? []).filter((u) => {
-      const q = ipSearch.trim().toLowerCase()
-      if (q && !u.kit_number.toLowerCase().includes(q)) return false
-      if (ipFilter === 'vencidas') return u.vencida
-      if (ipFilter === 'por_vencer') return u.por_vencer && !u.vencida
-      return true
-    })
+    // v_ip_stock agrega por protocolo: 0 filas (sin recepciones) o 1 fila con el total.
+    const ipStock = (ip.data ?? [])[0]
+    const totalKits = ipStock?.total_kits ?? 0
+    const recepciones = ipStock?.recepciones ?? 0
 
     return (
       <div style={wrap}>
         {ambitoControl}
         {protocolSelect}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div style={searchWrap}>
-            <span style={{ position: 'absolute', left: 11, display: 'grid', placeItems: 'center' }}>
-              <Icon name="search" size={16} color="var(--spira-muted)" />
-            </span>
-            <input
-              value={ipSearch}
-              onChange={(e) => setIpSearch(e.target.value)}
-              placeholder="Buscar por N° de kit"
-              style={searchInput}
-            />
-          </div>
-          <div role="radiogroup" aria-label="Filtro de vencimiento" style={{ display: 'flex', gap: 7 }}>
-            {([['todas', 'Todas'], ['por_vencer', 'Por vencer'], ['vencidas', 'Vencidas']] as [IpFilter, string][]).map(([v, label]) => (
-              <Chip key={v} label={label} selected={ipFilter === v} onClick={() => setIpFilter(v)} accent={accentSolid} />
-            ))}
-          </div>
-        </div>
-
-        {ipRows.length === 0 ? (
+        {totalKits === 0 ? (
           <EmptyState
             accent={accent}
             icon={submodule.icon}
-            title="Sin unidades en stock"
-            description="No hay unidades de IP en stock para este protocolo (o ninguna coincide con el filtro)."
+            title="Sin stock de IP"
+            description="Todavía no se recibió Producto de Investigación para este protocolo."
           />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {ipRows.map((u) => (
-              <IpUnitCard key={u.id} u={u} />
-            ))}
+          <div style={ipStockCard}>
+            <span style={{ width: 46, height: 46, flex: '0 0 auto', borderRadius: 12, background: 'rgba(15,95,87,.10)', display: 'grid', placeItems: 'center' }}>
+              <Icon name="flask" size={22} color="var(--spira-primary)" stroke={1.9} />
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 30, fontVariantNumeric: 'tabular-nums' }}>{totalKits}</span>
+                <span style={{ fontWeight: 600, fontSize: 15 }}>{totalKits === 1 ? 'kit' : 'kits'} en stock</span>
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>
+                {recepciones} {recepciones === 1 ? 'recepción' : 'recepciones'} · trazabilidad por kit en el sistema del sponsor (IRT)
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -285,30 +269,6 @@ export function MedicamentosView({ module, submodule }: ViewProps) {
   )
 }
 
-function IpUnitCard({ u }: { u: IpUnitRow }) {
-  const estado = u.vencida
-    ? { tone: 'danger' as const, label: 'Vencida' }
-    : u.por_vencer
-      ? { tone: 'warn' as const, label: 'Por vencer' }
-      : { tone: 'good' as const, label: 'En stock' }
-  return (
-    <div style={rowCard}>
-      <div style={{ minWidth: 0 }}>
-        {/* N° de kit como identificador principal, en mono para lectura de códigos */}
-        <div className="spira-mono" style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--spira-ink)' }}>{u.kit_number}</div>
-        <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>
-          {u.lot_number ? `lote ${u.lot_number}` : 'sin lote'}{u.expiry_date ? ` · vence ${u.expiry_date}` : ''}
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' }}>
-        {/* Chip de droga: neutro cuando está cegado (no warning — es intencional en el diseño del ensayo) */}
-        <Badge>{u.drug_name ?? 'Cegado'}</Badge>
-        <Badge tone={estado.tone}>{estado.label}</Badge>
-      </div>
-    </div>
-  )
-}
-
 function StockRowItem({ row, canManage, onAdjust }: { row: StockRow; canManage: boolean; onAdjust: () => void }) {
   const badge = stockBadge(row)
   return (
@@ -350,6 +310,10 @@ const searchInput: CSSProperties = {
 const rowCard: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 14, border: '1px solid var(--spira-line)',
   borderRadius: 14, background: 'var(--spira-white)', padding: '13px 16px',
+}
+const ipStockCard: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 16, border: '1px solid var(--spira-line)',
+  borderRadius: 16, background: 'var(--spira-white)', padding: '18px 20px', boxShadow: 'var(--spira-shadow-sm)',
 }
 const sideBtn: CSSProperties = {
   height: 32, padding: '0 12px', border: '1px solid var(--spira-line-2)', borderRadius: 8,

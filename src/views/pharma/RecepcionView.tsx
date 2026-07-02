@@ -273,9 +273,9 @@ function ReceptionCard({ r, canManage, busy, highlight, accentSolid, onVerify }:
   const verificada = r.status === 'verificada'
   const kind = KIND_CHIP[r.tipo] ?? KIND_CHIP.protocolo
   const esIp = r.tipo === 'investigacion'
-  // Las recepciones IP no tienen reception_items: las unidades viven en ip_units (0037).
-  const unidades = r.ip_units[0]?.count ?? 0
-  const totalItems = esIp ? unidades : r.items.reduce((s, it) => s + it.quantity, 0)
+  // Las recepciones IP no tienen reception_items: llevan la cantidad total de kits (macro, 0038).
+  const kits = r.total_kits ?? 0
+  const totalItems = esIp ? kits : r.items.reduce((s, it) => s + it.quantity, 0)
   const first = esIp ? 'Producto de Investigación' : (r.items[0]?.medication?.name ?? '—')
   const extra = esIp ? 0 : r.items.length - 1
 
@@ -307,7 +307,7 @@ function ReceptionCard({ r, canManage, busy, highlight, accentSolid, onVerify }:
         <div style={{ textAlign: 'right', minWidth: 64, whiteSpace: 'nowrap' }}>
           <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 18 }}>{totalItems}</span>
           <span style={{ fontSize: 12, color: 'var(--spira-muted)' }}>
-            {' '}{esIp ? (totalItems === 1 ? 'unidad' : 'unidades') : (totalItems === 1 ? 'ítem' : 'ítems')}
+            {' '}{esIp ? (totalItems === 1 ? 'kit' : 'kits') : (totalItems === 1 ? 'ítem' : 'ítems')}
           </span>
         </div>
         {canManage && !verificada && (
