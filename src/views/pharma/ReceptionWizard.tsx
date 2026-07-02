@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
+import { Icon } from '../../components/Icon'
 import { Stepper } from '../../components/Stepper'
 import { Modal } from '../../components/Modal'
 import { btnOutline, btnPrimary } from '../../components/buttons'
+import { createReception, createIpReception } from '../../data/pharma'
 import type { ReceptionKind } from '../../data/pharma'
 import { Step0Setup } from './wizard/Step0Setup'
 import { Step1Scan } from './wizard/Step1Scan'
@@ -27,10 +30,9 @@ export interface IpUnitDraft {
   manual: boolean     // vestigial del flujo GS1: hoy siempre false (el IP no parsea). Futuro: marcar carga a mano para auditoría.
 }
 
-/** Medicamento con cantidad y lotes ya contados (se arma en el Paso 1 y se detalla en el Paso 2). */
-export interface CountedMed { medicationId: string; name: string; quantity: number; lots: LotDraft[] }
-
-// STEPS se calcula dentro del componente según el tipo (ver abajo).
+/** Medicamento con cantidad y lotes ya contados (se arma en el Paso 1 y se detalla en el Paso 2).
+ *  `code` es el código escaneado/asociado (para mostrar el EAN en la lista; a mano queda vacío). */
+export interface CountedMed { medicationId: string; name: string; quantity: number; lots: LotDraft[]; code?: string }
 
 interface Props {
   accentSolid: string
@@ -44,6 +46,8 @@ interface Props {
  * Wizard de recepción tipada (4 pasos). Maneja el estado global del wizard: tipo,
  * protocolo, medicamentos/lotes, fecha y notas. La validación por paso (`canAdvance`)
  * habilita el avance; cambiar tipo o cancelar con datos cargados pide confirmación.
+ * El submit (base e IP) vive ACÁ (no en los Step3) porque el CTA "Crear recepción"
+ * está en la barra de acciones fija de abajo (handoff 1d).
  */
 export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, onClose, onCreated }: Props) {
   const [step, setStep] = useState(0)
@@ -54,6 +58,8 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   const [ipUnits, setIpUnits] = useState<IpUnitDraft[]>([])
   const [receptionDate, setReceptionDate] = useState(new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState('')
+  const [submitBusy, setSubmitBusy] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   // Guardamos la acción a confirmar; `null | (() => void)` para evitar el colapso de
   // useState con una función inicializadora que TS no puede discriminar.
   const [confirmDiscard, setConfirmDiscard] = useState<null | (() => void)>(null)
@@ -96,6 +102,8 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   // rama de base. seedLots es idempotente: solo rellena medicamentos sin lotes, nunca pisa los editados.
   const goto = (i: number) => {
     if (i >= 2 && !isIp) setMeds(seedLots)
+    // Paridad con el submit por-paso previo: al salir del Resumen se descarta el error.
+    if (step === 3 && i !== 3) setSubmitError(null)
     setStep(i)
     setMaxReached((m) => Math.max(m, i))
   }
@@ -103,14 +111,90 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
     if (!canAdvance()) return
     goto(step + 1)
   }
-  const back = () => setStep((s) => Math.max(0, s - 1))
+  const back = () => { if (step === 3) setSubmitError(null); setStep((s) => Math.max(0, s - 1)) }
+
+  /**
+   * Submit lifteado de los Step3 (guards portados verbatim). Rama IP: exige protocolo,
+   * fecha y N° de kit en toda unidad. Rama base: fecha, ≥1 ítem y suma de lotes == cantidad.
+   * Errores del RPC ya llegan serenos desde la capa de datos.
+   */
+  const submitReception = async () => {
+    if (isIp) {
+      if (!protocolId || !receptionDate || ipUnits.length === 0) return
+      // Guard: toda unidad necesita N° de kit (el fallback manual pudo quedar vacío).
+      const sinKit = ipUnits.filter((u) => !u.kitNumber.trim()).length
+      if (sinKit > 0) {
+        setSubmitError(`Hay ${sinKit} unidad(es) sin N° de kit. Completá en Revisión.`)
+        return
+      }
+      setSubmitBusy(true)
+      setSubmitError(null)
+      const res = await createIpReception({
+        protocolId,
+        receptionDate,
+        notes: notes.trim() || null,
+        units: ipUnits.map((u) => ({
+          kit_number: u.kitNumber.trim(),
+          raw_code: u.rawCode || null,
+          gtin: u.gtin || null,
+          lot_number: u.lotNumber || null,
+          expiry_date: u.expiryDate || null,
+          drug_id: u.drugId || null,
+        })),
+      })
+      setSubmitBusy(false)
+      if (res.error) { setSubmitError(res.error); return }
+      if (res.id) onCreated(res.id)
+      return
+    }
+    // Guards defensivos de la rama base: el botón es type="button", no hay validación nativa del form.
+    if (!receptionDate) {
+      setSubmitError('La fecha de recepción es obligatoria.')
+      return
+    }
+    const items = meds.flatMap((m) =>
+      m.lots.map((l) => ({
+        medication_id: m.medicationId,
+        lot_number: l.lotNumber.trim(),
+        expiry_date: l.expiryDate || null,
+        quantity: Number(l.quantity),
+      })),
+    )
+    if (items.length === 0) {
+      setSubmitError('Agregá al menos un ítem antes de crear la recepción.')
+      return
+    }
+    // Guard defensivo: detecta medicamentos cuya suma de lotes no coincide con la cantidad
+    // contada (puede pasar si se llega al paso 3 por un salto sin semillar correctamente).
+    const bad = meds.find(
+      (m) =>
+        m.lots.length === 0 ||
+        m.lots.reduce((s, l) => s + (Number(l.quantity) || 0), 0) !== m.quantity,
+    )
+    if (bad) {
+      setSubmitError(`Revisá los lotes de ${bad.name}: la suma de lotes no coincide con la cantidad contada.`)
+      return
+    }
+    setSubmitBusy(true)
+    setSubmitError(null)
+    const res = await createReception({
+      tipo,
+      protocol_id: tipo === 'ambulatoria' ? null : protocolId,
+      reception_date: receptionDate,
+      notes: notes.trim() || null,
+      items,
+    })
+    setSubmitBusy(false)
+    if (res.error) { setSubmitError(res.error); return }
+    onCreated(res.id!)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       {/* Encabezado: stepper + botón cancelar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Stepper steps={STEPS} current={step} maxReached={maxReached} onJump={goto} accent={accentSolid} />
-        <button type="button" onClick={() => guard(onClose)} style={{ ...btnOutline, marginLeft: 'auto' }}>Cancelar</button>
+        <button type="button" onClick={() => guard(onClose)} style={{ ...btnOutline, marginLeft: 'auto', flex: '0 0 auto' }}>Cancelar</button>
       </div>
 
       {/* Renderizado del paso actual */}
@@ -130,14 +214,41 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
         ? <Step2ReviewIp accentSolid={accentSolid} units={ipUnits} setUnits={setIpUnits} />
         : <Step2Lots meds={meds} setMeds={setMeds} accentSolid={accentSolid} />)}
       {step === 3 && (isIp
-        ? <Step3SummaryIp protocolId={protocolId} units={ipUnits} receptionDate={receptionDate} notes={notes} setReceptionDate={setReceptionDate} setNotes={setNotes} accentSolid={accentSolid} onCreated={onCreated} />
-        : <Step3Summary tipo={tipo} protocolId={protocolId} meds={meds} receptionDate={receptionDate} notes={notes} setReceptionDate={setReceptionDate} setNotes={setNotes} accentSolid={accentSolid} onCreated={onCreated} />)}
+        ? <Step3SummaryIp units={ipUnits} receptionDate={receptionDate} notes={notes} setReceptionDate={setReceptionDate} setNotes={setNotes} />
+        : <Step3Summary meds={meds} receptionDate={receptionDate} notes={notes} setReceptionDate={setReceptionDate} setNotes={setNotes} />)}
 
-      {/* Navegación inferior */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--spira-line)', paddingTop: 14 }}>
-        <button type="button" onClick={back} disabled={step === 0} style={{ ...btnOutline, opacity: step === 0 ? 0.5 : 1 }}>Atrás</button>
-        {step < 3 && (
-          <button type="button" onClick={next} disabled={!canAdvance()} style={{ ...btnPrimary(accentSolid), opacity: canAdvance() ? 1 : 0.6 }}>Siguiente</button>
+      {/* Barra de acciones fija abajo (handoff 1d). Los márgenes negativos sangran sobre el
+          padding del contenedor de contenido del shell (16px 26px 26px) para que la barra
+          llegue a los bordes; sticky la pega al viewport de scroll. "Atrás" no aparece en
+          el primer paso (regla del handoff). El error del submit vive DENTRO de la barra:
+          el CTA está siempre visible (sticky), así que su feedback también tiene que estarlo
+          (afuera podría quedar scrolleado fuera de pantalla y parecer que "no pasó nada"). */}
+      <div style={footerBar}>
+        {step > 0 && (
+          <button type="button" onClick={back} style={{ ...btnOutline, height: 42, display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
+            <Icon name="chevronLeft" size={16} color="var(--spira-ink)" /> Atrás
+          </button>
+        )}
+        {submitError && <div style={{ ...submitErrorBox, flex: 1, margin: '0 14px', minWidth: 0 }} aria-live="assertive">{submitError}</div>}
+        {step < 3 ? (
+          <button
+            type="button"
+            onClick={next}
+            disabled={!canAdvance()}
+            style={{ ...btnPrimary(accentSolid), height: 42, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, opacity: canAdvance() ? 1 : 0.6 }}
+          >
+            Siguiente <Icon name="arrowRight" size={16} color="var(--spira-on-accent)" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void submitReception()}
+            disabled={submitBusy || (isIp && ipUnits.length === 0)}
+            style={{ ...btnPrimary(accentSolid), height: 42, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, opacity: submitBusy ? 0.7 : 1 }}
+          >
+            {submitBusy ? (isIp ? `Creando ${ipUnits.length} unidades…` : 'Creando…') : 'Crear recepción'}
+            {!submitBusy && <Icon name="check" size={16} color="var(--spira-on-accent)" />}
+          </button>
         )}
       </div>
 
@@ -153,4 +264,15 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
       )}
     </div>
   )
+}
+
+const footerBar: CSSProperties = {
+  position: 'sticky', bottom: 0, zIndex: 10,
+  margin: '0 -26px -26px', padding: '14px 26px',
+  borderTop: '1px solid var(--spira-line)', background: 'var(--spira-white)',
+  display: 'flex', alignItems: 'center',
+}
+const submitErrorBox: CSSProperties = {
+  fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)',
+  borderRadius: 8, padding: '8px 12px',
 }

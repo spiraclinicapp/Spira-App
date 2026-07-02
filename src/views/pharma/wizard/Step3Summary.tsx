@@ -1,157 +1,56 @@
-import { useState } from 'react'
-import { FormField, fieldInput } from '../../../components/FormField'
-import { btnPrimary } from '../../../components/buttons'
-import { createReception } from '../../../data/pharma'
-import type { ReceptionKind } from '../../../data/pharma'
+import { fieldInput } from '../../../components/FormField'
+import { Icon } from '../../../components/Icon'
+import { formatAR } from '../../../lib/dates'
 import type { CountedMed } from '../ReceptionWizard'
 
 interface Props {
-  tipo: ReceptionKind
-  protocolId: string
   meds: CountedMed[]
   receptionDate: string
   notes: string
   setReceptionDate: (v: string) => void
   setNotes: (v: string) => void
-  accentSolid: string
-  onCreated: (id: string) => void
 }
 
 /**
- * Paso 3 del wizard de recepción: fecha, notas y repaso del contenido antes de confirmar.
- * Llama al RPC `create_reception` y delega el flujo al container vía `onCreated(id)`.
+ * Paso 3 del wizard de recepción (rama base): fecha, notas y repaso del contenido.
+ * Presentacional: el CTA "Crear recepción" y el submit viven en la barra del wizard.
  */
-export function Step3Summary({
-  tipo,
-  protocolId,
-  meds,
-  receptionDate,
-  notes,
-  setReceptionDate,
-  setNotes,
-  accentSolid,
-  onCreated,
-}: Props) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const submit = async () => {
-    // Guards defensivos: el botón es type="button", no hay validación nativa del form.
-    if (!receptionDate) {
-      setError('La fecha de recepción es obligatoria.')
-      return
-    }
-    const items = meds.flatMap((m) =>
-      m.lots.map((l) => ({
-        medication_id: m.medicationId,
-        lot_number: l.lotNumber.trim(),
-        expiry_date: l.expiryDate || null,
-        quantity: Number(l.quantity),
-      })),
-    )
-    if (items.length === 0) {
-      setError('Agregá al menos un ítem antes de crear la recepción.')
-      return
-    }
-    // Guard defensivo: detecta medicamentos cuya suma de lotes no coincide con la cantidad
-    // contada (puede pasar si se llega al paso 3 por un salto sin semillar correctamente).
-    const bad = meds.find(
-      (m) =>
-        m.lots.length === 0 ||
-        m.lots.reduce((s, l) => s + (Number(l.quantity) || 0), 0) !== m.quantity,
-    )
-    if (bad) {
-      setError(`Revisá los lotes de ${bad.name}: la suma de lotes no coincide con la cantidad contada.`)
-      return
-    }
-    setBusy(true)
-    setError(null)
-    const res = await createReception({
-      tipo,
-      protocol_id: tipo === 'ambulatoria' ? null : protocolId,
-      reception_date: receptionDate,
-      notes: notes.trim() || null,
-      items,
-    })
-    setBusy(false)
-    if (res.error) {
-      setError(res.error)
-      return
-    }
-    onCreated(res.id!)
-  }
-
+export function Step3Summary({ meds, receptionDate, notes, setReceptionDate, setNotes }: Props) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 620 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 780 }}>
       {/* Fecha y notas */}
-      <div style={{ display: 'flex', gap: 12 }}>
-        <FormField label="Fecha de recepción">
-          <input
-            type="date"
-            value={receptionDate}
-            onChange={(e) => setReceptionDate(e.target.value)}
-            required
-            style={fieldInput}
-          />
-        </FormField>
-        <div style={{ flex: 1 }}>
-          <FormField label="Notas (opcional)">
-            <input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Remito, observaciones…"
-              style={fieldInput}
-            />
-          </FormField>
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 14 }}>
+        <label>
+          <div className="spira-eyebrow" style={{ marginBottom: 8 }}>Fecha de recepción</div>
+          <input type="date" value={receptionDate} onChange={(e) => setReceptionDate(e.target.value)} required style={fieldInput} />
+        </label>
+        <label>
+          <div className="spira-eyebrow" style={{ marginBottom: 8 }}>Notas (opcional)</div>
+          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Remito, observaciones…" style={fieldInput} />
+        </label>
       </div>
 
-      {/* Repaso de medicamentos y lotes */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {meds.map((m) => (
-          <div
-            key={m.medicationId}
-            style={{ border: '1px solid var(--spira-line)', borderRadius: 12, padding: '10px 14px' }}
-          >
-            <div style={{ fontWeight: 600 }}>
-              {m.name} · {m.quantity}
+      {/* Repaso de medicamentos y lotes: card única con renglones divididos */}
+      <div style={{ background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, padding: '2px 18px', boxShadow: 'var(--spira-shadow-sm)' }}>
+        {meds.map((m, i) => (
+          <div key={m.medicationId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 0', borderTop: i > 0 ? '1px solid var(--spira-line)' : 'none' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15 }}>{m.name}</div>
+              {m.lots.map((l) => (
+                <div key={l.key} style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>
+                  lote <span className="spira-mono">{l.lotNumber || '—'}</span>
+                  {l.expiryDate && <> · vence {formatAR(l.expiryDate)}</>} · {l.quantity}
+                </div>
+              ))}
             </div>
-            {m.lots.map((l) => (
-              <div key={l.key} style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
-                lote {l.lotNumber || '—'}
-                {l.expiryDate && ` · vence ${l.expiryDate}`} · {l.quantity}
-              </div>
-            ))}
+            <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 18 }}>{m.quantity}</span>
           </div>
         ))}
       </div>
 
-      {/* Error de creación */}
-      {error && (
-        <div
-          style={{
-            fontSize: 13,
-            color: 'var(--spira-danger)',
-            background: 'rgba(166,72,59,0.10)',
-            borderRadius: 8,
-            padding: '8px 12px',
-          }}
-          aria-live="assertive"
-        >
-          {error}
-        </div>
-      )}
-
-      {/* Botón de confirmación */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={busy}
-          style={{ ...btnPrimary(accentSolid), opacity: busy ? 0.7 : 1 }}
-        >
-          {busy ? 'Creando…' : 'Crear recepción'}
-        </button>
+      {/* Nota de trazabilidad (handoff 1d) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, color: 'var(--spira-muted)' }}>
+        <Icon name="shield" size={15} color="var(--spira-muted)" /> Queda registrada con trazabilidad completa.
       </div>
     </div>
   )
