@@ -2,10 +2,8 @@
  * Parser puro de DataMatrix GS1: descompone la cadena que emite el lector 2D en sus
  * Application Identifiers (AIs). Sin dependencias, sin estado.
  *
- * ⚠️ NO se usa para el Producto de Investigación (IP). Escaneos reales del sponsor (2026-07-01)
- * confirmaron que los kits de IP traen un código propietario lineal simple que ES, tal cual, el
- * N° de kit — sin GTIN/lote/vto embebidos (esos van impresos y se tipean). El flujo de IP toma
- * el código crudo como `kit_number`, sin parsear (ver `Step1ScanIp`).
+ * ⚠️ NO se usa para el Producto de Investigación (IP). El IP pasó a ingreso MACRO por cantidad
+ * (0038): ya no se escanea kit por kit; la trazabilidad por kit la lleva el sponsor/IRT.
  *
  * Queda reservado para el escaneo de medicación COMERCIAL (Tajada 1b), donde el DataMatrix sí
  * trae GTIN + lote + vto en AIs. Ojo: los AIs de longitud FIJA (01 GTIN=14, 17 vto=6) vienen

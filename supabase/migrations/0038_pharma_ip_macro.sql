@@ -28,11 +28,15 @@ comment on column public.medication_receptions.storage_location is 'Destino fís
 comment on column public.medication_receptions.started_at      is 'Inicio administrativo del proceso de recepción (IP macro). 0038.';
 
 -- Checks idempotentes (add-if-not-exists vía pg_constraint).
+-- total_kits: si viene, positivo. NO se exige NOT NULL para IP acá porque puede haber recepciones
+-- de IP VIEJAS (modelo por-unidad 0037) con total_kits NULL; esas quedan toleradas (y se excluyen del
+-- stock nuevo en v_ip_stock, ver §4). La obligatoriedad de total_kits>0 en las recepciones MACRO
+-- nuevas la garantiza el RPC create_ip_reception (§3).
 do $$ begin
-  if not exists (select 1 from pg_constraint where conname = 'medication_receptions_ip_total_kits_chk') then
+  if not exists (select 1 from pg_constraint where conname = 'medication_receptions_total_kits_chk') then
     alter table public.medication_receptions
-      add constraint medication_receptions_ip_total_kits_chk
-      check (tipo <> 'investigacion' or (total_kits is not null and total_kits > 0));
+      add constraint medication_receptions_total_kits_chk
+      check (total_kits is null or total_kits > 0);
   end if;
 end $$;
 do $$ begin
@@ -74,6 +78,9 @@ begin
   if p_total_kits is null or p_total_kits <= 0 then
     raise exception 'La cantidad total de kits debe ser mayor a cero' using errcode = 'check_violation';
   end if;
+  if p_storage_location is null or p_storage_location not in ('heladera','estante','ambiente') then
+    raise exception 'Ubicación de almacenamiento inválida' using errcode = 'check_violation';
+  end if;
 
   insert into public.medication_receptions (
     tipo, protocol_id, received_by, reception_date, status, verified_by, verified_at, notes,
@@ -103,7 +110,9 @@ select
   coalesce(sum(r.total_kits), 0)::int as total_kits
 from public.medication_receptions r
 join public.protocols p on p.id = r.protocol_id
-where r.tipo = 'investigacion' and r.status = 'verificada'
+-- total_kits not null excluye las recepciones de IP VIEJAS (modelo por-unidad, sin cantidad) para
+-- que no ensucien el stock macro (aparecerían con recepciones>0 y total 0).
+where r.tipo = 'investigacion' and r.status = 'verificada' and r.total_kits is not null
 group by r.protocol_id, p.code, p.name;
 comment on view public.v_ip_stock is 'Stock de IP por CANTIDAD: total de kits recibidos por protocolo (recepciones verificadas). La dispensación (Tajada 2) restará. 0038.';
 
