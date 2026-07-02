@@ -28,23 +28,30 @@ export interface ReceptionRow {
   status: ReceptionStatus
   verified_at: string | null
   notes: string | null
+  /** Código del protocolo (to-one) para mostrar/buscar en la lista transversal. */
+  protocol: { code: string } | null
+  /** Conteo de unidades IP (agregado PostgREST). Vacío en recepciones de base. */
+  ip_units: { count: number }[]
   items: ReceptionItemRow[]
 }
 
 const RECEPTION_COLS =
   'id, tipo, protocol_id, reception_date, status, verified_at, notes, ' +
+  // protocol.code para mostrar/buscar en la lista transversal; ip_units(count) porque las
+  // recepciones IP no tienen reception_items (las unidades viven en ip_units, 0037).
+  'protocol:protocols(code), ip_units(count), ' +
   'items:reception_items(id, medication_id, lot_number, expiry_date, quantity, medication:medications(name))'
 
-/** Recepciones de un ámbito (cola; más nuevas primero), con sus renglones.
- *  protocolo/investigacion → filtra por tipo + protocolo; ambulatoria → por tipo (sin protocolo). */
-export function useReceptions(tipo: ReceptionKind, protocolId: string | null) {
+/** Recepciones (cola; más nuevas primero), con renglones, protocolo e ítems/unidades.
+ *  tipo=null → todos los tipos (lista transversal). ambulatoria → sin protocolo.
+ *  protocolo/investigacion con protocolId → filtra por protocolo; con null trae todas del tipo. */
+export function useReceptions(tipo: ReceptionKind | null, protocolId: string | null) {
   return useSupabaseQuery<ReceptionRow[]>(
     (c) => {
-      let q = c.from('medication_receptions').select(RECEPTION_COLS).eq('tipo', tipo)
+      let q = c.from('medication_receptions').select(RECEPTION_COLS)
+      if (tipo) q = q.eq('tipo', tipo)
       if (tipo === 'ambulatoria') q = q.is('protocol_id', null)
-      // protocolo/investigacion con protocolId === null: no se aplica filtro de protocolo
-      // (retorna todas las recepciones de ese tipo) — intencional para callers sin protocolo específico.
-      else if (protocolId) q = q.eq('protocol_id', protocolId)
+      else if (tipo && protocolId) q = q.eq('protocol_id', protocolId)
       return q.order('reception_date', { ascending: false }).returns<ReceptionRow[]>()
     },
     [tipo, protocolId],

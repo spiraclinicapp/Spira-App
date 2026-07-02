@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useLayoutEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
@@ -41,7 +41,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 /* Vistas portadas que traen sus propias acciones contextuales (o son de solo
    lectura): para ellas se suprime el botón de acción genérico del shell. */
-const HIDE_ACTION = new Set(['inicio/resumen', 'inicio/tareas', 'inicio/alertas', 'track/resumen', 'track/protocolos', 'track/visitas', 'track/para-ver-medico', 'track/agenda', 'track/alertas', 'pharma/protocolos'])
+const HIDE_ACTION = new Set(['inicio/resumen', 'inicio/tareas', 'inicio/alertas', 'track/resumen', 'track/protocolos', 'track/visitas', 'track/para-ver-medico', 'track/agenda', 'track/alertas', 'pharma/protocolos', 'pharma/recepcion'])
 
 const iconBtn: CSSProperties = {
   width: 38, height: 38, borderRadius: 10, border: 'none',
@@ -72,9 +72,12 @@ export function AppShell() {
   const [viewHeader, setViewHeader] = useState<ViewHeader | null>(null)
 
   /* Al cambiar de módulo/submódulo, limpiar el encabezado contextual (que no quede
-     pegado de otra vista). La navegación INTERNA de una vista no cambia subKey, así
-     que la vista conserva el control de su encabezado mientras esté en su submódulo. */
-  useEffect(() => { setViewHeader(null) }, [moduleKey, subKey])
+     pegado de otra vista). Es un LAYOUT effect a propósito: flushea antes que los
+     efectos pasivos de las vistas hijas, así esta limpieza nunca pisa el header que
+     una vista recién montada registra en su useEffect (la primera consumidora
+     on-mount es RecepcionView). La navegación INTERNA de una vista no cambia subKey,
+     así que la vista conserva el control de su encabezado mientras esté en su submódulo. */
+  useLayoutEffect(() => { setViewHeader(null) }, [moduleKey, subKey])
 
   /* 'inicio' siempre disponible; el resto, según los roles reales del usuario. */
   const isAllowed = (key: string) => key === 'inicio' || (userModules as string[]).includes(key)
