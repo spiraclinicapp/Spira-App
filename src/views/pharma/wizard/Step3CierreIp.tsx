@@ -17,8 +17,7 @@ interface Props {
 
 const STORAGES: { value: StorageLocation; label: string; icon: IconName }[] = [
   { value: 'heladera', label: 'Heladera', icon: 'thermometer' },
-  { value: 'estante', label: 'Estante', icon: 'box' },
-  { value: 'ambiente', label: 'Temp. ambiente', icon: 'sun' },
+  { value: 'ambiente', label: 'Temperatura ambiente', icon: 'sun' },
 ]
 
 /**

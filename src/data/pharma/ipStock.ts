@@ -2,8 +2,8 @@ import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import { supabase } from '../../lib/supabase'
 import { pharmaErrorMessage } from './errors'
 
-/** Almacenamiento físico del IP (macro, 0038). Valores del CHECK de la base. */
-export type StorageLocation = 'heladera' | 'estante' | 'ambiente'
+/** Almacenamiento físico del IP (macro, 0038; 'estante' unificado en 'ambiente' por la 0039). */
+export type StorageLocation = 'heladera' | 'ambiente'
 
 /** Fila de la vista v_ip_stock: stock de IP por CANTIDAD, agregado por protocolo. Migración 0038. */
 export interface IpStockRow {
