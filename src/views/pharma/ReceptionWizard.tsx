@@ -225,7 +225,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
           (afuera podría quedar scrolleado fuera de pantalla y parecer que "no pasó nada"). */}
       <div style={footerBar}>
         {step > 0 && (
-          <button type="button" onClick={back} style={{ ...btnOutline, height: 42, display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
+          <button type="button" onClick={back} style={{ ...btnOutline, height: 44, display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
             <Icon name="chevronLeft" size={16} color="var(--spira-ink)" /> Atrás
           </button>
         )}
@@ -235,7 +235,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
             type="button"
             onClick={next}
             disabled={!canAdvance()}
-            style={{ ...btnPrimary(accentSolid), height: 42, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, opacity: canAdvance() ? 1 : 0.6 }}
+            style={{ ...btnPrimary(accentSolid), height: 44, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, opacity: canAdvance() ? 1 : 0.6 }}
           >
             Siguiente <Icon name="arrowRight" size={16} color="var(--spira-on-accent)" />
           </button>
@@ -244,7 +244,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
             type="button"
             onClick={() => void submitReception()}
             disabled={submitBusy || (isIp && ipUnits.length === 0)}
-            style={{ ...btnPrimary(accentSolid), height: 42, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, opacity: submitBusy ? 0.7 : 1 }}
+            style={{ ...btnPrimary(accentSolid), height: 44, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, opacity: submitBusy ? 0.7 : 1 }}
           >
             {submitBusy ? (isIp ? `Creando ${ipUnits.length} unidades…` : 'Creando…') : 'Crear recepción'}
             {!submitBusy && <Icon name="check" size={16} color="var(--spira-on-accent)" />}
