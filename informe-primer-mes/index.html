@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spira — Informe del primer mes</title>
+<style>
+  :root{
+    --primary:#0F5F57; --primary-deep:#0B4A44;
+    --paper:#F4F1EA; --surface:#FBFAF6; --white:#FFFFFF;
+    --ink:#14302E; --muted:#5B6B67; --faint:#8A968F;
+    --line:#E4DECF; --line-2:#D8CBB0;
+    --track:#2E7D74; --pharma:#A8842F; --pharma-soft:#C9A24A;
+    --good:#4E7A4C; --warn:#9B6F2E; --danger:#A6483B;
+    --shadow-sm:0 1px 2px rgba(20,48,46,.05), 0 4px 14px rgba(20,48,46,.05);
+    --shadow-md:0 10px 30px rgba(20,48,46,.09);
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:16px;line-height:1.6;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .page{max-width:900px;margin:0 auto;padding:0 28px 72px}
+  h1,h2,h3{font-weight:800;letter-spacing:-0.02em;line-height:1.15;margin:0}
+  p{margin:0 0 14px}
+  strong{font-weight:700;color:var(--ink)}
+  .muted{color:var(--muted)}
+  .lead{font-size:18px;line-height:1.62}
+
+  /* ---------- Portada ---------- */
+  .cover{padding:64px 0 40px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:34px}
+  .brand .vilano{width:30px;height:30px;flex:none}
+  .brand .word{font-weight:800;font-size:23px;letter-spacing:-0.03em}
+  .eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--pharma)}
+  .cover h1{font-size:clamp(34px,6vw,52px);margin:14px 0 0;text-wrap:balance}
+  .cover .sub{font-size:19px;color:var(--muted);margin-top:16px;max-width:38ch;text-wrap:balance}
+  .meta{display:flex;flex-wrap:wrap;gap:22px 34px;margin-top:34px;font-size:14px}
+  .meta div{display:flex;flex-direction:column;gap:3px}
+  .meta .k{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .meta .v{font-weight:600}
+
+  /* ---------- Franja de cifras ---------- */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:34px 0 4px}
+  .stat{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow-sm)}
+  .stat .n{font-size:26px;font-weight:800;letter-spacing:-0.02em;color:var(--primary)}
+  .stat .l{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.35}
+
+  /* ---------- Secciones ---------- */
+  section{padding:44px 0;border-bottom:1px solid var(--line)}
+  section:last-of-type{border-bottom:none}
+  .sec-eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--pharma);margin-bottom:10px}
+  section > h2{font-size:27px;margin-bottom:8px;text-wrap:balance}
+  .blurb{font-size:16.5px;color:var(--muted);max-width:66ch;margin-top:10px}
+  .narr{max-width:66ch}
+  .narr p{font-size:16.5px}
+
+  /* ---------- Frase ancla ---------- */
+  .anchor{background:var(--primary);color:var(--paper);border-radius:18px;padding:28px 30px;margin:8px 0 4px;box-shadow:var(--shadow-md)}
+  .anchor p{margin:0;font-size:19px;line-height:1.5;font-weight:600;letter-spacing:-0.01em}
+  .anchor .tag{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--pharma-soft);margin-bottom:10px}
+
+  /* ---------- Fundaciones (panel oscuro) ---------- */
+  .foundations{background:var(--primary-deep);color:var(--paper);border-radius:20px;padding:34px 32px;box-shadow:var(--shadow-md)}
+  .foundations h2{color:var(--white);font-size:25px}
+  .foundations .sec-eyebrow{color:var(--pharma-soft)}
+  .foundations .blurb{color:rgba(244,241,234,.82)}
+  .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px 22px;margin-top:24px}
+  .fpoint{display:flex;flex-direction:column;gap:5px}
+  .fpoint .t{font-weight:700;font-size:15.5px;color:var(--white)}
+  .fpoint .d{font-size:14px;line-height:1.55;color:rgba(244,241,234,.80)}
+  .fnote{margin-top:26px;padding-top:20px;border-top:1px solid rgba(244,241,234,.16);font-size:14.5px;line-height:1.6;color:rgba(244,241,234,.88)}
+
+  /* ---------- Figuras / capturas ---------- */
+  .shots{display:flex;flex-direction:column;gap:30px;margin-top:26px}
+  figure.shot{margin:0}
+  .shot .frame{
+    position:relative;background:var(--white);border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;box-shadow:var(--shadow-md);
+  }
+  .shot .frame::before{
+    content:"";display:block;height:34px;
+    background:linear-gradient(var(--surface),var(--surface));border-bottom:1px solid var(--line);
+  }
+  .shot .dots{position:absolute;top:12px;left:14px;display:flex;gap:6px;z-index:2}
+  .shot .dots i{width:9px;height:9px;border-radius:50%;background:var(--line-2);display:block}
+  .shot img{display:block;width:100%;height:auto}
+  .shot .ph{display:none;padding:52px 24px;text-align:center;background:
+      repeating-linear-gradient(45deg,var(--surface),var(--surface) 12px,#F1EDE3 12px,#F1EDE3 24px)}
+  .shot .ph .code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13.5px;font-weight:700;color:var(--primary);background:var(--white);border:1px solid var(--line);border-radius:8px;padding:6px 10px;display:inline-block}
+  .shot .ph .hint{font-size:13px;color:var(--muted);margin-top:12px}
+  .shot.missing img{display:none}
+  .shot.missing .ph{display:block}
+  figcaption{margin-top:13px;display:flex;gap:12px;align-items:flex-start}
+  figcaption .idx{flex:none;font-size:12px;font-weight:800;color:var(--white);background:var(--track);border-radius:7px;padding:3px 8px;letter-spacing:.02em;margin-top:1px}
+  figcaption.pharma .idx{background:var(--pharma)}
+  figcaption .txt{font-size:15px;color:var(--muted);line-height:1.5}
+  figcaption .txt b{color:var(--ink);font-weight:700}
+  .opt-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);border:1px solid var(--line-2);border-radius:6px;padding:1px 7px;margin-left:8px;vertical-align:middle}
+
+  /* ---------- Nota estratégica ---------- */
+  .note{background:var(--surface);border:1px solid var(--line-2);border-radius:16px;padding:26px 28px}
+  .note h2{font-size:23px;margin-bottom:12px}
+  .note p{font-size:16px;color:var(--ink);max-width:68ch}
+
+  /* ---------- Cierre / firma ---------- */
+  .closing p{font-size:16.5px;max-width:66ch}
+  .sign{margin-top:22px;font-size:16px}
+  .sign .name{font-weight:800;font-size:18px;letter-spacing:-0.01em}
+  .sign .role{color:var(--muted);font-size:14px}
+  footer{padding:30px 0 0;color:var(--faint);font-size:12.5px;text-align:center}
+
+  .pill{display:inline-block;font-size:12px;font-weight:700;color:var(--primary);background:rgba(15,95,87,.09);border-radius:999px;padding:3px 10px;letter-spacing:.01em}
+
+  @media (max-width:640px){
+    .fgrid{grid-template-columns:1fr}
+    .page{padding:0 18px 56px}
+    .cover{padding:44px 0 30px}
+  }
+  @media print{
+    body{background:var(--white)}
+    .page{max-width:none;padding:0 8mm}
+    section{padding:26px 0;break-inside:avoid}
+    .anchor,.foundations,.note,figure.shot{break-inside:avoid}
+    .cover{break-after:page}
+    a{color:inherit;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ===================== PORTADA ===================== -->
+  <header class="cover">
+    <div class="brand">
+      <svg class="vilano" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="16" cy="16" r="2.4" fill="#0F5F57"/>
+        <g stroke="#0F5F57" stroke-width="1.5" stroke-linecap="round">
+          <path d="M16 13.6V5"/><path d="M16 18.4V27"/><path d="M13.6 16H5"/><path d="M18.4 16H27"/>
+          <path d="M14.3 14.3 8.2 8.2"/><path d="M17.7 17.7l6.1 6.1"/><path d="M17.7 14.3l6.1-6.1"/><path d="M14.3 17.7l-6.1 6.1"/>
+        </g>
+      </svg>
+      <span class="word">Spira</span>
+    </div>
+
+    <div class="eyebrow">Informe de avance · Primer mes</div>
+    <h1>De un boceto a una plataforma que funciona, se ve bien y es segura</h1>
+    <p class="sub">Coordinación clínica (Track) y farmacia de investigación (Pharma), andando sobre datos reales.</p>
+
+    <div class="meta">
+      <div><span class="k">Para</span><span class="v">Dr. Pablo — Dirección, Fundación Scherbovsky</span></div>
+      <div><span class="k">De</span><span class="v">Lautaro Molina</span></div>
+      <div><span class="k">Fecha</span><span class="v">2 de julio de 2026</span></div>
+      <div><span class="k">Versión</span><span class="v"><span class="pill">v0.12.0</span></span></div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="n">2</div><div class="l">módulos funcionando sobre datos reales</div></div>
+      <div class="stat"><div class="n">39</div><div class="l">actualizaciones de base, aplicadas en orden</div></div>
+      <div class="stat"><div class="n">24 · 48</div><div class="l">drogas y medicamentos del centro, sembrados</div></div>
+      <div class="stat"><div class="n">~50</div><div class="l">días hasta la fecha límite</div></div>
+    </div>
+  </header>
+
+  <!-- ===================== EN UNA LÍNEA / NARRATIVA ===================== -->
+  <section>
+    <div class="sec-eyebrow">En una línea</div>
+    <h2>El mockup se ve; esto se usa.</h2>
+    <div class="anchor">
+      <div class="tag">La diferencia que no se ve en una foto</div>
+      <p>Lo que separa a un boceto de una plataforma —aislamiento de acceso verificado en vivo, cada acción trazada y recuperable, reglas clínicas que valida el servidor y el cronograma que se genera solo al randomizar— es justo lo invisible en una imagen, y lo único que costó construir este mes.</p>
+    </div>
+
+    <div class="narr" style="margin-top:26px">
+      <p>Pablo, hace un mes Spira era una idea con pantallas de muestra. Hoy es una plataforma que se usa: alguien inicia sesión con su usuario, da de alta un paciente real, ve sus visitas, reprograma una fecha, recibe medicación y el inventario se mueve solo. La diferencia entre un mockup y esto no es cosmética. El mockup es una foto: se ve bien pero no guarda nada, no valida nada, no distingue quién es quién. Lo que armamos este mes es el sistema por debajo de la foto —el que cuesta y el que da valor— y encima de él dos módulos que funcionan de verdad: <strong>Track</strong> (la coordinación clínica, con el ciclo completo de la visita) y <strong>Pharma</strong> (la farmacia de investigación, con recepción, stock por lote y producto de investigación).</p>
+      <p>Lo caro, lo que un boceto nunca tiene, es lo que quedó hecho: cada persona ve únicamente lo suyo porque la base misma lo hace cumplir fila por fila —lo verificamos en vivo, no es un adorno de pantalla—; cada acción sensible queda registrada de forma imborrable, con quién, qué y cuándo, y una foto del antes y el después (ya probamos recuperar un paciente borrado desde ese registro); y las reglas clínicas duras las valida el servidor, no la buena memoria del operador: no se puede randomizar sin firma y screening previos, y una excursión de temperatura frena el ingreso de stock antes de que entre. Todo esto corre sobre una base desplegada en producción (São Paulo, Ley 25.326), auditable ANMAT / ICH-GCP, pasada por dos rondas de revisión de seguridad buscándole a propósito el punto flojo, con veredicto aprobado.</p>
+      <p>En números del mes: 39 actualizaciones de base aplicadas en orden, que cubren de punta a punta identidad y permisos, coordinación clínica, farmacia y producto de investigación; el catálogo de farmacia sembrado con 24 drogas y 48 medicamentos del centro; y verificación de punta a punta en el navegador sobre el flujo real, incluidas pruebas con kits reales del sponsor —que de paso revelaron cómo vienen codificados y evitaron comprar un lector 2D que no hacía falta. No es una demo maquillada: es el sistema operando el flujo real del centro.</p>
+      <p class="muted" style="font-size:14.5px;border-left:3px solid var(--line-2);padding-left:14px">Una aclaración sobre las capturas que siguen: vas a ver pantallas con poca carga. Es deliberado. Primero el sistema —que funcione y sea seguro—; volcar la información del centro es la parte rápida y viene después.</p>
+    </div>
+  </section>
+
+  <!-- ===================== LA PLATAFORMA ===================== -->
+  <section>
+    <div class="sec-eyebrow">La plataforma</div>
+    <h2>Una puerta de entrada seria</h2>
+    <p class="blurb">Antes que los módulos, lo que cambió es el marco: la app dejó de arrancar en una pantalla provisoria y ahora recibe a cada persona con una entrada profesional y su día ya armado. Es la primera señal de que esto es una herramienta de trabajo, no una maqueta.</p>
+    <div class="shots">
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/01-login.png" alt="Pantalla de login de Spira" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/01-login.png</span><div class="hint">Login · pantalla partida con la marca, Google y recuperar contraseña</div></div>
+        </div>
+        <figcaption><span class="idx">01</span><span class="txt"><b>La entrada a Spira:</b> pantalla partida con la marca, ingreso con Google y recuperación de contraseña. La sesión se cierra al apagar el navegador, una decisión de seguridad por tratarse de datos clínicos.</span></figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/02-home.png" alt="Home del centro" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/02-home.png</span><div class="hint">Inicio / Resumen · "Tus módulos" y "Tu día"</div></div>
+        </div>
+        <figcaption><span class="idx">02</span><span class="txt"><b>La pantalla de inicio</b> reúne los módulos de cada persona y su día —las visitas de hoy, las recepciones por verificar, lo prioritario— reusando datos reales de Track y Pharma. Los números se calculan solos de la operación; nadie los carga a mano. Lo que todavía no existe (Lab, Contable) se muestra con candado: la plataforma no promete de más.</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================== FUNDACIONES ===================== -->
+  <section>
+    <div class="foundations">
+      <div class="sec-eyebrow">Fundaciones</div>
+      <h2>Lo que un mockup jamás tiene</h2>
+      <p class="blurb">Esta sección no lleva capturas a propósito: lo importante acá es invisible en una foto, y ese es justamente el punto. Es la parte que cuesta, la que hace que el sistema sea auditable de raíz y no de discurso. 39 actualizaciones de base, aplicadas en orden y nunca reescritas, cubren de punta a punta identidad, coordinación clínica, farmacia y producto de investigación.</p>
+      <div class="fgrid">
+        <div class="fpoint"><span class="t">Cada tabla con su propio candado</span><span class="d">El motor de la base decide, fila por fila, qué puede ver cada rol. Una coordinadora solo ve los protocolos que tiene asignados —lo verificamos en vivo—. No depende de que el programador se acuerde de filtrar.</span></div>
+        <div class="fpoint"><span class="t">Todo queda registrado y no se puede borrar</span><span class="d">Cada acción sensible se guarda con quién, qué, cuándo y una foto del antes y el después. Es imborrable. Ya recuperamos un paciente borrado desde ese registro.</span></div>
+        <div class="fpoint"><span class="t">No se reescribe la historia</span><span class="d">Los datos regulatorios se congelan: si hubo un error, se da de baja y se vuelve a cargar dejando rastro, en lugar de editar el pasado en silencio. Los movimientos de stock nunca se borran.</span></div>
+        <div class="fpoint"><span class="t">Las operaciones delicadas, por un cajero controlado</span><span class="d">Altas, bajas y recepciones pasan por funciones del servidor que verifican permisos y validan las reglas antes de ejecutar todo de un solo golpe —o no hacer nada. El usuario no lo puede saltear.</span></div>
+      </div>
+      <p class="fnote">El diseño de la base pasó por dos rondas de revisión adversarial —gente intentando romperlo a propósito— con veredicto aprobado, y esa misma vara se aplicó todo el mes al código: cada rama grande salió con su propia revisión limpia. Nada de esto certifica por sí solo, eso lo dan los organismos; pero ubica al sistema exactamente donde un auditor de ANMAT viene a mirar: <strong style="color:#fff">trazable, atribuible, íntegro y recuperable</strong>. Y deja algo más: cualquier tablero de métricas puede alimentarse de acá, porque los números salen de la operación misma —sin doble carga.</p>
+    </div>
+  </section>
+
+  <!-- ===================== TRACK ===================== -->
+  <section>
+    <div class="sec-eyebrow" style="color:var(--track)">Módulo Track</div>
+    <h2>El ciclo clínico completo de la visita</h2>
+    <p class="blurb">Track es la coordinación clínica del centro, y este mes quedó con lo grueso funcionando sobre datos reales. No es un tablero decorativo: modela el recorrido real del paciente por el estudio y por el día, y captura los momentos clínicos sensibles —screening, randomización— en el punto correcto, de forma trazable. Le quedan retoques, pero el corazón ya opera.</p>
+    <div class="shots">
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/03-pacientes.png" alt="Pacientes de Track" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/03-pacientes.png</span><div class="hint">Track · Pacientes (lista con trackers de visita)</div></div>
+        </div>
+        <figcaption><span class="idx">03</span><span class="txt"><b>El índice de protocolos y pacientes,</b> con búsqueda unificada y la identidad protegida por avatar. Desde acá se llega a cualquier estudio o paciente en dos clics.</span></figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/04-cronograma-paciente.png" alt="Cronograma de visitas del paciente" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/04-cronograma-paciente.png</span><div class="hint">Track · ficha del paciente con su cronograma de visitas</div></div>
+        </div>
+        <figcaption><span class="idx">04</span><span class="txt"><b>El recorrido del paciente en el estudio, visita por visita:</b> qué se hizo, qué viene y en qué semana está. La adherencia individual leída de un vistazo.</span></figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/05-cronograma-protocolo.png" alt="Definición del cronograma del protocolo" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/05-cronograma-protocolo.png</span><div class="hint">Track · protocolo · pestaña Cronograma (definición de visitas)</div></div>
+        </div>
+        <figcaption><span class="idx">05</span><span class="txt"><b>El cuadro de visitas del protocolo</b> —días, ventanas y etapas— del que se generan las visitas de cada paciente. Cambiarlo tiene impacto controlado y no borra lo ya atendido.</span></figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/06-alertas.png" alt="Alertas de Track" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/06-alertas.png</span><div class="hint">Track · Alertas (opcional — se ve mejor con alertas activas)</div></div>
+        </div>
+        <figcaption><span class="idx">06</span><span class="txt"><b>El radar de desvíos del centro:</b> ventanas de visita vencidas e ítems de checklist fuera de plazo, filtrables por protocolo y antigüedad. Lo que un monitor buscaría primero.</span></figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/07-visitas.png" alt="Visitas del día" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/07-visitas.png</span><div class="hint">Track · Visitas del día (opcional — mejor con varios pacientes)</div></div>
+        </div>
+        <figcaption><span class="idx">07</span><span class="txt"><b>El pulso operativo del día:</b> cada visita avanzando por sus etapas, con el cierre clínico de screening/randomización y una salvaguarda para las randomizaciones sin confirmar. Nada queda a medias.</span></figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/08-para-ver-medico.png" alt="Para ver médico" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/08-para-ver-medico.png</span><div class="hint">Track · Para ver médico (opcional — se ve mejor con cola)</div></div>
+        </div>
+        <figcaption><span class="idx">08</span><span class="txt"><b>La cola de espera del investigador,</b> ordenada por llegada y por día: quién sigue, quién ya fue atendido y por qué médico. El acto médico, ordenado y registrado.</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================== PHARMA ===================== -->
+  <section>
+    <div class="sec-eyebrow" style="color:var(--pharma)">Módulo Pharma</div>
+    <h2>La farmacia de investigación, de verdad</h2>
+    <p class="blurb">Pharma es el módulo central —por decisión de negocio, una sola farmacia atiende todos los protocolos, así que ve todo el stock. Este mes prioricé ponerlo en funcionamiento porque entendí que es lo urgente, y nació de cero hasta funcionar de punta a punta: se recibe medicación, se verifica en dos pasos y recién ahí se mueve el inventario, con trazabilidad por lote como pide ANMAT. Distingue tres realidades regulatorias sin mezclar inventarios —farmacia de protocolo, farmacia ambulatoria y el producto de investigación del sponsor— y todo el ingreso pasa por un asistente guiado con desplegables, para reducir al mínimo el error del operador.</p>
+    <div class="shots">
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/09-recepcion.png" alt="Recepción — cola transversal" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/09-recepcion.png</span><div class="hint">Pharma · Recepción (la cola por día) — la nueva piel "Sereno"</div></div>
+        </div>
+        <figcaption class="pharma"><span class="idx">09</span><span class="txt"><b>La cola única de recepciones,</b> ya con la nueva piel "Sereno": los tres ámbitos en una pantalla, agrupados por día, con verificación en dos pasos antes de tocar el stock.</span></figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/10-recepcion-wizard.png" alt="Wizard de recepción — Setup" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/10-recepcion-wizard.png</span><div class="hint">Pharma · Recepción · Nueva recepción (paso Setup)</div></div>
+        </div>
+        <figcaption class="pharma"><span class="idx">10</span><span class="txt"><b>El asistente de alta:</b> el tipo de recepción define el circuito. Investigación pide además coordinador responsable y deja registrada a la farmacéutica.</span></figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/11-ip-ingreso-macro.png" alt="Ingreso macro del producto de investigación" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/11-ip-ingreso-macro.png</span><div class="hint">Pharma · Recepción IP · paso Control y Carga (opcional)</div></div>
+        </div>
+        <figcaption class="pharma"><span class="idx">11</span><span class="txt"><b>El ingreso macro del producto de investigación:</b> la temperatura como control crítico (una excursión bloquea) y la cantidad total del cargamento, sin escanear kit por kit.</span></figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/12-medicamentos-stock.png" alt="Medicamentos — stock de base del protocolo" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/12-medicamentos-stock.png</span><div class="hint">Pharma · Medicamentos (base del protocolo, con disponibilidad)</div></div>
+        </div>
+        <figcaption class="pharma"><span class="idx">12</span><span class="txt"><b>El stock de base del protocolo,</b> medicamento por medicamento y con la disponibilidad a la vista; los lotes viven un clic más adentro. Detrás hay un catálogo sembrado con los 24 principios activos y 48 medicamentos del centro.</span></figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="frame"><span class="dots"><i></i><i></i><i></i></span>
+          <img src="capturas/13-ip-stock.png" alt="Stock del producto de investigación por protocolo" onerror="this.closest('.shot').classList.add('missing')">
+          <div class="ph"><span class="code">capturas/13-ip-stock.png</span><div class="hint">Pharma · Medicamentos · solapa Producto Investigación (kits por protocolo)</div></div>
+        </div>
+        <figcaption class="pharma"><span class="idx">13</span><span class="txt"><b>El producto de investigación tras el pivote:</b> la cantidad total de kits por protocolo, con la trazabilidad kit por kit delegada a donde ya existe —el sistema del sponsor (IRT)—, tal como lo definiste.</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================== CONTEXTO ESTRATÉGICO ===================== -->
+  <section>
+    <div class="note">
+      <div class="sec-eyebrow">Un apunte honesto sobre el rumbo</div>
+      <h2>El sistema se dobla a tu criterio, no al revés</h2>
+      <p>En la última reunión hubo un cambio fuerte de objetivos y aparecieron definiciones y prioridades que yo no tenía sobre la mesa —algunas de las cuales chocan con decisiones ya construidas en el sistema actual. Prefiero decirlo claro y no maquillarlo.</p>
+      <p>Ahí entra <strong>TrialMetrica</strong>. Lo tomo en serio: es el sistema que hoy te funciona y marca la vara de lo que el centro necesita ver —regulatorio, coordinación, tableros. La convergencia que veo es natural, porque son capas distintas de una misma cosa: Spira construye la capa donde el dato <em>nace</em> y se hace confiable (quién puede verlo, qué queda registrado, qué reglas se cumplen), y esa misma información puede alimentar los tableros que ya usás, con los números saliendo solos de la operación diaria en lugar de cargarse aparte. Cómo se ensambla —Spira como parte de TrialMetrica, o TrialMetrica leyendo de Spira— es exactamente el tipo de definición que quiero cerrar con vos.</p>
+      <p>El otro caso concreto ya lo resolvimos y sirve de ejemplo del criterio: el producto de investigación estaba modelado para rastrearse kit por kit, y vos definiste que se recibe de forma macro por cantidad total por protocolo, porque esa trazabilidad fina ya la lleva el sponsor en su sistema (IRT) y duplicarla no le sirve a nadie. Reorientamos el módulo a ese criterio sin romper lo auditable —de hecho sumando un control: ahora una excursión de temperatura bloquea el ingreso. Eso es lo que quiero mostrar: <strong>el sistema se dobla a la realidad del negocio cuando cambiás el criterio</strong>, en lugar de imponerle al centro cómo trabajar.</p>
+      <p>Por eso este mes prioricé Farmacia, que entendí que es lo urgente de poner en funcionamiento; Track ya tiene lo grueso andando y le quedan retoques. Quedo atento a la reunión de la semana que viene para terminar de alinear objetivos: cuanto antes cerremos las definiciones que faltan, más de esos ~50 días quedan para construir sobre firme y no para rehacer.</p>
+    </div>
+  </section>
+
+  <!-- ===================== CIERRE ===================== -->
+  <section class="closing">
+    <div class="sec-eyebrow">En resumen</div>
+    <h2>Que funcione, que se vea bien, y por encima de todo que sea seguro</h2>
+    <p style="margin-top:14px">En un mes Spira dejó de ser un boceto y pasó a ser una plataforma que se usa, con dos módulos funcionando sobre datos reales y una base auditable de raíz. Entiendo la urgencia —quedan alrededor de 50 días para la fecha límite— y la tengo presente en cada decisión. Pero mi orden de prioridades no cambia, y creo que coincidís: primero que funcione, después que se vea bien, y por encima de todo que sea seguro.</p>
+    <p>En una farmacia de investigación con datos clínicos reales, apurar a costa de la seguridad no es ir más rápido: es acumular deuda que después se paga cara en una inspección. Este mes las tres cosas avanzaron juntas: lo que mostramos funciona, ya respira el lenguaje "Sereno" —que además quedó documentado como especificación, así el pulido es repetible en cada pantalla nueva y no un retoque artesanal—, y descansa sobre un núcleo trazable y recuperable. Quedo a disposición para mostrarlo andando cuando quieras, y atento a la reunión de la semana que viene para alinear lo que sigue.</p>
+    <div class="sign">
+      <div class="name">Lautaro Molina</div>
+      <div class="role">Desarrollo · Spira — Fundación Scherbovsky</div>
+    </div>
+  </section>
+
+  <footer>Spira · Plataforma modular de investigación clínica · Informe del primer mes · 2 jul 2026</footer>
+
+</div>
+</body>
+</html>

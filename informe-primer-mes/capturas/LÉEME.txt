@@ -1,0 +1,36 @@
+CAPTURAS DEL INFORME — cómo se generaron
+=========================================
+
+Las 13 capturas (01–13) se sacaron AUTOMÁTICAMENTE el 03/07/2026 con un
+navegador headless (Edge del sistema vía Playwright) contra el dev server
+local, logueado con el usuario dev. Son PNG a 3200×1800 (viewport 1600×900 @2x).
+
+Índice:
+  01-login.png                 Login (pantalla partida con el video del centro)
+  02-home.png                  Inicio/Resumen ("Tus módulos" con datos reales de Track y Pharma)
+  03-pacientes.png             Track > Pacientes > Todos los pacientes (trackers por fila)
+  04-cronograma-paciente.png   Ficha de paciente con línea de tiempo + cronograma (ACT18301)
+  05-cronograma-protocolo.png  Detalle de protocolo > pestaña Cronograma (cuadro de visitas)
+  06-alertas.png               Track > Alertas (sin alertas — el centro al día)
+  07-visitas.png               Track > Visitas (día sin visitas — estado vacío)
+  08-para-ver-medico.png       Track > Para ver médico (cola vacía — estado vacío)
+  09-recepcion.png             Pharma > Recepción (cola por día, piel "Sereno")
+  10-recepcion-wizard.png      Wizard Nueva recepción · paso Setup (las 3 tarjetas de tipo)
+  11-ip-ingreso-macro.png      Wizard IP · paso Carga general (temperatura + cantidad de kits)
+  12-medicamentos-stock.png    Pharma > Medicamentos · Medicación de base (ACT18301)
+  13-ip-stock.png              Pharma > Medicamentos · Producto Investigación (54 kits)
+
+Para regenerarlas:
+  1. npm run dev (el script espera el puerto 5250, el de .claude/launch.json)
+  2. cd informe-primer-mes && npm i playwright-core
+  3. SPIRA_EMAIL=<usuario> SPIRA_PASS=<clave> node capturas.mjs
+
+Seguridad: el script es SOLO lectura contra la base real. Jamás toca
+«Confirmar recepción», «Crear recepción», «Verificar» ni «Asociar y agregar»,
+no entra al paso Escaneo (escanear escribe), y nunca hoverea los avatares de
+pacientes (el tooltip revela el nombre real). En el wizard avanza solo con
+estado de cliente y sale con Cancelar → Descartar.
+
+Privacidad verificada: ninguna captura muestra nombres reales de pacientes
+(solo iniciales + código IVRS). Los nombres visibles son del staff (médico
+tratante, investigador), lo cual es esperado.
