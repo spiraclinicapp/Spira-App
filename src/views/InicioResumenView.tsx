@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import { useVisitsForDay } from '../data/dayVisits'
 import { useVisitAlerts } from '../data/visits'
 import type { VisitType } from '../data/visits'
+import { useReceptions } from '../data/pharma'
 import { visitTitle } from '../lib/visits'
 import { todayISO } from '../lib/dates'
 import { MODULES } from '../modules/registry'
@@ -31,16 +32,19 @@ const TIPO_LABEL: Record<VisitType, string> = { presencial: 'Presencial', telefo
 
 /**
  * Home del módulo Inicio: saludo + tarjetas de módulos + "Lo prioritario" (alertas) + "Tu día"
- * (visitas de hoy, sin hora). Reusa los datos reales de Track (no fabrica datos que el schema no
- * tiene: turno/centro, tareas, Lab/Pharma). Sigue el patrón de TrackResumenView (loading/error).
+ * (visitas de hoy, sin hora). Reusa los datos reales de Track y Pharma (no fabrica datos que el
+ * schema no tiene: turno/centro, tareas, Lab/Contable). Sigue el patrón de TrackResumenView (loading/error).
  */
 export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) {
   const accent = module.accent
   const { modules: userModules } = useAuth()
   const day = useVisitsForDay(todayISO())
   const alertsQ = useVisitAlerts()
+  /* Pharma está operativo (v0.8+): su tarjeta muestra la cola de verificación, no "Próximamente".
+     Para quien no tiene el módulo, RLS devuelve vacío en silencio (y la tarjeta ni se pinta). */
+  const recepQ = useReceptions(null, null)
 
-  if (day.loading || alertsQ.loading) {
+  if (day.loading || alertsQ.loading || recepQ.loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title="Cargando tu inicio…" description="Un momento." />
   }
   if (day.error || alertsQ.error) {
@@ -75,6 +79,9 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
     return (a.patient_code ?? '').localeCompare(b.patient_code ?? '')
   })
   const moduleCards = MODULES.filter((m) => m.key !== 'inicio')
+  /* Cola de verificación de Pharma (recepciones en 'pendiente'). null → sin dato (query falló):
+     la tarjeta se pinta sin bajada antes que mentir con "Próximamente". */
+  const pharmaPendientes = recepQ.data ? recepQ.data.filter((r) => r.status === 'pendiente').length : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -84,6 +91,31 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12, marginTop: 12 }}>
           {moduleCards.map((m) => {
             const accessible = (userModules as string[]).includes(m.key)
+            /* Módulo aún no construido: tarjeta SELLADA. Sin texto a la vista —solo un
+               candado centrado sobre placa, en la superficie apagada— para que no compita
+               con los módulos operativos ni prometa de más. El nombre sigue disponible en
+               `title` (hover) y en texto oculto para lectores de pantalla: bloqueado a la
+               vista, no para la accesibilidad. La altura la empareja el grid (stretch). */
+            if (m.proximamente) {
+              return (
+                <div
+                  key={m.key}
+                  title={`${m.full} · Próximamente`}
+                  style={{
+                    position: 'relative', minHeight: 116, borderRadius: 14,
+                    border: '1px solid var(--spira-line)', background: 'var(--spira-surface)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  <span style={{ width: 46, height: 46, borderRadius: 13, background: 'var(--spira-line)', display: 'grid', placeItems: 'center' }}>
+                    <Icon name="lock" size={22} stroke={2} color="var(--spira-muted)" />
+                  </span>
+                  <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap', border: 0 }}>
+                    {m.full} · Próximamente
+                  </span>
+                </div>
+              )
+            }
             if (accessible) {
               return (
                 <button
@@ -109,11 +141,11 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
                       {visits.length} {visits.length === 1 ? 'visita hoy' : 'visitas hoy'}
                     </div>
                   ) : (
-                    <div style={{ marginTop: 8 }}>
-                      <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--spira-muted)', background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', borderRadius: 'var(--spira-radius-pill)', padding: '2px 9px' }}>
-                        Próximamente
-                      </span>
-                    </div>
+                    m.key === 'pharma' && pharmaPendientes !== null && (
+                      <div style={{ fontSize: 13, marginTop: 4, color: m.accent, fontWeight: 600 }}>
+                        {pharmaPendientes} {pharmaPendientes === 1 ? 'recepción por verificar' : 'recepciones por verificar'}
+                      </div>
+                    )
                   )}
                 </button>
               )

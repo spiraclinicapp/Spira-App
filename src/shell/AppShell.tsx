@@ -79,8 +79,11 @@ export function AppShell() {
      así que la vista conserva el control de su encabezado mientras esté en su submódulo. */
   useLayoutEffect(() => { setViewHeader(null) }, [moduleKey, subKey])
 
-  /* 'inicio' siempre disponible; el resto, según los roles reales del usuario. */
-  const isAllowed = (key: string) => key === 'inicio' || (userModules as string[]).includes(key)
+  /* 'inicio' siempre disponible; el resto, según los roles reales del usuario.
+     Los módulos `proximamente` quedan bloqueados para todos, tengan rol o no. */
+  const isAllowed = (key: string) =>
+    key === 'inicio' ||
+    (!MODULES.find((m) => m.key === key)?.proximamente && (userModules as string[]).includes(key))
 
   const mod = MODULES.find((m) => m.key === moduleKey) ?? MODULES[0]
   const sub = mod.submodules.find((s) => s.key === subKey) ?? mod.submodules[0]
@@ -179,6 +182,33 @@ export function AppShell() {
           {MODULES.map((m) => {
             const on = m.key === moduleKey
             const locked = !isAllowed(m.key)
+            /* Módulo aún no construido: no se muestra qué es. El ícono del módulo va
+               difuminado y casi transparente (ilegible a propósito) y encima un candado
+               más grande. Da la señal de "hay más, pero cerrado" sin revelar el módulo. */
+            if (m.proximamente) {
+              return (
+                <button
+                  key={m.key}
+                  disabled
+                  title={`${m.full} · próximamente`}
+                  className="spira-no-press"
+                  style={{
+                    width: 46, height: 46, borderRadius: 12, border: 'none', cursor: 'default',
+                    background: 'transparent', display: 'grid', placeItems: 'center',
+                    position: 'relative',
+                  }}
+                >
+                  <Icon
+                    name={m.icon}
+                    size={22}
+                    stroke={1.9}
+                    color="var(--spira-faint)"
+                    style={{ filter: 'blur(3.5px)', opacity: 0.3, position: 'absolute' }}
+                  />
+                  <Icon name="lock" size={24} stroke={2} color="var(--spira-faint)" style={{ position: 'relative' }} />
+                </button>
+              )
+            }
             return (
               <button
                 key={m.key}

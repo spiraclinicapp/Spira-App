@@ -15,17 +15,18 @@ export interface ModuleDef {
   accent: string
   /** Relleno sólido para texto papel sobre acento (botones/cards hero). */
   accentSolid: string
-  /** Si el rol del usuario tiene acceso. Más adelante viene de user_module_roles. */
-  allowed: boolean
+  /** Módulo aún no construido: se muestra con candado para TODOS (sin importar el
+   *  rol) y no se puede entrar. Se saca el flag cuando el módulo exista de verdad. */
+  proximamente?: boolean
   submodules: SubModule[]
 }
 
-/* Orden: permitidos primero, bloqueados al final. Acentos = hex (no cambian con el tema).
-   `allowed` hoy es estático; en el próximo paso se conecta a los roles reales. */
+/* Orden: los módulos operativos primero (Track, Pharma), los que vienen al final.
+   El acceso real por rol lo decide auth (user_module_roles); acentos = hex fijos. */
 export const MODULES: ModuleDef[] = [
   {
     key: 'inicio', name: 'Inicio', full: 'Inicio', icon: 'dashboard',
-    accent: '#0F5F57', accentSolid: '#0F5F57', allowed: true,
+    accent: '#0F5F57', accentSolid: '#0F5F57',
     submodules: [
       { key: 'resumen', name: 'Resumen', icon: 'home' },
       { key: 'tareas', name: 'Tareas', icon: 'clipboardCheck' },
@@ -34,7 +35,7 @@ export const MODULES: ModuleDef[] = [
   },
   {
     key: 'track', name: 'Track', full: 'Spira Track', icon: 'activity',
-    accent: '#2E7D74', accentSolid: '#2E7D74', allowed: true,
+    accent: '#2E7D74', accentSolid: '#2E7D74',
     submodules: [
       { key: 'resumen', name: 'Resumen', icon: 'dashboard' },
       { key: 'protocolos', name: 'Pacientes', icon: 'file' },
@@ -45,18 +46,8 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   {
-    key: 'lab', name: 'Lab', full: 'Spira Lab', icon: 'flask',
-    accent: '#5C8A5A', accentSolid: '#5C8A5A', allowed: true,
-    submodules: [
-      { key: 'muestras', name: 'Muestras', icon: 'flask' },
-      { key: 'analisis', name: 'Análisis', icon: 'droplet' },
-      { key: 'resultados', name: 'Resultados', icon: 'barChart' },
-      { key: 'cadena', name: 'Cadena de frío', icon: 'thermometer' },
-    ],
-  },
-  {
     key: 'pharma', name: 'Pharma', full: 'Spira Pharma', icon: 'pill',
-    accent: '#C9A24A', accentSolid: '#A8842F', allowed: true,
+    accent: '#C9A24A', accentSolid: '#A8842F',
     submodules: [
       { key: 'resumen', name: 'Resumen', icon: 'dashboard' },
       { key: 'protocolos', name: 'Protocolos', icon: 'file' },
@@ -67,8 +58,18 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   {
+    key: 'lab', name: 'Lab', full: 'Spira Lab', icon: 'flask',
+    accent: '#5C8A5A', accentSolid: '#5C8A5A', proximamente: true,
+    submodules: [
+      { key: 'muestras', name: 'Muestras', icon: 'flask' },
+      { key: 'analisis', name: 'Análisis', icon: 'droplet' },
+      { key: 'resultados', name: 'Resultados', icon: 'barChart' },
+      { key: 'cadena', name: 'Cadena de frío', icon: 'thermometer' },
+    ],
+  },
+  {
     key: 'contable', name: 'Contable', full: 'Spira Contable', icon: 'receipt',
-    accent: '#3A6B8C', accentSolid: '#3A6B8C', allowed: false,
+    accent: '#3A6B8C', accentSolid: '#3A6B8C', proximamente: true,
     submodules: [
       { key: 'facturacion', name: 'Facturación', icon: 'receipt' },
       { key: 'pagos', name: 'Pagos a pacientes', icon: 'creditCard' },
