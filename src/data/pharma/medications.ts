@@ -36,6 +36,16 @@ export function useMedications() {
   )
 }
 
+/** Códigos de barra asociados (`medication_codes`): un `code` por fila, con su `medication_id`.
+ *  Alimenta la recepción: mostrar el código de cada medicamento cargado, avisar los que no tienen,
+ *  y no ofrecer para asociar un código nuevo los medicamentos que YA tienen uno (1 código ↔ 1 med). */
+export function useMedicationCodes() {
+  return useSupabaseQuery<{ medication_id: string; code: string }[]>(
+    (c) => c.from('medication_codes').select('medication_id, code').returns<{ medication_id: string; code: string }[]>(),
+    [],
+  )
+}
+
 /** Variantes de una droga: otros medicamentos (presentaciones) del mismo principio activo. */
 export function useMedicationVariants(drugId: string | null) {
   return useSupabaseQuery<MedicationRow[]>(

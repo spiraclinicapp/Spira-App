@@ -4,7 +4,7 @@ import { Modal } from '../../components/Modal'
 import { FormField, fieldInput } from '../../components/FormField'
 import { btnOutline, btnPrimary } from '../../components/buttons'
 import {
-  useDrugs, createDrug, createMedication, assignMedicationToProtocol, useDoses,
+  useDrugs, createDrug, createMedication, useDoses,
   useLaboratorios, createLaboratorio, resolveLabByCode, linkLabPrefix,
 } from '../../data/pharma'
 
@@ -16,13 +16,16 @@ const PRESENTACIONES = [
 
 interface Props {
   accentSolid: string
-  protocolId: string
   onClose: () => void
   onCreated: () => void
 }
 
-/** Alta de medicamento GLOBAL: droga + comercial + dosis + presentación (+ GTIN y laboratorio). */
-export function NewMedicationForm({ accentSolid, protocolId, onClose, onCreated }: Props) {
+/**
+ * Alta de medicamento GLOBAL: droga + comercial + dosis + presentación (+ GTIN y laboratorio).
+ * El medicamento queda en el catálogo global; se asocia a un protocolo cuando se recibe (0040),
+ * no acá — por eso no hay "asignar a este protocolo" en el alta.
+ */
+export function NewMedicationForm({ accentSolid, onClose, onCreated }: Props) {
   const drugs = useDrugs()
   const doses = useDoses()
   const labs = useLaboratorios()
@@ -40,7 +43,6 @@ export function NewMedicationForm({ accentSolid, protocolId, onClose, onCreated 
   const [newLab, setNewLab] = useState('')
   const [labAuto, setLabAuto] = useState(false) // el laboratorio se autodetectó del prefijo del GTIN
   const labManualRef = useRef(false) // el operador eligió el laboratorio a mano → no lo pisamos
-  const [assign, setAssign] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -112,10 +114,6 @@ export function NewMedicationForm({ accentSolid, protocolId, onClose, onCreated 
     // Aprende el prefijo del GTIN → laboratorio (best-effort; no bloquea el alta si falla).
     if (gtin.trim() && resolvedLabId) await linkLabPrefix(gtin.trim(), resolvedLabId)
 
-    if (assign) {
-      const ares = await assignMedicationToProtocol(protocolId, res.id)
-      if (ares.error) { setBusy(false); setError(ares.error); return }
-    }
     setBusy(false)
     onCreated()
   }
@@ -177,10 +175,6 @@ export function NewMedicationForm({ accentSolid, protocolId, onClose, onCreated 
             <input value={newLab} onChange={(e) => setNewLab(e.target.value)} autoFocus style={fieldInput} placeholder="Ej. AstraZeneca" />
           </FormField>
         )}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--spira-ink)' }}>
-          <input type="checkbox" checked={assign} onChange={(e) => setAssign(e.target.checked)} />
-          Asignar a este protocolo
-        </label>
 
         {error && (
           <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>

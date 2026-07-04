@@ -2,16 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { fieldInput } from '../../components/FormField'
 import { useMedications } from '../../data/pharma'
 
-interface Props { onPick: (medicationId: string) => void; accent: string }
+interface Props { onPick: (medicationId: string) => void; accent: string; autoFocus?: boolean }
 
 /**
- * Typeahead sobre el catálogo global de medicamentos.
- * Filtra por nombre de medicamento o principio activo (droga), muestra hasta 8 resultados.
+ * Typeahead sobre el catálogo global de medicamentos, para la recepción.
+ * El desplegable se abre recién al escribir (sin texto no muestra nada, para no listar medicamentos
+ * al azar) y filtra por nombre o principio activo (droga) sobre TODO el catálogo.
  * Al elegir limpia el input y llama `onPick(id)`. Teclado: Enter elige el primer match,
  * Escape cierra la lista. El parámetro `accent` colorea el fondo hover de cada ítem para que
  * el picker se integre visualmente con el contexto del módulo que lo invoca.
  */
-export function MedicationPicker({ onPick, accent }: Props) {
+export function MedicationPicker({ onPick, accent, autoFocus }: Props) {
   const meds = useMedications()
   const all = meds.data ?? []
   const [q, setQ] = useState('')
@@ -29,17 +30,16 @@ export function MedicationPicker({ onPick, accent }: Props) {
     return () => document.removeEventListener('mousedown', onDown)
   }, [open])
 
+  const query = q.trim()
   const matches = useMemo(() => {
-    const t = q.trim().toLowerCase()
-    if (!t) return all.slice(0, 8)
-    return all
-      .filter(
-        (m) =>
-          m.name.toLowerCase().includes(t) ||
-          (m.drug?.name?.toLowerCase().includes(t) ?? false),
-      )
-      .slice(0, 8)
-  }, [q, all])
+    const t = query.toLowerCase()
+    if (!t) return []
+    return all.filter(
+      (m) =>
+        m.name.toLowerCase().includes(t) ||
+        (m.drug?.name?.toLowerCase().includes(t) ?? false),
+    )
+  }, [query, all])
 
   const pick = (id: string) => {
     onPick(id)
@@ -51,9 +51,9 @@ export function MedicationPicker({ onPick, accent }: Props) {
     <div ref={containerRef} style={{ position: 'relative' }}>
       <input
         className="spira-search-input"
+        autoFocus={autoFocus}
         value={q}
         onChange={(e) => { setQ(e.target.value); setOpen(true) }}
-        onFocus={() => setOpen(true)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && matches[0]) { e.preventDefault(); pick(matches[0].id) }
           if (e.key === 'Escape') setOpen(false)
@@ -62,6 +62,12 @@ export function MedicationPicker({ onPick, accent }: Props) {
         aria-label="Buscar medicamento para agregar a mano"
         style={fieldInput}
       />
+      {open && query === '' && (
+        <div style={hintBox}>Escribí el nombre o la droga para buscar en el catálogo.</div>
+      )}
+      {open && query !== '' && matches.length === 0 && (
+        <div style={hintBox}>Sin resultados para «{query}».</div>
+      )}
       {open && matches.length > 0 && (
         <ul role="listbox" style={listBox}>
           {matches.map((m, idx) => (
@@ -101,6 +107,21 @@ const listBox: React.CSSProperties = {
   boxShadow: 'var(--spira-shadow-md)',
   maxHeight: 280,
   overflow: 'auto',
+}
+
+const hintBox: React.CSSProperties = {
+  position: 'absolute',
+  top: 'calc(100% + 4px)',
+  left: 0,
+  right: 0,
+  zIndex: 20,
+  background: 'var(--spira-white)',
+  border: '1px solid var(--spira-line)',
+  borderRadius: 'var(--spira-radius-md)',
+  boxShadow: 'var(--spira-shadow-md)',
+  padding: '12px 14px',
+  fontSize: 13,
+  color: 'var(--spira-muted)',
 }
 
 const itemBtn = (accent: string | null): React.CSSProperties => ({

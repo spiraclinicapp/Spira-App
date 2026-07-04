@@ -5,7 +5,6 @@
  */
 export * from './drugs'
 export * from './medications'
-export * from './protocolMedications'
 export * from './stock'
 export * from './receptions'
 export * from './laboratorios'

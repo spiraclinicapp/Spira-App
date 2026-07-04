@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { Stepper } from '../../components/Stepper'
 import { Modal } from '../../components/Modal'
 import { btnOutline, btnPrimary } from '../../components/buttons'
-import { createReception, createIpReception } from '../../data/pharma'
+import { createReception, createIpReception, useMedicationCodes } from '../../data/pharma'
 import type { ReceptionKind, StorageLocation } from '../../data/pharma'
 import { Step0Setup } from './wizard/Step0Setup'
 import { Step1Scan } from './wizard/Step1Scan'
@@ -55,9 +55,20 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   // Guardamos la acción a confirmar; `null | (() => void)` para evitar el colapso de
   // useState con una función inicializadora que TS no puede discriminar.
   const [confirmDiscard, setConfirmDiscard] = useState<null | (() => void)>(null)
+  // Aviso al avanzar del Escaneo si hay medicamentos sin código de barras (no bloquea: confirma).
+  const [confirmNoCode, setConfirmNoCode] = useState<null | (() => void)>(null)
 
   // ── Estado rama base ────────────────────────────────────────────────────────
   const [meds, setMeds] = useState<CountedMed[]>([])
+  // Códigos de barra del catálogo (fuente única para el Escaneo): mapa medicamento→código.
+  const codes = useMedicationCodes()
+  const codeByMed = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of codes.data ?? []) if (!m.has(r.medication_id)) m.set(r.medication_id, r.code)
+    return m
+  }, [codes.data])
+  // Un medicamento "no tiene código" si no viaja escaneado en la fila ni figura en el mapa.
+  const medsSinCodigo = meds.filter((m) => !m.code && !codeByMed.has(m.medicationId))
 
   // ── Estado rama IP macro (0038) ─────────────────────────────────────────────
   const [coordinatorId, setCoordinatorId] = useState('')
@@ -128,6 +139,11 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   }
   const next = () => {
     if (!canAdvance()) return
+    // Rama base: al salir del Escaneo, avisar si algún medicamento no tiene código de barras.
+    if (step === 1 && !isIp && medsSinCodigo.length > 0) {
+      setConfirmNoCode(() => () => goto(2))
+      return
+    }
     goto(step + 1)
   }
   const back = () => { if (step === 3) setSubmitError(null); setStep((s) => Math.max(0, s - 1)) }
@@ -237,7 +253,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
             totalKits={totalKits} setTotalKits={setTotalKits}
             rangeFrom={rangeFrom} setRangeFrom={setRangeFrom}
             rangeTo={rangeTo} setRangeTo={setRangeTo} />
-        : <Step1Scan tipo={tipo} protocolId={protocolId} accentSolid={accentSolid} meds={meds} setMeds={setMeds} />)}
+        : <Step1Scan accentSolid={accentSolid} meds={meds} setMeds={setMeds} codeByMed={codeByMed} onCodesChanged={codes.refetch} />)}
       {step === 2 && (isIp
         ? <Step2DobleCheckIp
             accentSolid={accentSolid}
@@ -282,6 +298,22 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
           </button>
         )}
       </div>
+
+      {/* Aviso: medicamentos sin código de barras (al avanzar del Escaneo). No bloquea: confirma. */}
+      {confirmNoCode && (
+        <Modal title="Medicamentos sin código de barras" onClose={() => setConfirmNoCode(null)}>
+          <p style={{ fontSize: 14, color: 'var(--spira-muted)', lineHeight: 1.5 }}>
+            Estos medicamentos no tienen ningún código de barras asociado:
+          </p>
+          <ul style={{ margin: '10px 0 0', paddingLeft: 18, fontSize: 14, color: 'var(--spira-ink)', lineHeight: 1.6 }}>
+            {medsSinCodigo.map((m) => <li key={m.medicationId}>{m.name}</li>)}
+          </ul>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+            <button type="button" onClick={() => setConfirmNoCode(null)} style={btnOutline}>Volver</button>
+            <button type="button" onClick={() => { const a = confirmNoCode; setConfirmNoCode(null); a?.() }} style={btnPrimary(accentSolid)}>Continuar igual</button>
+          </div>
+        </Modal>
+      )}
 
       {/* Modal de confirmación de descarte (se muestra solo si `confirmDiscard` tiene una acción) */}
       {confirmDiscard && (

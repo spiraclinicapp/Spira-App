@@ -1,33 +1,60 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { fieldInput } from '../../../components/FormField'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { EmptyState } from '../../../components/EmptyState'
 import { Icon } from '../../../components/Icon'
 import { MedicationPicker } from '../MedicationPicker'
 import { ScanField } from './ScanField'
-import { resolveCode, linkCode, assignMedicationToProtocol, useMedications } from '../../../data/pharma'
-import type { ReceptionKind } from '../../../data/pharma'
+import { resolveCode, linkCode, useMedications } from '../../../data/pharma'
 import type { CountedMed } from '../ReceptionWizard'
 
-interface Props { tipo: ReceptionKind; protocolId: string; accentSolid: string; meds: CountedMed[]; setMeds: React.Dispatch<React.SetStateAction<CountedMed[]>> }
+interface Props {
+  accentSolid: string
+  meds: CountedMed[]
+  setMeds: React.Dispatch<React.SetStateAction<CountedMed[]>>
+  /** Mapa medicamento→código de barras (fuente única, vive en el wizard). */
+  codeByMed: Map<string, string>
+  /** Reconsulta los códigos tras asociar uno nuevo (para que el med salga del "asociar"). */
+  onCodesChanged: () => void
+}
 
 /**
  * Paso 1 del wizard de recepción (rama base), lenguaje 2a del handoff: buscador central
  * grande + lista de medicamentos cargados en card con stepper −/+ por fila y footer contador.
  * El flujo no cambia: escanear suma +1 (resolveCode), código desconocido abre el panel de
  * asociación (linkCode), y "Buscar a mano" (link, plegado por defecto) muestra el typeahead.
+ * La asociación medicamento↔protocolo NO se hace acá: es consecuencia de confirmar la recepción
+ * (el RPC `create_reception` la asocia, 0040) — no un paso previo por cada escaneo.
+ * El código de barras de cada fila se resuelve EN EL RENDER (`codeOf`): el escaneado viaja en la
+ * fila; el resto sale del mapa `codeByMed`, así no queda un dato viejo si la query cargó después.
  */
-export function Step1Scan({ tipo, protocolId, accentSolid, meds, setMeds }: Props) {
+export function Step1Scan({ accentSolid, meds, setMeds, codeByMed, onCodesChanged }: Props) {
   const catalog = useMedications(); const all = catalog.data ?? []
+  // Para asociar un código DESCONOCIDO solo ofrecemos medicamentos SIN código (1 código ↔ 1 med).
+  const uncoded = useMemo(() => all.filter((m) => !codeByMed.has(m.id)), [all, codeByMed])
+  // Código a mostrar en una fila: el escaneado (viaja en `m.code`) o el del mapa; si no hay, null.
+  const codeOf = (m: CountedMed): string | undefined => m.code ?? codeByMed.get(m.medicationId)
   const [scan, setScan] = useState(''); const [msg, setMsg] = useState<string | null>(null)
   const [unknown, setUnknown] = useState<string | null>(null); const [linkId, setLinkId] = useState(''); const [linkErr, setLinkErr] = useState<string | null>(null)
   const [manualOpen, setManualOpen] = useState(false)
   const scanRef = useRef<HTMLInputElement>(null)
-
-  const ensureAssigned = async (medicationId: string): Promise<string | null> => {
-    if (tipo !== 'protocolo') return null
-    const r = await assignMedicationToProtocol(protocolId, medicationId); return r.error
+  // Asignar un código de barras a un medicamento cargado que no tiene (inline en su fila).
+  const [assignFor, setAssignFor] = useState<string | null>(null)
+  const [assignCode, setAssignCode] = useState('')
+  const [assignErr, setAssignErr] = useState<string | null>(null)
+  const [assignBusy, setAssignBusy] = useState(false)
+  const openAssign = (id: string) => { setAssignFor(id); setAssignCode(''); setAssignErr(null) }
+  const cancelAssign = () => { setAssignFor(null); setAssignCode(''); setAssignErr(null) }
+  const saveAssign = async (medicationId: string) => {
+    const code = assignCode.trim(); if (!code) return
+    setAssignBusy(true); setAssignErr(null)
+    const res = await linkCode(code, medicationId)
+    setAssignBusy(false)
+    if (res.error) { setAssignErr(res.error); return }
+    onCodesChanged() // ahora tiene código → la fila lo muestra y sale del "asociar"
+    setAssignFor(null); setAssignCode('')
   }
+
   // `code` viaja solo en el alta de la fila (para mostrar el EAN); los deltas posteriores no lo pisan.
   const bump = (medicationId: string, name: string, delta = 1, code?: string) => {
     setMeds((prev) => {
@@ -43,15 +70,14 @@ export function Step1Scan({ tipo, protocolId, accentSolid, meds, setMeds }: Prop
     const code = scan.trim(); if (!code) return; setScan(''); setMsg(null)
     const med = await resolveCode(code)
     if (!med) { setUnknown(code); setLinkId(''); setLinkErr(null); return }
-    const aerr = await ensureAssigned(med.id); if (aerr) { setMsg(aerr); return }
     bump(med.id, med.name, +1, code); setMsg(`+1 ${med.name}`)
     scanRef.current?.focus()
   }
   const confirmLink = async () => {
     if (!unknown || !linkId) return
     const res = await linkCode(unknown, linkId); if (res.error) { setLinkErr(res.error); return }
-    const aerr = await ensureAssigned(linkId); if (aerr) { setLinkErr(aerr); return }
     const m = all.find((x) => x.id === linkId); if (m) bump(m.id, m.name, +1, unknown)
+    onCodesChanged() // el med ya quedó con código → sale del desplegable de asociar
     setUnknown(null); setLinkId(''); setMsg('Código guardado y +1')
     scanRef.current?.focus()
   }
@@ -69,39 +95,63 @@ export function Step1Scan({ tipo, protocolId, accentSolid, meds, setMeds }: Prop
         accentSolid={accentSolid}
         inputRef={scanRef}
       />
-      {/* Ayuda + atajo "a mano" en un solo renglón (handoff 1d, paso Escaneo) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-muted)', flexWrap: 'wrap' }}>
-        Cada beep suma una unidad. Ajustá la cantidad con − / + si hace falta.
-        <span style={{ color: 'var(--spira-line-2)' }}>·</span>
-        ¿Sin lector?
-        <button
-          type="button"
-          onClick={() => setManualOpen((v) => !v)}
-          aria-expanded={manualOpen}
-          style={{ border: 'none', background: 'transparent', padding: 0, color: accentSolid, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--spira-font-text)' }}
-        >
-          Buscar a mano
-        </button>
+      {/* Ayuda + atajo "a mano" (handoff 1d), pegado al escáner: renglón centrado que muestra el
+          feedback de escaneo cuando lo hay (si no, la ayuda), divisor, y el atajo. Al pulsar
+          "Buscar a mano", el renglón del atajo SE REEMPLAZA por el buscador (× para volver). */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <p aria-live="polite" style={{ margin: 0, fontSize: 13, color: 'var(--spira-muted)', textAlign: 'center' }}>
+          {msg ?? 'Cada beep suma una unidad. Ajustá la cantidad con − / + si hace falta.'}
+        </p>
+        <div style={{ borderTop: '1px solid var(--spira-line)' }} />
+        {manualOpen ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <MedicationPicker accent={accentSolid} autoFocus onPick={(id) => { const m = all.find((x) => x.id === id); if (m) bump(id, m.name) }} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setManualOpen(false)}
+              aria-label="Cerrar búsqueda a mano"
+              style={{ width: 40, height: 40, flex: '0 0 auto', border: '1px solid var(--spira-line-2)', borderRadius: 10, background: 'var(--spira-white)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+            >
+              <Icon name="x" size={16} color="var(--spira-muted)" />
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 13, color: 'var(--spira-muted)' }}>
+            <Icon name="search" size={15} color="var(--spira-muted)" />
+            ¿Sin lector?
+            <button
+              type="button"
+              onClick={() => setManualOpen(true)}
+              aria-expanded={manualOpen}
+              style={{ border: 'none', background: 'transparent', padding: 0, color: accentSolid, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--spira-font-text)' }}
+            >
+              Buscar a mano
+            </button>
+          </div>
+        )}
       </div>
-      <div aria-live="polite" style={{ fontSize: 12.5, color: 'var(--spira-muted)', minHeight: 18 }}>{msg ?? ''}</div>
 
       {unknown && (
         <div style={linkPanel}>
           <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>Código <span className="spira-mono" style={{ color: 'var(--spira-ink)', fontWeight: 600 }}>{unknown}</span> sin asociar. ¿A qué medicamento corresponde?</span>
           <select value={linkId} onChange={(e) => setLinkId(e.target.value)} style={{ ...fieldInput, height: 38 }}>
             <option value="" disabled>Elegí el medicamento</option>
-            {all.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            {/* Solo medicamentos SIN código: cada código es único por medicamento (1 ↔ 1). */}
+            {uncoded.map((m) => <option key={m.id} value={m.id}>{m.name}{m.drug ? ` · ${m.drug.name}` : ''}</option>)}
           </select>
+          {uncoded.length === 0 && (
+            <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
+              Todos los medicamentos del catálogo ya tienen un código. Si es un producto nuevo, crealo primero en Medicamentos.
+            </div>
+          )}
           {linkErr && <div style={errorBox} aria-live="assertive">{linkErr}</div>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" onClick={() => void confirmLink()} disabled={!linkId} style={{ ...btnPrimary(accentSolid), height: 38, opacity: linkId ? 1 : 0.6 }}>Asociar y agregar</button>
             <button type="button" onClick={() => setUnknown(null)} style={{ ...btnOutline, height: 38 }}>No asociar</button>
           </div>
         </div>
-      )}
-
-      {manualOpen && (
-        <MedicationPicker accent={accentSolid} onPick={async (id) => { try { const m = all.find((x) => x.id === id); if (!m) return; const e = await ensureAssigned(id); if (e) { setMsg(e); return } bump(id, m.name) } catch (err) { setMsg(err instanceof Error ? err.message : 'No se pudo agregar el medicamento') } }} />
       )}
 
       {meds.length === 0 ? (
@@ -118,7 +168,37 @@ export function Step1Scan({ tipo, protocolId, accentSolid, meds, setMeds }: Prop
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
-                  {m.code && <div className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)', marginTop: 1 }}>{m.code}</div>}
+                  {codeOf(m) ? (
+                    <div className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)', marginTop: 1 }}>{codeOf(m)}</div>
+                  ) : assignFor === m.medicationId ? (
+                    <div style={{ marginTop: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <input
+                          className="spira-mono"
+                          value={assignCode}
+                          onChange={(e) => setAssignCode(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); void saveAssign(m.medicationId) }
+                            if (e.key === 'Escape') cancelAssign()
+                          }}
+                          autoFocus
+                          placeholder="Escaneá o tipeá el código"
+                          aria-label={`Código de barras para ${m.name}`}
+                          style={{ ...fieldInput, height: 32, maxWidth: 220, fontSize: 12.5 }}
+                        />
+                        <button type="button" onClick={() => void saveAssign(m.medicationId)} disabled={!assignCode.trim() || assignBusy} style={{ ...btnPrimary(accentSolid), height: 32, fontSize: 12.5, padding: '0 12px', opacity: (!assignCode.trim() || assignBusy) ? 0.6 : 1 }}>Guardar</button>
+                        <button type="button" onClick={cancelAssign} style={{ ...btnOutline, height: 32, fontSize: 12.5, padding: '0 12px' }}>Cancelar</button>
+                      </div>
+                      {assignErr && <div style={{ fontSize: 12, color: 'var(--spira-danger)', marginTop: 4 }} aria-live="assertive">{assignErr}</div>}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--spira-warn)', marginTop: 1 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Icon name="alertCircle" size={12} color="var(--spira-warn)" /> Sin código de barras
+                      </span>
+                      <button type="button" onClick={() => openAssign(m.medicationId)} style={{ border: 'none', background: 'transparent', padding: 0, color: accentSolid, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--spira-font-text)' }}>· Asignar código</button>
+                    </div>
+                  )}
                 </div>
                 {/* Stepper −/+ agrupado (handoff 2a); 44px de alto = hit target de la nota del handoff */}
                 <div style={qtyGroup}>
