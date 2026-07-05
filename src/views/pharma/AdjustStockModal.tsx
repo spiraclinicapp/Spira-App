@@ -3,24 +3,28 @@ import type { FormEvent } from 'react'
 import { Modal } from '../../components/Modal'
 import { FormField, fieldInput } from '../../components/FormField'
 import { btnOutline, btnPrimary } from '../../components/buttons'
-import { useLots, adjustStock } from '../../data/pharma'
+import { adjustStock } from '../../data/pharma'
 
 /** Motivos de ajuste preestablecidos (desplegable, sin texto libre obligatorio). */
 const MOTIVOS = ['Recuento de inventario', 'Rotura', 'Vencimiento', 'Devolución', 'Otro']
 
 interface Props {
   accentSolid: string
-  medicationId: string
-  protocolId: string
+  /** Lote a ajustar (la fila por-lote ya lo conoce; sin selector). */
+  lotId: string
+  /** Etiqueta del lote para mostrar (ej. "L-2291 · vence 31/12/2027 · 40 en stock"). */
+  lotLabel: string
   medicationName: string
   onClose: () => void
   onAdjusted: () => void
 }
 
-/** Ajuste manual de stock de un lote (+/-) con motivo obligatorio. RPC adjust_stock. */
-export function AdjustStockModal({ accentSolid, medicationId, protocolId, medicationName, onClose, onAdjusted }: Props) {
-  const lots = useLots(medicationId, protocolId)
-  const [lotId, setLotId] = useState('')
+/**
+ * Ajuste manual de stock de UN lote concreto (+/-) con motivo obligatorio. RPC `adjust_stock`
+ * (pharma leader+). Per-lote: la fila del rediseño identifica el lote, así que no hay selector
+ * (funciona igual para protocolo y ambulatoria, que no tiene protocolo).
+ */
+export function AdjustStockModal({ accentSolid, lotId, lotLabel, medicationName, onClose, onAdjusted }: Props) {
   const [delta, setDelta] = useState('')
   const [motivo, setMotivo] = useState('')
   const [nota, setNota] = useState('')
@@ -29,7 +33,6 @@ export function AdjustStockModal({ accentSolid, medicationId, protocolId, medica
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!lotId) { setError('Elegí un lote.'); return }
     if (!motivo) { setError('Elegí un motivo.'); return }
     const n = Number(delta)
     if (!Number.isFinite(n) || n === 0) {
@@ -48,18 +51,11 @@ export function AdjustStockModal({ accentSolid, medicationId, protocolId, medica
   return (
     <Modal title={`Ajustar stock · ${medicationName}`} onClose={onClose}>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <FormField label="Lote">
-          <select value={lotId} onChange={(e) => setLotId(e.target.value)} required style={fieldInput}>
-            <option value="" disabled>Elegí un lote</option>
-            {(lots.data ?? []).map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.lot_number}{l.expiry_date ? ` · vence ${l.expiry_date}` : ''} · {l.quantity_on_hand} en stock
-              </option>
-            ))}
-          </select>
-        </FormField>
+        <div style={{ fontSize: 13, color: 'var(--spira-muted)' }}>
+          Lote <span className="spira-mono" style={{ color: 'var(--spira-ink)', fontWeight: 600 }}>{lotLabel}</span>
+        </div>
         <FormField label="Ajuste (+/-)">
-          <input type="number" value={delta} onChange={(e) => setDelta(e.target.value)} required style={fieldInput} placeholder="Ej. -3 o 10" />
+          <input type="number" value={delta} onChange={(e) => setDelta(e.target.value)} required autoFocus style={fieldInput} placeholder="Ej. -3 o 10" />
         </FormField>
         <FormField label="Motivo">
           <select value={motivo} onChange={(e) => setMotivo(e.target.value)} required style={fieldInput}>

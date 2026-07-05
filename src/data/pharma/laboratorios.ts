@@ -26,6 +26,18 @@ export async function createLaboratorio(
 }
 
 /**
+ * Baja de un laboratorio (delete directo; pharma operator+ por la RLS "pharma administra laboratorios",
+ * 0033). FK `medications.laboratorio_id ON DELETE set null`: borrar NO rompe — los medicamentos que lo
+ * usaban quedan sin laboratorio. 0 filas afectadas = sin permiso (RLS filtra en silencio).
+ */
+export async function deleteLaboratorio(id: string): Promise<{ error: string | null; code?: string }> {
+  const { data, error } = await supabase.from('laboratorios').delete().eq('id', id).select('id')
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  if (!data || data.length === 0) return { error: 'No pudimos eliminar el laboratorio (sin permiso o ya no existe).' }
+  return { error: null }
+}
+
+/**
  * Longitud del prefijo de empresa GS1 que capturamos del GTIN. 779 (Argentina) + 5 ≈ lo que
  * agrupa por laboratorio en los datos del centro. Fija a propósito (la longitud real es variable);
  * el longest-prefix match de `resolveLabByCode` la compensa.

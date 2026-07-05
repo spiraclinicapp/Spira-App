@@ -24,6 +24,18 @@ export function useIpStock(protocolId: string | null) {
   }, [protocolId])
 }
 
+/**
+ * Stock de IP de TODOS los protocolos (una fila por protocolo con recepciones/kits), para pintar
+ * la tarjeta macro de IP arriba de cada grupo en "Farmacia Protocolo" SIN caer en N+1: una sola
+ * query, el front la indexa por `protocol_id`. Lee v_ip_stock (0038).
+ */
+export function useIpStockAll() {
+  return useSupabaseQuery<IpStockRow[]>(
+    (c) => c.from('v_ip_stock').select('*').returns<IpStockRow[]>(),
+    [],
+  )
+}
+
 /** Datos del ingreso MACRO de una recepción de IP (un cargamento). Migración 0038. */
 export interface CreateIpReceptionInput {
   protocolId: string

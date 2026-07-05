@@ -118,6 +118,11 @@ button { font-family: inherit; }
   .spira-search-input:focus,
   .spira-search-input:focus-visible { transform: none; }
 }
+/* Input "pelado" dentro de un recuadro propio (buscador del SearchableSelect): la señal de foco va
+   en el recuadro (borde + halo), NO en el input, así no asoma su sombra rectangular en los extremos.
+   `.spira-bare-input:focus` (especificidad 0,2,0) le gana al `:where(...):focus` de arriba (0,1,0). */
+.spira-bare-input:focus,
+.spira-bare-input:focus-visible { box-shadow: none; transform: none; }
 
 /* —— Pantallas de acceso (Login / definir contraseña) ——
    Dos mitades: a la izquierda un panel VERDE (marca) con el logo de Spira arriba y la foto

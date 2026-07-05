@@ -17,7 +17,9 @@ export interface MedicationRow {
   name: string
   /** Dosis / concentración (ej. '100 mcg', '160/4,5 mcg'). Opcional. Migración 0034. */
   dosis: string | null
-  /** Formato de presentación ('Comprimido oral' | 'Aerosol (IDM)' | ...). */
+  /** Clase / indicación (ej. ICS/LABA, IMP de estudio). Opcional. Migración 0043. */
+  clase: string | null
+  /** Formato de presentación / método ('Comprimido oral' | 'Aerosol (IDM)' | ...). */
   unit: string
   /** Umbral de stock bajo (default 5 en la base). */
   low_stock_threshold: number
@@ -25,7 +27,7 @@ export interface MedicationRow {
   drug: MedicationDrug | null
 }
 
-const MEDICATION_COLS = 'id, name, dosis, unit, low_stock_threshold, drug:drugs(id, name)'
+const MEDICATION_COLS = 'id, name, dosis, unit, low_stock_threshold, clase, drug:drugs(id, name)'
 
 /** Catálogo global de medicamentos (con su droga). Visible a pharma/gerencia/contable (RLS). */
 export function useMedications() {
@@ -41,7 +43,7 @@ export function useMedications() {
  *  y no ofrecer para asociar un código nuevo los medicamentos que YA tienen uno (1 código ↔ 1 med). */
 export function useMedicationCodes() {
   return useSupabaseQuery<{ medication_id: string; code: string }[]>(
-    (c) => c.from('medication_codes').select('medication_id, code').returns<{ medication_id: string; code: string }[]>(),
+    (c) => c.from('medication_codes').select('medication_id, code').order('created_at', { ascending: true }).returns<{ medication_id: string; code: string }[]>(),
     [],
   )
 }
@@ -71,9 +73,19 @@ export function useDoses() {
   )
 }
 
+/** Clase / indicación distinta ya usada (alimenta el desplegable de clase). Migración 0043. */
+interface ClaseRow { clase: string | null }
+export function useClases() {
+  return useSupabaseQuery<ClaseRow[]>(
+    (c) => c.from('medications').select('clase').not('clase', 'is', null).order('clase').returns<ClaseRow[]>(),
+    [],
+  )
+}
+
 /** Datos para el alta de un medicamento global. El GTIN (opcional) se guarda en `medication_codes`. */
 export interface NewMedicationInput {
-  drug_id: string
+  /** Monodroga (opcional; nullable en la base desde 0032). */
+  drug_id: string | null
   name: string
   unit: string
   low_stock_threshold: number
@@ -83,6 +95,8 @@ export interface NewMedicationInput {
   laboratorio_id?: string | null
   /** Dosis / concentración (opcional). Migración 0034. */
   dosis?: string | null
+  /** Clase / indicación (opcional). Migración 0043. */
+  clase?: string | null
 }
 
 /** Alta de medicamento (RPC `create_medication`, pharma leader+). Devuelve el id creado. */
@@ -97,9 +111,46 @@ export async function createMedication(
     p_gtin: input.gtin ?? null,
     p_laboratorio_id: input.laboratorio_id ?? null,
     p_dosis: input.dosis ?? null,
+    p_clase: input.clase ?? null,
   })
-  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  if (error) return { error: medicationDupMessage(error.code, error.message), code: error.code }
   return { error: null, id: data as string }
+}
+
+/** Datos para editar un medicamento existente. */
+export interface UpdateMedicationInput {
+  id: string
+  drug_id: string | null
+  name: string
+  unit: string
+  low_stock_threshold: number
+  dosis: string | null
+  clase: string | null
+}
+
+/**
+ * Edita un medicamento del catálogo (update directo sobre `medications`; pharma leader+ por la RLS
+ * "pharma/lider editan medicamentos", 0006). NO toca GTIN ni laboratorio (se manejan aparte). 0 filas
+ * afectadas = sin permiso (la RLS filtra en silencio). El índice único de catálogo (0042) tira 23505
+ * si el nuevo nombre+presentación ya existe en otro medicamento.
+ */
+export async function updateMedication(
+  input: UpdateMedicationInput,
+): Promise<{ error: string | null; code?: string }> {
+  const { data, error } = await supabase
+    .from('medications')
+    .update({ drug_id: input.drug_id, name: input.name, unit: input.unit, low_stock_threshold: input.low_stock_threshold, dosis: input.dosis, clase: input.clase })
+    .eq('id', input.id)
+    .select('id')
+  if (error) return { error: medicationDupMessage(error.code, error.message), code: error.code }
+  if (!data || data.length === 0) return { error: 'No pudimos editar el medicamento (sin permiso o ya no existe).' }
+  return { error: null }
+}
+
+/** Mensaje sereno para el 23505 del índice único del catálogo (0042): nombre + presentación repetidos. */
+function medicationDupMessage(code: string | undefined, raw: string): string {
+  if (code === '23505') return 'Este artículo ya se encuentra creado (mismo nombre y presentación).'
+  return pharmaErrorMessage(code, raw)
 }
 
 /**
@@ -131,6 +182,24 @@ export async function linkCode(
   const { error } = await supabase
     .from('medication_codes')
     .insert({ medication_id: medicationId, code: code.trim() })
+  if (error) return { error: linkCodeMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/**
+ * Reemplaza el código de barras de un medicamento (acción "Modificar código" de la fila). Convención
+ * 1 código ↔ 1 med: actualiza la fila existente en `medication_codes` (pharma operator+, RLS "pharma
+ * administra codigos"). 23505 si el nuevo código ya está mapeado a otro medicamento. NOTA: requiere
+ * permiso UPDATE en `medication_codes`; si la policy solo cubre INSERT, devuelve 42501 (sereno).
+ */
+export async function updateCode(
+  medicationId: string,
+  newCode: string,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase
+    .from('medication_codes')
+    .update({ code: newCode.trim() })
+    .eq('medication_id', medicationId)
   if (error) return { error: linkCodeMessage(error.code, error.message), code: error.code }
   return { error: null }
 }

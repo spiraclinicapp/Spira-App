@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from './Icon'
+import type { IconName } from './Icon'
 
 interface ModalProps {
   title: string
@@ -8,6 +9,12 @@ interface ModalProps {
   children: ReactNode
   /** Ancho máximo de la card. Default 440 (formularios de una columna). */
   maxWidth?: number
+  /** Ícono opcional en un cuadro tintado a la izquierda del título. */
+  icon?: IconName
+  /** Color de acento del título + ícono (ej. 'var(--spira-primary)'). Requiere `icon` para el cuadro. */
+  accent?: string
+  /** Fondo del cuadro del ícono (tinte del acento, ej. 'rgba(15,95,87,.12)'). */
+  accentSoft?: string
 }
 
 const backdrop: CSSProperties = {
@@ -22,7 +29,7 @@ const cardBase: CSSProperties = {
 }
 
 /** Overlay sobrio reutilizable: backdrop + card scrolleable + accesibilidad (Escape, aria, click afuera). */
-export function Modal({ title, onClose, children, maxWidth = 440 }: ModalProps) {
+export function Modal({ title, onClose, children, maxWidth = 440, icon, accent, accentSoft }: ModalProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
@@ -33,8 +40,13 @@ export function Modal({ title, onClose, children, maxWidth = 440 }: ModalProps) 
     <div style={backdrop} onClick={onClose} role="presentation">
       <div style={{ ...cardBase, maxWidth }} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         {/* encabezado fijo */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '22px 24px 14px', flex: '0 0 auto' }}>
-          <div className="spira-h2" style={{ flex: 1, fontSize: 20 }}>{title}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '22px 24px 14px', flex: '0 0 auto' }}>
+          {icon && (
+            <span style={{ width: 34, height: 34, flex: '0 0 auto', borderRadius: 9, background: accentSoft ?? 'var(--spira-surface)', display: 'grid', placeItems: 'center' }}>
+              <Icon name={icon} size={18} color={accent ?? 'var(--spira-ink)'} stroke={1.9} />
+            </span>
+          )}
+          <div className="spira-h2" style={{ flex: 1, fontSize: 20, color: accent }}>{title}</div>
           <button
             type="button"
             onClick={onClose}

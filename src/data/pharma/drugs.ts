@@ -24,3 +24,18 @@ export async function createDrug(
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null, id: data as string }
 }
+
+/**
+ * Baja de una droga (delete directo; pharma leader+ por la RLS "pharma leader administra drogas", 0032).
+ * FK `medications.drug_id ON DELETE restrict`: si algún medicamento la usa, Postgres tira 23503 → texto
+ * sereno explicando que está en uso. 0 filas afectadas = sin permiso (RLS filtra en silencio).
+ */
+export async function deleteDrug(id: string): Promise<{ error: string | null; code?: string }> {
+  const { data, error } = await supabase.from('drugs').delete().eq('id', id).select('id')
+  if (error) {
+    const msg = error.code === '23503' ? 'No se puede eliminar: hay medicamentos que usan esta monodroga.' : pharmaErrorMessage(error.code, error.message)
+    return { error: msg, code: error.code }
+  }
+  if (!data || data.length === 0) return { error: 'No pudimos eliminar la monodroga (sin permiso o ya no existe).' }
+  return { error: null }
+}
