@@ -33,3 +33,11 @@ const VIEW_REGISTRY: Record<string, ViewComponent> = {
 export function resolveView(moduleKey: string, subKey: string): ViewComponent {
   return VIEW_REGISTRY[`${moduleKey}/${subKey}`] ?? Placeholder
 }
+
+/**
+ * ¿El submódulo tiene una vista real (no cae al Placeholder)? Lo usa el buscador
+ * global para no indexar "páginas" que llevarían a una pantalla vacía.
+ */
+export function isViewRegistered(moduleKey: string, subKey: string): boolean {
+  return `${moduleKey}/${subKey}` in VIEW_REGISTRY
+}

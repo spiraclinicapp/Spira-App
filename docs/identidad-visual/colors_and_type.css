@@ -11,6 +11,7 @@
   /* —— Color · base —— */
   --spira-ink:      #14302E;   /* texto / petróleo casi negro */
   --spira-primary:  #0F5F57;   /* petróleo — color de marca */
+  --spira-primary-deep: #0B4A42; /* sombra del primario (fija en ambos temas) — fondos de marca / gradiente del cover de auth */
   --spira-paper:    #F4F1EA;   /* fondo cálido */
   --spira-surface:  #FBFAF6;   /* superficie elevada clara */
   --spira-white:    #FFFFFF;
@@ -69,13 +70,13 @@
    superficies, texto y líneas. El texto sobre acento usa --spira-on-accent. */
 :root { --spira-on-accent: #F4F1EA; --spira-brand-mark: #0F5F57; }
 [data-theme="dark"] {
-  --spira-ink:      #E9F2EF;
-  --spira-paper:    #0E1B1A;
-  --spira-surface:  #142523;
-  --spira-white:    #17302C;   /* fondo de card/elevado en oscuro */
-  --spira-muted:    #8AA39D;
-  --spira-faint:    #5E726D;
-  --spira-line:     #27403B;
-  --spira-line-2:   #34504A;
-  --spira-brand-mark: #9DE6D6;  /* isotipo legible sobre fondo oscuro */
+  --spira-ink:      #EDEDED;   /* texto — gris casi blanco neutro */
+  --spira-paper:    #121212;   /* fondo — casi negro neutro (punto medio, no negro puro) */
+  --spira-surface:  #1C1C1C;   /* superficie elevada (sube con el fondo para conservar el escalón) */
+  --spira-white:    #212121;   /* fondo de card/elevado en oscuro */
+  --spira-muted:    #A1A1A1;   /* texto secundario */
+  --spira-faint:    #6E6E6E;   /* texto terciario / placeholders */
+  --spira-line:     #2A2A2A;   /* bordes / divisores */
+  --spira-line-2:   #3A3A3A;   /* bordes de inputs */
+  --spira-brand-mark: #9DE6D6;  /* isotipo legible sobre fondo oscuro (verde menta, sin cambios) */
 }

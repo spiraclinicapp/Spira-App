@@ -10,8 +10,8 @@ const SPIRA = {
   themes: {
     light: { ink: "#14302E", paper: "#F4F1EA", surface: "#FBFAF6", white: "#FFFFFF",
              muted: "#7C8C87", faint: "#A6B0AC", line: "#E4DECF", line2: "#D8CBB0", brandMark: "#0F5F57" },
-    dark:  { ink: "#E9F2EF", paper: "#0E1B1A", surface: "#142523", white: "#17302C",
-             muted: "#8AA39D", faint: "#5E726D", line: "#27403B", line2: "#34504A", brandMark: "#9DE6D6" },
+    dark:  { ink: "#EDEDED", paper: "#121212", surface: "#1C1C1C", white: "#212121",
+             muted: "#A1A1A1", faint: "#6E6E6E", line: "#2A2A2A", line2: "#3A3A3A", brandMark: "#9DE6D6" },
   },
   fontDisp: "'Schibsted Grotesk', sans-serif",
   fontText: "'Hanken Grotesk', sans-serif",

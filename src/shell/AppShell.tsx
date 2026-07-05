@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
@@ -7,6 +7,10 @@ import { useAuth } from '../lib/auth'
 import { MODULES } from '../modules/registry'
 import { resolveView } from '../views/registry'
 import type { ViewHeader, ViewHeaderCrumb } from '../views/types'
+import { CommandPalette } from './CommandPalette'
+
+/** Atajo del buscador global, según plataforma. */
+const KBD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘ K' : 'Ctrl K'
 
 /* Crumb del breadcrumb del encabezado. Color uniforme tipo breadcrumb (sin acento):
    el actual (sin onClick) en tinta; los padres clickeables en gris. Subraya al hover. */
@@ -70,6 +74,9 @@ export function AppShell() {
   const [subKey, setSubKey] = useState('resumen')
   /* Encabezado contextual que registra la vista activa (breadcrumb + acciones). */
   const [viewHeader, setViewHeader] = useState<ViewHeader | null>(null)
+  /* Buscador global (command palette). Se monta lazy: sus hooks de datos (con PII)
+     corren solo cuando el palette está abierto. */
+  const [paletteOpen, setPaletteOpen] = useState(false)
 
   /* Al cambiar de módulo/submódulo, limpiar el encabezado contextual (que no quede
      pegado de otra vista). Es un LAYOUT effect a propósito: flushea antes que los
@@ -103,6 +110,24 @@ export function AppShell() {
     setModuleKey(mKey)
     setSubKey(sKey)
   }
+
+  /* Atajo global Ctrl/⌘ K: togglea el buscador. Al ABRIR no lo hace si hay un overlay
+     modal abierto (aria-modal) — no queremos el palette encima de un formulario a medio
+     llenar. Al cerrar (palette ya abierto) siempre permite. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault()
+        setPaletteOpen((open) => {
+          if (open) return false
+          if (document.querySelector('[aria-modal="true"]')) return false
+          return true
+        })
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
   const showAction = !HIDE_ACTION.has(`${moduleKey}/${sub.key}`)
@@ -143,8 +168,14 @@ export function AppShell() {
           <button onClick={toggle} style={iconBtn} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
             <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} color="var(--spira-ink)" />
           </button>
-          <button style={iconBtn} title="Buscar">
-            <Icon name="search" size={18} color="var(--spira-ink)" />
+          <button
+            className="spira-search-trigger"
+            onClick={() => setPaletteOpen(true)}
+            title={`Buscar en Spira (${KBD})`}
+          >
+            <Icon name="search" size={16} color="var(--spira-muted)" />
+            <span className="spira-search-label">Buscar…</span>
+            <span className="spira-search-kbd">{KBD}</span>
           </button>
           <button style={{ ...iconBtn, position: 'relative' }} title="Notificaciones">
             <Icon name="bell" size={18} color="var(--spira-ink)" />
@@ -312,6 +343,19 @@ export function AppShell() {
           </div>
         </main>
       </div>
+
+      {/* Buscador global (overlay). Lazy: se monta solo abierto → sus hooks (con PII)
+          traen datos frescos en cada apertura y no retienen nada al cerrar. */}
+      {paletteOpen && (
+        <CommandPalette
+          accent={accent}
+          moduleKey={moduleKey}
+          moduleName={mod.name}
+          isAllowed={isAllowed}
+          onNavigate={navigate}
+          onClose={() => setPaletteOpen(false)}
+        />
+      )}
     </div>
   )
 }

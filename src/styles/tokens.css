@@ -9,6 +9,7 @@
   /* —— Color · base —— */
   --spira-ink:      #14302E;
   --spira-primary:  #0F5F57;
+  --spira-primary-deep: #0B4A42;  /* petróleo profundo (sombra del primario) — fijo en ambos temas; fondo del cover de auth */
   --spira-paper:    #F4F1EA;
   --spira-surface:  #FBFAF6;
   --spira-white:    #FFFFFF;
@@ -52,15 +53,15 @@
 
 /* —— Tema oscuro —— (acentos/primario/semánticos se mantienen) */
 [data-theme='dark'] {
-  --spira-ink:      #E9F2EF;
-  --spira-paper:    #0E1B1A;
-  --spira-surface:  #142523;
-  --spira-white:    #17302C;
-  --spira-muted:    #8AA39D;
-  --spira-faint:    #5E726D;
-  --spira-line:     #27403B;
-  --spira-line-2:   #34504A;
-  --spira-brand-mark: #9DE6D6;
+  --spira-ink:      #EDEDED;   /* texto — gris casi blanco neutro */
+  --spira-paper:    #121212;   /* fondo — casi negro neutro (punto medio, no negro puro) */
+  --spira-surface:  #1C1C1C;   /* superficie elevada (sube con el fondo para conservar el escalón) */
+  --spira-white:    #212121;   /* card / elevado */
+  --spira-muted:    #A1A1A1;   /* texto secundario */
+  --spira-faint:    #6E6E6E;   /* texto terciario / placeholders */
+  --spira-line:     #2A2A2A;   /* bordes / divisores */
+  --spira-line-2:   #3A3A3A;   /* bordes de inputs */
+  --spira-brand-mark: #9DE6D6; /* isotipo verde menta — sin cambios */
 }
 
 /* —— Estilos tipográficos semánticos —— */
@@ -137,7 +138,10 @@ button { font-family: inherit; }
   align-items: center; justify-content: center;
   gap: 28px;
   padding: 48px;
-  background: linear-gradient(150deg, var(--spira-primary), var(--spira-ink));
+  /* Gradiente de marca: petróleo → petróleo profundo. Fijo en ambos temas (no usa --spira-ink,
+     que en oscuro vira a casi-blanco y rompía el degradé). El extremo oscuro es teal profundo,
+     no negro, para no caer en el "SaaS oscuro" que la marca rechaza. */
+  background: linear-gradient(150deg, var(--spira-primary), var(--spira-primary-deep));
 }
 /* Vilano grande y tenue de fondo (marca de agua). Posición DESCENTRADA + rotada a propósito:
    cruza por detrás de la foto de forma orgánica, sin quedar simétrico. */
@@ -202,6 +206,28 @@ button { font-family: inherit; }
 }
 @media (min-width: 900px) {
   .spira-auth-cover { display: flex; }
+}
+
+/* —— Trigger del buscador global (top bar) ——
+   Caja etiquetada "Buscar…" + atajo, que COLAPSA a un botón-ícono en viewports
+   angostos (para no amontonar la barra). Abre el CommandPalette (Ctrl/⌘ K). */
+.spira-search-trigger {
+  display: flex; align-items: center; gap: 8px;
+  width: 210px; height: 38px; padding: 0 8px 0 12px;
+  border: 1px solid var(--spira-line-2); border-radius: 10px;
+  background: var(--spira-surface); color: var(--spira-muted);
+  font-family: var(--spira-font-text); font-size: 13.5px; cursor: pointer;
+}
+.spira-search-trigger .spira-search-label { flex: 1; text-align: left; white-space: nowrap; }
+.spira-search-trigger .spira-search-kbd {
+  font-size: 11.5px; font-weight: 600; color: var(--spira-faint);
+  background: var(--spira-white); border: 1px solid var(--spira-line);
+  border-radius: 6px; padding: 2px 7px;
+}
+@media (max-width: 980px) {
+  .spira-search-trigger { width: 38px; padding: 0; justify-content: center; }
+  .spira-search-trigger .spira-search-label,
+  .spira-search-trigger .spira-search-kbd { display: none; }
 }
 
 /* —— Micro-interacción estándar de Spira ——
