@@ -176,9 +176,6 @@ export function AppShell() {
         </div>
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button onClick={toggle} style={iconBtn} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
-            <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} color="var(--spira-ink)" />
-          </button>
           <button
             className="spira-search-trigger"
             onClick={() => setPaletteOpen(true)}
@@ -187,6 +184,9 @@ export function AppShell() {
             <Icon name="search" size={16} color="var(--spira-muted)" />
             <span className="spira-search-label">Buscar…</span>
             <span className="spira-search-kbd">{KBD}</span>
+          </button>
+          <button onClick={toggle} style={iconBtn} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} color="var(--spira-ink)" />
           </button>
           <NotificationsMenu onNavigate={navigate} isAllowed={isAllowed} />
 
