@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
-import { Modal } from '../components/Modal'
 import { useAuth } from '../lib/auth'
+import { initialsOf } from '../lib/initials'
+import type { SettingsSection } from './settings/SettingsModal'
 
 /* ============================================================================
    UserMenu — menú de la cuenta (dropdown desde el usuario, arriba a la derecha).
@@ -25,31 +26,22 @@ interface NavItem {
   key: string
   label: string
   icon: IconName
+  section: SettingsSection
 }
 
-/** Ítems de navegación (todavía sin pantalla → "Próximamente"). */
+/** Ítems del menú: cada uno abre Ajustes en su sección (íconos del handoff). */
 const NAV_ITEMS: NavItem[] = [
-  { key: 'cuenta', label: 'Mi cuenta', icon: 'user' },
-  { key: 'preferencias', label: 'Preferencias', icon: 'settings' },
-  { key: 'notificaciones', label: 'Notificaciones', icon: 'bell' },
-  { key: 'roles', label: 'Roles y permisos', icon: 'shield' },
+  { key: 'cuenta', label: 'Mi cuenta', icon: 'user', section: 'cuenta' },
+  { key: 'preferencias', label: 'Preferencias', icon: 'settings', section: 'prefs' },
+  { key: 'notificaciones', label: 'Notificaciones', icon: 'bell', section: 'notif' },
+  { key: 'roles', label: 'Roles y permisos', icon: 'lock', section: 'roles' },
 ]
 /** Ayuda va en su propio grupo (no se pierde entre los de cuenta). */
-const AYUDA: NavItem = { key: 'ayuda', label: 'Ayuda', icon: 'helpCircle' }
+const AYUDA: NavItem = { key: 'ayuda', label: 'Ayuda', icon: 'info', section: 'ayuda' }
 
-/** Iniciales para el avatar: primera letra del primer y último nombre. */
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return 'U'
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-}
-
-export function UserMenu() {
+export function UserMenu({ onOpenSettings }: { onOpenSettings: (section: SettingsSection) => void }) {
   const { profile, session, signOut } = useAuth()
   const [open, setOpen] = useState(false)
-  /** Ítem "Próximamente" abierto (label) o null. */
-  const [comingSoon, setComingSoon] = useState<string | null>(null)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -90,7 +82,10 @@ export function UserMenu() {
     else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus() }
   }
 
-  const openComingSoon = (label: string) => { setComingSoon(label); close() }
+  /* close(true) reenfoca el disparador (sigue montado en la top bar) ANTES de que
+     monte el modal: así el modal captura ese foco y, al cerrar, lo devuelve al
+     menú de usuario en vez de perderlo en el body (WCAG 2.4.3). */
+  const openSettings = (section: SettingsSection) => { close(true); onOpenSettings(section) }
   const onLogout = () => { close(); void signOut() }
 
   return (
@@ -122,30 +117,22 @@ export function UserMenu() {
 
           <div style={sep} />
           {NAV_ITEMS.map((it) => (
-            <MenuRow key={it.key} item={it} onClick={() => openComingSoon(it.label)} />
+            <MenuRow key={it.key} item={it} onClick={() => openSettings(it.section)} />
           ))}
 
           <div style={sep} />
-          <MenuRow item={AYUDA} onClick={() => openComingSoon(AYUDA.label)} />
+          <MenuRow item={AYUDA} onClick={() => openSettings(AYUDA.section)} />
 
           <div style={sep} />
-          <MenuRow item={{ key: 'logout', label: 'Cerrar sesión', icon: 'logout' }} danger onClick={onLogout} />
+          <MenuRow item={{ label: 'Cerrar sesión', icon: 'logout' }} danger onClick={onLogout} />
         </div>
-      )}
-
-      {comingSoon && (
-        <Modal title={comingSoon} icon="clock" accent="var(--spira-primary)" onClose={() => setComingSoon(null)} maxWidth={400}>
-          <p style={{ margin: 0, color: 'var(--spira-muted)', fontSize: 14, lineHeight: 1.55 }}>
-            Estamos construyendo esta sección. Muy pronto vas a poder gestionarla desde acá.
-          </p>
-        </Modal>
       )}
     </div>
   )
 }
 
 /** Fila del menú: ícono en cajita tintada + label. `danger` = Cerrar sesión. */
-function MenuRow({ item, onClick, danger }: { item: NavItem; onClick: () => void; danger?: boolean }) {
+function MenuRow({ item, onClick, danger }: { item: { label: string; icon: IconName }; onClick: () => void; danger?: boolean }) {
   return (
     <button
       type="button"

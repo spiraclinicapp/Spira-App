@@ -255,6 +255,18 @@ button { font-family: inherit; }
 .spira-notif-all:hover,
 .spira-notif-all:focus-visible { background: var(--spira-surface); outline: none; }
 
+/* —— Animaciones del modal de Ajustes ——
+   Entrada del overlay (fade) + de la tarjeta (fade + leve subida/escala). Valores
+   del handoff. En reduced-motion la tarjeta entra sólo con fade (sin transform). */
+@keyframes spOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes spModalIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes spModalIn { from { opacity: 0; } to { opacity: 1; } }
+}
+
 /* —— Micro-interacción estándar de Spira ——
    Todo lo pulsable (botones, links, role=button) se levanta apenas (~1px) en hover y se
    asienta al pulsar. Es la señal universal de "esto se toca", sin depender del cursor.

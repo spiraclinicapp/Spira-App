@@ -12,6 +12,8 @@ import { UserMenu } from './UserMenu'
 import { NotificationsMenu } from './NotificationsMenu'
 import { AboutMenu } from './AboutMenu'
 import { FeedbackModal } from './FeedbackModal'
+import { SettingsModal } from './settings/SettingsModal'
+import type { SettingsSection } from './settings/SettingsModal'
 
 /** Atajo del buscador global, según plataforma. */
 const KBD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘ K' : 'Ctrl K'
@@ -72,7 +74,7 @@ function primaryActionBtn(accentSolid: string): CSSProperties {
 }
 
 export function AppShell() {
-  const { theme, toggle } = useTheme()
+  const { pref, theme, setPref, toggle } = useTheme()
   const { modules: userModules } = useAuth()
   const [moduleKey, setModuleKey] = useState('inicio')
   const [subKey, setSubKey] = useState('resumen')
@@ -83,6 +85,9 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   /* Modal "Dar feedback" (se abre desde el popover Acerca de, al pie del rail). */
   const [feedbackOpen, setFeedbackOpen] = useState(false)
+  /* Ajustes (menú de usuario). null = cerrado; string = sección abierta. Es un
+     overlay: NO toca moduleKey/subKey, así cerrar vuelve a donde estabas. */
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
 
   /* Al cambiar de módulo/submódulo, limpiar el encabezado contextual (que no quede
      pegado de otra vista). Es un LAYOUT effect a propósito: flushea antes que los
@@ -105,6 +110,7 @@ export function AppShell() {
   const selectModule = (key: string) => {
     const m = MODULES.find((x) => x.key === key)
     if (!m || !isAllowed(m.key)) return
+    setSettingsSection(null) // navegar cierra Ajustes (era un overlay encima)
     setModuleKey(key)
     setSubKey(m.submodules[0].key)
   }
@@ -113,6 +119,7 @@ export function AppShell() {
   const navigate = (mKey: string, sKey: string) => {
     const m = MODULES.find((x) => x.key === mKey)
     if (!m || !isAllowed(m.key) || !m.submodules.some((s) => s.key === sKey)) return
+    setSettingsSection(null) // navegar cierra Ajustes
     setModuleKey(mKey)
     setSubKey(sKey)
   }
@@ -185,7 +192,7 @@ export function AppShell() {
 
           <span style={{ width: 1, height: 26, background: 'var(--spira-line)', margin: '0 4px' }} />
 
-          <UserMenu />
+          <UserMenu onOpenSettings={setSettingsSection} />
         </div>
       </header>
 
@@ -265,7 +272,7 @@ export function AppShell() {
               return (
                 <button
                   key={s.key}
-                  onClick={() => setSubKey(s.key)}
+                  onClick={() => { setSubKey(s.key); setSettingsSection(null) }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 12px',
                     border: 'none', borderRadius: 9, cursor: 'pointer',
@@ -350,6 +357,18 @@ export function AppShell() {
           accent={accent}
           accentSolid={mod.accentSolid}
           onClose={() => setFeedbackOpen(false)}
+        />
+      )}
+
+      {/* Modal de Ajustes (se abre desde el menú de usuario). Overlay a nivel shell,
+          junto a los demás. El tema (pref/setPref) es el único control ya "vivo". */}
+      {settingsSection && (
+        <SettingsModal
+          section={settingsSection}
+          setSection={setSettingsSection}
+          onClose={() => setSettingsSection(null)}
+          pref={pref}
+          setPref={setPref}
         />
       )}
     </div>
