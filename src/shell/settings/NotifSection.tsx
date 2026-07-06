@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { StCard, StRow, StToggle, StPill, StNote } from './primitives'
+import { StCard, StRow, StToggle, StPill, PreviewBanner } from './primitives'
 import { DEMO_NOTIF_CATS } from './settingsData'
 
 /* Notificaciones. Solo el canal APP (los avisos in-app existen — la campana de la
@@ -14,6 +14,8 @@ export function NotifSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 720 }}>
+      <PreviewBanner>Todavía es una maqueta: los controles no se guardan aún.</PreviewBanner>
+
       <StCard title="Qué te avisamos" desc="Elegí qué avisos ver dentro de la app">
         {cats.map((c, i) => (
           <StRow key={c.key} label={c.label} last={i === cats.length - 1}>
@@ -27,8 +29,6 @@ export function NotifSection() {
           <StPill tone="neutral"><Icon name="clock" size={12} color="var(--spira-muted)" /> Próximamente</StPill>
         </StRow>
       </StCard>
-
-      <StNote>Estas preferencias todavía no se guardan entre sesiones.</StNote>
     </div>
   )
 }

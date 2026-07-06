@@ -1,6 +1,6 @@
 import { Icon } from '../../components/Icon'
 import { SPIRA_VERSION } from '../../lib/version'
-import { ACCENT, StCard, StRow, StPill, btnGhostSoon } from './primitives'
+import { ACCENT, StCard, StRow, StPill, PreviewBanner, btnGhostSoon } from './primitives'
 import { DEMO_HELP_TOPICS, SHORTCUTS } from './settingsData'
 
 /* Ayuda. Temas y buscador son vista previa (el header del modal lo marca). La
@@ -10,6 +10,8 @@ import { DEMO_HELP_TOPICS, SHORTCUTS } from './settingsData'
 export function HelpSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 760 }}>
+      <PreviewBanner>Temas y buscador de ejemplo. La versión (abajo) sí es real.</PreviewBanner>
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, height: 46, padding: '0 16px', background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)', borderRadius: 12, opacity: 0.7 }}>
         <Icon name="search" size={18} color="var(--spira-muted)" />
         <input

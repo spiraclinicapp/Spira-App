@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ThemePref } from '../../lib/theme'
-import { StCard, StRow, StSeg, StNote, btnGhostSoon } from './primitives'
+import { StCard, StRow, StSeg, PreviewBanner, btnGhostSoon } from './primitives'
 
 /* Preferencias. El ÚNICO control vivo es el Tema (cableado a setPref del shell:
    claro/oscuro/sistema, sincronizado con el botón de la top bar). El resto es
@@ -15,6 +15,8 @@ export function PrefsSection({ pref, setPref }: { pref: ThemePref; setPref: (p: 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 720 }}>
+      <PreviewBanner>Sólo el tema está activo. El resto todavía no se guarda ni cambia nada.</PreviewBanner>
+
       <StCard title="Apariencia">
         <StRow label="Tema" sub="Claro, oscuro o según tu sistema">
           <StSeg
@@ -51,8 +53,6 @@ export function PrefsSection({ pref, setPref }: { pref: ThemePref; setPref: (p: 
           <StSeg label="Página de inicio" value={home} onChange={setHome} options={[{ v: 'inicio', l: 'Inicio' }, { v: 'ultimo', l: 'Último módulo' }]} />
         </StRow>
       </StCard>
-
-      <StNote>Salvo el tema, estas preferencias todavía no se guardan entre sesiones.</StNote>
     </div>
   )
 }

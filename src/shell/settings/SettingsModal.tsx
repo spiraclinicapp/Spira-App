@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { IconName } from '../../components/Icon'
 import type { ThemePref } from '../../lib/theme'
-import { ACCENT, StPill } from './primitives'
+import { ACCENT } from './primitives'
 import { AccountSection } from './AccountSection'
 import { PrefsSection } from './PrefsSection'
 import { NotifSection } from './NotifSection'
@@ -36,8 +36,6 @@ const SETTINGS_NAV: NavDef[] = [
 const SETTINGS_TITLE: Record<SettingsSection, string> = {
   cuenta: 'Mi cuenta', prefs: 'Preferencias', notif: 'Notificaciones', roles: 'Roles y permisos', ayuda: 'Ayuda',
 }
-/** Secciones con datos de ejemplo → se rotulan "Vista previa" junto al título. */
-const PREVIEW: Set<SettingsSection> = new Set(['roles', 'ayuda'])
 
 interface SettingsModalProps {
   section: SettingsSection
@@ -150,10 +148,7 @@ export function SettingsModal({ section, setSection, onClose, pref, setPref }: S
           </aside>
 
           <main style={content}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-              <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 23, letterSpacing: '-0.02em', color: 'var(--spira-ink)' }}>{SETTINGS_TITLE[cur]}</div>
-              {PREVIEW.has(cur) && <StPill tone="neutral"><Icon name="clock" size={12} color="var(--spira-muted)" /> Vista previa</StPill>}
-            </div>
+            <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 23, letterSpacing: '-0.02em', color: 'var(--spira-ink)', marginBottom: 18 }}>{SETTINGS_TITLE[cur]}</div>
             {renderSection(cur, pref, setPref)}
           </main>
         </div>

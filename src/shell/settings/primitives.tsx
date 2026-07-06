@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
+import { Icon } from '../../components/Icon'
 import { Badge } from '../../components/Badge'
 import { btnOutline, btnPrimary } from '../../components/buttons'
 
@@ -170,9 +171,21 @@ export function btnSolid(): CSSProperties {
     + `title` — nunca finge acción (regla de app auditable: cero clicks muertos). */
 export const btnGhostSoon: CSSProperties = { ...btnGhost, opacity: 0.55, cursor: 'default' }
 
-/* ---------- rótulo "Vista previa" para secciones con datos de ejemplo ---------- */
-export function SoonPill() {
-  return <StPill tone="neutral">Vista previa</StPill>
+/* ---------- banner "Vista previa" (prominente, para secciones-maqueta) ----------
+   Borde punteado + ícono + explicación: se nota que la sección es una maqueta,
+   sin esconderlo en una píldora chica. Va arriba de todo en la sección. */
+export function PreviewBanner({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 14px', marginBottom: 18, borderRadius: 12, background: 'var(--spira-surface)', border: '1px dashed var(--spira-line-2)' }}>
+      <span style={{ width: 30, height: 30, flex: '0 0 auto', borderRadius: 8, display: 'grid', placeItems: 'center', background: ACCENT + '14' }}>
+        <Icon name="eye" size={16} color={ACCENT} />
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--spira-ink)' }}>Vista previa</div>
+        <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 1 }}>{children}</div>
+      </div>
+    </div>
+  )
 }
 
 /** Nota al pie, sobria: aclara que algo todavía no se guarda / no es real. */

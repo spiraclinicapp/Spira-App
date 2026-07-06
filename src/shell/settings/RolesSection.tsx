@@ -1,6 +1,6 @@
 import { Icon } from '../../components/Icon'
 import { initialsOf } from '../../lib/initials'
-import { ACCENT, StCard, StPill, btnGhostSoon } from './primitives'
+import { ACCENT, StCard, StPill, PreviewBanner, btnGhostSoon } from './primitives'
 import { DEMO_TEAM, DEMO_ROLES } from './settingsData'
 
 /* Roles y permisos. Vista previa con datos de ejemplo (el header del modal la
@@ -10,6 +10,8 @@ import { DEMO_TEAM, DEMO_ROLES } from './settingsData'
 export function RolesSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 820 }}>
+      <PreviewBanner>Datos de ejemplo. La gestión real de usuarios todavía no está conectada.</PreviewBanner>
+
       <StCard
         title="Equipo del centro"
         desc={`${DEMO_TEAM.length} personas · datos de ejemplo`}
