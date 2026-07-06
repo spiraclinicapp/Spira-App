@@ -15,6 +15,20 @@ const roleRank: Record<ModuleRole, number> = { viewer: 1, operator: 2, leader: 3
 interface Profile {
   id: string
   fullName: string
+  /** Puesto/título (cosmético, NO es acceso; columna de 0045). null si no está seteado. */
+  puesto: string | null
+  /** Centro asociado, forzado y de solo lectura (columna de 0045). */
+  centro: string | null
+  /** Timestamps de los últimos cambios (regla 1/30 días; columnas de 0045). ISO o null. */
+  nameChangedAt: string | null
+  emailChangedAt: string | null
+}
+
+/** Los RPC de perfil (0045) lanzan mensajes claros en castellano vía `raise exception`;
+    los dejamos pasar tal cual. Ante un error inesperado, un texto genérico. */
+function rpcErrorMessage(error: { message?: string }, fallback: string): string {
+  const m = (error.message ?? '').trim()
+  return m || fallback
 }
 
 /** Traduce los errores de Supabase Auth a mensajes serenos en castellano (matchea por mensaje
@@ -56,9 +70,13 @@ interface AuthState {
   requestPasswordReset: (email: string) => Promise<{ error: string | null }>
   /** Fija una contraseña nueva (durante la recuperación). En éxito sale del modo recovering. */
   updatePassword: (password: string) => Promise<{ error: string | null }>
-  /** Actualiza el nombre del perfil (public.users.full_name). La RLS de 0006 permite
-      editar el perfil propio (id = auth.uid()); refresca el estado local al guardar. */
+  /** Cambia el nombre del perfil (RPC update_my_name de 0045: regla 1/30 días server-side). */
   updateProfile: (fullName: string) => Promise<{ error: string | null }>
+  /** Cambia el puesto/título (RPC update_my_puesto de 0045; cosmético, NO toca el acceso). */
+  updatePuesto: (puesto: string | null) => Promise<{ error: string | null }>
+  /** Pide cambiar el correo: gatea la regla 1/30 días (RPC) y dispara el cambio en Auth,
+      que manda un link de confirmación al correo nuevo. `pending` = link enviado. */
+  requestEmailChange: (email: string) => Promise<{ error: string | null; pending: boolean }>
   /** Cierra las OTRAS sesiones del usuario (mantiene la actual, scope 'others'). */
   signOutOthers: () => Promise<{ error: string | null }>
   signOut: () => Promise<void>
@@ -126,15 +144,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const uid = session.user.id
     let active = true
+    type ProfRow = { full_name: string; puesto: string | null; centro: string | null; name_changed_at: string | null; email_changed_at: string | null }
     void (async () => {
-      const [profRes, rolesRes] = await Promise.all([
-        supabase.from('users').select('full_name').eq('id', uid).maybeSingle(),
+      // Perfil + roles en paralelo. El perfil pide las columnas de 0045; si la migración
+      // todavía no se aplicó (columnas inexistentes), caemos a full_name para no romper
+      // la carga de la app (los campos nuevos quedan null hasta aplicar 0045).
+      const [ext, rolesRes] = await Promise.all([
+        supabase.from('users').select('full_name, puesto, centro, name_changed_at, email_changed_at').eq('id', uid).maybeSingle(),
         supabase.from('user_module_roles').select('module, role').eq('user_id', uid),
       ])
+      let prof = ext.data as ProfRow | null
+      if (ext.error) {
+        const basic = await supabase.from('users').select('full_name').eq('id', uid).maybeSingle()
+        const b = basic.data as { full_name: string } | null
+        prof = b ? { full_name: b.full_name, puesto: null, centro: null, name_changed_at: null, email_changed_at: null } : null
+      }
       if (!active) return
-      const prof = profRes.data as { full_name: string } | null
       const rows = (rolesRes.data ?? []) as { module: ModuleKey; role: ModuleRole }[]
-      setProfile({ id: uid, fullName: prof?.full_name ?? session.user.email ?? 'Usuario' })
+      setProfile({
+        id: uid,
+        fullName: prof?.full_name ?? session.user.email ?? 'Usuario',
+        puesto: prof?.puesto ?? null,
+        centro: prof?.centro ?? null,
+        nameChangedAt: prof?.name_changed_at ?? null,
+        emailChangedAt: prof?.email_changed_at ?? null,
+      })
       setModules(rows.map((r) => r.module))
       setRoles(Object.fromEntries(rows.map((r) => [r.module, r.role])))
     })()
@@ -181,15 +215,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile: AuthState['updateProfile'] = async (fullName) => {
     const name = fullName.trim()
     if (!name) return { error: 'El nombre no puede quedar vacío.' }
-    const uid = session?.user?.id
-    if (!uid) return { error: 'Tu sesión expiró. Ingresá de nuevo.' }
-    // Update directo (no RPC): la RLS de 0006 gatea `id = auth.uid()`. Pedimos las
-    // filas afectadas para distinguir éxito de "0 filas = sin permiso" (RLS filtra en silencio).
-    const { data, error } = await supabase.from('users').update({ full_name: name }).eq('id', uid).select('id')
-    if (error) return { error: error.code === '42501' ? 'No tenés permiso para editar el perfil.' : 'No pudimos guardar el cambio. Probá de nuevo.' }
-    if (!data || data.length === 0) return { error: 'No pudimos actualizar tu perfil.' }
-    setProfile((p) => (p ? { ...p, fullName: name } : { id: uid, fullName: name }))
+    // Vía RPC (0045): la regla de 1 cambio/30 días se valida server-side (no se puede saltear).
+    const { error } = await supabase.rpc('update_my_name', { p_name: name })
+    if (error) return { error: rpcErrorMessage(error, 'No pudimos guardar el nombre.') }
+    setProfile((p) => (p ? { ...p, fullName: name, nameChangedAt: new Date().toISOString() } : p))
     return { error: null }
+  }
+
+  const updatePuesto: AuthState['updatePuesto'] = async (puesto) => {
+    const { error } = await supabase.rpc('update_my_puesto', { p_puesto: puesto })
+    if (error) return { error: rpcErrorMessage(error, 'No pudimos guardar el puesto.') }
+    setProfile((p) => (p ? { ...p, puesto } : p))
+    return { error: null }
+  }
+
+  const requestEmailChange: AuthState['requestEmailChange'] = async (email) => {
+    const next = email.trim()
+    if (!next) return { error: 'Ingresá un correo válido.', pending: false }
+    // 1) gate + sello de la regla 30 días (server-side). 2) cambio real en Auth, que
+    //    manda un link de confirmación al correo nuevo (aplica recién al confirmarlo).
+    const stamp = await supabase.rpc('stamp_email_change')
+    if (stamp.error) return { error: rpcErrorMessage(stamp.error, 'No pudimos cambiar el correo.'), pending: false }
+    const { error } = await supabase.auth.updateUser({ email: next })
+    if (error) return { error: authErrorMessage(error), pending: false }
+    setProfile((p) => (p ? { ...p, emailChangedAt: new Date().toISOString() } : p))
+    return { error: null, pending: true }
   }
 
   const signOutOthers: AuthState['signOutOthers'] = async () => {
@@ -208,7 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         session, profile, modules, roles, loading, recovering, hasMinRole,
         authNotice, clearAuthNotice: () => setAuthNotice(null),
-        signIn, signInWithGoogle, requestPasswordReset, updatePassword, updateProfile, signOutOthers, signOut,
+        signIn, signInWithGoogle, requestPasswordReset, updatePassword, updateProfile, updatePuesto, requestEmailChange, signOutOthers, signOut,
       }}
     >
       {children}
