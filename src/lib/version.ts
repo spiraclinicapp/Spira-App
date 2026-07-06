@@ -14,8 +14,9 @@ export interface ChangelogEntry {
 export const SPIRA_VERSION = {
   /** Versión de la app (de package.json). */
   app: __APP_VERSION__,
-  /** Canal de release (chip del popover). */
-  channel: 'estable',
+  /** Canal de release. Si NO es 'estable' (p. ej. 'beta'), el popover lo muestra
+      como etiqueta junto al wordmark. */
+  channel: 'beta',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
     { version: '0.15', text: 'Ajustes: pantalla propia desde tu cuenta, con perfil editable y control de tema.' },

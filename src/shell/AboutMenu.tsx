@@ -51,6 +51,9 @@ export function AboutMenu({ accent, onFeedback }: AboutMenuProps) {
   }, [open])
 
   const V = SPIRA_VERSION
+  // Canal pre-release (beta/alpha/rc) → etiqueta junto al wordmark. En 'estable' no
+  // se muestra: un producto estable no necesita rotularse.
+  const isPre = V.channel !== 'estable'
   const feedback = () => { setOpen(false); onFeedback() }
 
   return (
@@ -76,11 +79,11 @@ export function AboutMenu({ accent, onFeedback }: AboutMenuProps) {
           <div style={header}>
             <span style={{ ...markBox, background: accent + '16' }}><Vilano size={25} color={accent} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 17, letterSpacing: '-0.02em', color: 'var(--spira-ink)' }}>Spira</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                <span className="spira-mono" style={{ fontSize: 11.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>Plataforma {V.app}</span>
-                <span className="spira-mono" style={channelChip}>{V.channel}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 17, letterSpacing: '-0.02em', color: 'var(--spira-ink)' }}>Spira</span>
+                {isPre && <span style={betaBadge(accent)}>{V.channel}</span>}
               </div>
+              <span className="spira-mono" style={{ display: 'inline-block', marginTop: 3, fontSize: 11.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>Plataforma {V.app}</span>
             </div>
             <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" style={closeBtn}>
               <Icon name="x" size={18} color="var(--spira-muted)" />
@@ -112,7 +115,7 @@ export function AboutMenu({ accent, onFeedback }: AboutMenuProps) {
 
 /* —— estilos —— */
 const panel: CSSProperties = {
-  position: 'absolute', bottom: 0, left: 54, zIndex: 40, width: 288,
+  position: 'absolute', bottom: 10, left: 60, zIndex: 40, width: 288,
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 18,
   boxShadow: '0 24px 60px rgba(20, 48, 46, 0.24)', overflow: 'hidden',
 }
@@ -123,9 +126,15 @@ const header: CSSProperties = {
 const markBox: CSSProperties = {
   width: 38, height: 38, flex: '0 0 auto', borderRadius: 11, display: 'grid', placeItems: 'center',
 }
-const channelChip: CSSProperties = {
-  fontSize: 10.5, fontWeight: 500, color: 'var(--spira-good)', background: 'rgba(92, 138, 90, 0.16)',
-  borderRadius: 99, padding: '2px 8px',
+/** Etiqueta de canal pre-release (BETA) pegada al wordmark: rótulo (mayúsculas +
+    tracking, la convención de marca), tintada con el acento del módulo. Integrada al
+    lockup pero con borde propio para que se note que es una etiqueta. */
+function betaBadge(accent: string): CSSProperties {
+  return {
+    fontFamily: 'var(--spira-font-text)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.08em',
+    textTransform: 'uppercase', color: accent, background: accent + '1e', border: `1px solid ${accent}33`,
+    borderRadius: 5, padding: '2px 5px', lineHeight: 1, whiteSpace: 'nowrap',
+  }
 }
 const closeBtn: CSSProperties = {
   width: 28, height: 28, flex: '0 0 auto', borderRadius: 8, border: 'none', background: 'transparent',
