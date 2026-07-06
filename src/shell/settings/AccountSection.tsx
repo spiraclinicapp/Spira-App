@@ -1,34 +1,48 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
+import type { IconName } from '../../components/Icon'
 import { PasswordInput } from '../../components/PasswordInput'
 import { fieldInput } from '../../components/FormField'
 import { useAuth } from '../../lib/auth'
-import type { ModuleKey, ModuleRole } from '../../lib/auth'
+import type { ModuleRole } from '../../lib/auth'
 import { initialsOf } from '../../lib/initials'
 import { ACCENT, StCard, StRow, StPill, btnGhost, btnSolid } from './primitives'
 
-/* Mi cuenta. Datos reales (nombre + email de la sesión, accesos por módulo de
-   user_module_roles) y TRES acciones reales: editar el nombre (RLS permite el
-   perfil propio), cambiar la contraseña (auth.updateUser) y cerrar las otras
-   sesiones (signOut scope 'others'). Los formularios se expanden inline —no en un
-   modal anidado— para no chocar con el z-index/foco del propio modal de Ajustes.
-   2FA queda como "Próximamente" (es un flujo aparte, no se finge disponible). */
+/* Mi cuenta. Card de perfil rico (nombre · rol · correo · centro) + Seguridad
+   con acciones reales. Los campos se llenan de su fuente REAL: nombre/correo de
+   la sesión, ROL derivado del nivel más alto en user_module_roles (no un título
+   inventado), y CENTRO = la constante de la organización. Sin datos fabricados
+   por usuario (teléfono/zona no existen en el perfil → no se muestran). */
 
-const MODULE_LABEL: Record<ModuleKey, string> = {
-  track: 'Track', pharma: 'Pharma', lab: 'Lab', contable: 'Contable', gerencia: 'Gerencia',
-}
-const ROLE_LABEL: Record<ModuleRole, string> = {
-  viewer: 'Lectura', operator: 'Operador', leader: 'Líder', admin: 'Administrador',
+/** Espejo de public.role_rank (auth.tsx): viewer < operator < leader < admin. */
+const ROLE_RANK: Record<ModuleRole, number> = { viewer: 1, operator: 2, leader: 3, admin: 4 }
+const ROLE_LABEL: Record<ModuleRole, string> = { viewer: 'Lectura', operator: 'Operador', leader: 'Líder', admin: 'Administrador' }
+/** Centro real: Spira es la plataforma de la Fundación Scherbovsky (Mendoza, AR). */
+const CENTRO = 'Fundación Scherbovsky'
+
+/** Rol a mostrar = el nivel más alto que el usuario tiene en cualquier módulo. */
+function topRoleLabel(roles: Partial<Record<string, ModuleRole>>): string {
+  const rs = Object.values(roles).filter(Boolean) as ModuleRole[]
+  if (rs.length === 0) return 'Sin rol asignado'
+  const top = rs.reduce((a, b) => (ROLE_RANK[b] > ROLE_RANK[a] ? b : a))
+  return ROLE_LABEL[top]
 }
 
 export function AccountSection() {
   const { profile, session, roles, updateProfile, updatePassword, signOutOthers } = useAuth()
   const name = profile?.fullName ?? 'Usuario'
   const email = session?.user?.email ?? ''
-  const moduleEntries = (Object.entries(roles) as [ModuleKey, ModuleRole][]).filter(([, r]) => r != null)
+  const roleLabel = topRoleLabel(roles)
 
-  /* editar nombre */
+  const fields: { l: string; v: string; icon: IconName }[] = [
+    { l: 'Nombre completo', v: name, icon: 'user' },
+    { l: 'Correo institucional', v: email || '—', icon: 'mail' },
+    { l: 'Rol', v: roleLabel, icon: 'shield' },
+    { l: 'Centro', v: CENTRO, icon: 'activity' },
+  ]
+
+  /* editar nombre (único campo editable) */
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const [savingName, setSavingName] = useState(false)
@@ -76,43 +90,46 @@ export function AccountSection() {
       <StCard
         title="Perfil"
         desc="Tus datos dentro de Spira"
-        action={!editing ? <button style={btnGhost} onClick={startEdit}>Editar</button> : undefined}
+        action={!editing ? <button style={btnGhost} onClick={startEdit}>Editar perfil</button> : undefined}
         pad={false}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '18px 18px 20px' }}>
-          <div style={avatar}>{initialsOf(name)}</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {editing ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 360 }}>
-                <div>
-                  <label htmlFor="acc-name" style={lbl}>Nombre completo</label>
-                  <input id="acc-name" value={draft} onChange={(e) => setDraft(e.target.value)} autoComplete="name" style={fieldInput} />
-                </div>
-                {nameErr && <div style={err}>{nameErr}</div>}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button style={btnSolid()} onClick={saveName} disabled={savingName}>{savingName ? 'Guardando…' : 'Guardar'}</button>
-                  <button style={btnGhost} onClick={() => setEditing(false)} disabled={savingName}>Cancelar</button>
-                </div>
+        {editing ? (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '18px' }}>
+            <div style={avatar}>{initialsOf(draft || name)}</div>
+            <div style={{ flex: 1, minWidth: 0, maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <label htmlFor="acc-name" style={lbl}>Nombre completo</label>
+                <input id="acc-name" value={draft} onChange={(e) => setDraft(e.target.value)} autoComplete="name" style={fieldInput} />
               </div>
-            ) : (
-              <>
-                <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 19, letterSpacing: '-0.02em', color: 'var(--spira-ink)' }}>{name}</div>
-                {email && <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', marginTop: 2 }}>{email}</div>}
-              </>
-            )}
+              {nameErr && <div style={err}>{nameErr}</div>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button style={btnSolid()} onClick={saveName} disabled={savingName}>{savingName ? 'Guardando…' : 'Guardar'}</button>
+                <button style={btnGhost} onClick={() => setEditing(false)} disabled={savingName}>Cancelar</button>
+              </div>
+            </div>
           </div>
-        </div>
-      </StCard>
-
-      <StCard title="Accesos" desc="Tus módulos y tu nivel en cada uno">
-        {moduleEntries.length === 0 ? (
-          <StRow label="Sin accesos asignados" sub="Pedile a un administrador que te habilite un módulo" last />
         ) : (
-          moduleEntries.map(([mod, role], i) => (
-            <StRow key={mod} label={MODULE_LABEL[mod]} last={i === moduleEntries.length - 1}>
-              <StPill tone="accent">{ROLE_LABEL[role]}</StPill>
-            </StRow>
-          ))
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 18px 20px', borderBottom: '1px solid var(--spira-line)' }}>
+              <div style={avatar}>{initialsOf(name)}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 19, letterSpacing: '-0.02em', color: 'var(--spira-ink)' }}>{name}</div>
+                <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', marginTop: 2 }}>{roleLabel} · {CENTRO}</div>
+              </div>
+              <StPill tone="accent"><Icon name="shield" size={13} color={ACCENT} /> {roleLabel}</StPill>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 28px', padding: '6px 18px 14px' }}>
+              {fields.map((f, i) => (
+                <div key={f.l} style={{ padding: '13px 0', borderBottom: i < fields.length - 2 ? '1px solid var(--spira-line)' : 'none' }}>
+                  <div style={{ fontSize: 11.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--spira-faint)', fontWeight: 700 }}>{f.l}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
+                    <Icon name={f.icon} size={15} color="var(--spira-muted)" />
+                    <span style={{ fontSize: 14, color: 'var(--spira-ink)' }}>{f.v}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </StCard>
 
