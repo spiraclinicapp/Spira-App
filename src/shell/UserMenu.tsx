@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
+import { UserAvatar } from '../components/UserAvatar'
 import { useAuth } from '../lib/auth'
 import { initialsOf } from '../lib/initials'
 import type { SettingsSection } from './settings/SettingsModal'
@@ -99,7 +100,7 @@ export function UserMenu({ onOpenSettings }: { onOpenSettings: (section: Setting
         title="Tu cuenta"
         style={triggerStyle}
       >
-        <span style={avatarStyle(30, 13)}>{initials}</span>
+        <UserAvatar initials={initials} size={30} />
         <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', color: 'var(--spira-muted)' }}>{name}</span>
         <Icon name="chevronDown" size={15} color="var(--spira-muted)" />
       </button>
@@ -108,7 +109,7 @@ export function UserMenu({ onOpenSettings }: { onOpenSettings: (section: Setting
         <div ref={menuRef} role="menu" aria-label="Menú de usuario" onKeyDown={onMenuKey} style={menuStyle}>
           {/* header: identidad */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 9px 11px' }}>
-            <span style={avatarStyle(36, 14)}>{initials}</span>
+            <UserAvatar initials={initials} size={30} />
             <div style={{ minWidth: 0 }}>
               <div style={headerName}>{name}</div>
               {email && <div style={headerSub}>{email}</div>}
@@ -153,14 +154,6 @@ const triggerStyle: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 9, height: 42, padding: '0 8px 0 6px',
   border: 'none', background: 'transparent', borderRadius: 10, cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)',
-}
-function avatarStyle(size: number, fontSize: number): CSSProperties {
-  return {
-    width: size, height: size, flex: '0 0 auto', borderRadius: 9,
-    background: 'var(--spira-primary)', color: 'var(--spira-on-accent)',
-    display: 'grid', placeItems: 'center',
-    fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize,
-  }
 }
 const menuStyle: CSSProperties = {
   position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 248, zIndex: 90,

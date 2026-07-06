@@ -23,6 +23,10 @@
   --spira-warn:     #B0823F;
   --spira-danger:   #A6483B;
 
+  /* Aro del avatar de usuario — verde esmeralda de referencia (NO el petróleo de
+     marca; es un acento propio del avatar). Flipea a un tono más claro en oscuro. */
+  --spira-avatar-ring: #059669;   /* emerald-600 */
+
   /* —— Acentos por módulo (constantes en ambos temas) —— */
   --spira-track:        #2E7D74;
   --spira-pharma:       #C9A24A;
@@ -62,6 +66,7 @@
   --spira-line:     #2A2A2A;   /* bordes / divisores */
   --spira-line-2:   #3A3A3A;   /* bordes de inputs */
   --spira-brand-mark: #9DE6D6; /* isotipo verde menta — sin cambios */
+  --spira-avatar-ring: #34D399; /* emerald-400 — más claro para contraste en oscuro */
 }
 
 /* —— Estilos tipográficos semánticos —— */

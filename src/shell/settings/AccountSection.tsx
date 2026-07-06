@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { IconName } from '../../components/Icon'
 import { PasswordInput } from '../../components/PasswordInput'
+import { UserAvatar } from '../../components/UserAvatar'
 import { fieldInput } from '../../components/FormField'
 import { useAuth } from '../../lib/auth'
 import type { ModuleRole } from '../../lib/auth'
@@ -171,7 +172,7 @@ export function AccountSection() {
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 18px 20px', borderBottom: '1px solid var(--spira-line)' }}>
-              <div style={avatar}>{initialsOf(name)}</div>
+              <UserAvatar initials={initialsOf(name)} size={60} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 19, letterSpacing: '-0.02em', color: 'var(--spira-ink)' }}>{name}</div>
                 <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', marginTop: 2 }}>{puesto ? `${puesto} · ${centro}` : centro}</div>
@@ -235,10 +236,6 @@ export function AccountSection() {
   )
 }
 
-const avatar: CSSProperties = {
-  width: 60, height: 60, borderRadius: '50%', flex: '0 0 auto', background: ACCENT, display: 'grid', placeItems: 'center',
-  fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 22, color: 'var(--spira-on-accent)',
-}
 const lbl: CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)', marginBottom: 6 }
 const note: CSSProperties = { fontSize: 12, color: 'var(--spira-faint)', marginTop: 5 }
 const err: CSSProperties = { fontSize: 12.5, color: 'var(--spira-danger)' }
