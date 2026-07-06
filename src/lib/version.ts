@@ -18,7 +18,8 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
-    { version: '0.13', text: 'Buscador global (Ctrl/⌘ K), menú de usuario y notificaciones en la barra.' },
+    { version: '0.15', text: 'Ajustes: pantalla propia desde tu cuenta, con perfil editable y control de tema.' },
+    { version: '0.14', text: 'Buscador global (Ctrl/⌘ K), menú de usuario y notificaciones en la barra.' },
     { version: '0.13', text: 'Medicamentos por lote, stock y anti-duplicado en Pharma.' },
     { version: '0.12', text: 'Recepción con código de barras y catálogo global de medicamentos.' },
   ] as ChangelogEntry[],
