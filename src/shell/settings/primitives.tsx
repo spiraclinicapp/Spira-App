@@ -28,7 +28,9 @@ export function StToggle({ on, onClick, label }: { on: boolean; onClick: () => v
       className="spira-no-press"
       style={{
         width: 40, height: 23, flex: '0 0 auto', borderRadius: 99, border: 'none', cursor: 'pointer',
-        background: on ? ACCENT : 'var(--spira-line-2)', position: 'relative', transition: 'background .15s', padding: 0,
+        /* OFF con contraste real: line-2 (#D8CBB0) sobre card blanca se veía "fantasma".
+           faint lee claramente como pista apagada en ambos temas. */
+        background: on ? ACCENT : 'var(--spira-faint)', position: 'relative', transition: 'background .15s', padding: 0,
       }}
     >
       <span style={{

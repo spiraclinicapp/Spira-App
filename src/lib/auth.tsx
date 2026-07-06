@@ -56,6 +56,11 @@ interface AuthState {
   requestPasswordReset: (email: string) => Promise<{ error: string | null }>
   /** Fija una contraseña nueva (durante la recuperación). En éxito sale del modo recovering. */
   updatePassword: (password: string) => Promise<{ error: string | null }>
+  /** Actualiza el nombre del perfil (public.users.full_name). La RLS de 0006 permite
+      editar el perfil propio (id = auth.uid()); refresca el estado local al guardar. */
+  updateProfile: (fullName: string) => Promise<{ error: string | null }>
+  /** Cierra las OTRAS sesiones del usuario (mantiene la actual, scope 'others'). */
+  signOutOthers: () => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -173,6 +178,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? authErrorMessage(error) : null }
   }
 
+  const updateProfile: AuthState['updateProfile'] = async (fullName) => {
+    const name = fullName.trim()
+    if (!name) return { error: 'El nombre no puede quedar vacío.' }
+    const uid = session?.user?.id
+    if (!uid) return { error: 'Tu sesión expiró. Ingresá de nuevo.' }
+    // Update directo (no RPC): la RLS de 0006 gatea `id = auth.uid()`. Pedimos las
+    // filas afectadas para distinguir éxito de "0 filas = sin permiso" (RLS filtra en silencio).
+    const { data, error } = await supabase.from('users').update({ full_name: name }).eq('id', uid).select('id')
+    if (error) return { error: error.code === '42501' ? 'No tenés permiso para editar el perfil.' : 'No pudimos guardar el cambio. Probá de nuevo.' }
+    if (!data || data.length === 0) return { error: 'No pudimos actualizar tu perfil.' }
+    setProfile((p) => (p ? { ...p, fullName: name } : { id: uid, fullName: name }))
+    return { error: null }
+  }
+
+  const signOutOthers: AuthState['signOutOthers'] = async () => {
+    // scope 'others': revoca las demás sesiones y conserva la actual.
+    const { error } = await supabase.auth.signOut({ scope: 'others' })
+    return { error: error ? authErrorMessage(error) : null }
+  }
+
   const signOut: AuthState['signOut'] = async () => {
     setRecovering(false)
     await supabase.auth.signOut()
@@ -183,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         session, profile, modules, roles, loading, recovering, hasMinRole,
         authNotice, clearAuthNotice: () => setAuthNotice(null),
-        signIn, signInWithGoogle, requestPasswordReset, updatePassword, signOut,
+        signIn, signInWithGoogle, requestPasswordReset, updatePassword, updateProfile, signOutOthers, signOut,
       }}
     >
       {children}
