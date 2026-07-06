@@ -10,6 +10,8 @@ import type { ViewHeader, ViewHeaderCrumb } from '../views/types'
 import { CommandPalette } from './CommandPalette'
 import { UserMenu } from './UserMenu'
 import { NotificationsMenu } from './NotificationsMenu'
+import { AboutMenu } from './AboutMenu'
+import { FeedbackModal } from './FeedbackModal'
 
 /** Atajo del buscador global, según plataforma. */
 const KBD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘ K' : 'Ctrl K'
@@ -79,6 +81,8 @@ export function AppShell() {
   /* Buscador global (command palette). Se monta lazy: sus hooks de datos (con PII)
      corren solo cuando el palette está abierto. */
   const [paletteOpen, setPaletteOpen] = useState(false)
+  /* Modal "Dar feedback" (se abre desde el popover Acerca de, al pie del rail). */
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   /* Al cambiar de módulo/submódulo, limpiar el encabezado contextual (que no quede
      pegado de otra vista). Es un LAYOUT effect a propósito: flushea antes que los
@@ -246,9 +250,9 @@ export function AppShell() {
               </button>
             )
           })}
-          <button style={{ ...iconBtn, marginTop: 'auto', width: 46, height: 46, color: 'var(--spira-muted)' }} title="Ajustes">
-            <Icon name="settings" size={21} stroke={1.9} color="var(--spira-muted)" />
-          </button>
+          {/* «i» Acerca de Spira (versión + novedades + dar feedback). Reemplaza la
+              tuerca: sus ítems (Preferencias, Roles y permisos, Ayuda) viven en el UserMenu. */}
+          <AboutMenu accent={accent} onFeedback={() => setFeedbackOpen(true)} />
         </aside>
 
         {/* panel de submódulos — oculto en Inicio: su única vista es Resumen (la home) */}
@@ -275,10 +279,6 @@ export function AppShell() {
               )
             })}
           </nav>
-          {/* versión: info de sistema, al pie, discreta (mono + faint) */}
-          <div className="spira-mono spira-no-press" style={{ marginTop: 'auto', padding: '0 12px', fontSize: 11, letterSpacing: '0.02em', color: 'var(--spira-faint)' }} title="Versión de Spira">
-            v{__APP_VERSION__}
-          </div>
         </aside>
         )}
 
@@ -338,6 +338,18 @@ export function AppShell() {
           isAllowed={isAllowed}
           onNavigate={navigate}
           onClose={() => setPaletteOpen(false)}
+        />
+      )}
+
+      {/* Modal "Dar feedback" (se abre desde el popover Acerca de del rail). */}
+      {feedbackOpen && (
+        <FeedbackModal
+          moduleKey={moduleKey}
+          moduleFull={mod.full}
+          subKey={sub.key}
+          accent={accent}
+          accentSolid={mod.accentSolid}
+          onClose={() => setFeedbackOpen(false)}
         />
       )}
     </div>
