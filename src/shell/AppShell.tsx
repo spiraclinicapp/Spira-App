@@ -8,6 +8,8 @@ import { MODULES } from '../modules/registry'
 import { resolveView } from '../views/registry'
 import type { ViewHeader, ViewHeaderCrumb } from '../views/types'
 import { CommandPalette } from './CommandPalette'
+import { UserMenu } from './UserMenu'
+import { NotificationsMenu } from './NotificationsMenu'
 
 /** Atajo del buscador global, según plataforma. */
 const KBD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘ K' : 'Ctrl K'
@@ -69,7 +71,7 @@ function primaryActionBtn(accentSolid: string): CSSProperties {
 
 export function AppShell() {
   const { theme, toggle } = useTheme()
-  const { profile, modules: userModules, signOut } = useAuth()
+  const { modules: userModules } = useAuth()
   const [moduleKey, setModuleKey] = useState('inicio')
   const [subKey, setSubKey] = useState('resumen')
   /* Encabezado contextual que registra la vista activa (breadcrumb + acciones). */
@@ -131,8 +133,6 @@ export function AppShell() {
 
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
   const showAction = !HIDE_ACTION.has(`${moduleKey}/${sub.key}`)
-  const userName = profile?.fullName ?? 'Usuario'
-  const initial = userName.trim().charAt(0).toUpperCase() || 'U'
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--spira-paper)', color: 'var(--spira-ink)' }}>
@@ -177,27 +177,11 @@ export function AppShell() {
             <span className="spira-search-label">Buscar…</span>
             <span className="spira-search-kbd">{KBD}</span>
           </button>
-          <button style={{ ...iconBtn, position: 'relative' }} title="Notificaciones">
-            <Icon name="bell" size={18} color="var(--spira-ink)" />
-            <span style={{ position: 'absolute', top: 7, right: 8, width: 7, height: 7, borderRadius: '50%', background: 'var(--spira-danger)', border: '2px solid var(--spira-white)' }} />
-          </button>
+          <NotificationsMenu onNavigate={navigate} isAllowed={isAllowed} />
 
           <span style={{ width: 1, height: 26, background: 'var(--spira-line)', margin: '0 4px' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, height: 42, padding: '0 4px 0 6px' }}>
-            <span
-              style={{
-                width: 32, height: 32, borderRadius: 9, background: 'var(--spira-primary)', color: 'var(--spira-on-accent)',
-                display: 'grid', placeItems: 'center', fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 13,
-              }}
-            >
-              {initial}
-            </span>
-            <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', color: 'var(--spira-muted)' }}>{userName}</span>
-          </div>
-          <button onClick={() => { void signOut() }} style={iconBtn} title="Cerrar sesión">
-            <Icon name="logout" size={18} color="var(--spira-muted)" />
-          </button>
+          <UserMenu />
         </div>
       </header>
 

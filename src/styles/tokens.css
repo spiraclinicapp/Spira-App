@@ -230,6 +230,31 @@ button { font-family: inherit; }
   .spira-search-trigger .spira-search-kbd { display: none; }
 }
 
+/* —— Ítem del menú de usuario (UserMenu) ——
+   Fila del dropdown de la cuenta. El hover/focus resalta con papel cálido; la
+   variante --danger (Cerrar sesión) usa el rojo sereno. focus-visible incluido
+   para que la navegación por teclado se vea. */
+.spira-menu-item {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 9px 10px; border: none; background: transparent; border-radius: 9px;
+  cursor: pointer; text-align: left;
+  font-family: var(--spira-font-text); font-size: 13.5px; font-weight: 500; color: var(--spira-ink);
+}
+.spira-menu-item:hover,
+.spira-menu-item:focus-visible { background: var(--spira-paper); outline: none; }
+.spira-menu-item--danger { color: var(--spira-danger); }
+.spira-menu-item--danger:hover,
+.spira-menu-item--danger:focus-visible { background: rgba(166, 72, 59, 0.08); }
+
+/* —— Footer "Ver todas las alertas" del desplegable de notificaciones —— */
+.spira-notif-all {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; padding: 12px; border: none; background: transparent; cursor: pointer;
+  font-family: var(--spira-font-text); font-size: 13px; font-weight: 600; color: var(--spira-primary);
+}
+.spira-notif-all:hover,
+.spira-notif-all:focus-visible { background: var(--spira-surface); outline: none; }
+
 /* —— Micro-interacción estándar de Spira ——
    Todo lo pulsable (botones, links, role=button) se levanta apenas (~1px) en hover y se
    asienta al pulsar. Es la señal universal de "esto se toca", sin depender del cursor.
