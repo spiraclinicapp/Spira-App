@@ -1,50 +1,34 @@
 import { useState } from 'react'
-import { StCard, StRow, StToggle, StNote, btnGhostSoon } from './primitives'
+import { Icon } from '../../components/Icon'
+import { StCard, StRow, StToggle, StPill, StNote } from './primitives'
 import { DEMO_NOTIF_CATS } from './settingsData'
 
-/* Notificaciones. Matriz categoría × canal (App/Email) con un toggle por celda.
-   Estado local de demo: refleja el cambio pero todavía no persiste. */
+/* Notificaciones. Solo el canal APP (los avisos in-app existen — la campana de la
+   top bar). El email todavía no existe (no hay envío de correo), así que NO se
+   ofrecen toggles de email que prometan algo que no pasa: va como "Próximamente".
+   Las preferencias por categoría son estado local (todavía no persisten). */
 
 export function NotifSection() {
   const [cats, setCats] = useState(DEMO_NOTIF_CATS.map((c) => ({ ...c })))
-  const [resumen, setResumen] = useState(true)
-  const toggle = (i: number, ch: 'app' | 'email') =>
-    setCats((cs) => cs.map((c, j) => (j === i ? { ...c, [ch]: !c[ch] } : c)))
+  const toggle = (i: number) => setCats((cs) => cs.map((c, j) => (j === i ? { ...c, app: !c.app } : c)))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 720 }}>
-      <StCard title="Qué te avisamos" desc="Elegí por dónde recibir cada tipo de aviso" pad={false}>
-        {/* encabezado de columnas */}
-        <div style={{ display: 'flex', alignItems: 'center', padding: '10px 18px', borderBottom: '1px solid var(--spira-line)', background: 'var(--spira-surface)' }}>
-          <div style={{ flex: 1, fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--spira-faint)', fontWeight: 700 }}>Categoría</div>
-          <div style={{ width: 70, textAlign: 'center', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--spira-faint)', fontWeight: 700 }}>App</div>
-          <div style={{ width: 70, textAlign: 'center', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--spira-faint)', fontWeight: 700 }}>Email</div>
-        </div>
-        <div style={{ padding: '0 18px' }}>
-          {cats.map((c, i) => (
-            <div key={c.key} style={{ display: 'flex', alignItems: 'center', padding: '13px 0', borderBottom: i < cats.length - 1 ? '1px solid var(--spira-line)' : 'none' }}>
-              <div style={{ flex: 1, fontSize: 14, color: 'var(--spira-ink)' }}>{c.label}</div>
-              <div style={{ width: 70, display: 'grid', placeItems: 'center' }}>
-                <StToggle on={c.app} onClick={() => toggle(i, 'app')} label={`${c.label} — en la app`} />
-              </div>
-              <div style={{ width: 70, display: 'grid', placeItems: 'center' }}>
-                <StToggle on={c.email} onClick={() => toggle(i, 'email')} label={`${c.label} — por email`} />
-              </div>
-            </div>
-          ))}
-        </div>
+      <StCard title="Qué te avisamos" desc="Elegí qué avisos ver dentro de la app">
+        {cats.map((c, i) => (
+          <StRow key={c.key} label={c.label} last={i === cats.length - 1}>
+            <StToggle on={c.app} onClick={() => toggle(i)} label={`${c.label} — en la app`} />
+          </StRow>
+        ))}
       </StCard>
 
-      <StCard title="Email">
-        <StRow label="Resumen diario" sub="Un correo cada mañana con lo pendiente del día">
-          <StToggle on={resumen} onClick={() => setResumen((v) => !v)} label="Resumen diario por email" />
-        </StRow>
-        <StRow label="Horario de silencio" sub="Sin avisos entre 20:00 y 08:00" last>
-          <button style={btnGhostSoon} disabled title="Próximamente">Configurar</button>
+      <StCard title="Notificaciones por email">
+        <StRow label="Avisos y resumen diario por correo" sub="Novedades y un resumen del día en tu casilla" last>
+          <StPill tone="neutral"><Icon name="clock" size={12} color="var(--spira-muted)" /> Próximamente</StPill>
         </StRow>
       </StCard>
 
-      <StNote>Estas preferencias de notificación todavía no se guardan entre sesiones.</StNote>
+      <StNote>Estas preferencias todavía no se guardan entre sesiones.</StNote>
     </div>
   )
 }
