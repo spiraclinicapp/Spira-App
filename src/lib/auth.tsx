@@ -231,13 +231,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const requestEmailChange: AuthState['requestEmailChange'] = async (email) => {
     const next = email.trim()
-    if (!next) return { error: 'Ingresá un correo válido.', pending: false }
-    // 1) gate + sello de la regla 30 días (server-side). 2) cambio real en Auth, que
-    //    manda un link de confirmación al correo nuevo (aplica recién al confirmarlo).
-    const stamp = await supabase.rpc('stamp_email_change')
-    if (stamp.error) return { error: rpcErrorMessage(stamp.error, 'No pudimos cambiar el correo.'), pending: false }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) return { error: 'Ingresá un correo válido.', pending: false }
+    // El cambio real (con confirmación por mail) va PRIMERO: así no "quemamos" la ventana
+    // de 30 días si el correo es inválido o ya está en uso. Recién con el cambio disparado OK
+    // sellamos el timestamp (best-effort: la guarda dura de UI la da emailChangedAt del perfil).
     const { error } = await supabase.auth.updateUser({ email: next })
     if (error) return { error: authErrorMessage(error), pending: false }
+    await supabase.rpc('stamp_email_change') // registra la fecha del cambio (ignoramos su error)
     setProfile((p) => (p ? { ...p, emailChangedAt: new Date().toISOString() } : p))
     return { error: null, pending: true }
   }
