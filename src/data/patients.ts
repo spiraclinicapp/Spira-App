@@ -1,4 +1,5 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
+import type { QueryResult } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
 
 /** Estado del paciente (enum patient_status de la base). */
@@ -52,6 +53,37 @@ export function usePatients() {
         .order('code', { ascending: true })
         .returns<PatientRow[]>(),
     [],
+  )
+}
+
+/**
+ * Datos demográficos de UN paciente por id, para el detalle de visita (`VisitDetail`). Misma
+ * fuente y RLS que `usePatients` (scopea por protocolo) — sin `enrollments`, que el detalle no
+ * necesita. Permite mostrar sexo/edad/nacimiento/fertilidad/médico en la vista del día, donde
+ * solo teníamos la visita (esos campos viven en `patients`, no en `v_track_visits`).
+ */
+export interface PatientBasics {
+  id: string
+  code: string | null
+  full_name: string
+  birth_date: string | null
+  sex: string | null
+  fertility: string | null
+  treating_physician: string | null
+}
+
+/** Un paciente por id (o `null` = no consulta). Devuelve array de 0/1 filas; tomar `data?.[0]`. */
+export function usePatient(patientId: string | null): QueryResult<PatientBasics[]> {
+  return useSupabaseQuery<PatientBasics[]>(
+    async (c) => {
+      if (!patientId) return { data: [], error: null }
+      return await c
+        .from('patients')
+        .select('id, code, full_name, birth_date, sex, fertility, treating_physician')
+        .eq('id', patientId)
+        .returns<PatientBasics[]>()
+    },
+    [patientId],
   )
 }
 

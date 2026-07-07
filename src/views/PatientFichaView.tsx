@@ -15,6 +15,7 @@ import { VISIT_STATES } from './visitStates'
 import { dayLabel, daysDiffISO, formatAR, todayISO } from '../lib/dates'
 import { PdVisitFlow } from './track/PdVisitFlow'
 import { PdFullSchedule } from './track/PdFullSchedule'
+import { VisitDetail } from './track/VisitDetail'
 import { RescheduleModal } from './track/RescheduleModal'
 import { RegisterVisitFlow } from './track/RegisterVisitFlow'
 import { EditPatientForm } from './EditPatientForm'
@@ -45,6 +46,10 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   const visitsQ = usePatientVisits(patient.id, protocol.id)
   const alertsQ = useVisitAlerts()
   const [modal, setModal] = useState<null | 'reschedule' | 'register' | 'edit' | 'alerts'>(null)
+  // Detalle de una visita del cronograma: el MISMO componente que abre la vista del día
+  // (VisitDetail), sincronizado por leer de la misma vista. Guardamos el id y el detalle se
+  // trae sus propios datos.
+  const [openVisitId, setOpenVisitId] = useState<string | null>(null)
 
   /* Enrolamiento del protocolo en contexto: de ahí salen el médico y la fecha de
      ingreso (sin depender de que existan visitas). */
@@ -159,6 +164,15 @@ export function PatientFichaView(props: PatientFichaViewProps) {
             })}
           </div>
         </Modal>
+      )}
+
+      {openVisitId && (
+        <VisitDetail
+          visitId={openVisitId}
+          accent={accent}
+          context="patient"
+          onClose={() => setOpenVisitId(null)}
+        />
       )}
 
       {/* cuerpo */}
@@ -297,7 +311,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                   {/* Resalta la misma visita que el stat "Visita actual" (statVisit): la realizada
                       hoy si la hay, si no la próxima. Así el resaltado del cronograma coincide con
                       el "V# de N" de arriba a la derecha (no con `current`, que es solo la próxima). */}
-                  <PdFullSchedule visits={rows} currentId={statVisit?.id ?? null} accent={accent} />
+                  <PdFullSchedule visits={rows} currentId={statVisit?.id ?? null} accent={accent} onOpen={setOpenVisitId} />
                 </div>
               </div>
             </>

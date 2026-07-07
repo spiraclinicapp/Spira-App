@@ -7,12 +7,19 @@ import { OPERATIONAL_STAGES, STAGE_ORDER } from '../visitStates'
  * botón de avance a la etapa siguiente. El gating lo decide el padre (canAdvance).
  * Sin hora (los timestamps son sólo para auditoría).
  */
-export function VisitStepper({ stage, accent, canAdvance, busy, onAdvance }: {
+export function VisitStepper({ stage, accent, canAdvance, busy, onAdvance, showAdvance = true, showLabel = true }: {
   stage: OperationalStage
   accent: string
   canAdvance: boolean
   busy: boolean
   onAdvance: (next: OperationalStage) => void
+  /** Si es false, el stepper queda de SOLO LECTURA: dibuja los puntos + etapa actual pero
+   *  no el botón de avanzar. Lo usa la fila nueva (el avance vive en un CTA unificado aparte)
+   *  y el detalle en el cronograma del paciente (no se avanza una visita de otro día). Default true. */
+  showAdvance?: boolean
+  /** Si es false, NO dibuja la etiqueta de etapa en línea: la fila la pone centrada debajo de
+   *  los puntos, así queda a la misma X en todas las filas. Default true. */
+  showLabel?: boolean
 }) {
   const curIdx = STAGE_ORDER.indexOf(stage)
   const curMeta = OPERATIONAL_STAGES[stage]
@@ -21,36 +28,38 @@ export function VisitStepper({ stage, accent, canAdvance, busy, onAdvance }: {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 auto' }}>
-      {/* Track de puntos compacto (sin etiquetas) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+      {/* Track de puntos (sin etiquetas) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3.5 }}>
         {STAGE_ORDER.map((s, i) => {
           const done = i < curIdx
           const current = i === curIdx
           const color = done ? accent : current ? curMeta.color : 'var(--spira-line-2)'
           return (
-            <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 3.5 }}>
               <span
                 style={{
-                  width: current ? 9 : 6, height: current ? 9 : 6, borderRadius: '50%', flex: '0 0 auto',
+                  width: current ? 11 : 8, height: current ? 11 : 8, borderRadius: '50%', flex: '0 0 auto',
                   background: done ? accent : current ? curMeta.color : 'transparent',
-                  border: `1.5px solid ${color}`,
+                  border: `1.6px solid ${color}`,
                 }}
               />
               {i < STAGE_ORDER.length - 1 && (
-                <span style={{ width: 10, height: 1.5, flex: '0 0 auto', background: done ? accent + '80' : 'var(--spira-line)' }} />
+                <span style={{ width: 13, height: 1.75, flex: '0 0 auto', background: done ? accent + '80' : 'var(--spira-line)' }} />
               )}
             </span>
           )
         })}
       </div>
 
-      {/* Etapa actual */}
-      <span style={{ fontSize: 12, fontWeight: 700, color: curMeta.color, whiteSpace: 'nowrap' }}>
-        {curMeta.label}
-      </span>
+      {/* Etapa actual (inline; se oculta cuando la fila la pone centrada debajo) */}
+      {showLabel && (
+        <span style={{ fontSize: 12, fontWeight: 700, color: curMeta.color, whiteSpace: 'nowrap' }}>
+          {curMeta.label}
+        </span>
+      )}
 
-      {/* Botón avanzar */}
-      {next && nextMeta && (
+      {/* Botón avanzar (se oculta en modo solo-lectura) */}
+      {showAdvance && next && nextMeta && (
         <button
           onClick={() => { if (canAdvance && !busy) onAdvance(next) }}
           disabled={!canAdvance || busy}

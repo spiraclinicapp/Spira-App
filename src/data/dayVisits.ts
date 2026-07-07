@@ -28,6 +28,8 @@ export interface DayVisitRow extends TrackVisitRow {
   wants_doctor: boolean
   /** Marca "Atendido por el médico" (migración 0031); null = todavía no lo vio. */
   doctor_seen_at: string | null
+  /** Motivo de la derivación al médico (chips del detalle; migración 0047); null = sin motivo. */
+  doctor_motivo: string | null
   /** coalesce(visit_definitions.dispenses, false): si la visita entrega medicación. */
   dispenses: boolean
   operational_stage: OperationalStage
@@ -85,6 +87,28 @@ export function useVisitsForDay(date: string): QueryResult<DayVisitRow[]> {
         .order('patient_code', { ascending: true })
         .returns<DayVisitRow[]>(),
     [date],
+  )
+}
+
+/**
+ * Una sola visita por id, con la MISMA forma (`DayVisitRow`) y fuente (`v_track_visits`)
+ * que la lista del día. Es la clave del detalle compartido (`VisitDetail`): se abre igual
+ * desde la vista del día —que ya tiene la fila— y desde el cronograma del paciente —que la
+ * trae "flaca" (`TrackVisitRow`, sin etapa operativa)—. Como ambos lados leen de acá, el
+ * detalle queda sincronizado por construcción. Con `visitId` null no consulta (patrón de
+ * `useVisitChecklist`). Devuelve un array de 0/1 filas; el consumidor toma `data?.[0]`.
+ */
+export function useVisit(visitId: string | null): QueryResult<DayVisitRow[]> {
+  return useSupabaseQuery<DayVisitRow[]>(
+    async (c) => {
+      if (!visitId) return { data: [], error: null }
+      return await c
+        .from('v_track_visits')
+        .select('*')
+        .eq('id', visitId)
+        .returns<DayVisitRow[]>()
+    },
+    [visitId],
   )
 }
 
@@ -254,6 +278,18 @@ export async function markLeft(visitId: string): Promise<{ error: string | null 
 /** Toggle "Quiere ver el médico" (wants_doctor = value). Clínico/coordinador o gerencia. */
 export async function toggleWantsDoctor(visitId: string, value: boolean): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('toggle_wants_doctor', { p_visit_id: visitId, p_value: value })
+  if (error) return { error: rpcError(error.code, error.message) }
+  return { error: null }
+}
+
+/**
+ * Marca "Para ver médico" CON motivo, atómico (RPC mark_wants_doctor, migración 0047): setea
+ * wants_doctor=true y doctor_motivo en una sola operación. Para quitar de la cola se sigue usando
+ * `toggleWantsDoctor(id, false)`. Requiere la 0047 aplicada; si no, el RPC no existe y el error se
+ * traduce a un mensaje sereno.
+ */
+export async function markWantsDoctor(visitId: string, motivo: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('mark_wants_doctor', { p_visit_id: visitId, p_motivo: motivo })
   if (error) return { error: rpcError(error.code, error.message) }
   return { error: null }
 }

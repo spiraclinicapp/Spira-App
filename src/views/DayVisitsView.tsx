@@ -2,12 +2,9 @@ import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
-import { Modal } from '../components/Modal'
-import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { btnOutline } from '../components/buttons'
 import { useAuth } from '../lib/auth'
 import { todayISO } from '../lib/dates'
-import { visitTitle } from '../lib/visits'
 import { useMyCoordinations } from '../data/templates'
 import {
   useVisitsForDay, markArrived, markAttended, markReady, markLeft, toggleWantsDoctor,
@@ -17,7 +14,7 @@ import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
 import { useRandoAttendedWithoutDate } from '../data/visits'
 import { DayVisitRowItem } from './track/DayVisitRowItem'
 import { DispenseModal } from './track/DispenseModal'
-import { VisitChecklist } from './track/VisitChecklist'
+import { VisitDetail } from './track/VisitDetail'
 import { RescheduleModal } from './track/RescheduleModal'
 import { ReadyOutcomeModal } from './track/ReadyOutcomeModal'
 import { RegisterVisitFlow } from './track/RegisterVisitFlow'
@@ -296,24 +293,16 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
         />
       )}
       {openVisit && (
-        <Modal
-          title={`Visita · ${openVisit.patient_code ?? 'Sin IVRS'}`}
+        <VisitDetail
+          visitId={openVisit.id}
+          accent={accent}
+          context="day"
+          canReception={canReception}
+          canClinical={canClinical(openVisit)}
+          onAdvance={advance}
+          onChanged={() => day.refetch()}
           onClose={() => setOpenVisit(null)}
-          maxWidth={520}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <PrivacyAvatar fullName={openVisit.patient_name} size={40} color={accent} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)' }}>
-                {visitTitle(openVisit)}
-              </div>
-              <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>
-                {openVisit.real_date ? 'Atendida' : 'Aún sin atender'}
-              </div>
-            </div>
-          </div>
-          <VisitChecklist visitId={openVisit.id} accent={accent} />
-        </Modal>
+        />
       )}
     </div>
   )

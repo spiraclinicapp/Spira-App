@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react'
+import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
 import { dotVisual, orderVisits, visitIndex, visitStateLabel, visitTitle, studyTime } from '../../lib/visits'
 import { dotColor } from '../visitStates'
@@ -9,11 +11,21 @@ import { VisitDot } from './VisitDot'
  * el NÚMERO de visita (gris sin atender, contorno verde atendida, relleno verde completa), nombre
  * ("Visita N", conteo de todas las visitas), semana/fecha y pill del estado operativo (Atendido,
  * Fuera del sitio, etc.).
+ *
+ * Si se pasa `onOpen`, cada fila abre el detalle de la visita (`VisitDetail`) — el MISMO que la vista
+ * del día, sincronizado por leer de la misma fuente. La fila se vuelve `role="button"` (a11y + el
+ * "levante" al hover del CSS global) y muestra un chevron como affordance de que se puede abrir.
  */
-export function PdFullSchedule({ visits, currentId, accent }: { visits: TrackVisitRow[]; currentId: string | null; accent: string }) {
+export function PdFullSchedule({ visits, currentId, accent, onOpen }: {
+  visits: TrackVisitRow[]
+  currentId: string | null
+  accent: string
+  onOpen?: (visitId: string) => void
+}) {
   const ordered = orderVisits(visits)
   const idx = visitIndex(visits)
   const today = todayISO()
+  const clickable = !!onOpen
 
   return (
     <div>
@@ -25,8 +37,14 @@ export function PdFullSchedule({ visits, currentId, accent }: { visits: TrackVis
         const label = visitTitle(v)
         const st = studyTime(v)
         const fecha = v.estimated_date ?? v.real_date
-        return (
-          <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 4px', borderTop: k ? '1px solid var(--spira-line)' : 'none' }}>
+        const rowStyle: CSSProperties = {
+          display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '11px 4px',
+          borderTop: k ? '1px solid var(--spira-line)' : 'none',
+          background: 'transparent', textAlign: 'left', color: 'inherit', font: 'inherit',
+          cursor: clickable ? 'pointer' : 'default',
+        }
+        const inner = (
+          <>
             <VisitDot visit={v} number={n ?? '·'} today={today} size={26} isToday={cur} accent={accent} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: cur ? accent : 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
@@ -36,6 +54,24 @@ export function PdFullSchedule({ visits, currentId, accent }: { visits: TrackVis
             <span style={{ fontSize: 11.5, fontWeight: 600, color: estColor, background: estColor + '16', padding: '3px 10px', borderRadius: 'var(--spira-radius-pill)', whiteSpace: 'nowrap', minWidth: 86, textAlign: 'center' }}>
               {estLabel}
             </span>
+            {clickable && <Icon name="chevronRight" size={16} color="var(--spira-faint)" style={{ flex: '0 0 auto' }} />}
+          </>
+        )
+
+        if (!clickable) {
+          return <div key={v.id} style={rowStyle}>{inner}</div>
+        }
+        return (
+          <div
+            key={v.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpen!(v.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen!(v.id) } }}
+            title="Abrir el detalle de la visita"
+            style={{ ...rowStyle, borderRadius: 10 }}
+          >
+            {inner}
           </div>
         )
       })}
