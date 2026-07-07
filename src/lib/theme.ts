@@ -15,7 +15,9 @@ function systemMql(): MediaQueryList | null {
   return window.matchMedia('(prefers-color-scheme: dark)')
 }
 
-/** Lee la preferencia guardada. Default 'system': la primera vez respetamos el SO. */
+/** Lee la preferencia guardada. Default 'light': la primera vez la app abre SIEMPRE en claro
+    (papel cálido, la cara de marca "Sereno"), sin importar el modo del SO. El usuario puede
+    pasar a oscuro o a 'system' (seguir el SO) desde Ajustes, y esa elección queda guardada. */
 export function getStoredPref(): ThemePref {
   try {
     const v = localStorage.getItem(KEY)
@@ -23,7 +25,7 @@ export function getStoredPref(): ThemePref {
   } catch {
     /* almacenamiento no disponible */
   }
-  return 'system'
+  return 'light'
 }
 
 /** Resuelve una preferencia a un tema concreto (claro/oscuro). */
