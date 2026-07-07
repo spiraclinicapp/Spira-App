@@ -7,11 +7,12 @@ import { Chip } from '../../components/Chip'
 import { btnOutline } from '../../components/buttons'
 import { fieldInput, fieldLabelStyle } from '../../components/FormField'
 import { useAuth } from '../../lib/auth'
-import { addDaysISO, groupByDay, todayISO } from '../../lib/dates'
+import { addDaysISO, formatDayMonthYear, groupByDay, todayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
 import { useReceptions, useMedications, verifyReception } from '../../data/pharma'
 import type { ReceptionRow, ReceptionKind } from '../../data/pharma'
 import { ReceptionWizard } from './ReceptionWizard'
+import { ESTADO_CFG, estadoFromExpiry } from './expiryState'
 import type { ViewProps } from '../types'
 
 /** Filtro de tipo de la lista: los tres ámbitos o todos juntos. */
@@ -278,6 +279,8 @@ function ReceptionCard({ r, canManage, busy, highlight, accentSolid, onVerify }:
   const totalItems = esIp ? kits : r.items.reduce((s, it) => s + it.quantity, 0)
   const first = esIp ? 'Producto de Investigación' : (r.items[0]?.medication?.name ?? '—')
   const extra = esIp ? 0 : r.items.length - 1
+  // Hoy (ISO local) para el estado de vencimiento de cada renglón (forma+color vía ESTADO_CFG).
+  const hoyISO = todayISO()
 
   const cardStyle: CSSProperties = {
     ...rowCard,
@@ -317,15 +320,44 @@ function ReceptionCard({ r, canManage, busy, highlight, accentSolid, onVerify }:
         )}
       </div>
       {r.items.length > 0 && (
-        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {r.items.map((it) => (
-            <div key={it.id} style={{ fontSize: 12.5, color: 'var(--spira-muted)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ color: 'var(--spira-ink)', fontWeight: 500 }}>{it.medication?.name ?? '—'}</span>
-              <span>· lote <span className="spira-mono">{it.lot_number}</span></span>
-              {it.expiry_date && <span>· vence {it.expiry_date}</span>}
-              <span>· {it.quantity}</span>
+        <div style={lotsPanelWrap}>
+          <div style={lotsPanel}>
+            <div style={{ ...lotRow, ...lotHead }}>
+              <span style={{ justifySelf: 'start' }}>Medicamento</span><span>Código</span><span>Lote</span>
+              <span>Vence</span><span>Laboratorio</span><span>Cant.</span>
             </div>
-          ))}
+            {r.items.map((it) => {
+              const est = estadoFromExpiry(it.expiry_date, hoyISO)
+              const cfg = ESTADO_CFG[est]
+              const ean = it.medication?.codes?.[0]?.code ?? ''
+              return (
+                <div key={it.id} style={lotRow}>
+                  <span style={lotCell}>
+                    <span style={lotName}>{it.medication?.name ?? '—'}</span>
+                    {it.medication?.drug?.name && <span style={lotMeta}>{it.medication.drug.name}</span>}
+                  </span>
+                  <span style={lotBcCell}>
+                    {ean
+                      ? <span className="spira-mono" style={lotEan}>{ean}</span>
+                      : <span style={lotEanEmpty}>— sin código —</span>}
+                  </span>
+                  <span><span style={lotTag} className="spira-mono">{it.lot_number}</span></span>
+                  <span
+                    style={{ ...lotVence, color: cfg.color }}
+                    title={cfg.label}
+                    aria-label={`Vencimiento ${it.expiry_date ? formatDayMonthYear(it.expiry_date) : 'sin fecha'}, ${cfg.label}`}
+                  >
+                    {cfg.icon && <Icon name={cfg.icon} size={13} color={cfg.color} />}
+                    <span className="spira-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {it.expiry_date ? formatDayMonthYear(it.expiry_date) : '—'}
+                    </span>
+                  </span>
+                  <span>{it.medication?.laboratorio?.name && <span style={labChip}>{it.medication.laboratorio.name}</span>}</span>
+                  <span style={lotQty}><b>{it.quantity}</b><span style={lotQtyUnit}>u.</span></span>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -352,3 +384,27 @@ const verifyBtn: CSSProperties = {
   color: 'var(--spira-on-accent)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13,
   display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto',
 }
+
+// ── Panel de detalle por renglón (Medicamento · Código · Lote · Vence · Laboratorio · Cant.) ──
+// El wrap scrollea en horizontal en ventanas angostas (min-width del panel) en vez de aplastar
+// las columnas: no se esconde ningún dato (vista auditable). Vencimiento con forma+color vía ESTADO_CFG.
+const lotsPanelWrap: CSSProperties = { marginTop: 14, marginBottom: 2, overflowX: 'auto' }
+const lotsPanel: CSSProperties = { minWidth: 680, border: '1px solid var(--spira-line)', borderRadius: 12, background: 'var(--spira-surface)', overflow: 'hidden' }
+const lotRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1.8fr 1.1fr 0.85fr 1.1fr 1fr 0.6fr',
+  alignItems: 'center', justifyItems: 'center', gap: 18, padding: '13px 20px', fontSize: 13,
+  borderTop: '1px solid var(--spira-line)',
+}
+const lotHead: CSSProperties = { borderTop: 'none', background: 'var(--spira-white)', padding: '11px 20px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--spira-faint)', fontWeight: 700 }
+const lotCell: CSSProperties = { minWidth: 0, justifySelf: 'start', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }
+const lotName: CSSProperties = { maxWidth: '100%', color: 'var(--spira-ink)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+const lotMeta: CSSProperties = { maxWidth: '100%', fontSize: 11, color: 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+const lotBcCell: CSSProperties = { justifySelf: 'center' }
+const lotEan: CSSProperties = { fontSize: 12.5, letterSpacing: '0.03em', color: 'var(--spira-ink)', fontVariantNumeric: 'tabular-nums' }
+const lotEanEmpty: CSSProperties = { fontSize: 11.5, color: 'var(--spira-faint)' }
+const lotTag: CSSProperties = { display: 'inline-flex', alignItems: 'center', height: 24, padding: '0 10px', borderRadius: 7, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', fontSize: 12.5, fontWeight: 500, color: 'var(--spira-ink)', width: 'max-content' }
+const lotVence: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+const labChip: CSSProperties = { maxWidth: '100%', display: 'inline-flex', alignItems: 'center', height: 22, padding: '0 11px', borderRadius: 999, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', fontSize: 11.5, fontWeight: 500, color: 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+const lotQty: CSSProperties = { fontVariantNumeric: 'tabular-nums' }
+const lotQtyUnit: CSSProperties = { color: 'var(--spira-faint)', fontSize: 11.5, marginLeft: 2 }

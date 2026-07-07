@@ -19,10 +19,11 @@ import { NewMedicationForm } from './NewMedicationForm'
 import { AdjustStockModal } from './AdjustStockModal'
 import { CodigoModal } from './CodigoModal'
 import type { ViewProps } from '../types'
+import { ESTADO_CFG } from './expiryState'
+import type { Estado } from './expiryState'
 
 type Apartado = 'menu' | 'protocolo' | 'ambulatoria' | 'catalogo'
 type EstadoFilter = 'todos' | 'vigentes' | 'pronto' | 'vencido'
-type Estado = 'ok' | 'pronto' | 'vencido'
 
 /** Etiqueta del apartado para la miga del breadcrumb (null en el menú = header genérico). */
 const APARTADO_LABEL: Record<Apartado, string | null> = {
@@ -283,13 +284,10 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
 }
 
 /* ── Derivación de estado (WCAG 1.4.1: forma + color, no color solo) ────────── */
+/* estadoDe mapea los flags server-side de v_medication_lots_detail. ESTADO_CFG (forma+color)
+   y el umbral viven en ./expiryState, compartidos con el detalle de Recepción. */
 function estadoDe(r: LotDetailRow): Estado {
   return r.vencido ? 'vencido' : r.por_vencer ? 'pronto' : 'ok'
-}
-const ESTADO_CFG: Record<Estado, { color: string; icon: IconName | null; label: string }> = {
-  ok: { color: 'var(--spira-ink)', icon: null, label: 'Vigente' },
-  pronto: { color: 'var(--spira-pharma-solid)', icon: 'clock', label: 'Vence pronto' },
-  vencido: { color: 'var(--spira-danger)', icon: 'alert', label: 'Vencido' },
 }
 function formatFecha(iso: string | null): string {
   if (!iso) return '—'

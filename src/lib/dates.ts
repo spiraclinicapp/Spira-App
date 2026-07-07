@@ -51,6 +51,12 @@ export function formatDayMonth(iso: string): string {
   return `${d} ${MONTH_ABBR[Number(m) - 1]}`
 }
 
+/** `YYYY-MM-DD` → `dd mmm yyyy` ("26 may 2026") para listas con año explícito (vencimientos). */
+export function formatDayMonthYear(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  return `${d} ${MONTH_ABBR[Number(m) - 1]} ${y}`
+}
+
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const MONTH_NAMES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',

@@ -15,8 +15,16 @@ export interface ReceptionItemRow {
   lot_number: string
   expiry_date: string | null
   quantity: number
-  /** Medicamento (to-one) para mostrar el nombre en la cola. */
-  medication: { name: string } | null
+  /** Medicamento (to-one) con monodroga, laboratorio y EAN para el detalle por renglón. */
+  medication: {
+    name: string
+    /** Monodroga / principio activo (0032). Nullable hasta asignar la droga. */
+    drug: { name: string } | null
+    /** Laboratorio / titular (0033). Nullable. */
+    laboratorio: { name: string } | null
+    /** Códigos EAN13 (`medication_codes`, 1-a-N; convención 1↔1 → se usa el primero). 0032. */
+    codes: { code: string }[]
+  } | null
 }
 
 /** Recepción de medicación, con sus renglones (tablas `medication_receptions` + `reception_items`). */
@@ -42,7 +50,10 @@ const RECEPTION_COLS =
   // protocol.code para mostrar/buscar en la lista transversal; total_kits/storage_location son el
   // ingreso MACRO del IP (0038): la recepción IP no tiene reception_items (lleva la cantidad total).
   'total_kits, storage_location, protocol:protocols(code), ' +
-  'items:reception_items(id, medication_id, lot_number, expiry_date, quantity, medication:medications(name))'
+  // El detalle por renglón trae monodroga, laboratorio y EAN embebidos (0032/0033). Un solo
+  // round-trip; drug_id/laboratorio_id son FK únicas → sin ambigüedad en PostgREST.
+  'items:reception_items(id, medication_id, lot_number, expiry_date, quantity, ' +
+    'medication:medications(name, drug:drugs(name), laboratorio:laboratorios(name), codes:medication_codes(code)))'
 
 /** Recepciones (cola; más nuevas primero), con renglones, protocolo e ítems/unidades.
  *  tipo=null → todos los tipos (lista transversal). ambulatoria → sin protocolo.
