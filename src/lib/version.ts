@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'beta',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.17', text: 'Recepción: detalle por renglón con monodroga, código de barras, laboratorio y vencimiento.' },
     { version: '0.16', text: 'Visitas: detalle completo del paciente, ruta del día y derivación al médico con motivo.' },
     { version: '0.15', text: 'Ajustes: pantalla propia desde tu cuenta, con perfil editable y control de tema.' },
     { version: '0.14', text: 'Buscador global (Ctrl/⌘ K), menú de usuario y notificaciones en la barra.' },
