@@ -59,12 +59,14 @@ export interface SearchSources {
 
 type Allowed = (moduleKey: string) => boolean
 
-/** ISO 'YYYY-MM-DD' → 'DD/MM' sin pasar por Date (evita corrimientos de zona horaria). */
-function shortDate(iso: string | null): string {
-  if (!iso) return ''
-  const [, m, d] = iso.slice(0, 10).split('-')
-  return d && m ? `${d}/${m}` : ''
-}
+/* TEMPORAL: solo la usaba el índice de visitas (hoy comentado, ver más abajo). Se comenta
+   para no romper el gate (noUnusedLocals). Reponer junto con la Agenda.
+   ISO 'YYYY-MM-DD' → 'DD/MM' sin pasar por Date (evita corrimientos de zona horaria). */
+// function shortDate(iso: string | null): string {
+//   if (!iso) return ''
+//   const [, m, d] = iso.slice(0, 10).split('-')
+//   return d && m ? `${d}/${m}` : ''
+// }
 
 /**
  * Destino de protocolos y pacientes: ambos viven en la vista compartida
@@ -103,18 +105,21 @@ export function buildSearchIndex(sources: SearchSources, isAllowed: Allowed): Se
     }
   }
 
-  if (isAllowed('track')) {
-    for (const v of sources.visits) {
-      const tipo = v.visit_type === 'telefonica' ? 'Telefónica' : 'Presencial'
-      const fecha = shortDate(v.estimated_date)
-      items.push({
-        id: `vis-${v.id}`, type: 'visita', icon: 'clipboardCheck',
-        title: `${v.patient_name} — ${tipo}`,
-        crumb: `Agenda · ${v.protocol_code}${fecha ? ` · ${fecha}` : ''}`,
-        mod: 'track', sub: 'agenda',
-      })
-    }
-  }
+  // TEMPORAL: las visitas se indexaban con destino track/agenda. Con la Agenda fuera del
+  // menú, navegar ahí es un no-op → serían resultados muertos. Se dejan de indexar hasta
+  // reponer el submódulo (registry.ts). El hook useUpcomingVisits sigue montado (inerte acá).
+  // if (isAllowed('track')) {
+  //   for (const v of sources.visits) {
+  //     const tipo = v.visit_type === 'telefonica' ? 'Telefónica' : 'Presencial'
+  //     const fecha = shortDate(v.estimated_date)
+  //     items.push({
+  //       id: `vis-${v.id}`, type: 'visita', icon: 'clipboardCheck',
+  //       title: `${v.patient_name} — ${tipo}`,
+  //       crumb: `Agenda · ${v.protocol_code}${fecha ? ` · ${fecha}` : ''}`,
+  //       mod: 'track', sub: 'agenda',
+  //     })
+  //   }
+  // }
 
   if (isAllowed('pharma')) {
     for (const m of sources.medications) {

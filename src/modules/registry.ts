@@ -41,7 +41,10 @@ export const MODULES: ModuleDef[] = [
       { key: 'protocolos', name: 'Pacientes', icon: 'file' },
       { key: 'visitas', name: 'Visitas', icon: 'activity' },
       { key: 'para-ver-medico', name: 'Para ver médico', icon: 'users' },
-      { key: 'agenda', name: 'Agenda', icon: 'calendar' },
+      // TEMPORAL: Agenda fuera del menú por pedido del Director. Para reponerla, descomentar
+      // esta línea + el botón "Ver agenda del protocolo" (ProtocolDetailView) y las entradas
+      // de "Visita" del buscador (searchIndex.ts). La vista y su ruta siguen intactas.
+      // { key: 'agenda', name: 'Agenda', icon: 'calendar' },
       { key: 'alertas', name: 'Alertas', icon: 'bell' },
     ],
   },
@@ -50,7 +53,9 @@ export const MODULES: ModuleDef[] = [
     accent: '#C9A24A', accentSolid: '#A8842F',
     submodules: [
       { key: 'resumen', name: 'Resumen', icon: 'dashboard' },
-      { key: 'protocolos', name: 'Protocolos', icon: 'file' },
+      // key 'protocolos' (ruta/vista compartida con Track); rótulo "Pacientes" por pedido
+      // del Director, igual que en Track. La grilla sigue siendo la misma ProtocolsView.
+      { key: 'protocolos', name: 'Pacientes', icon: 'file' },
       { key: 'medicamentos', name: 'Medicamentos', icon: 'pill' },
       { key: 'recepcion', name: 'Recepción', icon: 'clipboardCheck' },
       { key: 'dispensaciones', name: 'Dispensaciones', icon: 'box' },

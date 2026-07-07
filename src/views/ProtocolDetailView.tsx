@@ -169,8 +169,11 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
               {actBtn('file', 'Exportar reporte', 'ghost')}
               {canEdit && actBtn('settings', 'Editar protocolo', 'ghost')}
             </div>
-            <div style={{ height: 1, background: 'var(--spira-line)', margin: '14px 0' }} />
-            {actBtn('calendar', 'Ver agenda del protocolo', 'primary')}
+            {/* TEMPORAL: "Ver agenda del protocolo" oculto mientras la Agenda está fuera del
+                menú (navegar a track/agenda sería un no-op). Reponer junto con el submódulo
+                (registry.ts). `onGoAgenda` sigue cableado desde ProtocolsView. */}
+            {/* <div style={{ height: 1, background: 'var(--spira-line)', margin: '14px 0' }} />
+            {actBtn('calendar', 'Ver agenda del protocolo', 'primary')} */}
           </div>
         </div>
 
