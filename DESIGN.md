@@ -261,6 +261,19 @@ El desplegable de la casa es **`SearchableSelect`** ([SearchableSelect.tsx](src/
 - **`disabled`** va por prop; **`onCreate` / `onDelete`** son opt-in (alta/baja de catálogo) y quedan
   **apagados** salvo catálogos editables reales (hoy, solo el de medicación de Pharma).
 
+### Selector de fecha (DateField) — estándar
+El selector de fecha de la casa es **`DateField`** ([DateField.tsx](src/components/DateField.tsx)):
+input de texto editable (`dd/mm/aaaa`) + ícono de calendario que abre un popover con
+**react-day-picker**. Es el único que se usa (no hay `<input type="date">` en la app).
+- **API en string ISO** (`YYYY-MM-DD`); la conversión ISO↔`Date` local vive en `lib/dates.ts`
+  (`isoToDate` / `dateToISO`, timezone-safe — nunca `new Date(iso)` ni `toISOString()`).
+- **Mes/año** con `SearchableSelect` (on-brand); el **año es buscable** (tipeás "1985"). `min` / `max`
+  por campo acotan el rango del dropdown de año (nacimiento → ~1920, vencimiento → +años, visita → ±).
+- **Tipeo manual:** el input acepta `dd/mm/aaaa`; en blur/Enter parsea y valida (rechaza 31/02) o
+  revierte a la última fecha válida.
+- **`invalid`** tiñe el borde (ej. vencimiento pasado); `required` se valida con guardia manual en el
+  submit (el componente no lo hace). Popover compartido con `SearchableSelect` (hook `usePopover`).
+
 ### Cards / Containers
 - **Corner Style:** 16px (`{rounded.lg}`).
 - **Background:** blanco o `surface`; el papel cálido es el fondo de la página, no de la card.
