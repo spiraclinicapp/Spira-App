@@ -2,9 +2,10 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
-import { FormField, fieldInput } from '../../components/FormField'
+import { FormField } from '../../components/FormField'
 import { btnOutline, btnPrimary } from '../../components/buttons'
-import { formatAR } from '../../lib/dates'
+import { DateField } from '../../components/DateField'
+import { formatAR, yearsFromTodayISO } from '../../lib/dates'
 import { rescheduleVisit } from '../../data/visits'
 import type { TrackVisitRow } from '../../data/visits'
 import { PrivacyAvatar } from '../../components/PrivacyAvatar'
@@ -83,7 +84,7 @@ export function RescheduleModal({ visit, accentSolid, onClose, onDone }: {
         ) : (
           <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <FormField label="Nueva fecha">
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required autoFocus style={fieldInput} />
+              <DateField value={date} onChange={setDate} min={yearsFromTodayISO(-2)} max={yearsFromTodayISO(2)} autoFocus />
             </FormField>
             {error && (
               <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>

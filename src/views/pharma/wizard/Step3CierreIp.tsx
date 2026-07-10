@@ -2,6 +2,8 @@ import type { CSSProperties } from 'react'
 import { fieldInput } from '../../../components/FormField'
 import { Icon } from '../../../components/Icon'
 import type { IconName } from '../../../components/Icon'
+import { DateField } from '../../../components/DateField'
+import { todayISO, yearsFromTodayISO } from '../../../lib/dates'
 import type { StorageLocation } from '../../../data/pharma'
 
 interface Props {
@@ -62,7 +64,7 @@ export function Step3CierreIp({
       <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 14 }}>
         <label>
           <div className="spira-eyebrow" style={{ marginBottom: 8 }}>Fecha de recepción</div>
-          <input type="date" value={receptionDate} onChange={(e) => setReceptionDate(e.target.value)} required style={fieldInput} />
+          <DateField value={receptionDate} onChange={setReceptionDate} min={yearsFromTodayISO(-2)} max={todayISO()} />
         </label>
         <label>
           <div className="spira-eyebrow" style={{ marginBottom: 8 }}>Notas (opcional)</div>

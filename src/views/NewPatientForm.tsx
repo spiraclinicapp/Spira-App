@@ -4,9 +4,11 @@ import { Modal } from '../components/Modal'
 import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
 import { SearchableSelect } from '../components/SearchableSelect'
+import { DateField } from '../components/DateField'
 import { createPatientWithEnrollment } from '../data/patients'
 import type { ProtocolRow } from '../data/protocols'
 import { FERTILITY_OPTIONS } from '../lib/visits'
+import { todayISO, yearsFromTodayISO } from '../lib/dates'
 
 /** Traduce el código de error de Postgres a un mensaje sereno en castellano. */
 function friendlyError(code?: string, message?: string): string {
@@ -50,6 +52,7 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
     if (!protocol) { setError('Elegí un protocolo.'); return }
     if (!sex) { setError('Elegí el sexo.'); return }
     if (!fertility) { setError('Elegí la fertilidad.'); return }
+    if (!birthDate) { setError('Ingresá la fecha de nacimiento.'); return }
     setBusy(true)
     setError(null)
     const res = await createPatientWithEnrollment({
@@ -90,7 +93,7 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
             </FormField>
           </div>
           <FormField label="Fecha de nacimiento">
-            <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} required style={fieldInput} />
+            <DateField value={birthDate} onChange={setBirthDate} min={yearsFromTodayISO(-110)} max={todayISO()} />
           </FormField>
           <FormField label="Sexo">
             <SearchableSelect

@@ -5,9 +5,11 @@ import { Modal } from '../components/Modal'
 import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
 import { SearchableSelect } from '../components/SearchableSelect'
+import { DateField } from '../components/DateField'
 import { updatePatient, deletePatient, patientFootprint } from '../data/patients'
 import type { PatientRow, PatientStatus, PatientFootprint } from '../data/patients'
 import { FERTILITY_OPTIONS } from '../lib/visits'
+import { todayISO, yearsFromTodayISO } from '../lib/dates'
 import { useAuth } from '../lib/auth'
 
 /* Tinte danger para el callout de cambio de número (no hay hex de --spira-danger
@@ -119,7 +121,7 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
             </FormField>
           </div>
           <FormField label="Fecha de nacimiento">
-            <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} style={fieldInput} />
+            <DateField value={birthDate} onChange={setBirthDate} min={yearsFromTodayISO(-110)} max={todayISO()} />
           </FormField>
           <FormField label="Sexo">
             <SearchableSelect

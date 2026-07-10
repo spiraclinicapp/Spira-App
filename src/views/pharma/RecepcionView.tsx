@@ -5,10 +5,11 @@ import { EmptyState } from '../../components/EmptyState'
 import { Badge } from '../../components/Badge'
 import { Chip } from '../../components/Chip'
 import { btnOutline } from '../../components/buttons'
-import { fieldInput, fieldLabelStyle } from '../../components/FormField'
+import { fieldLabelStyle } from '../../components/FormField'
 import { SearchableSelect } from '../../components/SearchableSelect'
+import { DateField } from '../../components/DateField'
 import { useAuth } from '../../lib/auth'
-import { addDaysISO, formatDayMonthYear, groupByDay, todayISO } from '../../lib/dates'
+import { addDaysISO, formatDayMonthYear, groupByDay, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
 import { useReceptions, useMedications, verifyReception } from '../../data/pharma'
 import type { ReceptionRow, ReceptionKind } from '../../data/pharma'
@@ -206,11 +207,11 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
       </label>
       <label style={filterField}>
         <span style={fieldLabelStyle}>Desde</span>
-        <input type="date" value={fDesde} onChange={(e) => setFDesde(e.target.value)} style={{ ...fieldInput, height: 38 }} />
+        <DateField value={fDesde} onChange={setFDesde} min={yearsFromTodayISO(-10)} max={yearsFromTodayISO(2)} />
       </label>
       <label style={filterField}>
         <span style={fieldLabelStyle}>Hasta</span>
-        <input type="date" value={fHasta} onChange={(e) => setFHasta(e.target.value)} style={{ ...fieldInput, height: 38 }} />
+        <DateField value={fHasta} onChange={setFHasta} min={yearsFromTodayISO(-10)} max={yearsFromTodayISO(2)} />
       </label>
       <button type="button" onClick={clearMore} style={{ ...btnOutline, height: 38, alignSelf: 'flex-end' }}>Limpiar</button>
     </div>
