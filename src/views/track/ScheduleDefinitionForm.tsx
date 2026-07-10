@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Modal } from '../../components/Modal'
 import { FormField, fieldInput } from '../../components/FormField'
 import { btnOutline, btnPrimary } from '../../components/buttons'
+import { SearchableSelect } from '../../components/SearchableSelect'
 import type { VisitDefinition, DefinitionInput } from '../../data/visitDefinitions'
 import type { VisitType } from '../../data/visits'
 
@@ -139,22 +140,10 @@ export function ScheduleDefinitionForm({
           )}
         </FormField>
         <FormField label="Etapa">
-          <select value={etapa} onChange={(e) => setEtapa(e.target.value as Etapa)} style={fieldInput}>
-            {ETAPA_OPTS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <SearchableSelect value={etapa} onChange={(v) => setEtapa(v as Etapa)} options={ETAPA_OPTS} placeholder="Elegí la etapa" />
         </FormField>
         <FormField label="Modalidad">
-          <select value={visitType} onChange={(e) => setVisitType(e.target.value as VisitType)} style={fieldInput}>
-            {TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+          <SearchableSelect value={visitType} onChange={(v) => setVisitType(v as VisitType)} options={TYPES} placeholder="Elegí la modalidad" />
         </FormField>
         <FormField label={esLibre ? 'Día de referencia (ventana del protocolo)' : 'Día (offset desde la randomización)'}>
           <input type="number" step="1" value={offset} onChange={(e) => setOffset(e.target.value)} style={fieldInput} />

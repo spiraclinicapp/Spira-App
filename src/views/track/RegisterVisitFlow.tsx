@@ -4,6 +4,7 @@ import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import { FormField, fieldInput } from '../../components/FormField'
 import { btnOutline, btnPrimary } from '../../components/buttons'
+import { SearchableSelect } from '../../components/SearchableSelect'
 import { registerVisitEvent, availableEventKinds, KIND_LABELS } from '../../data/visitEvents'
 import type { VisitKind } from '../../data/visitEvents'
 import { useSchedulableDefinitions, scheduleProtocolVisit } from '../../data/visitDefinitions'
@@ -134,9 +135,15 @@ export function RegisterVisitFlow({
       ) : (
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <FormField label="Tipo de visita">
-            <select value={choice} onChange={(e) => setPicked(e.target.value)} required autoFocus style={fieldInput}>
-              {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <SearchableSelect
+              value={choice}
+              onChange={setPicked}
+              options={options}
+              placeholder="Elegí una visita"
+              searchPlaceholder="Buscar visita…"
+              entity="visita"
+              autoFocus
+            />
           </FormField>
           <FormField label="Fecha de la visita">
             <input type="date" value={date} onChange={(e) => setPickedDate(e.target.value)} required style={fieldInput} />
