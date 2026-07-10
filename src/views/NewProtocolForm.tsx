@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Modal } from '../components/Modal'
 import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
+import { SearchableSelect } from '../components/SearchableSelect'
 import { createProtocol } from '../data/protocols'
 import type { LegalEntity } from '../data/protocols'
 
@@ -68,10 +69,13 @@ export function NewProtocolForm({ accentSolid, userId, onClose, onCreated }: New
             placeholder="Sponsor" style={fieldInput} />
         </FormField>
         <FormField label="Entidad legal">
-          <select value={legalEntity} onChange={(e) => setLegalEntity(e.target.value as LegalEntity)} required style={fieldInput}>
-            <option value="" disabled>Elegí una entidad</option>
-            {LEGAL_ENTITIES.map((le) => <option key={le.value} value={le.value}>{le.label}</option>)}
-          </select>
+          <SearchableSelect
+            value={legalEntity}
+            onChange={(v) => setLegalEntity(v as LegalEntity)}
+            options={LEGAL_ENTITIES}
+            placeholder="Elegí una entidad"
+            entity="entidad legal"
+          />
         </FormField>
 
         {error && (
