@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Icon } from './Icon'
+import { usePopover } from './usePopover'
 
 export interface SelectOption {
   value: string
@@ -47,7 +48,6 @@ export function SearchableSelect({
 }: Props) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
   const [extra, setExtra] = useState<Record<string, string>>({}) // etiquetas recién agregadas
   const [mode, setMode] = useState<'list' | 'create'>('list')
@@ -57,41 +57,13 @@ export function SearchableSelect({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const popRef = useRef<HTMLDivElement>(null)
+  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
   const searchRef = useRef<HTMLInputElement>(null)
   const createRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const typeahead = useRef<{ buf: string; at: number }>({ buf: '', at: 0 })
   const baseId = useId()
   const listId = `${baseId}-listbox`
-
-  const reposition = useCallback(() => {
-    const r = triggerRef.current?.getBoundingClientRect()
-    if (r) setPos({ top: r.bottom + 6, left: r.left, width: r.width })
-  }, [])
-
-  useEffect(() => {
-    if (!open) return
-    reposition()
-    const onScroll = () => reposition()
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node
-      if (triggerRef.current?.contains(t) || popRef.current?.contains(t)) return
-      setOpen(false)
-    }
-    window.addEventListener('scroll', onScroll, true)
-    window.addEventListener('resize', onScroll)
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('mousedown', onDown)
-    return () => {
-      window.removeEventListener('scroll', onScroll, true)
-      window.removeEventListener('resize', onScroll)
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('mousedown', onDown)
-    }
-  }, [open, reposition])
 
   // Enfocar el disparador al montar si autoFocus.
   useEffect(() => { if (autoFocus) triggerRef.current?.focus() }, [autoFocus])
