@@ -1,0 +1,44 @@
+/* Calendario de DateField: react-day-picker vestido con tokens Sereno (los tokens ya cambian light/dark solos). */
+.rdp-root {
+  --rdp-accent-color: var(--spira-primary);
+  --rdp-accent-background-color: rgba(15, 95, 87, 0.10);
+  --rdp-today-color: var(--spira-primary);
+  --rdp-font-family: var(--spira-font-text);
+  --rdp-day-width: 38px;
+  --rdp-day-height: 38px;
+  --rdp-day_button-width: 34px;
+  --rdp-day_button-height: 34px;
+  --rdp-day_button-border-radius: 999px;
+  --rdp-selected-border: none;
+  --rdp-outside-opacity: 0.4;
+  font-size: 13.5px;
+  color: var(--spira-ink);
+  padding: 8px 10px;
+}
+.rdp-root .rdp-selected .rdp-day_button {
+  background: var(--spira-primary);
+  color: var(--spira-on-accent);
+  font-weight: 600;
+}
+.rdp-root .rdp-today:not(.rdp-selected) .rdp-day_button {
+  color: var(--spira-primary);
+  font-weight: 700;
+}
+.rdp-root .rdp-day_button:hover:not([disabled]) {
+  background: var(--spira-surface);
+  border-radius: 999px;
+}
+.rdp-root .rdp-chevron { fill: var(--spira-muted); }
+.rdp-root .rdp-dropdown,
+.rdp-root .rdp-months_dropdown,
+.rdp-root .rdp-years_dropdown {
+  font-family: var(--spira-font-text);
+  color: var(--spira-ink);
+}
+.rdp-root .rdp-caption_label,
+.rdp-root .rdp-weekday {
+  color: var(--spira-muted);
+  font-weight: 600;
+}
+/* Placeholder dd/mm/aaaa tenue pero legible (no el gris default del navegador). */
+.spira-date-input::placeholder { color: var(--spira-faint); }
