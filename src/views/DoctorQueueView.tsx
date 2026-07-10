@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { PrivacyAvatar } from '../components/PrivacyAvatar'
+import { SearchableSelect } from '../components/SearchableSelect'
 import { useDoctorQueue, markDoctorSeen } from '../data/dayVisits'
 import type { DayVisitRow } from '../data/dayVisits'
 import { visitTitle } from '../lib/visits'
@@ -110,19 +111,16 @@ export function DoctorQueueView({ module, submodule }: ViewProps) {
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{scoped.length} en la cola</span>
           {medicos.length > 0 && (
-            <select
-              value={activeMedico ?? ''}
-              onChange={(e) => setMedico(e.target.value || null)}
-              title="Filtrar por médico tratante"
-              style={{
-                height: 32, borderRadius: 'var(--spira-radius-pill)', padding: '0 12px', cursor: 'pointer',
-                border: `1px solid ${activeMedico ? accent : 'var(--spira-line-2)'}`, background: 'var(--spira-white)',
-                color: activeMedico ? accent : 'var(--spira-muted)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13,
-              }}
-            >
-              <option value="">Todos los médicos</option>
-              {medicos.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+            <div style={{ minWidth: 200 }}>
+              <SearchableSelect
+                value={activeMedico ?? 'all'}
+                onChange={(v) => setMedico(v === 'all' ? null : v)}
+                options={[{ value: 'all', label: 'Todos los médicos' }, ...medicos.map((m) => ({ value: m, label: m }))]}
+                placeholder="Filtrar por médico tratante"
+                searchPlaceholder="Buscar médico…"
+                entity="médico"
+              />
+            </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button onClick={() => setDate((d) => addDaysISO(d, -1))} title="Día anterior" style={navBtn}>
