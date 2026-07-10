@@ -1,0 +1,38 @@
+name: CI
+
+# Gate automático del repo (no hay suite de tests): corre en cada PR y en push a main.
+# `npm run build` = `tsc --noEmit && vite build`, así que cubre typecheck + build de producción.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Typecheck + build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (npm ci)
+        run: npm ci
+
+      - name: Typecheck + build
+        run: npm run build # tsc --noEmit && vite build
+        env:
+          # vite build NO ejecuta el código de la app, así que no necesita las credenciales reales;
+          # estos placeholders sólo cubren cualquier chequeo de presencia. No son secretos.
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: placeholder-anon-key
