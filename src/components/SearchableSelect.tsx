@@ -115,14 +115,16 @@ export function SearchableSelect({
   // llevar el foco al contenedor de la lista para capturar el teclado.
   useEffect(() => {
     if (!open || mode !== 'list' || deleteTarget) return
-    const sel = options.findIndex((o) => o.value === value)
-    setActiveIndex(sel >= 0 ? sel : 0)
+    // Al abrir NO se pre-resalta ninguna opción: activeIndex arranca en la elegida (que ya se ve
+    // con su tinte propio) o en -1 = "ninguna activa". El resalte gris aparece recién con hover o
+    // teclado, no por el solo hecho de abrir.
+    setActiveIndex(options.findIndex((o) => o.value === value))
     if (!showSearch) requestAnimationFrame(() => listRef.current?.focus())
   }, [open, mode, deleteTarget, showSearch]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mantener activeIndex dentro del rango del filtro.
+  // Mantener activeIndex dentro del rango del filtro, preservando -1 = "ninguna activa".
   useEffect(() => {
-    setActiveIndex((i) => Math.min(i, Math.max(0, filtered.length - 1)))
+    setActiveIndex((i) => (i < 0 ? -1 : Math.min(i, filtered.length - 1)))
   }, [filtered.length])
 
   // Scrollear la opción activa a la vista.
@@ -135,7 +137,8 @@ export function SearchableSelect({
   const pick = (o: SelectOption) => { onChange(o.value); setOpen(false) }
 
   const move = (delta: number) => setActiveIndex((i) => {
-    if (filtered.length === 0) return 0
+    if (filtered.length === 0) return -1
+    if (i < 0) return delta > 0 ? 0 : filtered.length - 1 // primera flecha desde "ninguna activa"
     return (i + delta + filtered.length) % filtered.length
   })
 
@@ -145,7 +148,13 @@ export function SearchableSelect({
     else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1) }
     else if (e.key === 'Home') { e.preventDefault(); setActiveIndex(0) }
     else if (e.key === 'End') { e.preventDefault(); setActiveIndex(Math.max(0, filtered.length - 1)) }
-    else if (e.key === 'Enter') { e.preventDefault(); const o = filtered[activeIndex]; if (o) pick(o) }
+    else if (e.key === 'Enter') {
+      e.preventDefault()
+      // Enter elige la opción activa; si no hay ninguna resaltada pero se está buscando, elige el
+      // primer resultado (typeahead + Enter) sin necesidad de resaltarlo.
+      const o = filtered[activeIndex] ?? (typed ? filtered[0] : undefined)
+      if (o) pick(o)
+    }
   }
 
   // Typeahead cuando NO hay buscador: tipear salta a la opción que matchea.
