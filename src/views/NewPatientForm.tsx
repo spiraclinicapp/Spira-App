@@ -3,9 +3,12 @@ import type { FormEvent } from 'react'
 import { Modal } from '../components/Modal'
 import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
+import { SearchableSelect } from '../components/SearchableSelect'
+import { DateField } from '../components/DateField'
 import { createPatientWithEnrollment } from '../data/patients'
 import type { ProtocolRow } from '../data/protocols'
 import { FERTILITY_OPTIONS } from '../lib/visits'
+import { todayISO, yearsFromTodayISO } from '../lib/dates'
 
 /** Traduce el código de error de Postgres a un mensaje sereno en castellano. */
 function friendlyError(code?: string, message?: string): string {
@@ -45,6 +48,11 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    // Guardias manuales: SearchableSelect no valida `required` como el <select> nativo.
+    if (!protocol) { setError('Elegí un protocolo.'); return }
+    if (!sex) { setError('Elegí el sexo.'); return }
+    if (!fertility) { setError('Elegí la fertilidad.'); return }
+    if (!birthDate) { setError('Ingresá la fecha de nacimiento.'); return }
     setBusy(true)
     setError(null)
     const res = await createPatientWithEnrollment({
@@ -74,45 +82,48 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <FormField label="Protocolo">
-              <select value={protocol} onChange={(e) => setProtocol(e.target.value)} required style={fieldInput}>
-                {protocols.map((p) => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
-              </select>
+              <SearchableSelect
+                value={protocol}
+                onChange={setProtocol}
+                options={protocols.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))}
+                placeholder="Elegí un protocolo"
+                searchPlaceholder="Buscar protocolo…"
+                entity="protocolo"
+              />
             </FormField>
           </div>
           <FormField label="Fecha de nacimiento">
-            <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} required style={fieldInput} />
+            <DateField value={birthDate} onChange={setBirthDate} min={yearsFromTodayISO(-110)} max={todayISO()} />
           </FormField>
           <FormField label="Sexo">
-            <select
+            <SearchableSelect
               value={sex}
-              onChange={(e) => {
-                const v = e.target.value
+              onChange={(v) => {
                 setSex(v)
                 // Masculino → fertilidad N/A automática; si se cambia a otro sexo, se libera el N/A auto.
                 if (v === 'M') setFertility('na')
                 else if (fertility === 'na') setFertility('')
               }}
-              required
-              style={fieldInput}
-            >
-              <option value="">Elegí una opción</option>
-              <option value="F">Femenino</option>
-              <option value="M">Masculino</option>
-              <option value="Otro">Otro</option>
-            </select>
+              options={[
+                { value: 'F', label: 'Femenino' },
+                { value: 'M', label: 'Masculino' },
+                { value: 'Otro', label: 'Otro' },
+              ]}
+              placeholder="Elegí una opción"
+              entity="sexo"
+            />
           </FormField>
           <div style={{ gridColumn: '1 / -1' }}>
             <FormField label="Fertilidad">
-              <select
+              <SearchableSelect
                 value={fertility}
-                onChange={(e) => setFertility(e.target.value)}
-                required
+                onChange={setFertility}
+                options={FERTILITY_OPTIONS}
+                placeholder="Elegí una opción"
+                searchPlaceholder="Buscar…"
+                entity="fertilidad"
                 disabled={sex === 'M'}
-                style={sex === 'M' ? { ...fieldInput, background: 'var(--spira-surface)', color: 'var(--spira-muted)', cursor: 'default' } : fieldInput}
-              >
-                <option value="">Elegí una opción</option>
-                {FERTILITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              />
             </FormField>
           </div>
 

@@ -6,6 +6,7 @@ import { Icon } from '../../../components/Icon'
 import { MedicationPicker } from '../MedicationPicker'
 import { ScanField } from './ScanField'
 import { resolveCode, linkCode, useMedications } from '../../../data/pharma'
+import { SearchableSelect } from '../../../components/SearchableSelect'
 import type { CountedMed } from '../ReceptionWizard'
 
 interface Props {
@@ -136,11 +137,16 @@ export function Step1Scan({ accentSolid, meds, setMeds, codeByMed, onCodesChange
       {unknown && (
         <div style={linkPanel}>
           <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>Código <span className="spira-mono" style={{ color: 'var(--spira-ink)', fontWeight: 600 }}>{unknown}</span> sin asociar. ¿A qué medicamento corresponde?</span>
-          <select value={linkId} onChange={(e) => setLinkId(e.target.value)} style={{ ...fieldInput, height: 38 }}>
-            <option value="" disabled>Elegí el medicamento</option>
-            {/* Solo medicamentos SIN código: cada código es único por medicamento (1 ↔ 1). */}
-            {uncoded.map((m) => <option key={m.id} value={m.id}>{m.name}{m.drug ? ` · ${m.drug.name}` : ''}</option>)}
-          </select>
+          {/* Solo medicamentos SIN código: cada código es único por medicamento (1 ↔ 1). */}
+          <SearchableSelect
+            value={linkId}
+            onChange={setLinkId}
+            options={uncoded.map((m) => ({ value: m.id, label: `${m.name}${m.drug ? ` · ${m.drug.name}` : ''}` }))}
+            placeholder="Elegí el medicamento"
+            searchPlaceholder="Buscar medicamento…"
+            entity="medicamento"
+            disabled={uncoded.length === 0}
+          />
           {uncoded.length === 0 && (
             <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
               Todos los medicamentos del catálogo ya tienen un código. Si es un producto nuevo, crealo primero en Medicamentos.

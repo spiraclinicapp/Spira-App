@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Modal } from '../../components/Modal'
 import { FormField, fieldInput } from '../../components/FormField'
 import { btnOutline, btnPrimary } from '../../components/buttons'
+import { SearchableSelect } from '../../components/SearchableSelect'
 import { adjustStock } from '../../data/pharma'
 
 /** Motivos de ajuste preestablecidos (desplegable, sin texto libre obligatorio). */
@@ -58,10 +59,14 @@ export function AdjustStockModal({ accentSolid, lotId, lotLabel, medicationName,
           <input type="number" value={delta} onChange={(e) => setDelta(e.target.value)} required autoFocus style={fieldInput} placeholder="Ej. -3 o 10" />
         </FormField>
         <FormField label="Motivo">
-          <select value={motivo} onChange={(e) => setMotivo(e.target.value)} required style={fieldInput}>
-            <option value="" disabled>Elegí un motivo</option>
-            {MOTIVOS.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
+          <SearchableSelect
+            value={motivo}
+            onChange={setMotivo}
+            options={MOTIVOS.map((m) => ({ value: m, label: m }))}
+            placeholder="Elegí un motivo"
+            searchPlaceholder="Buscar motivo…"
+            entity="motivo"
+          />
         </FormField>
         <FormField label="Nota (opcional)">
           <input value={nota} onChange={(e) => setNota(e.target.value)} style={fieldInput} />

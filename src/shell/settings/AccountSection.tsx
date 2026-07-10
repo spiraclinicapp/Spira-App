@@ -5,6 +5,7 @@ import type { IconName } from '../../components/Icon'
 import { PasswordInput } from '../../components/PasswordInput'
 import { UserAvatar } from '../../components/UserAvatar'
 import { fieldInput } from '../../components/FormField'
+import { SearchableSelect } from '../../components/SearchableSelect'
 import { useAuth } from '../../lib/auth'
 import type { ModuleRole } from '../../lib/auth'
 import { initialsOf } from '../../lib/initials'
@@ -149,10 +150,15 @@ export function AccountSection() {
             </div>
             <div>
               <label htmlFor="acc-puesto" style={lbl}>Rol</label>
-              <select id="acc-puesto" value={dPuesto} onChange={(e) => setDPuesto(e.target.value)} style={{ ...fieldInput, cursor: 'pointer' }}>
-                <option value="">Sin definir</option>
-                {PUESTOS.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <SearchableSelect
+                id="acc-puesto"
+                value={dPuesto || 'none'}
+                onChange={(v) => setDPuesto(v === 'none' ? '' : v)}
+                options={[{ value: 'none', label: 'Sin definir' }, ...PUESTOS.map((p) => ({ value: p, label: p }))]}
+                placeholder="Sin definir"
+                searchPlaceholder="Buscar puesto…"
+                entity="puesto"
+              />
             </div>
             <div>
               <label style={lbl}>Centro</label>

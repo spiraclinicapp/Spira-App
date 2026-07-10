@@ -124,3 +124,32 @@ export function groupByDay<T>(rows: T[], getDate: (r: T) => string): { date: str
   }
   return order.map((d) => ({ date: d, label: dayGroupLabel(d), items: byDay.get(d)! }))
 }
+
+/** ISO `YYYY-MM-DD` → `Date` en hora LOCAL (para react-day-picker). No usar `new Date(iso)` (parsea UTC). */
+export function isoToDate(iso: string): Date {
+  return parseISO(iso)
+}
+
+/** `Date` local → ISO `YYYY-MM-DD`, sin correrse por timezone. */
+export function dateToISO(d: Date): string {
+  return toISO(d)
+}
+
+/** ISO de hoy desplazado `n` años (para acotar el rango del dropdown de año del calendario). */
+export function yearsFromTodayISO(n: number): string {
+  const d = new Date()
+  return toISO(new Date(d.getFullYear() + n, d.getMonth(), d.getDate()))
+}
+
+/** `dd/mm/aaaa` (o `d/m/aa`, separador / - .) → ISO `YYYY-MM-DD`, o null si no es una fecha real. */
+export function parseARInput(s: string): string | null {
+  const m = s.trim().match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/)
+  if (!m) return null
+  const day = Number(m[1]), month = Number(m[2])
+  let year = Number(m[3])
+  if (m[3].length === 2) year += year < 50 ? 2000 : 1900
+  const d = new Date(year, month - 1, day)
+  // Rechazar fechas inexistentes (ej. 31/02): el Date se "corre" y no matchea lo tipeado.
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null
+  return toISO(d)
+}

@@ -4,11 +4,13 @@ import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import { FormField, fieldInput } from '../../components/FormField'
 import { btnOutline, btnPrimary } from '../../components/buttons'
+import { SearchableSelect } from '../../components/SearchableSelect'
+import { DateField } from '../../components/DateField'
 import { registerVisitEvent, availableEventKinds, KIND_LABELS } from '../../data/visitEvents'
 import type { VisitKind } from '../../data/visitEvents'
 import { useSchedulableDefinitions, scheduleProtocolVisit } from '../../data/visitDefinitions'
 import type { TrackVisitRow } from '../../data/visits'
-import { todayISO, addDaysISO, formatAR } from '../../lib/dates'
+import { todayISO, addDaysISO, formatAR, yearsFromTodayISO } from '../../lib/dates'
 
 /**
  * Modal único de "Agendar visita". Dos caminos según el protocolo:
@@ -134,12 +136,18 @@ export function RegisterVisitFlow({
       ) : (
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <FormField label="Tipo de visita">
-            <select value={choice} onChange={(e) => setPicked(e.target.value)} required autoFocus style={fieldInput}>
-              {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <SearchableSelect
+              value={choice}
+              onChange={setPicked}
+              options={options}
+              placeholder="Elegí una visita"
+              searchPlaceholder="Buscar visita…"
+              entity="visita"
+              autoFocus
+            />
           </FormField>
           <FormField label="Fecha de la visita">
-            <input type="date" value={date} onChange={(e) => setPickedDate(e.target.value)} required style={fieldInput} />
+            <DateField value={date} onChange={setPickedDate} min={yearsFromTodayISO(-2)} max={yearsFromTodayISO(2)} />
             {estimatedDate && pickedDate == null && (
               <div style={{ marginTop: 4, fontSize: 12, color: 'var(--spira-muted)' }}>
                 Estimada según el cronograma: {formatAR(estimatedDate)} · ajustala si hace falta.

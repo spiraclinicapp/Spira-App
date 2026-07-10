@@ -6,6 +6,7 @@ import { useProtocols } from '../../../data/protocols'
 import { useProtocolCoordinators } from '../../../data/pharma'
 import { useAuth } from '../../../lib/auth'
 import type { ReceptionKind } from '../../../data/pharma'
+import { SearchableSelect } from '../../../components/SearchableSelect'
 
 interface Props {
   accentSolid: string
@@ -38,6 +39,8 @@ export function Step0Setup({ accentSolid, tipo, protocolId, coordinatorId, onTip
   // Coordinadores del protocolo (RPC SECURITY DEFINER; la RLS de users no deja leerlos directo).
   const coordinators = useProtocolCoordinators(isIp ? (protocolId || null) : null)
   const coordList = coordinators.data ?? []
+  const protocolOptions = (protocols.data ?? []).map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }))
+  const coordinatorOptions = coordList.map((c) => ({ value: c.id, label: c.full_name }))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22, maxWidth: 780, width: '100%', margin: '0 auto' }}>
@@ -74,12 +77,14 @@ export function Step0Setup({ accentSolid, tipo, protocolId, coordinatorId, onTip
       {(tipo === 'protocolo' || isIp) && (
         <label style={{ maxWidth: 480 }}>
           <div className="spira-eyebrow" style={{ marginBottom: 9 }}>Protocolo</div>
-          <select value={protocolId} onChange={(e) => onProtocol(e.target.value)} required style={fieldInput}>
-            <option value="" disabled>Elegí un protocolo</option>
-            {(protocols.data ?? []).map((p) => (
-              <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-            ))}
-          </select>
+          <SearchableSelect
+            value={protocolId}
+            onChange={onProtocol}
+            options={protocolOptions}
+            placeholder="Elegí un protocolo"
+            searchPlaceholder="Buscar protocolo…"
+            entity="protocolo"
+          />
           {!isIp && (
             <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', marginTop: 8 }}>Vas a recibir medicación para el protocolo seleccionado.</div>
           )}
@@ -91,12 +96,15 @@ export function Step0Setup({ accentSolid, tipo, protocolId, coordinatorId, onTip
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, maxWidth: 620 }}>
           <label>
             <div className="spira-eyebrow" style={{ marginBottom: 9 }}>Coordinador responsable</div>
-            <select value={coordinatorId} onChange={(e) => onCoordinator(e.target.value)} required style={fieldInput} disabled={coordList.length === 0}>
-              <option value="" disabled>{coordList.length === 0 ? 'Sin coordinadores asignados' : 'Elegí el coordinador'}</option>
-              {coordList.map((c) => (
-                <option key={c.id} value={c.id}>{c.full_name}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={coordinatorId}
+              onChange={onCoordinator}
+              options={coordinatorOptions}
+              placeholder={coordList.length === 0 ? 'Sin coordinadores asignados' : 'Elegí el coordinador'}
+              searchPlaceholder="Buscar coordinador…"
+              entity="coordinador"
+              disabled={coordList.length === 0}
+            />
             {coordList.length === 0 && (
               <div style={{ fontSize: 12.5, color: 'var(--spira-warn)', marginTop: 8 }}>Este protocolo no tiene coordinadores asignados en Track.</div>
             )}

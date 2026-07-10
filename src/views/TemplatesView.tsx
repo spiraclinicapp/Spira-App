@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
+import { SearchableSelect } from '../components/SearchableSelect'
 import { useAuth } from '../lib/auth'
 import { useProtocols } from '../data/protocols'
 import {
@@ -64,9 +65,15 @@ function ItemForm({ initial, accentSolid, busy, onSave, onCancel }: {
         autoFocus
         style={{ ...fieldInput, height: 38, flex: '1 1 220px' }}
       />
-      <select value={deadline} onChange={(e) => setDeadline(Number(e.target.value))} style={{ ...fieldInput, height: 38, width: 140, flex: '0 0 auto' }}>
-        {DEADLINE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+      <div style={{ width: 140, flex: '0 0 auto' }}>
+        <SearchableSelect
+          value={String(deadline)}
+          onChange={(v) => setDeadline(Number(v))}
+          options={DEADLINE_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
+          placeholder="Plazo"
+          entity="plazo"
+        />
+      </div>
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--spira-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
         <input type="checkbox" checked={mandatory} onChange={(e) => setMandatory(e.target.checked)} />
         Obligatorio

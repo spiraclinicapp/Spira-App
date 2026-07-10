@@ -4,9 +4,12 @@ import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
+import { SearchableSelect } from '../components/SearchableSelect'
+import { DateField } from '../components/DateField'
 import { updatePatient, deletePatient, patientFootprint } from '../data/patients'
 import type { PatientRow, PatientStatus, PatientFootprint } from '../data/patients'
 import { FERTILITY_OPTIONS } from '../lib/visits'
+import { todayISO, yearsFromTodayISO } from '../lib/dates'
 import { useAuth } from '../lib/auth'
 
 /* Tinte danger para el callout de cambio de número (no hay hex de --spira-danger
@@ -118,27 +121,43 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
             </FormField>
           </div>
           <FormField label="Fecha de nacimiento">
-            <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} style={fieldInput} />
+            <DateField value={birthDate} onChange={setBirthDate} min={yearsFromTodayISO(-110)} max={todayISO()} />
           </FormField>
           <FormField label="Sexo">
-            <select value={sex} onChange={(e) => setSex(e.target.value)} style={fieldInput}>
-              <option value="">Sin especificar</option>
-              <option value="F">Femenino</option>
-              <option value="M">Masculino</option>
-              <option value="Otro">Otro</option>
-            </select>
+            <SearchableSelect
+              value={sex}
+              onChange={setSex}
+              options={[
+                { value: 'F', label: 'Femenino' },
+                { value: 'M', label: 'Masculino' },
+                { value: 'Otro', label: 'Otro' },
+              ]}
+              placeholder="Sin especificar"
+              searchPlaceholder="Buscar sexo…"
+              entity="sexo"
+            />
           </FormField>
           <FormField label="Fertilidad">
-            <select value={fertility} onChange={(e) => setFertility(e.target.value)} style={fieldInput}>
-              <option value="">Sin especificar</option>
-              {FERTILITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <SearchableSelect
+              value={fertility}
+              onChange={setFertility}
+              options={FERTILITY_OPTIONS}
+              placeholder="Sin especificar"
+              searchPlaceholder="Buscar fertilidad…"
+              entity="fertilidad"
+            />
           </FormField>
           <FormField label="Estado">
-            <select value={status} onChange={(e) => setStatus(e.target.value as PatientStatus)} style={fieldInput}>
-              <option value="activo">Activo</option>
-              <option value="inactivo">Inactivo</option>
-            </select>
+            <SearchableSelect
+              value={status}
+              onChange={(v) => setStatus(v as PatientStatus)}
+              options={[
+                { value: 'activo', label: 'Activo' },
+                { value: 'inactivo', label: 'Inactivo' },
+              ]}
+              placeholder="Estado"
+              entity="estado"
+            />
           </FormField>
           <div style={{ gridColumn: '1 / -1' }}>
             <FormField label="Médico tratante">

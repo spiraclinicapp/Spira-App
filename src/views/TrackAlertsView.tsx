@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { PrivacyAvatar } from '../components/PrivacyAvatar'
+import { SearchableSelect } from '../components/SearchableSelect'
 import { useVisitAlerts } from '../data/visits'
 import type { TrackVisitRow } from '../data/visits'
 import { useProtocols } from '../data/protocols'
@@ -19,11 +20,6 @@ const btnOutline: CSSProperties = {
   height: 38, padding: '0 15px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
   background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)',
   fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
-}
-const fieldSelect: CSSProperties = {
-  height: 38, padding: '0 12px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
-  background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)',
-  fontSize: 13.5, cursor: 'pointer',
 }
 const code: CSSProperties = { fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }
 
@@ -93,31 +89,37 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
     const list = (protocols.data ?? []).filter((p) => byId.has(p.id))
     return list.map((p) => ({ id: p.id, code: p.code }))
   })()
+  const protocolOptions = [
+    { value: 'all', label: 'Todos los protocolos' },
+    ...protoOptions.map((p) => ({ value: p.id, label: p.code })),
+  ]
+  const ageOptions = AGE_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <select
-          value={protocolFilter}
-          onChange={(e) => setProtocolFilter(e.target.value)}
-          style={{ ...fieldSelect, minWidth: 180 }}
-          aria-label="Filtrar por protocolo"
-        >
-          <option value="all">Todos los protocolos</option>
-          {protoOptions.map((p) => (
-            <option key={p.id} value={p.id}>{p.code}</option>
-          ))}
-        </select>
-        <select
-          value={ageDays}
-          onChange={(e) => setAgeDays(Number(e.target.value))}
-          style={{ ...fieldSelect, minWidth: 170 }}
-          aria-label="Filtrar por antigüedad"
-        >
-          {AGE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        <div style={{ minWidth: 180 }}>
+          <SearchableSelect
+            value={protocolFilter}
+            onChange={setProtocolFilter}
+            options={protocolOptions}
+            placeholder="Todos los protocolos"
+            searchPlaceholder="Buscar protocolo…"
+            entity="protocolo"
+            mono
+            menuWidth="auto"  // mismo filtro de protocolo que Recepción: opciones largas, menú al contenido
+          />
+        </div>
+        <div style={{ minWidth: 170 }}>
+          <SearchableSelect
+            value={String(ageDays)}
+            onChange={(v) => setAgeDays(Number(v))}
+            options={ageOptions}
+            placeholder="Cualquier antigüedad"
+            searchPlaceholder="Buscar…"
+            entity="antigüedad"
+          />
+        </div>
         <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--spira-muted)' }}>
           {filtered.length} de {allRows.length} {allRows.length === 1 ? 'alerta' : 'alertas'}
         </span>
