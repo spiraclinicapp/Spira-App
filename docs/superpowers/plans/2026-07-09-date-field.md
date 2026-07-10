@@ -109,14 +109,22 @@ export function usePopover<T extends HTMLElement, P extends HTMLElement>(open: b
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
+  // Posición: por defecto debajo del trigger; si el popover no entra abajo (ej. calendario alto
+  // cerca del borde inferior), flip hacia arriba. Requiere una segunda medición post-render (raf)
+  // porque en el primer cálculo el popover todavía no está montado (no se sabe su alto).
   const reposition = useCallback(() => {
     const r = triggerRef.current?.getBoundingClientRect()
-    if (r) setPos({ top: r.bottom + 6, left: r.left, width: r.width })
+    if (!r) return
+    const ph = popRef.current?.offsetHeight ?? 0
+    const below = r.bottom + 6
+    const flipUp = ph > 0 && below + ph > window.innerHeight - 8 && r.top - 6 - ph >= 8
+    setPos({ top: flipUp ? r.top - 6 - ph : below, left: r.left, width: r.width })
   }, [])
 
   useEffect(() => {
     if (!open) return
     reposition()
+    const raf = requestAnimationFrame(reposition) // re-medir con el alto real del popover ya pintado
     const onScroll = () => reposition()
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current() }
     const onDown = (e: MouseEvent) => {
@@ -129,6 +137,7 @@ export function usePopover<T extends HTMLElement, P extends HTMLElement>(open: b
     document.addEventListener('keydown', onKey)
     document.addEventListener('mousedown', onDown)
     return () => {
+      cancelAnimationFrame(raf)
       window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', onScroll)
       document.removeEventListener('keydown', onKey)
@@ -228,20 +237,40 @@ git commit -m "refactor(select): extraer usePopover (compartido con DateField), 
   color: var(--spira-muted);
   font-weight: 600;
 }
+/* Placeholder dd/mm/aaaa tenue pero legible (no el gris default del navegador). */
+.spira-date-input::placeholder { color: var(--spira-faint); }
 ```
 
 - [ ] **Step 2: `DateField.tsx`**
 
 ```tsx
 import { useEffect, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ChangeEvent } from 'react'
 import { DayPicker } from 'react-day-picker'
+import type { DropdownProps } from 'react-day-picker'
 import { es } from 'react-day-picker/locale'
 import 'react-day-picker/style.css'
 import './DateField.css'
 import { Icon } from './Icon'
+import { SearchableSelect } from './SearchableSelect'
 import { usePopover } from './usePopover'
 import { isoToDate, dateToISO, parseARInput, formatAR } from '../lib/dates'
+
+/** Adapta el Dropdown de mes/año del calendario (react-day-picker) a nuestro SearchableSelect:
+ *  on-brand y con el AÑO buscable (tipeás "1985"). El mes (12 opciones) va sin buscador. */
+function SelectDropdown({ options, value, onChange, 'aria-label': ariaLabel }: DropdownProps) {
+  const opts = (options ?? []).map((o) => ({ value: String(o.value), label: o.label }))
+  return (
+    <SearchableSelect
+      value={value != null ? String(value) : ''}
+      onChange={(v) => onChange?.({ target: { value: v } } as unknown as ChangeEvent<HTMLSelectElement>)}
+      options={opts}
+      placeholder={ariaLabel ?? ''}
+      searchPlaceholder="Buscar…"
+      searchable={opts.length > 20 ? 'auto' : 'never'}
+    />
+  )
+}
 
 interface Props {
   value: string                 // ISO 'YYYY-MM-DD' | ''
@@ -264,6 +293,7 @@ interface Props {
  */
 export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disabled = false, min, max, invalid = false, id, autoFocus = false }: Props) {
   const [open, setOpen] = useState(false)
+  const [focused, setFocused] = useState(false)
   const [text, setText] = useState(value ? formatAR(value) : '')
   const { triggerRef, popRef, pos } = usePopover<HTMLDivElement, HTMLDivElement>(open, () => setOpen(false))
   const inputRef = useRef<HTMLInputElement>(null)
@@ -293,14 +323,15 @@ export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disable
 
   return (
     <div ref={triggerRef} style={{ position: 'relative' }}>
-      <div style={{ ...box, ...(invalid ? boxInvalid : null), ...(disabled ? boxDisabled : null) }}>
+      <div style={{ ...box, ...(focused || open ? boxFocus : null), ...(invalid ? boxInvalid : null), ...(disabled ? boxDisabled : null) }}>
         <input
           ref={inputRef}
           id={id}
-          className="spira-mono"
+          className="spira-mono spira-date-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onBlur={commitText}
+          onFocus={() => setFocused(true)}
+          onBlur={() => { setFocused(false); commitText() }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') { e.preventDefault(); commitText() }
             else if (e.key === 'Escape' && open) setOpen(false)
@@ -322,6 +353,7 @@ export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disable
             locale={es}
             weekStartsOn={1}
             captionLayout="dropdown"
+            components={{ Dropdown: SelectDropdown }}
             startMonth={startMonth}
             endMonth={endMonth}
             defaultMonth={selected ?? undefined}
@@ -338,6 +370,7 @@ const box: CSSProperties = {
   width: '100%', height: 44, display: 'flex', alignItems: 'center',
   background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)', borderRadius: 10,
 }
+const boxFocus: CSSProperties = { boxShadow: '0 5px 14px rgba(20,48,46,.10)' } // foco suave estándar (sin outline verde)
 const boxInvalid: CSSProperties = { borderColor: 'var(--spira-danger)' }
 const boxDisabled: CSSProperties = { opacity: 0.55 }
 const textInput: CSSProperties = {
@@ -480,4 +513,11 @@ git commit -m "docs(design): DateField como selector de fecha estándar de la Ap
 
 **Consistencia de tipos:** `DateField` value/onChange = string ISO en todos los call-sites; setters `(v: string) => void` (los `setX` de useState<string> y el `patch` de Step2Lots reciben string). `isoToDate`/`dateToISO`/`parseARInput`/`yearsFromTodayISO` definidos en Task 1 y usados con esas firmas en Task 3/4. `usePopover` genérico usado con `<HTMLButtonElement, HTMLDivElement>` (Select) y `<HTMLDivElement, HTMLDivElement>` (DateField).
 
-**Riesgo principal:** (1) el refactor de `usePopover` re-toca `SearchableSelect` ya verificado → Step 4 de Task 2 re-verifica paridad. (2) Estilado de rdp: la CSS mapea variables documentadas de v9, pero el ajuste fino visual se hace en navegador durante la Task 3/4 (impeccable). (3) Timezone: cubierto por centralizar en `lib/dates.ts` + verificación explícita del round-trip.
+**Riesgo principal:** (1) el refactor de `usePopover` re-toca `SearchableSelect` ya verificado → Step 4 de Task 2 re-verifica paridad. (2) Estilado de rdp: la CSS mapea variables documentadas de v9, pero el ajuste fino visual se hace en navegador durante la Task 3/4 (impeccable). (3) Timezone: cubierto por centralizar en `lib/dates.ts` + verificación explícita del round-trip. (4) **`SearchableSelect` anidado en el caption:** su trigger es de 44px (tamaño form) → puede verse robusto en el header del calendario; verificar en navegador que (a) el año abre buscable y filtra, (b) elegir mes/año NO cierra el calendario (el popover del select es descendiente del popover del calendario), (c) el flip del `usePopover` no deja el calendario cortado. Si el 44px molesta, afinar tamaño (posible variante compacta como follow-up).
+
+## Decisiones de diseño (de /plan-design-review)
+
+- Foco suave en el campo (sombra + levante, sin outline verde) — estándar de la casa. ✔ en el código.
+- Placeholder `dd/mm/aaaa` en `--spira-faint` (tenue pero legible). ✔.
+- Mes/año del calendario con **SearchableSelect** (on-brand; año buscable) vía `components.Dropdown`. ✔.
+- `usePopover` con **flip hacia arriba** cuando no entra abajo (mejora también a SearchableSelect). ✔.
