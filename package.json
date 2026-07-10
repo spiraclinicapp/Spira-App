@@ -12,6 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
     "react": "^19.2.7",
+    "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
