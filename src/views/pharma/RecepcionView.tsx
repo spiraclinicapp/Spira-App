@@ -6,6 +6,7 @@ import { Badge } from '../../components/Badge'
 import { Chip } from '../../components/Chip'
 import { btnOutline } from '../../components/buttons'
 import { fieldInput, fieldLabelStyle } from '../../components/FormField'
+import { SearchableSelect } from '../../components/SearchableSelect'
 import { useAuth } from '../../lib/auth'
 import { addDaysISO, formatDayMonthYear, groupByDay, todayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
@@ -170,21 +171,38 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     </div>
   )
 
+  const protocolOptions = [
+    { value: 'all', label: 'Todos' },
+    ...(protocols.data ?? []).map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })),
+  ]
+  const medOptions = [
+    { value: 'all', label: 'Todos' },
+    ...(catalog.data ?? []).map((m) => ({ value: m.id, label: m.name })),
+  ]
+
   const morePanel = moreOpen ? (
     <div style={panel}>
       <label style={filterField}>
         <span style={fieldLabelStyle}>Protocolo</span>
-        <select value={fProtocol} onChange={(e) => setFProtocol(e.target.value)} style={{ ...fieldInput, height: 38 }}>
-          <option value="">Todos</option>
-          {(protocols.data ?? []).map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-        </select>
+        <SearchableSelect
+          value={fProtocol || 'all'}
+          onChange={(v) => setFProtocol(v === 'all' ? '' : v)}
+          options={protocolOptions}
+          placeholder="Todos"
+          searchPlaceholder="Buscar protocolo…"
+          entity="protocolo"
+        />
       </label>
       <label style={filterField}>
         <span style={fieldLabelStyle}>Medicamento</span>
-        <select value={fMedId} onChange={(e) => setFMedId(e.target.value)} style={{ ...fieldInput, height: 38 }}>
-          <option value="">Todos</option>
-          {(catalog.data ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
+        <SearchableSelect
+          value={fMedId || 'all'}
+          onChange={(v) => setFMedId(v === 'all' ? '' : v)}
+          options={medOptions}
+          placeholder="Todos"
+          searchPlaceholder="Buscar medicamento…"
+          entity="medicamento"
+        />
       </label>
       <label style={filterField}>
         <span style={fieldLabelStyle}>Desde</span>
