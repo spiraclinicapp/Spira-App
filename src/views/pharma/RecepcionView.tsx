@@ -192,6 +192,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
           placeholder="Todos"
           searchPlaceholder="Buscar protocolo…"
           entity="protocolo"
+          menuWidth="auto"  // opciones (código — nombre) más largas que el campo: el menú crece a ellas
         />
       </label>
       <label style={filterField}>
@@ -203,6 +204,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
           placeholder="Todos"
           searchPlaceholder="Buscar medicamento…"
           entity="medicamento"
+          menuWidth="auto"  // los nombres de medicamento suelen exceder el ancho del campo
         />
       </label>
       <label style={filterField}>

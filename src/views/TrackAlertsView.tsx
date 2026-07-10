@@ -107,6 +107,7 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
             searchPlaceholder="Buscar protocolo…"
             entity="protocolo"
             mono
+            menuWidth="auto"  // mismo filtro de protocolo que Recepción: opciones largas, menú al contenido
           />
         </div>
         <div style={{ minWidth: 170 }}>

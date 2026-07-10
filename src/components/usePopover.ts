@@ -8,7 +8,7 @@ export interface PopoverPos { top: number; left: number; width: number }
  * scroll/resize, y cierre por click afuera o Esc. `onClose` se lee por ref para que el efecto
  * dependa solo de [open, reposition] (identidad estable, como el SearchableSelect original).
  */
-export function usePopover<T extends HTMLElement, P extends HTMLElement>(open: boolean, onClose: () => void) {
+export function usePopover<T extends HTMLElement, P extends HTMLElement>(open: boolean, onClose: () => void, flip = true) {
   const triggerRef = useRef<T | null>(null)
   const popRef = useRef<P | null>(null)
   const [pos, setPos] = useState<PopoverPos | null>(null)
@@ -22,10 +22,17 @@ export function usePopover<T extends HTMLElement, P extends HTMLElement>(open: b
     const r = triggerRef.current?.getBoundingClientRect()
     if (!r) return
     const ph = popRef.current?.offsetHeight ?? 0
+    const pw = popRef.current?.offsetWidth ?? 0
     const below = r.bottom + 6
-    const flipUp = ph > 0 && below + ph > window.innerHeight - 8 && r.top - 6 - ph >= 8
-    setPos({ top: flipUp ? r.top - 6 - ph : below, left: r.left, width: r.width })
-  }, [])
+    // Flip hacia arriba solo si está habilitado (los dropdowns de mes/año del calendario lo apagan
+    // para abrir SIEMPRE hacia abajo, así los dos —alto distinto— coinciden y no tapan el formulario).
+    const flipUp = flip && ph > 0 && below + ph > window.innerHeight - 8 && r.top - 6 - ph >= 8
+    // Alineado al borde izquierdo del disparador; pero si el menú es más ancho que él (modo 'auto':
+    // crece a su contenido) y se pasaría del borde derecho, se corre a la izquierda lo justo para
+    // entrar (nunca antes del borde izquierdo de la ventana). Necesita el ancho real ya pintado (raf).
+    const left = pw > 0 ? Math.max(8, Math.min(r.left, window.innerWidth - 8 - pw)) : r.left
+    setPos({ top: flipUp ? r.top - 6 - ph : below, left, width: r.width })
+  }, [flip])
 
   useEffect(() => {
     if (!open) return

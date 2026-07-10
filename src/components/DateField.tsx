@@ -22,6 +22,8 @@ function SelectDropdown({ options, value, onChange, 'aria-label': ariaLabel }: D
       placeholder={ariaLabel ?? ''}
       searchPlaceholder="Buscar…"
       searchable={opts.length > 20 ? 'auto' : 'never'}
+      menuWidth="auto"  // el disparador es compacto en el caption; el menú crece a los nombres de mes
+      flip={false}      // mes y año abren siempre hacia abajo (mismo sentido, no tapan el formulario)
     />
   )
 }
@@ -81,7 +83,7 @@ export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disable
         <input
           ref={inputRef}
           id={id}
-          className="spira-mono spira-date-input"
+          className="spira-mono spira-date-input spira-bare-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onFocus={() => setFocused(true)}

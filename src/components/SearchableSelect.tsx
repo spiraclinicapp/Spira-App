@@ -22,6 +22,13 @@ interface Props {
   entity?: string
   /** 'auto' (default): el buscador aparece con SEARCH_THRESHOLD+ opciones. 'always'/'never' fuerzan. */
   searchable?: 'auto' | 'always' | 'never'
+  /** Ancho del menú. 'trigger' (default): igual al disparador (menú alineado al campo, lo estándar
+   *  en formularios). 'auto': crece a su contenido (mín. el ancho del disparador), para disparadores
+   *  compactos donde clavarlo al ancho recortaría las opciones (ej. el mes/año del calendario). */
+  menuWidth?: 'trigger' | 'auto'
+  /** Permitir que el popover flipee hacia arriba si no entra abajo (default true). Los dropdowns de
+   *  mes/año del calendario lo apagan para abrir siempre hacia abajo (que los dos coincidan). */
+  flip?: boolean
   /** Disparador inerte + atenuado: no abre el popover ni dispara onChange. */
   disabled?: boolean
   /** Enfoca el disparador al montar (equivalente al autoFocus de un input). */
@@ -43,7 +50,7 @@ interface Props {
  */
 export function SearchableSelect({
   value, onChange, options, placeholder, searchPlaceholder, entity = 'ítem',
-  searchable = 'auto', disabled = false, autoFocus = false,
+  searchable = 'auto', menuWidth = 'trigger', flip = true, disabled = false, autoFocus = false,
   onCreate, onDelete, mono, id,
 }: Props) {
   const [open, setOpen] = useState(false)
@@ -57,7 +64,7 @@ export function SearchableSelect({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
-  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
+  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false), flip)
   const searchRef = useRef<HTMLInputElement>(null)
   const createRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -185,7 +192,21 @@ export function SearchableSelect({
       </button>
 
       {open && pos && (
-        <div ref={popRef} style={{ ...popover, top: pos.top, left: pos.left, width: pos.width }}>
+        <div
+          ref={popRef}
+          style={{
+            ...popover,
+            top: pos.top,
+            left: pos.left,
+            // 'trigger': clavado al ancho del disparador (menú alineado al campo). 'auto': crece a
+            // su contenido —nunca más angosto que el disparador, con un techo— para que un
+            // disparador angosto (mes/año del calendario) no recorte las opciones ni deje blanco
+            // muerto cuando el contenido es corto (los años).
+            ...(menuWidth === 'auto'
+              ? { minWidth: pos.width, width: 'max-content', maxWidth: 'min(320px, calc(100vw - 16px))' }
+              : { width: pos.width }),
+          }}
+        >
           {deleteTarget ? (
             <div style={{ padding: 6 }}>
               <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)' }}>¿Eliminar «{deleteTarget.label}»?</div>
@@ -253,6 +274,7 @@ export function SearchableSelect({
                 ref={listRef}
                 id={listId}
                 role="listbox"
+                className="spira-scroll"
                 tabIndex={showSearch ? undefined : -1}
                 aria-activedescendant={showSearch ? undefined : activeId}
                 onKeyDown={(e) => { onListKeyDown(e); if (!showSearch) onListTypeahead(e) }}
