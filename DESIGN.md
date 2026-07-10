@@ -245,6 +245,22 @@ puro. Una sombra fría delata el sistema.
 - **Doctrina de entrada:** preferir desplegables / valores preestablecidos al texto libre — el error
   del operador es un riesgo regulatorio (ver Do's and Don'ts).
 
+### Desplegable (Select) — estándar
+El desplegable de la casa es **`SearchableSelect`** ([SearchableSelect.tsx](src/components/SearchableSelect.tsx)):
+**es el único** que se usa en vistas nuevas (no hay `<select>` nativos en la app).
+- **Buscador automático:** aparece cuando la lista tiene **5 o más opciones** (`searchable='auto'`, el
+  default; `'always'` / `'never'` fuerzan). Con 4 o menos, solo la lista, sin campo de búsqueda.
+- **Teclado (WCAG 2.1 AA):** flechas / Home / End / Enter / Esc + typeahead; `role="combobox|listbox|option"`
+  con `aria-activedescendant`. Foco sobrio (sombra + levante, sin outline verde).
+- **`options`** siempre `{ value: string; label: string }[]`. Para `number` o *unions* tipados,
+  convertir en el call-site: `String(x)` en `options` y `Number(v)` / `v as Tipo` en `onChange`
+  (el componente entrega el `value` directo, no un evento).
+- **Filtros "Todos / sin filtro":** usar una opción con **valor centinela no vacío** (ej. `'all'`),
+  nunca el vacío `''` (reservado al placeholder). Traducir el centinela de vuelta en el `onChange`.
+- **`required`:** el componente **no** lo valida; mantené la guardia manual en el submit.
+- **`disabled`** va por prop; **`onCreate` / `onDelete`** son opt-in (alta/baja de catálogo) y quedan
+  **apagados** salvo catálogos editables reales (hoy, solo el de medicación de Pharma).
+
 ### Cards / Containers
 - **Corner Style:** 16px (`{rounded.lg}`).
 - **Background:** blanco o `surface`; el papel cálido es el fondo de la página, no de la card.
