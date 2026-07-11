@@ -285,6 +285,15 @@ button { font-family: inherit; }
   @keyframes spModalIn { from { opacity: 0; } to { opacity: 1; } }
 }
 
+/* —— Navegación izquierda plegable (riel de módulos + panel de submódulos) ——
+   El botón «Menú» del top bar oculta/muestra las dos columnas: cada aside anima su ancho a 0
+   (el colapso lo manejan flex:'0 0 auto' + min-width:0 + overflow:hidden en línea). El botón
+   «Menú» es un chip sobrio (fondo surface) que resalta a `line` al pasar el mouse; el
+   `!important` le gana al fondo inline. Se respeta prefers-reduced-motion. */
+.spira-navcol { transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1); }
+.spira-menu-toggle:hover { background: var(--spira-line) !important; }
+@media (prefers-reduced-motion: reduce) { .spira-navcol { transition: none; } }
+
 /* —— Micro-interacción estándar de Spira ——
    Todo lo pulsable (botones, links, role=button) se levanta apenas (~1px) en hover y se
    asienta al pulsar. Es la señal universal de "esto se toca", sin depender del cursor.
