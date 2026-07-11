@@ -88,6 +88,15 @@ export function AppShell() {
   /* Ajustes (menú de usuario). null = cerrado; string = sección abierta. Es un
      overlay: NO toca moduleKey/subKey, así cerrar vuelve a donde estabas. */
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
+  /* Navegación izquierda plegable completa (riel de módulos + panel de submódulos). Se
+     togglea con el botón «Menú» del top bar. Preferencia global persistida en localStorage;
+     se lee en el initializer para no parpadear al montar. */
+  const [navHidden, setNavHidden] = useState<boolean>(() => {
+    try { return localStorage.getItem('spira:nav:oculto') === '1' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('spira:nav:oculto', navHidden ? '1' : '0') } catch { /* storage no disponible */ }
+  }, [navHidden])
 
   /* Al cambiar de módulo/submódulo, limpiar el encabezado contextual (que no quede
      pegado de otra vista). Es un LAYOUT effect a propósito: flushea antes que los
@@ -156,6 +165,18 @@ export function AppShell() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+          {/* Menú: colapsa/expande la navegación izquierda (riel de módulos + panel de submódulos). */}
+          <button
+            onClick={() => setNavHidden((v) => !v)}
+            aria-pressed={!navHidden}
+            aria-label={navHidden ? 'Mostrar navegación' : 'Ocultar navegación'}
+            title={navHidden ? 'Mostrar navegación' : 'Ocultar navegación'}
+            className="spira-no-press spira-menu-toggle"
+            style={{ ...iconBtn, background: 'var(--spira-surface)', color: navHidden ? accent : 'var(--spira-ink)' }}
+          >
+            <Icon name="menu" size={20} stroke={2} color="currentColor" />
+          </button>
+
           {/* Logo = hub: vuelve al inicio de Spira (inicio/resumen). */}
           <button
             onClick={() => selectModule('inicio')}
@@ -200,11 +221,21 @@ export function AppShell() {
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         {/* riel de módulos */}
         <aside
+          className="spira-navcol"
           style={{
-            width: 64, flex: '0 0 64px', background: 'var(--spira-white)', borderRight: '1px solid var(--spira-line)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 0', gap: 6,
+            width: navHidden ? 0 : 64,
+            flex: '0 0 auto',
+            minWidth: 0,
+            // Expandido: overflow visible, para NO recortar el popover de «Acerca de» (se abre
+            // hacia la derecha, fuera del ancho del riel). Plegado: hidden, para clipar el
+            // contenido de 64px mientras el ancho anima a 0. El popover solo se abre expandido.
+            overflow: navHidden ? 'hidden' : 'visible',
+            background: 'var(--spira-white)',
+            borderRight: navHidden ? 'none' : '1px solid var(--spira-line)',
           }}
         >
+          {/* height:100% para que el `marginTop:auto` del AboutMenu lo empuje al pie del riel. */}
+          <div style={{ width: 64, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 0', gap: 6 }}>
           {MODULES.map((m) => {
             const on = m.key === moduleKey
             const locked = !isAllowed(m.key)
@@ -260,32 +291,45 @@ export function AppShell() {
           {/* «i» Acerca de Spira (versión + novedades + dar feedback). Reemplaza la
               tuerca: sus ítems (Preferencias, Roles y permisos, Ayuda) viven en el UserMenu. */}
           <AboutMenu accent={accent} onFeedback={() => setFeedbackOpen(true)} />
+          </div>
         </aside>
 
         {/* panel de submódulos — oculto en Inicio: su única vista es Resumen (la home) */}
         {moduleKey !== 'inicio' && (
-        <aside style={{ width: 208, flex: '0 0 208px', background: 'var(--spira-surface)', borderRight: '1px solid var(--spira-line)', padding: '18px 12px', display: 'flex', flexDirection: 'column' }}>
-          <div className="spira-eyebrow" style={{ padding: '2px 12px 0' }}>Submódulos</div>
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 14 }}>
-            {mod.submodules.map((s) => {
-              const on = s.key === sub.key
-              return (
-                <button
-                  key={s.key}
-                  onClick={() => { setSubKey(s.key); setSettingsSection(null) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 12px',
-                    border: 'none', borderRadius: 9, cursor: 'pointer',
-                    background: on ? accent + '14' : 'transparent', color: on ? accent : 'var(--spira-ink)',
-                    fontFamily: 'var(--spira-font-text)', fontSize: 14, fontWeight: on ? 600 : 500,
-                  }}
-                >
-                  <Icon name={s.icon} size={17} stroke={1.9} color={on ? accent : 'var(--spira-muted)'} />
-                  {s.name}
-                </button>
-              )
-            })}
-          </nav>
+        <aside
+          className="spira-navcol"
+          style={{
+            width: navHidden ? 0 : 208,
+            flex: '0 0 auto',
+            minWidth: 0,
+            overflow: 'hidden',
+            background: 'var(--spira-surface)',
+            borderRight: navHidden ? 'none' : '1px solid var(--spira-line)',
+          }}
+        >
+          <div style={{ width: 208, padding: '18px 12px', display: 'flex', flexDirection: 'column' }}>
+            <div className="spira-eyebrow" style={{ padding: '2px 12px 0' }}>Submódulos</div>
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 14 }}>
+              {mod.submodules.map((s) => {
+                const on = s.key === sub.key
+                return (
+                  <button
+                    key={s.key}
+                    onClick={() => { setSubKey(s.key); setSettingsSection(null) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 12px',
+                      border: 'none', borderRadius: 9, cursor: 'pointer',
+                      background: on ? accent + '14' : 'transparent', color: on ? accent : 'var(--spira-ink)',
+                      fontFamily: 'var(--spira-font-text)', fontSize: 14, fontWeight: on ? 600 : 500,
+                    }}
+                  >
+                    <Icon name={s.icon} size={17} stroke={1.9} color={on ? accent : 'var(--spira-muted)'} />
+                    {s.name}
+                  </button>
+                )
+              })}
+            </nav>
+          </div>
         </aside>
         )}
 

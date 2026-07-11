@@ -43,6 +43,7 @@ const ICONS = {
   sun: (<><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.9 4.9 1.4 1.4" /><path d="m17.7 17.7 1.4 1.4" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.3 17.7-1.4 1.4" /><path d="m19.1 4.9-1.4 1.4" /></>),
   moon: (<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />),
   x: (<><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>),
+  menu: (<><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></>),
   alertCircle: (<><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" /></>),
   barcodeSearch: (<><path d="M3.5 8.5V6A1.5 1.5 0 0 1 5 4.5H7.5" /><path d="M13 4.5H15A1.5 1.5 0 0 1 16.5 6V8.5" /><path d="M3.5 13V15.5A1.5 1.5 0 0 1 5 17H7.5" /><path d="M6 7V14.5" /><path d="M8.4 7V14.5" /><path d="M10.8 7V12" /><circle cx="14.3" cy="13.2" r="3.2" /><path d="M16.7 15.6 19.6 18.5" /></>),
   minus: (<path d="M5 12h14" />),
