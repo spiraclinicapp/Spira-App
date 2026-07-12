@@ -285,6 +285,17 @@ button { font-family: inherit; }
   @keyframes spModalIn { from { opacity: 0; } to { opacity: 1; } }
 }
 
+/* —— Animación del Drawer (panel deslizable desde la derecha) ——
+   El hilo de comentarios de visita entra desde el borde derecho. Movimiento corto que se asienta
+   (§Movimiento del sistema): deslizado + fade, sin overshoot. En reduced-motion entra sólo con fade. */
+@keyframes spDrawerIn {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes spDrawerIn { from { opacity: 0; } to { opacity: 1; } }
+}
+
 /* —— Navegación izquierda plegable (riel de módulos + panel de submódulos) ——
    El botón «Menú» del top bar oculta/muestra las dos columnas: cada aside anima su ancho a 0
    (el colapso lo manejan flex:'0 0 auto' + min-width:0 + overflow:hidden en línea). El botón

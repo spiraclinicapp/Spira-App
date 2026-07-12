@@ -9,6 +9,9 @@ import type { DayVisitRow } from '../data/dayVisits'
 import { visitTitle } from '../lib/visits'
 import { todayISO, addDaysISO, dayLabel, formatAR } from '../lib/dates'
 import type { ViewProps } from './types'
+import { VisitDetail } from './track/VisitDetail'
+import { Drawer } from '../components/Drawer'
+import { CommentThread } from './track/CommentThread'
 
 const card: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
@@ -39,6 +42,8 @@ export function DoctorQueueView({ module, submodule }: ViewProps) {
   const [medico, setMedico] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [openVisitId, setOpenVisitId] = useState<string | null>(null)
+  const [commentsVisit, setCommentsVisit] = useState<DayVisitRow | null>(null)
   const queue = useDoctorQueue(date)
 
   const isToday = date === todayISO()
@@ -195,20 +200,49 @@ export function DoctorQueueView({ module, submodule }: ViewProps) {
                   <PrivacyAvatar fullName={v.patient_name} size={28} color={accent} />
                   {who(v)}
                 </span>
-                {attended ? (
-                  <button onClick={() => { void setSeen(v.id, false) }} disabled={busy} title="Deshacer: vuelve a pendiente" style={{ ...btnOutline, opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' }}>
-                    {busy ? 'Guardando…' : 'Deshacer'}
+                {/* acciones: comentario · Abrir · Atendido (envuelven en anchos chicos) */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setCommentsVisit(v)}
+                    title="Comentarios de la visita"
+                    style={{ ...btnOutline, padding: '0 12px', gap: 6 }}
+                  >
+                    <Icon name="message" size={16} color="var(--spira-muted)" />
+                    <span className="spira-mono">{v.comments_count ?? 0}</span>
                   </button>
-                ) : (
-                  <button onClick={() => { void setSeen(v.id, true) }} disabled={busy} style={{ ...btnOutline, opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' }}>
-                    <Icon name="check" size={16} color="var(--spira-good)" />
-                    {busy ? 'Guardando…' : 'Atendido por médico'}
+                  <button onClick={() => setOpenVisitId(v.id)} title="Abrir la ficha de la visita" style={btnOutline}>
+                    Abrir
                   </button>
-                )}
+                  {attended ? (
+                    <button onClick={() => { void setSeen(v.id, false) }} disabled={busy} title="Deshacer: vuelve a pendiente" style={{ ...btnOutline, opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' }}>
+                      {busy ? 'Guardando…' : 'Deshacer'}
+                    </button>
+                  ) : (
+                    <button onClick={() => { void setSeen(v.id, true) }} disabled={busy} style={{ ...btnOutline, opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' }}>
+                      <Icon name="check" size={16} color="var(--spira-good)" />
+                      {busy ? 'Guardando…' : 'Atendido por médico'}
+                    </button>
+                  )}
+                </div>
               </div>
             )
           })}
         </div>
+      )}
+
+      {openVisitId && (
+        <VisitDetail
+          visitId={openVisitId}
+          accent={accent}
+          context="patient"
+          onChanged={() => queue.refetch()}
+          onClose={() => setOpenVisitId(null)}
+        />
+      )}
+      {commentsVisit && (
+        <Drawer title={`Comentarios · ${commentsVisit.patient_code ?? 'Visita'}`} onClose={() => setCommentsVisit(null)}>
+          <CommentThread visitId={commentsVisit.id} accent={accent} onAdded={() => queue.refetch()} />
+        </Drawer>
       )}
     </div>
   )
