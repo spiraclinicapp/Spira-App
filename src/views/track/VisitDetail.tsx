@@ -12,6 +12,7 @@ import { formatAR } from '../../lib/dates'
 import { OPERATIONAL_STAGES, STAGE_ORDER } from '../visitStates'
 import { VisitChecklist } from './VisitChecklist'
 import { DoctorBadge } from './DoctorBadge'
+import { CommentThread } from './CommentThread'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 
 /** Motivos de derivación al médico (chips). Acotado a propósito para poder reportarlo (0047). */
@@ -144,7 +145,7 @@ export function VisitDetail({ visitId, accent, context, onClose, canReception = 
             {/* derecha: Comentarios + Dispensación (en construcción) */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <Panel title="Comentarios" icon="message" accent={accent}>
-                <UnderConstruction note="El hilo de comentarios de la visita llega en la próxima tanda." />
+                <CommentThread visitId={visit.id} accent={accent} onAdded={onChanged} />
               </Panel>
               <Panel title="Dispensación" icon="pill" accent={accent}>
                 {visit.dispenses ? (

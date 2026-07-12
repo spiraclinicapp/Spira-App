@@ -125,6 +125,23 @@ export function groupByDay<T>(rows: T[], getDate: (r: T) => string): { date: str
   return order.map((d) => ({ date: d, label: dayGroupLabel(d), items: byDay.get(d)! }))
 }
 
+/**
+ * "recién" / "hace 41m" / "hace 1h 36m" / "hace 3d" a partir de un timestamp ABSOLUTO (timestamptz
+ * de Postgres, p. ej. `created_at`). A diferencia de los helpers date-only de arriba, acá
+ * `new Date(iso)` SÍ es correcto: un timestamptz es un instante con zona, no una fecha local ambigua.
+ */
+export function fromNow(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return ''
+  const mins = Math.max(0, Math.round((Date.now() - then) / 60_000))
+  if (mins < 1) return 'recién'
+  if (mins < 60) return `hace ${mins}m`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) { const m = mins % 60; return m ? `hace ${hrs}h ${m}m` : `hace ${hrs}h` }
+  const days = Math.floor(hrs / 24)
+  return `hace ${days}d`
+}
+
 /** ISO `YYYY-MM-DD` → `Date` en hora LOCAL (para react-day-picker). No usar `new Date(iso)` (parsea UTC). */
 export function isoToDate(iso: string): Date {
   return parseISO(iso)
