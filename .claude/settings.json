@@ -2,5 +2,21 @@
   "enabledPlugins": {
     "context7@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [".claude/hooks/branch-guard.mjs"],
+            "timeout": 10,
+            "statusMessage": "Guardia de rama (anti-commit en main)"
+          }
+        ]
+      }
+    ]
   }
 }
