@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import type { ModuleDef, SubModule } from '../modules/registry'
 import type { IconName } from '../components/Icon'
 
@@ -28,6 +28,12 @@ export interface ViewHeader {
   rootOnClick?: () => void
   crumbs?: ViewHeaderCrumb[]
   actions?: ViewHeaderAction[]
+  /**
+   * Contenido libre para la fila del encabezado (junto al título, a la derecha), cuando las
+   * acciones no entran en el molde de botón simple (label+ícono) — ej. un filtro + selector de
+   * fecha. Si está presente, reemplaza `actions`/el botón genérico de esa fila.
+   */
+  content?: ReactNode
 }
 
 /**

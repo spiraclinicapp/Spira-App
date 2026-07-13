@@ -1,68 +1,122 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { SearchableSelect } from '../components/SearchableSelect'
+import { DateField } from '../components/DateField'
+import { StatCard } from '../components/StatCard'
+import { btnOutline, btnPrimary } from '../components/buttons'
 import { useDoctorQueue, markDoctorSeen } from '../data/dayVisits'
 import type { DayVisitRow } from '../data/dayVisits'
-import { visitTitle } from '../lib/visits'
-import { todayISO, addDaysISO, dayLabel, formatAR } from '../lib/dates'
+import { visitCode, ageFromBirth, SEX_SHORT } from '../lib/visits'
+import { todayISO, elapsedMinutes, elapsedShort } from '../lib/dates'
 import type { ViewProps } from './types'
 import { VisitDetail } from './track/VisitDetail'
 import { Drawer } from '../components/Drawer'
 import { CommentThread } from './track/CommentThread'
+import { WaitBadge, waitTone, TONE_HEX, FAINT_HEX } from './track/WaitBadge'
+import { MotivoChip } from './track/MotivoChip'
+import { AttendedRow } from './track/AttendedRow'
 
-const card: CSSProperties = {
-  background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
-  borderRadius: 'var(--spira-radius-lg)', padding: '4px 10px',
-}
-const btnOutline: CSSProperties = {
-  height: 36, padding: '0 14px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
-  background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)',
-  fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
-  whiteSpace: 'nowrap',
-}
-const code: CSSProperties = { fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }
-
-const ROW_COLS = 'minmax(0, 1fr) auto'
 type Status = 'todos' | 'faltan' | 'atendidos'
 
+/** Cadencia del reloj vivo (WaitBadge / "hace Xm"). Solo re-renderiza; no dispara refetch. */
+const TICK_MS = 15_000
+
 /**
- * Cola "Para ver médico": una sola lista de espera POR DÍA (navegable), ordenada por llegada
- * (el más antiguo arriba). El paciente NO se va de la lista al retirarse del sitio; queda
- * registrado en su día. Al marcar "Atendido" queda en su lugar (con el check) y se resalta el
- * SIGUIENTE pendiente ("el que le toca"). Filtros: estado (Todos / Faltan atender / Atendidos) +
- * selector de médico tratante. Semilla del futuro módulo Médicos. Reusa useDoctorQueue(date).
+ * Cola "Para ver médico" — rediseño idéntico a la referencia visual del Director (review
+ * 2026-07-12; ver docs/superpowers/plans/2026-07-11-para-ver-medico-rediseno.md). Lista de
+ * espera por día (navegable), con WaitBadge de tiempo REAL de espera (migración 0049:
+ * `wants_doctor_at`) y reloj vivo cada 15s. "Faltan atender" ordenada por `wants_doctor_at`
+ * ascendente (quien más espera, arriba, como en la referencia); "Atendidos", más reciente primero.
+ *
+ * Desvío deliberado de `PrivacyAvatar` (que en el resto de Track oculta el nombre del paciente,
+ * solo tooltip): esta pantalla SÍ muestra `patient_name` como texto, decisión explícita del
+ * Director para calzar con la referencia — acotada a esta vista.
+ *
+ * Se sacó el filtro por médico tratante (lo tenía la versión anterior) para que la cabecera
+ * quede idéntica a la foto (decisión D2 del ENG review). El "resaltado del que le toca" (borde de
+ * color) de la versión anterior también se sacó: no está en la referencia y era un patrón que
+ * DESIGN.md desaconseja (franja de acento de color); el orden por espera ya comunica quién sigue.
  */
-export function DoctorQueueView({ module, submodule }: ViewProps) {
+export function DoctorQueueView({ module, submodule, setHeader }: ViewProps) {
   const accent = module.accent
   const [date, setDate] = useState(todayISO())
   const [status, setStatus] = useState<Status>('todos')
-  const [medico, setMedico] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [openVisitId, setOpenVisitId] = useState<string | null>(null)
   const [commentsVisit, setCommentsVisit] = useState<DayVisitRow | null>(null)
   const queue = useDoctorQueue(date)
 
+  // Reloj vivo: fuerza un re-render cada 15s para que WaitBadge/AttendedRow recalculen contra
+  // Date.now() real. Sin refetch — el timestamp base (wants_doctor_at/doctor_seen_at) ya está
+  // en las filas cargadas; solo cambia lo que MOSTRAMOS de él.
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => tick((t) => t + 1), TICK_MS)
+    return () => clearInterval(id)
+  }, [])
+
   const isToday = date === todayISO()
-  const rows = queue.data ?? [] // ya viene por orden de llegada (arrived_at asc, luego patient_code)
+  const rows = queue.data ?? []
 
-  /* Médicos tratantes presentes ese día (para el selector). El filtro de médico se "cae" solo si
-     ese médico no está en el día actual: así navegar de día no deja un filtro fantasma. */
-  const medicos = Array.from(
-    new Set(rows.map((r) => r.treating_physician).filter((m): m is string => !!m)),
-  ).sort((a, b) => a.localeCompare(b))
-  const activeMedico = medico && medicos.includes(medico) ? medico : null
+  /* "Faltan atender": por wants_doctor_at ascendente (quien más espera, arriba). Sin dato (marcado
+     antes de la 0049) va al final — no hay forma honesta de ordenarlo por espera real. */
+  const faltan = [...rows].filter((r) => !r.doctor_seen_at).sort((a, b) => {
+    if (!a.wants_doctor_at && !b.wants_doctor_at) return 0
+    if (!a.wants_doctor_at) return 1
+    if (!b.wants_doctor_at) return -1
+    return a.wants_doctor_at.localeCompare(b.wants_doctor_at)
+  })
+  /* "Atendidos": más reciente primero. */
+  const atendidos = [...rows].filter((r) => !!r.doctor_seen_at)
+    .sort((a, b) => (b.doctor_seen_at ?? '').localeCompare(a.doctor_seen_at ?? ''))
 
-  const scoped = activeMedico ? rows.filter((r) => r.treating_physician === activeMedico) : rows
-  /* "El que le toca": primer pendiente (sin doctor_seen_at) en orden de llegada, dentro del médico
-     filtrado. Se resalta esté donde esté en la lista visible. */
-  const nextPendingId = scoped.find((r) => !r.doctor_seen_at)?.id ?? null
-  const visible = scoped.filter((r) =>
-    status === 'faltan' ? !r.doctor_seen_at : status === 'atendidos' ? !!r.doctor_seen_at : true,
-  )
+  const visibleFaltan = status === 'atendidos' ? [] : faltan
+  const visibleAtendidos = status === 'faltan' ? [] : atendidos
+  const showSectionHeads = status === 'todos' && faltan.length > 0 && atendidos.length > 0
+  const nothingVisible = visibleFaltan.length === 0 && visibleAtendidos.length === 0
+
+  const longestWaitIso = faltan.find((r) => r.wants_doctor_at)?.wants_doctor_at ?? null
+  const longestTone = waitTone(longestWaitIso ? elapsedMinutes(longestWaitIso) : null)
+  // StatCard exige HEX literal (no var(--spira-x)): var(--x)16 no es CSS válido, ver StatCard.tsx.
+  const longestColor = longestTone ? TONE_HEX[longestTone] : FAINT_HEX
+
+  const statusOptions = [
+    { value: 'todos', label: `Todos · ${rows.length}` },
+    { value: 'faltan', label: `Faltan atender · ${faltan.length}` },
+    { value: 'atendidos', label: `Atendidos · ${atendidos.length}` },
+  ]
+
+  /* Filtro de estado + selector de fecha viven en la fila del TÍTULO del shell (junto al "Para ver
+     médico" H1), idéntico a la referencia — no debajo, en el cuerpo. `ViewHeader.content` es el
+     escape hatch para controles que no entran en el molde de botón simple de `actions` (ver
+     views/types.ts). Se re-registra en cada cambio relevante porque el contenido es interactivo. */
+  useEffect(() => {
+    setHeader?.({
+      content: (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ width: 200 }}>
+            <SearchableSelect
+              value={status}
+              onChange={(v) => setStatus(v as Status)}
+              options={statusOptions}
+              placeholder="Filtrar"
+              entity="estado"
+            />
+          </div>
+          {!isToday && <button onClick={() => setDate(todayISO())} style={{ ...btnOutline, height: 44 }}>Hoy</button>}
+          <div style={{ width: 190 }}>
+            <DateField value={date} onChange={setDate} />
+          </div>
+        </div>
+      ),
+    })
+    return () => setHeader?.(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, date, isToday, rows.length, faltan.length, atendidos.length, setHeader])
 
   async function setSeen(visitId: string, seen: boolean) {
     setBusyId(visitId)
@@ -73,29 +127,10 @@ export function DoctorQueueView({ module, submodule }: ViewProps) {
     queue.refetch()
   }
 
-  const chip = (active: boolean): CSSProperties => ({
-    height: 32, padding: '0 14px', borderRadius: 'var(--spira-radius-pill)', cursor: 'pointer',
-    border: `1px solid ${active ? accent : 'var(--spira-line-2)'}`,
-    background: active ? accent + '14' : 'var(--spira-white)',
-    color: active ? accent : 'var(--spira-muted)',
-    fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap',
-  })
-  const navBtn: CSSProperties = { ...btnOutline, width: 36, padding: 0, justifyContent: 'center' }
-
-  /* Identidad del paciente (avatar + IVRS · protocolo + título de visita). */
-  const who = (v: DayVisitRow) => (
-    <span style={{ minWidth: 0, overflow: 'hidden' }}>
-      <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
-        <span style={code}>{v.patient_code ?? '—'}</span>
-        <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>
-          {' '}· <span style={code}>{v.protocol_code}</span>
-        </span>
-      </span>
-      <span style={{ display: 'block', fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {visitTitle(v)}{v.treating_physician ? ` · ${v.treating_physician}` : ''}
-      </span>
-    </span>
-  )
+  const sectionHead: CSSProperties = {
+    fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
+    color: 'var(--spira-faint)', fontWeight: 700, padding: '0 0 8px 2px',
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -106,41 +141,16 @@ export function DoctorQueueView({ module, submodule }: ViewProps) {
         </div>
       )}
 
-      {/* Filtros de estado (izquierda) + conteo, selector de médico y navegación por día
-          (derecha, para aprovechar el espacio). Todo en una fila que envuelve en pantallas chicas. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <button onClick={() => setStatus('todos')} style={chip(status === 'todos')}>Todos</button>
-        <button onClick={() => setStatus('faltan')} style={chip(status === 'faltan')}>Faltan atender</button>
-        <button onClick={() => setStatus('atendidos')} style={chip(status === 'atendidos')}>Atendidos</button>
-
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{scoped.length} en la cola</span>
-          {medicos.length > 0 && (
-            <div style={{ minWidth: 200 }}>
-              <SearchableSelect
-                value={activeMedico ?? 'all'}
-                onChange={(v) => setMedico(v === 'all' ? null : v)}
-                options={[{ value: 'all', label: 'Todos los médicos' }, ...medicos.map((m) => ({ value: m, label: m }))]}
-                placeholder="Filtrar por médico tratante"
-                searchPlaceholder="Buscar médico…"
-                entity="médico"
-              />
-            </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button onClick={() => setDate((d) => addDaysISO(d, -1))} title="Día anterior" style={navBtn}>
-              <Icon name="chevronLeft" size={17} color="var(--spira-muted)" />
-            </button>
-            <span style={{ minWidth: 168, textAlign: 'center', fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5 }}>
-              {dayLabel(date)}{' '}
-              <span className="spira-mono" style={{ color: 'var(--spira-faint)', fontWeight: 400, fontSize: 12.5 }}>{formatAR(date)}</span>
-            </span>
-            <button onClick={() => setDate((d) => addDaysISO(d, 1))} title="Día siguiente" style={navBtn}>
-              <Icon name="chevronRight" size={17} color="var(--spira-muted)" />
-            </button>
-            {!isToday && <button onClick={() => setDate(todayISO())} style={btnOutline}>Hoy</button>}
-          </div>
-        </div>
+      {/* Stats: en la cola / espera más larga / atendidos. Todo derivado de datos reales. */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <StatCard icon="users" value={String(faltan.length)} label="En la cola" color={accent} />
+        <StatCard
+          icon="clock"
+          value={longestWaitIso ? elapsedShort(longestWaitIso) : '—'}
+          label="Espera más larga"
+          color={longestColor}
+        />
+        <StatCard icon="check" value={String(atendidos.length)} label={`Atendidos${isToday ? ' hoy' : ''}`} color={accent} />
       </div>
 
       {/* Lista / estados */}
@@ -161,72 +171,44 @@ export function DoctorQueueView({ module, submodule }: ViewProps) {
           title="Nadie en la cola"
           description={`No hay pacientes esperando ver al médico ${isToday ? 'hoy' : 'ese día'}.`}
         />
-      ) : visible.length === 0 ? (
+      ) : nothingVisible ? (
         <EmptyState
           accent={accent}
           icon={submodule.icon}
           title="Nada en este filtro"
-          description="Probá con otro estado, otro médico, o cambiá de día."
+          description="Probá con otro estado o cambiá de día."
         />
       ) : (
-        <div style={card}>
-          {visible.map((v, i) => {
-            const attended = !!v.doctor_seen_at
-            const isNext = v.id === nextPendingId
-            const busy = busyId === v.id
-            return (
-              <div
-                key={v.id}
-                style={{
-                  display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', gap: 12,
-                  padding: '11px 8px', borderTop: i ? '1px solid var(--spira-line)' : 'none',
-                  borderLeft: `3px solid ${isNext ? accent : 'transparent'}`,
-                  background: isNext ? accent + '0E' : 'transparent',
-                }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-                  {/* Indicador de estado: atendido (check) · el que le toca (flecha) · pendiente (punto). */}
-                  {attended ? (
-                    <span style={{ flex: '0 0 auto', width: 24, height: 24, borderRadius: '50%', background: '#5C8A5A22', display: 'grid', placeItems: 'center' }}>
-                      <Icon name="check" size={14} color="var(--spira-good)" />
-                    </span>
-                  ) : isNext ? (
-                    <span style={{ flex: '0 0 auto', width: 24, height: 24, borderRadius: '50%', background: accent + '22', display: 'grid', placeItems: 'center' }}>
-                      <Icon name="arrowRight" size={14} color={accent} />
-                    </span>
-                  ) : (
-                    <span style={{ flex: '0 0 auto', width: 24, height: 24, borderRadius: '50%', background: 'var(--spira-line)' }} />
-                  )}
-                  <PrivacyAvatar fullName={v.patient_name} size={28} color={accent} />
-                  {who(v)}
-                </span>
-                {/* acciones: comentario · Abrir · Atendido (envuelven en anchos chicos) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <button
-                    onClick={() => setCommentsVisit(v)}
-                    title="Comentarios de la visita"
-                    style={{ ...btnOutline, padding: '0 12px', gap: 6 }}
-                  >
-                    <Icon name="message" size={16} color="var(--spira-muted)" />
-                    <span className="spira-mono">{v.comments_count ?? 0}</span>
-                  </button>
-                  <button onClick={() => setOpenVisitId(v.id)} title="Abrir la ficha de la visita" style={btnOutline}>
-                    Abrir
-                  </button>
-                  {attended ? (
-                    <button onClick={() => { void setSeen(v.id, false) }} disabled={busy} title="Deshacer: vuelve a pendiente" style={{ ...btnOutline, opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' }}>
-                      {busy ? 'Guardando…' : 'Deshacer'}
-                    </button>
-                  ) : (
-                    <button onClick={() => { void setSeen(v.id, true) }} disabled={busy} style={{ ...btnOutline, opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' }}>
-                      <Icon name="check" size={16} color="var(--spira-good)" />
-                      {busy ? 'Guardando…' : 'Atendido por médico'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {visibleFaltan.length > 0 && (
+            <div>
+              {showSectionHeads && <div style={sectionHead}>Faltan atender · {visibleFaltan.length}</div>}
+              {visibleFaltan.map((v) => (
+                <QueueRow
+                  key={v.id}
+                  visit={v}
+                  accent={accent}
+                  busy={busyId === v.id}
+                  onOpen={() => setOpenVisitId(v.id)}
+                  onComments={() => setCommentsVisit(v)}
+                  onMarkSeen={() => { void setSeen(v.id, true) }}
+                />
+              ))}
+            </div>
+          )}
+          {visibleAtendidos.length > 0 && (
+            <div>
+              {showSectionHeads && <div style={sectionHead}>Atendidos · {visibleAtendidos.length}</div>}
+              {visibleAtendidos.map((v) => (
+                <AttendedRow
+                  key={v.id}
+                  visit={v}
+                  busy={busyId === v.id}
+                  onUndo={() => { void setSeen(v.id, false) }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -247,3 +229,85 @@ export function DoctorQueueView({ module, submodule }: ViewProps) {
     </div>
   )
 }
+
+/**
+ * Fila de un paciente esperando: WaitBadge (tiempo real de espera) · avatar · identidad (código +
+ * protocolo + código de visita; nombre + sexo/edad + médico tratante; motivo + procedencia) ·
+ * acciones (comentarios, abrir, marcar visto).
+ */
+function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen }: {
+  visit: DayVisitRow
+  accent: string
+  busy: boolean
+  onOpen: () => void
+  onComments: () => void
+  onMarkSeen: () => void
+}) {
+  const age = ageFromBirth(visit.birth_date)
+  const sexShort = visit.sex ? (SEX_SHORT[visit.sex] ?? visit.sex) : null
+  const demographics = [sexShort, age !== null ? `${age}a` : null].filter(Boolean).join(' ')
+  const vcode = visitCode(visit)
+
+  return (
+    <div style={rowCard}>
+      <WaitBadge iso={visit.wants_doctor_at} />
+      <PrivacyAvatar fullName={visit.patient_name} size={42} color={accent} />
+
+      <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span className="spira-mono" style={{ fontSize: 15, fontWeight: 700, color: visit.patient_code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>
+            {visit.patient_code ?? 'Sin IVRS'}
+          </span>
+          <span className="spira-mono" style={{ ...protocolPill, background: accent + '16', color: accent }}>
+            {visit.protocol_code}
+          </span>
+          {vcode && <span style={visitChip}>{vcode}</span>}
+        </div>
+        <div style={identityLine}>
+          {visit.patient_name}
+          {demographics ? ` · ${demographics}` : ''}
+          {visit.treating_physician ? ` · ${visit.treating_physician}` : ''}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 5 }}>
+          <MotivoChip motivo={visit.doctor_motivo} />
+          {visit.doctor_marked_by && <span style={viaLabel}>vía {visit.doctor_marked_by}</span>}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <button onClick={onComments} title="Comentarios de la visita" style={{ ...btnOutline, height: 40, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="message" size={15} color="var(--spira-muted)" />
+          <span className="spira-mono">{visit.comments_count ?? 0}</span>
+        </button>
+        <button onClick={onOpen} title="Abrir la ficha de la visita" style={{ ...btnOutline, height: 40, width: 84 }}>
+          Abrir
+        </button>
+        <button
+          onClick={onMarkSeen} disabled={busy}
+          style={{ ...btnPrimary(accent), display: 'flex', alignItems: 'center', gap: 7, opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' }}
+        >
+          <Icon name="check" size={15} color="var(--spira-on-accent)" />
+          {busy ? 'Guardando…' : 'Marcar visto'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const rowCard: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 16,
+  background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
+  borderRadius: 14, padding: '16px 18px', marginBottom: 12,
+}
+const protocolPill: CSSProperties = {
+  fontSize: 11.5, padding: '1px 8px', borderRadius: 'var(--spira-radius-pill)', whiteSpace: 'nowrap',
+}
+const visitChip: CSSProperties = {
+  fontSize: 11.5, fontWeight: 600, color: 'var(--spira-muted)', background: 'var(--spira-surface)',
+  border: '1px solid var(--spira-line)', borderRadius: 6, padding: '1px 7px', whiteSpace: 'nowrap',
+}
+const identityLine: CSSProperties = {
+  fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3,
+  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+}
+const viaLabel: CSSProperties = { fontSize: 11.5, color: 'var(--spira-faint)' }

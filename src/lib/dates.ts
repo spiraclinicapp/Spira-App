@@ -125,21 +125,55 @@ export function groupByDay<T>(rows: T[], getDate: (r: T) => string): { date: str
   return order.map((d) => ({ date: d, label: dayGroupLabel(d), items: byDay.get(d)! }))
 }
 
-/**
- * "recién" / "hace 41m" / "hace 1h 36m" / "hace 3d" a partir de un timestamp ABSOLUTO (timestamptz
- * de Postgres, p. ej. `created_at`). A diferencia de los helpers date-only de arriba, acá
- * `new Date(iso)` SÍ es correcto: un timestamptz es un instante con zona, no una fecha local ambigua.
- */
-export function fromNow(iso: string): string {
-  const then = new Date(iso).getTime()
-  if (Number.isNaN(then)) return ''
-  const mins = Math.max(0, Math.round((Date.now() - then) / 60_000))
-  if (mins < 1) return 'recién'
-  if (mins < 60) return `hace ${mins}m`
+/** "0m" / "41m" / "1h 36m" / "3d" a partir de minutos ya calculados. Núcleo compartido de todo
+ *  formateo de duración (elapsedShort, fromNow, "Esperó Xm" del AttendedRow). */
+function formatDurationMin(mins: number): string {
+  if (mins < 1) return '0m'
+  if (mins < 60) return `${mins}m`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) { const m = mins % 60; return m ? `hace ${hrs}h ${m}m` : `hace ${hrs}h` }
+  if (hrs < 24) { const m = mins % 60; return m ? `${hrs}h ${m}m` : `${hrs}h` }
   const days = Math.floor(hrs / 24)
-  return `hace ${days}d`
+  return `${days}d`
+}
+
+/**
+ * Minutos transcurridos desde un timestamp ABSOLUTO (timestamptz de Postgres) hasta ahora.
+ * `new Date(iso)` es correcto acá (a diferencia de los helpers date-only de arriba): un
+ * timestamptz es un instante con zona, no una fecha local ambigua. null = iso inválido/vacío.
+ */
+export function elapsedMinutes(iso: string): number | null {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return null
+  return Math.max(0, Math.round((Date.now() - then) / 60_000))
+}
+
+/** Minutos entre dos timestamps ABSOLUTOS (`to` - `from`). null = alguno inválido/vacío. */
+export function minutesBetween(fromIso: string, toIso: string): number | null {
+  const from = new Date(fromIso).getTime()
+  const to = new Date(toIso).getTime()
+  if (Number.isNaN(from) || Number.isNaN(to)) return null
+  return Math.max(0, Math.round((to - from) / 60_000))
+}
+
+/** "recién" / "hace 41m" / "hace 1h 36m" / "hace 3d" — para autoría (comentarios). */
+export function fromNow(iso: string): string {
+  const mins = elapsedMinutes(iso)
+  if (mins === null) return ''
+  return mins < 1 ? 'recién' : `hace ${formatDurationMin(mins)}`
+}
+
+/** "7m" / "1h 36m" / "7h 7m" / "3d" — duración pura (sin "hace"), para el WaitBadge (0049). */
+export function elapsedShort(iso: string): string {
+  const mins = elapsedMinutes(iso)
+  return mins === null ? '—' : formatDurationMin(mins)
+}
+
+/** "32m" / "1h 5m" — duración entre dos timestamps, para "Esperó X" del AttendedRow (0049).
+ *  null (algún extremo inválido/ausente) → "—" (honesto, nunca inventa una duración). */
+export function durationShort(fromIso: string | null, toIso: string | null): string {
+  if (!fromIso || !toIso) return '—'
+  const mins = minutesBetween(fromIso, toIso)
+  return mins === null ? '—' : formatDurationMin(mins)
 }
 
 /** ISO `YYYY-MM-DD` → `Date` en hora LOCAL (para react-day-picker). No usar `new Date(iso)` (parsea UTC). */
