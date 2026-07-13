@@ -335,7 +335,7 @@ export function AppShell() {
 
         {/* contenido */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 26px 4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 26px 4px', flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)', flexWrap: 'wrap' }}>
                 {mod.full}
@@ -351,7 +351,9 @@ export function AppShell() {
               </div>
               <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', marginTop: 1 }}>{sub.name}</div>
             </div>
-            {viewHeader?.actions && viewHeader.actions.length > 0 ? (
+            {viewHeader?.content ? (
+              <div style={{ marginLeft: 'auto', flex: '0 0 auto' }}>{viewHeader.content}</div>
+            ) : viewHeader?.actions && viewHeader.actions.length > 0 ? (
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                 {viewHeader.actions.map((a) => (
                   <button key={a.key} onClick={a.onClick} style={a.primary ? primaryActionBtn(mod.accentSolid) : ghostActionBtn}>

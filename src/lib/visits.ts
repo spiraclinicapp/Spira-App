@@ -254,6 +254,13 @@ export const SEX_LABELS: Record<string, string> = {
   Otro: 'Otro',
 }
 
+/** Forma corta del sexo, para líneas compactas ("Fem. 31a", cola de Para ver médico). */
+export const SEX_SHORT: Record<string, string> = {
+  F: 'Fem.',
+  M: 'Masc.',
+  Otro: 'Otro',
+}
+
 /** Labels con acento para fertilidad (valor ascii de la base → display). */
 export const FERTILITY_LABELS: Record<string, string> = {
   fertil: 'Fértil',

@@ -35,6 +35,17 @@ export interface DayVisitRow extends TrackVisitRow {
   operational_stage: OperationalStage
   /** Cantidad de comentarios de la visita (subquery en v_track_visits; migración 0048). */
   comments_count: number
+  /**
+   * Cuándo se marcó "para ver médico" (migración 0049); null = no marcada o marcada ANTES de
+   * la 0049 (dato no disponible — el WaitBadge muestra "—", nunca inventa un tiempo).
+   */
+  wants_doctor_at: string | null
+  /** Snapshot del puesto (users.puesto) de quien marcó "para ver médico" (0049); null = sin registrar. */
+  doctor_marked_by: string | null
+  /** Sexo del paciente ('F'/'M'/'Otro', 0017); expuesto en v_track_visits desde la 0049. */
+  sex: string | null
+  /** Fecha de nacimiento del paciente (0002); expuesta en v_track_visits desde la 0049. */
+  birth_date: string | null
 }
 
 /**
