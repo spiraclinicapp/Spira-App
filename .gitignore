@@ -34,3 +34,11 @@ supabase/.env
 .DS_Store
 Thumbs.db
 *.log
+
+# Vercel (estado local del CLI + token de deploy — NUNCA commitear)
+.vercel
+.vercel.token
+.env*
+
+# Credenciales de QA locales para el preview (ver CLAUDE.md → Verificación en el preview)
+.claude/qa-creds.local.md
