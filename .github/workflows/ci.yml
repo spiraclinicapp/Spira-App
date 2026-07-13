@@ -20,6 +20,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Falla rápido si el índice de supabase/README.md quedó atrás de supabase/migrations/
+      # (ya pasó dos veces). No necesita npm ci: es Node puro.
+      - name: Índice de migraciones al día
+        run: node scripts/check-migraciones.mjs
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:

@@ -95,22 +95,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // sesión inicial + suscripción a cambios de auth
   useEffect(() => {
-    // Si el link de recuperación venció o es inválido, Supabase nos devuelve con el error en el
-    // hash de la URL (#error=...&error_code=otp_expired) y NO crea sesión. Lo leemos ANTES de que
-    // el SDK limpie el hash y dejamos un aviso para el login, así el usuario no queda sin explicación.
-    const hash = window.location.hash
-    if (hash.includes('error')) {
-      const params = new URLSearchParams(hash.replace(/^#/, ''))
-      const code = params.get('error_code')
-      if (params.get('error') || code) {
-        setAuthNotice(
-          code === 'otp_expired'
+    // Al volver de un flujo externo (link de recuperación de contraseña, u OAuth de Google),
+    // Supabase puede devolvernos un error en la URL —en el hash (#...) o en el query (?...)—
+    // SIN crear sesión. Lo leemos ANTES de que el SDK limpie la URL y dejamos un aviso para el
+    // login, así el usuario no queda sin explicación.
+    const errParams = (() => {
+      const fromHash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      if (fromHash.get('error') || fromHash.get('error_code')) return fromHash
+      const fromSearch = new URLSearchParams(window.location.search)
+      if (fromSearch.get('error') || fromSearch.get('error_code')) return fromSearch
+      return null
+    })()
+    if (errParams) {
+      const code = errParams.get('error_code') ?? ''
+      const desc = (errParams.get('error_description') ?? '').toLowerCase()
+      // Supabase rechaza el OAuth cuando el auto-registro está apagado y el email no tiene cuenta.
+      // El código/mensaje exacto varía entre versiones, así que matcheamos tolerante (por substring).
+      const isSignupDisabled =
+        code === 'signup_disabled' ||
+        (desc.includes('signup') && (desc.includes('disabled') || desc.includes('not allowed')))
+      setAuthNotice(
+        isSignupDisabled
+          ? 'No encontramos una cuenta con ese correo. Si necesitás acceso, pedíselo al administrador de Spira.'
+          : code === 'otp_expired'
             ? 'El enlace para restablecer la contraseña venció. Pedí uno nuevo desde "Olvidé mi contraseña".'
             : 'El enlace no es válido o ya se usó. Pedí uno nuevo desde "Olvidé mi contraseña".',
-        )
-        // Limpiamos el hash para que el aviso no reaparezca al recargar.
-        window.history.replaceState(null, '', window.location.pathname + window.location.search)
-      }
+      )
+      // Limpiamos hash y query para que el aviso no reaparezca al recargar.
+      window.history.replaceState(null, '', window.location.pathname)
     }
 
     supabase.auth.getSession().then(({ data }) => {

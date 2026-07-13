@@ -39,13 +39,61 @@ npm run build       # typecheck + build de producción
    esos. **Nunca** barras "todo lo de tipo X" ni borres en lote por categoría: ya pasó una
    vez que se perdió data real (se recuperó del `audit_log`). Ante la duda, no borres.
 2. **No hay acceso SQL directo a producción.** Los cambios de schema se aplican **a mano**
-   en el dashboard de Supabase, en orden. No asumas que podés correr SQL contra prod.
+   en el dashboard de Supabase, en orden. No asumas que podés correr SQL contra prod. El SQL
+   que le pases al Director tiene que correr **tal cual** (sin placeholders `<...>`: ya se
+   corrió uno literal) y prever datos legacy (constraints nuevas sobre filas viejas). Apenas
+   confirme "aplicada", registralo en el índice de `supabase/README.md` (**Aplicada en prod
+   (fecha)**) — CI lo vigila con `scripts/check-migraciones.mjs`.
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
-   número. La última aplicada va por la `0047` (ver `supabase/README.md`).
+   número. La última aplicada va por la `0049` (ver `supabase/README.md`).
 4. **El preview es una sesión de navegador aparte de la del usuario.** No podés precargarle
    formularios ni ver su estado; verificá las escrituras recargando tu propia instancia.
+
+## Operativa git (el working copy es COMPARTIDO)
+
+El Director trabaja, commitea y mergea en paralelo sobre esta misma carpeta:
+
+- **Verificá la rama antes de cada commit** — ya cayó un commit de sesión en `main` por un
+  cambio de rama no detectado. Hay un hook (`.claude/hooks/branch-guard.mjs`) que bloquea
+  `git commit` en `main`; si el Director autorizó commitear ahí (release, bitácora),
+  anteponé `SPIRA_ALLOW_MAIN=1` al comando.
+- **Stagear siempre POR RUTA** (`git add <archivos>`), nunca `git add -A` ni `.`: el árbol
+  suele tener cambios y borrados ajenos a tu sesión.
+- **`git fetch` antes de razonar sobre PRs o el estado del remoto** — el Director mergea
+  PRs mientras trabajás y tus refs locales quedan viejas.
+- Worktrees en `.claude/worktrees/` pueden estar stale o con trabajo sin commitear:
+  inspeccionalos antes de mergear nada (uno stale casi borra 16k líneas en un merge).
+- **Cierre de jornada y releases**: usá la skill **`cierre-jornada`** (bitácora + handoff +
+  bump con `scripts/release.mjs` + tag). No reconstruyas el ritual a mano.
+
+## Entorno de esta máquina (Windows) — no lo redescubras
+
+- **No hay** Python real (el `python` del PATH es el stub del Microsoft Store), ni `gh`,
+  ni `jq`, ni poppler. El fallback universal es **Node** (`node -e`).
+- **PRs sin `gh`:** API REST de GitHub con `git credential fill` + script Node. No podés
+  self-mergear (el clasificador lo bloquea): creás la PR y el Director mergea.
+- **gstack:** `browse.exe` está bloqueado por WDAC y los preámbulos bash de sus skills no
+  corren en Windows — saltealos sin culpa. Para navegar: preview tools nativas o
+  playwright-core + Edge del sistema (`channel: 'msedge'`).
+- PowerShell 5.1 pinta de **rojo** la salida normal de git — no es un error.
+
+## Verificación en el preview (gotchas que ya costaron horas)
+
+- El dev server del Director suele ocupar el **5173**; el preview usa el **5250**
+  (fijado en `.claude/launch.json`). No compitas por el puerto.
+- **`preview_screenshot` se cuelga (timeout 30s) casi siempre** (iframe de YouTube del
+  login + el preview corre como documento oculto). No insistas: verificá por
+  **snapshot/eval/estilos computados** y presentá evidencia de DOM.
+- Documento oculto ⇒ **transiciones y rAF pausados**: un "congelado" no es un bug de la app.
+- **React no ve `fill`/`click` sintéticos:** setter nativo + `dispatchEvent('input')` +
+  `requestSubmit()`; eventos de teclado con `keyCode` y despachados en `document` (no
+  `window`). `preview_resize` con preset a veces no aplica → `width`/`height` explícitos.
+- Errores de consola tras editar suelen ser **stale de HMR** → reiniciá el server y
+  confirmá con `npm run build` antes de ponerte a diagnosticar.
+- **QA logueado:** las credenciales de prueba están en `.claude/qa-creds.local.md`
+  (git-ignored). **Nunca** pidas ni aceptes credenciales por el chat.
 
 ## Arquitectura (lo mínimo para no desentonar)
 
@@ -94,6 +142,9 @@ que cualquier agente diseñe on-brand. Leelo antes de tocar UI:
 - **[`DESIGN.md`](DESIGN.md)** — el *cómo se ve*: tokens, color, tipografía, elevación,
   componentes y "Do's and Don'ts" (formato spec; `.impeccable/design.json` lo extiende).
 - Marca de origen y tokens vivos: `docs/identidad-visual/` + `src/styles/tokens.css`.
+- **Mocks y handoffs de diseño: al repo ANTES de implementar** (`docs/` o la carpeta de la
+  feature). Nunca implementes "desde snippets" si existe un mock — desviarse del mock ya
+  costó una reescritura completa. Si el mock vive fuera del repo (Downloads), copialo primero.
 
 Generados con la skill **impeccable** (`/impeccable document` regenera `DESIGN.md`;
 `/impeccable critique|audit|polish <archivo>` revisan una vista).
