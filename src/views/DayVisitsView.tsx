@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { btnOutline } from '../components/buttons'
+import { FilterDropdown } from '../components/FilterDropdown'
+import type { FilterOption } from '../components/FilterDropdown'
+import { DateNavButton } from '../components/DateNavButton'
 import { useAuth } from '../lib/auth'
 import { todayISO } from '../lib/dates'
 import { useMyCoordinations } from '../data/templates'
@@ -23,23 +26,18 @@ import type { ViewProps } from './types'
 
 type Filter = 'todas' | 'en_el_centro' | 'medico'
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'todas', label: 'Todas' },
-  { key: 'en_el_centro', label: 'En el centro' },
-  { key: 'medico', label: 'Para ver médico' },
-]
-
 /** "En el centro" = llegó y aún no se retiró (cualquier etapa intermedia). */
 function inCenter(stage: OperationalStage): boolean {
   return stage === 'en_el_sitio' || stage === 'atendido' || stage === 'listo'
 }
 
-/** Vista "Visitas del día": recorrido operativo de las visitas de hoy (Variante 2: lista con stepper). */
-export function DayVisitsView({ module, submodule }: ViewProps) {
+/** Vista "Visitas del día": recorrido operativo de las visitas del día (Variante 2: lista con stepper). */
+export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
   const { profile, hasMinRole } = useAuth()
-  const day = useVisitsForDay(todayISO())
+  const [date, setDate] = useState(todayISO())
+  const day = useVisitsForDay(date)
   const coords = useMyCoordinations(profile?.id ?? null)
   const randoPending = useRandoAttendedWithoutDate()
 
@@ -61,12 +59,38 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
   const canClinical = (v: Pick<TrackVisitRow, 'protocol_id'>) =>
     isTrackAdmin || (hasMinRole('track', 'operator') && coordSet.has(v.protocol_id))
 
+  const isToday = date === todayISO()
   const rows = day.data ?? []
   const filtered = rows.filter((v) => {
     if (filter === 'en_el_centro') return inCenter(v.operational_stage)
     if (filter === 'medico') return v.wants_doctor && v.left_at === null
     return true
   })
+
+  const enCentroCount = rows.filter((v) => inCenter(v.operational_stage)).length
+  const medicoCount = rows.filter((v) => v.wants_doctor && v.left_at === null).length
+  const filterOptions: FilterOption[] = [
+    { value: 'todas', label: 'Todos', count: null },
+    { value: 'en_el_centro', label: 'En el centro', count: enCentroCount },
+    { value: 'medico', label: 'Para ver médico', count: medicoCount },
+  ]
+
+  /* Filtro + selector de fecha viven en la fila del título del shell, igual que en la cola "Para
+     ver médico" (ver DoctorQueueView) — mismo lugar, mismo componente, misma forma en las dos
+     vistas hermanas de Track. Antes del early-return de loading/error: los hooks no pueden
+     condicionarse a esa guarda. */
+  useEffect(() => {
+    setHeader?.({
+      content: (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <FilterDropdown accent={accent} value={filter} onChange={(v) => setFilter(v as Filter)} options={filterOptions} menuLabel="Filtrar visitas" />
+          <DateNavButton accent={accent} date={date} onChange={setDate} />
+        </div>
+      ),
+    })
+    return () => setHeader?.(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, date, enCentroCount, medicoCount, setHeader])
 
   /* Tablero del día en dos secciones: las "EN EL CENTRO" (en curso) arriba, separadas del resto.
      Dentro, la más avanzada primero (Listo → Atendido → En el sitio) y, a igual etapa, por orden
@@ -82,7 +106,10 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
     .sort((a, b) => rankRest(a.operational_stage) - rankRest(b.operational_stage) || byArrival(a, b))
   const showSections = inCenterRows.length > 0 && restRows.length > 0
 
-  /* Despacha la mutación de la etapa SIGUIENTE. 'atendido' reusa markAttended (real_date=hoy).
+  /* Despacha la mutación de la etapa SIGUIENTE. 'atendido' reusa markAttended con `date` (el día
+     que se está mirando, no necesariamente hoy: la vista ahora navega por día — ver DateNavButton
+     arriba). El resto de las transiciones son eventos en vivo (now() server-side, mismo criterio
+     que "Marcar visto" en la cola), no dependen del día que se esté navegando.
      "Listo" de una visita de screening/randomización (rol del cuadro) NO marca directo: abre el
      cierre clínico (ReadyOutcomeModal) que captura IVRS / confirma randomización. El resto va directo. */
   const advance = async (visit: DayVisitRow, next: OperationalStage) => {
@@ -96,7 +123,7 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
     setActionError(null)
     const res =
       next === 'en_el_sitio' ? await markArrived(visit.id)
-      : next === 'atendido' ? await markAttended(visit.id, todayISO())
+      : next === 'atendido' ? await markAttended(visit.id, date)
       : next === 'listo' ? await markReady(visit.id)
       : next === 'fuera' ? await markLeft(visit.id)
       : { error: 'Etapa desconocida.' }
@@ -131,14 +158,6 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
     )
   }
 
-  const chip = (active: boolean): CSSProperties => ({
-    height: 32, padding: '0 14px', borderRadius: 'var(--spira-radius-pill)', cursor: 'pointer',
-    border: `1px solid ${active ? accent : 'var(--spira-line-2)'}`,
-    background: active ? accent + '14' : 'var(--spira-white)',
-    color: active ? accent : 'var(--spira-muted)',
-    fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13,
-  })
-
   const sectionHead: CSSProperties = {
     fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
     color: 'var(--spira-faint)', fontWeight: 700, padding: '0 0 8px 2px',
@@ -161,13 +180,8 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {FILTERS.map((f) => (
-          <button key={f.key} onClick={() => setFilter(f.key)} style={chip(filter === f.key)}>{f.label}</button>
-        ))}
-        <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--spira-faint)' }}>
-          {filtered.length} {filtered.length === 1 ? 'visita' : 'visitas'} · hoy
-        </span>
+      <div style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>
+        {filtered.length} {filtered.length === 1 ? 'visita' : 'visitas'}
       </div>
 
       {actionError && (
@@ -214,8 +228,8 @@ export function DayVisitsView({ module, submodule }: ViewProps) {
         <EmptyState
           accent={accent}
           icon={submodule.icon}
-          title={filter === 'todas' ? 'No hay visitas hoy' : 'Nada en este filtro'}
-          description={filter === 'todas' ? 'Cuando haya visitas programadas o registradas hoy van a aparecer acá.' : 'Probá con otro filtro.'}
+          title={filter === 'todas' ? `No hay visitas ${isToday ? 'hoy' : 'ese día'}` : 'Nada en este filtro'}
+          description={filter === 'todas' ? `Cuando haya visitas programadas o registradas ${isToday ? 'hoy' : 'ese día'} van a aparecer acá.` : 'Probá con otro filtro.'}
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: showSections ? 18 : 0 }}>

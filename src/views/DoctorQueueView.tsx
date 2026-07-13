@@ -3,8 +3,9 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { PrivacyAvatar } from '../components/PrivacyAvatar'
-import { SearchableSelect } from '../components/SearchableSelect'
-import { DateField } from '../components/DateField'
+import { FilterDropdown } from '../components/FilterDropdown'
+import type { FilterOption } from '../components/FilterDropdown'
+import { DateNavButton } from '../components/DateNavButton'
 import { StatCard } from '../components/StatCard'
 import { btnOutline, btnPrimary } from '../components/buttons'
 import { useDoctorQueue, markDoctorSeen } from '../data/dayVisits'
@@ -84,10 +85,10 @@ export function DoctorQueueView({ module, submodule, setHeader }: ViewProps) {
   // StatCard exige HEX literal (no var(--spira-x)): var(--x)16 no es CSS válido, ver StatCard.tsx.
   const longestColor = longestTone ? TONE_HEX[longestTone] : FAINT_HEX
 
-  const statusOptions = [
-    { value: 'todos', label: `Todos · ${rows.length}` },
-    { value: 'faltan', label: `Faltan atender · ${faltan.length}` },
-    { value: 'atendidos', label: `Atendidos · ${atendidos.length}` },
+  const statusOptions: FilterOption[] = [
+    { value: 'todos', label: 'Todos', count: null },
+    { value: 'faltan', label: 'Faltan atender', count: faltan.length },
+    { value: 'atendidos', label: 'Atendidos', count: atendidos.length },
   ]
 
   /* Filtro de estado + selector de fecha viven en la fila del TÍTULO del shell (junto al "Para ver
@@ -98,25 +99,14 @@ export function DoctorQueueView({ module, submodule, setHeader }: ViewProps) {
     setHeader?.({
       content: (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ width: 200 }}>
-            <SearchableSelect
-              value={status}
-              onChange={(v) => setStatus(v as Status)}
-              options={statusOptions}
-              placeholder="Filtrar"
-              entity="estado"
-            />
-          </div>
-          {!isToday && <button onClick={() => setDate(todayISO())} style={{ ...btnOutline, height: 44 }}>Hoy</button>}
-          <div style={{ width: 190 }}>
-            <DateField value={date} onChange={setDate} />
-          </div>
+          <FilterDropdown accent={accent} value={status} onChange={(v) => setStatus(v as Status)} options={statusOptions} menuLabel="Filtrar cola" />
+          <DateNavButton accent={accent} date={date} onChange={setDate} />
         </div>
       ),
     })
     return () => setHeader?.(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, date, isToday, rows.length, faltan.length, atendidos.length, setHeader])
+  }, [status, date, faltan.length, atendidos.length, setHeader])
 
   async function setSeen(visitId: string, seen: boolean) {
     setBusyId(visitId)
