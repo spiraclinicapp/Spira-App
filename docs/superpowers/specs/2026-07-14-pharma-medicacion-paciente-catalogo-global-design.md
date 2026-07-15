@@ -131,12 +131,23 @@ de error (42501, 23505, etc.) siguen pasando por `pharmaErrorMessage` como hoy.
   `"${nombre} — ${cantidad} en stock"`, o `"${nombre} — sin stock en este protocolo"` cuando no
   hay fila (0, sin distinguir "nunca recibido" de "recibido y agotado" — esa distinción la hace
   el paso de confirmación, no hace falta acá).
-- Al confirmar "Agregar": si `needsConfirmation` vuelve `true`, la card no marca error — pasa a un
-  estado de aviso inline (mismo patrón visual que `EditPatientForm.tsx`: caja con tinte +
-  `alertCircle` + texto + botones "Volver" / "Confirmar igual"), con el texto:
-  *"Este medicamento nunca se recibió para el protocolo [nombre]. ¿Confirmás que corresponde
-  asignarlo igual?"*. Al confirmar, se reintenta la llamada con `confirmNewToProtocol: true`.
-  "Volver" descarta el aviso y deja el desplegable como estaba (sin perder la selección).
+- Al confirmar "Agregar": si `needsConfirmation` vuelve `true`, la card no marca error — la fila
+  del buscador + botones (Agregar/Cancelar) se **reemplaza** por el aviso (no convive con ella:
+  una card angosta no soporta dos bloques pidiendo atención a la vez). El aviso repite el nombre
+  del medicamento elegido en el texto para no perder contexto al ocultar el buscador:
+  *"[Nombre del medicamento] nunca se recibió para este protocolo. ¿Confirmás que corresponde
+  asignarlo igual?"*, con ícono `alertCircle` + botones "Volver" / "Confirmar igual".
+  - **Tinte: "Atención" (`--spira-warn` `#B0823F`)**, no el tinte plano de acento que usa
+    `EditPatientForm.tsx` para confirmaciones benignas — esto señala una excepción real de
+    coherencia protocolo↔medicamento (el tercer tinte semántico de DESIGN.md existe exactamente
+    para esto). Mismo patrón `rgba(...)` literal que ya usan `GOOD_TINT`/`DANGER_TINT` en este
+    archivo: `WARN_TINT = 'rgba(176, 130, 63, 0.14)'`.
+  - Al confirmar, se reintenta la llamada con `confirmNewToProtocol: true`; si sale bien, vuelve
+    **sola** al estado de reposo — mismo camino que el alta común (`setPick(''); setAdding(false);
+    medsQ.refetch()`), sin un paso extra ni una transición nueva.
+  - "Volver" descarta el aviso y **reabre la fila del buscador** (no cierra todo el flujo de
+    "Agregar") — si el usuario se arrepintió del medicamento, tiene que elegir de nuevo desde ahí
+    (se pierde la selección previa; es el costo aceptado de reemplazar en vez de convivir).
 
 ## Fuera de alcance
 
@@ -144,3 +155,30 @@ de error (42501, 23505, etc.) siguen pasando por `pharmaErrorMessage` como hoy.
 - No se agrega trigger de auditoría a `protocol_medications` (paridad con el patrón existente de
   recepción, no una regresión nueva).
 - No se toca la RLS ni el trigger `check_patient_med_protocol` de `patient_medications`.
+
+## Revisión de diseño (`/plan-design-review`, 2026-07-14)
+
+Adaptada a este proyecto: sin mockups de IA (la dirección visual ya está resuelta por referencia
+a código real — `EditPatientForm.tsx` + `SearchableSelect` — no por explorar variantes) y sin los
+pasos de infraestructura de gstack que dependen de binarios ausentes en esta máquina (`jq`,
+`codex`, `gh`, la mayoría de `gstack-*`).
+
+| Pasada | Nota | Resultado |
+|---|---|---|
+| 1. Arquitectura de info | 6→9/10 | Resuelto: el aviso reemplaza la fila de "Agregar" (D1) |
+| 2. Cobertura de estados | 7→9/10 | Resuelto junto con D1: transición de éxito = mismo camino que el alta común |
+| 3. Arco emocional | 6→9/10 | Resuelto: tinte "Atención" (D2), no plano ni de Riesgo |
+| 4. Riesgo de "AI slop" | N/A | App UI, no landing; sin hallazgos |
+| 5. Alineación con DESIGN.md | 9→10/10 | Reusa 100% tokens/componentes existentes |
+| 6. Responsive / A11y | 8/10 | Hereda el WCAG AA de `SearchableSelect`; foco al aparecer el aviso queda como mejora opcional, no bloqueante |
+| 7. Decisiones sin resolver | 0 | D1 y D2 resueltas (ver sección 3 arriba) |
+
+Nota deliberada: se ignora la regla genérica de la skill "nunca uses body < 16px" — DESIGN.md fija
+14px de body / 12.5px de label para toda la app, y es el estándar vigente en cada componente
+existente; seguir la regla genérica implicaría reescribir la tipografía de toda la app.
+
+**Decisiones tomadas:**
+- D1 — el aviso reemplaza la fila del buscador (no convive con ella).
+- D2 — tinte "Atención" (`--spira-warn`), no plano ni de Riesgo.
+
+NO UNRESOLVED DECISIONS
