@@ -94,6 +94,7 @@ export function PatientMedicationsCard({
   function backFromConfirm() {
     setConfirming(false)
     setPick('')
+    setErr(null)
   }
 
   async function toggle(id: string, active: boolean) {
