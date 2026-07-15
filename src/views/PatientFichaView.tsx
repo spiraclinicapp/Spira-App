@@ -19,6 +19,8 @@ import { VisitDetail } from './track/VisitDetail'
 import { RescheduleModal } from './track/RescheduleModal'
 import { RegisterVisitFlow } from './track/RegisterVisitFlow'
 import { EditPatientForm } from './EditPatientForm'
+import { PatientMedicationsCard } from './pharma/PatientMedicationsCard'
+import { useAuth } from '../lib/auth'
 import type { ViewHeader } from './types'
 
 const card: CSSProperties = {
@@ -45,6 +47,9 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   const { patient, protocol, accent, accentSolid, canWrite, setHeader, onBack, onGoList, onPatientUpdated } = props
   const visitsQ = usePatientVisits(patient.id, protocol.id)
   const alertsQ = useVisitAlerts()
+  // La gestión de "Medicación asignada" es de Pharma (operator+); Track la ve de solo lectura.
+  const { hasMinRole } = useAuth()
+  const canManagePharma = hasMinRole('pharma', 'operator')
   const [modal, setModal] = useState<null | 'reschedule' | 'register' | 'edit' | 'alerts'>(null)
   // Detalle de una visita del cronograma: el MISMO componente que abre la vista del día
   // (VisitDetail), sincronizado por leer de la misma vista. Guardamos el id y el detalle se
@@ -249,6 +254,14 @@ export function PatientFichaView(props: PatientFichaViewProps) {
 
         {/* columna derecha */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
+          {/* Medicación asignada: siempre visible (no depende de las visitas). Gestión solo Pharma. */}
+          <PatientMedicationsCard
+            enrollmentId={enrollment?.id ?? null}
+            protocolId={protocol.id}
+            accent={accent}
+            accentSolid={accentSolid}
+            canManage={canManagePharma}
+          />
           {visitsQ.error ? (
             <div style={{ ...card }}>
               <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>No pudimos cargar las visitas del paciente.</div>

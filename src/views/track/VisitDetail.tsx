@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import type { IconName } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
@@ -13,6 +13,7 @@ import { OPERATIONAL_STAGES, STAGE_ORDER } from '../visitStates'
 import { VisitChecklist } from './VisitChecklist'
 import { DoctorBadge } from './DoctorBadge'
 import { CommentThread } from './CommentThread'
+import { VisitDispensationPanel } from '../pharma/VisitDispensationPanel'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 
 /** Motivos de derivación al médico (chips). Acotado a propósito para poder reportarlo (0047). */
@@ -148,11 +149,7 @@ export function VisitDetail({ visitId, accent, context, onClose, canReception = 
                 <CommentThread visitId={visit.id} accent={accent} onAdded={onChanged} />
               </Panel>
               <Panel title="Dispensación" icon="pill" accent={accent}>
-                {visit.dispenses ? (
-                  <UnderConstruction note="El panel de dispensación de esta visita llega en la próxima tanda." />
-                ) : (
-                  <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', padding: '4px 0' }}>Esta visita no entrega medicación.</div>
-                )}
+                <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
               </Panel>
             </div>
           </div>
@@ -400,17 +397,3 @@ function StepDot({ done, current, accent, color }: { done: boolean; current: boo
   return <span style={{ width: 22, height: 22, borderRadius: '50%', border: '1.5px solid var(--spira-line-2)', flex: '0 0 auto' }} />
 }
 
-const constructionLabel: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 700,
-  textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--spira-muted)',
-}
-
-/** Placeholder honesto: inerte, rotulado "En construcción". No finge acción (app auditable). */
-function UnderConstruction({ note }: { note: string }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '22px 14px', textAlign: 'center', border: '1px dashed var(--spira-line-2)', borderRadius: 12, background: 'var(--spira-white)' }}>
-      <span style={constructionLabel}><Icon name="settings" size={14} color="var(--spira-muted)" /> En construcción</span>
-      <span style={{ fontSize: 12.5, color: 'var(--spira-faint)', maxWidth: 260 }}>{note}</span>
-    </div>
-  )
-}
