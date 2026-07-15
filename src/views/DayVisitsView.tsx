@@ -16,7 +16,6 @@ import {
 import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
 import { useRandoAttendedWithoutDate } from '../data/visits'
 import { DayVisitRowItem } from './track/DayVisitRowItem'
-import { DispenseModal } from './track/DispenseModal'
 import { VisitDetail } from './track/VisitDetail'
 import { RescheduleModal } from './track/RescheduleModal'
 import { ReadyOutcomeModal } from './track/ReadyOutcomeModal'
@@ -43,7 +42,6 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
 
   const [filter, setFilter] = useState<Filter>('todas')
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [dispensing, setDispensing] = useState<DayVisitRow | null>(null)
   const [noShow, setNoShow] = useState<TrackVisitRow | null>(null)
   const [openVisit, setOpenVisit] = useState<DayVisitRow | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -172,7 +170,6 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       busyId={busyId}
       onAdvance={advance}
       onToggleDoctor={toggleDoctor}
-      onDispense={(vv) => setDispensing(vv)}
       onNoShow={(vv) => setNoShow(vv)}
       onOpen={(vv) => setOpenVisit(vv)}
     />
@@ -248,14 +245,6 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
         </div>
       )}
 
-      {dispensing && (
-        <DispenseModal
-          visit={dispensing}
-          accentSolid={accentSolid}
-          onClose={() => setDispensing(null)}
-          onDone={() => { setDispensing(null); day.refetch() }}
-        />
-      )}
       {noShow && (
         <RescheduleModal
           visit={noShow}

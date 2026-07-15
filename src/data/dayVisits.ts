@@ -318,24 +318,10 @@ export async function markDoctorSeen(visitId: string, seen = true): Promise<{ er
   return { error: null }
 }
 
-/**
- * Dispensa medicación: inserta en `track_dispensations` (dispensed_by = auth.uid()) vía RPC
- * SECURITY DEFINER. kitCode/notes opcionales. Devuelve solo el error (el id queda en base).
- * Clínico/coordinador o gerencia.
- */
-export async function dispense(
-  visitId: string,
-  kitCode: string | null,
-  notes: string | null,
-): Promise<{ error: string | null }> {
-  const { error } = await supabase.rpc('dispense', {
-    p_visit_id: visitId,
-    p_kit_code: kitCode,
-    p_notes: notes,
-  })
-  if (error) return { error: rpcError(error.code, error.message) }
-  return { error: null }
-}
+// La dispensación mínima legacy (`dispense` → `track_dispensations`) se retiró al llegar el
+// submódulo de dispensación real (migración 0050 + vista pharma/dispensaciones). La tabla
+// `track_dispensations` queda como histórico intacto (no se borra); el flujo nuevo vive en
+// `data/pharma/dispensations.ts` (RPCs create_dispensation_request / resolve_dispensation / …).
 
 /**
  * Completa (true) o descompleta (false) un ítem del checklist clínico.

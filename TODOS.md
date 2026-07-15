@@ -7,6 +7,12 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ## Pharma · converger el formateo de fecha de vencimiento a un solo helper
 
+**Bundleado (2026-07-13):** se resuelve como parte del submódulo de Dispensación (ver design doc
+`~/.gstack/projects/spiraclinicapp-Spira-App/Tutuca-main-design-20260713-215031.md`), porque el
+comprobante de dispensación agrega un tercer formato si no se converge ahora. Esta entrada queda
+como contexto histórico; borrarla cuando ese PR se mergee.
+
+
 - **Qué:** `MedicamentosView` formatea vencimientos con su `formatFecha` local
   (`dd/mm/yyyy`); el detalle de Recepción (v0.16+) usa `formatDayMonthYear` de
   `lib/dates.ts` (`dd mmm yyyy`). Converger ambas al helper compartido.

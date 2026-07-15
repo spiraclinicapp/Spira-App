@@ -17,19 +17,18 @@ import { OPERATIONAL_STAGES } from '../visitStates'
  */
 export function DayVisitRowItem({
   visit, accent, canReception, canClinical, busyId,
-  onAdvance, onToggleDoctor, onDispense, onNoShow, onOpen,
+  onAdvance, onToggleDoctor, onNoShow, onOpen,
 }: {
   visit: DayVisitRow
   accent: string
   /** Recepción/Admin: puede marcar En el sitio / Fuera del sitio. */
   canReception: boolean
-  /** Clínico/Coord asignado a este protocolo: Atendido / Listo / médico / dispensar. */
+  /** Clínico/Coord asignado a este protocolo: Atendido / Listo / médico. */
   canClinical: boolean
   /** id de la visita con mutación en vuelo (deshabilita sus controles). */
   busyId: string | null
   onAdvance: (visit: DayVisitRow, next: OperationalStage) => void
   onToggleDoctor: (visit: DayVisitRow) => void
-  onDispense: (visit: DayVisitRow) => void
   onNoShow: (visit: DayVisitRow) => void
   onOpen: (visit: DayVisitRow) => void
 }) {
@@ -115,11 +114,6 @@ export function DayVisitRowItem({
               style={auxBtn(visit.wants_doctor)}
             >
               <Icon name="users" size={14} color="currentColor" /> {visit.wants_doctor ? 'En cola' : 'Quiere médico'}
-            </button>
-          )}
-          {canClinical && visit.dispenses && stage !== 'por_llegar' && (
-            <button onClick={() => { if (!busy) onDispense(visit) }} disabled={busy} title="Dispensar medicación" style={auxBtn(false)}>
-              <Icon name="pill" size={14} color="currentColor" /> Dispensar
             </button>
           )}
           <button
