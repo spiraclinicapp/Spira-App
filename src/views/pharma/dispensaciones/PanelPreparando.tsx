@@ -146,27 +146,39 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
         </div>
       </div>
 
-      {/* Jerarquía de las acciones: Rechazar es terminal, así que es la MENOS prominente y va más
-          lejos del CTA. Cancelar preparación es reversible. Avanzar es lo único sólido. */}
+      {/* El motivo del bloqueo va en su PROPIA línea, arriba de los botones. Colgado debajo del
+          CTA empujaba la fila y la hacía envolver: los dos secundarios quedaban arriba y el
+          primario descolgado abajo. Acá el footer tiene una altura estable la aparezca o no. */}
       <div style={foot}>
-        <button type="button" onClick={onReject} disabled={busy} style={ghostDanger}>Rechazar</button>
-        <button type="button" onClick={doCancel} disabled={busy} style={btnOutline}>Cancelar preparación</button>
-        <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+        {blocked && (
+          <div style={motivo}>
+            <Icon name="barcode" size={14} color="var(--spira-muted)" />
+            {blocked}
+          </div>
+        )}
+
+        {/* Jerarquía: Rechazar es terminal, así que es la MENOS prominente y va más lejos del CTA.
+            Cancelar preparación es reversible. Avanzar es lo único sólido. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button type="button" onClick={onReject} disabled={busy} style={ghostDanger}>Rechazar</button>
+          <button type="button" onClick={doCancel} disabled={busy} style={btnOutline}>Cancelar preparación</button>
+          <div style={{ flex: 1 }} />
           <button
             type="button"
             onClick={doReady}
             disabled={!!blocked || busy}
             style={{
-              ...btnPrimary(blocked ? 'var(--spira-line-2)' : COLUMN_META.lista.color),
+              // El deshabilitado conserva su color y baja a opacity 0.6, que es la convención del
+              // sistema (DESIGN.md §Buttons). Repintarlo de beige lo sacaba de la paleta y lo hacía
+              // leer como un bloque sucio en vez de como el mismo botón, apagado.
+              ...btnPrimary(COLUMN_META.lista.color),
+              whiteSpace: 'nowrap',
               cursor: blocked || busy ? 'default' : 'pointer',
-              opacity: blocked || busy ? 0.7 : 1,
+              opacity: blocked || busy ? 0.6 : 1,
             }}
           >
             {busy ? 'Un momento…' : 'Marcar lista para retirar'}
           </button>
-          {/* Un botón gris y mudo obliga a adivinar; el motivo concreto va debajo. */}
-          {blocked && <span style={{ fontSize: 12, color: 'var(--spira-muted)' }}>{blocked}</span>}
         </div>
       </div>
     </>
@@ -176,8 +188,13 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
 const body: CSSProperties = { padding: '4px 22px 22px', overflowY: 'auto', flex: 1 }
 
 const foot: CSSProperties = {
-  display: 'flex', alignItems: 'flex-start', gap: 10, padding: '14px 22px',
-  borderTop: '1px solid var(--spira-line)', background: 'var(--spira-white)', flexWrap: 'wrap',
+  display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 22px',
+  borderTop: '1px solid var(--spira-line)', background: 'var(--spira-white)',
+}
+
+const motivo: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 7,
+  fontSize: 12.5, color: 'var(--spira-muted)',
 }
 
 const ghostDanger: CSSProperties = {

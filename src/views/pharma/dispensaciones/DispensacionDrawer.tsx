@@ -45,7 +45,10 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
       <Drawer
         title={`${titulo} · ${estado}`}
         onClose={onClose}
-        maxWidth={480}
+        // 560 y no los 480 del mock: el mock tenía dos botones en el pie y este cajón tiene tres
+        // (se sumó "Cancelar preparación" al separarlo de "Rechazar"). Con 480 la fila envolvía y
+        // el botón primario quedaba descolgado abajo.
+        maxWidth={560}
         initialFocusRef={column === 'preparando' ? scanRef : undefined}
       >
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

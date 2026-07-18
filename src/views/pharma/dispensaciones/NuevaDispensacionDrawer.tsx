@@ -17,7 +17,8 @@ export function NuevaDispensacionDrawer({ onClose, onCreated }: {
   onCreated: (requestId: string) => void
 }) {
   return (
-    <Drawer title="Nueva dispensación · Alta manual" onClose={onClose} maxWidth={480}>
+    // Mismo ancho que el cajón de una solicitud existente: son el mismo flujo.
+    <Drawer title="Nueva dispensación · Alta manual" onClose={onClose} maxWidth={560}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={head}>
           <span style={ico}><Icon name="plus" size={20} color="var(--spira-pharma-solid)" /></span>
