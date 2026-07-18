@@ -37,6 +37,27 @@ export function formatAR(iso: string): string {
   return `${d}/${m}/${y}`
 }
 
+/**
+ * TIMESTAMPTZ (`2026-07-18T21:16:38.446Z`) → `dd/mm/yyyy HH:MM` en hora local.
+ *
+ * NO confundir con `formatAR`, que espera una fecha pura `YYYY-MM-DD` y parte por `-`: pasarle un
+ * timestamp devuelve basura del tipo `18T21:16:38.446+00:00/07/2026` (pasó en el comprobante de
+ * dispensación, 2026-07-18).
+ *
+ * Acá `new Date()` SÍ corresponde, a diferencia del resto del archivo: un timestamptz trae su zona
+ * explícita, así que no hay ambigüedad que corrija el día. La prohibición de `new Date(iso)` aplica
+ * a las fechas puras, que el motor interpreta como medianoche UTC y corren un día hacia atrás.
+ */
+export function formatDateTimeAR(ts: string): string {
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return '—'
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`
+}
+
 /** `YYYY-MM-DD` → `dd/mm` corto para chips y listas densas. */
 export function formatShortAR(iso: string): string {
   const [, m, d] = iso.split('-')

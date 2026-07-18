@@ -4,7 +4,7 @@ import { btnOutline, btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow, DispensationRow } from '../../../data/pharma'
 import { ItemRow, fromDispensationLine } from './ItemRow'
 import { Comprobante } from './PanelLista'
-import { formatAR } from '../../../lib/dates'
+import { formatDateTimeAR } from '../../../lib/dates'
 
 /** Entregada: estado terminal. Solo lectura + reimprimir el comprobante. */
 export function PanelEntregada({ disp, onClose, onPrint }: {
@@ -20,7 +20,7 @@ export function PanelEntregada({ disp, onClose, onPrint }: {
 
         {disp.delivered_at && (
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--spira-muted)', marginTop: 10 }}>
-            Entregada el {formatAR(disp.delivered_at)}
+            Entregada el {formatDateTimeAR(disp.delivered_at)}
           </div>
         )}
 

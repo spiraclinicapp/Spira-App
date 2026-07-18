@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { DispensationRequestRow, DispensationRow } from '../../../data/pharma'
-import { formatAR } from '../../../lib/dates'
+import { formatAR, formatDateTimeAR } from '../../../lib/dates'
 
 /**
  * La hoja del comprobante. NO es la pantalla impresa: es un documento propio que solo existe bajo
@@ -51,7 +51,11 @@ export function ComprobanteImprimible({ r, disp }: {
           </tr>
           <tr>
             <td style={label}>Fecha</td>
-            <td style={value} colSpan={3}>{disp.delivered_at ? formatAR(disp.delivered_at) : formatAR(new Date().toISOString())}</td>
+            {/* Entregada → fecha y hora reales del retiro. Todavía no → la fecha de impresión,
+                que es lo único cierto en ese momento (el comprobante se imprime antes de entregar). */}
+            <td style={value} colSpan={3}>
+              {disp.delivered_at ? formatDateTimeAR(disp.delivered_at) : formatDateTimeAR(new Date().toISOString())}
+            </td>
           </tr>
         </tbody>
       </table>
