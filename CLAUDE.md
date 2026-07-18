@@ -47,7 +47,12 @@ npm run build       # typecheck + build de producción
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
-   número. La última aplicada va por la `0049` (ver `supabase/README.md`).
+   número. La última aplicada va por la `0060` (ver `supabase/README.md`).
+   Dos trampas que ya hicieron fallar migraciones y conviene tener presentes al escribirlas:
+   **`ALTER TYPE ... ADD VALUE` no puede usar el valor nuevo en la misma transacción** (va en un
+   archivo aparte, aplicado antes — ver 0053), y en PL/pgSQL los nombres de un
+   **`returns table (...)` compiten con los de columna sin calificar** (calificá siempre; ver
+   0056 y 0058, que fue el mismo error dos veces).
 4. **El preview es una sesión de navegador aparte de la del usuario.** No podés precargarle
    formularios ni ver su estado; verificá las escrituras recargando tu propia instancia.
 
