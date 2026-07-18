@@ -399,10 +399,17 @@ nombres de medicamento ya ocupan tres líneas.
 | Ancho | Comportamiento |
 |---|---|
 | ≥1440px | 4 columnas `1fr`, como el mock. |
-| 1100–1439px | 4 columnas, `min-width: 240px`, scroll horizontal del tablero si no entran. Las columnas **no** se comprimen más allá de eso: una card ilegible es peor que un scroll. |
+| 1100–1439px | 4 columnas, piso de **220px**, scroll horizontal solo si no entran. Las columnas **no** se comprimen más allá de eso: una card ilegible es peor que un scroll. |
 | <1100px | Vista de historial por defecto (Fase 2). El Kanban de 4 columnas no funciona; forzarlo sería fingir. |
 
-El alto es `100vh` sin scroll de página: el scroll vive en las columnas y en el drawer.
+El piso de 220px salió de medir, no de estimar: a 1280px con el riel y los submódulos abiertos quedan
+**956px útiles**, y cuatro columnas de 240 + 3 gaps de 12 piden 996. Con 240 el tablero scrolleaba en
+horizontal en la resolución más común de laptop (verificado en el preview, 2026-07-18). Con 220 de
+piso entran holgadas y el `1fr` las estira a 230 reales.
+
+El alto es `100vh` sin scroll de página: el scroll vive en las columnas y en el drawer. La vista
+agrega **26px de padding inferior**, para que el tablero no quede pegado al borde: el shell da
+`padding: 16px 26px 0` al contenido, así que sin eso había aire a los lados y nada abajo.
 
 ### 6.5.9 Riesgos de diseño aceptados por el Director (2026-07-18)
 

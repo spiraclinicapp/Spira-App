@@ -140,7 +140,10 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: 14 }}>
+    // El shell da `padding: 16px 26px 0` al contenido, o sea aire a los lados pero nada abajo: el
+    // tablero llegaba pegado al borde inferior. Los mismos 26px abajo cierran la caja y dejan
+    // respirar el papel, igual que a los costados.
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: 14, paddingBottom: 26, boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '0 0 auto' }}>
         <div style={searchWrap}>
           <Icon name="search" size={17} color="var(--spira-faint)" />

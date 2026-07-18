@@ -6,9 +6,13 @@ import { KanbanCard } from './KanbanCard'
 /**
  * Las cuatro columnas. Cada una scrollea sola; la página no scrollea (alto fijo).
  *
- * Ancho: `minmax(240px, 1fr)`. Por debajo de 240px la card se vuelve ilegible (los nombres de
- * medicamento ya ocupan tres líneas a 1280px), así que el tablero prefiere scrollear en horizontal
- * antes que comprimir. Una card apretada es peor que un scroll.
+ * Ancho: `minmax(220px, 1fr)`. El 220 no es arbitrario: en un viewport de 1280 con el riel y el
+ * panel de submódulos abiertos quedan 956px útiles, y cuatro columnas de 240 + 3 gaps de 12 piden
+ * 996 — el tablero scrolleaba en horizontal en la resolución más común de laptop. Con 220 de piso
+ * entran holgadas (916) y el `1fr` las estira a 230 reales.
+ *
+ * Por debajo de 220 la card sí se vuelve ilegible, y ahí el tablero prefiere scrollear antes que
+ * comprimir: una card apretada es peor que un scroll.
  */
 export function KanbanBoard({ rows, busyId, canOperate, onOpen, onAdvance }: {
   rows: Map<BoardColumn, DispensationRequestRow[]>
@@ -81,7 +85,7 @@ export function KanbanSkeleton() {
 
 const board: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(4, minmax(240px, 1fr))',
+  gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
   gap: 12,
   flex: 1,
   minHeight: 0,
