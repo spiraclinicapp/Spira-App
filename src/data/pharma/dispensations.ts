@@ -247,8 +247,20 @@ export function useDispensationHistory(opts: {
    * quedaba vacía para siempre porque el reseteo de páginas ya la había limpiado.
    */
   enabled: boolean
+  /**
+   * Día desde el que arranca la lista (ISO `YYYY-MM-DD`). No es un filtro: el historial sigue
+   * mostrando todos los días, pero EMPIEZA en el elegido y avanza hacia atrás.
+   *
+   * Se resuelve así y no con un scroll porque la lista está paginada: una fecha vieja puede no
+   * estar cargada todavía, y hacer scroll a un día que no vino sería imposible sin traer todo el
+   * histórico. Moviendo el punto de partida se llega a cualquier fecha en una sola consulta.
+   *
+   * Si el día elegido no tiene dispensaciones, arriba queda el día anterior más cercano con
+   * actividad — que es lo que la farmacéutica quiere ver cuando busca "por acá".
+   */
+  fromDay: string
 }) {
-  const { page, protocolCode, enabled } = opts
+  const { page, protocolCode, enabled, fromDay } = opts
   const needle = opts.patientCode.trim()
   return useSupabaseQuery<{ rows: DispensationRequestRow[]; hasMore: boolean; page: number }>(
     async (c) => {
@@ -263,6 +275,8 @@ export function useDispensationHistory(opts: {
         .order('updated_at', { ascending: false })
         .range(from, from + HISTORY_PAGE_SIZE) // una de más para saber si hay página siguiente
 
+      // Punto de partida: todo lo que pasó hasta el final del día elegido, hacia atrás.
+      if (fromDay) q = q.lte('updated_at', `${fromDay}T23:59:59.999`)
       if (protocolCode) q = q.eq('visit.enrollment.protocol.code', protocolCode)
       if (needle) q = q.ilike('visit.enrollment.patient.code', `%${needle}%`)
 
@@ -279,7 +293,7 @@ export function useDispensationHistory(opts: {
       // nuevos — 4 registros se mostraban como 6 (encontrado en el QA del 2026-07-18).
       return { data: { rows, hasMore, page }, error: null }
     },
-    [page, protocolCode, needle, enabled],
+    [page, protocolCode, needle, enabled, fromDay],
   )
 }
 

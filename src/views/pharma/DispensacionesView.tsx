@@ -55,22 +55,25 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const q = useDispensationBoard(day)
   const all = useMemo(() => q.data ?? [], [q.data])
 
-  // El historial ignora el filtro de FECHA a propósito (así lo define el handoff): navega por días,
-  // no por un día. Sí respeta protocolo y búsqueda, y los resuelve en Postgres.
+  // El historial no FILTRA por fecha (sigue mostrando todos los días, como pide el handoff): la
+  // fecha mueve el punto de partida de la lista, que arranca ahí y avanza hacia atrás.
   const h = useDispensationHistory({
     page: pagina,
     protocolCode: proto !== ALL ? proto : null,
     patientCode: query,
     enabled: vista === 'historial',
+    fromDay: day,
   })
 
   // Las páginas se acumulan; cambiar de filtro reinicia la pila (si no, "Cargar más" mezclaría
   // resultados de dos búsquedas distintas).
+  // `day` entra acá porque en el historial mueve el punto de partida: sin reiniciar, "Cargar más"
+  // seguiría paginando desde la fecha anterior.
   useEffect(() => {
     setPagina(0)
     setAcumuladas([])
     aplicadaRef.current = -1
-  }, [proto, query, vista])
+  }, [proto, query, vista, day])
 
   /**
    * Acumulación de páginas, con dos guardas que no son paranoia:
@@ -140,7 +143,7 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   useEffect(() => {
     setHeader?.({
       content: (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
           <FilterDropdown
             accent={module.accentSolid}
             value={proto}
@@ -148,35 +151,40 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
             options={protoOptions}
             menuLabel="Protocolo"
           />
-          {/* El selector de fecha solo tiene sentido en el tablero: el historial navega por días. */}
-          {vista === 'tablero' && (
-            <DateNavButton accent={module.accentSolid} date={day} onChange={setDay} />
-          )}
-          <button
-            type="button"
-            onClick={() => setVista((v) => (v === 'tablero' ? 'historial' : 'tablero'))}
-            style={{
-              ...btnOutline,
-              display: 'flex', alignItems: 'center', gap: 8,
-              ...(vista === 'historial'
-                ? { background: 'var(--spira-ink)', color: 'var(--spira-paper)', borderColor: 'var(--spira-ink)' }
-                : null),
-            }}
-          >
-            <Icon name={vista === 'historial' ? 'dashboard' : 'list'} size={16} color="currentColor" />
-            {vista === 'historial' ? 'Ver tablero' : 'Historial'}
-          </button>
-          {/* Solo para quien puede operar: un viewer no debería ver un botón que no puede usar. */}
-          {canOperate && (
+          {/* La fecha vive en las DOS vistas. En el tablero elige el día que se muestra; en el
+              historial mueve el punto de partida de la lista (ver useDispensationHistory). */}
+          <DateNavButton accent={module.accentSolid} date={day} onChange={setDay} />
+
+          {/* Acción primaria arriba y el cambio de vista justo debajo: el toggle acompaña al botón
+              en vez de competir con él en la misma fila. */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+            {/* Solo para quien puede operar: un viewer no debería ver un botón que no puede usar. */}
+            {canOperate && (
+              <button
+                type="button"
+                onClick={() => setCreando(true)}
+                style={{ ...btnPrimary(module.accentSolid), display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              >
+                <Icon name="plus" size={16} color="var(--spira-on-accent)" />
+                Nueva dispensación
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setCreando(true)}
-              style={{ ...btnPrimary(module.accentSolid), display: 'flex', alignItems: 'center', gap: 8 }}
+              onClick={() => setVista((v) => (v === 'tablero' ? 'historial' : 'tablero'))}
+              style={{
+                ...btnOutline,
+                height: 34,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                ...(vista === 'historial'
+                  ? { background: 'var(--spira-ink)', color: 'var(--spira-paper)', borderColor: 'var(--spira-ink)' }
+                  : null),
+              }}
             >
-              <Icon name="plus" size={16} color="var(--spira-on-accent)" />
-              Nueva dispensación
+              <Icon name={vista === 'historial' ? 'dashboard' : 'list'} size={16} color="currentColor" />
+              {vista === 'historial' ? 'Ver tablero' : 'Historial'}
             </button>
-          )}
+          </div>
         </div>
       ),
     })
@@ -263,11 +271,11 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
           <EmptyState
             accent={module.accent}
             icon="list"
-            title={query.trim() || proto !== ALL ? 'Sin resultados' : 'Sin historial todavía'}
+            title={query.trim() || proto !== ALL ? 'Sin resultados' : 'Sin dispensaciones hasta esa fecha'}
             description={
               query.trim() || proto !== ALL
-                ? 'Probá con otro código de paciente o quitá el filtro de protocolo.'
-                : 'Las dispensaciones entregadas, rechazadas y canceladas se listan acá.'
+                ? 'Probá con otro código de paciente, quitá el filtro de protocolo o movete a una fecha más reciente.'
+                : 'El historial arranca en la fecha elegida y va hacia atrás. Movete a una fecha más reciente para ver actividad.'
             }
           />
         ) : (
