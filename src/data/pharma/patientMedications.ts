@@ -19,13 +19,15 @@ export interface PatientMedicationRow {
   active: boolean
   notes: string | null
   created_at: string
-  /** Medicamento embebido para mostrar (nombre + dosis + presentación). */
-  medication: { name: string; dosis: string | null; unit: string } | null
+  /** Medicamento embebido para mostrar (nombre + dosis + presentación + monodroga/principio activo).
+   *  Ojo: `medications`/`drugs` solo los lee Pharma/gerencia/contable (RLS 0006/0032) — para Track el
+   *  embed vuelve null. La sección de la ficha degrada con fallback. */
+  medication: { name: string; dosis: string | null; unit: string; drug: { name: string } | null } | null
 }
 
 const PATIENT_MED_COLS =
   'id, enrollment_id, medication_id, active, notes, created_at, ' +
-  'medication:medications(name, dosis, unit)'
+  'medication:medications(name, dosis, unit, drug:drugs(name))'
 
 /**
  * Medicación asignada a un enrolamiento (paciente en un protocolo). Trae activas e inactivas (el
@@ -89,4 +91,39 @@ export async function setPatientMedicationActive(
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   if (!data || data.length === 0) return { error: 'No tenés permiso para modificar esta medicación.' }
   return { error: null }
+}
+
+/**
+ * Una fila del historial de movimientos de la medicación de un paciente (RPC
+ * `historial_medicacion_paciente`, migración 0052). Sale de `audit_log` ya curado: nombre del
+ * medicamento y del actor resueltos, campos crudos (`action` + `active_*`) para que el front
+ * componga la etiqueta. Solo lo ven Pharma, gerencia o la coordinadora asignada (candado del RPC).
+ */
+export interface MedicationHistoryRow {
+  occurred_at: string // timestamptz ISO
+  action: 'INSERT' | 'UPDATE' | 'DELETE'
+  medication_name: string | null
+  active_before: boolean | null
+  active_after: boolean | null
+  actor_name: string
+}
+
+/**
+ * Historial de movimientos de la medicación de un enrolamiento (más nuevo primero). Vía RPC porque
+ * `audit_log` es solo-gerencia: la función expone únicamente esta tajada, con su propio candado de
+ * autorización (ver 0052). Sin permiso, el RPC devuelve 42501 → mensaje sereno.
+ */
+export function usePatientMedicationHistory(enrollmentId: string | null) {
+  return useSupabaseQuery<MedicationHistoryRow[]>(
+    // El RPC no está en los tipos generados (los tipos son a mano), así que su retorno se castea
+    // acá, igual que `assignPatientMedication`. El cast a `[]` es seguro: la función SQL devuelve
+    // `returns table(...)` → PostgREST entrega un arreglo de filas.
+    async (c) => {
+      const { data, error } = await c.rpc('historial_medicacion_paciente', {
+        p_enrollment_id: enrollmentId ?? NIL_UUID,
+      })
+      return { data: (data as MedicationHistoryRow[] | null), error }
+    },
+    [enrollmentId],
+  )
 }

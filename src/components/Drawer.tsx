@@ -12,12 +12,19 @@ import { Icon } from './Icon'
  * al cerrar devuelve el foco al elemento que lo disparó. Es net-new respecto a `Modal` (que hoy no
  * atrapa el foco); si más adelante se retrofitea `Modal`, este es el patrón a portar.
  */
-export function Drawer({ title, onClose, children, maxWidth = 460 }: {
+export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusRef }: {
   title: string
   onClose: () => void
   children: ReactNode
   /** Ancho máximo del panel; en pantallas chicas cae a 96vw. Default 460. */
   maxWidth?: number
+  /**
+   * Control que debe recibir el foco al abrir, en vez del primero del panel. Sin esto el foco cae
+   * en el ✕ del encabezado, que es lo correcto para un cajón de lectura pero no para uno que se
+   * opera con lector de código de barras: ahí el foco tiene que ir al campo de escaneo o el primer
+   * disparo se pierde.
+   */
+  initialFocusRef?: React.RefObject<HTMLElement | null>
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
@@ -35,8 +42,8 @@ export function Drawer({ title, onClose, children, maxWidth = 460 }: {
           ).filter((el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true')
         : []
 
-    // Foco inicial dentro del panel (primer control, o el panel mismo si no hay ninguno).
-    ;(focusables()[0] ?? panel)?.focus()
+    // Foco inicial: el control que pidió quien abre, si no el primero del panel, si no el panel.
+    ;(initialFocusRef?.current ?? focusables()[0] ?? panel)?.focus()
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { onClose(); return }

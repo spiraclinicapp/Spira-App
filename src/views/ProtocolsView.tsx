@@ -206,6 +206,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
         key={fichaPatient.id}
         patient={fichaPatient}
         protocol={proto}
+        moduleKey={module.key}
         accent={accent}
         accentSolid={accentSolid}
         canWrite={canCreatePatient}
