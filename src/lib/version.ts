@@ -16,7 +16,7 @@ export const SPIRA_VERSION = {
   app: __APP_VERSION__,
   /** Canal de release. Si NO es 'estable' (p. ej. 'beta'), el popover lo muestra
       como etiqueta junto al wordmark. */
-  channel: 'beta',
+  channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
     { version: '0.19', text: 'Dispensaciones ahora es un tablero por estados: preparar, escanear, dejar lista y entregar, con comprobante impreso y alta manual desde la farmacia.' },
