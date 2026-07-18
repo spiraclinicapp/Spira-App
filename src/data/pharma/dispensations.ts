@@ -70,6 +70,12 @@ export interface DispensationRequestRow {
   notes: string | null
   created_at: string
   visit_id: string
+  /**
+   * Módulo que originó la solicitud (0059). Antes el cajón decía "Coordinación" hardcodeado, lo
+   * que iba a volverse mentira en cuanto Pharma pudiera dar de alta. `null` solo en filas anteriores
+   * a la 0059 que no alcanzó el backfill; el front degrada a "—" en vez de inventar un origen.
+   */
+  requested_by_module: 'track' | 'pharma' | null
   /** Quién tomó la preparación y desde cuándo (0054). Sirve para no pisarse entre farmacéuticas. */
   prepared_by: string | null
   preparation_started_at: string | null
@@ -87,7 +93,7 @@ export interface DispensationRequestRow {
 
 const REQUEST_COLS =
   'id, status, source, rejection_reason, notes, created_at, visit_id, ' +
-  'prepared_by, preparation_started_at, ' +
+  'requested_by_module, prepared_by, preparation_started_at, ' +
   'items:dispensation_request_items(id, medication_id, quantity, scanned_at, scanned_by, ' +
     'medication:medications(name, dosis, unit)), ' +
   'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ' +
@@ -200,6 +206,41 @@ export function pendingScans(r: DispensationRequestRow): number {
 /** Total de unidades pedidas (lo que muestra la card: "3 u."). */
 export function totalUnits(r: DispensationRequestRow): number {
   return r.items.reduce((acc, i) => acc + i.quantity, 0)
+}
+
+/**
+ * De dónde salió la solicitud, en castellano. `null` (filas previas a la 0059) devuelve '—' y no
+ * "Coordinación": no sabemos el origen de esas filas, y el dato viaja al comprobante impreso.
+ */
+export function origenLabel(m: DispensationRequestRow['requested_by_module']): string {
+  if (m === 'track') return 'Coordinación'
+  if (m === 'pharma') return 'Alta manual · Farmacia'
+  return '—'
+}
+
+/** Visita candidata para un alta manual (RPC `visitas_dispensables`, 0059). */
+export interface VisitaDispensableRow {
+  visit_id: string
+  visit_name: string
+  visit_date: string | null
+  /** Ya tiene una solicitud viva (solicitada o preparando): ofrecerla duplicaría el pedido. */
+  ya_solicitada: boolean
+}
+
+/**
+ * Visitas de un enrolamiento que pueden recibir una dispensación. Va por RPC y no por select:
+ * Pharma no tiene RLS de lectura sobre `patient_visits` de todos los protocolos (Track se aísla
+ * por protocolo, Pharma es central), así que el candado vive server-side en la función.
+ */
+export function useVisitasDispensables(enrollmentId: string | null) {
+  return useSupabaseQuery<VisitaDispensableRow[]>(
+    async (c) => {
+      if (!enrollmentId) return { data: [], error: null }
+      const { data, error } = await c.rpc('visitas_dispensables', { p_enrollment_id: enrollmentId })
+      return { data: (data as VisitaDispensableRow[]) ?? [], error }
+    },
+    [enrollmentId],
+  )
 }
 
 /** Renglón a solicitar (entrada para `create_dispensation_request`). */

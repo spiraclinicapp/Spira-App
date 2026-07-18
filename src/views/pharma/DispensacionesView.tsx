@@ -16,6 +16,8 @@ import {
 import type { BoardColumn, DispensationRequestRow } from '../../data/pharma'
 import { KanbanBoard, KanbanSkeleton } from './dispensaciones/KanbanBoard'
 import { DispensacionDrawer } from './dispensaciones/DispensacionDrawer'
+import { NuevaDispensacionDrawer } from './dispensaciones/NuevaDispensacionDrawer'
+import { btnPrimary } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
 import { todayISO } from '../../lib/dates'
 import type { ViewProps } from '../types'
@@ -38,6 +40,7 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const [proto, setProto] = useState(ALL)
   const [query, setQuery] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
+  const [creando, setCreando] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -99,11 +102,22 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
             menuLabel="Protocolo"
           />
           <DateNavButton accent={module.accentSolid} date={day} onChange={setDay} />
+          {/* Solo para quien puede operar: un viewer no debería ver un botón que no puede usar. */}
+          {canOperate && (
+            <button
+              type="button"
+              onClick={() => setCreando(true)}
+              style={{ ...btnPrimary(module.accentSolid), display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <Icon name="plus" size={16} color="var(--spira-on-accent)" />
+              Nueva dispensación
+            </button>
+          )}
         </div>
       ),
     })
     return () => setHeader?.(null)
-  }, [setHeader, module.accentSolid, proto, protoOptions, day])
+  }, [setHeader, module.accentSolid, proto, protoOptions, day, canOperate])
 
   /** Avance de estado desde el CTA de la card, sin abrir el cajón. */
   const advance = async (r: DispensationRequestRow, column: BoardColumn) => {
@@ -199,6 +213,20 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
           onClose={() => setOpenId(null)}
           onChanged={() => q.refetch()}
           onToast={setToast}
+        />
+      )}
+
+      {creando && (
+        <NuevaDispensacionDrawer
+          onClose={() => setCreando(false)}
+          onCreated={(id) => {
+            // Nace y se toma en el mismo gesto: se cierra el alta y se abre su cajón de
+            // preparación, que es donde la farmacéutica ya está por ponerse a escanear.
+            setCreando(false)
+            q.refetch()
+            void startDispensationPreparation(id).then(() => { q.refetch(); setOpenId(id) })
+            setToast('Dispensación creada · escaneá para prepararla')
+          }}
         />
       )}
 

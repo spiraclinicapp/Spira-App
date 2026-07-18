@@ -5,7 +5,7 @@ import { Modal } from '../../../components/Modal'
 import { PrivacyAvatar } from '../../../components/PrivacyAvatar'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow } from '../../../data/pharma'
-import { activeDispensation, columnOf, rejectDispensationRequest } from '../../../data/pharma'
+import { activeDispensation, columnOf, origenLabel, rejectDispensationRequest } from '../../../data/pharma'
 import { COLUMN_META } from './estados'
 import { StepBar } from './StepBar'
 import { PanelPreparando } from './PanelPreparando'
@@ -60,7 +60,9 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
                 <span style={dot} />
                 <span className="spira-mono">{protocolo?.code ?? '—'}</span>
                 <span style={dot} />
-                <span>Coordinación</span>
+                {/* Origen real (0059). Antes decía "Coordinación" fijo, lo que pasaba a ser falso
+                    en cuanto Pharma pudo dar de alta. */}
+                <span>{origenLabel(r.requested_by_module)}</span>
               </div>
             </div>
           </div>
