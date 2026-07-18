@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { FilterDropdown } from '../../components/FilterDropdown'
@@ -44,6 +44,8 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const [vista, setVista] = useState<'tablero' | 'historial'>('tablero')
   const [pagina, setPagina] = useState(0)
   const [acumuladas, setAcumuladas] = useState<DispensationRequestRow[]>([])
+  /** Última página ya volcada en `acumuladas`, para no aplicarla dos veces. */
+  const aplicadaRef = useRef(-1)
   const [openId, setOpenId] = useState<string | null>(null)
   const [creando, setCreando] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -67,11 +69,23 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   useEffect(() => {
     setPagina(0)
     setAcumuladas([])
+    aplicadaRef.current = -1
   }, [proto, query, vista])
 
+  /**
+   * Acumulación de páginas, con dos guardas que no son paranoia:
+   *
+   * 1 · `d.page !== pagina` — al apretar "Cargar más", `pagina` sube antes de que llegue la
+   *     respuesta, así que el efecto corre una vez con los datos de la página ANTERIOR todavía en
+   *     mano. Sin esta guarda se concatenaban de nuevo y 4 registros se veían como 6.
+   * 2 · `aplicadaRef` — evita re-aplicar la misma página si el efecto vuelve a correr por otra
+   *     razón (un refetch, por ejemplo).
+   */
   useEffect(() => {
-    if (!h.data) return
-    setAcumuladas((prev) => (pagina === 0 ? h.data!.rows : [...prev, ...h.data!.rows]))
+    const d = h.data
+    if (!d || d.page !== pagina || aplicadaRef.current === d.page) return
+    aplicadaRef.current = d.page
+    setAcumuladas((prev) => (d.page === 0 ? d.rows : [...prev, ...d.rows]))
   }, [h.data, pagina])
 
   // Protocolos presentes hoy, con su cuenta. Sale de los datos, no de una lista fija: si no hay
@@ -113,7 +127,14 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   }, [all, proto, query])
 
   const visibles = useMemo(() => [...byColumn.values()].reduce((n, l) => n + l.length, 0), [byColumn])
-  const open = openId ? all.find((r) => r.id === openId) ?? null : null
+  /**
+   * La fila abierta puede venir de cualquiera de las dos vistas, así que se busca en las dos. El
+   * tablero solo tiene los cuatro estados vivos: una rechazada o cancelada existe únicamente en el
+   * historial, y buscarla solo en `all` dejaba el cajón sin abrir al clickearla ahí.
+   */
+  const open = openId
+    ? all.find((r) => r.id === openId) ?? acumuladas.find((r) => r.id === openId) ?? null
+    : null
 
   // El encabezado del shell aloja los filtros (el H1 y el breadcrumb los pone el shell).
   useEffect(() => {

@@ -250,9 +250,9 @@ export function useDispensationHistory(opts: {
 }) {
   const { page, protocolCode, enabled } = opts
   const needle = opts.patientCode.trim()
-  return useSupabaseQuery<{ rows: DispensationRequestRow[]; hasMore: boolean }>(
+  return useSupabaseQuery<{ rows: DispensationRequestRow[]; hasMore: boolean; page: number }>(
     async (c) => {
-      if (!enabled) return { data: { rows: [], hasMore: false }, error: null }
+      if (!enabled) return { data: { rows: [], hasMore: false, page }, error: null }
       const from = page * HISTORY_PAGE_SIZE
       let q = c
         .from('dispensation_requests')
@@ -273,7 +273,11 @@ export function useDispensationHistory(opts: {
       const hasMore = rows.length > HISTORY_PAGE_SIZE
       if (hasMore) rows = rows.slice(0, HISTORY_PAGE_SIZE)
 
-      return { data: { rows, hasMore }, error: null }
+      // `page` viaja CON los datos: el acumulador de la vista lo necesita para saber si lo que
+      // recibió corresponde a la página que pidió. Sin eso, al pasar de la página 0 a la 1 el
+      // efecto corría con los datos viejos todavía en mano y los concatenaba como si fueran
+      // nuevos — 4 registros se mostraban como 6 (encontrado en el QA del 2026-07-18).
+      return { data: { rows, hasMore, page }, error: null }
     },
     [page, protocolCode, needle, enabled],
   )
