@@ -19,7 +19,7 @@ import { KanbanBoard, KanbanSkeleton } from './dispensaciones/KanbanBoard'
 import { DispensacionDrawer } from './dispensaciones/DispensacionDrawer'
 import { NuevaDispensacionDrawer } from './dispensaciones/NuevaDispensacionDrawer'
 import { HistorialPorDias } from './dispensaciones/HistorialPorDias'
-import { btnOutline, btnPrimary } from '../../components/buttons'
+import { btnOutline } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
 import { todayISO } from '../../lib/dates'
 import type { ViewProps } from '../types'
@@ -139,57 +139,20 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
     ? all.find((r) => r.id === openId) ?? acumuladas.find((r) => r.id === openId) ?? null
     : null
 
-  // El encabezado del shell aloja los filtros (el H1 y el breadcrumb los pone el shell).
+  /**
+   * La acción primaria va en la fila del título (donde el shell la alinea con el H1); los tres
+   * controles de la vista viven juntos en la toolbar de abajo. Antes el toggle colgaba en una
+   * columna pegada al botón: quedaba fuera de la línea de los filtros y con otra altura.
+   */
   useEffect(() => {
-    setHeader?.({
-      content: (
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
-          <FilterDropdown
-            accent={module.accentSolid}
-            value={proto}
-            onChange={setProto}
-            options={protoOptions}
-            menuLabel="Protocolo"
-          />
-          {/* La fecha vive en las DOS vistas. En el tablero elige el día que se muestra; en el
-              historial mueve el punto de partida de la lista (ver useDispensationHistory). */}
-          <DateNavButton accent={module.accentSolid} date={day} onChange={setDay} />
-
-          {/* Acción primaria arriba y el cambio de vista justo debajo: el toggle acompaña al botón
-              en vez de competir con él en la misma fila. */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-            {/* Solo para quien puede operar: un viewer no debería ver un botón que no puede usar. */}
-            {canOperate && (
-              <button
-                type="button"
-                onClick={() => setCreando(true)}
-                style={{ ...btnPrimary(module.accentSolid), display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-              >
-                <Icon name="plus" size={16} color="var(--spira-on-accent)" />
-                Nueva dispensación
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setVista((v) => (v === 'tablero' ? 'historial' : 'tablero'))}
-              style={{
-                ...btnOutline,
-                height: 34,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                ...(vista === 'historial'
-                  ? { background: 'var(--spira-ink)', color: 'var(--spira-paper)', borderColor: 'var(--spira-ink)' }
-                  : null),
-              }}
-            >
-              <Icon name={vista === 'historial' ? 'dashboard' : 'list'} size={16} color="currentColor" />
-              {vista === 'historial' ? 'Ver tablero' : 'Historial'}
-            </button>
-          </div>
-        </div>
-      ),
-    })
+    // Un viewer no debería ver un botón que no puede usar.
+    setHeader?.(
+      canOperate
+        ? { actions: [{ key: 'nueva', label: 'Nueva dispensación', icon: 'plus', onClick: () => setCreando(true), primary: true }] }
+        : null,
+    )
     return () => setHeader?.(null)
-  }, [setHeader, module.accentSolid, proto, protoOptions, day, canOperate, vista])
+  }, [setHeader, canOperate])
 
   /** Avance de estado desde el CTA de la card, sin abrir el cajón. */
   const advance = async (r: DispensationRequestRow, column: BoardColumn) => {
@@ -250,6 +213,39 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
             style={searchInput}
           />
         </div>
+
+        {/* Empuja los controles al margen derecho, como en el mock. */}
+        <div style={{ flex: 1 }} />
+
+        <FilterDropdown
+          accent={module.accentSolid}
+          value={proto}
+          onChange={setProto}
+          options={protoOptions}
+          menuLabel="Protocolo"
+        />
+        {/* La fecha vive en las DOS vistas. En el tablero elige el día que se muestra; en el
+            historial mueve el punto de partida de la lista (ver useDispensationHistory). */}
+        <DateNavButton accent={module.accentSolid} date={day} onChange={setDay} />
+        <button
+          type="button"
+          onClick={() => setVista((v) => (v === 'tablero' ? 'historial' : 'tablero'))}
+          style={{
+            ...btnOutline,
+            // 38 y no los 40 de btnOutline: FilterDropdown y DateNavButton miden 38, y dos píxeles
+            // de diferencia bastan para que la fila se vea desalineada. Mismo padding y radio que
+            // ellos, por lo mismo.
+            height: 38,
+            padding: '0 13px',
+            display: 'flex', alignItems: 'center', gap: 8,
+            ...(vista === 'historial'
+              ? { background: 'var(--spira-ink)', color: 'var(--spira-paper)', borderColor: 'var(--spira-ink)' }
+              : null),
+          }}
+        >
+          <Icon name={vista === 'historial' ? 'dashboard' : 'list'} size={16} color="currentColor" />
+          {vista === 'historial' ? 'Ver tablero' : 'Historial'}
+        </button>
       </div>
 
       {err && (
