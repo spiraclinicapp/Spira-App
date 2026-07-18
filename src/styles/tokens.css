@@ -296,6 +296,19 @@ button { font-family: inherit; }
   @keyframes spDrawerIn { from { opacity: 0; } to { opacity: 1; } }
 }
 
+/* —— Animación del Toast (confirmación al pie) ——
+   Sube apenas y se asienta, sin bounce (§Movimiento: corto, .12–.18s, nunca elastic). */
+@keyframes spToastIn {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes spToastIn {
+    from { opacity: 0; transform: translate(-50%, 0); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
+}
+
 /* —— Navegación izquierda plegable (riel de módulos + panel de submódulos) ——
    El botón «Menú» del top bar oculta/muestra las dos columnas: cada aside anima su ancho a 0
    (el colapso lo manejan flex:'0 0 auto' + min-width:0 + overflow:hidden en línea). El botón
@@ -322,4 +335,51 @@ button { font-family: inherit; }
   :where(button, a[href], [role='button'], summary):not(:disabled):not([aria-disabled='true']):not(.spira-no-press):active {
     transform: translateY(0);
   }
+}
+
+/* —— Impresión del comprobante de dispensación ——
+   El comprobante ES la nota fuente: se imprime, se sella y se firma con la medicación al
+   momento del retiro, y va a la carpeta del paciente. Por eso no se imprime la pantalla:
+   se imprime una hoja diseñada (ComprobanteImprimible), y todo lo demás desaparece.
+
+   .spira-print-only vive oculto en pantalla y solo existe en papel.
+
+   Para aislar la rama se usa `visibility`, NO `display`. El comprobante cuelga del árbol de
+   React (dentro de #root), así que ocultar los hijos de body con display:none se lo llevaría
+   puesto. `visibility: hidden` en cambio no impide que un descendiente vuelva a hacerse
+   visible, que es justo lo que hace falta acá.
+
+   Negro sobre blanco a propósito: la paleta Sereno es para pantalla; esto sale en una
+   láser monocromo y los fondos de color se imprimen sucios o se ignoran. */
+.spira-print-only { display: none; }
+
+@media print {
+  /* nada de la app: ni rail, ni submódulos, ni cajón, ni backdrop */
+  body * { visibility: hidden; }
+
+  .spira-print-only,
+  .spira-print-only * { visibility: visible; }
+
+  .spira-print-only {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 18mm 16mm;
+    background: #fff;
+    color: #000;
+    font-family: var(--spira-font-text);
+    /* sombras y fondos de color se imprimen mal; el documento es plano */
+    box-shadow: none;
+  }
+
+  .spira-print-only * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  @page { size: A4 portrait; margin: 0; }
 }
