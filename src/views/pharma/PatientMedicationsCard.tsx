@@ -9,6 +9,7 @@ import {
   usePatientMedications,
   assignPatientMedication,
   setPatientMedicationActive,
+  useMedications,
   useStock,
 } from '../../data/pharma'
 
@@ -17,9 +18,13 @@ const card: CSSProperties = {
 }
 
 // Tintes con rgba() literal: NO se puede concatenar alfa a un `var(--x)` (`var(--spira-good)14`
-// es CSS inválido). Mismos hexes que los tokens --spira-good (#5C8A5A) / --spira-danger (#A6483B).
+// es CSS inválido). Mismos hexes que los tokens --spira-good (#5C8A5A) / --spira-danger (#A6483B)
+// / --spira-warn (#B0823F). WARN_BG/WARN_BORDER siguen la misma proporción de alfa que el par
+// DANGER_BG/DANGER_BORDER de EditPatientForm.tsx (caja con borde, no solo un tinte de fondo).
 const GOOD_TINT = 'rgba(92, 138, 90, 0.14)'
 const DANGER_TINT = 'rgba(166, 72, 59, 0.10)'
+const WARN_BG = 'rgba(176, 130, 63, 0.08)'
+const WARN_BORDER = 'rgba(176, 130, 63, 0.30)'
 
 /**
  * Card "Medicación asignada" de la ficha del paciente: la medicación que la farmacéutica habilitó
@@ -27,6 +32,12 @@ const DANGER_TINT = 'rgba(166, 72, 59, 0.10)'
  * al solicitar dispensación (nunca texto libre). La gestión (agregar / activar-desactivar) es SOLO
  * para Pharma operator+ (`canManage`); Track la ve de solo lectura. Nunca borra: desactivar deja la
  * fila (soft-delete) y además bloquea nuevas solicitudes y la entrega de las pendientes (0050).
+ *
+ * El desplegable de "Agregar" lista el catálogo GLOBAL (`useMedications`, 0051) — no solo lo ya
+ * recibido en este protocolo — con la cantidad de este protocolo como dato informativo (puede ser
+ * 0). Si el medicamento elegido nunca se recibió acá, `assignPatientMedication` devuelve
+ * `needsConfirmation` en vez de fallar: la fila del buscador se reemplaza por un aviso ("Atención",
+ * no un tinte plano) que, al confirmar, reintenta la llamada con `confirmNewToProtocol: true`.
  */
 export function PatientMedicationsCard({
   enrollmentId, protocolId, accent, accentSolid, canManage,
@@ -38,20 +49,28 @@ export function PatientMedicationsCard({
   canManage: boolean
 }) {
   const medsQ = usePatientMedications(enrollmentId)
-  // El catálogo del protocolo (para el desplegable de agregar) solo se pide si el usuario gestiona.
+  // Catálogo global (para el desplegable de agregar); stock de ESTE protocolo, solo como dato.
+  const catalogQ = useMedications()
   const stockQ = useStock(canManage ? protocolId : null)
   const [adding, setAdding] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const [pick, setPick] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   const rows = medsQ.data ?? []
   const assignedIds = new Set(rows.map((r) => r.medication_id))
-  // Ofrecer solo medicamentos del protocolo que el paciente todavía NO tiene (el trigger de
-  // coherencia igual rechazaría uno fuera del protocolo; acá se filtra para no ofrecerlo).
-  const options: SelectOption[] = (stockQ.data ?? [])
-    .filter((s) => !assignedIds.has(s.medication_id))
-    .map((s) => ({ value: s.medication_id, label: s.name }))
+  const stockByMed = new Map((stockQ.data ?? []).map((s) => [s.medication_id, s.total_stock]))
+  // Ofrecer todo el catálogo global salvo lo que el paciente ya tiene; la cantidad de este
+  // protocolo va en la etiqueta como dato, nunca como filtro (puede ser "sin stock" y elegirse igual).
+  const options: SelectOption[] = (catalogQ.data ?? [])
+    .filter((m) => !assignedIds.has(m.id))
+    .map((m) => {
+      const qty = stockByMed.get(m.id)
+      const suffix = qty !== undefined ? `${qty} en stock` : 'sin stock en este protocolo'
+      return { value: m.id, label: `${m.name} — ${suffix}` }
+    })
+  const pickedName = (catalogQ.data ?? []).find((m) => m.id === pick)?.name ?? 'Este medicamento'
 
   async function add() {
     if (!pick || !enrollmentId) return
@@ -59,7 +78,23 @@ export function PatientMedicationsCard({
     const res = await assignPatientMedication(enrollmentId, pick, null)
     setBusy(false)
     if (res.error) { setErr(res.error); return }
+    if (res.needsConfirmation) { setConfirming(true); return }
     setPick(''); setAdding(false); medsQ.refetch()
+  }
+
+  async function confirmAdd() {
+    if (!pick || !enrollmentId) return
+    setBusy(true); setErr(null)
+    const res = await assignPatientMedication(enrollmentId, pick, null, true)
+    setBusy(false)
+    if (res.error) { setErr(res.error); return }
+    setPick(''); setAdding(false); setConfirming(false); medsQ.refetch()
+  }
+
+  function backFromConfirm() {
+    setConfirming(false)
+    setPick('')
+    setErr(null)
   }
 
   async function toggle(id: string, active: boolean) {
@@ -76,7 +111,7 @@ export function PatientMedicationsCard({
         <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 16 }}>Medicación asignada</span>
         {canManage && !adding && (
           <button
-            onClick={() => { setAdding(true); setErr(null) }}
+            onClick={() => { setAdding(true); setErr(null); setConfirming(false) }}
             style={{ marginLeft: 'auto', height: 32, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 11px' }}
           >
             <Icon name="plus" size={14} color={accent} /> Agregar
@@ -85,22 +120,42 @@ export function PatientMedicationsCard({
       </div>
 
       {adding && canManage && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <SearchableSelect
-              value={pick}
-              onChange={setPick}
-              options={options}
-              placeholder={options.length ? 'Elegí un medicamento…' : 'No hay más medicamentos del protocolo para asignar'}
-              searchPlaceholder="Buscar medicamento…"
-              disabled={options.length === 0}
-            />
+        confirming ? (
+          <div style={{ display: 'flex', gap: 10, padding: '13px 14px', borderRadius: 11, background: WARN_BG, border: `1px solid ${WARN_BORDER}`, marginBottom: 12 }}>
+            <Icon name="alertCircle" size={18} color="var(--spira-warn)" style={{ flex: '0 0 auto', marginTop: 1 }} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--spira-ink)' }}>
+                <strong>{pickedName}</strong> nunca se recibió para este protocolo. ¿Confirmás que corresponde asignarlo igual?
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button type="button" onClick={backFromConfirm} style={{ ...btnOutline, height: 36 }}>Volver</button>
+                <button
+                  type="button" onClick={confirmAdd} disabled={busy}
+                  style={{ ...btnPrimary(accentSolid), height: 36, opacity: busy ? 0.6 : 1 }}
+                >
+                  {busy ? 'Confirmando…' : 'Confirmar igual'}
+                </button>
+              </div>
+            </div>
           </div>
-          <button onClick={add} disabled={!pick || busy} style={{ ...btnPrimary(accentSolid), height: 44, opacity: !pick || busy ? 0.6 : 1 }}>
-            {busy ? 'Guardando…' : 'Agregar'}
-          </button>
-          <button onClick={() => { setAdding(false); setPick(''); setErr(null) }} style={{ ...btnOutline, height: 44 }}>Cancelar</button>
-        </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <SearchableSelect
+                value={pick}
+                onChange={setPick}
+                options={options}
+                placeholder={options.length ? 'Elegí un medicamento…' : 'No hay más medicamentos para asignar'}
+                searchPlaceholder="Buscar medicamento…"
+                disabled={options.length === 0}
+              />
+            </div>
+            <button onClick={add} disabled={!pick || busy} style={{ ...btnPrimary(accentSolid), height: 44, opacity: !pick || busy ? 0.6 : 1 }}>
+              {busy ? 'Guardando…' : 'Agregar'}
+            </button>
+            <button onClick={() => { setAdding(false); setPick(''); setErr(null) }} style={{ ...btnOutline, height: 44 }}>Cancelar</button>
+          </div>
+        )
       )}
 
       {err && (

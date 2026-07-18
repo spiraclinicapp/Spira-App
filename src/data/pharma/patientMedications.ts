@@ -47,23 +47,29 @@ export function usePatientMedications(enrollmentId: string | null) {
 }
 
 /**
- * Habilita una medicación para el paciente (INSERT directo a `patient_medications`). La RLS exige
- * Pharma operator+ y el trigger `check_patient_med_protocol` valida que el medicamento esté asignado
- * al protocolo (protocol_medications). `assigned_by` lo pone la base (default `auth.uid()`). El
- * unique (enrollment, medicamento) evita duplicar (23505 → mensaje sereno).
+ * Habilita una medicación para el paciente vía el RPC `assign_patient_medication` (migración
+ * 0051). Si el medicamento nunca se recibió para el protocolo del enrolamiento, la base NO
+ * inserta nada y devuelve `needsConfirmation: true` — la card muestra un aviso y, si el usuario
+ * confirma, se reintenta con `confirmNewToProtocol: true` (recién ahí la base asocia al protocolo
+ * y asigna). El trigger `check_patient_med_protocol` (0050) sigue intacto: para cuando el RPC
+ * llega al insert, la asociación ya existe. El unique (enrollment, medicamento) evita duplicar
+ * (23505 → mensaje sereno).
  */
 export async function assignPatientMedication(
   enrollmentId: string,
   medicationId: string,
   notes: string | null,
-): Promise<{ error: string | null; code?: string }> {
-  const { data, error } = await supabase
-    .from('patient_medications')
-    .insert({ enrollment_id: enrollmentId, medication_id: medicationId, notes })
-    .select('id')
+  confirmNewToProtocol = false,
+): Promise<{ error: string | null; code?: string; needsConfirmation?: boolean }> {
+  const { data, error } = await supabase.rpc('assign_patient_medication', {
+    p_enrollment_id: enrollmentId,
+    p_medication_id: medicationId,
+    p_notes: notes,
+    p_confirm_new_to_protocol: confirmNewToProtocol,
+  })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
-  if (!data || data.length === 0) return { error: 'No tenés permiso para asignar medicación.' }
-  return { error: null }
+  const [row] = data as { id: string | null; needs_confirmation: boolean }[]
+  return row.needs_confirmation ? { error: null, needsConfirmation: true } : { error: null }
 }
 
 /**
