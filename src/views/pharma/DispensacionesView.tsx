@@ -91,17 +91,23 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
     setAcumuladas((prev) => (d.page === 0 ? d.rows : [...prev, ...d.rows]))
   }, [h.data, pagina])
 
-  // Protocolos presentes hoy, con su cuenta. Sale de los datos, no de una lista fija: si no hay
-  // nada de un protocolo, no tiene sentido ofrecerlo como filtro.
+  /**
+   * Protocolos presentes hoy. Sale de los datos, no de una lista fija: si no hay nada de un
+   * protocolo, no tiene sentido ofrecerlo como filtro.
+   *
+   * Sin contadores: el número contaba SOLICITUDES, pero al lado de "Todos los protocolos" se leía
+   * como cantidad de protocolos. Un dato que hay que interpretar dos veces no ayuda, y el tablero
+   * ya lleva el contador real en la cabecera de cada columna.
+   */
   const protoOptions = useMemo(() => {
-    const counts = new Map<string, number>()
+    const codes = new Set<string>()
     for (const r of all) {
       const code = r.visit?.enrollment?.protocol?.code
-      if (code) counts.set(code, (counts.get(code) ?? 0) + 1)
+      if (code) codes.add(code)
     }
     return [
-      { value: ALL, label: 'Todos los protocolos', count: all.length },
-      ...[...counts.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([code, n]) => ({ value: code, label: code, count: n })),
+      { value: ALL, label: 'Todos los protocolos' },
+      ...[...codes].sort((a, b) => a.localeCompare(b)).map((code) => ({ value: code, label: code })),
     ]
   }, [all])
 
