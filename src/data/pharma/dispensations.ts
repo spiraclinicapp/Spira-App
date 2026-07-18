@@ -49,6 +49,10 @@ export interface DispensationRow {
   id: string
   status: DispensationStatus
   correlative_number: number
+  /** Código legible `D-{n}-{ddmmyy}-{iniciales}` (0055). Se sella al marcar lista; null antes.
+   *  Distinto del comprobante: el código identifica la dispensación, `correlative_number` la nota. */
+  dispensation_code: string | null
+  daily_number: number | null
   delivered_at: string | null
   items: DispensationLineRow[]
 }
@@ -86,7 +90,7 @@ const REQUEST_COLS =
   'prepared_by, preparation_started_at, ' +
   'items:dispensation_request_items(id, medication_id, quantity, scanned_at, scanned_by, ' +
     'medication:medications(name, dosis, unit)), ' +
-  'dispensations:dispensations(id, status, correlative_number, delivered_at, ' +
+  'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ' +
     'items:dispensation_items(id, medication_id, quantity, lot_number, expiry_date, medication:medications(name))), ' +
   'visit:patient_visits(enrollment:enrollments(patient:patients(code, full_name), protocol:protocols(code, name)))'
 
@@ -308,13 +312,24 @@ export async function unscanDispensationItem(
  * comprobante para mostrarlo al toque. Si el lote FEFO no alcanza o la medicación se deshabilitó,
  * la base devuelve un mensaje claro y no toca nada.
  */
-export async function markDispensationReady(
-  requestId: string,
-): Promise<{ error: string | null; code?: string; dispensationId?: string; correlative?: number }> {
+export async function markDispensationReady(requestId: string): Promise<{
+  error: string | null
+  code?: string
+  dispensationId?: string
+  correlative?: number
+  dispensationCode?: string
+}> {
   const { data, error } = await supabase.rpc('mark_dispensation_ready', { p_request_id: requestId })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
-  const row = (data as { dispensation_id: string; correlative_number: number }[] | null)?.[0]
-  return { error: null, dispensationId: row?.dispensation_id, correlative: row?.correlative_number }
+  const row = (data as
+    | { dispensation_id: string; correlative_number: number; dispensation_code: string }[]
+    | null)?.[0]
+  return {
+    error: null,
+    dispensationId: row?.dispensation_id,
+    correlative: row?.correlative_number,
+    dispensationCode: row?.dispensation_code,
+  }
 }
 
 /**
