@@ -10,21 +10,15 @@ import {
   createDispensationRequest,
   cancelDispensationRequest,
 } from '../../data/pharma'
-import type { RequestStatus } from '../../data/pharma'
+import { badgeOf } from './dispensaciones/estados'
 
 // Tintes con rgba() literal (no se puede concatenar alfa a un var(--x)). --spira-danger #A6483B,
 // --spira-good #5C8A5A.
 const DANGER_TINT = 'rgba(166, 72, 59, 0.10)'
-const GOOD_TINT = 'rgba(92, 138, 90, 0.14)'
 
-/** Estado de la solicitud → etiqueta + color (texto + color, nunca color solo). 'atendida' en v1 se
- *  resuelve en un paso, así que para el usuario es "Entregada". */
-const STATUS_META: Record<RequestStatus, { label: string; color: string; tint: string }> = {
-  solicitada: { label: 'Solicitada', color: 'var(--spira-muted)', tint: 'var(--spira-surface)' },
-  atendida: { label: 'Entregada', color: 'var(--spira-good)', tint: GOOD_TINT },
-  rechazada: { label: 'Rechazada', color: 'var(--spira-danger)', tint: DANGER_TINT },
-  cancelada: { label: 'Cancelada', color: 'var(--spira-faint)', tint: 'var(--spira-surface)' },
-}
+// STATUS_META y badgeOf viven en dispensaciones/estados.ts (única fuente para Track y Pharma).
+// badgeOf distingue "lista para retirar" de "entregada": para RequestStatus ambas son `atendida`,
+// pero para la coordinadora son cosas distintas (una la puede ir a buscar el paciente).
 
 const errBox: CSSProperties = {
   fontSize: 12.5, color: 'var(--spira-danger)', background: DANGER_TINT, borderRadius: 8, padding: '8px 11px', marginBottom: 10,
@@ -101,7 +95,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
       {requests.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: !readOnly ? 12 : 0 }}>
           {requests.map((r) => {
-            const meta = STATUS_META[r.status]
+            const meta = badgeOf(r)
             const disp = r.dispensations?.[0] ?? null
             return (
               <div key={r.id} style={{ border: '1px solid var(--spira-line)', borderRadius: 11, background: 'var(--spira-white)', padding: '11px 13px' }}>

@@ -11,7 +11,8 @@ import {
   rejectDispensationRequest,
   resolveCode,
 } from '../../data/pharma'
-import type { DispensationRequestRow, RequestStatus } from '../../data/pharma'
+import type { DispensationRequestRow } from '../../data/pharma'
+import { STATUS_META } from './dispensaciones/estados'
 import { useAuth } from '../../lib/auth'
 import { formatAR } from '../../lib/dates'
 import type { ViewProps } from '../types'
@@ -19,15 +20,6 @@ import type { ViewProps } from '../types'
 // Tintes con rgba() literal (no se concatena alfa a un var(--x)). good #5C8A5A, danger #A6483B.
 const GOOD_TINT = 'rgba(92, 138, 90, 0.14)'
 const DANGER_TINT = 'rgba(166, 72, 59, 0.10)'
-
-/** Estado de la solicitud → etiqueta + color (texto + color, nunca color solo). 'atendida' en v1 se
- *  resuelve en un paso, así que para el usuario es "Entregada". */
-const STATUS_META: Record<RequestStatus, { label: string; color: string; tint: string }> = {
-  solicitada: { label: 'Solicitada', color: 'var(--spira-muted)', tint: 'var(--spira-surface)' },
-  atendida: { label: 'Entregada', color: 'var(--spira-good)', tint: GOOD_TINT },
-  rechazada: { label: 'Rechazada', color: 'var(--spira-danger)', tint: DANGER_TINT },
-  cancelada: { label: 'Cancelada', color: 'var(--spira-faint)', tint: 'var(--spira-surface)' },
-}
 
 const card: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 14, padding: '14px 16px',

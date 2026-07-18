@@ -6,11 +6,19 @@ import { pharmaErrorMessage } from './errors'
 // se llama siempre, pero el panel recién se muestra con una visita en contexto). Evita traer TODO.
 const NIL_UUID = '00000000-0000-0000-0000-000000000000'
 
-/** Estado de la SOLICITUD (enum `request_status`, migración 0001). */
-export type RequestStatus = 'solicitada' | 'atendida' | 'rechazada' | 'cancelada'
-/** Estado de la DISPENSACIÓN ejecutada (enum `dispensation_status`). En v1 se resuelve en un paso,
- *  así que en la práctica solo se ve `entregada`; los intermedios existen para v1.1. */
+/** Estado de la SOLICITUD (enum `request_status`, migraciones 0001 + 0053). */
+export type RequestStatus = 'solicitada' | 'preparando' | 'atendida' | 'rechazada' | 'cancelada'
+/** Estado de la DISPENSACIÓN ejecutada (enum `dispensation_status`). Desde la 0054 los tres se
+ *  materializan de verdad: `en_preparacion` mientras se arma, `lista` con el stock ya descontado y
+ *  el comprobante emitido, `entregada` cuando el paciente retiró. */
 export type DispensationStatus = 'en_preparacion' | 'lista' | 'entregada'
+
+/**
+ * Las cuatro columnas del tablero. Ojo: NO mapean 1:1 contra `RequestStatus`, porque `lista` y
+ * `entregada` viven en la dispensación, no en la solicitud (una solicitud `atendida` puede estar
+ * lista para retirar o ya entregada). `columnOf()` resuelve la columna real de cada fila.
+ */
+export type BoardColumn = 'solicitada' | 'preparando' | 'lista' | 'entregada'
 /** Origen de la solicitud (enum `dispensation_source`). v1 siempre `manual`; `ivrs`/`base` a futuro. */
 export type DispensationSource = 'ivrs' | 'base' | 'manual'
 
@@ -19,6 +27,10 @@ export interface RequestItemRow {
   id: string
   medication_id: string
   quantity: number
+  /** Cuándo se confirmó por escaneo (0054). NULL = pendiente. Persistido a propósito: la card del
+   *  tablero muestra el contador fuera del cajón, así que en memoria mentiría al recargar. */
+  scanned_at: string | null
+  scanned_by: string | null
   medication: { name: string; dosis: string | null; unit: string } | null
 }
 
@@ -54,6 +66,9 @@ export interface DispensationRequestRow {
   notes: string | null
   created_at: string
   visit_id: string
+  /** Quién tomó la preparación y desde cuándo (0054). Sirve para no pisarse entre farmacéuticas. */
+  prepared_by: string | null
+  preparation_started_at: string | null
   items: RequestItemRow[]
   /** La dispensación ejecutada; array por el schema (FK inversa), en la práctica 0 o 1. */
   dispensations: DispensationRow[]
@@ -68,7 +83,9 @@ export interface DispensationRequestRow {
 
 const REQUEST_COLS =
   'id, status, source, rejection_reason, notes, created_at, visit_id, ' +
-  'items:dispensation_request_items(id, medication_id, quantity, medication:medications(name, dosis, unit)), ' +
+  'prepared_by, preparation_started_at, ' +
+  'items:dispensation_request_items(id, medication_id, quantity, scanned_at, scanned_by, ' +
+    'medication:medications(name, dosis, unit)), ' +
   'dispensations:dispensations(id, status, correlative_number, delivered_at, ' +
     'items:dispensation_items(id, medication_id, quantity, lot_number, expiry_date, medication:medications(name))), ' +
   'visit:patient_visits(enrollment:enrollments(patient:patients(code, full_name), protocol:protocols(code, name)))'
@@ -104,6 +121,81 @@ export function usePharmaDispensations(statuses?: RequestStatus[]) {
     },
     [key],
   )
+}
+
+/**
+ * Solicitudes del TABLERO de Pharma (las cuatro columnas vivas).
+ *
+ * El filtro de fecha NO se aplica parejo, a propósito:
+ *   · Solicitadas y Preparando van SIN filtro de fecha. Una solicitud de ayer sin atender tiene que
+ *     seguir a la vista; si se filtrara por "Hoy" desaparecería del tablero y nadie la resolvería.
+ *   · Listas y Entregadas se acotan al día elegido, si no la columna crece sin techo.
+ *
+ * Por eso son dos consultas y no una: pedirlas juntas obligaría a traer todo el histórico y filtrar
+ * en cliente, que es justo lo que hacía la versión vieja de esta vista.
+ */
+export function useDispensationBoard(dayISO: string) {
+  return useSupabaseQuery<DispensationRequestRow[]>(
+    async (c) => {
+      const pendientes = await c
+        .from('dispensation_requests')
+        .select(REQUEST_COLS)
+        .in('status', ['solicitada', 'preparando'])
+        .order('created_at', { ascending: false })
+        .returns<DispensationRequestRow[]>()
+      if (pendientes.error) return { data: null, error: pendientes.error }
+
+      // `atendida` = ya tiene dispensación (lista o entregada). Se acota al día por `updated_at`,
+      // NO por `created_at`: una solicitud de ayer entregada hoy pertenece al tablero de hoy, que es
+      // el día en que la farmacéutica la trabajó (trg_requests_updated_at, 0003:29).
+      const delDia = await c
+        .from('dispensation_requests')
+        .select(REQUEST_COLS)
+        .eq('status', 'atendida')
+        .gte('updated_at', `${dayISO}T00:00:00`)
+        .lte('updated_at', `${dayISO}T23:59:59.999`)
+        .order('updated_at', { ascending: false })
+        .returns<DispensationRequestRow[]>()
+      if (delDia.error) return { data: null, error: delDia.error }
+
+      return { data: [...(pendientes.data ?? []), ...(delDia.data ?? [])], error: null }
+    },
+    [dayISO],
+  )
+}
+
+/**
+ * En qué columna del tablero cae una solicitud. No es su `status` a secas: `lista` y `entregada`
+ * viven en la dispensación, no en la solicitud.
+ *
+ *   status 'preparando' + sin dispensación lista  → Preparando
+ *   status 'preparando' + dispensación 'lista'    → Listas      (comprobante ya emitido)
+ *   status 'atendida'   + dispensación 'entregada'→ Entregadas
+ *
+ * Devuelve null para rechazada/cancelada, que no tienen columna (viven en el historial).
+ */
+export function columnOf(r: DispensationRequestRow): BoardColumn | null {
+  if (r.status === 'solicitada') return 'solicitada'
+  if (r.status === 'rechazada' || r.status === 'cancelada') return null
+  const d = activeDispensation(r)
+  if (d?.status === 'entregada') return 'entregada'
+  if (d?.status === 'lista') return 'lista'
+  return r.status === 'preparando' ? 'preparando' : null
+}
+
+/** La dispensación viva de la solicitud (el schema devuelve array por la FK inversa; hay 0 o 1). */
+export function activeDispensation(r: DispensationRequestRow): DispensationRow | null {
+  return r.dispensations?.[0] ?? null
+}
+
+/** Cuántos renglones faltan escanear. 0 = se puede marcar lista. */
+export function pendingScans(r: DispensationRequestRow): number {
+  return r.items.filter((i) => i.scanned_at === null).length
+}
+
+/** Total de unidades pedidas (lo que muestra la card: "3 u."). */
+export function totalUnits(r: DispensationRequestRow): number {
+  return r.items.reduce((acc, i) => acc + i.quantity, 0)
 }
 
 /** Renglón a solicitar (entrada para `create_dispensation_request`). */
@@ -160,10 +252,104 @@ export async function rejectDispensationRequest(
 }
 
 /**
- * Pharma resuelve la solicitud en UN PASO (RPC `resolve_dispensation`, pharma operator+): elige el
- * lote por FEFO, crea la dispensación, la entrega (descuenta stock) y cierra la solicitud, todo
- * atómico. Devuelve el id de la dispensación (comprobante). Si el lote FEFO no alcanza o la
- * medicación se deshabilitó, la base devuelve un mensaje claro y no toca nada.
+ * Pharma toma la solicitud y empieza a prepararla (RPC `start_dispensation_preparation`, 0054).
+ * `solicitada → preparando`. Si otra farmacéutica ya la tomó, la base lo dice y no pisa nada;
+ * reentrar a la propia preparación es válido (reabrir el cajón).
+ */
+export async function startDispensationPreparation(
+  requestId: string,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('start_dispensation_preparation', { p_request_id: requestId })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/** Lo que devuelve un escaneo exitoso: qué se confirmó y cuántos renglones quedan pendientes. */
+export interface ScanResult {
+  item_id: string
+  medication_name: string
+  remaining: number
+}
+
+/**
+ * Confirma un renglón escaneando su código de barras (RPC `scan_dispensation_item`, 0054). La base
+ * resuelve el EAN contra `medication_codes` y lo matchea contra un renglón pendiente; si el código
+ * no está en el catálogo o es de otro medicamento, devuelve el mensaje nominativo correspondiente.
+ */
+export async function scanDispensationItem(
+  requestId: string,
+  code: string,
+): Promise<{ error: string | null; code?: string; result?: ScanResult }> {
+  const { data, error } = await supabase.rpc('scan_dispensation_item', {
+    p_request_id: requestId,
+    p_code: code,
+  })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  // La RPC devuelve `returns table(...)` → supabase-js entrega un array de una fila.
+  const row = (data as ScanResult[] | null)?.[0]
+  return { error: null, result: row }
+}
+
+/**
+ * Deshace un escaneo (RPC `unscan_dispensation_item`, 0054). Sin esto, corregir un escaneo
+ * equivocado obligaría a cancelar toda la preparación.
+ */
+export async function unscanDispensationItem(
+  itemId: string,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('unscan_dispensation_item', { p_item_id: itemId })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/**
+ * Marca la dispensación lista para retirar (RPC `mark_dispensation_ready`, 0054). Exige todo
+ * escaneado; elige el lote por FEFO, emite el comprobante y descuenta el stock. Devuelve el N° de
+ * comprobante para mostrarlo al toque. Si el lote FEFO no alcanza o la medicación se deshabilitó,
+ * la base devuelve un mensaje claro y no toca nada.
+ */
+export async function markDispensationReady(
+  requestId: string,
+): Promise<{ error: string | null; code?: string; dispensationId?: string; correlative?: number }> {
+  const { data, error } = await supabase.rpc('mark_dispensation_ready', { p_request_id: requestId })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  const row = (data as { dispensation_id: string; correlative_number: number }[] | null)?.[0]
+  return { error: null, dispensationId: row?.dispensation_id, correlative: row?.correlative_number }
+}
+
+/**
+ * Entrega al paciente (RPC `deliver_dispensation`, 0054). No mueve stock: ya salió al marcar lista.
+ * Sella `delivered_at` y cierra la solicitud como `atendida`.
+ */
+export async function deliverDispensation(
+  dispensationId: string,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('deliver_dispensation', { p_dispensation_id: dispensationId })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/**
+ * Cancela la preparación y devuelve la solicitud a Solicitadas (RPC
+ * `cancel_dispensation_preparation`, 0054). Distinto de rechazar: acá no pasó nada malo, se vuelve
+ * atrás. Limpia los escaneos y, si ya se había marcado lista, devuelve el stock. El N° de
+ * comprobante queda reservado para esa solicitud, así que rehacerla no deja huecos en la numeración.
+ */
+export async function cancelDispensationPreparation(
+  requestId: string,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('cancel_dispensation_preparation', {
+    p_request_id: requestId,
+  })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/**
+ * @deprecated Resolvía la dispensación en un paso (RPC `resolve_dispensation`). Reemplazada por el
+ * flujo de cuatro estados de la 0054: `startDispensationPreparation` → `scanDispensationItem` →
+ * `markDispensationReady` → `deliverDispensation`. La RPC sigue viva en la base hasta confirmar que
+ * ningún cliente la llama; no usar en código nuevo.
  */
 export async function resolveDispensation(
   requestId: string,
