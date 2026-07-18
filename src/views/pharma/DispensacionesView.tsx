@@ -7,6 +7,7 @@ import { Icon } from '../../components/Icon'
 import { Toast } from '../../components/Toast'
 import {
   useDispensationBoard,
+  useDispensationHistory,
   columnOf,
   startDispensationPreparation,
   markDispensationReady,
@@ -17,7 +18,8 @@ import type { BoardColumn, DispensationRequestRow } from '../../data/pharma'
 import { KanbanBoard, KanbanSkeleton } from './dispensaciones/KanbanBoard'
 import { DispensacionDrawer } from './dispensaciones/DispensacionDrawer'
 import { NuevaDispensacionDrawer } from './dispensaciones/NuevaDispensacionDrawer'
-import { btnPrimary } from '../../components/buttons'
+import { HistorialPorDias } from './dispensaciones/HistorialPorDias'
+import { btnOutline, btnPrimary } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
 import { todayISO } from '../../lib/dates'
 import type { ViewProps } from '../types'
@@ -39,6 +41,9 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const [day, setDay] = useState(todayISO())
   const [proto, setProto] = useState(ALL)
   const [query, setQuery] = useState('')
+  const [vista, setVista] = useState<'tablero' | 'historial'>('tablero')
+  const [pagina, setPagina] = useState(0)
+  const [acumuladas, setAcumuladas] = useState<DispensationRequestRow[]>([])
   const [openId, setOpenId] = useState<string | null>(null)
   const [creando, setCreando] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -47,6 +52,27 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
 
   const q = useDispensationBoard(day)
   const all = useMemo(() => q.data ?? [], [q.data])
+
+  // El historial ignora el filtro de FECHA a propósito (así lo define el handoff): navega por días,
+  // no por un día. Sí respeta protocolo y búsqueda, y los resuelve en Postgres.
+  const h = useDispensationHistory({
+    page: pagina,
+    protocolCode: proto !== ALL ? proto : null,
+    patientCode: query,
+    enabled: vista === 'historial',
+  })
+
+  // Las páginas se acumulan; cambiar de filtro reinicia la pila (si no, "Cargar más" mezclaría
+  // resultados de dos búsquedas distintas).
+  useEffect(() => {
+    setPagina(0)
+    setAcumuladas([])
+  }, [proto, query, vista])
+
+  useEffect(() => {
+    if (!h.data) return
+    setAcumuladas((prev) => (pagina === 0 ? h.data!.rows : [...prev, ...h.data!.rows]))
+  }, [h.data, pagina])
 
   // Protocolos presentes hoy, con su cuenta. Sale de los datos, no de una lista fija: si no hay
   // nada de un protocolo, no tiene sentido ofrecerlo como filtro.
@@ -101,7 +127,24 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
             options={protoOptions}
             menuLabel="Protocolo"
           />
-          <DateNavButton accent={module.accentSolid} date={day} onChange={setDay} />
+          {/* El selector de fecha solo tiene sentido en el tablero: el historial navega por días. */}
+          {vista === 'tablero' && (
+            <DateNavButton accent={module.accentSolid} date={day} onChange={setDay} />
+          )}
+          <button
+            type="button"
+            onClick={() => setVista((v) => (v === 'tablero' ? 'historial' : 'tablero'))}
+            style={{
+              ...btnOutline,
+              display: 'flex', alignItems: 'center', gap: 8,
+              ...(vista === 'historial'
+                ? { background: 'var(--spira-ink)', color: 'var(--spira-paper)', borderColor: 'var(--spira-ink)' }
+                : null),
+            }}
+          >
+            <Icon name={vista === 'historial' ? 'dashboard' : 'list'} size={16} color="currentColor" />
+            {vista === 'historial' ? 'Ver tablero' : 'Historial'}
+          </button>
           {/* Solo para quien puede operar: un viewer no debería ver un botón que no puede usar. */}
           {canOperate && (
             <button
@@ -117,7 +160,7 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
       ),
     })
     return () => setHeader?.(null)
-  }, [setHeader, module.accentSolid, proto, protoOptions, day, canOperate])
+  }, [setHeader, module.accentSolid, proto, protoOptions, day, canOperate, vista])
 
   /** Avance de estado desde el CTA de la card, sin abrir el cajón. */
   const advance = async (r: DispensationRequestRow, column: BoardColumn) => {
@@ -165,8 +208,16 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
             className="spira-search-input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar dispensación…"
-            aria-label="Buscar por código, paciente, protocolo o medicamento"
+            /* El alcance de la búsqueda cambia con la vista y el placeholder lo dice: en el tablero
+               son pocas filas ya cargadas y se puede filtrar por todo; en el historial la consulta
+               va a Postgres por código de paciente, y prometer más sería mentir sobre por qué algo
+               "no aparece". */
+            placeholder={vista === 'historial' ? 'Buscar por código de paciente…' : 'Buscar dispensación…'}
+            aria-label={
+              vista === 'historial'
+                ? 'Buscar en el historial por código de paciente'
+                : 'Buscar por código, paciente, protocolo o medicamento'
+            }
             style={searchInput}
           />
         </div>
@@ -179,7 +230,35 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
         </div>
       )}
 
-      {q.loading && all.length === 0 ? (
+      {vista === 'historial' ? (
+        h.loading && acumuladas.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '10px 2px' }}>Cargando historial…</div>
+        ) : h.error ? (
+          <div style={errBox} role="alert">
+            <Icon name="alertCircle" size={15} />
+            <span>No pudimos cargar el historial.</span>
+          </div>
+        ) : acumuladas.length === 0 ? (
+          <EmptyState
+            accent={module.accent}
+            icon="list"
+            title={query.trim() || proto !== ALL ? 'Sin resultados' : 'Sin historial todavía'}
+            description={
+              query.trim() || proto !== ALL
+                ? 'Probá con otro código de paciente o quitá el filtro de protocolo.'
+                : 'Las dispensaciones entregadas, rechazadas y canceladas se listan acá.'
+            }
+          />
+        ) : (
+          <HistorialPorDias
+            rows={acumuladas}
+            hasMore={h.data?.hasMore ?? false}
+            loading={h.loading}
+            onOpen={(r) => setOpenId(r.id)}
+            onMore={() => setPagina((p) => p + 1)}
+          />
+        )
+      ) : q.loading && all.length === 0 ? (
         <KanbanSkeleton />
       ) : q.error ? (
         <div style={errBox} role="alert">
