@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { DispensationRequestRow, DispensationRow } from '../../../data/pharma'
+import { origenLabel } from '../../../data/pharma'
 import { formatAR, formatDateTimeAR } from '../../../lib/dates'
 
 /**
@@ -47,7 +48,10 @@ export function ComprobanteImprimible({ r, disp }: {
           </tr>
           <tr>
             <td style={label}>Dispensación</td><td style={value}>{disp.dispensation_code ?? '—'}</td>
-            <td style={label}>Origen</td><td style={value}>{r.source === 'manual' ? 'Coordinación' : r.source}</td>
+            {/* Origen real (0059). Derivarlo de `source` era incorrecto: vale 'manual' para TODAS
+                las filas desde la 0050, así que el comprobante impreso —la nota fuente— habría
+                declarado "Coordinación" en altas hechas por la propia farmacia. */}
+            <td style={label}>Origen</td><td style={value}>{origenLabel(r.requested_by_module)}</td>
           </tr>
           <tr>
             <td style={label}>Fecha</td>

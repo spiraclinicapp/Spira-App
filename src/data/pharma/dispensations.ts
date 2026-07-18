@@ -69,7 +69,16 @@ export interface DispensationRequestRow {
   rejection_reason: string | null
   notes: string | null
   created_at: string
+  /** Última transición de estado (trigger `trg_requests_updated_at`, 0003:29). Es por lo que agrupa
+   *  el historial: una solicitud de ayer entregada hoy pertenece al día en que se trabajó. */
+  updated_at: string
   visit_id: string
+  /**
+   * Módulo que originó la solicitud (0059). Antes el cajón decía "Coordinación" hardcodeado, lo
+   * que iba a volverse mentira en cuanto Pharma pudiera dar de alta. `null` solo en filas anteriores
+   * a la 0059 que no alcanzó el backfill; el front degrada a "—" en vez de inventar un origen.
+   */
+  requested_by_module: 'track' | 'pharma' | null
   /** Quién tomó la preparación y desde cuándo (0054). Sirve para no pisarse entre farmacéuticas. */
   prepared_by: string | null
   preparation_started_at: string | null
@@ -86,13 +95,24 @@ export interface DispensationRequestRow {
 }
 
 const REQUEST_COLS =
-  'id, status, source, rejection_reason, notes, created_at, visit_id, ' +
-  'prepared_by, preparation_started_at, ' +
+  'id, status, source, rejection_reason, notes, created_at, updated_at, visit_id, ' +
+  'requested_by_module, prepared_by, preparation_started_at, ' +
   'items:dispensation_request_items(id, medication_id, quantity, scanned_at, scanned_by, ' +
     'medication:medications(name, dosis, unit)), ' +
   'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ' +
     'items:dispensation_items(id, medication_id, quantity, lot_number, expiry_date, medication:medications(name))), ' +
   'visit:patient_visits(enrollment:enrollments(patient:patients(code, full_name), protocol:protocols(code, name)))'
+
+/**
+ * Igual que `REQUEST_COLS` pero con `!inner` en la cadena de embeds, para que los filtros del
+ * historial (protocolo, código de paciente) EXCLUYAN filas en vez de dejar el embed en null.
+ * Toda solicitud tiene visita → enrolamiento → paciente y protocolo, así que el inner no descarta
+ * nada legítimo.
+ */
+const HISTORY_COLS = REQUEST_COLS.replace(
+  'visit:patient_visits(enrollment:enrollments(patient:patients(code, full_name), protocol:protocols(code, name)))',
+  'visit:patient_visits!inner(enrollment:enrollments!inner(patient:patients!inner(code, full_name), protocol:protocols!inner(code, name)))',
+)
 
 /**
  * Solicitudes de dispensación de una visita (para el panel de `VisitDetail` en Track). Más nuevas
@@ -202,6 +222,116 @@ export function totalUnits(r: DispensationRequestRow): number {
   return r.items.reduce((acc, i) => acc + i.quantity, 0)
 }
 
+/** Cuántas filas trae cada página del historial. */
+export const HISTORY_PAGE_SIZE = 40
+
+/**
+ * Historial completo, paginado y filtrado SERVER-SIDE.
+ *
+ * La versión vieja de esta vista traía todo el histórico de todos los protocolos sin `.limit()` y
+ * filtraba en el cliente: a los pocos miles de dispensaciones eso es una descarga entera de la
+ * tabla en cada visita a la pantalla. Acá el rango, el protocolo y la búsqueda viajan a Postgres.
+ *
+ * `hasMore` sale de pedir una fila de más (`PAGE_SIZE + 1`) y descartarla: evita un `count` exacto,
+ * que en Postgres obliga a recorrer la tabla entera solo para dibujar un botón.
+ */
+export function useDispensationHistory(opts: {
+  page: number
+  protocolCode: string | null
+  /** Código IVRS del paciente, parcial. Se resuelve en Postgres, no sobre la página cargada. */
+  patientCode: string
+  /**
+   * Falso mientras se mira el tablero. Dos motivos: no gastar una consulta en datos que nadie está
+   * viendo, y —lo importante— formar parte de las deps. Sin esto, entrar al historial con los
+   * filtros en su valor inicial no cambiaba ninguna dep, el hook no refetcheaba, y la lista
+   * quedaba vacía para siempre porque el reseteo de páginas ya la había limpiado.
+   */
+  enabled: boolean
+  /**
+   * Día desde el que arranca la lista (ISO `YYYY-MM-DD`). No es un filtro: el historial sigue
+   * mostrando todos los días, pero EMPIEZA en el elegido y avanza hacia atrás.
+   *
+   * Se resuelve así y no con un scroll porque la lista está paginada: una fecha vieja puede no
+   * estar cargada todavía, y hacer scroll a un día que no vino sería imposible sin traer todo el
+   * histórico. Moviendo el punto de partida se llega a cualquier fecha en una sola consulta.
+   *
+   * Si el día elegido no tiene dispensaciones, arriba queda el día anterior más cercano con
+   * actividad — que es lo que la farmacéutica quiere ver cuando busca "por acá".
+   */
+  fromDay: string
+}) {
+  const { page, protocolCode, enabled, fromDay } = opts
+  const needle = opts.patientCode.trim()
+  return useSupabaseQuery<{ rows: DispensationRequestRow[]; hasMore: boolean; page: number }>(
+    async (c) => {
+      if (!enabled) return { data: { rows: [], hasMore: false, page }, error: null }
+      const from = page * HISTORY_PAGE_SIZE
+      let q = c
+        .from('dispensation_requests')
+        // `!inner` en toda la cadena: sin eso, un filtro sobre un embed anidado NO excluye la fila
+        // padre, solo deja el embed en null — la página vendría llena de huecos y la paginación
+        // contaría filas que no se muestran.
+        .select(HISTORY_COLS)
+        .order('updated_at', { ascending: false })
+        .range(from, from + HISTORY_PAGE_SIZE) // una de más para saber si hay página siguiente
+
+      // Punto de partida: todo lo que pasó hasta el final del día elegido, hacia atrás.
+      if (fromDay) q = q.lte('updated_at', `${fromDay}T23:59:59.999`)
+      if (protocolCode) q = q.eq('visit.enrollment.protocol.code', protocolCode)
+      if (needle) q = q.ilike('visit.enrollment.patient.code', `%${needle}%`)
+
+      const { data, error } = await q.returns<DispensationRequestRow[]>()
+      if (error) return { data: null, error }
+
+      let rows = data ?? []
+      const hasMore = rows.length > HISTORY_PAGE_SIZE
+      if (hasMore) rows = rows.slice(0, HISTORY_PAGE_SIZE)
+
+      // `page` viaja CON los datos: el acumulador de la vista lo necesita para saber si lo que
+      // recibió corresponde a la página que pidió. Sin eso, al pasar de la página 0 a la 1 el
+      // efecto corría con los datos viejos todavía en mano y los concatenaba como si fueran
+      // nuevos — 4 registros se mostraban como 6 (encontrado en el QA del 2026-07-18).
+      return { data: { rows, hasMore, page }, error: null }
+    },
+    [page, protocolCode, needle, enabled, fromDay],
+  )
+}
+
+/**
+ * De dónde salió la solicitud, en castellano. `null` (filas previas a la 0059) devuelve '—' y no
+ * "Coordinación": no sabemos el origen de esas filas, y el dato viaja al comprobante impreso.
+ */
+export function origenLabel(m: DispensationRequestRow['requested_by_module']): string {
+  if (m === 'track') return 'Coordinación'
+  if (m === 'pharma') return 'Alta manual · Farmacia'
+  return '—'
+}
+
+/** Visita candidata para un alta manual (RPC `visitas_dispensables`, 0059). */
+export interface VisitaDispensableRow {
+  visit_id: string
+  visit_name: string
+  visit_date: string | null
+  /** Ya tiene una solicitud viva (solicitada o preparando): ofrecerla duplicaría el pedido. */
+  ya_solicitada: boolean
+}
+
+/**
+ * Visitas de un enrolamiento que pueden recibir una dispensación. Va por RPC y no por select:
+ * Pharma no tiene RLS de lectura sobre `patient_visits` de todos los protocolos (Track se aísla
+ * por protocolo, Pharma es central), así que el candado vive server-side en la función.
+ */
+export function useVisitasDispensables(enrollmentId: string | null) {
+  return useSupabaseQuery<VisitaDispensableRow[]>(
+    async (c) => {
+      if (!enrollmentId) return { data: [], error: null }
+      const { data, error } = await c.rpc('visitas_dispensables', { p_enrollment_id: enrollmentId })
+      return { data: (data as VisitaDispensableRow[]) ?? [], error }
+    },
+    [enrollmentId],
+  )
+}
+
 /** Renglón a solicitar (entrada para `create_dispensation_request`). */
 export interface RequestItemInput {
   medication_id: string
@@ -217,11 +347,19 @@ export async function createDispensationRequest(
   visitId: string,
   items: RequestItemInput[],
   notes: string | null,
+  /**
+   * Desde qué pantalla se originó (0060). Lo declara el llamador porque el servidor NO puede
+   * deducirlo: la misma persona con los mismos roles hace idéntica llamada desde el panel de la
+   * visita en Track o desde el alta manual en Pharma. La base igual valida que quien lo declara
+   * pueda operar en ese módulo, así que declarar no alcanza para falsearlo.
+   */
+  origen: 'track' | 'pharma' = 'track',
 ): Promise<{ error: string | null; code?: string; id?: string }> {
   const { data, error } = await supabase.rpc('create_dispensation_request', {
     p_visit_id: visitId,
     p_items: items,
     p_notes: notes,
+    p_origen: origen,
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null, id: data as string }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { FilterDropdown } from '../../components/FilterDropdown'
@@ -7,6 +7,7 @@ import { Icon } from '../../components/Icon'
 import { Toast } from '../../components/Toast'
 import {
   useDispensationBoard,
+  useDispensationHistory,
   columnOf,
   startDispensationPreparation,
   markDispensationReady,
@@ -16,6 +17,9 @@ import {
 import type { BoardColumn, DispensationRequestRow } from '../../data/pharma'
 import { KanbanBoard, KanbanSkeleton } from './dispensaciones/KanbanBoard'
 import { DispensacionDrawer } from './dispensaciones/DispensacionDrawer'
+import { NuevaDispensacionDrawer } from './dispensaciones/NuevaDispensacionDrawer'
+import { HistorialPorDias } from './dispensaciones/HistorialPorDias'
+import { btnOutline } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
 import { todayISO } from '../../lib/dates'
 import type { ViewProps } from '../types'
@@ -37,7 +41,13 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const [day, setDay] = useState(todayISO())
   const [proto, setProto] = useState(ALL)
   const [query, setQuery] = useState('')
+  const [vista, setVista] = useState<'tablero' | 'historial'>('tablero')
+  const [pagina, setPagina] = useState(0)
+  const [acumuladas, setAcumuladas] = useState<DispensationRequestRow[]>([])
+  /** Última página ya volcada en `acumuladas`, para no aplicarla dos veces. */
+  const aplicadaRef = useRef(-1)
   const [openId, setOpenId] = useState<string | null>(null)
+  const [creando, setCreando] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -45,17 +55,59 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const q = useDispensationBoard(day)
   const all = useMemo(() => q.data ?? [], [q.data])
 
-  // Protocolos presentes hoy, con su cuenta. Sale de los datos, no de una lista fija: si no hay
-  // nada de un protocolo, no tiene sentido ofrecerlo como filtro.
+  // El historial no FILTRA por fecha (sigue mostrando todos los días, como pide el handoff): la
+  // fecha mueve el punto de partida de la lista, que arranca ahí y avanza hacia atrás.
+  const h = useDispensationHistory({
+    page: pagina,
+    protocolCode: proto !== ALL ? proto : null,
+    patientCode: query,
+    enabled: vista === 'historial',
+    fromDay: day,
+  })
+
+  // Las páginas se acumulan; cambiar de filtro reinicia la pila (si no, "Cargar más" mezclaría
+  // resultados de dos búsquedas distintas).
+  // `day` entra acá porque en el historial mueve el punto de partida: sin reiniciar, "Cargar más"
+  // seguiría paginando desde la fecha anterior.
+  useEffect(() => {
+    setPagina(0)
+    setAcumuladas([])
+    aplicadaRef.current = -1
+  }, [proto, query, vista, day])
+
+  /**
+   * Acumulación de páginas, con dos guardas que no son paranoia:
+   *
+   * 1 · `d.page !== pagina` — al apretar "Cargar más", `pagina` sube antes de que llegue la
+   *     respuesta, así que el efecto corre una vez con los datos de la página ANTERIOR todavía en
+   *     mano. Sin esta guarda se concatenaban de nuevo y 4 registros se veían como 6.
+   * 2 · `aplicadaRef` — evita re-aplicar la misma página si el efecto vuelve a correr por otra
+   *     razón (un refetch, por ejemplo).
+   */
+  useEffect(() => {
+    const d = h.data
+    if (!d || d.page !== pagina || aplicadaRef.current === d.page) return
+    aplicadaRef.current = d.page
+    setAcumuladas((prev) => (d.page === 0 ? d.rows : [...prev, ...d.rows]))
+  }, [h.data, pagina])
+
+  /**
+   * Protocolos presentes hoy. Sale de los datos, no de una lista fija: si no hay nada de un
+   * protocolo, no tiene sentido ofrecerlo como filtro.
+   *
+   * Sin contadores: el número contaba SOLICITUDES, pero al lado de "Todos los protocolos" se leía
+   * como cantidad de protocolos. Un dato que hay que interpretar dos veces no ayuda, y el tablero
+   * ya lleva el contador real en la cabecera de cada columna.
+   */
   const protoOptions = useMemo(() => {
-    const counts = new Map<string, number>()
+    const codes = new Set<string>()
     for (const r of all) {
       const code = r.visit?.enrollment?.protocol?.code
-      if (code) counts.set(code, (counts.get(code) ?? 0) + 1)
+      if (code) codes.add(code)
     }
     return [
-      { value: ALL, label: 'Todos los protocolos', count: all.length },
-      ...[...counts.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([code, n]) => ({ value: code, label: code, count: n })),
+      { value: ALL, label: 'Todos los protocolos' },
+      ...[...codes].sort((a, b) => a.localeCompare(b)).map((code) => ({ value: code, label: code })),
     ]
   }, [all])
 
@@ -84,26 +136,29 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   }, [all, proto, query])
 
   const visibles = useMemo(() => [...byColumn.values()].reduce((n, l) => n + l.length, 0), [byColumn])
-  const open = openId ? all.find((r) => r.id === openId) ?? null : null
+  /**
+   * La fila abierta puede venir de cualquiera de las dos vistas, así que se busca en las dos. El
+   * tablero solo tiene los cuatro estados vivos: una rechazada o cancelada existe únicamente en el
+   * historial, y buscarla solo en `all` dejaba el cajón sin abrir al clickearla ahí.
+   */
+  const open = openId
+    ? all.find((r) => r.id === openId) ?? acumuladas.find((r) => r.id === openId) ?? null
+    : null
 
-  // El encabezado del shell aloja los filtros (el H1 y el breadcrumb los pone el shell).
+  /**
+   * La acción primaria va en la fila del título (donde el shell la alinea con el H1); los tres
+   * controles de la vista viven juntos en la toolbar de abajo. Antes el toggle colgaba en una
+   * columna pegada al botón: quedaba fuera de la línea de los filtros y con otra altura.
+   */
   useEffect(() => {
-    setHeader?.({
-      content: (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <FilterDropdown
-            accent={module.accentSolid}
-            value={proto}
-            onChange={setProto}
-            options={protoOptions}
-            menuLabel="Protocolo"
-          />
-          <DateNavButton accent={module.accentSolid} date={day} onChange={setDay} />
-        </div>
-      ),
-    })
+    // Un viewer no debería ver un botón que no puede usar.
+    setHeader?.(
+      canOperate
+        ? { actions: [{ key: 'nueva', label: 'Nueva dispensación', icon: 'plus', onClick: () => setCreando(true), primary: true }] }
+        : null,
+    )
     return () => setHeader?.(null)
-  }, [setHeader, module.accentSolid, proto, protoOptions, day])
+  }, [setHeader, canOperate])
 
   /** Avance de estado desde el CTA de la card, sin abrir el cajón. */
   const advance = async (r: DispensationRequestRow, column: BoardColumn) => {
@@ -151,11 +206,52 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
             className="spira-search-input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar dispensación…"
-            aria-label="Buscar por código, paciente, protocolo o medicamento"
+            /* El alcance de la búsqueda cambia con la vista y el placeholder lo dice: en el tablero
+               son pocas filas ya cargadas y se puede filtrar por todo; en el historial la consulta
+               va a Postgres por código de paciente, y prometer más sería mentir sobre por qué algo
+               "no aparece". */
+            placeholder={vista === 'historial' ? 'Buscar por código de paciente…' : 'Buscar dispensación…'}
+            aria-label={
+              vista === 'historial'
+                ? 'Buscar en el historial por código de paciente'
+                : 'Buscar por código, paciente, protocolo o medicamento'
+            }
             style={searchInput}
           />
         </div>
+
+        {/* Empuja los controles al margen derecho, como en el mock. */}
+        <div style={{ flex: 1 }} />
+
+        <FilterDropdown
+          accent={module.accentSolid}
+          value={proto}
+          onChange={setProto}
+          options={protoOptions}
+          menuLabel="Protocolo"
+        />
+        {/* La fecha vive en las DOS vistas. En el tablero elige el día que se muestra; en el
+            historial mueve el punto de partida de la lista (ver useDispensationHistory). */}
+        <DateNavButton accent={module.accentSolid} date={day} onChange={setDay} />
+        <button
+          type="button"
+          onClick={() => setVista((v) => (v === 'tablero' ? 'historial' : 'tablero'))}
+          style={{
+            ...btnOutline,
+            // 38 y no los 40 de btnOutline: FilterDropdown y DateNavButton miden 38, y dos píxeles
+            // de diferencia bastan para que la fila se vea desalineada. Mismo padding y radio que
+            // ellos, por lo mismo.
+            height: 38,
+            padding: '0 13px',
+            display: 'flex', alignItems: 'center', gap: 8,
+            ...(vista === 'historial'
+              ? { background: 'var(--spira-ink)', color: 'var(--spira-paper)', borderColor: 'var(--spira-ink)' }
+              : null),
+          }}
+        >
+          <Icon name={vista === 'historial' ? 'dashboard' : 'list'} size={16} color="currentColor" />
+          {vista === 'historial' ? 'Ver tablero' : 'Historial'}
+        </button>
       </div>
 
       {err && (
@@ -165,7 +261,35 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
         </div>
       )}
 
-      {q.loading && all.length === 0 ? (
+      {vista === 'historial' ? (
+        h.loading && acumuladas.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '10px 2px' }}>Cargando historial…</div>
+        ) : h.error ? (
+          <div style={errBox} role="alert">
+            <Icon name="alertCircle" size={15} />
+            <span>No pudimos cargar el historial.</span>
+          </div>
+        ) : acumuladas.length === 0 ? (
+          <EmptyState
+            accent={module.accent}
+            icon="list"
+            title={query.trim() || proto !== ALL ? 'Sin resultados' : 'Sin dispensaciones hasta esa fecha'}
+            description={
+              query.trim() || proto !== ALL
+                ? 'Probá con otro código de paciente, quitá el filtro de protocolo o movete a una fecha más reciente.'
+                : 'El historial arranca en la fecha elegida y va hacia atrás. Movete a una fecha más reciente para ver actividad.'
+            }
+          />
+        ) : (
+          <HistorialPorDias
+            rows={acumuladas}
+            hasMore={h.data?.hasMore ?? false}
+            loading={h.loading}
+            onOpen={(r) => setOpenId(r.id)}
+            onMore={() => setPagina((p) => p + 1)}
+          />
+        )
+      ) : q.loading && all.length === 0 ? (
         <KanbanSkeleton />
       ) : q.error ? (
         <div style={errBox} role="alert">
@@ -199,6 +323,20 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
           onClose={() => setOpenId(null)}
           onChanged={() => q.refetch()}
           onToast={setToast}
+        />
+      )}
+
+      {creando && (
+        <NuevaDispensacionDrawer
+          onClose={() => setCreando(false)}
+          onCreated={(id) => {
+            // Nace y se toma en el mismo gesto: se cierra el alta y se abre su cajón de
+            // preparación, que es donde la farmacéutica ya está por ponerse a escanear.
+            setCreando(false)
+            q.refetch()
+            void startDispensationPreparation(id).then(() => { q.refetch(); setOpenId(id) })
+            setToast('Dispensación creada · escaneá para prepararla')
+          }}
         />
       )}
 
