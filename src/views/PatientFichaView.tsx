@@ -30,6 +30,9 @@ const card: CSSProperties = {
 export interface PatientFichaViewProps {
   patient: PatientRow
   protocol: ProtocolRow
+  /** Clave del módulo activo ('track' | 'pharma' | …). La ficha es compartida: la gestión de
+   *  medicación solo se habilita en el contexto de Pharma (ver canManagePharma abajo). */
+  moduleKey: string
   accent: string
   accentSolid: string
   canWrite: boolean
@@ -44,12 +47,15 @@ export interface PatientFichaViewProps {
 
 /** Ficha del paciente: demográficos + contexto + adherencia + alertas | próxima visita + cronograma. */
 export function PatientFichaView(props: PatientFichaViewProps) {
-  const { patient, protocol, accent, accentSolid, canWrite, setHeader, onBack, onGoList, onPatientUpdated } = props
+  const { patient, protocol, moduleKey, accent, accentSolid, canWrite, setHeader, onBack, onGoList, onPatientUpdated } = props
   const visitsQ = usePatientVisits(patient.id, protocol.id)
   const alertsQ = useVisitAlerts()
-  // La gestión de "Medicación asignada" es de Pharma (operator+); Track la ve de solo lectura.
+  // La gestión de "Medicación asignada" es de Pharma (operator+) Y solo en el contexto del módulo
+  // Pharma: la ficha del paciente es compartida con Track, y ahí la medicación es un dato más de
+  // solo lectura. Sin el candado de módulo, un usuario con rol pharma veía la edición también
+  // parado en Track (la RLS igual la protege server-side, pero como affordance no corresponde).
   const { hasMinRole } = useAuth()
-  const canManagePharma = hasMinRole('pharma', 'operator')
+  const canManagePharma = moduleKey === 'pharma' && hasMinRole('pharma', 'operator')
   const [modal, setModal] = useState<null | 'reschedule' | 'register' | 'edit' | 'alerts'>(null)
   // Detalle de una visita del cronograma: el MISMO componente que abre la vista del día
   // (VisitDetail), sincronizado por leer de la misma vista. Guardamos el id y el detalle se
@@ -220,6 +226,17 @@ export function PatientFichaView(props: PatientFichaViewProps) {
             </div>
           </div>
 
+          {/* Medicación: información del paciente (solo lectura); el botón "Editar medicación"
+              (abre un modal) aparece solo en Pharma. Vive en la ficha lateral, no en la columna
+              derecha. */}
+          <PatientMedicationsCard
+            enrollmentId={enrollment?.id ?? null}
+            protocolId={protocol.id}
+            accent={accent}
+            accentSolid={accentSolid}
+            canManage={canManagePharma}
+          />
+
           {/* acciones de la ficha: editar paciente + alertas (en botón con contador) */}
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {canWrite && (
@@ -254,14 +271,6 @@ export function PatientFichaView(props: PatientFichaViewProps) {
 
         {/* columna derecha */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
-          {/* Medicación asignada: siempre visible (no depende de las visitas). Gestión solo Pharma. */}
-          <PatientMedicationsCard
-            enrollmentId={enrollment?.id ?? null}
-            protocolId={protocol.id}
-            accent={accent}
-            accentSolid={accentSolid}
-            canManage={canManagePharma}
-          />
           {visitsQ.error ? (
             <div style={{ ...card }}>
               <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>No pudimos cargar las visitas del paciente.</div>

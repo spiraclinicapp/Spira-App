@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
+import { Modal } from '../../components/Modal'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import type { SelectOption } from '../../components/SearchableSelect'
 import { btnOutline, btnPrimary } from '../../components/buttons'
 import { formatAR } from '../../lib/dates'
+import { HistorialMedicacionModal } from './HistorialMedicacionModal'
+import type { PatientMedicationRow } from '../../data/pharma'
 import {
   usePatientMedications,
   assignPatientMedication,
@@ -13,31 +16,47 @@ import {
   useStock,
 } from '../../data/pharma'
 
-const card: CSSProperties = {
-  background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, padding: '18px 20px',
-}
-
 // Tintes con rgba() literal: NO se puede concatenar alfa a un `var(--x)` (`var(--spira-good)14`
 // es CSS inválido). Mismos hexes que los tokens --spira-good (#5C8A5A) / --spira-danger (#A6483B)
-// / --spira-warn (#B0823F). WARN_BG/WARN_BORDER siguen la misma proporción de alfa que el par
-// DANGER_BG/DANGER_BORDER de EditPatientForm.tsx (caja con borde, no solo un tinte de fondo).
+// / --spira-warn (#B0823F).
 const GOOD_TINT = 'rgba(92, 138, 90, 0.14)'
 const DANGER_TINT = 'rgba(166, 72, 59, 0.10)'
 const WARN_BG = 'rgba(176, 130, 63, 0.08)'
 const WARN_BORDER = 'rgba(176, 130, 63, 0.30)'
 
+// Sección dentro de la ficha lateral: mismo molde que los otros bloques (divisor arriba, respiro).
+const section: CSSProperties = { marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }
+const sectionHead: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }
+const sectionLabel: CSSProperties = { fontSize: 12, color: 'var(--spira-muted)' }
+// Botón chico de "Historial" (link sobrio); lo ven todos los que ven la sección, no solo Pharma.
+const historialBtn: CSSProperties = {
+  marginLeft: 'auto', height: 26, padding: '0 9px', borderRadius: 8, border: '1px solid var(--spira-line-2)',
+  background: 'var(--spira-white)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 11.5,
+  fontWeight: 600, color: 'var(--spira-muted)', display: 'inline-flex', alignItems: 'center', gap: 5,
+}
+// Botones del encabezado del modal de edición (Historial / Agregar): mismo molde sobrio.
+const modalHeaderBtn: CSSProperties = {
+  height: 32, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
+  cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600,
+  color: 'var(--spira-ink)', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 11px',
+}
+const activePill = (active: boolean): CSSProperties => ({
+  flex: '0 0 auto', fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 'var(--spira-radius-pill)',
+  color: active ? 'var(--spira-good)' : 'var(--spira-muted)',
+  background: active ? GOOD_TINT : 'var(--spira-surface)',
+})
+
 /**
- * Card "Medicación asignada" de la ficha del paciente: la medicación que la farmacéutica habilitó
- * para este enrolamiento (`patient_medications`, 0050). Es la lista de la que el coordinador elige
- * al solicitar dispensación (nunca texto libre). La gestión (agregar / activar-desactivar) es SOLO
- * para Pharma operator+ (`canManage`); Track la ve de solo lectura. Nunca borra: desactivar deja la
- * fila (soft-delete) y además bloquea nuevas solicitudes y la entrega de las pendientes (0050).
+ * "Medicación asignada" del paciente en un protocolo (`patient_medications`, 0050): la medicación
+ * que la farmacéutica habilitó y de la que el coordinador elige al solicitar dispensación (nunca
+ * texto libre).
  *
- * El desplegable de "Agregar" lista el catálogo GLOBAL (`useMedications`, 0051) — no solo lo ya
- * recibido en este protocolo — con la cantidad de este protocolo como dato informativo (puede ser
- * 0). Si el medicamento elegido nunca se recibió acá, `assignPatientMedication` devuelve
- * `needsConfirmation` en vez de fallar: la fila del buscador se reemplaza por un aviso ("Atención",
- * no un tinte plano) que, al confirmar, reintenta la llamada con `confirmNewToProtocol: true`.
+ * Se presenta como una SECCIÓN de solo lectura de la ficha del paciente (información del paciente,
+ * visible en Track y Pharma). La gestión (agregar / activar-desactivar) va detrás de un botón
+ * "Editar medicación" —espejo del de "Editar paciente"/"Editar protocolo"— que abre un modal y
+ * aparece solo con `canManage` (Pharma operator+ Y parado en el módulo Pharma; el gate lo arma
+ * PatientFichaView). Nunca borra: desactivar deja la fila (soft-delete) y además bloquea nuevas
+ * solicitudes y la entrega de las pendientes (0050).
  */
 export function PatientMedicationsCard({
   enrollmentId, protocolId, accent, accentSolid, canManage,
@@ -49,20 +68,123 @@ export function PatientMedicationsCard({
   canManage: boolean
 }) {
   const medsQ = usePatientMedications(enrollmentId)
-  // Catálogo global (para el desplegable de agregar); stock de ESTE protocolo, solo como dato.
+  const [editing, setEditing] = useState(false)
+  const [history, setHistory] = useState(false)
+  const rows = medsQ.data ?? []
+  // La sección (solo lectura) muestra SOLO las activas: si figura acá es porque está vigente, así
+  // que no hace falta etiqueta "Activa". Las inactivas viven en el Historial de cambios y en el
+  // modal de edición (donde se pueden reactivar).
+  const activeRows = rows.filter((r) => r.active)
+
+  return (
+    <>
+      <div style={section}>
+        <div style={sectionHead}>
+          <span style={sectionLabel}>Medicación</span>
+          {enrollmentId && (
+            <button onClick={() => setHistory(true)} style={historialBtn}>
+              <Icon name="clock" size={13} color="var(--spira-muted)" /> Historial
+            </button>
+          )}
+        </div>
+
+        {medsQ.loading && rows.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '2px 0' }}>Cargando…</div>
+        ) : activeRows.length === 0 ? (
+          <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', lineHeight: 1.4, padding: '2px 0' }}>
+            {canManage
+              ? 'Sin medicación activa. Tocá "Editar medicación" para agregar la que este paciente va a recibir.'
+              : 'La farmacéutica todavía no habilitó ninguna.'}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {activeRows.map((r) => {
+              // Solo nombre + monodroga (principio activo) debajo. La dosis ya viene en el nombre.
+              const mono = r.medication?.drug?.name ?? null
+              return (
+                <div key={r.id} style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {r.medication?.name ?? 'Medicamento'}
+                  </div>
+                  {mono && (
+                    <div style={{ fontSize: 11.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {mono}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {canManage && (
+          <button
+            onClick={() => setEditing(true)}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.background = 'var(--spira-white)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--spira-line-2)'; e.currentTarget.style.background = 'var(--spira-surface)' }}
+            style={{ width: '100%', height: 40, marginTop: 12, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-surface)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)', display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px', transition: 'border-color .14s, background .14s' }}
+          >
+            <Icon name="pencil" size={16} color={accent} />
+            <span style={{ flex: 1, textAlign: 'left' }}>Editar medicación</span>
+            <Icon name="chevronRight" size={15} color="var(--spira-faint)" />
+          </button>
+        )}
+      </div>
+
+      {editing && canManage && (
+        <EditMedicationModal
+          enrollmentId={enrollmentId}
+          protocolId={protocolId}
+          accent={accent}
+          accentSolid={accentSolid}
+          rows={rows}
+          onChanged={() => medsQ.refetch()}
+          onHistory={() => setHistory(true)}
+          onClose={() => setEditing(false)}
+        />
+      )}
+
+      {/* Historial: se abre desde la sección (lo ven todos) o desde el modal de edición. Puede
+          quedar montado sobre el de edición; cerrarlo vuelve a lo de abajo. */}
+      {history && (
+        <HistorialMedicacionModal enrollmentId={enrollmentId} onClose={() => setHistory(false)} />
+      )}
+    </>
+  )
+}
+
+/**
+ * Modal de gestión de la medicación del paciente (solo Pharma). Agrega desde el catálogo GLOBAL
+ * (`useMedications`, 0051) —no solo lo recibido en este protocolo— con la cantidad de este protocolo
+ * como dato informativo. Si el medicamento nunca se recibió acá, `assignPatientMedication` devuelve
+ * `needsConfirmation` en vez de fallar: la fila del buscador se reemplaza por un aviso ("Atención")
+ * que, al confirmar, reintenta con `confirmNewToProtocol: true`. Activar/desactivar es soft-delete.
+ * Se monta solo al abrir, así Track (y Pharma antes de "Editar") no cargan el catálogo.
+ */
+function EditMedicationModal({
+  enrollmentId, protocolId, accent, accentSolid, rows, onChanged, onHistory, onClose,
+}: {
+  enrollmentId: string | null
+  protocolId: string
+  accent: string
+  accentSolid: string
+  rows: PatientMedicationRow[]
+  onChanged: () => void
+  onHistory: () => void
+  onClose: () => void
+}) {
   const catalogQ = useMedications()
-  const stockQ = useStock(canManage ? protocolId : null)
+  const stockQ = useStock(protocolId)
   const [adding, setAdding] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [pick, setPick] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
-  const rows = medsQ.data ?? []
   const assignedIds = new Set(rows.map((r) => r.medication_id))
   const stockByMed = new Map((stockQ.data ?? []).map((s) => [s.medication_id, s.total_stock]))
-  // Ofrecer todo el catálogo global salvo lo que el paciente ya tiene; la cantidad de este
-  // protocolo va en la etiqueta como dato, nunca como filtro (puede ser "sin stock" y elegirse igual).
+  // Todo el catálogo global salvo lo ya asignado; la cantidad de este protocolo va en la etiqueta
+  // como dato, nunca como filtro (puede ser "sin stock" y elegirse igual).
   const options: SelectOption[] = (catalogQ.data ?? [])
     .filter((m) => !assignedIds.has(m.id))
     .map((m) => {
@@ -79,7 +201,7 @@ export function PatientMedicationsCard({
     setBusy(false)
     if (res.error) { setErr(res.error); return }
     if (res.needsConfirmation) { setConfirming(true); return }
-    setPick(''); setAdding(false); medsQ.refetch()
+    setPick(''); setAdding(false); onChanged()
   }
 
   async function confirmAdd() {
@@ -88,7 +210,7 @@ export function PatientMedicationsCard({
     const res = await assignPatientMedication(enrollmentId, pick, null, true)
     setBusy(false)
     if (res.error) { setErr(res.error); return }
-    setPick(''); setAdding(false); setConfirming(false); medsQ.refetch()
+    setPick(''); setAdding(false); setConfirming(false); onChanged()
   }
 
   function backFromConfirm() {
@@ -101,27 +223,29 @@ export function PatientMedicationsCard({
     setErr(null)
     const res = await setPatientMedicationActive(id, !active)
     if (res.error) { setErr(res.error); return }
-    medsQ.refetch()
+    onChanged()
   }
 
   return (
-    <div style={card}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+    <Modal title="Editar medicación" onClose={onClose} maxWidth={520}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <Icon name="pill" size={17} color={accent} />
-        <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 16 }}>Medicación asignada</span>
-        {canManage && !adding && (
-          <button
-            onClick={() => { setAdding(true); setErr(null); setConfirming(false) }}
-            style={{ marginLeft: 'auto', height: 32, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 11px' }}
-          >
-            <Icon name="plus" size={14} color={accent} /> Agregar
+        <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15 }}>Medicación asignada</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button onClick={onHistory} style={modalHeaderBtn}>
+            <Icon name="clock" size={14} color={accent} /> Historial
           </button>
-        )}
+          {!adding && (
+            <button onClick={() => { setAdding(true); setErr(null); setConfirming(false) }} style={modalHeaderBtn}>
+              <Icon name="plus" size={14} color={accent} /> Agregar
+            </button>
+          )}
+        </div>
       </div>
 
-      {adding && canManage && (
+      {adding && (
         confirming ? (
-          <div style={{ display: 'flex', gap: 10, padding: '13px 14px', borderRadius: 11, background: WARN_BG, border: `1px solid ${WARN_BORDER}`, marginBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 10, padding: '13px 14px', borderRadius: 11, background: WARN_BG, border: `1px solid ${WARN_BORDER}`, marginBottom: 14 }}>
             <Icon name="alertCircle" size={18} color="var(--spira-warn)" style={{ flex: '0 0 auto', marginTop: 1 }} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--spira-ink)' }}>
@@ -139,7 +263,7 @@ export function PatientMedicationsCard({
             </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <SearchableSelect
                 value={pick}
@@ -159,20 +283,18 @@ export function PatientMedicationsCard({
       )}
 
       {err && (
-        <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: DANGER_TINT, borderRadius: 8, padding: '9px 12px', marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: DANGER_TINT, borderRadius: 8, padding: '9px 12px', marginBottom: 14 }}>
           {err}
         </div>
       )}
 
-      {medsQ.loading && rows.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '8px 0' }}>Cargando…</div>
-      ) : rows.length === 0 && !adding ? (
+      {rows.length === 0 && !adding ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 2px' }}>
           <Icon name="pill" size={22} color="var(--spira-faint)" style={{ flex: '0 0 auto' }} />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)' }}>Sin medicación asignada</div>
             <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 1 }}>
-              {canManage ? 'Agregá la medicación que este paciente va a recibir.' : 'La farmacéutica todavía no habilitó ninguna.'}
+              Agregá la medicación que este paciente va a recibir.
             </div>
           </div>
         </div>
@@ -192,27 +314,17 @@ export function PatientMedicationsCard({
                   {r.medication?.unit ? ` · ${r.medication.unit}` : ''}
                 </div>
               </div>
-              <span
-                style={{
-                  flex: '0 0 auto', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 'var(--spira-radius-pill)',
-                  color: r.active ? 'var(--spira-good)' : 'var(--spira-muted)',
-                  background: r.active ? GOOD_TINT : 'var(--spira-surface)',
-                }}
+              <span style={activePill(r.active)}>{r.active ? 'Activa' : 'Inactiva'}</span>
+              <button
+                onClick={() => toggle(r.id, r.active)}
+                style={{ flex: '0 0 auto', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)', padding: '4px 6px' }}
               >
-                {r.active ? 'Activa' : 'Inactiva'}
-              </span>
-              {canManage && (
-                <button
-                  onClick={() => toggle(r.id, r.active)}
-                  style={{ flex: '0 0 auto', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)', padding: '4px 6px' }}
-                >
-                  {r.active ? 'Desactivar' : 'Reactivar'}
-                </button>
-              )}
+                {r.active ? 'Desactivar' : 'Reactivar'}
+              </button>
             </div>
           ))}
         </div>
       )}
-    </div>
+    </Modal>
   )
 }
