@@ -329,11 +329,19 @@ export async function createDispensationRequest(
   visitId: string,
   items: RequestItemInput[],
   notes: string | null,
+  /**
+   * Desde qué pantalla se originó (0060). Lo declara el llamador porque el servidor NO puede
+   * deducirlo: la misma persona con los mismos roles hace idéntica llamada desde el panel de la
+   * visita en Track o desde el alta manual en Pharma. La base igual valida que quien lo declara
+   * pueda operar en ese módulo, así que declarar no alcanza para falsearlo.
+   */
+  origen: 'track' | 'pharma' = 'track',
 ): Promise<{ error: string | null; code?: string; id?: string }> {
   const { data, error } = await supabase.rpc('create_dispensation_request', {
     p_visit_id: visitId,
     p_items: items,
     p_notes: notes,
+    p_origen: origen,
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null, id: data as string }

@@ -114,7 +114,9 @@ export function PanelNuevaDispensacion({ onClose, onCreated }: {
   const crear = async () => {
     if (bloqueo || busy) return
     setBusy(true); setErr(null)
-    const res = await createDispensationRequest(visitId, items, null)
+    // 'pharma': esta pantalla ES el alta manual del mostrador. La base valida que quien lo declara
+    // pueda operar en Pharma, así que el dato no es una promesa vacía.
+    const res = await createDispensationRequest(visitId, items, null, 'pharma')
     setBusy(false)
     if (res.error) { setErr(res.error); return }
     if (res.id) onCreated(res.id)
