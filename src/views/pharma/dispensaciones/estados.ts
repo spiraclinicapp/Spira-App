@@ -61,7 +61,10 @@ export const STATUS_META: Record<
   RequestStatus,
   { label: string; color: string; tint: string }
 > = {
-  solicitada: { label: 'Solicitada', color: 'var(--spira-muted)', tint: 'var(--spira-surface)' },
+  // Ámbar cálido (--spira-warn #B0823F), no gris: "Solicitada" es lo que está pendiente y más
+  // necesita verse; con el gris muted quedaba enterrada entre canceladas y entregadas. Lee como
+  // "esperando" sin alarmar (el rojo es para rechazo). WCAG ok: el badge lleva texto además del color.
+  solicitada: { label: 'Solicitada', color: 'var(--spira-warn)', tint: 'rgba(176, 130, 63, 0.15)' },
   preparando: { label: 'Preparando', color: COLUMN_META.preparando.color, tint: COLUMN_META.preparando.tint },
   atendida: { label: 'Entregada', color: 'var(--spira-good)', tint: 'rgba(92, 138, 90, 0.14)' },
   rechazada: { label: 'Rechazada', color: 'var(--spira-danger)', tint: DANGER_TINT },

@@ -9,7 +9,9 @@ import {
   useVisitDispensations,
   createDispensationRequest,
   cancelDispensationRequest,
+  columnOf,
 } from '../../data/pharma'
+import type { DispensationRequestRow } from '../../data/pharma'
 import { badgeOf } from './dispensaciones/estados'
 
 // Tintes con rgba() literal (no se puede concatenar alfa a un var(--x)). --spira-danger #A6483B,
@@ -46,12 +48,25 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const [items, setItems] = useState<PendingItem[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // Cerradas (entregadas/canceladas/rechazadas): se muestran las 2 más recientes y el resto queda
+  // tras "ver más". En un paciente de meses el historial es un chorizo y entierra lo accionable.
+  const [showAllClosed, setShowAllClosed] = useState(false)
 
   if (!visit.dispenses) {
     return <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', padding: '4px 0' }}>Esta visita no entrega medicación.</div>
   }
 
   const requests = reqQ.data ?? []
+  // Abiertas = todavía accionables (solicitada / preparando / lista para retirar); van siempre
+  // arriba. Cerradas = entregada / cancelada / rechazada; se pliegan a las 2 más recientes.
+  // `columnOf` devuelve null para cancelada/rechazada y 'entregada' para las ya retiradas.
+  const openReqs = requests.filter((r) => {
+    const col = columnOf(r)
+    return col === 'solicitada' || col === 'preparando' || col === 'lista'
+  })
+  const closedReqs = requests.filter((r) => !openReqs.includes(r))
+  const visibleClosed = showAllClosed ? closedReqs : closedReqs.slice(0, 2)
+  const hiddenClosed = closedReqs.length - visibleClosed.length
   const activeMeds = (medsQ.data ?? []).filter((m) => m.active)
   const pendingIds = new Set(items.map((i) => i.medication_id))
   // Ofrecer solo la medicación habilitada activa que todavía no esté en la lista de esta solicitud.
@@ -87,47 +102,67 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     reqQ.refetch()
   }
 
+  function renderCard(r: DispensationRequestRow) {
+    const meta = badgeOf(r)
+    const disp = r.dispensations?.[0] ?? null
+    return (
+      <div key={r.id} style={{ border: '1px solid var(--spira-line)', borderRadius: 11, background: 'var(--spira-white)', padding: '11px 13px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>{formatAR(r.created_at.slice(0, 10))}</span>
+          <span style={{ marginLeft: 'auto', flex: '0 0 auto', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 'var(--spira-radius-pill)', color: meta.color, background: meta.tint }}>
+            {meta.label}
+          </span>
+        </div>
+        {r.items.map((it) => (
+          <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, padding: '2px 0' }}>
+            <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.medication?.name ?? 'Medicamento'}</span>
+            <span className="spira-mono" style={{ color: 'var(--spira-muted)', flex: '0 0 auto' }}>x{it.quantity}</span>
+          </div>
+        ))}
+        {r.status === 'rechazada' && r.rejection_reason && (
+          <div style={{ ...muted, marginTop: 6 }}>Motivo: {r.rejection_reason}</div>
+        )}
+        {disp && (
+          <div style={{ ...muted, marginTop: 6 }}>Comprobante N° <span className="spira-mono">{disp.correlative_number}</span></div>
+        )}
+        {r.status === 'solicitada' && !readOnly && (
+          <button
+            type="button" onClick={() => cancel(r.id)}
+            style={{ marginTop: 10, height: 32, padding: '0 12px', borderRadius: 9, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-muted)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5 }}
+          >
+            Cancelar solicitud
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div>
       {err && <div style={errBox}>{err}</div>}
 
-      {/* solicitudes existentes (más nuevas primero) */}
+      {/* solicitudes existentes (más nuevas primero): abiertas arriba, cerradas plegadas debajo */}
       {requests.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: !readOnly ? 12 : 0 }}>
-          {requests.map((r) => {
-            const meta = badgeOf(r)
-            const disp = r.dispensations?.[0] ?? null
-            return (
-              <div key={r.id} style={{ border: '1px solid var(--spira-line)', borderRadius: 11, background: 'var(--spira-white)', padding: '11px 13px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>{formatAR(r.created_at.slice(0, 10))}</span>
-                  <span style={{ marginLeft: 'auto', flex: '0 0 auto', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 'var(--spira-radius-pill)', color: meta.color, background: meta.tint }}>
-                    {meta.label}
-                  </span>
-                </div>
-                {r.items.map((it) => (
-                  <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, padding: '2px 0' }}>
-                    <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.medication?.name ?? 'Medicamento'}</span>
-                    <span className="spira-mono" style={{ color: 'var(--spira-muted)', flex: '0 0 auto' }}>x{it.quantity}</span>
-                  </div>
-                ))}
-                {r.status === 'rechazada' && r.rejection_reason && (
-                  <div style={{ ...muted, marginTop: 6 }}>Motivo: {r.rejection_reason}</div>
-                )}
-                {disp && (
-                  <div style={{ ...muted, marginTop: 6 }}>Comprobante N° <span className="spira-mono">{disp.correlative_number}</span></div>
-                )}
-                {r.status === 'solicitada' && !readOnly && (
-                  <button
-                    type="button" onClick={() => cancel(r.id)}
-                    style={{ marginTop: 10, height: 32, padding: '0 12px', borderRadius: 9, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-muted)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5 }}
-                  >
-                    Cancelar solicitud
-                  </button>
-                )}
-              </div>
-            )
-          })}
+          {openReqs.map(renderCard)}
+
+          {closedReqs.length > 0 && (
+            <>
+              {/* Separador solo cuando hay algo abierto arriba que distinguir del historial. */}
+              {openReqs.length > 0 && (
+                <div className="spira-eyebrow" style={{ marginTop: 2 }}>Historial</div>
+              )}
+              {visibleClosed.map(renderCard)}
+              {(hiddenClosed > 0 || showAllClosed) && closedReqs.length > 2 && (
+                <button
+                  type="button" onClick={() => setShowAllClosed((v) => !v)}
+                  style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '2px 0', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-muted)' }}
+                >
+                  {showAllClosed ? 'Ver menos' : `Ver ${hiddenClosed} más`}
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
 

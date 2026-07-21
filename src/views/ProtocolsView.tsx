@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
@@ -99,7 +99,7 @@ function highlight(text: string, q: string, accent: string): ReactNode {
   return out
 }
 
-export function ProtocolsView({ module, submodule, onNavigate, setHeader }: ViewProps) {
+export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTarget, onTargetConsumed }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
   const { hasMinRole, modules, profile } = useAuth()
@@ -110,6 +110,24 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState<null | 'protocol' | 'patient'>(null)
   const [editingProtocol, setEditingProtocol] = useState(false)
+
+  /* Objetivo del buscador global: abrir la ficha de un paciente directo. La ficha necesita el
+     protocolo de contexto; como un paciente puede estar en varios, se toma su enrolamiento
+     primario (primero con protocolo visible), igual que "Todos los pacientes". Esperamos a que
+     carguen los pacientes (si no, no lo encontraríamos) y consumimos el objetivo una sola vez
+     —haya o no ficha que abrir— para que un refetch no lo reabra solo. */
+  useEffect(() => {
+    if (!navTarget?.patientId) return
+    if (patients.loading) return
+    const pt = (patients.data ?? []).find((p) => p.id === navTarget.patientId)
+    const protocolId = pt?.enrollments.find((e) => e.protocol != null)?.protocol?.id ?? null
+    if (pt && protocolId) setNav({ mode: 'patient', protocolId, patientId: pt.id })
+    // Paciente sin protocolo visible: la ficha necesita protocolo de contexto, así que no se
+    // puede abrir. Al menos lo dejamos en "Todos los pacientes" (donde sí figura), no en la
+    // grilla de protocolos, que sería desconcertante tras buscar un paciente.
+    else if (pt) setNav({ mode: 'all' })
+    onTargetConsumed?.()
+  }, [navTarget, patients.loading, patients.data, onTargetConsumed])
 
   /* Crear protocolos/pacientes solo desde Track (la RLS lo permite a track leader/operator).
      En Pharma estos botones no aparecen porque el usuario pharma no tiene roles de track. */
@@ -299,7 +317,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader }: View
     return (
       <button
         key={pt.id}
-        onClick={() => { if (target) setNav({ mode: 'protocol', protocolId: target.id }) }}
+        onClick={() => { if (target) setNav({ mode: 'patient', protocolId: target.id, patientId: pt.id }) }}
         style={{
           display: 'grid', gridTemplateColumns: RES_COLS, gap: 16, alignItems: 'center', width: '100%', textAlign: 'left',
           padding: '12px 16px', border: 'none', borderBottom: last ? 'none' : '1px solid var(--spira-line)',

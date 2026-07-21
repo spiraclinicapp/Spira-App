@@ -6,7 +6,7 @@ import { useTheme } from '../lib/theme'
 import { useAuth } from '../lib/auth'
 import { MODULES } from '../modules/registry'
 import { resolveView } from '../views/registry'
-import type { ViewHeader, ViewHeaderCrumb } from '../views/types'
+import type { NavTarget, ViewHeader, ViewHeaderCrumb } from '../views/types'
 import { CommandPalette } from './CommandPalette'
 import { UserMenu } from './UserMenu'
 import { NotificationsMenu } from './NotificationsMenu'
@@ -78,6 +78,10 @@ export function AppShell() {
   const { modules: userModules } = useAuth()
   const [moduleKey, setModuleKey] = useState('inicio')
   const [subKey, setSubKey] = useState('resumen')
+  /* Entidad concreta a abrir en la vista destino (ej. la ficha de un paciente desde el
+     buscador global). La pone `navigate(..., target)`; la vista la consume y avisa para
+     limpiarla (onTargetConsumed) así no se reabre sola en refetchs. */
+  const [navTarget, setNavTarget] = useState<NavTarget | null>(null)
   /* Encabezado contextual que registra la vista activa (breadcrumb + acciones). */
   const [viewHeader, setViewHeader] = useState<ViewHeader | null>(null)
   /* Buscador global (command palette). Se monta lazy: sus hooks de datos (con PII)
@@ -120,15 +124,19 @@ export function AppShell() {
     const m = MODULES.find((x) => x.key === key)
     if (!m || !isAllowed(m.key)) return
     setSettingsSection(null) // navegar cierra Ajustes (era un overlay encima)
+    setNavTarget(null) // navegación manual: sin objetivo pendiente
     setModuleKey(key)
     setSubKey(m.submodules[0].key)
   }
 
-  /* Navegación programática desde una vista (ej. "Ver agenda del protocolo" → track/agenda). */
-  const navigate = (mKey: string, sKey: string) => {
+  /* Navegación programática desde una vista o el buscador (ej. "Ver agenda del protocolo"
+     → track/agenda; o un resultado de paciente → track/protocolos + ficha). `target` abre
+     una entidad concreta al llegar. */
+  const navigate = (mKey: string, sKey: string, target?: NavTarget) => {
     const m = MODULES.find((x) => x.key === mKey)
     if (!m || !isAllowed(m.key) || !m.submodules.some((s) => s.key === sKey)) return
     setSettingsSection(null) // navegar cierra Ajustes
+    setNavTarget(target ?? null)
     setModuleKey(mKey)
     setSubKey(sKey)
   }
@@ -315,7 +323,7 @@ export function AppShell() {
                 return (
                   <button
                     key={s.key}
-                    onClick={() => { setSubKey(s.key); setSettingsSection(null) }}
+                    onClick={() => { setSubKey(s.key); setSettingsSection(null); setNavTarget(null) }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 12px',
                       border: 'none', borderRadius: 9, cursor: 'pointer',
@@ -375,7 +383,16 @@ export function AppShell() {
           <div style={{ flex: 1, overflow: 'auto', padding: '16px 26px 0' }}>
             {(() => {
               const View = resolveView(moduleKey, sub.key)
-              return <View module={mod} submodule={sub} onNavigate={navigate} setHeader={setViewHeader} />
+              return (
+                <View
+                  module={mod}
+                  submodule={sub}
+                  onNavigate={navigate}
+                  setHeader={setViewHeader}
+                  navTarget={navTarget}
+                  onTargetConsumed={() => setNavTarget(null)}
+                />
+              )
             })()}
           </div>
         </main>

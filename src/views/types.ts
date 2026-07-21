@@ -37,16 +37,30 @@ export interface ViewHeader {
 }
 
 /**
+ * Objetivo de navegación: entidad concreta a abrir al llegar a la vista destino, no solo
+ * el módulo/submódulo. Hoy solo paciente (buscador global → ficha directa); extensible a
+ * protocolo, visita, etc. La vista lo consume una vez (ver `navTarget`/`onTargetConsumed`).
+ */
+export interface NavTarget {
+  patientId: string
+}
+
+/**
  * Props que recibe toda vista de contenido. Da el módulo activo (acento, nombre,
  * ícono) y el submódulo. La auth/roles se acceden vía useAuth() dentro de la vista.
  */
 export interface ViewProps {
   module: ModuleDef
   submodule: SubModule
-  /** Navegar a otro módulo/submódulo (lo provee el shell). Opcional: no todas las vistas navegan. */
-  onNavigate?: (moduleKey: string, subKey: string) => void
+  /** Navegar a otro módulo/submódulo (lo provee el shell). El 3er arg abre una entidad
+   *  concreta al llegar (ej. la ficha de un paciente). Opcional: no todas las vistas navegan. */
+  onNavigate?: (moduleKey: string, subKey: string, target?: NavTarget) => void
   /** Registrar/limpiar el encabezado contextual del shell. Opcional. */
   setHeader?: (header: ViewHeader | null) => void
+  /** Entidad a abrir al montar/actualizar (la puso un `onNavigate` con objetivo). null = ninguna. */
+  navTarget?: NavTarget | null
+  /** La vista avisa que ya consumió `navTarget` (el shell lo limpia para no reabrirlo). */
+  onTargetConsumed?: () => void
 }
 
 export type ViewComponent = (props: ViewProps) => ReactElement

@@ -10,6 +10,7 @@ import { useUpcomingVisits } from '../../data/visits'
 import type { TrackVisitRow } from '../../data/visits'
 import { useMedications } from '../../data/pharma/medications'
 import type { MedicationRow } from '../../data/pharma/medications'
+import type { NavTarget } from '../../views/types'
 
 /* ============================================================================
    Índice del buscador global (command palette Ctrl/⌘ K).
@@ -39,6 +40,8 @@ export interface SearchItem {
   /** Módulo/submódulo destino de la navegación. */
   mod: string
   sub: string
+  /** Entidad concreta a abrir al llegar (ej. la ficha del paciente). Ausente = solo la vista. */
+  target?: NavTarget
 }
 
 export const TYPE_LABEL: Record<SearchType, string> = {
@@ -100,7 +103,8 @@ export function buildSearchIndex(sources: SearchSources, isAllowed: Allowed): Se
         // `code` (Nº de sujeto IVRS) es nullable pre-randomización: sin code, solo el nombre.
         title: pt.code ? `${pt.code} · ${pt.full_name}` : pt.full_name,
         crumb: proto ? `Pacientes · ${proto}` : 'Pacientes',
-        mod: pdest.mod, sub: pdest.sub,
+        // Objetivo: la vista de protocolos abre la ficha directo (deriva el protocolo primario).
+        mod: pdest.mod, sub: pdest.sub, target: { patientId: pt.id },
       })
     }
   }
