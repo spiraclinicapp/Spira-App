@@ -275,7 +275,16 @@ end $$;`
 select 'personas'         as k, count(*) from public.patients where full_name in (${nombres})
 union all select 'enrollments', count(*) from public.enrollments en join public.protocols p on p.id = en.protocol_id where p.code in (${inList})
 union all select 'defs',        count(*) from public.visit_definitions vd join public.protocols p on p.id = vd.protocol_id where p.code in (${inList})
-union all select 'visitas con real', count(*) from public.patient_visits pv join public.enrollments en on en.id = pv.enrollment_id join public.protocols p on p.id = en.protocol_id where p.code in (${inList}) and pv.real_date is not null;`
+union all select 'visitas con real', count(*) from public.patient_visits pv join public.enrollments en on en.id = pv.enrollment_id join public.protocols p on p.id = en.protocol_id where p.code in (${inList}) and pv.real_date is not null;
+
+-- Desglose de "visitas con real" POR PROTOCOLO (para localizar faltantes). Esperado:
+-- EFC18419=87, ACT18301=110, EFC18244=63, LTS17231=2.
+select p.code, count(*) filter (where pv.real_date is not null) as con_real, count(*) as total_visitas
+from public.patient_visits pv
+  join public.enrollments en on en.id = pv.enrollment_id
+  join public.protocols p on p.id = en.protocol_id
+where p.code in (${inList})
+group by p.code order by p.code;`
   const sql = [
     '-- ============================================================================',
     '-- CARGA DE VISITAS HISTÓRICAS — GENERADO por generar.mjs. NO editar a mano.',
