@@ -113,7 +113,7 @@ export function VisitProceduresModal({
     if (!p || assignedIds.has(id)) return
     setItems((cur) => [...(cur ?? []), p])
   }
-  const remove = (id: string) => setItems((cur) => (cur ?? []).filter((p) => p.id !== id))
+  const remove = (id: string) => { setItems((cur) => (cur ?? []).filter((p) => p.id !== id)); setEditing((e) => (e === id ? null : e)) }
   const move = (index: number, dir: -1 | 1) =>
     setItems((cur) => {
       const next = [...(cur ?? [])]
@@ -208,9 +208,11 @@ export function VisitProceduresModal({
                         {p.has_report ? `Genera reporte · ETA ${p.report_eta_hours != null ? reportEtaLabel(p.report_eta_hours) : '—'}` : (p.category ?? 'Sin reporte')}
                       </span>
                     </span>
-                    <button type="button" onClick={() => setEditing(editing === p.id ? null : p.id)} aria-label={`Reporte de ${p.name}`} title="Reporte" style={iconBtn}>
-                      <Icon name="printer" size={14} color={p.has_report ? accent : 'var(--spira-muted)'} />
-                    </button>
+                    {canManageCatalog && (
+                      <button type="button" onClick={() => setEditing(editing === p.id ? null : p.id)} aria-label={`Reporte de ${p.name}`} title="Reporte" style={iconBtn}>
+                        <Icon name="printer" size={14} color={p.has_report ? accent : 'var(--spira-muted)'} />
+                      </button>
+                    )}
                     <button type="button" onClick={() => remove(p.id)} aria-label={`Quitar ${p.name}`} title="Quitar" style={iconBtn}>
                       <Icon name="x" size={14} color="var(--spira-muted)" />
                     </button>
