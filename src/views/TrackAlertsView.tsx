@@ -189,8 +189,8 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
             })}
             {filteredProc.map((r) => {
               const c = 'var(--spira-primary)'
-              // Mismo razonamiento de zona horaria que filteredReports: report_due_at cae a
-              // medianoche AR = 03:00 UTC del mismo día calendario → slice(0, 10) ya es la fecha AR.
+              // report_due_at = completed_at + ETA (hora arbitraria); la antigüedad en días es
+              // aproximada (±1 día cerca de medianoche UTC).
               const days = daysDiffISO(r.report_due_at.slice(0, 10), todayISO())
               return (
                 <div key={r.completion_id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>

@@ -219,11 +219,14 @@ begin
   where pv.real_date is not null
   on conflict (visit_id, procedure_id) do nothing;
 
+  -- Reportes listos: se marcan para TODOS los procedimientos de las visitas ya realizadas (no solo
+  -- los que hoy tienen has_report). Motivo: has_report se lee EN VIVO del catálogo, así que si mañana
+  -- se marca un procedimiento como "genera reporte", las visitas históricas ya tienen su reporte listo
+  -- y no caen en item_vencido/alerta. Filas extra en procedimientos sin reporte = inertes (nunca se consultan).
   insert into public.visit_procedure_reports_ready (visit_id, procedure_id, ready_by, ready_at)
   select pv.id, pa.procedure_id, v_by, (pv.real_date::timestamp at time zone 'America/Argentina/Buenos_Aires')
   from public.patient_visits pv
   join public.protocol_activities pa on pa.visit_def_id = pv.visit_def_id
-  join public.procedures p on p.id = pa.procedure_id
-  where pv.real_date is not null and p.has_report
+  where pv.real_date is not null
   on conflict (visit_id, procedure_id) do nothing;
 end $$;
