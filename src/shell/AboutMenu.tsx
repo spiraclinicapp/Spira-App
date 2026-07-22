@@ -22,8 +22,14 @@ interface AboutMenuProps {
   onFeedback: () => void
 }
 
+/** Cuántas novedades se muestran por defecto; el resto se pliega para que el
+    popover no crezca sin techo a medida que se acumulan releases. */
+const VISIBLE_NEWS = 5
+
 export function AboutMenu({ accent, onFeedback }: AboutMenuProps) {
   const [open, setOpen] = useState(false)
+  // Novedades viejas plegadas por defecto (ver VISIBLE_NEWS).
+  const [showAllNews, setShowAllNews] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
 
@@ -49,6 +55,9 @@ export function AboutMenu({ accent, onFeedback }: AboutMenuProps) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
+
+  // Al cerrar, volver a plegar las novedades viejas: reabrir arranca colapsado.
+  useEffect(() => { if (!open) setShowAllNews(false) }, [open])
 
   const V = SPIRA_VERSION
   // Canal pre-release (beta/alpha/rc) → etiqueta junto al wordmark. En 'estable' no
@@ -90,15 +99,27 @@ export function AboutMenu({ accent, onFeedback }: AboutMenuProps) {
             </button>
           </div>
 
-          {/* 2 · novedades */}
+          {/* 2 · novedades — por defecto solo las VISIBLE_NEWS más recientes;
+               las viejas se pliegan tras un botón para no estirar el popover. */}
           <div style={{ padding: '12px 18px' }}>
             <div className="spira-eyebrow" style={{ marginBottom: 8 }}>Novedades</div>
-            {V.changelog.map((c, i) => (
+            {(showAllNews ? V.changelog : V.changelog.slice(0, VISIBLE_NEWS)).map((c, i) => (
               <div key={i} style={{ display: 'flex', gap: 9, padding: '5px 0', alignItems: 'flex-start' }}>
                 <span className="spira-mono" style={verBadge}>{c.version}</span>
                 <span style={{ fontSize: 12.5, color: 'var(--spira-ink)', lineHeight: 1.35 }}>{c.text}</span>
               </div>
             ))}
+            {V.changelog.length > VISIBLE_NEWS && (
+              <button
+                type="button"
+                onClick={() => setShowAllNews((v) => !v)}
+                aria-expanded={showAllNews}
+                style={moreNewsBtn(accent)}
+              >
+                {showAllNews ? 'Ver menos' : `Ver ${V.changelog.length - VISIBLE_NEWS} más antiguas`}
+                <Icon name={showAllNews ? 'chevronUp' : 'chevronDown'} size={14} color={accent} />
+              </button>
+            )}
           </div>
 
           {/* 3 · pie — dar feedback */}
@@ -144,6 +165,15 @@ const verBadge: CSSProperties = {
   flex: '0 0 auto', fontSize: 10.5, fontWeight: 500, color: 'var(--spira-muted)',
   background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', borderRadius: 6,
   padding: '1px 6px', whiteSpace: 'nowrap',
+}
+/** Botón de plegado de novedades: texto discreto tintado con el acento, al borde
+    izquierdo del listado (alineado con los badges de versión). */
+function moreNewsBtn(accent: string): CSSProperties {
+  return {
+    display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, padding: '4px 0',
+    border: 'none', background: 'transparent', cursor: 'pointer',
+    fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12, color: accent,
+  }
 }
 const feedbackBtn: CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', height: 38,
