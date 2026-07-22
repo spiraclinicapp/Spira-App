@@ -10,7 +10,7 @@ import { usePatient } from '../../data/patients'
 import { visitTitle, ageFromBirth, SEX_LABELS, FERTILITY_LABELS, desvioDias, fueraDeVentana } from '../../lib/visits'
 import { formatAR } from '../../lib/dates'
 import { OPERATIONAL_STAGES, STAGE_ORDER } from '../visitStates'
-import { VisitChecklist } from './VisitChecklist'
+import { VisitProcedures } from './VisitProcedures'
 import { DoctorBadge } from './DoctorBadge'
 import { CommentThread } from './CommentThread'
 import { VisitDispensationPanel } from '../pharma/VisitDispensationPanel'
@@ -163,10 +163,10 @@ export function VisitDetail({ visitId, accent, context, onClose, canReception = 
               style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: 'var(--spira-ink)' }}
             >
               <Icon name="clipboardCheck" size={16} color={accent} />
-              <span style={{ flex: 1 }}>Checklist clínico</span>
+              <span style={{ flex: 1 }}>Procedimientos de la visita</span>
               <Icon name={showChecklist ? 'chevronUp' : 'chevronDown'} size={16} color="var(--spira-muted)" />
             </button>
-            {showChecklist && <div style={{ marginTop: 12 }}><VisitChecklist visitId={visit.id} accent={accent} realDate={visit.real_date} /></div>}
+            {showChecklist && <div style={{ marginTop: 12 }}><VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} /></div>}
           </div>
         </>
       )}
