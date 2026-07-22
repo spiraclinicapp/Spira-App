@@ -30,3 +30,14 @@ export const NOTAS_VISITA = {
 export const ENROLLMENT_STATUS = {
   'THESEUS|032000740008': 'inactivo',
 }
+
+// Mapeo del "protocolo" del Excel al code REAL de protocols en Spira. El Excel mezcla código y
+// nombre; en prod el code es el código de estudio y el name el nombre comercial:
+//   ACT18301 (name AIRLYMPUS), EFC18244 (name THESEUS), EFC18419 (name CEREN-2).
+// Un protocolo del Excel SIN entrada acá se OMITE de la carga (LTS 17231 no existe aún en prod).
+export const MAPEO_CODIGO_PROTOCOLO = {
+  'ACT18301': 'ACT18301',
+  'THESEUS': 'EFC18244',
+  'CEREN-2': 'EFC18419',
+  // 'LTS 17231': '<code>',  // ← descomentar cuando se cree el protocolo LTS en prod
+}

@@ -9,7 +9,10 @@ import fs from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { readSheets } from './parse-xlsx.mjs'
 import { clasificarVisitaExcel, PROTOCOLOS } from './mapeo.mjs'
-import { CORRECCIONES_FECHA_REAL, CORRECCIONES_ANCLA, NOTAS_VISITA, ENROLLMENT_STATUS } from './correcciones.mjs'
+import { CORRECCIONES_FECHA_REAL, CORRECCIONES_ANCLA, NOTAS_VISITA, ENROLLMENT_STATUS, MAPEO_CODIGO_PROTOCOLO } from './correcciones.mjs'
+
+// Excel "protocolo" -> code real de protocols en Spira. undefined = sin mapear (se omite de la carga).
+const codProd = (proto) => MAPEO_CODIGO_PROTOCOLO[proto]
 
 const isISO = (v) => /^\d{4}-\d{2}-\d{2}/.test(v)
 // Parser tolerante: ISO (YYYY-MM-DD) o DD/MM/AAAA con espacios (las V1 de LTS vienen así).
@@ -105,12 +108,14 @@ export function extraer(path) {
 export function sqlDefiniciones() {
   const out = ['-- 1) visit_definitions (cronograma) por protocolo. Idempotente. --']
   for (const [proto, cfg] of Object.entries(PROTOCOLOS)) {
+    const cp = codProd(proto)
+    if (!cp) { out.push(`-- (protocolo "${proto}" sin mapear a un code de prod → se omite)`); continue }
     cfg.visitas.forEach((v, i) => {
       out.push(
 `insert into public.visit_definitions (protocol_id, code, name, visit_type, date_mode, offset_days, window_minus, window_plus, sort_order, role)
 select p.id, ${q(v.code)}, ${q(v.code)}, 'presencial', 'automatica', ${v.offsetDays}, ${v.winMinus}, ${v.winPlus}, ${i}, ${q(v.role)}
 from public.protocols p
-where p.code = ${q(proto)}
+where p.code = ${q(cp)}
   and not exists (select 1 from public.visit_definitions vd where vd.protocol_id = p.id and vd.code = ${q(v.code)});`)
     })
   }
@@ -125,12 +130,14 @@ export function sqlPersonasYEnrollments(model) {
   out.push('', '-- 3) enrollments. enrolled_by = usuario más antiguo como "sistema" (cambialo por tu id si querés). --')
   const sysUser = '(select id from public.users order by created_at limit 1)'
   for (const e of model.enrollments) {
+    const cp = codProd(e.proto)
+    if (!cp) { out.push(`-- OMITIDO (protocolo "${e.proto}" sin mapear en prod): IVRS ${e.ivrs}`); continue }
     if (e.anclaFecha) {
       out.push(
 `insert into public.enrollments (patient_id, protocol_id, enrolled_by, enrollment_date, randomization_date, ivrs_code, status)
 select pa.id, pr.id, ${sysUser}, ${q(e.anclaFecha)}, ${q(e.anclaFecha)}, ${q(e.ivrs)}, ${q(e.status)}
 from public.patients pa, public.protocols pr
-where pa.code = ${q(e.ivrsMadre)} and pr.code = ${q(e.proto)}
+where pa.code = ${q(e.ivrsMadre)} and pr.code = ${q(cp)}
 on conflict (patient_id, protocol_id) do update set randomization_date = excluded.randomization_date, ivrs_code = excluded.ivrs_code, status = excluded.status;`)
     } else if (e.primeraFecha) {
       out.push(`-- SIN RANDOMIZAR: ${e.proto} IVRS ${e.ivrs} (status ${e.status}) — sin cronograma generado; su(s) visita(s) real(es) se cargan sueltas abajo.`)
@@ -138,7 +145,7 @@ on conflict (patient_id, protocol_id) do update set randomization_date = exclude
 `insert into public.enrollments (patient_id, protocol_id, enrolled_by, enrollment_date, ivrs_code, status)
 select pa.id, pr.id, ${sysUser}, ${q(e.primeraFecha)}, ${q(e.ivrs)}, ${q(e.status)}
 from public.patients pa, public.protocols pr
-where pa.code = ${q(e.ivrsMadre)} and pr.code = ${q(e.proto)}
+where pa.code = ${q(e.ivrsMadre)} and pr.code = ${q(cp)}
 on conflict (patient_id, protocol_id) do update set ivrs_code = excluded.ivrs_code, status = excluded.status;`)
     } else {
       out.push(`-- DIFERIDO (no cargable): ${e.proto} IVRS ${e.ivrs} — sin ninguna fecha válida (ver informe). NO se enrola.`)
@@ -152,6 +159,7 @@ export function sqlBackfill(model) {
   const out = ['-- 4) backfill de real_date (mismo efecto que registerVisit; dispara materialize_checklist) --']
   let n = 0
   for (const e of model.enrollments) {
+    if (!codProd(e.proto)) continue
     for (const v of e.visitas) {
       if (!v.realExcel || !v.defCode) continue
       n++
@@ -172,7 +180,8 @@ export function sqlVisitasSueltas(model) {
   const out = []
   let n = 0
   for (const e of model.enrollments) {
-    if (e.anclaFecha || !e.primeraFecha) continue   // solo los enrolados sin randomizar
+    const cp = codProd(e.proto)
+    if (!cp || e.anclaFecha || !e.primeraFecha) continue   // solo los enrolados sin randomizar y mapeados
     for (const v of e.visitas) {
       if (!v.realExcel || !v.defCode) continue
       n++
@@ -182,7 +191,7 @@ select en.id, vd.id, 'programada', ${q(v.realExcel)}, ${q(v.realExcel)}${v.nota 
 from public.enrollments en
   join public.protocols pr on pr.id = en.protocol_id
   join public.visit_definitions vd on vd.protocol_id = pr.id
-where en.ivrs_code = ${q(e.ivrs)} and pr.code = ${q(e.proto)} and vd.code = ${q(v.defCode)}
+where en.ivrs_code = ${q(e.ivrs)} and pr.code = ${q(cp)} and vd.code = ${q(v.defCode)}
   and not exists (select 1 from public.patient_visits pv where pv.enrollment_id = en.id and pv.visit_def_id = vd.id);`)
     }
   }
@@ -196,7 +205,7 @@ export function sqlNotas(model) {
   const out = []
   let n = 0
   for (const e of model.enrollments) {
-    if (!e.anclaFecha) continue
+    if (!e.anclaFecha || !codProd(e.proto)) continue
     for (const v of e.visitas) {
       if (!v.nota || !v.defCode) continue
       n++
@@ -250,20 +259,22 @@ export function informeDiscrepancias(model) {
 export function main(path, outDir) {
   const model = extraer(path)
   const nombres = [...model.personas.values()].map((p) => q(p.nombre)).join(', ')
+  const activos = [...new Set(Object.keys(PROTOCOLOS).map(codProd).filter(Boolean))]   // codes de prod que se cargan
+  const inList = activos.map(q).join(', ')
   const asserts =
-`-- Verificación (aborta si los 4 protocolos no existen con esos códigos) --
+`-- Verificación (aborta si algún protocolo mapeado no existe en prod) --
 do $$ declare faltan text;
 begin
-  select string_agg(c, ', ') into faltan from (values ('CEREN-2'),('ACT18301'),('THESEUS'),('LTS 17231')) as t(c)
+  select string_agg(c, ', ') into faltan from (values ${activos.map((c) => `(${q(c)})`).join(', ')}) as t(c)
     where not exists (select 1 from public.protocols p where p.code = t.c);
   if faltan is not null then raise exception 'Faltan protocolos con esos códigos: %', faltan; end if;
 end $$;`
   const control =
 `-- SELECTs de control (mirar antes de decidir commit) --
 select 'personas'         as k, count(*) from public.patients where full_name in (${nombres})
-union all select 'enrollments (4 protos)', count(*) from public.enrollments en join public.protocols p on p.id = en.protocol_id where p.code in ('CEREN-2','ACT18301','THESEUS','LTS 17231')
-union all select 'defs (4 protos)',        count(*) from public.visit_definitions vd join public.protocols p on p.id = vd.protocol_id where p.code in ('CEREN-2','ACT18301','THESEUS','LTS 17231')
-union all select 'visitas con real',       count(*) from public.patient_visits pv join public.enrollments en on en.id = pv.enrollment_id join public.protocols p on p.id = en.protocol_id where p.code in ('CEREN-2','ACT18301','THESEUS','LTS 17231') and pv.real_date is not null;`
+union all select 'enrollments', count(*) from public.enrollments en join public.protocols p on p.id = en.protocol_id where p.code in (${inList})
+union all select 'defs',        count(*) from public.visit_definitions vd join public.protocols p on p.id = vd.protocol_id where p.code in (${inList})
+union all select 'visitas con real', count(*) from public.patient_visits pv join public.enrollments en on en.id = pv.enrollment_id join public.protocols p on p.id = en.protocol_id where p.code in (${inList}) and pv.real_date is not null;`
   const sql = [
     '-- ============================================================================',
     '-- CARGA DE VISITAS HISTÓRICAS — GENERADO por generar.mjs. NO editar a mano.',
