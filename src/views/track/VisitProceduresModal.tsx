@@ -64,6 +64,8 @@ export function VisitProceduresModal({
         name: r.procedure?.name ?? 'Procedimiento',
         category: r.procedure?.category ?? null,
         requires_dispensation: r.procedure?.requires_dispensation ?? false,
+        has_report: r.procedure?.has_report ?? false,
+        report_eta_hours: r.procedure?.report_eta_hours ?? null,
       })),
     )
   }, [assigned.loading, assigned.error, assigned.data, items])
@@ -108,7 +110,7 @@ export function VisitProceduresModal({
     catalog.refetch()
     setItems((cur) => [
       ...(cur ?? []),
-      { id: res.value, code: null, name: res.label, category: null, requires_dispensation: false },
+      { id: res.value, code: null, name: res.label, category: null, requires_dispensation: false, has_report: false, report_eta_hours: null },
     ])
     return res
   }

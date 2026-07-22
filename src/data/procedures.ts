@@ -19,6 +19,8 @@ export interface Procedure {
   name: string
   category: string | null
   requires_dispensation: boolean
+  has_report: boolean          // 0064
+  report_eta_hours: number | null  // 0064
 }
 
 /** Procedimiento asignado a una visita (join `protocol_activities` con el catálogo embebido). */
@@ -28,7 +30,7 @@ export interface VisitProcedure {
   /** Orden dentro de la visita (reusa `suggested_order`; menor primero). */
   suggested_order: number | null
   /** Datos del catálogo para mostrar. El nombre display sale de acá (name del join es legacy/null). */
-  procedure: { code: string | null; name: string; category: string | null; requires_dispensation: boolean } | null
+  procedure: { code: string | null; name: string; category: string | null; requires_dispensation: boolean; has_report: boolean; report_eta_hours: number | null } | null
 }
 
 /** Traduce códigos de Postgres a mensajes serenos (patrón `*ErrorMessage` del repo). */
@@ -47,7 +49,7 @@ export function useProceduresCatalog() {
     (c) =>
       c
         .from('procedures')
-        .select('id, code, name, category, requires_dispensation')
+        .select('id, code, name, category, requires_dispensation, has_report, report_eta_hours')
         .order('name', { ascending: true })
         .returns<Procedure[]>(),
     [],
@@ -60,7 +62,7 @@ export function useVisitProcedures(visitDefId: string | null) {
     (c) =>
       c
         .from('protocol_activities')
-        .select('id, procedure_id, suggested_order, procedure:procedures(code, name, category, requires_dispensation)')
+        .select('id, procedure_id, suggested_order, procedure:procedures(code, name, category, requires_dispensation, has_report, report_eta_hours)')
         .eq('visit_def_id', visitDefId ?? NIL_UUID)
         .order('suggested_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
@@ -137,6 +139,30 @@ export async function deleteProcedure(id: string): Promise<{ error: string | nul
   const { data, error } = await supabase
     .from('procedures')
     .delete()
+    .eq('id', id)
+    .select('id')
+  if (error) return { error: proceduresErrorMessage(error.code, error.message) }
+  if (!data || data.length === 0) return { error: 'No tenés permiso para editar el catálogo.' }
+  return { error: null }
+}
+
+/** Campos editables del catálogo (v1: solo el circuito de reporte). RLS: gerencia / track-leader. */
+export interface ProcedureCatalogEdit {
+  has_report: boolean
+  report_eta_hours: number | null
+}
+
+/**
+ * Edita el atributo de reporte de un procedimiento del catálogo global. UPDATE directo; la RLS
+ * "editar procedures" (0061) lo scopea a gerencia / track-leader. "0 filas = sin permiso".
+ */
+export async function updateProcedure(
+  id: string,
+  edit: ProcedureCatalogEdit,
+): Promise<{ error: string | null }> {
+  const { data, error } = await supabase
+    .from('procedures')
+    .update({ has_report: edit.has_report, report_eta_hours: edit.has_report ? edit.report_eta_hours : null })
     .eq('id', id)
     .select('id')
   if (error) return { error: proceduresErrorMessage(error.code, error.message) }
