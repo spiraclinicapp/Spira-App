@@ -155,6 +155,34 @@ on conflict (patient_id, protocol_id) do update set ivrs_code = excluded.ivrs_co
   return out.join('\n')
 }
 
+// 3b) asegurar visitas que el trigger NO generó. Pasa cuando el protocolo ya tenía una
+// definición con ese code y date_mode='libre' (pre-existente): el trigger solo autogenera
+// 'automatica', así que esas visitas nunca nacen y el backfill no las encontraría. Se insertan
+// directo (estimated = randomization_date + offset), guardadas por not-exists (no-op si ya existen).
+export function sqlAsegurarVisitas(model) {
+  const out = []
+  let n = 0
+  for (const e of model.enrollments) {
+    const cp = codProd(e.proto)
+    if (!cp || !e.anclaFecha) continue
+    for (const v of e.visitas) {
+      if (!v.realExcel || !v.defCode || v.offsetDays === null) continue
+      n++
+      out.push(
+`insert into public.patient_visits (enrollment_id, visit_def_id, kind, estimated_date)
+select en.id, vd.id, 'programada', en.randomization_date + ${v.offsetDays}
+from public.enrollments en
+  join public.protocols pr on pr.id = en.protocol_id
+  join public.visit_definitions vd on vd.protocol_id = pr.id
+where en.ivrs_code = ${q(e.ivrs)} and pr.code = ${q(cp)} and vd.code = ${q(v.defCode)}
+  and en.randomization_date is not null
+  and not exists (select 1 from public.patient_visits pv where pv.enrollment_id = en.id and pv.visit_def_id = vd.id);`)
+    }
+  }
+  out.unshift(`-- 3b) asegurar visitas que el trigger no generó (def pre-existente 'libre'): insert si falta --`)
+  return out.join('\n')
+}
+
 // 4) backfill de real_date sobre las visitas generadas (match por ivrs_code del enrollment + code de la def).
 export function sqlBackfill(model) {
   const out = ['-- 4) backfill de real_date (mismo efecto que registerVisit; dispara materialize_checklist) --']
@@ -327,6 +355,7 @@ group by p.code order by p.code;`
     asserts, '',
     sqlDefiniciones(), '',
     sqlPersonasYEnrollments(model), '',
+    sqlAsegurarVisitas(model), '',
     sqlBackfill(model), '',
     sqlVisitasSueltas(model), '',
     sqlNotas(model), '',
