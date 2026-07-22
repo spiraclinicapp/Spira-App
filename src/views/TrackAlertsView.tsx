@@ -6,7 +6,7 @@ import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { SearchableSelect } from '../components/SearchableSelect'
 import { useVisitAlerts } from '../data/visits'
 import type { TrackVisitRow } from '../data/visits'
-import { useReportAlerts } from '../data/reports'
+import { useReportAlerts, useProcedureReportAlerts } from '../data/reports'
 import { useProtocols } from '../data/protocols'
 import { visitTitle } from '../lib/visits'
 import { formatAR, todayISO, daysDiffISO } from '../lib/dates'
@@ -45,15 +45,17 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
   const accent = module.accent
   const alerts = useVisitAlerts()
   const reports = useReportAlerts()
+  const procReports = useProcedureReportAlerts()
   const protocols = useProtocols()
   const [protocolFilter, setProtocolFilter] = useState<string>('all')
   const [ageDays, setAgeDays] = useState<number>(0)
 
-  const loading = alerts.loading || reports.loading || protocols.loading
-  const error = alerts.error || reports.error || protocols.error
+  const loading = alerts.loading || reports.loading || procReports.loading || protocols.loading
+  const error = alerts.error || reports.error || procReports.error || protocols.error
 
   const allRows = useMemo(() => alerts.data ?? [], [alerts.data])
   const reportRows = useMemo(() => reports.data ?? [], [reports.data])
+  const procRows = useMemo(() => procReports.data ?? [], [procReports.data])
 
   const filtered = useMemo(() => {
     const today = todayISO()
@@ -81,6 +83,18 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
     })
   }, [reportRows, protocolFilter, ageDays])
 
+  const filteredProc = useMemo(() => {
+    const today = todayISO()
+    return procRows.filter((r) => {
+      if (protocolFilter !== 'all' && r.protocol_id !== protocolFilter) return false
+      if (ageDays > 0) {
+        const age = daysDiffISO(r.report_due_at.slice(0, 10), today)
+        if (age > ageDays) return false
+      }
+      return true
+    })
+  }, [procRows, protocolFilter, ageDays])
+
   if (loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title="Cargando alertas…" description="Un momento." />
   }
@@ -91,7 +105,7 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
           <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
           No pudimos cargar las alertas. Probá de nuevo.
         </div>
-        <button onClick={() => { alerts.refetch(); reports.refetch(); protocols.refetch() }} style={{ ...btnOutline, alignSelf: 'flex-start' }}>
+        <button onClick={() => { alerts.refetch(); reports.refetch(); procReports.refetch(); protocols.refetch() }} style={{ ...btnOutline, alignSelf: 'flex-start' }}>
           Reintentar
         </button>
       </div>
@@ -102,6 +116,7 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
     const byId = new Map<string, string>()
     for (const a of allRows) byId.set(a.protocol_id, a.protocol_code)
     for (const r of reportRows) byId.set(r.protocol_id, r.protocol_code)
+    for (const r of procRows) byId.set(r.protocol_id, r.protocol_code)
     const list = (protocols.data ?? []).filter((p) => byId.has(p.id))
     return list.map((p) => ({ id: p.id, code: p.code }))
   })()
@@ -137,16 +152,16 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
           />
         </div>
         <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--spira-muted)' }}>
-          {filtered.length + filteredReports.length} de {allRows.length + reportRows.length}{' '}
-          {allRows.length + reportRows.length === 1 ? 'alerta' : 'alertas'}
+          {filtered.length + filteredReports.length + filteredProc.length} de {allRows.length + reportRows.length + procRows.length}{' '}
+          {allRows.length + reportRows.length + procRows.length === 1 ? 'alerta' : 'alertas'}
         </span>
       </div>
 
       <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-        {filtered.length === 0 && filteredReports.length === 0 ? (
+        {filtered.length === 0 && filteredReports.length === 0 && filteredProc.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
             <Icon name="check" size={16} color="var(--spira-good)" />
-            {allRows.length === 0 && reportRows.length === 0 ? 'Sin alertas. Todo al día.' : 'Ninguna alerta coincide con los filtros.'}
+            {allRows.length === 0 && reportRows.length === 0 && procRows.length === 0 ? 'Sin alertas. Todo al día.' : 'Ninguna alerta coincide con los filtros.'}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -167,6 +182,27 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
                       Reporte pendiente de revisar · {r.description}{days > 0 ? ` · hace ${days} d` : ''}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            {filteredProc.map((r) => {
+              const c = 'var(--spira-primary)'
+              // Mismo razonamiento de zona horaria que filteredReports: report_due_at cae a
+              // medianoche AR = 03:00 UTC del mismo día calendario → slice(0, 10) ya es la fecha AR.
+              const days = daysDiffISO(r.report_due_at.slice(0, 10), todayISO())
+              return (
+                <div key={r.completion_id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
+                  <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="clipboardCheck" size={18} color={c} /></span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <PrivacyAvatar fullName={r.patient_name} size={22} color={c} />
+                      <span style={code}>{r.patient_code ?? '—'}</span>
+                      <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{r.protocol_code}</span></span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
+                      Reporte de procedimiento pendiente · {r.description}{days > 0 ? ` · hace ${days} d` : ''}
                     </div>
                   </div>
                 </div>

@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { useVisitAlerts } from '../data/visits'
 import type { TrackVisitRow } from '../data/visits'
-import { useReportAlerts } from '../data/reports'
+import { useReportAlerts, useProcedureReportAlerts } from '../data/reports'
 import { visitTitle } from '../lib/visits'
 import { formatAR } from '../lib/dates'
 import { VISIT_STATES } from '../views/visitStates'
@@ -50,6 +50,7 @@ function reasonLabel(a: TrackVisitRow): string {
 export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuProps) {
   const alerts = useVisitAlerts()
   const reports = useReportAlerts()
+  const procReports = useProcedureReportAlerts()
   const [open, setOpen] = useState(false)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -58,7 +59,8 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
 
   const rows = useMemo(() => alerts.data ?? [], [alerts.data])
   const reportRows = useMemo(() => reports.data ?? [], [reports.data])
-  const count = rows.length + reportRows.length
+  const procRows = useMemo(() => procReports.data ?? [], [procReports.data])
+  const count = rows.length + reportRows.length + procRows.length
   const badge = count > 9 ? '9+' : String(count)
 
   // Cerrar al click afuera.
@@ -114,11 +116,11 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
 
           {/* cuerpo */}
           <div style={listWrap}>
-            {(alerts.loading || reports.loading) && rows.length === 0 && reportRows.length === 0 ? (
+            {(alerts.loading || reports.loading || procReports.loading) && rows.length === 0 && reportRows.length === 0 && procRows.length === 0 ? (
               <div style={emptyBox}>Cargando…</div>
-            ) : alerts.error || reports.error ? (
+            ) : alerts.error || reports.error || procReports.error ? (
               <div style={{ ...emptyBox, color: 'var(--spira-danger)' }}>No pudimos cargar las notificaciones.</div>
-            ) : rows.length === 0 && reportRows.length === 0 ? (
+            ) : rows.length === 0 && reportRows.length === 0 && procRows.length === 0 ? (
               <div style={emptyState}>
                 <span style={emptyIcon}><Icon name="check" size={20} color="var(--spira-good)" /></span>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)' }}>Estás al día</div>
@@ -141,6 +143,25 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.protocol_code}</span>
                         </div>
                         <div style={rowReason}>Reporte pendiente de revisar — {r.description}</div>
+                      </div>
+                    </div>
+                  )
+                })}
+                {procRows.map((r) => {
+                  const c = 'var(--spira-primary)'
+                  return (
+                    <div key={r.completion_id} style={rowStyle}>
+                      <span style={{ ...rowIcon, background: c + '18' }}>
+                        <Icon name="clipboardCheck" size={16} color={c} />
+                      </span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={rowTitle}>
+                          <PrivacyAvatar fullName={r.patient_name} size={20} color={c} />
+                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.patient_code ?? '—'}</span>
+                          <span style={{ color: 'var(--spira-faint)' }}>·</span>
+                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.protocol_code}</span>
+                        </div>
+                        <div style={rowReason}>Reporte de procedimiento pendiente — {r.description}</div>
                       </div>
                     </div>
                   )
