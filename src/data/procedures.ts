@@ -169,3 +169,124 @@ export async function updateProcedure(
   if (!data || data.length === 0) return { error: 'No tenés permiso para editar el catálogo.' }
   return { error: null }
 }
+
+/** Procedimiento de una visita con sus dos estados (0064). Lo lee useVisitProcedureStatus. */
+export interface VisitProcedureStatus {
+  procedure_id: string
+  code: string | null
+  name: string
+  category: string | null
+  has_report: boolean
+  report_eta_hours: number | null
+  suggested_order: number | null
+  completed: boolean
+  completed_at: string | null
+  report_ready: boolean
+  report_ready_at: string | null
+}
+
+/**
+ * Procedimientos de una visita con estado realizado/reporte-listo. TRES consultas unidas en el
+ * cliente (patrón de useVisitChecklist): asignados (protocol_activities por visit_def_id) +
+ * completions (por visit_id) + reports_ready (por visit_id). Con visitId/visitDefId null → [].
+ */
+export function useVisitProcedureStatus(visitId: string | null, visitDefId: string | null) {
+  return useSupabaseQuery<VisitProcedureStatus[]>(
+    async (c) => {
+      if (!visitId || !visitDefId) return { data: [], error: null }
+      const asg = await c
+        .from('protocol_activities')
+        .select('procedure_id, suggested_order, procedure:procedures(code, name, category, has_report, report_eta_hours)')
+        .eq('visit_def_id', visitDefId)
+        .order('suggested_order', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
+      if (asg.error) return { data: null, error: asg.error }
+      const rows = (asg.data ?? []) as unknown as {
+        procedure_id: string
+        suggested_order: number | null
+        procedure: { code: string | null; name: string; category: string | null; has_report: boolean; report_eta_hours: number | null } | null
+      }[]
+      if (rows.length === 0) return { data: [], error: null }
+
+      const compRes = await c
+        .from('visit_procedure_completions')
+        .select('procedure_id, completed_at')
+        .eq('visit_id', visitId)
+      if (compRes.error) return { data: null, error: compRes.error }
+      const comp = new Map<string, string>(
+        ((compRes.data ?? []) as { procedure_id: string; completed_at: string }[]).map((r) => [r.procedure_id, r.completed_at]),
+      )
+
+      const rrRes = await c
+        .from('visit_procedure_reports_ready')
+        .select('procedure_id, ready_at')
+        .eq('visit_id', visitId)
+      if (rrRes.error) return { data: null, error: rrRes.error }
+      const rr = new Map<string, string>(
+        ((rrRes.data ?? []) as { procedure_id: string; ready_at: string }[]).map((r) => [r.procedure_id, r.ready_at]),
+      )
+
+      const merged: VisitProcedureStatus[] = rows.map((r) => ({
+        procedure_id: r.procedure_id,
+        code: r.procedure?.code ?? null,
+        name: r.procedure?.name ?? 'Procedimiento',
+        category: r.procedure?.category ?? null,
+        has_report: r.procedure?.has_report ?? false,
+        report_eta_hours: r.procedure?.report_eta_hours ?? null,
+        suggested_order: r.suggested_order,
+        completed: comp.has(r.procedure_id),
+        completed_at: comp.get(r.procedure_id) ?? null,
+        report_ready: rr.has(r.procedure_id),
+        report_ready_at: rr.get(r.procedure_id) ?? null,
+      }))
+      return { data: merged, error: null }
+    },
+    [visitId, visitDefId],
+  )
+}
+
+/** Marca/desmarca un procedimiento como realizado en una visita. "0 filas = sin permiso". */
+export async function toggleVisitProcedure(
+  visitId: string, procedureId: string, completed: boolean,
+): Promise<{ error: string | null }> {
+  if (completed) {
+    const { data, error } = await supabase
+      .from('visit_procedure_completions')
+      .insert({ visit_id: visitId, procedure_id: procedureId })
+      .select('id')
+    if (error) return { error: proceduresErrorMessage(error.code, error.message) }
+    if (!data || data.length === 0) return { error: 'No tenés permiso para marcar este procedimiento.' }
+    return { error: null }
+  }
+  const { data, error } = await supabase
+    .from('visit_procedure_completions')
+    .delete()
+    .eq('visit_id', visitId).eq('procedure_id', procedureId)
+    .select('id')
+  if (error) return { error: proceduresErrorMessage(error.code, error.message) }
+  if (!data || data.length === 0) return { error: 'No tenés permiso para modificar este procedimiento.' }
+  return { error: null }
+}
+
+/** Marca/reabre el "reporte listo" de un procedimiento en una visita. "0 filas = sin permiso". */
+export async function toggleVisitProcedureReport(
+  visitId: string, procedureId: string, ready: boolean,
+): Promise<{ error: string | null }> {
+  if (ready) {
+    const { data, error } = await supabase
+      .from('visit_procedure_reports_ready')
+      .insert({ visit_id: visitId, procedure_id: procedureId })
+      .select('id')
+    if (error) return { error: proceduresErrorMessage(error.code, error.message) }
+    if (!data || data.length === 0) return { error: 'No tenés permiso para marcar el reporte.' }
+    return { error: null }
+  }
+  const { data, error } = await supabase
+    .from('visit_procedure_reports_ready')
+    .delete()
+    .eq('visit_id', visitId).eq('procedure_id', procedureId)
+    .select('id')
+  if (error) return { error: proceduresErrorMessage(error.code, error.message) }
+  if (!data || data.length === 0) return { error: 'No tenés permiso para modificar el reporte.' }
+  return { error: null }
+}
