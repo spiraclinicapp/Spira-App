@@ -13,11 +13,17 @@ import {
   countDeleteImpact,
 } from '../../data/visitDefinitions'
 import type { VisitDefinition, DefinitionInput, DeleteImpact } from '../../data/visitDefinitions'
+import { useVisitProcedureCounts } from '../../data/procedures'
+import { useAuth } from '../../lib/auth'
 import { ScheduleDefinitionForm } from './ScheduleDefinitionForm'
 import { ScheduleSyncModal } from './ScheduleSyncModal'
+import { VisitProceduresModal } from './VisitProceduresModal'
 
-/* orden · código · nombre · día · ventana · etapa · acciones */
-const COLS = '40px 60px minmax(0, 1fr) 48px 80px 118px auto'
+/* orden · código · nombre · procedimientos · día · ventana · etapa · acciones.
+   `acciones` va con ANCHO FIJO (no `auto`): con `auto`, `1fr` (Nombre) y `auto` se resolvían
+   distinto en el header (celda vacía → 0) que en las filas (2 botones → ~66px), desalineando la
+   grilla y colapsando Nombre a ~10px. Fijo, ambas filas resuelven idéntico y Nombre respira. */
+const COLS = '38px 52px minmax(0, 1fr) 82px 40px 66px 100px 66px'
 
 /** Etiqueta corta de la etapa derivada de role + date_mode (columna del editor). */
 function etapaLabel(d: { role: 'screening' | 'randomizacion' | 'comun'; date_mode: 'libre' | 'automatica' }): string {
@@ -35,6 +41,17 @@ function reorderBtn(disabled: boolean): CSSProperties {
     width: 22, height: 15, border: 'none', borderRadius: 4, background: 'transparent',
     cursor: disabled ? 'default' : 'pointer', display: 'grid', placeItems: 'center',
     opacity: disabled ? 0.3 : 1, padding: 0,
+  }
+}
+/* Píldora de procedimientos por fila (compacta, token badge-pill). Vacío = ghost (fondo
+   transparente, invita a agregar); con procedimientos = relleno cálido + conteo en el acento del
+   módulo. Es el disparador del modal de asignación de esa visita. */
+function pillBtn(filled: boolean): CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 5, height: 24, padding: '0 9px', maxWidth: '100%',
+    background: filled ? 'var(--spira-surface)' : 'transparent',
+    border: '1px solid var(--spira-line)', borderRadius: 999,
+    cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12.5, whiteSpace: 'nowrap',
   }
 }
 
@@ -59,7 +76,14 @@ export function ScheduleEditor({
   onChanged: () => void
 }) {
   const defs = useProtocolDefinitions(protocolId)
+  const counts = useVisitProcedureCounts(protocolId)
+  const { hasMinRole, modules } = useAuth()
+  /* Gestión del catálogo global (crear/eliminar procedimiento) = espejo de la RLS de `procedures`
+     (0061): gerencia o líder de Track. Es más estricto que canEdit (operator), por eso se calcula
+     aparte para no mostrar controles que el usuario no puede usar (honestidad de datos). */
+  const canManageCatalog = modules.includes('gerencia') || hasMinRole('track', 'leader')
   const [editing, setEditing] = useState<VisitDefinition | 'new' | null>(null)
+  const [procVisit, setProcVisit] = useState<VisitDefinition | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<VisitDefinition | null>(null)
   /* Impacto del borrado (programadas no atendidas a borrar + atendidas que bloquean).
@@ -165,17 +189,18 @@ export function ScheduleEditor({
         />
       ) : (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: 10, alignItems: 'center', padding: '0 0 8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: 10, alignItems: 'center', padding: '0 0 10px' }}>
             <span />
             <span className="spira-eyebrow">Código</span>
             <span className="spira-eyebrow">Nombre</span>
+            <span className="spira-eyebrow" title="Procedimientos">Proced.</span>
             <span className="spira-eyebrow">Día</span>
             <span className="spira-eyebrow">Ventana</span>
             <span className="spira-eyebrow">Etapa</span>
             <span />
           </div>
           {rows.map((d, i) => (
-            <div key={d.id} style={{ display: 'grid', gridTemplateColumns: COLS, gap: 10, alignItems: 'center', padding: '9px 0', borderTop: '1px solid var(--spira-line)', fontSize: 13.5 }}>
+            <div key={d.id} style={{ display: 'grid', gridTemplateColumns: COLS, gap: 10, alignItems: 'center', padding: '11px 0', borderTop: '1px solid var(--spira-line)', fontSize: 13.5 }}>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {canEdit && (
                   <>
@@ -190,6 +215,20 @@ export function ScheduleEditor({
               </span>
               <span className="spira-mono" style={{ fontWeight: 600, color: accent }}>{d.code ?? '—'}</span>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+              {canEdit ? (
+                <button type="button" onClick={() => setProcVisit(d)} title="Procedimientos de la visita" aria-label="Procedimientos de la visita" style={pillBtn((counts.data?.[d.id] ?? 0) > 0)}>
+                  <Icon name="clip" size={12} color={(counts.data?.[d.id] ?? 0) > 0 ? accent : 'var(--spira-faint)'} />
+                  {(counts.data?.[d.id] ?? 0) > 0 ? (
+                    <span style={{ color: accent, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{counts.data?.[d.id]}</span>
+                  ) : (
+                    <span style={{ color: 'var(--spira-muted)' }}>Agregar</span>
+                  )}
+                </button>
+              ) : (
+                <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', display: 'inline-flex', alignItems: 'center', gap: 4, fontVariantNumeric: 'tabular-nums' }}>
+                  {(counts.data?.[d.id] ?? 0) > 0 ? (<><Icon name="clip" size={12} color="var(--spira-muted)" />{counts.data?.[d.id]}</>) : '—'}
+                </span>
+              )}
               <span style={{ color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums' }}>{d.offset_days}</span>
               <span style={{ color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums' }}>−{d.window_minus}/+{d.window_plus}</span>
               <span style={{ color: 'var(--spira-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -229,6 +268,18 @@ export function ScheduleEditor({
             defs.refetch()
             onChanged()
           }}
+        />
+      )}
+      {procVisit && (
+        <VisitProceduresModal
+          visitDefId={procVisit.id}
+          visitLabel={procVisit.code ? `${procVisit.code} - ${procVisit.name}` : procVisit.name}
+          visitDispenses={procVisit.dispenses}
+          accent={accent}
+          accentSolid={accentSolid}
+          canManageCatalog={canManageCatalog}
+          onClose={() => setProcVisit(null)}
+          onSaved={() => counts.refetch()}
         />
       )}
       {confirmDelete && (
