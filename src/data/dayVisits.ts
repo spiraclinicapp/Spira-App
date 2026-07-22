@@ -380,6 +380,37 @@ export async function toggleChecklistItem(itemId: string, completed: boolean): P
   return { error: null }
 }
 
+/** Datos editables de un ítem materializado (override de ESA visita, no toca la plantilla). */
+export interface ChecklistItemEdit {
+  description: string
+  deadline_hours: number
+  mandatory: boolean
+  has_report: boolean
+  report_eta_hours: number | null
+}
+
+/**
+ * Edita un ítem del checklist de UNA visita (override por-visita; no afecta la plantilla ni
+ * otras visitas). UPDATE directo sobre checklist_items; la policy de 0006 lo scopea a la
+ * coordinadora asignada o gerencia. "0 filas = sin permiso".
+ */
+export async function updateChecklistItem(itemId: string, input: ChecklistItemEdit): Promise<{ error: string | null }> {
+  const { data, error } = await supabase
+    .from('checklist_items')
+    .update({
+      description: input.description,
+      deadline_hours: input.deadline_hours,
+      mandatory: input.mandatory,
+      has_report: input.has_report,
+      report_eta_hours: input.has_report ? input.report_eta_hours : null,
+    })
+    .eq('id', itemId)
+    .select('id')
+  if (error) return { error: error.message }
+  if (!data || data.length === 0) return { error: 'No tenés permiso para editar este ítem.' }
+  return { error: null }
+}
+
 /**
  * Marca (true) o reabre (false) el "reporte listo" (firmado y evolucionado) de un ítem.
  * Estado APARTE del tilde de completado (tabla checklist_report_ready, migración 0062).

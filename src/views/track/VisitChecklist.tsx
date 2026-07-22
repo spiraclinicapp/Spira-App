@@ -2,9 +2,11 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { EmptyState } from '../../components/EmptyState'
-import { useVisitChecklist, toggleChecklistItem, setReportReady } from '../../data/dayVisits'
-import type { VisitChecklistItem } from '../../data/dayVisits'
-import { deadlineLabel, reportEtaLabel } from '../../lib/checklist'
+import { fieldInput } from '../../components/FormField'
+import { SearchableSelect } from '../../components/SearchableSelect'
+import { useVisitChecklist, toggleChecklistItem, setReportReady, updateChecklistItem } from '../../data/dayVisits'
+import type { VisitChecklistItem, ChecklistItemEdit } from '../../data/dayVisits'
+import { DEADLINE_OPTIONS, REPORT_ETA_OPTIONS, deadlineLabel, reportEtaLabel } from '../../lib/checklist'
 import { isoToDate } from '../../lib/dates'
 
 const microLabel: CSSProperties = {
@@ -23,6 +25,17 @@ export function VisitChecklist({ visitId, accent, realDate }: { visitId: string 
   const [optimistic, setOptimistic] = useState<Record<string, boolean>>({})
   const [reportPending, setReportPending] = useState<Set<string>>(new Set())
   const [reportOptimistic, setReportOptimistic] = useState<Record<string, boolean>>({})
+  const [editing, setEditing] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  async function onSaveEdit(item: VisitChecklistItem, input: ChecklistItemEdit) {
+    setSaving(true); setActionError(null)
+    const { error: err } = await updateChecklistItem(item.id, input)
+    setSaving(false)
+    if (err) { setActionError(err); return }
+    setEditing(null)
+    refetch()
+  }
 
   async function onToggle(item: VisitChecklistItem) {
     if (pending.has(item.id)) return
@@ -127,43 +140,59 @@ export function VisitChecklist({ visitId, accent, realDate }: { visitId: string 
                 borderRadius: 12, padding: '4px 4px 4px 0',
               }}
             >
-              {/* tilde de completado: botón que ocupa check + texto */}
-              <button
-                type="button" onClick={() => onToggle(item)} disabled={isPending}
-                className="spira-no-press"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
-                  padding: '9px 9px 9px 13px', background: 'transparent', border: 'none',
-                  cursor: isPending ? 'default' : 'pointer', opacity: isPending ? 0.6 : 1,
-                  fontFamily: 'var(--spira-font-text)',
-                }}
-              >
-                <span style={{ flex: '0 0 auto', width: 20, height: 20, borderRadius: 6, display: 'grid', placeItems: 'center', border: `1.5px solid ${isDone ? accent : 'var(--spira-line-2)'}`, background: isDone ? accent : 'transparent' }}>
-                  {isDone && <Icon name="check" size={13} color="var(--spira-on-accent)" stroke={2.4} />}
-                </span>
-                <span style={{ minWidth: 0, flex: 1 }}>
-                  <span style={{ display: 'block', fontSize: 13.5, color: 'var(--spira-ink)', textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: isDone ? 'var(--spira-faint)' : undefined }}>
-                    {item.description}
-                  </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 3, fontSize: 11.5, color: 'var(--spira-muted)' }}>
-                    <Icon name="clock" size={12} color="var(--spira-faint)" />
-                    {deadlineLabel(item.deadline_hours)}
-                    {!item.mandatory && <span style={{ color: 'var(--spira-faint)' }}>· opcional</span>}
-                  </span>
-                </span>
-                {item.mandatory && (
-                  <span style={{ flex: '0 0 auto', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--spira-muted)', background: 'var(--spira-line)', padding: '2px 8px', borderRadius: 'var(--spira-radius-pill)' }}>
-                    Obligatorio
-                  </span>
-                )}
-              </button>
-
-              {/* reporte: línea de estado + acción (solo ítems con reporte) */}
-              {item.has_report && (
-                <ReportRow
-                  item={item} accent={accent} ready={reportReady} busy={reportBusy}
-                  realDate={realDate} onToggle={() => onToggleReport(item)}
+              {editing === item.id ? (
+                <ChecklistItemEditForm
+                  item={item} accent={accent} busy={saving}
+                  onSave={(input) => void onSaveEdit(item, input)}
+                  onCancel={() => setEditing(null)}
                 />
+              ) : (
+                <>
+                  {/* tilde de completado: botón que ocupa check + texto */}
+                  <button
+                    type="button" onClick={() => onToggle(item)} disabled={isPending}
+                    className="spira-no-press"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+                      padding: '9px 9px 9px 13px', background: 'transparent', border: 'none',
+                      cursor: isPending ? 'default' : 'pointer', opacity: isPending ? 0.6 : 1,
+                      fontFamily: 'var(--spira-font-text)',
+                    }}
+                  >
+                    <span style={{ flex: '0 0 auto', width: 20, height: 20, borderRadius: 6, display: 'grid', placeItems: 'center', border: `1.5px solid ${isDone ? accent : 'var(--spira-line-2)'}`, background: isDone ? accent : 'transparent' }}>
+                      {isDone && <Icon name="check" size={13} color="var(--spira-on-accent)" stroke={2.4} />}
+                    </span>
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: 'block', fontSize: 13.5, color: 'var(--spira-ink)', textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: isDone ? 'var(--spira-faint)' : undefined }}>
+                        {item.description}
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 3, fontSize: 11.5, color: 'var(--spira-muted)' }}>
+                        <Icon name="clock" size={12} color="var(--spira-faint)" />
+                        {deadlineLabel(item.deadline_hours)}
+                        {!item.mandatory && <span style={{ color: 'var(--spira-faint)' }}>· opcional</span>}
+                      </span>
+                    </span>
+                    {item.mandatory && (
+                      <span style={{ flex: '0 0 auto', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--spira-muted)', background: 'var(--spira-line)', padding: '2px 8px', borderRadius: 'var(--spira-radius-pill)' }}>
+                        Obligatorio
+                      </span>
+                    )}
+                  </button>
+
+                  {/* reporte: línea de estado + acción (solo ítems con reporte) */}
+                  {item.has_report && (
+                    <ReportRow
+                      item={item} accent={accent} ready={reportReady} busy={reportBusy}
+                      realDate={realDate} onToggle={() => onToggleReport(item)}
+                    />
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 9px 6px' }}>
+                    <button type="button" onClick={() => { setEditing(item.id); setActionError(null) }} aria-label="Editar ítem" title="Editar (solo esta visita)" style={{ width: 28, height: 28, border: 'none', borderRadius: 7, background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+                      <Icon name="pencil" size={14} color="var(--spira-muted)" />
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           )
@@ -204,6 +233,53 @@ function ReportRow({ item, accent, ready, busy, realDate, onToggle }: {
       >
         {ready ? 'Reabrir' : 'Marcar reporte listo'}
       </button>
+    </div>
+  )
+}
+
+/** Edición de un ítem del checklist DE ESTA VISITA (override; no toca la plantilla). */
+function ChecklistItemEditForm({ item, accent, busy, onSave, onCancel }: {
+  item: VisitChecklistItem; accent: string; busy: boolean
+  onSave: (input: ChecklistItemEdit) => void; onCancel: () => void
+}) {
+  const [description, setDescription] = useState(item.description)
+  const [deadline, setDeadline] = useState(item.deadline_hours)
+  const [mandatory, setMandatory] = useState(item.mandatory)
+  const [hasReport, setHasReport] = useState(item.has_report)
+  const [reportEta, setReportEta] = useState<number>(item.report_eta_hours ?? 48)
+
+  const submit = () => {
+    const desc = description.trim()
+    if (!desc) return
+    onSave({ description: desc, deadline_hours: deadline, mandatory, has_report: hasReport, report_eta_hours: hasReport ? reportEta : null })
+  }
+
+  return (
+    <div style={{ padding: '11px 13px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--spira-faint)' }}>
+        Editar · solo esta visita
+      </div>
+      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción del ítem" autoFocus style={{ ...fieldInput, height: 38 }} />
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ width: 150 }}>
+          <SearchableSelect value={String(deadline)} onChange={(v) => setDeadline(Number(v))} options={DEADLINE_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))} placeholder="Plazo" entity="plazo" />
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--spira-muted)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={mandatory} onChange={(e) => setMandatory(e.target.checked)} /> Obligatorio
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--spira-muted)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={hasReport} onChange={(e) => setHasReport(e.target.checked)} /> Genera un reporte
+        </label>
+        {hasReport && (
+          <div style={{ width: 170 }}>
+            <SearchableSelect value={String(reportEta)} onChange={(v) => setReportEta(Number(v))} options={REPORT_ETA_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))} placeholder="Demora del reporte" entity="demora" />
+          </div>
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: 9, justifyContent: 'flex-end' }}>
+        <button type="button" onClick={onCancel} disabled={busy} style={{ height: 36, padding: '0 14px', borderRadius: 9, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: busy ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13 }}>Cancelar</button>
+        <button type="button" onClick={submit} disabled={busy} style={{ height: 36, padding: '0 14px', borderRadius: 9, border: 'none', background: accent, color: 'var(--spira-on-accent)', cursor: busy ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 700, fontSize: 13, opacity: busy ? 0.6 : 1 }}>{busy ? 'Guardando…' : 'Guardar'}</button>
+      </div>
     </div>
   )
 }
