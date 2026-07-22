@@ -8,7 +8,7 @@ import type { PatientRow } from '../data/patients'
 import { useProtocolVisits } from '../data/visits'
 import { useProtocolKpis } from '../data/protocolKpis'
 import { toCsv, downloadCsv } from '../lib/csv'
-import { groupVisitsByPatient, visitIndex } from '../lib/visits'
+import { groupVisitsByPatient, visitIndex, desvioDias } from '../lib/visits'
 import { PdPatientRow } from './track/PdPatientRow'
 import { ScheduleEditor } from './track/ScheduleEditor'
 import type { ViewHeader } from './types'
@@ -70,10 +70,10 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
   const handleExport = () => {
     const rows = visits.data ?? []
     const idx = visitIndex(rows)
-    const headers = ['Paciente', 'Visita', 'Codigo', 'Nombre visita', 'Estimada', 'Real', 'Estado', 'Ventana inicio', 'Ventana fin']
+    const headers = ['Paciente', 'Visita', 'Codigo', 'Nombre visita', 'Estimada', 'Real', 'Desvio (dias)', 'Estado', 'Ventana inicio', 'Ventana fin']
     const data = rows.map((v) => [
       v.patient_code, `V${idx.get(v.id)}`, v.visit_code ?? '', v.visit_name,
-      v.estimated_date, v.real_date ?? '', v.computed_status, v.window_start, v.window_end,
+      v.estimated_date, v.real_date ?? '', desvioDias(v.estimated_date, v.real_date) ?? '', v.computed_status, v.window_start, v.window_end,
     ])
     downloadCsv(`${protocol.code}-visitas.csv`, toCsv(headers, data))
   }
