@@ -25,10 +25,11 @@ export const NOTAS_VISITA = {
   'ACT18301|032001500001|V18': 'Paciente pasa a LTS 17231 el 18/06/2026 (rollover)',
 }
 
-// Estado del enrollment cuando no es 'activo'. THESEUS …740008 = falla de screening (solo V1):
-// se carga inactivo (su V1 sí se carga como visita atendida).
+// Estado del enrollment cuando no es 'activo'. Valores del enum enrollment_status:
+// ('screening','activo','completado','discontinuado'). THESEUS …740008 = falla de screening
+// (solo V1) → 'discontinuado' (estado terminal no-activo; el enum no tiene 'inactivo').
 export const ENROLLMENT_STATUS = {
-  'THESEUS|032000740008': 'inactivo',
+  'THESEUS|032000740008': 'discontinuado',
 }
 
 // Mapeo del "protocolo" del Excel al code REAL de protocols en Spira. El Excel mezcla código y
