@@ -75,6 +75,9 @@ export function extraer(path) {
     const nk = normNombre(e.nombre)
     if (!personas.has(nk)) personas.set(nk, { nombre: e.nombre, ivrsMadre: e.ivrs, nombreKey: nk })
   }
+  // cada enrollment apunta al code (IVRS madre) de su persona → linkeo robusto por code único
+  // (no por full_name, que puede venir escrito distinto entre estudios del rollover).
+  for (const e of enrollments.values()) e.ivrsMadre = personas.get(normNombre(e.nombre)).ivrsMadre
   const stats = {
     filas: filas.length,
     enrollments: enrollments.size,
@@ -86,8 +89,153 @@ export function extraer(path) {
   return { personas, enrollments: [...enrollments.values()], stats }
 }
 
-// check rápido por línea de comando (pathToFileURL para que ande en Windows: file:///)
+// ---- Emisión SQL (el script corre como superusuario en el SQL editor de Supabase) ----
+
+// 1) visit_definitions (cronograma). Idempotente vía WHERE NOT EXISTS (no hay unique en code).
+export function sqlDefiniciones() {
+  const out = ['-- 1) visit_definitions (cronograma) por protocolo. Idempotente. --']
+  for (const [proto, cfg] of Object.entries(PROTOCOLOS)) {
+    cfg.visitas.forEach((v, i) => {
+      out.push(
+`insert into public.visit_definitions (protocol_id, code, name, visit_type, date_mode, offset_days, window_minus, window_plus, sort_order, role)
+select p.id, ${q(v.code)}, ${q(v.code)}, 'presencial', 'automatica', ${v.offsetDays}, ${v.winMinus}, ${v.winPlus}, ${i}, ${q(v.role)}
+from public.protocols p
+where p.code = ${q(proto)}
+  and not exists (select 1 from public.visit_definitions vd where vd.protocol_id = p.id and vd.code = ${q(v.code)});`)
+    })
+  }
+  return out.join('\n')
+}
+
+// 2) patients (dedup) + 3) enrollments (link por code=ivrsMadre; randomization_date genera visitas).
+export function sqlPersonasYEnrollments(model) {
+  const out = ['-- 2) patients (21 personas; birth_date/sex quedan NULL, no vienen en el Excel) --']
+  for (const per of model.personas.values())
+    out.push(`insert into public.patients (code, full_name, status) values (${q(per.ivrsMadre)}, ${q(per.nombre)}, 'activo') on conflict (code) do nothing;`)
+  out.push('', '-- 3) enrollments. enrolled_by = usuario más antiguo como "sistema" (cambialo por tu id si querés). --')
+  const sysUser = '(select id from public.users order by created_at limit 1)'
+  for (const e of model.enrollments) {
+    if (e.anclaFecha) {
+      out.push(
+`insert into public.enrollments (patient_id, protocol_id, enrolled_by, enrollment_date, randomization_date, ivrs_code, status)
+select pa.id, pr.id, ${sysUser}, ${q(e.anclaFecha)}, ${q(e.anclaFecha)}, ${q(e.ivrs)}, 'activo'
+from public.patients pa, public.protocols pr
+where pa.code = ${q(e.ivrsMadre)} and pr.code = ${q(e.proto)}
+on conflict (patient_id, protocol_id) do update set randomization_date = excluded.randomization_date, ivrs_code = excluded.ivrs_code;`)
+    } else if (e.primeraFecha) {
+      out.push(`-- SIN RANDOMIZAR (temprano): ${e.proto} IVRS ${e.ivrs} — se enrola sin randomization_date; sus visitas NO se generan (ver informe).`)
+      out.push(
+`insert into public.enrollments (patient_id, protocol_id, enrolled_by, enrollment_date, ivrs_code, status)
+select pa.id, pr.id, ${sysUser}, ${q(e.primeraFecha)}, ${q(e.ivrs)}, 'activo'
+from public.patients pa, public.protocols pr
+where pa.code = ${q(e.ivrsMadre)} and pr.code = ${q(e.proto)}
+on conflict (patient_id, protocol_id) do update set ivrs_code = excluded.ivrs_code;`)
+    } else {
+      out.push(`-- DIFERIDO (no cargable): ${e.proto} IVRS ${e.ivrs} — sin ninguna fecha válida (ver informe). NO se enrola.`)
+    }
+  }
+  return out.join('\n')
+}
+
+// 4) backfill de real_date sobre las visitas generadas (match por ivrs_code del enrollment + code de la def).
+export function sqlBackfill(model) {
+  const out = ['-- 4) backfill de real_date (mismo efecto que registerVisit; dispara materialize_checklist) --']
+  let n = 0
+  for (const e of model.enrollments) {
+    for (const v of e.visitas) {
+      if (!v.realExcel || !v.defCode) continue
+      n++
+      out.push(
+`update public.patient_visits pv set real_date = ${q(v.realExcel)}
+from public.enrollments en, public.visit_definitions vd
+where pv.enrollment_id = en.id and vd.id = pv.visit_def_id
+  and en.ivrs_code = ${q(e.ivrs)} and vd.code = ${q(v.defCode)};`)
+    }
+  }
+  out.unshift(`-- (${n} updates de real_date)`)
+  return out.join('\n')
+}
+
+// Informe de discrepancias (markdown). Nada de esto se carga con dato inventado.
+export function informeDiscrepancias(model) {
+  const L = ['# Informe de discrepancias — carga de visitas históricas', '',
+    'Revisar y resolver ANTES de correr con `commit;`. Nada acá se carga con dato inventado.', '']
+  const anioMal = [], notas = [], fechaMala = [], hibrido = [], diferidos = []
+  for (const e of model.enrollments) {
+    if (!e.anclaFecha) {
+      const conReal = e.visitas.filter((v) => v.realExcel).length
+      diferidos.push(`- **${e.proto} / IVRS ${e.ivrs}**: sin visita ancla (randomización) con fecha válida → ${e.primeraFecha ? `enrolado sin randomizar (${conReal} visita(s) real no cargada(s))` : 'NO enrolado (ninguna fecha legible)'}.`)
+    }
+    for (const v of e.visitas) {
+      if (v.estExcel && v.realExcel && v.estExcel.slice(0, 4) !== v.realExcel.slice(0, 4))
+        anioMal.push(`- ${e.proto} / IVRS ${e.ivrs} / ${v.visitaCol}: est ${v.estExcel} vs real ${v.realExcel}`)
+      const crudo = (v.crudoReal ?? '').toString().trim()
+      if (crudo && !v.realExcel && !/^\d+$/.test(crudo))
+        notas.push(`- ${e.proto} / IVRS ${e.ivrs} / ${v.visitaCol}: Fecha Real = "${crudo}"`)
+      if (e.anclaFecha && v.estExcel && v.offsetDays !== null) {
+        const d = diffDays(v.estExcel, addDays(e.anclaFecha, v.offsetDays))
+        if (Math.abs(d) > 3) hibrido.push(`- ${e.proto} / IVRS ${e.ivrs} / ${v.visitaCol}: estimada del Excel ${v.estExcel} vs Spira ${addDays(e.anclaFecha, v.offsetDays)} (${d > 0 ? '+' : ''}${d} d)`)
+      }
+    }
+  }
+  const sec = (t, arr, nota = '') => { L.push(`## ${t} — ${arr.length}`, ''); if (nota) L.push(nota, ''); L.push(arr.length ? arr.join('\n') : '_ninguna_', '') }
+  sec('Enrollments diferidos / sin randomizar', diferidos, 'Sin ancla no se genera el cronograma. Pasar la fecha correcta (LTS) o cargar el INICIO cuando ocurra.')
+  sec('Año descuadrado (posible typo de año)', anioMal, 'Real un año distinto a la estimada. Confirmar la fecha real correcta.')
+  sec('Notas de texto en Fecha Real (no se cargan como fecha)', notas)
+  sec('Fechas mal escritas (no parseables)', fechaMala)
+  sec('Desvío estimada Excel vs Spira > 3 días', hibrido, 'Spira ancla en la randomización real; el Excel usó otro baseline para estos casos. Revisar si se acepta.')
+  return L.join('\n')
+}
+
+// 6) Ensamblado: transacción + verificación + dry-run.
+export function main(path, outDir) {
+  const model = extraer(path)
+  const nombres = [...model.personas.values()].map((p) => q(p.nombre)).join(', ')
+  const asserts =
+`-- Verificación (aborta si los 4 protocolos no existen con esos códigos) --
+do $$ declare faltan text;
+begin
+  select string_agg(c, ', ') into faltan from (values ('CEREN-2'),('ACT18301'),('THESEUS'),('LTS 17231')) as t(c)
+    where not exists (select 1 from public.protocols p where p.code = t.c);
+  if faltan is not null then raise exception 'Faltan protocolos con esos códigos: %', faltan; end if;
+end $$;`
+  const control =
+`-- SELECTs de control (mirar antes de decidir commit) --
+select 'personas'         as k, count(*) from public.patients where full_name in (${nombres})
+union all select 'enrollments (4 protos)', count(*) from public.enrollments en join public.protocols p on p.id = en.protocol_id where p.code in ('CEREN-2','ACT18301','THESEUS','LTS 17231')
+union all select 'defs (4 protos)',        count(*) from public.visit_definitions vd join public.protocols p on p.id = vd.protocol_id where p.code in ('CEREN-2','ACT18301','THESEUS','LTS 17231')
+union all select 'visitas con real',       count(*) from public.patient_visits pv join public.enrollments en on en.id = pv.enrollment_id join public.protocols p on p.id = en.protocol_id where p.code in ('CEREN-2','ACT18301','THESEUS','LTS 17231') and pv.real_date is not null;`
+  const sql = [
+    '-- ============================================================================',
+    '-- CARGA DE VISITAS HISTÓRICAS — GENERADO por generar.mjs. NO editar a mano.',
+    '-- CONTIENE PII (nombres de paciente): NO commitear este archivo.',
+    '-- Requiere la migración 0062 (enrollments.ivrs_code) aplicada.',
+    '-- Dry-run: dejar el rollback del final. Para aplicar: cambiar "rollback;" por "commit;".',
+    `-- Stats: ${JSON.stringify(model.stats)}`,
+    '-- ============================================================================',
+    'begin;', '',
+    asserts, '',
+    sqlDefiniciones(), '',
+    sqlPersonasYEnrollments(model), '',
+    sqlBackfill(model), '',
+    control, '',
+    'rollback; -- <<< cambiar a commit; cuando los conteos cierren',
+    '',
+  ].join('\n')
+  fs.mkdirSync(outDir, { recursive: true })
+  fs.writeFileSync(`${outDir}/carga-visitas-historicas.sql`, sql)
+  fs.writeFileSync(`${outDir}/discrepancias.md`, informeDiscrepancias(model))
+  return model.stats
+}
+
+// ---- CLI (pathToFileURL para que ande en Windows: file:///) ----
 const invocadoDirecto = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-if (invocadoDirecto && !process.argv.includes('--build')) {
-  console.log(extraer(process.argv[2]).stats)
+if (invocadoDirecto) {
+  const path = process.argv[2]
+  if (process.argv.includes('--build')) {
+    const outDir = process.argv[4] || new URL('./out', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
+    console.log('Escrito en', outDir, '—', main(path, outDir))
+  } else {
+    console.log(extraer(path).stats)
+  }
 }
