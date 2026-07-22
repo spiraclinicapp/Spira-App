@@ -408,6 +408,11 @@ export async function updateChecklistItem(itemId: string, input: ChecklistItemEd
     .select('id')
   if (error) return { error: error.message }
   if (!data || data.length === 0) return { error: 'No tenés permiso para editar este ítem.' }
+  if (!input.has_report) {
+    // Si el ítem deja de generar reporte, el "reporte listo" viejo ya no aplica: lo limpiamos
+    // para no resucitar un estado obsoleto si se reactiva has_report. Best-effort (migración 0062).
+    await supabase.from('checklist_report_ready').delete().eq('item_id', itemId)
+  }
   return { error: null }
 }
 

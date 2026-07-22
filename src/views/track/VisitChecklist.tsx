@@ -278,7 +278,7 @@ function ChecklistItemEditForm({ item, accent, busy, onSave, onCancel }: {
       </div>
       <div style={{ display: 'flex', gap: 9, justifyContent: 'flex-end' }}>
         <button type="button" onClick={onCancel} disabled={busy} style={{ height: 36, padding: '0 14px', borderRadius: 9, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: busy ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13 }}>Cancelar</button>
-        <button type="button" onClick={submit} disabled={busy} style={{ height: 36, padding: '0 14px', borderRadius: 9, border: 'none', background: accent, color: 'var(--spira-on-accent)', cursor: busy ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 700, fontSize: 13, opacity: busy ? 0.6 : 1 }}>{busy ? 'Guardando…' : 'Guardar'}</button>
+        <button type="button" onClick={submit} disabled={busy || !description.trim()} style={{ height: 36, padding: '0 14px', borderRadius: 9, border: 'none', background: accent, color: 'var(--spira-on-accent)', cursor: busy ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 700, fontSize: 13, opacity: busy || !description.trim() ? 0.6 : 1 }}>{busy ? 'Guardando…' : 'Guardar'}</button>
       </div>
     </div>
   )

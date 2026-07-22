@@ -9,9 +9,11 @@ alter table public.checklist_template_items
   add column if not exists has_report boolean not null default false;
 alter table public.checklist_template_items
   add column if not exists report_eta_hours integer;
-alter table public.checklist_template_items
-  add constraint checklist_template_items_report_eta_chk
-  check (report_eta_hours is null or report_eta_hours in (24, 48, 72, 168, 336, 720));
+do $$ begin
+  alter table public.checklist_template_items
+    add constraint checklist_template_items_report_eta_chk
+    check (report_eta_hours is null or report_eta_hours in (24, 48, 72, 168, 336, 720));
+exception when duplicate_object then null; end $$;
 comment on column public.checklist_template_items.has_report is
   'El ítem genera un reporte (ej. laboratorio) que llega diferido. Propiedad del tipo. 0062.';
 comment on column public.checklist_template_items.report_eta_hours is

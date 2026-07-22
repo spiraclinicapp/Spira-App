@@ -69,10 +69,17 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
     })
   }, [allRows, protocolFilter, ageDays])
 
-  const filteredReports = useMemo(
-    () => reportRows.filter((r) => protocolFilter === 'all' || r.protocol_id === protocolFilter),
-    [reportRows, protocolFilter],
-  )
+  const filteredReports = useMemo(() => {
+    const today = todayISO()
+    return reportRows.filter((r) => {
+      if (protocolFilter !== 'all' && r.protocol_id !== protocolFilter) return false
+      if (ageDays > 0) {
+        const age = daysDiffISO(r.report_due_at.slice(0, 10), today)
+        if (age > ageDays) return false
+      }
+      return true
+    })
+  }, [reportRows, protocolFilter, ageDays])
 
   if (loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title="Cargando alertas…" description="Un momento." />
@@ -145,6 +152,9 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {filteredReports.map((r) => {
               const c = 'var(--spira-primary)'
+              // report_due_at es timestamptz, pero como los presets de ETA son múltiplos de 24 h
+              // y AR tiene offset fijo -3, el vencimiento cae a medianoche AR = 03:00 UTC del mismo
+              // día calendario → los 10 primeros chars ya son la fecha AR.
               const days = daysDiffISO(r.report_due_at.slice(0, 10), todayISO())
               return (
                 <div key={r.item_id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
