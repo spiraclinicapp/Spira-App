@@ -124,11 +124,12 @@ where p.code = ${q(cp)}
 
 // 2) patients (dedup) + 3) enrollments (link por code=ivrsMadre; randomization_date genera visitas).
 export function sqlPersonasYEnrollments(model) {
+  // created_by / enrolled_by (ambos NOT NULL, FK a users): usuario más antiguo como "sistema".
+  const sysUser = '(select id from public.users order by created_at limit 1)'
   const out = ['-- 2) patients (21 personas; birth_date/sex quedan NULL, no vienen en el Excel) --']
   for (const per of model.personas.values())
-    out.push(`insert into public.patients (code, full_name, status) values (${q(per.ivrsMadre)}, ${q(per.nombre)}, 'activo') on conflict (code) do nothing;`)
+    out.push(`insert into public.patients (code, full_name, status, created_by) values (${q(per.ivrsMadre)}, ${q(per.nombre)}, 'activo', ${sysUser}) on conflict (code) do nothing;`)
   out.push('', '-- 3) enrollments. enrolled_by = usuario más antiguo como "sistema" (cambialo por tu id si querés). --')
-  const sysUser = '(select id from public.users order by created_at limit 1)'
   for (const e of model.enrollments) {
     const cp = codProd(e.proto)
     if (!cp) { out.push(`-- OMITIDO (protocolo "${e.proto}" sin mapear en prod): IVRS ${e.ivrs}`); continue }
