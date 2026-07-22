@@ -42,3 +42,8 @@ Thumbs.db
 
 # Credenciales de QA locales para el preview (ver CLAUDE.md → Verificación en el preview)
 .claude/qa-creds.local.md
+
+# Carga de visitas históricas: artefactos con PII de paciente (nombres) — NO van a git.
+# Al repo va solo la lógica del generador (parse/mapeo/generar), nunca los datos.
+supabase/scripts/carga-visitas-historicas/out/
+supabase/scripts/carga-visitas-historicas/*.xlsx

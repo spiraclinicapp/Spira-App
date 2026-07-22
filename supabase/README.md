@@ -78,6 +78,8 @@ copias que diverjan). Para una vista combinada: `cat migrations/*.sql` o `supaba
 | 0061 | `procedimientos_por_visita.sql` | Procedimientos por visita (Schedule of Assessments): catálogo global `procedures` (code/name/category/requires_dispensation) + revive `protocol_activities` (0002, latente) como join visita↔procedimiento (`procedure_id` + orden en `suggested_order` + `unique(visit_def_id, procedure_id)`; guard de tabla vacía antes de endurecer) + auditoría (`audit_row` en `procedures` y `protocol_activities`) + RPC atómico `set_visit_procedures` + seed curado de 16 procedimientos estándar. **Aplicada en prod (2026-07-21).** |
 | 0062 | `checklist_reportes.sql` | ítems de checklist con reporte (`has_report`/`report_eta_hours` en plantilla+materializado) + tabla `checklist_report_ready` (estado "reporte listo" aparte del tilde, auditable) + `materialize_checklist` copia los campos + vista `v_report_alerts` (alerta persistente de reporte pendiente) |
 
+| 0062 | `enrollments_ivrs_code.sql` | Agrega `enrollments.ivrs_code`: N° de sujeto IVRS **por enrollment** (una persona en un pivotal + su extensión LTS a largo plazo tiene dos IVRS; `patients.code` guarda el del estudio madre). Columna nullable + índice único parcial `(protocol_id, ivrs_code) where ivrs_code is not null` (tolerante a legacy: no indexa las filas viejas con NULL). Base de la carga de visitas históricas. **Aplicada en prod (2026-07-21).** |
+
 Además, `seed_smoke_test.sql` (en `supabase/`, fuera de `migrations/`) carga datos demo
 para validar el aislamiento de RLS. NO es para producción — ver instrucciones en su cabecera.
 En `scripts/etapa0-preparacion.sql` hay un script idempotente para el SQL Editor que aplica

@@ -169,6 +169,18 @@ export function adherence(rows: TrackVisitRow[]): { done: number; planned: numbe
   return { done, planned, pct: planned === 0 ? 0 : Math.round((done / planned) * 100) }
 }
 
+/** Desvío en días entre lo real y lo estimado. Positivo = vino DESPUÉS de lo previsto. */
+export function desvioDias(estimated: string | null, real: string | null): number | null {
+  if (!estimated || !real) return null
+  return Math.round((Date.parse(real) - Date.parse(estimated)) / 86400000)
+}
+
+/** ¿La fecha real cayó FUERA de la ventana [window_start, window_end] del cronograma? */
+export function fueraDeVentana(real: string | null, windowStart: string | null, windowEnd: string | null): boolean {
+  if (!real || !windowStart || !windowEnd) return false
+  return real < windowStart || real > windowEnd
+}
+
 /**
  * Ventana de ±radius visitas alrededor de la actual para el tracker horizontal,
  * con cuántas quedan fuera a cada lado (para los chips "+N").

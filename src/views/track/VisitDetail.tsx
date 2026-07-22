@@ -7,7 +7,7 @@ import { PrivacyAvatar } from '../../components/PrivacyAvatar'
 import { useVisit, markWantsDoctor, toggleWantsDoctor } from '../../data/dayVisits'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { usePatient } from '../../data/patients'
-import { visitTitle, ageFromBirth, SEX_LABELS, FERTILITY_LABELS } from '../../lib/visits'
+import { visitTitle, ageFromBirth, SEX_LABELS, FERTILITY_LABELS, desvioDias, fueraDeVentana } from '../../lib/visits'
 import { formatAR } from '../../lib/dates'
 import { OPERATIONAL_STAGES, STAGE_ORDER } from '../visitStates'
 import { VisitChecklist } from './VisitChecklist'
@@ -128,6 +128,7 @@ export function VisitDetail({ visitId, accent, context, onClose, canReception = 
                     {row('Fecha de nacimiento', patient?.birth_date ? formatAR(patient.birth_date) : dash)}
                     {row('Fértil', patient?.fertility ? (FERTILITY_LABELS[patient.fertility] ?? patient.fertility) : dash)}
                     {row('Médico tratante', visit.treating_physician || patient?.treating_physician || dash)}
+                    {row('Fecha', <VisitDates visit={visit} />)}
                   </>
                 )}
               </Panel>
@@ -178,6 +179,22 @@ const dash = <span style={{ color: 'var(--spira-faint)' }}>—</span>
 function ageOf(birth: string | null): ReactNode {
   const a = ageFromBirth(birth)
   return a !== null ? `${a} años` : dash
+}
+
+/** Fecha de la visita: estimada (del cronograma) + real (cuándo vino) + desvío + fuera de ventana. */
+function VisitDates({ visit }: { visit: DayVisitRow }) {
+  const est = visit.estimated_date ? formatAR(visit.estimated_date) : null
+  if (!visit.real_date) return <>{est ? `Estimada ${est}` : dash}</>
+  const d = desvioDias(visit.estimated_date, visit.real_date)
+  const fuera = fueraDeVentana(visit.real_date, visit.window_start, visit.window_end)
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <span style={{ color: 'var(--spira-muted)', fontWeight: 500 }}>Est {est ?? '—'}</span>
+      <span>· Real {formatAR(visit.real_date)}</span>
+      {d != null && <span style={{ color: 'var(--spira-muted)', fontWeight: 500 }}>({d > 0 ? '+' : ''}{d} d)</span>}
+      {fuera && <span role="img" aria-label="Fuera de ventana" title="Fuera de ventana" style={{ display: 'inline-flex' }}><Icon name="alert" size={13} color="var(--spira-danger)" /></span>}
+    </span>
+  )
 }
 
 function row(label: string, value: ReactNode) {
