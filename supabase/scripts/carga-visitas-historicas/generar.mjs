@@ -9,6 +9,7 @@ import fs from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { readSheets } from './parse-xlsx.mjs'
 import { clasificarVisitaExcel, PROTOCOLOS } from './mapeo.mjs'
+import { CORRECCIONES_FECHA_REAL, CORRECCIONES_ANCLA, NOTAS_VISITA, ENROLLMENT_STATUS } from './correcciones.mjs'
 
 const isISO = (v) => /^\d{4}-\d{2}-\d{2}/.test(v)
 // Parser tolerante: ISO (YYYY-MM-DD) o DD/MM/AAAA con espacios (las V1 de LTS vienen así).
@@ -16,11 +17,12 @@ const isISO = (v) => /^\d{4}-\d{2}-\d{2}/.test(v)
 function parseFecha(v) {
   if (v === null || v === undefined) return null
   const s = String(v).trim()
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  const plausible = (y) => y >= 2020 && y <= 2035   // descarta artefactos de fórmula (1900-xx = INICIO vacío + offset)
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return plausible(+s.slice(0, 4)) ? s.slice(0, 10) : null
   const m = s.match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})$/)
   if (m) {
     const d = +m[1], mo = +m[2], y = +m[3]
-    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31 && y >= 2020 && y <= 2035)
+    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31 && plausible(y))
       return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   }
   return null
@@ -49,15 +51,22 @@ export function extraer(path) {
     const key = `${f.ivrs}|${f.proto}`
     if (!enrollments.has(key)) enrollments.set(key, { ivrs: f.ivrs, proto: f.proto, nombre: f.nombre, visitas: [] })
     const cls = clasificarVisitaExcel(f.proto, f.etReal, f.etEst, f.visita)
+    const ck = `${f.proto}|${f.ivrs}|${f.visita}`
+    let estExcel = toISO(f.fEst)
+    let realExcel = toISO(f.fReal)
+    let corregido = null
+    if (CORRECCIONES_ANCLA[ck]) { estExcel = CORRECCIONES_ANCLA[ck]; corregido = 'ancla' }        // ancla ilegible → fecha confirmada
+    if (CORRECCIONES_FECHA_REAL[ck]) { realExcel = CORRECCIONES_FECHA_REAL[ck]; corregido = 'fecha-real' } // typo de año → corregido
     enrollments.get(key).visitas.push({
       visitaCol: f.visita,
       defCode: cls?.defCode ?? null,
       role: cls?.role ?? null,
       offsetDays: cls?.offsetDays ?? null,
       esAncla: cls?.esAncla ?? false,
-      estExcel: toISO(f.fEst),
-      realExcel: toISO(f.fReal),
+      estExcel, realExcel,
       crudoReal: f.fReal,   // se conserva el crudo para el informe (notas, typos)
+      nota: NOTAS_VISITA[ck] ?? null,
+      corregido,
     })
   }
   // ancla: fecha real de la visita ancla (si falta la real, la estimada)
@@ -68,6 +77,7 @@ export function extraer(path) {
     e.anclaFecha = a ? (a.realExcel || a.estExcel) : null
     const fechas = e.visitas.flatMap((v) => [v.realExcel, v.estExcel]).filter(Boolean).sort()
     e.primeraFecha = fechas[0] ?? null
+    e.status = ENROLLMENT_STATUS[`${e.proto}|${e.ivrs}`] ?? 'activo'
   }
   // personas: dedup por nombre normalizado (rollover)
   const personas = new Map()
@@ -118,18 +128,18 @@ export function sqlPersonasYEnrollments(model) {
     if (e.anclaFecha) {
       out.push(
 `insert into public.enrollments (patient_id, protocol_id, enrolled_by, enrollment_date, randomization_date, ivrs_code, status)
-select pa.id, pr.id, ${sysUser}, ${q(e.anclaFecha)}, ${q(e.anclaFecha)}, ${q(e.ivrs)}, 'activo'
+select pa.id, pr.id, ${sysUser}, ${q(e.anclaFecha)}, ${q(e.anclaFecha)}, ${q(e.ivrs)}, ${q(e.status)}
 from public.patients pa, public.protocols pr
 where pa.code = ${q(e.ivrsMadre)} and pr.code = ${q(e.proto)}
-on conflict (patient_id, protocol_id) do update set randomization_date = excluded.randomization_date, ivrs_code = excluded.ivrs_code;`)
+on conflict (patient_id, protocol_id) do update set randomization_date = excluded.randomization_date, ivrs_code = excluded.ivrs_code, status = excluded.status;`)
     } else if (e.primeraFecha) {
-      out.push(`-- SIN RANDOMIZAR (temprano): ${e.proto} IVRS ${e.ivrs} — se enrola sin randomization_date; sus visitas NO se generan (ver informe).`)
+      out.push(`-- SIN RANDOMIZAR: ${e.proto} IVRS ${e.ivrs} (status ${e.status}) — sin cronograma generado; su(s) visita(s) real(es) se cargan sueltas abajo.`)
       out.push(
 `insert into public.enrollments (patient_id, protocol_id, enrolled_by, enrollment_date, ivrs_code, status)
-select pa.id, pr.id, ${sysUser}, ${q(e.primeraFecha)}, ${q(e.ivrs)}, 'activo'
+select pa.id, pr.id, ${sysUser}, ${q(e.primeraFecha)}, ${q(e.ivrs)}, ${q(e.status)}
 from public.patients pa, public.protocols pr
 where pa.code = ${q(e.ivrsMadre)} and pr.code = ${q(e.proto)}
-on conflict (patient_id, protocol_id) do update set ivrs_code = excluded.ivrs_code;`)
+on conflict (patient_id, protocol_id) do update set ivrs_code = excluded.ivrs_code, status = excluded.status;`)
     } else {
       out.push(`-- DIFERIDO (no cargable): ${e.proto} IVRS ${e.ivrs} — sin ninguna fecha válida (ver informe). NO se enrola.`)
     }
@@ -156,34 +166,83 @@ where pv.enrollment_id = en.id and vd.id = pv.visit_def_id
   return out.join('\n')
 }
 
-// Informe de discrepancias (markdown). Nada de esto se carga con dato inventado.
+// 4b) visitas reales de enrollments SIN randomizar (p. ej. falla de screening): como no hay
+// cronograma generado, se insertan directo, kind='programada' con estimated=real (desvío 0).
+export function sqlVisitasSueltas(model) {
+  const out = []
+  let n = 0
+  for (const e of model.enrollments) {
+    if (e.anclaFecha || !e.primeraFecha) continue   // solo los enrolados sin randomizar
+    for (const v of e.visitas) {
+      if (!v.realExcel || !v.defCode) continue
+      n++
+      out.push(
+`insert into public.patient_visits (enrollment_id, visit_def_id, kind, estimated_date, real_date${v.nota ? ', notes' : ''})
+select en.id, vd.id, 'programada', ${q(v.realExcel)}, ${q(v.realExcel)}${v.nota ? ', ' + q(v.nota) : ''}
+from public.enrollments en
+  join public.protocols pr on pr.id = en.protocol_id
+  join public.visit_definitions vd on vd.protocol_id = pr.id
+where en.ivrs_code = ${q(e.ivrs)} and pr.code = ${q(e.proto)} and vd.code = ${q(v.defCode)}
+  and not exists (select 1 from public.patient_visits pv where pv.enrollment_id = en.id and pv.visit_def_id = vd.id);`)
+    }
+  }
+  out.unshift(`-- 4b) visitas sueltas de enrollments sin randomizar (${n}) --`)
+  return out.join('\n')
+}
+
+// 5) notas de visita (visitas que NO se hicieron: vacaciones / rollover). Van sobre la visita
+// generada del cronograma (enrollment randomizado); las sueltas ya llevan su nota en 4b.
+export function sqlNotas(model) {
+  const out = []
+  let n = 0
+  for (const e of model.enrollments) {
+    if (!e.anclaFecha) continue
+    for (const v of e.visitas) {
+      if (!v.nota || !v.defCode) continue
+      n++
+      out.push(
+`update public.patient_visits pv set notes = ${q(v.nota)}
+from public.enrollments en, public.visit_definitions vd
+where pv.enrollment_id = en.id and vd.id = pv.visit_def_id
+  and en.ivrs_code = ${q(e.ivrs)} and vd.code = ${q(v.defCode)};`)
+    }
+  }
+  out.unshift(`-- 5) notas de visita (${n}) --`)
+  return out.join('\n')
+}
+
+// Informe de discrepancias (markdown): registro de lo aplicado + casos aceptados/diferidos.
 export function informeDiscrepancias(model) {
   const L = ['# Informe de discrepancias — carga de visitas históricas', '',
-    'Revisar y resolver ANTES de correr con `commit;`. Nada acá se carga con dato inventado.', '']
-  const anioMal = [], notas = [], fechaMala = [], hibrido = [], diferidos = []
+    'Correcciones aplicadas (confirmadas por el Director, 2026-07-21) + casos aceptados/diferidos. Nada se carga con dato inventado.', '']
+  const corrFecha = [], corrAncla = [], notas = [], inactivos = [], diferidos = [], hibrido = [], legitimo = []
   for (const e of model.enrollments) {
+    if (e.status !== 'activo')
+      inactivos.push(`- **${e.proto} / IVRS ${e.ivrs}**: enrollment cargado como **${e.status}**.`)
     if (!e.anclaFecha) {
       const conReal = e.visitas.filter((v) => v.realExcel).length
-      diferidos.push(`- **${e.proto} / IVRS ${e.ivrs}**: sin visita ancla (randomización) con fecha válida → ${e.primeraFecha ? `enrolado sin randomizar (${conReal} visita(s) real no cargada(s))` : 'NO enrolado (ninguna fecha legible)'}.`)
+      diferidos.push(`- **${e.proto} / IVRS ${e.ivrs}**: sin ancla → ${e.primeraFecha ? `enrolado sin randomizar; ${conReal} visita(s) real cargada(s) suelta(s)` : 'NO enrolado (sin fecha)'}.`)
     }
     for (const v of e.visitas) {
-      if (v.estExcel && v.realExcel && v.estExcel.slice(0, 4) !== v.realExcel.slice(0, 4))
-        anioMal.push(`- ${e.proto} / IVRS ${e.ivrs} / ${v.visitaCol}: est ${v.estExcel} vs real ${v.realExcel}`)
-      const crudo = (v.crudoReal ?? '').toString().trim()
-      if (crudo && !v.realExcel && !/^\d+$/.test(crudo))
-        notas.push(`- ${e.proto} / IVRS ${e.ivrs} / ${v.visitaCol}: Fecha Real = "${crudo}"`)
+      if (v.corregido === 'fecha-real') corrFecha.push(`- ${e.proto} / IVRS ${e.ivrs} / ${v.visitaCol}: typo de año corregido → real ${v.realExcel}`)
+      if (v.corregido === 'ancla') corrAncla.push(`- ${e.proto} / IVRS ${e.ivrs} / ${v.visitaCol}: ancla ilegible corregida → ${v.estExcel}`)
+      if (v.nota) notas.push(`- ${e.proto} / IVRS ${e.ivrs} / ${v.visitaCol}: nota "${v.nota}" (visita sin fecha real)`)
+      if (v.estExcel && v.realExcel && v.estExcel.slice(0, 4) !== v.realExcel.slice(0, 4) && v.corregido !== 'fecha-real')
+        legitimo.push(`- ${e.proto} / IVRS ${e.ivrs} / ${v.visitaCol}: est ${v.estExcel} vs real ${v.realExcel} — cruce legítimo de fin de año, se deja`)
       if (e.anclaFecha && v.estExcel && v.offsetDays !== null) {
         const d = diffDays(v.estExcel, addDays(e.anclaFecha, v.offsetDays))
-        if (Math.abs(d) > 3) hibrido.push(`- ${e.proto} / IVRS ${e.ivrs} / ${v.visitaCol}: estimada del Excel ${v.estExcel} vs Spira ${addDays(e.anclaFecha, v.offsetDays)} (${d > 0 ? '+' : ''}${d} d)`)
+        if (Math.abs(d) > 3) hibrido.push(`- ${e.proto} / IVRS ${e.ivrs} / ${v.visitaCol}: estimada Excel ${v.estExcel} vs Spira ${addDays(e.anclaFecha, v.offsetDays)} (${d > 0 ? '+' : ''}${d} d)`)
       }
     }
   }
   const sec = (t, arr, nota = '') => { L.push(`## ${t} — ${arr.length}`, ''); if (nota) L.push(nota, ''); L.push(arr.length ? arr.join('\n') : '_ninguna_', '') }
-  sec('Enrollments diferidos / sin randomizar', diferidos, 'Sin ancla no se genera el cronograma. Pasar la fecha correcta (LTS) o cargar el INICIO cuando ocurra.')
-  sec('Año descuadrado (posible typo de año)', anioMal, 'Real un año distinto a la estimada. Confirmar la fecha real correcta.')
-  sec('Notas de texto en Fecha Real (no se cargan como fecha)', notas)
-  sec('Fechas mal escritas (no parseables)', fechaMala)
-  sec('Desvío estimada Excel vs Spira > 3 días', hibrido, 'Spira ancla en la randomización real; el Excel usó otro baseline para estos casos. Revisar si se acepta.')
+  sec('Correcciones de fecha real aplicadas (typos de año)', corrFecha)
+  sec('Correcciones de ancla aplicadas (fecha ilegible)', corrAncla)
+  sec('Notas guardadas (visitas no realizadas)', notas)
+  sec('Enrollments cargados inactivos', inactivos)
+  sec('Enrollments sin randomizar (diferidos)', diferidos, 'Sin ancla no hay cronograma; sus visitas reales se cargan sueltas (estimated=real).')
+  sec('Cruce de fin de año legítimo (NO se corrige)', legitimo)
+  sec('Desvío estimada Excel vs Spira > 3 días (ACEPTADO)', hibrido, 'Spira ancla en la randomización real; se acepta la versión de Spira.')
   return L.join('\n')
 }
 
@@ -218,6 +277,8 @@ union all select 'visitas con real',       count(*) from public.patient_visits p
     sqlDefiniciones(), '',
     sqlPersonasYEnrollments(model), '',
     sqlBackfill(model), '',
+    sqlVisitasSueltas(model), '',
+    sqlNotas(model), '',
     control, '',
     'rollback; -- <<< cambiar a commit; cuando los conteos cierren',
     '',
