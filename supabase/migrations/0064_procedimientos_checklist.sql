@@ -27,7 +27,7 @@ comment on column public.procedures.report_eta_hours is
 create table if not exists public.visit_procedure_completions (
   id           uuid primary key default uuid_generate_v4(),
   visit_id     uuid not null references public.patient_visits(id) on delete cascade,
-  procedure_id uuid not null references public.procedures(id)     on delete cascade,
+  procedure_id uuid not null references public.procedures(id)     on delete restrict,
   completed_by uuid not null default auth.uid() references public.users(id),
   completed_at timestamptz not null default now(),
   unique (visit_id, procedure_id)
@@ -39,7 +39,7 @@ comment on table public.visit_procedure_completions is
 create table if not exists public.visit_procedure_reports_ready (
   id           uuid primary key default uuid_generate_v4(),
   visit_id     uuid not null references public.patient_visits(id) on delete cascade,
-  procedure_id uuid not null references public.procedures(id)     on delete cascade,
+  procedure_id uuid not null references public.procedures(id)     on delete restrict,
   ready_by     uuid not null default auth.uid() references public.users(id),
   ready_at     timestamptz not null default now(),
   notes        text,
@@ -52,17 +52,23 @@ comment on table public.visit_procedure_reports_ready is
 alter table public.visit_procedure_completions   enable row level security;
 alter table public.visit_procedure_reports_ready enable row level security;
 
+drop policy if exists "ver procedimiento realizado" on public.visit_procedure_completions;
 create policy "ver procedimiento realizado" on public.visit_procedure_completions for select using (
   public.has_module('gerencia') or public.coordina_visita(visit_id));
+drop policy if exists "track tilda procedimiento" on public.visit_procedure_completions;
 create policy "track tilda procedimiento" on public.visit_procedure_completions for insert with check (
   completed_by = auth.uid() and (public.has_module('gerencia') or public.coordina_visita(visit_id)));
+drop policy if exists "track destilda procedimiento" on public.visit_procedure_completions;
 create policy "track destilda procedimiento" on public.visit_procedure_completions for delete using (
   public.has_module('gerencia') or public.coordina_visita(visit_id));
 
+drop policy if exists "ver reporte procedimiento" on public.visit_procedure_reports_ready;
 create policy "ver reporte procedimiento" on public.visit_procedure_reports_ready for select using (
   public.has_module('gerencia') or public.coordina_visita(visit_id));
+drop policy if exists "track marca reporte procedimiento" on public.visit_procedure_reports_ready;
 create policy "track marca reporte procedimiento" on public.visit_procedure_reports_ready for insert with check (
   ready_by = auth.uid() and (public.has_module('gerencia') or public.coordina_visita(visit_id)));
+drop policy if exists "track reabre reporte procedimiento" on public.visit_procedure_reports_ready;
 create policy "track reabre reporte procedimiento" on public.visit_procedure_reports_ready for delete using (
   public.has_module('gerencia') or public.coordina_visita(visit_id));
 
@@ -196,6 +202,7 @@ comment on view public.v_track_visits is
   'v_track_visits (0049) recreada por 0064 (cambia el CASE de v_patient_visits, no esta vista).';
 revoke all on public.v_track_visits from anon;
 grant select on public.v_track_visits to authenticated;
+revoke insert, update, delete, truncate, references, trigger on public.v_track_visits from authenticated;
 -- 7 · Backfill: dar por hechas (y reportes listos) las visitas YA realizadas. Aditivo + idempotente.
 do $$ declare v_by uuid;
 begin
@@ -206,14 +213,14 @@ begin
   if v_by is null then raise notice 'Sin usuarios: se omite el backfill'; return; end if;
 
   insert into public.visit_procedure_completions (visit_id, procedure_id, completed_by, completed_at)
-  select pv.id, pa.procedure_id, v_by, pv.real_date::timestamptz
+  select pv.id, pa.procedure_id, v_by, (pv.real_date::timestamp at time zone 'America/Argentina/Buenos_Aires')
   from public.patient_visits pv
   join public.protocol_activities pa on pa.visit_def_id = pv.visit_def_id
   where pv.real_date is not null
   on conflict (visit_id, procedure_id) do nothing;
 
   insert into public.visit_procedure_reports_ready (visit_id, procedure_id, ready_by, ready_at)
-  select pv.id, pa.procedure_id, v_by, pv.real_date::timestamptz
+  select pv.id, pa.procedure_id, v_by, (pv.real_date::timestamp at time zone 'America/Argentina/Buenos_Aires')
   from public.patient_visits pv
   join public.protocol_activities pa on pa.visit_def_id = pv.visit_def_id
   join public.procedures p on p.id = pa.procedure_id
