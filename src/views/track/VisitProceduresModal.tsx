@@ -12,8 +12,10 @@ import {
   setVisitProcedures,
   createProcedure,
   deleteProcedure,
+  updateProcedure,
 } from '../../data/procedures'
 import type { Procedure } from '../../data/procedures'
+import { REPORT_ETA_OPTIONS, reportEtaLabel } from '../../lib/checklist'
 
 /**
  * Modal de asignación de procedimientos a una visita del cronograma. UI simplificada (revisión de
@@ -53,6 +55,25 @@ export function VisitProceduresModal({
   const [items, setItems] = useState<Procedure[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /* Editor de "genera reporte" por chip: id del procedimiento en edición (null = ninguno). */
+  const [editing, setEditing] = useState<string | null>(null)
+  const [savingReport, setSavingReport] = useState(false)
+
+  // Edita has_report/report_eta_hours del catálogo (persiste al toque, no espera al "Guardar" del
+  // set de la visita: es un atributo del procedimiento, no de la asignación). Refleja en `items`.
+  const saveReport = async (id: string, hasReport: boolean, eta: number | null) => {
+    setSavingReport(true)
+    setError(null)
+    const res = await updateProcedure(id, { has_report: hasReport, report_eta_hours: eta })
+    setSavingReport(false)
+    if (res.error) {
+      setError(res.error)
+      return
+    }
+    catalog.refetch()
+    setItems((cur) => (cur ?? []).map((p) => (p.id === id ? { ...p, has_report: hasReport, report_eta_hours: hasReport ? eta : null } : p)))
+    setEditing(null)
+  }
 
   // Inicializar la lista de trabajo una sola vez, cuando llegan los asignados.
   useEffect(() => {
@@ -171,22 +192,54 @@ export function VisitProceduresModal({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {work.map((p, i) => (
-                <div key={p.id} style={chipRow}>
-                  <span style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: '0 0 auto' }}>
-                    <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Subir" title="Subir" style={reorderBtn(i === 0)}>
-                      <Icon name="chevronUp" size={13} color="var(--spira-muted)" />
+                <div key={p.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={chipRow}>
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: '0 0 auto' }}>
+                      <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Subir" title="Subir" style={reorderBtn(i === 0)}>
+                        <Icon name="chevronUp" size={13} color="var(--spira-muted)" />
+                      </button>
+                      <button type="button" onClick={() => move(i, 1)} disabled={i === work.length - 1} aria-label="Bajar" title="Bajar" style={reorderBtn(i === work.length - 1)}>
+                        <Icon name="chevronDown" size={13} color="var(--spira-muted)" />
+                      </button>
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <span style={{ fontSize: 13.5, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                      <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>
+                        {p.has_report ? `Genera reporte · ETA ${p.report_eta_hours != null ? reportEtaLabel(p.report_eta_hours) : '—'}` : (p.category ?? 'Sin reporte')}
+                      </span>
+                    </span>
+                    <button type="button" onClick={() => setEditing(editing === p.id ? null : p.id)} aria-label={`Reporte de ${p.name}`} title="Reporte" style={iconBtn}>
+                      <Icon name="printer" size={14} color={p.has_report ? accent : 'var(--spira-muted)'} />
                     </button>
-                    <button type="button" onClick={() => move(i, 1)} disabled={i === work.length - 1} aria-label="Bajar" title="Bajar" style={reorderBtn(i === work.length - 1)}>
-                      <Icon name="chevronDown" size={13} color="var(--spira-muted)" />
+                    <button type="button" onClick={() => remove(p.id)} aria-label={`Quitar ${p.name}`} title="Quitar" style={iconBtn}>
+                      <Icon name="x" size={14} color="var(--spira-muted)" />
                     </button>
-                  </span>
-                  <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <span style={{ fontSize: 13.5, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                    {p.category && <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{p.category}</span>}
-                  </span>
-                  <button type="button" onClick={() => remove(p.id)} aria-label={`Quitar ${p.name}`} title="Quitar" style={iconBtn}>
-                    <Icon name="x" size={14} color="var(--spira-muted)" />
-                  </button>
+                  </div>
+                  {editing === p.id && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--spira-line)', borderRadius: 10, background: 'var(--spira-surface)' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={p.has_report}
+                          disabled={savingReport}
+                          onChange={(e) => void saveReport(p.id, e.target.checked, e.target.checked ? (p.report_eta_hours ?? 48) : null)}
+                        />
+                        Genera reporte
+                      </label>
+                      {p.has_report && (
+                        <select
+                          value={String(p.report_eta_hours ?? 48)}
+                          disabled={savingReport}
+                          onChange={(e) => void saveReport(p.id, true, Number(e.target.value))}
+                          style={{ height: 30, borderRadius: 8, border: '1px solid var(--spira-line-2)', fontSize: 12.5 }}
+                        >
+                          {REPORT_ETA_OPTIONS.map((o) => (
+                            <option key={o.value} value={String(o.value)}>{o.label}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
