@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
-import { EmptyState } from '../../components/EmptyState'
 import { reportEtaLabel } from '../../lib/checklist'
 import {
   useVisitProcedureStatus, toggleVisitProcedure, toggleVisitProcedureReport,
@@ -40,17 +39,18 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   const doneOf = (p: VisitProcedureStatus) => optDone[p.procedure_id] ?? p.completed
   const reportOf = (p: VisitProcedureStatus) => optReport[p.procedure_id] ?? p.report_ready
 
-  async function run(key: string, opt: 'done' | 'report', next: boolean, call: () => Promise<{ error: string | null }>) {
+  async function run(procedureId: string, opt: 'done' | 'report', next: boolean, call: () => Promise<{ error: string | null }>) {
+    const key = procedureId + ':' + opt
     if (pending.has(key)) return
     setActionError(null)
     setPending((s) => new Set(s).add(key))
     const setter = opt === 'done' ? setOptDone : setOptReport
-    setter((o) => ({ ...o, [key]: next }))
+    setter((o) => ({ ...o, [procedureId]: next }))
     const { error: err } = await call()
-    if (err) { setter((o) => { const c = { ...o }; delete c[key]; return c }); setActionError(err) }
+    if (err) { setter((o) => { const c = { ...o }; delete c[procedureId]; return c }); setActionError(err) }
     setPending((s) => { const c = new Set(s); c.delete(key); return c })
     refetch()
-    setter((o) => { const c = { ...o }; delete c[key]; return c })
+    setter((o) => { const c = { ...o }; delete c[procedureId]; return c })
   }
 
   if (loading) {
@@ -75,7 +75,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
         {items.map((p) => {
           const isDone = doneOf(p)
           const isReady = reportOf(p)
-          const overdue = !isReady && reportOverdue({ ...p, completed: isDone })
+          const overdue = !isReady && reportOverdue({ ...p, completed: isDone, report_ready: isReady })
           const donePending = pending.has(p.procedure_id + ':done')
           const reportPending = pending.has(p.procedure_id + ':report')
           return (
@@ -83,7 +83,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <button
                   type="button" disabled={readOnly || donePending}
-                  onClick={() => run(p.procedure_id + ':done', 'done', !isDone, () => toggleVisitProcedure(visitId, p.procedure_id, !isDone))}
+                  onClick={() => run(p.procedure_id, 'done', !isDone, () => toggleVisitProcedure(visitId, p.procedure_id, !isDone))}
                   aria-label={isDone ? `Desmarcar ${p.name}` : `Marcar ${p.name} realizado`}
                   style={{ flex: '0 0 auto', width: 22, height: 22, borderRadius: 6, display: 'grid', placeItems: 'center', cursor: readOnly ? 'default' : 'pointer', border: `1.5px solid ${isDone ? accent : 'var(--spira-line-2)'}`, background: isDone ? accent : 'transparent', opacity: donePending ? 0.6 : 1 }}
                 >
@@ -105,7 +105,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 34 }}>
                   <button
                     type="button" disabled={readOnly || reportPending}
-                    onClick={() => run(p.procedure_id + ':report', 'report', !isReady, () => toggleVisitProcedureReport(visitId, p.procedure_id, !isReady))}
+                    onClick={() => run(p.procedure_id, 'report', !isReady, () => toggleVisitProcedureReport(visitId, p.procedure_id, !isReady))}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 30, padding: '0 11px', borderRadius: 8, cursor: readOnly ? 'default' : 'pointer', border: `1px solid ${isReady ? 'var(--spira-good)' : 'var(--spira-line-2)'}`, background: isReady ? '#5C8A5A14' : 'var(--spira-white)', color: isReady ? 'var(--spira-good)' : 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, opacity: reportPending ? 0.6 : 1 }}
                   >
                     <Icon name={isReady ? 'check' : 'printer'} size={14} color={isReady ? 'var(--spira-good)' : accent} />
@@ -120,10 +120,6 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
           )
         })}
       </div>
-
-      {items.length === 0 && (
-        <EmptyState accent={accent} icon="clipboardCheck" title="Sin procedimientos" description="Esta visita no tiene procedimientos en el cronograma." minHeight={140} />
-      )}
     </div>
   )
 }
