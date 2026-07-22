@@ -314,6 +314,39 @@ export function informeDiscrepancias(model) {
   return L.join('\n')
 }
 
+// Post-carga: marca TERMINADAS (ruta completa hasta "Fuera del sitio") las visitas históricas.
+// La etapa operativa se deriva de las marcas: left_at no nulo => 'fuera'. Con solo real_date
+// quedan en 'atendido'. Seteamos arrived_at/ready_at/left_at = real_date (9/10/11h para que la
+// progresión sea cronológica). Apunta SOLO a las visitas cargadas sin marcas (real_date pero
+// arrived/ready/left nulos), en los 4 protocolos. Idempotente y en dry-run.
+export function sqlMarcarTerminadas(activos) {
+  const inList = activos.map(q).join(', ')
+  return `-- Marca TERMINADAS las visitas históricas atendidas (real_date sin marcas operativas). Dry-run. --
+begin;
+
+update public.patient_visits pv
+set arrived_at = pv.real_date + interval '9 hours',
+    ready_at   = pv.real_date + interval '10 hours',
+    left_at    = pv.real_date + interval '11 hours'
+from public.enrollments en
+  join public.protocols p on p.id = en.protocol_id
+where pv.enrollment_id = en.id
+  and p.code in (${inList})
+  and pv.real_date is not null
+  and pv.arrived_at is null and pv.ready_at is null and pv.left_at is null;
+
+-- Control: cuántas quedaron terminadas (left_at no nulo) vs atendidas sin terminar --
+select 'terminadas'          as k, count(*) from public.patient_visits pv
+  join public.enrollments en on en.id = pv.enrollment_id join public.protocols p on p.id = en.protocol_id
+  where p.code in (${inList}) and pv.real_date is not null and pv.left_at is not null
+union all select 'atendidas sin terminar', count(*) from public.patient_visits pv
+  join public.enrollments en on en.id = pv.enrollment_id join public.protocols p on p.id = en.protocol_id
+  where p.code in (${inList}) and pv.real_date is not null and pv.left_at is null;
+
+rollback; -- <<< cambiar a commit; cuando el conteo cierre
+`
+}
+
 // 6) Ensamblado: transacción + verificación + dry-run.
 export function main(path, outDir) {
   const model = extraer(path)
@@ -367,6 +400,7 @@ group by p.code order by p.code;`
   fs.mkdirSync(outDir, { recursive: true })
   fs.writeFileSync(`${outDir}/carga-visitas-historicas.sql`, sql)
   fs.writeFileSync(`${outDir}/discrepancias.md`, informeDiscrepancias(model))
+  fs.writeFileSync(`${outDir}/marcar-terminadas.sql`, sqlMarcarTerminadas(activos))
   return model.stats
 }
 
