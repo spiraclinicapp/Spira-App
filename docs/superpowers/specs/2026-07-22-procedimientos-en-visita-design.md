@@ -31,6 +31,8 @@ clínico" templado. Tras aclarar el uso real con el Director, el modelo es otro:
    de "vencido" que 0063 (no un aviso inmediato: el reporte recién existe después de la ETA).
 4. Cuando el reporte se descargó/firmó/archivó, se marca **"reporte listo"** → el pendiente y la
    alerta se apagan.
+5. La visita queda en **realizada** mientras haya algo pendiente (procedimiento sin realizar o reporte
+   sin marcar listo) y recién pasa a **completa** cuando está todo hecho (§1.6).
 
 ## Modelo mental
 
@@ -169,6 +171,90 @@ revoke all on public.v_procedure_report_alerts from anon;
 grant select on public.v_procedure_report_alerts to authenticated;
 ```
 
+### 1.6 · Estado de la visita — recrear `v_patient_visits` + `v_track_visits`
+
+**Los procedimientos manejan el estado clínico de la visita.** Regla: una visita con `real_date` es
+`completa` solo cuando **todos** sus procedimientos están realizados **y** los que generan reporte
+tienen el reporte listo; si queda algo pendiente, `realizada`; si un reporte ya venció su ETA sin
+marcarse listo, `item_vencido`.
+
+Se hace **sumando** (no reemplazando) la condición de procedimientos a la lógica de checklist ya
+vigente (0049): como el checklist templado está dormido, en la práctica manda el procedimiento, pero
+la lógica vieja queda intacta y reversible. Patrón del repo: `drop view v_track_visits; drop view
+v_patient_visits;` y recrear **ambas** copiando su definición vigente de 0049 + el cambio en el CASE.
+
+Predicados nuevos (por visita `pv`), a sumar con `or` a los `exists(...)` de checklist:
+
+```sql
+-- pendiente de realizar: hay un procedimiento asignado a la definición sin completar en esta visita
+exists (select 1 from public.protocol_activities pa
+        where pa.visit_def_id = pv.visit_def_id
+          and not exists (select 1 from public.visit_procedure_completions vpc
+                          where vpc.visit_id = pv.id and vpc.procedure_id = pa.procedure_id))
+-- pendiente de reporte: procedimiento con has_report sin "reporte listo" en esta visita
+exists (select 1 from public.protocol_activities pa
+        join public.procedures p on p.id = pa.procedure_id
+        where pa.visit_def_id = pv.visit_def_id and p.has_report
+          and not exists (select 1 from public.visit_procedure_reports_ready rr
+                          where rr.visit_id = pv.id and rr.procedure_id = pa.procedure_id))
+-- reporte vencido (→ item_vencido): realizado + has_report + no listo + pasó la ETA
+exists (select 1 from public.protocol_activities pa
+        join public.procedures p on p.id = pa.procedure_id
+        join public.visit_procedure_completions vpc
+             on vpc.visit_id = pv.id and vpc.procedure_id = pa.procedure_id
+        where pa.visit_def_id = pv.visit_def_id and p.has_report and p.report_eta_hours is not null
+          and not exists (select 1 from public.visit_procedure_reports_ready rr
+                          where rr.visit_id = pv.id and rr.procedure_id = pa.procedure_id)
+          and now() > vpc.completed_at + (p.report_eta_hours * interval '1 hour'))
+```
+
+CASE resultante: `item_vencido` si (checklist vencido **o** reporte vencido); `realizada` si
+(checklist pendiente **o** proc. pendiente de realizar **o** proc. pendiente de reporte); si no,
+`completa`. Visitas sueltas / definición sin procedimientos → vacuamente `completa`, como hoy.
+
+> ⚠️ `v_track_visits` tiene 40 columnas (0049) — el plan copia su definición **tal cual** y solo cambia
+> el CASE de `v_patient_visits`. `create or replace view` no alcanza (cambia el cuerpo con vistas
+> dependientes) → drop en cascada controlado y recrear las dos.
+
+### 1.7 · Backfill de visitas históricas (dar por hechas)
+
+Al pasar el estado a los procedimientos, las visitas ya realizadas (fecha real, cero procedimientos
+tildados) caerían a `realizada`. Para preservar su estado, un **backfill idempotente y aditivo** (al
+final de 0064) marca como realizados —y sus reportes como listos— los procedimientos de **toda visita
+con `real_date`** al momento de aplicar la migración:
+
+```sql
+do $$ declare v_by uuid;
+begin
+  -- Autor del backfill: un usuario real (gerencia primero), igual que el seed de 0061.
+  select u.id into v_by from public.users u
+    join public.user_module_roles r on r.user_id = u.id
+    where r.module = 'gerencia' order by u.created_at limit 1;
+  if v_by is null then select id into v_by from public.users order by created_at limit 1; end if;
+  if v_by is null then raise notice 'Sin usuarios: se omite el backfill'; return; end if;
+
+  -- Realizados: un completion por (visita realizada, procedimiento asignado a su definición).
+  insert into public.visit_procedure_completions (visit_id, procedure_id, completed_by, completed_at)
+  select pv.id, pa.procedure_id, v_by, pv.real_date::timestamptz
+  from public.patient_visits pv
+  join public.protocol_activities pa on pa.visit_def_id = pv.visit_def_id
+  where pv.real_date is not null
+  on conflict (visit_id, procedure_id) do nothing;
+
+  -- Reportes listos: idem para los procedimientos con has_report.
+  insert into public.visit_procedure_reports_ready (visit_id, procedure_id, ready_by, ready_at)
+  select pv.id, pa.procedure_id, v_by, pv.real_date::timestamptz
+  from public.patient_visits pv
+  join public.protocol_activities pa on pa.visit_def_id = pv.visit_def_id
+  join public.procedures p on p.id = pa.procedure_id
+  where pv.real_date is not null and p.has_report
+  on conflict (visit_id, procedure_id) do nothing;
+end $$;
+```
+
+Aditivo (solo `insert ... on conflict do nothing`), sin deletes ni updates → seguro sobre datos
+reales. Las visitas nuevas de acá en adelante arrancan sin tildar (estado real).
+
 ## 2 · Capa de datos
 
 **`src/data/procedures.ts`**
@@ -210,9 +296,10 @@ unirla con la de `v_report_alerts` para la campana y la vista Alertas. Marcar ca
 
 - **Checklist templado dormido:** no se borra 0063 ni las tablas de checklist; solo dejan de tener
   superficie en el modal. Reversible.
-- **Fuera de v1:** que el completado de procedimientos afecte el *estado clínico* de la visita
-  (`v_track_visits`: realizada/completa/vencida). Hoy, sin plantillas, las visitas caen en "completa"
-  igual. Si se quiere que los procedimientos manejen ese estado, se scopea aparte.
+- **Estado de la visita (en scope, §1.6):** los procedimientos manejan `computed_status`. Una visita
+  no pasa a `completa` hasta que todos sus procedimientos estén realizados y sus reportes listos.
+  Cambia una vista central → parte grande y delicada de la migración. Las históricas se preservan con
+  el backfill (§1.7).
 - **Visitas sueltas** (`visit_def_id` null) o **definición sin procedimientos** → no se muestra el
   bloque (el hook devuelve `[]`).
 - **`report_ready` sin `completed`**: la UI solo ofrece "reporte listo" una vez marcado realizado
@@ -235,10 +322,16 @@ unirla con la de `v_report_alerts` para la campana y la vista Alertas. Marcar ca
   procedimiento con `has_report`, marcar realizado y confirmar que aparece en la campana/Alertas tras
   la ETA; marcar "reporte listo" y confirmar que la alerta se apaga; recargar y confirmar persistencia.
   Verificar que una visita suelta no muestra bloque y que la ficha (`readOnly`) es solo lectura.
+- **Estado:** una visita con procedimientos sin tildar debe mostrarse `realizada`; al tildar todos (y
+  marcar los reportes listos) debe pasar a `completa`. Un reporte pasado de ETA → `item_vencido`.
+- **Backfill:** tras aplicar 0064, confirmar que las visitas históricas ya realizadas **siguen**
+  `completa` (no cayeron a pendiente) y que los números del tablero se mantienen.
 
 ## Archivos afectados
 
-- `supabase/migrations/0064_procedimientos_checklist.sql` (nuevo)
+- `supabase/migrations/0064_procedimientos_checklist.sql` (nuevo) — atributo + 2 tablas + RLS +
+  audit + vista de alertas + **recreación de `v_patient_visits` y `v_track_visits`** (estado, §1.6) +
+  **backfill** de históricas (§1.7). Migración grande.
 - `supabase/README.md` (índice de migraciones)
 - `src/data/procedures.ts` (status + toggles + atributo de catálogo)
 - `src/data/reports.ts` (unir la fuente de alertas de procedimientos)
