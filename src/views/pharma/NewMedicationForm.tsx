@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import { Modal } from '../../components/Modal'
 import { fieldInput } from '../../components/FormField'
 import { btnOutline, btnPrimary } from '../../components/buttons'
@@ -8,7 +8,7 @@ import { SearchableSelect } from '../../components/SearchableSelect'
 import type { SelectOption } from '../../components/SearchableSelect'
 import {
   useDrugs, createDrug, deleteDrug, createMedication, updateMedication, useDoses, useClases, useMedications,
-  useLaboratorios, createLaboratorio, deleteLaboratorio, resolveLabByCode, linkLabPrefix,
+  useLaboratorios, createLaboratorio, deleteLaboratorio, resolveLabByCode, linkLabPrefix, linkCode, updateCode,
 } from '../../data/pharma'
 import type { MedicationRow } from '../../data/pharma'
 
@@ -31,12 +31,25 @@ function stripDosis(name: string, dosis: string | null): string {
 const SIN_METODO = 'Sin especificar'
 const uniqStrings = (arr: (string | null | undefined)[]) => [...new Set(arr.filter((x): x is string => !!x))].sort()
 
+/** Botón secundario en tono peligro (contorno danger, fondo blanco) para la zona de eliminación. */
+const btnOutlineDanger: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 15px', borderRadius: 10,
+  border: '1px solid rgba(166,72,59,.42)', background: 'var(--spira-white)', color: 'var(--spira-danger)',
+  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 14, cursor: 'pointer', flex: '0 0 auto',
+}
+
 interface Props {
   accentSolid: string
   onClose: () => void
   onCreated: () => void
   /** Si viene, el form abre en modo EDICIÓN de ese medicamento (opcional; por default es alta). */
   editing?: MedicationRow | null
+  /** Código de barras actual del medicamento que se edita (vive en `medication_codes`, aparte de la
+   *  fila). Precarga el campo Código en modo edición; en alta va vacío. */
+  currentCode?: string | null
+  /** Si viene (y hay `editing`), muestra la zona de eliminación al pie. La confirmación la maneja
+   *  el que abre el form (MedicamentosView), gateado por permiso. Ausente = sin zona de baja. */
+  onDelete?: () => void
 }
 
 /**
@@ -46,7 +59,7 @@ interface Props {
  * si ya existe, ofrece editar el existente. El código y el laboratorio se editan aparte, así que en
  * modo edición se ocultan (updateMedication no los toca).
  */
-export function NewMedicationForm({ onClose, onCreated, editing: initialEditing }: Props) {
+export function NewMedicationForm({ onClose, onCreated, editing: initialEditing, currentCode: initialCurrentCode, onDelete }: Props) {
   const drugs = useDrugs()
   const doses = useDoses()
   const clases = useClases()
@@ -59,9 +72,11 @@ export function NewMedicationForm({ onClose, onCreated, editing: initialEditing 
   const [metodoVal, setMetodoVal] = useState(initialEditing && initialEditing.unit !== SIN_METODO ? initialEditing.unit : '')
   const [drugId, setDrugId] = useState(initialEditing?.drug?.id ?? '')
   const [claseVal, setClaseVal] = useState(initialEditing?.clase ?? '')
-  const [gtin, setGtin] = useState('')
-  const [labId, setLabId] = useState('')
-  const labManualRef = useRef(false) // el operador eligió el laboratorio a mano → no lo pisa el autodetect
+  const [gtin, setGtin] = useState(initialCurrentCode ?? '')
+  const [labId, setLabId] = useState(initialEditing?.laboratorio_id ?? '')
+  // El operador eligió el laboratorio a mano → no lo pisa el autodetect. En edición arranca en true:
+  // el lab ya viene precargado del medicamento, el autodetect por prefijo no debe clobbearlo.
+  const labManualRef = useRef(!!initialEditing)
   const [error, setError] = useState<string | null>(null)
   const [dup, setDup] = useState<MedicationRow | null>(null)
   const [busy, setBusy] = useState(false)
@@ -124,6 +139,7 @@ export function NewMedicationForm({ onClose, onCreated, editing: initialEditing 
     setMetodoVal(med.unit !== SIN_METODO ? med.unit : '')
     setDrugId(med.drug?.id ?? '')
     setClaseVal(med.clase ?? '')
+    setLabId(med.laboratorio_id ?? ''); labManualRef.current = true // el lab del existente manda; sin autodetect
   }
   const clearDup = () => { if (dup) setDup(null) }
 
@@ -149,12 +165,25 @@ export function NewMedicationForm({ onClose, onCreated, editing: initialEditing 
     setError(null)
 
     if (editing) {
+      // 1. Código de barras (tabla aparte, único global): asignar/cambiar si vino un valor NUEVO.
+      //    Vaciar el campo NO borra el código existente (para quitarlo, el flujo dedicado). Va primero:
+      //    el 23505 (código ya usado por otro medicamento) debe frenar ANTES de tocar la fila.
+      const nuevoCode = gtin.trim()
+      const actualCode = (initialCurrentCode ?? '').trim()
+      if (nuevoCode && nuevoCode !== actualCode) {
+        const rc = actualCode ? await updateCode(editing.id, nuevoCode) : await linkCode(nuevoCode, editing.id)
+        if (rc.error) { setBusy(false); setError(rc.error); return }
+      }
+      // 2. Campos de la fila (incl. laboratorio).
       const res = await updateMedication({
         id: editing.id, drug_id: drugId || null, name: fullName, unit: unitVal,
         low_stock_threshold: editing.low_stock_threshold, dosis: resolvedDosis || null, clase: claseVal.trim() || null,
+        laboratorio_id: labId || null,
       })
+      if (res.error) { setBusy(false); setError(res.error); return }
+      // 3. Aprender el prefijo del código → laboratorio (best-effort, como en el alta).
+      if (nuevoCode && labId) { try { await linkLabPrefix(nuevoCode, labId) } catch { /* no bloquea el guardado */ } }
       setBusy(false)
-      if (res.error) { setError(res.error); return }
       onCreated()
       return
     }
@@ -220,24 +249,20 @@ export function NewMedicationForm({ onClose, onCreated, editing: initialEditing 
           <SearchableSelect value={drugId} onChange={setDrugId} options={drugOptions} placeholder="Elegí o buscá la monodroga…" searchPlaceholder="Buscar monodroga…" entity="monodroga" onCreate={addDrug} onDelete={delDrug} />
         </div>
 
-        {!editing && (
-          <div>
-            <FieldLabel>Código de barras</FieldLabel>
-            <div style={{ position: 'relative' }}>
-              <input value={gtin} onChange={(e) => setGtin(e.target.value)} className="spira-mono" placeholder="Escaneá o ingresá el EAN13" style={{ ...fieldInput, paddingRight: 42 }} />
-              <span style={{ position: 'absolute', right: 13, top: 0, height: 44, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
-                <Icon name="barcode" size={18} color="var(--spira-pharma-solid)" />
-              </span>
-            </div>
+        <div>
+          <FieldLabel>Código de barras</FieldLabel>
+          <div style={{ position: 'relative' }}>
+            <input value={gtin} onChange={(e) => setGtin(e.target.value)} className="spira-mono" placeholder="Escaneá o ingresá el EAN13" style={{ ...fieldInput, paddingRight: 42 }} />
+            <span style={{ position: 'absolute', right: 13, top: 0, height: 44, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+              <Icon name="barcode" size={18} color="var(--spira-pharma-solid)" />
+            </span>
           </div>
-        )}
+        </div>
 
-        {!editing && (
-          <div>
-            <FieldLabel>Laboratorio</FieldLabel>
-            <SearchableSelect value={labId} onChange={(v) => { labManualRef.current = true; setLabId(v) }} options={labOptions} placeholder="Elegí o buscá el laboratorio…" searchPlaceholder="Buscar laboratorio…" entity="laboratorio" onCreate={addLab} onDelete={delLab} />
-          </div>
-        )}
+        <div>
+          <FieldLabel>Laboratorio</FieldLabel>
+          <SearchableSelect value={labId} onChange={(v) => { labManualRef.current = true; setLabId(v) }} options={labOptions} placeholder="Elegí o buscá el laboratorio…" searchPlaceholder="Buscar laboratorio…" entity="laboratorio" onCreate={addLab} onDelete={delLab} />
+        </div>
 
         <div>
           <FieldLabel>Clase / Indicación</FieldLabel>
@@ -259,6 +284,18 @@ export function NewMedicationForm({ onClose, onCreated, editing: initialEditing 
         {error && (
           <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
             {error}
+          </div>
+        )}
+
+        {editing && onDelete && (
+          <div style={{ borderTop: '1px solid var(--spira-line)', paddingTop: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)' }}>Eliminar del catálogo</div>
+              <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>Quita este medicamento de forma permanente.</div>
+            </div>
+            <button type="button" onClick={onDelete} style={btnOutlineDanger}>
+              <Icon name="trash" size={15} color="var(--spira-danger)" /> Eliminar
+            </button>
           </div>
         )}
 

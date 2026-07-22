@@ -18,6 +18,8 @@ import type { LotDetailRow, MedicationRow } from '../../data/pharma'
 import { NewMedicationForm } from './NewMedicationForm'
 import { AdjustStockModal } from './AdjustStockModal'
 import { CodigoModal } from './CodigoModal'
+import { DeleteMedicationModal } from './DeleteMedicationModal'
+import { Toast } from '../../components/Toast'
 import type { ViewProps } from '../types'
 import { ESTADO_CFG } from './expiryState'
 import type { Estado } from './expiryState'
@@ -72,6 +74,9 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   const [protoSel, setProtoSel] = useState<string[]>([])
   const [dropdownId, setDropdownId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<MedicationRow | null>(null)
+  const [deleting, setDeleting] = useState<MedicationRow | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const [codigo, setCodigo] = useState<{ medicationId: string; name: string; mode: 'asignar' | 'modificar'; currentCode?: string | null } | null>(null)
   const [ajuste, setAjuste] = useState<{ lotId: string; name: string; lotLabel: string } | null>(null)
 
@@ -118,6 +123,8 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     return () => setHeader(null)
   }, [setHeader, apartado, canManage, goMenu])
 
+  const openEdit = (row: MedicationRow) => { setDropdownId(null); setEditing(row) }
+  const openEliminar = (row: MedicationRow) => { setDropdownId(null); setDeleting(row) }
   const openCodigo = (medicationId: string, name: string, current: string | null) => {
     setDropdownId(null)
     setCodigo({ medicationId, name, mode: current ? 'modificar' : 'asignar', currentCode: current })
@@ -188,6 +195,26 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
           onCreated={() => { setCreating(false); refetchAll() }}
         />
       )}
+      {/* Editar: se oculta mientras la confirmación de borrado está abierta (un modal a la vez → sin
+          doble Escape). Cancelar el borrado vuelve acá; borrar exitoso cierra ambos. */}
+      {editing && !deleting && (
+        <NewMedicationForm
+          accentSolid={accentSolid}
+          editing={editing}
+          currentCode={codeByMed.get(editing.id) ?? null}
+          onClose={() => setEditing(null)}
+          onCreated={() => { setEditing(null); refetchAll() }}
+          onDelete={canManage ? () => setDeleting(editing) : undefined}
+        />
+      )}
+      {deleting && (
+        <DeleteMedicationModal
+          row={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={(nombre) => { setDeleting(null); setEditing(null); setToast(`${nombre} se eliminó del catálogo`); refetchAll() }}
+        />
+      )}
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
       {codigo && (
         <CodigoModal
           accentSolid={accentSolid}
@@ -226,7 +253,13 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
                 <>
                   <SectionHeader eyebrow="Todos los medicamentos · catálogo global" nMeds={cats.length} nLotes={null} />
                   <div style={lista}>
-                    {cats.map((m) => <CatalogoRow key={m.id} row={m} code={codeByMed.get(m.id) ?? null} onAsignar={() => openCodigo(m.id, m.name, codeByMed.get(m.id) ?? null)} />)}
+                    {cats.map((m) => (
+                      <CatalogoRow
+                        key={m.id} row={m} code={codeByMed.get(m.id) ?? null}
+                        canManage={canManage} dropdownId={dropdownId} setDropdownId={setDropdownId}
+                        onEdit={openEdit} onCodigo={openCodigo} onEliminar={openEliminar}
+                      />
+                    ))}
                   </div>
                 </>
               )
@@ -518,9 +551,22 @@ function ProtocolFilter({ protocols, selected, onChange, accentSolid }: {
   )
 }
 
-/* ── Fila del catálogo (sin lote) ──────────────────────────────────────────── */
-function CatalogoRow({ row, code, onAsignar }: { row: MedicationRow; code: string | null; onAsignar: () => void }) {
+/* ── Fila del catálogo (sin lote): datos + código + kebab (Editar / Código / Eliminar) ── */
+interface CatalogoRowProps {
+  row: MedicationRow
+  code: string | null
+  canManage: boolean
+  dropdownId: string | null
+  setDropdownId: (id: string | null) => void
+  onEdit: (row: MedicationRow) => void
+  onCodigo: (medicationId: string, name: string, current: string | null) => void
+  onEliminar: (row: MedicationRow) => void
+}
+function CatalogoRow({ row, code, canManage, dropdownId, setDropdownId, onEdit, onCodigo, onEliminar }: CatalogoRowProps) {
   const sub = [row.drug?.name, row.dosis, row.unit].filter(Boolean).join(' · ')
+  const abierto = dropdownId === row.id
+  const hasCode = !!code
+  const { anchorRef, pos } = useAnchoredPopover(abierto, 244)
   return (
     <div style={rowCard}>
       <span style={pillSq}><Icon name="pill" size={18} color="var(--spira-pharma-solid)" stroke={1.9} /></span>
@@ -528,7 +574,26 @@ function CatalogoRow({ row, code, onAsignar }: { row: MedicationRow; code: strin
         <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--spira-ink)' }}>{row.name}</div>
         {sub && <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>{sub}</div>}
       </div>
-      <EanCell code={code} onAsignar={onAsignar} />
+      <EanCell code={code} onAsignar={() => onCodigo(row.id, row.name, code)} />
+      <div style={{ position: 'relative', flex: '0 0 auto' }}>
+        <button ref={anchorRef} aria-label="Acciones" aria-haspopup="menu" aria-expanded={abierto} onClick={() => setDropdownId(abierto ? null : row.id)} style={kebabBtn}>
+          <Icon name="moreVertical" size={16} color="var(--spira-muted)" />
+        </button>
+        {abierto && (
+          <>
+            <div onClick={() => setDropdownId(null)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} />
+            {pos && (
+              <div role="menu" style={{ ...popover, top: pos.top, left: pos.left }}>
+                {canManage && <KebabItem icon="pencil" onClick={() => onEdit(row)}>Editar medicamento</KebabItem>}
+                <KebabItem icon="barcode" onClick={() => onCodigo(row.id, row.name, code)}>
+                  {hasCode ? 'Modificar código' : 'Asignar código'}
+                </KebabItem>
+                {canManage && <><div style={kebabDivider} /><KebabItem icon="trash" danger onClick={() => onEliminar(row)}>Eliminar del catálogo</KebabItem></>}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -632,10 +697,12 @@ function StockCell({ qty }: { qty: number }) {
 function Eyebrow({ children }: { children: ReactNode }) {
   return <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-faint)' }}>{children}</div>
 }
-function KebabItem({ icon, children, onClick, disabled }: { icon: IconName; children: ReactNode; onClick?: () => void; disabled?: boolean }) {
+function KebabItem({ icon, children, onClick, disabled, danger }: { icon: IconName; children: ReactNode; onClick?: () => void; disabled?: boolean; danger?: boolean }) {
+  const color = disabled ? 'var(--spira-faint)' : danger ? 'var(--spira-danger)' : 'var(--spira-ink)'
+  const iconColor = disabled ? 'var(--spira-line-2)' : danger ? 'var(--spira-danger)' : 'var(--spira-muted)'
   return (
-    <button role="menuitem" onClick={onClick} disabled={disabled} aria-disabled={disabled} style={{ ...kebabItem, color: disabled ? 'var(--spira-faint)' : 'var(--spira-ink)', cursor: disabled ? 'default' : 'pointer' }}>
-      <Icon name={icon} size={16} color={disabled ? 'var(--spira-line-2)' : 'var(--spira-muted)'} />
+    <button role="menuitem" onClick={onClick} disabled={disabled} aria-disabled={disabled} style={{ ...kebabItem, color, cursor: disabled ? 'default' : 'pointer' }}>
+      <Icon name={icon} size={16} color={iconColor} />
       <span style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>{children}</span>
     </button>
   )
