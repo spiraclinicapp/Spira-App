@@ -63,6 +63,14 @@ export interface VisitChecklistItem {
   completed: boolean
   completed_at: string | null
   completed_by: string | null
+  /** Snapshot: el ítem genera un reporte diferido. Migración 0062. */
+  has_report: boolean
+  /** Snapshot: demora estimada del reporte en horas; null si no genera. Migración 0062. */
+  report_eta_hours: number | null
+  /** Reporte marcado LISTO (firmado y evolucionado). Estado aparte del tilde. Migración 0062. */
+  report_ready: boolean
+  report_ready_at: string | null
+  report_ready_by: string | null
 }
 
 // ————————————————————————————————————————————————————
@@ -164,11 +172,19 @@ interface ChecklistCompletionRow {
   completed_by: string
 }
 
+/** Fila cruda de checklist_report_ready para unir en el cliente. */
+interface ReportReadyRow {
+  item_id: string
+  ready_at: string
+  ready_by: string
+}
+
 /**
  * Checklist clínico de una visita: los ítems materializados (checklist_items) más
- * su estado de completado (checklist_completions). Se hacen DOS consultas (items y
- * completions) y se unen en el cliente: evita acoplarse a la forma del embed de
- * PostgREST y respeta la RLS de cada tabla. Con `visitId` null no consulta.
+ * su estado de completado (checklist_completions) y de reporte listo
+ * (checklist_report_ready). Se hacen TRES consultas (items, completions, report_ready) y
+ * se unen en el cliente: evita acoplarse a la forma del embed de PostgREST y respeta la
+ * RLS de cada tabla. Con `visitId` null no consulta.
  */
 export function useVisitChecklist(visitId: string | null): QueryResult<VisitChecklistItem[]> {
   return useSupabaseQuery<VisitChecklistItem[]>(
@@ -176,32 +192,46 @@ export function useVisitChecklist(visitId: string | null): QueryResult<VisitChec
       if (!visitId) return { data: [], error: null }
       const itemsRes = await c
         .from('checklist_items')
-        .select('id, visit_id, description, deadline_hours, mandatory, sort_order')
+        .select('id, visit_id, description, deadline_hours, mandatory, sort_order, has_report, report_eta_hours')
         .eq('visit_id', visitId)
         .order('sort_order', { ascending: true })
       if (itemsRes.error) return { data: null, error: itemsRes.error }
       const items = (itemsRes.data ?? []) as Omit<
         VisitChecklistItem,
-        'completed' | 'completed_at' | 'completed_by'
+        'completed' | 'completed_at' | 'completed_by' | 'report_ready' | 'report_ready_at' | 'report_ready_by'
       >[]
       if (items.length === 0) return { data: [], error: null }
 
+      const ids = items.map((i) => i.id)
       const compRes = await c
         .from('checklist_completions')
         .select('item_id, completed_at, completed_by')
-        .in('item_id', items.map((i) => i.id))
+        .in('item_id', ids)
       if (compRes.error) return { data: null, error: compRes.error }
       const byItem = new Map<string, ChecklistCompletionRow>(
         ((compRes.data ?? []) as ChecklistCompletionRow[]).map((r) => [r.item_id, r]),
       )
 
+      const readyRes = await c
+        .from('checklist_report_ready')
+        .select('item_id, ready_at, ready_by')
+        .in('item_id', ids)
+      if (readyRes.error) return { data: null, error: readyRes.error }
+      const readyByItem = new Map<string, ReportReadyRow>(
+        ((readyRes.data ?? []) as ReportReadyRow[]).map((r) => [r.item_id, r]),
+      )
+
       const merged: VisitChecklistItem[] = items.map((i) => {
         const comp = byItem.get(i.id)
+        const rr = readyByItem.get(i.id)
         return {
           ...i,
           completed: comp != null,
           completed_at: comp?.completed_at ?? null,
           completed_by: comp?.completed_by ?? null,
+          report_ready: rr != null,
+          report_ready_at: rr?.ready_at ?? null,
+          report_ready_by: rr?.ready_by ?? null,
         }
       })
       return { data: merged, error: null }
@@ -347,6 +377,32 @@ export async function toggleChecklistItem(itemId: string, completed: boolean): P
     .select('id')
   if (error) return { error: error.message }
   if (!data || data.length === 0) return { error: 'No tenés permiso para modificar este ítem.' }
+  return { error: null }
+}
+
+/**
+ * Marca (true) o reabre (false) el "reporte listo" (firmado y evolucionado) de un ítem.
+ * Estado APARTE del tilde de completado (tabla checklist_report_ready, migración 0062).
+ * - listo:  insert (ready_by lo pone el default de la columna; lo exige la RLS).
+ * - reabrir: delete por item_id.
+ */
+export async function setReportReady(itemId: string, ready: boolean): Promise<{ error: string | null }> {
+  if (ready) {
+    const { data, error } = await supabase
+      .from('checklist_report_ready')
+      .insert({ item_id: itemId })
+      .select('id')
+    if (error) return { error: error.message }
+    if (!data || data.length === 0) return { error: 'No tenés permiso para marcar este reporte.' }
+    return { error: null }
+  }
+  const { data, error } = await supabase
+    .from('checklist_report_ready')
+    .delete()
+    .eq('item_id', itemId)
+    .select('id')
+  if (error) return { error: error.message }
+  if (!data || data.length === 0) return { error: 'No tenés permiso para reabrir este reporte.' }
   return { error: null }
 }
 
