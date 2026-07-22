@@ -166,7 +166,7 @@ export function VisitDetail({ visitId, accent, context, onClose, canReception = 
               <span style={{ flex: 1 }}>Checklist clínico</span>
               <Icon name={showChecklist ? 'chevronUp' : 'chevronDown'} size={16} color="var(--spira-muted)" />
             </button>
-            {showChecklist && <div style={{ marginTop: 12 }}><VisitChecklist visitId={visit.id} accent={accent} /></div>}
+            {showChecklist && <div style={{ marginTop: 12 }}><VisitChecklist visitId={visit.id} accent={accent} realDate={visit.real_date} /></div>}
           </div>
         </>
       )}

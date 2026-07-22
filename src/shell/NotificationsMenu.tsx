@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon'
 import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { useVisitAlerts } from '../data/visits'
 import type { TrackVisitRow } from '../data/visits'
+import { useReportAlerts } from '../data/reports'
 import { visitTitle } from '../lib/visits'
 import { formatAR } from '../lib/dates'
 import { VISIT_STATES } from '../views/visitStates'
@@ -11,10 +12,11 @@ import { VISIT_STATES } from '../views/visitStates'
 /* ============================================================================
    NotificationsMenu — desplegable de notificaciones (campana, top bar).
 
-   Mismo patrón de overlay que UserMenu, colgado de la campana. La fuente es
-   REAL: useVisitAlerts() (ventanas / ítems de checklist vencidos), la misma que
-   alimenta la vista Alertas — no hay feed inventado. El badge muestra el conteo
-   real (reemplaza el puntito hardcodeado); vacío → "Estás al día".
+   Mismo patrón de overlay que UserMenu, colgado de la campana. Las fuentes son
+   REALES: useVisitAlerts() (ventanas / ítems de checklist vencidos) + useReportAlerts()
+   (reportes pendientes de revisar, migración 0063) — las mismas que alimentan la vista
+   Alertas, no hay feed inventado. El badge muestra el conteo real combinado (reemplaza
+   el puntito hardcodeado); vacío → "Estás al día".
 
    El footer "Ver todas las alertas" navega a track/alertas (destino real).
    Marcar-como-leído es fase 2 (igual que en TrackAlertsView): por ahora es una
@@ -47,6 +49,7 @@ function reasonLabel(a: TrackVisitRow): string {
 
 export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuProps) {
   const alerts = useVisitAlerts()
+  const reports = useReportAlerts()
   const [open, setOpen] = useState(false)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -54,7 +57,8 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
   const panelRef = useRef<HTMLDivElement | null>(null)
 
   const rows = useMemo(() => alerts.data ?? [], [alerts.data])
-  const count = rows.length
+  const reportRows = useMemo(() => reports.data ?? [], [reports.data])
+  const count = rows.length + reportRows.length
   const badge = count > 9 ? '9+' : String(count)
 
   // Cerrar al click afuera.
@@ -110,38 +114,59 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
 
           {/* cuerpo */}
           <div style={listWrap}>
-            {alerts.loading && rows.length === 0 ? (
+            {(alerts.loading || reports.loading) && rows.length === 0 && reportRows.length === 0 ? (
               <div style={emptyBox}>Cargando…</div>
-            ) : alerts.error ? (
+            ) : alerts.error || reports.error ? (
               <div style={{ ...emptyBox, color: 'var(--spira-danger)' }}>No pudimos cargar las notificaciones.</div>
-            ) : rows.length === 0 ? (
+            ) : rows.length === 0 && reportRows.length === 0 ? (
               <div style={emptyState}>
                 <span style={emptyIcon}><Icon name="check" size={20} color="var(--spira-good)" /></span>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)' }}>Estás al día</div>
                 <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>No tenés alertas nuevas.</div>
               </div>
             ) : (
-              rows.map((a) => {
-                const c = VISIT_STATES[a.computed_status].color
-                const overdue = a.computed_status === 'ventana_vencida'
-                return (
-                  <div key={a.id} style={rowStyle}>
-                    <span style={{ ...rowIcon, background: c + '18' }}>
-                      <Icon name={overdue ? 'alertCircle' : 'clock'} size={16} color={c} />
-                    </span>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={rowTitle}>
-                        <PrivacyAvatar fullName={a.patient_name} size={20} color={c} />
-                        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{a.patient_code ?? '—'}</span>
-                        <span style={{ color: 'var(--spira-faint)' }}>·</span>
-                        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{a.protocol_code}</span>
+              <>
+                {reportRows.map((r) => {
+                  const c = 'var(--spira-primary)'
+                  return (
+                    <div key={r.item_id} style={rowStyle}>
+                      <span style={{ ...rowIcon, background: c + '18' }}>
+                        <Icon name="clipboardCheck" size={16} color={c} />
+                      </span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={rowTitle}>
+                          <PrivacyAvatar fullName={r.patient_name} size={20} color={c} />
+                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.patient_code ?? '—'}</span>
+                          <span style={{ color: 'var(--spira-faint)' }}>·</span>
+                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.protocol_code}</span>
+                        </div>
+                        <div style={rowReason}>Reporte pendiente de revisar — {r.description}</div>
                       </div>
-                      <div style={rowReason}>{visitTitle(a)} — {reasonLabel(a)}</div>
                     </div>
-                    <span style={rowWhen}>{whenLabel(a)}</span>
-                  </div>
-                )
-              })
+                  )
+                })}
+                {rows.map((a) => {
+                  const c = VISIT_STATES[a.computed_status].color
+                  const overdue = a.computed_status === 'ventana_vencida'
+                  return (
+                    <div key={a.id} style={rowStyle}>
+                      <span style={{ ...rowIcon, background: c + '18' }}>
+                        <Icon name={overdue ? 'alertCircle' : 'clock'} size={16} color={c} />
+                      </span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={rowTitle}>
+                          <PrivacyAvatar fullName={a.patient_name} size={20} color={c} />
+                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{a.patient_code ?? '—'}</span>
+                          <span style={{ color: 'var(--spira-faint)' }}>·</span>
+                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{a.protocol_code}</span>
+                        </div>
+                        <div style={rowReason}>{visitTitle(a)} — {reasonLabel(a)}</div>
+                      </div>
+                      <span style={rowWhen}>{whenLabel(a)}</span>
+                    </div>
+                  )
+                })}
+              </>
             )}
           </div>
 
