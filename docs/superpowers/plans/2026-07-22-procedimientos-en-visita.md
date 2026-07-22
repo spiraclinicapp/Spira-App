@@ -12,6 +12,20 @@
 >
 > **⚠️ La migración 0064 se aplica A MANO en el dashboard de Supabase** (no hay SQL directo a prod). El código front se escribe y typechea sin la base; la verificación de **escritura** en el navegador recién funciona **después** de que el Director aplique 0064 y confirme. Trabajar en la rama `feat/procedimientos-en-visita`.
 
+> **⚠️ Deltas post-revisión (el CÓDIGO COMMITEADO es autoritativo, no estos snippets).** Durante la
+> ejecución, la revisión adversarial corrigió cosas que quedaron viejas en algunos bloques de abajo:
+> - **Migración 0064:** los FK `procedure_id` van `on delete restrict` (no `cascade`) para no borrar
+>   historia real; cada `create policy` lleva su `drop policy if exists` (idempotencia); `v_track_visits`
+>   recupera su `revoke insert,update,delete,… from authenticated`; el backfill de `reports_ready` se
+>   marca para **todas** las visitas realizadas (sin filtrar por `has_report`) para no inundar de
+>   `item_vencido` al activar `has_report` más tarde. (El backfill ya está corregido inline; los otros
+>   tres siguen mostrando la versión vieja en los snippets.)
+> - **`VisitProcedures.tsx`:** el mapa optimista se indexa por `procedure_id` (no por la clave compuesta),
+>   y se quitó el `EmptyState` muerto + su import.
+> - **`VisitProceduresModal.tsx`:** el botón del editor de reporte va gateado por `canManageCatalog`, y
+>   `remove()` limpia `editing`.
+> Ver los commits `9ce51ea`, `597d15a`, `da7e155`, `7abada1` para lo aplicado.
+
 ---
 
 ## File Structure
