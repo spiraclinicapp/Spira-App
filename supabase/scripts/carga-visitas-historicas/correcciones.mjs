@@ -39,5 +39,5 @@ export const MAPEO_CODIGO_PROTOCOLO = {
   'ACT18301': 'ACT18301',
   'THESEUS': 'EFC18244',
   'CEREN-2': 'EFC18419',
-  // 'LTS 17231': '<code>',  // ← descomentar cuando se cree el protocolo LTS en prod
+  'LTS 17231': 'LTS17231',   // creado en prod por el Director (2026-07-22)
 }

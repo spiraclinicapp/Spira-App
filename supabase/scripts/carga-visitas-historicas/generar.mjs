@@ -160,7 +160,7 @@ export function sqlBackfill(model) {
   const out = ['-- 4) backfill de real_date (mismo efecto que registerVisit; dispara materialize_checklist) --']
   let n = 0
   for (const e of model.enrollments) {
-    if (!codProd(e.proto)) continue
+    if (!codProd(e.proto) || !e.anclaFecha) continue   // los sin randomizar cargan sus reales en 4b (sueltas)
     for (const v of e.visitas) {
       if (!v.realExcel || !v.defCode) continue
       n++
