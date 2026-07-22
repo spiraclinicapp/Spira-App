@@ -221,6 +221,36 @@ where pv.enrollment_id = en.id and vd.id = pv.visit_def_id
   return out.join('\n')
 }
 
+// DIAGNÓSTICO: mis reales esperados vs lo que quedó (lista exactamente los que faltan/difieren).
+export function sqlDiagnostico(model) {
+  const rows = []
+  for (const e of model.enrollments) {
+    const cp = codProd(e.proto); if (!cp) continue
+    for (const v of e.visitas) {
+      if (!v.realExcel || !v.defCode) continue
+      rows.push(`(${q(cp)}, ${q(e.ivrs)}, ${q(v.defCode)}, ${q(v.realExcel)}::date)`)
+    }
+  }
+  return `-- DIAGNÓSTICO (solo lectura): lista las reales esperadas que NO quedaron cargadas y por qué --
+with esperado(code, ivrs, vcode, real_esp) as (values
+${rows.join(',\n')}
+)
+select e.code, e.ivrs, e.vcode, e.real_esp,
+  case when en.id is null then 'ENROLLMENT NO EXISTE'
+       when vd.id is null then 'DEF NO EXISTE'
+       when pv.id is null then 'VISITA NO GENERADA'
+       when pv.real_date is null then 'REAL NO SETEADO'
+       when pv.real_date <> e.real_esp then 'REAL DISTINTO ('||pv.real_date||')'
+       else 'OK' end as estado
+from esperado e
+  left join public.protocols p on p.code = e.code
+  left join public.enrollments en on en.protocol_id = p.id and en.ivrs_code = e.ivrs
+  left join public.visit_definitions vd on vd.protocol_id = p.id and vd.code = e.vcode
+  left join public.patient_visits pv on pv.enrollment_id = en.id and pv.visit_def_id = vd.id
+where en.id is null or vd.id is null or pv.id is null or pv.real_date is null or pv.real_date <> e.real_esp
+order by e.code, e.ivrs, e.vcode;`
+}
+
 // Informe de discrepancias (markdown): registro de lo aplicado + casos aceptados/diferidos.
 export function informeDiscrepancias(model) {
   const L = ['# Informe de discrepancias — carga de visitas históricas', '',
@@ -301,6 +331,7 @@ group by p.code order by p.code;`
     sqlVisitasSueltas(model), '',
     sqlNotas(model), '',
     control, '',
+    sqlDiagnostico(model), '',
     'rollback; -- <<< cambiar a commit; cuando los conteos cierren',
     '',
   ].join('\n')
