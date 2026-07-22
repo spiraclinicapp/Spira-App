@@ -5,6 +5,7 @@ import { EmptyState } from '../../components/EmptyState'
 import { useVisitChecklist, toggleChecklistItem, setReportReady } from '../../data/dayVisits'
 import type { VisitChecklistItem } from '../../data/dayVisits'
 import { deadlineLabel, reportEtaLabel } from '../../lib/checklist'
+import { isoToDate } from '../../lib/dates'
 
 const microLabel: CSSProperties = {
   fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700,
@@ -178,7 +179,7 @@ function ReportRow({ item, accent, ready, busy, realDate, onToggle }: {
 }) {
   // "vencido" = pasó la ETA desde la fecha real de la visita y no está listo.
   const dueMs = realDate && item.report_eta_hours != null
-    ? new Date(realDate).getTime() + item.report_eta_hours * 3600_000
+    ? isoToDate(realDate).getTime() + item.report_eta_hours * 3600_000
     : null
   const overdue = !ready && dueMs != null && Date.now() > dueMs
   const label = ready
