@@ -26,8 +26,9 @@ interface CommandPaletteProps {
   moduleName: string
   /** Gate de acceso del shell (mismo que la navegación). */
   isAllowed: (moduleKey: string) => boolean
-  /** Navegar a un resultado (lo provee el shell = AppShell.navigate). */
-  onNavigate: (moduleKey: string, subKey: string) => void
+  /** Navegar a un resultado (lo provee el shell = AppShell.navigate). El 3er arg abre la
+   *  entidad concreta al llegar (ej. la ficha del paciente). */
+  onNavigate: (moduleKey: string, subKey: string, target?: SearchItem['target']) => void
   onClose: () => void
 }
 
@@ -109,7 +110,7 @@ export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, onNav
       if (e.key === 'Enter') {
         e.preventDefault()
         const it = resultsRef.current[selRef.current]
-        if (it) { onNavigate(it.mod, it.sub); onClose() } else onClose()
+        if (it) { onNavigate(it.mod, it.sub, it.target); onClose() } else onClose()
         return
       }
       if (e.key === 'Tab') {
@@ -128,7 +129,7 @@ export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, onNav
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, onNavigate])
 
-  const go = (it: SearchItem) => { onNavigate(it.mod, it.sub); onClose() }
+  const go = (it: SearchItem) => { onNavigate(it.mod, it.sub, it.target); onClose() }
 
   const header = isFiltering ? `Resultados · ${results.length}` : 'Reciente'
   const listboxId = 'spira-palette-list'
@@ -148,6 +149,7 @@ export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, onNav
           <Icon name="search" size={21} stroke={2} color="var(--spira-faint)" />
           <input
             ref={inputRef}
+            className="spira-bare-input"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Busca en toda la plataforma: paciente, protocolo, medicamento…"
