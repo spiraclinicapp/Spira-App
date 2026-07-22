@@ -13,7 +13,7 @@ export function deadlineLabel(hours: number): string {
   return DEADLINE_OPTIONS.find((o) => o.value === hours)?.label ?? `${hours} h`
 }
 
-/** Demora estimada del reporte (report_eta_hours). Dropdown, sin texto libre. Migración 0062. */
+/** Demora estimada del reporte (report_eta_hours). Dropdown, sin texto libre. Migración 0063. */
 export const REPORT_ETA_OPTIONS: { value: number; label: string }[] = [
   { value: 24, label: '24 horas' },
   { value: 48, label: '48 horas (2 días)' },

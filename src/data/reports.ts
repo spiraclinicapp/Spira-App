@@ -1,7 +1,7 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import type { QueryResult } from '../lib/useSupabaseQuery'
 
-/** Fila de v_report_alerts (migración 0062): ítem con reporte vencido y sin marcar listo. */
+/** Fila de v_report_alerts (migración 0063): ítem con reporte vencido y sin marcar listo. */
 export interface ReportAlertRow {
   item_id: string
   visit_id: string

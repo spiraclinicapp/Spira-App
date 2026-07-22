@@ -63,11 +63,11 @@ export interface VisitChecklistItem {
   completed: boolean
   completed_at: string | null
   completed_by: string | null
-  /** Snapshot: el ítem genera un reporte diferido. Migración 0062. */
+  /** Snapshot: el ítem genera un reporte diferido. Migración 0063. */
   has_report: boolean
-  /** Snapshot: demora estimada del reporte en horas; null si no genera. Migración 0062. */
+  /** Snapshot: demora estimada del reporte en horas; null si no genera. Migración 0063. */
   report_eta_hours: number | null
-  /** Reporte marcado LISTO (firmado y evolucionado). Estado aparte del tilde. Migración 0062. */
+  /** Reporte marcado LISTO (firmado y evolucionado). Estado aparte del tilde. Migración 0063. */
   report_ready: boolean
   report_ready_at: string | null
   report_ready_by: string | null
@@ -410,7 +410,7 @@ export async function updateChecklistItem(itemId: string, input: ChecklistItemEd
   if (!data || data.length === 0) return { error: 'No tenés permiso para editar este ítem.' }
   if (!input.has_report) {
     // Si el ítem deja de generar reporte, el "reporte listo" viejo ya no aplica: lo limpiamos
-    // para no resucitar un estado obsoleto si se reactiva has_report. Best-effort (migración 0062).
+    // para no resucitar un estado obsoleto si se reactiva has_report. Best-effort (migración 0063).
     await supabase.from('checklist_report_ready').delete().eq('item_id', itemId)
   }
   return { error: null }
@@ -418,7 +418,7 @@ export async function updateChecklistItem(itemId: string, input: ChecklistItemEd
 
 /**
  * Marca (true) o reabre (false) el "reporte listo" (firmado y evolucionado) de un ítem.
- * Estado APARTE del tilde de completado (tabla checklist_report_ready, migración 0062).
+ * Estado APARTE del tilde de completado (tabla checklist_report_ready, migración 0063).
  * - listo:  insert (ready_by lo pone el default de la columna; lo exige la RLS).
  * - reabrir: delete por item_id.
  */

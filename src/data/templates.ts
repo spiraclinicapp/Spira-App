@@ -24,9 +24,9 @@ export interface TemplateItem {
   deadline_hours: number
   mandatory: boolean
   sort_order: number
-  /** El ítem genera un reporte diferido (ej. laboratorio). Migración 0062. */
+  /** El ítem genera un reporte diferido (ej. laboratorio). Migración 0063. */
   has_report: boolean
-  /** Demora estimada del reporte en horas (preset); null si no genera reporte. Migración 0062. */
+  /** Demora estimada del reporte en horas (preset); null si no genera reporte. Migración 0063. */
   report_eta_hours: number | null
 }
 

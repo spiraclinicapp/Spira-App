@@ -14,7 +14,7 @@ import { VISIT_STATES } from '../views/visitStates'
 
    Mismo patrón de overlay que UserMenu, colgado de la campana. Las fuentes son
    REALES: useVisitAlerts() (ventanas / ítems de checklist vencidos) + useReportAlerts()
-   (reportes pendientes de revisar, migración 0062) — las mismas que alimentan la vista
+   (reportes pendientes de revisar, migración 0063) — las mismas que alimentan la vista
    Alertas, no hay feed inventado. El badge muestra el conteo real combinado (reemplaza
    el puntito hardcodeado); vacío → "Estás al día".
 

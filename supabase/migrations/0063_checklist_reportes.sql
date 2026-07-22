@@ -1,4 +1,4 @@
--- 0062_checklist_reportes.sql
+-- 0063_checklist_reportes.sql
 -- Ítems de checklist con reporte (propiedad del tipo) + estado "reporte listo" por visita
 -- (aparte del tilde) + fuente dedicada de alerta persistente de reporte pendiente.
 -- Legacy-safe: columnas nullable / default false; tabla, índice y vista nuevos; no toca datos.
@@ -15,9 +15,9 @@ do $$ begin
     check (report_eta_hours is null or report_eta_hours in (24, 48, 72, 168, 336, 720));
 exception when duplicate_object then null; end $$;
 comment on column public.checklist_template_items.has_report is
-  'El ítem genera un reporte (ej. laboratorio) que llega diferido. Propiedad del tipo. 0062.';
+  'El ítem genera un reporte (ej. laboratorio) que llega diferido. Propiedad del tipo. 0063.';
 comment on column public.checklist_template_items.report_eta_hours is
-  'Demora estimada del reporte en horas (preset 24/48/72/168/336/720). Nullable; solo aplica si has_report. 0062.';
+  'Demora estimada del reporte en horas (preset 24/48/72/168/336/720). Nullable; solo aplica si has_report. 0063.';
 
 -- 2 · Snapshot de esos campos en el ítem MATERIALIZADO de la visita.
 alter table public.checklist_items
@@ -25,9 +25,9 @@ alter table public.checklist_items
 alter table public.checklist_items
   add column if not exists report_eta_hours integer;
 comment on column public.checklist_items.has_report is
-  'Snapshot de checklist_template_items.has_report al materializar. 0062.';
+  'Snapshot de checklist_template_items.has_report al materializar. 0063.';
 comment on column public.checklist_items.report_eta_hours is
-  'Snapshot de checklist_template_items.report_eta_hours al materializar. 0062.';
+  'Snapshot de checklist_template_items.report_eta_hours al materializar. 0063.';
 
 -- 3 · Estado "reporte listo" por visita (APARTE del tilde de completado). Calcado de
 --     checklist_completions: unique(item_id), ready_by con default anti-spoofing, auditable.
@@ -40,7 +40,7 @@ create table if not exists public.checklist_report_ready (
   unique (item_id)
 );
 comment on table public.checklist_report_ready is
-  'Reporte de un ítem marcado LISTO (firmado y evolucionado). Estado aparte del tilde. Auditable. 0062.';
+  'Reporte de un ítem marcado LISTO (firmado y evolucionado). Estado aparte del tilde. Auditable. 0063.';
 
 alter table public.checklist_report_ready enable row level security;
 
@@ -129,6 +129,6 @@ where ci.has_report
   and now() > (pv.real_date::timestamp + (ci.report_eta_hours * interval '1 hour'))
               at time zone 'America/Argentina/Buenos_Aires';
 comment on view public.v_report_alerts is
-  'Ítems con reporte que ya deberían haber llegado (visita hecha + pasó la ETA) y no están listos. Fuente de la alerta persistente. security_invoker → RLS scopea. 0062.';
+  'Ítems con reporte que ya deberían haber llegado (visita hecha + pasó la ETA) y no están listos. Fuente de la alerta persistente. security_invoker → RLS scopea. 0063.';
 revoke all on public.v_report_alerts from anon;
 grant select on public.v_report_alerts to authenticated;
