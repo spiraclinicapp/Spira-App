@@ -12,17 +12,8 @@ import {
   updateTemplateItem, useChecklistTemplates, useMyCoordinations, useTemplateItems,
 } from '../data/templates'
 import type { ChecklistTemplate, TemplateItem, TemplateItemInput } from '../data/templates'
+import { DEADLINE_OPTIONS, deadlineLabel, REPORT_ETA_OPTIONS, reportEtaLabel } from '../lib/checklist'
 import type { ViewProps } from './types'
-
-const DEADLINE_OPTIONS = [
-  { value: 0, label: 'Al momento' },
-  { value: 48, label: '48 horas' },
-  { value: 168, label: '7 días' },
-]
-
-function deadlineLabel(hours: number): string {
-  return DEADLINE_OPTIONS.find((o) => o.value === hours)?.label ?? `${hours} h`
-}
 
 const card: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
@@ -47,12 +38,20 @@ function ItemForm({ initial, accentSolid, busy, onSave, onCancel }: {
   const [description, setDescription] = useState(initial?.description ?? '')
   const [deadline, setDeadline] = useState(initial?.deadline_hours ?? 0)
   const [mandatory, setMandatory] = useState(initial?.mandatory ?? true)
+  const [hasReport, setHasReport] = useState(initial?.has_report ?? false)
+  const [reportEta, setReportEta] = useState<number>(initial?.report_eta_hours ?? 48)
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const desc = description.trim()
     if (!desc) return
-    onSave({ description: desc, deadline_hours: deadline, mandatory })
+    onSave({
+      description: desc,
+      deadline_hours: deadline,
+      mandatory,
+      has_report: hasReport,
+      report_eta_hours: hasReport ? reportEta : null,
+    })
   }
 
   return (
@@ -78,6 +77,21 @@ function ItemForm({ initial, accentSolid, busy, onSave, onCancel }: {
         <input type="checkbox" checked={mandatory} onChange={(e) => setMandatory(e.target.checked)} />
         Obligatorio
       </label>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--spira-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        <input type="checkbox" checked={hasReport} onChange={(e) => setHasReport(e.target.checked)} />
+        Genera un reporte
+      </label>
+      {hasReport && (
+        <div style={{ width: 170, flex: '0 0 auto' }}>
+          <SearchableSelect
+            value={String(reportEta)}
+            onChange={(v) => setReportEta(Number(v))}
+            options={REPORT_ETA_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
+            placeholder="Demora del reporte"
+            entity="demora"
+          />
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
         <button type="button" onClick={onCancel} style={{ ...btnOutline, height: 38, fontSize: 13.5 }}>Cancelar</button>
         <button type="submit" disabled={busy} style={{ ...btnPrimary(accentSolid), height: 38, fontSize: 13.5, opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
@@ -304,6 +318,12 @@ export function TemplatesView({ module, submodule }: ViewProps) {
                     <span style={{ ...smallPill, ...(it.mandatory ? { background: accent + '14', color: accentSolid } : { background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', color: 'var(--spira-muted)' }) }}>
                       {it.mandatory ? 'Obligatorio' : 'Opcional'}
                     </span>
+                    {it.has_report && (
+                      <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-primary)', background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', padding: '3px 9px', borderRadius: 'var(--spira-radius-pill)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                        <Icon name="clipboardCheck" size={12} color="var(--spira-primary)" />
+                        Reporte {it.report_eta_hours != null ? `· ${reportEtaLabel(it.report_eta_hours)}` : ''}
+                      </span>
+                    )}
                     {canEdit && (
                       <span style={{ display: 'inline-flex', gap: 2 }}>
                         <button onClick={() => void move(i, -1)} disabled={i === 0 || busy} aria-label="Subir ítem" title="Subí" className="spira-no-press" style={{ ...iconBtn, opacity: i === 0 ? 0.3 : 1, cursor: i === 0 ? 'default' : 'pointer' }}>

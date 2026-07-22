@@ -24,6 +24,10 @@ export interface TemplateItem {
   deadline_hours: number
   mandatory: boolean
   sort_order: number
+  /** El ítem genera un reporte diferido (ej. laboratorio). Migración 0062. */
+  has_report: boolean
+  /** Demora estimada del reporte en horas (preset); null si no genera reporte. Migración 0062. */
+  report_eta_hours: number | null
 }
 
 /** Plantillas visibles (RLS: la global para todo track; las de protocolo, scopeadas). */
@@ -46,7 +50,7 @@ export function useTemplateItems(templateId: string | null) {
       templateId
         ? c
             .from('checklist_template_items')
-            .select('id, template_id, description, deadline_hours, mandatory, sort_order')
+            .select('id, template_id, description, deadline_hours, mandatory, sort_order, has_report, report_eta_hours')
             .eq('template_id', templateId)
             .order('sort_order', { ascending: true })
             .returns<TemplateItem[]>()
@@ -70,6 +74,8 @@ export interface TemplateItemInput {
   description: string
   deadline_hours: number
   mandatory: boolean
+  has_report: boolean
+  report_eta_hours: number | null
 }
 
 type MutationResult = { error: string | null; code?: string }
@@ -85,6 +91,8 @@ export async function createTemplateItem(
     deadline_hours: input.deadline_hours,
     mandatory: input.mandatory,
     sort_order: sortOrder,
+    has_report: input.has_report,
+    report_eta_hours: input.report_eta_hours,
   })
   return { error: error?.message ?? null, code: error?.code }
 }
@@ -92,7 +100,13 @@ export async function createTemplateItem(
 export async function updateTemplateItem(id: string, input: TemplateItemInput): Promise<MutationResult> {
   const { data, error } = await supabase
     .from('checklist_template_items')
-    .update({ description: input.description, deadline_hours: input.deadline_hours, mandatory: input.mandatory })
+    .update({
+      description: input.description,
+      deadline_hours: input.deadline_hours,
+      mandatory: input.mandatory,
+      has_report: input.has_report,
+      report_eta_hours: input.report_eta_hours,
+    })
     .eq('id', id)
     .select('id')
   if (error) return { error: error.message, code: error.code }
