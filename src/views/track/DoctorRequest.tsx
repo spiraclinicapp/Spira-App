@@ -51,12 +51,12 @@ export function DoctorRequest({ visit, accent, readOnly, busy, onMark, onUnmark,
         <>
           <MotivoPicker accent={accent} value={motivo} onPick={setMotivo} />
           <div style={{ display: 'flex', gap: 9, marginTop: 14 }}>
-            <button type="button" onClick={() => setEditing(false)} disabled={busy} style={cancelBtn}>Cancelar</button>
+            <button type="button" onClick={() => { setEditing(false); setMotivo(null) }} disabled={busy} style={cancelBtn(busy)}>Cancelar</button>
             <button
               type="button"
               onClick={() => { if (motivo && motivo !== visit.doctor_motivo && !busy) { onMark(motivo); setEditing(false) } }}
               disabled={!motivo || motivo === visit.doctor_motivo || busy}
-              style={primaryBtn(!!motivo && motivo !== visit.doctor_motivo, accent)}
+              style={primaryBtn(!!motivo && motivo !== visit.doctor_motivo, accent, busy)}
             >
               <Icon name="check" size={15} color={motivo && motivo !== visit.doctor_motivo ? 'var(--spira-on-accent)' : 'var(--spira-faint)'} />
               {busy ? 'Guardando…' : 'Guardar motivo'}
@@ -74,8 +74,8 @@ export function DoctorRequest({ visit, accent, readOnly, busy, onMark, onUnmark,
           </div>
           {!readOnly && (
             <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
-              <button type="button" onClick={() => { setMotivo(visit.doctor_motivo ?? null); setEditing(true) }} disabled={busy} style={secondaryBtn}>Editar motivo</button>
-              <button type="button" onClick={() => { if (!busy) onUnmark() }} disabled={busy} style={secondaryBtn}>Quitar de "Para ver médico"</button>
+              <button type="button" onClick={() => { setMotivo(visit.doctor_motivo ?? null); setEditing(true) }} disabled={busy} style={secondaryBtn(busy)}>Editar motivo</button>
+              <button type="button" onClick={() => { if (!busy) onUnmark() }} disabled={busy} style={secondaryBtn(busy)}>Quitar de "Para ver médico"</button>
             </div>
           )}
         </>
@@ -104,11 +104,11 @@ export function DoctorRequest({ visit, accent, readOnly, busy, onMark, onUnmark,
       <div style={{ display: 'flex', gap: 9, marginTop: 14 }}>
         {/* En el popup (bare) el ✕/Escape del Modal es el "cancelar"; no duplicamos botón. */}
         {!bare && (
-          <button type="button" onClick={() => { setOpen(false); setMotivo(null) }} disabled={busy} style={cancelBtn}>Cancelar</button>
+          <button type="button" onClick={() => { setOpen(false); setMotivo(null) }} disabled={busy} style={cancelBtn(busy)}>Cancelar</button>
         )}
         <button
           type="button" onClick={() => { if (motivo && !busy) onMark(motivo) }} disabled={!motivo || busy}
-          style={primaryBtn(!!motivo, accent)}
+          style={primaryBtn(!!motivo, accent, busy)}
         >
           <Icon name="users" size={15} color={motivo ? 'var(--spira-on-accent)' : 'var(--spira-faint)'} />
           {busy ? 'Marcando…' : 'Marcar para el médico'}
@@ -140,18 +140,19 @@ function MotivoPicker({ accent, value, onPick }: { accent: string; value: string
   )
 }
 
-const secondaryBtn: CSSProperties = {
+const secondaryBtn = (busy: boolean): CSSProperties => ({
   height: 34, padding: '0 12px', borderRadius: 9, border: '1px solid var(--spira-line-2)',
-  background: 'var(--spira-white)', color: 'var(--spira-muted)', cursor: 'pointer',
-  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5,
-}
-const cancelBtn: CSSProperties = {
+  background: 'var(--spira-white)', color: 'var(--spira-muted)', cursor: busy ? 'default' : 'pointer',
+  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, opacity: busy ? 0.6 : 1,
+})
+const cancelBtn = (busy: boolean): CSSProperties => ({
   height: 40, padding: '0 16px', borderRadius: 10, border: '1px solid var(--spira-line-2)',
-  background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: 'pointer',
+  background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: busy ? 'default' : 'pointer',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5,
-}
-const primaryBtn = (active: boolean, accent: string): CSSProperties => ({
+})
+const primaryBtn = (active: boolean, accent: string, busy: boolean): CSSProperties => ({
   flex: 1, height: 40, borderRadius: 10, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
   background: active ? accent : 'var(--spira-line)', color: active ? 'var(--spira-on-accent)' : 'var(--spira-faint)',
-  cursor: active ? 'pointer' : 'default', fontFamily: 'var(--spira-font-text)', fontWeight: 700, fontSize: 13.5,
+  cursor: active && !busy ? 'pointer' : 'default', fontFamily: 'var(--spira-font-text)', fontWeight: 700, fontSize: 13.5,
+  opacity: busy ? 0.6 : 1,
 })
