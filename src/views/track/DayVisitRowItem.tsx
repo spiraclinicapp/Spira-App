@@ -17,7 +17,7 @@ import { OPERATIONAL_STAGES } from '../visitStates'
  */
 export function DayVisitRowItem({
   visit, accent, canReception, canClinical, busyId,
-  onAdvance, onToggleDoctor, onNoShow, onOpen,
+  onAdvance, onOpenDoctor, onNoShow, onOpen,
 }: {
   visit: DayVisitRow
   accent: string
@@ -28,7 +28,7 @@ export function DayVisitRowItem({
   /** id de la visita con mutación en vuelo (deshabilita sus controles). */
   busyId: string | null
   onAdvance: (visit: DayVisitRow, next: OperationalStage) => void
-  onToggleDoctor: (visit: DayVisitRow) => void
+  onOpenDoctor: (visit: DayVisitRow) => void
   onNoShow: (visit: DayVisitRow) => void
   onOpen: (visit: DayVisitRow) => void
 }) {
@@ -58,28 +58,31 @@ export function DayVisitRowItem({
         marginBottom: 12, padding: '14px 18px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <PrivacyAvatar fullName={visit.patient_name} size={40} color={accent} />
-
-        {/* identidad */}
-        <div style={{ flex: '1 1 150px', minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="spira-mono" style={{ fontSize: 14, fontWeight: 500, color: visit.patient_code ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>
-              {visit.patient_code ?? 'Sin IVRS'}
-            </span>
-            <span className="spira-mono" style={{ fontSize: 11.5, padding: '1px 8px', borderRadius: 'var(--spira-radius-pill)', background: accent + '14', color: accent, whiteSpace: 'nowrap' }}>
-              {visit.protocol_code}
-            </span>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--spira-muted)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {vName}
+      {/* Grid 1fr · auto · 1fr: la ruta (columna del medio) queda CENTRADA en la fila pase lo que
+          pase a los costados. Izquierda y derecha ocupan mitades iguales, así el centro no se corre
+          según el ancho variable de las acciones (antes eran dos columnas flex que crecían y
+          absorbían ese sobrante desparejo → las pelotitas derivaban entre filas). */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 24 }}>
+        {/* izquierda: avatar + identidad */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+          <PrivacyAvatar fullName={visit.patient_name} size={40} color={accent} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="spira-mono" style={{ fontSize: 14, fontWeight: 500, color: visit.patient_code ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>
+                {visit.patient_code ?? 'Sin IVRS'}
+              </span>
+              <span className="spira-mono" style={{ fontSize: 11.5, padding: '1px 8px', borderRadius: 'var(--spira-radius-pill)', background: accent + '14', color: accent, whiteSpace: 'nowrap' }}>
+                {visit.protocol_code}
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--spira-muted)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {vName}
+            </div>
           </div>
         </div>
 
-        {/* ruta — puntos centrados arriba + etiqueta de etapa centrada debajo, en columna
-            alineada: así la ruta cae a la MISMA X en todas las filas (antes iba inline a la
-            izquierda y se descentraba según la etapa). El avance vive en el CTA de la derecha. */}
-        <div style={{ flex: '1 1 160px', minWidth: 150, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
+        {/* centro: ruta — puntos + etiqueta de etapa, centrados en la columna del medio del grid. */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
           <VisitStepper
             stage={stage}
             accent={accent}
@@ -94,13 +97,12 @@ export function DayVisitRowItem({
           </span>
         </div>
 
-        {/* estado médico — columna de ancho fijo para que las acciones alineen parejo */}
-        <div style={{ flex: '0 0 auto', width: 168, display: 'flex', justifyContent: 'flex-end' }}>
-          <DoctorBadge visit={visit} accent={accent} />
-        </div>
-
-        {/* acciones — el CTA es el último elemento fijo ⇒ queda a la misma X en toda la lista */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: '0 0 auto', justifyContent: 'flex-end' }}>
+        {/* derecha: estado médico (ancho fijo) + acciones, alineadas al borde (CTA a la misma X) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, justifyContent: 'flex-end', minWidth: 0 }}>
+          <div style={{ flex: '0 0 168px', display: 'flex', justifyContent: 'flex-end' }}>
+            <DoctorBadge visit={visit} accent={accent} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: '0 0 auto', justifyContent: 'flex-end' }}>
           {stage === 'por_llegar' && canReception && (
             <button onClick={() => { if (!busy) onNoShow(visit) }} disabled={busy} title="No vino: reprogramar" style={auxBtn(false)}>
               <Icon name="calendar" size={14} color="currentColor" /> No vino
@@ -108,9 +110,9 @@ export function DayVisitRowItem({
           )}
           {canClinical && stage !== 'por_llegar' && stage !== 'fuera' && !visit.doctor_seen_at && (
             <button
-              onClick={() => { if (!busy) onToggleDoctor(visit) }}
+              onClick={() => { if (!busy) onOpenDoctor(visit) }}
               disabled={busy}
-              title={visit.wants_doctor ? 'Quitar de la cola del médico' : 'Sumar a la cola del médico'}
+              title={visit.wants_doctor ? 'Ver / editar atención médica' : 'Marcar para ver médico'}
               style={auxBtn(visit.wants_doctor)}
             >
               <Icon name="users" size={14} color="currentColor" /> {visit.wants_doctor ? 'En cola' : 'Quiere médico'}
@@ -125,7 +127,8 @@ export function DayVisitRowItem({
           >
             Abrir
           </button>
-          <AdvanceCTA stage={stage} accent={accent} canAdvance={canAdvance} busy={busy} onAdvance={(next) => onAdvance(visit, next)} />
+            <AdvanceCTA stage={stage} accent={accent} canAdvance={canAdvance} busy={busy} onAdvance={(next) => onAdvance(visit, next)} />
+          </div>
         </div>
       </div>
     </div>
