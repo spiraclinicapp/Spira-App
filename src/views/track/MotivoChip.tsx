@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 
 /**
- * Tono + urgencia por motivo. Catálogo real = `MOTIVOS` de `VisitDetail.tsx` (migración 0047):
+ * Tono + urgencia por motivo. Catálogo real = `MOTIVOS` de `doctorMotivos.ts` (migración 0047):
  * Evento adverso / Síntomas reportados / Laboratorio fuera de rango / Consulta clínica / Otro.
  * "Evento adverso" es el único urgente (chip + ícono de alerta). Motivo libre no reconocido →
  * tono muted por default (defensivo; el catálogo puede crecer).

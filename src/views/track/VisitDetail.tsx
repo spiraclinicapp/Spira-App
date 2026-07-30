@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
-import type { IconName } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import { PrivacyAvatar } from '../../components/PrivacyAvatar'
 import { useVisit, markWantsDoctor, toggleWantsDoctor } from '../../data/dayVisits'
@@ -15,9 +14,8 @@ import { DoctorBadge } from './DoctorBadge'
 import { CommentThread } from './CommentThread'
 import { VisitDispensationPanel } from '../pharma/VisitDispensationPanel'
 import { NEXT_STEP, advanceRole } from './advanceStep'
-
-/** Motivos de derivación al médico (chips). Acotado a propósito para poder reportarlo (0047). */
-const MOTIVOS = ['Evento adverso', 'Síntomas reportados', 'Laboratorio fuera de rango', 'Consulta clínica', 'Otro'] as const
+import { Panel } from './Panel'
+import { DoctorRequest } from './DoctorRequest'
 
 /**
  * Detalle de una visita, en dos columnas. Es el MISMO componente que se abre desde la vista del
@@ -203,119 +201,6 @@ function row(label: string, value: ReactNode) {
       <span style={{ color: 'var(--spira-muted)' }}>{label}</span>
       <span style={{ fontWeight: 600, textAlign: 'right' }}>{value}</span>
     </div>
-  )
-}
-
-/** Card con título e ícono, para las secciones del detalle. */
-function Panel({ title, icon, accent, children }: { title: string; icon: IconName; accent: string; children: ReactNode }) {
-  return (
-    <div style={{ border: '1px solid var(--spira-line)', borderRadius: 14, background: 'var(--spira-surface)', padding: '14px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <Icon name={icon} size={15} color={accent} />
-        <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14 }}>{title}</span>
-      </div>
-      {children}
-    </div>
-  )
-}
-
-/**
- * "Marcar para ver médico". Tres estados: (1) atendido por el médico → tarjeta de solo lectura;
- * (2) ya marcado → motivo + quitar; (3) sin marcar → botón que despliega el form de motivos.
- * En `readOnly` (ficha del paciente) no muestra acciones, solo el estado.
- */
-function DoctorRequest({ visit, accent, readOnly, busy, onMark, onUnmark }: {
-  visit: DayVisitRow
-  accent: string
-  readOnly: boolean
-  busy: boolean
-  onMark: (motivo: string) => void
-  onUnmark: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [motivo, setMotivo] = useState<string | null>(null)
-  const seen = visit.doctor_seen_at != null
-  const marked = visit.wants_doctor
-
-  if (seen) {
-    return (
-      <Panel title="Atención médica" icon="users" accent={accent}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-good)', fontWeight: 600 }}>
-          <Icon name="check" size={15} color="var(--spira-good)" /> Visto por el médico
-        </div>
-        {visit.doctor_motivo && <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 6 }}>Motivo: {visit.doctor_motivo}</div>}
-      </Panel>
-    )
-  }
-
-  if (marked) {
-    return (
-      <Panel title="Atención médica" icon="users" accent={accent}>
-        <div style={{ fontSize: 13 }}>
-          <span style={{ color: 'var(--spira-muted)' }}>Motivo: </span>
-          <span style={{ fontWeight: 600 }}>{visit.doctor_motivo || 'sin especificar'}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, fontSize: 12.5, color: accent, fontWeight: 600 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: accent }} /> Esperando médico
-        </div>
-        {!readOnly && (
-          <button
-            type="button" onClick={() => { if (!busy) onUnmark() }} disabled={busy}
-            style={{ marginTop: 12, height: 34, padding: '0 12px', borderRadius: 9, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-muted)', cursor: busy ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, opacity: busy ? 0.6 : 1 }}
-          >
-            Quitar de "Para ver médico"
-          </button>
-        )}
-      </Panel>
-    )
-  }
-
-  // Sin marcar. En la ficha del paciente (readOnly) no ofrecemos marcar.
-  if (readOnly) return null
-
-  if (!open) {
-    return (
-      <button
-        type="button" onClick={() => setOpen(true)}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', height: 46, borderRadius: 12, border: '1px dashed var(--spira-line-2)', background: 'var(--spira-white)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, color: 'var(--spira-ink)' }}
-      >
-        <Icon name="users" size={16} color={accent} /> Marcar para ver médico
-      </button>
-    )
-  }
-
-  return (
-    <Panel title="Marcar para ver médico" icon="users" accent={accent}>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--spira-muted)', marginBottom: 8 }}>Motivo</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {MOTIVOS.map((m) => {
-          const active = motivo === m
-          return (
-            <button
-              key={m} type="button" onClick={() => setMotivo(m)}
-              style={{ height: 32, padding: '0 13px', borderRadius: 'var(--spira-radius-pill)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap', border: `1px solid ${active ? accent : 'var(--spira-line-2)'}`, background: active ? accent + '14' : 'var(--spira-white)', color: active ? accent : 'var(--spira-muted)' }}
-            >
-              {m}
-            </button>
-          )
-        })}
-      </div>
-      <div style={{ display: 'flex', gap: 9, marginTop: 14 }}>
-        <button
-          type="button" onClick={() => { setOpen(false); setMotivo(null) }} disabled={busy}
-          style={{ height: 40, padding: '0 16px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: busy ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5 }}
-        >
-          Cancelar
-        </button>
-        <button
-          type="button" onClick={() => { if (motivo && !busy) onMark(motivo) }} disabled={!motivo || busy}
-          style={{ flex: 1, height: 40, borderRadius: 10, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: motivo ? accent : 'var(--spira-line)', color: motivo ? 'var(--spira-on-accent)' : 'var(--spira-faint)', cursor: motivo && !busy ? 'pointer' : 'default', fontFamily: 'var(--spira-font-text)', fontWeight: 700, fontSize: 13.5, opacity: busy ? 0.6 : 1 }}
-        >
-          <Icon name="users" size={15} color={motivo ? 'var(--spira-on-accent)' : 'var(--spira-faint)'} />
-          {busy ? 'Marcando…' : 'Marcar para el médico'}
-        </button>
-      </div>
-    </Panel>
   )
 }
 

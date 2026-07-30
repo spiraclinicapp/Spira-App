@@ -10,7 +10,7 @@ import { useAuth } from '../lib/auth'
 import { todayISO } from '../lib/dates'
 import { useMyCoordinations } from '../data/templates'
 import {
-  useVisitsForDay, markArrived, markAttended, markReady, markLeft, toggleWantsDoctor,
+  useVisitsForDay, markArrived, markAttended, markReady, markLeft,
   markReadyWithOutcome, discontinueEnrollment,
 } from '../data/dayVisits'
 import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
@@ -20,6 +20,7 @@ import { VisitDetail } from './track/VisitDetail'
 import { RescheduleModal } from './track/RescheduleModal'
 import { ReadyOutcomeModal } from './track/ReadyOutcomeModal'
 import { RegisterVisitFlow } from './track/RegisterVisitFlow'
+import { DoctorRequestModal } from './track/DoctorRequestModal'
 import type { TrackVisitRow } from '../data/visits'
 import type { ViewProps } from './types'
 
@@ -44,6 +45,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [noShow, setNoShow] = useState<TrackVisitRow | null>(null)
   const [openVisit, setOpenVisit] = useState<DayVisitRow | null>(null)
+  const [doctorFor, setDoctorFor] = useState<DayVisitRow | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   // Cierre clínico (screening/randomización) y recitación. TrackVisitRow: sirve para una fila
   // del día (DayVisitRow lo extiende) o una de la salvaguarda (que no es de hoy).
@@ -130,15 +132,6 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
     day.refetch()
   }
 
-  const toggleDoctor = async (visit: DayVisitRow) => {
-    setBusyId(visit.id)
-    setActionError(null)
-    const res = await toggleWantsDoctor(visit.id, !visit.wants_doctor)
-    setBusyId(null)
-    if (res.error) { setActionError(res.error); return }
-    day.refetch()
-  }
-
   if (day.loading || coords.loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title="Cargando visitas del día…" description="Un momento." />
   }
@@ -169,7 +162,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       canClinical={canClinical(v)}
       busyId={busyId}
       onAdvance={advance}
-      onToggleDoctor={toggleDoctor}
+      onOpenDoctor={(vv) => setDoctorFor(vv)}
       onNoShow={(vv) => setNoShow(vv)}
       onOpen={(vv) => setOpenVisit(vv)}
     />
@@ -305,6 +298,15 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
           onAdvance={advance}
           onChanged={() => day.refetch()}
           onClose={() => setOpenVisit(null)}
+        />
+      )}
+      {doctorFor && (
+        <DoctorRequestModal
+          visitId={doctorFor.id}
+          accent={accent}
+          canClinical={canClinical(doctorFor)}
+          onClose={() => setDoctorFor(null)}
+          onChanged={() => day.refetch()}
         />
       )}
     </div>
