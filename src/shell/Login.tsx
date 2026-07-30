@@ -116,8 +116,8 @@ export function Login() {
         </div>
 
         <FormField label="Email">
-          <div style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: 12, top: 0, height: 44, display: 'grid', placeItems: 'center', color: 'var(--spira-muted)', pointerEvents: 'none' }}>
+          <div className="spira-input-affix">
+            <span className="spira-input-affix-icon">
               <Icon name="mail" size={18} />
             </span>
             <input

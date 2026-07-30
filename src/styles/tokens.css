@@ -130,6 +130,44 @@ button { font-family: inherit; }
 .spira-bare-input:focus,
 .spira-bare-input:focus-visible { box-shadow: none; transform: none; }
 
+/* —— Ícono afijo dentro de un campo (p. ej. el sobre del email en el login) ——
+   El ícono es un <span> absoluto SOBRE el input, y va ANTES que él en el DOM. El foco de los
+   inputs aplica un `transform` (el levante de 1px de más arriba), que promueve al input a capa /
+   stacking context propio: entonces pasaba a pintarse POR ENCIMA del ícono anterior y su fondo
+   blanco lo tapaba; con la transición y el repintado del autocompletado, eso se veía "parpadear".
+   `z-index:1` mantiene el ícono siempre por encima del input; y acompaña el levante de 1px del
+   campo para no desalinearse del texto al enfocar. */
+.spira-input-affix { position: relative; }
+.spira-input-affix > .spira-input-affix-icon {
+  position: absolute; left: 12px; top: 0; height: 44px;
+  display: grid; place-items: center;
+  color: var(--spira-muted); pointer-events: none; z-index: 1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .spira-input-affix > .spira-input-affix-icon { transition: transform 0.16s ease; }
+  .spira-input-affix:focus-within > .spira-input-affix-icon { transform: translateY(-1px); }
+}
+
+/* —— Autocompletado del navegador (Chrome/WebKit) ——
+   Por defecto Chrome pinta el campo autocompletado de celeste y el texto de negro: rompe la
+   paleta Sereno y, al animar/repintar ese fondo, alimentaba el parpadeo del ícono afijo. Lo
+   neutralizamos: fondo blanco de la casa vía el truco del box-shadow inset (el único modo de
+   ganarle al fondo `!important` que inyecta el navegador), texto y caret en ink, y congelamos la
+   transición interna del autofill. Al enfocar, sumamos la sombra de elevación estándar para no
+   perder la señal de foco. Todo por tokens ⇒ correcto también en tema oscuro. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover {
+  -webkit-text-fill-color: var(--spira-ink);
+  caret-color: var(--spira-ink);
+  -webkit-box-shadow: inset 0 0 0 1000px var(--spira-white);
+  box-shadow: inset 0 0 0 1000px var(--spira-white);
+  transition: background-color 9999s ease-in-out 0s;
+}
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: inset 0 0 0 1000px var(--spira-white), 0 5px 14px rgba(20, 48, 46, 0.1);
+  box-shadow: inset 0 0 0 1000px var(--spira-white), 0 5px 14px rgba(20, 48, 46, 0.1);
+}
+
 /* Barra de scroll fina y cálida para las listas de los desplegables (lista del SearchableSelect).
    La barra nativa (~15px, fría) es ancha y, en desplegables angostos como el mes/año del calendario,
    se comía el ancho del texto. La reemplazo por una hairline sobria: fina, redondeada, con aire a los
