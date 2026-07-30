@@ -49,7 +49,7 @@ export function DoctorRequestModal({ visitId, accent, canClinical, onClose, onCh
       {q.loading && !visit ? (
         <div style={{ padding: '20px 4px', fontSize: 13.5, color: 'var(--spira-muted)' }}>Cargando visita…</div>
       ) : q.error ? (
-        <div style={{ padding: '16px 4px', fontSize: 13.5, color: 'var(--spira-danger)' }}>No se pudo cargar la visita: {q.error}</div>
+        <div style={{ padding: '16px 4px', fontSize: 13.5, color: 'var(--spira-danger)' }}>No pudimos cargar la visita. Probá de nuevo.</div>
       ) : !visit ? (
         <div style={{ padding: '16px 4px', fontSize: 13.5, color: 'var(--spira-muted)' }}>No se encontró la visita.</div>
       ) : (
