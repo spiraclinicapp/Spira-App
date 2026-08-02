@@ -8,7 +8,7 @@ dos MVPs fue el punto de partida, no la meta. La apuesta es la **base modular pa
 centro** (roadmap: Lab, Contable/Gerencia, módulo de médicos, integraciones WhatsApp/IA).
 
 El trabajo se organiza en **3 pasos** en orden de dependencia. Los hitos se taguean en git
-(convención de versionado en el [`README.md`](../README.md#versionado)): hoy la punta es **`v0.19.0`**;
+(convención de versionado en el [`README.md`](../README.md#versionado)): hoy la punta es **`v0.20.0`**;
 el `1.0.0` recién en **producción con pacientes reales** (Fase 3).
 
 > **Dónde vive el detalle (para que este archivo NO vuelva a desfasarse).** Este ROADMAP es el
@@ -35,7 +35,7 @@ módulos son **funcionales y están desplegados** (Vercel, `main` → prod; Supa
   macro), stock por lote, y **dispensación end-to-end** (Track solicita → Pharma resuelve; tablero
   Kanban de cuatro estados con comprobante).
 
-**Punta:** `v0.19.0` · **última migración aplicada en prod:** `0064` · **base:** 64 migraciones.
+**Punta:** `v0.20.0` · **última migración aplicada en prod:** `0064` · **base:** 64 migraciones.
 
 ---
 
