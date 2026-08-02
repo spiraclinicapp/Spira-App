@@ -28,23 +28,24 @@ export function VisitStepper({ stage, accent, canAdvance, busy, onAdvance, showA
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 auto' }}>
-      {/* Track de puntos (sin etiquetas) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3.5 }}>
+      {/* Track de puntos (sin etiquetas). Pendiente = aro `--spira-muted` (3.4:1 sobre blanco, legible
+          y calmo; el `--spira-line-2` anterior daba 1.4:1, casi invisible). Actual más grande y lleno. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         {STAGE_ORDER.map((s, i) => {
           const done = i < curIdx
           const current = i === curIdx
-          const color = done ? accent : current ? curMeta.color : 'var(--spira-line-2)'
+          const ringColor = done ? accent : current ? curMeta.color : 'var(--spira-muted)'
           return (
-            <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 3.5 }}>
+            <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <span
                 style={{
-                  width: current ? 11 : 8, height: current ? 11 : 8, borderRadius: '50%', flex: '0 0 auto',
+                  width: current ? 12 : 9, height: current ? 12 : 9, borderRadius: '50%', flex: '0 0 auto', boxSizing: 'border-box',
                   background: done ? accent : current ? curMeta.color : 'transparent',
-                  border: `1.6px solid ${color}`,
+                  border: `1.75px solid ${ringColor}`,
                 }}
               />
               {i < STAGE_ORDER.length - 1 && (
-                <span style={{ width: 13, height: 1.75, flex: '0 0 auto', background: done ? accent + '80' : 'var(--spira-line)' }} />
+                <span style={{ width: 14, height: 2, flex: '0 0 auto', borderRadius: 1, background: done ? accent : 'var(--spira-line-2)' }} />
               )}
             </span>
           )
