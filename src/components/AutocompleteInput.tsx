@@ -84,7 +84,10 @@ export function AutocompleteInput({
     if (!showList) return // sin desplegable, el input se comporta normal (Enter submitea el form)
     if (e.key === 'ArrowDown') { e.preventDefault(); move(1) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1) }
-    else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); setActiveIndex(-1) }
+    // stopPropagation: sin esto el Escape burbujea al listener de `document` del Modal y cerraría
+    // también el modal en la misma tecla. Con el desplegable ya cerrado, el `if (!showList) return`
+    // de arriba deja pasar el próximo Escape para que sí cierre el modal.
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false); setActiveIndex(-1) }
     // Enter elige la sugerencia RESALTADA; si no hay ninguna, no se hace preventDefault → el form
     // submitea como con cualquier input (comportamiento estándar del resto del formulario).
     else if (e.key === 'Enter' && activeIndex >= 0 && matches[activeIndex]) { e.preventDefault(); choose(matches[activeIndex]) }
