@@ -15,6 +15,7 @@
   --spira-white:    #FFFFFF;
   --spira-muted:    #7C8C87;
   --spira-faint:    #A6B0AC;
+  --spira-ghost-bg: rgba(15, 95, 87, 0.12);  /* resalte del texto fantasma (autocompletado inline): el texto sugerido va en la MISMA tinta (ink) que lo tipeado —se lee como una sola frase— y este petróleo suave marca el tramo sugerido, como una selección; Tab lo acepta */
   --spira-line:     #E4DECF;
   --spira-line-2:   #D8CBB0;
 
@@ -63,6 +64,7 @@
   --spira-white:    #212121;   /* card / elevado */
   --spira-muted:    #A1A1A1;   /* texto secundario */
   --spira-faint:    #6E6E6E;   /* texto terciario / placeholders */
+  --spira-ghost-bg: rgba(157, 230, 214, 0.15); /* resalte del fantasma en oscuro: menta tenue (el petróleo no se ve sobre fondo oscuro) */
   --spira-line:     #2A2A2A;   /* bordes / divisores */
   --spira-line-2:   #3A3A3A;   /* bordes de inputs */
   --spira-brand-mark: #9DE6D6; /* isotipo verde menta — sin cambios */
