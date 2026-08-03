@@ -127,17 +127,22 @@ export function AutocompleteInput({
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
-        style={fieldInput}
+        // Con fantasma, el input pinta su texto TRANSPARENTE (solo deja ver el cursor); lo tipeado lo
+        // dibuja la capa de abajo, en una sola tirada junto a la sugerencia. Así no hay dos textos de
+        // métricas distintas (input vs div) que puedan desalinearse. Sin fantasma, input normal.
+        style={ghostText ? { ...fieldInput, color: 'transparent', caretColor: 'var(--spira-ink)' } : fieldInput}
       />
 
-      {/* Texto fantasma superpuesto: el span invisible reserva el ancho EXACTO de lo tipeado y el
-          segundo pinta el resto de la sugerencia en tenue justo a continuación. Mismo box/tipografía
-          que el input (…fieldInput + border-box global) para que quede alineado al pixel; pointerEvents
-          none para no robar el click ni el cursor. Se recorta (overflow hidden) si no entra. */}
+      {/* Capa del fantasma: dibuja lo tipeado Y la sugerencia en UNA sola tirada de texto, con la MISMA
+          tinta (ink), así "alve"+"tide…" se lee como una palabra continua. El tramo sugerido no cambia
+          de color: lo distingue un resalte tenue (como selección). Mismo box/tipografía que el input
+          (…fieldInput + border-box global) → cae exactamente sobre el texto real. pointerEvents none. */}
       {ghostText && (
         <div aria-hidden style={ghostOverlay}>
-          <span style={{ visibility: 'hidden' }}>{value}</span>
-          <span style={{ color: 'var(--spira-ghost)' }}>{ghostText}</span>
+          <span style={{ whiteSpace: 'pre' }}>
+            <span style={{ color: 'var(--spira-ink)' }}>{value}</span>
+            <span style={{ color: 'var(--spira-ink)', background: 'var(--spira-ghost-bg)', borderRadius: 3 }}>{ghostText}</span>
+          </span>
         </div>
       )}
 
@@ -187,11 +192,10 @@ const option: CSSProperties = {
   borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left',
   fontFamily: 'var(--spira-font-text)', fontSize: 13.5, minWidth: 0,
 }
-// Capa del texto fantasma: misma caja que el input (…fieldInput) pero inerte y sin fondo/borde
-// visibles, así el resto de la sugerencia se pinta encima del cuadro, alineado a lo que se tipeó.
+// Capa del texto fantasma: misma caja que el input (…fieldInput) pero inerte, sin fondo ni borde
+// visibles. Dibuja lo tipeado + la sugerencia en una sola tirada, exactamente sobre el texto real.
 const ghostOverlay: CSSProperties = {
   ...fieldInput,
   position: 'absolute', inset: 0, border: '1px solid transparent', background: 'transparent',
-  color: 'transparent', pointerEvents: 'none', display: 'flex', alignItems: 'center',
-  whiteSpace: 'pre', overflow: 'hidden',
+  pointerEvents: 'none', display: 'flex', alignItems: 'center', whiteSpace: 'pre', overflow: 'hidden',
 }
