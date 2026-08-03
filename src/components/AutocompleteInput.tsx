@@ -56,6 +56,14 @@ export function AutocompleteInput({
     : []
   const showList = open && matches.length > 0
 
+  // Autocompletado inline ("fantasma"): la coincidencia de mayor ranking que EMPIEZA con lo tipeado
+  // se muestra como texto tenue dentro del mismo cuadro, a continuación de lo escrito. Solo prefijos
+  // (no se completa hacia atrás) y solo si el label es más largo que lo tipeado. Tab / → lo aceptan.
+  const ghostMatch = open && value
+    ? matches.find((m) => m.label.toLowerCase().startsWith(value.toLowerCase()) && m.label.length > value.length)
+    : undefined
+  const ghostText = ghostMatch ? ghostMatch.label.slice(value.length) : ''
+
   // Mantener activeIndex dentro del rango del filtro, preservando -1 = "ninguna activa".
   useEffect(() => {
     setActiveIndex((i) => (i < 0 ? -1 : Math.min(i, matches.length - 1)))
@@ -91,6 +99,12 @@ export function AutocompleteInput({
     // Enter elige la sugerencia RESALTADA; si no hay ninguna, no se hace preventDefault → el form
     // submitea como con cualquier input (comportamiento estándar del resto del formulario).
     else if (e.key === 'Enter' && activeIndex >= 0 && matches[activeIndex]) { e.preventDefault(); choose(matches[activeIndex]) }
+    // Tab / Flecha derecha con el cursor al final aceptan la sugerencia fantasma (mismo efecto que
+    // elegirla). Sin fantasma no se hace preventDefault, así Tab pasa al próximo campo como siempre.
+    else if ((e.key === 'Tab' || e.key === 'ArrowRight') && ghostMatch) {
+      const el = triggerRef.current
+      if (el && el.selectionStart === value.length && el.selectionEnd === value.length) { e.preventDefault(); choose(ghostMatch) }
+    }
   }
 
   const activeId = matches[activeIndex] ? `${baseId}-opt-${activeIndex}` : undefined
@@ -104,7 +118,7 @@ export function AutocompleteInput({
         role="combobox"
         aria-expanded={showList}
         aria-controls={listId}
-        aria-autocomplete="list"
+        aria-autocomplete="both"
         aria-activedescendant={activeId}
         autoFocus={autoFocus}
         value={value}
@@ -115,6 +129,17 @@ export function AutocompleteInput({
         onKeyDown={onKeyDown}
         style={fieldInput}
       />
+
+      {/* Texto fantasma superpuesto: el span invisible reserva el ancho EXACTO de lo tipeado y el
+          segundo pinta el resto de la sugerencia en tenue justo a continuación. Mismo box/tipografía
+          que el input (…fieldInput + border-box global) para que quede alineado al pixel; pointerEvents
+          none para no robar el click ni el cursor. Se recorta (overflow hidden) si no entra. */}
+      {ghostText && (
+        <div aria-hidden style={ghostOverlay}>
+          <span style={{ visibility: 'hidden' }}>{value}</span>
+          <span style={{ color: 'var(--spira-faint)' }}>{ghostText}</span>
+        </div>
+      )}
 
       {showList && pos && (
         <div ref={popRef} style={{ ...popover, top: pos.top, left: pos.left, width: pos.width }}>
@@ -161,4 +186,12 @@ const option: CSSProperties = {
   width: '100%', minHeight: 36, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 10,
   borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left',
   fontFamily: 'var(--spira-font-text)', fontSize: 13.5, minWidth: 0,
+}
+// Capa del texto fantasma: misma caja que el input (…fieldInput) pero inerte y sin fondo/borde
+// visibles, así el resto de la sugerencia se pinta encima del cuadro, alineado a lo que se tipeó.
+const ghostOverlay: CSSProperties = {
+  ...fieldInput,
+  position: 'absolute', inset: 0, border: '1px solid transparent', background: 'transparent',
+  color: 'transparent', pointerEvents: 'none', display: 'flex', alignItems: 'center',
+  whiteSpace: 'pre', overflow: 'hidden',
 }
