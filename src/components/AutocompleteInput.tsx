@@ -96,9 +96,13 @@ export function AutocompleteInput({
     // también el modal en la misma tecla. Con el desplegable ya cerrado, el `if (!showList) return`
     // de arriba deja pasar el próximo Escape para que sí cierre el modal.
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false); setActiveIndex(-1) }
-    // Enter elige la sugerencia RESALTADA; si no hay ninguna, no se hace preventDefault → el form
-    // submitea como con cualquier input (comportamiento estándar del resto del formulario).
-    else if (e.key === 'Enter' && activeIndex >= 0 && matches[activeIndex]) { e.preventDefault(); choose(matches[activeIndex]) }
+    // Enter elige la fila RESALTADA; si no hay ninguna pero hay fantasma, acepta el fantasma (lo que
+    // se ve "autorrellenado"): así apretar Enter con la sugerencia a la vista NO crea un alta con el
+    // nombre a medias. Sin fila ni fantasma no se hace preventDefault → el form submitea como siempre.
+    else if (e.key === 'Enter') {
+      if (activeIndex >= 0 && matches[activeIndex]) { e.preventDefault(); choose(matches[activeIndex]) }
+      else if (ghostMatch) { e.preventDefault(); choose(ghostMatch) }
+    }
     // Tab / Flecha derecha con el cursor al final aceptan la sugerencia fantasma (mismo efecto que
     // elegirla). Sin fantasma no se hace preventDefault, así Tab pasa al próximo campo como siempre.
     else if ((e.key === 'Tab' || e.key === 'ArrowRight') && ghostMatch) {
