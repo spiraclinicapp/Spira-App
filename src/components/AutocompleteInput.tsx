@@ -137,7 +137,7 @@ export function AutocompleteInput({
       {ghostText && (
         <div aria-hidden style={ghostOverlay}>
           <span style={{ visibility: 'hidden' }}>{value}</span>
-          <span style={{ color: 'var(--spira-faint)' }}>{ghostText}</span>
+          <span style={{ color: 'var(--spira-ghost)' }}>{ghostText}</span>
         </div>
       )}
 
