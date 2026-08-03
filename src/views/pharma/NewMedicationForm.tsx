@@ -6,6 +6,8 @@ import { btnOutline, btnPrimary } from '../../components/buttons'
 import { Icon } from '../../components/Icon'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import type { SelectOption } from '../../components/SearchableSelect'
+import { AutocompleteInput } from '../../components/AutocompleteInput'
+import type { Suggestion } from '../../components/AutocompleteInput'
 import {
   useDrugs, createDrug, deleteDrug, createMedication, updateMedication, useDoses, useClases, useMedications,
   useLaboratorios, createLaboratorio, deleteLaboratorio, resolveLabByCode, linkLabPrefix, linkCode, updateCode,
@@ -88,6 +90,17 @@ export function NewMedicationForm({ onClose, onCreated, editing: initialEditing,
   const drugOptions: SelectOption[] = (drugs.data ?? []).map((d) => ({ value: d.id, label: d.name }))
   const labOptions: SelectOption[] = (labs.data ?? []).map((l) => ({ value: l.id, label: l.name }))
 
+  // Sugerencias del catálogo YA cargado para el campo Nombre comercial: al tipear "Alvet…" se ven
+  // las presentaciones existentes desambiguadas por método (ej. "Alvetide 184/22 mcg · Comprimido").
+  // En EDICIÓN se vacía → el campo actúa como input pelado (se edita este registro, no se busca otro).
+  const medSuggestions: Suggestion[] = editing
+    ? []
+    : (catalog.data ?? []).map((m) => ({
+        value: m.id,
+        label: m.name,
+        hint: m.unit !== SIN_METODO ? m.unit : undefined,
+      }))
+
   // Autodetección del laboratorio por el prefijo del GTIN (mientras no se haya elegido a mano).
   useEffect(() => {
     if (gtin.replace(/\D/g, '').length < 8) return
@@ -142,6 +155,12 @@ export function NewMedicationForm({ onClose, onCreated, editing: initialEditing,
     setLabId(med.laboratorio_id ?? ''); labManualRef.current = true // el lab del existente manda; sin autodetect
   }
   const clearDup = () => { if (dup) setDup(null) }
+  // Elegir una sugerencia = "este medicamento ya existe": carga el registro completo y pasa a modo
+  // edición (mismo efecto que "Editar el existente" del aviso de duplicado). No agrega lógica nueva.
+  const pickExisting = (id: string) => {
+    const med = (catalog.data ?? []).find((m) => m.id === id)
+    if (med) applyEdit(med)
+  }
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -230,7 +249,14 @@ export function NewMedicationForm({ onClose, onCreated, editing: initialEditing,
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
         <div>
           <FieldLabel required>Nombre comercial</FieldLabel>
-          <input value={comercial} onChange={(e) => { setComercial(e.target.value); clearDup() }} autoFocus placeholder="Ej. Alvetide 184/22 mcg" style={fieldInput} />
+          <AutocompleteInput
+            value={comercial}
+            onChange={(v) => { setComercial(v); clearDup() }}
+            suggestions={medSuggestions}
+            onPick={pickExisting}
+            autoFocus
+            placeholder="Ej. Alvetide 184/22 mcg"
+          />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 168px', gap: 12 }}>
