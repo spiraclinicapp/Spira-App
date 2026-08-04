@@ -23,7 +23,8 @@ import { DoctorRequest } from './DoctorRequest'
  * la cola del médico (ambas `context="patient"`). Trae sus datos por id con `useVisit` (+ el paciente
  * con `usePatient`), así los tres quedan sincronizados por construcción.
  *
- * Header protocolo-manda; cuerpo en dos columnas — izq: Ruta (recorrido vertical) · A cargo
+ * Header paciente-manda en `day` (el nombre es el titular, el protocolo baja atenuado) y
+ * protocolo-manda en `patient` (sin nombre); cuerpo en dos columnas — izq: Ruta (recorrido vertical) · A cargo
  * (coordinador editable + médico + atención médica) · Paciente. der: Procedimientos · Comentarios ·
  * Dispensación. En `day` se avanza la etapa, se asigna coordinador, se marca médico y se navega con
  * ↑↓ por la lista visible; en `patient` todo es de SOLO LECTURA y el nombre del paciente NO se muestra
@@ -132,27 +133,36 @@ export function VisitDetail({
           <div style={{ padding: '30px 24px', fontSize: 13.5, color: 'var(--spira-muted)' }}>No se encontró la visita.</div>
         ) : (
           <>
-            {/* header: protocolo manda */}
+            {/* header: en Visitas del día manda el paciente (nombre de titular); en la ficha del
+                paciente y la cola del médico —sin nombre por privacidad— manda el protocolo, como siempre */}
             <div style={{ padding: '18px 22px 16px', background: 'var(--spira-white)', borderBottom: '1px solid var(--spira-line)', flex: '0 0 auto' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                 <span style={{ width: 4, alignSelf: 'stretch', borderRadius: 3, background: OPERATIONAL_STAGES[visit.operational_stage]?.color ?? 'var(--spira-line-2)', flex: '0 0 auto' }} />
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.1 }}>
-                      {visit.protocol_name}
-                    </span>
-                    <span className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-faint)' }}>{visit.protocol_code}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 8, flexWrap: 'wrap' }}>
-                    {showName && <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--spira-ink)' }}>{visit.patient_name}</span>}
-                    <span className="spira-mono" style={{ fontSize: 13, color: visit.patient_code ? 'var(--spira-muted)' : 'var(--spira-faint)' }}>{visit.patient_code ?? 'Sin IVRS'}</span>
-                    <Dot />
-                    <span style={{ padding: '2px 9px', borderRadius: 6, background: 'var(--spira-ink)', color: 'var(--spira-paper)', fontSize: 11.5, fontWeight: 800 }}>{visitCode(visit)}</span>
-                    <span style={{ fontSize: 13, color: 'var(--spira-muted)' }}>{visitTitle(visit)}</span>
-                    <Dot />
-                    <OperationalStageChip stage={visit.operational_stage} />
-                    <DoctorBadge visit={visit} accent={accent} />
-                  </div>
+                  {showName ? (
+                    // paciente-manda: el nombre es el titular; el protocolo baja, atenuado
+                    <>
+                      <span style={{ display: 'block', fontFamily: 'var(--spira-font-display)', fontSize: 24, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.1 }}>
+                        {visit.patient_name}
+                      </span>
+                      <HeaderIdentity visit={visit} accent={accent} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--spira-line)' }}>
+                        <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--spira-ink)' }}>{visit.protocol_name}</span>
+                        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visit.protocol_code}</span>
+                      </div>
+                    </>
+                  ) : (
+                    // protocolo-manda: identificación por IVRS (sin nombre)
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, flexWrap: 'wrap' }}>
+                        <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.1 }}>
+                          {visit.protocol_name}
+                        </span>
+                        <span className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-faint)' }}>{visit.protocol_code}</span>
+                      </div>
+                      <HeaderIdentity visit={visit} accent={accent} />
+                    </>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
                   {canNav && (
@@ -251,6 +261,24 @@ function NavBtn({ dir, onClick }: { dir: 'up' | 'down'; onClick: () => void }) {
 }
 
 const Dot = () => <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--spira-line-2)', flex: '0 0 auto' }} />
+
+/** Línea de identidad de la visita: N° de sujeto + código de visita + etapa + médico.
+    Es idéntica con cualquiera de los dos órdenes de header (paciente-manda en Visitas del
+    día, protocolo-manda en la ficha/cola), por eso se comparte. El `marginTop` la separa de
+    lo que tenga arriba (el nombre o el protocolo). */
+function HeaderIdentity({ visit, accent }: { visit: DayVisitRow; accent: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 8, flexWrap: 'wrap' }}>
+      <span className="spira-mono" style={{ fontSize: 13, color: visit.patient_code ? 'var(--spira-muted)' : 'var(--spira-faint)' }}>{visit.patient_code ?? 'Sin IVRS'}</span>
+      <Dot />
+      <span style={{ padding: '2px 9px', borderRadius: 6, background: 'var(--spira-ink)', color: 'var(--spira-paper)', fontSize: 11.5, fontWeight: 800 }}>{visitCode(visit)}</span>
+      <span style={{ fontSize: 13, color: 'var(--spira-muted)' }}>{visitTitle(visit)}</span>
+      <Dot />
+      <OperationalStageChip stage={visit.operational_stage} />
+      <DoctorBadge visit={visit} accent={accent} />
+    </div>
+  )
+}
 
 /**
  * Coordinador de la visita: en `day` un selector entre los coordinadores del protocolo
