@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type { CSSProperties, ComponentProps, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Icon } from './Icon'
 import { usePopover } from './usePopover'
 
@@ -40,6 +40,12 @@ interface Props {
   onDelete?: (option: SelectOption) => Promise<{ error: string | null }>
   mono?: boolean
   id?: string
+  /** Apariencia del disparador. 'field' (default): el campo de ancho completo de siempre. 'chip':
+   *  un pill compacto (inline) para meterlo en una línea densa —ej. el coordinador en el header del
+   *  modal de visita—; el popover y todo lo demás no cambian. */
+  variant?: 'field' | 'chip'
+  /** Ícono al inicio del disparador (solo se dibuja en variant 'chip'). */
+  leadingIcon?: ComponentProps<typeof Icon>['name']
 }
 
 /**
@@ -51,7 +57,7 @@ interface Props {
 export function SearchableSelect({
   value, onChange, options, placeholder, searchPlaceholder, entity = 'ítem',
   searchable = 'auto', menuWidth = 'trigger', flip = true, disabled = false, autoFocus = false,
-  onCreate, onDelete, mono, id,
+  onCreate, onDelete, mono, id, variant = 'field', leadingIcon,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -183,12 +189,17 @@ export function SearchableSelect({
         onClick={() => { if (!disabled) setOpen((o) => !o) }}
         aria-haspopup="listbox"
         aria-expanded={open}
-        style={{ ...fieldBtn, ...(open ? fieldBtnOpen : null), ...(disabled ? fieldBtnDisabled : null) }}
+        style={variant === 'chip'
+          ? { ...chipBtn, ...(current ? null : chipBtnEmpty), ...(open ? chipBtnOpen : null), ...(disabled ? chipBtnDisabled : null) }
+          : { ...fieldBtn, ...(open ? fieldBtnOpen : null), ...(disabled ? fieldBtnDisabled : null) }}
       >
-        <span className={mono && current ? 'spira-mono' : undefined} style={{ flex: 1, textAlign: 'left', color: current ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {variant === 'chip' && leadingIcon && <Icon name={leadingIcon} size={14} color="var(--spira-primary)" style={{ flex: '0 0 auto' }} />}
+        <span className={mono && current ? 'spira-mono' : undefined} style={variant === 'chip'
+          ? { color: current ? 'var(--spira-ink)' : 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 210 }
+          : { flex: 1, textAlign: 'left', color: current ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {current || placeholder}
         </span>
-        <Icon name="chevronDown" size={16} color="var(--spira-muted)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+        <Icon name="chevronDown" size={variant === 'chip' ? 13 : 16} color="var(--spira-muted)" style={{ flex: '0 0 auto', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
       </button>
 
       {open && pos && (
@@ -324,6 +335,15 @@ const fieldBtn: CSSProperties = {
 }
 const fieldBtnOpen: CSSProperties = { boxShadow: '0 5px 14px rgba(20,48,46,.10)' }
 const fieldBtnDisabled: CSSProperties = { opacity: 0.55, cursor: 'default', boxShadow: 'none' }
+// Variante 'chip': pill compacto e inline (no ocupa una fila). Mismo popover/lógica que el campo.
+const chipBtn: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 8px', maxWidth: '100%',
+  background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)', borderRadius: 999,
+  cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 600,
+}
+const chipBtnEmpty: CSSProperties = { borderStyle: 'dashed' } // sin valor: invita a elegir
+const chipBtnOpen: CSSProperties = { boxShadow: '0 4px 12px rgba(20,48,46,.10)', borderColor: 'var(--spira-faint)' }
+const chipBtnDisabled: CSSProperties = { opacity: 0.6, cursor: 'default', boxShadow: 'none' }
 const popover: CSSProperties = {
   position: 'fixed', zIndex: 60, background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)',
   borderRadius: 12, boxShadow: '0 12px 30px rgba(20,48,46,.16)', padding: 6,
