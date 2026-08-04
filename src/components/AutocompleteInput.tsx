@@ -9,6 +9,21 @@ export interface Suggestion {
   hint?: string   // secundario a la derecha (medicación: método)
 }
 
+/** Construye Suggestion[] para el modo texto simple (sponsor, médico, especialidad…): deduplica por
+ *  el valor ya trimmeado, ordena (localeCompare) y mapea a { value: s, label: s }. Descarta nulls y
+ *  vacíos. Necesario cuando `value` es el string crudo (es la key de la lista): sin dedupe, key repetida. */
+export function textSuggestions(values: (string | null | undefined)[]): Suggestion[] {
+  const seen = new Set<string>()
+  const out: Suggestion[] = []
+  for (const v of values) {
+    const s = v?.trim()
+    if (!s || seen.has(s)) continue
+    seen.add(s)
+    out.push({ value: s, label: s })
+  }
+  return out.sort((a, b) => a.label.localeCompare(b.label))
+}
+
 /** Tope de sugerencias visibles (con scroll interno si sobran). */
 const MAX_VISIBLE = 8
 

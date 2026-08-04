@@ -56,6 +56,16 @@ export function usePatients() {
   )
 }
 
+/** Médicos tratantes ya cargados (para autocompletar el campo, anti-duplicados). Query liviana:
+ *  solo la columna treating_physician, RLS-scopeada igual que usePatients. El dedup/orden lo hace el
+ *  front vía textSuggestions (no vale un DISTINCT server-side por unas pocas filas de texto). */
+export function useTreatingPhysicians() {
+  return useSupabaseQuery<{ treating_physician: string | null }[]>(
+    (c) => c.from('patients').select('treating_physician').returns<{ treating_physician: string | null }[]>(),
+    [],
+  )
+}
+
 /**
  * Datos demográficos de UN paciente por id, para el detalle de visita (`VisitDetail`). Misma
  * fuente y RLS que `usePatients` (scopea por protocolo) — sin `enrollments`, que el detalle no

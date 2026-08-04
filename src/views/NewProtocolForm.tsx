@@ -4,8 +4,9 @@ import { Modal } from '../components/Modal'
 import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
 import { SearchableSelect } from '../components/SearchableSelect'
-import { createProtocol } from '../data/protocols'
+import { createProtocol, useProtocols } from '../data/protocols'
 import type { LegalEntity } from '../data/protocols'
+import { AutocompleteInput, textSuggestions } from '../components/AutocompleteInput'
 
 const LEGAL_ENTITIES: { value: LegalEntity; label: string }[] = [
   { value: 'fuca', label: 'FUCA' },
@@ -36,6 +37,9 @@ export function NewProtocolForm({ accentSolid, userId, onClose, onCreated }: New
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  const protocols = useProtocols()
+  const sponsorSuggestions = textSuggestions((protocols.data ?? []).map((p) => p.sponsor))
+
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!legalEntity) { setError('Elegí una entidad legal.'); return }
@@ -65,8 +69,7 @@ export function NewProtocolForm({ accentSolid, userId, onClose, onCreated }: New
             placeholder="Nombre del protocolo" style={fieldInput} />
         </FormField>
         <FormField label="Patrocinante (opcional)">
-          <input value={sponsor} onChange={(e) => setSponsor(e.target.value)}
-            placeholder="Sponsor" style={fieldInput} />
+          <AutocompleteInput value={sponsor} onChange={setSponsor} suggestions={sponsorSuggestions} placeholder="Sponsor" />
         </FormField>
         <FormField label="Entidad legal">
           <SearchableSelect
