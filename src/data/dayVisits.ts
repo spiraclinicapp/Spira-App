@@ -46,6 +46,14 @@ export interface DayVisitRow extends TrackVisitRow {
   sex: string | null
   /** Fecha de nacimiento del paciente (0002); expuesta en v_track_visits desde la 0049. */
   birth_date: string | null
+  /** Coordinador ASIGNADO a la visita (migración 0065); null = sin asignar. */
+  coordinator_id: string | null
+  /**
+   * Nombre del coordinador asignado (snapshot desnormalizado, migración 0065). Va desnormalizado
+   * porque la RLS de `users` oculta filas ajenas y v_track_visits es security_invoker (mismo motivo
+   * que author_name en 0048); lo escribe el RPC `set_visit_coordinator`. null = sin asignar.
+   */
+  coordinator_name: string | null
 }
 
 /**
@@ -345,6 +353,27 @@ export async function markWantsDoctor(visitId: string, motivo: string): Promise<
 export async function markDoctorSeen(visitId: string, seen = true): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('mark_doctor_seen', { p_visit_id: visitId, p_seen: seen })
   if (error) return { error: rpcError(error.code, error.message) }
+  return { error: null }
+}
+
+/**
+ * Asigna (o desasigna con null) el coordinador de una visita, vía RPC `set_visit_coordinator`
+ * (SECURITY DEFINER, migración 0065). El RPC valida que el coordinador esté asignado al protocolo
+ * de la visita (protocol_coordinators) y guarda el nombre snapshot. authz: gerencia / track-admin /
+ * operator asignado. El 23514 (check) se traduce a un mensaje claro; el resto vía rpcError.
+ */
+export async function setVisitCoordinator(
+  visitId: string,
+  coordinatorId: string | null,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('set_visit_coordinator', {
+    p_visit_id: visitId,
+    p_coordinator_id: coordinatorId,
+  })
+  if (error) {
+    if (error.code === '23514') return { error: 'Ese coordinador no está asignado a este protocolo.' }
+    return { error: rpcError(error.code, error.message) }
+  }
   return { error: null }
 }
 
