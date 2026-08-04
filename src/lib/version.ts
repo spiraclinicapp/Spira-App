@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.22', text: 'Rediseño de Visitas del día: fila y modal nuevos, coordinador por visita, filtros múltiples, agrupación y buscador.' },
     { version: '0.21', text: 'Al escribir en varios campos —nombre comercial de medicación, patrocinante, investigador, especialidad y médico tratante— ahora se sugiere lo ya cargado para evitar duplicados.' },
     { version: '0.20', text: 'Medicamentos: editar y eliminar desde el catálogo. En Visitas, la derivación al médico suma motivo e hilo de comentarios.' },
     { version: '0.19', text: 'Dispensaciones ahora es un tablero por estados: preparar, escanear, dejar lista y entregar, con comprobante impreso y alta manual desde la farmacia.' },
