@@ -28,19 +28,20 @@ export function dotColor(dv: DotVisual, accent: string): string {
  * Paleta/etiquetas de la ETAPA OPERATIVA (recorrido del paciente en el centro). Eje
  * distinto de VISIT_STATES (clínico): no mezclar. Orden lineal por_llegar → fuera.
  */
-export const OPERATIONAL_STAGES: Record<OperationalStage, { label: string; color: string }> = {
-  por_llegar:  { label: 'Por llegar',      color: '#7C8C87' },
-  en_el_sitio: { label: 'En el sitio',     color: '#2E7D74' },
-  atendido:    { label: 'Atendido',        color: '#3A6B8C' },
-  listo:       { label: 'Listo para irse', color: '#4E7A3F' },
-  fuera:       { label: 'Fuera del sitio', color: '#7C8C87' },
+export const OPERATIONAL_STAGES: Record<OperationalStage, { label: string; short: string; color: string }> = {
+  por_llegar:  { label: 'Por llegar',      short: 'Por llegar', color: '#7C8C87' },
+  en_el_sitio: { label: 'En el sitio',     short: 'En sitio',   color: '#2E7D74' },
+  atendido:    { label: 'Atendido',        short: 'Atendido',   color: '#3A6B8C' },
+  listo:       { label: 'Listo para irse', short: 'Listo',      color: '#4E7A3F' },
+  fuera:       { label: 'Fuera del sitio', short: 'Fuera',      color: '#7C8C87' },
 }
 
 /** Orden lineal de las etapas operativas (para el stepper y el "siguiente paso"). */
 export const STAGE_ORDER: OperationalStage[] = ['por_llegar', 'en_el_sitio', 'atendido', 'listo', 'fuera']
 
-/** Chip de etapa operativa: punto + etiqueta sobre el color de la etapa al 9 %. */
-export function OperationalStageChip({ stage }: { stage: OperationalStage }) {
+/** Chip de etapa operativa: punto + etiqueta sobre el color de la etapa al 9 %. `compact` usa la
+ *  etiqueta corta ("En sitio", "Listo") para columnas angostas — ver la fila de Visitas del día. */
+export function OperationalStageChip({ stage, compact = false }: { stage: OperationalStage; compact?: boolean }) {
   const e = OPERATIONAL_STAGES[stage] ?? OPERATIONAL_STAGES.por_llegar
   return (
     <span
@@ -51,7 +52,7 @@ export function OperationalStageChip({ stage }: { stage: OperationalStage }) {
       }}
     >
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: e.color }} />
-      {e.label}
+      {compact ? e.short : e.label}
     </span>
   )
 }

@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { btnOutline } from '../components/buttons'
 import { FilterDropdown } from '../components/FilterDropdown'
 import type { FilterOption } from '../components/FilterDropdown'
+import { MultiFilterMenu } from '../components/MultiFilterMenu'
+import type { MultiFilterOption } from '../components/MultiFilterMenu'
 import { DateNavButton } from '../components/DateNavButton'
 import { useAuth } from '../lib/auth'
-import { todayISO } from '../lib/dates'
+import { todayISO, dayName, formatShortAR } from '../lib/dates'
+import { visitCode } from '../lib/visits'
 import { useMyCoordinations } from '../data/templates'
 import {
   useVisitsForDay, markArrived, markAttended, markReady, markLeft,
@@ -15,6 +17,8 @@ import {
 } from '../data/dayVisits'
 import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
 import { useRandoAttendedWithoutDate } from '../data/visits'
+import { useDayProceduresSummary } from '../data/procedures'
+import { OPERATIONAL_STAGES, STAGE_ORDER } from './visitStates'
 import { DayVisitRowItem } from './track/DayVisitRowItem'
 import { VisitDetail } from './track/VisitDetail'
 import { RescheduleModal } from './track/RescheduleModal'
@@ -24,14 +28,18 @@ import { DoctorRequestModal } from './track/DoctorRequestModal'
 import type { TrackVisitRow } from '../data/visits'
 import type { ViewProps } from './types'
 
-type Filter = 'todas' | 'en_el_centro' | 'medico'
+/** Cómo se agrupa la lista. 'operativo' = En el centro / Resto (default, la triage del día). */
+type GroupBy = 'operativo' | 'estado' | 'protocolo' | 'medico' | 'coordinador' | 'ninguno'
+
+/** Sentinela para agrupar/filtrar por "sin médico" / "sin coordinador" (valores null). */
+const NONE = '∅'
 
 /** "En el centro" = llegó y aún no se retiró (cualquier etapa intermedia). */
 function inCenter(stage: OperationalStage): boolean {
   return stage === 'en_el_sitio' || stage === 'atendido' || stage === 'listo'
 }
 
-/** Vista "Visitas del día": recorrido operativo de las visitas del día (Variante 2: lista con stepper). */
+/** Vista "Visitas del día" v2: lista con filtros multi + agrupación + buscador (handoff Fase 2). */
 export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
@@ -41,7 +49,15 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   const coords = useMyCoordinations(profile?.id ?? null)
   const randoPending = useRandoAttendedWithoutDate()
 
-  const [filter, setFilter] = useState<Filter>('todas')
+  // Filtros multi (AND entre categorías, OR dentro) + buscador + "Para ver médico" + agrupación.
+  const [q, setQ] = useState('')
+  const [fEstado, setFEstado] = useState<string[]>([])
+  const [fProto, setFProto] = useState<string[]>([])
+  const [fMed, setFMed] = useState<string[]>([])
+  const [fCoord, setFCoord] = useState<string[]>([])
+  const [soloMedico, setSoloMedico] = useState(false)
+  const [group, setGroup] = useState<GroupBy>('operativo')
+
   const [busyId, setBusyId] = useState<string | null>(null)
   const [noShow, setNoShow] = useState<TrackVisitRow | null>(null)
   const [openVisit, setOpenVisit] = useState<DayVisitRow | null>(null)
@@ -61,57 +77,89 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
 
   const isToday = date === todayISO()
   const rows = day.data ?? []
+  // Resumen de procedimientos de TODO el día en 2 consultas (no 3 por fila), para los puntos de la fila.
+  const dayProcs = useDayProceduresSummary(rows)
+
+  /* Filtrado: AND entre categorías, OR dentro de cada una; el buscador (nombre / N° / protocolo /
+     tag de visita) se aplica encima. "Para ver médico" es un toggle aparte (wants_doctor sin retirarse). */
   const filtered = rows.filter((v) => {
-    if (filter === 'en_el_centro') return inCenter(v.operational_stage)
-    if (filter === 'medico') return v.wants_doctor && v.left_at === null
+    if (soloMedico && !(v.wants_doctor && v.left_at === null)) return false
+    if (fEstado.length && !fEstado.includes(v.operational_stage)) return false
+    if (fProto.length && !fProto.includes(v.protocol_id)) return false
+    if (fMed.length && !fMed.includes(v.treating_physician ?? NONE)) return false
+    if (fCoord.length && !fCoord.includes(v.coordinator_id ?? NONE)) return false
+    const term = q.trim().toLowerCase()
+    if (term) {
+      const hay = `${v.patient_name} ${v.patient_code ?? ''} ${v.protocol_code} ${visitCode(v)}`.toLowerCase()
+      if (!hay.includes(term)) return false
+    }
     return true
   })
 
-  const enCentroCount = rows.filter((v) => inCenter(v.operational_stage)).length
-  const medicoCount = rows.filter((v) => v.wants_doctor && v.left_at === null).length
-  const filterOptions: FilterOption[] = [
-    { value: 'todas', label: 'Todos', count: null },
-    { value: 'en_el_centro', label: 'En el centro', count: enCentroCount },
-    { value: 'medico', label: 'Para ver médico', count: medicoCount },
+  /* Opciones de cada filtro con su conteo sobre el día completo (rows), solo las presentes. */
+  const countBy = (pred: (v: DayVisitRow) => boolean) => rows.filter(pred).length
+  const estadoOptions: MultiFilterOption[] = STAGE_ORDER
+    .map((s) => ({ value: s, label: OPERATIONAL_STAGES[s].label, count: countBy((v) => v.operational_stage === s) }))
+    .filter((o) => o.count > 0)
+  const protoOptions: MultiFilterOption[] = uniqueBy(rows, (v) => v.protocol_id)
+    .map((v) => ({ value: v.protocol_id, label: v.protocol_code, count: countBy((r) => r.protocol_id === v.protocol_id) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+  const medOptions: MultiFilterOption[] = uniqueBy(rows, (v) => v.treating_physician ?? NONE)
+    .map((v) => ({ value: v.treating_physician ?? NONE, label: v.treating_physician ?? 'Sin médico', count: countBy((r) => (r.treating_physician ?? NONE) === (v.treating_physician ?? NONE)) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+  const coordOptions: MultiFilterOption[] = uniqueBy(rows, (v) => v.coordinator_id ?? NONE)
+    .map((v) => ({ value: v.coordinator_id ?? NONE, label: v.coordinator_name ?? 'Sin asignar', count: countBy((r) => (r.coordinator_id ?? NONE) === (v.coordinator_id ?? NONE)) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+
+  const medicoCount = countBy((v) => v.wants_doctor && v.left_at === null)
+  const nFilters = fEstado.length + fProto.length + fMed.length + fCoord.length + (soloMedico ? 1 : 0)
+  const anyActive = nFilters > 0 || q.trim().length > 0
+  const clearAll = () => { setFEstado([]); setFProto([]); setFMed([]); setFCoord([]); setSoloMedico(false); setQ('') }
+
+  const groupOptions: FilterOption[] = [
+    { value: 'operativo', label: 'En el centro', count: null },
+    { value: 'estado', label: 'Estado', count: null },
+    { value: 'protocolo', label: 'Protocolo', count: null },
+    { value: 'medico', label: 'Médico', count: null },
+    { value: 'coordinador', label: 'Coordinador', count: null },
+    { value: 'ninguno', label: 'Sin agrupar', count: null },
   ]
 
-  /* Filtro + selector de fecha viven en la fila del título del shell, igual que en la cola "Para
-     ver médico" (ver DoctorQueueView) — mismo lugar, mismo componente, misma forma en las dos
-     vistas hermanas de Track. Antes del early-return de loading/error: los hooks no pueden
-     condicionarse a esa guarda. */
+  /* La fecha vive en la fila del título del shell (igual que en la cola "Para ver médico"); los
+     filtros del rediseño van en el contenido. Antes del early-return: los hooks no se condicionan. */
   useEffect(() => {
-    setHeader?.({
-      content: (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <FilterDropdown accent={accent} value={filter} onChange={(v) => setFilter(v as Filter)} options={filterOptions} menuLabel="Filtrar visitas" />
-          <DateNavButton accent={accent} date={date} onChange={setDate} />
-        </div>
-      ),
-    })
+    setHeader?.({ content: <DateNavButton accent={accent} date={date} onChange={setDate} /> })
     return () => setHeader?.(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, date, enCentroCount, medicoCount, setHeader])
+  }, [date, setHeader])
 
-  /* Tablero del día en dos secciones: las "EN EL CENTRO" (en curso) arriba, separadas del resto.
-     Dentro, la más avanzada primero (Listo → Atendido → En el sitio) y, a igual etapa, por orden
-     de llegada (quien llegó primero, arriba). El resto: por llegar y luego las que ya se fueron. */
+  /* Orden base: en el centro primero (más avanzada arriba: Listo → Atendido → En el sitio), luego
+     por llegar, luego fuera; a igual etapa, por orden de llegada. Los grupos parten esta lista. */
   const byArrival = (a: DayVisitRow, b: DayVisitRow) => (a.arrived_at ?? '').localeCompare(b.arrived_at ?? '')
-  const rankIn = (s: OperationalStage) => ['listo', 'atendido', 'en_el_sitio'].indexOf(s)
-  const rankRest = (s: OperationalStage) => ['por_llegar', 'fuera'].indexOf(s)
-  const inCenterRows = filtered
-    .filter((v) => inCenter(v.operational_stage))
-    .sort((a, b) => rankIn(a.operational_stage) - rankIn(b.operational_stage) || byArrival(a, b))
-  const restRows = filtered
-    .filter((v) => !inCenter(v.operational_stage))
-    .sort((a, b) => rankRest(a.operational_stage) - rankRest(b.operational_stage) || byArrival(a, b))
-  const showSections = inCenterRows.length > 0 && restRows.length > 0
+  const stageRank = (s: OperationalStage) => ['listo', 'atendido', 'en_el_sitio', 'por_llegar', 'fuera'].indexOf(s)
+  const ordered = [...filtered].sort((a, b) => stageRank(a.operational_stage) - stageRank(b.operational_stage) || byArrival(a, b))
+
+  const groups = buildGroups(group, ordered)
+  const showHeaders = group !== 'operativo' ? groups.length > 0 : groups.length > 1
+
+  /* Navegación ↑↓ del modal: recorre la lista VISIBLE tal como se ve (en orden de los grupos), con
+     wrap circular. `pos` refleja la posición dentro de esa lista. */
+  const orderedVisible = groups.flatMap((g) => g.items)
+  const openIdx = openVisit ? orderedVisible.findIndex((v) => v.id === openVisit.id) : -1
+  const stepOpen = (d: number) => {
+    if (orderedVisible.length === 0 || openIdx < 0) return
+    setOpenVisit(orderedVisible[(openIdx + d + orderedVisible.length) % orderedVisible.length])
+  }
+
+  /* Contadores de cabecera, sobre la lista FILTRADA (coloreados). "No vino" no es una etapa del
+     recorrido (es una acción → reprograma), así que no hay contador de "no vino". */
+  const porLlegarCount = filtered.filter((v) => v.operational_stage === 'por_llegar').length
+  const enCentroVisible = filtered.filter((v) => inCenter(v.operational_stage)).length
+  const finalizadasCount = filtered.filter((v) => v.operational_stage === 'fuera').length
 
   /* Despacha la mutación de la etapa SIGUIENTE. 'atendido' reusa markAttended con `date` (el día
-     que se está mirando, no necesariamente hoy: la vista ahora navega por día — ver DateNavButton
-     arriba). El resto de las transiciones son eventos en vivo (now() server-side, mismo criterio
-     que "Marcar visto" en la cola), no dependen del día que se esté navegando.
-     "Listo" de una visita de screening/randomización (rol del cuadro) NO marca directo: abre el
-     cierre clínico (ReadyOutcomeModal) que captura IVRS / confirma randomización. El resto va directo. */
+     que se está mirando, no necesariamente hoy). El resto son eventos en vivo (now() server-side).
+     "Listo" de una visita de screening/randomización NO marca directo: abre el cierre clínico. */
   const advance = async (visit: DayVisitRow, next: OperationalStage) => {
     if (next === 'listo' && (visit.role === 'screening' || visit.role === 'randomizacion')) {
       setActionError(null)
@@ -149,10 +197,6 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
     )
   }
 
-  const sectionHead: CSSProperties = {
-    fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
-    color: 'var(--spira-faint)', fontWeight: 700, padding: '0 0 8px 2px',
-  }
   const renderRow = (v: DayVisitRow) => (
     <DayVisitRowItem
       key={v.id}
@@ -161,6 +205,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       canReception={canReception}
       canClinical={canClinical(v)}
       busyId={busyId}
+      procs={dayProcs.data?.[v.id]}
       onAdvance={advance}
       onOpenDoctor={(vv) => setDoctorFor(vv)}
       onNoShow={(vv) => setNoShow(vv)}
@@ -170,8 +215,57 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>
-        {filtered.length} {filtered.length === 1 ? 'visita' : 'visitas'}
+      {/* cabecera: fecha + contadores coloreados */}
+      <div className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ textTransform: 'capitalize' }}>{dayName(date)} {formatShortAR(date)}</span>
+        <span style={{ color: 'var(--spira-faint)' }}>·</span>
+        <span>{filtered.length} {filtered.length === 1 ? 'visita' : 'visitas'}</span>
+        {porLlegarCount > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: 'var(--spira-warn)', fontWeight: 600 }}>{porLlegarCount} por llegar</span></>)}
+        {enCentroVisible > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: accent, fontWeight: 600 }}>{enCentroVisible} en el centro</span></>)}
+        {finalizadasCount > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: 'var(--spira-faint)', fontWeight: 600 }}>{finalizadasCount} finalizadas</span></>)}
+      </div>
+
+      {/* fila de filtros */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <MultiFilterMenu accent={accent} label="Estado" icon="filter" options={estadoOptions} selected={fEstado} onChange={setFEstado} />
+        <MultiFilterMenu accent={accent} label="Protocolo" icon="file" options={protoOptions} selected={fProto} onChange={setFProto} />
+        <MultiFilterMenu accent={accent} label="Médico" icon="users" options={medOptions} selected={fMed} onChange={setFMed} />
+        <MultiFilterMenu accent={accent} label="Coordinador" icon="user" options={coordOptions} selected={fCoord} onChange={setFCoord} />
+        <span style={{ width: 1, height: 22, background: 'var(--spira-line)', margin: '0 2px' }} />
+        <FilterDropdown accent={accent} value={group} onChange={(v) => setGroup(v as GroupBy)} options={groupOptions} menuLabel="Agrupar por" icon="sliders" />
+        <button
+          type="button"
+          onClick={() => setSoloMedico((s) => !s)}
+          title="Solo las que esperan al médico"
+          style={{ height: 38, padding: '0 13px', borderRadius: 10, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, border: `1px solid ${soloMedico ? accent : 'var(--spira-line-2)'}`, background: soloMedico ? accent + '12' : 'var(--spira-white)', color: soloMedico ? accent : 'var(--spira-muted)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13 }}
+        >
+          <Icon name="users" size={15} color={soloMedico ? accent : 'var(--spira-muted)'} /> Para ver médico
+          {medicoCount > 0 && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 'var(--spira-radius-pill)', background: soloMedico ? accent : 'var(--spira-line)', color: soloMedico ? 'var(--spira-on-accent)' : 'var(--spira-muted)', fontSize: 11.5, fontWeight: 700, display: 'inline-grid', placeItems: 'center' }}>{medicoCount}</span>}
+        </button>
+        {anyActive && (
+          <button
+            type="button"
+            onClick={clearAll}
+            style={{ height: 38, padding: '0 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--spira-muted)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Icon name="x" size={13} color="var(--spira-muted)" /> Limpiar{nFilters > 0 ? ` ${nFilters}` : ''}
+          </button>
+        )}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 12px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', width: 240 }}>
+          <Icon name="search" size={15} color="var(--spira-faint)" />
+          <input
+            className="spira-bare-input"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Paciente, N° o protocolo…"
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 13, minWidth: 0 }}
+          />
+          {q && (
+            <button type="button" onClick={() => setQ('')} aria-label="Limpiar búsqueda" style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 0 }}>
+              <Icon name="x" size={13} color="var(--spira-faint)" />
+            </button>
+          )}
+        </div>
       </div>
 
       {actionError && (
@@ -215,26 +309,37 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       )}
 
       {filtered.length === 0 ? (
-        <EmptyState
-          accent={accent}
-          icon={submodule.icon}
-          title={filter === 'todas' ? `No hay visitas ${isToday ? 'hoy' : 'ese día'}` : 'Nada en este filtro'}
-          description={filter === 'todas' ? `Cuando haya visitas programadas o registradas ${isToday ? 'hoy' : 'ese día'} van a aparecer acá.` : 'Probá con otro filtro.'}
-        />
+        rows.length === 0 ? (
+          <EmptyState
+            accent={accent}
+            icon={submodule.icon}
+            title={`No hay visitas ${isToday ? 'hoy' : 'ese día'}`}
+            description={`Cuando haya visitas programadas o registradas ${isToday ? 'hoy' : 'ese día'} van a aparecer acá.`}
+          />
+        ) : (
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, color: 'var(--spira-muted)' }}>
+              Ninguna visita coincide con los filtros
+            </div>
+            <button onClick={clearAll} style={{ ...btnOutline, marginTop: 12, height: 36, fontSize: 13, color: accent }}>
+              Limpiar filtros
+            </button>
+          </div>
+        )
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: showSections ? 18 : 0 }}>
-          {inCenterRows.length > 0 && (
-            <div>
-              {showSections && <div style={sectionHead}>En el centro · {inCenterRows.length}</div>}
-              {inCenterRows.map(renderRow)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {groups.map((g) => (
+            <div key={g.key}>
+              {showHeaders && g.label && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 2px 9px' }}>
+                  <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 12.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--spira-muted)' }}>{g.label}</span>
+                  <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-faint)' }}>{g.items.length}</span>
+                  <span style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
+                </div>
+              )}
+              {g.items.map(renderRow)}
             </div>
-          )}
-          {restRows.length > 0 && (
-            <div>
-              {showSections && <div style={sectionHead}>Resto del día · {restRows.length}</div>}
-              {restRows.map(renderRow)}
-            </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -291,6 +396,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       {openVisit && (
         <VisitDetail
           visitId={openVisit.id}
+          seed={openVisit}
           accent={accent}
           context="day"
           canReception={canReception}
@@ -298,6 +404,9 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
           onAdvance={advance}
           onChanged={() => day.refetch()}
           onClose={() => setOpenVisit(null)}
+          pos={openIdx >= 0 ? `${openIdx + 1} / ${orderedVisible.length}` : undefined}
+          onPrev={() => stepOpen(-1)}
+          onNext={() => stepOpen(1)}
         />
       )}
       {doctorFor && (
@@ -311,4 +420,48 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       )}
     </div>
   )
+}
+
+/** Un grupo de la lista: etiqueta (null = sin encabezado) + sus filas en orden. */
+interface VisitGroup { key: string; label: string | null; items: DayVisitRow[] }
+
+/** Elementos únicos por clave, preservando el orden de aparición (para las opciones de filtro). */
+function uniqueBy<T>(list: T[], key: (t: T) => string): T[] {
+  const seen = new Set<string>()
+  const out: T[] = []
+  for (const it of list) {
+    const k = key(it)
+    if (!seen.has(k)) { seen.add(k); out.push(it) }
+  }
+  return out
+}
+
+/** Parte la lista YA ordenada en grupos según la dimensión elegida. Grupos vacíos no se renderizan. */
+function buildGroups(group: GroupBy, ordered: DayVisitRow[]): VisitGroup[] {
+  if (group === 'ninguno') return [{ key: 'all', label: null, items: ordered }]
+  if (group === 'operativo') {
+    return [
+      { key: 'centro', label: 'En el centro', items: ordered.filter((v) => inCenter(v.operational_stage)) },
+      { key: 'resto', label: 'Resto del día', items: ordered.filter((v) => !inCenter(v.operational_stage)) },
+    ].filter((g) => g.items.length > 0)
+  }
+  if (group === 'estado') {
+    return STAGE_ORDER
+      .map((s) => ({ key: s, label: OPERATIONAL_STAGES[s].label, items: ordered.filter((v) => v.operational_stage === s) }))
+      .filter((g) => g.items.length > 0)
+  }
+  if (group === 'protocolo') {
+    return uniqueBy(ordered, (v) => v.protocol_id)
+      .map((v) => ({ key: v.protocol_id, label: v.protocol_code, items: ordered.filter((r) => r.protocol_id === v.protocol_id) }))
+      .sort((a, b) => (a.label ?? '').localeCompare(b.label ?? ''))
+  }
+  if (group === 'medico') {
+    return uniqueBy(ordered, (v) => v.treating_physician ?? NONE)
+      .map((v) => ({ key: v.treating_physician ?? NONE, label: v.treating_physician ?? 'Sin médico', items: ordered.filter((r) => (r.treating_physician ?? NONE) === (v.treating_physician ?? NONE)) }))
+      .sort((a, b) => (a.label ?? '').localeCompare(b.label ?? ''))
+  }
+  // coordinador
+  return uniqueBy(ordered, (v) => v.coordinator_id ?? NONE)
+    .map((v) => ({ key: v.coordinator_id ?? NONE, label: v.coordinator_name ?? 'Sin asignar', items: ordered.filter((r) => (r.coordinator_id ?? NONE) === (v.coordinator_id ?? NONE)) }))
+    .sort((a, b) => (a.label ?? '').localeCompare(b.label ?? ''))
 }

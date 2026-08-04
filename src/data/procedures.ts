@@ -245,6 +245,76 @@ export function useVisitProcedureStatus(visitId: string | null, visitDefId: stri
   )
 }
 
+/** Resumen barato de procedimientos de una visita para la LISTA del día. */
+export interface DayProcedureSummary {
+  names: string[]
+  done: number
+  total: number
+}
+
+/**
+ * Resumen de procedimientos para la LISTA del día (0061/0064). En vez de 3 consultas por visita
+ * (useVisitProcedureStatus × N filas → decenas de consultas), hace DOS para todo el día: las
+ * asignaciones (protocol_activities por los visit_def_id presentes, compartidas entre visitas del
+ * mismo cuadro) y las realizaciones (visit_procedure_completions por los visit_id presentes), y las
+ * une en el cliente. Devuelve visit_id → { names, done, total }. Sin el circuito de reporte (eso es
+ * del modal). Las visitas sin procedimientos no aparecen en el mapa.
+ */
+export function useDayProceduresSummary(visits: { id: string; visit_def_id: string | null }[]) {
+  const visitIds = [...new Set(visits.map((v) => v.id))].sort()
+  const defIds = [...new Set(visits.map((v) => v.visit_def_id).filter((x): x is string => !!x))].sort()
+  const depKey = visitIds.join(',') + '|' + defIds.join(',')
+  return useSupabaseQuery<Record<string, DayProcedureSummary>>(
+    async (c) => {
+      if (visitIds.length === 0 || defIds.length === 0) return { data: {}, error: null }
+      const asg = await c
+        .from('protocol_activities')
+        .select('visit_def_id, procedure_id, suggested_order, procedure:procedures(name)')
+        .in('visit_def_id', defIds)
+        .order('suggested_order', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
+      if (asg.error) return { data: null, error: asg.error }
+      const asgRows = (asg.data ?? []) as unknown as {
+        visit_def_id: string; procedure_id: string; procedure: { name: string } | null
+      }[]
+
+      const comp = await c
+        .from('visit_procedure_completions')
+        .select('visit_id, procedure_id')
+        .in('visit_id', visitIds)
+      if (comp.error) return { data: null, error: comp.error }
+      const doneByVisit = new Map<string, Set<string>>()
+      for (const r of (comp.data ?? []) as { visit_id: string; procedure_id: string }[]) {
+        const s = doneByVisit.get(r.visit_id) ?? new Set<string>()
+        s.add(r.procedure_id)
+        doneByVisit.set(r.visit_id, s)
+      }
+
+      // Procedimientos (id + nombre, en orden) por definición de visita.
+      const byDef = new Map<string, { procedure_id: string; name: string }[]>()
+      for (const r of asgRows) {
+        const list = byDef.get(r.visit_def_id) ?? []
+        list.push({ procedure_id: r.procedure_id, name: r.procedure?.name ?? 'Procedimiento' })
+        byDef.set(r.visit_def_id, list)
+      }
+
+      const out: Record<string, DayProcedureSummary> = {}
+      for (const v of visits) {
+        const assigned = v.visit_def_id ? byDef.get(v.visit_def_id) ?? [] : []
+        if (assigned.length === 0) continue
+        const doneSet = doneByVisit.get(v.id) ?? new Set<string>()
+        out[v.id] = {
+          names: assigned.map((a) => a.name),
+          done: assigned.filter((a) => doneSet.has(a.procedure_id)).length,
+          total: assigned.length,
+        }
+      }
+      return { data: out, error: null }
+    },
+    [depKey],
+  )
+}
+
 /** Marca/desmarca un procedimiento como realizado en una visita. "0 filas = sin permiso". */
 export async function toggleVisitProcedure(
   visitId: string, procedureId: string, completed: boolean,
