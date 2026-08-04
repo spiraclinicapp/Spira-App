@@ -4,8 +4,9 @@ import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
-import { updateProtocol } from '../data/protocols'
+import { updateProtocol, useProtocols } from '../data/protocols'
 import type { ProtocolRow } from '../data/protocols'
+import { AutocompleteInput, textSuggestions } from '../components/AutocompleteInput'
 
 /** Traduce el código de error de Postgres a un mensaje sereno en castellano. */
 function friendlyError(code?: string): string {
@@ -36,6 +37,11 @@ export function EditProtocolForm({ protocol, accentSolid, onClose, onUpdated }: 
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
+
+  const protocols = useProtocols()
+  const sponsorSuggestions = textSuggestions((protocols.data ?? []).map((p) => p.sponsor))
+  const investigatorSuggestions = textSuggestions((protocols.data ?? []).map((p) => p.principal_investigator))
+  const specialtySuggestions = textSuggestions((protocols.data ?? []).map((p) => p.specialty))
 
   /* Primer "Guardar cambios" → pide confirmación; no guarda todavía. */
   const submit = (e: FormEvent<HTMLFormElement>) => {
@@ -71,13 +77,13 @@ export function EditProtocolForm({ protocol, accentSolid, onClose, onUpdated }: 
             <input value={internalCode} onChange={(e) => setInternalCode(e.target.value)} placeholder="ej. BO42451" className="spira-mono" style={fieldInput} />
           </FormField>
           <FormField label="Patrocinante">
-            <input value={sponsor} onChange={(e) => setSponsor(e.target.value)} placeholder="Sponsor" style={fieldInput} />
+            <AutocompleteInput value={sponsor} onChange={setSponsor} suggestions={sponsorSuggestions} placeholder="Sponsor" />
           </FormField>
           <FormField label="Investigador principal">
-            <input value={investigator} onChange={(e) => setInvestigator(e.target.value)} placeholder="ej. Dr. Ricardo Funes" style={fieldInput} />
+            <AutocompleteInput value={investigator} onChange={setInvestigator} suggestions={investigatorSuggestions} placeholder="ej. Dr. Ricardo Funes" />
           </FormField>
           <FormField label="Especialidad">
-            <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="ej. Cardiología" style={fieldInput} />
+            <AutocompleteInput value={specialty} onChange={setSpecialty} suggestions={specialtySuggestions} placeholder="ej. Cardiología" />
           </FormField>
           <div style={{ gridColumn: '1 / -1' }}>
             <FormField label="Descripción">
