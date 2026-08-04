@@ -15,6 +15,7 @@ import {
 } from '../data/dayVisits'
 import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
 import { useRandoAttendedWithoutDate } from '../data/visits'
+import { useDayProceduresSummary } from '../data/procedures'
 import { DayVisitRowItem } from './track/DayVisitRowItem'
 import { VisitDetail } from './track/VisitDetail'
 import { RescheduleModal } from './track/RescheduleModal'
@@ -61,6 +62,8 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
 
   const isToday = date === todayISO()
   const rows = day.data ?? []
+  // Resumen de procedimientos de TODO el día en 2 consultas (no 3 por fila), para los puntos de la fila.
+  const dayProcs = useDayProceduresSummary(rows)
   const filtered = rows.filter((v) => {
     if (filter === 'en_el_centro') return inCenter(v.operational_stage)
     if (filter === 'medico') return v.wants_doctor && v.left_at === null
@@ -161,6 +164,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       canReception={canReception}
       canClinical={canClinical(v)}
       busyId={busyId}
+      procs={dayProcs.data?.[v.id]}
       onAdvance={advance}
       onOpenDoctor={(vv) => setDoctorFor(vv)}
       onNoShow={(vv) => setNoShow(vv)}
