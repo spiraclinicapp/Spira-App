@@ -5,7 +5,8 @@ import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
 import { SearchableSelect } from '../components/SearchableSelect'
 import { DateField } from '../components/DateField'
-import { createPatientWithEnrollment } from '../data/patients'
+import { createPatientWithEnrollment, useTreatingPhysicians } from '../data/patients'
+import { AutocompleteInput, textSuggestions } from '../components/AutocompleteInput'
 import type { ProtocolRow } from '../data/protocols'
 import { FERTILITY_OPTIONS } from '../lib/visits'
 import { todayISO, yearsFromTodayISO } from '../lib/dates'
@@ -45,6 +46,9 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
   const [physician, setPhysician] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  const physicians = useTreatingPhysicians()
+  const physicianSuggestions = textSuggestions((physicians.data ?? []).map((p) => p.treating_physician))
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -137,7 +141,7 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
               placeholder="Se asigna en randomización" className="spira-mono" style={{ ...fieldInput, fontVariantNumeric: 'tabular-nums' }} />
           </FormField>
           <FormField label="Médico tratante">
-            <input value={physician} onChange={(e) => setPhysician(e.target.value)} placeholder="Médico tratante" style={fieldInput} />
+            <AutocompleteInput value={physician} onChange={setPhysician} suggestions={physicianSuggestions} placeholder="Médico tratante" />
           </FormField>
         </div>
 

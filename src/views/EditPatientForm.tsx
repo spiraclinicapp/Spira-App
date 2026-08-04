@@ -6,7 +6,8 @@ import { FormField, fieldInput } from '../components/FormField'
 import { btnOutline, btnPrimary } from '../components/buttons'
 import { SearchableSelect } from '../components/SearchableSelect'
 import { DateField } from '../components/DateField'
-import { updatePatient, deletePatient, patientFootprint } from '../data/patients'
+import { updatePatient, deletePatient, patientFootprint, useTreatingPhysicians } from '../data/patients'
+import { AutocompleteInput, textSuggestions } from '../components/AutocompleteInput'
 import type { PatientRow, PatientStatus, PatientFootprint } from '../data/patients'
 import { FERTILITY_OPTIONS } from '../lib/visits'
 import { todayISO, yearsFromTodayISO } from '../lib/dates'
@@ -49,6 +50,9 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [confirmCode, setConfirmCode] = useState('')
+
+  const physicians = useTreatingPhysicians()
+  const physicianSuggestions = textSuggestions((physicians.data ?? []).map((p) => p.treating_physician))
 
   // ── Zona de peligro (eliminar paciente) ──
   const { hasMinRole, modules } = useAuth()
@@ -161,7 +165,7 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
           </FormField>
           <div style={{ gridColumn: '1 / -1' }}>
             <FormField label="Médico tratante">
-              <input value={physician} onChange={(e) => setPhysician(e.target.value)} placeholder="Médico tratante" style={fieldInput} />
+              <AutocompleteInput value={physician} onChange={setPhysician} suggestions={physicianSuggestions} placeholder="Médico tratante" />
             </FormField>
           </div>
 
