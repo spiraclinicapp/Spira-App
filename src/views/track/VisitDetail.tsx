@@ -31,7 +31,7 @@ import { DoctorRequest } from './DoctorRequest'
  */
 export function VisitDetail({
   visitId, accent, context, onClose, canReception = false, canClinical = false,
-  onAdvance, onChanged, pos, onPrev, onNext,
+  onAdvance, onChanged, pos, onPrev, onNext, seed,
 }: {
   visitId: string
   accent: string
@@ -46,9 +46,18 @@ export function VisitDetail({
   /** Navegación a la visita anterior/siguiente de la lista visible. Solo en `day` (habilita ↑↓). */
   onPrev?: () => void
   onNext?: () => void
+  /**
+   * Fila que el padre YA tiene (la del día), para pintar el modal al instante mientras `useVisit`
+   * refetchea — así abrir y navegar con ↑↓ no esperan la consulta (sin parpadeo/lag). Cuando llega
+   * el dato fresco para ESTE visitId, reemplaza al seed. Sin seed (ficha/cola) = espera la consulta.
+   */
+  seed?: DayVisitRow
 }) {
   const q = useVisit(visitId)
-  const visit = q.data?.[0] ?? null
+  const fetched = q.data?.[0] ?? null
+  // Preferimos el dato fresco de ESTE visitId; si todavía no llegó (nav ↑↓), mostramos el seed; y si
+  // no hay seed, el último dato (stale-while-revalidate de useSupabaseQuery evita el spinner).
+  const visit = (fetched?.id === visitId ? fetched : seed?.id === visitId ? seed : fetched) ?? null
   const pat = usePatient(visit?.patient_id ?? null)
   const patient = pat.data?.[0] ?? null
 
@@ -68,6 +77,10 @@ export function VisitDetail({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { onClose(); return }
       if (!canNav) return
+      // Si un control interno ya consumió la tecla (un desplegable abierto —ej. el select de
+      // coordinador con pocas opciones— hace preventDefault en las flechas), no la robamos: React
+      // corre sus handlers en #root antes que este listener de document, así que ya viene marcada.
+      if (e.defaultPrevented) return
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
       if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); onNext?.() }

@@ -396,6 +396,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       {openVisit && (
         <VisitDetail
           visitId={openVisit.id}
+          seed={openVisit}
           accent={accent}
           context="day"
           canReception={canReception}
