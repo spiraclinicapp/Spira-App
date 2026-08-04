@@ -7,7 +7,7 @@ import { FilterDropdown } from '../components/FilterDropdown'
 import type { FilterOption } from '../components/FilterDropdown'
 import { DateNavButton } from '../components/DateNavButton'
 import { useAuth } from '../lib/auth'
-import { todayISO } from '../lib/dates'
+import { todayISO, dayName, formatShortAR } from '../lib/dates'
 import { useMyCoordinations } from '../data/templates'
 import {
   useVisitsForDay, markArrived, markAttended, markReady, markLeft,
@@ -109,6 +109,21 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
     .sort((a, b) => rankRest(a.operational_stage) - rankRest(b.operational_stage) || byArrival(a, b))
   const showSections = inCenterRows.length > 0 && restRows.length > 0
 
+  /* Navegación ↑↓ del modal: recorre la lista VISIBLE tal como se ve (En el centro y luego Resto),
+     con wrap circular. `pos` refleja la posición dentro de esa lista. */
+  const orderedVisible = [...inCenterRows, ...restRows]
+  const openIdx = openVisit ? orderedVisible.findIndex((v) => v.id === openVisit.id) : -1
+  const stepOpen = (d: number) => {
+    if (orderedVisible.length === 0 || openIdx < 0) return
+    setOpenVisit(orderedVisible[(openIdx + d + orderedVisible.length) % orderedVisible.length])
+  }
+
+  /* Contadores de cabecera, sobre la lista FILTRADA (coloreados). "No vino" no es una etapa del
+     recorrido (es una acción → reprograma), así que no hay contador de "no vino". */
+  const porLlegarCount = filtered.filter((v) => v.operational_stage === 'por_llegar').length
+  const enCentroVisible = filtered.filter((v) => inCenter(v.operational_stage)).length
+  const finalizadasCount = filtered.filter((v) => v.operational_stage === 'fuera').length
+
   /* Despacha la mutación de la etapa SIGUIENTE. 'atendido' reusa markAttended con `date` (el día
      que se está mirando, no necesariamente hoy: la vista ahora navega por día — ver DateNavButton
      arriba). El resto de las transiciones son eventos en vivo (now() server-side, mismo criterio
@@ -174,8 +189,13 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>
-        {filtered.length} {filtered.length === 1 ? 'visita' : 'visitas'}
+      <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }} className="spira-mono">
+        <span style={{ textTransform: 'capitalize' }}>{dayName(date)} {formatShortAR(date)}</span>
+        <span style={{ color: 'var(--spira-faint)' }}>·</span>
+        <span>{filtered.length} {filtered.length === 1 ? 'visita' : 'visitas'}</span>
+        {porLlegarCount > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: 'var(--spira-warn)', fontWeight: 600 }}>{porLlegarCount} por llegar</span></>)}
+        {enCentroVisible > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: accent, fontWeight: 600 }}>{enCentroVisible} en el centro</span></>)}
+        {finalizadasCount > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: 'var(--spira-faint)', fontWeight: 600 }}>{finalizadasCount} finalizadas</span></>)}
       </div>
 
       {actionError && (
@@ -302,6 +322,9 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
           onAdvance={advance}
           onChanged={() => day.refetch()}
           onClose={() => setOpenVisit(null)}
+          pos={openIdx >= 0 ? `${openIdx + 1} / ${orderedVisible.length}` : undefined}
+          onPrev={() => stepOpen(-1)}
+          onNext={() => stepOpen(1)}
         />
       )}
       {doctorFor && (

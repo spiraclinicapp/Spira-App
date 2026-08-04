@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
+import { usePopover } from '../../components/usePopover'
 import { visitCode } from '../../lib/visits'
 import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
@@ -201,19 +202,17 @@ function RowMenu({ visit, canReception, busy, onNoShow }: {
   onNoShow: (visit: DayVisitRow) => void
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [open])
-
+  // usePopover posiciona `fixed` (getBoundingClientRect) → el menú escapa al `overflow: hidden` de
+  // la fila (que existe para recortar el rail). Sin esto el popover se abría CLIPADO por la fila y no
+  // se veía. Maneja Esc + click-afuera. El menú se monta como descendiente en el árbol de React, así
+  // que igual corta la propagación del click para no abrir el modal de la fila.
+  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
   const canNoShow = visit.operational_stage === 'por_llegar' && canReception
 
   return (
-    <div ref={ref} style={{ position: 'relative', flex: '0 0 auto' }}>
+    <div style={{ flex: '0 0 auto' }}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
         onKeyDown={(e) => e.stopPropagation()}
@@ -222,11 +221,12 @@ function RowMenu({ visit, canReception, busy, onNoShow }: {
       >
         <Icon name="moreVertical" size={17} color="currentColor" />
       </button>
-      {open && (
+      {open && pos && (
         <div
+          ref={popRef}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
-          style={{ position: 'absolute', top: 38, right: 0, zIndex: 25, width: 200, padding: 5, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 11, boxShadow: 'var(--spira-shadow-md)' }}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 60, width: 210, padding: 5, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 11, boxShadow: 'var(--spira-shadow-md)' }}
         >
           {canNoShow && (
             <MenuItem label="Marcar como no vino" danger onClick={() => { if (!busy) onNoShow(visit); setOpen(false) }} />
