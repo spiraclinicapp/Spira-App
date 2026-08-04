@@ -146,8 +146,8 @@ export function VisitDetail({
                         {visit.patient_name}
                       </span>
                       <HeaderIdentity visit={visit} accent={accent} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 9, borderTop: '1px dashed var(--spira-line)' }}>
-                        <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 13.5, fontWeight: 700, letterSpacing: '-.005em', color: 'var(--spira-muted)' }}>{visit.protocol_name}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--spira-line)' }}>
+                        <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--spira-ink)' }}>{visit.protocol_name}</span>
                         <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visit.protocol_code}</span>
                       </div>
                     </>
