@@ -218,11 +218,11 @@ export function VisitDetail({
                 <Panel title="Procedimientos" icon="clipboardCheck" accent={accent}>
                   <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} />
                 </Panel>
-                <Panel title="Comentarios" icon="message" accent={accent}>
-                  <CommentThread visitId={visit.id} accent={accent} onAdded={onChanged} />
-                </Panel>
                 <Panel title="Dispensación" icon="pill" accent={accent}>
                   <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
+                </Panel>
+                <Panel title="Comentarios" icon="message" accent={accent}>
+                  <CommentThread visitId={visit.id} accent={accent} onAdded={onChanged} />
                 </Panel>
               </div>
             </div>
