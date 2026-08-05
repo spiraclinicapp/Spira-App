@@ -77,12 +77,18 @@ export function usePopover<T extends HTMLElement, P extends HTMLElement>(open: b
     window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', onScroll)
     document.addEventListener('keydown', onKey)
-    document.addEventListener('mousedown', onDown)
+    // En CAPTURA, no en burbuja: algún contenedor entre el click y `document` puede frenar el
+    // mousedown con stopPropagation para no cerrarse él mismo (el modal de la visita hace justo eso
+    // en su card, VisitDetail). En burbuja el listener nunca se enteraría y el popover quedaría
+    // abierto al pulsar dentro del modal; en captura corre antes de esos handlers y el cierre afuera
+    // se cumple siempre. El popover va portaleado a document.body, así que sus clicks igual entran
+    // por `popNodeRef.contains` y no lo cierran.
+    document.addEventListener('mousedown', onDown, true)
     return () => {
       window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', onScroll)
       document.removeEventListener('keydown', onKey)
-      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('mousedown', onDown, true)
     }
   }, [open, reposition])
 
