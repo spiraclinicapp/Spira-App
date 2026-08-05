@@ -3,16 +3,23 @@ import type { OperationalStage } from '../data/dayVisits'
 import type { DotVisual } from '../lib/visits'
 
 /**
- * Paleta de los 6 estados de visita (de la identidad visual, TrackContent.jsx).
- * Constante en ambos temas, igual que los acentos de módulo.
+ * Paleta de los estados CLÍNICOS de la visita (identidad visual, TrackContent.jsx). Constante en
+ * ambos temas, igual que los acentos de módulo. Desde el rediseño de estados (0068):
+ * - `futura` YA NO SE EMITE (la vista manda siempre `proxima`): "Pendiente" fusiona los dos. Queda
+ *   acá con la misma cara para que una fila vieja en caché no se vea rota — el valor no se puede
+ *   borrar del enum en Postgres.
+ * - `item_vencido` conserva su valor en la base, pero se rotula "Pendiente vencido": ahora también
+ *   cubre reportes de procedimientos, no solo ítems de checklist.
  */
-export const VISIT_STATES: Record<VisitStatus, { label: string; color: string }> = {
-  futura:          { label: 'Futura',          color: '#7C8C87' },
-  proxima:         { label: 'Próxima',         color: '#2E7D74' },
-  realizada:       { label: 'Realizada',       color: '#3A6B8C' },
-  completa:        { label: 'Completa',        color: '#4E7A3F' },
-  item_vencido:    { label: 'Ítem vencido',    color: '#B0823F' },
-  ventana_vencida: { label: 'Ventana vencida', color: '#A6483B' },
+export const VISIT_STATES: Record<VisitStatus, { label: string; short: string; color: string }> = {
+  futura:          { label: 'Pendiente',         short: 'Pendiente',   color: '#7C8C87' },
+  proxima:         { label: 'Pendiente',         short: 'Pendiente',   color: '#7C8C87' },
+  en_atencion:     { label: 'Siendo atendido',   short: 'En atención', color: '#2E7D74' },
+  realizada:       { label: 'Visita realizada',  short: 'Realizada',   color: '#3A6B8C' },
+  completa:        { label: 'Completa',          short: 'Completa',    color: '#4E7A3F' },
+  item_vencido:    { label: 'Pendiente vencido', short: 'Vencido',     color: '#B0823F' },
+  ventana_vencida: { label: 'Ventana vencida',   short: 'Ventana',     color: '#A6483B' },
+  por_reprogramar: { label: 'Por reprogramar',   short: 'No vino',     color: '#8A5A3C' },
 }
 
 /**
@@ -21,23 +28,24 @@ export const VISIT_STATES: Record<VisitStatus, { label: string; color: string }>
  * (atendido / listo / fuera / completa). Devuelve hex (sirve para concatenar alpha en las pills).
  */
 export function dotColor(dv: DotVisual, accent: string): string {
-  return dv === 'agendada' ? VISIT_STATES.futura.color : accent
+  return dv === 'agendada' ? VISIT_STATES.proxima.color : accent
 }
 
 /**
- * Paleta/etiquetas de la ETAPA OPERATIVA (recorrido del paciente en el centro). Eje
- * distinto de VISIT_STATES (clínico): no mezclar. Orden lineal por_llegar → fuera.
+ * Paleta/etiquetas de la ETAPA OPERATIVA (recorrido del paciente en el centro). Eje distinto de
+ * VISIT_STATES (clínico): no mezclar. Orden lineal por_llegar → fin_atencion, que es terminal:
+ * desde la 0068 la visita la cierra el clínico al terminar la atención, no recepción al ver salir
+ * al paciente ("Fuera del sitio" salió del recorrido).
  */
 export const OPERATIONAL_STAGES: Record<OperationalStage, { label: string; short: string; color: string }> = {
-  por_llegar:  { label: 'Por llegar',      short: 'Por llegar', color: '#7C8C87' },
-  en_el_sitio: { label: 'En el sitio',     short: 'En sitio',   color: '#2E7D74' },
-  atendido:    { label: 'Atendido',        short: 'Atendido',   color: '#3A6B8C' },
-  listo:       { label: 'Listo para irse', short: 'Listo',      color: '#4E7A3F' },
-  fuera:       { label: 'Fuera del sitio', short: 'Fuera',      color: '#7C8C87' },
+  por_llegar:          { label: 'Por llegar',          short: 'Por llegar',  color: '#7C8C87' },
+  concurrio_al_centro: { label: 'Concurrió al centro', short: 'Concurrió',   color: '#2E7D74' },
+  inicio_atencion:     { label: 'Inicio de atención',  short: 'En atención', color: '#3A6B8C' },
+  fin_atencion:        { label: 'Fin de atención',     short: 'Finalizada',  color: '#4E7A3F' },
 }
 
 /** Orden lineal de las etapas operativas (para el stepper y el "siguiente paso"). */
-export const STAGE_ORDER: OperationalStage[] = ['por_llegar', 'en_el_sitio', 'atendido', 'listo', 'fuera']
+export const STAGE_ORDER: OperationalStage[] = ['por_llegar', 'concurrio_al_centro', 'inicio_atencion', 'fin_atencion']
 
 /** Chip de etapa operativa: punto + etiqueta sobre el color de la etapa al 9 %. `compact` usa la
  *  etiqueta corta ("En sitio", "Listo") para columnas angostas — ver la fila de Visitas del día. */
@@ -57,9 +65,10 @@ export function OperationalStageChip({ stage, compact = false }: { stage: Operat
   )
 }
 
-/** Chip de estado de visita: punto + etiqueta sobre el color del estado al 9 %. */
-export function VisitChip({ status }: { status: VisitStatus }) {
-  const e = VISIT_STATES[status] ?? VISIT_STATES.futura
+/** Chip de estado de visita: punto + etiqueta sobre el color del estado al 9 %. `compact` usa la
+ *  etiqueta corta ("No vino", "Realizada") para columnas angostas — ver la fila de Visitas del día. */
+export function VisitChip({ status, compact = false }: { status: VisitStatus; compact?: boolean }) {
+  const e = VISIT_STATES[status] ?? VISIT_STATES.proxima
   return (
     <span
       style={{
@@ -69,7 +78,7 @@ export function VisitChip({ status }: { status: VisitStatus }) {
       }}
     >
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: e.color }} />
-      {e.label}
+      {compact ? e.short : e.label}
     </span>
   )
 }

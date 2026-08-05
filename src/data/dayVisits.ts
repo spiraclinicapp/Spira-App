@@ -5,15 +5,14 @@ import { registerVisit } from './visits'
 import type { TrackVisitRow } from './visits'
 
 /** Etapa del recorrido del paciente en el centro (derivada de las marcas, NO clínica). */
-export type OperationalStage = 'por_llegar' | 'en_el_sitio' | 'atendido' | 'listo' | 'fuera'
+export type OperationalStage = 'por_llegar' | 'concurrio_al_centro' | 'inicio_atencion' | 'fin_atencion'
 
 /** Orden lineal de las etapas operativas (para el stepper y para avanzar a la siguiente). */
 export const OPERATIONAL_STAGE_ORDER: OperationalStage[] = [
   'por_llegar',
-  'en_el_sitio',
-  'atendido',
-  'listo',
-  'fuera',
+  'concurrio_al_centro',
+  'inicio_atencion',
+  'fin_atencion',
 ]
 
 /**
@@ -54,6 +53,12 @@ export interface DayVisitRow extends TrackVisitRow {
    * que author_name en 0048); lo escribe el RPC `set_visit_coordinator`. null = sin asignar.
    */
   coordinator_name: string | null
+  /**
+   * Cuándo se marcó que el paciente no vino (migración 0067); null = nunca se marcó. La limpian
+   * `mark_arrived` (si al final concurrió) y el reagendado. Es lo que sostiene el estado clínico
+   * `por_reprogramar`.
+   */
+  no_show_at: string | null
 }
 
 /**
@@ -258,7 +263,11 @@ function rpcError(code?: string, raw?: string): string {
   return raw || 'No se pudo completar la acción. Probá de nuevo.'
 }
 
-/** Marca "En el sitio" (arrived_at = now()). Recepción/Admin (operator+ de track) o gerencia. */
+/**
+ * Marca "Concurrió al centro" (arrived_at = now()) y limpia la marca de ausente (0067): si el
+ * paciente termina concurriendo, gana sobre un "No vino" previo. Recepción/Admin (operator+ de
+ * track) o gerencia.
+ */
 export async function markArrived(visitId: string): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('mark_arrived', { p_visit_id: visitId })
   if (error) return { error: rpcError(error.code, error.message) }
@@ -319,10 +328,34 @@ export async function discontinueEnrollment(
   return { error: null }
 }
 
-/** Marca "Fuera del sitio" (left_at = now()). Requiere ready_at (handoff). Recepción/Admin o gerencia. */
+/**
+ * Marca "Fuera del sitio" (left_at = now()). Requiere ready_at (handoff). Recepción/Admin o gerencia.
+ * Desde la 0068 esta etapa queda FUERA del recorrido operativo (`fin_atencion` es terminal: la
+ * cierra el clínico, no recepción al ver salir al paciente). Se conserva el RPC y la columna como
+ * histórico auditable — ninguna vista la llama ya.
+ */
 export async function markLeft(visitId: string): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('mark_left', { p_visit_id: visitId })
   if (error) return { error: rpcError(error.code, error.message) }
+  return { error: null }
+}
+
+/**
+ * Marca (true) o deshace (false) "No vino" — `no_show_at` + `no_show_by`, RPC `mark_no_show`
+ * (SECURITY DEFINER, migración 0067). Recepción/Admin o gerencia, igual que `mark_arrived`.
+ * El server rechaza marcar como ausente una visita ya atendida (`real_date`) o con la llegada
+ * ya marcada (`arrived_at`): en los dos casos vuelve un `check_violation` (23514) con su motivo.
+ * Los dos mensajes del server ("La visita ya fue atendida" / "El paciente ya está registrado
+ * como que llegó") ya son claros y serenos en castellano, así que se devuelven tal cual en vez
+ * de mapearlos a un texto fijo — a diferencia de `setVisitCoordinator`, acá hay DOS motivos
+ * distintos y el server los distingue mejor que un mensaje único de este lado.
+ */
+export async function markNoShow(visitId: string, value = true): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('mark_no_show', { p_visit_id: visitId, p_value: value })
+  if (error) {
+    if (error.code === '23514') return { error: error.message }
+    return { error: rpcError(error.code, error.message) }
+  }
   return { error: null }
 }
 

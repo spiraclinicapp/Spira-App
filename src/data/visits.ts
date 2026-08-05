@@ -4,7 +4,9 @@ import { addDaysISO, todayISO } from '../lib/dates'
 import type { VisitKind } from './visitEvents'
 
 /** Estado calculado de la visita (enum visit_status; lo deriva v_patient_visits al leer). */
-export type VisitStatus = 'futura' | 'proxima' | 'realizada' | 'completa' | 'item_vencido' | 'ventana_vencida'
+export type VisitStatus =
+  | 'futura' | 'proxima' | 'en_atencion' | 'realizada' | 'completa'
+  | 'item_vencido' | 'ventana_vencida' | 'por_reprogramar'
 
 export type VisitType = 'presencial' | 'telefonica'
 
@@ -181,8 +183,9 @@ export function usePatientVisits(patientId: string | null, protocolId: string | 
 }
 
 /**
- * Reagenda una visita moviendo SOLO `estimated_date`. La ventana (window_start/end)
- * viene del esquema del sponsor y queda fija a propósito: el estado calculado
+ * Reagenda una visita moviendo SOLO `estimated_date` y limpiando la marca de ausente (0067): darle
+ * fecha nueva es, justamente, la salida del estado "Por reprogramar". La ventana
+ * (window_start/end) viene del esquema del sponsor y queda fija a propósito: el estado calculado
  * (`ventana_vencida`) sigue siendo auditable aunque la visita se mueva.
  * La RLS limita el UPDATE a la coordinadora asignada (operator+) o gerencia; si
  * filtra en silencio (0 filas afectadas), se devuelve un error claro.
@@ -190,7 +193,7 @@ export function usePatientVisits(patientId: string | null, protocolId: string | 
 export async function rescheduleVisit(id: string, newDate: string): Promise<{ error: string | null }> {
   const { data, error } = await supabase
     .from('patient_visits')
-    .update({ estimated_date: newDate })
+    .update({ estimated_date: newDate, no_show_at: null, no_show_by: null })
     .eq('id', id)
     .select('id')
   if (error) return { error: error.message }
