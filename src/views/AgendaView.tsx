@@ -2,7 +2,6 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
-import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { btnOutline } from '../components/buttons'
 import { useAuth } from '../lib/auth'
 import { dayName, formatShortAR, todayISO, weekDates, weekLabel } from '../lib/dates'
@@ -103,9 +102,8 @@ export function AgendaView({ module, submodule }: ViewProps) {
                   const inner = (
                     <>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {/* privacidad: avatar (nombre en tooltip) + código, sin el nombre como texto */}
-                        <PrivacyAvatar fullName={v.patient_name} size={20} color={c} />
-                        <span className="spira-mono" style={{ fontSize: 12, color: c, fontWeight: 500 }}>{v.patient_code}</span>
+                        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{v.patient_name}</span>
+                        <span className="spira-mono" style={{ fontSize: 12, color: c, fontWeight: 500, flex: '0 0 auto' }}>{v.patient_code}</span>
                         <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4 }}>
                           {v.visit_type === 'telefonica' && <Icon name="phone" size={13} color="var(--spira-muted)" />}
                           {v.real_date !== null && <Icon name="check" size={14} color={c} />}

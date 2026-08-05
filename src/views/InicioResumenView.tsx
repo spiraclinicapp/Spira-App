@@ -1,7 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
-import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { useAuth } from '../lib/auth'
 import { useVisitsForDay } from '../data/dayVisits'
 import { useVisitAlerts } from '../data/visits'
@@ -198,11 +197,10 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
             <div style={{ marginTop: 6 }}>
               {dayRows.map((v) => (
                 <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 0', borderTop: '1px solid var(--spira-line)' }}>
-                  <PrivacyAvatar fullName={v.patient_name} size={28} color={accent} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span className="spira-mono">{v.patient_code ?? '—'}</span>
-                      <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}> · <span className="spira-mono">{v.protocol_code}</span></span>
+                      {v.patient_name}
+                      <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}> · <span className="spira-mono">{v.patient_code ?? '—'}</span> · <span className="spira-mono">{v.protocol_code}</span></span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {visitTitle(v)}

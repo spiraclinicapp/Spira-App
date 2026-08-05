@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import { SearchableSelect } from '../../../components/SearchableSelect'
-import { initials } from '../../../components/PrivacyAvatar'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { usePatients } from '../../../data/patients'
 import { usePatientMedications } from '../../../data/pharma'
@@ -54,10 +53,9 @@ export function PanelNuevaDispensacion({ onClose, onCreated }: {
    * Solo pacientes con enrolamiento en un protocolo: sin eso no hay visitas dispensadoras ni
    * medicación habilitada, así que ofrecerlos sería un callejón sin salida.
    *
-   * Los que todavía no tienen IVRS (se asigna en la randomización) se desambiguan con las
-   * iniciales: sin eso, dos pacientes distintos aparecían los dos como "Sin IVRS · PROT-A" y no
-   * había forma de saber cuál era cuál — elegir el equivocado en una dispensación es grave.
-   * Iniciales y no nombre completo, que es el estándar de privacidad del proyecto (PrivacyAvatar).
+   * La etiqueta abre con el NOMBRE del paciente: los que todavía no tienen IVRS (se asigna en la
+   * randomización) aparecían todos como "Sin IVRS · PROT-A", sin forma de saber cuál era cuál —
+   * elegir el equivocado en una dispensación es grave.
    */
   const opcionesPaciente = useMemo(
     () => (pacientes.data ?? [])
@@ -65,8 +63,8 @@ export function PanelNuevaDispensacion({ onClose, onCreated }: {
       .map((p) => ({
         value: p.id,
         label: p.code
-          ? `${p.code} · ${p.enrollments[0].protocol!.code}`
-          : `Sin IVRS · ${initials(p.full_name)} · ${p.enrollments[0].protocol!.code}`,
+          ? `${p.full_name} · ${p.code} · ${p.enrollments[0].protocol!.code}`
+          : `${p.full_name} · Sin IVRS · ${p.enrollments[0].protocol!.code}`,
       })),
     [pacientes.data],
   )

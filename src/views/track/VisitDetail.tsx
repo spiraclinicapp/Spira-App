@@ -23,12 +23,14 @@ import { DoctorRequest } from './DoctorRequest'
  * la cola del médico (ambas `context="patient"`). Trae sus datos por id con `useVisit` (+ el paciente
  * con `usePatient`), así los tres quedan sincronizados por construcción.
  *
- * Header paciente-manda en `day` (el nombre es el titular, el protocolo baja atenuado) y
- * protocolo-manda en `patient` (sin nombre); cuerpo en dos columnas — izq: Ruta (recorrido vertical) · A cargo
- * (coordinador editable + médico + atención médica) · Paciente. der: Procedimientos · Comentarios ·
- * Dispensación. En `day` se avanza la etapa, se asigna coordinador, se marca médico y se navega con
- * ↑↓ por la lista visible; en `patient` todo es de SOLO LECTURA y el nombre del paciente NO se muestra
- * (privacidad: fuera de Visitas del día se identifica por IVRS).
+ * Header **paciente-manda en los tres contextos**: el nombre es el titular, debajo va la visita en
+ * su propia línea, después la identidad (IVRS · etapa · médico · coordinador) y el protocolo baja
+ * atenuado tras un hairline. La visita tiene línea propia porque es **el dato que varía** cuando el
+ * modal se abre desde la ficha (ahí el paciente ya se sabe; lo que se pregunta es cuál de sus
+ * visitas es). Cuerpo en dos columnas — izq: Ruta (recorrido vertical) · Atención médica · Paciente;
+ * der: Procedimientos · Dispensación · Comentarios. En `day` se avanza la etapa, se asigna
+ * coordinador, se marca médico y se navega con ↑↓ por la lista visible; en `patient` todo es de
+ * SOLO LECTURA.
  */
 export function VisitDetail({
   visitId, accent, context, onClose, canReception = false, canClinical = false,
@@ -66,7 +68,6 @@ export function VisitDetail({
   const [err, setErr] = useState<string | null>(null)
 
   const readOnly = context !== 'day'
-  const showName = context === 'day' // el nombre solo se muestra en Visitas del día (privacidad)
   const canNav = !!(onPrev || onNext)
 
   const step = visit ? NEXT_STEP[visit.operational_stage] : null
@@ -133,36 +134,21 @@ export function VisitDetail({
           <div style={{ padding: '30px 24px', fontSize: 13.5, color: 'var(--spira-muted)' }}>No se encontró la visita.</div>
         ) : (
           <>
-            {/* header: en Visitas del día manda el paciente (nombre de titular); en la ficha del
-                paciente y la cola del médico —sin nombre por privacidad— manda el protocolo, como siempre */}
+            {/* header paciente-manda, igual en los tres contextos: nombre de titular → visita en
+                línea propia → identidad → protocolo atenuado */}
             <div style={{ padding: '18px 22px 16px', background: 'var(--spira-white)', borderBottom: '1px solid var(--spira-line)', flex: '0 0 auto' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                 <span style={{ width: 4, alignSelf: 'stretch', borderRadius: 3, background: OPERATIONAL_STAGES[visit.operational_stage]?.color ?? 'var(--spira-line-2)', flex: '0 0 auto' }} />
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  {showName ? (
-                    // paciente-manda: el nombre es el titular; el protocolo baja, atenuado
-                    <>
-                      <span style={{ display: 'block', fontFamily: 'var(--spira-font-display)', fontSize: 24, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.1 }}>
-                        {visit.patient_name}
-                      </span>
-                      <HeaderIdentity visit={visit} accent={accent} readOnly={readOnly} onCoordSaved={() => { onChanged?.(); q.refetch() }} onCoordError={setErr} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--spira-line)' }}>
-                        <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--spira-ink)' }}>{visit.protocol_name}</span>
-                        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visit.protocol_code}</span>
-                      </div>
-                    </>
-                  ) : (
-                    // protocolo-manda: identificación por IVRS (sin nombre)
-                    <>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, flexWrap: 'wrap' }}>
-                        <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.1 }}>
-                          {visit.protocol_name}
-                        </span>
-                        <span className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-faint)' }}>{visit.protocol_code}</span>
-                      </div>
-                      <HeaderIdentity visit={visit} accent={accent} readOnly={readOnly} onCoordSaved={() => { onChanged?.(); q.refetch() }} onCoordError={setErr} />
-                    </>
-                  )}
+                  <span style={{ display: 'block', fontFamily: 'var(--spira-font-display)', fontSize: 24, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.1 }}>
+                    {visit.patient_name}
+                  </span>
+                  <VisitLine visit={visit} />
+                  <HeaderIdentity visit={visit} accent={accent} readOnly={readOnly} onCoordSaved={() => { onChanged?.(); q.refetch() }} onCoordError={setErr} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--spira-line)' }}>
+                    <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--spira-ink)' }}>{visit.protocol_name}</span>
+                    <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visit.protocol_code}</span>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
                   {canNav && (
@@ -258,10 +244,43 @@ function NavBtn({ dir, onClick }: { dir: 'up' | 'down'; onClick: () => void }) {
 
 const Dot = () => <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--spira-line-2)', flex: '0 0 auto' }} />
 
-/** Línea de identidad de la visita: N° de sujeto + código de visita + etapa + médico.
-    Es idéntica con cualquiera de los dos órdenes de header (paciente-manda en Visitas del
-    día, protocolo-manda en la ficha/cola), por eso se comparte. El `marginTop` la separa de
-    lo que tenga arriba (el nombre o el protocolo). */
+/**
+ * Qué visita se está viendo, en su propia línea bajo el nombre. Va aparte de la identidad porque
+ * es **el dato que varía** al abrir el modal desde la ficha (el paciente ya se sabe; la pregunta es
+ * cuál de sus visitas). Antes vivía como badge + título dentro de `HeaderIdentity` y quedaba
+ * diluido entre los chips, además de **repetir el código**: el badge mostraba `visitCode` ("V2") y
+ * al lado `visitTitle` volvía a pegarlo ("V2 - Run in"). Acá el código va una sola vez y el nombre
+ * de la definición aparte.
+ *
+ * Las visitas SUELTAS (kind ≠ programada) no tienen definición: sin código cae al label del kind
+ * que ya resuelve `visitTitle` ("Retest", "VNP"), sin el prefijo "Visita" que ahí sonaría raro.
+ */
+function VisitLine({ visit }: { visit: DayVisitRow }) {
+  const code = visitCode(visit) // "V2" | short del kind | '' si no hay ninguno
+  // Muchas definiciones de la carga histórica se llaman igual que su código ("V1"/"V1") → ahí el
+  // nombre no aporta nada y repetirlo daría "Visita V1 · V1". Solo se muestra si dice algo distinto.
+  const name = visit.visit_name?.trim()
+  const showVisitName = !!name && name.toLowerCase() !== code.toLowerCase()
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 5, flexWrap: 'wrap' }}>
+      <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)' }}>
+        {code ? `Visita ${code}` : visitTitle(visit)}
+      </span>
+      {/* El nombre de la definición solo si además hay código (si no, ya lo dijo visitTitle arriba). */}
+      {code && showVisitName && (
+        <>
+          <Dot />
+          {/* En tinta plena, no en `muted`: a 14px el gris no llega al 4.5:1 de WCAG AA (mismo
+              hallazgo que el nombre del protocolo en la v0.23.0). La jerarquía la hace el peso. */}
+          <span style={{ fontSize: 14, color: 'var(--spira-ink)' }}>{name}</span>
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Línea de identidad: N° de sujeto + etapa + médico + coordinador. La VISITA ya no va acá —
+    subió a su propia línea (`VisitLine`), donde se lee de un vistazo. */
 function HeaderIdentity({ visit, accent, readOnly, onCoordSaved, onCoordError }: {
   visit: DayVisitRow; accent: string; readOnly: boolean
   onCoordSaved: () => void; onCoordError: (msg: string) => void
@@ -269,9 +288,6 @@ function HeaderIdentity({ visit, accent, readOnly, onCoordSaved, onCoordError }:
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 8, flexWrap: 'wrap' }}>
       <span className="spira-mono" style={{ fontSize: 13, color: visit.patient_code ? 'var(--spira-muted)' : 'var(--spira-faint)' }}>{visit.patient_code ?? 'Sin IVRS'}</span>
-      <Dot />
-      <span style={{ padding: '2px 9px', borderRadius: 6, background: 'var(--spira-ink)', color: 'var(--spira-paper)', fontSize: 11.5, fontWeight: 800 }}>{visitCode(visit)}</span>
-      <span style={{ fontSize: 13, color: 'var(--spira-muted)' }}>{visitTitle(visit)}</span>
       <Dot />
       <OperationalStageChip stage={visit.operational_stage} />
       <DoctorBadge visit={visit} accent={accent} />

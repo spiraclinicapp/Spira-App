@@ -85,7 +85,7 @@ export interface DispensationRequestRow {
   items: RequestItemRow[]
   /** La dispensación ejecutada; array por el schema (FK inversa), en la práctica 0 o 1. */
   dispensations: DispensationRow[]
-  /** Contexto para la cola de Pharma: paciente (código IVRS + nombre para el PrivacyAvatar) y protocolo. */
+  /** Contexto para la cola de Pharma: paciente (nombre + código IVRS) y protocolo. */
   visit: {
     enrollment: {
       patient: { code: string | null; full_name: string } | null

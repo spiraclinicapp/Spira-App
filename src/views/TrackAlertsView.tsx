@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
-import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { SearchableSelect } from '../components/SearchableSelect'
 import { useVisitAlerts } from '../data/visits'
 import type { TrackVisitRow } from '../data/visits'
@@ -176,7 +175,7 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
                   <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="clipboardCheck" size={18} color={c} /></span>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <PrivacyAvatar fullName={r.patient_name} size={22} color={c} />
+                      <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.patient_name}</span>
                       <span style={code}>{r.patient_code ?? '—'}</span>
                       <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{r.protocol_code}</span></span>
                     </div>
@@ -197,7 +196,7 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
                   <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="clipboardCheck" size={18} color={c} /></span>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <PrivacyAvatar fullName={r.patient_name} size={22} color={c} />
+                      <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.patient_name}</span>
                       <span style={code}>{r.patient_code ?? '—'}</span>
                       <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{r.protocol_code}</span></span>
                     </div>
@@ -221,7 +220,7 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
                   </span>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <PrivacyAvatar fullName={a.patient_name} size={22} color={c} />
+                      <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.patient_name}</span>
                       <span style={code}>{a.patient_code ?? '—'}</span>
                       <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{a.protocol_code}</span></span>
                     </div>

@@ -8,7 +8,6 @@ import { DateField } from '../../components/DateField'
 import { formatAR, yearsFromTodayISO } from '../../lib/dates'
 import { rescheduleVisit } from '../../data/visits'
 import type { TrackVisitRow } from '../../data/visits'
-import { PrivacyAvatar } from '../../components/PrivacyAvatar'
 
 /**
  * Modal de reagendado compartido (Agenda y Ficha del paciente): fecha nueva +
@@ -49,11 +48,11 @@ export function RescheduleModal({ visit, accentSolid, onClose, onDone }: {
   return (
     <Modal title="Reagendar visita" onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* ficha de la visita (privacidad: avatar + código, sin nombre como texto) */}
+        {/* ficha de la visita: nombre + código */}
         <div style={{ background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <PrivacyAvatar fullName={visit.patient_name} size={26} color={accentSolid} />
-            <span className="spira-mono" style={{ fontSize: 13, fontWeight: 500 }}>{visit.patient_code}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)' }}>{visit.patient_name}</span>
+            <span className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-muted)' }}>{visit.patient_code}</span>
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
             <span className="spira-mono">{visit.protocol_code}</span>

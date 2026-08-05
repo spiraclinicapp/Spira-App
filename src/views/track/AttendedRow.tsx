@@ -1,16 +1,11 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
-import { PrivacyAvatar } from '../../components/PrivacyAvatar'
 import { fromNow, durationShort } from '../../lib/dates'
 import type { DayVisitRow } from '../../data/dayVisits'
 
 /**
- * Fila sobria de un paciente ya atendido por el médico. Atenuada a propósito (avatar/identidad
- * en tono `faint`) para que la sección "Atendidos" no compita visualmente con "Faltan atender".
- *
- * Muestra el nombre del paciente como texto plano — DESVÍO DELIBERADO de `PrivacyAvatar`
- * (que en el resto de Track oculta el nombre, solo tooltip). Decisión explícita del Director
- * (review 2026-07-12) para calzar con la referencia visual; acotada a esta pantalla.
+ * Fila sobria de un paciente ya atendido por el médico. Atenuada a propósito (identidad en tono
+ * `faint`) para que la sección "Atendidos" no compita visualmente con "Faltan atender".
  */
 export function AttendedRow({ visit, busy, onUndo }: {
   visit: DayVisitRow
@@ -27,8 +22,6 @@ export function AttendedRow({ visit, busy, onUndo }: {
         </div>
         <div style={sinceLabel}>{fromNow(visit.doctor_seen_at ?? '')}</div>
       </div>
-
-      <PrivacyAvatar fullName={visit.patient_name} size={36} color="var(--spira-faint)" />
 
       <div style={{ flex: '1 1 200px', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
