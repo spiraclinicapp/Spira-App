@@ -12,7 +12,7 @@ import { todayISO, dayName, formatShortAR } from '../lib/dates'
 import { visitCode } from '../lib/visits'
 import { useMyCoordinations } from '../data/templates'
 import {
-  useVisitsForDay, markArrived, markAttended, markReady, markLeft,
+  useVisitsForDay, markArrived, markAttended, markReady, markNoShow,
   markReadyWithOutcome, discontinueEnrollment,
 } from '../data/dayVisits'
 import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
@@ -34,9 +34,9 @@ type GroupBy = 'operativo' | 'estado' | 'protocolo' | 'medico' | 'coordinador' |
 /** Sentinela para agrupar/filtrar por "sin médico" / "sin coordinador" (valores null). */
 const NONE = '∅'
 
-/** "En el centro" = llegó y aún no se retiró (cualquier etapa intermedia). */
+/** "En el centro" = llegó y todavía no terminó la atención (cualquier etapa intermedia). */
 function inCenter(stage: OperationalStage): boolean {
-  return stage === 'en_el_sitio' || stage === 'atendido' || stage === 'listo'
+  return stage === 'concurrio_al_centro' || stage === 'inicio_atencion'
 }
 
 /** Vista "Visitas del día" v2: lista con filtros multi + agrupación + buscador (handoff Fase 2). */
@@ -59,7 +59,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   const [group, setGroup] = useState<GroupBy>('operativo')
 
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [noShow, setNoShow] = useState<TrackVisitRow | null>(null)
+  const [rescheduleFor, setRescheduleFor] = useState<TrackVisitRow | null>(null)
   const [openVisit, setOpenVisit] = useState<DayVisitRow | null>(null)
   const [doctorFor, setDoctorFor] = useState<DayVisitRow | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -81,9 +81,12 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   const dayProcs = useDayProceduresSummary(rows)
 
   /* Filtrado: AND entre categorías, OR dentro de cada una; el buscador (nombre / N° / protocolo /
-     tag de visita) se aplica encima. "Para ver médico" es un toggle aparte (wants_doctor sin retirarse). */
+     tag de visita) se aplica encima. "Para ver médico" es un toggle aparte (wants_doctor mientras
+     la atención sigue abierta). Antes se miraba `left_at`, pero desde este cambio nadie lo escribe
+     más (sacamos "Fuera del sitio" de la UI, la 0068 lo declara histórico): esa condición hubiera
+     quedado siempre verdadera y la cola nunca se vaciaría. El cierre natural ahora es la etapa. */
   const filtered = rows.filter((v) => {
-    if (soloMedico && !(v.wants_doctor && v.left_at === null)) return false
+    if (soloMedico && !(v.wants_doctor && v.operational_stage !== 'fin_atencion')) return false
     if (fEstado.length && !fEstado.includes(v.operational_stage)) return false
     if (fProto.length && !fProto.includes(v.protocol_id)) return false
     if (fMed.length && !fMed.includes(v.treating_physician ?? NONE)) return false
@@ -111,7 +114,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
     .map((v) => ({ value: v.coordinator_id ?? NONE, label: v.coordinator_name ?? 'Sin asignar', count: countBy((r) => (r.coordinator_id ?? NONE) === (v.coordinator_id ?? NONE)) }))
     .sort((a, b) => a.label.localeCompare(b.label))
 
-  const medicoCount = countBy((v) => v.wants_doctor && v.left_at === null)
+  const medicoCount = countBy((v) => v.wants_doctor && v.operational_stage !== 'fin_atencion')
   const nFilters = fEstado.length + fProto.length + fMed.length + fCoord.length + (soloMedico ? 1 : 0)
   const anyActive = nFilters > 0 || q.trim().length > 0
   const clearAll = () => { setFEstado([]); setFProto([]); setFMed([]); setFCoord([]); setSoloMedico(false); setQ('') }
@@ -133,10 +136,10 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, setHeader])
 
-  /* Orden base: en el centro primero (más avanzada arriba: Listo → Atendido → En el sitio), luego
-     por llegar, luego fuera; a igual etapa, por orden de llegada. Los grupos parten esta lista. */
+  /* Orden base: en el centro primero (más avanzada arriba: Inicio de atención → Concurrió), luego
+     por llegar, luego las finalizadas; a igual etapa, por orden de llegada. Los grupos parten esta lista. */
   const byArrival = (a: DayVisitRow, b: DayVisitRow) => (a.arrived_at ?? '').localeCompare(b.arrived_at ?? '')
-  const stageRank = (s: OperationalStage) => ['listo', 'atendido', 'en_el_sitio', 'por_llegar', 'fuera'].indexOf(s)
+  const stageRank = (s: OperationalStage) => ['inicio_atencion', 'concurrio_al_centro', 'por_llegar', 'fin_atencion'].indexOf(s)
   const ordered = [...filtered].sort((a, b) => stageRank(a.operational_stage) - stageRank(b.operational_stage) || byArrival(a, b))
 
   const groups = buildGroups(group, ordered)
@@ -152,16 +155,17 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   }
 
   /* Contadores de cabecera, sobre la lista FILTRADA (coloreados). "No vino" no es una etapa del
-     recorrido (es una acción → reprograma), así que no hay contador de "no vino". */
+     recorrido (es un estado clínico), así que no tiene contador propio. */
   const porLlegarCount = filtered.filter((v) => v.operational_stage === 'por_llegar').length
   const enCentroVisible = filtered.filter((v) => inCenter(v.operational_stage)).length
-  const finalizadasCount = filtered.filter((v) => v.operational_stage === 'fuera').length
+  const finalizadasCount = filtered.filter((v) => v.operational_stage === 'fin_atencion').length
 
-  /* Despacha la mutación de la etapa SIGUIENTE. 'atendido' reusa markAttended con `date` (el día
-     que se está mirando, no necesariamente hoy). El resto son eventos en vivo (now() server-side).
-     "Listo" de una visita de screening/randomización NO marca directo: abre el cierre clínico. */
+  /* Despacha la mutación de la etapa SIGUIENTE. 'inicio_atencion' reusa markAttended con `date` (el
+     día que se está mirando, no necesariamente hoy) porque es lo que setea real_date. El resto son
+     eventos en vivo (now() server-side). "Fin de atención" de una visita de screening/randomización
+     NO marca directo: abre el cierre clínico, que captura el IVRS o la randomización. */
   const advance = async (visit: DayVisitRow, next: OperationalStage) => {
-    if (next === 'listo' && (visit.role === 'screening' || visit.role === 'randomizacion')) {
+    if (next === 'fin_atencion' && (visit.role === 'screening' || visit.role === 'randomizacion')) {
       setActionError(null)
       setFeedback(null)
       setReadyOutcome(visit)
@@ -170,13 +174,29 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
     setBusyId(visit.id)
     setActionError(null)
     const res =
-      next === 'en_el_sitio' ? await markArrived(visit.id)
-      : next === 'atendido' ? await markAttended(visit.id, date)
-      : next === 'listo' ? await markReady(visit.id)
-      : next === 'fuera' ? await markLeft(visit.id)
+      next === 'concurrio_al_centro' ? await markArrived(visit.id)
+      : next === 'inicio_atencion' ? await markAttended(visit.id, date)
+      : next === 'fin_atencion' ? await markReady(visit.id)
       : { error: 'Etapa desconocida.' }
     setBusyId(null)
     if (res.error) { setActionError(res.error); return }
+    day.refetch()
+  }
+
+  /* "No vino" ahora GUARDA una marca (no abre el modal): la visita queda en "Por reprogramar"
+     hasta que alguien le dé fecha nueva, que es lo que la saca del estado. Mismo patrón de
+     busy/error que `advance` — y limpia/setea `feedback` como esa función limpia el error, porque
+     el chip que cambia de color en una fila que no se reordena no alcanza como confirmación visible;
+     sin esto además podía quedar en pantalla el banner verde de un cierre clínico anterior
+     haciéndose pasar por confirmación de esta acción. */
+  const noShow = async (visit: DayVisitRow, value: boolean) => {
+    setBusyId(visit.id)
+    setActionError(null)
+    setFeedback(null)
+    const res = await markNoShow(visit.id, value)
+    setBusyId(null)
+    if (res.error) { setActionError(res.error); return }
+    setFeedback(value ? 'Falta registrada. La visita queda por reprogramar.' : 'Falta deshecha.')
     day.refetch()
   }
 
@@ -208,7 +228,8 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       procs={dayProcs.data?.[v.id]}
       onAdvance={advance}
       onOpenDoctor={(vv) => setDoctorFor(vv)}
-      onNoShow={(vv) => setNoShow(vv)}
+      onNoShow={noShow}
+      onReschedule={setRescheduleFor}
       onOpen={(vv) => setOpenVisit(vv)}
     />
   )
@@ -269,13 +290,13 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       </div>
 
       {actionError && (
-        <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
+        <div role="alert" style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
           {actionError}
         </div>
       )}
 
       {feedback && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-ink)', background: 'rgba(15, 95, 87, 0.08)', borderRadius: 8, padding: '8px 12px' }}>
+        <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-ink)', background: 'rgba(15, 95, 87, 0.08)', borderRadius: 8, padding: '8px 12px' }}>
           <Icon name="check" size={16} color="var(--spira-good)" />
           {feedback}
         </div>
@@ -343,12 +364,12 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
         </div>
       )}
 
-      {noShow && (
+      {rescheduleFor && (
         <RescheduleModal
-          visit={noShow}
+          visit={rescheduleFor}
           accentSolid={accentSolid}
-          onClose={() => setNoShow(null)}
-          onDone={() => { setNoShow(null); day.refetch() }}
+          onClose={() => setRescheduleFor(null)}
+          onDone={() => { setRescheduleFor(null); day.refetch() }}
         />
       )}
       {readyOutcome && (readyOutcome.role === 'screening' || readyOutcome.role === 'randomizacion') && (

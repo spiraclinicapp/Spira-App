@@ -6,7 +6,7 @@ import { visitCode } from '../../lib/visits'
 import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import type { DayProcedureSummary } from '../../data/procedures'
-import { OperationalStageChip, OPERATIONAL_STAGES } from '../visitStates'
+import { OperationalStageChip, OPERATIONAL_STAGES, VisitChip, VISIT_STATES } from '../visitStates'
 import { ProtoTag, ProcDots, Persona } from './visitAtoms'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 
@@ -20,13 +20,13 @@ import { NEXT_STEP, advanceRole } from './advanceStep'
  */
 export function DayVisitRowItem({
   visit, accent, canReception, canClinical, busyId, procs,
-  onAdvance, onOpenDoctor, onNoShow, onOpen,
+  onAdvance, onOpenDoctor, onNoShow, onReschedule, onOpen,
 }: {
   visit: DayVisitRow
   accent: string
-  /** Recepción/Admin: puede marcar En el sitio / Fuera del sitio y "No vino". */
+  /** Recepción/Admin: puede marcar la llegada y "No vino". */
   canReception: boolean
-  /** Clínico/Coord asignado a este protocolo: Atendido / Listo / médico. */
+  /** Clínico/Coord asignado a este protocolo: Inicio de atención / Fin de atención / médico. */
   canClinical: boolean
   /** id de la visita con mutación en vuelo (deshabilita sus controles). */
   busyId: string | null
@@ -34,14 +34,21 @@ export function DayVisitRowItem({
   procs?: DayProcedureSummary
   onAdvance: (visit: DayVisitRow, next: OperationalStage) => void
   onOpenDoctor: (visit: DayVisitRow) => void
-  onNoShow: (visit: DayVisitRow) => void
+  /** Marca (true) o deshace (false) "No vino". */
+  onNoShow: (visit: DayVisitRow, value: boolean) => void
+  onReschedule: (visit: DayVisitRow) => void
   onOpen: (visit: DayVisitRow) => void
 }) {
   const stage = visit.operational_stage
   const busy = busyId === visit.id
   const [hov, setHov] = useState(false)
 
-  const railColor = OPERATIONAL_STAGES[stage]?.color ?? OPERATIONAL_STAGES.por_llegar.color
+  // El rail tiene que coincidir con el chip que se muestra (ver más abajo): si la visita está
+  // "Por reprogramar" el chip es el CLÍNICO, así que el rail usa ese mismo color — mostrar rail
+  // operativo (gris de "Por llegar") al lado de un chip marrón contradice al propio chip.
+  const railColor = visit.computed_status === 'por_reprogramar'
+    ? VISIT_STATES.por_reprogramar.color
+    : OPERATIONAL_STAGES[stage]?.color ?? OPERATIONAL_STAGES.por_llegar.color
   const visitName = visit.visit_name ?? KIND_LABELS[visit.kind]
 
   const shell: CSSProperties = {
@@ -71,9 +78,15 @@ export function DayVisitRowItem({
       {/* rail de estado */}
       <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: railColor }} />
 
-      {/* columna izquierda: chip de estado (reemplaza la hora, que no existe en el schema) */}
-      <div style={{ flex: '0 0 auto', width: 96 }}>
-        <OperationalStageChip stage={stage} compact />
+      {/* columna izquierda: chip de estado (reemplaza la hora, que no existe en el schema).
+          Si la visita quedó "Por reprogramar" mandamos el chip CLÍNICO: operativamente sigue en
+          "Por llegar", y dejar ese chip diría que el paciente está por llegar cuando ya se sabe
+          que no viene. Se mira `computed_status` y no `no_show_at` porque la vista ya resuelve la
+          precedencia (ventana vencida le gana a por reprogramar). */}
+      <div style={{ flex: '0 0 auto', minWidth: 96 }}>
+        {visit.computed_status === 'por_reprogramar'
+          ? <VisitChip status="por_reprogramar" compact />
+          : <OperationalStageChip stage={stage} compact />}
       </div>
 
       {/* bloque central */}
@@ -106,7 +119,7 @@ export function DayVisitRowItem({
       <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 6 }}>
         <DoctorButton visit={visit} accent={accent} canClinical={canClinical} busy={busy} onOpenDoctor={onOpenDoctor} />
         <AdvanceCTA stage={stage} accent={accent} canAdvance={advanceRole(stage) === 'reception' ? canReception : advanceRole(stage) === 'clinical' ? canClinical : false} busy={busy} onAdvance={(next) => onAdvance(visit, next)} />
-        <RowMenu visit={visit} canReception={canReception} busy={busy} onNoShow={onNoShow} />
+        <RowMenu visit={visit} canReception={canReception} busy={busy} onNoShow={onNoShow} onReschedule={onReschedule} />
       </div>
     </div>
   )
@@ -132,7 +145,7 @@ function DoctorButton({ visit, accent, canClinical, busy, onOpenDoctor }: {
       </div>
     )
   }
-  const eligible = canClinical && visit.operational_stage !== 'por_llegar' && visit.operational_stage !== 'fuera'
+  const eligible = canClinical && visit.operational_stage !== 'por_llegar' && visit.operational_stage !== 'fin_atencion'
   if (!eligible) return <div style={{ width: 134, flex: '0 0 auto' }} />
   const on = visit.wants_doctor
   return (
@@ -154,10 +167,10 @@ function DoctorButton({ visit, accent, canClinical, busy, onOpenDoctor }: {
 }
 
 /**
- * CTA de avanzar etapa. Ancho fijo (150), relleno de marca, siempre a la derecha. 'fuera' muestra
- * el estado terminal "Finalizada"; sin paso o sin permiso deja un hueco del mismo ancho (conserva
- * la alineación de la columna derecha en las demás filas). El desenlace de screening/randomización
- * lo resuelve el padre en `onAdvance` (abre el cierre clínico).
+ * CTA de avanzar etapa. Ancho fijo (150), relleno de marca, siempre a la derecha. 'fin_atencion'
+ * muestra el estado terminal "Finalizada"; sin paso o sin permiso deja un hueco del mismo ancho
+ * (conserva la alineación de la columna derecha en las demás filas). El desenlace de
+ * screening/randomización lo resuelve el padre en `onAdvance` (abre el cierre clínico).
  */
 function AdvanceCTA({ stage, accent, canAdvance, busy, onAdvance }: {
   stage: OperationalStage
@@ -166,7 +179,7 @@ function AdvanceCTA({ stage, accent, canAdvance, busy, onAdvance }: {
   busy: boolean
   onAdvance: (next: OperationalStage) => void
 }) {
-  if (stage === 'fuera') {
+  if (stage === 'fin_atencion') {
     return (
       <div style={{ width: 150, height: 40, borderRadius: 10, background: '#5C8A5A22', color: 'var(--spira-good)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, flex: '0 0 auto' }}>
         <Icon name="check" size={15} color="var(--spira-good)" /> Finalizada
@@ -194,12 +207,14 @@ function AdvanceCTA({ stage, accent, canAdvance, busy, onAdvance }: {
   )
 }
 
-/** Menú ⋯ de la fila: acciones que SÍ están cableadas (no vino → reprogramar · copiar N°). */
-function RowMenu({ visit, canReception, busy, onNoShow }: {
+/** Menú ⋯ de la fila: acciones que SÍ están cableadas (no vino · reprogramar · copiar N°). */
+function RowMenu({ visit, canReception, busy, onNoShow, onReschedule }: {
   visit: DayVisitRow
   canReception: boolean
   busy: boolean
-  onNoShow: (visit: DayVisitRow) => void
+  /** Marca (true) o deshace (false) "No vino". */
+  onNoShow: (visit: DayVisitRow, value: boolean) => void
+  onReschedule: (visit: DayVisitRow) => void
 }) {
   const [open, setOpen] = useState(false)
   // usePopover posiciona `fixed` (getBoundingClientRect) → el menú escapa al `overflow: hidden` de
@@ -207,7 +222,16 @@ function RowMenu({ visit, canReception, busy, onNoShow }: {
   // se veía. Maneja Esc + click-afuera. El menú se monta como descendiente en el árbol de React, así
   // que igual corta la propagación del click para no abrir el modal de la fila.
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
+  // Marcar la falta solo tiene sentido antes de que el paciente llegue; deshacerla, mientras siga
+  // marcada. El server además rechaza marcar como ausente una visita ya atendida o con la llegada
+  // ya marcada (migración 0067).
+  const faltaMarcada = visit.no_show_at !== null
   const canNoShow = visit.operational_stage === 'por_llegar' && canReception
+  // Mismo guard que sus hermanos AgendaView/PatientFichaView: no se reprograma algo que ya pasó.
+  // `rescheduleVisit` es un update directo que solo toca `estimated_date` y no mira `real_date` ni
+  // la etapa (ni la RLS, que solo verifica rol/protocolo) — sin este guard en la UI, reprogramar una
+  // visita ya en `fin_atencion` deja una visita fantasma en la fecha nueva con `real_date` intacto.
+  const canReschedule = canReception && visit.real_date === null
 
   return (
     <div style={{ flex: '0 0 auto' }}>
@@ -228,8 +252,14 @@ function RowMenu({ visit, canReception, busy, onNoShow }: {
           onClick={(e) => e.stopPropagation()}
           style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 60, width: 210, padding: 5, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 11, boxShadow: 'var(--spira-shadow-md)' }}
         >
-          {canNoShow && (
-            <MenuItem label="Marcar como no vino" danger onClick={() => { if (!busy) onNoShow(visit); setOpen(false) }} />
+          {canNoShow && !faltaMarcada && (
+            <MenuItem label="Marcar como no vino" danger disabled={busy} onClick={() => { if (!busy) onNoShow(visit, true); setOpen(false) }} />
+          )}
+          {canNoShow && faltaMarcada && (
+            <MenuItem label="Deshacer “no vino”" disabled={busy} onClick={() => { if (!busy) onNoShow(visit, false); setOpen(false) }} />
+          )}
+          {canReschedule && (
+            <MenuItem label="Reprogramar" disabled={busy} onClick={() => { if (!busy) onReschedule(visit); setOpen(false) }} />
           )}
           <MenuItem
             label="Copiar N° de paciente"
