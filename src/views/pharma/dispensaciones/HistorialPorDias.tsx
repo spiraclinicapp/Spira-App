@@ -1,5 +1,4 @@
 import type { CSSProperties } from 'react'
-import { PrivacyAvatar } from '../../../components/PrivacyAvatar'
 import { btnOutline } from '../../../components/buttons'
 import type { DispensationRequestRow } from '../../../data/pharma'
 import { activeDispensation, totalUnits } from '../../../data/pharma'
@@ -66,15 +65,16 @@ function Fila({ r, onOpen }: { r: DispensationRequestRow; onOpen: () => void }) 
       style={fila}
       aria-label={`${disp?.dispensation_code ?? 'Solicitud'}, ${meta.label}`}
     >
-      <PrivacyAvatar fullName={r.visit?.enrollment?.patient?.full_name ?? '—'} size={38} color="var(--spira-pharma-solid)" />
-
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 15, fontWeight: 700, color: 'var(--spira-ink)' }}>
             {disp?.dispensation_code ?? 'Solicitud'}
           </span>
+          <span style={{ fontSize: 13, color: 'var(--spira-ink)' }}>
+            · {r.visit?.enrollment?.patient?.full_name ?? '—'}
+          </span>
           <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>
-            · {r.visit?.enrollment?.patient?.code ?? 'Sin IVRS'}
+            {r.visit?.enrollment?.patient?.code ?? 'Sin IVRS'}
           </span>
           <span className="spira-mono" style={chipProto}>{r.visit?.enrollment?.protocol?.code ?? '—'}</span>
         </div>

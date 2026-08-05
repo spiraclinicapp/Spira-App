@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
-import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
 import type { ProtocolRow } from '../data/protocols'
@@ -191,9 +190,11 @@ export function PatientFichaView(props: PatientFichaViewProps) {
         {/* ficha lateral */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', rowGap: 10 }}>
-            <PrivacyAvatar fullName={patient.full_name} size={52} color={accent} />
             <div style={{ minWidth: 0 }}>
-              <div className="spira-mono" style={{ fontSize: 16, fontWeight: 500, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</div>
+              {/* El nombre manda (mismo criterio que el header del modal de visita); el IVRS baja
+                  a identificador secundario, en mono. */}
+              <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.15 }}>{patient.full_name}</div>
+              <div className="spira-mono" style={{ fontSize: 13.5, color: patient.code ? 'var(--spira-muted)' : 'var(--spira-faint)', whiteSpace: 'nowrap', marginTop: 3 }}>{patient.code ?? 'Sin IVRS'}</div>
               <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3 }}>{medico}</div>
             </div>
             <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 13px', borderRadius: 10, background: statusColor + '14', border: `1px solid ${statusColor}38`, color: statusColor, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>

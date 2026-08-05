@@ -2,7 +2,6 @@ import { useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Drawer } from '../../../components/Drawer'
 import { Modal } from '../../../components/Modal'
-import { PrivacyAvatar } from '../../../components/PrivacyAvatar'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow } from '../../../data/pharma'
 import { activeDispensation, columnOf, origenLabel, rejectDispensationRequest } from '../../../data/pharma'
@@ -53,12 +52,13 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
       >
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <div style={head}>
-            <PrivacyAvatar fullName={paciente?.full_name ?? '—'} size={44} color="var(--spira-pharma-solid)" />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 16, fontWeight: 700, color: 'var(--spira-ink)' }}>
                 {titulo} · {estado}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--spira-muted)', marginTop: 3, flexWrap: 'wrap' }}>
+                <span style={{ color: 'var(--spira-ink)' }}>{paciente?.full_name ?? '—'}</span>
+                <span style={dot} />
                 <span className="spira-mono">{paciente?.code ?? '—'}</span>
                 <span style={dot} />
                 <span className="spira-mono">{protocolo?.code ?? '—'}</span>

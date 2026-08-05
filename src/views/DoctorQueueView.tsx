@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
-import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { FilterDropdown } from '../components/FilterDropdown'
 import type { FilterOption } from '../components/FilterDropdown'
 import { DateNavButton } from '../components/DateNavButton'
@@ -31,10 +30,6 @@ const TICK_MS = 15_000
  * espera por día (navegable), con WaitBadge de tiempo REAL de espera (migración 0049:
  * `wants_doctor_at`) y reloj vivo cada 15s. "Faltan atender" ordenada por `wants_doctor_at`
  * ascendente (quien más espera, arriba, como en la referencia); "Atendidos", más reciente primero.
- *
- * Desvío deliberado de `PrivacyAvatar` (que en el resto de Track oculta el nombre del paciente,
- * solo tooltip): esta pantalla SÍ muestra `patient_name` como texto, decisión explícita del
- * Director para calzar con la referencia — acotada a esta vista.
  *
  * Se sacó el filtro por médico tratante (lo tenía la versión anterior) para que la cabecera
  * quede idéntica a la foto (decisión D2 del ENG review). El "resaltado del que le toca" (borde de
@@ -241,7 +236,6 @@ function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen }: {
   return (
     <div style={rowCard}>
       <WaitBadge iso={visit.wants_doctor_at} />
-      <PrivacyAvatar fullName={visit.patient_name} size={42} color={accent} />
 
       <div style={{ flex: '1 1 220px', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

@@ -2,7 +2,6 @@ import type { CSSProperties } from 'react'
 import { useState } from 'react'
 import { Icon } from '../../../components/Icon'
 import type { IconName } from '../../../components/Icon'
-import { PrivacyAvatar } from '../../../components/PrivacyAvatar'
 import type { BoardColumn, DispensationRequestRow } from '../../../data/pharma'
 import { activeDispensation, pendingScans, totalUnits } from '../../../data/pharma'
 import { COLUMN_META, scanSignal } from './estados'
@@ -71,8 +70,10 @@ export function KanbanCard({ r, column, canOperate, onOpen, onAdvance, busy }: {
     >
       {/* 1 · paciente + protocolo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-        <PrivacyAvatar fullName={r.visit?.enrollment?.patient?.full_name ?? '—'} size={28} color="var(--spira-pharma-solid)" />
-        <span className="spira-mono" style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)' }}>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+          {r.visit?.enrollment?.patient?.full_name ?? '—'}
+        </span>
+        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', flex: '0 0 auto' }}>
           {r.visit?.enrollment?.patient?.code ?? '—'}
         </span>
         <span className="spira-mono" style={protoChip}>{r.visit?.enrollment?.protocol?.code ?? '—'}</span>

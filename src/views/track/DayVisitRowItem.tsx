@@ -13,8 +13,8 @@ import { NEXT_STEP, advanceRole } from './advanceStep'
 /**
  * Fila de "Visitas del día" v2 — layout `paciente` del handoff (`handoff_visitas_dia/`), rebindeada
  * al modelo real. La hora de cita NO existe en el schema → la columna izquierda muestra el chip de
- * ESTADO (decisión del Director). El nombre del paciente va de titular SOLO en esta vista (el resto
- * de la app sigue con IVRS + PrivacyAvatar). Toda la fila abre el modal; los controles internos
+ * ESTADO (decisión del Director). El nombre del paciente va de titular (desde 2026-08-04 se muestra
+ * en toda la app, ver CLAUDE.md). Toda la fila abre el modal; los controles internos
  * cortan la propagación para no dispararlo. La columna derecha (médico · CTA · ⋯) es de ancho fijo:
  * queda alineada al pixel entre filas pase lo que pase con el estado.
  */

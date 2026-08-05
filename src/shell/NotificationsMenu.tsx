@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
-import { PrivacyAvatar } from '../components/PrivacyAvatar'
 import { useVisitAlerts } from '../data/visits'
 import type { TrackVisitRow } from '../data/visits'
 import { useReportAlerts, useProcedureReportAlerts } from '../data/reports'
@@ -137,7 +136,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
                       </span>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={rowTitle}>
-                          <PrivacyAvatar fullName={r.patient_name} size={20} color={c} />
+                          <span style={{ fontSize: 12.5, color: 'var(--spira-ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.patient_name}</span>
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.patient_code ?? '—'}</span>
                           <span style={{ color: 'var(--spira-faint)' }}>·</span>
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.protocol_code}</span>
@@ -156,7 +155,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
                       </span>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={rowTitle}>
-                          <PrivacyAvatar fullName={r.patient_name} size={20} color={c} />
+                          <span style={{ fontSize: 12.5, color: 'var(--spira-ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.patient_name}</span>
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.patient_code ?? '—'}</span>
                           <span style={{ color: 'var(--spira-faint)' }}>·</span>
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.protocol_code}</span>
@@ -176,7 +175,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
                       </span>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={rowTitle}>
-                          <PrivacyAvatar fullName={a.patient_name} size={20} color={c} />
+                          <span style={{ fontSize: 12.5, color: 'var(--spira-ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.patient_name}</span>
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{a.patient_code ?? '—'}</span>
                           <span style={{ color: 'var(--spira-faint)' }}>·</span>
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{a.protocol_code}</span>

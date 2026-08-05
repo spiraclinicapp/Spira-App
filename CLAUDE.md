@@ -134,8 +134,12 @@ react-query: la navegación es estado propio del shell.
 - **Idioma:** comentarios, nombres de dominio y copy de UI en **castellano rioplatense**.
   El código existente tiene comentarios densos y explicativos (el porqué, no el qué) —
   igualá esa densidad y tono.
-- **Privacidad de paciente** es transversal (`components/PrivacyAvatar.tsx`); respetala en
-  vistas nuevas que muestren personas.
+- **Identidad del paciente: nombre visible.** Desde el **2026-08-04** (decisión del Director) el
+  **nombre completo se muestra en toda la app** — Track y Pharma, listas y detalles. Antes se
+  ocultaba tras iniciales (`PrivacyAvatar`, ya **eliminado**) y el IVRS era el único identificador.
+  El criterio ahora es **nombre en tinta como identidad primaria + IVRS en mono como secundario**;
+  seguilo en vistas nuevas que muestren personas. (El `audit_log` y la RLS no cambian: esto es
+  presentación, el control de acceso sigue siendo el de siempre.)
 
 ## Contexto de diseño
 
