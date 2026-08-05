@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.24', text: 'El coordinador de la visita se asigna desde el encabezado del modal; el detalle de la visita queda más despejado.' },
     { version: '0.23', text: 'En Visitas del día, el modal de visita encabeza con el nombre del paciente; el protocolo pasa a segundo plano.' },
     { version: '0.22', text: 'Rediseño de Visitas del día: fila y modal nuevos, coordinador por visita, filtros múltiples, agrupación y buscador.' },
     { version: '0.21', text: 'Al escribir en varios campos —nombre comercial de medicación, patrocinante, investigador, especialidad y médico tratante— ahora se sugiere lo ya cargado para evitar duplicados.' },
