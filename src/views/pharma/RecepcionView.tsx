@@ -387,7 +387,10 @@ function ReceptionCard({ r, canManage, busy, highlight, accentSolid, onVerify }:
 
 const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16 }
 const errorBox: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 10, padding: '12px 14px' }
-const rowCard: CSSProperties = { border: '1px solid var(--spira-line)', borderRadius: 14, background: 'var(--spira-white)', padding: '13px 16px', boxShadow: 'var(--spira-shadow-sm)', transition: 'border-color 0.2s, box-shadow 0.2s' }
+// Borde en longhands, NO en la abreviada: el `highlight` pisa solo `borderColor` por spread
+// condicional y al apagarse React borra esa longhand — con la abreviada el color caería a
+// `currentColor` en vez de volver a la línea cálida. Ver `chipBtn` en SearchableSelect.tsx.
+const rowCard: CSSProperties = { borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)', borderRadius: 14, background: 'var(--spira-white)', padding: '13px 16px', boxShadow: 'var(--spira-shadow-sm)', transition: 'border-color 0.2s, box-shadow 0.2s' }
 const iconSq: CSSProperties = { width: 40, height: 40, flex: '0 0 auto', borderRadius: 11, background: 'rgba(168,132,47,.13)', display: 'grid', placeItems: 'center' }
 const searchWrap: CSSProperties = { position: 'relative', flex: 1, minWidth: 230, maxWidth: 340, display: 'flex', alignItems: 'center' }
 const searchInput: CSSProperties = {

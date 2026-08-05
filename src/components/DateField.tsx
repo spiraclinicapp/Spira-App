@@ -122,9 +122,14 @@ export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disable
   )
 }
 
+// Borde en longhands, NO en la abreviada `border`: `boxInvalid` pisa solo `borderColor` y se aplica
+// por spread condicional, así que al dejar de estar inválido React borra esa longhand y —si la base
+// usara la abreviada— el color caería a `currentColor` (borde oscuro fantasma). Ver `chipBtn` en
+// SearchableSelect.tsx, donde está la explicación larga del mismo bug.
 const box: CSSProperties = {
   width: '100%', height: 44, display: 'flex', alignItems: 'center',
-  background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)', borderRadius: 10,
+  background: 'var(--spira-white)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+  borderRadius: 10,
 }
 const boxFocus: CSSProperties = { boxShadow: '0 5px 14px rgba(20,48,46,.10)' } // foco suave estándar (sin outline verde)
 const boxInvalid: CSSProperties = { borderColor: 'var(--spira-danger)' }

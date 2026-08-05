@@ -755,8 +755,12 @@ const filterOption: CSSProperties = {
   width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 8, border: 'none', background: 'transparent',
   cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--spira-font-text)',
 }
+// Borde en longhands, NO en la abreviada: el estado tildado pisa solo `borderColor` por spread
+// condicional, y al destildar React borra esa longhand — con la abreviada el color caería a
+// `currentColor` y el casillero quedaría con un borde oscuro. Ver `chipBtn` en SearchableSelect.tsx.
 const checkBox: CSSProperties = {
-  width: 16, height: 16, flex: '0 0 auto', borderRadius: 4, border: '1.5px solid var(--spira-line-2)', display: 'grid', placeItems: 'center', background: 'var(--spira-white)',
+  width: 16, height: 16, flex: '0 0 auto', borderRadius: 4, borderWidth: 1.5, borderStyle: 'solid',
+  borderColor: 'var(--spira-line-2)', display: 'grid', placeItems: 'center', background: 'var(--spira-white)',
 }
 const stockBadgeBase: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: '.02em', padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap' }
 const stockBadgeLow: CSSProperties = { ...stockBadgeBase, color: 'var(--spira-pharma-solid)', background: 'rgba(168,132,47,.14)' }
