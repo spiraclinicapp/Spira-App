@@ -122,9 +122,9 @@ export function studyTime(v: TrackVisitRow): { unit: 'semana' | 'dia'; value: nu
  * si están todas hechas, la última. null si la lista está vacía.
  * Antes esto era una cascada por estado (proxima → ventana vencida → cualquiera) que dependía de
  * que una visita a más de 7 días fuera `futura` y no matcheara la primera rama. Desde el rediseño
- * de estados (0068) todas las pendientes son `proxima`, así que esa cascada elegía la visita más
- * lejana por sobre una con la ventana vencida. Con la lista ordenada, la primera sin `real_date`
- * ya es la respuesta correcta en todos los casos.
+ * de estados (0068) ninguna pendiente es ya `futura`, así que esa cascada agarraba en la primera
+ * pasada una visita lejana y salteaba una anterior con la ventana vencida. Con la lista ordenada,
+ * la primera sin `real_date` ya es la respuesta correcta en todos los casos.
  */
 function pickCurrent(ordered: TrackVisitRow[]): TrackVisitRow | null {
   if (ordered.length === 0) return null
@@ -232,15 +232,24 @@ export function dotVisual(v: TrackVisitRow): DotVisual {
 
 export type VisitStateLabel =
   | 'Agendada' | 'Por llegar' | 'Concurrió al centro'
-  | 'Inicio de atención' | 'Fin de atención' | 'Completa'
+  | 'Inicio de atención' | 'Fin de atención'
+  | 'Visita realizada' | 'Completa'
 
 /**
  * Etiqueta del estado de la visita según el recorrido operativo (lo que pasa en "Visitas del
  * día") + el checklist. `today` (ISO) distingue Agendada (futura) de Por llegar (hoy, sin llegar).
- * Los strings replican a mano los de `OPERATIONAL_STAGES` (views/visitStates.tsx): no se importan
- * porque ese archivo ya importa de acá y el ciclo no vale la pena. Si cambian allá, cambian acá.
+ * Los strings replican a mano los de `OPERATIONAL_STAGES` y `VISIT_STATES`
+ * (views/visitStates.tsx). No se importan por una cuestión de CAPAS: `lib/` no depende de
+ * `views/`. Si cambian allá, cambian acá.
  */
 export function visitStateLabel(v: TrackVisitRow, today: string): VisitStateLabel {
+  // La carga histórica tiene real_date y NINGUNA marca operativa: esas visitas no tienen recorrido,
+  // así que rotularlas con una etapa ("Inicio de atención") sería la categoría equivocada — y encima
+  // contradiría al chip clínico de la misma pantalla, que dice "Completa"/"Visita realizada".
+  // Se las nombra por el eje clínico, que es el único que tienen.
+  if (v.real_date !== null && v.arrived_at === null && v.ready_at === null) {
+    return v.computed_status === 'completa' ? 'Completa' : 'Visita realizada'
+  }
   // "Completa" solo cuando la visita está CERRADA (terminó la atención + sin checklist pendiente);
   // así coincide con el relleno del punto (ver dotVisual). Antes de eso, la etapa operativa.
   if (v.ready_at !== null && v.computed_status === 'completa') return 'Completa'
