@@ -12,7 +12,7 @@ import { todayISO, dayName, formatShortAR } from '../lib/dates'
 import { visitCode } from '../lib/visits'
 import { useMyCoordinations } from '../data/templates'
 import {
-  useVisitsForDay, markArrived, markAttended, markReady, markLeft,
+  useVisitsForDay, markArrived, markAttended, markReady, markNoShow,
   markReadyWithOutcome, discontinueEnrollment,
 } from '../data/dayVisits'
 import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
@@ -36,7 +36,7 @@ const NONE = '∅'
 
 /** "En el centro" = llegó y aún no se retiró (cualquier etapa intermedia). */
 function inCenter(stage: OperationalStage): boolean {
-  return stage === 'en_el_sitio' || stage === 'atendido' || stage === 'listo'
+  return stage === 'concurrio_al_centro' || stage === 'inicio_atencion'
 }
 
 /** Vista "Visitas del día" v2: lista con filtros multi + agrupación + buscador (handoff Fase 2). */
@@ -59,7 +59,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   const [group, setGroup] = useState<GroupBy>('operativo')
 
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [noShow, setNoShow] = useState<TrackVisitRow | null>(null)
+  const [reschedule, setReschedule] = useState<TrackVisitRow | null>(null)
   const [openVisit, setOpenVisit] = useState<DayVisitRow | null>(null)
   const [doctorFor, setDoctorFor] = useState<DayVisitRow | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -133,10 +133,10 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, setHeader])
 
-  /* Orden base: en el centro primero (más avanzada arriba: Listo → Atendido → En el sitio), luego
-     por llegar, luego fuera; a igual etapa, por orden de llegada. Los grupos parten esta lista. */
+  /* Orden base: en el centro primero (más avanzada arriba: Inicio de atención → Concurrió), luego
+     por llegar, luego las finalizadas; a igual etapa, por orden de llegada. Los grupos parten esta lista. */
   const byArrival = (a: DayVisitRow, b: DayVisitRow) => (a.arrived_at ?? '').localeCompare(b.arrived_at ?? '')
-  const stageRank = (s: OperationalStage) => ['listo', 'atendido', 'en_el_sitio', 'por_llegar', 'fuera'].indexOf(s)
+  const stageRank = (s: OperationalStage) => ['inicio_atencion', 'concurrio_al_centro', 'por_llegar', 'fin_atencion'].indexOf(s)
   const ordered = [...filtered].sort((a, b) => stageRank(a.operational_stage) - stageRank(b.operational_stage) || byArrival(a, b))
 
   const groups = buildGroups(group, ordered)
@@ -152,16 +152,17 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   }
 
   /* Contadores de cabecera, sobre la lista FILTRADA (coloreados). "No vino" no es una etapa del
-     recorrido (es una acción → reprograma), así que no hay contador de "no vino". */
+     recorrido (es un estado clínico), así que no tiene contador propio. */
   const porLlegarCount = filtered.filter((v) => v.operational_stage === 'por_llegar').length
   const enCentroVisible = filtered.filter((v) => inCenter(v.operational_stage)).length
-  const finalizadasCount = filtered.filter((v) => v.operational_stage === 'fuera').length
+  const finalizadasCount = filtered.filter((v) => v.operational_stage === 'fin_atencion').length
 
-  /* Despacha la mutación de la etapa SIGUIENTE. 'atendido' reusa markAttended con `date` (el día
-     que se está mirando, no necesariamente hoy). El resto son eventos en vivo (now() server-side).
-     "Listo" de una visita de screening/randomización NO marca directo: abre el cierre clínico. */
+  /* Despacha la mutación de la etapa SIGUIENTE. 'inicio_atencion' reusa markAttended con `date` (el
+     día que se está mirando, no necesariamente hoy) porque es lo que setea real_date. El resto son
+     eventos en vivo (now() server-side). "Fin de atención" de una visita de screening/randomización
+     NO marca directo: abre el cierre clínico, que captura el IVRS o la randomización. */
   const advance = async (visit: DayVisitRow, next: OperationalStage) => {
-    if (next === 'listo' && (visit.role === 'screening' || visit.role === 'randomizacion')) {
+    if (next === 'fin_atencion' && (visit.role === 'screening' || visit.role === 'randomizacion')) {
       setActionError(null)
       setFeedback(null)
       setReadyOutcome(visit)
@@ -170,11 +171,22 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
     setBusyId(visit.id)
     setActionError(null)
     const res =
-      next === 'en_el_sitio' ? await markArrived(visit.id)
-      : next === 'atendido' ? await markAttended(visit.id, date)
-      : next === 'listo' ? await markReady(visit.id)
-      : next === 'fuera' ? await markLeft(visit.id)
+      next === 'concurrio_al_centro' ? await markArrived(visit.id)
+      : next === 'inicio_atencion' ? await markAttended(visit.id, date)
+      : next === 'fin_atencion' ? await markReady(visit.id)
       : { error: 'Etapa desconocida.' }
+    setBusyId(null)
+    if (res.error) { setActionError(res.error); return }
+    day.refetch()
+  }
+
+  /* "No vino" ahora GUARDA una marca (no abre el modal): la visita queda en "Por reprogramar"
+     hasta que alguien le dé fecha nueva, que es lo que la saca del estado. Mismo patrón de
+     busy/error que `advance`. */
+  const noShow = async (visit: DayVisitRow, value: boolean) => {
+    setBusyId(visit.id)
+    setActionError(null)
+    const res = await markNoShow(visit.id, value)
     setBusyId(null)
     if (res.error) { setActionError(res.error); return }
     day.refetch()
@@ -208,7 +220,8 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       procs={dayProcs.data?.[v.id]}
       onAdvance={advance}
       onOpenDoctor={(vv) => setDoctorFor(vv)}
-      onNoShow={(vv) => setNoShow(vv)}
+      onNoShow={noShow}
+      onReschedule={setReschedule}
       onOpen={(vv) => setOpenVisit(vv)}
     />
   )
@@ -343,12 +356,12 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
         </div>
       )}
 
-      {noShow && (
+      {reschedule && (
         <RescheduleModal
-          visit={noShow}
+          visit={reschedule}
           accentSolid={accentSolid}
-          onClose={() => setNoShow(null)}
-          onDone={() => { setNoShow(null); day.refetch() }}
+          onClose={() => setReschedule(null)}
+          onDone={() => { setReschedule(null); day.refetch() }}
         />
       )}
       {readyOutcome && (readyOutcome.role === 'screening' || readyOutcome.role === 'randomizacion') && (
