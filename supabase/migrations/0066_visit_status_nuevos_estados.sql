@@ -10,3 +10,6 @@
 
 alter type public.visit_status add value if not exists 'en_atencion';
 alter type public.visit_status add value if not exists 'por_reprogramar';
+
+-- Verificación · debe listar: futura, proxima, realizada, completa, item_vencido, ventana_vencida, en_atencion, por_reprogramar
+--   select unnest(enum_range(null::public.visit_status));
