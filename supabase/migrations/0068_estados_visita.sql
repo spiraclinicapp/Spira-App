@@ -27,9 +27,35 @@
 -- hay que recrearla para que re-expanda las columnas nuevas de la 0067; v_track_visits, que
 -- lista columnas explícitas, depende de ella → se dropea primero y se recrea después.
 --
+-- ⚠️ ESTA MIGRACIÓN ES BREAKING PARA EL FRONT DESPLEGADO — SE APLICA JUNTO CON EL DEPLOY.
+-- La 0066 y la 0067 son ADITIVAS: se pueden aplicar cuando sea, nada cambia hasta que llega
+-- esta. La 0068 NO: apenas se aplica, el front vigente empieza a recibir valores de
+-- computed_status ('en_atencion', 'por_reprogramar') y de operational_stage ('concurrio_al_centro',
+-- 'inicio_atencion', 'fin_atencion') que su tabla de estados no tiene. Hay al menos dos vistas que
+-- revientan sin fallback — src/views/AgendaView.tsx:100 y src/views/PatientFichaView.tsx:289 hacen
+-- VISIT_STATES[v.computed_status].color → TypeError y pantalla en blanco —, más los contadores y el
+-- stepper de "Visitas del día", que dejan de reconocer las etapas. NO aplicarla "para adelantar
+-- trabajo": va en la misma ventana que el deploy del front que entiende los dos ejes nuevos.
+--
+-- VUELTA ATRÁS: re-ejecutar el bloque de vistas de la 0065_visita_coordinador.sql (líneas 83-172)
+-- restaura las dos vistas exactamente como están hoy; no_show_at desaparece de v_track_visits
+-- (inocuo: el front viejo no la lee) y las columnas de la 0067 quedan en la tabla sin molestar a
+-- nadie. Lo único no reversible es la 0066 (Postgres no borra valores de un enum), pero es INERTE:
+-- la vista de la 0065 nunca los emite.
+--
 -- APLICAR A MANO en el SQL Editor de Supabase (rol postgres), en orden, DESPUÉS de la 0067.
 -- IDEMPOTENTE (drop + create). Registrar en supabase/README.md al confirmarse en prod.
 -- ============================================================================
+
+-- VERIFICACIÓN PREVIA (correr ANTES del drop — es la PRECONDICIÓN de todo lo que sigue).
+-- Sacar 'fuera' del recorrido operativo se apoya en que mark_left siempre exigió ready_at
+-- (0023:145). Esta consulta tiene que dar 0. Si diera > 0, existen visitas con salida marcada
+-- y sin fin de atención: caerían en 'inicio_atencion' o 'concurrio_al_centro' y habría que
+-- decidir qué hacer con ellas ANTES de recrear las vistas — después del create ya es tarde.
+--   select count(*) from public.patient_visits where left_at is not null and ready_at is null;
+--
+-- FOTO PREVIA (correr también antes, y guardar el resultado para comparar al final):
+--   select computed_status, count(*) from public.v_patient_visits group by 1 order by 1;
 
 -- 1 · Recrear las dos vistas en orden de dependencia (v_track_visits lee de v_patient_visits).
 drop view if exists public.v_track_visits;
@@ -49,6 +75,12 @@ select
          = (now()          at time zone 'America/Argentina/Buenos_Aires')::date
         then 'en_atencion'
       -- 2 · Ventana vencida le gana a "Por reprogramar": es la más severa y la que mira el sponsor.
+      --     OJO con el `current_date`: es la hora del servidor (UTC), así que adelanta el día a
+      --     partir de las 21:00 hora argentina, mientras que la rama de arriba se ancla a mano a
+      --     America/Argentina/Buenos_Aires. La inconsistencia es PREEXISTENTE (viene de la 0004) y
+      --     no se toca acá a propósito: cambiarla movería de estado visitas ya cargadas, que es
+      --     justo lo que esta migración se compromete a no hacer. Queda anotado para que no se lea
+      --     como un olvido — si algún día se unifica, va en su propia migración y con su propio QA.
       when pv.real_date is null and current_date > pv.window_end then 'ventana_vencida'
       -- 3 · Se marcó la falta y todavía no tiene fecha nueva (el reagendado limpia no_show_at).
       when pv.real_date is null and pv.no_show_at is not null    then 'por_reprogramar'
@@ -143,18 +175,19 @@ revoke all on public.v_track_visits from anon;
 grant select on public.v_track_visits to authenticated;
 revoke insert, update, delete, truncate, references, trigger on public.v_track_visits from authenticated;
 
--- Verificación 1 · las etapas operativas que existen hoy tienen que ser SOLO las 4 nuevas
---   (ninguna 'fuera' / 'listo' / 'atendido' / 'en_el_sitio' suelta):
---   select operational_stage, count(*) from public.v_patient_visits group by 1 order by 2 desc;
+-- VERIFICACIÓN POSTERIOR · la que de verdad prueba algo: correr la MISMA consulta de la foto
+--   previa (arriba) y comparar los dos resultados renglón por renglón. Es lo que demuestra que
+--   ninguna visita histórica cambió de estado. Lo esperable: los conteos de 'realizada',
+--   'completa' e 'item_vencido' IDÉNTICOS a la foto previa; 'futura' desaparece y su conteo se
+--   suma a 'proxima'; 'en_atencion' y 'por_reprogramar' aparecen solo si hoy hay alguien en el
+--   centro o alguna falta marcada. Cualquier otra diferencia es un hallazgo, no ruido.
+--   select computed_status, count(*) from public.v_patient_visits group by 1 order by 1;
 --
--- Verificación 2 · no debe existir ninguna fila con salida marcada y sin fin de atención
---   (el supuesto que deja sacar 'fuera' del recorrido). Tiene que dar 0:
---   select count(*) from public.patient_visits where left_at is not null and ready_at is null;
+--   (No se listan acá consultas del tipo "confirmar que operational_stage tiene 4 valores" o
+--    "que ya no sale 'futura'": después de recrear la vista el `case` no puede devolver otra
+--    cosa, así que no verifican nada y dan falsa confianza.)
 --
--- Verificación 3 · el reparto de estados clínicos; 'futura' ya no puede aparecer:
---   select computed_status, count(*) from public.v_patient_visits group by 1 order by 2 desc;
---
--- Verificación 4 · v_track_visits conserva las columnas del coordinador y suma no_show_at:
+-- Verificación de columnas · v_track_visits conserva las del coordinador y suma no_show_at:
 --   select column_name from information_schema.columns
 --    where table_schema = 'public' and table_name = 'v_track_visits'
 --      and column_name in ('coordinator_id', 'coordinator_name', 'no_show_at');
