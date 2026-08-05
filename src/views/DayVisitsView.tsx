@@ -34,7 +34,7 @@ type GroupBy = 'operativo' | 'estado' | 'protocolo' | 'medico' | 'coordinador' |
 /** Sentinela para agrupar/filtrar por "sin médico" / "sin coordinador" (valores null). */
 const NONE = '∅'
 
-/** "En el centro" = llegó y aún no se retiró (cualquier etapa intermedia). */
+/** "En el centro" = llegó y todavía no terminó la atención (cualquier etapa intermedia). */
 function inCenter(stage: OperationalStage): boolean {
   return stage === 'concurrio_al_centro' || stage === 'inicio_atencion'
 }
@@ -59,7 +59,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   const [group, setGroup] = useState<GroupBy>('operativo')
 
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [reschedule, setReschedule] = useState<TrackVisitRow | null>(null)
+  const [rescheduleFor, setRescheduleFor] = useState<TrackVisitRow | null>(null)
   const [openVisit, setOpenVisit] = useState<DayVisitRow | null>(null)
   const [doctorFor, setDoctorFor] = useState<DayVisitRow | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -81,9 +81,12 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   const dayProcs = useDayProceduresSummary(rows)
 
   /* Filtrado: AND entre categorías, OR dentro de cada una; el buscador (nombre / N° / protocolo /
-     tag de visita) se aplica encima. "Para ver médico" es un toggle aparte (wants_doctor sin retirarse). */
+     tag de visita) se aplica encima. "Para ver médico" es un toggle aparte (wants_doctor mientras
+     la atención sigue abierta). Antes se miraba `left_at`, pero desde este cambio nadie lo escribe
+     más (sacamos "Fuera del sitio" de la UI, la 0068 lo declara histórico): esa condición hubiera
+     quedado siempre verdadera y la cola nunca se vaciaría. El cierre natural ahora es la etapa. */
   const filtered = rows.filter((v) => {
-    if (soloMedico && !(v.wants_doctor && v.left_at === null)) return false
+    if (soloMedico && !(v.wants_doctor && v.operational_stage !== 'fin_atencion')) return false
     if (fEstado.length && !fEstado.includes(v.operational_stage)) return false
     if (fProto.length && !fProto.includes(v.protocol_id)) return false
     if (fMed.length && !fMed.includes(v.treating_physician ?? NONE)) return false
@@ -111,7 +114,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
     .map((v) => ({ value: v.coordinator_id ?? NONE, label: v.coordinator_name ?? 'Sin asignar', count: countBy((r) => (r.coordinator_id ?? NONE) === (v.coordinator_id ?? NONE)) }))
     .sort((a, b) => a.label.localeCompare(b.label))
 
-  const medicoCount = countBy((v) => v.wants_doctor && v.left_at === null)
+  const medicoCount = countBy((v) => v.wants_doctor && v.operational_stage !== 'fin_atencion')
   const nFilters = fEstado.length + fProto.length + fMed.length + fCoord.length + (soloMedico ? 1 : 0)
   const anyActive = nFilters > 0 || q.trim().length > 0
   const clearAll = () => { setFEstado([]); setFProto([]); setFMed([]); setFCoord([]); setSoloMedico(false); setQ('') }
@@ -182,13 +185,18 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
 
   /* "No vino" ahora GUARDA una marca (no abre el modal): la visita queda en "Por reprogramar"
      hasta que alguien le dé fecha nueva, que es lo que la saca del estado. Mismo patrón de
-     busy/error que `advance`. */
+     busy/error que `advance` — y limpia/setea `feedback` como esa función limpia el error, porque
+     el chip que cambia de color en una fila que no se reordena no alcanza como confirmación visible;
+     sin esto además podía quedar en pantalla el banner verde de un cierre clínico anterior
+     haciéndose pasar por confirmación de esta acción. */
   const noShow = async (visit: DayVisitRow, value: boolean) => {
     setBusyId(visit.id)
     setActionError(null)
+    setFeedback(null)
     const res = await markNoShow(visit.id, value)
     setBusyId(null)
     if (res.error) { setActionError(res.error); return }
+    setFeedback(value ? 'Falta registrada. La visita queda por reprogramar.' : 'Falta deshecha.')
     day.refetch()
   }
 
@@ -221,7 +229,7 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       onAdvance={advance}
       onOpenDoctor={(vv) => setDoctorFor(vv)}
       onNoShow={noShow}
-      onReschedule={setReschedule}
+      onReschedule={setRescheduleFor}
       onOpen={(vv) => setOpenVisit(vv)}
     />
   )
@@ -282,13 +290,13 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
       </div>
 
       {actionError && (
-        <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
+        <div role="alert" style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
           {actionError}
         </div>
       )}
 
       {feedback && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-ink)', background: 'rgba(15, 95, 87, 0.08)', borderRadius: 8, padding: '8px 12px' }}>
+        <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-ink)', background: 'rgba(15, 95, 87, 0.08)', borderRadius: 8, padding: '8px 12px' }}>
           <Icon name="check" size={16} color="var(--spira-good)" />
           {feedback}
         </div>
@@ -356,12 +364,12 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
         </div>
       )}
 
-      {reschedule && (
+      {rescheduleFor && (
         <RescheduleModal
-          visit={reschedule}
+          visit={rescheduleFor}
           accentSolid={accentSolid}
-          onClose={() => setReschedule(null)}
-          onDone={() => { setReschedule(null); day.refetch() }}
+          onClose={() => setRescheduleFor(null)}
+          onDone={() => { setRescheduleFor(null); day.refetch() }}
         />
       )}
       {readyOutcome && (readyOutcome.role === 'screening' || readyOutcome.role === 'randomizacion') && (

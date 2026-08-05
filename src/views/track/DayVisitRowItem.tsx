@@ -6,7 +6,7 @@ import { visitCode } from '../../lib/visits'
 import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import type { DayProcedureSummary } from '../../data/procedures'
-import { OperationalStageChip, OPERATIONAL_STAGES, VisitChip } from '../visitStates'
+import { OperationalStageChip, OPERATIONAL_STAGES, VisitChip, VISIT_STATES } from '../visitStates'
 import { ProtoTag, ProcDots, Persona } from './visitAtoms'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 
@@ -24,9 +24,9 @@ export function DayVisitRowItem({
 }: {
   visit: DayVisitRow
   accent: string
-  /** Recepción/Admin: puede marcar En el sitio / Fuera del sitio y "No vino". */
+  /** Recepción/Admin: puede marcar la llegada y "No vino". */
   canReception: boolean
-  /** Clínico/Coord asignado a este protocolo: Atendido / Listo / médico. */
+  /** Clínico/Coord asignado a este protocolo: Inicio de atención / Fin de atención / médico. */
   canClinical: boolean
   /** id de la visita con mutación en vuelo (deshabilita sus controles). */
   busyId: string | null
@@ -43,7 +43,12 @@ export function DayVisitRowItem({
   const busy = busyId === visit.id
   const [hov, setHov] = useState(false)
 
-  const railColor = OPERATIONAL_STAGES[stage]?.color ?? OPERATIONAL_STAGES.por_llegar.color
+  // El rail tiene que coincidir con el chip que se muestra (ver más abajo): si la visita está
+  // "Por reprogramar" el chip es el CLÍNICO, así que el rail usa ese mismo color — mostrar rail
+  // operativo (gris de "Por llegar") al lado de un chip marrón contradice al propio chip.
+  const railColor = visit.computed_status === 'por_reprogramar'
+    ? VISIT_STATES.por_reprogramar.color
+    : OPERATIONAL_STAGES[stage]?.color ?? OPERATIONAL_STAGES.por_llegar.color
   const visitName = visit.visit_name ?? KIND_LABELS[visit.kind]
 
   const shell: CSSProperties = {
@@ -78,7 +83,7 @@ export function DayVisitRowItem({
           "Por llegar", y dejar ese chip diría que el paciente está por llegar cuando ya se sabe
           que no viene. Se mira `computed_status` y no `no_show_at` porque la vista ya resuelve la
           precedencia (ventana vencida le gana a por reprogramar). */}
-      <div style={{ flex: '0 0 auto', width: 96 }}>
+      <div style={{ flex: '0 0 auto', minWidth: 96 }}>
         {visit.computed_status === 'por_reprogramar'
           ? <VisitChip status="por_reprogramar" compact />
           : <OperationalStageChip stage={stage} compact />}
@@ -220,8 +225,13 @@ function RowMenu({ visit, canReception, busy, onNoShow, onReschedule }: {
   // Marcar la falta solo tiene sentido antes de que el paciente llegue; deshacerla, mientras siga
   // marcada. El server además rechaza marcar como ausente una visita ya atendida o con la llegada
   // ya marcada (migración 0067).
-  const marcada = visit.no_show_at !== null
+  const faltaMarcada = visit.no_show_at !== null
   const canNoShow = visit.operational_stage === 'por_llegar' && canReception
+  // Mismo guard que sus hermanos AgendaView/PatientFichaView: no se reprograma algo que ya pasó.
+  // `rescheduleVisit` es un update directo que solo toca `estimated_date` y no mira `real_date` ni
+  // la etapa (ni la RLS, que solo verifica rol/protocolo) — sin este guard en la UI, reprogramar una
+  // visita ya en `fin_atencion` deja una visita fantasma en la fecha nueva con `real_date` intacto.
+  const canReschedule = canReception && visit.real_date === null
 
   return (
     <div style={{ flex: '0 0 auto' }}>
@@ -242,13 +252,15 @@ function RowMenu({ visit, canReception, busy, onNoShow, onReschedule }: {
           onClick={(e) => e.stopPropagation()}
           style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 60, width: 210, padding: 5, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 11, boxShadow: 'var(--spira-shadow-md)' }}
         >
-          {canNoShow && !marcada && (
-            <MenuItem label="Marcar como no vino" danger onClick={() => { if (!busy) onNoShow(visit, true); setOpen(false) }} />
+          {canNoShow && !faltaMarcada && (
+            <MenuItem label="Marcar como no vino" danger disabled={busy} onClick={() => { if (!busy) onNoShow(visit, true); setOpen(false) }} />
           )}
-          {canNoShow && marcada && (
-            <MenuItem label="Deshacer “no vino”" onClick={() => { if (!busy) onNoShow(visit, false); setOpen(false) }} />
+          {canNoShow && faltaMarcada && (
+            <MenuItem label="Deshacer “no vino”" disabled={busy} onClick={() => { if (!busy) onNoShow(visit, false); setOpen(false) }} />
           )}
-          <MenuItem label="Reprogramar" onClick={() => { if (!busy) onReschedule(visit); setOpen(false) }} />
+          {canReschedule && (
+            <MenuItem label="Reprogramar" disabled={busy} onClick={() => { if (!busy) onReschedule(visit); setOpen(false) }} />
+          )}
           <MenuItem
             label="Copiar N° de paciente"
             disabled={!visit.patient_code}
