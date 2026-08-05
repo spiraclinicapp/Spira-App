@@ -21,6 +21,14 @@
 -- recree para emitir el estado clínico "Por reprogramar" — no antes, porque ese enum value
 -- recién existe después de la 0066 confirmada en prod.
 --
+-- ¿Quién limpia no_show_at? mark_arrived y el reagendado (al asignar fecha nueva) — ver más
+-- abajo y el comentario de la columna. registerVisit (src/data/visits.ts), que es quien setea
+-- real_date, a propósito NO la limpia: no hace falta. La vista de la 0068 va a exigir
+-- `real_date is null` para emitir 'por_reprogramar', así que una visita ya atendida nunca
+-- muestra ese estado aunque le quede la marca vieja pegada — cae en 'realizada'/'completa'
+-- como corresponde, y el audit_log conserva las dos marcas para quien necesite reconstruir la
+-- secuencia real de eventos.
+--
 -- APLICAR A MANO en el SQL Editor de Supabase (rol postgres), en orden, DESPUÉS de la 0066.
 -- IDEMPOTENTE. Registrar en supabase/README.md al confirmarse en prod.
 -- ============================================================================
@@ -59,9 +67,12 @@ begin
     raise exception 'La visita ya fue atendida' using errcode = 'check_violation';
   end if;
 
+  -- coalesce en las dos columnas: gana la PRIMERA marca (timestamp y autor del mismo evento).
+  -- Si mark_no_show(true) se llama de nuevo sobre una falta ya marcada, no pisa ni el momento
+  -- ni quién la marcó; una llamada repetida igual queda en audit_log si hace falta rastrearla.
   update public.patient_visits
      set no_show_at = case when p_value then coalesce(no_show_at, now()) else null end,
-         no_show_by = case when p_value then auth.uid() else null end
+         no_show_by = case when p_value then coalesce(no_show_by, auth.uid()) else null end
    where id = p_visit_id;
 end; $$;
 revoke all on function public.mark_no_show(uuid, boolean) from public;
