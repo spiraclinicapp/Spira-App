@@ -145,7 +145,7 @@ export function VisitDetail({
                       <span style={{ display: 'block', fontFamily: 'var(--spira-font-display)', fontSize: 24, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.1 }}>
                         {visit.patient_name}
                       </span>
-                      <HeaderIdentity visit={visit} accent={accent} />
+                      <HeaderIdentity visit={visit} accent={accent} readOnly={readOnly} onCoordSaved={() => { onChanged?.(); q.refetch() }} onCoordError={setErr} />
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--spira-line)' }}>
                         <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--spira-ink)' }}>{visit.protocol_name}</span>
                         <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visit.protocol_code}</span>
@@ -160,7 +160,7 @@ export function VisitDetail({
                         </span>
                         <span className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-faint)' }}>{visit.protocol_code}</span>
                       </div>
-                      <HeaderIdentity visit={visit} accent={accent} />
+                      <HeaderIdentity visit={visit} accent={accent} readOnly={readOnly} onCoordSaved={() => { onChanged?.(); q.refetch() }} onCoordError={setErr} />
                     </>
                   )}
                 </div>
@@ -195,11 +195,6 @@ export function VisitDetail({
                   />
                 </Panel>
 
-                <Panel title="A cargo" icon="user" accent={accent}>
-                  <CoordinatorField visit={visit} readOnly={readOnly} onSaved={() => { onChanged?.(); q.refetch() }} />
-                  {row('Médico a cargo', visit.treating_physician || patient?.treating_physician || dash)}
-                </Panel>
-
                 <DoctorRequest visit={visit} accent={accent} readOnly={readOnly} busy={busy} onMark={mark} onUnmark={unmark} />
 
                 <Panel title="Paciente" icon="user" accent={accent}>
@@ -211,6 +206,7 @@ export function VisitDetail({
                       {row('Edad', ageOf(patient?.birth_date ?? null))}
                       {row('Fecha de nacimiento', patient?.birth_date ? formatAR(patient.birth_date) : dash)}
                       {row('Fértil', patient?.fertility ? (FERTILITY_LABELS[patient.fertility] ?? patient.fertility) : dash)}
+                      {row('Médico a cargo', visit.treating_physician || patient?.treating_physician || dash)}
                       {row('Fecha', <VisitDates visit={visit} />)}
                     </>
                   )}
@@ -266,7 +262,10 @@ const Dot = () => <span style={{ width: 3, height: 3, borderRadius: '50%', backg
     Es idéntica con cualquiera de los dos órdenes de header (paciente-manda en Visitas del
     día, protocolo-manda en la ficha/cola), por eso se comparte. El `marginTop` la separa de
     lo que tenga arriba (el nombre o el protocolo). */
-function HeaderIdentity({ visit, accent }: { visit: DayVisitRow; accent: string }) {
+function HeaderIdentity({ visit, accent, readOnly, onCoordSaved, onCoordError }: {
+  visit: DayVisitRow; accent: string; readOnly: boolean
+  onCoordSaved: () => void; onCoordError: (msg: string) => void
+}) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 8, flexWrap: 'wrap' }}>
       <span className="spira-mono" style={{ fontSize: 13, color: visit.patient_code ? 'var(--spira-muted)' : 'var(--spira-faint)' }}>{visit.patient_code ?? 'Sin IVRS'}</span>
@@ -276,56 +275,69 @@ function HeaderIdentity({ visit, accent }: { visit: DayVisitRow; accent: string 
       <Dot />
       <OperationalStageChip stage={visit.operational_stage} />
       <DoctorBadge visit={visit} accent={accent} />
+      <CoordinatorChip visit={visit} readOnly={readOnly} onSaved={onCoordSaved} onError={onCoordError} />
     </div>
   )
 }
 
 /**
- * Coordinador de la visita: en `day` un selector entre los coordinadores del protocolo
- * (`set_visit_coordinator`, 0065; "— Sin asignar —" desasigna); en `patient`, el nombre de solo
- * lectura. El picker se apoya en `useProtocolCoordinators` (RPC) — sin él, la RLS de `users` no deja
- * leer a otras coordinadoras.
+ * Coordinador de la visita, como chip del header (descarga el cuerpo del modal): en `day` un
+ * `SearchableSelect` en variante chip que abre el picker entre los coordinadores del protocolo
+ * (`set_visit_coordinator`, 0065; "— Sin asignar —" desasigna). El picker se apoya en
+ * `useProtocolCoordinators` (RPC) — sin él, la RLS de `users` no deja leer a otras coordinadoras.
+ * En `patient` (solo lectura), un chip inerte con el nombre; nada si la visita no tiene coordinador.
+ * Los errores del RPC suben al banner del modal (`onError`), que no cabe junto al chip.
  */
-function CoordinatorField({ visit, readOnly, onSaved }: {
+function CoordinatorChip({ visit, readOnly, onSaved, onError }: {
   visit: DayVisitRow
   readOnly: boolean
   onSaved: () => void
+  onError: (msg: string) => void
 }) {
   const coords = useProtocolCoordinators(readOnly ? null : visit.protocol_id)
   const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
 
-  if (readOnly) return row('Coordinador', visit.coordinator_name || dash)
+  if (readOnly) {
+    if (!visit.coordinator_name) return null
+    return (
+      <span style={coordChipRO} title={`Coordinador: ${visit.coordinator_name}`}>
+        <Icon name="user" size={13} color="var(--spira-muted)" style={{ flex: '0 0 auto' }} />
+        {visit.coordinator_name}
+      </span>
+    )
+  }
 
   const options = [
     { value: '', label: '— Sin asignar —' },
     ...(coords.data ?? []).map((c) => ({ value: c.id, label: c.full_name })),
   ]
   const change = async (id: string) => {
-    setBusy(true); setErr(null)
+    setBusy(true)
     const res = await setVisitCoordinator(visit.id, id || null)
     setBusy(false)
-    if (res.error) { setErr(res.error); return }
+    if (res.error) { onError(res.error); return }
     onSaved()
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '3px 0 9px' }}>
-      <span style={{ color: 'var(--spira-muted)', fontSize: 13 }}>Coordinador</span>
-      <SearchableSelect
-        value={visit.coordinator_id ?? ''}
-        onChange={change}
-        options={options}
-        placeholder={coords.loading ? 'Cargando…' : 'Elegí coordinador'}
-        disabled={busy || coords.loading}
-        entity="coordinador"
-      />
-      {!coords.loading && (coords.data?.length ?? 0) === 0 && (
-        <span style={{ fontSize: 11.5, color: 'var(--spira-faint)' }}>El protocolo no tiene coordinadores asignados.</span>
-      )}
-      {err && <span style={{ fontSize: 12, color: 'var(--spira-danger)' }}>{err}</span>}
-    </div>
+    <SearchableSelect
+      variant="chip"
+      leadingIcon="user"
+      menuWidth="auto"
+      value={visit.coordinator_id ?? ''}
+      onChange={change}
+      options={options}
+      placeholder={coords.loading ? 'Cargando…' : 'Asignar coordinador'}
+      disabled={busy || coords.loading}
+      entity="coordinador"
+    />
   )
+}
+
+const coordChipRO: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px',
+  borderRadius: 999, border: '1px dashed var(--spira-line-2)', background: 'var(--spira-white)',
+  color: 'var(--spira-muted)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
 }
 
 const dash = <span style={{ color: 'var(--spira-faint)' }}>—</span>
