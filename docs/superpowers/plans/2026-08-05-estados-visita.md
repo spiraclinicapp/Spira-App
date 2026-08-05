@@ -65,6 +65,7 @@ Stageá **siempre por ruta** (`git add <archivo>`), nunca `git add -A`: el árbo
 | `src/views/track/VisitDetail.tsx` | Etapa terminal. |
 | `src/views/track/DayVisitRowItem.tsx` | CTA terminal, chip de "Por reprogramar", menú ⋯. |
 | `src/views/DayVisitsView.tsx` | Despacho de marcas, contadores, orden, "no vino" y reprogramar. |
+| `src/lib/visits.ts` | `pickCurrent`: la "visita actual" deja de depender de `futura` vs `proxima`. |
 | `supabase/README.md` | Índice de migraciones. |
 
 `VisitStepper.tsx` **no se toca**: lee `STAGE_ORDER`, así que pasa de 5 puntos a 4 solo.
@@ -200,13 +201,18 @@ git commit -m "feat(db): 0067 — marca de no-show por visita + RPC mark_no_show
 **Files:**
 - Create: `supabase/migrations/0068_estados_visita.sql`
 
-- [ ] **Step 1: Armar el esqueleto copiando la 0064**
+- [ ] **Step 1: Armar el esqueleto copiando la 0065**
 
-Abrí [`supabase/migrations/0064_procedimientos_checklist.sql`](../../../supabase/migrations/0064_procedimientos_checklist.sql)
-en las líneas **118-200** y copiá **textualmente** el bloque que va desde
-`drop view if exists public.v_track_visits;` hasta el final de la definición de `v_track_visits`
-(con sus `comment on`, `revoke` y `grant`). Ese bloque es el patrón del `*` congelado y hay que
-conservarlo tal cual: lo único que cambia son los dos `case` y una columna nueva en la lista.
+⚠️ **Copiá de la [`0065_visita_coordinador.sql`](../../../supabase/migrations/0065_visita_coordinador.sql)
+(líneas 83-172), NO de la 0064.** La 0065 volvió a recrear las dos vistas y le agregó a
+`v_track_visits` las columnas `coordinator_id` y `coordinator_name`: copiar de la 0064 las borraría
+y rompería el chip de coordinador de Visitas del día. Los dos `exists(...)` son idénticos en las
+dos migraciones, así que no se pierde nada.
+
+Copiá **textualmente** el bloque que va desde `drop view if exists public.v_track_visits;` hasta el
+final de la definición de `v_track_visits` (con sus `comment on`, `revoke` y `grant`). Ese bloque es
+el patrón del `*` congelado y hay que conservarlo tal cual: lo único que cambia son los dos `case`
+y una columna nueva en la lista.
 
 Calificá **siempre** los nombres de columna con su alias (`pv.`, `v.`): en PL/pgSQL y en vistas con
 subqueries los nombres sin calificar ya rompieron dos migraciones (0056 y 0058, el mismo error dos
@@ -214,7 +220,7 @@ veces).
 
 - [ ] **Step 2: Reemplazar el `case` de `computed_status` en `v_patient_visits`**
 
-Las dos ramas de `item_vencido` y `realizada` (los `exists(...)` de la 0064, líneas 128-159) se
+Las dos ramas de `item_vencido` y `realizada` (los `exists(...)`, líneas 93-124 de la 0065) se
 copian **sin tocar**: este cambio no redefine "qué falta", solo cuándo se empieza a evaluar.
 
 ```sql
@@ -233,8 +239,9 @@ copian **sin tocar**: este cambio no redefine "qué falta", solo cuándo se empi
       -- 4 · "Pendiente" fusiona lo que antes eran `futura` (>7 días) y `proxima`. La vista ya no
       --     emite 'futura'; el valor queda en el enum porque Postgres no deja borrarlo.
       when pv.real_date is null                                  then 'proxima'
-      when exists ( /* … ramas de item_vencido, COPIADAS TAL CUAL de la 0064 … */ ) then 'item_vencido'
-      when exists ( /* … ramas de realizada,     COPIADAS TAL CUAL de la 0064 … */ ) then 'realizada'
+      -- las dos ramas que siguen se copian TAL CUAL de la 0065 (líneas 93-124):
+      --   exists(ítem obligatorio o reporte fuera de plazo)  then 'item_vencido'
+      --   exists(falta algún ítem, procedimiento o reporte)  then 'realizada'
       else 'completa'
     end )::visit_status as computed_status,
 ```
@@ -254,8 +261,8 @@ copian **sin tocar**: este cambio no redefine "qué falta", solo cuándo se empi
 
 - [ ] **Step 4: Exponer `no_show_at` en `v_track_visits`**
 
-En la lista de columnas de `v_track_visits`, junto a `v.arrived_at, v.ready_at, v.left_at,`
-(línea 188 de la 0064), agregar `v.no_show_at,`. La necesita la fila de Visitas del día.
+En la lista de columnas de `v_track_visits`, junto a `v.arrived_at, v.ready_at, v.left_at,`,
+agregar `v.no_show_at,`. La necesita la fila de Visitas del día.
 
 - [ ] **Step 5: Actualizar el `comment on view`**
 
@@ -268,7 +275,7 @@ comment on view public.v_patient_visits is
 
 Ningún `<...>` ni `/* … */` puede quedar en el SQL final: el Director lo corre **tal cual** y ya se
 corrió un placeholder literal una vez. Los dos `exists(...)` de los pasos anteriores tienen que
-estar completos, copiados de la 0064.
+estar completos, copiados de la 0065.
 
 - [ ] **Step 7: Commit**
 
@@ -897,6 +904,62 @@ Nota: **el filtro "Estado" y el agrupador "por estado" no hay que tocarlos**. Lo
 ```bash
 git add src/views/DayVisitsView.tsx
 git commit -m "feat(track): Visitas del día con las 4 etapas y la marca de no-show"
+```
+
+---
+
+### Task 11b: La "visita actual" del cronograma
+
+**Files:**
+- Modify: `src/lib/visits.ts:120-132`
+
+Esta tarea **no estaba en el spec**: la destapó la revisión de la migración 0068. Al fusionar
+`futura` dentro de `proxima`, `pickCurrent` cambia de comportamiento en silencio.
+
+- [ ] **Step 1: Entender la regresión antes de tocar nada**
+
+`pickCurrent` elige la "visita actual" de una lista **ya ordenada cronológicamente** (`orderVisits`,
+línea 62) con tres intentos en cascada: primero una `proxima`, después una `ventana_vencida`,
+después cualquiera sin `real_date`. Eso funcionaba porque una visita a más de 7 días era `futura` y
+**no** matcheaba el primer intento. Desde la 0068 todas las pendientes son `proxima`, así que un
+paciente con la V2 de ventana vencida y la V5 dentro de un mes pasaría a mostrar **V5** como visita
+actual en la ficha. Es una regresión silenciosa: no rompe el typecheck, solo muestra el dato
+equivocado.
+
+- [ ] **Step 2: Reemplazar la cascada**
+
+Con la lista ordenada por fecha, "la visita actual" es simplemente la primera sin realizar: la
+cascada por estado era un rodeo para lograr eso cuando existía `futura`.
+
+```ts
+/**
+ * Elige la visita "actual" de una lista YA ordenada cronológicamente: la primera sin realizar o,
+ * si están todas hechas, la última. null si la lista está vacía.
+ * Antes esto era una cascada por estado (proxima → ventana vencida → cualquiera) que dependía de
+ * que una visita a más de 7 días fuera `futura` y no matcheara la primera rama. Desde el rediseño
+ * de estados (0068) todas las pendientes son `proxima`, así que esa cascada elegía la visita más
+ * lejana por sobre una con la ventana vencida. Con la lista ordenada, la primera sin `real_date`
+ * ya es la respuesta correcta en todos los casos.
+ */
+function pickCurrent(ordered: TrackVisitRow[]): TrackVisitRow | null {
+  if (ordered.length === 0) return null
+  return ordered.find((v) => v.real_date === null) ?? ordered[ordered.length - 1]
+}
+```
+
+- [ ] **Step 3: Verificar**
+
+```bash
+npm run typecheck
+```
+
+Esperado: verde.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/lib/visits.ts
+git commit -m "fix(track): la visita actual es la primera sin realizar, no la primera proxima"
 ```
 
 ---
