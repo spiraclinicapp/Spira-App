@@ -429,7 +429,7 @@ function VerticalRoute({ visit, accent, showCTA, canAdvance, busy, step, role, o
         })}
       </div>
 
-      {showCTA && visit.operational_stage !== 'fuera' && (
+      {showCTA && visit.operational_stage !== 'fin_atencion' && (
         <div style={{ marginTop: 14 }}>
           {step && canAdvance ? (
             <>
@@ -451,7 +451,7 @@ function VerticalRoute({ visit, accent, showCTA, canAdvance, busy, step, role, o
           ) : null}
         </div>
       )}
-      {visit.operational_stage === 'fuera' && (
+      {visit.operational_stage === 'fin_atencion' && (
         <div style={{ marginTop: 14, height: 42, borderRadius: 11, background: '#5C8A5A22', color: 'var(--spira-good)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontWeight: 600, fontSize: 13.5 }}>
           <Icon name="check" size={16} color="var(--spira-good)" /> Finalizada
         </div>
