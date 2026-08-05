@@ -35,7 +35,7 @@ duplicaría la regla en dos lugares.
 | Etapa | Valor | Marca | Quién la pone |
 |---|---|---|---|
 | Por llegar | `por_llegar` | (ninguna) | — |
-| En el sitio | `en_el_sitio` | `arrived_at` | recepción (`mark_arrived`) |
+| Concurrió al centro | `concurrio_al_centro` | `arrived_at` | recepción (`mark_arrived`) |
 | Inicio de atención | `inicio_atencion` | `real_date` | clínico (`registerVisit`) |
 | Fin de atención | `fin_atencion` | `ready_at` + desenlace | clínico (`mark_ready` / `mark_ready_with_outcome`) |
 
@@ -63,7 +63,7 @@ mientras se atiende al paciente.
 ( case
     when pv.ready_at   is not null then 'fin_atencion'
     when pv.real_date  is not null then 'inicio_atencion'
-    when pv.arrived_at is not null then 'en_el_sitio'
+    when pv.arrived_at is not null then 'concurrio_al_centro'
     else 'por_llegar'
   end ) as operational_stage
 ```
@@ -78,7 +78,7 @@ Se evalúan **en este orden**; el primero que da verdadero manda.
 | 2 | Ventana vencida | `ventana_vencida` | sin visita y `current_date > window_end` |
 | 3 | Por reprogramar | `por_reprogramar` **(nuevo)** | sin visita, con `no_show_at` y sin fecha nueva |
 | 4 | Pendiente | `proxima` | sin visita, ventana vigente |
-| 5 | Ítem vencido | `item_vencido` | ya realizada, con ítem obligatorio o reporte fuera de plazo |
+| 5 | Pendiente vencido | `item_vencido` | ya realizada, con ítem obligatorio o reporte fuera de plazo |
 | 6 | Visita realizada | `realizada` | la atención terminó, quedan pendientes de checklist / procedimientos / reportes |
 | 7 | Completa | `completa` | todo tildado y los reportes guardados |
 
@@ -169,9 +169,10 @@ como `coordinator_name` en la 0065). Queda para auditoría.
 `estimated_date` pone `no_show_at` y `no_show_by` en `null`. Es la única salida de "Por
 reprogramar". No hace falta RPC: la policy de UPDATE de `patient_visits` ya cubre esas columnas.
 
-**Marcar la llegada limpia la marca:** si el paciente aparece después de haber sido dado por
-ausente, `mark_arrived` pone `no_show_at` en `null` (si no, la visita quedaría marcada como falta
-y atendida a la vez).
+**Marcar la llegada limpia la marca (decidido):** si una visita se marca como ausente y después el
+paciente concurre, **gana "Concurrió al centro"** — `mark_arrived` pone `no_show_at` y `no_show_by`
+en `null`. La visita sigue el recorrido normal y no queda marcada como falta y atendida a la vez.
+Queda registro en el `audit_log`, que es inmutable.
 
 ### 3.3 · `0068_estados_visita.sql`
 
@@ -195,7 +196,7 @@ idéntico al de hoy.
 ### 4.1 · Tipos y etiquetas
 
 - [`src/data/dayVisits.ts`](../../../src/data/dayVisits.ts): `OperationalStage` pasa a
-  `'por_llegar' | 'en_el_sitio' | 'inicio_atencion' | 'fin_atencion'`; `OPERATIONAL_STAGE_ORDER`
+  `'por_llegar' | 'concurrio_al_centro' | 'inicio_atencion' | 'fin_atencion'`; `OPERATIONAL_STAGE_ORDER`
   queda en 4; `DayVisitRow` suma `no_show_at`; se agrega `markNoShow()` y se retira `markLeft()`
   de la UI.
 - [`src/data/visits.ts`](../../../src/data/visits.ts): `VisitStatus` suma `'en_atencion'` y
@@ -207,7 +208,7 @@ idéntico al de hoy.
 ### 4.2 · Recorrido y acciones
 
 - [`advanceStep.ts`](../../../src/views/track/advanceStep.ts): `NEXT_STEP` queda en 3 saltos
-  ("Marcar en sitio" → "Iniciar atención" → "Finalizar atención"); `advanceRole` pasa a
+  ("Marcar llegada" → "Iniciar atención" → "Finalizar atención"); `advanceRole` pasa a
   **recepción** solo en el primero y **clínico** en los otros dos.
 - [`VisitStepper.tsx`](../../../src/views/track/VisitStepper.tsx): 4 puntos en vez de 5. Sin
   cambios de lógica (lee `STAGE_ORDER`).
@@ -220,7 +221,7 @@ idéntico al de hoy.
 
 ### 4.3 · Visitas del día
 
-- [`DayVisitsView.tsx`](../../../src/views/DayVisitsView.tsx): `inCenter` = `en_el_sitio` +
+- [`DayVisitsView.tsx`](../../../src/views/DayVisitsView.tsx): `inCenter` = `concurrio_al_centro` +
   `inicio_atencion`; el contador de "finalizadas" pasa a contar `fin_atencion`; los filtros por
   estado y el agrupador toman las 4 etapas nuevas.
 - **Una visita marcada "No vino" muestra el chip clínico "Por reprogramar"** en lugar del operativo:
@@ -233,12 +234,15 @@ No cambian: `useVisitAlerts` sigue filtrando `ventana_vencida` + `item_vencido`.
 no entra en la campana** en esta tajada — es un estado de trabajo visible en la lista y en la ficha,
 no una alerta. Si después se quiere que alerte, es agregar el valor a ese `.in(...)`.
 
-## 5 · Nombres a confirmar antes de implementar
+## 5 · Nombres (decididos)
 
-Ninguno cambia el diseño; son rótulos en `visitStates.tsx`.
-
-- **"En el sitio"** vs. "Concurrió al centro" (así lo nombró el Director en el primer mensaje).
-- **"Ítem vencido"**: ahora también cubre reportes de procedimientos, podría ser "Pendiente vencido".
+- La segunda etapa operativa es **"Concurrió al centro"**, con etiqueta corta **"Concurrió"** para
+  las columnas angostas (el `short` de `OPERATIONAL_STAGES`, que usa la fila del día en modo
+  `compact`). El valor interno acompaña: `concurrio_al_centro`.
+- El estado clínico es **"Pendiente vencido"** (antes "Ítem vencido"), porque ahora cubre también
+  los reportes de procedimientos. **El valor del enum sigue siendo `item_vencido`**: renombrarlo
+  obligaría a tocar la vista, los filtros server-side y todo el código que lo referencia, sin ganar
+  nada — la etiqueta vive en `visitStates.tsx`.
 
 ## 6 · Fuera de alcance
 
