@@ -343,17 +343,22 @@ export async function markLeft(visitId: string): Promise<{ error: string | null 
 /**
  * Marca (true) o deshace (false) "No vino" — `no_show_at` + `no_show_by`, RPC `mark_no_show`
  * (SECURITY DEFINER, migración 0067). Recepción/Admin o gerencia, igual que `mark_arrived`.
- * El server rechaza marcar como ausente una visita ya atendida (`real_date`) o con la llegada
- * ya marcada (`arrived_at`): en los dos casos vuelve un `check_violation` (23514) con su motivo.
- * Los dos mensajes del server ("La visita ya fue atendida" / "El paciente ya está registrado
- * como que llegó") ya son claros y serenos en castellano, así que se devuelven tal cual en vez
- * de mapearlos a un texto fijo — a diferencia de `setVisitCoordinator`, acá hay DOS motivos
- * distintos y el server los distingue mejor que un mensaje único de este lado.
+ * El 23514 (check_violation) tiene dos orígenes posibles con calidad de mensaje opuesta: los
+ * `raise exception ... using errcode = 'check_violation'` de la 0067 (visita ya atendida / ya
+ * recibida) traen texto en castellano pensado para mostrarse tal cual; una CHECK cruda de tabla
+ * —hoy no hay ninguna sobre estas columnas, pero nada impide que se agregue después— daría el
+ * mensaje técnico de Postgres en inglés. PostgREST no expone el nombre de la constraint aparte,
+ * así que se distinguen por el texto (mismo patrón que `pharmaErrorMessage` en
+ * `data/pharma/errors.ts`): si es la violación cruda, mensaje genérico; si no, se deja pasar el
+ * de la DB.
  */
 export async function markNoShow(visitId: string, value = true): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('mark_no_show', { p_visit_id: visitId, p_value: value })
   if (error) {
-    if (error.code === '23514') return { error: error.message }
+    if (error.code === '23514') {
+      const generico = 'No se pudo marcar la falta: revisá el estado de la visita.'
+      return { error: /violates check constraint|viola la restricci[oó]n/i.test(error.message) ? generico : (error.message || generico) }
+    }
     return { error: rpcError(error.code, error.message) }
   }
   return { error: null }

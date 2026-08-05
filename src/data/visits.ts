@@ -183,10 +183,10 @@ export function usePatientVisits(patientId: string | null, protocolId: string | 
 }
 
 /**
- * Reagenda una visita moviendo SOLO `estimated_date` y limpiando la marca de ausente (0067): darle
- * fecha nueva es, justamente, la salida del estado "Por reprogramar". La ventana
- * (window_start/end) viene del esquema del sponsor y queda fija a propósito: el estado calculado
- * (`ventana_vencida`) sigue siendo auditable aunque la visita se mueva.
+ * Reagenda una visita: mueve `estimated_date` —la ventana (window_start/end) viene del esquema
+ * del sponsor y queda fija a propósito, el estado calculado (`ventana_vencida`) sigue siendo
+ * auditable aunque la visita se mueva— y limpia la marca de ausente (0067): darle fecha nueva es,
+ * justamente, la salida del estado "Por reprogramar".
  * La RLS limita el UPDATE a la coordinadora asignada (operator+) o gerencia; si
  * filtra en silencio (0 filas afectadas), se devuelve un error claro.
  */
