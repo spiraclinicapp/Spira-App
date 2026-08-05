@@ -98,6 +98,20 @@ button { font-family: inherit; }
   outline-offset: 2px;
   border-radius: var(--spira-radius-sm);
 }
+/* Excepción: el chip de selección (variant 'chip' del SearchableSelect — ej. el coordinador en el
+   header del modal de visita). Sobre un pill de 26px el outline de 2px con offset pesa como un
+   recuadro duro, así que el foco por teclado va como HALO suave pegado al borde, en la línea del
+   "foco suave" de los inputs de más abajo: sigue siendo una señal de foco visible (accesible), pero
+   serena. Solo `:focus-visible` — con el mouse no se dibuja nada, que es el comportamiento de todo
+   el resto de la app. */
+.spira-chip-select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(15, 95, 87, 0.20);
+}
+/* En oscuro el petróleo se pierde sobre fondo negro (mismo motivo que --spira-ghost-bg): menta tenue. */
+[data-theme='dark'] .spira-chip-select:focus-visible {
+  box-shadow: 0 0 0 3px rgba(157, 230, 214, 0.22);
+}
 
 /* —— Foco de controles de formulario: ELEVACIÓN SUAVE (estándar de Spira) ——
    TODO input/select/textarea marca el foco con una sombra cálida tenue + un leve levante —

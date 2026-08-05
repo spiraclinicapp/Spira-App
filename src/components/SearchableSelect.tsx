@@ -185,6 +185,9 @@ export function SearchableSelect({
         ref={triggerRef}
         type="button"
         id={id}
+        // El chip lleva foco de teclado propio (halo suave en vez del outline petróleo de 2px, que
+        // sobre el pill compacto pesa como un recuadro duro). Ver `.spira-chip-select` en tokens.css.
+        className={variant === 'chip' ? 'spira-chip-select' : undefined}
         disabled={disabled}
         aria-disabled={disabled || undefined}
         onClick={() => { if (!disabled) setOpen((o) => !o) }}
@@ -338,10 +341,15 @@ const fieldBtn: CSSProperties = {
 const fieldBtnOpen: CSSProperties = { boxShadow: '0 5px 14px rgba(20,48,46,.10)' }
 const fieldBtnDisabled: CSSProperties = { opacity: 0.55, cursor: 'default', boxShadow: 'none' }
 // Variante 'chip': pill compacto e inline (no ocupa una fila). Mismo popover/lógica que el campo.
+// OJO con el borde: va en longhands (`borderWidth`/`borderStyle`/`borderColor`), NO en la abreviada
+// `border`. Los estados de abajo pisan solo el color o solo el estilo, y al mezclar abreviada +
+// longhand en estilos inline React borra la longhand al salir del estado pero NO restaura la parte
+// correspondiente de la abreviada: el color caía al inicial (negro) y el chip quedaba con un borde
+// negro duro después de abrir y cerrar el desplegable una vez.
 const chipBtn: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 8px', maxWidth: '100%',
-  background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)', borderRadius: 999,
-  cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 600,
+  background: 'var(--spira-white)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+  borderRadius: 999, cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 600,
 }
 const chipBtnEmpty: CSSProperties = { borderStyle: 'dashed' } // sin valor: invita a elegir
 const chipBtnOpen: CSSProperties = { boxShadow: '0 4px 12px rgba(20,48,46,.10)', borderColor: 'var(--spira-faint)' }
