@@ -65,7 +65,7 @@ Stageá **siempre por ruta** (`git add <archivo>`), nunca `git add -A`: el árbo
 | `src/views/track/VisitDetail.tsx` | Etapa terminal. |
 | `src/views/track/DayVisitRowItem.tsx` | CTA terminal, chip de "Por reprogramar", menú ⋯. |
 | `src/views/DayVisitsView.tsx` | Despacho de marcas, contadores, orden, "no vino" y reprogramar. |
-| `src/lib/visits.ts` | `pickCurrent`: la "visita actual" deja de depender de `futura` vs `proxima`. |
+| `src/lib/visits.ts` | El vocabulario paralelo del cronograma: `visitStateLabel`, `dotVisual` y `pickCurrent`. |
 | `supabase/README.md` | Índice de migraciones. |
 
 `VisitStepper.tsx` **no se toca**: lee `STAGE_ORDER`, así que pasa de 5 puntos a 4 solo.
@@ -908,15 +908,78 @@ git commit -m "feat(track): Visitas del día con las 4 etapas y la marca de no-s
 
 ---
 
-### Task 11b: La "visita actual" del cronograma
+### Task 11b: El vocabulario paralelo del cronograma (`lib/visits.ts`)
 
 **Files:**
-- Modify: `src/lib/visits.ts:120-132`
+- Modify: `src/lib/visits.ts:120-132` (`pickCurrent`), `:215-228` (`dotVisual`), `:230-248` (`visitStateLabel`)
 
-Esta tarea **no estaba en el spec**: la destapó la revisión de la migración 0068. Al fusionar
-`futura` dentro de `proxima`, `pickCurrent` cambia de comportamiento en silencio.
+Esta tarea **no estaba en el spec**: la destaparon las revisiones de la 0068 y de la Fase B. Son
+**tres regresiones silenciosas** en el mismo archivo — ninguna la ve el typecheck, porque las tres
+derivan de columnas crudas (`left_at`, `real_date`, `arrived_at`) y no del tipo `OperationalStage`.
+Se rendean en [`VisitDot.tsx:34`](../../../src/views/track/VisitDot.tsx),
+[`PdFullSchedule.tsx:35`](../../../src/views/track/PdFullSchedule.tsx) y
+[`PdVisitFlow.tsx:33`](../../../src/views/track/PdVisitFlow.tsx), o sea la ficha del paciente.
 
-- [ ] **Step 1: Entender la regresión antes de tocar nada**
+- [ ] **Step 1: `visitStateLabel` — el vocabulario viejo, en la cara del usuario**
+
+`visitStateLabel` devuelve su propia unión de etiquetas: `'En el sitio' | 'Atendido' | 'Listo para
+irse' | 'Fuera del sitio'`. Si no se migra, la ficha del paciente dice "En el sitio" y "Fuera del
+sitio" mientras Visitas del día dice "Concurrió al centro" y "Fin de atención" — y "Fuera del sitio"
+es una etapa que la 0068 sacó del recorrido. **No se puede reusar `OPERATIONAL_STAGES`**: vive en
+`src/views/` y `visitStates.tsx` ya importa de `lib/visits`; importarlo al revés cierra un ciclo.
+Se alinean los strings a mano y se deja el comentario que ata los dos lugares.
+
+```ts
+export type VisitStateLabel =
+  | 'Agendada' | 'Por llegar' | 'Concurrió al centro'
+  | 'Inicio de atención' | 'Fin de atención' | 'Completa'
+
+/**
+ * Etiqueta del estado de la visita según el recorrido operativo (lo que pasa en "Visitas del
+ * día") + el checklist. `today` (ISO) distingue Agendada (futura) de Por llegar (hoy, sin llegar).
+ * Los strings replican a mano los de `OPERATIONAL_STAGES` (views/visitStates.tsx): no se importan
+ * porque ese archivo ya importa de acá y el ciclo no vale la pena. Si cambian allá, cambian acá.
+ */
+export function visitStateLabel(v: TrackVisitRow, today: string): VisitStateLabel {
+  // "Completa" solo cuando la visita está CERRADA (terminó la atención + sin checklist pendiente);
+  // así coincide con el relleno del punto (ver dotVisual). Antes de eso, la etapa operativa.
+  if (v.ready_at !== null && v.computed_status === 'completa') return 'Completa'
+  if (v.ready_at !== null) return 'Fin de atención'
+  if (v.real_date !== null) return 'Inicio de atención'
+  if (v.arrived_at !== null) return 'Concurrió al centro'
+  const d = v.estimated_date ?? v.real_date ?? ''
+  return d && d <= today ? 'Por llegar' : 'Agendada'
+}
+```
+
+- [ ] **Step 2: `dotVisual` — la pelotita que nunca más se llenaría**
+
+`dotVisual` marca la visita como cerrada con `v.left_at !== null && v.computed_status ===
+'completa'`. Desde la 0068 **nadie vuelve a escribir `left_at`**, así que ninguna visita nueva
+llegaría jamás al punto relleno: se quedarían todas en contorno para siempre. El cierre ahora lo
+marca `ready_at`.
+
+```ts
+/**
+ * Color/relleno de la pelotita según el recorrido operativo:
+ *  · agendada → GRIS    (todavía no atendida: agendada / por llegar / concurrió = sin real_date)
+ *  · en_curso → CONTORNO verde (la atención empezó y la visita sigue abierta o con pendientes)
+ *  · completa → RELLENO verde   (visita CERRADA: terminó la atención y no queda checklist pendiente)
+ * El contorno verde aparece al marcar "Inicio de atención" (real_date) y se mantiene mientras la
+ * visita sigue abierta. Solo se rellena cuando se cierra (ready_at + sin checklist pendiente): así
+ * una visita sin checklist NO se rellena apenas la atendés.
+ * El cierre se lee de `ready_at` y ya no de `left_at`: desde la 0068 "Fuera del sitio" salió del
+ * recorrido y nadie vuelve a escribir esa columna — con la condición vieja el punto no se llenaría
+ * nunca más.
+ */
+export function dotVisual(v: TrackVisitRow): DotVisual {
+  if (v.real_date === null) return 'agendada'
+  if (v.ready_at !== null && v.computed_status === 'completa') return 'completa'
+  return 'en_curso'
+}
+```
+
+- [ ] **Step 3: `pickCurrent` — entender la regresión antes de tocarla**
 
 `pickCurrent` elige la "visita actual" de una lista **ya ordenada cronológicamente** (`orderVisits`,
 línea 62) con tres intentos en cascada: primero una `proxima`, después una `ventana_vencida`,
@@ -926,7 +989,7 @@ paciente con la V2 de ventana vencida y la V5 dentro de un mes pasaría a mostra
 actual en la ficha. Es una regresión silenciosa: no rompe el typecheck, solo muestra el dato
 equivocado.
 
-- [ ] **Step 2: Reemplazar la cascada**
+- [ ] **Step 4: Reemplazar la cascada de `pickCurrent`**
 
 Con la lista ordenada por fecha, "la visita actual" es simplemente la primera sin realizar: la
 cascada por estado era un rodeo para lograr eso cuando existía `futura`.
