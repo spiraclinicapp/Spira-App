@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { CSSProperties, ComponentProps, KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 import { usePopover } from './usePopover'
 
@@ -202,7 +203,7 @@ export function SearchableSelect({
         <Icon name="chevronDown" size={variant === 'chip' ? 13 : 16} color="var(--spira-muted)" style={{ flex: '0 0 auto', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
       </button>
 
-      {open && pos && (
+      {open && pos && createPortal(
         <div
           ref={popRef}
           style={{
@@ -322,7 +323,8 @@ export function SearchableSelect({
               )}
             </>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
