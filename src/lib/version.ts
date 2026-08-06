@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.28', text: 'La visita muestra sus procedimientos con claridad: el cuadro explica cuando no hay ninguno y lo realizado se marca sin tachar el nombre.' },
     { version: '0.27', text: 'Los estados de la visita hablan el vocabulario del centro: cuatro etapas del recorrido y dos estados nuevos.' },
     { version: '0.26', text: 'El nombre del paciente se muestra en toda la app; el modal de visita encabeza con el nombre e indica claramente qué visita se está viendo.' },
     { version: '0.25', text: 'Los desplegables se cierran al tocar fuera del panel, y los bordes de campos, casilleros y tarjetas vuelven a su color al salir de cada estado.' },
