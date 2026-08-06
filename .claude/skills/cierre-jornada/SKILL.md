@@ -23,7 +23,7 @@ modo completo sin re-preguntar los pasos.
 |---|---|
 | 1. Bitácora | `docs/bitacora/YYYY-MM-DD.md`. **Leé la última entrada y calcá** su estructura: título `# Bitácora · fecha — tema · estado del release`, líneas **Proyecto / Autor / Contexto / Ramas**, secciones numeradas (Resumen de la jornada, un § por hilo, **Lo no-obvio**, **Git — estado de las ramas**, **Pendientes**). Si el día ya tiene entrada, anexá — no la pises. |
 | 2. Handoff | `docs/bitacora/handoff-YYYY-MM-DD.md`. Calcar el último: primera línea con links al handoff anterior y a la narrativa del día; secciones **Dónde estás / Lo hecho esta jornada / Decisiones tomadas (no re-discutir) / PRÓXIMO PASO (próxima sesión) / Cómo verificar al retomar**. |
-| 3. Memoria | Actualizar `spira-estado-proyecto.md` y `MEMORY.md` en la memoria persistente. **Read SIEMPRE antes de Edit** — editar memoria solo grepeada es la causa #1 de errores acá. |
+| 3. Memoria | Vive en `~/.claude/projects/C--Users-usuario-FS-Desktop-Spira-Spira-App/memory/` (ojo: hay memorias de **otros** proyectos Spira —`Spira-Pharma`, `Spira-Identidad-Visual`— que NO son esta). Actualizar `spira-estado-proyecto.md` y el índice `MEMORY.md`. **`spira-estado-proyecto.md` es un puntero, no una copia del estado**: lo único que se toca en cada cierre es la línea que dice cuál es el handoff más reciente. Si de la jornada salió algo durable que el repo NO registra (una preferencia del Director, un gotcha reusable), va como archivo propio + su línea en `MEMORY.md`. **Read SIEMPRE antes de Edit** — editar memoria solo grepeada es la causa #1 de errores acá. |
 | 4. Commit | Por ruta. Push solo si el Director lo pide o ya era la operativa del día. Al final, decí explícito qué quedó local y qué en origin. |
 
 ## Modo release (además del cierre)
@@ -44,5 +44,12 @@ modo completo sin re-preguntar los pasos.
 
 - Editar CLAUDE.md / README / memoria habiéndolos solo grepeado → "File has not been read yet".
 - Olvidarse del índice de migraciones (quedó desactualizado 2 veces; hoy lo vigila CI).
-- Prometer push/merge y dejarlo colgado sin avisar.
+- Prometer push/merge y dejarlo colgado sin avisar. (El `git push` a veces **se cuelga**: acotalo
+  con `timeout` y mirá el exit code real, no el de un pipe. Si no salió, decilo y dejá el comando.)
 - Pisar la bitácora del día cuando ya tenía una entrada de otra sesión.
+- **Mergear y desplegar sin sacar el release** → la versión queda atrás de lo que corre en
+  producción (pasó el 2026-08-06: prod con el rediseño y `package.json` en `0.26.0`). Si la jornada
+  terminó en merge + deploy, **preguntá si sale versión** antes de dar el cierre por hecho.
+- Buscar la memoria en el proyecto equivocado: hasta el 2026-08-06 esta skill apuntaba a un
+  `spira-estado-proyecto.md` que solo existía en la memoria de `Spira-Pharma`, de antes de la
+  unificación.
