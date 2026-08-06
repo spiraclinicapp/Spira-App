@@ -164,6 +164,17 @@ button { font-family: inherit; }
   .spira-input-affix:focus-within > .spira-input-affix-icon { transform: translateY(-1px); }
 }
 
+/* —— Tilde de "realizado" (procedimientos de la visita) ——
+   El cuadrito pasa de vacío a relleno con el acento del módulo y el tilde entra escalando desde
+   0.6. Movimiento corto que se asienta (§Movimiento del sistema): sin overshoot, .14s, y el
+   relleno acompaña al tilde en vez de aparecer de golpe. La opacidad/escala del tilde las fija el
+   componente por `style`; acá va solo la transición, para que en reduced-motion el cambio sea
+   instantáneo (el bloque no aplica) sin perder el estado. */
+@media (prefers-reduced-motion: no-preference) {
+  .spira-tick { transition: background-color 0.14s ease-out, border-color 0.14s ease-out; }
+  .spira-tick > svg { transition: opacity 0.14s ease-out, transform 0.14s ease-out; }
+}
+
 /* —— Autocompletado del navegador (Chrome/WebKit) ——
    Por defecto Chrome pinta el campo autocompletado de celeste y el texto de negro: rompe la
    paleta Sereno y, al animar/repintar ese fondo, alimentaba el parpadeo del ícono afijo. Lo
