@@ -47,7 +47,11 @@ npm run build       # typecheck + build de producción
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
-   número. La última aplicada va por la `0065` (ver `supabase/README.md`).
+   número. La última aplicada va por la `0068` (ver `supabase/README.md`).
+   **Si una migración es _breaking_ para el front desplegado** (p. ej. una vista que empieza a
+   emitir valores que el código viejo no conoce): **se despliega el front PRIMERO y se aplica la
+   migración inmediatamente después**, no al revés. Ya pasó una vez al revés (0068, 2026-08-05) y
+   dejó la Agenda y la ficha del paciente en blanco en producción hasta el deploy.
    Dos trampas que ya hicieron fallar migraciones y conviene tener presentes al escribirlas:
    **`ALTER TYPE ... ADD VALUE` no puede usar el valor nuevo en la misma transacción** (va en un
    archivo aparte, aplicado antes — ver 0053), y en PL/pgSQL los nombres de un
