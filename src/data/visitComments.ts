@@ -21,7 +21,7 @@ export interface VisitComment {
 
 /**
  * Hilo de comentarios de una visita (asc por fecha). Lee la vista `v_visit_comments` (0048).
- * Con `visitId` null no consulta (devuelve 0 filas), mismo patrón que `useVisit`/`useVisitChecklist`.
+ * Con `visitId` null no consulta (devuelve 0 filas), mismo patrón que `useVisit`.
  */
 export function useVisitComments(visitId: string | null): QueryResult<VisitComment[]> {
   return useSupabaseQuery<VisitComment[]>(

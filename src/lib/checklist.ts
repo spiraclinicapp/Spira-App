@@ -1,5 +1,6 @@
-// Presets y etiquetas del checklist, compartidos entre Plantillas y el modal de la visita.
-// (Antes duplicados en TemplatesView y VisitChecklist.)
+// Presets y etiquetas del circuito de reporte, compartidos entre Plantillas (checklist) y los
+// procedimientos de la visita. `DEADLINE_OPTIONS`/`deadlineLabel` los usa solo Plantillas;
+// `REPORT_ETA_OPTIONS`/`reportEtaLabel`, también el cuadro de procedimientos (0064).
 
 /** Plazo del ítem (deadline_hours). 0 = al momento; check en DB: {0,48,168}. */
 export const DEADLINE_OPTIONS: { value: number; label: string }[] = [

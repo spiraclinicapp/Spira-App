@@ -61,30 +61,14 @@ export interface DayVisitRow extends TrackVisitRow {
   no_show_at: string | null
 }
 
-/**
- * Ítem del checklist clínico materializado de una visita (checklist_items + EXISTS en
- * checklist_completions). `completed`/`completed_at`/`completed_by` vienen del join a la
- * completion (null si no está completado). Lo lee `useVisitChecklist`.
- */
-export interface VisitChecklistItem {
-  id: string
-  visit_id: string
-  description: string
-  deadline_hours: number
-  mandatory: boolean
-  sort_order: number
-  completed: boolean
-  completed_at: string | null
-  completed_by: string | null
-  /** Snapshot: el ítem genera un reporte diferido. Migración 0063. */
-  has_report: boolean
-  /** Snapshot: demora estimada del reporte en horas; null si no genera. Migración 0063. */
-  report_eta_hours: number | null
-  /** Reporte marcado LISTO (firmado y evolucionado). Estado aparte del tilde. Migración 0063. */
-  report_ready: boolean
-  report_ready_at: string | null
-  report_ready_by: string | null
-}
+/* El checklist clínico por visita (checklist_items / _completions / _report_ready, migraciones
+   0003-0063) SE RETIRÓ DEL FRONT el 2026-08-06: su lugar en la ficha lo ocupa el cuadro de
+   procedimientos de la 0061/0064, que es el mismo gesto — tildar lo que se hizo y seguir el
+   circuito de reporte — pero atado al cronograma del protocolo en vez de a una plantilla aparte.
+   Se borraron la vista `VisitChecklist` y las funciones que solo ella usaba. Lo que sigue vivo en
+   la BASE (y por eso no se toca desde acá): el trigger `trg_materialize_checklist` (0063), las
+   ramas de checklist de `computed_status` en v_patient_visits (0068) y la vista `v_report_alerts`
+   (0063), que alimenta las notificaciones. Retirarlo de verdad es una migración propia. */
 
 // ————————————————————————————————————————————————————
 // Hooks de lectura
@@ -129,8 +113,8 @@ export function useVisitsForDay(date: string): QueryResult<DayVisitRow[]> {
  * que la lista del día. Es la clave del detalle compartido (`VisitDetail`): se abre igual
  * desde la vista del día —que ya tiene la fila— y desde el cronograma del paciente —que la
  * trae "flaca" (`TrackVisitRow`, sin etapa operativa)—. Como ambos lados leen de acá, el
- * detalle queda sincronizado por construcción. Con `visitId` null no consulta (patrón de
- * `useVisitChecklist`). Devuelve un array de 0/1 filas; el consumidor toma `data?.[0]`.
+ * detalle queda sincronizado por construcción. Con `visitId` null no consulta (patrón del repo,
+ * ver `useVisitProcedureStatus`). Devuelve un array de 0/1 filas; el consumidor toma `data?.[0]`.
  */
 export function useVisit(visitId: string | null): QueryResult<DayVisitRow[]> {
   return useSupabaseQuery<DayVisitRow[]>(
@@ -175,81 +159,6 @@ export function useDoctorQueue(date: string): QueryResult<DayVisitRow[]> {
         .order('patient_code', { ascending: true })
         .returns<DayVisitRow[]>(),
     [date],
-  )
-}
-
-/** Fila cruda de checklist_completions para unir en el cliente. */
-interface ChecklistCompletionRow {
-  item_id: string
-  completed_at: string
-  completed_by: string
-}
-
-/** Fila cruda de checklist_report_ready para unir en el cliente. */
-interface ReportReadyRow {
-  item_id: string
-  ready_at: string
-  ready_by: string
-}
-
-/**
- * Checklist clínico de una visita: los ítems materializados (checklist_items) más
- * su estado de completado (checklist_completions) y de reporte listo
- * (checklist_report_ready). Se hacen TRES consultas (items, completions, report_ready) y
- * se unen en el cliente: evita acoplarse a la forma del embed de PostgREST y respeta la
- * RLS de cada tabla. Con `visitId` null no consulta.
- */
-export function useVisitChecklist(visitId: string | null): QueryResult<VisitChecklistItem[]> {
-  return useSupabaseQuery<VisitChecklistItem[]>(
-    async (c) => {
-      if (!visitId) return { data: [], error: null }
-      const itemsRes = await c
-        .from('checklist_items')
-        .select('id, visit_id, description, deadline_hours, mandatory, sort_order, has_report, report_eta_hours')
-        .eq('visit_id', visitId)
-        .order('sort_order', { ascending: true })
-      if (itemsRes.error) return { data: null, error: itemsRes.error }
-      const items = (itemsRes.data ?? []) as Omit<
-        VisitChecklistItem,
-        'completed' | 'completed_at' | 'completed_by' | 'report_ready' | 'report_ready_at' | 'report_ready_by'
-      >[]
-      if (items.length === 0) return { data: [], error: null }
-
-      const ids = items.map((i) => i.id)
-      const compRes = await c
-        .from('checklist_completions')
-        .select('item_id, completed_at, completed_by')
-        .in('item_id', ids)
-      if (compRes.error) return { data: null, error: compRes.error }
-      const byItem = new Map<string, ChecklistCompletionRow>(
-        ((compRes.data ?? []) as ChecklistCompletionRow[]).map((r) => [r.item_id, r]),
-      )
-
-      const readyRes = await c
-        .from('checklist_report_ready')
-        .select('item_id, ready_at, ready_by')
-        .in('item_id', ids)
-      if (readyRes.error) return { data: null, error: readyRes.error }
-      const readyByItem = new Map<string, ReportReadyRow>(
-        ((readyRes.data ?? []) as ReportReadyRow[]).map((r) => [r.item_id, r]),
-      )
-
-      const merged: VisitChecklistItem[] = items.map((i) => {
-        const comp = byItem.get(i.id)
-        const rr = readyByItem.get(i.id)
-        return {
-          ...i,
-          completed: comp != null,
-          completed_at: comp?.completed_at ?? null,
-          completed_by: comp?.completed_by ?? null,
-          report_ready: rr != null,
-          report_ready_at: rr?.ready_at ?? null,
-          report_ready_by: rr?.ready_by ?? null,
-        }
-      })
-      return { data: merged, error: null }
-    },
-    [visitId],
   )
 }
 
@@ -419,95 +328,6 @@ export async function setVisitCoordinator(
 // submódulo de dispensación real (migración 0050 + vista pharma/dispensaciones). La tabla
 // `track_dispensations` queda como histórico intacto (no se borra); el flujo nuevo vive en
 // `data/pharma/dispensations.ts` (RPCs create_dispensation_request / resolve_dispensation / …).
-
-/**
- * Completa (true) o descompleta (false) un ítem del checklist clínico.
- * - completar: insert en checklist_completions (completed_by lo pone el default de la
- *   columna y lo exige la RLS; no se manda desde el cliente).
- * - descompletar: delete por item_id (habilitado por la política DELETE de 0023).
- * Patrón "0 filas afectadas = sin permiso" igual que registerVisit.
- */
-export async function toggleChecklistItem(itemId: string, completed: boolean): Promise<{ error: string | null }> {
-  if (completed) {
-    const { data, error } = await supabase
-      .from('checklist_completions')
-      .insert({ item_id: itemId })
-      .select('id')
-    if (error) return { error: error.message }
-    if (!data || data.length === 0) return { error: 'No tenés permiso para completar este ítem.' }
-    return { error: null }
-  }
-  const { data, error } = await supabase
-    .from('checklist_completions')
-    .delete()
-    .eq('item_id', itemId)
-    .select('id')
-  if (error) return { error: error.message }
-  if (!data || data.length === 0) return { error: 'No tenés permiso para modificar este ítem.' }
-  return { error: null }
-}
-
-/** Datos editables de un ítem materializado (override de ESA visita, no toca la plantilla). */
-export interface ChecklistItemEdit {
-  description: string
-  deadline_hours: number
-  mandatory: boolean
-  has_report: boolean
-  report_eta_hours: number | null
-}
-
-/**
- * Edita un ítem del checklist de UNA visita (override por-visita; no afecta la plantilla ni
- * otras visitas). UPDATE directo sobre checklist_items; la policy de 0006 lo scopea a la
- * coordinadora asignada o gerencia. "0 filas = sin permiso".
- */
-export async function updateChecklistItem(itemId: string, input: ChecklistItemEdit): Promise<{ error: string | null }> {
-  const { data, error } = await supabase
-    .from('checklist_items')
-    .update({
-      description: input.description,
-      deadline_hours: input.deadline_hours,
-      mandatory: input.mandatory,
-      has_report: input.has_report,
-      report_eta_hours: input.has_report ? input.report_eta_hours : null,
-    })
-    .eq('id', itemId)
-    .select('id')
-  if (error) return { error: error.message }
-  if (!data || data.length === 0) return { error: 'No tenés permiso para editar este ítem.' }
-  if (!input.has_report) {
-    // Si el ítem deja de generar reporte, el "reporte listo" viejo ya no aplica: lo limpiamos
-    // para no resucitar un estado obsoleto si se reactiva has_report. Best-effort (migración 0063).
-    await supabase.from('checklist_report_ready').delete().eq('item_id', itemId)
-  }
-  return { error: null }
-}
-
-/**
- * Marca (true) o reabre (false) el "reporte listo" (firmado y evolucionado) de un ítem.
- * Estado APARTE del tilde de completado (tabla checklist_report_ready, migración 0063).
- * - listo:  insert (ready_by lo pone el default de la columna; lo exige la RLS).
- * - reabrir: delete por item_id.
- */
-export async function setReportReady(itemId: string, ready: boolean): Promise<{ error: string | null }> {
-  if (ready) {
-    const { data, error } = await supabase
-      .from('checklist_report_ready')
-      .insert({ item_id: itemId })
-      .select('id')
-    if (error) return { error: error.message }
-    if (!data || data.length === 0) return { error: 'No tenés permiso para marcar este reporte.' }
-    return { error: null }
-  }
-  const { data, error } = await supabase
-    .from('checklist_report_ready')
-    .delete()
-    .eq('item_id', itemId)
-    .select('id')
-  if (error) return { error: error.message }
-  if (!data || data.length === 0) return { error: 'No tenés permiso para reabrir este reporte.' }
-  return { error: null }
-}
 
 // Re-export TrackVisitRow para uso externo (evita imports dobles en las vistas)
 export type { TrackVisitRow }

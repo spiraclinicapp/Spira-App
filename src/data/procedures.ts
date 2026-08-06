@@ -187,7 +187,8 @@ export interface VisitProcedureStatus {
 
 /**
  * Procedimientos de una visita con estado realizado/reporte-listo. TRES consultas unidas en el
- * cliente (patrón de useVisitChecklist): asignados (protocol_activities por visit_def_id) +
+ * cliente —evita acoplarse a la forma del embed de PostgREST y respeta la RLS de cada tabla—:
+ * asignados (protocol_activities por visit_def_id) +
  * completions (por visit_id) + reports_ready (por visit_id). Con visitId/visitDefId null → [].
  */
 export function useVisitProcedureStatus(visitId: string | null, visitDefId: string | null) {
