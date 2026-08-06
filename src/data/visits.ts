@@ -75,7 +75,7 @@ export function useUpcomingVisits() {
   )
 }
 
-/** Visitas en alerta: ventana vencida (roja) o ítem de checklist vencido (ámbar). */
+/** Visitas en alerta: ventana vencida (roja) o pendiente fuera de plazo (ámbar). */
 export function useVisitAlerts() {
   return useSupabaseQuery<TrackVisitRow[]>(
     (c) =>

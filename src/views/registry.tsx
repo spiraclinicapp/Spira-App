@@ -3,7 +3,6 @@ import { InicioResumenView } from './InicioResumenView'
 import { ProtocolsView } from './ProtocolsView'
 import { TrackResumenView } from './TrackResumenView'
 import { AgendaView } from './AgendaView'
-import { TemplatesView } from './TemplatesView'
 import { DayVisitsView } from './DayVisitsView'
 import { DoctorQueueView } from './DoctorQueueView'
 import { TrackAlertsView } from './TrackAlertsView'
@@ -25,7 +24,6 @@ const VIEW_REGISTRY: Record<string, ViewComponent> = {
   'track/para-ver-medico': DoctorQueueView,
   'track/agenda': AgendaView,
   'track/alertas': TrackAlertsView,
-  'track/plantillas': TemplatesView,
   'pharma/protocolos': ProtocolsView,
   'pharma/medicamentos': MedicamentosView,
   'pharma/recepcion': RecepcionView,

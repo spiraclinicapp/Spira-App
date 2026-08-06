@@ -1,17 +1,6 @@
-// Presets y etiquetas del checklist, compartidos entre Plantillas y el modal de la visita.
-// (Antes duplicados en TemplatesView y VisitChecklist.)
-
-/** Plazo del ítem (deadline_hours). 0 = al momento; check en DB: {0,48,168}. */
-export const DEADLINE_OPTIONS: { value: number; label: string }[] = [
-  { value: 0, label: 'Al momento' },
-  { value: 48, label: '48 horas' },
-  { value: 168, label: '7 días' },
-]
-
-/** deadline_hours → etiqueta humana. */
-export function deadlineLabel(hours: number): string {
-  return DEADLINE_OPTIONS.find((o) => o.value === hours)?.label ?? `${hours} h`
-}
+// Presets y etiquetas del circuito de reporte, que hoy usa el cuadro de procedimientos de la visita
+// (0064). Nació con el checklist clínico —de ahí el nombre del archivo— y le sobrevivió: los plazos
+// del ítem (`DEADLINE_OPTIONS`/`deadlineLabel`) se fueron con Plantillas el 2026-08-06.
 
 /** Demora estimada del reporte (report_eta_hours). Dropdown, sin texto libre. Migración 0063. */
 export const REPORT_ETA_OPTIONS: { value: number; label: string }[] = [

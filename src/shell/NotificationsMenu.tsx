@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { useVisitAlerts } from '../data/visits'
 import type { TrackVisitRow } from '../data/visits'
-import { useReportAlerts, useProcedureReportAlerts } from '../data/reports'
+import { useProcedureReportAlerts } from '../data/reports'
 import { visitTitle } from '../lib/visits'
 import { formatAR } from '../lib/dates'
 import { VISIT_STATES } from '../views/visitStates'
@@ -12,10 +12,10 @@ import { VISIT_STATES } from '../views/visitStates'
    NotificationsMenu — desplegable de notificaciones (campana, top bar).
 
    Mismo patrón de overlay que UserMenu, colgado de la campana. Las fuentes son
-   REALES: useVisitAlerts() (ventanas / ítems de checklist vencidos) + useReportAlerts()
-   (reportes pendientes de revisar, migración 0063) — las mismas que alimentan la vista
-   Alertas, no hay feed inventado. El badge muestra el conteo real combinado (reemplaza
-   el puntito hardcodeado); vacío → "Estás al día".
+   REALES: useVisitAlerts() (ventanas vencidas / pendientes fuera de plazo) +
+   useProcedureReportAlerts() (reportes de procedimiento vencidos, migración 0064) — las
+   mismas que alimentan la vista Alertas, no hay feed inventado. El badge muestra el conteo
+   real combinado (reemplaza el puntito hardcodeado); vacío → "Estás al día".
 
    El footer "Ver todas las alertas" navega a track/alertas (destino real).
    Marcar-como-leído es fase 2 (igual que en TrackAlertsView): por ahora es una
@@ -43,12 +43,11 @@ function whenLabel(a: TrackVisitRow): string {
 function reasonLabel(a: TrackVisitRow): string {
   return a.computed_status === 'ventana_vencida'
     ? `Ventana vencida${a.window_end ? ` el ${formatAR(a.window_end)}` : ''}`
-    : 'Ítem de checklist fuera de plazo'
+    : 'Reporte de procedimiento fuera de plazo'
 }
 
 export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuProps) {
   const alerts = useVisitAlerts()
-  const reports = useReportAlerts()
   const procReports = useProcedureReportAlerts()
   const [open, setOpen] = useState(false)
 
@@ -57,9 +56,8 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
   const panelRef = useRef<HTMLDivElement | null>(null)
 
   const rows = useMemo(() => alerts.data ?? [], [alerts.data])
-  const reportRows = useMemo(() => reports.data ?? [], [reports.data])
   const procRows = useMemo(() => procReports.data ?? [], [procReports.data])
-  const count = rows.length + reportRows.length + procRows.length
+  const count = rows.length + procRows.length
   const badge = count > 9 ? '9+' : String(count)
 
   // Cerrar al click afuera.
@@ -115,11 +113,11 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
 
           {/* cuerpo */}
           <div style={listWrap}>
-            {(alerts.loading || reports.loading || procReports.loading) && rows.length === 0 && reportRows.length === 0 && procRows.length === 0 ? (
+            {(alerts.loading || procReports.loading) && rows.length === 0 && procRows.length === 0 ? (
               <div style={emptyBox}>Cargando…</div>
-            ) : alerts.error || reports.error || procReports.error ? (
+            ) : alerts.error || procReports.error ? (
               <div style={{ ...emptyBox, color: 'var(--spira-danger)' }}>No pudimos cargar las notificaciones.</div>
-            ) : rows.length === 0 && reportRows.length === 0 && procRows.length === 0 ? (
+            ) : rows.length === 0 && procRows.length === 0 ? (
               <div style={emptyState}>
                 <span style={emptyIcon}><Icon name="check" size={20} color="var(--spira-good)" /></span>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)' }}>Estás al día</div>
@@ -127,25 +125,6 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
               </div>
             ) : (
               <>
-                {reportRows.map((r) => {
-                  const c = 'var(--spira-primary)'
-                  return (
-                    <div key={r.item_id} style={rowStyle}>
-                      <span style={{ ...rowIcon, background: c + '18' }}>
-                        <Icon name="clipboardCheck" size={16} color={c} />
-                      </span>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={rowTitle}>
-                          <span style={{ fontSize: 12.5, color: 'var(--spira-ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.patient_name}</span>
-                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.patient_code ?? '—'}</span>
-                          <span style={{ color: 'var(--spira-faint)' }}>·</span>
-                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.protocol_code}</span>
-                        </div>
-                        <div style={rowReason}>Reporte pendiente de revisar — {r.description}</div>
-                      </div>
-                    </div>
-                  )
-                })}
                 {procRows.map((r) => {
                   const c = 'var(--spira-primary)'
                   return (

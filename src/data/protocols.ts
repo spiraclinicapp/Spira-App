@@ -85,3 +85,19 @@ export async function updateProtocol(
   if (!data || data.length === 0) return { error: 'No tenés permiso para editar este protocolo.' }
   return { error: null }
 }
+
+/**
+ * Protocolos que coordina el usuario (la RLS de `protocol_coordinators` deja leer las asignaciones
+ * propias). Lo usa "Visitas del día" para decidir quién puede avanzar la etapa clínica de cada fila.
+ * Vivía en `data/templates.ts` por herencia de Plantillas; se mudó acá al retirarse esa vista
+ * (2026-08-06), que es donde corresponde: no tiene nada que ver con checklists.
+ */
+export function useMyCoordinations(userId: string | null) {
+  return useSupabaseQuery<{ protocol_id: string }[]>(
+    (c) =>
+      userId
+        ? c.from('protocol_coordinators').select('protocol_id').eq('user_id', userId)
+        : Promise.resolve({ data: [], error: null }),
+    [userId],
+  )
+}

@@ -7,8 +7,8 @@ import { dotColor } from '../visitStates'
  * Pelotita de una visita: muestra el NÚMERO de visita (conteo de cuántas veces vino) y refleja
  * el recorrido operativo con el color/relleno (dotVisual):
  *   · agendada (sin atender: agendada / por llegar / en el sitio) → GRIS, contorno
- *   · en_curso (atendida, checklist pendiente: atendido / listo / fuera) → CONTORNO verde marca
- *   · completa (checklist 100 %) → RELLENO verde marca
+ *   · en_curso (atendida, con pendientes: atendido / listo / fuera) → CONTORNO verde marca
+ *   · completa (sin pendientes: procedimientos y reportes al día) → RELLENO verde marca
  * `isToday` agranda + halo (resalta la actual, sin cambiar el color del estado).
  */
 export function VisitDot({ visit, number, today, size = 28, isToday = false, accent }: {

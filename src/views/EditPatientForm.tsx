@@ -256,7 +256,7 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
                   ) : (
                     <>Se eliminarán <b>{footprint.visits}</b> {footprint.visits === 1 ? 'visita' : 'visitas'} y{' '}
                     <b>{footprint.dispensations}</b> {footprint.dispensations === 1 ? 'dispensación' : 'dispensaciones'},
-                    y todo el checklist del paciente. Es permanente.</>
+                    y todo el registro de la atención del paciente. Es permanente.</>
                   )}
                   <div style={{ marginTop: 8 }}>
                     Reescribí {delLabel} (<span className="spira-mono" style={{ fontWeight: 600 }}>{delTarget}</span>) para confirmar.
