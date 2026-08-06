@@ -139,28 +139,6 @@ export function currentVisit(rows: TrackVisitRow[]): TrackVisitRow | null {
   return pickCurrent(orderVisits(scheduledVisits(rows)))
 }
 
-/**
- * Tracker de 3 columnas sobre la línea de tiempo COMPLETA (sueltas pre/post-rando + programadas,
- * ordenadas por fecha): anterior, actual y próxima. La "actual" es la primera no realizada o, si
- * están todas hechas, la última. Así las visitas previas a la randomización se trackean igual que
- * las del cronograma (a diferencia de `currentVisit`, que mira solo el cronograma).
- */
-export function prevCurrentNext(rows: TrackVisitRow[]): {
-  prev: TrackVisitRow | null
-  current: TrackVisitRow | null
-  next: TrackVisitRow | null
-} {
-  const ordered = orderVisits(rows)
-  const current = pickCurrent(ordered)
-  if (!current) return { prev: null, current: null, next: null }
-  const idx = ordered.findIndex((v) => v.id === current.id)
-  return {
-    prev: idx > 0 ? ordered[idx - 1] : null,
-    current,
-    next: idx < ordered.length - 1 ? ordered[idx + 1] : null,
-  }
-}
-
 /** Adherencia = realizadas / programadas (solo cuentan las del cronograma; las sueltas no). */
 export function adherence(rows: TrackVisitRow[]): { done: number; planned: number; pct: number } {
   const sch = scheduledVisits(rows)
@@ -243,11 +221,14 @@ export type VisitStateLabel =
  * `views/`. Si cambian allá, cambian acá.
  */
 export function visitStateLabel(v: TrackVisitRow, today: string): VisitStateLabel {
-  // La carga histórica tiene real_date y NINGUNA marca operativa: esas visitas no tienen recorrido,
-  // así que rotularlas con una etapa ("Inicio de atención") sería la categoría equivocada — y encima
-  // contradiría al chip clínico de la misma pantalla, que dice "Completa"/"Visita realizada".
-  // Se las nombra por el eje clínico, que es el único que tienen.
-  if (v.real_date !== null && v.arrived_at === null && v.ready_at === null) {
+  // El recorrido operativo describe EL DÍA de la visita: fuera de ese día, envejece mal. Una visita
+  // pasada que quedó a mitad de camino —se atendió y nunca se marcó el cierre, que con el flujo
+  // viejo era lo habitual porque cerrar pedía dos marcas más— se rotularía "Inicio de atención",
+  // que se lee como que la atención está empezando AHORA sobre algo de hace semanas, y encima
+  // contradice al chip clínico de la misma pantalla. Para lo pasado manda el eje clínico, que es el
+  // que envejece bien. Esto cubre también la carga histórica (real_date sin ninguna marca).
+  // Una visita atendida HOY conserva su etapa operativa, que es cuando esa información sirve.
+  if (v.real_date !== null && v.real_date < today) {
     return v.computed_status === 'completa' ? 'Completa' : 'Visita realizada'
   }
   // "Completa" solo cuando la visita está CERRADA (terminó la atención + sin checklist pendiente);
