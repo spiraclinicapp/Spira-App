@@ -10,7 +10,7 @@ import { DateNavButton } from '../components/DateNavButton'
 import { useAuth } from '../lib/auth'
 import { todayISO, dayName, formatShortAR } from '../lib/dates'
 import { visitCode } from '../lib/visits'
-import { useMyCoordinations } from '../data/templates'
+import { useMyCoordinations } from '../data/protocols'
 import {
   useVisitsForDay, markArrived, markAttended, markReady, markNoShow,
   markReadyWithOutcome, discontinueEnrollment,

@@ -164,7 +164,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {alerts.map((a) => {
               const c = VISIT_STATES[a.computed_status].color
-              const motivo = a.computed_status === 'ventana_vencida' ? `Ventana vencida · ${visitTitle(a)}` : `Ítem de checklist vencido · ${visitTitle(a)}`
+              const motivo = a.computed_status === 'ventana_vencida' ? `Ventana vencida · ${visitTitle(a)}` : `Reporte de procedimiento vencido · ${visitTitle(a)}`
               return (
                 <div key={a.id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
                   <Icon name={a.computed_status === 'ventana_vencida' ? 'alert' : 'clock'} size={18} color={c} style={{ flex: '0 0 auto', marginTop: 1 }} />

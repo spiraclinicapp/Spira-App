@@ -194,10 +194,11 @@ export type DotVisual = 'agendada' | 'en_curso' | 'completa'
  * Color/relleno de la pelotita según el recorrido operativo:
  *  · agendada → GRIS    (todavía no atendida: agendada / por llegar / concurrió = sin real_date)
  *  · en_curso → CONTORNO verde (la atención empezó y la visita sigue abierta o con pendientes)
- *  · completa → RELLENO verde   (visita CERRADA: terminó la atención y no queda checklist pendiente)
+ *  · completa → RELLENO verde   (visita CERRADA: terminó la atención y no queda nada pendiente)
  * El contorno verde aparece al marcar "Inicio de atención" (real_date) y se mantiene mientras la
- * visita sigue abierta. Solo se rellena cuando se cierra (ready_at + sin checklist pendiente): así
- * una visita sin checklist NO se rellena apenas la atendés.
+ * visita sigue abierta. Solo se rellena cuando se cierra (ready_at + sin pendientes): "pendiente"
+ * hoy son los procedimientos sin tildar y sus reportes sin marcar (`computed_status`, 0064/0068),
+ * así que una visita sin procedimientos NO se rellena apenas la atendés.
  * El cierre se lee de `ready_at` y ya no de `left_at`: desde la 0068 "Fuera del sitio" salió del
  * recorrido y nadie vuelve a escribir esa columna — con la condición vieja el punto no se llenaría
  * nunca más.

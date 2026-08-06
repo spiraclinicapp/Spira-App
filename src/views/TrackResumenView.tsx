@@ -96,7 +96,7 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
         <KpiCard label="Protocolos activos" value={activeProtocols} sub={`${allProtocols.length} en total`} dot={accent} />
         <KpiCard label="Pacientes activos" value={activePatients} sub={`${allPatients.length} registrados`} dot={accent} />
-        <KpiCard label="Ítems vencidos" value={overdueItems} sub="checklist fuera de plazo" dot={overdueItems > 0 ? 'var(--spira-warn)' : accent} />
+        <KpiCard label="Pendientes vencidos" value={overdueItems} sub="reportes fuera de plazo" dot={overdueItems > 0 ? 'var(--spira-warn)' : accent} />
         <KpiCard label="Próximas visitas" value={upcomingRows.length} sub="próximos 7 días" dot={accent} />
       </div>
 
@@ -154,7 +154,7 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
                 const vName = visitTitle(a)
                 const motivo = a.computed_status === 'ventana_vencida'
                   ? `Ventana vencida el ${a.window_end ? formatAR(a.window_end) : '—'} · ${vName}`
-                  : `Ítem de checklist fuera de plazo · ${vName}`
+                  : `Reporte de procedimiento fuera de plazo · ${vName}`
                 return (
                   <div key={a.id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
                     <span style={{ flex: '0 0 auto', marginTop: 1 }}>
