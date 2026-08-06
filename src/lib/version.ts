@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.27', text: 'Los estados de la visita hablan el vocabulario del centro: cuatro etapas del recorrido y dos estados nuevos.' },
     { version: '0.26', text: 'El nombre del paciente se muestra en toda la app; el modal de visita encabeza con el nombre e indica claramente qué visita se está viendo.' },
     { version: '0.25', text: 'Los desplegables se cierran al tocar fuera del panel, y los bordes de campos, casilleros y tarjetas vuelven a su color al salir de cada estado.' },
     { version: '0.24', text: 'El coordinador de la visita se asigna desde el encabezado del modal; el detalle de la visita queda más despejado.' },
