@@ -40,7 +40,7 @@ function inCenter(stage: OperationalStage): boolean {
 }
 
 /** Vista "Visitas del día" v2: lista con filtros multi + agrupación + buscador (handoff Fase 2). */
-export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
+export function DayVisitsView({ module, submodule, setHeader, navTarget, onTargetConsumed }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
   const { profile, hasMinRole } = useAuth()
@@ -79,6 +79,21 @@ export function DayVisitsView({ module, submodule, setHeader }: ViewProps) {
   const rows = day.data ?? []
   // Resumen de procedimientos de TODO el día en 2 consultas (no 3 por fila), para los puntos de la fila.
   const dayProcs = useDayProceduresSummary(rows)
+
+  /* Llegada CON objetivo (desde el resumen de Inicio: una visita puntual). Va en dos pasos porque
+     esta vista carga UN día: primero saltamos a la fecha de la visita —la de una alerta suele ser
+     pasada— y recién cuando ese día terminó de cargar la buscamos para abrir su modal. Se consume
+     una sola vez, haya o no visita que abrir, para que un refetch no la reabra sola (mismo criterio
+     que la ficha en ProtocolsView). Si no aparece, el usuario queda igual en la lista del día: no
+     inventamos un detalle que no encontramos. */
+  useEffect(() => {
+    if (!navTarget?.visitId) return
+    if (navTarget.visitDate && navTarget.visitDate !== date) { setDate(navTarget.visitDate); return }
+    if (day.loading) return
+    const target = (day.data ?? []).find((r) => r.id === navTarget.visitId)
+    if (target) setOpenVisit(target)
+    onTargetConsumed?.()
+  }, [navTarget, date, day.loading, day.data, onTargetConsumed])
 
   /* Filtrado: AND entre categorías, OR dentro de cada una; el buscador (nombre / N° / protocolo /
      tag de visita) se aplica encima. "Para ver médico" es un toggle aparte (wants_doctor mientras

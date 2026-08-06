@@ -403,24 +403,38 @@ input:-webkit-autofill:focus {
 }
 
 /* —— Tarjeta-enlace ——
-   Tarjeta pulsable que lleva a otra vista (en Inicio: las de módulo, "Tu día" → Visitas y
-   "Lo prioritario" → Alertas). Al hover el borde toma el acento y aparece la sombra media.
-   Va en CSS y NO en onMouseEnter/onMouseLeave: la tarjeta trae la `border` ABREVIADA en su
-   style inline, y cuando el handler le escribe `borderColor` a mano React resuelve el
-   conflicto en el render siguiente VACIANDO todos los longhand (border-*-style/width) — la
-   tarjeta se queda sin borde y la consola avisa "Removing borderColor border". Es el mismo
-   gotcha de mezclar abreviada y longhand que ya nos costó el chip del coordinador, acá en su
-   variante imperativa. El acento lo pone cada tarjeta con --spira-card-accent (lo define el
-   módulo); el levante de ~1px sigue viniendo de la micro-interacción estándar de arriba.
-   El borde también lo declara ESTA clase y no el style inline de cada tarjeta: un `border`
-   inline le gana por especificidad a la hoja de estilos y el hover no podría recolorearlo. */
+   Tarjeta pulsable que lleva a otra vista (en Inicio: las de módulo, "Tu día" y "Lo prioritario").
+
+   ⚠️ REGLA DE LA CASA: el hover NO pinta el borde con el acento. Nada de bordes verdes como
+   señal de estado —decisión del Director, 2026-08-06—: el realce es SIEMPRE elevación, o sea
+   el levante de ~1px de la micro-interacción estándar (arriba) más la sombra media. Es el mismo
+   criterio que ya rige el foco de los inputs (§"foco suave", nunca el outline verde). El borde
+   queda en la línea neutra y no cambia nunca.
+
+   El borde lo declara ESTA clase y no el style inline de cada tarjeta: un `border` inline le
+   gana por especificidad a la hoja de estilos. Y el realce va en CSS, NO en onMouseEnter: cuando
+   un handler le escribe `borderColor` a mano sobre un `border` abreviado, React resuelve el
+   conflicto en el render siguiente VACIANDO todos los longhand (border-*-style/width) y la
+   tarjeta se queda sin borde ("Removing borderColor border" en consola). Es el gotcha de
+   abreviada vs longhand, en su variante imperativa. */
 .spira-card-link {
   border: 1px solid var(--spira-line);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+  transition: box-shadow 0.15s ease, transform 0.12s ease;
 }
 .spira-card-link:hover {
-  border-color: var(--spira-card-accent, var(--spira-primary));
   box-shadow: var(--spira-shadow-md);
+}
+
+/* —— Fila-enlace ——
+   La fila de una tarjeta de resumen que lleva a SU ítem (una visita, una alerta), no a la lista.
+   Mismo criterio que .spira-card-link y que el foco de los inputs: el realce es elevación
+   —levante de ~1px + sombra chica—, nunca un borde de color. La sombra es la `sm` porque la fila
+   vive dentro de una tarjeta que ya está elevada; la `md` la haría flotar de más. */
+.spira-row-link {
+  transition: box-shadow 0.15s ease, transform 0.12s ease;
+}
+.spira-row-link:hover {
+  box-shadow: var(--spira-shadow-sm);
 }
 
 /* —— Impresión del comprobante de dispensación ——

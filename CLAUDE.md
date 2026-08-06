@@ -135,6 +135,18 @@ react-query: la navegación es estado propio del shell.
   permiso**, no éxito. Manejalo (ver `updatePatient`).
 - **Estilo:** CSS con variables en `src/styles/tokens.css` (sin Tailwind ni CSS-in-JS),
   íconos **Lucide** vía `components/Icon.tsx`, TypeScript **strict**.
+- **El realce de estado es ELEVACIÓN, nunca un borde de color.** Hover, foco y "activo" se
+  señalan con el levante de ~1px + sombra (`--spira-shadow-sm/md`). **Nada de bordes verdes
+  con el acento** — decisión del Director (2026-08-06), es lo mismo que ya regía para el foco
+  de los inputs (§"foco suave", nunca el outline verde). El color se reserva para *significado*
+  (estado clínico, alerta, error), no para decir "el mouse está acá".
+- **El realce va en CSS, no en `onMouseEnter`.** Escribir `borderColor`/`boxShadow` a mano
+  desde un handler sobre un `border` ABREVIADO deja el borde roto: React resuelve el conflicto
+  en el render siguiente **vaciando todos los longhand** y el elemento se queda sin borde
+  (consola: "Removing borderColor border"). Y si el borde va inline, le gana por especificidad
+  a la hoja de estilos y el hover no puede tocarlo. Usá una clase (ver `.spira-card-link` y
+  `.spira-row-link`) y, cuando el borde sí va inline, declaralo en **longhands**
+  (`borderWidth`/`borderStyle`/`borderColor`), nunca mezclado con la abreviada.
 - **Idioma:** comentarios, nombres de dominio y copy de UI en **castellano rioplatense**.
   El código existente tiene comentarios densos y explicativos (el porqué, no el qué) —
   igualá esa densidad y tono.
