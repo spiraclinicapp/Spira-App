@@ -402,6 +402,27 @@ input:-webkit-autofill:focus {
   }
 }
 
+/* —— Tarjeta-enlace ——
+   Tarjeta pulsable que lleva a otra vista (en Inicio: las de módulo, "Tu día" → Visitas y
+   "Lo prioritario" → Alertas). Al hover el borde toma el acento y aparece la sombra media.
+   Va en CSS y NO en onMouseEnter/onMouseLeave: la tarjeta trae la `border` ABREVIADA en su
+   style inline, y cuando el handler le escribe `borderColor` a mano React resuelve el
+   conflicto en el render siguiente VACIANDO todos los longhand (border-*-style/width) — la
+   tarjeta se queda sin borde y la consola avisa "Removing borderColor border". Es el mismo
+   gotcha de mezclar abreviada y longhand que ya nos costó el chip del coordinador, acá en su
+   variante imperativa. El acento lo pone cada tarjeta con --spira-card-accent (lo define el
+   módulo); el levante de ~1px sigue viniendo de la micro-interacción estándar de arriba.
+   El borde también lo declara ESTA clase y no el style inline de cada tarjeta: un `border`
+   inline le gana por especificidad a la hoja de estilos y el hover no podría recolorearlo. */
+.spira-card-link {
+  border: 1px solid var(--spira-line);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+.spira-card-link:hover {
+  border-color: var(--spira-card-accent, var(--spira-primary));
+  box-shadow: var(--spira-shadow-md);
+}
+
 /* —— Impresión del comprobante de dispensación ——
    El comprobante ES la nota fuente: se imprime, se sella y se firma con la medicación al
    momento del retiro, y va a la carpeta del paciente. Por eso no se imprime la pantalla:

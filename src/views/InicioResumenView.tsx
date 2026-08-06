@@ -13,14 +13,32 @@ import { VISIT_STATES, OperationalStageChip } from './visitStates'
 import type { ViewProps } from './types'
 
 const display = 'var(--spira-font-display)'
+/* Sin `border`: las tarjetas de esta vista son todas pulsables y el borde (y su recoloreado al
+   hover) lo pone `.spira-card-link` en tokens.css — inline le ganaría por especificidad. */
 const card: CSSProperties = {
-  background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
-  borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
+  background: 'var(--spira-white)', borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
 }
 const cardTitle: CSSProperties = { fontFamily: display, fontWeight: 700, fontSize: 16 }
-const verLink: CSSProperties = {
-  background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+/* Rótulo del destino de las tarjetas de resumen. Ya no es un botón propio: la tarjeta entera
+   navega (una sola cosa pulsable, sin interactivos anidados), así que esto solo nombra a dónde
+   lleva. Se muestra siempre —incluso con la tarjeta vacía— porque el destino existe igual. */
+const verHint: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 4,
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-primary)',
+}
+/* Tarjeta de resumen pulsable: resetea lo que el <button> impone (tipografía, alineación, ancho)
+   y deja el resto a `card`. El realce del hover, el levante de ~1px y el anillo de foco no están
+   acá: los ponen `.spira-card-link` y la micro-interacción estándar de tokens.css. */
+const cardButton: CSSProperties = {
+  display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left', cursor: 'pointer',
+  fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
+}
+/** `style` de una tarjeta-enlace: la base más el acento del módulo como variable CSS, que es lo
+ *  que lee `.spira-card-link:hover`. El cast es por la variable: `CSSProperties` no contempla
+ *  propiedades personalizadas. Nunca escribas el borde del hover a mano desde un handler — ver
+ *  el porqué en el comentario de `.spira-card-link` (tokens.css). */
+function cardLinkStyle(accent: string, base: CSSProperties): CSSProperties {
+  return { ...base, '--spira-card-accent': accent } as CSSProperties
 }
 const btnOutline: CSSProperties = {
   height: 38, padding: '0 15px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
@@ -119,14 +137,12 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
               return (
                 <button
                   key={m.key}
+                  className="spira-card-link"
                   onClick={() => onNavigate?.(m.key, m.submodules[0].key)}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = m.accent; e.currentTarget.style.boxShadow = 'var(--spira-shadow-md)' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--spira-line)'; e.currentTarget.style.boxShadow = 'none' }}
-                  style={{
-                    textAlign: 'left', border: '1px solid var(--spira-line)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer',
+                  style={cardLinkStyle(m.accent, {
+                    textAlign: 'left', borderRadius: 14, padding: '16px 18px', cursor: 'pointer',
                     background: 'var(--spira-white)', display: 'flex', flexDirection: 'column', fontFamily: 'var(--spira-font-text)',
-                    transition: 'border-color .15s ease, box-shadow .15s ease',
-                  }}
+                  })}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ width: 38, height: 38, borderRadius: 11, background: m.accent + '16', display: 'grid', placeItems: 'center' }}>
@@ -180,13 +196,21 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
 
       {/* ── lo prioritario + tu día ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
-        {/* Tu día (visitas de hoy, sin hora) — primero (lo accionable del día) */}
-        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Tu día (visitas de hoy, sin hora) — primero (lo accionable del día). La tarjeta entera
+            lleva a Visitas: el resumen es la puerta, no una vitrina. */}
+        <button
+          type="button"
+          className="spira-card-link"
+          onClick={() => onNavigate?.('track', 'visitas')}
+          aria-label="Tu día — ver las visitas de hoy"
+          style={cardLinkStyle(accent, { ...card, ...cardButton })}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <span style={cardTitle}>Tu día</span>
-            {dayRows.length > 0 && (
-              <button style={verLink} onClick={() => onNavigate?.('track', 'visitas')}>Ver agenda</button>
-            )}
+            <span style={verHint}>
+              Ver agenda
+              <Icon name="arrowRight" size={14} color="var(--spira-primary)" />
+            </span>
           </div>
           {dayRows.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
@@ -212,15 +236,22 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
               ))}
             </div>
           )}
-        </div>
+        </button>
 
-        {/* Lo prioritario (alertas) — segundo */}
-        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Lo prioritario (alertas) — segundo. La tarjeta entera lleva a Alertas. */}
+        <button
+          type="button"
+          className="spira-card-link"
+          onClick={() => onNavigate?.('track', 'alertas')}
+          aria-label="Lo prioritario — ver todas las alertas"
+          style={cardLinkStyle(accent, { ...card, ...cardButton })}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <span style={cardTitle}>Lo prioritario</span>
-            {alerts.length > 0 && (
-              <button style={verLink} onClick={() => onNavigate?.('track', 'alertas')}>Ver todo</button>
-            )}
+            <span style={verHint}>
+              Ver todo
+              <Icon name="arrowRight" size={14} color="var(--spira-primary)" />
+            </span>
           </div>
           {alerts.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
@@ -248,7 +279,7 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
               })}
             </div>
           )}
-        </div>
+        </button>
       </div>
     </div>
   )
