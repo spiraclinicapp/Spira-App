@@ -139,28 +139,6 @@ export function currentVisit(rows: TrackVisitRow[]): TrackVisitRow | null {
   return pickCurrent(orderVisits(scheduledVisits(rows)))
 }
 
-/**
- * Tracker de 3 columnas sobre la línea de tiempo COMPLETA (sueltas pre/post-rando + programadas,
- * ordenadas por fecha): anterior, actual y próxima. La "actual" es la primera no realizada o, si
- * están todas hechas, la última. Así las visitas previas a la randomización se trackean igual que
- * las del cronograma (a diferencia de `currentVisit`, que mira solo el cronograma).
- */
-export function prevCurrentNext(rows: TrackVisitRow[]): {
-  prev: TrackVisitRow | null
-  current: TrackVisitRow | null
-  next: TrackVisitRow | null
-} {
-  const ordered = orderVisits(rows)
-  const current = pickCurrent(ordered)
-  if (!current) return { prev: null, current: null, next: null }
-  const idx = ordered.findIndex((v) => v.id === current.id)
-  return {
-    prev: idx > 0 ? ordered[idx - 1] : null,
-    current,
-    next: idx < ordered.length - 1 ? ordered[idx + 1] : null,
-  }
-}
-
 /** Adherencia = realizadas / programadas (solo cuentan las del cronograma; las sueltas no). */
 export function adherence(rows: TrackVisitRow[]): { done: number; planned: number; pct: number } {
   const sch = scheduledVisits(rows)
