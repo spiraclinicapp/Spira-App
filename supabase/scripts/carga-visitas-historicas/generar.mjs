@@ -185,7 +185,9 @@ where en.ivrs_code = ${q(e.ivrs)} and pr.code = ${q(cp)} and vd.code = ${q(v.def
 
 // 4) backfill de real_date sobre las visitas generadas (match por ivrs_code del enrollment + code de la def).
 export function sqlBackfill(model) {
-  const out = ['-- 4) backfill de real_date (mismo efecto que registerVisit; dispara materialize_checklist) --']
+  // Hasta la 0069 este backfill disparaba `materialize_checklist` (copiaba la plantilla de
+  // checklist a cada visita); ese trigger ya no existe, así que hoy solo escribe real_date.
+  const out = ['-- 4) backfill de real_date (mismo efecto que registerVisit) --']
   let n = 0
   for (const e of model.enrollments) {
     if (!codProd(e.proto) || !e.anclaFecha) continue   // los sin randomizar cargan sus reales en 4b (sueltas)
