@@ -33,7 +33,7 @@ export interface ModuleDef {
 /* Orden: los módulos operativos primero (Coordinación, Farmacia), los que vienen al final.
    El acceso real por rol lo decide auth (user_module_roles); acentos = hex fijos.
 
-   ⚠️ NOMBRE VISIBLE ≠ CLAVE. Desde el 2026-08-07, por pedido del Director (mismo motivo que
+   ⚠️ NOMBRE VISIBLE ≠ CLAVE. Desde el 2026-08-06, por pedido del Director (mismo motivo que
    los descriptores de submódulo: "no se entiende qué es cada cosa"), los dos módulos
    operativos se llaman en pantalla **Coordinación** y **Farmacia** — antes Track y Pharma.
    Las `key` siguen siendo `track` y `pharma`, y NO se tocan: son valores de un enum de
@@ -79,7 +79,7 @@ export const MODULES: ModuleDef[] = [
        el recorrido real de la medicación por la farmacia (pedido del Director). "Recepción"
        además choca con el mostrador de entrada del centro: su descriptor lo desambigua. */
     submodules: [
-      // TEMPORAL: Resumen fuera del menú por pedido del Director (2026-08-07). No tenía vista
+      // TEMPORAL: Resumen fuera del menú por pedido del Director (2026-08-06). No tenía vista
       // propia —caía al Placeholder— así que no se perdió ninguna función. Para reponerlo,
       // descomentar esta línea; al ser el primero, volvería a ser el submódulo por defecto
       // de Pharma (AppShell usa submodules[0] al entrar al módulo).
