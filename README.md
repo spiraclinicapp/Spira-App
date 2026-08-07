@@ -9,6 +9,16 @@ Unifica en una sola app dos productos previos:
 El shell es modular (deja lugar para Lab y Contable a futuro), sobre Supabase con RLS y
 auditoría transversal (sistema auditable ANMAT / ICH-GCP). Castellano rioplatense.
 
+## Dónde corre
+
+**Producción: <https://spira-app.vercel.app>** — Vercel, proyecto `spira-app`, **desplegada
+automáticamente desde `main`**; las ramas con PR abierta salen en su propio preview.
+
+Ojo: **corre contra la base REAL, con datos de pacientes.** Para probar no se usa esta URL sino
+el dev server local (`npm run dev`, `.env` propio). Y para saber qué versión está arriba, el
+popover "Acerca de Spira" del menú de usuario muestra la de `package.json`, que es la que dice
+el tag de git — si no coinciden, falta un release o falta un deploy.
+
 ## Stack
 
 Vite + React 19 + TypeScript (strict) · Supabase (PostgreSQL + RLS + Auth + Realtime) ·
