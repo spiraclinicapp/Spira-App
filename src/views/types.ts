@@ -38,11 +38,20 @@ export interface ViewHeader {
 
 /**
  * Objetivo de navegación: entidad concreta a abrir al llegar a la vista destino, no solo
- * el módulo/submódulo. Hoy solo paciente (buscador global → ficha directa); extensible a
- * protocolo, visita, etc. La vista lo consume una vez (ver `navTarget`/`onTargetConsumed`).
+ * el módulo/submódulo. Hoy paciente (buscador global → ficha directa) y visita (las filas del
+ * resumen de Inicio → el detalle de esa visita); extensible a protocolo, etc. La vista lo
+ * consume una vez (ver `navTarget`/`onTargetConsumed`).
  */
 export interface NavTarget {
-  patientId: string
+  patientId?: string
+  /** Visita concreta a abrir (su modal en "Visitas del día"). */
+  visitId?: string
+  /**
+   * Día (ISO) al que tiene que saltar "Visitas del día" para que `visitId` esté en la lista:
+   * esa vista carga UN día, y una visita en alerta suele ser de una fecha pasada. Sin esto,
+   * la visita simplemente no estaría cargada y no habría nada que abrir.
+   */
+  visitDate?: string
 }
 
 /**

@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
-import { useVisitAlerts } from '../data/visits'
 import type { TrackVisitRow } from '../data/visits'
-import { useProcedureReportAlerts } from '../data/reports'
+import { useActiveAlerts } from '../data/alertDismissals'
 import { visitTitle } from '../lib/visits'
 import { formatAR } from '../lib/dates'
 import { VISIT_STATES } from '../views/visitStates'
@@ -47,16 +46,18 @@ function reasonLabel(a: TrackVisitRow): string {
 }
 
 export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuProps) {
-  const alerts = useVisitAlerts()
-  const procReports = useProcedureReportAlerts()
+  /* Las MISMAS alertas vigentes que la vista de Alertas y el resumen de Inicio, ya sin las
+     descartadas (0070): si la campana dijera 22 sobre una lista de 21, el badge dejaría de
+     ser creíble. El filtro vive una sola vez, en useActiveAlerts. */
+  const alerts = useActiveAlerts()
   const [open, setOpen] = useState(false)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
 
-  const rows = useMemo(() => alerts.data ?? [], [alerts.data])
-  const procRows = useMemo(() => procReports.data ?? [], [procReports.data])
+  const rows = alerts.visitAlerts
+  const procRows = alerts.reportAlerts
   const count = rows.length + procRows.length
   const badge = count > 9 ? '9+' : String(count)
 
@@ -113,9 +114,9 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
 
           {/* cuerpo */}
           <div style={listWrap}>
-            {(alerts.loading || procReports.loading) && rows.length === 0 && procRows.length === 0 ? (
+            {alerts.loading && rows.length === 0 && procRows.length === 0 ? (
               <div style={emptyBox}>Cargando…</div>
-            ) : alerts.error || procReports.error ? (
+            ) : alerts.error ? (
               <div style={{ ...emptyBox, color: 'var(--spira-danger)' }}>No pudimos cargar las notificaciones.</div>
             ) : rows.length === 0 && procRows.length === 0 ? (
               <div style={emptyState}>

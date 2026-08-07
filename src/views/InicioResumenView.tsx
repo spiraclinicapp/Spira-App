@@ -3,7 +3,7 @@ import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../lib/auth'
 import { useVisitsForDay } from '../data/dayVisits'
-import { useVisitAlerts } from '../data/visits'
+import { useActiveAlerts } from '../data/alertDismissals'
 import type { VisitType } from '../data/visits'
 import { useReceptions } from '../data/pharma'
 import { visitTitle } from '../lib/visits'
@@ -18,9 +18,27 @@ const card: CSSProperties = {
   borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
 }
 const cardTitle: CSSProperties = { fontFamily: display, fontWeight: 700, fontSize: 16 }
+/* "Ver agenda" / "Ver todo": el atajo del encabezado a la LISTA completa. Las filas de abajo
+   llevan cada una a su ítem puntual, así que esto es la salida al listado, no el destino
+   principal. Se muestra siempre —incluso con la tarjeta vacía— porque la lista existe igual. */
 const verLink: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 4,
   background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-primary)',
+}
+/* Fila pulsable del resumen (una visita, una alerta): resetea lo que impone el <button> y conserva
+   el layout de la fila. El borde va en longhands y NO en la abreviada, porque cada fila le suma
+   su separador de arriba (borderTopWidth) — mezclar las dos formas es el gotcha de siempre.
+   Sin radio a propósito: la fila lleva su separador en el borde de arriba y un radio le curvaría
+   las puntas a esa línea de 1px. El resaltado del hover lo pone `.spira-row-link` (tokens.css);
+   el levante NO corre acá (`.spira-no-press`) — una fila se resalta, no se eleva.
+   Tampoco va el `background` acá: inline le ganaría por especificidad al hover de la clase y el
+   resaltado no se vería nunca (mismo motivo por el que el borde de las tarjetas vive en el CSS). */
+const rowButton: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 11, padding: '11px 0', width: '100%',
+  borderWidth: 0, borderStyle: 'solid', borderColor: 'var(--spira-line)',
+  textAlign: 'left', cursor: 'pointer',
+  fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
 }
 const btnOutline: CSSProperties = {
   height: 38, padding: '0 15px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
@@ -38,7 +56,9 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
   const accent = module.accent
   const { modules: userModules } = useAuth()
   const day = useVisitsForDay(todayISO())
-  const alertsQ = useVisitAlerts()
+  /* Alertas VIGENTES: las mismas que ve la campana y la vista de Alertas, ya sin las
+     descartadas (0070). El filtro vive una sola vez, en useActiveAlerts. */
+  const alertsQ = useActiveAlerts()
   /* Pharma está operativo (v0.8+): su tarjeta muestra la cola de verificación, no "Próximamente".
      Para quien no tiene el módulo, RLS devuelve vacío en silencio (y la tarjeta ni se pinta). */
   const recepQ = useReceptions(null, null)
@@ -61,7 +81,7 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
   }
 
   const visits = day.data ?? []
-  const alerts = alertsQ.data ?? []
+  const alerts = alertsQ.visitAlerts
   /* "Lo prioritario": las CRÍTICAS (ventana vencida) primero, después los ítems vencidos (sort
      estable → preserva el orden por fecha de useVisitAlerts dentro de cada grupo); luego las 5. */
   const priorityAlerts = [...alerts].sort(
@@ -119,13 +139,11 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
               return (
                 <button
                   key={m.key}
+                  className="spira-card-link"
                   onClick={() => onNavigate?.(m.key, m.submodules[0].key)}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = m.accent; e.currentTarget.style.boxShadow = 'var(--spira-shadow-md)' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--spira-line)'; e.currentTarget.style.boxShadow = 'none' }}
                   style={{
-                    textAlign: 'left', border: '1px solid var(--spira-line)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer',
+                    textAlign: 'left', borderRadius: 14, padding: '16px 18px', cursor: 'pointer',
                     background: 'var(--spira-white)', display: 'flex', flexDirection: 'column', fontFamily: 'var(--spira-font-text)',
-                    transition: 'border-color .15s ease, box-shadow .15s ease',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -180,13 +198,15 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
 
       {/* ── lo prioritario + tu día ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
-        {/* Tu día (visitas de hoy, sin hora) — primero (lo accionable del día) */}
+        {/* Tu día (visitas de hoy, sin hora) — primero (lo accionable del día). Cada fila abre SU
+            visita; el rótulo del encabezado queda para ir a la lista completa. */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={cardTitle}>Tu día</span>
-            {dayRows.length > 0 && (
-              <button style={verLink} onClick={() => onNavigate?.('track', 'visitas')}>Ver agenda</button>
-            )}
+            <button type="button" style={verLink} onClick={() => onNavigate?.('track', 'visitas')}>
+              Ver agenda
+              <Icon name="arrowRight" size={14} color="var(--spira-primary)" />
+            </button>
           </div>
           {dayRows.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
@@ -196,7 +216,14 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
           ) : (
             <div style={{ marginTop: 6 }}>
               {dayRows.map((v) => (
-                <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 0', borderTop: '1px solid var(--spira-line)' }}>
+                <button
+                  key={v.id}
+                  type="button"
+                  className="spira-row-link spira-no-press"
+                  onClick={() => onNavigate?.('track', 'visitas', { visitId: v.id, visitDate: todayISO() })}
+                  aria-label={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
+                  style={{ ...rowButton, borderTopWidth: 1 }}
+                >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {v.patient_name}
@@ -208,19 +235,21 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
                   </div>
                   <span style={{ fontSize: 12, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>{TIPO_LABEL[v.visit_type]}</span>
                   <OperationalStageChip stage={v.operational_stage} />
-                </div>
+                </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Lo prioritario (alertas) — segundo */}
+        {/* Lo prioritario (alertas) — segundo. Cada alerta lleva a Alertas y abre ahí su visita:
+            el detalle se mira sin salir del módulo donde se trabaja la alerta. */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={cardTitle}>Lo prioritario</span>
-            {alerts.length > 0 && (
-              <button style={verLink} onClick={() => onNavigate?.('track', 'alertas')}>Ver todo</button>
-            )}
+            <button type="button" style={verLink} onClick={() => onNavigate?.('track', 'alertas')}>
+              Ver todo
+              <Icon name="arrowRight" size={14} color="var(--spira-primary)" />
+            </button>
           </div>
           {alerts.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
@@ -232,7 +261,16 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
               {priorityAlerts.slice(0, 5).map((a) => {
                 const c = VISIT_STATES[a.computed_status].color
                 return (
-                  <div key={a.id} style={{ display: 'flex', gap: 11, padding: '11px 0', borderTop: '1px solid var(--spira-line)' }}>
+                  <button
+                    key={a.id}
+                    type="button"
+                    className="spira-row-link spira-no-press"
+                    /* A Alertas, no a Visitas: la alerta se trabaja en su módulo, y el modal de la
+                       visita se abre ahí adentro. Sin fecha — esa vista carga todas las alertas. */
+                    onClick={() => onNavigate?.('track', 'alertas', { visitId: a.id })}
+                    aria-label={`Abrir en Alertas la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
+                    style={{ ...rowButton, alignItems: 'flex-start', borderTopWidth: 1 }}
+                  >
                     <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={17} color={c} style={{ flex: '0 0 auto', marginTop: 1 }} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -243,7 +281,7 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
                         <span style={{ color: 'var(--spira-faint)' }}> · <span className="spira-mono">{a.protocol_code}</span></span>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 )
               })}
             </div>

@@ -51,6 +51,9 @@
   --spira-radius-pill: 999px;
 
   /* —— Sombras (suaves, cálidas) —— */
+  /* Curva única del sistema: sale rápido y SE ASIENTA, sin overshoot (§6 "el movimiento es corto
+     .12–.18s y se asienta"; nada de bounce ni elastic). Es un ease-out-quart. */
+  --spira-ease-out: cubic-bezier(0.25, 1, 0.5, 1);
   --spira-shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.06);
   --spira-shadow-md: 0 12px 32px rgba(20, 48, 46, 0.10);
   --spira-shadow-lg: 0 18px 40px rgba(20, 48, 46, 0.14);
@@ -400,6 +403,68 @@ input:-webkit-autofill:focus {
   :where(button, a[href], [role='button'], summary):not(:disabled):not([aria-disabled='true']):not(.spira-no-press):active {
     transform: translateY(0);
   }
+}
+
+/* —— Tarjeta-enlace ——
+   Tarjeta pulsable que lleva a otra vista (en Inicio: las de módulo, "Tu día" y "Lo prioritario").
+
+   ⚠️ REGLA DE LA CASA: el hover NO pinta el borde con el acento. Nada de bordes verdes como
+   señal de estado —decisión del Director, 2026-08-06—: el realce es SIEMPRE elevación, o sea
+   el levante de ~1px de la micro-interacción estándar (arriba) más la sombra media. Es el mismo
+   criterio que ya rige el foco de los inputs (§"foco suave", nunca el outline verde). El borde
+   queda en la línea neutra y no cambia nunca.
+
+   El borde lo declara ESTA clase y no el style inline de cada tarjeta: un `border` inline le
+   gana por especificidad a la hoja de estilos. Y el realce va en CSS, NO en onMouseEnter: cuando
+   un handler le escribe `borderColor` a mano sobre un `border` abreviado, React resuelve el
+   conflicto en el render siguiente VACIANDO todos los longhand (border-*-style/width) y la
+   tarjeta se queda sin borde ("Removing borderColor border" en consola). Es el gotcha de
+   abreviada vs longhand, en su variante imperativa.
+
+   La sombra es la `sm` (0 1px 2px) y NO la `md`: la `md` es `0 12px 32px`, una sombra de overlay
+   —dice "esto flota 12px sobre la página"— y encima de un levante de 1px queda a contramano de sí
+   misma; ese desajuste de escala es lo que hacía ver la animación pegoteada. Sombra y levante
+   comparten duración y curva para llegar juntos. */
+/* El borde acá es el POR DEFECTO. Una tarjeta con borde propio de estado —los ítems de Alertas,
+   teñidos por severidad— lo declara inline y lo pisa; el resto del realce le sigue corriendo. */
+.spira-card-link {
+  border: 1px solid var(--spira-line);
+}
+/* Los mismos `:not(...)` que la micro-interacción global de arriba, y a propósito: sin ellos esa
+   regla —que es más específica— le pisa la transición a la tarjeta y la sombra entra de golpe
+   mientras el levante sí anima. Con la misma especificidad y viniendo después, gana ésta y las
+   dos propiedades viajan juntas. */
+.spira-card-link:not(:disabled):not([aria-disabled='true']) {
+  transition: box-shadow 0.16s var(--spira-ease-out), transform 0.16s var(--spira-ease-out);
+}
+.spira-card-link:hover {
+  box-shadow: var(--spira-shadow-sm);
+}
+
+/* —— Fila-enlace ——
+   La fila de una tarjeta de resumen que lleva a SU ítem (una visita, una alerta), no a la lista.
+
+   Una fila NO se levanta: se resalta. Es lo mismo que ya hacen la navegación y `.spira-menu-item`
+   (por eso las filas llevan también `.spira-no-press`, que las saca de la micro-interacción de
+   pulsado). El levante es el gesto de una SUPERFICIE —una tarjeta, que tiene borde y fondo
+   propios—; una fila transparente que se mueve 1px no tiene nada que elevar y lee como temblor.
+   Y sobre todo: la fila carga el separador de arriba, así que al levantarse se llevaba la línea
+   con ella y la estructura del listado saltaba — ése era el "recorte" que se veía. Quieta la
+   fila, el separador queda donde tiene que estar. Sin radio por el mismo motivo: un radio sobre
+   un elemento cuyo único borde es el de arriba curva las puntas de esa línea de 1px y la regla
+   se ve cortada en los extremos. */
+.spira-row-link {
+  background-color: transparent;
+  transition: background-color 0.14s var(--spira-ease-out);
+}
+.spira-row-link:hover {
+  background-color: var(--spira-surface);
+}
+/* Reduced-motion: el cambio de estado se mantiene (sombra y resaltado siguen ahí, son señal, no
+   adorno) pero llega sin recorrido. El levante ya no corre: vive en el bloque no-preference. */
+@media (prefers-reduced-motion: reduce) {
+  .spira-card-link:not(:disabled):not([aria-disabled='true']),
+  .spira-row-link { transition: none; }
 }
 
 /* —— Impresión del comprobante de dispensación ——
