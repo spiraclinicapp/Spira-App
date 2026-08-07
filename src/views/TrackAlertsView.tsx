@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
@@ -10,6 +10,7 @@ import { useProtocols } from '../data/protocols'
 import { visitTitle } from '../lib/visits'
 import { formatAR, todayISO, daysDiffISO } from '../lib/dates'
 import { VISIT_STATES } from './visitStates'
+import { VisitDetail } from './track/VisitDetail'
 import type { ViewProps } from './types'
 
 const card: CSSProperties = {
@@ -22,6 +23,19 @@ const btnOutline: CSSProperties = {
   fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
 }
 const code: CSSProperties = { fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }
+
+/* Ítem de alerta pulsable (abre la visita). Es una SUPERFICIE —fondo y borde propios, teñidos por
+   severidad—, así que al hover se eleva: levante de ~1px + sombra a escala, vía `.spira-card-link`.
+   El borde teñido va inline a propósito: pisa el borde neutro que esa clase trae por defecto, que
+   acá borraría la señal de estado. `tone` es el color del estado (VISIT_STATES / petróleo). */
+function alertItemStyle(tone: string): CSSProperties {
+  return {
+    display: 'flex', gap: 11, width: '100%', padding: '12px 13px', borderRadius: 11,
+    background: tone + '0E', border: `1px solid ${tone}30`,
+    textAlign: 'left', cursor: 'pointer',
+    fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
+  }
+}
 
 const AGE_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: 'Cualquier antigüedad' },
@@ -39,14 +53,32 @@ function refDate(a: TrackVisitRow): string | null {
  * Vista Alertas: promueve el card de alertas del Resumen a vista full con filtros por
  * protocolo y por antigüedad. Reusa useVisitAlerts() + VISIT_STATES. Solo lectura
  * ("marcar visto/cerrado" es fase 2). Filtrado en el front sobre las filas del hook.
+ *
+ * Cada alerta ABRE SU VISITA en el mismo modal que el resto de la app (`VisitDetail`), acá
+ * adentro: la alerta se resuelve mirando la visita, no saltando a otra pantalla. Las dos clases
+ * de alerta sirven para eso —las de visita por su `id`, las de reporte de procedimiento por su
+ * `visit_id`—. Va en `context="patient"` (solo lectura), como la ficha y la cola del médico: las
+ * acciones de etapa pertenecen al recorrido del día, y una alerta casi nunca es de hoy.
  */
-export function TrackAlertsView({ module, submodule }: ViewProps) {
+export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed }: ViewProps) {
   const accent = module.accent
   const alerts = useVisitAlerts()
   const procReports = useProcedureReportAlerts()
   const protocols = useProtocols()
   const [protocolFilter, setProtocolFilter] = useState<string>('all')
   const [ageDays, setAgeDays] = useState<number>(0)
+  /* Solo el id: `VisitDetail` trae sus propios datos por id (`useVisit`), así que no hace falta
+     encontrar la fila ni esperar a que carguen las alertas. Por eso una alerta se puede abrir
+     aunque los filtros de la vista la dejen fuera. */
+  const [openVisitId, setOpenVisitId] = useState<string | null>(null)
+
+  /* Llegada CON objetivo (desde "Lo prioritario" en Inicio): abrir esa alerta apenas montamos.
+     Se consume una sola vez para que un refetch no la reabra sola. */
+  useEffect(() => {
+    if (!navTarget?.visitId) return
+    setOpenVisitId(navTarget.visitId)
+    onTargetConsumed?.()
+  }, [navTarget, onTargetConsumed])
 
   const loading = alerts.loading || procReports.loading || protocols.loading
   const error = alerts.error || procReports.error || protocols.error
@@ -155,7 +187,14 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
               // aproximada (±1 día cerca de medianoche UTC).
               const days = daysDiffISO(r.report_due_at.slice(0, 10), todayISO())
               return (
-                <div key={r.completion_id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
+                <button
+                  key={r.completion_id}
+                  type="button"
+                  className="spira-card-link"
+                  onClick={() => setOpenVisitId(r.visit_id)}
+                  aria-label={`Abrir la visita de ${r.patient_name} — reporte de procedimiento pendiente`}
+                  style={alertItemStyle(c)}
+                >
                   <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="clipboardCheck" size={18} color={c} /></span>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -167,7 +206,7 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
                       Reporte de procedimiento pendiente · {r.description}{days > 0 ? ` · hace ${days} d` : ''}
                     </div>
                   </div>
-                </div>
+                </button>
               )
             })}
             {filtered.map((a) => {
@@ -177,7 +216,14 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
                 ? `Ventana vencida el ${a.window_end ? formatAR(a.window_end) : '—'} · ${vName}`
                 : `Reporte de procedimiento fuera de plazo · ${vName}`
               return (
-                <div key={a.id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
+                <button
+                  key={a.id}
+                  type="button"
+                  className="spira-card-link"
+                  onClick={() => setOpenVisitId(a.id)}
+                  aria-label={`Abrir la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
+                  style={alertItemStyle(c)}
+                >
                   <span style={{ flex: '0 0 auto', marginTop: 1 }}>
                     <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={18} color={c} />
                   </span>
@@ -189,7 +235,7 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
@@ -198,6 +244,16 @@ export function TrackAlertsView({ module, submodule }: ViewProps) {
           Ventana vencida (roja) · Pendiente vencido (ámbar) · Reporte pendiente (petróleo)
         </div>
       </div>
+
+      {openVisitId && (
+        <VisitDetail
+          visitId={openVisitId}
+          accent={accent}
+          context="patient"
+          onClose={() => setOpenVisitId(null)}
+          onChanged={() => { alerts.refetch(); procReports.refetch() }}
+        />
+      )}
     </div>
   )
 }

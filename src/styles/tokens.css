@@ -425,6 +425,8 @@ input:-webkit-autofill:focus {
    —dice "esto flota 12px sobre la página"— y encima de un levante de 1px queda a contramano de sí
    misma; ese desajuste de escala es lo que hacía ver la animación pegoteada. Sombra y levante
    comparten duración y curva para llegar juntos. */
+/* El borde acá es el POR DEFECTO. Una tarjeta con borde propio de estado —los ítems de Alertas,
+   teñidos por severidad— lo declara inline y lo pisa; el resto del realce le sigue corriendo. */
 .spira-card-link {
   border: 1px solid var(--spira-line);
 }

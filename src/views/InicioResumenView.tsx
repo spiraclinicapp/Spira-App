@@ -239,8 +239,8 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
           )}
         </div>
 
-        {/* Lo prioritario (alertas) — segundo. Cada alerta abre SU visita: es el detalle que la
-            alerta tiene (la vista de Alertas es un listado, no tiene ficha por alerta). */}
+        {/* Lo prioritario (alertas) — segundo. Cada alerta lleva a Alertas y abre ahí su visita:
+            el detalle se mira sin salir del módulo donde se trabaja la alerta. */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={cardTitle}>Lo prioritario</span>
@@ -258,18 +258,15 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
             <div style={{ marginTop: 6 }}>
               {priorityAlerts.slice(0, 5).map((a) => {
                 const c = VISIT_STATES[a.computed_status].color
-                /* El día al que tiene que saltar Visitas para tener cargada esta visita. La
-                   estimada es la que la pone en alerta; si falta, la real. Si no hay ninguna
-                   (no debería, pero el tipo lo permite) va sin fecha y el destino queda en la
-                   lista del día: preferimos eso a prometer un detalle que no vamos a abrir. */
-                const visitDate = a.estimated_date ?? a.real_date ?? undefined
                 return (
                   <button
                     key={a.id}
                     type="button"
                     className="spira-row-link spira-no-press"
-                    onClick={() => onNavigate?.('track', 'visitas', { visitId: a.id, visitDate })}
-                    aria-label={`Abrir la visita en alerta de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
+                    /* A Alertas, no a Visitas: la alerta se trabaja en su módulo, y el modal de la
+                       visita se abre ahí adentro. Sin fecha — esa vista carga todas las alertas. */
+                    onClick={() => onNavigate?.('track', 'alertas', { visitId: a.id })}
+                    aria-label={`Abrir en Alertas la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
                     style={{ ...rowButton, alignItems: 'flex-start', borderTopWidth: 1 }}
                   >
                     <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={17} color={c} style={{ flex: '0 0 auto', marginTop: 1 }} />
