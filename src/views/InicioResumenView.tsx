@@ -18,7 +18,7 @@ const card: CSSProperties = {
   borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
 }
 const cardTitle: CSSProperties = { fontFamily: display, fontWeight: 700, fontSize: 16 }
-/* "Ver agenda" / "Ver todo": el atajo del encabezado a la LISTA completa. Las filas de abajo
+/* "Ver visitas del día" / "Ver todo": el atajo del encabezado a la LISTA completa. Las filas de abajo
    llevan cada una a su ítem puntual, así que esto es la salida al listado, no el destino
    principal. Se muestra siempre —incluso con la tarjeta vacía— porque la lista existe igual. */
 const verLink: CSSProperties = {
@@ -203,8 +203,10 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={cardTitle}>Tu día</span>
+            {/* Dice a dónde va DE VERDAD: navega a track/visitas, no a la Agenda (que además
+                está fuera del menú). El rótulo "Ver agenda" quedó de cuando ese link iba ahí. */}
             <button type="button" style={verLink} onClick={() => onNavigate?.('track', 'visitas')}>
-              Ver agenda
+              Ver visitas del día
               <Icon name="arrowRight" size={14} color="var(--spira-primary)" />
             </button>
           </div>
