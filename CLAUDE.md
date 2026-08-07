@@ -96,6 +96,12 @@ El Director trabaja, commitea y mergea en paralelo sobre esta misma carpeta:
   login + el preview corre como documento oculto). No insistas: verificá por
   **snapshot/eval/estilos computados** y presentá evidencia de DOM.
 - Documento oculto ⇒ **transiciones y rAF pausados**: un "congelado" no es un bug de la app.
+  Corolario al medir un `:hover`: `getComputedStyle` devuelve el valor **inicial** aunque la regla
+  aplique. Apagá la transición del elemento (`el.style.transition = 'none'`) y medí de nuevo, o vas
+  a diagnosticar un bug que no existe.
+- **El buffer de consola sobrevive a los reloads**: los errores que ves pueden ser de antes de tu
+  fix. Para saber si un warning es actual, interceptá `console.error` y provocá el remontaje.
+  (Se comprueba con un marcador: logueá algo, recargá, y si el marcador sigue ahí es acumulativo.)
 - **React no ve `fill`/`click` sintéticos:** setter nativo + `dispatchEvent('input')` +
   `requestSubmit()`; eventos de teclado con `keyCode` y despachados en `document` (no
   `window`). `preview_resize` con preset a veces no aplica → `width`/`height` explícitos.
