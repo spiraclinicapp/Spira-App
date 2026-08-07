@@ -29,11 +29,15 @@ const verLink: CSSProperties = {
 /* Fila pulsable del resumen (una visita, una alerta): resetea lo que impone el <button> y conserva
    el layout de la fila. El borde va en longhands y NO en la abreviada, porque cada fila le suma
    su separador de arriba (borderTopWidth) — mezclar las dos formas es el gotcha de siempre.
-   El realce del hover (levante + sombra chica) lo pone `.spira-row-link` en tokens.css. */
+   Sin radio a propósito: la fila lleva su separador en el borde de arriba y un radio le curvaría
+   las puntas a esa línea de 1px. El resaltado del hover lo pone `.spira-row-link` (tokens.css);
+   el levante NO corre acá (`.spira-no-press`) — una fila se resalta, no se eleva.
+   Tampoco va el `background` acá: inline le ganaría por especificidad al hover de la clase y el
+   resaltado no se vería nunca (mismo motivo por el que el borde de las tarjetas vive en el CSS). */
 const rowButton: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 11, padding: '11px 0', width: '100%',
-  background: 'transparent', borderWidth: 0, borderStyle: 'solid', borderColor: 'var(--spira-line)',
-  borderRadius: 8, textAlign: 'left', cursor: 'pointer',
+  borderWidth: 0, borderStyle: 'solid', borderColor: 'var(--spira-line)',
+  textAlign: 'left', cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
 }
 const btnOutline: CSSProperties = {
@@ -213,7 +217,7 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
                 <button
                   key={v.id}
                   type="button"
-                  className="spira-row-link"
+                  className="spira-row-link spira-no-press"
                   onClick={() => onNavigate?.('track', 'visitas', { visitId: v.id, visitDate: todayISO() })}
                   aria-label={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
                   style={{ ...rowButton, borderTopWidth: 1 }}
@@ -263,7 +267,7 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
                   <button
                     key={a.id}
                     type="button"
-                    className="spira-row-link"
+                    className="spira-row-link spira-no-press"
                     onClick={() => onNavigate?.('track', 'visitas', { visitId: a.id, visitDate })}
                     aria-label={`Abrir la visita en alerta de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
                     style={{ ...rowButton, alignItems: 'flex-start', borderTopWidth: 1 }}
