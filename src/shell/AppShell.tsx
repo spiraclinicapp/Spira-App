@@ -307,7 +307,10 @@ export function AppShell() {
         <aside
           className="spira-navcol"
           style={{
-            width: navHidden ? 0 : 208,
+            /* 220 y no 208: el descriptor de cada submódulo tiene que entrar en UNA línea.
+               Con 208 quedaban 133px útiles y "Información de pacientes" mide 137,9px
+               (Inter 11.5px) — envolvía. 220 deja 145px y entra todo con aire. */
+            width: navHidden ? 0 : 220,
             flex: '0 0 auto',
             minWidth: 0,
             overflow: 'hidden',
@@ -315,7 +318,7 @@ export function AppShell() {
             borderRight: navHidden ? 'none' : '1px solid var(--spira-line)',
           }}
         >
-          <div style={{ width: 208, padding: '18px 12px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: 220, padding: '18px 12px', display: 'flex', flexDirection: 'column' }}>
             <div className="spira-eyebrow" style={{ padding: '2px 12px 0' }}>Submódulos</div>
             <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 14 }}>
               {mod.submodules.map((s) => {
@@ -324,15 +327,48 @@ export function AppShell() {
                   <button
                     key={s.key}
                     onClick={() => { setSubKey(s.key); setSettingsSection(null); setNavTarget(null) }}
+                    /* El riel de módulos ya tenía `title`; el panel de submódulos era la única
+                       capa de la navegación sin ayuda contextual. Sigue valiendo aunque el
+                       descriptor esté a la vista: el panel se pliega (navHidden) y el rótulo
+                       puede truncarse. */
+                    title={s.hint ? `${s.name} — ${s.hint}` : s.name}
+                    /* El activo también se anuncia: antes se distinguía SOLO por color y
+                       fondo, así que un lector de pantalla leía seis botones idénticos. */
+                    aria-current={on ? 'page' : undefined}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 12px',
+                      /* flex-start, no center: con dos líneas el ícono se tiene que alinear con
+                         el RÓTULO, no con el bloque entero. */
+                      display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', textAlign: 'left', padding: '8px 12px',
                       border: 'none', borderRadius: 9, cursor: 'pointer',
-                      background: on ? accent + '14' : 'transparent', color: on ? accent : 'var(--spira-ink)',
+                      /* El rótulo del activo va en TINTA, no en el acento. En acento no se leía:
+                         sobre su propio fondo daba 2,17:1 en Pharma y 4,24:1 en Track (AA pide
+                         4,5:1) — el ítem que dice "estás acá" era el menos legible del panel.
+                         En tinta da 12,7:1 y el estado lo siguen marcando el fondo teñido, el
+                         semibold y el ícono en acento: tres canales en vez de uno flojo.
+                         El peso queda en 600 (no 700): el 700 se leía pesado — el realce del
+                         activo lo carga el fondo, no la negrita. */
+                      background: on ? accent + '14' : 'transparent', color: 'var(--spira-ink)',
                       fontFamily: 'var(--spira-font-text)', fontSize: 14, fontWeight: on ? 600 : 500,
                     }}
                   >
-                    <Icon name={s.icon} size={17} stroke={1.9} color={on ? accent : 'var(--spira-muted)'} />
-                    {s.name}
+                    <Icon
+                      /* accentSolid y no accent: es el mismo tono en Track, pero en Pharma el
+                         dorado claro sobre el fondo activo daba 2,17:1 y el sólido llega a
+                         3,16:1 — el mínimo de WCAG para elementos gráficos. */
+                      name={s.icon} size={17} stroke={1.9} color={on ? mod.accentSolid : 'var(--spira-muted)'}
+                      style={{ flex: '0 0 auto', marginTop: 1 }}
+                    />
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+                      <span style={{ lineHeight: 1.35 }}>{s.name}</span>
+                      {/* Descriptor: explica la pantalla sin estirar el rótulo (el ancho útil
+                          son 133px). Va en `ink-soft` y NO en `muted`, que a 11.5px se queda
+                          en 3.37:1 sobre el panel — por debajo del 4.5:1 de AA. */}
+                      {s.hint && (
+                        <span style={{ fontSize: 11.5, fontWeight: 400, lineHeight: 1.35, color: 'var(--spira-ink-soft)' }}>
+                          {s.hint}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 )
               })}

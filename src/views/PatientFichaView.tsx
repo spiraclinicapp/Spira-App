@@ -102,7 +102,6 @@ export function PatientFichaView(props: PatientFichaViewProps) {
     })
     return () => setHeader?.(null)
   }, [protocol.code, patient.code, canAct, canWrite, setHeader])
-  const medico = patient.treating_physician ?? '—'
   const enrollmentDate = enrollment?.enrollment_date ?? null
   const age = ageFromBirth(patient.birth_date)
 
@@ -189,23 +188,35 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, minHeight: 0 }}>
         {/* ficha lateral */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', rowGap: 10 }}>
-            <div style={{ minWidth: 0 }}>
-              {/* El nombre manda (mismo criterio que el header del modal de visita); el IVRS baja
-                  a identificador secundario, en mono. */}
-              <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.15 }}>{patient.full_name}</div>
-              <div className="spira-mono" style={{ fontSize: 13.5, color: patient.code ? 'var(--spira-muted)' : 'var(--spira-faint)', whiteSpace: 'nowrap', marginTop: 3 }}>{patient.code ?? 'Sin IVRS'}</div>
-              <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3 }}>{medico}</div>
+          {/* El título de la ficha es la IDENTIDAD y nada más: nombre + número de paciente
+              (mismo criterio que el header del modal de visita; el nombre manda y el IVRS baja a
+              identificador secundario, en mono). El médico tratante colgaba acá como una tercera
+              línea sin rótulo —se leía como un dato huérfano, y con el campo vacío era un "—"
+              suelto que no decía nada—: ahora vive abajo, rotulado (pedido del Director).
+
+              El nombre se lleva el RENGLÓN ENTERO y el badge de estado baja a la línea del IVRS.
+              Antes compartían fila: entre el badge y su gap le comían 96px de los 278 de la
+              ficha, así que al nombre le quedaban 182px y cualquiera de más de ~19 caracteres
+              partía en dos, con el badge flotando al medio. Con la fila completa entra la
+              enorme mayoría; los pocos que igual no entren cortan con `balance`, que reparte
+              las dos líneas en vez de dejar una palabra sola colgando. */}
+          <div>
+            <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.2, textWrap: 'balance' }}>{patient.full_name}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 5 }}>
+              <span className="spira-mono" style={{ fontSize: 13.5, color: patient.code ? 'var(--spira-muted)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</span>
+              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 13px', borderRadius: 10, background: statusColor + '14', border: `1px solid ${statusColor}38`, color: statusColor, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, flex: '0 0 auto' }} />{statusLabel}
+              </span>
             </div>
-            <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 13px', borderRadius: 10, background: statusColor + '14', border: `1px solid ${statusColor}38`, color: statusColor, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, flex: '0 0 auto' }} />{statusLabel}
-            </span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
             {row('Edad', age !== null ? `${age} años` : dash)}
             {row('Sexo', patient.sex ? (SEX_LABELS[patient.sex] ?? patient.sex) : dash)}
             {row('Fertilidad', patient.fertility ? (FERTILITY_LABELS[patient.fertility] ?? patient.fertility) : dash)}
+            {/* Médico tratante del paciente (`patients.treating_physician`), no el investigador
+                principal del protocolo — ese sigue abajo, en el bloque del estudio. */}
+            {row('Médico asignado', patient.treating_physician || dash)}
             {row('Fecha de ingreso', enrollmentDate ? formatAR(enrollmentDate) : dash)}
             {row('Código interno', protocol.internal_code || dash)}
           </div>

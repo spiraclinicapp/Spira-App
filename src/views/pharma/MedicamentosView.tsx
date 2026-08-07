@@ -105,8 +105,8 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   const goMenu = useCallback(() => { setApartado('menu'); setBusqueda(''); setFiltro('todos'); setProtoSel([]); setDropdownId(null) }, [])
   const refetchAll = () => { protoLots.refetch(); ambuLots.refetch(); catalog.refetch(); codes.refetch() }
 
-  // Encabezado contextual: el shell ya pone breadcrumb + título ("Medicamentos") + botón de acción.
-  // La vista suma la miga del apartado, hace "Medicamentos" clickeable (vuelve al menú) y cablea
+  // Encabezado contextual: el shell ya pone breadcrumb + título ("Stock") + botón de acción.
+  // La vista suma la miga del apartado, hace "Stock" clickeable (vuelve al menú) y cablea
   // "Agregar medicamento" (gating leader). En el menú, header genérico. Se limpia al desmontar.
   useEffect(() => {
     if (!setHeader) return

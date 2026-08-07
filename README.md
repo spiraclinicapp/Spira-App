@@ -3,8 +3,10 @@
 Plataforma modular de investigación clínica de la **Fundación Scherbovsky** (Mendoza, AR).
 Unifica en una sola app dos productos previos:
 
-- **Spira Track** — coordinación clínica: protocolos, pacientes, visitas, checklists, agenda.
-- **Spira Pharma** — farmacia de investigación: dispensación, stock por lote, reportes.
+- **Spira Coordinación** — coordinación clínica: protocolos, pacientes, visitas, checklists, agenda.
+  Clave interna `track` (así aparece en el código, las carpetas y la base).
+- **Spira Farmacia** — farmacia de investigación: dispensación, stock por lote, reportes.
+  Clave interna `pharma`.
 
 El shell es modular (deja lugar para Lab y Contable a futuro), sobre Supabase con RLS y
 auditoría transversal (sistema auditable ANMAT / ICH-GCP). Castellano rioplatense.
