@@ -49,7 +49,7 @@ export function DeleteMedicationModal({ row, onClose, onDeleted }: {
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
         <div style={{ fontSize: 14, color: 'var(--spira-ink)', lineHeight: 1.5 }}>
-          Vas a eliminar <strong>{row.name}</strong>{row.unit ? ` · ${row.unit}` : ''} del catálogo global de Spira Pharma.
+          Vas a eliminar <strong>{row.name}</strong>{row.unit ? ` · ${row.unit}` : ''} del catálogo global de Spira Farmacia.
         </div>
 
         <div style={warnCard}>

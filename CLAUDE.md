@@ -11,6 +11,13 @@ Spira es una **plataforma modular de investigación clínica** de la **Fundació
 (Mendoza, AR): un **Core compartido** (identidad, RBAC, auditoría, RLS, realtime — sistema
 auditable ANMAT / ICH-GCP) sobre el que se montan módulos independientes.
 
+> **Ojo con los nombres (2026-08-07).** En la UI los dos módulos operativos se llaman
+> **Coordinación** y **Farmacia**; en el código, las carpetas y la base siguen siendo
+> `track` y `pharma` — las claves son valores de un enum de Postgres del que dependen
+> `user_module_roles`, la RLS y el `audit_log`, así que no se renombran. Este documento y el
+> resto de los docs de arquitectura usan los nombres internos. Al escribir **copy de UI**,
+> usá siempre Coordinación / Farmacia.
+
 **No es solo la unificación de dos productos previos.** **Track** (coordinación clínica) y
 **Pharma** (farmacia de investigación) son los primeros módulos —nacieron de fusionar dos
 MVPs—, pero esa fusión fue el punto de partida, no el objetivo. La apuesta es la **base

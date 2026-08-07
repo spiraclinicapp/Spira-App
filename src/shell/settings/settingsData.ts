@@ -54,11 +54,11 @@ export const DEMO_TEAM: TeamMember[] = [
 
 /** Roles disponibles + módulos que ven (demo). */
 export const DEMO_ROLES: RoleDef[] = [
-  { rol: 'Administradora', desc: 'Acceso total y gestión de usuarios', mods: ['Inicio', 'Track', 'Lab', 'Pharma', 'Contable'] },
-  { rol: 'Investigador principal', desc: 'Todos los módulos clínicos', mods: ['Inicio', 'Track', 'Lab', 'Pharma'] },
-  { rol: 'Data manager', desc: 'Seguimiento y datos', mods: ['Inicio', 'Track'] },
-  { rol: 'Farmacéutico', desc: 'Farmacia clínica', mods: ['Inicio', 'Pharma'] },
-  { rol: 'Enfermería', desc: 'Agenda y visitas', mods: ['Inicio', 'Track'] },
+  { rol: 'Administradora', desc: 'Acceso total y gestión de usuarios', mods: ['Inicio', 'Coordinación', 'Lab', 'Farmacia', 'Contable'] },
+  { rol: 'Investigador principal', desc: 'Todos los módulos clínicos', mods: ['Inicio', 'Coordinación', 'Lab', 'Farmacia'] },
+  { rol: 'Data manager', desc: 'Seguimiento y datos', mods: ['Inicio', 'Coordinación'] },
+  { rol: 'Farmacéutico', desc: 'Farmacia clínica', mods: ['Inicio', 'Farmacia'] },
+  { rol: 'Enfermería', desc: 'Agenda y visitas', mods: ['Inicio', 'Coordinación'] },
 ]
 
 /** Matriz de notificaciones por categoría (demo — estado local). */

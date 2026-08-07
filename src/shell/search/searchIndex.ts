@@ -28,6 +28,13 @@ import type { NavTarget } from '../../views/types'
 
 export type SearchType = 'protocolo' | 'paciente' | 'visita' | 'medicamento' | 'pagina'
 
+/** Rótulo VIGENTE de un submódulo, leído del registry. Las migas lo derivan en vez de
+ *  repetirlo a mano: cuando "Medicamentos" pasó a llamarse "Stock", la miga hardcodeada
+ *  quedó apuntando a un submódulo que ya no se llamaba así. */
+function subName(modKey: string, subKey: string): string {
+  return MODULES.find((m) => m.key === modKey)?.submodules.find((s) => s.key === subKey)?.name ?? subKey
+}
+
 export interface SearchItem {
   /** Clave estable para React (no se muestra). */
   id: string
@@ -130,10 +137,11 @@ export function buildSearchIndex(sources: SearchSources, isAllowed: Allowed): Se
       // El crumb "lote · protocolo" del prototipo es INCONSTRUIBLE en el core:
       // MedicationRow ya no tiene lote ni protocolo (catálogo global, 0032). Uso clase/droga/dosis.
       const extra = m.clase || m.drug?.name || m.dosis || null
+      const donde = subName('pharma', 'medicamentos')
       items.push({
         id: `med-${m.id}`, type: 'medicamento', icon: 'pill',
         title: m.name,
-        crumb: extra ? `Medicamentos · ${extra}` : 'Medicamentos',
+        crumb: extra ? `${donde} · ${extra}` : donde,
         mod: 'pharma', sub: 'medicamentos',
       })
     }
