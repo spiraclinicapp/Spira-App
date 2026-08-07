@@ -3,12 +3,15 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { SearchableSelect } from '../components/SearchableSelect'
-import { useVisitAlerts } from '../data/visits'
+import { Modal } from '../components/Modal'
 import type { TrackVisitRow } from '../data/visits'
-import { useProcedureReportAlerts } from '../data/reports'
 import { useProtocols } from '../data/protocols'
+import {
+  useActiveAlerts, dismissAlert, restoreAlert, DISMISS_REASONS, reasonLabel,
+} from '../data/alertDismissals'
+import type { AlertKind } from '../data/alertDismissals'
 import { visitTitle } from '../lib/visits'
-import { formatAR, todayISO, daysDiffISO } from '../lib/dates'
+import { formatAR, todayISO, daysDiffISO, fromNow } from '../lib/dates'
 import { VISIT_STATES } from './visitStates'
 import { VisitDetail } from './track/VisitDetail'
 import type { ViewProps } from './types'
@@ -32,9 +35,37 @@ function alertItemStyle(tone: string): CSSProperties {
   return {
     display: 'flex', gap: 11, width: '100%', padding: '12px 13px', borderRadius: 11,
     background: tone + '0E', border: `1px solid ${tone}30`,
+    /* Aire a la derecha para que el texto no corra por debajo del botón de descartar, que va
+       posicionado encima (hermano, no hijo: un botón dentro de otro no es válido). */
+    paddingRight: 42,
     textAlign: 'left', cursor: 'pointer',
     fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
   }
+}
+
+/* Botón de descartar: hermano del que abre la visita y superpuesto arriba a la derecha del ítem.
+   Discreto en reposo (es una acción secundaria, y en una lista de alertas no queremos invitar a
+   silenciar), con su intención declarada al hover. */
+const dismissBtn: CSSProperties = {
+  position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: 8,
+  display: 'grid', placeItems: 'center', border: 'none', background: 'transparent',
+  color: 'var(--spira-faint)', cursor: 'pointer',
+}
+const dismissedRow: CSSProperties = {
+  display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 0',
+  borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: 'var(--spira-line)',
+}
+const linkBtn: CSSProperties = {
+  background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', whiteSpace: 'nowrap',
+  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-primary)',
+}
+
+/** La alerta que el usuario está por archivar (lo que necesita el RPC + cómo nombrarla). */
+interface Dismissing {
+  kind: AlertKind
+  visitId: string
+  completionId?: string
+  label: string
 }
 
 const AGE_OPTIONS: { value: number; label: string }[] = [
@@ -59,11 +90,13 @@ function refDate(a: TrackVisitRow): string | null {
  * de alerta sirven para eso —las de visita por su `id`, las de reporte de procedimiento por su
  * `visit_id`—. Va en `context="patient"` (solo lectura), como la ficha y la cola del médico: las
  * acciones de etapa pertenecen al recorrido del día, y una alerta casi nunca es de hoy.
+ *
+ * Una alerta también se puede DESCARTAR (0070). No se borra —es estado calculado—: se archiva el
+ * aviso con motivo de catálogo, autor y fecha, y se puede restaurar desde "Descartadas".
  */
 export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed }: ViewProps) {
   const accent = module.accent
-  const alerts = useVisitAlerts()
-  const procReports = useProcedureReportAlerts()
+  const alertsQ = useActiveAlerts()
   const protocols = useProtocols()
   const [protocolFilter, setProtocolFilter] = useState<string>('all')
   const [ageDays, setAgeDays] = useState<number>(0)
@@ -71,6 +104,9 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
      encontrar la fila ni esperar a que carguen las alertas. Por eso una alerta se puede abrir
      aunque los filtros de la vista la dejen fuera. */
   const [openVisitId, setOpenVisitId] = useState<string | null>(null)
+  const [dismissing, setDismissing] = useState<Dismissing | null>(null)
+  const [showDismissed, setShowDismissed] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   /* Llegada CON objetivo (desde "Lo prioritario" en Inicio): abrir esa alerta apenas montamos.
      Se consume una sola vez para que un refetch no la reabra sola. */
@@ -80,11 +116,12 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     onTargetConsumed?.()
   }, [navTarget, onTargetConsumed])
 
-  const loading = alerts.loading || procReports.loading || protocols.loading
-  const error = alerts.error || procReports.error || protocols.error
+  const loading = alertsQ.loading || protocols.loading
+  const error = alertsQ.error || protocols.error
 
-  const allRows = useMemo(() => alerts.data ?? [], [alerts.data])
-  const procRows = useMemo(() => procReports.data ?? [], [procReports.data])
+  const allRows = alertsQ.visitAlerts
+  const procRows = alertsQ.reportAlerts
+  const dismissals = alertsQ.dismissals
 
   const filtered = useMemo(() => {
     const today = todayISO()
@@ -122,7 +159,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
           No pudimos cargar las alertas. Probá de nuevo.
         </div>
-        <button onClick={() => { alerts.refetch(); procReports.refetch(); protocols.refetch() }} style={{ ...btnOutline, alignSelf: 'flex-start' }}>
+        <button onClick={() => { alertsQ.refetch(); protocols.refetch() }} style={{ ...btnOutline, alignSelf: 'flex-start' }}>
           Reintentar
         </button>
       </div>
@@ -171,7 +208,19 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           {filtered.length + filteredProc.length} de {allRows.length + procRows.length}{' '}
           {allRows.length + procRows.length === 1 ? 'alerta' : 'alertas'}
         </span>
+        {dismissals.length > 0 && (
+          <button type="button" style={linkBtn} onClick={() => setShowDismissed((v) => !v)}>
+            {showDismissed ? 'Ocultar descartadas' : `Ver descartadas (${dismissals.length})`}
+          </button>
+        )}
       </div>
+
+      {actionError && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '10px 13px' }}>
+          <Icon name="alertCircle" size={17} color="var(--spira-danger)" />
+          {actionError}
+        </div>
+      )}
 
       <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
         {filtered.length === 0 && filteredProc.length === 0 ? (
@@ -187,8 +236,8 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
               // aproximada (±1 día cerca de medianoche UTC).
               const days = daysDiffISO(r.report_due_at.slice(0, 10), todayISO())
               return (
+                <div key={r.completion_id} style={{ position: 'relative' }}>
                 <button
-                  key={r.completion_id}
                   type="button"
                   className="spira-card-link"
                   onClick={() => setOpenVisitId(r.visit_id)}
@@ -207,6 +256,21 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                     </div>
                   </div>
                 </button>
+                <button
+                  type="button"
+                  style={dismissBtn}
+                  title="Descartar esta alerta"
+                  aria-label={`Descartar la alerta de reporte de ${r.patient_name}`}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--spira-ink)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--spira-faint)' }}
+                  onClick={() => setDismissing({
+                    kind: 'reporte_procedimiento', visitId: r.visit_id, completionId: r.completion_id,
+                    label: `Reporte de ${r.description} · ${r.patient_name}`,
+                  })}
+                >
+                  <Icon name="x" size={15} />
+                </button>
+                </div>
               )
             })}
             {filtered.map((a) => {
@@ -216,8 +280,8 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                 ? `Ventana vencida el ${a.window_end ? formatAR(a.window_end) : '—'} · ${vName}`
                 : `Reporte de procedimiento fuera de plazo · ${vName}`
               return (
+                <div key={a.id} style={{ position: 'relative' }}>
                 <button
-                  key={a.id}
                   type="button"
                   className="spira-card-link"
                   onClick={() => setOpenVisitId(a.id)}
@@ -236,6 +300,21 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>
                   </div>
                 </button>
+                <button
+                  type="button"
+                  style={dismissBtn}
+                  title="Descartar esta alerta"
+                  aria-label={`Descartar la alerta de ${a.patient_name}`}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--spira-ink)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--spira-faint)' }}
+                  onClick={() => setDismissing({
+                    kind: 'visita', visitId: a.id,
+                    label: `${VISIT_STATES[a.computed_status].label} · ${vName} · ${a.patient_name}`,
+                  })}
+                >
+                  <Icon name="x" size={15} />
+                </button>
+                </div>
               )
             })}
           </div>
@@ -245,15 +324,176 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
         </div>
       </div>
 
+      {/* Descartadas: el archivo, no la papelera. Nada se borró — la condición clínica sigue en la
+          base y esto es el registro de quién decidió no atenderla, con su motivo. Restaurar la
+          devuelve a la lista. */}
+      {showDismissed && dismissals.length > 0 && (
+        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15 }}>Descartadas</div>
+          <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3, lineHeight: 1.45 }}>
+            No se borró nada: la condición sigue en la base y esto queda auditado. Si la visita se
+            reprograma o cambia de estado, la alerta vuelve a la lista sola.
+          </div>
+          <div style={{ marginTop: 8 }}>
+            {dismissals.map((d) => {
+              const vis = alertsQ.allVisitAlerts.find((a) => a.id === d.visit_id)
+              const rep = alertsQ.allReportAlerts.find((r) => r.completion_id === d.completion_id)
+              const nombre = vis?.patient_name ?? rep?.patient_name ?? null
+              const detalle = d.kind === 'reporte_procedimiento'
+                ? (rep ? `Reporte de ${rep.description}` : 'Reporte de procedimiento')
+                : (vis ? `${VISIT_STATES[vis.computed_status].label} · ${visitTitle(vis)}` : 'Alerta de visita')
+              return (
+                <div key={d.id} style={dismissedRow}>
+                  <Icon name="check" size={16} color="var(--spira-faint)" style={{ flex: '0 0 auto', marginTop: 2 }} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                      {nombre ?? 'Alerta ya no vigente'}
+                      <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}> · {detalle}</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
+                      {reasonLabel(d.reason)}{d.detail ? ` — ${d.detail}` : ''} · {d.dismissed_by_name}
+                      <span style={{ color: 'var(--spira-faint)' }}> ({d.dismissed_by_role}) · {fromNow(d.dismissed_at)}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    style={linkBtn}
+                    onClick={async () => {
+                      setActionError(null)
+                      const { error: e } = await restoreAlert(d.id)
+                      if (e) setActionError(e)
+                      else alertsQ.refetch()
+                    }}
+                  >
+                    Restaurar
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {dismissing && (
+        <DismissModal
+          target={dismissing}
+          accent={accent}
+          onClose={() => setDismissing(null)}
+          onDone={() => { setDismissing(null); setActionError(null); alertsQ.refetch() }}
+          onError={(msg) => { setDismissing(null); setActionError(msg) }}
+        />
+      )}
+
       {openVisitId && (
         <VisitDetail
           visitId={openVisitId}
           accent={accent}
           context="patient"
           onClose={() => setOpenVisitId(null)}
-          onChanged={() => { alerts.refetch(); procReports.refetch() }}
+          onChanged={() => alertsQ.refetch()}
         />
       )}
     </div>
+  )
+}
+
+/**
+ * Confirmación de descarte. El motivo es de CATÁLOGO (desplegable, no texto libre): el error del
+ * operador es un riesgo regulatorio y el motivo se lee después en la auditoría, así que conviene
+ * que sea comparable entre alertas. "Otro" habilita —y exige— una explicación.
+ */
+function DismissModal({ target, accent, onClose, onDone, onError }: {
+  target: Dismissing
+  accent: string
+  onClose: () => void
+  onDone: () => void
+  onError: (msg: string) => void
+}) {
+  const [reason, setReason] = useState('')
+  const [detail, setDetail] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const necesitaDetalle = reason === 'otro'
+  const listo = reason !== '' && (!necesitaDetalle || detail.trim() !== '')
+
+  const confirmar = async () => {
+    if (!listo || busy) return
+    setBusy(true)
+    setErr(null)
+    const { error } = await dismissAlert({
+      kind: target.kind, visitId: target.visitId, completionId: target.completionId,
+      reason, detail: necesitaDetalle ? detail : null,
+    })
+    setBusy(false)
+    if (error) { setErr(error); onError(error); return }
+    onDone()
+  }
+
+  return (
+    <Modal title="Descartar la alerta" onClose={onClose} icon="x" accent={accent} accentSoft="rgba(15,95,87,.12)">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--spira-ink)' }}>
+          {target.label}
+        </div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--spira-muted)' }}>
+          La alerta sale de la lista y de la campana. <strong style={{ fontWeight: 600 }}>No se borra nada</strong>:
+          la condición sigue en la base y queda registrado quién la archivó y por qué. Si la visita
+          se reprograma o cambia de estado, la alerta vuelve sola.
+        </div>
+        <div>
+          <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>Motivo</div>
+          <SearchableSelect
+            value={reason}
+            onChange={(v) => setReason(v)}
+            options={DISMISS_REASONS.map((r) => ({ value: r.value, label: r.label }))}
+            placeholder="Elegí un motivo"
+            searchPlaceholder="Buscar motivo…"
+            entity="motivo"
+          />
+        </div>
+        {necesitaDetalle && (
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>Contanos por qué</div>
+            <textarea
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+              rows={3}
+              placeholder="Queda en la auditoría."
+              style={{
+                width: '100%', resize: 'vertical', padding: '10px 12px', borderRadius: 10,
+                borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+                fontFamily: 'var(--spira-font-text)', fontSize: 13.5, color: 'var(--spira-ink)',
+                background: 'var(--spira-white)',
+              }}
+            />
+          </div>
+        )}
+        {err && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-danger)' }}>
+            <Icon name="alertCircle" size={16} color="var(--spira-danger)" />
+            {err}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9 }}>
+          <button type="button" onClick={onClose} style={btnOutline}>Cancelar</button>
+          <button
+            type="button"
+            onClick={confirmar}
+            disabled={!listo || busy}
+            aria-disabled={!listo || busy}
+            className={!listo || busy ? 'spira-no-press' : undefined}
+            style={{
+              ...btnOutline,
+              background: listo && !busy ? accent : 'var(--spira-line)',
+              borderColor: listo && !busy ? accent : 'var(--spira-line)',
+              color: listo && !busy ? 'var(--spira-white)' : 'var(--spira-faint)',
+              cursor: listo && !busy ? 'pointer' : 'default',
+            }}
+          >
+            {busy ? 'Descartando…' : 'Descartar'}
+          </button>
+        </div>
+      </div>
+    </Modal>
   )
 }

@@ -3,7 +3,7 @@ import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../lib/auth'
 import { useVisitsForDay } from '../data/dayVisits'
-import { useVisitAlerts } from '../data/visits'
+import { useActiveAlerts } from '../data/alertDismissals'
 import type { VisitType } from '../data/visits'
 import { useReceptions } from '../data/pharma'
 import { visitTitle } from '../lib/visits'
@@ -56,7 +56,9 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
   const accent = module.accent
   const { modules: userModules } = useAuth()
   const day = useVisitsForDay(todayISO())
-  const alertsQ = useVisitAlerts()
+  /* Alertas VIGENTES: las mismas que ve la campana y la vista de Alertas, ya sin las
+     descartadas (0070). El filtro vive una sola vez, en useActiveAlerts. */
+  const alertsQ = useActiveAlerts()
   /* Pharma está operativo (v0.8+): su tarjeta muestra la cola de verificación, no "Próximamente".
      Para quien no tiene el módulo, RLS devuelve vacío en silencio (y la tarjeta ni se pinta). */
   const recepQ = useReceptions(null, null)
@@ -79,7 +81,7 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
   }
 
   const visits = day.data ?? []
-  const alerts = alertsQ.data ?? []
+  const alerts = alertsQ.visitAlerts
   /* "Lo prioritario": las CRÍTICAS (ventana vencida) primero, después los ítems vencidos (sort
      estable → preserva el orden por fecha de useVisitAlerts dentro de cada grupo); luego las 5. */
   const priorityAlerts = [...alerts].sort(
