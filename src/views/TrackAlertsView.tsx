@@ -430,7 +430,9 @@ function DismissModal({ target, accent, onClose, onDone, onError }: {
   }
 
   return (
-    <Modal title="Descartar la alerta" onClose={onClose} icon="x" accent={accent} accentSoft="rgba(15,95,87,.12)">
+    // Sin `icon`: el Modal ya trae su X de cerrar arriba a la derecha, y un ícono "x" al lado del
+    // título daba DOS cruces que no hacen lo mismo (una cierra, la otra no hace nada).
+    <Modal title="Descartar la alerta" onClose={onClose} accent={accent}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--spira-ink)' }}>
           {target.label}
