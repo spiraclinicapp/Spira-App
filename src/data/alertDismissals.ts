@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import type { QueryResult } from '../lib/useSupabaseQuery'
@@ -64,12 +64,45 @@ export interface AlertDismissalRow {
   dismissed_at: string
 }
 
+/* Señal común de "los descartes cambiaron".
+
+   Sin react-query no hay caché compartida: la campana, el resumen de Inicio y la vista de
+   Alertas tienen cada uno SU propia consulta. Si la vista refetchea sola después de descartar,
+   la campana se queda con el número viejo — exactamente la incoherencia que este módulo existe
+   para evitar (y que se vio en el QA: la lista bajó a 21 y el badge seguía en 22).
+
+   Alcanza con volver a leer los DESCARTES: descartar no cambia las alertas en sí, solo cuáles
+   están archivadas. Así que un contador que dispara la consulta de `alert_dismissals` en todas
+   las instancias montadas deja a los tres contando lo mismo, sin tocar nada más. */
+let dismissalsVersion = 0
+const dismissalsSubs = new Set<(v: number) => void>()
+
+/** Avisa a todas las instancias montadas que tienen que releer los descartes. */
+function bumpDismissals(): void {
+  dismissalsVersion += 1
+  for (const notify of dismissalsSubs) notify(dismissalsVersion)
+}
+
+function useDismissalsVersion(): number {
+  const [v, setV] = useState(dismissalsVersion)
+  useEffect(() => {
+    const notify = (next: number) => setV(next)
+    dismissalsSubs.add(notify)
+    // Al montar puede haber perdido bumps previos (la campana vive siempre, pero una vista
+    // recién montada no): sincronizamos con el valor actual.
+    setV(dismissalsVersion)
+    return () => { dismissalsSubs.delete(notify) }
+  }, [])
+  return v
+}
+
 /**
  * Descartes visibles para el usuario (la RLS los scopea igual que a las alertas). Se traen todos:
  * son pocos y el front los usa para dos cosas a la vez — filtrar las alertas vigentes y poblar
- * el panel de "descartadas".
+ * el panel de "descartadas". Se relee sola cuando alguien descarta o restaura.
  */
 export function useAlertDismissals(): QueryResult<AlertDismissalRow[]> {
+  const version = useDismissalsVersion()
   return useSupabaseQuery<AlertDismissalRow[]>(
     (c) =>
       c
@@ -77,7 +110,7 @@ export function useAlertDismissals(): QueryResult<AlertDismissalRow[]> {
         .select('*')
         .order('dismissed_at', { ascending: false })
         .returns<AlertDismissalRow[]>(),
-    [],
+    [version],
   )
 }
 
@@ -211,6 +244,7 @@ export async function dismissAlert(input: DismissAlertInput): Promise<{ error: s
     p_detail: input.detail?.trim() || null,
   })
   if (error) return { error: dismissErrorMessage(error.code, error.message) }
+  bumpDismissals()
   return { error: null }
 }
 
@@ -222,5 +256,6 @@ export async function restoreAlert(dismissalId: string): Promise<{ error: string
   const { data, error } = await supabase.from('alert_dismissals').delete().eq('id', dismissalId).select('id')
   if (error) return { error: dismissErrorMessage(error.code, error.message) }
   if (!data || data.length === 0) return { error: 'No tenés permiso para restaurar esta alerta.' }
+  bumpDismissals()
   return { error: null }
 }
