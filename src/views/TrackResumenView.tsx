@@ -3,7 +3,8 @@ import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
-import { useUpcomingVisits, useVisitAlerts } from '../data/visits'
+import { useUpcomingVisits } from '../data/visits'
+import { useActiveAlerts } from '../data/alertDismissals'
 import type { TrackVisitRow, VisitType } from '../data/visits'
 import { visitTitle } from '../lib/visits'
 import { dayLabel, formatAR } from '../lib/dates'
@@ -26,6 +27,28 @@ const TIPO_LABEL: Record<VisitType, string> = { presencial: 'Presencial', telefo
 /* Grilla de las filas de próximas visitas: paciente · tipo · estado. */
 const ROW_COLS = 'minmax(0, 1fr) 96px 140px'
 
+/* Fila pulsable de "Próximas visitas": abre esa visita. Mismo criterio que el resumen de Inicio —
+   una fila se RESALTA (`.spira-row-link`) y no se levanta (`.spira-no-press`), porque el separador
+   de arriba es suyo y al moverse partiría el listado. Sin radio por lo mismo. */
+const rowButton: CSSProperties = {
+  display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', gap: 10,
+  width: '100%', padding: '9px 0', textAlign: 'left', cursor: 'pointer',
+  borderWidth: 0, borderStyle: 'solid', borderColor: 'var(--spira-line)', borderTopWidth: 1,
+  fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
+}
+
+/* Ítem de alerta pulsable: lleva a Alertas y abre ahí la visita. Es una SUPERFICIE (fondo y borde
+   teñidos por severidad) así que se eleva, vía `.spira-card-link`; el borde de estado va inline y
+   pisa el neutro que esa clase trae por defecto. */
+function alertItemStyle(tone: string): CSSProperties {
+  return {
+    display: 'flex', gap: 11, width: '100%', padding: '12px 13px', borderRadius: 11,
+    background: tone + '0E', border: `1px solid ${tone}30`,
+    textAlign: 'left', cursor: 'pointer',
+    fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
+  }
+}
+
 function KpiCard({ label, value, sub, dot }: { label: string; value: number; sub: string; dot: string }) {
   return (
     <div style={card}>
@@ -41,13 +64,20 @@ function KpiCard({ label, value, sub, dot }: { label: string; value: number; sub
   )
 }
 
-/** Resumen del módulo Track: KPIs + próximas visitas (7 días) + alertas. Solo lectura. */
-export function TrackResumenView({ module, submodule }: ViewProps) {
+/**
+ * Resumen del módulo Track: KPIs + próximas visitas (7 días) + alertas.
+ *
+ * Cada fila lleva a SU ítem, igual que el resumen de Inicio: una visita próxima abre su detalle en
+ * Visitas del día (saltando a su fecha) y una alerta lleva a Alertas, que abre ahí el modal. Las
+ * alertas son las VIGENTES —`useActiveAlerts` deja afuera las descartadas (0070)—: si acá se
+ * listaran todas, esta pantalla contradiría a la campana y a las otras dos que muestran alertas.
+ */
+export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const accent = module.accent
   const protocols = useProtocols()
   const patients = usePatients()
   const upcoming = useUpcomingVisits()
-  const alerts = useVisitAlerts()
+  const alerts = useActiveAlerts()
 
   const loading = protocols.loading || patients.loading || upcoming.loading || alerts.loading
   const error = protocols.error || patients.error || upcoming.error || alerts.error
@@ -75,7 +105,7 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
   const allProtocols = protocols.data ?? []
   const allPatients = patients.data ?? []
   const upcomingRows = upcoming.data ?? []
-  const alertRows = alerts.data ?? []
+  const alertRows = alerts.visitAlerts
 
   const activeProtocols = allProtocols.filter((p) => p.status === 'activo').length
   const activePatients = allPatients.filter((p) => p.status === 'activo').length
@@ -119,7 +149,14 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
                     {dayLabel(g.date)}
                   </div>
                   {g.visits.map((v) => (
-                    <div key={v.id} style={{ display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', gap: 10, padding: '9px 0', borderTop: '1px solid var(--spira-line)' }}>
+                    <button
+                      key={v.id}
+                      type="button"
+                      className="spira-row-link spira-no-press"
+                      onClick={() => onNavigate?.('track', 'visitas', { visitId: v.id, visitDate: v.estimated_date ?? undefined })}
+                      aria-label={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
+                      style={rowButton}
+                    >
                       <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                         <span style={{ fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           <span style={{ color: 'var(--spira-ink)' }}>{v.patient_name}</span>
@@ -131,7 +168,7 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
                       </span>
                       <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{TIPO_LABEL[v.visit_type]}</span>
                       <span><VisitChip status={v.computed_status} /></span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               ))}
@@ -156,7 +193,14 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
                   ? `Ventana vencida el ${a.window_end ? formatAR(a.window_end) : '—'} · ${vName}`
                   : `Reporte de procedimiento fuera de plazo · ${vName}`
                 return (
-                  <div key={a.id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
+                  <button
+                    key={a.id}
+                    type="button"
+                    className="spira-card-link"
+                    onClick={() => onNavigate?.('track', 'alertas', { visitId: a.id })}
+                    aria-label={`Abrir en Alertas la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
+                    style={alertItemStyle(c)}
+                  >
                     <span style={{ flex: '0 0 auto', marginTop: 1 }}>
                       <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={18} color={c} />
                     </span>
@@ -168,7 +212,7 @@ export function TrackResumenView({ module, submodule }: ViewProps) {
                       </div>
                       <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>
                     </div>
-                  </div>
+                  </button>
                 )
               })}
             </div>
