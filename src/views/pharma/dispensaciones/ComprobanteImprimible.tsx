@@ -9,7 +9,10 @@ import { formatAR, formatDateTimeAR } from '../../../lib/dates'
  *
  * El comprobante ES la nota fuente: se imprime, se sella y se firma junto con la medicación al
  * momento del retiro, y va a la carpeta del paciente. Por eso:
- *   · el paciente se identifica por CÓDIGO IVRS, nunca por nombre (privacidad transversal);
+ *   · el paciente se identifica por CÓDIGO IVRS, no por nombre — y no por la vieja política de
+ *     ocultarlo en pantalla (se revirtió el 2026-08-04: el nombre va visible en toda la app), sino
+ *     porque este papel se archiva en la carpeta del estudio y se comparte con monitores y sponsor,
+ *     y ahí el identificador válido es el código;
  *   · lote y vencimiento salen del snapshot de `dispensation_items`, que se copia justamente para
  *     que el papel no cambie si el lote se modifica después;
  *   · el espacio de sello y firma es el punto del documento, no un adorno;
