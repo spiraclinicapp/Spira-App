@@ -95,7 +95,13 @@ Colores de estado del Kanban que **sí** son nuevos y hay que agregar a `tokens.
 
 Topbar, rail, lista de submódulos y breadcrumb del handoff **ya existen** en `src/shell/AppShell.tsx`.
 Cero trabajo ahí. Tampoco hacen falta dependencias nuevas: `Drawer`, `usePopover`, `FilterDropdown`,
-`DateNavButton`, `SearchableSelect`, `PrivacyAvatar`, `ScanField` y `Modal` ya están en el repo.
+`DateNavButton`, `SearchableSelect`, `ScanField` y `Modal` ya están en el repo.
+
+> **Nota posterior (2026-08-09).** Este plan se escribió cuando existía `PrivacyAvatar`. El
+> componente **se eliminó el 2026-08-04**, al pasar a mostrarse el nombre del paciente en toda la
+> app. Lo que muestre pacientes en pantalla sigue el criterio vigente: **nombre en tinta como
+> identidad primaria, IVRS en mono como secundario** (principio 5 de `PRODUCT.md`). El comprobante
+> impreso es el único lugar que conserva el código como identificador, y por otro motivo — ver §6.
 
 ---
 
@@ -459,8 +465,12 @@ oculto en pantalla (`display: none`) y visible solo bajo `@media print`. El rest
 
 **Reglas:**
 
-- **Identificación por código IVRS, nunca por nombre.** La política de privacidad de paciente es
-  transversal (`components/PrivacyAvatar.tsx`) y el código es el identificador válido en la carpeta.
+- **En el papel, el paciente se identifica por código IVRS.** Ojo con el porqué: **no** es la vieja
+  política de ocultar el nombre en la UI —esa se revirtió el 2026-08-04 y en pantalla el nombre va
+  visible (principio 5 de `PRODUCT.md`; `PrivacyAvatar` ya no existe)—, sino que el comprobante es
+  **nota fuente**: se archiva en la carpeta del estudio y se comparte con monitores y sponsor, y ahí
+  el identificador válido es el código. Si el Director quiere sumar el nombre al impreso, es una
+  decisión aparte de la de pantalla y hay que pedirla.
 - **Lote y vencimiento del snapshot**, no del lote vivo: `dispensation_items.lot_number` y
   `expiry_date` se copian justamente para que el comprobante impreso no cambie si el lote se
   modifica después (`0002_tables.sql:311-313`).
