@@ -79,8 +79,15 @@ decorativo de más**. El color se usa con intención (marca, acento del módulo 
 4. **Un solo sistema, muchos módulos.** El Core y todos los módulos comparten lenguaje visual;
    cada módulo tiene su acento dentro de la misma familia cromática, pero todo se siente la misma
    app. Lo nuevo hereda el sistema; no lo reinventa.
-5. **La privacidad del paciente es un reflejo, no una opción.** Toda vista que muestre personas
-   respeta la privacidad por defecto (avatar/iniciales, datos mínimos), de forma transversal.
+5. **La identidad del paciente se muestra; la privacidad la garantizan los permisos.** Toda vista
+   que muestre personas usa el **nombre completo en tinta como identidad primaria y el IVRS en
+   mono como secundario**, de forma transversal (Track y Pharma, listas y detalles). Quien ve a
+   un paciente ya está autorizado por la RLS y cada acceso queda en el `audit_log`: la protección
+   vive en el control de acceso y la auditoría, no en esconder el nombre en la pantalla. Ocultarlo
+   tras iniciales no agregaba resguardo y sí riesgo de identificación equivocada —el error de
+   operador que el principio 2 busca evitar—, así que el criterio se revirtió (decisión del
+   Director, 2026-08-04; el componente `PrivacyAvatar` fue eliminado). **No reintroducir las
+   iniciales.**
 
 ## Accessibility & Inclusion
 
@@ -94,4 +101,6 @@ Objetivo: **WCAG 2.1 AA.**
   animación tienen alternativa; nada de bounces ni elásticos.
 - **Color no es el único canal:** los acentos por módulo se distinguen por tono **y** luminancia,
   no solo por matiz; los estados se refuerzan con texto/ícono además del color.
-- **Privacidad** del paciente transversal (ver principio 5).
+- **Identificación inequívoca:** el paciente se nombra completo, nunca por iniciales — leer dos
+  letras obliga a adivinar y confunde a quien tiene baja visión o poca memoria de contexto. La
+  privacidad del paciente la sostienen la RLS y el `audit_log`, no la pantalla (ver principio 5).
