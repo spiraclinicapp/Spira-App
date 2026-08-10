@@ -43,6 +43,8 @@ constancia**. Nada más. No es una simplificación: es la política.
 | **D8** | ¿La tarjeta resalta? | **Sí** (pedido del Director Médico), en **petróleo**, con la **carta teñida**: toda la card sobre un velo del acento. Sin riel y sin borde de acento alrededor. El realce se **apaga** cuando la visita no entrega nada. |
 | **D9** | ¿Se previsualiza el archivo? | **Sí**, en las dos puntas, y en Farmacia **se imprime en un clic**. Sin librerías nuevas (§4). |
 | **D10** | ¿Cuántos kits, y cuándo? | El campo **arranca en 0** —que se ve como *pendiente*, no como un número válido— y si sigue en 0 al entregar, **un pop-up lo pide**. Un `1` por defecto se confirma en piloto automático; el 0 obliga a un acto consciente. |
+| **D11** | ¿Se puede dispensar en una visita que no dispensa? | **Sí**, con **motivo obligatorio de desplegable**. El candado `dispenses` deja de ser un muro y pasa a ser un default con excepción declarada. La marca *fuera de cronograma* + el motivo **viajan** al tablero, al cajón y al comprobante. |
+| **D12** | ¿Avisar si ya se dispensó hace poco? | **Sí, 30 días, y nunca bloquea.** Pero **cambia de tono**: dentro de cronograma es informativo, fuera de cronograma es ámbar. Ver §3.1 — una alarma que suena siempre no se escucha nunca. |
 
 ### D10 corrigió el momento del descuento
 
@@ -116,6 +118,19 @@ alter table public.dispensations
 `ip_kits` vive en la **dispensación**, no en la solicitud, por el mismo motivo por el que el lote
 vive ahí: es lo que **efectivamente salió**, declarado por quien lo entregó, y queda congelado en el
 comprobante. Nace `null` y lo sella **`deliver_dispensation`** (D10).
+
+### 1.2b La excepción declarada (D11)
+
+```sql
+alter table public.dispensation_requests
+  add column if not exists off_schedule        boolean not null default false,
+  add column if not exists off_schedule_reason text;
+-- check: (not off_schedule) or (off_schedule_reason is not null and btrim(off_schedule_reason) <> '')
+```
+
+El `check` es el punto: **no existe una dispensación fuera de cronograma sin motivo**. Que el
+desplegable de la UI sea obligatorio no alcanza — el candado tiene que estar donde no se puede
+saltear.
 
 `includes_ip` **no lo declara el cliente** (D7): lo sella el servidor al crear la solicitud, copiando
 `dispenses_ip` de la definición de la visita. Se guarda igual —en vez de mirarlo cada vez a través de
@@ -191,20 +206,20 @@ de error en castellano sereno traducidos por `pharmaErrorMessage`.
 
 | RPC | Firma | Qué hace |
 |---|---|---|
-| `create_dispensation_request` | **sin cambios de firma** — `(p_visit_id, p_items, p_notes, p_origen)` | Sella `includes_ip` leyendo `dispenses_ip` de la definición de la visita, y acepta **cero renglones** si ese flag está prendido. Ver §1.6. |
+| `create_dispensation_request` | `(p_visit_id, p_items, p_notes, p_origen, p_off_schedule_reason text default null)` | Sella `includes_ip` leyendo `dispenses_ip` de la definición de la visita, acepta **cero renglones** si ese flag está prendido, y **abre la excepción de D11** cuando llega un motivo. Ver §1.6. |
 | `attach_ip_document` | `(p_request_id uuid, p_path text, p_file_name text, p_mime text, p_size int) → uuid` | Marca superada la constancia vigente e inserta la nueva. Solo con el pedido `solicitada` o `preparando`, y solo si la solicitud tiene `includes_ip`. |
 | `mark_dispensation_ready` | **sin cambios de firma** — `(p_request_id uuid)` | Suma **una** exigencia cuando `includes_ip`: **constancia vigente cargada**. No pide kits (D10). |
 | `deliver_dispensation` | `(p_dispensation_id uuid, p_ip_kits integer default null)` | Exige `p_ip_kits ≥ 1` cuando `includes_ip`. Sella `ip_kits` — y con eso el IP sale del stock. |
 
-**D7 y D10 le sacaron trabajo a esta tabla.** No hay `set_request_ip` (no hay tilde que prender ni
-apagar). `create_dispensation_request` **conserva su firma**, porque el dato dejó de venir del
-cliente. Y `mark_dispensation_ready` **también la conserva**, porque los kits se movieron a la
-entrega. Queda **una sola** función que cambia de firma.
+No hay `set_request_ip` — D7 la borró, no hay tilde que prender ni apagar. Y `mark_dispensation_ready`
+**conserva su firma**, porque D10 movió los kits a la entrega.
 
-Esa —`deliver_dispensation`— se **dropea y se recrea**, no se reemplaza: agregar un parámetro con
-`create or replace` crea una **sobrecarga** y PostgREST tendría que elegir entre dos funciones. Es la
-misma trampa que documentó la
-[0060](../../../supabase/migrations/0060_origen_solicitud_explicito.sql).
+Las dos que sí cambian de firma —`create_dispensation_request` y `deliver_dispensation`— se
+**dropean y se recrean**, no se reemplazan: agregar un parámetro con `create or replace` crea una
+**sobrecarga** y PostgREST tendría que elegir entre dos funciones. Es la misma trampa que documentó
+la [0060](../../../supabase/migrations/0060_origen_solicitud_explicito.sql). Como los parámetros
+nuevos van con default, el front viejo sigue resolviendo contra la función nueva y no hay orden de
+deploy que respetar.
 
 La lectura del archivo **no necesita RPC**: el cliente pide una URL firmada de vida corta
 (`createSignedUrl(path, 60)`), y la política de `select` de §1.4 es el candado.
@@ -214,9 +229,13 @@ La lectura del archivo **no necesita RPC**: el cliente pide una URL firmada de v
 `create_dispensation_request` lee `dispenses` y `dispenses_ip` de la definición de la visita y valida,
 en este orden:
 
-1. Si hay renglones → la visita tiene que tener `dispenses`.
-2. Sella `includes_ip := dispenses_ip`.
-3. Si no hay renglones **y** `dispenses_ip` es falso → error: un pedido vacío no es un pedido.
+1. **Si viene `p_off_schedule_reason`** → sella `off_schedule = true` con el motivo y **se saltea la
+   validación del cronograma** (D11). `includes_ip := true`, porque la excepción habilita las dos
+   secciones. Es la única puerta: sin motivo no hay excepción.
+2. Si no viene motivo y hay renglones → la visita tiene que tener `dispenses`.
+3. Si no viene motivo → sella `includes_ip := dispenses_ip`.
+4. Si no hay renglones, `dispenses_ip` es falso y no hay motivo → error: un pedido vacío no es un
+   pedido.
 
 **Cero renglones con IP es válido y es el caso típico.** Eso obliga a que
 `mark_dispensation_ready` tolere un pedido sin ítems: la exigencia de "todo escaneado" se cumple
@@ -260,6 +279,11 @@ es la clase de cosa que rompe una pantalla sin que nadie se entere.
   embed **no excluye la fila padre**, solo deja el embed en null — el mismo motivo por el que
   `HISTORY_COLS` tuvo que usar `!inner`. Son dos o tres filas por pedido; no hay nada que optimizar.
 - `ipStock.ts`: las dos columnas nuevas en `IpStockRow`.
+- `dispensations.ts`: `off_schedule` / `off_schedule_reason` en las interfaces y en `REQUEST_COLS`;
+  `p_off_schedule_reason` en `createDispensationRequest`; y `useUltimaDispensacion(enrollmentId)`
+  para el aviso de D12 — **una consulta común, sin RPC**: Track ya puede leer las solicitudes de las
+  visitas de su protocolo por RLS, y acotarla al enrolamiento la deja dentro de lo que el
+  coordinador ya ve.
 - **`src/data/pharma/ipDocuments.ts` (nuevo):** la subida y la URL firmada. Es el único archivo que
   toca `supabase.storage`, para que el estreno de Storage tenga **un solo** punto de entrada.
 
@@ -305,6 +329,37 @@ navegador ya sabe dibujar.
 
 En la ficha del paciente (`readOnly`) todo esto es de solo lectura, con el previsualizador activo.
 
+### 3.1 La excepción y el aviso de los 30 días (D11 · D12)
+
+**La salida.** Cuando la visita no dispensa nada, debajo del mensaje sereno aparece un **enlace
+sobrio** —no un botón— que dice `Dispensar fuera de cronograma`. Es una acción que tiene que *estar*
+cuando hace falta, no una que queramos invitar: si compitiera visualmente con las acciones normales,
+dispensar fuera de cronograma dejaría de ser la excepción.
+
+Al abrirla aparecen **las dos secciones** (se está anulando el cronograma, no media parte) más un
+**motivo obligatorio, de desplegable**. Los motivos propuestos, **a confirmar por el Director**:
+*Reposición por pérdida o rotura* · *Visita no programada (VNP)* · *Ajuste de dosis indicado por el
+investigador* · *Adelanto por viaje del paciente* · *Otro (especificar)*.
+
+**El aviso.** Se busca la última dispensación **entregada del mismo enrolamiento** (mismo paciente y
+mismo protocolo — no cruza protocolos, que además la RLS no dejaría) y, si fue dentro de los **30
+días**, se muestra arriba de todo: fecha, qué incluyó y en qué visita. **Nunca bloquea.**
+
+**Y cambia de tono, que es la parte que importa:**
+
+| | Tono | Por qué |
+|---|---|---|
+| Dentro de cronograma | Informativo (petróleo) | En un protocolo con visitas cada 28 días, la entrega **estaba prevista**: avisar en ámbar sería gritar por algo normal |
+| Fuera de cronograma | Ámbar | Acá una entrega repetida **sí** puede ser un error, y es el momento en que el dato cambia una decisión |
+
+El motivo de esta distinción es concreto: **una alarma que suena siempre deja de escucharse justo
+cuando importa.** Si el aviso fuera ámbar en las dos situaciones, en el 90% de los casos sería ruido
+—y para cuando aparezca el caso real, ya nadie lo lee. El dato está siempre; la alarma, solo cuando
+significa algo.
+
+El aviso va **arriba de todo**, antes de las secciones: si llega después de que el coordinador ya
+cargó la medicación, llega tarde.
+
 ---
 
 ## 4 · Pharma — el cajón
@@ -335,8 +390,13 @@ Un pedido **sin renglones** (IP solo) no muestra el campo de escaneo: muestra la
 campo de kits. `PanelLista` y `PanelEntregada` muestran la línea de IP y mantienen `Abrir` para
 reimprimir.
 
-**El tablero:** la card suma un distintivo de IP (ícono + `IP` en el pie, junto a las unidades), y
-las que están tildadas sin constancia lo dicen ahí, no recién al abrir el cajón.
+**La marca de fuera de cronograma viaja** (D11): chip ámbar + el motivo + quién lo cargó, en el cajón
+y en la card del tablero. Una excepción que solo conoce quien la hizo no es una excepción auditada — y
+además le cambia el trabajo a la farmacéutica, que ahí sí tiene motivo para chequear dos veces.
+
+**El tablero:** la card suma un distintivo de IP (ícono + `IP` en el pie, junto a las unidades), el
+chip de fuera de cronograma cuando corresponde, y las que tienen IP sin constancia lo dicen ahí, no
+recién al abrir el cajón.
 
 ---
 
@@ -348,6 +408,14 @@ las que están tildadas sin constancia lo dicen ahí, no recién al abrir el caj
 PRODUCTO EN INVESTIGACIÓN
 ────────────────────────────────────────────
 2 kits · constancia adjunta (irt-asignacion.pdf)
+```
+
+Y cuando el pedido es **fuera de cronograma** (D11), una línea más, porque es justo el dato que un
+monitor va a buscar:
+
+```
+DISPENSACIÓN FUERA DE CRONOGRAMA
+Motivo: Reposición por pérdida o rotura
 ```
 
 El resto de la hoja no cambia. Sigue identificando al paciente por código IVRS, y sigue por el
@@ -419,6 +487,7 @@ días: cada backup más pesado y cada restore más lento, un costo que se paga e
 | **Recrear `v_patient_visits` / `v_track_visits`** con el Director trabajando en paralelo. | Media | Verificar la dependencia entre las dos antes de dropear; stagear **por ruta**. |
 | **El `print()` de un clic depende del navegador.** El truco del blob (mismo origen → `iframe.print()`) anda en Chrome/Edge; en otros puede abrir el diálogo sin la vista, o nada. | Media | `Abrir en pestaña` queda **siempre** visible como salida, no escondido tras un fallo. Verificar en el navegador real de la farmacia antes de dar la tarea por cerrada. |
 | **La URL firmada podría servirse como descarga** en vez de inline, y el previsualizador quedaría en blanco. | Baja | Depende de cómo Supabase sella el `Content-Disposition`. Se verifica en el preview apenas exista el bucket; si molesta, se resuelve mostrando el blob en vez de la URL. |
+| **La salida fuera de cronograma se vuelve el camino de todos los días.** Si dispensar por excepción es igual de cómodo que dispensar por cronograma, el cronograma deja de significar algo — y con él el candado que la 0050 puso server-side. | **Alta**, pero de producto, no técnica | Tres frenos, todos en el diseño: la salida es un enlace sobrio y no un botón; el motivo es obligatorio **en la base**, no solo en la UI; y la marca viaja al tablero, al cajón y al comprobante impreso. Vale la pena **mirar la proporción** de pedidos `off_schedule` a los dos meses: si es alta, el problema no es el atajo, es que el cronograma está mal cargado. |
 | **El pedido queda sin archivo** si la subida falla después de crearse. | Baja | Es un estado legítimo y visible en las dos puntas (§3, §4), y `mark_dispensation_ready` no deja avanzar. No se finge éxito. |
 
 ---
@@ -448,6 +517,14 @@ Sin suite de tests: el gate es `npm run typecheck` verde **más** el recorrido l
    entrega sellada y `v_ip_stock` baja 2.
 8b. Declarar los 2 kits en el cajón **antes** de entregar → `Entregar` no abre ningún pop-up.
 9. Una visita con concomitante **y** IP → **un** cajón, **un** comprobante con las dos cosas.
+9b. **Fuera de cronograma (D11):** en una visita con los dos flags apagados, usar la salida, elegir
+   motivo y dispensar. Verificar que el chip y el motivo aparecen en el tablero, en el cajón y en el
+   comprobante impreso. Intentar crearla **sin motivo** llamando la RPC a mano → la base la rechaza,
+   no solo la UI.
+9c. **Aviso de 30 días (D12):** con una dispensación entregada hace menos de 30 días en el mismo
+   enrolamiento, abrir una visita **de cronograma** → el aviso sale **informativo**; abrir la salida
+   **fuera de cronograma** → el mismo dato sale en **ámbar**. Con la última entrega a más de 30 días,
+   no sale nada. Y en ningún caso bloquea.
 10. Con un coordinador de **otro** protocolo: la URL firmada del archivo **no** se puede pedir.
 11. Borrar exactamente los registros `TEST-*` creados.
 

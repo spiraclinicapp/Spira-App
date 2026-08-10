@@ -1,6 +1,6 @@
 # Handoff de diseño — Dispensación de IP: la tarjeta partida en dos
 
-**Fecha:** 2026-08-09 · **Versión:** v4 · **Módulo:** Track (detalle de visita) + Pharma (cajón)
+**Fecha:** 2026-08-09 · **Versión:** v5 · **Módulo:** Track (detalle de visita) + Pharma (cajón)
 **Especificación:** [`docs/superpowers/specs/2026-08-09-dispensacion-ip-design.md`](../docs/superpowers/specs/2026-08-09-dispensacion-ip-design.md)
 
 Abrí **`Tarjeta partida - estados.html`** en el navegador. Tiene un botón de tema arriba a la
@@ -41,6 +41,30 @@ el tinte o pasar a la banda de cabecera, no agregar un borde.
 - El texto del box quedó en *«Preferentemente el PDF · hasta 10 MB»*.
 - **Los kits arrancan en 0** y el 0 se ve como *pendiente*. Si sigue en 0 al entregar, un **pop-up**
   lo pide. Eso **mueve el descuento de stock del IP** de *marcar lista* a *entregar* — ver abajo.
+
+## Dispensar fuera de cronograma (estados 5, 8 y 9)
+
+Aunque la visita no dispense, se puede dispensar igual **con motivo obligatorio de desplegable**. La
+salida es un **enlace sobrio, no un botón**: tiene que estar cuando hace falta, sin invitar a usarla.
+La marca *fuera de cronograma* y el motivo **viajan** al tablero, al cajón y al comprobante impreso.
+
+**Falta que confirmes la lista de motivos.** La propuesta, que seguro hay que corregir: *Reposición
+por pérdida o rotura* · *Visita no programada (VNP)* · *Ajuste de dosis indicado por el investigador*
+· *Adelanto por viaje del paciente* · *Otro (especificar)*.
+
+### El aviso de 30 días cambia de tono, no de existencia
+
+Si al paciente ya se le dispensó dentro de los 30 días, se avisa — y **nunca bloquea**. Pero el tono
+depende de la situación, y esa es la decisión de diseño que importa:
+
+| | Tono | Por qué |
+|---|---|---|
+| Dentro de cronograma (estado 9) | Informativo | En un protocolo con visitas cada 28 días la entrega **estaba prevista**: gritar por algo normal es ruido |
+| Fuera de cronograma (estado 8) | Ámbar | Acá una entrega repetida **sí** puede ser un error, y el dato cambia una decisión |
+
+**Una alarma que suena siempre deja de escucharse justo cuando importa.** Si el aviso fuera ámbar en
+las dos situaciones, en la enorme mayoría de los casos sería ruido — y para cuando aparezca el caso
+real, ya nadie lo lee.
 
 ## El cambio de fondo que trajo el «0»
 

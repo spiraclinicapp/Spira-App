@@ -158,9 +158,41 @@ h2.sec:first-of-type{margin-top:0}
 .mini:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
 .mini:active{transform:translateY(0);box-shadow:none}
 
+/* —— salida fuera de cronograma: sobria, no un CTA ——
+   No es una acción que queramos invitar; es una que tiene que estar cuando hace falta. */
+.salida{
+  margin-top:10px;background:transparent;border:none;padding:4px 0;cursor:pointer;
+  font-family:var(--spira-font-text);font-weight:600;font-size:12.5px;color:var(--spira-ink-soft);
+  display:inline-flex;align-items:center;gap:7px;border-bottom:1px solid var(--spira-line-2);
+}
+.salida:hover{color:var(--spira-ink)}
+.salida .ico{stroke:var(--spira-ink-soft);width:14px;height:14px}
+
+/* marca de fuera de cronograma — viaja hasta el cajón de Farmacia y el comprobante */
+.chip-fc{
+  display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;
+  border-radius:var(--spira-radius-pill);color:#7a5a25;background:rgba(176,130,63,.20);
+}
+.chip-fc .ico{stroke:currentColor;width:11px;height:11px;stroke-width:2.4}
+
+/* desplegable (dibuja el SearchableSelect del repo) */
+.select{
+  display:flex;align-items:center;gap:10px;width:100%;height:44px;padding:0 13px;
+  border-radius:10px;border:1px solid var(--spira-line-2);background:var(--spira-white);
+  cursor:pointer;font-size:13.5px;color:var(--spira-ink);
+  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
+}
+.select:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
+.select .ico{margin-left:auto;stroke:var(--spira-muted);width:16px;height:16px}
+.field-lbl{display:block;font-size:11.5px;font-weight:600;color:var(--spira-ink-soft);margin-bottom:5px}
+
 /* el TEXTO en tinta; el ámbar queda en el ícono y el tinte
    (--spira-warn sobre ese fondo da 3,2:1 y a 12,5px bold AA pide 4,5:1) */
 .warn{display:flex;align-items:flex-start;gap:9px;padding:9px 11px;border-radius:10px;background:rgba(176,130,63,.14);font-size:12.5px;color:var(--spira-ink);font-weight:600}
+/* la MISMA caja en tono informativo: el dato siempre está, la alarma solo cuando significa algo */
+.warn.info{background:rgba(46,125,116,.10)}
+.warn.info .ico{stroke:var(--acc)}
 .warn .ico{stroke:var(--spira-warn);stroke-width:2;margin-top:1px}
 .warn span{color:var(--spira-ink-soft);font-weight:400;display:block;margin-top:2px}
 
@@ -522,11 +554,97 @@ h2.sec:first-of-type{margin-top:0}
           <span class="panel-title">Dispensación</span>
         </div>
         <div class="empty">Esta visita no entrega medicación.</div>
+        <button class="salida" type="button">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          Dispensar fuera de cronograma
+        </button>
       </div>
       <p class="state-why">
-        Acá el realce se <b>apaga</b>: una tarjeta que no tiene nada que hacer llamando la atención
-        es lo contrario de lo que se pidió. Y ahora el mensaje es <b>verdad</b>, porque se apagaron
-        los dos flags del cronograma, no uno solo.
+        El realce se <b>apaga</b>: una tarjeta sin nada que hacer no debería llamar la atención. Pero
+        la puerta queda: la salida es un enlace sobrio, no un botón que invite. <b>Tiene que estar
+        cuando hace falta, sin sugerir que se use.</b>
+      </p>
+    </div>
+
+    <!-- 8 -->
+    <div class="state">
+      <div class="state-label"><span class="state-n">8</span><span class="state-title">Fuera de cronograma, con el aviso de los 30 días</span></div>
+      <div class="panel v-tinte">
+        <div class="panel-head">
+          <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
+          <span class="panel-title">Dispensación</span>
+          <span class="chip-fc" style="margin-left:auto">
+            <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M12 8v4"/><path d="M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>
+            Fuera de cronograma
+          </span>
+        </div>
+
+        <div class="warn" style="margin-bottom:12px">
+          <svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <div>Ya se dispensó hace 12 días
+            <span>28/07/2026 · 1 kit de IP, en la visita V2. Revisá que no sea una entrega repetida.</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <span class="field-lbl">Motivo de la dispensación fuera de cronograma</span>
+          <div class="select">
+            <span>Reposición por pérdida o rotura</span>
+            <svg class="ico" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </div>
+
+        <div class="sub">
+          <div class="sub-head"><span class="sub-label">Medicación concomitante</span></div>
+          <button class="dashed" type="button">
+            <svg class="ico" width="16" height="16" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            Agregar medicación
+          </button>
+        </div>
+        <div class="sub">
+          <div class="sub-head"><span class="sub-label">Producto en investigación</span></div>
+          <div class="drop">
+            <svg class="ico thin" width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <div class="drop-main">Arrastrá la constancia o <span class="lnk">elegí un archivo</span></div>
+            <div class="drop-hint">Preferentemente el PDF · hasta 10&nbsp;MB</div>
+          </div>
+        </div>
+      </div>
+      <p class="state-why">
+        Al abrir la salida aparecen <b>las dos secciones</b> —se está anulando el cronograma, no media
+        parte— más un <b>motivo obligatorio de desplegable</b>, no de texto libre. El aviso de los 30
+        días va <b>arriba de todo</b>: si llega después de que cargaste la medicación, llega tarde.
+      </p>
+    </div>
+
+    <!-- 9 -->
+    <div class="state">
+      <div class="state-label"><span class="state-n">9</span><span class="state-title">Dentro de cronograma · el mismo dato, sin alarma</span></div>
+      <div class="panel v-tinte">
+        <div class="panel-head">
+          <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
+          <span class="panel-title">Dispensación</span>
+        </div>
+        <div class="warn info" style="margin-bottom:12px">
+          <svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="M12 8v4"/><path d="M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>
+          <div>Última dispensación hace 12 días
+            <span>28/07/2026 · 1 kit de IP, en la visita V2.</span>
+          </div>
+        </div>
+        <div class="sub">
+          <div class="sub-head"><span class="sub-label">Producto en investigación</span></div>
+          <div class="drop">
+            <svg class="ico thin" width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <div class="drop-main">Arrastrá la constancia o <span class="lnk">elegí un archivo</span></div>
+            <div class="drop-hint">Preferentemente el PDF · hasta 10&nbsp;MB</div>
+          </div>
+        </div>
+      </div>
+      <p class="state-why">
+        <b>El mismo dato, en tono informativo.</b> En un protocolo con visitas cada 28 días, una
+        alarma ámbar saltaría <i>todas las veces</i> — y una alarma que siempre suena deja de
+        escucharse justo cuando importa. Acá la entrega estaba prevista: el dato se ofrece, no se
+        grita. El ámbar queda reservado para el estado 8.
       </p>
     </div>
 
@@ -556,7 +674,13 @@ h2.sec:first-of-type{margin-top:0}
         <div class="panel-head">
           <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg></span>
           <span class="panel-title">Producto en investigación</span>
-          <span class="panel-aside">Camila Ruiz · hoy 09:12</span>
+          <span class="chip-fc" style="margin-left:auto">
+            <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M12 8v4"/><path d="M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>
+            Fuera de cronograma
+          </span>
+        </div>
+        <div style="font-size:12px;color:var(--spira-ink-soft);margin:-6px 0 12px">
+          Motivo: <b style="color:var(--spira-ink)">Reposición por pérdida o rotura</b> · cargado por Camila Ruiz, hoy 09:12
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <div class="prev tall" style="flex:1;min-width:0">
@@ -673,6 +797,24 @@ h2.sec:first-of-type{margin-top:0}
       <i>nuestro</i> origen, se monta en un iframe oculto y se llama a <code>print()</code>. Con la
       URL firmada a pelo no se puede: es otro origen y el navegador bloquea el <code>print()</code>
       cruzado. «Abrir en pestaña» queda a la vista como salida, no escondido tras un fallo.
+    </li>
+    <li>
+      <b>La salida fuera de cronograma es un enlace, no un botón.</b> Es una acción que tiene que
+      <i>estar</i> cuando hace falta, no una que queramos invitar: si compitiera visualmente con las
+      acciones normales, dispensar fuera de cronograma dejaría de ser la excepción. Y el motivo va por
+      <b>desplegable</b>, no por texto libre, con «Otro» como escape.
+    </li>
+    <li>
+      <b>La marca «fuera de cronograma» viaja.</b> No se queda en la pantalla donde se decidió: va en
+      la card del tablero, en el cajón —con el motivo y quién lo cargó— y en el comprobante impreso.
+      Una excepción que solo conoce quien la hizo no es una excepción auditada.
+    </li>
+    <li>
+      <b>El aviso de 30 días cambia de tono, no de existencia.</b> En un protocolo con visitas cada 28
+      días una alarma ámbar saltaría <i>todas las veces</i>, y una alarma que siempre suena deja de
+      escucharse justo cuando importa. Por eso: <b>dentro</b> de cronograma el dato va en tono
+      informativo (estado 9); <b>fuera</b> de cronograma —que es donde una entrega repetida es un
+      riesgo real— va en ámbar (estado 8). Nunca bloquea: avisa.
     </li>
     <li>
       <b>Contraste medido, no estimado.</b> «Falta la constancia» lleva el texto en tinta y el ámbar
