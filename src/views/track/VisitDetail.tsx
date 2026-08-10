@@ -203,9 +203,9 @@ export function VisitDetail({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {/* Monta su propio `Panel` (el contador "n/total" va en la línea del rótulo). */}
                 <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} />
-                <Panel title="Dispensación" icon="pill" accent={accent}>
-                  <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
-                </Panel>
+                {/* Monta su propio `Panel`: el realce se apaga cuando no hay nada que dispensar
+                    (ni concomitante ni IP). */}
+                <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
                 <Panel title="Comentarios" icon="message" accent={accent}>
                   <CommentThread visitId={visit.id} accent={accent} onAdded={onChanged} />
                 </Panel>
