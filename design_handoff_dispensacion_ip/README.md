@@ -1,6 +1,6 @@
 # Handoff de diseño — Dispensación de IP: la tarjeta partida en dos
 
-**Fecha:** 2026-08-09 · **Versión:** v3 · **Módulo:** Track (detalle de visita) + Pharma (cajón)
+**Fecha:** 2026-08-09 · **Versión:** v4 · **Módulo:** Track (detalle de visita) + Pharma (cajón)
 **Especificación:** [`docs/superpowers/specs/2026-08-09-dispensacion-ip-design.md`](../docs/superpowers/specs/2026-08-09-dispensacion-ip-design.md)
 
 Abrí **`Tarjeta partida - estados.html`** en el navegador. Tiene un botón de tema arriba a la
@@ -19,31 +19,43 @@ Se dibujan la **elección de realce (A/B)**, **cinco estados de la tarjeta** y *
 farmacéutica**. Todo al ancho real que tiene en el modal (**442px**) — no estirado, así los cortes
 de línea que se ven son los que van a pasar.
 
-## Lo que hay que decidir mirando
+## El realce — decidido
 
-**Cuál de las tres variables de realce.** El color ya está decidido (petróleo) y el riel quedó
-descartado, así que la pregunta es qué *otra* variable mover — porque un contorno de acento alrededor
-de la card está descartado de entrada:
+**Petróleo, carta teñida (opción B).** Toda la card sobre un velo del acento, sin riel y sin borde de
+acento alrededor. Las tres candidatas quedan dibujadas en la sección 1 del mock, cada una arriba de
+una tarjeta común, para que el porqué de la elección quede documentado y no haya que rediscutirlo.
 
-| | Qué mueve | Cuándo conviene |
-|---|---|---|
-| **A · Banda de cabecera** | El fondo de la cabecera, a sangre | **Recomendada.** El color se apoya sobre el nombre de la sección: hace de rótulo, no de decoración |
-| **B · Carta teñida** | El fondo de toda la card | La más silenciosa. Riesgo: un tinte parejo se puede leer como «desactivado» |
-| **C · Hoja elevada** | El material: papel blanco + sombra, más la banda | La que más resalta. Contra: la elevación en esta app ya significa «el mouse está acá» |
+Con B hay una cosa a mirar en la implementación: un tinte parejo y suave puede leerse como
+*«esto está desactivado»* en vez de *«esto importa»*. Si en el uso real pasa eso, el remedio es subir
+el tinte o pasar a la banda de cabecera, no agregar un borde.
 
-Cada una está dibujada arriba de una tarjeta común, que es la única forma de juzgar si resalta de
-verdad. El resto del mock está dibujado con **A**.
-
-## Cambios de la v3 respecto de la v1
+## Cambios de la v4 respecto de la v1
 
 - **Se fue el tilde.** Si el cronograma ya define que la visita entrega IP, pedirle al coordinador
   que lo confirme es pedirle que declare algo que el sistema sabe mejor que él. La sección aparece
   por `dispenses_ip` y lo único que se pide es el archivo. En la base esto **borra la RPC
   `set_request_ip`** y le devuelve a `create_dispensation_request` su firma original.
-- **La tarjeta resalta** (pedido del Director Médico), en petróleo, sin riel — tres variables a elegir.
+- **La tarjeta resalta** (pedido del Director Médico), en petróleo, carta teñida.
 - **El realce se apaga** cuando la visita no entrega nada (estado 5).
 - **Previsualizador** en las dos puntas, y en Farmacia **impresión en un clic**.
 - El texto del box quedó en *«Preferentemente el PDF · hasta 10 MB»*.
+- **Los kits arrancan en 0** y el 0 se ve como *pendiente*. Si sigue en 0 al entregar, un **pop-up**
+  lo pide. Eso **mueve el descuento de stock del IP** de *marcar lista* a *entregar* — ver abajo.
+
+## El cambio de fondo que trajo el «0»
+
+Poner los kits en 0 y pedirlos recién al entregar no es solo una validación: **corre el momento en
+que el IP sale del stock**. Ya no ocurre al *marcar lista* —como el de la medicación concomitante—
+sino al **entregar**.
+
+Sale mejor, no peor. En el IP no hay lote ni FEFO, así que no hay nada que reservar: descontarlo
+antes solo produciría un número que puede terminar siendo otro. Y *entregada* es el paso
+irreversible, que es donde corresponde congelar un dato que después no se corrige. Efecto lateral:
+**cancelar una preparación ya no tiene que devolver kits**, porque nunca salieron — una rama menos
+que escribir y que testear.
+
+Lo que hay que asumir: en un mismo comprobante, la medicación de base descuenta en *lista* y el IP en
+*entregada*.
 
 ## Qué manda y qué no
 

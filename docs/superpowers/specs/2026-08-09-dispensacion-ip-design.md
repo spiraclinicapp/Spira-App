@@ -40,8 +40,28 @@ constancia**. Nada más. No es una simplificación: es la política.
 | **D5** | ¿Dónde viven los archivos? | **Supabase Storage**, bucket privado. Ver §7 (costos): la base de datos sale 5,9× más cara por GB y con 12,5× menos incluido. |
 | **D6** | ¿Tope de tamaño? | **10 MB**, y la UI **sugiere PDF**. Sin recomprimir imágenes (§6.3). |
 | **D7** | ¿El coordinador tilda que hay IP? | **No.** Lo define el **cronograma** (`dispenses_ip`). Pedirle que confirme algo que el sistema ya sabe es redundancia disfrazada de control, y abre la puerta a que difieran. Lo único que se le pide es el archivo. |
-| **D8** | ¿La tarjeta resalta? | **Sí** (pedido del Director Médico), en **petróleo**. Nunca un borde de acento alrededor, y **sin riel** (descartado por el Director). La variable se elige entre tres dibujadas en el mock — banda de cabecera, carta teñida u hoja elevada; recomendada la **banda**. El realce se **apaga** cuando la visita no entrega nada. |
+| **D8** | ¿La tarjeta resalta? | **Sí** (pedido del Director Médico), en **petróleo**, con la **carta teñida**: toda la card sobre un velo del acento. Sin riel y sin borde de acento alrededor. El realce se **apaga** cuando la visita no entrega nada. |
 | **D9** | ¿Se previsualiza el archivo? | **Sí**, en las dos puntas, y en Farmacia **se imprime en un clic**. Sin librerías nuevas (§4). |
+| **D10** | ¿Cuántos kits, y cuándo? | El campo **arranca en 0** —que se ve como *pendiente*, no como un número válido— y si sigue en 0 al entregar, **un pop-up lo pide**. Un `1` por defecto se confirma en piloto automático; el 0 obliga a un acto consciente. |
+
+### D10 corrigió el momento del descuento
+
+La primera lectura de D4 puso los kits en *Marcar lista*, para que el stock del IP se moviera donde ya
+se mueve el de la concomitante (decisión D4 del
+[plan de dispensaciones](../../plan-rediseno-dispensaciones.md), 2026-07-18: al marcar lista se emite
+el comprobante y sale el stock; "Entregar" solo sella la fecha). Con el campo en 0 y el pop-up al
+entregar, eso deja de tener sentido — y la alternativa resulta mejor:
+
+**El IP se descuenta al *entregar*, no al marcar lista.** En el IP no hay lote ni FEFO, así que **no
+hay nada que reservar**: descontarlo antes solo produciría un número que puede terminar siendo otro.
+Sellarlo en el acto en que los kits salen físicamente es más honesto, y además es el paso
+**irreversible**, que es donde corresponde congelar un dato que después no se corrige. Como efecto
+lateral el diseño se simplifica: **cancelar una preparación ya no tiene que devolver kits**, porque
+nunca salieron.
+
+La consecuencia a asumir: dentro de un mismo comprobante, la medicación de base descuenta en *lista*
+y el IP en *entregada*. Son dos reglas distintas en una hoja, y está bien que lo sean — describen dos
+cosas que se mueven en momentos distintos.
 
 ## Modelo mental
 
@@ -95,7 +115,7 @@ alter table public.dispensations
 
 `ip_kits` vive en la **dispensación**, no en la solicitud, por el mismo motivo por el que el lote
 vive ahí: es lo que **efectivamente salió**, declarado por quien lo entregó, y queda congelado en el
-comprobante. Nace `null` y lo sella `mark_dispensation_ready`.
+comprobante. Nace `null` y lo sella **`deliver_dispensation`** (D10).
 
 `includes_ip` **no lo declara el cliente** (D7): lo sella el servidor al crear la solicitud, copiando
 `dispenses_ip` de la definición de la visita. Se guarda igual —en vez de mirarlo cada vez a través de
@@ -173,17 +193,18 @@ de error en castellano sereno traducidos por `pharmaErrorMessage`.
 |---|---|---|
 | `create_dispensation_request` | **sin cambios de firma** — `(p_visit_id, p_items, p_notes, p_origen)` | Sella `includes_ip` leyendo `dispenses_ip` de la definición de la visita, y acepta **cero renglones** si ese flag está prendido. Ver §1.6. |
 | `attach_ip_document` | `(p_request_id uuid, p_path text, p_file_name text, p_mime text, p_size int) → uuid` | Marca superada la constancia vigente e inserta la nueva. Solo con el pedido `solicitada` o `preparando`, y solo si la solicitud tiene `includes_ip`. |
-| `mark_dispensation_ready` | `(p_request_id uuid, p_ip_kits integer default null)` | Suma dos exigencias cuando `includes_ip`: **kits ≥ 1** y **constancia vigente cargada**. Sella `ip_kits`. |
+| `mark_dispensation_ready` | **sin cambios de firma** — `(p_request_id uuid)` | Suma **una** exigencia cuando `includes_ip`: **constancia vigente cargada**. No pide kits (D10). |
+| `deliver_dispensation` | `(p_dispensation_id uuid, p_ip_kits integer default null)` | Exige `p_ip_kits ≥ 1` cuando `includes_ip`. Sella `ip_kits` — y con eso el IP sale del stock. |
 
-**D7 le sacó dos cosas a esta tabla.** No hay `set_request_ip` — no hay tilde que prender ni apagar.
-Y `create_dispensation_request` **conserva su firma**, porque el dato dejó de venir del cliente: se
-deduce de la definición de la visita. Queda una sola función que cambia de firma.
+**D7 y D10 le sacaron trabajo a esta tabla.** No hay `set_request_ip` (no hay tilde que prender ni
+apagar). `create_dispensation_request` **conserva su firma**, porque el dato dejó de venir del
+cliente. Y `mark_dispensation_ready` **también la conserva**, porque los kits se movieron a la
+entrega. Queda **una sola** función que cambia de firma.
 
-Esa —`mark_dispensation_ready`— se **dropea y se recrea**, no se reemplaza: agregar un parámetro con
+Esa —`deliver_dispensation`— se **dropea y se recrea**, no se reemplaza: agregar un parámetro con
 `create or replace` crea una **sobrecarga** y PostgREST tendría que elegir entre dos funciones. Es la
 misma trampa que documentó la
-[0060](../../../supabase/migrations/0060_origen_solicitud_explicito.sql), y encima devuelve
-`table(...)`, que `create or replace` tampoco puede cambiar.
+[0060](../../../supabase/migrations/0060_origen_solicitud_explicito.sql).
 
 La lectura del archivo **no necesita RPC**: el cliente pide una URL firmada de vida corta
 (`createSignedUrl(path, 60)`), y la política de `select` de §1.4 es el candado.
@@ -214,11 +235,11 @@ motivo: el front viejo la ignora.
 `v_ip_stock` pasa a restar. **No se agrega tabla de movimientos**: la vista lee las dispensaciones
 vivas, así que cancelar una preparación devuelve los kits sola, sin riesgo de descuadre.
 
-Se restan las dispensaciones en estado `lista` o `entregada` — el mismo corte que usa el stock de
-base, que sale al **marcar lista** y no al entregar (decisión D4 del
-[plan de dispensaciones](../../plan-rediseno-dispensaciones.md), 2026-07-18). Por eso los kits se
-piden en *Marcar lista*: es el único momento en que el stock se mueve, y cancelar devuelve las dos
-cosas juntas.
+Se restan **solo las dispensaciones `entregada` con `ip_kits` no nulo** (D10). Distinto del stock de
+base, que sale al marcar lista — y por buena razón: en el IP no hay lote que reservar, así que el
+número recién existe cuando los kits salen. Como el corte es `entregada`, que es irreversible,
+**cancelar una preparación no puede afectar al stock de IP**: no hay rama de devolución que escribir
+ni que testear.
 
 **Las columnas existentes no cambian de significado.** `total_kits` sigue siendo lo recibido — el
 front lo lee así ([`ipStock.ts`](../../../src/data/pharma/ipStock.ts)). Se **agregan**
@@ -300,7 +321,15 @@ hay que hacer.
 - Sin constancia cargada: aviso claro de que falta, y `Marcar lista` deshabilitado **con el motivo
   escrito debajo** (§6.5.3 del plan de dispensaciones: ningún botón deshabilitado mudo).
 
-En `Marcar lista`: campo **Kits de IP a entregar**, default `1`, obligatorio si `includes_ip`.
+**Los kits (D10).** Campo **Kits de IP entregados** en el cajón, **default `0`**, editable en
+cualquier momento hasta la entrega. El 0 se pinta **como pendiente** —borde punteado, tinta atenuada,
+píldora "Sin declarar"— y no como un número válido más: un `1` por defecto se confirma en piloto
+automático.
+
+Si sigue en 0 al apretar `Entregar`, **se abre un pop-up** que lo pide. El pop-up **explica por qué**
+—descuenta stock y la entrega es definitiva— porque una interrupción que no se explica se cierra sin
+leer; el botón queda apagado con el motivo escrito debajo, nunca mudo. **No acepta 0**: si de verdad
+no salió ningún kit, lo que corresponde no es entregar 0 sino cancelar la preparación.
 
 Un pedido **sin renglones** (IP solo) no muestra el campo de escaneo: muestra la constancia y el
 campo de kits. `PanelLista` y `PanelEntregada` muestran la línea de IP y mantienen `Abrir` para
@@ -411,10 +440,13 @@ Sin suite de tests: el gate es `npm run typecheck` verde **más** el recorrido l
 5. Reemplazar la constancia → la anterior queda `superseded_at`, la vigente es una sola, y el
    `audit_log` tiene las dos altas.
 6. Como farmacéutica: ver la constancia en el cajón e **imprimirla en un clic** (que abra el diálogo
-   del sistema, no una pestaña), `Marcar lista` con **2 kits** → comprobante emitido y `v_ip_stock`
-   baja 2.
-7. `Cancelar preparación` → **los 2 kits vuelven** y el comprobante desaparece.
-8. Rehacer y `Entregar` → el stock **no** vuelve a bajar.
+   del sistema, no una pestaña) y `Marcar lista` → comprobante emitido, y `v_ip_stock` **todavía no
+   se mueve**.
+7. `Cancelar preparación` desde *Lista* → vuelve el stock de la medicación de base y **el de IP ni se
+   toca**, porque nunca salió.
+8. Rehacer y apretar `Entregar` **con los kits en 0** → salta el pop-up y no deja pasar. Poner **2** →
+   entrega sellada y `v_ip_stock` baja 2.
+8b. Declarar los 2 kits en el cajón **antes** de entregar → `Entregar` no abre ningún pop-up.
 9. Una visita con concomitante **y** IP → **un** cajón, **un** comprobante con las dos cosas.
 10. Con un coordinador de **otro** protocolo: la URL firmada del archivo **no** se puede pedir.
 11. Borrar exactamente los registros `TEST-*` creados.

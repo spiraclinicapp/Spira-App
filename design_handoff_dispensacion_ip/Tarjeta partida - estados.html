@@ -185,7 +185,32 @@ h2.sec:first-of-type{margin-top:0}
 .kits label{font-size:12.5px;font-weight:600}
 .num{width:66px;height:38px;border-radius:10px;border:1px solid var(--spira-line-2);background:var(--spira-white);padding:0 11px;font-family:var(--spira-font-text);font-size:14px;color:var(--spira-ink);font-variant-numeric:tabular-nums}
 .num:focus{outline:none;box-shadow:var(--spira-shadow-sm);transform:translateY(-1px)}
+/* el 0 se ve COMO PENDIENTE, no como un número válido cualquiera */
+.num.sindeclarar{color:var(--spira-ink-soft);border-style:dashed}
 .wide{width:626px}
+
+/* —— el pop-up de los kits —— */
+.scrim{
+  border-radius:14px;background:rgba(20,48,46,.42);padding:34px 22px;
+  display:grid;place-items:center;
+}
+.modal{
+  width:100%;max-width:400px;background:var(--spira-paper);border:1px solid var(--spira-line);
+  border-radius:16px;box-shadow:var(--spira-shadow-md);padding:20px 22px 18px;
+}
+.modal h3{font-family:var(--spira-font-display);font-weight:700;font-size:17px;margin:0 0 6px;letter-spacing:-.01em}
+.modal p{font-size:13px;color:var(--spira-ink-soft);margin:0 0 15px;line-height:1.55}
+.modal .big{
+  width:100%;height:52px;border-radius:12px;border:1px solid var(--spira-line-2);
+  background:var(--spira-white);padding:0 15px;font-family:var(--spira-font-display);
+  font-weight:700;font-size:22px;color:var(--spira-ink);font-variant-numeric:tabular-nums;
+}
+.modal .row{display:flex;gap:9px;margin-top:16px}
+.modal .row .mini{height:40px;flex:0 0 auto}
+.modal .row .solid{flex:1}
+.solid[disabled]{background:var(--spira-line);color:var(--spira-faint);cursor:default;box-shadow:none}
+.solid[disabled]:hover{transform:none;box-shadow:none}
+.hint-why{font-size:11.5px;color:var(--spira-ink-soft);text-align:center;margin-top:8px}
 
 .notes{margin-top:16px;border:1px solid var(--spira-line);border-radius:14px;background:var(--spira-surface);padding:6px 22px 20px}
 .notes li{margin-top:13px;font-size:13.5px;line-height:1.62}
@@ -330,7 +355,7 @@ h2.sec:first-of-type{margin-top:0}
   <!-- ══════════════ ESTADOS ══════════════ -->
   <h2 class="sec">2 · La tarjeta, estado por estado</h2>
   <p class="sec-note">
-    Dibujadas con la opción <b>A</b> (mi recomendación). Ya no hay tilde: si la visita entrega IP o
+    Dibujadas con la opción <b>B</b>, la elegida. Ya no hay tilde: si la visita entrega IP o
     no lo dice el <b>cronograma</b>, y volver a preguntárselo al coordinador es pedirle que confirme
     algo que el sistema ya sabe. Lo único que se le pide es el archivo.
   </p>
@@ -340,7 +365,7 @@ h2.sec:first-of-type{margin-top:0}
     <!-- 1 -->
     <div class="state">
       <div class="state-label"><span class="state-n">1</span><span class="state-title">Sin pedido · la visita entrega las dos cosas</span></div>
-      <div class="panel v-banda">
+      <div class="panel v-tinte">
         <div class="panel-head">
           <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
           <span class="panel-title">Dispensación</span>
@@ -370,7 +395,7 @@ h2.sec:first-of-type{margin-top:0}
     <!-- 2 -->
     <div class="state">
       <div class="state-label"><span class="state-n">2</span><span class="state-title">Solo IP — el caso típico de protocolo</span></div>
-      <div class="panel v-banda">
+      <div class="panel v-tinte">
         <div class="panel-head">
           <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
           <span class="panel-title">Dispensación</span>
@@ -394,7 +419,7 @@ h2.sec:first-of-type{margin-top:0}
     <!-- 3 -->
     <div class="state">
       <div class="state-label"><span class="state-n">3</span><span class="state-title">Falta la constancia</span></div>
-      <div class="panel v-banda">
+      <div class="panel v-tinte">
         <div class="panel-head">
           <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
           <span class="panel-title">Dispensación</span>
@@ -433,7 +458,7 @@ h2.sec:first-of-type{margin-top:0}
     <!-- 4 -->
     <div class="state">
       <div class="state-label"><span class="state-n">4</span><span class="state-title">Pedido completo, con previsualizador</span></div>
-      <div class="panel v-banda">
+      <div class="panel v-tinte">
         <div class="panel-head">
           <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
           <span class="panel-title">Dispensación</span>
@@ -515,11 +540,19 @@ h2.sec:first-of-type{margin-top:0}
     <b>imprime en un clic</b>. Misma variable de realce, con el acento del módulo — en Farmacia el
     dorado no es una elección, es el color de la casa.
   </p>
+  <p class="sec-note">
+    <b>Ojo con esto, que cambia una decisión anterior.</b> Poner los kits en 0 y pedirlos recién al
+    entregar mueve el descuento de stock del IP: ya no ocurre al <i>marcar lista</i> —como el de la
+    medicación concomitante— sino al <b>entregar</b>. Sale más simple y más honesto: en el IP no hay
+    lote ni FEFO, así que no hay nada que reservar, y el número queda sellado en el mismo acto en que
+    los kits salen físicamente. Como efecto lateral, cancelar una preparación ya no tiene que
+    devolver kits: nunca salieron.
+  </p>
 
   <div class="states">
     <div class="state wide">
       <div class="state-label"><span class="state-n" style="background:var(--spira-pharma-solid)">6</span><span class="state-title">El cajón, al preparar</span></div>
-      <div class="panel pharma v-banda">
+      <div class="panel pharma v-tinte">
         <div class="panel-head">
           <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg></span>
           <span class="panel-title">Producto en investigación</span>
@@ -559,15 +592,42 @@ h2.sec:first-of-type{margin-top:0}
           </div>
         </div>
         <div class="kits">
-          <label for="k">Kits de IP a entregar</label>
-          <input class="num" id="k" type="number" value="1" min="1">
-          <span style="font-size:11.5px;color:var(--spira-ink-soft)">Se descuenta del stock del protocolo al marcar lista</span>
+          <label for="k">Kits de IP entregados</label>
+          <input class="num sindeclarar" id="k" type="number" value="0" min="0">
+          <span class="pill warnp">Sin declarar</span>
+          <span style="font-size:11.5px;color:var(--spira-ink-soft);flex:1">Se sella y descuenta del stock al <b>entregar</b></span>
         </div>
       </div>
       <p class="state-why">
-        La cantidad se pide acá, en <b>Marcar lista</b> — no al entregar. Es el único momento en que
-        el stock se mueve (igual que la concomitante), así que cancelar la preparación devuelve las
-        dos cosas juntas.
+        La cantidad <b>arranca en 0</b>, y el 0 se ve como pendiente —borde punteado, tinta
+        atenuada, píldora «Sin declarar»— no como un número válido más. Un <code>1</code> por
+        defecto se confirma en piloto automático; un 0 obliga a un acto consciente. Se puede
+        completar acá en cualquier momento, o dejar que el pop-up la pida al final.
+      </p>
+    </div>
+
+    <div class="state">
+      <div class="state-label"><span class="state-n" style="background:var(--spira-pharma-solid)">7</span><span class="state-title">El pop-up, al entregar con 0</span></div>
+      <div class="scrim">
+        <div class="modal">
+          <h3>¿Cuántos kits de IP entregaste?</h3>
+          <p>
+            Quedó en 0 y esta entrega lleva producto en investigación. El número descuenta del stock
+            del protocolo y <b>no se puede corregir después</b>: entregada es definitiva.
+          </p>
+          <input class="big" type="number" value="0" min="1" autofocus>
+          <div class="row">
+            <button class="mini" type="button">Volver</button>
+            <button class="solid" type="button" disabled>Entregar</button>
+          </div>
+          <div class="hint-why">Tiene que ser 1 o más</div>
+        </div>
+      </div>
+      <p class="state-why">
+        Salta solo si la farmacéutica no lo completó antes. Dice <b>por qué</b> se lo pide y avisa que
+        es irreversible — un pop-up que interrumpe sin explicarse se cierra sin leer. «Entregar» está
+        apagado con el motivo escrito debajo, nunca mudo. Si de verdad no salió ningún kit, lo que
+        corresponde no es entregar 0: es cancelar la preparación.
       </p>
     </div>
   </div>
