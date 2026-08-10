@@ -139,6 +139,44 @@ update public.dispensation_requests dr
 alter table public.dispensation_requests enable trigger trg_requests_updated_at;
 
 
+-- 3.2 · El seguro de la columna: un trigger la sella sola.
+--     El backfill de arriba arregla el pasado y `create_dispensation_request` (§8) sella el futuro,
+--     pero `protocol_id` es NULLABLE y la policy "track crea solicitudes" (0006/0009) permite
+--     insertar en la tabla SIN pasar por el RPC. Una sola fila con el protocolo en null se cae en
+--     silencio de `v_ip_stock` (§10 descarta `dr.protocol_id is null`): sus kits entregados no se
+--     restarían nunca y la vista sobrestimaría el disponible — la misma clase de número falso que la
+--     desnormalización vino a cerrar, y de nuevo sin ningún error a la vista. Un dato desnormalizado
+--     que depende de que TODOS los caminos de escritura se acuerden de llenarlo no se sostiene solo;
+--     con el trigger sí, venga de donde venga el insert.
+--     SECURITY DEFINER a propósito: Farmacia no tiene policy de select sobre `patient_visits`, así
+--     que el lookup con los privilegios de quien inserta devolvería NULL en silencio justo en el
+--     caso que se quiere blindar. `before insert` y solo si viene null: para el RPC —que ya lo
+--     sella— es un no-op, y ninguna fila existente se toca.
+create or replace function public.seal_request_protocol()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_protocol_id uuid;
+begin
+  if new.protocol_id is null then
+    select e.protocol_id into v_protocol_id
+      from public.patient_visits pv
+      join public.enrollments e on e.id = pv.enrollment_id
+      where pv.id = new.visit_id;
+    -- Si la visita no existe, la columna queda en null y el insert muere igual un instante después
+    -- en la FK de `visit_id`: acá no hace falta (ni conviene) un mensaje propio.
+    new.protocol_id := v_protocol_id;
+  end if;
+  return new;
+end; $$;
+comment on function public.seal_request_protocol() is
+  'Sella dispensation_requests.protocol_id desde la visita cuando el insert no lo trae (p. ej. una
+   escritura directa por la policy de Track, sin pasar por el RPC). Sin esto, una fila con el
+   protocolo en null desaparece de v_ip_stock y la vista sobrestima el stock disponible. 0071.';
+drop trigger if exists trg_seal_request_protocol on public.dispensation_requests;
+create trigger trg_seal_request_protocol
+  before insert on public.dispensation_requests
+  for each row execute function public.seal_request_protocol();
+
+
 -- 4 · La constancia. Filas INMUTABLES y sin borrado: es nota fuente. Reemplazar inserta una fila
 --     nueva y sella `superseded_at` en la anterior. El índice parcial garantiza UNA sola vigente
 --     por pedido a nivel base, no a nivel UI.
@@ -216,6 +254,12 @@ $$;
 --     entrar el resto. Si aparece el aviso, las dos policies se crean idénticas a mano desde
 --     Storage → Policies (bucket `ip-docs`, una de SELECT y una de INSERT). Nada más de la
 --     migración depende de ellas.
+--
+--     ⚠️ EL "Success" DEL SQL EDITOR NO PRUEBA QUE LAS POLICIES SE HAYAN CREADO. El editor muestra
+--     el RESULTADO de la consulta, y el NOTICE viaja por el canal de mensajes del servidor, que no
+--     siempre se ve. O sea: el caso malo —policies no creadas, aviso invisible— se ve exactamente
+--     igual que el bueno, y el problema recién aparece después, en la UI, cuando falla la primera
+--     subida. La ÚNICA prueba es la consulta por catálogo del pie de este archivo (verificación 9).
 do $$
 begin
   drop policy if exists "ip docs lectura" on storage.objects;
@@ -285,6 +329,26 @@ begin
   if v_status not in ('solicitada','preparando') then
     raise exception 'La solicitud ya está cerrada: no se puede cambiar la constancia' using errcode = 'check_violation';
   end if;
+  -- El estado del PEDIDO no alcanza para saber si el comprobante ya salió: `mark_dispensation_ready`
+  -- deja la dispensación en 'lista' pero NO mueve el status de la solicitud, que sigue en
+  -- 'preparando' hasta que la entrega la pasa a 'atendida'. O sea: hay una ventana en la que el
+  -- pedido está abierto y el comprobante ya está emitido y el correlativo sellado. Sumarle IP ahí
+  -- saltearía en silencio la regla "no se emite comprobante sin constancia" (§8.1) y dejaría en la
+  -- auditoría un comprobante ANTERIOR a la nota fuente que lo justifica, que es exactamente lo que
+  -- un sistema ANMAT / ICH-GCP no puede permitirse. Y hay un agravante mecánico: como no hay unique
+  -- sobre `dispensations.request_id`, el reflejo obvio después de adjuntar ("marco lista de nuevo")
+  -- no reusa la dispensación —el select de §8.1 busca una en 'en_preparacion' y la vigente está en
+  -- 'lista'— sino que INSERTA UNA SEGUNDA, con correlativo nuevo y descuento de stock repetido.
+  -- Se frena SOLO la rama que prende `includes_ip`: adjuntar o reemplazar la constancia de un
+  -- pedido que YA era de IP tiene que seguir funcionando mientras el pedido esté abierto (la de
+  -- §8.1 ya se exigió antes de emitir, así que ahí no se saltea nada).
+  if not v_includes_ip and exists (
+       select 1 from public.dispensations d
+       where d.request_id = p_request_id and d.status in ('lista','entregada')
+     ) then
+    raise exception 'El comprobante de esta dispensación ya se emitió: no se le puede sumar producto en investigación. Si hay que incluirlo, Farmacia tiene que cancelar la preparación primero.'
+      using errcode = 'check_violation';
+  end if;
   -- El path tiene que caer en la carpeta del protocolo de ESTA visita. Sin este check, la policy
   -- de storage (que autoriza por el prefijo del path) y la nota fuente (que autoriza por el
   -- pedido) podrían apuntar a estudios distintos: un coordinador de dos protocolos subiría el
@@ -306,6 +370,8 @@ begin
   -- Fuera de cronograma: la constancia es la declaración de que el pedido lleva IP. Recién acá
   -- `includes_ip` se prende, y con eso quedan activas las dos consecuencias aguas abajo — la
   -- exigencia de constancia en mark_dispensation_ready y la de kits en deliver_dispensation.
+  -- Esta rama es la que custodia la guarda de arriba (misma condición): si el comprobante ya
+  -- estuviera emitido, la función ya habría cortado y no se llega hasta acá.
   if not v_includes_ip then
     update public.dispensation_requests set includes_ip = true where id = p_request_id;
   end if;
@@ -497,6 +563,22 @@ begin
     ) then
       raise exception 'Falta la constancia del producto en investigación' using errcode = 'check_violation';
     end if;
+  end if;
+
+  -- El espejo del bloque de arriba: pedido SIN renglones y SIN IP, o sea sin nada que dispensar.
+  -- Frenarlo ya lo frena el trigger `apply_dispensation_stock` (§8.2) un par de statements después,
+  -- pero con el mensaje "sin renglones (dispensation_items)", que no nombra la constancia y manda a
+  -- la farmacéutica a buscar medicación donde el problema es otro: el camino que en la práctica
+  -- llega hasta acá vacío es el pedido FUERA DE CRONOGRAMA (el de cronograma sin renglones exige
+  -- `dispenses_ip` al crearse, §8, y eso ya prende `includes_ip`; el otro caso posible es que le
+  -- hayan borrado los renglones después), y ahí lo que falta casi siempre es la constancia del
+  -- IRT — que es justamente la que prende `includes_ip` (§7). El pre-check va acá y no en el
+  -- trigger: el mensaje se arregla donde ya estamos escribiendo, sin recrear otro objeto de
+  -- producción por una cuestión de copy. Bonus: corta antes de tocar el correlativo diario.
+  if not exists (select 1 from public.dispensation_request_items i where i.request_id = p_request_id)
+     and not (select r.includes_ip from public.dispensation_requests r where r.id = p_request_id) then
+    raise exception 'Este pedido no tiene medicación cargada ni constancia de producto en investigación: no hay nada que dispensar. Adjuntá la constancia del IRT o cargá la medicación.'
+      using errcode = 'check_violation';
   end if;
 
   -- Reusar la dispensación si ya existe. Conserva el correlativo (numeración legal
@@ -752,8 +834,25 @@ comment on view public.v_ip_stock is
 --   --    todo el histórico como "entregado hoy" — el trigger quedó vivo durante el update):
 --   --    select count(*) from public.dispensation_requests where updated_at::date = current_date
 --   --      and created_at::date <> current_date;  → 0
---   -- 8. Las policies del bucket entraron (si la migración imprimió el NOTICE de §6, esto da 0 y
---   --    hay que crearlas a mano desde Storage → Policies):
+--   -- 8. Los triggers de la tabla de solicitudes quedaron como corresponde. El de `updated_at` se
+--   --    APAGA y se vuelve a PRENDER alrededor del backfill (§3.1): si el archivo se aplicara en
+--   --    pedazos y el corte cayera justo en el medio, `updated_at` quedaría congelado PARA SIEMPRE
+--   --    y el tablero de Farmacia dejaría de mostrar lo trabajado del día — la misma corrupción
+--   --    silenciosa que el apagado venía a evitar, pero al revés. Se comprueba por catálogo, que es
+--   --    lo único que no depende de haber mirado la pantalla en el momento justo:
+--   --    select tgname, tgenabled from pg_trigger
+--   --     where tgrelid = 'public.dispensation_requests'::regclass and not tgisinternal
+--   --     order by tgname;
+--   --    → `trg_requests_updated_at` con tgenabled = 'O' (Origin = habilitado; 'D' = deshabilitado,
+--   --      y en ese caso se arregla con
+--   --      `alter table public.dispensation_requests enable trigger trg_requests_updated_at;`).
+--   --      En la misma lista tienen que estar `trg_audit_requests` y el nuevo
+--   --      `trg_seal_request_protocol` (§3.2), los dos también en 'O'.
+--   -- 9. Las policies del bucket entraron. ⚠️ OJO: el "Success" del SQL Editor NO prueba nada acá —
+--   --    el NOTICE de §6 sale por el canal de mensajes del servidor, que el editor no siempre
+--   --    muestra, así que "policies no creadas + aviso invisible" se ve idéntico a que haya salido
+--   --    todo bien, y el problema recién aparece después, en la UI, cuando falla la primera subida.
+--   --    Esta consulta es la prueba; si da 0 o 1 filas, se crean a mano desde Storage → Policies:
 --   --    select policyname from pg_policies
 --   --     where schemaname = 'storage' and tablename = 'objects' and policyname like 'ip docs%';
 --   --    → dos filas: "ip docs lectura" y "ip docs alta".
