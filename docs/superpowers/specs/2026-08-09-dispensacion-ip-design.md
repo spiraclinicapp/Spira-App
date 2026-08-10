@@ -39,6 +39,9 @@ constancia**. Nada más. No es una simplificación: es la política.
 | **D4** | ¿Descuenta stock? | **Sí.** La farmacéutica declara cuántos kits entrega antes de que el pedido quede entregado. |
 | **D5** | ¿Dónde viven los archivos? | **Supabase Storage**, bucket privado. Ver §7 (costos): la base de datos sale 5,9× más cara por GB y con 12,5× menos incluido. |
 | **D6** | ¿Tope de tamaño? | **10 MB**, y la UI **sugiere PDF**. Sin recomprimir imágenes (§6.3). |
+| **D7** | ¿El coordinador tilda que hay IP? | **No.** Lo define el **cronograma** (`dispenses_ip`). Pedirle que confirme algo que el sistema ya sabe es redundancia disfrazada de control, y abre la puerta a que difieran. Lo único que se le pide es el archivo. |
+| **D8** | ¿La tarjeta resalta? | **Sí** (pedido del Director Médico): riel a la izquierda + tinte suave, con el **dorado de Farmacia** — el color dice *esto lo resuelve el otro módulo*. Nunca un borde de acento alrededor de la card. |
+| **D9** | ¿Se previsualiza el archivo? | **Sí**, en las dos puntas, y en Farmacia **se imprime en un clic**. Sin librerías nuevas (§4). |
 
 ## Modelo mental
 
@@ -93,6 +96,11 @@ alter table public.dispensations
 `ip_kits` vive en la **dispensación**, no en la solicitud, por el mismo motivo por el que el lote
 vive ahí: es lo que **efectivamente salió**, declarado por quien lo entregó, y queda congelado en el
 comprobante. Nace `null` y lo sella `mark_dispensation_ready`.
+
+`includes_ip` **no lo declara el cliente** (D7): lo sella el servidor al crear la solicitud, copiando
+`dispenses_ip` de la definición de la visita. Se guarda igual —en vez de mirarlo cada vez a través de
+la visita— porque el cronograma puede cambiar después, y la solicitud tiene que recordar **lo que era
+cierto cuando se pidió**. Es el mismo criterio por el que el comprobante copia el lote.
 
 ### 1.3 La constancia
 
@@ -163,27 +171,31 @@ de error en castellano sereno traducidos por `pharmaErrorMessage`.
 
 | RPC | Firma | Qué hace |
 |---|---|---|
-| `create_dispensation_request` | `(p_visit_id uuid, p_items jsonb, p_notes text default null, p_origen text default 'track', p_includes_ip boolean default false)` | Igual que hoy **más** la rama de IP. Ver §1.6. |
-| `set_request_ip` | `(p_request_id uuid, p_includes boolean) → void` | Prende o apaga el tilde en un pedido **todavía `solicitada`**. Apagarlo con constancia cargada la marca superada. |
-| `attach_ip_document` | `(p_request_id uuid, p_path text, p_file_name text, p_mime text, p_size int) → uuid` | Marca superada la vigente, inserta la nueva, y pone `includes_ip = true`. Solo con el pedido `solicitada` o `preparando`. |
+| `create_dispensation_request` | **sin cambios de firma** — `(p_visit_id, p_items, p_notes, p_origen)` | Sella `includes_ip` leyendo `dispenses_ip` de la definición de la visita, y acepta **cero renglones** si ese flag está prendido. Ver §1.6. |
+| `attach_ip_document` | `(p_request_id uuid, p_path text, p_file_name text, p_mime text, p_size int) → uuid` | Marca superada la constancia vigente e inserta la nueva. Solo con el pedido `solicitada` o `preparando`, y solo si la solicitud tiene `includes_ip`. |
 | `mark_dispensation_ready` | `(p_request_id uuid, p_ip_kits integer default null)` | Suma dos exigencias cuando `includes_ip`: **kits ≥ 1** y **constancia vigente cargada**. Sella `ip_kits`. |
 
-Las dos que cambian de firma (`create_dispensation_request`, `mark_dispensation_ready`) se
-**dropean y se recrean**, no se reemplazan: agregar un parámetro con `create or replace` crea una
-**sobrecarga** y PostgREST tendría que elegir entre dos funciones. Es la misma trampa que documentó
-la [0060](../../../supabase/migrations/0060_origen_solicitud_explicito.sql), y encima
-`mark_dispensation_ready` devuelve `table(...)`, que `create or replace` tampoco puede cambiar.
+**D7 le sacó dos cosas a esta tabla.** No hay `set_request_ip` — no hay tilde que prender ni apagar.
+Y `create_dispensation_request` **conserva su firma**, porque el dato dejó de venir del cliente: se
+deduce de la definición de la visita. Queda una sola función que cambia de firma.
+
+Esa —`mark_dispensation_ready`— se **dropea y se recrea**, no se reemplaza: agregar un parámetro con
+`create or replace` crea una **sobrecarga** y PostgREST tendría que elegir entre dos funciones. Es la
+misma trampa que documentó la
+[0060](../../../supabase/migrations/0060_origen_solicitud_explicito.sql), y encima devuelve
+`table(...)`, que `create or replace` tampoco puede cambiar.
 
 La lectura del archivo **no necesita RPC**: el cliente pide una URL firmada de vida corta
 (`createSignedUrl(path, 60)`), y la política de `select` de §1.4 es el candado.
 
 ### 1.6 Las reglas del pedido, escritas de una vez
 
-`create_dispensation_request` valida, en este orden:
+`create_dispensation_request` lee `dispenses` y `dispenses_ip` de la definición de la visita y valida,
+en este orden:
 
 1. Si hay renglones → la visita tiene que tener `dispenses`.
-2. Si `p_includes_ip` → la visita tiene que tener `dispenses_ip`.
-3. Si no hay renglones **y** no hay IP → error: un pedido vacío no es un pedido.
+2. Sella `includes_ip := dispenses_ip`.
+3. Si no hay renglones **y** `dispenses_ip` es falso → error: un pedido vacío no es un pedido.
 
 **Cero renglones con IP es válido y es el caso típico.** Eso obliga a que
 `mark_dispensation_ready` tolere un pedido sin ítems: la exigencia de "todo escaneado" se cumple
@@ -191,11 +203,11 @@ trivialmente y el bloque FEFO no corre. Hay que verificarlo explícitamente — 
 pedido vacío.
 
 **Por qué no hay problema de orden de deploy:** PostgREST resuelve las RPC por parámetros con
-nombre, y los parámetros nuevos van con default. Un front viejo que llame sin `p_includes_ip` o sin
-`p_ip_kits` sigue resolviendo contra la función nueva. Es exactamente el razonamiento que dejó
-escrito la [0060](../../../supabase/migrations/0060_origen_solicitud_explicito.sql), y por eso ahí
-también se dropeó la firma vieja sin romper nada. Agregar una columna a una vista es aditivo por el
-mismo motivo: el front viejo la ignora.
+nombre, y el único parámetro nuevo (`p_ip_kits`) va con default. Un front viejo que llame sin él
+sigue resolviendo contra la función nueva. Es exactamente el razonamiento que dejó escrito la
+[0060](../../../supabase/migrations/0060_origen_solicitud_explicito.sql), y por eso ahí también se
+dropeó la firma vieja sin romper nada. Agregar una columna a una vista es aditivo por el mismo
+motivo: el front viejo la ignora.
 
 ### 1.7 El stock, que se deriva en vez de mutarse
 
@@ -218,9 +230,9 @@ es la clase de cosa que rompe una pantalla sin que nadie se entere.
 ## 2 · Capa de datos
 
 - `visitDefinitions.ts` / `dayVisits.ts`: `dispenses_ip` en las interfaces y en los selects.
-- `dispensations.ts`: `includes_ip` y `ip_kits` en las interfaces + en `REQUEST_COLS`;
-  `p_includes_ip` en `createDispensationRequest`; `p_ip_kits` en `markDispensationReady`; funciones
-  nuevas `setRequestIp` y `attachIpDocument`.
+- `dispensations.ts`: `includes_ip` y `ip_kits` en las interfaces + en `REQUEST_COLS`; `p_ip_kits` en
+  `markDispensationReady`; función nueva `attachIpDocument`. `createDispensationRequest` **no cambia
+  de firma** (D7).
   El embed trae **todas** las constancias del pedido (`ip_documents:dispensation_ip_documents(...)`)
   y la vigente se resuelve en el cliente con un helper `constanciaVigente(r)`. Filtrar el embed
   server-side por `superseded_at is null` es la trampa conocida de PostgREST: el filtro sobre un
@@ -238,36 +250,47 @@ constancia: es un estado legítimo, se muestra como tal (§3) y se reintenta. No
 
 ## 3 · Track — la tarjeta partida en dos
 
+> Mock aprobado: [`design_handoff_dispensacion_ip/`](../../../design_handoff_dispensacion_ip/README.md).
+> **El mock manda en todo lo visual.**
+
 `VisitDispensationPanel` gana dos secciones rotuladas: **Medicación concomitante** (lo de hoy,
-intacto) y **Producto en investigación**. Cada una aparece según su flag.
+intacto) y **Producto en investigación**. Cada una aparece según su flag del cronograma. **No hay
+tilde** (D7): lo único que se pide es el archivo.
 
 | Situación | Qué se ve en la sección de IP |
 |---|---|
 | La visita no entrega IP | La sección no existe. |
-| Sin pedido abierto | Tilde "Esta visita entrega IP" + zona de adjunto (arrastrar o elegir). |
-| Pedido abierto, sin IP | `Agregar constancia de IP` (prende el tilde y adjunta en un gesto). |
-| Pedido con IP, sin archivo | `Falta la constancia` en tono de aviso + zona de adjunto. **Se dice, no se calla.** |
-| Pedido con IP y archivo | Nombre + peso + `Ver`, y `Reemplazar` mientras siga `solicitada`. |
+| Sin archivo cargado | Zona de adjunto: *"Arrastrá la constancia o elegí un archivo · Preferentemente el PDF · hasta 10 MB"*. Cargar el archivo **crea el pedido** si todavía no hay uno abierto. |
+| Pedido abierto (nacido por la medicación) y sin archivo | Lo mismo, **más** el aviso `Falta la constancia`. Se dice, no se calla. |
+| Con archivo | **Previsualizador** de 140px (primera plana, recortada) + `Ampliar`, y debajo el nombre, el peso y `Reemplazar` mientras siga `solicitada`. |
 | Ni concomitante ni IP | El mensaje sereno de siempre: *"Esta visita no entrega medicación."* |
 
-La zona de adjunto **sugiere PDF** ("Preferentemente el PDF impreso del IRT") sin prohibir la
-imagen: el PDF gana por mérito propio (pesa 10× menos, se imprime nítido, se puede buscar), no por
-regla.
+**El realce (D8):** el `Panel` gana un riel de 5px a la izquierda en `--spira-pharma-solid` más un
+tinte de fondo al 5,5%. Es el mismo recurso que ya usa la cabecera del modal para la etapa, así que
+no estrena vocabulario, y **no es un borde de acento alrededor de la card**. El dorado se elige
+porque *significa*: es la única tarjeta del modal de Coordinación cuyo trabajo ocurre en Farmacia.
+Cuando la visita no entrega nada, **el realce se apaga**: una tarjeta sin nada que hacer no debería
+llamar la atención.
 
-En la ficha del paciente (`readOnly`) todo esto es de solo lectura, con `Ver` habilitado.
+El previsualizador **no trae librerías**: `<iframe>` para PDF, `<img>` para imagen, apuntando a la
+URL firmada. La alternativa (pdf.js a un canvas) son ~350 KB comprimidos por una imagen que el
+navegador ya sabe dibujar.
+
+En la ficha del paciente (`readOnly`) todo esto es de solo lectura, con el previsualizador activo.
 
 ---
 
 ## 4 · Pharma — el cajón
 
-En `PanelPreparando`, **arriba** de los renglones (se entrega junto, y es lo que hay que imprimir
-antes de armar el resto):
+En `PanelPreparando`, **arriba** de los renglones: acá el archivo no es un adjunto, es lo primero que
+hay que hacer.
 
-- Nombre del archivo, peso, quién lo subió y cuándo.
-- **`Abrir e imprimir`** → URL firmada en pestaña nueva; se imprime desde el visor del navegador.
-  No se finge una impresora: es el mismo criterio que ya rige para el comprobante
-  ([plan de dispensaciones §6](../../plan-rediseno-dispensaciones.md)).
-- **`Descargar`**.
+- **Vista grande** de la constancia (348px, la plana entera), no una miniatura.
+- **`Imprimir` en un clic.** Se baja el archivo como blob —que queda en **nuestro** origen—, se monta
+  en un iframe oculto y se llama a `print()`. Con la URL firmada a pelo no se puede: es otro origen y
+  el navegador bloquea el `print()` cruzado. Queda **`Abrir en pestaña`** como salida si el navegador
+  de la farmacia se hace el difícil, y **`Descargar`**.
+- Nombre, peso, quién lo subió y cuándo.
 - Sin constancia cargada: aviso claro de que falta, y `Marcar lista` deshabilitado **con el motivo
   escrito debajo** (§6.5.3 del plan de dispensaciones: ningún botón deshabilitado mudo).
 
@@ -359,7 +382,9 @@ días: cada backup más pesado y cada restore más lento, un costo que se paga e
 | **La constancia cuelga del pedido, no de la visita.** Cancelar y rehacer el pedido obliga a re-adjuntar. | Media | Es correcto conceptualmente (es otro evento de dispensación), pero es fricción real en el mostrador. Queda declarado; si molesta en el uso, se revisa con el dato en la mano. |
 | **`mark_dispensation_ready` nunca recibió un pedido sin renglones.** | Media | Es el caso típico del IP solo. Probarlo explícitamente antes de dar la migración por buena. |
 | **Recrear `v_patient_visits` / `v_track_visits`** con el Director trabajando en paralelo. | Media | Verificar la dependencia entre las dos antes de dropear; stagear **por ruta**. |
-| **El pedido queda tildado y sin archivo** si la subida falla después de crearse. | Baja | Es un estado legítimo y visible en las dos puntas (§3, §4), y `mark_dispensation_ready` no deja avanzar. No se finge éxito. |
+| **El `print()` de un clic depende del navegador.** El truco del blob (mismo origen → `iframe.print()`) anda en Chrome/Edge; en otros puede abrir el diálogo sin la vista, o nada. | Media | `Abrir en pestaña` queda **siempre** visible como salida, no escondido tras un fallo. Verificar en el navegador real de la farmacia antes de dar la tarea por cerrada. |
+| **La URL firmada podría servirse como descarga** en vez de inline, y el previsualizador quedaría en blanco. | Baja | Depende de cómo Supabase sella el `Content-Disposition`. Se verifica en el preview apenas exista el bucket; si molesta, se resuelve mostrando el blob en vez de la URL. |
+| **El pedido queda sin archivo** si la subida falla después de crearse. | Baja | Es un estado legítimo y visible en las dos puntas (§3, §4), y `mark_dispensation_ready` no deja avanzar. No se finge éxito. |
 
 ---
 
@@ -369,15 +394,19 @@ Sin suite de tests: el gate es `npm run typecheck` verde **más** el recorrido l
 (puerto 5250), con datos `TEST-*` creados por la sesión y borrados exactamente esos.
 
 1. Definición de visita con `dispenses_ip` y **sin** `dispenses` → la tarjeta muestra **solo** la
-   sección de IP, y no el cartel "esta visita no entrega medicación".
-2. Tildar + adjuntar un PDF → nace el pedido con **cero renglones**; aparece en *Solicitadas*.
-3. **Recargar la página** → la constancia sigue ahí. (El escaneo ya enseñó que lo que no se persiste
-   miente.)
+   sección de IP, con el realce puesto, y no el cartel "esta visita no entrega medicación".
+2. Adjuntar un PDF → nace el pedido con **cero renglones** e `includes_ip` en true **sin que el
+   cliente lo haya declarado**; aparece en *Solicitadas*.
+3. **Recargar la página** → la constancia y su previsualizador siguen ahí. (El escaneo ya enseñó que
+   lo que no se persiste miente.)
+3b. Apagar `dispenses_ip` en el cronograma **después** de creado el pedido → el pedido sigue
+   diciendo que lleva IP. Es la prueba de que `includes_ip` se congeló y no se recalcula.
 4. Intentar subir un archivo de 12 MB y un `.docx` → los rechaza **el bucket**, no el navegador.
 5. Reemplazar la constancia → la anterior queda `superseded_at`, la vigente es una sola, y el
    `audit_log` tiene las dos altas.
-6. Como farmacéutica: abrir e imprimir el archivo, `Marcar lista` con **2 kits** → comprobante
-   emitido y `v_ip_stock` baja 2.
+6. Como farmacéutica: ver la constancia en el cajón e **imprimirla en un clic** (que abra el diálogo
+   del sistema, no una pestaña), `Marcar lista` con **2 kits** → comprobante emitido y `v_ip_stock`
+   baja 2.
 7. `Cancelar preparación` → **los 2 kits vuelven** y el comprobante desaparece.
 8. Rehacer y `Entregar` → el stock **no** vuelve a bajar.
 9. Una visita con concomitante **y** IP → **un** cajón, **un** comprobante con las dos cosas.
@@ -389,7 +418,7 @@ Sin suite de tests: el gate es `npm run typecheck` verde **más** el recorrido l
 ## 10 · Orden de ejecución
 
 ```
-  1. Mock de la tarjeta partida al repo  ──►  aprobación del Director
+  1. Mock (design_handoff_dispensacion_ip/) ──► HECHO, v2 ──► falta elegir dorado vs petróleo
      (CLAUDE.md: el mock va ANTES de implementar; desviarse de uno ya costó una reescritura)
      │
   2. Bucket ip-docs en el dashboard ──► confirmar
