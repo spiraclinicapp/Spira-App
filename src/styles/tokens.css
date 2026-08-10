@@ -41,6 +41,14 @@
   --spira-lab:          #5C8A5A;
   --spira-contable:     #3A6B8C;
 
+  /* —— Acento PROFUNDO: para TEXTO sobre un tinte del acento ——
+     El acento a secas sobre un tinte al 6% da 4,14:1, y el título de un panel va a 14px en
+     negrita, donde AA pide 4,5:1. El profundo llega a 6,37:1 sin perder el color.
+     REGLA: todo color que se oscurezca para leerse sobre tinte claro necesita su versión
+     CLARA para oscuro (ver abajo) — si no, queda en 1,85:1, o sea invisible. Medido. */
+  --spira-acc-deep-track:  #0F5F57;
+  --spira-acc-deep-pharma: #6E5620;
+
   /* —— Constantes de tema —— */
   --spira-on-accent:  #F4F1EA;
   --spira-brand-mark: #0F5F57;
@@ -79,6 +87,8 @@
   --spira-line-2:   #3A3A3A;   /* bordes de inputs */
   --spira-brand-mark: #9DE6D6; /* isotipo verde menta — sin cambios */
   --spira-avatar-ring: #34D399; /* emerald-400 — más claro para contraste en oscuro */
+  --spira-acc-deep-track:  #9DE6D6;  /* menta: en oscuro hay que ACLARAR, no oscurecer */
+  --spira-acc-deep-pharma: #E8CE8A;
 }
 
 /* —— Estilos tipográficos semánticos —— */
