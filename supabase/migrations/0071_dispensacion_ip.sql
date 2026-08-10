@@ -246,7 +246,14 @@ $$;
 -- 6 · Políticas sobre el bucket. Sin update ni delete: la inmutabilidad de la evidencia queda
 --     garantizada en la capa de storage, no solo en la tabla.
 --
---     EL BLOQUE ENTERO VA ADENTRO DE UN `do $$` CON MANEJADOR DE EXCEPCIÓN: es la primera vez que
+--     ⚠️ NUNCA escribas un par de signos peso seguidos dentro de un comentario de este archivo:
+--     el editor SQL de Supabase rastrea el dollar-quoting SIN ignorar los comentarios, así que uno
+--     suelto le invierte la paridad, deja de reconocer los cuerpos de función y parte las funciones
+--     por sus `;` internos. Da un error desconcertante y lejanísimo del comentario culpable
+--     (`42P01: relation "v_status" does not exist`, por una variable de plpgsql ejecutada suelta).
+--     Costó una tarde el 2026-08-10.
+--
+--     EL BLOQUE ENTERO VA ADENTRO DE UN BLOQUE `do` CON MANEJADOR DE EXCEPCIÓN: es la primera vez que
 --     el repo toca `storage.objects`, cuyo dueño en Supabase es `supabase_storage_admin`. Según el
 --     proyecto, `create policy` ahí puede devolver `42501: must be owner of table objects`; y como
 --     el SQL Editor corre todo en una transacción implícita, ese error se llevaría puesta la

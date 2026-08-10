@@ -59,11 +59,17 @@ npm run build       # typecheck + build de producción
    emitir valores que el código viejo no conoce): **se despliega el front PRIMERO y se aplica la
    migración inmediatamente después**, no al revés. Ya pasó una vez al revés (0068, 2026-08-05) y
    dejó la Agenda y la ficha del paciente en blanco en producción hasta el deploy.
-   Dos trampas que ya hicieron fallar migraciones y conviene tener presentes al escribirlas:
+   Tres trampas que ya hicieron fallar migraciones y conviene tener presentes al escribirlas:
    **`ALTER TYPE ... ADD VALUE` no puede usar el valor nuevo en la misma transacción** (va en un
-   archivo aparte, aplicado antes — ver 0053), y en PL/pgSQL los nombres de un
+   archivo aparte, aplicado antes — ver 0053); en PL/pgSQL los nombres de un
    **`returns table (...)` compiten con los de columna sin calificar** (calificá siempre; ver
-   0056 y 0058, que fue el mismo error dos veces).
+   0056 y 0058, que fue el mismo error dos veces); y **nunca escribas dos signos peso pegados
+   dentro de un comentario**: el editor SQL de Supabase rastrea el dollar-quoting **sin ignorar los
+   comentarios**, así que uno suelto le invierte la paridad, deja de reconocer los cuerpos de función
+   y las parte por sus `;` internos. El error que tira es desconcertante y lejanísimo del comentario
+   culpable (`42P01: relation "v_status" does not exist`, por una variable de plpgsql ejecutada como
+   si fuera una tabla) — ver 0071, costó una tarde el 2026-08-10. Se detecta contando: la cantidad de
+   marcadores de dollar-quote en el texto **crudo** tiene que ser par.
 4. **El preview es una sesión de navegador aparte de la del usuario.** No podés precargarle
    formularios ni ver su estado; verificá las escrituras recargando tu propia instancia.
 
