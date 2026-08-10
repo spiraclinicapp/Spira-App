@@ -1,7 +1,10 @@
 # Dispensación de IP: la tarjeta de la visita se parte en dos — Design
 
 - **Fecha:** 2026-08-09
-- **Estado:** aprobado (brainstorming), pendiente de plan de implementación
+- **Estado:** **aprobado por el Director** (diseño + mock v6, 2026-08-09), pendiente de plan de
+  implementación
+- **Único punto abierto:** la lista de motivos del desplegable de "fuera de cronograma" (§3.1). Se
+  implementa con la propuesta y se corrige con una línea cuando el Director la confirme.
 - **Módulos:** Track (solicita) · Pharma (entrega)
 - **Migración nueva:** `0071` — aplicar a mano en prod
 - **Infraestructura nueva:** bucket privado de Supabase Storage (`ip-docs`), el primero del proyecto
@@ -71,7 +74,7 @@ Una visita puede entregar **dos cosas distintas** que viajan en **un solo pedido
 
 ```
   visit_definitions.dispenses      →  sección "Medicación concomitante"  →  renglones + FEFO + lote
-  visit_definitions.dispenses_ip   →  sección "Producto en investigación" →  tilde + constancia + kits
+  visit_definitions.dispenses_ip   →  sección "Producto en investigación" →  constancia + kits
 
                         ambas alimentan LA MISMA dispensation_request
                                         │
@@ -104,7 +107,7 @@ Se expone en `v_patient_visits` y `v_track_visits`, siguiendo el patrón de recr
 [0068](../../../supabase/migrations/0068_estados_visita.sql). **Verificar el orden de dependencia
 entre las dos vistas antes de dropear** (una referencia a la otra).
 
-### 1.2 El tilde y los kits
+### 1.2 La marca de IP y los kits
 
 ```sql
 alter table public.dispensation_requests
@@ -310,11 +313,16 @@ tilde** (D7): lo único que se pide es el archivo.
 | Con archivo | **Previsualizador** de 140px (primera plana, recortada) + `Ampliar`, y debajo el nombre, el peso y `Reemplazar` mientras siga `solicitada`. |
 | Ni concomitante ni IP | El mensaje sereno de siempre: *"Esta visita no entrega medicación."* |
 
-**El realce (D8):** el `Panel` gana una variante destacada en **petróleo**, sin riel y **sin borde de
-acento alrededor**. Las tres candidatas están dibujadas en el mock; la recomendada es la **banda de
-cabecera** (la cabecera a sangre, teñida, con el título en el acento profundo), porque ahí el color
-*hace de rótulo* en vez de decorar. Cuando la visita no entrega nada, **el realce se apaga**: una
-tarjeta sin nada que hacer no debería llamar la atención.
+**El realce (D8):** el `Panel` gana una variante destacada en **petróleo**, con la **carta teñida** —
+toda la card sobre un velo del acento al 6% (12% en oscuro), el título en el acento profundo y el
+ícono en una pastilla teñida. Sin riel y **sin borde de acento alrededor**. Las otras dos candidatas
+(banda de cabecera, hoja elevada) quedan dibujadas en el mock para que la elección esté documentada.
+Cuando la visita no entrega nada, **el realce se apaga**: una tarjeta sin nada que hacer no debería
+llamar la atención.
+
+**A vigilar en el uso real:** un velo parejo y suave puede leerse como *"esto está desactivado"* en
+vez de *"esto importa"*. Si pasa, el remedio es **subir el tinte o pasar a la banda de cabecera** —
+no agregarle un borde.
 
 **Dos reglas que el realce impone, y que valen para toda la feature:**
 
@@ -549,7 +557,7 @@ Sin suite de tests: el gate es `npm run typecheck` verde **más** el recorrido l
 ## 10 · Orden de ejecución
 
 ```
-  1. Mock (design_handoff_dispensacion_ip/) ──► HECHO, v2 ──► falta elegir dorado vs petróleo
+  1. Mock (design_handoff_dispensacion_ip/) ──► HECHO y APROBADO (v6, 2026-08-09)
      (CLAUDE.md: el mock va ANTES de implementar; desviarse de uno ya costó una reescritura)
      │
   2. Bucket ip-docs en el dashboard ──► confirmar
