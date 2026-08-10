@@ -1,6 +1,6 @@
 # Handoff de diseño — Dispensación de IP: la tarjeta partida en dos
 
-**Fecha:** 2026-08-09 · **Versión:** v5 · **Módulo:** Track (detalle de visita) + Pharma (cajón)
+**Fecha:** 2026-08-09 · **Versión:** v6 · **Módulo:** Track (detalle de visita) + Pharma (cajón)
 **Especificación:** [`docs/superpowers/specs/2026-08-09-dispensacion-ip-design.md`](../docs/superpowers/specs/2026-08-09-dispensacion-ip-design.md)
 
 Abrí **`Tarjeta partida - estados.html`** en el navegador. Tiene un botón de tema arriba a la
@@ -15,9 +15,9 @@ La tarjeta **Dispensación** del modal de visita pasa a tener dos secciones:
 
 Las dos alimentan **un solo pedido** por visita, con un solo comprobante.
 
-Se dibujan la **elección de realce (A/B)**, **cinco estados de la tarjeta** y **el bloque que ve la
-farmacéutica**. Todo al ancho real que tiene en el modal (**442px**) — no estirado, así los cortes
-de línea que se ven son los que van a pasar.
+Se dibujan las **tres variables de realce (A/B/C)**, **siete estados de la tarjeta**, **el bloque que
+ve la farmacéutica** y **el pop-up de los kits**. Todo al ancho real que tiene en el modal
+(**442px**) — no estirado, así los cortes de línea que se ven son los que van a pasar.
 
 ## El realce — decidido
 
@@ -29,7 +29,7 @@ Con B hay una cosa a mirar en la implementación: un tinte parejo y suave puede 
 *«esto está desactivado»* en vez de *«esto importa»*. Si en el uso real pasa eso, el remedio es subir
 el tinte o pasar a la banda de cabecera, no agregar un borde.
 
-## Cambios de la v4 respecto de la v1
+## Cambios de la v6 respecto de la v1
 
 - **Se fue el tilde.** Si el cronograma ya define que la visita entrega IP, pedirle al coordinador
   que lo confirme es pedirle que declare algo que el sistema sabe mejor que él. La sección aparece
@@ -45,8 +45,13 @@ el tinte o pasar a la banda de cabecera, no agregar un borde.
 ## Dispensar fuera de cronograma (estados 5, 8 y 9)
 
 Aunque la visita no dispense, se puede dispensar igual **con motivo obligatorio de desplegable**. La
-salida es un **enlace sobrio, no un botón**: tiene que estar cuando hace falta, sin invitar a usarla.
-La marca *fuera de cronograma* y el motivo **viajan** al tablero, al cajón y al comprobante impreso.
+marca *fuera de cronograma* y el motivo **viajan** al tablero, al cajón y al comprobante impreso.
+
+**Cómo se integra** (v5 → v6, después del «quedó feo»): la salida usa **la misma fila punteada** que
+«Agregar medicación» —la tarjeta ya tiene un idioma para *«acá se suma algo»*— pero un escalón más
+callada, con el ícono sin acento y la tinta atenuada. Y la excepción **no es un formulario encima de
+la tarjeta: es una subsección más**, con el mismo ritmo que las otras dos y el rótulo en ámbar.
+Integrada por estructura, distinguida por color.
 
 **Falta que confirmes la lista de motivos.** La propuesta, que seguro hay que corregir: *Reposición
 por pérdida o rotura* · *Visita no programada (VNP)* · *Ajuste de dosis indicado por el investigador*
@@ -113,16 +118,29 @@ Contrastes verificados en el navegador sobre el fondo real de cada elemento:
 | Título del panel de Farmacia | 5,84:1 | 9,29:1 |
 | Ícono del panel (gráfico, mínimo 3:1) | 4,14:1 | — |
 | Rótulo de subsección (`ink-soft`) | 5,59:1 | 8,04:1 |
+| Rótulo de la subsección de excepción (ámbar) | 5,59:1 | 9,82:1 |
+| Aviso informativo, título / segunda línea | 14,08:1 / 5,84:1 | 13,75:1 |
+| Aviso en alerta, título | 11,45:1 | 11,93:1 |
+| Salida «Dispensar fuera de cronograma» | 5,84:1 | — |
 | Título del aviso «Falta la constancia» | 11,96:1 | — |
 | Segunda línea del aviso | 4,96:1 | — |
 | Píldora «Incompleta» | 5,24:1 | — |
 | Ayuda de la zona de adjunto | 5,84:1 | 7,59:1 |
 
-**El realce obliga a un token nuevo.** El acento del módulo a secas sobre el tinte da **4,14:1**, y el
-título del panel va a 14px en negrita, donde AA pide 4,5:1. Por eso el texto sobre tinte usa un
-**acento profundo** (`--spira-primary` en Track, un dorado más oscuro en Pharma) — y en **tema oscuro
-se invierte**: ahí hay que aclarar, no oscurecer, y va el menta que `tokens.css` ya usa para el
-isotipo. Sin esa inversión el título queda en **1,85:1**, o sea invisible.
+**Dos reglas que salieron de medir, y que valen para toda la feature:**
+
+**Nada de tinte sobre tinte.** Dentro de la card teñida, todo el contenido va sobre **papel blanco**,
+como ya lo hacen los renglones, la zona de adjunto y el archivo. Un recuadro teñido adentro de una
+card teñida se ve sucio — era buena parte de lo que hacía fea a la v5. La única que se tiñe es la
+*alerta*, donde el color es significado.
+
+**Todo color "profundo" necesita su inverso en oscuro.** El acento del módulo a secas sobre el tinte
+da **4,14:1**, y el título del panel va a 14px en negrita, donde AA pide 4,5:1. Por eso el texto sobre
+tinte usa un **acento profundo** (`--spira-primary` en Track, un dorado más oscuro en Pharma) — y en
+**tema oscuro se invierte**: ahí hay que aclarar, no oscurecer. Sin esa inversión el título queda en
+**1,85:1**. El mismo agujero apareció **dos veces**: también con el ámbar del rótulo de excepción
+(2,39:1 en oscuro hasta invertirlo a 9,82:1). Cada color que se oscurezca para leerse sobre un tinte
+claro necesita su versión clara para oscuro.
 
 Tres apartamientos deliberados del repo, los tres hacia arriba:
 

@@ -316,12 +316,24 @@ cabecera** (la cabecera a sangre, teñida, con el título en el acento profundo)
 *hace de rótulo* en vez de decorar. Cuando la visita no entrega nada, **el realce se apaga**: una
 tarjeta sin nada que hacer no debería llamar la atención.
 
-**Y trae un token nuevo, obligatorio.** El acento a secas sobre el tinte da **4,14:1**, y el título
-del panel va a 14px en negrita, donde AA pide 4,5:1. Hace falta un **acento profundo** para el texto
-sobre tinte — `--spira-primary` en Track (**6,37:1**) y un dorado más oscuro en Pharma
-(**5,84:1**) — que en **tema oscuro se invierte**: ahí hay que aclarar, no oscurecer, y va el menta
-que `tokens.css` ya usa para el isotipo (**9,8:1**). Sin esa inversión el título queda en 1,85:1, o
-sea invisible. Los cuatro valores están medidos en el navegador, no estimados.
+**Dos reglas que el realce impone, y que valen para toda la feature:**
+
+**1 · Nada de tinte sobre tinte.** Dentro de la card teñida, **todo el contenido va sobre papel
+blanco** — como ya lo hacen los renglones, la zona de adjunto y el archivo. Un recuadro teñido
+adentro de una card teñida se ve sucio. La única excepción es la caja de *alerta*, donde el color es
+significado.
+
+**2 · Todo color "profundo" necesita su inverso en oscuro.** El acento a secas sobre el tinte da
+**4,14:1**, y el título del panel va a 14px en negrita, donde AA pide 4,5:1. Hace falta un **acento
+profundo** para el texto sobre tinte — `--spira-primary` en Track (**6,37:1**) y un dorado más oscuro
+en Pharma (**5,84:1**) — que en **tema oscuro se invierte**: ahí hay que aclarar, no oscurecer, y va
+el menta que `tokens.css` ya usa para el isotipo (**9,8:1**). Sin esa inversión el título queda en
+1,85:1, o sea invisible.
+
+La regla se generaliza porque **el mismo agujero apareció dos veces**: también con el ámbar del
+rótulo de la subsección de excepción (**5,59:1** en claro, **2,39:1** en oscuro hasta invertirlo a
+**9,82:1**). Cada vez que un color se oscurezca para leerse sobre un tinte claro, hay que escribirle
+su versión clara para oscuro. Todos los valores están medidos en el navegador, no estimados.
 
 El previsualizador **no trae librerías**: `<iframe>` para PDF, `<img>` para imagen, apuntando a la
 URL firmada. La alternativa (pdf.js a un canvas) son ~350 KB comprimidos por una imagen que el
@@ -331,13 +343,17 @@ En la ficha del paciente (`readOnly`) todo esto es de solo lectura, con el previ
 
 ### 3.1 La excepción y el aviso de los 30 días (D11 · D12)
 
-**La salida.** Cuando la visita no dispensa nada, debajo del mensaje sereno aparece un **enlace
-sobrio** —no un botón— que dice `Dispensar fuera de cronograma`. Es una acción que tiene que *estar*
-cuando hace falta, no una que queramos invitar: si compitiera visualmente con las acciones normales,
-dispensar fuera de cronograma dejaría de ser la excepción.
+**La salida.** Cuando la visita no dispensa nada, debajo del mensaje sereno aparece una **fila
+punteada** con la misma forma que `Agregar medicación` —la tarjeta ya tiene un idioma para *"acá se
+suma algo"*, y estrenar uno nuevo para la excepción la hace ver pegada— pero **un escalón más
+callada**: ícono sin acento y tinta atenuada. Integrada por estructura, secundaria por tono. Tiene
+que *estar* cuando hace falta sin invitar a usarse.
 
-Al abrirla aparecen **las dos secciones** (se está anulando el cronograma, no media parte) más un
-**motivo obligatorio, de desplegable**. Los motivos propuestos, **a confirmar por el Director**:
+Al abrirla, la excepción **no es un formulario encima de la tarjeta: es una subsección más**, con el
+mismo ritmo que las otras dos (rótulo, contenido, filete) y primera en el orden. Se distingue por el
+**ámbar del rótulo**, no por una caja aparte. Aparecen además **las dos secciones** de dispensación
+—se está anulando el cronograma, no media parte— y el **motivo obligatorio, de desplegable**. Los
+motivos propuestos, **a confirmar por el Director**:
 *Reposición por pérdida o rotura* · *Visita no programada (VNP)* · *Ajuste de dosis indicado por el
 investigador* · *Adelanto por viaje del paciente* · *Otro (especificar)*.
 

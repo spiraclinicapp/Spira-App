@@ -158,15 +158,35 @@ h2.sec:first-of-type{margin-top:0}
 .mini:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
 .mini:active{transform:translateY(0);box-shadow:none}
 
-/* —— salida fuera de cronograma: sobria, no un CTA ——
-   No es una acción que queramos invitar; es una que tiene que estar cuando hace falta. */
-.salida{
-  margin-top:10px;background:transparent;border:none;padding:4px 0;cursor:pointer;
-  font-family:var(--spira-font-text);font-weight:600;font-size:12.5px;color:var(--spira-ink-soft);
-  display:inline-flex;align-items:center;gap:7px;border-bottom:1px solid var(--spira-line-2);
+/* —— salida fuera de cronograma ——
+   MISMA forma que "Agregar medicación" (la card ya tiene un idioma para «acá se suma algo»),
+   pero un escalón más callada: sin acento en el ícono y con la tinta atenuada. Integrada por
+   estructura, secundaria por tono — no un enlace colgado que parece de otra app. */
+.dashed.quiet{height:40px;font-size:13px;color:var(--spira-ink-soft)}
+.dashed.quiet .ico{stroke:var(--spira-muted);width:15px;height:15px}
+.dashed.quiet:hover{color:var(--spira-ink)}
+
+/* —— aviso ——
+   Sobre PAPEL BLANCO, como todo lo que vive dentro de la card: los renglones, la zona de
+   adjunto y el archivo ya son blancos. Un recuadro teñido adentro de una card teñida es
+   tinte sobre tinte, y se ve sucio. La alerta es la única que se tiñe, porque ahí el color
+   es significado. */
+.notice{
+  display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:11px;
+  background:var(--spira-white);border:1px solid var(--spira-line);font-size:12.5px;
 }
-.salida:hover{color:var(--spira-ink)}
-.salida .ico{stroke:var(--spira-ink-soft);width:14px;height:14px}
+.notice .ico{stroke:var(--acc);width:15px;height:15px;margin-top:1px}
+.notice b{display:block;font-weight:600;color:var(--spira-ink)}
+.notice em{display:block;font-style:normal;color:var(--spira-ink-soft);margin-top:2px}
+.notice.alerta{background:rgba(176,130,63,.15);border-color:transparent}
+.notice.alerta .ico{stroke:var(--spira-warn)}
+
+/* rótulo de la subsección de excepción: la misma tipografía que las otras dos, en ámbar.
+   Y como todo color "profundo" de esta hoja, se INVIERTE en oscuro — el ámbar oscuro sobre
+   card oscura da 2,39:1. Es la misma regla que --acc-deep: profundo en claro, claro en oscuro. */
+.sub-label.exc{color:#7a5a25;display:inline-flex;align-items:center;gap:6px}
+[data-theme='dark'] .sub-label.exc{color:#E8CE8A}
+.sub-label.exc .ico{stroke:currentColor;width:12px;height:12px;stroke-width:2.4}
 
 /* marca de fuera de cronograma — viaja hasta el cajón de Farmacia y el comprobante */
 .chip-fc{
@@ -260,7 +280,7 @@ h2.sec:first-of-type{margin-top:0}
         Handoff de diseño para la dispensación de <b>producto en investigación (IP)</b>. Dos
         secciones — <b>medicación concomitante</b> (lo que ya existe, intacto) y <b>producto en
         investigación</b> (nuevo) — que alimentan <b>un solo pedido</b>.
-        <b>v3</b>: petróleo, sin riel, con tres variables de realce para elegir.
+        <b>v6</b>: carta teñida, kits en 0 con pop-up, y dispensación fuera de cronograma integrada.
       </p>
     </div>
     <button class="theme-btn" id="theme" type="button">
@@ -270,7 +290,7 @@ h2.sec:first-of-type{margin-top:0}
   </div>
 
   <div class="doc-meta">
-    <span class="tag">2026-08-09 · v3</span>
+    <span class="tag">2026-08-09 · v6</span>
     <span class="tag">Track · detalle de visita</span>
     <span class="tag">spec: 2026-08-09-dispensacion-ip-design.md</span>
     <span class="tag">ancho real: 442px</span>
@@ -553,16 +573,17 @@ h2.sec:first-of-type{margin-top:0}
           <svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
           <span class="panel-title">Dispensación</span>
         </div>
-        <div class="empty">Esta visita no entrega medicación.</div>
-        <button class="salida" type="button">
+        <div class="empty" style="padding:0 0 11px">Esta visita no entrega medicación.</div>
+        <button class="dashed quiet" type="button">
           <svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
           Dispensar fuera de cronograma
         </button>
       </div>
       <p class="state-why">
-        El realce se <b>apaga</b>: una tarjeta sin nada que hacer no debería llamar la atención. Pero
-        la puerta queda: la salida es un enlace sobrio, no un botón que invite. <b>Tiene que estar
-        cuando hace falta, sin sugerir que se use.</b>
+        El realce se <b>apaga</b>: una tarjeta sin nada que hacer no debería llamar la atención. La
+        salida usa <b>la misma forma</b> que «Agregar medicación» —la card ya tiene un idioma para
+        «acá se suma algo»— pero un escalón más callada: sin acento en el ícono y con la tinta
+        atenuada. Integrada por estructura, secundaria por tono.
       </p>
     </div>
 
@@ -573,21 +594,21 @@ h2.sec:first-of-type{margin-top:0}
         <div class="panel-head">
           <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
           <span class="panel-title">Dispensación</span>
-          <span class="chip-fc" style="margin-left:auto">
-            <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M12 8v4"/><path d="M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>
-            Fuera de cronograma
-          </span>
         </div>
 
-        <div class="warn" style="margin-bottom:12px">
-          <svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-          <div>Ya se dispensó hace 12 días
-            <span>28/07/2026 · 1 kit de IP, en la visita V2. Revisá que no sea una entrega repetida.</span>
+        <div class="sub">
+          <div class="sub-head">
+            <span class="sub-label exc">
+              <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M12 8v4"/><path d="M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>
+              Fuera de cronograma
+            </span>
           </div>
-        </div>
-
-        <div style="margin-bottom:14px">
-          <span class="field-lbl">Motivo de la dispensación fuera de cronograma</span>
+          <div class="notice alerta" style="margin-bottom:9px">
+            <svg class="ico" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <div><b>Ya se dispensó hace 12 días</b>
+              <em>28/07/2026 · 1 kit de IP, en la visita V2. Revisá que no sea una entrega repetida.</em>
+            </div>
+          </div>
           <div class="select">
             <span>Reposición por pérdida o rotura</span>
             <svg class="ico" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
@@ -611,9 +632,10 @@ h2.sec:first-of-type{margin-top:0}
         </div>
       </div>
       <p class="state-why">
-        Al abrir la salida aparecen <b>las dos secciones</b> —se está anulando el cronograma, no media
-        parte— más un <b>motivo obligatorio de desplegable</b>, no de texto libre. El aviso de los 30
-        días va <b>arriba de todo</b>: si llega después de que cargaste la medicación, llega tarde.
+        La excepción es <b>una subsección más</b>, con el mismo ritmo que las otras dos: rótulo,
+        contenido, filete. No un formulario pegado encima de la tarjeta. Se distingue por el
+        <b>ámbar del rótulo</b>, no por una caja aparte. Y va primera porque el aviso tiene que
+        llegar <b>antes</b> de que cargues nada — si llega después, llega tarde.
       </p>
     </div>
 
@@ -625,10 +647,10 @@ h2.sec:first-of-type{margin-top:0}
           <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
           <span class="panel-title">Dispensación</span>
         </div>
-        <div class="warn info" style="margin-bottom:12px">
-          <svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="M12 8v4"/><path d="M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>
-          <div>Última dispensación hace 12 días
-            <span>28/07/2026 · 1 kit de IP, en la visita V2.</span>
+        <div class="notice" style="margin-bottom:12px">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M12 8v4"/><path d="M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>
+          <div><b>Última dispensación hace 12 días</b>
+            <em>28/07/2026 · 1 kit de IP, en la visita V2.</em>
           </div>
         </div>
         <div class="sub">
@@ -641,10 +663,10 @@ h2.sec:first-of-type{margin-top:0}
         </div>
       </div>
       <p class="state-why">
-        <b>El mismo dato, en tono informativo.</b> En un protocolo con visitas cada 28 días, una
-        alarma ámbar saltaría <i>todas las veces</i> — y una alarma que siempre suena deja de
-        escucharse justo cuando importa. Acá la entrega estaba prevista: el dato se ofrece, no se
-        grita. El ámbar queda reservado para el estado 8.
+        <b>El mismo dato, en tono informativo.</b> Misma caja, mismo lugar, sobre papel blanco como
+        todo lo que vive adentro de la tarjeta — solo cambia el ícono y se va el tinte. En un
+        protocolo con visitas cada 28 días una alarma ámbar saltaría <i>todas las veces</i>, y una
+        alarma que siempre suena deja de escucharse justo cuando importa.
       </p>
     </div>
 
@@ -799,10 +821,19 @@ h2.sec:first-of-type{margin-top:0}
       cruzado. «Abrir en pestaña» queda a la vista como salida, no escondido tras un fallo.
     </li>
     <li>
-      <b>La salida fuera de cronograma es un enlace, no un botón.</b> Es una acción que tiene que
-      <i>estar</i> cuando hace falta, no una que queramos invitar: si compitiera visualmente con las
-      acciones normales, dispensar fuera de cronograma dejaría de ser la excepción. Y el motivo va por
-      <b>desplegable</b>, no por texto libre, con «Otro» como escape.
+      <b>La excepción se integra por estructura, no por caja aparte.</b> La primera versión colgaba un
+      enlace bajo el mensaje y apilaba un formulario arriba de la tarjeta: se veía pegado. Ahora la
+      salida usa <b>la misma forma</b> que «Agregar medicación» —la card ya tiene un idioma para «acá
+      se suma algo»— un escalón más callada, y la excepción es <b>una subsección más</b>, con el mismo
+      ritmo de rótulo, contenido y filete. Se distingue por el <b>ámbar del rótulo</b>, no por una
+      caja distinta. El motivo va por <b>desplegable</b>, con «Otro» como escape.
+    </li>
+    <li>
+      <b>Nada de tinte sobre tinte.</b> Dentro de una card teñida, todo el contenido va sobre
+      <b>papel blanco</b> — como ya lo hacen los renglones, la zona de adjunto y el archivo. Un
+      recuadro teñido adentro de una card teñida se ve sucio, y era buena parte de lo que hacía que la
+      versión anterior quedara fea. La única que se tiñe es la <i>alerta</i>, porque ahí el color es
+      significado y no decoración.
     </li>
     <li>
       <b>La marca «fuera de cronograma» viaja.</b> No se queda en la pantalla donde se decidió: va en
