@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="es-AR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spira · Dispensación de IP — la tarjeta partida</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Tokens — copiados de src/styles/tokens.css (fuente de verdad).
+   Si divergen, manda tokens.css.
+   ============================================================ */
+:root{
+  --spira-ink:#14302E; --spira-primary:#0F5F57; --spira-paper:#F4F1EA;
+  --spira-surface:#FBFAF6; --spira-white:#FFFFFF; --spira-muted:#7C8C87;
+  --spira-faint:#A6B0AC; --spira-ink-soft:#556966; --spira-line:#E4DECF;
+  --spira-line-2:#D8CBB0; --spira-good:#5C8A5A; --spira-warn:#B0823F;
+  --spira-danger:#A6483B; --spira-track:#2E7D74; --spira-pharma:#C9A24A;
+  --spira-pharma-solid:#A8842F; --spira-on-accent:#F4F1EA;
+  --spira-font-display:'Schibsted Grotesk',system-ui,sans-serif;
+  --spira-font-text:'Inter',system-ui,sans-serif;
+  --spira-radius-pill:999px;
+  --spira-ease-out:cubic-bezier(0.25,1,0.5,1);
+  --spira-shadow-sm:0 1px 2px rgba(20,48,46,.06);
+  --spira-shadow-md:0 12px 32px rgba(20,48,46,.10);
+}
+[data-theme='dark']{
+  --spira-ink:#EDEDED; --spira-paper:#121212; --spira-surface:#1C1C1C;
+  --spira-white:#212121; --spira-muted:#A1A1A1; --spira-faint:#6E6E6E;
+  --spira-ink-soft:#B2B2B2; --spira-line:#2A2A2A; --spira-line-2:#3A3A3A;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--spira-paper); color:var(--spira-ink);
+  font-family:var(--spira-font-text); font-size:14px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1220px;margin:0 auto;padding:38px 26px 90px}
+
+/* —— cabecera del documento —— */
+.doc-head{display:flex;align-items:flex-start;gap:18px;margin-bottom:8px}
+.doc-head h1{
+  font-family:var(--spira-font-display);font-weight:700;font-size:30px;
+  letter-spacing:-.02em;line-height:1.1;margin:0;
+}
+.doc-sub{color:var(--spira-ink-soft);font-size:14.5px;margin:8px 0 0;max-width:70ch}
+.doc-meta{
+  display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 34px;
+  padding-bottom:22px;border-bottom:1px solid var(--spira-line);
+}
+.tag{
+  display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 11px;
+  border-radius:var(--spira-radius-pill);border:1px solid var(--spira-line);
+  background:var(--spira-white);font-size:12px;font-weight:600;color:var(--spira-ink-soft);
+}
+.theme-btn{
+  margin-left:auto;flex:0 0 auto;height:36px;padding:0 14px;border-radius:10px;
+  border:1px solid var(--spira-line);background:var(--spira-white);cursor:pointer;
+  font-family:var(--spira-font-text);font-weight:600;font-size:13px;color:var(--spira-ink);
+  display:inline-flex;align-items:center;gap:8px;
+  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
+}
+.theme-btn:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
+.theme-btn:active{transform:translateY(0)}
+
+h2.sec{
+  font-family:var(--spira-font-display);font-weight:700;font-size:19px;
+  letter-spacing:-.01em;margin:44px 0 6px;
+}
+h2.sec:first-of-type{margin-top:0}
+.sec-note{color:var(--spira-ink-soft);font-size:13.5px;margin:0 0 24px;max-width:76ch}
+
+/* —— grilla de estados —— */
+/* Columnas de 442px FIJOS, no 1fr: el mock vale si la tarjeta está al ancho que tiene
+   en el modal — estirada, los cortes de línea que se ven no son los reales. */
+.states{display:grid;grid-template-columns:repeat(auto-fill,442px);justify-content:start;gap:26px 30px}
+.state{min-width:0;width:442px}
+.state-label{
+  display:flex;align-items:baseline;gap:9px;margin-bottom:10px;
+}
+.state-n{
+  flex:0 0 auto;width:21px;height:21px;border-radius:50%;background:var(--spira-track);
+  color:var(--spira-on-accent);font-size:11.5px;font-weight:700;
+  display:grid;place-items:center;
+}
+.state-title{font-family:var(--spira-font-display);font-weight:700;font-size:14.5px}
+.state-why{
+  color:var(--spira-ink-soft);font-size:12.5px;margin:10px 2px 0;line-height:1.55;
+}
+
+/* ============================================================
+   EL PANEL — replica Panel.tsx (border line, radius 14, surface)
+   ============================================================ */
+.panel{
+  border:1px solid var(--spira-line);border-radius:14px;
+  background:var(--spira-surface);padding:14px 16px;
+}
+.panel-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.panel-title{font-family:var(--spira-font-display);font-weight:700;font-size:14px}
+
+/* —— rótulo de subsección ——
+   Es un eyebrow, PERO en ink-soft y no en faint: faint da 2.1:1 sobre surface y esto
+   es la división primaria de la tarjeta, no una nota al pie. Ver "decisiones" abajo. */
+.sub-head{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+.sub-label{
+  font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--spira-ink-soft);
+}
+.sub + .sub{
+  margin-top:14px;padding-top:14px;border-top:1px solid var(--spira-line);
+}
+
+/* —— botón punteado (el "Solicitar dispensación" que ya existe) —— */
+.dashed{
+  display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:44px;
+  border-radius:12px;border:1px dashed var(--spira-line-2);background:var(--spira-white);
+  cursor:pointer;font-family:var(--spira-font-text);font-weight:600;font-size:13.5px;
+  color:var(--spira-ink);
+  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
+}
+.dashed:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
+.dashed:active{transform:translateY(0);box-shadow:none}
+
+/* —— la fila del tilde: MISMO vocabulario que el checklist de procedimientos —— */
+.tick-row{
+  display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:9px 13px;
+  border-radius:12px;border:1px solid var(--spira-line);background:var(--spira-white);
+  cursor:pointer;text-align:left;font-family:var(--spira-font-text);font-size:13.5px;
+  color:var(--spira-ink);
+  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
+}
+.tick-row:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
+.tick-row:active{transform:translateY(0);box-shadow:none}
+.tick-row.on{border-color:rgba(46,125,116,.35);background:rgba(46,125,116,.06)}
+.tick{
+  flex:0 0 auto;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;
+  border:1.5px solid var(--spira-muted);background:transparent;
+}
+.tick.on{border-color:var(--spira-track);background:var(--spira-track)}
+.tick svg{opacity:0;transform:scale(.6)}
+.tick.on svg{opacity:1;transform:none}
+
+/* —— zona de adjunto —— */
+.drop{
+  margin-top:9px;border:1px dashed var(--spira-line-2);border-radius:12px;
+  background:var(--spira-white);padding:16px 14px;text-align:center;cursor:pointer;
+  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
+}
+.drop:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
+.drop-main{font-size:13px;font-weight:600;margin-top:7px}
+.drop-hint{font-size:11.5px;color:var(--spira-ink-soft);margin-top:3px}
+.drop .lnk{color:var(--spira-track);text-decoration:underline;text-underline-offset:2px}
+
+/* —— archivo cargado —— */
+.file{
+  margin-top:9px;display:flex;align-items:center;gap:11px;padding:10px 12px;
+  border:1px solid var(--spira-line);border-radius:12px;background:var(--spira-white);
+}
+.file-ico{
+  flex:0 0 auto;width:32px;height:32px;border-radius:9px;display:grid;place-items:center;
+  background:rgba(46,125,116,.10);
+}
+.file-name{
+  font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.file-meta{font-size:11.5px;color:var(--spira-ink-soft);margin-top:1px}
+.mini{
+  height:30px;padding:0 11px;border-radius:9px;border:1px solid var(--spira-line-2);
+  background:var(--spira-white);cursor:pointer;font-family:var(--spira-font-text);
+  font-weight:600;font-size:12.5px;color:var(--spira-ink);flex:0 0 auto;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
+}
+.mini:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
+.mini:active{transform:translateY(0);box-shadow:none}
+
+/* —— aviso de que falta la constancia (forma + color, nunca color solo) ——
+   El TEXTO va en tinta, no en ámbar: #B0823F sobre el tinte da 3,2:1 y a 12,5px bold
+   AA pide 4,5:1. El ámbar queda en el ÍCONO y en el tinte, que es donde el color hace
+   de señal sin tener que ser legible. Medido en el navegador, no estimado. */
+.warn{
+  display:flex;align-items:flex-start;gap:9px;padding:9px 11px;border-radius:10px;
+  background:rgba(176,130,63,.12);font-size:12.5px;color:var(--spira-ink);font-weight:600;
+}
+.warn svg{color:var(--spira-warn)}
+.warn span{color:var(--spira-ink-soft);font-weight:400;display:block;margin-top:2px}
+
+/* —— renglón de medicación pedida —— */
+.item{
+  display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 12px;
+  border:1px solid var(--spira-line);border-radius:11px;background:var(--spira-white);
+}
+.item + .item{margin-top:6px}
+.qty{color:var(--spira-ink-soft);font-variant-numeric:tabular-nums;flex:0 0 auto}
+
+/* —— pie común: LO QUE HACE VISIBLE QUE ES UN SOLO PEDIDO —— */
+.foot{
+  margin-top:14px;padding-top:11px;border-top:1px solid var(--spira-line);
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+}
+.foot-txt{font-size:12.5px;color:var(--spira-ink-soft)}
+.pill{
+  flex:0 0 auto;font-size:11px;font-weight:600;padding:3px 10px;
+  border-radius:var(--spira-radius-pill);color:var(--spira-track);background:rgba(46,125,116,.14);
+}
+.pill.warnp{color:var(--spira-warn);background:rgba(176,130,63,.16)}
+.link-btn{
+  margin-left:auto;background:transparent;border:none;padding:2px 0;cursor:pointer;
+  font-family:var(--spira-font-text);font-weight:600;font-size:12.5px;color:var(--spira-muted);
+}
+.link-btn:hover{color:var(--spira-ink)}
+
+.empty{font-size:12.5px;color:var(--spira-faint);padding:4px 0}
+
+/* —— bloque de Farmacia (acento dorado) —— */
+.pharma .file-ico{background:rgba(168,132,47,.12)}
+.pharma .state-n{background:var(--spira-pharma-solid)}
+.solid{
+  height:38px;padding:0 14px;border-radius:10px;border:none;cursor:pointer;
+  background:var(--spira-pharma-solid);color:var(--spira-on-accent);
+  font-family:var(--spira-font-text);font-weight:700;font-size:13px;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
+}
+.solid:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
+.solid:active{transform:translateY(0);box-shadow:none}
+.kits{
+  display:flex;align-items:center;gap:10px;margin-top:11px;padding-top:11px;
+  border-top:1px solid var(--spira-line);
+}
+.kits label{font-size:12.5px;font-weight:600}
+.num{
+  width:66px;height:38px;border-radius:10px;border:1px solid var(--spira-line-2);
+  background:var(--spira-white);padding:0 11px;font-family:var(--spira-font-text);
+  font-size:14px;color:var(--spira-ink);font-variant-numeric:tabular-nums;
+}
+.num:focus{outline:none;box-shadow:var(--spira-shadow-sm);transform:translateY(-1px)}
+
+/* —— notas de diseño —— */
+.notes{
+  margin-top:16px;border:1px solid var(--spira-line);border-radius:14px;
+  background:var(--spira-surface);padding:6px 22px 20px;
+}
+.notes li{margin-top:13px;font-size:13.5px;line-height:1.62;color:var(--spira-ink)}
+.notes li b{font-weight:700}
+.notes code{
+  font-family:var(--spira-font-text);font-size:12.5px;background:var(--spira-white);
+  border:1px solid var(--spira-line);border-radius:6px;padding:1px 5px;
+}
+@media (max-width:520px){
+  .states{grid-template-columns:1fr}
+  .state{width:auto}
+  .wrap{padding:26px 16px 60px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <div>
+      <h1>La tarjeta de Dispensación, partida en dos</h1>
+      <p class="doc-sub">
+        Handoff de diseño para la dispensación de <b>producto en investigación (IP)</b>. La tarjeta
+        del detalle de visita pasa a tener dos secciones — <b>medicación concomitante</b> (lo que ya
+        existe, intacto) y <b>producto en investigación</b> (nuevo) — que alimentan
+        <b>un solo pedido</b>.
+      </p>
+    </div>
+    <button class="theme-btn" id="theme" type="button">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/></svg>
+      <span id="theme-txt">Tema oscuro</span>
+    </button>
+  </div>
+
+  <div class="doc-meta">
+    <span class="tag">2026-08-09</span>
+    <span class="tag">Track · detalle de visita</span>
+    <span class="tag">spec: 2026-08-09-dispensacion-ip-design.md</span>
+    <span class="tag">ancho real: 442px</span>
+  </div>
+
+  <h2 class="sec">La tarjeta, estado por estado</h2>
+  <p class="sec-note">
+    Cada tarjeta está al ancho real que tiene en la columna derecha del modal (442px). El vocabulario
+    visual no es nuevo: el tilde es el mismo del checklist de procedimientos, la zona punteada es la
+    misma del botón «Solicitar dispensación» que ya existe, y el realce es siempre elevación —
+    nunca un borde de color. Pasá el mouse por encima para verlo.
+  </p>
+
+  <div class="states">
+
+    <!-- ══════════ 1 ══════════ -->
+    <div class="state">
+      <div class="state-label"><span class="state-n">1</span><span class="state-title">Sin pedido · la visita entrega las dos cosas</span></div>
+      <div class="panel">
+        <div class="panel-head">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          <span class="panel-title">Dispensación</span>
+        </div>
+
+        <div class="sub">
+          <div class="sub-head">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--spira-ink-soft)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+            <span class="sub-label">Medicación concomitante</span>
+          </div>
+          <button class="dashed" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            Agregar medicación
+          </button>
+        </div>
+
+        <div class="sub">
+          <div class="sub-head">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--spira-ink-soft)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>
+            <span class="sub-label">Producto en investigación</span>
+          </div>
+          <button class="tick-row" type="button">
+            <span class="tick"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--spira-on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span>Esta visita entrega IP</span>
+          </button>
+        </div>
+      </div>
+      <p class="state-why">
+        Las dos secciones arrancan pidiendo lo mínimo. El IP no muestra la zona de adjunto todavía:
+        aparece recién al tildar, así el caso «no entrega IP hoy» no arrastra un cuadro vacío.
+      </p>
+    </div>
+
+    <!-- ══════════ 2 ══════════ -->
+    <div class="state">
+      <div class="state-label"><span class="state-n">2</span><span class="state-title">Solo IP — el caso típico de protocolo</span></div>
+      <div class="panel">
+        <div class="panel-head">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          <span class="panel-title">Dispensación</span>
+        </div>
+        <div class="sub">
+          <div class="sub-head">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--spira-ink-soft)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>
+            <span class="sub-label">Producto en investigación</span>
+          </div>
+          <button class="tick-row on" type="button">
+            <span class="tick on"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--spira-on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span>Esta visita entrega IP</span>
+          </button>
+          <div class="drop">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <div class="drop-main">Arrastrá la constancia o <span class="lnk">elegí un archivo</span></div>
+            <div class="drop-hint">Preferentemente el PDF impreso del IRT · hasta 10&nbsp;MB</div>
+          </div>
+        </div>
+      </div>
+      <p class="state-why">
+        La sección de concomitante <b>no existe</b> — la definición de la visita no la tiene. Sin el
+        flag <code>dispenses_ip</code> aparte, esta visita mostraría hoy «esta visita no entrega
+        medicación», que es lo contrario de la verdad.
+      </p>
+    </div>
+
+    <!-- ══════════ 3 ══════════ -->
+    <div class="state">
+      <div class="state-label"><span class="state-n">3</span><span class="state-title">Tildado, pero falta la constancia</span></div>
+      <div class="panel">
+        <div class="panel-head">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          <span class="panel-title">Dispensación</span>
+        </div>
+        <div class="sub">
+          <div class="sub-head">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--spira-ink-soft)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>
+            <span class="sub-label">Producto en investigación</span>
+          </div>
+          <div class="warn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;margin-top:1px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <div>Falta la constancia
+              <span>Farmacia no puede emitir el comprobante hasta que esté cargada.</span>
+            </div>
+          </div>
+          <div class="drop">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <div class="drop-main">Arrastrá la constancia o <span class="lnk">elegí un archivo</span></div>
+            <div class="drop-hint">Preferentemente el PDF impreso del IRT · hasta 10&nbsp;MB</div>
+          </div>
+        </div>
+        <div class="foot">
+          <span class="foot-txt">Pedido del 09/08</span>
+          <span class="pill warnp">Incompleta</span>
+          <button class="link-btn" type="button">Cancelar solicitud</button>
+        </div>
+      </div>
+      <p class="state-why">
+        Estado legítimo, no un error: el coordinador tildó y todavía no tiene el PDF a mano. Se
+        <b>dice</b> en vez de callarse, y se dice también en el tablero de Farmacia — para que nadie
+        lo descubra recién al abrir el cajón.
+      </p>
+    </div>
+
+    <!-- ══════════ 4 ══════════ -->
+    <div class="state">
+      <div class="state-label"><span class="state-n">4</span><span class="state-title">Pedido completo, las dos cosas juntas</span></div>
+      <div class="panel">
+        <div class="panel-head">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          <span class="panel-title">Dispensación</span>
+        </div>
+
+        <div class="sub">
+          <div class="sub-head">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--spira-ink-soft)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+            <span class="sub-label">Medicación concomitante</span>
+          </div>
+          <div class="item"><span style="flex:1;min-width:0">Alvetide 92/22 mcg</span><span class="qty">x1</span></div>
+          <div class="item"><span style="flex:1;min-width:0">Lierbron 400/12 mcg</span><span class="qty">x2</span></div>
+        </div>
+
+        <div class="sub">
+          <div class="sub-head">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--spira-ink-soft)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>
+            <span class="sub-label">Producto en investigación</span>
+          </div>
+          <div class="file">
+            <span class="file-ico">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+            </span>
+            <span style="flex:1;min-width:0">
+              <span class="file-name">irt-asignacion-032001500001.pdf</span>
+              <span class="file-meta">148 KB · subido hoy 09:12</span>
+            </span>
+            <button class="mini" type="button">Ver</button>
+            <button class="mini" type="button">Reemplazar</button>
+          </div>
+        </div>
+
+        <div class="foot">
+          <span class="foot-txt">Pedido del 09/08</span>
+          <span class="pill">Solicitada</span>
+          <button class="link-btn" type="button">Cancelar solicitud</button>
+        </div>
+      </div>
+      <p class="state-why">
+        El <b>pie común</b> es la pieza que hace visible la decisión D3: las dos secciones de arriba
+        no son dos pedidos, son <b>uno</b>. Sin ese pie, la tarjeta partida se leería como dos
+        circuitos que casualmente conviven.
+      </p>
+    </div>
+
+    <!-- ══════════ 5 ══════════ -->
+    <div class="state">
+      <div class="state-label"><span class="state-n">5</span><span class="state-title">La visita no entrega nada</span></div>
+      <div class="panel">
+        <div class="panel-head">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          <span class="panel-title">Dispensación</span>
+        </div>
+        <div class="empty">Esta visita no entrega medicación.</div>
+      </div>
+      <p class="state-why">
+        Sin cambios. Es el vacío explicado que ya rige en toda la app — y ahora es <b>verdad</b>,
+        porque se apagaron los dos flags y no uno solo.
+      </p>
+    </div>
+
+  </div>
+
+  <h2 class="sec">Del lado de Farmacia</h2>
+  <p class="sec-note">
+    Secundario a este handoff, pero va incluido porque sin esto no se puede juzgar la decisión D2:
+    <i>la farmacéutica lo ve, lo abre, lo imprime y lo entrega junto con la medicación</i>. El bloque
+    va <b>arriba</b> de los renglones en el cajón de preparación: es lo primero que hay que imprimir.
+  </p>
+
+  <div class="states pharma">
+    <div class="state">
+      <div class="state-label"><span class="state-n">6</span><span class="state-title">El cajón, al preparar</span></div>
+      <div class="panel">
+        <div class="panel-head">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>
+          <span class="panel-title">Producto en investigación</span>
+        </div>
+        <div class="file">
+          <span class="file-ico">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+          </span>
+          <span style="flex:1;min-width:0">
+            <span class="file-name">irt-asignacion-032001500001.pdf</span>
+            <span class="file-meta">148 KB · Camila Ruiz, hoy 09:12</span>
+          </span>
+        </div>
+        <div style="display:flex;gap:9px;margin-top:10px">
+          <button class="solid" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+            Abrir e imprimir
+          </button>
+          <button class="mini" style="height:38px" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            Descargar
+          </button>
+        </div>
+        <div class="kits">
+          <label for="k">Kits de IP a entregar</label>
+          <input class="num spira-mono" id="k" type="number" value="1" min="1">
+          <span style="font-size:11.5px;color:var(--spira-ink-soft)">Descuenta del stock del protocolo</span>
+        </div>
+      </div>
+      <p class="state-why">
+        La cantidad se pide acá, en <b>Marcar lista</b> — no al entregar. Es el único momento en que
+        el stock se mueve (igual que la concomitante), así que cancelar la preparación devuelve las
+        dos cosas juntas.
+      </p>
+    </div>
+  </div>
+
+  <h2 class="sec">Decisiones de diseño</h2>
+  <div class="notes"><ul>
+    <li>
+      <b>El pie común, y no dos tarjetas.</b> La decisión D3 dice «un solo pedido por visita».
+      Dibujarlo como dos tarjetas independientes habría contado la historia contraria. El pie —
+      fecha, estado y «Cancelar solicitud», una sola vez, abajo de todo — es lo que dice
+      <i>esto es uno</i>.
+    </li>
+    <li>
+      <b>Quién crea el pedido: el primero que actúa.</b> El mock obliga a resolver algo que la
+      especificación dejaba implícito. Si el coordinador tilda el IP primero, ahí nace el pedido; si
+      agrega medicación primero, nace ahí; el segundo gesto <b>se suma al mismo pedido</b>. Sin esta
+      regla harían falta dos botones «Solicitar» y volveríamos a dos circuitos.
+    </li>
+    <li>
+      <b>La zona de adjunto aparece al tildar</b>, no antes. Un cuadro punteado permanente en una
+      visita que no entrega IP hoy es ruido, y en una app de calma clínica el ruido se paga caro.
+    </li>
+    <li>
+      <b>El rótulo de subsección va en <code>ink-soft</code>, no en <code>faint</code>.</b> El
+      <code>.spira-eyebrow</code> del repo usa <code>faint</code>, que sobre <code>surface</code> da
+      2,1:1 — muy por debajo de AA. Para una nota al pie pasa; para la división primaria de la
+      tarjeta, no. Es el mismo criterio que ya se aplicó en la v0.23.0 al pasar de
+      <code>muted</code> a tinta.
+    </li>
+    <li>
+      <b>«Falta la constancia» se dice con forma y con color</b>, nunca con color solo: triángulo de
+      alerta + texto + tinte ámbar. Tres señales, como el contador de escaneo del rediseño de
+      Dispensaciones.
+    </li>
+    <li>
+      <b>Nada de bordes de acento.</b> Hover, foco y pulsado son elevación: sube ~1px, sombra suave,
+      se asienta al pulsar. La única excepción es el tilde <i>encendido</i>, donde el petróleo no
+      señala «el mouse está acá» sino <i>significado</i>: esta visita entrega IP.
+    </li>
+    <li>
+      <b>Se sugiere el PDF, no se prohíbe la imagen.</b> «Preferentemente el PDF impreso del IRT»
+      gana por mérito propio — pesa 10× menos, se imprime nítido y se puede buscar. Y las imágenes
+      <b>no se recomprimen</b>: sería alterar un documento fuente.
+    </li>
+    <li>
+      <b>El vocabulario es todo prestado.</b> El tilde es el del checklist de procedimientos, la
+      zona punteada es la del «Solicitar dispensación» actual, la píldora de estado es la de las
+      solicitudes. Nada de esto es un componente nuevo: es la misma app diciendo una cosa más.
+    </li>
+  </ul></div>
+
+</div>
+<script>
+  const b = document.getElementById('theme'), t = document.getElementById('theme-txt');
+  b.addEventListener('click', () => {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+    t.textContent = dark ? 'Tema oscuro' : 'Tema claro';
+  });
+</script>
+</body>
+</html>
