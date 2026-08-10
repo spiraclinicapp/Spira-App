@@ -5,9 +5,14 @@ import { pharmaErrorMessage } from './errors'
  *  el bucket server-side: una validación de JS se saltea, la del bucket no. */
 export const IP_MAX_BYTES = 10 * 1024 * 1024
 
-/** Mismos tipos que declara el bucket. El PDF va primero porque es el que sugerimos. */
+/** Mismos tipos que declara el bucket. El PDF va primero porque es el que sugerimos.
+ *  HEIC/HEIF quedan afuera A PROPÓSITO (no es un olvido, no los vuelvas a agregar sin resolver
+ *  esto primero): Chromium en Windows no los decodifica, así que una foto de iPhone subida así
+ *  se guarda perfecto pero se ve —y se imprime— EN BLANCO, sin ningún error que avise. Para una
+ *  constancia que es nota fuente regulatoria, es preferible rechazarla al subir con un mensaje
+ *  claro que aceptarla y que falle en silencio recién al mirarla. */
 export const IP_MIME_TYPES = [
-  'application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+  'application/pdf', 'image/jpeg', 'image/png', 'image/webp',
 ]
 
 const BUCKET = 'ip-docs'
@@ -42,7 +47,7 @@ export async function uploadIpDocument(
     return { error: `El archivo pesa ${formatBytes(file.size)} y el máximo es 10 MB.` }
   }
   if (!IP_MIME_TYPES.includes(file.type)) {
-    return { error: 'Formato no admitido. Se aceptan PDF, JPG, PNG, WEBP y HEIC.' }
+    return { error: 'Formato no admitido. Se aceptan PDF, JPG, PNG y WEBP.' }
   }
 
   const path = `${protocolId}/${requestId}/${crypto.randomUUID()}.${extOf(file)}`
@@ -50,7 +55,14 @@ export async function uploadIpDocument(
     contentType: file.type,
     upsert: false,
   })
-  if (up.error) return { error: `No se pudo subir la constancia: ${up.error.message}` }
+  if (up.error) {
+    // El error de Storage no es un código de Postgres (no lo cubre `pharmaErrorMessage`) y viene
+    // crudo del SDK, a veces en inglés: encabezamos con un texto sereno y sumamos el detalle
+    // técnico solo si vino algo (aporta para soporte; si no hay nada, no inventamos relleno).
+    const detalle = up.error.message?.trim()
+    const base = 'No se pudo subir la constancia. Probá de nuevo en un momento.'
+    return { error: detalle ? `${base} (${detalle})` : base }
+  }
 
   const { data, error } = await supabase.rpc('attach_ip_document', {
     p_request_id: requestId,
@@ -59,7 +71,21 @@ export async function uploadIpDocument(
     p_mime: file.type,
     p_size: file.size,
   })
-  if (error) return { error: pharmaErrorMessage(error.code, error.message) }
+  if (error) {
+    // El objeto YA quedó subido al bucket. Si la RPC rechaza el registro (típico: la solicitud
+    // pasó a un estado cerrado entre que se abrió el selector de archivo y se confirmó la subida,
+    // algo que la RPC valida server-side), ese objeto se queda huérfano en el bucket para
+    // siempre, sin ninguna fila que lo referencie y sin dueño. Lo borramos best-effort: si el
+    // borrado en sí falla, no hay más margen de acción acá, y sobre todo NO debe pisar ni ocultar
+    // el error de la RPC, que es el que le importa mostrar al usuario.
+    try {
+      await supabase.storage.from(BUCKET).remove([path])
+    } catch {
+      // Best-effort: si ni borrar sale, queda un huérfano para limpieza manual/futura; se prioriza
+      // no enmascarar el error real devuelto más abajo.
+    }
+    return { error: pharmaErrorMessage(error.code, error.message) }
+  }
   return { error: null, id: data as string }
 }
 
@@ -68,6 +94,16 @@ export async function ipDocumentUrl(path: string): Promise<string | null> {
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60)
   if (error) return null
   return data?.signedUrl ?? null
+}
+
+/** Espera el `onload` real del iframe (o se rinde a los `timeoutMs`). Aparte de `printIpDocument`
+ *  para que `frame` llegue como parámetro (siempre no-nulo) y no como variable capturada por el
+ *  closure — así no hay que pelearse con el angostamiento de tipos de TypeScript. */
+function waitForFrameLoad(frame: HTMLIFrameElement, timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve(false), timeoutMs)
+    frame.onload = () => { window.clearTimeout(timer); resolve(true) }
+  })
 }
 
 /**
@@ -89,12 +125,33 @@ export async function printIpDocument(path: string): Promise<string | null> {
     frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'
     frame.src = blobUrl
     document.body.appendChild(frame)
-    frame.onload = () => {
-      frame.contentWindow?.focus()
-      frame.contentWindow?.print()
-      // El objeto vive hasta que el diálogo se cierra; limpiarlo antes cancela la impresión.
-      window.setTimeout(() => { URL.revokeObjectURL(blobUrl); frame.remove() }, 60_000)
+
+    // Antes se devolvía éxito (`null`) apenas se montaba el iframe, sin esperar a que cargara de
+    // verdad. Si el navegador no llegaba a renderizarlo (PDF corrupto, iframe bloqueado por algún
+    // motivo), el llamador nunca se enteraba y no ofrecía el fallback de "abrir en pestaña" — y el
+    // blob y el iframe quedaban montados en memoria para siempre, sin nadie que los limpie. Acá se
+    // espera el evento real, con un tiempo de espera razonable.
+    const cargo = await waitForFrameLoad(frame, 8_000)
+    if (!cargo) {
+      URL.revokeObjectURL(blobUrl)
+      frame.remove()
+      return 'No se pudo mostrar la constancia para imprimir. Probá con “Abrir en pestaña”.'
     }
+
+    frame.contentWindow?.focus()
+    frame.contentWindow?.print()
+
+    // El diálogo de impresión REAL (elegir impresora, "Guardar como PDF" con el selector de
+    // archivo del sistema) puede tardar bastante más que cualquier temporizador fijo, y revocar
+    // el blob mientras el diálogo sigue abierto puede cortar la impresión — justo lo que se
+    // quiere evitar. `afterprint`, en la ventana del iframe, dispara recién cuando el diálogo se
+    // cierra, sea cual sea el tiempo que haya tardado la persona. El temporizador queda solo como
+    // red de último recurso (por si `afterprint` no llega a disparar en algún navegador) con un
+    // margen bien holgado para no interferir con una impresión en curso.
+    const limpiar = () => { URL.revokeObjectURL(blobUrl); frame.remove() }
+    frame.contentWindow?.addEventListener('afterprint', limpiar, { once: true })
+    window.setTimeout(limpiar, 5 * 60_000)
+
     return null
   } catch {
     return 'No se pudo imprimir. Probá con “Abrir en pestaña”.'
