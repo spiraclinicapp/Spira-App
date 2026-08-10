@@ -4,10 +4,12 @@ import type { VisitType } from './visits'
 
 /**
  * Fila de `visit_definitions` (el cuadro de actividades de un protocolo). Columnas base
- * de 0002; `dispenses` la sumó 0023; `role` la 0029. `date_mode` ('libre'|'automatica')
- * existe desde 0002 y la usa el cuadro completo: 'libre' = pre-rando manual (el offset es
- * referencia), 'automatica' = post-rando autogenerada desde la randomización. `code` es
- * nullable en la base (filas cargadas por SQL antes de esta UI podrían no tenerlo).
+ * de 0002; `dispenses` la sumó 0023; `role` la 0029; `dispenses_ip` la 0071 (candado aparte
+ * de `dispenses`: la visita típica de protocolo entrega IP y ninguna concomitante).
+ * `date_mode` ('libre'|'automatica') existe desde 0002 y la usa el cuadro completo: 'libre' =
+ * pre-rando manual (el offset es referencia), 'automatica' = post-rando autogenerada desde la
+ * randomización. `code` es nullable en la base (filas cargadas por SQL antes de esta UI
+ * podrían no tenerlo).
  */
 export interface VisitDefinition {
   id: string
@@ -20,6 +22,8 @@ export interface VisitDefinition {
   window_plus: number
   sort_order: number
   dispenses: boolean
+  /** true = esta visita entrega producto en investigación. Independiente de `dispenses` (0071). */
+  dispenses_ip: boolean
   /** Rol clínico (0029): screening/randomizacion disparan alerta al cerrar; comun no. */
   role: 'screening' | 'randomizacion' | 'comun'
   /** 'libre' = pre-rando manual (offset referencia) / 'automatica' = post-rando autogenerada. */
@@ -95,6 +99,8 @@ export interface DefinitionInput {
   window_minus: number
   window_plus: number
   dispenses: boolean
+  /** true = esta visita entrega producto en investigación. Independiente de `dispenses` (0071). */
+  dispenses_ip: boolean
   role: 'screening' | 'randomizacion' | 'comun'
   date_mode: 'libre' | 'automatica'
 }

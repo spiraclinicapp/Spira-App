@@ -55,6 +55,20 @@ export interface DispensationRow {
   daily_number: number | null
   delivered_at: string | null
   items: DispensationLineRow[]
+  /** Kits de IP entregados. NULL hasta la entrega (0071). */
+  ip_kits: number | null
+}
+
+/** Constancia del IRT adjunta al pedido (tabla `dispensation_ip_documents`, 0071). */
+export interface IpDocumentRow {
+  id: string
+  storage_path: string
+  file_name: string
+  mime_type: string
+  size_bytes: number
+  uploaded_at: string
+  /** NULL = es la vigente. Reemplazar no borra: sella esta fecha en la anterior. */
+  superseded_at: string | null
 }
 
 /**
@@ -85,6 +99,12 @@ export interface DispensationRequestRow {
   items: RequestItemRow[]
   /** La dispensación ejecutada; array por el schema (FK inversa), en la práctica 0 o 1. */
   dispensations: DispensationRow[]
+  /** El pedido lleva IP. Lo sella el servidor desde el cronograma; el cliente no lo declara (0071). */
+  includes_ip: boolean
+  /** Dispensación fuera de cronograma + su motivo obligatorio (0071). */
+  off_schedule: boolean
+  off_schedule_reason: string | null
+  ip_documents: IpDocumentRow[]
   /** Contexto para la cola de Pharma: paciente (nombre + código IVRS) y protocolo. */
   visit: {
     enrollment: {
@@ -97,10 +117,12 @@ export interface DispensationRequestRow {
 const REQUEST_COLS =
   'id, status, source, rejection_reason, notes, created_at, updated_at, visit_id, ' +
   'requested_by_module, prepared_by, preparation_started_at, ' +
+  'includes_ip, off_schedule, off_schedule_reason, ' +
   'items:dispensation_request_items(id, medication_id, quantity, scanned_at, scanned_by, ' +
     'medication:medications(name, dosis, unit)), ' +
-  'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ' +
+  'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ip_kits, ' +
     'items:dispensation_items(id, medication_id, quantity, lot_number, expiry_date, medication:medications(name))), ' +
+  'ip_documents:dispensation_ip_documents(id, storage_path, file_name, mime_type, size_bytes, uploaded_at, superseded_at), ' +
   'visit:patient_visits(enrollment:enrollments(patient:patients(code, full_name), protocol:protocols(code, name)))'
 
 /**
@@ -220,6 +242,15 @@ export function pendingScans(r: DispensationRequestRow): number {
 /** Total de unidades pedidas (lo que muestra la card: "3 u."). */
 export function totalUnits(r: DispensationRequestRow): number {
   return r.items.reduce((acc, i) => acc + i.quantity, 0)
+}
+
+/**
+ * La constancia vigente del pedido. Se resuelve ACÁ y no filtrando el embed: en PostgREST un
+ * filtro sobre un embed no excluye la fila padre, solo deja el embed en null — el mismo motivo por
+ * el que `HISTORY_COLS` tuvo que usar `!inner`. Son dos o tres filas por pedido.
+ */
+export function constanciaVigente(r: DispensationRequestRow): IpDocumentRow | null {
+  return r.ip_documents?.find((d) => d.superseded_at === null) ?? null
 }
 
 /** Cuántas filas trae cada página del historial. */
@@ -354,12 +385,18 @@ export async function createDispensationRequest(
    * pueda operar en ese módulo, así que declarar no alcanza para falsearlo.
    */
   origen: 'track' | 'pharma' = 'track',
+  /**
+   * Motivo de la dispensación FUERA DE CRONOGRAMA (0071). Con motivo, la base saltea la
+   * validación del cronograma; sin motivo, la excepción no existe. Es la única puerta.
+   */
+  offScheduleReason: string | null = null,
 ): Promise<{ error: string | null; code?: string; id?: string }> {
   const { data, error } = await supabase.rpc('create_dispensation_request', {
     p_visit_id: visitId,
     p_items: items,
     p_notes: notes,
     p_origen: origen,
+    p_off_schedule_reason: offScheduleReason,
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null, id: data as string }
@@ -476,8 +513,13 @@ export async function markDispensationReady(requestId: string): Promise<{
  */
 export async function deliverDispensation(
   dispensationId: string,
+  /** Kits de IP entregados (0071). Obligatorio si el pedido lleva IP; la base lo exige. */
+  ipKits: number | null = null,
 ): Promise<{ error: string | null; code?: string }> {
-  const { error } = await supabase.rpc('deliver_dispensation', { p_dispensation_id: dispensationId })
+  const { error } = await supabase.rpc('deliver_dispensation', {
+    p_dispensation_id: dispensationId,
+    p_ip_kits: ipKits,
+  })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null }
 }
@@ -510,4 +552,66 @@ export async function resolveDispensation(
   const { data, error } = await supabase.rpc('resolve_dispensation', { p_request_id: requestId })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null, id: data as string }
+}
+
+/** Cuántos días mira hacia atrás el aviso de dispensación reciente (0071). */
+export const DIAS_AVISO_DISPENSACION = 30
+
+/** Última dispensación entregada del enrolamiento, para el aviso de D12. */
+export interface UltimaDispensacionRow {
+  entregada_el: string
+  visita: string | null
+  ip_kits: number | null
+  items: number
+}
+
+/**
+ * La última dispensación ENTREGADA del mismo enrolamiento dentro de los últimos 30 días.
+ *
+ * Va por consulta común y no por RPC: Track ya puede leer las solicitudes de las visitas de su
+ * protocolo por RLS, y acotarla al enrolamiento la deja dentro de lo que el coordinador ya ve. No
+ * cruza protocolos a propósito — además de que la RLS no lo dejaría, la comparación útil es contra
+ * el mismo estudio.
+ */
+export function useUltimaDispensacion(enrollmentId: string | null) {
+  return useSupabaseQuery<UltimaDispensacionRow[]>(
+    async (c) => {
+      if (!enrollmentId) return { data: [], error: null }
+      const desde = new Date(Date.now() - DIAS_AVISO_DISPENSACION * 86_400_000)
+        .toISOString().slice(0, 10)
+      const { data, error } = await c
+        .from('dispensation_requests')
+        // OJO — desvío del brief: `patient_visits` (0002) NO tiene columna `visit_name` (eso
+        // solo existe en las VISTAS, como `v_track_visits`, derivado de `visit_definitions.name`).
+        // Pedirlo tal cual reventaría en PostgREST con "column does not exist". El nombre de la
+        // visita se llega por el embed a `visit_definitions`, que sí lo tiene (NOT NULL, 0002).
+        .select(
+          'updated_at, visit:patient_visits!inner(enrollment_id, visit_def:visit_definitions(name)), ' +
+          'items:dispensation_request_items(id), ' +
+          'dispensations:dispensations!inner(status, delivered_at, ip_kits)',
+        )
+        .eq('visit.enrollment_id', enrollmentId)
+        .eq('dispensations.status', 'entregada')
+        .gte('dispensations.delivered_at', `${desde}T00:00:00`)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+      if (error) return { data: null, error }
+      const row = (data as unknown as {
+        visit: { visit_def: { name: string | null } | null } | null
+        items: { id: string }[]
+        dispensations: { delivered_at: string; ip_kits: number | null }[]
+      }[] | null)?.[0]
+      if (!row) return { data: [], error: null }
+      return {
+        data: [{
+          entregada_el: row.dispensations[0]?.delivered_at ?? '',
+          visita: row.visit?.visit_def?.name ?? null,
+          ip_kits: row.dispensations[0]?.ip_kits ?? null,
+          items: row.items?.length ?? 0,
+        }],
+        error: null,
+      }
+    },
+    [enrollmentId],
+  )
 }

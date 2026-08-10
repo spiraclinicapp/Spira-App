@@ -14,6 +14,9 @@ export interface IpStockRow {
   recepciones: number
   /** Total de kits recibidos (= stock actual; la dispensación de la Tajada 2 restará). */
   total_kits: number
+  /** Kits ya entregados y los que quedan (0071). `total_kits` sigue siendo lo RECIBIDO. */
+  kits_entregados: number
+  kits_disponibles: number
 }
 
 /** Stock de IP de un protocolo (cantidad total de kits recibidos). Lee v_ip_stock (0038). */
