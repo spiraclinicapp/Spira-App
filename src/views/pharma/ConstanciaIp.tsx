@@ -85,6 +85,11 @@ export function ConstanciaVista({ doc, size, accent, onReemplazar }: {
   const [url, setUrl] = useState<string | null>(null)
   useEffect(() => {
     let vivo = true
+    // Al cambiar `storage_path` (se reemplazó la constancia sobre una instancia YA montada) hay
+    // que volver a "Cargando…" ya mismo: si no se resetea acá, mientras la URL firmada nueva
+    // resuelve queda en pantalla el archivo VIEJO con cara de ser el nuevo — en una app auditable
+    // eso es mostrar un dato que no corresponde.
+    setUrl(null)
     ipDocumentUrl(doc.storage_path).then((u) => { if (vivo) setUrl(u) })
     return () => { vivo = false }
   }, [doc.storage_path])
@@ -98,21 +103,32 @@ export function ConstanciaVista({ doc, size, accent, onReemplazar }: {
    * La pestaña se abre EN BLANCO antes del `await`: pasado ese punto ya no cuenta como gesto
    * directo del usuario y el navegador bloquea `window.open`. Si la URL firmada no llega, no
    * dejamos esa pestaña en blanco flotando —eso sería fingir que se abrió algo que no se abrió—:
-   * se cierra y se avisa el error. Si el propio navegador bloqueó la pestaña en blanco (`pestaña`
-   * sale `null`), se reintenta una vez ya con la URL final, que sí suele pasar el filtro de
-   * algunos bloqueadores al venir con destino real.
+   * se cierra y se avisa el error.
+   *
+   * SIN `'noopener'` en esta primera llamada, a propósito: por spec, `window.open(url, target,
+   * 'noopener')` devuelve SIEMPRE `null` (no es una heurística de bloqueo, es el contrato
+   * documentado del propio navegador) — y sin la referencia no hay cómo cerrarla en el camino de
+   * error ni navegarla en el feliz, así que la pestaña en blanco quedaba flotando en TODOS los
+   * clics. El aislamiento que `'noopener'` da (que la pestaña nueva no pueda tocar esta vía
+   * `window.opener`) se consigue igual pisando `opener` a mano apenas se abre, sin perder el
+   * handle que todo este patrón necesita. No hay una segunda llamada a `window.open`: si el propio
+   * navegador bloqueó la pestaña en blanco, no fingimos que se abrió algo — se avisa.
    */
   async function verEntero() {
     setAmpliarError(null)
-    const pestaña = window.open('', '_blank', 'noopener')
+    const pestaña = window.open('', '_blank')
+    if (pestaña) pestaña.opener = null
     const u = await ipDocumentUrl(doc.storage_path)
     if (!u) {
       pestaña?.close()
       setAmpliarError('No se pudo abrir la constancia. Probá de nuevo en un momento.')
       return
     }
-    if (pestaña) pestaña.location.href = u
-    else window.open(u, '_blank', 'noopener')
+    if (pestaña) {
+      pestaña.location.href = u
+    } else {
+      setAmpliarError('El navegador bloqueó la pestaña nueva. Habilitá los pop-ups para este sitio.')
+    }
   }
 
   const alto = size === 'grande' ? 348 : 140
@@ -120,13 +136,46 @@ export function ConstanciaVista({ doc, size, accent, onReemplazar }: {
 
   return (
     <div>
-      <div style={{ position: 'relative', height: alto, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--spira-line)', background: 'var(--spira-white)' }}>
+      {/* Toda la tarjeta amplía en "chica" (mock: `.prev` entero, no solo el botón de la esquina)
+         — se nota sobre todo con una imagen, donde pasar el mouse por la foto no daba ninguna
+         pista de que se puede ampliar. `onClick` va acá, no repetido en el botón de adentro (ver
+         más abajo el `stopPropagation` que evita el doble disparo). El PDF es un `<iframe>` —
+         documento aparte, sus clics no burbujean al padre— así que se le saca `pointerEvents`
+         en "chica" para que el clic caiga sobre ESTE contenedor y no se pierda adentro del
+         visor; no hace falta en "grande" porque ahí no hay nada que ampliar. La clase
+         `.spira-zoom-preview` (tokens.css) da el levante ~1px + sombra — elevación, nunca borde
+         de color — y el cursor lo pone el `style` porque depende del tamaño. En "grande" la
+         plana ya entra completa: sin clase, sin `onClick`, cursor por defecto, igual que
+         `.prev.tall` en el mock. */}
+      <div
+        className={size === 'chica' ? 'spira-zoom-preview' : undefined}
+        onClick={size === 'chica' ? verEntero : undefined}
+        style={{
+          position: 'relative', height: alto, borderRadius: 12, overflow: 'hidden',
+          border: '1px solid var(--spira-line)', background: 'var(--spira-white)',
+          cursor: size === 'chica' ? 'zoom-in' : 'default',
+        }}
+      >
         {url === null ? (
           <div style={{ display: 'grid', placeItems: 'center', height: '100%', fontSize: 12.5, color: 'var(--spira-muted)' }}>Cargando la constancia…</div>
         ) : esPdf ? (
-          <iframe src={`${url}#toolbar=0&navpanes=0&view=FitH`} title={doc.file_name} style={{ width: '100%', height: '100%', border: 0 }} />
+          <iframe
+            src={`${url}#toolbar=0&navpanes=0&view=FitH`} title={doc.file_name}
+            style={{ width: '100%', height: '100%', border: 0, pointerEvents: size === 'chica' ? 'none' : undefined }}
+          />
         ) : (
-          <img src={url} alt={doc.file_name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+          // "chica" recorta arriba/abajo a propósito (`cover`+`top`: lo que identifica la
+          // constancia es el ENCABEZADO). "grande" es al revés: Farmacia necesita la plana
+          // ENTERA para leerla e imprimirla —un recorte puede dejar afuera el número de kit o la
+          // firma— así que ahí va `contain` (sin recorte, letterbox si hace falta) y centrada.
+          <img
+            src={url} alt={doc.file_name}
+            style={{
+              width: '100%', height: '100%',
+              objectFit: size === 'grande' ? 'contain' : 'cover',
+              objectPosition: size === 'grande' ? 'center' : 'top',
+            }}
+          />
         )}
         {/* Degradé de pie SOLO en "chica": ahí la primera plana viene recortada a 140px y el borde
            inferior corta contenido a la mitad; el degradé avisa "esto sigue" Y le da fondo de
@@ -141,11 +190,13 @@ export function ConstanciaVista({ doc, size, accent, onReemplazar }: {
            es a propósito, pero recortar sin dar forma de ver el resto sería un callejón sin
            salida). Es un <button> real a propósito, no un <div onClick>: el levante de ~1px al
            hover sale GRATIS de la micro-interacción global de tokens.css, así que acá no hace
-           falta (ni corresponde) escribir ningún :hover a mano. */}
+           falta (ni corresponde) escribir ningún :hover a mano. `stopPropagation` porque ahora la
+           tarjeta entera también tiene `onClick={verEntero}` — sin cortar el burbujeo, un clic acá
+           dispara las dos veces (dos `ipDocumentUrl`, dos intentos de pestaña). */}
         {size === 'chica' && (
           <button
             type="button"
-            onClick={verEntero}
+            onClick={(e) => { e.stopPropagation(); verEntero() }}
             style={{
               position: 'absolute', right: 9, bottom: 9, height: 28, padding: '0 10px', borderRadius: 8,
               border: '1px solid var(--spira-line)', background: 'var(--spira-white)', cursor: 'pointer',

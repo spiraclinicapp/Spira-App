@@ -481,7 +481,24 @@ input:-webkit-autofill:focus {
    adorno) pero llega sin recorrido. El levante ya no corre: vive en el bloque no-preference. */
 @media (prefers-reduced-motion: reduce) {
   .spira-card-link:not(:disabled):not([aria-disabled='true']),
-  .spira-row-link { transition: none; }
+  .spira-row-link,
+  .spira-zoom-preview { transition: none; }
+}
+
+/* —— Previsualizador ampliable (constancia de IP, tamaño "chica") ——
+   Toda la tarjeta de 140px invita a ampliar, no solo el botón "Ampliar" de la esquina —el mock
+   (estado 4 de "Tarjeta partida - estados.html") define el hover sobre el `.prev` entero. Mismo
+   criterio de elevación que `.spira-card-link` (levante ~1px + sombra `sm`, nunca borde de color),
+   pero en una clase aparte: el contenedor es un `<div>` con `onClick`, no un `button`/`a[href]`, así
+   que no matchea el selector de tag de la micro-interacción global (arriba) y necesita su propia
+   regla. El cursor lo pone el `style` inline de cada instancia (`zoom-in` en "chica", `default` en
+   "grande" como el mock), no esta clase, porque la clase misma es condicional al tamaño. */
+.spira-zoom-preview {
+  transition: transform 0.14s var(--spira-ease-out), box-shadow 0.14s var(--spira-ease-out);
+}
+.spira-zoom-preview:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--spira-shadow-sm);
 }
 
 /* —— Impresión del comprobante de dispensación ——
