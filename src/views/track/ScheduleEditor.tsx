@@ -232,7 +232,7 @@ export function ScheduleEditor({
               <span style={{ color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums' }}>{d.offset_days}</span>
               <span style={{ color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums' }}>−{d.window_minus}/+{d.window_plus}</span>
               <span style={{ color: 'var(--spira-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {etapaLabel(d)}{d.visit_type === 'telefonica' ? ' · tel.' : ''}{d.dispenses ? ' · disp.' : ''}
+                {etapaLabel(d)}{d.visit_type === 'telefonica' ? ' · tel.' : ''}{d.dispenses ? ' · disp.' : ''}{d.dispenses_ip ? ' · IP' : ''}
               </span>
               {canEdit ? (
                 <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
