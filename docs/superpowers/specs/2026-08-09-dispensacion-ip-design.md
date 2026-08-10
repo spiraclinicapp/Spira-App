@@ -40,7 +40,7 @@ constancia**. Nada más. No es una simplificación: es la política.
 | **D5** | ¿Dónde viven los archivos? | **Supabase Storage**, bucket privado. Ver §7 (costos): la base de datos sale 5,9× más cara por GB y con 12,5× menos incluido. |
 | **D6** | ¿Tope de tamaño? | **10 MB**, y la UI **sugiere PDF**. Sin recomprimir imágenes (§6.3). |
 | **D7** | ¿El coordinador tilda que hay IP? | **No.** Lo define el **cronograma** (`dispenses_ip`). Pedirle que confirme algo que el sistema ya sabe es redundancia disfrazada de control, y abre la puerta a que difieran. Lo único que se le pide es el archivo. |
-| **D8** | ¿La tarjeta resalta? | **Sí** (pedido del Director Médico): riel a la izquierda + tinte suave, con el **dorado de Farmacia** — el color dice *esto lo resuelve el otro módulo*. Nunca un borde de acento alrededor de la card. |
+| **D8** | ¿La tarjeta resalta? | **Sí** (pedido del Director Médico), en **petróleo**. Nunca un borde de acento alrededor, y **sin riel** (descartado por el Director). La variable se elige entre tres dibujadas en el mock — banda de cabecera, carta teñida u hoja elevada; recomendada la **banda**. El realce se **apaga** cuando la visita no entrega nada. |
 | **D9** | ¿Se previsualiza el archivo? | **Sí**, en las dos puntas, y en Farmacia **se imprime en un clic**. Sin librerías nuevas (§4). |
 
 ## Modelo mental
@@ -265,12 +265,18 @@ tilde** (D7): lo único que se pide es el archivo.
 | Con archivo | **Previsualizador** de 140px (primera plana, recortada) + `Ampliar`, y debajo el nombre, el peso y `Reemplazar` mientras siga `solicitada`. |
 | Ni concomitante ni IP | El mensaje sereno de siempre: *"Esta visita no entrega medicación."* |
 
-**El realce (D8):** el `Panel` gana un riel de 5px a la izquierda en `--spira-pharma-solid` más un
-tinte de fondo al 5,5%. Es el mismo recurso que ya usa la cabecera del modal para la etapa, así que
-no estrena vocabulario, y **no es un borde de acento alrededor de la card**. El dorado se elige
-porque *significa*: es la única tarjeta del modal de Coordinación cuyo trabajo ocurre en Farmacia.
-Cuando la visita no entrega nada, **el realce se apaga**: una tarjeta sin nada que hacer no debería
-llamar la atención.
+**El realce (D8):** el `Panel` gana una variante destacada en **petróleo**, sin riel y **sin borde de
+acento alrededor**. Las tres candidatas están dibujadas en el mock; la recomendada es la **banda de
+cabecera** (la cabecera a sangre, teñida, con el título en el acento profundo), porque ahí el color
+*hace de rótulo* en vez de decorar. Cuando la visita no entrega nada, **el realce se apaga**: una
+tarjeta sin nada que hacer no debería llamar la atención.
+
+**Y trae un token nuevo, obligatorio.** El acento a secas sobre el tinte da **4,14:1**, y el título
+del panel va a 14px en negrita, donde AA pide 4,5:1. Hace falta un **acento profundo** para el texto
+sobre tinte — `--spira-primary` en Track (**6,37:1**) y un dorado más oscuro en Pharma
+(**5,84:1**) — que en **tema oscuro se invierte**: ahí hay que aclarar, no oscurecer, y va el menta
+que `tokens.css` ya usa para el isotipo (**9,8:1**). Sin esa inversión el título queda en 1,85:1, o
+sea invisible. Los cuatro valores están medidos en el navegador, no estimados.
 
 El previsualizador **no trae librerías**: `<iframe>` para PDF, `<img>` para imagen, apuntando a la
 URL firmada. La alternativa (pdf.js a un canvas) son ~350 KB comprimidos por una imagen que el

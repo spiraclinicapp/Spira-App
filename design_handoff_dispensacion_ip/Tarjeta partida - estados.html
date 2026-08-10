@@ -26,23 +26,21 @@
   --spira-shadow-sm:0 1px 2px rgba(20,48,46,.06);
   --spira-shadow-md:0 12px 32px rgba(20,48,46,.10);
   /* tintes del realce (rgba literal: no se puede concatenar alfa a un var()) */
-  --hi-gold-bg:rgba(168,132,47,.055);
-  --hi-teal-bg:rgba(46,125,116,.055);
+  --tint-banda:rgba(46,125,116,.10);
+  --tint-carta:rgba(46,125,116,.06);
+  --tint-ico:rgba(46,125,116,.13);
 }
 [data-theme='dark']{
   --spira-ink:#EDEDED; --spira-paper:#121212; --spira-surface:#1C1C1C;
   --spira-white:#212121; --spira-muted:#A1A1A1; --spira-faint:#6E6E6E;
   --spira-ink-soft:#B2B2B2; --spira-line:#2A2A2A; --spira-line-2:#3A3A3A;
-  --hi-gold-bg:rgba(201,162,74,.09);
-  --hi-teal-bg:rgba(46,125,116,.11);
+  --tint-banda:rgba(46,125,116,.20); --tint-carta:rgba(46,125,116,.12);
+  --tint-ico:rgba(46,125,116,.22);
+  --spira-shadow-md:0 12px 32px rgba(0,0,0,.45);
 }
 
 *{box-sizing:border-box}
-body{
-  margin:0;background:var(--spira-paper);color:var(--spira-ink);
-  font-family:var(--spira-font-text);font-size:14px;line-height:1.5;
-  -webkit-font-smoothing:antialiased;
-}
+body{margin:0;background:var(--spira-paper);color:var(--spira-ink);font-family:var(--spira-font-text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1240px;margin:0 auto;padding:38px 26px 90px}
 
 .doc-head{display:flex;align-items:flex-start;gap:18px}
@@ -50,13 +48,7 @@ body{
 .doc-sub{color:var(--spira-ink-soft);font-size:14.5px;margin:8px 0 0;max-width:72ch}
 .doc-meta{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 34px;padding-bottom:22px;border-bottom:1px solid var(--spira-line)}
 .tag{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 11px;border-radius:var(--spira-radius-pill);border:1px solid var(--spira-line);background:var(--spira-white);font-size:12px;font-weight:600;color:var(--spira-ink-soft)}
-.theme-btn{
-  margin-left:auto;flex:0 0 auto;height:36px;padding:0 14px;border-radius:10px;
-  border:1px solid var(--spira-line);background:var(--spira-white);cursor:pointer;
-  font-family:var(--spira-font-text);font-weight:600;font-size:13px;color:var(--spira-ink);
-  display:inline-flex;align-items:center;gap:8px;
-  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
-}
+.theme-btn{margin-left:auto;flex:0 0 auto;height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--spira-line);background:var(--spira-white);cursor:pointer;font-family:var(--spira-font-text);font-weight:600;font-size:13px;color:var(--spira-ink);display:inline-flex;align-items:center;gap:8px;transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out)}
 .theme-btn:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
 .theme-btn:active{transform:translateY(0)}
 
@@ -64,8 +56,6 @@ h2.sec{font-family:var(--spira-font-display);font-weight:700;font-size:19px;lett
 h2.sec:first-of-type{margin-top:0}
 .sec-note{color:var(--spira-ink-soft);font-size:13.5px;margin:0 0 24px;max-width:78ch}
 
-/* Columnas de 442px FIJOS, no 1fr: el mock vale si la tarjeta está al ancho que tiene
-   en el modal — estirada, los cortes de línea que se ven no son los reales. */
 .states{display:grid;grid-template-columns:repeat(auto-fill,442px);justify-content:start;gap:30px}
 .state{min-width:0;width:442px}
 .state-label{display:flex;align-items:baseline;gap:9px;margin-bottom:10px}
@@ -76,21 +66,50 @@ h2.sec:first-of-type{margin-top:0}
 
 /* ============================================================
    EL PANEL — replica Panel.tsx (line, radius 14, surface)
+   Acento por card en --acc: petróleo en Track, dorado en el cajón de Farmacia.
    ============================================================ */
-.panel{border:1px solid var(--spira-line);border-radius:14px;background:var(--spira-surface);padding:14px 16px}
+/* --acc = el acento del módulo (íconos, enlaces, botón sólido).
+   --acc-deep = el MISMO color un escalón más profundo, para TEXTO sobre el tinte.
+   No es un capricho: el acento a secas sobre la banda da 4,14:1 y el título va a 14px en
+   negrita, donde AA pide 4,5:1. El profundo llega a 6,37:1 sin perder el color. Medido. */
+.panel{border:1px solid var(--spira-line);border-radius:14px;background:var(--spira-surface);padding:14px 16px;--acc:var(--spira-track);--acc-deep:var(--spira-primary)}
+.panel.pharma{--acc:var(--spira-pharma-solid);--acc-deep:#6E5620;--tint-banda:rgba(168,132,47,.13);--tint-carta:rgba(168,132,47,.06);--tint-ico:rgba(168,132,47,.14)}
+/* En OSCURO "profundo" se invierte: sobre una banda oscura hay que ACLARAR, no oscurecer.
+   El menta es el mismo que tokens.css ya usa para el isotipo en oscuro. Sin esto el título
+   queda en 1,85:1, que es no verse. Va sobre .panel y no sobre :root porque ahí lo define. */
+[data-theme='dark'] .panel{--acc-deep:#9DE6D6}
+[data-theme='dark'] .panel.pharma{--acc-deep:#E8CE8A}
 .panel-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .panel-title{font-family:var(--spira-font-display);font-weight:700;font-size:14px}
 .panel-aside{margin-left:auto;font-size:12.5px;color:var(--spira-ink-soft);font-variant-numeric:tabular-nums}
+.ico{stroke:var(--acc);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.ico.thin{stroke-width:1.7}
+.ico.neutral{stroke:var(--spira-ink-soft);stroke-width:2}
 
-/* —— EL REALCE ——
-   Riel a la izquierda + tinte suave. NO es un borde de acento alrededor de la card:
-   el riel es el mismo recurso que ya usa la cabecera del modal para la etapa. */
-.panel.hi{position:relative;overflow:hidden;padding-left:21px}
-.panel.hi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px}
-.panel.gold{background:var(--hi-gold-bg)}
-.panel.gold::before{background:var(--spira-pharma-solid)}
-.panel.teal{background:var(--hi-teal-bg)}
-.panel.teal::before{background:var(--spira-track)}
+/* —— LAS TRES VARIABLES DEL REALCE ——
+   Ninguna toca el borde de la card: nada de contorno de acento. */
+
+/* 1 · banda de cabecera: la cabecera va a sangre, teñida, con el título en el acento */
+.v-banda .panel-head{
+  margin:-14px -16px 12px;padding:11px 16px;background:var(--tint-banda);
+  border-bottom:1px solid var(--spira-line);border-radius:13px 13px 0 0;
+}
+.v-banda .panel-title{color:var(--acc-deep)}
+
+/* 2 · carta teñida: toda la card en el tinte, sin banda */
+.v-tinte{background:var(--tint-carta)}
+.v-tinte .panel-title{color:var(--acc-deep)}
+
+/* 3 · hoja elevada: la card en papel blanco, levantada, con la banda arriba */
+.v-hoja{background:var(--spira-white);box-shadow:var(--spira-shadow-md)}
+.v-hoja .panel-head{
+  margin:-14px -16px 12px;padding:11px 16px;background:var(--tint-banda);
+  border-bottom:1px solid var(--spira-line);border-radius:13px 13px 0 0;
+}
+.v-hoja .panel-title{color:var(--acc-deep)}
+
+/* pastilla del ícono — acompaña a las tres */
+.ico-chip{flex:0 0 auto;width:26px;height:26px;border-radius:8px;background:var(--tint-ico);display:grid;place-items:center;margin-left:-2px}
 
 /* —— rótulo de subsección ——
    Eyebrow PERO en ink-soft, no en faint: faint da 2,1:1 sobre surface y esto es la
@@ -99,52 +118,26 @@ h2.sec:first-of-type{margin-top:0}
 .sub-label{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--spira-ink-soft)}
 .sub + .sub{margin-top:14px;padding-top:14px;border-top:1px solid var(--spira-line)}
 
-.dashed{
-  display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:44px;
-  border-radius:12px;border:1px dashed var(--spira-line-2);background:var(--spira-white);
-  cursor:pointer;font-family:var(--spira-font-text);font-weight:600;font-size:13.5px;color:var(--spira-ink);
-  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
-}
+.dashed{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:44px;border-radius:12px;border:1px dashed var(--spira-line-2);background:var(--spira-white);cursor:pointer;font-family:var(--spira-font-text);font-weight:600;font-size:13.5px;color:var(--spira-ink);transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out)}
 .dashed:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
 .dashed:active{transform:translateY(0);box-shadow:none}
 
-/* —— zona de adjunto —— */
-.drop{
-  border:1px dashed var(--spira-line-2);border-radius:12px;background:var(--spira-white);
-  padding:17px 14px;text-align:center;cursor:pointer;
-  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
-}
+.drop{border:1px dashed var(--spira-line-2);border-radius:12px;background:var(--spira-white);padding:17px 14px;text-align:center;cursor:pointer;transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out)}
 .drop:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
 .drop-main{font-size:13px;font-weight:600;margin-top:7px}
 .drop-hint{font-size:11.5px;color:var(--spira-ink-soft);margin-top:3px}
-.drop .lnk{color:var(--spira-track);text-decoration:underline;text-underline-offset:2px}
+.drop .lnk{color:var(--acc);text-decoration:underline;text-underline-offset:2px}
 
-/* —— previsualizador —— */
-.prev{
-  position:relative;border:1px solid var(--spira-line);border-radius:12px;overflow:hidden;
-  background:var(--spira-white);height:140px;cursor:zoom-in;
-  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
-}
+.prev{position:relative;border:1px solid var(--spira-line);border-radius:12px;overflow:hidden;background:var(--spira-white);height:140px;cursor:zoom-in;transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out)}
 .prev:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
 .prev.tall{height:348px;cursor:default}
 .prev.tall:hover{transform:none;box-shadow:none}
-.prev-fade{position:absolute;left:0;right:0;bottom:0;height:46px;background:linear-gradient(to bottom,rgba(255,255,255,0),var(--spira-white));pointer-events:none}
+.prev-fade{position:absolute;left:0;right:0;bottom:0;height:46px;background:linear-gradient(to bottom,rgba(255,255,255,0),#fff);pointer-events:none}
 .prev.tall .prev-fade{display:none}
-.prev-zoom{
-  position:absolute;right:9px;bottom:9px;height:28px;padding:0 10px;border-radius:8px;
-  border:1px solid var(--spira-line);background:var(--spira-white);cursor:pointer;
-  font-family:var(--spira-font-text);font-weight:600;font-size:12px;color:var(--spira-ink);
-  display:inline-flex;align-items:center;gap:6px;box-shadow:var(--spira-shadow-sm);
-}
-.prev-tagx{
-  position:absolute;left:9px;top:9px;font-size:9.5px;font-weight:700;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--spira-faint);background:var(--spira-white);
-  border:1px solid var(--spira-line);border-radius:5px;padding:2px 6px;
-}
+.prev-zoom{position:absolute;right:9px;bottom:9px;height:28px;padding:0 10px;border-radius:8px;border:1px solid var(--spira-line);background:var(--spira-white);cursor:pointer;font-family:var(--spira-font-text);font-weight:600;font-size:12px;color:var(--spira-ink);display:inline-flex;align-items:center;gap:6px;box-shadow:var(--spira-shadow-sm)}
+.prev-tagx{position:absolute;left:9px;top:9px;z-index:2;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9a9a9a;background:#fff;border:1px solid #e2e2e2;border-radius:5px;padding:2px 6px}
 /* documento simulado — es un EJEMPLO, no un archivo real */
-.doc{padding:26px 30px;font-family:var(--spira-font-text);color:#14302E;background:#fff;
-  transform:scale(.68);transform-origin:top left;width:147%}
-[data-theme='dark'] .doc{color:#14302E}
+.doc{padding:26px 30px;font-family:var(--spira-font-text);color:#14302E;background:#fff;transform:scale(.68);transform-origin:top left;width:147%}
 .doc-eyebrow{font-size:9.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#8b8b8b}
 .doc-h{font-family:var(--spira-font-display);font-weight:700;font-size:19px;margin:7px 0 3px}
 .doc-code{font-size:12px;color:#5b5b5b;font-variant-numeric:tabular-nums}
@@ -157,32 +150,24 @@ h2.sec:first-of-type{margin-top:0}
 .doc-sign{margin-top:26px;display:flex;gap:34px;font-size:10.5px;color:#8b8b8b}
 .doc-sign div{flex:1;border-top:1px solid #c9c9c9;padding-top:5px}
 
-/* —— archivo cargado —— */
 .file{margin-top:9px;display:flex;align-items:center;gap:11px;padding:10px 12px;border:1px solid var(--spira-line);border-radius:12px;background:var(--spira-white)}
-.file-ico{flex:0 0 auto;width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:rgba(168,132,47,.12)}
+.file-ico{flex:0 0 auto;width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:var(--tint-ico)}
 .file-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .file-meta{font-size:11.5px;color:var(--spira-ink-soft);margin-top:1px}
-.mini{
-  height:30px;padding:0 11px;border-radius:9px;border:1px solid var(--spira-line-2);
-  background:var(--spira-white);cursor:pointer;font-family:var(--spira-font-text);
-  font-weight:600;font-size:12.5px;color:var(--spira-ink);flex:0 0 auto;
-  display:inline-flex;align-items:center;gap:6px;
-  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
-}
+.mini{height:30px;padding:0 11px;border-radius:9px;border:1px solid var(--spira-line-2);background:var(--spira-white);cursor:pointer;font-family:var(--spira-font-text);font-weight:600;font-size:12.5px;color:var(--spira-ink);flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out)}
 .mini:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
 .mini:active{transform:translateY(0);box-shadow:none}
 
-/* —— aviso: el TEXTO en tinta; el ámbar queda en el ícono y el tinte ——
-   (--spira-warn sobre el tinte da 3,2:1 y a 12,5px bold AA pide 4,5:1) */
+/* el TEXTO en tinta; el ámbar queda en el ícono y el tinte
+   (--spira-warn sobre ese fondo da 3,2:1 y a 12,5px bold AA pide 4,5:1) */
 .warn{display:flex;align-items:flex-start;gap:9px;padding:9px 11px;border-radius:10px;background:rgba(176,130,63,.14);font-size:12.5px;color:var(--spira-ink);font-weight:600}
-.warn svg{color:var(--spira-warn)}
+.warn .ico{stroke:var(--spira-warn);stroke-width:2;margin-top:1px}
 .warn span{color:var(--spira-ink-soft);font-weight:400;display:block;margin-top:2px}
 
 .item{display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 12px;border:1px solid var(--spira-line);border-radius:11px;background:var(--spira-white)}
 .item + .item{margin-top:6px}
 .qty{color:var(--spira-ink-soft);font-variant-numeric:tabular-nums;flex:0 0 auto}
 
-/* —— pie común: hace VISIBLE que es un solo pedido —— */
 .foot{margin-top:14px;padding-top:11px;border-top:1px solid var(--spira-line);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .foot-txt{font-size:12.5px;color:var(--spira-ink-soft)}
 .pill{flex:0 0 auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:var(--spira-radius-pill);color:var(--spira-track);background:rgba(46,125,116,.14)}
@@ -191,16 +176,11 @@ h2.sec:first-of-type{margin-top:0}
 .link-btn:hover{color:var(--spira-ink)}
 .empty{font-size:12.5px;color:var(--spira-faint);padding:4px 0}
 
-/* —— Farmacia —— */
-.solid{
-  height:40px;padding:0 15px;border-radius:10px;border:none;cursor:pointer;
-  background:var(--spira-pharma-solid);color:var(--spira-on-accent);
-  font-family:var(--spira-font-text);font-weight:700;font-size:13.5px;
-  display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out);
-}
+.solid{height:40px;padding:0 15px;border-radius:10px;border:none;cursor:pointer;background:var(--acc);color:var(--spira-on-accent);font-family:var(--spira-font-text);font-weight:700;font-size:13.5px;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .14s var(--spira-ease-out),box-shadow .14s var(--spira-ease-out)}
+.solid .ico{stroke:currentColor}
 .solid:hover{transform:translateY(-1px);box-shadow:var(--spira-shadow-sm)}
 .solid:active{transform:translateY(0);box-shadow:none}
+.mini .ico{stroke:currentColor;stroke-width:1.8}
 .kits{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--spira-line)}
 .kits label{font-size:12.5px;font-weight:600}
 .num{width:66px;height:38px;border-radius:10px;border:1px solid var(--spira-line-2);background:var(--spira-white);padding:0 11px;font-family:var(--spira-font-text);font-size:14px;color:var(--spira-ink);font-variant-numeric:tabular-nums}
@@ -220,10 +200,10 @@ h2.sec:first-of-type{margin-top:0}
     <div>
       <h1>La tarjeta de Dispensación, partida en dos</h1>
       <p class="doc-sub">
-        Handoff de diseño para la dispensación de <b>producto en investigación (IP)</b>. La tarjeta
-        del detalle de visita pasa a tener dos secciones — <b>medicación concomitante</b> (lo que ya
-        existe, intacto) y <b>producto en investigación</b> (nuevo) — que alimentan
-        <b>un solo pedido</b>. <b>v2</b>: sin tilde, con realce de color y con previsualizador.
+        Handoff de diseño para la dispensación de <b>producto en investigación (IP)</b>. Dos
+        secciones — <b>medicación concomitante</b> (lo que ya existe, intacto) y <b>producto en
+        investigación</b> (nuevo) — que alimentan <b>un solo pedido</b>.
+        <b>v3</b>: petróleo, sin riel, con tres variables de realce para elegir.
       </p>
     </div>
     <button class="theme-btn" id="theme" type="button">
@@ -233,72 +213,41 @@ h2.sec:first-of-type{margin-top:0}
   </div>
 
   <div class="doc-meta">
-    <span class="tag">2026-08-09 · v2</span>
+    <span class="tag">2026-08-09 · v3</span>
     <span class="tag">Track · detalle de visita</span>
     <span class="tag">spec: 2026-08-09-dispensacion-ip-design.md</span>
     <span class="tag">ancho real: 442px</span>
   </div>
 
   <!-- ══════════════ REALCE ══════════════ -->
-  <h2 class="sec">1 · El realce — elegí uno</h2>
+  <h2 class="sec">1 · El realce — elegí la variable</h2>
   <p class="sec-note">
-    El pedido del Director Médico es que Dispensación <b>resalte</b> en el modal. Va con
-    <b>riel a la izquierda + tinte suave</b> — el riel es el mismo recurso que ya usa la cabecera del
-    modal para marcar la etapa, así que no estrena vocabulario. Lo que hay que elegir es el
-    <b>color</b>, y no es una cuestión de gusto: el color acá <b>significa algo</b>. Abajo, cada
-    opción al lado de una tarjeta común, que es la única forma de juzgar si resalta.
+    El riel se fue. Quedan tres formas de hacer que la tarjeta resalte <b>sin tocar el borde</b> —
+    porque un contorno de acento está descartado de entrada. Cada una está dibujada arriba de una
+    tarjeta común, que es la única manera de juzgar si resalta de verdad. Todas en petróleo.
   </p>
 
   <div class="states">
-    <div class="state">
-      <div class="state-label"><span class="state-n" style="background:var(--spira-pharma-solid)">A</span><span class="state-title">Dorado — el acento de Farmacia</span></div>
-      <div class="stack">
-        <div class="panel">
-          <div class="panel-head">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2H9a2 2 0 0 0-2 2v2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
-            <span class="panel-title">Procedimientos</span><span class="panel-aside">1/1 realizados</span>
-          </div>
-          <div class="item"><span style="flex:1">Electrocardiograma (ECG)</span></div>
-        </div>
-        <div class="panel hi gold">
-          <div class="panel-head">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
-            <span class="panel-title">Dispensación</span>
-          </div>
-          <div class="sub"><div class="sub-head"><span class="sub-label">Producto en investigación</span></div>
-            <div class="drop">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-              <div class="drop-main">Arrastrá la constancia o <span class="lnk" style="color:var(--spira-pharma-solid)">elegí un archivo</span></div>
-              <div class="drop-hint">Preferentemente el PDF · hasta 10&nbsp;MB</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p class="state-why">
-        El dorado dice algo que el petróleo no puede decir: <b>esto lo resuelve Farmacia</b>. Es la
-        única parte del modal de Coordinación cuyo trabajo ocurre en otro módulo. El color no
-        decora — nombra al dueño.
-      </p>
-    </div>
 
+    <!-- A -->
     <div class="state">
-      <div class="state-label"><span class="state-n">B</span><span class="state-title">Petróleo — el acento de Coordinación</span></div>
+      <div class="state-label"><span class="state-n">A</span><span class="state-title">Banda de cabecera</span></div>
       <div class="stack">
         <div class="panel">
           <div class="panel-head">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2H9a2 2 0 0 0-2 2v2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+            <svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="M11 2H9a2 2 0 0 0-2 2v2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
             <span class="panel-title">Procedimientos</span><span class="panel-aside">1/1 realizados</span>
           </div>
           <div class="item"><span style="flex:1">Electrocardiograma (ECG)</span></div>
         </div>
-        <div class="panel hi teal">
+        <div class="panel v-banda">
           <div class="panel-head">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+            <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
             <span class="panel-title">Dispensación</span>
           </div>
           <div class="sub"><div class="sub-head"><span class="sub-label">Producto en investigación</span></div>
             <div class="drop">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+              <svg class="ico thin" width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
               <div class="drop-main">Arrastrá la constancia o <span class="lnk">elegí un archivo</span></div>
               <div class="drop-hint">Preferentemente el PDF · hasta 10&nbsp;MB</div>
             </div>
@@ -306,20 +255,84 @@ h2.sec:first-of-type{margin-top:0}
         </div>
       </div>
       <p class="state-why">
-        Resalta igual y es más conservador — no introduce un segundo color en el modal. La contra es
-        que el petróleo ya es el color de <i>todo</i> Coordinación, así que resalta por
-        <b>intensidad</b>, no por significado.
+        El color se concentra donde ya está el nombre de la sección: <b>hace de rótulo</b>, no de
+        decoración. Es la que más resalta por unidad de ruido, y el cuerpo queda igual de tranquilo
+        que el de las otras tarjetas.
       </p>
     </div>
+
+    <!-- B -->
+    <div class="state">
+      <div class="state-label"><span class="state-n">B</span><span class="state-title">Carta teñida</span></div>
+      <div class="stack">
+        <div class="panel">
+          <div class="panel-head">
+            <svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="M11 2H9a2 2 0 0 0-2 2v2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+            <span class="panel-title">Procedimientos</span><span class="panel-aside">1/1 realizados</span>
+          </div>
+          <div class="item"><span style="flex:1">Electrocardiograma (ECG)</span></div>
+        </div>
+        <div class="panel v-tinte">
+          <div class="panel-head">
+            <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
+            <span class="panel-title">Dispensación</span>
+          </div>
+          <div class="sub"><div class="sub-head"><span class="sub-label">Producto en investigación</span></div>
+            <div class="drop">
+              <svg class="ico thin" width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+              <div class="drop-main">Arrastrá la constancia o <span class="lnk">elegí un archivo</span></div>
+              <div class="drop-hint">Preferentemente el PDF · hasta 10&nbsp;MB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="state-why">
+        La más silenciosa. Toda la card lleva un velo de petróleo. Resalta menos que las otras dos, y
+        tiene un riesgo: un tinte parejo y suave se puede leer como <i>«esto está desactivado»</i> en
+        vez de <i>«esto importa»</i>.
+      </p>
+    </div>
+
+    <!-- C -->
+    <div class="state">
+      <div class="state-label"><span class="state-n">C</span><span class="state-title">Hoja elevada</span></div>
+      <div class="stack">
+        <div class="panel">
+          <div class="panel-head">
+            <svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="M11 2H9a2 2 0 0 0-2 2v2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+            <span class="panel-title">Procedimientos</span><span class="panel-aside">1/1 realizados</span>
+          </div>
+          <div class="item"><span style="flex:1">Electrocardiograma (ECG)</span></div>
+        </div>
+        <div class="panel v-hoja">
+          <div class="panel-head">
+            <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
+            <span class="panel-title">Dispensación</span>
+          </div>
+          <div class="sub"><div class="sub-head"><span class="sub-label">Producto en investigación</span></div>
+            <div class="drop">
+              <svg class="ico thin" width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+              <div class="drop-main">Arrastrá la constancia o <span class="lnk">elegí un archivo</span></div>
+              <div class="drop-hint">Preferentemente el PDF · hasta 10&nbsp;MB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="state-why">
+        La banda de A <b>más</b> papel blanco y sombra: la tarjeta se despega del modal. La que más
+        resalta de las tres. La contra es que la elevación en esta app significa <i>«el mouse está
+        acá»</i>, y usarla también para jerarquía le saca filo a ese significado.
+      </p>
+    </div>
+
   </div>
 
   <!-- ══════════════ ESTADOS ══════════════ -->
   <h2 class="sec">2 · La tarjeta, estado por estado</h2>
   <p class="sec-note">
-    Dibujadas con la opción <b>A</b>. Ya no hay tilde: si la visita entrega IP o no lo dice el
-    <b>cronograma</b>, y volver a preguntárselo al coordinador es pedirle que confirme algo que el
-    sistema ya sabe. La sección aparece —o no— según esa definición, y lo único que se le pide es
-    el archivo.
+    Dibujadas con la opción <b>A</b> (mi recomendación). Ya no hay tilde: si la visita entrega IP o
+    no lo dice el <b>cronograma</b>, y volver a preguntárselo al coordinador es pedirle que confirme
+    algo que el sistema ya sabe. Lo único que se le pide es el archivo.
   </p>
 
   <div class="states">
@@ -327,23 +340,23 @@ h2.sec:first-of-type{margin-top:0}
     <!-- 1 -->
     <div class="state">
       <div class="state-label"><span class="state-n">1</span><span class="state-title">Sin pedido · la visita entrega las dos cosas</span></div>
-      <div class="panel hi gold">
+      <div class="panel v-banda">
         <div class="panel-head">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
           <span class="panel-title">Dispensación</span>
         </div>
         <div class="sub">
           <div class="sub-head"><span class="sub-label">Medicación concomitante</span></div>
           <button class="dashed" type="button">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            <svg class="ico" width="16" height="16" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
             Agregar medicación
           </button>
         </div>
         <div class="sub">
           <div class="sub-head"><span class="sub-label">Producto en investigación</span></div>
           <div class="drop">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-            <div class="drop-main">Arrastrá la constancia o <span class="lnk" style="color:var(--spira-pharma-solid)">elegí un archivo</span></div>
+            <svg class="ico thin" width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <div class="drop-main">Arrastrá la constancia o <span class="lnk">elegí un archivo</span></div>
             <div class="drop-hint">Preferentemente el PDF · hasta 10&nbsp;MB</div>
           </div>
         </div>
@@ -357,16 +370,16 @@ h2.sec:first-of-type{margin-top:0}
     <!-- 2 -->
     <div class="state">
       <div class="state-label"><span class="state-n">2</span><span class="state-title">Solo IP — el caso típico de protocolo</span></div>
-      <div class="panel hi gold">
+      <div class="panel v-banda">
         <div class="panel-head">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
           <span class="panel-title">Dispensación</span>
         </div>
         <div class="sub">
           <div class="sub-head"><span class="sub-label">Producto en investigación</span></div>
           <div class="drop">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-            <div class="drop-main">Arrastrá la constancia o <span class="lnk" style="color:var(--spira-pharma-solid)">elegí un archivo</span></div>
+            <svg class="ico thin" width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <div class="drop-main">Arrastrá la constancia o <span class="lnk">elegí un archivo</span></div>
             <div class="drop-hint">Preferentemente el PDF · hasta 10&nbsp;MB</div>
           </div>
         </div>
@@ -381,9 +394,9 @@ h2.sec:first-of-type{margin-top:0}
     <!-- 3 -->
     <div class="state">
       <div class="state-label"><span class="state-n">3</span><span class="state-title">Falta la constancia</span></div>
-      <div class="panel hi gold">
+      <div class="panel v-banda">
         <div class="panel-head">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
           <span class="panel-title">Dispensación</span>
         </div>
         <div class="sub">
@@ -393,14 +406,14 @@ h2.sec:first-of-type{margin-top:0}
         <div class="sub">
           <div class="sub-head"><span class="sub-label">Producto en investigación</span></div>
           <div class="warn">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;margin-top:1px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
             <div>Falta la constancia
               <span>Farmacia no puede emitir el comprobante hasta que esté cargada.</span>
             </div>
           </div>
           <div class="drop" style="margin-top:9px">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-            <div class="drop-main">Arrastrá la constancia o <span class="lnk" style="color:var(--spira-pharma-solid)">elegí un archivo</span></div>
+            <svg class="ico thin" width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <div class="drop-main">Arrastrá la constancia o <span class="lnk">elegí un archivo</span></div>
             <div class="drop-hint">Preferentemente el PDF · hasta 10&nbsp;MB</div>
           </div>
         </div>
@@ -420,9 +433,9 @@ h2.sec:first-of-type{margin-top:0}
     <!-- 4 -->
     <div class="state">
       <div class="state-label"><span class="state-n">4</span><span class="state-title">Pedido completo, con previsualizador</span></div>
-      <div class="panel hi gold">
+      <div class="panel v-banda">
         <div class="panel-head">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
           <span class="panel-title">Dispensación</span>
         </div>
         <div class="sub">
@@ -447,13 +460,13 @@ h2.sec:first-of-type{margin-top:0}
             </div>
             <div class="prev-fade"></div>
             <button class="prev-zoom" type="button">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3 14 10"/><path d="M3 21l7-7"/></svg>
+              <svg class="ico" width="13" height="13" viewBox="0 0 24 24" style="stroke:currentColor;stroke-width:1.9"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3 14 10"/><path d="M3 21l7-7"/></svg>
               Ampliar
             </button>
           </div>
           <div class="file">
             <span class="file-ico">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+              <svg class="ico" width="16" height="16" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
             </span>
             <span style="flex:1;min-width:0">
               <span class="file-name">irt-asignacion-032001500001.pdf</span>
@@ -477,18 +490,18 @@ h2.sec:first-of-type{margin-top:0}
 
     <!-- 5 -->
     <div class="state">
-      <div class="state-label"><span class="state-n">5</span><span class="state-title">La visita no entrega nada</span></div>
-      <div class="panel hi gold">
+      <div class="state-label"><span class="state-n">5</span><span class="state-title">La visita no entrega nada · sin realce</span></div>
+      <div class="panel">
         <div class="panel-head">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          <svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
           <span class="panel-title">Dispensación</span>
         </div>
         <div class="empty">Esta visita no entrega medicación.</div>
       </div>
       <p class="state-why">
-        Sin cambios, y ahora es <b>verdad</b>: se apagaron los dos flags del cronograma, no uno solo.
-        Queda a decidir si acá también corresponde el realce, o si una tarjeta que no tiene nada que
-        hacer no debería llamar la atención.
+        Acá el realce se <b>apaga</b>: una tarjeta que no tiene nada que hacer llamando la atención
+        es lo contrario de lo que se pidió. Y ahora el mensaje es <b>verdad</b>, porque se apagaron
+        los dos flags del cronograma, no uno solo.
       </p>
     </div>
 
@@ -499,16 +512,16 @@ h2.sec:first-of-type{margin-top:0}
   <p class="sec-note">
     Acá el archivo no es un adjunto: es <b>lo primero que hay que hacer</b>. Por eso el bloque va
     arriba de los renglones, la vista es grande y de una sola plana, y el botón principal
-    <b>imprime en un clic</b> — sin abrir pestaña nueva y sin pasar por el visor del navegador. Cómo
-    se hace eso sin trampa está explicado en las notas.
+    <b>imprime en un clic</b>. Misma variable de realce, con el acento del módulo — en Farmacia el
+    dorado no es una elección, es el color de la casa.
   </p>
 
   <div class="states">
     <div class="state wide">
       <div class="state-label"><span class="state-n" style="background:var(--spira-pharma-solid)">6</span><span class="state-title">El cajón, al preparar</span></div>
-      <div class="panel hi gold">
+      <div class="panel pharma v-banda">
         <div class="panel-head">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma-solid)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>
+          <span class="ico-chip"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg></span>
           <span class="panel-title">Producto en investigación</span>
           <span class="panel-aside">Camila Ruiz · hoy 09:12</span>
         </div>
@@ -529,15 +542,15 @@ h2.sec:first-of-type{margin-top:0}
           </div>
           <div style="flex:0 0 218px;display:flex;flex-direction:column;gap:9px">
             <button class="solid" type="button">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+              <svg class="ico" width="16" height="16" viewBox="0 0 24 24"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
               Imprimir
             </button>
             <button class="mini" style="height:38px;justify-content:center" type="button">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
+              <svg class="ico" width="14" height="14" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
               Abrir en pestaña
             </button>
             <button class="mini" style="height:38px;justify-content:center" type="button">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              <svg class="ico" width="14" height="14" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
               Descargar
             </button>
             <div style="font-size:11.5px;color:var(--spira-ink-soft);line-height:1.5;margin-top:2px">
@@ -563,52 +576,49 @@ h2.sec:first-of-type{margin-top:0}
   <h2 class="sec">4 · Decisiones de diseño</h2>
   <div class="notes"><ul>
     <li>
-      <b>El tilde se fue, y con él una tabla menos.</b> Si el cronograma ya define que la visita
-      entrega IP, pedirle al coordinador que lo confirme es pedirle que declare algo que el sistema
-      sabe mejor que él — y abre la puerta a que difieran. La sección aparece por
-      <code>dispenses_ip</code> y lo único que se pide es el archivo. En la base esto <b>borra la
-      RPC <code>set_request_ip</code></b>: <code>includes_ip</code> pasa a derivarse de la definición
-      de la visita al crear el pedido.
+      <b>El realce no toca el borde, en ninguna de las tres.</b> Un contorno de acento alrededor de
+      la card está descartado de entrada, así que la pregunta era qué <i>otra</i> variable mover:
+      el fondo de la cabecera (A), el fondo entero (B) o el material de la card (C).
     </li>
     <li>
-      <b>El realce es riel + tinte, nunca un borde de acento alrededor.</b> El riel es el mismo
-      recurso que ya usa la cabecera del modal para la etapa. Y el color <i>significa</i>: en la
-      opción A el dorado dice «esto lo resuelve Farmacia», que es lo único cierto que distingue a
-      esta tarjeta de las otras cuatro del modal.
+      <b>Por qué recomiendo A.</b> El color se apoya sobre el nombre de la sección, así que
+      <b>hace de rótulo</b> en vez de decorar. B corre el riesgo de leerse como «desactivado», que es
+      el mensaje contrario. Y C usa elevación, que en esta app ya significa <i>«el mouse está acá»</i>
+      — usarla también para jerarquía le saca filo a ese significado en todo el sistema.
+    </li>
+    <li>
+      <b>El realce se apaga cuando no hay nada que dispensar</b> (estado 5). Una tarjeta sin trabajo
+      no debería llamar la atención.
+    </li>
+    <li>
+      <b>El tilde se fue, y con él una RPC.</b> Si el cronograma ya define que la visita entrega IP,
+      pedirle al coordinador que lo confirme es pedirle que declare algo que el sistema sabe mejor
+      que él — y abre la puerta a que difieran. En la base esto <b>borra
+      <code>set_request_ip</code></b> y le devuelve a <code>create_dispensation_request</code> su
+      firma original: <code>includes_ip</code> se sella server-side.
     </li>
     <li>
       <b>Mostrar es más barato que hacer clic.</b> El previsualizador reemplaza al botón «Ver»: la
-      constancia es un documento de una sola plana con cuatro datos, y esos cuatro datos entran en
-      140px. Si hay que hacer clic para ver algo que cabe, el clic sobra.
+      constancia tiene cuatro datos y entran en 140px. Si hay que hacer clic para ver algo que cabe,
+      el clic sobra.
     </li>
     <li>
-      <b>El previsualizador no trae librerías.</b> Se resuelve con un <code>&lt;iframe&gt;</code>
-      (PDF) o un <code>&lt;img&gt;</code> (imagen) apuntando a la URL firmada, según el tipo. Cero
-      dependencias nuevas, cero peso de build. La alternativa —pdf.js para dibujar la miniatura en un
-      canvas— son ~350&nbsp;KB comprimidos por una imagen que el navegador ya sabe dibujar solo.
+      <b>El previsualizador no trae librerías.</b> <code>&lt;iframe&gt;</code> para PDF,
+      <code>&lt;img&gt;</code> para imagen, contra la URL firmada. La alternativa —pdf.js dibujando
+      la miniatura en un canvas— son ~350&nbsp;KB comprimidos por una imagen que el navegador ya sabe
+      dibujar solo.
     </li>
     <li>
       <b>Imprimir en un clic, sin fingir nada.</b> El archivo se baja como blob, que queda en
-      <i>nuestro</i> origen, se monta en un iframe oculto y se llama a <code>print()</code>. Eso abre
-      el diálogo del sistema directo sobre el PDF. Con la URL firmada a pelo no se puede: es otro
-      origen y el navegador bloquea el <code>print()</code> cruzado. Queda igual «Abrir en pestaña»
-      como salida de emergencia si el navegador de la farmacia se hace el difícil.
+      <i>nuestro</i> origen, se monta en un iframe oculto y se llama a <code>print()</code>. Con la
+      URL firmada a pelo no se puede: es otro origen y el navegador bloquea el <code>print()</code>
+      cruzado. «Abrir en pestaña» queda a la vista como salida, no escondido tras un fallo.
     </li>
     <li>
-      <b>«Falta la constancia» se dice con forma y con color</b>, nunca con color solo: triángulo +
-      texto + tinte ámbar, con el <b>texto en tinta</b> — <code>--spira-warn</code> sobre ese fondo
-      da 3,2:1 y a 12,5px en negrita AA pide 4,5:1.
-    </li>
-    <li>
-      <b>El rótulo de subsección va en <code>ink-soft</code></b> y no en el <code>faint</code> del
-      <code>.spira-eyebrow</code>, que sobre <code>surface</code> da 2,1:1. Para una nota al pie
-      pasa; para la división primaria de la tarjeta, no.
-    </li>
-    <li>
-      <b>Queda una pregunta abierta:</b> en el estado 5 (la visita no entrega nada) el realce sigue
-      puesto. Una tarjeta que no tiene nada que hacer llamando la atención es lo contrario de lo que
-      pidió el Director Médico. Mi propuesta es <b>apagar el realce cuando no hay nada que
-      dispensar</b>, pero es tu decisión.
+      <b>Contraste medido, no estimado.</b> «Falta la constancia» lleva el texto en tinta y el ámbar
+      solo en el ícono y el tinte (<code>--spira-warn</code> da 3,2:1 y a 12,5px bold AA pide 4,5:1);
+      el rótulo de subsección va en <code>ink-soft</code> y no en el <code>faint</code> del
+      <code>.spira-eyebrow</code>, que sobre <code>surface</code> da 2,1:1.
     </li>
   </ul></div>
 
