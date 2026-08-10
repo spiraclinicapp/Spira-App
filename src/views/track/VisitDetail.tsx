@@ -201,9 +201,8 @@ export function VisitDetail({
 
               {/* derecha */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <Panel title="Procedimientos" icon="clipboardCheck" accent={accent}>
-                  <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} />
-                </Panel>
+                {/* Monta su propio `Panel` (el contador "n/total" va en la línea del rótulo). */}
+                <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} />
                 <Panel title="Dispensación" icon="pill" accent={accent}>
                   <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
                 </Panel>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
+import { Panel } from './Panel'
 import { reportEtaLabel } from '../../lib/checklist'
 import {
   useVisitProcedureStatus, toggleVisitProcedure, toggleVisitProcedureReport,
@@ -33,6 +34,10 @@ function settled(
  * Checklist de procedimientos de la visita (0064): lo que el cronograma le asigna a esta visita,
  * tildable ("realizado"). Los que generan reporte muestran, una vez realizados, el control
  * "reporte listo" + estado pendiente/vencido. Siempre visible (no espera Atendida). readOnly = ficha.
+ *
+ * El componente monta su PROPIO `Panel` (como `DoctorRequest`) en vez de que lo envuelva el padre:
+ * el contador "n/total realizados" solo lo sabe acá, y tiene que ir en la línea del rótulo. Devuelto
+ * como cuerpo, abría una línea aparte y empujaba el primer procedimiento hacia abajo.
  *
  * El estado "realizado" se dice con el tilde + el tinte de la fila, NO tachando el nombre: en esta
  * app el tachado ya significa "esto se borra" (la confirmación de baja de TemplatesView), y un
@@ -69,11 +74,13 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   // que Dispensación ("Esta visita no entrega medicación"): el vacío explicado.
   if (!loading && !error && items.length === 0) {
     return (
-      <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', padding: '4px 0' }}>
-        {visitDefId
-          ? 'Esta visita no tiene procedimientos asignados. Se asignan por visita en el cronograma del protocolo.'
-          : 'Las visitas sueltas no tienen procedimientos del cuadro.'}
-      </div>
+      <ProceduresPanel accent={accent}>
+        <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', padding: '4px 0' }}>
+          {visitDefId
+            ? 'Esta visita no tiene procedimientos asignados. Se asignan por visita en el cronograma del protocolo.'
+            : 'Las visitas sueltas no tienen procedimientos del cuadro.'}
+        </div>
+      </ProceduresPanel>
     )
   }
 
@@ -98,22 +105,31 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   }
 
   if (loading) {
-    return <div style={{ padding: '14px 4px', fontSize: 13, color: 'var(--spira-muted)' }}>Cargando procedimientos…</div>
+    return (
+      <ProceduresPanel accent={accent}>
+        <div style={{ padding: '2px 0', fontSize: 13, color: 'var(--spira-muted)' }}>Cargando procedimientos…</div>
+      </ProceduresPanel>
+    )
   }
   if (error) {
-    return <div style={{ padding: '14px 4px', fontSize: 13, color: 'var(--spira-danger)' }}>No se pudieron cargar los procedimientos: {error}</div>
+    return (
+      <ProceduresPanel accent={accent}>
+        <div style={{ padding: '2px 0', fontSize: 13, color: 'var(--spira-danger)' }}>No se pudieron cargar los procedimientos: {error}</div>
+      </ProceduresPanel>
+    )
   }
 
   const done = items.filter((p) => doneOf(p)).length
 
   return (
-    <div>
-      {/* Solo el contador: el rótulo lo pone el `Panel` que envuelve a este bloque ("Procedimientos"),
-          repetirlo abajo en mayúsculas era decir dos veces lo mismo en dos tipografías. */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10, fontSize: 12.5, color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums' }}>
-        {done}/{items.length} realizados
-      </div>
-
+    <ProceduresPanel
+      accent={accent}
+      aside={
+        <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums' }}>
+          {done}/{items.length} realizados
+        </span>
+      }
+    >
       {actionError && <div style={{ marginBottom: 10, fontSize: 12.5, color: 'var(--spira-danger)' }}>{actionError}</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -190,8 +206,14 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
           )
         })}
       </div>
-    </div>
+    </ProceduresPanel>
   )
+}
+
+/** La card de la sección. Existe para no repetir rótulo, ícono y acento en los cuatro estados
+ *  (cargando / error / sin procedimientos / lista). */
+function ProceduresPanel({ accent, aside, children }: { accent: string; aside?: ReactNode; children: ReactNode }) {
+  return <Panel title="Procedimientos" icon="clipboardCheck" accent={accent} aside={aside}>{children}</Panel>
 }
 
 /** Fila: el tilde alineado con la PRIMERA línea del nombre (no centrado en el bloque de dos líneas). */
