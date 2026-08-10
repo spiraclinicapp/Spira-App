@@ -100,6 +100,45 @@ do $$ begin
 end $$;
 
 
+-- 3.1 · El protocolo del pedido, DESNORMALIZADO en la propia fila.
+--     POR QUÉ una columna y no un join: `v_ip_stock` (§10) es `security_invoker` y la lee
+--     FARMACIA, que NO tiene policy de select sobre `patient_visits` — la única, en la 0006,
+--     cubre gerencia y a los coordinadores del protocolo (Track se aísla por protocolo, Pharma es
+--     central; el repo ya lo documenta en `src/data/pharma/dispensations.ts:321`). Un join a
+--     patient_visits para llegar al protocolo NO da error: la RLS filtra en silencio y devuelve
+--     cero filas, con lo cual la vista le mostraría a la farmacéutica "kits entregados = 0" y
+--     "disponibles = todo el stock" para siempre. En un sistema auditable un número falso es peor
+--     que un error, y encima no se detecta probando con un usuario de QA que tiene los cinco
+--     módulos. Es el mismo patrón que ya usan `patient_visits.coordinator_name` (0065) y
+--     `visit_comments.author_name` (0048): el dato que la vista necesita viaja en la fila.
+alter table public.dispensation_requests
+  add column if not exists protocol_id uuid references public.protocols(id) on delete restrict;
+comment on column public.dispensation_requests.protocol_id is
+  'Protocolo del enrolamiento de la visita, sellado por create_dispensation_request al crear.
+   Desnormalizado a propósito: Pharma no puede leer patient_visits, así que sin esta columna las
+   vistas de IP no tendrían por dónde llegar al protocolo. 0071.';
+create index if not exists idx_dispensation_requests_protocol
+  on public.dispensation_requests(protocol_id);
+
+-- Backfill de las filas existentes, con el trigger de `updated_at` APAGADO mientras corre.
+-- El porqué del apagado: `trg_requests_updated_at` (0003:29) sella `updated_at = now()` en CADA
+-- update, y tanto el tablero de Farmacia como el historial paginado filtran y ordenan las
+-- solicitudes atendidas POR updated_at ("el día en que la farmacéutica la trabajó"). Un backfill
+-- con el trigger vivo arrastraría el histórico ENTERO a la columna "Entregadas" del día en que se
+-- aplique la migración y aplanaría el orden del historial: una corrupción silenciosa de datos
+-- reales. El apagado es transaccional — si algo falla más abajo, el trigger vuelve solo.
+-- `trg_audit_requests` queda ENCENDIDO a propósito: que el backfill quede registrado en el
+-- audit_log es exactamente lo que corresponde en un sistema ANMAT / ICH-GCP.
+alter table public.dispensation_requests disable trigger trg_requests_updated_at;
+update public.dispensation_requests dr
+   set protocol_id = e.protocol_id
+  from public.patient_visits pv
+  join public.enrollments e on e.id = pv.enrollment_id
+ where pv.id = dr.visit_id
+   and dr.protocol_id is null;          -- idempotente: en la segunda corrida no toca ninguna fila
+alter table public.dispensation_requests enable trigger trg_requests_updated_at;
+
+
 -- 4 · La constancia. Filas INMUTABLES y sin borrado: es nota fuente. Reemplazar inserta una fila
 --     nueva y sella `superseded_at` en la anterior. El índice parcial garantiza UNA sola vigente
 --     por pedido a nivel base, no a nivel UI.
@@ -124,9 +163,14 @@ create index if not exists idx_ip_documents_request
 
 alter table public.dispensation_ip_documents enable row level security;
 
+-- Gerencia entra en la lectura por convención del schema y por regulación: `ver solicitudes`,
+-- `ver dispensaciones` y `ver recepciones` (0006) la incluyen todas, y en un sistema
+-- ANMAT / ICH-GCP la Dirección es justamente quien tiene que poder auditar la cadena de
+-- evidencia de punta a punta. Dejarla afuera acá sería el único agujero del recorrido.
 drop policy if exists "ver constancias de IP" on public.dispensation_ip_documents;
 create policy "ver constancias de IP" on public.dispensation_ip_documents for select using (
   public.has_min_role('pharma','viewer')
+  or public.has_module('gerencia')
   or exists (
     select 1 from public.dispensation_requests r
     where r.id = dispensation_ip_documents.request_id
@@ -147,31 +191,57 @@ grant select on public.dispensation_ip_documents to authenticated;
 --     porque es lo que la política necesita leer del path sin salir a consultar otras tablas.
 --     El helper devuelve NULL si el path no tiene la forma esperada: así un path malformado
 --     DENIEGA en vez de reventar con un error de cast.
+--     La regex es la forma CANÓNICA del UUID (8-4-4-4-12), no "36 caracteres de [0-9a-f-]": con
+--     la laxa, un nombre como `------------------------------------/x` pasaba el filtro y el
+--     cast tiraba 22P02 ADENTRO de la policy — o sea, el helper prometía denegar y reventaba,
+--     que es justo lo que su comentario dice que no pasa. `set search_path` va por la misma razón
+--     que en el resto de las funciones del archivo: que la resolución de nombres no dependa de
+--     quién la invoque.
 create or replace function public.ip_doc_protocol(p_name text)
-returns uuid language sql immutable as $$
-  select case when p_name ~ '^[0-9a-fA-F-]{36}/' then substring(p_name from 1 for 36)::uuid end;
+returns uuid language sql immutable set search_path = public as $$
+  select case
+           when p_name ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/'
+           then substring(p_name from 1 for 36)::uuid
+         end;
 $$;
 
 -- 6 · Políticas sobre el bucket. Sin update ni delete: la inmutabilidad de la evidencia queda
 --     garantizada en la capa de storage, no solo en la tabla.
-drop policy if exists "ip docs lectura" on storage.objects;
-create policy "ip docs lectura" on storage.objects for select using (
-  bucket_id = 'ip-docs' and (
-    public.has_min_role('pharma','viewer')
-    or public.is_assigned_coordinator(public.ip_doc_protocol(name))
-  )
-);
+--
+--     EL BLOQUE ENTERO VA ADENTRO DE UN `do $$` CON MANEJADOR DE EXCEPCIÓN: es la primera vez que
+--     el repo toca `storage.objects`, cuyo dueño en Supabase es `supabase_storage_admin`. Según el
+--     proyecto, `create policy` ahí puede devolver `42501: must be owner of table objects`; y como
+--     el SQL Editor corre todo en una transacción implícita, ese error se llevaría puesta la
+--     migración ENTERA. La subtransacción del bloque absorbe el fallo, avisa por NOTICE y deja
+--     entrar el resto. Si aparece el aviso, las dos policies se crean idénticas a mano desde
+--     Storage → Policies (bucket `ip-docs`, una de SELECT y una de INSERT). Nada más de la
+--     migración depende de ellas.
+do $$
+begin
+  drop policy if exists "ip docs lectura" on storage.objects;
+  create policy "ip docs lectura" on storage.objects for select using (
+    bucket_id = 'ip-docs' and (
+      public.has_min_role('pharma','viewer')
+      or public.has_module('gerencia')   -- la Dirección audita la evidencia, igual que en la tabla
+      or public.is_assigned_coordinator(public.ip_doc_protocol(name))
+    )
+  );
 
-drop policy if exists "ip docs alta" on storage.objects;
-create policy "ip docs alta" on storage.objects for insert with check (
-  bucket_id = 'ip-docs' and (
-    public.has_min_role('pharma','operator')
-    or public.is_assigned_coordinator(public.ip_doc_protocol(name))
-  )
-);
+  drop policy if exists "ip docs alta" on storage.objects;
+  create policy "ip docs alta" on storage.objects for insert with check (
+    bucket_id = 'ip-docs' and (
+      public.has_min_role('pharma','operator')
+      or public.is_assigned_coordinator(public.ip_doc_protocol(name))
+    )
+  );
+exception when insufficient_privilege then
+  raise notice 'PENDIENTE A MANO: no se pudieron crear las policies del bucket `ip-docs` sobre storage.objects (%). El resto de la migración 0071 se aplicó igual. Crealas desde Storage → Policies: una de SELECT y una de INSERT sobre el bucket `ip-docs`, con las mismas expresiones que están comentadas en este archivo.', sqlerrm;
+end $$;
 
 
 -- 7 · Adjuntar la constancia. Marca superada la vigente e inserta la nueva, en una transacción.
+--     Fuera de cronograma, esta función es además el lugar donde el pedido APRENDE que lleva IP
+--     (ver §8: la excepción por sí sola no lo declara; la constancia sí).
 create or replace function public.attach_ip_document(
   p_request_id uuid,
   p_path       text,
@@ -182,12 +252,21 @@ returns uuid language plpgsql security definer set search_path = public as $$
 declare
   v_status      request_status;
   v_includes_ip boolean;
+  v_off         boolean;
   v_visit_id    uuid;
+  v_protocol_id uuid;
   v_id          uuid;
 begin
-  select r.status, r.includes_ip, r.visit_id
-    into v_status, v_includes_ip, v_visit_id
-  from public.dispensation_requests r where r.id = p_request_id for update;
+  -- Se joinea la cadena visita → enrolamiento para tener el protocolo aunque `r.protocol_id`
+  -- venga en null (una fila insertada por fuera del RPC, vía la policy "track crea solicitudes").
+  -- `for update of r` lockea SOLO la solicitud: el join es para leer, no para bloquear la agenda.
+  select r.status, r.includes_ip, r.off_schedule, r.visit_id, coalesce(r.protocol_id, e.protocol_id)
+    into v_status, v_includes_ip, v_off, v_visit_id, v_protocol_id
+  from public.dispensation_requests r
+  join public.patient_visits pv on pv.id = r.visit_id
+  join public.enrollments e     on e.id  = pv.enrollment_id
+  where r.id = p_request_id
+  for update of r;
 
   if not found then
     raise exception 'No se encontró la solicitud' using errcode = 'check_violation';
@@ -195,11 +274,24 @@ begin
   if not (public.has_min_role('pharma','operator') or public.coordina_visita(v_visit_id)) then
     raise exception 'Sin permiso para adjuntar la constancia' using errcode = '42501';
   end if;
-  if not v_includes_ip then
+  -- Dos puertas para adjuntar, no una: el pedido ya sabe que lleva IP (lo dedujo del cronograma
+  -- al crearse), O es una dispensación fuera de cronograma, donde el cronograma no dice nada y la
+  -- constancia es JUSTAMENTE lo que declara que hay IP (decisión del Director, 2026-08-09: la
+  -- excepción no implica IP). Lo que no se puede es adjuntar a un pedido de una visita que no
+  -- dispensa IP y que tampoco es una excepción: ahí la constancia no tendría a qué referirse.
+  if not v_includes_ip and not v_off then
     raise exception 'Esta solicitud no lleva producto en investigación' using errcode = 'check_violation';
   end if;
   if v_status not in ('solicitada','preparando') then
     raise exception 'La solicitud ya está cerrada: no se puede cambiar la constancia' using errcode = 'check_violation';
+  end if;
+  -- El path tiene que caer en la carpeta del protocolo de ESTA visita. Sin este check, la policy
+  -- de storage (que autoriza por el prefijo del path) y la nota fuente (que autoriza por el
+  -- pedido) podrían apuntar a estudios distintos: un coordinador de dos protocolos subiría el
+  -- archivo bajo el protocolo A y lo colgaría de un pedido del protocolo B, dejando la evidencia
+  -- del paciente apuntando a otro estudio. En un sistema auditable eso es una nota fuente rota.
+  if v_protocol_id is null or public.ip_doc_protocol(p_path) is distinct from v_protocol_id then
+    raise exception 'La constancia no corresponde al protocolo de esta visita' using errcode = 'check_violation';
   end if;
 
   update public.dispensation_ip_documents
@@ -211,6 +303,13 @@ begin
   values (p_request_id, p_path, p_file_name, p_mime, p_size, auth.uid())
   returning id into v_id;
 
+  -- Fuera de cronograma: la constancia es la declaración de que el pedido lleva IP. Recién acá
+  -- `includes_ip` se prende, y con eso quedan activas las dos consecuencias aguas abajo — la
+  -- exigencia de constancia en mark_dispensation_ready y la de kits en deliver_dispensation.
+  if not v_includes_ip then
+    update public.dispensation_requests set includes_ip = true where id = p_request_id;
+  end if;
+
   return v_id;
 end;
 $$;
@@ -221,7 +320,12 @@ grant execute on function public.attach_ip_document(uuid, text, text, text, int)
 -- 8 · La creación del pedido aprende dos cosas: el IP (que deduce del cronograma) y la excepción
 --     (que exige motivo). El parámetro nuevo va con default → el front viejo sigue resolviendo
 --     contra esta función y no hay orden de deploy que respetar.
+-- Los DOS drops son necesarios para que el archivo sea de verdad IDEMPOTENTE: el de la firma
+-- vieja (la que está en prod hoy) y el de la firma NUEVA (la que deja esta corrida). Sin el
+-- segundo, una segunda pasada encuentra el drop viejo como no-op y el `create` falla con
+-- "function already exists" — el encabezado prometía idempotencia y no la cumplía.
 drop function if exists public.create_dispensation_request(uuid, jsonb, text, text);
+drop function if exists public.create_dispensation_request(uuid, jsonb, text, text, text);
 
 create function public.create_dispensation_request(
   p_visit_id uuid,
@@ -235,7 +339,8 @@ declare
   v_item       jsonb;
   v_dispenses  boolean;
   v_dispenses_ip boolean;
-  v_off        boolean;
+  v_off        boolean;   -- BYPASS del cronograma, no marca de IP (ver más abajo)
+  v_protocol_id uuid;
   v_puede_track boolean;
   v_puede_pharma boolean;
 begin
@@ -266,9 +371,13 @@ begin
     raise exception 'No podés registrar una solicitud como pedido de coordinación' using errcode = '42501';
   end if;
 
-  select coalesce(vd.dispenses, false), coalesce(vd.dispenses_ip, false)
-    into v_dispenses, v_dispenses_ip
+  -- Se suma el enrolamiento (join interno: `patient_visits.enrollment_id` es NOT NULL) para
+  -- sellar el protocolo en la fila. `visit_definitions` sigue con left join: una visita libre
+  -- no tiene definición y eso no es un error.
+  select coalesce(vd.dispenses, false), coalesce(vd.dispenses_ip, false), e.protocol_id
+    into v_dispenses, v_dispenses_ip, v_protocol_id
     from public.patient_visits pv
+    join public.enrollments e on e.id = pv.enrollment_id
     left join public.visit_definitions vd on vd.id = pv.visit_def_id
     where pv.id = p_visit_id;
   if not found then
@@ -285,11 +394,16 @@ begin
 
   v_off := p_off_schedule_reason is not null and btrim(p_off_schedule_reason) <> '';
 
-  -- Fuera de cronograma: se saltea la validación, pero SOLO con motivo. Es la única puerta.
-  if v_off then
-    v_dispenses    := true;
-    v_dispenses_ip := true;
-  else
+  -- Fuera de cronograma: el motivo saltea la VALIDACIÓN del cronograma, y nada más. `v_off` es un
+  -- bypass, NO una marca de contenido.
+  --
+  -- DECISIÓN DEL DIRECTOR (2026-08-09): la excepción no implica IP. Una dispensación excepcional
+  -- puede ser de pura medicación concomitante, y sellar `includes_ip = true` ahí exigiría después
+  -- una constancia del IRT que no existe (mark_dispensation_ready la pediría) y descontaría kits
+  -- fantasma del stock de IP (deliver_dispensation los exigiría). Por eso `includes_ip` sale del
+  -- cronograma igual que en el caso normal — fuera de cronograma eso da FALSO — y el pedido pasa
+  -- a llevar IP recién cuando el coordinador adjunta la constancia (attach_ip_document, §7).
+  if not v_off then
     if jsonb_array_length(coalesce(p_items, '[]'::jsonb)) > 0 and not v_dispenses then
       raise exception 'Esta visita no entrega medicación' using errcode = 'check_violation';
     end if;
@@ -300,10 +414,10 @@ begin
   end if;
 
   insert into public.dispensation_requests
-      (visit_id, requested_by, status, source, notes, requested_by_module,
+      (visit_id, protocol_id, requested_by, status, source, notes, requested_by_module,
        includes_ip, off_schedule, off_schedule_reason)
     values
-      (p_visit_id, auth.uid(), 'solicitada', 'manual',
+      (p_visit_id, v_protocol_id, auth.uid(), 'solicitada', 'manual',
        nullif(btrim(coalesce(p_notes,'')),''), p_origen,
        v_dispenses_ip, v_off, nullif(btrim(coalesce(p_off_schedule_reason,'')),''))
     returning id into v_request_id;
@@ -532,7 +646,10 @@ $$;
 -- 9 · La entrega sella los kits. Es el ÚNICO momento en que el IP sale del stock: en el IP no hay
 --     lote ni FEFO, así que no hay nada que reservar antes, y `entregada` es el paso irreversible
 --     — el lugar donde corresponde congelar un dato que después no se corrige.
+-- Los dos drops, por lo mismo que en §8: sin el de la firma nueva, la segunda corrida del archivo
+-- falla con "function already exists".
 drop function if exists public.deliver_dispensation(uuid);
+drop function if exists public.deliver_dispensation(uuid, integer);
 
 create function public.deliver_dispensation(p_dispensation_id uuid, p_ip_kits integer default null)
 returns void language plpgsql security definer set search_path = public as $$
@@ -583,13 +700,17 @@ with recibido as (
   where r.tipo = 'investigacion' and r.status = 'verificada' and r.total_kits is not null
   group by r.protocol_id
 ), entregado as (
-  select e.protocol_id, coalesce(sum(d.ip_kits), 0)::int as kits
+  -- La salida se cuenta tocando SOLO `dispensations` y `dispensation_requests`, que son las dos
+  -- tablas que Farmacia sí puede leer (0006: "ver dispensaciones" y "ver solicitudes"). Llegar al
+  -- protocolo por `patient_visits → enrollments`, que es el camino natural, le devolvería CERO
+  -- filas a la farmacéutica —no tiene policy de select sobre patient_visits— y la vista diría
+  -- "entregados = 0, disponibles = todo" siempre, sin ningún error a la vista. De ahí que el
+  -- protocolo viaje desnormalizado en la solicitud (§3.1).
+  select dr.protocol_id, coalesce(sum(d.ip_kits), 0)::int as kits
   from public.dispensations d
   join public.dispensation_requests dr on dr.id = d.request_id
-  join public.patient_visits pv on pv.id = dr.visit_id
-  join public.enrollments e on e.id = pv.enrollment_id
-  where d.ip_kits is not null and d.status = 'entregada'
-  group by e.protocol_id
+  where d.ip_kits is not null and d.status = 'entregada' and dr.protocol_id is not null
+  group by dr.protocol_id
 )
 select
   rc.protocol_id,
@@ -625,4 +746,15 @@ comment on view public.v_ip_stock is
 --   --    select proname, pg_get_function_identity_arguments(oid) from pg_proc
 --   --     where proname in ('create_dispensation_request','deliver_dispensation');
 --   --    → exactamente una fila por nombre.
+--   -- 6. El backfill del protocolo llegó a TODAS las solicitudes históricas:
+--   --    select count(*) from public.dispensation_requests where protocol_id is null;  → 0
+--   -- 7. El backfill NO movió `updated_at` (si esto no da 0, el tablero de Farmacia va a mostrar
+--   --    todo el histórico como "entregado hoy" — el trigger quedó vivo durante el update):
+--   --    select count(*) from public.dispensation_requests where updated_at::date = current_date
+--   --      and created_at::date <> current_date;  → 0
+--   -- 8. Las policies del bucket entraron (si la migración imprimió el NOTICE de §6, esto da 0 y
+--   --    hay que crearlas a mano desde Storage → Policies):
+--   --    select policyname from pg_policies
+--   --     where schemaname = 'storage' and tablename = 'objects' and policyname like 'ip docs%';
+--   --    → dos filas: "ip docs lectura" y "ip docs alta".
 -- ============================================================================
