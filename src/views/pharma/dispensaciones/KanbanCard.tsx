@@ -4,7 +4,7 @@ import { Icon } from '../../../components/Icon'
 import type { IconName } from '../../../components/Icon'
 import type { BoardColumn, DispensationRequestRow } from '../../../data/pharma'
 import { activeDispensation, constanciaVigente, pendingScans, totalUnits } from '../../../data/pharma'
-import { chipExcepcion, COLUMN_META, scanSignal } from './estados'
+import { chipExcepcion, COLUMN_META, readyBlockedReason, scanSignal } from './estados'
 import { fromNow } from '../../../lib/dates'
 
 /**
@@ -42,7 +42,7 @@ export function KanbanCard({ r, column, canOperate, onOpen, onAdvance, busy }: {
   const disp = activeDispensation(r)
   const meds = r.items.map((i) => i.medication?.name ?? 'Medicamento').join(', ')
   const pending = pendingScans(r)
-  const cta = ctaFor(column, pending)
+  const cta = ctaFor(column, r)
 
   const card: CSSProperties = {
     background: 'var(--spira-white)',
@@ -163,18 +163,30 @@ function Signal({ icon, color, label }: { icon: IconName; color: string; label: 
   )
 }
 
-/** Qué botón muestra la card según la columna. null = sin acción (Entregadas). */
-function ctaFor(column: BoardColumn, pending: number): { label: string; bg: string; fg: string } | null {
+/**
+ * Qué botón muestra la card según la columna. null = sin acción (Entregadas).
+ *
+ * "Marcar lista" solo cuando el pedido de verdad se puede marcar: la regla es `readyBlockedReason`,
+ * la misma que gobierna el botón del cajón. Antes miraba solo los escaneos pendientes, y un pedido
+ * de IP **sin renglones** daba cero — la card prometía "Marcar lista" sobre algo al que le falta la
+ * constancia, y el clic terminaba en un error crudo del servidor. Bloqueado dice "Continuar", que es
+ * lo que efectivamente hace: abrir el cajón, donde el motivo está escrito.
+ */
+function ctaFor(column: BoardColumn, r: DispensationRequestRow): { label: string; bg: string; fg: string } | null {
   if (column === 'solicitada') {
     return { label: 'Preparar', bg: 'var(--spira-pharma-solid)', fg: 'var(--spira-on-accent)' }
   }
   if (column === 'preparando') {
-    return pending === 0
+    return readyBlockedReason(r) === null
       ? { label: 'Marcar lista', bg: COLUMN_META.lista.color, fg: '#fff' }
       : { label: 'Continuar', bg: COLUMN_META.preparando.color, fg: '#fff' }
   }
   if (column === 'lista') {
-    return { label: 'Entregar', bg: COLUMN_META.lista.color, fg: '#fff' }
+    // Con IP el botón abre el cajón para declarar los kits, así que no promete la entrega en un
+    // clic: dice a dónde lleva.
+    return r.includes_ip
+      ? { label: 'Entregar…', bg: COLUMN_META.lista.color, fg: '#fff' }
+      : { label: 'Entregar', bg: COLUMN_META.lista.color, fg: '#fff' }
   }
   return null
 }
