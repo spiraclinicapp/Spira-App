@@ -600,6 +600,9 @@ export interface UltimaDispensacionRow {
   entregada_el: string
   visita: string | null
   ip_kits: number | null
+  /** Lo que se entregó, por nombre. Vacío si no hubo concomitante (o si la RLS no deja leerlos: los
+   *  nombres viven en `medications`, que Track lee recién desde la 0074). */
+  medicamentos: string[]
   items: number
 }
 
@@ -634,9 +637,17 @@ export function useUltimaDispensacion(enrollmentId: string | null, visitId: stri
         // solo existe en las VISTAS, como `v_track_visits`, derivado de `visit_definitions.name`).
         // Pedirlo tal cual reventaría en PostgREST con "column does not exist". El nombre de la
         // visita se llega por el embed a `visit_definitions`, que sí lo tiene (NOT NULL, 0002).
+        // Los renglones salen de `dispensation_request_items` y NO de `dispensation_items` (las
+        // líneas realmente entregadas, que serían lo semánticamente exacto): esa tabla la leen solo
+        // pharma/contable/gerencia (0006), así que a una coordinadora le volvería vacía. Los dos
+        // conjuntos coinciden —`mark_dispensation_ready` copia renglón por renglón y el FEFO solo
+        // agrega lote y vencimiento—, así que el nombre es el mismo; lo que no se puede afirmar por
+        // esta vía es el lote, y el aviso no lo nombra.
+        // El `medications(name)` de adentro Track lo lee recién desde la **0074**; sin ella vuelve
+        // null y el aviso cae al conteo (ver `medicamentos` en la fila).
         .select(
           'updated_at, visit:patient_visits!inner(enrollment_id, visit_def:visit_definitions(name)), ' +
-          'items:dispensation_request_items(id), ' +
+          'items:dispensation_request_items(id, medication:medications(name)), ' +
           'dispensations:dispensations!inner(status, delivered_at, ip_kits)',
         )
         .eq('visit.enrollment_id', enrollmentId)
@@ -651,7 +662,7 @@ export function useUltimaDispensacion(enrollmentId: string | null, visitId: stri
       if (error) return { data: null, error }
       const row = (data as unknown as {
         visit: { visit_def: { name: string | null } | null } | null
-        items: { id: string }[]
+        items: { id: string; medication: { name: string } | null }[]
         dispensations: { delivered_at: string; ip_kits: number | null }[]
       }[] | null)?.[0]
       if (!row) return { data: [], error: null }
@@ -660,6 +671,9 @@ export function useUltimaDispensacion(enrollmentId: string | null, visitId: stri
           entregada_el: row.dispensations[0]?.delivered_at ?? '',
           visita: row.visit?.visit_def?.name ?? null,
           ip_kits: row.dispensations[0]?.ip_kits ?? null,
+          // Solo los que tienen nombre de verdad. Si la RLS no los deja leer, la lista queda vacía y
+          // el aviso vuelve al conteo: mejor decir "2 medicamentos" que "Medicamento, Medicamento".
+          medicamentos: (row.items ?? []).map((i) => i.medication?.name).filter((n): n is string => !!n),
           items: row.items?.length ?? 0,
         }],
         error: null,

@@ -238,10 +238,27 @@ function AvisoReciente({ query, alerta, accent }: {
   const dias = Math.max(0, Math.floor((Date.now() - entregada.getTime()) / 86_400_000))
   // "hace 0 días" no lo dice nadie, y el singular tampoco es "1 días".
   const cuando = dias === 0 ? 'hoy' : dias === 1 ? 'hace 1 día' : `hace ${dias} días`
+  /**
+   * QUÉ se entregó, por su nombre. Antes decía "2 renglones de medicación", que es contabilidad
+   * interna y no le sirve a nadie: el que lee este aviso está por decidir si vuelve a entregar, y
+   * para eso necesita saber si lo que sale de vuelta es lo mismo que ya salió.
+   *
+   * Se nombran hasta dos y el resto se cuenta: el aviso vive en dos renglones dentro de una tarjeta
+   * angosta, y una lista de seis medicamentos deja de leerse. Si la lista viene vacía —el pedido era
+   * de IP solo, o la RLS no deja leer los nombres (Track recién desde la 0074)— se cae al conteo,
+   * que es impreciso pero cierto. Nunca "Medicamento, Medicamento".
+   */
+  const meds = ultima.medicamentos
+  const queSeEntrego = meds.length === 0
+    ? (ultima.items ? `${ultima.items} medicamento${ultima.items > 1 ? 's' : ''}` : null)
+    : meds.length <= 2
+      ? meds.join(' y ')
+      : `${meds.slice(0, 2).join(', ')} y ${meds.length - 2} más`
+
   const detalle = [
     formatDateAR(ultima.entregada_el),
     ultima.ip_kits ? `${ultima.ip_kits} kit${ultima.ip_kits > 1 ? 's' : ''} de IP` : null,
-    ultima.items ? `${ultima.items} renglón${ultima.items > 1 ? 'es' : ''} de medicación` : null,
+    queSeEntrego,
     ultima.visita ? `en la visita ${ultima.visita}` : null,
   ].filter(Boolean).join(' · ')
 
