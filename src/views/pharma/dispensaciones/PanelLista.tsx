@@ -7,6 +7,7 @@ import { cancelDispensationPreparation, constanciaVigente, deliverDispensation }
 import { ConstanciaAcciones, ConstanciaVista } from '../ConstanciaIp'
 import { COLUMN_META } from './estados'
 import { ItemRow, fromDispensationLine } from './ItemRow'
+import { ModalKitsIp } from './ModalKitsIp'
 
 /**
  * Lista para retirar: el comprobante ya existe, el lote está asignado y el stock descontado.
@@ -28,12 +29,32 @@ export function PanelLista({ r, disp, onChanged, onClose, onPrint, onToast }: {
   const [err, setErr] = useState<string | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const constancia = constanciaVigente(r)
+  // Arranca en '0' y no vacío ni en 1 (D10): el campo tiene que existir y verse PENDIENTE. Un 1 por
+  // defecto se confirma en piloto automático, y un campo vacío no se lee como "falta declarar".
+  const [kitsCampo, setKitsCampo] = useState('0')
+  const [pidiendoKits, setPidiendoKits] = useState(false)
+  const kitsSinDeclarar = !(parseInt(kitsCampo, 10) >= 1)
+  /** ¿Se preparó medicación de base? Con cero renglones (IP solo) no hay lote ni stock que devolver. */
+  const hayBase = disp.items.length > 0
 
-  const doDeliver = async () => {
+  /**
+   * Entrega. Con IP el número de kits es obligatorio y **acá es donde se descuenta el stock**: en el
+   * IP no hay lote ni FEFO que reservar, así que no hay nada que sacar al marcar lista; `entregada`
+   * es el paso irreversible y es el lugar donde corresponde congelar un dato que después no se
+   * corrige.
+   *
+   * `kits` llega por parámetro solo desde el pop-up. Ojo con llamarla directo desde un `onClick`:
+   * React pasaría el evento como primer argumento y se colaría un MouseEvent donde va un número —
+   * por eso el botón la envuelve en una flecha.
+   */
+  const doDeliver = async (kits?: number) => {
+    const ipKits = r.includes_ip ? (kits ?? (parseInt(kitsCampo, 10) || 0)) : null
+    if (r.includes_ip && (ipKits === null || ipKits < 1)) { setErr(null); setPidiendoKits(true); return }
     setBusy(true); setErr(null)
-    const res = await deliverDispensation(disp.id)
+    const res = await deliverDispensation(disp.id, ipKits)
     setBusy(false)
     if (res.error) { setErr(res.error); return }
+    setPidiendoKits(false)
     onChanged()
     onToast(`${disp.dispensation_code ?? 'Dispensación'} entregada`)
   }
@@ -44,7 +65,12 @@ export function PanelLista({ r, disp, onChanged, onClose, onPrint, onToast }: {
     setBusy(false)
     if (res.error) { setErr(res.error); return }
     onChanged(); onClose()
-    onToast('Preparación cancelada · el stock volvió al lote')
+    // Sin renglones no volvió ningún lote: el IP no se descuenta hasta entregar, así que no hay nada
+    // que devolver. Prometer una devolución que no ocurrió es exactamente lo que no puede hacer una
+    // app auditable.
+    onToast(hayBase
+      ? 'Preparación cancelada · el stock volvió al lote'
+      : 'Preparación cancelada · vuelve a Solicitadas')
   }
 
   return (
@@ -62,14 +88,45 @@ export function PanelLista({ r, disp, onChanged, onClose, onPrint, onToast }: {
             entrega junto con el producto y muchas veces hay que volver a imprimirlo (se traspapeló,
             salió mal, el paciente quiere copia). Chica y no grande: en este paso alcanza con
             reconocerla — la tarjeta entera amplía si hace falta leerla. */}
+        {(constancia || r.includes_ip) && (
+          <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 9 }}>Producto en investigación</p>
+        )}
+
         {constancia && (
           <>
-            <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 9 }}>Producto en investigación</p>
             <ConstanciaVista doc={constancia} size="chica" accent="var(--spira-pharma-solid)" />
             <div style={{ marginTop: 9 }}>
               <ConstanciaAcciones doc={constancia} layout="fila" accent="var(--spira-pharma-solid)" />
             </div>
           </>
+        )}
+
+        {/* Los kits (D10). El campo vive acá y no en el pop-up porque lo normal es declararlos
+            mientras se arma la entrega, con la constancia a la vista; el pop-up es el freno para
+            cuando se llegó al final sin declararlos. Mientras siga en 0 se pinta PENDIENTE —punteado,
+            tinta atenuada, píldora— para que no se lea como un número declarado más. */}
+        {r.includes_ip && (
+          <div style={{ marginTop: constancia ? 14 : 0 }}>
+            <label htmlFor="kits-entregados" style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)', marginBottom: 6 }}>
+              Kits entregados
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                id="kits-entregados"
+                type="number" min={1} step={1} value={kitsCampo}
+                onChange={(e) => { setKitsCampo(e.target.value); setErr(null) }}
+                style={{
+                  ...kitsInput,
+                  borderStyle: kitsSinDeclarar ? 'dashed' : 'solid',
+                  color: kitsSinDeclarar ? 'var(--spira-faint)' : 'var(--spira-ink)',
+                }}
+              />
+              {kitsSinDeclarar && <span style={pillPendiente}>Sin declarar</span>}
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 6, lineHeight: 1.45 }}>
+              Descuenta del stock de IP del protocolo al entregar, y no se corrige después.
+            </div>
+          </div>
         )}
 
         {/* Un pedido de IP solo no preparó ningún renglón: el rótulo "Preparado — 0 ítems" sobre una
@@ -90,8 +147,10 @@ export function PanelLista({ r, disp, onChanged, onClose, onPrint, onToast }: {
         {confirmCancel ? (
           <div style={confirmBox} role="alert">
             <div style={{ fontSize: 12.5, color: 'var(--spira-ink)', marginBottom: 9 }}>
-              Cancelar devuelve el stock al lote y la solicitud vuelve a Solicitadas. El comprobante
-              N° {disp.correlative_number} queda reservado para esta solicitud.
+              {hayBase
+                ? <>Cancelar devuelve el stock al lote y la solicitud vuelve a Solicitadas. </>
+                : <>Cancelar devuelve la solicitud a Solicitadas. </>}
+              El comprobante N° {disp.correlative_number} queda reservado para esta solicitud.
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" onClick={doCancel} disabled={busy} style={btnPrimary('var(--spira-danger)')}>
@@ -102,7 +161,7 @@ export function PanelLista({ r, disp, onChanged, onClose, onPrint, onToast }: {
           </div>
         ) : (
           <button type="button" onClick={() => setConfirmCancel(true)} style={ghost}>
-            Cancelar preparación y devolver el stock
+            {hayBase ? 'Cancelar preparación y devolver el stock' : 'Cancelar preparación'}
           </button>
         )}
       </div>
@@ -114,13 +173,22 @@ export function PanelLista({ r, disp, onChanged, onClose, onPrint, onToast }: {
         </button>
         <div style={{ flex: 1 }} />
         <button
-          type="button" onClick={doDeliver} disabled={busy}
+          type="button" onClick={() => doDeliver()} disabled={busy}
           style={{ ...btnPrimary(COLUMN_META.lista.color), display: 'flex', alignItems: 'center', gap: 8, opacity: busy ? 0.7 : 1 }}
         >
           <Icon name="check" size={17} color="#fff" />
           {busy ? 'Un momento…' : 'Entregar al paciente'}
         </button>
       </div>
+
+      {pidiendoKits && (
+        <ModalKitsIp
+          busy={busy}
+          error={err}
+          onClose={() => { setPidiendoKits(false); setErr(null) }}
+          onConfirm={(k) => doDeliver(k)}
+        />
+      )}
     </>
   )
 }
@@ -183,6 +251,20 @@ const errBox: CSSProperties = {
 const confirmBox: CSSProperties = {
   marginTop: 16, padding: '12px 13px', borderRadius: 10,
   border: '1px solid rgba(166, 72, 59, 0.25)', background: 'rgba(166, 72, 59, 0.06)',
+}
+
+/** Borde en longhands: el estado "sin declarar" pisa `borderStyle` y `color`, y mezclarlo con la
+ *  abreviada `border` deja el borde roto en el render siguiente (ver CLAUDE.md, §Convenciones). */
+const kitsInput: CSSProperties = {
+  width: 120, height: 44, borderRadius: 11,
+  borderWidth: 1, borderColor: 'var(--spira-line-2)',
+  background: 'var(--spira-white)', padding: '0 13px', boxSizing: 'border-box',
+  fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 19,
+}
+
+const pillPendiente: CSSProperties = {
+  fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 'var(--spira-radius-pill)',
+  color: 'var(--spira-acc-deep-pharma)', background: 'rgba(176, 130, 63, 0.18)',
 }
 
 const ghost: CSSProperties = {
