@@ -177,7 +177,11 @@ export function PanelLista({ r, disp, onChanged, onClose, onPrint, onToast }: {
           style={{ ...btnPrimary(COLUMN_META.lista.color), display: 'flex', alignItems: 'center', gap: 8, opacity: busy ? 0.7 : 1 }}
         >
           <Icon name="check" size={17} color="#fff" />
-          {busy ? 'Un momento…' : 'Entregar al paciente'}
+          {/* "Marcar como entregado" y no "Entregar al paciente" (Director, 2026-08-11): el botón no
+              entrega nada — la entrega la hace la farmacéutica en el mostrador, con la medicación en
+              la mano. Acá se REGISTRA que ya ocurrió, que es un acto distinto y es el que sella el
+              comprobante y descuenta el IP. */}
+          {busy ? 'Un momento…' : 'Marcar como entregado'}
         </button>
       </div>
 

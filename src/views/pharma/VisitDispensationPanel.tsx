@@ -704,15 +704,25 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   return (
     <Panel
       title="Dispensación" icon="pill" accent={accent}
-      // El realce se apaga cuando no hay NADA que dispensar (mock §4): una tarjeta sin trabajo no
-      // debería llamar la atención. Es el complemento exacto de `nada`, así que va escrito así y no
-      // repitiendo la lista de condiciones, que se desincronizaría a la primera.
-      highlight={!nada}
+      // SIEMPRE teñida, también sin nada que dispensar. **Revierte la D8** ("el realce se apaga si no
+      // hay nada", mock §4) por pedido explícito del Director el 2026-08-11: "agregale color a la
+      // dispensación". Lo miró en pantalla y el apagado le dejaba la tarjeta en blanco justo donde
+      // está la salida de "Dispensar fuera de cronograma", que es una acción real y no un hueco.
+      // El razonamiento viejo —una sección sin trabajo no llama la atención— sigue siendo cierto en
+      // general; acá pesa más que la dispensación se encuentre de un vistazo en una ficha con seis
+      // tarjetas iguales.
+      highlight
       deepAccent="var(--spira-acc-deep-track)"
+      tint={{ bg: 'var(--spira-tint-track)', chip: 'var(--spira-tint-track-chip)' }}
     >
       {nada ? (
         <>
-          <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', padding: '4px 0' }}>Esta visita no entrega medicación.</div>
+          {/* Tinta plena, y no el `faint` de antes. Con la tarjeta teñida al 14% los tokens apagados
+              no llegan: medidos sobre este tinte dan faint 1,66:1 · muted 2,63:1 · ink-soft 4,36:1,
+              los tres por debajo del 4,5 que pide AA a 12,5px. `ink` da 10,5:1. Y está bien que así
+              sea: esta frase no es un pie decorativo, es la que explica por qué la sección está
+              vacía — la jerarquía la sostienen el cuerpo y el título en el acento, no el gris. */}
+          <div style={{ fontSize: 12.5, color: 'var(--spira-ink)', padding: '4px 0' }}>Esta visita no entrega medicación.</div>
           {/* La salida (mock, estado 5). Solo en la vista del día: en la ficha del paciente no se
               dispensa. El 4 de padding de arriba + este margen dan los 11px de aire del mock. */}
           {!readOnly && (

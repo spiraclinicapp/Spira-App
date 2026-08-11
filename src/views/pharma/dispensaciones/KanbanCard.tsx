@@ -182,11 +182,15 @@ function ctaFor(column: BoardColumn, r: DispensationRequestRow): { label: string
       : { label: 'Continuar', bg: COLUMN_META.preparando.color, fg: '#fff' }
   }
   if (column === 'lista') {
-    // Con IP el botón abre el cajón para declarar los kits, así que no promete la entrega en un
-    // clic: dice a dónde lleva.
-    return r.includes_ip
-      ? { label: 'Entregar…', bg: COLUMN_META.lista.color, fg: '#fff' }
-      : { label: 'Entregar', bg: COLUMN_META.lista.color, fg: '#fff' }
+    // "Marcar entregada" y no "Entregar" (Director, 2026-08-11): el botón no entrega nada — la
+    // entrega la hace la farmacéutica en el mostrador. Acá se REGISTRA que ya ocurrió. Queda además
+    // en el mismo idioma que "Marcar lista", su vecina de columna.
+    // Con IP los puntos suspensivos avisan que abre el cajón a declarar los kits en vez de resolver
+    // en un clic: el botón dice a dónde lleva.
+    return {
+      label: r.includes_ip ? 'Marcar entregada…' : 'Marcar entregada',
+      bg: COLUMN_META.lista.color, fg: '#fff',
+    }
   }
   return null
 }

@@ -63,7 +63,9 @@ export function ModalKitsIp({ busy, error, onClose, onConfirm }: {
             opacity: !valido || busy ? 0.6 : 1,
           }}
         >
-          {busy ? 'Entregando…' : 'Entregar'}
+          {/* Mismo verbo que el botón que abrió este pop-up: es la misma acción, y dos nombres para
+              lo mismo en el mismo gesto se leen como dos cosas distintas. */}
+          {busy ? 'Un momento…' : 'Marcar como entregado'}
         </button>
       </div>
 

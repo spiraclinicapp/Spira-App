@@ -49,6 +49,15 @@
   --spira-acc-deep-track:  #0F5F57;
   --spira-acc-deep-pharma: #6E5620;
 
+  /* —— Tinte de la tarjeta destacada (Dispensación) ——
+     Mismo problema que el acento profundo, y por eso vive al lado. Un tinte del acento sobre papel
+     claro OSCURECE la tarjeta y se lee como resaltada; el MISMO tinte sobre fondo oscuro la deja
+     más apagada que las tarjetas neutras de al lado, o sea al revés de lo que se pidió. En oscuro
+     hay que ACLARAR con la menta. Medido, no estimado. */
+  --spira-tint-track:      rgba(46, 125, 116, 0.14);
+  /* El cuadro del ícono, del mismo color pero más presente, para anclar el título. */
+  --spira-tint-track-chip: rgba(46, 125, 116, 0.22);
+
   /* —— Constantes de tema —— */
   --spira-on-accent:  #F4F1EA;
   --spira-brand-mark: #0F5F57;
@@ -89,6 +98,10 @@
   --spira-avatar-ring: #34D399; /* emerald-400 — más claro para contraste en oscuro */
   --spira-acc-deep-track:  #9DE6D6;  /* menta: en oscuro hay que ACLARAR, no oscurecer */
   --spira-acc-deep-pharma: #E8CE8A;
+  /* Misma inversión para el tinte: con el petróleo, la tarjeta destacada quedaba MÁS OSCURA que las
+     neutras (22,33,32 contra 28,28,28) y el realce se leía como un apagón. La menta la levanta. */
+  --spira-tint-track:      rgba(157, 230, 214, 0.13);
+  --spira-tint-track-chip: rgba(157, 230, 214, 0.22);
 }
 
 /* —— Estilos tipográficos semánticos —— */
