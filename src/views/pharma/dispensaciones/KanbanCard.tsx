@@ -131,15 +131,26 @@ export function KanbanCard({ r, column, canOperate, onOpen, onAdvance, busy }: {
       {cta && canOperate ? (
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || cta.disabled}
           onClick={(e) => { e.stopPropagation(); onAdvance() }}
           onMouseEnter={() => setCtaHover(true)}
           onMouseLeave={() => setCtaHover(false)}
           style={{
             width: '100%', height: 40, marginTop: 10, border: 'none', borderRadius: 10,
             background: cta.bg, color: cta.fg, fontFamily: 'var(--spira-font-text)',
-            fontWeight: 600, fontSize: 13.5, cursor: busy ? 'default' : 'pointer',
-            opacity: busy ? 0.7 : 1,
+            // 13 y no 13.5: "Marcar lista para retirar" es la etiqueta más larga del juego y a 13.5
+            // rozaba los bordes en una columna de 220px, que es el piso del tablero.
+            fontWeight: 600, fontSize: 13, cursor: busy ? 'default' : 'pointer',
+            // El deshabilitado conserva su color y baja a 0.6, la convención del sistema y la misma
+            // que usa el botón del cajón: es el mismo botón, apagado, no otro botón.
+            opacity: busy || cta.disabled ? 0.6 : 1,
+            // Y DEJA PASAR EL CLIC. Un `disabled` a secas no dispara el evento ni lo deja burbujear
+            // (comprobado en el navegador), así que el objetivo más grande y más obvio de la card
+            // se volvía una zona muerta: el clic no marcaba lista —correcto— pero tampoco abría el
+            // cajón, que es justo donde está escrito por qué no se puede. Con esto el clic cae en
+            // la card y abre el cajón. Solo cuando está bloqueado: durante `busy` el botón sí tiene
+            // que tragarse el clic para no disparar dos veces.
+            pointerEvents: cta.disabled && !busy ? 'none' : undefined,
           }}
         >
           {busy ? 'Un momento…' : cta.label}
@@ -166,31 +177,35 @@ function Signal({ icon, color, label }: { icon: IconName; color: string; label: 
 /**
  * Qué botón muestra la card según la columna. null = sin acción (Entregadas).
  *
- * "Marcar lista" solo cuando el pedido de verdad se puede marcar: la regla es `readyBlockedReason`,
- * la misma que gobierna el botón del cajón. Antes miraba solo los escaneos pendientes, y un pedido
- * de IP **sin renglones** daba cero — la card prometía "Marcar lista" sobre algo al que le falta la
- * constancia, y el clic terminaba en un error crudo del servidor. Bloqueado dice "Continuar", que es
- * lo que efectivamente hace: abrir el cajón, donde el motivo está escrito.
+ * **UN NOMBRE POR ACCIÓN, EL MISMO ADENTRO Y AFUERA** (Director, 2026-08-11). Estas etiquetas son,
+ * carácter por carácter, las de los botones del cajón: la card y el panel hacen exactamente lo
+ * mismo, y llamarlo distinto de cada lado obliga a deducir que son la misma cosa. Llegó a haber
+ * cinco strings para dos acciones ("Marcar lista", "Marcar lista para retirar", "Continuar",
+ * "Marcar entregada", "Marcar como entregado"). Si cambia una, cambian las dos.
+ *
+ * El bloqueo también se espeja: cuando la acción no se puede hacer, el botón va **deshabilitado con
+ * el mismo texto**, igual que en el cajón, y el motivo lo dice la línea de señal de acá arriba
+ * ("0/1 escaneados", "Falta la constancia del IP"). Antes cambiaba de nombre a "Continuar" —dos
+ * palabras para dos estados de un mismo botón— y no se puede leer como "esto está frenado".
+ * Para entrar a resolverlo está la card entera, que abre el cajón.
  */
-function ctaFor(column: BoardColumn, r: DispensationRequestRow): { label: string; bg: string; fg: string } | null {
+function ctaFor(column: BoardColumn, r: DispensationRequestRow): {
+  label: string; bg: string; fg: string; disabled?: boolean
+} | null {
   if (column === 'solicitada') {
     return { label: 'Preparar', bg: 'var(--spira-pharma-solid)', fg: 'var(--spira-on-accent)' }
   }
   if (column === 'preparando') {
-    return readyBlockedReason(r) === null
-      ? { label: 'Marcar lista', bg: COLUMN_META.lista.color, fg: '#fff' }
-      : { label: 'Continuar', bg: COLUMN_META.preparando.color, fg: '#fff' }
+    return {
+      label: 'Marcar lista para retirar',
+      bg: COLUMN_META.lista.color, fg: '#fff',
+      disabled: readyBlockedReason(r) !== null,
+    }
   }
   if (column === 'lista') {
-    // "Marcar entregada" y no "Entregar" (Director, 2026-08-11): el botón no entrega nada — la
-    // entrega la hace la farmacéutica en el mostrador. Acá se REGISTRA que ya ocurrió. Queda además
-    // en el mismo idioma que "Marcar lista", su vecina de columna.
-    // Con IP los puntos suspensivos avisan que abre el cajón a declarar los kits en vez de resolver
-    // en un clic: el botón dice a dónde lleva.
-    return {
-      label: r.includes_ip ? 'Marcar entregada…' : 'Marcar entregada',
-      bg: COLUMN_META.lista.color, fg: '#fff',
-    }
+    // El botón no entrega nada: la entrega la hace la farmacéutica en el mostrador, con la
+    // medicación en la mano. Acá se REGISTRA que ya ocurrió.
+    return { label: 'Marcar como entregado', bg: COLUMN_META.lista.color, fg: '#fff' }
   }
   return null
 }
