@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
-import { formatBytes, IP_MIME_TYPES, ipDocumentUrl } from '../../data/pharma'
+import {
+  downloadIpDocument, formatBytes, IP_MIME_TYPES, ipDocumentUrl, openIpDocument, printIpDocument,
+} from '../../data/pharma'
 import type { IpDocumentRow } from '../../data/pharma'
 import { formatDateTimeAR } from '../../lib/dates'
 
@@ -98,37 +100,16 @@ export function ConstanciaVista({ doc, size, accent, onReemplazar }: {
 
   /**
    * Abre la constancia ENTERA en una pestaña nueva (solo hace falta en "chica": ahí el
-   * previsualizador recorta a 140px y esto es la única forma de ver el resto).
-   *
-   * La pestaña se abre EN BLANCO antes del `await`: pasado ese punto ya no cuenta como gesto
-   * directo del usuario y el navegador bloquea `window.open`. Si la URL firmada no llega, no
-   * dejamos esa pestaña en blanco flotando —eso sería fingir que se abrió algo que no se abrió—:
-   * se cierra y se avisa el error.
-   *
-   * SIN `'noopener'` en esta primera llamada, a propósito: por spec, `window.open(url, target,
-   * 'noopener')` devuelve SIEMPRE `null` (no es una heurística de bloqueo, es el contrato
-   * documentado del propio navegador) — y sin la referencia no hay cómo cerrarla en el camino de
-   * error ni navegarla en el feliz, así que la pestaña en blanco quedaba flotando en TODOS los
-   * clics. El aislamiento que `'noopener'` da (que la pestaña nueva no pueda tocar esta vía
-   * `window.opener`) se consigue igual pisando `opener` a mano apenas se abre, sin perder el
-   * handle que todo este patrón necesita. No hay una segunda llamada a `window.open`: si el propio
-   * navegador bloqueó la pestaña en blanco, no fingimos que se abrió algo — se avisa.
+   * previsualizador recorta a 140px y esto es la única forma de ver el resto). Toda la maña del
+   * `window.open` —la pestaña en blanco antes del `await`, el `opener` a mano— vive en
+   * `openIpDocument`, que es también la que usa el botón "Abrir en pestaña" del cajón de Farmacia:
+   * es un contrato del navegador delicado y no conviene tenerlo escrito dos veces.
    */
   async function verEntero() {
+    // Limpia el error anterior mientras la URL nueva está en vuelo: dejarlo en pantalla haría
+    // pensar que el clic recién dado también falló.
     setAmpliarError(null)
-    const pestaña = window.open('', '_blank')
-    if (pestaña) pestaña.opener = null
-    const u = await ipDocumentUrl(doc.storage_path)
-    if (!u) {
-      pestaña?.close()
-      setAmpliarError('No se pudo abrir la constancia. Probá de nuevo en un momento.')
-      return
-    }
-    if (pestaña) {
-      pestaña.location.href = u
-    } else {
-      setAmpliarError('El navegador bloqueó la pestaña nueva. Habilitá los pop-ups para este sitio.')
-    }
+    setAmpliarError(await openIpDocument(doc.storage_path))
   }
 
   const alto = size === 'grande' ? 348 : 140
@@ -232,6 +213,85 @@ export function ConstanciaVista({ doc, size, accent, onReemplazar }: {
       </div>
     </div>
   )
+}
+
+/**
+ * Las tres salidas de la constancia, del lado de Farmacia: imprimirla en un clic, abrirla en una
+ * pestaña y bajarla al disco.
+ *
+ * **`Abrir en pestaña` va SIEMPRE visible, no escondido tras un fallo de `Imprimir`.** El
+ * `print()` por blob depende del navegador de la farmacia, y la salida tiene que estar antes de que
+ * falle, no después: la farmacéutica necesita el papel en la mano para entregarlo con la
+ * medicación, y descubrir que no hay forma de sacarlo justo cuando el paciente está en el mostrador
+ * es el momento equivocado.
+ *
+ * `columna` para el bloque grande de "Preparando" (al costado de la plana entera); `fila` para el
+ * panel de "Lista", donde ya no se prepara nada y esto es solo reimprimir.
+ */
+export function ConstanciaAcciones({ doc, layout, accent }: {
+  doc: IpDocumentRow
+  layout: 'columna' | 'fila'
+  accent: string
+}) {
+  const [busy, setBusy] = useState<'imprimir' | 'abrir' | 'descargar' | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+
+  const correr = async (cual: 'imprimir' | 'abrir' | 'descargar', fn: () => Promise<string | null>) => {
+    if (busy) return
+    setBusy(cual)
+    setErr(null)
+    // El mensaje que devuelven las tres ya viene redactado y sereno desde `data/pharma`; null = salió
+    // bien. No se traduce ni se reescribe acá para que no haya dos versiones del mismo error.
+    const msg = await fn()
+    setBusy(null)
+    setErr(msg)
+  }
+
+  const columna = layout === 'columna'
+  return (
+    <div style={{ display: 'flex', flexDirection: columna ? 'column' : 'row', gap: 8, flexWrap: columna ? undefined : 'wrap' }}>
+      <button
+        type="button" disabled={busy !== null}
+        onClick={() => correr('imprimir', () => printIpDocument(doc.storage_path))}
+        style={{ ...accionBtn, background: accent, borderColor: accent, color: 'var(--spira-on-accent)', opacity: busy ? 0.7 : 1 }}
+      >
+        <Icon name="printer" size={15} color="var(--spira-on-accent)" />
+        {busy === 'imprimir' ? 'Preparando…' : 'Imprimir'}
+      </button>
+      <button
+        type="button" disabled={busy !== null}
+        onClick={() => correr('abrir', () => openIpDocument(doc.storage_path))}
+        style={{ ...accionBtn, opacity: busy ? 0.7 : 1 }}
+      >
+        <Icon name="externalLink" size={15} color="var(--spira-muted)" />
+        {busy === 'abrir' ? 'Abriendo…' : 'Abrir en pestaña'}
+      </button>
+      <button
+        type="button" disabled={busy !== null}
+        onClick={() => correr('descargar', () => downloadIpDocument(doc.storage_path, doc.file_name))}
+        style={{ ...accionBtn, opacity: busy ? 0.7 : 1 }}
+      >
+        <Icon name="download" size={15} color="var(--spira-muted)" />
+        {busy === 'descargar' ? 'Bajando…' : 'Descargar'}
+      </button>
+      {err && (
+        <div style={{ fontSize: 11.5, color: 'var(--spira-danger)', lineHeight: 1.4, flexBasis: '100%' }} role="alert">{err}</div>
+      )}
+    </div>
+  )
+}
+
+/** Borde en LONGHANDS a propósito (no `border: '1px solid …'`): el botón de imprimir pisa
+ *  `borderColor` con el acento, y mezclar la abreviada con un longhand hace que React, en el render
+ *  siguiente, vacíe todos los longhand y deje el borde en negro. Es la trampa que ya se pagó en el
+ *  chip de coordinador (ver CLAUDE.md, §Convenciones). */
+const accionBtn: CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+  height: 38, padding: '0 13px', borderRadius: 10,
+  borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+  background: 'var(--spira-white)',
+  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, color: 'var(--spira-ink)',
+  cursor: 'pointer', whiteSpace: 'nowrap',
 }
 
 const miniBtn: CSSProperties = {

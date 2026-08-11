@@ -96,6 +96,67 @@ export async function ipDocumentUrl(path: string): Promise<string | null> {
   return data?.signedUrl ?? null
 }
 
+/**
+ * Abre la constancia entera en una pestaña nueva. Devuelve null si salió bien, o el mensaje a
+ * mostrar si no.
+ *
+ * La pestaña se abre EN BLANCO antes del `await`: pasado ese punto ya no cuenta como gesto directo
+ * del usuario y el navegador bloquea `window.open`. Que la función sea `async` no cambia nada —el
+ * cuerpo corre sincrónico hasta el primer `await`—, pero el orden de estas dos líneas sí: invertirlas
+ * rompe la apertura en todos los navegadores. Si la URL firmada no llega, no dejamos esa pestaña en
+ * blanco flotando —sería fingir que se abrió algo que no se abrió—: se cierra y se avisa el error.
+ *
+ * SIN `'noopener'`, a propósito: por spec, `window.open(url, target, 'noopener')` devuelve SIEMPRE
+ * `null` (no es una heurística de bloqueo, es el contrato documentado del navegador) — y sin la
+ * referencia no hay cómo cerrarla en el camino de error ni navegarla en el feliz, así que la pestaña
+ * en blanco quedaba flotando en TODOS los clics. El aislamiento que `'noopener'` da (que la pestaña
+ * nueva no pueda tocar esta vía `window.opener`) se consigue igual pisando `opener` a mano apenas se
+ * abre, sin perder el handle que todo este patrón necesita. No hay una segunda llamada a
+ * `window.open`: si el propio navegador bloqueó la pestaña en blanco, no fingimos que se abrió algo.
+ */
+export async function openIpDocument(path: string): Promise<string | null> {
+  const pestaña = window.open('', '_blank')
+  if (pestaña) pestaña.opener = null
+  const url = await ipDocumentUrl(path)
+  if (!url) {
+    pestaña?.close()
+    return 'No se pudo abrir la constancia. Probá de nuevo en un momento.'
+  }
+  if (!pestaña) return 'El navegador bloqueó la pestaña nueva. Habilitá los pop-ups para este sitio.'
+  pestaña.location.href = url
+  return null
+}
+
+/**
+ * Baja la constancia al disco con su nombre original. Devuelve null si salió bien, o el mensaje si no.
+ *
+ * Va por blob y no apuntando un `<a download>` directo a la URL firmada porque el atributo `download`
+ * se IGNORA cuando el destino es otro origen (y Storage lo es): en vez de guardar el archivo, el
+ * navegador navegaría la pestaña y sacaría a la farmacéutica de la app en medio de la preparación.
+ * Con el blob el archivo ya está en nuestro origen y el nombre se respeta.
+ */
+export async function downloadIpDocument(path: string, fileName: string): Promise<string | null> {
+  const url = await ipDocumentUrl(path)
+  if (!url) return 'No se pudo abrir la constancia.'
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return 'No se pudo descargar la constancia.'
+    const blobUrl = URL.createObjectURL(await res.blob())
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    // La revocación no puede ser inmediata: el navegador todavía está leyendo el blob para
+    // escribirlo en disco. Un minuto es de sobra para 10 MB y no deja la memoria colgada.
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
+    return null
+  } catch {
+    return 'No se pudo descargar la constancia. Probá con “Abrir en pestaña”.'
+  }
+}
+
 /** Espera el `onload` real del iframe (o se rinde a los `timeoutMs`). Aparte de `printIpDocument`
  *  para que `frame` llegue como parámetro (siempre no-nulo) y no como variable capturada por el
  *  closure — así no hay que pelearse con el angostamiento de tipos de TypeScript. */

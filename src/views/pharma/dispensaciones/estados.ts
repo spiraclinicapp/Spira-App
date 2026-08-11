@@ -1,5 +1,6 @@
+import type { CSSProperties } from 'react'
 import type { BoardColumn, DispensationRequestRow, RequestStatus } from '../../../data/pharma'
-import { activeDispensation } from '../../../data/pharma'
+import { activeDispensation, constanciaVigente } from '../../../data/pharma'
 import type { IconName } from '../../../components/Icon'
 
 /**
@@ -86,6 +87,21 @@ export function badgeOf(r: DispensationRequestRow): { label: string; color: stri
 }
 
 /**
+ * Chip de "Fuera de cronograma", igual en la card del tablero y en el encabezado del cajón: es la
+ * misma marca viajando por los dos lados, así que vive con el resto del vocabulario y no copiada.
+ *
+ * Ámbar PROFUNDO (`--spira-acc-deep-pharma`) y no `--spira-warn` a secas: sobre este tinte el warn
+ * da ~2,4:1 y a 10,5px/600 la AA pide 4,5. Mismo criterio que la píldora "Incompleta" de Track.
+ * Ícono `info` (círculo) y no `alert` (triángulo): señala una EXCEPCIÓN, no un error — el triángulo
+ * queda reservado para lo que sí puede estar mal.
+ */
+export const chipExcepcion: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700,
+  padding: '3px 9px', borderRadius: 'var(--spira-radius-pill)',
+  background: 'rgba(176, 130, 63, 0.18)', color: 'var(--spira-acc-deep-pharma)',
+}
+
+/**
  * Señal del progreso de escaneo. Devuelve ícono + color + texto, los tres juntos a propósito: el
  * mock distingue completo de incompleto solo por color (azul/verde), y eso deja afuera a quien no
  * los diferencia. El ícono cambia de forma (código de barras → check), no solo de tono.
@@ -104,13 +120,24 @@ export function scanSignal(pending: number, total: number): {
 /**
  * Por qué está deshabilitado "Marcar lista para retirar". Un botón gris y mudo obliga a adivinar;
  * el motivo concreto se muestra debajo. Devuelve null cuando el botón está habilitado.
+ *
+ * Devuelve también el ícono para que el motivo NO se ilustre siempre con un código de barras: desde
+ * que existe el IP, lo que falta puede ser un papel y no un escaneo, y la regla de cuál es cuál vive
+ * acá, en un solo lugar.
+ *
+ * La constancia va PRIMERO porque es lo primero que hay que resolver en el cajón (y porque un pedido
+ * de IP solo no tiene ningún renglón que escanear: sin esta rama el botón quedaría habilitado sobre
+ * un pedido al que le falta justamente el papel que lo justifica).
  */
-export function readyBlockedReason(r: DispensationRequestRow): string | null {
+export function readyBlockedReason(r: DispensationRequestRow): { text: string; icon: IconName } | null {
+  if (r.includes_ip && constanciaVigente(r) === null) {
+    return { text: 'Falta la constancia del producto en investigación', icon: 'fileText' }
+  }
   const pendientes = r.items.filter((i) => i.scanned_at === null)
   if (pendientes.length === 0) return null
   if (pendientes.length === 1) {
     const nombre = pendientes[0].medication?.name ?? 'el medicamento pendiente'
-    return `Falta escanear ${nombre}`
+    return { text: `Falta escanear ${nombre}`, icon: 'barcode' }
   }
-  return `Faltan ${pendientes.length} ítems por escanear`
+  return { text: `Faltan ${pendientes.length} ítems por escanear`, icon: 'barcode' }
 }

@@ -10,6 +10,8 @@ import {
   scanDispensationItem,
   unscanDispensationItem,
 } from '../../../data/pharma'
+import { constanciaVigente } from '../../../data/pharma'
+import { ConstanciaAcciones, ConstanciaVista } from '../ConstanciaIp'
 import { COLUMN_META, readyBlockedReason } from './estados'
 import { ItemRow, fromRequestItem } from './ItemRow'
 
@@ -42,6 +44,7 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
 
   const blocked = readyBlockedReason(r)
   const scannedCount = r.items.filter((i) => i.scanned_at !== null).length
+  const constancia = constanciaVigente(r)
 
   // Captura global dentro del panel: si la farmacéutica dispara el lector con el foco en otro lado,
   // la tecla igual entra al campo. Sin esto el primer disparo después de cualquier click se pierde.
@@ -108,23 +111,68 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
   return (
     <>
       <div ref={bodyRef} style={body}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
-          <Icon name="barcode" size={17} color="var(--spira-pharma-solid)" />
-          <span style={{ fontSize: 13, color: 'var(--spira-ink)' }}>Escaneá cada medicamento para confirmarlo</span>
-          <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>
-            · {scannedCount}/{r.items.length}
-          </span>
-        </div>
+        {/* El IP va ARRIBA de los renglones a propósito: acá la constancia no es un adjunto, es lo
+            primero que hay que hacer. La farmacéutica la abre, la imprime y la entrega junto con la
+            medicación (D2), así que enterrarla debajo de la lista de escaneo sería ponerla justo
+            donde nadie la busca. */}
+        {r.includes_ip && (
+          <section style={ipBox}>
+            <div style={ipTitulo}>
+              <Icon name="flask" size={15} color="var(--spira-pharma-solid)" />
+              Producto en investigación
+            </div>
 
-        <ScanField
-          label="Código de barras"
-          placeholder="Escaneá o tipeá el código…"
-          value={code}
-          onChange={(v) => { setCode(v); setErr(null) }}
-          onSubmit={doScan}
-          accentSolid="var(--spira-pharma-solid)"
-          inputRef={scanRef}
-        />
+            {constancia ? (
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                {/* La plana ENTERA (348px), no una miniatura: es el papel que se imprime y se
+                    entrega, y un recorte puede dejar afuera el número de kit o la firma. */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <ConstanciaVista doc={constancia} size="grande" accent="var(--spira-pharma-solid)" />
+                </div>
+                <div style={{ flex: '0 0 auto', width: 156 }}>
+                  <ConstanciaAcciones doc={constancia} layout="columna" accent="var(--spira-pharma-solid)" />
+                </div>
+              </div>
+            ) : (
+              // Sin constancia el pedido no puede cerrarse (`readyBlockedReason` lo bloquea). Se dice
+              // acá, arriba, y no solo abajo en el pie: es lo que hay que ir a buscar, y quien tiene
+              // que cargarla es Coordinación, no Farmacia.
+              <div style={faltaBox} role="alert">
+                <Icon name="alert" size={15} color="var(--spira-warn)" stroke={2} style={{ marginTop: 1, flex: '0 0 auto' }} />
+                <div>
+                  Falta la constancia del IRT
+                  <span style={{ display: 'block', fontWeight: 400, color: 'var(--spira-ink-soft)', marginTop: 2 }}>
+                    La carga Coordinación desde la visita. Sin ella no se puede emitir el comprobante.
+                  </span>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Un pedido de IP solo no tiene ningún renglón: mostrarle el campo de escaneo y una lista
+            vacía sería pedirle que escanee algo que no existe. */}
+        {r.items.length > 0 && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
+              <Icon name="barcode" size={17} color="var(--spira-pharma-solid)" />
+              <span style={{ fontSize: 13, color: 'var(--spira-ink)' }}>Escaneá cada medicamento para confirmarlo</span>
+              <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>
+                · {scannedCount}/{r.items.length}
+              </span>
+            </div>
+
+            <ScanField
+              label="Código de barras"
+              placeholder="Escaneá o tipeá el código…"
+              value={code}
+              onChange={(v) => { setCode(v); setErr(null) }}
+              onSubmit={doScan}
+              accentSolid="var(--spira-pharma-solid)"
+              inputRef={scanRef}
+            />
+          </>
+        )}
 
         {err && (
           <div style={errBox} role="alert">
@@ -139,10 +187,19 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
           ))}
         </div>
 
+        {/* La nota dice lo que de verdad va a pasar. El FEFO y el descuento de stock son de la
+            medicación de base; el IP no tiene lote ni vencimiento que asignar y descuenta recién al
+            ENTREGAR, que es el paso irreversible. Prometer acá que "descuenta el stock" sobre un
+            pedido de IP solo sería contar mal lo que hace el botón de al lado. */}
         <div style={noteBox}>
           <Icon name="clock" size={15} color="var(--spira-muted)" />
-          Al marcar lista, el sistema asigna el lote por vencimiento (FEFO), descuenta el stock y
-          emite el comprobante.
+          <span>
+            {r.items.length > 0 && (
+              <>Al marcar lista, el sistema asigna el lote por vencimiento (FEFO), descuenta el stock y emite el comprobante. </>
+            )}
+            {r.items.length === 0 && <>Al marcar lista, el sistema emite el comprobante. </>}
+            {r.includes_ip && <>Los kits de producto en investigación se declaran y descuentan al <b>entregar</b>.</>}
+          </span>
         </div>
       </div>
 
@@ -152,8 +209,8 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
       <div style={foot}>
         {blocked && (
           <div style={motivo}>
-            <Icon name="barcode" size={14} color="var(--spira-muted)" />
-            {blocked}
+            <Icon name={blocked.icon} size={14} color="var(--spira-muted)" />
+            {blocked.text}
           </div>
         )}
 
@@ -207,6 +264,20 @@ const errBox: CSSProperties = {
   display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 11, fontSize: 12.5,
   color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.08)',
   border: '1px solid rgba(166, 72, 59, 0.25)', borderRadius: 8, padding: '9px 11px',
+}
+
+/** El bloque del IP se separa del escaneo con un filete y aire, no con un fondo teñido: adentro va
+ *  un previsualizador de documento y un tinte detrás le compite el foco a la propia constancia. */
+const ipBox: CSSProperties = { marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid var(--spira-line)' }
+
+const ipTitulo: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 7, marginBottom: 11,
+  fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)',
+}
+
+const faltaBox: CSSProperties = {
+  display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', borderRadius: 10,
+  background: 'rgba(176, 130, 63, 0.13)', fontSize: 12.5, color: 'var(--spira-ink)', fontWeight: 600,
 }
 
 const noteBox: CSSProperties = {

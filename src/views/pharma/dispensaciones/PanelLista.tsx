@@ -3,7 +3,8 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow, DispensationRow } from '../../../data/pharma'
-import { cancelDispensationPreparation, deliverDispensation } from '../../../data/pharma'
+import { cancelDispensationPreparation, constanciaVigente, deliverDispensation } from '../../../data/pharma'
+import { ConstanciaAcciones, ConstanciaVista } from '../ConstanciaIp'
 import { COLUMN_META } from './estados'
 import { ItemRow, fromDispensationLine } from './ItemRow'
 
@@ -26,6 +27,7 @@ export function PanelLista({ r, disp, onChanged, onClose, onPrint, onToast }: {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const constancia = constanciaVigente(r)
 
   const doDeliver = async () => {
     setBusy(true); setErr(null)
@@ -56,12 +58,32 @@ export function PanelLista({ r, disp, onChanged, onClose, onPrint, onToast }: {
           se entrega con el comprobante sellado y firmado, y va a la carpeta del paciente.
         </div>
 
-        <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 9 }}>
-          Preparado — {disp.items.length} {disp.items.length === 1 ? 'ítem' : 'ítems'}
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {disp.items.map((l) => <ItemRow key={l.id} {...fromDispensationLine(l)} />)}
-        </div>
+        {/* La constancia sigue a mano en el mostrador: acá ya no se prepara nada, pero el papel se
+            entrega junto con el producto y muchas veces hay que volver a imprimirlo (se traspapeló,
+            salió mal, el paciente quiere copia). Chica y no grande: en este paso alcanza con
+            reconocerla — la tarjeta entera amplía si hace falta leerla. */}
+        {constancia && (
+          <>
+            <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 9 }}>Producto en investigación</p>
+            <ConstanciaVista doc={constancia} size="chica" accent="var(--spira-pharma-solid)" />
+            <div style={{ marginTop: 9 }}>
+              <ConstanciaAcciones doc={constancia} layout="fila" accent="var(--spira-pharma-solid)" />
+            </div>
+          </>
+        )}
+
+        {/* Un pedido de IP solo no preparó ningún renglón: el rótulo "Preparado — 0 ítems" sobre una
+            lista vacía haría dudar de si algo se perdió. */}
+        {disp.items.length > 0 && (
+          <>
+            <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 9 }}>
+              Preparado — {disp.items.length} {disp.items.length === 1 ? 'ítem' : 'ítems'}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {disp.items.map((l) => <ItemRow key={l.id} {...fromDispensationLine(l)} />)}
+            </div>
+          </>
+        )}
 
         {err && <div style={errBox} role="alert"><Icon name="alertCircle" size={15} /><span>{err}</span></div>}
 

@@ -3,8 +3,8 @@ import { useState } from 'react'
 import { Icon } from '../../../components/Icon'
 import type { IconName } from '../../../components/Icon'
 import type { BoardColumn, DispensationRequestRow } from '../../../data/pharma'
-import { activeDispensation, pendingScans, totalUnits } from '../../../data/pharma'
-import { COLUMN_META, scanSignal } from './estados'
+import { activeDispensation, constanciaVigente, pendingScans, totalUnits } from '../../../data/pharma'
+import { chipExcepcion, COLUMN_META, scanSignal } from './estados'
 import { fromNow } from '../../../lib/dates'
 
 /**
@@ -79,20 +79,48 @@ export function KanbanCard({ r, column, canOperate, onOpen, onAdvance, busy }: {
         <span className="spira-mono" style={protoChip}>{r.visit?.enrollment?.protocol?.code ?? '—'}</span>
       </div>
 
-      {/* 2 · medicamentos */}
-      <div style={{ fontSize: 12.5, color: 'var(--spira-ink)', lineHeight: 1.4, marginBottom: 5 }}>{meds}</div>
+      {/* 1b · la excepción viaja hasta acá (D11). Una dispensación fuera de cronograma le cambia el
+          trabajo a la farmacéutica —ahí sí tiene motivo para chequear dos veces— y enterarse recién
+          al abrir el cajón es enterarse tarde. El motivo completo va adentro; en la card, el aviso. */}
+      {r.off_schedule && (
+        <div style={{ ...chipExcepcion, marginBottom: 6 }}>
+          <Icon name="info" size={11} stroke={2.4} />
+          Fuera de cronograma
+        </div>
+      )}
+
+      {/* 2 · qué se dispensa. Con cero renglones (IP solo) la línea quedaría VACÍA: se dice qué es,
+          que además es la información que hace entendible el "0 u." que no mostramos abajo. */}
+      <div style={{ fontSize: 12.5, color: 'var(--spira-ink)', lineHeight: 1.4, marginBottom: 5 }}>
+        {meds || (r.includes_ip ? 'Producto en investigación' : '—')}
+      </div>
 
       {/* 3 · unidades · código de dispensación · cuándo llegó
           El código (D-1-180726-YM) se sella al marcar lista, así que en Solicitadas y Preparando
-          todavía no existe: ahí la card no muestra ninguno en vez de inventar un provisorio. */}
+          todavía no existe: ahí la card no muestra ninguno en vez de inventar un provisorio.
+          Las unidades solo si hay renglones: "0 u." en un pedido de IP solo no es un dato, es una
+          resta mal hecha (el IP no se cuenta en unidades sino en kits, y recién al entregar). */}
       <div style={{ display: 'flex', gap: 5, fontSize: 11, color: 'var(--spira-muted)', flexWrap: 'wrap' }}>
-        <span>{totalUnits(r)} u.</span>
+        {r.items.length > 0 && <span>{totalUnits(r)} u.</span>}
+        {r.includes_ip && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600, color: 'var(--spira-acc-deep-pharma)' }}>
+            {r.items.length > 0 && '· '}<Icon name="flask" size={11} /> IP
+          </span>
+        )}
         {disp?.dispensation_code && <span className="spira-mono">· {disp.dispensation_code}</span>}
         <span>· {fromNow(r.created_at)}</span>
       </div>
 
-      {/* 4 · señal de estado: ícono + color + texto (nunca color solo) */}
-      {column === 'preparando' && (
+      {/* La que tiene IP y todavía no tiene constancia lo dice ACÁ, no recién al abrir el cajón: es
+          la única de la columna que no se puede terminar, y quien la resuelve es Coordinación. */}
+      {r.includes_ip && constanciaVigente(r) === null && (
+        <Signal icon="fileText" color="var(--spira-acc-deep-pharma)" label="Falta la constancia del IP" />
+      )}
+
+      {/* 4 · señal de estado: ícono + color + texto (nunca color solo)
+          Sin renglones no hay escaneo: "0/0 escaneados" con el tilde de completo sobre un pedido de
+          IP solo dice que se terminó algo que nunca existió. */}
+      {column === 'preparando' && r.items.length > 0 && (
         <Signal {...scanSignal(pending, r.items.length)} />
       )}
       {column === 'lista' && disp && (
