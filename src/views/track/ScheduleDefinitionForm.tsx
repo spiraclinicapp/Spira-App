@@ -76,6 +76,7 @@ export function ScheduleDefinitionForm({
   // legacy era asimétrica, tomamos window_plus como referencia y al guardar queda simétrica.
   const [windowDays, setWindowDays] = useState(String(initial?.window_plus ?? initial?.window_minus ?? 0))
   const [dispenses, setDispenses] = useState(initial?.dispenses ?? false)
+  const [dispensesIp, setDispensesIp] = useState(initial?.dispenses_ip ?? false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -105,6 +106,7 @@ export function ScheduleDefinitionForm({
       window_minus: Number(windowDays || 0),
       window_plus: Number(windowDays || 0),
       dispenses,
+      dispenses_ip: dispensesIp,
       ...etapaToFields(etapa),
     })
     setBusy(false)
@@ -156,6 +158,10 @@ export function ScheduleDefinitionForm({
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, cursor: 'pointer' }}>
           <input type="checkbox" checked={dispenses} onChange={(e) => setDispenses(e.target.checked)} />
           Entrega medicación
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, cursor: 'pointer' }}>
+          <input type="checkbox" checked={dispensesIp} onChange={(e) => setDispensesIp(e.target.checked)} />
+          Entrega producto en investigación (IP)
         </label>
 
         {error && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{error}</div>}

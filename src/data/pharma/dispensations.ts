@@ -22,6 +22,21 @@ export type BoardColumn = 'solicitada' | 'preparando' | 'lista' | 'entregada'
 /** Origen de la solicitud (enum `dispensation_source`). v1 siempre `manual`; `ivrs`/`base` a futuro. */
 export type DispensationSource = 'ivrs' | 'base' | 'manual'
 
+/**
+ * Huso de Mendoza, para acotar un día calendario contra columnas `timestamptz`.
+ *
+ * Sin él, el borde del día se manda como texto SIN zona y Postgres lo resuelve en la del servidor
+ * (UTC): entre las 21:00 y la medianoche de acá, todo lo que la farmacéutica entrega cae en el "día
+ * siguiente" y **desaparece de su propio tablero y de su historial**. Encontrado el 2026-08-10 a las
+ * 23:18 verificando la entrega de IP: la dispensación se selló, salió de "Listas" y no apareció en
+ * ninguna de las dos pantallas.
+ *
+ * Argentina no aplica horario de verano desde 2009, así que el offset fijo es correcto y no una
+ * aproximación. Es la misma constante que ya usa Coordinación en `dayVisits.ts` (91-92, 143-144),
+ * donde se escribió literal; acá se nombra para que los cuatro bordes no se desincronicen.
+ */
+const AR_OFFSET = '-03:00'
+
 /** Renglón pedido en la solicitud (tabla `dispensation_request_items`), con el medicamento embebido. */
 export interface RequestItemRow {
   id: string
@@ -55,6 +70,20 @@ export interface DispensationRow {
   daily_number: number | null
   delivered_at: string | null
   items: DispensationLineRow[]
+  /** Kits de IP entregados. NULL hasta la entrega (0071). */
+  ip_kits: number | null
+}
+
+/** Constancia del IRT adjunta al pedido (tabla `dispensation_ip_documents`, 0071). */
+export interface IpDocumentRow {
+  id: string
+  storage_path: string
+  file_name: string
+  mime_type: string
+  size_bytes: number
+  uploaded_at: string
+  /** NULL = es la vigente. Reemplazar no borra: sella esta fecha en la anterior. */
+  superseded_at: string | null
 }
 
 /**
@@ -85,6 +114,12 @@ export interface DispensationRequestRow {
   items: RequestItemRow[]
   /** La dispensación ejecutada; array por el schema (FK inversa), en la práctica 0 o 1. */
   dispensations: DispensationRow[]
+  /** El pedido lleva IP. Lo sella el servidor desde el cronograma; el cliente no lo declara (0071). */
+  includes_ip: boolean
+  /** Dispensación fuera de cronograma + su motivo obligatorio (0071). */
+  off_schedule: boolean
+  off_schedule_reason: string | null
+  ip_documents: IpDocumentRow[]
   /** Contexto para la cola de Pharma: paciente (nombre + código IVRS) y protocolo. */
   visit: {
     enrollment: {
@@ -97,10 +132,12 @@ export interface DispensationRequestRow {
 const REQUEST_COLS =
   'id, status, source, rejection_reason, notes, created_at, updated_at, visit_id, ' +
   'requested_by_module, prepared_by, preparation_started_at, ' +
+  'includes_ip, off_schedule, off_schedule_reason, ' +
   'items:dispensation_request_items(id, medication_id, quantity, scanned_at, scanned_by, ' +
     'medication:medications(name, dosis, unit)), ' +
-  'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ' +
+  'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ip_kits, ' +
     'items:dispensation_items(id, medication_id, quantity, lot_number, expiry_date, medication:medications(name))), ' +
+  'ip_documents:dispensation_ip_documents(id, storage_path, file_name, mime_type, size_bytes, uploaded_at, superseded_at), ' +
   'visit:patient_visits(enrollment:enrollments(patient:patients(code, full_name), protocol:protocols(code, name)))'
 
 /**
@@ -176,8 +213,8 @@ export function useDispensationBoard(dayISO: string) {
         .from('dispensation_requests')
         .select(REQUEST_COLS)
         .eq('status', 'atendida')
-        .gte('updated_at', `${dayISO}T00:00:00`)
-        .lte('updated_at', `${dayISO}T23:59:59.999`)
+        .gte('updated_at', `${dayISO}T00:00:00${AR_OFFSET}`)
+        .lte('updated_at', `${dayISO}T23:59:59.999${AR_OFFSET}`)
         .order('updated_at', { ascending: false })
         .returns<DispensationRequestRow[]>()
       if (delDia.error) return { data: null, error: delDia.error }
@@ -220,6 +257,15 @@ export function pendingScans(r: DispensationRequestRow): number {
 /** Total de unidades pedidas (lo que muestra la card: "3 u."). */
 export function totalUnits(r: DispensationRequestRow): number {
   return r.items.reduce((acc, i) => acc + i.quantity, 0)
+}
+
+/**
+ * La constancia vigente del pedido. Se resuelve ACÁ y no filtrando el embed: en PostgREST un
+ * filtro sobre un embed no excluye la fila padre, solo deja el embed en null — el mismo motivo por
+ * el que `HISTORY_COLS` tuvo que usar `!inner`. Son dos o tres filas por pedido.
+ */
+export function constanciaVigente(r: DispensationRequestRow): IpDocumentRow | null {
+  return r.ip_documents?.find((d) => d.superseded_at === null) ?? null
 }
 
 /** Cuántas filas trae cada página del historial. */
@@ -276,7 +322,7 @@ export function useDispensationHistory(opts: {
         .range(from, from + HISTORY_PAGE_SIZE) // una de más para saber si hay página siguiente
 
       // Punto de partida: todo lo que pasó hasta el final del día elegido, hacia atrás.
-      if (fromDay) q = q.lte('updated_at', `${fromDay}T23:59:59.999`)
+      if (fromDay) q = q.lte('updated_at', `${fromDay}T23:59:59.999${AR_OFFSET}`)
       if (protocolCode) q = q.eq('visit.enrollment.protocol.code', protocolCode)
       if (needle) q = q.ilike('visit.enrollment.patient.code', `%${needle}%`)
 
@@ -354,15 +400,44 @@ export async function createDispensationRequest(
    * pueda operar en ese módulo, así que declarar no alcanza para falsearlo.
    */
   origen: 'track' | 'pharma' = 'track',
+  /**
+   * Motivo de la dispensación FUERA DE CRONOGRAMA (0071). Con motivo, la base saltea la
+   * validación del cronograma; sin motivo, la excepción no existe. Es la única puerta.
+   */
+  offScheduleReason: string | null = null,
 ): Promise<{ error: string | null; code?: string; id?: string }> {
   const { data, error } = await supabase.rpc('create_dispensation_request', {
     p_visit_id: visitId,
     p_items: items,
     p_notes: notes,
     p_origen: origen,
+    p_off_schedule_reason: offScheduleReason,
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null, id: data as string }
+}
+
+/**
+ * Agrega renglones a un pedido de dispensación YA ABIERTO (RPC `add_dispensation_items`, 0072).
+ *
+ * Es la contraparte de `attach_ip_document`, y existe para que la regla "un solo pedido por visita"
+ * valga en los DOS órdenes. Antes de la 0072 solo había `create_dispensation_request`, que siempre
+ * crea uno nuevo: cargar la constancia primero y agregar medicación después dejaba la visita con dos
+ * pedidos —dos tarjetas en el tablero de Farmacia y dos comprobantes para el mismo hecho—.
+ *
+ * Solo funciona con el pedido en `solicitada`. Si Farmacia ya lo tomó, la base responde con un
+ * mensaje que nombra la salida real (que cancele la preparación), no el estado interno.
+ */
+export async function addDispensationItems(
+  requestId: string,
+  items: RequestItemInput[],
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('add_dispensation_items', {
+    p_request_id: requestId,
+    p_items: items,
+  })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
 }
 
 /**
@@ -476,8 +551,13 @@ export async function markDispensationReady(requestId: string): Promise<{
  */
 export async function deliverDispensation(
   dispensationId: string,
+  /** Kits de IP entregados (0071). Obligatorio si el pedido lleva IP; la base lo exige. */
+  ipKits: number | null = null,
 ): Promise<{ error: string | null; code?: string }> {
-  const { error } = await supabase.rpc('deliver_dispensation', { p_dispensation_id: dispensationId })
+  const { error } = await supabase.rpc('deliver_dispensation', {
+    p_dispensation_id: dispensationId,
+    p_ip_kits: ipKits,
+  })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null }
 }
@@ -510,4 +590,95 @@ export async function resolveDispensation(
   const { data, error } = await supabase.rpc('resolve_dispensation', { p_request_id: requestId })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null, id: data as string }
+}
+
+/** Cuántos días mira hacia atrás el aviso de dispensación reciente (0071). */
+export const DIAS_AVISO_DISPENSACION = 30
+
+/** Última dispensación entregada del enrolamiento, para el aviso de D12. */
+export interface UltimaDispensacionRow {
+  entregada_el: string
+  visita: string | null
+  ip_kits: number | null
+  /** Lo que se entregó, por nombre. Vacío si no hubo concomitante (o si la RLS no deja leerlos: los
+   *  nombres viven en `medications`, que Track lee recién desde la 0074). */
+  medicamentos: string[]
+  items: number
+}
+
+/**
+ * La última dispensación ENTREGADA del mismo enrolamiento dentro de los últimos 30 días, EXCLUYENDO
+ * la visita actual.
+ *
+ * Va por consulta común y no por RPC: Track ya puede leer las solicitudes de las visitas de su
+ * protocolo por RLS, y acotarla al enrolamiento la deja dentro de lo que el coordinador ya ve. No
+ * cruza protocolos a propósito — además de que la RLS no lo dejaría, la comparación útil es contra
+ * el mismo estudio.
+ *
+ * `visitId` (la visita que está mirando el coordinador) es OBLIGATORIO y no un detalle de afinado:
+ * sin excluirla, una visita fuera de cronograma recién dispensada se gana a sí misma el `order by
+ * updated_at desc limit 1` de acá abajo —`updated_at` se sella con el trigger de la solicitud justo
+ * cuando la entrega la cierra (`trg_requests_updated_at`, 0003:29), así que la fila más nueva es la
+ * que el coordinador acaba de crear— y el aviso pasa a hablar de la entrega que la propia tarjeta
+ * está mostrando unos centímetros más abajo. Es una alarma que se dispara a sí misma, exactamente el
+ * modo de falla que este aviso existe para evitar. NO "simplifiques" este parámetro de vuelta a uno
+ * solo: sin la exclusión, el caso benigno (cualquier visita ya dispensada) igual se autorreferencia
+ * ("Última dispensación hoy… en la visita [esta misma]").
+ */
+export function useUltimaDispensacion(enrollmentId: string | null, visitId: string | null) {
+  return useSupabaseQuery<UltimaDispensacionRow[]>(
+    async (c) => {
+      if (!enrollmentId) return { data: [], error: null }
+      const desde = new Date(Date.now() - DIAS_AVISO_DISPENSACION * 86_400_000)
+        .toISOString().slice(0, 10)
+      const { data, error } = await c
+        .from('dispensation_requests')
+        // OJO — desvío del brief: `patient_visits` (0002) NO tiene columna `visit_name` (eso
+        // solo existe en las VISTAS, como `v_track_visits`, derivado de `visit_definitions.name`).
+        // Pedirlo tal cual reventaría en PostgREST con "column does not exist". El nombre de la
+        // visita se llega por el embed a `visit_definitions`, que sí lo tiene (NOT NULL, 0002).
+        // Los renglones salen de `dispensation_request_items` y NO de `dispensation_items` (las
+        // líneas realmente entregadas, que serían lo semánticamente exacto): esa tabla la leen solo
+        // pharma/contable/gerencia (0006), así que a una coordinadora le volvería vacía. Los dos
+        // conjuntos coinciden —`mark_dispensation_ready` copia renglón por renglón y el FEFO solo
+        // agrega lote y vencimiento—, así que el nombre es el mismo; lo que no se puede afirmar por
+        // esta vía es el lote, y el aviso no lo nombra.
+        // El `medications(name)` de adentro Track lo lee recién desde la **0074**; sin ella vuelve
+        // null y el aviso cae al conteo (ver `medicamentos` en la fila).
+        .select(
+          'updated_at, visit:patient_visits!inner(enrollment_id, visit_def:visit_definitions(name)), ' +
+          'items:dispensation_request_items(id, medication:medications(name)), ' +
+          'dispensations:dispensations!inner(status, delivered_at, ip_kits)',
+        )
+        .eq('visit.enrollment_id', enrollmentId)
+        // Excluye la visita actual (ver el porqué arriba). `NIL_UUID` cuando no hay visita —no
+        // rompe el filtro, simplemente no excluye nada, que es el comportamiento correcto si algún
+        // día un llamador la pide sin una visita en contexto.
+        .neq('visit_id', visitId ?? NIL_UUID)
+        .eq('dispensations.status', 'entregada')
+        .gte('dispensations.delivered_at', `${desde}T00:00:00${AR_OFFSET}`)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+      if (error) return { data: null, error }
+      const row = (data as unknown as {
+        visit: { visit_def: { name: string | null } | null } | null
+        items: { id: string; medication: { name: string } | null }[]
+        dispensations: { delivered_at: string; ip_kits: number | null }[]
+      }[] | null)?.[0]
+      if (!row) return { data: [], error: null }
+      return {
+        data: [{
+          entregada_el: row.dispensations[0]?.delivered_at ?? '',
+          visita: row.visit?.visit_def?.name ?? null,
+          ip_kits: row.dispensations[0]?.ip_kits ?? null,
+          // Solo los que tienen nombre de verdad. Si la RLS no los deja leer, la lista queda vacía y
+          // el aviso vuelve al conteo: mejor decir "2 medicamentos" que "Medicamento, Medicamento".
+          medicamentos: (row.items ?? []).map((i) => i.medication?.name).filter((n): n is string => !!n),
+          items: row.items?.length ?? 0,
+        }],
+        error: null,
+      }
+    },
+    [enrollmentId, visitId],
+  )
 }

@@ -5,7 +5,7 @@ import { Modal } from '../../components/Modal'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import type { SelectOption } from '../../components/SearchableSelect'
 import { btnOutline, btnPrimary } from '../../components/buttons'
-import { formatAR } from '../../lib/dates'
+import { formatDateAR } from '../../lib/dates'
 import { HistorialMedicacionModal } from './HistorialMedicacionModal'
 import type { PatientMedicationRow } from '../../data/pharma'
 import {
@@ -310,7 +310,7 @@ function EditMedicationModal({
                   {r.medication?.name ?? 'Medicamento'}
                 </div>
                 <div style={{ fontSize: 11.5, color: 'var(--spira-muted)', marginTop: 2 }}>
-                  Habilitada · {formatAR(r.created_at.slice(0, 10))}
+                  Habilitada · {formatDateAR(r.created_at)}
                   {r.medication?.unit ? ` · ${r.medication.unit}` : ''}
                 </div>
               </div>

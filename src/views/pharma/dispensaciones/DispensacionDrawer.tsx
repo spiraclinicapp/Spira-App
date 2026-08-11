@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Drawer } from '../../../components/Drawer'
+import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow } from '../../../data/pharma'
 import { activeDispensation, columnOf, origenLabel, rejectDispensationRequest } from '../../../data/pharma'
-import { COLUMN_META } from './estados'
+import { chipExcepcion, COLUMN_META } from './estados'
 import { StepBar } from './StepBar'
 import { PanelPreparando } from './PanelPreparando'
 import { PanelLista } from './PanelLista'
@@ -67,6 +68,23 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
                     en cuanto Pharma pudo dar de alta. */}
                 <span>{origenLabel(r.requested_by_module)}</span>
               </div>
+
+              {/* La excepción viaja con su MOTIVO (D11). Va en el encabezado y no adentro de un
+                  panel para que se vea en los cuatro estados —preparando, lista, entregada,
+                  rechazada— sin repetirla en cada uno: una excepción que solo conoce quien la hizo
+                  no es una excepción auditada. Es el mismo texto que sale impreso en el
+                  comprobante, así que acá se muestra el sellado en la fila, nunca uno recalculado. */}
+              {r.off_schedule && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  <span style={chipExcepcion}>
+                    <Icon name="info" size={11} stroke={2.4} />
+                    Fuera de cronograma
+                  </span>
+                  <span style={{ fontSize: 12.5, color: 'var(--spira-ink)' }}>
+                    {r.off_schedule_reason ?? 'Sin motivo registrado'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

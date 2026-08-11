@@ -31,6 +31,8 @@ export interface DayVisitRow extends TrackVisitRow {
   doctor_motivo: string | null
   /** coalesce(visit_definitions.dispenses, false): si la visita entrega medicación. */
   dispenses: boolean
+  /** coalesce(visit_definitions.dispenses_ip, false): si la visita entrega IP (0071). */
+  dispenses_ip: boolean
   operational_stage: OperationalStage
   /** Cantidad de comentarios de la visita (subquery en v_track_visits; migración 0048). */
   comments_count: number

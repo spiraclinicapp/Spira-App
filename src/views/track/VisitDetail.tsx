@@ -197,19 +197,27 @@ export function VisitDetail({
                     </>
                   )}
                 </Panel>
-              </div>
 
-              {/* derecha */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <Panel title="Procedimientos" icon="clipboardCheck" accent={accent}>
-                  <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} />
-                </Panel>
-                <Panel title="Dispensación" icon="pill" accent={accent}>
-                  <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
-                </Panel>
+                {/* Comentarios vive acá y no a la derecha (Director, 2026-08-11). Es un cambio de
+                    peso, no de gusto: medido sobre una visita con dispensación cargada, la columna
+                    izquierda daba 538px y la derecha 1051 —casi el doble—, así que media pantalla
+                    quedaba vacía mientras la otra scrolleaba. Con Comentarios de este lado dan
+                    848 y 741.
+                    Y encaja por contenido: a la izquierda está lo que CONTEXTUALIZA la visita (dónde
+                    va, quién es el paciente, qué se dijo) y a la derecha lo que se HACE en ella
+                    (procedimientos, dispensación). El hilo de comentarios acompaña la lectura; no
+                    compite con el formulario. */}
                 <Panel title="Comentarios" icon="message" accent={accent}>
                   <CommentThread visitId={visit.id} accent={accent} onAdded={onChanged} />
                 </Panel>
+              </div>
+
+              {/* derecha: lo que se hace en la visita */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* Monta su propio `Panel` (el contador "n/total" va en la línea del rótulo). */}
+                <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} />
+                {/* Monta su propio `Panel`, con la banda sólida del realce siempre puesta. */}
+                <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
               </div>
             </div>
           </>
@@ -224,8 +232,13 @@ const backdrop: CSSProperties = {
   display: 'grid', placeItems: 'center', zIndex: 50, padding: 22,
   animation: 'spOverlayIn .18s ease both',
 }
+/** 1120 y no los 1020 de antes: con la dispensación hecha formulario, la columna derecha pasó a
+ *  tener renglones de cuatro piezas (nombre · cantidad · estado · quitar) y un selector de tres
+ *  (medicamento · cantidad · agregar) en 476px, donde el nombre del medicamento se cortaba y el
+ *  selector se comía el aire. Con 1120 la columna queda en ~527 y las dos filas entran sin apretar.
+ *  El `95vw` sigue siendo el que manda en pantallas chicas, así que no hay riesgo de desborde. */
 const card: CSSProperties = {
-  width: 'min(1020px, 95vw)', maxHeight: '90vh', background: 'var(--spira-paper)',
+  width: 'min(1120px, 95vw)', maxHeight: '90vh', background: 'var(--spira-paper)',
   border: '1px solid var(--spira-line)', borderRadius: 20, boxShadow: 'var(--spira-shadow-lg)',
   display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'spModalIn .22s cubic-bezier(.2,.85,.25,1) both',
 }

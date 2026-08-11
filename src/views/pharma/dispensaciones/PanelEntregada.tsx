@@ -2,17 +2,20 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow, DispensationRow } from '../../../data/pharma'
+import { constanciaVigente } from '../../../data/pharma'
+import { ConstanciaAcciones, ConstanciaVista } from '../ConstanciaIp'
 import { ItemRow, fromDispensationLine } from './ItemRow'
 import { Comprobante } from './PanelLista'
 import { formatDateTimeAR } from '../../../lib/dates'
 
 /** Entregada: estado terminal. Solo lectura + reimprimir el comprobante. */
-export function PanelEntregada({ disp, onClose, onPrint }: {
+export function PanelEntregada({ r, disp, onClose, onPrint }: {
   r: DispensationRequestRow
   disp: DispensationRow
   onClose: () => void
   onPrint: () => void
 }) {
+  const constancia = constanciaVigente(r)
   return (
     <>
       <div style={body}>
@@ -24,14 +27,44 @@ export function PanelEntregada({ disp, onClose, onPrint }: {
           </div>
         )}
 
-        <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 9 }}>Entregado</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {disp.items.map((l) => <ItemRow key={l.id} {...fromDispensationLine(l)} />)}
-        </div>
+        {disp.items.length > 0 && (
+          <>
+            <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 9 }}>Entregado</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {disp.items.map((l) => <ItemRow key={l.id} {...fromDispensationLine(l)} />)}
+            </div>
+          </>
+        )}
+
+        {/* El IP, ya sellado. Los kits salen de `ip_kits` —el número que se congeló al entregar—, no
+            de ningún campo editable: acá no se corrige nada. La constancia queda a mano porque el
+            paciente o el monitor pueden pedir otra copia después. */}
+        {(disp.ip_kits !== null || constancia) && (
+          <>
+            <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 9 }}>Producto en investigación</p>
+            {disp.ip_kits !== null && (
+              <div style={kitsRow}>
+                <Icon name="flask" size={16} color="var(--spira-pharma-solid)" />
+                <b>{disp.ip_kits}</b> {disp.ip_kits === 1 ? 'kit entregado' : 'kits entregados'}
+              </div>
+            )}
+            {constancia && (
+              <div style={{ marginTop: disp.ip_kits !== null ? 9 : 0 }}>
+                <ConstanciaVista doc={constancia} size="chica" accent="var(--spira-pharma-solid)" />
+                <div style={{ marginTop: 9 }}>
+                  <ConstanciaAcciones doc={constancia} layout="fila" accent="var(--spira-pharma-solid)" />
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         <div style={noteBox}>
           <Icon name="clock" size={15} color="var(--spira-muted)" />
-          Lotes asignados por vencimiento (FEFO) y stock descontado automáticamente.
+          <span>
+            {disp.items.length > 0 && <>Lotes asignados por vencimiento (FEFO) y stock descontado automáticamente. </>}
+            {disp.ip_kits !== null && <>Los kits de IP ya descontaron del stock del protocolo.</>}
+          </span>
         </div>
       </div>
 
@@ -55,6 +88,12 @@ const body: CSSProperties = { padding: '4px 22px 22px', overflowY: 'auto', flex:
 const foot: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10, padding: '14px 22px',
   borderTop: '1px solid var(--spira-line)', background: 'var(--spira-white)',
+}
+
+const kitsRow: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 9, padding: '11px 13px', borderRadius: 11,
+  border: '1px solid var(--spira-line)', background: 'var(--spira-white)',
+  fontSize: 13.5, color: 'var(--spira-ink)',
 }
 
 const noteBox: CSSProperties = {

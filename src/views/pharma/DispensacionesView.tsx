@@ -15,6 +15,7 @@ import {
   activeDispensation,
 } from '../../data/pharma'
 import type { BoardColumn, DispensationRequestRow } from '../../data/pharma'
+import { readyBlockedReason } from './dispensaciones/estados'
 import { KanbanBoard, KanbanSkeleton } from './dispensaciones/KanbanBoard'
 import { DispensacionDrawer } from './dispensaciones/DispensacionDrawer'
 import { NuevaDispensacionDrawer } from './dispensaciones/NuevaDispensacionDrawer'
@@ -173,9 +174,14 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
       return
     }
     if (column === 'preparando') {
-      // Si falta escanear, el CTA dice "Continuar": abre el cajón en vez de intentar avanzar.
-      const pendientes = r.items.filter((i) => i.scanned_at === null).length
-      if (pendientes > 0) { setBusyId(null); setOpenId(r.id); return }
+      // Si falta algo, el CTA dice "Continuar": abre el cajón en vez de intentar avanzar.
+      //
+      // Pregunta `readyBlockedReason` y NO cuenta escaneos pendientes a mano, que era lo que hacía
+      // antes: desde que existe el IP, lo que falta puede ser la CONSTANCIA y no un escaneo, y un
+      // pedido de IP solo no tiene ningún renglón — con la cuenta a mano daba cero pendientes, el
+      // tablero intentaba marcarlo lista y el servidor lo rechazaba con un error crudo, salteando
+      // el bloqueo que el cajón sí aplica. Una sola regla, en `estados.ts`, para las dos pantallas.
+      if (readyBlockedReason(r)) { setBusyId(null); setOpenId(r.id); return }
       const res = await markDispensationReady(r.id)
       setBusyId(null)
       if (res.error) { setErr(res.error); return }
@@ -186,6 +192,11 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
     if (column === 'lista') {
       const disp = activeDispensation(r)
       if (!disp) { setBusyId(null); return }
+      // Con IP la entrega NO se resuelve de un clic desde el tablero: hay que declarar cuántos kits
+      // salieron, y ese número descuenta stock y no se corrige nunca más. Entregar desde acá salteaba
+      // el campo y el pop-up enteros —los dos viven en el cajón— y mandaba la entrega sin kits. Se
+      // abre el cajón, que es donde se declara.
+      if (r.includes_ip) { setBusyId(null); setOpenId(r.id); return }
       const res = await deliverDispensation(disp.id)
       setBusyId(null)
       if (res.error) { setErr(res.error); return }
