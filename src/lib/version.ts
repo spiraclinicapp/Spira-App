@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.31', text: 'La visita puede entregar producto en investigación: constancia del IRT adjunta, kits declarados al entregar y dispensación fuera de cronograma con motivo, todo en un solo pedido y un solo comprobante.' },
     { version: '0.30', text: 'Track pasa a llamarse Coordinación y Pharma, Farmacia; el submenú explica cada submódulo.' },
     { version: '0.29', text: 'El resumen lleva a cada visita y a cada alerta, y las alertas se pueden descartar.' },
     { version: '0.28', text: 'La visita muestra sus procedimientos con claridad: el cuadro explica cuando no hay ninguno y lo realizado se marca sin tachar el nombre.' },
