@@ -203,7 +203,21 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   // fila está, el número es real. Se mostraba antes —los pedidos abiertos se dibujaban con la card
   // completa del historial— y se perdió al pasarlos a filas planas: la coordinadora lo tenía a mano
   // para cantarlo cuando el paciente pasa a retirar, y dejó de tenerlo hasta después de la entrega.
-  const comprobanteAbierto = openReq ? activeDispensation(openReq)?.correlative_number ?? null : null
+  //
+  // OJO con `en_preparacion`: `cancel_dispensation_preparation` (0054+0057) devuelve la solicitud a
+  // 'solicitada' pero NO borra la fila de `dispensations` —la deja en 'en_preparacion', libera el
+  // `dispensation_code` legible pero el `correlative_number` queda A PROPÓSITO reservado (comentario
+  // de la RPC: "rehacerla no deja huecos en la numeración")—. Si acá se mostrara el correlativo
+  // apenas la fila existe, el pie diría "Comprobante N° 12" junto a la píldora "Solicitada" para un
+  // papel que nunca se imprimió (el stock ya se devolvió y los renglones se borraron): un número que
+  // ya no vale nada, en una app auditable donde ese número es NOTA FUENTE. Por eso el filtro extra:
+  // solo cuenta el comprobante cuando la dispensación salió de 'en_preparacion' de verdad ('lista' o
+  // 'entregada'), que es cuando `mark_dispensation_ready` lo emitió y quedó firme.
+  const dispensacionAbierta = openReq ? activeDispensation(openReq) : null
+  const comprobanteAbierto =
+    dispensacionAbierta && dispensacionAbierta.status !== 'en_preparacion'
+      ? dispensacionAbierta.correlative_number
+      : null
 
   // —— Producto en investigación ——
   // La sección se muestra si lo dice el CRONOGRAMA o si el pedido abierto lo tiene SELLADO. El
@@ -243,7 +257,40 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   // Sin ninguno abierto no hay a qué adjuntarla — o se muestra en lectura la del pedido entregado,
   // o, si no hay nada todavía, el dropzone, que es el que crea el pedido (estado 2 del mock).
   const ipEnCurso = openReq !== null
-  const constanciaIncompleta = mostrarIp && ipEnCurso && !constanciaAbierta
+
+  /**
+   * Si el pedido ABIERTO en curso realmente acepta que se le adjunte constancia. OJO: esto NO es
+   * `mostrarIp` (que también se prende con el cronograma vivo) — es a propósito el mismo sello con
+   * el que el servidor decide, para las dos ramas de abajo (aviso + dropzone):
+   *
+   *   · `includes_ip`: lo que `attach_ip_document` y `mark_dispensation_ready` (0071 §7/§8.1) leen
+   *     de la FILA, sellado cuando el pedido se creó. El cronograma puede cambiar después —alguien
+   *     puede tildar/destildar `dispenses_ip` en la definición de la visita mientras hay un pedido
+   *     abierto que se selló al revés, y ESO estaba pasando de verdad mientras se corregían
+   *     cronogramas— y el pedido no se entera solo.
+   *   · `off_schedule`: la excepción fuera de cronograma también acepta el adjunto aunque
+   *     `includes_ip` todavía esté en false — ahí la constancia es justo lo que se lo declara al
+   *     servidor (attach_ip_document §7, "la excepción no implica IP" es la letra chica: el pedido
+   *     nace sin sellar y recién prende `includes_ip` cuando se adjunta algo).
+   *
+   * Sin pedido abierto no hay nada sellado todavía: recién ahí cae al cronograma, que es lo que un
+   * pedido NUEVO va a heredar al crearse (0071 §8) — y es el único caso legítimo de mirarlo.
+   */
+  const ipAceptaAdjunto = openReq ? openReq.includes_ip || openReq.off_schedule : visit.dispenses_ip
+
+  /**
+   * "Falta la constancia" (el aviso + la píldora "Incompleta" del pie) solo es CIERTO cuando el
+   * pedido ya la exige para que Farmacia emita el comprobante — y esa exigencia es el `includes_ip`
+   * sellado a secas (0071 §8.1: `mark_dispensation_ready` solo la pide si `includes_ip`), no
+   * `mostrarIp` ni `off_schedule` (que la deja OPCIONAL hasta que se adjunta algo). Antes esto
+   * miraba `mostrarIp`, que también se prende con el cronograma vivo: destildar/tildar
+   * `dispenses_ip` con un pedido abierto de signo contrario dejaba la tarjeta afirmando "Farmacia no
+   * puede emitir el comprobante hasta que esté cargada" sobre un pedido que la RPC ya daba por
+   * completo. No lo "simplifiques" de vuelta a `mostrarIp`: son dos preguntas distintas — "¿se
+   * muestra la sección?" (cronograma O sello, cualquiera alcanza) vs. "¿ESTE pedido, tal como está
+   * sellado, la necesita?" (solo el sello, nunca el cronograma).
+   */
+  const constanciaIncompleta = openReq !== null && openReq.includes_ip && !constanciaAbierta
 
   function addItem() {
     const n = parseInt(qty, 10)
@@ -516,17 +563,26 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               )}
 
               {ipEnCurso ? (
-                // Hay un pedido abierto: la constancia se carga o se reemplaza CONTRA ÉL.
-                readOnly ? (
-                  constanciaAbierta ? (
-                    <ConstanciaVista doc={constanciaAbierta} size="chica" accent={accent} />
-                  ) : (
-                    <div style={{ ...muted, padding: '2px 0' }}>Sin constancia cargada.</div>
-                  )
-                ) : constanciaAbierta && !reemplazando ? (
-                  <ConstanciaVista doc={constanciaAbierta} size="chica" accent={accent} onReemplazar={() => setReemplazando(true)} />
+                !ipAceptaAdjunto ? (
+                  // El pedido abierto, TAL COMO ESTÁ SELLADO, no lleva IP (ni es una excepción fuera
+                  // de cronograma): ofrecer el dropzone acá terminaría en el error de la RPC ("esta
+                  // solicitud no lleva producto en investigación", 0071 §7) sin más salida que
+                  // cancelar el pedido y rehacerlo. Se muestra el mismo texto neutro que el resto de
+                  // "no hay nada cargado" — no hay nada que adjuntar contra ESTE pedido.
+                  <div style={{ ...muted, padding: '2px 0' }}>Sin constancia cargada.</div>
                 ) : (
-                  <ConstanciaDropzone accent={accent} busy={subiendo} onFile={cargarConstancia} />
+                  // Hay un pedido abierto que SÍ acepta la constancia: se carga o se reemplaza CONTRA ÉL.
+                  readOnly ? (
+                    constanciaAbierta ? (
+                      <ConstanciaVista doc={constanciaAbierta} size="chica" accent={accent} />
+                    ) : (
+                      <div style={{ ...muted, padding: '2px 0' }}>Sin constancia cargada.</div>
+                    )
+                  ) : constanciaAbierta && !reemplazando ? (
+                    <ConstanciaVista doc={constanciaAbierta} size="chica" accent={accent} onReemplazar={() => setReemplazando(true)} />
+                  ) : (
+                    <ConstanciaDropzone accent={accent} busy={subiendo} onFile={cargarConstancia} />
+                  )
                 )
               ) : constanciaEntregada && reqEntregado && badgeEntregado ? (
                 // Pedido ya cerrado: la constancia es la nota fuente de una entrega que ya ocurrió.
@@ -549,6 +605,16 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                     )}
                   </div>
                 </>
+              ) : reqQ.loading ? (
+                // Carga inicial: `requests` todavía viene vacío porque la consulta está en vuelo, NO
+                // porque no haya pedidos — mismo patrón que la rama de concomitante de acá abajo
+                // (`readOnly && requests.length === 0 && !reqQ.loading`). Sin este freno, durante esos
+                // cientos de milisegundos la tarjeta afirma "Sin constancia cargada." de una visita que
+                // sí la tiene (dato falso en la ficha del paciente) y, en la vista del día, ofrece un
+                // dropzone que crearía un pedido NUEVO si alguien soltara un archivo justo ahí. Los
+                // refetch posteriores conservan las filas viejas (`useSupabaseQuery`), así que esto es
+                // solo el primer montaje.
+                null
               ) : readOnly ? (
                 <div style={{ ...muted, padding: '2px 0' }}>Sin constancia cargada.</div>
               ) : (
