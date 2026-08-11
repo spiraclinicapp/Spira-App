@@ -22,6 +22,21 @@ export type BoardColumn = 'solicitada' | 'preparando' | 'lista' | 'entregada'
 /** Origen de la solicitud (enum `dispensation_source`). v1 siempre `manual`; `ivrs`/`base` a futuro. */
 export type DispensationSource = 'ivrs' | 'base' | 'manual'
 
+/**
+ * Huso de Mendoza, para acotar un día calendario contra columnas `timestamptz`.
+ *
+ * Sin él, el borde del día se manda como texto SIN zona y Postgres lo resuelve en la del servidor
+ * (UTC): entre las 21:00 y la medianoche de acá, todo lo que la farmacéutica entrega cae en el "día
+ * siguiente" y **desaparece de su propio tablero y de su historial**. Encontrado el 2026-08-10 a las
+ * 23:18 verificando la entrega de IP: la dispensación se selló, salió de "Listas" y no apareció en
+ * ninguna de las dos pantallas.
+ *
+ * Argentina no aplica horario de verano desde 2009, así que el offset fijo es correcto y no una
+ * aproximación. Es la misma constante que ya usa Coordinación en `dayVisits.ts` (91-92, 143-144),
+ * donde se escribió literal; acá se nombra para que los cuatro bordes no se desincronicen.
+ */
+const AR_OFFSET = '-03:00'
+
 /** Renglón pedido en la solicitud (tabla `dispensation_request_items`), con el medicamento embebido. */
 export interface RequestItemRow {
   id: string
@@ -198,8 +213,8 @@ export function useDispensationBoard(dayISO: string) {
         .from('dispensation_requests')
         .select(REQUEST_COLS)
         .eq('status', 'atendida')
-        .gte('updated_at', `${dayISO}T00:00:00`)
-        .lte('updated_at', `${dayISO}T23:59:59.999`)
+        .gte('updated_at', `${dayISO}T00:00:00${AR_OFFSET}`)
+        .lte('updated_at', `${dayISO}T23:59:59.999${AR_OFFSET}`)
         .order('updated_at', { ascending: false })
         .returns<DispensationRequestRow[]>()
       if (delDia.error) return { data: null, error: delDia.error }
@@ -307,7 +322,7 @@ export function useDispensationHistory(opts: {
         .range(from, from + HISTORY_PAGE_SIZE) // una de más para saber si hay página siguiente
 
       // Punto de partida: todo lo que pasó hasta el final del día elegido, hacia atrás.
-      if (fromDay) q = q.lte('updated_at', `${fromDay}T23:59:59.999`)
+      if (fromDay) q = q.lte('updated_at', `${fromDay}T23:59:59.999${AR_OFFSET}`)
       if (protocolCode) q = q.eq('visit.enrollment.protocol.code', protocolCode)
       if (needle) q = q.ilike('visit.enrollment.patient.code', `%${needle}%`)
 
@@ -630,7 +645,7 @@ export function useUltimaDispensacion(enrollmentId: string | null, visitId: stri
         // día un llamador la pide sin una visita en contexto.
         .neq('visit_id', visitId ?? NIL_UUID)
         .eq('dispensations.status', 'entregada')
-        .gte('dispensations.delivered_at', `${desde}T00:00:00`)
+        .gte('dispensations.delivered_at', `${desde}T00:00:00${AR_OFFSET}`)
         .order('updated_at', { ascending: false })
         .limit(1)
       if (error) return { data: null, error }
