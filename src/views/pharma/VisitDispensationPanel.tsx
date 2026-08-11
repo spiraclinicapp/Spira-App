@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import type { SelectOption } from '../../components/SearchableSelect'
-import { formatAR } from '../../lib/dates'
+import { formatDateAR } from '../../lib/dates'
 import {
   usePatientMedications,
   useVisitDispensations,
@@ -238,7 +238,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     return (
       <div key={r.id} style={{ border: '1px solid var(--spira-line)', borderRadius: 11, background: 'var(--spira-white)', padding: '11px 13px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>{formatAR(r.created_at.slice(0, 10))}</span>
+          <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>{formatDateAR(r.created_at)}</span>
           <span style={{ marginLeft: 'auto', flex: '0 0 auto', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 'var(--spira-radius-pill)', color: meta.color, background: meta.tint }}>
             {meta.label}
           </span>
@@ -431,7 +431,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               pedido y no dos (ver el comentario de cabecera). */}
           {openReq && (
             <div style={footStyle}>
-              <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>Pedido del {formatAR(openReq.created_at.slice(0, 10))}</span>
+              <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>Pedido del {formatDateAR(openReq.created_at)}</span>
               {constanciaIncompleta ? (
                 // "Incompleta" pisa el badge normal: falta la constancia importa más que si la
                 // solicitud sigue 'solicitada' o ya pasó a 'preparando'. Color en `--spira-warn` a

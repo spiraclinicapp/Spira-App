@@ -58,6 +58,27 @@ export function formatDateTimeAR(ts: string): string {
   return `${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`
 }
 
+/**
+ * TIMESTAMPTZ → `dd/mm/yyyy` en hora LOCAL, sin la hora.
+ *
+ * Existe para que nadie vuelva a escribir `formatAR(ts.slice(0, 10))`, que parece la solución obvia
+ * al problema de arriba —evita la basura, porque el recorte deja una fecha pura bien formada— y trae
+ * uno peor, porque es SILENCIOSO: el recorte devuelve la fecha en **UTC**, así que todo lo creado
+ * después de las 21:00 hora argentina se muestra **un día adelante**. En una app auditable, una
+ * dispensación fechada al día siguiente de cuando ocurrió no es un detalle cosmético.
+ *
+ * Encontrado el 2026-08-10 verificando la dispensación de IP: un pedido creado a las 21:25 aparecía
+ * como "Pedido del 11/08", justo al lado de la fecha de subida del archivo —esa sí localizada— que
+ * decía 10/08. Estaba en tres pantallas a la vez.
+ */
+export function formatDateAR(ts: string): string {
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return '—'
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  return `${dd}/${mm}/${d.getFullYear()}`
+}
+
 /** `YYYY-MM-DD` → `dd/mm` corto para chips y listas densas. */
 export function formatShortAR(iso: string): string {
   const [, m, d] = iso.split('-')
