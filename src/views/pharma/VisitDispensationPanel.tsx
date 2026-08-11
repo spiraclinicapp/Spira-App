@@ -7,6 +7,7 @@ import { formatDateAR } from '../../lib/dates'
 import {
   usePatientMedications,
   useVisitDispensations,
+  useUltimaDispensacion,
   createDispensationRequest,
   addDispensationItems,
   cancelDispensationRequest,
@@ -15,7 +16,7 @@ import {
   constanciaVigente,
   uploadIpDocument,
 } from '../../data/pharma'
-import type { DispensationRequestRow, IpDocumentRow } from '../../data/pharma'
+import type { DispensationRequestRow, IpDocumentRow, UltimaDispensacionRow } from '../../data/pharma'
 import { badgeOf } from './dispensaciones/estados'
 import { Panel } from '../track/Panel'
 import { ConstanciaDropzone, ConstanciaVista } from './ConstanciaIp'
@@ -23,10 +24,13 @@ import { ConstanciaDropzone, ConstanciaVista } from './ConstanciaIp'
 // Tintes con rgba() literal (no se puede concatenar alfa a un var(--x)). --spira-danger #A6483B,
 // --spira-good #5C8A5A, --spira-warn #B0823F.
 const DANGER_TINT = 'rgba(166, 72, 59, 0.10)'
-// Dos alfas del mismo ámbar: .14 para el aviso "Falta la constancia" (texto en tinta, ver `warnBox`),
-// .20 para la píldora "Incompleta" del pie (más saturada porque ahí el color SÍ es la etiqueta —
-// por eso la tinta de esa píldora es el ámbar PROFUNDO de tokens y no `--spira-warn`, ver el pie).
+// Tres alfas del mismo ámbar, una por caja, tal como las midió el mock (cada una contra el peso y
+// el tamaño de SU texto): .14 para el aviso "Falta la constancia" (texto en tinta, ver `warnBox`),
+// .15 para el aviso de dispensación reciente en tono de alerta (`AvisoReciente`), y .20 para la píldora
+// "Incompleta" del pie (más saturada porque ahí el color SÍ es la etiqueta — por eso la tinta de
+// esa píldora es el ámbar PROFUNDO de tokens y no `--spira-warn`, ver el pie).
 const WARN_TINT = 'rgba(176, 130, 63, 0.14)'
+const WARN_TINT_AVISO = 'rgba(176, 130, 63, 0.15)'
 const WARN_TINT_PILL = 'rgba(176, 130, 63, 0.20)'
 
 // STATUS_META y badgeOf viven en dispensaciones/estados.ts (única fuente para Track y Pharma).
@@ -45,15 +49,67 @@ const subLabel: CSSProperties = {
   color: 'var(--spira-ink-soft)',
 }
 
-/** Una subsección de la tarjeta partida. El filete separa; no hay cajas anidadas (mock v6, §2). */
-function Sub({ label, first, children }: { label: string; first?: boolean; children: ReactNode }) {
+/**
+ * El MISMO rótulo, en ámbar, para la subsección de excepción. La excepción se integra por
+ * ESTRUCTURA —es una subsección más, con el mismo ritmo de rótulo, contenido y filete—, no por una
+ * caja aparte: la primera versión colgaba un formulario encima de la tarjeta y el Director la
+ * rechazó por eso (mock §4). Lo único que la distingue es el color del rótulo.
+ *
+ * El ámbar va por `--spira-acc-deep-pharma` y no por `--spira-warn`: como todo color "profundo" de
+ * tokens, se INVIERTE en oscuro (en claro oscurece para leerse sobre papel; en oscuro aclara). El
+ * ámbar oscuro sobre card oscura da 2,39:1, así que el token es también la decisión de contraste.
+ */
+const subLabelExc: CSSProperties = {
+  ...subLabel, color: 'var(--spira-acc-deep-pharma)', display: 'inline-flex',
+  alignItems: 'center', gap: 6,
+}
+
+/**
+ * Una subsección de la tarjeta partida. El filete separa; no hay cajas anidadas (mock v6, §2).
+ * `excepcion` no cambia el ritmo —ese es justamente el punto—, solo tiñe el rótulo y le antepone
+ * el ícono.
+ */
+function Sub({ label, first, excepcion, children }: {
+  label: string
+  first?: boolean
+  excepcion?: boolean
+  children: ReactNode
+}) {
   return (
     <div style={first ? undefined : { marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--spira-line)' }}>
-      <div style={{ ...subLabel, marginBottom: 9 }}>{label}</div>
+      <div style={{ ...(excepcion ? subLabelExc : subLabel), marginBottom: 9 }}>
+        {/* `info` (círculo) y no `alert` (triángulo): el rótulo señala una EXCEPCIÓN, no un error.
+            El triángulo queda reservado para el aviso que sí puede estar marcando un problema. */}
+        {excepcion && <Icon name="info" size={12} stroke={2.4} />}
+        {label}
+      </div>
       {children}
     </div>
   )
 }
+
+/**
+ * Motivos de una dispensación fuera de cronograma. Desplegable y no texto libre: el Director
+ * prefiere valores preestablecidos para no depender de cómo lo escriba cada operador, y este texto
+ * no se queda en la pantalla donde se decidió — viaja a la card del tablero de Farmacia, al cajón y
+ * al COMPROBANTE IMPRESO que lee un monitor. Por eso lo que se manda al servidor es la etiqueta
+ * legible y no la clave (ver `motivoLabel`).
+ *
+ * PENDIENTE: lista propuesta, a confirmar por el Director (2026-08-09). Si la corrige, se corrige
+ * acá y en ningún otro lado.
+ */
+const MOTIVOS_FUERA_CRONOGRAMA: readonly SelectOption[] = [
+  { value: 'reposicion', label: 'Reposición por pérdida o rotura' },
+  { value: 'vnp', label: 'Visita no programada (VNP)' },
+  { value: 'ajuste_dosis', label: 'Ajuste de dosis indicado por el investigador' },
+  { value: 'viaje', label: 'Adelanto por viaje del paciente' },
+  { value: 'otro', label: 'Otro' },
+]
+
+/** Mismo texto por los dos caminos que crean el pedido (renglones y constancia): la falta es la
+ *  misma y el coordinador tiene que leer siempre lo mismo. Sereno, en castellano, sin culpar. */
+const FALTA_MOTIVO_MSG =
+  'Elegí el motivo de la dispensación fuera de cronograma antes de solicitarla.'
 
 /** Renglón de medicación del pedido ABIERTO: fila plana con su propio borde (mock `.item`), sin la
  *  card completa que sí usan las cerradas (`renderCard`) — esas cards traen fecha/estado/cancelar
@@ -90,6 +146,81 @@ const dashedBtn: CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', height: 44,
   borderRadius: 12, border: '1px dashed var(--spira-line-2)', background: 'var(--spira-white)', cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, color: 'var(--spira-ink)',
+}
+/**
+ * La MISMA forma de "Agregar medicación", un escalón más callada, para la salida "Dispensar fuera
+ * de cronograma": la tarjeta ya tiene un idioma para "acá se suma algo" y reusarlo la integra por
+ * estructura en vez de dejarla como un enlace suelto. Lo secundario lo dice el TONO —chapa más
+ * baja, tinta atenuada y el ícono sin acento—, no una forma distinta (mock, estado 5).
+ */
+const dashedBtnQuiet: CSSProperties = {
+  ...dashedBtn, height: 40, fontSize: 13, color: 'var(--spira-ink-soft)',
+}
+
+/**
+ * Aviso de dispensación reciente. Cambia de TONO, no de existencia: dentro de cronograma la entrega
+ * estaba prevista y el dato simplemente se ofrece; fuera de cronograma una entrega repetida sí puede
+ * ser un error y va en ámbar.
+ *
+ * El porqué de la distinción, que es lo que más fácil se arruina: en un protocolo con visitas cada
+ * 28 días una alarma ámbar saltaría TODAS las veces, y una alarma que siempre suena deja de
+ * escucharse justo cuando importa. NUNCA bloquea — avisa.
+ *
+ * Sobre PAPEL BLANCO en el tono informativo, como todo lo que vive adentro de la tarjeta (los
+ * renglones, la zona de adjunto, el archivo): un recuadro teñido adentro de una card teñida es tinte
+ * sobre tinte y se ve sucio. La única que se tiñe es la alerta, porque ahí el color es SIGNIFICADO.
+ */
+function AvisoReciente({ ultima, alerta, accent }: {
+  ultima: UltimaDispensacionRow
+  alerta: boolean
+  accent: string
+}) {
+  // `entregada_el` es un TIMESTAMPTZ (`dispensations.delivered_at`). Ojo con la tentación de
+  // `formatAR(entregada_el.slice(0, 10))`: el recorte devuelve la fecha en UTC y todo lo entregado
+  // después de las 21:00 hora argentina se mostraría un día adelante — el bug que ya apareció en el
+  // pie de esta misma tarjeta (2026-08-10). `formatDateAR` localiza; ver `lib/dates.ts`.
+  const entregada = new Date(ultima.entregada_el)
+  // La capa de datos rellena con '' si faltara `delivered_at`. Antes que decir "hace NaN días" en una
+  // app auditable, no decir nada.
+  if (Number.isNaN(entregada.getTime())) return null
+
+  const dias = Math.max(0, Math.floor((Date.now() - entregada.getTime()) / 86_400_000))
+  // "hace 0 días" no lo dice nadie, y el singular tampoco es "1 días".
+  const cuando = dias === 0 ? 'hoy' : dias === 1 ? 'hace 1 día' : `hace ${dias} días`
+  const detalle = [
+    formatDateAR(ultima.entregada_el),
+    ultima.ip_kits ? `${ultima.ip_kits} kit${ultima.ip_kits > 1 ? 's' : ''} de IP` : null,
+    ultima.items ? `${ultima.items} renglón${ultima.items > 1 ? 'es' : ''} de medicación` : null,
+    ultima.visita ? `en la visita ${ultima.visita}` : null,
+  ].filter(Boolean).join(' · ')
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 11,
+      fontSize: 12.5,
+      // El borde transparente en la alerta (en vez de sacarlo) mantiene la caja del MISMO tamaño en
+      // los dos tonos: es la misma caja en el mismo lugar, solo cambia el color.
+      background: alerta ? WARN_TINT_AVISO : 'var(--spira-white)',
+      border: alerta ? '1px solid transparent' : '1px solid var(--spira-line)',
+      // Alerta = va adentro de la subsección de excepción, pegada al desplegable de motivo (9);
+      // informativo = va suelta arriba de la primera subsección, que respira un poco más (12).
+      marginBottom: alerta ? 9 : 12,
+    }}>
+      <Icon
+        name={alerta ? 'alert' : 'info'} size={15}
+        color={alerta ? 'var(--spira-warn)' : accent}
+        style={{ flex: '0 0 auto', marginTop: 1 }}
+      />
+      <span>
+        <span style={{ display: 'block', fontWeight: 600, color: 'var(--spira-ink)' }}>
+          {alerta ? `Ya se dispensó ${cuando}` : `Última dispensación ${cuando}`}
+        </span>
+        <span style={{ display: 'block', color: 'var(--spira-ink-soft)', marginTop: 2 }}>
+          {detalle}{alerta ? '. Revisá que no sea una entrega repetida.' : '.'}
+        </span>
+      </span>
+    </div>
+  )
 }
 
 interface PendingItem { medication_id: string; name: string; quantity: number }
@@ -131,6 +262,17 @@ interface PendingItem { medication_id: string; name: string; quantity: number }
  * la vista del día: la constancia es nota fuente de un hecho consumado, y en su lugar va el
  * desenlace (fecha · estado · comprobante). Ofrecer ahí el dropzone crearía un segundo pedido para
  * una visita ya dispensada, que es exactamente lo que la 0072 vino a evitar del otro lado.
+ *
+ * FUERA DE CRONOGRAMA (mock, estados 5 y 8). Cuando la visita no entrega nada, la tarjeta ofrece una
+ * salida: dispensar igual, declarando un motivo. Eso agrega una TERCERA subsección —la primera— con
+ * el mismo ritmo que las otras dos, porque una excepción integrada por estructura se lee como parte
+ * del formulario y no como un parche encima. El motivo es la ÚNICA puerta que tiene la base para
+ * saltear la validación del cronograma (`create_dispensation_request`, 0071), y viaja como etiqueta
+ * legible porque termina en el comprobante impreso que lee un monitor.
+ *
+ * Y arriba de todo, el AVISO DE 30 DÍAS (`useUltimaDispensacion`): si al paciente ya se le dispensó
+ * hace poco, se dice antes de que el coordinador cargue nada — si el aviso llega después, llega
+ * tarde. Cambia de tono según el contexto y nunca bloquea; el porqué está en `AvisoReciente`.
  */
 export function VisitDispensationPanel({ visit, accent, readOnly }: {
   visit: { id: string; enrollment_id: string; protocol_id: string; dispenses: boolean; dispenses_ip: boolean }
@@ -139,6 +281,18 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
 }) {
   const reqQ = useVisitDispensations(visit.id)
   const medsQ = usePatientMedications(visit.enrollment_id)
+  /**
+   * Última dispensación entregada del enrolamiento dentro de los últimos 30 días, para el aviso.
+   *
+   * Solo en la vista del día (`readOnly ? null` no dispara la consulta). Dos motivos: el aviso
+   * existe para frenar la mano ANTES de dispensar, y donde no se puede dispensar es puro ruido; y
+   * en la ficha del paciente, abriendo una visita de hace dos meses, "última dispensación hace 3
+   * días" habla de OTRA visita — un dato cierto puesto donde se lee como falso.
+   *
+   * OJO si alguna vez se reusa desde Farmacia: la consulta cruza `patient_visits`, que Pharma no
+   * puede leer por RLS (Track se aísla por protocolo, Pharma es central). Está escrito en el hook.
+   */
+  const ultimaQ = useUltimaDispensacion(readOnly ? null : visit.enrollment_id)
   const [soliciting, setSoliciting] = useState(false)
   const [pick, setPick] = useState('')
   const [qty, setQty] = useState('')
@@ -152,6 +306,17 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   // dropzone sobre una constancia YA cargada (botón "Reemplazar" de `ConstanciaVista`).
   const [subiendo, setSubiendo] = useState(false)
   const [reemplazando, setReemplazando] = useState(false)
+  /**
+   * Excepción fuera de cronograma ABIERTA POR EL COORDINADOR y todavía sin pedido. Es pegajosa a
+   * propósito: no se apaga al crear el pedido. Apagarla ahí dejaría a la tarjeta, durante los
+   * cientos de milisegundos del refetch, sin ninguna de las dos señales —ni el flag local ni la fila
+   * con `off_schedule`— y volvería un instante a "Esta visita no entrega medicación", que es
+   * exactamente lo contrario de lo que acaba de pasar. Desde que el pedido existe manda el flag
+   * SELLADO en la fila (`reqExcepcion`), así que el flag local ya no decide nada; se limpia solo al
+   * cerrar la visita, que es cuando el componente se desmonta.
+   */
+  const [fueraCronograma, setFueraCronograma] = useState(false)
+  const [motivo, setMotivo] = useState('')
 
   const requests = reqQ.data ?? []
   // Abiertas = todavía accionables (solicitada / preparando / lista para retirar); van siempre
@@ -166,6 +331,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const hiddenClosed = closedReqs.length - visibleClosed.length
   const activeMeds = (medsQ.data ?? []).filter((m) => m.active)
   const pendingIds = new Set(items.map((i) => i.medication_id))
+  const ultima = (ultimaQ.data ?? [])[0] ?? null
 
   // "El pedido" que sostiene el pie común: el mismo `openReqs[0]` que reusa `cargarConstancia`. En
   // el caso normal hay a lo sumo un abierto; si por algún motivo hubiera dos (nada lo impide a nivel
@@ -175,6 +341,54 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   // Renglones de medicación de TODOS los pedidos abiertos (no solo `openReq`): así ningún renglón
   // queda oculto si llegara a haber más de uno.
   const openMedItems = openReqs.flatMap((r) => r.items)
+
+  // —— Fuera de cronograma ——
+  /**
+   * El pedido de la excepción, si existe. Manda el flag SELLADO en la fila y no el cronograma vivo,
+   * que es la regla de toda esta tarjeta: `off_schedule` recuerda lo que era cierto cuando se pidió.
+   *
+   * Se busca primero entre los abiertos y después entre los ENTREGADOS, por la misma razón por la
+   * que existe `reqEntregado`: entregado el pedido sale de `openReqs`, y sin este segundo tramo la
+   * tarjeta se olvidaría de que esta visita se dispensó por excepción justo cuando el dato pasa a
+   * ser histórico —y volvería a decir "Esta visita no entrega medicación" arriba de una entrega que
+   * ocurrió—. Cancelados y rechazados quedan AFUERA a propósito, igual que en `reqEntregado`: la
+   * excepción de un pedido que no ocurrió no es una excepción, y dejarla en pantalla congelaría la
+   * tarjeta en un estado que ya no es cierto, sin volver a ofrecer la salida punteada.
+   */
+  const reqExcepcion =
+    openReqs.find((r) => r.off_schedule)
+    ?? requests.find((r) => r.off_schedule && r.status === 'atendida')
+    ?? null
+  /** La excepción está VIVA: o el coordinador la acaba de abrir, o hay un pedido abierto sellado. */
+  const excepcionViva = fueraCronograma || openReqs.some((r) => r.off_schedule)
+  /** Se muestra la subsección: viva, o ya consumada (el pedido de excepción entregado). */
+  const mostrarExcepcion = excepcionViva || reqExcepcion !== null
+  /**
+   * La concomitante se ofrece cuando la visita la entrega O mientras la excepción está viva: fuera
+   * de cronograma se dispensa justamente lo que el cronograma no previó, así que las dos vías tienen
+   * que estar disponibles (mock, estado 8). Con la excepción ya consumada no se reabre: ahí el
+   * pedido está entregado y sus renglones viven en el historial.
+   */
+  const mostrarConcomitante = visit.dispenses || excepcionViva
+  /**
+   * Motivo elegido, como ETIQUETA LEGIBLE. Lo que viaja al servidor es el label y no la clave: ese
+   * texto sale impreso en el comprobante que lee un monitor, y `ajuste_dosis` ahí no dice nada.
+   */
+  const motivoLabel = MOTIVOS_FUERA_CRONOGRAMA.find((m) => m.value === motivo)?.label ?? null
+  /**
+   * El motivo solo viaja cuando el pedido NACE: es el argumento que saltea la validación del
+   * cronograma en `create_dispensation_request`. Con un pedido ya abierto la marca está sellada en
+   * la fila y sumarle renglones no la vuelve a declarar.
+   */
+  const razonExcepcion = fueraCronograma && !openReq ? motivoLabel : null
+  /**
+   * Sin motivo no hay excepción: el motivo es la ÚNICA puerta que tiene la base para saltear el
+   * cronograma (0071), así que mandar sin él termina en el rechazo "Esta visita no entrega
+   * medicación" — un error del servidor por algo que la pantalla ya sabía. No se deshabilita nada:
+   * el desplegable está primero, arriba de todo, y un botón deshabilitado que no explica por qué es
+   * peor que un mensaje sereno al intentar (ver `agregarBloqueado`, que sí lo explica).
+   */
+  const faltaMotivo = fueraCronograma && !openReq && !motivoLabel
 
   // Ofrecer solo la medicación habilitada activa que todavía no esté ni en la lista de esta
   // solicitud ni en el pedido ABIERTO. Lo segundo faltaba: la base no impide repetir el mismo
@@ -220,13 +434,9 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
       : null
 
   // —— Producto en investigación ——
-  // La sección se muestra si lo dice el CRONOGRAMA o si el pedido abierto lo tiene SELLADO. El
-  // servidor sella `includes_ip` al crear el pedido justamente porque el cronograma puede cambiar
-  // después (0071, índice de `supabase/README.md`). Mirando solo el cronograma, destildar
-  // `dispenses_ip` con un pedido abierto que ya lleva IP hacía desaparecer la sección: sin lugar
-  // donde cargar la constancia, y Farmacia trabada porque su RPC la exige para emitir el comprobante.
+  // Algún pedido abierto lleva IP SELLADO por el servidor (0071, índice de `supabase/README.md`).
+  // El porqué de mirar el sello y no solo el cronograma está entero en `mostrarIp`, más abajo.
   const ipSellado = openReqs.some((r) => r.includes_ip)
-  const mostrarIp = visit.dispenses_ip || ipSellado
 
   // La constancia del pedido ABIERTO. Puede vivir en cualquiera de los abiertos, no necesariamente
   // en el más nuevo: desde la 0072 los dos caminos se suman al mismo pedido, pero los pedidos
@@ -252,6 +462,23 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const constanciaEntregada = reqEntregado ? constanciaVigente(reqEntregado) : null
   const badgeEntregado = reqEntregado ? badgeOf(reqEntregado) : null
   const comprobanteEntregado = reqEntregado ? activeDispensation(reqEntregado)?.correlative_number ?? null : null
+
+  /**
+   * Si se muestra la subsección de IP. Se declara acá abajo —y no junto a `ipSellado`— porque
+   * necesita `reqEntregado`, que se calcula recién ahora. Cuatro razones, cualquiera alcanza:
+   *
+   *   · el CRONOGRAMA lo dice (`dispenses_ip`), que es el caso normal;
+   *   · un pedido abierto lo tiene SELLADO (`ipSellado`): el servidor sella `includes_ip` al crear
+   *     el pedido justamente porque el cronograma puede cambiar después (0071). Mirando solo el
+   *     cronograma, destildar `dispenses_ip` con un pedido abierto que ya lleva IP hacía desaparecer
+   *     la sección: sin lugar donde cargar la constancia, y Farmacia trabada porque su RPC la exige;
+   *   · la excepción está VIVA: fuera de cronograma el pedido nace con `includes_ip` en false (la
+   *     excepción no implica IP, 0071 §create) y recién lo prende al adjuntar la constancia — o sea
+   *     que sin este término no habría dónde adjuntarla y el sello nunca llegaría a prenderse;
+   *   · hay un pedido ENTREGADO con constancia: es nota fuente de un hecho consumado y la tarjeta no
+   *     puede olvidarse de él, ni siquiera si después alguien destildó el cronograma.
+   */
+  const mostrarIp = visit.dispenses_ip || ipSellado || excepcionViva || reqEntregado !== null
 
   // Con un pedido abierto la sección está EN CURSO: se carga o se reemplaza la constancia contra él.
   // Sin ninguno abierto no hay a qué adjuntarla — o se muestra en lectura la del pedido entregado,
@@ -310,15 +537,19 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    * devuelve el mensaje sereno de la base ("cancelá la preparación para sumarla"). Es a propósito —
    * crear un segundo pedido ahí es exactamente lo que esta tarea vino a evitar, y la decisión de
    * partir el pedido tiene que ser de una persona, no un efecto lateral de un botón.
+   *
+   * Fuera de cronograma el motivo viaja como quinto argumento, y solo al CREAR: es lo que saltea la
+   * validación del cronograma server-side. Sumar renglones a un pedido ya sellado no lo re-declara.
    */
   async function solicit() {
     if (!items.length) return
+    if (faltaMotivo) { setErr(FALTA_MOTIVO_MSG); return }
     setBusy(true); setErr(null)
     const payload = items.map((i) => ({ medication_id: i.medication_id, quantity: i.quantity }))
     const abierto = openReqs[0] ?? null
     const res = abierto
       ? await addDispensationItems(abierto.id, payload)
-      : await createDispensationRequest(visit.id, payload, null)
+      : await createDispensationRequest(visit.id, payload, null, 'track', razonExcepcion)
     setBusy(false)
     if (res.error) { setErr(res.error); return }
     setItems([]); setSoliciting(false); reqQ.refetch()
@@ -333,13 +564,15 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
 
   /**
    * El primero que actúa crea el pedido; el segundo se suma al mismo. Si no hay pedido abierto,
-   * cargar la constancia lo crea (sin renglones, que es el caso típico del IP solo).
+   * cargar la constancia lo crea (sin renglones, que es el caso típico del IP solo) — y fuera de
+   * cronograma ese pedido nace con el motivo, o la base lo rechaza por no estar en el cronograma.
    */
   async function cargarConstancia(f: File) {
+    if (faltaMotivo) { setErr(FALTA_MOTIVO_MSG); return }
     setSubiendo(true); setErr(null)
     let requestId = openReqs[0]?.id ?? null
     if (!requestId) {
-      const res = await createDispensationRequest(visit.id, [], null, 'track')
+      const res = await createDispensationRequest(visit.id, [], null, 'track', razonExcepcion)
       if (res.error) { setErr(res.error); setSubiendo(false); return }
       requestId = res.id!
     }
@@ -416,25 +649,79 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     )
   }
 
-  // `mostrarIp` y no `visit.dispenses_ip`: si el cronograma se destildó con un pedido de IP abierto,
-  // la tarjeta seguiría diciendo "esta visita no entrega medicación" arriba de un pedido vivo.
-  const nada = !visit.dispenses && !mostrarIp
+  // Los `mostrar*` y no los flags del cronograma: si el cronograma se destildó con un pedido de IP
+  // abierto —o si esta dispensación existe por EXCEPCIÓN, donde el cronograma dice que no—, la
+  // tarjeta seguiría diciendo "esta visita no entrega medicación" arriba de un pedido vivo.
+  const nada = !mostrarConcomitante && !mostrarIp && !mostrarExcepcion
 
   return (
     <Panel
       title="Dispensación" icon="pill" accent={accent}
-      highlight={visit.dispenses || mostrarIp}
+      // El realce se apaga cuando no hay NADA que dispensar (mock §4): una tarjeta sin trabajo no
+      // debería llamar la atención. Es el complemento exacto de `nada`, así que va escrito así y no
+      // repitiendo la lista de condiciones, que se desincronizaría a la primera.
+      highlight={!nada}
       deepAccent="var(--spira-acc-deep-track)"
     >
       {nada ? (
-        // Tarea 9 suma acá la salida "Dispensar fuera de cronograma" (mock, estado 5).
-        <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', padding: '4px 0' }}>Esta visita no entrega medicación.</div>
+        <>
+          <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', padding: '4px 0' }}>Esta visita no entrega medicación.</div>
+          {/* La salida (mock, estado 5). Solo en la vista del día: en la ficha del paciente no se
+              dispensa. El 4 de padding de arriba + este margen dan los 11px de aire del mock. */}
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => { setFueraCronograma(true); setErr(null) }}
+              style={{ ...dashedBtnQuiet, marginTop: 7 }}
+            >
+              <Icon name="plus" size={15} color="var(--spira-muted)" /> Dispensar fuera de cronograma
+            </button>
+          )}
+        </>
       ) : (
         <>
           {err && <div style={errBox}>{err}</div>}
 
-          {visit.dispenses && (
-            <Sub label="Medicación concomitante" first>
+          {/* El aviso de dispensación reciente va ARRIBA DE TODO: si llega después de que el
+              coordinador ya cargó la medicación, llega tarde. Con la excepción en pantalla se muda
+              adentro de esa subsección —que también es lo primero— y ahí cambia al tono de alerta,
+              porque es el único contexto en el que una entrega repetida es un riesgo real. */}
+          {ultima && !mostrarExcepcion && (
+            <AvisoReciente ultima={ultima} alerta={false} accent={accent} />
+          )}
+
+          {mostrarExcepcion && (
+            <Sub label="Fuera de cronograma" first excepcion>
+              {ultima && <AvisoReciente ultima={ultima} alerta accent={accent} />}
+              {reqExcepcion ? (
+                // Con el pedido ya creado manda el motivo SELLADO en la fila, no el desplegable: es
+                // el texto que Farmacia ve en el cajón y que sale impreso en el comprobante, y
+                // dejarlo editable acá lo haría diferir del papel. Sobre papel blanco, como todo lo
+                // que vive adentro de la tarjeta.
+                <div style={{ ...itemRow, color: 'var(--spira-ink)' }}>
+                  {reqExcepcion.off_schedule_reason ?? 'Sin motivo registrado'}
+                </div>
+              ) : (
+                // Sin `reqExcepcion` la excepción todavía no se pidió, y eso solo puede pasar por
+                // `fueraCronograma`, que únicamente se prende en la vista del día: acá nunca se
+                // llega en modo lectura.
+                //
+                // `searchable="never"`: son cinco motivos cortos, entran todos en el menú. Con el
+                // 'auto' por default el umbral (5) se cumple justo y aparecería un buscador para
+                // filtrar una lista que ya se lee entera de un vistazo.
+                <SearchableSelect
+                  value={motivo}
+                  onChange={setMotivo}
+                  options={MOTIVOS_FUERA_CRONOGRAMA}
+                  placeholder="Motivo de la excepción…"
+                  searchable="never"
+                />
+              )}
+            </Sub>
+          )}
+
+          {mostrarConcomitante && (
+            <Sub label="Medicación concomitante" first={!mostrarExcepcion}>
               {openMedItems.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 9 }}>
                   {openMedItems.map((it) => (
@@ -549,7 +836,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
           )}
 
           {mostrarIp && (
-            <Sub label="Producto en investigación" first={!visit.dispenses}>
+            <Sub label="Producto en investigación" first={!mostrarExcepcion && !mostrarConcomitante}>
               {constanciaIncompleta && (
                 <div style={warnBox}>
                   <Icon name="alert" size={15} color="var(--spira-warn)" stroke={2} style={{ marginTop: 1, flex: '0 0 auto' }} />
@@ -623,10 +910,13 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             </Sub>
           )}
 
-          {/* El historial como subsección propia cuando la visita NO entrega concomitante: ahí no
+          {/* El historial como subsección propia cuando NO se muestra la de concomitante: ahí no
               existe la rama de la que colgaba, y sin esto una visita solo-IP ya dispensada no
-              mostraba ni un pedido. Con concomitante sigue donde estaba, adentro de esa subsección. */}
-          {!visit.dispenses && closedReqs.length > 0 && (
+              mostraba ni un pedido. Con concomitante sigue donde estaba, adentro de esa subsección
+              (por eso la condición es `mostrarConcomitante` y no `visit.dispenses`: fuera de
+              cronograma la subsección aparece sin que el cronograma la entregue, y las dos ramas se
+              habrían dibujado a la vez). */}
+          {!mostrarConcomitante && closedReqs.length > 0 && (
             <Sub label="Historial">{renderHistorial(false)}</Sub>
           )}
 
