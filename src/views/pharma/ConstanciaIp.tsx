@@ -48,7 +48,10 @@ export function ConstanciaDropzone({ accent, busy, onFile }: {
       className="spira-card-link"
       style={{
         display: 'block', width: '100%',
-        border: '1px dashed var(--spira-line-2)', borderRadius: 12, background: 'var(--spira-white)',
+        // Sólido, como el resto de las cajas de la tarjeta. El punteado queda reservado para un
+        // valor PENDIENTE de declarar (el campo de kits de Farmacia); usarlo también acá lo vaciaba
+        // de significado. Decisión del Director, 2026-08-11.
+        border: '1px solid var(--spira-line)', borderRadius: 12, background: 'var(--spira-white)',
         padding: '17px 14px', textAlign: 'center', cursor: busy ? 'default' : 'pointer',
         opacity: busy ? 0.6 : 1, transform: over ? 'translateY(-1px)' : undefined,
         boxShadow: over ? 'var(--spira-shadow-sm)' : undefined,

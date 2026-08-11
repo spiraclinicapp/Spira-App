@@ -142,9 +142,16 @@ const linkBtn: CSSProperties = {
   marginLeft: 'auto', background: 'transparent', border: 'none', padding: '2px 0', cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-muted)',
 }
-const dashedBtn: CSSProperties = {
+/**
+ * Borde SÓLIDO y del mismo tono que el resto de las cajas de la tarjeta (`--spira-line`, el mismo de
+ * la card de Comentarios y de los renglones de medicación). Antes iba punteado, que en el sistema no
+ * quiere decir nada: acá el punteado se usa para un valor PENDIENTE de declarar (el campo de kits de
+ * Farmacia), y gastarlo también en "sumá algo" lo vaciaba de significado y dejaba la tarjeta con
+ * cuatro cajas de tres bordes distintos. Decisión del Director, 2026-08-11.
+ */
+const addBtn: CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', height: 44,
-  borderRadius: 12, border: '1px dashed var(--spira-line-2)', background: 'var(--spira-white)', cursor: 'pointer',
+  borderRadius: 12, border: '1px solid var(--spira-line)', background: 'var(--spira-white)', cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, color: 'var(--spira-ink)',
 }
 /**
@@ -153,8 +160,8 @@ const dashedBtn: CSSProperties = {
  * estructura en vez de dejarla como un enlace suelto. Lo secundario lo dice el TONO —chapa más
  * baja, tinta atenuada y el ícono sin acento—, no una forma distinta (mock, estado 5).
  */
-const dashedBtnQuiet: CSSProperties = {
-  ...dashedBtn, height: 40, fontSize: 13, color: 'var(--spira-ink-soft)',
+const addBtnQuiet: CSSProperties = {
+  ...addBtn, height: 40, fontSize: 13, color: 'var(--spira-ink-soft)',
 }
 
 /**
@@ -367,15 +374,13 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
 
   const requests = reqQ.data ?? []
   // Abiertas = todavía accionables (solicitada / preparando / lista para retirar); van siempre
-  // arriba. Cerradas = entregada / cancelada / rechazada; se pliegan a las 2 más recientes.
+  // arriba. Cerradas = entregada / cancelada / rechazada.
   // `columnOf` devuelve null para cancelada/rechazada y 'entregada' para las ya retiradas.
   const openReqs = requests.filter((r) => {
     const col = columnOf(r)
     return col === 'solicitada' || col === 'preparando' || col === 'lista'
   })
   const closedReqs = requests.filter((r) => !openReqs.includes(r))
-  const visibleClosed = showAllClosed ? closedReqs : closedReqs.slice(0, 2)
-  const hiddenClosed = closedReqs.length - visibleClosed.length
   const activeMeds = (medsQ.data ?? []).filter((m) => m.active)
   const pendingIds = new Set(items.map((i) => i.medication_id))
 
@@ -508,6 +513,20 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const constanciaEntregada = reqEntregado ? constanciaVigente(reqEntregado) : null
   const badgeEntregado = reqEntregado ? badgeOf(reqEntregado) : null
   const comprobanteEntregado = reqEntregado ? activeDispensation(reqEntregado)?.correlative_number ?? null : null
+
+  /**
+   * Lo que va al historial. **Excluye el pedido entregado que la sección de IP ya muestra como
+   * desenlace**: es el mismo pedido, con el mismo número de comprobante, dos veces en la misma
+   * tarjeta y a diez píxeles de distancia — que es justo lo que hacía ver el historial como algo
+   * metido con calzador.
+   *
+   * Solo la ÚLTIMA a la vista, el resto plegado. `requests` viene ordenado por `created_at`
+   * descendente, así que la primera es la más nueva — la única que alguien mira ("¿ya se le entregó
+   * algo?"). El resto queda a un clic: no se pierde nada, deja de estorbar.
+   */
+  const histReqs = closedReqs.filter((r) => r !== reqEntregado)
+  const visibleClosed = showAllClosed ? histReqs : histReqs.slice(0, 1)
+  const hiddenClosed = histReqs.length - visibleClosed.length
 
   /**
    * Si se muestra la subsección de IP. Se declara acá abajo —y no junto a `ipSellado`— porque
@@ -668,22 +687,18 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    * Historial de pedidos CERRADOS (entregados / cancelados / rechazados). Van con la card completa
    * de `renderCard` —y no como filas planas— porque son pedidos aparte, con su propio desenlace.
    *
-   * Vive en una función y no inline porque tiene que poder aparecer en DOS lugares: dentro de la
-   * subsección de concomitante cuando la visita la entrega (donde ya estaba; ese circuito está en
-   * producción y no se mueve de sitio) y como subsección propia cuando la visita SOLO entrega IP.
-   * Antes colgaba de la rama de la concomitante, así que en una visita solo-IP no se renderizaba
-   * NUNCA: entregado el pedido, no quedaba ningún rastro de la dispensación en la tarjeta.
-   *
-   * `conRotulo` es el "Historial" chiquito que separa las cards de los renglones del pedido abierto;
-   * cuando el historial va como subsección propia sobra, porque ya lo rotula el `Sub`.
+   * Va SIEMPRE como subsección propia y al final de la tarjeta (el `Sub` de afuera lo rotula), con
+   * la última a la vista y el resto plegado. Antes se dibujaba adentro de la subsección de
+   * concomitante, partiendo al medio lo que se está haciendo ahora; y como colgaba de esa rama, en
+   * una visita solo-IP no se renderizaba NUNCA — entregado el pedido, no quedaba ningún rastro de la
+   * dispensación en la tarjeta.
    */
-  function renderHistorial(conRotulo: boolean) {
-    if (closedReqs.length === 0) return null
+  function renderHistorial() {
+    if (histReqs.length === 0) return null
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {conRotulo && <div className="spira-eyebrow" style={{ marginTop: 2 }}>Historial</div>}
         {visibleClosed.map(renderCard)}
-        {(hiddenClosed > 0 || showAllClosed) && closedReqs.length > 2 && (
+        {histReqs.length > 1 && (
           <button
             type="button" onClick={() => setShowAllClosed((v) => !v)}
             style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '2px 0', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-muted)' }}
@@ -726,7 +741,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             <button
               type="button"
               onClick={() => { setFueraCronograma(true); setErr(null) }}
-              style={{ ...dashedBtnQuiet, marginTop: 7 }}
+              style={{ ...addBtnQuiet, marginTop: 7 }}
             >
               <Icon name="plus" size={15} color="var(--spira-muted)" /> Dispensar fuera de cronograma
             </button>
@@ -792,10 +807,6 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 </div>
               )}
 
-              {/* historial (pedidos cerrados): sin cambios de comportamiento, misma card de siempre —
-                  esos sí son pedidos aparte, con su propio desenlace, y merecen su fecha/estado propios. */}
-              {renderHistorial(openMedItems.length > 0)}
-
               {readOnly && requests.length === 0 && !reqQ.loading && (
                 <div style={{ ...muted, padding: '2px 0' }}>Sin dispensación solicitada.</div>
               )}
@@ -810,7 +821,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                     type="button" disabled={agregarBloqueado !== null}
                     onClick={() => { setSoliciting(true); setErr(null) }}
                     style={{
-                      ...dashedBtn,
+                      ...addBtn,
                       cursor: agregarBloqueado ? 'default' : 'pointer',
                       opacity: agregarBloqueado ? 0.6 : 1,
                     }}
@@ -967,14 +978,15 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             </Sub>
           )}
 
-          {/* El historial como subsección propia cuando NO se muestra la de concomitante: ahí no
-              existe la rama de la que colgaba, y sin esto una visita solo-IP ya dispensada no
-              mostraba ni un pedido. Con concomitante sigue donde estaba, adentro de esa subsección
-              (por eso la condición es `mostrarConcomitante` y no `visit.dispenses`: fuera de
-              cronograma la subsección aparece sin que el cronograma la entregue, y las dos ramas se
-              habrían dibujado a la vez). */}
-          {!mostrarConcomitante && closedReqs.length > 0 && (
-            <Sub label="Historial">{renderHistorial(false)}</Sub>
+          {/* El historial va SIEMPRE al final y como subsección propia. Antes vivía adentro de
+              "Medicación concomitante", entre los renglones del pedido abierto y el botón de
+              agregar: partía al medio lo único que se está haciendo ahora con dos o tres pedidos
+              muertos, y la sección de IP quedaba empujada abajo de una pila de canceladas. Lo que
+              pasó es pasado; lo que hay que hacer va primero. */}
+          {histReqs.length > 0 && (
+            <Sub label="Historial" first={!mostrarExcepcion && !mostrarConcomitante && !mostrarIp}>
+              {renderHistorial()}
+            </Sub>
           )}
 
           {/* pie común: fecha + estado + cancelar, UNA sola vez — es lo que dice que arriba hay un
