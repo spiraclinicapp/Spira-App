@@ -403,6 +403,29 @@ export async function createDispensationRequest(
 }
 
 /**
+ * Agrega renglones a un pedido de dispensación YA ABIERTO (RPC `add_dispensation_items`, 0072).
+ *
+ * Es la contraparte de `attach_ip_document`, y existe para que la regla "un solo pedido por visita"
+ * valga en los DOS órdenes. Antes de la 0072 solo había `create_dispensation_request`, que siempre
+ * crea uno nuevo: cargar la constancia primero y agregar medicación después dejaba la visita con dos
+ * pedidos —dos tarjetas en el tablero de Farmacia y dos comprobantes para el mismo hecho—.
+ *
+ * Solo funciona con el pedido en `solicitada`. Si Farmacia ya lo tomó, la base responde con un
+ * mensaje que nombra la salida real (que cancele la preparación), no el estado interno.
+ */
+export async function addDispensationItems(
+  requestId: string,
+  items: RequestItemInput[],
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('add_dispensation_items', {
+    p_request_id: requestId,
+    p_items: items,
+  })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/**
  * Track cancela su solicitud (RPC `cancel_dispensation_request`). Solo si sigue pendiente
  * (`solicitada`); si no, la base devuelve un mensaje claro.
  */

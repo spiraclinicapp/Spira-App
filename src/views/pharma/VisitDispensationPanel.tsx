@@ -8,6 +8,7 @@ import {
   usePatientMedications,
   useVisitDispensations,
   createDispensationRequest,
+  addDispensationItems,
   cancelDispensationRequest,
   columnOf,
   constanciaVigente,
@@ -95,9 +96,11 @@ interface PendingItem { medication_id: string; name: string; quantity: number }
  *   · Producto en investigación (IP) — si el cronograma dice que la visita entrega IP
  *     (`dispenses_ip`), se adjunta la constancia del IRT (`dispensation_ip_documents`).
  *
- * El PRIMERO que actúa crea el pedido (`create_dispensation_request`); el segundo se suma al mismo
- * (ver `cargarConstancia`, que reusa `openReqs[0]` si ya hay uno abierto). Un pedido de solo IP nace
- * sin renglones — es el caso típico de una visita de protocolo que no entrega concomitante.
+ * El PRIMERO que actúa crea el pedido (`create_dispensation_request`); el segundo se suma al mismo,
+ * en CUALQUIERA de los dos órdenes: `cargarConstancia` y `solicit` reusan los dos el mismo
+ * `openReqs[0]`, la constancia vía `attach_ip_document` y la medicación vía `addDispensationItems`
+ * (0072). Un pedido de solo IP nace sin renglones — es el caso típico de una visita de protocolo que
+ * no entrega concomitante.
  *
  * Monta su PROPIO `Panel` (como `VisitProcedures`): el realce (carta teñida) depende de si hay algo
  * que dispensar —concomitante O IP—, y eso solo lo sabe este componente. Se apaga si no hay nada
@@ -162,9 +165,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   // Renglones de medicación de TODOS los pedidos abiertos (no solo `openReq`): así ningún renglón
   // queda oculto si llegara a haber más de uno.
   const openMedItems = openReqs.flatMap((r) => r.items)
-  // La constancia vigente puede vivir en cualquiera de los abiertos (no necesariamente en el más
-  // nuevo): si el IP se cargó antes de que existiera un renglón de medicación, el renglón después
-  // pudo haber creado un pedido más nuevo por su lado (ver el informe: `solicit()` no se tocó).
+  // La constancia vigente puede vivir en cualquiera de los abiertos, no necesariamente en el más
+  // nuevo. Desde la 0072 los dos caminos se suman al mismo pedido, así que en la práctica hay uno
+  // solo; pero los pedidos partidos que quedaron de antes —y los que Pharma dé de alta por su
+  // cuenta— siguen existiendo, y la constancia no tiene por qué estar en el último.
   const constancia: IpDocumentRow | null = openReqs.reduce<IpDocumentRow | null>(
     (found, r) => found ?? constanciaVigente(r), null,
   )
@@ -178,14 +182,25 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     setPick(''); setQty('')
   }
 
+  /**
+   * El primero que actúa crea el pedido; el segundo se suma al mismo — igual que `cargarConstancia`,
+   * y por el mismo `openReqs[0]`. Hasta la 0072 esta función SIEMPRE creaba un pedido nuevo, así que
+   * cargar la constancia primero y agregar medicación después dejaba la visita con dos pedidos: dos
+   * tarjetas en el tablero de Farmacia y dos comprobantes para el mismo hecho.
+   *
+   * Si Farmacia ya tomó el pedido abierto, `addDispensationItems` NO crea uno nuevo por su cuenta:
+   * devuelve el mensaje sereno de la base ("cancelá la preparación para sumarla"). Es a propósito —
+   * crear un segundo pedido ahí es exactamente lo que esta tarea vino a evitar, y la decisión de
+   * partir el pedido tiene que ser de una persona, no un efecto lateral de un botón.
+   */
   async function solicit() {
     if (!items.length) return
     setBusy(true); setErr(null)
-    const res = await createDispensationRequest(
-      visit.id,
-      items.map((i) => ({ medication_id: i.medication_id, quantity: i.quantity })),
-      null,
-    )
+    const payload = items.map((i) => ({ medication_id: i.medication_id, quantity: i.quantity }))
+    const abierto = openReqs[0] ?? null
+    const res = abierto
+      ? await addDispensationItems(abierto.id, payload)
+      : await createDispensationRequest(visit.id, payload, null)
     setBusy(false)
     if (res.error) { setErr(res.error); return }
     setItems([]); setSoliciting(false); reqQ.refetch()
