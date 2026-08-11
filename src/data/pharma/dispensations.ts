@@ -589,14 +589,25 @@ export interface UltimaDispensacionRow {
 }
 
 /**
- * La última dispensación ENTREGADA del mismo enrolamiento dentro de los últimos 30 días.
+ * La última dispensación ENTREGADA del mismo enrolamiento dentro de los últimos 30 días, EXCLUYENDO
+ * la visita actual.
  *
  * Va por consulta común y no por RPC: Track ya puede leer las solicitudes de las visitas de su
  * protocolo por RLS, y acotarla al enrolamiento la deja dentro de lo que el coordinador ya ve. No
  * cruza protocolos a propósito — además de que la RLS no lo dejaría, la comparación útil es contra
  * el mismo estudio.
+ *
+ * `visitId` (la visita que está mirando el coordinador) es OBLIGATORIO y no un detalle de afinado:
+ * sin excluirla, una visita fuera de cronograma recién dispensada se gana a sí misma el `order by
+ * updated_at desc limit 1` de acá abajo —`updated_at` se sella con el trigger de la solicitud justo
+ * cuando la entrega la cierra (`trg_requests_updated_at`, 0003:29), así que la fila más nueva es la
+ * que el coordinador acaba de crear— y el aviso pasa a hablar de la entrega que la propia tarjeta
+ * está mostrando unos centímetros más abajo. Es una alarma que se dispara a sí misma, exactamente el
+ * modo de falla que este aviso existe para evitar. NO "simplifiques" este parámetro de vuelta a uno
+ * solo: sin la exclusión, el caso benigno (cualquier visita ya dispensada) igual se autorreferencia
+ * ("Última dispensación hoy… en la visita [esta misma]").
  */
-export function useUltimaDispensacion(enrollmentId: string | null) {
+export function useUltimaDispensacion(enrollmentId: string | null, visitId: string | null) {
   return useSupabaseQuery<UltimaDispensacionRow[]>(
     async (c) => {
       if (!enrollmentId) return { data: [], error: null }
@@ -614,6 +625,10 @@ export function useUltimaDispensacion(enrollmentId: string | null) {
           'dispensations:dispensations!inner(status, delivered_at, ip_kits)',
         )
         .eq('visit.enrollment_id', enrollmentId)
+        // Excluye la visita actual (ver el porqué arriba). `NIL_UUID` cuando no hay visita —no
+        // rompe el filtro, simplemente no excluye nada, que es el comportamiento correcto si algún
+        // día un llamador la pide sin una visita en contexto.
+        .neq('visit_id', visitId ?? NIL_UUID)
         .eq('dispensations.status', 'entregada')
         .gte('dispensations.delivered_at', `${desde}T00:00:00`)
         .order('updated_at', { ascending: false })
@@ -635,6 +650,6 @@ export function useUltimaDispensacion(enrollmentId: string | null) {
         error: null,
       }
     },
-    [enrollmentId],
+    [enrollmentId, visitId],
   )
 }

@@ -169,12 +169,56 @@ const dashedBtnQuiet: CSSProperties = {
  * Sobre PAPEL BLANCO en el tono informativo, como todo lo que vive adentro de la tarjeta (los
  * renglones, la zona de adjunto, el archivo): un recuadro teñido adentro de una card teñida es tinte
  * sobre tinte y se ve sucio. La única que se tiñe es la alerta, porque ahí el color es SIGNIFICADO.
+ *
+ * Recibe el `QueryResult` de `useUltimaDispensacion` COMPLETO —no ya el dato resuelto— porque tiene
+ * que cubrir loading y error, no solo el caso feliz: antes solo miraba `ultima`, así que mientras la
+ * consulta estaba en vuelo o si fallaba, esta función devolvía `null` igual que "no hubo dispensación
+ * reciente" — un falso negativo en el aviso que existe justamente para prevenir una entrega repetida.
+ * Mismo criterio que ya usa `reqQ.loading` más abajo (rama de concomitante y de IP) para no afirmar
+ * "Sin dispensación solicitada." / "Sin constancia cargada." antes de que la consulta termine — acá el
+ * costo de equivocarse es mayor, así que el error además se hace VISIBLE (no un silencio más).
  */
-function AvisoReciente({ ultima, alerta, accent }: {
-  ultima: UltimaDispensacionRow
+function AvisoReciente({ query, alerta, accent }: {
+  query: { data: UltimaDispensacionRow[] | null; loading: boolean; error: string | null }
   alerta: boolean
   accent: string
 }) {
+  const marginBottom = alerta ? 9 : 12 // ver el porqué de los dos valores más abajo, en el caso feliz.
+
+  if (query.loading) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 11,
+        fontSize: 12.5, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', marginBottom,
+      }}>
+        <Icon name="clock" size={15} color="var(--spira-muted)" style={{ flex: '0 0 auto' }} />
+        <span style={{ color: 'var(--spira-muted)' }}>Comprobando dispensaciones recientes…</span>
+      </div>
+    )
+  }
+
+  if (query.error) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 11,
+        fontSize: 12.5, background: WARN_TINT_AVISO, border: '1px solid transparent', marginBottom,
+      }}>
+        <Icon name="alert" size={15} color="var(--spira-warn)" style={{ flex: '0 0 auto', marginTop: 1 }} />
+        <span>
+          <span style={{ display: 'block', fontWeight: 600, color: 'var(--spira-ink)' }}>
+            No se pudo comprobar si hubo una dispensación reciente
+          </span>
+          <span style={{ display: 'block', color: 'var(--spira-ink-soft)', marginTop: 2 }}>
+            Revisá el historial de la izquierda antes de dispensar, por las dudas.
+          </span>
+        </span>
+      </div>
+    )
+  }
+
+  const ultima = (query.data ?? [])[0]
+  if (!ultima) return null
+
   // `entregada_el` es un TIMESTAMPTZ (`dispensations.delivered_at`). Ojo con la tentación de
   // `formatAR(entregada_el.slice(0, 10))`: el recorte devuelve la fecha en UTC y todo lo entregado
   // después de las 21:00 hora argentina se mostraría un día adelante — el bug que ya apareció en el
@@ -204,7 +248,7 @@ function AvisoReciente({ ultima, alerta, accent }: {
       border: alerta ? '1px solid transparent' : '1px solid var(--spira-line)',
       // Alerta = va adentro de la subsección de excepción, pegada al desplegable de motivo (9);
       // informativo = va suelta arriba de la primera subsección, que respira un poco más (12).
-      marginBottom: alerta ? 9 : 12,
+      marginBottom,
     }}>
       <Icon
         name={alerta ? 'alert' : 'info'} size={15}
@@ -291,8 +335,12 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    *
    * OJO si alguna vez se reusa desde Farmacia: la consulta cruza `patient_visits`, que Pharma no
    * puede leer por RLS (Track se aísla por protocolo, Pharma es central). Está escrito en el hook.
+   *
+   * `visit.id` viaja como segundo argumento para EXCLUIR la visita actual del resultado (ver el
+   * porqué en el hook): sin eso, apenas se dispensa fuera de cronograma, la solicitud recién creada
+   * de ESTA visita gana el "más reciente" y el aviso termina hablando de sí mismo.
    */
-  const ultimaQ = useUltimaDispensacion(readOnly ? null : visit.enrollment_id)
+  const ultimaQ = useUltimaDispensacion(readOnly ? null : visit.enrollment_id, visit.id)
   const [soliciting, setSoliciting] = useState(false)
   const [pick, setPick] = useState('')
   const [qty, setQty] = useState('')
@@ -331,7 +379,6 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const hiddenClosed = closedReqs.length - visibleClosed.length
   const activeMeds = (medsQ.data ?? []).filter((m) => m.active)
   const pendingIds = new Set(items.map((i) => i.medication_id))
-  const ultima = (ultimaQ.data ?? [])[0] ?? null
 
   // "El pedido" que sostiene el pie común: el mismo `openReqs[0]` que reusa `cargarConstancia`. En
   // el caso normal hay a lo sumo un abierto; si por algún motivo hubiera dos (nada lo impide a nivel
@@ -685,14 +732,14 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
           {/* El aviso de dispensación reciente va ARRIBA DE TODO: si llega después de que el
               coordinador ya cargó la medicación, llega tarde. Con la excepción en pantalla se muda
               adentro de esa subsección —que también es lo primero— y ahí cambia al tono de alerta,
-              porque es el único contexto en el que una entrega repetida es un riesgo real. */}
-          {ultima && !mostrarExcepcion && (
-            <AvisoReciente ultima={ultima} alerta={false} accent={accent} />
-          )}
+              porque es el único contexto en el que una entrega repetida es un riesgo real.
+              Sin guarda de `ultima`: `AvisoReciente` recibe el `QueryResult` entero y decide sola si
+              hay algo que mostrar (loading / error / dato / nada) — ver el porqué en su comentario. */}
+          {!mostrarExcepcion && <AvisoReciente query={ultimaQ} alerta={false} accent={accent} />}
 
           {mostrarExcepcion && (
             <Sub label="Fuera de cronograma" first excepcion>
-              {ultima && <AvisoReciente ultima={ultima} alerta accent={accent} />}
+              <AvisoReciente query={ultimaQ} alerta accent={accent} />
               {reqExcepcion ? (
                 // Con el pedido ya creado manda el motivo SELLADO en la fila, no el desplegable: es
                 // el texto que Farmacia ve en el cajón y que sale impreso en el comprobante, y
@@ -711,7 +758,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 // filtrar una lista que ya se lee entera de un vistazo.
                 <SearchableSelect
                   value={motivo}
-                  onChange={setMotivo}
+                  // Limpia el error de "falta el motivo" (`FALTA_MOTIVO_MSG`) apenas el coordinador
+                  // elige uno: sin esto el recuadro rojo quedaba pegado en pantalla —ya con el motivo
+                  // elegido y todo listo para reintentar— hasta el próximo intento de solicitar.
+                  onChange={(v) => { setMotivo(v); setErr(null) }}
                   options={MOTIVOS_FUERA_CRONOGRAMA}
                   placeholder="Motivo de la excepción…"
                   searchable="never"
