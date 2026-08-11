@@ -74,6 +74,58 @@ export function ConstanciaDropzone({ accent, busy, onFile }: {
 }
 
 /**
+ * La constancia ELEGIDA pero todavía no enviada. Vive solo en el navegador hasta que el coordinador
+ * cierra la solicitud: la ruta en Storage necesita el `request_id`, y el pedido nace recién al
+ * solicitar.
+ *
+ * Se ve igual que la ya cargada (misma plana de 140px, misma fila de nombre y peso) porque es el
+ * mismo documento; lo que cambia es el rótulo de estado y que se puede quitar. Sin previsualizarlo
+ * acá, el coordinador tendría que confiar en el nombre del archivo hasta después de mandar — y el
+ * error típico es adjuntar la constancia del paciente anterior.
+ *
+ * El `objectURL` se revoca al desmontar o al cambiar de archivo: son hasta 10 MB por vista y se
+ * acumularían en memoria toda la sesión.
+ */
+export function ConstanciaPendiente({ file, accent, onQuitar }: {
+  file: File
+  accent: string
+  onQuitar: () => void
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    const u = URL.createObjectURL(file)
+    setUrl(u)
+    return () => URL.revokeObjectURL(u)
+  }, [file])
+
+  const esPdf = file.type === 'application/pdf'
+  return (
+    <div>
+      <div style={{ position: 'relative', height: 140, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--spira-line)', background: 'var(--spira-white)' }}>
+        {url === null ? null : esPdf ? (
+          <iframe src={`${url}#toolbar=0&navpanes=0&view=FitH`} title={file.name} style={{ width: '100%', height: '100%', border: 0, pointerEvents: 'none' }} />
+        ) : (
+          <img src={url} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+        )}
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 46, background: 'linear-gradient(to bottom, transparent, var(--spira-white))', pointerEvents: 'none' }} />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginTop: 9, padding: '10px 12px', border: '1px solid var(--spira-line)', borderRadius: 12, background: 'var(--spira-white)' }}>
+        <span style={{ flex: '0 0 auto', width: 32, height: 32, borderRadius: 9, background: `${accent}1F`, display: 'grid', placeItems: 'center' }}>
+          <Icon name="fileText" size={16} color={accent} />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</span>
+          <span style={{ display: 'block', fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 1 }}>
+            {formatBytes(file.size)} · se envía al solicitar
+          </span>
+        </span>
+        <button type="button" onClick={onQuitar} style={miniBtn}>Quitar</button>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Vista de la constancia. Reemplaza al botón "Ver": la constancia tiene cuatro datos y entran en
  * 140px — si hay que hacer clic para ver algo que cabe, el clic sobra.
  *

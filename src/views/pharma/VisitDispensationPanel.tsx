@@ -15,11 +15,14 @@ import {
   columnOf,
   constanciaVigente,
   uploadIpDocument,
+  formatBytes,
+  IP_MAX_BYTES,
+  IP_MIME_TYPES,
 } from '../../data/pharma'
 import type { DispensationRequestRow, IpDocumentRow, UltimaDispensacionRow } from '../../data/pharma'
 import { badgeOf } from './dispensaciones/estados'
 import { Panel } from '../track/Panel'
-import { ConstanciaDropzone, ConstanciaVista } from './ConstanciaIp'
+import { ConstanciaDropzone, ConstanciaPendiente, ConstanciaVista } from './ConstanciaIp'
 
 // Tintes con rgba() literal (no se puede concatenar alfa a un var(--x)). --spira-danger #A6483B,
 // --spira-good #5C8A5A, --spira-warn #B0823F.
@@ -129,6 +132,12 @@ const warnBox: CSSProperties = {
 const footStyle: CSSProperties = {
   marginTop: 14, paddingTop: 11, borderTop: '1px solid var(--spira-line)',
   display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap',
+}
+/** El cierre de la solicitud. Mismo filete que el pie común: los dos cierran la tarjeta, y separarlos
+ *  con otra cosa los haría leer como dos zonas distintas cuando son el mismo final. */
+const enviarStyle: CSSProperties = {
+  marginTop: 14, paddingTop: 13, borderTop: '1px solid var(--spira-line)',
+  display: 'flex', flexDirection: 'column', gap: 9,
 }
 /** Desenlace de un pedido YA cerrado, dentro de la subsección de IP: el mismo renglón del pie común
  *  (fecha · estado · comprobante) pero sin el filete, porque no cierra la tarjeta sino la sección. */
@@ -373,10 +382,19 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   // Cerradas (entregadas/canceladas/rechazadas): se muestran las 2 más recientes y el resto queda
   // tras "ver más". En un paciente de meses el historial es un chorizo y entierra lo accionable.
   const [showAllClosed, setShowAllClosed] = useState(false)
-  // Constancia de IP: `subiendo` deshabilita el dropzone mientras sube; `reemplazando` reabre el
-  // dropzone sobre una constancia YA cargada (botón "Reemplazar" de `ConstanciaVista`).
-  const [subiendo, setSubiendo] = useState(false)
+  // `reemplazando` reabre el dropzone sobre una constancia YA cargada (botón "Reemplazar" de
+  // `ConstanciaVista`). La subida en sí ya no vive acá: la hace `enviar()` al cerrar la solicitud.
   const [reemplazando, setReemplazando] = useState(false)
+  /**
+   * La constancia ELEGIDA y todavía no enviada. Vive en el navegador hasta que se cierra la
+   * solicitud, y esa es la razón de que exista: la ruta en Storage se arma con el `request_id`
+   * (`{protocol_id}/{request_id}/…`, 0071) y el pedido nace recién al solicitar, así que no hay dón
+   * subirla antes. Es también lo que hace que la solicitud sea UN acto y no tres.
+   *
+   * Contrapartida asumida: si la coordinadora cierra la visita sin solicitar, el archivo se pierde
+   * (sigue en su disco). Guardarlo antes pediría un estado borrador en la base.
+   */
+  const [archivo, setArchivo] = useState<File | null>(null)
   /**
    * Excepción fuera de cronograma ABIERTA POR EL COORDINADOR y todavía sin pedido. Es pegajosa a
    * propósito: no se apaga al crear el pedido. Apagarla ahí dejaría a la tarjeta, durante los
@@ -405,7 +423,29 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   // el caso normal hay a lo sumo un abierto; si por algún motivo hubiera dos (nada lo impide a nivel
   // de base), el pie se apoya en el más nuevo — una simplificación consciente, ver el informe de la
   // tarea.
-  const openReq = openReqs[0] ?? null
+  /**
+   * A dónde va lo que se solicite: el pedido abierto que TODAVÍA acepta cambios.
+   *
+   * `add_dispensation_items` (0072) y `attach_ip_document` (0071) solo aceptan el pedido en
+   * `solicitada`; desde `preparando` el cajón ya está armado y en `lista` el comprobante ya salió
+   * impreso, así que un renglón nuevo quedaría fuera del papel. Si no hay destino, la solicitud nace
+   * como un pedido NUEVO — decisión del Director (2026-08-11): mientras Farmacia no lo haya tomado
+   * todo se suma al mismo (un comprobante por visita); una vez tomado, lo que quede pendiente se pide
+   * aparte en vez de trabar al coordinador hasta que alguien cancele la preparación.
+   */
+  const destino = openReqs.find((r) => r.status === 'solicitada') ?? null
+
+  /**
+   * El pedido del que HABLA la tarjeta: el pie, el N° de comprobante y la constancia.
+   *
+   * Es `destino` primero y el más nuevo después, no al revés. En el caso normal hay un solo pedido
+   * abierto y los dos son el mismo; con dos —nada lo impide a nivel de base— la tarjeta describía el
+   * más nuevo mientras mandaba al que acepta cambios, así que se solicitaba contra un pedido y se
+   * veía el otro: se adjuntó una constancia, entró bien, y la tarjeta siguió mostrando la anterior
+   * como si no hubiera pasado nada. Actuar sobre uno y describir otro es la manera más silenciosa de
+   * mentir.
+   */
+  const openReq = destino ?? openReqs[0] ?? null
   // Renglones de medicación de TODOS los pedidos abiertos (no solo `openReq`): así ningún renglón
   // queda oculto si llegara a haber más de uno.
   const openMedItems = openReqs.flatMap((r) => r.items)
@@ -448,15 +488,25 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    * cronograma en `create_dispensation_request`. Con un pedido ya abierto la marca está sellada en
    * la fila y sumarle renglones no la vuelve a declarar.
    */
-  const razonExcepcion = fueraCronograma && !openReq ? motivoLabel : null
   /**
-   * Sin motivo no hay excepción: el motivo es la ÚNICA puerta que tiene la base para saltear el
-   * cronograma (0071), así que mandar sin él termina en el rechazo "Esta visita no entrega
-   * medicación" — un error del servidor por algo que la pantalla ya sabía. No se deshabilita nada:
-   * el desplegable está primero, arriba de todo, y un botón deshabilitado que no explica por qué es
-   * peor que un mensaje sereno al intentar (ver `agregarBloqueado`, que sí lo explica).
+   * Hace falta declarar un motivo: vamos a CREAR un pedido (no hay ninguno al que sumarse) y el
+   * cronograma no autoriza esta visita.
+   *
+   * Se calcula así y no mirando el flag local `fueraCronograma` porque el motivo hace falta CADA VEZ
+   * que nace un pedido, no solo la primera. En una visita que solo dispensa por excepción y ya tiene
+   * un pedido tomado por Farmacia, el segundo también nace fuera de cronograma — y la tarjeta
+   * mostraba el motivo SELLADO del anterior en vez de pedir uno nuevo, así que la solicitud se iba
+   * sin motivo y la base la rechazaba con "Esta visita no entrega medicación": un error del servidor
+   * por algo que la pantalla ya sabía.
    */
-  const faltaMotivo = fueraCronograma && !openReq && !motivoLabel
+  const necesitaMotivo = !readOnly && !destino && !visit.dispenses && !visit.dispenses_ip
+  const razonExcepcion = necesitaMotivo ? motivoLabel : null
+  /**
+   * Sin motivo no hay excepción: es la ÚNICA puerta que tiene la base para saltear el cronograma
+   * (0071). No se deshabilita nada: el desplegable está primero, arriba de todo, y un botón
+   * deshabilitado que no explica por qué es peor que un mensaje sereno al intentar.
+   */
+  const faltaMotivo = necesitaMotivo && !motivoLabel
 
   // Ofrecer solo la medicación habilitada activa que todavía no esté ni en la lista de esta
   // solicitud ni en el pedido ABIERTO. Lo segundo faltaba: la base no impide repetir el mismo
@@ -468,17 +518,24 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     .map((m) => ({ value: m.medication_id, label: m.medication?.name ?? 'Medicamento' }))
 
   /**
-   * Por qué no se puede sumar medicación al pedido abierto, ESCRITO. `add_dispensation_items` (0072)
-   * solo acepta el pedido en `solicitada`: desde `preparando` el cajón ya está armado y en `lista`
-   * el comprobante ya salió impreso, así que un renglón nuevo quedaría fuera del papel. Ese candado
-   * server-side está bien y se queda como está; lo que faltaba era avisar ANTES — hasta acá el
-   * coordinador elegía medicamento y cantidad, mandaba, y recién ahí se enteraba de que no se podía.
-   * Null = el botón va habilitado (mismo contrato que `readyBlockedReason` en `estados.ts`).
+   * Que lo que se solicite va a abrir un pedido APARTE, escrito antes de mandar y no después.
+   *
+   * Antes esto deshabilitaba el botón de agregar; ahora se puede pedir igual, así que deja de ser un
+   * bloqueo y pasa a ser una advertencia: son dos comprobantes para la misma visita, y eso lo tiene
+   * que decidir una persona sabiendo lo que hace, no descubrirlo cuando le llega el segundo papel.
+   * Null = la solicitud se suma al pedido que ya existe.
    */
-  const agregarBloqueado: string | null =
-    openReq && openReq.status !== 'solicitada'
-      ? 'Farmacia ya tomó el pedido. Para sumar medicación, pedile que cancele la preparación.'
+  const avisoPedidoNuevo: string | null =
+    openReq && !destino
+      ? 'Farmacia ya tomó el pedido anterior: esto abre uno nuevo, con su propio comprobante.'
       : null
+
+  /** Qué se va a mandar, contado. Nombrar el contenido es lo que convierte al botón en una promesa
+   *  verificable en vez de un salto de fe. */
+  const resumenPendiente = [
+    items.length ? `${items.length} medicamento${items.length > 1 ? 's' : ''}` : null,
+    archivo ? 'la constancia' : null,
+  ].filter(Boolean).join(' y ')
 
   // El N° de comprobante del pedido ABIERTO. La dispensación recién existe cuando se emite el
   // comprobante (`mark_dispensation_ready` la inserta y la deja en 'lista', 0054), así que si la
@@ -509,9 +566,11 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   // La constancia del pedido ABIERTO. Puede vivir en cualquiera de los abiertos, no necesariamente
   // en el más nuevo: desde la 0072 los dos caminos se suman al mismo pedido, pero los pedidos
   // partidos que quedaron de antes —y los que Pharma dé de alta por su cuenta— siguen existiendo.
-  const constanciaAbierta: IpDocumentRow | null = openReqs.reduce<IpDocumentRow | null>(
-    (found, r) => found ?? constanciaVigente(r), null,
-  )
+  // La del pedido del que habla la tarjeta primero; si ese no tiene, la de cualquier otro abierto.
+  // El orden importa por lo mismo que en `openReq`: lo que se ve tiene que ser lo que se tocó.
+  const constanciaAbierta: IpDocumentRow | null =
+    (openReq ? constanciaVigente(openReq) : null)
+    ?? openReqs.reduce<IpDocumentRow | null>((found, r) => found ?? constanciaVigente(r), null)
   /**
    * La constancia del pedido ya ENTREGADO más reciente que la tenga.
    *
@@ -585,7 +644,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    * Sin pedido abierto no hay nada sellado todavía: recién ahí cae al cronograma, que es lo que un
    * pedido NUEVO va a heredar al crearse (0071 §8) — y es el único caso legítimo de mirarlo.
    */
-  const ipAceptaAdjunto = openReq ? openReq.includes_ip || openReq.off_schedule : visit.dispenses_ip
+  const ipAceptaAdjunto = destino ? destino.includes_ip || destino.off_schedule : visit.dispenses_ip
 
   /**
    * "Falta la constancia" (el aviso + la píldora "Incompleta" del pie) solo es CIERTO cuando el
@@ -623,18 +682,51 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    * Fuera de cronograma el motivo viaja como quinto argumento, y solo al CREAR: es lo que saltea la
    * validación del cronograma server-side. Sumar renglones a un pedido ya sellado no lo re-declara.
    */
-  async function solicit() {
-    if (!items.length) return
+  /**
+   * Cierra la solicitud: manda los renglones y la constancia JUNTOS, en un solo acto.
+   *
+   * Es el corazón de la reestructura (Director, 2026-08-11): antes cada cosa salía por su cuenta —la
+   * constancia se subía al soltarla y creaba el pedido sola, los renglones iban por otro botón—, así
+   * que la farmacéutica veía aparecer un pedido a medio armar y después cambiar. Ahora la tarjeta se
+   * completa como un formulario y hay UN momento en que la solicitud existe, que es el que Farmacia
+   * ve.
+   *
+   * El orden importa y no es simétrico: si no hay pedido, el que lo CREA es el de los renglones (y
+   * es el único que puede llevar el motivo de la excepción); la constancia necesita sí o sí un
+   * `request_id`, así que va después. Con la constancia sola y sin renglones, la creación cae en el
+   * `createDispensationRequest` con lista vacía — el caso típico del IP solo, que la 0071 admite.
+   *
+   * Si el adjunto falla DESPUÉS de que el pedido se creó, el pedido queda igual y se avisa el error:
+   * es un estado legítimo (pedido sin constancia, que Farmacia ve como incompleto) y reintentar
+   * adjunta contra ese mismo pedido. No se finge éxito ni se borra lo que sí entró.
+   */
+  async function enviar() {
+    if (!items.length && !archivo) return
     if (faltaMotivo) { setErr(FALTA_MOTIVO_MSG); return }
     setBusy(true); setErr(null)
-    const payload = items.map((i) => ({ medication_id: i.medication_id, quantity: i.quantity }))
-    const abierto = openReqs[0] ?? null
-    const res = abierto
-      ? await addDispensationItems(abierto.id, payload)
-      : await createDispensationRequest(visit.id, payload, null, 'track', razonExcepcion)
+
+    let requestId = destino?.id ?? null
+    if (!requestId) {
+      const payload = items.map((i) => ({ medication_id: i.medication_id, quantity: i.quantity }))
+      const res = await createDispensationRequest(visit.id, payload, null, 'track', razonExcepcion)
+      if (res.error) { setBusy(false); setErr(res.error); return }
+      requestId = res.id!
+    } else if (items.length) {
+      const res = await addDispensationItems(requestId, items.map((i) => ({ medication_id: i.medication_id, quantity: i.quantity })))
+      if (res.error) { setBusy(false); setErr(res.error); return }
+    }
+    // Los renglones ya entraron: se limpian ANTES de subir para que un fallo del adjunto no los deje
+    // en pantalla como si faltara mandarlos (y un segundo intento los duplicaría).
+    setItems([]); setSoliciting(false)
+
+    if (archivo) {
+      const up = await uploadIpDocument(requestId, visit.protocol_id, archivo)
+      if (up.error) { setBusy(false); setErr(up.error); reqQ.refetch(); return }
+      setArchivo(null); setReemplazando(false)
+    }
+
     setBusy(false)
-    if (res.error) { setErr(res.error); return }
-    setItems([]); setSoliciting(false); reqQ.refetch()
+    reqQ.refetch()
   }
 
   async function cancel(requestId: string) {
@@ -645,24 +737,22 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   }
 
   /**
-   * El primero que actúa crea el pedido; el segundo se suma al mismo. Si no hay pedido abierto,
-   * cargar la constancia lo crea (sin renglones, que es el caso típico del IP solo) — y fuera de
-   * cronograma ese pedido nace con el motivo, o la base lo rechaza por no estar en el cronograma.
+   * Elegir la constancia ya NO la sube: la deja en `archivo` hasta que se cierra la solicitud. Lo
+   * único que se valida acá es lo que se puede validar sin red —tamaño y formato—, para no dejar que
+   * el coordinador arme toda la solicitud y se entere del rechazo recién al mandar. Son las mismas
+   * dos reglas que aplica `uploadIpDocument` antes de tocar Storage.
    */
-  async function cargarConstancia(f: File) {
-    if (faltaMotivo) { setErr(FALTA_MOTIVO_MSG); return }
-    setSubiendo(true); setErr(null)
-    let requestId = openReqs[0]?.id ?? null
-    if (!requestId) {
-      const res = await createDispensationRequest(visit.id, [], null, 'track', razonExcepcion)
-      if (res.error) { setErr(res.error); setSubiendo(false); return }
-      requestId = res.id!
+  function elegirConstancia(f: File) {
+    if (f.size > IP_MAX_BYTES) {
+      setErr(`El archivo pesa ${formatBytes(f.size)} y el máximo es 10 MB.`)
+      return
     }
-    const up = await uploadIpDocument(requestId, visit.protocol_id, f)
-    setSubiendo(false)
-    if (up.error) { setErr(up.error); return }
-    setReemplazando(false)
-    reqQ.refetch()
+    if (!IP_MIME_TYPES.includes(f.type)) {
+      setErr('Formato no admitido. Se aceptan PDF, JPG, PNG y WEBP.')
+      return
+    }
+    setErr(null)
+    setArchivo(f)
   }
 
   function renderCard(r: DispensationRequestRow) {
@@ -779,7 +869,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
           {mostrarExcepcion && (
             <Sub label="Fuera de cronograma" first excepcion>
               <AvisoReciente query={ultimaQ} alerta accent={accent} />
-              {reqExcepcion ? (
+              {reqExcepcion && !necesitaMotivo ? (
                 // Con el pedido ya creado manda el motivo SELLADO en la fila, no el desplegable: es
                 // el texto que Farmacia ve en el cajón y que sale impreso en el comprobante, y
                 // dejarlo editable acá lo haría diferir del papel. Sobre papel blanco, como todo lo
@@ -828,27 +918,32 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 <div style={{ ...muted, padding: '2px 0' }}>Sin dispensación solicitada.</div>
               )}
 
-              {/* agregar (solo vista del día): ya no solicita por su cuenta, suma renglones al pedido.
-                  Si Farmacia ya lo tomó, el acceso va deshabilitado CON el motivo escrito debajo: la
-                  base lo va a rechazar igual, y enterarse recién al enviar es haber elegido
-                  medicamento y cantidad al pedo (ningún botón deshabilitado queda mudo). */}
+              {/* Los renglones ELEGIDOS y todavía no enviados, afuera del selector y con la misma
+                  forma que los ya pedidos: son parte de la solicitud que se está armando, no del
+                  formulario que los carga. La píldora dice en qué estado están, que es la única
+                  diferencia real con los de arriba. */}
+              {items.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 9 }}>
+                  {items.map((it, i) => (
+                    <div key={it.medication_id} style={itemRow}>
+                      <span style={{ flex: 1, minWidth: 0, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.name}</span>
+                      <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>x{it.quantity}</span>
+                      <span style={{ ...pillBase, color: 'var(--spira-acc-deep-pharma)', background: WARN_TINT_PILL }}>Sin solicitar</span>
+                      <button
+                        type="button" aria-label={`Quitar ${it.name}`} onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
+                        style={{ flex: '0 0 auto', background: 'transparent', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 2 }}
+                      >
+                        <Icon name="x" size={15} color="var(--spira-muted)" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {!readOnly && !soliciting && (
-                <>
-                  <button
-                    type="button" disabled={agregarBloqueado !== null}
-                    onClick={() => { setSoliciting(true); setErr(null) }}
-                    style={{
-                      ...addBtn,
-                      cursor: agregarBloqueado ? 'default' : 'pointer',
-                      opacity: agregarBloqueado ? 0.6 : 1,
-                    }}
-                  >
-                    <Icon name="plus" size={16} color={agregarBloqueado ? 'var(--spira-faint)' : accent} /> Agregar medicación
-                  </button>
-                  {agregarBloqueado && (
-                    <div style={{ ...muted, marginTop: 7 }}>{agregarBloqueado}</div>
-                  )}
-                </>
+                <button type="button" onClick={() => { setSoliciting(true); setErr(null) }} style={addBtn}>
+                  <Icon name="plus" size={16} color={accent} /> Agregar medicación
+                </button>
               )}
 
               {!readOnly && soliciting && (
@@ -882,39 +977,19 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                         </button>
                       </div>
 
-                      {items.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
-                          {items.map((it, i) => (
-                            <div key={it.medication_id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, background: 'var(--spira-surface)', borderRadius: 9, padding: '7px 11px' }}>
-                              <span style={{ flex: 1, minWidth: 0, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.name}</span>
-                              <span className="spira-mono" style={{ color: 'var(--spira-muted)' }}>x{it.quantity}</span>
-                              <button
-                                type="button" aria-label="Quitar" onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
-                                style={{ flex: '0 0 auto', background: 'transparent', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 2 }}
-                              >
-                                <Icon name="x" size={15} color="var(--spira-faint)" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </>
                   )}
 
-                  <div style={{ display: 'flex', gap: 9, marginTop: 14 }}>
-                    <button
-                      type="button" onClick={() => { setSoliciting(false); setItems([]); setPick(''); setQty(''); setErr(null) }}
-                      style={{ height: 40, padding: '0 16px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5 }}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button" onClick={solicit} disabled={!items.length || busy}
-                      style={{ flex: 1, height: 40, borderRadius: 10, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: items.length ? accent : 'var(--spira-line)', color: items.length ? 'var(--spira-on-accent)' : 'var(--spira-faint)', cursor: items.length && !busy ? 'pointer' : 'default', fontFamily: 'var(--spira-font-text)', fontWeight: 700, fontSize: 13.5, opacity: busy ? 0.6 : 1 }}
-                    >
-                      {busy ? 'Solicitando…' : 'Solicitar dispensación'}
-                    </button>
-                  </div>
+                  {/* El selector ya no solicita nada: solo suma renglones a la lista de arriba. Queda
+                      abierto después de agregar —cargar dos o tres medicamentos seguidos es lo
+                      normal— y se cierra con "Listo". El envío es uno solo y vive al pie de la
+                      tarjeta, junto con la constancia. */}
+                  <button
+                    type="button" onClick={() => { setSoliciting(false); setPick(''); setQty(''); setErr(null) }}
+                    style={{ marginTop: 12, height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13 }}
+                  >
+                    Listo
+                  </button>
                 </div>
               )}
             </Sub>
@@ -934,7 +1009,15 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 </div>
               )}
 
-              {ipEnCurso ? (
+              {archivo ? (
+                // Elegida y todavía sin enviar. Manda sobre cualquier otra rama —incluso sobre una
+                // constancia ya cargada, cuando se está reemplazando—: es lo que va a quedar cuando
+                // se cierre la solicitud, y mostrar la vieja ahí sería mostrar lo que ya no va.
+                <ConstanciaPendiente
+                  file={archivo} accent={accent}
+                  onQuitar={() => { setArchivo(null); setReemplazando(false); setErr(null) }}
+                />
+              ) : ipEnCurso ? (
                 !ipAceptaAdjunto ? (
                   // El pedido abierto, TAL COMO ESTÁ SELLADO, no lleva IP (ni es una excepción fuera
                   // de cronograma): ofrecer el dropzone acá terminaría en el error de la RPC ("esta
@@ -953,7 +1036,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                   ) : constanciaAbierta && !reemplazando ? (
                     <ConstanciaVista doc={constanciaAbierta} size="chica" accent={accent} onReemplazar={() => setReemplazando(true)} />
                   ) : (
-                    <ConstanciaDropzone accent={accent} busy={subiendo} onFile={cargarConstancia} />
+                    <ConstanciaDropzone accent={accent} busy={busy} onFile={elegirConstancia} />
                   )
                 )
               ) : constanciaEntregada && reqEntregado && badgeEntregado ? (
@@ -990,7 +1073,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               ) : readOnly ? (
                 <div style={{ ...muted, padding: '2px 0' }}>Sin constancia cargada.</div>
               ) : (
-                <ConstanciaDropzone accent={accent} busy={subiendo} onFile={cargarConstancia} />
+                <ConstanciaDropzone accent={accent} busy={busy} onFile={elegirConstancia} />
               )}
             </Sub>
           )}
@@ -1004,6 +1087,39 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             <Sub label="Historial" first={!mostrarExcepcion && !mostrarConcomitante && !mostrarIp}>
               {renderHistorial()}
             </Sub>
+          )}
+
+          {/* EL CIERRE DE LA SOLICITUD. Un solo botón para todo lo que se armó arriba —renglones y
+              constancia—, al pie y no adentro de una subsección: la solicitud es una, y el lugar
+              donde se cierra tiene que decirlo. Aparece solo cuando hay algo sin mandar, así que en
+              una tarjeta ya resuelta no queda un botón esperando.
+
+              Arriba del botón va lo que hace falta saber ANTES de apretarlo: qué se va a mandar y,
+              si corresponde, que va a abrir un pedido aparte. Enterarse después es enterarse tarde. */}
+          {!readOnly && (items.length > 0 || archivo) && (
+            <div style={enviarStyle}>
+              {avisoPedidoNuevo && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '9px 11px', borderRadius: 10, background: WARN_TINT, fontSize: 12.5, color: 'var(--spira-ink)' }}>
+                  <Icon name="info" size={15} color="var(--spira-warn)" stroke={2} style={{ marginTop: 1, flex: '0 0 auto' }} />
+                  <span>{avisoPedidoNuevo}</span>
+                </div>
+              )}
+              <button
+                type="button" onClick={enviar} disabled={busy}
+                style={{
+                  width: '100%', height: 44, borderRadius: 12, border: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+                  background: accent, color: 'var(--spira-on-accent)',
+                  fontFamily: 'var(--spira-font-text)', fontWeight: 700, fontSize: 14,
+                  cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
+                }}
+              >
+                {busy ? 'Solicitando…' : destino ? 'Sumar a la solicitud' : 'Solicitar dispensación'}
+              </button>
+              <div style={{ fontSize: 11.5, color: 'var(--spira-ink-soft)', textAlign: 'center', lineHeight: 1.45 }}>
+                {resumenPendiente} · Farmacia lo ve recién al solicitar.
+              </div>
+            </div>
           )}
 
           {/* pie común: fecha + estado + cancelar, UNA sola vez — es lo que dice que arriba hay un
