@@ -49,14 +49,24 @@
   --spira-acc-deep-track:  #0F5F57;
   --spira-acc-deep-pharma: #6E5620;
 
-  /* —— Tinte de la tarjeta destacada (Dispensación) ——
-     Mismo problema que el acento profundo, y por eso vive al lado. Un tinte del acento sobre papel
+  /* —— Banda del rótulo de la tarjeta destacada (Dispensación) ——
+     El acento a secas NO sirve de fondo acá: la tinta papel sobre él da 4,33:1 y el rótulo va a
+     14px en negrita, donde AA pide 4,5:1. Con el petróleo profundo son 8,7:1. Es el mismo motivo
+     por el que existe el acento profundo, un escalón más arriba: allá se oscurece el TEXTO para
+     leerse sobre un tinte; acá se oscurece el FONDO para que el texto claro se lea sobre él. */
+  --spira-band-track: #0F5F57;
+
+  /* —— Tinte del CUERPO de la tarjeta destacada (Dispensación) ——
+     El color pleno lo lleva la banda del rótulo; el cuerpo va apenas teñido para que las cajas
+     blancas de adentro sigan siendo las que se leen.
+     El 10% no es "un poco menos que el 14%": es el techo que deja pasar AA. Los rótulos de
+     subsección van en `ink-soft` a 11px en negrita, y sobre este tinte dan 4,58:1 — al 12% caen a
+     4,47 y al 14% a 4,36, los dos por debajo del 4,5 que se pide. Medido, no estimado.
+     Mismo problema que el acento profundo, y por eso vive al lado: un tinte del acento sobre papel
      claro OSCURECE la tarjeta y se lee como resaltada; el MISMO tinte sobre fondo oscuro la deja
      más apagada que las tarjetas neutras de al lado, o sea al revés de lo que se pidió. En oscuro
      hay que ACLARAR con la menta. Medido, no estimado. */
-  --spira-tint-track:      rgba(46, 125, 116, 0.14);
-  /* El cuadro del ícono, del mismo color pero más presente, para anclar el título. */
-  --spira-tint-track-chip: rgba(46, 125, 116, 0.22);
+  --spira-tint-track: rgba(46, 125, 116, 0.10);
 
   /* —— Constantes de tema —— */
   --spira-on-accent:  #F4F1EA;
@@ -98,10 +108,13 @@
   --spira-avatar-ring: #34D399; /* emerald-400 — más claro para contraste en oscuro */
   --spira-acc-deep-track:  #9DE6D6;  /* menta: en oscuro hay que ACLARAR, no oscurecer */
   --spira-acc-deep-pharma: #E8CE8A;
-  /* Misma inversión para el tinte: con el petróleo, la tarjeta destacada quedaba MÁS OSCURA que las
-     neutras (22,33,32 contra 28,28,28) y el realce se leía como un apagón. La menta la levanta. */
-  --spira-tint-track:      rgba(157, 230, 214, 0.13);
-  --spira-tint-track-chip: rgba(157, 230, 214, 0.22);
+  /* La banda NO se invierte: es un bloque de color pleno con texto claro encima, así que en oscuro
+     funciona igual que en claro (y aclararla con la menta la volvería un bloque brillante con el
+     texto papel ilegible). Se sube un escalón nada más, para que no se confunda con el fondo. */
+  --spira-band-track: #17706A;
+  /* El tinte del CUERPO sí se invierte: con el petróleo, el cuerpo quedaba MÁS OSCURO que las
+     tarjetas neutras (22,33,32 contra 28,28,28) y el realce se leía como un apagón. La menta lo levanta. */
+  --spira-tint-track: rgba(157, 230, 214, 0.13);
 }
 
 /* —— Estilos tipográficos semánticos —— */

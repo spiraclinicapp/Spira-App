@@ -286,11 +286,10 @@ interface PendingItem { medication_id: string; name: string; quantity: number }
  * (0072). Un pedido de solo IP nace sin renglones — es el caso típico de una visita de protocolo que
  * no entrega concomitante.
  *
- * Monta su PROPIO `Panel` (como `VisitProcedures`): el realce (carta teñida) depende de si hay algo
- * que dispensar —concomitante O IP—, y eso solo lo sabe este componente. Se apaga si no hay nada
- * (una tarjeta sin trabajo no debería llamar la atención). `deepAccent` es obligatorio junto con
- * `highlight`: sin él el título queda en el acento a secas, que sobre el tinte no llega al 4,5:1
- * que AA pide a 14px bold.
+ * Monta su PROPIO `Panel` (como `VisitProcedures`), con el realce de banda sólida SIEMPRE puesto:
+ * "agregale color a la dispensación" (Director, 2026-08-11). `tint` es obligatorio junto con
+ * `highlight` — es un token con un valor por tema, porque el mismo tinte que resalta sobre papel
+ * claro apaga sobre fondo oscuro.
  *
  * El PIE COMÚN (fecha del pedido + estado + "Cancelar solicitud") va una sola vez, abajo de las dos
  * subsecciones: es lo que hace visible que arriba hay UN pedido y no dos. Por eso los renglones de
@@ -712,17 +711,15 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
       // general; acá pesa más que la dispensación se encuentre de un vistazo en una ficha con seis
       // tarjetas iguales.
       highlight
-      deepAccent="var(--spira-acc-deep-track)"
-      tint={{ bg: 'var(--spira-tint-track)', chip: 'var(--spira-tint-track-chip)' }}
+      tint={{ band: 'var(--spira-band-track)', body: 'var(--spira-tint-track)' }}
     >
       {nada ? (
         <>
-          {/* Tinta plena, y no el `faint` de antes. Con la tarjeta teñida al 14% los tokens apagados
-              no llegan: medidos sobre este tinte dan faint 1,66:1 · muted 2,63:1 · ink-soft 4,36:1,
-              los tres por debajo del 4,5 que pide AA a 12,5px. `ink` da 10,5:1. Y está bien que así
-              sea: esta frase no es un pie decorativo, es la que explica por qué la sección está
-              vacía — la jerarquía la sostienen el cuerpo y el título en el acento, no el gris. */}
-          <div style={{ fontSize: 12.5, color: 'var(--spira-ink)', padding: '4px 0' }}>Esta visita no entrega medicación.</div>
+          {/* `ink-soft` y no el `faint` de antes: sobre el tinte del cuerpo el faint da 1,66:1 y esta
+              frase es la que explica por qué la sección está vacía, o sea justo la que hay que poder
+              leer. `ink-soft` da 4,58:1, apenas arriba del 4,5 de AA y sin subir al ink pleno, que
+              la pondría a gritar en una tarjeta que no tiene nada para hacer. */}
+          <div style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)', padding: '4px 0' }}>Esta visita no entrega medicación.</div>
           {/* La salida (mock, estado 5). Solo en la vista del día: en la ficha del paciente no se
               dispensa. El 4 de padding de arriba + este margen dan los 11px de aire del mock. */}
           {!readOnly && (
