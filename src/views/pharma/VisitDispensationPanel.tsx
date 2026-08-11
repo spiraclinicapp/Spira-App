@@ -10,6 +10,7 @@ import {
   createDispensationRequest,
   addDispensationItems,
   cancelDispensationRequest,
+  activeDispensation,
   columnOf,
   constanciaVigente,
   uploadIpDocument,
@@ -23,7 +24,8 @@ import { ConstanciaDropzone, ConstanciaVista } from './ConstanciaIp'
 // --spira-good #5C8A5A, --spira-warn #B0823F.
 const DANGER_TINT = 'rgba(166, 72, 59, 0.10)'
 // Dos alfas del mismo ámbar: .14 para el aviso "Falta la constancia" (texto en tinta, ver `warnBox`),
-// .20 para la píldora "Incompleta" del pie (más saturada porque ahí el color SÍ es la etiqueta).
+// .20 para la píldora "Incompleta" del pie (más saturada porque ahí el color SÍ es la etiqueta —
+// por eso la tinta de esa píldora es el ámbar PROFUNDO de tokens y no `--spira-warn`, ver el pie).
 const WARN_TINT = 'rgba(176, 130, 63, 0.14)'
 const WARN_TINT_PILL = 'rgba(176, 130, 63, 0.20)'
 
@@ -72,6 +74,11 @@ const footStyle: CSSProperties = {
   marginTop: 14, paddingTop: 11, borderTop: '1px solid var(--spira-line)',
   display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap',
 }
+/** Desenlace de un pedido YA cerrado, dentro de la subsección de IP: el mismo renglón del pie común
+ *  (fecha · estado · comprobante) pero sin el filete, porque no cierra la tarjeta sino la sección. */
+const desenlaceStyle: CSSProperties = {
+  marginTop: 9, display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap',
+}
 const pillBase: CSSProperties = {
   flex: '0 0 auto', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 'var(--spira-radius-pill)',
 }
@@ -93,8 +100,10 @@ interface PendingItem { medication_id: string; name: string; quantity: number }
  *
  *   · Medicación concomitante — el coordinador arma renglones eligiendo SOLO de la medicación
  *     habilitada ACTIVA del paciente (`patient_medications`, 0050), nunca texto libre.
- *   · Producto en investigación (IP) — si el cronograma dice que la visita entrega IP
- *     (`dispenses_ip`), se adjunta la constancia del IRT (`dispensation_ip_documents`).
+ *   · Producto en investigación (IP) — si la visita entrega IP, se adjunta la constancia del IRT
+ *     (`dispensation_ip_documents`). "Entrega IP" es el cronograma (`dispenses_ip`) O el pedido
+ *     abierto con `includes_ip` sellado por el servidor: el cronograma puede cambiar después de
+ *     creado el pedido, y el pedido recuerda lo que era cierto cuando se pidió (0071).
  *
  * El PRIMERO que actúa crea el pedido (`create_dispensation_request`); el segundo se suma al mismo,
  * en CUALQUIERA de los dos órdenes: `cargarConstancia` y `solicit` reusan los dos el mismo
@@ -117,6 +126,11 @@ interface PendingItem { medication_id: string; name: string; quantity: number }
  *
  * Solicitar / cancelar / cargar constancia viven solo en la vista del día (`!readOnly`); en la ficha
  * del paciente el panel es de solo lectura (la constancia se puede VER, no reemplazar).
+ *
+ * Con el pedido YA CERRADO —entregado— la subsección de IP también pasa a lectura aunque estemos en
+ * la vista del día: la constancia es nota fuente de un hecho consumado, y en su lugar va el
+ * desenlace (fecha · estado · comprobante). Ofrecer ahí el dropzone crearía un segundo pedido para
+ * una visita ya dispensada, que es exactamente lo que la 0072 vino a evitar del otro lado.
  */
 export function VisitDispensationPanel({ visit, accent, readOnly }: {
   visit: { id: string; enrollment_id: string; protocol_id: string; dispenses: boolean; dispenses_ip: boolean }
@@ -152,10 +166,6 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const hiddenClosed = closedReqs.length - visibleClosed.length
   const activeMeds = (medsQ.data ?? []).filter((m) => m.active)
   const pendingIds = new Set(items.map((i) => i.medication_id))
-  // Ofrecer solo la medicación habilitada activa que todavía no esté en la lista de esta solicitud.
-  const options: SelectOption[] = activeMeds
-    .filter((m) => !pendingIds.has(m.medication_id))
-    .map((m) => ({ value: m.medication_id, label: m.medication?.name ?? 'Medicamento' }))
 
   // "El pedido" que sostiene el pie común: el mismo `openReqs[0]` que reusa `cargarConstancia`. En
   // el caso normal hay a lo sumo un abierto; si por algún motivo hubiera dos (nada lo impide a nivel
@@ -165,14 +175,75 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   // Renglones de medicación de TODOS los pedidos abiertos (no solo `openReq`): así ningún renglón
   // queda oculto si llegara a haber más de uno.
   const openMedItems = openReqs.flatMap((r) => r.items)
-  // La constancia vigente puede vivir en cualquiera de los abiertos, no necesariamente en el más
-  // nuevo. Desde la 0072 los dos caminos se suman al mismo pedido, así que en la práctica hay uno
-  // solo; pero los pedidos partidos que quedaron de antes —y los que Pharma dé de alta por su
-  // cuenta— siguen existiendo, y la constancia no tiene por qué estar en el último.
-  const constancia: IpDocumentRow | null = openReqs.reduce<IpDocumentRow | null>(
+
+  // Ofrecer solo la medicación habilitada activa que todavía no esté ni en la lista de esta
+  // solicitud ni en el pedido ABIERTO. Lo segundo faltaba: la base no impide repetir el mismo
+  // medicamento en un pedido, así que se podía cargar dos veces y quedaban dos renglones idénticos
+  // —y la farmacéutica escaneando el mismo código de barras dos veces en el mostrador—.
+  const yaEnPedido = new Set(openMedItems.map((it) => it.medication_id))
+  const options: SelectOption[] = activeMeds
+    .filter((m) => !pendingIds.has(m.medication_id) && !yaEnPedido.has(m.medication_id))
+    .map((m) => ({ value: m.medication_id, label: m.medication?.name ?? 'Medicamento' }))
+
+  /**
+   * Por qué no se puede sumar medicación al pedido abierto, ESCRITO. `add_dispensation_items` (0072)
+   * solo acepta el pedido en `solicitada`: desde `preparando` el cajón ya está armado y en `lista`
+   * el comprobante ya salió impreso, así que un renglón nuevo quedaría fuera del papel. Ese candado
+   * server-side está bien y se queda como está; lo que faltaba era avisar ANTES — hasta acá el
+   * coordinador elegía medicamento y cantidad, mandaba, y recién ahí se enteraba de que no se podía.
+   * Null = el botón va habilitado (mismo contrato que `readyBlockedReason` en `estados.ts`).
+   */
+  const agregarBloqueado: string | null =
+    openReq && openReq.status !== 'solicitada'
+      ? 'Farmacia ya tomó el pedido. Para sumar medicación, pedile que cancele la preparación.'
+      : null
+
+  // El N° de comprobante del pedido ABIERTO. La dispensación recién existe cuando se emite el
+  // comprobante (`mark_dispensation_ready` la inserta y la deja en 'lista', 0054), así que si la
+  // fila está, el número es real. Se mostraba antes —los pedidos abiertos se dibujaban con la card
+  // completa del historial— y se perdió al pasarlos a filas planas: la coordinadora lo tenía a mano
+  // para cantarlo cuando el paciente pasa a retirar, y dejó de tenerlo hasta después de la entrega.
+  const comprobanteAbierto = openReq ? activeDispensation(openReq)?.correlative_number ?? null : null
+
+  // —— Producto en investigación ——
+  // La sección se muestra si lo dice el CRONOGRAMA o si el pedido abierto lo tiene SELLADO. El
+  // servidor sella `includes_ip` al crear el pedido justamente porque el cronograma puede cambiar
+  // después (0071, índice de `supabase/README.md`). Mirando solo el cronograma, destildar
+  // `dispenses_ip` con un pedido abierto que ya lleva IP hacía desaparecer la sección: sin lugar
+  // donde cargar la constancia, y Farmacia trabada porque su RPC la exige para emitir el comprobante.
+  const ipSellado = openReqs.some((r) => r.includes_ip)
+  const mostrarIp = visit.dispenses_ip || ipSellado
+
+  // La constancia del pedido ABIERTO. Puede vivir en cualquiera de los abiertos, no necesariamente
+  // en el más nuevo: desde la 0072 los dos caminos se suman al mismo pedido, pero los pedidos
+  // partidos que quedaron de antes —y los que Pharma dé de alta por su cuenta— siguen existiendo.
+  const constanciaAbierta: IpDocumentRow | null = openReqs.reduce<IpDocumentRow | null>(
     (found, r) => found ?? constanciaVigente(r), null,
   )
-  const constanciaIncompleta = visit.dispenses_ip && openReqs.length > 0 && !constancia
+  /**
+   * La constancia del pedido ya ENTREGADO más reciente que la tenga.
+   *
+   * Antes la constancia se buscaba solo entre los pedidos abiertos, y la tarjeta se olvidaba de la
+   * dispensación apenas Farmacia entregaba: el pedido sale de los abiertos y en una visita solo-IP
+   * —el caso típico de protocolo— quedaba el dropzone VACÍO, como si nunca se hubiera cargado nada,
+   * sin fecha ni estado; soltar un archivo ahí creaba un SEGUNDO pedido para una visita ya
+   * dispensada; y en la ficha del paciente se imprimía "Sin constancia cargada." para una visita que
+   * sí la tiene, que en una app auditable es mostrar un dato falso.
+   *
+   * `requests` viene del más nuevo al más viejo, así que el primero que aparece es el último
+   * entregado. Los cancelados/rechazados quedan afuera A PROPÓSITO: su constancia es la de un pedido
+   * que no ocurrió, y darla por vigente dejaría al coordinador sin forma de cargar una nueva.
+   */
+  const reqEntregado = requests.find((r) => r.status === 'atendida' && constanciaVigente(r)) ?? null
+  const constanciaEntregada = reqEntregado ? constanciaVigente(reqEntregado) : null
+  const badgeEntregado = reqEntregado ? badgeOf(reqEntregado) : null
+  const comprobanteEntregado = reqEntregado ? activeDispensation(reqEntregado)?.correlative_number ?? null : null
+
+  // Con un pedido abierto la sección está EN CURSO: se carga o se reemplaza la constancia contra él.
+  // Sin ninguno abierto no hay a qué adjuntarla — o se muestra en lectura la del pedido entregado,
+  // o, si no hay nada todavía, el dropzone, que es el que crea el pedido (estado 2 del mock).
+  const ipEnCurso = openReq !== null
+  const constanciaIncompleta = mostrarIp && ipEnCurso && !constanciaAbierta
 
   function addItem() {
     const n = parseInt(qty, 10)
@@ -267,12 +338,45 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     )
   }
 
-  const nada = !visit.dispenses && !visit.dispenses_ip
+  /**
+   * Historial de pedidos CERRADOS (entregados / cancelados / rechazados). Van con la card completa
+   * de `renderCard` —y no como filas planas— porque son pedidos aparte, con su propio desenlace.
+   *
+   * Vive en una función y no inline porque tiene que poder aparecer en DOS lugares: dentro de la
+   * subsección de concomitante cuando la visita la entrega (donde ya estaba; ese circuito está en
+   * producción y no se mueve de sitio) y como subsección propia cuando la visita SOLO entrega IP.
+   * Antes colgaba de la rama de la concomitante, así que en una visita solo-IP no se renderizaba
+   * NUNCA: entregado el pedido, no quedaba ningún rastro de la dispensación en la tarjeta.
+   *
+   * `conRotulo` es el "Historial" chiquito que separa las cards de los renglones del pedido abierto;
+   * cuando el historial va como subsección propia sobra, porque ya lo rotula el `Sub`.
+   */
+  function renderHistorial(conRotulo: boolean) {
+    if (closedReqs.length === 0) return null
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {conRotulo && <div className="spira-eyebrow" style={{ marginTop: 2 }}>Historial</div>}
+        {visibleClosed.map(renderCard)}
+        {(hiddenClosed > 0 || showAllClosed) && closedReqs.length > 2 && (
+          <button
+            type="button" onClick={() => setShowAllClosed((v) => !v)}
+            style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '2px 0', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-muted)' }}
+          >
+            {showAllClosed ? 'Ver menos' : `Ver ${hiddenClosed} más`}
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  // `mostrarIp` y no `visit.dispenses_ip`: si el cronograma se destildó con un pedido de IP abierto,
+  // la tarjeta seguiría diciendo "esta visita no entrega medicación" arriba de un pedido vivo.
+  const nada = !visit.dispenses && !mostrarIp
 
   return (
     <Panel
       title="Dispensación" icon="pill" accent={accent}
-      highlight={visit.dispenses || visit.dispenses_ip}
+      highlight={visit.dispenses || mostrarIp}
       deepAccent="var(--spira-acc-deep-track)"
     >
       {nada ? (
@@ -299,35 +403,33 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
 
               {/* historial (pedidos cerrados): sin cambios de comportamiento, misma card de siempre —
                   esos sí son pedidos aparte, con su propio desenlace, y merecen su fecha/estado propios. */}
-              {closedReqs.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {openMedItems.length > 0 && (
-                    <div className="spira-eyebrow" style={{ marginTop: 2 }}>Historial</div>
-                  )}
-                  {visibleClosed.map(renderCard)}
-                  {(hiddenClosed > 0 || showAllClosed) && closedReqs.length > 2 && (
-                    <button
-                      type="button" onClick={() => setShowAllClosed((v) => !v)}
-                      style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '2px 0', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-muted)' }}
-                    >
-                      {showAllClosed ? 'Ver menos' : `Ver ${hiddenClosed} más`}
-                    </button>
-                  )}
-                </div>
-              )}
+              {renderHistorial(openMedItems.length > 0)}
 
               {readOnly && requests.length === 0 && !reqQ.loading && (
                 <div style={{ ...muted, padding: '2px 0' }}>Sin dispensación solicitada.</div>
               )}
 
-              {/* agregar (solo vista del día): ya no solicita por su cuenta, suma renglones al pedido */}
+              {/* agregar (solo vista del día): ya no solicita por su cuenta, suma renglones al pedido.
+                  Si Farmacia ya lo tomó, el acceso va deshabilitado CON el motivo escrito debajo: la
+                  base lo va a rechazar igual, y enterarse recién al enviar es haber elegido
+                  medicamento y cantidad al pedo (ningún botón deshabilitado queda mudo). */}
               {!readOnly && !soliciting && (
-                <button
-                  type="button" onClick={() => { setSoliciting(true); setErr(null) }}
-                  style={dashedBtn}
-                >
-                  <Icon name="plus" size={16} color={accent} /> Agregar medicación
-                </button>
+                <>
+                  <button
+                    type="button" disabled={agregarBloqueado !== null}
+                    onClick={() => { setSoliciting(true); setErr(null) }}
+                    style={{
+                      ...dashedBtn,
+                      cursor: agregarBloqueado ? 'default' : 'pointer',
+                      opacity: agregarBloqueado ? 0.6 : 1,
+                    }}
+                  >
+                    <Icon name="plus" size={16} color={agregarBloqueado ? 'var(--spira-faint)' : accent} /> Agregar medicación
+                  </button>
+                  {agregarBloqueado && (
+                    <div style={{ ...muted, marginTop: 7 }}>{agregarBloqueado}</div>
+                  )}
+                </>
               )}
 
               {!readOnly && soliciting && (
@@ -399,7 +501,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             </Sub>
           )}
 
-          {visit.dispenses_ip && (
+          {mostrarIp && (
             <Sub label="Producto en investigación" first={!visit.dispenses}>
               {constanciaIncompleta && (
                 <div style={warnBox}>
@@ -413,31 +515,79 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 </div>
               )}
 
-              {readOnly ? (
-                constancia ? (
-                  <ConstanciaVista doc={constancia} size="chica" accent={accent} />
+              {ipEnCurso ? (
+                // Hay un pedido abierto: la constancia se carga o se reemplaza CONTRA ÉL.
+                readOnly ? (
+                  constanciaAbierta ? (
+                    <ConstanciaVista doc={constanciaAbierta} size="chica" accent={accent} />
+                  ) : (
+                    <div style={{ ...muted, padding: '2px 0' }}>Sin constancia cargada.</div>
+                  )
+                ) : constanciaAbierta && !reemplazando ? (
+                  <ConstanciaVista doc={constanciaAbierta} size="chica" accent={accent} onReemplazar={() => setReemplazando(true)} />
                 ) : (
-                  <div style={{ ...muted, padding: '2px 0' }}>Sin constancia cargada.</div>
+                  <ConstanciaDropzone accent={accent} busy={subiendo} onFile={cargarConstancia} />
                 )
-              ) : constancia && !reemplazando ? (
-                <ConstanciaVista doc={constancia} size="chica" accent={accent} onReemplazar={() => setReemplazando(true)} />
+              ) : constanciaEntregada && reqEntregado && badgeEntregado ? (
+                // Pedido ya cerrado: la constancia es la nota fuente de una entrega que ya ocurrió.
+                // Va en LECTURA (sin "Reemplazar": no se toca lo que ya se entregó) y en lugar del
+                // dropzone —que acá crearía un segundo pedido para una visita ya dispensada— va el
+                // desenlace, que es lo único que dice que esta visita se dispensó y con qué papel.
+                <>
+                  <ConstanciaVista doc={constanciaEntregada} size="chica" accent={accent} />
+                  <div style={desenlaceStyle}>
+                    <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>
+                      Pedido del {formatDateAR(reqEntregado.created_at)}
+                    </span>
+                    <span style={{ ...pillBase, color: badgeEntregado.color, background: badgeEntregado.tint }}>
+                      {badgeEntregado.label}
+                    </span>
+                    {comprobanteEntregado !== null && (
+                      <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>
+                        Comprobante N° <span className="spira-mono">{comprobanteEntregado}</span>
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : readOnly ? (
+                <div style={{ ...muted, padding: '2px 0' }}>Sin constancia cargada.</div>
               ) : (
                 <ConstanciaDropzone accent={accent} busy={subiendo} onFile={cargarConstancia} />
               )}
             </Sub>
           )}
 
+          {/* El historial como subsección propia cuando la visita NO entrega concomitante: ahí no
+              existe la rama de la que colgaba, y sin esto una visita solo-IP ya dispensada no
+              mostraba ni un pedido. Con concomitante sigue donde estaba, adentro de esa subsección. */}
+          {!visit.dispenses && closedReqs.length > 0 && (
+            <Sub label="Historial">{renderHistorial(false)}</Sub>
+          )}
+
           {/* pie común: fecha + estado + cancelar, UNA sola vez — es lo que dice que arriba hay un
               pedido y no dos (ver el comentario de cabecera). */}
           {openReq && (
             <div style={footStyle}>
-              <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>Pedido del {formatDateAR(openReq.created_at)}</span>
+              <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>
+                Pedido del {formatDateAR(openReq.created_at)}
+                {/* El correlativo apenas el comprobante existe, sin esperar a la entrega: es el
+                    número que la coordinadora canta cuando el paciente pasa a retirar. */}
+                {comprobanteAbierto !== null && (
+                  <> · Comprobante N° <span className="spira-mono">{comprobanteAbierto}</span></>
+                )}
+              </span>
               {constanciaIncompleta ? (
                 // "Incompleta" pisa el badge normal: falta la constancia importa más que si la
-                // solicitud sigue 'solicitada' o ya pasó a 'preparando'. Color en `--spira-warn` a
-                // secas (no el ámbar profundo del mock): mismo criterio que ya usa STATUS_META para
-                // el badge "Solicitada" en esta misma app — no se inventa un tono nuevo por tarjeta.
-                <span style={{ ...pillBase, color: 'var(--spira-warn)', background: WARN_TINT_PILL }}>Incompleta</span>
+                // solicitud sigue 'solicitada' o ya pasó a 'preparando'.
+                //
+                // Va en el ámbar PROFUNDO, que es lo que el mock pide para esta píldora y lo que ya
+                // existe en tokens como acento profundo de Pharma (invertido en oscuro, como todo
+                // color que se oscurece para leerse sobre un tinte claro). Con `--spira-warn` a
+                // secas daba ~2,4:1 sobre este tinte y a 11px/600 AA pide 4,5:1 — y, peor, era el
+                // MISMO color que el badge "Solicitada" que sale de `estados.ts`: los dos estados se
+                // veían iguales y "falta algo" quedaba apoyado solo en la palabra. Se toca SOLO esta
+                // píldora: `estados.ts` alimenta también el tablero de Farmacia y el historial.
+                <span style={{ ...pillBase, color: 'var(--spira-acc-deep-pharma)', background: WARN_TINT_PILL }}>Incompleta</span>
               ) : (
                 <span style={{ ...pillBase, color: badgeOf(openReq).color, background: badgeOf(openReq).tint }}>{badgeOf(openReq).label}</span>
               )}
