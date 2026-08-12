@@ -59,7 +59,7 @@ npm run build       # typecheck + build de producción
    emitir valores que el código viejo no conoce): **se despliega el front PRIMERO y se aplica la
    migración inmediatamente después**, no al revés. Ya pasó una vez al revés (0068, 2026-08-05) y
    dejó la Agenda y la ficha del paciente en blanco en producción hasta el deploy.
-   Tres trampas que ya hicieron fallar migraciones y conviene tener presentes al escribirlas:
+   Cuatro trampas que ya hicieron fallar SQL en prod y conviene tener presentes al escribirlo:
    **`ALTER TYPE ... ADD VALUE` no puede usar el valor nuevo en la misma transacción** (va en un
    archivo aparte, aplicado antes — ver 0053); en PL/pgSQL los nombres de un
    **`returns table (...)` compiten con los de columna sin calificar** (calificá siempre; ver
@@ -70,6 +70,16 @@ npm run build       # typecheck + build de producción
    culpable (`42P01: relation "v_status" does not exist`, por una variable de plpgsql ejecutada como
    si fuera una tabla) — ver 0071, costó una tarde el 2026-08-10. Se detecta contando: la cantidad de
    marcadores de dollar-quote en el texto **crudo** tiene que ser par.
+   Y una cuarta, que vale para **todo** el SQL que le pases (migraciones y scripts de datos):
+   **las sentencias de un mismo bloque NO comparten sesión en el editor de Supabase.** Una
+   `create temporary table` en la primera ya no existe en la segunda (`42P01: relation "tmp_..."
+   does not exist`), y **tampoco hay una transacción que abarque el bloque**: un error en el medio
+   deja committeado todo lo anterior, sin rollback que lo salve. El comentario de la 0071 afirma lo
+   contrario y está equivocado. Si necesitás juntar un conjunto de ids, repetilo como CTE o
+   subconsulta **dentro de cada sentencia**; si necesitás atomicidad de verdad, envolvelo en una
+   función `plpgsql` y llamala. Y escribí las sentencias **idempotentes y en orden de dependencias**,
+   para que reintentar sea volver a correr el bloque entero (ver `supabase/_borrar_test_ip.sql`,
+   2026-08-11).
 4. **El preview es una sesión de navegador aparte de la del usuario.** No podés precargarle
    formularios ni ver su estado; verificá las escrituras recargando tu propia instancia.
 
