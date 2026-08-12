@@ -1,26 +1,22 @@
 import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import { supabase } from '../../lib/supabase'
 import { pharmaErrorMessage } from './errors'
+import type { DispensationRequestRow, RequestStatus } from './dispensationModel'
+
+/**
+ * El MODELO (formas de fila + lo que se deriva de ellas) vive en `dispensationModel.ts`, que no
+ * importa Supabase: así se puede testear la aritmética del escaneo sin levantar un navegador falso.
+ * Acá queda el TRANSPORTE: hooks de lectura y funciones de mutación.
+ *
+ * Se re-exporta entero a propósito — `from '../../data/pharma'` sigue trayendo exactamente lo mismo
+ * que antes de la separación, así que ninguna vista tuvo que tocar sus imports.
+ */
+export * from './dispensationModel'
 
 // UUID nulo: filtro imposible para devolver vacío cuando todavía no hay visita resuelta (el hook
 // se llama siempre, pero el panel recién se muestra con una visita en contexto). Evita traer TODO.
 const NIL_UUID = '00000000-0000-0000-0000-000000000000'
 
-/** Estado de la SOLICITUD (enum `request_status`, migraciones 0001 + 0053). */
-export type RequestStatus = 'solicitada' | 'preparando' | 'atendida' | 'rechazada' | 'cancelada'
-/** Estado de la DISPENSACIÓN ejecutada (enum `dispensation_status`). Desde la 0054 los tres se
- *  materializan de verdad: `en_preparacion` mientras se arma, `lista` con el stock ya descontado y
- *  el comprobante emitido, `entregada` cuando el paciente retiró. */
-export type DispensationStatus = 'en_preparacion' | 'lista' | 'entregada'
-
-/**
- * Las cuatro columnas del tablero. Ojo: NO mapean 1:1 contra `RequestStatus`, porque `lista` y
- * `entregada` viven en la dispensación, no en la solicitud (una solicitud `atendida` puede estar
- * lista para retirar o ya entregada). `columnOf()` resuelve la columna real de cada fila.
- */
-export type BoardColumn = 'solicitada' | 'preparando' | 'lista' | 'entregada'
-/** Origen de la solicitud (enum `dispensation_source`). v1 siempre `manual`; `ivrs`/`base` a futuro. */
-export type DispensationSource = 'ivrs' | 'base' | 'manual'
 
 /**
  * Huso de Mendoza, para acotar un día calendario contra columnas `timestamptz`.
@@ -37,104 +33,28 @@ export type DispensationSource = 'ivrs' | 'base' | 'manual'
  */
 const AR_OFFSET = '-03:00'
 
-/** Renglón pedido en la solicitud (tabla `dispensation_request_items`), con el medicamento embebido. */
-export interface RequestItemRow {
-  id: string
-  medication_id: string
-  quantity: number
-  /** Cuándo se confirmó por escaneo (0054). NULL = pendiente. Persistido a propósito: la card del
-   *  tablero muestra el contador fuera del cajón, así que en memoria mentiría al recargar. */
-  scanned_at: string | null
-  scanned_by: string | null
-  medication: { name: string; dosis: string | null; unit: string } | null
-}
-
-/** Renglón entregado (tabla `dispensation_items`), con el lote/vencimiento snapshot para el comprobante. */
-export interface DispensationLineRow {
-  id: string
-  medication_id: string
-  quantity: number
-  lot_number: string | null
-  expiry_date: string | null
-  medication: { name: string } | null
-}
-
-/** Dispensación ejecutada por Pharma (tabla `dispensations`). `correlative_number` = N° de comprobante. */
-export interface DispensationRow {
-  id: string
-  status: DispensationStatus
-  correlative_number: number
-  /** Código legible `D-{n}-{ddmmyy}-{iniciales}` (0055). Se sella al marcar lista; null antes.
-   *  Distinto del comprobante: el código identifica la dispensación, `correlative_number` la nota. */
-  dispensation_code: string | null
-  daily_number: number | null
-  delivered_at: string | null
-  items: DispensationLineRow[]
-  /** Kits de IP entregados. NULL hasta la entrega (0071). */
-  ip_kits: number | null
-}
-
-/** Constancia del IRT adjunta al pedido (tabla `dispensation_ip_documents`, 0071). */
-export interface IpDocumentRow {
-  id: string
-  storage_path: string
-  file_name: string
-  mime_type: string
-  size_bytes: number
-  uploaded_at: string
-  /** NULL = es la vigente. Reemplazar no borra: sella esta fecha en la anterior. */
-  superseded_at: string | null
-}
 
 /**
- * Solicitud de dispensación (tabla `dispensation_requests`, migración 0002) con sus renglones, la
- * dispensación ejecutada (si la hubo) y el contexto de paciente/protocolo. Es la fila que alimenta
- * tanto el panel de Track (por visita) como la cola de Pharma (transversal).
+ * ┌─ PENDIENTE DE LA 0075 ────────────────────────────────────────────────────────────────────┐
+ * │ Cuando la 0075 esté aplicada en prod, este select tiene que pedir dos cosas más:           │
+ * │                                                                                            │
+ * │   · `scanned_units` en `items:dispensation_request_items(...)`                              │
+ * │   · `printed_at, printed_by` en `ip_documents:dispensation_ip_documents(...)`               │
+ * │                                                                                            │
+ * │ NO se pueden pedir antes: PostgREST responde 42703 ("column does not exist") y voltea la    │
+ * │ consulta ENTERA, así que el tablero quedaría vacío. Mientras tanto el front funciona igual  │
+ * │ que siempre — `unidadesEscaneadas()` y `constanciaImpresa()` cubren la ausencia con la      │
+ * │ semántica vieja, que es exactamente lo que la base todavía tiene.                           │
+ * │                                                                                            │
+ * │ `drug:drugs(id, name)` SÍ va desde ya: la FK existe desde la 0032 y Pharma siempre la leyó. │
+ * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-export interface DispensationRequestRow {
-  id: string
-  status: RequestStatus
-  source: DispensationSource
-  rejection_reason: string | null
-  notes: string | null
-  created_at: string
-  /** Última transición de estado (trigger `trg_requests_updated_at`, 0003:29). Es por lo que agrupa
-   *  el historial: una solicitud de ayer entregada hoy pertenece al día en que se trabajó. */
-  updated_at: string
-  visit_id: string
-  /**
-   * Módulo que originó la solicitud (0059). Antes el cajón decía "Coordinación" hardcodeado, lo
-   * que iba a volverse mentira en cuanto Pharma pudiera dar de alta. `null` solo en filas anteriores
-   * a la 0059 que no alcanzó el backfill; el front degrada a "—" en vez de inventar un origen.
-   */
-  requested_by_module: 'track' | 'pharma' | null
-  /** Quién tomó la preparación y desde cuándo (0054). Sirve para no pisarse entre farmacéuticas. */
-  prepared_by: string | null
-  preparation_started_at: string | null
-  items: RequestItemRow[]
-  /** La dispensación ejecutada; array por el schema (FK inversa), en la práctica 0 o 1. */
-  dispensations: DispensationRow[]
-  /** El pedido lleva IP. Lo sella el servidor desde el cronograma; el cliente no lo declara (0071). */
-  includes_ip: boolean
-  /** Dispensación fuera de cronograma + su motivo obligatorio (0071). */
-  off_schedule: boolean
-  off_schedule_reason: string | null
-  ip_documents: IpDocumentRow[]
-  /** Contexto para la cola de Pharma: paciente (nombre + código IVRS) y protocolo. */
-  visit: {
-    enrollment: {
-      patient: { code: string | null; full_name: string } | null
-      protocol: { code: string; name: string } | null
-    } | null
-  } | null
-}
-
 const REQUEST_COLS =
   'id, status, source, rejection_reason, notes, created_at, updated_at, visit_id, ' +
   'requested_by_module, prepared_by, preparation_started_at, ' +
   'includes_ip, off_schedule, off_schedule_reason, ' +
   'items:dispensation_request_items(id, medication_id, quantity, scanned_at, scanned_by, ' +
-    'medication:medications(name, dosis, unit)), ' +
+    'medication:medications(name, dosis, unit, drug:drugs(id, name))), ' +
   'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ip_kits, ' +
     'items:dispensation_items(id, medication_id, quantity, lot_number, expiry_date, medication:medications(name))), ' +
   'ip_documents:dispensation_ip_documents(id, storage_path, file_name, mime_type, size_bytes, uploaded_at, superseded_at), ' +
@@ -225,48 +145,6 @@ export function useDispensationBoard(dayISO: string) {
   )
 }
 
-/**
- * En qué columna del tablero cae una solicitud. No es su `status` a secas: `lista` y `entregada`
- * viven en la dispensación, no en la solicitud.
- *
- *   status 'preparando' + sin dispensación lista  → Preparando
- *   status 'preparando' + dispensación 'lista'    → Listas      (comprobante ya emitido)
- *   status 'atendida'   + dispensación 'entregada'→ Entregadas
- *
- * Devuelve null para rechazada/cancelada, que no tienen columna (viven en el historial).
- */
-export function columnOf(r: DispensationRequestRow): BoardColumn | null {
-  if (r.status === 'solicitada') return 'solicitada'
-  if (r.status === 'rechazada' || r.status === 'cancelada') return null
-  const d = activeDispensation(r)
-  if (d?.status === 'entregada') return 'entregada'
-  if (d?.status === 'lista') return 'lista'
-  return r.status === 'preparando' ? 'preparando' : null
-}
-
-/** La dispensación viva de la solicitud (el schema devuelve array por la FK inversa; hay 0 o 1). */
-export function activeDispensation(r: DispensationRequestRow): DispensationRow | null {
-  return r.dispensations?.[0] ?? null
-}
-
-/** Cuántos renglones faltan escanear. 0 = se puede marcar lista. */
-export function pendingScans(r: DispensationRequestRow): number {
-  return r.items.filter((i) => i.scanned_at === null).length
-}
-
-/** Total de unidades pedidas (lo que muestra la card: "3 u."). */
-export function totalUnits(r: DispensationRequestRow): number {
-  return r.items.reduce((acc, i) => acc + i.quantity, 0)
-}
-
-/**
- * La constancia vigente del pedido. Se resuelve ACÁ y no filtrando el embed: en PostgREST un
- * filtro sobre un embed no excluye la fila padre, solo deja el embed en null — el mismo motivo por
- * el que `HISTORY_COLS` tuvo que usar `!inner`. Son dos o tres filas por pedido.
- */
-export function constanciaVigente(r: DispensationRequestRow): IpDocumentRow | null {
-  return r.ip_documents?.find((d) => d.superseded_at === null) ?? null
-}
 
 /** Cuántas filas trae cada página del historial. */
 export const HISTORY_PAGE_SIZE = 40
@@ -343,15 +221,6 @@ export function useDispensationHistory(opts: {
   )
 }
 
-/**
- * De dónde salió la solicitud, en castellano. `null` (filas previas a la 0059) devuelve '—' y no
- * "Coordinación": no sabemos el origen de esas filas, y el dato viaja al comprobante impreso.
- */
-export function origenLabel(m: DispensationRequestRow['requested_by_module']): string {
-  if (m === 'track') return 'Coordinación'
-  if (m === 'pharma') return 'Alta manual · Farmacia'
-  return '—'
-}
 
 /** Visita candidata para un alta manual (RPC `visitas_dispensables`, 0059). */
 export interface VisitaDispensableRow {

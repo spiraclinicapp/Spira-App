@@ -202,16 +202,34 @@ dispensation_requests
 | `mark_ip_document_printed` | **nueva** | sella la aserción de §3.2 |
 | `dispensation_audit_trail` | **nueva** | historial del pedido legible por **pharma** (el precedente `HistorialMedicacionModal` va por una RPC solo-gerencia; esta necesita candado propio) |
 
-### Orden de aplicación (regla dura, `CLAUDE.md` §3)
+### Orden de aplicación — **migración primero** (y por qué acá se invierte)
 
 ```
-1. Deploy del FRONT (tolera scanned_units ausente: cae a scanned_at)
-2. Migración 0075 — scanned_units + printed_at/printed_by + backfill
-3. Migración 0076 — substitute_dispensation_item
-4. Migración 0077 — reassign + audit_trail
+1. Migración 0075 — scanned_units + printed_at/printed_by + backfill
+2. Migración 0076 — substitute_dispensation_item
+3. Migración 0077 — reassign + audit_trail
+4. Deploy del FRONT
 ```
 
-Al revés deja el cajón roto en producción, que es lo que pasó con la 0068 el 2026-08-05.
+La regla dura de `CLAUDE.md` §3 ("front primero") existe para cuando la base **empieza a emitir**
+algo que el código viejo no conoce — el caso de la 0068, que dejó la Agenda en blanco. **Acá pasa lo
+contrario:** las tres migraciones son aditivas y el front viejo no pide ninguna de sus columnas ni
+llama a sus RPCs nuevas. El que depende es el front **nuevo**.
+
+|             | front viejo | front nuevo |
+|---|---|---|
+| **DB sin 0075** | ✅ | ❌ `42703`: select de una columna que no existe |
+| **DB con 0075** | ✅ (la ignora) | ✅ |
+
+Con "front primero" se cae la casilla ❌ y el cajón queda roto. Aplicar la regla sin mirar qué tipo
+de cambio es sería cargo cult.
+
+Las dos cosas que hay que verificar para sostener que 0075 **no** es breaking para el front viejo:
+
+- `scan_dispensation_item.remaining` pasa de contar renglones a contar unidades. El front viejo solo
+  pregunta `remaining === 0`, y cero sigue significando "no falta nada". No se rompe.
+- El backfill `scanned_units = quantity where scanned_at is not null` deja las preparaciones **en
+  vuelo** con su progreso intacto, leídas por cualquiera de los dos fronts.
 
 ---
 

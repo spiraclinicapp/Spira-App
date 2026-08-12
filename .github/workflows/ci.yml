@@ -34,8 +34,8 @@ jobs:
       - name: Install (npm ci)
         run: npm ci
 
-      - name: Typecheck + build
-        run: npm run build # tsc --noEmit && vite build
+      - name: Typecheck + tests + build
+        run: npm run build # tsc --noEmit && vitest run && vite build
         env:
           # vite build NO ejecuta el código de la app, así que no necesita las credenciales reales;
           # estos placeholders sólo cubren cualquier chequeo de presencia. No son secretos.
