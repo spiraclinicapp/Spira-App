@@ -12,7 +12,7 @@ import { Icon } from './Icon'
  * al cerrar devuelve el foco al elemento que lo disparó. Es net-new respecto a `Modal` (que hoy no
  * atrapa el foco); si más adelante se retrofitea `Modal`, este es el patrón a portar.
  */
-export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusRef }: {
+export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusRef, chrome = 'default' }: {
   title: string
   onClose: () => void
   children: ReactNode
@@ -25,6 +25,22 @@ export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusR
    * disparo se pierde.
    */
   initialFocusRef?: React.RefObject<HTMLElement | null>
+  /**
+   * Quién dibuja el marco.
+   *
+   *   · `'default'` — el cajón pone su encabezado (título + ✕), sus bordes y sus esquinas. Es lo
+   *     correcto para un panel de lectura, que es para lo que nació este componente.
+   *   · `'propio'`  — el cajón aporta solo la mecánica (backdrop, foco atrapado, Escape, aria) y el
+   *     contenido dibuja TODO el marco. Sin encabezado, sin esquinas redondeadas y sin borde
+   *     izquierdo: la separación con el fondo la da la sombra (handoff §4, decisión explícita).
+   *     `position: relative` queda puesto para que un overlay interno —el visor de la constancia—
+   *     se ancle al cajón y no al viewport.
+   *
+   * Nace con el rediseño de la dispensación, que necesita encabezado propio (subtítulo con paciente,
+   * chip de excepción y menú ⋯) y un cuerpo partido en riel + trabajo. `title` sigue siendo
+   * obligatorio: alimenta el `aria-label` del diálogo aunque no se pinte.
+   */
+  chrome?: 'default' | 'propio'
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
@@ -72,17 +88,26 @@ export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusR
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        style={{ ...panelBase, maxWidth }}
+        style={{ ...panelBase, maxWidth, ...(chrome === 'propio' ? panelDesnudo : {}) }}
       >
-        {/* encabezado fijo */}
-        <div style={headerStyle}>
-          <div className="spira-h2" style={{ flex: 1, fontSize: 20 }}>{title}</div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" title="Cerrar" style={closeBtn}>
-            <Icon name="x" size={18} color="var(--spira-muted)" />
-          </button>
-        </div>
-        {/* cuerpo scrolleable */}
-        <div style={bodyStyle}>{children}</div>
+        {chrome === 'propio' ? (
+          // El contenido dibuja su propio marco, encabezado incluido. No se envuelve en el cuerpo
+          // scrolleable: el cajón de dispensación scrollea por dentro (riel y trabajo tienen scrolls
+          // separados) y un overflow de más acá le cortaría el overlay del visor.
+          children
+        ) : (
+          <>
+            {/* encabezado fijo */}
+            <div style={headerStyle}>
+              <div className="spira-h2" style={{ flex: 1, fontSize: 20 }}>{title}</div>
+              <button type="button" onClick={onClose} aria-label="Cerrar" title="Cerrar" style={closeBtn}>
+                <Icon name="x" size={18} color="var(--spira-muted)" />
+              </button>
+            </div>
+            {/* cuerpo scrolleable */}
+            <div style={bodyStyle}>{children}</div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -98,6 +123,15 @@ const panelBase: CSSProperties = {
   borderRadius: '16px 0 0 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden',
   animation: 'spDrawerIn 0.18s ease-out',
 }
+/**
+ * Marco cedido al contenido: sin esquinas ni borde izquierdo (la sombra hace la separación) y con
+ * `position: relative` para que el visor de la constancia se ancle al cajón, no al viewport.
+ */
+const panelDesnudo: CSSProperties = {
+  borderRadius: 0, borderLeft: 'none', position: 'relative',
+  background: 'var(--spira-paper)', boxShadow: '-18px 0 48px rgba(20, 48, 46, 0.14)',
+}
+
 const headerStyle: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 12, padding: '22px 24px 14px', flex: '0 0 auto',
 }

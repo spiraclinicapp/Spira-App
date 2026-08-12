@@ -66,7 +66,7 @@ export function KanbanCard({ r, column, canOperate, onOpen, onAdvance, busy }: {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => { setHover(false); setCtaHover(false) }}
       style={card}
-      aria-label={`${disp?.dispensation_code ?? 'Solicitud'}, paciente ${r.visit?.enrollment?.patient?.code ?? 'sin código'}, ${COLUMN_META[column].one}`}
+      aria-label={`${disp?.dispensation_code ?? 'Solicitud'}, paciente ${r.visit?.enrollment?.patient?.code ?? 'sin código'}, ${COLUMN_META[column].estado}`}
     >
       {/* 1 · paciente + protocolo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>

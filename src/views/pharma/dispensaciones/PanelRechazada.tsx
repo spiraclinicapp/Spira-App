@@ -22,7 +22,7 @@ export function PanelRechazada({ r, onClose }: { r: DispensationRequestRow; onCl
 
         <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 9 }}>Pedido</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {r.items.map((i) => <ItemRow key={i.id} {...fromRequestItem(i)} scanned={null} />)}
+          {r.items.map((i) => <ItemRow key={i.id} {...fromRequestItem(i, 'lectura')} />)}
         </div>
       </div>
 

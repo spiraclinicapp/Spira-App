@@ -1,16 +1,15 @@
 import type { CSSProperties } from 'react'
 import { Drawer } from '../../../components/Drawer'
 import { Icon } from '../../../components/Icon'
-import { StepBar } from './StepBar'
 import { PanelNuevaDispensacion } from './PanelNuevaDispensacion'
 
 /**
- * Cajón del alta manual. Mismo chasis que el de una solicitud existente (encabezado + barra de
- * pasos + panel), para que la farmacéutica no sienta que entró a otra pantalla: es el mismo flujo,
- * arrancado un paso antes.
+ * Cajón del alta manual: el formulario que CREA la solicitud. Al confirmarla se abre el cajón de
+ * preparación, que es donde vive el riel de proceso.
  *
- * La barra de pasos marca "Preparar + escanear" porque la solicitud nace y se toma en el mismo
- * gesto: al crearla se abre su cajón de preparación.
+ * Antes mostraba acá la barra de pasos marcando "Preparando". Se sacó al reemplazarla por el riel:
+ * el riel enumera los requisitos de un pedido REAL (constancia, renglones, unidades) y acá todavía
+ * no hay pedido del que hablar — habría que inventarle un estado a algo que no existe.
  */
 export function NuevaDispensacionDrawer({ onClose, onCreated }: {
   onClose: () => void
@@ -31,8 +30,6 @@ export function NuevaDispensacionDrawer({ onClose, onCreated }: {
             </div>
           </div>
         </div>
-
-        <StepBar current="preparando" />
 
         <PanelNuevaDispensacion onClose={onClose} onCreated={onCreated} />
       </div>

@@ -573,3 +573,37 @@ input:-webkit-autofill:focus {
 
   @page { size: A4 portrait; margin: 0; }
 }
+
+/* ─ Riel de proceso del cajón de dispensación ────────────────────────────────
+   La espina continua va como pseudo-elemento y no como un <div>: así el tramo
+   recorrido (<i class="prog">) se apila encima sin disputarle el z-index a los
+   nodos, que tienen que quedar por delante de las dos líneas.
+   Los 11.5px de `left` centran la línea bajo un nodo de 24px con borde de 1.5. */
+.spira-rail-flow::before {
+  content: '';
+  position: absolute;
+  left: 11.5px;
+  top: 14px;
+  bottom: 14px;
+  width: 1.5px;
+  background: var(--spira-line);
+}
+
+/* —— Botón de ícono del encabezado del cajón (⋯ y ✕) ——
+   El hover aparece un borde NEUTRO (`--line`, el mismo de los divisores) y un fondo de superficie,
+   no un borde de acento: el color se reserva para significado, nunca para decir "el mouse está acá".
+   Los longhands son obligatorios — el borde arranca transparente y el hover le cambia el color, y
+   mezclar la abreviada `border` con `border-color` deja el borde negro al salir del estado. */
+.spira-icon-btn {
+  transition: background-color 0.14s var(--spira-ease-out),
+              border-color 0.14s var(--spira-ease-out),
+              color 0.14s var(--spira-ease-out);
+}
+.spira-icon-btn:hover:not(:disabled) {
+  background-color: var(--spira-surface);
+  border-color: var(--spira-line);
+  color: var(--spira-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .spira-icon-btn { transition: none; }
+}

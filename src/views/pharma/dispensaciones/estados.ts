@@ -20,36 +20,60 @@ import type { IconName } from '../../../components/Icon'
  * color es la señal principal (el contador de escaneo) va además un ícono de forma distinta.
  */
 
-/** Meta de las cuatro columnas del tablero. Colores fieles al mock del handoff. */
+/**
+ * Meta de las cuatro columnas del tablero. Colores fieles al mock del handoff.
+ *
+ * DOS CAMPOS DE TEXTO, CADA UNO CON UN TRABAJO. No son dos vocabularios compitiendo: son dos
+ * preguntas distintas que la misma pantalla hace a la vez.
+ *
+ *   · `estado` — DÓNDE ESTÁ el pedido. Título del cajón, badges, historial, columnas del tablero.
+ *   · `paso`   — QUÉ HAY QUE HACER. Solo el riel del cajón, que es una lista de trabajo.
+ *
+ * El handoff usa los dos y no se contradice: §4.1 titula "D-1046 · Preparando" (estado) mientras
+ * §4.2 rotula el nodo "Preparar y escanear" (acción).
+ *
+ * ⚠️ Las COLUMNAS del tablero usan `estado`, no `paso`, aunque la decisión de la review fue adoptar
+ * el vocabulario del handoff también ahí. Motivo concreto: la cuarta columna guarda lo YA entregado,
+ * y titularla "Entregar" sería falso — nadie tiene que entregar nada de lo que hay adentro. Un riel
+ * dice qué sigue; una columna dice qué hay. Si el Director prefiere el verbo igual, es cambiar
+ * `estado` por `paso` en `KanbanBoard`.
+ */
 export const COLUMN_META: Record<
   BoardColumn,
-  { label: string; one: string; color: string; tint: string }
+  { label: string; estado: string; paso: string; color: string; tint: string }
 > = {
   solicitada: {
     label: 'Solicitadas',
-    one: 'Solicitada',
+    estado: 'Solicitada',
+    paso: 'Tomar la solicitud',
     color: '#7C8C87',
     tint: 'rgba(124, 140, 135, 0.16)',
   },
   preparando: {
     label: 'Preparando',
-    one: 'Preparando',
+    estado: 'Preparando',
+    paso: 'Preparar y escanear',
     color: '#3A6B8C',
     tint: 'rgba(58, 107, 140, 0.13)',
   },
   lista: {
     label: 'Listas',
-    one: 'Lista para retirar',
+    estado: 'Lista para retirar',
+    paso: 'Lista para retirar',
     color: '#2E7D74',
     tint: 'rgba(46, 125, 116, 0.14)',
   },
   entregada: {
     label: 'Entregadas',
-    one: 'Entregada',
+    estado: 'Entregada',
+    paso: 'Entregar',
     color: '#4E7A3F',
     tint: 'rgba(78, 122, 63, 0.15)',
   },
 }
+
+/** Los tres pasos del cajón, en orden. `solicitada` no está: el pedido todavía no se tomó. */
+export const PASOS: readonly BoardColumn[] = ['preparando', 'lista', 'entregada'] as const
 
 /** Orden de las columnas, de izquierda a derecha. */
 export const COLUMN_ORDER: readonly BoardColumn[] = [

@@ -2,18 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, RefObject } from 'react'
 import { Icon } from '../../../components/Icon'
 import { ScanField } from '../wizard/ScanField'
-import { btnOutline, btnPrimary } from '../../../components/buttons'
+import { btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow } from '../../../data/pharma'
 import {
-  cancelDispensationPreparation,
+  constanciaVigente,
   markDispensationReady,
   scanDispensationItem,
+  todoEscaneado,
+  totalUnits,
+  unidadesOk,
   unscanDispensationItem,
 } from '../../../data/pharma'
-import { constanciaVigente } from '../../../data/pharma'
-import { ConstanciaAcciones, ConstanciaVista } from '../ConstanciaIp'
 import { COLUMN_META, readyBlockedReason } from './estados'
 import { ItemRow, fromRequestItem } from './ItemRow'
+import { TarjetaConstancia } from './TarjetaConstancia'
 
 /**
  * El paso de preparar: escanear cada renglón contra su código de barras.
@@ -29,12 +31,14 @@ import { ItemRow, fromRequestItem } from './ItemRow'
  * catálogo y se matchea contra un renglón pendiente. Los mensajes de error salen de la base, así
  * que no hay dos verdades sobre qué es un escaneo válido.
  */
-export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onToast }: {
+export function PanelPreparando({ r, scanRef, onChanged, onVerConstancia, visorAbierto, onToast }: {
   r: DispensationRequestRow
   scanRef: RefObject<HTMLInputElement | null>
   onChanged: () => void
-  onClose: () => void
-  onReject: () => void
+  /** Abre el visor de la constancia, que vive en el cajón (se ancla al panel entero). */
+  onVerConstancia: () => void
+  /** El visor está abierto: hay que soltarle el foco y apagar la captura de teclas. */
+  visorAbierto: boolean
   onToast: (msg: string) => void
 }) {
   const [code, setCode] = useState('')
@@ -43,14 +47,21 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
   const bodyRef = useRef<HTMLDivElement>(null)
 
   const blocked = readyBlockedReason(r)
-  const scannedCount = r.items.filter((i) => i.scanned_at !== null).length
   const constancia = constanciaVigente(r)
+  const uTot = totalUnits(r)
+  const uOk = unidadesOk(r)
+  const completo = todoEscaneado(r)
 
   // Captura global dentro del panel: si la farmacéutica dispara el lector con el foco en otro lado,
   // la tecla igual entra al campo. Sin esto el primer disparo después de cualquier click se pierde.
+  //
+  // SE APAGA CON EL VISOR ABIERTO. El handoff pide que el campo no se enfoque mientras se mira la
+  // constancia (§5.2), y esta captura hacía justo lo contrario: cualquier tecla —incluidas las de
+  // zoom— arrastraba el foco de vuelta al escaneo y sacaba al usuario del visor. Las dos reglas se
+  // peleaban; gana el visor, que es lo que la persona está mirando.
   useEffect(() => {
     const el = bodyRef.current
-    if (!el) return
+    if (!el || visorAbierto) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return
       const active = document.activeElement
@@ -61,7 +72,7 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
     }
     el.addEventListener('keydown', onKey)
     return () => el.removeEventListener('keydown', onKey)
-  }, [scanRef])
+  }, [scanRef, visorAbierto])
 
   const doScan = async () => {
     const value = code.trim()
@@ -97,17 +108,6 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
     onToast(`${res.dispensationCode ?? 'Dispensación'} lista · comprobante N° ${res.correlative} generado`)
   }
 
-  const doCancel = async () => {
-    setBusy(true)
-    setErr(null)
-    const res = await cancelDispensationPreparation(r.id)
-    setBusy(false)
-    if (res.error) { setErr(res.error); return }
-    onChanged()
-    onClose()
-    onToast('Preparación cancelada · vuelve a Solicitadas')
-  }
-
   return (
     <>
       <div ref={bodyRef} style={body}>
@@ -123,16 +123,12 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
             </div>
 
             {constancia ? (
-              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                {/* La plana ENTERA (348px), no una miniatura: es el papel que se imprime y se
-                    entrega, y un recorte puede dejar afuera el número de kit o la firma. */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <ConstanciaVista doc={constancia} size="grande" accent="var(--spira-pharma-solid)" />
-                </div>
-                <div style={{ flex: '0 0 auto', width: 156 }}>
-                  <ConstanciaAcciones doc={constancia} layout="columna" accent="var(--spira-pharma-solid)" />
-                </div>
-              </div>
+              // La plana entera de 348px se cambió por MINIATURA + VISOR. El motivo de aquella
+              // decisión —no recortar el papel, que un recorte puede dejar afuera el número de kit
+              // o la firma— se respeta mejor así: el visor lo muestra completo Y con lupa, mientras
+              // que acá la miniatura solo tiene que decir "es este documento". Lo que se ganó es el
+              // ancho: con el riel de 240px al trabajo le quedan 480, y 348 de constancia se los comía.
+              <TarjetaConstancia doc={constancia} onVer={onVerConstancia} />
             ) : (
               // Sin constancia el pedido no puede cerrarse (`readyBlockedReason` lo bloquea). Se dice
               // acá, arriba, y no solo abajo en el pie: es lo que hay que ir a buscar, y quien tiene
@@ -154,14 +150,6 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
             vacía sería pedirle que escanee algo que no existe. */}
         {r.items.length > 0 && (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
-              <Icon name="barcode" size={17} color="var(--spira-pharma-solid)" />
-              <span style={{ fontSize: 13, color: 'var(--spira-ink)' }}>Escaneá cada medicamento para confirmarlo</span>
-              <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>
-                · {scannedCount}/{r.items.length}
-              </span>
-            </div>
-
             <ScanField
               label="Código de barras"
               placeholder="Escaneá o tipeá el código…"
@@ -171,17 +159,40 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
               accentSolid="var(--spira-pharma-solid)"
               inputRef={scanRef}
             />
+
+            {/* El hint se REEMPLAZA por el error, no se apila con él: dos líneas de ayuda debajo del
+                campo, una diciendo cómo trabajar y otra que algo salió mal, se leen peleadas. */}
+            {err ? (
+              <div style={errBox} role="alert">
+                <Icon name="alertCircle" size={15} />
+                <span>{err}</span>
+              </div>
+            ) : (
+              <div style={hint}>
+                {completo
+                  ? 'Todo escaneado'
+                  : 'El lector escribe y confirma solo · una pasada por unidad'}
+              </div>
+            )}
+
+            {/* Contador de UNIDADES, no de renglones: un renglón de 3 necesita tres pasadas y el
+                número grande tiene que contar lo mismo que cuenta el lector. */}
+            <div style={ctop}>
+              <span style={ctopK}>{uOk}/{uTot}</span>
+              <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>unidades escaneadas</span>
+              <span
+                style={{
+                  marginLeft: 'auto', fontSize: 12, fontWeight: 600,
+                  color: completo ? 'var(--spira-good)' : 'var(--spira-primary-deep)',
+                }}
+              >
+                {completo ? 'Completo' : `Faltan ${uTot - uOk}`}
+              </span>
+            </div>
           </>
         )}
 
-        {err && (
-          <div style={errBox} role="alert">
-            <Icon name="alertCircle" size={15} />
-            <span>{err}</span>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: r.items.length > 0 ? 0 : 16 }}>
           {r.items.map((i) => (
             <ItemRow key={i.id} {...fromRequestItem(i)} onUnscan={() => doUnscan(i.id)} />
           ))}
@@ -214,11 +225,10 @@ export function PanelPreparando({ r, scanRef, onChanged, onClose, onReject, onTo
           </div>
         )}
 
-        {/* Jerarquía: Rechazar es terminal, así que es la MENOS prominente y va más lejos del CTA.
-            Cancelar preparación es reversible. Avanzar es lo único sólido. */}
+        {/* Rechazar y Cancelar preparación se mudaron al menú ⋯ del encabezado. Acá queda SOLO el
+            camino feliz: el pie de un cajón que se opera con lector no es lugar para poner la acción
+            terminal a un centímetro de la que se aprieta veinte veces por turno. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button type="button" onClick={onReject} disabled={busy} style={ghostDanger}>Rechazar</button>
-          <button type="button" onClick={doCancel} disabled={busy} style={btnOutline}>Cancelar preparación</button>
           <div style={{ flex: 1 }} />
           <button
             type="button"
@@ -254,16 +264,28 @@ const motivo: CSSProperties = {
   fontSize: 12.5, color: 'var(--spira-muted)',
 }
 
-const ghostDanger: CSSProperties = {
-  height: 40, padding: '0 12px', border: 'none', background: 'transparent',
-  color: 'var(--spira-muted)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 14,
-  cursor: 'pointer',
+const errBox: CSSProperties = {
+  display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 11, fontSize: 12.5,
+  color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.08)',
+  border: '1px solid rgba(166, 72, 59, 0.28)', borderRadius: 10, padding: '10px 12px',
+  lineHeight: 1.4,
 }
 
-const errBox: CSSProperties = {
-  display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 11, fontSize: 12.5,
-  color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.08)',
-  border: '1px solid rgba(166, 72, 59, 0.25)', borderRadius: 8, padding: '9px 11px',
+/** Ayuda bajo el campo. Ocupa el lugar del error, nunca los dos a la vez. */
+const hint: CSSProperties = {
+  fontSize: 12, color: 'var(--spira-muted)', marginTop: 11,
+}
+
+/** Contador grande de unidades, sobre la lista de renglones. */
+const ctop: CSSProperties = {
+  display: 'flex', alignItems: 'baseline', gap: 10, margin: '18px 0 12px',
+}
+
+/** Tipografía de TEXTO y no mono (handoff §10, decisión 8), con cifras de ancho fijo para que el
+ *  número no baile mientras la farmacéutica pasa cajas por el lector. */
+const ctopK: CSSProperties = {
+  fontFamily: 'var(--spira-font-text)', fontSize: 23, fontWeight: 700,
+  letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums', color: 'var(--spira-ink)',
 }
 
 /** El bloque del IP se separa del escaneo con un filete y aire, no con un fondo teñido: adentro va
