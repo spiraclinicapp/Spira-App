@@ -347,21 +347,48 @@ Hacer A primero garantiza conflictos: recolorea archivos que C y D están reescr
 
 ## 10 · Tareas
 
-- [ ] **T1 (P1)** — datos — Migración 0075: `scanned_units` + `printed_at`/`printed_by` + backfill
-- [ ] **T2 (P1)** — datos — Reescribir `scan`/`unscan`/`mark_ready` a unidades, incremento atómico
-- [ ] **T3 (P1)** — datos — Migración 0076: `substitute_dispensation_item` (§3.1, con reset a 0)
-- [ ] **T4 (P2)** — datos — Migración 0077: `reassign_dispensation_preparation` + `dispensation_audit_trail`
-- [ ] **T5 (P1)** — dominio — `readyBlockedReason()` → `requisitos(r): Requisito[]` (A5)
-- [ ] **T6 (P1)** — UI — `RailProceso` con espina, halo y `.reqs`
-- [ ] **T7 (P1)** — UI — Cajón a 720 + `.split` + footer; `StepBar` se retira
-- [ ] **T8 (P1)** — UI — `ItemRow`: `modo`, dial, columna FÁRMACO, sufijos de estado (CQ1)
-- [ ] **T9 (P1)** — UI — `PanelSustitucion` + aviso de habilitación
-- [ ] **T10 (P2)** — UI — `VisorConstancia` con zoom, Esc, y apagado de la captura global (§5)
-- [ ] **T11 (P2)** — UI — Menú `⋯` con Rechazar / Reasignar / Ver historial (CQ4)
-- [ ] **T12 (P2)** — datos — Refetch dirigido a un pedido (P1) + guarda de `useMedicationVariants` (P2)
-- [ ] **T13 (P2)** — copy — `COLUMN_META` con `estado` y `paso`; tablero, riel, historial y badges (A2)
-- [ ] **T14 (P3)** — estilo — Recolor petróleo de los 18 archivos (A4) — **último**
-- [ ] **T15 (P2)** — tests — Vitest + los 4 archivos de §6 + script npm + CI
+- [x] **T1** — Migración 0075: `scanned_units` + `printed_at`/`printed_by` + backfill + constraint
+- [x] **T2** — `scan`/`unscan`/`mark_ready` a unidades, incremento atómico; `cancel`/`reject` reescritas
+- [x] **T3** — Migración 0076: `substitute_dispensation_item` + `alternativas_sustitucion`
+- [x] **T4** — Migración 0077: `reassign_dispensation_preparation` + `dispensation_audit_trail`
+- [x] **T5** — `requisitos(r): Requisito[]` como fuente única del riel y del pie
+- [x] **T6** — `RailProceso` con espina, halo y requisitos del paso actual
+- [x] **T7** — Cajón a 720 + `.split`; `StepBar` retirada; `Drawer` gana `chrome="propio"`
+- [x] **T8** — `ItemRow`: `modo` explícito, dial, columna FÁRMACO, sufijos, "· sustituido"
+- [x] **T9** — `PanelSustitucion` + aviso de habilitación
+- [x] **T10** — `VisorConstancia` con zoom 0.4–1.6, Esc, y apagado de la captura global
+- [x] **T11** — Menú `⋯` con Cancelar / Reasignar / Historial / Rechazar
+- [x] **T12** — Refetch dirigido a un pedido + guarda de `useMedicationVariants`
+- [x] **T13** — `COLUMN_META` con `estado` y `paso`
+- [x] **T14** — Recolor petróleo + separación identidad/advertencia
+- [x] **T15** — Vitest + 36 tests + script npm + CI
 
-**Verificación de cada uno:** `npm run typecheck` verde + `npm test` verde + comprobación en el
-preview (5250). Sin las tres, no está hecho.
+---
+
+## 11 · Estado y lo que falta
+
+**Todo el alcance está implementado**, con `npm run build` (typecheck + 36 tests + build) en verde y
+verificado en el preview contra producción.
+
+### Bloqueante para poder usarlo
+
+Las **0075, 0076 y 0077 están sin aplicar**. Hasta que se apliquen, el front funciona exactamente
+como antes (los repliegues de `unidadesEscaneadas()` / `constanciaImpresa()` cubren la ausencia), y
+las funciones nuevas responden con un mensaje sereno que dice que falta la actualización.
+
+Después de aplicarlas hay **una línea** que falta: agregar al `select` de `REQUEST_COLS` las tres
+columnas nuevas. Está marcada con un recuadro en `src/data/pharma/dispensations.ts`.
+
+### Sin verificar en vivo
+
+El paso **"Preparar y escanear"** —dial, contador de unidades, sustitución— no se pudo ver en el
+navegador: no hay ningún pedido en ese estado y no se inventan datos en producción. Se verificó
+todo lo demás (riel en los tres nodos, layout de 720, menú ⋯, visor, recolor).
+
+### Dos cosas que decidí y conviene mirar
+
+1. **Las columnas del tablero usan `estado`, no `paso`.** La decisión fue adoptar el vocabulario del
+   handoff en el tablero, pero la cuarta columna guarda lo YA entregado y titularla "Entregar" sería
+   falso. Un riel dice qué sigue; una columna dice qué hay. Cambiarlo es una palabra en `KanbanBoard`.
+2. **Farmacia comparte tono con el módulo Inicio** (los dos petróleo `#0F5F57`). En la navegación se
+   distinguen por nombre e ícono. Si molesta, es un petróleo propio en `registry.ts`.
