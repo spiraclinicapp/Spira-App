@@ -584,6 +584,7 @@ export function useAlternativas(itemId: string | null) {
       return { data: (data as AlternativaRow[]) ?? [], error }
     },
     [itemId],
+    (e) => pharmaErrorMessage(e.code, e.message),
   )
 }
 
@@ -609,4 +610,75 @@ export async function substituteDispensationItem(
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null }
+}
+
+/** Una farmacéutica a la que se le puede pasar una preparación (RPC, 0077). */
+export interface FarmaceuticaRow {
+  user_id: string
+  nombre: string
+}
+
+/**
+ * A quién se le puede reasignar una preparación.
+ *
+ * Va por RPC porque `users` y `user_module_roles` no son legibles en bloque para pharma, y
+ * hacerlos legibles solo para dibujar un desplegable abriría bastante más de lo que el desplegable
+ * necesita.
+ */
+export function useFarmaceuticas(enabled: boolean) {
+  return useSupabaseQuery<FarmaceuticaRow[]>(
+    async (c) => {
+      if (!enabled) return { data: [], error: null }
+      const { data, error } = await c.rpc('farmaceuticas_disponibles')
+      return { data: (data as FarmaceuticaRow[]) ?? [], error }
+    },
+    [enabled],
+    (e) => pharmaErrorMessage(e.code, e.message),
+  )
+}
+
+/**
+ * Pasa la preparación a otra farmacéutica (RPC `reassign_dispensation_preparation`, 0077).
+ *
+ * No toca ni un escaneo: es lo que la diferencia de cancelar y volver a tomar, que era el único
+ * camino hasta ahora y tiraba el trabajo hecho por un cambio de turno.
+ */
+export async function reassignDispensationPreparation(
+  requestId: string,
+  userId: string,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('reassign_dispensation_preparation', {
+    p_request_id: requestId,
+    p_user_id: userId,
+  })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/** Una entrada del historial del pedido, leída del `audit_log` (RPC, 0077). */
+export interface HistorialEntradaRow {
+  cuando: string
+  quien: string
+  entidad: string
+  accion: string
+  antes: Record<string, unknown> | null
+  despues: Record<string, unknown> | null
+}
+
+/**
+ * El historial completo del pedido, del `audit_log`.
+ *
+ * Abre SOLO las filas de ese pedido y su cadena. El `audit_log` tiene datos de todos los módulos, y
+ * una lectura amplia acá sería una puerta lateral a lo que la RLS protege.
+ */
+export function useDispensationHistorial(requestId: string | null) {
+  return useSupabaseQuery<HistorialEntradaRow[]>(
+    async (c) => {
+      if (!requestId) return { data: [], error: null }
+      const { data, error } = await c.rpc('dispensation_audit_trail', { p_request_id: requestId })
+      return { data: (data as HistorialEntradaRow[]) ?? [], error }
+    },
+    [requestId],
+    (e) => pharmaErrorMessage(e.code, e.message),
+  )
 }

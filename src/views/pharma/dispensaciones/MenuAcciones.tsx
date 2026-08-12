@@ -63,7 +63,10 @@ export function MenuAcciones({ acciones }: { acciones: AccionMenu[] }) {
         aria-haspopup="menu"
         aria-expanded={abierto}
         aria-label="Más acciones"
-        title="Rechazar, reasignar, historial"
+        // El tooltip se arma con lo que HAY, no con la lista completa del handoff. Sobre una
+        // dispensación ya entregada solo queda el historial, y prometer "rechazar, reasignar"
+        // ahí sería la misma mentira que un botón inerte, escrita en otro lado.
+        title={acciones.map((a) => a.label).join(' · ')}
         className="spira-icon-btn"
         style={icoBtn}
       >

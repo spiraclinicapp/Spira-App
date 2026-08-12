@@ -12,6 +12,8 @@ import {
 import { chipExcepcion, COLUMN_META } from './estados'
 import type { AccionMenu } from './MenuAcciones'
 import { MenuAcciones } from './MenuAcciones'
+import { ModalHistorial } from './ModalHistorial'
+import { ModalReasignar } from './ModalReasignar'
 import { RailProceso } from './RailProceso'
 import { VisorConstancia } from './VisorConstancia'
 import { PanelPreparando } from './PanelPreparando'
@@ -36,6 +38,8 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
   const scanRef = useRef<HTMLInputElement>(null)
   const [rejecting, setRejecting] = useState(false)
   const [viendoConstancia, setViendoConstancia] = useState(false)
+  const [reasignando, setReasignando] = useState(false)
+  const [viendoHistorial, setViendoHistorial] = useState(false)
   const [errAccion, setErrAccion] = useState<string | null>(null)
 
   const disp = activeDispensation(r)
@@ -55,12 +59,16 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
   const conRiel = !rechazada && column !== null && column !== 'solicitada'
 
   /**
-   * Las acciones del menú ⋯. NINGUNA es decorativa: si no se puede ahora, va deshabilitada CON su
-   * motivo. El handoff anuncia el menú como "Rechazar, reasignar, historial"; reasignar e historial
-   * llegan con sus RPCs y hasta entonces no se dibujan, en vez de aparecer inertes.
+   * Las acciones del menú ⋯. NINGUNA es decorativa: cada una hace algo de verdad. El handoff lo
+   * anuncia como "Rechazar, reasignar, historial" y las tres se construyeron (0077); si alguna no
+   * aplica al estado actual, no se dibuja, en vez de aparecer inerte.
+   *
+   * Orden: lo reversible primero, lo terminal último y lo más lejos posible del resto.
    */
   const acciones: AccionMenu[] = []
-  if (!rechazada && column === 'preparando') {
+  const preparando = !rechazada && column === 'preparando'
+
+  if (preparando) {
     acciones.push({
       id: 'cancelar', label: 'Cancelar preparación', icon: 'arrowLeft',
       onSelect: async () => {
@@ -70,7 +78,19 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
         onChanged(); onClose(); onToast('Preparación cancelada · vuelve a Solicitadas')
       },
     })
+    acciones.push({
+      id: 'reasignar', label: 'Reasignar a otra persona', icon: 'users',
+      onSelect: () => setReasignando(true),
+    })
   }
+
+  // El historial va SIEMPRE: hace falta justo cuando el pedido está raro —volvió a la cola, tiene un
+  // renglón que nadie pidió, el contador en cero—, y esos no son estados del camino feliz.
+  acciones.push({
+    id: 'historial', label: 'Ver historial', icon: 'clock',
+    onSelect: () => setViendoHistorial(true),
+  })
+
   if (!rechazada && (column === 'solicitada' || column === 'preparando')) {
     acciones.push({
       id: 'rechazar', label: 'Rechazar solicitud', icon: 'x',
@@ -185,6 +205,21 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
           )}
         </div>
       </Drawer>
+
+      {reasignando && (
+        <ModalReasignar
+          requestId={r.id}
+          onClose={() => setReasignando(false)}
+          onHecho={(nombre) => {
+            setReasignando(false); onChanged(); onClose()
+            onToast(`Preparación reasignada a ${nombre}`)
+          }}
+        />
+      )}
+
+      {viendoHistorial && (
+        <ModalHistorial requestId={r.id} codigo={titulo} onClose={() => setViendoHistorial(false)} />
+      )}
 
       {rejecting && (
         <RejectModal

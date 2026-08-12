@@ -20,5 +20,20 @@ export function pharmaErrorMessage(code: string | undefined, raw: string): strin
   }
   if (code === '42501') return 'No tenés permiso para esta acción.'
   if (code === '23503') return 'El registro referenciado no existe o ya no está disponible.'
+  /**
+   * La función o la columna no existen todavía en la base.
+   *
+   * Pasa en la ventana entre desplegar el front y aplicar su migración, y el mensaje crudo es lo
+   * peor que le puede llegar a la farmacéutica: viene en INGLÉS y nombra objetos del schema
+   * ("Could not find the function public.dispensation_audit_trail in the schema cache",
+   * "column ... does not exist"). No es un error de ella ni algo que pueda resolver reintentando,
+   * así que el texto lo dice y nombra a quién avisarle.
+   *
+   * `42883` es el código de Postgres; `PGRST202` el de PostgREST cuando ni siquiera encuentra la
+   * función para llamarla. Los dos significan lo mismo para quien está mirando la pantalla.
+   */
+  if (code === '42883' || code === 'PGRST202' || code === '42703') {
+    return 'Esta función todavía no está disponible en el servidor. Avisale al equipo técnico: falta aplicar una actualización de la base.'
+  }
   return raw || 'No pudimos completar la acción. Probá de nuevo.'
 }
