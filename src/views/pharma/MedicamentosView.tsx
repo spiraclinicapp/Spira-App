@@ -147,7 +147,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
         </div>
         <div style={menuGrid}>
           <ApartadoCard
-            icon="file" tint="rgba(168,132,47,.14)" iconColor="var(--spira-pharma-solid)"
+            icon="file" tint="rgba(15, 95, 87,.14)" iconColor="var(--spira-pharma-solid)"
             title="Farmacia Protocolo" desc="Medicación de estudio, por protocolo"
             counter={`${nProto} ${nProto === 1 ? 'protocolo' : 'protocolos'}`}
             onClick={() => setApartado('protocolo')}
@@ -726,8 +726,8 @@ const searchInput: CSSProperties = {
 }
 const lista: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 9 }
 const rowCard: CSSProperties = { display: 'flex', alignItems: 'center', gap: 14, border: '1px solid var(--spira-line)', borderRadius: 14, background: 'var(--spira-white)', padding: '13px 16px', boxShadow: 'var(--spira-shadow-sm)' }
-const pillSq: CSSProperties = { width: 40, height: 40, flex: '0 0 auto', borderRadius: 11, background: 'rgba(168,132,47,.13)', display: 'grid', placeItems: 'center' }
-const groupIconSq: CSSProperties = { width: 26, height: 26, flex: '0 0 auto', borderRadius: 8, background: 'rgba(168,132,47,.13)', display: 'grid', placeItems: 'center' }
+const pillSq: CSSProperties = { width: 40, height: 40, flex: '0 0 auto', borderRadius: 11, background: 'rgba(15, 95, 87,.13)', display: 'grid', placeItems: 'center' }
+const groupIconSq: CSSProperties = { width: 26, height: 26, flex: '0 0 auto', borderRadius: 8, background: 'rgba(15, 95, 87,.13)', display: 'grid', placeItems: 'center' }
 const ipCard: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(15,95,87,.06)', border: '1px solid rgba(15,95,87,.18)', borderRadius: 12, padding: '12px 14px' }
 const ipIconSq: CSSProperties = { width: 36, height: 36, flex: '0 0 auto', borderRadius: 10, background: 'rgba(15,95,87,.12)', display: 'grid', placeItems: 'center' }
 const kebabBtn: CSSProperties = { width: 36, height: 36, border: '1px solid var(--spira-line-2)', borderRadius: 9, background: 'var(--spira-white)', cursor: 'pointer', display: 'grid', placeItems: 'center' }
@@ -763,5 +763,6 @@ const checkBox: CSSProperties = {
   borderColor: 'var(--spira-line-2)', display: 'grid', placeItems: 'center', background: 'var(--spira-white)',
 }
 const stockBadgeBase: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: '.02em', padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap' }
-const stockBadgeLow: CSSProperties = { ...stockBadgeBase, color: 'var(--spira-pharma-solid)', background: 'rgba(168,132,47,.14)' }
+/** Stock bajo es una ADVERTENCIA: se queda en ámbar aunque la identidad del módulo pase a petróleo. */
+const stockBadgeLow: CSSProperties = { ...stockBadgeBase, color: 'var(--spira-warn)', background: 'rgba(176,130,63,.14)' }
 const stockBadgeOut: CSSProperties = { ...stockBadgeBase, color: 'var(--spira-danger)', background: 'rgba(166,72,59,.12)' }

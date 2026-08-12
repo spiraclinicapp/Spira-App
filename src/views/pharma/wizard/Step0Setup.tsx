@@ -21,7 +21,7 @@ interface Props {
 
 /** Cards de tipo: ícono teñido + título display + descripción. */
 const TIPOS: { value: ReceptionKind; title: string; desc: string; icon: IconName; tint: string; iconColor: string }[] = [
-  { value: 'protocolo', title: 'Farmacia Protocolo', desc: 'Medicación del estudio, asociada a un protocolo.', icon: 'file', tint: 'rgba(168,132,47,.14)', iconColor: 'var(--spira-pharma-solid)' },
+  { value: 'protocolo', title: 'Farmacia Protocolo', desc: 'Medicación del estudio, asociada a un protocolo.', icon: 'file', tint: 'rgba(15, 95, 87,.14)', iconColor: 'var(--spira-pharma-solid)' },
   { value: 'investigacion', title: 'Producto Investigación', desc: 'Ingreso macro de kits del sponsor por cargamento.', icon: 'flask', tint: 'rgba(15,95,87,.10)', iconColor: 'var(--spira-primary)' },
   { value: 'ambulatoria', title: 'Farmacia Ambulatoria', desc: 'Medicación de farmacia general, sin protocolo.', icon: 'pill', tint: 'rgba(58,107,140,.12)', iconColor: 'var(--spira-contable)' },
 ]

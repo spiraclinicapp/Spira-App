@@ -218,3 +218,27 @@ export async function printIpDocument(path: string): Promise<string | null> {
     return 'No se pudo imprimir. Probá con “Abrir en pestaña”.'
   }
 }
+
+/**
+ * Marca la constancia como IMPRESA (RPC `mark_ip_document_printed`, 0075).
+ *
+ * ⚠️ ESTO NO AFIRMA QUE LA IMPRESORA IMPRIMIÓ. `printIpDocument` abre el diálogo del navegador, y
+ * `afterprint` dispara igual si la persona canceló: no existe API web que distinga las dos cosas.
+ * Lo que se sella es la ASERCIÓN de quien apretó Imprimir, y así se llama en la base y en el
+ * `audit_log`. En un sistema auditable la diferencia entre lo que el sistema observó y lo que
+ * alguien afirmó no se difumina.
+ *
+ * Silencia UN error y solo uno: `42883` (la función no existe) mientras la 0075 no esté aplicada.
+ * En esa ventana la impresión ya ocurrió y el requisito todavía no se exige (`constanciaImpresa()`
+ * devuelve true sin la columna), así que alarmar a la farmacéutica por un sello que el sistema
+ * todavía no sabe guardar sería ruido sobre una acción que salió bien. Cualquier otro error —de
+ * permisos, de constancia reemplazada— sí se devuelve.
+ */
+export async function markIpDocumentPrinted(
+  documentId: string,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('mark_ip_document_printed', { p_document_id: documentId })
+  if (!error) return { error: null }
+  if (error.code === '42883' || /does not exist/i.test(error.message ?? '')) return { error: null }
+  return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+}

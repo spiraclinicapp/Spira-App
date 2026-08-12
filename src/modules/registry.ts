@@ -72,7 +72,12 @@ export const MODULES: ModuleDef[] = [
   },
   {
     key: 'pharma', name: 'Farmacia', full: 'Spira Farmacia', icon: 'pill',
-    accent: '#C9A24A', accentSolid: '#A8842F',
+    // Petróleo, no ámbar: --spira-warn (#B0823F) y el ámbar de identidad (#A8842F) estaban a
+    // cuatro dígitos hex, así que "es de Farmacia" y "algo está por vencer" se veían igual.
+    // El ámbar queda reservado para advertencia. OJO: este petróleo es el MISMO del módulo Inicio
+    // (línea 47), así que en la navegación los dos comparten tono — se distinguen por nombre e
+    // ícono, no por color. Si hace falta separarlos, acá va un petróleo propio.
+    accent: '#0F5F57', accentSolid: '#0F5F57',
     /* Tres de estos submódulos son sobre medicación y ninguno se distinguía por su nombre.
        El descriptor los separa por el VERBO: Recepción = lo que entra, Stock = lo que hay,
        Dispensaciones = lo que sale — y ese es también el ORDEN en que se listan, porque es

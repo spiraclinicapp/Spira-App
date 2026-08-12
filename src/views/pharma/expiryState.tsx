@@ -17,7 +17,10 @@ export const EXPIRY_SOON_DAYS = 30
 
 export const ESTADO_CFG: Record<Estado, { color: string; icon: IconName | null; label: string }> = {
   ok: { color: 'var(--spira-ink)', icon: null, label: 'Vigente' },
-  pronto: { color: 'var(--spira-pharma-solid)', icon: 'clock', label: 'Vence pronto' },
+  // ADVERTENCIA, no identidad del módulo: usaba --spira-pharma-solid solo porque el ámbar de
+  // Farmacia y el de alerta eran el mismo color. Con la identidad en petróleo, esto tiene que
+  // seguir siendo ámbar o "vence pronto" se vería igual que un ícono cualquiera del módulo.
+  pronto: { color: 'var(--spira-warn)', icon: 'clock', label: 'Vence pronto' },
   vencido: { color: 'var(--spira-danger)', icon: 'alert', label: 'Vencido' },
 }
 

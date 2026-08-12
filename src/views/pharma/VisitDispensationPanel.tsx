@@ -58,12 +58,12 @@ const subLabel: CSSProperties = {
  * caja aparte: la primera versión colgaba un formulario encima de la tarjeta y el Director la
  * rechazó por eso (mock §4). Lo único que la distingue es el color del rótulo.
  *
- * El ámbar va por `--spira-acc-deep-pharma` y no por `--spira-warn`: como todo color "profundo" de
+ * El ámbar va por `--spira-acc-deep-warn` y no por `--spira-warn`: como todo color "profundo" de
  * tokens, se INVIERTE en oscuro (en claro oscurece para leerse sobre papel; en oscuro aclara). El
  * ámbar oscuro sobre card oscura da 2,39:1, así que el token es también la decisión de contraste.
  */
 const subLabelExc: CSSProperties = {
-  ...subLabel, color: 'var(--spira-acc-deep-pharma)', display: 'inline-flex',
+  ...subLabel, color: 'var(--spira-acc-deep-warn)', display: 'inline-flex',
   alignItems: 'center', gap: 6,
 }
 
@@ -928,7 +928,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                     <div key={it.medication_id} style={itemRow}>
                       <span style={{ flex: 1, minWidth: 0, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.name}</span>
                       <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>x{it.quantity}</span>
-                      <span style={{ ...pillBase, color: 'var(--spira-acc-deep-pharma)', background: WARN_TINT_PILL }}>Sin solicitar</span>
+                      <span style={{ ...pillBase, color: 'var(--spira-acc-deep-warn)', background: WARN_TINT_PILL }}>Sin solicitar</span>
                       <button
                         type="button" aria-label={`Quitar ${it.name}`} onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
                         style={{ flex: '0 0 auto', background: 'transparent', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 2 }}
@@ -1145,7 +1145,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 // MISMO color que el badge "Solicitada" que sale de `estados.ts`: los dos estados se
                 // veían iguales y "falta algo" quedaba apoyado solo en la palabra. Se toca SOLO esta
                 // píldora: `estados.ts` alimenta también el tablero de Farmacia y el historial.
-                <span style={{ ...pillBase, color: 'var(--spira-acc-deep-pharma)', background: WARN_TINT_PILL }}>Incompleta</span>
+                <span style={{ ...pillBase, color: 'var(--spira-acc-deep-warn)', background: WARN_TINT_PILL }}>Incompleta</span>
               ) : (
                 <span style={{ ...pillBase, color: badgeOf(openReq).color, background: badgeOf(openReq).tint }}>{badgeOf(openReq).label}</span>
               )}

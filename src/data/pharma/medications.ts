@@ -50,13 +50,24 @@ export function useMedicationCodes() {
   )
 }
 
-/** Variantes de una droga: otros medicamentos (presentaciones) del mismo principio activo. */
+/**
+ * Variantes de una droga: otros medicamentos (presentaciones) del mismo principio activo.
+ *
+ * SIN DROGA DEVUELVE VACÍO, no todo. La versión anterior armaba el filtro con un `if (drugId)`, así
+ * que un `null` —que es un caso real: `medications.drug_id` es nullable hasta que se le asigna la
+ * droga— dejaba la consulta SIN filtro y se traía el catálogo entero. Nadie lo notaba porque la
+ * pantalla igual mostraba una lista; solo que era la lista equivocada, y crece con el catálogo.
+ */
 export function useMedicationVariants(drugId: string | null) {
   return useSupabaseQuery<MedicationRow[]>(
-    (c) => {
-      let q = c.from('medications').select(MEDICATION_COLS)
-      if (drugId) q = q.eq('drug_id', drugId)
-      return q.order('name', { ascending: true }).returns<MedicationRow[]>()
+    async (c) => {
+      if (!drugId) return { data: [], error: null }
+      return await c
+        .from('medications')
+        .select(MEDICATION_COLS)
+        .eq('drug_id', drugId)
+        .order('name', { ascending: true })
+        .returns<MedicationRow[]>()
     },
     [drugId],
   )

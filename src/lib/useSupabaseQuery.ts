@@ -22,7 +22,20 @@ type QueryFn<T> = (
  * `queryFn` NO entra en las deps del efecto a propósito: el disparo lo controla
  * `deps` (las variables que realmente afectan la query) más `refetch`.
  */
-export function useSupabaseQuery<T>(queryFn: QueryFn<T>, deps: DependencyList): QueryResult<T> {
+export function useSupabaseQuery<T>(
+  queryFn: QueryFn<T>,
+  deps: DependencyList,
+  /**
+   * Traduce el error de Postgres antes de mostrarlo. OPCIONAL y opt-in: sin él se muestra
+   * `err.message` crudo, que es lo que hacían (y siguen haciendo) todos los llamadores previos.
+   *
+   * Hace falta porque el mensaje crudo llega en INGLÉS y nombrando objetos del schema — "Could not
+   * find the function public.dispensation_audit_trail in the schema cache" es lo que veía la
+   * farmacéutica cuando faltaba aplicar una migración. Las MUTACIONES ya traducían (cada una pasa
+   * por su `*ErrorMessage`); las lecturas no tenían por dónde.
+   */
+  traducirError?: (e: PostgrestError) => string,
+): QueryResult<T> {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +57,7 @@ export function useSupabaseQuery<T>(queryFn: QueryFn<T>, deps: DependencyList): 
       const { data: rows, error: err } = await queryFn(supabase)
       if (!active) return
       if (err) {
-        setError(err.message)
+        setError(traducirError ? traducirError(err) : err.message)
         setData(null)
         dataRef.current = null
       } else {
