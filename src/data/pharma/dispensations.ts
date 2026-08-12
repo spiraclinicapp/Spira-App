@@ -90,6 +90,33 @@ export function useVisitDispensations(visitId: string | null) {
 }
 
 /**
+ * UN pedido, por id.
+ *
+ * Existe para que el cajón no obligue al TABLERO a recargarse entero en cada pasada del lector.
+ * `useDispensationBoard` son dos consultas con todos los embeds; con una pasada por unidad, un
+ * pedido de 6 unidades disparaba 6 refetch = 12 consultas del tablero completo, y cada una bloqueaba
+ * el contador justo en el camino más caliente de la pantalla. Acá es UNA consulta de UNA fila.
+ *
+ * El tablero se refresca una sola vez, al cerrar el cajón: mientras está abierto lo tapa entero, así
+ * que nadie ve las columnas de atrás.
+ */
+export function useDispensationRequest(requestId: string | null) {
+  return useSupabaseQuery<DispensationRequestRow | null>(
+    async (c) => {
+      if (!requestId) return { data: null, error: null }
+      const { data, error } = await c
+        .from('dispensation_requests')
+        .select(REQUEST_COLS)
+        .eq('id', requestId)
+        .maybeSingle()
+      return { data: (data as DispensationRequestRow | null) ?? null, error }
+    },
+    [requestId],
+    (e) => pharmaErrorMessage(e.code, e.message),
+  )
+}
+
+/**
  * Cola de dispensación de Pharma (central: ve todos los protocolos). `statuses` filtra por estado
  * (ej. `['solicitada']` para pendientes; sin filtro para el historial). Más nuevas primero.
  */

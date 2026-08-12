@@ -7,7 +7,7 @@ import { btnOutline, btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow } from '../../../data/pharma'
 import {
   activeDispensation, cancelDispensationPreparation, columnOf, constanciaVigente,
-  origenLabel, rejectDispensationRequest,
+  origenLabel, rejectDispensationRequest, useDispensationRequest,
 } from '../../../data/pharma'
 import { chipExcepcion, COLUMN_META } from './estados'
 import type { AccionMenu } from './MenuAcciones'
@@ -29,12 +29,29 @@ import { ComprobanteImprimible } from './ComprobanteImprimible'
  * para que el foco caiga ahí y no en el ✕ del encabezado — sin eso, el primer disparo del lector
  * de código de barras se pierde.
  */
-export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
+export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChanged, onToast }: {
   r: DispensationRequestRow
   onClose: () => void
+  /** Refresca el TABLERO. Se llama una sola vez, al cerrar (ver `refrescar` abajo). */
   onChanged: () => void
   onToast: (msg: string) => void
 }) {
+  /**
+   * El cajón trabaja sobre su PROPIA copia del pedido, no sobre la del tablero.
+   *
+   * Con una pasada por unidad, hacer que cada escaneo recargara el tablero disparaba dos consultas
+   * con todos los embeds por pasada —12 para un pedido de 6 unidades— y bloqueaba el contador en el
+   * camino más caliente de la pantalla. Acá cada pasada recarga UNA fila.
+   *
+   * El servidor sigue siendo la única fuente de verdad del contador: no se guarda un conteo
+   * optimista en memoria. En un sistema auditable no se muestra una unidad que la base no confirmó.
+   */
+  const { data: fresca, refetch: refrescar } = useDispensationRequest(inicial.id)
+  const r = fresca ?? inicial
+
+  // El tablero se entera al cerrar, de una sola vez: mientras el cajón está abierto lo tapa entero.
+  const onClose = () => { onChanged(); cerrarTablero() }
+
   const scanRef = useRef<HTMLInputElement>(null)
   const [rejecting, setRejecting] = useState(false)
   const [viendoConstancia, setViendoConstancia] = useState(false)
@@ -75,7 +92,7 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
         setErrAccion(null)
         const res = await cancelDispensationPreparation(r.id)
         if (res.error) { setErrAccion(res.error); return }
-        onChanged(); onClose(); onToast('Preparación cancelada · vuelve a Solicitadas')
+        onClose(); onToast('Preparación cancelada · vuelve a Solicitadas')
       },
     })
     acciones.push({
@@ -176,13 +193,13 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
                 <PanelRechazada r={r} onClose={onClose} />
               ) : column === 'preparando' ? (
                 <PanelPreparando
-                  r={r} scanRef={scanRef} onChanged={onChanged}
+                  r={r} scanRef={scanRef} onChanged={refrescar}
                   onVerConstancia={() => setViendoConstancia(true)}
                   visorAbierto={viendoConstancia}
                   onToast={onToast}
                 />
               ) : column === 'lista' && disp ? (
-                <PanelLista r={r} disp={disp} onChanged={onChanged} onClose={onClose} onPrint={() => window.print()} onToast={onToast} />
+                <PanelLista r={r} disp={disp} onChanged={refrescar} onClose={onClose} onPrint={() => window.print()} onToast={onToast} />
               ) : column === 'entregada' && disp ? (
                 <PanelEntregada r={r} disp={disp} onClose={onClose} onPrint={() => window.print()} />
               ) : (
@@ -200,7 +217,7 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
             <VisorConstancia
               doc={constancia}
               onClose={() => { setViendoConstancia(false); scanRef.current?.focus() }}
-              onImpresa={onChanged}
+              onImpresa={refrescar}
             />
           )}
         </div>
@@ -211,7 +228,7 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
           requestId={r.id}
           onClose={() => setReasignando(false)}
           onHecho={(nombre) => {
-            setReasignando(false); onChanged(); onClose()
+            setReasignando(false); onClose()
             onToast(`Preparación reasignada a ${nombre}`)
           }}
         />
@@ -225,7 +242,7 @@ export function DispensacionDrawer({ r, onClose, onChanged, onToast }: {
         <RejectModal
           request={r}
           onClose={() => setRejecting(false)}
-          onDone={() => { setRejecting(false); onChanged(); onClose(); onToast('Solicitud rechazada') }}
+          onDone={() => { setRejecting(false); onClose(); onToast('Solicitud rechazada') }}
         />
       )}
 
