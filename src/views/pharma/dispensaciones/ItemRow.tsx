@@ -24,7 +24,7 @@ import { fraccion, unidadesEscaneadas } from '../../../data/pharma'
  * y la sustitución lo volvía ilegible.
  */
 export function ItemRow({
-  name, dosis, drug, unidades, quantity, pct, lot, modo, onUnscan, accionExtra,
+  name, dosis, drug, unidades, quantity, pct, lot, modo, sustituido, onUnscan, accionExtra, desplegado,
 }: {
   name: string
   dosis: string | null
@@ -42,9 +42,13 @@ export function ItemRow({
   lot: string | null
   /** `'escaneo'` = se está preparando (dial, deshacer, sustituir). `'lectura'` = ya no se toca. */
   modo: 'escaneo' | 'lectura'
+  /** Se sustituyó: la fila lo dice, o el cambio sería invisible. */
+  sustituido?: boolean
   onUnscan?: () => void
   /** Botón propio a la derecha (hoy: Sustituir). Solo se dibuja en modo escaneo. */
   accionExtra?: React.ReactNode
+  /** Panel desplegado debajo de la fila, dentro de la misma tarjeta (hoy: sustitución). */
+  desplegado?: React.ReactNode
 }) {
   const completo = unidades >= quantity
   const faltan = Math.max(quantity - unidades, 0)
@@ -73,6 +77,9 @@ export function ItemRow({
               <>
                 {dosis && <>{dosis} · </>}
                 {completo ? 'completo' : faltan === 1 ? 'falta 1 u.' : `faltan ${faltan} u.`}
+                {/* Sin esta marca la sustitución sería invisible: la fila mostraría el medicamento
+                    nuevo como si hubiera sido el pedido desde el principio. */}
+                {sustituido && <span style={{ color: 'var(--spira-primary-deep)', fontWeight: 600 }}> · sustituido</span>}
               </>
             ) : (
               <>
@@ -114,6 +121,11 @@ export function ItemRow({
           accionExtra ?? null
         )}
       </div>
+
+      {/* El panel se despliega DENTRO de la misma tarjeta, debajo de la fila: sustituir es una
+          corrección sobre este renglón, y sacarla a un modal taparía justo el renglón del que
+          se está hablando. */}
+      {desplegado}
     </div>
   )
 }
@@ -164,6 +176,7 @@ export function fromRequestItem(i: RequestItemRow, modo: 'escaneo' | 'lectura' =
     pct: fraccion(i),
     lot: null,
     modo,
+    sustituido: i.substituted_from_medication_id != null,
   }
 }
 

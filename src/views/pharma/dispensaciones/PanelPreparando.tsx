@@ -15,6 +15,7 @@ import {
 } from '../../../data/pharma'
 import { COLUMN_META, readyBlockedReason } from './estados'
 import { ItemRow, fromRequestItem } from './ItemRow'
+import { PanelSustitucion } from './PanelSustitucion'
 import { TarjetaConstancia } from './TarjetaConstancia'
 
 /**
@@ -44,10 +45,14 @@ export function PanelPreparando({ r, scanRef, onChanged, onVerConstancia, visorA
   const [code, setCode] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  /** Id del renglón con el panel de sustitución abierto. Uno a la vez: dos paneles desplegados
+   *  sobre la misma lista es exactamente donde se sustituye el renglón equivocado. */
+  const [sustituyendo, setSustituyendo] = useState<string | null>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
 
   const blocked = readyBlockedReason(r)
   const constancia = constanciaVigente(r)
+  const paciente = r.visit?.enrollment?.patient?.full_name ?? 'este paciente'
   const uTot = totalUnits(r)
   const uOk = unidadesOk(r)
   const completo = todoEscaneado(r)
@@ -194,7 +199,34 @@ export function PanelPreparando({ r, scanRef, onChanged, onVerConstancia, visorA
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: r.items.length > 0 ? 0 : 16 }}>
           {r.items.map((i) => (
-            <ItemRow key={i.id} {...fromRequestItem(i)} onUnscan={() => doUnscan(i.id)} />
+            <ItemRow
+              key={i.id}
+              {...fromRequestItem(i)}
+              onUnscan={() => doUnscan(i.id)}
+              accionExtra={
+                <button
+                  type="button"
+                  onClick={() => setSustituyendo((v) => (v === i.id ? null : i.id))}
+                  aria-expanded={sustituyendo === i.id}
+                  style={{ ...sustBtn, ...(sustituyendo === i.id ? sustBtnOn : {}) }}
+                >
+                  Sustituir
+                </button>
+              }
+              desplegado={sustituyendo === i.id ? (
+                <PanelSustitucion
+                  itemId={i.id}
+                  paciente={paciente}
+                  onCancelar={() => { setSustituyendo(null); scanRef.current?.focus() }}
+                  onHecho={(nombre) => {
+                    setSustituyendo(null)
+                    onChanged()
+                    scanRef.current?.focus()
+                    onToast(`Sustituido por ${nombre} · registrado en trazabilidad`)
+                  }}
+                />
+              ) : undefined}
+            />
           ))}
         </div>
 
@@ -262,6 +294,19 @@ const foot: CSSProperties = {
 const motivo: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 7,
   fontSize: 12.5, color: 'var(--spira-muted)',
+}
+
+const sustBtn: CSSProperties = {
+  flex: '0 0 auto', padding: '6px 9px', borderRadius: 8, whiteSpace: 'nowrap',
+  // Longhands: el estado abierto pisa el color del borde.
+  borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+  background: 'var(--spira-white)', color: 'var(--spira-ink)',
+  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12, cursor: 'pointer',
+}
+
+const sustBtnOn: CSSProperties = {
+  background: 'var(--spira-primary)', borderColor: 'var(--spira-primary)',
+  color: 'var(--spira-on-accent)',
 }
 
 const errBox: CSSProperties = {

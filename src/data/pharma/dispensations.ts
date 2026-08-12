@@ -35,16 +35,17 @@ const AR_OFFSET = '-03:00'
 
 
 /**
- * ┌─ PENDIENTE DE LA 0075 ────────────────────────────────────────────────────────────────────┐
- * │ Cuando la 0075 esté aplicada en prod, este select tiene que pedir dos cosas más:           │
+ * ┌─ PENDIENTE DE LAS 0075 Y 0076 ────────────────────────────────────────────────────────────┐
+ * │ Cuando estén aplicadas en prod, este select tiene que pedir tres cosas más:                │
  * │                                                                                            │
- * │   · `scanned_units` en `items:dispensation_request_items(...)`                              │
- * │   · `printed_at, printed_by` en `ip_documents:dispensation_ip_documents(...)`               │
+ * │   · `scanned_units` en `items:…`                                       (0075)               │
+ * │   · `printed_at, printed_by` en `ip_documents:…`                       (0075)               │
+ * │   · `substituted_from_medication_id, substitution_reason` en `items:…` (0076)               │
  * │                                                                                            │
  * │ NO se pueden pedir antes: PostgREST responde 42703 ("column does not exist") y voltea la    │
  * │ consulta ENTERA, así que el tablero quedaría vacío. Mientras tanto el front funciona igual  │
- * │ que siempre — `unidadesEscaneadas()` y `constanciaImpresa()` cubren la ausencia con la      │
- * │ semántica vieja, que es exactamente lo que la base todavía tiene.                           │
+ * │ que siempre — `unidadesEscaneadas()`, `constanciaImpresa()` y el `!= null` del renglón      │
+ * │ sustituido cubren la ausencia con la semántica vieja, que es la que la base todavía tiene.  │
  * │                                                                                            │
  * │ `drug:drugs(id, name)` SÍ va desde ya: la FK existe desde la 0032 y Pharma siempre la leyó. │
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -550,4 +551,62 @@ export function useUltimaDispensacion(enrollmentId: string | null, visitId: stri
     },
     [enrollmentId, visitId],
   )
+}
+
+/** Una alternativa para sustituir un renglón (RPC `alternativas_sustitucion`, 0076). */
+export interface AlternativaRow {
+  medication_id: string
+  nombre: string
+  dosis: string | null
+  presentacion: string
+  stock: number
+  /** Otra concentración: se muestra pero no se puede usar sin autorización del IP. */
+  bloqueada: boolean
+  motivo: string | null
+}
+
+/**
+ * Las presentaciones equivalentes de un renglón.
+ *
+ * Va por RPC y NO reconstruyendo el filtro en el cliente: la regla de qué es equivalente —mismo
+ * fármaco, misma concentración, asignado al protocolo, con stock— vive en la 0076 junto a la
+ * función que sustituye. Con dos copias de la regla, el desplegable terminaría ofreciendo cosas que
+ * el botón después rechaza.
+ *
+ * Devuelve `[]` cuando el medicamento no tiene droga cargada: sin principio activo no hay forma de
+ * saber qué es equivalente, y el panel lo dice en vez de mostrar una lista vacía sin explicación.
+ */
+export function useAlternativas(itemId: string | null) {
+  return useSupabaseQuery<AlternativaRow[]>(
+    async (c) => {
+      if (!itemId) return { data: [], error: null }
+      const { data, error } = await c.rpc('alternativas_sustitucion', { p_item_id: itemId })
+      return { data: (data as AlternativaRow[]) ?? [], error }
+    },
+    [itemId],
+  )
+}
+
+/**
+ * Sustituye un renglón por una presentación equivalente (RPC `substitute_dispensation_item`, 0076).
+ *
+ * ATÓMICA Y CON DOS EFECTOS: cambia el renglón Y habilita la alternativa en `patient_medications`.
+ * Lo segundo no es un extra — sin eso el trigger de la 0050 rechaza el cambio, porque exige que el
+ * medicamento esté habilitado para ESE paciente y ahí suele haber una sola presentación por droga.
+ * El candado no se afloja: habilitar pasa a ser un acto explícito, con motivo y auditado.
+ *
+ * Devuelve el conteo del renglón a CERO: las unidades ya escaneadas eran de otro producto.
+ */
+export async function substituteDispensationItem(
+  itemId: string,
+  medicationId: string,
+  reason: string | null,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('substitute_dispensation_item', {
+    p_item_id: itemId,
+    p_medication_id: medicationId,
+    p_reason: reason,
+  })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
 }

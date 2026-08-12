@@ -53,6 +53,15 @@ export interface RequestItemRow {
    * el select no puede pedirla. Leerla siempre por `unidadesEscaneadas()`, que cubre esa ventana.
    */
   scanned_units?: number
+  /**
+   * Qué medicamento se había pedido antes de sustituir (0076). NULL = el renglón es el original.
+   *
+   * Opcional por la misma ventana de despliegue que `scanned_units`: hasta que la 0076 esté
+   * aplicada, la columna no existe y el select no puede pedirla. Ausente se lee como "no hubo
+   * sustitución", que es exactamente lo que pasa cuando la feature todavía no existe.
+   */
+  substituted_from_medication_id?: string | null
+  substitution_reason?: string | null
   /** Principio activo, para la columna FÁRMACO y para acotar las alternativas de sustitución. */
   medication: { name: string; dosis: string | null; unit: string; drug: { id: string; name: string } | null } | null
 }
