@@ -268,7 +268,7 @@ const kitsInput: CSSProperties = {
 
 const pillPendiente: CSSProperties = {
   fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 'var(--spira-radius-pill)',
-  color: 'var(--spira-acc-deep-pharma)', background: 'rgba(176, 130, 63, 0.18)',
+  color: 'var(--spira-acc-deep-warn)', background: 'rgba(176, 130, 63, 0.18)',
 }
 
 const ghost: CSSProperties = {

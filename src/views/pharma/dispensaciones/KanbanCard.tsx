@@ -103,7 +103,7 @@ export function KanbanCard({ r, column, canOperate, onOpen, onAdvance, busy }: {
       <div style={{ display: 'flex', gap: 5, fontSize: 11, color: 'var(--spira-muted)', flexWrap: 'wrap' }}>
         {r.items.length > 0 && <span>{totalUnits(r)} u.</span>}
         {r.includes_ip && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600, color: 'var(--spira-acc-deep-pharma)' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600, color: 'var(--spira-acc-deep-warn)' }}>
             {r.items.length > 0 && '· '}<Icon name="flask" size={11} /> IP
           </span>
         )}
@@ -114,7 +114,7 @@ export function KanbanCard({ r, column, canOperate, onOpen, onAdvance, busy }: {
       {/* La que tiene IP y todavía no tiene constancia lo dice ACÁ, no recién al abrir el cajón: es
           la única de la columna que no se puede terminar, y quien la resuelve es Coordinación. */}
       {r.includes_ip && constanciaVigente(r) === null && (
-        <Signal icon="fileText" color="var(--spira-acc-deep-pharma)" label="Falta la constancia del IP" />
+        <Signal icon="fileText" color="var(--spira-acc-deep-warn)" label="Falta la constancia del IP" />
       )}
 
       {/* 4 · señal de estado: ícono + color + texto (nunca color solo)
@@ -212,5 +212,5 @@ function ctaFor(column: BoardColumn, r: DispensationRequestRow): {
 
 const protoChip: CSSProperties = {
   marginLeft: 'auto', fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
-  background: 'rgba(168, 132, 47, 0.14)', color: 'var(--spira-pharma-solid)',
+  background: 'rgba(15, 95, 87, 0.14)', color: 'var(--spira-pharma-solid)',
 }

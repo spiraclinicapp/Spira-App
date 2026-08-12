@@ -43,5 +43,5 @@ const head: CSSProperties = {
 
 const ico: CSSProperties = {
   width: 44, height: 44, borderRadius: '50%', display: 'grid', placeItems: 'center',
-  background: 'rgba(168, 132, 47, 0.14)', flex: '0 0 auto',
+  background: 'rgba(15, 95, 87, 0.14)', flex: '0 0 auto',
 }

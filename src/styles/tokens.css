@@ -36,8 +36,14 @@
 
   /* —— Acentos por módulo (constantes en ambos temas) —— */
   --spira-track:        #2E7D74;
-  --spira-pharma:       #C9A24A;
-  --spira-pharma-solid: #A8842F;
+  /* Farmacia era ÁMBAR (#C9A24A / #A8842F) y pasa a PETRÓLEO (2026-08-11, decisión del Director).
+     El motivo no es de gusto: `--spira-warn` es #B0823F y el ámbar de identidad era #A8842F —
+     cuatro dígitos hex de distancia, indistinguibles en pantalla. "Esto es de Farmacia" y "esto
+     está por vencer" se veían igual, así que el ámbar queda reservado para ADVERTENCIA y nada más.
+     Consecuencia asumida: comparte tono con el módulo Inicio (`registry.ts`), y en la navegación
+     los dos se distinguen por nombre e ícono, no por color. */
+  --spira-pharma:       #0F5F57;
+  --spira-pharma-solid: #0F5F57;
   --spira-lab:          #5C8A5A;
   --spira-contable:     #3A6B8C;
 
@@ -47,7 +53,12 @@
      REGLA: todo color que se oscurezca para leerse sobre tinte claro necesita su versión
      CLARA para oscuro (ver abajo) — si no, queda en 1,85:1, o sea invisible. Medido. */
   --spira-acc-deep-track:  #0F5F57;
-  --spira-acc-deep-pharma: #6E5620;
+  /* Se llamaba `--spira-acc-deep-pharma`, y era un nombre equivocado: sus SEIS usos son
+     advertencias sobre tinte ámbar —"Fuera de cronograma", "Falta la constancia", "Sin solicitar",
+     "Incompleta"—, ni uno solo es identidad del módulo. Se llamaba así porque el ámbar de Farmacia
+     y el de alerta eran el mismo color. Renombrado, no recoloreado: el valor sigue siendo el mismo
+     y ahora el nombre dice para qué es. */
+  --spira-acc-deep-warn: #6E5620;
 
   /* —— Banda del rótulo de la tarjeta destacada (Dispensación) ——
      El acento a secas NO sirve de fondo acá: la tinta papel sobre él da 4,33:1 y el rótulo va a
@@ -107,7 +118,7 @@
   --spira-brand-mark: #9DE6D6; /* isotipo verde menta — sin cambios */
   --spira-avatar-ring: #34D399; /* emerald-400 — más claro para contraste en oscuro */
   --spira-acc-deep-track:  #9DE6D6;  /* menta: en oscuro hay que ACLARAR, no oscurecer */
-  --spira-acc-deep-pharma: #E8CE8A;
+  --spira-acc-deep-warn: #E8CE8A;
   /* La banda NO se invierte: es un bloque de color pleno con texto claro encima, así que en oscuro
      funciona igual que en claro (y aclararla con la menta la volvería un bloque brillante con el
      texto papel ilegible). Se sube un escalón nada más, para que no se confunda con el fondo. */

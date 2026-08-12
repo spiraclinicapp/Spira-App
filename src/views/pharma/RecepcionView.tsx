@@ -23,7 +23,7 @@ type ChipFilter = 'todas' | ReceptionKind
 /** Colores por ámbito para el chip de tipo (convención del handoff; Investigación es
  *  decisión propia: primario petróleo, distinto de ámbar y contable). */
 const KIND_CHIP: Record<ReceptionKind, { label: string; color: string; bg: string }> = {
-  protocolo:     { label: 'Protocolo',     color: 'var(--spira-pharma-solid)', bg: 'rgba(168,132,47,.14)' },
+  protocolo:     { label: 'Protocolo',     color: 'var(--spira-pharma-solid)', bg: 'rgba(15, 95, 87,.14)' },
   investigacion: { label: 'Investigación', color: 'var(--spira-primary)',      bg: 'rgba(15,95,87,.10)' },
   ambulatoria:   { label: 'Ambulatoria',   color: 'var(--spira-contable)',     bg: 'rgba(58,107,140,.12)' },
 }
@@ -391,7 +391,7 @@ const errorBox: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8,
 // condicional y al apagarse React borra esa longhand — con la abreviada el color caería a
 // `currentColor` en vez de volver a la línea cálida. Ver `chipBtn` en SearchableSelect.tsx.
 const rowCard: CSSProperties = { borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)', borderRadius: 14, background: 'var(--spira-white)', padding: '13px 16px', boxShadow: 'var(--spira-shadow-sm)', transition: 'border-color 0.2s, box-shadow 0.2s' }
-const iconSq: CSSProperties = { width: 40, height: 40, flex: '0 0 auto', borderRadius: 11, background: 'rgba(168,132,47,.13)', display: 'grid', placeItems: 'center' }
+const iconSq: CSSProperties = { width: 40, height: 40, flex: '0 0 auto', borderRadius: 11, background: 'rgba(15, 95, 87,.13)', display: 'grid', placeItems: 'center' }
 const searchWrap: CSSProperties = { position: 'relative', flex: 1, minWidth: 230, maxWidth: 340, display: 'flex', alignItems: 'center' }
 const searchInput: CSSProperties = {
   width: '100%', height: 40, padding: '0 13px 0 38px', borderRadius: 999,

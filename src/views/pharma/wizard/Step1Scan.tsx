@@ -240,7 +240,7 @@ export function Step1Scan({ accentSolid, meds, setMeds, codeByMed, onCodesChange
 const linkPanel = { border: '1px solid rgba(176,130,63,0.38)', background: 'rgba(176,130,63,0.10)', borderRadius: 12, padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 10 } as const
 const errorBox = { fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 8, padding: '8px 12px' } as const
 const listCard = { background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, overflow: 'hidden', boxShadow: 'var(--spira-shadow-sm)' } as const
-const iconSq = { width: 38, height: 38, flex: '0 0 auto', borderRadius: 10, background: 'rgba(168,132,47,.13)', display: 'grid', placeItems: 'center' } as const
+const iconSq = { width: 38, height: 38, flex: '0 0 auto', borderRadius: 10, background: 'rgba(15, 95, 87,.13)', display: 'grid', placeItems: 'center' } as const
 const qtyGroup = { display: 'inline-flex', alignItems: 'center', border: '1px solid var(--spira-line-2)', borderRadius: 9, overflow: 'hidden', background: 'var(--spira-white)' } as const
 const qtyBtn = { width: 44, height: 44, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' } as const
 const delBtn = { width: 44, height: 44, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', borderRadius: 8 } as const

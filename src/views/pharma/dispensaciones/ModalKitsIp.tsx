@@ -31,7 +31,7 @@ export function ModalKitsIp({ busy, error, onClose, onConfirm }: {
       onClose={onClose}
       icon="flask"
       accent="var(--spira-pharma-solid)"
-      accentSoft="rgba(168, 132, 47, 0.14)"
+      accentSoft="rgba(15, 95, 87, 0.14)"
     >
       <p style={{ fontSize: 13, color: 'var(--spira-ink-soft)', margin: '0 0 15px', lineHeight: 1.55 }}>
         Quedó en 0 y esta entrega lleva producto en investigación. El número descuenta del stock del

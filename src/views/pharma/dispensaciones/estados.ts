@@ -121,7 +121,7 @@ export function badgeOf(r: DispensationRequestRow): { label: string; color: stri
  * Chip de "Fuera de cronograma", igual en la card del tablero y en el encabezado del cajón: es la
  * misma marca viajando por los dos lados, así que vive con el resto del vocabulario y no copiada.
  *
- * Ámbar PROFUNDO (`--spira-acc-deep-pharma`) y no `--spira-warn` a secas: sobre este tinte el warn
+ * Ámbar PROFUNDO (`--spira-acc-deep-warn`) y no `--spira-warn` a secas: sobre este tinte el warn
  * da ~2,4:1 y a 10,5px/600 la AA pide 4,5. Mismo criterio que la píldora "Incompleta" de Track.
  * Ícono `info` (círculo) y no `alert` (triángulo): señala una EXCEPCIÓN, no un error — el triángulo
  * queda reservado para lo que sí puede estar mal.
@@ -129,7 +129,7 @@ export function badgeOf(r: DispensationRequestRow): { label: string; color: stri
 export const chipExcepcion: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700,
   padding: '3px 9px', borderRadius: 'var(--spira-radius-pill)',
-  background: 'rgba(176, 130, 63, 0.18)', color: 'var(--spira-acc-deep-pharma)',
+  background: 'rgba(176, 130, 63, 0.18)', color: 'var(--spira-acc-deep-warn)',
 }
 
 /**
