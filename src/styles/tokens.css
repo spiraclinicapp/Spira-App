@@ -633,8 +633,14 @@ input:-webkit-autofill:focus {
    ya sabe hacer solo. Las medidas son de VIEWPORT y no del modal porque el modal es
    `min(1120px, 95vw)`: por debajo de 1100 ya viene achicándose con la pantalla.
 
-   El estado por defecto (escritorio) NO se declara acá — vive inline en el componente, como el
-   resto del repo. Estas reglas solo describen los dos quiebres. */
+   El estado por defecto vive inline en el componente, como el resto del repo, con UNA excepción:
+   el ancho del bloque de fechas. Va acá porque el quiebre de <1100px tiene que poder cambiarlo, y
+   un ancho inline le ganaría por especificidad a cualquier media query. */
+
+/* Ancho FIJO del bloque de fechas: mide lo mismo se esté leyendo o editando. Sin esto, entrar a
+   editar suma controles, la columna crece por contenido y empuja al resto del encabezado para el
+   costado en cada clic — justo lo que el handoff promete que no pasa. */
+.spira-visit-dates { width: 200px; }
 
 /* < 1100px: las fechas dejan de ser la tercera columna y bajan, en dos columnas, debajo de los
    datos del paciente. El coordinador no se mueve: sigue en la fila de utilidades. */
@@ -646,6 +652,7 @@ input:-webkit-autofill:focus {
   }
   .spira-visit-idw > .spira-visit-dates {
     grid-column: 2;
+    width: auto;
     border-left: 0;
     padding-left: 0;
     margin-top: 12px;

@@ -38,6 +38,13 @@ interface Props {
   mono?: boolean
   autoFocus?: boolean
   id?: string
+  /**
+   * Caja chica (30px en vez de los 44 de formulario), para editar en línea un dato que en reposo
+   * se lee como texto y no como campo — el "Médico a cargo" del encabezado de visita. Con la altura
+   * de formulario ahí, el editor pesa el triple que el dato y el encabezado entero se descoloca.
+   * Solo cambia la caja: sugerencias, fantasma y teclado son los mismos.
+   */
+  compact?: boolean
 }
 
 /**
@@ -49,8 +56,12 @@ interface Props {
  * click afuera.
  */
 export function AutocompleteInput({
-  value, onChange, suggestions, onPick, placeholder, mono, autoFocus, id,
+  value, onChange, suggestions, onPick, placeholder, mono, autoFocus, id, compact = false,
 }: Props) {
+  // La caja del input y la del fantasma salen de la MISMA base: el fantasma se dibuja encima del
+  // texto real, así que cualquier diferencia de alto, padding o tipografía lo desalinea.
+  const boxStyle = compact ? compactInput : fieldInput
+  const overlayStyle: CSSProperties = { ...boxStyle, ...ghostOverlayBase }
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1) // -1 = ninguna resaltada
   const { triggerRef, popRef, pos } = usePopover<HTMLInputElement, HTMLDivElement>(open, () => setOpen(false))
@@ -150,7 +161,7 @@ export function AutocompleteInput({
         // Con fantasma, el input pinta su texto TRANSPARENTE (solo deja ver el cursor); lo tipeado lo
         // dibuja la capa de abajo, en una sola tirada junto a la sugerencia. Así no hay dos textos de
         // métricas distintas (input vs div) que puedan desalinearse. Sin fantasma, input normal.
-        style={ghostText ? { ...fieldInput, color: 'transparent', caretColor: 'var(--spira-ink)' } : fieldInput}
+        style={ghostText ? { ...boxStyle, color: 'transparent', caretColor: 'var(--spira-ink)' } : boxStyle}
       />
 
       {/* Capa del fantasma: dibuja lo tipeado Y la sugerencia en UNA sola tirada de texto, con la MISMA
@@ -158,7 +169,7 @@ export function AutocompleteInput({
           de color: lo distingue un resalte tenue (como selección). Mismo box/tipografía que el input
           (…fieldInput + border-box global) → cae exactamente sobre el texto real. pointerEvents none. */}
       {ghostText && (
-        <div aria-hidden style={ghostOverlay}>
+        <div aria-hidden style={overlayStyle}>
           <span style={{ whiteSpace: 'pre' }}>
             <span style={{ color: 'var(--spira-ink)' }}>{value}</span>
             <span style={{ color: 'var(--spira-ink)', background: 'var(--spira-ghost-bg)', borderRadius: 3 }}>{ghostText}</span>
@@ -223,10 +234,16 @@ const option: CSSProperties = {
   borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left',
   fontFamily: 'var(--spira-font-text)', fontSize: 13.5, minWidth: 0,
 }
-// Capa del texto fantasma: misma caja que el input (…fieldInput) pero inerte, sin fondo ni borde
-// visibles. Dibuja lo tipeado + la sugerencia en una sola tirada, exactamente sobre el texto real.
-const ghostOverlay: CSSProperties = {
-  ...fieldInput,
+/** Caja del modo `compact`: la altura de un dato leído, no la de un campo de formulario. */
+const compactInput: CSSProperties = {
+  width: '100%', height: 30, padding: '0 9px', borderRadius: 8,
+  border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
+  color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14, fontWeight: 600,
+}
+// Capa del texto fantasma: lo que se le agrega a la caja del input (la aporta `boxStyle`, que
+// cambia con `compact`) para dejarla inerte, sin fondo ni borde visibles. Dibuja lo tipeado + la
+// sugerencia en una sola tirada, exactamente sobre el texto real.
+const ghostOverlayBase: CSSProperties = {
   position: 'absolute', inset: 0, border: '1px solid transparent', background: 'transparent',
   pointerEvents: 'none', display: 'flex', alignItems: 'center', whiteSpace: 'pre', overflow: 'hidden',
 }

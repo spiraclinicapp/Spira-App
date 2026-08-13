@@ -192,7 +192,7 @@ function PhysicianField({ visit, readOnly, onSaved }: {
           onSaved={() => { setEditing(false); onSaved() }}
         />
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, minHeight: 30 }}>
           <span style={nombre ? mn : { ...mn, color: 'var(--spira-faint)', fontWeight: 500 }}>
             {nombre ?? 'Sin asignar'}
           </span>
@@ -227,7 +227,9 @@ function PhysicianEditor({ visit, inicial, onCerrar, onSaved }: {
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, maxWidth: 320 }}>
+      {/* `minHeight` igual al de la fila en reposo: alternar entre leer y editar no puede cambiar
+          el alto del encabezado (checklist de QA del handoff). */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, minHeight: 30, maxWidth: 300 }}>
         <div
           style={{ flex: 1, minWidth: 0 }}
           onKeyDown={(e) => {
@@ -238,7 +240,10 @@ function PhysicianEditor({ visit, inicial, onCerrar, onSaved }: {
             if (e.key === 'Enter' && !e.defaultPrevented) { e.preventDefault(); void guardar() }
           }}
         >
+          {/* `compact`: la caja de 44px de formulario acá pesa el triple que el dato que reemplaza
+              y descoloca el bloque de identidad. En 30px el editor ocupa el lugar del nombre. */}
           <AutocompleteInput
+            compact
             value={text}
             onChange={setText}
             suggestions={textSuggestions((physicians.data ?? []).map((p) => p.treating_physician))}
@@ -382,13 +387,15 @@ const sw: CSSProperties = {
   borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)',
   background: 'var(--spira-white)', display: 'grid', placeItems: 'center', cursor: 'pointer', flex: '0 0 auto',
 }
+/* Del alto de la caja compacta del autocompletado (30px), para que el trío se lea como un control
+   y no como un campo con dos cajitas colgadas al lado. */
 const okSm = (busy: boolean): CSSProperties => ({
-  width: 30, height: 30, padding: 0, lineHeight: 0, borderRadius: 8, border: 'none',
+  width: 26, height: 26, padding: 0, lineHeight: 0, borderRadius: 7, border: 'none',
   background: 'var(--spira-track)', display: 'grid', placeItems: 'center', cursor: 'pointer',
   flex: '0 0 auto', opacity: busy ? 0.6 : 1,
 })
 const koSm: CSSProperties = {
-  width: 30, height: 30, padding: 0, lineHeight: 0, borderRadius: 8,
+  width: 26, height: 26, padding: 0, lineHeight: 0, borderRadius: 7,
   borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
   background: 'var(--spira-white)', display: 'grid', placeItems: 'center', cursor: 'pointer', flex: '0 0 auto',
 }

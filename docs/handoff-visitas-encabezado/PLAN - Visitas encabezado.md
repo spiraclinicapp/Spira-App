@@ -25,6 +25,8 @@ ante cualquier duda de medida, color o estado, se abre el HTML, no se improvisa.
 | 4 | Editar la fecha estimada borraba el "No vino" | Se parte en dos funciones: `setEstimatedDate` (solo fecha, para el campo inline) y `rescheduleVisit` (fecha + limpia ausencia, para el modal de reagendar). |
 | 5 | El campo de fecha del mock ≠ el `DateField` del repo | Control nuevo compacto `VisitDateInline` que **reusa los helpers puros** (`formatAR` / `parseARInput`). No se toca `DateField` (9 usos en producción). |
 | 6 | Tests | Módulo puro `src/views/track/visitHeaderRules.ts` + su `.test.ts`, con el criterio del repo: **se testea lo que falla en silencio**. (El nombre lleva `Rules` porque Windows no distingue mayúsculas y `visitHeader.ts` chocaba con `VisitHeader.tsx`.) |
+| 7 | **El foco NO lleva borde verde** — el handoff §6 lo pide y el estándar del proyecto lo prohíbe | Gana el estándar: foco = **elevación** (sombra tenue + levante de 1px), sin outline ni borde de color (`tokens.css`, "Foco de controles de formulario"; regla del Director, también en `CLAUDE.md`). El color se reserva para significado — estado clínico, alerta, error—, no para señalar dónde está el cursor. **No lo "corrijas" leyendo el handoff.** |
+| 8 | Los controles de confirmar/descartar van **dentro** del campo, no al costado | Al costado —como los dibuja el mock— el bloque crece al entrar en edición y empuja el encabezado para el costado en cada clic, contra la promesa del propio handoff. Adentro, la caja mide siempre lo mismo. El bloque de fechas además tiene ancho fijo (`.spira-visit-dates`, en `tokens.css` para que el quiebre de <1100px pueda cambiarlo). |
 
 ---
 
