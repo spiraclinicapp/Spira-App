@@ -54,11 +54,19 @@ npm run build       # typecheck + build de producción
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
-   número. La última aplicada va por la `0074` (ver `supabase/README.md`).
+   número. La última aplicada va por la `0078` (ver `supabase/README.md`).
    **Si una migración es _breaking_ para el front desplegado** (p. ej. una vista que empieza a
    emitir valores que el código viejo no conoce): **se despliega el front PRIMERO y se aplica la
    migración inmediatamente después**, no al revés. Ya pasó una vez al revés (0068, 2026-08-05) y
    dejó la Agenda y la ficha del paciente en blanco en producción hasta el deploy.
+   **Pero el orden NO se decide por "agrega o quita": se decide por si el cambio altera lo que el
+   front YA pide.** Una migración puramente **aditiva** (columna o RPC nuevas que ningún front viejo
+   consulta) va **al revés — migración primero**, porque el que no funciona sin ella es el front
+   nuevo. Y ojo con el caso que no parece breaking y lo es: **agregar una FK a una tabla que ya está
+   EMBEBIDA en algún `select`** deja el embed ambiguo (PostgREST responde `300/PGRST201` y **voltea
+   la consulta entera**, no solo el embed). Pasó con la 0076 el 2026-08-13 y tiró el tablero de
+   Farmacia; se arregla desambiguando por columna (`medications!medication_id`). Antes de agregar
+   una FK, buscá la tabla en los `select(...)` del front.
    Cuatro trampas que ya hicieron fallar SQL en prod y conviene tener presentes al escribirlo:
    **`ALTER TYPE ... ADD VALUE` no puede usar el valor nuevo en la misma transacción** (va en un
    archivo aparte, aplicado antes — ver 0053); en PL/pgSQL los nombres de un
