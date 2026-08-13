@@ -157,20 +157,27 @@ export function VisitDetail({
             {/* Cuerpo: lo que se HACE en la visita, en dos columnas parejas (handoff §8). */}
             <div style={{ padding: '16px 22px 24px', overflow: 'auto' }}>
               <div className="spira-visit-body" style={body}>
-                {/* Cada uno monta su propio `Panel`. */}
-                <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} />
-                <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
-              </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+                  {/* Monta su propio `Panel` (el contador "n/total" va en la línea del rótulo). */}
+                  <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} />
 
-              {/* Comentarios NO está en el mock y se conserva igual (decisión del Director,
-                  2026-08-13): es una función en producción desde la 0048 y desde la ficha del
-                  paciente este modal es la única puerta al hilo. Va a ancho completo y debajo
-                  porque un hilo se lee mejor largo que angosto, y así el cuerpo de arriba queda
-                  exactamente como el mock. */}
-              <div style={{ marginTop: 14 }}>
-                <Panel title="Comentarios" icon="message" accent={accent}>
-                  <CommentThread visitId={visit.id} accent={accent} onAdded={onChanged} />
-                </Panel>
+                  {/* Comentarios NO está en el mock y se conserva igual (decisión del Director,
+                      2026-08-13): es una función en producción desde la 0048 y desde la ficha del
+                      paciente este modal es la única puerta al hilo.
+                      Va DENTRO de la columna izquierda y no a ancho completo debajo: ahí dejaba una
+                      banda muerta entre los dos paneles cortos y el hilo. Y de este lado por la
+                      misma medición que ya le eligió lugar en el diseño anterior — con una
+                      dispensación cargada la columna derecha se estira casi al doble que la
+                      izquierda, así que el hilo es justo lo que las empareja. */}
+                  <Panel title="Comentarios" icon="message" accent={accent}>
+                    <CommentThread visitId={visit.id} accent={accent} onAdded={onChanged} />
+                  </Panel>
+                </div>
+
+                {/* Monta su propio `Panel`, con la banda sólida del realce siempre puesta. */}
+                <div style={{ minWidth: 0 }}>
+                  <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
+                </div>
               </div>
             </div>
           </>

@@ -15,7 +15,7 @@ ante cualquier duda de medida, color o estado, se abre el HTML, no se improvisa.
 
 | # | Decisión | Resuelto |
 |---|---|---|
-| D1 | Comentarios y Atención médica **se conservan** | Cuerpo = Procedimientos \| Dispensación (como el mock) + **Comentarios a ancho completo debajo**. "Solicitar médico" de la barra abre el `DoctorRequestModal` que ya existe. |
+| D1 | Comentarios y Atención médica **se conservan** | Cuerpo = Procedimientos \| Dispensación (como el mock), con **Comentarios dentro de la columna izquierda**, debajo de Procedimientos. A ancho completo dejaba una banda muerta entre los paneles cortos y el hilo; y de ese lado empareja las alturas, que es la misma medición que ya le eligió lugar en el diseño anterior (con dispensación cargada la derecha se estira casi al doble). "Solicitar médico" de la barra abre el `DoctorRequestModal` que ya existe. |
 | D2 | "Médico a cargo" = **médico por visita** | Columna nueva `patient_visits.treating_physician` + la vista devuelve `coalesce(visita, paciente)`. Es lo único que hace verdadero el candado del handoff. |
 | D3 | Anexo del botón primario (retroceder + historial) | **Fuera de alcance.** Anotado en `TODOS.md`. |
 | D4 | Fecha real siempre editable | **"Corregir sí, crear no":** editable solo si `real_date` ya existe. Si está vacía, se dibuja el campo con "—" **inerte**. Única desviación deliberada del mock. |
@@ -82,8 +82,8 @@ VisitDetail  (1120px · --spira-paper · radio 20)
 │        [ Concurrió al centro · 10:31 · sigue inicio de atención   2 DE 4 ]  [chips] [sec] [PRIMARIA]
 │        [ ▬▬▬▬▬▬▬▬▬▬░░░░░░░░░░ riel 50% ]
 └─ .body   grid 1fr 1fr, gap 14
-   ├─ VisitProcedures            │  VisitDispensationPanel
-   └─ CommentThread ──────────────── a ancho completo (D1), grid-column: 1 / -1
+   ├─ col izq: VisitProcedures   │  col der: VisitDispensationPanel
+   │           + CommentThread   │  (la que se estira cuando hay dispensación)
 ```
 
 ### 4.2 · Flujo de datos (una consulta menos)
