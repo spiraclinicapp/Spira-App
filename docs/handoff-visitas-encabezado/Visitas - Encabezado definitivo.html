@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spira · Visitas — encabezado definitivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#14302E;--ink-2:#2A4744;--primary:#0F5F57;--paper:#F4F1EA;--surface:#FBFAF6;--white:#FFFFFF;--muted:#7C8C87;--faint:#A6B0AC;--ink-soft:#556966;--line:#E4DECF;--line-2:#D8CBB0;--track:#2E7D74;--on-accent:#F4F1EA;--fd:'Schibsted Grotesk',system-ui,sans-serif;--ft:'Inter',system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#EDE9DF;color:var(--ink);font-family:var(--ft);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--primary)}a:hover{color:var(--ink)}
+.wrap{max-width:1060px;margin:0 auto;padding:38px 26px 80px}
+h1{font-family:var(--fd);font-weight:700;font-size:27px;letter-spacing:-.02em;line-height:1.1;margin:0}
+.lede{color:var(--ink-soft);font-size:14.5px;margin:9px 0 0;max-width:82ch;text-wrap:pretty}
+.rule{margin:22px 0 6px;border-bottom:1px solid var(--line-2)}
+.vh{display:flex;align-items:baseline;gap:10px;margin:42px 0 4px}
+.vt{font-family:var(--fd);font-weight:700;font-size:17px;letter-spacing:-.01em}
+.vn{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.vd{color:var(--ink-soft);font-size:13.5px;margin:6px 2px 14px;max-width:86ch;line-height:1.6;text-wrap:pretty}
+.vd b{color:var(--ink)}
+.tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.stage{width:874px;overflow:hidden;position:relative;height:190px}
+.stage.t2{height:322px}
+.stage.t3{height:196px}
+.stage.tA{height:142px}
+.modal{width:1120px;background:var(--paper);border:1px solid var(--line);border-radius:0;border-left:0;border-right:0;overflow:hidden;transform:scale(.78);transform-origin:top left;position:relative}
+.modal.open{overflow:visible;padding-bottom:170px}
+.fade{position:absolute;left:0;right:0;bottom:0;height:26px;background:linear-gradient(to bottom,rgba(237,233,223,0),#EDE9DF);pointer-events:none}
+.ico{fill:none;stroke:var(--track);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.ico.n{stroke:var(--muted)}.ico.s{stroke:var(--ink-soft)}
+.hd{background:var(--white);border-bottom:1px solid var(--line)}
+.util{display:flex;align-items:center;gap:10px;padding:10px 22px;border-bottom:1px solid var(--line)}
+.util b{font-family:var(--fd);font-size:13px;font-weight:700}
+.util .code{font-size:12.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.util .vis{display:inline-flex;align-items:center;gap:7px;height:25px;padding:0 11px;border-radius:7px;background:rgba(46,125,116,.14);font-family:var(--fd);font-size:13px;font-weight:700;color:var(--primary);white-space:nowrap;letter-spacing:-.01em}
+.navpill{margin-left:auto;display:flex;align-items:center;height:30px;border:1px solid var(--line);border-radius:9px;background:var(--white);overflow:hidden;flex:0 0 auto}
+.navpill button{width:30px;height:28px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.navpill button svg{width:15px;height:15px;flex:none}
+.navpill .cnt{height:28px;display:flex;align-items:center;padding:0 11px;font-size:12px;font-weight:600;color:var(--ink-soft);border-left:1px solid var(--line);border-right:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+.xb{width:30px;height:30px;border-radius:9px;border:1px solid var(--line);background:var(--white);display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.xb svg{width:15px;height:15px;flex:none}
+.idw{padding:15px 22px;display:flex;align-items:stretch;gap:22px}
+.idn{min-width:0;flex:1;border-left:3px solid var(--track);padding-left:13px}
+.nm{font-family:var(--fd);font-weight:700;font-size:23px;letter-spacing:-.02em;margin:0;color:var(--ink-2)}
+.vl{display:flex;align-items:baseline;gap:7px;margin-top:5px}
+.vl .pid{font-size:17px;font-weight:600;color:var(--ink-soft);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.col{flex:0 0 auto;padding-left:22px;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:center}
+.k{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
+.v{font-size:13px;font-weight:600;margin-top:1px;white-space:nowrap;color:var(--ink-2)}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,auto));gap:10px 26px}
+.doc{display:flex;align-items:center;gap:11px}
+.av{width:36px;height:36px;border-radius:12px;background:rgba(46,125,116,.15);display:grid;place-items:center;font-family:var(--fd);font-size:12.5px;font-weight:700;color:var(--primary);letter-spacing:.01em;flex:0 0 auto}
+.doc .n{font-family:var(--fd);font-size:16px;font-weight:700;letter-spacing:-.01em;margin-top:2px;white-space:nowrap}
+.doc .sw{width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:var(--white);display:grid;place-items:center;cursor:pointer;margin-left:2px;flex:0 0 auto}
+.dts{display:grid;grid-template-columns:auto auto;gap:7px 12px;align-items:center}
+.dts .dk{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.dts .dv{font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.dts .dv.soft{color:var(--ink-soft)}
+.dev{display:inline-flex;align-items:center;height:19px;padding:0 6px;border-radius:5px;background:rgba(176,130,63,.16);color:#8A6224;font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums;margin-left:6px}
+.actbar{position:relative;display:flex;align-items:center;gap:18px;padding:12px 22px;background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.grp{display:flex;align-items:center;gap:14px;margin-left:auto;flex:0 0 auto}
+.underbar{display:flex;flex-direction:column;gap:7px;flex:1;min-width:0;max-width:440px}
+.underbar .top{display:flex;align-items:baseline;gap:10px}
+.underbar .top b{font-family:var(--fd);font-size:14px;font-weight:700;white-space:nowrap;letter-spacing:-.01em}
+.underbar .hr{font-size:11.5px;font-weight:600;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.underbar .ctx{font-size:11.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.underbar .fr{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.underbar .rail{height:4px;border-radius:2px;background:var(--line-2);overflow:hidden}
+.underbar .rail i{display:block;height:100%;background:var(--track);border-radius:2px}
+.fin{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 15px;border-radius:11px;background:rgba(46,125,116,.14);font-size:13px;font-weight:700;color:var(--primary);white-space:nowrap}
+.fin .d{font-weight:500;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.cta{border:none;cursor:pointer;background:var(--track);color:var(--on-accent);box-shadow:0 2px 8px rgba(46,125,116,.24);font-family:var(--ft);font-weight:700;font-size:13.5px;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;border-radius:10px;padding:0 15px}
+.cta .ico{stroke:var(--on-accent);stroke-width:2}
+.sec{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 13px;border-radius:10px;border:1px solid var(--line-2);background:var(--white);font-family:var(--ft);font-weight:600;font-size:13px;color:var(--ink);cursor:pointer}
+.cap{font-size:11.5px;color:var(--faint)}
+.fld{display:flex;align-items:center;gap:9px;height:34px;padding:0 10px;border-radius:9px;border:1px solid var(--line-2);background:var(--white);font-size:13.5px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.fld .ico{margin-left:auto;stroke:var(--muted)}
+.fld.on{border-color:var(--track);box-shadow:0 0 0 3px rgba(46,125,116,.13)}
+.mb{width:34px;height:34px;border-radius:9px;border:1px solid var(--line-2);background:var(--white);display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.mb.ok{border-color:var(--track);background:var(--track);box-shadow:0 2px 8px rgba(46,125,116,.24)}
+.mb.ok .ico{stroke:var(--on-accent);stroke-width:2.4}
+.pen{width:26px;height:26px;border-radius:8px;border:1px dashed var(--line-2);background:var(--white);display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.hov{display:inline-flex;align-items:center;gap:7px;height:26px;margin:-3px 0 -3px -8px;padding:0 8px;border-radius:8px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);cursor:pointer}
+.pop{position:absolute;right:26px;top:150px;width:352px;background:var(--white);border:1px solid var(--line);border-radius:16px;box-shadow:0 22px 50px rgba(20,48,46,.24);overflow:hidden;z-index:6;text-align:left}
+.pop .ph{display:flex;align-items:center;gap:10px;padding:14px 17px 12px;border-bottom:1px solid var(--line)}
+.pop h5{font-family:var(--fd);font-size:14.5px;font-weight:700;margin:0;letter-spacing:-.01em}
+.pop .pb{padding:14px 17px 6px;display:flex;flex-direction:column;gap:11px}
+.pop .row{display:flex;align-items:center;gap:11px}
+.pop .row .rk{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);width:34px;flex:0 0 auto}
+.pop .row .fld{flex:1}
+.pop .pf{display:flex;align-items:center;gap:9px;padding:13px 17px 15px}
+.pop .pf .cap{margin-right:auto}
+.zone{position:relative;padding:11px 14px 11px 13px;margin:-11px -6px -11px 8px;border-radius:13px;background:rgba(46,125,116,.07);box-shadow:inset 0 0 0 1px rgba(46,125,116,.30)}
+.zone .zt{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--primary);margin-bottom:9px}
+.zone .zg{display:grid;grid-template-columns:auto auto;gap:8px 10px;align-items:center}
+.zone .zk{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.zone .zf{display:flex;align-items:center;gap:9px;margin-top:11px;padding-top:10px;border-top:1px solid rgba(46,125,116,.22)}
+.mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:6px}
+.mini{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:17px 19px 18px}
+.mini .idn{border-left:3px solid var(--track);padding-left:13px}
+.mini .nm{font-size:20px}
+.mini .pid{font-size:15px}
+.mcap{font-size:12.5px;color:var(--ink-soft);line-height:1.55;margin:9px 2px 0;text-wrap:pretty}
+.mcap b{color:var(--ink-2)}
+.mn{font-family:var(--fd);font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink-2);white-space:nowrap}
+.mlab{font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint)}
+.mpre{font-size:12.5px;color:var(--muted)}
+.notes{margin-top:58px;padding-top:24px;border-top:1px solid var(--line-2);display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px}
+.notes h3{font-family:var(--fd);font-weight:700;font-size:15px;margin:0 0 9px}
+.notes ul,.notes p{color:var(--ink-soft);font-size:13px;line-height:1.7;margin:0 0 8px}
+.notes ul{padding-left:18px}
+.notes code{font-size:12px;background:var(--white);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+
+.stage{width:874px;overflow:hidden;position:relative;height:230px}
+.stage.hdo{height:178px}
+.stage.hdb{height:215px}
+.gated{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 15px;border-radius:11px;border:1px dashed var(--line-2);background:var(--white);font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+.sec.b{height:42px;padding:0 16px;border-radius:11px;font-size:13.5px}
+.modal{width:1120px;background:var(--paper);border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-left:0;border-right:0;overflow:hidden;transform:scale(.78);transform-origin:top left;position:relative}
+.coord{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px 0 11px;border-radius:999px;border:1px solid var(--line);background:var(--white);font-size:12.5px;font-weight:600;color:var(--ink-2);cursor:pointer;margin-left:auto;flex:0 0 auto;white-space:nowrap}
+.coord.empty{border-style:dashed;border-color:var(--line-2);color:var(--muted)}
+.coord .cl{font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint)}
+.doci{display:flex;align-items:center;gap:10px;margin-top:11px}
+.doci .av{width:30px;height:30px;border-radius:10px;font-size:11px}
+.doci .dl{display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);line-height:1.2}
+.doci .nn{font-family:var(--fd);font-size:15px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;line-height:1.25;color:var(--ink-2)}
+.lk{stroke:var(--faint)}
+.sw{padding:0;line-height:0}
+.sw svg{display:block}
+.coord.lock{cursor:default}
+.doc2{margin-top:12px}
+.doc2 .mlab{display:flex;align-items:center;gap:6px}
+.doc2 .nrow{display:flex;align-items:center;gap:8px;margin-top:2px}
+.doc2 .sw{width:22px;height:22px;border-radius:7px;border:1px solid var(--line);background:var(--white);display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.docl{display:flex;align-items:baseline;gap:9px;margin-top:12px}
+.docl .dl2{font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint)}
+.docl .nn{font-family:var(--fd);font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink-2);white-space:nowrap}
+.docl .sw{width:22px;height:22px;border-radius:7px;border:1px solid var(--line);background:var(--white);display:grid;place-items:center;cursor:pointer;flex:0 0 auto;align-self:center}
+.docc{margin-top:10px}
+.docc .dl3{display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);margin-bottom:5px}
+.dchip{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:8px;background:rgba(46,125,116,.12);font-family:var(--fd);font-size:14px;font-weight:700;color:var(--primary);cursor:pointer;letter-spacing:-.01em}
+.dchip .ico{stroke:var(--primary)}
+.doci .sw{width:24px;height:24px;border-radius:7px;border:1px solid var(--line);background:var(--white);display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.docu{display:flex;align-items:center;gap:9px;margin-left:auto;flex:0 0 auto}
+.navpill{margin-left:0}
+.av.s{width:28px;height:28px;border-radius:9px;font-size:11px}
+.docu .dn{display:flex;flex-direction:column;line-height:1.15}
+.docu .dl{font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint)}
+.docu .nn{font-family:var(--fd);font-size:14px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.docu .sw{width:24px;height:24px;border-radius:7px;border:1px solid var(--line);background:var(--white);display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.dcol{padding-left:24px}
+.dcol .dfl+.dfl{margin-top:8px}
+.dlb{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+.big{display:flex;align-items:center;gap:9px;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line-2);background:var(--white);font-size:14px;font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums;letter-spacing:.01em;white-space:nowrap;cursor:text}
+.big .ico{margin-left:auto}
+.big.soft{color:var(--ink-soft)}
+.big.ph{color:var(--faint);font-weight:500}
+.big.on{border-color:var(--track);box-shadow:0 0 0 3px rgba(46,125,116,.13)}
+.mb{width:32px;height:32px;border-radius:8px;border:1px solid var(--line-2);background:var(--white);display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.mb.ok{border-color:var(--track);background:var(--track);box-shadow:0 2px 8px rgba(46,125,116,.24)}
+.mb.ok .ico{stroke:var(--on-accent);stroke-width:2.4}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Visitas · encabezado definitivo</h1>
+<p class="lede">Tres bloques en la fila de identidad —paciente con el médico a cargo debajo, datos en dos columnas, fechas a la derecha— y el coordinador arriba a la derecha, junto a la navegación. Las dos fechas están siempre editables en campos de 32px; médico y coordinador quedan con candado una vez que la visita se concretó.</p>
+<div class="rule"></div>
+<div class="vh"><span class="vt">El encabezado</span></div>
+<p class="vd">Identidad con el médico a cargo debajo, datos del paciente en dos columnas y fechas a la derecha. El coordinador se muestra arriba a la derecha. La visita ya está concretada, así que médico y coordinador quedan con candado: se leen igual, pero sin selector.</p>
+<div class="stage"><div class="modal">
+<div class="hd">
+<div class="util"><b>AIRLYMPUS</b><span class="code">ACT18301</span><span class="vis"><svg class="ico" width="13" height="13" viewBox="0 0 24 24" style="stroke:var(--primary)"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>Visita VNP</span><span class="coord lock"><svg class="ico n" width="13" height="13" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg><span class="cl">Coordinador</span>Marina Fuentes<svg class="ico n lk" width="11" height="11" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span><span class="navpill"><button><svg class="ico n" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"></path></svg></button><span class="cnt">1 de 4</span><button><svg class="ico n" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg></button></span><button class="xb"><svg class="ico n" viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div class="idw">
+<div class="idn"><h2 class="nm">Susana Rodriguez</h2><div class="vl"><b class="pid">03200070001</b></div><div class="doc2"><div class="mlab">Médico a cargo<svg class="ico n lk" width="11" height="11" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div><div class="nrow"><span class="mn">Dra. Sosa</span></div></div></div>
+<div class="col"><div class="facts"><div><div class="k">Sexo</div><div class="v">Femenino</div></div><div><div class="k">Edad</div><div class="v">54 años</div></div><div><div class="k">F. nacimiento</div><div class="v">02/03/1972</div></div><div><div class="k">Fértil</div><div class="v">No</div></div></div></div>
+<div class="col dcol"><div class="dfl"><div class="dlb">Fecha est.</div><div class="big soft">11/08/2026<svg class="ico n" width="16" height="16" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg></div></div><div class="dfl"><div class="dlb">Fecha real<span class="dev">+3 d</span></div><div class="big">14/08/2026<svg class="ico s" width="16" height="16" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg></div></div></div>
+</div>
+<div class="actbar"><span class="underbar"><span class="top"><b>Fin de atención</b><span class="hr">11:20</span><span class="ctx">· ruta completa</span><span class="fr">4 de 4</span></span><span class="rail"><i style="width:100%"></i></span></span><span class="grp"><span class="fin"><svg class="ico" width="15" height="15" viewBox="0 0 24 24" style="stroke-width:2.4"><path d="M20 6 9 17l-5-5"></path></svg>Finalizada<span class="d">14/08/2026 · 11:20 · Dra. Sosa</span></span></span></div>
+</div>
+</div><div class="fade"></div></div>
+
+<div class="vh"><span class="vt">Editando la fecha real</span></div>
+<p class="vd">Un clic en el campo lo enfoca y aparecen confirmar y descartar al costado, del mismo alto. El resto del encabezado no se mueve ni cambia de alto. Enter guarda, escape descarta.</p>
+<div class="stage hdo"><div class="modal">
+<div class="hd">
+<div class="util"><b>AIRLYMPUS</b><span class="code">ACT18301</span><span class="vis"><svg class="ico" width="13" height="13" viewBox="0 0 24 24" style="stroke:var(--primary)"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>Visita VNP</span><span class="coord lock"><svg class="ico n" width="13" height="13" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg><span class="cl">Coordinador</span>Marina Fuentes<svg class="ico n lk" width="11" height="11" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span><span class="navpill"><button><svg class="ico n" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"></path></svg></button><span class="cnt">1 de 4</span><button><svg class="ico n" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg></button></span><button class="xb"><svg class="ico n" viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div class="idw">
+<div class="idn"><h2 class="nm">Susana Rodriguez</h2><div class="vl"><b class="pid">03200070001</b></div><div class="doc2"><div class="mlab">Médico a cargo<svg class="ico n lk" width="11" height="11" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div><div class="nrow"><span class="mn">Dra. Sosa</span></div></div></div>
+<div class="col"><div class="facts"><div><div class="k">Sexo</div><div class="v">Femenino</div></div><div><div class="k">Edad</div><div class="v">54 años</div></div><div><div class="k">F. nacimiento</div><div class="v">02/03/1972</div></div><div><div class="k">Fértil</div><div class="v">No</div></div></div></div>
+<div class="col dcol"><div class="dfl"><div class="dlb">Fecha est.</div><div class="big soft">11/08/2026<svg class="ico n" width="16" height="16" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg></div></div><div class="dfl"><div class="dlb">Fecha real<span class="dev">+3 d</span></div><div style="display:flex;align-items:center;gap:8px"><div class="big on">14/08/2026<svg class="ico s" width="16" height="16" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg></div><button class="mb ok"><svg class="ico" width="15" height="15" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"></path></svg></button><button class="mb"><svg class="ico n" width="14" height="14" viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div></div></div>
+</div>
+</div>
+</div><div class="fade"></div></div>
+
+<div class="vh"><span class="vt">Visita pendiente</span></div>
+<p class="vd">Antes de concretarse: la fecha real todavía no existe y el campo se dibuja igual, con un guión. El coordinador queda punteado como «Asignar coordinador», el médico muestra su selector y la barra dice de quién es la próxima marca. El bloque no cambia de tamaño cuando se completa, y el desvío recién aparece cuando hay dos fechas para comparar.</p>
+<div class="stage hdb"><div class="modal">
+<div class="hd">
+<div class="util"><b>AIRLYMPUS</b><span class="code">ACT18301</span><span class="vis"><svg class="ico" width="13" height="13" viewBox="0 0 24 24" style="stroke:var(--primary)"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>Visita VNP</span><button class="coord empty"><svg class="ico n" width="13" height="13" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>Asignar coordinador<svg class="ico n" width="13" height="13" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></svg></button><span class="navpill"><button><svg class="ico n" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"></path></svg></button><span class="cnt">1 de 4</span><button><svg class="ico n" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg></button></span><button class="xb"><svg class="ico n" viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div class="idw">
+<div class="idn"><h2 class="nm">Susana Rodriguez</h2><div class="vl"><b class="pid">03200070001</b></div><div class="doc2"><div class="mlab">Médico a cargo</div><div class="nrow"><span class="mn">Dra. Sosa</span><button class="sw"><svg class="ico n" width="14" height="14" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></svg></button></div></div></div>
+<div class="col"><div class="facts"><div><div class="k">Sexo</div><div class="v">Femenino</div></div><div><div class="k">Edad</div><div class="v">54 años</div></div><div><div class="k">F. nacimiento</div><div class="v">02/03/1972</div></div><div><div class="k">Fértil</div><div class="v">No</div></div></div></div>
+<div class="col dcol"><div class="dfl"><div class="dlb">Fecha est.</div><div class="big soft">11/08/2026<svg class="ico n" width="16" height="16" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg></div></div><div class="dfl"><div class="dlb">Fecha real</div><div class="big ph">—<svg class="ico n" width="16" height="16" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg></div></div></div>
+</div>
+<div class="actbar"><span class="underbar"><span class="top"><b>Por llegar</b><span class="ctx">la marca la hace Recepción</span><span class="fr">1 de 4</span></span><span class="rail"><i style="width:25%"></i></span></span><span class="grp"><button class="sec b"><svg class="ico s" width="15" height="15" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>Solicitar médico<svg class="ico n" width="13" height="13" viewBox="0 0 24 24"><path d="M7 17 17 7"></path><path d="M7 7h10v10"></path></svg></button><span class="gated"><svg class="ico n" width="15" height="15" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Requiere acción de Recepción</span></span></div>
+</div>
+</div><div class="fade"></div></div>
+
+
+<div class="notes">
+<div>
+<h3>Medidas</h3>
+<ul>
+<li>Médico a cargo debajo del número de paciente, sin avatar: etiqueta 9.5px/.11em en <code>--faint</code> y nombre <b>15px display 700</b> en <code>--ink-2</code>, 2px entre las dos líneas y 12px de aire respecto del número. Misma estructura etiqueta/valor que los datos del paciente, un punto más grande.</li>
+<li>Coordinador: pill de <b>28px</b> en la fila de utilidades, empujado a la derecha antes de la navegación. Asignado, borde <code>--line</code> con etiqueta y nombre; sin asignar, borde punteado <code>--line-2</code> y texto en <code>--muted</code>. El nombre va solo, sin título.</li>
+<li>Texto un punto menos negro: nombre del paciente, médico, coordinador y valores pasan a <code>--ink-2 #2A4744</code>; <code>--ink</code> queda para bordes y microcopy.</li>
+<li>Selector de médico: 24px radio 7, borde <code>--line</code>. Sólo si el rol puede reasignar; si no, el bloque queda como texto.</li>
+<li>Fechas: campos de <b>32px</b> de alto, radio 8, valor <b>14px/600</b> con cifras tabulares e ícono de agenda a la derecha. Estimada en <code>--ink-soft</code>, real en <code>--ink</code>.</li>
+<li>Etiquetas <code>Fecha est.</code> / <code>Fecha real</code> arriba de cada campo, 10px/.1em; 8px entre los dos campos.</li>
+<li>Foco: borde <code>--track</code> con halo de 3px <code>rgba(46,125,116,.13)</code>; confirmar y descartar de 32px al costado, el primero sólido.</li>
+<li>Desvío: pastilla ámbar de 19px al lado de la etiqueta «Fecha real», no del valor, así no ensancha el campo.</li>
+<li>Fila de utilidades <b>51px</b> · identidad + datos + fechas <b>~136px</b> · barra de acción <b>68px</b>. Encabezado total <b>~255px</b>.</li>
+</ul>
+</div>
+<div>
+<h3>Comportamiento</h3>
+<ul>
+<li>Las dos fechas están siempre editables: no hay modo, ni lápiz, ni doble clic. Se ven como campos porque lo son.</li>
+<li>Visita concretada: médico y coordinador quedan fijos. Desaparece el selector y la etiqueta lleva un candado de 11px en <code>--faint</code>; el nombre no cambia de tamaño ni de color, así que el encabezado no se mueve.</li>
+<li>Cambiar de médico o de coordinador con la visita ya concretada es tarea de soporte, no de la pantalla.</li>
+<li>La real se autocompleta con el día en que se marcó el fin de atención; corregirla no mueve la ruta ni las horas de las marcas.</li>
+<li>Cada guardado registra autor y hora y entra al historial de la visita junto a las marcas de etapa.</li>
+<li>Si el rol no puede editar, los campos se dibujan sin borde y sin ícono: mismo tamaño de texto, ningún salto de layout.</li>
+<li>Abajo de 1100px las fechas pasan a dos columnas debajo de los datos del paciente; el médico se queda arriba.</li>
+</ul>
+</div>
+</div>
+
+</div>
+</body>
+</html>
