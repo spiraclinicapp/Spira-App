@@ -21,6 +21,13 @@
      Usalo para descriptores y segundas líneas; `muted` queda para rótulos grandes,
      íconos y texto ≥18px. Medido: 5.62:1 en claro, 8.08:1 en oscuro. */
   --spira-ink-soft: #556966;
+  /* Un punto menos negro que `ink`, para NOMBRES y VALORES (nombre del paciente, médico,
+     coordinador, datos de la rejilla del encabezado de visita). `ink` queda para la estructura
+     —bordes, microcopy fuerte— y esto para lo que se lee como contenido: baja la dureza del
+     bloque sin perder jerarquía, que la hace el peso. Del handoff del encabezado de visita
+     (2026-08-13), donde nace como `--ink-2`. En oscuro NO puede ser un hex fijo: ahí la tinta
+     se invierte, así que va un gris apenas por debajo de `ink` (mismo gesto, tema opuesto). */
+  --spira-ink-2:    #2A4744;
   --spira-ghost-bg: rgba(15, 95, 87, 0.12);  /* resalte del texto fantasma (autocompletado inline): el texto sugerido va en la MISMA tinta (ink) que lo tipeado —se lee como una sola frase— y este petróleo suave marca el tramo sugerido, como una selección; Tab lo acepta */
   --spira-line:     #E4DECF;
   --spira-line-2:   #D8CBB0;
@@ -112,6 +119,7 @@
   --spira-muted:    #A1A1A1;   /* texto secundario */
   --spira-faint:    #6E6E6E;   /* texto terciario / placeholders */
   --spira-ink-soft: #B2B2B2;   /* tinta atenuada AA para cuerpos chicos (8.08:1 sobre surface) */
+  --spira-ink-2:    #DCDCDC;   /* nombres y valores: un punto por debajo de `ink`, mismo gesto que el #2A4744 del tema claro */
   --spira-ghost-bg: rgba(157, 230, 214, 0.15); /* resalte del fantasma en oscuro: menta tenue (el petróleo no se ve sobre fondo oscuro) */
   --spira-line:     #2A2A2A;   /* bordes / divisores */
   --spira-line-2:   #3A3A3A;   /* bordes de inputs */
@@ -617,4 +625,52 @@ input:-webkit-autofill:focus {
 }
 @media (prefers-reduced-motion: reduce) {
   .spira-icon-btn { transition: none; }
+}
+
+/* —— Modal de visita · layout responsive ——
+   Del handoff `docs/handoff-visitas-encabezado/` §10. Va en CSS y no en JS a propósito: el layout
+   es del layout, y `matchMedia` en un componente obliga a re-renderizar para algo que el navegador
+   ya sabe hacer solo. Las medidas son de VIEWPORT y no del modal porque el modal es
+   `min(1120px, 95vw)`: por debajo de 1100 ya viene achicándose con la pantalla.
+
+   El estado por defecto (escritorio) NO se declara acá — vive inline en el componente, como el
+   resto del repo. Estas reglas solo describen los dos quiebres. */
+
+/* < 1100px: las fechas dejan de ser la tercera columna y bajan, en dos columnas, debajo de los
+   datos del paciente. El coordinador no se mueve: sigue en la fila de utilidades. */
+@media (max-width: 1100px) {
+  .spira-visit-idw {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .spira-visit-idw > .spira-visit-dates {
+    grid-column: 2;
+    border-left: 0;
+    padding-left: 0;
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 14px;
+  }
+}
+
+/* < 900px: la barra apila etapa arriba y acciones abajo, a lo ancho; y el cuerpo pasa a una sola
+   columna con Procedimientos primero (el orden del DOM ya es ese, así que no hace falta reordenar). */
+@media (max-width: 900px) {
+  .spira-visit-actbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    height: auto;
+  }
+  .spira-visit-actbar > .spira-visit-actions {
+    justify-content: stretch;
+  }
+  .spira-visit-actbar > .spira-visit-actions > * {
+    flex: 1;
+  }
+  .spira-visit-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

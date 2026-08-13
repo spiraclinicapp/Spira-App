@@ -79,6 +79,20 @@ export function formatDateAR(ts: string): string {
   return `${dd}/${mm}/${d.getFullYear()}`
 }
 
+/**
+ * TIMESTAMPTZ → `HH:MM` en hora LOCAL, sin la fecha. Para el listón de la barra de acción de la
+ * visita ("Concurrió al centro · 10:31"), donde el día ya lo dice el contexto.
+ *
+ * Mismo cuidado que sus hermanas: la hora sale del `Date`, no de recortar la cadena ISO — el
+ * recorte da la hora UTC y en Argentina eso son tres horas de más, que en el listón de una visita
+ * se leerían como una llegada a las 13:31 en vez de a las 10:31.
+ */
+export function formatTimeAR(ts: string): string {
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return '—'
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 /** `YYYY-MM-DD` → `dd/mm` corto para chips y listas densas. */
 export function formatShortAR(iso: string): string {
   const [, m, d] = iso.split('-')
