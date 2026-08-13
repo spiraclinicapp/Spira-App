@@ -36,7 +36,7 @@ import { DoctorRequestModal } from './DoctorRequestModal'
  */
 export function VisitDetail({
   visitId, accent, context, onClose, canReception = false, canClinical = false,
-  onAdvance, onChanged, pos, onPrev, onNext, seed,
+  onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient,
 }: {
   visitId: string
   accent: string
@@ -57,6 +57,12 @@ export function VisitDetail({
    * el dato fresco para ESTE visitId, reemplaza al seed. Sin seed (ficha/cola) = espera la consulta.
    */
   seed?: DayVisitRow
+  /**
+   * Abrir la ficha del paciente (nombre y Nº de sujeto pasan a ser navegables). Lo pasa la vista
+   * que puede navegar; desde la ficha del paciente NO se pasa, porque el enlace llevaría a donde ya
+   * estás. Cierra el modal antes de navegar: la vista destino es otra y el modal es de esta.
+   */
+  onOpenPatient?: (patientId: string) => void
 }) {
   const q = useVisit(visitId)
   const fetched = q.data?.[0] ?? null
@@ -139,6 +145,7 @@ export function VisitDetail({
               onClose={onClose}
               onSaved={refrescar}
               onError={setErr}
+              onOpenPatient={onOpenPatient ? () => { onClose(); onOpenPatient(visit.patient_id) } : undefined}
             />
 
             <VisitActionBar

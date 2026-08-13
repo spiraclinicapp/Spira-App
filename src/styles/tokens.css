@@ -530,6 +530,30 @@ input:-webkit-autofill:focus {
   .spira-zoom-preview { transition: none; }
 }
 
+/* —— Texto que navega (link en línea) ——
+   Para un dato que ADEMÁS lleva a otro lado: el nombre y el Nº de sujeto del encabezado de visita,
+   que abren la ficha del paciente. Un `<button>` pelado que hereda tipografía y color del texto que
+   reemplaza — no se pinta de otro color ni se subraya en reposo: el dato tiene que seguir leyéndose
+   como el dato, no como un link metido en el medio del bloque de identidad. La señal aparece al
+   apuntarlo (subrayado) y al enfocarlo por teclado.
+   Es el mismo gesto de las migas del encabezado del shell, pero en CSS y no en `onMouseEnter`,
+   que es donde va el realce (ver la regla de `.spira-card-link`). */
+.spira-textlink {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+.spira-textlink:hover,
+.spira-textlink:focus-visible { text-decoration: underline; }
+
 /* —— Previsualizador ampliable (constancia de IP, tamaño "chica") ——
    Toda la tarjeta de 140px invita a ampliar, no solo el botón "Ampliar" de la esquina —el mock
    (estado 4 de "Tarjeta partida - estados.html") define el hover sobre el `.prev` entero. Mismo

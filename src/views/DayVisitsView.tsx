@@ -40,7 +40,7 @@ function inCenter(stage: OperationalStage): boolean {
 }
 
 /** Vista "Visitas del día" v2: lista con filtros multi + agrupación + buscador (handoff Fase 2). */
-export function DayVisitsView({ module, submodule, setHeader, navTarget, onTargetConsumed }: ViewProps) {
+export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTarget, onTargetConsumed }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
   const { profile, hasMinRole } = useAuth()
@@ -443,6 +443,12 @@ export function DayVisitsView({ module, submodule, setHeader, navTarget, onTarge
           pos={openIdx >= 0 ? `${openIdx + 1} / ${orderedVisible.length}` : undefined}
           onPrev={() => stepOpen(-1)}
           onNext={() => stepOpen(1)}
+          // El nombre y el Nº de sujeto llevan a la ficha del paciente. Misma mecánica que el
+          // buscador global: los pacientes viven dentro de la vista de Protocolos, que abre la
+          // ficha directo cuando le llega un `patientId` como objetivo de navegación. Se va al
+          // MISMO módulo en el que ya estás (`module.key`), así no hay que preguntar permisos:
+          // si estás viendo esta pantalla, ese módulo lo tenés.
+          onOpenPatient={(patientId) => onNavigate?.(module.key, 'protocolos', { patientId })}
         />
       )}
       {doctorFor && (

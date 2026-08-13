@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import { AutocompleteInput, textSuggestions } from '../../components/AutocompleteInput'
@@ -34,7 +34,7 @@ import {
  * llegaba después y recomponía la rejilla a la vista del usuario en cada apertura y cada ↑↓.
  */
 export function VisitHeader({
-  visit, readOnly, pos, onPrev, onNext, onClose, onSaved, onError,
+  visit, readOnly, pos, onPrev, onNext, onClose, onSaved, onError, onOpenPatient,
 }: {
   visit: DayVisitRow
   readOnly: boolean
@@ -46,6 +46,12 @@ export function VisitHeader({
   onSaved: () => void
   /** Errores que no caben junto al control (RPC del coordinador): suben al banner del modal. */
   onError: (msg: string) => void
+  /**
+   * Ir a la ficha del paciente. Con esto, nombre y Nº de sujeto pasan a ser navegables. Sin esto
+   * quedan como texto — lo pasa el padre, porque desde la ficha del paciente el enlace llevaría a
+   * donde ya estás.
+   */
+  onOpenPatient?: () => void
 }) {
   const canNav = !!(onPrev || onNext)
   const code = visitCode(visit)
@@ -89,9 +95,20 @@ export function VisitHeader({
       {/* ── Identidad · datos · fechas ── */}
       <div className="spira-visit-idw" style={idw}>
         <div style={idn}>
-          <h2 style={nm}>{visit.patient_name}</h2>
+          {/* Nombre y Nº de sujeto abren la ficha del paciente. Dos disparadores y no uno que los
+              envuelva a los dos: así cada dato conserva su caja y el subrayado del hover cae sobre
+              el que estás apuntando, no sobre el bloque entero. */}
+          <h2 style={nm}>
+            <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+              {visit.patient_name}
+            </PatientLink>
+          </h2>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 5 }}>
-            <b className="spira-mono" style={pid}>{visit.patient_code ?? 'Sin IVRS'}</b>
+            <b className="spira-mono" style={pid}>
+              {visit.patient_code
+                ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
+                : 'Sin IVRS'}
+            </b>
           </div>
           <PhysicianField visit={visit} readOnly={readOnly} onSaved={onSaved} />
         </div>
@@ -154,6 +171,21 @@ export function VisitHeader({
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * Un dato del encabezado que además navega a la ficha del paciente. Sin `onOpen` devuelve el texto
+ * pelado, sin caja ni foco de teclado: un botón que no hace nada es peor que no tener botón.
+ * El estilo vive en `.spira-textlink` (tokens.css) — hereda tipografía y color, y solo se subraya
+ * al apuntarlo o enfocarlo, para que el nombre siga leyéndose como el nombre.
+ */
+function PatientLink({ onOpen, label, children }: { onOpen?: () => void; label: string; children: ReactNode }) {
+  if (!onOpen) return <>{children}</>
+  return (
+    <button type="button" className="spira-textlink" onClick={onOpen} title={label} aria-label={label}>
+      {children}
+    </button>
   )
 }
 

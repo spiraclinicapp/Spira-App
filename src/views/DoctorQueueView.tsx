@@ -36,7 +36,7 @@ const TICK_MS = 15_000
  * color) de la versión anterior también se sacó: no está en la referencia y era un patrón que
  * DESIGN.md desaconseja (franja de acento de color); el orden por espera ya comunica quién sigue.
  */
-export function DoctorQueueView({ module, submodule, setHeader }: ViewProps) {
+export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: ViewProps) {
   const accent = module.accent
   const [date, setDate] = useState(todayISO())
   const [status, setStatus] = useState<Status>('todos')
@@ -204,6 +204,10 @@ export function DoctorQueueView({ module, submodule, setHeader }: ViewProps) {
           context="patient"
           onChanged={() => queue.refetch()}
           onClose={() => setOpenVisitId(null)}
+          // Desde la cola, el nombre lleva a la ficha del paciente (ver el comentario del mismo
+          // prop en Visitas del día). Acá el modal es de solo lectura y el salto a la ficha es
+          // justamente lo que hace falta para ver el resto del historial.
+          onOpenPatient={(patientId) => onNavigate?.(module.key, 'protocolos', { patientId })}
         />
       )}
       {commentsVisit && (
