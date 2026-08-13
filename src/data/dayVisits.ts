@@ -47,6 +47,13 @@ export interface DayVisitRow extends TrackVisitRow {
   sex: string | null
   /** Fecha de nacimiento del paciente (0002); expuesta en v_track_visits desde la 0049. */
   birth_date: string | null
+  /**
+   * Fertilidad del paciente ('fertil' | 'no_fertil' | 'esterilizado' | 'posmenopausica' | 'na',
+   * 0017); expuesta en v_track_visits desde la 0079. Vino a la vista para que los cuatro datos
+   * del encabezado lleguen en UNA consulta: era el único que obligaba a la segunda (`usePatient`)
+   * y hacía que la rejilla se recompusiera a la vista del usuario al abrir el modal.
+   */
+  fertility: string | null
   /** Coordinador ASIGNADO a la visita (migración 0065); null = sin asignar. */
   coordinator_id: string | null
   /**
@@ -321,6 +328,38 @@ export async function setVisitCoordinator(
   })
   if (error) {
     if (error.code === '23514') return { error: 'Ese coordinador no está asignado a este protocolo.' }
+    return { error: rpcError(error.code, error.message) }
+  }
+  return { error: null }
+}
+
+/**
+ * Fija (o limpia con null / cadena vacía) el médico a cargo de UNA visita, vía RPC
+ * `set_visit_physician` (SECURITY DEFINER, migración 0079). authz espejo de
+ * `set_visit_coordinator`: gerencia / track-admin / operator asignado.
+ *
+ * Antes de la 0079 el médico era un campo del PACIENTE, así que cambiarlo desde una visita
+ * reescribía hacia atrás quién figuraba en todas las demás. Ahora la visita tiene el suyo y la
+ * vista cae al del paciente mientras esté vacío; guardar acá **adopta** el heredado y lo congela.
+ *
+ * El 23514 (check_violation) lo levanta el candado de "visita ya concretada" del propio RPC, con
+ * texto en castellano pensado para mostrarse tal cual (mismo criterio que `markNoShow`): si el
+ * mensaje viene de una CHECK cruda de Postgres —hoy no hay ninguna sobre esta columna, pero nada
+ * impide que se agregue— se cae a uno genérico en vez de mostrar el técnico en inglés.
+ */
+export async function setVisitPhysician(
+  visitId: string,
+  physician: string | null,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('set_visit_physician', {
+    p_visit_id: visitId,
+    p_physician: physician,
+  })
+  if (error) {
+    if (error.code === '23514') {
+      const generico = 'No se pudo cambiar el médico: revisá el estado de la visita.'
+      return { error: /violates check constraint|viola la restricci[oó]n/i.test(error.message) ? generico : (error.message || generico) }
+    }
     return { error: rpcError(error.code, error.message) }
   }
   return { error: null }

@@ -191,14 +191,49 @@ export function usePatientVisits(patientId: string | null, protocolId: string | 
  * filtra en silencio (0 filas afectadas), se devuelve un error claro.
  */
 export async function rescheduleVisit(id: string, newDate: string): Promise<{ error: string | null }> {
-  const { data, error } = await supabase
-    .from('patient_visits')
-    .update({ estimated_date: newDate, no_show_at: null, no_show_by: null })
-    .eq('id', id)
-    .select('id')
+  return patchVisit(id, { estimated_date: newDate, no_show_at: null, no_show_by: null }, 'No tenés permiso para mover esta visita.')
+}
+
+/**
+ * UPDATE directo sobre `patient_visits` con el manejo de RLS que comparten las cuatro escrituras
+ * de fecha de este archivo. **0 filas afectadas = sin permiso, NO éxito**: la RLS filtra en
+ * silencio y sin este chequeo la pantalla diría "guardado" sobre algo que nunca se guardó.
+ * El mensaje lo pone cada llamador porque lo que el usuario intentaba hacer es distinto en cada uno.
+ */
+async function patchVisit(
+  id: string,
+  patch: Record<string, string | null>,
+  denied: string,
+): Promise<{ error: string | null }> {
+  const { data, error } = await supabase.from('patient_visits').update(patch).eq('id', id).select('id')
   if (error) return { error: error.message }
-  if (!data || data.length === 0) return { error: 'No tenés permiso para mover esta visita.' }
+  if (!data || data.length === 0) return { error: denied }
   return { error: null }
+}
+
+/**
+ * Corrige la fecha ESTIMADA sin tocar nada más. Hermana de `rescheduleVisit` y separada de ella a
+ * propósito (rediseño del encabezado, 2026-08-13): reagendar significa "esta visita pasa a otro
+ * día", y por eso limpia la marca de ausente — es la salida del estado "Por reprogramar". Corregir
+ * un dígito mal tipeado desde el encabezado NO significa eso, y con la fecha editable en línea
+ * reusar `rescheduleVisit` borraría el "No vino" en silencio: un dato clínico auditable perdido
+ * por arreglar un tipeo, sin que quien lo arregló se entere.
+ *
+ * Misma RLS y mismo patrón: 0 filas afectadas = sin permiso (la RLS filtra en silencio), no éxito.
+ */
+export async function setEstimatedDate(id: string, newDate: string): Promise<{ error: string | null }> {
+  return patchVisit(id, { estimated_date: newDate }, 'No tenés permiso para editar la fecha de esta visita.')
+}
+
+/**
+ * Corrige la fecha REAL de una visita que YA la tiene. Solo corrige: crearla desde el encabezado
+ * movería la ruta dos etapas, porque la etapa se deriva de esta columna (`real_date` no nula ⇒
+ * "Inicio de atención", 0069). El front no ofrece el campo cuando está vacía
+ * (`puedeEditarFechaReal`, `views/track/visitHeader.ts`); la crea "Iniciar atención" vía
+ * `registerVisit`. Ver la deuda anotada en `TODOS.md`.
+ */
+export async function setRealDate(id: string, newDate: string): Promise<{ error: string | null }> {
+  return patchVisit(id, { real_date: newDate }, 'No tenés permiso para editar la fecha de esta visita.')
 }
 
 /**
@@ -207,12 +242,5 @@ export async function rescheduleVisit(id: string, newDate: string): Promise<{ er
  * que rescheduleVisit (operator+ asignado o gerencia; error claro si filtra).
  */
 export async function registerVisit(id: string, realDate: string): Promise<{ error: string | null }> {
-  const { data, error } = await supabase
-    .from('patient_visits')
-    .update({ real_date: realDate })
-    .eq('id', id)
-    .select('id')
-  if (error) return { error: error.message }
-  if (!data || data.length === 0) return { error: 'No tenés permiso para registrar esta visita.' }
-  return { error: null }
+  return patchVisit(id, { real_date: realDate }, 'No tenés permiso para registrar esta visita.')
 }

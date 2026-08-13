@@ -30,12 +30,18 @@ Core. Al escribir, pensá en términos de módulos sobre un núcleo común, no d
 ```bash
 npm install
 npm run dev         # Vite → http://localhost:5173  (requiere .env, ver abajo)
-npm run typecheck   # tsc --noEmit  ← el GATE de verificación
-npm run build       # typecheck + build de producción
+npm run typecheck   # tsc --noEmit
+npm run test        # vitest run
+npm run build       # typecheck + tests + build de producción  ← el GATE de verificación
 ```
 
-- **No hay suite de tests.** El control de calidad antes de dar algo por hecho es
-  `npm run typecheck` (verde) + verificar en el navegador. No afirmes "anda" sin eso.
+- **Hay suite de tests desde el 2026-08-13** (`vitest`), y corre dentro de `npm run build`
+  (`tsc --noEmit && vitest run && vite build`). El control de calidad antes de dar algo por
+  hecho es **`npm run build` verde + verificar en el navegador**. No afirmes "anda" sin eso.
+- **Qué se testea:** lo que puede fallar **en silencio** — reglas puras que, si quedan al
+  revés, no se ven mal en pantalla (ver el comentario de cabecera de
+  `src/views/pharma/dispensaciones/estados.test.ts`, que fija el criterio). Lo que falla de
+  manera visible se verifica mirando, no con un test.
 - `.env` necesita `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` (ver `.env.example`).
   El cliente (`src/lib/supabase.ts`) tira error si faltan.
 
