@@ -77,6 +77,10 @@ export function VisitDetail({
   // Esc cierra; ↑↓/j k navegan (solo si hay lista y el foco no está en un campo de texto).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Con el popup de "Atención médica" abierto, el teclado es SUYO. Su `Modal` también escucha
+      // Escape en `document` y no frena nada, así que sin esto una sola tecla cerraría el popup y
+      // la visita de abajo con él; y las flechas navegarían una lista que el usuario ni ve.
+      if (doctorOpen) return
       const t = e.target as HTMLElement | null
       const enCampo = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
       // El guard por target vale TAMBIÉN para Escape, y no solo para las flechas: con el encabezado
@@ -94,7 +98,7 @@ export function VisitDetail({
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose, onPrev, onNext, canNav])
+  }, [onClose, onPrev, onNext, canNav, doctorOpen])
 
   const refrescar = () => { onChanged?.(); q.refetch() }
 
@@ -109,6 +113,7 @@ export function VisitDetail({
   }
 
   return (
+    <>
     <div style={backdrop} onMouseDown={onClose} role="presentation">
       <div
         style={card}
@@ -172,18 +177,25 @@ export function VisitDetail({
         )}
       </div>
 
-      {/* "Solicitar médico" de la barra abre el popup que YA existe (motivo por chips + hilo),
-          en vez de duplicar el panel adentro del modal. */}
-      {doctorOpen && visit && (
-        <DoctorRequestModal
-          visitId={visit.id}
-          accent={accent}
-          canClinical={canClinical}
-          onClose={() => setDoctorOpen(false)}
-          onChanged={refrescar}
-        />
-      )}
     </div>
+
+    {/* "Solicitar médico" de la barra abre el popup que YA existe (motivo por chips + hilo), en vez
+        de duplicar el panel adentro del modal.
+
+        Va FUERA del backdrop, no adentro. El backdrop cierra la visita con su `onMouseDown` y el
+        único que frena la propagación es la tarjeta, así que un popup montado ahí adentro le
+        entrega cada clic —incluido el de su propio ✕— al backdrop: cerrabas el popup y se cerraba
+        la visita entera con él. Como hermano, sus clics nunca pasan por el backdrop. */}
+    {doctorOpen && visit && (
+      <DoctorRequestModal
+        visitId={visit.id}
+        accent={accent}
+        canClinical={canClinical}
+        onClose={() => setDoctorOpen(false)}
+        onChanged={refrescar}
+      />
+    )}
+    </>
   )
 }
 

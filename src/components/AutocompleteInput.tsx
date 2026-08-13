@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { fieldInput } from './FormField'
 import { usePopover } from './usePopover'
 
@@ -165,7 +166,17 @@ export function AutocompleteInput({
         </div>
       )}
 
-      {showList && pos && (
+      {/* PORTALEADO a document.body, como el SearchableSelect. No es cosmético: el popover es
+          `position: fixed` con coordenadas de VIEWPORT (las calcula usePopover con
+          getBoundingClientRect), y un ancestro con `backdrop-filter` —el fondo de cualquier modal
+          del repo lleva `blur(2px)`— deja de ser transparente para el posicionamiento: pasa a ser
+          el bloque contenedor de sus descendientes fixed, igual que un `transform` o un `filter`.
+          Dibujado adentro, esas coordenadas se reinterpretan contra la caja del backdrop y el
+          desplegable aterriza lejos del campo. Se vio en el encabezado de la visita el 2026-08-13;
+          en los formularios de paciente venía corrido de menos y pasó desapercibido.
+          El propio usePopover ya lo daba por hecho ("El popover va portaleado a document.body",
+          en el comentario del listener de mousedown en captura). */}
+      {showList && pos && createPortal(
         <div ref={popRef} style={{ ...popover, top: pos.top, left: pos.left, width: pos.width }}>
           <div
             ref={listRef}
@@ -196,7 +207,8 @@ export function AutocompleteInput({
               )
             })}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
