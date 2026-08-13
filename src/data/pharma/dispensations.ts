@@ -35,30 +35,36 @@ const AR_OFFSET = '-03:00'
 
 
 /**
- * ┌─ PENDIENTE DE LAS 0075 Y 0076 ────────────────────────────────────────────────────────────┐
- * │ Cuando estén aplicadas en prod, este select tiene que pedir tres cosas más:                │
- * │                                                                                            │
- * │   · `scanned_units` en `items:…`                                       (0075)               │
- * │   · `printed_at, printed_by` en `ip_documents:…`                       (0075)               │
- * │   · `substituted_from_medication_id, substitution_reason` en `items:…` (0076)               │
- * │                                                                                            │
- * │ NO se pueden pedir antes: PostgREST responde 42703 ("column does not exist") y voltea la    │
- * │ consulta ENTERA, así que el tablero quedaría vacío. Mientras tanto el front funciona igual  │
- * │ que siempre — `unidadesEscaneadas()`, `constanciaImpresa()` y el `!= null` del renglón      │
- * │ sustituido cubren la ausencia con la semántica vieja, que es la que la base todavía tiene.  │
- * │                                                                                            │
- * │ `drug:drugs(id, name)` SÍ va desde ya: la FK existe desde la 0032 y Pharma siempre la leyó. │
- * └────────────────────────────────────────────────────────────────────────────────────────────┘
+ * ┌─ ¡OJO CON `medications!medication_id`! NO SE LE SACA EL `!medication_id` ─────────────────┐
+ * │                                                                                           │
+ * │ Desde la 0076, `dispensation_request_items` tiene DOS claves foráneas a `medications`:     │
+ * │                                                                                           │
+ * │     medication_id                    → lo que se dispensa                                  │
+ * │     substituted_from_medication_id   → lo que se había pedido antes de sustituir           │
+ * │                                                                                           │
+ * │ Con dos, el embed a secas `medication:medications(...)` es AMBIGUO y PostgREST responde    │
+ * │ 300 / PGRST201 ("more than one relationship was found") — y voltea la consulta ENTERA, no  │
+ * │ solo el embed. El tablero de Farmacia queda en "No pudimos cargar el tablero".             │
+ * │                                                                                           │
+ * │ Pasó en producción el 2026-08-13, al aplicar la 0076 con el front viejo desplegado: ese    │
+ * │ front pedía el embed sin desambiguar. Es la lección que corrige el `Aditiva y no breaking` │
+ * │ que la 0076 declaraba: agregar una FK a una tabla YA embebida SÍ es breaking, aunque no    │
+ * │ toque ninguna columna existente.                                                           │
+ * │                                                                                           │
+ * │ Se desambigua por COLUMNA (`!medication_id`) y no por nombre de constraint: sobrevive a un │
+ * │ renombre y se lee sin tener que ir a buscar cómo se llama la FK.                           │
+ * └───────────────────────────────────────────────────────────────────────────────────────────┘
  */
 const REQUEST_COLS =
   'id, status, source, rejection_reason, notes, created_at, updated_at, visit_id, ' +
   'requested_by_module, prepared_by, preparation_started_at, ' +
   'includes_ip, off_schedule, off_schedule_reason, ' +
   'items:dispensation_request_items(id, medication_id, quantity, scanned_at, scanned_by, ' +
-    'medication:medications(name, dosis, unit, drug:drugs(id, name))), ' +
+    'scanned_units, substituted_from_medication_id, substitution_reason, ' +
+    'medication:medications!medication_id(name, dosis, unit, drug:drugs(id, name))), ' +
   'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ip_kits, ' +
     'items:dispensation_items(id, medication_id, quantity, lot_number, expiry_date, medication:medications(name))), ' +
-  'ip_documents:dispensation_ip_documents(id, storage_path, file_name, mime_type, size_bytes, uploaded_at, superseded_at), ' +
+  'ip_documents:dispensation_ip_documents(id, storage_path, file_name, mime_type, size_bytes, uploaded_at, superseded_at, printed_at, printed_by), ' +
   'visit:patient_visits(enrollment:enrollments(patient:patients(code, full_name), protocol:protocols(code, name)))'
 
 /**
@@ -544,7 +550,7 @@ export function useUltimaDispensacion(enrollmentId: string | null, visitId: stri
         // null y el aviso cae al conteo (ver `medicamentos` en la fila).
         .select(
           'updated_at, visit:patient_visits!inner(enrollment_id, visit_def:visit_definitions(name)), ' +
-          'items:dispensation_request_items(id, medication:medications(name)), ' +
+          'items:dispensation_request_items(id, medication:medications!medication_id(name)), ' +
           'dispensations:dispensations!inner(status, delivered_at, ip_kits)',
         )
         .eq('visit.enrollment_id', enrollmentId)
