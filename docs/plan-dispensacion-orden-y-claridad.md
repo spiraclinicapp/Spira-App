@@ -370,14 +370,36 @@ Hacer A primero garantiza conflictos: recolorea archivos que C y D están reescr
 **Todo el alcance está implementado**, con `npm run build` (typecheck + 36 tests + build) en verde y
 verificado en el preview contra producción.
 
-### Bloqueante para poder usarlo
+### Cerrado
 
-Las **0075, 0076 y 0077 están sin aplicar**. Hasta que se apliquen, el front funciona exactamente
-como antes (los repliegues de `unidadesEscaneadas()` / `constanciaImpresa()` cubren la ausencia), y
-las funciones nuevas responden con un mensaje sereno que dice que falta la actualización.
+**Mergeado (PR #42 y #43) y las cuatro migraciones aplicadas en prod el 2026-08-13.** El `select`
+ya pide las columnas nuevas y el tablero carga (verificado contra producción: las dos consultas de
+`useDispensationBoard` devuelven 200, y el bundle desplegado ya no contiene el embed ambiguo).
 
-Después de aplicarlas hay **una línea** que falta: agregar al `select` de `REQUEST_COLS` las tres
-columnas nuevas. Está marcada con un recuadro en `src/data/pharma/dispensations.ts`.
+### El incidente del 2026-08-13, para que no se repita
+
+Aplicar la 0076 **tiró el tablero de Farmacia en producción**. La migración se había declarado
+"aditiva y no breaking" y no lo era:
+
+```
+dispensation_request_items ──medication_id──────────────────► medications
+                           └─substituted_from_medication_id─►   (la FK nueva)
+```
+
+Con dos relaciones, el embed `medication:medications(...)` que el front desplegado ya pedía quedó
+**ambiguo**. PostgREST no degrada el embed a null: responde `300/PGRST201` y **voltea la consulta
+entera**. Ninguna columna vieja había cambiado.
+
+Se arregló desambiguando por columna (`medications!medication_id`) y la **0078** repuso la FK
+después del deploy. La regla que queda, anotada también en el select y en el índice de migraciones:
+
+> **Agregar una FK a una tabla que ya está EMBEBIDA en algún `select` del front es breaking**,
+> aunque sea puramente aditiva en el schema. Antes de agregar una FK, buscá la tabla en los
+> `select(...)`; si aparece embebida, el front va primero.
+
+Dos cosas más que dejó el incidente: el orden de despliegue no se decide por "agrega o quita" sino
+por **si el cambio altera lo que el front ya pide**; y al mergear conviene verificar que el commit
+esté en `main`, porque la #42 se cerró un commit antes del arreglo.
 
 ### Sin verificar en vivo
 

@@ -57,7 +57,13 @@ export function PanelSustitucion({ itemId, paciente, onHecho, onCancelar }: {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{a.nombre}</div>
             <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 1 }}>
-              {a.dosis && <>{a.dosis} · </>}{a.presentacion} · {a.stock} u. en stock
+              {a.dosis && <>{a.dosis} · </>}{a.presentacion} ·{' '}
+              {/* El stock sin registrar NO impide sustituir (ver el botón), pero se avisa: es la
+                  diferencia entre "no hay" y "todavía no se cargó", y quien tiene la caja en la
+                  mano es la única que puede saberlo. */}
+              <span style={a.stock === 0 ? { color: 'var(--spira-warn)', fontWeight: 600 } : undefined}>
+                {a.stock} u. en stock
+              </span>
               {a.motivo && <> · {a.motivo}</>}
             </div>
           </div>
@@ -65,11 +71,15 @@ export function PanelSustitucion({ itemId, paciente, onHecho, onCancelar }: {
           {a.bloqueada ? (
             <button type="button" disabled title={a.motivo ?? undefined} style={pickNo}>Bloqueado</button>
           ) : (
+            // Lo ÚNICO que bloquea es la concentración, como manda el handoff. El stock en cero
+            // NO deshabilita: la farmacéutica tiene la caja en la mano y el inventario puede ir
+            // atrasado (una recepción sin cargar), así que trabarla por un número que dice 0 sería
+            // hacer mandar al registro sobre la realidad. Si de verdad no hay stock, el freno llega
+            // en "Marcar lista" y ahí el mensaje nombra el faltante — en el momento correcto.
             <button
               type="button" onClick={() => usar(a.medication_id, a.nombre)}
-              disabled={busy !== null || a.stock === 0}
-              title={a.stock === 0 ? 'Sin stock en este protocolo' : undefined}
-              style={{ ...pick, opacity: busy !== null || a.stock === 0 ? 0.55 : 1 }}
+              disabled={busy !== null}
+              style={{ ...pick, opacity: busy !== null ? 0.55 : 1 }}
             >
               {busy === a.medication_id ? 'Un momento…' : 'Usar este'}
             </button>
