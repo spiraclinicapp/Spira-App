@@ -15,7 +15,7 @@ ante cualquier duda de medida, color o estado, se abre el HTML, no se improvisa.
 
 | # | Decisión | Resuelto |
 |---|---|---|
-| D1 | Comentarios y Atención médica **se conservan** | Cuerpo = Procedimientos \| Dispensación (como el mock) + **Comentarios a ancho completo debajo**. "Solicitar médico" de la barra abre el `DoctorRequestModal` que ya existe. |
+| D1 | Comentarios y Atención médica **se conservan** | Cuerpo = Procedimientos \| Dispensación (como el mock), con **Comentarios dentro de la columna izquierda**, debajo de Procedimientos. A ancho completo dejaba una banda muerta entre los paneles cortos y el hilo; y de ese lado empareja las alturas, que es la misma medición que ya le eligió lugar en el diseño anterior (con dispensación cargada la derecha se estira casi al doble). "Solicitar médico" de la barra abre el `DoctorRequestModal` que ya existe. |
 | D2 | "Médico a cargo" = **médico por visita** | Columna nueva `patient_visits.treating_physician` + la vista devuelve `coalesce(visita, paciente)`. Es lo único que hace verdadero el candado del handoff. |
 | D3 | Anexo del botón primario (retroceder + historial) | **Fuera de alcance.** Anotado en `TODOS.md`. |
 | D4 | Fecha real siempre editable | **"Corregir sí, crear no":** editable solo si `real_date` ya existe. Si está vacía, se dibuja el campo con "—" **inerte**. Única desviación deliberada del mock. |
@@ -25,6 +25,9 @@ ante cualquier duda de medida, color o estado, se abre el HTML, no se improvisa.
 | 4 | Editar la fecha estimada borraba el "No vino" | Se parte en dos funciones: `setEstimatedDate` (solo fecha, para el campo inline) y `rescheduleVisit` (fecha + limpia ausencia, para el modal de reagendar). |
 | 5 | El campo de fecha del mock ≠ el `DateField` del repo | Control nuevo compacto `VisitDateInline` que **reusa los helpers puros** (`formatAR` / `parseARInput`). No se toca `DateField` (9 usos en producción). |
 | 6 | Tests | Módulo puro `src/views/track/visitHeaderRules.ts` + su `.test.ts`, con el criterio del repo: **se testea lo que falla en silencio**. (El nombre lleva `Rules` porque Windows no distingue mayúsculas y `visitHeader.ts` chocaba con `VisitHeader.tsx`.) |
+| 7 | **El foco NO lleva borde verde** — el handoff §6 lo pide y el estándar del proyecto lo prohíbe | Gana el estándar: foco = **elevación** (sombra tenue + levante de 1px), sin outline ni borde de color (`tokens.css`, "Foco de controles de formulario"; regla del Director, también en `CLAUDE.md`). El color se reserva para significado — estado clínico, alerta, error—, no para señalar dónde está el cursor. **No lo "corrijas" leyendo el handoff.** |
+| 9 | **El nombre y el Nº de sujeto abren la ficha del paciente** (pedido del Director, fuera del handoff) | Reusa el mecanismo del buscador global: `onNavigate(module.key, 'protocolos', { patientId })` → `ProtocolsView` deriva el protocolo y abre la ficha. Se va al **mismo módulo en el que ya estás**, así no hay que evaluar permisos. Estilo `.spira-textlink` + `.spira-no-press`: hereda tipografía y color y subraya solo al apuntar o enfocar — el dato tiene que seguir leyéndose como el dato, y sin el opt-out el texto heredaría el levante de 1px de la micro-interacción global. Los dos van al MISMO lado, así que apuntar uno subraya los dos (`.spira-link-group` con `:has()`): si cada uno se resaltara solo, se leerían como dos destinos distintos. Desde la ficha del paciente NO se pasa el callback (llevaría a donde ya estás) y el texto queda pelado, sin botón. **Y deja pasaje de vuelta** (`ReturnTo`, nuevo en `views/types.ts`): el shell muestra un chip «Volver a la visita de X» que reabre la MISMA visita en el día que estabas mirando. Es explícito y no un historial genérico — hay vuelta solo cuando quien navegó la ofreció, y se borra sola si te vas a otro lado por tu cuenta. |
+| 8 | Los controles de confirmar/descartar van **dentro** del campo, no al costado | Al costado —como los dibuja el mock— el bloque crece al entrar en edición y empuja el encabezado para el costado en cada clic, contra la promesa del propio handoff. Adentro, la caja mide siempre lo mismo. El bloque de fechas además tiene ancho fijo (`.spira-visit-dates`, en `tokens.css` para que el quiebre de <1100px pueda cambiarlo). |
 
 ---
 
@@ -80,8 +83,8 @@ VisitDetail  (1120px · --spira-paper · radio 20)
 │        [ Concurrió al centro · 10:31 · sigue inicio de atención   2 DE 4 ]  [chips] [sec] [PRIMARIA]
 │        [ ▬▬▬▬▬▬▬▬▬▬░░░░░░░░░░ riel 50% ]
 └─ .body   grid 1fr 1fr, gap 14
-   ├─ VisitProcedures            │  VisitDispensationPanel
-   └─ CommentThread ──────────────── a ancho completo (D1), grid-column: 1 / -1
+   ├─ col izq: VisitProcedures   │  col der: VisitDispensationPanel
+   │           + CommentThread   │  (la que se estira cuando hay dispensación)
 ```
 
 ### 4.2 · Flujo de datos (una consulta menos)

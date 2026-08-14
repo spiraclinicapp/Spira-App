@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import { AutocompleteInput, textSuggestions } from '../../components/AutocompleteInput'
@@ -34,7 +34,7 @@ import {
  * llegaba después y recomponía la rejilla a la vista del usuario en cada apertura y cada ↑↓.
  */
 export function VisitHeader({
-  visit, readOnly, pos, onPrev, onNext, onClose, onSaved, onError,
+  visit, readOnly, pos, onPrev, onNext, onClose, onSaved, onError, onOpenPatient,
 }: {
   visit: DayVisitRow
   readOnly: boolean
@@ -46,6 +46,12 @@ export function VisitHeader({
   onSaved: () => void
   /** Errores que no caben junto al control (RPC del coordinador): suben al banner del modal. */
   onError: (msg: string) => void
+  /**
+   * Ir a la ficha del paciente. Con esto, nombre y Nº de sujeto pasan a ser navegables. Sin esto
+   * quedan como texto — lo pasa el padre, porque desde la ficha del paciente el enlace llevaría a
+   * donde ya estás.
+   */
+  onOpenPatient?: () => void
 }) {
   const canNav = !!(onPrev || onNext)
   const code = visitCode(visit)
@@ -89,9 +95,24 @@ export function VisitHeader({
       {/* ── Identidad · datos · fechas ── */}
       <div className="spira-visit-idw" style={idw}>
         <div style={idn}>
-          <h2 style={nm}>{visit.patient_name}</h2>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 5 }}>
-            <b className="spira-mono" style={pid}>{visit.patient_code ?? 'Sin IVRS'}</b>
+          {/* Nombre y Nº de sujeto abren la MISMA ficha, así que se resaltan juntos: apuntar
+              cualquiera de los dos los subraya a los dos (`.spira-link-group`, tokens.css). Si cada
+              uno se subrayara solo, se leerían como dos destinos distintos. Siguen siendo dos
+              disparadores y no uno que los envuelva: así el resalte lo dispara el texto y no el
+              aire alrededor, y cada dato conserva su caja. */}
+          <div className="spira-link-group">
+            <h2 style={nm}>
+              <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+                {visit.patient_name}
+              </PatientLink>
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 5 }}>
+              <b className="spira-mono" style={pid}>
+                {visit.patient_code
+                  ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
+                  : 'Sin IVRS'}
+              </b>
+            </div>
           </div>
           <PhysicianField visit={visit} readOnly={readOnly} onSaved={onSaved} />
         </div>
@@ -158,6 +179,25 @@ export function VisitHeader({
 }
 
 /**
+ * Un dato del encabezado que además navega a la ficha del paciente. Sin `onOpen` devuelve el texto
+ * pelado, sin caja ni foco de teclado: un botón que no hace nada es peor que no tener botón.
+ *
+ * El estilo vive en `.spira-textlink` (tokens.css) — hereda tipografía y color, y solo se subraya
+ * al apuntarlo o enfocarlo, para que el nombre siga leyéndose como el nombre. `.spira-no-press` lo
+ * pone ESTE componente y no quien lo usa: es un `<button>`, así que sin esa marca hereda la
+ * micro-interacción global y el texto se levanta 1px al pasarle el mouse — bien para un botón,
+ * un salto para un nombre de 23px en medio del bloque de identidad.
+ */
+function PatientLink({ onOpen, label, children }: { onOpen?: () => void; label: string; children: ReactNode }) {
+  if (!onOpen) return <>{children}</>
+  return (
+    <button type="button" className="spira-textlink spira-no-press" onClick={onOpen} title={label} aria-label={label}>
+      {children}
+    </button>
+  )
+}
+
+/**
  * Médico a cargo (handoff §4): etiqueta en versalitas y el nombre debajo, sin avatar. Editable con
  * un botón chevron de 22px; con la visita concretada, candado y nada más.
  *
@@ -192,7 +232,7 @@ function PhysicianField({ visit, readOnly, onSaved }: {
           onSaved={() => { setEditing(false); onSaved() }}
         />
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, minHeight: 30 }}>
           <span style={nombre ? mn : { ...mn, color: 'var(--spira-faint)', fontWeight: 500 }}>
             {nombre ?? 'Sin asignar'}
           </span>
@@ -227,7 +267,9 @@ function PhysicianEditor({ visit, inicial, onCerrar, onSaved }: {
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, maxWidth: 320 }}>
+      {/* `minHeight` igual al de la fila en reposo: alternar entre leer y editar no puede cambiar
+          el alto del encabezado (checklist de QA del handoff). */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, minHeight: 30, maxWidth: 300 }}>
         <div
           style={{ flex: 1, minWidth: 0 }}
           onKeyDown={(e) => {
@@ -238,7 +280,10 @@ function PhysicianEditor({ visit, inicial, onCerrar, onSaved }: {
             if (e.key === 'Enter' && !e.defaultPrevented) { e.preventDefault(); void guardar() }
           }}
         >
+          {/* `compact`: la caja de 44px de formulario acá pesa el triple que el dato que reemplaza
+              y descoloca el bloque de identidad. En 30px el editor ocupa el lugar del nombre. */}
           <AutocompleteInput
+            compact
             value={text}
             onChange={setText}
             suggestions={textSuggestions((physicians.data ?? []).map((p) => p.treating_physician))}
@@ -382,13 +427,15 @@ const sw: CSSProperties = {
   borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)',
   background: 'var(--spira-white)', display: 'grid', placeItems: 'center', cursor: 'pointer', flex: '0 0 auto',
 }
+/* Del alto de la caja compacta del autocompletado (30px), para que el trío se lea como un control
+   y no como un campo con dos cajitas colgadas al lado. */
 const okSm = (busy: boolean): CSSProperties => ({
-  width: 30, height: 30, padding: 0, lineHeight: 0, borderRadius: 8, border: 'none',
+  width: 26, height: 26, padding: 0, lineHeight: 0, borderRadius: 7, border: 'none',
   background: 'var(--spira-track)', display: 'grid', placeItems: 'center', cursor: 'pointer',
   flex: '0 0 auto', opacity: busy ? 0.6 : 1,
 })
 const koSm: CSSProperties = {
-  width: 30, height: 30, padding: 0, lineHeight: 0, borderRadius: 8,
+  width: 26, height: 26, padding: 0, lineHeight: 0, borderRadius: 7,
   borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
   background: 'var(--spira-white)', display: 'grid', placeItems: 'center', cursor: 'pointer', flex: '0 0 auto',
 }

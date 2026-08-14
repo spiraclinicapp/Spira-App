@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.33', text: 'El encabezado de la visita se rediseña: fechas editables en línea, médico por visita y el nombre del paciente lleva a su ficha.' },
     { version: '0.32', text: 'El escaneo de dispensación pasa a contar unidades —una pasada del lector por cada envase— y el cajón gana un riel que enumera lo que falta, sustitución por otra presentación del mismo fármaco, reasignación e historial del pedido.' },
     { version: '0.31', text: 'La visita puede entregar producto en investigación: constancia del IRT adjunta, kits declarados al entregar y dispensación fuera de cronograma con motivo, todo en un solo pedido y un solo comprobante.' },
     { version: '0.30', text: 'Track pasa a llamarse Coordinación y Pharma, Farmacia; el submenú explica cada submódulo.' },

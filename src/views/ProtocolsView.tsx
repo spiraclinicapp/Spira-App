@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
@@ -25,6 +25,10 @@ type Nav =
   | { mode: 'all' }
   | { mode: 'protocol'; protocolId: string }
   | { mode: 'patient'; protocolId: string; patientId: string }
+
+/* Identidad de una posición interna, para comparar "¿seguimos donde nos dejaron?". Con el paciente
+   incluido: pasar de una ficha a la de otro paciente SÍ es haberse ido. */
+const navKey = (n: Nav) => (n.mode === 'patient' ? `patient:${n.patientId}` : n.mode)
 
 /* Estado del protocolo → token de color (theme-aware). activo resalta, cerrado apaga. */
 function statusVar(status: ProtocolStatus): string {
@@ -98,13 +102,16 @@ function highlight(text: string, q: string, accent: string): ReactNode {
   return out
 }
 
-export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTarget, onTargetConsumed }: ViewProps) {
+export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTarget, onTargetConsumed, onNavigatedAway }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
   const { hasMinRole, modules, profile } = useAuth()
   const protocols = useProtocols()
   const patients = usePatients()
   const [nav, setNav] = useState<Nav>({ mode: 'list' })
+  /* Dónde nos dejó la navegación del shell, y si ya lo pisamos (ver el efecto de más abajo). */
+  const llegada = useRef<string | null>(null)
+  const armado = useRef(false)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState<null | 'protocol' | 'patient'>(null)
@@ -120,13 +127,34 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
     if (patients.loading) return
     const pt = (patients.data ?? []).find((p) => p.id === navTarget.patientId)
     const protocolId = pt?.enrollments.find((e) => e.protocol != null)?.protocol?.id ?? null
-    if (pt && protocolId) setNav({ mode: 'patient', protocolId, patientId: pt.id })
     // Paciente sin protocolo visible: la ficha necesita protocolo de contexto, así que no se
     // puede abrir. Al menos lo dejamos en "Todos los pacientes" (donde sí figura), no en la
     // grilla de protocolos, que sería desconcertante tras buscar un paciente.
-    else if (pt) setNav({ mode: 'all' })
+    const destino: Nav | null =
+      pt && protocolId ? { mode: 'patient', protocolId, patientId: pt.id }
+      : pt ? { mode: 'all' }
+      : null
+    if (destino) { setNav(destino); llegada.current = navKey(destino) }
     onTargetConsumed?.()
   }, [navTarget, patients.loading, patients.data, onTargetConsumed])
+
+  /* El pasaje de vuelta del shell ("Volver a la visita de X") vale mientras sigas DONDE te dejaron.
+     Esta vista navega por adentro sin cambiar de submódulo —de una ficha a la grilla, o a otro
+     paciente—, así que el shell no se entera solo y el chip sobreviviría a paseos donde ya no
+     describe de dónde venís.
+     Hay que esperar a PISAR el destino antes de vigilar la salida: `setNav` no es inmediato, así
+     que en el render de la llegada `nav` todavía tiene el valor viejo y compararlo ahí daría una
+     "salida" falsa que borraría el chip apenas aparece. Por eso el `armado`: primero confirmamos
+     que llegamos, recién después el primer movimiento cuenta como irse. Refs y no estado: esto no
+     tiene que redibujar nada. */
+  useEffect(() => {
+    if (!llegada.current) return                                    // no vinimos de un salto profundo
+    if (navKey(nav) === llegada.current) { armado.current = true; return }  // recién llegamos
+    if (!armado.current) return                                     // todavía no pisamos el destino
+    llegada.current = null
+    armado.current = false
+    onNavigatedAway?.()                                             // una sola vez por llegada
+  }, [nav, onNavigatedAway])
 
   /* Crear protocolos/pacientes solo desde Track (la RLS lo permite a track leader/operator).
      En Pharma estos botones no aparecen porque el usuario pharma no tiene roles de track. */

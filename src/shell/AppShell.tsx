@@ -6,7 +6,7 @@ import { useTheme } from '../lib/theme'
 import { useAuth } from '../lib/auth'
 import { MODULES } from '../modules/registry'
 import { resolveView } from '../views/registry'
-import type { NavTarget, ViewHeader, ViewHeaderCrumb } from '../views/types'
+import type { NavTarget, ReturnTo, ViewHeader, ViewHeaderCrumb } from '../views/types'
 import { CommandPalette } from './CommandPalette'
 import { UserMenu } from './UserMenu'
 import { NotificationsMenu } from './NotificationsMenu'
@@ -59,6 +59,19 @@ const iconBtn: CSSProperties = {
   color: 'var(--spira-ink)',
 }
 
+/* Pasaje de vuelta del encabezado. Sobrio, gris y CHICO: es una salida, no la acción de la
+   pantalla —la acción principal ya tiene su botón a la derecha y esto no puede competirle— y
+   comparte fila con la miga, que en la ficha de un paciente ya es larga. El label va corto y fijo
+   ("Volver a la visita"); el detalle de a cuál se lee en el tooltip, que es donde no le cuesta
+   ancho a nadie. Hereda del repo la micro-interacción de pulsable (levante de 1px al apuntarlo),
+   que acá sí corresponde porque es un botón y no un dato. */
+const backChip: CSSProperties = {
+  height: 26, padding: '0 10px 0 8px', borderRadius: 999,
+  border: '1px solid var(--spira-line)', background: 'var(--spira-white)',
+  color: 'var(--spira-muted)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12,
+  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto', whiteSpace: 'nowrap',
+}
+
 /* Botones de acción del encabezado (acciones que registra la vista activa). */
 const ghostActionBtn: CSSProperties = {
   height: 38, padding: '0 15px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
@@ -82,6 +95,11 @@ export function AppShell() {
      buscador global). La pone `navigate(..., target)`; la vista la consume y avisa para
      limpiarla (onTargetConsumed) así no se reabre sola en refetchs. */
   const [navTarget, setNavTarget] = useState<NavTarget | null>(null)
+  /* Pasaje de vuelta que dejó quien navegó hasta acá (ver `ReturnTo` en views/types). Va APARTE
+     de navTarget porque la vista destino consume y limpia aquel al llegar; el botón de volver
+     tiene que sobrevivir a eso. Lo borra cualquier navegación MANUAL: si te fuiste por tu cuenta
+     a otro lado, el camino de vuelta que te habían dejado ya no describe de dónde venís. */
+  const [returnTo, setReturnTo] = useState<ReturnTo | null>(null)
   /* Encabezado contextual que registra la vista activa (breadcrumb + acciones). */
   const [viewHeader, setViewHeader] = useState<ViewHeader | null>(null)
   /* Buscador global (command palette). Se monta lazy: sus hooks de datos (con PII)
@@ -125,18 +143,22 @@ export function AppShell() {
     if (!m || !isAllowed(m.key)) return
     setSettingsSection(null) // navegar cierra Ajustes (era un overlay encima)
     setNavTarget(null) // navegación manual: sin objetivo pendiente
+    setReturnTo(null)  // …ni camino de vuelta: te fuiste por tu cuenta
     setModuleKey(key)
     setSubKey(m.submodules[0].key)
   }
 
   /* Navegación programática desde una vista o el buscador (ej. "Ver agenda del protocolo"
      → track/agenda; o un resultado de paciente → track/protocolos + ficha). `target` abre
-     una entidad concreta al llegar. */
-  const navigate = (mKey: string, sKey: string, target?: NavTarget) => {
+     una entidad concreta al llegar; `back` deja el pasaje de vuelta que el encabezado muestra.
+     Sin `back` el pasaje se limpia: cada navegación programática declara su propio retorno o
+     no tiene ninguno — heredar el de un salto anterior ofrecería volver a un lugar equivocado. */
+  const navigate = (mKey: string, sKey: string, target?: NavTarget, back?: ReturnTo) => {
     const m = MODULES.find((x) => x.key === mKey)
     if (!m || !isAllowed(m.key) || !m.submodules.some((s) => s.key === sKey)) return
     setSettingsSection(null) // navegar cierra Ajustes
     setNavTarget(target ?? null)
+    setReturnTo(back ?? null)
     setModuleKey(mKey)
     setSubKey(sKey)
   }
@@ -326,7 +348,7 @@ export function AppShell() {
                 return (
                   <button
                     key={s.key}
-                    onClick={() => { setSubKey(s.key); setSettingsSection(null); setNavTarget(null) }}
+                    onClick={() => { setSubKey(s.key); setSettingsSection(null); setNavTarget(null); setReturnTo(null) }}
                     /* El riel de módulos ya tenía `title`; el panel de submódulos era la única
                        capa de la navegación sin ayuda contextual. Sigue valiendo aunque el
                        descriptor esté a la vista: el panel se pliega (navHidden) y el rótulo
@@ -380,6 +402,21 @@ export function AppShell() {
         {/* contenido */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 26px 4px', flexWrap: 'wrap' }}>
+            {/* Pasaje de vuelta: lo dejó quien te mandó acá (ej. el nombre del paciente en el modal
+                de una visita). Va ANTES de la miga y no adentro, porque no es un nivel del camino
+                actual sino la salida del que veníais recorriendo. Desaparece solo, en cuanto
+                navegás a otra cosa por tu cuenta. */}
+            {returnTo && (
+              <button
+                type="button"
+                onClick={() => navigate(returnTo.moduleKey, returnTo.subKey, returnTo.target)}
+                title={returnTo.hint ?? returnTo.label}
+                style={backChip}
+              >
+                <Icon name="arrowLeft" size={13} color="var(--spira-muted)" />
+                {returnTo.label}
+              </button>
+            )}
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)', flexWrap: 'wrap' }}>
                 {mod.full}
@@ -427,6 +464,7 @@ export function AppShell() {
                   setHeader={setViewHeader}
                   navTarget={navTarget}
                   onTargetConsumed={() => setNavTarget(null)}
+                  onNavigatedAway={() => setReturnTo(null)}
                 />
               )
             })()}

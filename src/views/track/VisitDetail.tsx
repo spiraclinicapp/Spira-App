@@ -36,7 +36,7 @@ import { DoctorRequestModal } from './DoctorRequestModal'
  */
 export function VisitDetail({
   visitId, accent, context, onClose, canReception = false, canClinical = false,
-  onAdvance, onChanged, pos, onPrev, onNext, seed,
+  onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient,
 }: {
   visitId: string
   accent: string
@@ -57,6 +57,12 @@ export function VisitDetail({
    * el dato fresco para ESTE visitId, reemplaza al seed. Sin seed (ficha/cola) = espera la consulta.
    */
   seed?: DayVisitRow
+  /**
+   * Abrir la ficha del paciente (nombre y Nº de sujeto pasan a ser navegables). Lo pasa la vista
+   * que puede navegar; desde la ficha del paciente NO se pasa, porque el enlace llevaría a donde ya
+   * estás. Cierra el modal antes de navegar: la vista destino es otra y el modal es de esta.
+   */
+  onOpenPatient?: (patientId: string) => void
 }) {
   const q = useVisit(visitId)
   const fetched = q.data?.[0] ?? null
@@ -77,6 +83,10 @@ export function VisitDetail({
   // Esc cierra; ↑↓/j k navegan (solo si hay lista y el foco no está en un campo de texto).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Con el popup de "Atención médica" abierto, el teclado es SUYO. Su `Modal` también escucha
+      // Escape en `document` y no frena nada, así que sin esto una sola tecla cerraría el popup y
+      // la visita de abajo con él; y las flechas navegarían una lista que el usuario ni ve.
+      if (doctorOpen) return
       const t = e.target as HTMLElement | null
       const enCampo = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
       // El guard por target vale TAMBIÉN para Escape, y no solo para las flechas: con el encabezado
@@ -94,7 +104,7 @@ export function VisitDetail({
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose, onPrev, onNext, canNav])
+  }, [onClose, onPrev, onNext, canNav, doctorOpen])
 
   const refrescar = () => { onChanged?.(); q.refetch() }
 
@@ -109,6 +119,7 @@ export function VisitDetail({
   }
 
   return (
+    <>
     <div style={backdrop} onMouseDown={onClose} role="presentation">
       <div
         style={card}
@@ -134,6 +145,7 @@ export function VisitDetail({
               onClose={onClose}
               onSaved={refrescar}
               onError={setErr}
+              onOpenPatient={onOpenPatient ? () => { onClose(); onOpenPatient(visit.patient_id) } : undefined}
             />
 
             <VisitActionBar
@@ -152,38 +164,52 @@ export function VisitDetail({
             {/* Cuerpo: lo que se HACE en la visita, en dos columnas parejas (handoff §8). */}
             <div style={{ padding: '16px 22px 24px', overflow: 'auto' }}>
               <div className="spira-visit-body" style={body}>
-                {/* Cada uno monta su propio `Panel`. */}
-                <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} />
-                <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
-              </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+                  {/* Monta su propio `Panel` (el contador "n/total" va en la línea del rótulo). */}
+                  <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} />
 
-              {/* Comentarios NO está en el mock y se conserva igual (decisión del Director,
-                  2026-08-13): es una función en producción desde la 0048 y desde la ficha del
-                  paciente este modal es la única puerta al hilo. Va a ancho completo y debajo
-                  porque un hilo se lee mejor largo que angosto, y así el cuerpo de arriba queda
-                  exactamente como el mock. */}
-              <div style={{ marginTop: 14 }}>
-                <Panel title="Comentarios" icon="message" accent={accent}>
-                  <CommentThread visitId={visit.id} accent={accent} onAdded={onChanged} />
-                </Panel>
+                  {/* Comentarios NO está en el mock y se conserva igual (decisión del Director,
+                      2026-08-13): es una función en producción desde la 0048 y desde la ficha del
+                      paciente este modal es la única puerta al hilo.
+                      Va DENTRO de la columna izquierda y no a ancho completo debajo: ahí dejaba una
+                      banda muerta entre los dos paneles cortos y el hilo. Y de este lado por la
+                      misma medición que ya le eligió lugar en el diseño anterior — con una
+                      dispensación cargada la columna derecha se estira casi al doble que la
+                      izquierda, así que el hilo es justo lo que las empareja. */}
+                  <Panel title="Comentarios" icon="message" accent={accent}>
+                    <CommentThread visitId={visit.id} accent={accent} onAdded={onChanged} />
+                  </Panel>
+                </div>
+
+                {/* Monta su propio `Panel`, con la banda sólida del realce siempre puesta. */}
+                <div style={{ minWidth: 0 }}>
+                  <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
+                </div>
               </div>
             </div>
           </>
         )}
       </div>
 
-      {/* "Solicitar médico" de la barra abre el popup que YA existe (motivo por chips + hilo),
-          en vez de duplicar el panel adentro del modal. */}
-      {doctorOpen && visit && (
-        <DoctorRequestModal
-          visitId={visit.id}
-          accent={accent}
-          canClinical={canClinical}
-          onClose={() => setDoctorOpen(false)}
-          onChanged={refrescar}
-        />
-      )}
     </div>
+
+    {/* "Solicitar médico" de la barra abre el popup que YA existe (motivo por chips + hilo), en vez
+        de duplicar el panel adentro del modal.
+
+        Va FUERA del backdrop, no adentro. El backdrop cierra la visita con su `onMouseDown` y el
+        único que frena la propagación es la tarjeta, así que un popup montado ahí adentro le
+        entrega cada clic —incluido el de su propio ✕— al backdrop: cerrabas el popup y se cerraba
+        la visita entera con él. Como hermano, sus clics nunca pasan por el backdrop. */}
+    {doctorOpen && visit && (
+      <DoctorRequestModal
+        visitId={visit.id}
+        accent={accent}
+        canClinical={canClinical}
+        onClose={() => setDoctorOpen(false)}
+        onChanged={refrescar}
+      />
+    )}
+    </>
   )
 }
 

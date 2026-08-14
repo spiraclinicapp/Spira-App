@@ -530,6 +530,47 @@ input:-webkit-autofill:focus {
   .spira-zoom-preview { transition: none; }
 }
 
+/* —— Texto que navega (link en línea) ——
+   Para un dato que ADEMÁS lleva a otro lado: el nombre y el Nº de sujeto del encabezado de visita,
+   que abren la ficha del paciente. Un `<button>` pelado que hereda tipografía y color del texto que
+   reemplaza — no se pinta de otro color ni se subraya en reposo: el dato tiene que seguir leyéndose
+   como el dato, no como un link metido en el medio del bloque de identidad. La señal aparece al
+   apuntarlo (subrayado) y al enfocarlo por teclado.
+   Es el mismo gesto de las migas del encabezado del shell, pero en CSS y no en `onMouseEnter`,
+   que es donde va el realce (ver la regla de `.spira-card-link`). */
+.spira-textlink {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+.spira-textlink:hover,
+.spira-textlink:focus-visible { text-decoration: underline; }
+/* Va SIEMPRE con `.spira-no-press` (lo pone el componente, no el que lo usa): es un `<button>`, así
+   que sin esa marca hereda la micro-interacción global y el texto se LEVANTA 1px al apuntarlo. En un
+   botón eso es la señal de "esto se toca"; en un nombre de 23px en medio de un bloque de identidad
+   es un salto. Acá la señal es el subrayado. */
+
+/* —— Varios disparadores que llevan AL MISMO LADO ——
+   El nombre y el Nº de sujeto del encabezado de visita abren los dos la misma ficha. Apuntar uno
+   subraya los DOS, que es la forma de decir "son la misma puerta" sin agregar ningún adorno: si
+   cada uno se subrayara solo, se leerían como dos destinos distintos.
+   `:has()` en vez de un `:hover` sobre el contenedor, para que el resalte lo dispare el TEXTO y no
+   el aire alrededor. Donde `:has()` no exista, cada enlace se subraya por su cuenta (la regla de
+   arriba): se pierde el emparejado, no la navegación. */
+.spira-link-group:has(.spira-textlink:hover) .spira-textlink,
+.spira-link-group:has(.spira-textlink:focus-visible) .spira-textlink,
+.spira-link-group:has(.spira-textlink:active) .spira-textlink {
+  text-decoration: underline;
+}
+
 /* —— Previsualizador ampliable (constancia de IP, tamaño "chica") ——
    Toda la tarjeta de 140px invita a ampliar, no solo el botón "Ampliar" de la esquina —el mock
    (estado 4 de "Tarjeta partida - estados.html") define el hover sobre el `.prev` entero. Mismo
@@ -633,8 +674,14 @@ input:-webkit-autofill:focus {
    ya sabe hacer solo. Las medidas son de VIEWPORT y no del modal porque el modal es
    `min(1120px, 95vw)`: por debajo de 1100 ya viene achicándose con la pantalla.
 
-   El estado por defecto (escritorio) NO se declara acá — vive inline en el componente, como el
-   resto del repo. Estas reglas solo describen los dos quiebres. */
+   El estado por defecto vive inline en el componente, como el resto del repo, con UNA excepción:
+   el ancho del bloque de fechas. Va acá porque el quiebre de <1100px tiene que poder cambiarlo, y
+   un ancho inline le ganaría por especificidad a cualquier media query. */
+
+/* Ancho FIJO del bloque de fechas: mide lo mismo se esté leyendo o editando. Sin esto, entrar a
+   editar suma controles, la columna crece por contenido y empuja al resto del encabezado para el
+   costado en cada clic — justo lo que el handoff promete que no pasa. */
+.spira-visit-dates { width: 200px; }
 
 /* < 1100px: las fechas dejan de ser la tercera columna y bajan, en dos columnas, debajo de los
    datos del paciente. El coordinador no se mueve: sigue en la fila de utilidades. */
@@ -646,6 +693,7 @@ input:-webkit-autofill:focus {
   }
   .spira-visit-idw > .spira-visit-dates {
     grid-column: 2;
+    width: auto;
     border-left: 0;
     padding-left: 0;
     margin-top: 12px;

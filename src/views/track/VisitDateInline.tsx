@@ -85,30 +85,37 @@ export function VisitDateInline({
           {value ? formatAR(value) : placeholder}
         </div>
       ) : editing ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ ...bigBase, ...toneStyle(tone), ...focusRing, flex: 1, minWidth: 0, padding: '0 4px 0 10px' }}>
-            <input
-              ref={inputRef}
-              value={text}
-              onChange={(e) => { setText(e.target.value); setErr(null) }}
-              onKeyDown={(e) => {
-                // Escape NO puede llegar al listener de `document` de VisitDetail (ahí cierra el
-                // modal entero). Se corta acá además del guard por target que tiene el modal.
-                if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); descartar(); return }
-                if (e.key === 'Enter') { e.preventDefault(); void confirmar() }
-              }}
-              placeholder="dd/mm/aaaa"
-              inputMode="numeric"
-              disabled={busy}
-              aria-label={label}
-              style={inputStyle}
-            />
-          </div>
+        // Confirmar y descartar van DENTRO de la caja, en el lugar que ocupa el ícono de agenda
+        // cuando no se edita. Al costado —como los dibuja el mock— el bloque de fechas crece y
+        // empuja al resto del encabezado para el costado cada vez que se entra a editar; acá la
+        // caja mide siempre lo mismo y no se mueve nada. De paso se leen como parte del campo y
+        // no como dos cajitas sueltas.
+        <div style={{ ...bigBase, ...toneStyle(tone), ...focusLift, padding: '0 4px 0 10px', gap: 4 }}>
+          <input
+            ref={inputRef}
+            // `spira-bare-input`: el foco lo señala el RECUADRO (esta caja), no el input pelado de
+            // adentro — si no, su sombra rectangular asoma por los bordes. Patrón del buscador del
+            // SearchableSelect, ver tokens.css.
+            className="spira-bare-input"
+            value={text}
+            onChange={(e) => { setText(e.target.value); setErr(null) }}
+            onKeyDown={(e) => {
+              // Escape NO puede llegar al listener de `document` de VisitDetail (ahí cierra el
+              // modal entero). Se corta acá además del guard por target que tiene el modal.
+              if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); descartar(); return }
+              if (e.key === 'Enter') { e.preventDefault(); void confirmar() }
+            }}
+            placeholder="dd/mm/aaaa"
+            inputMode="numeric"
+            disabled={busy}
+            aria-label={label}
+            style={inputStyle}
+          />
           <button type="button" onClick={() => void confirmar()} disabled={busy} title="Guardar (Enter)" aria-label="Guardar" style={okBtn(busy)}>
-            <Icon name="check" size={15} color="var(--spira-on-accent)" stroke={2.4} />
+            <Icon name="check" size={14} color="var(--spira-on-accent)" stroke={2.4} />
           </button>
           <button type="button" onClick={descartar} disabled={busy} title="Descartar (Escape)" aria-label="Descartar" style={koBtn}>
-            <Icon name="x" size={14} color="var(--spira-muted)" />
+            <Icon name="x" size={13} color="var(--spira-muted)" />
           </button>
         </div>
       ) : (
@@ -138,20 +145,28 @@ const bigBase: CSSProperties = {
   fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: '.01em',
   whiteSpace: 'nowrap', cursor: 'text',
 }
-const focusRing: CSSProperties = {
-  borderColor: 'var(--spira-track)', boxShadow: '0 0 0 3px rgba(46, 125, 116, 0.13)',
+/**
+ * Foco = ELEVACIÓN, nunca un borde de color. El handoff §6 pide "borde --track + halo verde", pero
+ * el estándar del proyecto manda lo contrario y gana el estándar: todo input/select/textarea del
+ * repo marca el foco con una sombra tenue + un levante de 1px, sin outline ni recuadro verde
+ * (tokens.css, "Foco de controles de formulario"). El color se reserva para SIGNIFICADO —estado
+ * clínico, alerta, error—, no para decir "el cursor está acá".
+ */
+const focusLift: CSSProperties = {
+  boxShadow: '0 5px 14px rgba(20, 48, 46, 0.1)', transform: 'translateY(-1px)',
 }
 const phStyle: CSSProperties = { color: 'var(--spira-faint)', fontWeight: 500 }
 const toneStyle = (t: 'soft' | 'strong'): CSSProperties => ({
   color: t === 'soft' ? 'var(--spira-ink-soft)' : 'var(--spira-ink-2)',
 })
 const inputStyle: CSSProperties = {
-  width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
-  font: 'inherit', color: 'inherit', fontVariantNumeric: 'tabular-nums', padding: 0,
+  flex: 1, width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
+  font: 'inherit', color: 'inherit', fontVariantNumeric: 'tabular-nums', padding: 0, height: '100%',
 }
-/* `padding:0` no es opcional en cajas fijas: el del navegador descentra el ícono (handoff §4). */
+/* `padding:0` no es opcional en cajas fijas: el del navegador descentra el ícono (handoff §4).
+   24px porque van DENTRO de la caja de 32: entran con aire y sin estirarla. */
 const sqBtn: CSSProperties = {
-  width: 32, height: 32, padding: 0, borderRadius: 8, display: 'grid', placeItems: 'center',
+  width: 24, height: 24, padding: 0, borderRadius: 6, display: 'grid', placeItems: 'center',
   cursor: 'pointer', flex: '0 0 auto', lineHeight: 0,
 }
 const okBtn = (busy: boolean): CSSProperties => ({
