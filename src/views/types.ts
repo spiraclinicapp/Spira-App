@@ -93,6 +93,19 @@ export interface ViewProps {
   navTarget?: NavTarget | null
   /** La vista avisa que ya consumió `navTarget` (el shell lo limpia para no reabrirlo). */
   onTargetConsumed?: () => void
+  /**
+   * La vista avisa que el usuario se fue, POR ADENTRO, de donde la navegación lo había dejado —y
+   * el shell descarta el pasaje de vuelta.
+   *
+   * Hace falta porque varias vistas navegan sin cambiar de submódulo: los pacientes viven dentro
+   * de Protocolos, así que ir de una ficha a la grilla, o a otro paciente, no pasa por el shell.
+   * Sin este aviso el chip de "Volver a la visita de X" sobrevive a esos paseos y termina
+   * ofreciendo volver a algo que ya no tiene nada que ver con lo que estás mirando: sigue
+   * funcionando, pero miente sobre de dónde venís, que es peor que no estar.
+   *
+   * Solo lo llaman las vistas que consumen un `navTarget`, y una sola vez por llegada.
+   */
+  onNavigatedAway?: () => void
 }
 
 export type ViewComponent = (props: ViewProps) => ReactElement

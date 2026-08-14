@@ -463,6 +463,7 @@ export function AppShell() {
                   setHeader={setViewHeader}
                   navTarget={navTarget}
                   onTargetConsumed={() => setNavTarget(null)}
+                  onNavigatedAway={() => setReturnTo(null)}
                 />
               )
             })()}
