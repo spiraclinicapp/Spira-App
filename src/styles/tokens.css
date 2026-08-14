@@ -553,6 +553,23 @@ input:-webkit-autofill:focus {
 }
 .spira-textlink:hover,
 .spira-textlink:focus-visible { text-decoration: underline; }
+/* Va SIEMPRE con `.spira-no-press` (lo pone el componente, no el que lo usa): es un `<button>`, así
+   que sin esa marca hereda la micro-interacción global y el texto se LEVANTA 1px al apuntarlo. En un
+   botón eso es la señal de "esto se toca"; en un nombre de 23px en medio de un bloque de identidad
+   es un salto. Acá la señal es el subrayado. */
+
+/* —— Varios disparadores que llevan AL MISMO LADO ——
+   El nombre y el Nº de sujeto del encabezado de visita abren los dos la misma ficha. Apuntar uno
+   subraya los DOS, que es la forma de decir "son la misma puerta" sin agregar ningún adorno: si
+   cada uno se subrayara solo, se leerían como dos destinos distintos.
+   `:has()` en vez de un `:hover` sobre el contenedor, para que el resalte lo dispare el TEXTO y no
+   el aire alrededor. Donde `:has()` no exista, cada enlace se subraya por su cuenta (la regla de
+   arriba): se pierde el emparejado, no la navegación. */
+.spira-link-group:has(.spira-textlink:hover) .spira-textlink,
+.spira-link-group:has(.spira-textlink:focus-visible) .spira-textlink,
+.spira-link-group:has(.spira-textlink:active) .spira-textlink {
+  text-decoration: underline;
+}
 
 /* —— Previsualizador ampliable (constancia de IP, tamaño "chica") ——
    Toda la tarjeta de 140px invita a ampliar, no solo el botón "Ampliar" de la esquina —el mock
