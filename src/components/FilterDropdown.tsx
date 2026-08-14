@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
 import { usePopover } from './usePopover'
@@ -52,7 +53,12 @@ export function FilterDropdown({ accent, value, onChange, options, menuLabel, ic
         <Icon name="chevronDown" size={15} color="var(--spira-muted)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
       </button>
 
-      {open && pos && (
+      {/* PORTALEADO a document.body, como el resto de los popovers. El popover es
+          `position: fixed` con coordenadas de VIEWPORT (usePopover las calcula con
+          getBoundingClientRect), y un ancestro con `backdrop-filter` —el fondo de cualquier
+          modal del repo lleva `blur(2px)`— pasa a ser el bloque contenedor de sus descendientes
+          fixed, igual que un `transform`. Dibujado adentro, el menú aterriza lejos del campo. */}
+      {open && pos && createPortal(
         <div ref={popRef} role="listbox" style={{ ...menu, top: pos.top, left: pos.left, minWidth: pos.width }}>
           <div style={eyebrow}>{menuLabel}</div>
           {options.map((o) => {
@@ -74,7 +80,8 @@ export function FilterDropdown({ accent, value, onChange, options, menuLabel, ic
               </button>
             )
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

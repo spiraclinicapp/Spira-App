@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon } from '../../components/Icon'
 import { usePopover } from '../../components/usePopover'
 import { visitCode } from '../../lib/visits'
@@ -255,7 +256,11 @@ function RowMenu({ visit, canReception, busy, onNoShow, onReschedule }: {
       >
         <Icon name="moreVertical" size={17} color="currentColor" />
       </button>
-      {open && pos && (
+      {/* PORTALEADO a document.body: el menú es `position: fixed` con coordenadas de viewport y
+          cualquier ancestro con `backdrop-filter`/`transform` pasaría a ser su bloque contenedor.
+          Acá además la fila tiene `overflow: hidden` (recorta la barra a sangre), que ya había
+          clipado este mismo menú una vez — el portal lo saca de los dos problemas de una. */}
+      {open && pos && createPortal(
         <div
           ref={popRef}
           onMouseDown={(e) => e.stopPropagation()}
@@ -276,7 +281,8 @@ function RowMenu({ visit, canReception, busy, onNoShow, onReschedule }: {
             disabled={!visit.patient_code}
             onClick={() => { if (visit.patient_code) navigator.clipboard?.writeText(visit.patient_code); setOpen(false) }}
           />
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
