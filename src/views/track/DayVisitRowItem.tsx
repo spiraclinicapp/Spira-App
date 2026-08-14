@@ -9,6 +9,7 @@ import type { DayProcedureSummary } from '../../data/procedures'
 import { OperationalStageChip, OPERATIONAL_STAGES, VisitChip, VISIT_STATES } from '../visitStates'
 import { ProtoTag, ProcDots, Persona } from './visitAtoms'
 import { NEXT_STEP, advanceRole } from './advanceStep'
+import { etapaProgreso } from './visitHeaderRules'
 
 /**
  * Fila de "Visitas del día" v2 — layout `paciente` del handoff (`handoff_visitas_dia/`), rebindeada
@@ -43,12 +44,15 @@ export function DayVisitRowItem({
   const busy = busyId === visit.id
   const [hov, setHov] = useState(false)
 
-  // El rail tiene que coincidir con el chip que se muestra (ver más abajo): si la visita está
-  // "Por reprogramar" el chip es el CLÍNICO, así que el rail usa ese mismo color — mostrar rail
+  // El riel tiene que coincidir con el chip que se muestra (ver más abajo): si la visita está
+  // "Por reprogramar" el chip es el CLÍNICO, así que el riel usa ese mismo color — mostrar riel
   // operativo (gris de "Por llegar") al lado de un chip marrón contradice al propio chip.
   const railColor = visit.computed_status === 'por_reprogramar'
     ? VISIT_STATES.por_reprogramar.color
     : OPERATIONAL_STAGES[stage]?.color ?? OPERATIONAL_STAGES.por_llegar.color
+  // Mismo cálculo que llena el riel de la barra del modal: una sola fuente para "cuánto lleva
+  // recorrido esta visita", así la lista y el detalle no pueden decir cosas distintas.
+  const { pct } = etapaProgreso(stage)
   const visitName = visit.visit_name ?? KIND_LABELS[visit.kind]
 
   const shell: CSSProperties = {
@@ -56,7 +60,9 @@ export function DayVisitRowItem({
     border: `1px solid ${hov ? 'var(--spira-line-2)' : 'var(--spira-line)'}`,
     boxShadow: hov ? '0 6px 18px rgba(20,48,46,0.10)' : '0 1px 2px rgba(20,48,46,0.06)',
     transition: 'box-shadow .18s ease, border-color .18s ease',
-    overflow: 'hidden', padding: '12px 16px 12px 22px', marginBottom: 8,
+    // Padding izquierdo igual al derecho: la barra de color a sangre que ocupaba esos 6px de más
+    // se fue, y su trabajo lo hace ahora el riel de la columna de estado.
+    overflow: 'hidden', padding: '12px 16px', marginBottom: 8,
     display: 'flex', alignItems: 'center', gap: 16,
   }
 
@@ -75,18 +81,22 @@ export function DayVisitRowItem({
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!busy) onOpen(visit) }
       }}
     >
-      {/* rail de estado */}
-      <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: railColor }} />
-
-      {/* columna izquierda: chip de estado (reemplaza la hora, que no existe en el schema).
+      {/* Columna izquierda: chip de estado (reemplaza la hora, que no existe en el schema) + el
+          riel del recorrido debajo. El riel trae a la lista el idioma de la barra de acción del
+          modal, y de paso agrega el dato que la fila no tenía: no solo CÓMO SE LLAMA la etapa,
+          sino cuánto lleva recorrido. Reemplaza a la barra de color a sangre que estaba pegada al
+          borde izquierdo — decía menos y pesaba más.
           Si la visita quedó "Por reprogramar" mandamos el chip CLÍNICO: operativamente sigue en
           "Por llegar", y dejar ese chip diría que el paciente está por llegar cuando ya se sabe
           que no viene. Se mira `computed_status` y no `no_show_at` porque la vista ya resuelve la
           precedencia (ventana vencida le gana a por reprogramar). */}
-      <div style={{ flex: '0 0 auto', minWidth: 96 }}>
+      <div style={{ flex: '0 0 auto', width: 104 }}>
         {visit.computed_status === 'por_reprogramar'
           ? <VisitChip status="por_reprogramar" compact />
           : <OperationalStageChip stage={stage} compact />}
+        <div style={{ height: 3, borderRadius: 2, background: 'var(--spira-line-2)', marginTop: 7, overflow: 'hidden' }}>
+          <i style={{ display: 'block', height: '100%', width: `${pct}%`, background: railColor, borderRadius: 2 }} />
+        </div>
       </div>
 
       {/* bloque central */}
