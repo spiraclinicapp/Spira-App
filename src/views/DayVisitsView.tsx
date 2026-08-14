@@ -448,7 +448,18 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
           // ficha directo cuando le llega un `patientId` como objetivo de navegación. Se va al
           // MISMO módulo en el que ya estás (`module.key`), así no hay que preguntar permisos:
           // si estás viendo esta pantalla, ese módulo lo tenés.
-          onOpenPatient={(patientId) => onNavigate?.(module.key, 'protocolos', { patientId })}
+          // Y se deja el pasaje de VUELTA con la visita y su día: volver no te deja en la lista de
+          // hoy, te devuelve la misma visita abierta el día que estabas mirando (esta vista ya sabe
+          // reabrirla, es lo que consume `navTarget.visitId` / `visitDate`).
+          onOpenPatient={(patientId) => onNavigate?.(
+            module.key, 'protocolos', { patientId },
+            {
+              moduleKey: module.key,
+              subKey: submodule.key,
+              target: { visitId: openVisit.id, visitDate: date },
+              label: `Volver a la visita de ${openVisit.patient_name}`,
+            },
+          )}
         />
       )}
       {doctorFor && (

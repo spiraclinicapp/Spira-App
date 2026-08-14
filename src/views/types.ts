@@ -55,6 +55,28 @@ export interface NavTarget {
 }
 
 /**
+ * Pasaje de vuelta: cómo volver a DONDE ESTABAS, adjuntado por quien te mandó a otro lado.
+ *
+ * El shell no tiene historial —la navegación es estado, no rutas—, así que un salto profundo
+ * (abrir la ficha de un paciente desde el modal de una visita) te deja sin retorno: hay que
+ * rehacer el camino a mano, incluido el día que estabas mirando y la visita que tenías abierta.
+ * En vez de inventar un historial genérico —con toda su ambigüedad sobre qué significa "atrás"
+ * cuando varias vistas tienen navegación interna propia—, el que navega adjunta el boleto y el
+ * shell lo muestra. Explícito y sin sorpresas: hay "volver" solo cuando alguien lo ofreció.
+ *
+ * El shell lo guarda APARTE de `navTarget`, que la vista destino consume y limpia al llegar: si
+ * viajara adentro, el botón de volver desaparecería apenas la ficha termina de abrirse.
+ */
+export interface ReturnTo {
+  moduleKey: string
+  subKey: string
+  /** Qué reabrir al volver (ej. la misma visita, en su día). */
+  target?: NavTarget
+  /** Texto del botón, tal cual lo lee el usuario: "Volver a la visita de Susana Rodriguez". */
+  label: string
+}
+
+/**
  * Props que recibe toda vista de contenido. Da el módulo activo (acento, nombre,
  * ícono) y el submódulo. La auth/roles se acceden vía useAuth() dentro de la vista.
  */
@@ -62,8 +84,9 @@ export interface ViewProps {
   module: ModuleDef
   submodule: SubModule
   /** Navegar a otro módulo/submódulo (lo provee el shell). El 3er arg abre una entidad
-   *  concreta al llegar (ej. la ficha de un paciente). Opcional: no todas las vistas navegan. */
-  onNavigate?: (moduleKey: string, subKey: string, target?: NavTarget) => void
+   *  concreta al llegar (ej. la ficha de un paciente); el 4º deja un pasaje de vuelta a
+   *  donde estabas. Opcional: no todas las vistas navegan. */
+  onNavigate?: (moduleKey: string, subKey: string, target?: NavTarget, back?: ReturnTo) => void
   /** Registrar/limpiar el encabezado contextual del shell. Opcional. */
   setHeader?: (header: ViewHeader | null) => void
   /** Entidad a abrir al montar/actualizar (la puso un `onNavigate` con objetivo). null = ninguna. */

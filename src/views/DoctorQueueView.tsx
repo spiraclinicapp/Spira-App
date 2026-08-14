@@ -207,7 +207,12 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
           // Desde la cola, el nombre lleva a la ficha del paciente (ver el comentario del mismo
           // prop en Visitas del día). Acá el modal es de solo lectura y el salto a la ficha es
           // justamente lo que hace falta para ver el resto del historial.
-          onOpenPatient={(patientId) => onNavigate?.(module.key, 'protocolos', { patientId })}
+          // El pasaje de vuelta trae de nuevo a la cola, pero SIN reabrir el modal: esta vista no
+          // consume `navTarget` (a diferencia de Visitas del día), así que prometerlo sería mentir.
+          onOpenPatient={(patientId) => onNavigate?.(
+            module.key, 'protocolos', { patientId },
+            { moduleKey: module.key, subKey: submodule.key, label: 'Volver a Para ver médico' },
+          )}
         />
       )}
       {commentsVisit && (
