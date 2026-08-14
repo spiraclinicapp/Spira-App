@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { DayPicker } from 'react-day-picker'
 import { es } from 'react-day-picker/locale'
 import 'react-day-picker/style.css'
@@ -59,7 +60,12 @@ export function DateNavButton({ accent, date, onChange, min, max, todayShortcut 
         <Icon name="chevronDown" size={15} color="var(--spira-muted)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
       </button>
 
-      {open && pos && (
+      {/* PORTALEADO a document.body, como el resto de los popovers. El popover es
+          `position: fixed` con coordenadas de VIEWPORT (usePopover las calcula con
+          getBoundingClientRect), y un ancestro con `backdrop-filter` —el fondo de cualquier
+          modal del repo lleva `blur(2px)`— pasa a ser el bloque contenedor de sus descendientes
+          fixed, igual que un `transform`. Dibujado adentro, el menú aterriza lejos del campo. */}
+      {open && pos && createPortal(
         <div ref={popRef} style={{ ...popover, top: pos.top, left: pos.left }}>
           <DayPicker
             mode="single"
@@ -71,7 +77,8 @@ export function DateNavButton({ accent, date, onChange, min, max, todayShortcut 
             selected={selected}
             onSelect={(d) => { if (!d) { setOpen(false); return } onChange(dateToISO(d)); setOpen(false) }}
           />
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

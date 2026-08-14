@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ChangeEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { DayPicker } from 'react-day-picker'
 import type { DropdownProps } from 'react-day-picker'
 import { es } from 'react-day-picker/locale'
@@ -102,7 +103,12 @@ export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disable
         </button>
       </div>
 
-      {open && pos && (
+      {/* PORTALEADO a document.body, como el resto de los popovers. El popover es
+          `position: fixed` con coordenadas de VIEWPORT (usePopover las calcula con
+          getBoundingClientRect), y un ancestro con `backdrop-filter` —el fondo de cualquier
+          modal del repo lleva `blur(2px)`— pasa a ser el bloque contenedor de sus descendientes
+          fixed, igual que un `transform`. Dibujado adentro, el menú aterriza lejos del campo. */}
+      {open && pos && createPortal(
         <div ref={popRef} style={{ ...popover, top: pos.top, left: pos.left }}>
           <DayPicker
             mode="single"
@@ -116,7 +122,8 @@ export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disable
             selected={selected}
             onSelect={pick}
           />
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
