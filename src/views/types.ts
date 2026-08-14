@@ -72,8 +72,15 @@ export interface ReturnTo {
   subKey: string
   /** Qué reabrir al volver (ej. la misma visita, en su día). */
   target?: NavTarget
-  /** Texto del botón, tal cual lo lee el usuario: "Volver a la visita de Susana Rodriguez". */
+  /**
+   * Texto del botón. CORTO y fijo ("Volver a la visita"): comparte fila con la miga, que en la
+   * ficha de un paciente ya es larga, y un label que crece con el nombre del paciente le come el
+   * ancho a la ubicación, que es la información principal de esa línea.
+   */
   label: string
+  /** Detalle para el tooltip ("Volver a la visita de Susana Rodriguez"): dice a CUÁL se vuelve,
+   *  sin gastar ancho. Sin esto, el tooltip repite el label. */
+  hint?: string
 }
 
 /**

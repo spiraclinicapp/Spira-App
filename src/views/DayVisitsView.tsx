@@ -457,7 +457,8 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
               moduleKey: module.key,
               subKey: submodule.key,
               target: { visitId: openVisit.id, visitDate: date },
-              label: `Volver a la visita de ${openVisit.patient_name}`,
+              label: 'Volver a la visita',
+              hint: `Volver a la visita de ${openVisit.patient_name}`,
             },
           )}
         />

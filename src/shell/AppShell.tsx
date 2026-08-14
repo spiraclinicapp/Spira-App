@@ -59,16 +59,17 @@ const iconBtn: CSSProperties = {
   color: 'var(--spira-ink)',
 }
 
-/* Pasaje de vuelta del encabezado. Sobrio y en gris: es una salida, no la acción de la pantalla —
-   la acción principal ya tiene su botón a la derecha y esto no puede competirle. Hereda del repo
-   la micro-interacción de pulsable (levante de 1px al apuntarlo), que acá sí corresponde porque
-   es un botón y no un dato. Ancho acotado: el label lleva el nombre del paciente y no puede
-   empujar la miga. */
+/* Pasaje de vuelta del encabezado. Sobrio, gris y CHICO: es una salida, no la acción de la
+   pantalla —la acción principal ya tiene su botón a la derecha y esto no puede competirle— y
+   comparte fila con la miga, que en la ficha de un paciente ya es larga. El label va corto y fijo
+   ("Volver a la visita"); el detalle de a cuál se lee en el tooltip, que es donde no le cuesta
+   ancho a nadie. Hereda del repo la micro-interacción de pulsable (levante de 1px al apuntarlo),
+   que acá sí corresponde porque es un botón y no un dato. */
 const backChip: CSSProperties = {
-  height: 30, maxWidth: 280, padding: '0 12px 0 10px', borderRadius: 999,
+  height: 26, padding: '0 10px 0 8px', borderRadius: 999,
   border: '1px solid var(--spira-line)', background: 'var(--spira-white)',
-  color: 'var(--spira-muted)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5,
-  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7, flex: '0 0 auto', minWidth: 0,
+  color: 'var(--spira-muted)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12,
+  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto', whiteSpace: 'nowrap',
 }
 
 /* Botones de acción del encabezado (acciones que registra la vista activa). */
@@ -409,11 +410,11 @@ export function AppShell() {
               <button
                 type="button"
                 onClick={() => navigate(returnTo.moduleKey, returnTo.subKey, returnTo.target)}
-                title={returnTo.label}
+                title={returnTo.hint ?? returnTo.label}
                 style={backChip}
               >
-                <Icon name="arrowLeft" size={14} color="var(--spira-muted)" />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{returnTo.label}</span>
+                <Icon name="arrowLeft" size={13} color="var(--spira-muted)" />
+                {returnTo.label}
               </button>
             )}
             <div style={{ minWidth: 0 }}>

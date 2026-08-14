@@ -211,7 +211,7 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
           // consume `navTarget` (a diferencia de Visitas del día), así que prometerlo sería mentir.
           onOpenPatient={(patientId) => onNavigate?.(
             module.key, 'protocolos', { patientId },
-            { moduleKey: module.key, subKey: submodule.key, label: 'Volver a Para ver médico' },
+            { moduleKey: module.key, subKey: submodule.key, label: 'Volver a la cola', hint: 'Volver a Para ver médico' },
           )}
         />
       )}
