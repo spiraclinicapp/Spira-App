@@ -230,20 +230,22 @@ export function PanelPreparando({ r, scanRef, onChanged, onVerConstancia, visorA
           ))}
         </div>
 
-        {/* La nota dice lo que de verdad va a pasar. El FEFO y el descuento de stock son de la
-            medicación de base; el IP no tiene lote ni vencimiento que asignar y descuenta recién al
-            ENTREGAR, que es el paso irreversible. Prometer acá que "descuenta el stock" sobre un
-            pedido de IP solo sería contar mal lo que hace el botón de al lado. */}
-        <div style={noteBox}>
-          <Icon name="clock" size={15} color="var(--spira-muted)" />
-          <span>
-            {r.items.length > 0 && (
-              <>Al marcar lista, el sistema asigna el lote por vencimiento (FEFO), descuenta el stock y emite el comprobante. </>
-            )}
-            {r.items.length === 0 && <>Al marcar lista, el sistema emite el comprobante. </>}
-            {r.includes_ip && <>Los kits de producto en investigación se declaran y descuentan al <b>entregar</b>.</>}
-          </span>
-        </div>
+        {/* SE FUE LA NOTA DEL FEFO (2026-08-15, pedido del Director). Decía "el sistema asigna el
+            lote por vencimiento (FEFO), descuenta el stock y emite el comprobante": tres
+            mecanismos internos, uno con sigla, colgados debajo del único botón del panel. Nada de
+            eso es una decisión de quien está pasando cajas por el lector —el lote lo elige el
+            servidor, el stock se descuenta solo— así que la nota no informaba una acción, describía
+            plomería. Lo que hace el botón ya lo dice el botón.
+
+            LO QUE SÍ QUEDA es el IP, y no por simetría: es lo único de este pedido que NO pasa al
+            marcar lista. Los kits se cuentan y descuentan recién al entregar, así que sin esta
+            línea la farmacéutica marca lista creyendo que el IP también quedó resuelto. */}
+        {r.includes_ip && (
+          <div style={noteBox}>
+            <Icon name="flask" size={15} color="var(--spira-muted)" />
+            <span>Los kits de producto en investigación se declaran y descuentan al <b>entregar</b>, no ahora.</span>
+          </div>
+        )}
       </div>
 
       {/* El motivo del bloqueo va en su PROPIA línea, arriba de los botones. Colgado debajo del
