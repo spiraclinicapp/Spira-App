@@ -15,7 +15,7 @@ import { fraccion, unidadesEscaneadas } from '../../../data/pharma'
  *
  * Dos fuentes distintas según el momento:
  *   · Mientras se prepara → `RequestItemRow` (lo PEDIDO). El lote todavía no se eligió, así que
- *     dice "por asignar (FEFO)": es la verdad, no un placeholder.
+ *     dice "sin lote asignado": es la verdad, no un placeholder.
  *   · Desde que está lista → `DispensationLineRow` (lo PREPARADO), con lote y vencimiento reales
  *     tomados del snapshot que se imprime en el comprobante.
  *
@@ -38,7 +38,7 @@ export function ItemRow({
    *  donde está testeada la guarda del `quantity: 0` — recalcularla acá sería una segunda
    *  definición de "cuánto va", con su propio agujero por descubrir. */
   pct: number
-  /** Lote real, o null si todavía no se asignó (se muestra la leyenda FEFO). */
+  /** Lote real, o null si todavía no se asignó (se muestra "sin lote asignado"). */
   lot: string | null
   /** `'escaneo'` = se está preparando (dial, deshacer, sustituir). `'lectura'` = ya no se toca. */
   modo: 'escaneo' | 'lectura'
@@ -84,7 +84,12 @@ export function ItemRow({
             ) : (
               <>
                 {dosis && <>{dosis} · </>}
-                <span className="spira-mono">{lot ? `lote ${lot}` : '— por asignar (FEFO)'}</span>
+                {/* Mono SOLO cuando hay lote: es un identificador y se lee como tal. La leyenda de
+                    ausencia es prosa, y en mono parecía un valor más. Se le sacó la sigla FEFO
+                    (2026-08-15): no aporta nada a quien mira la fila y sí obliga a saberla. */}
+                {lot
+                  ? <span className="spira-mono">lote {lot}</span>
+                  : <span>sin lote asignado</span>}
               </>
             )}
           </div>

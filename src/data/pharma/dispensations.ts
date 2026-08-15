@@ -1,7 +1,7 @@
 import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import { supabase } from '../../lib/supabase'
 import { pharmaErrorMessage } from './errors'
-import type { DispensationRequestRow, RequestStatus } from './dispensationModel'
+import type { DispensationRequestRow, HistorialEntradaRow, RequestStatus } from './dispensationModel'
 
 /**
  * El MODELO (formas de fila + lo que se deriva de ellas) vive en `dispensationModel.ts`, que no
@@ -686,16 +686,6 @@ export async function reassignDispensationPreparation(
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null }
-}
-
-/** Una entrada del historial del pedido, leída del `audit_log` (RPC, 0077). */
-export interface HistorialEntradaRow {
-  cuando: string
-  quien: string
-  entidad: string
-  accion: string
-  antes: Record<string, unknown> | null
-  despues: Record<string, unknown> | null
 }
 
 /**

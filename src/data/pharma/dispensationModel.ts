@@ -158,6 +158,27 @@ export interface DispensationRequestRow {
 }
 
 /**
+ * Una entrada del historial del pedido, leída del `audit_log` (RPC `dispensation_audit_trail`, 0077).
+ *
+ * VIVE EN EL MODELO y no en `dispensations.ts` (que es el transporte) porque la traducción de estas
+ * filas a castellano —`views/pharma/dispensaciones/historial.ts`— es lógica pura y se testea sin
+ * navegador. Con el tipo del otro lado, importarlo arrastraba el cliente de Supabase.
+ *
+ * `antes`/`despues` son las dos filas jsonb crudas: el `audit_log` guarda el registro ENTERO a cada
+ * lado del cambio, con nombres de columna y valores internos. Nadie los muestra tal cual.
+ */
+export interface HistorialEntradaRow {
+  cuando: string
+  quien: string
+  /** Nombre de la TABLA (`entity_type` del audit_log), no del concepto. */
+  entidad: string
+  /** `INSERT` · `UPDATE` · `DELETE`. */
+  accion: string
+  antes: Record<string, unknown> | null
+  despues: Record<string, unknown> | null
+}
+
+/**
  * En qué columna del tablero cae una solicitud. No es su `status` a secas: `lista` y `entregada`
  * viven en la dispensación, no en la solicitud.
  *

@@ -59,10 +59,13 @@ export function PanelEntregada({ r, disp, onClose, onPrint }: {
           </>
         )}
 
+        {/* Sin la sigla FEFO (2026-08-15): "vencimiento más próximo" dice lo mismo y no obliga a
+            saber de qué se trata. El dato que importa acá no es el criterio sino el hecho — el
+            stock ya se movió, no hay nada pendiente de descontar. */}
         <div style={noteBox}>
           <Icon name="clock" size={15} color="var(--spira-muted)" />
           <span>
-            {disp.items.length > 0 && <>Lotes asignados por vencimiento (FEFO) y stock descontado automáticamente. </>}
+            {disp.items.length > 0 && <>Se entregaron los lotes de vencimiento más próximo y el stock ya quedó descontado. </>}
             {disp.ip_kits !== null && <>Los kits de IP ya descontaron del stock del protocolo.</>}
           </span>
         </div>
