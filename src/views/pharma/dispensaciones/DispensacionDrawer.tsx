@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Drawer } from '../../../components/Drawer'
 import { Icon } from '../../../components/Icon'
@@ -61,6 +61,24 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
 
   const disp = activeDispensation(r)
   const column = columnOf(r)
+
+  /**
+   * Nombres de medicamento para el historial.
+   *
+   * El `audit_log` guarda `medication_id` y nada más, así que sin este mapa la crónica diría "se
+   * escaneó 1 unidad" sin decir de qué — que es justo el dato que se viene a buscar. Se arma con lo
+   * que el cajón YA tiene cargado (renglones pedidos + renglones entregados) en vez de con una
+   * consulta nueva: son los mismos medicamentos y el historial se abre sobre un pedido ya abierto.
+   *
+   * Un id que no esté en el mapa —el medicamento VIEJO de una sustitución, un renglón borrado—
+   * devuelve null y la línea se queda sin nombre, en vez de inventar uno.
+   */
+  const nombreMedicamento = useMemo(() => {
+    const mapa = new Map<string, string>()
+    for (const i of r.items) if (i.medication?.name) mapa.set(i.medication_id, i.medication.name)
+    for (const l of disp?.items ?? []) if (l.medication?.name) mapa.set(l.medication_id, l.medication.name)
+    return (id: unknown) => (typeof id === 'string' ? mapa.get(id) ?? null : null)
+  }, [r.items, disp])
   const rechazada = r.status === 'rechazada'
   const paciente = r.visit?.enrollment?.patient
   const protocolo = r.visit?.enrollment?.protocol
@@ -235,7 +253,12 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
       )}
 
       {viendoHistorial && (
-        <ModalHistorial requestId={r.id} codigo={titulo} onClose={() => setViendoHistorial(false)} />
+        <ModalHistorial
+          requestId={r.id}
+          codigo={titulo}
+          nombreMedicamento={nombreMedicamento}
+          onClose={() => setViendoHistorial(false)}
+        />
       )}
 
       {rejecting && (

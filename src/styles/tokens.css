@@ -66,6 +66,12 @@
      y el de alerta eran el mismo color. Renombrado, no recoloreado: el valor sigue siendo el mismo
      y ahora el nombre dice para qué es. */
   --spira-acc-deep-warn: #6E5620;
+  /* El rojo de la familia. En CLARO no hace falta oscurecerlo —`--spira-danger` sobre su propio
+     tinte ya da 4,97:1, medido—, así que vale lo mismo; existe por el otro lado: en oscuro
+     `--spira-danger` queda en 2,55:1 sobre el tinte y el glifo se pierde. Es la misma trampa que
+     advierte el bloque de arriba, un token más allá. Estrenado por la línea de tiempo del historial
+     de dispensación (2026-08-15), donde el punto de "rechazado" es rojo. */
+  --spira-acc-deep-danger: #A6483B;
 
   /* —— Banda del rótulo de la tarjeta destacada (Dispensación) ——
      El acento a secas NO sirve de fondo acá: la tinta papel sobre él da 4,33:1 y el rótulo va a
@@ -127,6 +133,7 @@
   --spira-avatar-ring: #34D399; /* emerald-400 — más claro para contraste en oscuro */
   --spira-acc-deep-track:  #9DE6D6;  /* menta: en oscuro hay que ACLARAR, no oscurecer */
   --spira-acc-deep-warn: #E8CE8A;
+  --spira-acc-deep-danger: #EDA093; /* salmón: aclarado, no oscurecido. 7,09:1 sobre el tinte rojo */
   /* La banda NO se invierte: es un bloque de color pleno con texto claro encima, así que en oscuro
      funciona igual que en claro (y aclararla con la menta la volvería un bloque brillante con el
      texto papel ilegible). Se sube un escalón nada más, para que no se confunda con el fondo. */
