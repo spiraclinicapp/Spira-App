@@ -6,6 +6,7 @@ import type { DateRange } from 'react-day-picker'
 import { es } from 'react-day-picker/locale'
 import 'react-day-picker/style.css'
 import './DateField.css'
+import { CalendarCaption } from './CalendarCaption'
 import { Icon } from './Icon'
 import { usePopover } from './usePopover'
 import { dateToISO, formatAR, isoToDate, todayISO } from '../lib/dates'
@@ -18,6 +19,8 @@ interface Props {
   onChange: (desde: string, hasta: string) => void
   /** Tope superior (default: hoy). No tiene sentido reportar el futuro. */
   max?: string
+  /** Cuántos años hacia atrás ofrece el desplegable de año (default 5). */
+  aniosAtras?: number
 }
 
 /**
@@ -38,7 +41,7 @@ interface Props {
  *     oscuro (el tinte que oscurece sobre papel claro queda invisible sobre fondo oscuro; es el
  *     mismo problema que documenta `--spira-tint-track` en tokens.css).
  */
-export function DateRangeField({ accent, desde, hasta, onChange, max }: Props) {
+export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras = 5 }: Props) {
   const [open, setOpen] = useState(false)
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
 
@@ -69,6 +72,10 @@ export function DateRangeField({ accent, desde, hasta, onChange, max }: Props) {
   }, [open, desde, hasta])
 
   const tope = max ?? todayISO()
+  /* Piso del desplegable de año. Sin `startMonth` react-day-picker no sabe desde dónde ofrecer
+     años y el desplegable sale vacío; cinco atrás cubre cualquier pedido de auditoría sin llenar
+     la lista con años en los que el centro no existía. */
+  const piso = String(Number(tope.slice(0, 4)) - aniosAtras) + '-01-01'
   const unSoloDia = borrador?.from && borrador.to && dateToISO(borrador.from) === dateToISO(borrador.to)
   const listo = Boolean(borrador?.from)
 
@@ -126,6 +133,9 @@ export function DateRangeField({ accent, desde, hasta, onChange, max }: Props) {
             mode="range"
             locale={es}
             weekStartsOn={1}
+            captionLayout="dropdown"
+            components={{ Dropdown: CalendarCaption }}
+            startMonth={isoToDate(piso)}
             endMonth={isoToDate(tope)}
             disabled={{ after: isoToDate(tope) }}
             defaultMonth={isoToDate(hasta)}
@@ -133,13 +143,14 @@ export function DateRangeField({ accent, desde, hasta, onChange, max }: Props) {
             onSelect={elegir}
           />
           <div style={pie}>
-            <span style={{ flex: 1, fontSize: 12, color: 'var(--spira-ink-soft)', lineHeight: 1.4 }}>
+            <span style={textoDelPie}>
               {!listo
                 ? 'Elegí un día, o dos para un tramo.'
                 : unSoloDia
                   ? 'Un solo día. Elegí otro para armar un tramo, o aplicalo así.'
                   : `${cantidadDeDias(borrador!)} días.`}
             </span>
+            <span style={{ flex: 1 }} />
             <button type="button" onClick={() => setOpen(false)} style={btnCancelar}>Cancelar</button>
             <button
               type="button"
@@ -177,11 +188,21 @@ const popover: CSSProperties = {
   boxShadow: '0 12px 30px rgba(20,48,46,.16)',
 }
 
+/* EL PIE NO PUEDE DIMENSIONAR EL POPOVER.
+   El popover no declara ancho, así que hace shrink-to-fit sobre el `max-content` de su hijo más
+   ancho. Con el texto y los dos botones en una sola fila, ese max-content era la frase entera sin
+   cortar: medido, 524px de popover para un calendario de 286, o sea 238px de vacío a la derecha
+   —casi la mitad del ancho—. Con el texto en su PROPIA fila (`flex: 1 1 100%`), el max-content del
+   pie pasa a ser el par de botones, y el que manda el ancho vuelve a ser el calendario. */
 const pie: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8,
+  display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
   padding: '10px 12px', borderTop: '1px solid var(--spira-line)',
   background: 'var(--spira-surface)',
   borderBottomLeftRadius: 12, borderBottomRightRadius: 12,
+}
+
+const textoDelPie: CSSProperties = {
+  flex: '1 1 100%', fontSize: 12, color: 'var(--spira-ink-soft)', lineHeight: 1.4,
 }
 
 const btnCancelar: CSSProperties = {

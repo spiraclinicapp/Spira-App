@@ -288,3 +288,37 @@ como contexto histórico; borrarla cuando ese PR se mergee.
   ("finalizadas", en negrita). Los `·` de `DayVisitsView.tsx:257-260` son separadores y quedan.
 - **Depende de / bloqueado por:** nada. Conviene después de que Reportes esté mergeado, para
   que el QA de todas las vistas no se mezcle con el de la pantalla nueva.
+
+---
+
+## Core · converger los tres controles de fecha a uno solo
+
+- **Qué:** unificar `DateField`, `DateNavButton` y `DateRangeField` en un componente con modo
+  (`single` | `range`) y las mismas capacidades en los tres usos.
+- **Por qué:** hoy son tres componentes que se parecen y no hacen lo mismo, y la diferencia no
+  responde a ninguna decisión de diseño: responde a en qué orden se escribieron.
+
+  | | Tipear la fecha | Mes/año | Rango | Dónde se usa |
+  |---|---|---|---|---|
+  | `DateField` | sí | sí | no | formularios (alta de paciente, vencimientos) |
+  | `DateNavButton` | no | **no** | no | Dispensaciones, Visitas del día |
+  | `DateRangeField` | no | sí (desde 2026-08-16) | sí | Reportes |
+
+  `DateRangeField` nació sin mes/año justamente porque el desplegable era una función local dentro
+  de `DateField.tsx` y no se veía desde afuera. Se extrajo a `CalendarCaption.tsx` y ahora lo
+  comparten los dos, pero `DateNavButton` sigue sin él: en Dispensaciones, ir a una fecha de hace
+  seis meses son seis clicks de chevron.
+- **Pros:** un solo control que aprender y mantener; el próximo arreglo vale para todas las
+  pantallas; se termina la duda de cuál usar al construir una vista nueva.
+- **Contras:** toca Dispensaciones, Visitas del día, la ficha del paciente y los formularios de
+  alta, que hoy funcionan bien y no pidieron nada. El QA se multiplica por cada pantalla con fecha.
+- **Contexto:** salió de la `/impeccable critique` del calendario de Reportes (2026-08-16), que
+  puntuó **1/4 en "Consistencia y estándares"** justamente por esto. Ahí se decidió arreglar sólo
+  el nuevo y anotar la convergencia, por el mismo criterio con el que el focus trap del `Modal` se
+  sacó a su propia PR: no mezclar una refactorización transversal con el arreglo de una pantalla.
+  El snapshot completo está en `.impeccable/critique/`.
+- **Empezar por:** `src/components/CalendarCaption.tsx` (ya es el pedazo compartido) y decidir si
+  el componente unificado nace de `DateField` (el más capaz) o es uno nuevo que los tres envuelven.
+  Lo más barato con valor inmediato: pasarle `captionLayout="dropdown"` a `DateNavButton`, que son
+  dos líneas y cierra la brecha más visible sin unificar nada.
+- **Depende de / bloqueado por:** nada. Conviene después de que Reportes esté mergeado.
