@@ -148,13 +148,19 @@ export interface DispensationRequestRow {
   off_schedule: boolean
   off_schedule_reason: string | null
   ip_documents: IpDocumentRow[]
-  /** Contexto para la cola de Pharma: paciente (nombre + código IVRS) y protocolo. */
-  visit: {
-    enrollment: {
-      patient: { code: string | null; full_name: string } | null
-      protocol: { code: string; name: string } | null
-    } | null
-  } | null
+  /**
+   * Contexto para la cola de Pharma: paciente (nombre + código IVRS), protocolo y visita.
+   *
+   * SALE DE LAS COLUMNAS DESNORMALIZADAS DEL PEDIDO (`protocol_id` 0071, `enrollment_id` 0082,
+   * `visit_code` 0084), NO de un join a `patient_visits`. Farmacia no tiene policy de select sobre
+   * esa tabla (0006:162, que cubre gerencia y coordinadores asignados), así que el embed anterior
+   * le devolvía null a la farmacéutica: el tablero, el cajón y el comprobante mostraban "—" donde
+   * va el paciente, y el historial —que usaba `!inner`— le salía directamente vacío.
+   */
+  enrollment: { patient: { code: string | null; full_name: string } | null } | null
+  protocol: { code: string; name: string } | null
+  /** Código de la visita, sellado al crear el pedido (0084). */
+  visit_code: string | null
 }
 
 /**

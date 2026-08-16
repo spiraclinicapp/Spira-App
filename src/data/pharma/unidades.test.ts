@@ -39,7 +39,8 @@ function pedido(items: RequestItemRow[]): DispensationRequestRow {
     id: 'r1', status: 'preparando', source: 'manual', rejection_reason: null, notes: null,
     created_at: '', updated_at: '', visit_id: 'v1', requested_by_module: 'pharma',
     prepared_by: null, preparation_started_at: null, items, dispensations: [],
-    includes_ip: false, off_schedule: false, off_schedule_reason: null, ip_documents: [], visit: null,
+    includes_ip: false, off_schedule: false, off_schedule_reason: null, ip_documents: [],
+    enrollment: null, protocol: null, visit_code: null,
   }
 }
 

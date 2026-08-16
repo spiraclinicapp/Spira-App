@@ -71,12 +71,12 @@ function Fila({ r, onOpen }: { r: DispensationRequestRow; onOpen: () => void }) 
             {disp?.dispensation_code ?? 'Solicitud'}
           </span>
           <span style={{ fontSize: 13, color: 'var(--spira-ink)' }}>
-            · {r.visit?.enrollment?.patient?.full_name ?? '—'}
+            · {r.enrollment?.patient?.full_name ?? '—'}
           </span>
           <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>
-            {r.visit?.enrollment?.patient?.code ?? 'Sin IVRS'}
+            {r.enrollment?.patient?.code ?? 'Sin IVRS'}
           </span>
-          <span className="spira-mono" style={chipProto}>{r.visit?.enrollment?.protocol?.code ?? '—'}</span>
+          <span className="spira-mono" style={chipProto}>{r.protocol?.code ?? '—'}</span>
         </div>
         <div style={linea2}>{meds} · {totalUnits(r)} u.</div>
       </div>
