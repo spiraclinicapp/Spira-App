@@ -60,29 +60,6 @@ export function KanbanBoard({ rows, busyId, canOperate, onOpen, onAdvance }: {
   )
 }
 
-/** Esqueleto de carga: mantiene la forma del tablero para que no salte al llegar los datos. */
-export function KanbanSkeleton() {
-  return (
-    <div style={board} aria-hidden="true">
-      {COLUMN_ORDER.map((key) => (
-        <section key={key} style={col}>
-          <header style={colHead}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: COLUMN_META[key].color }} />
-            <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 14, fontWeight: 700, color: 'var(--spira-ink)' }}>
-              {COLUMN_META[key].label}
-            </span>
-          </header>
-          <div style={colBody}>
-            {[0, 1].map((i) => (
-              <div key={i} style={{ height: i === 0 ? 132 : 108, borderRadius: 12, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', opacity: 0.55 }} />
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
-  )
-}
-
 const board: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',

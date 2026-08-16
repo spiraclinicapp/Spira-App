@@ -16,7 +16,7 @@ import {
 } from '../../data/pharma'
 import type { BoardColumn, DispensationRequestRow } from '../../data/pharma'
 import { readyBlockedReason } from './dispensaciones/estados'
-import { KanbanBoard, KanbanSkeleton } from './dispensaciones/KanbanBoard'
+import { KanbanBoard } from './dispensaciones/KanbanBoard'
 import { DispensacionDrawer } from './dispensaciones/DispensacionDrawer'
 import { NuevaDispensacionDrawer } from './dispensaciones/NuevaDispensacionDrawer'
 import { HistorialPorDias } from './dispensaciones/HistorialPorDias'
@@ -301,7 +301,17 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
           />
         )
       ) : q.loading && all.length === 0 ? (
-        <KanbanSkeleton />
+        /* Carga inicial (solo cuando NO hay filas: useSupabaseQuery mantiene las viejas en un
+           refetch). Antes acá iba un esqueleto de cards vacías, y en una app clínica leía como
+           "el tablero se rompió" en vez de "esperá": tarjetas sin texto, sin movimiento, en el
+           mismo lugar donde después hay dispensaciones reales. Se dice con palabras, igual que
+           el resto de la app (DESIGN.md: EmptyState cubre vacío / cargando / sin acceso). */
+        <EmptyState
+          accent={module.accent}
+          icon="box"
+          title="Cargando el tablero…"
+          description="Un momento."
+        />
       ) : q.error ? (
         <div style={errBox} role="alert">
           <Icon name="alertCircle" size={15} />
