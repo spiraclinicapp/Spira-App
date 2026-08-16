@@ -188,7 +188,20 @@ export function ReportesView({ module }: ViewProps) {
     )
   }
 
-  if (cargando) return <Esqueleto />
+  /* Mismo criterio que el tablero de Dispensaciones: se avisa con palabras, no con bloques grises
+     donde después van los números. El esqueleto que había acá dibujaba tres cards con barras
+     inmóviles (la clase `spira-skeleton` que las iba a hacer latir nunca existió en el CSS), y un
+     informe a medio dibujar es justo lo que no se quiere ver en una app auditable. */
+  if (cargando) {
+    return (
+      <EmptyState
+        icon="barChart"
+        accent={module.accent}
+        title="Armando el informe del período…"
+        description="Un momento."
+      />
+    )
+  }
 
   const sinMovimientos = d.totales.dispensaciones === 0 && d.ingresos.recepciones === 0
 
@@ -416,28 +429,6 @@ function Aviso({ children }: { children: React.ReactNode }) {
       <span style={{ flex: '0 0 15px', marginTop: 1 }}><Icon name="alert" size={15} stroke={1.9} /></span>
       <span>{children}</span>
     </p>
-  )
-}
-
-/** Esqueleto con la FORMA del contenido, no un spinner: dice qué se está armando. */
-function Esqueleto() {
-  const barra = (w: string | number, h = 11) => (
-    <div className="spira-skeleton" style={{ width: w, height: h, borderRadius: 6, background: 'var(--spira-line)' }} />
-  )
-  return (
-    <div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
-        {barra(210, 38)}{barra(280, 34)}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        {[0, 1, 2].map((i) => (
-          <div key={i} style={{ background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, padding: '16px 18px', display: 'grid', gap: 12 }}>
-            {barra('45%')}{barra('70%', 30)}{barra('85%')}
-          </div>
-        ))}
-      </div>
-      <p style={{ marginTop: 22, fontSize: 13, color: 'var(--spira-ink-soft)' }}>Armando el informe del período…</p>
-    </div>
   )
 }
 
