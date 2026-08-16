@@ -1,0 +1,81 @@
+/* ============================================================
+   Spira · colors_and_type.css
+   Identidad "Sereno" — petróleo + papel cálido, Schibsted Grotesk + Hanken Grotesk.
+   Sistema de tokens para producto y materiales de marca.
+   ============================================================ */
+
+/* Webfonts (Google Fonts). Si se necesitan offline, descargar a /fonts. */
+@import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  /* —— Color · base —— */
+  --spira-ink:      #14302E;   /* texto / petróleo casi negro */
+  --spira-primary:  #0F5F57;   /* petróleo — color de marca */
+  --spira-paper:    #F4F1EA;   /* fondo cálido */
+  --spira-surface:  #FBFAF6;   /* superficie elevada clara */
+  --spira-white:    #FFFFFF;
+  --spira-muted:    #7C8C87;   /* texto secundario */
+  --spira-faint:    #A6B0AC;   /* texto terciario / placeholders */
+  --spira-line:     #E4DECF;   /* bordes / divisores */
+  --spira-line-2:   #D8CBB0;   /* bordes de inputs */
+
+  /* —— Color · semántico —— */
+  --spira-good:     #5C8A5A;   /* éxito / activo */
+  --spira-warn:     #B0823F;   /* advertencia / stock bajo */
+  --spira-danger:   #A6483B;   /* error / vencido / crítico */
+
+  /* —— Color · acentos por submódulo (misma familia) —— */
+  --spira-track:    #2E7D74;   /* Spira Track — teal */
+  --spira-pharma:   #C9A24A;   /* Spira Pharma — ámbar/dorado (color histórico) */
+  --spira-pharma-solid: #A8842F; /* ámbar oscuro para rellenos (botones, cards) */
+  --spira-lab:      #5C8A5A;   /* Spira Lab — verde salvia */
+  --spira-contable: #3A6B8C;   /* Spira Contable — azul acero */
+
+  /* —— Tipografía —— */
+  --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif; /* títulos, marca, números */
+  --spira-font-text:    'Hanken Grotesk', system-ui, sans-serif;    /* cuerpo, UI */
+  --spira-font-mono:    'IBM Plex Mono', ui-monospace, monospace;   /* códigos, IDs, datos */
+
+  /* —— Radios —— */
+  --spira-radius-sm: 8px;
+  --spira-radius-md: 10px;
+  --spira-radius-lg: 16px;
+  --spira-radius-pill: 999px;
+
+  /* —— Sombras (suaves, cálidas) —— */
+  --spira-shadow-sm: 0 1px 2px rgba(20,48,46,.06);
+  --spira-shadow-md: 0 12px 32px rgba(20,48,46,.10);
+  --spira-shadow-lg: 0 18px 40px rgba(20,48,46,.14);
+
+  /* —— Espaciado (escala de 4) —— */
+  --spira-space-1: 4px;  --spira-space-2: 8px;  --spira-space-3: 12px;
+  --spira-space-4: 16px; --spira-space-5: 20px; --spira-space-6: 24px;
+  --spira-space-8: 32px; --spira-space-10: 40px; --spira-space-12: 48px;
+}
+
+/* —— Estilos tipográficos semánticos —— */
+.spira-display  { font-family: var(--spira-font-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1.0; color: var(--spira-ink); }
+.spira-h1       { font-family: var(--spira-font-display); font-weight: 700; font-size: 40px; letter-spacing: -0.02em; line-height: 1.05; color: var(--spira-ink); }
+.spira-h2       { font-family: var(--spira-font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; color: var(--spira-ink); }
+.spira-h3       { font-family: var(--spira-font-display); font-weight: 700; font-size: 17px; color: var(--spira-ink); }
+.spira-stat     { font-family: var(--spira-font-display); font-weight: 700; font-size: 38px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.spira-body     { font-family: var(--spira-font-text); font-weight: 400; font-size: 14px; line-height: 1.55; color: var(--spira-ink); }
+.spira-small    { font-family: var(--spira-font-text); font-weight: 400; font-size: 12.5px; color: var(--spira-muted); }
+.spira-eyebrow  { font-family: var(--spira-font-text); font-weight: 700; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--spira-faint); }
+.spira-code     { font-family: var(--spira-font-mono); font-size: 12.5px; }
+
+/* —— Tema oscuro —— (aplicar [data-theme="dark"] en <html> o un contenedor)
+   Acentos por módulo, primario y semánticos se mantienen; cambian fondos,
+   superficies, texto y líneas. El texto sobre acento usa --spira-on-accent. */
+:root { --spira-on-accent: #F4F1EA; --spira-brand-mark: #0F5F57; }
+[data-theme="dark"] {
+  --spira-ink:      #E9F2EF;
+  --spira-paper:    #0E1B1A;
+  --spira-surface:  #142523;
+  --spira-white:    #17302C;   /* fondo de card/elevado en oscuro */
+  --spira-muted:    #8AA39D;
+  --spira-faint:    #5E726D;
+  --spira-line:     #27403B;
+  --spira-line-2:   #34504A;
+  --spira-brand-mark: #9DE6D6;  /* isotipo legible sobre fondo oscuro */
+}

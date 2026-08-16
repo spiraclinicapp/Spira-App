@@ -624,7 +624,6 @@ input:-webkit-autofill:focus {
     top: 0;
     width: 100%;
     margin: 0;
-    padding: 18mm 16mm;
     background: #fff;
     color: #000;
     font-family: var(--spira-font-text);
@@ -638,8 +637,61 @@ input:-webkit-autofill:focus {
     box-shadow: none !important;
   }
 
-  @page { size: A4 portrait; margin: 0; }
+  /* El margen lo pone la PÁGINA, no un padding del bloque.
+     Antes era `@page { margin: 0 }` más `padding: 18mm 16mm` en `.spira-print-only`, y para el
+     comprobante —media carilla— daba igual. Para un documento de varias páginas no: el padding de
+     un bloque se aplica una sola vez, al principio y al final, así que de la página 2 en adelante
+     el contenido sale pegado al borde del papel. Con el margen en `@page` lo respeta cada página.
+     Para el comprobante el resultado visible es el mismo (16mm de margen contra 16mm de padding),
+     con la mejora de que si algún día crece a dos hojas, la segunda ya sale bien. */
+  @page { size: A4 portrait; margin: 16mm; }
+
+  /* ── Documento largo (reportes de Farmacia) ───────────────────────────────────
+     Va PORTALEADO a <body>, fuera del árbol de React, y por eso puede usar `display` en vez del
+     truco de `visibility`: sin un ancestro que ocultar, se saca la app entera del flujo. Importa
+     que sea `display` y no `visibility`, porque `visibility: hidden` PRESERVA el layout — la app
+     oculta seguiría ocupando su alto y el navegador escupiría varias páginas en blanco al final.
+
+     El comprobante sigue con el mecanismo de siempre: no se toca lo que anda. */
+  body:has(> .spira-print-doc) > #root { display: none !important; }
+
+  .spira-print-doc,
+  .spira-print-doc * { visibility: visible; }
+
+  .spira-print-doc {
+    display: block !important;
+    background: #fff;
+    color: #000;
+    font-family: var(--spira-font-text);
+  }
+
+  .spira-print-doc * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* Tablas largas: el encabezado se repite en cada página y ninguna fila se parte al medio.
+     Sin `table-header-group`, la página 3 de un detalle de 200 renglones son columnas de números
+     sin título. */
+  /* Excepción al 'todo transparente' de arriba: el encabezado del reporte de dispensaciones va
+     en negro pleno porque es el formato acordado con la Fundación. print-color-adjust obliga al
+     navegador a imprimir el fondo, que por defecto descarta para ahorrar tinta. */
+  .spira-print-doc .spira-print-invert {
+    background: #000 !important;
+    color: #fff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .spira-print-doc thead { display: table-header-group; }
+  .spira-print-doc tfoot { display: table-footer-group; }
+  .spira-print-doc tr { break-inside: avoid; }
+  .spira-print-doc section { break-inside: avoid; }
 }
+
+/* Fuera de @media print las dos hojas no existen. */
+.spira-print-doc { display: none; }
 
 /* ─ Riel de proceso del cajón de dispensación ────────────────────────────────
    La espina continua va como pseudo-elemento y no como un <div>: así el tramo

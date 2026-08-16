@@ -1,0 +1,962 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Farmacia · Reportes — mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Tokens Sereno — copiados VERBATIM de src/styles/tokens.css.
+   Si algo acá difiere del repo, el repo manda.
+   ============================================================ */
+:root {
+  --spira-ink:      #14302E;
+  --spira-primary:  #0F5F57;
+  --spira-primary-deep: #0B4A42;
+  --spira-paper:    #F4F1EA;
+  --spira-surface:  #FBFAF6;
+  --spira-white:    #FFFFFF;
+  --spira-muted:    #7C8C87;
+  --spira-faint:    #A6B0AC;
+  --spira-ink-soft: #556966;
+  --spira-ink-2:    #2A4744;
+  --spira-line:     #E4DECF;
+  --spira-line-2:   #D8CBB0;
+  --spira-good:     #5C8A5A;
+  --spira-warn:     #B0823F;
+  --spira-danger:   #A6483B;
+  --spira-track:    #2E7D74;
+  --spira-pharma:       #0F5F57;
+  --spira-pharma-solid: #0F5F57;
+  --spira-contable:     #3A6B8C;
+  --spira-acc-deep-warn: #6E5620;
+  --spira-acc-deep-danger: #A6483B;
+  --spira-on-accent:  #F4F1EA;
+  --spira-font-display: 'Schibsted Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --spira-font-text:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --spira-radius-sm: 8px;
+  --spira-radius-md: 10px;
+  --spira-radius-lg: 16px;
+  --spira-radius-pill: 999px;
+  --spira-ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --spira-shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.06);
+  --spira-shadow-md: 0 12px 32px rgba(20, 48, 46, 0.10);
+  --spira-shadow-lg: 0 18px 40px rgba(20, 48, 46, 0.14);
+  /* Tinte del acento de Farmacia (petróleo al 10%), mismo gesto que --spira-tint-track */
+  --tint-pharma: rgba(15, 95, 87, 0.10);
+  --tint-pharma-soft: rgba(15, 95, 87, 0.06);
+}
+[data-theme='dark'] {
+  --spira-ink:      #E8EDEB;
+  --spira-ink-2:    #CBD6D3;
+  --spira-ink-soft: #A7B6B2;
+  --spira-paper:    #101A19;
+  --spira-surface:  #16211F;
+  --spira-white:    #1B2725;
+  --spira-muted:    #8FA09C;
+  --spira-faint:    #6F817D;
+  --spira-line:     #2A3835;
+  --spira-line-2:   #35443F;
+  --spira-on-accent: #F4F1EA;
+  --tint-pharma: rgba(46, 125, 116, 0.18);
+  --tint-pharma-soft: rgba(46, 125, 116, 0.10);
+  --spira-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --spira-shadow-md: 0 12px 32px rgba(0, 0, 0, 0.40);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--spira-paper);
+  color: var(--spira-ink);
+  font-family: var(--spira-font-text);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+.num, .r, .c, .v, tfoot td, .mini td { font-variant-numeric: tabular-nums; }
+.r { text-align: right; }
+.c { text-align: center; }
+
+/* —— Chrome del mock (no es parte de la app) —— */
+.mockbar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 12px 22px;
+  background: var(--spira-ink); color: var(--spira-on-accent);
+  font-size: 12.5px;
+}
+.mockbar strong { font-family: var(--spira-font-display); font-size: 14px; font-weight: 700; }
+.mockbar button {
+  font: inherit; font-weight: 600; cursor: pointer;
+  background: transparent; color: var(--spira-on-accent);
+  border: 1px solid rgba(244,241,234,.4); border-radius: 999px;
+  padding: 5px 13px; transition: transform .14s var(--spira-ease-out);
+}
+.mockbar button:hover { transform: translateY(-1px); background: rgba(244,241,234,.1); }
+.mocknote {
+  max-width: 940px; margin: 0 auto; padding: 26px 22px 0;
+  font-size: 13.5px; line-height: 1.65; color: var(--spira-ink-soft);
+}
+.mocknote h2 {
+  font-family: var(--spira-font-display); font-size: 22px; font-weight: 700;
+  letter-spacing: -.02em; color: var(--spira-ink); margin: 34px 0 6px;
+}
+.mocknote h2:first-child { margin-top: 0; }
+.mocknote p { margin: 0 0 10px; }
+.mocknote code {
+  font-family: var(--spira-font-text); font-variant-numeric: tabular-nums;
+  background: var(--tint-pharma-soft); border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+}
+.frame {
+  max-width: 1180px; margin: 18px auto 0; padding: 0 22px 40px;
+}
+
+/* ============================================================
+   LA PANTALLA
+   ============================================================ */
+.screen {
+  background: var(--spira-paper);
+  border: 1px solid var(--spira-line-2);
+  border-radius: var(--spira-radius-lg);
+  overflow: hidden;
+}
+.topbar {
+  height: 56px; display: flex; align-items: center; gap: 12px;
+  padding: 0 18px; background: var(--spira-white);
+  border-bottom: 1px solid var(--spira-line);
+}
+.brand { display: flex; align-items: center; gap: 9px; }
+.brand span { font-family: var(--spira-font-display); font-size: 19px; font-weight: 700; }
+.vdivider { width: 1px; height: 24px; background: var(--spira-line); }
+.modchip { display: flex; align-items: center; gap: 8px; }
+.modchip i {
+  width: 25px; height: 25px; border-radius: 7px; background: var(--tint-pharma);
+  display: grid; place-items: center; color: var(--spira-pharma);
+}
+.modchip b { font-size: 14px; font-weight: 600; }
+.topright { margin-left: auto; display: flex; align-items: center; gap: 9px; color: var(--spira-muted); }
+.avatar {
+  width: 30px; height: 30px; border-radius: 50%; background: var(--spira-primary);
+  color: var(--spira-on-accent); display: grid; place-items: center;
+  font-family: var(--spira-font-display); font-size: 12px; font-weight: 700;
+}
+.body { display: grid; grid-template-columns: 200px 1fr; min-height: 620px; }
+.subnav {
+  background: var(--spira-surface); border-right: 1px solid var(--spira-line);
+  padding: 18px 12px; display: flex; flex-direction: column; gap: 2px;
+}
+/* Decisión 1A del design review: los rótulos que alguien LEE van en ink-soft
+   (5,84:1 medido). --spira-faint da 2,23:1 sobre blanco y AA pide 4,5:1 para
+   texto normal; 10px en negrita NO califica como texto grande. faint queda para
+   los guiones de celda vacía y los separadores, que son marcas de ausencia. */
+.eyebrow {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--spira-ink-soft);
+}
+.subnav .eyebrow { padding: 0 8px 10px; }
+.subnav .sec { padding: 14px 8px 6px; }
+.navitem {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 9px;
+  font-size: 13.5px; font-weight: 500; color: var(--spira-ink-soft);
+  white-space: nowrap; cursor: pointer;
+}
+.navitem .ico { width: 17px; height: 17px; flex: 0 0 17px; color: var(--spira-muted); }
+.navitem.on { background: var(--tint-pharma); color: var(--spira-pharma); font-weight: 600; }
+.navitem.on .ico { color: var(--spira-pharma); }
+.navitem .hint { display: block; font-size: 11px; font-weight: 400; color: var(--spira-muted); margin-top: 1px; }
+.grp { border-left: 1px solid var(--spira-line-2); margin-left: 11px; padding-left: 3px; }
+.navrule { height: 1px; background: var(--spira-line); margin: 14px 10px 8px; }
+
+.main { min-width: 0; display: flex; flex-direction: column; }
+.mainhead {
+  padding: 18px 26px 0; display: flex; align-items: flex-start; gap: 16px;
+}
+.crumb { font-size: 12.5px; color: var(--spira-muted); }
+.crumb b { color: var(--spira-ink); font-weight: 600; }
+.mainhead h1 {
+  font-family: var(--spira-font-display); font-size: 25px; font-weight: 700;
+  letter-spacing: -.02em; margin: 4px 0 0;
+}
+.btn {
+  font: inherit; font-family: var(--spira-font-text); font-size: 14px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 38px; padding: 0 15px; border-radius: var(--spira-radius-md);
+  cursor: pointer; transition: transform .14s var(--spira-ease-out), box-shadow .14s var(--spira-ease-out);
+}
+.btn:hover { transform: translateY(-1px); box-shadow: var(--spira-shadow-sm); }
+.btn:active { transform: translateY(0); }
+.btn-primary { background: var(--spira-pharma-solid); color: var(--spira-on-accent); border: 1px solid var(--spira-pharma-solid); }
+.btn-outline { background: var(--spira-white); color: var(--spira-ink); border: 1px solid var(--spira-line-2); }
+.mainhead .btn { margin-left: auto; }
+
+.content { padding: 16px 26px 32px; overflow: auto; }
+
+/* —— Filtros —— */
+.filters {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  padding: 2px 0 15px; border-bottom: 1px solid var(--spira-line); margin-bottom: 10px;
+}
+.rangebox {
+  display: inline-flex; align-items: center; gap: 9px; height: 38px; padding: 0 13px;
+  border: 1px solid var(--spira-pharma); background: var(--tint-pharma-soft);
+  border-radius: var(--spira-radius-md);
+  font-family: var(--spira-font-display); font-size: 14px; font-weight: 700;
+  color: var(--spira-pharma); cursor: pointer;
+  transition: transform .14s var(--spira-ease-out), box-shadow .14s var(--spira-ease-out);
+}
+.rangebox:hover { transform: translateY(-1px); box-shadow: var(--spira-shadow-sm); }
+.chips { display: inline-flex; gap: 7px; }
+.chip {
+  height: 34px; padding: 0 14px; border-radius: 999px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  background: var(--spira-white); border: 1px solid var(--spira-line-2); color: var(--spira-muted);
+  display: inline-flex; align-items: center;
+  transition: transform .14s var(--spira-ease-out), box-shadow .14s var(--spira-ease-out);
+}
+.chip:hover { transform: translateY(-1px); box-shadow: var(--spira-shadow-sm); }
+.chip.on { background: var(--tint-pharma); border-color: rgba(15,95,87,.35); color: var(--spira-pharma); }
+.sel {
+  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 13px;
+  background: var(--spira-white); border: 1px solid var(--spira-line-2);
+  border-radius: var(--spira-radius-md);
+  font-family: var(--spira-font-display); font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: transform .14s var(--spira-ease-out), box-shadow .14s var(--spira-ease-out);
+}
+.sel:hover { transform: translateY(-1px); box-shadow: var(--spira-shadow-sm); }
+.fhint { font-size: 12.5px; color: var(--spira-ink-soft); }
+.applied { font-size: 12px; color: var(--spira-ink-soft); margin-bottom: 20px; line-height: 1.6; max-width: 92ch; }
+.applied b { color: var(--spira-ink-2); font-weight: 600; }
+
+/* —— Cabecera de sección —— */
+.sechead { display: flex; align-items: center; gap: 12px; margin: 28px 0 12px; }
+.sechead h2 {
+  font-family: var(--spira-font-display); font-size: 16.5px; font-weight: 700;
+  letter-spacing: -.01em; margin: 0;
+}
+.sechead .rule { flex: 1; height: 1px; background: var(--spira-line); }
+.sechead .hint { font-size: 12px; color: var(--spira-ink-soft); }
+.pb {
+  width: 30px; height: 30px; border-radius: var(--spira-radius-sm);
+  display: grid; place-items: center; cursor: pointer;
+  background: var(--spira-white); border: 1px solid var(--spira-line);
+  color: var(--spira-muted);
+  transition: transform .14s var(--spira-ease-out), box-shadow .14s var(--spira-ease-out);
+}
+.pb:hover { transform: translateY(-1px); box-shadow: var(--spira-shadow-sm); color: var(--spira-pharma); }
+.pb:active { transform: translateY(0); }
+
+/* —— Cards —— */
+.card {
+  background: var(--spira-white); border: 1px solid var(--spira-line);
+  border-radius: var(--spira-radius-lg);
+}
+.hero { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.hcard { padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+.hcard .pb { position: absolute; top: 11px; right: 11px; }
+.hcard .k { font-size: 10.5px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--spira-ink-soft); }
+.hrow { display: flex; align-items: flex-end; gap: 14px; }
+.hcard .v {
+  font-family: var(--spira-font-display); font-size: 34px; font-weight: 800;
+  letter-spacing: -.03em; line-height: 1;
+}
+.hcard .v small { font-family: var(--spira-font-display); font-size: 13px; font-weight: 600; color: var(--spira-muted); margin-left: 5px; letter-spacing: 0; }
+.spark { flex: 1; min-width: 84px; }
+.hcard .f {
+  border-top: 1px solid var(--spira-line); padding-top: 9px; margin-top: auto;
+  font-size: 12px; color: var(--spira-ink-soft); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.delta { font-size: 11.5px; font-weight: 600; }
+.delta.up { color: var(--spira-good); }
+.brow { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.brow .lab { width: 86px; font-size: 11.5px; color: var(--spira-ink-soft); }
+.brow .track { flex: 1; min-width: 70px; height: 10px; border-radius: 999px; background: var(--spira-surface); border: 1px solid var(--spira-line); overflow: hidden; }
+.brow .track i { display: block; height: 100%; }
+.brow .v2 { width: 52px; text-align: right; font-weight: 600; }
+
+/* —— Tira de indicadores —— */
+.strip {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+  background: var(--spira-line); border: 1px solid var(--spira-line);
+  border-radius: var(--spira-radius-lg); overflow: hidden; margin-top: 12px;
+}
+.scell {
+  background: var(--spira-white); padding: 13px 16px; min-height: 68px;
+  display: flex; align-items: center; gap: 14px; position: relative;
+}
+.scell .k { flex: 1; font-size: 12.5px; color: var(--spira-ink-soft); line-height: 1.35; padding-right: 20px; }
+.scell .val { text-align: right; padding-right: 34px; }
+.scell .v { font-family: var(--spira-font-display); font-size: 21px; font-weight: 700; }
+.scell .v small { font-size: 12px; font-weight: 600; color: var(--spira-muted); margin-left: 3px; }
+.scell .n { font-family: var(--spira-font-display); font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+.scell .sub2 { font-size: 11.5px; font-weight: 500; color: var(--spira-ink-soft); margin-top: 2px; }
+.scell .pb { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); }
+.scell .pb:hover { transform: translateY(calc(-50% - 1px)); }
+.scell.warn .v { color: var(--spira-acc-deep-warn); }
+.scell.danger .v { color: var(--spira-danger); }
+
+/* Decisión 2A: la constatación de que los números cierran, al pie del resumen.
+   Sale de las mismas funciones puras que testea vitest. Sobria a propósito: no
+   es una felicitación, es un dato. Si NO cierra, esta línea cambia a --spira-danger,
+   dice qué no cuadra, y los botones de impresión quedan inertes. */
+.consistency {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin: 12px 0 0; padding: 11px 14px;
+  background: var(--spira-surface); border: 1px solid var(--spira-line);
+  border-radius: var(--spira-radius-md);
+  font-size: 12.5px; line-height: 1.5; color: var(--spira-ink-soft);
+}
+.consistency svg { flex: 0 0 14px; margin-top: 2px; color: var(--spira-good); }
+.consistency b { color: var(--spira-ink-2); font-weight: 600; }
+
+/* —— Charts —— */
+.chartrow { display: grid; grid-template-columns: 1.62fr 1fr; gap: 12px; align-items: stretch; }
+.chart { padding: 16px 18px 10px; }
+.chead { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.chead .t { font-family: var(--spira-font-display); font-size: 14px; font-weight: 700; }
+.legend { margin-left: auto; display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--spira-ink-soft); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.swline { width: 15px; border-top: 2.2px solid var(--spira-primary); display: inline-block; }
+.mini { width: 100%; border-collapse: collapse; border-top: 1px solid var(--spira-line); margin-top: 10px; }
+.mini th {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--spira-ink-soft); text-align: right; padding: 9px 6px 6px; white-space: nowrap;
+}
+.mini th:first-child, .mini td:first-child { text-align: left; padding-left: 0; }
+.mini td { font-size: 12px; padding: 6px; text-align: right; border-top: 1px solid var(--spira-line); }
+.mini tfoot td { font-weight: 700; border-top: 1px solid var(--spira-line-2); }
+.mbar { display: inline-block; width: 46px; height: 4px; border-radius: 2px; background: var(--spira-line); margin-left: 8px; vertical-align: middle; overflow: hidden; }
+.mbar i { display: block; height: 100%; background: var(--spira-pharma-solid); }
+
+.comp { padding: 16px 18px; display: flex; flex-direction: column; gap: 15px; }
+.comp .t { font-family: var(--spira-font-display); font-size: 14px; font-weight: 700; }
+.stack { height: 28px; border-radius: var(--spira-radius-sm); overflow: hidden; display: flex; }
+.stack i { display: block; height: 100%; }
+.stlg { display: flex; flex-direction: column; gap: 7px; margin-top: 11px; font-size: 12.5px; }
+.stlg div { display: flex; align-items: center; gap: 8px; }
+.stlg .nm { flex: 1; color: var(--spira-ink-soft); }
+.stlg .vl { font-weight: 600; }
+.ipbox {
+  border: 1px solid var(--spira-line); border-radius: var(--spira-radius-md);
+  background: var(--spira-surface); padding: 12px 14px;
+}
+.ipbox .lab { font-size: 10.5px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--spira-ink-soft); }
+.ipbox .row { display: flex; align-items: baseline; gap: 8px; margin-top: 6px; }
+.ipbox .big { font-family: var(--spira-font-display); font-size: 21px; font-weight: 700; }
+.ipbox .u { font-size: 12px; font-weight: 600; color: var(--spira-muted); }
+.ipbox .why { font-size: 11.5px; color: var(--spira-ink-soft); margin-top: 7px; line-height: 1.5; }
+.rank { border-top: 1px solid var(--spira-line); padding-top: 14px; display: flex; flex-direction: column; gap: 11px; }
+.rk { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 12.5px; }
+.rk .bar { grid-column: 1/-1; height: 7px; border-radius: 999px; background: var(--spira-surface); border: 1px solid var(--spira-line); overflow: hidden; }
+.rk .bar i { display: block; height: 100%; background: var(--spira-pharma-solid); }
+.rk .p { font-weight: 600; }
+.rk.other .nm, .rk.other .p { color: var(--spira-muted); }
+.rk.other .bar i { background: var(--spira-faint); }
+
+/* —— Tablas —— */
+.tbl { overflow: hidden; }
+.tbl table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl thead th {
+  text-align: left; padding: 12px 16px 9px; border-bottom: 1px solid var(--spira-line-2);
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--spira-ink-soft); white-space: nowrap;
+}
+.tbl tbody td { padding: 13px 16px; border-bottom: 1px solid var(--spira-line); vertical-align: middle; }
+.tbl tbody tr:last-child td { border-bottom: none; }
+.tbl tbody tr { transition: transform .14s var(--spira-ease-out), box-shadow .14s var(--spira-ease-out); }
+.tbl tbody tr:hover { background: var(--spira-surface); }
+.tbl tfoot td { padding: 11px 16px; background: var(--spira-surface); border-top: 1px solid var(--spira-line-2); font-weight: 700; font-size: 12.5px; }
+.strong { font-weight: 600; }
+.sub { font-size: 11.5px; color: var(--spira-ink-soft); margin-top: 2px; }
+.shr { display: grid; justify-items: end; gap: 6px; min-width: 112px; margin-left: auto; }
+.shr .p { font-size: 12.5px; font-weight: 600; }
+.shr .t { width: 100%; height: 3px; border-radius: 2px; background: var(--spira-line); overflow: hidden; }
+.shr .t i { display: block; height: 100%; background: var(--spira-pharma-solid); }
+.cat {
+  display: inline-block; font-size: 11.5px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px; border: 1px solid var(--spira-line-2);
+  color: var(--spira-ink-soft); background: var(--spira-surface);
+}
+.cat.ip { color: var(--spira-primary); border-color: rgba(15,95,87,.3); background: var(--tint-pharma-soft); }
+.st { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; }
+.st i { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--spira-good); }
+.st.pend { color: var(--spira-ink-soft); font-weight: 500; }
+.st.pend i { background: var(--spira-track); }
+.st.bad { color: var(--spira-danger); }
+.st.bad i { background: var(--spira-danger); }
+.tbl.dense tbody td { padding: 10px 12px; font-size: 12.5px; }
+.tbl.dense thead th { padding: 11px 12px 8px; }
+.dash { color: var(--spira-faint); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* —— Estados —— */
+.states { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.state {
+  background: var(--spira-white); border: 1px solid var(--spira-line);
+  border-radius: var(--spira-radius-lg);
+  display: grid; place-items: center; min-height: 300px; padding: 26px; text-align: center;
+}
+.state .circle {
+  width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center;
+  background: var(--tint-pharma); color: var(--spira-pharma); margin: 0 auto 14px;
+}
+.state.err .circle { background: rgba(166,72,59,.12); color: var(--spira-danger); }
+.state h3 { font-family: var(--spira-font-display); font-size: 17px; font-weight: 700; margin: 0 0 6px; }
+.state p { font-size: 13px; color: var(--spira-ink-soft); margin: 0 auto; max-width: 34ch; line-height: 1.6; }
+.state .btn { margin-top: 16px; }
+.skel { background: var(--spira-line); border-radius: 6px; animation: pulse 1.4s var(--spira-ease-out) infinite; }
+@keyframes pulse { 0%,100% { opacity: .55 } 50% { opacity: .95 } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; opacity: .7 } }
+
+/* —— Hoja impresa —— */
+.sheet {
+  background: #fff; color: #000; padding: 30px 34px; border-radius: var(--spira-radius-lg);
+  border: 1px solid var(--spira-line-2); max-width: 720px; margin: 0 auto;
+  font-family: var(--spira-font-text); font-size: 12px;
+}
+.sheet .brandline { border-bottom: 1px solid #000; padding-bottom: 7px; margin-bottom: 12px; }
+.sheet .brandline b { font-family: var(--spira-font-display); font-size: 17px; font-weight: 700; display: block; }
+.sheet .brandline span { font-size: 11px; }
+.sheet .tt { display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid #000; padding-bottom: 6px; margin-bottom: 10px; }
+.sheet .tt b { font-size: 13px; font-weight: 700; letter-spacing: .07em; }
+.sheet .tt span { margin-left: auto; font-size: 10.5px; }
+.sheet table { width: 100%; border-collapse: collapse; }
+.sheet .kv td { padding: 5px 0; border-bottom: 1px solid #999; font-size: 11.5px; }
+.sheet .kv td:first-child { width: 46%; }
+.sheet .kv td:last-child { font-weight: 700; }
+.sheet h4 { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; margin: 18px 0 6px; }
+.sheet .dtbl th { background: #000; color: #fff; font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; padding: 5px 7px; text-align: left; }
+.sheet .dtbl td { border-bottom: 1px solid #BBB; padding: 5px 7px; font-size: 10px; vertical-align: top; }
+.sheet .band { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #000; margin: 12px 0; }
+.sheet .band div { padding: 8px 10px; border-right: 1px solid #999; }
+.sheet .band div:last-child { border-right: none; }
+.sheet .band .lb { font-size: 8.5px; letter-spacing: .07em; text-transform: uppercase; }
+.sheet .band .vl { font-size: 13px; font-weight: 700; margin-top: 3px; }
+.sheet .foot { display: flex; margin-top: 20px; padding-top: 8px; border-top: 1px solid #999; font-size: 9px; color: #666; }
+.sheet .foot span:last-child { margin-left: auto; }
+
+/* —— Comparador —— */
+.cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cmpcard { border: 1px solid var(--spira-line); border-radius: var(--spira-radius-lg); padding: 18px; background: var(--spira-white); }
+.cmpcard .tag { font-size: 10.5px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--spira-faint); margin-bottom: 12px; }
+.cmpcard.bad .tag { color: var(--spira-danger); }
+.demo14 { border-radius: 14px; box-shadow: var(--spira-shadow-sm); }
+.demo16 { border-radius: 16px; }
+.demobox { border: 1px solid var(--spira-line); background: var(--spira-surface); padding: 14px 16px; font-size: 12.5px; }
+.hoverbad:hover { border-color: var(--spira-warn); color: var(--spira-warn); }
+.hovergood { transition: transform .14s var(--spira-ease-out), box-shadow .14s var(--spira-ease-out); }
+.hovergood:hover { transform: translateY(-1px); box-shadow: var(--spira-shadow-sm); }
+
+/* Decisión 4A: piso de uso en 1024px.
+   Entre 1024 y 1180 el layout se reacomoda de verdad (la fila del gráfico pasa a
+   una columna, la tabla densa scrollea dentro de su contenedor). Por debajo de
+   1024 la pantalla no adivina un diseño móvil que nunca se dibujó: avisa y ofrece
+   la descarga, que es la salida útil en un teléfono. */
+@media (max-width: 1180px) {
+  .hero, .strip { grid-template-columns: 1fr 1fr; }
+  .chartrow, .two, .cmp { grid-template-columns: 1fr; }
+  .states { grid-template-columns: 1fr; }
+}
+@media (max-width: 1023px) {
+  .content > *:not(.toonarrow) { display: none; }
+  .toonarrow { display: grid !important; }
+}
+.toonarrow { display: none; place-items: center; min-height: 340px; text-align: center; padding: 26px; }
+.toonarrow .circle {
+  width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center;
+  background: var(--tint-pharma); color: var(--spira-pharma); margin: 0 auto 14px;
+}
+.toonarrow h3 { font-family: var(--spira-font-display); font-size: 17px; font-weight: 700; margin: 0 0 6px; }
+.toonarrow p { font-size: 13px; color: var(--spira-ink-soft); margin: 0 auto; max-width: 34ch; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div class="mockbar">
+  <strong>Farmacia · Reportes</strong>
+  <span>mock con los tokens reales de <code>tokens.css</code> · 2026-08-15</span>
+  <button id="theme" type="button">Cambiar a oscuro</button>
+</div>
+
+<div class="mocknote">
+  <h2>1 · La pantalla, con las decisiones de la revisión aplicadas</h2>
+  <p>
+    Esto es el handoff con los siete desvíos corregidos: petróleo en vez de ámbar, radio 16 y
+    card plana por defecto (Sereno), realce por elevación en vez de color, kits del producto de
+    investigación en su propio bloque en vez de sumados a las unidades, breadcrumb en castellano,
+    categorías en chip sentence-case en vez de versalita, y un solo botón de impresión primario.
+  </p>
+</div>
+
+<div class="frame">
+<div class="screen">
+
+  <div class="topbar">
+    <div class="brand">
+      <svg width="21" height="25" viewBox="0 0 24 29" fill="none" aria-hidden="true">
+        <path d="M12 27C12 27 3 20 3 12A9 9 0 0 1 21 12c0 8-9 15-9 15Z" stroke="var(--spira-primary)" stroke-width="1.6"/>
+        <path d="M12 27V6M12 12l5-4M12 16l-5-4" stroke="var(--spira-primary)" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span>Spira</span>
+    </div>
+    <div class="vdivider"></div>
+    <div class="modchip">
+      <i><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="8" width="20" height="8" rx="4"/><path d="M12 8v8"/></svg></i>
+      <b>Farmacia</b>
+    </div>
+    <div class="topright">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      <div class="avatar">SC</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <nav class="subnav">
+      <div class="eyebrow">Submódulos</div>
+      <div class="navitem"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/></svg></span><span>Pacientes<span class="hint">Información de pacientes</span></span></div>
+      <div class="eyebrow sec">Medicamentos</div>
+      <div class="grp">
+        <div class="navitem"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg></span><span>Recepción<span class="hint">Ingreso de medicación</span></span></div>
+        <div class="navitem"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="8" width="20" height="8" rx="4"/><path d="M12 8v8"/></svg></span><span>Stock<span class="hint">Inventario de medicación</span></span></div>
+        <div class="navitem"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 8 5 4h14l2 4M12 4v17"/></svg></span><span>Dispensaciones<span class="hint">Entrega de medicación</span></span></div>
+      </div>
+      <div class="navrule"></div>
+      <div class="navitem on"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 21h18M7 21V9m5 12V4m5 17v-7"/></svg></span><span>Reportes<span class="hint">Cierre de período</span></span></div>
+    </nav>
+
+    <div class="main">
+      <div class="mainhead">
+        <div>
+          <div class="crumb">Spira Farmacia <span style="color:var(--spira-faint)">›</span> <b>Reportes</b></div>
+          <h1>Reportes</h1>
+        </div>
+        <button class="btn btn-primary" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+          Imprimir informe completo
+        </button>
+      </div>
+
+      <div class="content">
+
+        <div class="toonarrow">
+          <div>
+            <div class="circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></div>
+            <h3>El informe necesita más ancho</h3>
+            <p>Esta pantalla se diseñó para monitores de 1024px o más. Podés descargar el detalle del período y abrirlo desde acá.</p>
+            <button class="btn btn-outline" type="button" style="margin-top:16px">Descargar el detalle</button>
+          </div>
+        </div>
+
+        <div class="filters">
+          <div class="rangebox">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+            <span class="num">07/07/2026 – 06/08/2026</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+          <div class="chips">
+            <button class="chip on" type="button">30 días</button>
+            <button class="chip" type="button">Mes en curso</button>
+            <button class="chip" type="button">Año</button>
+          </div>
+          <div class="vdivider"></div>
+          <div class="sel">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 5h18l-7 8v6l-4 2v-8Z"/></svg>
+            Filtros
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+          <div class="fhint">Sin filtros aplicados: el informe sale con todo el período</div>
+        </div>
+
+        <p class="applied">
+          Lo que elijas en <b>Filtros</b> vale para todo el apartado: cada reporte que imprimas sale
+          con ese mismo recorte declarado en el encabezado de la hoja. El reporte de dispensaciones
+          declara sólo el período, como el formato acordado con la Fundación.
+        </p>
+
+        <div class="sechead">
+          <h2>Resumen del período</h2>
+          <div class="rule"></div>
+          <div class="hint">Cada indicador se imprime solo desde su ícono</div>
+          <button class="pb" type="button" aria-label="Imprimir el resumen del período">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+          </button>
+        </div>
+
+        <div class="hero">
+          <div class="card hcard">
+            <button class="pb" type="button" aria-label="Imprimir unidades dispensadas">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+            </button>
+            <div class="k">Unidades dispensadas</div>
+            <div class="hrow">
+              <div class="v num">3.302<small>u.</small></div>
+              <svg class="spark" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M0 26 L15 18 L30 24 L45 12 L60 20 L75 9 L90 15 L105 6 L120 11 L120 34 L0 34 Z" fill="rgba(15,95,87,.13)"/>
+                <path d="M0 26 L15 18 L30 24 L45 12 L60 20 L75 9 L90 15 L105 6 L120 11" fill="none" stroke="var(--spira-primary)" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="f">
+              <span>202 dispensaciones · 107 u./día</span>
+              <span class="delta up">▲ 12% vs. período anterior</span>
+            </div>
+          </div>
+
+          <div class="card hcard">
+            <button class="pb" type="button" aria-label="Imprimir unidades ingresadas">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+            </button>
+            <div class="k">Unidades ingresadas</div>
+            <div class="hrow">
+              <div class="v num">3.930<small>u.</small></div>
+              <svg class="spark" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true">
+                <rect x="2"  y="14" width="14" height="20" rx="2" fill="var(--spira-good)"/>
+                <rect x="22" y="8"  width="14" height="26" rx="2" fill="var(--spira-good)"/>
+                <rect x="42" y="19" width="14" height="15" rx="2" fill="var(--spira-good)"/>
+                <rect x="62" y="4"  width="14" height="30" rx="2" fill="var(--spira-good)"/>
+                <rect x="82" y="12" width="14" height="22" rx="2" fill="var(--spira-good)"/>
+                <rect x="102" y="17" width="14" height="17" rx="2" fill="var(--spira-good)"/>
+              </svg>
+            </div>
+            <div class="f"><span>24 recepciones verificadas · 6 semanas</span></div>
+          </div>
+
+          <div class="card hcard">
+            <button class="pb" type="button" aria-label="Imprimir el balance del período">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+            </button>
+            <div class="k">Balance del período</div>
+            <div class="v num" style="color:var(--spira-good)">+628<small>u. de saldo</small></div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div class="brow"><span class="lab">Ingresadas</span><span class="track"><i style="width:100%;background:var(--spira-good)"></i></span><span class="v2 num">3.930</span></div>
+              <div class="brow"><span class="lab">Dispensadas</span><span class="track"><i style="width:84%;background:var(--spira-pharma-solid)"></i></span><span class="v2 num">3.302</span></div>
+            </div>
+            <div class="f"><span>Sólo unidades. El producto de investigación se mide en kits y va aparte.</span></div>
+          </div>
+        </div>
+
+        <div class="strip">
+          <div class="scell">
+            <div class="k">Pacientes distintos atendidos</div>
+            <div class="val"><div class="v num">96</div></div>
+            <button class="pb" type="button" aria-label="Imprimir pacientes atendidos"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+          </div>
+          <div class="scell">
+            <div class="k">Tiempo promedio de preparación</div>
+            <div class="val"><div class="v num">41<small>min</small></div></div>
+            <button class="pb" type="button" aria-label="Imprimir tiempo de preparación"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+          </div>
+          <div class="scell">
+            <div class="k">Cumplimiento del pedido</div>
+            <div class="val"><div class="v num">97<small>%</small></div></div>
+            <button class="pb" type="button" aria-label="Imprimir cumplimiento del pedido"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+          </div>
+          <div class="scell">
+            <div class="k">Droga más dispensada</div>
+            <div class="val"><div class="n">Empagliflozina 25 mg</div><div class="sub2 num">640 u. · 19,4%</div></div>
+            <button class="pb" type="button" aria-label="Imprimir medicamentos más dispensados"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+          </div>
+          <div class="scell warn">
+            <div class="k">Rechazadas o canceladas</div>
+            <div class="val"><div class="v num">7<small>pedidos · 3,3%</small></div></div>
+            <button class="pb" type="button" aria-label="Imprimir dispensaciones rechazadas o canceladas"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+          </div>
+          <div class="scell danger">
+            <div class="k">Stock inmovilizado por vencimiento</div>
+            <div class="val"><div class="v num">210<small>u.</small></div></div>
+            <button class="pb" type="button" aria-label="Imprimir stock inmovilizado por vencimiento"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+          </div>
+        </div>
+
+        <p class="consistency">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="m4 12 5 5L20 6"/></svg>
+          <span><b class="num">3.302 u.</b> en <b class="num">202</b> dispensaciones. La serie diaria y las cinco tablas
+          coinciden con este total. Emitido el <span class="num">15/08/2026 a las 21:40</span>.</span>
+        </p>
+
+        <div class="sechead">
+          <h2>Evolución y composición</h2>
+          <div class="rule"></div>
+          <button class="pb" type="button" aria-label="Imprimir la evolución diaria"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+        </div>
+
+        <div class="chartrow">
+          <div class="card chart">
+            <div class="chead">
+              <div class="t">Unidades dispensadas por día</div>
+              <div class="legend">
+                <span><i class="sw" style="background:var(--spira-primary)"></i>Día hábil</span>
+                <span><i class="sw" style="background:rgba(15,95,87,.32)"></i>Fin de semana</span>
+                <span><i class="swline"></i>Media 7 días</span>
+              </div>
+            </div>
+            <svg viewBox="0 0 1000 250" style="width:100%;height:auto" role="img" aria-label="Unidades dispensadas por día. El detalle numérico está en la tabla semanal debajo.">
+              <g id="grid"></g><g id="bars"></g>
+              <path id="avg" fill="none" stroke="var(--spira-primary)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+              <g id="xlab"></g>
+            </svg>
+            <table class="mini">
+              <thead><tr><th>Semana</th><th>Días</th><th>Unidades</th><th>Prom./día</th><th>Máximo</th><th>Mínimo</th><th>% del total</th></tr></thead>
+              <tbody>
+                <tr><td>07 – 13 jul</td><td>7</td><td>703<span class="mbar"><i style="width:90%"></i></span></td><td>100</td><td>141</td><td>40</td><td>21,3%</td></tr>
+                <tr><td>14 – 20 jul</td><td>7</td><td>746<span class="mbar"><i style="width:95%"></i></span></td><td>107</td><td>144</td><td>47</td><td>22,6%</td></tr>
+                <tr><td>21 – 27 jul</td><td>7</td><td>740<span class="mbar"><i style="width:95%"></i></span></td><td>106</td><td>141</td><td>48</td><td>22,4%</td></tr>
+                <tr><td>28 jul – 03 ago</td><td>7</td><td>782<span class="mbar"><i style="width:100%"></i></span></td><td>112</td><td>149</td><td>51</td><td>23,7%</td></tr>
+                <tr><td>04 – 06 ago</td><td>3</td><td>331<span class="mbar"><i style="width:42%"></i></span></td><td>110</td><td>142</td><td>71</td><td>10,0%</td></tr>
+              </tbody>
+              <tfoot><tr><td>Total del período</td><td>31</td><td>3.302</td><td>107</td><td>149</td><td>40</td><td>100,0%</td></tr></tfoot>
+            </table>
+          </div>
+
+          <div class="card comp">
+            <div class="t">Composición del período</div>
+            <div>
+              <div class="stack">
+                <i style="width:70.1%;background:var(--spira-pharma-solid)" title="Farmacia protocolo · 2.316 u."></i>
+                <i style="width:29.9%;background:var(--spira-contable)" title="Concomitante · 986 u."></i>
+              </div>
+              <div class="stlg">
+                <div><i class="sw" style="background:var(--spira-pharma-solid)"></i><span class="nm">Producto de protocolo</span><span class="vl num">2.316 u. · 70,1%</span></div>
+                <div><i class="sw" style="background:var(--spira-contable)"></i><span class="nm">Medicación concomitante</span><span class="vl num">986 u. · 29,9%</span></div>
+              </div>
+            </div>
+
+            <div class="ipbox">
+              <div class="lab">Producto de investigación</div>
+              <div class="row"><span class="big num">180</span><span class="u">kits entregados</span></div>
+              <div class="why">Va aparte porque un kit no es una unidad: la composición la declara el sponsor y Spira no la reinterpreta.</div>
+            </div>
+
+            <div class="rank">
+              <div class="rk"><span class="nm">SCH-2401 · Cardio-Prevent III</span><span class="p num">31,8%</span><span class="bar"><i style="width:31.8%"></i></span></div>
+              <div class="rk"><span class="nm">SCH-2312 · Glyco-Advance</span><span class="p num">24,3%</span><span class="bar"><i style="width:24.3%"></i></span></div>
+              <div class="rk"><span class="nm">SCH-2405 · Respira-2</span><span class="p num">15,9%</span><span class="bar"><i style="width:15.9%"></i></span></div>
+              <div class="rk"><span class="nm">SCH-2208 · Onco-Bridge</span><span class="p num">11,7%</span><span class="bar"><i style="width:11.7%"></i></span></div>
+              <div class="rk other"><span class="nm">Otros 2 protocolos</span><span class="p num">16,3%</span><span class="bar"><i style="width:16.3%"></i></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sechead">
+          <h2>Dispensaciones por protocolo</h2>
+          <div class="rule"></div>
+          <button class="pb" type="button" aria-label="Imprimir dispensaciones por protocolo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+        </div>
+
+        <div class="card tbl">
+          <table>
+            <thead><tr><th>Protocolo</th><th class="c">Dispensaciones</th><th class="c">Unidades</th><th class="c">Pacientes</th><th class="r" style="width:190px">Participación</th></tr></thead>
+            <tbody>
+              <tr><td><div class="strong">SCH-2401</div><div class="sub">Cardio-Prevent III · Boehringer</div></td><td class="c">68</td><td class="c num">1.120</td><td class="c">31</td><td><div class="shr"><span class="p num">31,8%</span><span class="t"><i style="width:31.8%"></i></span></div></td></tr>
+              <tr><td><div class="strong">SCH-2312</div><div class="sub">Glyco-Advance · Novo</div></td><td class="c">52</td><td class="c num">890</td><td class="c">24</td><td><div class="shr"><span class="p num">24,3%</span><span class="t"><i style="width:24.3%"></i></span></div></td></tr>
+              <tr><td><div class="strong">SCH-2405</div><div class="sub">Respira-2 · AstraZeneca</div></td><td class="c">34</td><td class="c num">512</td><td class="c">16</td><td><div class="shr"><span class="p num">15,9%</span><span class="t"><i style="width:15.9%"></i></span></div></td></tr>
+              <tr><td><div class="strong">SCH-2208</div><div class="sub">Onco-Bridge · Roche · entrega kits de investigación</div></td><td class="c">25</td><td class="c num">402</td><td class="c">11</td><td><div class="shr"><span class="p num">11,7%</span><span class="t"><i style="width:11.7%"></i></span></div></td></tr>
+              <tr><td><div class="strong">SCH-2410</div><div class="sub">Neuro-Path I · Lundbeck</div></td><td class="c">18</td><td class="c num">318</td><td class="c">8</td><td><div class="shr"><span class="p num">8,4%</span><span class="t"><i style="width:8.4%"></i></span></div></td></tr>
+              <tr><td><div class="strong">SCH-2377</div><div class="sub">Hepato-Renal II · Gilead</div></td><td class="c">5</td><td class="c num">60</td><td class="c">6</td><td><div class="shr"><span class="p num">7,9%</span><span class="t"><i style="width:7.9%"></i></span></div></td></tr>
+            </tbody>
+            <tfoot><tr><td>Total</td><td class="c">202</td><td class="c num">3.302</td><td class="c">96</td><td class="r">100%</td></tr></tfoot>
+          </table>
+        </div>
+
+        <div class="sechead">
+          <h2>Detalle de dispensaciones</h2>
+          <div class="rule"></div>
+          <div class="hint">202 registros en el período</div>
+          <button class="btn btn-outline" type="button" style="height:34px;font-size:13px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14 3v5h5M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="m9 13 3 3 3-3"/></svg>
+            Descargar
+          </button>
+          <button class="pb" type="button" aria-label="Imprimir el reporte de dispensaciones"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+        </div>
+
+        <div class="card tbl dense" style="overflow-x:auto">
+          <table>
+            <thead><tr><th>N°</th><th>Fecha</th><th>Hora</th><th>Paciente</th><th>Código</th><th>Protocolo</th><th>Visita</th><th>Medicamentos</th><th>Estado</th></tr></thead>
+            <tbody>
+              <tr><td class="num">1058</td><td class="num">06/08/2026</td><td class="num">11:42</td><td>Marta Beatriz Olivares</td><td class="num">2401-014</td><td>SCH-2401</td><td>V6</td><td>Empagliflozina 25 mg × 30</td><td><span class="st"><i></i>Entregada</span></td></tr>
+              <tr><td class="num">1057</td><td class="num">06/08/2026</td><td class="num">10:15</td><td>Roberto Aníbal Funes</td><td class="num">2312-008</td><td>SCH-2312</td><td>V4</td><td>Metformina 850 mg × 60</td><td><span class="st"><i></i>Entregada</span></td></tr>
+              <tr><td class="num">1056</td><td class="num">05/08/2026</td><td class="num">16:03</td><td>Silvia Noemí Paz</td><td class="num">2208-003</td><td>SCH-2208</td><td>V9</td><td><span class="cat ip">Kit de investigación × 2</span></td><td><span class="st pend"><i></i>Lista para retirar</span></td></tr>
+              <tr><td class="num">1055</td><td class="num">05/08/2026</td><td class="num">14:28</td><td>Jorge Luis Bermúdez</td><td class="num">2405-011</td><td>SCH-2405</td><td>V2</td><td>Atorvastatina 40 mg × 30</td><td><span class="st"><i></i>Entregada</span></td></tr>
+              <tr><td class="num">1054</td><td class="num">04/08/2026</td><td class="num">09:50</td><td>Ana María Quiroga</td><td class="num">2401-021</td><td>SCH-2401</td><td>V5</td><td>Empagliflozina 25 mg × 30, Losartán 50 mg × 30</td><td><span class="st bad"><i></i>Rechazada</span></td></tr>
+              <tr><td class="num">1053</td><td class="num">04/08/2026</td><td class="num">08:31</td><td>Héctor Daniel Ávila</td><td class="num">2410-002</td><td>SCH-2410</td><td>V3</td><td>Rivaroxabán 20 mg × 28</td><td><span class="st"><i></i>Entregada</span></td></tr>
+              <tr><td class="num">1052</td><td class="num">03/08/2026</td><td class="num">15:12</td><td>Nélida Esther Sosa</td><td class="num">2312-019</td><td>SCH-2312</td><td>V7</td><td>Insulina glargina 100 UI/ml × 5</td><td><span class="st"><i></i>Entregada</span></td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="9">Mostrando las 7 más recientes. El reporte impreso y la descarga salen con las 202 del período.</td></tr></tfoot>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="mocknote">
+  <h2>2 · Los tres estados que el handoff dejaba sin diseñar</h2>
+  <p>
+    Reusan <code>EmptyState</code>, que ya existe: círculo de 52px teñido con el acento al 8%,
+    título H3 y descripción en <code>ink-soft</code>. La diferencia entre los tres es el copy y
+    la salida que ofrecen, no la forma.
+  </p>
+</div>
+
+<div class="frame">
+  <div class="states">
+    <div class="state">
+      <div>
+        <div class="circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 21h18M7 21V9m5 12V4m5 17v-7"/></svg></div>
+        <h3>No hubo movimientos</h3>
+        <p>Entre el 07/07 y el 06/08 no se dispensó ni ingresó medicación. Probá con un período más amplio.</p>
+        <button class="btn btn-outline" type="button">Ver el año completo</button>
+      </div>
+    </div>
+
+    <div class="state">
+      <div style="width:100%;max-width:260px">
+        <div class="skel" style="height:11px;width:52%;margin:0 auto 16px"></div>
+        <div class="skel" style="height:34px;width:78%;margin:0 auto 10px"></div>
+        <div class="skel" style="height:11px;width:64%;margin:0 auto 22px"></div>
+        <div style="display:flex;gap:6px;align-items:flex-end;justify-content:center;height:52px">
+          <div class="skel" style="width:13px;height:60%"></div>
+          <div class="skel" style="width:13px;height:88%"></div>
+          <div class="skel" style="width:13px;height:44%"></div>
+          <div class="skel" style="width:13px;height:76%"></div>
+          <div class="skel" style="width:13px;height:96%"></div>
+          <div class="skel" style="width:13px;height:58%"></div>
+        </div>
+        <p style="margin-top:20px">Armando el informe del período…</p>
+      </div>
+    </div>
+
+    <div class="state err">
+      <div>
+        <div class="circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 9v5M12 17.5v.5"/><path d="M10.3 3.9 2.4 17a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></div>
+        <h3>No se pudo armar el informe</h3>
+        <p>La consulta al servidor no respondió. Los datos están intactos: es sólo la lectura la que falló.</p>
+        <button class="btn btn-outline" type="button">Reintentar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mocknote">
+  <h2>3 · La hoja impresa</h2>
+  <p>
+    El reporte de dispensaciones, que es el único con formato acordado con la Fundación y por eso
+    no lleva el encabezado genérico. Negro sobre blanco: los adornos de pantalla (barras de
+    participación, puntos de estado, chips de categoría) se apagan.
+  </p>
+</div>
+
+<div class="frame">
+  <div class="sheet">
+    <div class="brandline">
+      <b>Spira · Fundación Scherbovsky</b>
+      <span>Farmacia de investigación — reporte de dispensaciones</span>
+    </div>
+    <div class="band">
+      <div><div class="lb">Período</div><div class="vl num">7/7/2026 — 6/8/2026</div></div>
+      <div><div class="lb">Total registros</div><div class="vl num">202</div></div>
+      <div><div class="lb">Generado por</div><div class="vl">María Rodríguez</div></div>
+    </div>
+    <table class="dtbl">
+      <thead><tr><th>N°</th><th>Fecha</th><th>Hora</th><th>Paciente</th><th>Código</th><th>Protocolo</th><th>Visita</th><th>Medicamentos</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td>1058</td><td>06/08/2026</td><td>11:42</td><td>Marta Beatriz Olivares</td><td>2401-014</td><td>SCH-2401</td><td>V6</td><td>Empagliflozina 25 mg × 30</td><td>Entregada</td></tr>
+        <tr><td>1057</td><td>06/08/2026</td><td>10:15</td><td>Roberto Aníbal Funes</td><td>2312-008</td><td>SCH-2312</td><td>V4</td><td>Metformina 850 mg × 60</td><td>Entregada</td></tr>
+        <tr><td>1056</td><td>05/08/2026</td><td>16:03</td><td>Silvia Noemí Paz</td><td>2208-003</td><td>SCH-2208</td><td>V9</td><td>Kit de investigación × 2</td><td>Lista para retirar</td></tr>
+        <tr><td>1055</td><td>05/08/2026</td><td>14:28</td><td>Jorge Luis Bermúdez</td><td>2405-011</td><td>SCH-2405</td><td>V2</td><td>Atorvastatina 40 mg × 30</td><td>Entregada</td></tr>
+        <tr><td>1054</td><td>04/08/2026</td><td>09:50</td><td>Ana María Quiroga</td><td>2401-021</td><td>SCH-2401</td><td>V5</td><td>Empagliflozina 25 mg × 30, Losartán 50 mg × 30</td><td>Rechazada</td></tr>
+      </tbody>
+    </table>
+    <div class="foot"><span>Spira · Farmacia — Fundación Scherbovsky</span><span class="num">15/08/2026</span></div>
+  </div>
+</div>
+
+<div class="mocknote">
+  <h2>4 · Los tres desvíos de Sereno, lado a lado</h2>
+  <p>Pasá el mouse por las cajas de la derecha para ver el realce por elevación.</p>
+</div>
+
+<div class="frame">
+  <div class="cmp">
+    <div class="cmpcard bad">
+      <div class="tag">Handoff · radio 14 + sombra en reposo</div>
+      <div class="demobox demo14" style="background:var(--spira-white)">Card en reposo con <code>--shadow-sm</code>. Con nueve de éstas en pantalla, todo flota y nada resalta.</div>
+      <div style="height:12px"></div>
+      <div class="tag" style="margin-bottom:8px">Handoff · hover por color</div>
+      <div class="demobox hoverbad" style="border-radius:14px;cursor:pointer">Botón de impresión: al hover cambia borde y texto a color.</div>
+    </div>
+    <div class="cmpcard">
+      <div class="tag">Sereno · radio 16 + plano en reposo</div>
+      <div class="demobox demo16" style="background:var(--spira-white)">Card en reposo, separada por borde. La sombra queda para lo que de verdad flota: overlays y foco.</div>
+      <div style="height:12px"></div>
+      <div class="tag" style="margin-bottom:8px">Sereno · hover por elevación</div>
+      <div class="demobox hovergood" style="border-radius:16px;cursor:pointer">Botón de impresión: se levanta 1px y toma sombra. El color queda para significado.</div>
+    </div>
+  </div>
+</div>
+
+<div style="height:50px"></div>
+
+<script>
+/* Tema */
+var root = document.documentElement, btn = document.getElementById('theme');
+btn.addEventListener('click', function () {
+  var dark = root.getAttribute('data-theme') === 'dark';
+  root.setAttribute('data-theme', dark ? 'light' : 'dark');
+  btn.textContent = dark ? 'Cambiar a oscuro' : 'Cambiar a claro';
+});
+
+/* Gráfico diario: misma geometría del handoff, con los colores de Sereno.
+   La serie suma 3.302 (el total sin los kits de IP). Fin de semana derivado
+   del índice del día, que acá es fijo porque es un mock. */
+(function () {
+  var serie = [99,124,55,40,120,141,126,113,134,58,47,144,131,121,137,116,63,48,124,141,112,129,122,68,51,135,149,128,118,142,71];
+  var finde = { 2:1, 3:1, 9:1, 10:1, 16:1, 17:1, 23:1, 24:1, 30:1 };
+  var W = 1000, H = 250, L = 42, R = 12, T = 18, B = 32, MAX = 160;
+  var n = serie.length, iw = (W - L - R) / n, bw = iw * 0.6;
+  var y = function (v) { return T + (H - T - B) * (1 - v / MAX); };
+  var NS = 'http://www.w3.org/2000/svg';
+  var el = function (t, a) { var e = document.createElementNS(NS, t); for (var k in a) e.setAttribute(k, a[k]); return e; };
+
+  var g = document.getElementById('grid');
+  [0, 40, 80, 120, 160].forEach(function (v) {
+    g.appendChild(el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: v === 0 ? 'var(--spira-line-2)' : 'var(--spira-line)', 'stroke-width': 1 }));
+    var t = el('text', { x: L - 8, y: y(v) + 3.5, 'text-anchor': 'end', 'font-size': 10.5, fill: 'var(--spira-ink-soft)' });
+    t.textContent = v; g.appendChild(t);
+  });
+
+  var bars = document.getElementById('bars');
+  serie.forEach(function (v, i) {
+    bars.appendChild(el('rect', {
+      x: L + iw * i + (iw - bw) / 2, y: y(v), width: bw, height: y(0) - y(v), rx: 3,
+      fill: finde[i] ? 'rgba(15,95,87,.32)' : 'var(--spira-primary)'
+    }));
+  });
+
+  /* Media móvil de 7 días con ventana TRUNCADA al inicio: los días 0 a 5
+     promedian lo que hay, no se descartan. Es la regla que el plan testea. */
+  var d = '';
+  serie.forEach(function (_, i) {
+    var from = Math.max(0, i - 6), win = serie.slice(from, i + 1);
+    var avg = win.reduce(function (a, b) { return a + b; }, 0) / win.length;
+    d += (i ? ' L' : 'M') + (L + iw * i + iw / 2) + ' ' + y(avg);
+  });
+  document.getElementById('avg').setAttribute('d', d);
+
+  var xl = document.getElementById('xlab');
+  for (var i = 0; i < n; i += 3) {
+    var day = 7 + i, mes = 7;
+    if (day > 31) { day -= 31; mes = 8; }
+    var t2 = el('text', { x: L + iw * i + iw / 2, y: H - 11, 'text-anchor': 'middle', 'font-size': 10, fill: 'var(--spira-ink-soft)' });
+    t2.textContent = day + '/' + mes; xl.appendChild(t2);
+  }
+})();
+</script>
+</body>
+</html>

@@ -119,9 +119,21 @@ const MONTH_NAMES = [
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
 ]
 
+/**
+ * Día de la semana, 0 = domingo … 6 = sábado, en hora LOCAL.
+ *
+ * Existe para que nadie escriba `new Date(iso).getDay()`, que parsea `YYYY-MM-DD` como medianoche
+ * UTC: en UTC-3 eso cae a las 21:00 del día ANTERIOR, así que un sábado se lee viernes. Es la
+ * misma trampa que evita el `parseISO` de arriba, un helper más allá. Lo estrenó el gráfico
+ * diario de Reportes, que pinta los fines de semana distinto (0083).
+ */
+export function dayOfWeekISO(iso: string): number {
+  return parseISO(iso).getDay()
+}
+
 /** Nombre del día de la semana ("Lunes"). */
 export function dayName(iso: string): string {
-  return DAY_NAMES[parseISO(iso).getDay()]
+  return DAY_NAMES[dayOfWeekISO(iso)]
 }
 
 /** Etiqueta humana relativa a hoy: "Hoy" / "Mañana" / "Lunes 16/06". */
