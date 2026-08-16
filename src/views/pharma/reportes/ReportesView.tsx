@@ -130,11 +130,11 @@ export function ReportesView({ module }: ViewProps) {
   function descargar() {
     const filas = d.detalle.map((f) => [
       f.numero, formatAR(f.fecha), f.deliveredAt.slice(11, 16),
-      f.pacienteNombre ?? '', f.pacienteCodigo ?? '', f.protocolCode ?? '',
+      f.pacienteNombre ?? '', f.pacienteCodigo ?? '', f.protocolCode ?? '', f.visitaCodigo ?? '',
       f.medicamentos, f.unidades, f.kits,
     ])
     const csv = toCsv(
-      ['N°', 'Fecha', 'Hora', 'Paciente', 'Código', 'Protocolo', 'Medicamentos', 'Unidades', 'Kits'],
+      ['N°', 'Fecha', 'Hora', 'Paciente', 'Código', 'Protocolo', 'Visita', 'Medicamentos', 'Unidades', 'Kits'],
       [
         ['Reporte de dispensaciones — Spira · Fundación Scherbovsky'],
         [`Período: ${formatAR(rango.desde)} a ${formatAR(rango.hasta)}`],

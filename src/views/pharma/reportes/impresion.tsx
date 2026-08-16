@@ -294,7 +294,7 @@ function HojaDispensaciones({ ctx }: { ctx: ContextoReporte }) {
       <table style={tablaImpresa}>
         <thead>
           <tr>
-            {['N°', 'Fecha', 'Hora', 'Paciente', 'Código', 'Protocolo', 'Medicamentos'].map((h) => (
+            {['N°', 'Fecha', 'Hora', 'Paciente', 'Código', 'Protocolo', 'Visita', 'Medicamentos'].map((h) => (
               <th key={h} className="spira-print-invert" style={thNegra}>{h}</th>
             ))}
           </tr>
@@ -308,12 +308,13 @@ function HojaDispensaciones({ ctx }: { ctx: ContextoReporte }) {
               <td style={tdDetalle}>{f.pacienteNombre ?? '—'}</td>
               <td style={tdDetalle}>{f.pacienteCodigo ?? '—'}</td>
               <td style={tdDetalle}>{f.protocolCode ?? '—'}</td>
+              <td style={tdDetalle}>{f.visitaCodigo ?? '—'}</td>
               <td style={tdDetalle}>{f.medicamentos}</td>
             </tr>
           ))}
           {ctx.detalle.length === 0 && (
             <tr>
-              <td colSpan={7} style={{ ...tdDetalle, textAlign: 'center', padding: '26px 0', color: '#666' }}>
+              <td colSpan={8} style={{ ...tdDetalle, textAlign: 'center', padding: '26px 0', color: '#666' }}>
                 Sin dispensaciones en el período
               </td>
             </tr>

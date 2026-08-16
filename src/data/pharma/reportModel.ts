@@ -36,6 +36,13 @@ export interface ReportItemRow {
   protocol_code: string | null
   protocol_name: string | null
   sponsor: string | null
+  /**
+   * Código de la visita del protocolo ("V1", "CT1"), sellado en el pedido (0084). Es un SNAPSHOT
+   * del momento del pedido: el cuadro de actividades se puede editar y el reporte de un período
+   * tiene que seguir diciendo lo que decía entonces. Cae al nombre de la visita cuando la
+   * definición no tiene código, que es opcional en `visit_definitions`.
+   */
+  visit_code: string | null
   enrollment_id: string | null
   patient_id: string | null
   patient_code: string | null

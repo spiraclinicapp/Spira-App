@@ -235,6 +235,7 @@ export interface FilaDetalle {
   pacienteNombre: string | null
   pacienteCodigo: string | null
   protocolCode: string | null
+  visitaCodigo: string | null
   medicamentos: string
   unidades: number
   kits: number
@@ -243,9 +244,8 @@ export interface FilaDetalle {
 /**
  * Una fila por dispensación, con la lista de medicamentos armada.
  *
- * La columna "Visita" del handoff NO está: para llegar al nombre de la visita hay que pasar por
- * `patient_visits`, que Farmacia no puede leer (0006:162). Sumarla exigiría una tercera columna
- * desnormalizada por una columna de contexto, y no se justifica en esta tajada.
+ * `visitaCodigo` sale de la columna sellada en el pedido (0084) y no de un join a
+ * `patient_visits`, que Farmacia no puede leer (0006:162).
  */
 export function detalle(items: ReportItemRow[]): FilaDetalle[] {
   const acc = new Map<string, FilaDetalle & { meds: { nombre: string; unidades: number }[] }>()
@@ -261,6 +261,7 @@ export function detalle(items: ReportItemRow[]): FilaDetalle[] {
         pacienteNombre: it.patient_name,
         pacienteCodigo: it.patient_code,
         protocolCode: it.protocol_code,
+        visitaCodigo: it.visit_code,
         medicamentos: '',
         unidades: 0,
         kits: it.ip_kits ?? 0,

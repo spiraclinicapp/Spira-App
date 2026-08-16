@@ -26,7 +26,7 @@ function item(fecha: string, unidades: number, id = 'd1'): ReportItemRow {
     dispensation_id: id, correlative_number: 1, dispensation_code: null,
     delivered_at: `${fecha}T12:00:00-03:00`, fecha, ip_kits: null,
     minutos_hasta_entrega: 0, unidades_solicitadas: 0,
-    request_id: 'r1', protocol_id: 'p1', protocol_code: 'SCH-2401', protocol_name: null, sponsor: null,
+    request_id: 'r1', protocol_id: 'p1', protocol_code: 'SCH-2401', protocol_name: null, sponsor: null, visit_code: 'V1',
     enrollment_id: 'e1', patient_id: 'pa1', patient_code: null, patient_name: null,
     medication_id: 'm1', medication_name: 'Alvetide', unidades,
   }

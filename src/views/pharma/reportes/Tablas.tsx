@@ -127,9 +127,11 @@ export function TablaMedicamentos({ filas, totalUnidades }: { filas: FilaMedicam
 /**
  * El detalle. Muestra las más recientes en pantalla; el papel y la descarga salen con todas.
  *
- * NO tiene columna "Visita": para llegar al nombre de la visita hay que pasar por
- * `patient_visits`, que Farmacia no puede leer (0006:162). Sumarla exigiría una tercera columna
- * desnormalizada por una columna de contexto.
+ * La columna "Visita" sale de `dispensation_requests.visit_code`, sellado al crear el pedido
+ * (0084): Farmacia no puede leer `patient_visits`, así que el dato viaja en la fila.
+ *
+ * Va con más aire que el resto (pedido del Director): es la tabla que se lee cruzando ocho
+ * columnas, y a `10px 12px` las filas se pisaban entre sí.
  */
 export function TablaDetalle({ filas, enPantalla = 14 }: { filas: FilaDetalle[]; enPantalla?: number }) {
   const visibles = filas.slice(0, enPantalla)
@@ -139,8 +141,8 @@ export function TablaDetalle({ filas, enPantalla = 14 }: { filas: FilaDetalle[];
         <table style={tabla}>
           <thead>
             <tr>
-              {['N°', 'Fecha', 'Hora', 'Paciente', 'Código', 'Protocolo', 'Medicamentos'].map((h) => (
-                <th key={h} style={{ ...th, padding: '11px 12px 8px' }}>{h}</th>
+              {['N°', 'Fecha', 'Hora', 'Paciente', 'Código', 'Protocolo', 'Visita', 'Medicamentos'].map((h) => (
+                <th key={h} style={{ ...th, padding: '13px 14px 10px' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -155,15 +157,16 @@ export function TablaDetalle({ filas, enPantalla = 14 }: { filas: FilaDetalle[];
                   {f.pacienteCodigo ?? <span style={dash}>—</span>}
                 </td>
                 <td style={tdDense}>{f.protocolCode ?? <span style={dash}>—</span>}</td>
+                <td style={tdDense}>{f.visitaCodigo ?? <span style={dash}>—</span>}</td>
                 <td style={tdDense}>{f.medicamentos}</td>
               </tr>
             ))}
-            <SinFilas cantidad={filas.length} columnas={7} />
+            <SinFilas cantidad={filas.length} columnas={8} />
           </tbody>
           {filas.length > 0 && (
             <tfoot>
               <tr>
-                <td style={tfootTd} colSpan={7}>
+                <td style={tfootTd} colSpan={8}>
                   {filas.length <= enPantalla
                     ? `${formatNumberAR(filas.length)} ${filas.length === 1 ? 'registro' : 'registros'} en el período.`
                     : `Mostrando ${enPantalla} de ${formatNumberAR(filas.length)}. El reporte impreso y la descarga salen con todas.`}
@@ -215,7 +218,10 @@ function SinFilas({ cantidad, columnas }: { cantidad: number; columnas: number }
   )
 }
 
+/* Más aire que el `dense` del handoff (10px 12px): con ocho columnas y nombres completos de
+   paciente, las filas quedaban pisadas. El line-height acompaña, porque la columna de
+   medicamentos envuelve en dos renglones apenas hay dos drogas. */
 const tdDense: CSSProperties = {
-  padding: '10px 12px', borderBottom: '1px solid var(--spira-line)',
-  verticalAlign: 'middle', fontSize: 12.5,
+  padding: '14px 14px', borderBottom: '1px solid var(--spira-line)',
+  verticalAlign: 'middle', fontSize: 12.5, lineHeight: 1.5,
 }

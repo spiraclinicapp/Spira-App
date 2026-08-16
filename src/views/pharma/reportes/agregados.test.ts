@@ -33,6 +33,7 @@ function item(over: Partial<ReportItemRow> & { id?: string } = {}): ReportItemRo
     protocol_code: over.protocol_code ?? 'SCH-2401',
     protocol_name: over.protocol_name ?? 'Cardio-Prevent III',
     sponsor: over.sponsor ?? 'Boehringer',
+    visit_code: over.visit_code === undefined ? 'V6' : over.visit_code,
     enrollment_id: over.enrollment_id ?? 'e1',
     patient_id: 'pa1',
     patient_code: over.patient_code ?? '2401-014',
