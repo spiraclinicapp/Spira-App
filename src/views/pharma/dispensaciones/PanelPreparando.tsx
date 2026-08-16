@@ -52,7 +52,7 @@ export function PanelPreparando({ r, scanRef, onChanged, onVerConstancia, visorA
 
   const blocked = readyBlockedReason(r)
   const constancia = constanciaVigente(r)
-  const paciente = r.visit?.enrollment?.patient?.full_name ?? 'este paciente'
+  const paciente = r.enrollment?.patient?.full_name ?? 'este paciente'
   const uTot = totalUnits(r)
   const uOk = unidadesOk(r)
   const completo = todoEscaneado(r)

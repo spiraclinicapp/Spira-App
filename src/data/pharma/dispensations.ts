@@ -55,6 +55,25 @@ const AR_OFFSET = '-03:00'
  * │ renombre y se lee sin tener que ir a buscar cómo se llama la FK.                           │
  * └───────────────────────────────────────────────────────────────────────────────────────────┘
  */
+/**
+ * El contexto de paciente, protocolo y visita, desde las columnas DESNORMALIZADAS del pedido.
+ *
+ * NO se llega por `patient_visits`: Farmacia no puede leerla (0006:162) y el embed le volvía null.
+ * Los tres embeds van CALIFICADOS por su FK aunque hoy no haya ambigüedad — es la lección de la
+ * 0076, que con una FK nueva dejó un embed ambiguo y volteó el tablero entero con un PGRST201.
+ */
+const CONTEXTO =
+  'visit_code, ' +
+  'enrollment:enrollments!enrollment_id(patient:patients(code, full_name)), ' +
+  'protocol:protocols!protocol_id(code, name)'
+
+/** Igual, con `!inner`, para que los filtros del historial EXCLUYAN filas en vez de dejar el
+ *  embed en null. Ahora el inner cae sobre tablas que Farmacia SÍ puede leer. */
+const CONTEXTO_INNER =
+  'visit_code, ' +
+  'enrollment:enrollments!enrollment_id!inner(patient:patients!inner(code, full_name)), ' +
+  'protocol:protocols!protocol_id!inner(code, name)'
+
 const REQUEST_COLS =
   'id, status, source, rejection_reason, notes, created_at, updated_at, visit_id, ' +
   'requested_by_module, prepared_by, preparation_started_at, ' +
@@ -65,18 +84,22 @@ const REQUEST_COLS =
   'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ip_kits, ' +
     'items:dispensation_items(id, medication_id, quantity, lot_number, expiry_date, medication:medications(name))), ' +
   'ip_documents:dispensation_ip_documents(id, storage_path, file_name, mime_type, size_bytes, uploaded_at, superseded_at, printed_at, printed_by), ' +
-  'visit:patient_visits(enrollment:enrollments(patient:patients(code, full_name), protocol:protocols(code, name)))'
+  CONTEXTO
 
 /**
- * Igual que `REQUEST_COLS` pero con `!inner` en la cadena de embeds, para que los filtros del
- * historial (protocolo, código de paciente) EXCLUYAN filas en vez de dejar el embed en null.
- * Toda solicitud tiene visita → enrolamiento → paciente y protocolo, así que el inner no descarta
- * nada legítimo.
+ * Igual que `REQUEST_COLS` pero con `!inner`, para que los filtros del historial (protocolo,
+ * código de paciente) EXCLUYAN filas en vez de dejar el embed en null.
+ *
+ * EL `!inner` ANTES CAÍA SOBRE `patient_visits`, y ahí estaba el bug: una farmacéutica sin el
+ * módulo Coordinación no puede leer esa tabla (0006:162), así que el inner descartaba TODAS sus
+ * filas y el historial le salía vacío, sin un solo error. El comentario viejo justificaba el inner
+ * diciendo que "toda solicitud tiene visita → enrolamiento → paciente y protocolo": razonaba sobre
+ * completitud de DATOS, que es cierta, y no sobre visibilidad de RLS, que es otra cosa.
+ *
+ * Ahora cae sobre `enrollments`, `patients` y `protocols`, que Farmacia SÍ lee (0010, 0006:130
+ * y 0006:96).
  */
-const HISTORY_COLS = REQUEST_COLS.replace(
-  'visit:patient_visits(enrollment:enrollments(patient:patients(code, full_name), protocol:protocols(code, name)))',
-  'visit:patient_visits!inner(enrollment:enrollments!inner(patient:patients!inner(code, full_name), protocol:protocols!inner(code, name)))',
-)
+const HISTORY_COLS = REQUEST_COLS.replace(CONTEXTO, CONTEXTO_INNER)
 
 /**
  * Solicitudes de dispensación de una visita (para el panel de `VisitDetail` en Track). Más nuevas
@@ -235,8 +258,8 @@ export function useDispensationHistory(opts: {
 
       // Punto de partida: todo lo que pasó hasta el final del día elegido, hacia atrás.
       if (fromDay) q = q.lte('updated_at', `${fromDay}T23:59:59.999${AR_OFFSET}`)
-      if (protocolCode) q = q.eq('visit.enrollment.protocol.code', protocolCode)
-      if (needle) q = q.ilike('visit.enrollment.patient.code', `%${needle}%`)
+      if (protocolCode) q = q.eq('protocol.code', protocolCode)
+      if (needle) q = q.ilike('enrollment.patient.code', `%${needle}%`)
 
       const { data, error } = await q.returns<DispensationRequestRow[]>()
       if (error) return { data: null, error }
@@ -549,11 +572,11 @@ export function useUltimaDispensacion(enrollmentId: string | null, visitId: stri
         // El `medications(name)` de adentro Track lo lee recién desde la **0074**; sin ella vuelve
         // null y el aviso cae al conteo (ver `medicamentos` en la fila).
         .select(
-          'updated_at, visit:patient_visits!inner(enrollment_id, visit_def:visit_definitions(name)), ' +
+          'updated_at, visit_code, ' +
           'items:dispensation_request_items(id, medication:medications!medication_id(name)), ' +
           'dispensations:dispensations!inner(status, delivered_at, ip_kits)',
         )
-        .eq('visit.enrollment_id', enrollmentId)
+        .eq('enrollment_id', enrollmentId)
         // Excluye la visita actual (ver el porqué arriba). `NIL_UUID` cuando no hay visita —no
         // rompe el filtro, simplemente no excluye nada, que es el comportamiento correcto si algún
         // día un llamador la pide sin una visita en contexto.
@@ -564,7 +587,7 @@ export function useUltimaDispensacion(enrollmentId: string | null, visitId: stri
         .limit(1)
       if (error) return { data: null, error }
       const row = (data as unknown as {
-        visit: { visit_def: { name: string | null } | null } | null
+        visit_code: string | null
         items: { id: string; medication: { name: string } | null }[]
         dispensations: { delivered_at: string; ip_kits: number | null }[]
       }[] | null)?.[0]
@@ -572,7 +595,7 @@ export function useUltimaDispensacion(enrollmentId: string | null, visitId: stri
       return {
         data: [{
           entregada_el: row.dispensations[0]?.delivered_at ?? '',
-          visita: row.visit?.visit_def?.name ?? null,
+          visita: row.visit_code ?? null,
           ip_kits: row.dispensations[0]?.ip_kits ?? null,
           // Solo los que tienen nombre de verdad. Si la RLS no los deja leer, la lista queda vacía y
           // el aviso vuelve al conteo: mejor decir "2 medicamentos" que "Medicamento, Medicamento".

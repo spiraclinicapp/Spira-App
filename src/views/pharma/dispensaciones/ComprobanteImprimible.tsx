@@ -22,8 +22,8 @@ export function ComprobanteImprimible({ r, disp }: {
   r: DispensationRequestRow
   disp: DispensationRow
 }) {
-  const paciente = r.visit?.enrollment?.patient?.code ?? '—'
-  const protocolo = r.visit?.enrollment?.protocol?.code ?? '—'
+  const paciente = r.enrollment?.patient?.code ?? '—'
+  const protocolo = r.protocol?.code ?? '—'
   const constancia = constanciaVigente(r)
 
   return (
