@@ -55,7 +55,9 @@ function pedido(over: {
     includes_ip: over.ip ?? false,
     off_schedule: false, off_schedule_reason: null,
     ip_documents: over.docs ?? [],
-    visit: null,
+    enrollment: null,
+    protocol: null,
+    visit_code: null,
   }
 }
 

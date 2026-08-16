@@ -66,17 +66,17 @@ export function KanbanCard({ r, column, canOperate, onOpen, onAdvance, busy }: {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => { setHover(false); setCtaHover(false) }}
       style={card}
-      aria-label={`${disp?.dispensation_code ?? 'Solicitud'}, paciente ${r.visit?.enrollment?.patient?.code ?? 'sin código'}, ${COLUMN_META[column].estado}`}
+      aria-label={`${disp?.dispensation_code ?? 'Solicitud'}, paciente ${r.enrollment?.patient?.code ?? 'sin código'}, ${COLUMN_META[column].estado}`}
     >
       {/* 1 · paciente + protocolo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
         <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-          {r.visit?.enrollment?.patient?.full_name ?? '—'}
+          {r.enrollment?.patient?.full_name ?? '—'}
         </span>
         <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', flex: '0 0 auto' }}>
-          {r.visit?.enrollment?.patient?.code ?? '—'}
+          {r.enrollment?.patient?.code ?? '—'}
         </span>
-        <span className="spira-mono" style={protoChip}>{r.visit?.enrollment?.protocol?.code ?? '—'}</span>
+        <span className="spira-mono" style={protoChip}>{r.protocol?.code ?? '—'}</span>
       </div>
 
       {/* 1b · la excepción viaja hasta acá (D11). Una dispensación fuera de cronograma le cambia el

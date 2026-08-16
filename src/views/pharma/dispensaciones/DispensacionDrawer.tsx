@@ -80,8 +80,8 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
     return (id: unknown) => (typeof id === 'string' ? mapa.get(id) ?? null : null)
   }, [r.items, disp])
   const rechazada = r.status === 'rechazada'
-  const paciente = r.visit?.enrollment?.patient
-  const protocolo = r.visit?.enrollment?.protocol
+  const paciente = r.enrollment?.patient
+  const protocolo = r.protocol
   const constancia = constanciaVigente(r)
 
   const titulo = disp?.dispensation_code

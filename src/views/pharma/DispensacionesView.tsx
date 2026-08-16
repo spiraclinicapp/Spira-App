@@ -103,7 +103,7 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const protoOptions = useMemo(() => {
     const codes = new Set<string>()
     for (const r of all) {
-      const code = r.visit?.enrollment?.protocol?.code
+      const code = r.protocol?.code
       if (code) codes.add(code)
     }
     return [
@@ -119,12 +119,12 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
     for (const r of all) {
       const col = columnOf(r)
       if (!col) continue
-      if (proto !== ALL && r.visit?.enrollment?.protocol?.code !== proto) continue
+      if (proto !== ALL && r.protocol?.code !== proto) continue
       if (needle) {
         const hay = [
           activeDispensation(r)?.dispensation_code ?? '',
-          r.visit?.enrollment?.patient?.code ?? '',
-          r.visit?.enrollment?.protocol?.code ?? '',
+          r.enrollment?.patient?.code ?? '',
+          r.protocol?.code ?? '',
           ...r.items.map((i) => i.medication?.name ?? ''),
         ].join(' ').toLowerCase()
         if (!hay.includes(needle)) continue
