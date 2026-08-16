@@ -40,5 +40,49 @@
   color: var(--spira-muted);
   font-weight: 600;
 }
+/* ── Selección de RANGO (DateRangeField) ─────────────────────────────────────
+   react-day-picker vestía solo el día suelto; en `mode="range"` el tramo del medio salía con la
+   paleta propia de la librería, fuera de Sereno.
+
+   El tinte del tramo NO puede ser un rgba fijo: sobre papel claro un petróleo al 12% OSCURECE y
+   se lee como resaltado, y el MISMO tinte sobre fondo oscuro queda por debajo del fondo, o sea
+   invisible. En oscuro hay que ACLARAR con la menta. Es exactamente el problema que documenta
+   `--spira-tint-track` en tokens.css, un componente más allá. */
+.rdp-root { --spira-rdp-range: rgba(15, 95, 87, 0.12); }
+[data-theme='dark'] .rdp-root { --spira-rdp-range: rgba(46, 125, 116, 0.30); }
+
+/* Las dos puntas del tramo van rellenas, como el día suelto. */
+.rdp-root .rdp-range_start .rdp-day_button,
+.rdp-root .rdp-range_end .rdp-day_button {
+  background: var(--spira-primary);
+  color: var(--spira-on-accent);
+  font-weight: 600;
+}
+/* El medio es una banda continua: fondo en la CELDA (que es cuadrada y no deja huecos) y el
+   botón transparente encima, para que los días sigan leyéndose como días. */
+.rdp-root .rdp-range_middle { background: var(--spira-rdp-range); }
+.rdp-root .rdp-range_middle .rdp-day_button {
+  background: transparent;
+  color: var(--spira-ink);
+  font-weight: 500;
+}
+.rdp-root .rdp-range_middle .rdp-day_button:hover:not([disabled]) {
+  background: var(--spira-white);
+}
+/* La banda arranca en la mitad de la celda de inicio y termina en la mitad de la de cierre: así
+   el círculo de la punta queda montado sobre el tramo y no flotando al lado. Cuando inicio y
+   cierre son el MISMO día (rango de uno), ninguna de las dos reglas aplica y no hay banda. */
+.rdp-root .rdp-range_start:not(.rdp-range_end) {
+  background: linear-gradient(to right, transparent 50%, var(--spira-rdp-range) 50%);
+}
+.rdp-root .rdp-range_end:not(.rdp-range_start) {
+  background: linear-gradient(to left, transparent 50%, var(--spira-rdp-range) 50%);
+}
+/* Días fuera de tope (futuro): apagados y sin cursor de mano. */
+/* 0.45 y no 0.35: a 0.35 el día quedaba en ~1,9:1 sobre el papel y costaba leer QUÉ día es.
+   WCAG exime a los deshabilitados del mínimo de contraste, pero "exento" no es "ilegible". */
+.rdp-root .rdp-disabled { opacity: 0.45; }
+.rdp-root .rdp-disabled .rdp-day_button { cursor: default; }
+
 /* Placeholder dd/mm/aaaa tenue pero legible (no el gris default del navegador). */
 .spira-date-input::placeholder { color: var(--spira-faint); }

@@ -31,8 +31,13 @@ export function pharmaErrorMessage(code: string | undefined, raw: string): strin
    *
    * `42883` es el código de Postgres; `PGRST202` el de PostgREST cuando ni siquiera encuentra la
    * función para llamarla. Los dos significan lo mismo para quien está mirando la pantalla.
+   *
+   * `PGRST205` es el mismo caso una tabla más allá: PostgREST no encuentra la TABLA o la VISTA.
+   * Lo sumó Reportes (0083), que lee de tres vistas nuevas; sin esto, la farmacéutica que abre la
+   * pantalla antes de que se aplique la migración lee "Could not find the table
+   * 'public.v_pharma_report_items' in the schema cache".
    */
-  if (code === '42883' || code === 'PGRST202' || code === '42703') {
+  if (code === '42883' || code === 'PGRST202' || code === '42703' || code === 'PGRST205') {
     return 'Esta función todavía no está disponible en el servidor. Avisale al equipo técnico: falta aplicar una actualización de la base.'
   }
   return raw || 'No pudimos completar la acción. Probá de nuevo.'

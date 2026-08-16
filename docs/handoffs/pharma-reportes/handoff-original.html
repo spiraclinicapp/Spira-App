@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Components" name="Pharma · Reportes" subtitle="Tablero de métricas + tablas detalladas, cada bloque imprimible" viewport="1440x1000" -->
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spira Pharma · Reportes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{--ink:#14302E;--primary:#0F5F57;--paper:#F4F1EA;--surface:#FBFAF6;--white:#FFF;--muted:#7C8C87;--faint:#A6B0AC;--line:#E4DECF;--line2:#D8CBB0;--good:#5C8A5A;--warn:#B0823F;--danger:#A6483B;--pharma:#C9A24A;--pharma-solid:#A8842F;--on-accent:#F4F1EA;--fdisp:'Schibsted Grotesk',system-ui,sans-serif;--ftext:'Inter',system-ui,sans-serif;--shadow-sm:0 1px 2px rgba(20,48,46,.06)}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+html,body{margin:0;height:100%}
+body{font-family:var(--ftext);color:var(--ink);background:var(--paper);font-size:14px}
+a{color:var(--pharma-solid);text-decoration:none}a:hover{color:var(--ink)}
+.num{font-variant-numeric:tabular-nums}
+.eyebrow{font-weight:700;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.app{display:flex;flex-direction:column;height:100vh;min-height:0}
+.topbar{height:60px;flex:0 0 60px;display:flex;align-items:center;gap:14px;padding:0 20px;background:var(--white);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--fdisp);font-weight:700;font-size:20px}
+.divider-v{width:1px;height:26px;background:var(--line)}
+.mod{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14.5px}
+.mod .chip-ico{width:26px;height:26px;border-radius:7px;background:rgba(168,132,47,.16);display:grid;place-items:center}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.search-top{display:flex;align-items:center;gap:8px;width:250px;height:38px;padding:0 12px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);color:var(--faint);font-size:13.5px}
+.kbd{margin-left:auto;font-size:11px;color:var(--faint);background:var(--white);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:none;background:transparent;display:grid;place-items:center;cursor:pointer}
+.avatar{display:flex;align-items:center;gap:9px;padding:4px 8px 4px 5px;border-radius:10px;cursor:pointer}
+.avatar .a-circ{width:32px;height:32px;border-radius:50%;background:var(--primary);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:12.5px;font-family:var(--fdisp)}
+.body{flex:1;display:flex;min-height:0}
+.rail{width:64px;flex:0 0 64px;background:var(--white);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px}
+.rail button{width:40px;height:40px;border-radius:11px;border:none;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.rail button.on{background:rgba(168,132,47,.14);color:var(--pharma-solid)}
+.rail .spacer{flex:1}
+.submods{width:212px;flex:0 0 212px;background:var(--surface);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:2px}
+.submods .lbl{padding:0 8px 10px}
+.submods .sec{padding:14px 8px 6px}
+.submods a{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;font-size:13.5px;font-weight:500;color:var(--ink);white-space:nowrap;cursor:pointer}
+.submods a svg{flex:0 0 auto}
+.submods a.on{background:rgba(168,132,47,.14);color:var(--pharma-solid);font-weight:600}
+.grp{border-left:1px solid var(--line2);margin-left:11px;padding-left:3px;display:flex;flex-direction:column;gap:2px}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.main-head{padding:20px 30px 0;display:flex;align-items:center;gap:12px}
+.crumb{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+.crumb .cur{color:var(--ink);font-weight:600}
+.h1{font-family:var(--fdisp);font-weight:700;font-size:26px;letter-spacing:-.02em;margin:4px 0 0}
+.btn-primary{height:40px;padding:0 16px;border:none;border-radius:10px;background:var(--pharma-solid);color:var(--on-accent);font-family:var(--ftext);font-weight:600;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.content{flex:1;overflow:auto;padding:18px 30px 48px}
+
+/* filtros */
+.filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:2px 0 16px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.sel{display:inline-flex;align-items:center;gap:9px;height:38px;padding:0 13px;border:1px solid var(--line2);border-radius:10px;background:var(--white);font-family:var(--ftext);cursor:pointer;white-space:nowrap}
+.sel .lbl{font-family:var(--fdisp);font-weight:700;font-size:14px;color:var(--ink)}
+.vdiv{width:1px;height:24px;background:var(--line)}
+.hintf{font-size:12.5px;color:var(--muted)}
+.rangebox{display:inline-flex;align-items:center;gap:9px;height:38px;padding:0 13px;border:1px solid var(--pharma);border-radius:10px;background:rgba(201,162,74,.07);font-family:var(--fdisp);font-weight:700;font-size:14px;color:var(--pharma-solid);white-space:nowrap}
+.presets{display:flex;gap:8px;flex-wrap:wrap}
+.presets button{height:34px;display:inline-flex;align-items:center;padding:0 14px;border-radius:999px;border:1px solid var(--line2);background:var(--white);font-family:var(--ftext);font-weight:600;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.presets button.on{background:rgba(168,132,47,.14);color:var(--pharma-solid);border:1px solid rgba(168,132,47,.35)}
+.appliedline{font-size:12px;color:var(--muted);padding:0;margin-bottom:20px}
+.appliedline b{color:var(--ink);font-weight:600}
+
+/* secciones */
+.sec-head{display:flex;align-items:center;gap:12px;margin:30px 0 12px}
+.sec-head h2{font-family:var(--fdisp);font-weight:700;font-size:16.5px;letter-spacing:-.01em;margin:0}
+.sec-head .rule{flex:1;height:1px;background:var(--line)}
+.sec-head .hint{font-size:12px;color:var(--muted)}
+.printbtn{width:34px;height:34px;flex:0 0 34px;border:1px solid var(--line2);border-radius:9px;background:var(--white);display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.printbtn:hover{border-color:var(--pharma-solid);color:var(--pharma-solid);background:rgba(201,162,74,.08)}
+
+/* héroes + tira de indicadores */
+.hero{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.hcard{position:relative;background:var(--white);border:1px solid var(--line);border-radius:14px;padding:14px 16px 12px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px}
+.hcard .k{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:700;padding-right:26px}
+.hcard .v{font-family:var(--fdisp);font-weight:800;font-size:36px;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hcard .v small{font-size:13px;font-weight:600;color:var(--muted);margin-left:4px;letter-spacing:0}
+.hcard .row{display:flex;align-items:flex-end;gap:14px}
+.hcard .spark{flex:1;min-width:84px}
+.hcard .spark svg{display:block;width:100%;height:46px}
+.hcard .f{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:9px;margin-top:auto}
+.hcard .pb,.scell .pb{position:absolute;top:9px;right:9px;width:26px;height:26px;border:none;background:transparent;border-radius:7px;display:grid;place-items:center;color:var(--faint);cursor:pointer;opacity:.5}
+.hcard:hover .pb,.scell:hover .pb{opacity:1;color:var(--pharma-solid)}
+.brow{display:flex;align-items:center;gap:10px;font-size:12.5px}
+.brow .k2{width:82px;flex:0 0 82px;color:var(--muted);font-size:11.5px}
+.brow .track{flex:1;min-width:70px;height:10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);overflow:hidden}
+.brow .track i{display:block;height:100%}
+.brow .v2{width:52px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.strip{margin-top:12px;background:var(--line);border:1px solid var(--line);border-radius:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;overflow:hidden}
+.scell{position:relative;background:var(--white);padding:12px 15px;display:flex;align-items:center;gap:14px;min-height:66px}
+.scell .k{flex:1;font-size:12.5px;color:var(--muted);line-height:1.35;padding-right:24px}
+.scell .v{font-family:var(--fdisp);font-weight:700;font-size:21px;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;padding-right:30px}
+.scell .v small{font-size:11.5px;font-weight:600;color:var(--muted);margin-left:2px}
+.scell .n{font-family:var(--fdisp);font-weight:700;font-size:14.5px;line-height:1.3;text-align:right;white-space:nowrap;padding-right:30px}
+.scell.warn .v{color:var(--warn)}.scell.danger .v{color:var(--danger)}
+.delta{display:inline-flex;align-items:center;gap:3px;font-weight:600;font-size:11.5px}
+.delta.up{color:var(--good)}.delta.down{color:var(--danger)}
+/* fila de gráficos */
+.chartrow{display:grid;grid-template-columns:1.62fr 1fr;gap:12px;align-items:stretch}
+.chart{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:15px 18px 8px;box-shadow:var(--shadow-sm)}
+.chead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+.chead .t{font-family:var(--fdisp);font-weight:700;font-size:14px}
+.chead .s{font-size:12px;color:var(--muted)}
+.chead .lg{margin-left:auto;display:flex;gap:14px;font-size:11.5px;color:var(--muted)}
+.chead .lg span{display:inline-flex;align-items:center;gap:6px}
+.chead .lg i{width:11px;height:11px;border-radius:3px;display:block}
+.chead .lg i.line{width:15px;height:0;border-radius:0;border-top:2.2px solid var(--primary)}
+.chartwrap{position:relative}
+.chartwrap svg{display:block;width:100%;height:auto}
+.mini{width:100%;border-collapse:collapse;margin-top:10px;border-top:1px solid var(--line)}
+.mini th{padding:8px 8px 6px;background:transparent;border-bottom:1px solid var(--line);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;text-align:right;white-space:nowrap}
+.mini th:first-child{text-align:left;padding-left:0}
+.mini td{padding:7px 8px;border-bottom:1px solid var(--line);font-size:12px;text-align:right;font-variant-numeric:tabular-nums;vertical-align:middle}
+.mini td:first-child{text-align:left;padding-left:0;font-weight:600}
+.mini tbody tr:last-child td{border-bottom:1px solid var(--line)}
+.mini tfoot td{padding:8px 8px;background:transparent;border:none;border-top:none;font-weight:700;font-size:12px;color:var(--ink)}
+.mini tfoot td:first-child{padding-left:0}
+.mini .mbar{display:inline-block;vertical-align:middle;width:52px;height:4px;border-radius:2px;background:var(--line);overflow:hidden;margin-left:8px}
+.mini .mbar i{display:block;height:100%;background:var(--pharma-solid)}
+.tip{position:absolute;left:0;top:0;pointer-events:none;opacity:0;transition:opacity .12s;background:var(--ink);color:#F4F1EA;border-radius:8px;padding:6px 10px;font-size:11.5px;font-weight:600;white-space:nowrap;transform:translate(-50%,-135%);z-index:4;font-variant-numeric:tabular-nums}
+.comp{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:15px 17px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:15px}
+.comp .ct{font-family:var(--fdisp);font-weight:700;font-size:14px}
+.stack{display:flex;height:28px;border-radius:8px;overflow:hidden}
+.stack i{display:block;height:100%;position:relative}
+.stlg{display:flex;flex-direction:column;gap:7px;font-size:12.5px}
+.stlg .r2{display:flex;align-items:center;gap:9px}
+.stlg .r2 em{width:9px;height:9px;border-radius:3px;flex:0 0 9px}
+.stlg .r2 span{flex:1;color:var(--muted)}
+.stlg .r2 b{font-variant-numeric:tabular-nums;font-weight:600}
+.rank{display:flex;flex-direction:column;gap:11px;border-top:1px solid var(--line);padding-top:14px}
+.rk{display:grid;grid-template-columns:1fr auto;gap:5px 10px;font-size:12.5px}
+.rk .rt{grid-column:1/-1;height:7px;border-radius:999px;background:var(--surface);border:1px solid var(--line);overflow:hidden}
+.rk .rt i{display:block;height:100%;background:var(--pharma-solid)}
+.rk b{font-weight:600}
+.rk span{font-variant-numeric:tabular-nums;color:var(--muted)}
+@media (max-width:1180px){.hcard .row{flex-direction:column;align-items:stretch;gap:8px}.hcard .spark{width:100%}}
+/* tablas */
+table{width:100%;border-collapse:collapse;font-size:13px}
+.r{text-align:right;font-variant-numeric:tabular-nums}
+.c{text-align:center;font-variant-numeric:tabular-nums}
+.strong{font-weight:600}
+.sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn-outline{height:40px;padding:0 16px;border-width:1px;border-style:solid;border-color:var(--line2);border-radius:10px;background:var(--white);color:var(--ink);font-family:var(--ftext);font-weight:600;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn-outline:hover{border-color:var(--pharma-solid);color:var(--pharma-solid)}
+.tbl{background:var(--white);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)}
+thead th{text-align:left;padding:12px 16px 9px;background:transparent;border-bottom:1px solid var(--line2);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;white-space:nowrap}
+tbody td{padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(201,162,74,.05)}
+tfoot td{padding:11px 16px;background:var(--surface);border-top:1px solid var(--line2);font-weight:700;font-size:12.5px}
+.tbl.dense td{padding:10px 12px;font-size:12.5px}
+.tbl.dense th{padding:11px 12px 8px}
+.st{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.st i{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
+.st.pend{color:var(--muted);font-weight:500}
+.st.bad{color:var(--danger)}
+.cat{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.cat.amb{color:#3A6B8C}.cat.ip{color:var(--primary)}
+.shr{display:grid;justify-items:end;gap:6px;min-width:112px;margin-left:auto}
+.shr .p{font-size:12.5px;font-variant-numeric:tabular-nums;font-weight:600}
+.shr .t{width:100%;height:3px;border-radius:2px;background:var(--line);overflow:hidden}
+.shr .t i{display:block;height:100%;background:var(--pharma-solid)}
+
+/* ventana de reporte */
+.modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:40px 24px}
+.modal[hidden]{display:none}
+.mbk{position:absolute;inset:0;background:rgba(20,48,46,.34)}
+.mwin{position:relative;width:100%;max-width:720px;max-height:100%;background:var(--white);border:1px solid var(--line2);border-radius:16px;box-shadow:0 18px 40px rgba(20,48,46,.20);display:flex;flex-direction:column;overflow:hidden}
+.mhead{display:flex;align-items:flex-start;gap:14px;padding:18px 20px 14px;border-bottom:1px solid var(--line)}
+.mhead .mt{font-family:var(--fdisp);font-weight:700;font-size:18px;letter-spacing:-.01em}
+.mhead .ms{font-size:12px;color:var(--muted);margin-top:3px}
+.mx{margin-left:auto;width:32px;height:32px;flex:0 0 32px;border:1px solid var(--line);border-radius:9px;background:var(--white);display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.mx:hover{border-color:var(--pharma-solid);color:var(--pharma-solid)}
+.mbody{padding:18px 20px 20px;overflow:auto;display:flex;flex-direction:column;gap:16px}
+.mbody p{margin:0;font-size:13px;line-height:1.6;color:var(--ink)}
+.mbody .mband{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.mbody .mband div{background:var(--surface);padding:10px 13px}
+.mbody .mband .k{font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:700}
+.mbody .mband .v{font-family:var(--fdisp);font-weight:700;font-size:15px;margin-top:2px;font-variant-numeric:tabular-nums}
+.mbody h4{margin:0;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:700}
+.mtbl{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.mfoot{display:flex;align-items:center;gap:10px;padding:13px 20px;border-top:1px solid var(--line);background:var(--surface)}
+.mfoot .fn{font-size:11.5px;color:var(--muted);flex:1}
+.mfoot .btn-primary,.mfoot .btn-outline{height:36px;font-size:13.5px}
+
+.sheet{display:none}
+@media print{
+  @page{margin:16mm}
+  .app{display:none!important}
+  .modal{display:none!important}
+  .sheet{display:block!important;color:#000;background:#fff;font-family:var(--ftext);font-size:12px}
+  .sheet .sh-head{border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:14px}
+  .sheet .sh-title{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid #000;padding-bottom:6px;margin-bottom:12px}
+  .sheet table{font-size:11.5px}
+  .sheet thead th{background:transparent;border-bottom:1px solid #000;color:#000;padding:6px 8px 6px 0}
+  .sheet tbody td{border-bottom:1px solid #999;padding:6px 8px 6px 0}
+  .sheet tfoot td{background:transparent;border-top:1px solid #000;padding:6px 8px 6px 0}
+  .sheet .shr{background:none!important;padding:0!important;min-width:0!important;display:block!important;text-align:right}
+  .sheet .shr .t,.sheet .shr .ticks,.sheet .st i,.sheet .trk .seg{display:none!important}
+  .sheet .st,.sheet .trk b,.sheet .cat{color:#000!important;background:transparent!important;border:none!important}
+  .sheet section{break-inside:avoid}
+  .sheet .band{display:flex;gap:0;border:1px solid #000;margin-bottom:16px}
+  .sheet .band div{flex:1;padding:9px 14px;border-right:1px solid #999}
+  .sheet .band div:last-child{border-right:none}
+  .sheet .band .k{font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px}
+  .sheet .band .v{font-size:13px;font-weight:700}
+  .sheet .dtbl{width:100%;border-collapse:collapse;font-size:10px}
+  .sheet .dtbl thead th{background:#000!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:6px 7px;text-align:left;font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;border:none}
+  .sheet .dtbl tbody td{border-bottom:1px solid #BBB;padding:5px 7px;vertical-align:top}
+  .sheet .foot{display:flex;justify-content:space-between;margin-top:18px;padding-top:8px;border-top:1px solid #999;font-size:9px;color:#666}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><svg width="24" height="29" viewBox="0 0 24 29" fill="none"><path d="M12 1C12 8 6 10 6 16a6 6 0 0012 0c0-6-6-8-6-15z" stroke="#0F5F57" stroke-width="1.6"/><path d="M12 16v12M12 28l-4-3M12 28l4-3" stroke="#0F5F57" stroke-width="1.4" stroke-linecap="round"/></svg><span>Spira</span></div>
+    <span class="divider-v"></span>
+    <span class="mod"><span class="chip-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#A8842F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>Pharma</span>
+    <div class="top-right">
+      <div class="search-top"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#A6B0AC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Buscar…<span class="kbd">Ctrl K</span></div>
+      <button class="icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
+      <button class="icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+      <div class="avatar"><span class="a-circ">SC</span><span style="font-weight:600;font-size:13.5px">Spira Clinic</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="rail">
+      <button><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></button>
+      <button><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></button>
+      <button class="on"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A8842F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></button>
+      <button><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
+      <div class="spacer"></div>
+      <button><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></button>
+    </div>
+    <nav class="submods">
+      <div class="lbl eyebrow">Submódulos</div>
+      <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>Protocolos y pacientes</a>
+      <div class="sec eyebrow">Medicamentos</div>
+      <div class="grp">
+        <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>Recepción</a>
+        <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>Stock</a>
+        <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>Dispensación</a>
+      </div>
+      <div style="height:1px;background:var(--line);margin:16px 10px 8px"></div>
+      <a class="on"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#A8842F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>Reportes</a>
+    </nav>
+    <div class="main">
+      <div class="main-head">
+        <div>
+          <div class="crumb"><span>Spira Pharma</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A6B0AC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg><span class="cur">Reportes</span></div>
+          <h1 class="h1">Reportes</h1>
+        </div>
+        <button class="btn-primary" style="margin-left:auto" onclick="printReport('todo')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F4F1EA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>Imprimir informe completo</button>
+      </div>
+      <div class="content">
+
+        <div class="filters">
+          <span class="rangebox"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C9A24A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg><span class="num">07/07/2026 – 06/08/2026</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#A8842F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+          <div class="presets"><button class="on">30 días</button><button>Mes en curso</button><button>Año</button></div>
+          <span class="vdiv"></span>
+          <button class="sel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg><span class="lbl">Filtros</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+          <span class="hintf">Sin filtros aplicados — el informe sale con todo el período</span>
+        </div>
+        <div class="appliedline">Lo que elijas en <b>Filtros</b> vale para todo el apartado: cada reporte que imprimas sale con ese mismo recorte declarado en el encabezado de la hoja. El reporte de dispensaciones declara sólo el período, como el formato acordado.</div>
+
+        <div class="sec-head" style="margin-top:4px"><h2>Resumen del período</h2><span class="rule"></span><span class="hint">Cada indicador se imprime solo desde su ícono</span><button class="printbtn" title="Imprimir el resumen completo" onclick="printReport('resumen')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button></div>
+<div class="hero">
+  <div class="hcard"><div class="k">Unidades dispensadas</div><button class="pb" title="Imprimir" onclick="printReport('dispensadas')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button><div class="row"><div class="v">3.482<small>u.</small></div><div class="spark" id="sp1"></div></div><div class="f">214 dispensaciones · 112 u./día<span class="delta up">▲ 12% vs. período anterior</span></div></div>
+  <div class="hcard"><div class="k">Unidades ingresadas</div><button class="pb" title="Imprimir" onclick="printReport('ingresadas')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button><div class="row"><div class="v">4.150<small>u.</small></div><div class="spark" id="sp2"></div></div><div class="f">26 recepciones verificadas · 6 semanas</div></div>
+  <div class="hcard"><div class="k">Balance del período</div><button class="pb" title="Imprimir" onclick="printReport('balance')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button><div class="v" style="color:var(--good)">+668<small>u. de saldo</small></div><div class="brow"><span class="k2">Ingresadas</span><span class="track"><i style="width:100%;background:#5C8A5A"></i></span><span class="v2">4.150</span></div><div class="brow" style="margin-bottom:2px"><span class="k2">Dispensadas</span><span class="track"><i style="width:83.9%;background:#A8842F"></i></span><span class="v2">3.482</span></div><div class="f">el stock cerró el período en positivo</div></div>
+</div>
+<div class="strip">
+  <div class="scell"><div class="k">Pacientes distintos atendidos</div><button class="pb" title="Imprimir" onclick="printReport('pacientes')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button><div class="v">96</div></div>
+  <div class="scell"><div class="k">Tiempo promedio de preparación</div><button class="pb" title="Imprimir" onclick="printReport('tiempos')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button><div class="v">41<small>min</small></div></div>
+  <div class="scell"><div class="k">Droga más dispensada</div><button class="pb" title="Imprimir" onclick="printReport('medicamentos')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button><div class="n">Empagliflozina 25 mg<br /><span style="font-family:var(--ftext);font-size:11.5px;font-weight:500;color:var(--muted)">640 u. · 18,4%</span></div></div>
+  <div class="scell"><div class="k">Protocolo con más dispensaciones</div><button class="pb" title="Imprimir" onclick="printReport('protocolos')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button><div class="n">SCH-2401<br /><span style="font-family:var(--ftext);font-size:11.5px;font-weight:500;color:var(--muted)">68 disp. · 31,8%</span></div></div>
+  <div class="scell warn"><div class="k">Rechazadas o canceladas</div><button class="pb" title="Imprimir" onclick="printReport('rechazadas')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button><div class="v">7<small>· 3,3%</small></div></div>
+  <div class="scell danger"><div class="k">Stock inmovilizado por vencimiento</div><button class="pb" title="Imprimir" onclick="printReport('vencidos')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button><div class="v">210<small>u.</small></div></div>
+</div>
+
+<div class="sec-head"><h2>Evolución y composición</h2><span class="rule"></span><button class="printbtn" title="Imprimir" onclick="printReport('evolucion')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button></div>
+<div class="chartrow">
+  <div class="chart">
+    <div class="chead"><span class="t">Unidades dispensadas por día</span><span class="lg"><span><i style="background:#C9A24A"></i>Día hábil</span><span><i style="background:#DFD4B4"></i>Fin de semana</span><span><i class="line"></i>Media 7 días</span></span></div>
+    <div class="chartwrap" id="cw"><div class="tip" id="tip"></div><div id="chart"></div></div>
+    <table class="mini" id="mini"></table>
+  </div>
+  <div class="comp">
+    <div class="ct">Composición del período</div>
+    <div>
+      <div class="stack"><i style="width:66.5%;background:#A8842F" title="Farmacia protocolo"></i><i style="width:28.3%;background:#3A6B8C" title="Ambulatoria"></i><i style="width:5.2%;background:#0F5F57" title="Producto de investigación"></i></div>
+      <div class="stlg" style="margin-top:11px">
+        <div class="r2"><em style="background:#A8842F"></em><span>Farmacia protocolo</span><b>2.316 u. · 66,5%</b></div>
+        <div class="r2"><em style="background:#3A6B8C"></em><span>Farmacia ambulatoria</span><b>986 u. · 28,3%</b></div>
+        <div class="r2"><em style="background:#0F5F57"></em><span>Producto de investigación</span><b>180 u. · 5,2%</b></div>
+      </div>
+    </div>
+    <div class="rank">
+      <div class="rk"><b>SCH-2401 · Cardio-Prevent III</b><span>31,8%</span><span class="rt"><i style="width:31.8%"></i></span></div>
+      <div class="rk"><b>SCH-2312 · Glyco-Advance</b><span>24,3%</span><span class="rt"><i style="width:24.3%"></i></span></div>
+      <div class="rk"><b>SCH-2405 · Respira-2</b><span>15,9%</span><span class="rt"><i style="width:15.9%"></i></span></div>
+      <div class="rk"><b>SCH-2208 · Onco-Bridge</b><span>11,7%</span><span class="rt"><i style="width:11.7%"></i></span></div>
+      <div class="rk"><b style="color:var(--muted)">Otros 2 orígenes</b><span>16,3%</span><span class="rt"><i style="width:16.3%;background:var(--faint)"></i></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="sec-head"><h2>Dispensaciones por protocolo</h2><span class="rule"></span><button class="printbtn" title="Imprimir" onclick="printReport('protocolos')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button></div>
+        <div class="tbl" id="t-protocolos">
+          <table>
+            <thead><tr><th>Protocolo</th><th class="c">Dispensaciones</th><th class="c">Unidades</th><th class="c">Pacientes</th><th class="r" style="width:190px">Participación</th></tr></thead>
+            <tbody>
+              <tr><td><div class="strong">SCH-2401</div><div class="sub">Cardio-Prevent III · Boehringer</div></td><td class="c">68</td><td class="c">1.120</td><td class="c">31</td><td><div class="shr"><span class="p">31,8%</span><span class="t"><i style="width:31.8%"></i></span></div></td></tr>
+              <tr><td><div class="strong">SCH-2312</div><div class="sub">Glyco-Advance · Novo</div></td><td class="c">52</td><td class="c">890</td><td class="c">24</td><td><div class="shr"><span class="p">24,3%</span><span class="t"><i style="width:24.3%"></i></span></div></td></tr>
+              <tr><td><div class="strong">SCH-2405</div><div class="sub">Respira-2 · AstraZeneca</div></td><td class="c">34</td><td class="c">512</td><td class="c">16</td><td><div class="shr"><span class="p">15,9%</span><span class="t"><i style="width:15.9%"></i></span></div></td></tr>
+              <tr><td><div class="strong">SCH-2208</div><div class="sub">Onco-Bridge · Roche · producto de investigación</div></td><td class="c">25</td><td class="c">402</td><td class="c">11</td><td><div class="shr"><span class="p">11,7%</span><span class="t"><i style="width:11.7%"></i></span></div></td></tr>
+              <tr><td><div class="strong">SCH-2410</div><div class="sub">Neuro-Path I · Lundbeck</div></td><td class="c">18</td><td class="c">318</td><td class="c">8</td><td><div class="shr"><span class="p">8,4%</span><span class="t"><i style="width:8.4%"></i></span></div></td></tr>
+              <tr><td><div class="strong">Farmacia ambulatoria</div><div class="sub">sin protocolo</div></td><td class="c">17</td><td class="c">240</td><td class="c">6</td><td><div class="shr"><span class="p">7,9%</span><span class="t"><i style="width:7.9%"></i></span></div></td></tr>
+            </tbody>
+            <tfoot><tr><td>Total</td><td class="c">214</td><td class="c">3.482</td><td class="c">96</td><td class="r">100%</td></tr></tfoot>
+          </table>
+        </div>
+
+        <div class="sec-head"><h2>Medicamentos más dispensados</h2><span class="rule"></span><button class="printbtn" title="Imprimir" onclick="printReport('medicamentos')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button></div>
+        <div class="tbl" id="t-medicamentos">
+          <table>
+            <thead><tr><th>Droga y presentación</th><th>Categoría</th><th class="c">Unidades</th><th class="c">Dispensaciones</th><th class="r" style="width:190px">Participación</th></tr></thead>
+            <tbody>
+              <tr><td class="strong">Empagliflozina 25 mg comp.</td><td><span class="cat">Protocolo</span></td><td class="c">640</td><td class="c">42</td><td><div class="shr"><span class="p">18,4%</span><span class="t"><i style="width:100%"></i></span></div></td></tr>
+              <tr><td class="strong">Metformina 850 mg comp.</td><td><span class="cat">Protocolo</span></td><td class="c">585</td><td class="c">39</td><td><div class="shr"><span class="p">16,8%</span><span class="t"><i style="width:91%"></i></span></div></td></tr>
+              <tr><td class="strong">Atorvastatina 40 mg comp.</td><td><span class="cat">Protocolo</span></td><td class="c">470</td><td class="c">31</td><td><div class="shr"><span class="p">13,5%</span><span class="t"><i style="width:73%"></i></span></div></td></tr>
+              <tr><td class="strong">Rivaroxabán 20 mg comp.</td><td><span class="cat">Protocolo</span></td><td class="c">388</td><td class="c">26</td><td><div class="shr"><span class="p">11,1%</span><span class="t"><i style="width:61%"></i></span></div></td></tr>
+              <tr><td class="strong">Insulina glargina 100 UI/ml</td><td><span class="cat">Protocolo</span></td><td class="c">296</td><td class="c">22</td><td><div class="shr"><span class="p">8,5%</span><span class="t"><i style="width:46%"></i></span></div></td></tr>
+              <tr><td class="strong">Losartán 50 mg comp.</td><td><span class="cat amb">Ambulatoria</span></td><td class="c">265</td><td class="c">18</td><td><div class="shr"><span class="p">7,6%</span><span class="t"><i style="width:41%"></i></span></div></td></tr>
+              <tr><td class="strong">Enalapril 10 mg comp.</td><td><span class="cat amb">Ambulatoria</span></td><td class="c">198</td><td class="c">14</td><td><div class="shr"><span class="p">5,7%</span><span class="t"><i style="width:31%"></i></span></div></td></tr>
+              <tr><td class="strong">Kit de investigación · SCH-2208</td><td><span class="cat ip">Investigación</span></td><td class="c">180</td><td class="c">12</td><td><div class="shr"><span class="p">5,2%</span><span class="t"><i style="width:28%"></i></span></div></td></tr>
+              <tr><td style="color:var(--muted)">Otros 11 medicamentos</td><td></td><td class="c">460</td><td class="c">10</td><td><div class="shr"><span class="p">13,2%</span><span class="t"><i style="width:72%"></i></span></div></td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">Total</td><td class="c">3.482</td><td class="c">214</td><td class="r">100%</td></tr></tfoot>
+          </table>
+        </div>
+
+        <div class="sec-head"><h2>Detalle de dispensaciones</h2><span class="rule"></span><span class="hint">214 registros en el período</span><button class="btn-outline" onclick="exportExcel()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>Excel</button><button class="printbtn" title="Imprimir el reporte de dispensaciones" onclick="printReport('detalle')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button></div>
+        <div class="tbl dense" id="t-detalle">
+          <table>
+            <thead><tr><th>N°</th><th>Fecha</th><th>Hora</th><th>Paciente</th><th>Código</th><th>Protocolo</th><th>Visita</th><th>Medicamentos</th><th>Sponsor</th><th>Estado</th></tr></thead>
+            <tbody>
+              <tr><td class="num strong">1058</td><td class="num">06/08/2026</td><td class="num">11:20</td><td>M. G.</td><td class="num">2401-014</td><td>SCH-2401</td><td>V6 · Semana 24</td><td>Empagliflozina 25 mg ×30</td><td>Boehringer</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+              <tr><td class="num strong">1057</td><td class="num">06/08/2026</td><td class="num">10:05</td><td>R. P.</td><td class="num">2312-008</td><td>SCH-2312</td><td>V4 · Semana 12</td><td>Metformina 850 mg ×60</td><td>Novo</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+              <tr><td class="num strong">1056</td><td class="num">05/08/2026</td><td class="num">16:42</td><td>L. S.</td><td class="num">2405-002</td><td>SCH-2405</td><td>V2 · Semana 4</td><td>Budesonida/Formoterol ×1</td><td>AstraZeneca</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+              <tr><td class="num strong">1055</td><td class="num">05/08/2026</td><td class="num">15:10</td><td>J. A.</td><td class="num">2401-003</td><td>SCH-2401</td><td>V6 · Semana 24</td><td>Empagliflozina 25 mg ×30 · Atorvastatina 40 mg ×30</td><td>Boehringer</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+              <tr><td class="num strong">1054</td><td class="num">05/08/2026</td><td class="num">12:33</td><td style="color:var(--faint)">—</td><td class="num">AMB-0147</td><td>Ambulatoria</td><td style="color:var(--faint)">—</td><td>Losartán 50 mg ×30</td><td style="color:var(--faint)">—</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+              <tr><td class="num strong">1053</td><td class="num">04/08/2026</td><td class="num">17:05</td><td>C. M.</td><td class="num">2208-005</td><td>SCH-2208</td><td>V3 · Ciclo 3</td><td>Kit de investigación ×1</td><td>Roche</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+              <tr><td class="num strong">1052</td><td class="num">04/08/2026</td><td class="num">11:48</td><td>N. B.</td><td class="num">2410-001</td><td>SCH-2410</td><td>V1 · Basal</td><td>Rivaroxabán 20 mg ×28</td><td>Lundbeck</td><td><span class="st bad"><i style="background:#A6483B"></i>Rechazada</span></td></tr>
+              <tr><td class="num strong">1051</td><td class="num">04/08/2026</td><td class="num">09:52</td><td>D. F.</td><td class="num">2312-011</td><td>SCH-2312</td><td>V5 · Semana 16</td><td>Insulina glargina 100 UI/ml ×2</td><td>Novo</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+              <tr><td class="num strong">1050</td><td class="num">03/08/2026</td><td class="num">16:20</td><td>V. T.</td><td class="num">2401-021</td><td>SCH-2401</td><td>V4 · Semana 12</td><td>Empagliflozina 25 mg ×30</td><td>Boehringer</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+              <tr><td class="num strong">1049</td><td class="num">03/08/2026</td><td class="num">14:07</td><td>S. R.</td><td class="num">2405-009</td><td>SCH-2405</td><td>V3 · Semana 8</td><td>Budesonida/Formoterol ×1</td><td>AstraZeneca</td><td><span class="st pend"><i style="background:#2E7D74"></i>Lista para retirar</span></td></tr>
+              <tr><td class="num strong">1048</td><td class="num">03/08/2026</td><td class="num">10:30</td><td style="color:var(--faint)">—</td><td class="num">AMB-0146</td><td>Ambulatoria</td><td style="color:var(--faint)">—</td><td>Enalapril 10 mg ×30</td><td style="color:var(--faint)">—</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+              <tr><td class="num strong">1047</td><td class="num">31/07/2026</td><td class="num">15:55</td><td>P. L.</td><td class="num">2401-007</td><td>SCH-2401</td><td>V5 · Semana 16</td><td>Atorvastatina 40 mg ×30</td><td>Boehringer</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+              <tr><td class="num strong">1046</td><td class="num">31/07/2026</td><td class="num">12:14</td><td>G. O.</td><td class="num">2312-004</td><td>SCH-2312</td><td>V6 · Semana 24</td><td>Metformina 850 mg ×60</td><td>Novo</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+              <tr><td class="num strong">1045</td><td class="num">30/07/2026</td><td class="num">09:40</td><td>A. C.</td><td class="num">2208-002</td><td>SCH-2208</td><td>V2 · Ciclo 2</td><td>Kit de investigación ×1</td><td>Roche</td><td><span class="st"><i style="background:#5C8A5A"></i>Entregada</span></td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="10">Mostrando las 14 más recientes · el reporte impreso y el Excel salen con las 214 del período</td></tr></tfoot>
+          </table>
+        </div>
+
+        <div class="two">
+          <div>
+            <div class="sec-head"><h2>Ingresos por categoría</h2><span class="rule"></span><button class="printbtn" title="Ver el reporte de ingresos" onclick="abrirReporte('ingresos')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button></div>
+            <div class="tbl" id="t-ingresos">
+              <table>
+                <thead><tr><th>Categoría</th><th class="c">Recepciones</th><th class="c">Unidades</th></tr></thead>
+                <tbody>
+                  <tr><td class="strong">Farmacia Protocolo</td><td class="c">18</td><td class="c">3.120</td></tr>
+                  <tr><td class="strong">Farmacia Ambulatoria</td><td class="c">6</td><td class="c">810</td></tr>
+                  <tr><td class="strong">Producto de investigación</td><td class="c">2</td><td class="c">220</td></tr>
+                </tbody>
+                <tfoot><tr><td>Total</td><td class="c">26</td><td class="c">4.150</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div>
+            <div class="sec-head"><h2>Consumo por paciente</h2><span class="hint">SCH-2401</span><span class="rule"></span><button class="printbtn" title="Ver el reporte de consumo" onclick="abrirReporte('consumo')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button></div>
+            <div class="tbl" id="t-consumo">
+              <table>
+                <thead><tr><th>Paciente</th><th class="c">Dispensaciones</th><th class="c">Unidades</th><th class="c">Última</th></tr></thead>
+                <tbody>
+                  <tr><td class="strong num">2401-014</td><td class="c">6</td><td class="c">112</td><td class="c num">04/08</td></tr>
+                  <tr><td class="strong num">2401-003</td><td class="c">5</td><td class="c">98</td><td class="c num">31/07</td></tr>
+                  <tr><td class="strong num">2401-021</td><td class="c">5</td><td class="c">90</td><td class="c num">28/07</td></tr>
+                  <tr><td class="strong num">2401-007</td><td class="c">4</td><td class="c">76</td><td class="c num">22/07</td></tr>
+                  <tr><td style="color:var(--muted)">+27 pacientes del protocolo</td><td class="c">48</td><td class="c">744</td><td class="c"></td></tr>
+                </tbody>
+                <tfoot><tr><td>Total</td><td class="c">68</td><td class="c">1.120</td><td class="c">31 pac.</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="mbk" onclick="cerrarReporte()"></div>
+  <div class="mwin" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <div class="mhead">
+      <div><div class="mt" id="m-title">Reporte</div><div class="ms" id="m-sub">Período 07/07/2026 – 06/08/2026 · sin filtros aplicados</div></div>
+      <button class="mx" title="Cerrar" onclick="cerrarReporte()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="mbody" id="mbody"></div>
+    <div class="mfoot">
+      <span class="fn" id="m-foot">La hoja impresa sale con el mismo recorte declarado arriba</span>
+      <button class="btn-outline" onclick="cerrarReporte()">Cerrar</button>
+      <button class="btn-primary" id="m-print"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F4F1EA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>Imprimir reporte</button>
+    </div>
+  </div>
+</div>
+
+<div id="tpl-ingresos" hidden data-title="Ingresos por categoría" data-print="ingresadas">
+  <p>Las 26 recepciones del período quedaron verificadas contra remito y orden de compra. Cada lote se cargó con su vencimiento y su ubicación de depósito; las diferencias de conteo se registran como observación del lote y no modifican el stock hasta que farmacia las concilia.</p>
+  <div class="mband">
+    <div><div class="k">Recepciones</div><div class="v">26</div></div>
+    <div><div class="k">Unidades ingresadas</div><div class="v">4.150 u.</div></div>
+    <div><div class="k">Lotes cargados</div><div class="v">36</div></div>
+  </div>
+  <div>
+    <h4 style="margin-bottom:8px">Detalle por categoría</h4>
+    <div class="mtbl">
+      <table>
+        <thead><tr><th>Categoría</th><th class="r">Recepciones</th><th class="r">Lotes</th><th class="r">Unidades</th><th class="r">Participación</th><th class="r">Última</th></tr></thead>
+        <tbody>
+          <tr><td class="strong">Farmacia Protocolo</td><td class="r">18</td><td class="r">24</td><td class="r">3.120</td><td class="r">75,2%</td><td class="r num">05/08</td></tr>
+          <tr><td class="strong">Farmacia Ambulatoria</td><td class="r">6</td><td class="r">9</td><td class="r">810</td><td class="r">19,5%</td><td class="r num">04/08</td></tr>
+          <tr><td class="strong">Producto de investigación</td><td class="r">2</td><td class="r">3</td><td class="r">220</td><td class="r">5,3%</td><td class="r num">29/07</td></tr>
+        </tbody>
+        <tfoot><tr><td>Total</td><td class="r">26</td><td class="r">36</td><td class="r">4.150</td><td class="r">100%</td><td class="r"></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+  <div>
+    <h4 style="margin-bottom:8px">Observaciones del período</h4>
+    <div class="mtbl">
+      <table>
+        <tbody>
+          <tr><td>Recepciones con observación abierta</td><td class="r strong">3</td></tr>
+          <tr><td>Unidades rechazadas en la verificación</td><td class="r strong">40</td></tr>
+          <tr><td>Lotes con desvío de temperatura en el traslado</td><td class="r strong">1</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="tpl-consumo" hidden data-title="Consumo por paciente · SCH-2401" data-print="consumo">
+  <p>31 pacientes activos en Cardio-Prevent III. El consumo se calcula sobre las dispensaciones entregadas; los envases devueltos al cierre de cada visita se descuentan del total y la adherencia se estima contra las unidades previstas por el esquema del protocolo.</p>
+  <div class="mband">
+    <div><div class="k">Dispensaciones</div><div class="v">68</div></div>
+    <div><div class="k">Unidades entregadas</div><div class="v">1.120 u.</div></div>
+    <div><div class="k">Adherencia promedio</div><div class="v">92%</div></div>
+  </div>
+  <div>
+    <h4 style="margin-bottom:8px">Pacientes con mayor consumo</h4>
+    <div class="mtbl">
+      <table>
+        <thead><tr><th>Paciente</th><th class="r">Visitas</th><th class="r">Dispensaciones</th><th class="r">Unidades</th><th class="r">Última</th><th class="r">Adherencia</th></tr></thead>
+        <tbody>
+          <tr><td class="strong num">2401-014</td><td class="r">6</td><td class="r">6</td><td class="r">112</td><td class="r num">04/08</td><td class="r">98%</td></tr>
+          <tr><td class="strong num">2401-003</td><td class="r">5</td><td class="r">5</td><td class="r">98</td><td class="r num">31/07</td><td class="r">95%</td></tr>
+          <tr><td class="strong num">2401-021</td><td class="r">5</td><td class="r">5</td><td class="r">90</td><td class="r num">28/07</td><td class="r">92%</td></tr>
+          <tr><td class="strong num">2401-007</td><td class="r">4</td><td class="r">4</td><td class="r">76</td><td class="r num">22/07</td><td class="r">90%</td></tr>
+          <tr><td class="strong num">2401-018</td><td class="r">4</td><td class="r">4</td><td class="r">72</td><td class="r num">21/07</td><td class="r">88%</td></tr>
+          <tr><td style="color:var(--muted)">+26 pacientes del protocolo</td><td class="r">44</td><td class="r">44</td><td class="r">672</td><td class="r"></td><td class="r">91%</td></tr>
+        </tbody>
+        <tfoot><tr><td>Total · 31 pacientes</td><td class="r">68</td><td class="r">68</td><td class="r">1.120</td><td class="r"></td><td class="r">92%</td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" aria-hidden="true"></div>
+
+<script>
+var DIAS=[104,131,58,42,126,148,133,119,141,61,49,152,138,127,144,122,66,51,130,149,118,136,128,72,54,142,157,135,124,150,75],WKND={2:1,3:1,9:1,10:1,16:1,17:1,23:1,24:1,30:1};
+(function(){
+var vals=DIAS,wknd=WKND;
+var n=vals.length,W=1000,H=250,L=42,R=12,T=18,B=32,MAX=160;
+var iw=(W-L-R)/n,bw=iw*.6;
+function BX(i){return L+iw*i+(iw-bw)/2}
+function CX(i){return L+iw*i+iw/2}
+function Y(v){return T+(H-T-B)*(1-v/MAX)}
+function f(i){var d=new Date(2026,6,7+i);return d.getDate()+'/'+(d.getMonth()+1)}
+var s='',i;
+for(var t=0;t<=4;t++){var gv=MAX*t/4,y=Y(gv);s+='<line x1="'+L+'" y1="'+y+'" x2="'+(W-R)+'" y2="'+y+'" stroke="'+(t?'#EAE4D5':'#D8CBB0')+'" stroke-width="1"/><text x="'+(L-8)+'" y="'+(y+3.5)+'" text-anchor="end" font-size="10.5" fill="#A6B0AC">'+gv+'</text>'}
+for(i=0;i<n;i++){var y=Y(vals[i]);s+='<rect x="'+BX(i).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+(Y(0)-y).toFixed(1)+'" rx="3" fill="'+(wknd[i]?'#DFD4B4':'#C9A24A')+'"/>'}
+var mv=[],w=7;
+for(i=0;i<n;i++){var a=Math.max(0,i-w+1),sum=0,c=0;for(var j=a;j<=i;j++){sum+=vals[j];c++}mv.push(sum/c)}
+var d='M'+CX(0).toFixed(1)+' '+Y(mv[0]).toFixed(1);
+for(i=1;i<n;i++)d+='L'+CX(i).toFixed(1)+' '+Y(mv[i]).toFixed(1);
+s+='<path d="'+d+'" fill="none" stroke="#0F5F57" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>';
+for(i=0;i<n;i+=3)s+='<text x="'+CX(i).toFixed(1)+'" y="'+(H-11)+'" text-anchor="middle" font-size="10" fill="#A6B0AC">'+f(i)+'</text>';
+for(i=0;i<n;i++)s+='<rect class="hz" data-i="'+i+'" x="'+(L+iw*i).toFixed(1)+'" y="'+T+'" width="'+iw.toFixed(1)+'" height="'+(H-T-B)+'" fill="transparent"/>';
+document.getElementById('chart').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" font-family="Inter, sans-serif">'+s+'</svg>';
+var cw=document.getElementById('cw'),tip=document.getElementById('tip');
+cw.addEventListener('mousemove',function(e){
+  var el=e.target.closest?e.target.closest('.hz'):null;if(!el){tip.style.opacity=0;return}
+  var i=+el.getAttribute('data-i'),r=cw.getBoundingClientRect(),k=r.width/W;
+  tip.style.left=(CX(i)*k)+'px';tip.style.top=(Y(vals[i])*k)+'px';
+  tip.innerHTML=f(i)+' · '+vals[i]+' u.'+(wknd[i]?' · fin de semana':'');
+  tip.style.opacity=1;
+});
+cw.addEventListener('mouseleave',function(){tip.style.opacity=0});
+function spark(arr,color,bars){
+  var w=200,h=46,mx=Math.max.apply(null,arr),o='';
+  if(bars){var bwd=w/arr.length*.62;
+    for(var i=0;i<arr.length;i++){var hh=(arr[i]/mx)*(h-6);o+='<rect x="'+(w/arr.length*i+(w/arr.length-bwd)/2).toFixed(1)+'" y="'+(h-hh).toFixed(1)+'" width="'+bwd.toFixed(1)+'" height="'+hh.toFixed(1)+'" rx="2" fill="'+color+'"/>'}
+  }else{
+    var px=function(i){return w*i/(arr.length-1)},py=function(v){return h-4-(v/mx)*(h-10)};
+    var d='M'+px(0)+' '+py(arr[0]);for(var i=1;i<arr.length;i++)d+='L'+px(i).toFixed(1)+' '+py(arr[i]).toFixed(1);
+    o='<path d="'+d+'L'+w+' '+h+'L0 '+h+'Z" fill="rgba(201,162,74,.15)"/><path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="1.8" stroke-linejoin="round"/>';
+  }
+  return '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+o+'</svg>';
+}
+document.getElementById('sp1').innerHTML=spark(vals,'#A8842F',false);
+document.getElementById('sp2').innerHTML=spark([520,780,610,900,740,600],'#5C8A5A',true);
+})();
+
+(function(){
+var vals=DIAS;
+var lbl=['07 – 13 jul','14 – 20 jul','21 – 27 jul','28 jul – 03 ago','04 – 06 ago'],ends=[7,14,21,28,31],st=0,rows='',tot=0,i,j;
+function pc(x){return x.toFixed(1).replace('.',',')+'%'}
+var sem=lbl.map(function(l,k){var a=st,b=ends[k];st=b;var arr=vals.slice(a,b);
+  var s=arr.reduce(function(x,y){return x+y},0);tot+=s;
+  return {l:l,d:arr.length,s:s,p:Math.round(s/arr.length),mx:Math.max.apply(null,arr),mn:Math.min.apply(null,arr)}});
+var big=Math.max.apply(null,sem.map(function(w){return w.s}));
+for(i=0;i<sem.length;i++){var w=sem[i];
+  rows+='<tr><td>'+w.l+'</td><td>'+w.d+'</td><td>'+w.s.toLocaleString('es-AR')+'<span class="mbar"><i style="width:'+Math.round(w.s/big*100)+'%"></i></span></td><td>'+w.p+'</td><td>'+w.mx+'</td><td>'+w.mn+'</td><td>'+pc(w.s/tot*100)+'</td></tr>';}
+document.getElementById('mini').innerHTML=
+  '<thead><tr><th>Semana</th><th>Días</th><th>Unidades</th><th>Prom./día</th><th>Máximo</th><th>Mínimo</th><th>% del total</th></tr></thead>'+
+  '<tbody>'+rows+'</tbody>'+
+  '<tfoot><tr><td>Total del período</td><td>'+vals.length+'</td><td>'+tot.toLocaleString('es-AR')+'</td><td>'+Math.round(tot/vals.length)+'</td><td>'+Math.max.apply(null,vals)+'</td><td>'+Math.min.apply(null,vals)+'</td><td>100,0%</td></tr></tfoot>';
+})();
+
+var _rep=null;
+function abrirReporte(key){
+  var tpl=document.getElementById('tpl-'+key);if(!tpl)return;
+  _rep=tpl.getAttribute('data-print');
+  document.getElementById('m-title').textContent=tpl.getAttribute('data-title');
+  document.getElementById('m-sub').textContent='Período '+RANGO+' · '+FILTROS;
+  document.getElementById('mbody').innerHTML=tpl.innerHTML;
+  document.getElementById('mbody').scrollTop=0;
+  document.getElementById('modal').hidden=false;
+}
+function cerrarReporte(){document.getElementById('modal').hidden=true}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')cerrarReporte()});
+document.getElementById('m-print').addEventListener('click',function(){cerrarReporte();printReport(_rep||'resumen')});
+(function(){var c=document.querySelector('.content'),h=document.querySelector('.main-head');
+function fit(){h.style.paddingRight=(30+(c.offsetWidth-c.clientWidth))+'px'}
+fit();window.addEventListener('resize',fit)})();
+
+var RANGO='07/07/2026 – 06/08/2026';
+var RANGO_CORTO='7/7/2026 — 6/8/2026';
+var GENERADO_POR='María Rodríguez';
+var TOTAL_REGISTROS=214;
+var COLS=['N°','Fecha','Hora','Paciente','Código','Protocolo','Visita','Medicamentos','Sponsor','Estado'];
+
+function filasDetalle(){
+  return [].map.call(document.querySelectorAll('#t-detalle tbody tr'),function(tr){
+    return [].map.call(tr.cells,function(td){return td.textContent.trim()});
+  });
+}
+function hojaDetalle(){
+  var filas=filasDetalle(),hoy=new Date().toLocaleDateString('es-AR');
+  return '<div class="sh-head"><div style="font-family:var(--fdisp);font-size:17px;font-weight:700">Spira · Fundación Scherbovsky</div><div style="font-size:11px">Farmacia de investigación — reporte de dispensaciones</div></div>'+
+    '<div class="band"><div><div class="k">Período</div><div class="v">'+RANGO_CORTO+'</div></div>'+
+    '<div><div class="k">Total registros</div><div class="v">'+TOTAL_REGISTROS+'</div></div>'+
+    '<div><div class="k">Generado por</div><div class="v">'+GENERADO_POR+'</div></div></div>'+
+    '<table class="dtbl"><thead><tr>'+COLS.map(function(c){return '<th>'+c+'</th>'}).join('')+'</tr></thead><tbody>'+
+    (filas.length?filas.map(function(f){return '<tr>'+f.map(function(c){return '<td>'+c+'</td>'}).join('')+'</tr>'}).join(''):'<tr><td colspan="10" style="text-align:center;padding:26px 0;color:#666">Sin dispensaciones en el período</td></tr>')+
+    '</tbody></table>'+
+    '<div class="foot"><span>Spira · Pharma — Fundación Scherbovsky</span><span>'+hoy+'</span></div>';
+}
+function exportExcel(){
+  var filas=filasDetalle();
+  var html='<html><head><meta charset="utf-8"></head><body>'+
+    '<table border="1"><tr><td colspan="10"><b>Reporte de dispensaciones</b></td></tr>'+
+    '<tr><td>Período</td><td colspan="9">'+RANGO_CORTO+'</td></tr>'+
+    '<tr><td>Filtros</td><td colspan="9">'+FILTROS+'</td></tr>'+
+    '<tr><td>Generado por</td><td colspan="9">'+GENERADO_POR+'</td></tr>'+
+    '<tr></tr><tr>'+COLS.map(function(c){return '<th>'+c+'</th>'}).join('')+'</tr>'+
+    filas.map(function(f){return '<tr>'+f.map(function(c){return '<td>'+c+'</td>'}).join('')+'</tr>'}).join('')+
+    '</table></body></html>';
+  var url=URL.createObjectURL(new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel'}));
+  var a=document.createElement('a');
+  a.href=url;a.download='dispensaciones_07-07-2026_06-08-2026.xls';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url)},1000);
+}
+var FILTROS='Protocolo: todos · Categoría: todas · Medicamento: todos · Estado: todos';
+
+var REPORTES={
+  resumen:{t:'RESUMEN DEL PERÍODO',b:function(){return kv([['Unidades dispensadas','3.482 u. en 214 dispensaciones'],['Unidades ingresadas','4.150 u. en 26 recepciones verificadas'],['Balance del período','+668 u. de saldo'],['Droga más dispensada','Empagliflozina 25 mg comp. — 640 u. (18,4%)'],['Protocolo con más dispensaciones','SCH-2401 Cardio-Prevent III — 68 (31,8%)'],['Pacientes distintos atendidos','96'],['Tiempo promedio de preparación','41 min'],['Rechazadas o canceladas','7 (3,3%)'],['Stock inmovilizado por vencimiento','210 u. en 3 lotes']])}},
+  dispensadas:{t:'UNIDADES DISPENSADAS',b:function(){return kv([['Total del período','3.482 u.'],['Dispensaciones','214'],['Variación vs. período anterior','+12%'],['Promedio diario','112 u.']])+seccion('Dispensaciones por protocolo','t-protocolos')}},
+  ingresadas:{t:'UNIDADES INGRESADAS',b:function(){return kv([['Total del período','4.150 u.'],['Recepciones verificadas','26']])+seccion('Ingresos por categoría','t-ingresos')}},
+  balance:{t:'BALANCE DEL PERÍODO',b:function(){return kv([['Ingresadas','4.150 u.'],['Dispensadas','3.482 u.'],['Saldo','+668 u.']])}},
+  medicamentos:{t:'MEDICAMENTOS MÁS DISPENSADOS',b:function(){return seccion('Medicamentos más dispensados','t-medicamentos')}},
+  protocolos:{t:'DISPENSACIONES POR PROTOCOLO',b:function(){return seccion('Dispensaciones por protocolo','t-protocolos')}},
+  pacientes:{t:'PACIENTES ATENDIDOS',b:function(){return kv([['Pacientes distintos','96'],['Dispensaciones por paciente','2,2 promedio']])+seccion('Dispensaciones por protocolo','t-protocolos')}},
+  tiempos:{t:'TIEMPO DE PREPARACIÓN',b:function(){return kv([['Promedio del período','41 min'],['Variación vs. período anterior','−6 min'],['Muestra','207 dispensaciones entregadas']])}},
+  rechazadas:{t:'DISPENSACIONES RECHAZADAS O CANCELADAS',b:function(){return kv([['Total','7'],['Sobre el total de pedidos','3,3%'],['Rechazadas por farmacia','4'],['Canceladas por coordinación','3']])}},
+  vencidos:{t:'STOCK INMOVILIZADO POR VENCIMIENTO',b:function(){return kv([['Unidades inmovilizadas','210 u.'],['Lotes vencidos en el período','3']])}},
+  evolucion:{t:'EVOLUCIÓN DIARIA',b:function(){return kv([['Días del período','31'],['Promedio diario','112 u.'],['Día de mayor movimiento','02/08 — 157 u.'],['Día de menor movimiento','10/07 — 42 u.']])}},
+  consumo:{t:'CONSUMO POR PACIENTE · SCH-2401',b:function(){return seccion('Consumo por paciente','t-consumo')}},
+  todo:{t:'INFORME DE FARMACIA DEL PERÍODO',b:function(){return REPORTES.resumen.b()+seccion('Dispensaciones por protocolo','t-protocolos')+seccion('Medicamentos más dispensados','t-medicamentos')+seccion('Ingresos por categoría','t-ingresos')+seccion('Consumo por paciente · SCH-2401','t-consumo')+seccion('Detalle de dispensaciones','t-detalle')}},
+  detalle:{t:'REPORTE DE DISPENSACIONES',full:true,b:function(){return hojaDetalle()}}
+};
+
+function kv(rows){
+  return '<table style="width:100%;border-collapse:collapse;margin-bottom:14px"><tbody>'+rows.map(function(r){
+    return '<tr><td style="padding:6px 8px 6px 0;border-bottom:1px solid #999;width:46%">'+r[0]+'</td><td style="padding:6px 0;border-bottom:1px solid #999;font-weight:700">'+r[1]+'</td></tr>'}).join('')+'</tbody></table>';
+}
+function seccion(titulo,id){
+  var t=document.querySelector('#'+id+' table');
+  return '<section style="margin-top:18px"><div style="font-size:11px;font-weight:700;letter-spacing:.08em;margin-bottom:6px">'+titulo.toUpperCase()+'</div>'+(t?t.outerHTML:'')+'</section>';
+}
+function printReport(key){
+  var r=REPORTES[key]||REPORTES.resumen;
+  var hoy=new Date().toLocaleDateString('es-AR');
+  if(r.full){document.getElementById('sheet').innerHTML=r.b();window.print();return}
+  document.getElementById('sheet').innerHTML=
+    '<div class="sh-head"><div style="font-family:var(--fdisp);font-size:17px;font-weight:700">Spira · Fundación Scherbovsky</div><div style="font-size:11px">Farmacia de investigación</div></div>'+
+    '<div class="sh-title"><span style="font-size:13px;font-weight:700;letter-spacing:.08em">'+r.t+'</span><span style="font-size:11px">emitido '+hoy+'</span></div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px"><tbody>'+
+      '<tr><td style="padding:2px 10px 2px 0;white-space:nowrap">Período</td><td style="font-weight:700">'+RANGO+'</td></tr>'+
+      '<tr><td style="padding:2px 10px 2px 0;vertical-align:top">Filtros</td><td>'+FILTROS+'</td></tr>'+
+    '</tbody></table>'+ r.b();
+  window.print();
+}
+</script>
+</body>
+</html>

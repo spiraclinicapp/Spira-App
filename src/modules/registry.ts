@@ -98,7 +98,7 @@ export const MODULES: ModuleDef[] = [
       // cambia — la usan views/registry.tsx, el buscador y las rutas guardadas.
       { key: 'medicamentos', name: 'Stock', icon: 'pill', hint: 'Inventario de medicación' },
       { key: 'dispensaciones', name: 'Dispensaciones', icon: 'box', hint: 'Entrega de medicación' },
-      { key: 'reportes', name: 'Reportes', icon: 'barChart', hint: 'En construcción' },
+      { key: 'reportes', name: 'Reportes', icon: 'barChart', hint: 'Cierre de período' },
     ],
   },
   {

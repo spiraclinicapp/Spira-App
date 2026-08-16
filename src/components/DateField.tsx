@@ -1,33 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CSSProperties, ChangeEvent } from 'react'
+import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { DayPicker } from 'react-day-picker'
-import type { DropdownProps } from 'react-day-picker'
 import { es } from 'react-day-picker/locale'
 import 'react-day-picker/style.css'
 import './DateField.css'
 import { Icon } from './Icon'
-import { SearchableSelect } from './SearchableSelect'
+import { CalendarCaption } from './CalendarCaption'
 import { usePopover } from './usePopover'
 import { isoToDate, dateToISO, parseARInput, formatAR } from '../lib/dates'
 
-/** Adapta el Dropdown de mes/año del calendario (react-day-picker) a nuestro SearchableSelect:
- *  on-brand y con el AÑO buscable (tipeás "1985"). El mes (12 opciones) va sin buscador. */
-function SelectDropdown({ options, value, onChange, 'aria-label': ariaLabel }: DropdownProps) {
-  const opts = (options ?? []).map((o) => ({ value: String(o.value), label: o.label }))
-  return (
-    <SearchableSelect
-      value={value != null ? String(value) : ''}
-      onChange={(v) => onChange?.({ target: { value: v } } as unknown as ChangeEvent<HTMLSelectElement>)}
-      options={opts}
-      placeholder={ariaLabel ?? ''}
-      searchPlaceholder="Buscar…"
-      searchable={opts.length > 20 ? 'auto' : 'never'}
-      menuWidth="auto"  // el disparador es compacto en el caption; el menú crece a los nombres de mes
-      flip={false}      // mes y año abren siempre hacia abajo (mismo sentido, no tapan el formulario)
-    />
-  )
-}
+/* El desplegable de mes/año vivía acá como función local, y por eso `DateRangeField` nació sin él.
+   Ahora es `CalendarCaption`, compartido por los dos calendarios. */
 
 interface Props {
   value: string                 // ISO 'YYYY-MM-DD' | ''
@@ -115,7 +99,7 @@ export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disable
             locale={es}
             weekStartsOn={1}
             captionLayout="dropdown"
-            components={{ Dropdown: SelectDropdown }}
+            components={{ Dropdown: CalendarCaption }}
             startMonth={startMonth}
             endMonth={endMonth}
             defaultMonth={selected ?? undefined}
