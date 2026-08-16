@@ -79,7 +79,9 @@
   background: linear-gradient(to left, transparent 50%, var(--spira-rdp-range) 50%);
 }
 /* Días fuera de tope (futuro): apagados y sin cursor de mano. */
-.rdp-root .rdp-disabled { opacity: 0.35; }
+/* 0.45 y no 0.35: a 0.35 el día quedaba en ~1,9:1 sobre el papel y costaba leer QUÉ día es.
+   WCAG exime a los deshabilitados del mínimo de contraste, pero "exento" no es "ilegible". */
+.rdp-root .rdp-disabled { opacity: 0.45; }
 .rdp-root .rdp-disabled .rdp-day_button { cursor: default; }
 
 /* Placeholder dd/mm/aaaa tenue pero legible (no el gris default del navegador). */

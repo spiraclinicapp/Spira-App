@@ -64,11 +64,18 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
    */
   const [fase, setFase] = useState<'nuevo' | 'extendiendo'>('nuevo')
 
+  /* El mes visible es estado NUESTRO porque react-day-picker no marca los chevrones como
+     deshabilitados al llegar al tope: los deja pulsables y simplemente ignora el click (medido,
+     el botón sale con `disabled=false` y sin `aria-disabled`). Un control que se ve activo y no
+     hace nada es peor que uno apagado, así que hace falta saber en qué mes estamos parados. */
+  const [mesVisible, setMesVisible] = useState(() => isoToDate(hasta))
+
   // Al abrir, el borrador arranca en lo que está aplicado hoy y el ciclo se reinicia.
   useEffect(() => {
     if (!open) return
     setBorrador({ from: isoToDate(desde), to: isoToDate(hasta) })
     setFase('nuevo')
+    setMesVisible(isoToDate(hasta))
   }, [open, desde, hasta])
 
   const tope = max ?? todayISO()
@@ -76,6 +83,12 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
      años y el desplegable sale vacío; cinco atrás cubre cualquier pedido de auditoría sin llenar
      la lista con años en los que el centro no existía. */
   const piso = String(Number(tope.slice(0, 4)) - aniosAtras) + '-01-01'
+  const topeDate = isoToDate(tope)
+  const pisoDate = isoToDate(piso)
+  const mismoMes = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
+  const enElTope = mismoMes(mesVisible, topeDate)
+  const enElPiso = mismoMes(mesVisible, pisoDate)
+
   const unSoloDia = borrador?.from && borrador.to && dateToISO(borrador.from) === dateToISO(borrador.to)
   const listo = Boolean(borrador?.from)
 
@@ -128,13 +141,30 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
       {/* Portaleado a body como el resto de los popovers: un ancestro con `backdrop-filter` pasa a
           ser el bloque contenedor de sus descendientes `fixed` y el calendario aterrizaría lejos. */}
       {open && pos && createPortal(
-        <div ref={popRef} style={{ ...popover, top: pos.top, left: pos.left }}>
+        /* `role="dialog"` sí, `aria-modal` NO: no hay trampa de foco todavía (vive en la PR del
+           Modal compartido), y declarar aria-modal sin trampa le miente al lector de pantalla —le
+           dice que el resto de la página es inerte cuando se puede tabular fuera—. Con role solo,
+           anuncia el diálogo y su nombre, que es cierto. */
+        <div
+          ref={popRef}
+          role="dialog"
+          aria-label="Elegir el período del informe"
+          style={{ ...popover, top: pos.top, left: pos.left }}
+        >
           <DayPicker
             mode="range"
             locale={es}
             weekStartsOn={1}
             captionLayout="dropdown"
-            components={{ Dropdown: CalendarCaption }}
+            month={mesVisible}
+            onMonthChange={setMesVisible}
+            components={{
+              Dropdown: CalendarCaption,
+              /* Los chevrones se apagan de verdad en los bordes. Se pasa `disabled` DESPUÉS del
+                 spread para que gane sobre lo que traiga react-day-picker. */
+              PreviousMonthButton: (p) => <button {...p} disabled={enElPiso} />,
+              NextMonthButton: (p) => <button {...p} disabled={enElTope} />,
+            }}
             startMonth={isoToDate(piso)}
             endMonth={isoToDate(tope)}
             disabled={{ after: isoToDate(tope) }}
@@ -201,8 +231,16 @@ const pie: CSSProperties = {
   borderBottomLeftRadius: 12, borderBottomRightRadius: 12,
 }
 
+/* `width: 0` + `minWidth: '100%'` y NO `flex: 1 1 100%`, que fue el primer intento y no alcanzó.
+   La diferencia: con `flex-basis: 100%` el texto igual aporta su max-content —la frase entera sin
+   cortar— al ancho intrínseco del contenedor, así que el popover seguía estirándose con el pie
+   largo. Medido: 532px con "Un solo día. Elegí otro para armar un tramo, o aplicalo así.".
+   Con `width: 0` el aporte al max-content es cero, y el `min-width` en PORCENTAJE se ignora
+   durante el cálculo intrínseco y recién se resuelve en el layout, cuando el contenedor ya lo
+   dimensionó el calendario. Resultado: 288px, con el texto ocupando su propia línea completa. */
 const textoDelPie: CSSProperties = {
-  flex: '1 1 100%', fontSize: 12, color: 'var(--spira-ink-soft)', lineHeight: 1.4,
+  width: 0, minWidth: '100%', flex: 'none',
+  fontSize: 12, color: 'var(--spira-ink-soft)', lineHeight: 1.4,
 }
 
 const btnCancelar: CSSProperties = {
