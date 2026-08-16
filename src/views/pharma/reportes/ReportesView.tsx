@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { EmptyState } from '../../../components/EmptyState'
 import { Icon } from '../../../components/Icon'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
+import { DateRangeField } from '../../../components/DateRangeField'
 import { useAuth } from '../../../lib/auth'
 import { formatAR } from '../../../lib/dates'
 import { toCsv, downloadCsv } from '../../../lib/csv'
@@ -152,6 +153,12 @@ export function ReportesView({ module }: ViewProps) {
     setRango(rangoDePreset(p))
   }
 
+  /** Un rango elegido a mano deja de coincidir con cualquier preset: se apagan los tres chips. */
+  function elegirRango(desde: string, hasta: string) {
+    setPreset('custom')
+    setRango({ desde, hasta })
+  }
+
   /* ── Estados ─────────────────────────────────────────────────────────────── */
 
   if (angosto) {
@@ -191,6 +198,7 @@ export function ReportesView({ module }: ViewProps) {
         rango={rango}
         preset={preset}
         onPreset={elegirPreset}
+        onRango={elegirRango}
         protocolCode={protocolCode}
         protocolos={d.protocolos.map((p) => p.protocolCode)}
         onProtocolo={setProtocolCode}
@@ -309,11 +317,13 @@ function armarIndicadores(
 }
 
 function Filtros({
-  rango, preset, onPreset, protocolCode, protocolos, onProtocolo, accentSolid, onImprimirTodo, puedeImprimir,
+  rango, preset, onPreset, onRango, protocolCode, protocolos, onProtocolo, accentSolid,
+  onImprimirTodo, puedeImprimir,
 }: {
   rango: { desde: string; hasta: string }
   preset: Preset
   onPreset: (p: Exclude<Preset, 'custom'>) => void
+  onRango: (desde: string, hasta: string) => void
   protocolCode: string | null
   protocolos: string[]
   onProtocolo: (p: string | null) => void
@@ -324,12 +334,12 @@ function Filtros({
   return (
     <>
       <div style={filtrosFila}>
-        <div style={rangeBox}>
-          <Icon name="calendar" size={15} stroke={1.8} />
-          <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-            {formatAR(rango.desde)} – {formatAR(rango.hasta)}
-          </span>
-        </div>
+        <DateRangeField
+          accent="var(--spira-pharma)"
+          desde={rango.desde}
+          hasta={rango.hasta}
+          onChange={onRango}
+        />
 
         <div style={{ display: 'inline-flex', gap: 7 }}>
           {([['30dias', '30 días'], ['mesEnCurso', 'Mes en curso'], ['anio', 'Año']] as const).map(([k, label]) => (
@@ -436,13 +446,6 @@ function Esqueleto() {
 const filtrosFila: CSSProperties = {
   display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
   padding: '2px 0 15px', borderBottom: '1px solid var(--spira-line)', marginBottom: 10,
-}
-
-const rangeBox: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 9, height: 38, padding: '0 13px',
-  border: '1px solid var(--spira-pharma)', background: 'rgba(15, 95, 87, 0.06)',
-  borderRadius: 10, fontFamily: 'var(--spira-font-display)', fontSize: 14, fontWeight: 700,
-  color: 'var(--spira-pharma)',
 }
 
 const chip: CSSProperties = {
