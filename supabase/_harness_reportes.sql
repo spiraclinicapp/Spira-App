@@ -36,15 +36,51 @@ select tgname
 
 
 -- ── 3 · ¿La vista ve lo mismo que el libro? ──────────────────────────────────
---    Las dos columnas tienen que dar el MISMO número. Sin recorte de fechas a propósito: la
---    vista fecha por `delivered_at` y el libro por su `created_at`, y aunque se sellan en la
---    misma transacción, un recorte podría partirlos en el borde de medianoche y hacer fallar
---    la verificación sin que haya nada mal.
+--    Las dos columnas tienen que dar el MISMO número.
+--
+--    OJO CON LA FORMA DE ESTA CONSULTA, porque la primera versión estaba mal y dio un falso
+--    positivo la primera vez que se corrió en prod (2026-08-16: 3 contra 7, y parecía un bug de
+--    la vista). Comparaba contra TODOS los movimientos de tipo 'dispensacion', y eso no puede
+--    cerrar en una base que alguna vez tuvo una reversión: el libro guarda la salida de toda
+--    dispensación que llegó a 'entregada' aunque después se haya revertido —queda compensada con
+--    una 'devolucion'— y guarda también las de dispensaciones que YA NO EXISTEN, porque
+--    `reference_id` no es foreign key y un borrado en cascada del paciente se lleva la fila y deja
+--    el movimiento huérfano. Eso último es correcto: el libro es inmutable, no se borra.
+--    La vista, bien, sólo cuenta lo que HOY está entregado.
+--
+--    La comparación correcta acota el libro a las dispensaciones que siguen entregadas.
 
 select
-  (select coalesce(sum(unidades), 0) from public.v_pharma_report_items)   as segun_la_vista,
-  (select coalesce(sum(-sm.quantity_delta), 0) from public.stock_movements sm
-    where sm.movement_type = 'dispensacion')                              as segun_el_libro;
+  (select coalesce(sum(unidades), 0) from public.v_pharma_report_items)          as segun_la_vista,
+  (select coalesce(sum(-sm.quantity_delta), 0)
+     from public.stock_movements sm
+     join public.dispensations d on d.id = sm.reference_id
+    where sm.movement_type  = 'dispensacion'
+      and sm.reference_type = 'dispensation'
+      and d.status = 'entregada')                                               as segun_el_libro;
+
+
+-- ── 3.b · Salud del libro: ¿salió stock que no volvió y no está entregado? ───
+--    No es del reporte, es de la base, pero se descubre acá y conviene mirarlo. Debería dar cero
+--    filas. Cada fila es una dispensación cuyo movimiento de stock no está explicado por una
+--    entrega vigente: o se revirtió sin compensar, o su fila ya no existe.
+--    Corrida el 2026-08-16 devolvió UNA fila: una dispensación inexistente con 2 unidades de
+--    salida y 1 de devolución, o sea 1 unidad que salió del estante y nunca volvió.
+
+select
+  sm.reference_id,
+  d.correlative_number,
+  coalesce(d.status::text, 'LA FILA YA NO EXISTE')                              as estado,
+  sum(case when sm.movement_type = 'dispensacion' then -sm.quantity_delta else 0 end) as salio,
+  sum(case when sm.movement_type = 'devolucion'   then  sm.quantity_delta else 0 end) as volvio
+from public.stock_movements sm
+left join public.dispensations d on d.id = sm.reference_id
+where sm.reference_type = 'dispensation'
+  and sm.movement_type in ('dispensacion', 'devolucion')
+group by sm.reference_id, d.correlative_number, d.status
+having coalesce(d.status::text, '') <> 'entregada'
+   and sum(case when sm.movement_type = 'dispensacion' then -sm.quantity_delta else 0 end)
+     <> sum(case when sm.movement_type = 'devolucion'   then  sm.quantity_delta else 0 end);
 
 
 -- ── 4 · ¿Alguna fila entregada quedó sin paciente o sin protocolo? ───────────
