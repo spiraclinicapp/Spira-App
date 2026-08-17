@@ -27,17 +27,17 @@
  * Barridas 121 combinaciones, la suma de ambos errores nunca bajó de ~70px. El problema no eran
  * los anchos: era anclar al borde dos textos de largo muy distinto.
  *
- * **La columna del medicamento no lleva título.** Es el único encabezado que no informaba nada
- * —que ahí va el medicamento se ve— y era justamente el texto corto que desbalanceaba el hueco.
- * El `<th>` sigue existiendo con su rótulo accesible: lo que se saca es la tinta, no la semántica.
+ * El título del medicamento vuelve (2026-08-17, pedido del Director). No reintroduce el problema
+ * porque ya no está anclado a la izquierda: centrado en una columna del mismo ancho que las demás,
+ * su largo deja de importar. Lo que desbalanceaba no era el título, era el anclaje al borde.
  */
 export const COLUMNAS = [
-  { clave: 'medicamento', label: 'Medicamento', ancho: '16.67%', align: 'center', rotuloVisible: false },
-  { clave: 'codigo',      label: 'Código / EAN', ancho: '16.67%', align: 'center', rotuloVisible: true },
-  { clave: 'lote',        label: 'Lote',        ancho: '16.67%', align: 'center', rotuloVisible: true },
-  { clave: 'vence',       label: 'Vence',       ancho: '16.67%', align: 'center', rotuloVisible: true },
-  { clave: 'laboratorio', label: 'Laboratorio', ancho: '16.66%', align: 'center', rotuloVisible: true },
-  { clave: 'cantidad',    label: 'Cantidad',    ancho: '16.66%', align: 'center', rotuloVisible: true },
+  { clave: 'medicamento', label: 'Medicamento', ancho: '16.67%', align: 'center' },
+  { clave: 'codigo',      label: 'Código / EAN', ancho: '16.67%', align: 'center' },
+  { clave: 'lote',        label: 'Lote',        ancho: '16.67%', align: 'center' },
+  { clave: 'vence',       label: 'Vence',       ancho: '16.67%', align: 'center' },
+  { clave: 'laboratorio', label: 'Laboratorio', ancho: '16.66%', align: 'center' },
+  { clave: 'cantidad',    label: 'Cantidad',    ancho: '16.66%', align: 'center' },
 ] as const
 
 /**

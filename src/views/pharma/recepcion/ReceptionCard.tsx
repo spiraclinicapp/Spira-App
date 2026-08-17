@@ -44,32 +44,30 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
     <article style={cardStyle} aria-label={`Recepción Nº ${r.folio}`}>
       <Banda r={r} canManage={canManage} busy={busy} error={error} onVerify={onVerify} />
 
-      {/* Encabezado de DOCUMENTO, no fila de tabla: identidad a la izquierda, origen a la derecha,
-          aire en el medio. No comparte la grilla de la tabla ni entra en su scroll — alinearlo con
-          las columnas los superponía en vez de unirlos. */}
+      {/* Encabezado de DOCUMENTO, no fila de tabla: identidad a la izquierda, procedencia a la
+          derecha, aire en el medio. No comparte la grilla de la tabla ni entra en su scroll.
+
+          A la derecha van las DOS cosas que sitúan la recepción —cuándo llegó y de dónde—, apiladas
+          y en ese orden. La fecha queda a la altura del folio porque los dos bloques alinean su
+          rótulo y su valor en las mismas dos líneas; el ámbito cuelga debajo. */}
       <header style={dhead}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 32 }}>
-          <div>
-            <span style={rotuloCelda}>Recepción</span>
-            <span style={valorFolio} className="spira-mono">Nº {r.folio}</span>
-          </div>
-          {/* RECIBIDO ≠ ingresado a stock. La mercadería puede llegar un día y verificarse otro
-              —el pedido queda apoyado hasta que alguien lo cuenta—, así que las dos fechas
-              conviven en la card y cada una necesita decir cuál es. Va pegado al folio: los dos
-              identifican el mismo documento, y juntos dejan el centro libre. */}
-          <div>
-            <span style={rotuloCelda}>Recibido</span>
-            <span style={valorFecha} className="spira-mono">{formatDayMonthYear(r.reception_date)}</span>
-          </div>
+        <div>
+          <span style={rotuloCelda}>Recepción</span>
+          <span style={valorFolio} className="spira-mono">Nº {r.folio}</span>
         </div>
 
-        {/* Sin barra de color: el nombre del ámbito YA se escribe en su color, así que una barra
-            del mismo tono al lado repite el dato en vez de codificarlo. */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: ambito.color }}>{ambito.label}</span>
-          {r.protocol && (
-            <span className="spira-mono" style={codigoOrigen}>{r.protocol.code}</span>
-          )}
+        <div style={{ textAlign: 'right' }}>
+          {/* RECIBIDO ≠ ingresado a stock: la mercadería puede llegar un día y verificarse otro,
+              y la segunda fecha vive en la banda de arriba. Por eso ésta lleva su rótulo. */}
+          <span style={rotuloCelda}>Recibido</span>
+          <span style={valorFecha} className="spira-mono">{formatDayMonthYear(r.reception_date)}</span>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'flex-end', marginTop: 7 }}>
+            <span style={{ ...barraOrigen, background: ambito.color }} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: ambito.color }}>{ambito.label}</span>
+            {r.protocol && (
+              <span className="spira-mono" style={codigoOrigen}>{r.protocol.code}</span>
+            )}
+          </div>
         </div>
       </header>
 
@@ -164,9 +162,7 @@ function TablaRenglones({ r, hoyISO }: { r: ReceptionRow; hoyISO: string }) {
         <tr>
           {COLUMNAS.map((c) => (
             <th key={c.clave} scope="col" style={{ ...th, textAlign: c.align }}>
-              {/* El rótulo del medicamento se oculta A LA VISTA, no al lector de pantalla: la
-                  columna sigue anunciándose al navegar la tabla. */}
-              <span style={c.rotuloVisible ? undefined : soloLector}>{c.label}</span>
+              {c.label}
             </th>
           ))}
         </tr>
@@ -265,7 +261,7 @@ const btnVerificar: CSSProperties = {
 // el valor a 21px y el otro a 13,5, así que centrarlos los dejaría flotando), y el ámbito a la
 // derecha. El espacio libre del medio es la separación entre "qué documento es" y "de dónde vino".
 const dhead: CSSProperties = {
-  display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20,
+  display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20,
   padding: `15px ${PADDING_LATERAL}px 16px`, flexWrap: 'wrap',
   background: 'var(--spira-surface)', borderBottom: '1px solid var(--spira-line)',
 }
@@ -278,7 +274,9 @@ const rotuloCelda: CSSProperties = {
 const valorFolio: CSSProperties = {
   fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, color: 'var(--spira-ink)',
 }
-const valorFecha: CSSProperties = { fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: 'var(--spira-ink)' }
+const valorFecha: CSSProperties = { display: 'block', fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: 'var(--spira-ink)' }
+// Vuelve por pedido del Director. Acompaña al nombre del ámbito, que ya va en ese color.
+const barraOrigen: CSSProperties = { width: 3, height: 15, borderRadius: 2, flex: '0 0 auto' }
 const codigoOrigen: CSSProperties = { fontSize: 13.5, fontWeight: 500, color: 'var(--spira-ink-2)', whiteSpace: 'nowrap' }
 
 // `fixed` es requisito: sin él el navegador ignora los anchos de <col> y la grilla del header
@@ -302,11 +300,6 @@ const td: CSSProperties = {
  * los dos consumidores.
  */
 const celdaDe = (i: number): CSSProperties => ({ ...td, textAlign: COLUMNAS[i].align })
-/** Oculto a la vista, presente para el lector de pantalla. */
-const soloLector: CSSProperties = {
-  position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
-  overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
-}
 const nombreMed: CSSProperties = { fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)' }
 const monodroga: CSSProperties = { fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 1 }
 const qualifier: CSSProperties = { fontSize: 11.5, color: 'var(--spira-ink-soft)', marginLeft: 5 }
