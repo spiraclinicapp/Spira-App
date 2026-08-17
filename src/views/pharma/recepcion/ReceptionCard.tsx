@@ -49,7 +49,8 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
       <div style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: ANCHO_MINIMO }}>
           <header style={dhead}>
-            <div style={celdaFolio}>
+            <div style={celda}>
+              <span style={rotuloCelda}>Recepción</span>
               <span style={valorFolio} className="spira-mono">Nº {r.folio}</span>
             </div>
             {/* RECIBIDO ≠ ingresado a stock. La mercadería puede llegar un día y verificarse otro
@@ -257,14 +258,11 @@ const dhead: CSSProperties = {
   background: 'var(--spira-surface)', borderBottom: '1px solid var(--spira-line)',
 }
 const celda: CSSProperties = { padding: `15px ${PADDING_LATERAL}px 16px`, minWidth: 0 }
-// Rótulo de dato, no eyebrow de sección: existe sólo donde el valor por sí solo sería ambiguo.
+// Rótulo de dato. Las dos celdas del encabezado lo llevan: "Nº 11" y una fecha suelta, uno al
+// lado del otro y con una segunda fecha en la banda de arriba, necesitan decir qué son.
 const rotuloCelda: CSSProperties = {
   display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em',
   textTransform: 'uppercase', color: 'var(--spira-muted)', marginBottom: 2,
-}
-// 17 + 3 de borde = los mismos 20px de padding lateral que th y td.
-const celdaFolio: CSSProperties = {
-  ...celda, paddingLeft: PADDING_LATERAL - 3, borderLeft: '3px solid var(--spira-primary)',
 }
 const valorFolio: CSSProperties = {
   fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, color: 'var(--spira-ink)',
