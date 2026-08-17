@@ -263,7 +263,7 @@ const btnVerificar: CSSProperties = {
 // el valor a 21px y el otro a 13,5, así que centrarlos los dejaría flotando), y el ámbito a la
 // derecha. El espacio libre del medio es la separación entre "qué documento es" y "de dónde vino".
 const dhead: CSSProperties = {
-  display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20,
+  display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20,
   padding: `15px ${PADDING_LATERAL}px 16px`, flexWrap: 'wrap',
   background: 'var(--spira-surface)', borderBottom: '1px solid var(--spira-line)',
 }
