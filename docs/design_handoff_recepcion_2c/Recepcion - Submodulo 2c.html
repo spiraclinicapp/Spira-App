@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Components" name="Recepción · submódulo 2c" subtitle="Pantalla completa con las cards en formato 2c" viewport="1440x900" -->
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spira Pharma · Recepción</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root{--ink:#14302E;--primary:#0F5F57;--paper:#F4F1EA;--surface:#FBFAF6;--white:#fff;--muted:#7C8C87;--faint:#A6B0AC;--line:#E4DECF;--line2:#D8CBB0;--good:#5C8A5A;--warn:#B0823F;--danger:#A6483B;--pharma-solid:#A8842F;--contable:#3A6B8C;--on-accent:#F4F1EA;--fdisp:'Schibsted Grotesk',system-ui,sans-serif;--ftext:'Hanken Grotesk',system-ui,sans-serif;--fmono:'IBM Plex Mono',ui-monospace,monospace;--sh-sm:0 1px 2px rgba(20,48,46,.06);--sh-md:0 12px 32px rgba(20,48,46,.10);--warn-ink:color-mix(in oklab, var(--warn) 78%, var(--ink));--good-ink:color-mix(in oklab, var(--good) 78%, var(--ink))}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+html,body{margin:0;height:100%}
+body{font-family:var(--ftext);color:var(--ink);background:var(--paper);font-size:14px}
+a{color:var(--primary);text-decoration:none}a:hover{color:var(--ink)}
+.eyebrow{font-weight:700;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.app{display:flex;flex-direction:column;height:100vh;min-height:0}
+.topbar{height:60px;flex:0 0 60px;display:flex;align-items:center;gap:14px;padding:0 20px;background:var(--white);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--fdisp);font-weight:700;font-size:20px}
+.divider-v{width:1px;height:26px;background:var(--line)}
+.mod{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14.5px}
+.mod .chip-ico{width:26px;height:26px;border-radius:7px;background:rgba(168,132,47,.16);display:grid;place-items:center}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.search-top{display:flex;align-items:center;gap:8px;width:250px;height:38px;padding:0 12px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);color:var(--faint);font-size:13.5px}
+.kbd{margin-left:auto;font-size:11px;color:var(--faint);background:var(--white);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:none;background:transparent;display:grid;place-items:center;cursor:pointer}
+.avatar{display:flex;align-items:center;gap:9px;padding:4px 8px 4px 5px;border-radius:10px;cursor:pointer}
+.avatar .a-circ{width:32px;height:32px;border-radius:50%;background:var(--primary);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:12.5px;font-family:var(--fdisp)}
+.body{flex:1;display:flex;min-height:0}
+.rail{width:64px;flex:0 0 64px;background:var(--white);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px}
+.rail button{width:40px;height:40px;border-radius:11px;border:none;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.rail button.on{background:rgba(168,132,47,.14)}
+.rail .spacer{flex:1}
+.submods{width:212px;flex:0 0 212px;background:var(--surface);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:2px}
+.submods .lbl{padding:0 8px 10px}
+.submods a{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;color:var(--ink);font-size:13.5px;font-weight:500}
+.submods a.on{background:rgba(168,132,47,.14);color:var(--pharma-solid);font-weight:600}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.main-head{padding:22px 30px 0;display:flex;align-items:flex-start;gap:12px}
+.crumb{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+.crumb .cur{color:var(--ink);font-weight:600}
+.h1{font-family:var(--fdisp);font-weight:700;font-size:26px;letter-spacing:-.02em;margin:4px 0 0}
+.btn-primary{height:40px;padding:0 16px;border:none;border-radius:10px;background:var(--pharma-solid);color:var(--on-accent);font-family:var(--ftext);font-weight:600;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.content{flex:1;overflow:auto;padding:18px 30px 40px}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.search-wrap{position:relative;flex:1;min-width:230px;max-width:340px;display:flex;align-items:center}
+.search-wrap svg{position:absolute;left:13px}
+.search-input{width:100%;height:40px;padding:0 13px 0 38px;border-radius:999px;border:1px solid var(--line2);background:var(--white);box-shadow:var(--sh-sm);color:var(--ink);font-family:var(--ftext);font-size:13.5px}
+.search-input::placeholder{color:var(--faint)}
+.chip{height:34px;padding:0 15px;border-radius:999px;border:1px solid var(--line2);background:var(--white);color:var(--muted);font-family:var(--ftext);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip.sel{background:rgba(168,132,47,.14);border-color:transparent;color:var(--pharma-solid);font-weight:600}
+.btn-outline{height:36px;padding:0 13px;border:1px solid var(--line2);border-radius:10px;background:var(--white);color:var(--ink);font-family:var(--ftext);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.daybar{display:flex;align-items:baseline;gap:11px;padding:0 2px 10px}
+.daybar .d{font-family:var(--fdisp);font-weight:700;font-size:14px}
+.daybar .rule{height:1px;flex:1;background:var(--line2);opacity:.7}
+.daybar .c{font-size:12px;color:var(--muted)}
+.group+.group{margin-top:26px}
+table{border-collapse:collapse;width:100%;table-layout:fixed}
+th{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:left;padding:9px 20px;white-space:nowrap}
+td{padding:12px 20px;font-size:13px;vertical-align:middle}
+.c-r{text-align:right}
+.c-c{text-align:center}
+.mname{font-weight:600;font-size:13.5px}
+.mdrug{font-size:11.5px;color:var(--muted);margin-top:1px}
+.lote{display:inline-flex;align-items:center;height:23px;padding:0 9px;border-radius:6px;background:var(--surface);border:1px solid var(--line);font-family:var(--fmono);font-size:12px;color:var(--ink)}
+.ean{font-family:var(--ftext);font-weight:500;font-size:13px;font-variant-numeric:tabular-nums;letter-spacing:.01em;color:var(--ink)}
+.qual{font-size:11.5px;color:var(--muted);margin-left:5px}
+.venc{display:inline-flex;align-items:center;gap:6px;font-weight:500;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.venc.w{color:var(--warn)}.venc.d{color:var(--danger)}
+.lab{font-size:12.5px;color:var(--muted)}
+.qty{white-space:nowrap;font-variant-numeric:tabular-nums}
+.qty b{font-family:var(--fdisp);font-weight:700;font-size:15px}
+.qty i{font-style:normal;color:var(--muted);font-size:11px;margin-left:3px}
+.doc{display:flex;flex-direction:column;background:var(--white);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh-sm);overflow:hidden;margin-bottom:14px}
+.doc thead th{border-bottom:1px solid var(--line);padding-top:12px;background:var(--white)}
+.doc tbody tr+tr td{border-top:1px solid var(--line)}
+.doc tbody tr:last-child td{padding-bottom:15px}
+.c-bar{display:flex;align-items:center;gap:12px;padding:9px 20px;border-bottom:1px solid var(--line)}
+.c-bar.pend{background:rgba(176,130,63,.13);color:var(--warn-ink)}
+.c-bar.ok{background:rgba(92,138,90,.10);color:var(--good-ink)}
+.c-bar .lbl{font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.c-bar .txt{font-size:12.5px;color:var(--muted)}
+.c-bar .cont{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.c-bar .btn-v{height:30px;padding:0 13px;border:none;border-radius:8px;background:var(--good);color:var(--on-accent);font-family:var(--ftext);font-weight:600;font-size:12.5px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;margin-left:auto}
+.dhead{display:grid;grid-template-columns:29% 16% 12% 15% 16% 12%;align-items:center;background:var(--surface);border-bottom:1px solid var(--line)}
+.dhead>*{padding:15px 20px 16px}
+.dfolio{padding-left:17px;border-left:3px solid var(--primary)}
+.dcol{grid-column:2/4}
+.dfolio .k{font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--primary)}
+.dfolio .v{font-family:var(--fdisp);font-weight:700;font-size:21px;margin-top:3px;font-variant-numeric:tabular-nums}
+.dhead .k{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.dhead .dcol .v{font-size:13.5px;font-weight:500;margin-top:2px;white-space:nowrap}
+.c-orig{grid-column:5/7;justify-self:end;display:flex;align-items:center;gap:10px;padding-left:11px;border-left:3px solid var(--primary)}
+.c-orig .kind{font-size:12.5px;font-weight:600;color:var(--primary)}
+.c-orig .pcode{font-family:var(--ftext);font-weight:500;font-size:13.5px;font-variant-numeric:tabular-nums;letter-spacing:.01em;color:color-mix(in oklab, var(--muted) 40%, var(--ink))}
+.c-orig.amb{border-left-color:var(--contable)}.c-orig.amb .kind{color:var(--contable)}
+.c-orig.inv{border-left-color:var(--pharma-solid)}.c-orig.inv .kind{color:var(--pharma-solid)}
+.dnote{padding:13px 20px;font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:9px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><svg width="24" height="29" viewBox="0 0 24 29" fill="none"><path d="M12 1C12 8 6 10 6 16a6 6 0 0012 0c0-6-6-8-6-15z" stroke="#0F5F57" stroke-width="1.6"/><path d="M12 16v12M12 28l-4-3M12 28l4-3" stroke="#0F5F57" stroke-width="1.4" stroke-linecap="round"/></svg><span>Spira</span></div>
+    <span class="divider-v"></span>
+    <span class="mod"><span class="chip-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="8" width="18" height="8" rx="4" transform="rotate(-45 12 12)" stroke="#A8842F" stroke-width="1.8"/><path d="M9 9l6 6" stroke="#A8842F" stroke-width="1.8"/></svg></span>Pharma</span>
+    <div class="top-right">
+      <div class="search-top"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#A6B0AC" stroke-width="1.8"/><path d="M20 20l-4-4" stroke="#A6B0AC" stroke-width="1.8" stroke-linecap="round"/></svg>Buscar…<span class="kbd">Ctrl K</span></div>
+      <button class="icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 1112 0c0 6 2 7 2 7H4s2-1 2-7z" stroke="#7C8C87" stroke-width="1.7" stroke-linejoin="round"/><path d="M10 20a2 2 0 004 0" stroke="#7C8C87" stroke-width="1.7"/></svg></button>
+      <div class="avatar"><span class="a-circ">SC</span><span style="font-weight:600;font-size:13.5px">Spira Clinic</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="rail">
+      <button><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#7C8C87" stroke-width="1.7"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#7C8C87" stroke-width="1.7"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#7C8C87" stroke-width="1.7"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="#7C8C87" stroke-width="1.7"/></svg></button>
+      <button><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-6 4 12 2-6h6" stroke="#7C8C87" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="on"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="8" width="18" height="8" rx="4" transform="rotate(-45 12 12)" stroke="#A8842F" stroke-width="1.8"/><path d="M9 9l6 6" stroke="#A8842F" stroke-width="1.8"/></svg></button>
+      <button><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="11" rx="2" stroke="#7C8C87" stroke-width="1.7"/><path d="M8 10V7a4 4 0 018 0v3" stroke="#7C8C87" stroke-width="1.7"/></svg></button>
+      <div class="spacer"></div>
+      <button><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#7C8C87" stroke-width="1.7"/><path d="M12 11v5M12 8h.01" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <nav class="submods">
+      <div class="lbl eyebrow">Submódulos</div>
+      <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#7C8C87" stroke-width="1.7"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#7C8C87" stroke-width="1.7"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#7C8C87" stroke-width="1.7"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="#7C8C87" stroke-width="1.7"/></svg>Resumen</a>
+      <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" stroke="#7C8C87" stroke-width="1.7"/><path d="M9 8h6M9 12h6M9 16h4" stroke="#7C8C87" stroke-width="1.7" stroke-linecap="round"/></svg>Protocolos</a>
+      <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="8" width="18" height="8" rx="4" transform="rotate(-45 12 12)" stroke="#7C8C87" stroke-width="1.7"/><path d="M9 9l6 6" stroke="#7C8C87" stroke-width="1.7"/></svg>Medicamentos</a>
+      <a class="on"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" stroke="#A8842F" stroke-width="1.7"/><path d="M9 12l2 2 4-4" stroke="#A8842F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Recepción</a>
+      <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9L12 2z" stroke="#7C8C87" stroke-width="1.6" stroke-linejoin="round"/></svg>Dispensaciones</a>
+      <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 20V10M12 20V4M19 20v-7" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round"/></svg>Reportes</a>
+    </nav>
+    <div class="main">
+      <div class="main-head">
+        <div>
+          <div class="crumb"><span>Spira Pharma</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#A6B0AC" stroke-width="1.8" stroke-linecap="round"/></svg><span class="cur">Recepción</span></div>
+          <h1 class="h1">Recepción</h1>
+        </div>
+        <button class="btn-primary" style="margin-left:auto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#F4F1EA" stroke-width="2" stroke-linecap="round"/></svg>Nueva recepción</button>
+      </div>
+      <div class="content">
+        <div class="toolbar">
+          <div class="search-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#A6B0AC" stroke-width="1.8"/><path d="M20 20l-4-4" stroke="#A6B0AC" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <input class="search-input" placeholder="Buscar recepción…" />
+          </div>
+          <div style="display:flex;gap:7px">
+            <button class="chip sel">Todas</button>
+            <button class="chip">Pendientes</button>
+            <button class="chip">Protocolo</button>
+            <button class="chip">Ambulatoria</button>
+          </div>
+          <span class="divider-v"></span>
+          <div style="display:flex;gap:7px">
+            <button class="chip">7 días</button>
+            <button class="chip">30 días</button>
+          </div>
+          <button class="btn-outline" style="margin-left:auto"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M7 12h10M10 17h4" stroke="#7C8C87" stroke-width="1.8" stroke-linecap="round"/></svg>Más filtros</button>
+        </div>
+
+        <div class="group">
+          <div class="daybar"><span class="d">Miércoles 22 de julio</span><span class="rule"></span><span class="c">2 recepciones · 24 unidades</span></div>
+
+          <div class="doc">
+            <div class="c-bar pend">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5l3.5 2"/></svg>
+              <span class="lbl">Pendiente de verificar</span><span class="txt">La medicación todavía no entró a stock.</span>
+              <button class="btn-v"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F4F1EA" stroke-width="2.4"><path d="M4 12.5l5 5L20 6.5"/></svg>Verificar e ingresar a stock</button>
+            </div>
+            <div class="dhead">
+              <div class="dfolio"><div class="k">Recepción</div><div class="v">Nº 1043</div></div>
+                <div class="dcol"><div class="k">Ingresada</div><div class="v">22 jul 2026 · 09:14</div></div>
+                <div class="c-orig"><span class="kind">Protocolo</span><span class="pcode">EFC18420</span></div>
+            </div>
+            <table>
+              <thead><tr><th style="width:29%">Medicamento</th><th style="width:16%">Código / EAN</th><th style="width:12%" class="c-c">Lote</th><th style="width:15%">Vence</th><th style="width:16%" class="c-c">Laboratorio</th><th style="width:12%" class="c-r">Cantidad</th></tr></thead>
+              <tbody>
+                <tr><td><div class="mname">Trelegy Ellipta 92/55/22 mcg</div><div class="mdrug">Fluticasona + Umeclidinio + Vilanterol</div></td>
+                  <td><span class="ean">7795373012288</span></td><td class="c-c"><span class="lote">TRE-4412</span></td>
+                  <td><span class="venc d"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A6483B" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.01"/></svg>30 jun 2026</span></td>
+                  <td class="c-c"><span class="lab">GSK</span></td><td class="c-r qty"><b>4</b><i>u.</i></td></tr>
+                <tr><td><div class="mname">Salbutral 100 mcg</div><div class="mdrug">Salbutamol</div></td>
+                  <td><span class="ean">7795373019041</span></td><td class="c-c"><span class="lote">LOTE-11</span></td>
+                  <td><span class="venc w"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B0823F" stroke-width="2.2"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 16.8v.01"/></svg>15 sep 2026</span></td>
+                  <td class="c-c"><span class="lab">Roemmers</span></td><td class="c-r qty"><b>5</b><i>u.</i></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="doc">
+            <div class="c-bar ok">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M4 12.5l5 5L20 6.5"/></svg>
+              <span class="lbl">Verificada</span>
+              <span class="txt">Ingresada a stock por M. Álvarez · 22 jul 08:19</span>
+              <span class="cont">2 medicamentos · 15 unidades</span>
+            </div>
+            <div class="dhead">
+              <div class="dfolio"><div class="k">Recepción</div><div class="v">Nº 1042</div></div>
+                <div class="dcol"><div class="k">Ingresada</div><div class="v">22 jul 2026 · 08:02</div></div>
+                <div class="c-orig"><span class="kind">Protocolo</span><span class="pcode">EFC18419</span></div>
+            </div>
+            <table>
+              <thead><tr><th style="width:29%">Medicamento</th><th style="width:16%">Código / EAN</th><th style="width:12%" class="c-c">Lote</th><th style="width:15%">Vence</th><th style="width:16%" class="c-c">Laboratorio</th><th style="width:12%" class="c-r">Cantidad</th></tr></thead>
+              <tbody>
+                <tr><td><div class="mname">Alvetide 184/22 mcg</div><div class="mdrug">Fluticasona furoato + Vilanterol</div></td>
+                  <td><span class="ean">01</span><span class="qual">interno</span></td><td class="c-c"><span class="lote">LOTE-8</span></td>
+                  <td><span class="venc">15 jul 2027</span></td><td class="c-c"><span class="lab">— sin cargar —</span></td><td class="c-r qty"><b>6</b><i>u.</i></td></tr>
+                <tr><td><div class="mname">Salbutral 100 mcg</div><div class="mdrug">Salbutamol</div></td>
+                  <td><span class="ean">7795373012288</span></td><td class="c-c"><span class="lote">LOTE-9</span></td>
+                  <td><span class="venc">16 jul 2027</span></td><td class="c-c"><span class="lab">Roemmers</span></td><td class="c-r qty"><b>9</b><i>u.</i></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="daybar"><span class="d">Martes 21 de julio</span><span class="rule"></span><span class="c">2 recepciones · 42 unidades</span></div>
+
+          <div class="doc">
+            <div class="c-bar ok">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M4 12.5l5 5L20 6.5"/></svg>
+              <span class="lbl">Verificada</span>
+              <span class="txt">Ingresada a stock por J. Pereyra · 21 jul 16:40</span>
+              <span class="cont">2 medicamentos · 18 unidades</span>
+            </div>
+            <div class="dhead">
+              <div class="dfolio"><div class="k">Recepción</div><div class="v">Nº 1041</div></div>
+                <div class="dcol"><div class="k">Ingresada</div><div class="v">21 jul 2026 · 16:12</div></div>
+                <div class="c-orig amb"><span class="kind">Ambulatoria</span><span class="pcode">AMB-2291</span></div>
+            </div>
+            <table>
+              <thead><tr><th style="width:29%">Medicamento</th><th style="width:16%">Código / EAN</th><th style="width:12%" class="c-c">Lote</th><th style="width:15%">Vence</th><th style="width:16%" class="c-c">Laboratorio</th><th style="width:12%" class="c-r">Cantidad</th></tr></thead>
+              <tbody>
+                <tr><td><div class="mname">Donepecilo 10 mg</div><div class="mdrug">Donepecilo</div></td>
+                  <td><span class="ean">7790987650012</span></td><td class="c-c"><span class="lote">DNP-77</span></td>
+                  <td><span class="venc">08 jun 2027</span></td><td class="c-c"><span class="lab">Roemmers</span></td><td class="c-r qty"><b>12</b><i>u.</i></td></tr>
+                <tr><td><div class="mname">Salbutamol 100 mcg</div><div class="mdrug">Salbutamol</div></td>
+                  <td><span class="ean">7791122334455</span></td><td class="c-c"><span class="lote">SB-204</span></td>
+                  <td><span class="venc w"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B0823F" stroke-width="2.2"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 16.8v.01"/></svg>28 jul 2026</span></td>
+                  <td class="c-c"><span class="lab">Gador</span></td><td class="c-r qty"><b>6</b><i>u.</i></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="doc">
+            <div class="c-bar ok">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M4 12.5l5 5L20 6.5"/></svg>
+              <span class="lbl">Verificada</span>
+              <span class="txt">Ingresada a stock por M. Álvarez · 21 jul 10:05</span>
+              <span class="cont">24 kits</span>
+            </div>
+            <div class="dhead">
+              <div class="dfolio"><div class="k">Recepción</div><div class="v">Nº 1040</div></div>
+                <div class="dcol"><div class="k">Ingresada</div><div class="v">21 jul 2026 · 09:48</div></div>
+                <div class="c-orig inv"><span class="kind">Investigación</span><span class="pcode">ACT18301</span></div>
+            </div>
+            <div class="dnote"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C8C87" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01" stroke-linecap="round"/></svg>Producto de investigación: cargamento inicial de kits, sin renglones de medicamento. Sin excursión de temperatura.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

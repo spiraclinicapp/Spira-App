@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Components" name="Recepción 1a · estado + EAN" subtitle="3 tratamientos de la zona de estado, EAN sin mono" viewport="4260x1000" -->
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="design_doc_mode" content="canvas" />
+<title>Recepción 1a · estado y EAN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root{--ink:#14302E;--primary:#0F5F57;--paper:#F4F1EA;--surface:#FBFAF6;--white:#fff;--muted:#7C8C87;--faint:#A6B0AC;--line:#E4DECF;--line2:#D8CBB0;--good:#5C8A5A;--warn:#B0823F;--danger:#A6483B;--contable:#3A6B8C;--on-accent:#F4F1EA;--fdisp:'Schibsted Grotesk',system-ui,sans-serif;--ftext:'Hanken Grotesk',system-ui,sans-serif;--fmono:'IBM Plex Mono',ui-monospace,monospace;--sh-sm:0 1px 2px rgba(20,48,46,.06);--sh-md:0 12px 32px rgba(20,48,46,.10);--warn-ink:color-mix(in oklab, var(--warn) 78%, var(--ink));--good-ink:color-mix(in oklab, var(--good) 78%, var(--ink))}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+body{margin:0;font-family:var(--ftext);color:var(--ink);font-size:14px}
+a{color:var(--primary)}a:hover{color:var(--ink)}
+.mono{font-family:var(--fmono);font-variant-numeric:tabular-nums}
+.num{font-family:var(--fdisp);font-weight:700;font-variant-numeric:tabular-nums}
+.frame{position:absolute;background:var(--paper);border-radius:20px;box-shadow:var(--sh-md);padding:26px 28px 30px}
+.flabel{position:absolute;top:-64px;left:2px;display:flex;align-items:center;gap:11px}
+.bid{font-family:var(--fdisp);font-weight:700;font-size:13px;color:var(--white);background:var(--ink);border-radius:7px;padding:3px 10px}
+.ftitle{font-family:var(--fdisp);font-weight:700;font-size:20px}
+.fdesc{position:absolute;top:-28px;left:2px;font-size:13px;color:#6b7a75;max-width:1000px}
+.daybar{display:flex;align-items:baseline;gap:11px;padding:0 2px 10px}
+.daybar .d{font-family:var(--fdisp);font-weight:700;font-size:14px}
+.daybar .rule{height:1px;flex:1;background:var(--line2);opacity:.7}
+.daybar .c{font-size:12px;color:var(--muted)}
+table{border-collapse:collapse;width:100%}
+th{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:left;padding:9px 20px;white-space:nowrap}
+td{padding:12px 20px;font-size:13px;vertical-align:middle}
+.c-r{text-align:right}
+.mname{font-weight:600;font-size:13.5px}
+.mdrug{font-size:11.5px;color:var(--muted);margin-top:1px}
+.lote{display:inline-flex;align-items:center;height:23px;padding:0 9px;border-radius:6px;background:var(--surface);border:1px solid var(--line);font-family:var(--fmono);font-size:12px;color:var(--ink)}
+/* EAN: misma familia que la UI, con cifras tabulares — sin monoespaciada */
+.ean{font-family:var(--ftext);font-weight:500;font-size:13px;font-variant-numeric:tabular-nums;letter-spacing:.01em;color:var(--ink)}
+.qual{font-size:11.5px;color:var(--muted);margin-left:5px}
+.venc{display:inline-flex;align-items:center;gap:6px;font-family:var(--ftext);font-weight:500;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.venc.w{color:var(--warn)}.venc.d{color:var(--danger)}
+.lab{font-size:12.5px;color:var(--muted)}
+.lab.none{font-size:12.5px;color:var(--muted)}
+.qty{white-space:nowrap;font-variant-numeric:tabular-nums}
+.qty b{font-family:var(--fdisp);font-weight:700;font-size:15px}
+.qty i{font-style:normal;color:var(--muted);font-size:11px;margin-left:3px}
+.doc{display:flex;flex-direction:column;background:var(--white);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh-sm);overflow:hidden;margin-bottom:16px}
+.dhead{display:flex;align-items:flex-start;gap:18px;padding:17px 20px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.dfolio{flex:0 0 auto;min-width:118px;padding-left:14px;border-left:3px solid var(--primary)}
+.dfolio .k{font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--primary)}
+.dfolio .v{font-family:var(--fdisp);font-weight:700;font-size:21px;margin-top:3px;font-variant-numeric:tabular-nums}
+.dmeta{flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 24px}
+.dmeta .k{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.dmeta .v{font-size:13.5px;font-weight:500;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dcap{order:-1;display:flex;align-items:baseline;gap:10px;padding:11px 20px;background:var(--paper);border-bottom:1px solid var(--line2)}
+.dcap .t{font-weight:700;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink)}
+.dcap .s{font-size:12.5px;color:color-mix(in oklab, var(--muted) 45%, var(--ink));margin-left:auto}
+.doc thead th{border-bottom:1px solid var(--line);padding-top:12px;background:var(--white)}
+.doc tbody tr+tr td{border-top:1px solid var(--line)}
+.doc tbody tr:last-child td{padding-bottom:15px}
+.btn-v{height:36px;padding:0 16px;border:none;border-radius:9px;background:var(--good);color:var(--on-accent);font-family:var(--ftext);font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.tagp{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--primary)}
+.tagp .dot{width:7px;height:7px;border-radius:50%;background:var(--primary)}
+
+/* ── 2a · Estado como franja de borde + texto, sin píldora ── */
+.a-doc{position:relative;padding-left:6px}
+.a-doc:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px}
+.a-doc.pend:before{background:var(--warn)}
+.a-doc.ok:before{background:var(--good)}
+.a-right{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:8px;text-align:right}
+.a-st{display:flex;align-items:center;gap:8px;font-family:var(--fdisp);font-weight:700;font-size:14.5px;letter-spacing:-.01em}
+.a-st.pend{color:var(--warn)}.a-st.ok{color:var(--good)}
+.a-sub{font-size:12px;color:var(--muted)}
+
+/* ── 2b · Estado como campo del encabezado (un dato más) ── */
+.b-meta{grid-template-columns:repeat(4,minmax(0,1fr))}
+.b-meta>div:last-child{display:grid;grid-template-columns:max-content max-content;column-gap:10px;align-items:center;align-content:start}
+.b-meta>div:last-child>*:nth-child(1){grid-column:1/-1}
+.b-meta>div:last-child>*:nth-child(3){margin-top:0}
+.b-st{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;margin-top:2px}
+.b-st.pend{color:var(--warn)}.b-st.ok{color:var(--good)}
+.b-link{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:8px;border:1px solid var(--good);background:rgba(92,138,90,.08);color:var(--good);font-weight:600;font-size:12.5px;cursor:pointer;margin-top:7px;width:max-content}
+
+/* ── 2c · Barra de estado a lo ancho, arriba del documento ── */
+.c-bar{order:-2;display:flex;align-items:center;gap:12px;padding:9px 20px;border-bottom:1px solid var(--line)}
+.c-bar.pend{background:rgba(176,130,63,.13);color:var(--warn-ink)}
+.c-bar.ok{background:rgba(92,138,90,.10);color:var(--good-ink)}
+.c-bar .lbl{font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.c-bar.pend .lbl{color:var(--warn-ink)}
+.c-bar.ok .lbl{color:var(--good-ink)}.c-bar .txt{font-size:12.5px;color:var(--muted)}
+.c-bar .btn-v{height:30px;font-size:12.5px;padding:0 13px}
+.c-bar .cont{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.c-head{padding-top:15px;align-items:center}
+.c-meta{display:flex;align-items:center;gap:28px}
+.c-orig{margin-left:auto;display:flex;align-items:center;gap:10px;padding-left:11px;border-left:3px solid var(--primary)}
+.c-orig .kind{font-size:12.5px;font-weight:600;color:var(--primary)}
+.c-orig .pcode{font-family:var(--ftext);font-weight:500;font-size:13.5px;font-variant-numeric:tabular-nums;letter-spacing:.01em;color:color-mix(in oklab, var(--muted) 40%, var(--ink))}
+</style>
+</head>
+<body>
+
+<!-- ══════════ 2a ══════════ -->
+<div class="frame" style="left:80px;top:150px;width:1240px">
+  <div class="flabel"><span class="bid">2a</span><span class="ftitle">Estado como franja + texto</span></div>
+  <div class="fdesc">Sin píldoras: el color vive en la franja izquierda del documento y el estado se dice en palabras, en la tipografía de títulos. El ámbito (Protocolo) queda como dato del encabezado.</div>
+  <div class="daybar"><span class="d">Miércoles 22 de julio</span><span class="rule"></span><span class="c">2 recepciones · 24 unidades</span></div>
+
+  <div class="doc a-doc pend">
+    <div class="dhead">
+      <div class="dfolio"><div class="k">Recepción</div><div class="v">Nº 1043</div></div>
+      <div class="dmeta">
+        <div><div class="k">Ingresada</div><div class="v">22 jul 2026 · 09:14</div></div>
+        <div><div class="k">Origen</div><div class="v"><span class="tagp"><span class="dot"></span>Protocolo</span> <span class="mono" style="font-size:12.5px">EFC18420</span></div></div>
+        <div><div class="k">Contenido</div><div class="v">2 medicamentos · <b class="num">9</b> unidades</div></div>
+      </div>
+      <div class="a-right">
+        <div class="a-st pend"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B0823F" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5l3.5 2"/></svg>Pendiente de verificar</div>
+        <button class="btn-v"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4F1EA" stroke-width="2.4"><path d="M4 12.5l5 5L20 6.5"/></svg>Verificar e ingresar a stock</button>
+      </div>
+    </div>
+    <div class="dcap"><span class="t">Medicación recibida</span><span class="s">2 renglones · 1 vencido, 1 próximo a vencer</span></div>
+    <table>
+      <thead><tr><th style="width:29%">Medicamento</th><th style="width:16%">Código / EAN</th><th style="width:12%">Lote</th><th style="width:15%">Vence</th><th style="width:16%">Laboratorio</th><th style="width:12%" class="c-r">Cantidad</th></tr></thead>
+      <tbody>
+        <tr><td><div class="mname">Trelegy Ellipta 92/55/22 mcg</div><div class="mdrug">Fluticasona + Umeclidinio + Vilanterol</div></td>
+          <td><span class="ean">7795373012288</span></td><td><span class="lote">TRE-4412</span></td>
+          <td><span class="venc d"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A6483B" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.01"/></svg>30 jun 2026</span></td>
+          <td><span class="lab">GSK</span></td><td class="c-r qty"><b>4</b><i>u.</i></td></tr>
+        <tr><td><div class="mname">Salbutral 100 mcg</div><div class="mdrug">Salbutamol</div></td>
+          <td><span class="ean">7795373019041</span></td><td><span class="lote">LOTE-11</span></td>
+          <td><span class="venc w"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B0823F" stroke-width="2.2"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 16.8v.01"/></svg>15 sep 2026</span></td>
+          <td><span class="lab">Roemmers</span></td><td class="c-r qty"><b>5</b><i>u.</i></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="doc a-doc ok">
+    <div class="dhead">
+      <div class="dfolio"><div class="k">Recepción</div><div class="v">Nº 1042</div></div>
+      <div class="dmeta">
+        <div><div class="k">Ingresada</div><div class="v">22 jul 2026 · 08:02</div></div>
+        <div><div class="k">Origen</div><div class="v"><span class="tagp"><span class="dot"></span>Protocolo</span> <span class="mono" style="font-size:12.5px">EFC18419</span></div></div>
+        <div><div class="k">Contenido</div><div class="v">2 medicamentos · <b class="num">15</b> unidades</div></div>
+      </div>
+      <div class="a-right">
+        <div class="a-st ok"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5C8A5A" stroke-width="2.6"><path d="M4 12.5l5 5L20 6.5"/></svg>Verificada</div>
+        <div class="a-sub">M. Álvarez · 22 jul 08:19</div>
+      </div>
+    </div>
+    <div class="dcap"><span class="t">Medicación recibida</span><span class="s">2 renglones · vencimientos en regla</span></div>
+    <table>
+      <thead><tr><th style="width:29%">Medicamento</th><th style="width:16%">Código / EAN</th><th style="width:12%">Lote</th><th style="width:15%">Vence</th><th style="width:16%">Laboratorio</th><th style="width:12%" class="c-r">Cantidad</th></tr></thead>
+      <tbody>
+        <tr><td><div class="mname">Alvetide 184/22 mcg</div><div class="mdrug">Fluticasona furoato + Vilanterol</div></td>
+          <td><span class="ean">01</span><span class="qual">interno</span></td><td><span class="lote">LOTE-8</span></td>
+          <td><span class="venc">15 jul 2027</span></td><td><span class="lab none">— sin cargar —</span></td><td class="c-r qty"><b>6</b><i>u.</i></td></tr>
+        <tr><td><div class="mname">Salbutral 100 mcg</div><div class="mdrug">Salbutamol</div></td>
+          <td><span class="ean">7795373012288</span></td><td><span class="lote">LOTE-9</span></td>
+          <td><span class="venc">16 jul 2027</span></td><td><span class="lab">Roemmers</span></td><td class="c-r qty"><b>9</b><i>u.</i></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════ 2b ══════════ -->
+<div class="frame" style="left:1400px;top:150px;width:1240px">
+  <div class="flabel"><span class="bid">2b</span><span class="ftitle">Estado como un campo más</span></div>
+  <div class="fdesc">El estado entra en la grilla del encabezado, igual que Ingresada u Origen: cuatro campos rotulados y la acción al costado del estado. Cero elementos flotantes a la derecha.</div>
+  <div class="daybar"><span class="d">Miércoles 22 de julio</span><span class="rule"></span><span class="c">2 recepciones · 24 unidades</span></div>
+
+  <div class="doc">
+    <div class="dhead" style="align-items:stretch">
+      <div class="dfolio"><div class="k">Recepción</div><div class="v">Nº 1043</div></div>
+      <div class="dmeta b-meta">
+        <div><div class="k">Ingresada</div><div class="v">22 jul 2026 · 09:14</div></div>
+        <div><div class="k">Origen</div><div class="v"><span class="tagp"><span class="dot"></span>Protocolo</span></div></div>
+        <div><div class="k">Protocolo</div><div class="v"><span class="mono" style="font-size:13px">EFC18420</span></div></div>
+        <div><div class="k">Estado</div><div class="b-st pend"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B0823F" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5l3.5 2"/></svg>Pendiente</div>
+          <button class="b-link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5C8A5A" stroke-width="2.6"><path d="M4 12.5l5 5L20 6.5"/></svg>Verificar ahora</button></div>
+      </div>
+    </div>
+    <div class="dcap"><span class="t">Medicación recibida</span><span class="s">2 medicamentos · 9 unidades · 1 vencido, 1 próximo a vencer</span></div>
+    <table>
+      <thead><tr><th style="width:29%">Medicamento</th><th style="width:16%">Código / EAN</th><th style="width:12%">Lote</th><th style="width:15%">Vence</th><th style="width:16%">Laboratorio</th><th style="width:12%" class="c-r">Cantidad</th></tr></thead>
+      <tbody>
+        <tr><td><div class="mname">Trelegy Ellipta 92/55/22 mcg</div><div class="mdrug">Fluticasona + Umeclidinio + Vilanterol</div></td>
+          <td><span class="ean">7795373012288</span></td><td><span class="lote">TRE-4412</span></td>
+          <td><span class="venc d"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A6483B" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.01"/></svg>30 jun 2026</span></td>
+          <td><span class="lab">GSK</span></td><td class="c-r qty"><b>4</b><i>u.</i></td></tr>
+        <tr><td><div class="mname">Salbutral 100 mcg</div><div class="mdrug">Salbutamol</div></td>
+          <td><span class="ean">7795373019041</span></td><td><span class="lote">LOTE-11</span></td>
+          <td><span class="venc w"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B0823F" stroke-width="2.2"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 16.8v.01"/></svg>15 sep 2026</span></td>
+          <td><span class="lab">Roemmers</span></td><td class="c-r qty"><b>5</b><i>u.</i></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="doc">
+    <div class="dhead" style="align-items:stretch">
+      <div class="dfolio"><div class="k">Recepción</div><div class="v">Nº 1042</div></div>
+      <div class="dmeta b-meta">
+        <div><div class="k">Ingresada</div><div class="v">22 jul 2026 · 08:02</div></div>
+        <div><div class="k">Origen</div><div class="v"><span class="tagp"><span class="dot"></span>Protocolo</span></div></div>
+        <div><div class="k">Protocolo</div><div class="v"><span class="mono" style="font-size:13px">EFC18419</span></div></div>
+        <div><div class="k">Estado</div><div class="b-st ok"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5C8A5A" stroke-width="2.6"><path d="M4 12.5l5 5L20 6.5"/></svg>Verificada</div>
+          <div class="a-sub" style="margin-top:0">M. Álvarez · 08:19</div></div>
+      </div>
+    </div>
+    <div class="dcap"><span class="t">Medicación recibida</span><span class="s">2 medicamentos · 15 unidades · vencimientos en regla</span></div>
+    <table>
+      <thead><tr><th style="width:29%">Medicamento</th><th style="width:16%">Código / EAN</th><th style="width:12%">Lote</th><th style="width:15%">Vence</th><th style="width:16%">Laboratorio</th><th style="width:12%" class="c-r">Cantidad</th></tr></thead>
+      <tbody>
+        <tr><td><div class="mname">Alvetide 184/22 mcg</div><div class="mdrug">Fluticasona furoato + Vilanterol</div></td>
+          <td><span class="ean">01</span><span class="qual">interno</span></td><td><span class="lote">LOTE-8</span></td>
+          <td><span class="venc">15 jul 2027</span></td><td><span class="lab none">— sin cargar —</span></td><td class="c-r qty"><b>6</b><i>u.</i></td></tr>
+        <tr><td><div class="mname">Salbutral 100 mcg</div><div class="mdrug">Salbutamol</div></td>
+          <td><span class="ean">7795373012288</span></td><td><span class="lote">LOTE-9</span></td>
+          <td><span class="venc">16 jul 2027</span></td><td><span class="lab">Roemmers</span></td><td class="c-r qty"><b>9</b><i>u.</i></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════ 2c ══════════ -->
+<div class="frame" style="left:2720px;top:150px;width:1240px">
+  <div class="flabel"><span class="bid">2c</span><span class="ftitle">Barra de estado a lo ancho</span></div>
+  <div class="fdesc">El estado ocupa una banda propia arriba del documento, con la acción en su misma línea. La banda tiñe solo cuando importa: ámbar si falta verificar, verde suave cuando ya está.</div>
+  <div class="daybar"><span class="d">Miércoles 22 de julio</span><span class="rule"></span><span class="c">2 recepciones · 24 unidades</span></div>
+
+  <div class="doc">
+    <div class="c-bar pend">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5l3.5 2"/></svg>
+      <span class="lbl">Pendiente de verificar</span>      <span class="txt">La medicación todavía no entró a stock.</span>
+      <span style="margin-left:auto"></span>
+      <button class="btn-v"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F4F1EA" stroke-width="2.4"><path d="M4 12.5l5 5L20 6.5"/></svg>Verificar e ingresar a stock</button>
+    </div>
+    <div class="dhead c-head">
+      <div class="dfolio"><div class="k">Recepción</div><div class="v">Nº 1043</div></div>
+      <div class="dmeta c-meta">
+        <div><div class="k">Ingresada</div><div class="v">22 jul 2026 · 09:14</div></div>
+        <div class="c-orig"><span class="kind">Protocolo</span><span class="pcode">EFC18420</span></div>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th style="width:29%">Medicamento</th><th style="width:16%">Código / EAN</th><th style="width:12%">Lote</th><th style="width:15%">Vence</th><th style="width:16%">Laboratorio</th><th style="width:12%" class="c-r">Cantidad</th></tr></thead>
+      <tbody>
+        <tr><td><div class="mname">Trelegy Ellipta 92/55/22 mcg</div><div class="mdrug">Fluticasona + Umeclidinio + Vilanterol</div></td>
+          <td><span class="ean">7795373012288</span></td><td><span class="lote">TRE-4412</span></td>
+          <td><span class="venc d"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A6483B" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.01"/></svg>30 jun 2026</span></td>
+          <td><span class="lab">GSK</span></td><td class="c-r qty"><b>4</b><i>u.</i></td></tr>
+        <tr><td><div class="mname">Salbutral 100 mcg</div><div class="mdrug">Salbutamol</div></td>
+          <td><span class="ean">7795373019041</span></td><td><span class="lote">LOTE-11</span></td>
+          <td><span class="venc w"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B0823F" stroke-width="2.2"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 16.8v.01"/></svg>15 sep 2026</span></td>
+          <td><span class="lab">Roemmers</span></td><td class="c-r qty"><b>5</b><i>u.</i></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="doc">
+    <div class="c-bar ok">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M4 12.5l5 5L20 6.5"/></svg>
+      <span class="lbl">Verificada</span>
+      <span class="txt">Ingresada a stock por M. Álvarez · 22 jul 08:19</span>
+      <span class="cont">2 medicamentos · 15 unidades</span>
+    </div>
+    <div class="dhead c-head">
+      <div class="dfolio"><div class="k">Recepción</div><div class="v">Nº 1042</div></div>
+      <div class="dmeta c-meta">
+        <div><div class="k">Ingresada</div><div class="v">22 jul 2026 · 08:02</div></div>
+        <div class="c-orig"><span class="kind">Protocolo</span><span class="pcode">EFC18419</span></div>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th style="width:29%">Medicamento</th><th style="width:16%">Código / EAN</th><th style="width:12%">Lote</th><th style="width:15%">Vence</th><th style="width:16%">Laboratorio</th><th style="width:12%" class="c-r">Cantidad</th></tr></thead>
+      <tbody>
+        <tr><td><div class="mname">Alvetide 184/22 mcg</div><div class="mdrug">Fluticasona furoato + Vilanterol</div></td>
+          <td><span class="ean">01</span><span class="qual">interno</span></td><td><span class="lote">LOTE-8</span></td>
+          <td><span class="venc">15 jul 2027</span></td><td><span class="lab none">— sin cargar —</span></td><td class="c-r qty"><b>6</b><i>u.</i></td></tr>
+        <tr><td><div class="mname">Salbutral 100 mcg</div><div class="mdrug">Salbutamol</div></td>
+          <td><span class="ean">7795373012288</span></td><td><span class="lote">LOTE-9</span></td>
+          <td><span class="venc">16 jul 2027</span></td><td><span class="lab">Roemmers</span></td><td class="c-r qty"><b>9</b><i>u.</i></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</body>
+</html>

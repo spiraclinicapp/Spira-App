@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.37', text: 'Recepción se lee como un documento: cada recepción con su número, quién la ingresó a stock y el detalle por renglón; verificar ahora confirma lo que va a entrar antes de tocar el stock.' },
     { version: '0.36', text: 'Farmacia suma Reportes: el cierre de período, con sus hojas imprimibles.' },
     { version: '0.35', text: 'El historial de una dispensación se lee como una crónica en castellano, y el lector avisa con precisión cuando la caja no pertenece al pedido.' },
     { version: '0.34', text: 'La fila de Visitas del día suma el riel del recorrido: ahora se ve de un vistazo cuánto lleva avanzada cada visita.' },
