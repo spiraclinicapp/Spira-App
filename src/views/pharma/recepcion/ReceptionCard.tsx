@@ -63,17 +63,19 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
             ingreso a stock, arriba en la banda) y pueden ser días distintos. */}
         <div style={{ display: 'flex', gap: 11, alignItems: 'stretch' }}>
           <span style={{ ...barraOrigen, background: ambito.color }} />
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ display: 'flex', gap: 9, alignItems: 'baseline', justifyContent: 'flex-end' }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: ambito.color }}>{ambito.label}</span>
-              {r.protocol && (
-                <span className="spira-mono" style={codigoOrigen}>{r.protocol.code}</span>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 9, alignItems: 'baseline', justifyContent: 'flex-end', marginTop: 3 }}>
-              <span style={rotuloCelda}>Recibido</span>
-              <span style={valorFecha} className="spira-mono">{formatDayMonthYear(r.reception_date)}</span>
-            </div>
+          {/* Grilla de dos columnas, las dos ancladas a la derecha: las etiquetas terminan en el
+              mismo eje y los valores también. Con dos flex sueltos cada línea se acomodaba por su
+              cuenta contra el borde y quedaban corridas 5px entre sí. */}
+          <div style={fichaOrigen}>
+            {/* Sin protocolo (ambulatoria) no hay valor que poner al lado, y una celda de menos
+                corre TODA la grilla un lugar: la fila siguiente se sube y "Recibido" termina al
+                lado del ámbito. Ocupando las dos columnas, la fila se cierra sola. */}
+            <span style={{ ...etiquetaOrigen, color: ambito.color, ...(r.protocol ? null : { gridColumn: '1 / -1' }) }}>
+              {ambito.label}
+            </span>
+            {r.protocol && <span className="spira-mono" style={valorOrigen}>{r.protocol.code}</span>}
+            <span style={etiquetaOrigen}>Recibido</span>
+            <span className="spira-mono" style={valorOrigen}>{formatDayMonthYear(r.reception_date)}</span>
           </div>
         </div>
       </header>
@@ -281,11 +283,21 @@ const rotuloCelda: CSSProperties = {
 const valorFolio: CSSProperties = {
   fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, color: 'var(--spira-ink)',
 }
-const valorFecha: CSSProperties = { fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: 'var(--spira-ink)' }
+/* Ficha de procedencia: etiqueta + valor en dos columnas. Sin protocolo (ambulatoria) la fila
+   queda con una sola celda, y como las dos columnas son `auto` el grid no reserva el hueco. */
+const fichaOrigen: CSSProperties = {
+  display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 10, rowGap: 4, justifyItems: 'end',
+  alignItems: 'baseline',
+}
+/* Las dos etiquetas con el MISMO tratamiento —cambia el color, no el tamaño ni el peso—; antes
+   una iba a 12,5/600 y la otra a 10,5/700 en mayúsculas, y se veían de dos sistemas distintos. */
+const etiquetaOrigen: CSSProperties = {
+  fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', color: 'var(--spira-ink-soft)',
+}
+const valorOrigen: CSSProperties = { fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: 'var(--spira-ink)' }
 // Abarca el bloque entero (ámbito + fecha), no una sola línea: `alignItems: stretch` en el padre
 // le da la altura, así que no hay que fijarla a mano ni recalcularla si cambia el contenido.
 const barraOrigen: CSSProperties = { width: 3, borderRadius: 2, flex: '0 0 auto' }
-const codigoOrigen: CSSProperties = { fontSize: 13.5, fontWeight: 500, color: 'var(--spira-ink-2)', whiteSpace: 'nowrap' }
 
 // `fixed` es requisito: sin él el navegador ignora los anchos de <col> y la grilla del header
 // deja de coincidir con la tabla.
