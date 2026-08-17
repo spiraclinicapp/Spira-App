@@ -72,6 +72,12 @@
      advierte el bloque de arriba, un token más allá. Estrenado por la línea de tiempo del historial
      de dispensación (2026-08-15), donde el punto de "rechazado" es rojo. */
   --spira-acc-deep-danger: #A6483B;
+  /* El verde de la familia. Nace con la banda "Verificada" de Recepción (0085 / reskin 2c), donde
+     el texto va sobre el tinte verde al 10%: `--spira-good` a secas da ahí 3,58:1 y AA pide 4,5:1.
+     Oscurecido llega a 5,57:1 conservando el matiz. El handoff proponía un `color-mix` con `ink`
+     para esto — que es exactamente la trampa que advierte el bloque de arriba: la mezcla se
+     oscurece y en tema oscuro queda invisible. Por eso entra a ESTA familia y no como token propio. */
+  --spira-acc-deep-good: #3D6B3B;
 
   /* —— Banda del rótulo de la tarjeta destacada (Dispensación) ——
      El acento a secas NO sirve de fondo acá: la tinta papel sobre él da 4,33:1 y el rótulo va a
@@ -134,6 +140,7 @@
   --spira-acc-deep-track:  #9DE6D6;  /* menta: en oscuro hay que ACLARAR, no oscurecer */
   --spira-acc-deep-warn: #E8CE8A;
   --spira-acc-deep-danger: #EDA093; /* salmón: aclarado, no oscurecido. 7,09:1 sobre el tinte rojo */
+  --spira-acc-deep-good: #A9D9A6;   /* verde claro: aclarado, no oscurecido. 8,97:1 sobre el tinte verde */
   /* La banda NO se invierte: es un bloque de color pleno con texto claro encima, así que en oscuro
      funciona igual que en claro (y aclararla con la menta la volvería un bloque brillante con el
      texto papel ilegible). Se sube un escalón nada más, para que no se confunda con el fondo. */
