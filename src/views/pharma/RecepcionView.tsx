@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { EmptyState } from '../../components/EmptyState'
 import { Chip } from '../../components/Chip'
+import { Toast } from '../../components/Toast'
 import { btnOutline } from '../../components/buttons'
 import { fieldLabelStyle } from '../../components/FormField'
 import { SearchableSelect } from '../../components/SearchableSelect'
@@ -10,21 +11,27 @@ import { DateField } from '../../components/DateField'
 import { useAuth } from '../../lib/auth'
 import { addDaysISO, groupByDay, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
-import { useReceptions, useMedications, verifyReception } from '../../data/pharma'
+import { useReceptions, useMedications, verifyReception, TECHO_RECEPCIONES } from '../../data/pharma'
 import type { ReceptionRow, ReceptionKind } from '../../data/pharma'
 import { ReceptionWizard } from './ReceptionWizard'
 import { ReceptionCard } from './recepcion/ReceptionCard'
+import { ConfirmarVerificacion } from './recepcion/ConfirmarVerificacion'
 import { KIND_CHIP } from './recepcion/ambitos'
+import { coincideBusqueda, totalesDelDia } from './recepcion/derivados'
 import type { ViewProps } from '../types'
 
-/** Filtro de tipo de la lista: los tres ámbitos o todos juntos. */
+/** Filtro de ámbito de la lista: los tres o todos juntos. */
 type ChipFilter = 'todas' | ReceptionKind
 
 /**
- * Pharma → Recepción. Lista TRANSVERSAL de recepciones (handoff 1b): todas las de todos
- * los ámbitos, agrupadas por día, con chips de tipo + búsqueda + rango + "Más filtros"
- * client-side. El protocolo es un filtro más, no un gate (Pharma es central: ve todo por RLS).
- * Alta vía wizard a pantalla completa (ReceptionWizard). Migraciones 0032+0035+0037.
+ * Pharma → Recepción. Lista TRANSVERSAL de recepciones: todas las de todos los ámbitos,
+ * agrupadas por día, con búsqueda + filtros + alta por wizard. El protocolo es un filtro más,
+ * no un gate (Pharma es central: ve todo por RLS). Migraciones 0032+0035+0037+0085.
+ *
+ * DOS EJES DE FILTRO, NO UNO. El handoff "2c" proponía un solo grupo de chips mezclando estado y
+ * ámbito (Todas / Pendientes / Protocolo / Ambulatoria), lo que vuelve imposible pedir "las
+ * pendientes de protocolo" —la consulta más frecuente de esta pantalla— y de paso borraba
+ * Investigación. Acá el estado es un toggle aparte y el ámbito conserva sus cuatro opciones.
  */
 export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const accent = module.accent
@@ -36,6 +43,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const catalog = useMedications() // para el filtro "Medicamento" (desplegable, sin texto libre)
 
   const [chip, setChip] = useState<ChipFilter>('todas')
+  const [soloPendientes, setSoloPendientes] = useState(false)
   const [q, setQ] = useState('')
   const [days, setDays] = useState<7 | 30 | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -50,9 +58,12 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const [creating, setCreating] = useState(false)
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
+  const [confirmando, setConfirmando] = useState<ReceptionRow | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  /** Error de verificación POR recepción: se muestra en la banda de su card, no en el tope. */
+  const [errorPorId, setErrorPorId] = useState<Record<string, string>>({})
 
-  // El chip de tipo filtra server-side (el resto es client-side sobre lo traído).
+  // El chip de ámbito filtra server-side (el resto es client-side sobre lo traído).
   const receptions = useReceptions(chip === 'todas' ? null : chip, null)
 
   // Auto-limpia el highlight tras 5 s para no dejar el resaltado indefinidamente.
@@ -63,8 +74,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   }, [highlightId])
 
   // Encabezado contextual del shell: "Nueva recepción" arriba a la derecha (gating leader),
-  // y la miga "Nueva recepción" mientras el wizard está abierto. El shell lo limpia al
-  // cambiar de submódulo; acá se limpia al desmontar.
+  // y la miga "Nueva recepción" mientras el wizard está abierto.
   useEffect(() => {
     if (!setHeader) return
     if (creating) {
@@ -77,6 +87,24 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     return () => setHeader(null)
   }, [setHeader, creating, canManage])
 
+  const rows = useMemo(() => {
+    const desdeRango = days ? addDaysISO(todayISO(), -(days - 1)) : null
+    return (receptions.data ?? []).filter((r) => {
+      if (soloPendientes && r.status !== 'pendiente') return false
+      if (!coincideBusqueda(r, q)) return false
+      if (desdeRango && r.reception_date < desdeRango) return false
+      if (fProtocol && r.protocol_id !== fProtocol) return false
+      if (fMedId && !r.items.some((it) => it.medication_id === fMedId)) return false
+      if (fDesde && r.reception_date < fDesde) return false
+      if (fHasta && r.reception_date > fHasta) return false
+      return true
+    })
+  }, [receptions.data, soloPendientes, q, days, fProtocol, fMedId, fDesde, fHasta])
+
+  const groups = useMemo(() => groupByDay(rows, (r) => r.reception_date), [rows])
+  const moreCount = [fProtocol, fMedId, fDesde, fHasta].filter(Boolean).length
+  const hayFiltros = !!q.trim() || days !== null || moreCount > 0 || chip !== 'todas' || soloPendientes
+
   // Cuando el wizard termina, volvemos a la cola y resaltamos la recepción recién creada.
   if (creating) {
     return (
@@ -85,46 +113,35 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         initialTipo={chip === 'todas' ? 'protocolo' : chip}
         initialProtocolId={fProtocol}
         onClose={() => setCreating(false)}
-        // Al crear: resetear TODOS los filtros (chip, búsqueda, rango y "Más filtros") para que
-        // la recepción nueva nunca quede oculta por un filtro activo y el highlight de 5 s se vea
-        // (el usuario pudo cambiar tipo/fecha adentro del wizard).
-        onCreated={(id) => { setCreating(false); setChip('todas'); setQ(''); setDays(null); clearMore(); setHighlightId(id); receptions.refetch() }}
+        // Al crear: resetear TODOS los filtros para que la recepción nueva nunca quede oculta por
+        // un filtro activo y el highlight de 5 s se vea.
+        onCreated={(id) => {
+          setCreating(false); setChip('todas'); setSoloPendientes(false); setQ('')
+          setDays(null); clearMore(); setHighlightId(id); receptions.refetch()
+        }}
       />
     )
   }
 
-  const verify = async (r: ReceptionRow) => {
+  /** Paso 2 de la verificación: el usuario ya confirmó en el modal. */
+  const confirmarVerificacion = async () => {
+    const r = confirmando
+    if (!r) return
     setBusyId(r.id)
-    setActionError(null)
     const res = await verifyReception(r.id)
     setBusyId(null)
-    if (res.error) { setActionError(res.error); return }
-    receptions.refetch()
-  }
-
-  // ── Filtros client-side ──────────────────────────────────────────────────────
-  const t = q.trim().toLowerCase()
-  const desdeRango = days ? addDaysISO(todayISO(), -(days - 1)) : null
-  const rows = (receptions.data ?? []).filter((r) => {
-    if (t) {
-      const enTexto =
-        (r.protocol?.code.toLowerCase().includes(t) ?? false) ||
-        (r.notes?.toLowerCase().includes(t) ?? false) ||
-        r.items.some((it) =>
-          (it.medication?.name.toLowerCase().includes(t) ?? false) ||
-          it.lot_number.toLowerCase().includes(t))
-      if (!enTexto) return false
+    if (res.error) {
+      // El error se guarda contra SU recepción y el modal se cierra: el mensaje va a aparecer en
+      // la banda de esa card, que es donde el usuario está mirando.
+      setErrorPorId((prev) => ({ ...prev, [r.id]: res.error! }))
+      setConfirmando(null)
+      return
     }
-    if (desdeRango && r.reception_date < desdeRango) return false
-    if (fProtocol && r.protocol_id !== fProtocol) return false
-    if (fMedId && !r.items.some((it) => it.medication_id === fMedId)) return false
-    if (fDesde && r.reception_date < fDesde) return false
-    if (fHasta && r.reception_date > fHasta) return false
-    return true
-  })
-  const groups = groupByDay(rows, (r) => r.reception_date)
-  const moreCount = [fProtocol, fMedId, fDesde, fHasta].filter(Boolean).length
-  const hayFiltros = !!t || days !== null || moreCount > 0 || chip !== 'todas'
+    setErrorPorId((prev) => { const n = { ...prev }; delete n[r.id]; return n })
+    setConfirmando(null)
+    receptions.refetch()
+    setToast(`Recepción Nº ${r.folio} ingresada a stock`)
+  }
 
   // ── Toolbar (siempre visible, también en loading/error/vacío) ────────────────
   const toolbar = (
@@ -136,23 +153,38 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar recepción…"
+          placeholder="Buscar por folio, medicamento, EAN, lote…"
+          aria-label="Buscar recepción por folio, medicamento, código, lote o protocolo"
           className="spira-search-input"
           style={searchInput}
         />
       </div>
-      <div role="radiogroup" aria-label="Tipo de recepción" style={{ display: 'flex', gap: 7 }}>
+
+      {/* Eje 1: estado. Toggle propio para poder cruzarlo con cualquier ámbito. */}
+      <Chip
+        toggle
+        label="Pendientes"
+        selected={soloPendientes}
+        onClick={() => { setSoloPendientes((v) => !v); setHighlightId(null) }}
+        accent={accentSolid}
+      />
+      <span style={separador} />
+
+      {/* Eje 2: ámbito. */}
+      <div role="radiogroup" aria-label="Ámbito de la recepción" style={{ display: 'flex', gap: 7 }}>
         <Chip label="Todas" selected={chip === 'todas'} onClick={() => { setChip('todas'); setHighlightId(null) }} accent={accentSolid} />
         {(Object.keys(KIND_CHIP) as ReceptionKind[]).map((k) => (
           <Chip key={k} label={KIND_CHIP[k].label} selected={chip === k} onClick={() => { setChip(k); setHighlightId(null) }} accent={accentSolid} />
         ))}
       </div>
-      <span style={{ width: 1, height: 24, background: 'var(--spira-line)' }} />
+      <span style={separador} />
+
       <div style={{ display: 'flex', gap: 7 }}>
         {/* Rango como toggles (se destildan al re-clickear) — no son radios. */}
         <Chip toggle label="7 días" selected={days === 7} onClick={() => setDays(days === 7 ? null : 7)} accent={accentSolid} />
         <Chip toggle label="30 días" selected={days === 30} onClick={() => setDays(days === 30 ? null : 30)} accent={accentSolid} />
       </div>
+
       <button
         type="button"
         onClick={() => setMoreOpen((v) => !v)}
@@ -184,7 +216,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
           placeholder="Todos"
           searchPlaceholder="Buscar protocolo…"
           entity="protocolo"
-          menuWidth="auto"  // opciones (código — nombre) más largas que el campo: el menú crece a ellas
+          menuWidth="auto"  // opciones (código — nombre) más largas que el campo
         />
       </label>
       <label style={filterField}>
@@ -196,7 +228,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
           placeholder="Todos"
           searchPlaceholder="Buscar medicamento…"
           entity="medicamento"
-          menuWidth="auto"  // los nombres de medicamento suelen exceder el ancho del campo
+          menuWidth="auto"
         />
       </label>
       <label style={filterField}>
@@ -235,7 +267,17 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     <div style={wrap}>
       {toolbar}
       {morePanel}
-      {actionError && <div style={errorBox}>{actionError}</div>}
+
+      {/* La lista llegó recortada: los totales por día dirían menos de lo que hubo. */}
+      {receptions.truncado && (
+        <div style={avisoBox} role="status">
+          <Icon name="alertCircle" size={16} color="var(--spira-warn)" />
+          <span>
+            Hay más de {TECHO_RECEPCIONES} recepciones y la lista muestra las más recientes.
+            Acotá por fecha o por ámbito para que los totales de cada día sean del período completo.
+          </span>
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <EmptyState
@@ -247,15 +289,15 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
             : 'Cuando llegue medicación, cargá la recepción y verificala para ingresar el stock.'}
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
           {groups.map((g) => (
-            <div key={g.date}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 2px 2px' }}>
-                <span className="spira-eyebrow">{g.label}</span>
-                <span style={{ height: 1, flex: 1, background: 'var(--spira-line)' }} />
-                <span style={{ fontSize: 11.5, color: 'var(--spira-faint)' }}>{g.items.length}</span>
+            <section key={g.date} aria-label={g.label}>
+              <div style={daybar}>
+                <span style={fechaDia}>{g.label}</span>
+                <span style={regla} />
+                <span style={conteoDia}>{totalesDelDia(g.items)}</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 9 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 10 }}>
                 {g.items.map((r) => (
                   <ReceptionCard
                     key={r.id}
@@ -263,21 +305,34 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
                     canManage={canManage}
                     busy={busyId === r.id}
                     highlight={r.id === highlightId}
-                    accentSolid={accentSolid}
-                    onVerify={() => verify(r)}
+                    error={errorPorId[r.id] ?? null}
+                    onVerify={() => setConfirmando(r)}
                   />
                 ))}
               </div>
-            </div>
+            </section>
           ))}
         </div>
       )}
+
+      {confirmando && (
+        <ConfirmarVerificacion
+          r={confirmando}
+          busy={busyId === confirmando.id}
+          onCancel={() => setConfirmando(null)}
+          onConfirmar={confirmarVerificacion}
+        />
+      )}
+
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   )
 }
 
 const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16 }
 const errorBox: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 10, padding: '12px 14px' }
+const avisoBox: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, color: 'var(--spira-ink-soft)', background: 'rgba(176,130,63,.10)', borderRadius: 10, padding: '11px 14px', lineHeight: 1.5 }
+const separador: CSSProperties = { width: 1, height: 24, background: 'var(--spira-line)', flex: '0 0 auto' }
 const searchWrap: CSSProperties = { position: 'relative', flex: 1, minWidth: 230, maxWidth: 340, display: 'flex', alignItems: 'center' }
 const searchInput: CSSProperties = {
   width: '100%', height: 40, padding: '0 13px 0 38px', borderRadius: 999,
@@ -289,3 +344,9 @@ const panel: CSSProperties = {
   border: '1px solid var(--spira-line)', borderRadius: 14, background: 'var(--spira-white)', padding: '12px 14px',
 }
 const filterField: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 180 }
+
+// Barra del día: fecha, una regla que ocupa el espacio libre, y el conteo a la derecha.
+const daybar: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 11, padding: '0 2px 10px' }
+const fechaDia: CSSProperties = { fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14, color: 'var(--spira-ink)' }
+const regla: CSSProperties = { flex: 1, height: 1, background: 'var(--spira-line-2)', opacity: 0.7 }
+const conteoDia: CSSProperties = { fontSize: 12, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }
