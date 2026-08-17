@@ -52,10 +52,17 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
             <div style={celdaFolio}>
               <span style={valorFolio} className="spira-mono">Nº {r.folio}</span>
             </div>
+            {/* RECIBIDO ≠ ingresado a stock. La mercadería puede llegar un día y verificarse otro
+                —el pedido queda apoyado hasta que alguien lo cuenta—, así que las dos fechas
+                conviven en la card y cada una necesita decir cuál es. El folio no lleva rótulo
+                porque "Nº 1043" se explica solo; una fecha suelta, no. */}
             <div style={{ ...celda, gridColumn: '2 / 4' }}>
+              <span style={rotuloCelda}>Recibido</span>
               <span style={valorFecha} className="spira-mono">{formatDayMonthYear(r.reception_date)}</span>
             </div>
-            <div style={{ ...celda, gridColumn: '5 / 7', justifySelf: 'end', display: 'flex', gap: 10, alignItems: 'center' }}>
+            {/* El bloque de origen no tiene línea base que alinear (es una barra + dos textos):
+                se centra respecto de la fila en vez de pegarse abajo como sus vecinas. */}
+            <div style={{ ...celda, gridColumn: '5 / 7', justifySelf: 'end', alignSelf: 'center', display: 'flex', gap: 10, alignItems: 'center' }}>
               <span style={{ ...barraOrigen, background: ambito.color }} />
               <span style={{ fontSize: 12.5, fontWeight: 600, color: ambito.color }}>{ambito.label}</span>
               {r.protocol && (
@@ -242,11 +249,19 @@ const btnVerificar: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto', whiteSpace: 'nowrap',
 }
 
+// `end` y no `center`: la celda de la fecha lleva rótulo encima y la del folio no, así que
+// centrando cada una por su cuenta las líneas base quedaban desfasadas 3px — el folio flotando
+// sobre la fecha. Pegadas abajo y con el mismo padding inferior, las dos bases coinciden.
 const dhead: CSSProperties = {
-  display: 'grid', gridTemplateColumns: GRID_COLUMNAS, alignItems: 'center',
+  display: 'grid', gridTemplateColumns: GRID_COLUMNAS, alignItems: 'end',
   background: 'var(--spira-surface)', borderBottom: '1px solid var(--spira-line)',
 }
 const celda: CSSProperties = { padding: `15px ${PADDING_LATERAL}px 16px`, minWidth: 0 }
+// Rótulo de dato, no eyebrow de sección: existe sólo donde el valor por sí solo sería ambiguo.
+const rotuloCelda: CSSProperties = {
+  display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em',
+  textTransform: 'uppercase', color: 'var(--spira-muted)', marginBottom: 2,
+}
 // 17 + 3 de borde = los mismos 20px de padding lateral que th y td.
 const celdaFolio: CSSProperties = {
   ...celda, paddingLeft: PADDING_LATERAL - 3, borderLeft: '3px solid var(--spira-primary)',
