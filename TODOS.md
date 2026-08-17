@@ -393,3 +393,50 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 - **Empezar por:** listar `medication_codes` donde el código no matchee `^[0-9]{13}$`, y decidir
   con el Director cuáles son internos de verdad y cuáles son basura de prueba.
 - **Depende de / bloqueado por:** nada técnico. Sí una pasada del Director por la lista.
+
+---
+
+## Pharma · anular una recepción cargada mal
+
+- **Qué:** poder anular una recepción (y, si ya se verificó, revertir su ingreso a stock) dejando
+  registro de la anulación, en vez de borrarla.
+- **Por qué:** hoy **no hay ninguna salida**. Ni anular, ni editar, ni borrar: no existe función en
+  el front ni RPC en la base. Un lote tipeado mal o una cantidad equivocada quedan para siempre, y
+  la única corrección posible es un ajuste manual de stock, que es otra pantalla, otro motivo
+  escrito, y deja los dos registros conviviendo sin que nada los vincule.
+- **Pros:** cierra el único camino sin salida de la pantalla. En una app auditable **no borrar es
+  correcto, pero no poder anular no lo es**: una anulación es un hecho registrable, como cualquier
+  otro.
+- **Contras:** si la recepción ya está verificada hay stock ingresado, y revertirlo toca
+  `medication_lots` y el libro `stock_movements`. Hay que decidir si la reversión es un movimiento
+  compensatorio (lo correcto para un libro insert-only) y qué pasa si esas unidades ya se
+  dispensaron.
+- **Contexto:** salió del `/impeccable critique` del reskin de Recepción (2026-08-17), donde bajó la
+  heurística de "control y libertad" a 2/4. Lo descubrí de la peor manera: creé una recepción de
+  prueba para poder mirar la card pendiente y **no pude borrarla desde la app**; hubo que escribir
+  `supabase/_borrar_test_reskin_2c.sql` para que el Director lo corriera a mano.
+- **Empezar por:** decidir con el Director Médico qué significa anular en su flujo real (¿se anula
+  un cargamento que llegó roto? ¿uno cargado dos veces?). El caso "verificada con unidades ya
+  dispensadas" es el que define el diseño.
+- **Depende de / bloqueado por:** decisión de dominio.
+
+---
+
+## Pharma · Recepción no escala al día de volumen
+
+- **Qué:** verificación en lote, atajos de teclado y ordenamiento en la lista de Recepción.
+- **Por qué:** todo se hace de a una recepción, con un modal de confirmación cada vez. Cuando
+  llegan seis cargamentos juntos, la confirmación deja de ser una red de seguridad y pasa a ser un
+  peaje. No hay atajos (25 elementos focusables, ninguno con acelerador) ni forma de ordenar por
+  fecha o cantidad.
+- **Pros:** la pantalla dejaría de estar diseñada sólo para el caso cuidadoso y serviría también
+  para el día cargado, que es cuando más errores se cometen.
+- **Contras:** verificar en lote choca de frente con la confirmación individual, que existe porque
+  la acción es irreversible. Hay que resolver esa tensión, no elegir un lado: quizá confirmar una
+  vez para el lote entero, mostrando el total que va a entrar.
+- **Contexto:** `/impeccable critique` del 2026-08-17 puntuó "flexibilidad y eficiencia" en 2/4, y
+  la persona del power user falla en los tres ejes. Una idea que salió y vale evaluar antes de
+  construir: **hacer la verificación reversible por 30 segundos desde el toast** en lugar de
+  confirmarla por modal. Resuelve el peaje y es más honesto que un "¿estás seguro?".
+- **Depende de / bloqueado por:** conviene después de resolver la anulación: si anular existe, la
+  confirmación previa puede aflojarse.

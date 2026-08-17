@@ -349,4 +349,4 @@ const filterField: CSSProperties = { display: 'flex', flexDirection: 'column', g
 const daybar: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 11, padding: '0 2px 10px' }
 const fechaDia: CSSProperties = { fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14, color: 'var(--spira-ink)' }
 const regla: CSSProperties = { flex: 1, height: 1, background: 'var(--spira-line-2)', opacity: 0.7 }
-const conteoDia: CSSProperties = { fontSize: 12, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }
+const conteoDia: CSSProperties = { fontSize: 12, color: 'var(--spira-ink-soft)', whiteSpace: 'nowrap' }

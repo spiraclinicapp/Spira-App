@@ -61,10 +61,10 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
               <span style={rotuloCelda}>Recibido</span>
               <span style={valorFecha} className="spira-mono">{formatDayMonthYear(r.reception_date)}</span>
             </div>
-            {/* El bloque de origen no tiene línea base que alinear (es una barra + dos textos):
-                se centra respecto de la fila en vez de pegarse abajo como sus vecinas. */}
+            {/* Sin barra de color: el nombre del ámbito YA se escribe en su color, así que una
+                barra del mismo tono al lado repite el dato en vez de codificarlo. El bloque se
+                centra respecto de la fila; no tiene línea base que alinear con sus vecinas. */}
             <div style={{ ...celda, gridColumn: '5 / 7', justifySelf: 'end', alignSelf: 'center', display: 'flex', gap: 10, alignItems: 'center' }}>
-              <span style={{ ...barraOrigen, background: ambito.color }} />
               <span style={{ fontSize: 12.5, fontWeight: 600, color: ambito.color }}>{ambito.label}</span>
               {r.protocol && (
                 <span className="spira-mono" style={codigoOrigen}>{r.protocol.code}</span>
@@ -194,7 +194,7 @@ function TablaRenglones({ r, hoyISO }: { r: ReceptionRow; hoyISO: string }) {
                 </span>
               </td>
               <td style={{ ...td, textAlign: 'center' }}>
-                <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
+                <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>
                   {it.medication?.laboratorio?.name ?? '— sin cargar —'}
                 </span>
               </td>
@@ -239,7 +239,7 @@ const rotuloEstado: CSSProperties = {
   whiteSpace: 'nowrap', color: 'currentColor',
 }
 const textoBanda: CSSProperties = {
-  fontSize: 12.5, color: 'var(--spira-muted)', minWidth: 0,
+  fontSize: 12.5, color: 'var(--spira-ink-soft)', minWidth: 0,
   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
 }
 // 38px como el resto de los botones del sistema; el mock pedía 30, que era el más chico de la app
@@ -262,20 +262,19 @@ const celda: CSSProperties = { padding: `15px ${PADDING_LATERAL}px 16px`, minWid
 // lado del otro y con una segunda fecha en la banda de arriba, necesitan decir qué son.
 const rotuloCelda: CSSProperties = {
   display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em',
-  textTransform: 'uppercase', color: 'var(--spira-muted)', marginBottom: 2,
+  textTransform: 'uppercase', color: 'var(--spira-ink-soft)', marginBottom: 2,
 }
 const valorFolio: CSSProperties = {
   fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, color: 'var(--spira-ink)',
 }
 const valorFecha: CSSProperties = { fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: 'var(--spira-ink)' }
-const barraOrigen: CSSProperties = { width: 3, height: 26, borderRadius: 2, flex: '0 0 auto' }
 const codigoOrigen: CSSProperties = { fontSize: 13.5, fontWeight: 500, color: 'var(--spira-ink-2)', whiteSpace: 'nowrap' }
 
 // `fixed` es requisito: sin él el navegador ignora los anchos de <col> y la grilla del header
 // deja de coincidir con la tabla.
 const tabla: CSSProperties = { borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }
 const th: CSSProperties = {
-  fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--spira-muted)',
+  fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--spira-ink-soft)',
   fontWeight: 700, padding: `12px ${PADDING_LATERAL}px 9px`, whiteSpace: 'nowrap',
   borderBottom: '1px solid var(--spira-line)', background: 'var(--spira-white)',
 }
@@ -284,8 +283,8 @@ const td: CSSProperties = {
   borderTop: '1px solid var(--spira-line)',
 }
 const nombreMed: CSSProperties = { fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)' }
-const monodroga: CSSProperties = { fontSize: 11.5, color: 'var(--spira-muted)', marginTop: 1 }
-const qualifier: CSSProperties = { fontSize: 11.5, color: 'var(--spira-muted)', marginLeft: 5 }
+const monodroga: CSSProperties = { fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 1 }
+const qualifier: CSSProperties = { fontSize: 11.5, color: 'var(--spira-ink-soft)', marginLeft: 5 }
 const chipLote: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', height: 23, padding: '0 9px', borderRadius: 6,
   background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', fontSize: 12,
@@ -293,8 +292,8 @@ const chipLote: CSSProperties = {
 }
 const vence: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontSize: 13, fontWeight: 500 }
 const cantidad: CSSProperties = { fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15, color: 'var(--spira-ink)' }
-const unidad: CSSProperties = { fontSize: 11, color: 'var(--spira-muted)', marginLeft: 3 }
+const unidad: CSSProperties = { fontSize: 11, color: 'var(--spira-ink-soft)', marginLeft: 3 }
 const nota: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 9, margin: 0,
-  padding: `13px ${PADDING_LATERAL}px`, fontSize: 12.5, color: 'var(--spira-muted)',
+  padding: `13px ${PADDING_LATERAL}px`, fontSize: 12.5, color: 'var(--spira-ink-soft)',
 }
