@@ -47,26 +47,28 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
       {/* Encabezado de DOCUMENTO, no fila de tabla: identidad a la izquierda, procedencia a la
           derecha, aire en el medio. No comparte la grilla de la tabla ni entra en su scroll.
 
-          A la derecha van las DOS cosas que sitúan la recepción —cuándo llegó y de dónde—, apiladas
-          y en ese orden. La fecha queda a la altura del folio porque los dos bloques alinean su
-          rótulo y su valor en las mismas dos líneas; el ámbito cuelga debajo. */}
+          A la derecha van las DOS cosas que sitúan la recepción —de dónde vino y cuándo llegó—,
+          apiladas en ese orden y unidas por la barra de color. Cada bloque ocupa dos líneas, así
+          que la fecha cae a la altura del folio y el ámbito a la del rótulo. */}
       <header style={dhead}>
         <div>
           <span style={rotuloCelda}>Recepción</span>
           <span style={valorFolio} className="spira-mono">Nº {r.folio}</span>
         </div>
 
-        <div style={{ textAlign: 'right' }}>
-          {/* RECIBIDO ≠ ingresado a stock: la mercadería puede llegar un día y verificarse otro,
-              y la segunda fecha vive en la banda de arriba. Por eso ésta lleva su rótulo. */}
-          <span style={rotuloCelda}>Recibido</span>
-          <span style={valorFecha} className="spira-mono">{formatDayMonthYear(r.reception_date)}</span>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'flex-end', marginTop: 7 }}>
-            <span style={{ ...barraOrigen, background: ambito.color }} />
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: ambito.color }}>{ambito.label}</span>
-            {r.protocol && (
-              <span className="spira-mono" style={codigoOrigen}>{r.protocol.code}</span>
-            )}
+        {/* Procedencia y fecha como UN bloque: la barra de color los abarca a los dos, no sólo al
+            ámbito. La fecha va sin rótulo — el "recibido" lo da el contexto, y la otra fecha de la
+            card (la de ingreso a stock) ya viene con su frase completa en la banda de arriba. */}
+        <div style={{ display: 'flex', gap: 11, alignItems: 'stretch' }}>
+          <span style={{ ...barraOrigen, background: ambito.color }} />
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ display: 'flex', gap: 9, alignItems: 'baseline', justifyContent: 'flex-end' }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: ambito.color }}>{ambito.label}</span>
+              {r.protocol && (
+                <span className="spira-mono" style={codigoOrigen}>{r.protocol.code}</span>
+              )}
+            </div>
+            <span style={valorFecha} className="spira-mono">{formatDayMonthYear(r.reception_date)}</span>
           </div>
         </div>
       </header>
@@ -274,9 +276,10 @@ const rotuloCelda: CSSProperties = {
 const valorFolio: CSSProperties = {
   fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, color: 'var(--spira-ink)',
 }
-const valorFecha: CSSProperties = { display: 'block', fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: 'var(--spira-ink)' }
-// Vuelve por pedido del Director. Acompaña al nombre del ámbito, que ya va en ese color.
-const barraOrigen: CSSProperties = { width: 3, height: 15, borderRadius: 2, flex: '0 0 auto' }
+const valorFecha: CSSProperties = { display: 'block', marginTop: 3, fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: 'var(--spira-ink)' }
+// Abarca el bloque entero (ámbito + fecha), no una sola línea: `alignItems: stretch` en el padre
+// le da la altura, así que no hay que fijarla a mano ni recalcularla si cambia el contenido.
+const barraOrigen: CSSProperties = { width: 3, borderRadius: 2, flex: '0 0 auto' }
 const codigoOrigen: CSSProperties = { fontSize: 13.5, fontWeight: 500, color: 'var(--spira-ink-2)', whiteSpace: 'nowrap' }
 
 // `fixed` es requisito: sin él el navegador ignora los anchos de <col> y la grilla del header
