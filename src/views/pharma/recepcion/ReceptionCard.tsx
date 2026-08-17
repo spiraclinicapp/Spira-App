@@ -56,9 +56,11 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
           <span style={valorFolio} className="spira-mono">Nº {r.folio}</span>
         </div>
 
-        {/* Procedencia y fecha como UN bloque: la barra de color los abarca a los dos, no sólo al
-            ámbito. La fecha va sin rótulo — el "recibido" lo da el contexto, y la otra fecha de la
-            card (la de ingreso a stock) ya viene con su frase completa en la banda de arriba. */}
+        {/* Procedencia y fecha como UN bloque, unidos por la barra de color. Dos líneas con la
+            misma forma —etiqueta y valor— para que la fecha no quede flotando sola debajo del
+            protocolo. El rótulo "Recibido" va en línea y no encima: mantiene el bloque en dos
+            renglones y sigue haciendo falta, porque en la card conviven DOS fechas (ésta y la de
+            ingreso a stock, arriba en la banda) y pueden ser días distintos. */}
         <div style={{ display: 'flex', gap: 11, alignItems: 'stretch' }}>
           <span style={{ ...barraOrigen, background: ambito.color }} />
           <div style={{ textAlign: 'right' }}>
@@ -68,7 +70,10 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
                 <span className="spira-mono" style={codigoOrigen}>{r.protocol.code}</span>
               )}
             </div>
-            <span style={valorFecha} className="spira-mono">{formatDayMonthYear(r.reception_date)}</span>
+            <div style={{ display: 'flex', gap: 9, alignItems: 'baseline', justifyContent: 'flex-end', marginTop: 3 }}>
+              <span style={rotuloCelda}>Recibido</span>
+              <span style={valorFecha} className="spira-mono">{formatDayMonthYear(r.reception_date)}</span>
+            </div>
           </div>
         </div>
       </header>
@@ -271,12 +276,12 @@ const dhead: CSSProperties = {
 // lado del otro y con una segunda fecha en la banda de arriba, necesitan decir qué son.
 const rotuloCelda: CSSProperties = {
   display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em',
-  textTransform: 'uppercase', color: 'var(--spira-ink-soft)', marginBottom: 2,
+  textTransform: 'uppercase', color: 'var(--spira-ink-soft)', marginBottom: 2, whiteSpace: 'nowrap',
 }
 const valorFolio: CSSProperties = {
   fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, color: 'var(--spira-ink)',
 }
-const valorFecha: CSSProperties = { display: 'block', marginTop: 3, fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: 'var(--spira-ink)' }
+const valorFecha: CSSProperties = { fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: 'var(--spira-ink)' }
 // Abarca el bloque entero (ámbito + fecha), no una sola línea: `alignItems: stretch` en el padre
 // le da la altura, así que no hay que fijarla a mano ni recalcularla si cambia el contenido.
 const barraOrigen: CSSProperties = { width: 3, borderRadius: 2, flex: '0 0 auto' }
