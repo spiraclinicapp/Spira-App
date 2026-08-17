@@ -322,3 +322,74 @@ como contexto histórico; borrarla cuando ese PR se mergee.
   Lo más barato con valor inmediato: pasarle `captionLayout="dropdown"` a `DateNavButton`, que son
   dos líneas y cierra la brecha más visible sin unificar nada.
 - **Depende de / bloqueado por:** nada. Conviene después de que Reportes esté mergeado.
+
+---
+
+## Pharma · hora real de llegada de una recepción
+
+- **Qué:** `medication_receptions.reception_date` es un `date`: guarda el día, no la hora. Sumar la
+  hora de llegada al alta y migrar la columna a `timestamptz`.
+- **Por qué:** cuando entran dos cargamentos el mismo día, el día solo no alcanza para reconstruir
+  qué pasó. Es el tipo de dato que se busca justo cuando algo salió mal.
+- **Pros:** el encabezado de la card puede mostrar fecha y hora como pedía el handoff; el registro
+  gana precisión para una auditoría.
+- **Contras:** cambia el tipo de una columna con datos reales y suma un campo obligatorio a un alta
+  que hoy es rápida. Hay que decidir qué hora se asume para las filas viejas (¿00:00? ¿`created_at`?)
+  y ninguna respuesta es del todo honesta.
+- **Contexto:** salió del `/plan-eng-review` del reskin de Recepción (2026-08-17, decisión **A1** en
+  `docs/plan-recepcion-reskin-2c.md`). El mock mostraba "22 jul 2026 · 09:14" y **no hay hora**. Lo
+  único con hora es `created_at`, que es cuándo se tipeó el registro, no cuándo llegó la caja: si se
+  carga el lunes lo del viernes, difieren por días. Se decidió mostrar la fecha sola antes que
+  rotular mal un dato, y dejar `created_at` visible por separado como "Cargada".
+- **Empezar por:** preguntar si el dato hace falta. Si la mercadería siempre se carga al recibirla,
+  entonces `created_at` ya es la hora de llegada y esto se resuelve con una aclaración de copy, sin
+  tocar la base.
+- **Depende de / bloqueado por:** nada técnico. Sí una confirmación de cómo se usa en el mostrador.
+
+---
+
+## Pharma · excursión de temperatura (cadena de frío)
+
+- **Qué:** registrar si un cargamento sufrió una excursión de temperatura, quién la reporta y qué
+  pasa con el stock afectado.
+- **Por qué:** en un estudio clínico una excursión puede inutilizar un cargamento entero, y es de lo
+  primero que un monitor pregunta. Hoy Spira no tiene dónde anotarlo.
+- **Pros:** cierra un hueco real de trazabilidad regulatoria en el módulo que custodia la
+  medicación.
+- **Contras:** no es un campo, es un modelo: rango tolerado por producto, quién declara la
+  excursión, si el stock queda en cuarentena o se descarta, y qué pasa con lo ya dispensado.
+- **Contexto:** el handoff de Recepción "2c" escribe *"Sin excursión de temperatura"* en la nota de
+  la card de investigación, como si el dato existiera. **No existe**: lo más cercano es
+  `storage_location` (heladera / estante / ambiente, migraciones 0038/0039). En el reskin se resolvió
+  mostrando `storage_location` en vez de un texto fijo que afirmaría algo que nadie verificó — el
+  mismo criterio de honestidad que rige para el resto de la app.
+- **Empezar por:** una definición del Director Médico sobre qué se registra y con qué consecuencia.
+  Sin esa respuesta no hay schema que diseñar, y adivinarlo es caro: un campo de temperatura que
+  nadie completa es peor que no tenerlo, porque parece que el control existe.
+- **Depende de / bloqueado por:** decisión de dominio del Director Médico.
+
+---
+
+## Pharma · `medication_codes.code_type` miente: el default marca todo como EAN-13
+
+- **Qué:** reclasificar los códigos que no son EAN-13 válidos y sacarle el `default 'ean13'` a la
+  columna, para que cada alta tenga que declarar qué tipo de código está cargando.
+- **Por qué:** hoy el campo que distingue el código de barras de la caja de un código interno del
+  centro no sirve para decidir nada. `code_type` se creó con `default 'ean13'` (0032:45) y nadie
+  eligió nunca el tipo al dar de alta: **de seis códigos distintos en Recepción, tres están mal
+  tipados** (`01`, `02`, `0` — de uno y dos dígitos, declarados como códigos internacionales) y
+  **ninguno** figura como `interno`. Medido contra producción el 2026-08-17.
+- **Pros:** el campo vuelve a significar algo, y la pantalla puede confiar en el dato declarado en
+  vez de adivinar por la forma del código.
+- **Contras:** toca datos reales y hay que decidir caso por caso; sacar el default obliga a tocar
+  el alta de medicamentos, que hoy no pregunta el tipo.
+- **Contexto:** salió del reskin de Recepción (`docs/plan-recepcion-reskin-2c.md`). El mock muestra
+  un qualifier "interno" al lado de los códigos cortos, y la única fuente para eso era `code_type`.
+  Se resolvió con `esCodigoDeBarras()` en `recepcion/derivados.ts`, que decide por la FORMA (trece
+  dígitos numéricos), porque la forma es verificable y el campo declarado no. Esa función lleva un
+  comentario que apunta acá: cuando los datos se arreglen, puede volver a mirar `code_type`.
+  **Ojo:** los códigos `0`, `01` y `02` huelen a datos de prueba de la carga inicial del catálogo —
+  conviene mirarlos antes de reclasificar, no vaya a ser que haya que borrarlos.
+- **Empezar por:** listar `medication_codes` donde el código no matchee `^[0-9]{13}$`, y decidir
+  con el Director cuáles son internos de verdad y cuáles son basura de prueba.
+- **Depende de / bloqueado por:** nada técnico. Sí una pasada del Director por la lista.

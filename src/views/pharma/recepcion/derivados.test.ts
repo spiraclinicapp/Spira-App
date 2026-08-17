@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FilaRecepcion } from './derivados'
-import { coincideBusqueda, medicamentosDistintos, resumenContenido, totalesDelDia, unidadesDe } from './derivados'
+import { coincideBusqueda, esCodigoDeBarras, medicamentosDistintos, resumenContenido, totalesDelDia, unidadesDe } from './derivados'
 
 /**
  * Los derivados de Recepción.
@@ -100,6 +100,37 @@ describe('resumenContenido', () => {
 
   it('recepción de base sin renglones: no inventa un conteo', () => {
     expect(resumenContenido(fila({ items: [] }))).toBe('trae 0 renglones')
+  })
+})
+
+describe('esCodigoDeBarras', () => {
+  // Se decide por la FORMA porque `code_type` miente: nació con default 'ean13' y nadie eligió
+  // nunca el tipo. En producción, tres de seis códigos de esta pantalla están mal tipados.
+  it('trece dígitos es el código de la caja', () => {
+    expect(esCodigoDeBarras('7795373012288')).toBe(true)
+  })
+
+  it('los códigos cortos del centro no lo son, aunque la base los declare EAN', () => {
+    expect(esCodigoDeBarras('01')).toBe(false)
+    expect(esCodigoDeBarras('02')).toBe(false)
+    expect(esCodigoDeBarras('0')).toBe(false)
+  })
+
+  it('doce o catorce dígitos tampoco: EAN-13 son trece exactos', () => {
+    expect(esCodigoDeBarras('779537301228')).toBe(false)
+    expect(esCodigoDeBarras('77953730122889')).toBe(false)
+  })
+
+  it('trece caracteres con una letra no es un EAN', () => {
+    expect(esCodigoDeBarras('779537301228X')).toBe(false)
+  })
+
+  it('ignora los espacios de los costados', () => {
+    expect(esCodigoDeBarras(' 7795373012288 ')).toBe(true)
+  })
+
+  it('el vacío no es nada', () => {
+    expect(esCodigoDeBarras('')).toBe(false)
   })
 })
 

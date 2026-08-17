@@ -76,6 +76,25 @@ export function resumenContenido(r: FilaRecepcion): string {
 }
 
 /**
+ * ¿Este código es el de la caja (un GTIN/EAN-13) o uno interno del centro?
+ *
+ * Se decide por la FORMA del código y no por `medication_codes.code_type`, que es el campo que
+ * el modelo tiene para esto y que hoy miente: la columna se creó con `default 'ean13'` (0032:45)
+ * y nadie eligió nunca el tipo al dar de alta, así que "01", "02" y "0" figuran en producción
+ * como códigos de barras internacionales. De seis códigos distintos en Recepción, tres están
+ * mal tipados y ninguno declara `interno`.
+ *
+ * Importa porque esa columna es la que se coteja contra la caja que la farmacéutica tiene en la
+ * mano: rotular un código interno como si fuera el de la caja la manda a buscar algo que no
+ * existe. Trece dígitos numéricos es una forma verificable; el campo declarado, no.
+ *
+ * Cuando los datos se reclasifiquen (ver TODOS.md), esto puede volver a mirar `code_type`.
+ */
+export function esCodigoDeBarras(code: string): boolean {
+  return /^\d{13}$/.test(code.trim())
+}
+
+/**
  * ¿Esta recepción coincide con lo que se tipeó?
  *
  * Cubre lo que el handoff promete del buscador: folio, medicamento, EAN, lote y protocolo (más
