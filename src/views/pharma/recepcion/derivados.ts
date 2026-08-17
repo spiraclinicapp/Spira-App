@@ -1,0 +1,141 @@
+import { formatNumberAR } from '../../../lib/numbers'
+
+/**
+ * Los derivados de la lista de Recepción: las frases con números y la decisión de qué fila
+ * aparece al buscar.
+ *
+ * Van acá, puros y fuera del componente, porque son lo único del reskin que puede fallar EN
+ * SILENCIO: un conteo equivocado se lee tan prolijo como uno correcto, y una búsqueda que no
+ * mira el EAN devuelve "sin resultados" sin ninguna señal de que el filtro estaba incompleto.
+ * La banda, el header en grilla y la tabla fallan de manera visible y se verifican mirando.
+ *
+ * El contrato es ESTRUCTURAL a propósito (`FilaRecepcion`, no `ReceptionRow`): así el test arma
+ * una fila con los seis campos que importan en vez de la fila entera de Supabase, y `folio` puede
+ * entrar cuando la 0085 esté aplicada sin tocar nada de acá.
+ */
+
+/** Lo que estos derivados necesitan de una recepción. `ReceptionRow` lo satisface. */
+export interface FilaRecepcion {
+  tipo: string
+  status: string
+  notes: string | null
+  total_kits: number | null
+  protocol: { code: string } | null
+  items: {
+    medication_id: string
+    lot_number: string
+    quantity: number
+    medication: { name: string; codes?: { code: string }[] } | null
+  }[]
+  /** Número correlativo (0085). Opcional mientras la migración no esté aplicada. */
+  folio?: number | null
+}
+
+const esIp = (r: FilaRecepcion) => r.tipo === 'investigacion'
+const verificada = (r: FilaRecepcion) => r.status === 'verificada'
+
+/** Unidades declaradas en los renglones. En una recepción de IP no hay renglones: hay kits. */
+export function unidadesDe(r: FilaRecepcion): number {
+  return r.items.reduce((s, it) => s + it.quantity, 0)
+}
+
+/**
+ * Medicamentos DISTINTOS, no renglones.
+ *
+ * La diferencia no es cosmética y la habilita el schema: el unique de `reception_items` es por
+ * (recepción, medicamento, LOTE) — 0002:267 —, así que el mismo Salbutral en dos lotes son dos
+ * renglones y un solo medicamento. Contar `items.length` diría "2 medicamentos" con uno solo, y
+ * nadie lo notaría jamás.
+ */
+export function medicamentosDistintos(r: FilaRecepcion): number {
+  return new Set(r.items.map((it) => it.medication_id)).size
+}
+
+/**
+ * El resumen de contenido de la banda: "2 medicamentos · 15 unidades".
+ *
+ * El VERBO cambia con el estado y eso es el punto: hasta verificar, esas unidades todavía no
+ * entraron a stock. El handoff resolvía la distinción escondiendo el resumen en las pendientes,
+ * que son justo las cards sobre las que hay que decidir algo; acá se resuelve diciéndolo.
+ */
+export function resumenContenido(r: FilaRecepcion): string {
+  if (esIp(r)) {
+    const kits = r.total_kits ?? 0
+    const cuerpo = `${formatNumberAR(kits)} ${kits === 1 ? 'kit' : 'kits'}`
+    return verificada(r) ? `${cuerpo} ${kits === 1 ? 'ingresado' : 'ingresados'}` : `trae ${cuerpo}`
+  }
+
+  if (r.items.length === 0) return verificada(r) ? 'Sin renglones' : 'trae 0 renglones'
+
+  const meds = medicamentosDistintos(r)
+  const uds = unidadesDe(r)
+  const cuerpo =
+    `${formatNumberAR(meds)} ${meds === 1 ? 'medicamento' : 'medicamentos'}` +
+    ` · ${formatNumberAR(uds)} ${uds === 1 ? 'unidad' : 'unidades'}`
+  return verificada(r) ? `${cuerpo} ${uds === 1 ? 'ingresada' : 'ingresadas'}` : `trae ${cuerpo}`
+}
+
+/**
+ * ¿Este código es el de la caja (un GTIN/EAN-13) o uno interno del centro?
+ *
+ * Se decide por la FORMA del código y no por `medication_codes.code_type`, que es el campo que
+ * el modelo tiene para esto y que hoy miente: la columna se creó con `default 'ean13'` (0032:45)
+ * y nadie eligió nunca el tipo al dar de alta, así que "01", "02" y "0" figuran en producción
+ * como códigos de barras internacionales. De seis códigos distintos en Recepción, tres están
+ * mal tipados y ninguno declara `interno`.
+ *
+ * Importa porque esa columna es la que se coteja contra la caja que la farmacéutica tiene en la
+ * mano: rotular un código interno como si fuera el de la caja la manda a buscar algo que no
+ * existe. Trece dígitos numéricos es una forma verificable; el campo declarado, no.
+ *
+ * Cuando los datos se reclasifiquen (ver TODOS.md), esto puede volver a mirar `code_type`.
+ */
+export function esCodigoDeBarras(code: string): boolean {
+  return /^\d{13}$/.test(code.trim())
+}
+
+/**
+ * ¿Esta recepción coincide con lo que se tipeó?
+ *
+ * Cubre lo que el handoff promete del buscador: folio, medicamento, EAN, lote y protocolo (más
+ * las notas, que ya se buscaban). El EAN faltaba y es el caso que más duele: alguien pasa el
+ * lector sobre una caja, la pantalla dice "nada con esos filtros" y no hay forma de saber que el
+ * filtro nunca miró ese campo.
+ *
+ * Se buscan TODOS los códigos del medicamento, no sólo el primero: `medication_codes` es 1-a-N y
+ * un producto puede tener su EAN y además un código interno.
+ */
+export function coincideBusqueda(r: FilaRecepcion, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+
+  const campos: string[] = [
+    r.folio != null ? String(r.folio) : '',
+    r.protocol?.code ?? '',
+    r.notes ?? '',
+  ]
+  for (const it of r.items) {
+    campos.push(it.lot_number, it.medication?.name ?? '')
+    for (const c of it.medication?.codes ?? []) campos.push(c.code)
+  }
+
+  return campos.some((c) => c.toLowerCase().includes(q))
+}
+
+/**
+ * El conteo de la barra de cada día: "2 recepciones · 24 unidades".
+ *
+ * Las unidades y los kits NUNCA se suman entre sí (principio del Director Médico, 0038: la
+ * composición de un kit la declara el sponsor y Spira no la reinterpreta). Si el día mezcla las
+ * dos cosas, se enuncian las dos por separado.
+ */
+export function totalesDelDia(rows: FilaRecepcion[]): string {
+  const n = rows.length
+  const uds = rows.filter((r) => !esIp(r)).reduce((s, r) => s + unidadesDe(r), 0)
+  const kits = rows.filter(esIp).reduce((s, r) => s + (r.total_kits ?? 0), 0)
+
+  const partes = [`${formatNumberAR(n)} ${n === 1 ? 'recepción' : 'recepciones'}`]
+  if (uds > 0) partes.push(`${formatNumberAR(uds)} ${uds === 1 ? 'unidad' : 'unidades'}`)
+  if (kits > 0) partes.push(`${formatNumberAR(kits)} ${kits === 1 ? 'kit' : 'kits'}`)
+  return partes.join(' · ')
+}
