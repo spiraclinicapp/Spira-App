@@ -163,7 +163,11 @@ function TablaRenglones({ r, hoyISO }: { r: ReceptionRow; hoyISO: string }) {
       <thead>
         <tr>
           {COLUMNAS.map((c) => (
-            <th key={c.clave} scope="col" style={{ ...th, textAlign: c.align }}>{c.label}</th>
+            <th key={c.clave} scope="col" style={{ ...th, textAlign: c.align }}>
+              {/* El rótulo del medicamento se oculta A LA VISTA, no al lector de pantalla: la
+                  columna sigue anunciándose al navegar la tabla. */}
+              <span style={c.rotuloVisible ? undefined : soloLector}>{c.label}</span>
+            </th>
           ))}
         </tr>
       </thead>
@@ -298,6 +302,11 @@ const td: CSSProperties = {
  * los dos consumidores.
  */
 const celdaDe = (i: number): CSSProperties => ({ ...td, textAlign: COLUMNAS[i].align })
+/** Oculto a la vista, presente para el lector de pantalla. */
+const soloLector: CSSProperties = {
+  position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+  overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
+}
 const nombreMed: CSSProperties = { fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)' }
 const monodroga: CSSProperties = { fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 1 }
 const qualifier: CSSProperties = { fontSize: 11.5, color: 'var(--spira-ink-soft)', marginLeft: 5 }

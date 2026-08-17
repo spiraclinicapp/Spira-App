@@ -15,36 +15,29 @@
  * laboratorio— y centrarlos les da un eje propio, con el nombre del medicamento anclado a la
  * izquierda y la cantidad cerrando a la derecha.
  *
- * ESTOS ANCHOS ESTÁN MEDIDOS, NO ELEGIDOS A OJO.
+ * SEIS COLUMNAS IGUALES Y TODO CENTRADO. Los ejes quedan equiespaciados por construcción y los
+ * huecos se emparejan solos: al centrar, el sobrante de cada columna se reparte mitad y mitad a
+ * cada lado, así que el hueco entre dos columnas vecinas es siempre la suma de dos mitades. No
+ * hay porcentaje que ajustar.
  *
- * **Las cuatro centrales miden LO MISMO (18,25%)**, así que sus ejes quedan equiespaciados por
- * construcción y no pueden desbalancearse al cambiar el contenido.
+ * A esto se llegó después de tres intentos de emparejar los huecos moviendo anchos, y el motivo
+ * de que ninguno cerrara vale escribirlo: **ese hueco se mide dos veces y da distinto**. El título
+ * decía "MEDICAMENTO" (93px) y el dato "Salbutral 100 mcg" (187px), los dos anclados al MISMO
+ * borde izquierdo; emparejar el hueco de los títulos desemparejaba el de los valores y al revés.
+ * Barridas 121 combinaciones, la suma de ambos errores nunca bajó de ~70px. El problema no eran
+ * los anchos: era anclar al borde dos textos de largo muy distinto.
  *
- * Los dos bordes reparten un error que NO SE PUEDE ELIMINAR. El hueco de la izquierda se mide
- * dos veces y da distinto según qué fila mires: el título dice "MEDICAMENTO" (93px) y el dato dice
- * "Salbutral 100 mcg" (187px), los dos anclados al mismo borde. Emparejar el hueco de los TÍTULOS
- * desemparejaba el de los VALORES y al revés; barriendo 121 combinaciones, el mínimo de la suma de
- * los dos errores nunca baja de ~70px. Así que se reparte:
- *
- *   22 / 16,5×4 / 12   → títulos +102px, valores  −2px   (emparejaba los datos, el título se veía torcido)
- *   14 / 18,5×4 / 12   → títulos   −2px, valores −73px   (al revés)
- *   16 / 18,25×4 / 11  → títulos  +37px, valores −38px   ← ésta: el error queda partido y de signo opuesto,
- *                                                          así que la fila de títulos y la de datos se
- *                                                          compensan entre sí en vez de sumar
- *
- * Si cambian los anchos hay que volver a medir con datos reales, y medir LAS DOS FILAS: la de
- * títulos y la de valores. Optimizar una sola fue el error que costó tres iteraciones.
- * Cuidado además con el método: el nombre del medicamento es un div de bloque, así que su borde
- * derecho es el de la celda y no el del texto — se mide con un Range sobre el contenido o el
- * número miente.
+ * **La columna del medicamento no lleva título.** Es el único encabezado que no informaba nada
+ * —que ahí va el medicamento se ve— y era justamente el texto corto que desbalanceaba el hueco.
+ * El `<th>` sigue existiendo con su rótulo accesible: lo que se saca es la tinta, no la semántica.
  */
 export const COLUMNAS = [
-  { clave: 'medicamento', label: 'Medicamento', ancho: '16%',    align: 'left' },
-  { clave: 'codigo',      label: 'Código / EAN', ancho: '18.25%', align: 'center' },
-  { clave: 'lote',        label: 'Lote',        ancho: '18.25%', align: 'center' },
-  { clave: 'vence',       label: 'Vence',       ancho: '18.25%', align: 'center' },
-  { clave: 'laboratorio', label: 'Laboratorio', ancho: '18.25%', align: 'center' },
-  { clave: 'cantidad',    label: 'Cantidad',    ancho: '11%',    align: 'right' },
+  { clave: 'medicamento', label: 'Medicamento', ancho: '16.67%', align: 'center', rotuloVisible: false },
+  { clave: 'codigo',      label: 'Código / EAN', ancho: '16.67%', align: 'center', rotuloVisible: true },
+  { clave: 'lote',        label: 'Lote',        ancho: '16.67%', align: 'center', rotuloVisible: true },
+  { clave: 'vence',       label: 'Vence',       ancho: '16.67%', align: 'center', rotuloVisible: true },
+  { clave: 'laboratorio', label: 'Laboratorio', ancho: '16.66%', align: 'center', rotuloVisible: true },
+  { clave: 'cantidad',    label: 'Cantidad',    ancho: '16.66%', align: 'center', rotuloVisible: true },
 ] as const
 
 /**
