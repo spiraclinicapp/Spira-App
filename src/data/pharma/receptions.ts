@@ -22,19 +22,25 @@ export interface ReceptionItemRow {
     drug: { name: string } | null
     /** Laboratorio / titular (0033). Nullable. */
     laboratorio: { name: string } | null
-    /** Códigos EAN13 (`medication_codes`, 1-a-N; convención 1↔1 → se usa el primero). 0032. */
-    codes: { code: string }[]
+    /** Códigos de barras (`medication_codes`, 1-a-N). `code_type` distingue el EAN del interno
+     *  (0032): un código corto propio del centro se rotula como tal en vez de pasar por GTIN. */
+    codes: { code: string; code_type: string }[]
   } | null
 }
 
 /** Recepción de medicación, con sus renglones (tablas `medication_receptions` + `reception_items`). */
 export interface ReceptionRow {
   id: string
+  /** Número correlativo y legible ("Nº 1043"). El uuid no se puede dictar ni auditar. 0085. */
+  folio: number
   tipo: ReceptionKind
   protocol_id: string | null
   reception_date: string
   status: ReceptionStatus
   verified_at: string | null
+  /** Snapshot del nombre de quien verificó. Desnormalizado porque la RLS de `users` sólo expone
+   *  la fila propia: un join dejaría a la farmacéutica viendo su nombre y null en el resto. 0085. */
+  verified_by_name: string | null
   notes: string | null
   /** Código del protocolo (to-one) para mostrar/buscar en la lista transversal. */
   protocol: { code: string } | null
@@ -46,29 +52,65 @@ export interface ReceptionRow {
 }
 
 const RECEPTION_COLS =
-  'id, tipo, protocol_id, reception_date, status, verified_at, notes, ' +
+  'id, folio, tipo, protocol_id, reception_date, status, verified_at, verified_by_name, notes, ' +
   // protocol.code para mostrar/buscar en la lista transversal; total_kits/storage_location son el
   // ingreso MACRO del IP (0038): la recepción IP no tiene reception_items (lleva la cantidad total).
   'total_kits, storage_location, protocol:protocols(code), ' +
-  // El detalle por renglón trae monodroga, laboratorio y EAN embebidos (0032/0033). Un solo
+  // El detalle por renglón trae monodroga, laboratorio y códigos embebidos (0032/0033). Un solo
   // round-trip; drug_id/laboratorio_id son FK únicas → sin ambigüedad en PostgREST.
   'items:reception_items(id, medication_id, lot_number, expiry_date, quantity, ' +
-    'medication:medications(name, drug:drugs(name), laboratorio:laboratorios(name), codes:medication_codes(code)))'
+    'medication:medications(name, drug:drugs(name), laboratorio:laboratorios(name), codes:medication_codes(code, code_type)))'
+
+/**
+ * Techo de filas de la lista. PostgREST corta por su propio `max-rows` devolviendo 200 OK con
+ * las primeras N: sin un techo explícito y un conteo exacto, la lista se acortaría en silencio y
+ * el total de cada día afirmaría sobre un conjunto incompleto. Mismo criterio que `TECHO_FILAS`
+ * en reports.ts, con un número acorde a una lista que se recorre con el ojo.
+ */
+export const TECHO_RECEPCIONES = 500
+
+export interface ReceptionsQuery {
+  data: ReceptionRow[] | null
+  loading: boolean
+  error: string | null
+  refetch: () => void
+  /** Filas que la base dice que hay. Si supera el techo, la lista está recortada. */
+  total: number | null
+  truncado: boolean
+}
 
 /** Recepciones (cola; más nuevas primero), con renglones, protocolo e ítems/unidades.
  *  tipo=null → todos los tipos (lista transversal). ambulatoria → sin protocolo.
  *  protocolo/investigacion con protocolId → filtra por protocolo; con null trae todas del tipo. */
-export function useReceptions(tipo: ReceptionKind | null, protocolId: string | null) {
-  return useSupabaseQuery<ReceptionRow[]>(
-    (c) => {
-      let q = c.from('medication_receptions').select(RECEPTION_COLS)
+export function useReceptions(tipo: ReceptionKind | null, protocolId: string | null): ReceptionsQuery {
+  const res = useSupabaseQuery<{ rows: ReceptionRow[]; total: number | null }>(
+    async (c) => {
+      let q = c.from('medication_receptions').select(RECEPTION_COLS, { count: 'exact' })
       if (tipo) q = q.eq('tipo', tipo)
       if (tipo === 'ambulatoria') q = q.is('protocol_id', null)
       else if (tipo && protocolId) q = q.eq('protocol_id', protocolId)
-      return q.order('reception_date', { ascending: false }).returns<ReceptionRow[]>()
+      // El folio desempata: dos recepciones del mismo día salían en orden arbitrario, y el orden
+      // de la lista no debería depender de cómo se le dio la gana a Postgres esa vez.
+      const { data, error, count } = await q
+        .order('reception_date', { ascending: false })
+        .order('folio', { ascending: false })
+        .limit(TECHO_RECEPCIONES)
+        .returns<ReceptionRow[]>()
+      if (error) return { data: null, error }
+      return { data: { rows: data ?? [], total: count ?? null }, error: null }
     },
     [tipo, protocolId],
   )
+
+  const total = res.data?.total ?? null
+  return {
+    data: res.data ? res.data.rows : null,
+    loading: res.loading,
+    error: res.error,
+    refetch: res.refetch,
+    total,
+    truncado: total != null && total > TECHO_RECEPCIONES,
+  }
 }
 
 /** Renglón a recibir (entrada para `create_reception`). */
