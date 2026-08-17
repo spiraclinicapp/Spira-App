@@ -15,30 +15,35 @@
  * laboratorio— y centrarlos les da un eje propio, con el nombre del medicamento anclado a la
  * izquierda y la cantidad cerrando a la derecha.
  *
- * ESTOS ANCHOS ESTÁN MEDIDOS, NO ELEGIDOS A OJO, y equilibran el AIRE, no las columnas.
+ * ESTOS ANCHOS ESTÁN MEDIDOS, NO ELEGIDOS A OJO. Cumplen dos condiciones del Director:
  *
- * Son dos cosas distintas y no se pueden tener las dos. Para centrar geométricamente el bloque del
- * medio, Medicamento y Cantidad tienen que medir lo mismo (23% y 23%); pero entonces el aire se
- * desbalancea al revés, porque el contenido de los bordes es asimétrico: un nombre de medicamento
- * ocupa casi toda su columna y "5 u." casi nada. Se probaron cinco distribuciones midiendo, sobre
- * las 12 filas reales de la pantalla, la diferencia entre el hueco que queda a la izquierda del
- * bloque central y el que queda a la derecha:
+ *   1. **Las cuatro centrales miden LO MISMO (16,5%)**, así que sus ejes quedan equiespaciados por
+ *      construcción. No hay forma de que se desbalanceen al cambiar el contenido.
+ *   2. **El hueco entre Medicamento y Código es el mismo que entre Laboratorio y Cantidad.** Eso
+ *      NO sale de que los bordes midan igual —el contenido es asimétrico: un nombre llena casi
+ *      toda su columna y "5 u." casi nada—, sino de compensar esa asimetría: 22% al medicamento
+ *      y 12% a la cantidad.
  *
- *   29/16/12/15/16/12  → +71px de diferencia promedio (la primera versión; se veía corrido)
- *   23/15/12/13/14/23  → −105px (bloque geométricamente centrado, aire peor)
- *   26/15/13/14/15/17  → −15px
- *   27/15/13/14/16/15  → +12px, y el peor caso individual más bajo de todos (81px)  ← ésta
+ * Se barrieron 24 combinaciones midiendo, sobre las 12 filas reales de la pantalla, la diferencia
+ * entre los dos huecos (del fin del nombre al código, y del fin del laboratorio al número):
+ *
+ *   29/16/12/15/16/12       → +71px de diferencia promedio (la primera versión, se veía corrida)
+ *   23/15/12/13/14/23       → −105px (bordes iguales: centra el bloque y empeora el aire)
+ *   27/15/13/14/16/15       → +12px
+ *   22/16,5×4/12            →  −2px, y el peor caso individual más bajo (65px)   ← ésta
  *
  * Si cambian los anchos hay que volver a medir con datos reales: el punto de equilibrio depende
  * del largo de los nombres, y medir una sola fila da una respuesta distinta que medir doce.
+ * Cuidado al medir: el nombre del medicamento es un div de bloque, así que su borde derecho es el
+ * de la celda y no el del texto — hay que usar un Range sobre el contenido o el número miente.
  */
 export const COLUMNAS = [
-  { clave: 'medicamento', label: 'Medicamento', ancho: '27%', align: 'left' },
-  { clave: 'codigo',      label: 'Código / EAN', ancho: '15%', align: 'center' },
-  { clave: 'lote',        label: 'Lote',        ancho: '13%', align: 'center' },
-  { clave: 'vence',       label: 'Vence',       ancho: '14%', align: 'center' },
-  { clave: 'laboratorio', label: 'Laboratorio', ancho: '16%', align: 'center' },
-  { clave: 'cantidad',    label: 'Cantidad',    ancho: '15%', align: 'right' },
+  { clave: 'medicamento', label: 'Medicamento', ancho: '22%',   align: 'left' },
+  { clave: 'codigo',      label: 'Código / EAN', ancho: '16.5%', align: 'center' },
+  { clave: 'lote',        label: 'Lote',        ancho: '16.5%', align: 'center' },
+  { clave: 'vence',       label: 'Vence',       ancho: '16.5%', align: 'center' },
+  { clave: 'laboratorio', label: 'Laboratorio', ancho: '16.5%', align: 'center' },
+  { clave: 'cantidad',    label: 'Cantidad',    ancho: '12%',   align: 'right' },
 ] as const
 
 /**
