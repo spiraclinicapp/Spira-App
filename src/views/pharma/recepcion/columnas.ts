@@ -1,33 +1,32 @@
 /**
  * Las seis columnas del detalle de una recepción, en UN SOLO LUGAR.
  *
- * El header del documento y la tabla de renglones usan exactamente estos anchos: el header es un
- * grid y la tabla un `<table>` con `<col>`, y lo que hace que el texto de cada celda del header
- * caiga sobre el título de su columna es que los dos lean de acá. Escribirlos dos veces es la
- * forma segura de que alguien toque uno y la alineación se rompa sin que nadie se entere.
+ * SOLO LA TABLA usa esta grilla. La primera versión del reskin la compartía con el encabezado del
+ * documento, siguiendo el handoff: el folio caía sobre "Medicamento", la fecha sobre "Código". Se
+ * alineaba al píxel y aun así hacía ruido, porque son dos sistemas distintos peleando en la misma
+ * franja — el encabezado identifica un documento, la tabla enumera renglones. Alinear el uno con
+ * el otro no los une, los superpone. El encabezado pasó a componerse solo (2026-08-17).
  *
- * `table-layout: fixed` es REQUISITO en la tabla: sin él el navegador ignora los porcentajes y
- * reparte a su gusto según el contenido, que es justo lo que la grilla rígida viene a evitar.
+ * `table-layout: fixed` es REQUISITO: sin él el navegador ignora los porcentajes y reparte a su
+ * gusto según el contenido, que es lo que estos anchos vienen a evitar.
  */
 export const COLUMNAS = [
+  // Las cuatro del medio van CENTRADAS. Son datos cortos de cotejo —código, lote, fecha,
+  // laboratorio— y centrarlos les da un eje propio, con el nombre del medicamento anclado a la
+  // izquierda y la cantidad a la derecha cerrando la fila. Los bordes cargan el peso; el medio
+  // respira.
   { clave: 'medicamento', label: 'Medicamento', ancho: '29%', align: 'left' },
-  { clave: 'codigo',      label: 'Código / EAN', ancho: '16%', align: 'left' },
-  // Lote y Laboratorio se centran: su título es más ancho que el valor, y centrando los dos
-  // comparten eje vertical. Las demás alinean al borde.
+  { clave: 'codigo',      label: 'Código / EAN', ancho: '16%', align: 'center' },
   { clave: 'lote',        label: 'Lote',        ancho: '12%', align: 'center' },
-  { clave: 'vence',       label: 'Vence',       ancho: '15%', align: 'left' },
+  { clave: 'vence',       label: 'Vence',       ancho: '15%', align: 'center' },
   { clave: 'laboratorio', label: 'Laboratorio', ancho: '16%', align: 'center' },
   { clave: 'cantidad',    label: 'Cantidad',    ancho: '12%', align: 'right' },
 ] as const
 
-/** Para el `grid-template-columns` del header. Mismos anchos, mismo orden. */
-export const GRID_COLUMNAS = COLUMNAS.map((c) => c.ancho).join(' ')
-
 /**
- * Ancho mínimo del bloque. Por debajo, el header y la tabla scrollean JUNTOS en horizontal en
- * vez de esconder columnas: es una vista auditable y un dato que no se ve es un dato que no está.
- * Scrollean juntos porque viven en el mismo contenedor con overflow — si no, se desalinean al
- * primer scroll y la grilla rígida deja de serlo.
+ * Ancho mínimo de la TABLA. Por debajo scrollea en horizontal en vez de esconder columnas: es una
+ * vista auditable y un dato que no se ve es un dato que no está. El encabezado ya no entra en ese
+ * scroll — no comparte anchos con la tabla, así que no tiene con qué desalinearse.
  */
 export const ANCHO_MINIMO = 700
 

@@ -4,7 +4,7 @@ import { dateToISO, formatDayMonthYear, formatTimeAR, todayISO } from '../../../
 import type { ReceptionRow } from '../../../data/pharma'
 import { ESTADO_CFG, estadoFromExpiry } from '../expiryState'
 import { KIND_CHIP } from './ambitos'
-import { ANCHO_MINIMO, COLUMNAS, GRID_COLUMNAS, PADDING_LATERAL } from './columnas'
+import { ANCHO_MINIMO, COLUMNAS, PADDING_LATERAL } from './columnas'
 import { esCodigoDeBarras, resumenContenido } from './derivados'
 
 /**
@@ -44,37 +44,44 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
     <article style={cardStyle} aria-label={`Recepción Nº ${r.folio}`}>
       <Banda r={r} canManage={canManage} busy={busy} error={error} onVerify={onVerify} />
 
-      {/* Header y tabla en el MISMO contenedor con scroll: si scrollearan por separado, la
-          alineación entre el encabezado y las columnas se perdería al primer arrastre. */}
-      <div style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth: ANCHO_MINIMO }}>
-          <header style={dhead}>
-            <div style={celda}>
-              <span style={rotuloCelda}>Recepción</span>
-              <span style={valorFolio} className="spira-mono">Nº {r.folio}</span>
-            </div>
-            {/* RECIBIDO ≠ ingresado a stock. La mercadería puede llegar un día y verificarse otro
-                —el pedido queda apoyado hasta que alguien lo cuenta—, así que las dos fechas
-                conviven en la card y cada una necesita decir cuál es. El folio no lleva rótulo
-                porque "Nº 1043" se explica solo; una fecha suelta, no. */}
-            <div style={{ ...celda, gridColumn: '2 / 4' }}>
-              <span style={rotuloCelda}>Recibido</span>
-              <span style={valorFecha} className="spira-mono">{formatDayMonthYear(r.reception_date)}</span>
-            </div>
-            {/* Sin barra de color: el nombre del ámbito YA se escribe en su color, así que una
-                barra del mismo tono al lado repite el dato en vez de codificarlo. El bloque se
-                centra respecto de la fila; no tiene línea base que alinear con sus vecinas. */}
-            <div style={{ ...celda, gridColumn: '5 / 7', justifySelf: 'end', alignSelf: 'center', display: 'flex', gap: 10, alignItems: 'center' }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: ambito.color }}>{ambito.label}</span>
-              {r.protocol && (
-                <span className="spira-mono" style={codigoOrigen}>{r.protocol.code}</span>
-              )}
-            </div>
-          </header>
-
-          {esIp && r.items.length === 0 ? <NotaIp r={r} /> : <TablaRenglones r={r} hoyISO={hoyISO} />}
+      {/* Encabezado de DOCUMENTO, no fila de tabla: identidad a la izquierda, origen a la derecha,
+          aire en el medio. No comparte la grilla de la tabla ni entra en su scroll — alinearlo con
+          las columnas los superponía en vez de unirlos. */}
+      <header style={dhead}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 32 }}>
+          <div>
+            <span style={rotuloCelda}>Recepción</span>
+            <span style={valorFolio} className="spira-mono">Nº {r.folio}</span>
+          </div>
+          {/* RECIBIDO ≠ ingresado a stock. La mercadería puede llegar un día y verificarse otro
+              —el pedido queda apoyado hasta que alguien lo cuenta—, así que las dos fechas
+              conviven en la card y cada una necesita decir cuál es. Va pegado al folio: los dos
+              identifican el mismo documento, y juntos dejan el centro libre. */}
+          <div>
+            <span style={rotuloCelda}>Recibido</span>
+            <span style={valorFecha} className="spira-mono">{formatDayMonthYear(r.reception_date)}</span>
+          </div>
         </div>
-      </div>
+
+        {/* Sin barra de color: el nombre del ámbito YA se escribe en su color, así que una barra
+            del mismo tono al lado repite el dato en vez de codificarlo. */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: ambito.color }}>{ambito.label}</span>
+          {r.protocol && (
+            <span className="spira-mono" style={codigoOrigen}>{r.protocol.code}</span>
+          )}
+        </div>
+      </header>
+
+      {esIp && r.items.length === 0 ? (
+        <NotaIp r={r} />
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <div style={{ minWidth: ANCHO_MINIMO }}>
+            <TablaRenglones r={r} hoyISO={hoyISO} />
+          </div>
+        </div>
+      )}
     </article>
   )
 }
@@ -166,11 +173,11 @@ function TablaRenglones({ r, hoyISO }: { r: ReceptionRow; hoyISO: string }) {
           const codigo = it.medication?.codes?.[0]?.code ?? ''
           return (
             <tr key={it.id}>
-              <td style={td}>
+              <td style={celdaDe(0)}>
                 <div style={nombreMed}>{it.medication?.name ?? '—'}</div>
                 {it.medication?.drug?.name && <div style={monodroga}>{it.medication.drug.name}</div>}
               </td>
-              <td style={td}>
+              <td style={celdaDe(1)}>
                 {codigo ? (
                   <>
                     <span className="spira-mono" style={{ fontSize: 13 }}>{codigo}</span>
@@ -180,10 +187,10 @@ function TablaRenglones({ r, hoyISO }: { r: ReceptionRow; hoyISO: string }) {
                   </>
                 ) : <span style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>— sin código —</span>}
               </td>
-              <td style={{ ...td, textAlign: 'center' }}>
+              <td style={celdaDe(2)}>
                 <span className="spira-mono" style={chipLote}>{it.lot_number}</span>
               </td>
-              <td style={td}>
+              <td style={celdaDe(3)}>
                 <span
                   style={{ ...vence, color: cfg.color }}
                   title={cfg.label}
@@ -193,12 +200,12 @@ function TablaRenglones({ r, hoyISO }: { r: ReceptionRow; hoyISO: string }) {
                   <span className="spira-mono">{it.expiry_date ? formatDayMonthYear(it.expiry_date) : '—'}</span>
                 </span>
               </td>
-              <td style={{ ...td, textAlign: 'center' }}>
+              <td style={celdaDe(4)}>
                 <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>
                   {it.medication?.laboratorio?.name ?? '— sin cargar —'}
                 </span>
               </td>
-              <td style={{ ...td, textAlign: 'right' }}>
+              <td style={celdaDe(5)}>
                 <span style={cantidad} className="spira-mono">{it.quantity}</span>
                 <span style={unidad}>u.</span>
               </td>
@@ -250,14 +257,14 @@ const btnVerificar: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto', whiteSpace: 'nowrap',
 }
 
-// `end` y no `center`: la celda de la fecha lleva rótulo encima y la del folio no, así que
-// centrando cada una por su cuenta las líneas base quedaban desfasadas 3px — el folio flotando
-// sobre la fecha. Pegadas abajo y con el mismo padding inferior, las dos bases coinciden.
+// Flex con los dos bloques a los extremos: el folio y su fecha alineados por la BASE (uno tiene
+// el valor a 21px y el otro a 13,5, así que centrarlos los dejaría flotando), y el ámbito a la
+// derecha. El espacio libre del medio es la separación entre "qué documento es" y "de dónde vino".
 const dhead: CSSProperties = {
-  display: 'grid', gridTemplateColumns: GRID_COLUMNAS, alignItems: 'end',
+  display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20,
+  padding: `15px ${PADDING_LATERAL}px 16px`, flexWrap: 'wrap',
   background: 'var(--spira-surface)', borderBottom: '1px solid var(--spira-line)',
 }
-const celda: CSSProperties = { padding: `15px ${PADDING_LATERAL}px 16px`, minWidth: 0 }
 // Rótulo de dato. Las dos celdas del encabezado lo llevan: "Nº 11" y una fecha suelta, uno al
 // lado del otro y con una segunda fecha en la banda de arriba, necesitan decir qué son.
 const rotuloCelda: CSSProperties = {
@@ -282,6 +289,15 @@ const td: CSSProperties = {
   padding: `12px ${PADDING_LATERAL}px`, fontSize: 13, verticalAlign: 'middle',
   borderTop: '1px solid var(--spira-line)',
 }
+/**
+ * La celda saca su alineación de COLUMNAS, igual que su título.
+ *
+ * No es ceremonia: la primera versión escribía el `textAlign` a mano en cada `<td>`, y cuando las
+ * columnas del medio pasaron a centradas los `th` se movieron —leen de COLUMNAS— y los `td` se
+ * quedaron donde estaban. Título centrado, valor a la izquierda, en la misma columna. Una fuente,
+ * los dos consumidores.
+ */
+const celdaDe = (i: number): CSSProperties => ({ ...td, textAlign: COLUMNAS[i].align })
 const nombreMed: CSSProperties = { fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)' }
 const monodroga: CSSProperties = { fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 1 }
 const qualifier: CSSProperties = { fontSize: 11.5, color: 'var(--spira-ink-soft)', marginLeft: 5 }
