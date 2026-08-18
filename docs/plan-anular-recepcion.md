@@ -248,8 +248,13 @@ qué es peor que dejarlo y explicar.
   toggles dan los mismos tres estados y reusan el patrón que la toolbar ya tiene en el rango 7/30.
 - `confirmandoAnulacion: ReceptionRow | null` + reuso de `busyId`/`errorPorId`/`Toast`
   (*"Recepción Nº 11 anulada"*).
-- El error de anulación entra por el mismo `errorPorId` que el de verificación; la banda ya sabe
-  mostrarlo.
+- El error de anulación **NO** entra por `errorPorId` como decía la primera versión de este plan:
+  va en un estado propio (`errorAnular`) y se muestra **dentro del modal, que queda abierto**. Se
+  cambió al implementarlo y quedó mejor: el error típico —"del lote quedan 2 y esta recepción
+  ingresó 5"— no se arregla reintentando, y cerrar el modal para mostrarlo en la banda obligaría a
+  reabrirlo para ver con qué motivo se estaba intentando. Efecto lateral que conviene no perder: la
+  banda tiene el rótulo `'No se pudo verificar'` hardcodeado, así que unificar los dos errores en
+  `errorPorId` haría que un fallo de anulación se anuncie como uno de verificación.
 
 ### `recepcion/derivados.ts` — las dos fallas silenciosas
 
