@@ -45,7 +45,8 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const catalog = useMedications() // para el filtro "Medicamento" (desplegable, sin texto libre)
 
   const [chip, setChip] = useState<ChipFilter>('todas')
-  const [soloPendientes, setSoloPendientes] = useState(false)
+  /** Eje de estado. Dos chips excluyentes; 'todas' es "ninguno tildado". */
+  const [estado, setEstado] = useState<'todas' | 'pendientes' | 'anuladas'>('todas')
   const [q, setQ] = useState('')
   const [days, setDays] = useState<7 | 30 | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -97,7 +98,8 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const rows = useMemo(() => {
     const desdeRango = days ? addDaysISO(todayISO(), -(days - 1)) : null
     return (receptions.data ?? []).filter((r) => {
-      if (soloPendientes && r.status !== 'pendiente') return false
+      if (estado === 'pendientes' && r.status !== 'pendiente') return false
+      if (estado === 'anuladas' && r.status !== 'anulada') return false
       if (!coincideBusqueda(r, q)) return false
       if (desdeRango && r.reception_date < desdeRango) return false
       if (fProtocol && r.protocol_id !== fProtocol) return false
@@ -106,11 +108,11 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
       if (fHasta && r.reception_date > fHasta) return false
       return true
     })
-  }, [receptions.data, soloPendientes, q, days, fProtocol, fMedId, fDesde, fHasta])
+  }, [receptions.data, estado, q, days, fProtocol, fMedId, fDesde, fHasta])
 
   const groups = useMemo(() => groupByDay(rows, (r) => r.reception_date), [rows])
   const moreCount = [fProtocol, fMedId, fDesde, fHasta].filter(Boolean).length
-  const hayFiltros = !!q.trim() || days !== null || moreCount > 0 || chip !== 'todas' || soloPendientes
+  const hayFiltros = !!q.trim() || days !== null || moreCount > 0 || chip !== 'todas' || estado !== 'todas'
 
   // Cuando el wizard termina, volvemos a la cola y resaltamos la recepción recién creada.
   if (creating) {
@@ -123,7 +125,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         // Al crear: resetear TODOS los filtros para que la recepción nueva nunca quede oculta por
         // un filtro activo y el highlight de 5 s se vea.
         onCreated={(id) => {
-          setCreating(false); setChip('todas'); setSoloPendientes(false); setQ('')
+          setCreating(false); setChip('todas'); setEstado('todas'); setQ('')
           setDays(null); clearMore(); setHighlightId(id); receptions.refetch()
         }}
       />
@@ -183,14 +185,24 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         />
       </div>
 
-      {/* Eje 1: estado. Toggle propio para poder cruzarlo con cualquier ámbito. */}
-      <Chip
-        toggle
-        label="Pendientes"
-        selected={soloPendientes}
-        onClick={() => { setSoloPendientes((v) => !v); setHighlightId(null) }}
-        accent={accentSolid}
-      />
+      {/* Eje 1: estado. Dos toggles excluyentes (ninguno = todas), como el rango 7/30 de la
+          derecha. Un radiogroup con su propio "Todas" quedaría al lado del "Todas" del ámbito. */}
+      <div style={{ display: 'flex', gap: 7 }}>
+        <Chip
+          toggle
+          label="Pendientes"
+          selected={estado === 'pendientes'}
+          onClick={() => { setEstado((v) => (v === 'pendientes' ? 'todas' : 'pendientes')); setHighlightId(null) }}
+          accent={accentSolid}
+        />
+        <Chip
+          toggle
+          label="Anuladas"
+          selected={estado === 'anuladas'}
+          onClick={() => { setEstado((v) => (v === 'anuladas' ? 'todas' : 'anuladas')); setHighlightId(null) }}
+          accent={accentSolid}
+        />
+      </div>
       <span style={separador} />
 
       {/* Eje 2: ámbito. */}
