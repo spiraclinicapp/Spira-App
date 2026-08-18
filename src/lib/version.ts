@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.38', text: 'Una recepción cargada mal ahora se puede anular: el stock vuelve atrás y queda registrado el motivo.' },
     { version: '0.37', text: 'Recepción se lee como un documento: cada recepción con su número, quién la ingresó a stock y el detalle por renglón; verificar ahora confirma lo que va a entrar antes de tocar el stock.' },
     { version: '0.36', text: 'Farmacia suma Reportes: el cierre de período, con sus hojas imprimibles.' },
     { version: '0.35', text: 'El historial de una dispensación se lee como una crónica en castellano, y el lector avisa con precisión cuando la caja no pertenece al pedido.' },
