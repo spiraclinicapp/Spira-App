@@ -101,6 +101,14 @@ describe('resumenContenido', () => {
   it('recepción de base sin renglones: no inventa un conteo', () => {
     expect(resumenContenido(fila({ items: [] }))).toBe('trae 0 renglones')
   })
+
+  it('anulada sin renglones: no hay cantidad que poner en pasado, así que dice lo mismo que verificada', () => {
+    // Sin renglones no hay verbo posible ("traía 0 renglones" no dice nada): el texto es el mismo
+    // que el de una verificada sin renglones. Ver el comentario de cabecera: el tiempo verbal
+    // distingue los tres estados sólo cuando hay algo que contar.
+    const r = fila({ status: 'anulada', items: [] })
+    expect(resumenContenido(r)).toBe('Sin renglones')
+  })
 })
 
 describe('esCodigoDeBarras', () => {
@@ -259,6 +267,17 @@ describe('totalesDelDia · con una anulada en el grupo', () => {
     expect(totalesDelDia(rows)).toBe('2 recepciones · 24 kits · 1 anulada')
   })
 
+  it('un día con unidades, kits Y una anulada: las tres partes en orden', () => {
+    // La combinación completa: acá importa el ORDEN de las partes del texto, no sólo que cada
+    // una esté. La anulada no aporta ni a unidades ni a kits, sea cual sea su tipo.
+    const rows = [
+      fila({ items: [item({ qty: 12 })] }),
+      ip({ total_kits: 8 }),
+      fila({ status: 'anulada', items: [item({ qty: 50 })] }),
+    ]
+    expect(totalesDelDia(rows)).toBe('3 recepciones · 12 unidades · 8 kits · 1 anulada')
+  })
+
   it('sin anuladas, el texto queda exactamente como antes', () => {
     expect(totalesDelDia([fila({ items: [item({ qty: 4 })] })])).toBe('1 recepción · 4 unidades')
   })
@@ -266,6 +285,17 @@ describe('totalesDelDia · con una anulada en el grupo', () => {
   it('un día entero de anuladas no inventa unidades', () => {
     const rows = [fila({ status: 'anulada', items: [item({ qty: 9 })] })]
     expect(totalesDelDia(rows)).toBe('1 recepción · 1 anulada')
+  })
+
+  it('dos o más anuladas van en plural: "anuladas"', () => {
+    // Los otros tests de este describe tienen exactamente UNA anulada, así que nunca ejercitan la
+    // rama plural de la ternaria. Con dos, si alguien la invierte por error esto se pone en rojo.
+    const rows = [
+      fila({ items: [item({ qty: 4 })] }),
+      fila({ status: 'anulada', items: [item({ qty: 10 })] }),
+      fila({ status: 'anulada', items: [item({ qty: 20 })] }),
+    ]
+    expect(totalesDelDia(rows)).toBe('3 recepciones · 4 unidades · 2 anuladas')
   })
 })
 

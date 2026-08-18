@@ -85,7 +85,9 @@ export function contenidoDe(r: FilaRecepcion): string {
  * que decidir algo; acá se resuelve diciéndolo.
  *
  * La anulada NO repite la palabra "anulada": el rótulo de la banda ya la lleva al lado, a dos
- * centímetros. Lo que la distingue es el tiempo verbal — "traía".
+ * centímetros. Lo que la distingue es el tiempo verbal — "traía" — CUANDO hay algo que contar.
+ * Sin renglones no hay cantidad que poner en pasado, así que ahí verificada y anulada devuelven el
+ * mismo `'Sin renglones'`: el verbo no tiene sobre qué pararse.
  */
 export function resumenContenido(r: FilaRecepcion): string {
   const cuerpo = contenidoDe(r)
