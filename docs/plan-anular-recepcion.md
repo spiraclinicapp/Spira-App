@@ -63,10 +63,15 @@ Nunca tocó stock. Cambia el estado y guarda motivo/quién/cuándo. No hay nada 
 **Dos pasadas sobre los renglones, a propósito:**
 
 1. **Validación completa**, sin mover nada: por cada `reception_items` se busca su lote por
-   `(medication_id, lot_number)` — `reception_items` no guarda `lot_id`, y `medication_lots` tiene
-   `unique (medication_id, lot_number)` (`0002:241`), que es justo la clave que usa el upsert del
-   trigger de ingreso. Si en alguno `quantity_on_hand < quantity`, **aborta antes del primer
-   `update`**, con el detalle: medicamento, lote, cuánto queda y cuánto haría falta.
+   `(medication_id, protocol_id, lot_number)` — `reception_items` no guarda `lot_id`, y ésa es la
+   clave del upsert que hace el trigger de ingreso. **El protocolo no es opcional en esa búsqueda**:
+   la 0032 dropeó el unique de dos columnas al volverse global el catálogo, así que el mismo
+   medicamento con el mismo lote de fábrica puede tener una fila por protocolo, y buscar sin él
+   podía restarle stock al equivocado en silencio (lo encontró el review de la Task 1; el spec
+   citaba `0002:241`, que quedó viejo). Se compara con `is not distinct from`, no con `=`: en
+   ambulatoria el protocolo es `NULL` y `= NULL` no matchea nunca. Si en alguno
+   `quantity_on_hand < quantity`, **aborta antes del primer `update`**, con el detalle: medicamento,
+   lote, cuánto queda y cuánto haría falta.
 2. **Aplicación**: resta el lote e inserta el movimiento compensatorio.
 
 La segunda pasada existe **para el mensaje, no para la corrección**: un `raise` dentro de un único
@@ -126,6 +131,14 @@ la clase de atajo que se cobra un año después.
 `verified_by`). Verificado que es seguro: **nadie embebe `users` desde `medication_receptions`** en
 ningún `select` del front — de hecho la `0085` desnormalizó el nombre justamente para no hacerlo.
 Sin embed, no hay ambigüedad que romper (`PGRST201`, trampa de la `0076`).
+
+**Guard** — agregado durante la implementación, a partir del review de la Task 1: la policy
+`"pharma administra recepciones"` es `for all` y pide apenas `operator+` (`0006:247`, aflojada en
+`0009:153`), así que un PATCH directo a PostgREST podía marcar `status = 'anulada'` **salteando la
+RPC entera** — sin el permiso `leader+`, sin revertir el stock y sin asiento en el libro. Lo cierra
+`trg_guard_reception_void`, un `before update` que rechaza esa transición cuando `current_user` no
+es el owner de las funciones `security definer`. Mismo patrón que `guard_dispensation_immutable`
+(0073), que cerró un agujero idéntico en `ip_kits`.
 
 **Constraint** — una anulada siempre tiene fecha y motivo:
 

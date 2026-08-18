@@ -95,6 +95,14 @@ actualizado con estas cuatro**; se listan para que quien lea sólo el plan sepa 
 
 ### Task 1: La base sabe anular
 
+> **Corregida durante la ejecución (review de la Task 1).** El SQL de abajo tiene dos errores que
+> el review encontró y que la migración real ya NO tiene: (1) las dos consultas que ubican el lote
+> buscaban por `(medication_id, lot_number)` citando el unique de la 0002 — la 0032 lo dropeó al
+> volverse global el catálogo, y la clave real es `(medication_id, protocol_id, lot_number)`, que se
+> compara con `is not distinct from` para que ambulatoria (protocolo `NULL`) siga matcheando;
+> (2) faltaba el guard `trg_guard_reception_void`, sin el cual la RPC se salteaba con un PATCH
+> directo a PostgREST. Ver `supabase/migrations/0087_anular_recepcion.sql` como fuente de verdad.
+
 Las dos migraciones y su registro en el índice. Van juntas: la `0086` sola no hace nada y la `0087`
 no aplica sin ella.
 
