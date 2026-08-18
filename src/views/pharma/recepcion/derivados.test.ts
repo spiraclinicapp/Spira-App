@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FilaRecepcion } from './derivados'
-import { coincideBusqueda, esCodigoDeBarras, medicamentosDistintos, resumenContenido, totalesDelDia, unidadesDe } from './derivados'
+import { armarMotivo, coincideBusqueda, contenidoDe, esCodigoDeBarras, medicamentosDistintos, resumenContenido, totalesDelDia, unidadesDe } from './derivados'
 
 /**
  * Los derivados de Recepción.
@@ -210,5 +210,82 @@ describe('totalesDelDia', () => {
 
   it('un día sin recepciones no enuncia magnitudes en cero', () => {
     expect(totalesDelDia([])).toBe('0 recepciones')
+  })
+})
+
+describe('contenidoDe', () => {
+  it('devuelve el cuerpo SIN verbo, para que lo use el que arma la frase', () => {
+    const r = fila({ items: [item({ med: 'm1', qty: 10 }), item({ med: 'm2', qty: 5 })] })
+    expect(contenidoDe(r)).toBe('2 medicamentos · 15 unidades')
+  })
+
+  it('en IP habla de kits', () => {
+    expect(contenidoDe(ip({ total_kits: 24 }))).toBe('24 kits')
+  })
+})
+
+describe('resumenContenido · la voz de la anulada', () => {
+  // La banda ya lleva el rótulo ANULADA al lado, así que el resumen no lo repite: lo dice el
+  // VERBO, igual que distingue "trae" (pendiente) de "ingresadas" (verificada).
+  it('habla en pasado: traía, no trae', () => {
+    const r = fila({ status: 'anulada', items: [item({ qty: 15 })] })
+    expect(resumenContenido(r)).toBe('traía 1 medicamento · 15 unidades')
+  })
+
+  it('una anulada NO dice que ingresó nada', () => {
+    const r = fila({ status: 'anulada', items: [item({ qty: 15 })] })
+    expect(resumenContenido(r)).not.toMatch(/ingresad/)
+  })
+
+  it('en IP anulada también va en pasado', () => {
+    expect(resumenContenido(ip({ status: 'anulada', total_kits: 24 }))).toBe('traía 24 kits')
+  })
+})
+
+describe('totalesDelDia · con una anulada en el grupo', () => {
+  // Cuenta los DOCUMENTOS que hay a la vista —la anulada sigue en la lista (D3)— pero no suma sus
+  // unidades, y nombra el descuento. Si contara 2 con tres cards en pantalla, se leería como un bug.
+  it('cuenta la anulada como recepción, no como unidades, y la nombra', () => {
+    const rows = [
+      fila({ items: [item({ qty: 10 })] }),
+      fila({ items: [item({ qty: 5 })] }),
+      fila({ status: 'anulada', items: [item({ qty: 99 })] }),
+    ]
+    expect(totalesDelDia(rows)).toBe('3 recepciones · 15 unidades · 1 anulada')
+  })
+
+  it('no descuenta kits de una IP vigente, sí de una anulada', () => {
+    const rows = [ip({ total_kits: 24 }), ip({ status: 'anulada', total_kits: 100 })]
+    expect(totalesDelDia(rows)).toBe('2 recepciones · 24 kits · 1 anulada')
+  })
+
+  it('sin anuladas, el texto queda exactamente como antes', () => {
+    expect(totalesDelDia([fila({ items: [item({ qty: 4 })] })])).toBe('1 recepción · 4 unidades')
+  })
+
+  it('un día entero de anuladas no inventa unidades', () => {
+    const rows = [fila({ status: 'anulada', items: [item({ qty: 9 })] })]
+    expect(totalesDelDia(rows)).toBe('1 recepción · 1 anulada')
+  })
+})
+
+describe('armarMotivo', () => {
+  it('pega la nota con raya', () => {
+    expect(armarMotivo('Duplicada', 'la cargó también Ana')).toBe('Duplicada — la cargó también Ana')
+  })
+
+  it('sin nota, el motivo va solo: nada de rayas colgando', () => {
+    expect(armarMotivo('Duplicada', '')).toBe('Duplicada')
+    expect(armarMotivo('Duplicada', '   ')).toBe('Duplicada')
+  })
+})
+
+describe('coincideBusqueda · una anulada se sigue encontrando', () => {
+  // D3: la anulada queda en el talonario. Si el buscador la escondiera, el hueco en los folios no
+  // se explicaría solo.
+  it('la encuentra por folio y por lote', () => {
+    const r = fila({ status: 'anulada', folio: 11, items: [item({ lote: 'L-2291' })] })
+    expect(coincideBusqueda(r, '11')).toBe(true)
+    expect(coincideBusqueda(r, 'L-2291')).toBe(true)
   })
 })

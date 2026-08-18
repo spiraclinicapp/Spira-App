@@ -2,7 +2,7 @@ import { Modal } from '../../../components/Modal'
 import { btnOutline } from '../../../components/buttons'
 import type { ReceptionRow } from '../../../data/pharma'
 import { KIND_CHIP } from './ambitos'
-import { resumenContenido } from './derivados'
+import { contenidoDe } from './derivados'
 
 /**
  * Confirmación antes de verificar.
@@ -22,8 +22,8 @@ export function ConfirmarVerificacion({ r, busy, onCancel, onConfirmar }: {
   onConfirmar: () => void
 }) {
   const ambito = KIND_CHIP[r.tipo] ?? KIND_CHIP.protocolo
-  // El resumen sin el verbo: acá la frase la arma el modal ("van a entrar…").
-  const contenido = resumenContenido(r).replace(/^trae /, '')
+  // El cuerpo sin verbo: acá la frase la arma el modal ("van a entrar…").
+  const contenido = contenidoDe(r)
 
   return (
     <Modal

@@ -33,6 +33,7 @@ export interface FilaRecepcion {
 
 const esIp = (r: FilaRecepcion) => r.tipo === 'investigacion'
 const verificada = (r: FilaRecepcion) => r.status === 'verificada'
+const anulada = (r: FilaRecepcion) => r.status === 'anulada'
 
 /** Unidades declaradas en los renglones. En una recepción de IP no hay renglones: hay kits. */
 export function unidadesDe(r: FilaRecepcion): number {
@@ -52,26 +53,56 @@ export function medicamentosDistintos(r: FilaRecepcion): number {
 }
 
 /**
- * El resumen de contenido de la banda: "2 medicamentos · 15 unidades".
+ * El CUERPO del resumen, sin verbo: "2 medicamentos · 15 unidades" o "24 kits".
  *
- * El VERBO cambia con el estado y eso es el punto: hasta verificar, esas unidades todavía no
- * entraron a stock. El handoff resolvía la distinción escondiendo el resumen en las pendientes,
- * que son justo las cards sobre las que hay que decidir algo; acá se resuelve diciéndolo.
+ * Existe separado porque tres lugares necesitan el mismo cuerpo con frases distintas alrededor: la
+ * banda de la card, la confirmación de verificar ("van a entrar…") y la de anular ("van a salir…").
+ * Antes la confirmación se lo sacaba al resumen con un `.replace(/^trae /, '')`, que es un
+ * acoplamiento invisible: el día que cambie el verbo, el replace deja de encontrarlo y el modal
+ * empieza a mostrar la frase con verbo adentro, sin que nada falle.
  */
-export function resumenContenido(r: FilaRecepcion): string {
+export function contenidoDe(r: FilaRecepcion): string {
   if (esIp(r)) {
     const kits = r.total_kits ?? 0
-    const cuerpo = `${formatNumberAR(kits)} ${kits === 1 ? 'kit' : 'kits'}`
-    return verificada(r) ? `${cuerpo} ${kits === 1 ? 'ingresado' : 'ingresados'}` : `trae ${cuerpo}`
+    return `${formatNumberAR(kits)} ${kits === 1 ? 'kit' : 'kits'}`
   }
-
-  if (r.items.length === 0) return verificada(r) ? 'Sin renglones' : 'trae 0 renglones'
+  if (r.items.length === 0) return '0 renglones'
 
   const meds = medicamentosDistintos(r)
   const uds = unidadesDe(r)
-  const cuerpo =
+  return (
     `${formatNumberAR(meds)} ${meds === 1 ? 'medicamento' : 'medicamentos'}` +
     ` · ${formatNumberAR(uds)} ${uds === 1 ? 'unidad' : 'unidades'}`
+  )
+}
+
+/**
+ * El resumen de contenido de la banda: "2 medicamentos · 15 unidades".
+ *
+ * El VERBO cambia con el estado y eso es el punto: hasta verificar, esas unidades todavía no
+ * entraron a stock; una vez anulada, no entraron nunca y no van a entrar. El handoff resolvía la
+ * distinción escondiendo el resumen en las pendientes, que son justo las cards sobre las que hay
+ * que decidir algo; acá se resuelve diciéndolo.
+ *
+ * La anulada NO repite la palabra "anulada": el rótulo de la banda ya la lleva al lado, a dos
+ * centímetros. Lo que la distingue es el tiempo verbal — "traía".
+ */
+export function resumenContenido(r: FilaRecepcion): string {
+  const cuerpo = contenidoDe(r)
+
+  if (esIp(r)) {
+    if (anulada(r)) return `traía ${cuerpo}`
+    const kits = r.total_kits ?? 0
+    return verificada(r) ? `${cuerpo} ${kits === 1 ? 'ingresado' : 'ingresados'}` : `trae ${cuerpo}`
+  }
+
+  if (r.items.length === 0) {
+    if (anulada(r)) return 'Sin renglones'
+    return verificada(r) ? 'Sin renglones' : 'trae 0 renglones'
+  }
+
+  if (anulada(r)) return `traía ${cuerpo}`
+  const uds = unidadesDe(r)
   return verificada(r) ? `${cuerpo} ${uds === 1 ? 'ingresada' : 'ingresadas'}` : `trae ${cuerpo}`
 }
 
@@ -123,19 +154,41 @@ export function coincideBusqueda(r: FilaRecepcion, query: string): boolean {
 }
 
 /**
- * El conteo de la barra de cada día: "2 recepciones · 24 unidades".
+ * El conteo de la barra de cada día: "3 recepciones · 15 unidades · 1 anulada".
  *
  * Las unidades y los kits NUNCA se suman entre sí (principio del Director Médico, 0038: la
  * composición de un kit la declara el sponsor y Spira no la reinterpreta). Si el día mezcla las
  * dos cosas, se enuncian las dos por separado.
+ *
+ * Las ANULADAS se cuentan como recepciones pero no aportan unidades ni kits. Las dos mitades de esa
+ * decisión importan: son documentos que siguen a la vista (D3), así que descontarlas del conteo
+ * dejaría tres cards bajo un rótulo que dice "2 recepciones" —se lee como un bug—; y sus unidades
+ * nunca entraron a stock, así que sumarlas haría mentir al total. Por eso además se nombran: el
+ * "· 1 anulada" es lo que explica por qué la cuenta de unidades no cierra con la de cards.
  */
 export function totalesDelDia(rows: FilaRecepcion[]): string {
   const n = rows.length
-  const uds = rows.filter((r) => !esIp(r)).reduce((s, r) => s + unidadesDe(r), 0)
-  const kits = rows.filter(esIp).reduce((s, r) => s + (r.total_kits ?? 0), 0)
+  const vigentes = rows.filter((r) => !anulada(r))
+  const anuladas = n - vigentes.length
+  const uds = vigentes.filter((r) => !esIp(r)).reduce((s, r) => s + unidadesDe(r), 0)
+  const kits = vigentes.filter(esIp).reduce((s, r) => s + (r.total_kits ?? 0), 0)
 
   const partes = [`${formatNumberAR(n)} ${n === 1 ? 'recepción' : 'recepciones'}`]
   if (uds > 0) partes.push(`${formatNumberAR(uds)} ${uds === 1 ? 'unidad' : 'unidades'}`)
   if (kits > 0) partes.push(`${formatNumberAR(kits)} ${kits === 1 ? 'kit' : 'kits'}`)
+  if (anuladas > 0) partes.push(`${formatNumberAR(anuladas)} ${anuladas === 1 ? 'anulada' : 'anuladas'}`)
   return partes.join(' · ')
+}
+
+/**
+ * El motivo que queda asentado: "Duplicada — la cargó también Ana", o sólo "Duplicada".
+ *
+ * Vive acá y no dentro del modal porque es texto que se escribe UNA vez y se lee para siempre —va
+ * al `void_reason` de la recepción y al `reason` del movimiento compensatorio—, y una raya colgando
+ * o un espacio de más no se ven mal en pantalla: se leen mal seis meses después, en la auditoría.
+ */
+export function armarMotivo(motivo: string, nota: string): string {
+  const m = motivo.trim()
+  const n = nota.trim()
+  return n ? `${m} — ${n}` : m
 }
