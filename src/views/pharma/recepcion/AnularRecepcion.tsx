@@ -44,6 +44,16 @@ export function AnularRecepcion({ r, busy, error, onCancel, onConfirmar }: {
   const ambito = KIND_CHIP[r.tipo] ?? KIND_CHIP.protocolo
   const verificada = r.status === 'verificada'
 
+  /**
+   * Sin `<form>` a propósito, a diferencia de `AdjustStockModal`: acá Enter en el campo de nota
+   * NO tiene que enviar. Es la última pantalla antes de una acción que saca stock, y el precio de
+   * un Enter de más es una anulación que nadie quiso. Si alguien "arregla" esto envolviendo los
+   * campos en un form, que sea a sabiendas.
+   *
+   * El ícono del encabezado es `alertCircle` y no `x` porque el `Modal` ya dibuja SU equis para
+   * cerrar arriba a la derecha: dos equis en la misma franja dicen dos cosas distintas con el
+   * mismo glifo. Tampoco `trash` — acá no se borra nada, que es justamente el punto.
+   */
   const confirmar = () => {
     if (!motivo) { setFalta(true); return }
     setFalta(false)
@@ -54,7 +64,7 @@ export function AnularRecepcion({ r, busy, error, onCancel, onConfirmar }: {
     <Modal
       title={`Anular la recepción Nº ${r.folio}`}
       onClose={busy ? () => {} : onCancel}
-      icon="x"
+      icon="alertCircle"
       accent="var(--spira-danger)"
       accentSoft="rgba(166,72,59,.12)"
       maxWidth={460}
