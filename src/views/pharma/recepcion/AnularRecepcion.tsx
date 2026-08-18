@@ -66,6 +66,15 @@ export function AnularRecepcion({ r, busy, error, onCancel, onConfirmar }: {
 
   const ambito = KIND_CHIP[r.tipo] ?? KIND_CHIP.protocolo
   const verificada = r.status === 'verificada'
+  /**
+   * El IP necesita su propia frase, y no es un borde raro: TODA recepción de investigación nace
+   * ya verificada (`create_ip_reception`, 0038), así que sin esto el caso de IP siempre leería el
+   * texto de la medicación de base — que promete un asiento en el libro de stock que para el IP
+   * **no se escribe nunca**: su stock lo deriva `v_ip_stock` de las recepciones verificadas y no
+   * hay tabla de movimientos donde compensar (0087 §3). Prometer un registro que no existe, en la
+   * pantalla previa a mover stock, es justo lo que una auditoría no perdona.
+   */
+  const esIp = r.tipo === 'investigacion'
 
   /**
    * Sin `<form>` a propósito, a diferencia de `AdjustStockModal`: acá Enter en el campo de nota
@@ -131,9 +140,11 @@ export function AnularRecepcion({ r, busy, error, onCancel, onConfirmar }: {
       </div>
 
       <p style={{ margin: '0 0 18px', fontSize: 12.5, color: 'var(--spira-ink-soft)', lineHeight: 1.5 }}>
-        {verificada
-          ? 'La anulación queda asentada en el libro de stock junto con su motivo. La recepción no se borra: sigue en la lista, marcada como anulada.'
-          : 'La recepción no se borra: sigue en la lista, marcada como anulada y con su motivo. No se puede reactivar.'}
+        {!verificada
+          ? 'La recepción no se borra: sigue en la lista, marcada como anulada y con su motivo. No se puede reactivar.'
+          : esIp
+            ? 'Los kits dejan de contar en el stock del protocolo, que se recalcula solo. La anulación queda registrada en la recepción con su motivo. No se puede reactivar.'
+            : 'La anulación queda asentada en el libro de stock junto con su motivo. La recepción no se borra: sigue en la lista, marcada como anulada.'}
       </p>
 
       {(falta || error) && (
