@@ -108,10 +108,15 @@ begin
   -- nunca los vuelve a tocar (si la fila ya está anulada, la función corta antes de llegar al
   -- UPDATE final). Sin esto, un PATCH directo podía dejar la anulación con motivo o autoría
   -- distintos de los que realmente pasaron, sin que ninguna otra regla lo notara.
+  -- voided_by_name entra en la misma bolsa aunque sea "sólo presentación": es el nombre
+  -- desnormalizado que la pantalla muestra —la RLS de users no deja joinear el real (0085)—, así
+  -- que es lo ÚNICO que un auditor lee. Dejarlo editable permitía cambiar quién figura como autor
+  -- de la anulación sin tocar voided_by, y la fila quedaba mintiendo con el uuid correcto al lado.
   if old.status = 'anulada' and (
-       new.void_reason is distinct from old.void_reason
-    or new.voided_at   is distinct from old.voided_at
-    or new.voided_by   is distinct from old.voided_by
+       new.void_reason    is distinct from old.void_reason
+    or new.voided_at      is distinct from old.voided_at
+    or new.voided_by      is distinct from old.voided_by
+    or new.voided_by_name is distinct from old.voided_by_name
   ) then
     raise exception
       'Los datos de una anulación ya registrada (motivo, fecha, quién la hizo) no se pueden modificar.'
