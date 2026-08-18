@@ -138,7 +138,11 @@ function Banda({ r, canManage, busy, error, onVerify, onAnular }: {
         <>
           {anulada && <span style={textoBanda}>{anuladaPor(r)}</span>}
           {verificada && <span style={textoBanda}>{ingresadaPor(r)}</span>}
-          <span style={{ ...textoBanda, marginLeft: 'auto' }}>{resumen}</span>
+          {/* El `auto` va en UN solo elemento de la fila. Dos margin-auto del mismo lado no se
+              acumulan: flexbox reparte el espacio libre en partes iguales entre ellos, y el
+              resumen terminaba flotando en el medio de la banda en los dos estados más comunes
+              (pendiente y verificada con permiso). Si hay botones, el que empuja es su bloque. */}
+          <span style={{ ...textoBanda, marginLeft: canManage && !anulada ? 0 : 'auto' }}>{resumen}</span>
         </>
       )}
 
