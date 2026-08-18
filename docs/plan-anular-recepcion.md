@@ -44,7 +44,7 @@ registrable, como cualquier otro.
 |---|---|
 | **D1** | **Alcance: pendiente siempre, verificada sólo si el ingreso sigue intacto.** Anular una pendiente es gratis (nunca entró a stock). Anular una verificada revierte el stock **sólo si las unidades que ingresó siguen enteras**; si de ese lote ya se dispensó algo, la app bloquea y explica. No se admite anular dejando el stock en descubierto: una anulación no puede contradecir una dispensación ya entregada a un paciente. |
 | **D2** | **Permiso: `pharma leader+`**, el mismo que verifica y el mismo que ya puede mover cualquier lote con `adjust_stock`. Poner la anulación más arriba sería incoherente: la farmacéutica ya puede corregir ese stock por la puerta de al lado, sólo que sin dejarlo vinculado a la recepción. **El control es el registro (quién, cuándo, por qué), no el rango.** |
-| **D3** | **La anulada queda VISIBLE en su día**, con banda gris neutra, rótulo *Anulada*, motivo y quién/cuándo. Es el remito anulado que sigue en el talonario: si alguien busca el folio 11 lo encuentra y entiende qué pasó, en vez de toparse con un hueco en la numeración. El filtro de estado pasa de toggle a tres opciones. |
+| **D3** | **La anulada queda VISIBLE en su día**, con banda gris neutra, rótulo *Anulada*, motivo y quién/cuándo. Es el remito anulado que sigue en el talonario: si alguien busca el folio 11 lo encuentra y entiende qué pasó, en vez de toparse con un hueco en la numeración. El filtro de estado pasa de un toggle a dos, excluyentes (ninguno tildado = todas). |
 | **D4** | **El compensatorio se llama por su nombre en el libro: `anulacion_recepcion`.** No un `ajuste_manual` disfrazado. Cuesta una migración aparte (un `alter type ... add value` no puede usarse en la misma transacción — trampa de la `0053`), y el riesgo es bajo: **el front no lee `stock_movements` en ninguna pantalla** (verificado por grep) y las vistas de reportes de la `0083` filtran por igualdad a `'dispensacion'`, así que un valor nuevo no las toca. |
 | **D5** | **La banda de la anulada va en gris neutro, no en rojo.** El rojo de esta card está tomado por *"No se pudo verificar"*, que sí es una falla. Una anulación es una decisión deliberada de la farmacéutica, y pintarla de error la acusa de algo que no pasó. |
 
@@ -229,7 +229,10 @@ qué es peor que dejarlo y explicar.
 
 ### `RecepcionView.tsx`
 
-- `soloPendientes: boolean` → `estado: 'todas' | 'pendientes' | 'anuladas'` (D3).
+- `soloPendientes: boolean` → `estado: 'todas' | 'pendientes' | 'anuladas'` (D3), manejado por **dos
+  chips toggle excluyentes** (`Pendientes` · `Anuladas`), ninguno tildado = todas. No un radiogroup
+  de tres: pondría un segundo *"Todas"* pegado al *"Todas"* del eje de ámbito, que ya existe. Dos
+  toggles dan los mismos tres estados y reusan el patrón que la toolbar ya tiene en el rango 7/30.
 - `confirmandoAnulacion: ReceptionRow | null` + reuso de `busyId`/`errorPorId`/`Toast`
   (*"Recepción Nº 11 anulada"*).
 - El error de anulación entra por el mismo `errorPorId` que el de verificación; la banda ya sabe
@@ -241,10 +244,19 @@ Este archivo existe justamente porque es lo único del reskin que **falla en sil
 anulación le agrega dos casos:
 
 1. `totalesDelDia` sumaría las unidades de una anulada al total del día. Un conteo equivocado se lee
-   tan prolijo como uno correcto.
+   tan prolijo como uno correcto. **Cuenta todas las recepciones** —la anulada sigue a la vista, y
+   decir "2 recepciones" con tres cards en pantalla se lee como un bug— pero **no suma sus
+   unidades**, y **nombra el descuento**: *"3 recepciones · 15 unidades · 1 anulada"*. Esa última
+   parte es lo único que explica por qué las dos cuentas no cierran entre sí.
 2. `resumenContenido` diría *"trae 2 medicamentos · 15 unidades"* de algo que ya no trae nada: la
    rama del verbo mira `verificada(r)`, y una anulada cae en el `else` de pendiente. Gana su tercera
-   voz: *"2 medicamentos · 15 unidades — anulada"*.
+   voz, **en pasado**: *"traía 2 medicamentos · 15 unidades"*. Sin sufijo *"— anulada"*: el rótulo
+   `ANULADA` de la banda está a dos centímetros, y el verbo ya es lo que distingue los tres estados.
+3. Se extrae **`contenidoDe(r)`**, el cuerpo del resumen sin verbo. Hoy `ConfirmarVerificacion` se
+   lo saca a la frase con `.replace(/^trae /, '')` y el modal de anulación necesita el mismo cuerpo
+   para su *"van a salir de stock…"*. Un `replace` sobre una frase generada es un acoplamiento
+   invisible: el día que cambie el verbo, deja de encontrarlo y el modal muestra el verbo adentro
+   sin que falle nada.
 
 ---
 
@@ -252,9 +264,12 @@ anulación le agrega dos casos:
 
 Sobre lo que puede quedar al revés sin verse mal en pantalla:
 
-- `totalesDelDia` con una anulada en el grupo — no la cuenta ni en recepciones ni en unidades/kits.
-- `resumenContenido` en los tres estados, base e IP (seis casos).
-- El armado del `reason`: con nota y sin nota.
+- `totalesDelDia` con una anulada en el grupo — la cuenta como recepción, no suma sus unidades ni
+  sus kits, y la nombra al final. Más el caso "sin anuladas", que tiene que seguir diciendo lo mismo
+  que antes al carácter.
+- `resumenContenido` en los tres estados, base e IP, y que una anulada **no** diga "ingresadas".
+- `contenidoDe`: el cuerpo sin verbo, en base y en IP.
+- El armado del `reason`: con nota y sin nota (ni rayas colgando ni espacios de más).
 - `coincideBusqueda` sigue encontrando una anulada por folio y por lote (D3: tiene que aparecer).
 
 Lo visual —banda gris, botón, modal— se verifica **mirando** en el preview, no con tests.
@@ -308,8 +323,9 @@ Al confirmar el Director *"aplicada"*, registrar las dos en el índice de
 2. **`0087`** — columnas + constraint + `void_reception` con sus tres ramas + grant + comment.
 3. **Índice de migraciones** en `supabase/README.md`.
 4. **`receptions.ts`** — tipo, columnas, `voidReception`.
-5. **`derivados.ts`** — `totalesDelDia` y `resumenContenido` con la anulada, más `armarMotivo`
-   (vive acá, con el resto de las reglas puras de la pantalla, no dentro del modal) + sus tests.
+5. **`derivados.ts`** — `contenidoDe` extraído, `totalesDelDia` y `resumenContenido` con la anulada,
+   más `armarMotivo` (vive acá, con el resto de las reglas puras de la pantalla, no dentro del
+   modal) + sus tests. `ConfirmarVerificacion` deja de usar el `replace`.
 6. **`AnularRecepcion.tsx`** — el modal.
 7. **`ReceptionCard.tsx`** — banda gris, botón Anular, helper `anuladaPor`.
 8. **`RecepcionView.tsx`** — selector de tres estados, wiring del modal, toast.
