@@ -350,11 +350,16 @@ comment on function public.void_reception is
 --   --       and tgname = 'trg_guard_reception_void';
 --   --    → una fila, tgenabled = 'O', function = guard_reception_void.
 --   --
---   -- 4. La salida ahora está cerrada. Si ya existe alguna recepción anulada en prod (columna
---   --    status = 'anulada' en medication_receptions), reemplazar <ID> por su id y correr:
---   --      update public.medication_receptions set status = 'verificada' where id = '<ID>';
---   --    → tiene que fallar con 42501 ("Una recepción anulada es un documento cerrado..."), sin
---   --      aplicarse y sin volver a mover stock. Si todavía no hay ninguna anulada, este paso
---   --      queda pendiente hasta que exista una — los chequeos 1-3 (catálogo) no dependen de
---   --      datos y alcanzan para confirmar que la migración quedó bien aplicada.
+--   -- 4. La salida ahora está cerrada. Sin id a mano —apunta solo a la anulada más reciente si
+--   --    existe, así que es SEGURO correrlo tal cual, sin placeholders—:
+--   --    update public.medication_receptions set status = 'verificada'
+--   --     where id = (select id from public.medication_receptions where status = 'anulada'
+--   --                  order by voided_at desc limit 1);
+--   --    → si YA hay alguna anulada: tiene que FALLAR con 42501 ("Una recepción anulada es un
+--   --      documento cerrado..."), sin aplicarse y sin volver a mover stock.
+--   --    → si TODAVÍA no hay ninguna (la 0087 se aplicó recién): el subselect da NULL y el UPDATE
+--   --      no toca ninguna fila ("UPDATE 0") — no prueba nada, no es un error. Repetir este paso
+--   --      el día que exista la primera anulación real; mientras tanto, los chequeos 1-3
+--   --      (catálogo, no dependen de datos) alcanzan para confirmar que la migración quedó bien
+--   --      aplicada.
 -- ============================================================================
