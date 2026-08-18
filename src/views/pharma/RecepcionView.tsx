@@ -11,11 +11,13 @@ import { DateField } from '../../components/DateField'
 import { useAuth } from '../../lib/auth'
 import { addDaysISO, groupByDay, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
-import { useReceptions, useMedications, verifyReception, TECHO_RECEPCIONES } from '../../data/pharma'
+import { useReceptions, useMedications, verifyReception, voidReception, TECHO_RECEPCIONES } from '../../data/pharma'
 import type { ReceptionRow, ReceptionKind } from '../../data/pharma'
 import { ReceptionWizard } from './ReceptionWizard'
 import { ReceptionCard } from './recepcion/ReceptionCard'
 import { ConfirmarVerificacion } from './recepcion/ConfirmarVerificacion'
+import { AnularRecepcion, esAnulable } from './recepcion/AnularRecepcion'
+import type { AnulableReceptionRow } from './recepcion/AnularRecepcion'
 import { KIND_CHIP } from './recepcion/ambitos'
 import { coincideBusqueda, totalesDelDia } from './recepcion/derivados'
 import type { ViewProps } from '../types'
@@ -59,6 +61,11 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [confirmando, setConfirmando] = useState<ReceptionRow | null>(null)
+  const [anulando, setAnulando] = useState<AnulableReceptionRow | null>(null)
+  /** Error del intento de anular. Vive aparte de `errorPorId` porque se muestra DENTRO del modal,
+   *  que queda abierto: el bloqueo típico ("del lote quedan 2 y esta ingresó 5") no se arregla
+   *  reintentando, se lee y se decide otra cosa. */
+  const [errorAnular, setErrorAnular] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   /** Error de verificación POR recepción: se muestra en la banda de su card, no en el tope. */
   const [errorPorId, setErrorPorId] = useState<Record<string, string>>({})
@@ -141,6 +148,22 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     setConfirmando(null)
     receptions.refetch()
     setToast(`Recepción Nº ${r.folio} ingresada a stock`)
+  }
+
+  /** Paso 2 de la anulación: el usuario ya eligió motivo y confirmó. */
+  const confirmarAnulacion = async (reason: string) => {
+    const r = anulando
+    if (!r) return
+    setBusyId(r.id)
+    const res = await voidReception(r.id, reason)
+    setBusyId(null)
+    if (res.error) { setErrorAnular(res.error); return }
+    // Si la recepción venía de un intento fallido de verificar, ese error ya no aplica.
+    setErrorPorId((prev) => { const n = { ...prev }; delete n[r.id]; return n })
+    setAnulando(null)
+    setErrorAnular(null)
+    receptions.refetch()
+    setToast(`Recepción Nº ${r.folio} anulada`)
   }
 
   // ── Toolbar (siempre visible, también en loading/error/vacío) ────────────────
@@ -307,6 +330,15 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
                     highlight={r.id === highlightId}
                     error={errorPorId[r.id] ?? null}
                     onVerify={() => setConfirmando(r)}
+                    onAnular={() => {
+                      // Guard real, no cosmético: el botón que dispara esto ya está gateado por
+                      // `!anulada` en ReceptionCard, pero es ACÁ donde se lo demuestra al
+                      // compilador — `anulando` es `AnulableReceptionRow`, y `esAnulable` es el
+                      // único paso legítimo (sin `cast`) para llegar a ese tipo desde `r`.
+                      if (!esAnulable(r)) return
+                      setErrorAnular(null)
+                      setAnulando(r)
+                    }}
                   />
                 ))}
               </div>
@@ -321,6 +353,16 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
           busy={busyId === confirmando.id}
           onCancel={() => setConfirmando(null)}
           onConfirmar={confirmarVerificacion}
+        />
+      )}
+
+      {anulando && (
+        <AnularRecepcion
+          r={anulando}
+          busy={busyId === anulando.id}
+          error={errorAnular}
+          onCancel={() => { setAnulando(null); setErrorAnular(null) }}
+          onConfirmar={confirmarAnulacion}
         />
       )}
 

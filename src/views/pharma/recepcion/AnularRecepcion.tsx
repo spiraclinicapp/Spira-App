@@ -7,6 +7,29 @@ import type { ReceptionRow } from '../../../data/pharma'
 import { KIND_CHIP } from './ambitos'
 import { armarMotivo, contenidoDe } from './derivados'
 
+/**
+ * Fila anulable: cualquier estado salvo 'anulada'. Angosta la prop `r` para que MONTAR este
+ * modal sobre una recepción ya anulada sea un error de compilación, no un supuesto de runtime.
+ *
+ * Hoy el único botón que abre este modal (en `ReceptionCard`) ya está gateado por `!anulada`, así
+ * que en la práctica nunca llega una fila anulada — pero el tipo viejo (`ReceptionRow` a secas) no
+ * lo exigía, y este componente sólo distingue 'verificada' de "todo lo demás": sobre una fila YA
+ * anulada diría "nunca entró a stock", que puede ser falso. Con este tipo, un cableado futuro que
+ * intente pasarle una fila anulada (a mano o por un botón nuevo sin el gate) no compila.
+ */
+export type AnulableReceptionRow = ReceptionRow & { status: Exclude<ReceptionRow['status'], 'anulada'> }
+
+/**
+ * Type guard que hace el estrechamiento REAL. `ReceptionRow` no es una unión discriminada (es una
+ * sola interfaz con `status: ReceptionStatus`), así que un `if (r.status === 'anulada') return` a
+ * secas no alcanza para que TypeScript acepte después pasar `r` como `AnulableReceptionRow` — la
+ * variable sigue viendo el tipo ancho. Este predicado es la forma sin `cast` de cerrar esa brecha:
+ * quien llama a `setAnulando` (o monta el modal) tiene que pasar por acá.
+ */
+export function esAnulable(r: ReceptionRow): r is AnulableReceptionRow {
+  return r.status !== 'anulada'
+}
+
 /** Motivos preestablecidos: desplegable, no texto libre. Menos error del operador y, sobre todo,
  *  motivos comparables entre sí cuando alguien audite por qué se anularon seis recepciones. */
 const MOTIVOS = [
@@ -30,7 +53,7 @@ const MOTIVOS = [
  * la banda obligaría a volver a abrirlo para leer con qué motivo se estaba intentando.
  */
 export function AnularRecepcion({ r, busy, error, onCancel, onConfirmar }: {
-  r: ReceptionRow
+  r: AnulableReceptionRow
   busy: boolean
   /** Mensaje del intento fallido. Viene de la base y suele traer los números del bloqueo. */
   error: string | null
