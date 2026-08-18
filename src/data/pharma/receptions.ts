@@ -5,8 +5,8 @@ import { pharmaErrorMessage } from './errors'
 /** Ámbito/tipo de la recepción (enum `reception_kind`, migración 0035). */
 export type ReceptionKind = 'protocolo' | 'investigacion' | 'ambulatoria'
 
-/** Estado de una recepción (enum `reception_status` de la base). */
-export type ReceptionStatus = 'pendiente' | 'verificada'
+/** Estado de una recepción (enum `reception_status` de la base). `anulada` desde la 0086. */
+export type ReceptionStatus = 'pendiente' | 'verificada' | 'anulada'
 
 /** Renglón de una recepción (tabla `reception_items`, con el medicamento embebido para mostrar). */
 export interface ReceptionItemRow {
@@ -41,6 +41,14 @@ export interface ReceptionRow {
   /** Snapshot del nombre de quien verificó. Desnormalizado porque la RLS de `users` sólo expone
    *  la fila propia: un join dejaría a la farmacéutica viendo su nombre y null en el resto. 0085. */
   verified_by_name: string | null
+  /** Cuándo se anuló. NULL = no está anulada. 0087. */
+  voided_at: string | null
+  /** Snapshot del nombre de quien anuló, desnormalizado por el mismo muro de RLS que
+   *  `verified_by_name`: la policy de `users` sólo expone la fila propia. 0087. */
+  voided_by_name: string | null
+  /** Motivo de la anulación, obligatorio. Es el mismo texto que queda en el `reason` del
+   *  movimiento compensatorio del libro. 0087. */
+  void_reason: string | null
   notes: string | null
   /** Código del protocolo (to-one) para mostrar/buscar en la lista transversal. */
   protocol: { code: string } | null
@@ -53,6 +61,10 @@ export interface ReceptionRow {
 
 const RECEPTION_COLS =
   'id, folio, tipo, protocol_id, reception_date, status, verified_at, verified_by_name, notes, ' +
+  // Las tres columnas de la anulación (0087). `notes` de la línea de arriba NO es prescindible:
+  // se cayó de esta lista al agregar estas tres y el buscador dejó de encontrar por nota, sin un
+  // solo error a la vista — el tipo la sigue declarando, así que TypeScript no dice nada.
+  'voided_at, voided_by_name, void_reason, ' +
   // protocol.code para mostrar/buscar en la lista transversal; total_kits/storage_location son el
   // ingreso MACRO del IP (0038): la recepción IP no tiene reception_items (lleva la cantidad total).
   'total_kits, storage_location, protocol:protocols(code), ' +
@@ -157,6 +169,26 @@ export async function verifyReception(
   receptionId: string,
 ): Promise<{ error: string | null; code?: string }> {
   const { error } = await supabase.rpc('verify_reception', { p_reception_id: receptionId })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/**
+ * Anula una recepción con motivo obligatorio (RPC `void_reception`, pharma leader+).
+ *
+ * Si estaba verificada, la RPC revierte el ingreso: resta los lotes y escribe el movimiento
+ * compensatorio. **Puede fallar legítimamente** —y es el caso interesante— cuando de ese lote ya se
+ * dispensaron unidades: la base contesta con el detalle (cuánto queda, cuánto haría falta) y ese
+ * texto es el que se muestra, porque explica mejor que cualquier mensaje genérico nuestro.
+ */
+export async function voidReception(
+  receptionId: string,
+  reason: string,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('void_reception', {
+    p_reception_id: receptionId,
+    p_reason: reason,
+  })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null }
 }

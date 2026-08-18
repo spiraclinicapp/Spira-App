@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
+import { btnOutline } from '../../../components/buttons'
 import { dateToISO, formatDayMonthYear, formatTimeAR, todayISO } from '../../../lib/dates'
 import type { ReceptionRow } from '../../../data/pharma'
 import { ESTADO_CFG, estadoFromExpiry } from '../expiryState'
@@ -21,7 +22,7 @@ import { esCodigoDeBarras, resumenContenido } from './derivados'
  * borde queda en longhands porque React vacía las longhand al apagarse el estado y con la
  * abreviada el color caería a `currentColor` (negro).
  */
-export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }: {
+export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify, onAnular }: {
   r: ReceptionRow
   canManage: boolean
   busy: boolean
@@ -30,6 +31,7 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
    *  la lista: con las cards agrupadas por día, un error allá arriba puede quedar fuera de vista. */
   error: string | null
   onVerify: () => void
+  onAnular: () => void
 }) {
   const ambito = KIND_CHIP[r.tipo] ?? KIND_CHIP.protocolo
   const esIp = r.tipo === 'investigacion'
@@ -42,7 +44,7 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
 
   return (
     <article style={cardStyle} aria-label={`Recepción Nº ${r.folio}`}>
-      <Banda r={r} canManage={canManage} busy={busy} error={error} onVerify={onVerify} />
+      <Banda r={r} canManage={canManage} busy={busy} error={error} onVerify={onVerify} onAnular={onAnular} />
 
       {/* Encabezado de DOCUMENTO, no fila de tabla: identidad a la izquierda, procedencia a la
           derecha, aire en el medio. No comparte la grilla de la tabla ni entra en su scroll.
@@ -95,44 +97,79 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify }
 
 /* ── Banda de estado ─────────────────────────────────────────────────────────
    Tres elementos, no cuatro: rótulo · contexto · acción. La frase "La medicación todavía no
-   entró a stock" del mock salió — repite lo que el rótulo ya dice y le quitaba aire al botón. */
-function Banda({ r, canManage, busy, error, onVerify }: {
-  r: ReceptionRow; canManage: boolean; busy: boolean; error: string | null; onVerify: () => void
+   entró a stock" del mock salió — repite lo que el rótulo ya dice y le quitaba aire al botón.
+
+   La ANULADA va en gris neutro, no en rojo: el rojo de esta banda está tomado por "No se pudo
+   verificar", que sí es una falla del sistema. Anular es una decisión deliberada de la
+   farmacéutica, y pintarla de error la acusa de algo que no pasó. */
+function Banda({ r, canManage, busy, error, onVerify, onAnular }: {
+  r: ReceptionRow; canManage: boolean; busy: boolean; error: string | null
+  onVerify: () => void; onAnular: () => void
 }) {
   const verificada = r.status === 'verificada'
+  const anulada = r.status === 'anulada'
   const resumen = resumenContenido(r)
 
   // Los tokens `acc-deep-*` y no un color-mix con la tinta: la familia acc-deep tiene versión
   // ACLARADA para tema oscuro, y una mezcla oscurecida ahí sería texto invisible sobre el tinte.
-  const tinte = verificada ? 'rgba(92,138,90,.10)' : 'rgba(176,130,63,.13)'
-  const tinta = verificada ? 'var(--spira-acc-deep-good)' : 'var(--spira-acc-deep-warn)'
+  const tinte = error ? 'rgba(166,72,59,.10)'
+    : anulada ? 'var(--spira-surface)'
+    : verificada ? 'rgba(92,138,90,.10)'
+    : 'rgba(176,130,63,.13)'
+  const tinta = error ? 'var(--spira-acc-deep-danger)'
+    : anulada ? 'var(--spira-ink-soft)'
+    : verificada ? 'var(--spira-acc-deep-good)'
+    : 'var(--spira-acc-deep-warn)'
+
+  const icono = error ? 'alertCircle' : anulada ? 'x' : verificada ? 'check' : 'clock'
+  const rotulo = error ? 'No se pudo verificar'
+    : anulada ? 'Anulada'
+    : verificada ? 'Verificada'
+    : 'Pendiente de verificar'
 
   return (
-    <div style={{ ...banda, background: error ? 'rgba(166,72,59,.10)' : tinte, color: error ? 'var(--spira-acc-deep-danger)' : tinta }}>
-      <Icon name={error ? 'alertCircle' : verificada ? 'check' : 'clock'} size={15} color="currentColor" stroke={verificada ? 2.6 : 2.2} />
-      <span style={rotuloEstado}>{error ? 'No se pudo verificar' : verificada ? 'Verificada' : 'Pendiente de verificar'}</span>
+    <div style={{ ...banda, background: tinte, color: tinta }}>
+      <Icon name={icono} size={15} color="currentColor" stroke={verificada && !error ? 2.6 : 2.2} />
+      <span style={rotuloEstado}>{rotulo}</span>
 
       {error ? (
         <span style={{ ...textoBanda, color: 'var(--spira-acc-deep-danger)' }}>{error}</span>
-      ) : verificada ? (
-        <>
-          <span style={textoBanda}>{ingresadaPor(r)}</span>
-          <span style={{ ...textoBanda, marginLeft: 'auto' }}>{resumen}</span>
-        </>
       ) : (
-        <span style={{ ...textoBanda, marginLeft: canManage ? 0 : 'auto' }}>{resumen}</span>
+        <>
+          {anulada && <span style={textoBanda}>{anuladaPor(r)}</span>}
+          {verificada && <span style={textoBanda}>{ingresadaPor(r)}</span>}
+          {/* El `auto` va en UN solo elemento de la fila. Dos margin-auto del mismo lado no se
+              acumulan: flexbox reparte el espacio libre en partes iguales entre ellos, y el
+              resumen terminaba flotando en el medio de la banda en los dos estados más comunes
+              (pendiente y verificada con permiso). Si hay botones, el que empuja es su bloque. */}
+          <span style={{ ...textoBanda, marginLeft: canManage && !anulada ? 0 : 'auto' }}>{resumen}</span>
+        </>
       )}
 
-      {canManage && !verificada && (
-        <button
-          type="button"
-          onClick={onVerify}
-          disabled={busy}
-          style={{ ...btnVerificar, marginLeft: 'auto', opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}
-        >
-          <Icon name="check" size={15} color="var(--spira-on-accent)" stroke={2.4} />
-          {busy ? 'Verificando…' : error ? 'Reintentar' : 'Verificar e ingresar a stock'}
-        </button>
+      {canManage && !anulada && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flex: '0 0 auto' }}>
+          {!verificada && (
+            <button
+              type="button"
+              onClick={onVerify}
+              disabled={busy}
+              style={{ ...btnVerificar, opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}
+            >
+              <Icon name="check" size={15} color="var(--spira-on-accent)" stroke={2.4} />
+              {busy ? 'Verificando…' : error ? 'Reintentar' : 'Verificar e ingresar a stock'}
+            </button>
+          )}
+          {/* Secundaria por PESO, no por color: el rojo aparece recién en el modal. Una lista no
+              es un formulario de borrado. */}
+          <button
+            type="button"
+            onClick={onAnular}
+            disabled={busy}
+            style={{ ...btnOutline, height: 38, fontSize: 13, opacity: busy ? 0.7 : 1 }}
+          >
+            Anular
+          </button>
+        </div>
       )}
     </div>
   )
@@ -154,6 +191,25 @@ function ingresadaPor(r: ReceptionRow): string {
   return r.verified_by_name
     ? `Ingresada a stock por ${r.verified_by_name} · ${fecha} ${hora}`
     : `Ingresada a stock · ${fecha} ${hora}`
+}
+
+/**
+ * "Anulada por Fulana · 17 ago 2026 14:22 · Duplicada". Hermana de `ingresadaPor`, con el mismo
+ * cuidado con la fecha: sale del `Date` y NO de recortar el ISO. `voided_at` es un timestamptz que
+ * llega en UTC, así que `slice(0, 10)` fecharía un día adelante todo lo anulado después de las
+ * 21:00 hora argentina.
+ */
+function anuladaPor(r: ReceptionRow): string {
+  const partes: string[] = []
+  if (r.voided_at) {
+    const fecha = formatDayMonthYear(dateToISO(new Date(r.voided_at)))
+    const hora = formatTimeAR(r.voided_at)
+    partes.push(r.voided_by_name ? `Anulada por ${r.voided_by_name} · ${fecha} ${hora}` : `Anulada · ${fecha} ${hora}`)
+  } else {
+    partes.push('Anulada')
+  }
+  if (r.void_reason) partes.push(r.void_reason)
+  return partes.join(' · ')
 }
 
 /* ── Tabla de renglones ─────────────────────────────────────────────────────── */

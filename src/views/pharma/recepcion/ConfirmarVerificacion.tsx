@@ -2,7 +2,7 @@ import { Modal } from '../../../components/Modal'
 import { btnOutline } from '../../../components/buttons'
 import type { ReceptionRow } from '../../../data/pharma'
 import { KIND_CHIP } from './ambitos'
-import { resumenContenido } from './derivados'
+import { contenidoDe } from './derivados'
 
 /**
  * Confirmación antes de verificar.
@@ -22,8 +22,8 @@ export function ConfirmarVerificacion({ r, busy, onCancel, onConfirmar }: {
   onConfirmar: () => void
 }) {
   const ambito = KIND_CHIP[r.tipo] ?? KIND_CHIP.protocolo
-  // El resumen sin el verbo: acá la frase la arma el modal ("van a entrar…").
-  const contenido = resumenContenido(r).replace(/^trae /, '')
+  // El cuerpo sin verbo: acá la frase la arma el modal ("van a entrar…").
+  const contenido = contenidoDe(r)
 
   return (
     <Modal
@@ -54,9 +54,13 @@ export function ConfirmarVerificacion({ r, busy, onCancel, onConfirmar }: {
         )}
       </dl>
 
+      {/* Este párrafo decía que corregir un ingreso equivocado "requiere un ajuste manual de stock".
+          Dejó de ser cierto el día que existió la anulación (0086/0087): ahora hay una salida que
+          revierte el stock y queda vinculada a esta misma recepción. Un cartel que sigue describiendo
+          una limitación que ya no existe manda a la farmacéutica por el camino largo. */}
       <p style={{ margin: '0 0 18px', fontSize: 12.5, color: 'var(--spira-muted)', lineHeight: 1.5 }}>
-        Una vez ingresada, la recepción no se puede volver a verificar. Corregir un ingreso
-        equivocado requiere un ajuste manual de stock con su motivo.
+        Una vez ingresada, la recepción no se puede volver a verificar. Si el ingreso estuvo mal,
+        se anula desde la misma card: el stock vuelve atrás y queda registrado el motivo.
       </p>
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

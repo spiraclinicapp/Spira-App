@@ -11,11 +11,13 @@ import { DateField } from '../../components/DateField'
 import { useAuth } from '../../lib/auth'
 import { addDaysISO, groupByDay, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
-import { useReceptions, useMedications, verifyReception, TECHO_RECEPCIONES } from '../../data/pharma'
+import { useReceptions, useMedications, verifyReception, voidReception, TECHO_RECEPCIONES } from '../../data/pharma'
 import type { ReceptionRow, ReceptionKind } from '../../data/pharma'
 import { ReceptionWizard } from './ReceptionWizard'
 import { ReceptionCard } from './recepcion/ReceptionCard'
 import { ConfirmarVerificacion } from './recepcion/ConfirmarVerificacion'
+import { AnularRecepcion, esAnulable } from './recepcion/AnularRecepcion'
+import type { AnulableReceptionRow } from './recepcion/AnularRecepcion'
 import { KIND_CHIP } from './recepcion/ambitos'
 import { coincideBusqueda, totalesDelDia } from './recepcion/derivados'
 import type { ViewProps } from '../types'
@@ -43,7 +45,8 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const catalog = useMedications() // para el filtro "Medicamento" (desplegable, sin texto libre)
 
   const [chip, setChip] = useState<ChipFilter>('todas')
-  const [soloPendientes, setSoloPendientes] = useState(false)
+  /** Eje de estado. Dos chips excluyentes; 'todas' es "ninguno tildado". */
+  const [estado, setEstado] = useState<'todas' | 'pendientes' | 'anuladas'>('todas')
   const [q, setQ] = useState('')
   const [days, setDays] = useState<7 | 30 | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -59,6 +62,11 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [confirmando, setConfirmando] = useState<ReceptionRow | null>(null)
+  const [anulando, setAnulando] = useState<AnulableReceptionRow | null>(null)
+  /** Error del intento de anular. Vive aparte de `errorPorId` porque se muestra DENTRO del modal,
+   *  que queda abierto: el bloqueo típico ("del lote quedan 2 y esta ingresó 5") no se arregla
+   *  reintentando, se lee y se decide otra cosa. */
+  const [errorAnular, setErrorAnular] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   /** Error de verificación POR recepción: se muestra en la banda de su card, no en el tope. */
   const [errorPorId, setErrorPorId] = useState<Record<string, string>>({})
@@ -90,7 +98,8 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const rows = useMemo(() => {
     const desdeRango = days ? addDaysISO(todayISO(), -(days - 1)) : null
     return (receptions.data ?? []).filter((r) => {
-      if (soloPendientes && r.status !== 'pendiente') return false
+      if (estado === 'pendientes' && r.status !== 'pendiente') return false
+      if (estado === 'anuladas' && r.status !== 'anulada') return false
       if (!coincideBusqueda(r, q)) return false
       if (desdeRango && r.reception_date < desdeRango) return false
       if (fProtocol && r.protocol_id !== fProtocol) return false
@@ -99,11 +108,11 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
       if (fHasta && r.reception_date > fHasta) return false
       return true
     })
-  }, [receptions.data, soloPendientes, q, days, fProtocol, fMedId, fDesde, fHasta])
+  }, [receptions.data, estado, q, days, fProtocol, fMedId, fDesde, fHasta])
 
   const groups = useMemo(() => groupByDay(rows, (r) => r.reception_date), [rows])
   const moreCount = [fProtocol, fMedId, fDesde, fHasta].filter(Boolean).length
-  const hayFiltros = !!q.trim() || days !== null || moreCount > 0 || chip !== 'todas' || soloPendientes
+  const hayFiltros = !!q.trim() || days !== null || moreCount > 0 || chip !== 'todas' || estado !== 'todas'
 
   // Cuando el wizard termina, volvemos a la cola y resaltamos la recepción recién creada.
   if (creating) {
@@ -116,7 +125,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         // Al crear: resetear TODOS los filtros para que la recepción nueva nunca quede oculta por
         // un filtro activo y el highlight de 5 s se vea.
         onCreated={(id) => {
-          setCreating(false); setChip('todas'); setSoloPendientes(false); setQ('')
+          setCreating(false); setChip('todas'); setEstado('todas'); setQ('')
           setDays(null); clearMore(); setHighlightId(id); receptions.refetch()
         }}
       />
@@ -143,6 +152,22 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     setToast(`Recepción Nº ${r.folio} ingresada a stock`)
   }
 
+  /** Paso 2 de la anulación: el usuario ya eligió motivo y confirmó. */
+  const confirmarAnulacion = async (reason: string) => {
+    const r = anulando
+    if (!r) return
+    setBusyId(r.id)
+    const res = await voidReception(r.id, reason)
+    setBusyId(null)
+    if (res.error) { setErrorAnular(res.error); return }
+    // Si la recepción venía de un intento fallido de verificar, ese error ya no aplica.
+    setErrorPorId((prev) => { const n = { ...prev }; delete n[r.id]; return n })
+    setAnulando(null)
+    setErrorAnular(null)
+    receptions.refetch()
+    setToast(`Recepción Nº ${r.folio} anulada`)
+  }
+
   // ── Toolbar (siempre visible, también en loading/error/vacío) ────────────────
   const toolbar = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -160,14 +185,24 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         />
       </div>
 
-      {/* Eje 1: estado. Toggle propio para poder cruzarlo con cualquier ámbito. */}
-      <Chip
-        toggle
-        label="Pendientes"
-        selected={soloPendientes}
-        onClick={() => { setSoloPendientes((v) => !v); setHighlightId(null) }}
-        accent={accentSolid}
-      />
+      {/* Eje 1: estado. Dos toggles excluyentes (ninguno = todas), como el rango 7/30 de la
+          derecha. Un radiogroup con su propio "Todas" quedaría al lado del "Todas" del ámbito. */}
+      <div style={{ display: 'flex', gap: 7 }}>
+        <Chip
+          toggle
+          label="Pendientes"
+          selected={estado === 'pendientes'}
+          onClick={() => { setEstado((v) => (v === 'pendientes' ? 'todas' : 'pendientes')); setHighlightId(null) }}
+          accent={accentSolid}
+        />
+        <Chip
+          toggle
+          label="Anuladas"
+          selected={estado === 'anuladas'}
+          onClick={() => { setEstado((v) => (v === 'anuladas' ? 'todas' : 'anuladas')); setHighlightId(null) }}
+          accent={accentSolid}
+        />
+      </div>
       <span style={separador} />
 
       {/* Eje 2: ámbito. */}
@@ -307,6 +342,15 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
                     highlight={r.id === highlightId}
                     error={errorPorId[r.id] ?? null}
                     onVerify={() => setConfirmando(r)}
+                    onAnular={() => {
+                      // Guard real, no cosmético: el botón que dispara esto ya está gateado por
+                      // `!anulada` en ReceptionCard, pero es ACÁ donde se lo demuestra al
+                      // compilador — `anulando` es `AnulableReceptionRow`, y `esAnulable` es el
+                      // único paso legítimo (sin `cast`) para llegar a ese tipo desde `r`.
+                      if (!esAnulable(r)) return
+                      setErrorAnular(null)
+                      setAnulando(r)
+                    }}
                   />
                 ))}
               </div>
@@ -321,6 +365,16 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
           busy={busyId === confirmando.id}
           onCancel={() => setConfirmando(null)}
           onConfirmar={confirmarVerificacion}
+        />
+      )}
+
+      {anulando && (
+        <AnularRecepcion
+          r={anulando}
+          busy={busyId === anulando.id}
+          error={errorAnular}
+          onCancel={() => { setAnulando(null); setErrorAnular(null) }}
+          onConfirmar={confirmarAnulacion}
         />
       )}
 

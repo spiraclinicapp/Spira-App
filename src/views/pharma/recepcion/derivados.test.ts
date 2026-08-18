@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FilaRecepcion } from './derivados'
-import { coincideBusqueda, esCodigoDeBarras, medicamentosDistintos, resumenContenido, totalesDelDia, unidadesDe } from './derivados'
+import { armarMotivo, coincideBusqueda, contenidoDe, esCodigoDeBarras, medicamentosDistintos, resumenContenido, totalesDelDia, unidadesDe } from './derivados'
 
 /**
  * Los derivados de Recepción.
@@ -100,6 +100,14 @@ describe('resumenContenido', () => {
 
   it('recepción de base sin renglones: no inventa un conteo', () => {
     expect(resumenContenido(fila({ items: [] }))).toBe('trae 0 renglones')
+  })
+
+  it('anulada sin renglones: no hay cantidad que poner en pasado, así que dice lo mismo que verificada', () => {
+    // Sin renglones no hay verbo posible ("traía 0 renglones" no dice nada): el texto es el mismo
+    // que el de una verificada sin renglones. Ver el comentario de cabecera: el tiempo verbal
+    // distingue los tres estados sólo cuando hay algo que contar.
+    const r = fila({ status: 'anulada', items: [] })
+    expect(resumenContenido(r)).toBe('Sin renglones')
   })
 })
 
@@ -210,5 +218,104 @@ describe('totalesDelDia', () => {
 
   it('un día sin recepciones no enuncia magnitudes en cero', () => {
     expect(totalesDelDia([])).toBe('0 recepciones')
+  })
+})
+
+describe('contenidoDe', () => {
+  it('devuelve el cuerpo SIN verbo, para que lo use el que arma la frase', () => {
+    const r = fila({ items: [item({ med: 'm1', qty: 10 }), item({ med: 'm2', qty: 5 })] })
+    expect(contenidoDe(r)).toBe('2 medicamentos · 15 unidades')
+  })
+
+  it('en IP habla de kits', () => {
+    expect(contenidoDe(ip({ total_kits: 24 }))).toBe('24 kits')
+  })
+})
+
+describe('resumenContenido · la voz de la anulada', () => {
+  // La banda ya lleva el rótulo ANULADA al lado, así que el resumen no lo repite: lo dice el
+  // VERBO, igual que distingue "trae" (pendiente) de "ingresadas" (verificada).
+  it('habla en pasado: traía, no trae', () => {
+    const r = fila({ status: 'anulada', items: [item({ qty: 15 })] })
+    expect(resumenContenido(r)).toBe('traía 1 medicamento · 15 unidades')
+  })
+
+  it('una anulada NO dice que ingresó nada', () => {
+    const r = fila({ status: 'anulada', items: [item({ qty: 15 })] })
+    expect(resumenContenido(r)).not.toMatch(/ingresad/)
+  })
+
+  it('en IP anulada también va en pasado', () => {
+    expect(resumenContenido(ip({ status: 'anulada', total_kits: 24 }))).toBe('traía 24 kits')
+  })
+})
+
+describe('totalesDelDia · con una anulada en el grupo', () => {
+  // Cuenta los DOCUMENTOS que hay a la vista —la anulada sigue en la lista (D3)— pero no suma sus
+  // unidades, y nombra el descuento. Si contara 2 con tres cards en pantalla, se leería como un bug.
+  it('cuenta la anulada como recepción, no como unidades, y la nombra', () => {
+    const rows = [
+      fila({ items: [item({ qty: 10 })] }),
+      fila({ items: [item({ qty: 5 })] }),
+      fila({ status: 'anulada', items: [item({ qty: 99 })] }),
+    ]
+    expect(totalesDelDia(rows)).toBe('3 recepciones · 15 unidades · 1 anulada')
+  })
+
+  it('no descuenta kits de una IP vigente, sí de una anulada', () => {
+    const rows = [ip({ total_kits: 24 }), ip({ status: 'anulada', total_kits: 100 })]
+    expect(totalesDelDia(rows)).toBe('2 recepciones · 24 kits · 1 anulada')
+  })
+
+  it('un día con unidades, kits Y una anulada: las tres partes en orden', () => {
+    // La combinación completa: acá importa el ORDEN de las partes del texto, no sólo que cada
+    // una esté. La anulada no aporta ni a unidades ni a kits, sea cual sea su tipo.
+    const rows = [
+      fila({ items: [item({ qty: 12 })] }),
+      ip({ total_kits: 8 }),
+      fila({ status: 'anulada', items: [item({ qty: 50 })] }),
+    ]
+    expect(totalesDelDia(rows)).toBe('3 recepciones · 12 unidades · 8 kits · 1 anulada')
+  })
+
+  it('sin anuladas, el texto queda exactamente como antes', () => {
+    expect(totalesDelDia([fila({ items: [item({ qty: 4 })] })])).toBe('1 recepción · 4 unidades')
+  })
+
+  it('un día entero de anuladas no inventa unidades', () => {
+    const rows = [fila({ status: 'anulada', items: [item({ qty: 9 })] })]
+    expect(totalesDelDia(rows)).toBe('1 recepción · 1 anulada')
+  })
+
+  it('dos o más anuladas van en plural: "anuladas"', () => {
+    // Los otros tests de este describe tienen exactamente UNA anulada, así que nunca ejercitan la
+    // rama plural de la ternaria. Con dos, si alguien la invierte por error esto se pone en rojo.
+    const rows = [
+      fila({ items: [item({ qty: 4 })] }),
+      fila({ status: 'anulada', items: [item({ qty: 10 })] }),
+      fila({ status: 'anulada', items: [item({ qty: 20 })] }),
+    ]
+    expect(totalesDelDia(rows)).toBe('3 recepciones · 4 unidades · 2 anuladas')
+  })
+})
+
+describe('armarMotivo', () => {
+  it('pega la nota con raya', () => {
+    expect(armarMotivo('Duplicada', 'la cargó también Ana')).toBe('Duplicada — la cargó también Ana')
+  })
+
+  it('sin nota, el motivo va solo: nada de rayas colgando', () => {
+    expect(armarMotivo('Duplicada', '')).toBe('Duplicada')
+    expect(armarMotivo('Duplicada', '   ')).toBe('Duplicada')
+  })
+})
+
+describe('coincideBusqueda · una anulada se sigue encontrando', () => {
+  // D3: la anulada queda en el talonario. Si el buscador la escondiera, el hueco en los folios no
+  // se explicaría solo.
+  it('la encuentra por folio y por lote', () => {
+    const r = fila({ status: 'anulada', folio: 11, items: [item({ lote: 'L-2291' })] })
+    expect(coincideBusqueda(r, '11')).toBe(true)
+    expect(coincideBusqueda(r, 'L-2291')).toBe(true)
   })
 })

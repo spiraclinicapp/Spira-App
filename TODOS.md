@@ -396,32 +396,6 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 
 ---
 
-## Pharma · anular una recepción cargada mal
-
-- **Qué:** poder anular una recepción (y, si ya se verificó, revertir su ingreso a stock) dejando
-  registro de la anulación, en vez de borrarla.
-- **Por qué:** hoy **no hay ninguna salida**. Ni anular, ni editar, ni borrar: no existe función en
-  el front ni RPC en la base. Un lote tipeado mal o una cantidad equivocada quedan para siempre, y
-  la única corrección posible es un ajuste manual de stock, que es otra pantalla, otro motivo
-  escrito, y deja los dos registros conviviendo sin que nada los vincule.
-- **Pros:** cierra el único camino sin salida de la pantalla. En una app auditable **no borrar es
-  correcto, pero no poder anular no lo es**: una anulación es un hecho registrable, como cualquier
-  otro.
-- **Contras:** si la recepción ya está verificada hay stock ingresado, y revertirlo toca
-  `medication_lots` y el libro `stock_movements`. Hay que decidir si la reversión es un movimiento
-  compensatorio (lo correcto para un libro insert-only) y qué pasa si esas unidades ya se
-  dispensaron.
-- **Contexto:** salió del `/impeccable critique` del reskin de Recepción (2026-08-17), donde bajó la
-  heurística de "control y libertad" a 2/4. Lo descubrí de la peor manera: creé una recepción de
-  prueba para poder mirar la card pendiente y **no pude borrarla desde la app**; hubo que escribir
-  `supabase/_borrar_test_reskin_2c.sql` para que el Director lo corriera a mano.
-- **Empezar por:** decidir con el Director Médico qué significa anular en su flujo real (¿se anula
-  un cargamento que llegó roto? ¿uno cargado dos veces?). El caso "verificada con unidades ya
-  dispensadas" es el que define el diseño.
-- **Depende de / bloqueado por:** decisión de dominio.
-
----
-
 ## Pharma · Recepción no escala al día de volumen
 
 - **Qué:** verificación en lote, atajos de teclado y ordenamiento en la lista de Recepción.
@@ -438,5 +412,54 @@ como contexto histórico; borrarla cuando ese PR se mergee.
   la persona del power user falla en los tres ejes. Una idea que salió y vale evaluar antes de
   construir: **hacer la verificación reversible por 30 segundos desde el toast** en lugar de
   confirmarla por modal. Resuelve el peaje y es más honesto que un "¿estás seguro?".
-- **Depende de / bloqueado por:** conviene después de resolver la anulación: si anular existe, la
-  confirmación previa puede aflojarse.
+- **Depende de / bloqueado por:** nada. **La anulación ya existe** (migraciones 0086/0087, plan en
+  `docs/plan-anular-recepcion.md`), así que la confirmación previa a verificar se puede aflojar sin
+  dejar a la farmacéutica sin salida — y la idea del "deshacer por 30 segundos desde el toast" pasó
+  a ser viable: ahora hay una operación real detrás de ese deshacer.
+
+---
+
+## Pharma · el lote fantasma que deja una anulación
+
+- **Qué:** decidir qué se hace con la fila de `medication_lots` que queda en cero después de anular
+  la recepción que la creó.
+- **Por qué:** el caso que originó la anulación es **un lote tipeado mal**. Se anula, el stock
+  vuelve, y la fila del lote queda con `quantity_on_hand = 0` y el número equivocado adentro,
+  listada para siempre en Medicamentos y en Stock. El callejón sin salida no se cierra: se muda una
+  pantalla. La primera persona que use la feature para lo que fue construida va a preguntar esto.
+- **Pros:** la corrección quedaría completa de punta a punta.
+- **Contras:** el lote **no se puede borrar** sin más: `stock_movements` lo referencia con
+  `on delete restrict` y el libro es insert-only. Las salidas reales son ocultar los lotes en cero
+  de las vistas de listado, o marcarlos de alguna forma. Ojo que hoy `v_medication_lots_detail`
+  (0041) y los hooks de lotes **no** filtran por `quantity_on_hand > 0`; el selector FEFO (0050) y
+  los reportes (0083) sí los excluyen, así que el problema es de presentación y no operativo.
+- **Contexto:** lo anticipó el review final de la rama de anulación (2026-08-18) y lo confirmó el QA:
+  quedó `TEST-ANULAR-0818` en cero, visible en Farmacia Ambulatoria.
+- **Empezar por:** `src/data/pharma/stock.ts` y `supabase/migrations/0041_*.sql`, decidiendo si el
+  filtro va en la vista o en el front.
+- **Depende de / bloqueado por:** decisión de producto: un lote en cero **con historial** sí tiene
+  que poder consultarse; el que estorba es el que nunca tuvo movimiento real.
+
+---
+
+## Pharma · el Producto de Investigación no tiene libro de movimientos
+
+- **Qué:** evaluar si el IP necesita su propia tabla de movimientos, como `stock_movements` para la
+  medicación de base.
+- **Por qué:** hoy el stock de IP se **deriva**: `v_ip_stock` (0071) resta lo entregado a lo
+  recibido, sobre las recepciones verificadas. No hay asientos. Eso significa que **una anulación
+  de IP cambia los reportes retroactivamente y sin dejar rastro del cambio**: anular en septiembre
+  una recepción de julio modifica lo que dice el reporte de julio, y nada explica por qué. En la
+  medicación de base la misma pregunta se contesta sola —dos asientos en el libro, con motivo y con
+  el id de la recepción—, que es exactamente para lo que ANMAT pide un libro insert-only.
+- **Pros:** el IP dejaría de ser el único stock del sistema que no puede explicar su propio número.
+- **Contras:** es un cambio de modelo, no un parche. Y hay que decidir qué pasa con lo ya ocurrido:
+  un backfill de asientos desde las recepciones existentes es reconstruir historia, con todo lo que
+  eso implica en un sistema auditable.
+- **Contexto:** salió del review final de la rama de anulación (2026-08-18), como respuesta a "dónde
+  va a doler esto en seis meses". Relacionado: `deliver_dispensation` (0071) **no valida
+  disponibilidad de kits** en ningún momento, así que `void_reception` es hoy el único lugar del
+  sistema que la enforcea, y lo hace con una lectura sin lock. Un `v_ip_stock` negativo es posible.
+- **Empezar por:** decidir con el Director si el IP se contabiliza por movimientos o sigue
+  derivándose. Recién después, el schema.
+- **Depende de / bloqueado por:** decisión de dominio.
