@@ -157,18 +157,30 @@ begin
     else
       -- ── Rama base (protocolo / ambulatoria) ─────────────────────────────────
       -- PASADA 1 · validar TODOS los renglones antes de mover un solo número.
-      -- El lote se ubica por (medication_id, lot_number) porque reception_items no guarda lot_id;
-      -- es la misma clave del unique de medication_lots (0002:241) que usa el upsert del ingreso.
+      -- El lote se ubica por (medication_id, protocol_id, lot_number) porque reception_items no
+      -- guarda lot_id. Ésa es la clave real desde la 0032 (medication_lots_med_proto_lot_key,
+      -- 0032:74) — NO (medication_id, lot_number) como decía este comentario antes: ese unique lo
+      -- dropeó la misma 0032 al volver global el catálogo (0032:55-68), así que hoy el mismo
+      -- medicamento con el mismo lote de fábrica tiene UNA FILA POR PROTOCOLO. Para la rama
+      -- ambulatoria hay además un índice único parcial aparte, medication_lots_ambulatoria_lot_key
+      -- (0035:38), sobre (medication_id, lot_number) where protocol_id is null.
+      -- `is not distinct from` y no `=`: en ambulatoria v_protocol es NULL y sus lotes tienen
+      -- protocol_id is null; `= NULL` nunca matchea y dejaría el lote sin encontrar. No lo
+      -- "simplifiques" a `=` — es exactamente el tipo de prolijidad que rompe la ambulatoria.
       -- El FOR UPDATE de acá sostiene el lock hasta el fin de la transacción, así que la pasada 2
-      -- opera sobre lo mismo que se validó.
+      -- opera sobre lo mismo que se validó. El ORDER BY es orden determinístico de locks: sin él,
+      -- dos anulaciones concurrentes que compartan lotes podrían tomarlos en orden distinto y
+      -- deadlockear.
       for it in
         select i.medication_id, i.lot_number, i.quantity
           from public.reception_items i
          where i.reception_id = p_reception_id
+         order by i.medication_id, i.lot_number
       loop
         select l.id, l.quantity_on_hand into v_lot_id, v_en_lote
           from public.medication_lots l
          where l.medication_id = it.medication_id and l.lot_number = it.lot_number
+           and l.protocol_id is not distinct from v_protocol
            for update;
 
         if v_lot_id is null then
@@ -182,15 +194,19 @@ begin
         end if;
       end loop;
 
-      -- PASADA 2 · aplicar.
+      -- PASADA 2 · aplicar. Mismo ORDER BY que la pasada 1 (locks en la misma secuencia) y misma
+      -- condición de protocolo que la pasada 1 (ver comentario ahí) — se opera sobre el mismo lote
+      -- que se validó.
       for it in
         select i.medication_id, i.lot_number, i.quantity
           from public.reception_items i
          where i.reception_id = p_reception_id
+         order by i.medication_id, i.lot_number
       loop
         select l.id into v_lot_id
           from public.medication_lots l
-         where l.medication_id = it.medication_id and l.lot_number = it.lot_number;
+         where l.medication_id = it.medication_id and l.lot_number = it.lot_number
+           and l.protocol_id is not distinct from v_protocol;
 
         update public.medication_lots l
            set quantity_on_hand = l.quantity_on_hand - it.quantity,
@@ -229,3 +245,46 @@ comment on function public.void_reception is
   'Anula una recepción con motivo obligatorio. Pendiente → sella. Verificada de base → valida que el ingreso siga intacto, resta los lotes y escribe el compensatorio anulacion_recepcion. Verificada de IP → sólo estado (su stock lo deriva v_ip_stock). Bloquea si ya se dispensó. pharma leader+. SECURITY DEFINER. 0087.';
 
 grant execute on function public.void_reception(uuid, text) to authenticated;
+
+
+-- 4 · Guard: la transición a 'anulada' sólo puede pasar por void_reception ----
+-- La policy "pharma administra recepciones" (0006:247, aflojada a operator+ en 0009:153) es
+-- `for all`. Sin este guard, cualquier operator puede hacer un PATCH directo:
+--   update medication_receptions set status = 'anulada', voided_at = ..., void_reason = '...'
+-- y ese PATCH satisface el check medication_receptions_anulada_chk (§2) sin pasar por
+-- void_reception — sin exigir leader+, sin revertir un solo lote y sin escribir el compensatorio
+-- en stock_movements. La recepción queda "anulada" y medication_lots sobreestimado: exactamente lo
+-- que esta migración prometía que no podía pasar.
+--
+-- La distinción legítimo/salteado no es un flag de la aplicación, es el ROL con el que corre el
+-- UPDATE. void_reception es SECURITY DEFINER con owner postgres: mientras se ejecuta, current_user
+-- es 'postgres' sin importar qué rol la invocó (auth.uid() sigue siendo el usuario real; lo que
+-- cambia es current_user, que es quien manda en los checks de privilegio). Un PATCH de PostgREST,
+-- en cambio, siempre corre como el rol del JWT del cliente (authenticated), nunca como postgres.
+-- Chequear current_user = 'postgres' es entonces "¿este UPDATE vino de una función SECURITY
+-- DEFINER de este archivo, o de afuera?" — mismo patrón que guard_dispensation_immutable (0073),
+-- aplicado a una pregunta distinta (quién corre, no qué campo cambia).
+create or replace function public.guard_reception_void()
+returns trigger language plpgsql as $$
+begin
+  if new.status = 'anulada' and old.status is distinct from 'anulada' and current_user <> 'postgres' then
+    raise exception
+      'La anulación de una recepción se hace desde la app: revierte el stock y deja el registro. No se puede marcar "anulada" directamente.'
+      using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+comment on function public.guard_reception_void() is
+  'Rechaza que un UPDATE directo (PATCH de PostgREST) marque una recepción "anulada" salteando void_reception: esa RPC es la única que exige pharma leader+, revierte el stock y escribe el compensatorio. Distingue el camino legítimo del directo por current_user (postgres = corriendo dentro de una función SECURITY DEFINER; cualquier otro rol = UPDATE externo). 0087.';
+
+-- DROP + CREATE (no CREATE OR REPLACE, que no existe para triggers) para que el archivo sea
+-- re-corrible. Nombrado trg_guard_... a propósito: los BEFORE corren en orden alfabético dentro
+-- del mismo evento y "trg_guard_reception_void" < "trg_reception_verified" (0003:242), así que
+-- este guard corre primero (aunque hoy no colisionan: trg_reception_verified sólo mira la
+-- transición a 'verificada').
+drop trigger if exists trg_guard_reception_void on public.medication_receptions;
+create trigger trg_guard_reception_void
+  before update on public.medication_receptions
+  for each row execute function public.guard_reception_void();
