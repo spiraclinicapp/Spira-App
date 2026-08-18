@@ -60,7 +60,11 @@ export interface ReceptionRow {
 }
 
 const RECEPTION_COLS =
-  'id, folio, tipo, protocol_id, reception_date, status, verified_at, verified_by_name, voided_at, voided_by_name, void_reason, ' +
+  'id, folio, tipo, protocol_id, reception_date, status, verified_at, verified_by_name, notes, ' +
+  // Las tres columnas de la anulación (0087). `notes` de la línea de arriba NO es prescindible:
+  // se cayó de esta lista al agregar estas tres y el buscador dejó de encontrar por nota, sin un
+  // solo error a la vista — el tipo la sigue declarando, así que TypeScript no dice nada.
+  'voided_at, voided_by_name, void_reason, ' +
   // protocol.code para mostrar/buscar en la lista transversal; total_kits/storage_location son el
   // ingreso MACRO del IP (0038): la recepción IP no tiene reception_items (lleva la cantidad total).
   'total_kits, storage_location, protocol:protocols(code), ' +
