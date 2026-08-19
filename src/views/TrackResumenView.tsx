@@ -1,8 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
-import { btnOutline } from '../components/buttons'
 import { alertItemStyle } from './alertItem'
-import { EmptyState } from '../components/EmptyState'
 import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
 import { useUpcomingVisits } from '../data/visits'
@@ -12,6 +10,7 @@ import { visitTitle } from '../lib/visits'
 import { dayLabel, formatAR } from '../lib/dates'
 import { VISIT_STATES, VisitChip } from './visitStates'
 import { VisitSummaryRow } from './VisitSummaryRow'
+import { ErrorBloque, FilasFantasma } from './resumenEstados'
 import type { ViewProps } from './types'
 
 const card: CSSProperties = {
@@ -23,7 +22,9 @@ const cardTitle: CSSProperties = { fontFamily: 'var(--spira-font-display)', font
 /* Fila pulsable de "Próximas visitas": abre esa visita. Mismo criterio que el resumen de Inicio —
    una fila se RESALTA (`.spira-row-link`) y no se levanta (`.spira-no-press`), porque el separador
    de arriba es suyo y al moverse partiría el listado. Sin radio por lo mismo. */
-function KpiCard({ label, value, sub, dot }: { label: string; value: number; sub: string; dot: string }) {
+/* `cargando` muestra un guión en vez del número: la tarjeta ocupa su lugar desde el primer
+   render y no salta cuando llega el dato. Mostrar 0 mientras carga sería mentir con un número. */
+function KpiCard({ label, value, sub, dot, cargando }: { label: string; value: number; sub: string; dot: string; cargando?: boolean }) {
   return (
     <div style={card}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)' }}>
@@ -31,7 +32,7 @@ function KpiCard({ label, value, sub, dot }: { label: string; value: number; sub
         {label}
       </div>
       <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 38, letterSpacing: '-0.02em', marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>
-        {value}
+        {cargando ? <span style={{ color: 'var(--spira-faint)' }}>—</span> : value}
       </div>
       <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', marginTop: 2 }}>{sub}</div>
     </div>
@@ -46,35 +47,17 @@ function KpiCard({ label, value, sub, dot }: { label: string; value: number; sub
  * alertas son las VIGENTES —`useActiveAlerts` deja afuera las descartadas (0070)—: si acá se
  * listaran todas, esta pantalla contradiría a la campana y a las otras dos que muestran alertas.
  */
-export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
+export function TrackResumenView({ module, onNavigate }: ViewProps) {
   const accent = module.accent
   const protocols = useProtocols()
   const patients = usePatients()
   const upcoming = useUpcomingVisits()
   const alerts = useActiveAlerts()
 
-  const loading = protocols.loading || patients.loading || upcoming.loading || alerts.loading
-  const error = protocols.error || patients.error || upcoming.error || alerts.error
-
-  if (loading) {
-    return <EmptyState accent={accent} icon={submodule.icon} title="Cargando resumen…" description="Un momento." />
-  }
-  if (error) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
-          <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
-          No pudimos cargar el resumen. Probá de nuevo.
-        </div>
-        <button
-          onClick={() => { protocols.refetch(); patients.refetch(); upcoming.refetch(); alerts.refetch() }}
-          style={{ ...btnOutline, alignSelf: 'flex-start' }}
-        >
-          Reintentar
-        </button>
-      </div>
-    )
-  }
+  /* Sin gate global: cada bloque falla y carga por su cuenta. Un error en la consulta de
+     pacientes solía borrar las alertas de ventana vencida, que es información clínica —
+     media pantalla es muchísimo mejor que una vacía. Ver la tabla de estados del plan. */
+  const cargandoKpis = protocols.loading || patients.loading || upcoming.loading || alerts.loading
 
   const allProtocols = protocols.data ?? []
   const allPatients = patients.data ?? []
@@ -98,10 +81,10 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
-        <KpiCard label="Protocolos activos" value={activeProtocols} sub={`${allProtocols.length} en total`} dot={accent} />
-        <KpiCard label="Pacientes activos" value={activePatients} sub={`${allPatients.length} registrados`} dot={accent} />
-        <KpiCard label="Pendientes vencidos" value={overdueItems} sub="reportes fuera de plazo" dot={overdueItems > 0 ? 'var(--spira-warn)' : accent} />
-        <KpiCard label="Próximas visitas" value={upcomingRows.length} sub="próximos 7 días" dot={accent} />
+        <KpiCard label="Protocolos activos" value={activeProtocols} sub={`${allProtocols.length} en total`} dot={accent} cargando={cargandoKpis} />
+        <KpiCard label="Pacientes activos" value={activePatients} sub={`${allPatients.length} registrados`} dot={accent} cargando={cargandoKpis} />
+        <KpiCard label="Pendientes vencidos" value={overdueItems} sub="reportes fuera de plazo" dot={overdueItems > 0 ? 'var(--spira-warn)' : accent} cargando={cargandoKpis} />
+        <KpiCard label="Próximas visitas" value={upcomingRows.length} sub="próximos 7 días" dot={accent} cargando={cargandoKpis} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 14, alignItems: 'start' }}>
@@ -111,7 +94,11 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
             <span style={cardTitle}>Próximas visitas · 7 días</span>
             <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>agrupadas por día</span>
           </div>
-          {groups.length === 0 ? (
+          {upcoming.loading ? (
+            <FilasFantasma />
+          ) : upcoming.error ? (
+            <ErrorBloque que="las próximas visitas" onReintentar={upcoming.refetch} />
+          ) : groups.length === 0 ? (
             <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
               Sin visitas en los próximos 7 días.
             </div>
@@ -144,7 +131,11 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
         {/* alertas */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
           <span style={cardTitle}>Alertas</span>
-          {alertRows.length === 0 ? (
+          {alerts.loading ? (
+            <FilasFantasma />
+          ) : alerts.error ? (
+            <ErrorBloque que="las alertas" onReintentar={alerts.refetch} />
+          ) : alertRows.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
               <Icon name="check" size={16} color="var(--spira-good)" />
               Sin alertas. Todo al día.

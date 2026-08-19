@@ -1,9 +1,8 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
-import { btnOutline } from '../components/buttons'
-import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../lib/auth'
 import { useVisitsForDay } from '../data/dayVisits'
+import { useDayProceduresSummary } from '../data/procedures'
 import { useActiveAlerts } from '../data/alertDismissals'
 import { useReceptions } from '../data/pharma'
 import { visitTitle } from '../lib/visits'
@@ -12,7 +11,8 @@ import { MODULES } from '../modules/registry'
 import { VISIT_STATES, OperationalStageChip } from './visitStates'
 import { VisitSummaryRow } from './VisitSummaryRow'
 import { alertItemStyle } from './alertItem'
-import { ordenarDia, priorizarAlertas } from './visitRules'
+import { contarVisitas, ordenarDia, priorizarAlertas } from './visitRules'
+import { ContadoresDia, ErrorBloque, FilasFantasma } from './resumenEstados'
 import type { ViewProps } from './types'
 
 const display = 'var(--spira-font-display)'
@@ -35,7 +35,7 @@ const verLink: CSSProperties = {
  * (visitas de hoy, sin hora). Reusa los datos reales de Track y Pharma (no fabrica datos que el
  * schema no tiene: turno/centro, tareas, Lab/Contable). Sigue el patrón de TrackResumenView (loading/error).
  */
-export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) {
+export function InicioResumenView({ module, onNavigate }: ViewProps) {
   const accent = module.accent
   const { modules: userModules } = useAuth()
   const day = useVisitsForDay(todayISO())
@@ -46,24 +46,12 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
      Para quien no tiene el módulo, RLS devuelve vacío en silencio (y la tarjeta ni se pinta). */
   const recepQ = useReceptions(null, null)
 
-  if (day.loading || alertsQ.loading || recepQ.loading) {
-    return <EmptyState accent={accent} icon={submodule.icon} title="Cargando tu inicio…" description="Un momento." />
-  }
-  if (day.error || alertsQ.error) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
-          <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
-          No pudimos cargar tu inicio. Probá de nuevo.
-        </div>
-        <button onClick={() => { day.refetch(); alertsQ.refetch() }} style={{ ...btnOutline, alignSelf: 'flex-start' }}>
-          Reintentar
-        </button>
-      </div>
-    )
-  }
-
+  /* Las visitas del día alimentan tres cosas: la bajada de la tarjeta de Coordinación, la lista
+     de "Tu día" y sus contadores. El hook de procedimientos cuelga de ellas —son DOS consultas
+     más, y en cascada— así que NUNCA bloquea: si tarda o falla, la fila se dibuja sin su tercera
+     línea y ya. Ver la tabla de estados del plan. */
   const visits = day.data ?? []
+  const dayProcs = useDayProceduresSummary(visits)
   const alerts = alertsQ.visitAlerts
   /* "Lo prioritario": las CRÍTICAS (ventana vencida) primero; dentro de cada grupo se conserva
      el orden por fecha que trajo la consulta. La regla vive en visitRules y está testeada. */
@@ -71,6 +59,7 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
   /* "Tu día" por orden de llegada: las que YA llegaron primero y las pendientes al final —
      mismo criterio que la cola del médico. La regla vive en visitRules y está testeada. */
   const dayRows = ordenarDia(visits)
+  const conteo = contarVisitas(visits)
   const moduleCards = MODULES.filter((m) => m.key !== 'inicio')
   /* Cola de verificación de Pharma (recepciones en 'pendiente'). null → sin dato (query falló):
      la tarjeta se pinta sin bajada antes que mentir con "Próximamente". */
@@ -129,7 +118,7 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
                   <div style={{ fontFamily: display, fontWeight: 700, fontSize: 15.5, marginTop: 12, color: 'var(--spira-ink)' }}>{m.full}</div>
                   {m.key === 'track' ? (
                     <div style={{ fontSize: 13, marginTop: 4, color: m.accent, fontWeight: 600 }}>
-                      {visits.length} {visits.length === 1 ? 'visita hoy' : 'visitas hoy'}
+                      {day.loading ? 'Cargando…' : `${visits.length} ${visits.length === 1 ? 'visita hoy' : 'visitas hoy'}`}
                     </div>
                   ) : (
                     m.key === 'pharma' && pharmaPendientes !== null && (
@@ -184,7 +173,14 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
               <Icon name="arrowRight" size={14} color="var(--spira-primary)" />
             </button>
           </div>
-          {dayRows.length === 0 ? (
+          {!day.loading && !day.error && dayRows.length > 0 && (
+            <div style={{ marginTop: 6 }}><ContadoresDia conteo={conteo} accent={accent} /></div>
+          )}
+          {day.loading ? (
+            <FilasFantasma />
+          ) : day.error ? (
+            <ErrorBloque que="las visitas de hoy" onReintentar={day.refetch} />
+          ) : dayRows.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
               <Icon name="calendar" size={16} color="var(--spira-faint)" />
               No hay visitas hoy.
@@ -199,6 +195,7 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
                   /* Eje OPERATIVO: en la portada se mira el recorrido del paciente por el
                      centro HOY. `compact` no es un lujo, son ~34 px que la columna no tiene. */
                   chip={<OperationalStageChip stage={v.operational_stage} compact />}
+                  procs={dayProcs.data?.[v.id]}
                   onClick={() => onNavigate?.('track', 'visitas', { visitId: v.id, visitDate: todayISO() })}
                   ariaLabel={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
                 />
@@ -217,7 +214,11 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
               <Icon name="arrowRight" size={14} color="var(--spira-primary)" />
             </button>
           </div>
-          {alerts.length === 0 ? (
+          {alertsQ.loading ? (
+            <FilasFantasma />
+          ) : alertsQ.error ? (
+            <ErrorBloque que="las alertas" onReintentar={alertsQ.refetch} />
+          ) : alerts.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
               <Icon name="check" size={16} color="var(--spira-good)" />
               Sin alertas. Todo al día.
