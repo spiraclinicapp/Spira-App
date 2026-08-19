@@ -165,10 +165,20 @@ export function CardFundacion({
 /**
  * Un módulo operativo, con sus tres cifras. La card entera entra al módulo.
  *
- * ⚠️ La barra de acento de 5px a la izquierda viene del handoff (17/08/2026) y CHOCA con
- * `DESIGN.md`, que prohíbe la franja de color lateral en cards. Se implementa como pide el mock
- * porque es la decisión de diseño más reciente y explícita; si el Director prefiere sostener la
- * regla del sistema, se saca de acá y el acento queda solo en el chip del ícono.
+ * ⚠️ LA BARRA DE 5px SE QUEDA — decisión del Director (2026-08-18), tomada sabiendo lo siguiente.
+ * No la "arregles" pensando que se coló:
+ *
+ * 1. `DESIGN.md` prohíbe la franja de color lateral en cards ("Don't usar `border-left`/
+ *    `border-right` de color como franja de acento"). El handoff del 17/08/2026 la pide igual, y
+ *    manda el handoff por ser la decisión más reciente y explícita.
+ * 2. En tema OSCURO no llega al contraste de elementos gráficos: medido sobre la card `#212121`
+ *    da 2.14:1 en Farmacia y 3.3:1 en Coordinación, contra un umbral de 3.0. La de Farmacia es
+ *    prácticamente invisible ahí, porque `--spira-pharma` es el mismo hex en los dos temas.
+ * 3. Es redundante: el módulo ya lo dicen el chip del ícono y el nombre.
+ *
+ * O sea que la barra es DECORATIVA y se sabe que en oscuro casi no se ve. No es portadora de
+ * información, así que no rompe nada; si algún día pasa a serlo, hay que darle un tono con
+ * variante de oscuro (familia `--spira-acc-deep-*`).
  */
 export function CardModulo({
   nombre, bajada, icono, acento, chipFondo, cifras, onClick,
