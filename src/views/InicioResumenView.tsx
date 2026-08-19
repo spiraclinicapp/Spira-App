@@ -136,7 +136,10 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
             {
               cifra: rango.loading || pctVentana === null ? '—' : `${pctVentana}%`,
               rotulo: 'visitas dentro de ventana',
-              tono: 'var(--spira-good)',
+              /* `acc-deep-good` y no `good`: el verde plano da 4.02:1 sobre la card oscura y esto
+                 es una cifra, o sea texto. La familia acc-deep tiene variante ACLARADA para
+                 oscuro (#A9D9A6), que es justo para lo que existe. */
+              tono: 'var(--spira-acc-deep-good)',
             },
           ]}
         />
@@ -153,7 +156,13 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
               cifras={[
                 { n: dato(day.loading, visitasHoy), rotulo: `${plural(visitasHoy, 'visita', 'visitas')} hoy` },
                 { n: dato(rango.loading, estaSemana), rotulo: 'esta semana' },
-                { n: dato(alertsQ.loading, alertas.length), rotulo: plural(alertas.length, 'alerta', 'alertas'), tono: alertas.length > 0 ? 'var(--spira-danger)' : undefined },
+                {
+                  n: dato(alertsQ.loading, alertas.length),
+                  rotulo: plural(alertas.length, 'alerta', 'alertas'),
+                  /* `acc-deep-danger` y no `danger`: el rojo plano da 2.77:1 sobre la card oscura,
+                     que es texto ilegible. La variante de oscuro es un salmón aclarado. */
+                  tono: alertas.length > 0 ? 'var(--spira-acc-deep-danger)' : undefined,
+                },
               ]}
             />
           )}

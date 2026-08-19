@@ -252,7 +252,7 @@ export function CardNovedades({ destacada, secundarias, onVerTodas }: {
         <button
           type="button"
           onClick={onVerTodas}
-          style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-primary)' }}
+          style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-acc-deep-track)' }}
         >
           Ver todas
         </button>
@@ -260,7 +260,7 @@ export function CardNovedades({ destacada, secundarias, onVerTodas }: {
 
       {destacada && (
         <div style={{ padding: '14px 18px 0' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', height: 20, padding: '0 8px', borderRadius: 'var(--spira-radius-pill)', fontSize: 10.5, fontWeight: 700, background: 'rgba(15,95,87,.10)', color: 'var(--spira-primary)' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', height: 20, padding: '0 8px', borderRadius: 'var(--spira-radius-pill)', fontSize: 10.5, fontWeight: 700, background: 'rgba(15,95,87,.10)', color: 'var(--spira-acc-deep-track)' }}>
             {destacada.etiqueta}
           </span>
           <div style={{ fontFamily: display, fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em', marginTop: 9 }}>
