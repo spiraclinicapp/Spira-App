@@ -21,6 +21,9 @@ Port del lenguaje visual del handoff `handoff_visitas_dia/HANDOFF - Visitas dia.
 | D12 | Gate de carga | **Por bloque** también (con el matiz de la nota #8, abajo). |
 | D13 | ProcDots tardío | La fila **crece** cuando llegan. Sin alto reservado. |
 | D15 | Conteos caros | A `TODOS.md`, no a este PR. |
+| D17 | Ancho de la fila | Chip en `compact` + el rótulo Presencial/Telefónica **sale** de la fila (ícono `phone` solo para las telefónicas). El nombre baja a **15px**, debajo del `cardTitle` de 16. |
+| D18 | Contraste | El texto de `ProtoTag`, `OperationalStageChip` y `VisitChip` pasa a `--spira-ink`; el tono queda en el fondo (14%) y en el punto. **Commit aparte.** |
+| D19 | Estados | Tabla completa de carga / vacío / error / parcial en el plan (abajo). |
 
 ### Revisadas después de la voz externa
 
@@ -39,6 +42,77 @@ cambiaron decisiones ya tomadas — quedan acá, con lo que las movió.
 - **D13 queda validado, no roto.** `useSupabaseQuery.ts:54` hace `setLoading(dataRef.current === null)` y `useDayProceduresSummary` devuelve `{}` con input vacío, así que ese hook **nunca** reporta `loading` y `procs === undefined` es ambiguo entre "no consulté" y "no tiene". Reservar alto habría exigido tocar el hook del que ya depende Visitas del día. "La fila crece" es la única opción que no lo necesita.
 - **D12 sirve, pero menos de lo prometido.** "Tus módulos" usa `visits.length` para la bajada de la tarjeta de Coordinación (`InicioResumenView.tsx:158`), así que ese bloque sigue esperando a `day`: aparece enseguida y su subtítulo llega después. Y `alertsQ` son **tres** consultas (`alertDismissals.ts:161`), o sea el "bloque" de alertas son tres estados a combinar a mano.
 - **Presupuesto de ancho — riesgo abierto, resuelto midiendo.** El vocabulario se diseñó para una fila de ~1200px (`DayVisitRowItem.tsx:105-117`) y se muda a columnas de grilla `1fr 1fr` (Inicio) y `1.5fr 1fr` (Coordinación) con 20px de padding: ~400-550px útiles. El titular de 17px + ProtoTag + IVRS + tag de visita puede truncar justo los identificadores que venía a mostrar, y `ProcDots` hace `flexWrap`. **Gate del paso 3:** medir el ancho real en el preview ANTES de fijar los tamaños; si no entra, cae primero el IVRS de la línea 2 (está en el chip y en la ficha), después el `visitName`.
+
+## Revisión de diseño (2026-08-18)
+
+`/plan-design-review` corrido **contra el sistema existente, no contra mockups generados**: el
+lenguaje visual ya está decidido (handoff + `DayVisitRowItem` + `DESIGN.md`), así que generar una
+tercera fuente visual habría competido con las otras dos. Lo que no se sabía era si ENTRA, y eso
+se mide.
+
+| # | Dimensión | Antes | Después |
+|---|---|---|---|
+| 1 | Arquitectura de información | 4/10 | 9/10 (D17) |
+| 2 | Cobertura de estados | 3/10 | 9/10 (D19) |
+| 3 | Recorrido y arco emocional | 6/10 | 6/10 — sin storyboard; aceptado, la pantalla es de vistazo |
+| 4 | Riesgo de AI slop | 8/10 | 8/10 — clasificado APP UI, ningún rechazo duro aplica |
+| 5 | Alineación con el sistema | 4/10 | 9/10 (D17 + D18) |
+| 6 | Responsive y accesibilidad | 2/10 | 8/10 (D17 + D18); el desktop-only queda como no-objetivo |
+
+### El presupuesto de ancho, medido
+
+Con los valores REALES del shell (rail 64 + submenú 220 + padding 26×2 = 336) y las fuentes
+reales cargadas en el preview:
+
+```
+                       bloque de contenido = columna − (tipo 59 + chip 144 + gaps 22)
+viewport   Inicio col   →bloque    Track izq  →bloque    Track der
+─────────────────────────────────────────────────────────────────────
+1366        468          243        570        345        366
+1440        505          280        614        389        396
+1536        553          328        672        447        434
+1920        745          520        902        677        588
+```
+
+| pieza | px medidos |
+|---|---|
+| Línea 1 · nombre típico ("Mariño, Carlos Adolfo") a 17px | 180 |
+| Línea 1 · nombre real largo a 17px | 351 |
+| Línea 2 completa (ATLAS-7 + #0320040058 + V6 + "Visita 6 · Semana 24") | **340** |
+| Línea 3 · ProcDots ×4 | 289 |
+
+**El vocabulario no entraba hasta los 1920px.** A 1440 sobraban 280 para 340. D17 lo resuelve
+por sustracción, no por achique: el chip `compact` devuelve ~34px y sacar el rótulo de tipo
+devuelve 70 → el bloque pasa a **384px a 1440** y a **350 a 1366**, con los 340 adentro.
+
+**Y una inversión de jerarquía que no dependía del ancho:** el nombre a 17px Display 700 le ganaba
+al título de su propia tarjeta (`cardTitle`, 16px). En Visitas del día 17px está bien porque la
+fila ES el contenido de la página; adentro de una tarjeta, no. Por eso baja a 15.
+
+### Contraste, medido con la fórmula de WCAG
+
+El patrón `color: tono; background: tono + "16"` (texto del tono sobre el tono al 9%) queda por
+debajo de 4.5:1 casi en todas partes. Card clara `#FFFFFF`, card oscura `#212121`:
+
+| familia | fallan en claro | fallan en oscuro |
+|---|---|---|
+| `PROTO_TONES` (etiqueta de protocolo) | 3 de 5 | **5 de 5** |
+| `OPERATIONAL_STAGES` (chip operativo) | 2 de 4 | **4 de 4** |
+| `VISIT_STATES` (chip clínico) | 3 de 7 | **7 de 7** |
+
+En oscuro la mayoría cae entre 2.58 y 3.04. Los chips son 12px peso 600 → texto NORMAL para WCAG,
+umbral 4.5:1 (el de "texto grande" arranca en 18.66px bold, no aplica).
+
+**Es PRE-EXISTENTE** —ya está en producción en Visitas del día, la cola del médico y Alertas— pero
+el plan lo propagaba a cuatro bloques más. D18 lo corrige en la raíz: el texto pasa a `ink` y el
+color se queda donde significa, en el fondo teñido y en el punto.
+
+### Un acierto que conviene dejar escrito
+
+El handoff §6 pide un **riel de color de 4px a la izquierda** de la fila. `DESIGN.md` lo prohíbe:
+*"Don't usar `border-left`/`border-right` de color como franja de acento en cards o alertas"*.
+D2 lo evitó y `DayVisitRowItem` ya lo había sacado en su momento. **No reponerlo** porque el
+handoff lo pida: en este punto el handoff y el sistema no coinciden, y manda el sistema.
 
 ## Lo que YA existe (se reusa, no se reinventa)
 
@@ -75,6 +149,8 @@ tres reglas puras.
 | Converger `card` (7 archivos) y `TIPO_LABEL` | E4 → `TODOS.md`. Es un barrido de sistema de diseño, no presentación del resumen. |
 | Conteo server-side de recepciones y pacientes | D15 → `TODOS.md`. Es capa de datos en un PR de presentación. |
 | Tests de componente | No hay `jsdom` ni `testing-library` en `devDependencies`. Lo visual se verifica mirando. |
+| Mobile y tablet | Spira es una app de escritorio clínico (el shell asume rail 64 + submenú 220 + contenido). No hay media query para las grillas del resumen y no se agrega: sería diseñar un viewport que nadie usa. |
+| Barrido de contraste del resto de la app | D20 → `TODOS.md`. D18 cubre los tres componentes que el resumen propaga; el patrón es del sistema y su auditoría es otro trabajo. |
 
 ## Mapa de archivos
 
@@ -227,6 +303,30 @@ alerts.error` y borra la pantalla entera. `InicioResumenView.tsx:69` ya dejó `r
 afuera del gate a propósito. Este plan lleva el criterio de Inicio a las dos vistas, para
 carga y para error.
 
+## Estados de interacción (D19)
+
+Qué VE el usuario en cada celda. Los vacíos actuales se transcriben literales: son copy bueno y
+una reescritura sin esto los pierde.
+
+| bloque | carga | vacío | error |
+|---|---|---|---|
+| Tus módulos (Inicio) | se pinta ya; la bajada de Coordinación llega con `day` | n/a | n/a |
+| Tu día (Inicio) | 3 filas fantasma del alto real | «No hay visitas hoy.» + `calendar` 16 `faint` | «No pudimos cargar las visitas.» + Reintentar |
+| Lo prioritario (Inicio) | 3 filas fantasma | «Sin alertas. Todo al día.» + `check` 16 `good` | «No pudimos cargar las alertas.» + Reintentar |
+| Farmacia (Inicio) | la tarjeta sin bajada | n/a | sin bajada, nunca «Próximamente» |
+| KPIs (Coordinación) | 4 tarjetas con el número en fantasma | n/a | «—» en el número, la tarjeta se pinta |
+| Próximas 7 días | 3 filas fantasma | «Sin visitas en los próximos 7 días.» | «No pudimos cargar las visitas.» + Reintentar |
+| Alertas (Coordinación) | 3 tarjetas fantasma | «Sin alertas. Todo al día.» + `check` 16 `good` | «No pudimos cargar las alertas.» + Reintentar |
+| ProcDots | **nada** — llega tarde y la fila crece (D13) | no se pinta la línea | no se pinta la línea |
+
+**La fila fantasma:** mismo alto y mismos bloques que la fila real, en `--spira-line`, radio 6,
+**sin pulso ni shimmer** — `DESIGN.md` prohíbe el bounce y el realce por animación decorativa, y
+la regla del Director es que nada pulsa. Un fantasma quieto ya comunica "esto va a llenarse".
+
+**Los errores por bloque no repiten el mismo texto**: cada uno nombra lo que no pudo cargar. Un
+«No pudimos cargar el resumen» repetido tres veces en la misma pantalla se lee como un solo
+error roto, no como tres bloques independientes.
+
 ## Orden de implementación
 
 ```
@@ -271,16 +371,20 @@ anterior. Secuencial, sin oportunidad de worktrees.
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | NOT RUN | — |
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | NOT AVAILABLE | `codex` no instalado en esta máquina |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 10 issues, 0 critical gaps, 19 decisiones |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | NOT RUN | recomendado: riesgo de ancho abierto |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 10 issues, 0 critical gaps, 15 decisiones |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR | score 5/10 → 8.2/10, 4 decisiones (D17-D20) |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | NOT RUN | — |
 
-- **CODEX:** no corrió. `codex` no está instalado y la máquina tiene WDAC activo. La voz
-  externa la hizo un subagente Claude, con autorización explícita del Director (D14).
-- **CROSS-MODEL:** no aplica — mismo modelo, así que los puntos ciegos compartidos siguen en
-  pie. Aun así encontró 8 hallazgos, los 8 verificados contra el código, y 4 revirtieron o
-  acotaron decisiones de este review (D6, D7, D9, D10).
-- **VERDICT:** ENG CLEARED — listo para implementar. Design review recomendado antes del paso
-  3 por el riesgo de presupuesto de ancho, que este review deja como gate y no como decisión.
+- **CODEX:** no corrió. `codex` no está instalado y la máquina tiene WDAC activo. La voz externa
+  del eng review la hizo un subagente Claude, con autorización explícita del Director (D14).
+- **CROSS-MODEL:** no aplica — mismo modelo. Aun así la voz externa produjo 8 hallazgos, los 8
+  verificados contra el código, y 4 revirtieron o acotaron decisiones (D6, D7, D9, D10).
+- **DESIGN:** corrido contra `DESIGN.md` + `tokens.css` + medición real en el preview, sin generar
+  mockups (D16): el lenguaje visual ya estaba decidido y una tercera fuente visual habría
+  competido con el handoff y con la implementación viva. Cerró el gate de ancho que el eng review
+  había dejado abierto, y destapó que el patrón de chips teñidos está debajo de WCAG AA en toda
+  la app (16 combinaciones medidas).
+- **VERDICT:** ENG + DESIGN CLEARED — listo para implementar. El gate de ancho quedó CERRADO con
+  números; ya no hay que medirlo durante el paso 3, solo verificar que la implementación coincida.
 
 NO UNRESOLVED DECISIONS

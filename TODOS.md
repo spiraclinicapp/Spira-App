@@ -517,3 +517,29 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 - **Empezar por:** decidir el radio canónico con el Director (`16` vs `--spira-radius-lg`).
   Recién después, promover `estilos.ts` a compartido o crear `views/cardStyles.ts`.
 - **Depende de / bloqueado por:** decisión de radio del Director.
+
+---
+
+## Accesibilidad · barrido de contraste del resto de la app (sobre todo en oscuro)
+
+- **Qué:** auditar con la fórmula de WCAG el contraste de todos los componentes que pintan texto
+  del color de un estado sobre ese mismo color con alpha. Medir, no mirar.
+- **Por qué:** midiendo los chips para la revisión de diseño del resumen aparecieron **16**
+  combinaciones por debajo de 4.5:1 — 5/5 tonos de protocolo, 4/4 chips operativos y 7/7 chips
+  clínicos fallan en al menos un tema, y en oscuro la mayoría cae entre 2.58 y 3.04. PRODUCT.md
+  compromete WCAG 2.1 AA.
+- **Pros:** cierra la brecha entre lo que el producto promete y lo que hace; y deja el patrón
+  correcto escrito, así el próximo chip teñido no nace roto.
+- **Contras:** cambia la cara de componentes en pantallas que hoy nadie está tocando, así que
+  necesita verificación visual del Director en Farmacia, la ficha, el modal de visita y Reportes.
+- **Contexto:** salió de la `/plan-design-review` del port del vocabulario al resumen (2026-08-18).
+  Esa PR ya corrige los TRES componentes que el resumen propaga (`ProtoTag`,
+  `OperationalStageChip`, `VisitChip`): el texto pasa a `--spira-ink` y el tono queda en el fondo
+  y en el punto. Lo que queda es el resto del sistema. Dato para no equivocar el umbral: los chips
+  son 12px peso 600, o sea texto NORMAL (4.5:1) — "texto grande" arranca en 18.66px bold.
+  Relacionado: solo la familia `--spira-acc-deep-*` tiene versión clara para oscuro, o sea que el
+  tema oscuro se fue armando por parche.
+- **Empezar por:** los que usan `color + alpha` del mismo tono — `components/Badge.tsx`,
+  `components/Chip.tsx`, `views/pharma/expiryState.tsx` y las pastillas de `track/VisitHeader.tsx`.
+  Se mide sin instalar nada: `getComputedStyle` en el preview + luminancia relativa, ~15 líneas.
+- **Depende de / bloqueado por:** nada.
