@@ -5,8 +5,9 @@ import { useWeekVisits } from '../data/visits'
 import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
 import { useReceptions } from '../data/pharma'
+import { useDispensationBoard } from '../data/pharma/dispensations'
 import { fueraDeVentana } from '../lib/visits'
-import { addDaysISO, formatDayMonth, todayISO, weekDates } from '../lib/dates'
+import { addDaysISO, formatDayLong, todayISO, weekDates } from '../lib/dates'
 import { SPIRA_VERSION } from '../lib/version'
 import { MODULES } from '../modules/registry'
 import { saludoDelDia } from './inicio/saludo'
@@ -51,9 +52,16 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
      los dos entren; `useWeekVisits` toma cualquier rango, pese al nombre. */
   const rango = useWeekVisits(hace30, semanaFin > hoy ? semanaFin : hoy)
   const recep = useReceptions(null, null)
+  /* El tablero del día trae los pedidos ABIERTOS ('solicitada'/'preparando') más los atendidos hoy.
+     Los abiertos son la cifra que el handoff pide en la banda y en la card de Farmacia. */
+  const board = useDispensationBoard(hoy)
 
   /** Un guion mientras el dato viaja: mostrar 0 sería afirmar que no hay ninguno. */
   const dato = (cargando: boolean, n: number) => (cargando ? '—' : n)
+  /* Los rótulos concuerdan con su número. El mock traía cifras de muestra siempre en plural
+     ("5 dispensaciones pendientes"), así que el caso de uno no aparecía; con datos reales sí, y
+     "1 dispensaciones" se lee como un descuido. */
+  const plural = (n: number, sing: string, plur: string) => (n === 1 ? sing : plur)
 
   const visitasHoy = day.data?.length ?? 0
   const alertas = alertsQ.visitAlerts
@@ -70,6 +78,9 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
   const protocolosActivos = (protocols.data ?? []).filter((p) => p.status === 'activo').length
   const pacientesActivos = (patients.data ?? []).filter((p) => p.status === 'activo').length
   const porVerificar = (recep.data ?? []).filter((r) => r.status === 'pendiente').length
+  const dispensacionesAbiertas = (board.data ?? []).filter(
+    (d) => d.status === 'solicitada' || d.status === 'preparando',
+  ).length
 
   const saludo = saludoDelDia(hoy)
   const nombre = (profile?.fullName ?? '').trim().split(/\s+/)[0]
@@ -93,14 +104,21 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 372px', gap: 16, alignItems: 'start' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <BandaSaludo
-          fecha={formatDayMonth(hoy)}
+          fecha={formatDayLong(hoy)}
           saludo={nombre ? `Buen día, ${nombre}` : 'Buen día'}
           frase={saludo.frase}
           evento={saludo.evento}
           cifras={[
-            { n: dato(day.loading, visitasHoy), rotulo: 'visitas hoy' },
-            { n: dato(alertsQ.loading, alertas.length), rotulo: <>alertas<br />vigentes</> },
-            { n: dato(alertsQ.loading, ventanasVencidas), rotulo: <>ventanas<br />vencidas</>, tono: '#F0BFB4' },
+            { n: dato(day.loading, visitasHoy), rotulo: `${plural(visitasHoy, 'visita', 'visitas')} hoy` },
+            {
+              n: dato(board.loading, dispensacionesAbiertas),
+              rotulo: <>{plural(dispensacionesAbiertas, 'dispensación', 'dispensaciones')}<br />{plural(dispensacionesAbiertas, 'pendiente', 'pendientes')}</>,
+            },
+            {
+              n: dato(alertsQ.loading, ventanasVencidas),
+              rotulo: <>{plural(ventanasVencidas, 'ventana', 'ventanas')}<br />{plural(ventanasVencidas, 'vencida', 'vencidas')}</>,
+              tono: '#F0BFB4',
+            },
           ]}
         />
 
@@ -112,9 +130,9 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
             { cifra: '+40', rotulo: 'sponsors confían' },
           ]}
           numeros={[
-            { cifra: dato(patients.loading, pacientesActivos), rotulo: 'pacientes en seguimiento' },
-            { cifra: dato(protocols.loading, protocolosActivos), rotulo: 'protocolos activos' },
-            { cifra: dato(rango.loading, realizadas30.length), rotulo: 'visitas realizadas' },
+            { cifra: dato(patients.loading, pacientesActivos), rotulo: `${plural(pacientesActivos, 'paciente', 'pacientes')} en seguimiento` },
+            { cifra: dato(protocols.loading, protocolosActivos), rotulo: `${plural(protocolosActivos, 'protocolo activo', 'protocolos activos')}` },
+            { cifra: dato(rango.loading, realizadas30.length), rotulo: `${plural(realizadas30.length, 'visita realizada', 'visitas realizadas')}` },
             {
               cifra: rango.loading || pctVentana === null ? '—' : `${pctVentana}%`,
               rotulo: 'visitas dentro de ventana',
@@ -133,9 +151,9 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
               chipFondo="rgba(46,125,116,.13)"
               onClick={() => onNavigate?.('track', 'resumen')}
               cifras={[
-                { n: dato(day.loading, visitasHoy), rotulo: 'visitas hoy' },
+                { n: dato(day.loading, visitasHoy), rotulo: `${plural(visitasHoy, 'visita', 'visitas')} hoy` },
                 { n: dato(rango.loading, estaSemana), rotulo: 'esta semana' },
-                { n: dato(alertsQ.loading, alertas.length), rotulo: 'alertas', tono: alertas.length > 0 ? 'var(--spira-danger)' : undefined },
+                { n: dato(alertsQ.loading, alertas.length), rotulo: plural(alertas.length, 'alerta', 'alertas'), tono: alertas.length > 0 ? 'var(--spira-danger)' : undefined },
               ]}
             />
           )}
@@ -152,7 +170,7 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
                  pasar. Entra cuando esté la consulta. */
               cifras={[
                 { n: dato(recep.loading, porVerificar), rotulo: 'por verificar' },
-                { n: dato(protocols.loading, protocolosActivos), rotulo: 'protocolos' },
+                { n: dato(board.loading, dispensacionesAbiertas), rotulo: plural(dispensacionesAbiertas, 'pendiente', 'pendientes') },
               ]}
             />
           )}

@@ -53,7 +53,10 @@ export function BandaSaludo({
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 700, opacity: 0.7 }}>
+        {/* `opacity: .8` y no el .7 del mock: medido con la fórmula de WCAG sobre el extremo claro
+            del gradiente, .7 da 4.13:1 y .8 da 4.9:1. Son 10.5px, o sea texto NORMAL para WCAG
+            (el umbral de "grande" arranca en 18.66px bold), así que el mínimo es 4.5. */}
+        <div style={{ fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 700, opacity: 0.8 }}>
           {fecha}
         </div>
         <div style={{ fontFamily: display, fontWeight: 700, fontSize: 30, letterSpacing: '-0.025em', marginTop: 9, lineHeight: 1.1 }}>
