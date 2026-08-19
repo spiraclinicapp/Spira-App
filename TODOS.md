@@ -463,3 +463,83 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 - **Empezar por:** decidir con el Director si el IP se contabiliza por movimientos o sigue
   derivándose. Recién después, el schema.
 - **Depende de / bloqueado por:** decisión de dominio.
+
+---
+
+## Resumen · dos consultas bajan una tabla entera para calcular un entero
+
+- **Qué:** reemplazar por conteo server-side las dos consultas que hoy descargan filas
+  completas nada más que para contar. `useReceptions(null, null)` en la portada y
+  `usePatients()` en el resumen de Coordinación.
+- **Por qué:** `useReceptions(null, null)` trae hasta 500 recepciones con todas sus columnas
+  (`TECHO_RECEPCIONES`, `src/data/pharma/receptions.ts:82`) y después hace
+  `filter(r => r.status === 'pendiente').length` para mostrar UN número en la tarjeta de
+  Farmacia. `usePatients()` hace lo mismo: trae todos los pacientes para contar los activos
+  de un KPI. Las dos están en el camino crítico de una pantalla de resumen y las dos
+  transportan PII que esa pantalla no muestra.
+- **Pros:** saca dos descargas grandes del camino crítico de las dos pantallas que más se
+  abren; deja de mover datos de paciente hacia una vista que solo quiere un entero.
+- **Contras:** toca la capa de datos, y `useReceptions` la comparte `RecepcionView`, así que
+  el cambio arrastra una vista de Farmacia que no tiene nada que ver con el resumen.
+- **Contexto:** PRE-EXISTENTES, no las introdujo ningún PR reciente. Salieron de contar las
+  consultas de las dos pantallas de resumen durante la `/plan-eng-review` del port del
+  vocabulario de Visitas del día (2026-08-18). Dato que agrava: `useSupabaseQuery` no tiene
+  caché ni dedupe (76 líneas, fetch-on-mount), así que se re-disparan enteras en cada entrada
+  a la pantalla. Ojo con el techo de 500: el día que el centro lo pase, el síntoma no va a ser
+  lentitud sino un número MAL, en silencio.
+- **Empezar por:** `select('id', { count: 'exact', head: true })` con el filtro de estado en
+  `src/data/pharma/receptions.ts` (hook de conteo aparte, sin tocar `useReceptions`) y el
+  equivalente para pacientes activos en `src/data/patients.ts`.
+- **Depende de / bloqueado por:** nada.
+
+---
+
+## Diseño · converger `card` (7 copias) y el resto de los estilos sueltos
+
+- **Qué:** hay siete `const card` duplicados en `src/views/` (`InicioResumenView:16`,
+  `TrackResumenView:14`, `TrackAlertsView:19`, `PatientFichaView:25`, `ProtocolDetailView:16`,
+  `track/VisitDetail:227`, `pharma/recepcion/ReceptionCard:299`) y además
+  `src/views/pharma/reportes/estilos.ts:22` YA exporta uno. Lo mismo con `cardTitle` y con
+  `TIPO_LABEL` (copy de UI duplicado entre los dos resúmenes).
+- **Por qué:** el mismo contenedor visual definido ocho veces. El día que se pida más aire o
+  otro radio, se cambia uno y los otros siete quedan viejos, en pantallas distintas que nadie
+  compara. `TIPO_LABEL` es peor por ser copy: se desincroniza el TEXTO que lee el usuario.
+- **Pros:** un solo contenedor para toda la app; el próximo ajuste de tarjeta es una línea.
+- **Contras:** los siete NO son iguales — el de Reportes usa `borderRadius: 16` y los demás
+  `--spira-radius-lg`. Converger cambia el radio visible en la ficha del paciente, el detalle
+  de protocolo y el detalle de visita: es un barrido de sistema de diseño con verificación
+  visual en varias pantallas, no un refactor mecánico.
+- **Contexto:** salió de la `/plan-eng-review` del port del vocabulario de Visitas del día
+  (2026-08-18). El plan original iba a crear un `views/resumenStyles.ts` con estas constantes;
+  la voz externa mostró que eso creaba un TERCER hogar en vez de converger. `btnOutline` sí se
+  resolvió en ese PR (converge a `components/buttons.ts`, que ya era el canónico y usa el borde
+  en longhands); `card` quedó afuera por tamaño.
+- **Empezar por:** decidir el radio canónico con el Director (`16` vs `--spira-radius-lg`).
+  Recién después, promover `estilos.ts` a compartido o crear `views/cardStyles.ts`.
+- **Depende de / bloqueado por:** decisión de radio del Director.
+
+---
+
+## Accesibilidad · barrido de contraste del resto de la app (sobre todo en oscuro)
+
+- **Qué:** auditar con la fórmula de WCAG el contraste de todos los componentes que pintan texto
+  del color de un estado sobre ese mismo color con alpha. Medir, no mirar.
+- **Por qué:** midiendo los chips para la revisión de diseño del resumen aparecieron **16**
+  combinaciones por debajo de 4.5:1 — 5/5 tonos de protocolo, 4/4 chips operativos y 7/7 chips
+  clínicos fallan en al menos un tema, y en oscuro la mayoría cae entre 2.58 y 3.04. PRODUCT.md
+  compromete WCAG 2.1 AA.
+- **Pros:** cierra la brecha entre lo que el producto promete y lo que hace; y deja el patrón
+  correcto escrito, así el próximo chip teñido no nace roto.
+- **Contras:** cambia la cara de componentes en pantallas que hoy nadie está tocando, así que
+  necesita verificación visual del Director en Farmacia, la ficha, el modal de visita y Reportes.
+- **Contexto:** salió de la `/plan-design-review` del port del vocabulario al resumen (2026-08-18).
+  Esa PR ya corrige los TRES componentes que el resumen propaga (`ProtoTag`,
+  `OperationalStageChip`, `VisitChip`): el texto pasa a `--spira-ink` y el tono queda en el fondo
+  y en el punto. Lo que queda es el resto del sistema. Dato para no equivocar el umbral: los chips
+  son 12px peso 600, o sea texto NORMAL (4.5:1) — "texto grande" arranca en 18.66px bold.
+  Relacionado: solo la familia `--spira-acc-deep-*` tiene versión clara para oscuro, o sea que el
+  tema oscuro se fue armando por parche.
+- **Empezar por:** los que usan `color + alpha` del mismo tono — `components/Badge.tsx`,
+  `components/Chip.tsx`, `views/pharma/expiryState.tsx` y las pastillas de `track/VisitHeader.tsx`.
+  Se mide sin instalar nada: `getComputedStyle` en el preview + luminancia relativa, ~15 líneas.
+- **Depende de / bloqueado por:** nada.
