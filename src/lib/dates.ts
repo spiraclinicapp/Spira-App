@@ -101,6 +101,14 @@ export function formatShortAR(iso: string): string {
 
 const MONTH_ABBR = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
+/** `YYYY-MM-DD` → `Martes 18 de agosto`. Fecha larga con día de la semana y sin año: para el
+ *  encabezado de Inicio, donde el año no aporta y el día de la semana sí. Sin cero a la
+ *  izquierda, como pide el handoff. */
+export function formatDayLong(iso: string): string {
+  const [, m, d] = iso.split('-')
+  return `${dayName(iso)} ${Number(d)} de ${MONTH_NAMES[Number(m) - 1]}`
+}
+
 /** `YYYY-MM-DD` → `dd mmm` ("26 may") para el tracker de visitas. */
 export function formatDayMonth(iso: string): string {
   const [, m, d] = iso.split('-')

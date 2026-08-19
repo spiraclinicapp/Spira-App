@@ -19,15 +19,19 @@ interface AboutMenuProps {
   /** Acento del módulo activo (hex). */
   accent: string
   /** El shell abre el FeedbackModal (montado a nivel shell). */
-  onFeedback: () => void
+    onFeedback: () => void
+    /** Abierto o no. El estado vive en el shell porque este popover se abre desde DOS lados: su
+     *  propio botón del riel y el "Ver todas" de Novedades en Inicio › Resumen. */
+    open: boolean
+    onOpenChange: (v: boolean) => void
 }
 
 /** Cuántas novedades se muestran por defecto; el resto se pliega para que el
     popover no crezca sin techo a medida que se acumulan releases. */
 const VISIBLE_NEWS = 5
 
-export function AboutMenu({ accent, onFeedback }: AboutMenuProps) {
-  const [open, setOpen] = useState(false)
+export function AboutMenu({ accent, onFeedback, open, onOpenChange }: AboutMenuProps) {
+  const setOpen = onOpenChange
   // Novedades viejas plegadas por defecto (ver VISIBLE_NEWS).
   const [showAllNews, setShowAllNews] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -70,7 +74,7 @@ export function AboutMenu({ accent, onFeedback }: AboutMenuProps) {
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         aria-haspopup="dialog"
         aria-expanded={open}
         title="Acerca de Spira · versión"

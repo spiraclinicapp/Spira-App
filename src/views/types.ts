@@ -94,6 +94,9 @@ export interface ViewProps {
    *  concreta al llegar (ej. la ficha de un paciente); el 4º deja un pasaje de vuelta a
    *  donde estabas. Opcional: no todas las vistas navegan. */
   onNavigate?: (moduleKey: string, subKey: string, target?: NavTarget, back?: ReturnTo) => void
+  /** Abre el popover "Acerca de" del pie del riel, que es donde viven las novedades completas.
+   *  Lo usa el "Ver todas" de la card de Novedades en Inicio › Resumen. Opcional. */
+  onOpenAbout?: () => void
   /** Registrar/limpiar el encabezado contextual del shell. Opcional. */
   setHeader?: (header: ViewHeader | null) => void
   /** Entidad a abrir al montar/actualizar (la puso un `onNavigate` con objetivo). null = ninguna. */

@@ -1,262 +1,198 @@
-import type { CSSProperties } from 'react'
-import { Icon } from '../components/Icon'
 import { useAuth } from '../lib/auth'
 import { useVisitsForDay } from '../data/dayVisits'
-import { useDayProceduresSummary } from '../data/procedures'
 import { useActiveAlerts } from '../data/alertDismissals'
+import { useWeekVisits } from '../data/visits'
+import { useProtocols } from '../data/protocols'
+import { usePatients } from '../data/patients'
 import { useReceptions } from '../data/pharma'
-import { visitTitle } from '../lib/visits'
-import { todayISO } from '../lib/dates'
+import { useDispensationBoard } from '../data/pharma/dispensations'
+import { fueraDeVentana } from '../lib/visits'
+import { addDaysISO, formatDayLong, todayISO, weekDates } from '../lib/dates'
+import { SPIRA_VERSION } from '../lib/version'
 import { MODULES } from '../modules/registry'
-import { VISIT_STATES, OperationalStageChip } from './visitStates'
-import { VisitSummaryRow } from './VisitSummaryRow'
-import { alertItemStyle } from './alertItem'
-import { contarVisitas, ordenarDia, priorizarAlertas } from './visitRules'
-import { ContadoresDia, ErrorBloque, FilasFantasma } from './resumenEstados'
+import { saludoDelDia } from './inicio/saludo'
+import { BandaSaludo, CardFundacion, CardModulo, CardNovedades } from './inicio/piezas'
+import type { Novedad } from './inicio/piezas'
 import type { ViewProps } from './types'
 
-const display = 'var(--spira-font-display)'
-const card: CSSProperties = {
-  background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
-  borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
-}
-const cardTitle: CSSProperties = { fontFamily: display, fontWeight: 700, fontSize: 16 }
-/* "Ver visitas del día" / "Ver todo": el atajo del encabezado a la LISTA completa. Las filas de abajo
-   llevan cada una a su ítem puntual, así que esto es la salida al listado, no el destino
-   principal. Se muestra siempre —incluso con la tarjeta vacía— porque la lista existe igual. */
-const verLink: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 4,
-  background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
-  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-primary)',
-}
-
 /**
- * Home del módulo Inicio: saludo + tarjetas de módulos + "Lo prioritario" (alertas) + "Tu día"
- * (visitas de hoy, sin hora). Reusa los datos reales de Track y Pharma (no fabrica datos que el
- * schema no tiene: turno/centro, tareas, Lab/Contable). Sigue el patrón de TrackResumenView (loading/error).
+ * Inicio › Resumen — del handoff `docs/design_handoff_resumen/`.
+ *
+ * Banda de saludo, card institucional de la Fundación, los módulos operativos y la columna de
+ * Novedades. NO lleva lista de visitas ni de alertas: eso vive en el resumen de COORDINACIÓN
+ * (`docs/design_handoff_resumen_track/`), que es de quien coordina — a Farmacia o Laboratorio esas
+ * listas no le dicen nada.
+ *
+ * QUÉ ES DATO REAL Y QUÉ NO, que en una app auditable importa más que la pantalla:
+ * · las cifras de la banda, los números de clínica y los de cada módulo salen de consultas reales;
+ * · las CREDENCIALES de la Fundación (+20 años, +120 estudios…) son copy institucional del sitio,
+ *   no métrica calculada — el handoff pide confirmarlas antes de producción;
+ * · lo que no tiene de dónde salir NO se dibuja: la píldora sin evento, la portada de Novedades y
+ *   el toggle de "resumen por mail" (ver `piezas.tsx`).
+ *
+ * Sin gate global: la pantalla se pinta entera de entrada y cada número aparece cuando llega, con
+ * un guion mientras viaja. Un cero mientras carga afirmaría que no hay ninguno.
  */
-export function InicioResumenView({ module, onNavigate }: ViewProps) {
-  const accent = module.accent
-  const { modules: userModules } = useAuth()
-  const day = useVisitsForDay(todayISO())
-  /* Alertas VIGENTES: las mismas que ve la campana y la vista de Alertas, ya sin las
-     descartadas (0070). El filtro vive una sola vez, en useActiveAlerts. */
-  const alertsQ = useActiveAlerts()
-  /* Pharma está operativo (v0.8+): su tarjeta muestra la cola de verificación, no "Próximamente".
-     Para quien no tiene el módulo, RLS devuelve vacío en silencio (y la tarjeta ni se pinta). */
-  const recepQ = useReceptions(null, null)
+export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
+  const { profile } = useAuth()
+  const hoy = todayISO()
+  /* `weekDates` devuelve la semana HÁBIL en curso (lunes a viernes, cinco fechas), que es la
+     noción de semana que ya usa el resto de la app. Nos quedamos con sus extremos. */
+  const semana = weekDates()
+  const semanaIni = semana[0]
+  const semanaFin = semana[semana.length - 1]
+  const hace30 = addDaysISO(hoy, -30)
 
-  /* Las visitas del día alimentan tres cosas: la bajada de la tarjeta de Coordinación, la lista
-     de "Tu día" y sus contadores. El hook de procedimientos cuelga de ellas —son DOS consultas
-     más, y en cascada— así que NUNCA bloquea: si tarda o falla, la fila se dibuja sin su tercera
-     línea y ya. Ver la tabla de estados del plan. */
-  const visits = day.data ?? []
-  const dayProcs = useDayProceduresSummary(visits)
-  const alerts = alertsQ.visitAlerts
-  /* "Lo prioritario": las CRÍTICAS (ventana vencida) primero; dentro de cada grupo se conserva
-     el orden por fecha que trajo la consulta. La regla vive en visitRules y está testeada. */
-  const priorityAlerts = priorizarAlertas(alerts)
-  /* "Tu día" por orden de llegada: las que YA llegaron primero y las pendientes al final —
-     mismo criterio que la cola del médico. La regla vive en visitRules y está testeada. */
-  const dayRows = ordenarDia(visits)
-  const conteo = contarVisitas(visits)
-  const moduleCards = MODULES.filter((m) => m.key !== 'inicio')
-  /* Cola de verificación de Pharma (recepciones en 'pendiente'). null → sin dato (query falló):
-     la tarjeta se pinta sin bajada antes que mentir con "Próximamente". */
-  const pharmaPendientes = recepQ.data ? recepQ.data.filter((r) => r.status === 'pendiente').length : null
+  const day = useVisitsForDay(hoy)
+  const alertsQ = useActiveAlerts()
+  const protocols = useProtocols()
+  const patients = usePatients()
+  /* Una sola consulta para dos cosas: los números de clínica (últimos 30 días) y el "esta semana"
+     de la card de Coordinación. El rango va de hace 30 días al fin de la semana en curso para que
+     los dos entren; `useWeekVisits` toma cualquier rango, pese al nombre. */
+  const rango = useWeekVisits(hace30, semanaFin > hoy ? semanaFin : hoy)
+  const recep = useReceptions(null, null)
+  /* El tablero del día trae los pedidos ABIERTOS ('solicitada'/'preparando') más los atendidos hoy.
+     Los abiertos son la cifra que el handoff pide en la banda y en la card de Farmacia. */
+  const board = useDispensationBoard(hoy)
+
+  /** Un guion mientras el dato viaja: mostrar 0 sería afirmar que no hay ninguno. */
+  const dato = (cargando: boolean, n: number) => (cargando ? '—' : n)
+  /* Los rótulos concuerdan con su número. El mock traía cifras de muestra siempre en plural
+     ("5 dispensaciones pendientes"), así que el caso de uno no aparecía; con datos reales sí, y
+     "1 dispensaciones" se lee como un descuido. */
+  const plural = (n: number, sing: string, plur: string) => (n === 1 ? sing : plur)
+
+  const visitasHoy = day.data?.length ?? 0
+  const alertas = alertsQ.visitAlerts
+  const ventanasVencidas = alertas.filter((a) => a.computed_status === 'ventana_vencida').length
+
+  const rangoRows = rango.data ?? []
+  const realizadas30 = rangoRows.filter((v) => v.real_date && v.real_date >= hace30)
+  const enVentana = realizadas30.filter((v) => !fueraDeVentana(v.real_date, v.window_start, v.window_end)).length
+  const pctVentana = realizadas30.length === 0 ? null : Math.round((enVentana / realizadas30.length) * 100)
+  const estaSemana = rangoRows.filter(
+    (v) => v.estimated_date && v.estimated_date >= semanaIni && v.estimated_date <= semanaFin,
+  ).length
+
+  const protocolosActivos = (protocols.data ?? []).filter((p) => p.status === 'activo').length
+  const pacientesActivos = (patients.data ?? []).filter((p) => p.status === 'activo').length
+  const porVerificar = (recep.data ?? []).filter((r) => r.status === 'pendiente').length
+  const dispensacionesAbiertas = (board.data ?? []).filter(
+    (d) => d.status === 'solicitada' || d.status === 'preparando',
+  ).length
+
+  const saludo = saludoDelDia(hoy)
+  const nombre = (profile?.fullName ?? '').trim().split(/\s+/)[0]
+
+  /* Novedades desde el changelog REAL de la app (`lib/version.ts`), que es la única fuente que
+     existe hoy. No guarda fecha ni categoría, así que no se muestran: antes que inventar un
+     "hace 2 días", va sin fecha. */
+  const changelog = SPIRA_VERSION.changelog
+  const destacada: Novedad | null = changelog[0]
+    ? { etiqueta: `Producto · v${changelog[0].version}`, titulo: changelog[0].text }
+    : null
+  const secundarias: Novedad[] = changelog.slice(1, 3).map((c) => ({
+    etiqueta: `v${c.version}`,
+    titulo: c.text,
+  }))
+
+  const track = MODULES.find((m) => m.key === 'track')
+  const pharma = MODULES.find((m) => m.key === 'pharma')
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {/* ── tus módulos ── */}
-      <div>
-        <div style={cardTitle}>Tus módulos</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12, marginTop: 12 }}>
-          {moduleCards.map((m) => {
-            const accessible = (userModules as string[]).includes(m.key)
-            /* Módulo aún no construido: tarjeta SELLADA. Sin texto a la vista —solo un
-               candado centrado sobre placa, en la superficie apagada— para que no compita
-               con los módulos operativos ni prometa de más. El nombre sigue disponible en
-               `title` (hover) y en texto oculto para lectores de pantalla: bloqueado a la
-               vista, no para la accesibilidad. La altura la empareja el grid (stretch). */
-            if (m.proximamente) {
-              return (
-                <div
-                  key={m.key}
-                  title={`${m.full} · Próximamente`}
-                  style={{
-                    position: 'relative', minHeight: 116, borderRadius: 14,
-                    border: '1px solid var(--spira-line)', background: 'var(--spira-surface)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}
-                >
-                  <span style={{ width: 46, height: 46, borderRadius: 13, background: 'var(--spira-line)', display: 'grid', placeItems: 'center' }}>
-                    <Icon name="lock" size={22} stroke={2} color="var(--spira-muted)" />
-                  </span>
-                  <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap', border: 0 }}>
-                    {m.full} · Próximamente
-                  </span>
-                </div>
-              )
-            }
-            if (accessible) {
-              return (
-                <button
-                  key={m.key}
-                  className="spira-card-link"
-                  onClick={() => onNavigate?.(m.key, m.submodules[0].key)}
-                  style={{
-                    textAlign: 'left', borderRadius: 14, padding: '16px 18px', cursor: 'pointer',
-                    background: 'var(--spira-white)', display: 'flex', flexDirection: 'column', fontFamily: 'var(--spira-font-text)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ width: 38, height: 38, borderRadius: 11, background: m.accent + '16', display: 'grid', placeItems: 'center' }}>
-                      <Icon name={m.icon} size={20} color={m.accent} stroke={2} />
-                    </span>
-                    <Icon name="arrowRight" size={16} color="var(--spira-faint)" />
-                  </div>
-                  <div style={{ fontFamily: display, fontWeight: 700, fontSize: 15.5, marginTop: 12, color: 'var(--spira-ink)' }}>{m.full}</div>
-                  {m.key === 'track' ? (
-                    <div style={{ fontSize: 13, marginTop: 4, color: m.accent, fontWeight: 600 }}>
-                      {day.loading ? 'Cargando…' : `${visits.length} ${visits.length === 1 ? 'visita hoy' : 'visitas hoy'}`}
-                    </div>
-                  ) : (
-                    m.key === 'pharma' && pharmaPendientes !== null && (
-                      <div style={{ fontSize: 13, marginTop: 4, color: m.accent, fontWeight: 600 }}>
-                        {pharmaPendientes} {pharmaPendientes === 1 ? 'recepción por verificar' : 'recepciones por verificar'}
-                      </div>
-                    )
-                  )}
-                </button>
-              )
-            }
-            return (
-              <div
-                key={m.key}
-                style={{
-                  border: '1px solid var(--spira-line)', borderRadius: 14, padding: '16px 18px',
-                  background: 'var(--spira-surface)', display: 'flex', flexDirection: 'column',
-                }}
-              >
-                <span style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--spira-line)', display: 'grid', placeItems: 'center' }}>
-                  <Icon name="lock" size={18} color="var(--spira-faint)" />
-                </span>
-                <div style={{ fontFamily: display, fontWeight: 700, fontSize: 15.5, marginTop: 12, color: 'var(--spira-muted)' }}>{m.full}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', marginTop: 4 }}>Sin acceso</div>
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  className="spira-no-press"
-                  title="El alta de acceso llega con el módulo de roles"
-                  style={{ marginTop: 12, alignSelf: 'flex-start', height: 30, padding: '0 12px', borderRadius: 9, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-faint)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, cursor: 'default' }}
-                >
-                  Solicitar acceso
-                </button>
-              </div>
-            )
-          })}
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 372px', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <BandaSaludo
+          fecha={formatDayLong(hoy)}
+          saludo={nombre ? `Buen día, ${nombre}` : 'Buen día'}
+          frase={saludo.frase}
+          evento={saludo.evento}
+          cifras={[
+            { n: dato(day.loading, visitasHoy), rotulo: `${plural(visitasHoy, 'visita', 'visitas')} hoy` },
+            {
+              n: dato(board.loading, dispensacionesAbiertas),
+              rotulo: <>{plural(dispensacionesAbiertas, 'dispensación', 'dispensaciones')}<br />{plural(dispensacionesAbiertas, 'pendiente', 'pendientes')}</>,
+            },
+            {
+              n: dato(alertsQ.loading, ventanasVencidas),
+              rotulo: <>{plural(ventanasVencidas, 'ventana', 'ventanas')}<br />{plural(ventanasVencidas, 'vencida', 'vencidas')}</>,
+              tono: '#F0BFB4',
+            },
+          ]}
+        />
+
+        <CardFundacion
+          credenciales={[
+            { cifra: '+20', rotulo: 'años de experiencia' },
+            { cifra: '+120', rotulo: 'estudios realizados' },
+            { cifra: '+5.000', rotulo: 'pacientes en ensayos' },
+            { cifra: '+40', rotulo: 'sponsors confían' },
+          ]}
+          numeros={[
+            { cifra: dato(patients.loading, pacientesActivos), rotulo: `${plural(pacientesActivos, 'paciente', 'pacientes')} en seguimiento` },
+            { cifra: dato(protocols.loading, protocolosActivos), rotulo: `${plural(protocolosActivos, 'protocolo activo', 'protocolos activos')}` },
+            { cifra: dato(rango.loading, realizadas30.length), rotulo: `${plural(realizadas30.length, 'visita realizada', 'visitas realizadas')}` },
+            {
+              cifra: rango.loading || pctVentana === null ? '—' : `${pctVentana}%`,
+              rotulo: 'visitas dentro de ventana',
+              /* `acc-deep-good` y no `good`: el verde plano da 4.02:1 sobre la card oscura y esto
+                 es una cifra, o sea texto. La familia acc-deep tiene variante ACLARADA para
+                 oscuro (#A9D9A6), que es justo para lo que existe. */
+              tono: 'var(--spira-acc-deep-good)',
+            },
+          ]}
+        />
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+          {track && (
+            <CardModulo
+              nombre={track.name}
+              bajada="Agenda, visitas y alertas"
+              icono="activity"
+              acento="var(--spira-track)"
+              chipFondo="rgba(46,125,116,.13)"
+              onClick={() => onNavigate?.('track', 'resumen')}
+              cifras={[
+                { n: dato(day.loading, visitasHoy), rotulo: `${plural(visitasHoy, 'visita', 'visitas')} hoy` },
+                { n: dato(rango.loading, estaSemana), rotulo: 'esta semana' },
+                {
+                  n: dato(alertsQ.loading, alertas.length),
+                  rotulo: plural(alertas.length, 'alerta', 'alertas'),
+                  /* `acc-deep-danger` y no `danger`: el rojo plano da 2.77:1 sobre la card oscura,
+                     que es texto ilegible. La variante de oscuro es un salmón aclarado. */
+                  tono: alertas.length > 0 ? 'var(--spira-acc-deep-danger)' : undefined,
+                },
+              ]}
+            />
+          )}
+          {pharma && (
+            <CardModulo
+              nombre={pharma.name}
+              bajada="Recepción, stock y dispensación"
+              icono="pill"
+              acento="var(--spira-pharma)"
+              chipFondo="rgba(15,95,87,.11)"
+              onClick={() => onNavigate?.('pharma', 'recepcion')}
+              /* Dos cifras y no tres: "lote por vencer" necesita una consulta de vencimientos que
+                 todavía no existe, y un número inventado en Farmacia es justo lo que no puede
+                 pasar. Entra cuando esté la consulta. */
+              cifras={[
+                { n: dato(recep.loading, porVerificar), rotulo: 'por verificar' },
+                { n: dato(board.loading, dispensacionesAbiertas), rotulo: plural(dispensacionesAbiertas, 'pendiente', 'pendientes') },
+              ]}
+            />
+          )}
         </div>
       </div>
 
-      {/* ── lo prioritario + tu día ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
-        {/* Tu día (visitas de hoy, sin hora) — primero (lo accionable del día). Cada fila abre SU
-            visita; el rótulo del encabezado queda para ir a la lista completa. */}
-        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={cardTitle}>Tu día</span>
-            {/* Dice a dónde va DE VERDAD: navega a track/visitas, no a la Agenda (que además
-                está fuera del menú). El rótulo "Ver agenda" quedó de cuando ese link iba ahí. */}
-            <button type="button" style={verLink} onClick={() => onNavigate?.('track', 'visitas')}>
-              Ver visitas del día
-              <Icon name="arrowRight" size={14} color="var(--spira-primary)" />
-            </button>
-          </div>
-          {!day.loading && !day.error && dayRows.length > 0 && (
-            <div style={{ marginTop: 6 }}><ContadoresDia conteo={conteo} accent={accent} /></div>
-          )}
-          {day.loading ? (
-            <FilasFantasma />
-          ) : day.error ? (
-            <ErrorBloque que="las visitas de hoy" onReintentar={day.refetch} />
-          ) : dayRows.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-              <Icon name="calendar" size={16} color="var(--spira-faint)" />
-              No hay visitas hoy.
-            </div>
-          ) : (
-            <div style={{ marginTop: 6 }}>
-              {dayRows.map((v) => (
-                <VisitSummaryRow
-                  key={v.id}
-                  visit={v}
-                  accent={accent}
-                  /* Eje OPERATIVO: en la portada se mira el recorrido del paciente por el
-                     centro HOY. `compact` no es un lujo, son ~34 px que la columna no tiene. */
-                  chip={<OperationalStageChip stage={v.operational_stage} compact />}
-                  procs={dayProcs.data?.[v.id]}
-                  onClick={() => onNavigate?.('track', 'visitas', { visitId: v.id, visitDate: todayISO() })}
-                  ariaLabel={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Lo prioritario (alertas) — segundo. Cada alerta lleva a Alertas y abre ahí su visita:
-            el detalle se mira sin salir del módulo donde se trabaja la alerta. */}
-        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={cardTitle}>Lo prioritario</span>
-            <button type="button" style={verLink} onClick={() => onNavigate?.('track', 'alertas')}>
-              Ver todo
-              <Icon name="arrowRight" size={14} color="var(--spira-primary)" />
-            </button>
-          </div>
-          {alertsQ.loading ? (
-            <FilasFantasma />
-          ) : alertsQ.error ? (
-            <ErrorBloque que="las alertas" onReintentar={alertsQ.refetch} />
-          ) : alerts.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-              <Icon name="check" size={16} color="var(--spira-good)" />
-              Sin alertas. Todo al día.
-            </div>
-          ) : (
-            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {priorityAlerts.slice(0, 5).map((a) => {
-                const c = VISIT_STATES[a.computed_status].color
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    className="spira-card-link"
-                    /* A Alertas, no a Visitas: la alerta se trabaja en su módulo, y el modal de
-                       la visita se abre ahí adentro. Sin fecha — esa vista carga todas. */
-                    onClick={() => onNavigate?.('track', 'alertas', { visitId: a.id })}
-                    aria-label={`Abrir en Alertas la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
-                    style={alertItemStyle(c)}
-                  >
-                    <span style={{ flex: '0 0 auto', marginTop: 1 }}>
-                      <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={18} color={c} />
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.patient_name}</span>
-                        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 400 }}>{a.patient_code ?? '—'}</span>
-                      </div>
-                      <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
-                        {VISIT_STATES[a.computed_status].label} · {visitTitle(a)}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+      <CardNovedades
+        destacada={destacada}
+        secundarias={secundarias}
+        /* "Ver todas" abre el popover Acerca de del pie del riel, que es donde vive el
+           changelog completo. No hay una pantalla de novedades: ese popover ES la pantalla. */
+        onVerTodas={() => onOpenAbout?.()}
+      />
     </div>
   )
 }
