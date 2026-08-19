@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="utf-8">
+<title>Anatomía · Inicio › Resumen</title>
+<link rel="stylesheet" href="./spira-app-tokens.css">
+<style>
+body{margin:0;background:#E9E5DC;padding:44px 40px 80px;font-family:var(--spira-font-text);color:var(--spira-ink)}
+a{color:var(--spira-primary)}a:hover{color:var(--spira-primary-deep)}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:34px}
+.eyebrow{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--spira-muted);font-weight:700}
+h1{font-family:var(--spira-font-display);font-weight:700;font-size:34px;letter-spacing:-.025em;margin:6px 0 0}
+.lede{font-size:14px;line-height:1.6;color:var(--spira-ink-soft);max-width:760px;margin-top:8px;text-wrap:pretty}
+h2{font-family:var(--spira-font-display);font-weight:700;font-size:20px;letter-spacing:-.02em;margin:0}
+.sec{background:var(--spira-white);border:1px solid var(--spira-line);border-radius:16px;padding:24px 26px}
+.sechd{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.num{width:22px;height:22px;flex:0 0 22px;border-radius:50%;background:var(--spira-primary);color:var(--spira-on-accent);font-size:11.5px;font-weight:700;display:grid;place-items:center;font-family:var(--spira-font-display)}
+.note{font-size:12.5px;color:var(--spira-ink-soft);line-height:1.6;text-wrap:pretty}
+.two{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:26px;margin-top:18px;align-items:start}
+.stage{background:var(--spira-paper);border:1px dashed var(--spira-line-2);border-radius:12px;padding:20px;overflow:auto}
+dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:0}
+dt{font-size:11.5px;font-weight:700;color:var(--spira-ink-2);padding:7px 14px 7px 0;border-top:1px solid var(--spira-line);white-space:nowrap}
+dd{margin:0;font-size:11.5px;color:var(--spira-ink-soft);padding:7px 0;border-top:1px solid var(--spira-line);font-variant-numeric:tabular-nums}
+code{font-family:var(--spira-font-mono);font-size:11px;background:var(--spira-surface);border:1px solid var(--spira-line);border-radius:5px;padding:1px 5px;color:var(--spira-ink-2)}
+.sw{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-top:16px}
+.sw>div{border:1px solid var(--spira-line);border-radius:10px;overflow:hidden}
+.sw i{display:block;height:52px}
+.sw b{display:block;font-size:11.5px;padding:7px 9px 1px;font-weight:600}
+.sw span{display:block;font-family:var(--spira-font-mono);font-size:10.5px;color:var(--spira-muted);padding:0 9px 8px}
+.type{display:flex;flex-direction:column}
+.type>div{display:flex;align-items:baseline;gap:20px;padding:12px 0;border-top:1px solid var(--spira-line)}
+.type em{font-style:normal;font-family:var(--spira-font-mono);font-size:11px;color:var(--spira-muted);width:250px;flex:0 0 250px}
+.grid-diag{display:grid;grid-template-columns:minmax(0,1fr) 372px;gap:16px;margin-top:16px}
+.gbox{border:1px dashed var(--spira-line-2);border-radius:10px;background:var(--spira-surface);padding:12px;font-size:11.5px;color:var(--spira-ink-soft)}
+.gbox b{display:block;font-size:12.5px;color:var(--spira-ink);margin-bottom:3px}
+.warn{border-left:0;background:var(--spira-surface);border:1px solid var(--spira-line);border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--spira-ink-2);line-height:1.6;margin-top:14px}
+</style>
+</head><body>
+<div class="wrap">
+
+<div>
+<div class="eyebrow">Spira · handoff</div>
+<h1>Anatomía de Inicio › Resumen</h1>
+<p class="lede">Medidas, tokens y copy de cada pieza de la vista, con especímenes a tamaño real. La vista completa está en <a href="./Resumen - Inicio.html">Resumen - Inicio.html</a>; las reglas de comportamiento, en el <a href="./README.md">README</a>.</p>
+</div>
+
+<div class="sec">
+<div class="sechd"><span class="num">0</span><h2>Grilla de la vista</h2></div>
+<p class="note">Dentro del área de contenido del shell (<code>padding:16px 26px 26px</code>). Dos columnas, <code>gap:16px</code>, <code>align-items:start</code>.</p>
+<div class="grid-diag">
+<div style="display:flex;flex-direction:column;gap:14px">
+<div class="gbox"><b>1 · Banda de saludo</b>minmax(0,1fr) · radius 18 · padding 26/28</div>
+<div class="gbox"><b>2 · Fundación + números</b>card blanco · radius 16 · padding 20/22/18</div>
+<div class="gbox"><b>3 · Módulos activos</b>grid 2 col · gap 14 · alto natural</div>
+</div>
+<div class="gbox" style="display:flex;align-items:center"><div><b>4 · Novedades</b>372px fijos · alto natural · debajo entra Tutoriales</div></div>
+</div>
+<div class="warn"><b>No estirar.</b> Se probó con <code>align-items:stretch</code> + cards flexibles y se descartó: los módulos quedaban con las cifras despegadas del título. Cada columna termina donde termina su contenido.</div>
+</div>
+
+<div class="sec">
+<div class="sechd"><span class="num">1</span><h2>Banda de saludo</h2></div>
+<div class="two">
+<div class="stage">
+<div style="border-radius:18px;padding:26px 28px;background:linear-gradient(140deg,var(--spira-primary),var(--spira-primary-deep));color:var(--spira-on-accent);display:flex;align-items:center;gap:32px;min-width:760px">
+<div style="flex:1;min-width:0">
+<div style="font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;opacity:.7">Domingo 16 de agosto</div>
+<div style="font-family:var(--spira-font-display);font-weight:700;font-size:30px;letter-spacing:-.025em;margin-top:9px;line-height:1.1">Buen día, Lautaro</div>
+<div style="font-size:14.5px;line-height:1.5;margin-top:9px;opacity:.9;max-width:460px">Espero que tengas un domingo genial.</div>
+<div style="display:inline-flex;align-items:center;gap:9px;margin-top:13px;padding:7px 13px 7px 10px;border-radius:999px;background:rgba(244,241,234,.14);border:1px solid rgba(244,241,234,.22)">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F0E4C9" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"></rect><path d="M12 8v13"></path><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"></path><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8S13 3 16.5 3a2.5 2.5 0 0 1 0 5"></path></svg>
+<span style="font-size:12.5px;font-weight:600">Hoy cumple años Valeria Fernández</span>
+</div>
+</div>
+<div style="display:flex;align-items:flex-start;gap:26px;padding-left:32px;border-left:1px solid rgba(244,241,234,.22)">
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:44px;letter-spacing:-.035em;line-height:1">4</div><div style="font-size:12.5px;opacity:.8;margin-top:6px">visitas hoy</div></div>
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:44px;letter-spacing:-.035em;line-height:1">5</div><div style="font-size:12.5px;opacity:.8;margin-top:6px">dispensaciones<br>pendientes</div></div>
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:44px;letter-spacing:-.035em;line-height:1;color:#F0BFB4">3</div><div style="font-size:12.5px;opacity:.8;margin-top:6px">ventanas<br>vencidas</div></div>
+</div>
+</div>
+</div>
+<dl>
+<dt>Fondo</dt><dd><code>linear-gradient(140deg, primary, primary-deep)</code></dd>
+<dt>Radio · padding</dt><dd>18px · 26px 28px</dd>
+<dt>Fecha</dt><dd>10.5px / 700 / uppercase / ls .16em / opacidad .7</dd>
+<dt>Saludo</dt><dd>display 700 · 30px · ls −.025em · lh 1.1 · mt 9</dd>
+<dt>Frase</dt><dd>14.5px · lh 1.5 · opacidad .9 · max-width 460 · mt 9</dd>
+<dt>Píldora</dt><dd>mt 13 · padding 7/13/7/10 · radio 999 · fondo <code>rgba(244,241,234,.14)</code> · borde <code>rgba(244,241,234,.22)</code></dd>
+<dt>Ícono píldora</dt><dd>15px · trazo <code>#F0E4C9</code> · stroke-width 1.9</dd>
+<dt>Texto píldora</dt><dd>12.5px / 600</dd>
+<dt>Cifras</dt><dd>display 700 · 44px · ls −.035em · lh 1 · gap 26</dd>
+<dt>Rótulos</dt><dd>12.5px · opacidad .8 · mt 6</dd>
+<dt>Divisor</dt><dd><code>border-left</code> 1px <code>rgba(244,241,234,.22)</code> · pl 32</dd>
+<dt>Alerta</dt><dd><code>#F0BFB4</code> — único color fuera de token en la banda</dd>
+</dl>
+</div>
+<p class="note" style="margin-top:14px"><b>Comportamiento.</b> La frase rota por día (§6 del README). La píldora existe solo si la fecha coincide con un evento del glosario; sin evento no se renderiza y la frase queda como última línea. Con evento, la frase del evento reemplaza la del día.</p>
+</div>
+
+<div class="sec">
+<div class="sechd"><span class="num">2</span><h2>Card Fundación + números de la clínica</h2></div>
+<div class="two">
+<div class="stage">
+<div style="background:var(--spira-white);border:1px solid var(--spira-line);border-radius:16px;padding:20px 22px 18px;min-width:900px">
+<div style="display:flex;align-items:center;gap:22px">
+<div style="display:flex;align-items:center;gap:13px">
+<img src="./assets/fundacion-mark.png" alt="" style="height:48px;width:auto;display:block">
+<div>
+<div style="font-family:var(--spira-font-display);font-weight:700;font-size:17.5px;letter-spacing:-.02em;line-height:1.15;white-space:nowrap">Fundación Scherbovsky</div>
+<div style="font-size:12px;color:var(--spira-muted);margin-top:3px">un cambio de aire</div>
+</div>
+</div>
+<div style="flex:1;min-width:250px;padding-left:22px;border-left:1px solid var(--spira-line)">
+<div style="font-size:13.5px;font-weight:600;color:var(--spira-ink);white-space:nowrap">Centro de investigación médica</div>
+<div style="font-size:12.5px;color:var(--spira-ink-soft);margin-top:3px;white-space:nowrap">Líder en ensayos clínicos en el país</div>
+</div>
+<div style="display:flex;align-items:center;gap:18px">
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:19px;letter-spacing:-.02em;line-height:1">+20</div><div style="font-size:11.5px;color:var(--spira-ink-soft);margin-top:4px">años de experiencia</div></div>
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:19px;letter-spacing:-.02em;line-height:1">+120</div><div style="font-size:11.5px;color:var(--spira-ink-soft);margin-top:4px">estudios realizados</div></div>
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:19px;letter-spacing:-.02em;line-height:1">+5.000</div><div style="font-size:11.5px;color:var(--spira-ink-soft);margin-top:4px">pacientes en ensayos</div></div>
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:19px;letter-spacing:-.02em;line-height:1">+40</div><div style="font-size:11.5px;color:var(--spira-ink-soft);margin-top:4px">sponsors confían</div></div>
+</div>
+</div>
+<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--spira-line)">
+<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0">
+<div style="padding-right:18px"><div style="font-family:var(--spira-font-display);font-weight:700;font-size:26px;letter-spacing:-.025em;line-height:1">128</div><div style="font-size:12px;color:var(--spira-ink-soft);margin-top:5px">pacientes en seguimiento</div></div>
+<div style="padding:0 18px;border-left:1px solid var(--spira-line)"><div style="font-family:var(--spira-font-display);font-weight:700;font-size:26px;letter-spacing:-.025em;line-height:1">7</div><div style="font-size:12px;color:var(--spira-ink-soft);margin-top:5px">protocolos activos</div></div>
+<div style="padding:0 18px;border-left:1px solid var(--spira-line)"><div style="font-family:var(--spira-font-display);font-weight:700;font-size:26px;letter-spacing:-.025em;line-height:1">86</div><div style="font-size:12px;color:var(--spira-ink-soft);margin-top:5px">visitas realizadas</div></div>
+<div style="padding:0 18px;border-left:1px solid var(--spira-line)"><div style="font-family:var(--spira-font-display);font-weight:700;font-size:26px;letter-spacing:-.025em;line-height:1">41</div><div style="font-size:12px;color:var(--spira-ink-soft);margin-top:5px">dispensaciones entregadas</div></div>
+<div style="padding-left:18px;border-left:1px solid var(--spira-line)"><div style="font-family:var(--spira-font-display);font-weight:700;font-size:26px;letter-spacing:-.025em;line-height:1;color:var(--spira-good)">96%</div><div style="font-size:12px;color:var(--spira-ink-soft);margin-top:5px">visitas dentro de ventana</div></div>
+</div>
+</div>
+</div>
+</div>
+<dl>
+<dt>Card</dt><dd>blanco · borde <code>line</code> · radio 16 · padding 20 22 18</dd>
+<dt>Isotipo</dt><dd><code>assets/fundacion-mark.png</code> · alto 48 · <code>alt=""</code></dd>
+<dt>Nombre</dt><dd>display 700 · 17.5px · ls −.02em · lh 1.15</dd>
+<dt>Bajada</dt><dd>12px <code>muted</code> · mt 3 → «un cambio de aire»</dd>
+<dt>Lockup</dt><dd>flex · gap 13 · centrado vertical</dd>
+<dt>Descriptor</dt><dd>13.5px/600 <code>ink</code> + 12.5px <code>ink-soft</code> · <code>nowrap</code> · pl 22 · divisor 1px</dd>
+<dt>Credenciales</dt><dd>cifra display 700 19px · rótulo 11.5px <code>ink-soft</code> mt 4 · gap 18</dd>
+<dt>Separador</dt><dd>mt 18 · pt 16 · <code>border-top</code> 1px <code>line</code></dd>
+<dt>Números</dt><dd>5 col iguales · cifra display 700 26px ls −.025em · rótulo 12px mt 5</dd>
+<dt>Paddings col.</dt><dd>1ª <code>pr 18</code> · 2-4 <code>0 18</code> · 5ª <code>pl 18</code> · divisores <code>border-left</code></dd>
+<dt>96%</dt><dd><code>var(--spira-good)</code></dd>
+</dl>
+</div>
+<div class="warn"><b>Dos decisiones.</b> (1) El logo completo no se usa acá: a 44-62px su tipografía queda ilegible y compite con Schibsted Grotesk. Se recortó el isotipo y el nombre va como texto. (2) La fila de números <b>no</b> lleva rótulo de sección ni «Últimos 30 días»; si hace falta comunicar el período va en tooltip.</div>
+</div>
+
+<div class="sec">
+<div class="sechd"><span class="num">3</span><h2>Card de módulo</h2></div>
+<div class="two">
+<div class="stage">
+<div style="background:var(--spira-white);border:1px solid var(--spira-line);border-radius:16px;overflow:hidden;display:flex;width:440px">
+<span style="width:5px;flex:0 0 5px;background:var(--spira-track)"></span>
+<div style="flex:1;min-width:0;padding:19px 21px">
+<div style="display:flex;align-items:center;gap:11px">
+<span style="width:38px;height:38px;border-radius:11px;background:rgba(46,125,116,.13);display:grid;place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--spira-track)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg></span>
+<div style="flex:1;min-width:0"><div style="font-family:var(--spira-font-display);font-weight:700;font-size:17.5px">Coordinación</div><div style="font-size:12.5px;color:var(--spira-ink-soft);margin-top:2px">Agenda, visitas y alertas</div></div>
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--spira-faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+</div>
+<div style="display:flex;gap:26px;margin-top:17px">
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;line-height:1">4</div><div style="font-size:12px;color:var(--spira-ink-soft);margin-top:4px">visitas hoy</div></div>
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;line-height:1">12</div><div style="font-size:12px;color:var(--spira-ink-soft);margin-top:4px">esta semana</div></div>
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;line-height:1;color:var(--spira-danger)">3</div><div style="font-size:12px;color:var(--spira-ink-soft);margin-top:4px">alertas</div></div>
+</div>
+</div>
+</div>
+<div style="height:14px"></div>
+<div style="background:var(--spira-white);border:1px solid var(--spira-line);border-radius:16px;overflow:hidden;display:flex;width:440px">
+<span style="width:5px;flex:0 0 5px;background:var(--spira-pharma)"></span>
+<div style="flex:1;min-width:0;padding:19px 21px">
+<div style="display:flex;align-items:center;gap:11px">
+<span style="width:38px;height:38px;border-radius:11px;background:rgba(15,95,87,.11);display:grid;place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--spira-pharma)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path></svg></span>
+<div style="flex:1;min-width:0"><div style="font-family:var(--spira-font-display);font-weight:700;font-size:17.5px">Farmacia</div><div style="font-size:12.5px;color:var(--spira-ink-soft);margin-top:2px">Recepción, stock y dispensación</div></div>
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--spira-faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+</div>
+<div style="display:flex;gap:26px;margin-top:17px">
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;line-height:1">2</div><div style="font-size:12px;color:var(--spira-ink-soft);margin-top:4px">por verificar</div></div>
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;line-height:1">5</div><div style="font-size:12px;color:var(--spira-ink-soft);margin-top:4px">pendientes</div></div>
+<div><div style="font-family:var(--spira-font-display);font-weight:700;font-size:24px;letter-spacing:-.02em;line-height:1;color:var(--spira-acc-deep-warn)">1</div><div style="font-size:12px;color:var(--spira-ink-soft);margin-top:4px">lote por vencer</div></div>
+</div>
+</div>
+</div>
+</div>
+<dl>
+<dt>Card</dt><dd>blanco · borde <code>line</code> · radio 16 · <code>overflow:hidden</code> · flex</dd>
+<dt>Barra de acento</dt><dd>ancho 5px fijo · color del módulo, a toda la altura</dd>
+<dt>Cuerpo</dt><dd><code>padding:19px 21px</code> · alto natural (sin <code>justify-content</code>)</dd>
+<dt>Chip de ícono</dt><dd>38×38 · radio 11 · fondo acento 11-13% · ícono 20px trazo acento</dd>
+<dt>Título</dt><dd>display 700 · 17.5px</dd>
+<dt>Subtítulo</dt><dd>12.5px <code>ink-soft</code> · mt 2</dd>
+<dt>Flecha</dt><dd>17px · trazo <code>faint</code> · a la derecha del header</dd>
+<dt>Cifras</dt><dd>display 700 24px ls −.02em · gap 26 · mt 17</dd>
+<dt>Rótulos</dt><dd>12px <code>ink-soft</code> · mt 4</dd>
+<dt>Coordinación</dt><dd>acento <code>track</code> · chip <code>rgba(46,125,116,.13)</code> · 3ª cifra <code>danger</code></dd>
+<dt>Farmacia</dt><dd>acento <code>pharma</code> · chip <code>rgba(15,95,87,.11)</code> · 3ª cifra <code>acc-deep-warn</code></dd>
+<dt>Hover</dt><dd><code>.spira-card-link</code> — levante 1px + <code>shadow-sm</code>. Nunca borde de color.</dd>
+</dl>
+</div>
+<p class="note" style="margin-top:14px"><b>Solo módulos activos.</b> Laboratorio y Contable (bloqueados) no aparecen en esta vista; siguen visibles en el riel lateral con candado.</p>
+</div>
+
+<div class="sec">
+<div class="sechd"><span class="num">4</span><h2>Card Novedades (372px)</h2></div>
+<div class="two">
+<div class="stage">
+<div style="background:var(--spira-white);border:1px solid var(--spira-line);border-radius:16px;overflow:hidden;width:372px">
+<div style="padding:15px 18px 0;display:flex;align-items:center;justify-content:space-between">
+<span style="font-family:var(--spira-font-display);font-weight:700;font-size:16px">Novedades</span>
+<span style="font-size:12.5px;font-weight:600;color:var(--spira-primary)">Ver todas</span>
+</div>
+<div style="margin:13px 18px 0;height:132px;border-radius:12px;background:repeating-linear-gradient(135deg,#EFEBE1 0 9px,#E6E0D2 9px 18px);display:flex;align-items:flex-end;padding:10px">
+<span style="font-family:var(--spira-font-mono);font-size:10.5px;letter-spacing:.04em;color:#7C8C87;background:var(--spira-white);border:1px solid var(--spira-line);border-radius:6px;padding:3px 7px">portada · 640×280</span>
+</div>
+<div style="padding:14px 18px 0">
+<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(15,95,87,.10);color:var(--spira-primary)">Producto · v0.9.2</span><span style="font-size:11.5px;color:var(--spira-faint)">hace 2 días</span></div>
+<div style="font-family:var(--spira-font-display);font-weight:700;font-size:18px;letter-spacing:-.02em;margin-top:9px">Dispensación paso a paso</div>
+<div style="font-size:12.5px;line-height:1.55;color:var(--spira-ink-soft);margin-top:5px">El cajón guía el retiro en tres pasos, valida el lote al escanear el envase y deja el comprobante listo para firmar.</div>
+<div style="font-size:12.5px;font-weight:600;color:var(--spira-primary);margin-top:11px">Leer la novedad</div>
+</div>
+<div style="padding:14px 18px 0;margin-top:15px;border-top:1px solid var(--spira-line)">
+<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11.5px;font-weight:700;color:var(--spira-acc-deep-warn)">Clínica</span><span style="font-size:11.5px;color:var(--spira-faint)">27 de agosto</span></div>
+<div style="font-size:14px;font-weight:600;margin-top:5px;color:var(--spira-ink-2)">Auditoría de EFC18419</div>
+</div>
+<div style="padding:13px 18px 0;margin-top:13px;border-top:1px solid var(--spira-line)">
+<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11.5px;font-weight:700;color:var(--spira-muted)">Equipo</span><span style="font-size:11.5px;color:var(--spira-faint)">hace 5 días</span></div>
+<div style="font-size:14px;font-weight:600;margin-top:5px;color:var(--spira-ink-2)">Spira Lab entra en pruebas</div>
+</div>
+<div style="margin-top:16px;padding:12px 18px;border-top:1px solid var(--spira-line);background:var(--spira-surface);display:flex;align-items:center;gap:9px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--spira-muted)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-10 6L2 7"></path></svg>
+<span style="font-size:12.5px;color:var(--spira-ink-soft);flex:1">Resumen del lunes por mail</span>
+<span style="width:34px;height:20px;border-radius:999px;background:var(--spira-primary);position:relative;display:inline-block"><span style="position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:var(--spira-white)"></span></span>
+</div>
+</div>
+</div>
+<dl>
+<dt>Ancho</dt><dd>372px fijos</dd>
+<dt>Encabezado</dt><dd>padding 15 18 0 · título display 700 16px · «Ver todas» 12.5px/600 <code>primary</code></dd>
+<dt>Portada</dt><dd>margin 13 18 0 · alto 132 · radio 12 · imagen real <code>object-fit:cover</code>, ratio 640×280</dd>
+<dt>Chip versión</dt><dd>alto 20 · padding 0 8 · radio 999 · fondo <code>rgba(15,95,87,.10)</code> · 10.5px/700 <code>primary</code></dd>
+<dt>Fecha</dt><dd>11.5px <code>faint</code></dd>
+<dt>Título novedad</dt><dd>display 700 · 18px · ls −.02em · mt 9</dd>
+<dt>Bajada</dt><dd>12.5px · lh 1.55 · <code>ink-soft</code> · mt 5</dd>
+<dt>Enlace</dt><dd>12.5px/600 <code>primary</code> · mt 11</dd>
+<dt>Secundarias</dt><dd><code>border-top</code> 1px · categoría 11.5px/700 · título 14px/600 <code>ink-2</code> mt 5</dd>
+<dt>Categorías</dt><dd>Clínica → <code>acc-deep-warn</code> · Equipo → <code>muted</code></dd>
+<dt>Pie</dt><dd>padding 12 18 · fondo <code>surface</code> · <code>border-top</code> · switch 34×20 / perilla 16px a 2px</dd>
+</dl>
+</div>
+<div class="warn"><b>Pendiente.</b> Apartado de <b>Tutoriales</b> debajo de este card, en la misma columna de 372px (card hermano) o como segunda pestaña de Novedades. A definir.</div>
+</div>
+
+<div class="sec">
+<div class="sechd"><span class="num">5</span><h2>Escala tipográfica de la vista</h2></div>
+<div class="type" style="margin-top:8px">
+<div><em>display 700 · 44px · −.035em</em><span style="font-family:var(--spira-font-display);font-weight:700;font-size:44px;letter-spacing:-.035em">128</span></div>
+<div><em>display 700 · 30px · −.025em</em><span style="font-family:var(--spira-font-display);font-weight:700;font-size:30px;letter-spacing:-.025em">Buen día, Lautaro</span></div>
+<div><em>display 700 · 26px · −.025em</em><span style="font-family:var(--spira-font-display);font-weight:700;font-size:26px;letter-spacing:-.025em">96%</span></div>
+<div><em>display 700 · 24px · −.02em</em><span style="font-family:var(--spira-font-display);font-weight:700;font-size:24px;letter-spacing:-.02em">12</span></div>
+<div><em>display 700 · 19px · −.02em</em><span style="font-family:var(--spira-font-display);font-weight:700;font-size:19px;letter-spacing:-.02em">+5.000</span></div>
+<div><em>display 700 · 17.5px</em><span style="font-family:var(--spira-font-display);font-weight:700;font-size:17.5px">Coordinación</span></div>
+<div><em>display 700 · 16px</em><span style="font-family:var(--spira-font-display);font-weight:700;font-size:16px">Novedades</span></div>
+<div><em>texto 400 · 14.5px · lh 1.5</em><span style="font-size:14.5px">Espero que tengas un domingo genial.</span></div>
+<div><em>texto 600 · 13.5px</em><span style="font-size:13.5px;font-weight:600">Centro de investigación médica</span></div>
+<div><em>texto 400 · 12.5px · ink-soft</em><span style="font-size:12.5px;color:var(--spira-ink-soft)">Agenda, visitas y alertas</span></div>
+<div><em>texto 400 · 12px · ink-soft</em><span style="font-size:12px;color:var(--spira-ink-soft)">pacientes en seguimiento</span></div>
+<div><em>texto 400 · 11.5px · ink-soft</em><span style="font-size:11.5px;color:var(--spira-ink-soft)">años de experiencia</span></div>
+<div><em>eyebrow 700 · 10.5px · .16em</em><span style="font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--spira-muted)">Domingo 16 de agosto</span></div>
+</div>
+<p class="note" style="margin-top:14px">Cifras y títulos en <b>Schibsted Grotesk</b> (<code>--spira-font-display</code>); todo el cuerpo en <b>Inter</b> (<code>--spira-font-text</code>). Texto de 11-13px va en <code>ink-soft</code>, nunca en <code>faint</code>, por contraste AA.</p>
+</div>
+
+<div class="sec">
+<div class="sechd"><span class="num">6</span><h2>Color</h2></div>
+<div class="sw">
+<div><i style="background:var(--spira-primary)"></i><b>primary</b><span>#0F5F57</span></div>
+<div><i style="background:var(--spira-primary-deep)"></i><b>primary-deep</b><span>#0B4A42</span></div>
+<div><i style="background:var(--spira-track)"></i><b>track</b><span>#2E7D74</span></div>
+<div><i style="background:var(--spira-good)"></i><b>good</b><span>#5C8A5A</span></div>
+<div><i style="background:var(--spira-danger)"></i><b>danger</b><span>#A6483B</span></div>
+<div><i style="background:var(--spira-acc-deep-warn)"></i><b>acc-deep-warn</b><span>#6E5620</span></div>
+<div><i style="background:var(--spira-ink)"></i><b>ink</b><span>#14302E</span></div>
+<div><i style="background:var(--spira-ink-2)"></i><b>ink-2</b><span>#2A4744</span></div>
+<div><i style="background:var(--spira-ink-soft)"></i><b>ink-soft</b><span>#556966</span></div>
+<div><i style="background:var(--spira-muted)"></i><b>muted</b><span>#7C8C87</span></div>
+<div><i style="background:var(--spira-faint)"></i><b>faint</b><span>#A6B0AC</span></div>
+<div><i style="background:var(--spira-line)"></i><b>line</b><span>#E4DECF</span></div>
+<div><i style="background:var(--spira-line-2)"></i><b>line-2</b><span>#D8CBB0</span></div>
+<div><i style="background:var(--spira-surface)"></i><b>surface</b><span>#FBFAF6</span></div>
+<div><i style="background:var(--spira-paper)"></i><b>paper</b><span>#F4F1EA</span></div>
+<div><i style="background:#F0BFB4"></i><b>literal</b><span>#F0BFB4 · alerta s/ banda</span></div>
+<div><i style="background:#F0E4C9"></i><b>literal</b><span>#F0E4C9 · ícono píldora</span></div>
+<div><i style="background:repeating-linear-gradient(135deg,#EFEBE1 0 9px,#E6E0D2 9px 18px)"></i><b>literal</b><span>placeholder portada</span></div>
+</div>
+<p class="note" style="margin-top:14px">Todo lo demás sale de <code>spira-app-tokens.css</code>. Los tres literales son los únicos hex admitidos en la vista; el rayado desaparece cuando entra la imagen real de la portada.</p>
+</div>
+
+</div>
+</body></html>
