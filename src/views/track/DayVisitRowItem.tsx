@@ -8,7 +8,7 @@ import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import type { DayProcedureSummary } from '../../data/procedures'
 import { OperationalStageChip, OPERATIONAL_STAGES, VisitChip, VISIT_STATES } from '../visitStates'
-import { ProtoTag, ProcDots, Persona } from './visitAtoms'
+import { ProtoTag, ProcDots, Persona } from '../visitAtoms'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 import { etapaProgreso } from './visitHeaderRules'
 
