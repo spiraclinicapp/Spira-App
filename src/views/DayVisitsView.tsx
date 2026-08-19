@@ -36,6 +36,20 @@ type GroupBy = 'operativo' | 'estado' | 'protocolo' | 'medico' | 'coordinador' |
 const NONE = '∅'
 
 /** "En el centro" = llegó y todavía no terminó la atención (cualquier etapa intermedia). */
+/**
+ * Valor centinela de la opción "Espera al médico" DENTRO del filtro Estado.
+ *
+ * No es una etapa del recorrido: es la marca `wants_doctor` mientras la atención sigue abierta.
+ * Pero como FILTRO vive con las etapas, porque el usuario piensa "mostrame los que están
+ * esperando", no "cruzá dos ejes". Vivía como un botón suelto al lado de los filtros y su ancho
+ * era justo lo que empujaba el buscador a una segunda línea en pantallas de notebook.
+ */
+const ESPERA_MEDICO = 'espera_medico'
+
+/** Espera al médico y la atención todavía no cerró. Se mira la ETAPA y no `left_at`: desde la
+ *  0068 nadie escribe esa columna, así que la condición quedaría siempre verdadera. */
+const esperaMedico = (v: DayVisitRow) => v.wants_doctor && v.operational_stage !== 'fin_atencion'
+
 /** Vista "Visitas del día" v2: lista con filtros multi + agrupación + buscador (handoff Fase 2). */
 export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTarget, onTargetConsumed }: ViewProps) {
   const accent = module.accent
@@ -52,7 +66,6 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   const [fProto, setFProto] = useState<string[]>([])
   const [fMed, setFMed] = useState<string[]>([])
   const [fCoord, setFCoord] = useState<string[]>([])
-  const [soloMedico, setSoloMedico] = useState(false)
   const [group, setGroup] = useState<GroupBy>('operativo')
 
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -98,8 +111,13 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
      más (sacamos "Fuera del sitio" de la UI, la 0068 lo declara histórico): esa condición hubiera
      quedado siempre verdadera y la cola nunca se vaciaría. El cierre natural ahora es la etapa. */
   const filtered = rows.filter((v) => {
-    if (soloMedico && !(v.wants_doctor && v.operational_stage !== 'fin_atencion')) return false
-    if (fEstado.length && !fEstado.includes(v.operational_stage)) return false
+    if (fEstado.length) {
+      /* OR dentro de la categoría, igual que las demás: elegir "Espera al médico" junto con una
+         etapa muestra las dos cosas, no la intersección. */
+      const porEtapa = fEstado.includes(v.operational_stage)
+      const porMedico = fEstado.includes(ESPERA_MEDICO) && esperaMedico(v)
+      if (!porEtapa && !porMedico) return false
+    }
     if (fProto.length && !fProto.includes(v.protocol_id)) return false
     if (fMed.length && !fMed.includes(v.treating_physician ?? NONE)) return false
     if (fCoord.length && !fCoord.includes(v.coordinator_id ?? NONE)) return false
@@ -113,9 +131,15 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
 
   /* Opciones de cada filtro con su conteo sobre el día completo (rows), solo las presentes. */
   const countBy = (pred: (v: DayVisitRow) => boolean) => rows.filter(pred).length
-  const estadoOptions: MultiFilterOption[] = STAGE_ORDER
-    .map((s) => ({ value: s, label: OPERATIONAL_STAGES[s].label, count: countBy((v) => v.operational_stage === s) }))
-    .filter((o) => o.count > 0)
+  const medicoCount = countBy(esperaMedico)
+  const estadoOptions: MultiFilterOption[] = [
+    ...STAGE_ORDER
+      .map((s) => ({ value: s, label: OPERATIONAL_STAGES[s].label, count: countBy((v) => v.operational_stage === s) }))
+      .filter((o) => o.count > 0),
+    /* Al final y solo si hay alguien esperando: es la opción que no es una etapa, y en un día
+       sin derivaciones no tiene por qué ocupar un renglón del menú. */
+    ...(medicoCount > 0 ? [{ value: ESPERA_MEDICO, label: 'Espera al médico', count: medicoCount }] : []),
+  ]
   const protoOptions: MultiFilterOption[] = uniqueBy(rows, (v) => v.protocol_id)
     .map((v) => ({ value: v.protocol_id, label: v.protocol_code, count: countBy((r) => r.protocol_id === v.protocol_id) }))
     .sort((a, b) => a.label.localeCompare(b.label))
@@ -126,10 +150,9 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
     .map((v) => ({ value: v.coordinator_id ?? NONE, label: v.coordinator_name ?? 'Sin asignar', count: countBy((r) => (r.coordinator_id ?? NONE) === (v.coordinator_id ?? NONE)) }))
     .sort((a, b) => a.label.localeCompare(b.label))
 
-  const medicoCount = countBy((v) => v.wants_doctor && v.operational_stage !== 'fin_atencion')
-  const nFilters = fEstado.length + fProto.length + fMed.length + fCoord.length + (soloMedico ? 1 : 0)
+  const nFilters = fEstado.length + fProto.length + fMed.length + fCoord.length
   const anyActive = nFilters > 0 || q.trim().length > 0
-  const clearAll = () => { setFEstado([]); setFProto([]); setFMed([]); setFCoord([]); setSoloMedico(false); setQ('') }
+  const clearAll = () => { setFEstado([]); setFProto([]); setFMed([]); setFCoord([]); setQ('') }
 
   const groupOptions: FilterOption[] = [
     { value: 'operativo', label: 'En el centro', count: null },
@@ -264,15 +287,6 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
         <MultiFilterMenu accent={accent} label="Coordinador" icon="user" options={coordOptions} selected={fCoord} onChange={setFCoord} />
         <span style={{ width: 1, height: 22, background: 'var(--spira-line)', margin: '0 2px' }} />
         <FilterDropdown accent={accent} value={group} onChange={(v) => setGroup(v as GroupBy)} options={groupOptions} menuLabel="Agrupar por" icon="sliders" />
-        <button
-          type="button"
-          onClick={() => setSoloMedico((s) => !s)}
-          title="Solo las que esperan al médico"
-          style={{ height: 38, padding: '0 13px', borderRadius: 10, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, border: `1px solid ${soloMedico ? accent : 'var(--spira-line-2)'}`, background: soloMedico ? accent + '12' : 'var(--spira-white)', color: soloMedico ? accent : 'var(--spira-muted)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13 }}
-        >
-          <Icon name="users" size={15} color={soloMedico ? accent : 'var(--spira-muted)'} /> Para ver médico
-          {medicoCount > 0 && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 'var(--spira-radius-pill)', background: soloMedico ? accent : 'var(--spira-line)', color: soloMedico ? 'var(--spira-on-accent)' : 'var(--spira-muted)', fontSize: 11.5, fontWeight: 700, display: 'inline-grid', placeItems: 'center' }}>{medicoCount}</span>}
-        </button>
         {anyActive && (
           <button
             type="button"
