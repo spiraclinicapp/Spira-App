@@ -5,12 +5,14 @@ import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../lib/auth'
 import { useVisitsForDay } from '../data/dayVisits'
 import { useActiveAlerts } from '../data/alertDismissals'
-import type { VisitType } from '../data/visits'
 import { useReceptions } from '../data/pharma'
 import { visitTitle } from '../lib/visits'
 import { todayISO } from '../lib/dates'
 import { MODULES } from '../modules/registry'
 import { VISIT_STATES, OperationalStageChip } from './visitStates'
+import { VisitSummaryRow } from './VisitSummaryRow'
+import { alertItemStyle } from './alertItem'
+import { ordenarDia, priorizarAlertas } from './visitRules'
 import type { ViewProps } from './types'
 
 const display = 'var(--spira-font-display)'
@@ -27,21 +29,6 @@ const verLink: CSSProperties = {
   background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-primary)',
 }
-/* Fila pulsable del resumen (una visita, una alerta): resetea lo que impone el <button> y conserva
-   el layout de la fila. El borde va en longhands y NO en la abreviada, porque cada fila le suma
-   su separador de arriba (borderTopWidth) — mezclar las dos formas es el gotcha de siempre.
-   Sin radio a propósito: la fila lleva su separador en el borde de arriba y un radio le curvaría
-   las puntas a esa línea de 1px. El resaltado del hover lo pone `.spira-row-link` (tokens.css);
-   el levante NO corre acá (`.spira-no-press`) — una fila se resalta, no se eleva.
-   Tampoco va el `background` acá: inline le ganaría por especificidad al hover de la clase y el
-   resaltado no se vería nunca (mismo motivo por el que el borde de las tarjetas vive en el CSS). */
-const rowButton: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 11, padding: '11px 0', width: '100%',
-  borderWidth: 0, borderStyle: 'solid', borderColor: 'var(--spira-line)',
-  textAlign: 'left', cursor: 'pointer',
-  fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
-}
-const TIPO_LABEL: Record<VisitType, string> = { presencial: 'Presencial', telefonica: 'Telefónica' }
 
 /**
  * Home del módulo Inicio: saludo + tarjetas de módulos + "Lo prioritario" (alertas) + "Tu día"
@@ -78,21 +65,12 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
 
   const visits = day.data ?? []
   const alerts = alertsQ.visitAlerts
-  /* "Lo prioritario": las CRÍTICAS (ventana vencida) primero, después los ítems vencidos (sort
-     estable → preserva el orden por fecha de useVisitAlerts dentro de cada grupo); luego las 5. */
-  const priorityAlerts = [...alerts].sort(
-    (a, b) => (a.computed_status === 'ventana_vencida' ? 0 : 1) - (b.computed_status === 'ventana_vencida' ? 0 : 1),
-  )
-  /* "Tu día" por orden de llegada: las que YA llegaron primero (arrived_at asc) y las pendientes
-     (sin arrived_at) al final — mismo criterio que la cola del médico (nullsFirst:false). Sin hora. */
-  const dayRows = [...visits].sort((a, b) => {
-    const aa = a.arrived_at
-    const bb = b.arrived_at
-    if (aa && bb && aa !== bb) return aa.localeCompare(bb)
-    if (!aa && bb) return 1
-    if (aa && !bb) return -1
-    return (a.patient_code ?? '').localeCompare(b.patient_code ?? '')
-  })
+  /* "Lo prioritario": las CRÍTICAS (ventana vencida) primero; dentro de cada grupo se conserva
+     el orden por fecha que trajo la consulta. La regla vive en visitRules y está testeada. */
+  const priorityAlerts = priorizarAlertas(alerts)
+  /* "Tu día" por orden de llegada: las que YA llegaron primero y las pendientes al final —
+     mismo criterio que la cola del médico. La regla vive en visitRules y está testeada. */
+  const dayRows = ordenarDia(visits)
   const moduleCards = MODULES.filter((m) => m.key !== 'inicio')
   /* Cola de verificación de Pharma (recepciones en 'pendiente'). null → sin dato (query falló):
      la tarjeta se pinta sin bajada antes que mentir con "Próximamente". */
@@ -214,26 +192,16 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
           ) : (
             <div style={{ marginTop: 6 }}>
               {dayRows.map((v) => (
-                <button
+                <VisitSummaryRow
                   key={v.id}
-                  type="button"
-                  className="spira-row-link spira-no-press"
+                  visit={v}
+                  accent={accent}
+                  /* Eje OPERATIVO: en la portada se mira el recorrido del paciente por el
+                     centro HOY. `compact` no es un lujo, son ~34 px que la columna no tiene. */
+                  chip={<OperationalStageChip stage={v.operational_stage} compact />}
                   onClick={() => onNavigate?.('track', 'visitas', { visitId: v.id, visitDate: todayISO() })}
-                  aria-label={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
-                  style={{ ...rowButton, borderTopWidth: 1 }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {v.patient_name}
-                      <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}> · <span className="spira-mono">{v.patient_code ?? '—'}</span> · <span className="spira-mono">{v.protocol_code}</span></span>
-                    </div>
-                    <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {visitTitle(v)}
-                    </div>
-                  </div>
-                  <span style={{ fontSize: 12, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>{TIPO_LABEL[v.visit_type]}</span>
-                  <OperationalStageChip stage={v.operational_stage} />
-                </button>
+                  ariaLabel={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
+                />
               ))}
             </div>
           )}
@@ -255,28 +223,30 @@ export function InicioResumenView({ module, submodule, onNavigate }: ViewProps) 
               Sin alertas. Todo al día.
             </div>
           ) : (
-            <div style={{ marginTop: 6 }}>
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {priorityAlerts.slice(0, 5).map((a) => {
                 const c = VISIT_STATES[a.computed_status].color
                 return (
                   <button
                     key={a.id}
                     type="button"
-                    className="spira-row-link spira-no-press"
-                    /* A Alertas, no a Visitas: la alerta se trabaja en su módulo, y el modal de la
-                       visita se abre ahí adentro. Sin fecha — esa vista carga todas las alertas. */
+                    className="spira-card-link"
+                    /* A Alertas, no a Visitas: la alerta se trabaja en su módulo, y el modal de
+                       la visita se abre ahí adentro. Sin fecha — esa vista carga todas. */
                     onClick={() => onNavigate?.('track', 'alertas', { visitId: a.id })}
                     aria-label={`Abrir en Alertas la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
-                    style={{ ...rowButton, alignItems: 'flex-start', borderTopWidth: 1 }}
+                    style={alertItemStyle(c)}
                   >
-                    <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={17} color={c} style={{ flex: '0 0 auto', marginTop: 1 }} />
+                    <span style={{ flex: '0 0 auto', marginTop: 1 }}>
+                      <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={18} color={c} />
+                    </span>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {VISIT_STATES[a.computed_status].label} · {visitTitle(a)}
+                      <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.patient_name}</span>
+                        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 400 }}>{a.patient_code ?? '—'}</span>
                       </div>
-                      <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>
-                        <span className="spira-mono">{a.patient_code ?? '—'}</span>
-                        <span style={{ color: 'var(--spira-faint)' }}> · <span className="spira-mono">{a.protocol_code}</span></span>
+                      <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
+                        {VISIT_STATES[a.computed_status].label} · {visitTitle(a)}
                       </div>
                     </div>
                   </button>

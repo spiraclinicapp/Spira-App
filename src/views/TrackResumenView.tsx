@@ -7,10 +7,11 @@ import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
 import { useUpcomingVisits } from '../data/visits'
 import { useActiveAlerts } from '../data/alertDismissals'
-import type { TrackVisitRow, VisitType } from '../data/visits'
+import type { TrackVisitRow } from '../data/visits'
 import { visitTitle } from '../lib/visits'
 import { dayLabel, formatAR } from '../lib/dates'
 import { VISIT_STATES, VisitChip } from './visitStates'
+import { VisitSummaryRow } from './VisitSummaryRow'
 import type { ViewProps } from './types'
 
 const card: CSSProperties = {
@@ -18,21 +19,10 @@ const card: CSSProperties = {
   borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
 }
 const cardTitle: CSSProperties = { fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 16 }
-const TIPO_LABEL: Record<VisitType, string> = { presencial: 'Presencial', telefonica: 'Telefónica' }
-
-/* Grilla de las filas de próximas visitas: paciente · tipo · estado. */
-const ROW_COLS = 'minmax(0, 1fr) 96px 140px'
 
 /* Fila pulsable de "Próximas visitas": abre esa visita. Mismo criterio que el resumen de Inicio —
    una fila se RESALTA (`.spira-row-link`) y no se levanta (`.spira-no-press`), porque el separador
    de arriba es suyo y al moverse partiría el listado. Sin radio por lo mismo. */
-const rowButton: CSSProperties = {
-  display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', gap: 10,
-  width: '100%', padding: '9px 0', textAlign: 'left', cursor: 'pointer',
-  borderWidth: 0, borderStyle: 'solid', borderColor: 'var(--spira-line)', borderTopWidth: 1,
-  fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
-}
-
 function KpiCard({ label, value, sub, dot }: { label: string; value: number; sub: string; dot: string }) {
   return (
     <div style={card}>
@@ -133,26 +123,17 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
                     {dayLabel(g.date)}
                   </div>
                   {g.visits.map((v) => (
-                    <button
+                    <VisitSummaryRow
                       key={v.id}
-                      type="button"
-                      className="spira-row-link spira-no-press"
+                      visit={v}
+                      accent={accent}
+                      /* Eje CLÍNICO, no operativo: estas visitas todavía no ocurrieron, así que
+                         "por llegar" no querría decir nada. Lo que importa acá es el estado del
+                         expediente. Sin ProcDots por lo mismo: hechos/total sería siempre 0. */
+                      chip={<VisitChip status={v.computed_status} compact />}
                       onClick={() => onNavigate?.('track', 'visitas', { visitId: v.id, visitDate: v.estimated_date ?? undefined })}
-                      aria-label={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
-                      style={rowButton}
-                    >
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                        <span style={{ fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <span style={{ color: 'var(--spira-ink)' }}>{v.patient_name}</span>
-                          <span style={{ color: 'var(--spira-faint)' }}>
-                            {' '}· <span className="spira-mono" style={{ fontSize: 12.5 }}>{v.patient_code}</span>
-                            {' '}· <span className="spira-mono" style={{ fontSize: 12.5 }}>{v.protocol_code}</span>{v.visit_code ? ` · ${v.visit_code}` : ''}
-                          </span>
-                        </span>
-                      </span>
-                      <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{TIPO_LABEL[v.visit_type]}</span>
-                      <span><VisitChip status={v.computed_status} /></span>
-                    </button>
+                      ariaLabel={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
+                    />
                   ))}
                 </div>
               ))}
