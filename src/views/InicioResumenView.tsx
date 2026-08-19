@@ -32,7 +32,7 @@ import type { ViewProps } from './types'
  * Sin gate global: la pantalla se pinta entera de entrada y cada número aparece cuando llega, con
  * un guion mientras viaja. Un cero mientras carga afirmaría que no hay ninguno.
  */
-export function InicioResumenView({ onNavigate }: ViewProps) {
+export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
   const { profile } = useAuth()
   const hoy = todayISO()
   /* `weekDates` devuelve la semana HÁBIL en curso (lunes a viernes, cinco fechas), que es la
@@ -162,7 +162,9 @@ export function InicioResumenView({ onNavigate }: ViewProps) {
       <CardNovedades
         destacada={destacada}
         secundarias={secundarias}
-        onVerTodas={() => onNavigate?.('inicio', 'alertas')}
+        /* "Ver todas" abre el popover Acerca de del pie del riel, que es donde vive el
+           changelog completo. No hay una pantalla de novedades: ese popover ES la pantalla. */
+        onVerTodas={() => onOpenAbout?.()}
       />
     </div>
   )

@@ -106,6 +106,9 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   /* Modal "Dar feedback" (se abre desde el popover Acerca de, al pie del rail). */
   const [feedbackOpen, setFeedbackOpen] = useState(false)
+  /* Popover "Acerca de" (novedades + versión). El estado vive acá y no adentro del componente
+     porque se abre desde dos lados: su botón del riel y el "Ver todas" de Novedades. */
+  const [aboutOpen, setAboutOpen] = useState(false)
   /* Ajustes (menú de usuario). null = cerrado; string = sección abierta. Es un
      overlay: NO toca moduleKey/subKey, así cerrar vuelve a donde estabas. */
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
@@ -319,7 +322,7 @@ export function AppShell() {
           })}
           {/* «i» Acerca de Spira (versión + novedades + dar feedback). Reemplaza la
               tuerca: sus ítems (Preferencias, Roles y permisos, Ayuda) viven en el UserMenu. */}
-          <AboutMenu accent={accent} onFeedback={() => setFeedbackOpen(true)} />
+          <AboutMenu accent={accent} onFeedback={() => setFeedbackOpen(true)} open={aboutOpen} onOpenChange={setAboutOpen} />
           </div>
         </aside>
 
@@ -461,6 +464,7 @@ export function AppShell() {
                   submodule={sub}
                   onNavigate={navigate}
                   setHeader={setViewHeader}
+                  onOpenAbout={() => setAboutOpen(true)}
                   navTarget={navTarget}
                   onTargetConsumed={() => setNavTarget(null)}
                   onNavigatedAway={() => setReturnTo(null)}
