@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
+import { btnOutline } from '../components/buttons'
+import { alertItemStyle } from './alertItem'
 import { EmptyState } from '../components/EmptyState'
 import { SearchableSelect } from '../components/SearchableSelect'
 import { Modal } from '../components/Modal'
@@ -20,28 +22,7 @@ const card: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
   borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
 }
-const btnOutline: CSSProperties = {
-  height: 38, padding: '0 15px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
-  background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)',
-  fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
-}
 const code: CSSProperties = { fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }
-
-/* Ítem de alerta pulsable (abre la visita). Es una SUPERFICIE —fondo y borde propios, teñidos por
-   severidad—, así que al hover se eleva: levante de ~1px + sombra a escala, vía `.spira-card-link`.
-   El borde teñido va inline a propósito: pisa el borde neutro que esa clase trae por defecto, que
-   acá borraría la señal de estado. `tone` es el color del estado (VISIT_STATES / petróleo). */
-function alertItemStyle(tone: string): CSSProperties {
-  return {
-    display: 'flex', gap: 11, width: '100%', padding: '12px 13px', borderRadius: 11,
-    background: tone + '0E', border: `1px solid ${tone}30`,
-    /* Aire a la derecha para que el texto no corra por debajo del botón de descartar, que va
-       posicionado encima (hermano, no hijo: un botón dentro de otro no es válido). */
-    paddingRight: 42,
-    textAlign: 'left', cursor: 'pointer',
-    fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
-  }
-}
 
 /* Botón de descartar: hermano del que abre la visita y superpuesto arriba a la derecha del ítem.
    Discreto en reposo (es una acción secundaria, y en una lista de alertas no queremos invitar a
@@ -242,7 +223,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                   className="spira-card-link"
                   onClick={() => setOpenVisitId(r.visit_id)}
                   aria-label={`Abrir la visita de ${r.patient_name} — reporte de procedimiento pendiente`}
-                  style={alertItemStyle(c)}
+                  style={alertItemStyle(c, { conBotonDescartar: true })}
                 >
                   <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="clipboardCheck" size={18} color={c} /></span>
                   <div style={{ minWidth: 0 }}>
@@ -286,7 +267,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                   className="spira-card-link"
                   onClick={() => setOpenVisitId(a.id)}
                   aria-label={`Abrir la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
-                  style={alertItemStyle(c)}
+                  style={alertItemStyle(c, { conBotonDescartar: true })}
                 >
                   <span style={{ flex: '0 0 auto', marginTop: 1 }}>
                     <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={18} color={c} />

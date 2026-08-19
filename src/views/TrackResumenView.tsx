@@ -1,5 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
+import { btnOutline } from '../components/buttons'
+import { alertItemStyle } from './alertItem'
 import { EmptyState } from '../components/EmptyState'
 import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
@@ -16,12 +18,6 @@ const card: CSSProperties = {
   borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
 }
 const cardTitle: CSSProperties = { fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 16 }
-const btnOutline: CSSProperties = {
-  height: 38, padding: '0 15px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
-  background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)',
-  fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
-}
-
 const TIPO_LABEL: Record<VisitType, string> = { presencial: 'Presencial', telefonica: 'Telefónica' }
 
 /* Grilla de las filas de próximas visitas: paciente · tipo · estado. */
@@ -35,18 +31,6 @@ const rowButton: CSSProperties = {
   width: '100%', padding: '9px 0', textAlign: 'left', cursor: 'pointer',
   borderWidth: 0, borderStyle: 'solid', borderColor: 'var(--spira-line)', borderTopWidth: 1,
   fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
-}
-
-/* Ítem de alerta pulsable: lleva a Alertas y abre ahí la visita. Es una SUPERFICIE (fondo y borde
-   teñidos por severidad) así que se eleva, vía `.spira-card-link`; el borde de estado va inline y
-   pisa el neutro que esa clase trae por defecto. */
-function alertItemStyle(tone: string): CSSProperties {
-  return {
-    display: 'flex', gap: 11, width: '100%', padding: '12px 13px', borderRadius: 11,
-    background: tone + '0E', border: `1px solid ${tone}30`,
-    textAlign: 'left', cursor: 'pointer',
-    fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
-  }
 }
 
 function KpiCard({ label, value, sub, dot }: { label: string; value: number; sub: string; dot: string }) {

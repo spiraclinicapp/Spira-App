@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
+import { btnOutline } from '../components/buttons'
 import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../lib/auth'
 import { useVisitsForDay } from '../data/dayVisits'
@@ -39,11 +40,6 @@ const rowButton: CSSProperties = {
   borderWidth: 0, borderStyle: 'solid', borderColor: 'var(--spira-line)',
   textAlign: 'left', cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
-}
-const btnOutline: CSSProperties = {
-  height: 38, padding: '0 15px', border: '1px solid var(--spira-line-2)', borderRadius: 10,
-  background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)',
-  fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
 }
 const TIPO_LABEL: Record<VisitType, string> = { presencial: 'Presencial', telefonica: 'Telefónica' }
 

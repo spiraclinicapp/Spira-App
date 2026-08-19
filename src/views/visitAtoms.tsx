@@ -1,16 +1,19 @@
-import { Icon } from '../../components/Icon'
-import type { IconName } from '../../components/Icon'
+import { Icon } from '../components/Icon'
+import type { IconName } from '../components/Icon'
 
 /**
- * Piezas base de la fila/modal de "Visitas del día" v2 (portadas del prototipo `visitas-v2`,
- * con tokens de Spira). No usan la paleta LIGHT/DARK del prototipo: los tonos de protocolo son
- * constantes en ambos temas (igual criterio que OPERATIONAL_STAGES / los acentos de módulo),
- * y todo lo demás sale de tokens.css.
+ * Vocabulario visual de una visita: la etiqueta del protocolo, los puntos de procedimiento y el
+ * responsable. Lo comparten Visitas del día y los dos resúmenes, por eso vive en `views/` y no
+ * en `views/track/` — mismo criterio que `visitStates.tsx`.
+ *
+ * Portado del prototipo `visitas-v2` del handoff, pero con tokens de Spira: NO usa la paleta
+ * LIGHT/DARK del prototipo. Los tonos de protocolo son constantes en ambos temas (igual criterio
+ * que OPERATIONAL_STAGES y los acentos de módulo) y todo lo demás sale de tokens.css.
  */
 
 /* Tonos estables para la etiqueta de protocolo. Constantes en los dos temas: se usan como
    `tono + alpha` (fondo tenue) sobre white/surface, igual que los chips de estado. */
-const PROTO_TONES = ['#3A6B8C', '#2E7D74', '#6B5CA5', '#A8842F', '#5C8A5A'] as const
+export const PROTO_TONES = ['#3A6B8C', '#2E7D74', '#6B5CA5', '#A8842F', '#5C8A5A'] as const
 
 /** Tono estable de un protocolo (hash del id → paleta): el color no cambia entre sesiones. */
 export function protoTone(protocolId: string): string {
