@@ -22,14 +22,21 @@ export function protoTone(protocolId: string): string {
   return PROTO_TONES[h % PROTO_TONES.length]
 }
 
-/** Etiqueta de protocolo: pastilla con el código del estudio sobre su tono al 9 %. */
+/**
+ * Etiqueta de protocolo: el código del estudio sobre su tono.
+ *
+ * El TEXTO va en tinta, no en el tono. Escribir el tono sobre el tono al 9 % daba entre 3.2:1 y
+ * 5.1:1 en claro y entre 2.6:1 y 4.1:1 en oscuro — por debajo del 4.5:1 que pide WCAG AA para
+ * texto normal (13 px bold lo es; "grande" arranca en 18.66 px). El color no se pierde: se queda
+ * en el fondo, que es donde significa "este protocolo", y el fondo sube a 14 % para que se lea.
+ */
 export function ProtoTag({ code, protocolId }: { code: string; protocolId: string }) {
   const tone = protoTone(protocolId)
   return (
     <span
       style={{
         display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 7,
-        background: tone + '16', color: tone, fontFamily: 'var(--spira-font-display)',
+        background: tone + '24', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-display)',
         fontSize: 13, fontWeight: 700, letterSpacing: '0.01em', whiteSpace: 'nowrap',
       }}
     >

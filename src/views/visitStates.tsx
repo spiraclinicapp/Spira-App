@@ -63,7 +63,7 @@ export function OperationalStageChip({ stage, compact = false }: { stage: Operat
     <span
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
-        color: e.color, whiteSpace: 'nowrap', background: e.color + '16', padding: '3px 10px',
+        color: 'var(--spira-ink)', whiteSpace: 'nowrap', background: e.color + '24', padding: '3px 10px',
         borderRadius: 'var(--spira-radius-pill)',
       }}
     >
@@ -81,7 +81,7 @@ export function VisitChip({ status, compact = false }: { status: VisitStatus; co
     <span
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
-        color: e.color, whiteSpace: 'nowrap', background: e.color + '16', padding: '3px 10px',
+        color: 'var(--spira-ink)', whiteSpace: 'nowrap', background: e.color + '24', padding: '3px 10px',
         borderRadius: 'var(--spira-radius-pill)',
       }}
     >
