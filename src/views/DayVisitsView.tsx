@@ -19,6 +19,7 @@ import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
 import { useRandoAttendedWithoutDate } from '../data/visits'
 import { useDayProceduresSummary } from '../data/procedures'
 import { OPERATIONAL_STAGES, STAGE_ORDER } from './visitStates'
+import { contarVisitas, enElCentro } from './visitRules'
 import { DayVisitRowItem } from './track/DayVisitRowItem'
 import { VisitDetail } from './track/VisitDetail'
 import { RescheduleModal } from './track/RescheduleModal'
@@ -35,10 +36,6 @@ type GroupBy = 'operativo' | 'estado' | 'protocolo' | 'medico' | 'coordinador' |
 const NONE = '∅'
 
 /** "En el centro" = llegó y todavía no terminó la atención (cualquier etapa intermedia). */
-function inCenter(stage: OperationalStage): boolean {
-  return stage === 'concurrio_al_centro' || stage === 'inicio_atencion'
-}
-
 /** Vista "Visitas del día" v2: lista con filtros multi + agrupación + buscador (handoff Fase 2). */
 export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTarget, onTargetConsumed }: ViewProps) {
   const accent = module.accent
@@ -171,9 +168,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
 
   /* Contadores de cabecera, sobre la lista FILTRADA (coloreados). "No vino" no es una etapa del
      recorrido (es un estado clínico), así que no tiene contador propio. */
-  const porLlegarCount = filtered.filter((v) => v.operational_stage === 'por_llegar').length
-  const enCentroVisible = filtered.filter((v) => inCenter(v.operational_stage)).length
-  const finalizadasCount = filtered.filter((v) => v.operational_stage === 'fin_atencion').length
+  const conteo = contarVisitas(filtered)
 
   /* Despacha la mutación de la etapa SIGUIENTE. 'inicio_atencion' reusa markAttended con `date` (el
      día que se está mirando, no necesariamente hoy) porque es lo que setea real_date. El resto son
@@ -255,10 +250,10 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
       <div className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ textTransform: 'capitalize' }}>{dayName(date)} {formatShortAR(date)}</span>
         <span style={{ color: 'var(--spira-faint)' }}>·</span>
-        <span>{filtered.length} {filtered.length === 1 ? 'visita' : 'visitas'}</span>
-        {porLlegarCount > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: 'var(--spira-warn)', fontWeight: 600 }}>{porLlegarCount} por llegar</span></>)}
-        {enCentroVisible > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: accent, fontWeight: 600 }}>{enCentroVisible} en el centro</span></>)}
-        {finalizadasCount > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: 'var(--spira-faint)', fontWeight: 600 }}>{finalizadasCount} finalizadas</span></>)}
+        <span>{conteo.total} {conteo.total === 1 ? 'visita' : 'visitas'}</span>
+        {conteo.porLlegar > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: 'var(--spira-warn)', fontWeight: 600 }}>{conteo.porLlegar} por llegar</span></>)}
+        {conteo.enCentro > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: accent, fontWeight: 600 }}>{conteo.enCentro} en el centro</span></>)}
+        {conteo.finalizadas > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: 'var(--spira-faint)', fontWeight: 600 }}>{conteo.finalizadas} finalizadas</span></>)}
       </div>
 
       {/* fila de filtros */}
@@ -495,8 +490,8 @@ function buildGroups(group: GroupBy, ordered: DayVisitRow[]): VisitGroup[] {
   if (group === 'ninguno') return [{ key: 'all', label: null, items: ordered }]
   if (group === 'operativo') {
     return [
-      { key: 'centro', label: 'En el centro', items: ordered.filter((v) => inCenter(v.operational_stage)) },
-      { key: 'resto', label: 'Resto del día', items: ordered.filter((v) => !inCenter(v.operational_stage)) },
+      { key: 'centro', label: 'En el centro', items: ordered.filter((v) => enElCentro(v.operational_stage)) },
+      { key: 'resto', label: 'Resto del día', items: ordered.filter((v) => !enElCentro(v.operational_stage)) },
     ].filter((g) => g.items.length > 0)
   }
   if (group === 'estado') {
