@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import type { IconName } from '../../components/Icon'
-import { Chip } from '../../components/Chip'
 import { EmptyState } from '../../components/EmptyState'
+import { FilterDropdown } from '../../components/FilterDropdown'
+import type { FilterOption } from '../../components/FilterDropdown'
+import { MultiFilterMenu } from '../../components/MultiFilterMenu'
+import type { MultiFilterOption } from '../../components/MultiFilterMenu'
 import { btnOutline } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
 import { useProtocols } from '../../data/protocols'
@@ -169,20 +172,23 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     )
   }
 
+  // Buscador con la identidad de las listas del día (Visitas): caja de 38 de alto y radio 10 —
+  // la misma altura que los disparadores de filtro— con la lupa adentro y una "x" para limpiar.
   const buscador = (placeholder: string) => (
     <div style={searchWrap}>
-      <span style={{ position: 'absolute', left: 11, display: 'grid', placeItems: 'center' }}>
-        <Icon name="search" size={16} color="var(--spira-muted)" />
-      </span>
-      <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder={placeholder} style={searchInput} />
-    </div>
-  )
-
-  const chipsVto = (
-    <div role="radiogroup" aria-label="Filtro de vencimiento" style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-      {([['todos', 'Todos'], ['vigentes', 'Vigentes'], ['pronto', 'Vence pronto'], ['vencido', 'Vencidos']] as [EstadoFilter, string][]).map(([v, label]) => (
-        <Chip key={v} label={label} selected={filtro === v} onClick={() => setFiltro(v)} accent={accentSolid} />
-      ))}
+      <Icon name="search" size={15} color="var(--spira-faint)" />
+      <input
+        className="spira-bare-input"
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+        placeholder={placeholder}
+        style={searchInput}
+      />
+      {busqueda && (
+        <button type="button" onClick={() => setBusqueda('')} aria-label="Limpiar búsqueda" style={searchClear}>
+          <Icon name="x" size={13} color="var(--spira-faint)" />
+        </button>
+      )}
     </div>
   )
 
@@ -243,7 +249,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   if (apartado === 'catalogo') {
     return (
       <div style={wrap}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>{buscador('Buscar por nombre, droga o código')}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>{buscador('Nombre, droga o código…')}</div>
         <ListStatus q={catalog} onRetry={() => catalog.refetch()} accent={accent} icon={submodule.icon} vacio="No hay medicamentos en el catálogo.">
           {(rows: MedicationRow[]) => {
             const cats = rows.filter((m) => matchTexto(busqueda, m.name, m.drug?.name ?? null, codeByMed.get(m.id) ?? null))
@@ -274,16 +280,55 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   const q = apartado === 'protocolo' ? protoLots : ambuLots
   const rowProps = { canManage, dropdownId, setDropdownId, onCodigo: openCodigo, onCopiar: copyText, onAjustar: openAjuste }
 
+  /* Fila de filtros con la identidad de las listas del día (Visitas): disparadores de 38 de alto y
+     radio 10, rótulo FIJO, el número adentro de un badge y el buscador a la derecha. El vencimiento
+     sigue siendo de UNA opción por vez (era una fila de chips) → `FilterDropdown`, el hermano
+     single-select; el de protocolos es multi → `MultiFilterMenu`, con buscador porque lista todos
+     los protocolos del centro.
+     Los conteos se cuentan sobre TODOS los lotes del apartado, no sobre lo ya filtrado: dicen
+     cuántos hay, no cuántos quedarían. Mientras la consulta carga van en `null` (sin dato) y no
+     en 0, que sería afirmar que no hay ninguno. */
+  const lotes = q.data ?? null
+  const contarVto = (e: Estado) => (lotes ? lotes.filter((r) => estadoDe(r) === e).length : null)
+  const vtoOptions: FilterOption[] = [
+    { value: 'todos', label: 'Todo el stock', count: null },
+    { value: 'vigentes', label: 'Vigentes', count: contarVto('ok') },
+    { value: 'pronto', label: 'Vence pronto', count: contarVto('pronto') },
+    { value: 'vencido', label: 'Vencidos', count: contarVto('vencido') },
+  ]
+  // Código + nombre en la etiqueta (no solo el código, como en Visitas): es lo que ya mostraba el
+  // filtro viejo y además hace que el buscador del menú encuentre por cualquiera de los dos.
+  const protoOptions: MultiFilterOption[] = (protocols.data ?? []).map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }))
+  const nFiltros = (filtro === 'todos' ? 0 : 1) + protoSel.length
+
   return (
     <div style={wrap}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        {buscador('Buscar por nombre, monodroga, lote o código…')}
-        {chipsVto}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <FilterDropdown
+          accent={accentSolid}
+          value={filtro}
+          onChange={(v) => setFiltro(v as EstadoFilter)}
+          options={vtoOptions}
+          menuLabel="Vencimiento"
+          icon="calendar"
+        />
         {apartado === 'protocolo' && (
-          <div style={{ marginLeft: 'auto' }}>
-            <ProtocolFilter protocols={protocols.data ?? []} selected={protoSel} onChange={setProtoSel} accentSolid={accentSolid} />
-          </div>
+          <MultiFilterMenu
+            accent={accentSolid}
+            label="Protocolo"
+            icon="file"
+            options={protoOptions}
+            selected={protoSel}
+            onChange={setProtoSel}
+            searchPlaceholder="Buscar protocolo…"
+          />
         )}
+        {nFiltros > 0 && (
+          <button type="button" onClick={() => { setFiltro('todos'); setProtoSel([]) }} style={clearBtn}>
+            <Icon name="x" size={13} color="var(--spira-muted)" /> Limpiar {nFiltros}
+          </button>
+        )}
+        <div style={{ marginLeft: 'auto' }}>{buscador('Nombre, droga, lote o código…')}</div>
       </div>
 
       <ListStatus q={q} onRetry={() => q.refetch()} accent={accent} icon={submodule.icon} vacio="Todavía no hay lotes en stock (se cargan al recibir).">
@@ -486,71 +531,6 @@ function ApartadoCard({ icon, tint, iconColor, title, desc, counter, onClick }: 
   )
 }
 
-/* ── Filtro de protocolos: multi-select con buscador (desplegable, sin texto libre) ── */
-function ProtocolFilter({ protocols, selected, onChange, accentSolid }: {
-  protocols: { id: string; code: string; name: string }[]
-  selected: string[]
-  onChange: (ids: string[]) => void
-  accentSolid: string
-}) {
-  const [open, setOpen] = useState(false)
-  const [q, setQ] = useState('')
-  const { anchorRef, pos } = useAnchoredPopover(open, 300)
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
-  const filtrados = protocols.filter((p) => matchTexto(q, p.code, p.name))
-  const label = selected.length === 0 ? 'Todos los protocolos' : `${selected.length} ${selected.length === 1 ? 'protocolo' : 'protocolos'}`
-  const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id])
-  return (
-    <div style={{ position: 'relative' }}>
-      <button ref={anchorRef} onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} style={filterBtn}>
-        <Icon name="file" size={15} color="var(--spira-muted)" />
-        <span>{label}</span>
-        <Icon name="chevronDown" size={14} color="var(--spira-muted)" />
-      </button>
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} />
-          {pos && (
-          <div role="menu" style={{ ...filterPopover, top: pos.top, left: pos.left }}>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ position: 'absolute', left: 9, display: 'grid', placeItems: 'center' }}><Icon name="search" size={14} color="var(--spira-muted)" /></span>
-              <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus placeholder="Buscar protocolo…" style={filterSearch} />
-            </div>
-            <div style={{ maxHeight: 244, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {filtrados.length === 0 ? (
-                <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', padding: '8px 10px' }}>Sin resultados.</div>
-              ) : filtrados.map((p) => {
-                const on = selected.includes(p.id)
-                return (
-                  <button key={p.id} role="menuitemcheckbox" aria-checked={on} onClick={() => toggle(p.id)} style={filterOption}>
-                    <span style={{ ...checkBox, ...(on ? { background: accentSolid, borderColor: accentSolid } : null) }}>
-                      {on && <Icon name="check" size={12} color="var(--spira-on-accent)" stroke={2.4} />}
-                    </span>
-                    <span className="spira-mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--spira-pharma-solid)', flex: '0 0 auto' }}>{p.code}</span>
-                    <span style={{ fontSize: 13, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
-                  </button>
-                )
-              })}
-            </div>
-            {selected.length > 0 && (
-              <>
-                <div style={kebabDivider} />
-                <button onClick={() => onChange([])} style={{ ...filterOption, justifyContent: 'center', color: 'var(--spira-muted)', fontWeight: 600, fontSize: 12.5 }}>Limpiar selección</button>
-              </>
-            )}
-          </div>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
 /* ── Fila del catálogo (sin lote): datos + código + kebab (Editar / Código / Eliminar) ── */
 interface CatalogoRowProps {
   row: MedicationRow
@@ -719,10 +699,19 @@ const apartadoCard: CSSProperties = {
   borderRadius: 16, padding: 16, boxShadow: 'var(--spira-shadow-sm)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)',
 }
 const errorBox: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 10, padding: '12px 14px' }
-const searchWrap: CSSProperties = { position: 'relative', flex: 1, maxWidth: 340, minWidth: 230, display: 'flex', alignItems: 'center' }
+const searchWrap: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 8, height: 38, width: 240, padding: '0 12px',
+  borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
+}
 const searchInput: CSSProperties = {
-  width: '100%', height: 40, padding: '0 12px 0 34px', borderRadius: 999, border: '1px solid var(--spira-line-2)',
-  background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14, boxShadow: 'var(--spira-shadow-sm)',
+  flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
+  color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 13,
+}
+const searchClear: CSSProperties = { border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 0 }
+const clearBtn: CSSProperties = {
+  height: 38, padding: '0 12px', borderRadius: 10, border: 'none', background: 'transparent',
+  color: 'var(--spira-muted)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600,
+  fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 6,
 }
 const lista: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 9 }
 const rowCard: CSSProperties = { display: 'flex', alignItems: 'center', gap: 14, border: '1px solid var(--spira-line)', borderRadius: 14, background: 'var(--spira-white)', padding: '13px 16px', boxShadow: 'var(--spira-shadow-sm)' }
@@ -738,29 +727,6 @@ const asignarChip: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 4, height: 25, padding: '0 10px', marginTop: 3, borderRadius: 99,
   background: 'var(--spira-surface)', border: '1px dashed var(--spira-line-2)', color: 'var(--spira-faint)', fontFamily: 'var(--spira-font-text)',
   fontSize: 12, fontWeight: 600, cursor: 'pointer',
-}
-const filterBtn: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 14px', border: '1px solid var(--spira-line-2)', borderRadius: 99,
-  background: 'var(--spira-white)', color: 'var(--spira-muted)', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-}
-const filterPopover: CSSProperties = {
-  position: 'fixed', zIndex: 61, width: 300, background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)',
-  borderRadius: 12, boxShadow: '0 12px 30px rgba(20,48,46,.16)', padding: 8,
-}
-const filterSearch: CSSProperties = {
-  width: '100%', height: 34, padding: '0 10px 0 30px', borderRadius: 8, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
-  color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 13, boxShadow: 'var(--spira-shadow-sm)',
-}
-const filterOption: CSSProperties = {
-  width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 8, border: 'none', background: 'transparent',
-  cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--spira-font-text)',
-}
-// Borde en longhands, NO en la abreviada: el estado tildado pisa solo `borderColor` por spread
-// condicional, y al destildar React borra esa longhand — con la abreviada el color caería a
-// `currentColor` y el casillero quedaría con un borde oscuro. Ver `chipBtn` en SearchableSelect.tsx.
-const checkBox: CSSProperties = {
-  width: 16, height: 16, flex: '0 0 auto', borderRadius: 4, borderWidth: 1.5, borderStyle: 'solid',
-  borderColor: 'var(--spira-line-2)', display: 'grid', placeItems: 'center', background: 'var(--spira-white)',
 }
 const stockBadgeBase: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: '.02em', padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap' }
 /** Stock bajo es una ADVERTENCIA: se queda en ámbar aunque la identidad del módulo pase a petróleo. */
