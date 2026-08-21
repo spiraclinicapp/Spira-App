@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { useVisit } from '../../data/dayVisits'
+import { useVisit, markArrived, markAttended, markReady, markReadyWithOutcome, discontinueEnrollment } from '../../data/dayVisits'
+import { todayISO } from '../../lib/dates'
+import { ConfirmarAvance } from './ConfirmarAvance'
+import { ReadyOutcomeModal } from './ReadyOutcomeModal'
+import { RegisterVisitFlow } from './RegisterVisitFlow'
 import { useVisitPermissions } from '../../lib/visitPermissions'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { VisitProcedures } from './VisitProcedures'
 import { CommentThread } from './CommentThread'
 import { VisitDispensationPanel } from '../pharma/VisitDispensationPanel'
-import { advanceRole } from './advanceStep'
+import { advanceRole, necesitaConfirmacion, fechaRealAlAvanzar } from './advanceStep'
 import { Panel } from './Panel'
 import { VisitHeader } from './VisitHeader'
 import { VisitActionBar } from './VisitActionBar'
@@ -85,6 +89,11 @@ export function VisitDetail({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [doctorOpen, setDoctorOpen] = useState(false)
+  /** Etapa a la que se va a avanzar, esperando confirmación (solo si la visita no es de hoy). */
+  const [confirmando, setConfirmando] = useState<OperationalStage | null>(null)
+  /** Cierre clínico de screening/randomización, y su salida "recitar". */
+  const [outcomeFor, setOutcomeFor] = useState<DayVisitRow | null>(null)
+  const [recitar, setRecitar] = useState<DayVisitRow | null>(null)
 
   /* Los permisos se calculan acá salvo que la vista ya los haya pasado (ver el comentario del
      prop). El modal se edita se abra desde donde se abra: lo único que decide es el rol. */
@@ -125,13 +134,60 @@ export function VisitDetail({
 
   const refrescar = () => { onChanged?.(); q.refetch() }
 
-  const advance = async (next: OperationalStage) => {
-    if (!visit || !onAdvance) return
+  /**
+   * Pedir el avance. Si la visita NO es de hoy, primero confirma: desde la ficha o las alertas es
+   * fácil tener abierta una de hace dos meses y avanzarla creyendo que es la del día, y el cambio
+   * de etapa queda firmado en el audit_log. En el recorrido normal (visita de hoy) no interrumpe.
+   */
+  const advance = (next: OperationalStage) => {
+    if (!visit) return
+    if (necesitaConfirmacion(visit.real_date, todayISO())) { setConfirmando(next); return }
+    ejecutar(next)
+  }
+
+  /**
+   * Ejecutar el avance. Corre acá y no en el padre: el modal se abre desde cuatro pantallas y solo
+   * "Visitas del día" pasaba `onAdvance` — desde las otras tres el botón no hacía NADA (se veía
+   * habilitado y no pasaba nada al apretarlo). Si el padre lo pasa, sigue mandando él: mantiene sus
+   * avisos en la lista y su propio cierre clínico.
+   */
+  const ejecutar = async (next: OperationalStage) => {
+    if (!visit) return
     setBusy(true); setErr(null)
-    // El padre resuelve el caso especial: en screening/randomización, "Finalizar atención" abre el
-    // cierre clínico (ReadyOutcomeModal) en vez de marcar directo.
-    await onAdvance(visit, next)
-    setBusy(false)
+
+    /* Sin fecha real, avanzar la registra con la de HOY (pedido del Director, 2026-08-20): una
+       visita no debería cambiar de etapa sin quedar fechada. Si YA tiene, no se toca.
+       `markAttended` es la única ruta a `real_date` (ver su comentario en data/dayVisits). */
+    const fechar = fechaRealAlAvanzar(visit.real_date, next, todayISO())
+    if (fechar) {
+      const res = await markAttended(visit.id, fechar)
+      if (res.error) { setBusy(false); setErr(res.error); return }
+    }
+
+    if (onAdvance) {
+      await onAdvance(visit, next)
+      setBusy(false); setConfirmando(null)
+      refrescar()
+      return
+    }
+
+    // Screening y randomización no se cierran de un click: el desenlace clínico se captura en su
+    // propio modal (IVRS / randomizó), igual que en la lista del día.
+    if (next === 'fin_atencion' && (visit.role === 'screening' || visit.role === 'randomizacion')) {
+      setBusy(false); setConfirmando(null); setOutcomeFor(visit)
+      return
+    }
+
+    const res =
+      next === 'concurrio_al_centro' ? await markArrived(visit.id)
+      // Preserva la fecha real que ya tenga: acá "iniciar atención" puede estar corrigiendo el
+      // recorrido de una visita vieja, y pisarla con hoy le cambiaría el dato clínico.
+      : next === 'inicio_atencion' ? await markAttended(visit.id, visit.real_date ?? todayISO())
+      : next === 'fin_atencion' ? await markReady(visit.id)
+      : { error: 'Etapa desconocida.' }
+
+    setBusy(false); setConfirmando(null)
+    if (res.error) { setErr(res.error); return }
     refrescar()
   }
 
@@ -224,6 +280,48 @@ export function VisitDetail({
         canClinical={puedeClinica}
         onClose={() => setDoctorOpen(false)}
         onChanged={refrescar}
+      />
+    )}
+
+    {/* Los tres van FUERA del backdrop, por el mismo motivo que el popup del médico. */}
+    {confirmando && visit && (
+      <ConfirmarAvance
+        visit={visit}
+        busy={busy}
+        onCancel={() => setConfirmando(null)}
+        onConfirmar={() => ejecutar(confirmando)}
+      />
+    )}
+
+    {outcomeFor && (outcomeFor.role === 'screening' || outcomeFor.role === 'randomizacion') && (
+      <ReadyOutcomeModal
+        role={outcomeFor.role}
+        accentSolid={accent}
+        onClose={() => setOutcomeFor(null)}
+        onConfirm={async (opts) => {
+          const res = await markReadyWithOutcome(outcomeFor.id, opts)
+          if (!res.error) refrescar()
+          return res
+        }}
+        onReschedule={() => { setOutcomeFor(null); setRecitar(outcomeFor) }}
+        onDiscontinue={async () => {
+          const res = await discontinueEnrollment(outcomeFor.enrollment_id)
+          if (!res.error) refrescar()
+          return res
+        }}
+      />
+    )}
+
+    {recitar && (
+      <RegisterVisitFlow
+        enrollmentId={recitar.enrollment_id}
+        protocolId={recitar.protocol_id}
+        randomizationDate={recitar.enrollment_randomization_date}
+        usedKinds={[]}
+        preselectDefId={recitar.visit_def_id}
+        accentSolid={accent}
+        onClose={() => setRecitar(null)}
+        onDone={() => { setRecitar(null); refrescar() }}
       />
     )}
     </>
