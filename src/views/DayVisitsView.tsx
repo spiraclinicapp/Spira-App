@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { btnOutline } from '../components/buttons'
@@ -7,10 +7,9 @@ import type { FilterOption } from '../components/FilterDropdown'
 import { MultiFilterMenu } from '../components/MultiFilterMenu'
 import type { MultiFilterOption } from '../components/MultiFilterMenu'
 import { DateNavButton } from '../components/DateNavButton'
-import { useAuth } from '../lib/auth'
 import { todayISO, dayName, formatShortAR } from '../lib/dates'
 import { visitCode } from '../lib/visits'
-import { useMyCoordinations } from '../data/protocols'
+import { useVisitPermissions } from '../lib/visitPermissions'
 import {
   useVisitsForDay, markArrived, markAttended, markReady, markNoShow,
   markReadyWithOutcome, discontinueEnrollment,
@@ -54,10 +53,8 @@ const esperaMedico = (v: DayVisitRow) => v.wants_doctor && v.operational_stage !
 export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTarget, onTargetConsumed }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
-  const { profile, hasMinRole } = useAuth()
   const [date, setDate] = useState(todayISO())
   const day = useVisitsForDay(date)
-  const coords = useMyCoordinations(profile?.id ?? null)
   const randoPending = useRandoAttendedWithoutDate()
 
   // Filtros multi (AND entre categorías, OR dentro) + buscador + "Para ver médico" + agrupación.
@@ -79,11 +76,9 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   const [recitar, setRecitar] = useState<TrackVisitRow | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
 
-  const canReception = hasMinRole('track', 'operator')
-  const isTrackAdmin = hasMinRole('track', 'admin')
-  const coordSet = useMemo(() => new Set((coords.data ?? []).map((c) => c.protocol_id)), [coords.data])
-  const canClinical = (v: Pick<TrackVisitRow, 'protocol_id'>) =>
-    isTrackAdmin || (hasMinRole('track', 'operator') && coordSet.has(v.protocol_id))
+  /* Quién puede qué vive en un solo lugar, compartido con el modal de la visita: si la regla se
+     duplicara, la fila y el modal podrían terminar diciendo cosas distintas del mismo permiso. */
+  const { canReception, canClinical, loading: permisosCargando } = useVisitPermissions()
 
   const isToday = date === todayISO()
   const rows = day.data ?? []
@@ -233,7 +228,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
     day.refetch()
   }
 
-  if (day.loading || coords.loading) {
+  if (day.loading || permisosCargando) {
     return <EmptyState accent={accent} icon={submodule.icon} title="Cargando visitas del día…" description="Un momento." />
   }
   if (day.error) {
@@ -443,7 +438,6 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
           visitId={openVisit.id}
           seed={openVisit}
           accent={accent}
-          context="day"
           canReception={canReception}
           canClinical={canClinical(openVisit)}
           onAdvance={advance}

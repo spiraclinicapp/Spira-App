@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useVisit } from '../../data/dayVisits'
+import { useVisitPermissions } from '../../lib/visitPermissions'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { VisitProcedures } from './VisitProcedures'
 import { CommentThread } from './CommentThread'
@@ -13,9 +14,15 @@ import { DoctorRequestModal } from './DoctorRequestModal'
 
 /**
  * Detalle de una visita (rediseño del encabezado, handoff `docs/handoff-visitas-encabezado/`). El
- * MISMO componente se abre desde tres lugares: la vista del día (`context="day"`), la ficha del
- * paciente y la cola del médico (ambas `context="patient"`, SOLO LECTURA). Trae sus datos por id con
- * `useVisit`, así los tres quedan sincronizados por construcción.
+ * MISMO componente se abre desde cuatro lugares —la vista del día, la ficha del paciente, la cola
+ * del médico y las alertas— y en todos se puede EDITAR. Trae sus datos por id con `useVisit`, así
+ * los cuatro quedan sincronizados por construcción.
+ *
+ * Hasta el 2026-08-20 solo era editable abierto desde "Visitas del día" (`context="day"`); por las
+ * otras tres puertas salía de solo lectura. Eso invertía para qué es la herramienta: no es una
+ * ficha de consulta, es donde se registra lo que va pasando MIENTRAS pasa, y quien la abre suele
+ * tener al paciente delante. Escribir o no lo decide el ROL (`useVisitPermissions`) y la RLS del
+ * otro lado, nunca la puerta por la que entraste.
  *
  * ```
  * ┌ VisitHeader ────────────────────────────────────────────────┐ ~191px
@@ -35,13 +42,18 @@ import { DoctorRequestModal } from './DoctorRequestModal'
  * (no tiene backend; anotado en `TODOS.md`).
  */
 export function VisitDetail({
-  visitId, accent, context, onClose, canReception = false, canClinical = false,
+  visitId, accent, onClose, canReception, canClinical,
   onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient,
 }: {
   visitId: string
   accent: string
-  context: 'day' | 'patient'
   onClose: () => void
+  /**
+   * Permisos YA resueltos por la vista que abre el modal. Son OPCIONALES: sin ellos el modal los
+   * calcula solo (`useVisitPermissions`), que es lo que necesitan la ficha, la cola y las alertas.
+   * "Visitas del día" sí los pasa, porque ya los calculó para pintar sus filas y así no repite la
+   * consulta de coordinaciones.
+   */
   canReception?: boolean
   canClinical?: boolean
   onAdvance?: (visit: DayVisitRow, next: OperationalStage) => void | Promise<void>
@@ -74,11 +86,16 @@ export function VisitDetail({
   const [err, setErr] = useState<string | null>(null)
   const [doctorOpen, setDoctorOpen] = useState(false)
 
-  const readOnly = context !== 'day'
+  /* Los permisos se calculan acá salvo que la vista ya los haya pasado (ver el comentario del
+     prop). El modal se edita se abra desde donde se abra: lo único que decide es el rol. */
+  const perms = useVisitPermissions(canReception === undefined || canClinical === undefined)
+  const puedeOperar = canReception ?? perms.canReception
+  const readOnly = !puedeOperar
   const canNav = !!(onPrev || onNext)
 
   const role = visit ? advanceRole(visit.operational_stage) : null
-  const canAdvance = role === 'reception' ? canReception : role === 'clinical' ? canClinical : false
+  const puedeClinica = canClinical ?? (visit ? perms.canClinical(visit) : false)
+  const canAdvance = role === 'reception' ? puedeOperar : role === 'clinical' ? puedeClinica : false
 
   // Esc cierra; ↑↓/j k navegan (solo si hay lista y el foco no está en un campo de texto).
   useEffect(() => {
@@ -204,7 +221,7 @@ export function VisitDetail({
       <DoctorRequestModal
         visitId={visit.id}
         accent={accent}
-        canClinical={canClinical}
+        canClinical={puedeClinica}
         onClose={() => setDoctorOpen(false)}
         onChanged={refrescar}
       />
