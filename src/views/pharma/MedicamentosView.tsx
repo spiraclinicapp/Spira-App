@@ -284,7 +284,8 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
      radio 10, rótulo FIJO, el número adentro de un badge y el buscador a la derecha. El vencimiento
      sigue siendo de UNA opción por vez (era una fila de chips) → `FilterDropdown`, el hermano
      single-select; el de protocolos es multi → `MultiFilterMenu`, con buscador porque lista todos
-     los protocolos del centro.
+     los protocolos del centro. Los dos se sueltan igual (`deselectable`): volver a pulsar la opción
+     activa del vencimiento vuelve a "Todo el stock", como destildar un protocolo.
      Los conteos se cuentan sobre TODOS los lotes del apartado, no sobre lo ya filtrado: dicen
      cuántos hay, no cuántos quedarían. Mientras la consulta carga van en `null` (sin dato) y no
      en 0, que sería afirmar que no hay ninguno. */
@@ -311,6 +312,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
           options={vtoOptions}
           menuLabel="Vencimiento"
           icon="calendar"
+          deselectable
         />
         {apartado === 'protocolo' && (
           <MultiFilterMenu

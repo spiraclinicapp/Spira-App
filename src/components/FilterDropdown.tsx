@@ -21,6 +21,13 @@ interface Props {
   menuLabel: string
   icon?: IconName
   id?: string
+  /**
+   * Volver a pulsar la opción activa la SUELTA: vuelve a `options[0]`, igual que destildar en el
+   * menú multi. Es OPT-IN a propósito — solo vale donde `options[0]` es de verdad el valor neutro.
+   * En "Agrupar por" de Visitas la primera opción es un modo real ('En el centro'), así que ahí
+   * resetear no sería limpiar el filtro sino cambiar de agrupación sin que nadie lo pida.
+   */
+  deselectable?: boolean
 }
 
 /**
@@ -30,7 +37,7 @@ interface Props {
  * Comparte `usePopover` (fixed + clamp de viewport) con `SearchableSelect`/`DateField`, así el
  * popover nunca se recorta contra el borde de la pantalla.
  */
-export function FilterDropdown({ accent, value, onChange, options, menuLabel, icon = 'filter', id }: Props) {
+export function FilterDropdown({ accent, value, onChange, options, menuLabel, icon = 'filter', id, deselectable = false }: Props) {
   const [open, setOpen] = useState(false)
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
   const active = options.find((o) => o.value === value) ?? options[0]
@@ -69,7 +76,7 @@ export function FilterDropdown({ accent, value, onChange, options, menuLabel, ic
                 type="button"
                 role="option"
                 aria-selected={sel}
-                onClick={() => { onChange(o.value); setOpen(false) }}
+                onClick={() => { onChange(deselectable && sel ? options[0].value : o.value); setOpen(false) }}
                 style={{ ...item, background: sel ? accent + '14' : 'transparent', color: sel ? accent : 'var(--spira-ink)', fontWeight: sel ? 700 : 500 }}
               >
                 <span style={{ flex: 1, textAlign: 'left' }}>{o.label}</span>
