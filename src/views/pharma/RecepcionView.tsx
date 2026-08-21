@@ -181,8 +181,10 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const protoOptions: MultiFilterOption[] = (protocols.data ?? []).map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }))
   const toolbar = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-      <div style={searchWrap}>
-        <span style={{ position: 'absolute', left: 13, display: 'grid', placeItems: 'center' }}>
+      {/* Mismo caso que el buscador de los menús de filtro: sin `spira-input-affix`, al enfocar el
+          campo el levante de 1px lo pinta encima de la lupa y la tapa. */}
+      <div className="spira-input-affix" style={searchWrap}>
+        <span className="spira-input-affix-icon" style={{ left: 13 }}>
           <Icon name="search" size={16} color="var(--spira-faint)" />
         </span>
         <input

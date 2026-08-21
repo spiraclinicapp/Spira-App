@@ -234,7 +234,10 @@ button { font-family: inherit; }
    campo para no desalinearse del texto al enfocar. */
 .spira-input-affix { position: relative; }
 .spira-input-affix > .spira-input-affix-icon {
-  position: absolute; left: 12px; top: 0; height: 44px;
+  /* `top/bottom: 0` en vez de una altura fija: así centra el ícono en el campo mida lo que mida
+     (44 en el login, 40 en el buscador de Recepción, 34 en el de los menús de filtro). Con la
+     altura clavada, cualquier campo más bajo lo dejaba caído y asomando por abajo. */
+  position: absolute; left: 12px; top: 0; bottom: 0;
   display: grid; place-items: center;
   color: var(--spira-muted); pointer-events: none; z-index: 1;
 }

@@ -66,9 +66,15 @@ export function MultiFilterMenu({ accent, label, icon = 'filter', options, selec
       {open && pos && createPortal(
         <div ref={popRef} role="listbox" aria-multiselectable style={{ ...menu, top: pos.top, left: pos.left, minWidth: Math.max(pos.width, 210) }}>
           <div style={eyebrow}>{label}</div>
+          {/* `spira-input-affix` NO es decorativo: el foco levanta el input 1px con un `transform`,
+              que lo promueve a su propio contexto de apilamiento y lo hace pintarse ENCIMA del ícono
+              (que va antes en el DOM), tapándolo con su fondo blanco. Acá se notaba apenas abrías el
+              menú, porque el campo entra enfocado (`autoFocus`). La clase le pone el `z-index: 1`
+              que lo mantiene arriba; el `left` lo pisa el inline porque este campo es más angosto
+              que el del login. */}
           {searchPlaceholder && (
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ position: 'absolute', left: 9, display: 'grid', placeItems: 'center' }}>
+            <div className="spira-input-affix" style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+              <span className="spira-input-affix-icon" style={{ left: 9 }}>
                 <Icon name="search" size={14} color="var(--spira-muted)" />
               </span>
               <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus placeholder={searchPlaceholder} style={search} />
