@@ -27,7 +27,7 @@ const TIPOS: { value: ReceptionKind; title: string; desc: string; icon: IconName
 ]
 
 /**
- * Paso 0 (Setup) del wizard de recepción: tipo (cards) + protocolo. En la rama IP suma el
+ * Paso 0 (Tipo) del wizard de recepción: tipo (cards) + protocolo. En la rama IP suma el
  * **coordinador responsable** (control cruzado) y la **farmacéutica** (usuario logueado, solo
  * lectura) — el inicio administrativo de la recepción macro (0038). El gate de avance vive en
  * `canAdvance` del wizard (Protocolo/IP exigen protocolo; IP exige además coordinador).
@@ -91,7 +91,7 @@ export function Step0Setup({ accentSolid, tipo, protocolId, coordinatorId, onTip
         </label>
       )}
 
-      {/* Setup del ingreso macro de IP: coordinador responsable + farmacéutica (solo lectura). */}
+      {/* Inicio administrativo del ingreso macro de IP: coordinador responsable + farmacéutica (solo lectura). */}
       {isIp && protocolId && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, maxWidth: 620 }}>
           <label>

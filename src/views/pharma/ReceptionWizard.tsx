@@ -39,7 +39,7 @@ interface Props {
  *
  * Dos ramas por `tipo`:
  *  - **Base** (protocolo / ambulatoria): escaneo de medicamentos + lotes por cantidad (sin cambios).
- *  - **IP** (investigación): ingreso MACRO por cargamento (0038) — Setup (protocolo+coordinador) →
+ *  - **IP** (investigación): ingreso MACRO por cargamento (0038) — Tipo (protocolo+coordinador) →
  *    Carga general (temperatura OK/Excursión + cantidad total + rango) → Doble check (documentación +
  *    IRT) → Cierre (ubicación + Confirmar). NO escanea kit por kit; el stock se lleva por cantidad.
  */
@@ -84,8 +84,8 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
 
   const isIp = tipo === 'investigacion'
   const STEPS = isIp
-    ? ['Setup', 'Carga general', 'Doble check', 'Cierre']
-    : ['Setup', 'Escaneo', 'Lotes', 'Resumen']
+    ? ['Tipo', 'Carga general', 'Doble check', 'Cierre']
+    : ['Tipo', 'Escaneo', 'Lotes', 'Resumen']
 
   // Limpia el estado de ambas ramas (al cambiar de tipo).
   const resetBranches = () => {
