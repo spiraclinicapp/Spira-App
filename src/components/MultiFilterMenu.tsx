@@ -14,7 +14,8 @@ export interface MultiFilterOption {
 
 /**
  * Filtro MULTI-selección para las listas del día: botón con ícono + etiqueta + badge de cantidad
- * seleccionada, que abre un popover de opciones con checkbox + conteo y un pie "Limpiar". Hermano de
+ * seleccionada, que abre un popover titulado de opciones —teñidas y con el tilde a la DERECHA cuando
+ * están elegidas, sin casillero— y un pie "Limpiar". Hermano de
  * `FilterDropdown` (single-select) — mismo `usePopover` (fixed + clamp de viewport) y mismo lenguaje
  * visual. AND entre filtros distintos, OR dentro de cada uno (la lógica vive en el consumidor).
  *
@@ -64,6 +65,7 @@ export function MultiFilterMenu({ accent, label, icon = 'filter', options, selec
           fixed, igual que un `transform`. Dibujado adentro, el menú aterriza lejos del campo. */}
       {open && pos && createPortal(
         <div ref={popRef} role="listbox" aria-multiselectable style={{ ...menu, top: pos.top, left: pos.left, minWidth: Math.max(pos.width, 210) }}>
+          <div style={eyebrow}>{label}</div>
           {searchPlaceholder && (
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: 6 }}>
               <span style={{ position: 'absolute', left: 9, display: 'grid', placeItems: 'center' }}>
@@ -87,13 +89,11 @@ export function MultiFilterMenu({ accent, label, icon = 'filter', options, selec
                   role="option"
                   aria-selected={sel}
                   onClick={() => toggle(o.value)}
-                  style={{ ...item, background: sel ? accent + '10' : 'transparent' }}
+                  style={{ ...item, background: sel ? accent + '14' : 'transparent' }}
                 >
-                  <span style={{ width: 16, height: 16, flex: '0 0 auto', borderRadius: 5, display: 'grid', placeItems: 'center', border: `1.5px solid ${sel ? accent : 'var(--spira-line-2)'}`, background: sel ? accent : 'transparent' }}>
-                    {sel && <Icon name="check" size={11} color="var(--spira-on-accent)" stroke={3} />}
-                  </span>
-                  <span style={{ flex: 1, textAlign: 'left', color: sel ? 'var(--spira-ink)' : 'var(--spira-muted)', fontWeight: sel ? 600 : 500 }}>{o.label}</span>
+                  <span style={{ flex: 1, textAlign: 'left', color: sel ? accent : 'var(--spira-muted)', fontWeight: sel ? 700 : 500 }}>{o.label}</span>
                   {o.count != null && <span style={{ fontSize: 11.5, color: 'var(--spira-faint)', fontVariantNumeric: 'tabular-nums' }}>{o.count}</span>}
+                  <span style={checkSlot}>{sel && <Icon name="check" size={14} color={accent} stroke={2.6} />}</span>
                 </button>
               )
             })}
@@ -133,6 +133,14 @@ const item: CSSProperties = {
   width: '100%', minHeight: 38, padding: '8px 10px', borderRadius: 9, border: 'none', cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 10,
 }
+const eyebrow: CSSProperties = {
+  fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--spira-faint)',
+  fontWeight: 700, padding: '7px 10px 6px',
+}
+/* El tilde va del lado DERECHO (pedido del Director, 2026-08-20): sin casillero a la izquierda las
+   etiquetas arrancan todas alineadas y la lista se lee como una columna limpia. El hueco se reserva
+   igual cuando no está elegido, para que el renglón no se corra al tildar. */
+const checkSlot: CSSProperties = { width: 16, flex: '0 0 auto', display: 'grid', placeItems: 'center' }
 const search: CSSProperties = {
   width: '100%', height: 34, padding: '0 10px 0 30px', borderRadius: 8, border: '1px solid var(--spira-line-2)',
   background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 13,

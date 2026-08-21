@@ -72,11 +72,11 @@ export function FilterDropdown({ accent, value, onChange, options, menuLabel, ic
                 onClick={() => { onChange(o.value); setOpen(false) }}
                 style={{ ...item, background: sel ? accent + '14' : 'transparent', color: sel ? accent : 'var(--spira-ink)', fontWeight: sel ? 700 : 500 }}
               >
-                <span style={checkSlot}>{sel && <Icon name="check" size={14} color={accent} />}</span>
                 <span style={{ flex: 1, textAlign: 'left' }}>{o.label}</span>
                 {o.count != null && (
                   <span style={{ ...badge, background: sel ? accent : 'var(--spira-line)', color: sel ? 'var(--spira-on-accent)' : 'var(--spira-muted)' }}>{o.count}</span>
                 )}
+                <span style={checkSlot}>{sel && <Icon name="check" size={14} color={accent} stroke={2.6} />}</span>
               </button>
             )
           })}
@@ -111,4 +111,7 @@ const item: CSSProperties = {
   width: '100%', height: 40, padding: '0 10px', borderRadius: 9, border: 'none', cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 9,
 }
+/* El tilde va del lado DERECHO (pedido del Director, 2026-08-20), igual que en `MultiFilterMenu`:
+   las etiquetas arrancan todas alineadas y los dos menús de una misma fila de filtros se leen igual.
+   El hueco se reserva siempre, así el renglón no se corre al cambiar de opción. */
 const checkSlot: CSSProperties = { width: 16, flex: '0 0 auto', display: 'grid', placeItems: 'center' }

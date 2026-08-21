@@ -31,6 +31,14 @@
   .aviso { display: flex; gap: 10px; align-items: flex-start; margin: 22px 0 30px; padding: 13px 15px;
            background: rgba(176,130,63,.10); border: 1px solid rgba(176,130,63,.30); border-radius: 12px; color: var(--ink-2); font-size: 13px; }
   .aviso b { color: #8A6428; }
+  .aviso.elegida { background: rgba(15,95,87,.07); border-color: rgba(15,95,87,.28); }
+  .aviso.elegida b { color: var(--accent); }
+  .card.destacada { border-color: rgba(15,95,87,.35); box-shadow: 0 6px 18px rgba(20,48,46,.10); }
+  .card.destacada .nota { color: var(--ink-2); }
+  /* La E, tal como quedó cableada: teñido accent+14 y la etiqueta en petróleo, no en tinta. */
+  .card.destacada .opt.sel { background: rgba(15,95,87,.08); }
+  .card.destacada .opt.sel .txt { color: var(--accent); font-weight: 700; }
+  .titulo { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-weight: 700; padding: 7px 10px 6px; }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 18px; }
   .card { background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 17px 17px 19px; box-shadow: var(--shadow-sm); }
@@ -83,12 +91,14 @@
     Los colores salen de <code>tokens.css</code>; ninguno es inventado.
   </p>
 
-  <div class="aviso">
-    <div>⚠</div>
+  <div class="aviso elegida">
+    <div>✓</div>
     <div>
-      <b>El casillero es compartido.</b> Vive en <code>MultiFilterMenu</code>, que también usan los cuatro filtros de
-      <b>Visitas del día</b> (Estado, Protocolo, Médico, Coordinador). Lo que elijas acá cambia las dos pantallas
-      —que es justamente lo que buscábamos al unificar—, pero conviene saberlo antes de decidir.
+      <b>Decidido el 2026-08-20: la E</b>, con el formato del menú de referencia que pasó el Director —lista sin
+      casilleros, fila teñida y tilde a la derecha, con el título del filtro arriba. Está implementada en
+      <code>MultiFilterMenu</code> <b>y</b> en <code>FilterDropdown</code>, para que los dos menús de una misma fila
+      de filtros se lean igual. Alcance: Stock y los cuatro filtros de <b>Visitas del día</b>, que comparten los
+      componentes. Las otras cinco quedan acá como registro de lo que se descartó.
     </div>
   </div>
 
@@ -151,10 +161,11 @@
     </div>
 
     <!-- E -->
-    <div class="card">
-      <header><h2>E · Tilde a la derecha</h2></header>
-      <p class="nota">Nada a la izquierda: todos los códigos arrancan alineados y el tilde cierra la fila, del lado del conteo. La lista se lee como una columna limpia de protocolos. <span class="contra">Contra: el tilde compite con el número por el mismo rincón.</span></p>
+    <div class="card destacada">
+      <header><h2>E · Tilde a la derecha</h2><span class="tag">Elegida</span></header>
+      <p class="nota">Nada a la izquierda: todos los códigos arrancan alineados y el tilde cierra la fila. La fila elegida se tiñe y su etiqueta pasa a petróleo. Tal como quedó implementada, con el título del filtro arriba del buscador.</p>
       <div class="pop">
+        <div class="titulo">Protocolo</div>
         <div class="search">🔍 Buscar protocolo…</div>
         <div class="opt sel"><span class="txt"><span class="code">ARG-114</span> — Cardio Fase III</span><span class="n">12</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="tick-acento" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
         <div class="opt"><span class="txt"><span class="code">ONC-207</span> — Onco Adyuvante</span><span class="n">7</span><span class="hueco"></span></div>
