@@ -21,6 +21,14 @@ interface Props {
   max?: string
   /** Cuántos años hacia atrás ofrece el desplegable de año (default 5). */
   aniosAtras?: number
+  /**
+   * Rótulo para cuando NO hay rango puesto (`desde`/`hasta` vacíos), en pantallas donde la fecha
+   * es un filtro opcional y no un período obligatorio: ahí el botón se ve neutro, como cualquier
+   * filtro apagado. En Reportes siempre hay período, así que no se pasa y nada cambia.
+   */
+  placeholder?: string
+  /** Texto accesible del disparador (default: el del informe de Reportes). */
+  ariaLabel?: string
 }
 
 /**
@@ -41,8 +49,11 @@ interface Props {
  *     oscuro (el tinte que oscurece sobre papel claro queda invisible sobre fondo oscuro; es el
  *     mismo problema que documenta `--spira-tint-track` en tokens.css).
  */
-export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras = 5 }: Props) {
+export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras = 5, placeholder, ariaLabel }: Props) {
   const [open, setOpen] = useState(false)
+  /* Sin rango puesto: el calendario tiene que abrir en ALGÚN mes, y `formatAR('')` devolvería
+     "undefined/undefined/". Se cae a hoy para el mes visible y al placeholder para el rótulo. */
+  const puesto = Boolean(desde && hasta)
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
 
   /* Borrador local: lo elegido en el calendario no se aplica hasta confirmar, así el reporte no
@@ -68,15 +79,16 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
      deshabilitados al llegar al tope: los deja pulsables y simplemente ignora el click (medido,
      el botón sale con `disabled=false` y sin `aria-disabled`). Un control que se ve activo y no
      hace nada es peor que uno apagado, así que hace falta saber en qué mes estamos parados. */
-  const [mesVisible, setMesVisible] = useState(() => isoToDate(hasta))
+  const [mesVisible, setMesVisible] = useState(() => isoToDate(hasta || todayISO()))
 
-  // Al abrir, el borrador arranca en lo que está aplicado hoy y el ciclo se reinicia.
+  // Al abrir, el borrador arranca en lo que está aplicado hoy y el ciclo se reinicia. Sin rango
+  // puesto arranca vacío: el calendario abre en el mes de hoy y el primer click ya elige un día.
   useEffect(() => {
     if (!open) return
-    setBorrador({ from: isoToDate(desde), to: isoToDate(hasta) })
+    setBorrador(puesto ? { from: isoToDate(desde), to: isoToDate(hasta) } : undefined)
     setFase('nuevo')
-    setMesVisible(isoToDate(hasta))
-  }, [open, desde, hasta])
+    setMesVisible(isoToDate(hasta || todayISO()))
+  }, [open, desde, hasta, puesto])
 
   const tope = max ?? todayISO()
   /* Piso del desplegable de año. Sin `startMonth` react-day-picker no sabe desde dónde ofrecer
@@ -125,15 +137,17 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label="Elegir el período del informe"
-        style={{ ...trigger, borderColor: accent, background: accent + '0F', color: accent }}
+        aria-label={ariaLabel ?? 'Elegir el período del informe'}
+        style={puesto
+          ? { ...trigger, borderColor: accent, background: accent + '0F', color: accent }
+          : { ...trigger, borderColor: 'var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)' }}
       >
-        <Icon name="calendar" size={15} color={accent} stroke={1.8} />
-        <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14 }}>
-          {desde === hasta ? formatAR(desde) : `${formatAR(desde)} – ${formatAR(hasta)}`}
+        <Icon name="calendar" size={15} color={puesto ? accent : 'var(--spira-muted)'} stroke={1.8} />
+        <span className={puesto ? 'spira-mono' : undefined} style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14 }}>
+          {!puesto ? placeholder : desde === hasta ? formatAR(desde) : `${formatAR(desde)} – ${formatAR(hasta)}`}
         </span>
         <Icon
-          name="chevronDown" size={14} color={accent}
+          name="chevronDown" size={14} color={puesto ? accent : 'var(--spira-muted)'}
           style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}
         />
       </button>

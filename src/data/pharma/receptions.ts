@@ -92,15 +92,23 @@ export interface ReceptionsQuery {
 }
 
 /** Recepciones (cola; más nuevas primero), con renglones, protocolo e ítems/unidades.
- *  tipo=null → todos los tipos (lista transversal). ambulatoria → sin protocolo.
- *  protocolo/investigacion con protocolId → filtra por protocolo; con null trae todas del tipo. */
-export function useReceptions(tipo: ReceptionKind | null, protocolId: string | null): ReceptionsQuery {
+ *  tipos=[] → todos los tipos (lista transversal). Solo ambulatoria → además, sin protocolo.
+ *  Con un tipo y protocolId → filtra por protocolo; sin protocolId trae todas del tipo.
+ *
+ *  El filtro va en la BASE y no en el cliente porque hay TECHO: filtrando acá, el recorte y el
+ *  conteo miran el mismo universo. Con el filtro en memoria, pedir "solo ambulatorias" podría no
+ *  encontrar ninguna simplemente porque las 500 más nuevas eran de protocolo. */
+export function useReceptions(tipos: ReceptionKind[], protocolId: string | null): ReceptionsQuery {
+  // Los tipos van a las deps como texto: un array literal cambia de identidad en cada render.
+  const tiposKey = tipos.join(',')
   const res = useSupabaseQuery<{ rows: ReceptionRow[]; total: number | null }>(
     async (c) => {
       let q = c.from('medication_receptions').select(RECEPTION_COLS, { count: 'exact' })
-      if (tipo) q = q.eq('tipo', tipo)
-      if (tipo === 'ambulatoria') q = q.is('protocol_id', null)
-      else if (tipo && protocolId) q = q.eq('protocol_id', protocolId)
+      if (tipos.length > 0) q = q.in('tipo', tipos)
+      // El guard de "ambulatoria no lleva protocolo" solo vale si se pidió ESE tipo y nada más:
+      // mezclado con protocolo o investigación borraría justamente las que sí tienen protocolo.
+      if (tipos.length === 1 && tipos[0] === 'ambulatoria') q = q.is('protocol_id', null)
+      else if (tipos.length === 1 && protocolId) q = q.eq('protocol_id', protocolId)
       // El folio desempata: dos recepciones del mismo día salían en orden arbitrario, y el orden
       // de la lista no debería depender de cómo se le dio la gana a Postgres esa vez.
       const { data, error, count } = await q
@@ -111,7 +119,7 @@ export function useReceptions(tipo: ReceptionKind | null, protocolId: string | n
       if (error) return { data: null, error }
       return { data: { rows: data ?? [], total: count ?? null }, error: null }
     },
-    [tipo, protocolId],
+    [tiposKey, protocolId],
   )
 
   const total = res.data?.total ?? null
