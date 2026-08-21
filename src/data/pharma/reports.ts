@@ -54,7 +54,9 @@ function conTecho<T>(res: QueryResult<{ rows: T[]; total: number | null }>): Rep
  * que valer también para el conteo exacto, o el techo miraría un universo distinto del que se
  * muestra.
  */
-export function useReportItems(rango: Rango, protocolCode: string | null): ReportQuery<ReportItemRow[]> {
+export function useReportItems(rango: Rango, protocolCodes: string[]): ReportQuery<ReportItemRow[]> {
+  // Los códigos van a las deps como texto: un array literal cambia de identidad en cada render.
+  const protoKey = protocolCodes.join(',')
   return conTecho(
     useSupabaseQuery<{ rows: ReportItemRow[]; total: number | null }>(
       async (c) => {
@@ -65,19 +67,21 @@ export function useReportItems(rango: Rango, protocolCode: string | null): Repor
           .lte('fecha', rango.hasta)
           .order('delivered_at', { ascending: false })
           .limit(TECHO_FILAS)
-        if (protocolCode) q = q.eq('protocol_code', protocolCode)
+        if (protocolCodes.length > 0) q = q.in('protocol_code', protocolCodes)
         const { data, error, count } = await q.returns<ReportItemRow[]>()
         if (error) return { data: null, error }
         return { data: { rows: data ?? [], total: count ?? null }, error: null }
       },
-      [rango.desde, rango.hasta, protocolCode],
+      [rango.desde, rango.hasta, protoKey],
       (e) => pharmaErrorMessage(e.code, e.message),
     ),
   )
 }
 
 /** Las recepciones verificadas del período: el otro lado del balance. */
-export function useReportReceptions(rango: Rango, protocolCode: string | null): ReportQuery<ReportReceptionRow[]> {
+export function useReportReceptions(rango: Rango, protocolCodes: string[]): ReportQuery<ReportReceptionRow[]> {
+  // Los códigos van a las deps como texto: un array literal cambia de identidad en cada render.
+  const protoKey = protocolCodes.join(',')
   return conTecho(
     useSupabaseQuery<{ rows: ReportReceptionRow[]; total: number | null }>(
       async (c) => {
@@ -88,12 +92,12 @@ export function useReportReceptions(rango: Rango, protocolCode: string | null): 
           .lte('fecha', rango.hasta)
           .order('fecha', { ascending: false })
           .limit(TECHO_FILAS)
-        if (protocolCode) q = q.eq('protocol_code', protocolCode)
+        if (protocolCodes.length > 0) q = q.in('protocol_code', protocolCodes)
         const { data, error, count } = await q.returns<ReportReceptionRow[]>()
         if (error) return { data: null, error }
         return { data: { rows: data ?? [], total: count ?? null }, error: null }
       },
-      [rango.desde, rango.hasta, protocolCode],
+      [rango.desde, rango.hasta, protoKey],
       (e) => pharmaErrorMessage(e.code, e.message),
     ),
   )
@@ -105,7 +109,9 @@ export function useReportReceptions(rango: Rango, protocolCode: string | null): 
  * NO lleva rango: un lote está vencido HOY, no "durante julio". El rótulo en pantalla lo dice,
  * porque un número al día de hoy metido entre indicadores del período se lee como del período.
  */
-export function useReportExpired(protocolCode: string | null): ReportQuery<ReportExpiredRow[]> {
+export function useReportExpired(protocolCodes: string[]): ReportQuery<ReportExpiredRow[]> {
+  // Los códigos van a las deps como texto: un array literal cambia de identidad en cada render.
+  const protoKey = protocolCodes.join(',')
   return conTecho(
     useSupabaseQuery<{ rows: ReportExpiredRow[]; total: number | null }>(
       async (c) => {
@@ -114,12 +120,12 @@ export function useReportExpired(protocolCode: string | null): ReportQuery<Repor
           .select('*', { count: 'exact' })
           .order('expiry_date', { ascending: true })
           .limit(TECHO_FILAS)
-        if (protocolCode) q = q.eq('protocol_code', protocolCode)
+        if (protocolCodes.length > 0) q = q.in('protocol_code', protocolCodes)
         const { data, error, count } = await q.returns<ReportExpiredRow[]>()
         if (error) return { data: null, error }
         return { data: { rows: data ?? [], total: count ?? null }, error: null }
       },
-      [protocolCode],
+      [protoKey],
       (e) => pharmaErrorMessage(e.code, e.message),
     ),
   )
@@ -131,7 +137,9 @@ export function useReportExpired(protocolCode: string | null): ReportQuery<Repor
  * Devuelve PEDIDOS, no unidades: los renglones de un pedido cancelado se borran (0054), así que
  * las unidades involucradas ya no existen en ningún lado. Informarlas sería inventarlas.
  */
-export function useReportRejected(rango: Rango, protocolCode: string | null): ReportQuery<ReportRejectedRow[]> {
+export function useReportRejected(rango: Rango, protocolCodes: string[]): ReportQuery<ReportRejectedRow[]> {
+  // Los códigos van a las deps como texto: un array literal cambia de identidad en cada render.
+  const protoKey = protocolCodes.join(',')
   return conTecho(
     useSupabaseQuery<{ rows: ReportRejectedRow[]; total: number | null }>(
       async (c) => {
@@ -141,12 +149,12 @@ export function useReportRejected(rango: Rango, protocolCode: string | null): Re
           .gte('fecha', rango.desde)
           .lte('fecha', rango.hasta)
           .limit(TECHO_FILAS)
-        if (protocolCode) q = q.eq('protocol_code', protocolCode)
+        if (protocolCodes.length > 0) q = q.in('protocol_code', protocolCodes)
         const { data, error, count } = await q.returns<ReportRejectedRow[]>()
         if (error) return { data: null, error }
         return { data: { rows: data ?? [], total: count ?? null }, error: null }
       },
-      [rango.desde, rango.hasta, protocolCode],
+      [rango.desde, rango.hasta, protoKey],
       (e) => pharmaErrorMessage(e.code, e.message),
     ),
   )

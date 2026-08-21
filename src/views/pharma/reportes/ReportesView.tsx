@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { EmptyState } from '../../../components/EmptyState'
+import { MultiFilterMenu } from '../../../components/MultiFilterMenu'
+import type { MultiFilterOption } from '../../../components/MultiFilterMenu'
 import { Icon } from '../../../components/Icon'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { DateRangeField } from '../../../components/DateRangeField'
@@ -11,6 +13,7 @@ import { formatNumberAR, formatPctAR } from '../../../lib/numbers'
 import {
   useReportExpired, useReportItems, useReportReceptions, useReportRejected,
 } from '../../../data/pharma'
+import { useProtocols } from '../../../data/protocols'
 import type { ViewProps } from '../../types'
 import {
   detalle as armarDetalle, invariantes, porDispensacion, porMedicamento, porProtocolo,
@@ -44,7 +47,8 @@ export function ReportesView({ module }: ViewProps) {
 
   const [preset, setPreset] = useState<Preset>('30dias')
   const [rango, setRango] = useState(() => rangoDePreset('30dias'))
-  const [protocolCode, setProtocolCode] = useState<string | null>(null)
+  /** Protocolos del recorte, por CÓDIGO (así los filtran las vistas 0083). Vacío = todos. */
+  const [protoSel, setProtoSel] = useState<string[]>([])
   const [reporteEnCurso, setReporteEnCurso] = useState<string | null>(null)
   const [angosto, setAngosto] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1024)
 
@@ -54,10 +58,19 @@ export function ReportesView({ module }: ViewProps) {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  const items = useReportItems(rango, protocolCode)
-  const recepciones = useReportReceptions(rango, protocolCode)
-  const rechazados = useReportRejected(rango, protocolCode)
-  const vencidos = useReportExpired(protocolCode)
+  const items = useReportItems(rango, protoSel)
+  const recepciones = useReportReceptions(rango, protoSel)
+  const rechazados = useReportRejected(rango, protoSel)
+  const vencidos = useReportExpired(protoSel)
+
+  /* Las opciones del menú salen del catálogo de protocolos, NO de los datos del período. Derivarlas
+     de lo que se muestra parece más prolijo, pero con multi-selección es una trampa: al elegir el
+     primero, el período filtrado ya solo contiene ese protocolo y el menú se quedaría con una sola
+     opción — nunca podrías sumar un segundo. Un protocolo sin movimientos cae en el estado vacío,
+     que ya lo explica. */
+  const protocols = useProtocols()
+  const protoOptions: MultiFilterOption[] = (protocols.data ?? [])
+    .map((p) => ({ value: p.code, label: `${p.code} — ${p.name}` }))
 
   const cargando = items.loading || recepciones.loading || rechazados.loading || vencidos.loading
   const error = items.error ?? recepciones.error ?? rechazados.error ?? vencidos.error
@@ -88,7 +101,14 @@ export function ReportesView({ module }: ViewProps) {
     }
   }, [items.data, recepciones.data, vencidos.data, rango])
 
-  const filtrosTexto = protocolCode ? `Protocolo: ${protocolCode}` : 'Sin filtros: todo el período'
+  /* Va impreso en el encabezado de cada hoja: tiene que declarar el recorte COMPLETO. Con varios
+     protocolos se listan todos —nombrar solo uno, o decir "3 protocolos", dejaría una hoja firmada
+     sin decir cuáles. */
+  const filtrosTexto = protoSel.length === 0
+    ? 'Sin filtros: todo el período'
+    : protoSel.length === 1
+      ? `Protocolo: ${protoSel[0]}`
+      : `Protocolos: ${protoSel.join(', ')}`
   const emitidoEn = new Date().toISOString()
 
   const ctx: ContextoReporte = {
@@ -212,9 +232,9 @@ export function ReportesView({ module }: ViewProps) {
         preset={preset}
         onPreset={elegirPreset}
         onRango={elegirRango}
-        protocolCode={protocolCode}
-        protocolos={d.protocolos.map((p) => p.protocolCode)}
-        onProtocolo={setProtocolCode}
+        protoOptions={protoOptions}
+        protoSel={protoSel}
+        onProtocolos={setProtoSel}
         accentSolid={module.accentSolid}
         onImprimirTodo={() => imprimir('todo')}
         puedeImprimir={puedeImprimir}
@@ -234,8 +254,8 @@ export function ReportesView({ module }: ViewProps) {
           accent={module.accent}
           title="No hubo movimientos"
           description={
-            protocolCode
-              ? `Entre el ${formatAR(rango.desde)} y el ${formatAR(rango.hasta)} no hubo movimientos del protocolo ${protocolCode}. Probá sacando el filtro.`
+            protoSel.length > 0
+              ? `Entre el ${formatAR(rango.desde)} y el ${formatAR(rango.hasta)} no hubo movimientos de ${protoSel.length === 1 ? `el protocolo ${protoSel[0]}` : `los protocolos ${protoSel.join(', ')}`}. Probá sacando el filtro.`
               : `Entre el ${formatAR(rango.desde)} y el ${formatAR(rango.hasta)} no se dispensó ni ingresó medicación. Probá con un período más amplio.`
           }
         />
@@ -330,16 +350,16 @@ function armarIndicadores(
 }
 
 function Filtros({
-  rango, preset, onPreset, onRango, protocolCode, protocolos, onProtocolo, accentSolid,
+  rango, preset, onPreset, onRango, protoOptions, protoSel, onProtocolos, accentSolid,
   onImprimirTodo, puedeImprimir,
 }: {
   rango: { desde: string; hasta: string }
   preset: Preset
   onPreset: (p: Exclude<Preset, 'custom'>) => void
   onRango: (desde: string, hasta: string) => void
-  protocolCode: string | null
-  protocolos: string[]
-  onProtocolo: (p: string | null) => void
+  protoOptions: MultiFilterOption[]
+  protoSel: string[]
+  onProtocolos: (next: string[]) => void
   accentSolid: string
   onImprimirTodo: () => void
   puedeImprimir: boolean
@@ -370,15 +390,15 @@ function Filtros({
 
         <span style={{ width: 1, height: 24, background: 'var(--spira-line)' }} />
 
-        <select
-          value={protocolCode ?? ''}
-          onChange={(e) => onProtocolo(e.target.value || null)}
-          aria-label="Filtrar por protocolo"
-          style={selectFiltro}
-        >
-          <option value="">Todos los protocolos</option>
-          {protocolos.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
+        <MultiFilterMenu
+          accent={accentSolid}
+          label="Protocolo"
+          icon="file"
+          options={protoOptions}
+          selected={protoSel}
+          onChange={onProtocolos}
+          searchPlaceholder="Buscar protocolo…"
+        />
 
         <button
           type="button"
@@ -450,12 +470,6 @@ const chipActivo: CSSProperties = {
   background: 'rgba(15, 95, 87, 0.10)', borderColor: 'rgba(15, 95, 87, 0.35)', color: 'var(--spira-pharma)',
 }
 
-const selectFiltro: CSSProperties = {
-  height: 38, padding: '0 12px', borderRadius: 10, borderWidth: 1, borderStyle: 'solid',
-  borderColor: 'var(--spira-line-2)', background: 'var(--spira-white)',
-  fontFamily: 'var(--spira-font-text)', fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)',
-  cursor: 'pointer',
-}
 
 const aplicada: CSSProperties = {
   fontSize: 12, color: 'var(--spira-ink-soft)', margin: '0 0 20px', lineHeight: 1.6, maxWidth: '92ch',
