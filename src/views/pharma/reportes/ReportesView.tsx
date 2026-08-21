@@ -31,7 +31,10 @@ import type { ContextoReporte } from './impresion'
 import { sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
 
 /**
- * Farmacia › Reportes. La vista de cierre de período.
+ * Farmacia › Estadísticas (el submódulo se llamaba "Reportes" hasta el 2026-08-20; la carpeta, el
+ * componente y la `key` siguen con el nombre viejo porque la clave la usan el registry, el buscador
+ * y las rutas guardadas). La vista de cierre de período: los números arriba, y desde cada bloque se
+ * imprime SU reporte — de ahí que "reporte" siga nombrando lo que sale por la impresora.
  *
  * UN SOLO SNAPSHOT alimenta la pantalla y las hojas impresas. Los agregados se derivan en
  * TypeScript de las filas que trae `useReportItems`, y no en SQL, por dos motivos: los tests
