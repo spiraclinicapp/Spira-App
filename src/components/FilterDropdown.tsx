@@ -22,17 +22,17 @@ interface Props {
   icon?: IconName
   id?: string
   /**
-   * Volver a pulsar la opción activa la SUELTA: vuelve a `options[0]`, igual que destildar en el
-   * menú multi. Es OPT-IN a propósito — solo vale donde `options[0]` es de verdad el valor neutro.
-   * En "Ordenar por" de Visitas la primera opción es un modo real ('En el centro primero'), así que
-   * ahí resetear no sería limpiar el filtro sino cambiar el orden sin que nadie lo pida.
+   * Volver a pulsar la opción activa vuelve a `options[0]`, igual que destildar en el menú multi.
+   * Qué significa eso depende de qué sea la primera opción: en un filtro es "limpiar" (todos), y en
+   * un selector de orden es "volver al predeterminado". Las dos lecturas son deseables, por eso el
+   * prop es opt-in y no comportamiento fijo: lo decide quien conoce sus opciones.
    */
   deselectable?: boolean
   /**
-   * Prefijo fijo en el disparador: se lee "Ordenar por: En el centro primero", como el control de
-   * orden de cualquier tienda. Para los menús donde el valor SOLO no dice qué hace — "En el centro"
-   * suelto entre filtros parecía otro filtro más. Sin prefijo, el disparador muestra el valor pelado
-   * (que es lo correcto cuando la opción ya se explica sola, como en la cola del médico).
+   * Prefijo fijo en el disparador: se lee "Ordenar por: En el centro", como el control de orden de
+   * cualquier tienda. Para los menús donde el valor SOLO no dice qué hace — "En el centro" suelto
+   * entre filtros parecía otro filtro más. Sin prefijo, el disparador muestra el valor pelado (que
+   * es lo correcto cuando la opción ya se explica sola, como en la cola del médico).
    */
   prefix?: string
 }

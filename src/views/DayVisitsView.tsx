@@ -161,7 +161,10 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
     { value: 'protocolo', label: 'Protocolo', count: null },
     { value: 'medico', label: 'Médico', count: null },
     { value: 'coordinador', label: 'Coordinador', count: null },
-    { value: 'ninguno', label: 'Sin agrupar', count: null },
+    /* "Sin agrupar" nombraba la mecánica interna. Bajo "Ordenar por", lo que hace esta opción es
+       no separar la lista en bloques: una sola tira, en el orden base (etapa, y a igual etapa por
+       hora de llegada). */
+    { value: 'ninguno', label: 'Sin separar', count: null },
   ]
 
   /* La fecha vive en la fila del título del shell (igual que en la cola "Para ver médico"); los
@@ -287,7 +290,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
         <MultiFilterMenu accent={accent} label="Médico" icon="users" options={medOptions} selected={fMed} onChange={setFMed} />
         <MultiFilterMenu accent={accent} label="Coordinador" icon="user" options={coordOptions} selected={fCoord} onChange={setFCoord} />
         <span style={{ width: 1, height: 22, background: 'var(--spira-line)', margin: '0 2px' }} />
-        <FilterDropdown accent={accent} value={group} onChange={(v) => setGroup(v as GroupBy)} options={groupOptions} menuLabel="Ordenar por" prefix="Ordenar por" icon="sliders" />
+        <FilterDropdown accent={accent} value={group} onChange={(v) => setGroup(v as GroupBy)} options={groupOptions} menuLabel="Ordenar por" prefix="Ordenar por" icon="sliders" deselectable />
         {anyActive && (
           <button
             type="button"
