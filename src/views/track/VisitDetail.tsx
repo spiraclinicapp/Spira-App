@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { useVisit } from '../../data/dayVisits'
+import { useVisit, markArrived, markAttended, markReady, markReadyWithOutcome, discontinueEnrollment } from '../../data/dayVisits'
+import { todayISO } from '../../lib/dates'
+import { ConfirmarAvance } from './ConfirmarAvance'
+import { ReadyOutcomeModal } from './ReadyOutcomeModal'
+import { RegisterVisitFlow } from './RegisterVisitFlow'
+import { useVisitPermissions } from '../../lib/visitPermissions'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { VisitProcedures } from './VisitProcedures'
 import { CommentThread } from './CommentThread'
 import { VisitDispensationPanel } from '../pharma/VisitDispensationPanel'
-import { advanceRole } from './advanceStep'
+import { advanceRole, necesitaConfirmacion, fechaRealAlAvanzar } from './advanceStep'
 import { Panel } from './Panel'
 import { VisitHeader } from './VisitHeader'
 import { VisitActionBar } from './VisitActionBar'
@@ -13,9 +18,15 @@ import { DoctorRequestModal } from './DoctorRequestModal'
 
 /**
  * Detalle de una visita (rediseño del encabezado, handoff `docs/handoff-visitas-encabezado/`). El
- * MISMO componente se abre desde tres lugares: la vista del día (`context="day"`), la ficha del
- * paciente y la cola del médico (ambas `context="patient"`, SOLO LECTURA). Trae sus datos por id con
- * `useVisit`, así los tres quedan sincronizados por construcción.
+ * MISMO componente se abre desde cuatro lugares —la vista del día, la ficha del paciente, la cola
+ * del médico y las alertas— y en todos se puede EDITAR. Trae sus datos por id con `useVisit`, así
+ * los cuatro quedan sincronizados por construcción.
+ *
+ * Hasta el 2026-08-20 solo era editable abierto desde "Visitas del día" (`context="day"`); por las
+ * otras tres puertas salía de solo lectura. Eso invertía para qué es la herramienta: no es una
+ * ficha de consulta, es donde se registra lo que va pasando MIENTRAS pasa, y quien la abre suele
+ * tener al paciente delante. Escribir o no lo decide el ROL (`useVisitPermissions`) y la RLS del
+ * otro lado, nunca la puerta por la que entraste.
  *
  * ```
  * ┌ VisitHeader ────────────────────────────────────────────────┐ ~191px
@@ -35,13 +46,18 @@ import { DoctorRequestModal } from './DoctorRequestModal'
  * (no tiene backend; anotado en `TODOS.md`).
  */
 export function VisitDetail({
-  visitId, accent, context, onClose, canReception = false, canClinical = false,
+  visitId, accent, onClose, canReception, canClinical,
   onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient,
 }: {
   visitId: string
   accent: string
-  context: 'day' | 'patient'
   onClose: () => void
+  /**
+   * Permisos YA resueltos por la vista que abre el modal. Son OPCIONALES: sin ellos el modal los
+   * calcula solo (`useVisitPermissions`), que es lo que necesitan la ficha, la cola y las alertas.
+   * "Visitas del día" sí los pasa, porque ya los calculó para pintar sus filas y así no repite la
+   * consulta de coordinaciones.
+   */
   canReception?: boolean
   canClinical?: boolean
   onAdvance?: (visit: DayVisitRow, next: OperationalStage) => void | Promise<void>
@@ -73,12 +89,22 @@ export function VisitDetail({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [doctorOpen, setDoctorOpen] = useState(false)
+  /** Etapa a la que se va a avanzar, esperando confirmación (solo si la visita no es de hoy). */
+  const [confirmando, setConfirmando] = useState<OperationalStage | null>(null)
+  /** Cierre clínico de screening/randomización, y su salida "recitar". */
+  const [outcomeFor, setOutcomeFor] = useState<DayVisitRow | null>(null)
+  const [recitar, setRecitar] = useState<DayVisitRow | null>(null)
 
-  const readOnly = context !== 'day'
+  /* Los permisos se calculan acá salvo que la vista ya los haya pasado (ver el comentario del
+     prop). El modal se edita se abra desde donde se abra: lo único que decide es el rol. */
+  const perms = useVisitPermissions(canReception === undefined || canClinical === undefined)
+  const puedeOperar = canReception ?? perms.canReception
+  const readOnly = !puedeOperar
   const canNav = !!(onPrev || onNext)
 
   const role = visit ? advanceRole(visit.operational_stage) : null
-  const canAdvance = role === 'reception' ? canReception : role === 'clinical' ? canClinical : false
+  const puedeClinica = canClinical ?? (visit ? perms.canClinical(visit) : false)
+  const canAdvance = role === 'reception' ? puedeOperar : role === 'clinical' ? puedeClinica : false
 
   // Esc cierra; ↑↓/j k navegan (solo si hay lista y el foco no está en un campo de texto).
   useEffect(() => {
@@ -108,13 +134,60 @@ export function VisitDetail({
 
   const refrescar = () => { onChanged?.(); q.refetch() }
 
-  const advance = async (next: OperationalStage) => {
-    if (!visit || !onAdvance) return
+  /**
+   * Pedir el avance. Si la visita NO es de hoy, primero confirma: desde la ficha o las alertas es
+   * fácil tener abierta una de hace dos meses y avanzarla creyendo que es la del día, y el cambio
+   * de etapa queda firmado en el audit_log. En el recorrido normal (visita de hoy) no interrumpe.
+   */
+  const advance = (next: OperationalStage) => {
+    if (!visit) return
+    if (necesitaConfirmacion(visit.real_date, todayISO())) { setConfirmando(next); return }
+    ejecutar(next)
+  }
+
+  /**
+   * Ejecutar el avance. Corre acá y no en el padre: el modal se abre desde cuatro pantallas y solo
+   * "Visitas del día" pasaba `onAdvance` — desde las otras tres el botón no hacía NADA (se veía
+   * habilitado y no pasaba nada al apretarlo). Si el padre lo pasa, sigue mandando él: mantiene sus
+   * avisos en la lista y su propio cierre clínico.
+   */
+  const ejecutar = async (next: OperationalStage) => {
+    if (!visit) return
     setBusy(true); setErr(null)
-    // El padre resuelve el caso especial: en screening/randomización, "Finalizar atención" abre el
-    // cierre clínico (ReadyOutcomeModal) en vez de marcar directo.
-    await onAdvance(visit, next)
-    setBusy(false)
+
+    /* Sin fecha real, avanzar la registra con la de HOY (pedido del Director, 2026-08-20): una
+       visita no debería cambiar de etapa sin quedar fechada. Si YA tiene, no se toca.
+       `markAttended` es la única ruta a `real_date` (ver su comentario en data/dayVisits). */
+    const fechar = fechaRealAlAvanzar(visit.real_date, next, todayISO())
+    if (fechar) {
+      const res = await markAttended(visit.id, fechar)
+      if (res.error) { setBusy(false); setErr(res.error); return }
+    }
+
+    if (onAdvance) {
+      await onAdvance(visit, next)
+      setBusy(false); setConfirmando(null)
+      refrescar()
+      return
+    }
+
+    // Screening y randomización no se cierran de un click: el desenlace clínico se captura en su
+    // propio modal (IVRS / randomizó), igual que en la lista del día.
+    if (next === 'fin_atencion' && (visit.role === 'screening' || visit.role === 'randomizacion')) {
+      setBusy(false); setConfirmando(null); setOutcomeFor(visit)
+      return
+    }
+
+    const res =
+      next === 'concurrio_al_centro' ? await markArrived(visit.id)
+      // Preserva la fecha real que ya tenga: acá "iniciar atención" puede estar corrigiendo el
+      // recorrido de una visita vieja, y pisarla con hoy le cambiaría el dato clínico.
+      : next === 'inicio_atencion' ? await markAttended(visit.id, visit.real_date ?? todayISO())
+      : next === 'fin_atencion' ? await markReady(visit.id)
+      : { error: 'Etapa desconocida.' }
+
+    setBusy(false); setConfirmando(null)
+    if (res.error) { setErr(res.error); return }
     refrescar()
   }
 
@@ -204,9 +277,51 @@ export function VisitDetail({
       <DoctorRequestModal
         visitId={visit.id}
         accent={accent}
-        canClinical={canClinical}
+        canClinical={puedeClinica}
         onClose={() => setDoctorOpen(false)}
         onChanged={refrescar}
+      />
+    )}
+
+    {/* Los tres van FUERA del backdrop, por el mismo motivo que el popup del médico. */}
+    {confirmando && visit && (
+      <ConfirmarAvance
+        visit={visit}
+        busy={busy}
+        onCancel={() => setConfirmando(null)}
+        onConfirmar={() => ejecutar(confirmando)}
+      />
+    )}
+
+    {outcomeFor && (outcomeFor.role === 'screening' || outcomeFor.role === 'randomizacion') && (
+      <ReadyOutcomeModal
+        role={outcomeFor.role}
+        accentSolid={accent}
+        onClose={() => setOutcomeFor(null)}
+        onConfirm={async (opts) => {
+          const res = await markReadyWithOutcome(outcomeFor.id, opts)
+          if (!res.error) refrescar()
+          return res
+        }}
+        onReschedule={() => { setOutcomeFor(null); setRecitar(outcomeFor) }}
+        onDiscontinue={async () => {
+          const res = await discontinueEnrollment(outcomeFor.enrollment_id)
+          if (!res.error) refrescar()
+          return res
+        }}
+      />
+    )}
+
+    {recitar && (
+      <RegisterVisitFlow
+        enrollmentId={recitar.enrollment_id}
+        protocolId={recitar.protocol_id}
+        randomizationDate={recitar.enrollment_randomization_date}
+        usedKinds={[]}
+        preselectDefId={recitar.visit_def_id}
+        accentSolid={accent}
+        onClose={() => setRecitar(null)}
+        onDone={() => { setRecitar(null); refrescar() }}
       />
     )}
     </>

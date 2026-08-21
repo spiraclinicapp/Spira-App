@@ -5,14 +5,14 @@ import { EmptyState } from '../../components/EmptyState'
 import { Chip } from '../../components/Chip'
 import { Toast } from '../../components/Toast'
 import { btnOutline } from '../../components/buttons'
-import { fieldLabelStyle } from '../../components/FormField'
-import { SearchableSelect } from '../../components/SearchableSelect'
-import { DateField } from '../../components/DateField'
+import { MultiFilterMenu } from '../../components/MultiFilterMenu'
+import type { MultiFilterOption } from '../../components/MultiFilterMenu'
+import { DateRangeField } from '../../components/DateRangeField'
 import { useAuth } from '../../lib/auth'
 import { addDaysISO, groupByDay, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
 import { useReceptions, useMedications, verifyReception, voidReception, TECHO_RECEPCIONES } from '../../data/pharma'
-import type { ReceptionRow, ReceptionKind } from '../../data/pharma'
+import type { ReceptionRow, ReceptionKind, ReceptionStatus } from '../../data/pharma'
 import { ReceptionWizard } from './ReceptionWizard'
 import { ReceptionCard } from './recepcion/ReceptionCard'
 import { ConfirmarVerificacion } from './recepcion/ConfirmarVerificacion'
@@ -21,9 +21,6 @@ import type { AnulableReceptionRow } from './recepcion/AnularRecepcion'
 import { KIND_CHIP } from './recepcion/ambitos'
 import { coincideBusqueda, totalesDelDia } from './recepcion/derivados'
 import type { ViewProps } from '../types'
-
-/** Filtro de ámbito de la lista: los tres o todos juntos. */
-type ChipFilter = 'todas' | ReceptionKind
 
 /**
  * Pharma → Recepción. Lista TRANSVERSAL de recepciones: todas las de todos los ámbitos,
@@ -44,19 +41,36 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const protocols = useProtocols()
   const catalog = useMedications() // para el filtro "Medicamento" (desplegable, sin texto libre)
 
-  const [chip, setChip] = useState<ChipFilter>('todas')
-  /** Eje de estado. Dos chips excluyentes; 'todas' es "ninguno tildado". */
-  const [estado, setEstado] = useState<'todas' | 'pendientes' | 'anuladas'>('todas')
+  /* CINCO FILTROS, TODOS DEL MISMO PALO. Antes esta toolbar tenía tres dialectos conviviendo
+     —chips excluyentes para estado, chips radio para ámbito, y un panel "Más filtros" con campos
+     de formulario— y el panel escondía justo los dos que más se usan. Ahora son menús
+     multi-selección iguales a los del resto de la app (vacío = todos) más el rango de fechas de
+     Reportes, y el panel desapareció. */
+  const [fEstados, setFEstados] = useState<ReceptionStatus[]>([])
+  const [fTipos, setFTipos] = useState<ReceptionKind[]>([])
+  const [fMeds, setFMeds] = useState<string[]>([])
+  const [fProtoSel, setFProtoSel] = useState<string[]>([])
   const [q, setQ] = useState('')
-  const [days, setDays] = useState<7 | 30 | null>(null)
-  const [moreOpen, setMoreOpen] = useState(false)
-  const [fProtocol, setFProtocol] = useState('')
-  const [fMedId, setFMedId] = useState('')
-  const [fDesde, setFDesde] = useState('')
-  const [fHasta, setFHasta] = useState('')
+  /** Rango de fechas; ambos vacíos = sin filtro (la lista arranca mostrando todo). */
+  const [desde, setDesde] = useState('')
+  const [hasta, setHasta] = useState('')
+
+  /* Los presets 7/30 no son estado propio: ESCRIBEN el rango, y su estado "activo" se deduce de
+     él. Guardarlos aparte permitía que el chip dijera "7 días" mientras el calendario mostraba
+     otra cosa — que es lo que pasaba antes, cuando eran dos filtros que se acumulaban. */
+  const rangoPreset = (n: 7 | 30) => ({ desde: addDaysISO(todayISO(), -(n - 1)), hasta: todayISO() })
+  const presetActivo = (n: 7 | 30) => { const r = rangoPreset(n); return desde === r.desde && hasta === r.hasta }
+  const togglePreset = (n: 7 | 30) => {
+    setHighlightId(null)
+    if (presetActivo(n)) { setDesde(''); setHasta(''); return }
+    const r = rangoPreset(n)
+    setDesde(r.desde); setHasta(r.hasta)
+  }
 
   // Definido acá arriba (no después del return temprano del wizard): onCreated lo captura.
-  const clearMore = () => { setFProtocol(''); setFMedId(''); setFDesde(''); setFHasta('') }
+  const limpiarFiltros = () => {
+    setFEstados([]); setFTipos([]); setFMeds([]); setFProtoSel([]); setDesde(''); setHasta('')
+  }
 
   const [creating, setCreating] = useState(false)
   const [highlightId, setHighlightId] = useState<string | null>(null)
@@ -71,8 +85,10 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   /** Error de verificación POR recepción: se muestra en la banda de su card, no en el tope. */
   const [errorPorId, setErrorPorId] = useState<Record<string, string>>({})
 
-  // El chip de ámbito filtra server-side (el resto es client-side sobre lo traído).
-  const receptions = useReceptions(chip === 'todas' ? null : chip, null)
+  // El tipo filtra server-side (el resto es client-side sobre lo traído): hay techo de filas, y
+  // filtrando en memoria "solo ambulatorias" podría no encontrar ninguna por haber traído 500 de
+  // protocolo. Ver el comentario de useReceptions.
+  const receptions = useReceptions(fTipos, null)
 
   // Auto-limpia el highlight tras 5 s para no dejar el resaltado indefinidamente.
   useEffect(() => {
@@ -96,37 +112,38 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   }, [setHeader, creating, canManage])
 
   const rows = useMemo(() => {
-    const desdeRango = days ? addDaysISO(todayISO(), -(days - 1)) : null
     return (receptions.data ?? []).filter((r) => {
-      if (estado === 'pendientes' && r.status !== 'pendiente') return false
-      if (estado === 'anuladas' && r.status !== 'anulada') return false
+      if (fEstados.length > 0 && !fEstados.includes(r.status)) return false
       if (!coincideBusqueda(r, q)) return false
-      if (desdeRango && r.reception_date < desdeRango) return false
-      if (fProtocol && r.protocol_id !== fProtocol) return false
-      if (fMedId && !r.items.some((it) => it.medication_id === fMedId)) return false
-      if (fDesde && r.reception_date < fDesde) return false
-      if (fHasta && r.reception_date > fHasta) return false
+      if (fProtoSel.length > 0 && !fProtoSel.includes(r.protocol_id ?? '')) return false
+      if (fMeds.length > 0 && !r.items.some((it) => fMeds.includes(it.medication_id))) return false
+      if (desde && r.reception_date < desde) return false
+      if (hasta && r.reception_date > hasta) return false
       return true
     })
-  }, [receptions.data, estado, q, days, fProtocol, fMedId, fDesde, fHasta])
+  }, [receptions.data, fEstados, q, fProtoSel, fMeds, desde, hasta])
 
   const groups = useMemo(() => groupByDay(rows, (r) => r.reception_date), [rows])
-  const moreCount = [fProtocol, fMedId, fDesde, fHasta].filter(Boolean).length
-  const hayFiltros = !!q.trim() || days !== null || moreCount > 0 || chip !== 'todas' || estado !== 'todas'
+  /* Cuenta VALORES elegidos, como el "Limpiar N" de Visitas; el rango cuenta como uno solo aunque
+     sean dos fechas. La búsqueda no entra: tiene su propio campo y se ve. */
+  const nFiltros = fEstados.length + fTipos.length + fMeds.length + fProtoSel.length + (desde || hasta ? 1 : 0)
+  const hayFiltros = !!q.trim() || nFiltros > 0
 
   // Cuando el wizard termina, volvemos a la cola y resaltamos la recepción recién creada.
   if (creating) {
     return (
       <ReceptionWizard
         accentSolid={accentSolid}
-        initialTipo={chip === 'todas' ? 'protocolo' : chip}
-        initialProtocolId={fProtocol}
+        // Igual que con el protocolo: el wizard hereda el tipo solo si hay UNO filtrado.
+        initialTipo={fTipos.length === 1 ? fTipos[0] : 'protocolo'}
+        // Solo si hay UN protocolo filtrado: con varios elegidos no hay uno "en contexto" y
+        // adivinar cuál sembraría el wizard con un dato que nadie pidió.
+        initialProtocolId={fProtoSel.length === 1 ? fProtoSel[0] : ''}
         onClose={() => setCreating(false)}
         // Al crear: resetear TODOS los filtros para que la recepción nueva nunca quede oculta por
         // un filtro activo y el highlight de 5 s se vea.
         onCreated={(id) => {
-          setCreating(false); setChip('todas'); setEstado('todas'); setQ('')
-          setDays(null); clearMore(); setHighlightId(id); receptions.refetch()
+          setCreating(false); setQ(''); limpiarFiltros(); setHighlightId(id); receptions.refetch()
         }}
       />
     )
@@ -169,120 +186,113 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   }
 
   // ── Toolbar (siempre visible, también en loading/error/vacío) ────────────────
+  // Las opciones se definen ANTES del toolbar a propósito: el JSX de abajo las usa y un `const`
+  // declarado después quedaría en zona muerta (ReferenceError al renderizar, no error de compilación).
+  const protoOptions: MultiFilterOption[] = (protocols.data ?? []).map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }))
+  const medOptions: MultiFilterOption[] = (catalog.data ?? []).map((m) => ({ value: m.id, label: m.name }))
+  /* Los tipos van SIN conteo: el tipo filtra en la BASE, así que apenas elegís uno los otros dos
+     valdrían 0 y el menú diría que no existen. */
+  const tipoOptions: MultiFilterOption[] = (Object.keys(KIND_CHIP) as ReceptionKind[])
+    .map((k) => ({ value: k, label: KIND_CHIP[k].label }))
+  /* El estado SÍ lleva conteo: filtra en memoria, así que cuenta sobre todo lo cargado. Si hay un
+     tipo elegido, cuenta dentro de ese universo — que es el que se está mirando. */
+  const estadoOptions: MultiFilterOption[] = (['pendiente', 'verificada', 'anulada'] as ReceptionStatus[])
+    .map((s) => ({
+      value: s,
+      label: s === 'pendiente' ? 'Pendientes' : s === 'verificada' ? 'Verificadas' : 'Anuladas',
+      count: receptions.data ? receptions.data.filter((r) => r.status === s).length : null,
+    }))
   const toolbar = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      {/* Buscador con la misma caja que el resto de los controles de la fila (38 de alto, radio 10):
+          quedaba una píldora de 40 entre botones rectangulares de 38. Con la lupa como hermana flex
+          y no como capa absoluta, además, no puede taparla el levante del foco. */}
       <div style={searchWrap}>
-        <span style={{ position: 'absolute', left: 13, display: 'grid', placeItems: 'center' }}>
-          <Icon name="search" size={16} color="var(--spira-faint)" />
-        </span>
+        <Icon name="search" size={15} color="var(--spira-faint)" />
         <input
+          className="spira-bare-input"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar por folio, medicamento, EAN, lote…"
+          placeholder="Folio, medicamento, EAN o lote…"
           aria-label="Buscar recepción por folio, medicamento, código, lote o protocolo"
-          className="spira-search-input"
           style={searchInput}
         />
+        {q && (
+          <button type="button" onClick={() => setQ('')} aria-label="Limpiar búsqueda" style={searchClear}>
+            <Icon name="x" size={13} color="var(--spira-faint)" />
+          </button>
+        )}
       </div>
 
-      {/* Eje 1: estado. Dos toggles excluyentes (ninguno = todas), como el rango 7/30 de la
-          derecha. Un radiogroup con su propio "Todas" quedaría al lado del "Todas" del ámbito. */}
-      <div style={{ display: 'flex', gap: 7 }}>
-        <Chip
-          toggle
-          label="Pendientes"
-          selected={estado === 'pendientes'}
-          onClick={() => { setEstado((v) => (v === 'pendientes' ? 'todas' : 'pendientes')); setHighlightId(null) }}
-          accent={accentSolid}
-        />
-        <Chip
-          toggle
-          label="Anuladas"
-          selected={estado === 'anuladas'}
-          onClick={() => { setEstado((v) => (v === 'anuladas' ? 'todas' : 'anuladas')); setHighlightId(null) }}
-          accent={accentSolid}
-        />
-      </div>
+      <MultiFilterMenu
+        accent={accentSolid}
+        label="Estado"
+        icon="filter"
+        options={estadoOptions}
+        selected={fEstados}
+        onChange={(next) => { setFEstados(next as ReceptionStatus[]); setHighlightId(null) }}
+      />
+      <MultiFilterMenu
+        accent={accentSolid}
+        label="Medicamento"
+        icon="pill"
+        options={medOptions}
+        selected={fMeds}
+        onChange={(next) => { setFMeds(next); setHighlightId(null) }}
+        searchPlaceholder="Buscar medicamento…"
+      />
+      <MultiFilterMenu
+        accent={accentSolid}
+        label="Tipo"
+        icon="clipboardCheck"
+        options={tipoOptions}
+        selected={fTipos}
+        onChange={(next) => { setFTipos(next as ReceptionKind[]); setHighlightId(null) }}
+      />
+      {/* Protocolo va pegado a Tipo: los dos dicen de dónde viene la recepción, y separados por
+          media fila el par se leía como dos cosas distintas. */}
+      <MultiFilterMenu
+        accent={accentSolid}
+        label="Protocolo"
+        icon="file"
+        options={protoOptions}
+        selected={fProtoSel}
+        onChange={(next) => { setFProtoSel(next); setHighlightId(null) }}
+        searchPlaceholder="Buscar protocolo…"
+      />
+
       <span style={separador} />
 
-      {/* Eje 2: ámbito. */}
-      <div role="radiogroup" aria-label="Ámbito de la recepción" style={{ display: 'flex', gap: 7 }}>
-        <Chip label="Todas" selected={chip === 'todas'} onClick={() => { setChip('todas'); setHighlightId(null) }} accent={accentSolid} />
-        {(Object.keys(KIND_CHIP) as ReceptionKind[]).map((k) => (
-          <Chip key={k} label={KIND_CHIP[k].label} selected={chip === k} onClick={() => { setChip(k); setHighlightId(null) }} accent={accentSolid} />
-        ))}
-      </div>
-      <span style={separador} />
-
+      {/* Los presets NO son un eje aparte del rango: escriben el mismo desde/hasta que el
+          calendario, así que lo que muestra el selector es siempre lo que se está aplicando.
+          Antes eran dos filtros distintos que se acumulaban en silencio. */}
       <div style={{ display: 'flex', gap: 7 }}>
-        {/* Rango como toggles (se destildan al re-clickear) — no son radios. */}
-        <Chip toggle label="7 días" selected={days === 7} onClick={() => setDays(days === 7 ? null : 7)} accent={accentSolid} />
-        <Chip toggle label="30 días" selected={days === 30} onClick={() => setDays(days === 30 ? null : 30)} accent={accentSolid} />
+        <Chip toggle label="7 días" selected={presetActivo(7)} onClick={() => togglePreset(7)} accent={accentSolid} />
+        <Chip toggle label="30 días" selected={presetActivo(30)} onClick={() => togglePreset(30)} accent={accentSolid} />
       </div>
+      <DateRangeField
+        accent={accentSolid}
+        desde={desde}
+        hasta={hasta}
+        onChange={(d, h) => { setDesde(d); setHasta(h); setHighlightId(null) }}
+        max={yearsFromTodayISO(2)}
+        aniosAtras={10}
+        placeholder="Todas las fechas"
+        ariaLabel="Filtrar las recepciones por rango de fechas"
+      />
 
-      <button
-        type="button"
-        onClick={() => setMoreOpen((v) => !v)}
-        aria-expanded={moreOpen}
-        style={{ ...btnOutline, height: 36, fontSize: 13, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7 }}
-      >
-        <Icon name="sliders" size={15} color="var(--spira-muted)" /> Más filtros{moreCount > 0 ? ` · ${moreCount}` : ''}
-      </button>
+      {nFiltros > 0 && (
+        <button type="button" onClick={limpiarFiltros} style={clearBtn}>
+          <Icon name="x" size={13} color="var(--spira-muted)" /> Limpiar {nFiltros}
+        </button>
+      )}
     </div>
   )
-
-  const protocolOptions = [
-    { value: 'all', label: 'Todos' },
-    ...(protocols.data ?? []).map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })),
-  ]
-  const medOptions = [
-    { value: 'all', label: 'Todos' },
-    ...(catalog.data ?? []).map((m) => ({ value: m.id, label: m.name })),
-  ]
-
-  const morePanel = moreOpen ? (
-    <div style={panel}>
-      <label style={filterField}>
-        <span style={fieldLabelStyle}>Protocolo</span>
-        <SearchableSelect
-          value={fProtocol || 'all'}
-          onChange={(v) => setFProtocol(v === 'all' ? '' : v)}
-          options={protocolOptions}
-          placeholder="Todos"
-          searchPlaceholder="Buscar protocolo…"
-          entity="protocolo"
-          menuWidth="auto"  // opciones (código — nombre) más largas que el campo
-        />
-      </label>
-      <label style={filterField}>
-        <span style={fieldLabelStyle}>Medicamento</span>
-        <SearchableSelect
-          value={fMedId || 'all'}
-          onChange={(v) => setFMedId(v === 'all' ? '' : v)}
-          options={medOptions}
-          placeholder="Todos"
-          searchPlaceholder="Buscar medicamento…"
-          entity="medicamento"
-          menuWidth="auto"
-        />
-      </label>
-      <label style={filterField}>
-        <span style={fieldLabelStyle}>Desde</span>
-        <DateField value={fDesde} onChange={setFDesde} min={yearsFromTodayISO(-10)} max={yearsFromTodayISO(2)} />
-      </label>
-      <label style={filterField}>
-        <span style={fieldLabelStyle}>Hasta</span>
-        <DateField value={fHasta} onChange={setFHasta} min={yearsFromTodayISO(-10)} max={yearsFromTodayISO(2)} />
-      </label>
-      <button type="button" onClick={clearMore} style={{ ...btnOutline, height: 38, alignSelf: 'flex-end' }}>Limpiar</button>
-    </div>
-  ) : null
 
   if (receptions.loading) {
     return (
       <div style={wrap}>
         {toolbar}
-        {morePanel}
         <EmptyState accent={accent} icon={submodule.icon} title="Cargando…" description="Un momento." />
       </div>
     )
@@ -291,7 +301,6 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     return (
       <div style={wrap}>
         {toolbar}
-        {morePanel}
         <div style={errorBox}><Icon name="alertCircle" size={18} color="var(--spira-danger)" /> No pudimos cargar las recepciones.</div>
         <button onClick={() => receptions.refetch()} style={btnOutline}>Reintentar</button>
       </div>
@@ -301,7 +310,6 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   return (
     <div style={wrap}>
       {toolbar}
-      {morePanel}
 
       {/* La lista llegó recortada: los totales por día dirían menos de lo que hubo. */}
       {receptions.truncado && (
@@ -387,17 +395,21 @@ const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16 
 const errorBox: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 10, padding: '12px 14px' }
 const avisoBox: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, color: 'var(--spira-ink-soft)', background: 'rgba(176,130,63,.10)', borderRadius: 10, padding: '11px 14px', lineHeight: 1.5 }
 const separador: CSSProperties = { width: 1, height: 24, background: 'var(--spira-line)', flex: '0 0 auto' }
-const searchWrap: CSSProperties = { position: 'relative', flex: 1, minWidth: 230, maxWidth: 340, display: 'flex', alignItems: 'center' }
+const searchWrap: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 8, height: 38, width: 250, padding: '0 12px',
+  borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
+}
 const searchInput: CSSProperties = {
-  width: '100%', height: 40, padding: '0 13px 0 38px', borderRadius: 999,
-  border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', boxShadow: 'var(--spira-shadow-sm)',
-  color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 13.5,
+  flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
+  color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 13,
 }
-const panel: CSSProperties = {
-  display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end',
-  border: '1px solid var(--spira-line)', borderRadius: 14, background: 'var(--spira-white)', padding: '12px 14px',
+const searchClear: CSSProperties = { border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 0 }
+/** "Limpiar N": mismo botón fantasma que en Visitas y Stock. */
+const clearBtn: CSSProperties = {
+  height: 38, padding: '0 12px', borderRadius: 10, border: 'none', background: 'transparent',
+  color: 'var(--spira-muted)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600,
+  fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 6,
 }
-const filterField: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 180 }
 
 // Barra del día: fecha, una regla que ocupa el espacio libre, y el conteo a la derecha.
 const daybar: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 11, padding: '0 2px 10px' }

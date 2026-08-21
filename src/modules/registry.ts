@@ -98,7 +98,10 @@ export const MODULES: ModuleDef[] = [
       // cambia — la usan views/registry.tsx, el buscador y las rutas guardadas.
       { key: 'medicamentos', name: 'Stock', icon: 'pill', hint: 'Inventario de medicación' },
       { key: 'dispensaciones', name: 'Dispensaciones', icon: 'box', hint: 'Entrega de medicación' },
-      { key: 'reportes', name: 'Reportes', icon: 'barChart', hint: 'Cierre de período' },
+      // Rótulo "Estadísticas" (era "Reportes"), decisión del Director del 2026-08-20: lo que se
+      // mira ahí son los números del período; los reportes son lo que se IMPRIME desde adentro.
+      // La `key` NO cambia — la usan views/registry.tsx, el buscador y las rutas guardadas.
+      { key: 'reportes', name: 'Estadísticas', icon: 'barChart', hint: 'Los números del período' },
     ],
   },
   {

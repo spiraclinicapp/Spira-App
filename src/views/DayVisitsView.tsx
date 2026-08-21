@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { btnOutline } from '../components/buttons'
@@ -7,10 +7,9 @@ import type { FilterOption } from '../components/FilterDropdown'
 import { MultiFilterMenu } from '../components/MultiFilterMenu'
 import type { MultiFilterOption } from '../components/MultiFilterMenu'
 import { DateNavButton } from '../components/DateNavButton'
-import { useAuth } from '../lib/auth'
 import { todayISO, dayName, formatShortAR } from '../lib/dates'
 import { visitCode } from '../lib/visits'
-import { useMyCoordinations } from '../data/protocols'
+import { useVisitPermissions } from '../lib/visitPermissions'
 import {
   useVisitsForDay, markArrived, markAttended, markReady, markNoShow,
   markReadyWithOutcome, discontinueEnrollment,
@@ -54,10 +53,8 @@ const esperaMedico = (v: DayVisitRow) => v.wants_doctor && v.operational_stage !
 export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTarget, onTargetConsumed }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
-  const { profile, hasMinRole } = useAuth()
   const [date, setDate] = useState(todayISO())
   const day = useVisitsForDay(date)
-  const coords = useMyCoordinations(profile?.id ?? null)
   const randoPending = useRandoAttendedWithoutDate()
 
   // Filtros multi (AND entre categorías, OR dentro) + buscador + "Para ver médico" + agrupación.
@@ -79,11 +76,9 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   const [recitar, setRecitar] = useState<TrackVisitRow | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
 
-  const canReception = hasMinRole('track', 'operator')
-  const isTrackAdmin = hasMinRole('track', 'admin')
-  const coordSet = useMemo(() => new Set((coords.data ?? []).map((c) => c.protocol_id)), [coords.data])
-  const canClinical = (v: Pick<TrackVisitRow, 'protocol_id'>) =>
-    isTrackAdmin || (hasMinRole('track', 'operator') && coordSet.has(v.protocol_id))
+  /* Quién puede qué vive en un solo lugar, compartido con el modal de la visita: si la regla se
+     duplicara, la fila y el modal podrían terminar diciendo cosas distintas del mismo permiso. */
+  const { canReception, canClinical, loading: permisosCargando } = useVisitPermissions()
 
   const isToday = date === todayISO()
   const rows = day.data ?? []
@@ -154,13 +149,22 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   const anyActive = nFilters > 0 || q.trim().length > 0
   const clearAll = () => { setFEstado([]); setFProto([]); setFMed([]); setFCoord([]); setQ('') }
 
+  /* El rótulo del control dice "Ordenar por" (pedido del Director, 2026-08-20): con el valor solo
+     —"En el centro"— parecía un filtro más de la fila, y "agrupar" es palabra nuestra, no de quien
+     usa la pantalla. Elegir una dimensión efectivamente cambia el orden en que sale la lista, así
+     que el rótulo no promete nada que no haga; los grupos siguen ahí, con sus encabezados.
+     La etiqueta de la primera opción queda CORTA a propósito: con el prefijo delante, "En el centro"
+     ya se entiende, y "En el centro primero" medía 58px más en una fila que venía justa (medido). */
   const groupOptions: FilterOption[] = [
     { value: 'operativo', label: 'En el centro', count: null },
     { value: 'estado', label: 'Estado', count: null },
     { value: 'protocolo', label: 'Protocolo', count: null },
     { value: 'medico', label: 'Médico', count: null },
     { value: 'coordinador', label: 'Coordinador', count: null },
-    { value: 'ninguno', label: 'Sin agrupar', count: null },
+    /* "Sin agrupar" nombraba la mecánica interna. Bajo "Ordenar por", lo que hace esta opción es
+       no separar la lista en bloques: una sola tira, en el orden base (etapa, y a igual etapa por
+       hora de llegada). */
+    { value: 'ninguno', label: 'Sin separar', count: null },
   ]
 
   /* La fecha vive en la fila del título del shell (igual que en la cola "Para ver médico"); los
@@ -233,7 +237,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
     day.refetch()
   }
 
-  if (day.loading || coords.loading) {
+  if (day.loading || permisosCargando) {
     return <EmptyState accent={accent} icon={submodule.icon} title="Cargando visitas del día…" description="Un momento." />
   }
   if (day.error) {
@@ -286,7 +290,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
         <MultiFilterMenu accent={accent} label="Médico" icon="users" options={medOptions} selected={fMed} onChange={setFMed} />
         <MultiFilterMenu accent={accent} label="Coordinador" icon="user" options={coordOptions} selected={fCoord} onChange={setFCoord} />
         <span style={{ width: 1, height: 22, background: 'var(--spira-line)', margin: '0 2px' }} />
-        <FilterDropdown accent={accent} value={group} onChange={(v) => setGroup(v as GroupBy)} options={groupOptions} menuLabel="Agrupar por" icon="sliders" />
+        <FilterDropdown accent={accent} value={group} onChange={(v) => setGroup(v as GroupBy)} options={groupOptions} menuLabel="Ordenar por" prefix="Ordenar por" icon="sliders" deselectable />
         {anyActive && (
           <button
             type="button"
@@ -443,7 +447,6 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
           visitId={openVisit.id}
           seed={openVisit}
           accent={accent}
-          context="day"
           canReception={canReception}
           canClinical={canClinical(openVisit)}
           onAdvance={advance}

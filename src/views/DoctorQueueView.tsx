@@ -201,12 +201,11 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
         <VisitDetail
           visitId={openVisitId}
           accent={accent}
-          context="patient"
           onChanged={() => queue.refetch()}
           onClose={() => setOpenVisitId(null)}
           // Desde la cola, el nombre lleva a la ficha del paciente (ver el comentario del mismo
-          // prop en Visitas del día). Acá el modal es de solo lectura y el salto a la ficha es
-          // justamente lo que hace falta para ver el resto del historial.
+          // prop en Visitas del día): el salto a la ficha es lo que hace falta para ver el resto
+          // del historial.
           // El pasaje de vuelta trae de nuevo a la cola, pero SIN reabrir el modal: esta vista no
           // consume `navTarget` (a diferencia de Visitas del día), así que prometerlo sería mentir.
           onOpenPatient={(patientId) => onNavigate?.(

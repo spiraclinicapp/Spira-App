@@ -179,7 +179,6 @@ export function PatientFichaView(props: PatientFichaViewProps) {
         <VisitDetail
           visitId={openVisitId}
           accent={accent}
-          context="patient"
           onClose={() => setOpenVisitId(null)}
         />
       )}

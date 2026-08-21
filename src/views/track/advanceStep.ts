@@ -23,3 +23,30 @@ export function advanceRole(stage: OperationalStage): 'reception' | 'clinical' |
   if (stage === 'concurrio_al_centro' || stage === 'inicio_atencion') return 'clinical'
   return null
 }
+
+/**
+ * ¿Hay que confirmar antes de cambiar la etapa? Sí, salvo que la visita sea la de HOY.
+ *
+ * El modal se abre desde cuatro pantallas, y desde la ficha o las alertas es fácil tener delante
+ * una visita de hace dos meses y avanzarla creyendo que es la del día. Una visita SIN fecha real
+ * también se confirma: avanzar le va a escribir una (ver `fechaRealAlAvanzar`).
+ */
+export function necesitaConfirmacion(realDate: string | null, hoy: string): boolean {
+  return realDate !== hoy
+}
+
+/**
+ * Qué fecha real hay que ESCRIBIR al avanzar, o `null` si no hay que tocarla.
+ *
+ * Regla del Director (2026-08-20): si la visita no tiene fecha real, avanzar se la pone con la de
+ * hoy —una visita no debería cambiar de etapa sin quedar fechada—; si ya tiene, no se toca nunca:
+ * es un dato clínico, y pisarlo cambiaría cuándo dice la historia que pasó la visita.
+ *
+ * `inicio_atencion` queda afuera porque ESE avance ya es el que fecha la visita (`markAttended`):
+ * escribirla antes sería hacer dos veces lo mismo.
+ */
+export function fechaRealAlAvanzar(realDate: string | null, next: OperationalStage, hoy: string): string | null {
+  if (realDate) return null
+  if (next === 'inicio_atencion') return null
+  return hoy
+}

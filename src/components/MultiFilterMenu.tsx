@@ -14,30 +14,40 @@ export interface MultiFilterOption {
 
 /**
  * Filtro MULTI-selección para las listas del día: botón con ícono + etiqueta + badge de cantidad
- * seleccionada, que abre un popover de opciones con checkbox + conteo y un pie "Limpiar". Hermano de
+ * seleccionada, que abre un popover titulado de opciones —teñidas y con el tilde a la DERECHA cuando
+ * están elegidas, sin casillero— y un pie "Limpiar". Hermano de
  * `FilterDropdown` (single-select) — mismo `usePopover` (fixed + clamp de viewport) y mismo lenguaje
  * visual. AND entre filtros distintos, OR dentro de cada uno (la lógica vive en el consumidor).
+ *
+ * Con `searchPlaceholder` suma un buscador arriba de la lista: en Visitas las opciones son las del
+ * día (un puñado) y sobraría, pero el Stock filtra contra TODOS los protocolos del centro y sin
+ * buscar no se encuentra nada. El término se limpia al cerrar, así el menú nunca reabre filtrado.
  */
-export function MultiFilterMenu({ accent, label, icon = 'filter', options, selected, onChange }: {
+export function MultiFilterMenu({ accent, label, icon = 'filter', options, selected, onChange, searchPlaceholder }: {
   accent: string
   label: string
   icon?: IconName
   options: readonly MultiFilterOption[]
   selected: string[]
   onChange: (next: string[]) => void
+  searchPlaceholder?: string
 }) {
   const [open, setOpen] = useState(false)
-  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
+  const [q, setQ] = useState('')
+  const close = () => { setOpen(false); setQ('') }
+  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, close)
   const n = selected.length
   const on = n > 0
   const toggle = (val: string) => onChange(selected.includes(val) ? selected.filter((x) => x !== val) : [...selected, val])
+  const term = q.trim().toLowerCase()
+  const visibles = term ? options.filter((o) => o.label.toLowerCase().includes(term)) : options
 
   return (
     <div style={{ position: 'relative' }}>
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? close() : setOpen(true))}
         aria-haspopup="listbox"
         aria-expanded={open}
         style={{ ...trigger, border: `1px solid ${open || on ? accent : 'var(--spira-line-2)'}`, background: on ? accent + '12' : 'var(--spira-white)' }}
@@ -55,9 +65,28 @@ export function MultiFilterMenu({ accent, label, icon = 'filter', options, selec
           fixed, igual que un `transform`. Dibujado adentro, el menú aterriza lejos del campo. */}
       {open && pos && createPortal(
         <div ref={popRef} role="listbox" aria-multiselectable style={{ ...menu, top: pos.top, left: pos.left, minWidth: Math.max(pos.width, 210) }}>
+          <div style={eyebrow}>{label}</div>
+          {/* `spira-input-affix` NO es decorativo: el foco levanta el input 1px con un `transform`,
+              que lo promueve a su propio contexto de apilamiento y lo hace pintarse ENCIMA del ícono
+              (que va antes en el DOM), tapándolo con su fondo blanco. Acá se notaba apenas abrías el
+              menú, porque el campo entra enfocado (`autoFocus`). La clase le pone el `z-index: 1`
+              que lo mantiene arriba; el `left` lo pisa el inline porque este campo es más angosto
+              que el del login. */}
+          {searchPlaceholder && (
+            <div className="spira-input-affix" style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+              <span className="spira-input-affix-icon" style={{ left: 9 }}>
+                <Icon name="search" size={14} color="var(--spira-muted)" />
+              </span>
+              <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus placeholder={searchPlaceholder} style={search} />
+            </div>
+          )}
           <div className="spira-scroll" style={{ maxHeight: 280, overflow: 'auto' }}>
-            {options.length === 0 && <div style={{ padding: '8px 10px', fontSize: 12.5, color: 'var(--spira-faint)' }}>Sin opciones</div>}
-            {options.map((o) => {
+            {visibles.length === 0 && (
+              <div style={{ padding: '8px 10px', fontSize: 12.5, color: 'var(--spira-faint)' }}>
+                {term ? 'Sin resultados' : 'Sin opciones'}
+              </div>
+            )}
+            {visibles.map((o) => {
               const sel = selected.includes(o.value)
               return (
                 <button
@@ -66,13 +95,11 @@ export function MultiFilterMenu({ accent, label, icon = 'filter', options, selec
                   role="option"
                   aria-selected={sel}
                   onClick={() => toggle(o.value)}
-                  style={{ ...item, background: sel ? accent + '10' : 'transparent' }}
+                  style={{ ...item, background: sel ? accent + '14' : 'transparent' }}
                 >
-                  <span style={{ width: 16, height: 16, flex: '0 0 auto', borderRadius: 5, display: 'grid', placeItems: 'center', border: `1.5px solid ${sel ? accent : 'var(--spira-line-2)'}`, background: sel ? accent : 'transparent' }}>
-                    {sel && <Icon name="check" size={11} color="var(--spira-on-accent)" stroke={3} />}
-                  </span>
-                  <span style={{ flex: 1, textAlign: 'left', color: sel ? 'var(--spira-ink)' : 'var(--spira-muted)', fontWeight: sel ? 600 : 500 }}>{o.label}</span>
+                  <span style={{ flex: 1, textAlign: 'left', color: sel ? accent : 'var(--spira-muted)', fontWeight: sel ? 700 : 500 }}>{o.label}</span>
                   {o.count != null && <span style={{ fontSize: 11.5, color: 'var(--spira-faint)', fontVariantNumeric: 'tabular-nums' }}>{o.count}</span>}
+                  <span style={checkSlot}>{sel && <Icon name="check" size={14} color={accent} stroke={2.6} />}</span>
                 </button>
               )
             })}
@@ -111,4 +138,17 @@ const menu: CSSProperties = {
 const item: CSSProperties = {
   width: '100%', minHeight: 38, padding: '8px 10px', borderRadius: 9, border: 'none', cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 10,
+}
+const eyebrow: CSSProperties = {
+  fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--spira-faint)',
+  fontWeight: 700, padding: '7px 10px 6px',
+}
+/* El tilde va del lado DERECHO (pedido del Director, 2026-08-20): sin casillero a la izquierda las
+   etiquetas arrancan todas alineadas y la lista se lee como una columna limpia. El hueco se reserva
+   igual cuando no está elegido, para que el renglón no se corra al tildar. */
+const checkSlot: CSSProperties = { width: 16, flex: '0 0 auto', display: 'grid', placeItems: 'center' }
+const search: CSSProperties = {
+  width: '100%', height: 34, padding: '0 10px 0 30px', borderRadius: 8, border: '1px solid var(--spira-line-2)',
+  background: 'var(--spira-white)', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 13,
+  boxShadow: 'var(--spira-shadow-sm)',
 }

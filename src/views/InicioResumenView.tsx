@@ -51,7 +51,7 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
      de la card de Coordinación. El rango va de hace 30 días al fin de la semana en curso para que
      los dos entren; `useWeekVisits` toma cualquier rango, pese al nombre. */
   const rango = useWeekVisits(hace30, semanaFin > hoy ? semanaFin : hoy)
-  const recep = useReceptions(null, null)
+  const recep = useReceptions([], null)
   /* El tablero del día trae los pedidos ABIERTOS ('solicitada'/'preparando') más los atendidos hoy.
      Los abiertos son la cifra que el handoff pide en la banda y en la card de Farmacia. */
   const board = useDispensationBoard(hoy)

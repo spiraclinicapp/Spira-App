@@ -21,6 +21,20 @@ interface Props {
   menuLabel: string
   icon?: IconName
   id?: string
+  /**
+   * Volver a pulsar la opción activa vuelve a `options[0]`, igual que destildar en el menú multi.
+   * Qué significa eso depende de qué sea la primera opción: en un filtro es "limpiar" (todos), y en
+   * un selector de orden es "volver al predeterminado". Las dos lecturas son deseables, por eso el
+   * prop es opt-in y no comportamiento fijo: lo decide quien conoce sus opciones.
+   */
+  deselectable?: boolean
+  /**
+   * Prefijo fijo en el disparador: se lee "Ordenar por: En el centro", como el control de orden de
+   * cualquier tienda. Para los menús donde el valor SOLO no dice qué hace — "En el centro" suelto
+   * entre filtros parecía otro filtro más. Sin prefijo, el disparador muestra el valor pelado (que
+   * es lo correcto cuando la opción ya se explica sola, como en la cola del médico).
+   */
+  prefix?: string
 }
 
 /**
@@ -30,7 +44,7 @@ interface Props {
  * Comparte `usePopover` (fixed + clamp de viewport) con `SearchableSelect`/`DateField`, así el
  * popover nunca se recorta contra el borde de la pantalla.
  */
-export function FilterDropdown({ accent, value, onChange, options, menuLabel, icon = 'filter', id }: Props) {
+export function FilterDropdown({ accent, value, onChange, options, menuLabel, icon = 'filter', id, deselectable = false, prefix }: Props) {
   const [open, setOpen] = useState(false)
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
   const active = options.find((o) => o.value === value) ?? options[0]
@@ -48,6 +62,7 @@ export function FilterDropdown({ accent, value, onChange, options, menuLabel, ic
         style={{ ...trigger, border: `1px solid ${open || on ? accent : 'var(--spira-line-2)'}`, background: on ? accent + '12' : 'var(--spira-white)' }}
       >
         <Icon name={icon} size={15} color={on ? accent : 'var(--spira-muted)'} />
+        {prefix && <span style={prefixLabel}>{prefix}:</span>}
         <span style={{ ...triggerLabel, color: on ? accent : 'var(--spira-ink)' }}>{active?.label}</span>
         {active?.count != null && <span style={{ ...badge, background: accent }}>{active.count}</span>}
         <Icon name="chevronDown" size={15} color="var(--spira-muted)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
@@ -69,14 +84,14 @@ export function FilterDropdown({ accent, value, onChange, options, menuLabel, ic
                 type="button"
                 role="option"
                 aria-selected={sel}
-                onClick={() => { onChange(o.value); setOpen(false) }}
+                onClick={() => { onChange(deselectable && sel ? options[0].value : o.value); setOpen(false) }}
                 style={{ ...item, background: sel ? accent + '14' : 'transparent', color: sel ? accent : 'var(--spira-ink)', fontWeight: sel ? 700 : 500 }}
               >
-                <span style={checkSlot}>{sel && <Icon name="check" size={14} color={accent} />}</span>
                 <span style={{ flex: 1, textAlign: 'left' }}>{o.label}</span>
                 {o.count != null && (
                   <span style={{ ...badge, background: sel ? accent : 'var(--spira-line)', color: sel ? 'var(--spira-on-accent)' : 'var(--spira-muted)' }}>{o.count}</span>
                 )}
+                <span style={checkSlot}>{sel && <Icon name="check" size={14} color={accent} stroke={2.6} />}</span>
               </button>
             )
           })}
@@ -93,6 +108,12 @@ const trigger: CSSProperties = {
   fontFamily: 'var(--spira-font-text)',
 }
 const triggerLabel: CSSProperties = { fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }
+/* El prefijo es el rótulo, no el valor: va en peso normal y en gris para que el ojo caiga en lo
+   elegido. Marca negativa para pegarlo a su valor sin romper el `gap` del resto del botón. */
+const prefixLabel: CSSProperties = {
+  fontFamily: 'var(--spira-font-text)', fontWeight: 500, fontSize: 13.5,
+  color: 'var(--spira-muted)', whiteSpace: 'nowrap', marginRight: -4,
+}
 const badge: CSSProperties = {
   fontSize: 11.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums', minWidth: 18, height: 18,
   padding: '0 5px', borderRadius: 'var(--spira-radius-pill)', color: 'var(--spira-on-accent)',
@@ -111,4 +132,7 @@ const item: CSSProperties = {
   width: '100%', height: 40, padding: '0 10px', borderRadius: 9, border: 'none', cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 9,
 }
+/* El tilde va del lado DERECHO (pedido del Director, 2026-08-20), igual que en `MultiFilterMenu`:
+   las etiquetas arrancan todas alineadas y los dos menús de una misma fila de filtros se leen igual.
+   El hueco se reserva siempre, así el renglón no se corre al cambiar de opción. */
 const checkSlot: CSSProperties = { width: 16, flex: '0 0 auto', display: 'grid', placeItems: 'center' }

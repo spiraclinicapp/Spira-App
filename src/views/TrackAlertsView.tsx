@@ -69,8 +69,8 @@ function refDate(a: TrackVisitRow): string | null {
  * Cada alerta ABRE SU VISITA en el mismo modal que el resto de la app (`VisitDetail`), acá
  * adentro: la alerta se resuelve mirando la visita, no saltando a otra pantalla. Las dos clases
  * de alerta sirven para eso —las de visita por su `id`, las de reporte de procedimiento por su
- * `visit_id`—. Va en `context="patient"` (solo lectura), como la ficha y la cola del médico: las
- * acciones de etapa pertenecen al recorrido del día, y una alerta casi nunca es de hoy.
+ * `visit_id`—. Y se EDITA desde acá, como desde cualquier otra puerta (2026-08-20): la alerta se
+ * resuelve haciendo algo con la visita, no solo mirándola.
  *
  * Una alerta también se puede DESCARTAR (0070). No se borra —es estado calculado—: se archiva el
  * aviso con motivo de catálogo, autor y fecha, y se puede restaurar desde "Descartadas".
@@ -369,7 +369,6 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
         <VisitDetail
           visitId={openVisitId}
           accent={accent}
-          context="patient"
           onClose={() => setOpenVisitId(null)}
           onChanged={() => alertsQ.refetch()}
         />

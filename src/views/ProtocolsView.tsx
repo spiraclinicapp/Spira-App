@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
+import { MultiFilterMenu } from '../components/MultiFilterMenu'
+import type { MultiFilterOption } from '../components/MultiFilterMenu'
 import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../lib/auth'
 import { groupVisitsByPatient } from '../lib/visits'
@@ -114,6 +116,9 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
   const armado = useRef(false)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  /* Filtro por estado del protocolo (multi; vacío = todos). Es el único eje que esta grilla tiene
+     para filtrar: "protocolo" no sería un filtro acá, sería la lista misma. */
+  const [fEstado, setFEstado] = useState<ProtocolStatus[]>([])
   const [creating, setCreating] = useState<null | 'protocol' | 'patient'>(null)
   const [editingProtocol, setEditingProtocol] = useState(false)
 
@@ -366,7 +371,16 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
     )
   }
 
-  const matchedProtocols = allProtocols.filter((p) => includesCI(p.code, q) || includesCI(p.name, q))
+  /* El filtro de estado se aplica sobre lo que se LISTA, no sobre `allProtocols`: esa lista también
+     resuelve el protocolo del detalle y el del alta de paciente, y filtrarla dejaría la ficha en
+     blanco al cerrar un protocolo que estabas mirando. Las opciones llevan el conteo de cada estado
+     sobre el total, así el menú dice cuántos hay antes de elegir. */
+  const estadoOptions: MultiFilterOption[] = (['activo', 'pausado', 'cerrado'] as ProtocolStatus[])
+    .map((s) => ({ value: s, label: statusLabel(s), count: allProtocols.filter((p) => p.status === s).length }))
+    .filter((o) => o.count > 0)
+  const visibles = fEstado.length > 0 ? allProtocols.filter((p) => fEstado.includes(p.status)) : allProtocols
+
+  const matchedProtocols = visibles.filter((p) => includesCI(p.code, q) || includesCI(p.name, q))
   const matchedPatients = allPatients.filter((pt) => includesCI(pt.code ?? '', q) || includesCI(pt.full_name, q))
 
   return (
@@ -391,6 +405,14 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
             </button>
           )}
         </div>
+        <MultiFilterMenu
+          accent={accentSolid}
+          label="Estado"
+          icon="filter"
+          options={estadoOptions}
+          selected={fEstado}
+          onChange={(next) => setFEstado(next as ProtocolStatus[])}
+        />
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <button onClick={() => setNav({ mode: 'all' })} style={btnOutline}>
             <Icon name="users" size={16} color="var(--spira-muted)" /> Ver pacientes
@@ -441,11 +463,18 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
             )}
           </section>
         </div>
-      ) : allProtocols.length === 0 ? (
-        <EmptyState accent={accent} icon={submodule.icon} title="Sin protocolos" description="Todavía no hay protocolos para mostrar." />
+      ) : visibles.length === 0 ? (
+        <EmptyState
+          accent={accent}
+          icon={submodule.icon}
+          title={fEstado.length > 0 ? 'Nada con ese estado' : 'Sin protocolos'}
+          description={fEstado.length > 0
+            ? 'Ningún protocolo está en el estado que elegiste. Probá con otro o limpiá el filtro.'
+            : 'Todavía no hay protocolos para mostrar.'}
+        />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
-          {allProtocols.map((p) => renderCard(p))}
+          {visibles.map((p) => renderCard(p))}
         </div>
       )}
     </div>

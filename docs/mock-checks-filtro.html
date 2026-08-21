@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spira · Mocks del casillero del filtro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  /* Tokens copiados de src/styles/tokens.css (tema claro). El mock NO inventa colores. */
+  :root {
+    --ink: #14302E; --ink-2: #2A4744; --ink-soft: #556966;
+    --paper: #F4F1EA; --white: #FFFFFF; --muted: #7C8C87; --faint: #A6B0AC;
+    --line: #E4DECF; --line-2: #D8CBB0;
+    --accent: #0F5F57;            /* petróleo de Farmacia (module.accentSolid) */
+    --on-accent: #F4F1EA;
+    --display: 'Schibsted Grotesk', system-ui, sans-serif;
+    --text: 'Inter', system-ui, sans-serif;
+    --shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.06);
+    --shadow-pop: 0 12px 30px rgba(20,48,46,.16);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--text); font-size: 14px; line-height: 1.5; }
+  .page { max-width: 1180px; margin: 0 auto; padding: 34px 26px 60px; }
+
+  h1 { font-family: var(--display); font-size: 27px; letter-spacing: -.02em; margin: 0 0 6px; }
+  .lead { color: var(--ink-soft); max-width: 74ch; margin: 0 0 4px; }
+  .eyebrow { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+
+  .aviso { display: flex; gap: 10px; align-items: flex-start; margin: 22px 0 30px; padding: 13px 15px;
+           background: rgba(176,130,63,.10); border: 1px solid rgba(176,130,63,.30); border-radius: 12px; color: var(--ink-2); font-size: 13px; }
+  .aviso b { color: #8A6428; }
+  .aviso.elegida { background: rgba(15,95,87,.07); border-color: rgba(15,95,87,.28); }
+  .aviso.elegida b { color: var(--accent); }
+  .card.destacada { border-color: rgba(15,95,87,.35); box-shadow: 0 6px 18px rgba(20,48,46,.10); }
+  .card.destacada .nota { color: var(--ink-2); }
+  /* La E, tal como quedó cableada: teñido accent+14 y la etiqueta en petróleo, no en tinta. */
+  .card.destacada .opt.sel { background: rgba(15,95,87,.08); }
+  .card.destacada .opt.sel .txt { color: var(--accent); font-weight: 700; }
+  .titulo { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-weight: 700; padding: 7px 10px 6px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 18px; }
+  .card { background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 17px 17px 19px; box-shadow: var(--shadow-sm); }
+  .card header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
+  .card h2 { font-family: var(--display); font-size: 15.5px; margin: 0; }
+  .tag { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px;
+         background: rgba(15,95,87,.10); color: var(--accent); }
+  .tag.hoy { background: var(--line); color: var(--ink-soft); }
+  .nota { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 13px; min-height: 38px; }
+  .contra { color: #8A5A50; }
+
+  /* ── Popover del filtro, calcado del componente real (MultiFilterMenu) ── */
+  .pop { background: var(--white); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: var(--shadow-pop); padding: 6px; }
+  .search { display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 10px; margin-bottom: 6px;
+            border: 1px solid var(--line-2); border-radius: 8px; color: var(--faint); font-size: 13px; box-shadow: var(--shadow-sm); }
+  .opt { position: relative; display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 8px 10px; border-radius: 9px; font-size: 13.5px; }
+  .opt .txt { flex: 1; color: var(--muted); font-weight: 500; }
+  .opt.sel { background: rgba(15,95,87,.06); }
+  .opt.sel .txt { color: var(--ink); font-weight: 600; }
+  .code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; font-weight: 600; color: var(--accent); }
+  .n { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .foot { border-top: 1px solid var(--line); margin-top: 4px; height: 32px; display: grid; place-items: center;
+          font-size: 12.5px; font-weight: 600; color: var(--muted); }
+
+  /* ── Marcas de selección: una clase por variante ── */
+  .box { width: 16px; height: 16px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 5px;
+         border: 1.5px solid var(--line-2); background: transparent; }
+  .sel .box.lleno { background: var(--accent); border-color: var(--accent); }
+  .box.redondo { border-radius: 999px; }
+  .sel .box.redondo { background: var(--accent); border-color: var(--accent); }
+  .sel .box.contorno { border-color: var(--accent); background: transparent; }
+  .hueco { width: 16px; flex: 0 0 auto; display: grid; place-items: center; }
+  .barra { position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+
+  svg { display: block; }
+  .tick-blanco { stroke: var(--on-accent); }
+  .tick-acento { stroke: var(--accent); }
+
+  footer.pie { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="eyebrow">Farmacia · Stock · filtro de protocolos</div>
+  <h1>El casillero del filtro: seis maneras de decir “elegido”</h1>
+  <p class="lead">
+    Todas las variantes muestran el <b>mismo menú real</b> —el del filtro de protocolos, ya unificado con el de Visitas—
+    con dos protocolos elegidos y dos sin elegir. Lo único que cambia entre tarjetas es la marca de selección.
+    Los colores salen de <code>tokens.css</code>; ninguno es inventado.
+  </p>
+
+  <div class="aviso elegida">
+    <div>✓</div>
+    <div>
+      <b>Decidido el 2026-08-20: la E</b>, con el formato del menú de referencia que pasó el Director —lista sin
+      casilleros, fila teñida y tilde a la derecha, con el título del filtro arriba. Está implementada en
+      <code>MultiFilterMenu</code> <b>y</b> en <code>FilterDropdown</code>, para que los dos menús de una misma fila
+      de filtros se lean igual. Alcance: Stock y los cuatro filtros de <b>Visitas del día</b>, que comparten los
+      componentes. Las otras cinco quedan acá como registro de lo que se descartó.
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- A -->
+    <div class="card">
+      <header><h2>A · Casillero lleno</h2><span class="tag hoy">Hoy</span></header>
+      <p class="nota">Cuadrado de 16 con radio 5: vacío con borde, lleno de petróleo con el tilde en papel. Es el estándar de casilla de toda la vida: se entiende sin aprender nada y dice “podés marcar varios” incluso vacío.</p>
+      <div class="pop">
+        <div class="search">🔍 Buscar protocolo…</div>
+        <div class="opt sel"><span class="box lleno"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" class="tick-blanco" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="txt"><span class="code">ARG-114</span> — Cardio Fase III</span><span class="n">12</span></div>
+        <div class="opt"><span class="box lleno"></span><span class="txt"><span class="code">ONC-207</span> — Onco Adyuvante</span><span class="n">7</span></div>
+        <div class="opt sel"><span class="box lleno"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" class="tick-blanco" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="txt"><span class="code">NEU-032</span> — Neuro Extensión</span><span class="n">4</span></div>
+        <div class="opt"><span class="box lleno"></span><span class="txt"><span class="code">DER-088</span> — Derma Piloto</span><span class="n">2</span></div>
+        <div class="foot">Limpiar</div>
+      </div>
+    </div>
+
+    <!-- B -->
+    <div class="card">
+      <header><h2>B · Tilde solo</h2><span class="tag">Unifica</span></header>
+      <p class="nota">Sin casillero: el tilde en petróleo aparece cuando está elegido y deja el hueco cuando no. <b>Es exactamente lo que ya hace el filtro de vencimiento</b> (FilterDropdown) al lado. <span class="contra">Contra: vacío no anuncia que se puede elegir más de uno.</span></p>
+      <div class="pop">
+        <div class="search">🔍 Buscar protocolo…</div>
+        <div class="opt sel"><span class="hueco"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="tick-acento" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="txt"><span class="code">ARG-114</span> — Cardio Fase III</span><span class="n">12</span></div>
+        <div class="opt"><span class="hueco"></span><span class="txt"><span class="code">ONC-207</span> — Onco Adyuvante</span><span class="n">7</span></div>
+        <div class="opt sel"><span class="hueco"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="tick-acento" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="txt"><span class="code">NEU-032</span> — Neuro Extensión</span><span class="n">4</span></div>
+        <div class="opt"><span class="hueco"></span><span class="txt"><span class="code">DER-088</span> — Derma Piloto</span><span class="n">2</span></div>
+        <div class="foot">Limpiar</div>
+      </div>
+    </div>
+
+    <!-- C -->
+    <div class="card">
+      <header><h2>C · Casillero redondo</h2></header>
+      <p class="nota">El mismo relleno, en círculo. Más suave y más “Sereno” de forma. <span class="contra">Contra: redondo es la convención de “una sola opción” (radio button), y acá se eligen varios — la forma diría lo contrario de lo que hace.</span></p>
+      <div class="pop">
+        <div class="search">🔍 Buscar protocolo…</div>
+        <div class="opt sel"><span class="box redondo"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" class="tick-blanco" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="txt"><span class="code">ARG-114</span> — Cardio Fase III</span><span class="n">12</span></div>
+        <div class="opt"><span class="box redondo"></span><span class="txt"><span class="code">ONC-207</span> — Onco Adyuvante</span><span class="n">7</span></div>
+        <div class="opt sel"><span class="box redondo"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" class="tick-blanco" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="txt"><span class="code">NEU-032</span> — Neuro Extensión</span><span class="n">4</span></div>
+        <div class="opt"><span class="box redondo"></span><span class="txt"><span class="code">DER-088</span> — Derma Piloto</span><span class="n">2</span></div>
+        <div class="foot">Limpiar</div>
+      </div>
+    </div>
+
+    <!-- D -->
+    <div class="card">
+      <header><h2>D · Contorno, sin relleno</h2></header>
+      <p class="nota">Casillero cuadrado que al marcarse toma borde y tilde petróleo, pero no se rellena. Pesa menos en listas largas y deja la mancha de color para la fila teñida. <span class="contra">Contra: de reojo, marcado y sin marcar se parecen.</span></p>
+      <div class="pop">
+        <div class="search">🔍 Buscar protocolo…</div>
+        <div class="opt sel"><span class="box contorno"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" class="tick-acento" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="txt"><span class="code">ARG-114</span> — Cardio Fase III</span><span class="n">12</span></div>
+        <div class="opt"><span class="box contorno"></span><span class="txt"><span class="code">ONC-207</span> — Onco Adyuvante</span><span class="n">7</span></div>
+        <div class="opt sel"><span class="box contorno"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" class="tick-acento" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="txt"><span class="code">NEU-032</span> — Neuro Extensión</span><span class="n">4</span></div>
+        <div class="opt"><span class="box contorno"></span><span class="txt"><span class="code">DER-088</span> — Derma Piloto</span><span class="n">2</span></div>
+        <div class="foot">Limpiar</div>
+      </div>
+    </div>
+
+    <!-- E -->
+    <div class="card destacada">
+      <header><h2>E · Tilde a la derecha</h2><span class="tag">Elegida</span></header>
+      <p class="nota">Nada a la izquierda: todos los códigos arrancan alineados y el tilde cierra la fila. La fila elegida se tiñe y su etiqueta pasa a petróleo. Tal como quedó implementada, con el título del filtro arriba del buscador.</p>
+      <div class="pop">
+        <div class="titulo">Protocolo</div>
+        <div class="search">🔍 Buscar protocolo…</div>
+        <div class="opt sel"><span class="txt"><span class="code">ARG-114</span> — Cardio Fase III</span><span class="n">12</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="tick-acento" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <div class="opt"><span class="txt"><span class="code">ONC-207</span> — Onco Adyuvante</span><span class="n">7</span><span class="hueco"></span></div>
+        <div class="opt sel"><span class="txt"><span class="code">NEU-032</span> — Neuro Extensión</span><span class="n">4</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="tick-acento" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <div class="opt"><span class="txt"><span class="code">DER-088</span> — Derma Piloto</span><span class="n">2</span><span class="hueco"></span></div>
+        <div class="foot">Limpiar</div>
+      </div>
+    </div>
+
+    <!-- F -->
+    <div class="card">
+      <header><h2>F · Barra + tilde</h2></header>
+      <p class="nota">Una barrita de petróleo pegada al borde izquierdo de la fila elegida, más el tilde. La selección se ve desde lejos y de un vistazo se cuenta cuántas hay. <span class="contra">Contra: es el gesto más ruidoso de los seis, y la barra ya se parece al realce de fila de otras listas.</span></p>
+      <div class="pop">
+        <div class="search">🔍 Buscar protocolo…</div>
+        <div class="opt sel"><span class="barra"></span><span class="hueco"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="tick-acento" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="txt"><span class="code">ARG-114</span> — Cardio Fase III</span><span class="n">12</span></div>
+        <div class="opt"><span class="hueco"></span><span class="txt"><span class="code">ONC-207</span> — Onco Adyuvante</span><span class="n">7</span></div>
+        <div class="opt sel"><span class="barra"></span><span class="hueco"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="tick-acento" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="txt"><span class="code">NEU-032</span> — Neuro Extensión</span><span class="n">4</span></div>
+        <div class="opt"><span class="hueco"></span><span class="txt"><span class="code">DER-088</span> — Derma Piloto</span><span class="n">2</span></div>
+        <div class="foot">Limpiar</div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="pie">
+    Mock estático — ninguna variante está implementada todavía; el filtro real sigue con la <b>A</b>.
+    Los protocolos y los conteos son de ejemplo. Decime la letra y la cableo en <code>MultiFilterMenu</code>.
+  </footer>
+
+</div>
+</body>
+</html>
