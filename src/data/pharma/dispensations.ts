@@ -218,7 +218,8 @@ export const HISTORY_PAGE_SIZE = 40
  */
 export function useDispensationHistory(opts: {
   page: number
-  protocolCode: string | null
+  /** Códigos de protocolo elegidos en el filtro. Vacío = todos (sin cláusula). */
+  protocolCodes: string[]
   /** Código IVRS del paciente, parcial. Se resuelve en Postgres, no sobre la página cargada. */
   patientCode: string
   /**
@@ -241,8 +242,11 @@ export function useDispensationHistory(opts: {
    */
   fromDay: string
 }) {
-  const { page, protocolCode, enabled, fromDay } = opts
+  const { page, protocolCodes, enabled, fromDay } = opts
   const needle = opts.patientCode.trim()
+  /* Los códigos viajan a las deps como texto: un array literal cambia de identidad en cada render
+     del consumidor y dispararía un refetch por render. */
+  const protoKey = protocolCodes.join(',')
   return useSupabaseQuery<{ rows: DispensationRequestRow[]; hasMore: boolean; page: number }>(
     async (c) => {
       if (!enabled) return { data: { rows: [], hasMore: false, page }, error: null }
@@ -258,7 +262,7 @@ export function useDispensationHistory(opts: {
 
       // Punto de partida: todo lo que pasó hasta el final del día elegido, hacia atrás.
       if (fromDay) q = q.lte('updated_at', `${fromDay}T23:59:59.999${AR_OFFSET}`)
-      if (protocolCode) q = q.eq('protocol.code', protocolCode)
+      if (protocolCodes.length > 0) q = q.in('protocol.code', protocolCodes)
       if (needle) q = q.ilike('enrollment.patient.code', `%${needle}%`)
 
       const { data, error } = await q.returns<DispensationRequestRow[]>()
@@ -274,7 +278,7 @@ export function useDispensationHistory(opts: {
       // nuevos — 4 registros se mostraban como 6 (encontrado en el QA del 2026-07-18).
       return { data: { rows, hasMore, page }, error: null }
     },
-    [page, protocolCode, needle, enabled, fromDay],
+    [page, protoKey, needle, enabled, fromDay],
   )
 }
 

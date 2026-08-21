@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { EmptyState } from '../../components/EmptyState'
-import { FilterDropdown } from '../../components/FilterDropdown'
+import { MultiFilterMenu } from '../../components/MultiFilterMenu'
+import type { MultiFilterOption } from '../../components/MultiFilterMenu'
 import { DateNavButton } from '../../components/DateNavButton'
 import { Icon } from '../../components/Icon'
 import { Toast } from '../../components/Toast'
@@ -25,7 +26,6 @@ import { useAuth } from '../../lib/auth'
 import { todayISO } from '../../lib/dates'
 import type { ViewProps } from '../types'
 
-const ALL = 'all'
 
 /**
  * Tablero de dispensación de Pharma. Cuatro columnas por estado y un cajón lateral que resuelve
@@ -40,7 +40,11 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const canOperate = hasMinRole('pharma', 'operator')
 
   const [day, setDay] = useState(todayISO())
-  const [proto, setProto] = useState(ALL)
+  /* Protocolos elegidos por CÓDIGO; vacío = todos. Multi como en Stock y Visitas. `protoKey` es la
+     versión estable para las deps: un array cambia de identidad en cada render y haría refetchear
+     la consulta del historial (y reiniciar la paginación) sin que nadie toque el filtro. */
+  const [protoSel, setProtoSel] = useState<string[]>([])
+  const protoKey = protoSel.join(',')
   const [query, setQuery] = useState('')
   const [vista, setVista] = useState<'tablero' | 'historial'>('tablero')
   const [pagina, setPagina] = useState(0)
@@ -60,7 +64,7 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   // fecha mueve el punto de partida de la lista, que arranca ahí y avanza hacia atrás.
   const h = useDispensationHistory({
     page: pagina,
-    protocolCode: proto !== ALL ? proto : null,
+    protocolCodes: protoSel,
     patientCode: query,
     enabled: vista === 'historial',
     fromDay: day,
@@ -74,7 +78,7 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
     setPagina(0)
     setAcumuladas([])
     aplicadaRef.current = -1
-  }, [proto, query, vista, day])
+  }, [protoKey, query, vista, day])
 
   /**
    * Acumulación de páginas, con dos guardas que no son paranoia:
@@ -96,20 +100,20 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
    * Protocolos presentes hoy. Sale de los datos, no de una lista fija: si no hay nada de un
    * protocolo, no tiene sentido ofrecerlo como filtro.
    *
-   * Sin contadores: el número contaba SOLICITUDES, pero al lado de "Todos los protocolos" se leía
-   * como cantidad de protocolos. Un dato que hay que interpretar dos veces no ayuda, y el tablero
-   * ya lleva el contador real en la cabecera de cada columna.
+   * Sin contadores: el número contaba SOLICITUDES, pero al lado del rótulo se leía como cantidad
+   * de protocolos. Un dato que hay que interpretar dos veces no ayuda, y el tablero ya lleva el
+   * contador real en la cabecera de cada columna.
+   *
+   * Ya no lleva la opción "Todos los protocolos": en un multi-select, ninguno elegido ES todos, y
+   * la cantidad elegida la canta el badge del disparador.
    */
-  const protoOptions = useMemo(() => {
+  const protoOptions: MultiFilterOption[] = useMemo(() => {
     const codes = new Set<string>()
     for (const r of all) {
       const code = r.protocol?.code
       if (code) codes.add(code)
     }
-    return [
-      { value: ALL, label: 'Todos los protocolos' },
-      ...[...codes].sort((a, b) => a.localeCompare(b)).map((code) => ({ value: code, label: code })),
-    ]
+    return [...codes].sort((a, b) => a.localeCompare(b)).map((code) => ({ value: code, label: code }))
   }, [all])
 
   // Búsqueda + protocolo, agrupado por columna.
@@ -119,7 +123,7 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
     for (const r of all) {
       const col = columnOf(r)
       if (!col) continue
-      if (proto !== ALL && r.protocol?.code !== proto) continue
+      if (protoSel.length > 0 && !protoSel.includes(r.protocol?.code ?? '')) continue
       if (needle) {
         const hay = [
           activeDispensation(r)?.dispensation_code ?? '',
@@ -134,7 +138,7 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
       else map.set(col, [r])
     }
     return map
-  }, [all, proto, query])
+  }, [all, protoSel, query])
 
   const visibles = useMemo(() => [...byColumn.values()].reduce((n, l) => n + l.length, 0), [byColumn])
   /**
@@ -234,12 +238,14 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
         {/* Empuja los controles al margen derecho, como en el mock. */}
         <div style={{ flex: 1 }} />
 
-        <FilterDropdown
+        <MultiFilterMenu
           accent={module.accentSolid}
-          value={proto}
-          onChange={setProto}
+          label="Protocolo"
+          icon="file"
           options={protoOptions}
-          menuLabel="Protocolo"
+          selected={protoSel}
+          onChange={setProtoSel}
+          searchPlaceholder="Buscar protocolo…"
         />
         {/* La fecha vive en las DOS vistas. En el tablero elige el día que se muestra; en el
             historial mueve el punto de partida de la lista (ver useDispensationHistory). */}
@@ -284,9 +290,9 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
           <EmptyState
             accent={module.accent}
             icon="list"
-            title={query.trim() || proto !== ALL ? 'Sin resultados' : 'Sin dispensaciones hasta esa fecha'}
+            title={query.trim() || protoSel.length > 0 ? 'Sin resultados' : 'Sin dispensaciones hasta esa fecha'}
             description={
-              query.trim() || proto !== ALL
+              query.trim() || protoSel.length > 0
                 ? 'Probá con otro código de paciente, quitá el filtro de protocolo o movete a una fecha más reciente.'
                 : 'El historial arranca en la fecha elegida y va hacia atrás. Movete a una fecha más reciente para ver actividad.'
             }
@@ -321,9 +327,9 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
         <EmptyState
           accent={module.accent}
           icon="box"
-          title={query.trim() || proto !== ALL ? 'Sin resultados' : 'Sin dispensaciones'}
+          title={query.trim() || protoSel.length > 0 ? 'Sin resultados' : 'Sin dispensaciones'}
           description={
-            query.trim() || proto !== ALL
+            query.trim() || protoSel.length > 0
               ? 'Probá con otro término o quitá el filtro de protocolo.'
               : 'Cuando Coordinación solicite una dispensación desde una visita, aparece acá.'
           }

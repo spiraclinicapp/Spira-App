@@ -6,6 +6,8 @@ import { Chip } from '../../components/Chip'
 import { Toast } from '../../components/Toast'
 import { btnOutline } from '../../components/buttons'
 import { fieldLabelStyle } from '../../components/FormField'
+import { MultiFilterMenu } from '../../components/MultiFilterMenu'
+import type { MultiFilterOption } from '../../components/MultiFilterMenu'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import { DateField } from '../../components/DateField'
 import { useAuth } from '../../lib/auth'
@@ -50,13 +52,16 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const [q, setQ] = useState('')
   const [days, setDays] = useState<7 | 30 | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
-  const [fProtocol, setFProtocol] = useState('')
+  /* El protocolo salió de "Más filtros" a la toolbar y pasó a ser multi, con el mismo menú que
+     Stock, Dispensaciones y Visitas: es el filtro que más se usa acá, y adentro del panel había
+     que abrir un cajón para tocarlo. Vacío = todos. */
+  const [fProtoSel, setFProtoSel] = useState<string[]>([])
   const [fMedId, setFMedId] = useState('')
   const [fDesde, setFDesde] = useState('')
   const [fHasta, setFHasta] = useState('')
 
   // Definido acá arriba (no después del return temprano del wizard): onCreated lo captura.
-  const clearMore = () => { setFProtocol(''); setFMedId(''); setFDesde(''); setFHasta('') }
+  const clearMore = () => { setFMedId(''); setFDesde(''); setFHasta('') }
 
   const [creating, setCreating] = useState(false)
   const [highlightId, setHighlightId] = useState<string | null>(null)
@@ -102,17 +107,17 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
       if (estado === 'anuladas' && r.status !== 'anulada') return false
       if (!coincideBusqueda(r, q)) return false
       if (desdeRango && r.reception_date < desdeRango) return false
-      if (fProtocol && r.protocol_id !== fProtocol) return false
+      if (fProtoSel.length > 0 && !fProtoSel.includes(r.protocol_id ?? '')) return false
       if (fMedId && !r.items.some((it) => it.medication_id === fMedId)) return false
       if (fDesde && r.reception_date < fDesde) return false
       if (fHasta && r.reception_date > fHasta) return false
       return true
     })
-  }, [receptions.data, estado, q, days, fProtocol, fMedId, fDesde, fHasta])
+  }, [receptions.data, estado, q, days, fProtoSel, fMedId, fDesde, fHasta])
 
   const groups = useMemo(() => groupByDay(rows, (r) => r.reception_date), [rows])
-  const moreCount = [fProtocol, fMedId, fDesde, fHasta].filter(Boolean).length
-  const hayFiltros = !!q.trim() || days !== null || moreCount > 0 || chip !== 'todas' || estado !== 'todas'
+  const moreCount = [fMedId, fDesde, fHasta].filter(Boolean).length
+  const hayFiltros = !!q.trim() || days !== null || moreCount > 0 || fProtoSel.length > 0 || chip !== 'todas' || estado !== 'todas'
 
   // Cuando el wizard termina, volvemos a la cola y resaltamos la recepción recién creada.
   if (creating) {
@@ -120,13 +125,15 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
       <ReceptionWizard
         accentSolid={accentSolid}
         initialTipo={chip === 'todas' ? 'protocolo' : chip}
-        initialProtocolId={fProtocol}
+        // Solo si hay UN protocolo filtrado: con varios elegidos no hay uno "en contexto" y
+        // adivinar cuál sembraría el wizard con un dato que nadie pidió.
+        initialProtocolId={fProtoSel.length === 1 ? fProtoSel[0] : ''}
         onClose={() => setCreating(false)}
         // Al crear: resetear TODOS los filtros para que la recepción nueva nunca quede oculta por
         // un filtro activo y el highlight de 5 s se vea.
         onCreated={(id) => {
           setCreating(false); setChip('todas'); setEstado('todas'); setQ('')
-          setDays(null); clearMore(); setHighlightId(id); receptions.refetch()
+          setDays(null); setFProtoSel([]); clearMore(); setHighlightId(id); receptions.refetch()
         }}
       />
     )
@@ -169,6 +176,9 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   }
 
   // ── Toolbar (siempre visible, también en loading/error/vacío) ────────────────
+  // Definido ANTES del toolbar a propósito: el JSX de abajo lo usa y un `const` declarado
+  // después quedaría en zona muerta (ReferenceError al renderizar, no un error de compilación).
+  const protoOptions: MultiFilterOption[] = (protocols.data ?? []).map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }))
   const toolbar = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
       <div style={searchWrap}>
@@ -220,21 +230,31 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         <Chip toggle label="30 días" selected={days === 30} onClick={() => setDays(days === 30 ? null : 30)} accent={accentSolid} />
       </div>
 
+      {/* Protocolo, con el mismo menú que el resto de la app. Va pegado a "Más filtros", al margen
+          derecho: los dos son controles que ABREN algo, y agrupados no rompen la fila de chips. */}
+      <div style={{ marginLeft: 'auto' }}>
+        <MultiFilterMenu
+          accent={accentSolid}
+          label="Protocolo"
+          icon="file"
+          options={protoOptions}
+          selected={fProtoSel}
+          onChange={(next) => { setFProtoSel(next); setHighlightId(null) }}
+          searchPlaceholder="Buscar protocolo…"
+        />
+      </div>
+
       <button
         type="button"
         onClick={() => setMoreOpen((v) => !v)}
         aria-expanded={moreOpen}
-        style={{ ...btnOutline, height: 36, fontSize: 13, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7 }}
+        style={{ ...btnOutline, height: 38, fontSize: 13, display: 'flex', alignItems: 'center', gap: 7 }}
       >
         <Icon name="sliders" size={15} color="var(--spira-muted)" /> Más filtros{moreCount > 0 ? ` · ${moreCount}` : ''}
       </button>
     </div>
   )
 
-  const protocolOptions = [
-    { value: 'all', label: 'Todos' },
-    ...(protocols.data ?? []).map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })),
-  ]
   const medOptions = [
     { value: 'all', label: 'Todos' },
     ...(catalog.data ?? []).map((m) => ({ value: m.id, label: m.name })),
@@ -242,18 +262,6 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
 
   const morePanel = moreOpen ? (
     <div style={panel}>
-      <label style={filterField}>
-        <span style={fieldLabelStyle}>Protocolo</span>
-        <SearchableSelect
-          value={fProtocol || 'all'}
-          onChange={(v) => setFProtocol(v === 'all' ? '' : v)}
-          options={protocolOptions}
-          placeholder="Todos"
-          searchPlaceholder="Buscar protocolo…"
-          entity="protocolo"
-          menuWidth="auto"  // opciones (código — nombre) más largas que el campo
-        />
-      </label>
       <label style={filterField}>
         <span style={fieldLabelStyle}>Medicamento</span>
         <SearchableSelect
