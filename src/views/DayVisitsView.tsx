@@ -149,6 +149,12 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   const anyActive = nFilters > 0 || q.trim().length > 0
   const clearAll = () => { setFEstado([]); setFProto([]); setFMed([]); setFCoord([]); setQ('') }
 
+  /* El rótulo del control dice "Ordenar por" (pedido del Director, 2026-08-20): con el valor solo
+     —"En el centro"— parecía un filtro más de la fila, y "agrupar" es palabra nuestra, no de quien
+     usa la pantalla. Elegir una dimensión efectivamente cambia el orden en que sale la lista, así
+     que el rótulo no promete nada que no haga; los grupos siguen ahí, con sus encabezados.
+     La etiqueta de la primera opción queda CORTA a propósito: con el prefijo delante, "En el centro"
+     ya se entiende, y "En el centro primero" medía 58px más en una fila que venía justa (medido). */
   const groupOptions: FilterOption[] = [
     { value: 'operativo', label: 'En el centro', count: null },
     { value: 'estado', label: 'Estado', count: null },
@@ -281,7 +287,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
         <MultiFilterMenu accent={accent} label="Médico" icon="users" options={medOptions} selected={fMed} onChange={setFMed} />
         <MultiFilterMenu accent={accent} label="Coordinador" icon="user" options={coordOptions} selected={fCoord} onChange={setFCoord} />
         <span style={{ width: 1, height: 22, background: 'var(--spira-line)', margin: '0 2px' }} />
-        <FilterDropdown accent={accent} value={group} onChange={(v) => setGroup(v as GroupBy)} options={groupOptions} menuLabel="Agrupar por" icon="sliders" />
+        <FilterDropdown accent={accent} value={group} onChange={(v) => setGroup(v as GroupBy)} options={groupOptions} menuLabel="Ordenar por" prefix="Ordenar por" icon="sliders" />
         {anyActive && (
           <button
             type="button"

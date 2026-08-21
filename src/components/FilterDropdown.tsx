@@ -24,10 +24,17 @@ interface Props {
   /**
    * Volver a pulsar la opción activa la SUELTA: vuelve a `options[0]`, igual que destildar en el
    * menú multi. Es OPT-IN a propósito — solo vale donde `options[0]` es de verdad el valor neutro.
-   * En "Agrupar por" de Visitas la primera opción es un modo real ('En el centro'), así que ahí
-   * resetear no sería limpiar el filtro sino cambiar de agrupación sin que nadie lo pida.
+   * En "Ordenar por" de Visitas la primera opción es un modo real ('En el centro primero'), así que
+   * ahí resetear no sería limpiar el filtro sino cambiar el orden sin que nadie lo pida.
    */
   deselectable?: boolean
+  /**
+   * Prefijo fijo en el disparador: se lee "Ordenar por: En el centro primero", como el control de
+   * orden de cualquier tienda. Para los menús donde el valor SOLO no dice qué hace — "En el centro"
+   * suelto entre filtros parecía otro filtro más. Sin prefijo, el disparador muestra el valor pelado
+   * (que es lo correcto cuando la opción ya se explica sola, como en la cola del médico).
+   */
+  prefix?: string
 }
 
 /**
@@ -37,7 +44,7 @@ interface Props {
  * Comparte `usePopover` (fixed + clamp de viewport) con `SearchableSelect`/`DateField`, así el
  * popover nunca se recorta contra el borde de la pantalla.
  */
-export function FilterDropdown({ accent, value, onChange, options, menuLabel, icon = 'filter', id, deselectable = false }: Props) {
+export function FilterDropdown({ accent, value, onChange, options, menuLabel, icon = 'filter', id, deselectable = false, prefix }: Props) {
   const [open, setOpen] = useState(false)
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
   const active = options.find((o) => o.value === value) ?? options[0]
@@ -55,6 +62,7 @@ export function FilterDropdown({ accent, value, onChange, options, menuLabel, ic
         style={{ ...trigger, border: `1px solid ${open || on ? accent : 'var(--spira-line-2)'}`, background: on ? accent + '12' : 'var(--spira-white)' }}
       >
         <Icon name={icon} size={15} color={on ? accent : 'var(--spira-muted)'} />
+        {prefix && <span style={prefixLabel}>{prefix}:</span>}
         <span style={{ ...triggerLabel, color: on ? accent : 'var(--spira-ink)' }}>{active?.label}</span>
         {active?.count != null && <span style={{ ...badge, background: accent }}>{active.count}</span>}
         <Icon name="chevronDown" size={15} color="var(--spira-muted)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
@@ -100,6 +108,12 @@ const trigger: CSSProperties = {
   fontFamily: 'var(--spira-font-text)',
 }
 const triggerLabel: CSSProperties = { fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }
+/* El prefijo es el rótulo, no el valor: va en peso normal y en gris para que el ojo caiga en lo
+   elegido. Marca negativa para pegarlo a su valor sin romper el `gap` del resto del botón. */
+const prefixLabel: CSSProperties = {
+  fontFamily: 'var(--spira-font-text)', fontWeight: 500, fontSize: 13.5,
+  color: 'var(--spira-muted)', whiteSpace: 'nowrap', marginRight: -4,
+}
 const badge: CSSProperties = {
   fontSize: 11.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums', minWidth: 18, height: 18,
   padding: '0 5px', borderRadius: 'var(--spira-radius-pill)', color: 'var(--spira-on-accent)',
