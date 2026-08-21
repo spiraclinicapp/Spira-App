@@ -249,6 +249,17 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         selected={fTipos}
         onChange={(next) => { setFTipos(next as ReceptionKind[]); setHighlightId(null) }}
       />
+      {/* Protocolo va pegado a Tipo: los dos dicen de dónde viene la recepción, y separados por
+          media fila el par se leía como dos cosas distintas. */}
+      <MultiFilterMenu
+        accent={accentSolid}
+        label="Protocolo"
+        icon="file"
+        options={protoOptions}
+        selected={fProtoSel}
+        onChange={(next) => { setFProtoSel(next); setHighlightId(null) }}
+        searchPlaceholder="Buscar protocolo…"
+      />
 
       <span style={separador} />
 
@@ -275,20 +286,6 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
           <Icon name="x" size={13} color="var(--spira-muted)" /> Limpiar {nFiltros}
         </button>
       )}
-
-      {/* Protocolo cierra la fila, contra el margen derecho: es el filtro más específico y el
-          único que puede quedar largo, así que no empuja a los demás al plegarse. */}
-      <div style={{ marginLeft: 'auto' }}>
-        <MultiFilterMenu
-          accent={accentSolid}
-          label="Protocolo"
-          icon="file"
-          options={protoOptions}
-          selected={fProtoSel}
-          onChange={(next) => { setFProtoSel(next); setHighlightId(null) }}
-          searchPlaceholder="Buscar protocolo…"
-        />
-      </div>
     </div>
   )
 
