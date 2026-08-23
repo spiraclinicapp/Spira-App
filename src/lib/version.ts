@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.40', text: 'Los filtros de Farmacia hablan el mismo idioma en las cinco pantallas, y la visita se edita desde donde se abra: la ficha del paciente, la cola del médico o las alertas, no solo desde Visitas del día.' },
     { version: '0.39', text: 'El inicio se rediseña: el saludo del día, los números de la clínica y las novedades del producto en una sola pantalla. Y los chips de estado ganan contraste en toda la app.' },
     { version: '0.38', text: 'Una recepción cargada mal ahora se puede anular: el stock vuelve atrás y queda registrado el motivo.' },
     { version: '0.37', text: 'Recepción se lee como un documento: cada recepción con su número, quién la ingresó a stock y el detalle por renglón; verificar ahora confirma lo que va a entrar antes de tocar el stock.' },
