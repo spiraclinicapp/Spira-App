@@ -290,6 +290,38 @@ input:-webkit-autofill:focus {
 }
 .spira-scroll:hover::-webkit-scrollbar-thumb { background: var(--spira-faint); background-clip: padding-box; }
 
+/* —— Desplegable (disclosure) ——
+   Abrir "de cero hasta lo que mida el contenido" sin medirlo a mano ni fijar un alto: la grilla va
+   de `0fr` a `1fr` y el hijo recorta. Es la única forma de animar un alto desconocido sin
+   JavaScript, y evita el parpadeo del `max-height: 9999px` (que anima a una velocidad que no tiene
+   nada que ver con el contenido real).
+
+   El contenido se renderiza SIEMPRE, abierto o cerrado: si sólo existiera al abrirlo no habría
+   desde dónde animar y aparecería de golpe, que es justo lo que se quiere evitar.
+
+   La duración (.22s) está del lado corto del rango de producto: el usuario está en una tarea, no
+   mirando la animación. Curva `ease-out` del sistema — sin bounce, que la marca lo prohíbe. */
+.spira-disclosure {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.22s var(--spira-ease-out), opacity 0.16s var(--spira-ease-out);
+}
+.spira-disclosure[data-abierto='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+/* `min-height: 0` es obligatorio: sin él el hijo de una grilla se niega a bajar de su alto
+   intrínseco y la fila nunca colapsa a cero. */
+.spira-disclosure > * {
+  overflow: hidden;
+  min-height: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* El cambio de estado se mantiene —abrir sigue abriendo— pero llega sin recorrido. */
+  .spira-disclosure { transition: none; }
+}
+
 /* —— Numérico sin flechitas ——
    Las spin buttons que el navegador le pone a `input[type=number]` se comen ~15px de ancho útil y
    son un blanco de 8px que nadie apunta. En un campo angosto eso se nota: en el plazo del reporte

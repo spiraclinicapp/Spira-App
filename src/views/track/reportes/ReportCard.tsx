@@ -24,15 +24,18 @@ import { formatDateTimeAR } from '../../../lib/dates'
  * portal y un fondo no necesita contraste propio) y el texto pasa a tinta: 12:1 en los dos temas.
  * El color sigue leyéndose en el punto.
  */
-export function ReportCard({ row, variante, canOperate, busy, onStage, onOpenVisit }: {
+export function ReportCard({ row, variante, primero = false, canOperate, busy, onStage, onOpenVisit }: {
   row: ReportStatusRow
   variante: 'tablero' | 'visita'
+  /** Primero de su lista: en la variante `visita` se dibuja sin la línea separadora de arriba. */
+  primero?: boolean
   canOperate: boolean
   busy: boolean
   onStage: (stage: ReportStage) => void
   /** Abre el detalle de ESTA visita (el 📎 del handoff). Sólo en el tablero. */
   onOpenVisit?: () => void
 }) {
+  const enTablero = variante === 'tablero'
   const [verHistorial, setVerHistorial] = useState(false)
   const meta = platformMeta(row.platform)
   const stage: ReportStage = isStage(row.stage) ? row.stage : 'pendiente'
@@ -46,17 +49,17 @@ export function ReportCard({ row, variante, canOperate, busy, onStage, onOpenVis
 
   return (
     <article
-      style={card}
+      style={enTablero ? card : { ...plano, ...(primero ? null : planoConLinea) }}
       /* Arrastrar es una comodidad de mouse ENCIMA de los botones, nunca el único camino: el
          arrastre nativo no anda con teclado ni con el dedo. Todo lo que se puede hacer soltando
          se puede hacer con los dos botones de abajo. */
-      draggable={canOperate && variante === 'tablero'}
+      draggable={canOperate && enTablero}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', `${row.visit_id}|${row.report_definition_id}`)
         e.dataTransfer.effectAllowed = 'move'
       }}
     >
-      {variante === 'tablero' && (
+      {enTablero && (
         <>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 10.5, color: 'var(--spira-muted)' }}>{row.protocol_code}</span>
@@ -92,9 +95,12 @@ export function ReportCard({ row, variante, canOperate, busy, onStage, onOpenVis
         </>
       )}
 
-      {/* El reporte */}
+      {/* El reporte. El nombre del PROCEDIMIENTO sólo se dice en el tablero: ahí la tarjeta llega
+          sola y hay que ubicarla. Adentro del modal de visita el procedimiento es el renglón de
+          arriba —y muchas veces se llama igual que el reporte, como "Electrocardiograma (ECG)"—,
+          así que repetirlo es decir dos veces lo mismo. */}
       <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)' }}>{row.report_name}</div>
-      <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 1 }}>{row.procedure_name}</div>
+      {enTablero && <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 1 }}>{row.procedure_name}</div>}
       {row.notes && (
         <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 4, lineHeight: 1.45 }}>{row.notes}</div>
       )}
@@ -183,9 +189,27 @@ export function ReportCard({ row, variante, canOperate, busy, onStage, onOpenVis
   )
 }
 
+/** En el TABLERO la tarjeta es una tarjeta: flota sobre el fondo de su columna y hay que poder
+ *  agarrarla. Ahí el borde, el radio y la sombra son la afordancia. */
 const card: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 12,
   padding: '11px 12px', boxShadow: 'var(--spira-shadow-sm)',
+}
+/**
+ * Adentro del modal de visita, en cambio, NO es una tarjeta: es contenido.
+ *
+ * Ahí ya vive dentro del panel "Procedimientos" y dentro de la fila del procedimiento — con borde
+ * y sombra propios serían TRES cajas encajadas, que es la regla que el sistema prohíbe de plano.
+ * Ese apilado era el "ruido" que se veía. Sin caja, la jerarquía la hacen la sangría y una línea
+ * fina entre reportes, que es para lo que sirve el espacio.
+ */
+const plano: CSSProperties = {
+  background: 'transparent', border: 'none', borderRadius: 0, boxShadow: 'none',
+  padding: '10px 0 2px',
+}
+/** Separador entre reportes hermanos. En longhands: mezclarlo con la abreviada rompe el borde. */
+const planoConLinea: CSSProperties = {
+  borderWidth: '1px 0 0 0', borderStyle: 'solid', borderColor: 'var(--spira-line)', marginTop: 2,
 }
 const iconBtn: CSSProperties = {
   width: 28, height: 28, flex: '0 0 auto', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',

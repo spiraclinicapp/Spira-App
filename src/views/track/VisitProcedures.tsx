@@ -219,8 +219,13 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
 
           return (
             <div key={p.procedure_id} style={{ borderRadius: 12, border: `1px solid ${isDone ? accent + '59' : 'var(--spira-line)'}`, background: isDone ? accent + '10' : 'var(--spira-white)' }}>
+              {/* Fila: el control del tilde a la izquierda y la píldora de reportes al final del
+                  MISMO renglón. La píldora va afuera del botón —no adentro— porque un botón no
+                  puede anidar a otro; por eso son hermanos en un flex y no padre/hijo. Antes la
+                  píldora caía a un renglón propio debajo, que es el salto que se veía. */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               {readOnly ? (
-                <div style={rowBase}>{row}</div>
+                <div style={{ ...rowBase, flex: 1, minWidth: 0 }}>{row}</div>
               ) : (
                 <button
                   /* Casilla, no botón: el lector de pantalla anuncia "marcada / sin marcar", que es
@@ -233,51 +238,64 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                   aria-checked={isDone}
                   className="spira-no-press"
                   onClick={alTildar}
-                  style={{ ...rowBase, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'var(--spira-font-text)' }}
+                  style={{ ...rowBase, flex: 1, minWidth: 0, textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'var(--spira-font-text)' }}
                 >
                   {row}
                 </button>
               )}
 
-              {/* Píldora "N reportes" + su desglose. Va FUERA del botón del tilde a propósito: son
-                  dos acciones distintas y anidarlas dejaría un botón adentro de otro. El desglose
-                  se abre con esta píldora y sólo con ella — tildar activa el plazo, desplegar es
-                  una decisión aparte (ajuste pedido en el handoff, §7). */}
+              {/* La píldora comparte renglón con el nombre, alineada a su PRIMERA línea.
+                  El 6 sale de la cuenta, no del ojo: la fila tiene 11 de padding y la caja de
+                  línea del título (13.5px) mide ~16, o sea que su centro cae a 19 del borde; la
+                  píldora mide 26, así que su centro cae a marginTop + 13. Igualando: 6.
+                  Anclarla a la primera línea y no al centro del bloque importa porque el nombre
+                  envuelve a dos líneas en pantallas angostas — ahí la píldora tiene que quedarse
+                  arriba, no bajar a la mitad del párrafo. (Primer intento: ajustado a ojo contra
+                  un título envuelto, quedaba 8px baja en pantalla normal.) */}
               {misReportes.length > 0 && (
-                <div style={{ padding: '0 13px 11px 45px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setAbiertos((s) => {
-                      const c = new Set(s)
-                      if (c.has(p.procedure_id)) c.delete(p.procedure_id); else c.add(p.procedure_id)
-                      return c
-                    })}
-                    aria-expanded={abierto}
-                    className="spira-no-press"
-                    style={pillReportes(abierto, accent)}
-                  >
-                    <Icon name="fileText" size={12} color={accent} />
-                    {misReportes.length} {misReportes.length === 1 ? 'reporte' : 'reportes'}
-                    <Icon name="chevronDown" size={12} color="var(--spira-muted)" style={{ transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => setAbiertos((s) => {
+                    const c = new Set(s)
+                    if (c.has(p.procedure_id)) c.delete(p.procedure_id); else c.add(p.procedure_id)
+                    return c
+                  })}
+                  aria-expanded={abierto}
+                  aria-label={`${misReportes.length === 1 ? 'Un reporte' : misReportes.length + ' reportes'} de ${p.name}`}
+                  className="spira-no-press"
+                  style={{ ...pillReportes(abierto, accent), marginTop: 6, marginRight: 13, flex: '0 0 auto' }}
+                >
+                  <Icon name="fileText" size={12} color={accent} />
+                  {misReportes.length} {misReportes.length === 1 ? 'reporte' : 'reportes'}
+                  <Icon name="chevronDown" size={12} color="var(--spira-muted)" style={{ transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s var(--spira-ease-out)' }} />
+                </button>
+              )}
+              </div>
 
-                  {abierto && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+              {/* Desglose. Se despliega con alto animado (`.spira-disclosure`) y se renderiza
+                  SIEMPRE: si sólo existiera al abrirlo, no habría desde dónde animar y aparecería
+                  de golpe. Sangrado hasta la columna del texto (13 de padding + 20 del tilde + 12
+                  del gap), no bajo el tilde. */}
+              {misReportes.length > 0 && (
+                <div className="spira-disclosure" data-abierto={abierto}>
+                  <div>
+                    <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 13px 11px 45px' }}>
                       {!isDone && (
                         <div style={avisoHabilita}>Se habilita al marcar el procedimiento como realizado.</div>
                       )}
-                      {misReportes.map((r) => (
+                      {misReportes.map((r, i) => (
                         <ReportCard
                           key={r.report_definition_id}
                           row={r}
                           variante="visita"
+                          primero={i === 0}
                           canOperate={!readOnly && r.completed}
                           busy={movingReport === r.report_definition_id}
                           onStage={(s) => void moverReporte(r, s)}
                         />
                       ))}
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
