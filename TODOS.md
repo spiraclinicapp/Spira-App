@@ -543,3 +543,52 @@ como contexto histórico; borrarla cuando ese PR se mergee.
   `components/Chip.tsx`, `views/pharma/expiryState.tsx` y las pastillas de `track/VisitHeader.tsx`.
   Se mide sin instalar nada: `getComputedStyle` en el preview + luminancia relativa, ~15 líneas.
 - **Depende de / bloqueado por:** nada.
+
+---
+
+## Track · convergir el guardado del modal viejo de procedimientos
+
+- **Qué:** llevar `VisitProceduresModal.tsx` al guardado atómico (un solo "Guardar cambios" que
+  aplica todo el modal), como quedó el modal "Editar procedimiento" que estrena la fase 1 de
+  Procedimientos del estudio.
+- **Por qué:** hoy ese modal edita el catálogo con guardados sueltos que se aplican al toque; lo
+  dice su propio comentario (`VisitProceduresModal.tsx:62`, "persiste al toque, no espera al
+  'Guardar' del..."). Cuando el modal nuevo guarde todo junto, este va a quedar como la única
+  pantalla de Coordinación donde apretar **Cancelar** no cancela lo que ya tocaste.
+- **Pros:** los dos modales de procedimientos se comportan igual; desaparece el último botón del
+  módulo que promete algo que no hace.
+- **Contras:** toca una pantalla que hoy funciona y que nadie reportó; el cambio es de
+  comportamiento y no visual, así que hay que verificarlo a mano (borrar algo, cancelar, confirmar
+  que sigue ahí).
+- **Contexto:** salió de la `/plan-eng-review` del handoff "Cronograma · Procedimientos y Reportes"
+  (2026-08-23), pregunta 5. Ojo con el alcance real: la parte de ese modal que edita
+  `has_report`/`report_eta_hours` **se muere sola** en la fase 3 (esas columnas se retiran). Lo que
+  queda por convergir es el guardado del set de procedimientos de la visita.
+- **Empezar por:** `src/views/track/VisitProceduresModal.tsx` (`saveReport`, línea ~62) y la RPC
+  `set_visit_procedures` (0061), que ya es el patrón atómico a imitar.
+- **Depende de / bloqueado por:** que cierre la fase 3 de Reportes, para no tocar dos veces el
+  mismo archivo.
+
+---
+
+## Base · el proyecto no puede testear su propio SQL
+
+- **Qué:** montar un Supabase local (Docker) que corra las migraciones en orden y permita testear
+  las reglas que viven en SQL — vistas, policies de RLS y guards de transición.
+- **Por qué:** hay ~90 migraciones con reglas de negocio adentro y ninguna tiene test. Cuando una
+  vista cambia, la única verificación es mirar la pantalla. La regla que decide si una visita está
+  "realizada" o "completa" (`v_patient_visits.computed_status`) pinta el estado en Visitas del día,
+  la Agenda, la ficha del paciente y el resumen de Inicio: si queda al revés no explota nada, solo
+  muestra mal.
+- **Pros:** red para las reglas más caras del sistema; y se podrían ensayar las migraciones antes
+  de aplicarlas a mano en producción, que hoy es un tiro sin ensayo.
+- **Contras:** Docker en la máquina, correr las 90 migraciones, sembrar datos y sumarlo al build —
+  que hoy tarda poco, y eso es parte de por qué se corre siempre.
+- **Contexto:** salió de la `/plan-eng-review` del handoff "Cronograma · Procedimientos y Reportes"
+  (2026-08-23), pregunta 8, como la opción descartada para no agrandar la función. Lo que se hizo
+  en su lugar: espejar la regla en `views/track/reportes/estados.ts` con sus casos borde testeados
+  y derivar el SQL de esos mismos casos. Ese espejo es útil igual (el front lo necesita para la
+  tarjeta y el cierre de visita), pero deja dos copias de la misma regla.
+- **Empezar por:** las tres vistas que más duelen — `v_patient_visits`, `v_track_visits` y
+  `v_procedure_report_alerts`.
+- **Depende de / bloqueado por:** nada.

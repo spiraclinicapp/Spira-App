@@ -7,6 +7,11 @@ import { usePopover } from './usePopover'
 export interface SelectOption {
   value: string
   label: string
+  /** Punto de color a la izquierda de la opción (y del disparador cuando está elegida). Nació para
+   *  las categorías de procedimiento (0089): el color IDENTIFICA la categoría, y va en un punto y no
+   *  tiñendo el texto porque `color: tono` sobre `tono + alpha` no llega al 4.5:1 de WCAG. El punto
+   *  es decoración con el rótulo al lado, así que el contraste lo cumple el texto en tinta. */
+  dot?: string
 }
 
 /** A partir de cuántas opciones aparece el buscador cuando searchable='auto'. */
@@ -90,6 +95,10 @@ export function SearchableSelect({
 
   const labelOf = (v: string) => options.find((o) => o.value === v)?.label ?? extra[v] ?? ''
   const current = value ? labelOf(value) : ''
+  /* Punto de la opción elegida (si la tiene). Sale de `options` y no de `extra`, así que una opción
+     recién creada con `onCreate` no muestra punto hasta que el refetch la traiga — correcto: todavía
+     no sabemos de qué color es. */
+  const currentDot = value ? options.find((o) => o.value === value)?.dot : undefined
   const typed = q.trim()
   const filtered = options.filter((o) => o.label.toLowerCase().includes(typed.toLowerCase()))
 
@@ -198,6 +207,7 @@ export function SearchableSelect({
           : { ...fieldBtn, ...(open ? fieldBtnOpen : null), ...(disabled ? fieldBtnDisabled : null) }}
       >
         {variant === 'chip' && leadingIcon && <Icon name={leadingIcon} size={14} color="var(--spira-primary)" style={{ flex: '0 0 auto' }} />}
+        {currentDot && <span aria-hidden style={{ ...dotStyle, background: currentDot }} />}
         <span className={mono && current ? 'spira-mono' : undefined} style={variant === 'chip'
           ? { color: current ? 'var(--spira-ink)' : 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 210 }
           : { flex: 1, textAlign: 'left', color: current ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -305,6 +315,7 @@ export function SearchableSelect({
                   return (
                     <div key={o.value} data-idx={idx} style={{ display: 'flex', alignItems: 'center', borderRadius: 8, ...(on ? { background: 'rgba(15,95,87,.10)' } : active ? { background: 'var(--spira-surface)' } : null) }}>
                       <button type="button" id={`${baseId}-opt-${idx}`} role="option" aria-selected={on} onMouseEnter={() => setActiveIndex(idx)} onClick={() => pick(o)} style={{ ...option, flex: 1, color: on ? 'var(--spira-primary)' : 'var(--spira-ink)', fontWeight: on ? 600 : 400 }}>
+                        {o.dot && <span aria-hidden style={{ ...dotStyle, background: o.dot }} />}
                         <span className={mono ? 'spira-mono' : undefined} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
                       </button>
                       {onDelete && (
@@ -372,10 +383,13 @@ const createInput: CSSProperties = {
   borderRadius: 9, color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14,
 }
 const option: CSSProperties = {
-  minHeight: 36, padding: '8px 10px', display: 'flex', alignItems: 'center', borderRadius: 8,
+  minHeight: 36, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 8,
   border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--spira-font-text)',
   fontSize: 13.5, minWidth: 0,
 }
+/** Punto de color opcional de una opción (`SelectOption.dot`). Decorativo: el significado lo lleva
+ *  el rótulo de al lado, así que no necesita contraste propio. */
+const dotStyle: CSSProperties = { width: 8, height: 8, borderRadius: '50%', flex: '0 0 auto' }
 const trashBtn: CSSProperties = {
   width: 30, height: 30, flex: '0 0 auto', marginRight: 4, border: 'none', background: 'transparent',
   cursor: 'pointer', display: 'grid', placeItems: 'center', borderRadius: 7,

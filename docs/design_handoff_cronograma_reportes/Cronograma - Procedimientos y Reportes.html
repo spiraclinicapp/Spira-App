@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cronograma · Procedimientos y reportes</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--spira-paper);font-family:var(--spira-font-text);color:var(--spira-ink);-webkit-font-smoothing:antialiased}
+a{color:var(--spira-primary)}a:hover{color:var(--spira-track)}
+button{font-family:inherit}
+::selection{background:rgba(46,125,116,.18)}
+.scroll{scrollbar-width:thin;scrollbar-color:var(--spira-line-2) transparent}
+.scroll::-webkit-scrollbar{width:9px}
+.scroll::-webkit-scrollbar-thumb{background:var(--spira-line-2);border-radius:99px;border:2px solid transparent;background-clip:content-box}
+.scroll::-webkit-scrollbar-track{background:transparent}
+@keyframes overlayIn{from{opacity:0}to{opacity:1}}
+@keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes pulseRing{0%{box-shadow:0 0 0 0 rgba(46,125,116,.35)}100%{box-shadow:0 0 0 8px rgba(46,125,116,0)}}
+@keyframes closeFlash{0%{background:rgba(46,125,116,.16)}100%{background:transparent}}
+.procItem{transition:background .14s ease,border-color .14s ease,box-shadow .14s ease}
+.procItem:hover{border-color:var(--spira-line-2);background:var(--spira-surface)}
+.procItem:active{cursor:grabbing}
+.xbtn{transition:background .14s ease,border-color .14s ease,color .14s ease,opacity .14s ease}
+.xbtn:hover{background:var(--spira-surface)}
+.moveBtn{transition:background .16s ease,color .16s ease,border-color .16s ease,transform .12s ease}
+.moveBtn:enabled:hover{background:var(--spira-surface)}
+.moveBtn:enabled:active{transform:scale(.94)}
+.rowProc{transition:background .14s ease,border-color .14s ease,box-shadow .14s ease}
+.rowProc:hover{background:var(--spira-surface);border-color:var(--spira-track)}
+.cronoRow:hover{background:rgba(251,250,246,.7)}
+.tabBtn{transition:background .14s ease,color .14s ease,box-shadow .14s ease}
+.catRow:hover{background:var(--spira-surface)}
+.linkBtn{transition:background .14s ease,border-color .14s ease}
+.linkBtn:hover{background:var(--spira-surface);border-color:var(--spira-track)}
+.segBtn{transition:background .14s ease,color .14s ease,box-shadow .14s ease}
+.kCard{transition:box-shadow .14s ease,transform .14s ease,opacity .14s ease}
+.kCard:hover{box-shadow:0 6px 18px rgba(20,48,46,.10)}
+.kCol{transition:background .14s ease,border-color .14s ease}
+.advBtn{transition:filter .14s ease}
+.advBtn:hover{filter:brightness(.94)}
+.comboOpt:hover{background:var(--spira-surface)}
+.platBtn{transition:filter .14s ease}
+.platBtn:hover{filter:brightness(.95)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useLayoutEffect, useEffect, useMemo } = React;
+const ACCENT = 'var(--spira-track)';
+const ACCENT_SOLID = 'var(--spira-primary)';
+const DOWNLOAD_COLOR = '#3A6B8C';
+const OVERDUE_COLOR = '#A6483B';
+
+/* ---------- Íconos ---------- */
+function Icon({ name, size = 16, color = 'currentColor', stroke = 1.8, style }) {
+  const P = {
+    plus: <><path d="M5 12h14"/><path d="M12 5v14"/></>,
+    pencil: <><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></>,
+    trash: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></>,
+    x: <><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>,
+    search: <><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></>,
+    check: <path d="M20 6 9 17l-5-5"/>,
+    chevRight: <path d="m9 18 6-6-6-6"/>,
+    chevLeft: <path d="m15 18-6-6 6-6"/>,
+    chevDown: <path d="m6 9 6 6 6-6"/>,
+    dblRight: <><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></>,
+    dblLeft: <><path d="m18 17-5-5 5-5"/><path d="m11 17-5-5 5-5"/></>,
+    clip: <><path d="m16 6-8.5 8.5a2.12 2.12 0 0 0 3 3L20 8a4.24 4.24 0 0 0-6-6l-9.5 9.5a6.36 6.36 0 0 0 9 9L21 12"/></>,
+    fileText: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/></>,
+    grip: <><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></>,
+    clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
+    beaker: <><path d="M9 3h6"/><path d="M10 3v6.5L4.6 18.9A1.5 1.5 0 0 0 5.9 21.2h12.2a1.5 1.5 0 0 0 1.3-2.3L14 9.5V3"/><path d="M7.4 15h9.2"/></>,
+    extLink: <><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></>,
+    alert: <><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></>,
+    download: <><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></>,
+    list: <><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></>,
+    undo: <><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></>,
+    refresh: <><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v6h-6"/></>,
+  }[name];
+  const filled = name === 'grip';
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled?color:'none'} stroke={filled?'none':color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" style={style}>{P}</svg>;
+}
+
+/* ---------- Catálogo global de procedimientos ---------- */
+const CATS = {
+  eleg:{label:'Elegibilidad',color:'#2E7D74'}, clin:{label:'Evaluación clínica',color:'#14302E'},
+  card:{label:'Cardio-respiratorio',color:'#3A6B8C'}, lab:{label:'Laboratorio',color:'#5C8A5A'},
+  quest:{label:'Cuestionarios',color:'#B0823F'}, med:{label:'Medicación',color:'#A8842F'}, seg:{label:'Seguridad',color:'#A6483B'},
+};
+const PROCS = [
+  {id:'ci',code:'CI',name:'Consentimiento informado',cat:'eleg',min:20},
+  {id:'ie',code:'I/E',name:'Criterios de inclusión / exclusión',cat:'eleg',min:10},
+  {id:'demo',code:'DEMO',name:'Datos demográficos',cat:'eleg',min:5},
+  {id:'hc',code:'HC',name:'Historia clínica',cat:'eleg',min:15},
+  {id:'sv',code:'SV',name:'Signos vitales',cat:'clin',min:5},
+  {id:'pt',code:'P/T',name:'Peso y talla',cat:'clin',min:3},
+  {id:'efc',code:'EF',name:'Examen físico completo',cat:'clin',min:15},
+  {id:'efd',code:'EF·d',name:'Examen físico dirigido',cat:'clin',min:8},
+  {id:'ecg',code:'ECG',name:'ECG de 12 derivaciones',cat:'card',min:10},
+  {id:'spiro',code:'SPIRO',name:'Espirometría',cat:'card',min:20},
+  {id:'dlco',code:'DLCO',name:'Difusión pulmonar (DLCO)',cat:'card',min:15},
+  {id:'sato2',code:'SpO₂',name:'Saturación de oxígeno',cat:'card',min:3},
+  {id:'hem',code:'HEM',name:'Extracción de sangre — Hematología',cat:'lab',min:10},
+  {id:'quim',code:'QUÍM',name:'Extracción de sangre — Química clínica',cat:'lab',min:10},
+  {id:'preg',code:'β-hCG',name:'Extracción de sangre — Test de embarazo',cat:'lab',min:5},
+  {id:'orina',code:'ORINA',name:'Análisis de orina',cat:'lab',min:5},
+  {id:'cat',code:'CAT',name:'Cuestionario CAT (EPOC)',cat:'quest',min:8},
+  {id:'mmrc',code:'mMRC',name:'Escala de disnea mMRC',cat:'quest',min:4},
+  {id:'eq5d',code:'EQ-5D',name:'Cuestionario EQ-5D',cat:'quest',min:6},
+  {id:'disp',code:'DISP',name:'Dispensación de medicación',cat:'med',min:12},
+  {id:'recon',code:'RECON',name:'Reconciliación de medicación',cat:'med',min:8},
+  {id:'cmed',code:'CMED',name:'Medicación concomitante',cat:'med',min:6},
+  {id:'ea',code:'EA',name:'Registro de eventos adversos',cat:'seg',min:8},
+  {id:'rand',code:'RAND',name:'Randomización (IWRS)',cat:'seg',min:6},
+];
+const VISITS = [
+  {code:'V1',name:'Screening',day:-59,w:'−7/+7',etapa:'Screening'},
+  {code:'V2',name:'Run in',day:-28,w:'−7/+7',etapa:'Manual'},
+  {code:'V3',name:'Randomización',day:1,w:'−7/+7',etapa:'Randomización · disp.'},
+  {code:'V4',name:'W2',day:15,w:'−7/+7',etapa:'Tratamiento · disp.'},
+  {code:'V5',name:'W4',day:29,w:'−7/+7',etapa:'Tratamiento · disp.'},
+  {code:'V6',name:'W8',day:57,w:'−7/+7',etapa:'Tratamiento · disp.'},
+  {code:'V7',name:'W12',day:85,w:'−7/+7',etapa:'Tratamiento · disp.'},
+  {code:'V8',name:'W16',day:113,w:'−7/+7',etapa:'Tratamiento · disp.'},
+];
+const DEFAULT_ASSIGN = {
+  V1:['ci','ie','demo','hc','sv','pt','efc','ecg','spiro','dlco','hem','quim','preg','cat','mmrc','ea'],
+  V2:['sv','pt','efd','sato2','recon','cmed','ea'],
+  V3:['sv','efd','spiro','sato2','hem','quim','cat','mmrc','rand','disp','ea','cmed'],
+  V4:['sv','efd','spiro','sato2','disp','cat','ea','cmed'],
+  V5:['sv','efd','spiro','disp','cat','mmrc','ea','cmed'],
+  V6:['sv','efd','spiro','sato2','hem','disp','cat','ea','cmed'],
+  V7:['sv','efd','spiro','disp','cat','mmrc','ea','cmed'],
+  V8:['sv','efc','spiro','dlco','hem','quim','eq5d','disp','cat','mmrc','ea','cmed'],
+};
+const PMAP = Object.fromEntries(PROCS.map(p=>[p.id,p]));
+
+/* ---------- Plataformas ---------- */
+const PLATFORMS = {
+  iqvia:{label:'IQVIA',color:'#3A6B8C',url:'https://impact.iqvia.com/act18301'},
+  labcorp:{label:'LabCorp',color:'#5C8A5A',url:'https://www.labcorp.com/link/act18301'},
+  clario:{label:'Clario',color:'#B0823F',url:'https://ecoa.clario.com/act18301'},
+  roche4g:{label:'Roche 4G',color:'#A6483B',url:'https://4g.roche.com/act18301'},
+  otro:{label:'Otra plataforma',color:'#7C8C87',url:''},
+};
+
+/* ---------- Reportes definidos por este protocolo, por procedimiento ---------- */
+const INITIAL_REPORT_DEFS = {
+  hem:[{id:'r1',name:'Hematología completa',platform:'labcorp',link:PLATFORMS.labcorp.url,etaHours:48,notes:'Tubo lila (EDTA). Subir la orden firmada junto con el tubo.'}],
+  quim:[{id:'r2',name:'Química clínica',platform:'labcorp',link:PLATFORMS.labcorp.url,etaHours:48,notes:''}],
+  preg:[{id:'r3',name:'β-hCG cuantitativa',platform:'labcorp',link:PLATFORMS.labcorp.url,etaHours:24,notes:'Solo mujeres en edad fértil.'}],
+  spiro:[{id:'r4',name:'Curva flujo-volumen',platform:'clario',link:PLATFORMS.clario.url,etaHours:2,notes:'Cargar antes de que el paciente se retire del centro.'}],
+  dlco:[{id:'r5',name:'Informe DLCO',platform:'clario',link:PLATFORMS.clario.url,etaHours:2,notes:''}],
+  ecg:[{id:'r6',name:'Lectura central de ECG',platform:'iqvia',link:PLATFORMS.iqvia.url,etaHours:24,notes:'Lectura por cardióloga central — no la hace el centro.'}],
+  rand:[{id:'r7',name:'Confirmación de randomización',platform:'roche4g',link:PLATFORMS.roche4g.url,etaHours:1,notes:''}],
+};
+
+/* ---------- Pacientes, instancias de visita y personas ---------- */
+const PATIENTS = [
+  {id:'p1',code:'ACT18301-004',name:'Herrera, Marisol'},
+  {id:'p2',code:'ACT18301-007',name:'Duarte, Ezequiel'},
+  {id:'p3',code:'ACT18301-011',name:'Fontán, Rosa'},
+];
+const INSTANCES = [
+  {id:'i1',patientId:'p1',visitCode:'V1'}, {id:'i2',patientId:'p1',visitCode:'V3'},
+  {id:'i3',patientId:'p2',visitCode:'V1'}, {id:'i4',patientId:'p2',visitCode:'V4'},
+  {id:'i5',patientId:'p3',visitCode:'V3'}, {id:'i6',patientId:'p3',visitCode:'V6'},
+];
+const ACTORS = ['Rocío Paz', 'Marisol Giménez', 'Julián Ortiz', 'Dr. Aguirre'];
+const CURRENT_USERS = ['Rocío Paz (Coordinadora)', 'Marisol Giménez (Coordinadora)', 'Dr. Aguirre (Investigador principal)'];
+const PROTOCOL_CODE = 'ACT18301';
+
+function hash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return Math.abs(h);}
+const NOW = new Date('2026-08-20T15:30:00-03:00');
+function hoursAgo(n){return new Date(NOW.getTime()-n*3600e3);}
+function hoursFrom(d,n){return new Date(d.getTime()+n*3600e3);}
+function fmtDT(d){return d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
+function fmtRel(hrs){
+  const h = Math.abs(Math.round(hrs));
+  if (h < 1) return 'menos de 1 h';
+  if (h < 24) return h+' h';
+  return Math.round(h/24)+' d '+(h%24)+' h';
+}
+
+/* Estado determinístico (mock) de un procedimiento dentro de una instancia de visita. */
+function baseCompletion(instanceId, procId){
+  const h = hash(instanceId+'|'+procId);
+  const completed = h % 10 < 8;
+  const completedAt = completed ? hoursAgo(2 + (h % 90)) : null;
+  return { completed, completedAt };
+}
+/* Tres etapas del reporte: pendiente → descargado → evolucionado. */
+const STAGES = [
+  { id:'pendiente', label:'Pendiente', icon:'clock', color:'var(--spira-muted)' },
+  { id:'descargado', label:'Descargado', icon:'download', color:DOWNLOAD_COLOR },
+  { id:'evolucionado', label:'Evolucionado', icon:'check', color:ACCENT_SOLID },
+];
+function baseReportStage(instanceId, reportId, completedAt, etaHours){
+  const h = hash(instanceId+'|'+reportId);
+  const dueAt = hoursFrom(completedAt, etaHours);
+  const bucket = h % 10;
+  let status = 'pendiente', downloadedAt = null, evolucionadoAt = null;
+  if (bucket < 4) { status = 'evolucionado'; downloadedAt = hoursFrom(completedAt, 1+(h%Math.max(1,etaHours))); evolucionadoAt = hoursFrom(downloadedAt, 1+(h%20)); }
+  else if (bucket < 7) { status = 'descargado'; downloadedAt = hoursFrom(completedAt, 1+(h%Math.max(1,etaHours))); }
+  return { status, downloadedAt, evolucionadoAt, dueAt };
+}
+
+/* ---------- Piezas compartidas ---------- */
+function PlatformBadge({ id, showLink }) {
+  const p = PLATFORMS[id] || PLATFORMS.otro;
+  return (
+    <span style={{display:'inline-flex',alignItems:'center',gap:6,padding:'3px 8px 3px 6px',borderRadius:99,background:p.color+'1c',flex:'0 0 auto'}}>
+      <span style={{width:6,height:6,borderRadius:99,background:p.color}}/>
+      <span style={{fontSize:11.5,fontWeight:700,color:'var(--spira-ink)'}}>{p.label}</span>
+      {showLink && p.url && (
+        <a href={p.url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} title={'Abrir '+p.label} style={{display:'grid',placeItems:'center',color:p.color}}>
+          <Icon name="extLink" size={12} stroke={2}/>
+        </a>
+      )}
+    </span>
+  );
+}
+
+/* ---------- Hook: estado editable (mock) de procedimientos y reportes, con historial y cierre de visita ---------- */
+function useChecklistState(reportDefs) {
+  const [compOverrides, setCompOverrides] = useState({});
+  const [reportState, setReportState] = useState({});
+  const [closures, setClosures] = useState({});
+
+  function getCompletion(instanceId, procId) {
+    const key = instanceId+':'+procId;
+    if (compOverrides[key] !== undefined) return compOverrides[key];
+    return baseCompletion(instanceId, procId);
+  }
+  function toggleCompletion(instanceId, procId) {
+    const cur = getCompletion(instanceId, procId);
+    const next = cur.completed ? { completed:false, completedAt:null } : { completed:true, completedAt: hoursAgo(0) };
+    setCompOverrides(o=>({...o, [instanceId+':'+procId]: next}));
+  }
+
+  function baseline(instanceId, reportId, completedAt, etaHours) {
+    const base = baseReportStage(instanceId, reportId, completedAt, etaHours);
+    const seed = hash(instanceId+':'+reportId);
+    const history = [{ stage:'pendiente', by:'Sistema', at: completedAt }];
+    if (base.status !== 'pendiente') history.push({ stage:'descargado', by: ACTORS[seed % ACTORS.length], at: base.downloadedAt });
+    if (base.status === 'evolucionado') history.push({ stage:'evolucionado', by: ACTORS[(seed+1) % ACTORS.length], at: base.evolucionadoAt });
+    return { status: base.status, history, dueAt: base.dueAt };
+  }
+  function getReportState(instanceId, reportId, completedAt, etaHours) {
+    const key = instanceId+':'+reportId;
+    const base = baseline(instanceId, reportId, completedAt, etaHours);
+    const ov = reportState[key];
+    const status = ov ? ov.status : base.status;
+    const history = ov ? ov.history : base.history;
+    const overdue = status === 'pendiente' && NOW > base.dueAt;
+    return { status, history, dueAt: base.dueAt, overdue };
+  }
+
+  /* Chequea si, tras un cambio, TODOS los reportes de la visita quedaron evolucionados → cierra la visita. */
+  function checkClosure(instanceId, actor) {
+    const inst = INSTANCES.find(i=>i.id===instanceId);
+    const procIds = (DEFAULT_ASSIGN[inst.visitCode]||[]).filter(pid => (reportDefs[pid]||[]).length);
+    if (!procIds.length) return;
+    const allDone = procIds.every(pid => {
+      const comp = getCompletion(instanceId, pid);
+      if (!comp.completed) return false;
+      return (reportDefs[pid]||[]).every(r => getReportState(instanceId, r.id, comp.completedAt, r.etaHours).status === 'evolucionado');
+    });
+    if (allDone) setClosures(c => c[instanceId] ? c : ({ ...c, [instanceId]: { at: hoursAgo(0), by: actor } }));
+  }
+
+  function setStage(instanceId, reportId, stage, actor, completedAt, etaHours) {
+    const cur = getReportState(instanceId, reportId, completedAt, etaHours);
+    if (cur.status === stage) return;
+    const key = instanceId+':'+reportId;
+    setReportState(s => ({ ...s, [key]: { status: stage, history: [...cur.history, { stage, by: actor, at: hoursAgo(0) }] } }));
+    if (stage === 'evolucionado') setTimeout(() => checkClosureAfter(instanceId, reportId, actor, completedAt, etaHours), 0);
+  }
+  /* checkClosure necesita leer el estado recién seteado; como setReportState es async, la evaluamos aparte asumiendo ese reporte en 'evolucionado'. */
+  function checkClosureAfter(instanceId, changedReportId, actor) {
+    const inst = INSTANCES.find(i=>i.id===instanceId);
+    const procIds = (DEFAULT_ASSIGN[inst.visitCode]||[]).filter(pid => (reportDefs[pid]||[]).length);
+    if (!procIds.length) return;
+    const allDone = procIds.every(pid => {
+      const comp = getCompletion(instanceId, pid);
+      if (!comp.completed) return false;
+      return (reportDefs[pid]||[]).every(r => {
+        if (r.id === changedReportId) return true;
+        return getReportState(instanceId, r.id, comp.completedAt, r.etaHours).status === 'evolucionado';
+      });
+    });
+    if (allDone) setClosures(c => c[instanceId] ? c : ({ ...c, [instanceId]: { at: hoursAgo(0), by: actor } }));
+  }
+  function advance(instanceId, reportId, actor, completedAt, etaHours) {
+    const cur = getReportState(instanceId, reportId, completedAt, etaHours);
+    const idx = STAGES.findIndex(s=>s.id===cur.status);
+    if (idx < STAGES.length-1) setStage(instanceId, reportId, STAGES[idx+1].id, actor, completedAt, etaHours);
+  }
+  function revert(instanceId, reportId, actor, completedAt, etaHours) {
+    const cur = getReportState(instanceId, reportId, completedAt, etaHours);
+    const idx = STAGES.findIndex(s=>s.id===cur.status);
+    if (idx > 0) setStage(instanceId, reportId, STAGES[idx-1].id, actor, completedAt, etaHours);
+  }
+  return { getCompletion, toggleCompletion, getReportState, setStage, advance, revert, closures };
+}
+
+/* ================= Modal transfer-list (Cronograma → Procedimientos de la visita) ================= */
+function ProcedureModal({ visit, initial, reportDefs, onClose, onSave }) {
+  const [assigned, setAssigned] = useState(initial);
+  const [sel, setSel] = useState(() => new Set());
+  const [q, setQ] = useState('');
+  const [drag, setDrag] = useState(null);
+  const [overSide, setOverSide] = useState(null);
+  const [dropIdx, setDropIdx] = useState(null);
+  const wrapRef = useRef(null);
+  const prevRects = useRef(new Map());
+  const flipTimer = useRef(null);
+  const assignedSet = useMemo(() => new Set(assigned), [assigned]);
+  const canon = PROCS.map(p => p.id);
+  const query = q.trim().toLowerCase();
+  const available = PROCS.filter(p => !assignedSet.has(p.id) &&
+    (!query || p.name.toLowerCase().includes(query) || p.code.toLowerCase().includes(query) || CATS[p.cat].label.toLowerCase().includes(query))
+  ).map(p => p.id);
+  const assignedProcs = assigned.map(id => PMAP[id]);
+  const availProcs = available.map(id => PMAP[id]);
+  const totalMin = assigned.reduce((s,id) => s + PMAP[id].min, 0);
+
+  useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [onClose]);
+  useLayoutEffect(() => {
+    const nodes = wrapRef.current ? wrapRef.current.querySelectorAll('[data-fid]') : [];
+    const now = new Map();
+    nodes.forEach(n => now.set(n.dataset.fid, n.getBoundingClientRect()));
+    let moved = false;
+    nodes.forEach(n => {
+      const id = n.dataset.fid, prev = prevRects.current.get(id), next = now.get(id);
+      if (prev) {
+        const dx = prev.left - next.left, dy = prev.top - next.top;
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+          moved = true;
+          n.style.transition = 'none'; n.style.transform = `translate(${dx}px,${dy}px)`; n.style.zIndex = '5';
+          requestAnimationFrame(() => {
+            n.style.transition = 'transform .34s cubic-bezier(.22,.7,.3,1)'; n.style.transform = '';
+            const clear = () => { n.style.zIndex=''; n.style.transition=''; n.removeEventListener('transitionend', clear); };
+            n.addEventListener('transitionend', clear);
+          });
+        }
+      } else if (prevRects.current.size) {
+        n.style.transition='none'; n.style.opacity='0'; n.style.transform='scale(.95)';
+        requestAnimationFrame(() => { n.style.transition='opacity .28s ease,transform .28s ease'; n.style.opacity=''; n.style.transform=''; });
+      }
+    });
+    prevRects.current = now;
+    if (moved) { clearTimeout(flipTimer.current); wrapRef.current.dataset.flipping = '1'; flipTimer.current = setTimeout(() => { if (wrapRef.current) wrapRef.current.dataset.flipping = '0'; }, 380); }
+  });
+
+  const clearSel = () => setSel(new Set());
+  const toggle = (id) => setSel(s => { const n = new Set(s); n.has(id)?n.delete(id):n.add(id); return n; });
+  function add(ids, at) {
+    const set = new Set(ids);
+    setAssigned(a => {
+      const rest = a.filter(x => !set.has(x));
+      const incoming = canon.filter(x => set.has(x) && !a.includes(x));
+      const already = a.filter(x => set.has(x));
+      const insert = [...incoming, ...already];
+      if (at == null || at >= rest.length) return [...rest, ...insert];
+      return [...rest.slice(0,at), ...insert, ...rest.slice(at)];
+    });
+  }
+  function remove(ids) { const set = new Set(ids); setAssigned(a => a.filter(x => !set.has(x))); }
+  const selIn = (list) => list.filter(id => sel.has(id));
+  const moveSelRight = () => { const ids = selIn(available); if (ids.length){ add(ids); setSel(s=>{const n=new Set(s); ids.forEach(i=>n.delete(i)); return n;}); } };
+  const moveSelLeft  = () => { const ids = selIn(assigned); if (ids.length){ remove(ids); setSel(s=>{const n=new Set(s); ids.forEach(i=>n.delete(i)); return n;}); } };
+  const allRight = () => { add(available); clearSel(); };
+  const allLeft  = () => { remove(assigned); clearSel(); };
+  const selAvailCount = selIn(available).length;
+  const selAssignedCount = selIn(assigned).length;
+  const onDragStart = (id, from) => (e) => { setDrag({ id, from }); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch(_) {} };
+  const endDrag = () => { setDrag(null); setOverSide(null); setDropIdx(null); };
+  const dropToAssigned = (e) => { e.preventDefault(); if (!drag) return; const ids = sel.has(drag.id) ? [...sel] : [drag.id]; add(ids, dropIdx); setSel(s=>{const n=new Set(s); ids.forEach(i=>n.delete(i)); return n;}); endDrag(); };
+  const dropToAvail = (e) => { e.preventDefault(); if (!drag) return; if (drag.from === 'assigned') { const ids = sel.has(drag.id) ? selIn(assigned) : [drag.id]; remove(ids); setSel(s=>{const n=new Set(s); ids.forEach(i=>n.delete(i)); return n;}); } endDrag(); };
+  const dropZone = (side) => ({ onDragOver: (e) => { e.preventDefault(); setOverSide(side); if (side==='assigned' && dropIdx==null) setDropIdx(assigned.length); }, onDragLeave: (e) => { if (!e.currentTarget.contains(e.relatedTarget)) { setOverSide(null); if(side==='assigned') setDropIdx(null); } }, onDrop: side==='assigned' ? dropToAssigned : dropToAvail });
+  const panel = (highlight) => ({ flex:1, minWidth:0, display:'flex', flexDirection:'column', border:'1px solid '+(highlight?ACCENT:'var(--spira-line)'), borderRadius:14, background: highlight?'rgba(46,125,116,.04)':'var(--spira-surface)', boxShadow: highlight?'0 0 0 3px rgba(46,125,116,.12)':'none', transition:'border-color .15s ease, box-shadow .15s ease, background .15s ease', overflow:'hidden' });
+  const panelHead = { display:'flex', alignItems:'center', gap:8, padding:'12px 14px 10px' };
+  const listStyle = { flex:1, minHeight:0, overflowY:'auto', padding:'2px 10px 12px', display:'flex', flexDirection:'column', gap:6 };
+  const moveBtn = (enabled) => ({ width:38, height:34, borderRadius:9, display:'grid', placeItems:'center', border:'1px solid var(--spira-line-2)', background:'var(--spira-white)', color: enabled?ACCENT:'var(--spira-faint)', cursor: enabled?'pointer':'default', opacity: enabled?1:.5 });
+
+  function ProcCard({ p, selected, onClick, onDoubleClick, onDragStart, onDragEnd, dragging, showGrip }) {
+    const c = CATS[p.cat]; const hasRep = (reportDefs[p.id]||[]).length>0;
+    return (
+      <div className="procItem" data-fid={p.id} draggable onClick={onClick} onDoubleClick={onDoubleClick} onDragStart={onDragStart} onDragEnd={onDragEnd}
+        style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:10, border:'1px solid '+(selected?ACCENT:'var(--spira-line)'), background: selected?'rgba(46,125,116,.09)':'var(--spira-white)', boxShadow: selected?'inset 0 0 0 1px '+ACCENT:'none', cursor:'grab', userSelect:'none', opacity: dragging?0.4:1 }}>
+        {showGrip && <span style={{color:'var(--spira-faint)', flex:'0 0 auto', display:'grid', placeItems:'center', marginLeft:-2}}><Icon name="grip" size={15}/></span>}
+        <span style={{width:8, height:8, borderRadius:99, background:c.color, flex:'0 0 auto'}}/>
+        <span style={{flex:1, minWidth:0}}>
+          <span style={{display:'block', fontSize:13.5, fontWeight:600, color:'var(--spira-ink)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{p.name}</span>
+          <span style={{display:'block', fontSize:11, color:'var(--spira-faint)', marginTop:1}}>{c.label} · ~{p.min} min</span>
+        </span>
+        {hasRep && <Icon name="fileText" size={13} color="var(--spira-faint)" title="Tiene reportes"/>}
+        <span className="spira-mono" style={{fontSize:11, fontWeight:600, color:selected?ACCENT:'var(--spira-muted)', letterSpacing:'.01em', flex:'0 0 auto'}}>{p.code}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div onMouseDown={onClose} role="presentation" style={{ position:'fixed', inset:0, background:'rgba(20,48,46,.34)', backdropFilter:'blur(2px)', display:'grid', placeItems:'center', zIndex:50, padding:24, animation:'overlayIn .16s ease' }}>
+      <div role="dialog" aria-modal="true" onMouseDown={e=>e.stopPropagation()} style={{ width:'min(920px,100%)', maxHeight:'calc(100vh - 48px)', background:'var(--spira-white)', border:'1px solid var(--spira-line)', borderRadius:18, boxShadow:'var(--spira-shadow-lg)', display:'flex', flexDirection:'column', overflow:'hidden', animation:'cardIn .22s cubic-bezier(.22,.7,.3,1)' }}>
+        <div style={{display:'flex', alignItems:'center', gap:13, padding:'20px 22px 16px', borderBottom:'1px solid var(--spira-line)'}}>
+          <span style={{width:38, height:38, flex:'0 0 auto', borderRadius:10, background:'rgba(46,125,116,.12)', display:'grid', placeItems:'center'}}><Icon name="clip" size={19} color={ACCENT} stroke={1.9}/></span>
+          <div style={{flex:1, minWidth:0}}>
+            <div className="spira-h2" style={{fontSize:20, lineHeight:1.1}}>Procedimientos de la visita</div>
+            <div style={{fontSize:12.5, color:'var(--spira-muted)', marginTop:3, display:'flex', alignItems:'center', gap:7}}>
+              <span className="spira-mono" style={{fontWeight:600, color:ACCENT}}>{visit.code}</span><span style={{color:'var(--spira-line-2)'}}>·</span>
+              <span style={{fontWeight:600, color:'var(--spira-ink)'}}>{visit.name}</span><span style={{color:'var(--spira-line-2)'}}>·</span><span>día {visit.day}</span>
+            </div>
+          </div>
+          <button className="xbtn" onClick={onClose} aria-label="Cerrar" style={{width:34, height:34, border:'none', borderRadius:9, background:'transparent', cursor:'pointer', display:'grid', placeItems:'center'}}><Icon name="x" size={18} color="var(--spira-muted)"/></button>
+        </div>
+        <div ref={wrapRef} data-flipping="0" style={{position:'relative', display:'flex', alignItems:'stretch', gap:14, padding:'16px 22px', minHeight:0}}>
+          <style>{`[data-flipping="1"] .procScroll{overflow:visible !important}`}</style>
+          <div style={panel(overSide==='avail')} {...dropZone('avail')}>
+            <div style={panelHead}><span className="spira-eyebrow" style={{flex:1}}>Disponibles</span><span style={{fontSize:11.5, fontWeight:600, color:'var(--spira-faint)', fontVariantNumeric:'tabular-nums'}}>{available.length}</span></div>
+            <div style={{padding:'0 10px 8px'}}>
+              <div style={{display:'flex', alignItems:'center', gap:8, height:36, padding:'0 10px', border:'1px solid var(--spira-line-2)', borderRadius:9, background:'var(--spira-white)'}}>
+                <Icon name="search" size={15} color="var(--spira-faint)"/>
+                <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar procedimiento…" style={{flex:1, border:'none', outline:'none', background:'transparent', fontSize:13, color:'var(--spira-ink)', fontFamily:'inherit'}}/>
+                {q && <button onClick={()=>setQ('')} className="xbtn" style={{border:'none', background:'transparent', cursor:'pointer', display:'grid', placeItems:'center', padding:2, borderRadius:6}}><Icon name="x" size={14} color="var(--spira-faint)"/></button>}
+              </div>
+            </div>
+            <div className="scroll procScroll" style={listStyle}>
+              {availProcs.length === 0 ? <div style={{padding:'26px 8px', textAlign:'center', color:'var(--spira-faint)', fontSize:12.5}}>{query ? 'Sin resultados para «'+q+'»' : 'Todos los procedimientos están en la visita.'}</div>
+                : availProcs.map(p => <ProcCard key={p.id} p={p} selected={sel.has(p.id)} onClick={()=>toggle(p.id)} onDoubleClick={()=>{ add([p.id]); setSel(s=>{const n=new Set(s);n.delete(p.id);return n;}); }} onDragStart={onDragStart(p.id,'avail')} onDragEnd={endDrag} dragging={drag&&drag.id===p.id}/>)}
+            </div>
+          </div>
+          <div style={{display:'flex', flexDirection:'column', justifyContent:'center', gap:8, flex:'0 0 auto'}}>
+            <button className="moveBtn" style={moveBtn(selAvailCount>0)} disabled={!selAvailCount} onClick={moveSelRight} title="Mover seleccionados →"><Icon name="chevRight" size={18}/></button>
+            <button className="moveBtn" style={moveBtn(available.length>0)} disabled={!available.length} onClick={allRight} title="Mover todos →"><Icon name="dblRight" size={17}/></button>
+            <div style={{height:6}}/>
+            <button className="moveBtn" style={moveBtn(selAssignedCount>0)} disabled={!selAssignedCount} onClick={moveSelLeft} title="← Quitar seleccionados"><Icon name="chevLeft" size={18}/></button>
+            <button className="moveBtn" style={moveBtn(assigned.length>0)} disabled={!assigned.length} onClick={allLeft} title="← Quitar todos"><Icon name="dblLeft" size={17}/></button>
+          </div>
+          <div style={panel(overSide==='assigned')} {...dropZone('assigned')}>
+            <div style={panelHead}><span className="spira-eyebrow" style={{flex:1, color:ACCENT}}>En esta visita</span><span style={{fontSize:11.5, fontWeight:700, color:ACCENT, fontVariantNumeric:'tabular-nums', background:'rgba(46,125,116,.12)', padding:'2px 8px', borderRadius:99}}>{assigned.length}</span></div>
+            <div className="scroll procScroll" style={{...listStyle, paddingTop:8}} onDragOver={(e)=>{ if(drag){ e.preventDefault(); if(dropIdx==null) setDropIdx(assigned.length);} }}>
+              {assignedProcs.length === 0 ? <div style={{margin:'8px 0', flex:1, minHeight:150, display:'grid', placeItems:'center', border:'1.5px dashed var(--spira-line-2)', borderRadius:12, color:'var(--spira-faint)', fontSize:12.5, textAlign:'center', padding:16}}>Arrastrá o seleccioná procedimientos<br/>desde la izquierda.</div>
+                : assignedProcs.map((p, i) => (
+                  <div key={p.id} onDragOver={(e)=>{ if(drag){ e.preventDefault(); const r=e.currentTarget.getBoundingClientRect(); setDropIdx(e.clientY < r.top+r.height/2 ? i : i+1);} }} style={{position:'relative'}}>
+                    {drag && dropIdx===i && <div style={{position:'absolute', top:-4, left:2, right:2, height:2, background:ACCENT, borderRadius:2}}/>}
+                    <ProcCard p={p} selected={sel.has(p.id)} showGrip onClick={()=>toggle(p.id)} onDoubleClick={()=>{ remove([p.id]); setSel(s=>{const n=new Set(s);n.delete(p.id);return n;}); }} onDragStart={onDragStart(p.id,'assigned')} onDragEnd={endDrag} dragging={drag&&drag.id===p.id}/>
+                    {drag && dropIdx===i+1 && i===assignedProcs.length-1 && <div style={{position:'absolute', bottom:-4, left:2, right:2, height:2, background:ACCENT, borderRadius:2}}/>}
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+        <div style={{display:'flex', alignItems:'center', gap:12, padding:'14px 22px', borderTop:'1px solid var(--spira-line)', background:'var(--spira-surface)'}}>
+          <div style={{flex:1, display:'flex', alignItems:'center', gap:14, fontSize:12.5, color:'var(--spira-muted)'}}>
+            <span style={{display:'inline-flex', alignItems:'center', gap:6}}><Icon name="check" size={14} color={ACCENT}/><b style={{color:'var(--spira-ink)', fontWeight:700}}>{assigned.length}</b> {assigned.length===1?'procedimiento':'procedimientos'}</span>
+            <span style={{display:'inline-flex', alignItems:'center', gap:6}}><Icon name="clock" size={14} color="var(--spira-faint)"/>~{totalMin} min estimados</span>
+          </div>
+          <button onClick={onClose} style={{height:40, padding:'0 16px', border:'1px solid var(--spira-line-2)', borderRadius:10, background:'var(--spira-white)', color:'var(--spira-ink)', fontWeight:600, fontSize:14, cursor:'pointer'}}>Cancelar</button>
+          <button onClick={()=>onSave(assigned)} style={{height:40, padding:'0 18px', border:'none', borderRadius:10, background:ACCENT_SOLID, color:'var(--spira-on-accent)', fontWeight:600, fontSize:14, cursor:'pointer'}}>Guardar procedimientos</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= Sub-vista: Visitas (tabla del cronograma) ================= */
+function VisitasView({ assign, setAssign, reportDefs }) {
+  const [open, setOpen] = useState(null);
+  const [flash, setFlash] = useState(null);
+  const openVisit = VISITS.find(v => v.code === open);
+  const COLS = '58px minmax(0,1fr) 150px 44px 74px 168px auto';
+  return (
+    <div>
+      <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:16}}>
+        <div style={{flex:1}}/>
+        <button style={{height:38, padding:'0 15px', border:'1px solid var(--spira-line-2)', borderRadius:10, background:'var(--spira-white)', color:'var(--spira-ink)', fontWeight:600, fontSize:13.5, cursor:'pointer'}}>Generar / actualizar</button>
+        <button style={{height:38, padding:'0 15px', border:'none', borderRadius:10, background:ACCENT_SOLID, color:'var(--spira-on-accent)', fontWeight:600, fontSize:13.5, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}><Icon name="plus" size={15} color="var(--spira-on-accent)"/>Visita</button>
+      </div>
+      <div style={{display:'grid', gridTemplateColumns:COLS, gap:12, alignItems:'center', padding:'0 4px 8px'}}>
+        <span className="spira-eyebrow">Código</span><span className="spira-eyebrow">Nombre</span><span className="spira-eyebrow">Procedimientos</span>
+        <span className="spira-eyebrow" style={{textAlign:'right'}}>Día</span><span className="spira-eyebrow" style={{textAlign:'center'}}>Ventana</span>
+        <span className="spira-eyebrow">Etapa</span><span/>
+      </div>
+      {VISITS.map(v => {
+        const ids = assign[v.code] || [];
+        const isFlash = flash === v.code;
+        return (
+          <div key={v.code} className="cronoRow" style={{display:'grid', gridTemplateColumns:COLS, gap:12, alignItems:'center', padding:'10px 4px', borderTop:'1px solid var(--spira-line)', fontSize:13.5, borderRadius:8, transition:'background .2s'}}>
+            <span className="spira-mono" style={{fontWeight:600, color:ACCENT}}>{v.code}</span>
+            <span style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{v.name}</span>
+            <button className="rowProc" onClick={()=>setOpen(v.code)} title="Editar procedimientos de la visita"
+              style={{display:'inline-flex', alignItems:'center', gap:8, height:30, padding:'0 8px 0 10px', border:'1px solid var(--spira-line)', borderRadius:99, background:'var(--spira-white)', cursor:'pointer', width:'fit-content', boxShadow: isFlash?'0 0 0 2px '+ACCENT:'none', animation: isFlash?'pulseRing .6s ease':'none'}}>
+              <Icon name="clip" size={13} color={ids.length?ACCENT:'var(--spira-faint)'}/>
+              {ids.length ? <span style={{fontSize:12.5, fontWeight:600, color:'var(--spira-ink)'}}><b style={{color:ACCENT}}>{ids.length}</b> proc.</span> : <span style={{fontSize:12.5, color:'var(--spira-muted)'}}>Agregar</span>}
+              <span style={{display:'grid', placeItems:'center', color:'var(--spira-faint)'}}><Icon name="chevRight" size={13}/></span>
+            </button>
+            <span style={{color:'var(--spira-muted)', fontVariantNumeric:'tabular-nums', textAlign:'right'}}>{v.day}</span>
+            <span className="spira-mono" style={{color:'var(--spira-muted)', fontSize:12, textAlign:'center'}}>{v.w}</span>
+            <span style={{color:'var(--spira-muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontSize:12.5}}>{v.etapa}</span>
+            <span style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
+              <button className="xbtn" style={{width:30, height:30, border:'1px solid var(--spira-line-2)', borderRadius:8, background:'var(--spira-white)', cursor:'pointer', display:'grid', placeItems:'center'}} title="Editar"><Icon name="pencil" size={14} color="var(--spira-muted)"/></button>
+              <button className="xbtn" style={{width:30, height:30, border:'1px solid var(--spira-line-2)', borderRadius:8, background:'var(--spira-white)', cursor:'pointer', display:'grid', placeItems:'center'}} title="Quitar"><Icon name="trash" size={14} color="var(--spira-muted)"/></button>
+            </span>
+          </div>
+        );
+      })}
+      {openVisit && <ProcedureModal visit={openVisit} initial={assign[openVisit.code] || []} reportDefs={reportDefs}
+        onClose={()=>setOpen(null)}
+        onSave={(ids)=>{ setAssign(a=>({...a,[openVisit.code]:ids})); const c=openVisit.code; setOpen(null); setFlash(c); setTimeout(()=>setFlash(null),650); }}/>}
+    </div>
+  );
+}
+
+/* ================= Modal: Reportes de un procedimiento (catálogo del protocolo) ================= */
+function NameCombo({ value, onChange, known }){
+  const [open,setOpen]=useState(false);
+  const inputRef=useRef(null), wrapRef=useRef(null);
+  const names = known.map(k=>k.name);
+  const q=value.trim().toLowerCase();
+  const filtered = q ? names.filter(o=>o.toLowerCase().includes(q)) : names;
+  useEffect(()=>{ function onDoc(e){ if(wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); } document.addEventListener('mousedown',onDoc); return ()=>document.removeEventListener('mousedown',onDoc); },[]);
+  function handleChange(e){
+    const typed=e.target.value, isDelete = e.nativeEvent && e.nativeEvent.inputType==='deleteContentBackward';
+    onChange(typed); setOpen(true);
+    if (!typed || isDelete) return;
+    const match = names.find(o=>o.toLowerCase().startsWith(typed.toLowerCase()) && o.toLowerCase()!==typed.toLowerCase());
+    if (match){ onChange(match); requestAnimationFrame(()=>{ if(inputRef.current) inputRef.current.setSelectionRange(typed.length, match.length); }); }
+  }
+  function pick(name){ onChange(name); setOpen(false); }
+  return (
+    <div ref={wrapRef} style={{position:'relative'}}>
+      <div style={{display:'flex', alignItems:'center', border:'1px solid var(--spira-line-2)', borderRadius:8, background:'var(--spira-white)', height:36}}>
+        <input ref={inputRef} value={value} onChange={handleChange} onFocus={()=>setOpen(true)}
+          onKeyDown={e=>{ if(e.key==='Escape') setOpen(false); else if(e.key==='Enter' && filtered[0]){ pick(filtered[0]); e.preventDefault(); } }}
+          placeholder="Elegí uno existente o escribí uno nuevo" style={{flex:1, height:'100%', border:'none', outline:'none', padding:'0 10px', fontSize:13, background:'transparent', color:'var(--spira-ink)', fontFamily:'inherit', borderRadius:'8px 0 0 8px'}}/>
+        <button type="button" onClick={()=>{ setOpen(o=>!o); inputRef.current && inputRef.current.focus(); }} style={{width:32, height:'100%', border:'none', borderLeft:'1px solid var(--spira-line)', background:'transparent', cursor:'pointer', display:'grid', placeItems:'center'}}>
+          <Icon name="chevDown" size={13} color="var(--spira-muted)" stroke={2}/>
+        </button>
+      </div>
+      {open && (
+        <div className="scroll" style={{position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'var(--spira-white)', border:'1px solid var(--spira-line-2)', borderRadius:9, boxShadow:'var(--spira-shadow-sm)', maxHeight:200, overflowY:'auto', zIndex:20}}>
+          {filtered.length===0 && <div style={{padding:'9px 12px', fontSize:12, color:'var(--spira-faint)'}}>Sin coincidencias — se creará «{value}» como nuevo.</div>}
+          {filtered.map(o=>{ const k = known.find(x=>x.name===o); return (
+            <button key={o} type="button" className="comboOpt" onClick={()=>pick(o)} style={{display:'flex', width:'100%', textAlign:'left', alignItems:'center', gap:8, padding:'8px 12px', border:'none', background:'transparent', cursor:'pointer', fontSize:12.5}}>
+              <span style={{flex:1}}>{o}</span>
+              <span style={{fontSize:10.5, fontWeight:700, color:PLATFORMS[k.platform].color}}>{PLATFORMS[k.platform].label}</span>
+            </button>
+          );})}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReportForm({ initial, known, onCancel, onSave }) {
+  const [f, setF] = useState(initial || { name:'', platform:'labcorp', link:PLATFORMS.labcorp.url, etaHours:24, notes:'' });
+  const [linkTouched, setLinkTouched] = useState(!!initial);
+  const upd = (k,v) => setF(s=>({...s,[k]:v}));
+  function onNameChange(v){
+    const match = known.find(k=>k.name.toLowerCase()===v.toLowerCase());
+    if (match) setF(s=>({ ...s, name:v, platform:match.platform, etaHours:match.etaHours, link: linkTouched ? s.link : PLATFORMS[match.platform].url }));
+    else upd('name', v);
+  }
+  function onPlatformChange(v){ upd('platform', v); if (!linkTouched) upd('link', PLATFORMS[v].url); }
+  const fieldStyle = { width:'100%', height:36, padding:'0 10px', border:'1px solid var(--spira-line-2)', borderRadius:8, background:'var(--spira-white)', fontSize:13, fontFamily:'inherit', color:'var(--spira-ink)' };
+  const label = { display:'block', fontSize:11.5, fontWeight:600, color:'var(--spira-muted)', marginBottom:4 };
+  const help = { fontSize:11, color:'var(--spira-faint)', marginTop:4 };
+  const ETA_PRESETS = [1,24,48,72];
+  return (
+    <div style={{border:'1px solid '+ACCENT, borderRadius:12, padding:14, background:'rgba(46,125,116,.04)', display:'flex', flexDirection:'column', gap:12}}>
+      <div style={{display:'grid', gridTemplateColumns:'1.4fr 1fr', gap:10}}>
+        <div><span style={label}>Nombre del reporte</span><NameCombo value={f.name} onChange={onNameChange} known={known}/></div>
+        <div><span style={label}>Plataforma</span>
+          <select style={fieldStyle} value={f.platform} onChange={e=>onPlatformChange(e.target.value)}>
+            {Object.entries(PLATFORMS).map(([id,p])=><option key={id} value={id}>{p.label}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <span style={label}>Link directo a la plataforma</span>
+        <div style={{display:'flex', gap:8}}>
+          <input style={fieldStyle} value={f.link} onChange={e=>{upd('link',e.target.value); setLinkTouched(true);}} placeholder="https://…"/>
+          {linkTouched && <button type="button" title="Restablecer al link de la plataforma" onClick={()=>{upd('link', PLATFORMS[f.platform].url); setLinkTouched(false);}} style={{width:36, height:36, flex:'0 0 auto', border:'1px solid var(--spira-line-2)', borderRadius:8, background:'var(--spira-white)', cursor:'pointer', display:'grid', placeItems:'center'}}><Icon name="refresh" size={14} color="var(--spira-muted)"/></button>}
+        </div>
+        <div style={help}>Se autocompleta con la de {PLATFORMS[f.platform].label}; editalo si esta orden usa otro link.</div>
+      </div>
+      <div>
+        <span style={label}>¿Cuánto tarda en estar listo?</span>
+        <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
+          {ETA_PRESETS.map(h=>(
+            <button key={h} type="button" onClick={()=>upd('etaHours',h)} style={{height:32, padding:'0 13px', borderRadius:99, border:'1px solid '+(f.etaHours===h?ACCENT:'var(--spira-line-2)'), background: f.etaHours===h?'rgba(46,125,116,.10)':'var(--spira-white)', color: f.etaHours===h?ACCENT:'var(--spira-muted)', fontWeight:600, fontSize:12, cursor:'pointer'}}>{h===1?'1 hora':h+' horas'}</button>
+          ))}
+          <div style={{display:'flex', alignItems:'center', gap:6}}>
+            <input type="number" min="0" style={{...fieldStyle, width:70, height:32}} value={f.etaHours} onChange={e=>upd('etaHours', Number(e.target.value)||0)}/>
+            <span style={{fontSize:11.5, color:'var(--spira-faint)'}}>otra (h)</span>
+          </div>
+        </div>
+        <div style={help}>Tiempo desde que se realiza el procedimiento hasta que el reporte aparece en la plataforma.</div>
+      </div>
+      <div><span style={label}>Notas o instrucciones <span style={{fontWeight:400, color:'var(--spira-faint)'}}>(opcional)</span></span><textarea style={{...fieldStyle, height:56, padding:'8px 10px', resize:'vertical'}} value={f.notes} onChange={e=>upd('notes',e.target.value)} placeholder="Instrucciones para quien realiza el procedimiento…"/></div>
+      <div style={{display:'flex', justifyContent:'flex-end', gap:8}}>
+        <button onClick={onCancel} style={{height:34, padding:'0 14px', border:'1px solid var(--spira-line-2)', borderRadius:8, background:'var(--spira-white)', fontWeight:600, fontSize:13, cursor:'pointer'}}>Cancelar</button>
+        <button onClick={()=>f.name.trim() && onSave({...f, id:f.id||('r'+Date.now())})} disabled={!f.name.trim()} style={{height:34, padding:'0 16px', border:'none', borderRadius:8, background:ACCENT_SOLID, color:'var(--spira-on-accent)', fontWeight:600, fontSize:13, cursor:f.name.trim()?'pointer':'default', opacity:f.name.trim()?1:.6}}>Guardar reporte</button>
+      </div>
+    </div>
+  );
+}
+
+function ProcedureFields({ value, onChange }) {
+  const [catOpen, setCatOpen] = useState(false);
+  const fieldStyle = { width:'100%', height:36, padding:'0 10px', border:'1px solid var(--spira-line-2)', borderRadius:8, background:'var(--spira-white)', fontSize:13, fontFamily:'inherit', color:'var(--spira-ink)' };
+  const label = { display:'block', fontSize:11.5, fontWeight:600, color:'var(--spira-muted)', marginBottom:4 };
+  const help = { fontSize:11, color:'var(--spira-faint)', marginTop:4 };
+  const c = CATS[value.cat];
+  const MIN_PRESETS = [5,10,15,20,30,45,60,90];
+  return (
+    <div style={{display:'flex', flexDirection:'column', gap:14}}>
+      <div><span style={label}>Nombre</span><input style={fieldStyle} value={value.name} onChange={e=>onChange({...value,name:e.target.value})} placeholder="Ej. Electrocardiograma"/></div>
+      <div style={{display:'grid', gridTemplateColumns:'110px 1fr', gap:10}}>
+        <div><span style={label}>Iniciales</span><input className="spira-mono" style={{...fieldStyle, textAlign:'center'}} value={value.code} onChange={e=>onChange({...value,code:e.target.value})} placeholder="ECG"/></div>
+        <div style={{position:'relative'}}>
+          <span style={label}>Categoría</span>
+          <button type="button" onClick={()=>setCatOpen(o=>!o)} style={{...fieldStyle, display:'flex', alignItems:'center', gap:8, cursor:'pointer', textAlign:'left'}}>
+            <span style={{width:8, height:8, borderRadius:99, background:c.color, flex:'0 0 auto'}}/>
+            <span style={{flex:1, fontWeight:600}}>{c.label}</span>
+            <Icon name="chevRight" size={13} color="var(--spira-muted)" stroke={2.2} style={{transform:'rotate(90deg)'}}/>
+          </button>
+          {catOpen && (
+            <div className="scroll" style={{position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'var(--spira-white)', border:'1px solid var(--spira-line-2)', borderRadius:9, boxShadow:'var(--spira-shadow-sm)', zIndex:10, maxHeight:220, overflowY:'auto'}}>
+              {Object.entries(CATS).map(([id,cc])=>(
+                <button key={id} type="button" onClick={()=>{onChange({...value,cat:id}); setCatOpen(false);}} style={{display:'flex', alignItems:'center', gap:8, width:'100%', padding:'9px 12px', border:'none', background: id===value.cat?'var(--spira-surface)':'transparent', cursor:'pointer', fontSize:13}}>
+                  <span style={{width:8,height:8,borderRadius:99,background:cc.color}}/>{cc.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <div>
+        <span style={label}>Demora estimada</span>
+        <select style={fieldStyle} value={MIN_PRESETS.includes(value.min)?value.min:'otra'} onChange={e=>{ if(e.target.value!=='otra') onChange({...value,min:Number(e.target.value)}); }}>
+          {MIN_PRESETS.map(m=><option key={m} value={m}>{m} min</option>)}
+          <option value="otra">Otra…</option>
+        </select>
+        {!MIN_PRESETS.includes(value.min) && <input type="number" min="0" style={{...fieldStyle, width:120, marginTop:8}} value={value.min} onChange={e=>onChange({...value,min:Number(e.target.value)||0})}/>}
+        <div style={help}>Cuánto dura el procedimiento en promedio, de principio a fin.</div>
+      </div>
+    </div>
+  );
+}
+
+function ProcedureForm({ initial, onCancel, onSave }) {
+  const [f, setF] = useState(initial || { name:'', code:'', cat:'clin', min:10 });
+  return (
+    <div style={{display:'flex', flexDirection:'column', gap:14}}>
+      <ProcedureFields value={f} onChange={setF}/>
+      <div style={{display:'flex', justifyContent:'flex-end', gap:8}}>
+        <button onClick={onCancel} style={{height:34, padding:'0 14px', border:'1px solid var(--spira-line-2)', borderRadius:8, background:'var(--spira-white)', fontWeight:600, fontSize:13, cursor:'pointer'}}>Cancelar</button>
+        <button onClick={()=>f.name.trim() && onSave({...f, id: initial ? initial.id : (f.code.trim().toLowerCase()||('proc'+Date.now()))})} disabled={!f.name.trim()} style={{height:34, padding:'0 16px', border:'none', borderRadius:8, background:ACCENT_SOLID, color:'var(--spira-on-accent)', fontWeight:600, fontSize:13, cursor:f.name.trim()?'pointer':'default', opacity:f.name.trim()?1:.6}}>{initial ? 'Guardar cambios' : 'Crear procedimiento'}</button>
+      </div>
+    </div>
+  );
+}
+
+function ProcedureEditModal({ proc, reports, known, onClose, onSaveProc, onAddReport, onEditReport, onDeleteReport }) {
+  const [f, setF] = useState(proc);
+  const [addingRep, setAddingRep] = useState(false);
+  const [editingRepId, setEditingRepId] = useState(null);
+  return (
+    <div onMouseDown={onClose} role="presentation" style={{ position:'fixed', inset:0, background:'rgba(20,48,46,.34)', backdropFilter:'blur(2px)', display:'grid', placeItems:'center', zIndex:50, padding:24, animation:'overlayIn .16s ease' }}>
+      <div onMouseDown={e=>e.stopPropagation()} style={{ width:'min(620px,100%)', maxHeight:'calc(100vh - 48px)', background:'var(--spira-white)', border:'1px solid var(--spira-line)', borderRadius:18, boxShadow:'var(--spira-shadow-lg)', display:'flex', flexDirection:'column', overflow:'hidden', animation:'cardIn .22s cubic-bezier(.22,.7,.3,1)' }}>
+        <div style={{display:'flex', alignItems:'center', gap:12, padding:'18px 20px 14px', borderBottom:'1px solid var(--spira-line)'}}>
+          <span style={{width:34, height:34, flex:'0 0 auto', borderRadius:9, background:'rgba(46,125,116,.12)', display:'grid', placeItems:'center'}}><Icon name="pencil" size={16} color={ACCENT}/></span>
+          <div className="spira-h2" style={{fontSize:17, flex:1}}>Editar procedimiento</div>
+          <button className="xbtn" onClick={onClose} style={{width:30, height:30, border:'none', borderRadius:8, background:'transparent', cursor:'pointer', display:'grid', placeItems:'center'}}><Icon name="x" size={16} color="var(--spira-muted)"/></button>
+        </div>
+        <div className="scroll" style={{padding:'18px 20px 4px', overflowY:'auto', display:'flex', flexDirection:'column', gap:20}}>
+          <ProcedureFields value={f} onChange={setF}/>
+          <div style={{borderTop:'1px solid var(--spira-line)', paddingTop:16}}>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+              <Icon name="fileText" size={14} color={ACCENT}/>
+              <span style={{fontWeight:700, fontSize:13.5}}>Reportes</span>
+              <span style={{fontSize:11.5, color:'var(--spira-faint)'}}>({reports.length})</span>
+            </div>
+            <div style={{display:'flex', flexDirection:'column', gap:10}}>
+              {reports.length===0 && !addingRep && <div style={{textAlign:'center', color:'var(--spira-faint)', fontSize:12.5, padding:'10px 0'}}>Este procedimiento todavía no tiene reportes definidos.</div>}
+              {reports.map(r => editingRepId===r.id ? (
+                <ReportForm key={r.id} initial={r} known={known} onCancel={()=>setEditingRepId(null)} onSave={(v)=>{ onEditReport(v); setEditingRepId(null); }}/>
+              ) : (
+                <div key={r.id} style={{border:'1px solid var(--spira-line)', borderRadius:10, padding:'10px 12px', display:'flex', alignItems:'center', gap:10}}>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontSize:13, fontWeight:600}}>{r.name}</div>
+                    {r.notes && <div style={{fontSize:11, color:'var(--spira-faint)', marginTop:2}}>{r.notes}</div>}
+                  </div>
+                  <PlatformBadge id={r.platform} showLink/>
+                  <span style={{fontSize:11, color:'var(--spira-muted)', flex:'0 0 auto'}}>~{r.etaHours} h</span>
+                  <button className="xbtn" onClick={()=>setEditingRepId(r.id)} style={{width:26, height:26, border:'1px solid var(--spira-line-2)', borderRadius:7, background:'var(--spira-white)', cursor:'pointer', display:'grid', placeItems:'center'}}><Icon name="pencil" size={12} color="var(--spira-muted)"/></button>
+                  <button className="xbtn" onClick={()=>onDeleteReport(r.id)} style={{width:26, height:26, border:'1px solid var(--spira-line-2)', borderRadius:7, background:'var(--spira-white)', cursor:'pointer', display:'grid', placeItems:'center'}}><Icon name="trash" size={12} color="var(--spira-muted)"/></button>
+                </div>
+              ))}
+              {addingRep && <ReportForm known={known} onCancel={()=>setAddingRep(false)} onSave={(v)=>{ onAddReport(v); setAddingRep(false); }}/>}
+              {!addingRep && <button onClick={()=>setAddingRep(true)} style={{alignSelf:'flex-start', display:'inline-flex', alignItems:'center', gap:7, height:34, padding:'0 14px', border:'1px dashed var(--spira-line-2)', borderRadius:9, background:'transparent', color:ACCENT, fontWeight:600, fontSize:12.5, cursor:'pointer'}}><Icon name="plus" size={14}/>Agregar reporte</button>}
+            </div>
+          </div>
+        </div>
+        <div style={{display:'flex', justifyContent:'flex-end', gap:8, padding:'14px 20px', borderTop:'1px solid var(--spira-line)', background:'var(--spira-surface)'}}>
+          <button onClick={onClose} style={{height:36, padding:'0 16px', border:'1px solid var(--spira-line-2)', borderRadius:9, background:'var(--spira-white)', fontWeight:600, fontSize:13, cursor:'pointer'}}>Cancelar</button>
+          <button onClick={()=>f.name.trim() && onSaveProc(f)} disabled={!f.name.trim()} style={{height:36, padding:'0 18px', border:'none', borderRadius:9, background:ACCENT_SOLID, color:'var(--spira-on-accent)', fontWeight:600, fontSize:13, cursor:f.name.trim()?'pointer':'default', opacity:f.name.trim()?1:.6}}>Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= Sub-vista: Procedimientos del estudio (catálogo + reportes) ================= */
+function ProcedimientosView({ catalog, setCatalog, reportDefs, setReportDefs }) {
+  const [q, setQ] = useState('');
+  const [editingProc, setEditingProc] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const knownReports = useMemo(() => {
+    const map = new Map();
+    Object.values(reportDefs).flat().forEach(r => { if (!map.has(r.name)) map.set(r.name, { name:r.name, platform:r.platform, etaHours:r.etaHours }); });
+    return [...map.values()];
+  }, [reportDefs]);
+  const query = q.trim().toLowerCase();
+  const byCat = {};
+  catalog.filter(p => !query || p.name.toLowerCase().includes(query) || (p.code||'').toLowerCase().includes(query) || CATS[p.cat].label.toLowerCase().includes(query))
+    .forEach(p => { (byCat[p.cat] = byCat[p.cat]||[]).push(p); });
+  // (panel de reportes independiente retirado: ahora se gestiona dentro de "Editar procedimiento")
+
+  return (
+    <div>
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:18, flexWrap:'wrap'}}>
+        <div style={{display:'flex', alignItems:'center', gap:8, height:38, padding:'0 12px', border:'1px solid var(--spira-line-2)', borderRadius:10, background:'var(--spira-white)', minWidth:260}}>
+          <Icon name="search" size={15} color="var(--spira-faint)"/>
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar procedimiento…" style={{flex:1, border:'none', outline:'none', background:'transparent', fontSize:13, fontFamily:'inherit', color:'var(--spira-ink)'}}/>
+        </div>
+        <div style={{flex:1}}/>
+        <button onClick={()=>setAdding(a=>!a)} style={{height:38, padding:'0 15px', border:'none', borderRadius:10, background:ACCENT_SOLID, color:'var(--spira-on-accent)', fontWeight:600, fontSize:13.5, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}><Icon name="plus" size={15} color="var(--spira-on-accent)"/>Procedimiento</button>
+      </div>
+      {adding && <ProcedureForm onCancel={()=>setAdding(false)} onSave={(p)=>{ setCatalog(c=>[...c,p]); setAdding(false); }}/>}
+      {Object.entries(CATS).filter(([id])=>byCat[id]).map(([id,c]) => (
+        <div key={id} style={{marginBottom:18}}>
+          <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+            <span style={{width:7,height:7,borderRadius:99,background:c.color}}/>
+            <span className="spira-eyebrow">{c.label}</span>
+          </div>
+          <div style={{border:'1px solid var(--spira-line)', borderRadius:12, overflow:'hidden', background:'var(--spira-white)'}}>
+            {byCat[id].map((p,i) => {
+              const reports = reportDefs[p.id] || [];
+              return (
+                <div key={p.id} className="catRow" style={{display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderTop: i>0?'1px solid var(--spira-line)':'none'}}>
+                  <div onClick={()=>setEditingProc(p)} title="Editar procedimiento" style={{flex:1, minWidth:0, cursor:'pointer'}}>
+                    <div style={{fontSize:13.5, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{p.name}</div>
+                    <div style={{fontSize:11, color:'var(--spira-faint)', marginTop:1}}>~{p.min} min</div>
+                  </div>
+                  <button className="linkBtn" onClick={()=>setEditingProc(p)} style={{display:'inline-flex', alignItems:'center', gap:7, height:30, padding:'0 8px 0 10px', border:'1px solid var(--spira-line)', borderRadius:99, background:'var(--spira-white)', cursor:'pointer'}}>
+                    <Icon name="fileText" size={13} color={reports.length?ACCENT:'var(--spira-faint)'}/>
+                    {reports.length ? <span style={{fontSize:12.5, fontWeight:600}}><b style={{color:ACCENT}}>{reports.length}</b> {reports.length===1?'reporte':'reportes'}</span> : <span style={{fontSize:12.5, color:'var(--spira-muted)'}}>Sin reportes</span>}
+                    <Icon name="chevRight" size={13} color="var(--spira-faint)"/>
+                  </button>
+                  {reports.length>0 && <div style={{display:'flex', gap:4}}>{reports.slice(0,3).map(r=><span key={r.id} title={r.name+' · '+PLATFORMS[r.platform].label} style={{width:7,height:7,borderRadius:99,background:PLATFORMS[r.platform].color}}/>)}</div>}
+                  <span className="spira-mono" style={{fontSize:11, color:'var(--spira-muted)'}}>{p.code}</span>
+                  <button className="xbtn" style={{width:28, height:28, border:'1px solid var(--spira-line-2)', borderRadius:7, background:'var(--spira-white)', cursor:'pointer', display:'grid', placeItems:'center'}} title="Eliminar" onClick={()=>{ if(!(reportDefs[p.id]||[]).length) setCatalog(c=>c.filter(x=>x.id!==p.id)); }}><Icon name="trash" size={13} color="var(--spira-muted)"/></button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      {editingProc && (
+        <ProcedureEditModal proc={editingProc} reports={reportDefs[editingProc.id]||[]} known={knownReports}
+          onClose={()=>setEditingProc(null)}
+          onSaveProc={(p)=>{ setCatalog(c=>c.map(x=>x.id===p.id?p:x)); setEditingProc(p); }}
+          onAddReport={(r)=>setReportDefs(d=>({...d,[editingProc.id]:[...(d[editingProc.id]||[]),r]}))}
+          onEditReport={(r)=>setReportDefs(d=>({...d,[editingProc.id]:(d[editingProc.id]||[]).map(x=>x.id===r.id?r:x)}))}
+          onDeleteReport={(id)=>setReportDefs(d=>({...d,[editingProc.id]:(d[editingProc.id]||[]).filter(x=>x.id!==id)}))}/>
+      )}
+    </div>
+  );
+}
+
+/* ================= Tab unificado: Cronograma (Visitas + Procedimientos del estudio) ================= */
+function CronogramaSection({ assign, setAssign, catalog, setCatalog, reportDefs, setReportDefs }) {
+  const [sub, setSub] = useState('visitas');
+  return (
+    <div>
+      <div style={{display:'flex', gap:6, background:'var(--spira-paper)', padding:4, borderRadius:11, width:'fit-content', marginBottom:20}}>
+        <button className="segBtn" onClick={()=>setSub('visitas')} style={{height:32, padding:'0 15px', border:'none', borderRadius:8, background: sub==='visitas'?'var(--spira-white)':'transparent', color: sub==='visitas'?'var(--spira-ink)':'var(--spira-muted)', fontWeight: sub==='visitas'?700:600, fontSize:13.5, cursor:'pointer', boxShadow: sub==='visitas'?'var(--spira-shadow-sm)':'none'}}>Visitas</button>
+        <button className="segBtn" onClick={()=>setSub('procedimientos')} style={{height:32, padding:'0 15px', border:'none', borderRadius:8, background: sub==='procedimientos'?'var(--spira-white)':'transparent', color: sub==='procedimientos'?'var(--spira-ink)':'var(--spira-muted)', fontWeight: sub==='procedimientos'?700:600, fontSize:13.5, cursor:'pointer', boxShadow: sub==='procedimientos'?'var(--spira-shadow-sm)':'none'}}>Procedimientos del estudio</button>
+      </div>
+      {sub==='visitas'
+        ? <VisitasView assign={assign} setAssign={setAssign} reportDefs={reportDefs}/>
+        : <ProcedimientosView catalog={catalog} setCatalog={setCatalog} reportDefs={reportDefs} setReportDefs={setReportDefs}/>}
+    </div>
+  );
+}
+
+/* ================= Tarjeta del tablero (Kanban de reportes) ================= */
+function KanbanCard({ card, checklist, actor, onDragStart, onDragEnd, dragging, onOpenProcedures }) {
+  const [showHist, setShowHist] = useState(false);
+  const { instanceId, patient, visit, proc, report, state } = card;
+  const idx = STAGES.findIndex(s=>s.id===state.status);
+  const next = STAGES[idx+1];
+  const plat = PLATFORMS[report.platform] || PLATFORMS.otro;
+  const timeText = state.status==='evolucionado' ? 'Evolucionado ' + fmtDT(state.history[state.history.length-1].at)
+    : state.status==='descargado' ? 'Descargado ' + fmtDT(state.history[state.history.length-1].at)
+    : (state.overdue ? 'Vencido hace ' + fmtRel((NOW-state.dueAt)/3600e3) : 'Vence en ' + fmtRel((state.dueAt-NOW)/3600e3));
+  return (
+    <div className="kCard" draggable onDragStart={onDragStart} onDragEnd={onDragEnd}
+      style={{background:'var(--spira-white)', border:'1px solid var(--spira-line)', borderRadius:12, padding:'12px 13px', display:'flex', flexDirection:'column', gap:8, cursor:'grab', opacity: dragging?0.4:1}}>
+      <div style={{display:'flex', alignItems:'flex-start', gap:8}}>
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{display:'flex', alignItems:'center', gap:6}}>
+            <span className="spira-mono" style={{fontSize:10, fontWeight:600, color:'var(--spira-faint)'}}>{PROTOCOL_CODE}</span>
+            <span style={{fontSize:10, color:'var(--spira-line-2)'}}>·</span>
+            <span className="spira-mono" style={{fontSize:11.5, fontWeight:700, color:ACCENT}}>{visit.code}</span>
+            <span style={{fontSize:10.5, color:'var(--spira-faint)'}}>{visit.name}</span>
+          </div>
+          <div style={{fontSize:14, fontWeight:700, color:'var(--spira-ink)', marginTop:3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{patient.name}</div>
+          <span className="spira-mono" style={{fontSize:10.5, color:'var(--spira-muted)'}}>{patient.code}</span>
+        </div>
+        <button className="xbtn" onClick={onOpenProcedures} title="Ver procedimientos de la visita" style={{width:26, height:26, flex:'0 0 auto', border:'1px solid var(--spira-line-2)', borderRadius:7, background:'var(--spira-white)', cursor:'pointer', display:'grid', placeItems:'center'}}>
+          <Icon name="clip" size={13} color="var(--spira-muted)"/>
+        </button>
+      </div>
+      <div>
+        <div style={{fontSize:13.5, fontWeight:600, lineHeight:1.25}}>{report.name}</div>
+        <div style={{fontSize:11, color:'var(--spira-faint)', marginTop:1}}>{proc.name}</div>
+      </div>
+      <a className="platBtn" href={plat.url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()}
+        style={{display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6, height:28, borderRadius:8, background:plat.color+'1c', color:plat.color, fontSize:11.5, fontWeight:700, textDecoration:'none'}}>
+        Abrir en {plat.label}<Icon name="extLink" size={11} stroke={2.2}/>
+      </a>
+      <div style={{fontSize:10.5, fontWeight:600, color: state.status==='pendiente'&&state.overdue ? OVERDUE_COLOR : 'var(--spira-muted)'}}>{timeText}</div>
+      <div style={{display:'flex', alignItems:'center', gap:6}}>
+        {next && (
+          <button className="advBtn" onClick={()=>checklist.advance(instanceId, report.id, actor, card.completedAt, report.etaHours)}
+            style={{flex:1, height:30, border:'none', borderRadius:8, background:next.color, color:'var(--spira-on-accent)', fontSize:11.5, fontWeight:700, cursor:'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6}}>
+            <Icon name={next.icon} size={12} stroke={2.4}/>Marcar {next.label.toLowerCase()}
+          </button>
+        )}
+        {!next && <span style={{flex:1, height:30, display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6, fontSize:11.5, fontWeight:700, color:ACCENT}}><Icon name="check" size={13}/>Evolucionado</span>}
+        <button className="xbtn" onClick={()=>checklist.revert(instanceId, report.id, actor, card.completedAt, report.etaHours)} title="Retroceder etapa" style={{width:30, height:30, border:'1px solid var(--spira-line-2)', borderRadius:8, background:'var(--spira-white)', cursor:'pointer', display:'grid', placeItems:'center'}}><Icon name="undo" size={13} color="var(--spira-muted)"/></button>
+      </div>
+      <button onClick={()=>setShowHist(h=>!h)} style={{display:'inline-flex', alignItems:'center', gap:5, border:'none', background:'transparent', color:'var(--spira-faint)', fontSize:10.5, cursor:'pointer', padding:0, alignSelf:'flex-start'}}>
+        <Icon name="list" size={11}/>Historial ({state.history.length})<Icon name="chevDown" size={10} style={{transform:showHist?'rotate(180deg)':'none', transition:'transform .15s'}}/>
+      </button>
+      {showHist && (
+        <div style={{borderTop:'1px solid var(--spira-line)', paddingTop:7, display:'flex', flexDirection:'column', gap:4}}>
+          {state.history.map((h,i) => (
+            <div key={i} style={{fontSize:10.5, color:'var(--spira-muted)', display:'flex', gap:5}}>
+              <span className="spira-mono" style={{color:'var(--spira-faint)', flex:'0 0 auto'}}>{fmtDT(h.at)}</span>
+              <span>{STAGES.find(s=>s.id===h.stage).label} · {h.by}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================= Tab: Reportes pendientes del protocolo (tablero kanban) ================= */
+function ReportesPendientesTab({ reportDefs, assign, setAssign }) {
+  const checklist = useChecklistState(reportDefs);
+  const [visitFilter, setVisitFilter] = useState('todas');
+  const [platFilter, setPlatFilter] = useState('todas');
+  const [actor, setActor] = useState(CURRENT_USERS[0]);
+  const [dragCard, setDragCard] = useState(null);
+  const [dragOverCol, setDragOverCol] = useState(null);
+  const [openVisit, setOpenVisit] = useState(null);
+
+  const instances = INSTANCES.filter(i => visitFilter==='todas' || i.visitCode===visitFilter);
+  const cards = [];
+  instances.forEach(inst => {
+    if (checklist.closures[inst.id]) return; // visita cerrada → sale del tablero activo
+    const patient = PATIENTS.find(p=>p.id===inst.patientId);
+    const visit = VISITS.find(v=>v.code===inst.visitCode);
+    (DEFAULT_ASSIGN[inst.visitCode]||[]).forEach(pid => {
+      let reports = reportDefs[pid] || [];
+      if (!reports.length) return;
+      if (platFilter!=='todas') reports = reports.filter(r=>r.platform===platFilter);
+      if (!reports.length) return;
+      const comp = checklist.getCompletion(inst.id, pid);
+      if (!comp.completed) return;
+      reports.forEach(r => {
+        const state = checklist.getReportState(inst.id, r.id, comp.completedAt, r.etaHours);
+        cards.push({ instanceId: inst.id, patient, visit, proc: PMAP[pid], report: r, state, completedAt: comp.completedAt });
+      });
+    });
+  });
+
+  const closedList = Object.entries(checklist.closures)
+    .filter(([iid]) => visitFilter==='todas' || INSTANCES.find(i=>i.id===iid).visitCode===visitFilter)
+    .map(([iid, c]) => { const inst = INSTANCES.find(i=>i.id===iid); return { inst, patient: PATIENTS.find(p=>p.id===inst.patientId), visit: VISITS.find(v=>v.code===inst.visitCode), ...c }; })
+    .sort((a,b)=>b.at-a.at);
+
+  const overdueCount = cards.filter(c=>c.state.overdue).length;
+
+  function onDropCol(stageId) {
+    if (!dragCard) return;
+    checklist.setStage(dragCard.instanceId, dragCard.report.id, stageId, actor, dragCard.completedAt, dragCard.report.etaHours);
+    setDragCard(null); setDragOverCol(null);
+  }
+
+  return (
+    <div>
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:16, flexWrap:'wrap'}}>
+        <div style={{display:'flex', alignItems:'center', gap:8, fontSize:13, color:'var(--spira-muted)'}}>
+          <b style={{color:'var(--spira-ink)', fontSize:15}}>{cards.length}</b> reportes en curso
+          {overdueCount>0 && <span style={{display:'inline-flex', alignItems:'center', gap:5, color:OVERDUE_COLOR, fontWeight:600}}><Icon name="alert" size={13}/>{overdueCount} vencidos</span>}
+        </div>
+        <div style={{flex:1}}/>
+        <select value={visitFilter} onChange={e=>setVisitFilter(e.target.value)} style={{height:36, padding:'0 10px', border:'1px solid var(--spira-line-2)', borderRadius:9, background:'var(--spira-white)', fontSize:13, fontFamily:'inherit'}}>
+          <option value="todas">Todas las visitas</option>
+          {VISITS.map(v=><option key={v.code} value={v.code}>{v.code} · {v.name}</option>)}
+        </select>
+        <select value={platFilter} onChange={e=>setPlatFilter(e.target.value)} style={{height:36, padding:'0 10px', border:'1px solid var(--spira-line-2)', borderRadius:9, background:'var(--spira-white)', fontSize:13, fontFamily:'inherit'}}>
+          <option value="todas">Todas las plataformas</option>
+          {Object.entries(PLATFORMS).map(([id,p])=><option key={id} value={id}>{p.label}</option>)}
+        </select>
+        <div style={{display:'flex', alignItems:'center', gap:7}}>
+          <span style={{fontSize:12, color:'var(--spira-faint)'}}>Actuando como</span>
+          <select value={actor} onChange={e=>setActor(e.target.value)} style={{height:36, padding:'0 10px', border:'1px solid var(--spira-line-2)', borderRadius:9, background:'var(--spira-white)', fontSize:13, fontFamily:'inherit'}}>
+            {CURRENT_USERS.map(u=><option key={u} value={u}>{u}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16}}>
+        {STAGES.map(s => {
+          const items = cards.filter(c=>c.state.status===s.id);
+          return (
+            <div key={s.id} className="kCol" onDragOver={(e)=>{e.preventDefault(); setDragOverCol(s.id);}} onDragLeave={()=>setDragOverCol(o=>o===s.id?null:o)} onDrop={()=>onDropCol(s.id)}
+              style={{background: dragOverCol===s.id?'rgba(46,125,116,.06)':'var(--spira-surface)', border:'1px solid '+(dragOverCol===s.id?ACCENT:'var(--spira-line)'), borderRadius:14, padding:14, minHeight:220}}>
+              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
+                <span style={{width:8, height:8, borderRadius:99, background:s.color}}/>
+                <span style={{fontWeight:700, fontSize:13.5}}>{s.label}</span>
+                <span style={{fontSize:11.5, color:'var(--spira-faint)', fontVariantNumeric:'tabular-nums'}}>{items.length}</span>
+              </div>
+              <div style={{display:'flex', flexDirection:'column', gap:10}}>
+                {items.length===0 && <div style={{fontSize:11.5, color:'var(--spira-faint)', textAlign:'center', padding:'24px 0'}}>Sin reportes acá.</div>}
+                {items.map(c => (
+                  <KanbanCard key={c.instanceId+c.report.id} card={c} checklist={checklist} actor={actor}
+                    onDragStart={()=>setDragCard(c)} onDragEnd={()=>{setDragCard(null); setDragOverCol(null);}} dragging={dragCard && dragCard.instanceId===c.instanceId && dragCard.report.id===c.report.id}
+                    onOpenProcedures={()=>setOpenVisit(c.visit.code)}/>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {closedList.length>0 && (
+        <div style={{marginTop:22}}>
+          <div style={{display:'flex', alignItems:'center', gap:7, marginBottom:10}}>
+            <Icon name="check" size={14} color={ACCENT}/>
+            <span className="spira-eyebrow" style={{color:ACCENT}}>Visitas cerradas · alerta finalizada</span>
+          </div>
+          <div style={{display:'flex', flexDirection:'column', gap:6}}>
+            {closedList.map(({inst,patient,visit,at,by}) => (
+              <div key={inst.id} style={{display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'1px solid var(--spira-line)', borderRadius:10, background:'var(--spira-white)', animation:'closeFlash 1.2s ease'}}>
+                <span style={{width:26, height:26, borderRadius:99, background:'rgba(46,125,116,.14)', color:ACCENT, display:'grid', placeItems:'center', flex:'0 0 auto'}}><Icon name="check" size={14} stroke={2.4}/></span>
+                <span className="spira-mono" style={{fontSize:11.5, fontWeight:700, color:ACCENT}}>{visit.code}</span>
+                <span style={{fontSize:13, fontWeight:600}}>{patient.name}</span>
+                <span style={{flex:1}}/>
+                <span style={{fontSize:11.5, color:'var(--spira-muted)'}}>Visita realizada · cerrada por {by} · {fmtDT(at)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {openVisit && (
+        <ProcedureModal visit={VISITS.find(v=>v.code===openVisit)} initial={assign[openVisit] || []} reportDefs={reportDefs}
+          onClose={()=>setOpenVisit(null)}
+          onSave={(ids)=>{ setAssign(a=>({...a,[openVisit]:ids})); setOpenVisit(null); }}/>
+      )}
+    </div>
+  );
+}
+
+/* ================= App ================= */
+function App() {
+  const [tab, setTab] = useState('reportes');
+  const [assign, setAssign] = useState(() => ({...DEFAULT_ASSIGN}));
+  const [catalog, setCatalog] = useState(() => PROCS.slice());
+  const [reportDefs, setReportDefs] = useState(() => ({...INITIAL_REPORT_DEFS}));
+  const TABS = [ {id:'pacientes', label:'Pacientes'}, {id:'cronograma', label:'Cronograma'}, {id:'reportes', label:'Reportes pendientes'} ];
+
+  return (
+    <div style={{minHeight:'100vh', padding:'34px 40px 60px'}}>
+      <div style={{maxWidth:1220, margin:'0 auto'}}>
+        <div style={{fontSize:12.5, color:'var(--spira-muted)', display:'flex', gap:8, alignItems:'center'}}>
+          <span>Spira Track</span><Icon name="chevRight" size={13} color="var(--spira-faint)"/><span>Protocolos</span><Icon name="chevRight" size={13} color="var(--spira-faint)"/><span className="spira-mono" style={{color:'var(--spira-ink)'}}>{PROTOCOL_CODE}</span>
+        </div>
+        <h1 className="spira-h1" style={{fontSize:30, margin:'6px 0 20px'}}>{PROTOCOL_CODE}</h1>
+        <div style={{background:'var(--spira-white)', border:'1px solid var(--spira-line)', borderRadius:16, boxShadow:'var(--spira-shadow-sm)', padding:'20px 22px 22px'}}>
+          <div style={{display:'flex', gap:6, background:'var(--spira-paper)', padding:4, borderRadius:11, marginBottom:20, width:'fit-content'}}>
+            {TABS.map(t => (
+              <button key={t.id} className="tabBtn" onClick={()=>setTab(t.id)}
+                style={{height:32, padding:'0 15px', border:'none', borderRadius:8, background: tab===t.id?'var(--spira-white)':'transparent', color: tab===t.id?'var(--spira-ink)':'var(--spira-muted)', fontWeight: tab===t.id?700:600, fontSize:13.5, cursor:'pointer', boxShadow: tab===t.id?'var(--spira-shadow-sm)':'none'}}>{t.label}</button>
+            ))}
+          </div>
+          {tab==='pacientes' && <div style={{padding:'30px 0', textAlign:'center', color:'var(--spira-faint)', fontSize:13}}>Prototipo enfocado en Cronograma y Reportes pendientes.</div>}
+          {tab==='cronograma' && <CronogramaSection assign={assign} setAssign={setAssign} catalog={catalog} setCatalog={setCatalog} reportDefs={reportDefs} setReportDefs={setReportDefs}/>}
+          {tab==='reportes' && <ReportesPendientesTab reportDefs={reportDefs} assign={assign} setAssign={setAssign}/>}
+        </div>
+        <p style={{fontSize:12, color:'var(--spira-faint)', marginTop:16, textAlign:'center'}}>Prototipo · fechas simuladas respecto de hoy (20/08/2026) · arrastrá las tarjetas o usá el botón para avanzar de etapa.</p>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

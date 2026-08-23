@@ -69,6 +69,9 @@ const ICONS = {
   maximize: (<><path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3 14 10" /><path d="M3 21l7-7" /></>),
   download: (<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></>),
   externalLink: (<><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></>),
+  /* Restablecer / retroceder un paso. Lo usan el botón de "volver al link por defecto" (0089) y,
+     en el tablero de reportes, el "↺" que devuelve una tarjeta a la etapa anterior. */
+  rotateCcw: (<><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></>),
 }
 
 export type IconName = keyof typeof ICONS

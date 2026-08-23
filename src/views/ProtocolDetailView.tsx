@@ -10,7 +10,7 @@ import { useProtocolKpis } from '../data/protocolKpis'
 import { toCsv, downloadCsv } from '../lib/csv'
 import { groupVisitsByPatient, visitIndex, desvioDias } from '../lib/visits'
 import { PdPatientRow } from './track/PdPatientRow'
-import { ScheduleEditor } from './track/ScheduleEditor'
+import { CronogramaTab } from './track/CronogramaTab'
 import type { ViewHeader } from './types'
 
 const card: CSSProperties = {
@@ -224,7 +224,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
           </div>
           <div style={{ overflow: 'auto', padding: '12px 14px', flex: 1 }}>
             {rightTab === 'cronograma' ? (
-              <ScheduleEditor
+              <CronogramaTab
                 protocolId={protocol.id}
                 accent={accent}
                 accentSolid={accentSolid}
