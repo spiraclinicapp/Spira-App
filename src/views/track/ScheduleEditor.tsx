@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import { EmptyState } from '../../components/EmptyState'
@@ -68,12 +68,17 @@ export function ScheduleEditor({
   accentSolid,
   canEdit,
   onChanged,
+  header,
 }: {
   protocolId: string
   accent: string
   accentSolid: string
   canEdit: boolean
   onChanged: () => void
+  /** Contenido a la izquierda de la barra de acciones (las sub-solapas del cronograma). Llega
+   *  por prop y no se dibuja acá porque lo comparten las dos mitades de `CronogramaTab`: lo
+   *  renderiza la que esté activa, así la barra es una sola fila y no dos. */
+  header?: ReactNode
 }) {
   const defs = useProtocolDefinitions(protocolId)
   const counts = useVisitProcedureCounts(protocolId)
@@ -156,17 +161,16 @@ export function ScheduleEditor({
     if (res.error) setError(res.error)
   }
 
-  if (defs.loading) {
-    return <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', padding: '8px 4px' }}>Cargando cronograma…</div>
-  }
-  if (defs.error) {
-    return <div style={{ fontSize: 13, color: 'var(--spira-danger)', padding: '8px 4px' }}>No pudimos cargar el cronograma.</div>
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+  /* Barra superior: la cabecera que manda el padre (las sub-solapas del cronograma) a la izquierda
+     y las acciones a la derecha, en UN renglón. Antes las acciones vivían en una fila propia debajo
+     de las solapas y quedaban dos barras casi vacías, una arriba de la otra (pedido del Director).
+     Se arma acá arriba porque tiene que dibujarse también en los estados de carga y de error: si
+     sólo saliera con los datos ya resueltos, las solapas parpadearían al entrar. */
+  const barra = (header || canEdit) && (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', minHeight: 40 }}>
+      {header}
       {canEdit && (
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <button type="button" style={{ ...btnOutline, opacity: rows.length === 0 ? 0.5 : 1, cursor: rows.length === 0 ? 'default' : 'pointer' }} disabled={rows.length === 0} onClick={() => setSyncing(true)}>
             Generar / actualizar
           </button>
@@ -175,6 +179,29 @@ export function ScheduleEditor({
           </button>
         </div>
       )}
+    </div>
+  )
+
+  if (defs.loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {barra}
+        <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', padding: '8px 4px' }}>Cargando cronograma…</div>
+      </div>
+    )
+  }
+  if (defs.error) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {barra}
+        <div style={{ fontSize: 13, color: 'var(--spira-danger)', padding: '8px 4px' }}>No pudimos cargar el cronograma.</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {barra}
 
       {reordering && <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>Guardando orden…</div>}
       {error && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{error}</div>}

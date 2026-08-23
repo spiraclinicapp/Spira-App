@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../../components/Icon'
 import { EmptyState } from '../../../components/EmptyState'
 import { AutocompleteInput } from '../../../components/AutocompleteInput'
@@ -27,7 +27,7 @@ import { useProceduresCatalog, createProcedure } from '../../../data/procedures'
  * Lo que NO hace: asignar procedimientos a visitas. Eso sigue viviendo en Cronograma › Visitas
  * (`VisitProceduresModal`), que es donde se arma el cuadro visita por visita.
  */
-export function ProceduresCatalog({ protocolId, accent, accentSolid, canEdit, canManageCatalog }: {
+export function ProceduresCatalog({ protocolId, accent, accentSolid, canEdit, canManageCatalog, header }: {
   protocolId: string
   accent: string
   accentSolid: string
@@ -35,6 +35,8 @@ export function ProceduresCatalog({ protocolId, accent, accentSolid, canEdit, ca
   canEdit: boolean
   /** track-leader o gerencia: además puede crear/renombrar en el catálogo GLOBAL. */
   canManageCatalog: boolean
+  /** Las sub-solapas del cronograma, a la izquierda de la barra de acciones (ver `CronogramaTab`). */
+  header?: ReactNode
 }) {
   const estudio = useEstudioProcedimientos(protocolId)
   const catalogo = useProceduresCatalog()
@@ -101,35 +103,59 @@ export function ProceduresCatalog({ protocolId, accent, accentSolid, canEdit, ca
     estudio.refetch()
   }
 
+  /* Misma barra que la mitad de Visitas: las sub-solapas a la izquierda y la acción a la derecha,
+     en un renglón. Se arma antes de los early returns para que las solapas no parpadeen mientras
+     carga. El buscador baja a su propia fila: es un campo de ancho completo y meterlo acá dejaría
+     las solapas apretadas contra él. */
+  const barra = (header || canEdit) && (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', minHeight: 40 }}>
+      {header}
+      {canEdit && !agregando && (
+        <button
+          type="button"
+          style={{ ...btnPrimary(accentSolid), marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}
+          onClick={() => setAgregando(true)}
+        >
+          <Icon name="plus" size={15} color="var(--spira-on-accent)" /> Procedimiento
+        </button>
+      )}
+    </div>
+  )
+
   if (estudio.loading) {
-    return <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', padding: '8px 4px' }}>Cargando procedimientos…</div>
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {barra}
+        <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', padding: '8px 4px' }}>Cargando procedimientos…</div>
+      </div>
+    )
   }
   if (estudio.error) {
-    return <div style={{ fontSize: 13, color: 'var(--spira-danger)', padding: '8px 4px' }}>No pudimos cargar los procedimientos del estudio.</div>
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {barra}
+        <div style={{ fontSize: 13, color: 'var(--spira-danger)', padding: '8px 4px' }}>No pudimos cargar los procedimientos del estudio.</div>
+      </div>
+    )
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Buscador + alta */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <span style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', display: 'grid', pointerEvents: 'none' }}>
-            <Icon name="search" size={15} color="var(--spira-muted)" />
-          </span>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por nombre, iniciales o categoría…"
-            aria-label="Buscar procedimiento del estudio"
-            style={{ ...fieldInput, paddingLeft: 36 }}
-          />
+      {barra}
+
+      {/* Buscador, en su propia fila */}
+      <span style={{ position: 'relative', display: 'block' }}>
+        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', display: 'grid', pointerEvents: 'none' }}>
+          <Icon name="search" size={15} color="var(--spira-muted)" />
         </span>
-        {canEdit && !agregando && (
-          <button type="button" style={{ ...btnPrimary(accentSolid), display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }} onClick={() => setAgregando(true)}>
-            <Icon name="plus" size={15} color="var(--spira-on-accent)" /> Procedimiento
-          </button>
-        )}
-      </div>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar por nombre, iniciales o categoría…"
+          aria-label="Buscar procedimiento del estudio"
+          style={{ ...fieldInput, paddingLeft: 36 }}
+        />
+      </span>
 
       {/* Fila de alta: autocompleta contra el catálogo global y deja cargar uno nuevo. */}
       {agregando && (

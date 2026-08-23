@@ -37,45 +37,50 @@ export function CronogramaTab({ protocolId, accent, accentSolid, canEdit, onChan
      estudio y sus reportes pide operator, que es lo que ya trae `canEdit`. */
   const canManageCatalog = modules.includes('gerencia') || hasMinRole('track', 'leader')
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div role="tablist" aria-label="Secciones del cronograma" style={{ display: 'flex', gap: 6 }}>
-        {SUBS.map((s) => {
-          const on = sub === s.key
-          return (
-            <button
-              key={s.key}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => setSub(s.key)}
-              className="spira-no-press"
-              style={tab(on, accent)}
-            >
-              {s.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {sub === 'visitas' ? (
-        <ScheduleEditor
-          protocolId={protocolId}
-          accent={accent}
-          accentSolid={accentSolid}
-          canEdit={canEdit}
-          onChanged={onChanged}
-        />
-      ) : (
-        <ProceduresCatalog
-          protocolId={protocolId}
-          accent={accent}
-          accentSolid={accentSolid}
-          canEdit={canEdit}
-          canManageCatalog={canManageCatalog}
-        />
-      )}
+  /* Las solapas NO se dibujan acá: viajan como `header` a la mitad activa, que las pone a la
+     izquierda de su propia barra de acciones. Dibujadas acá arriba quedaban en una fila propia y
+     abajo otra fila casi vacía con los botones — dos barras para lo que es un solo renglón
+     (pedido del Director). El precio es este comentario; la alternativa era subir a este
+     componente el estado de los botones de cada mitad y romperles la cohesión. */
+  const solapas = (
+    <div role="tablist" aria-label="Secciones del cronograma" style={{ display: 'flex', gap: 6, flex: '0 0 auto' }}>
+      {SUBS.map((s) => {
+        const on = sub === s.key
+        return (
+          <button
+            key={s.key}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => setSub(s.key)}
+            className="spira-no-press"
+            style={tab(on, accent)}
+          >
+            {s.label}
+          </button>
+        )
+      })}
     </div>
+  )
+
+  return sub === 'visitas' ? (
+    <ScheduleEditor
+      protocolId={protocolId}
+      accent={accent}
+      accentSolid={accentSolid}
+      canEdit={canEdit}
+      onChanged={onChanged}
+      header={solapas}
+    />
+  ) : (
+    <ProceduresCatalog
+      protocolId={protocolId}
+      accent={accent}
+      accentSolid={accentSolid}
+      canEdit={canEdit}
+      canManageCatalog={canManageCatalog}
+      header={solapas}
+    />
   )
 }
 
