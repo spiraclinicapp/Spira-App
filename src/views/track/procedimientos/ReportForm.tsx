@@ -7,9 +7,10 @@ import { fieldInput, fieldLabelStyle } from '../../../components/FormField'
 import { SearchableSelect } from '../../../components/SearchableSelect'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import {
-  ETA_PRESETS, PLATFORM_ORDER, PLATFORMS, etaLibreInicial, etaValida, isDefaultLink, linkOnPlatformChange, platformMeta,
+  ETA_PRESETS, PLATFORM_ORDER, PLATFORMS, PLAZO_MAX, etaValida, horasDesde, isDefaultLink,
+  linkOnPlatformChange, platformMeta, plazoLibreInicial,
 } from './reportes'
-import type { KnownReport } from './reportes'
+import type { KnownReport, UnidadPlazo } from './reportes'
 import type { ReportInput } from '../../../data/protocolProcedures'
 
 /**
@@ -55,24 +56,31 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
   const [eta, setEta] = useState<number | null>(inicial?.eta_hours ?? null)
   const [notes, setNotes] = useState(inicial?.notes ?? '')
 
-  /* El input de "otra (h)" tiene su PROPIO texto, separado de `eta`.
-     Antes se lo derivaba de `eta` con una expresión que lo vaciaba apenas el número coincidía con
-     un preset: al teclear el "1" de "12" el campo se limpiaba solo y se encendía el chip de 1 hora,
-     así que no había manera de cargar 12, ni 124, ni nada que empezara con 1, 2, 4 o 7. Con texto
-     propio, el input muestra lo que la persona escribe y `eta` se deriva de él. */
-  const [etaLibre, setEtaLibre] = useState(() => etaLibreInicial(inicial?.eta_hours ?? null))
+  /* El campo de plazo libre tiene su PROPIO texto y su PROPIA unidad, separados de `eta`.
+     `eta` siempre son horas (es lo que guarda la base); el interruptor decide qué significa el
+     número escrito. El mismo "12" son 12 horas o 12 días — al cambiar de unidad el número NO se
+     convierte, cambia lo que quiere decir.
+     El texto es estado propio por un bug: antes se derivaba de `eta` con una expresión que lo
+     vaciaba apenas el número coincidía con un preset, así que al teclear el "1" de "12" el campo
+     se limpiaba solo y encendía el chip de 1 hora. */
+  const [plazo, setPlazo] = useState(() => plazoLibreInicial(inicial?.eta_hours ?? null))
 
   /** Un chip fija el plazo y limpia el campo libre: manda el chip, y dos fuentes a la vez confunden. */
   const clickChip = (v: number) => {
     setEta(eta === v ? null : v)
-    setEtaLibre('')
+    setPlazo((p) => ({ ...p, texto: '' }))
   }
 
   /** Escribir en el campo libre manda sobre los chips (el chip que coincida queda encendido igual). */
-  const cambiarEtaLibre = (txt: string) => {
-    setEtaLibre(txt)
-    const n = txt.trim()
-    setEta(n === '' ? null : Number(n))
+  const cambiarTexto = (texto: string) => {
+    setPlazo((p) => ({ ...p, texto }))
+    setEta(horasDesde(texto, plazo.unidad))
+  }
+
+  /** Cambiar de unidad reinterpreta el número que ya está escrito, sin tocarlo. */
+  const cambiarUnidad = (unidad: UnidadPlazo) => {
+    setPlazo((p) => ({ ...p, unidad }))
+    setEta(horasDesde(plazo.texto, unidad))
   }
 
   /* Sugerencias del combobox. El `value` es el ÍNDICE y no el nombre: el mismo rótulo en dos
@@ -200,20 +208,50 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
               </button>
             )
           })}
-          <input
-            type="number"
-            min={1}
-            max={8760}
-            value={etaLibre}
-            onChange={(e) => cambiarEtaLibre(e.target.value)}
-            placeholder="otra (h)"
-            aria-label="Otro plazo, en horas"
-            style={{ ...boxInput, width: 108, flex: '0 0 auto' }}
-          />
+          {/* Campo libre con el interruptor de unidad ADENTRO de la misma caja: son una sola cosa
+              ("cuánto") y separarlos en dos controles obligaría a leer dos veces para entender un
+              solo dato. El borde vive en este contenedor y el input va desnudo, si no se verían
+              dos cajas encajadas. */}
+          <span style={cajaPlazo}>
+            <input
+              type="number"
+              min={1}
+              max={PLAZO_MAX[plazo.unidad]}
+              value={plazo.texto}
+              onChange={(e) => cambiarTexto(e.target.value)}
+              placeholder="otra"
+              aria-label={plazo.unidad === 'd' ? 'Otro plazo, en días' : 'Otro plazo, en horas'}
+              style={inputDesnudo}
+            />
+            <span role="radiogroup" aria-label="Unidad del plazo" style={{ display: 'flex', gap: 2, flex: '0 0 auto' }}>
+              {([['h', 'hs', 'horas'], ['d', 'días', 'días']] as const).map(([u, corto, largo]) => {
+                const on = plazo.unidad === u
+                return (
+                  <button
+                    key={u}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    aria-label={largo}
+                    title={`El número son ${largo}`}
+                    onClick={() => cambiarUnidad(u)}
+                    className="spira-no-press"
+                    style={segmento(on, accent)}
+                  >
+                    {corto}
+                  </button>
+                )
+              })}
+            </span>
+          </span>
         </div>
         {!etaOk ? (
+          /* El mensaje habla en la unidad que la persona está usando: decirle "entre 1 y 8760"
+             a alguien que escribió "400 días" no le dice nada sobre qué corregir. */
           <span style={{ fontSize: 11, color: 'var(--spira-danger)' }}>
-            El plazo tiene que ser un número entero de horas, entre 1 y 8760 (un año).
+            {plazo.unidad === 'd'
+              ? `El plazo tiene que ser un número entero de días, entre 1 y ${PLAZO_MAX.d} (un año).`
+              : `El plazo tiene que ser un número entero de horas, entre 1 y ${PLAZO_MAX.h} (un año).`}
           </span>
         ) : (
           <Helper>
@@ -263,6 +301,32 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
 }
 
 const campo: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5 }
+
+/** La caja del plazo libre: hereda el borde del input y adentro conviven el número y la unidad. */
+const cajaPlazo: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 4, flex: '0 0 auto',
+  height: 44, padding: '0 5px 0 4px', borderRadius: 10,
+  borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+  background: 'var(--spira-white)',
+}
+/** El input adentro de la caja va sin borde ni fondo: el marco lo pone el contenedor. */
+const inputDesnudo: CSSProperties = {
+  width: 62, height: 40, padding: '0 6px', border: 'none', outline: 'none', background: 'transparent',
+  color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14, textAlign: 'right',
+}
+/**
+ * Segmento del interruptor de unidad. Elegido = acento; el otro, `muted` sobre transparente.
+ * Lleva `.spira-no-press` porque es un conmutador dentro de un campo: si se hunde 1px al pulsarlo,
+ * arrastra visualmente a la caja que lo contiene y parece que se movió el input entero.
+ */
+function segmento(on: boolean, accent: string): CSSProperties {
+  return {
+    height: 28, minWidth: 30, padding: '0 8px', borderRadius: 7, border: 'none',
+    background: on ? accent + '1A' : 'transparent',
+    color: on ? accent : 'var(--spira-muted)',
+    fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: on ? 700 : 600, cursor: 'pointer',
+  }
+}
 
 /** Chip de preset del plazo. Elegido = borde + fondo del acento (es SELECCIÓN, no hover). */
 function chip(on: boolean, accent: string): CSSProperties {

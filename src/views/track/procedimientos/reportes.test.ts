@@ -3,7 +3,7 @@ import {
   agruparPorCategoria,
   ETA_PRESETS,
   etaLabel,
-  etaLibreInicial,
+  horasDesde,
   etaValida,
   isDefaultLink,
   isPlatform,
@@ -11,6 +11,8 @@ import {
   linkOnPlatformChange,
   platformMeta,
   PLATFORMS,
+  PLAZO_MAX,
+  plazoLibreInicial,
 } from './reportes'
 
 /**
@@ -112,17 +114,69 @@ describe('plazo', () => {
 
   it('el campo libre arranca VACÍO cuando el plazo ya es un chip', () => {
     // Si no, el número aparecería dos veces: encendido en el chip y escrito en el campo.
-    for (const p of ETA_PRESETS) expect(etaLibreInicial(p.value)).toBe('')
-    expect(etaLibreInicial(null)).toBe('')
+    for (const p of ETA_PRESETS) expect(plazoLibreInicial(p.value).texto).toBe('')
+    expect(plazoLibreInicial(null).texto).toBe('')
   })
 
   it('el campo libre arranca CON el número cuando el plazo no es un chip', () => {
     // Regresión: el campo tomaba su texto de una expresión que lo vaciaba apenas el número
     // coincidía con un preset, así que tipear "12" era imposible — al entrar el "1" se limpiaba
     // solo. El texto del input ahora es estado propio; esta función solo decide el arranque.
-    expect(etaLibreInicial(12)).toBe('12')
-    expect(etaLibreInicial(124)).toBe('124')
-    expect(etaLibreInicial(8760)).toBe('8760')
+    expect(plazoLibreInicial(100)).toEqual({ texto: '100', unidad: 'h' })
+    expect(plazoLibreInicial(8759)).toEqual({ texto: '8759', unidad: 'h' })
+  })
+
+  it('un plazo de días enteros se relee EN DÍAS, no en horas', () => {
+    // Quien cargó "6 días" quiere volver a abrir el reporte y leer 6, no 144.
+    expect(plazoLibreInicial(144)).toEqual({ texto: '6', unidad: 'd' })
+    expect(plazoLibreInicial(288)).toEqual({ texto: '12', unidad: 'd' })
+    expect(plazoLibreInicial(8760)).toEqual({ texto: '365', unidad: 'd' })
+  })
+})
+
+describe('interruptor horas / días', () => {
+  it('el MISMO número significa distinto según la unidad', () => {
+    // El pedido, textual: "que el mismo numero pueda ser para dias o [horas]". Cambiar de unidad
+    // no convierte el número, cambia lo que quiere decir.
+    expect(horasDesde('12', 'h')).toBe(12)
+    expect(horasDesde('12', 'd')).toBe(288)
+    expect(horasDesde('1', 'd')).toBe(24)
+  })
+
+  it('sin nada escrito no hay plazo', () => {
+    expect(horasDesde('', 'h')).toBeNull()
+    expect(horasDesde('   ', 'd')).toBeNull()
+  })
+
+  it('un valor fuera de rango vuelve como número para que la validación lo rechace', () => {
+    // Devolver null lo haría desaparecer en silencio y el usuario guardaría "sin plazo" sin
+    // enterarse. Vuelve el número y `etaValida` se encarga de decirlo.
+    expect(horasDesde('400', 'd')).toBe(9600)
+    expect(etaValida(horasDesde('400', 'd'))).toBe(false)
+    expect(etaValida(horasDesde('365', 'd'))).toBe(true)
+  })
+
+  it('el tope en días es exactamente el tope en horas de la base', () => {
+    expect(PLAZO_MAX.d * 24).toBe(PLAZO_MAX.h)
+    expect(etaValida(PLAZO_MAX.h)).toBe(true)
+    expect(etaValida(PLAZO_MAX.h + 1)).toBe(false)
+  })
+
+  it('el ida y vuelta cierra: lo que se guarda en días se relee en días', () => {
+    for (const n of [6, 12, 30, 90, 365]) {
+      const horas = horasDesde(String(n), 'd') as number
+      expect(plazoLibreInicial(horas)).toEqual({ texto: String(n), unidad: 'd' })
+    }
+  })
+
+  it('un plazo en días que cae justo en un chip se relee como ese chip', () => {
+    // 2 días son 48 horas, y 48 horas ES uno de los chips. Al reabrir el reporte se enciende el
+    // chip en vez de escribir "2" en el campo libre. NO se pierde nada —el plazo es el mismo— y
+    // el chip es la forma canónica de decirlo; queda escrito acá para que nadie lo lea como bug.
+    expect(horasDesde('2', 'd')).toBe(48)
+    expect(plazoLibreInicial(48)).toEqual({ texto: '', unidad: 'h' })
+    // Los cinco choques posibles, uno por chip: 1 h, y 1, 2, 3 y 7 días.
+    for (const p of ETA_PRESETS) expect(plazoLibreInicial(p.value).texto).toBe('')
   })
 })
 

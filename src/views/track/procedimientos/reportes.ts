@@ -120,20 +120,45 @@ export const ETA_PRESETS: { value: number; label: string }[] = [
   { value: 168, label: '7 días' },
 ]
 
+/** Unidad del campo de plazo libre. La base SIEMPRE guarda horas; los días son de la UI. */
+export type UnidadPlazo = 'h' | 'd'
+
+/** Tope del plazo en cada unidad (espejo de `report_definitions_eta_chk`: 1..8760 horas). */
+export const PLAZO_MAX: Record<UnidadPlazo, number> = { h: 8760, d: 365 }
+
 /**
- * Con qué texto arranca el input de "otra (h)".
+ * Horas que representa un número escrito en la unidad elegida.
  *
- * Vacío cuando el plazo guardado es uno de los chips (ese lo dice el chip encendido, repetirlo en
- * el input sería decir dos veces lo mismo); con el número cuando es un valor libre.
- *
- * Existe como función y no inline porque de acá salió un bug: el input tomaba su texto de una
- * expresión que lo VACIABA apenas el número tipeado coincidía con un preset, así que escribir "12"
- * era imposible — al teclear el "1" el campo se limpiaba solo y encendía el chip de 1 hora. El
- * input ahora tiene su propio texto y esta función solo decide el arranque.
+ * El mismo "12" son 12 horas o 12 días según el interruptor — pedido explícito del Director: el
+ * número no se convierte al cambiar de unidad, cambia lo que significa. Devuelve null solo cuando
+ * no hay nada escrito; un valor fuera de rango vuelve como número para que `etaValida` lo rechace
+ * con un mensaje, en vez de desaparecer en silencio.
  */
-export function etaLibreInicial(hours: number | null | undefined): string {
-  if (hours == null) return ''
-  return ETA_PRESETS.some((p) => p.value === hours) ? '' : String(hours)
+export function horasDesde(texto: string, unidad: UnidadPlazo): number | null {
+  const t = texto.trim()
+  if (t === '') return null
+  const n = Number(t)
+  if (!Number.isFinite(n)) return null
+  return unidad === 'd' ? n * 24 : n
+}
+
+/**
+ * Con qué número y en qué unidad arranca el campo de plazo libre.
+ *
+ * Vacío cuando el plazo guardado es uno de los chips: eso ya lo dice el chip encendido y repetirlo
+ * en el campo sería decir dos veces lo mismo. Si no, se muestra en DÍAS cuando el plazo es múltiplo
+ * exacto de 24 —quien cargó "6 días" quiere volver a leer 6, no 144— y en horas en cualquier otro caso.
+ *
+ * Existe como función y no inline porque de acá salió un bug: el campo tomaba su texto de una
+ * expresión que lo VACIABA apenas el número tipeado coincidía con un preset, así que escribir "12"
+ * era imposible — al teclear el "1" se limpiaba solo y encendía el chip de 1 hora. El campo ahora
+ * tiene su propio texto y esta función solo decide el arranque.
+ */
+export function plazoLibreInicial(hours: number | null | undefined): { texto: string; unidad: UnidadPlazo } {
+  if (hours == null) return { texto: '', unidad: 'h' }
+  if (ETA_PRESETS.some((p) => p.value === hours)) return { texto: '', unidad: 'h' }
+  if (hours % 24 === 0) return { texto: String(hours / 24), unidad: 'd' }
+  return { texto: String(hours), unidad: 'h' }
 }
 
 /** Presets de duración del procedimiento, en minutos (`procedures.min_estimated`). */
