@@ -290,6 +290,15 @@ input:-webkit-autofill:focus {
 }
 .spira-scroll:hover::-webkit-scrollbar-thumb { background: var(--spira-faint); background-clip: padding-box; }
 
+/* —— Numérico sin flechitas ——
+   Las spin buttons que el navegador le pone a `input[type=number]` se comen ~15px de ancho útil y
+   son un blanco de 8px que nadie apunta. En un campo angosto eso se nota: en el plazo del reporte
+   (0089) el máximo de cuatro dígitos no entraba por culpa de ellas. Se apagan por clase y no
+   globalmente: donde el campo es ancho, la flechita no molesta y hay quien la usa. */
+.spira-num-limpio { -moz-appearance: textfield; appearance: textfield; }
+.spira-num-limpio::-webkit-outer-spin-button,
+.spira-num-limpio::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
 /* —— Pantallas de acceso (Login / definir contraseña) ——
    Dos mitades: a la izquierda un panel VERDE (marca) con el logo de Spira arriba y la foto
    INSERTADA con bordes rectos (un recuadro centrado, NO de fondo); a la derecha el formulario.

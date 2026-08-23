@@ -193,7 +193,12 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
       {/* Plazo — chips + valor libre */}
       <div style={campo}>
         <span style={fieldLabelStyle}>¿Cuánto tarda en estar listo?</span>
-        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Los cinco chips y el campo libre van en UN renglón (pedido del Director). Medido a 620px
+            de modal: 544px de contenido contra 529 disponibles, o sea que saltaba por 15px. Se
+            recuperaron ~40 apretando la geometría —no los rótulos, que son de él— y quedan ~30 de
+            aire. `wrap` se deja puesto igual: es la red para una pantalla angosta, donde preferimos
+            que baje antes que desbordar. */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           {ETA_PRESETS.map((p) => {
             const on = eta === p.value
             return (
@@ -221,6 +226,7 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
               onChange={(e) => cambiarTexto(e.target.value)}
               placeholder="otra"
               aria-label={plazo.unidad === 'd' ? 'Otro plazo, en días' : 'Otro plazo, en horas'}
+              className="spira-num-limpio"
               style={inputDesnudo}
             />
             <span role="radiogroup" aria-label="Unidad del plazo" style={{ display: 'flex', gap: 2, flex: '0 0 auto' }}>
@@ -304,14 +310,15 @@ const campo: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5 
 
 /** La caja del plazo libre: hereda el borde del input y adentro conviven el número y la unidad. */
 const cajaPlazo: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 4, flex: '0 0 auto',
-  height: 44, padding: '0 5px 0 4px', borderRadius: 10,
+  display: 'inline-flex', alignItems: 'center', gap: 3, flex: '0 0 auto',
+  height: 44, padding: '0 4px 0 3px', borderRadius: 10,
   borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
   background: 'var(--spira-white)',
 }
-/** El input adentro de la caja va sin borde ni fondo: el marco lo pone el contenedor. */
+/** El input adentro de la caja va sin borde ni fondo: el marco lo pone el contenedor.
+ *  52px alcanzan para los cuatro dígitos del máximo (8760) alineados a la derecha. */
 const inputDesnudo: CSSProperties = {
-  width: 62, height: 40, padding: '0 6px', border: 'none', outline: 'none', background: 'transparent',
+  width: 52, height: 40, padding: '0 5px', border: 'none', outline: 'none', background: 'transparent',
   color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14, textAlign: 'right',
 }
 /**
@@ -321,7 +328,7 @@ const inputDesnudo: CSSProperties = {
  */
 function segmento(on: boolean, accent: string): CSSProperties {
   return {
-    height: 28, minWidth: 30, padding: '0 8px', borderRadius: 7, border: 'none',
+    height: 28, minWidth: 26, padding: '0 6px', borderRadius: 7, border: 'none',
     background: on ? accent + '1A' : 'transparent',
     color: on ? accent : 'var(--spira-muted)',
     fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: on ? 700 : 600, cursor: 'pointer',
@@ -331,10 +338,11 @@ function segmento(on: boolean, accent: string): CSSProperties {
 /** Chip de preset del plazo. Elegido = borde + fondo del acento (es SELECCIÓN, no hover). */
 function chip(on: boolean, accent: string): CSSProperties {
   return {
-    height: 30, padding: '0 12px', borderRadius: 'var(--spira-radius-pill)',
+    height: 30, padding: '0 10px', borderRadius: 'var(--spira-radius-pill)',
     borderWidth: 1, borderStyle: 'solid', borderColor: on ? accent : 'var(--spira-line-2)',
     background: on ? accent + '14' : 'var(--spira-white)',
     color: on ? accent : 'var(--spira-ink)',
     fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+    whiteSpace: 'nowrap', flex: '0 0 auto',
   }
 }
