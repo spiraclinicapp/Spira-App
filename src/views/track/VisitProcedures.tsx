@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { Panel } from './Panel'
@@ -7,6 +7,11 @@ import {
   useVisitProcedureStatus, toggleVisitProcedure, toggleVisitProcedureReport,
 } from '../../data/procedures'
 import type { VisitProcedureStatus } from '../../data/procedures'
+import { useVisitReportStatus, setReportStage } from '../../data/reportStatus'
+import type { ReportStatusRow } from '../../data/reportStatus'
+import { canUntickProcedure } from './reportes/estados'
+import type { ReportStage } from './reportes/estados'
+import { ReportCard } from './reportes/ReportCard'
 
 /** ¿El reporte de un procedimiento realizado ya venció su ETA y sigue sin marcarse listo? */
 function reportOverdue(p: VisitProcedureStatus): boolean {
@@ -56,6 +61,35 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   const [actionError, setActionError] = useState<string | null>(null)
   const [optDone, setOptDone] = useState<Record<string, boolean>>({})
   const [optReport, setOptReport] = useState<Record<string, boolean>>({})
+
+  /* Los reportes del modelo nuevo (0089/0090). El desglose se abre con SU píldora y no con el
+     tilde: antes el tilde lo auto-expandía y el Director pidió lo contrario — tildar activa el
+     plazo, desplegar es una decisión aparte. */
+  const reportes = useVisitReportStatus(visitId)
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
+  const [movingReport, setMovingReport] = useState<string | null>(null)
+
+  /** Reportes agrupados por procedimiento. Vacío = ese procedimiento no define ninguno. */
+  const porProcedimiento = useMemo(() => {
+    const m = new Map<string, ReportStatusRow[]>()
+    for (const r of reportes.data ?? []) {
+      const lista = m.get(r.procedure_id) ?? []
+      lista.push(r)
+      m.set(r.procedure_id, lista)
+    }
+    return m
+  }, [reportes.data])
+
+  const moverReporte = async (r: ReportStatusRow, stage: ReportStage) => {
+    const key = r.report_definition_id
+    if (movingReport) return
+    setMovingReport(key)
+    setActionError(null)
+    const res = await setReportStage(r.visit_id, r.report_definition_id, stage)
+    setMovingReport(null)
+    if (res.error) { setActionError(res.error); return }
+    reportes.refetch()
+  }
 
   // Reconciliación del optimismo: la marca local se suelta cuando el dato fresco YA dice lo mismo,
   // no apenas responde el RPC. `refetch()` solo bumpea un nonce (la consulta llega uno o dos renders
@@ -138,6 +172,25 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
           const isReady = reportOf(p)
           const overdue = !isReady && reportOverdue({ ...p, completed: isDone, report_ready: isReady })
           const reportPending = pending.has(p.procedure_id + ':report')
+          /** Los reportes definidos para este procedimiento en este estudio (0089). */
+          const misReportes = porProcedimiento.get(p.procedure_id) ?? []
+          const abierto = abiertos.has(p.procedure_id)
+          /* Espejo del guard de la base: si algún reporte ya salió de pendiente, destildar borraría
+             su historial. Se calcula acá para poder DECIRLO en vez de dejar que choque contra el
+             error crudo de la RPC. */
+          const guard = canUntickProcedure(misReportes)
+
+          /** Tildar activa el plazo; destildar puede estar bloqueado. Nunca abre el desglose. */
+          const alTildar = () => {
+            if (isDone && !guard.puede) {
+              setActionError(
+                `«${p.name}» tiene ${guard.avanzados} ${guard.avanzados === 1 ? 'reporte ya avanzado' : 'reportes ya avanzados'}. ` +
+                'Retrocedelos a pendiente antes de desmarcarlo.',
+              )
+              return
+            }
+            run(p.procedure_id, 'done', !isDone, () => toggleVisitProcedure(visitId, p.procedure_id, !isDone))
+          }
 
           /* Contenido de la fila. Idéntico se toque o no: en la ficha (readOnly) va en un div, no en
              un botón deshabilitado, para no dejar una parada de tabulación que no hace nada. */
@@ -153,7 +206,10 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                 <span style={{ display: 'block', fontSize: 13.5, color: 'var(--spira-ink)' }}>{p.name}</span>
                 {p.category && <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: 'var(--spira-muted)' }}>{p.category}</span>}
               </span>
-              {p.has_report && (
+              {/* La píldora del modelo VIEJO sólo se dibuja para los procedimientos que todavía no
+                  tienen reportes definidos (0089). Donde ya los hay manda el desglose, y mostrar
+                  las dos cosas sería decir dos veces lo mismo con vocabularios distintos. */}
+              {p.has_report && misReportes.length === 0 && (
                 <span style={reportPill(isReady, overdue)}>
                   {isReady ? 'Reporte listo' : overdue ? 'Reporte vencido' : 'Reporte pendiente'}
                 </span>
@@ -176,16 +232,60 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                   role="checkbox"
                   aria-checked={isDone}
                   className="spira-no-press"
-                  onClick={() => run(p.procedure_id, 'done', !isDone, () => toggleVisitProcedure(visitId, p.procedure_id, !isDone))}
+                  onClick={alTildar}
                   style={{ ...rowBase, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'var(--spira-font-text)' }}
                 >
                   {row}
                 </button>
               )}
 
-              {/* Circuito de reporte: solo si genera reporte y ya está realizado. Sangrado hasta la
-                  columna del texto (13 de padding + 20 del tilde + 12 del gap), no bajo el tilde. */}
-              {p.has_report && isDone && (
+              {/* Píldora "N reportes" + su desglose. Va FUERA del botón del tilde a propósito: son
+                  dos acciones distintas y anidarlas dejaría un botón adentro de otro. El desglose
+                  se abre con esta píldora y sólo con ella — tildar activa el plazo, desplegar es
+                  una decisión aparte (ajuste pedido en el handoff, §7). */}
+              {misReportes.length > 0 && (
+                <div style={{ padding: '0 13px 11px 45px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setAbiertos((s) => {
+                      const c = new Set(s)
+                      if (c.has(p.procedure_id)) c.delete(p.procedure_id); else c.add(p.procedure_id)
+                      return c
+                    })}
+                    aria-expanded={abierto}
+                    className="spira-no-press"
+                    style={pillReportes(abierto, accent)}
+                  >
+                    <Icon name="fileText" size={12} color={accent} />
+                    {misReportes.length} {misReportes.length === 1 ? 'reporte' : 'reportes'}
+                    <Icon name="chevronDown" size={12} color="var(--spira-muted)" style={{ transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+                  </button>
+
+                  {abierto && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                      {!isDone && (
+                        <div style={avisoHabilita}>Se habilita al marcar el procedimiento como realizado.</div>
+                      )}
+                      {misReportes.map((r) => (
+                        <ReportCard
+                          key={r.report_definition_id}
+                          row={r}
+                          variante="visita"
+                          canOperate={!readOnly && r.completed}
+                          busy={movingReport === r.report_definition_id}
+                          onStage={(s) => void moverReporte(r, s)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Circuito de reporte LEGACY (0064): el tilde único "reporte descargado". Sobrevive
+                  sólo para los procedimientos que todavía no tienen reportes definidos en el
+                  estudio — mientras se migran, las dos formas conviven sin pisarse. Se va entero
+                  con la 0091, junto con la columna `has_report` que lo alimenta. */}
+              {p.has_report && misReportes.length === 0 && isDone && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px 11px 45px' }}>
                   <button
                     type="button" disabled={readOnly || reportPending}
@@ -233,6 +333,25 @@ function tickBox(isDone: boolean, accent: string): CSSProperties {
     border: `1.5px solid ${isDone ? accent : 'var(--spira-muted)'}`,
     background: isDone ? accent : 'transparent',
   }
+}
+
+/** Píldora "N reportes": el disparador del desglose. Abierta = tinte del acento, como toda
+ *  selección en esta app; cerrada = contorno sobrio para no competir con el tilde de la fila. */
+function pillReportes(abierto: boolean, accent: string): CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px',
+    borderRadius: 'var(--spira-radius-pill)',
+    borderWidth: 1, borderStyle: 'solid', borderColor: abierto ? accent : 'var(--spira-line-2)',
+    background: abierto ? accent + '14' : 'var(--spira-white)',
+    color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 600,
+    cursor: 'pointer',
+  }
+}
+
+/** Aviso de que el desglose todavía no opera. Se muestra al desplegar ANTES de tildar. */
+const avisoHabilita: CSSProperties = {
+  fontSize: 11.5, color: 'var(--spira-muted)', background: 'var(--spira-surface)',
+  borderRadius: 9, padding: '8px 11px', lineHeight: 1.45,
 }
 
 /** Rótulo de estado del reporte (mismo vocabulario de píldora que el resto de Track). */

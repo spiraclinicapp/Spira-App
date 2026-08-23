@@ -1,0 +1,214 @@
+import { useState } from 'react'
+import type { CSSProperties } from 'react'
+import { Icon } from '../../../components/Icon'
+import { platformMeta } from '../procedimientos/reportes'
+import { dueLabel, isStage, nextStage, prevStage, STAGE_META } from './estados'
+import type { ReportStage } from './estados'
+import { useReportHistory } from '../../../data/reportStatus'
+import type { ReportStatusRow } from '../../../data/reportStatus'
+import { formatDateTimeAR } from '../../../lib/dates'
+
+/**
+ * La tarjeta de UN reporte. El MISMO componente en los dos lugares donde aparece: el tablero de
+ * Reportes pendientes y el desglose dentro de la card "Procedimientos" del modal de visita. El
+ * handoff lo pide con todas las letras, y es lo correcto — dos copias de esto derivan en dos
+ * reglas distintas de cuándo algo está vencido.
+ *
+ * `variante` sólo saca el encabezado de paciente y visita: adentro del modal de esa visita, repetir
+ * de quién es sería decirle a alguien dónde está parado.
+ *
+ * COLOR DE PLATAFORMA. El handoff pedía el texto del botón en el color del portal sobre ese mismo
+ * color al 11%. Medido, ese patrón da 3.06:1 a 4.97:1 en tema claro (fallan LabCorp, Clario y
+ * "otra") y 2.62:1 a 4.15:1 en oscuro, donde fallan las cinco — por debajo del 4.5:1 que WCAG pide
+ * para texto normal, y PRODUCT.md compromete AA. El fondo teñido se queda (es el que codifica el
+ * portal y un fondo no necesita contraste propio) y el texto pasa a tinta: 12:1 en los dos temas.
+ * El color sigue leyéndose en el punto.
+ */
+export function ReportCard({ row, variante, canOperate, busy, onStage, onOpenVisit }: {
+  row: ReportStatusRow
+  variante: 'tablero' | 'visita'
+  canOperate: boolean
+  busy: boolean
+  onStage: (stage: ReportStage) => void
+  /** Abre el detalle de ESTA visita (el 📎 del handoff). Sólo en el tablero. */
+  onOpenVisit?: () => void
+}) {
+  const [verHistorial, setVerHistorial] = useState(false)
+  const meta = platformMeta(row.platform)
+  const stage: ReportStage = isStage(row.stage) ? row.stage : 'pendiente'
+  const sig = nextStage(stage)
+  const ant = prevStage(stage)
+  const vence = dueLabel(row)
+
+  /* El historial se pide recién al desplegarlo: el conteo ya viaja en la vista y el detalle se
+     mira en una de cada veinte tarjetas. */
+  const historial = useReportHistory(verHistorial ? row.report_status_id : null)
+
+  return (
+    <article
+      style={card}
+      /* Arrastrar es una comodidad de mouse ENCIMA de los botones, nunca el único camino: el
+         arrastre nativo no anda con teclado ni con el dedo. Todo lo que se puede hacer soltando
+         se puede hacer con los dos botones de abajo. */
+      draggable={canOperate && variante === 'tablero'}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', `${row.visit_id}|${row.report_definition_id}`)
+        e.dataTransfer.effectAllowed = 'move'
+      }}
+    >
+      {variante === 'tablero' && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 10.5, color: 'var(--spira-muted)' }}>{row.protocol_code}</span>
+            <span className="spira-mono" style={{ fontSize: 11, fontWeight: 700, color: 'var(--spira-track)' }}>
+              {row.visit_code ?? '—'}
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--spira-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {row.visit_name ?? ''}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 3 }}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {row.patient_name}
+              </span>
+              <span className="spira-mono" style={{ display: 'block', fontSize: 11, color: 'var(--spira-muted)' }}>
+                {row.patient_code ?? '—'}
+              </span>
+            </span>
+            {onOpenVisit && (
+              <button
+                type="button"
+                onClick={onOpenVisit}
+                title="Ver la visita de este paciente"
+                aria-label={`Ver la visita ${row.visit_code ?? ''} de ${row.patient_name}`}
+                style={iconBtn}
+              >
+                <Icon name="clip" size={13} color="var(--spira-muted)" />
+              </button>
+            )}
+          </div>
+          <div style={{ height: 1, background: 'var(--spira-line)', margin: '10px 0 9px' }} />
+        </>
+      )}
+
+      {/* El reporte */}
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)' }}>{row.report_name}</div>
+      <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 1 }}>{row.procedure_name}</div>
+      {row.notes && (
+        <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 4, lineHeight: 1.45 }}>{row.notes}</div>
+      )}
+
+      {/* La plataforma. Con link es un enlace real que abre en pestaña nueva; sin link es un
+          rótulo inerte — un botón que no puede abrir nada no se disfraza de botón. */}
+      {row.link ? (
+        <a
+          href={row.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ ...plataformaBtn, background: meta.color + '1C', textDecoration: 'none' }}
+        >
+          <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: meta.color, flex: '0 0 auto' }} />
+          Abrir en {meta.label}
+          <Icon name="externalLink" size={12} color="var(--spira-ink)" />
+        </a>
+      ) : (
+        <div style={{ ...plataformaBtn, background: meta.color + '14', cursor: 'default' }} title="Este reporte no tiene link cargado">
+          <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: meta.color, flex: '0 0 auto' }} />
+          {meta.label}
+        </div>
+      )}
+
+      {/* Vencimiento (si sigue pendiente) o cuándo se movió. */}
+      <div style={{ fontSize: 10.5, marginTop: 6, color: vence.overdue ? 'var(--spira-danger)' : 'var(--spira-muted)', fontWeight: vence.overdue ? 700 : 400 }}>
+        {stage === 'pendiente'
+          ? vence.texto
+          : `${STAGE_META[stage].label} ${row.updated_at ? formatDateTimeAR(row.updated_at) : ''}`}
+      </div>
+
+      {/* Avanzar / retroceder */}
+      {canOperate && (
+        <div style={{ display: 'flex', gap: 7, marginTop: 10 }}>
+          {sig ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onStage(sig)}
+              style={{ ...avanzarBtn, background: STAGE_META[sig].color, opacity: busy ? 0.6 : 1 }}
+            >
+              {STAGE_META[sig].cta}
+            </button>
+          ) : (
+            <span style={cerrado}>
+              <Icon name="check" size={13} color="var(--spira-primary)" /> Evolucionado
+            </span>
+          )}
+          {ant && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onStage(ant)}
+              title={`Volver a ${STAGE_META[ant].label.toLowerCase()}`}
+              aria-label={`Volver a ${STAGE_META[ant].label.toLowerCase()}`}
+              style={{ ...iconBtn, opacity: busy ? 0.6 : 1 }}
+            >
+              <Icon name="rotateCcw" size={13} color="var(--spira-muted)" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Historial */}
+      {row.history_count > 0 && (
+        <>
+          <button type="button" onClick={() => setVerHistorial((v) => !v)} className="spira-no-press" style={histBtn}>
+            <Icon name="list" size={12} color="var(--spira-muted)" />
+            Historial ({row.history_count})
+            <Icon name="chevronDown" size={12} color="var(--spira-muted)" style={{ marginLeft: 'auto', transform: verHistorial ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+          </button>
+          {verHistorial && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 5 }}>
+              {historial.loading && <span style={histLinea}>Cargando…</span>}
+              {historial.error && <span style={{ ...histLinea, color: 'var(--spira-danger)' }}>No pudimos cargar el historial.</span>}
+              {(historial.data ?? []).map((h) => (
+                <span key={h.id} style={histLinea}>
+                  {formatDateTimeAR(h.changed_at)} · {isStage(h.stage) ? STAGE_META[h.stage].label : h.stage} · {h.changed_by_name}
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </article>
+  )
+}
+
+const card: CSSProperties = {
+  background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 12,
+  padding: '11px 12px', boxShadow: 'var(--spira-shadow-sm)',
+}
+const iconBtn: CSSProperties = {
+  width: 28, height: 28, flex: '0 0 auto', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+  borderRadius: 8, background: 'var(--spira-white)', cursor: 'pointer', display: 'grid', placeItems: 'center',
+}
+/** Botón/rótulo de la plataforma: ancho completo, fondo teñido con su color, texto en tinta. */
+const plataformaBtn: CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%',
+  height: 32, marginTop: 9, borderRadius: 9, border: 'none',
+  color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600,
+}
+/** Avanzar de etapa: SIEMPRE en el color de la etapa a la que lleva, no en el de la actual. */
+const avanzarBtn: CSSProperties = {
+  flex: 1, height: 32, borderRadius: 9, border: 'none', color: 'var(--spira-on-accent)',
+  fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+}
+const cerrado: CSSProperties = {
+  flex: 1, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+  fontSize: 12.5, fontWeight: 600, color: 'var(--spira-primary)',
+}
+const histBtn: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 6, width: '100%', marginTop: 9, padding: '5px 0',
+  border: 'none', background: 'transparent', cursor: 'pointer',
+  fontFamily: 'var(--spira-font-text)', fontSize: 11.5, color: 'var(--spira-muted)',
+}
+const histLinea: CSSProperties = { fontSize: 11, color: 'var(--spira-muted)', lineHeight: 1.5 }
