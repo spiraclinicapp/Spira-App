@@ -4,9 +4,10 @@ import { Icon } from '../../../components/Icon'
 import { AutocompleteInput } from '../../../components/AutocompleteInput'
 import type { Suggestion } from '../../../components/AutocompleteInput'
 import { fieldInput, fieldLabelStyle } from '../../../components/FormField'
+import { SearchableSelect } from '../../../components/SearchableSelect'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import {
-  ETA_PRESETS, PLATFORM_ORDER, PLATFORMS, etaValida, isDefaultLink, linkOnPlatformChange, platformMeta,
+  ETA_PRESETS, PLATFORM_ORDER, PLATFORMS, etaLibreInicial, etaValida, isDefaultLink, linkOnPlatformChange, platformMeta,
 } from './reportes'
 import type { KnownReport } from './reportes'
 import type { ReportInput } from '../../../data/protocolProcedures'
@@ -53,6 +54,26 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
   const [link, setLink] = useState(inicial?.link ?? '')
   const [eta, setEta] = useState<number | null>(inicial?.eta_hours ?? null)
   const [notes, setNotes] = useState(inicial?.notes ?? '')
+
+  /* El input de "otra (h)" tiene su PROPIO texto, separado de `eta`.
+     Antes se lo derivaba de `eta` con una expresión que lo vaciaba apenas el número coincidía con
+     un preset: al teclear el "1" de "12" el campo se limpiaba solo y se encendía el chip de 1 hora,
+     así que no había manera de cargar 12, ni 124, ni nada que empezara con 1, 2, 4 o 7. Con texto
+     propio, el input muestra lo que la persona escribe y `eta` se deriva de él. */
+  const [etaLibre, setEtaLibre] = useState(() => etaLibreInicial(inicial?.eta_hours ?? null))
+
+  /** Un chip fija el plazo y limpia el campo libre: manda el chip, y dos fuentes a la vez confunden. */
+  const clickChip = (v: number) => {
+    setEta(eta === v ? null : v)
+    setEtaLibre('')
+  }
+
+  /** Escribir en el campo libre manda sobre los chips (el chip que coincida queda encendido igual). */
+  const cambiarEtaLibre = (txt: string) => {
+    setEtaLibre(txt)
+    const n = txt.trim()
+    setEta(n === '' ? null : Number(n))
+  }
 
   /* Sugerencias del combobox. El `value` es el ÍNDICE y no el nombre: el mismo rótulo en dos
      portales son DOS opciones distintas (ver `knownReports`), y cualquier separador que los pegue
@@ -108,7 +129,6 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
           onPick={pick}
           suggestions={suggestions}
           placeholder="Ej. Hematología completa"
-          compact
           autoFocus
         />
         {name.trim() !== '' && !known.some((k) => k.name.toLowerCase() === name.trim().toLowerCase()) && (
@@ -116,15 +136,19 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
         )}
       </label>
 
-      {/* Plataforma */}
-      <label style={campo}>
+      {/* Plataforma — el desplegable de la app, no el nativo del sistema. El punto de color es el
+          MISMO que después lleva el badge del reporte y el puntito de la lista: se elige mirando
+          el color que vas a ver de acá en adelante. */}
+      <div style={campo}>
         <span style={fieldLabelStyle}>Plataforma</span>
-        <select value={platform} onChange={(e) => cambiarPlataforma(e.target.value)} style={boxInput}>
-          {PLATFORM_ORDER.map((p) => (
-            <option key={p} value={p}>{PLATFORMS[p].label}</option>
-          ))}
-        </select>
-      </label>
+        <SearchableSelect
+          value={platform}
+          onChange={cambiarPlataforma}
+          options={PLATFORM_ORDER.map((p) => ({ value: p, label: PLATFORMS[p].label, dot: PLATFORMS[p].color }))}
+          placeholder="Elegí la plataforma"
+          searchable="never"
+        />
+      </div>
 
       {/* Link directo */}
       <label style={campo}>
@@ -168,7 +192,7 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
               <button
                 key={p.value}
                 type="button"
-                onClick={() => setEta(on ? null : p.value)}
+                onClick={() => clickChip(p.value)}
                 aria-pressed={on}
                 style={chip(on, accent)}
               >
@@ -180,11 +204,8 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
             type="number"
             min={1}
             max={8760}
-            value={eta != null && !ETA_PRESETS.some((p) => p.value === eta) ? String(eta) : ''}
-            onChange={(e) => {
-              const v = e.target.value.trim()
-              setEta(v === '' ? null : Number(v))
-            }}
+            value={etaLibre}
+            onChange={(e) => cambiarEtaLibre(e.target.value)}
             placeholder="otra (h)"
             aria-label="Otro plazo, en horas"
             style={{ ...boxInput, width: 108, flex: '0 0 auto' }}

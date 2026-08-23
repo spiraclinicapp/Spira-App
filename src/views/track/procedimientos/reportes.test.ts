@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   agruparPorCategoria,
+  ETA_PRESETS,
   etaLabel,
+  etaLibreInicial,
   etaValida,
   isDefaultLink,
   isPlatform,
@@ -102,6 +104,25 @@ describe('plazo', () => {
   it('sin plazo lo DICE, no queda mudo', () => {
     // Un reporte sin plazo no vence nunca; la tarjeta tiene que decirlo en vez de mostrar un hueco.
     expect(etaLabel(null)).toBe('Sin plazo')
+  })
+
+  it('los chips ofrecen 1 hora, 24, 48, 72 y 7 días', () => {
+    expect(ETA_PRESETS.map((p) => p.value)).toEqual([1, 24, 48, 72, 168])
+  })
+
+  it('el campo libre arranca VACÍO cuando el plazo ya es un chip', () => {
+    // Si no, el número aparecería dos veces: encendido en el chip y escrito en el campo.
+    for (const p of ETA_PRESETS) expect(etaLibreInicial(p.value)).toBe('')
+    expect(etaLibreInicial(null)).toBe('')
+  })
+
+  it('el campo libre arranca CON el número cuando el plazo no es un chip', () => {
+    // Regresión: el campo tomaba su texto de una expresión que lo vaciaba apenas el número
+    // coincidía con un preset, así que tipear "12" era imposible — al entrar el "1" se limpiaba
+    // solo. El texto del input ahora es estado propio; esta función solo decide el arranque.
+    expect(etaLibreInicial(12)).toBe('12')
+    expect(etaLibreInicial(124)).toBe('124')
+    expect(etaLibreInicial(8760)).toBe('8760')
   })
 })
 

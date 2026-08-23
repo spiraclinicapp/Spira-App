@@ -117,7 +117,24 @@ export const ETA_PRESETS: { value: number; label: string }[] = [
   { value: 24, label: '24 horas' },
   { value: 48, label: '48 horas' },
   { value: 72, label: '72 horas' },
+  { value: 168, label: '7 días' },
 ]
+
+/**
+ * Con qué texto arranca el input de "otra (h)".
+ *
+ * Vacío cuando el plazo guardado es uno de los chips (ese lo dice el chip encendido, repetirlo en
+ * el input sería decir dos veces lo mismo); con el número cuando es un valor libre.
+ *
+ * Existe como función y no inline porque de acá salió un bug: el input tomaba su texto de una
+ * expresión que lo VACIABA apenas el número tipeado coincidía con un preset, así que escribir "12"
+ * era imposible — al teclear el "1" el campo se limpiaba solo y encendía el chip de 1 hora. El
+ * input ahora tiene su propio texto y esta función solo decide el arranque.
+ */
+export function etaLibreInicial(hours: number | null | undefined): string {
+  if (hours == null) return ''
+  return ETA_PRESETS.some((p) => p.value === hours) ? '' : String(hours)
+}
 
 /** Presets de duración del procedimiento, en minutos (`procedures.min_estimated`). */
 export const DURACION_PRESETS: number[] = [5, 10, 15, 20, 30, 45, 60, 90]

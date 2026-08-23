@@ -188,23 +188,28 @@ export function ProcedureEditModal({
         <div style={campo}>
           <span style={fieldLabelStyle}>Demora estimada</span>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <select
-              value={durLibre ? 'otra' : dur == null ? '' : String(dur)}
-              disabled={!canEditCatalog}
-              onChange={(e) => {
-                const v = e.target.value
-                if (v === 'otra') { setDurLibre(true); return }
-                setDurLibre(false)
-                setDur(v === '' ? null : Number(v))
-              }}
-              style={{ ...boxInput, ...(canEditCatalog ? null : inerte) }}
-            >
-              <option value="">Sin definir</option>
-              {DURACION_PRESETS.map((m) => (
-                <option key={m} value={String(m)}>{m} min</option>
-              ))}
-              <option value="otra">Otra…</option>
-            </select>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              {/* El desplegable de la app, no el nativo del sistema: en el mismo modal conviven éste
+                  y el de Categoría, y uno con la caja de Windows al lado del otro se ve como dos
+                  aplicaciones distintas. `searchable="never"` porque son diez opciones de dos
+                  palabras — un buscador acá es ruido, no ayuda. */}
+              <SearchableSelect
+                value={durLibre ? 'otra' : dur == null ? 'sin' : String(dur)}
+                onChange={(v) => {
+                  if (v === 'otra') { setDurLibre(true); return }
+                  setDurLibre(false)
+                  setDur(v === 'sin' ? null : Number(v))
+                }}
+                options={[
+                  { value: 'sin', label: 'Sin definir' },
+                  ...DURACION_PRESETS.map((m) => ({ value: String(m), label: `${m} min` })),
+                  { value: 'otra', label: 'Otra…' },
+                ]}
+                placeholder="Sin definir"
+                searchable="never"
+                disabled={!canEditCatalog}
+              />
+            </span>
             {durLibre && (
               <input
                 type="number"
