@@ -216,9 +216,14 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
         />
       </label>
 
+      {/* "Descartar" y no "Cancelar": mientras este form está abierto, el footer del modal muestra
+          SU propio "Cancelar" cuarenta píxeles más abajo, y dos botones con la misma palabra en la
+          misma tarjeta hacen exactamente lo que parece — apretar el que no era. El de acá descarta
+          este reporte; el de abajo descarta el modal entero. Se detectó verificando en el navegador
+          (y el que verificaba se equivocó de botón, que es la prueba). */}
       <div style={{ display: 'flex', gap: 9, justifyContent: 'flex-end', paddingTop: 2 }}>
         <button type="button" style={{ ...btnOutline, height: 34, fontSize: 13 }} onClick={onCancel}>
-          Cancelar
+          Descartar
         </button>
         <button
           type="button"
