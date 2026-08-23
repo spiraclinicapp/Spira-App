@@ -223,7 +223,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                   MISMO renglón. La píldora va afuera del botón —no adentro— porque un botón no
                   puede anidar a otro; por eso son hermanos en un flex y no padre/hijo. Antes la
                   píldora caía a un renglón propio debajo, que es el salto que se veía. */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {readOnly ? (
                 <div style={{ ...rowBase, flex: 1, minWidth: 0 }}>{row}</div>
               ) : (
@@ -244,14 +244,10 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                 </button>
               )}
 
-              {/* La píldora comparte renglón con el nombre, alineada a su PRIMERA línea.
-                  El 6 sale de la cuenta, no del ojo: la fila tiene 11 de padding y la caja de
-                  línea del título (13.5px) mide ~16, o sea que su centro cae a 19 del borde; la
-                  píldora mide 26, así que su centro cae a marginTop + 13. Igualando: 6.
-                  Anclarla a la primera línea y no al centro del bloque importa porque el nombre
-                  envuelve a dos líneas en pantallas angostas — ahí la píldora tiene que quedarse
-                  arriba, no bajar a la mitad del párrafo. (Primer intento: ajustado a ojo contra
-                  un título envuelto, quedaba 8px baja en pantalla normal.) */}
+              {/* La píldora comparte renglón con el nombre y se centra con él y con el tilde: el
+                  `alignItems: center` del flex lo resuelve solo, sin ningún desplazamiento a mano.
+                  Los `marginTop` calculados que había acá se fueron con el cambio a centrado — un
+                  offset fijo y un centrado automático se pelean, y gana el que no se ve. */}
               {misReportes.length > 0 && (
                 <button
                   type="button"
@@ -263,7 +259,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                   aria-expanded={abierto}
                   aria-label={`${misReportes.length === 1 ? 'Un reporte' : misReportes.length + ' reportes'} de ${p.name}`}
                   className="spira-no-press"
-                  style={{ ...pillReportes(abierto, accent), marginTop: 6, marginRight: 13, flex: '0 0 auto' }}
+                  style={{ ...pillReportes(abierto, accent), marginRight: 13, flex: '0 0 auto' }}
                 >
                   <Icon name="fileText" size={12} color={accent} />
                   {misReportes.length} {misReportes.length === 1 ? 'reporte' : 'reportes'}
@@ -334,9 +330,20 @@ function ProceduresPanel({ accent, aside, children }: { accent: string; aside?: 
   return <Panel title="Procedimientos" icon="clipboardCheck" accent={accent} aside={aside}>{children}</Panel>
 }
 
-/** Fila: el tilde alineado con la PRIMERA línea del nombre (no centrado en el bloque de dos líneas). */
+/**
+ * Fila: tilde, bloque de texto y píldora CENTRADOS entre sí en altura.
+ *
+ * Antes el tilde y la píldora se anclaban a la primera línea del nombre. Se revirtió por pedido
+ * del Director (2026-08-24): con el bloque de dos renglones —nombre + categoría, que se leen como
+ * una sola unidad— el anclaje arriba dejaba los tres elementos a alturas distintas y la fila se
+ * veía desprolija. Centrado, los tres comparten eje.
+ *
+ * El costo, asumido: si el nombre envolviera a tres o más renglones en una pantalla muy angosta,
+ * el tilde y la píldora quedan a la mitad del párrafo en vez de arriba. Con dos renglones —que es
+ * el caso real— centrar se ve mejor.
+ */
 const rowBase: CSSProperties = {
-  display: 'flex', alignItems: 'flex-start', gap: 12, padding: '11px 13px',
+  display: 'flex', alignItems: 'center', gap: 12, padding: '11px 13px',
 }
 
 /**
@@ -346,7 +353,7 @@ const rowBase: CSSProperties = {
  */
 function tickBox(isDone: boolean, accent: string): CSSProperties {
   return {
-    flex: '0 0 auto', width: 20, height: 20, marginTop: -2, borderRadius: 6,
+    flex: '0 0 auto', width: 20, height: 20, borderRadius: 6,
     display: 'grid', placeItems: 'center',
     border: `1.5px solid ${isDone ? accent : 'var(--spira-muted)'}`,
     background: isDone ? accent : 'transparent',
