@@ -229,7 +229,14 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
               className="spira-num-limpio"
               style={inputDesnudo}
             />
-            <span role="radiogroup" aria-label="Unidad del plazo" style={{ display: 'flex', gap: 2, flex: '0 0 auto' }}>
+            {/* Separador: sin él, el número y el conmutador se leen como un solo bloque apretado. */}
+            <span aria-hidden style={separador} />
+            {/* Riel + perilla. Los dos segmentos miden lo MISMO aunque "hs" sea más corto que
+                "días": un conmutador de anchos desparejos no se lee como conmutador, se lee como
+                dos botones sueltos. El elegido se levanta (papel + sombra) en vez de teñirse, que
+                es como esta app señala estado; el acento queda en el texto, que es donde lleva
+                significado. */}
+            <span role="radiogroup" aria-label="Unidad del plazo" style={riel}>
               {([['h', 'hs', 'horas'], ['d', 'días', 'días']] as const).map(([u, corto, largo]) => {
                 const on = plazo.unidad === u
                 return (
@@ -309,29 +316,53 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
 const campo: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5 }
 
 /** La caja del plazo libre: hereda el borde del input y adentro conviven el número y la unidad. */
+/**
+ * La caja del plazo libre: número + conmutador de unidad, en un solo marco.
+ *
+ * Alto 38 y no 44 a propósito. Sus vecinos en el renglón son los chips de preset (30), no los
+ * campos del formulario: con 44 la caja les sacaba una cabeza y el renglón se veía desparejo.
+ * 38 la deja leerse como un campo (más alta que un chip) sin dominar la fila.
+ */
 const cajaPlazo: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 3, flex: '0 0 auto',
-  height: 44, padding: '0 4px 0 3px', borderRadius: 10,
+  display: 'inline-flex', alignItems: 'center', flex: '0 0 auto',
+  height: 38, padding: '0 4px', borderRadius: 10,
   borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
   background: 'var(--spira-white)',
 }
-/** El input adentro de la caja va sin borde ni fondo: el marco lo pone el contenedor.
- *  52px alcanzan para los cuatro dígitos del máximo (8760) alineados a la derecha. */
+/** El input va sin borde ni fondo (el marco lo pone la caja) y CENTRADO: pegado a la derecha
+ *  quedaba encimado al conmutador y con un hueco muerto a la izquierda. 56px entran los cuatro
+ *  dígitos del máximo (8760). */
 const inputDesnudo: CSSProperties = {
-  width: 52, height: 40, padding: '0 5px', border: 'none', outline: 'none', background: 'transparent',
-  color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14, textAlign: 'right',
+  width: 56, height: 32, padding: '0 4px', border: 'none', outline: 'none', background: 'transparent',
+  color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14, textAlign: 'center',
+}
+/** Raya fina entre el número y el conmutador: son dos zonas de un mismo control, no una sola. */
+const separador: CSSProperties = {
+  width: 1, height: 20, flex: '0 0 auto', background: 'var(--spira-line)', margin: '0 5px 0 3px',
+}
+/** El riel del conmutador: fondo hundido sobre el que se apoya la perilla. */
+const riel: CSSProperties = {
+  display: 'flex', gap: 0, flex: '0 0 auto', padding: 2, borderRadius: 8,
+  background: 'var(--spira-surface)',
 }
 /**
- * Segmento del interruptor de unidad. Elegido = acento; el otro, `muted` sobre transparente.
+ * Segmento del conmutador. Los dos miden lo mismo (`minWidth`) para que se lea como conmutador y
+ * no como dos botones sueltos, y el elegido se ELEVA —papel + sombra— en vez de teñirse: es como
+ * esta app señala estado. El acento queda en el texto, que es donde lleva significado.
+ *
+ * 26px de alto: por debajo de 24 el objetivo táctil incumpliría el 2.5.8 de WCAG 2.2.
+ *
  * Lleva `.spira-no-press` porque es un conmutador dentro de un campo: si se hunde 1px al pulsarlo,
  * arrastra visualmente a la caja que lo contiene y parece que se movió el input entero.
  */
 function segmento(on: boolean, accent: string): CSSProperties {
   return {
-    height: 28, minWidth: 26, padding: '0 6px', borderRadius: 7, border: 'none',
-    background: on ? accent + '1A' : 'transparent',
+    height: 26, minWidth: 34, padding: '0 5px', borderRadius: 6, border: 'none',
+    background: on ? 'var(--spira-white)' : 'transparent',
+    boxShadow: on ? 'var(--spira-shadow-sm)' : 'none',
     color: on ? accent : 'var(--spira-muted)',
     fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: on ? 700 : 600, cursor: 'pointer',
+    transition: 'background-color .14s var(--spira-ease-out), box-shadow .14s var(--spira-ease-out)',
   }
 }
 

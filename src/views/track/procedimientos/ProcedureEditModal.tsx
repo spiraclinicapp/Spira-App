@@ -133,7 +133,12 @@ export function ProcedureEditModal({
     <Modal
       title="Editar procedimiento"
       onClose={onClose}
-      maxWidth={620}
+      /* 660 y no los 620 del handoff: ese ancho se dibujó para el modal SOLO, y adentro terminó
+         viviendo el formulario de reporte con su renglón de cinco chips más el campo de plazo.
+         A 620 ese renglón entraba por doce píxeles — cualquier fuente que rinda un poco más ancho
+         lo partía en dos. Cuarenta píxeles de más resuelven la fila y le dan aire a todo el resto,
+         que es mejor que raspar el padding de cada chip hasta que entre. */
+      maxWidth={660}
       icon="pencil"
       accent={accent}
       accentSoft={accent + '1F'}
