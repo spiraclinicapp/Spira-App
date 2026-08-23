@@ -308,5 +308,11 @@ end $fn$;
 comment on function public.remove_protocol_procedure(uuid, uuid) is
   'Quita un procedimiento del estudio. Bloquea si está asignado a visitas del cronograma. authz: gerencia o track-operator. 0089.';
 
-grant execute on function public.set_procedure_reports(uuid, jsonb)      to authenticated;
-grant execute on function public.remove_protocol_procedure(uuid, uuid)   to authenticated;
+-- Permisos de las dos RPCs. El `revoke ... from public` va PRIMERO y no es decorativo: Postgres le
+-- da EXECUTE a PUBLIC por defecto en toda función nueva, y `anon` hereda de PUBLIC. Las dos
+-- funciones son SECURITY DEFINER y validan el rol por dentro (un anónimo se comería un 42501), así
+-- que esto es una segunda cerradura sobre una puerta que ya cierra — el mismo patrón de 0012/0015/0018.
+revoke all on function public.set_procedure_reports(uuid, jsonb)    from public;
+revoke all on function public.remove_protocol_procedure(uuid, uuid) from public;
+grant execute on function public.set_procedure_reports(uuid, jsonb)    to authenticated;
+grant execute on function public.remove_protocol_procedure(uuid, uuid) to authenticated;
