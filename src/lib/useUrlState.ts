@@ -85,17 +85,17 @@ export function useUrlState(
   key: string,
   def: string,
   opts?: { mode?: 'push' | 'replace' },
-): [string, (valor: string) => void]
+): [string, (valor: string | ((prev: string) => string)) => void]
 export function useUrlState<T>(
   key: string,
   def: T,
   opts: { codec: Codec<T>; mode?: 'push' | 'replace' },
-): [T, (valor: T) => void]
+): [T, (valor: T | ((prev: T) => T)) => void]
 export function useUrlState<T>(
   key: string,
   def: T,
   opts: { codec?: Codec<T>; mode?: 'push' | 'replace' } = {},
-): [T, (valor: T) => void] {
+): [T, (valor: T | ((prev: T) => T)) => void] {
   const codec = (opts.codec ?? codecs.str) as Codec<T>
   const mode = opts.mode ?? 'replace'
   const crudo = useUrlSnapshot()
@@ -111,10 +111,19 @@ export function useUrlState<T>(
   }, [crudo, key])
 
   const setValor = useCallback(
-    (nuevo: T) => {
+    (nuevo: T | ((prev: T) => T)) => {
       const actual = parseHref(window.location.pathname + window.location.search)
       if (!actual) return
-      const siguiente: UrlState = { ...actual, query: writeParam(actual.query, key, nuevo, def, codec) }
+      /* Aceptamos el updater de `useState` (`setX(v => !v)`) y no sólo el valor: la firma promete ser
+         la de `useState` y varias vistas tienen toggles escritos así. Se resuelve contra lo que hay
+         en la URL AHORA —no contra el valor del render— por el mismo motivo por el que el resto de
+         este setter relee `window.location`: dos actualizaciones seguidas tienen que componer. */
+      const previo = readParam(actual.query, key, def, codec)
+      /* `typeof nuevo === 'function'` es seguro ACÁ porque ningún `T` de este proyecto es invocable
+         (son strings, arrays de strings, números y booleanos): si algún día se usa este hook con un
+         `T` que sea función, este chequeo lo confundiría con un updater. No es el caso hoy. */
+      const valorFinal = typeof nuevo === 'function' ? (nuevo as (prev: T) => T)(previo) : nuevo
+      const siguiente: UrlState = { ...actual, query: writeParam(actual.query, key, valorFinal, def, codec) }
       if (mode === 'push') pushUrl(siguiente)
       else replaceUrl(siguiente)
     },
@@ -143,6 +152,11 @@ export function useUrlState<T>(
  * `useUrlState` sobre la misma clave, una fija en cada modo: cada una ya trae resuelta la lectura del
  * query y la escritura con push/replace, así que no hay que reimplementar ese cableado acá — solo
  * elegir cuál `setValor` llamar según si `id` es `null`.
+ *
+ * El setter NO acepta updater (`(prev) => next`) como el de `useUrlState`: una entidad abierta se
+ * ABRE o se CIERRA, no se transforma a partir de sí misma —no hay un `setEntidad(prev => ...)` con
+ * sentido, porque abrir siempre necesita el id de afuera (el que se clickeó) y cerrar siempre es
+ * `null`—. Si algún día aparece un caso que sí necesite leer el valor previo, se agrega ahí.
  */
 export function useUrlEntity(key: string): [string | null, (id: string | null) => void] {
   const [valor, abrir] = useUrlState(key, '', { mode: 'push' })

@@ -87,9 +87,9 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
      encontrar la fila ni esperar a que carguen las alertas. Por eso una alerta se puede abrir
      aunque los filtros de la vista la dejen fuera. */
   /* Push al abrir, replace al cerrar (lo trae `useUrlEntity`). UUID completo, y acá se ve por qué:
-     el comentario de la línea 84 dice que VisitDetail trae sus datos por id y que POR ESO una alerta
-     se puede abrir aunque los filtros la dejen fuera. Acortar el id obligaría a resolverlo contra las
-     filas visibles y mataría esa propiedad. */
+     el comentario de arriba —el que explica que `VisitDetail` trae sus propios datos por id— dice que
+     POR ESO una alerta se puede abrir aunque los filtros la dejen fuera. Acortar el id obligaría a
+     resolverlo contra las filas visibles y mataría esa propiedad. */
   const [openVisitId, setOpenVisitId] = useUrlEntity('visita')
   const [dismissing, setDismissing] = useState<Dismissing | null>(null)
   const [showDismissed, setShowDismissed] = useUrlState('descartadas', false, { codec: codecs.bool })
@@ -196,7 +196,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           {allRows.length + procRows.length === 1 ? 'alerta' : 'alertas'}
         </span>
         {dismissals.length > 0 && (
-          <button type="button" style={linkBtn} onClick={() => setShowDismissed(!showDismissed)}>
+          <button type="button" style={linkBtn} onClick={() => setShowDismissed((v) => !v)}>
             {showDismissed ? 'Ocultar descartadas' : `Ver descartadas (${dismissals.length})`}
           </button>
         )}
