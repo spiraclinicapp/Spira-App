@@ -6,7 +6,7 @@ import type { MultiFilterOption } from '../components/MultiFilterMenu'
 import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../lib/auth'
 import { groupVisitsByPatient } from '../lib/visits'
-import { useUrlLocation, useUrlPath, useUrlState } from '../lib/useUrlState'
+import { useUrlPath, useUrlState } from '../lib/useUrlState'
 import { listOf } from '../lib/router'
 import { useProtocols } from '../data/protocols'
 import type { ProtocolRow, ProtocolStatus } from '../data/protocols'
@@ -110,14 +110,19 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
 
   /* La posición interna sale del path de la URL. Mientras los datos cargan el path no se puede
      resolver todavía (no sabemos si ese código existe), así que se muestra la grilla — que es lo que
-     ya se veía antes en ese instante. `null` tras la carga = el path apunta a algo que no está. */
-  const urlLocation = useUrlLocation()
+     ya se veía antes en ese instante. `null` tras la carga = el path apunta a algo que no está.
+     `useMemo` y no un cálculo directo: sin él, `navResuelto` es un objeto NUEVO en cada render, y el
+     efecto de más abajo que lo pone en sus deps (el que vigila si nos fuimos de la llegada) correría
+     siempre — hoy no hace daño porque tiene guards con refs, pero es ruido que el patrón copiaría en
+     las próximas seis vistas que van a usar este mismo helper. */
+  const [path, setPath] = useUrlPath()
   const cargando = protocols.loading || patients.loading
-  const navResuelto = navDesdePath(urlLocation?.path ?? [], protocols.data ?? [], patients.data ?? [])
+  const navResuelto = useMemo(
+    () => navDesdePath(path, protocols.data ?? [], patients.data ?? []),
+    [path, protocols.data, patients.data],
+  )
   const nav: Nav = navResuelto ?? { mode: 'list' }
   const navRoto = !cargando && navResuelto === null
-
-  const [, setPath] = useUrlPath()
   const setNav = (siguiente: Nav, opts: { resolviendoTarget?: boolean } = {}) => {
     /* `conservar` y no todo el query: la búsqueda y el filtro de estado describen la grilla y hoy
        ya sobreviven entrar a un protocolo y volver —esta vista no se desmonta: renderiza el detalle
@@ -150,11 +155,14 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
   /* Objetivo del buscador global: abrir la ficha de un paciente directo. La ficha necesita el
      protocolo de contexto; como un paciente puede estar en varios, se toma su enrolamiento
      primario (primero con protocolo visible), igual que "Todos los pacientes". Esperamos a que
-     carguen los pacientes (si no, no lo encontraríamos) y consumimos el objetivo una sola vez
+     carguen AMBOS datasets —no solo pacientes: `setNav` (más abajo) escribe el segmento del
+     protocolo vía `pathDesdeNav`, y si `protocols` todavía no llegó, ese helper no encuentra el
+     protocolo entre las filas y cae al identificador corto en vez del código legible; como esto
+     corre en `replace`, no queda un "atrás" que lo arregle— y consumimos el objetivo una sola vez
      —haya o no ficha que abrir— para que un refetch no lo reabra solo. */
   useEffect(() => {
     if (!navTarget?.patientId) return
-    if (patients.loading) return
+    if (patients.loading || protocols.loading) return
     const pt = (patients.data ?? []).find((p) => p.id === navTarget.patientId)
     const protocolId = pt?.enrollments.find((e) => e.protocol != null)?.protocol?.id ?? null
     // Paciente sin protocolo visible: la ficha necesita protocolo de contexto, así que no se
@@ -166,17 +174,18 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
       : null
     if (destino) { setNav(destino, { resolviendoTarget: true }); llegada.current = navKey(destino) }
     onTargetConsumed?.()
-  }, [navTarget, patients.loading, patients.data, onTargetConsumed])
+  }, [navTarget, patients.loading, patients.data, protocols.loading, onTargetConsumed])
 
   /* El pasaje de vuelta del shell ("Volver a la visita de X") vale mientras sigas DONDE te dejaron.
      Esta vista navega por adentro sin cambiar de submódulo —de una ficha a la grilla, o a otro
      paciente—, así que el shell no se entera solo y el chip sobreviviría a paseos donde ya no
      describe de dónde venís.
-     Hay que esperar a PISAR el destino antes de vigilar la salida: `setNav` no es inmediato, así
-     que en el render de la llegada `nav` todavía tiene el valor viejo y compararlo ahí daría una
-     "salida" falsa que borraría el chip apenas aparece. Por eso el `armado`: primero confirmamos
-     que llegamos, recién después el primer movimiento cuenta como irse. Refs y no estado: esto no
-     tiene que redibujar nada. */
+     Hay que esperar a PISAR el destino antes de vigilar la salida: `setNav` no es inmediato —escribe
+     en la URL, el store externo, y ese cambio recién se ve en el PRÓXIMO render, cuando
+     `useSyncExternalStore` (adentro de `useUrlPath`) avisa—, así que en el render de la llegada `nav`
+     todavía tiene el valor viejo y compararlo ahí daría una "salida" falsa que borraría el chip apenas
+     aparece. Por eso el `armado`: primero confirmamos que llegamos, recién después el primer
+     movimiento cuenta como irse. Refs y no estado: esto no tiene que redibujar nada. */
   useEffect(() => {
     if (!llegada.current) return                                    // no vinimos de un salto profundo
     if (navKey(nav) === llegada.current) { armado.current = true; return }  // recién llegamos
@@ -233,7 +242,12 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
   }
 
   // ---- Modo: detalle de un protocolo (tablero) ----
-  // Si el protocolo ya no está visible (p. ej. tras un refetch), se cae a la lista.
+  // `proto` sale del MISMO array (`allProtocols` = `protocols.data`) que ya usó el memo de
+  // `navResuelto` para resolver `nav`, así que si `nav.mode === 'protocol'` este find SIEMPRE
+  // encuentra algo: el `&& proto` de la condición de abajo es defensivo para TypeScript (no puede
+  // probar la correlación entre dos `.find` separados), no un fallback real. Si el protocolo dejó
+  // de estar visible (p. ej. tras un refetch), `navDesdePath` ya devolvió `null` en ESE render y
+  // ganó la pantalla serena (`navRoto`, más arriba) antes de llegar hasta acá.
   const detailProtocolId = nav.mode === 'protocol' || nav.mode === 'patient' ? nav.protocolId : undefined
   const proto = detailProtocolId ? allProtocols.find((p) => p.id === detailProtocolId) : undefined
   if (nav.mode === 'protocol' && proto) {
@@ -296,8 +310,10 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
       />
     )
   }
-  // Si el modo es patient/protocol pero el registro ya no es visible (p. ej. tras un
-  // refetch), se cae naturalmente al render de la grilla de abajo.
+  // El `&& proto` / `&& fichaPatient` de las dos condiciones de arriba son el mismo caso defensivo:
+  // si el protocolo o el paciente hubieran dejado de estar visibles, `navDesdePath` ya devolvió
+  // `null` y ganó la pantalla serena mucho antes de este punto — no hay una caída silenciosa a la
+  // grilla de abajo, la grilla se renderiza solo cuando `nav.mode` es 'list'.
 
   // ---- Modo: todos los pacientes ----
   if (nav.mode === 'all') {

@@ -134,16 +134,24 @@ export function useUrlState<T>(
  * Existe porque `parse` usa `null` como centinela de "valor inválido", así que `null` no puede ser
  * además un valor legítimo y la ausencia se representa con `''`. Sin este helper, cada vista que abre
  * algo repite el mismo adaptador entre `''` y `null` y se hace la misma pregunta ("¿me acordé del
- * `|| null`?"). Acá vive también la decisión de que abrir una entidad APILA historial: el atrás del
- * navegador la cierra, que es lo que el usuario espera del gesto.
+ * `|| null`?").
+ *
+ * ABRIR apila historial (`push`): el atrás del navegador cierra la entidad, que es lo que el usuario
+ * espera del gesto. CERRAR reemplaza (`replace`), no apila: si cerrar también apilara, el historial
+ * quedaría `[ficha, ficha?visita=X, ficha]` y el atrás REABRIRÍA el cajón que el usuario acaba de
+ * cerrar — costaría dos "atrás" por cada visita abierta y cerrada. Por eso son DOS instancias de
+ * `useUrlState` sobre la misma clave, una fija en cada modo: cada una ya trae resuelta la lectura del
+ * query y la escritura con push/replace, así que no hay que reimplementar ese cableado acá — solo
+ * elegir cuál `setValor` llamar según si `id` es `null`.
  */
 export function useUrlEntity(key: string): [string | null, (id: string | null) => void] {
-  const [valor, setValor] = useUrlState(key, '', { mode: 'push' })
+  const [valor, abrir] = useUrlState(key, '', { mode: 'push' })
+  const [, cerrar] = useUrlState(key, '', { mode: 'replace' })
   /* `useCallback` y no una flecha inline: `setValor` (el de `useUrlState`) ya está memoizado —según
      sus propios comentarios— justamente porque varias vistas lo van a poner en las deps de un efecto.
      Sin esto, `useUrlPath` (abajo) conservaba esa propiedad y `useUrlEntity` la perdía sin avisar: de
      los dos helpers, uno quedaba estable y el otro no. */
-  const setEntidad = useCallback((id: string | null) => setValor(id ?? ''), [setValor])
+  const setEntidad = useCallback((id: string | null) => (id === null ? cerrar('') : abrir(id)), [abrir, cerrar])
   return [valor || null, setEntidad]
 }
 
