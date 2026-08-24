@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { MODULES } from '../modules/registry'
 import type { Codec } from './router'
 import {
-  buildUrl, codecs, listOf, oneOf, parseHref, parseUrl, readParam, resolveShortId, shortId, writeParam,
+  buildUrl, codecs, homeUrl, listOf, oneOf, parseHref, parseUrl, readParam, resolveShortId, shortId, writeParam,
 } from './router'
 
 /**
@@ -92,6 +92,10 @@ describe('buildUrl', () => {
   /* La coma es el separador que el spec promete para los filtros multi-valor y `URLSearchParams`
      la porcentúa: `?estado=pendiente%2Cen-curso` no se dicta por teléfono, que es justamente lo que
      se buscaba al omitir los defaults. */
+  it('homeUrl es la raíz', () => {
+    expect(homeUrl()).toBe('/')
+  })
+
   it('la coma de los multi-valor queda literal, no %2C', () => {
     expect(buildUrl({
       moduleKey: 'track', subKey: 'visitas', path: [], query: { estado: 'pendiente,en-curso' },

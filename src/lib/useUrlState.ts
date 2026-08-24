@@ -52,7 +52,12 @@ export function useUrlLocation(): UrlState | null {
 
 /** Apila una entrada de historial: el "atrás" del navegador vuelve a la anterior. */
 export function pushUrl(state: UrlState): void {
-  window.history.pushState(null, '', buildUrl(state))
+  const destino = buildUrl(state)
+  /* Si la URL no cambia no hay nada que apilar: clickear el submódulo en el que ya estás dejaría
+     una entrada idéntica y el "atrás" no haría nada visible. Cuando el click sí cambia algo (por
+     ejemplo limpia los filtros), la URL difiere y el push corre normal. */
+  if (destino === window.location.pathname + window.location.search) return
+  window.history.pushState(null, '', destino)
   avisar()
 }
 

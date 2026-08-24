@@ -14,6 +14,8 @@ import { AboutMenu } from './AboutMenu'
 import { FeedbackModal } from './FeedbackModal'
 import { SettingsModal } from './settings/SettingsModal'
 import type { SettingsSection } from './settings/SettingsModal'
+import { pushUrl, useUrlLocation } from '../lib/useUrlState'
+import { NotFoundView } from './NotFoundView'
 
 /** Atajo del buscador global, según plataforma. */
 const KBD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘ K' : 'Ctrl K'
@@ -88,8 +90,11 @@ function primaryActionBtn(accentSolid: string): CSSProperties {
 export function AppShell() {
   const { pref, theme, setPref, toggle } = useTheme()
   const { modules: userModules } = useAuth()
-  const [moduleKey, setModuleKey] = useState('inicio')
-  const [subKey, setSubKey] = useState('resumen')
+  /* Dónde estás parado sale de la URL, no de un useState: es lo que hace que F5 te deje donde estabas
+     y que un link lleve a cualquier pantalla. `null` = la ruta no existe → NotFoundView (Task 5). */
+  const urlLocation = useUrlLocation()
+  const moduleKey = urlLocation?.moduleKey ?? 'inicio'
+  const subKey = urlLocation?.subKey ?? 'resumen'
   /* Entidad concreta a abrir en la vista destino (ej. la ficha de un paciente desde el
      buscador global). La pone `navigate(..., target)`; la vista la consume y avisa para
      limpiarla (onTargetConsumed) así no se reabre sola en refetchs. */
@@ -146,8 +151,9 @@ export function AppShell() {
     setSettingsSection(null) // navegar cierra Ajustes (era un overlay encima)
     setNavTarget(null) // navegación manual: sin objetivo pendiente
     setReturnTo(null)  // …ni camino de vuelta: te fuiste por tu cuenta
-    setModuleKey(key)
-    setSubKey(m.submodules[0].key)
+    /* La URL reemplaza a los dos useState de antes. Va con push: cambiar de módulo ES navegar, así
+       que el atrás del navegador tiene que poder volver. */
+    pushUrl({ moduleKey: key, subKey: m.submodules[0].key, path: [], query: {} })
   }
 
   /* Navegación programática desde una vista o el buscador (ej. "Ver agenda del protocolo"
@@ -161,8 +167,7 @@ export function AppShell() {
     setSettingsSection(null) // navegar cierra Ajustes
     setNavTarget(target ?? null)
     setReturnTo(back ?? null)
-    setModuleKey(mKey)
-    setSubKey(sKey)
+    pushUrl({ moduleKey: mKey, subKey: sKey, path: [], query: {} })
   }
 
   /* Atajo global Ctrl/⌘ K: togglea el buscador. Al ABRIR no lo hace si hay un overlay
@@ -185,6 +190,47 @@ export function AppShell() {
 
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
   const showAction = !HIDE_ACTION.has(`${moduleKey}/${sub.key}`)
+
+  /* Guard de ruta. Se calcula ACÁ (antes del efecto del título, no solo antes del `return`) porque el
+     título lo necesita: si la pantalla no va a mostrar `sub` (el guard va a disparar más abajo), el
+     efecto tampoco puede nombrarlo — ver el efecto siguiente.
+     `urlLocation === null` es "la ruta no existe"; `!isAllowed` cubre tanto el módulo sin rol como los
+     `proximamente` (Lab, Contable). */
+  const rutaInvalida = urlLocation === null
+  const sinAcceso = !rutaInvalida && !isAllowed(moduleKey)
+
+  /* Título de la pestaña. GENÉRICO a propósito: el título se filtra al historial y a la barra de
+     tareas igual que la URL, así que dice la PANTALLA, nunca de quién. El nombre del paciente no sale
+     de la vista. (Decisión heredada del spec de ruteo de junio, que sigue valiendo.)
+     Si el guard de más abajo va a disparar (ruta inválida o sin acceso), el título queda en 'Spira' a
+     secas: `moduleKey`/`sub` en ese caso son el módulo REQUERIDO, no el que se muestra — la pantalla
+     dice "no tenés acceso", así que la pestaña no puede prometer el submódulo que la pantalla niega. */
+  useEffect(() => {
+    document.title = moduleKey === 'inicio' || rutaInvalida || sinAcceso ? 'Spira' : `Spira — ${sub.name}`
+    /* Al desmontar (logout: el Gate cambia a <Login/> y este componente entero se va) la pestaña no
+       puede seguir diciendo "Spira — Stock" sobre la pantalla de login — es la misma máquina
+       compartida que motivó no dejar el nombre del paciente en el título (ver el comentario de
+       arriba). Sin este cleanup, "Cerrar sesión" cerraba la sesión pero el título mentía. */
+    return () => { document.title = 'Spira' }
+  }, [moduleKey, sub.name, rutaInvalida, sinAcceso])
+
+  if (rutaInvalida || sinAcceso) {
+    /* Entre los dos casos de "sin acceso" el mensaje se elige por el flag `proximamente` del módulo
+       PEDIDO (Lab, Contable): para esos nadie puede "darte acceso" porque todavía no existe la
+       sección, así que el consejo de 'acceso' ("pedíselo a quien coordina tu módulo") sería un
+       trámite imposible. Se mira `MODULES` y no `mod` (arriba, que ya cae a `MODULES[0]` si la key
+       no matchea) porque acá necesitamos el módulo REQUERIDO, exista o no. */
+    const motivo: 'ruta' | 'acceso' | 'proximamente' = rutaInvalida
+      ? 'ruta'
+      : MODULES.find((m) => m.key === moduleKey)?.proximamente
+        ? 'proximamente'
+        : 'acceso'
+    return (
+      <div style={{ height: '100%', background: 'var(--spira-paper)', color: 'var(--spira-ink)' }}>
+        <NotFoundView motivo={motivo} />
+      </div>
+    )
+  }
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--spira-paper)', color: 'var(--spira-ink)' }}>
@@ -350,7 +396,10 @@ export function AppShell() {
                 return (
                   <button
                     key={s.key}
-                    onClick={() => { setSubKey(s.key); setSettingsSection(null); setNavTarget(null); setReturnTo(null) }}
+                    onClick={() => {
+                      setSettingsSection(null); setNavTarget(null); setReturnTo(null)
+                      pushUrl({ moduleKey, subKey: s.key, path: [], query: {} })
+                    }}
                     /* El riel de módulos ya tenía `title`; el panel de submódulos era la única
                        capa de la navegación sin ayuda contextual. Sigue valiendo aunque el
                        descriptor esté a la vista: el panel se pliega (navHidden) y el rótulo

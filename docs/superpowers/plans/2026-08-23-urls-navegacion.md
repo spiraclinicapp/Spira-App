@@ -857,7 +857,28 @@ git commit -m "feat(shell): modulo y submodulo salen de la URL"
 
 **Interfaces:**
 - Consume: `useUrlLocation` (Task 3), `MODULES` (registry), `Icon`, `Vilano`.
-- Produce: `NotFoundView({ motivo }: { motivo: 'ruta' | 'acceso' })`
+- Produce: `NotFoundView({ motivo }: { motivo: 'ruta' | 'acceso' })`; `homeUrl()` en `router.ts`.
+
+- [ ] **Paso 0: exportar `homeUrl()` desde `src/lib/router.ts`**
+
+La regla del módulo es que nadie arma URLs a mano, y esta tarea más la siguiente necesitan la home en
+dos lugares (el botón de volver y el logout). Agregalo al final de la sección de estructura de URL:
+
+```ts
+/** La home (Inicio › Resumen). Derivada de `buildUrl`, no escrita a mano: si algún día la raíz deja
+ *  de ser `/`, los consumidores no se enteran. */
+export function homeUrl(): string {
+  return buildUrl({ moduleKey: 'inicio', subKey: 'resumen', path: [], query: {} })
+}
+```
+
+Y un test de una línea en `router.test.ts`, dentro del `describe('buildUrl')`:
+
+```ts
+  it('homeUrl es la raíz', () => {
+    expect(homeUrl()).toBe('/')
+  })
+```
 
 - [ ] **Paso 1: crear `src/shell/NotFoundView.tsx`**
 
@@ -897,7 +918,7 @@ export function NotFoundView({ motivo }: { motivo: 'ruta' | 'acceso' }) {
         </div>
         {/* Un <a> real y no un botón: es una dirección, y así se puede abrir en otra pestaña. */}
         <a
-          href="/"
+          href={homeUrl()}
           className="spira-card-link"
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 20, height: 38,
@@ -1006,12 +1027,12 @@ por:
      mantienen el lugar — esto es solo el logout. */
   const onLogout = () => {
     close()
-    window.history.replaceState(null, '', '/')
+    replaceUrl({ moduleKey: 'inicio', subKey: 'resumen', path: [], query: {} })
     void signOut()
   }
 ```
 
-`replaceState` y no `pushUrl`: no queremos que el atrás del navegador vuelva a la URL de la sesión
+`replaceUrl` y no `pushUrl`: no queremos que el atrás del navegador vuelva a la URL de la sesión
 recién cerrada.
 
 - [ ] **Paso 4: verificar el recorrido de sesión completo**
@@ -1045,6 +1066,16 @@ Rama: `feat/urls-pacientes`. Al terminar, el ejemplo del Director está vivo:
 `/coordinacion/pacientes/EFC18244/32000740001`.
 
 ---
+
+> ⚠️ **Decisión pendiente que sale del review de la Fase B, y hay que tomarla antes de la Task 7.**
+> `navigate()` del shell escribe siempre `path: []`. En el salto del buscador global a una ficha eso
+> apila **dos** entradas: primero `navigate` pone `/coordinacion/pacientes`, y después `ProtocolsView`,
+> al consumir el `navTarget`, apila `/coordinacion/pacientes/EFC18244/32000740001`. Un "atrás" desde la
+> ficha te deja en la grilla, no en Dispensaciones que es de donde venías.
+> Dos salidas: (a) que `navigate` acepte un `path` opcional como quinto argumento — no rompe a ninguno
+> de sus ocho consumidores, pero toca la firma que el spec pidió congelar; (b) que `setPath` de
+> `useUrlPath` acepte `{ mode: 'replace' }` para el caso "estoy resolviendo un target, no navegando".
+> **La (b) es más chica y no toca la firma congelada.** Confirmarlo al arrancar la Fase C.
 
 ### Task 7: la navegación interna de `ProtocolsView` sale del path
 
