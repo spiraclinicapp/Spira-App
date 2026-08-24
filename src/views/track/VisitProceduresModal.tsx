@@ -77,8 +77,6 @@ export function VisitProceduresModal({
   /** Ya se sumó al estudio; falta que llegue el dato fresco para abrirlo. */
   const [pendienteDeAbrir, setPendienteDeAbrir] = useState<string | null>(null)
 
-  // Edita has_report/report_eta_hours del catálogo (persiste al toque, no espera al "Guardar" del
-  // set de la visita: es un atributo del procedimiento, no de la asignación). Refleja en `items`.
   /**
    * Abre el modal de edición del procedimiento (el mismo de "Procedimientos del estudio").
    *
@@ -126,8 +124,6 @@ export function VisitProceduresModal({
         name: r.procedure?.name ?? 'Procedimiento',
         category: r.procedure?.category ?? null,
         requires_dispensation: r.procedure?.requires_dispensation ?? false,
-        has_report: r.procedure?.has_report ?? false,
-        report_eta_hours: r.procedure?.report_eta_hours ?? null,
       })),
     )
   }, [assigned.loading, assigned.error, assigned.data, items])
@@ -177,7 +173,7 @@ export function VisitProceduresModal({
     catalog.refetch()
     setItems((cur) => [
       ...(cur ?? []),
-      { id: res.value, code: null, name: res.label, category: null, requires_dispensation: false, has_report: false, report_eta_hours: null },
+      { id: res.value, code: null, name: res.label, category: null, requires_dispensation: false },
     ])
     return res
   }

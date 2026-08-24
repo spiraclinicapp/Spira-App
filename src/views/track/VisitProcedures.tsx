@@ -2,22 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { Panel } from './Panel'
-import { reportEtaLabel } from '../../lib/checklist'
-import {
-  useVisitProcedureStatus, toggleVisitProcedure, toggleVisitProcedureReport,
-} from '../../data/procedures'
+import { useVisitProcedureStatus, toggleVisitProcedure } from '../../data/procedures'
 import type { VisitProcedureStatus } from '../../data/procedures'
 import { useVisitReportStatus, setReportStage } from '../../data/reportStatus'
 import type { ReportStatusRow } from '../../data/reportStatus'
 import { canUntickProcedure } from './reportes/estados'
 import type { ReportStage } from './reportes/estados'
 import { ReportCard } from './reportes/ReportCard'
-
-/** ¿El reporte de un procedimiento realizado ya venció su ETA y sigue sin marcarse listo? */
-function reportOverdue(p: VisitProcedureStatus): boolean {
-  if (!p.has_report || p.report_ready || !p.completed || !p.completed_at || p.report_eta_hours == null) return false
-  return Date.now() > new Date(p.completed_at).getTime() + p.report_eta_hours * 3600_000
-}
 
 /**
  * Suelta las marcas optimistas que el dato fresco ya confirma. Devuelve el MISMO objeto si no hay
@@ -37,8 +28,9 @@ function settled(
 
 /**
  * Checklist de procedimientos de la visita (0064): lo que el cronograma le asigna a esta visita,
- * tildable ("realizado"). Los que generan reporte muestran, una vez realizados, el control
- * "reporte listo" + estado pendiente/vencido. Siempre visible (no espera Atendida). readOnly = ficha.
+ * tildable ("realizado"). Los que definen reportes en el estudio (0089) muestran la píldora
+ * "N reportes", que despliega el desglose con su etapa. Siempre visible (no espera Atendida).
+ * readOnly = ficha.
  *
  * El componente monta su PROPIO `Panel` (como `DoctorRequest`) en vez de que lo envuelva el padre:
  * el contador "n/total realizados" solo lo sabe acá, y tiene que ir en la línea del rótulo. Devuelto
@@ -60,7 +52,6 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   const [pending, setPending] = useState<Set<string>>(new Set())
   const [actionError, setActionError] = useState<string | null>(null)
   const [optDone, setOptDone] = useState<Record<string, boolean>>({})
-  const [optReport, setOptReport] = useState<Record<string, boolean>>({})
 
   /* Los reportes del modelo nuevo (0089/0090). El desglose se abre con SU píldora y no con el
      tilde: antes el tilde lo auto-expandía y el Director pidió lo contrario — tildar activa el
@@ -98,7 +89,6 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   useEffect(() => {
     if (!data) return
     setOptDone((o) => settled(o, data, (p) => p.completed))
-    setOptReport((o) => settled(o, data, (p) => p.report_ready))
   }, [data])
 
   const items = data ?? []
@@ -119,19 +109,16 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   }
 
   const doneOf = (p: VisitProcedureStatus) => optDone[p.procedure_id] ?? p.completed
-  const reportOf = (p: VisitProcedureStatus) => optReport[p.procedure_id] ?? p.report_ready
 
-  async function run(procedureId: string, opt: 'done' | 'report', next: boolean, call: () => Promise<{ error: string | null }>) {
-    const key = procedureId + ':' + opt
-    if (pending.has(key)) return
+  async function run(procedureId: string, next: boolean, call: () => Promise<{ error: string | null }>) {
+    if (pending.has(procedureId)) return
     setActionError(null)
-    setPending((s) => new Set(s).add(key))
-    const setter = opt === 'done' ? setOptDone : setOptReport
-    setter((o) => ({ ...o, [procedureId]: next }))
+    setPending((s) => new Set(s).add(procedureId))
+    setOptDone((o) => ({ ...o, [procedureId]: next }))
     const { error: err } = await call()
-    setPending((s) => { const c = new Set(s); c.delete(key); return c })
+    setPending((s) => { const c = new Set(s); c.delete(procedureId); return c })
     if (err) {
-      setter((o) => { const c = { ...o }; delete c[procedureId]; return c })
+      setOptDone((o) => { const c = { ...o }; delete c[procedureId]; return c })
       setActionError(err)
       return
     }
@@ -169,9 +156,6 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {items.map((p) => {
           const isDone = doneOf(p)
-          const isReady = reportOf(p)
-          const overdue = !isReady && reportOverdue({ ...p, completed: isDone, report_ready: isReady })
-          const reportPending = pending.has(p.procedure_id + ':report')
           /** Los reportes definidos para este procedimiento en este estudio (0089). */
           const misReportes = porProcedimiento.get(p.procedure_id) ?? []
           const abierto = abiertos.has(p.procedure_id)
@@ -189,7 +173,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
               )
               return
             }
-            run(p.procedure_id, 'done', !isDone, () => toggleVisitProcedure(visitId, p.procedure_id, !isDone))
+            run(p.procedure_id, !isDone, () => toggleVisitProcedure(visitId, p.procedure_id, !isDone))
           }
 
           /* Contenido de la fila. Idéntico se toque o no: en la ficha (readOnly) va en un div, no en
@@ -210,14 +194,6 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                     remedio que el sistema ya tiene escrito es tinta atenuada, no gris. */}
                 {p.category && <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: 'var(--spira-ink-soft)' }}>{p.category}</span>}
               </span>
-              {/* La píldora del modelo VIEJO sólo se dibuja para los procedimientos que todavía no
-                  tienen reportes definidos (0089). Donde ya los hay manda el desglose, y mostrar
-                  las dos cosas sería decir dos veces lo mismo con vocabularios distintos. */}
-              {p.has_report && misReportes.length === 0 && (
-                <span style={reportPill(isReady, overdue)}>
-                  {isReady ? 'Reporte listo' : overdue ? 'Reporte vencido' : 'Reporte pendiente'}
-                </span>
-              )}
             </>
           )
 
@@ -304,28 +280,6 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                   </div>
                 </div>
               )}
-
-              {/* Circuito de reporte LEGACY (0064): el tilde único "reporte descargado". Sobrevive
-                  sólo para los procedimientos que todavía no tienen reportes definidos en el
-                  estudio — mientras se migran, las dos formas conviven sin pisarse. Se va entero
-                  con la 0091, junto con la columna `has_report` que lo alimenta. */}
-              {p.has_report && misReportes.length === 0 && isDone && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px 11px 45px' }}>
-                  <button
-                    type="button" disabled={readOnly || reportPending}
-                    onClick={() => run(p.procedure_id, 'report', !isReady, () => toggleVisitProcedureReport(visitId, p.procedure_id, !isReady))}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 30, padding: '0 11px', borderRadius: 8, cursor: readOnly ? 'default' : 'pointer', border: `1px solid ${isReady ? 'var(--spira-good)' : 'var(--spira-line-2)'}`, background: isReady ? '#5C8A5A14' : 'var(--spira-white)', color: isReady ? 'var(--spira-good)' : 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5 }}
-                  >
-                    <Icon name={isReady ? 'check' : 'printer'} size={14} color={isReady ? 'var(--spira-good)' : accent} />
-                    {isReady ? 'Reporte descargado' : 'Marcar reporte descargado'}
-                  </button>
-                  {/* ETA en `muted`, no en `faint`: es información (cuándo se espera el reporte), y
-                      sobre el tinte de la fila el terciario se desvanecía. */}
-                  <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>
-                    {p.report_eta_hours != null ? `ETA ${reportEtaLabel(p.report_eta_hours)}` : ''}
-                  </span>
-                </div>
-              )}
             </div>
           )
         })}
@@ -398,14 +352,4 @@ function pillReportes(abierto: boolean): CSSProperties {
 const avisoHabilita: CSSProperties = {
   fontSize: 11.5, color: 'var(--spira-muted)', background: 'var(--spira-surface)',
   borderRadius: 9, padding: '8px 11px', lineHeight: 1.45,
-}
-
-/** Rótulo de estado del reporte (mismo vocabulario de píldora que el resto de Track). */
-function reportPill(isReady: boolean, overdue: boolean): CSSProperties {
-  return {
-    flex: '0 0 auto', marginTop: 1, fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-    letterSpacing: '0.05em', padding: '2px 8px', borderRadius: 'var(--spira-radius-pill)',
-    color: isReady ? 'var(--spira-good)' : overdue ? 'var(--spira-danger)' : 'var(--spira-warn)',
-    background: (isReady ? '#5C8A5A' : overdue ? '#A6483B' : '#B0823F') + '1E',
-  }
 }

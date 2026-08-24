@@ -3,9 +3,9 @@
 // una visita quedó cerrada. Esa última decide qué desaparece del tablero, así que un error la
 // hace desaparecer sin que nadie se entere. Lo visual (colores, columnas) se verifica mirando.
 //
-// La regla de cierre está ESPEJADA acá a propósito: hoy vive sólo en el front porque
-// `v_patient_visits.computed_status` todavía lee el modelo viejo (`has_report`) y recién en la 0091
-// pasa a leer éste. Cuando eso ocurra, el SQL tiene que derivarse de estos mismos casos.
+// La regla de cierre está ESPEJADA en `v_patient_visits.computed_status` desde la 0092, que la
+// derivó de estos mismos casos: el SQL de allá y las funciones de acá tienen que decir lo mismo.
+// Si alguna vez divergen, el tablero y el estado de la visita se contradicen en pantalla.
 import type { ReportStatusRow } from '../../../data/reportStatus'
 
 /** Las tres etapas, en orden. El índice ES el orden: `nextStage`/`prevStage` se mueven sobre él. */
@@ -120,7 +120,7 @@ export function esTarjeta(row: Pick<ReportStatusRow, 'completed'>): boolean {
  * participa del tablero. Devolver true la haría aparecer en "Visitas cerradas · alerta finalizada"
  * sin que nunca hubiera habido nada que cerrar.
  *
- * Esta es la regla que la 0091 tiene que replicar en `v_patient_visits.computed_status`.
+ * Esta es la regla que la 0092 replica en `v_patient_visits.computed_status` (rama 'realizada').
  */
 export function visitClosed(rows: readonly ReportStatusRow[]): boolean {
   if (rows.length === 0) return false
