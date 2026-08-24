@@ -164,24 +164,28 @@ Los multi-valor van separados por coma: `?estado=pendiente,en-curso`.
    dictable y no una tira de veinte parámetros redundantes.
 2. **Se escribe el legible, se leen los dos.** `buildUrl` emite siempre el código; `parseUrl` acepta
    código o UUID y resuelve contra los datos ya cargados.
-3. **El identificador corto son los primeros 8 caracteres del UUID, y lo usa solo el paciente sin
+3. **Los códigos NO distinguen mayúsculas** (decisión del Director, 2026-08-24): estas URLs se dictan
+   por teléfono. El match exacto gana; si no hay, se prueba ignorando la caja y sólo vale si es ÚNICO
+   — el `unique` de la base sí distingue, así que podrían convivir un `abc123` y un `ABC123`, y ante
+   ese empate no se abre ninguno. Lo resuelve `resolveCode` en `router.ts`.
+4. **El identificador corto son los primeros 8 caracteres del UUID, y lo usa solo el paciente sin
    IVRS** (con prefijo `p-`, para que nunca se confunda con un IVRS, que es numérico). 8 caracteres
    hex son 4.300 millones de combinaciones sobre un universo de miles de filas: la colisión es
    improbable, pero **no se asume**. El prefijo se resuelve contra los datos ya cargados y, si dos
    filas empatan, no se abre ninguna: se cae a la pantalla de "no se encontró" (§8). Nunca se elige
    una al azar — en una ficha clínica eso sería mostrarte el paciente equivocado.
-4. **La visita abierta (`?visita=`) va con el UUID completo**, no con el corto. Un identificador corto
+5. **La visita abierta (`?visita=`) va con el UUID completo**, no con el corto. Un identificador corto
    hay que resolverlo contra las filas cargadas, y la visita puede perfectamente no estar entre ellas:
    [`TrackAlertsView.tsx:84`](../../../src/views/TrackAlertsView.tsx) lo dice explícitamente — `VisitDetail`
    trae sus propios datos por id, y por eso **una alerta se puede abrir aunque los filtros de la vista
    la dejen fuera**. Acortar el id rompería esa propiedad para ganar veinte caracteres de barra en un
    modal. No vale el cambio.
-5. **Push vs replace**, según la tabla del §3. La distinción vive en el hook, no en cada vista: el tercer
+6. **Push vs replace**, según la tabla del §3. La distinción vive en el hook, no en cada vista: el tercer
    argumento de `useUrlState` la declara una vez por campo.
-6. **Los valores viajan en minúscula y sin tildes.** Los enums de la base ya vienen así
+7. **Los valores viajan en minúscula y sin tildes.** Los enums de la base ya vienen así
    (`activo`, `pendiente`, `mesEnCurso`); donde el valor interno tenga mayúsculas se normaliza en el mapa
    de `router.ts`, nunca a mano en la vista.
-7. **Un parámetro desconocido o con un valor inválido se ignora en silencio** y se cae al default. Una
+8. **Un parámetro desconocido o con un valor inválido se ignora en silencio** y se cae al default. Una
    URL vieja, mal tipeada o recortada por WhatsApp abre la pantalla, no un error.
 
 ---

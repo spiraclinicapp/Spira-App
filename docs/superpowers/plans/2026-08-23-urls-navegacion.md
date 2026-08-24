@@ -1687,7 +1687,7 @@ por:
   })
 ```
 
-Imports: `import { codecs, oneOf } from '../../lib/router'`,
+Imports: `import { codecs, oneOf, resolveCode } from '../../lib/router'`,
 `import { pushUrl, useUrlLocation, useUrlState } from '../../lib/useUrlState'`.
 
 **`pagina` y `acumuladas` NO se tocan** (spec §7): restaurar la paginación acumulativa implicaría
@@ -1708,8 +1708,11 @@ por:
      /farmacia/dispensaciones/D-0417. Push, como toda entidad abierta: el atrás lo cierra. */
   const urlLocation = useUrlLocation()
   const codigoAbierto = urlLocation?.path[0] ?? null
+  /* `resolveCode` y no un `===`: los códigos de la URL no distinguen mayúsculas (decisión del
+     Director, 2026-08-24) porque estas direcciones se dictan por teléfono. Ante dos que sólo
+     difieran en la caja devuelve `null` y no abre ninguno. */
   const openId = codigoAbierto
-    ? (all.find((d) => d.dispensation_code === codigoAbierto)?.id ?? null)
+    ? (resolveCode(all, codigoAbierto, (d) => d.dispensation_code)?.id ?? null)
     : null
   const [, setPath] = useUrlPath()
   const setOpenId = (id: string | null) => {
@@ -1777,7 +1780,7 @@ por:
   const [protoSel, setProtoSel] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
 ```
 
-Imports: `import { codecs, oneOf } from '../../lib/router'`,
+Imports: `import { codecs, oneOf, resolveCode } from '../../lib/router'`,
 `import { useUrlState } from '../../lib/useUrlState'`.
 
 **`creating`, `editing`, `deleting`, `codigo`, `ajuste`, `dropdownId` y `toast` NO se tocan** (spec §7).
