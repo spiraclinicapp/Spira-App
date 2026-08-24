@@ -191,18 +191,24 @@ export function AppShell() {
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
   const showAction = !HIDE_ACTION.has(`${moduleKey}/${sub.key}`)
 
-  /* Título de la pestaña. GENÉRICO a propósito: el título se filtra al historial y a la barra de
-     tareas igual que la URL, así que dice la PANTALLA, nunca de quién. El nombre del paciente no sale
-     de la vista. (Decisión heredada del spec de ruteo de junio, que sigue valiendo.) */
-  useEffect(() => {
-    document.title = moduleKey === 'inicio' ? 'Spira' : `Spira — ${sub.name}`
-  }, [moduleKey, sub.name])
-
-  /* Guard de ruta. Va acá y no adentro del <main>: una URL que no existe no tiene módulo, así que el
-     top bar y los rieles no tendrían qué mostrar. `urlLocation === null` es "la ruta no existe";
-     `!isAllowed` cubre tanto el módulo sin rol como los `proximamente` (Lab, Contable). */
+  /* Guard de ruta. Se calcula ACÁ (antes del efecto del título, no solo antes del `return`) porque el
+     título lo necesita: si la pantalla no va a mostrar `sub` (el guard va a disparar más abajo), el
+     efecto tampoco puede nombrarlo — ver el efecto siguiente.
+     `urlLocation === null` es "la ruta no existe"; `!isAllowed` cubre tanto el módulo sin rol como los
+     `proximamente` (Lab, Contable). */
   const rutaInvalida = urlLocation === null
   const sinAcceso = !rutaInvalida && !isAllowed(moduleKey)
+
+  /* Título de la pestaña. GENÉRICO a propósito: el título se filtra al historial y a la barra de
+     tareas igual que la URL, así que dice la PANTALLA, nunca de quién. El nombre del paciente no sale
+     de la vista. (Decisión heredada del spec de ruteo de junio, que sigue valiendo.)
+     Si el guard de más abajo va a disparar (ruta inválida o sin acceso), el título queda en 'Spira' a
+     secas: `moduleKey`/`sub` en ese caso son el módulo REQUERIDO, no el que se muestra — la pantalla
+     dice "no tenés acceso", así que la pestaña no puede prometer el submódulo que la pantalla niega. */
+  useEffect(() => {
+    document.title = moduleKey === 'inicio' || rutaInvalida || sinAcceso ? 'Spira' : `Spira — ${sub.name}`
+  }, [moduleKey, sub.name, rutaInvalida, sinAcceso])
+
   if (rutaInvalida || sinAcceso) {
     return (
       <div style={{ height: '100%', background: 'var(--spira-paper)', color: 'var(--spira-ink)' }}>

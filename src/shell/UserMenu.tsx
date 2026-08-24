@@ -5,7 +5,7 @@ import type { IconName } from '../components/Icon'
 import { UserAvatar } from '../components/UserAvatar'
 import { useAuth } from '../lib/auth'
 import { initialsOf } from '../lib/initials'
-import { homeUrl } from '../lib/router'
+import { replaceUrl } from '../lib/useUrlState'
 import type { SettingsSection } from './settings/SettingsModal'
 
 /* ============================================================================
@@ -91,10 +91,16 @@ export function UserMenu({ onOpenSettings }: { onOpenSettings: (section: Setting
   /* Cerrar sesión vuelve a la raíz, no te deja en la URL donde estabas. Es una máquina compartida de
      clínica: si el próximo que entra encuentra la barra con el protocolo y el IVRS del paciente que
      miraba el anterior, la sesión se cerró pero el dato quedó a la vista. F5, el atrás y los links sí
-     mantienen el lugar — esto es solo el logout. */
+     mantienen el lugar — esto es solo el logout.
+     `replaceUrl` y no `history.replaceState` a secas: no alcanza con cambiar la barra, hay que
+     avisarle al shell (es lo que hace `replaceUrl`, notificando a `useUrlLocation` vía
+     `useSyncExternalStore`). Sin ese aviso el shell no re-renderiza y la pantalla puede seguir
+     mostrando la ficha anterior mientras `signOut()` está en vuelo — o directamente para siempre si
+     `signOut()` falla, porque nada más dispara ese re-render. Y sigue siendo REPLACE, no push: el
+     atrás del navegador no tiene que poder volver a la sesión que se acaba de cerrar. */
   const onLogout = () => {
     close()
-    window.history.replaceState(null, '', homeUrl())
+    replaceUrl({ moduleKey: 'inicio', subKey: 'resumen', path: [], query: {} })
     void signOut()
   }
 
