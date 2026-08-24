@@ -82,15 +82,16 @@ export function VisitProceduresModal({
   /**
    * Abre el modal de edición del procedimiento (el mismo de "Procedimientos del estudio").
    *
-   * Antes de abrirlo se asegura de que el procedimiento ESTÉ en el estudio, y esto no es un
-   * detalle: los reportes cuelgan de `protocol_procedures`, pero agregar un procedimiento a una
-   * visita sólo escribe `protocol_activities` (la RPC `set_visit_procedures` de la 0061 no toca la
-   * tabla nueva). O sea que un procedimiento sumado desde acá quedaba en la visita pero fuera del
-   * estudio, y no había forma de definirle reportes — el lápiz habría abierto un modal vacío.
+   * Antes de abrirlo se asegura de que el procedimiento ESTÉ en el estudio: los reportes cuelgan
+   * de `protocol_procedures`, así que sin esa fila el modal abriría vacío y no habría dónde
+   * definirlos.
    *
-   * Acá se cubre en el cliente: si falta, se agrega y recién después se abre. Es lo que la persona
-   * está pidiendo de todos modos al querer editarle los reportes. El arreglo de fondo —que
-   * `set_visit_procedures` haga el upsert— es una migración y va con la 0091.
+   * El caso estructural —asignar a una visita no sumaba al estudio— lo arregló la 0091, que le
+   * puso el upsert a `set_visit_procedures`. Lo que sigue cubriendo esto es el hueco de tiempo: la
+   * lista de esta pantalla es un BORRADOR y no toca la base hasta "Guardar", así que un
+   * procedimiento recién agregado y todavía sin guardar no existe para la base cuando se le
+   * quiere abrir el lápiz. Sumarlo acá es lo que la persona está pidiendo igual al querer
+   * editarle los reportes.
    */
   const abrirEdicion = async (procedureId: string) => {
     setError(null)

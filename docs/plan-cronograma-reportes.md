@@ -3,7 +3,7 @@
 **Origen:** handoff `docs/design_handoff_cronograma_reportes/` (copiado del bundle de Downloads
 el 2026-08-23: README + 2 prototipos HTML + `colors_and_type.css` + 11 capturas).
 **Review:** `/plan-eng-review` del 2026-08-23. Once decisiones tomadas, listadas abajo.
-**Última migración aplicada:** 0088. Este plan agrega 0089, 0090 y 0091.
+**Última migración aplicada:** 0088. Este plan agrega 0089, 0090 y 0092.
 
 ---
 
@@ -153,6 +153,12 @@ where p.has_report on conflict do nothing;
 
 ## 6 · Las tres fases y su orden de despliegue
 
+> **Corrimiento de numeración (2026-08-24).** La `0091` se la quedó un arreglo aditivo que salió
+> antes: `set_visit_procedures` no sumaba el procedimiento al estudio, así que lo asignado desde
+> Cronograma › Visitas quedaba sin reportes posibles y sin una sola fila en el tablero, en
+> silencio. Se le dio ese número por ser aditivo y poder salir solo; la migración **rompiente** de
+> la fase 3 pasa a la **0092**.
+
 El orden **no** se decide por "agrega o quita" sino por si el cambio altera lo que el front
 **ya** pide (CLAUDE.md, regla dura 3).
 
@@ -168,18 +174,18 @@ FASE 2 ─── migración 0090 (ADITIVA) ────────> deploy fron
            vista v_protocol_report_status (desnormalizada, una consulta por protocolo)
            ORDEN: MIGRACIÓN PRIMERO — mismo criterio.
 
-FASE 3 ─── deploy front v3 ────> migración 0091 (BREAKING)
+FASE 3 ─── deploy front v3 ────> migración 0092 (BREAKING)
            v_patient_visits / v_track_visits leen report_status en vez de has_report;
            v_procedure_report_alerts pasa a ser por reporte;
            alert_dismissals: identidad nueva + expansión de los descartes viejos;
            drop procedures.has_report / report_eta_hours
            ORDEN: FRONT PRIMERO — el front v2 todavía lee has_report en
-                  data/procedures.ts, y la 0091 se la saca de abajo.
+                  data/procedures.ts, y la 0092 se la saca de abajo.
                   Al revés = la lección de la 0068 (2026-08-05), que dejó la Agenda
                   y la ficha del paciente en blanco hasta el deploy.
 ```
 
-⚠️ **Antes de escribir la 0091, grepear `procedures` en los `select(...)` del front.** Agregar
+⚠️ **Antes de escribir la 0092, grepear `procedures` en los `select(...)` del front.** Agregar
 una FK a una tabla ya embebida deja el embed ambiguo (PGRST201) y PostgREST voltea la consulta
 entera — pasó con la 0076 el 2026-08-13 y tiró el tablero de Farmacia.
 
@@ -215,7 +221,7 @@ entera — pasó con la 0076 el 2026-08-13 y tiró el tablero de Farmacia.
 **Fase 3**
 | Archivo | Qué |
 |---|---|
-| `supabase/migrations/0091_reportes_fuente_de_verdad.sql` | vistas + alertas + descartes + drop columnas |
+| `supabase/migrations/0092_reportes_fuente_de_verdad.sql` | vistas + alertas + descartes + drop columnas |
 | `src/data/procedures.ts` | saca `has_report`/`report_eta_hours` de tipos y selects |
 | `src/data/reports.ts`, `src/data/alertDismissals.ts` | alerta por reporte + ancla |
 | `src/views/track/VisitProceduresModal.tsx` | saca el editor de `has_report` (muere con la columna) |
@@ -356,10 +362,10 @@ después de mergear los dos. Las fases 1 y 3 no se paralelizan: cada una es un c
   - Surgió de: handoff §7 + Arquitectura 4A
   - Archivos: `src/views/track/VisitProcedures.tsx`
   - Verificar: destildar con un reporte descargado → mensaje, no borrado
-- [ ] **T10 (P1, human: ~2d / CC: ~45min)** — base — Migración 0091: vistas a la fuente nueva,
+- [ ] **T10 (P1, human: ~2d / CC: ~45min)** — base — Migración 0092: vistas a la fuente nueva,
       alerta por reporte, expansión de descartes viejos, drop de las columnas
   - Surgió de: Arquitectura 3A + D1 fase 3
-  - Archivos: `supabase/migrations/0091_reportes_fuente_de_verdad.sql`
+  - Archivos: `supabase/migrations/0092_reportes_fuente_de_verdad.sql`
   - Verificar: **desplegar el front v3 ANTES**; después, ninguna alerta archivada reaparece
 - [ ] **T11 (P1, human: ~4h / CC: ~20min)** — datos — `alertDismissals.ts` con la identidad nueva
       + ancla, con test de regresión
