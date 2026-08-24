@@ -154,6 +154,20 @@ export function oneOf<T extends string>(valores: readonly T[]): Codec<T> {
 }
 
 /**
+ * Codec de LISTA de enum: valida cada elemento y descarta los que no pertenecen.
+ *
+ * Existe para que los filtros multi-selección (estados, tipos) no tengan que castear `codecs.list`
+ * al tipo del enum — un cast así compila pero deja pasar `?estado=inventado` como si fuera un valor
+ * legítimo, tipado y todo, sin caer al default. Acá el valor inválido simplemente no entra.
+ */
+export function listOf<T extends string>(valores: readonly T[]): Codec<T[]> {
+  return {
+    parse: (raw: string) => raw.split(',').filter((v): v is T => valores.includes(v as T)),
+    format: (v: T[]) => v.join(','),
+  }
+}
+
+/**
  * Lee un parámetro. Un valor ausente, desconocido o inválido cae al default EN SILENCIO: una URL
  * vieja, mal tipeada o recortada por WhatsApp tiene que abrir la pantalla, no un error.
  */
@@ -201,6 +215,6 @@ export function shortId(uuid: string): string {
  * una ficha clínica, abrir la del paciente equivocado es peor que no abrir ninguna.
  */
 export function resolveShortId<T extends { id: string }>(filas: T[], token: string): T | null {
-  const candidatas = filas.filter((f) => f.id === token || f.id.startsWith(token))
+  const candidatas = filas.filter((f) => f.id.startsWith(token))
   return candidatas.length === 1 ? candidatas[0] : null
 }

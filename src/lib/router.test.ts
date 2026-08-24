@@ -94,7 +94,7 @@ describe('buildUrl', () => {
   })
 })
 
-import { codecs, oneOf, readParam, resolveShortId, shortId, writeParam } from './router'
+import { codecs, listOf, oneOf, readParam, resolveShortId, shortId, writeParam } from './router'
 
 describe('codecs', () => {
   it('lista: coma como separador, sin vacíos', () => {
@@ -118,6 +118,18 @@ describe('codecs', () => {
     const c = oneOf(['tablero', 'historial'] as const)
     expect(c.parse('historial')).toBe('historial')
     expect(c.parse('inventado')).toBeNull()
+  })
+
+  it('listOf: descarta los elementos que no pertenecen al enum', () => {
+    const c = listOf(['activo', 'pausado', 'cerrado'] as const)
+    expect(c.parse('activo,inventado,cerrado')).toEqual(['activo', 'cerrado'])
+    expect(c.parse('inventado')).toEqual([])
+    expect(c.parse('')).toEqual([])
+  })
+
+  it('listOf: ida y vuelta de una lista válida', () => {
+    const c = listOf(['activo', 'pausado'] as const)
+    expect(c.parse(c.format(['activo', 'pausado']))).toEqual(['activo', 'pausado'])
   })
 })
 
