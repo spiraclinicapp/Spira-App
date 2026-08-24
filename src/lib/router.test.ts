@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { MODULES } from '../modules/registry'
+import type { Codec } from './router'
 import {
   buildUrl, codecs, listOf, oneOf, parseHref, parseUrl, readParam, resolveShortId, shortId, writeParam,
 } from './router'
@@ -186,6 +188,29 @@ describe('codecs', () => {
   })
 })
 
+describe('codecs · el format tiene que ser re-parseable por su propio parse', () => {
+  /* POR QUÉ ESTE TEST: si un `format` emite algo que su propio `parse` no acepta, no se rompe nada a
+     la vista — el filtro simplemente no sobrevive al recargar. Y si `oneOf.format` devolviera algo
+     constante, `writeParam` creería que TODO está en su default (compara `format(value) ===
+     format(def)`) y ningún filtro de enum llegaría nunca a la URL. Las dos fallas son mudas en
+     pantalla. Hasta acá solo `list` y `listOf` tenían ida y vuelta ejercitada; `bool`, `num` y `oneOf`
+     podían romperse con la suite entera en verde.
+
+     Un `it` por codec (no un loop tabular con `never`) para que el nombre del test que falla diga
+     directo cuál codec se rompió, sin sacrificar el chequeo real de ida y vuelta. */
+  function idaYVuelta<T>(codec: Codec<T>, valor: T) {
+    expect(codec.parse(codec.format(valor))).toEqual(valor)
+  }
+
+  it('str', () => idaYVuelta(codecs.str, 'hola'))
+  it('list', () => idaYVuelta(codecs.list, ['a', 'b']))
+  it('num', () => idaYVuelta(codecs.num, 7))
+  it('bool en true', () => idaYVuelta(codecs.bool, true))
+  it('bool en false', () => idaYVuelta(codecs.bool, false))
+  it('oneOf', () => idaYVuelta<'tablero' | 'historial'>(oneOf(['tablero', 'historial'] as const), 'historial'))
+  it('listOf', () => idaYVuelta<('activo' | 'pausado')[]>(listOf(['activo', 'pausado'] as const), ['activo']))
+})
+
 describe('readParam · un valor inválido cae al default, no rompe', () => {
   it('devuelve el default cuando el parámetro no está', () => {
     expect(readParam({}, 'dia', '2026-08-23', codecs.str)).toBe('2026-08-23')
@@ -265,5 +290,28 @@ describe('identificadores cortos', () => {
   it('resuelve por PREFIJO, no por subcadena', () => {
     const enElMedio = [{ id: 'aaaaaaaa-0000-4000-8000-8f3a2c1d0000' }]
     expect(resolveShortId(enElMedio, '8f3a2c1d')).toBeNull()
+  })
+})
+
+describe('MODULE_SLUG y SUB_SLUG · sin slugs repetidos', () => {
+  /* `invertir()` (el que arma MODULE_KEY y SUB_KEY a partir de los mapas de ida) acepta duplicados EN
+     SILENCIO: si dos keys mapearan al mismo slug, el mapa invertido se queda con la ÚLTIMA que
+     escribió esa entrada, y la key perdedora tendría un `buildUrl` que emite una URL que `parseUrl`
+     resuelve a OTRA key — pantalla equivocada, sin ningún error ni advertencia. Es plausible el día
+     que un submódulo nuevo (Lab, Contable) elija un rótulo que ya usa otro.
+
+     MODULE_SLUG y SUB_SLUG son privados de router.ts y no hace falta exportarlos: alcanza con
+     recorrer cada módulo y submódulo REAL de MODULES, armar su URL y volver a parsearla — si hubiera
+     una colisión, la key perdedora del desempate no volvería a sí misma. */
+  it('cada módulo y submódulo de MODULES hace ida y vuelta a su propia key', () => {
+    for (const mod of MODULES) {
+      for (const sub of mod.submodules) {
+        const url = buildUrl({ moduleKey: mod.key, subKey: sub.key, path: [], query: {} })
+        const estado = parseUrl(url, '')
+        expect(estado, `${mod.key}/${sub.key} (${url}) no vuelve a sí mismo`).toMatchObject({
+          moduleKey: mod.key, subKey: sub.key,
+        })
+      }
+    }
   })
 })

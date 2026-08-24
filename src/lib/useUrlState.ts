@@ -134,28 +134,47 @@ export function useUrlState<T>(
  */
 export function useUrlEntity(key: string): [string | null, (id: string | null) => void] {
   const [valor, setValor] = useUrlState(key, '', { mode: 'push' })
-  return [valor || null, (id) => setValor(id ?? '')]
+  /* `useCallback` y no una flecha inline: `setValor` (el de `useUrlState`) ya está memoizado —según
+     sus propios comentarios— justamente porque varias vistas lo van a poner en las deps de un efecto.
+     Sin esto, `useUrlPath` (abajo) conservaba esa propiedad y `useUrlEntity` la perdía sin avisar: de
+     los dos helpers, uno quedaba estable y el otro no. */
+  const setEntidad = useCallback((id: string | null) => setValor(id ?? ''), [setValor])
+  return [valor || null, setEntidad]
 }
 
 /**
  * Los segmentos propios de la vista (el protocolo y el paciente, el código de la dispensación).
  *
- * Por default el cambio de path **descarta el query**, que es la misma regla que aplica el shell al
- * navegar: los filtros y la entidad abierta describen la pantalla de la que te vas, no la que abrís
- * —un `?visita=` arrastrado a otra ficha abriría la visita de otro paciente, porque el detalle trae
- * sus datos por id—. La vista que quiera conservarlos lo pide explícito. Volver con el atrás del
- * navegador los recupera igual, porque quedaron en la entrada anterior del historial.
+ * Por default el cambio de path **descarta todo el query**, que es la misma regla que aplica el
+ * shell al navegar: los filtros y la entidad abierta describen la pantalla de la que te vas, no la
+ * que abrís —un `?visita=` arrastrado a otra ficha abriría la visita de otro paciente, porque el
+ * detalle trae sus datos por id—. Volver con el atrás del navegador los recupera igual, porque
+ * quedaron en la entrada anterior del historial.
+ *
+ * `conservar` es una LISTA DE CLAVES, no un booleano, a propósito: cada navegación **declara** qué
+ * parámetros le pertenecen, en vez de decidir todo-o-nada. Un booleano ata dos decisiones que son
+ * distintas —"conservá mis filtros" (Dispensaciones abre el cajón sobre un tablero filtrado por
+ * `dia`/`vista`/`protocolo`/`buscar` y necesita que sobrevivan; Pacientes tiene `buscar`/`estado` que
+ * hoy ya sobreviven entrar a un protocolo y volver) y "soltá la entidad abierta" (no arrastrar el
+ * `?visita=` de la pantalla anterior a otra ficha)—. Si los DOS consumidores previstos van a
+ * necesitar `true`, el default seguro de un booleano (`false`) no se activaría nunca en la práctica.
+ * Y poniendo los dos en `true` se reabre justo el escenario que el helper quería evitar. Con la
+ * lista, cada vista pide EXACTAMENTE lo suyo: nada de todo-o-nada. El default sigue siendo descartar
+ * (`conservar` ausente o vacío).
  */
-export function useUrlPath(): [string[], (path: string[], opts?: { conservarQuery?: boolean }) => void] {
+export function useUrlPath(): [string[], (path: string[], opts?: { conservar?: string[] }) => void] {
   const ubicacion = useUrlLocation()
   const path = useMemo(() => ubicacion?.path ?? [], [ubicacion])
-  const setPath = useCallback((siguiente: string[], opts: { conservarQuery?: boolean } = {}) => {
+  const setPath = useCallback((siguiente: string[], opts: { conservar?: string[] } = {}) => {
     /* Se relee la URL del momento en vez de cerrar sobre `ubicacion`: el setter suele viajar en las
        deps de un efecto y tiene que escribir sobre el estado de AHORA, no sobre el del render en que
        se creó. */
     const actual = parseHref(window.location.pathname + window.location.search)
     if (!actual) return
-    pushUrl({ ...actual, path: siguiente, query: opts.conservarQuery ? actual.query : {} })
+    const query = Object.fromEntries(
+      Object.entries(actual.query).filter(([k]) => opts.conservar?.includes(k)),
+    )
+    pushUrl({ ...actual, path: siguiente, query })
   }, [])
   return [path, setPath]
 }
