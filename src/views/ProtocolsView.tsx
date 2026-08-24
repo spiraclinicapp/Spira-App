@@ -6,7 +6,8 @@ import type { MultiFilterOption } from '../components/MultiFilterMenu'
 import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../lib/auth'
 import { groupVisitsByPatient } from '../lib/visits'
-import { useUrlLocation, useUrlPath } from '../lib/useUrlState'
+import { useUrlLocation, useUrlPath, useUrlState } from '../lib/useUrlState'
+import { listOf } from '../lib/router'
 import { useProtocols } from '../data/protocols'
 import type { ProtocolRow, ProtocolStatus } from '../data/protocols'
 import { usePatients } from '../data/patients'
@@ -135,10 +136,14 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
   const llegada = useRef<string | null>(null)
   const armado = useRef(false)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useUrlState('buscar', '')
   /* Filtro por estado del protocolo (multi; vacío = todos). Es el único eje que esta grilla tiene
-     para filtrar: "protocolo" no sería un filtro acá, sería la lista misma. */
-  const [fEstado, setFEstado] = useState<ProtocolStatus[]>([])
+     para filtrar: "protocolo" no sería un filtro acá, sería la lista misma.
+     `listOf` y no `codecs.list` con un cast: un cast compila pero miente —`?estado=inventado`
+     entraría tipado y válido sin caer al default—; `listOf` valida cada elemento contra el enum. */
+  const [fEstado, setFEstado] = useUrlState<ProtocolStatus[]>('estado', [], {
+    codec: listOf(['activo', 'pausado', 'cerrado'] as const),
+  })
   const [creating, setCreating] = useState<null | 'protocol' | 'patient'>(null)
   const [editingProtocol, setEditingProtocol] = useState(false)
 
