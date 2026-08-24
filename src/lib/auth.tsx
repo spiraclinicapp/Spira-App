@@ -52,6 +52,12 @@ interface AuthState {
   /** Nivel del usuario en cada módulo (de user_module_roles). */
   roles: Partial<Record<ModuleKey, ModuleRole>>
   loading: boolean
+  /** `loading` es "¿sabemos si hay sesión?"; esto es "¿sabemos qué puede ver?" — dos preguntas
+      distintas. Arranca en true; baja a false cuando `modules`/`roles` ya reflejan al usuario
+      (con sesión) o cuando no hay nada que esperar (sin sesión). El shell (Gate en App.tsx) espera
+      las DOS antes de montar: si sólo esperara `loading`, el guard de acceso evaluaría
+      isAllowed() contra modules=[] todavía sin llenar y rechazaría a un usuario legítimo. */
+  modulesLoading: boolean
   /** true cuando el usuario volvió desde el link de "olvidé mi contraseña" (evento
       PASSWORD_RECOVERY): hay una sesión de recuperación activa y hay que pedirle la clave nueva
       antes de dejarlo entrar (ver el Gate en App.tsx). */
@@ -90,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [modules, setModules] = useState<ModuleKey[]>([])
   const [roles, setRoles] = useState<Partial<Record<ModuleKey, ModuleRole>>>({})
   const [loading, setLoading] = useState(true)
+  const [modulesLoading, setModulesLoading] = useState(true)
   const [recovering, setRecovering] = useState(false)
   const [authNotice, setAuthNotice] = useState<string | null>(null)
 
@@ -155,40 +162,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // al haber sesión, traer perfil (public.users) + roles (user_module_roles)
   useEffect(() => {
     if (!session) {
+      // Sin sesión no hay roles que traer: no hay nada que esperar, así que modulesLoading baja
+      // junto con el resto en lugar de quedar colgado en true.
       setProfile(null)
       setModules([])
       setRoles({})
+      setModulesLoading(false)
       return
     }
     const uid = session.user.id
     let active = true
+    // Arranca la ventana de red que el Gate espera (ver modulesLoading en la interfaz, arriba).
+    setModulesLoading(true)
     type ProfRow = { full_name: string; puesto: string | null; centro: string | null; name_changed_at: string | null; email_changed_at: string | null }
     void (async () => {
-      // Perfil + roles en paralelo. El perfil pide las columnas de 0045; si la migración
-      // todavía no se aplicó (columnas inexistentes), caemos a full_name para no romper
-      // la carga de la app (los campos nuevos quedan null hasta aplicar 0045).
-      const [ext, rolesRes] = await Promise.all([
-        supabase.from('users').select('full_name, puesto, centro, name_changed_at, email_changed_at').eq('id', uid).maybeSingle(),
-        supabase.from('user_module_roles').select('module, role').eq('user_id', uid),
-      ])
-      let prof = ext.data as ProfRow | null
-      if (ext.error) {
-        const basic = await supabase.from('users').select('full_name').eq('id', uid).maybeSingle()
-        const b = basic.data as { full_name: string } | null
-        prof = b ? { full_name: b.full_name, puesto: null, centro: null, name_changed_at: null, email_changed_at: null } : null
+      try {
+        // Perfil + roles en paralelo. El perfil pide las columnas de 0045; si la migración
+        // todavía no se aplicó (columnas inexistentes), caemos a full_name para no romper
+        // la carga de la app (los campos nuevos quedan null hasta aplicar 0045).
+        const [ext, rolesRes] = await Promise.all([
+          supabase.from('users').select('full_name, puesto, centro, name_changed_at, email_changed_at').eq('id', uid).maybeSingle(),
+          supabase.from('user_module_roles').select('module, role').eq('user_id', uid),
+        ])
+        let prof = ext.data as ProfRow | null
+        if (ext.error) {
+          const basic = await supabase.from('users').select('full_name').eq('id', uid).maybeSingle()
+          const b = basic.data as { full_name: string } | null
+          prof = b ? { full_name: b.full_name, puesto: null, centro: null, name_changed_at: null, email_changed_at: null } : null
+        }
+        if (!active) return
+        const rows = (rolesRes.data ?? []) as { module: ModuleKey; role: ModuleRole }[]
+        setProfile({
+          id: uid,
+          fullName: prof?.full_name ?? session.user.email ?? 'Usuario',
+          puesto: prof?.puesto ?? null,
+          centro: prof?.centro ?? null,
+          nameChangedAt: prof?.name_changed_at ?? null,
+          emailChangedAt: prof?.email_changed_at ?? null,
+        })
+        setModules(rows.map((r) => r.module))
+        setRoles(Object.fromEntries(rows.map((r) => [r.module, r.role])))
+      } finally {
+        // Crítico: tiene que correr TAMBIÉN si las consultas de arriba tiran error — si
+        // modulesLoading quedara en true ante una falla, el Gate se cuelga en el splash para
+        // siempre. `active` respeta la cancelación: si el efecto ya se limpió (la sesión cambió
+        // de nuevo mientras esta llamada estaba en vuelo), no pisamos el estado de un montaje
+        // viejo sobre el del montaje nuevo.
+        if (active) setModulesLoading(false)
       }
-      if (!active) return
-      const rows = (rolesRes.data ?? []) as { module: ModuleKey; role: ModuleRole }[]
-      setProfile({
-        id: uid,
-        fullName: prof?.full_name ?? session.user.email ?? 'Usuario',
-        puesto: prof?.puesto ?? null,
-        centro: prof?.centro ?? null,
-        nameChangedAt: prof?.name_changed_at ?? null,
-        emailChangedAt: prof?.email_changed_at ?? null,
-      })
-      setModules(rows.map((r) => r.module))
-      setRoles(Object.fromEntries(rows.map((r) => [r.module, r.role])))
     })()
     return () => {
       active = false
@@ -274,7 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        session, profile, modules, roles, loading, recovering, hasMinRole,
+        session, profile, modules, roles, loading, modulesLoading, recovering, hasMinRole,
         authNotice, clearAuthNotice: () => setAuthNotice(null),
         signIn, signInWithGoogle, requestPasswordReset, updatePassword, updateProfile, updatePuesto, requestEmailChange, signOutOthers, signOut,
       }}
