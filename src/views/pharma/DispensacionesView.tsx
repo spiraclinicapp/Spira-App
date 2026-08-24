@@ -24,6 +24,8 @@ import { HistorialPorDias } from './dispensaciones/HistorialPorDias'
 import { btnOutline } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
 import { todayISO } from '../../lib/dates'
+import { codecs, oneOf, resolveCode } from '../../lib/router'
+import { useUrlLocation, useUrlPath, useUrlState } from '../../lib/useUrlState'
 import type { ViewProps } from '../types'
 
 
@@ -39,19 +41,20 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const { hasMinRole } = useAuth()
   const canOperate = hasMinRole('pharma', 'operator')
 
-  const [day, setDay] = useState(todayISO())
+  const [day, setDay] = useUrlState('dia', todayISO())
   /* Protocolos elegidos por CÓDIGO; vacío = todos. Multi como en Stock y Visitas. `protoKey` es la
      versión estable para las deps: un array cambia de identidad en cada render y haría refetchear
      la consulta del historial (y reiniciar la paginación) sin que nadie toque el filtro. */
-  const [protoSel, setProtoSel] = useState<string[]>([])
+  const [protoSel, setProtoSel] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
   const protoKey = protoSel.join(',')
-  const [query, setQuery] = useState('')
-  const [vista, setVista] = useState<'tablero' | 'historial'>('tablero')
+  const [query, setQuery] = useUrlState('buscar', '')
+  const [vista, setVista] = useUrlState<'tablero' | 'historial'>('vista', 'tablero', {
+    codec: oneOf(['tablero', 'historial'] as const),
+  })
   const [pagina, setPagina] = useState(0)
   const [acumuladas, setAcumuladas] = useState<DispensationRequestRow[]>([])
   /** Última página ya volcada en `acumuladas`, para no aplicarla dos veces. */
   const aplicadaRef = useRef(-1)
-  const [openId, setOpenId] = useState<string | null>(null)
   const [creando, setCreando] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -59,6 +62,44 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
 
   const q = useDispensationBoard(day)
   const all = useMemo(() => q.data ?? [], [q.data])
+
+  /* El cajón va en el PATH y no en el query porque la dispensación tiene código legible propio:
+     /farmacia/dispensaciones/D-0417. Push, como toda entidad abierta: el atrás lo cierra.
+     El código NO vive en la fila de la solicitud: es de la dispensación EJECUTADA, embebida en
+     `dispensations[]` (0 o 1 por pedido) — se llega con `activeDispensation`, igual que en el resto
+     de este archivo (ver la búsqueda y el toast de `advance`). */
+  const codigoDe = (r: DispensationRequestRow) => activeDispensation(r)?.dispensation_code ?? null
+  const urlLocation = useUrlLocation()
+  const codigoAbierto = urlLocation?.path[0] ?? null
+  /* `resolveCode` y no un `===`: los códigos de la URL no distinguen mayúsculas (decisión del
+     Director, 2026-08-24) porque estas direcciones se dictan por teléfono. Ante dos que sólo
+     difieran en la caja devuelve `null` y no abre ninguno.
+     Se busca en `all` Y en `acumuladas`, igual que `open` más abajo: el historial pagina hacia atrás
+     y muestra entregas de días anteriores al `day` elegido, que no están en `all` (acotado al día) —
+     buscar solo ahí dejaba esas filas sin poder abrirse por URL. */
+  const openId = codigoAbierto
+    ? (resolveCode(all, codigoAbierto, codigoDe) ?? resolveCode(acumuladas, codigoAbierto, codigoDe))?.id ?? null
+    : null
+  const [, setPath] = useUrlPath()
+  const setOpenId = (id: string | null) => {
+    const fila = id ? all.find((d) => d.id === id) ?? acumuladas.find((d) => d.id === id) ?? null : null
+    /* OJO — límite conocido, no resuelto por este cambio: una rechazada o cancelada nunca llegó a
+       tener dispensación (0 filas en `dispensations[]`), así que `codigoDe` da `null` acá. Sin código
+       no hay segmento que escribir, `setPath` cae a `[]` en modo replace, y el cajón NO se abre para
+       esas filas — antes de esta migración sí se abría (era estado local puro). Documentado en el
+       reporte de la Task 12 como duda abierta; no se inventó un esquema alternativo (p. ej. shortId
+       del id) sin que el Director lo decida. */
+    const codigo = fila ? codigoDe(fila) : null
+    /* Se conservan los cuatro filtros del tablero: abrir un cajón no puede resetearte el tablero que
+       tenías detrás, ni dejarte ahí al cerrarlo.
+       Y abrir apila (el atrás cierra el cajón) pero **cerrar reemplaza**: si cerrar también apilara,
+       el atrás REABRIRÍA el cajón que acabás de cerrar, y en esta pantalla abrir y cerrar cajones es
+       el trabajo. Es la misma lección que costó el review de la Fase D con el stepper de Visitas. */
+    setPath(codigo ? [codigo] : [], {
+      conservar: ['dia', 'vista', 'protocolo', 'buscar'],
+      mode: codigo ? 'push' : 'replace',
+    })
+  }
 
   // El historial no FILTRA por fecha (sigue mostrando todos los días, como pide el handoff): la
   // fecha mueve el punto de partida de la lista, que arranca ahí y avanza hacia atrás.
