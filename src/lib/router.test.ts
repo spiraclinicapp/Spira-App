@@ -33,6 +33,10 @@ describe('parseUrl · módulo y submódulo', () => {
     expect(parseUrl('/coordinacion/inventado', '')).toBeNull()
   })
 
+  it('un path mal codificado es null, no una excepción', () => {
+    expect(parseUrl('/coordinacion/pacientes/100%', '')).toBeNull()
+  })
+
   it('guarda los segmentos que siguen al submódulo', () => {
     expect(parseUrl('/coordinacion/pacientes/EFC18244/32000740001', '')).toMatchObject({
       moduleKey: 'track', subKey: 'protocolos', path: ['EFC18244', '32000740001'],

@@ -62,7 +62,16 @@ export function subSlug(_moduleKey: string, subKey: string): string {
  */
 export function parseUrl(pathname: string, search: string): UrlState | null {
   const query = Object.fromEntries(new URLSearchParams(search))
-  const segmentos = pathname.split('/').filter(Boolean).map(decodeURIComponent)
+
+  /* `decodeURIComponent` LANZA `URIError` ante un porcentaje suelto ("/pacientes/100%"), y esta
+     función tiene que devolver `null` ante una URL rota, no explotar — que es justo el caso para el
+     que existe el `null`: un link truncado al compartirlo por WhatsApp entra por acá. */
+  let segmentos: string[]
+  try {
+    segmentos = pathname.split('/').filter(Boolean).map(decodeURIComponent)
+  } catch {
+    return null
+  }
 
   // La raíz es la home: Inicio › Resumen.
   if (segmentos.length === 0) return { moduleKey: 'inicio', subKey: 'resumen', path: [], query }
