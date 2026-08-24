@@ -15,6 +15,7 @@ import { FeedbackModal } from './FeedbackModal'
 import { SettingsModal } from './settings/SettingsModal'
 import type { SettingsSection } from './settings/SettingsModal'
 import { pushUrl, useUrlLocation } from '../lib/useUrlState'
+import { NotFoundView } from './NotFoundView'
 
 /** Atajo del buscador global, según plataforma. */
 const KBD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘ K' : 'Ctrl K'
@@ -189,6 +190,19 @@ export function AppShell() {
 
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
   const showAction = !HIDE_ACTION.has(`${moduleKey}/${sub.key}`)
+
+  /* Guard de ruta. Va acá y no adentro del <main>: una URL que no existe no tiene módulo, así que el
+     top bar y los rieles no tendrían qué mostrar. `urlLocation === null` es "la ruta no existe";
+     `!isAllowed` cubre tanto el módulo sin rol como los `proximamente` (Lab, Contable). */
+  const rutaInvalida = urlLocation === null
+  const sinAcceso = !rutaInvalida && !isAllowed(moduleKey)
+  if (rutaInvalida || sinAcceso) {
+    return (
+      <div style={{ height: '100%', background: 'var(--spira-paper)', color: 'var(--spira-ink)' }}>
+        <NotFoundView motivo={rutaInvalida ? 'ruta' : 'acceso'} />
+      </div>
+    )
+  }
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--spira-paper)', color: 'var(--spira-ink)' }}>

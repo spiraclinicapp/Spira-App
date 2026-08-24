@@ -145,6 +145,12 @@ export function parseHref(href: string): UrlState | null {
   return corte === -1 ? parseUrl(href, '') : parseUrl(href.slice(0, corte), href.slice(corte))
 }
 
+/** La home (Inicio › Resumen). Derivada de `buildUrl`, no escrita a mano: si algún día la raíz deja
+ *  de ser `/`, los consumidores no se enteran. */
+export function homeUrl(): string {
+  return buildUrl({ moduleKey: 'inicio', subKey: 'resumen', path: [], query: {} })
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    CODECS — cómo va y vuelve cada tipo de valor en el query string.
    Puros y chiquitos a propósito: son lo que permite que useUrlState no tenga
