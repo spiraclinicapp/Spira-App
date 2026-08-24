@@ -11,6 +11,8 @@ import { useDoctorQueue, markDoctorSeen } from '../data/dayVisits'
 import type { DayVisitRow } from '../data/dayVisits'
 import { visitCode, ageFromBirth, SEX_SHORT } from '../lib/visits'
 import { todayISO, elapsedMinutes, elapsedShort } from '../lib/dates'
+import { oneOf } from '../lib/router'
+import { useUrlEntity, useUrlState } from '../lib/useUrlState'
 import type { ViewProps } from './types'
 import { VisitDetail } from './track/VisitDetail'
 import { Drawer } from '../components/Drawer'
@@ -38,11 +40,16 @@ const TICK_MS = 15_000
  */
 export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: ViewProps) {
   const accent = module.accent
-  const [date, setDate] = useState(todayISO())
-  const [status, setStatus] = useState<Status>('todos')
+  const [date, setDate] = useUrlState('dia', todayISO())
+  const [status, setStatus] = useUrlState<Status>('estado', 'todos', {
+    codec: oneOf(['todos', 'faltan', 'atendidos'] as const),
+  })
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [openVisitId, setOpenVisitId] = useState<string | null>(null)
+  /* El detalle de la visita: push al abrir, replace al cerrar (lo trae `useUrlEntity`). UUID
+     completo, no corto — `VisitDetail` carga por id y puede abrir una visita que no esté entre las
+     filas cargadas. */
+  const [openVisitId, setOpenVisitId] = useUrlEntity('visita')
   const [commentsVisit, setCommentsVisit] = useState<DayVisitRow | null>(null)
   const queue = useDoctorQueue(date)
 
