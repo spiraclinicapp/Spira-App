@@ -65,6 +65,20 @@ describe('parseUrl · módulo y submódulo', () => {
     })
   })
 
+  /* Solo Pacientes (protocolo + ficha) y Dispensaciones (código del cajón) usan los segmentos que
+     siguen al submódulo. Para el resto, cualquier cosa después es una ruta que no existe — antes se
+     ignoraba en silencio y abría el submódulo igual, pisando la pantalla de "esa dirección no existe"
+     que el §8 del spec promete. */
+  it('un submódulo que no lleva path rechaza los segmentos de más', () => {
+    expect(parseUrl('/coordinacion/visitas/loquesea', '')).toBeNull()
+    expect(parseUrl('/coordinacion/alertas/x/y', '')).toBeNull()
+  })
+
+  it('los que sí llevan path los siguen aceptando', () => {
+    expect(parseUrl('/coordinacion/pacientes/EFC18244', '')).toMatchObject({ path: ['EFC18244'] })
+    expect(parseUrl('/farmacia/dispensaciones/D-0417', '')).toMatchObject({ path: ['D-0417'] })
+  })
+
   it('lee el query', () => {
     expect(parseUrl('/coordinacion/visitas', '?dia=2026-08-22&estado=pendiente')).toMatchObject({
       query: { dia: '2026-08-22', estado: 'pendiente' },

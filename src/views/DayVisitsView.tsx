@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { btnOutline } from '../components/buttons'
@@ -10,6 +10,8 @@ import { DateNavButton } from '../components/DateNavButton'
 import { todayISO, dayName, formatShortAR } from '../lib/dates'
 import { visitCode } from '../lib/visits'
 import { useVisitPermissions } from '../lib/visitPermissions'
+import { codecs, oneOf } from '../lib/router'
+import { useUrlEntity, useUrlState } from '../lib/useUrlState'
 import {
   useVisitsForDay, markArrived, markAttended, markReady, markNoShow,
   markReadyWithOutcome, discontinueEnrollment,
@@ -53,21 +55,25 @@ const esperaMedico = (v: DayVisitRow) => v.wants_doctor && v.operational_stage !
 export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTarget, onTargetConsumed }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
-  const [date, setDate] = useState(todayISO())
+  /* Todo esto vive en la URL (ver docs/superpowers/specs/2026-08-23-urls-navegacion-design.md §4.3).
+     Van en modo 'replace' —el default del hook— porque filtrar y cambiar de día NO es navegar: si
+     apilaran, salir de esta vista después de un rato trabajando serían quince "atrás". */
+  const [date, setDate] = useUrlState('dia', todayISO())
   const day = useVisitsForDay(date)
   const randoPending = useRandoAttendedWithoutDate()
 
   // Filtros multi (AND entre categorías, OR dentro) + buscador + "Para ver médico" + agrupación.
-  const [q, setQ] = useState('')
-  const [fEstado, setFEstado] = useState<string[]>([])
-  const [fProto, setFProto] = useState<string[]>([])
-  const [fMed, setFMed] = useState<string[]>([])
-  const [fCoord, setFCoord] = useState<string[]>([])
-  const [group, setGroup] = useState<GroupBy>('operativo')
+  const [q, setQ] = useUrlState('buscar', '')
+  const [fEstado, setFEstado] = useUrlState<string[]>('estado', [], { codec: codecs.list })
+  const [fProto, setFProto] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
+  const [fMed, setFMed] = useUrlState<string[]>('medicacion', [], { codec: codecs.list })
+  const [fCoord, setFCoord] = useUrlState<string[]>('coordinadora', [], { codec: codecs.list })
+  const [group, setGroup] = useUrlState<GroupBy>('agrupar', 'operativo', {
+    codec: oneOf(['operativo', 'estado', 'protocolo', 'medico', 'coordinador', 'ninguno'] as const),
+  })
 
   const [busyId, setBusyId] = useState<string | null>(null)
   const [rescheduleFor, setRescheduleFor] = useState<TrackVisitRow | null>(null)
-  const [openVisit, setOpenVisit] = useState<DayVisitRow | null>(null)
   const [doctorFor, setDoctorFor] = useState<DayVisitRow | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   // Cierre clínico (screening/randomización) y recitación. TrackVisitRow: sirve para una fila
@@ -84,6 +90,17 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   const rows = day.data ?? []
   // Resumen de procedimientos de TODO el día en 2 consultas (no 3 por fila), para los puntos de la fila.
   const dayProcs = useDayProceduresSummary(rows)
+
+  /* Push al abrir y replace al cerrar (lo trae `useUrlEntity`): abrir el detalle ES navegar y el
+     atrás tiene que cerrarlo, pero si cerrar también apilara, el atrás lo REABRIRÍA — y en esta
+     vista abrir y cerrar cajones es el trabajo. Va el UUID completo y la FILA se deriva de las ya
+     cargadas: si la visita no es del día que estás mirando, no hay nada que abrir y queda en null,
+     que es exactamente el comportamiento de antes.
+     El `useMemo` no es opcional: sin él, `openVisit` es un objeto nuevo en cada render y esta vista
+     tiene varios efectos con setters en deps (lección de la Fase C). */
+  const [visitaId, setVisitaId] = useUrlEntity('visita')
+  const openVisit = useMemo(() => (visitaId ? (rows.find((r) => r.id === visitaId) ?? null) : null), [visitaId, rows])
+  const setOpenVisit = (v: DayVisitRow | null) => setVisitaId(v?.id ?? null)
 
   /* Llegada CON objetivo (desde el resumen de Inicio: una visita puntual). Va en dos pasos porque
      esta vista carga UN día: primero saltamos a la fecha de la visita —la de una alerta suele ser

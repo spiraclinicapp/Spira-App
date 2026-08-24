@@ -44,6 +44,11 @@ const SUB_SLUG: Record<string, string> = {
 const MODULE_KEY: Record<string, string> = invertir(MODULE_SLUG)
 const SUB_KEY: Record<string, string> = invertir(SUB_SLUG)
 
+/* Submódulos que llevan segmentos propios después del submódulo: Pacientes (el protocolo y la ficha)
+   y Dispensaciones (el código del cajón). Para todos los demás, cualquier cosa que venga después es
+   una ruta que no existe — el §8 del spec pide avisarlo, no ignorarlo en silencio. */
+const SUB_CON_PATH = new Set(['protocolos', 'dispensaciones'])
+
 function invertir(mapa: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(mapa).map(([k, v]) => [v, k]))
 }
@@ -106,6 +111,7 @@ export function parseUrl(pathname: string, search: string): UrlState | null {
   const subKey = SUB_KEY[slugSub] ?? slugSub
   if (subSlug(moduleKey, subKey) !== slugSub) return null
   if (!mod.submodules.some((s) => s.key === subKey)) return null
+  if (resto.length > 0 && !SUB_CON_PATH.has(subKey)) return null
 
   return { moduleKey, subKey, path: resto, query }
 }
