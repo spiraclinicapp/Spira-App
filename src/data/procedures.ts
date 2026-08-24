@@ -19,8 +19,6 @@ export interface Procedure {
   name: string
   category: string | null
   requires_dispensation: boolean
-  has_report: boolean          // 0064
-  report_eta_hours: number | null  // 0064
 }
 
 /** Procedimiento asignado a una visita (join `protocol_activities` con el catálogo embebido). */
@@ -30,7 +28,7 @@ export interface VisitProcedure {
   /** Orden dentro de la visita (reusa `suggested_order`; menor primero). */
   suggested_order: number | null
   /** Datos del catálogo para mostrar. El nombre display sale de acá (name del join es legacy/null). */
-  procedure: { code: string | null; name: string; category: string | null; requires_dispensation: boolean; has_report: boolean; report_eta_hours: number | null } | null
+  procedure: { code: string | null; name: string; category: string | null; requires_dispensation: boolean } | null
 }
 
 /** Traduce códigos de Postgres a mensajes serenos (patrón `*ErrorMessage` del repo). */
@@ -49,7 +47,7 @@ export function useProceduresCatalog() {
     (c) =>
       c
         .from('procedures')
-        .select('id, code, name, category, requires_dispensation, has_report, report_eta_hours')
+        .select('id, code, name, category, requires_dispensation')
         .order('name', { ascending: true })
         .returns<Procedure[]>(),
     [],
@@ -62,7 +60,7 @@ export function useVisitProcedures(visitDefId: string | null) {
     (c) =>
       c
         .from('protocol_activities')
-        .select('id, procedure_id, suggested_order, procedure:procedures(code, name, category, requires_dispensation, has_report, report_eta_hours)')
+        .select('id, procedure_id, suggested_order, procedure:procedures(code, name, category, requires_dispensation)')
         .eq('visit_def_id', visitDefId ?? NIL_UUID)
         .order('suggested_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
@@ -146,50 +144,26 @@ export async function deleteProcedure(id: string): Promise<{ error: string | nul
   return { error: null }
 }
 
-/** Campos editables del catálogo (v1: solo el circuito de reporte). RLS: gerencia / track-leader. */
-export interface ProcedureCatalogEdit {
-  has_report: boolean
-  report_eta_hours: number | null
-}
-
-/**
- * Edita el atributo de reporte de un procedimiento del catálogo global. UPDATE directo; la RLS
- * "editar procedures" (0061) lo scopea a gerencia / track-leader. "0 filas = sin permiso".
- */
-export async function updateProcedure(
-  id: string,
-  edit: ProcedureCatalogEdit,
-): Promise<{ error: string | null }> {
-  const { data, error } = await supabase
-    .from('procedures')
-    .update({ has_report: edit.has_report, report_eta_hours: edit.has_report ? edit.report_eta_hours : null })
-    .eq('id', id)
-    .select('id')
-  if (error) return { error: proceduresErrorMessage(error.code, error.message) }
-  if (!data || data.length === 0) return { error: 'No tenés permiso para editar el catálogo.' }
-  return { error: null }
-}
-
-/** Procedimiento de una visita con sus dos estados (0064). Lo lee useVisitProcedureStatus. */
+/** Procedimiento de una visita con su estado de realización (0064). Lo lee useVisitProcedureStatus. */
 export interface VisitProcedureStatus {
   procedure_id: string
   code: string | null
   name: string
   category: string | null
-  has_report: boolean
-  report_eta_hours: number | null
   suggested_order: number | null
   completed: boolean
   completed_at: string | null
-  report_ready: boolean
-  report_ready_at: string | null
 }
 
 /**
- * Procedimientos de una visita con estado realizado/reporte-listo. TRES consultas unidas en el
- * cliente —evita acoplarse a la forma del embed de PostgREST y respeta la RLS de cada tabla—:
- * asignados (protocol_activities por visit_def_id) +
- * completions (por visit_id) + reports_ready (por visit_id). Con visitId/visitDefId null → [].
+ * Procedimientos de una visita con estado realizado. DOS consultas unidas en el cliente —evita
+ * acoplarse a la forma del embed de PostgREST y respeta la RLS de cada tabla—: asignados
+ * (protocol_activities por visit_def_id) + completions (por visit_id). Con visitId/visitDefId
+ * null → [].
+ *
+ * La tercera consulta —`visit_procedure_reports_ready`, el "reporte listo" binario de la 0064— se
+ * fue con la 0092: en qué anda cada reporte lo dice ahora `report_status` (0090), que es por
+ * definición de reporte y no por procedimiento. Lo lee `useVisitReportStatus`.
  */
 export function useVisitProcedureStatus(visitId: string | null, visitDefId: string | null) {
   return useSupabaseQuery<VisitProcedureStatus[]>(
@@ -197,7 +171,7 @@ export function useVisitProcedureStatus(visitId: string | null, visitDefId: stri
       if (!visitId || !visitDefId) return { data: [], error: null }
       const asg = await c
         .from('protocol_activities')
-        .select('procedure_id, suggested_order, procedure:procedures(code, name, category, has_report, report_eta_hours)')
+        .select('procedure_id, suggested_order, procedure:procedures(code, name, category)')
         .eq('visit_def_id', visitDefId)
         .order('suggested_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
@@ -205,7 +179,7 @@ export function useVisitProcedureStatus(visitId: string | null, visitDefId: stri
       const rows = (asg.data ?? []) as unknown as {
         procedure_id: string
         suggested_order: number | null
-        procedure: { code: string | null; name: string; category: string | null; has_report: boolean; report_eta_hours: number | null } | null
+        procedure: { code: string | null; name: string; category: string | null } | null
       }[]
       if (rows.length === 0) return { data: [], error: null }
 
@@ -218,27 +192,14 @@ export function useVisitProcedureStatus(visitId: string | null, visitDefId: stri
         ((compRes.data ?? []) as { procedure_id: string; completed_at: string }[]).map((r) => [r.procedure_id, r.completed_at]),
       )
 
-      const rrRes = await c
-        .from('visit_procedure_reports_ready')
-        .select('procedure_id, ready_at')
-        .eq('visit_id', visitId)
-      if (rrRes.error) return { data: null, error: rrRes.error }
-      const rr = new Map<string, string>(
-        ((rrRes.data ?? []) as { procedure_id: string; ready_at: string }[]).map((r) => [r.procedure_id, r.ready_at]),
-      )
-
       const merged: VisitProcedureStatus[] = rows.map((r) => ({
         procedure_id: r.procedure_id,
         code: r.procedure?.code ?? null,
         name: r.procedure?.name ?? 'Procedimiento',
         category: r.procedure?.category ?? null,
-        has_report: r.procedure?.has_report ?? false,
-        report_eta_hours: r.procedure?.report_eta_hours ?? null,
         suggested_order: r.suggested_order,
         completed: comp.has(r.procedure_id),
         completed_at: comp.get(r.procedure_id) ?? null,
-        report_ready: rr.has(r.procedure_id),
-        report_ready_at: rr.get(r.procedure_id) ?? null,
       }))
       return { data: merged, error: null }
     },
@@ -336,28 +297,5 @@ export async function toggleVisitProcedure(
     .select('id')
   if (error) return { error: proceduresErrorMessage(error.code, error.message) }
   if (!data || data.length === 0) return { error: 'No tenés permiso para modificar este procedimiento.' }
-  return { error: null }
-}
-
-/** Marca/reabre el "reporte listo" de un procedimiento en una visita. "0 filas = sin permiso". */
-export async function toggleVisitProcedureReport(
-  visitId: string, procedureId: string, ready: boolean,
-): Promise<{ error: string | null }> {
-  if (ready) {
-    const { data, error } = await supabase
-      .from('visit_procedure_reports_ready')
-      .insert({ visit_id: visitId, procedure_id: procedureId })
-      .select('id')
-    if (error) return { error: proceduresErrorMessage(error.code, error.message) }
-    if (!data || data.length === 0) return { error: 'No tenés permiso para marcar el reporte.' }
-    return { error: null }
-  }
-  const { data, error } = await supabase
-    .from('visit_procedure_reports_ready')
-    .delete()
-    .eq('visit_id', visitId).eq('procedure_id', procedureId)
-    .select('id')
-  if (error) return { error: proceduresErrorMessage(error.code, error.message) }
-  if (!data || data.length === 0) return { error: 'No tenés permiso para modificar el reporte.' }
   return { error: null }
 }

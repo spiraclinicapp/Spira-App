@@ -45,7 +45,7 @@ const linkBtn: CSSProperties = {
 interface Dismissing {
   kind: AlertKind
   visitId: string
-  completionId?: string
+  reportDefinitionId?: string
   label: string
 }
 
@@ -217,7 +217,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
               // aproximada (±1 día cerca de medianoche UTC).
               const days = daysDiffISO(r.report_due_at.slice(0, 10), todayISO())
               return (
-                <div key={r.completion_id} style={{ position: 'relative' }}>
+                <div key={`${r.visit_id}:${r.report_definition_id}`} style={{ position: 'relative' }}>
                 <button
                   type="button"
                   className="spira-card-link"
@@ -233,7 +233,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                       <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{r.protocol_code}</span></span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
-                      Reporte de procedimiento pendiente · {r.description}{days > 0 ? ` · hace ${days} d` : ''}
+                      Reporte pendiente · {r.report_name} de {r.procedure_name}{days > 0 ? ` · hace ${days} d` : ''}
                     </div>
                   </div>
                 </button>
@@ -245,8 +245,8 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                   onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--spira-ink)' }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--spira-faint)' }}
                   onClick={() => setDismissing({
-                    kind: 'reporte_procedimiento', visitId: r.visit_id, completionId: r.completion_id,
-                    label: `Reporte de ${r.description} · ${r.patient_name}`,
+                    kind: 'reporte_procedimiento', visitId: r.visit_id, reportDefinitionId: r.report_definition_id,
+                    label: `${r.report_name} de ${r.procedure_name} · ${r.patient_name}`,
                   })}
                 >
                   <Icon name="x" size={15} />
@@ -318,10 +318,12 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           <div style={{ marginTop: 8 }}>
             {dismissals.map((d) => {
               const vis = alertsQ.allVisitAlerts.find((a) => a.id === d.visit_id)
-              const rep = alertsQ.allReportAlerts.find((r) => r.completion_id === d.completion_id)
+              const rep = alertsQ.allReportAlerts.find(
+                (r) => r.visit_id === d.visit_id && r.report_definition_id === d.report_definition_id,
+              )
               const nombre = vis?.patient_name ?? rep?.patient_name ?? null
               const detalle = d.kind === 'reporte_procedimiento'
-                ? (rep ? `Reporte de ${rep.description}` : 'Reporte de procedimiento')
+                ? (rep ? `${rep.report_name} de ${rep.procedure_name}` : 'Reporte de procedimiento')
                 : (vis ? `${VISIT_STATES[vis.computed_status].label} · ${visitTitle(vis)}` : 'Alerta de visita')
               return (
                 <div key={d.id} style={dismissedRow}>
@@ -401,7 +403,7 @@ function DismissModal({ target, accent, onClose, onDone, onError }: {
     setBusy(true)
     setErr(null)
     const { error } = await dismissAlert({
-      kind: target.kind, visitId: target.visitId, completionId: target.completionId,
+      kind: target.kind, visitId: target.visitId, reportDefinitionId: target.reportDefinitionId,
       reason, detail: necesitaDetalle ? detail : null,
     })
     setBusy(false)

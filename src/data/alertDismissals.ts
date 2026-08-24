@@ -6,6 +6,7 @@ import { useVisitAlerts } from './visits'
 import type { TrackVisitRow } from './visits'
 import { useProcedureReportAlerts } from './reports'
 import type { ProcedureReportAlertRow } from './reports'
+import { isReportAlertDismissed, isVisitAlertDismissed } from './alertDismissalModel'
 
 /* Descartar una alerta (migración 0070).
 
@@ -18,51 +19,21 @@ import type { ProcedureReportAlertRow } from './reports'
    tendría que hacer `select *` sobre v_track_visits y quedaría con las columnas congeladas (el
    lastre que ya arrastran v_patient_visits/v_track_visits). Una alerta descartada tampoco es un
    secreto: la RLS de `alert_dismissals` espeja la de la alerta, así que quien recibe la fila es
-   alguien que ya podía ver el aviso. */
+   alguien que ya podía ver el aviso.
 
-/** Clase de alerta que se puede archivar. */
-export type AlertKind = 'visita' | 'reporte_procedimiento'
+   Las reglas puras —tipos y los dos predicados de "está archivada"— viven en
+   `alertDismissalModel.ts` para poder testearlas sin el cliente de Supabase; se reexportan desde
+   acá para que los consumidores sigan importando de un solo lugar. */
 
-/** Motivos de catálogo (los mismos que el check de la 0070). Sin texto libre salvo "Otro". */
-export const DISMISS_REASONS: { value: string; label: string }[] = [
-  { value: 'resuelta_fuera_del_sistema', label: 'Ya resuelta fuera del sistema' },
-  { value: 'visita_reprogramada', label: 'La visita se reprogramó' },
-  { value: 'no_aplica', label: 'No aplica a este protocolo' },
-  { value: 'cargada_por_error', label: 'Cargada por error' },
-  { value: 'otro', label: 'Otro (explicar)' },
-]
+export {
+  DISMISS_REASONS,
+  isReportAlertDismissed,
+  isVisitAlertDismissed,
+  reasonLabel,
+} from './alertDismissalModel'
+export type { AlertDismissalRow, AlertKind } from './alertDismissalModel'
 
-/** Etiqueta legible de un motivo guardado; el valor crudo si viniera uno desconocido. */
-export function reasonLabel(value: string): string {
-  return DISMISS_REASONS.find((r) => r.value === value)?.label ?? value
-}
-
-/** Fila de alert_dismissals (0070) + el nombre de quien archivó, resuelto por join. */
-export interface AlertDismissalRow {
-  id: string
-  kind: AlertKind
-  visit_id: string
-  /** Solo en kind='reporte_procedimiento'. */
-  completion_id: string | null
-  /** computed_status al archivar (solo kind='visita'). Parte de la huella. */
-  status: string | null
-  /**
-   * Valor que definía la condición al archivar: `window_end` para las de visita, `report_due_at`
-   * para las de reporte. Si la condición cambia, el descarte deja de aplicar y la alerta vuelve.
-   */
-  anchor: string
-  reason: string
-  detail: string | null
-  dismissed_by: string
-  /**
-   * Nombre y puesto de quien archivó, DESNORMALIZADOS en la fila (0070, mismo motivo que
-   * author_name en 0048): la RLS de `users` solo muestra la fila propia, así que un join
-   * ocultaría el autor para todo el que no sea gerencia. Es el puesto de entonces.
-   */
-  dismissed_by_name: string
-  dismissed_by_role: string
-  dismissed_at: string
-}
+import type { AlertDismissalRow, AlertKind } from './alertDismissalModel'
 
 /* Señal común de "los descartes cambiaron".
 
@@ -115,43 +86,6 @@ export function useAlertDismissals(): QueryResult<AlertDismissalRow[]> {
 }
 
 /**
- * ¿Está archivada esta alerta de VISITA? El descarte vale solo mientras la condición sea la
- * misma que al archivarla: mismo `computed_status` y misma ventana. Si la visita se reprograma
- * (cambia `window_end`) o cambia de estado, la alerta reaparece sola — que es justo lo que
- * evita que un descarte tape un vencimiento futuro.
- */
-export function isVisitAlertDismissed(
-  dismissals: AlertDismissalRow[],
-  visit: { id: string; computed_status: string; window_end: string | null },
-): boolean {
-  return dismissals.some(
-    (d) =>
-      d.kind === 'visita' &&
-      d.visit_id === visit.id &&
-      (d.status ?? '') === visit.computed_status &&
-      sameAnchor(d.anchor, visit.window_end),
-  )
-}
-
-/** ¿Está archivada esta alerta de reporte? La clave es el procedimiento realizado. */
-export function isReportAlertDismissed(dismissals: AlertDismissalRow[], completionId: string): boolean {
-  return dismissals.some((d) => d.kind === 'reporte_procedimiento' && d.completion_id === completionId)
-}
-
-/**
- * Compara la huella guardada con la condición de ahora. `anchor` vuelve de la base como
- * timestamptz ISO y la ventana es un `date`, así que comparamos por instante; sin fecha, la 0070
- * guarda `-infinity`, que Postgres devuelve con ese literal.
- */
-function sameAnchor(anchor: string, windowEnd: string | null): boolean {
-  if (!windowEnd) return anchor === '-infinity'
-  if (anchor === '-infinity') return false
-  const a = new Date(anchor).getTime()
-  const b = new Date(`${windowEnd}T00:00:00Z`).getTime()
-  return !Number.isNaN(a) && !Number.isNaN(b) && a === b
-}
-
-/**
  * Las alertas VIGENTES de las dos clases, ya sin las archivadas, más los descartes crudos para
  * quien necesite listarlos. Existe para que el filtro viva en UN solo lugar: lo consumen la
  * campana, el resumen de Inicio y la vista de Alertas, y los tres tienen que contar lo mismo —
@@ -176,7 +110,7 @@ export function useActiveAlerts() {
   const reportAlerts = useMemo<ProcedureReportAlertRow[]>(() => {
     const list = procRows ?? []
     const d = dRows ?? []
-    return d.length === 0 ? list : list.filter((r) => !isReportAlertDismissed(d, r.completion_id))
+    return d.length === 0 ? list : list.filter((r) => !isReportAlertDismissed(d, r))
   }, [procRows, dRows])
 
   return {
@@ -202,11 +136,13 @@ export function useActiveAlerts() {
 
 /** Traduce el código de Postgres a un mensaje sereno para el descarte. */
 function dismissErrorMessage(code: string | undefined, raw: string): string {
-  /* La 0070 todavía no está aplicada en esta base: PostgREST no encuentra la función
-     (PGRST202) o la tabla (42P01). Es una condición de despliegue, no un error del usuario,
-     así que se dice tal cual en vez de inventar una causa. */
+  /* La migración que gobierna los descartes todavía no está aplicada en esta base: PostgREST no
+     encuentra la función (PGRST202) o la tabla (42P01). Es una condición de despliegue, no un
+     error del usuario, así que se dice tal cual en vez de inventar una causa. Desde la 0092 el
+     PGRST202 también aparece en la ventana entre el deploy del front y la migración: la firma de
+     `dismiss_alert` cambió de `p_completion_id` a `p_report_definition_id`. */
   if (code === 'PGRST202' || code === '42P01' || code === 'PGRST205') {
-    return 'Descartar alertas todavía no está disponible en esta base. Falta aplicar la migración 0070.'
+    return 'Descartar alertas todavía no está disponible en esta base. Falta aplicar una migración.'
   }
   if (code === '42501') return 'No tenés permiso para archivar esta alerta.'
   if (code === '23505') return 'Esa alerta ya estaba archivada. Actualizá la lista.'
@@ -222,8 +158,8 @@ export interface DismissAlertInput {
   reason: string
   /** Obligatorio cuando el motivo es "otro" (lo exige también un check de la 0070). */
   detail?: string | null
-  /** Solo para kind='reporte_procedimiento'. */
-  completionId?: string | null
+  /** Solo para kind='reporte_procedimiento': qué reporte del estudio se archiva (0092). */
+  reportDefinitionId?: string | null
 }
 
 /**
@@ -240,7 +176,7 @@ export async function dismissAlert(input: DismissAlertInput): Promise<{ error: s
     p_kind: input.kind,
     p_visit_id: input.visitId,
     p_reason: input.reason,
-    p_completion_id: input.completionId ?? null,
+    p_report_definition_id: input.reportDefinitionId ?? null,
     p_detail: input.detail?.trim() || null,
   })
   if (error) return { error: dismissErrorMessage(error.code, error.message) }

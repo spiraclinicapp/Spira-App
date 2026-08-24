@@ -129,7 +129,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
                 {procRows.map((r) => {
                   const c = 'var(--spira-primary)'
                   return (
-                    <div key={r.completion_id} style={rowStyle}>
+                    <div key={`${r.visit_id}:${r.report_definition_id}`} style={rowStyle}>
                       <span style={{ ...rowIcon, background: c + '18' }}>
                         <Icon name="clipboardCheck" size={16} color={c} />
                       </span>
@@ -140,7 +140,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
                           <span style={{ color: 'var(--spira-faint)' }}>·</span>
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.protocol_code}</span>
                         </div>
-                        <div style={rowReason}>Reporte de procedimiento pendiente — {r.description}</div>
+                        <div style={rowReason}>Reporte pendiente — {r.report_name} · {r.procedure_name}</div>
                       </div>
                     </div>
                   )
