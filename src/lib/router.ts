@@ -77,16 +77,34 @@ export function parseUrl(pathname: string, search: string): UrlState | null {
   if (segmentos.length === 0) return { moduleKey: 'inicio', subKey: 'resumen', path: [], query }
 
   const [slugModulo, slugSub, ...resto] = segmentos
-  const moduleKey = MODULE_KEY[slugModulo]
-  if (!moduleKey) return null
+
+  /* Fallback a identidad, igual que `moduleSlug` al construir: un módulo nuevo de `registry.ts` que
+     todavía no tenga entrada acá tiene que ser tan parseable como construible, o quedaría con una
+     URL que se arma pero no se abre. No afloja nada: dos líneas más abajo se valida contra MODULES. */
+  const moduleKey = MODULE_KEY[slugModulo] ?? slugModulo
+
+  /* Pero el vocabulario INTERNO no entra por la barra. Con el fallback a identidad, `/track/...` y
+     `/coordinacion/protocolos` funcionarían como alias no canónicos de la misma pantalla, y dos
+     direcciones para lo mismo ensucian el historial y los links que se comparten (el mismo lugar,
+     dos URLs distintas). La regla: el slug recibido tiene que ser EL slug de esa key. Ojo que no
+     alcanza con preguntar si la key existe en el mapa — Inicio, Lab y Contable son su propio slug,
+     ahí no hay dos vocabularios sino uno solo, y rechazarlos dejaría a Inicio sin URL. */
+  if (moduleSlug(moduleKey) !== slugModulo) return null
 
   const mod = MODULES.find((m) => m.key === moduleKey)
   if (!mod) return null
 
   // Módulo sin submódulo: cae al primero, igual que hace selectModule en el shell.
-  if (!slugSub) return { moduleKey, subKey: mod.submodules[0].key, path: [], query }
+  // La guarda no es paranoia: un módulo con `submodules: []` explotaría acá durante el render, y es
+  // el único camino de esta función que todavía podía lanzar en vez de devolver `null`.
+  if (!slugSub) {
+    const primero = mod.submodules[0]
+    if (!primero) return null
+    return { moduleKey, subKey: primero.key, path: [], query }
+  }
 
   const subKey = SUB_KEY[slugSub] ?? slugSub
+  if (subSlug(moduleKey, subKey) !== slugSub) return null
   if (!mod.submodules.some((s) => s.key === subKey)) return null
 
   return { moduleKey, subKey, path: resto, query }
@@ -105,8 +123,26 @@ export function buildUrl(state: UrlState): string {
   }
 
   const pathname = '/' + partes.map(encodeURIComponent).join('/')
-  const query = new URLSearchParams(state.query).toString()
+  /* `URLSearchParams.toString()` porcentúa la coma (es el serializador de formularios, no el del
+     query genérico), pero la coma es legal como sub-delim y es el separador que el spec promete para
+     los filtros multi-valor: `?estado=pendiente%2Cen-curso` deja de ser dictable, que es justamente
+     lo que se buscaba al omitir los defaults. Devolverla a su forma literal es seguro porque
+     `URLSearchParams` la vuelve a parsear igual. */
+  const query = new URLSearchParams(state.query).toString().replace(/%2C/g, ',')
   return query ? `${pathname}?${query}` : pathname
+}
+
+/**
+ * Href completo (`pathname` + `search`) → estado de navegación.
+ *
+ * Vive acá y no en la cáscara React porque era la única lógica que le quedaba al archivo que declara
+ * no tener ninguna —y por lo tanto lo único que no se podía testear desde node—. Corta por el PRIMER
+ * `?` con `indexOf` y no con `split('?')`, que partía por TODOS y truncaba el query entero ante un
+ * `?` sin encodear en un valor.
+ */
+export function parseHref(href: string): UrlState | null {
+  const corte = href.indexOf('?')
+  return corte === -1 ? parseUrl(href, '') : parseUrl(href.slice(0, corte), href.slice(corte))
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -115,10 +151,18 @@ export function buildUrl(state: UrlState): string {
    lógica propia y por lo tanto no necesite jsdom para testearse.
    ───────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * Los dos miembros van en PROPERTY syntax (`parse: (raw) => …`) y no en method syntax
+ * (`parse(raw)`) a propósito: con method syntax TypeScript trata los parámetros como
+ * **bivariantes** aun con `strict` —es la excepción documentada de `strictFunctionTypes`— y
+ * entonces un `oneOf` al que le falte un valor del enum compila igual. El resultado sería mudo y
+ * feo: el filtro se escribiría en la barra y no volvería al releerse (`parse` no lo valida y cae al
+ * default), o sea la agrupación se resetearía sola en cada F5 sin error a la vista.
+ */
 export interface Codec<T> {
   /** `null` = el valor crudo es inválido → quien llama cae al default. */
-  parse(raw: string): T | null
-  format(value: T): string
+  parse: (raw: string) => T | null
+  format: (value: T) => string
 }
 
 export const codecs = {
@@ -203,9 +247,12 @@ export function writeParam<T>(
    abierta (su visit_code es "V3" y se repite entre pacientes, así que no identifica).
    ───────────────────────────────────────────────────────────────────────────── */
 
+/** Largo del identificador corto. En un solo lugar: lo que se emite y lo que se exige al resolver. */
+const SHORT_ID_LEN = 8
+
 /** Los primeros 8 caracteres del uuid. 4.300 millones de combinaciones sobre miles de filas. */
 export function shortId(uuid: string): string {
-  return uuid.slice(0, 8)
+  return uuid.slice(0, SHORT_ID_LEN)
 }
 
 /**
@@ -215,6 +262,13 @@ export function shortId(uuid: string): string {
  * una ficha clínica, abrir la del paciente equivocado es peor que no abrir ninguna.
  */
 export function resolveShortId<T extends { id: string }>(filas: T[], token: string): T | null {
+  /* Menos de 8 caracteres no alcanza para identificar a nadie, y el caso feo es el token VACÍO:
+     `startsWith('')` es true para TODAS las filas, así que con una sola fila cargada el `length === 1`
+     de abajo daba por bueno un match que nadie pidió. Y es alcanzable — un segmento `p-` pelado
+     (`/coordinacion/pacientes/EFC18244/p-`) deja exactamente eso después de sacarle el prefijo. La
+     promesa de esta función es que nunca se elige una ficha al azar; elegirla por vacuidad también
+     cuenta. */
+  if (token.length < SHORT_ID_LEN) return null
   const candidatas = filas.filter((f) => f.id.startsWith(token))
   return candidatas.length === 1 ? candidatas[0] : null
 }

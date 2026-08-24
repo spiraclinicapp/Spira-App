@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildUrl, parseUrl } from './router'
+import {
+  buildUrl, codecs, listOf, oneOf, parseHref, parseUrl, readParam, resolveShortId, shortId, writeParam,
+} from './router'
 
 /**
  * El mapeo entre la URL y el estado de navegación.
@@ -31,6 +33,23 @@ describe('parseUrl · módulo y submódulo', () => {
   it('una ruta desconocida es null (no un redirect mudo)', () => {
     expect(parseUrl('/farmaceutica', '')).toBeNull()
     expect(parseUrl('/coordinacion/inventado', '')).toBeNull()
+  })
+
+  /* El vocabulario interno no entra por la barra: la URL habla el nombre visible y nada más. Dos
+     direcciones para la misma pantalla ensucian el historial y los links que se comparten. */
+  it('la key interna no es un slug válido', () => {
+    expect(parseUrl('/track/protocolos', '')).toBeNull()
+    expect(parseUrl('/coordinacion/protocolos', '')).toBeNull()
+    expect(parseUrl('/track/pacientes', '')).toBeNull()
+    expect(parseUrl('/farmacia/medicamentos', '')).toBeNull()
+    expect(parseUrl('/coordinacion/pacientes', '')).not.toBeNull()
+  })
+
+  /* Los módulos cuyo slug ES su key (Inicio, Lab, Contable) no caen en la regla de arriba: ahí no
+     hay dos vocabularios, hay uno solo. */
+  it('un módulo cuyo slug coincide con su key sigue siendo válido', () => {
+    expect(parseUrl('/inicio/tareas', '')).toMatchObject({ moduleKey: 'inicio', subKey: 'tareas' })
+    expect(parseUrl('/lab/muestras', '')).toMatchObject({ moduleKey: 'lab', subKey: 'muestras' })
   })
 
   it('un path mal codificado es null, no una excepción', () => {
@@ -68,6 +87,15 @@ describe('buildUrl', () => {
     })).toBe('/coordinacion/visitas?dia=2026-08-22')
   })
 
+  /* La coma es el separador que el spec promete para los filtros multi-valor y `URLSearchParams`
+     la porcentúa: `?estado=pendiente%2Cen-curso` no se dicta por teléfono, que es justamente lo que
+     se buscaba al omitir los defaults. */
+  it('la coma de los multi-valor queda literal, no %2C', () => {
+    expect(buildUrl({
+      moduleKey: 'track', subKey: 'visitas', path: [], query: { estado: 'pendiente,en-curso' },
+    })).toBe('/coordinacion/visitas?estado=pendiente,en-curso')
+  })
+
   it('ida y vuelta sobre las rutas del spec', () => {
     const rutas = [
       '/',
@@ -84,6 +112,12 @@ describe('buildUrl', () => {
       '/farmacia/dispensaciones',
       '/farmacia/dispensaciones/D-0417',
       '/farmacia/estadisticas',
+      // Con query: son la mitad de los ejemplos del §4.2 y faltaban. El primero es el que agarra la
+      // coma porcentuada.
+      '/coordinacion/visitas?dia=2026-08-22&estado=pendiente,en-curso',
+      '/farmacia/stock?apartado=protocolo&estado=pronto',
+      // Paciente sin IVRS: identificador corto con el prefijo `p-`.
+      '/coordinacion/pacientes/EFC18244/p-8f3a2c1d',
     ]
     for (const ruta of rutas) {
       const [pathname, search] = ruta.split('?')
@@ -94,7 +128,26 @@ describe('buildUrl', () => {
   })
 })
 
-import { codecs, listOf, oneOf, readParam, resolveShortId, shortId, writeParam } from './router'
+describe('parseHref · corta el href por el PRIMER ?', () => {
+  it('un href sin query', () => {
+    expect(parseHref('/coordinacion/pacientes')).toMatchObject({ moduleKey: 'track', query: {} })
+  })
+
+  it('un href con query', () => {
+    expect(parseHref('/coordinacion/visitas?dia=2026-08-22')).toMatchObject({
+      subKey: 'visitas', query: { dia: '2026-08-22' },
+    })
+  })
+
+  /* Con `split('?')` este caso perdía TODO lo que venía después del segundo `?`: el día se leía y el
+     estado desaparecía sin ruido. Un `?` sin encodear en un valor no es exótico — sale de un texto
+     libre pegado en la barra. */
+  it('un ? sin encodear adentro de un valor no trunca el resto del query', () => {
+    expect(parseHref('/coordinacion/visitas?buscar=por?que&dia=2026-08-22')).toMatchObject({
+      query: { buscar: 'por?que', dia: '2026-08-22' },
+    })
+  })
+})
 
 describe('codecs', () => {
   it('lista: coma como separador, sin vacíos', () => {
@@ -164,6 +217,16 @@ describe('writeParam · lo que está en su default no se escribe', () => {
   it('una lista vacía es el default y no se escribe', () => {
     expect(writeParam({ estado: 'activo' }, 'estado', [], [], codecs.list)).toEqual({})
   })
+
+  /* El `query` que recibe sale del objeto MEMOIZADO de `useUrlLocation`, compartido por todas las
+     vistas montadas: mutarlo en vez de copiarlo corrompería el estado de las otras en silencio, y el
+     síntoma aparecería lejos de acá. */
+  it('no muta el query que recibe', () => {
+    const entrada = { dia: '2026-08-22' }
+    writeParam(entrada, 'estado', 'pendiente', '', codecs.str)
+    writeParam(entrada, 'dia', '2026-08-23', '2026-08-23', codecs.str)
+    expect(entrada).toEqual({ dia: '2026-08-22' })
+  })
 })
 
 describe('identificadores cortos', () => {
@@ -185,5 +248,22 @@ describe('identificadores cortos', () => {
 
   it('sin coincidencias devuelve null', () => {
     expect(resolveShortId(filas, 'ffffffff')).toBeNull()
+  })
+
+  /* Los tres que siguen cubren el agujero del token corto. `startsWith('')` es true para TODAS las
+     filas, así que sin el largo mínimo un segmento vacío —el que deja un `p-` pelado en la barra—
+     devolvía la única fila cargada como si fuera un match legítimo. */
+  it('un token vacío no resuelve, ni siquiera con una sola fila cargada', () => {
+    expect(resolveShortId(filas, '')).toBeNull()
+    expect(resolveShortId([filas[0]], '')).toBeNull()
+  })
+
+  it('un token más corto que el identificador no resuelve', () => {
+    expect(resolveShortId(filas, '8f3a')).toBeNull()
+  })
+
+  it('resuelve por PREFIJO, no por subcadena', () => {
+    const enElMedio = [{ id: 'aaaaaaaa-0000-4000-8000-8f3a2c1d0000' }]
+    expect(resolveShortId(enElMedio, '8f3a2c1d')).toBeNull()
   })
 })

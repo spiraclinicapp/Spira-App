@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import type { Codec, UrlState } from './router'
-import { buildUrl, codecs, parseUrl, readParam, writeParam } from './router'
+import { buildUrl, codecs, parseHref, readParam, writeParam } from './router'
 
 /**
  * La cáscara React de la capa de ruteo. **No lleva lógica propia**: todo lo que decide algo vive en
@@ -41,16 +41,13 @@ export function useUrlSnapshot(): string {
 /**
  * El estado de navegación actual. `null` = la ruta no existe (el shell muestra la pantalla serena).
  *
- * Memoizado contra la URL cruda: `parseUrl` devuelve un OBJETO NUEVO en cada llamada, así que sin
+ * Memoizado contra la URL cruda: `parseHref` devuelve un OBJETO NUEVO en cada llamada, así que sin
  * esto la identidad cambiaría en cada render y toda vista que lo ponga en las deps de un efecto se
  * re-ejecutaría siempre. Con la URL quieta, la referencia queda quieta.
  */
 export function useUrlLocation(): UrlState | null {
   const crudo = useUrlSnapshot()
-  return useMemo(() => {
-    const [pathname, search] = crudo.split('?')
-    return parseUrl(pathname, search ? `?${search}` : '')
-  }, [crudo])
+  return useMemo(() => parseHref(crudo), [crudo])
 }
 
 /** Apila una entrada de historial: el "atrás" del navegador vuelve a la anterior. */
@@ -72,7 +69,23 @@ export function replaceUrl(state: UrlState): void {
  * `mode` decide si el cambio apila historial. Por default REEMPLAZA: los filtros, la búsqueda y el
  * día no son navegación, y si apilaran, salir de Visitas del día después de un rato trabajando serían
  * quince "atrás". Se pasa 'push' para lo que sí es navegación (la entidad abierta).
+ *
+ * DOS SOBRECARGAS y no una firma con `codec?`: la implementación castea a `Codec<T>` el codec de
+ * string que usa por default, así que sin esto un `useUrlState<Preset>('periodo', '30dias')` —al que
+ * se le olvidó el codec— compilaba, y `?periodo=inventado` entraba tipado como `Preset` sin pasar por
+ * ninguna validación. El string es el único tipo que puede ir sin codec, porque para él ese default
+ * ES el codec correcto; cualquier otro lo exige.
  */
+export function useUrlState(
+  key: string,
+  def: string,
+  opts?: { mode?: 'push' | 'replace' },
+): [string, (valor: string) => void]
+export function useUrlState<T>(
+  key: string,
+  def: T,
+  opts: { codec: Codec<T>; mode?: 'push' | 'replace' },
+): [T, (valor: T) => void]
 export function useUrlState<T>(
   key: string,
   def: T,
@@ -88,15 +101,13 @@ export function useUrlState<T>(
      `setState` adentro entra en loop. `def` y `codec` quedan fuera de las deps por lo mismo que en
      `setValor`: son literales del render. */
   const valor = useMemo(() => {
-    const [pathname, search] = crudo.split('?')
-    const estado = parseUrl(pathname, search ? `?${search}` : '')
+    const estado = parseHref(crudo)
     return estado ? readParam(estado.query, key, def, codec) : def
   }, [crudo, key])
 
   const setValor = useCallback(
     (nuevo: T) => {
-      const [p, s] = (window.location.pathname + window.location.search).split('?')
-      const actual = parseUrl(p, s ? `?${s}` : '')
+      const actual = parseHref(window.location.pathname + window.location.search)
       if (!actual) return
       const siguiente: UrlState = { ...actual, query: writeParam(actual.query, key, nuevo, def, codec) }
       if (mode === 'push') pushUrl(siguiente)
@@ -110,4 +121,41 @@ export function useUrlState<T>(
   )
 
   return [valor, setValor]
+}
+
+/**
+ * La entidad abierta en la vista (una visita, un cajón): un id o nada.
+ *
+ * Existe porque `parse` usa `null` como centinela de "valor inválido", así que `null` no puede ser
+ * además un valor legítimo y la ausencia se representa con `''`. Sin este helper, cada vista que abre
+ * algo repite el mismo adaptador entre `''` y `null` y se hace la misma pregunta ("¿me acordé del
+ * `|| null`?"). Acá vive también la decisión de que abrir una entidad APILA historial: el atrás del
+ * navegador la cierra, que es lo que el usuario espera del gesto.
+ */
+export function useUrlEntity(key: string): [string | null, (id: string | null) => void] {
+  const [valor, setValor] = useUrlState(key, '', { mode: 'push' })
+  return [valor || null, (id) => setValor(id ?? '')]
+}
+
+/**
+ * Los segmentos propios de la vista (el protocolo y el paciente, el código de la dispensación).
+ *
+ * Por default el cambio de path **descarta el query**, que es la misma regla que aplica el shell al
+ * navegar: los filtros y la entidad abierta describen la pantalla de la que te vas, no la que abrís
+ * —un `?visita=` arrastrado a otra ficha abriría la visita de otro paciente, porque el detalle trae
+ * sus datos por id—. La vista que quiera conservarlos lo pide explícito. Volver con el atrás del
+ * navegador los recupera igual, porque quedaron en la entrada anterior del historial.
+ */
+export function useUrlPath(): [string[], (path: string[], opts?: { conservarQuery?: boolean }) => void] {
+  const ubicacion = useUrlLocation()
+  const path = useMemo(() => ubicacion?.path ?? [], [ubicacion])
+  const setPath = useCallback((siguiente: string[], opts: { conservarQuery?: boolean } = {}) => {
+    /* Se relee la URL del momento en vez de cerrar sobre `ubicacion`: el setter suele viajar en las
+       deps de un efecto y tiene que escribir sobre el estado de AHORA, no sobre el del render en que
+       se creó. */
+    const actual = parseHref(window.location.pathname + window.location.search)
+    if (!actual) return
+    pushUrl({ ...actual, path: siguiente, query: opts.conservarQuery ? actual.query : {} })
+  }, [])
+  return [path, setPath]
 }
