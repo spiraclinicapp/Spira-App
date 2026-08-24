@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react'
+import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react'
 import type { Codec, UrlState } from './router'
 import { buildUrl, codecs, parseHref, readParam, writeParam } from './router'
 
@@ -103,15 +103,32 @@ export function useUrlState<T>(
   /* Memoizado por el mismo motivo que `useUrlLocation`, y acá pesa más: los codecs de lista
      (`codecs.list`, `listOf`) devuelven un ARRAY NUEVO en cada parseo. Sin memo, un filtro multi
      cambia de identidad en cada render, y una vista que lo ponga en las deps de un `useEffect` con
-     `setState` adentro entra en loop. `def` y `codec` quedan fuera de las deps por lo mismo que en
-     `setValor`: son literales del render. */
+     `setState` adentro entra en loop. `def` y `codec` quedan fuera de las deps: son literales del
+     render (`''`, `[]`, `codecs.list`) y meterlos acá volvería a calcular `valor` en CADA render,
+     deshaciendo el memo. Es seguro igual: acá arriba no se necesita el truco de ref que sí hace
+     falta en `setValor` (más abajo), porque en esta app un `def` que cambia entre renders SIEMPRE lo
+     hace por otro parámetro de la URL (el preset de Estadísticas, p. ej.), y ese cambio ya mueve
+     `crudo` — así que este `useMemo` recalcula de todos modos y ve el `def` vigente. */
   const valor = useMemo(() => {
     const estado = parseHref(crudo)
     return estado ? readParam(estado.query, key, def, codec) : def
   }, [crudo, key])
 
+  /* El setter (abajo) necesita el `def`/`codec` VIGENTES al momento de escribir, no los del render en
+     que se creó — y a diferencia de `valor`, acá no hay ningún `crudo` que lo salve: el `useCallback`
+     de más abajo tiene que quedar ESTABLE (varias vistas ponen el setter en las deps de un efecto), así
+     que `def`/`codec` no pueden ir en sus deps. La salida es un ref actualizado en cada render: el
+     setter sigue siendo la misma función siempre, pero lee estos valores frescos en vez de los que
+     cerró la primera vez. Sin esto, leer y escribir podían usar defaults DISTINTOS — no se notaba
+     porque hasta ahora todos los `def` de la app son literales estructuralmente iguales entre renders,
+     pero la Fase E lo rompe: Estadísticas deriva `desde`/`hasta` de un default que cambia con el preset
+     elegido, y el setter viejo seguía escribiendo contra el preset con el que se había montado. */
+  const defCodecRef = useRef({ def, codec })
+  defCodecRef.current = { def, codec }
+
   const setValor = useCallback(
     (nuevo: T | ((prev: T) => T)) => {
+      const { def, codec } = defCodecRef.current
       const actual = parseHref(window.location.pathname + window.location.search)
       if (!actual) return
       /* Aceptamos el updater de `useState` (`setX(v => !v)`) y no sólo el valor: la firma promete ser
@@ -127,10 +144,6 @@ export function useUrlState<T>(
       if (mode === 'push') pushUrl(siguiente)
       else replaceUrl(siguiente)
     },
-    /* `def` y `codec` quedan FUERA de las deps a propósito: son literales del render (`''`, `[]`,
-       `codecs.list`), así que su identidad cambia en cada render y meterlos acá recrearía el setter
-       cada vez — y varias vistas lo pasan en el array de dependencias de sus efectos. Lo que el
-       setter lee de ellos se resuelve en el momento de escribir, no cuando se creó. */
     [key, mode],
   )
 
@@ -157,8 +170,23 @@ export function useUrlState<T>(
  * ABRE o se CIERRA, no se transforma a partir de sí misma —no hay un `setEntidad(prev => ...)` con
  * sentido, porque abrir siempre necesita el id de afuera (el que se clickeó) y cerrar siempre es
  * `null`—. Si algún día aparece un caso que sí necesite leer el valor previo, se agrega ahí.
+ *
+ * Devuelve TRES elementos, no dos: el segundo (`abrir`) es para cuando el usuario ABRE algo con una
+ * acción —apila, el atrás cierra, es la navegación de verdad—. El tercero (`moverA`) también escribe
+ * un id pero en REPLACE, para los casos que no son "entrar" a la pantalla: moverse de una entidad a
+ * otra sin salir de donde estás (el stepper ↑↓ de Visitas del día — recorrer quince visitas con el
+ * segundo setter apilaba QUINCE entradas, y el atrás no sacaba de la pantalla, reabría la visita 14,
+ * después la 13…) y resolver un `navTarget` que el shell YA apiló al traerte hasta acá (abrir ahí con
+ * el segundo setter apila una SEGUNDA entrada y el atrás queda a mitad de camino — el mismo problema
+ * que la Fase C ya había resuelto para `useUrlPath` con su `mode: 'replace'`, y que acá faltaba
+ * resolver igual). `moverA` reusa `cerrar` tal cual —es el mismo `useUrlState` en modo replace sobre
+ * esta clave— porque escribir un id con él hace exactamente lo mismo que abrir, solo que sin apilar.
  */
-export function useUrlEntity(key: string): [string | null, (id: string | null) => void] {
+export function useUrlEntity(key: string): [
+  string | null,
+  (id: string | null) => void,
+  (id: string | null) => void,
+] {
   const [valor, abrir] = useUrlState(key, '', { mode: 'push' })
   const [, cerrar] = useUrlState(key, '', { mode: 'replace' })
   /* `useCallback` y no una flecha inline: `setValor` (el de `useUrlState`) ya está memoizado —según
@@ -166,7 +194,8 @@ export function useUrlEntity(key: string): [string | null, (id: string | null) =
      Sin esto, `useUrlPath` (abajo) conservaba esa propiedad y `useUrlEntity` la perdía sin avisar: de
      los dos helpers, uno quedaba estable y el otro no. */
   const setEntidad = useCallback((id: string | null) => (id === null ? cerrar('') : abrir(id)), [abrir, cerrar])
-  return [valor || null, setEntidad]
+  const moverA = useCallback((id: string | null) => cerrar(id ?? ''), [cerrar])
+  return [valor || null, setEntidad, moverA]
 }
 
 /**

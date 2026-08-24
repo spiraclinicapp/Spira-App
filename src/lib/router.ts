@@ -46,7 +46,11 @@ const SUB_KEY: Record<string, string> = invertir(SUB_SLUG)
 
 /* Submódulos que llevan segmentos propios después del submódulo: Pacientes (el protocolo y la ficha)
    y Dispensaciones (el código del cajón). Para todos los demás, cualquier cosa que venga después es
-   una ruta que no existe — el §8 del spec pide avisarlo, no ignorarlo en silencio. */
+   una ruta que no existe — el §8 del spec pide avisarlo, no ignorarlo en silencio.
+   OJO al agregar un submódulo nuevo con segmentos propios: olvidarse de sumarlo acá NO falla al
+   CONSTRUIR la URL (`buildUrl` la arma igual, con el path adentro) — falla al ABRIRLA. `parseUrl`
+   la rechaza más abajo (`resto.length > 0 && !SUB_CON_PATH.has(subKey)`) y sale la pantalla de "esa
+   dirección no existe". Si un link nuevo no abre, este `Set` es el primer lugar para mirar. */
 const SUB_CON_PATH = new Set(['protocolos', 'dispensaciones'])
 
 function invertir(mapa: Record<string, string>): Record<string, string> {
@@ -190,8 +194,15 @@ export const codecs = {
 
   /* Multi-valor separado por coma: ?estado=pendiente,en-curso */
   list: {
-    parse: (raw: string) => raw.split(',').filter(Boolean),
-    format: (v: string[]) => v.join(','),
+    /* Se escapa la coma DENTRO de cada elemento porque hay filtros sobre texto libre (el médico
+       tratante se carga con autocompletado, no de un catálogo): sin esto, "Pérez, Juan" vuelve del
+       parseo partido en dos y el filtro deja de encontrar nada — con la pantalla afirmando que
+       ninguna visita coincide, que es peor que un error.
+       El escape sobrevive el viaje: `URLSearchParams` convierte este `%2C` en `%252C`, así que el
+       `replace(/%2C/g, ',')` de `buildUrl` —que existe para que el SEPARADOR se dicte como coma— no
+       lo toca, y al leer se decodifica de vuelta a `%2C` para que este `parse` lo desescape. */
+    parse: (raw: string) => raw.split(',').filter(Boolean).map((v) => v.replace(/%2C/g, ',')),
+    format: (v: string[]) => v.map((x) => x.replace(/,/g, '%2C')).join(','),
   } as Codec<string[]>,
 
   num: {
@@ -220,6 +231,9 @@ export function oneOf<T extends string>(valores: readonly T[]): Codec<T> {
  * Existe para que los filtros multi-selección (estados, tipos) no tengan que castear `codecs.list`
  * al tipo del enum — un cast así compila pero deja pasar `?estado=inventado` como si fuera un valor
  * legítimo, tipado y todo, sin caer al default. Acá el valor inválido simplemente no entra.
+ *
+ * Sin el escape de coma que sí tiene `codecs.list`: los valores son de un enum CERRADO (`valores`),
+ * nunca texto libre cargado por alguien, así que ningún elemento puede traer una coma adentro.
  */
 export function listOf<T extends string>(valores: readonly T[]): Codec<T[]> {
   return {

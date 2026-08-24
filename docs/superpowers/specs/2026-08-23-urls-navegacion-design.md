@@ -124,7 +124,7 @@ Relevado uno por uno contra el `useState` de cada archivo. Todo lo que no figura
 | | `buscar` | `q` | vacío |
 | | `estado` | `fEstado[]` | vacío |
 | | `protocolo` | `fProto[]` | vacío |
-| | `medicacion` | `fMed[]` | vacío |
+| | `medico` | `fMed[]` (filtra por `treating_physician`, texto libre) | vacío |
 | | `coordinadora` | `fCoord[]` | vacío |
 | | `agrupar` | `group` (`operativo`/`estado`/`protocolo`/`medico`/`coordinador`/`ninguno`) | `operativo` |
 | | `visita` | `openVisit` | `null` |
@@ -176,10 +176,10 @@ Los multi-valor van separados por coma: `?estado=pendiente,en-curso`.
    una al azar — en una ficha clínica eso sería mostrarte el paciente equivocado.
 5. **La visita abierta (`?visita=`) va con el UUID completo**, no con el corto. Un identificador corto
    hay que resolverlo contra las filas cargadas, y la visita puede perfectamente no estar entre ellas:
-   [`TrackAlertsView.tsx:84`](../../../src/views/TrackAlertsView.tsx) lo dice explícitamente — `VisitDetail`
-   trae sus propios datos por id, y por eso **una alerta se puede abrir aunque los filtros de la vista
-   la dejen fuera**. Acortar el id rompería esa propiedad para ganar veinte caracteres de barra en un
-   modal. No vale el cambio.
+   el comentario de `useUrlEntity` en [`TrackAlertsView.tsx`](../../../src/views/TrackAlertsView.tsx)
+   lo dice explícitamente — `VisitDetail` trae sus propios datos por id, y por eso **una alerta se
+   puede abrir aunque los filtros de la vista la dejen fuera**. Acortar el id rompería esa propiedad
+   para ganar veinte caracteres de barra en un modal. No vale el cambio.
 6. **Push vs replace**, según la tabla del §3. La distinción vive en el hook, no en cada vista: el tercer
    argumento de `useUrlState` la declara una vez por campo.
 7. **Los valores viajan en minúscula y sin tildes.** Los enums de la base ya vienen así

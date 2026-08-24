@@ -84,22 +84,26 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const [protocolFilter, setProtocolFilter] = useUrlState('protocolo', 'all')
   const [ageDays, setAgeDays] = useUrlState('antiguedad', 0, { codec: codecs.num })
   /* Solo el id: `VisitDetail` trae sus propios datos por id (`useVisit`), así que no hace falta
-     encontrar la fila ni esperar a que carguen las alertas. Por eso una alerta se puede abrir
-     aunque los filtros de la vista la dejen fuera. */
-  /* Push al abrir, replace al cerrar (lo trae `useUrlEntity`). UUID completo, y acá se ve por qué:
-     el comentario de arriba —el que explica que `VisitDetail` trae sus propios datos por id— dice que
-     POR ESO una alerta se puede abrir aunque los filtros la dejen fuera. Acortar el id obligaría a
-     resolverlo contra las filas visibles y mataría esa propiedad. */
-  const [openVisitId, setOpenVisitId] = useUrlEntity('visita')
+     encontrar la fila ni esperar a que carguen las alertas — por eso una alerta se puede abrir aunque
+     los filtros de la vista la dejen fuera. Y por lo mismo va el UUID COMPLETO, no el corto: acortarlo
+     obligaría a resolverlo contra las filas visibles y mataría justo esa propiedad.
+     `useUrlEntity` ya trae resuelto push al abrir / replace al cerrar en `setOpenVisitId`; el tercer
+     elemento (`moveOpenVisitId`, usado más abajo) también reemplaza pero es para ABRIR sin apilar —
+     lo usa el efecto de `navTarget`, porque el shell YA apiló su propia entrada al traer hasta acá. */
+  const [openVisitId, setOpenVisitId, moveOpenVisitId] = useUrlEntity('visita')
   const [dismissing, setDismissing] = useState<Dismissing | null>(null)
   const [showDismissed, setShowDismissed] = useUrlState('descartadas', false, { codec: codecs.bool })
   const [actionError, setActionError] = useState<string | null>(null)
 
   /* Llegada CON objetivo (desde "Lo prioritario" en Inicio): abrir esa alerta apenas montamos.
-     Se consume una sola vez para que un refetch no la reabra sola. */
+     Va con `moveOpenVisitId` (replace) y no `setOpenVisitId` (push): el shell YA apiló su propia
+     entrada al traernos hasta acá, así que apilar una segunda dejaría el "atrás" a mitad de camino
+     —de vuelta a la lista de alertas en vez de a Inicio—, mismo criterio que `useUrlPath` con
+     `resolviendoTarget` en ProtocolsView. Se consume una sola vez para que un refetch no la reabra
+     sola. */
   useEffect(() => {
     if (!navTarget?.visitId) return
-    setOpenVisitId(navTarget.visitId)
+    moveOpenVisitId(navTarget.visitId)
     onTargetConsumed?.()
   }, [navTarget, onTargetConsumed])
 

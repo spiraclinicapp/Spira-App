@@ -207,6 +207,27 @@ describe('codecs', () => {
   })
 })
 
+describe('codecs.list · escapa la coma DENTRO de un elemento (texto libre, no un enum)', () => {
+  /* `treating_physician` (el filtro "Médico" de Visitas del día) es texto libre cargado con
+     autocompletado, no un catálogo cerrado: un médico guardado como "Pérez, Juan" tiene que
+     sobrevivir el viaje completo por la URL sin partirse en dos elementos — si se parte, el filtro
+     deja de encontrar coincidencias y la pantalla dice "ninguna visita coincide", que es peor que
+     un error (fallo en SILENCIO, con una afirmación falsa en una app auditable). */
+  it('un elemento con coma sobrevive la ida y vuelta del codec', () => {
+    expect(codecs.list.parse(codecs.list.format(['Pérez, Juan']))).toEqual(['Pérez, Juan'])
+  })
+
+  it('sobrevive el viaje completo por buildUrl → parseUrl, mezclado con el separador real', () => {
+    const estado = {
+      moduleKey: 'track', subKey: 'visitas', path: [],
+      query: { medico: codecs.list.format(['Pérez, Juan', 'García']) },
+    }
+    const url = buildUrl(estado)
+    const vuelta = parseHref(url)
+    expect(readParam(vuelta!.query, 'medico', [], codecs.list)).toEqual(['Pérez, Juan', 'García'])
+  })
+})
+
 describe('codecs · el format tiene que ser re-parseable por su propio parse', () => {
   /* POR QUÉ ESTE TEST: si un `format` emite algo que su propio `parse` no acepta, no se rompe nada a
      la vista — el filtro simplemente no sobrevive al recargar. Y si `oneOf.format` devolviera algo

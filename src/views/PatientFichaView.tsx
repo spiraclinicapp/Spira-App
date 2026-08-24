@@ -63,7 +63,8 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   /* La visita abierta va con push —abrirla es navegar y el atrás tiene que cerrarla—, y con el UUID
      COMPLETO, no corto: `VisitDetail` trae sus propios datos por id, así que puede abrir una visita
      que NO esté entre las filas cargadas. Un identificador corto habría que resolverlo contra esas
-     filas y rompería justamente eso (ver el comentario de TrackAlertsView.tsx:84). */
+     filas y rompería justamente eso (ver el comentario de `useUrlEntity` en TrackAlertsView.tsx, el
+     que explica por qué usa el id completo). */
   const [openVisitId, setOpenVisitId] = useUrlEntity('visita')
 
   /* Enrolamiento del protocolo en contexto: de ahí salen el médico y la fecha de
