@@ -9,6 +9,8 @@ import { MultiFilterMenu } from '../../components/MultiFilterMenu'
 import type { MultiFilterOption } from '../../components/MultiFilterMenu'
 import { btnOutline } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
+import { codecs, oneOf } from '../../lib/router'
+import { useUrlState } from '../../lib/useUrlState'
 import { useProtocols } from '../../data/protocols'
 import {
   useProtocolLots,
@@ -71,10 +73,16 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   const { hasMinRole } = useAuth()
   const canManage = hasMinRole('pharma', 'leader')
 
-  const [apartado, setApartado] = useState<Apartado>('menu')
-  const [filtro, setFiltro] = useState<EstadoFilter>('todos')
-  const [busqueda, setBusqueda] = useState('')
-  const [protoSel, setProtoSel] = useState<string[]>([])
+  /* El apartado va con PUSH: moverse entre el menú y un apartado es navegar dentro de Stock, y el
+     atrás tiene que volver al menú. Los filtros van con replace, como en el resto de la app. */
+  const [apartado, setApartado] = useUrlState<Apartado>('apartado', 'menu', {
+    codec: oneOf(['menu', 'protocolo', 'ambulatoria', 'catalogo'] as const), mode: 'push',
+  })
+  const [filtro, setFiltro] = useUrlState<EstadoFilter>('estado', 'todos', {
+    codec: oneOf(['todos', 'vigentes', 'pronto', 'vencido'] as const),
+  })
+  const [busqueda, setBusqueda] = useUrlState('buscar', '')
+  const [protoSel, setProtoSel] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
   const [dropdownId, setDropdownId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<MedicationRow | null>(null)
