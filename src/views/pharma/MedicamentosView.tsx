@@ -9,7 +9,7 @@ import { MultiFilterMenu } from '../../components/MultiFilterMenu'
 import type { MultiFilterOption } from '../../components/MultiFilterMenu'
 import { btnOutline } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
-import { codecs, oneOf } from '../../lib/router'
+import { codecs, oneOf, resolveCode } from '../../lib/router'
 import { useUrlState } from '../../lib/useUrlState'
 import { useProtocols } from '../../data/protocols'
 import {
@@ -96,7 +96,9 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     codec: oneOf(['todos', 'vigentes', 'pronto', 'vencido'] as const),
   })
   const [busqueda, setBusqueda] = useUrlState('buscar', '')
-  const [protoSel, setProtoSel] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
+  /* La URL habla CÓDIGOS (dictables); la lógica interna sigue con ids. La traducción vive sólo en
+     este borde, así el filtrado, los menús y las queries no se enteran. */
+  const [protoCodes, setProtoCodes] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
   const [dropdownId, setDropdownId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<MedicationRow | null>(null)
@@ -106,6 +108,12 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   const [ajuste, setAjuste] = useState<{ lotId: string; name: string; lotLabel: string } | null>(null)
 
   const protocols = useProtocols()
+  const protoSel = useMemo(
+    () => protoCodes.map((c) => resolveCode(protocols.data ?? [], c, (p) => p.code)?.id).filter((id): id is string => !!id),
+    [protoCodes, protocols.data],
+  )
+  const setProtoSel = (ids: string[]) =>
+    setProtoCodes(ids.map((id) => (protocols.data ?? []).find((p) => p.id === id)?.code).filter((c): c is string => !!c))
   const protoLots = useProtocolLots()
   const ambuLots = useAmbulatoriaLots()
   const ipAll = useIpStockAll()
@@ -127,7 +135,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     return () => document.removeEventListener('keydown', onKey)
   }, [dropdownId])
 
-  const goMenu = useCallback(() => { volverAlMenu('menu'); setBusqueda(''); setFiltro('todos'); setProtoSel([]); setDropdownId(null) }, [volverAlMenu])
+  const goMenu = useCallback(() => { volverAlMenu('menu'); setBusqueda(''); setFiltro('todos'); setProtoCodes([]); setDropdownId(null) }, [volverAlMenu])
   const refetchAll = () => { protoLots.refetch(); ambuLots.refetch(); catalog.refetch(); codes.refetch() }
 
   // Encabezado contextual: el shell ya pone breadcrumb + título ("Stock") + botón de acción.

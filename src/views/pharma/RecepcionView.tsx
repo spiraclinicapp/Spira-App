@@ -9,7 +9,7 @@ import { MultiFilterMenu } from '../../components/MultiFilterMenu'
 import type { MultiFilterOption } from '../../components/MultiFilterMenu'
 import { DateRangeField } from '../../components/DateRangeField'
 import { useAuth } from '../../lib/auth'
-import { codecs, listOf } from '../../lib/router'
+import { codecs, listOf, resolveCode } from '../../lib/router'
 import { useUrlState } from '../../lib/useUrlState'
 import { addDaysISO, groupByDay, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
@@ -59,7 +59,15 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     codec: listOf(['protocolo', 'investigacion', 'ambulatoria'] as const),
   })
   const [fMeds, setFMeds] = useUrlState<string[]>('medicamento', [], { codec: codecs.list })
-  const [fProtoSel, setFProtoSel] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
+  /* La URL habla CÓDIGOS (dictables); la lógica interna sigue con ids. La traducción vive sólo en
+     este borde, así el filtrado, los menús y las queries no se enteran. */
+  const [fProtoCodes, setFProtoCodes] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
+  const fProtoSel = useMemo(
+    () => fProtoCodes.map((c) => resolveCode(protocols.data ?? [], c, (p) => p.code)?.id).filter((id): id is string => !!id),
+    [fProtoCodes, protocols.data],
+  )
+  const setFProtoSel = (ids: string[]) =>
+    setFProtoCodes(ids.map((id) => (protocols.data ?? []).find((p) => p.id === id)?.code).filter((c): c is string => !!c))
   const [q, setQ] = useUrlState('buscar', '')
   /** Rango de fechas; ambos vacíos = sin filtro (la lista arranca mostrando todo). */
   const [desde, setDesde] = useUrlState('desde', '')
@@ -79,7 +87,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
 
   // Definido acá arriba (no después del return temprano del wizard): onCreated lo captura.
   const limpiarFiltros = () => {
-    setFEstados([]); setFTipos([]); setFMeds([]); setFProtoSel([]); setDesde(''); setHasta('')
+    setFEstados([]); setFTipos([]); setFMeds([]); setFProtoCodes([]); setDesde(''); setHasta('')
   }
 
   const [creating, setCreating] = useState(false)
