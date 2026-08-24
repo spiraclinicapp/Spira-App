@@ -14,6 +14,8 @@ import {
 import type { AlertKind } from '../data/alertDismissals'
 import { visitTitle } from '../lib/visits'
 import { formatAR, todayISO, daysDiffISO, fromNow } from '../lib/dates'
+import { codecs } from '../lib/router'
+import { useUrlEntity, useUrlState } from '../lib/useUrlState'
 import { VISIT_STATES } from './visitStates'
 import { VisitDetail } from './track/VisitDetail'
 import type { ViewProps } from './types'
@@ -79,14 +81,18 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const accent = module.accent
   const alertsQ = useActiveAlerts()
   const protocols = useProtocols()
-  const [protocolFilter, setProtocolFilter] = useState<string>('all')
-  const [ageDays, setAgeDays] = useState<number>(0)
+  const [protocolFilter, setProtocolFilter] = useUrlState('protocolo', 'all')
+  const [ageDays, setAgeDays] = useUrlState('antiguedad', 0, { codec: codecs.num })
   /* Solo el id: `VisitDetail` trae sus propios datos por id (`useVisit`), así que no hace falta
      encontrar la fila ni esperar a que carguen las alertas. Por eso una alerta se puede abrir
      aunque los filtros de la vista la dejen fuera. */
-  const [openVisitId, setOpenVisitId] = useState<string | null>(null)
+  /* Push al abrir, replace al cerrar (lo trae `useUrlEntity`). UUID completo, y acá se ve por qué:
+     el comentario de la línea 84 dice que VisitDetail trae sus datos por id y que POR ESO una alerta
+     se puede abrir aunque los filtros la dejen fuera. Acortar el id obligaría a resolverlo contra las
+     filas visibles y mataría esa propiedad. */
+  const [openVisitId, setOpenVisitId] = useUrlEntity('visita')
   const [dismissing, setDismissing] = useState<Dismissing | null>(null)
-  const [showDismissed, setShowDismissed] = useState(false)
+  const [showDismissed, setShowDismissed] = useUrlState('descartadas', false, { codec: codecs.bool })
   const [actionError, setActionError] = useState<string | null>(null)
 
   /* Llegada CON objetivo (desde "Lo prioritario" en Inicio): abrir esa alerta apenas montamos.
@@ -190,7 +196,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           {allRows.length + procRows.length === 1 ? 'alerta' : 'alertas'}
         </span>
         {dismissals.length > 0 && (
-          <button type="button" style={linkBtn} onClick={() => setShowDismissed((v) => !v)}>
+          <button type="button" style={linkBtn} onClick={() => setShowDismissed(!showDismissed)}>
             {showDismissed ? 'Ocultar descartadas' : `Ver descartadas (${dismissals.length})`}
           </button>
         )}
