@@ -214,23 +214,28 @@ export function AppShell() {
     return () => { document.title = 'Spira' }
   }, [moduleKey, sub.name, rutaInvalida, sinAcceso])
 
-  if (rutaInvalida || sinAcceso) {
-    /* Entre los dos casos de "sin acceso" el mensaje se elige por el flag `proximamente` del módulo
-       PEDIDO (Lab, Contable): para esos nadie puede "darte acceso" porque todavía no existe la
-       sección, así que el consejo de 'acceso' ("pedíselo a quien coordina tu módulo") sería un
-       trámite imposible. Se mira `MODULES` y no `mod` (arriba, que ya cae a `MODULES[0]` si la key
-       no matchea) porque acá necesitamos el módulo REQUERIDO, exista o no. */
-    const motivo: 'ruta' | 'acceso' | 'proximamente' = rutaInvalida
-      ? 'ruta'
-      : MODULES.find((m) => m.key === moduleKey)?.proximamente
-        ? 'proximamente'
-        : 'acceso'
+  /* "Ruta inválida" sigue reemplazando la pantalla ENTERA: acá no hay ningún módulo del cual
+     dibujar un marco (mod/sub, arriba, son el fallback a Inicio) — un riel + panel armados con
+     ese fallback mentirían sobre dónde estás. "Sin acceso" en cambio SÍ tiene un módulo real (el
+     pedido en la URL) y se dibuja DENTRO del marco normal más abajo, no acá: dejar a un usuario
+     logueado sin ninguna navegación es duro, y top bar + riel de módulos son navegación legítima
+     para volver a otro lado. */
+  if (rutaInvalida) {
     return (
       <div style={{ height: '100%', background: 'var(--spira-paper)', color: 'var(--spira-ink)' }}>
-        <NotFoundView motivo={motivo} />
+        <NotFoundView motivo="ruta" />
       </div>
     )
   }
+
+  /* Motivo del aviso "sin acceso" (se usa más abajo, dentro de <main>). Se mira `MODULES` y no
+     `mod` (arriba, que ya cae a `MODULES[0]` si la key no matchea) porque acá necesitamos el
+     módulo REQUERIDO — y como `rutaInvalida` ya cortó camino arriba, moduleKey siempre matchea
+     alguno real. Para los `proximamente` (Lab, Contable) nadie puede "darte acceso" porque
+     todavía no existe la sección, así que el consejo de 'acceso' sería un trámite imposible. */
+  const motivoSinAcceso: 'acceso' | 'proximamente' = MODULES.find((m) => m.key === moduleKey)?.proximamente
+    ? 'proximamente'
+    : 'acceso'
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--spira-paper)', color: 'var(--spira-ink)' }}>
@@ -372,8 +377,10 @@ export function AppShell() {
           </div>
         </aside>
 
-        {/* panel de submódulos — oculto en Inicio: su única vista es Resumen (la home) */}
-        {moduleKey !== 'inicio' && (
+        {/* panel de submódulos — oculto en Inicio (su única vista es Resumen, la home) y también
+            cuando `sinAcceso`: listar los submódulos de un módulo denegado revelaría justo lo que
+            el candado del riel oculta a propósito (para Lab/Contable, cuáles son sus secciones). */}
+        {moduleKey !== 'inicio' && !sinAcceso && (
         <aside
           className="spira-navcol"
           style={{
@@ -452,75 +459,88 @@ export function AppShell() {
 
         {/* contenido */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 26px 4px', flexWrap: 'wrap' }}>
-            {/* Pasaje de vuelta: lo dejó quien te mandó acá (ej. el nombre del paciente en el modal
-                de una visita). Va ANTES de la miga y no adentro, porque no es un nivel del camino
-                actual sino la salida del que veníais recorriendo. Desaparece solo, en cuanto
-                navegás a otra cosa por tu cuenta. */}
-            {returnTo && (
-              <button
-                type="button"
-                onClick={() => navigate(returnTo.moduleKey, returnTo.subKey, returnTo.target)}
-                title={returnTo.hint ?? returnTo.label}
-                style={backChip}
-              >
-                <Icon name="arrowLeft" size={13} color="var(--spira-muted)" />
-                {returnTo.label}
-              </button>
-            )}
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)', flexWrap: 'wrap' }}>
-                {mod.full}
-                <Icon name="chevronRight" size={13} color="var(--spira-faint)" />
-                {/* nombre del submódulo: clickeable si la vista registró rootOnClick (vuelve a su raíz) */}
-                <Crumb crumb={{ label: sub.name, onClick: viewHeader?.rootOnClick }} />
-                {(viewHeader?.crumbs ?? []).map((c, i) => (
-                  <Fragment key={i}>
-                    <Icon name="chevronRight" size={13} color="var(--spira-faint)" />
-                    <Crumb crumb={c} />
-                  </Fragment>
-                ))}
-              </div>
-              <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', marginTop: 1 }}>{sub.name}</div>
+          {sinAcceso ? (
+            /* Sin encabezado contextual (no hay pantalla que encabezar ni acción que ofrecer) y
+               sin montar ninguna vista (`resolveView`/`<View>` ni se llaman acá abajo): un módulo
+               denegado no puede disparar los hooks de datos de su vista. `flex:1` le da a
+               NotFoundView una altura definida para su `height:100%` interno, igual que cuando
+               reemplazaba la pantalla entera más arriba. */
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <NotFoundView motivo={motivoSinAcceso} />
             </div>
-            {viewHeader?.content ? (
-              <div style={{ marginLeft: 'auto', flex: '0 0 auto' }}>{viewHeader.content}</div>
-            ) : viewHeader?.actions && viewHeader.actions.length > 0 ? (
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                {viewHeader.actions.map((a) => (
-                  <button key={a.key} onClick={a.onClick} style={a.primary ? primaryActionBtn(mod.accentSolid) : ghostActionBtn}>
-                    <Icon name={a.icon} size={16} color={a.primary ? 'var(--spira-on-accent)' : 'var(--spira-ink)'} /> {a.label}
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 26px 4px', flexWrap: 'wrap' }}>
+                {/* Pasaje de vuelta: lo dejó quien te mandó acá (ej. el nombre del paciente en el modal
+                    de una visita). Va ANTES de la miga y no adentro, porque no es un nivel del camino
+                    actual sino la salida del que veníais recorriendo. Desaparece solo, en cuanto
+                    navegás a otra cosa por tu cuenta. */}
+                {returnTo && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(returnTo.moduleKey, returnTo.subKey, returnTo.target)}
+                    title={returnTo.hint ?? returnTo.label}
+                    style={backChip}
+                  >
+                    <Icon name="arrowLeft" size={13} color="var(--spira-muted)" />
+                    {returnTo.label}
                   </button>
-                ))}
+                )}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)', flexWrap: 'wrap' }}>
+                    {mod.full}
+                    <Icon name="chevronRight" size={13} color="var(--spira-faint)" />
+                    {/* nombre del submódulo: clickeable si la vista registró rootOnClick (vuelve a su raíz) */}
+                    <Crumb crumb={{ label: sub.name, onClick: viewHeader?.rootOnClick }} />
+                    {(viewHeader?.crumbs ?? []).map((c, i) => (
+                      <Fragment key={i}>
+                        <Icon name="chevronRight" size={13} color="var(--spira-faint)" />
+                        <Crumb crumb={c} />
+                      </Fragment>
+                    ))}
+                  </div>
+                  <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', marginTop: 1 }}>{sub.name}</div>
+                </div>
+                {viewHeader?.content ? (
+                  <div style={{ marginLeft: 'auto', flex: '0 0 auto' }}>{viewHeader.content}</div>
+                ) : viewHeader?.actions && viewHeader.actions.length > 0 ? (
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                    {viewHeader.actions.map((a) => (
+                      <button key={a.key} onClick={a.onClick} style={a.primary ? primaryActionBtn(mod.accentSolid) : ghostActionBtn}>
+                        <Icon name={a.icon} size={16} color={a.primary ? 'var(--spira-on-accent)' : 'var(--spira-ink)'} /> {a.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : showAction ? (
+                  <button style={{ ...primaryActionBtn(mod.accentSolid), marginLeft: 'auto' }}>
+                    <Icon name="plus" size={16} color="var(--spira-on-accent)" /> {action}
+                  </button>
+                ) : null}
               </div>
-            ) : showAction ? (
-              <button style={{ ...primaryActionBtn(mod.accentSolid), marginLeft: 'auto' }}>
-                <Icon name="plus" size={16} color="var(--spira-on-accent)" /> {action}
-              </button>
-            ) : null}
-          </div>
 
-          {/* contenido: router de vistas (fallback a Placeholder para lo aún no portado).
-              Sin padding-bottom: la barra fija del wizard de recepción llega al borde inferior
-              (un padding-bottom acá dejaba un hilo de paper debajo). Las vistas manejan su propio
-              respiro inferior; el contenido corto igual queda con aire por el flex:1. */}
-          <div style={{ flex: 1, overflow: 'auto', padding: '16px 26px 0' }}>
-            {(() => {
-              const View = resolveView(moduleKey, sub.key)
-              return (
-                <View
-                  module={mod}
-                  submodule={sub}
-                  onNavigate={navigate}
-                  setHeader={setViewHeader}
-                  onOpenAbout={() => setAboutOpen(true)}
-                  navTarget={navTarget}
-                  onTargetConsumed={() => setNavTarget(null)}
-                  onNavigatedAway={() => setReturnTo(null)}
-                />
-              )
-            })()}
-          </div>
+              {/* contenido: router de vistas (fallback a Placeholder para lo aún no portado).
+                  Sin padding-bottom: la barra fija del wizard de recepción llega al borde inferior
+                  (un padding-bottom acá dejaba un hilo de paper debajo). Las vistas manejan su propio
+                  respiro inferior; el contenido corto igual queda con aire por el flex:1. */}
+              <div style={{ flex: 1, overflow: 'auto', padding: '16px 26px 0' }}>
+                {(() => {
+                  const View = resolveView(moduleKey, sub.key)
+                  return (
+                    <View
+                      module={mod}
+                      submodule={sub}
+                      onNavigate={navigate}
+                      setHeader={setViewHeader}
+                      onOpenAbout={() => setAboutOpen(true)}
+                      navTarget={navTarget}
+                      onTargetConsumed={() => setNavTarget(null)}
+                      onNavigatedAway={() => setReturnTo(null)}
+                    />
+                  )
+                })()}
+              </div>
+            </>
+          )}
         </main>
       </div>
 
