@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import type { Codec, UrlState } from './router'
 import { buildUrl, codecs, parseUrl, readParam, writeParam } from './router'
 
@@ -38,11 +38,19 @@ export function useUrlSnapshot(): string {
   return useSyncExternalStore(suscribir, snapshot, () => '/')
 }
 
-/** El estado de navegación actual. `null` = la ruta no existe (el shell muestra la pantalla serena). */
+/**
+ * El estado de navegación actual. `null` = la ruta no existe (el shell muestra la pantalla serena).
+ *
+ * Memoizado contra la URL cruda: `parseUrl` devuelve un OBJETO NUEVO en cada llamada, así que sin
+ * esto la identidad cambiaría en cada render y toda vista que lo ponga en las deps de un efecto se
+ * re-ejecutaría siempre. Con la URL quieta, la referencia queda quieta.
+ */
 export function useUrlLocation(): UrlState | null {
   const crudo = useUrlSnapshot()
-  const [pathname, search] = crudo.split('?')
-  return parseUrl(pathname, search ? `?${search}` : '')
+  return useMemo(() => {
+    const [pathname, search] = crudo.split('?')
+    return parseUrl(pathname, search ? `?${search}` : '')
+  }, [crudo])
 }
 
 /** Apila una entrada de historial: el "atrás" del navegador vuelve a la anterior. */
@@ -74,9 +82,16 @@ export function useUrlState<T>(
   const mode = opts.mode ?? 'replace'
   const crudo = useUrlSnapshot()
 
-  const [pathname, search] = crudo.split('?')
-  const estado = parseUrl(pathname, search ? `?${search}` : '')
-  const valor = estado ? readParam(estado.query, key, def, codec) : def
+  /* Memoizado por el mismo motivo que `useUrlLocation`, y acá pesa más: los codecs de lista
+     (`codecs.list`, `listOf`) devuelven un ARRAY NUEVO en cada parseo. Sin memo, un filtro multi
+     cambia de identidad en cada render, y una vista que lo ponga en las deps de un `useEffect` con
+     `setState` adentro entra en loop. `def` y `codec` quedan fuera de las deps por lo mismo que en
+     `setValor`: son literales del render. */
+  const valor = useMemo(() => {
+    const [pathname, search] = crudo.split('?')
+    const estado = parseUrl(pathname, search ? `?${search}` : '')
+    return estado ? readParam(estado.query, key, def, codec) : def
+  }, [crudo, key])
 
   const setValor = useCallback(
     (nuevo: T) => {
