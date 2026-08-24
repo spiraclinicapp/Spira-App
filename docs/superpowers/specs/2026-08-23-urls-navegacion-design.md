@@ -55,6 +55,15 @@ una máquina compartida de clínica) y en los logs de acceso de Vercel. Es una d
 Director, no un descuido. Si alguna vez hay que revertirla, el §6 (`buildUrl`/`parseUrl` como único
 lugar que arma URLs) hace que sea un cambio de una función y no una cacería por todo el repo.
 
+**Y una segunda vía, también ratificada (2026-08-24): `?buscar=` puede llevar un nombre.** Los
+buscadores de Visitas del día y de Pacientes matchean el nombre del paciente además del código, así
+que `/coordinacion/visitas?buscar=Rodriguez` deja un apellido en el historial, en los logs y en
+cualquier link compartido. **No es el identificador de la pantalla** —eso sigue siendo el IVRS— sino
+texto que el usuario tipeó, pero es el único camino por el que un nombre llega a la barra. El Director
+lo evaluó de frente y decidió dejarlo: se gana que recargar mantenga la búsqueda y que se pueda
+compartir una lista filtrada, y es coherente con la decisión del 2026-08-04 de mostrar el nombre en
+toda la app. Queda escrito acá para que sea una decisión y no un descubrimiento.
+
 ---
 
 ## 3. Decisiones
