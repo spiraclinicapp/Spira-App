@@ -93,3 +93,85 @@ describe('buildUrl', () => {
     }
   })
 })
+
+import { codecs, oneOf, readParam, resolveShortId, shortId, writeParam } from './router'
+
+describe('codecs', () => {
+  it('lista: coma como separador, sin vacíos', () => {
+    expect(codecs.list.parse('a,b')).toEqual(['a', 'b'])
+    expect(codecs.list.parse('')).toEqual([])
+    expect(codecs.list.format(['a', 'b'])).toBe('a,b')
+  })
+
+  it('bool: 1/0, cualquier otra cosa es inválida', () => {
+    expect(codecs.bool.parse('1')).toBe(true)
+    expect(codecs.bool.parse('0')).toBe(false)
+    expect(codecs.bool.parse('si')).toBeNull()
+  })
+
+  it('num: descarta lo que no es número', () => {
+    expect(codecs.num.parse('7')).toBe(7)
+    expect(codecs.num.parse('ayer')).toBeNull()
+  })
+
+  it('oneOf: solo acepta los valores del enum', () => {
+    const c = oneOf(['tablero', 'historial'] as const)
+    expect(c.parse('historial')).toBe('historial')
+    expect(c.parse('inventado')).toBeNull()
+  })
+})
+
+describe('readParam · un valor inválido cae al default, no rompe', () => {
+  it('devuelve el default cuando el parámetro no está', () => {
+    expect(readParam({}, 'dia', '2026-08-23', codecs.str)).toBe('2026-08-23')
+  })
+
+  it('devuelve el default cuando el valor es inválido', () => {
+    expect(readParam({ agrupar: 'inventado' }, 'agrupar', 'operativo', oneOf(['operativo', 'estado'] as const)))
+      .toBe('operativo')
+  })
+
+  it('devuelve el valor cuando es válido', () => {
+    expect(readParam({ dia: '2026-08-22' }, 'dia', '2026-08-23', codecs.str)).toBe('2026-08-22')
+  })
+})
+
+describe('writeParam · lo que está en su default no se escribe', () => {
+  it('omite el valor por default', () => {
+    expect(writeParam({}, 'dia', '2026-08-23', '2026-08-23', codecs.str)).toEqual({})
+  })
+
+  it('escribe el valor distinto del default', () => {
+    expect(writeParam({}, 'dia', '2026-08-22', '2026-08-23', codecs.str)).toEqual({ dia: '2026-08-22' })
+  })
+
+  it('borra el parámetro al volver al default', () => {
+    expect(writeParam({ dia: '2026-08-22' }, 'dia', '2026-08-23', '2026-08-23', codecs.str)).toEqual({})
+  })
+
+  it('una lista vacía es el default y no se escribe', () => {
+    expect(writeParam({ estado: 'activo' }, 'estado', [], [], codecs.list)).toEqual({})
+  })
+})
+
+describe('identificadores cortos', () => {
+  const filas = [{ id: '8f3a2c1d-0000-4000-8000-000000000001' }, { id: 'a71c4e05-0000-4000-8000-000000000002' }]
+
+  it('shortId son los primeros 8', () => {
+    expect(shortId('8f3a2c1d-0000-4000-8000-000000000001')).toBe('8f3a2c1d')
+  })
+
+  it('resuelve por prefijo y por uuid completo', () => {
+    expect(resolveShortId(filas, '8f3a2c1d')?.id).toBe(filas[0].id)
+    expect(resolveShortId(filas, filas[1].id)?.id).toBe(filas[1].id)
+  })
+
+  it('con dos filas empatadas no devuelve ninguna', () => {
+    const empate = [{ id: 'aaaaaaaa-0000-4000-8000-000000000001' }, { id: 'aaaaaaaa-0000-4000-8000-000000000002' }]
+    expect(resolveShortId(empate, 'aaaaaaaa')).toBeNull()
+  })
+
+  it('sin coincidencias devuelve null', () => {
+    expect(resolveShortId(filas, 'ffffffff')).toBeNull()
+  })
+})

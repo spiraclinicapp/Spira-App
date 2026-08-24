@@ -108,3 +108,99 @@ export function buildUrl(state: UrlState): string {
   const query = new URLSearchParams(state.query).toString()
   return query ? `${pathname}?${query}` : pathname
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CODECS — cómo va y vuelve cada tipo de valor en el query string.
+   Puros y chiquitos a propósito: son lo que permite que useUrlState no tenga
+   lógica propia y por lo tanto no necesite jsdom para testearse.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+export interface Codec<T> {
+  /** `null` = el valor crudo es inválido → quien llama cae al default. */
+  parse(raw: string): T | null
+  format(value: T): string
+}
+
+export const codecs = {
+  str: {
+    parse: (raw: string) => raw,
+    format: (v: string) => v,
+  } as Codec<string>,
+
+  /* Multi-valor separado por coma: ?estado=pendiente,en-curso */
+  list: {
+    parse: (raw: string) => raw.split(',').filter(Boolean),
+    format: (v: string[]) => v.join(','),
+  } as Codec<string[]>,
+
+  num: {
+    parse: (raw: string) => (raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : null),
+    format: (v: number) => String(v),
+  } as Codec<number>,
+
+  /* 1/0 y no true/false: más corto en la barra y sin ambigüedad de mayúsculas. */
+  bool: {
+    parse: (raw: string) => (raw === '1' ? true : raw === '0' ? false : null),
+    format: (v: boolean) => (v ? '1' : '0'),
+  } as Codec<boolean>,
+}
+
+/** Codec de enum: cualquier valor fuera de la lista es inválido y cae al default. */
+export function oneOf<T extends string>(valores: readonly T[]): Codec<T> {
+  return {
+    parse: (raw: string) => (valores.includes(raw as T) ? (raw as T) : null),
+    format: (v: T) => v,
+  }
+}
+
+/**
+ * Lee un parámetro. Un valor ausente, desconocido o inválido cae al default EN SILENCIO: una URL
+ * vieja, mal tipeada o recortada por WhatsApp tiene que abrir la pantalla, no un error.
+ */
+export function readParam<T>(query: Record<string, string>, key: string, def: T, codec: Codec<T>): T {
+  const crudo = query[key]
+  if (crudo === undefined) return def
+  const valor = codec.parse(crudo)
+  return valor === null ? def : valor
+}
+
+/**
+ * Escribe un parámetro sobre una copia del query. **Lo que está en su default no se escribe** — y si
+ * vuelve al default, se borra. Es lo que mantiene `/coordinacion/visitas` dictable en vez de una tira
+ * de veinte parámetros redundantes.
+ */
+export function writeParam<T>(
+  query: Record<string, string>,
+  key: string,
+  value: T,
+  def: T,
+  codec: Codec<T>,
+): Record<string, string> {
+  const salida = { ...query }
+  const esDefault = codec.format(value) === codec.format(def)
+  if (esDefault) delete salida[key]
+  else salida[key] = codec.format(value)
+  return salida
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   IDENTIFICADORES CORTOS — para lo que no tiene código legible.
+   Los usa el paciente sin IVRS (nullable desde la 0021: se asigna en randomización) y la visita
+   abierta (su visit_code es "V3" y se repite entre pacientes, así que no identifica).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/** Los primeros 8 caracteres del uuid. 4.300 millones de combinaciones sobre miles de filas. */
+export function shortId(uuid: string): string {
+  return uuid.slice(0, 8)
+}
+
+/**
+ * Resuelve un token (prefijo corto o uuid completo) contra las filas ya cargadas.
+ *
+ * Si DOS filas empatan devuelve `null` y quien llama muestra "no se encontró". Nunca elige una: en
+ * una ficha clínica, abrir la del paciente equivocado es peor que no abrir ninguna.
+ */
+export function resolveShortId<T extends { id: string }>(filas: T[], token: string): T | null {
+  const candidatas = filas.filter((f) => f.id === token || f.id.startsWith(token))
+  return candidatas.length === 1 ? candidatas[0] : null
+}
