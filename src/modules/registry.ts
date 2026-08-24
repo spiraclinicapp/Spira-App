@@ -7,9 +7,22 @@ export interface SubModule {
   /** Descriptor de una línea: QUÉ se hace en esa pantalla. Va como segunda línea del panel
    *  de submódulos y como `title` del botón. Nació de un pedido del Director: "a primera
    *  vista no se entiende qué es cada submódulo". El rótulo solo no alcanzaba y tampoco
-   *  podía crecer — el ancho útil para el rótulo en el panel de 208px es de 133px (medido
-   *  con Inter cargada), y "Recepción de medicamentos" mide 195px. De ahí la división del
-   *  trabajo: el rótulo nombra, el descriptor explica. Manténlos ≤ 133px (~22 caracteres).
+   *  podía crecer — "Recepción de medicamentos" mide 195px. De ahí la división del trabajo:
+   *  el rótulo nombra, el descriptor explica.
+   *
+   *  ⚠️ EL DESCRIPTOR TIENE QUE ENTRAR EN UNA LÍNEA: el ancho útil son **145px** con Inter a
+   *  11.5px, que salen de 220 (panel) − 24 (padding del panel) − 24 (padding del botón) − 17
+   *  (ícono) − 10 (gap). NO cuentes caracteres: "Pendientes y vencimientos" son 25 y mide
+   *  145,53px — se pasa por medio píxel y envuelve. Medilo, con la fuente ya cargada:
+   *
+   *    const s = document.createElement('span')
+   *    s.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;' +
+   *      'font-family:var(--spira-font-text);font-size:11.5px;font-weight:400'
+   *    document.body.appendChild(s); s.textContent = 'tu texto'
+   *    s.getBoundingClientRect().width   // ≤ 145
+   *
+   *  (Este comentario decía 133px y el panel de 208 del que salía ese número ya no existe:
+   *  se ensanchó a 220 justamente porque "Información de pacientes" —137,9px— envolvía.)
    *  Los submódulos que todavía caen al Placeholder lo dicen ("En construcción") en vez de
    *  prometer una función que no existe. */
   hint?: string
@@ -67,7 +80,7 @@ export const MODULES: ModuleDef[] = [
       // esta línea + el botón "Ver agenda del protocolo" (ProtocolDetailView) y las entradas
       // de "Visita" del buscador (searchIndex.ts). La vista y su ruta siguen intactas.
       // { key: 'agenda', name: 'Agenda', icon: 'calendar' },
-      { key: 'alertas', name: 'Alertas', icon: 'bell', hint: 'Desvíos y vencimientos' },
+      { key: 'alertas', name: 'Alertas', icon: 'bell', hint: 'Pendientes y por vencer' },
     ],
   },
   {
