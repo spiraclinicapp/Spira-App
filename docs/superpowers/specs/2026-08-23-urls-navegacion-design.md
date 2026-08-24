@@ -98,7 +98,7 @@ la vista existe y el registry la resuelve.
 /coordinacion/pacientes/EFC18244/p-8f3a2c1d          una ficha, paciente sin IVRS
 /coordinacion/visitas                                Visitas del día (hoy, sin filtros)
 /coordinacion/visitas?dia=2026-08-22&estado=pendiente
-/coordinacion/visitas?dia=2026-08-22&visita=a3f9c1d2 con el detalle de una visita abierto
+/coordinacion/visitas?dia=2026-08-22&visita=a3f9c1d2-77b4-4e11-9d0a-6c2f5b8e1a3d
 /farmacia/stock?apartado=protocolo&estado=pronto
 /farmacia/dispensaciones                             tablero
 /farmacia/dispensaciones/D-0417                      con el cajón abierto
@@ -159,19 +159,24 @@ Los multi-valor van separados por coma: `?estado=pendiente,en-curso`.
    dictable y no una tira de veinte parámetros redundantes.
 2. **Se escribe el legible, se leen los dos.** `buildUrl` emite siempre el código; `parseUrl` acepta
    código o UUID y resuelve contra los datos ya cargados.
-3. **El identificador corto son los primeros 8 caracteres del UUID.** Lo usan el paciente sin IVRS
-   (con prefijo `p-`, para que nunca se confunda con un IVRS, que es numérico) y la visita abierta
-   (`?visita=`, que no tiene código legible — el `visit_code` es "V3" y se repite entre pacientes).
-   8 caracteres hex son 4.300 millones de combinaciones sobre un universo de miles de filas: la
-   colisión es improbable, pero **no se asume**. `parseUrl` resuelve el prefijo contra los datos ya
-   cargados y, si dos filas empatan, se queda con ninguna y cae a la pantalla de "no se encontró"
-   (§8) — nunca abre una al azar, que en una ficha clínica sería mostrarte el paciente equivocado.
-4. **Push vs replace**, según la tabla del §3. La distinción vive en el hook, no en cada vista: el tercer
+3. **El identificador corto son los primeros 8 caracteres del UUID, y lo usa solo el paciente sin
+   IVRS** (con prefijo `p-`, para que nunca se confunda con un IVRS, que es numérico). 8 caracteres
+   hex son 4.300 millones de combinaciones sobre un universo de miles de filas: la colisión es
+   improbable, pero **no se asume**. El prefijo se resuelve contra los datos ya cargados y, si dos
+   filas empatan, no se abre ninguna: se cae a la pantalla de "no se encontró" (§8). Nunca se elige
+   una al azar — en una ficha clínica eso sería mostrarte el paciente equivocado.
+4. **La visita abierta (`?visita=`) va con el UUID completo**, no con el corto. Un identificador corto
+   hay que resolverlo contra las filas cargadas, y la visita puede perfectamente no estar entre ellas:
+   [`TrackAlertsView.tsx:84`](../../../src/views/TrackAlertsView.tsx) lo dice explícitamente — `VisitDetail`
+   trae sus propios datos por id, y por eso **una alerta se puede abrir aunque los filtros de la vista
+   la dejen fuera**. Acortar el id rompería esa propiedad para ganar veinte caracteres de barra en un
+   modal. No vale el cambio.
+5. **Push vs replace**, según la tabla del §3. La distinción vive en el hook, no en cada vista: el tercer
    argumento de `useUrlState` la declara una vez por campo.
-5. **Los valores viajan en minúscula y sin tildes.** Los enums de la base ya vienen así
+6. **Los valores viajan en minúscula y sin tildes.** Los enums de la base ya vienen así
    (`activo`, `pendiente`, `mesEnCurso`); donde el valor interno tenga mayúsculas se normaliza en el mapa
    de `router.ts`, nunca a mano en la vista.
-6. **Un parámetro desconocido o con un valor inválido se ignora en silencio** y se cae al default. Una
+7. **Un parámetro desconocido o con un valor inválido se ignora en silencio** y se cae al default. Una
    URL vieja, mal tipeada o recortada por WhatsApp abre la pantalla, no un error.
 
 ---
