@@ -16,12 +16,18 @@ function Splash() {
 }
 
 function Gate() {
-  const { session, loading, recovering } = useAuth()
+  const { session, loading, recovering, modulesLoading } = useAuth()
   if (loading) return <Splash />
   // Recuperación de contraseña ANTES que session→AppShell: el link de reset deja una sesión de
   // recovery activa, así que sin este chequeo el usuario entraría al shell sin fijar la clave nueva.
   if (recovering) return <SetNewPassword />
-  return session ? <AppShell /> : <Login />
+  // Va ANTES que modulesLoading: sin sesión no hay roles que esperar, así que resolvemos a
+  // Login directo en lugar de mirar un flag pensado para el caso "con sesión".
+  if (!session) return <Login />
+  // Con sesión pero sin roles todavía no se puede decidir qué mostrar: el guard del shell
+  // rechazaría por permisos que aún no llegaron. Esperar acá evita ese falso "no tenés acceso".
+  if (modulesLoading) return <Splash />
+  return <AppShell />
 }
 
 export default function App() {
