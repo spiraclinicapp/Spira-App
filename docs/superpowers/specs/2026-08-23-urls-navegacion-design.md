@@ -106,7 +106,7 @@ que el día que se descomente esa línea la ruta se habilita sola, sin tocar el 
 /coordinacion/visitas?dia=2026-08-22&visita=a3f9c1d2-77b4-4e11-9d0a-6c2f5b8e1a3d
 /farmacia/stock?apartado=protocolo&estado=pronto
 /farmacia/dispensaciones                             tablero
-/farmacia/dispensaciones/D-0417                      con el cajón abierto
+/farmacia/dispensaciones/D-3-240826-MP                      con el cajón abierto
 /farmacia/estadisticas?periodo=anio
 ```
 

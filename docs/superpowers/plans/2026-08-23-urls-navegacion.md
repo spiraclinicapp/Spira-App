@@ -168,7 +168,7 @@ describe('buildUrl', () => {
       '/farmacia/recepcion',
       '/farmacia/stock',
       '/farmacia/dispensaciones',
-      '/farmacia/dispensaciones/D-0417',
+      '/farmacia/dispensaciones/D-3-240826-MP',
       '/farmacia/estadisticas',
     ]
     for (const ruta of rutas) {
@@ -1382,7 +1382,7 @@ por:
   })
 ```
 
-Imports: `import { listOf } from '../lib/router'`, `import { useUrlState } from '../lib/useUrlState'`.
+Imports: `import { listOf } from '../lib/router'`, `import { useUrlEntity, useUrlState } from '../lib/useUrlState'`, y `useMemo` de react.
 
 > **Por qué `listOf` y no `codecs.list`:** un `codecs.list as Codec<ProtocolStatus[]>` compila, pero
 > es un cast que miente — `?estado=inventado` entraría como `['inventado']` tipado `ProtocolStatus[]`,
@@ -1453,7 +1453,7 @@ del Director, que a partir de este PR existe de verdad.
 > 3. **`useMemo` sobre el nav derivado**, con deps de la URL y los datos. Sin eso es un objeto nuevo
 >    por render, y estas vistas tienen más efectos y más setters en deps que Pacientes: es un loop
 >    esperando a pasar.
-> 4. **Los segmentos sobrantes devuelven `null`.** `/dispensaciones/D-0417/loquesea` tiene que caer en
+> 4. **Los segmentos sobrantes devuelven `null`.** `/dispensaciones/D-3-240826-MP/loquesea` tiene que caer en
 >    la pantalla serena, no abrir el cajón ignorando la basura (spec §8).
 
 # FASE D · PR 4 — Coordinación
@@ -1470,7 +1470,43 @@ abajo — no hay que deducirlo de la tarea anterior.**
 ### Task 9: Visitas del día
 
 **Archivos:**
+- Modificar: `src/lib/router.ts` (Paso 0), `src/lib/router.test.ts` (su test)
 - Modificar: `src/views/DayVisitsView.tsx:56` y `:61-70`
+
+- [ ] **Paso 0: los submódulos que NO consumen path rechazan segmentos de más**
+
+Hoy `/coordinacion/visitas/loquesea` parsea bien y abre Visitas ignorando la basura, pero el §8 del
+spec promete la pantalla serena para una ruta que no existe. El problema es que `parseUrl` no sabe
+qué submódulos usan segmentos propios.
+
+En `router.ts`, junto a los mapas de slugs:
+
+```ts
+/* Submódulos que llevan segmentos propios después del submódulo: Pacientes (el protocolo y la ficha)
+   y Dispensaciones (el código del cajón). Para todos los demás, cualquier cosa que venga después es
+   una ruta que no existe — el §8 del spec pide avisarlo, no ignorarlo en silencio. */
+const SUB_CON_PATH = new Set(['protocolos', 'dispensaciones'])
+```
+
+Y en `parseUrl`, después de validar que el submódulo pertenece al módulo:
+
+```ts
+  if (resto.length > 0 && !SUB_CON_PATH.has(subKey)) return null
+```
+
+Tests en `router.test.ts`:
+
+```ts
+  it('un submódulo que no lleva path rechaza los segmentos de más', () => {
+    expect(parseUrl('/coordinacion/visitas/loquesea', '')).toBeNull()
+    expect(parseUrl('/coordinacion/alertas/x/y', '')).toBeNull()
+  })
+
+  it('los que sí llevan path los siguen aceptando', () => {
+    expect(parseUrl('/coordinacion/pacientes/EFC18244', '')).toMatchObject({ path: ['EFC18244'] })
+    expect(parseUrl('/farmacia/dispensaciones/D-3-240826-MP', '')).toMatchObject({ path: ['D-3-240826-MP'] })
+  })
+```
 
 **Interfaces:**
 - Consume: `useUrlState` (Task 3); `codecs`, `oneOf` (Task 2).
@@ -1505,7 +1541,7 @@ por:
 ```
 
 Imports: `import { codecs, oneOf } from '../lib/router'`,
-`import { useUrlState } from '../lib/useUrlState'`.
+`import { useUrlEntity, useUrlState } from '../lib/useUrlState'`, y `useMemo` de react.
 
 - [ ] **Paso 2: la visita abierta**
 
@@ -1518,12 +1554,16 @@ Imports: `import { codecs, oneOf } from '../lib/router'`,
 por:
 
 ```tsx
-  /* Push: abrir el detalle de una visita ES navegar, y el atrás tiene que cerrarlo. Va el UUID
-     completo y la FILA se deriva de las ya cargadas: si la visita no es del día que estás mirando,
-     no hay nada que abrir y queda en null — que es exactamente el comportamiento de antes. */
-  const [visitaId, setVisitaId] = useUrlState('visita', '', { mode: 'push' })
-  const openVisit = visitaId ? (rows.find((r) => r.id === visitaId) ?? null) : null
-  const setOpenVisit = (v: DayVisitRow | null) => setVisitaId(v?.id ?? '')
+  /* Push al abrir y replace al cerrar (lo trae `useUrlEntity`): abrir el detalle ES navegar y el
+     atrás tiene que cerrarlo, pero si cerrar también apilara, el atrás lo REABRIRÍA — y en esta
+     vista abrir y cerrar cajones es el trabajo. Va el UUID completo y la FILA se deriva de las ya
+     cargadas: si la visita no es del día que estás mirando, no hay nada que abrir y queda en null,
+     que es exactamente el comportamiento de antes.
+     El `useMemo` no es opcional: sin él, `openVisit` es un objeto nuevo en cada render y esta vista
+     tiene varios efectos con setters en deps (lección de la Fase C). */
+  const [visitaId, setVisitaId] = useUrlEntity('visita')
+  const openVisit = useMemo(() => (visitaId ? (rows.find((r) => r.id === visitaId) ?? null) : null), [visitaId, rows])
+  const setOpenVisit = (v: DayVisitRow | null) => setVisitaId(v?.id ?? null)
 ```
 
 > **Dónde va este bloque:** `rows` se define en la línea 84 (`const rows = day.data ?? []`), *después*
@@ -1571,13 +1611,13 @@ por:
   const [status, setStatus] = useUrlState<Status>('estado', 'todos', {
     codec: oneOf(['todos', 'faltan', 'atendidos'] as const),
   })
-  /* Push: el detalle de la visita es navegación; el atrás lo cierra. UUID completo (ver Task 8). */
-  const [visitaId, setVisitaId] = useUrlState('visita', '', { mode: 'push' })
-  const openVisitId = visitaId || null
-  const setOpenVisitId = (id: string | null) => setVisitaId(id ?? '')
+  /* El detalle de la visita: push al abrir, replace al cerrar (lo trae `useUrlEntity`). UUID
+     completo, no corto — `VisitDetail` carga por id y puede abrir una visita que no esté entre las
+     filas cargadas. */
+  const [openVisitId, setOpenVisitId] = useUrlEntity('visita')
 ```
 
-Imports: `import { oneOf } from '../lib/router'`, `import { useUrlState } from '../lib/useUrlState'`.
+Imports: `import { oneOf } from '../lib/router'`, `import { useUrlEntity, useUrlState } from '../lib/useUrlState'`, y `useMemo` de react.
 
 **El modal de comentarios (`commentsVisit`) NO se toca**: queda como estado local. `?visita=` abre el
 detalle, que es el nivel de lectura que importa; el sub-modal no gana parámetro propio (spec §7).
@@ -1619,16 +1659,14 @@ por:
   const [protocolFilter, setProtocolFilter] = useUrlState('protocolo', 'all')
   const [ageDays, setAgeDays] = useUrlState('antiguedad', 0, { codec: codecs.num })
   const [showDismissed, setShowDismissed] = useUrlState('descartadas', false, { codec: codecs.bool })
-  /* Push: el detalle de la visita es navegación; el atrás lo cierra. UUID completo, y acá se ve por
-     qué: el comentario de la línea 84 dice que VisitDetail trae sus datos por id y que POR ESO una
-     alerta se puede abrir aunque los filtros la dejen fuera. Acortar el id obligaría a resolverlo
-     contra las filas visibles y mataría esa propiedad. */
-  const [visitaId, setVisitaId] = useUrlState('visita', '', { mode: 'push' })
-  const openVisitId = visitaId || null
-  const setOpenVisitId = (id: string | null) => setVisitaId(id ?? '')
+  /* Push al abrir, replace al cerrar (lo trae `useUrlEntity`). UUID completo, y acá se ve por qué:
+     el comentario de la línea 84 dice que VisitDetail trae sus datos por id y que POR ESO una alerta
+     se puede abrir aunque los filtros la dejen fuera. Acortar el id obligaría a resolverlo contra las
+     filas visibles y mataría esa propiedad. */
+  const [openVisitId, setOpenVisitId] = useUrlEntity('visita')
 ```
 
-Imports: `import { codecs } from '../lib/router'`, `import { useUrlState } from '../lib/useUrlState'`.
+Imports: `import { codecs } from '../lib/router'`, `import { useUrlEntity, useUrlState } from '../lib/useUrlState'`, y `useMemo` de react.
 
 **`dismissing`, `reason`, `detail`, `busy` y `err` NO se tocan**: son un formulario de acción (spec §7).
 
@@ -1705,7 +1743,7 @@ por:
 
 ```tsx
   /* El cajón va en el PATH y no en el query porque la dispensación tiene código legible propio:
-     /farmacia/dispensaciones/D-0417. Push, como toda entidad abierta: el atrás lo cierra. */
+     /farmacia/dispensaciones/D-3-240826-MP. Push, como toda entidad abierta: el atrás lo cierra. */
   const urlLocation = useUrlLocation()
   const codigoAbierto = urlLocation?.path[0] ?? null
   /* `resolveCode` y no un `===`: los códigos de la URL no distinguen mayúsculas (decisión del
@@ -1717,9 +1755,15 @@ por:
   const [, setPath] = useUrlPath()
   const setOpenId = (id: string | null) => {
     const codigo = id ? all.find((d) => d.id === id)?.dispensation_code : null
-    /* Se conservan los cuatro filtros del tablero: abrir un cajón no puede resetearte el tablero
-       que tenías detrás, ni dejarte ahí al cerrarlo. */
-    setPath(codigo ? [codigo] : [], { conservar: ['dia', 'vista', 'protocolo', 'buscar'] })
+    /* Se conservan los cuatro filtros del tablero: abrir un cajón no puede resetearte el tablero que
+       tenías detrás, ni dejarte ahí al cerrarlo.
+       Y abrir apila (el atrás cierra el cajón) pero **cerrar reemplaza**: si cerrar también apilara,
+       el atrás REABRIRÍA el cajón que acabás de cerrar, y en esta pantalla abrir y cerrar cajones es
+       el trabajo. Es la misma lección que costó el review de la Fase D con el stepper de Visitas. */
+    setPath(codigo ? [codigo] : [], {
+      conservar: ['dia', 'vista', 'protocolo', 'buscar'],
+      mode: codigo ? 'push' : 'replace',
+    })
   }
 ```
 
