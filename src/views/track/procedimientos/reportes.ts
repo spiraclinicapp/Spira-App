@@ -180,6 +180,42 @@ export function etaLabel(hours: number | null): string {
   return hours === 1 ? '~1 h' : `~${hours} h`
 }
 
+/**
+ * Resumen de una línea de los reportes de un procedimiento: cuántos, a dónde van y en cuánto.
+ *
+ * Reemplaza al viejo "Genera reporte · ETA ~2 días", que decía menos y en un idioma que no es el
+ * de nadie ("ETA" es jerga, y el número solo no dice de qué). Lo que la coordinadora necesita ver
+ * de un vistazo en la lista es cuánto trabajo genera ese procedimiento y en qué portales cae.
+ *
+ * El plazo se resume al MÁS LARGO cuando los reportes difieren, porque ése es el que manda: la
+ * visita no se cierra hasta que llega el último. Con todos iguales se dice el valor a secas.
+ *
+ * Devuelve null si no hay reportes, para que quien lo llama decida qué poner en su lugar.
+ */
+export function resumenDeReportes(
+  reports: readonly { platform: string; eta_hours: number | null }[],
+): string | null {
+  if (reports.length === 0) return null
+  const cuenta = `${reports.length} ${reports.length === 1 ? 'reporte' : 'reportes'}`
+
+  const plataformas = [...new Set(reports.map((r) => (isPlatform(r.platform) ? r.platform : 'otro')))]
+  const nombres = plataformas.map((p) => PLATFORMS[p].label)
+  const donde =
+    nombres.length === 1 ? nombres[0]
+    : nombres.length === 2 ? `${nombres[0]} y ${nombres[1]}`
+    : `${nombres.length} plataformas`
+
+  const plazos = reports.map((r) => r.eta_hours).filter((h): h is number => h != null)
+  const plazo =
+    plazos.length === 0 ? 'sin plazo'
+    // "hasta" cuando difieren entre sí, o cuando alguno no tiene plazo y otros sí: en los dos
+    // casos el número exacto sería una media verdad.
+    : plazos.length < reports.length || new Set(plazos).size > 1 ? `hasta ${etaLabel(Math.max(...plazos))}`
+    : etaLabel(plazos[0])
+
+  return `${cuenta} · ${donde} · ${plazo}`
+}
+
 /** Un reporte ya usado en el protocolo, para ofrecerlo en el combobox de "Nombre del reporte". */
 export interface KnownReport {
   name: string

@@ -12,10 +12,12 @@ import {
   setVisitProcedures,
   createProcedure,
   deleteProcedure,
-  updateProcedure,
 } from '../../data/procedures'
 import type { Procedure } from '../../data/procedures'
-import { REPORT_ETA_OPTIONS, reportEtaLabel } from '../../lib/checklist'
+import { useEstudioProcedimientos, addProtocolProcedure } from '../../data/protocolProcedures'
+import type { EstudioProcedimiento } from '../../data/protocolProcedures'
+import { resumenDeReportes } from './procedimientos/reportes'
+import { ProcedureEditModal } from './procedimientos/ProcedureEditModal'
 
 /**
  * Modal de asignación de procedimientos a una visita del cronograma. UI simplificada (revisión de
@@ -25,6 +27,7 @@ import { REPORT_ETA_OPTIONS, reportEtaLabel } from '../../lib/checklist'
  * si `canManageCatalog`. La lista de trabajo es local hasta Guardar.
  */
 export function VisitProceduresModal({
+  protocolId,
   visitDefId,
   visitLabel,
   visitDispenses,
@@ -34,6 +37,9 @@ export function VisitProceduresModal({
   onClose,
   onSaved,
 }: {
+  /** Protocolo de la visita. Los reportes se definen POR ESTUDIO (0089), así que sin esto la
+   *  línea de resumen no sabría cuáles mostrar. */
+  protocolId: string
   visitDefId: string
   /** "V2 - Screening" para el título. */
   visitLabel: string
@@ -50,30 +56,65 @@ export function VisitProceduresModal({
 }) {
   const catalog = useProceduresCatalog()
   const assigned = useVisitProcedures(visitDefId)
+  /* Los reportes definidos para este ESTUDIO, para la línea de resumen de cada fila. Una consulta
+     por modal y no una por procedimiento: la vista ya trae todo el protocolo junto. */
+  const estudio = useEstudioProcedimientos(protocolId)
+  const reportesPorProcedimiento = useMemo(() => {
+    const m = new Map<string, { platform: string; eta_hours: number | null }[]>()
+    for (const e of estudio.data ?? []) m.set(e.procedure_id, e.reports)
+    return m
+  }, [estudio.data])
+  const reportesDe = (procedureId: string) => reportesPorProcedimiento.get(procedureId) ?? []
 
   /* Lista de trabajo (procedimientos de la visita, ordenados). null = todavía cargando el inicial. */
   const [items, setItems] = useState<Procedure[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  /* Editor de "genera reporte" por chip: id del procedimiento en edición (null = ninguno). */
-  const [editing, setEditing] = useState<string | null>(null)
-  const [savingReport, setSavingReport] = useState(false)
+  /** Procedimiento cuyo modal de edición está abierto (el de "Procedimientos del estudio"). */
+  const [editando, setEditando] = useState<EstudioProcedimiento | null>(null)
+  /** Procedimiento que se está sumando al estudio antes de poder abrirle el modal. */
+  const [abriendo, setAbriendo] = useState<string | null>(null)
+  /** Ya se sumó al estudio; falta que llegue el dato fresco para abrirlo. */
+  const [pendienteDeAbrir, setPendienteDeAbrir] = useState<string | null>(null)
 
   // Edita has_report/report_eta_hours del catálogo (persiste al toque, no espera al "Guardar" del
   // set de la visita: es un atributo del procedimiento, no de la asignación). Refleja en `items`.
-  const saveReport = async (id: string, hasReport: boolean, eta: number | null) => {
-    setSavingReport(true)
+  /**
+   * Abre el modal de edición del procedimiento (el mismo de "Procedimientos del estudio").
+   *
+   * Antes de abrirlo se asegura de que el procedimiento ESTÉ en el estudio: los reportes cuelgan
+   * de `protocol_procedures`, así que sin esa fila el modal abriría vacío y no habría dónde
+   * definirlos.
+   *
+   * El caso estructural —asignar a una visita no sumaba al estudio— lo arregló la 0091, que le
+   * puso el upsert a `set_visit_procedures`. Lo que sigue cubriendo esto es el hueco de tiempo: la
+   * lista de esta pantalla es un BORRADOR y no toca la base hasta "Guardar", así que un
+   * procedimiento recién agregado y todavía sin guardar no existe para la base cuando se le
+   * quiere abrir el lápiz. Sumarlo acá es lo que la persona está pidiendo igual al querer
+   * editarle los reportes.
+   */
+  const abrirEdicion = async (procedureId: string) => {
     setError(null)
-    const res = await updateProcedure(id, { has_report: hasReport, report_eta_hours: eta })
-    setSavingReport(false)
-    if (res.error) {
-      setError(res.error)
-      return
-    }
-    catalog.refetch()
-    setItems((cur) => (cur ?? []).map((p) => (p.id === id ? { ...p, has_report: hasReport, report_eta_hours: hasReport ? eta : null } : p)))
-    setEditing(null)
+    const yaEsta = (estudio.data ?? []).find((e) => e.procedure_id === procedureId)
+    if (yaEsta) { setEditando(yaEsta); return }
+
+    setAbriendo(procedureId)
+    const res = await addProtocolProcedure(protocolId, procedureId)
+    setAbriendo(null)
+    // "ya está en el estudio" = carrera con otra pestaña: no es un error para el usuario, se sigue.
+    if ('error' in res && !/ya está en el estudio/i.test(res.error)) { setError(res.error); return }
+    setPendienteDeAbrir(procedureId)
+    estudio.refetch()
   }
+
+  /* Cuando el refetch trae el procedimiento recién sumado al estudio, se abre su modal. Se hace
+     por efecto y no dentro de `abrirEdicion` porque el dato fresco llega uno o dos renders después
+     (el `refetch` sólo bumpea un nonce, como en el resto del repo). */
+  useEffect(() => {
+    if (!pendienteDeAbrir) return
+    const e = (estudio.data ?? []).find((x) => x.procedure_id === pendienteDeAbrir)
+    if (e) { setEditando(e); setPendienteDeAbrir(null) }
+  }, [estudio.data, pendienteDeAbrir])
 
   // Inicializar la lista de trabajo una sola vez, cuando llegan los asignados.
   useEffect(() => {
@@ -113,7 +154,12 @@ export function VisitProceduresModal({
     if (!p || assignedIds.has(id)) return
     setItems((cur) => [...(cur ?? []), p])
   }
-  const remove = (id: string) => { setItems((cur) => (cur ?? []).filter((p) => p.id !== id)); setEditing((e) => (e === id ? null : e)) }
+  /* Quitar de la lista de trabajo cierra su modal de edición si estaba abierto: editar un
+     procedimiento que se acaba de sacar de la visita no tendría a qué volver. */
+  const remove = (id: string) => {
+    setItems((cur) => (cur ?? []).filter((p) => p.id !== id))
+    setEditando((e) => (e?.procedure_id === id ? null : e))
+  }
   const move = (index: number, dir: -1 | 1) =>
     setItems((cur) => {
       const next = [...(cur ?? [])]
@@ -204,44 +250,35 @@ export function VisitProceduresModal({
                     </span>
                     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
                       <span style={{ fontSize: 13.5, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                      <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>
-                        {p.has_report ? `Genera reporte · ETA ${p.report_eta_hours != null ? reportEtaLabel(p.report_eta_hours) : '—'}` : (p.category ?? 'Sin reporte')}
+                      {/* Qué trabajo genera este procedimiento: cuántos reportes, a qué portales
+                          van y en cuánto llegan. Antes decía "Genera reporte · ETA ~2 días", que
+                          además de jerga ("ETA") daba un número sin decir de qué era y omitía lo
+                          que más se necesita saber acá: a dónde hay que ir a buscarlo.
+                          Sale del modelo nuevo (0089); si el procedimiento todavía no tiene
+                          reportes definidos, cae a la categoría, como antes. */}
+                      <span style={{ fontSize: 11.5, color: 'var(--spira-ink-soft)' }}>
+                        {resumenDeReportes(reportesDe(p.id)) ?? (p.category ?? 'Sin reportes')}
                       </span>
                     </span>
-                    {canManageCatalog && (
-                      <button type="button" onClick={() => setEditing(editing === p.id ? null : p.id)} aria-label={`Reporte de ${p.name}`} title="Reporte" style={iconBtn}>
-                        <Icon name="printer" size={14} color={p.has_report ? accent : 'var(--spira-muted)'} />
-                      </button>
-                    )}
+                    {/* Lápiz, y abre el modal REAL de edición del procedimiento — el mismo de
+                        Cronograma › Procedimientos del estudio. Antes era una impresora que
+                        desplegaba acá abajo el editor viejo ("Genera reporte" + un desplegable de
+                        ETA), que sólo sabía de un reporte por procedimiento y se muere con la
+                        0091. Un lápiz dice "editar esto", que es lo que hace. */}
+                    <button
+                      type="button"
+                      onClick={() => void abrirEdicion(p.id)}
+                      disabled={abriendo === p.id}
+                      aria-label={`Editar ${p.name}`}
+                      title={`Editar ${p.name} y sus reportes`}
+                      style={{ ...iconBtn, opacity: abriendo === p.id ? 0.5 : 1 }}
+                    >
+                      <Icon name="pencil" size={13} color="var(--spira-muted)" />
+                    </button>
                     <button type="button" onClick={() => remove(p.id)} aria-label={`Quitar ${p.name}`} title="Quitar" style={iconBtn}>
                       <Icon name="x" size={14} color="var(--spira-muted)" />
                     </button>
                   </div>
-                  {editing === p.id && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--spira-line)', borderRadius: 10, background: 'var(--spira-surface)' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={p.has_report}
-                          disabled={savingReport}
-                          onChange={(e) => void saveReport(p.id, e.target.checked, e.target.checked ? (p.report_eta_hours ?? 48) : null)}
-                        />
-                        Genera reporte
-                      </label>
-                      {p.has_report && (
-                        <select
-                          value={String(p.report_eta_hours ?? 48)}
-                          disabled={savingReport}
-                          onChange={(e) => void saveReport(p.id, true, Number(e.target.value))}
-                          style={{ height: 30, borderRadius: 8, border: '1px solid var(--spira-line-2)', fontSize: 12.5 }}
-                        >
-                          {REPORT_ETA_OPTIONS.map((o) => (
-                            <option key={o.value} value={String(o.value)}>{o.label}</option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -275,6 +312,22 @@ export function VisitProceduresModal({
             </button>
           </div>
         </div>
+
+        {/* El modal de edición del procedimiento, montado ENCIMA de éste. Es el mismo componente
+            que usa "Procedimientos del estudio": una sola pantalla para editar un procedimiento,
+            se llegue desde donde se llegue. Al guardar refresca el resumen de reportes de la fila
+            que quedó atrás. */}
+        {editando && (
+          <ProcedureEditModal
+            proc={editando}
+            todosLosReportes={(estudio.data ?? []).flatMap((e) => e.reports)}
+            accent={accent}
+            accentSolid={accentSolid}
+            canEditCatalog={canManageCatalog}
+            onClose={() => setEditando(null)}
+            onSaved={() => { estudio.refetch(); catalog.refetch() }}
+          />
+        )}
       </div>
     </Modal>
   )

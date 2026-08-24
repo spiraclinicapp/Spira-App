@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { Panel } from './Panel'
@@ -7,6 +7,11 @@ import {
   useVisitProcedureStatus, toggleVisitProcedure, toggleVisitProcedureReport,
 } from '../../data/procedures'
 import type { VisitProcedureStatus } from '../../data/procedures'
+import { useVisitReportStatus, setReportStage } from '../../data/reportStatus'
+import type { ReportStatusRow } from '../../data/reportStatus'
+import { canUntickProcedure } from './reportes/estados'
+import type { ReportStage } from './reportes/estados'
+import { ReportCard } from './reportes/ReportCard'
 
 /** ¿El reporte de un procedimiento realizado ya venció su ETA y sigue sin marcarse listo? */
 function reportOverdue(p: VisitProcedureStatus): boolean {
@@ -56,6 +61,35 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   const [actionError, setActionError] = useState<string | null>(null)
   const [optDone, setOptDone] = useState<Record<string, boolean>>({})
   const [optReport, setOptReport] = useState<Record<string, boolean>>({})
+
+  /* Los reportes del modelo nuevo (0089/0090). El desglose se abre con SU píldora y no con el
+     tilde: antes el tilde lo auto-expandía y el Director pidió lo contrario — tildar activa el
+     plazo, desplegar es una decisión aparte. */
+  const reportes = useVisitReportStatus(visitId)
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
+  const [movingReport, setMovingReport] = useState<string | null>(null)
+
+  /** Reportes agrupados por procedimiento. Vacío = ese procedimiento no define ninguno. */
+  const porProcedimiento = useMemo(() => {
+    const m = new Map<string, ReportStatusRow[]>()
+    for (const r of reportes.data ?? []) {
+      const lista = m.get(r.procedure_id) ?? []
+      lista.push(r)
+      m.set(r.procedure_id, lista)
+    }
+    return m
+  }, [reportes.data])
+
+  const moverReporte = async (r: ReportStatusRow, stage: ReportStage) => {
+    const key = r.report_definition_id
+    if (movingReport) return
+    setMovingReport(key)
+    setActionError(null)
+    const res = await setReportStage(r.visit_id, r.report_definition_id, stage)
+    setMovingReport(null)
+    if (res.error) { setActionError(res.error); return }
+    reportes.refetch()
+  }
 
   // Reconciliación del optimismo: la marca local se suelta cuando el dato fresco YA dice lo mismo,
   // no apenas responde el RPC. `refetch()` solo bumpea un nonce (la consulta llega uno o dos renders
@@ -138,6 +172,25 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
           const isReady = reportOf(p)
           const overdue = !isReady && reportOverdue({ ...p, completed: isDone, report_ready: isReady })
           const reportPending = pending.has(p.procedure_id + ':report')
+          /** Los reportes definidos para este procedimiento en este estudio (0089). */
+          const misReportes = porProcedimiento.get(p.procedure_id) ?? []
+          const abierto = abiertos.has(p.procedure_id)
+          /* Espejo del guard de la base: si algún reporte ya salió de pendiente, destildar borraría
+             su historial. Se calcula acá para poder DECIRLO en vez de dejar que choque contra el
+             error crudo de la RPC. */
+          const guard = canUntickProcedure(misReportes)
+
+          /** Tildar activa el plazo; destildar puede estar bloqueado. Nunca abre el desglose. */
+          const alTildar = () => {
+            if (isDone && !guard.puede) {
+              setActionError(
+                `«${p.name}» tiene ${guard.avanzados} ${guard.avanzados === 1 ? 'reporte ya avanzado' : 'reportes ya avanzados'}. ` +
+                'Retrocedelos a pendiente antes de desmarcarlo.',
+              )
+              return
+            }
+            run(p.procedure_id, 'done', !isDone, () => toggleVisitProcedure(visitId, p.procedure_id, !isDone))
+          }
 
           /* Contenido de la fila. Idéntico se toque o no: en la ficha (readOnly) va en un div, no en
              un botón deshabilitado, para no dejar una parada de tabulación que no hace nada. */
@@ -151,9 +204,16 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
               </span>
               <span style={{ minWidth: 0, flex: 1 }}>
                 <span style={{ display: 'block', fontSize: 13.5, color: 'var(--spira-ink)' }}>{p.name}</span>
-                {p.category && <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: 'var(--spira-muted)' }}>{p.category}</span>}
+                {/* `ink-soft` y no `muted`: medido sobre el papel de la fila realizada, `muted` da
+                    3.12:1 y esto es texto normal (11.5px), o sea que necesita 4.5:1. Es el punto
+                    flaco conocido de la paleta serena —el secundario sobre papel cálido— y el
+                    remedio que el sistema ya tiene escrito es tinta atenuada, no gris. */}
+                {p.category && <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: 'var(--spira-ink-soft)' }}>{p.category}</span>}
               </span>
-              {p.has_report && (
+              {/* La píldora del modelo VIEJO sólo se dibuja para los procedimientos que todavía no
+                  tienen reportes definidos (0089). Donde ya los hay manda el desglose, y mostrar
+                  las dos cosas sería decir dos veces lo mismo con vocabularios distintos. */}
+              {p.has_report && misReportes.length === 0 && (
                 <span style={reportPill(isReady, overdue)}>
                   {isReady ? 'Reporte listo' : overdue ? 'Reporte vencido' : 'Reporte pendiente'}
                 </span>
@@ -162,9 +222,20 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
           )
 
           return (
-            <div key={p.procedure_id} style={{ borderRadius: 12, border: `1px solid ${isDone ? accent + '59' : 'var(--spira-line)'}`, background: isDone ? accent + '10' : 'var(--spira-white)' }}>
+            /* Realizado vs pendiente se dice por ELEVACIÓN, no por color: el pendiente es papel
+               blanco apoyado sobre la superficie del panel, y el realizado se asienta en ella —
+               deja de flotar, como algo que ya se resolvió. El borde es el mismo `line` en los dos.
+               Antes el realizado llevaba el acento al 35% en el borde y al 6% en el fondo; el
+               Director lo rechazó (2026-08-24) y además chocaba con la regla de la casa: el verde
+               se reserva para significado, y acá el significado ya lo dice el tilde. */
+            <div key={p.procedure_id} style={{ borderRadius: 12, border: '1px solid var(--spira-line)', background: isDone ? 'var(--spira-paper)' : 'var(--spira-white)' }}>
+              {/* Fila: el control del tilde a la izquierda y la píldora de reportes al final del
+                  MISMO renglón. La píldora va afuera del botón —no adentro— porque un botón no
+                  puede anidar a otro; por eso son hermanos en un flex y no padre/hijo. Antes la
+                  píldora caía a un renglón propio debajo, que es el salto que se veía. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {readOnly ? (
-                <div style={rowBase}>{row}</div>
+                <div style={{ ...rowBase, flex: 1, minWidth: 0 }}>{row}</div>
               ) : (
                 <button
                   /* Casilla, no botón: el lector de pantalla anuncia "marcada / sin marcar", que es
@@ -176,16 +247,69 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                   role="checkbox"
                   aria-checked={isDone}
                   className="spira-no-press"
-                  onClick={() => run(p.procedure_id, 'done', !isDone, () => toggleVisitProcedure(visitId, p.procedure_id, !isDone))}
-                  style={{ ...rowBase, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'var(--spira-font-text)' }}
+                  onClick={alTildar}
+                  style={{ ...rowBase, flex: 1, minWidth: 0, textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'var(--spira-font-text)' }}
                 >
                   {row}
                 </button>
               )}
 
-              {/* Circuito de reporte: solo si genera reporte y ya está realizado. Sangrado hasta la
-                  columna del texto (13 de padding + 20 del tilde + 12 del gap), no bajo el tilde. */}
-              {p.has_report && isDone && (
+              {/* La píldora comparte renglón con el nombre y se centra con él y con el tilde: el
+                  `alignItems: center` del flex lo resuelve solo, sin ningún desplazamiento a mano.
+                  Los `marginTop` calculados que había acá se fueron con el cambio a centrado — un
+                  offset fijo y un centrado automático se pelean, y gana el que no se ve. */}
+              {misReportes.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setAbiertos((s) => {
+                    const c = new Set(s)
+                    if (c.has(p.procedure_id)) c.delete(p.procedure_id); else c.add(p.procedure_id)
+                    return c
+                  })}
+                  aria-expanded={abierto}
+                  aria-label={`${misReportes.length === 1 ? 'Un reporte' : misReportes.length + ' reportes'} de ${p.name}`}
+                  className="spira-no-press"
+                  style={{ ...pillReportes(abierto), marginRight: 13, flex: '0 0 auto' }}
+                >
+                  <Icon name="fileText" size={12} color={accent} />
+                  {misReportes.length} {misReportes.length === 1 ? 'reporte' : 'reportes'}
+                  <Icon name="chevronDown" size={12} color="var(--spira-muted)" style={{ transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s var(--spira-ease-out)' }} />
+                </button>
+              )}
+              </div>
+
+              {/* Desglose. Se despliega con alto animado (`.spira-disclosure`) y se renderiza
+                  SIEMPRE: si sólo existiera al abrirlo, no habría desde dónde animar y aparecería
+                  de golpe. Sangrado hasta la columna del texto (13 de padding + 20 del tilde + 12
+                  del gap), no bajo el tilde. */}
+              {misReportes.length > 0 && (
+                <div className="spira-disclosure" data-abierto={abierto}>
+                  <div>
+                    <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 13px 11px 45px' }}>
+                      {!isDone && (
+                        <div style={avisoHabilita}>Se habilita al marcar el procedimiento como realizado.</div>
+                      )}
+                      {misReportes.map((r, i) => (
+                        <ReportCard
+                          key={r.report_definition_id}
+                          row={r}
+                          variante="visita"
+                          primero={i === 0}
+                          canOperate={!readOnly && r.completed}
+                          busy={movingReport === r.report_definition_id}
+                          onStage={(s) => void moverReporte(r, s)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Circuito de reporte LEGACY (0064): el tilde único "reporte descargado". Sobrevive
+                  sólo para los procedimientos que todavía no tienen reportes definidos en el
+                  estudio — mientras se migran, las dos formas conviven sin pisarse. Se va entero
+                  con la 0091, junto con la columna `has_report` que lo alimenta. */}
+              {p.has_report && misReportes.length === 0 && isDone && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px 11px 45px' }}>
                   <button
                     type="button" disabled={readOnly || reportPending}
@@ -216,9 +340,20 @@ function ProceduresPanel({ accent, aside, children }: { accent: string; aside?: 
   return <Panel title="Procedimientos" icon="clipboardCheck" accent={accent} aside={aside}>{children}</Panel>
 }
 
-/** Fila: el tilde alineado con la PRIMERA línea del nombre (no centrado en el bloque de dos líneas). */
+/**
+ * Fila: tilde, bloque de texto y píldora CENTRADOS entre sí en altura.
+ *
+ * Antes el tilde y la píldora se anclaban a la primera línea del nombre. Se revirtió por pedido
+ * del Director (2026-08-24): con el bloque de dos renglones —nombre + categoría, que se leen como
+ * una sola unidad— el anclaje arriba dejaba los tres elementos a alturas distintas y la fila se
+ * veía desprolija. Centrado, los tres comparten eje.
+ *
+ * El costo, asumido: si el nombre envolviera a tres o más renglones en una pantalla muy angosta,
+ * el tilde y la píldora quedan a la mitad del párrafo en vez de arriba. Con dos renglones —que es
+ * el caso real— centrar se ve mejor.
+ */
 const rowBase: CSSProperties = {
-  display: 'flex', alignItems: 'flex-start', gap: 12, padding: '11px 13px',
+  display: 'flex', alignItems: 'center', gap: 12, padding: '11px 13px',
 }
 
 /**
@@ -228,11 +363,41 @@ const rowBase: CSSProperties = {
  */
 function tickBox(isDone: boolean, accent: string): CSSProperties {
   return {
-    flex: '0 0 auto', width: 20, height: 20, marginTop: -2, borderRadius: 6,
+    flex: '0 0 auto', width: 20, height: 20, borderRadius: 6,
     display: 'grid', placeItems: 'center',
     border: `1.5px solid ${isDone ? accent : 'var(--spira-muted)'}`,
     background: isDone ? accent : 'transparent',
   }
+}
+
+/**
+ * Píldora "N reportes": el disparador del desglose.
+ *
+ * Abierta = ELEVADA (papel + sombra), cerrada = al ras. Antes abierta se teñía con el acento y
+ * tomaba borde verde; el Director lo cambió (2026-08-24) por el mismo criterio con el que se fue
+ * el recuadro de la fila. El borde es el mismo en los dos estados: lo que cambia es la altura.
+ *
+ * Cerrada va con fondo transparente y no blanco, para que herede el de su fila —papel si está
+ * realizada, blanco si no— y el salto al abrirse se lea como que la píldora se despega, en vez de
+ * como un cambio de color.
+ */
+function pillReportes(abierto: boolean): CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px',
+    borderRadius: 'var(--spira-radius-pill)',
+    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+    background: abierto ? 'var(--spira-white)' : 'transparent',
+    boxShadow: abierto ? 'var(--spira-shadow-sm)' : 'none',
+    color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'box-shadow .14s var(--spira-ease-out), background-color .14s var(--spira-ease-out)',
+  }
+}
+
+/** Aviso de que el desglose todavía no opera. Se muestra al desplegar ANTES de tildar. */
+const avisoHabilita: CSSProperties = {
+  fontSize: 11.5, color: 'var(--spira-muted)', background: 'var(--spira-surface)',
+  borderRadius: 9, padding: '8px 11px', lineHeight: 1.45,
 }
 
 /** Rótulo de estado del reporte (mismo vocabulario de píldora que el resto de Track). */

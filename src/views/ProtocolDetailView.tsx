@@ -11,6 +11,8 @@ import { toCsv, downloadCsv } from '../lib/csv'
 import { groupVisitsByPatient, visitIndex, desvioDias } from '../lib/visits'
 import { PdPatientRow } from './track/PdPatientRow'
 import { CronogramaTab } from './track/CronogramaTab'
+import { ReportesPendientesView } from './track/reportes/ReportesPendientesView'
+import { VisitDetail } from './track/VisitDetail'
 import type { ViewHeader } from './types'
 
 const card: CSSProperties = {
@@ -48,8 +50,13 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
   const kpis = useProtocolKpis(protocol.id)
   const visits = useProtocolVisits(protocol.id)
   const [filter, setFilter] = useState<'activos' | 'todos'>('todos')
-  /* Pestaña de la columna derecha. La de "Cronograma" solo existe para quien puede gestionarlo. */
-  const [rightTab, setRightTab] = useState<'pacientes' | 'cronograma'>('pacientes')
+  /* Pestaña de la columna derecha. "Cronograma" solo existe para quien puede gestionarlo;
+     "Reportes pendientes" (0090) la ven todos los que llegan acá — un coordinador que no arma el
+     cuadro igual necesita ver qué reportes le quedan por descargar. Quién puede MOVERLOS lo
+     resuelve la propia vista, y en última instancia la RPC. */
+  const [rightTab, setRightTab] = useState<'pacientes' | 'cronograma' | 'reportes'>('pacientes')
+  /** Visita abierta desde el tablero de reportes (el 📎 de la tarjeta). */
+  const [openVisitId, setOpenVisitId] = useState<string | null>(null)
 
   /* Registra el encabezado contextual del shell: "Protocolos" (clickeable → grilla) ›
      CÓDIGO, + el botón "Nuevo paciente" a la derecha. Las funciones se leen por ref para
@@ -180,26 +187,25 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
         {/* columna derecha: pacientes / cronograma (pestañas si se puede gestionar el cronograma) */}
         <div style={{ ...card, padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '15px 20px', borderBottom: '1px solid var(--spira-line)' }}>
-            {canManageSchedule ? (
-              <div style={{ display: 'flex', gap: 6 }}>
-                {(['pacientes', 'cronograma'] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setRightTab(t)}
-                    className="spira-no-press"
-                    style={{
-                      fontSize: 13, fontWeight: 600, padding: '6px 13px', borderRadius: 'var(--spira-radius-pill)', cursor: 'pointer',
-                      color: rightTab === t ? accent : 'var(--spira-muted)', background: rightTab === t ? accent + '14' : 'transparent',
-                      border: rightTab === t ? 'none' : '1px solid var(--spira-line)', fontFamily: 'var(--spira-font-text)',
-                    }}
-                  >
-                    {t === 'pacientes' ? 'Pacientes' : 'Cronograma'}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 17 }}>Pacientes</span>
-            )}
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(canManageSchedule
+                ? (['pacientes', 'cronograma', 'reportes'] as const)
+                : (['pacientes', 'reportes'] as const)
+              ).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setRightTab(t)}
+                  className="spira-no-press"
+                  style={{
+                    fontSize: 13, fontWeight: 600, padding: '6px 13px', borderRadius: 'var(--spira-radius-pill)', cursor: 'pointer',
+                    color: rightTab === t ? accent : 'var(--spira-muted)', background: rightTab === t ? accent + '14' : 'transparent',
+                    border: rightTab === t ? 'none' : '1px solid var(--spira-line)', fontFamily: 'var(--spira-font-text)',
+                  }}
+                >
+                  {t === 'pacientes' ? 'Pacientes' : t === 'cronograma' ? 'Cronograma' : 'Reportes pendientes'}
+                </button>
+              ))}
+            </div>
             {rightTab === 'pacientes' && (
               <>
                 <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{shown.length} de {patients.length}</span>
@@ -223,7 +229,13 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
             )}
           </div>
           <div style={{ overflow: 'auto', padding: '12px 14px', flex: 1 }}>
-            {rightTab === 'cronograma' ? (
+            {rightTab === 'reportes' ? (
+              <ReportesPendientesView
+                protocolId={protocol.id}
+                accent={accent}
+                onOpenVisit={(visitId) => setOpenVisitId(visitId)}
+              />
+            ) : rightTab === 'cronograma' ? (
               <CronogramaTab
                 protocolId={protocol.id}
                 accent={accent}
@@ -243,6 +255,20 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
           </div>
         </div>
       </div>
+
+      {/* El 📎 de una tarjeta del tablero abre el detalle de ESA visita del paciente — el mismo
+          componente que abre Visitas del día y la ficha. NO el modal de procedimientos del
+          cronograma, que edita la plantilla compartida por todos los pacientes del protocolo:
+          desde una tarjeta que muestra un nombre propio, eso cambiaría el cuadro de los cuarenta
+          sin que nadie se entere (decisión 2A de la review). */}
+      {openVisitId && (
+        <VisitDetail
+          visitId={openVisitId}
+          accent={accent}
+          onClose={() => setOpenVisitId(null)}
+          onChanged={() => { visits.refetch(); kpis.refetch() }}
+        />
+      )}
     </div>
   )
 }
