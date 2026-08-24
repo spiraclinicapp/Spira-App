@@ -121,8 +121,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ? 'El enlace para restablecer la contraseña venció. Pedí uno nuevo desde "Olvidé mi contraseña".'
             : 'El enlace no es válido o ya se usó. Pedí uno nuevo desde "Olvidé mi contraseña".',
       )
-      // Limpiamos hash y query para que el aviso no reaparezca al recargar.
-      window.history.replaceState(null, '', window.location.pathname)
+      // Limpiamos el hash y SOLO los parámetros de Supabase: desde que la navegación vive en la URL
+      // (ver src/lib/router.ts), el query lleva el estado de la pantalla —el día, los filtros, la
+      // entidad abierta— y borrarlo entero se lo llevaba puesto. Un error de auth no tiene por qué
+      // devolverte a la pantalla sin filtrar.
+      const limpio = new URLSearchParams(window.location.search)
+      for (const p of ['error', 'error_code', 'error_description']) limpio.delete(p)
+      const qs = limpio.toString()
+      window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
     }
 
     supabase.auth.getSession().then(({ data }) => {
