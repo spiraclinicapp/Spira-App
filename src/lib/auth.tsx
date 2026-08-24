@@ -52,10 +52,12 @@ interface AuthState {
   /** Nivel del usuario en cada módulo (de user_module_roles). */
   roles: Partial<Record<ModuleKey, ModuleRole>>
   loading: boolean
-  /** `loading` es "¿sabemos si hay sesión?"; esto es "¿sabemos qué puede ver?" — dos preguntas
-      distintas. Arranca en true; baja a false cuando `modules`/`roles` ya reflejan al usuario
-      (con sesión) o cuando no hay nada que esperar (sin sesión). El shell (Gate en App.tsx) espera
-      las DOS antes de montar: si sólo esperara `loading`, el guard de acceso evaluaría
+  /** `loading` es "¿sabemos si hay sesión?"; esto es "¿sabemos qué puede ver ESTE usuario?" — dos
+      preguntas distintas. DERIVADO (no un flag propio): compara el id de sesión actual contra el id
+      para el que ya resolvimos `modules`/`roles`. Así un TOKEN_REFRESHED o el SIGNED_IN que auth-js
+      dispara al recuperar el foco de la pestaña —mismo usuario, objeto de sesión nuevo— no vuelven a
+      poner esto en true, y el shell no se desmonta de la nada. El shell (Gate en App.tsx) espera
+      `loading` Y esto antes de montar: si sólo esperara `loading`, el guard de acceso evaluaría
       isAllowed() contra modules=[] todavía sin llenar y rechazaría a un usuario legítimo. */
   modulesLoading: boolean
   /** true cuando el usuario volvió desde el link de "olvidé mi contraseña" (evento
@@ -85,7 +87,12 @@ interface AuthState {
   requestEmailChange: (email: string) => Promise<{ error: string | null; pending: boolean }>
   /** Cierra las OTRAS sesiones del usuario (mantiene la actual, scope 'others'). */
   signOutOthers: () => Promise<{ error: string | null }>
-  signOut: () => Promise<void>
+  /** Cierra la sesión actual. Devuelve el mensaje de error (o `null` si salió bien): `auth-js` NO
+      borra la sesión local si la llamada a la API falla por red, así que si el error se descartara
+      la pantalla igual cambiaría a Inicio (ver `UserMenu`) mientras la sesión sigue viva — en una
+      máquina compartida de clínica eso es peor que no mover nada, porque el usuario se va creyendo
+      que cerró sesión. */
+  signOut: () => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined)
@@ -96,7 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [modules, setModules] = useState<ModuleKey[]>([])
   const [roles, setRoles] = useState<Partial<Record<ModuleKey, ModuleRole>>>({})
   const [loading, setLoading] = useState(true)
-  const [modulesLoading, setModulesLoading] = useState(true)
+  const [modulesUserId, setModulesUserId] = useState<string | null>(null)
+  /* `modulesLoading` DERIVADO y no un flag: la pregunta es si los roles que tenemos en la mano son
+     de ESTE usuario. Un TOKEN_REFRESHED, o el SIGNED_IN que auth-js emite cada vez que la pestaña
+     recupera el foco, traen un objeto de sesión NUEVO del MISMO usuario — con un flag, ahí el Gate
+     desmontaba el shell entero y se llevaba puesto todo lo que no vive en la URL (un wizard a medio
+     llenar, un formulario de alta). Derivado, esa transición no cambia nada. */
+  const modulesLoading = session != null && modulesUserId !== session.user.id
   const [recovering, setRecovering] = useState(false)
   const [authNotice, setAuthNotice] = useState<string | null>(null)
 
@@ -162,18 +175,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // al haber sesión, traer perfil (public.users) + roles (user_module_roles)
   useEffect(() => {
     if (!session) {
-      // Sin sesión no hay roles que traer: no hay nada que esperar, así que modulesLoading baja
-      // junto con el resto en lugar de quedar colgado en true.
+      // Sin sesión no hay roles que traer: no hay nada que esperar, así que modulesLoading (derivado)
+      // baja sola porque `session` es null — acá solo limpiamos el resto del estado.
       setProfile(null)
       setModules([])
       setRoles({})
-      setModulesLoading(false)
+      setModulesUserId(null)
       return
     }
     const uid = session.user.id
     let active = true
-    // Arranca la ventana de red que el Gate espera (ver modulesLoading en la interfaz, arriba).
-    setModulesLoading(true)
     type ProfRow = { full_name: string; puesto: string | null; centro: string | null; name_changed_at: string | null; email_changed_at: string | null }
     void (async () => {
       try {
@@ -204,11 +215,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRoles(Object.fromEntries(rows.map((r) => [r.module, r.role])))
       } finally {
         // Crítico: tiene que correr TAMBIÉN si las consultas de arriba tiran error — si
-        // modulesLoading quedara en true ante una falla, el Gate se cuelga en el splash para
-        // siempre. `active` respeta la cancelación: si el efecto ya se limpió (la sesión cambió
-        // de nuevo mientras esta llamada estaba en vuelo), no pisamos el estado de un montaje
-        // viejo sobre el del montaje nuevo.
-        if (active) setModulesLoading(false)
+        // modulesUserId no se fijara ante una falla, `modulesLoading` (derivado) se cuelga en true
+        // para siempre y el Gate no sale del splash. `active` respeta la cancelación: si el efecto
+        // ya se limpió (la sesión cambió de nuevo mientras esta llamada estaba en vuelo), no
+        // pisamos el estado de un montaje viejo sobre el del montaje nuevo.
+        // "ya preguntamos por este usuario, con respuesta o sin ella" — con error, roles/modules
+        // quedan en lo que tenían (o vacíos si es la primera carga), pero la pregunta ya no cuelga.
+        if (active) setModulesUserId(uid)
       }
     })()
     return () => {
@@ -289,7 +302,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut: AuthState['signOut'] = async () => {
     setRecovering(false)
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    return error ? authErrorMessage(error) : null
   }
 
   return (

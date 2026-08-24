@@ -145,10 +145,15 @@ export function parseHref(href: string): UrlState | null {
   return corte === -1 ? parseUrl(href, '') : parseUrl(href.slice(0, corte), href.slice(corte))
 }
 
+/** El estado de la home (Inicio › Resumen), en UN solo lugar: antes de esto vivía escrito a mano en
+ *  tres sitios (acá, `UserMenu` para el logout, `AppShell` para el logo) y era fácil que alguno se
+ *  desincronizara. `homeUrl` y cualquier consumidor de `UrlState` (p. ej. `replaceUrl`) parten de acá. */
+export const HOME: UrlState = { moduleKey: 'inicio', subKey: 'resumen', path: [], query: {} }
+
 /** La home (Inicio › Resumen). Derivada de `buildUrl`, no escrita a mano: si algún día la raíz deja
  *  de ser `/`, los consumidores no se enteran. */
 export function homeUrl(): string {
-  return buildUrl({ moduleKey: 'inicio', subKey: 'resumen', path: [], query: {} })
+  return buildUrl(HOME)
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

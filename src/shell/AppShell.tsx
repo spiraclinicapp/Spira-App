@@ -207,12 +207,27 @@ export function AppShell() {
      dice "no tenés acceso", así que la pestaña no puede prometer el submódulo que la pantalla niega. */
   useEffect(() => {
     document.title = moduleKey === 'inicio' || rutaInvalida || sinAcceso ? 'Spira' : `Spira — ${sub.name}`
+    /* Al desmontar (logout: el Gate cambia a <Login/> y este componente entero se va) la pestaña no
+       puede seguir diciendo "Spira — Stock" sobre la pantalla de login — es la misma máquina
+       compartida que motivó no dejar el nombre del paciente en el título (ver el comentario de
+       arriba). Sin este cleanup, "Cerrar sesión" cerraba la sesión pero el título mentía. */
+    return () => { document.title = 'Spira' }
   }, [moduleKey, sub.name, rutaInvalida, sinAcceso])
 
   if (rutaInvalida || sinAcceso) {
+    /* Entre los dos casos de "sin acceso" el mensaje se elige por el flag `proximamente` del módulo
+       PEDIDO (Lab, Contable): para esos nadie puede "darte acceso" porque todavía no existe la
+       sección, así que el consejo de 'acceso' ("pedíselo a quien coordina tu módulo") sería un
+       trámite imposible. Se mira `MODULES` y no `mod` (arriba, que ya cae a `MODULES[0]` si la key
+       no matchea) porque acá necesitamos el módulo REQUERIDO, exista o no. */
+    const motivo: 'ruta' | 'acceso' | 'proximamente' = rutaInvalida
+      ? 'ruta'
+      : MODULES.find((m) => m.key === moduleKey)?.proximamente
+        ? 'proximamente'
+        : 'acceso'
     return (
       <div style={{ height: '100%', background: 'var(--spira-paper)', color: 'var(--spira-ink)' }}>
-        <NotFoundView motivo={rutaInvalida ? 'ruta' : 'acceso'} />
+        <NotFoundView motivo={motivo} />
       </div>
     )
   }
