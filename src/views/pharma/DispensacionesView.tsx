@@ -100,7 +100,15 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
     const fila = id ? all.find((d) => d.id === id) ?? acumuladas.find((d) => d.id === id) ?? null : null
     // Sin código sellado (rechazada, cancelada o todavía en preparación) se escribe el identificador
     // corto — ver el comentario de `codigoDe` más arriba.
-    const codigo = fila ? codigoDe(fila) ?? shortId(fila.id) : null
+    //
+    // Hay un caso más: id SIN fila. Es el del alta (ver el `onCreated` de más abajo), que abre el
+    // cajón de preparación apenas se crea la solicitud — pero el `refetch` que la trae es asíncrono,
+    // así que en el momento de este llamado la fila todavía no está ni en `all` ni en `acumuladas`.
+    // Se escribe igual el corto del id: una dispensación recién creada NUNCA tiene código sellado (se
+    // sella al marcar lista), así que el corto es SIEMPRE el segmento correcto para ese caso, no una
+    // aproximación. Cuando llegue el refetch, `resolveShortId` la encuentra contra ese mismo corto y
+    // el cajón abre solo, sin que nadie tenga que volver a llamar a este setter.
+    const codigo = fila ? (codigoDe(fila) ?? shortId(fila.id)) : id ? shortId(id) : null
     /* Se conservan los cuatro filtros del tablero: abrir un cajón no puede resetearte el tablero que
        tenías detrás, ni dejarte ahí al cerrarlo.
        Y abrir apila (el atrás cierra el cajón) pero **cerrar reemplaza**: si cerrar también apilara,
@@ -201,6 +209,21 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const open = openId
     ? all.find((r) => r.id === openId) ?? acumuladas.find((r) => r.id === openId) ?? null
     : null
+
+  /**
+   * Aviso sereno cuando la URL trae un código que no matchea ninguna fila cargada. NO es "no existe":
+   * el tablero legítimamente no contiene TODAS las dispensaciones (las columnas activas se acotan al
+   * día y el historial pagina), así que afirmar eso sería mentir. Se avisa lo que sabemos —no está
+   * entre lo cargado— y se sugiere dónde mirar.
+   *
+   * No es un caso de laboratorio: un link a una dispensación entregada, compartido hoy y abierto
+   * mañana —con `dia` en su default, que por eso no viaja en la URL—, cae justo acá: el tablero de
+   * mañana no la trae (acotado al día) y el historial ni siquiera se consultó (arranca en `tablero`).
+   *
+   * Tres condiciones, ni una menos ni una más: hay segmento en la URL, las DOS consultas (tablero e
+   * historial) ya terminaron de cargar, y no resolvió contra ninguna fila.
+   */
+  const codigoNoResuelto = codigoAbierto !== null && !q.loading && !h.loading && !open
 
   /**
    * La acción primaria va en la fila del título (donde el shell la alinea con el H1); los tres
@@ -330,6 +353,13 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
         </div>
       )}
 
+      {codigoNoResuelto && (
+        <div style={avisoBox} role="status">
+          <Icon name="info" size={15} />
+          <span>No encontramos esa dispensación entre las de esta fecha. Probá el historial, o movete al día en que se entregó.</span>
+        </div>
+      )}
+
       {vista === 'historial' ? (
         h.loading && acumuladas.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '10px 2px' }}>Cargando historial…</div>
@@ -439,4 +469,12 @@ const errBox: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto', fontSize: 13,
   color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.08)',
   border: '1px solid rgba(166, 72, 59, 0.25)', borderRadius: 10, padding: '10px 13px',
+}
+
+// Misma forma que errBox (icono + texto en una caja con borde), pero en el tono calmo de aviso —
+// no de error — que ya usa el resto de la app para "esto no es lo que esperabas, pero no rompió nada".
+const avisoBox: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto', fontSize: 13,
+  color: 'var(--spira-acc-deep-warn)', background: 'var(--spira-surface)',
+  border: '1px solid var(--spira-line-2)', borderRadius: 10, padding: '10px 13px',
 }

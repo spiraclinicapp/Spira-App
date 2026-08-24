@@ -120,9 +120,11 @@ export function useUrlState<T>(
      que `def`/`codec` no pueden ir en sus deps. La salida es un ref actualizado en cada render: el
      setter sigue siendo la misma función siempre, pero lee estos valores frescos en vez de los que
      cerró la primera vez. Sin esto, leer y escribir podían usar defaults DISTINTOS — no se notaba
-     porque hasta ahora todos los `def` de la app son literales estructuralmente iguales entre renders,
-     pero la Fase E lo rompe: Estadísticas deriva `desde`/`hasta` de un default que cambia con el preset
-     elegido, y el setter viejo seguía escribiendo contra el preset con el que se había montado. */
+     porque la mayoría de los `def` de la app son literales estructuralmente iguales entre renders, pero
+     `dia` (Dispensaciones, Visitas del día, la cola médica) no lo es: su default es `todayISO()`, que
+     CAMBIA al cruzar la medianoche con la pestaña abierta. Sin este ref, un componente montado el día
+     anterior seguía escribiendo, al primer toque del día siguiente, contra el default con el que se
+     había montado — no el de hoy. */
   const defCodecRef = useRef({ def, codec })
   defCodecRef.current = { def, codec }
 

@@ -58,8 +58,14 @@ export function ReportesView({ module }: ViewProps) {
   })
   const [desde, setDesde] = useUrlState('desde', '')
   const [hasta, setHasta] = useUrlState('hasta', '')
-  const rango = preset === 'custom' && desde && hasta ? { desde, hasta } : rangoDePreset(
-    preset === 'custom' ? '30dias' : preset,
+  /* Memoizado: antes era `useState` (identidad estable); al derivarlo en cada render, un objeto
+     NUEVO en cada pasada arrastraba al `useMemo` de `d` más abajo —la pasada única sobre hasta 5.000
+     filas que arma serie, agregados e invariantes— que lo tiene en sus deps. No hay bucle (las
+     consultas dependen de los strings `desde`/`hasta`, no de `rango`), así que era costo y no
+     corrección, pero deshacía en silencio la decisión de diseño de ese comentario. */
+  const rango = useMemo(
+    () => (preset === 'custom' && desde && hasta ? { desde, hasta } : rangoDePreset(preset === 'custom' ? '30dias' : preset)),
+    [preset, desde, hasta],
   )
   const setRango = (r: { desde: string; hasta: string }) => { setDesde(r.desde); setHasta(r.hasta) }
   /** Protocolos del recorte, por CÓDIGO (así los filtran las vistas 0083). Vacío = todos. */

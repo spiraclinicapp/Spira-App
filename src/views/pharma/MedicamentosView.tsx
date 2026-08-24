@@ -32,6 +32,11 @@ import type { Estado } from './expiryState'
 type Apartado = 'menu' | 'protocolo' | 'ambulatoria' | 'catalogo'
 type EstadoFilter = 'todos' | 'vigentes' | 'pronto' | 'vencido'
 
+/** Codec del apartado, en una constante porque abajo alimenta DOS `useUrlState` sobre la misma
+    clave (uno en push para entrar, otro en replace para volver) — declararlo dos veces es la clase
+    de duplicación que termina divergiendo cuando alguien agrega un apartado y edita uno solo. */
+const APARTADO_CODEC = oneOf(['menu', 'protocolo', 'ambulatoria', 'catalogo'] as const)
+
 /** Etiqueta del apartado para la miga del breadcrumb (null en el menú = header genérico). */
 const APARTADO_LABEL: Record<Apartado, string | null> = {
   menu: null, protocolo: 'Farmacia Protocolo', ambulatoria: 'Farmacia Ambulatoria', catalogo: 'Catálogo',
@@ -76,7 +81,16 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   /* El apartado va con PUSH: moverse entre el menú y un apartado es navegar dentro de Stock, y el
      atrás tiene que volver al menú. Los filtros van con replace, como en el resto de la app. */
   const [apartado, setApartado] = useUrlState<Apartado>('apartado', 'menu', {
-    codec: oneOf(['menu', 'protocolo', 'ambulatoria', 'catalogo'] as const), mode: 'push',
+    codec: APARTADO_CODEC, mode: 'push',
+  })
+  /* Volver al menú NO es "entrar" — es la misma distinción que `useUrlEntity` ya resuelve para el
+     cajón de una entidad: abrir apila (push, el atrás vuelve al apartado anterior) pero cerrar/volver
+     tiene que REEMPLAZAR. Si `goMenu` (abajo) usara el `setApartado` de arriba, Menú → Protocolo →
+     Volver dejaría el historial en [menu, menu?apartado=protocolo, menu]: el atrás no saldría de
+     Stock, reabriría Protocolo. Segunda instancia de `useUrlState` sobre la MISMA clave, fija en
+     replace, solo para el camino de vuelta. */
+  const [, volverAlMenu] = useUrlState<Apartado>('apartado', 'menu', {
+    codec: APARTADO_CODEC, mode: 'replace',
   })
   const [filtro, setFiltro] = useUrlState<EstadoFilter>('estado', 'todos', {
     codec: oneOf(['todos', 'vigentes', 'pronto', 'vencido'] as const),
@@ -113,7 +127,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     return () => document.removeEventListener('keydown', onKey)
   }, [dropdownId])
 
-  const goMenu = useCallback(() => { setApartado('menu'); setBusqueda(''); setFiltro('todos'); setProtoSel([]); setDropdownId(null) }, [])
+  const goMenu = useCallback(() => { volverAlMenu('menu'); setBusqueda(''); setFiltro('todos'); setProtoSel([]); setDropdownId(null) }, [volverAlMenu])
   const refetchAll = () => { protoLots.refetch(); ambuLots.refetch(); catalog.refetch(); codes.refetch() }
 
   // Encabezado contextual: el shell ya pone breadcrumb + título ("Stock") + botón de acción.
