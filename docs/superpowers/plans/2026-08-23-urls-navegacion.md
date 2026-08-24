@@ -1075,9 +1075,30 @@ Rama: `feat/urls-pacientes`. Al terminar, el ejemplo del Director está vivo:
 > Dos salidas: (a) que `navigate` acepte un `path` opcional como quinto argumento — no rompe a ninguno
 > de sus ocho consumidores, pero toca la firma que el spec pidió congelar; (b) que `setPath` de
 > `useUrlPath` acepte `{ mode: 'replace' }` para el caso "estoy resolviendo un target, no navegando".
-> **La (b) es más chica y no toca la firma congelada.** Confirmarlo al arrancar la Fase C.
+> **Resuelta por la (b)** (decisión del Director, 2026-08-24): `setPath` acepta `mode`. Ver el Paso 0
+> de la Task 7.
 
 ### Task 7: la navegación interna de `ProtocolsView` sale del path
+
+- [ ] **Paso 0: `useUrlPath` acepta `mode`**
+
+En `src/lib/useUrlState.ts`, la firma de su setter pasa a:
+
+```ts
+(path: string[], opts?: { conservar?: string[]; mode?: 'push' | 'replace' }) => void
+```
+
+Con `'push'` como default (lo que hace hoy). En el cuerpo, elegir entre `pushUrl` y `replaceUrl` según
+`opts.mode`.
+
+El motivo, que va como comentario:
+
+```
+   `mode` existe por un caso puntual: cuando la vista está RESOLVIENDO un objetivo que le dejó el
+   shell (un `navTarget` del buscador global), no está navegando — el shell ya apiló su entrada al
+   traerte hasta acá. Apilar una segunda dejaría el "atrás" a mitad de camino: te devolvería a la
+   grilla en vez de a la pantalla desde la que buscaste. Ahí va `replace`; en todo lo demás, `push`.
+```
 
 **Archivos:**
 - Modificar: `src/views/ProtocolsView.tsx:25-30` (el tipo `Nav`), `:113` (el `useState<Nav>`) y sus
@@ -1278,15 +1299,26 @@ por:
   const navRoto = !cargando && navResuelto === null
 
   const [, setPath] = useUrlPath()
-  const setNav = (siguiente: Nav) => {
+  const setNav = (siguiente: Nav, opts: { resolviendoTarget?: boolean } = {}) => {
     /* `conservar` y no todo el query: la búsqueda y el filtro de estado describen la grilla y hoy
        ya sobreviven entrar a un protocolo y volver —esta vista no se desmonta: renderiza el detalle
        desde adentro—, así que descartarlos sería una regresión. Lo que NO se conserva es la entidad
        abierta: un `?visita=` arrastrado a otra ficha abriría la visita de otro paciente. */
     setPath(pathDesdeNav(siguiente, protocols.data ?? [], patients.data ?? []), {
       conservar: ['buscar', 'estado'],
+      /* Resolver un objetivo del buscador NO es navegar: el shell ya apiló su entrada al traerte.
+         Apilar otra dejaría el "atrás" a mitad de camino, en la grilla en vez de en la pantalla
+         desde la que buscaste. */
+      mode: opts.resolviendoTarget ? 'replace' : 'push',
     })
   }
+```
+
+> **Al cablear el efecto que consume `navTarget`** (el que hoy abre la ficha del paciente que vino del
+> buscador global), llamalo con `setNav(destino, { resolviendoTarget: true })`. Es el único lugar que
+> usa esa variante.
+
+```tsx
 ```
 
 `protocols` y `patients` son los `QueryResult` que la vista ya tiene (`useProtocols()` / `usePatients()`).
@@ -1366,16 +1398,16 @@ Imports: `import { listOf } from '../lib/router'`, `import { useUrlState } from 
 por:
 
 ```tsx
-  /* La visita abierta va con push: abrirla es navegar, y el atrás tiene que cerrarla.
-     UUID COMPLETO, no corto: `VisitDetail` trae sus propios datos por id, así que puede abrir una
-     visita que NO esté entre las filas cargadas. Un identificador corto habría que resolverlo contra
-     esas filas y rompería justamente eso (ver el comentario de TrackAlertsView.tsx:84). */
-  const [visitaId, setVisitaId] = useUrlState('visita', '', { mode: 'push' })
-  const openVisitId = visitaId || null
-  const setOpenVisitId = (id: string | null) => setVisitaId(id ?? '')
+  /* La visita abierta va con push —abrirla es navegar y el atrás tiene que cerrarla—, y con el UUID
+     COMPLETO, no corto: `VisitDetail` trae sus propios datos por id, así que puede abrir una visita
+     que NO esté entre las filas cargadas. Un identificador corto habría que resolverlo contra esas
+     filas y rompería justamente eso (ver el comentario de TrackAlertsView.tsx:84). */
+  const [openVisitId, setOpenVisitId] = useUrlEntity('visita')
 ```
 
-No hace falta importar nada de `router.ts` para esto: solo `import { useUrlState } from '../lib/useUrlState'`.
+`useUrlEntity` (de `../lib/useUrlState`) ya trae adentro el modo `push` y el adaptador entre `''` y
+`null` — existe para que eso no se repita en las cuatro vistas que abren una entidad. Es su primer
+consumidor: **no lo reimplementes a mano.**
 
 - [ ] **Paso 3: verificar en el navegador**
 
@@ -1403,6 +1435,26 @@ Título: `feat(pacientes): protocolo, ficha y filtros en la URL`. Poner en el cu
 del Director, que a partir de este PR existe de verdad.
 
 ---
+
+> ## Lo que la Fase C dejó aprendido, y estas fases tienen que copiar
+>
+> El molde de la Task 7 es el correcto —funciones puras en un archivo aparte, `nav` derivado, fallback
+> a la grilla mientras carga, pantalla serena cuando resuelve `null`— pero su review encontró cuatro
+> cosas que **no hay que replicar seis veces**:
+>
+> 1. **Si el path lleva padre e hijo, validá la RELACIÓN, no que cada uno exista por separado.** El
+>    Critical de la Fase C: el IVRS es único globalmente, así que encontrar al paciente no alcanzaba —
+>    `/A/<ivrs-de-B>` abría la ficha correcta bajo el protocolo equivocado, con el card de alertas
+>    mostrando las de su protocolo real bajo un encabezado ajeno. Aplica a cualquier path anidado.
+> 2. **Los fixtures de test nacen con DOS filas por colección, no una.** Con una sola, ningún test
+>    distingue "resuelve el que corresponde" de "resuelve el único que hay" — por eso el Critical no
+>    rompió un solo test. Y cuidado al elegir los uuid de prueba: si comparten los primeros 8
+>    caracteres, `resolveShortId` los rechaza por ambigüedad y el test falla por otro motivo.
+> 3. **`useMemo` sobre el nav derivado**, con deps de la URL y los datos. Sin eso es un objeto nuevo
+>    por render, y estas vistas tienen más efectos y más setters en deps que Pacientes: es un loop
+>    esperando a pasar.
+> 4. **Los segmentos sobrantes devuelven `null`.** `/dispensaciones/D-0417/loquesea` tiene que caer en
+>    la pantalla serena, no abrir el cajón ignorando la basura (spec §8).
 
 # FASE D · PR 4 — Coordinación
 
