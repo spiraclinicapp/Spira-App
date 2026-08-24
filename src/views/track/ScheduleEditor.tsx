@@ -299,6 +299,7 @@ export function ScheduleEditor({
       )}
       {procVisit && (
         <VisitProceduresModal
+          protocolId={protocolId}
           visitDefId={procVisit.id}
           visitLabel={procVisit.code ? `${procVisit.code} - ${procVisit.name}` : procVisit.name}
           visitDispenses={procVisit.dispenses}

@@ -13,6 +13,7 @@ import {
   PLATFORMS,
   PLAZO_MAX,
   plazoLibreInicial,
+  resumenDeReportes,
 } from './reportes'
 
 /**
@@ -177,6 +178,62 @@ describe('interruptor horas / días', () => {
     expect(plazoLibreInicial(48)).toEqual({ texto: '', unidad: 'h' })
     // Los cinco choques posibles, uno por chip: 1 h, y 1, 2, 3 y 7 días.
     for (const p of ETA_PRESETS) expect(plazoLibreInicial(p.value).texto).toBe('')
+  })
+})
+
+describe('resumen de reportes de un procedimiento', () => {
+  const r = (platform: string, eta_hours: number | null) => ({ platform, eta_hours })
+
+  it('sin reportes no dice nada, para que el que llama ponga otra cosa', () => {
+    expect(resumenDeReportes([])).toBeNull()
+  })
+
+  it('uno solo: cuántos, dónde y en cuánto', () => {
+    expect(resumenDeReportes([r('labcorp', 48)])).toBe('1 reporte · LabCorp · ~2 días')
+  })
+
+  it('dos plataformas se nombran las dos', () => {
+    expect(resumenDeReportes([r('labcorp', 48), r('iqvia', 48)]))
+      .toBe('2 reportes · LabCorp y IQVIA · ~2 días')
+  })
+
+  it('tres o más plataformas se cuentan, no se enumeran', () => {
+    // Enumerar cuatro portales no entra en la línea y no se lee; el número sí.
+    expect(resumenDeReportes([r('labcorp', 24), r('iqvia', 24), r('clario', 24), r('roche4g', 24)]))
+      .toBe('4 reportes · 4 plataformas · ~1 día')
+  })
+
+  it('la misma plataforma dos veces cuenta como una sola', () => {
+    expect(resumenDeReportes([r('labcorp', 24), r('labcorp', 24)]))
+      .toBe('2 reportes · LabCorp · ~1 día')
+  })
+
+  it('con plazos distintos manda el MÁS LARGO, porque es el que cierra la visita', () => {
+    expect(resumenDeReportes([r('labcorp', 24), r('iqvia', 168)]))
+      .toBe('2 reportes · LabCorp y IQVIA · hasta ~7 días')
+  })
+
+  it('si alguno no tiene plazo, el número exacto sería media verdad', () => {
+    expect(resumenDeReportes([r('labcorp', 48), r('iqvia', null)]))
+      .toBe('2 reportes · LabCorp y IQVIA · hasta ~2 días')
+  })
+
+  it('sin ningún plazo lo dice, no inventa un número', () => {
+    expect(resumenDeReportes([r('labcorp', null)])).toBe('1 reporte · LabCorp · sin plazo')
+  })
+
+  it('una plataforma desconocida no rompe la línea', () => {
+    expect(resumenDeReportes([r('medidata', 24)])).toBe('1 reporte · Otra plataforma · ~1 día')
+  })
+
+  it('no dice "ETA" en ningún caso', () => {
+    // El Director lo pidió por su nombre: "ETA" es jerga y el número solo no dice de qué.
+    const casos = [
+      resumenDeReportes([r('labcorp', 48)]),
+      resumenDeReportes([r('labcorp', 24), r('iqvia', 168)]),
+      resumenDeReportes([r('labcorp', null)]),
+    ]
+    for (const c of casos) expect(c).not.toMatch(/ETA/i)
   })
 })
 

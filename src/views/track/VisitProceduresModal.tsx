@@ -15,7 +15,9 @@ import {
   updateProcedure,
 } from '../../data/procedures'
 import type { Procedure } from '../../data/procedures'
-import { REPORT_ETA_OPTIONS, reportEtaLabel } from '../../lib/checklist'
+import { REPORT_ETA_OPTIONS } from '../../lib/checklist'
+import { useEstudioProcedimientos } from '../../data/protocolProcedures'
+import { resumenDeReportes } from './procedimientos/reportes'
 
 /**
  * Modal de asignación de procedimientos a una visita del cronograma. UI simplificada (revisión de
@@ -25,6 +27,7 @@ import { REPORT_ETA_OPTIONS, reportEtaLabel } from '../../lib/checklist'
  * si `canManageCatalog`. La lista de trabajo es local hasta Guardar.
  */
 export function VisitProceduresModal({
+  protocolId,
   visitDefId,
   visitLabel,
   visitDispenses,
@@ -34,6 +37,9 @@ export function VisitProceduresModal({
   onClose,
   onSaved,
 }: {
+  /** Protocolo de la visita. Los reportes se definen POR ESTUDIO (0089), así que sin esto la
+   *  línea de resumen no sabría cuáles mostrar. */
+  protocolId: string
   visitDefId: string
   /** "V2 - Screening" para el título. */
   visitLabel: string
@@ -50,6 +56,15 @@ export function VisitProceduresModal({
 }) {
   const catalog = useProceduresCatalog()
   const assigned = useVisitProcedures(visitDefId)
+  /* Los reportes definidos para este ESTUDIO, para la línea de resumen de cada fila. Una consulta
+     por modal y no una por procedimiento: la vista ya trae todo el protocolo junto. */
+  const estudio = useEstudioProcedimientos(protocolId)
+  const reportesPorProcedimiento = useMemo(() => {
+    const m = new Map<string, { platform: string; eta_hours: number | null }[]>()
+    for (const e of estudio.data ?? []) m.set(e.procedure_id, e.reports)
+    return m
+  }, [estudio.data])
+  const reportesDe = (procedureId: string) => reportesPorProcedimiento.get(procedureId) ?? []
 
   /* Lista de trabajo (procedimientos de la visita, ordenados). null = todavía cargando el inicial. */
   const [items, setItems] = useState<Procedure[] | null>(null)
@@ -204,8 +219,14 @@ export function VisitProceduresModal({
                     </span>
                     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
                       <span style={{ fontSize: 13.5, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                      <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>
-                        {p.has_report ? `Genera reporte · ETA ${p.report_eta_hours != null ? reportEtaLabel(p.report_eta_hours) : '—'}` : (p.category ?? 'Sin reporte')}
+                      {/* Qué trabajo genera este procedimiento: cuántos reportes, a qué portales
+                          van y en cuánto llegan. Antes decía "Genera reporte · ETA ~2 días", que
+                          además de jerga ("ETA") daba un número sin decir de qué era y omitía lo
+                          que más se necesita saber acá: a dónde hay que ir a buscarlo.
+                          Sale del modelo nuevo (0089); si el procedimiento todavía no tiene
+                          reportes definidos, cae a la categoría, como antes. */}
+                      <span style={{ fontSize: 11.5, color: 'var(--spira-ink-soft)' }}>
+                        {resumenDeReportes(reportesDe(p.id)) ?? (p.category ?? 'Sin reportes')}
                       </span>
                     </span>
                     {canManageCatalog && (
