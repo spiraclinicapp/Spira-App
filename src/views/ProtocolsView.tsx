@@ -6,6 +6,7 @@ import type { MultiFilterOption } from '../components/MultiFilterMenu'
 import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../lib/auth'
 import { groupVisitsByPatient } from '../lib/visits'
+import { useUrlLocation, useUrlPath } from '../lib/useUrlState'
 import { useProtocols } from '../data/protocols'
 import type { ProtocolRow, ProtocolStatus } from '../data/protocols'
 import { usePatients } from '../data/patients'
@@ -18,15 +19,10 @@ import { NewPatientForm } from './NewPatientForm'
 import { ProtocolDetailView } from './ProtocolDetailView'
 import { PatientFichaView } from './PatientFichaView'
 import { EditProtocolForm } from './EditProtocolForm'
+import { navDesdePath, pathDesdeNav } from './protocolsNav'
+import type { Nav } from './protocolsNav'
+import { NotFoundView } from '../shell/NotFoundView'
 import type { ViewProps } from './types'
-
-/* Estado de navegación interno: grilla de protocolos → detalle de un protocolo →
-   ficha de un paciente (el patientId lleva su protocolId de contexto), + "todos". */
-type Nav =
-  | { mode: 'list' }
-  | { mode: 'all' }
-  | { mode: 'protocol'; protocolId: string }
-  | { mode: 'patient'; protocolId: string; patientId: string }
 
 /* Identidad de una posición interna, para comparar "¿seguimos donde nos dejaron?". Con el paciente
    incluido: pasar de una ficha a la de otro paciente SÍ es haberse ido. */
@@ -110,7 +106,31 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
   const { hasMinRole, modules, profile } = useAuth()
   const protocols = useProtocols()
   const patients = usePatients()
-  const [nav, setNav] = useState<Nav>({ mode: 'list' })
+
+  /* La posición interna sale del path de la URL. Mientras los datos cargan el path no se puede
+     resolver todavía (no sabemos si ese código existe), así que se muestra la grilla — que es lo que
+     ya se veía antes en ese instante. `null` tras la carga = el path apunta a algo que no está. */
+  const urlLocation = useUrlLocation()
+  const cargando = protocols.loading || patients.loading
+  const navResuelto = navDesdePath(urlLocation?.path ?? [], protocols.data ?? [], patients.data ?? [])
+  const nav: Nav = navResuelto ?? { mode: 'list' }
+  const navRoto = !cargando && navResuelto === null
+
+  const [, setPath] = useUrlPath()
+  const setNav = (siguiente: Nav, opts: { resolviendoTarget?: boolean } = {}) => {
+    /* `conservar` y no todo el query: la búsqueda y el filtro de estado describen la grilla y hoy
+       ya sobreviven entrar a un protocolo y volver —esta vista no se desmonta: renderiza el detalle
+       desde adentro—, así que descartarlos sería una regresión. Lo que NO se conserva es la entidad
+       abierta: un `?visita=` arrastrado a otra ficha abriría la visita de otro paciente. */
+    setPath(pathDesdeNav(siguiente, protocols.data ?? [], patients.data ?? []), {
+      conservar: ['buscar', 'estado'],
+      /* Resolver un objetivo del buscador NO es navegar: el shell ya apiló su entrada al traerte.
+         Apilar otra dejaría el "atrás" a mitad de camino, en la grilla en vez de en la pantalla
+         desde la que buscaste. */
+      mode: opts.resolviendoTarget ? 'replace' : 'push',
+    })
+  }
+
   /* Dónde nos dejó la navegación del shell, y si ya lo pisamos (ver el efecto de más abajo). */
   const llegada = useRef<string | null>(null)
   const armado = useRef(false)
@@ -139,7 +159,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
       pt && protocolId ? { mode: 'patient', protocolId, patientId: pt.id }
       : pt ? { mode: 'all' }
       : null
-    if (destino) { setNav(destino); llegada.current = navKey(destino) }
+    if (destino) { setNav(destino, { resolviendoTarget: true }); llegada.current = navKey(destino) }
     onTargetConsumed?.()
   }, [navTarget, patients.loading, patients.data, onTargetConsumed])
 
@@ -189,6 +209,10 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
       </div>
     )
   }
+
+  // El path apunta a algo que no está entre las filas visibles (ya con los datos cargados): pantalla
+  // serena, el mismo mensaje que vería alguien sin permiso — distinguirlos filtraría qué existe.
+  if (navRoto) return <NotFoundView motivo="ruta" />
 
   const allProtocols = protocols.data ?? []
   const allPatients = patients.data ?? []

@@ -167,19 +167,31 @@ export function useUrlEntity(key: string): [string | null, (id: string | null) =
  * lista, cada vista pide EXACTAMENTE lo suyo: nada de todo-o-nada. El default sigue siendo descartar
  * (`conservar` ausente o vacío).
  */
-export function useUrlPath(): [string[], (path: string[], opts?: { conservar?: string[] }) => void] {
+export function useUrlPath(): [
+  string[],
+  (path: string[], opts?: { conservar?: string[]; mode?: 'push' | 'replace' }) => void,
+] {
   const ubicacion = useUrlLocation()
   const path = useMemo(() => ubicacion?.path ?? [], [ubicacion])
-  const setPath = useCallback((siguiente: string[], opts: { conservar?: string[] } = {}) => {
-    /* Se relee la URL del momento en vez de cerrar sobre `ubicacion`: el setter suele viajar en las
-       deps de un efecto y tiene que escribir sobre el estado de AHORA, no sobre el del render en que
-       se creó. */
-    const actual = parseHref(window.location.pathname + window.location.search)
-    if (!actual) return
-    const query = Object.fromEntries(
-      Object.entries(actual.query).filter(([k]) => opts.conservar?.includes(k)),
-    )
-    pushUrl({ ...actual, path: siguiente, query })
-  }, [])
+  const setPath = useCallback(
+    (siguiente: string[], opts: { conservar?: string[]; mode?: 'push' | 'replace' } = {}) => {
+      /* Se relee la URL del momento en vez de cerrar sobre `ubicacion`: el setter suele viajar en las
+         deps de un efecto y tiene que escribir sobre el estado de AHORA, no sobre el del render en que
+         se creó. */
+      const actual = parseHref(window.location.pathname + window.location.search)
+      if (!actual) return
+      const query = Object.fromEntries(
+        Object.entries(actual.query).filter(([k]) => opts.conservar?.includes(k)),
+      )
+      const siguienteState = { ...actual, path: siguiente, query }
+      /* `mode` existe por un caso puntual: cuando la vista está RESOLVIENDO un objetivo que le dejó el
+         shell (un `navTarget` del buscador global), no está navegando — el shell ya apiló su entrada al
+         traerte hasta acá. Apilar una segunda dejaría el "atrás" a mitad de camino: te devolvería a la
+         grilla en vez de a la pantalla desde la que buscaste. Ahí va `replace`; en todo lo demás, `push`. */
+      if (opts.mode === 'replace') replaceUrl(siguienteState)
+      else pushUrl(siguienteState)
+    },
+    [],
+  )
   return [path, setPath]
 }
