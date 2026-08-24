@@ -9,6 +9,8 @@ import { MultiFilterMenu } from '../../components/MultiFilterMenu'
 import type { MultiFilterOption } from '../../components/MultiFilterMenu'
 import { DateRangeField } from '../../components/DateRangeField'
 import { useAuth } from '../../lib/auth'
+import { codecs, listOf } from '../../lib/router'
+import { useUrlState } from '../../lib/useUrlState'
 import { addDaysISO, groupByDay, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
 import { useReceptions, useMedications, verifyReception, voidReception, TECHO_RECEPCIONES } from '../../data/pharma'
@@ -46,14 +48,22 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
      de formulario— y el panel escondía justo los dos que más se usan. Ahora son menús
      multi-selección iguales a los del resto de la app (vacío = todos) más el rango de fechas de
      Reportes, y el panel desapareció. */
-  const [fEstados, setFEstados] = useState<ReceptionStatus[]>([])
-  const [fTipos, setFTipos] = useState<ReceptionKind[]>([])
-  const [fMeds, setFMeds] = useState<string[]>([])
-  const [fProtoSel, setFProtoSel] = useState<string[]>([])
-  const [q, setQ] = useState('')
+  /* `listOf` y no `codecs.list` con un cast: un cast compila pero miente —`?estado=inventado`
+     entraría tipado y válido sin caer al default—; `listOf` valida cada elemento contra el enum.
+     Los valores exactos de `ReceptionStatus`/`ReceptionKind` salen de su definición en
+     `src/data/pharma/receptions.ts` (líneas 6 y 9). */
+  const [fEstados, setFEstados] = useUrlState<ReceptionStatus[]>('estado', [], {
+    codec: listOf(['pendiente', 'verificada', 'anulada'] as const),
+  })
+  const [fTipos, setFTipos] = useUrlState<ReceptionKind[]>('tipo', [], {
+    codec: listOf(['protocolo', 'investigacion', 'ambulatoria'] as const),
+  })
+  const [fMeds, setFMeds] = useUrlState<string[]>('medicamento', [], { codec: codecs.list })
+  const [fProtoSel, setFProtoSel] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
+  const [q, setQ] = useUrlState('buscar', '')
   /** Rango de fechas; ambos vacíos = sin filtro (la lista arranca mostrando todo). */
-  const [desde, setDesde] = useState('')
-  const [hasta, setHasta] = useState('')
+  const [desde, setDesde] = useUrlState('desde', '')
+  const [hasta, setHasta] = useUrlState('hasta', '')
 
   /* Los presets 7/30 no son estado propio: ESCRIBEN el rango, y su estado "activo" se deduce de
      él. Guardarlos aparte permitía que el chip dijera "7 días" mientras el calendario mostraba
