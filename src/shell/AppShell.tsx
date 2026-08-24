@@ -191,6 +191,13 @@ export function AppShell() {
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
   const showAction = !HIDE_ACTION.has(`${moduleKey}/${sub.key}`)
 
+  /* Título de la pestaña. GENÉRICO a propósito: el título se filtra al historial y a la barra de
+     tareas igual que la URL, así que dice la PANTALLA, nunca de quién. El nombre del paciente no sale
+     de la vista. (Decisión heredada del spec de ruteo de junio, que sigue valiendo.) */
+  useEffect(() => {
+    document.title = moduleKey === 'inicio' ? 'Spira' : `Spira — ${sub.name}`
+  }, [moduleKey, sub.name])
+
   /* Guard de ruta. Va acá y no adentro del <main>: una URL que no existe no tiene módulo, así que el
      top bar y los rieles no tendrían qué mostrar. `urlLocation === null` es "la ruta no existe";
      `!isAllowed` cubre tanto el módulo sin rol como los `proximamente` (Lab, Contable). */

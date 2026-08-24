@@ -5,6 +5,7 @@ import type { IconName } from '../components/Icon'
 import { UserAvatar } from '../components/UserAvatar'
 import { useAuth } from '../lib/auth'
 import { initialsOf } from '../lib/initials'
+import { homeUrl } from '../lib/router'
 import type { SettingsSection } from './settings/SettingsModal'
 
 /* ============================================================================
@@ -87,7 +88,15 @@ export function UserMenu({ onOpenSettings }: { onOpenSettings: (section: Setting
      monte el modal: así el modal captura ese foco y, al cerrar, lo devuelve al
      menú de usuario en vez de perderlo en el body (WCAG 2.4.3). */
   const openSettings = (section: SettingsSection) => { close(true); onOpenSettings(section) }
-  const onLogout = () => { close(); void signOut() }
+  /* Cerrar sesión vuelve a la raíz, no te deja en la URL donde estabas. Es una máquina compartida de
+     clínica: si el próximo que entra encuentra la barra con el protocolo y el IVRS del paciente que
+     miraba el anterior, la sesión se cerró pero el dato quedó a la vista. F5, el atrás y los links sí
+     mantienen el lugar — esto es solo el logout. */
+  const onLogout = () => {
+    close()
+    window.history.replaceState(null, '', homeUrl())
+    void signOut()
+  }
 
   return (
     <div ref={rootRef} style={{ position: 'relative' }}>
