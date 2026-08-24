@@ -14,6 +14,7 @@ import { AboutMenu } from './AboutMenu'
 import { FeedbackModal } from './FeedbackModal'
 import { SettingsModal } from './settings/SettingsModal'
 import type { SettingsSection } from './settings/SettingsModal'
+import { pushUrl, useUrlLocation } from '../lib/useUrlState'
 
 /** Atajo del buscador global, según plataforma. */
 const KBD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘ K' : 'Ctrl K'
@@ -88,8 +89,11 @@ function primaryActionBtn(accentSolid: string): CSSProperties {
 export function AppShell() {
   const { pref, theme, setPref, toggle } = useTheme()
   const { modules: userModules } = useAuth()
-  const [moduleKey, setModuleKey] = useState('inicio')
-  const [subKey, setSubKey] = useState('resumen')
+  /* Dónde estás parado sale de la URL, no de un useState: es lo que hace que F5 te deje donde estabas
+     y que un link lleve a cualquier pantalla. `null` = la ruta no existe → NotFoundView (Task 5). */
+  const urlLocation = useUrlLocation()
+  const moduleKey = urlLocation?.moduleKey ?? 'inicio'
+  const subKey = urlLocation?.subKey ?? 'resumen'
   /* Entidad concreta a abrir en la vista destino (ej. la ficha de un paciente desde el
      buscador global). La pone `navigate(..., target)`; la vista la consume y avisa para
      limpiarla (onTargetConsumed) así no se reabre sola en refetchs. */
@@ -146,8 +150,9 @@ export function AppShell() {
     setSettingsSection(null) // navegar cierra Ajustes (era un overlay encima)
     setNavTarget(null) // navegación manual: sin objetivo pendiente
     setReturnTo(null)  // …ni camino de vuelta: te fuiste por tu cuenta
-    setModuleKey(key)
-    setSubKey(m.submodules[0].key)
+    /* La URL reemplaza a los dos useState de antes. Va con push: cambiar de módulo ES navegar, así
+       que el atrás del navegador tiene que poder volver. */
+    pushUrl({ moduleKey: key, subKey: m.submodules[0].key, path: [], query: {} })
   }
 
   /* Navegación programática desde una vista o el buscador (ej. "Ver agenda del protocolo"
@@ -161,8 +166,7 @@ export function AppShell() {
     setSettingsSection(null) // navegar cierra Ajustes
     setNavTarget(target ?? null)
     setReturnTo(back ?? null)
-    setModuleKey(mKey)
-    setSubKey(sKey)
+    pushUrl({ moduleKey: mKey, subKey: sKey, path: [], query: {} })
   }
 
   /* Atajo global Ctrl/⌘ K: togglea el buscador. Al ABRIR no lo hace si hay un overlay
@@ -350,7 +354,10 @@ export function AppShell() {
                 return (
                   <button
                     key={s.key}
-                    onClick={() => { setSubKey(s.key); setSettingsSection(null); setNavTarget(null); setReturnTo(null) }}
+                    onClick={() => {
+                      setSettingsSection(null); setNavTarget(null); setReturnTo(null)
+                      pushUrl({ moduleKey, subKey: s.key, path: [], query: {} })
+                    }}
                     /* El riel de módulos ya tenía `title`; el panel de submódulos era la única
                        capa de la navegación sin ayuda contextual. Sigue valiendo aunque el
                        descriptor esté a la vista: el panel se pliega (navHidden) y el rótulo
