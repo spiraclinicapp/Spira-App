@@ -375,6 +375,16 @@ después de mergear los dos. Las fases 1 y 3 no se paralelizan: cada una es un c
 
 ---
 
+## Estado de ejecución
+
+| Fase | Estado |
+|---|---|
+| 1 · Catálogo del estudio + definiciones de reporte | **Mergeada** (PR #65, en `main`). Migración 0089 en prod |
+| 2 · Tablero + desglose en la visita | **PR #66 abierta**, rama `feat/reportes-pendientes`. Migraciones 0090 y 0091 en prod |
+| 3 · Retirar `has_report` | **Sin empezar** → plan de ejecución propio en [`plan-fase3-reportes.md`](plan-fase3-reportes.md), con los datos de prod ya medidos |
+
+---
+
 ## GSTACK REVIEW REPORT
 
 | Corrida | Estado | Hallazgos |
