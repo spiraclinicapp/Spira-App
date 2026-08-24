@@ -122,6 +122,36 @@ describe('navDesdePath · el protocolo resuelve por uuid completo y por short id
   })
 })
 
+describe('navDesdePath · el código de la URL no distingue mayúsculas', () => {
+  // Dos filas por colección (lección de la fase pasada): con una sola fila cargada, cualquier
+  // implementación —hasta una rota— encuentra "la única candidata posible" y el test no prueba nada.
+  const protocolos = [proto(), proto({ id: '55555555-0000-4000-8000-000000000005', code: 'PROTO-B' })]
+
+  it('el código del protocolo en minúsculas resuelve al mismo protocolo', () => {
+    expect(navDesdePath(['efc18244'], protocolos, []))
+      .toEqual({ mode: 'protocol', protocolId: protocolos[0].id })
+  })
+
+  /* El IVRS del fixture por default es numérico ('32000740001'), y en un número la caja no existe:
+     no alcanza para ejercitar el camino case-insensitive. Estos pacientes tienen IVRS alfanumérico
+     a propósito, y los dos quedan enrolados en protocolos[0] (default de `paciente()`) para que la
+     ambigüedad de mayúsculas tenga sentido junto al chequeo de pertenencia de más abajo. */
+  const pacienteAlfa = paciente({ id: '66666666-0000-4000-8000-000000000006', code: 'IVRS-DEMO-7A' })
+  const otroPaciente = paciente({ id: '77777777-0000-4000-8000-000000000007', code: 'IVRS-DEMO-9B' })
+  const pacientes = [pacienteAlfa, otroPaciente]
+
+  it('el IVRS en otra caja resuelve al mismo paciente', () => {
+    expect(navDesdePath(['EFC18244', 'ivrs-demo-7a'], protocolos, pacientes))
+      .toEqual({ mode: 'patient', protocolId: protocolos[0].id, patientId: pacienteAlfa.id })
+  })
+
+  it('la validación de pertenencia sigue vigente en minúsculas', () => {
+    // pacienteAlfa está enrolada en protocolos[0] (EFC18244), no en PROTO-B: pedirla bajo
+    // 'proto-b' tiene que seguir dando null, no la ficha con el encabezado del protocolo ajeno.
+    expect(navDesdePath(['proto-b', 'ivrs-demo-7a'], protocolos, pacientes)).toBeNull()
+  })
+})
+
 describe('navDesdePath · los segmentos sobrantes son null, no un redirect mudo (spec §8)', () => {
   const protocolos = [proto()]
   const pacientes = [paciente()]

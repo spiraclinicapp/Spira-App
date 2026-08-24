@@ -1,4 +1,4 @@
-import { resolveShortId, shortId } from '../lib/router'
+import { resolveCode, resolveShortId, shortId } from '../lib/router'
 import type { PatientRow } from '../data/patients'
 import type { ProtocolRow } from '../data/protocols'
 
@@ -28,13 +28,17 @@ export function navDesdePath(path: string[], protocolos: ProtocolRow[], paciente
   if (path[0] === 'todos') return path.length === 1 ? { mode: 'all' } : null
   if (path.length > 2) return null
 
-  const protocolo = protocolos.find((p) => p.code === path[0]) ?? resolveShortId(protocolos, path[0])
+  /* `resolveCode` ya resuelve el match exacto primero y recién si no hay cae a ignorar mayúsculas
+     (y sólo si el resultado es único) — el orden código → short id que ya regía acá no cambia,
+     sólo se vuelve tolerante a la caja en el primer paso. Se dicta por teléfono: quien escribe la
+     URL no tiene por qué respetar cómo quedó guardado el código. */
+  const protocolo = resolveCode(protocolos, path[0], (p) => p.code) ?? resolveShortId(protocolos, path[0])
   if (!protocolo) return null
   if (path.length === 1) return { mode: 'protocol', protocolId: protocolo.id }
 
   const token = path[1]
   const paciente =
-    pacientes.find((p) => p.code === token) ??
+    resolveCode(pacientes, token, (p) => p.code) ??
     resolveShortId(pacientes, token.startsWith('p-') ? token.slice(2) : token)
   if (!paciente) return null
 

@@ -283,3 +283,20 @@ export function resolveShortId<T extends { id: string }>(filas: T[], token: stri
   const candidatas = filas.filter((f) => f.id.startsWith(token))
   return candidatas.length === 1 ? candidatas[0] : null
 }
+
+/**
+ * Resuelve un código legible de la URL contra las filas cargadas, **sin distinguir mayúsculas**.
+ *
+ * Existe porque estas URLs se dictan por teléfono, y quien las escribe no tiene por qué respetar la
+ * caja del código. El match exacto gana; recién si no hay ninguno se prueba ignorando mayúsculas.
+ *
+ * Si al ignorarlas empatan DOS filas devuelve `null`: el `unique` de la base sí distingue caja, así
+ * que nada impide que convivan un `abc123` y un `ABC123`. Mismo criterio que `resolveShortId` ante un
+ * empate de prefijo — abrir el registro equivocado es peor que no abrir ninguno.
+ */
+export function resolveCode<T>(filas: T[], token: string, code: (fila: T) => string | null): T | null {
+  const exacto = filas.find((f) => code(f) === token)
+  if (exacto) return exacto
+  const flexible = filas.filter((f) => code(f)?.toLowerCase() === token.toLowerCase())
+  return flexible.length === 1 ? flexible[0] : null
+}

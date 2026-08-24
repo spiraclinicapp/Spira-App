@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { MODULES } from '../modules/registry'
 import type { Codec } from './router'
 import {
-  buildUrl, codecs, homeUrl, listOf, oneOf, parseHref, parseUrl, readParam, resolveShortId, shortId, writeParam,
+  buildUrl, codecs, homeUrl, listOf, oneOf, parseHref, parseUrl, readParam, resolveCode, resolveShortId, shortId,
+  writeParam,
 } from './router'
 
 /**
@@ -294,6 +295,46 @@ describe('identificadores cortos', () => {
   it('resuelve por PREFIJO, no por subcadena', () => {
     const enElMedio = [{ id: 'aaaaaaaa-0000-4000-8000-8f3a2c1d0000' }]
     expect(resolveShortId(enElMedio, '8f3a2c1d')).toBeNull()
+  })
+})
+
+describe('resolveCode · el código de la URL no distingue mayúsculas', () => {
+  /* POR QUÉ: estas URLs se dictan por teléfono y quien las escribe no tiene por qué respetar la
+     caja del código. Pero el `unique` de la base SÍ distingue mayúsculas, así que nada impide que
+     convivan un 'abc123' y un 'ABC123' como protocolos distintos — de ahí la trampa que fijan los
+     tests de empate: ignorar la caja no puede elegir por vos cuando hay más de un candidato. */
+  const code = (f: { code: string | null }) => f.code
+
+  it('match exacto', () => {
+    const filas = [{ code: 'EFC18244' }, { code: 'OTRO' }]
+    expect(resolveCode(filas, 'EFC18244', code)).toBe(filas[0])
+  })
+
+  it('match con la caja cambiada', () => {
+    const filas = [{ code: 'EFC18244' }, { code: 'OTRO' }]
+    expect(resolveCode(filas, 'efc18244', code)).toBe(filas[0])
+  })
+
+  it('dos filas que solo difieren en la caja: no elige ninguna', () => {
+    const filas = [{ code: 'abc123' }, { code: 'ABC123' }]
+    // 'Abc123' no matchea EXACTO con ninguna de las dos, así que cae al flexible — y ahí empatan.
+    expect(resolveCode(filas, 'Abc123', code)).toBeNull()
+  })
+
+  it('el exacto gana sobre el flexible cuando existen los dos', () => {
+    const filas = [{ code: 'abc' }, { code: 'ABC' }]
+    expect(resolveCode(filas, 'abc', code)).toBe(filas[0])
+  })
+
+  it('sin coincidencias devuelve null', () => {
+    const filas = [{ code: 'abc' }]
+    expect(resolveCode(filas, 'xyz', code)).toBeNull()
+  })
+
+  it('filas con el código en null no rompen', () => {
+    const filas = [{ code: null }, { code: 'EFC18244' }]
+    expect(resolveCode(filas, 'efc18244', code)).toBe(filas[1])
+    expect(resolveCode(filas, 'nope', code)).toBeNull()
   })
 })
 
