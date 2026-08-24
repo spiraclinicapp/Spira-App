@@ -112,6 +112,8 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
           href={row.link}
           target="_blank"
           rel="noopener noreferrer"
+          title={`Abrir ${meta.label} en una pestaña nueva — ${row.link}`}
+          className="spira-plataforma"
           style={{ ...plataformaBtn, background: meta.color + '1C', textDecoration: 'none' }}
         >
           <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: meta.color, flex: '0 0 auto' }} />
@@ -119,9 +121,18 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
           <Icon name="externalLink" size={12} color="var(--spira-ink)" />
         </a>
       ) : (
-        <div style={{ ...plataformaBtn, background: meta.color + '14', cursor: 'default' }} title="Este reporte no tiene link cargado">
+        /* Sin link no se disfraza de botón: se ve más plano, no toma el cursor de acción y DICE
+           qué le falta. Un rectángulo que parece pulsable y no lleva a ningún lado es de las
+           cosas que el repo prohíbe — y acá, además, mandaría a la coordinadora a hacer click
+           esperando el portal. El link se carga por reporte en Cronograma › Procedimientos del
+           estudio; si la plataforma tuviera URL por defecto, se completa sola al elegirla. */
+        <div
+          style={{ ...plataformaBtn, background: 'transparent', borderWidth: 1, borderStyle: 'dashed', borderColor: 'var(--spira-line-2)', cursor: 'default', color: 'var(--spira-ink-soft)' }}
+          title={`${meta.label}: todavía no tiene cargado el link al portal`}
+        >
           <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: meta.color, flex: '0 0 auto' }} />
           {meta.label}
+          <span style={{ fontWeight: 400, fontSize: 11.5 }}>· sin link</span>
         </div>
       )}
 

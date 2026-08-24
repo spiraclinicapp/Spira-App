@@ -269,7 +269,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                   aria-expanded={abierto}
                   aria-label={`${misReportes.length === 1 ? 'Un reporte' : misReportes.length + ' reportes'} de ${p.name}`}
                   className="spira-no-press"
-                  style={{ ...pillReportes(abierto, accent), marginRight: 13, flex: '0 0 auto' }}
+                  style={{ ...pillReportes(abierto), marginRight: 13, flex: '0 0 auto' }}
                 >
                   <Icon name="fileText" size={12} color={accent} />
                   {misReportes.length} {misReportes.length === 1 ? 'reporte' : 'reportes'}
@@ -370,16 +370,27 @@ function tickBox(isDone: boolean, accent: string): CSSProperties {
   }
 }
 
-/** Píldora "N reportes": el disparador del desglose. Abierta = tinte del acento, como toda
- *  selección en esta app; cerrada = contorno sobrio para no competir con el tilde de la fila. */
-function pillReportes(abierto: boolean, accent: string): CSSProperties {
+/**
+ * Píldora "N reportes": el disparador del desglose.
+ *
+ * Abierta = ELEVADA (papel + sombra), cerrada = al ras. Antes abierta se teñía con el acento y
+ * tomaba borde verde; el Director lo cambió (2026-08-24) por el mismo criterio con el que se fue
+ * el recuadro de la fila. El borde es el mismo en los dos estados: lo que cambia es la altura.
+ *
+ * Cerrada va con fondo transparente y no blanco, para que herede el de su fila —papel si está
+ * realizada, blanco si no— y el salto al abrirse se lea como que la píldora se despega, en vez de
+ * como un cambio de color.
+ */
+function pillReportes(abierto: boolean): CSSProperties {
   return {
     display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px',
     borderRadius: 'var(--spira-radius-pill)',
-    borderWidth: 1, borderStyle: 'solid', borderColor: abierto ? accent : 'var(--spira-line-2)',
-    background: abierto ? accent + '14' : 'var(--spira-white)',
+    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+    background: abierto ? 'var(--spira-white)' : 'transparent',
+    boxShadow: abierto ? 'var(--spira-shadow-sm)' : 'none',
     color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 600,
     cursor: 'pointer',
+    transition: 'box-shadow .14s var(--spira-ease-out), background-color .14s var(--spira-ease-out)',
   }
 }
 

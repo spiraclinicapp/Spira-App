@@ -290,6 +290,22 @@ input:-webkit-autofill:focus {
 }
 .spira-scroll:hover::-webkit-scrollbar-thumb { background: var(--spira-faint); background-clip: padding-box; }
 
+/* —— Botón de plataforma del reporte ——
+   Es un enlace real a un portal externo (IQVIA, LabCorp…), así que se comporta como enlace: se
+   eleva al pasarle el mouse, como todo lo pulsable del sistema. El fondo teñido con el color del
+   portal viaja inline (cambia por plataforma) y por eso acá sólo va la elevación. */
+.spira-plataforma {
+  transition: box-shadow 0.14s var(--spira-ease-out), transform 0.14s var(--spira-ease-out);
+}
+.spira-plataforma:hover {
+  box-shadow: var(--spira-shadow-sm);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .spira-plataforma { transition: box-shadow 0.14s var(--spira-ease-out); }
+  .spira-plataforma:hover { transform: none; }
+}
+
 /* —— Desplegable (disclosure) ——
    Abrir "de cero hasta lo que mida el contenido" sin medirlo a mano ni fijar un alto: la grilla va
    de `0fr` a `1fr` y el hijo recorta. Es la única forma de animar un alto desconocido sin
