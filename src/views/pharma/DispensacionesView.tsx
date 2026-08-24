@@ -24,7 +24,7 @@ import { HistorialPorDias } from './dispensaciones/HistorialPorDias'
 import { btnOutline } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
 import { todayISO } from '../../lib/dates'
-import { codecs, oneOf, resolveCode } from '../../lib/router'
+import { codecs, oneOf, resolveCode, resolveShortId, shortId } from '../../lib/router'
 import { useUrlLocation, useUrlPath, useUrlState } from '../../lib/useUrlState'
 import type { ViewProps } from '../types'
 
@@ -67,29 +67,40 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
      /farmacia/dispensaciones/D-0417. Push, como toda entidad abierta: el atrás lo cierra.
      El código NO vive en la fila de la solicitud: es de la dispensación EJECUTADA, embebida en
      `dispensations[]` (0 o 1 por pedido) — se llega con `activeDispensation`, igual que en el resto
-     de este archivo (ver la búsqueda y el toast de `advance`). */
+     de este archivo (ver la búsqueda y el toast de `advance`).
+     Pero ese código se SELLA recién al marcar la dispensación lista (migración 0055:
+     `D-{n}-{ddmmyy}-{iniciales}`, `NULL` hasta entonces) — una que quedó rechazada, cancelada o
+     todavía en preparación nunca lo tiene, y tiene que poder enlazarse igual. Mismo criterio que el
+     paciente sin IVRS (`protocolsNav.ts`, IVRS que también se asigna tarde, en randomización): sin
+     código legible, el segmento es `shortId(id)` — acá SIN prefijo, a diferencia del `p-` de
+     Pacientes, porque no hace falta desambiguar: el código real siempre arranca con `D-` y un hex
+     corto de 8 nunca se confunde con eso. */
   const codigoDe = (r: DispensationRequestRow) => activeDispensation(r)?.dispensation_code ?? null
   const urlLocation = useUrlLocation()
   const codigoAbierto = urlLocation?.path[0] ?? null
-  /* `resolveCode` y no un `===`: los códigos de la URL no distinguen mayúsculas (decisión del
-     Director, 2026-08-24) porque estas direcciones se dictan por teléfono. Ante dos que sólo
-     difieran en la caja devuelve `null` y no abre ninguno.
-     Se busca en `all` Y en `acumuladas`, igual que `open` más abajo: el historial pagina hacia atrás
-     y muestra entregas de días anteriores al `day` elegido, que no están en `all` (acotado al día) —
-     buscar solo ahí dejaba esas filas sin poder abrirse por URL. */
+  /* Se prueba primero `resolveCode` (el código legible, sin distinguir mayúsculas — decisión del
+     Director, 2026-08-24, porque estas direcciones se dictan por teléfono) y recién si no hay match
+     se cae a `resolveShortId` contra el `id`. Mismo orden que `protocolsNav.ts`, y por la misma
+     razón: sostiene una URL vieja con el identificador corto cuando la dispensación se SELLA
+     DESPUÉS de haberla compartido — el `id` no cambia, así que `shortId(id)` la sigue encontrando
+     aunque ya tenga código.
+     Se busca en `all` Y en `acumuladas` en cada paso, igual que `open` más abajo: el historial
+     pagina hacia atrás y muestra entregas de días anteriores al `day` elegido, que no están en `all`
+     (acotado al día) — buscar solo ahí dejaba esas filas sin poder abrirse por URL. */
   const openId = codigoAbierto
-    ? (resolveCode(all, codigoAbierto, codigoDe) ?? resolveCode(acumuladas, codigoAbierto, codigoDe))?.id ?? null
+    ? (
+        resolveCode(all, codigoAbierto, codigoDe) ??
+        resolveCode(acumuladas, codigoAbierto, codigoDe) ??
+        resolveShortId(all, codigoAbierto) ??
+        resolveShortId(acumuladas, codigoAbierto)
+      )?.id ?? null
     : null
   const [, setPath] = useUrlPath()
   const setOpenId = (id: string | null) => {
     const fila = id ? all.find((d) => d.id === id) ?? acumuladas.find((d) => d.id === id) ?? null : null
-    /* OJO — límite conocido, no resuelto por este cambio: una rechazada o cancelada nunca llegó a
-       tener dispensación (0 filas en `dispensations[]`), así que `codigoDe` da `null` acá. Sin código
-       no hay segmento que escribir, `setPath` cae a `[]` en modo replace, y el cajón NO se abre para
-       esas filas — antes de esta migración sí se abría (era estado local puro). Documentado en el
-       reporte de la Task 12 como duda abierta; no se inventó un esquema alternativo (p. ej. shortId
-       del id) sin que el Director lo decida. */
-    const codigo = fila ? codigoDe(fila) : null
+    // Sin código sellado (rechazada, cancelada o todavía en preparación) se escribe el identificador
+    // corto — ver el comentario de `codigoDe` más arriba.
+    const codigo = fila ? codigoDe(fila) ?? shortId(fila.id) : null
     /* Se conservan los cuatro filtros del tablero: abrir un cajón no puede resetearte el tablero que
        tenías detrás, ni dejarte ahí al cerrarlo.
        Y abrir apila (el atrás cierra el cajón) pero **cerrar reemplaza**: si cerrar también apilara,
