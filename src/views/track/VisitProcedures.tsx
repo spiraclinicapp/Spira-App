@@ -204,7 +204,11 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
               </span>
               <span style={{ minWidth: 0, flex: 1 }}>
                 <span style={{ display: 'block', fontSize: 13.5, color: 'var(--spira-ink)' }}>{p.name}</span>
-                {p.category && <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: 'var(--spira-muted)' }}>{p.category}</span>}
+                {/* `ink-soft` y no `muted`: medido sobre el papel de la fila realizada, `muted` da
+                    3.12:1 y esto es texto normal (11.5px), o sea que necesita 4.5:1. Es el punto
+                    flaco conocido de la paleta serena —el secundario sobre papel cálido— y el
+                    remedio que el sistema ya tiene escrito es tinta atenuada, no gris. */}
+                {p.category && <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: 'var(--spira-ink-soft)' }}>{p.category}</span>}
               </span>
               {/* La píldora del modelo VIEJO sólo se dibuja para los procedimientos que todavía no
                   tienen reportes definidos (0089). Donde ya los hay manda el desglose, y mostrar
@@ -218,7 +222,13 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
           )
 
           return (
-            <div key={p.procedure_id} style={{ borderRadius: 12, border: `1px solid ${isDone ? accent + '59' : 'var(--spira-line)'}`, background: isDone ? accent + '10' : 'var(--spira-white)' }}>
+            /* Realizado vs pendiente se dice por ELEVACIÓN, no por color: el pendiente es papel
+               blanco apoyado sobre la superficie del panel, y el realizado se asienta en ella —
+               deja de flotar, como algo que ya se resolvió. El borde es el mismo `line` en los dos.
+               Antes el realizado llevaba el acento al 35% en el borde y al 6% en el fondo; el
+               Director lo rechazó (2026-08-24) y además chocaba con la regla de la casa: el verde
+               se reserva para significado, y acá el significado ya lo dice el tilde. */
+            <div key={p.procedure_id} style={{ borderRadius: 12, border: '1px solid var(--spira-line)', background: isDone ? 'var(--spira-paper)' : 'var(--spira-white)' }}>
               {/* Fila: el control del tilde a la izquierda y la píldora de reportes al final del
                   MISMO renglón. La píldora va afuera del botón —no adentro— porque un botón no
                   puede anidar a otro; por eso son hermanos en un flex y no padre/hijo. Antes la
