@@ -164,7 +164,6 @@ describe('buildUrl', () => {
       '/coordinacion/visitas',
       '/coordinacion/para-ver-medico',
       '/coordinacion/alertas',
-      '/coordinacion/agenda',
       '/farmacia/pacientes',
       '/farmacia/recepcion',
       '/farmacia/stock',
@@ -257,7 +256,16 @@ export function subSlug(_moduleKey: string, subKey: string): string {
  */
 export function parseUrl(pathname: string, search: string): UrlState | null {
   const query = Object.fromEntries(new URLSearchParams(search))
-  const segmentos = pathname.split('/').filter(Boolean).map(decodeURIComponent)
+
+  /* `decodeURIComponent` LANZA `URIError` ante un porcentaje suelto ("/pacientes/100%"), y esta
+     función tiene que devolver `null` ante una URL rota, no explotar — que es justo el caso para el
+     que existe el `null`: un link truncado al compartirlo por WhatsApp entra por acá. */
+  let segmentos: string[]
+  try {
+    segmentos = pathname.split('/').filter(Boolean).map(decodeURIComponent)
+  } catch {
+    return null
+  }
 
   // La raíz es la home: Inicio › Resumen.
   if (segmentos.length === 0) return { moduleKey: 'inicio', subKey: 'resumen', path: [], query }
@@ -562,7 +570,7 @@ lo que lo pone ahí. Separarlas dejaría un commit que rompe el flujo de recuper
 - [ ] **Paso 1: crear `src/lib/useUrlState.ts`**
 
 ```ts
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import type { Codec, UrlState } from './router'
 import { buildUrl, codecs, parseUrl, readParam, writeParam } from './router'
 
@@ -602,11 +610,19 @@ export function useUrlSnapshot(): string {
   return useSyncExternalStore(suscribir, snapshot, () => '/')
 }
 
-/** El estado de navegación actual. `null` = la ruta no existe (el shell muestra la pantalla serena). */
+/**
+ * El estado de navegación actual. `null` = la ruta no existe (el shell muestra la pantalla serena).
+ *
+ * Memoizado contra la URL cruda: `parseUrl` devuelve un OBJETO NUEVO en cada llamada, así que sin
+ * esto la identidad cambiaría en cada render y toda vista que lo ponga en las deps de un efecto se
+ * re-ejecutaría siempre. Con la URL quieta, la referencia queda quieta.
+ */
 export function useUrlLocation(): UrlState | null {
   const crudo = useUrlSnapshot()
-  const [pathname, search] = crudo.split('?')
-  return parseUrl(pathname, search ? `?${search}` : '')
+  return useMemo(() => {
+    const [pathname, search] = crudo.split('?')
+    return parseUrl(pathname, search ? `?${search}` : '')
+  }, [crudo])
 }
 
 /** Apila una entrada de historial: el "atrás" del navegador vuelve a la anterior. */
@@ -638,9 +654,16 @@ export function useUrlState<T>(
   const mode = opts.mode ?? 'replace'
   const crudo = useUrlSnapshot()
 
-  const [pathname, search] = crudo.split('?')
-  const estado = parseUrl(pathname, search ? `?${search}` : '')
-  const valor = estado ? readParam(estado.query, key, def, codec) : def
+  /* Memoizado por el mismo motivo que `useUrlLocation`, y acá pesa más: los codecs de lista
+     (`codecs.list`, `listOf`) devuelven un ARRAY NUEVO en cada parseo. Sin memo, un filtro multi
+     cambia de identidad en cada render, y una vista que lo ponga en las deps de un `useEffect` con
+     `setState` adentro entra en loop. `def` y `codec` quedan fuera de las deps por lo mismo que en
+     `setValor`: son literales del render. */
+  const valor = useMemo(() => {
+    const [pathname, search] = crudo.split('?')
+    const estado = parseUrl(pathname, search ? `?${search}` : '')
+    return estado ? readParam(estado.query, key, def, codec) : def
+  }, [crudo, key])
 
   const setValor = useCallback(
     (nuevo: T) => {
@@ -651,9 +674,11 @@ export function useUrlState<T>(
       if (mode === 'push') pushUrl(siguiente)
       else replaceUrl(siguiente)
     },
-    // `def` y `codec` son estables en la práctica (literales del render); se omiten a propósito para
-    // no recrear el setter en cada render y disparar efectos de las vistas que lo tienen en deps.
-    [key, mode], // eslint-disable-line react-hooks/exhaustive-deps
+    /* `def` y `codec` quedan FUERA de las deps a propósito: son literales del render (`''`, `[]`,
+       `codecs.list`), así que su identidad cambia en cada render y meterlos acá recrearía el setter
+       cada vez — y varias vistas lo pasan en el array de dependencias de sus efectos. Lo que el
+       setter lee de ellos se resuelve en el momento de escribir, no cuando se creó. */
+    [key, mode],
   )
 
   return [valor, setValor]
@@ -1221,12 +1246,15 @@ por:
   const nav: Nav = navResuelto ?? { mode: 'list' }
   const navRoto = !cargando && navResuelto === null
 
+  const [, setPath] = useUrlPath()
   const setNav = (siguiente: Nav) => {
-    const actual = urlLocation
-    if (!actual) return
-    /* Push y no replace: moverse entre la grilla, un protocolo y una ficha ES navegar, así que el
-       atrás del navegador tiene que poder deshacerlo. */
-    pushUrl({ ...actual, path: pathDesdeNav(siguiente, protocols.data ?? [], patients.data ?? []) })
+    /* `conservar` y no todo el query: la búsqueda y el filtro de estado describen la grilla y hoy
+       ya sobreviven entrar a un protocolo y volver —esta vista no se desmonta: renderiza el detalle
+       desde adentro—, así que descartarlos sería una regresión. Lo que NO se conserva es la entidad
+       abierta: un `?visita=` arrastrado a otra ficha abriría la visita de otro paciente. */
+    setPath(pathDesdeNav(siguiente, protocols.data ?? [], patients.data ?? []), {
+      conservar: ['buscar', 'estado'],
+    })
   }
 ```
 
@@ -1286,11 +1314,17 @@ por:
 
 ```tsx
   const [search, setSearch] = useUrlState('buscar', '')
-  const [fEstado, setFEstado] = useUrlState<ProtocolStatus[]>('estado', [], { codec: codecs.list as Codec<ProtocolStatus[]> })
+  const [fEstado, setFEstado] = useUrlState<ProtocolStatus[]>('estado', [], {
+    codec: listOf(['activo', 'pausado', 'cerrado'] as const),
+  })
 ```
 
-Imports: `import { codecs } from '../lib/router'`, `import type { Codec } from '../lib/router'`,
-`import { useUrlState } from '../lib/useUrlState'`.
+Imports: `import { listOf } from '../lib/router'`, `import { useUrlState } from '../lib/useUrlState'`.
+
+> **Por qué `listOf` y no `codecs.list`:** un `codecs.list as Codec<ProtocolStatus[]>` compila, pero
+> es un cast que miente — `?estado=inventado` entraría como `['inventado']` tipado `ProtocolStatus[]`,
+> sin caer al default y sin que TypeScript diga nada. `listOf` valida cada elemento contra el enum y
+> descarta los que no pertenecen. Lo detectó el review de la Task 2.
 
 - [ ] **Paso 2: sustituir en `PatientFichaView.tsx`**
 
@@ -1594,10 +1628,12 @@ por:
   const openId = codigoAbierto
     ? (all.find((d) => d.dispensation_code === codigoAbierto)?.id ?? null)
     : null
+  const [, setPath] = useUrlPath()
   const setOpenId = (id: string | null) => {
-    if (!urlLocation) return
     const codigo = id ? all.find((d) => d.id === id)?.dispensation_code : null
-    pushUrl({ ...urlLocation, path: codigo ? [codigo] : [] })
+    /* Se conservan los cuatro filtros del tablero: abrir un cajón no puede resetearte el tablero
+       que tenías detrás, ni dejarte ahí al cerrarlo. */
+    setPath(codigo ? [codigo] : [], { conservar: ['dia', 'vista', 'protocolo', 'buscar'] })
   }
 ```
 
@@ -1700,8 +1736,11 @@ git commit -m "feat(stock): apartado y filtros en la URL"
 por:
 
 ```tsx
-  const [fEstados, setFEstados] = useUrlState<ReceptionStatus[]>('estado', [], { codec: codecs.list as Codec<ReceptionStatus[]> })
-  const [fTipos, setFTipos] = useUrlState<ReceptionKind[]>('tipo', [], { codec: codecs.list as Codec<ReceptionKind[]> })
+  /* `listOf` y no `codecs.list`: valida cada elemento contra el enum, así un ?estado=inventado cae al
+     default en vez de colarse tipado. Los valores exactos de ReceptionStatus y ReceptionKind salen de
+     `src/data/pharma/receptions.ts` — copialos de la definición del tipo, no los inventes. */
+  const [fEstados, setFEstados] = useUrlState<ReceptionStatus[]>('estado', [], { codec: listOf(RECEPTION_STATUSES) })
+  const [fTipos, setFTipos] = useUrlState<ReceptionKind[]>('tipo', [], { codec: listOf(RECEPTION_KINDS) })
   const [fMeds, setFMeds] = useUrlState<string[]>('medicamento', [], { codec: codecs.list })
   const [fProtoSel, setFProtoSel] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
   const [q, setQ] = useUrlState('buscar', '')

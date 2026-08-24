@@ -79,13 +79,18 @@ lugar que arma URLs) hace que sea un cambio de una función y no una cacería po
 | Slug de módulo | `key` interna | Slug de submódulo → `key` interna |
 |---|---|---|
 | *(raíz)* / `inicio` | `inicio` | `resumen`, `tareas`, `alertas` |
-| `coordinacion` | `track` | `resumen`, **`pacientes` → `protocolos`**, `visitas`, `para-ver-medico`, `agenda`, `alertas` |
+| `coordinacion` | `track` | `resumen`, **`pacientes` → `protocolos`**, `visitas`, `para-ver-medico`, `alertas` |
 | `farmacia` | `pharma` | **`pacientes` → `protocolos`**, `recepcion`, **`stock` → `medicamentos`**, `dispensaciones`, **`estadisticas` → `reportes`** |
 | `lab`, `contable` | idem | Bloqueados (`proximamente`): resuelven a la pantalla de §8 |
 
 `/` es Inicio › Resumen (la home). `/coordinacion` sin submódulo cae al primero del módulo, igual que
-hace hoy `selectModule`. `agenda` sigue teniendo ruta aunque esté fuera del menú por pedido del Director:
-la vista existe y el registry la resuelve.
+hace hoy `selectModule`.
+
+**Agenda NO tiene ruta**, aunque `views/registry.tsx` siga mapeando `track/agenda` a su vista. Su
+entrada está comentada en `MODULES` desde que el Director la sacó del menú, y hoy tampoco es
+alcanzable por `navigate()` — que valida contra `mod.submodules`. Darle URL sería reponer por la
+puerta de atrás una pantalla que se decidió retirar. `parseUrl` valida contra el mismo `MODULES`, así
+que el día que se descomente esa línea la ruta se habilita sola, sin tocar el router.
 
 ### 4.2 Ejemplos
 
