@@ -9,7 +9,7 @@ import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import type { DayProcedureSummary } from '../../data/procedures'
 import { OperationalStageChip, OPERATIONAL_STAGES, VisitChip, VISIT_STATES } from '../visitStates'
-import { ProtoTag, ProcDots, Persona } from '../visitAtoms'
+import { ProtoTag, ProcDots, Persona, VisitCodeTag } from '../visitAtoms'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 import { etapaProgreso } from './visitHeaderRules'
 
@@ -112,10 +112,17 @@ export function DayVisitRowItem({
             identidad, que es lo que abre, y no contra un bloque que crece con datos ajenos. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
-                {visit.patient_name}
-              </PatientLink>
+            {/* El código de visita acompaña al NOMBRE, no al renglón de abajo: es el otro dato que se
+                busca al escanear la lista, y arriba lo agarra el ojo en el mismo salto. Abajo queda
+                el contexto —protocolo, IVRS y cómo se llama la visita—, que se lee recién cuando ya
+                encontraste la fila (pedido del Director, 2026-08-25). */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+                  {visit.patient_name}
+                </PatientLink>
+              </div>
+              <VisitCodeTag code={visitCode(visit)} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
               <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
@@ -123,9 +130,6 @@ export function DayVisitRowItem({
                 {visit.patient_code
                   ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
                   : 'Sin IVRS'}
-              </span>
-              <span style={{ padding: '2px 9px', borderRadius: 6, background: 'var(--spira-ink)', color: 'var(--spira-paper)', fontSize: 11.5, fontWeight: 800 }}>
-                {visitCode(visit)}
               </span>
               <span style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visitName}</span>
             </div>
