@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
+import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { EmptyState } from '../components/EmptyState'
 import { FilterDropdown } from '../components/FilterDropdown'
 import type { FilterOption } from '../components/FilterDropdown'
@@ -20,6 +21,7 @@ import { CommentThread } from './track/CommentThread'
 import { WaitBadge, waitTone, TONE_HEX, FAINT_HEX } from './track/WaitBadge'
 import { MotivoChip } from './track/MotivoChip'
 import { AttendedRow } from './track/AttendedRow'
+import { useAbrirFicha } from './useAbrirFicha'
 
 type Status = 'todos' | 'faltan' | 'atendidos'
 
@@ -52,6 +54,16 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
   const [openVisitId, setOpenVisitId] = useUrlEntity('visita')
   const [commentsVisit, setCommentsVisit] = useState<DayVisitRow | null>(null)
   const queue = useDoctorQueue(date)
+
+  /* El IVRS y el nombre de cada visita abren la ficha del paciente (mismo gesto que las otras
+     catorce pantallas del plan). Sin `target` en el pasaje de vuelta: esta vista no consume
+     `navTarget`, así que prometer que reabre la cola con el filtro/día que tenías sería mentir —
+     el mismo criterio que ya usa el `onOpenPatient` del VisitDetail de acá abajo. */
+  const abrirFicha = useAbrirFicha({
+    module,
+    onNavigate,
+    volver: () => ({ moduleKey: module.key, subKey: submodule.key, label: 'Volver a la cola', hint: 'Volver a Para ver médico' }),
+  })
 
   // Reloj vivo: fuerza un re-render cada 15s para que WaitBadge/AttendedRow recalculen contra
   // Date.now() real. Sin refetch — el timestamp base (wants_doctor_at/doctor_seen_at) ya está
@@ -184,6 +196,7 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
                   onOpen={() => setOpenVisitId(v.id)}
                   onComments={() => setCommentsVisit(v)}
                   onMarkSeen={() => { void setSeen(v.id, true) }}
+                  onOpenPatient={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))}
                 />
               ))}
             </div>
@@ -197,6 +210,7 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
                   visit={v}
                   busy={busyId === v.id}
                   onUndo={() => { void setSeen(v.id, false) }}
+                  onOpenPatient={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))}
                 />
               ))}
             </div>
@@ -235,13 +249,15 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
  * protocolo + código de visita; nombre + sexo/edad + médico tratante; motivo + procedencia) ·
  * acciones (comentarios, abrir, marcar visto).
  */
-function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen }: {
+function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen, onOpenPatient }: {
   visit: DayVisitRow
   accent: string
   busy: boolean
   onOpen: () => void
   onComments: () => void
   onMarkSeen: () => void
+  /** Abre la ficha del paciente. Sin esto, IVRS y nombre quedan como texto (ver `PatientLink`). */
+  onOpenPatient?: () => void
 }) {
   const age = ageFromBirth(visit.birth_date)
   const sexShort = visit.sex ? (SEX_SHORT[visit.sex] ?? visit.sex) : null
@@ -252,10 +268,12 @@ function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen }: {
     <div style={rowCard}>
       <WaitBadge iso={visit.wants_doctor_at} />
 
-      <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+      <div className="spira-link-group" style={{ flex: '1 1 220px', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span className="spira-mono" style={{ fontSize: 15, fontWeight: 700, color: visit.patient_code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>
-            {visit.patient_code ?? 'Sin IVRS'}
+            {visit.patient_code
+              ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
+              : 'Sin IVRS'}
           </span>
           <span className="spira-mono" style={{ ...protocolPill, background: accent + '16', color: accent }}>
             {visit.protocol_code}
@@ -263,7 +281,12 @@ function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen }: {
           {vcode && <span style={visitChip}>{vcode}</span>}
         </div>
         <div style={identityLine}>
-          {visit.patient_name}
+          <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+            {visit.patient_name}
+          </PatientLink>
+          {/* `identityLine` es texto corrido (ver el comentario completo en AttendedRow.tsx): sin
+              `gap` de contenedor que reserve el aire, el margen de la flecha va inline. */}
+          {onOpenPatient && <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>}
           {demographics ? ` · ${demographics}` : ''}
           {visit.treating_physician ? ` · ${visit.treating_physician}` : ''}
         </div>

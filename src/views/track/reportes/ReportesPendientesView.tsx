@@ -29,10 +29,20 @@ import { useAuth } from '../../../lib/auth'
  * una tabla: la regla vive en `estados.ts` con sus casos borde testeados, y reabrir es simplemente
  * retroceder un reporte. Sin estado nuevo no hay estado que pueda divergir.
  */
-export function ReportesPendientesView({ protocolId, accent, onOpenVisit }: {
+export function ReportesPendientesView({ protocolId, accent, onOpenVisit, onOpenPatient }: {
   protocolId: string
   accent: string
   onOpenVisit: (visitId: string) => void
+  /**
+   * Abre la ficha del paciente. Es navegación INTERNA de Pacientes —el mismo `onOpenPatient` que
+   * `ProtocolDetailView` ya le pasa a `PdPatientRow`—, no un salto de módulo/submódulo: acá nunca
+   * corresponde `useAbrirFicha` (ese hook es para saltar vía el shell) ni un pasaje de "volver"
+   * (ofrecería volver a un lugar del que nunca saliste, y pelearía contra el `onNavigatedAway` que
+   * `ProtocolsView` usa para descartar el chip cuando el usuario se mueve por adentro). El
+   * protocolo de contexto ya está resuelto (estás parado en SU detalle), así que no hace falta
+   * pasarlo. Sin esto, nombre e IVRS quedan como texto (ver `PatientLink`).
+   */
+  onOpenPatient?: (patientId: string) => void
 }) {
   const q = useProtocolReportStatus(protocolId)
   const { hasMinRole, modules } = useAuth()
@@ -161,6 +171,7 @@ export function ReportesPendientesView({ protocolId, accent, onOpenVisit }: {
             busy={busy === row.visit_id + row.report_definition_id}
             onStage={(s) => void mover(row, s)}
             onOpenVisit={() => onOpenVisit(row.visit_id)}
+            onOpenPatient={onOpenPatient && (() => onOpenPatient(row.patient_id))}
           />
         )}
       />

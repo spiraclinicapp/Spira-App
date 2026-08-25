@@ -234,6 +234,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
                 protocolId={protocol.id}
                 accent={accent}
                 onOpenVisit={(visitId) => setOpenVisitId(visitId)}
+                onOpenPatient={onOpenPatient}
               />
             ) : rightTab === 'cronograma' ? (
               <CronogramaTab
