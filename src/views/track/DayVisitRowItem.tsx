@@ -67,7 +67,18 @@ export function DayVisitRowItem({
     // Padding izquierdo igual al derecho: la barra de color a sangre que ocupaba esos 6px de más
     // se fue, y su trabajo lo hace ahora el riel de la columna de estado.
     overflow: 'hidden', padding: '12px 16px', marginBottom: 8,
-    display: 'flex', alignItems: 'center', gap: 16,
+    /* GRID y no flex: es una lista de columnas, y con flex cada fila resolvía sus anchos por el
+       largo de SU contenido —la identidad medía lo que midiera su línea más ancha—, así que la
+       visita caía en un x distinto en cada renglón. Quedaba casi alineada, que es peor que
+       claramente desalineada: el ojo lee el temblor. Con anchos determinísticos, las cinco columnas
+       coinciden entre filas por construcción y no por casualidad de que los nombres midan parecido.
+       La identidad crece hasta 460px —antes se truncaba con 800px libres al lado, porque el
+       sobrante del `flex: 1` se depositaba en un vacío muerto en el medio—, y el resto lo absorbe
+       la columna de la visita, cuyo contenido va anclado al inicio (`justifySelf: start`): el chip
+       queda pegado al paciente y el aire cae después, donde sí separa dos grupos distintos
+       (quién y qué visita · quién lo atiende). */
+    display: 'grid', gridTemplateColumns: '104px minmax(200px, 460px) 1fr 206px auto',
+    alignItems: 'center', gap: 16,
   }
 
   return (
@@ -94,7 +105,7 @@ export function DayVisitRowItem({
           "Por llegar", y dejar ese chip diría que el paciente está por llegar cuando ya se sabe
           que no viene. Se mira `computed_status` y no `no_show_at` porque la vista ya resuelve la
           precedencia (ventana vencida le gana a por reprogramar). */}
-      <div style={{ flex: '0 0 auto', width: 104 }}>
+      <div>
         {visit.computed_status === 'por_reprogramar'
           ? <VisitChip status="por_reprogramar" compact />
           : <OperationalStageChip stage={stage} compact />}
@@ -103,8 +114,8 @@ export function DayVisitRowItem({
         </div>
       </div>
 
-      {/* bloque central */}
-      <div className="spira-link-group" style={{ flex: 1, minWidth: 0 }}>
+      {/* identidad — columna 2 */}
+      <div className="spira-link-group" style={{ minWidth: 0 }}>
         {/* La flecha se para al COSTADO del par y centrada entre sus dos líneas, no colgando del
             IVRS: el nombre vive arriba y el número abajo, así que dentro de una de las dos se lee
             caída respecto de la otra —apuntás el nombre y la marca aparece un renglón más abajo—.
@@ -127,31 +138,32 @@ export function DayVisitRowItem({
             </div>
           </div>
           {onOpenPatient && <PatientLinkArrow />}
-          {/* Visita y semana son UN dato en dos renglones ("V12" arriba, "W48" abajo), así que van
-              apilados y centrados entre sí: sueltos en dos líneas distintas cada uno terminaba
-              después de un texto de ancho variable —el nombre arriba, el IVRS abajo— y nunca caían
-              uno sobre otro, que es lo que los hace leerse a la par (pedido del Director,
-              2026-08-25). Centrados y no alineados a la izquierda porque el chip tiene padding
-              propio: pegados por el borde, el glifo del código arrancaría 9px más adentro que el de
-              la semana. */}
-          <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-            <VisitCodeTag code={visitCode(visit)} />
-            <span style={{ fontSize: 12.5, color: 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{visitName}</span>
-          </div>
         </div>
         {procs && procs.names.length > 0 && (
           <div style={{ marginTop: 9 }}><ProcDots names={procs.names} accent={accent} /></div>
         )}
       </div>
 
-      {/* responsables: coordinador + médico (ancho fijo, alineados a la derecha) */}
-      <div style={{ flex: '0 0 auto', width: 206, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, overflow: 'hidden' }}>
+      {/* visita — columna 3. Se lleva el sobrante de la fila, pero el contenido va anclado al
+          INICIO: el chip queda pegado al paciente y el aire cae a su derecha, separando el grupo
+          "quién y qué visita" del grupo "quién lo atiende".
+          Visita y semana son UN dato en dos renglones ("V12" arriba, "W48" abajo), así que van
+          apilados y centrados entre sí. Centrados y no alineados por la izquierda porque el chip
+          tiene padding propio: pegados por el borde, el glifo del código arrancaría 9px más adentro
+          que el de la semana. */}
+      <div style={{ justifySelf: 'start', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+        <VisitCodeTag code={visitCode(visit)} />
+        <span style={{ fontSize: 12.5, color: 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{visitName}</span>
+      </div>
+
+      {/* responsables — columna 4 (ancho fijo, alineados a la derecha) */}
+      <div style={{ width: 206, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, overflow: 'hidden' }}>
         <Persona role="Coord." name={visit.coordinator_name} icon="user" />
         <Persona role="Médico" name={visit.treating_physician} icon="users" />
       </div>
 
-      {/* acciones (ancho fijo) */}
-      <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+      {/* acciones — columna 5 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <DoctorButton visit={visit} accent={accent} canClinical={canClinical} busy={busy} onOpenDoctor={onOpenDoctor} />
         <AdvanceCTA stage={stage} accent={accent} canAdvance={advanceRole(stage) === 'reception' ? canReception : advanceRole(stage) === 'clinical' ? canClinical : false} busy={busy} onAdvance={(next) => onAdvance(visit, next)} />
         <RowMenu visit={visit} canReception={canReception} busy={busy} onNoShow={onNoShow} onReschedule={onReschedule} />
