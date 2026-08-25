@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
+import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import type { PatientProtocol, PatientRow, PatientStatus } from '../data/patients'
 
 /* Grilla compartida entre encabezado y filas: código · nombre · estado · protocolos · nacimiento. */
@@ -38,6 +39,9 @@ interface PatientsTableProps {
   emptyIcon?: IconName
   emptyTitle?: string
   emptyDescription?: string
+  /** Abrir la ficha del paciente (nombre e IVRS pasan a ser navegables). Sin esto, `PatientLink`
+   *  cae solo a texto pelado (ver su comentario de cabecera). */
+  onOpenPatient?: (patientId: string) => void
 }
 
 /**
@@ -51,6 +55,7 @@ export function PatientsTable({
   emptyIcon = 'users',
   emptyTitle = 'Sin pacientes',
   emptyDescription = 'Todavía no hay pacientes para mostrar.',
+  onOpenPatient,
 }: PatientsTableProps) {
   const [query, setQuery] = useState('')
 
@@ -109,7 +114,7 @@ export function PatientsTable({
             <span role="columnheader" className="spira-eyebrow">Nacimiento</span>
           </div>
           {filtered.map((p, i) => (
-            <PatientRowItem key={p.id} patient={p} accent={accent} accentSolid={accentSolid} last={i === filtered.length - 1} />
+            <PatientRowItem key={p.id} patient={p} accent={accent} accentSolid={accentSolid} last={i === filtered.length - 1} onOpenPatient={onOpenPatient} />
           ))}
         </div>
       )}
@@ -117,18 +122,34 @@ export function PatientsTable({
   )
 }
 
-function PatientRowItem({ patient, accent, accentSolid, last }: { patient: PatientRow; accent: string; accentSolid: string; last: boolean }) {
+function PatientRowItem({ patient, accent, accentSolid, last, onOpenPatient }: {
+  patient: PatientRow; accent: string; accentSolid: string; last: boolean
+  onOpenPatient?: (patientId: string) => void
+}) {
   const protocols = patient.enrollments
     .map((e) => e.protocol)
     .filter((x): x is PatientProtocol => x != null)
   const shown = protocols.slice(0, 2)
   const extra = protocols.length - shown.length
+  const abrir = onOpenPatient && (() => onOpenPatient(patient.id))
 
   return (
-    <div role="row" style={{ display: 'grid', gridTemplateColumns: COLS, gap: 16, padding: '13px 18px', alignItems: 'center', borderBottom: last ? 'none' : '1px solid var(--spira-line)' }}>
-      <span role="cell" className="spira-mono" style={{ fontSize: 13, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>{patient.code ?? 'Sin IVRS'}</span>
-      <span role="cell" style={{ fontSize: 13.5, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {patient.full_name}
+    // `spira-link-group` en la fila entera (código y nombre viven en columnas separadas de la
+    // grilla, no en un bloque de identidad contiguo): el `:has()` no exige hijos directos, así que
+    // alcanza igual para que ambos links y la flecha se enciendan juntos.
+    <div role="row" className="spira-link-group" style={{ display: 'grid', gridTemplateColumns: COLS, gap: 16, padding: '13px 18px', alignItems: 'center', borderBottom: last ? 'none' : '1px solid var(--spira-line)' }}>
+      <span role="cell" className="spira-mono" style={{ fontSize: 13, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>
+        {patient.code
+          ? <PatientLink onOpen={abrir} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
+          : 'Sin IVRS'}
+      </span>
+      <span role="cell" style={{ fontSize: 13.5, color: 'var(--spira-ink)', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+          <PatientLink onOpen={abrir} label={`Abrir la ficha de ${patient.full_name}`}>
+            {patient.full_name}
+          </PatientLink>
+        </span>
+        {onOpenPatient && <PatientLinkArrow />}
       </span>
       <span role="cell">
         <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 'var(--spira-radius-pill)', fontSize: 12, fontWeight: 600, color: statusVar(patient.status), background: `color-mix(in srgb, ${statusVar(patient.status)} 15%, transparent)` }}>

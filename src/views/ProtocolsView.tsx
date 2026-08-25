@@ -331,7 +331,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
         {isTrack ? (
           <AllPatientsList patients={allPatients} accent={accent} onOpenPatient={openFromAll} />
         ) : (
-          <PatientsTable key="all" patients={allPatients} accent={accent} accentSolid={accentSolid} />
+          <PatientsTable key="all" patients={allPatients} accent={accent} accentSolid={accentSolid} onOpenPatient={openFromAll} />
         )}
       </div>
     )

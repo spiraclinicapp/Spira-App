@@ -57,6 +57,9 @@ function Fila({ r, onOpen, onOpenPatient }: { r: DispensationRequestRow; onOpen:
   const disp = activeDispensation(r)
   const meta = badgeOf(r)
   const meds = r.items.map((i) => i.medication?.name ?? 'Medicamento').join(', ')
+  /* El nombre está siempre que hay paciente (el tipo lo garantiza); el IVRS puede faltar — y ahí
+     el placeholder va AFUERA del link: un guion no es un destino clickeable. */
+  const patient = r.enrollment?.patient
 
   return (
     <div
@@ -78,14 +81,14 @@ function Fila({ r, onOpen, onOpenPatient }: { r: DispensationRequestRow; onOpen:
             {disp?.dispensation_code ?? 'Solicitud'}
           </span>
           <span style={{ fontSize: 13, color: 'var(--spira-ink)' }}>
-            · <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${r.enrollment?.patient?.full_name ?? 'el paciente'}`}>
-                {r.enrollment?.patient?.full_name ?? '—'}
+            · <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${patient?.full_name ?? 'este paciente'}`}>
+                {patient?.full_name ?? '—'}
               </PatientLink>
           </span>
           <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>
-            <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${r.enrollment?.patient?.code ?? ''}`}>
-              {r.enrollment?.patient?.code ?? 'Sin IVRS'}
-            </PatientLink>
+            {patient?.code
+              ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
+              : 'Sin IVRS'}
           </span>
           {onOpenPatient && <PatientLinkArrow />}
           <span className="spira-mono" style={chipProto}>{r.protocol?.code ?? '—'}</span>

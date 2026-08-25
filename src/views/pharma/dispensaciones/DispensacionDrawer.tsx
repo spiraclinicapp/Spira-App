@@ -156,15 +156,15 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
               </h2>
               <div className="spira-link-group" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 5, flexWrap: 'wrap' }}>
                 <span style={{ color: 'var(--spira-ink)', fontWeight: 600 }}>
-                  <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${paciente?.full_name ?? 'el paciente'}`}>
+                  <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${paciente?.full_name ?? 'este paciente'}`}>
                     {paciente?.full_name ?? '—'}
                   </PatientLink>
                 </span>
                 <span style={dot} />
                 <span className="spira-mono">
-                  <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${paciente?.code ?? ''}`}>
-                    {paciente?.code ?? '—'}
-                  </PatientLink>
+                  {paciente?.code
+                    ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${paciente.code}`}>{paciente.code}</PatientLink>
+                    : '—'}
                 </span>
                 {onOpenPatient && <PatientLinkArrow />}
                 <span style={dot} />

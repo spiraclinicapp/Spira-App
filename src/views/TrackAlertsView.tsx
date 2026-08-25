@@ -97,9 +97,10 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const [showDismissed, setShowDismissed] = useUrlState('descartadas', false, { codec: codecs.bool })
   const [actionError, setActionError] = useState<string | null>(null)
 
-  /* La vuelta reabre la alerta: esta vista SÍ consume `navTarget` (`useUrlEntity`), así que
-     prometerlo es honesto — a diferencia de la cola del médico, que no lo consume y solo ofrece
-     volver a la pantalla. */
+  /* La vuelta NO reabre la alerta puntual: este `volver` no lleva `target`, así que devuelve a la
+     lista genérica de Alertas — el label ya lo dice ("Volver a Alertas"), no promete de más.
+     Distinto de "Volver a la visita" en Visitas del día, que sí trae de vuelta la visita puntual
+     porque su `volver` completa el `target`. */
   const abrirFicha = useAbrirFicha({
     module,
     onNavigate,
@@ -424,6 +425,9 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           accent={accent}
           onClose={() => setOpenVisitId(null)}
           onChanged={() => alertsQ.refetch()}
+          // El mismo gesto que ya tiene la fila: reusa `abrirFicha`, que ya cae a `undefined`
+          // sin `onNavigate` y así el encabezado del modal degrada solo a texto.
+          onOpenPatient={abrirFicha}
         />
       )}
     </div>

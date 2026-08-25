@@ -118,9 +118,9 @@ export function AgendaView({ module, submodule, onNavigate }: ViewProps) {
                           </PatientLink>
                         </span>
                         <span className="spira-mono" style={{ fontSize: 12, color: c, fontWeight: 500, flex: '0 0 auto' }}>
-                          <PatientLink onOpen={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))} label={`Abrir la ficha del sujeto ${v.patient_code}`}>
-                            {v.patient_code}
-                          </PatientLink>
+                          {v.patient_code
+                            ? <PatientLink onOpen={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))} label={`Abrir la ficha del sujeto ${v.patient_code}`}>{v.patient_code}</PatientLink>
+                            : 'Sin IVRS'}
                         </span>
                         {abrirFicha && <PatientLinkArrow />}
                         <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4 }}>

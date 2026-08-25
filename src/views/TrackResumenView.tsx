@@ -182,9 +182,9 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
                           </PatientLink>
                         </span>
                         <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 400 }}>
-                          <PatientLink onOpen={abrirFicha && (() => abrirFicha(a.patient_id, a.protocol_id))} label={`Abrir la ficha del sujeto ${a.patient_code}`}>
-                            {a.patient_code}
-                          </PatientLink>
+                          {a.patient_code
+                            ? <PatientLink onOpen={abrirFicha && (() => abrirFicha(a.patient_id, a.protocol_id))} label={`Abrir la ficha del sujeto ${a.patient_code}`}>{a.patient_code}</PatientLink>
+                            : '—'}
                         </span>
                         {abrirFicha && <PatientLinkArrow />}
                         <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span className="spira-mono" style={{ fontSize: 12.5 }}>{a.protocol_code}</span></span>
