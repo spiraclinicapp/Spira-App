@@ -168,6 +168,17 @@ describe('auditLine', () => {
     expect(l).toContain('Carla')
   })
 
+
+  it('un update que no movió el nivel se nombra por lo que fue, no como "X → X"', () => {
+    // Existe en los datos reales: un `on conflict do update` que reescribe el valor que ya estaba
+    // deja su línea igual. "Administrador → Administrador" es ruido que estorba para leer las líneas
+    // que sí dicen algo, y ocultarlo sería recortar el registro.
+    const l = auditLine({ ...base, action: 'UPDATE', role_before: 'admin', role_after: 'admin' }, nombre)
+    expect(l).not.toContain('→')
+    expect(l).toContain('sin cambiar el nivel')
+    expect(l).toContain('Administrador')
+  })
+
   it('la administración se nombra como lo que es, no como un módulo más', () => {
     const l = auditLine({ ...base, module: 'gerencia' }, nombre)
     expect(l).toBe('Lucía le dio la administración de accesos a Carla')

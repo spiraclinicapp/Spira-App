@@ -214,8 +214,18 @@ export function auditLine(row: AccessAuditRow, nombreModulo: (key: string) => st
       ? `${quien} le dio la administración de accesos a ${aQuien}`
       : `${quien} le dio acceso a ${modulo} a ${aQuien}`
   }
-  // UPDATE: cambió el nivel dentro del mismo módulo.
+  // UPDATE: se reescribió la fila. Puede haber cambiado el nivel… o no.
   const antes = row.role_before ? ROLE_LABEL[row.role_before as ModuleRole] ?? row.role_before : '—'
   const despues = row.role_after ? ROLE_LABEL[row.role_after as ModuleRole] ?? row.role_after : '—'
+
+  /* Un UPDATE que deja el mismo nivel existe de verdad en los datos: un `on conflict do update` que
+     reescribe el valor que ya estaba deja su línea igual. Redactarlo como "Administrador →
+     Administrador" es ruido que estorba para leer las líneas que sí dicen algo, y ocultarlo sería
+     recortar el registro. Se nombra por lo que fue: se volvió a guardar sin mover el nivel.
+     Las filas NUEVAS no van a tener este caso — `set_module_access` (0096 §3.5) sale sin escribir
+     cuando no hay nada que cambiar, justamente para no ensuciar el historial. */
+  if (antes === despues) {
+    return `${quien} volvió a guardar el acceso de ${aQuien} a ${modulo}, sin cambiar el nivel (${antes})`
+  }
   return `${quien} cambió a ${aQuien} en ${modulo}: ${antes} → ${despues}`
 }
