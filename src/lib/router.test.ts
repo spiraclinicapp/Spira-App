@@ -79,6 +79,28 @@ describe('parseUrl · módulo y submódulo', () => {
     expect(parseUrl('/farmacia/dispensaciones/D-0417', '')).toMatchObject({ path: ['D-0417'] })
   })
 
+  /* El apartado de Stock y el wizard de Recepción nueva son LUGARES, no filtros: el apartado ya
+     apila historial y el atrás ya vuelve al menú, así que la URL tiene que decirlo. Mismo mecanismo
+     que Pacientes/Dispensaciones — sumar la key al Set de `SUB_CON_PATH` — y misma pantalla serena
+     ante un segmento inválido, que valida cada VISTA (acá solo se prueba que `parseUrl` deja pasar el
+     segmento; MedicamentosView y RecepcionView son las que deciden si ESE segmento existe). */
+  it('medicamentos (Stock) y recepción también llevan path: el apartado y el wizard son un lugar', () => {
+    expect(parseUrl('/farmacia/stock/catalogo', '')).toMatchObject({
+      moduleKey: 'pharma', subKey: 'medicamentos', path: ['catalogo'],
+    })
+    expect(parseUrl('/farmacia/recepcion/nueva', '')).toMatchObject({
+      moduleKey: 'pharma', subKey: 'recepcion', path: ['nueva'],
+    })
+  })
+
+  /* Sumar dos keys a SUB_CON_PATH no puede aflojar el resto: Visitas y Alertas (Coordinación) siguen
+     sin path propio y un segmento de más sigue siendo una ruta que no existe, no un submódulo nuevo
+     que empezó a aceptar cualquier cola en silencio. */
+  it('los submódulos sin path (Visitas, Alertas) los siguen rechazando', () => {
+    expect(parseUrl('/coordinacion/visitas/loquesea', '')).toBeNull()
+    expect(parseUrl('/coordinacion/alertas/x', '')).toBeNull()
+  })
+
   it('lee el query', () => {
     expect(parseUrl('/coordinacion/visitas', '?dia=2026-08-22&estado=pendiente')).toMatchObject({
       query: { dia: '2026-08-22', estado: 'pendiente' },
@@ -133,6 +155,9 @@ describe('buildUrl', () => {
       '/farmacia/dispensaciones',
       '/farmacia/dispensaciones/D-0417',
       '/farmacia/estadisticas',
+      // El apartado de Stock y el wizard de Recepción nueva: lugares, no filtros (2026-08-24).
+      '/farmacia/stock/catalogo',
+      '/farmacia/recepcion/nueva',
       // Con query: son la mitad de los ejemplos del §4.2 y faltaban. El primero es el que agarra la
       // coma porcentuada.
       '/coordinacion/visitas?dia=2026-08-22&estado=pendiente,en-curso',
