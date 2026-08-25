@@ -68,16 +68,18 @@ export function DayVisitRowItem({
     // se fue, y su trabajo lo hace ahora el riel de la columna de estado.
     overflow: 'hidden', padding: '12px 16px', marginBottom: 8,
     /* GRID y no flex: es una lista de columnas, y con flex cada fila resolvía sus anchos por el
-       largo de SU contenido —la identidad medía lo que midiera su línea más ancha—, así que la
-       visita caía en un x distinto en cada renglón. Quedaba casi alineada, que es peor que
-       claramente desalineada: el ojo lee el temblor. Con anchos determinísticos, las cinco columnas
+       largo de SU contenido —la identidad medía lo que midiera su línea más ancha—, así que lo que
+       venía después caía en un x distinto en cada renglón. Con anchos determinísticos, las columnas
        coinciden entre filas por construcción y no por casualidad de que los nombres midan parecido.
-       La identidad crece hasta 460px —antes se truncaba con 800px libres al lado, porque el
-       sobrante del `flex: 1` se depositaba en un vacío muerto en el medio—, y el resto lo absorbe
-       la columna de la visita, cuyo contenido va anclado al inicio (`justifySelf: start`): el chip
-       queda pegado al paciente y el aire cae después, donde sí separa dos grupos distintos
-       (quién y qué visita · quién lo atiende). */
-    display: 'grid', gridTemplateColumns: '104px minmax(200px, 460px) 1fr 206px auto',
+       Y el sobrante va a la identidad, que es la que lo necesita: con `flex: 1` se depositaba en un
+       vacío muerto en el medio de la fila mientras los nombres truncaban al lado.
+
+       CUATRO grupos y no cinco (Director, 2026-08-25): la visita tuvo su propia columna por un rato
+       y quedaba tocando nada —a ~295px del nombre y ~186px de los responsables—, ni parte de la
+       identidad ni parte de los metadatos. Un elemento alineado pero sin vecino se lee peor que uno
+       pegado a algo. Volvió al renglón de contexto, que es donde tiene vecinos: protocolo e IVRS
+       hablan de la misma visita. */
+    display: 'grid', gridTemplateColumns: '104px minmax(0, 1fr) 206px auto',
     alignItems: 'center', gap: 16,
   }
 
@@ -135,6 +137,12 @@ export function DayVisitRowItem({
                   ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
                   : 'Sin IVRS'}
               </span>
+              {/* Visita y semana viven acá, con el protocolo y el IVRS: los cuatro son el contexto
+                  de la misma visita, y juntos forman UN renglón de datos en vez de un bloque suelto
+                  flotando en el medio de la fila. El código conserva el peso (tinta plena) porque
+                  es el que se busca; la semana lo acompaña en gris, atrás. */}
+              <VisitCodeTag code={visitCode(visit)} />
+              <span style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visitName}</span>
             </div>
           </div>
           {onOpenPatient && <PatientLinkArrow />}
@@ -142,18 +150,6 @@ export function DayVisitRowItem({
         {procs && procs.names.length > 0 && (
           <div style={{ marginTop: 9 }}><ProcDots names={procs.names} accent={accent} /></div>
         )}
-      </div>
-
-      {/* visita — columna 3. Se lleva el sobrante de la fila, pero el contenido va anclado al
-          INICIO: el chip queda pegado al paciente y el aire cae a su derecha, separando el grupo
-          "quién y qué visita" del grupo "quién lo atiende".
-          Visita y semana son UN dato en dos renglones ("V12" arriba, "W48" abajo), así que van
-          apilados y centrados entre sí. Centrados y no alineados por la izquierda porque el chip
-          tiene padding propio: pegados por el borde, el glifo del código arrancaría 9px más adentro
-          que el de la semana. */}
-      <div style={{ justifySelf: 'start', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-        <VisitCodeTag code={visitCode(visit)} />
-        <span style={{ fontSize: 12.5, color: 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{visitName}</span>
       </div>
 
       {/* responsables — columna 4 (ancho fijo, alineados a la derecha) */}
