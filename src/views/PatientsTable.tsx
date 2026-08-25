@@ -131,7 +131,12 @@ function PatientRowItem({ patient, accent, accentSolid, last, onOpenPatient }: {
     .filter((x): x is PatientProtocol => x != null)
   const shown = protocols.slice(0, 2)
   const extra = protocols.length - shown.length
-  const abrir = onOpenPatient && (() => onOpenPatient(patient.id))
+  /* El gateo mira las DOS condiciones: que la vista sepa navegar Y que este paciente tenga a dónde.
+     `openFromAll` (ProtocolsView) no hace nada sin protocolo visible —la ficha necesita uno de
+     contexto—, así que con `onOpenPatient` a secas un paciente sin enrolamiento visible quedaría con
+     un link vivo que no lleva a ninguna parte, que es justo lo que `PatientLink` existe para evitar.
+     Hoy no hay ninguna fila así, pero el link no puede depender de que el dato siga siendo amable. */
+  const abrir = onOpenPatient && protocols.length > 0 ? () => onOpenPatient(patient.id) : undefined
 
   return (
     // `spira-link-group` en la fila entera (código y nombre viven en columnas separadas de la
