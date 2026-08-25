@@ -72,6 +72,23 @@ más el caso condicional de la Agenda. Los otros nueve aceptan el link tal como 
 - **La ficha del paciente**, obviamente, y el desplegable de Nueva dispensación (es una elección,
   no un dato).
 
+### 2.3 Los dos que ya navegan: les falta la flecha
+
+Pedido explícito del Director (2026-08-24), y es lo correcto: el gesto lo estrenó el modal de
+visita, así que sería el único lugar donde el nombre lleva a la ficha **sin decirlo**. La flecha
+entra también ahí.
+
+| Pantalla | Archivo | Qué cambia |
+|---|---|---|
+| Modal de visita · encabezado | [`VisitHeader.tsx:103`](../../../src/views/track/VisitHeader.tsx) | Solo la flecha (16px). El link ya está y no se toca, más allá de pasar a usar el `PatientLink` compartido del §4.1 |
+| Pacientes · fila del protocolo | [`PdPatientRow.tsx:82`](../../../src/views/track/PdPatientRow.tsx) | La flecha **y** el IVRS: hoy el nombre navega pero el número es un `<span>` muerto, cuando en el resto de la app son la misma puerta |
+
+En `PdPatientRow` la flecha va **al final del bloque de identidad**, no al costado: la fila es una
+rejilla de tres columnas (identidad · tracker · acciones) y una flecha al costado del bloque quedaría
+pegada al tracker, leyéndose como parte de él.
+
+Con esto son **quince** sitios en total: trece que estrenan link y dos que ya lo tenían.
+
 ---
 
 ## 3. La flecha ↗ (diseño aprobado)
