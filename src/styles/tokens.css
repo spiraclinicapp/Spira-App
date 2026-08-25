@@ -645,6 +645,42 @@ input:-webkit-autofill:focus {
   text-decoration: underline;
 }
 
+/* —— La flecha del texto que navega ——
+   Marca de destino para el par nombre + Nº de sujeto. Aparece SOLO al apuntar o al enfocar por
+   teclado: en una lista de veinte alertas, una flecha permanente por renglón son cuarenta marcas
+   compitiendo con la señal que esa pantalla sí tiene que dar (el color de la severidad).
+
+   No cambia de color al aparecer, solo de opacidad: pintar el hover rompe la regla de la casa —el
+   color dice significado clínico, el realce dice elevación—. Y `pointer-events: none` porque
+   apuntar la flecha no puede contar como apuntar el link: sin eso queda un blanco que se subraya
+   pero no se puede clickear.
+
+   El hueco lo reserva el `gap`/`margin` de quien la usa, presente desde el primer render, así que
+   al aparecer no corre nada. Donde `:has()` no exista, la flecha simplemente nunca aparece y el
+   subrayado sigue funcionando — misma degradación que ya declara `.spira-link-group`. */
+.spira-link-arrow {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--spira-muted);
+  opacity: 0;
+  pointer-events: none;
+  /* Para los contenedores que NO son flex: varias filas alinean su identidad con un div de
+     texto corrido que ya lleva su propio ellipsis (`identityLine` de la cola del medico y de
+     las atendidas), y volverlos flex les romperia ese truncado. Con `vertical-align` la flecha
+     se para bien en los dos casos: dentro de un flex manda el `align-items` del padre, dentro
+     de texto manda esto. */
+  vertical-align: middle;
+  transition: opacity 0.14s var(--spira-ease-out);
+}
+.spira-link-group:has(.spira-textlink:hover) .spira-link-arrow,
+.spira-link-group:has(.spira-textlink:focus-visible) .spira-link-arrow {
+  opacity: 0.75;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spira-link-arrow { transition: none; }
+}
+
 /* —— Previsualizador ampliable (constancia de IP, tamaño "chica") ——
    Toda la tarjeta de 140px invita a ampliar, no solo el botón "Ampliar" de la esquina —el mock
    (estado 4 de "Tarjeta partida - estados.html") define el hover sobre el `.prev` entero. Mismo

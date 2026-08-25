@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
+import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import { AutocompleteInput, textSuggestions } from '../../components/AutocompleteInput'
 import { setVisitCoordinator, setVisitPhysician } from '../../data/dayVisits'
@@ -99,20 +100,26 @@ export function VisitHeader({
               cualquiera de los dos los subraya a los dos (`.spira-link-group`, tokens.css). Si cada
               uno se subrayara solo, se leerían como dos destinos distintos. Siguen siendo dos
               disparadores y no uno que los envuelva: así el resalte lo dispara el texto y no el
-              aire alrededor, y cada dato conserva su caja. */}
-          <div className="spira-link-group">
-            <h2 style={nm}>
-              <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
-                {visit.patient_name}
-              </PatientLink>
-            </h2>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 5 }}>
-              <b className="spira-mono" style={pid}>
-                {visit.patient_code
-                  ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
-                  : 'Sin IVRS'}
-              </b>
+              aire alrededor, y cada dato conserva su caja.
+              La flecha es UNA para el par y se para al costado del bloque, no colgando de una
+              palabra: lo que se abre es el paciente, que son los dos datos juntos. 16px de aire
+              porque a menos se lee como un tercer dato de la identidad (mock del 2026-08-24). */}
+          <div className="spira-link-group" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ minWidth: 0 }}>
+              <h2 style={nm}>
+                <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+                  {visit.patient_name}
+                </PatientLink>
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 5 }}>
+                <b className="spira-mono" style={pid}>
+                  {visit.patient_code
+                    ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
+                    : 'Sin IVRS'}
+                </b>
+              </div>
             </div>
+            {onOpenPatient && <PatientLinkArrow size={16} />}
           </div>
           <PhysicianField visit={visit} readOnly={readOnly} onSaved={onSaved} />
         </div>
@@ -175,25 +182,6 @@ export function VisitHeader({
         </div>
       </div>
     </div>
-  )
-}
-
-/**
- * Un dato del encabezado que además navega a la ficha del paciente. Sin `onOpen` devuelve el texto
- * pelado, sin caja ni foco de teclado: un botón que no hace nada es peor que no tener botón.
- *
- * El estilo vive en `.spira-textlink` (tokens.css) — hereda tipografía y color, y solo se subraya
- * al apuntarlo o enfocarlo, para que el nombre siga leyéndose como el nombre. `.spira-no-press` lo
- * pone ESTE componente y no quien lo usa: es un `<button>`, así que sin esa marca hereda la
- * micro-interacción global y el texto se levanta 1px al pasarle el mouse — bien para un botón,
- * un salto para un nombre de 23px en medio del bloque de identidad.
- */
-function PatientLink({ onOpen, label, children }: { onOpen?: () => void; label: string; children: ReactNode }) {
-  if (!onOpen) return <>{children}</>
-  return (
-    <button type="button" className="spira-textlink spira-no-press" onClick={onOpen} title={label} aria-label={label}>
-      {children}
-    </button>
   )
 }
 
