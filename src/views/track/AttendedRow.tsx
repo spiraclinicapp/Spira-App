@@ -41,7 +41,14 @@ export function AttendedRow({ visit, busy, onUndo, onOpenPatient }: {
           <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
             {visit.patient_name}
           </PatientLink>
-          <PatientLinkArrow />
+          {/* `identityLine` es texto corrido, no flex (tiene su propio `text-overflow: ellipsis` y
+              volverlo flex se lo rompería) — así que el aire de 8px no puede venir de un `gap` de
+              contenedor como en el resto de las pantallas. JSX además se come el salto de línea
+              entre `</PatientLink>` y `<PatientLinkArrow />` (es whitespace-only entre dos tags, no
+              inserta ni un espacio), y sin el `marginLeft` la flecha queda pegada a la última letra
+              del nombre. El margen va en este `<span>` envolvente y no en `PatientLinkArrow` porque
+              esa flecha la usan también contenedores flex, donde el gap YA reserva el hueco. */}
+          <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>
           {visit.doctor_motivo ? ` · ${visit.doctor_motivo}` : ''}
         </div>
       </div>

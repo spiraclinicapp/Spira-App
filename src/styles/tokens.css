@@ -624,6 +624,30 @@ input:-webkit-autofill:focus {
   text-align: left;
   text-decoration: none;
   text-underline-offset: 3px;
+  /* Trunca SOLO — sin esto un nombre largo se corta en seco. El `<button>` es una caja ATÓMICA
+     para el layout en línea: cuando el contenedor que lo aloja corta con
+     `overflow: hidden; text-overflow: ellipsis` (como truncan casi todas las listas de la app), el
+     navegador puede partir un texto normal a la mitad de una palabra y poner el `…`, pero no puede
+     meter el `…` ADENTRO de una caja atómica — la recorta en seco, sin ningún indicio de que el
+     nombre sigue. Es justo lo que encontró el review de la Task 7 con nombres compuestos (normales
+     en Argentina) en columnas angostas: "Maria Fernanda Guadalupe Rod", sin puntos suspensivos, una
+     regresión contra el texto plano de antes de este plan.
+     La cura es que el link se trunque a SÍ MISMO: `max-width: 100%` lo ata al ancho del padre en vez
+     de crecer con su contenido (el `<button>` ya es `inline-block` por default del navegador; acá lo
+     dejamos explícito porque de eso depende que `max-width` tenga algo a qué atarse), y
+     `overflow`/`text-overflow`/`white-space` le dan su PROPIO `…` cuando no entra. Si el link entra
+     entero, esta regla no hace nada — el `max-width` nunca se activa y el truncado por contenedor que
+     ya funcionaba en algunas pantallas sigue funcionando igual, porque el link termina midiendo lo
+     mismo que antes. `vertical-align: bottom` para no romper la línea de base cuando el link comparte
+     renglón con texto corrido (identityLine de Atendidos, y el mismo patrón que se repite en la cola
+     del médico): el baseline por default de un `<button>` queda un poco más arriba que el texto
+     normal de al lado, y acá no hay flex que lo resuelva con `align-items`. */
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 .spira-textlink:hover,
 .spira-textlink:focus-visible { text-decoration: underline; }
