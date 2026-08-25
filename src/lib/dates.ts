@@ -31,10 +31,32 @@ export function daysDiffISO(from: string, to: string): number {
   return Math.round((parseISO(to).getTime() - parseISO(from).getTime()) / 86_400_000)
 }
 
-/** `YYYY-MM-DD` → `dd/mm/yyyy` (es-AR), sin pasar por Date. */
+/* ─── Formato de fecha elegido por el usuario (Ajustes › Preferencias, migración 0093) ───
+   Vive como variable de módulo y NO como parámetro de cada función: `formatAR` se llama desde
+   veinte archivos, y pasarle el formato por argumento en cada punto de uso sería un refactor
+   enorme para una preferencia. El precio es que `dates.ts` no es reactivo — cambiar el formato no
+   repinta nada por sí solo—, y lo paga `PrefsProvider`: al guardar la preferencia cambia su estado
+   y re-renderiza el árbol, que vuelve a llamar a estas funciones. Todo lo que muestra fechas cuelga
+   de ese provider, así que en la práctica el cambio se ve de inmediato.
+   El default es el comportamiento de siempre: quien no elija nada no nota nada. */
+let formatoFecha: 'dmy' | 'iso' = 'dmy'
+
+/** Fija el formato de fecha de toda la app. Lo llama `PrefsProvider`; nadie más debería. */
+export function setDateFormat(f: 'dmy' | 'iso'): void {
+  formatoFecha = f
+}
+
+/** Arma la fecha con el formato elegido, a partir de sus tres piezas ya rellenadas con ceros.
+    Es el ÚNICO lugar donde se decide el orden: las tres funciones públicas de fecha pasan por acá
+    para que la preferencia no llegue a dos de las tres y la app muestre dos formatos a la vez. */
+function armarFecha(y: string, m: string, d: string): string {
+  return formatoFecha === 'iso' ? `${y}-${m}-${d}` : `${d}/${m}/${y}`
+}
+
+/** `YYYY-MM-DD` → `dd/mm/yyyy` o `yyyy-mm-dd`, según la preferencia. Sin pasar por Date. */
 export function formatAR(iso: string): string {
   const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
+  return armarFecha(y, m, d)
 }
 
 /**
@@ -55,7 +77,7 @@ export function formatDateTimeAR(ts: string): string {
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const hh = String(d.getHours()).padStart(2, '0')
   const mi = String(d.getMinutes()).padStart(2, '0')
-  return `${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`
+  return `${armarFecha(String(d.getFullYear()), mm, dd)} ${hh}:${mi}`
 }
 
 /**
@@ -76,7 +98,7 @@ export function formatDateAR(ts: string): string {
   if (Number.isNaN(d.getTime())) return '—'
   const dd = String(d.getDate()).padStart(2, '0')
   const mm = String(d.getMonth() + 1).padStart(2, '0')
-  return `${dd}/${mm}/${d.getFullYear()}`
+  return armarFecha(String(d.getFullYear()), mm, dd)
 }
 
 /**

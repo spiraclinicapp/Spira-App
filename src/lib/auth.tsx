@@ -2,15 +2,13 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { AuthError, Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { meetsMinRole } from './roles'
+import type { ModuleKey, ModuleRole } from './roles'
 
-/** Módulos del schema (enum spira_module). 'inicio' no es módulo: es el home. */
-export type ModuleKey = 'track' | 'pharma' | 'lab' | 'contable' | 'gerencia'
-
-/** Nivel de acceso dentro de un módulo (enum module_role). Escalera estricta. */
-export type ModuleRole = 'viewer' | 'operator' | 'leader' | 'admin'
-
-/** Espejo de public.role_rank (migración 0009): viewer < operator < leader < admin. */
-const roleRank: Record<ModuleRole, number> = { viewer: 1, operator: 2, leader: 3, admin: 4 }
+/* El vocabulario del acceso (los tipos y la escalera de niveles) vive en `lib/roles.ts`: es puro y
+   por lo tanto testeable, y estaba duplicado a mano en dos archivos. Se reexporta desde acá porque
+   media app lo importa de `lib/auth` desde antes de la mudanza. */
+export type { ModuleKey, ModuleRole } from './roles'
 
 interface Profile {
   id: string
@@ -229,10 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session])
 
-  const hasMinRole: AuthState['hasMinRole'] = (module, min) => {
-    const r = roles[module]
-    return r != null && roleRank[r] >= roleRank[min]
-  }
+  const hasMinRole: AuthState['hasMinRole'] = (module, min) => meetsMinRole(roles[module], min)
 
   const signIn: AuthState['signIn'] = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -284,13 +279,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const requestEmailChange: AuthState['requestEmailChange'] = async (email) => {
     const next = email.trim()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) return { error: 'Ingresá un correo válido.', pending: false }
-    // El cambio real (con confirmación por mail) va PRIMERO: así no "quemamos" la ventana
-    // de 30 días si el correo es inválido o ya está en uso. Recién con el cambio disparado OK
-    // sellamos el timestamp (best-effort: la guarda dura de UI la da emailChangedAt del perfil).
+
+    /* La regla de 30 días se PREGUNTA antes y se SELLA después, en dos llamadas distintas.
+       Antes esto era una sola: se disparaba el cambio y después `stamp_email_change()` —cuyo error
+       se DESCARTABA—. El motivo era bueno (no "quemar" la ventana si el correo era inválido o ya
+       estaba en uso) pero el efecto era que la regla no se aplicaba nunca: el `raise` del servidor
+       se perdía y lo único que frenaba era el `disabled` del input, o sea nada para quien abra la
+       consola del navegador. Preguntando primero con una función que NO sella, se conserva el
+       motivo original y la regla vuelve a existir. */
+    const { data: desbloqueo, error: guardError } = await supabase.rpc('email_change_locked_until')
+    if (guardError) return { error: rpcErrorMessage(guardError, 'No pudimos verificar el cambio de correo.'), pending: false }
+    if (desbloqueo) {
+      const cuando = new Date(desbloqueo as string).toLocaleDateString('es-AR')
+      return { error: `Podés cambiar el correo una vez cada 30 días. Vas a poder de nuevo el ${cuando}.`, pending: false }
+    }
+
     const { error } = await supabase.auth.updateUser({ email: next })
     if (error) return { error: authErrorMessage(error), pending: false }
-    await supabase.rpc('stamp_email_change') // registra la fecha del cambio (ignoramos su error)
-    setProfile((p) => (p ? { ...p, emailChangedAt: new Date().toISOString() } : p))
+
+    /* El sello ya no se descarta, pero tampoco puede volverse un error para el usuario: para cuando
+       corre, el mail de confirmación YA salió. Si falla (una carrera con otra pestaña es el único
+       camino, porque el guard de arriba acaba de decir que se podía), el cambio sigue siendo real y
+       lo único que queda sin registrar es la fecha — o sea, la ventana no se consume. Decirle
+       "error" a alguien cuyo correo sí está cambiando sería la peor de las dos mentiras posibles. */
+    const { error: stampError } = await supabase.rpc('stamp_email_change')
+    if (!stampError) setProfile((p) => (p ? { ...p, emailChangedAt: new Date().toISOString() } : p))
     return { error: null, pending: true }
   }
 

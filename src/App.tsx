@@ -1,4 +1,5 @@
 import { AuthProvider, useAuth } from './lib/auth'
+import { PrefsProvider } from './lib/prefs'
 import { AppShell } from './shell/AppShell'
 import { Login } from './shell/Login'
 import { SetNewPassword } from './shell/SetNewPassword'
@@ -27,7 +28,14 @@ function Gate() {
   // Con sesión pero sin roles todavía no se puede decidir qué mostrar: el guard del shell
   // rechazaría por permisos que aún no llegaron. Esperar acá evita ese falso "no tenés acceso".
   if (modulesLoading) return <Splash />
-  return <AppShell />
+  /* Las preferencias envuelven al shell y no a la app entera a propósito: son de la CUENTA, así que
+     no hay ninguna que traer mientras no haya sesión. El Login igual sale con el tema correcto
+     porque `main.tsx` pinta el caché local antes del primer render. */
+  return (
+    <PrefsProvider>
+      <AppShell />
+    </PrefsProvider>
+  )
 }
 
 export default function App() {
