@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { accessLabel, meetsMinRole, ROLE_RANK } from './roles'
+import { accessLabel, auditLine, canRevokeAdmin, describeAccess, meetsMinRole, ROLE_RANK } from './roles'
+import type { AccessAuditRow } from './roles'
 
 /* La escalera de acceso: viewer < operator < leader < admin.
  *
@@ -58,5 +59,125 @@ describe('accessLabel', () => {
 
   it('ignora los módulos sin nivel en vez de contarlos', () => {
     expect(accessLabel({ track: undefined, pharma: 'viewer' })).toBe('Lectura')
+  })
+})
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   La consola de accesos (migración 0096).
+   Las tres reglas de acá abajo fallan CALLADAS: si quedan al revés no se rompe
+   nada visible, simplemente el sistema hace o dice algo distinto de la verdad.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+describe('canRevokeAdmin', () => {
+  it('no te podés quitar a vos mismo la administración', () => {
+    // Espejo del guard 3.6 de set_module_access. Sin esto, un click distraído te saca de la única
+    // pantalla desde la que podrías volver a entrar.
+    const r = canRevokeAdmin('yo', 'yo', ['yo', 'otra'])
+    expect(r.puede).toBe(false)
+    expect(r.motivo).toMatch(/vos mismo/i)
+  })
+
+  it('no se puede quitar al último administrador', () => {
+    // Espejo del guard 3.7. Cubre el caso que el anterior no ve: revocar a la única que queda,
+    // siendo vos otra persona.
+    const r = canRevokeAdmin('la-unica', 'yo', ['la-unica'])
+    expect(r.puede).toBe(false)
+    expect(r.motivo).toMatch(/al menos una persona/i)
+  })
+
+  it('sí se puede cuando hay más de uno y no sos vos', () => {
+    const r = canRevokeAdmin('otra', 'yo', ['yo', 'otra'])
+    expect(r.puede).toBe(true)
+    expect(r.motivo).toBeNull()
+  })
+
+  it('el guard de "vos mismo" gana aunque haya varios administradores', () => {
+    // Los dos guards son independientes: el de arriba no puede depender de que quede gente.
+    expect(canRevokeAdmin('yo', 'yo', ['yo', 'a', 'b']).puede).toBe(false)
+  })
+})
+
+describe('describeAccess', () => {
+  const MODULOS = [
+    { key: 'inicio', name: 'Inicio' },
+    { key: 'track', name: 'Coordinación' },
+    { key: 'pharma', name: 'Farmacia' },
+    { key: 'lab', name: 'Lab', proximamente: true },
+  ]
+
+  it('separa lo que ve de lo que no', () => {
+    const d = describeAccess({ track: 'operator' }, MODULOS)
+    expect(d.ve.map((a) => a.nombre)).toEqual(['Coordinación'])
+    expect(d.noVe).toContain('Farmacia')
+  })
+
+  it('nunca lista Inicio: lo tiene todo el mundo', () => {
+    // Si apareciera en "no ve", diría que a alguien le falta acceso a una pantalla que sí ve.
+    const d = describeAccess({}, MODULOS)
+    expect(d.noVe).not.toContain('Inicio')
+    expect(d.ve.map((a) => a.nombre)).not.toContain('Inicio')
+  })
+
+  it('un módulo que todavía no existe va aparte, NO como algo que ve', () => {
+    // ESTE es el caso que justifica la función entera. Los módulos `proximamente` salen con candado
+    // para todos sin importar el rol, así que dar "Lab" hoy no da absolutamente nada. Si cayera en
+    // `ve`, gerencia marcaría la casilla y se quedaría tranquila mientras la persona no ve nada.
+    const d = describeAccess({ lab: 'admin' }, MODULOS)
+    expect(d.ve).toHaveLength(0)
+    expect(d.inertes.map((a) => a.nombre)).toEqual(['Lab'])
+  })
+
+  it('detecta la administración y no la cuenta como módulo', () => {
+    const d = describeAccess({ gerencia: 'admin', track: 'viewer' }, MODULOS)
+    expect(d.administra).toBe(true)
+    expect(d.ve.map((a) => a.nombre)).toEqual(['Coordinación'])
+  })
+
+  it('sin ningún acceso: no ve nada y no administra', () => {
+    const d = describeAccess({}, MODULOS)
+    expect(d.ve).toHaveLength(0)
+    expect(d.inertes).toHaveLength(0)
+    expect(d.administra).toBe(false)
+    expect(d.noVe).toEqual(['Coordinación', 'Farmacia', 'Lab'])
+  })
+})
+
+describe('auditLine', () => {
+  const nombre = (k: string) => (k === 'pharma' ? 'Farmacia' : k === 'gerencia' ? 'Administración' : k)
+  const base: AccessAuditRow = {
+    id: '1', occurred_at: '2026-08-25T12:00:00Z', action: 'INSERT', module: 'pharma',
+    role_before: null, role_after: 'operator', actor_name: 'Lucía', target_name: 'Carla',
+  }
+
+  it('no invierte actor y objetivo', () => {
+    // La falla silenciosa perfecta: invertirlos produce una frase perfectamente escrita que dice lo
+    // contrario de lo que pasó. En el registro de quién dio permisos a quién, eso no es redacción.
+    const linea = auditLine(base, nombre)
+    expect(linea).toBe('Lucía le dio acceso a Farmacia a Carla')
+    expect(linea.indexOf('Lucía')).toBeLessThan(linea.indexOf('Carla'))
+  })
+
+  it('la baja dice que se quitó, no que se dio', () => {
+    expect(auditLine({ ...base, action: 'DELETE', role_after: null, role_before: 'operator' }, nombre))
+      .toBe('Lucía le quitó el acceso a Farmacia a Carla')
+  })
+
+  it('el cambio de nivel muestra de qué a qué', () => {
+    const l = auditLine({ ...base, action: 'UPDATE', role_before: 'viewer', role_after: 'leader' }, nombre)
+    expect(l).toContain('Lectura → Líder')
+    expect(l).toContain('Carla')
+  })
+
+  it('la administración se nombra como lo que es, no como un módulo más', () => {
+    const l = auditLine({ ...base, module: 'gerencia' }, nombre)
+    expect(l).toBe('Lucía le dio la administración de accesos a Carla')
+  })
+
+  it('sobrevive a un actor nulo (acción del sistema o fila vieja)', () => {
+    expect(auditLine({ ...base, actor_name: null }, nombre)).toMatch(/^El sistema /)
+  })
+
+  it('sobrevive a una cuenta borrada', () => {
+    expect(auditLine({ ...base, target_name: null }, nombre)).toContain('una cuenta que ya no existe')
   })
 })

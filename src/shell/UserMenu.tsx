@@ -37,7 +37,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { key: 'cuenta', label: 'Mi cuenta', icon: 'user', section: 'cuenta' },
   { key: 'preferencias', label: 'Preferencias', icon: 'settings', section: 'prefs' },
-  { key: 'roles', label: 'Roles y permisos', icon: 'lock', section: 'roles' },
+  { key: 'roles', label: 'Equipo y accesos', icon: 'lock', section: 'roles' },
 ]
 
 export function UserMenu({ onOpenSettings }: { onOpenSettings: (section: SettingsSection) => void }) {
