@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { PatientRow } from '../data/patients'
 import type { ProtocolRow } from '../data/protocols'
 import { shortId } from '../lib/router'
-import { navDesdePath, pathDesdeNav } from './protocolsNav'
+import { navDesdePath, pathDesdeNav, resolverFichaDestino } from './protocolsNav'
 
 /**
  * El ida y vuelta entre el path de la URL y la posición interna de Pacientes.
@@ -203,5 +203,47 @@ describe('pathDesdeNav · cae al identificador corto si la fila no está entre l
     const protocolos = [proto()]
     const nav = { mode: 'patient', protocolId: protocolos[0].id, patientId: '44444444-0000-4000-8000-000000000009' } as const
     expect(pathDesdeNav(nav, protocolos, [])).toEqual([protocolos[0].code, `p-${shortId(nav.patientId)}`])
+  })
+})
+
+describe('resolverFichaDestino', () => {
+  /**
+   * POR QUÉ ESTE TEST Y NO OTRO: es lo único de esta feature que falla EN SILENCIO. Que un link no
+   * navegue se ve mirando; que la ficha abra bajo el protocolo EQUIVOCADO no — la pantalla queda
+   * impecable, con el nombre correcto, y el cronograma que muestra es el de otro ensayo.
+   */
+  const proto = (id: string, code: string) => ({ id, code, name: code })
+  const paciente = (protocolIds: string[]): PatientRow => ({
+    id: 'pac-1', code: 'ARG-04-017', full_name: 'Susana Rodriguez', status: 'activo',
+    birth_date: null, sex: null, fertility: null, treating_physician: null,
+    enrollments: protocolIds.map((pid, i) => ({
+      id: `enr-${i}`, enrollment_date: '2026-01-01', randomization_date: null, protocol: proto(pid, `P${i}`),
+    })),
+  })
+
+  it('con dos protocolos, gana el pedido y no el primero', () => {
+    expect(resolverFichaDestino(paciente(['pa', 'pb']), 'pb'))
+      .toEqual({ mode: 'patient', protocolId: 'pb', patientId: 'pac-1' })
+  })
+
+  it('si el protocolo pedido no es suyo, cae a la heurística en vez de abrir uno ajeno', () => {
+    expect(resolverFichaDestino(paciente(['pa', 'pb']), 'pz'))
+      .toEqual({ mode: 'patient', protocolId: 'pa', patientId: 'pac-1' })
+  })
+
+  it('sin protocolo pedido, la heurística queda intacta (el camino del buscador global)', () => {
+    expect(resolverFichaDestino(paciente(['pa', 'pb'])))
+      .toEqual({ mode: 'patient', protocolId: 'pa', patientId: 'pac-1' })
+  })
+
+  it('sin enrolamiento visible manda a Todos los pacientes, nunca a una ficha sin contexto', () => {
+    const sinProtocolo: PatientRow = { ...paciente([]), enrollments: [
+      { id: 'e', enrollment_date: '2026-01-01', randomization_date: null, protocol: null },
+    ] }
+    expect(resolverFichaDestino(sinProtocolo, 'pa')).toEqual({ mode: 'all' })
+  })
+
+  it('sin paciente no hay destino', () => {
+    expect(resolverFichaDestino(undefined, 'pa')).toBeNull()
   })
 })

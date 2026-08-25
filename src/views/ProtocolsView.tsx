@@ -20,7 +20,7 @@ import { NewPatientForm } from './NewPatientForm'
 import { ProtocolDetailView } from './ProtocolDetailView'
 import { PatientFichaView } from './PatientFichaView'
 import { EditProtocolForm } from './EditProtocolForm'
-import { navDesdePath, pathDesdeNav } from './protocolsNav'
+import { navDesdePath, pathDesdeNav, resolverFichaDestino } from './protocolsNav'
 import type { Nav } from './protocolsNav'
 import { NotFoundView } from '../shell/NotFoundView'
 import type { ViewProps } from './types'
@@ -164,14 +164,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
     if (!navTarget?.patientId) return
     if (patients.loading || protocols.loading) return
     const pt = (patients.data ?? []).find((p) => p.id === navTarget.patientId)
-    const protocolId = pt?.enrollments.find((e) => e.protocol != null)?.protocol?.id ?? null
-    // Paciente sin protocolo visible: la ficha necesita protocolo de contexto, así que no se
-    // puede abrir. Al menos lo dejamos en "Todos los pacientes" (donde sí figura), no en la
-    // grilla de protocolos, que sería desconcertante tras buscar un paciente.
-    const destino: Nav | null =
-      pt && protocolId ? { mode: 'patient', protocolId, patientId: pt.id }
-      : pt ? { mode: 'all' }
-      : null
+    const destino = resolverFichaDestino(pt, navTarget.protocolId)
     if (destino) { setNav(destino, { resolviendoTarget: true }); llegada.current = navKey(destino) }
     onTargetConsumed?.()
   }, [navTarget, patients.loading, patients.data, protocols.loading, onTargetConsumed])

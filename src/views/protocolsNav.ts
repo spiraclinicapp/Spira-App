@@ -68,3 +68,35 @@ export function pathDesdeNav(nav: Nav, protocolos: ProtocolRow[], pacientes: Pat
   const segPaciente = paciente?.code ?? `p-${shortId(nav.patientId)}`
   return [segProtocolo, segPaciente]
 }
+
+/**
+ * A qué posición de esta vista lleva "abrir la ficha del paciente X".
+ *
+ * La ficha necesita un protocolo de CONTEXTO —el cronograma, las visitas y la adherencia son del
+ * enrolamiento, no de la persona—, y un paciente puede estar en varios. De ahí las dos entradas:
+ *
+ * - `protocolIdPedido` lo trae quien te mandó acá cuando lo sabe: las quince pantallas de nombre +
+ *   IVRS muestran el protocolo en la MISMA fila que el nombre, así que no hay por qué adivinarlo.
+ *   Sin esto, abrir la ficha desde una alerta de alguien enrolado en dos ensayos mostraba el
+ *   cronograma del otro: la pantalla queda perfecta y el dato es de otro protocolo.
+ * - Sin él —el buscador global, que resuelve una persona y no un enrolamiento— cae al enrolamiento
+ *   primario, que es el mismo criterio que usa "Todos los pacientes".
+ *
+ * Un `protocolIdPedido` que el paciente NO tiene se ignora y cae a la heurística: abrir la ficha
+ * bajo un protocolo ajeno sería peor que abrirla bajo el primario. Mismo criterio que
+ * `resolveShortId` ante un empate — nunca se elige un destino al azar.
+ */
+export function resolverFichaDestino(
+  patient: PatientRow | undefined,
+  protocolIdPedido?: string,
+): Nav | null {
+  if (!patient) return null
+  const propios = patient.enrollments.filter((e) => e.protocol != null)
+  const pedido = protocolIdPedido
+    ? propios.find((e) => e.protocol!.id === protocolIdPedido)
+    : undefined
+  const protocolId = (pedido ?? propios[0])?.protocol?.id ?? null
+  /* Sin protocolo visible no hay ficha que abrir, pero al menos lo dejamos en "Todos los
+     pacientes" —donde sí figura—, no en la grilla de protocolos, que sería desconcertante. */
+  return protocolId ? { mode: 'patient', protocolId, patientId: patient.id } : { mode: 'all' }
+}
