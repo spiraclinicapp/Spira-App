@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import type { Codec, UrlState } from './router'
 import { buildUrl, codecs, parseHref, readParam, writeParam } from './router'
 
@@ -13,7 +13,18 @@ import { buildUrl, codecs, parseHref, readParam, writeParam } from './router'
 
 const suscriptores = new Set<() => void>()
 
+/** El bloqueo de navegación activo, si alguno se registró (ver `useNavigationGuard`, más abajo).
+ *  Sólo puede haber uno a la vez — el propio hook documenta el límite. */
+let bloqueo: (() => void) | null = null
+
+/** La URL vigente ANTES del próximo cambio. Se actualiza en cada `avisar()` —el único punto donde
+ *  push/replace/popstate confirman una navegación—, así que cuando llega el `popstate` de un
+ *  bloqueo activo, acá está la URL que hay que reponer: el evento se dispara DESPUÉS de que el
+ *  navegador ya aplicó el cambio, así que `window.location` para entonces ya es la nueva. */
+let ultimaUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/'
+
 function avisar() {
+  if (typeof window !== 'undefined') ultimaUrl = window.location.pathname + window.location.search
   suscriptores.forEach((fn) => fn())
 }
 
@@ -25,7 +36,24 @@ function suscribir(fn: () => void): () => void {
 /* popstate = el usuario tocó atrás/adelante. Nuestros propios push/replace avisan a mano, porque el
    navegador NO emite popstate cuando el cambio lo hace el script. */
 if (typeof window !== 'undefined') {
-  window.addEventListener('popstate', avisar)
+  window.addEventListener('popstate', () => {
+    if (bloqueo) {
+      /* Alguien pidió que no se salga sin preguntar (un formulario con datos a medio cargar). El
+         `popstate` ya cambió la URL del navegador, así que la reponemos ANTES de avisarle a nadie:
+         los suscriptores nunca se enteran de que el usuario intentó salir, y por lo tanto no se
+         desmonta el componente que pidió el bloqueo — que es justo lo que hacía imposible resolver
+         esto desde ADENTRO del wizard (un `popstate` propio, registrado en el componente, perdía la
+         carrera contra este listener de módulo: éste corre primero porque se registró primero,
+         avisa a los suscriptores, y ese aviso desmonta el wizard —sacándole su listener— antes de
+         que el navegador le dé su turno en el mismo despacho del evento nativo).
+         `pushState` no emite un `popstate` nuevo (el navegador no lo hace para cambios por script),
+         así que reponer acá no realimenta este mismo listener. */
+      window.history.pushState(null, '', ultimaUrl)
+      bloqueo()
+      return
+    }
+    avisar()
+  })
 }
 
 function snapshot(): string {
@@ -247,4 +275,39 @@ export function useUrlPath(): [
     [],
   )
   return [path, setPath]
+}
+
+/**
+ * Bloquea el atrás/adelante del navegador mientras `activo` es true: en vez de dejar que la
+ * navegación avise a los suscriptores (lo que desmontaría al que pide el bloqueo), repone la URL
+ * anterior y llama a `alIntentarSalir` — pensado para un formulario con datos a medio cargar que
+ * necesita preguntar antes de perderlos (el mismo diálogo que ya muestra su botón Cancelar).
+ *
+ * Sólo intercepta atrás/adelante. **No** agrega `beforeunload`: recargar o cerrar la pestaña es un
+ * problema distinto, fuera del alcance de este hook.
+ *
+ * `alIntentarSalir` puede ser una función nueva en cada render (una arrow inline que cierra sobre
+ * estado del componente): se guarda en un ref actualizado en cada render, y el registro contra el
+ * módulo pasa por una función ESTABLE — así activar/desactivar el bloqueo no depende de la
+ * identidad de `alIntentarSalir`, sólo de `activo`.
+ *
+ * Sólo puede haber UN bloqueo activo a la vez: alcanza para hoy (un único formulario bloqueante por
+ * pantalla, nunca dos anidados). Si en algún momento hace falta apilar, hay que resolverlo acá — no
+ * es un caso real todavía, así que no se construye la pila por las dudas. Con el límite actual, un
+ * segundo consumidor que se activa simplemente TOMA el lugar del primero sin avisar.
+ */
+export function useNavigationGuard(activo: boolean, alIntentarSalir: () => void): void {
+  const alIntentarSalirRef = useRef(alIntentarSalir)
+  alIntentarSalirRef.current = alIntentarSalir
+
+  useEffect(() => {
+    if (!activo) return
+    const propio = () => alIntentarSalirRef.current()
+    bloqueo = propio
+    return () => {
+      // Sólo lo limpiamos si el bloqueo activo sigue siendo el nuestro: si otro consumidor ya
+      // tomó el lugar (ver el límite documentado arriba), este cleanup no debe borrárselo.
+      if (bloqueo === propio) bloqueo = null
+    }
+  }, [activo])
 }
