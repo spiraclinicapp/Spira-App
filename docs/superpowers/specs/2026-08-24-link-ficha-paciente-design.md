@@ -30,7 +30,7 @@ agregar `id` a dos embeds de un `select` de Farmacia.
 
 ### 2.1 Las trece pantallas
 
-**Coordinación (8)**
+**Coordinación — 8 pantallas, 9 sitios** (Alertas lleva dos listas)
 
 | Pantalla | Archivo | Contenedor hoy |
 |---|---|---|
@@ -44,7 +44,7 @@ agregar `id` a dos embeds de un `select` de Farmacia.
 | Reportes pendientes | [`ReportCard.tsx:76`](../../../src/views/track/reportes/ReportCard.tsx) | `<div>` con botones ✅ |
 | Agenda · píldora de visita | [`AgendaView.tsx:105`](../../../src/views/AgendaView.tsx) | `<button>` **solo si** `movable` ⚠️ |
 
-**Farmacia (4)**
+**Farmacia — 4**
 
 | Pantalla | Archivo | Contenedor hoy |
 |---|---|---|
@@ -53,7 +53,7 @@ agregar `id` a dos embeds de un `select` de Farmacia.
 | Dispensaciones · historial por días | [`HistorialPorDias.tsx:74`](../../../src/views/pharma/dispensaciones/HistorialPorDias.tsx) | `<div role="button">` ✅ |
 | Estadísticas · tabla de dispensaciones | [`Tablas.tsx:155`](../../../src/views/pharma/reportes/Tablas.tsx) | `<td>` ✅ |
 
-**Shell (1)**
+**Shell — 1**
 
 | Pantalla | Archivo | Contenedor hoy |
 |---|---|---|
