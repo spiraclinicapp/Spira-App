@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { EmptyState } from '../../components/EmptyState'
@@ -10,7 +10,7 @@ import type { MultiFilterOption } from '../../components/MultiFilterMenu'
 import { DateRangeField } from '../../components/DateRangeField'
 import { useAuth } from '../../lib/auth'
 import { codecs, listOf, resolveCode } from '../../lib/router'
-import { useUrlState } from '../../lib/useUrlState'
+import { useUrlPath, useUrlState } from '../../lib/useUrlState'
 import { addDaysISO, groupByDay, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
 import { useReceptions, useMedications, verifyReception, voidReception, TECHO_RECEPCIONES } from '../../data/pharma'
@@ -22,7 +22,25 @@ import { AnularRecepcion, esAnulable } from './recepcion/AnularRecepcion'
 import type { AnulableReceptionRow } from './recepcion/AnularRecepcion'
 import { KIND_CHIP } from './recepcion/ambitos'
 import { coincideBusqueda, totalesDelDia } from './recepcion/derivados'
+import { NotFoundView } from '../../shell/NotFoundView'
 import type { ViewProps } from '../types'
+
+/** Único segmento propio de esta vista: el wizard de recepción nueva es un LUGAR (igual que el
+ *  apartado de Stock), no un modal suelto — ver `SUB_CON_PATH` en `router.ts`. Cualquier otro
+ *  segmento (`/farmacia/recepcion/inventado`) es una ruta que no existe. */
+const SEGMENTO_NUEVA = 'nueva'
+
+/** Claves de los filtros de esta vista: se conservan al abrir o cerrar el wizard, para que
+ *  `setPath` —que por default descarta todo el query— no se los lleve puestos. */
+const FILTROS_RECEPCION = ['estado', 'tipo', 'medicamento', 'protocolo', 'buscar', 'desde', 'hasta']
+
+/** El path → si el wizard está abierto. `null` = el segmento no es `nueva`: ruta rota, la vista
+ *  muestra la pantalla serena dentro del marco (igual que Stock ante un apartado inexistente). */
+function creatingDesdePath(path: string[]): boolean | null {
+  if (path.length === 0) return false
+  if (path.length === 1 && path[0] === SEGMENTO_NUEVA) return true
+  return null
+}
 
 /**
  * Pharma → Recepción. Lista TRANSVERSAL de recepciones: todas las de todos los ámbitos,
@@ -90,7 +108,23 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     setFEstados([]); setFTipos([]); setFMeds([]); setFProtoCodes([]); setDesde(''); setHasta('')
   }
 
-  const [creating, setCreating] = useState(false)
+  /* LÍMITE DELIBERADO (§7 del spec de URLs): la dirección dice que el wizard está ABIERTO, no
+   *  restaura lo que había cargado adentro. Si alguien recarga en `/farmacia/recepcion/nueva` se
+   *  abre un wizard VACÍO — es a propósito: prometer con la URL que se recupera una recepción a
+   *  medio cargar y entregar un formulario en blanco sería mentirle al usuario, y esto es una app
+   *  auditable. No lo "completes" más adelante serializando el contenido del wizard en la URL. */
+  const [path, setPath] = useUrlPath()
+  const creatingResuelto = creatingDesdePath(path)
+  const creating = creatingResuelto === true
+  const rutaRota = creatingResuelto === null
+  // Memoizada porque viaja en las deps del efecto de encabezado (más abajo): con una arrow inline
+  // ese efecto se re-ejecutaría en cada render, igual que resuelve `goMenu` en MedicamentosView.
+  const abrirWizard = useCallback(
+    () => setPath([SEGMENTO_NUEVA], { conservar: FILTROS_RECEPCION, mode: 'push' }),
+    [setPath],
+  )
+  const cerrarWizard = () => setPath([], { conservar: FILTROS_RECEPCION, mode: 'replace' })
+
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [confirmando, setConfirmando] = useState<ReceptionRow | null>(null)
@@ -123,11 +157,11 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
       setHeader({ crumbs: [{ label: 'Nueva recepción' }] })
     } else {
       setHeader(canManage
-        ? { actions: [{ key: 'nueva', label: 'Nueva recepción', icon: 'plus', primary: true, onClick: () => setCreating(true) }] }
+        ? { actions: [{ key: 'nueva', label: 'Nueva recepción', icon: 'plus', primary: true, onClick: abrirWizard }] }
         : null)
     }
     return () => setHeader(null)
-  }, [setHeader, creating, canManage])
+  }, [setHeader, creating, canManage, abrirWizard])
 
   const rows = useMemo(() => {
     return (receptions.data ?? []).filter((r) => {
@@ -147,6 +181,11 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const nFiltros = fEstados.length + fTipos.length + fMeds.length + fProtoSel.length + (desde || hasta ? 1 : 0)
   const hayFiltros = !!q.trim() || nFiltros > 0
 
+  // Un segmento que no es `nueva` (`/farmacia/recepcion/inventado`): pantalla serena DENTRO del
+  // marco, igual que MedicamentosView ante un apartado de Stock inexistente. NO cae a la lista en
+  // silencio — eso escondería que el link estaba roto.
+  if (rutaRota) return <NotFoundView motivo="ruta" />
+
   // Cuando el wizard termina, volvemos a la cola y resaltamos la recepción recién creada.
   if (creating) {
     return (
@@ -157,11 +196,11 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         // Solo si hay UN protocolo filtrado: con varios elegidos no hay uno "en contexto" y
         // adivinar cuál sembraría el wizard con un dato que nadie pidió.
         initialProtocolId={fProtoSel.length === 1 ? fProtoSel[0] : ''}
-        onClose={() => setCreating(false)}
+        onClose={cerrarWizard}
         // Al crear: resetear TODOS los filtros para que la recepción nueva nunca quede oculta por
         // un filtro activo y el highlight de 5 s se vea.
         onCreated={(id) => {
-          setCreating(false); setQ(''); limpiarFiltros(); setHighlightId(id); receptions.refetch()
+          cerrarWizard(); setQ(''); limpiarFiltros(); setHighlightId(id); receptions.refetch()
         }}
       />
     )
