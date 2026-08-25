@@ -118,34 +118,32 @@ export function DayVisitRowItem({
 
       {/* identidad — columna 2 */}
       <div className="spira-link-group" style={{ minWidth: 0 }}>
-        {/* La flecha se para al COSTADO del par y centrada entre sus dos líneas, no colgando del
-            IVRS: el nombre vive arriba y el número abajo, así que dentro de una de las dos se lee
-            caída respecto de la otra —apuntás el nombre y la marca aparece un renglón más abajo—.
-            Los procedimientos quedan FUERA de este flex a propósito: la flecha se centra contra la
-            identidad, que es lo que abre, y no contra un bloque que crece con datos ajenos. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-              <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
-                {visit.patient_name}
-              </PatientLink>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-              <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
-              <span className="spira-mono" style={{ fontSize: 12.5, color: visit.patient_code ? 'var(--spira-muted)' : 'var(--spira-faint)' }}>
-                {visit.patient_code
-                  ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
-                  : 'Sin IVRS'}
-              </span>
-              {/* Visita y semana viven acá, con el protocolo y el IVRS: los cuatro son el contexto
-                  de la misma visita, y juntos forman UN renglón de datos en vez de un bloque suelto
-                  flotando en el medio de la fila. El código conserva el peso (tinta plena) porque
-                  es el que se busca; la semana lo acompaña en gris, atrás. */}
-              <VisitCodeTag code={visitCode(visit)} />
-              <span style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visitName}</span>
-            </div>
+        {/* La flecha va al lado del NOMBRE (Director, 2026-08-25): es el titular y lo que se apunta
+            primero, así que la marca de destino le corresponde a él. Que el número también navega
+            lo dice el subrayado emparejado del `.spira-link-group` —apuntar uno subraya los dos—,
+            que es la señal que ya existía para eso; una segunda flecha abajo sería decir dos veces
+            lo mismo. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+            <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+              {visit.patient_name}
+            </PatientLink>
           </div>
           {onOpenPatient && <PatientLinkArrow />}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+          <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
+          <span className="spira-mono" style={{ fontSize: 12.5, color: visit.patient_code ? 'var(--spira-muted)' : 'var(--spira-faint)' }}>
+            {visit.patient_code
+              ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
+              : 'Sin IVRS'}
+          </span>
+          {/* Visita y semana viven acá, con el protocolo y el IVRS: los cuatro son el contexto
+              de la misma visita, y juntos forman UN renglón de datos en vez de un bloque suelto
+              flotando en el medio de la fila. El código conserva el peso (tinta plena) porque
+              es el que se busca; la semana lo acompaña en gris, atrás. */}
+          <VisitCodeTag code={visitCode(visit)} />
+          <span style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visitName}</span>
         </div>
         {procs && procs.names.length > 0 && (
           <div style={{ marginTop: 9 }}><ProcDots names={procs.names} accent={accent} /></div>

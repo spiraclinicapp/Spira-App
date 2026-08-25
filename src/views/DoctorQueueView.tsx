@@ -270,22 +270,23 @@ function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen, onOpenP
       <WaitBadge iso={visit.wants_doctor_at} />
 
       <div className="spira-link-group" style={{ flex: '1 1 220px', minWidth: 0 }}>
-        {/* La flecha se para al COSTADO del par y centrada entre sus dos líneas, no colgando de una
-            de ellas, donde se leería caída respecto de la otra. El motivo y el "vía" quedan FUERA
-            de este flex: la flecha se centra contra la identidad, que es lo que abre. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ minWidth: 0 }}>
-            {/* El NOMBRE arriba y el número abajo (Director, 2026-08-25). Antes iba al revés, con el
-                IVRS de titular en 15/700: invertir el orden sin invertir el peso habría dejado a la
-                identidad primaria más chica que su propio dato de apoyo. Los dos registros se
-                intercambian enteros, así que la densidad de la tarjeta no cambia.
-                Es además el criterio de la casa desde el 2026-08-04 (ver CLAUDE.md): nombre en tinta
-                como identidad primaria, IVRS en mono como secundario. */}
+        {/* El NOMBRE arriba y el número abajo (Director, 2026-08-25). Antes iba al revés, con el
+            IVRS de titular en 15/700: invertir el orden sin invertir el peso habría dejado a la
+            identidad primaria más chica que su propio dato de apoyo. Los dos registros se
+            intercambian enteros, así que la densidad de la tarjeta no cambia.
+            Es además el criterio de la casa desde el 2026-08-04 (ver CLAUDE.md): nombre en tinta
+            como identidad primaria, IVRS en mono como secundario.
+            La flecha va al lado del nombre —el titular, y lo que se apunta primero—; que el número
+            también navega lo dice el subrayado emparejado del `.spira-link-group`. */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
               <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
                 {visit.patient_name}
               </PatientLink>
             </div>
+            {onOpenPatient && <PatientLinkArrow />}
+          </div>
             {/* Mismo renglón de contexto que Visitas del día —protocolo, IVRS y código de visita en
                 ese orden— más lo que esta pantalla necesita: sexo/edad y médico tratante. Los chips
                 son los MISMOS y no una píldora propia: es el mismo par de datos sobre la misma
@@ -303,9 +304,7 @@ function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen, onOpenP
                   {[demographics, visit.treating_physician].filter(Boolean).join(' · ')}
                 </span>
               )}
-            </div>
           </div>
-          {onOpenPatient && <PatientLinkArrow />}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 5 }}>
           <MotivoChip motivo={visit.doctor_motivo} />
