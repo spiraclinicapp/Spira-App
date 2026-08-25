@@ -39,7 +39,7 @@ agregar `id` a dos embeds de un `select` de Farmacia.
 | Resumen · próximas visitas | [`VisitSummaryRow.tsx:71`](../../../src/views/VisitSummaryRow.tsx) | `<button class="spira-row-link">` ⚠️ |
 | Resumen · panel de alertas | [`TrackResumenView.tsx:165`](../../../src/views/TrackResumenView.tsx) | `<button class="spira-card-link">` ⚠️ |
 | Visitas del día · fila | [`DayVisitRowItem.tsx:106`](../../../src/views/track/DayVisitRowItem.tsx) | `<div role="button">` ✅ |
-| Visitas del día · atendidas | [`AttendedRow.tsx:36`](../../../src/views/track/AttendedRow.tsx) | `<div>` inerte ✅ |
+| Para ver médico · atendidas | [`AttendedRow.tsx:36`](../../../src/views/track/AttendedRow.tsx) | `<div>` inerte ✅ |
 | Para ver médico · tarjeta | [`DoctorQueueView.tsx:257`](../../../src/views/DoctorQueueView.tsx) | `<div>` con botones ✅ |
 | Reportes pendientes | [`ReportCard.tsx:76`](../../../src/views/track/reportes/ReportCard.tsx) | `<div>` con botones ✅ |
 | Agenda · píldora de visita | [`AgendaView.tsx:105`](../../../src/views/AgendaView.tsx) | `<button>` **solo si** `movable` ⚠️ |
