@@ -112,17 +112,10 @@ export function DayVisitRowItem({
             identidad, que es lo que abre, y no contra un bloque que crece con datos ajenos. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ minWidth: 0 }}>
-            {/* El código de visita acompaña al NOMBRE, no al renglón de abajo: es el otro dato que se
-                busca al escanear la lista, y arriba lo agarra el ojo en el mismo salto. Abajo queda
-                el contexto —protocolo, IVRS y cómo se llama la visita—, que se lee recién cuando ya
-                encontraste la fila (pedido del Director, 2026-08-25). */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-              <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-                <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
-                  {visit.patient_name}
-                </PatientLink>
-              </div>
-              <VisitCodeTag code={visitCode(visit)} />
+            <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+              <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+                {visit.patient_name}
+              </PatientLink>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
               <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
@@ -131,10 +124,20 @@ export function DayVisitRowItem({
                   ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
                   : 'Sin IVRS'}
               </span>
-              <span style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visitName}</span>
             </div>
           </div>
           {onOpenPatient && <PatientLinkArrow />}
+          {/* Visita y semana son UN dato en dos renglones ("V12" arriba, "W48" abajo), así que van
+              apilados y centrados entre sí: sueltos en dos líneas distintas cada uno terminaba
+              después de un texto de ancho variable —el nombre arriba, el IVRS abajo— y nunca caían
+              uno sobre otro, que es lo que los hace leerse a la par (pedido del Director,
+              2026-08-25). Centrados y no alineados a la izquierda porque el chip tiene padding
+              propio: pegados por el borde, el glifo del código arrancaría 9px más adentro que el de
+              la semana. */}
+          <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+            <VisitCodeTag code={visitCode(visit)} />
+            <span style={{ fontSize: 12.5, color: 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{visitName}</span>
+          </div>
         </div>
         {procs && procs.names.length > 0 && (
           <div style={{ marginTop: 9 }}><ProcDots names={procs.names} accent={accent} /></div>
