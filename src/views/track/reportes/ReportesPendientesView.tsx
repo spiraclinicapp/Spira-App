@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import { EmptyState } from '../../../components/EmptyState'
+import { PatientLink, PatientLinkArrow } from '../../../components/PatientLink'
 import { FilterDropdown } from '../../../components/FilterDropdown'
 import type { FilterOption } from '../../../components/FilterDropdown'
 import { KanbanShell } from '../../../components/KanbanShell'
@@ -186,24 +187,39 @@ export function ReportesPendientesView({ protocolId, accent, onOpenVisit, onOpen
           </div>
           {cerradas.map((c) => {
             const r = c.rows[0]
+            /* Una sola resolución por fila, y no una por link: el destino es el mismo. */
+            const abrirPac = onOpenPatient && (() => onOpenPatient(r.patient_id))
+            /* `<div role="button">` y no `<button>`: el nombre del paciente es un link adentro y un
+               botón no puede contener otro. Conserva `.spira-no-press` porque es una FILA —se
+               resalta, no se levanta— y la guarda del `onKeyDown` evita que Enter sobre el nombre
+               abra la ficha Y la visita. */
             return (
-              <button
+              <div
                 key={c.visitId}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => onOpenVisit(c.visitId)}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenVisit(c.visitId) }
+                }}
+                aria-label={`Abrir la visita ${r.visit_code ?? ''} de ${r.patient_name}`}
                 className="spira-row-link spira-no-press"
                 style={filaCerrada}
               >
                 <span className="spira-mono" style={{ fontSize: 12, fontWeight: 700, color: 'var(--spira-track)', flex: '0 0 auto' }}>
                   {r.visit_code ?? '—'}
                 </span>
-                <span style={{ fontSize: 13, color: 'var(--spira-ink)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {r.patient_name}
+                <span className="spira-link-group" style={{ fontSize: 13, color: 'var(--spira-ink)', flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <PatientLink onOpen={abrirPac} label={`Abrir la ficha de ${r.patient_name}`}>
+                    {r.patient_name}
+                  </PatientLink>
+                  {abrirPac && <PatientLinkArrow />}
                 </span>
                 <span style={{ fontSize: 11.5, color: 'var(--spira-muted)', flex: '0 0 auto' }}>
                   Visita realizada · cerrada por {c.cierre?.nombre} · {c.cierre ? formatDateTimeAR(c.cierre.cuando) : ''}
                 </span>
-              </button>
+              </div>
             )
           })}
           {cerradasOcultas > 0 && (
