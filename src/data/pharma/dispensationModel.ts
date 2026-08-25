@@ -157,8 +157,8 @@ export interface DispensationRequestRow {
    * le devolvía null a la farmacéutica: el tablero, el cajón y el comprobante mostraban "—" donde
    * va el paciente, y el historial —que usaba `!inner`— le salía directamente vacío.
    */
-  enrollment: { patient: { code: string | null; full_name: string } | null } | null
-  protocol: { code: string; name: string } | null
+  enrollment: { patient: { id: string; code: string | null; full_name: string } | null } | null
+  protocol: { id: string; code: string; name: string } | null
   /** Código de la visita, sellado al crear el pedido (0084). */
   visit_code: string | null
 }

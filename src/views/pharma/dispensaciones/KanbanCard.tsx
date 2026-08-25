@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { useState } from 'react'
+import { PatientLink, PatientLinkArrow } from '../../../components/PatientLink'
 import { Icon } from '../../../components/Icon'
 import type { IconName } from '../../../components/Icon'
 import type { BoardColumn, DispensationRequestRow } from '../../../data/pharma'
@@ -28,11 +29,12 @@ import { fromNow } from '../../../lib/dates'
  * mouse la card NO toma su hover de elevación (solo se resalta el botón). Así se ve que son dos
  * objetivos distintos y no un accidente de 2px.
  */
-export function KanbanCard({ r, column, canOperate, onOpen, onAdvance, busy }: {
+export function KanbanCard({ r, column, canOperate, onOpen, onOpenPatient, onAdvance, busy }: {
   r: DispensationRequestRow
   column: BoardColumn
   canOperate: boolean
   onOpen: () => void
+  onOpenPatient?: () => void
   onAdvance: () => void
   busy: boolean
 }) {
@@ -43,6 +45,9 @@ export function KanbanCard({ r, column, canOperate, onOpen, onAdvance, busy }: {
   const meds = r.items.map((i) => i.medication?.name ?? 'Medicamento').join(', ')
   const pending = pendingScans(r)
   const cta = ctaFor(column, r)
+  /* El nombre está siempre que hay paciente (el tipo lo garantiza); el IVRS puede faltar — y ahí
+     el placeholder va AFUERA del link: un guion no es un destino clickeable. */
+  const patient = r.enrollment?.patient
 
   const card: CSSProperties = {
     background: 'var(--spira-white)',
@@ -62,20 +67,41 @@ export function KanbanCard({ r, column, canOperate, onOpen, onAdvance, busy }: {
       role="button"
       tabIndex={0}
       onClick={onOpen}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
+      onKeyDown={(e) => {
+        // Solo si el evento nació en la tarjeta misma: sin esta guarda, Enter sobre un control
+        // interno —el botón de avanzar, ahora también el link del paciente— dispara SU acción y
+        // además abre el cajón.
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() }
+      }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => { setHover(false); setCtaHover(false) }}
       style={card}
       aria-label={`${disp?.dispensation_code ?? 'Solicitud'}, paciente ${r.enrollment?.patient?.code ?? 'sin código'}, ${COLUMN_META[column].estado}`}
     >
-      {/* 1 · paciente + protocolo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-          {r.enrollment?.patient?.full_name ?? '—'}
-        </span>
-        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', flex: '0 0 auto' }}>
-          {r.enrollment?.patient?.code ?? '—'}
-        </span>
+      {/* 1 · paciente + protocolo
+          En una columna angosta el renglón no entra completo (IVRS + flecha + chip de protocolo ya
+          suman ~175px de un ancho real de 175px) y el nombre —el único con `minWidth: 0`— absorbía
+          el déficit hasta medir 0px. `flexWrap: 'wrap'` en el contenedor EXTERNO deja que el chip
+          baje de línea solo; el nombre + IVRS + flecha van en un grupo interno propio (con su
+          propio `minWidth: 0`) para que sigan flexionando JUNTOS en la primera línea en vez de que
+          el layout los reparta cada uno en su propio renglón. Nunca se trunca el IVRS ni el código
+          de protocolo (ver constraints.md): el que cede es el nombre, que tiene `text-overflow:
+          ellipsis` para eso. */}
+      <div className="spira-link-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+            <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${patient?.full_name ?? 'este paciente'}`}>
+              {patient?.full_name ?? '—'}
+            </PatientLink>
+          </span>
+          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', flex: '0 0 auto' }}>
+            {patient?.code
+              ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
+              : '—'}
+          </span>
+          {onOpenPatient && <PatientLinkArrow />}
+        </div>
         <span className="spira-mono" style={protoChip}>{r.protocol?.code ?? '—'}</span>
       </div>
 

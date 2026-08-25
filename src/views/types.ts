@@ -44,6 +44,12 @@ export interface ViewHeader {
  */
 export interface NavTarget {
   patientId?: string
+  /**
+   * Protocolo bajo el cual abrir la ficha. Lo manda quien conoce el contexto —las pantallas que
+   * muestran nombre + IVRS traen el protocolo en la misma fila—; el buscador global lo omite,
+   * porque resuelve una persona y no un enrolamiento. Ver `resolverFichaDestino`.
+   */
+  protocolId?: string
   /** Visita concreta a abrir (su modal en "Visitas del día"). */
   visitId?: string
   /**

@@ -16,6 +16,7 @@ import {
   useReportExpired, useReportItems, useReportReceptions, useReportRejected,
 } from '../../../data/pharma'
 import { useProtocols } from '../../../data/protocols'
+import { useAbrirFicha } from '../../useAbrirFicha'
 import type { ViewProps } from '../../types'
 import {
   detalle as armarDetalle, invariantes, porDispensacion, porMedicamento, porProtocolo,
@@ -47,8 +48,16 @@ import { sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
  * PISO DE 1024px. Por debajo la pantalla no adivina un diseño que nunca se dibujó: avisa y ofrece
  * la descarga, que es la salida útil en un teléfono.
  */
-export function ReportesView({ module }: ViewProps) {
+export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
   const { profile } = useAuth()
+
+  /* `module.key` y no `'track'` fijo: acá puede valer `pharma` (ver el comentario de cabecera de
+     `useAbrirFicha`). */
+  const abrirFicha = useAbrirFicha({
+    module,
+    onNavigate,
+    volver: () => ({ moduleKey: module.key, subKey: submodule.key, label: 'Volver a Estadísticas' }),
+  })
 
   /* El rango NO se guarda aparte: se deriva del preset, y solo cuando el preset es 'custom' viajan
      desde/hasta. Guardar los dos sería poder contradecirse — una URL que dice periodo=anio con un
@@ -329,7 +338,10 @@ export function ReportesView({ module }: ViewProps) {
             </button>
             <BotonImprimir clave="detalle" que="el reporte de dispensaciones" onImprimir={imprimir} />
           </div>
-          <TablaDetalle filas={d.detalle} />
+          <TablaDetalle
+            filas={d.detalle}
+            onOpenPaciente={(f) => (abrirFicha && f.pacienteId ? () => abrirFicha(f.pacienteId!, f.protocolId ?? undefined) : undefined)}
+          />
         </>
       )}
 

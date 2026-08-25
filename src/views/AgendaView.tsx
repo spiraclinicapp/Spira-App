@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, KeyboardEvent } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
+import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { btnOutline } from '../components/buttons'
 import { useAuth } from '../lib/auth'
 import { dayName, formatShortAR, todayISO, weekDates, weekLabel } from '../lib/dates'
@@ -9,6 +10,7 @@ import { useWeekVisits } from '../data/visits'
 import type { TrackVisitRow } from '../data/visits'
 import { VISIT_STATES } from './visitStates'
 import { RescheduleModal } from './track/RescheduleModal'
+import { useAbrirFicha } from './useAbrirFicha'
 import type { ViewProps } from './types'
 
 const navBtn: CSSProperties = {
@@ -17,7 +19,7 @@ const navBtn: CSSProperties = {
 }
 
 /** Agenda semanal de Track: lunes a viernes, con reagendado por click (validación de ventana). */
-export function AgendaView({ module, submodule }: ViewProps) {
+export function AgendaView({ module, submodule, onNavigate }: ViewProps) {
   const accent = module.accent
   const accentSolid = module.accentSolid
   const { hasMinRole } = useAuth()
@@ -28,6 +30,14 @@ export function AgendaView({ module, submodule }: ViewProps) {
 
   const canMove = hasMinRole('track', 'operator')
   const today = todayISO()
+
+  // Esta vista no consume `navTarget` (no hay entidad propia que reabrir): el pasaje de
+  // vuelta solo promete la pantalla, no un día ni una visita puntual.
+  const abrirFicha = useAbrirFicha({
+    module,
+    onNavigate,
+    volver: () => ({ moduleKey: module.key, subKey: submodule.key, label: 'Volver a la agenda' }),
+  })
 
   if (week.loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title="Cargando agenda…" description="Un momento." />
@@ -101,9 +111,18 @@ export function AgendaView({ module, submodule }: ViewProps) {
                   const movable = canMove && v.real_date === null
                   const inner = (
                     <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{v.patient_name}</span>
-                        <span className="spira-mono" style={{ fontSize: 12, color: c, fontWeight: 500, flex: '0 0 auto' }}>{v.patient_code}</span>
+                      <div className="spira-link-group" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                          <PatientLink onOpen={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))} label={`Abrir la ficha de ${v.patient_name}`}>
+                            {v.patient_name}
+                          </PatientLink>
+                        </span>
+                        <span className="spira-mono" style={{ fontSize: 12, color: c, fontWeight: 500, flex: '0 0 auto' }}>
+                          {v.patient_code
+                            ? <PatientLink onOpen={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))} label={`Abrir la ficha del sujeto ${v.patient_code}`}>{v.patient_code}</PatientLink>
+                            : 'Sin IVRS'}
+                        </span>
+                        {abrirFicha && <PatientLinkArrow />}
                         <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4 }}>
                           {v.visit_type === 'telefonica' && <Icon name="phone" size={13} color="var(--spira-muted)" />}
                           {v.real_date !== null && <Icon name="check" size={14} color={c} />}
@@ -118,17 +137,24 @@ export function AgendaView({ module, submodule }: ViewProps) {
                     borderRadius: 10, border: `1px solid ${c}30`, background: c + '0E', padding: '9px 10px',
                     textAlign: 'left', width: '100%',
                   }
-                  return movable ? (
-                    <button
+                  return (
+                    <div
                       key={v.id}
-                      onClick={() => setMoving(v)}
-                      title="Reagendar visita"
-                      style={{ ...cardStyle, cursor: 'pointer', font: 'inherit', color: 'inherit' }}
+                      {...(movable ? {
+                        role: 'button',
+                        tabIndex: 0,
+                        onClick: () => setMoving(v),
+                        onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+                          // La guarda de siempre: el nombre del paciente es un link adentro.
+                          if (e.target !== e.currentTarget) return
+                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMoving(v) }
+                        },
+                        title: 'Reagendar visita',
+                      } : null)}
+                      style={{ ...cardStyle, ...(movable ? { cursor: 'pointer' } : null) }}
                     >
                       {inner}
-                    </button>
-                  ) : (
-                    <div key={v.id} style={cardStyle}>{inner}</div>
+                    </div>
                   )
                 })}
               </div>

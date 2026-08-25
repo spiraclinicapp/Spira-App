@@ -12,6 +12,7 @@ import { visitCode } from '../lib/visits'
 import { useVisitPermissions } from '../lib/visitPermissions'
 import { codecs, oneOf } from '../lib/router'
 import { useUrlEntity, useUrlState } from '../lib/useUrlState'
+import { useAbrirFicha } from './useAbrirFicha'
 import {
   useVisitsForDay, markArrived, markAttended, markReady, markNoShow,
   markReadyWithOutcome, discontinueEnrollment,
@@ -85,6 +86,21 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   /* Quién puede qué vive en un solo lugar, compartido con el modal de la visita: si la regla se
      duplicara, la fila y el modal podrían terminar diciendo cosas distintas del mismo permiso. */
   const { canReception, canClinical, loading: permisosCargando } = useVisitPermissions()
+
+  /* Abrir la ficha del paciente desde la fila (no desde el modal: ese ya tiene la suya, más abajo).
+     Esta vista SÍ consume `navTarget`, así que la vuelta puede prometer el día que estabas mirando
+     — pero no la visita puntual: desde la LISTA no hay ninguna abierta, prometerlo sería mentir. */
+  const abrirFicha = useAbrirFicha({
+    module,
+    onNavigate,
+    volver: () => ({
+      moduleKey: module.key,
+      subKey: submodule.key,
+      target: { visitDate: date },
+      label: 'Volver a las visitas',
+      hint: `Volver a las visitas del día`,
+    }),
+  })
 
   const isToday = date === todayISO()
   const rows = day.data ?? []
@@ -307,6 +323,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
       onNoShow={noShow}
       onReschedule={setRescheduleFor}
       onOpen={(vv) => setOpenVisit(vv)}
+      onOpenPatient={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))}
     />
   )
 
@@ -502,8 +519,8 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
           // Y se deja el pasaje de VUELTA con la visita y su día: volver no te deja en la lista de
           // hoy, te devuelve la misma visita abierta el día que estabas mirando (esta vista ya sabe
           // reabrirla, es lo que consume `navTarget.visitId` / `visitDate`).
-          onOpenPatient={(patientId) => onNavigate?.(
-            module.key, 'protocolos', { patientId },
+          onOpenPatient={(patientId, protocolId) => onNavigate?.(
+            module.key, 'protocolos', { patientId, protocolId },
             {
               moduleKey: module.key,
               subKey: submodule.key,

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { btnOutline } from '../components/buttons'
+import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { alertItemStyle } from './alertItem'
 import { EmptyState } from '../components/EmptyState'
 import { SearchableSelect } from '../components/SearchableSelect'
@@ -18,6 +19,7 @@ import { codecs } from '../lib/router'
 import { useUrlEntity, useUrlState } from '../lib/useUrlState'
 import { VISIT_STATES } from './visitStates'
 import { VisitDetail } from './track/VisitDetail'
+import { useAbrirFicha } from './useAbrirFicha'
 import type { ViewProps } from './types'
 
 const card: CSSProperties = {
@@ -77,7 +79,7 @@ function refDate(a: TrackVisitRow): string | null {
  * Una alerta también se puede DESCARTAR (0070). No se borra —es estado calculado—: se archiva el
  * aviso con motivo de catálogo, autor y fecha, y se puede restaurar desde "Descartadas".
  */
-export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed }: ViewProps) {
+export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed, onNavigate }: ViewProps) {
   const accent = module.accent
   const alertsQ = useActiveAlerts()
   const protocols = useProtocols()
@@ -94,6 +96,16 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const [dismissing, setDismissing] = useState<Dismissing | null>(null)
   const [showDismissed, setShowDismissed] = useUrlState('descartadas', false, { codec: codecs.bool })
   const [actionError, setActionError] = useState<string | null>(null)
+
+  /* La vuelta NO reabre la alerta puntual: este `volver` no lleva `target`, así que devuelve a la
+     lista genérica de Alertas — el label ya lo dice ("Volver a Alertas"), no promete de más.
+     Distinto de "Volver a la visita" en Visitas del día, que sí trae de vuelta la visita puntual
+     porque su `volver` completa el `target`. */
+  const abrirFicha = useAbrirFicha({
+    module,
+    onNavigate,
+    volver: () => ({ moduleKey: module.key, subKey: submodule.key, label: 'Volver a Alertas', hint: 'Volver a la lista de alertas' }),
+  })
 
   /* Llegada CON objetivo (desde "Lo prioritario" en Inicio): abrir esa alerta apenas montamos.
      Va con `moveOpenVisitId` (replace) y no `setOpenVisitId` (push): el shell YA apiló su propia
@@ -228,25 +240,41 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
               const days = daysDiffISO(r.report_due_at.slice(0, 10), todayISO())
               return (
                 <div key={`${r.visit_id}:${r.report_definition_id}`} style={{ position: 'relative' }}>
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   className="spira-card-link"
                   onClick={() => setOpenVisitId(r.visit_id)}
+                  onKeyDown={(e) => {
+                    // Solo si el evento nació en la tarjeta misma: sin esta guarda, Enter sobre el
+                    // link del nombre abre la ficha Y la visita.
+                    if (e.target !== e.currentTarget) return
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenVisitId(r.visit_id) }
+                  }}
                   aria-label={`Abrir la visita de ${r.patient_name} — reporte de procedimiento pendiente`}
                   style={alertItemStyle(c, { conBotonDescartar: true })}
                 >
                   <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="clipboardCheck" size={18} color={c} /></span>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.patient_name}</span>
-                      <span style={code}>{r.patient_code ?? '—'}</span>
+                    <div className="spira-link-group" style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                        <PatientLink onOpen={abrirFicha && (() => abrirFicha(r.patient_id, r.protocol_id))} label={`Abrir la ficha de ${r.patient_name}`}>
+                          {r.patient_name}
+                        </PatientLink>
+                      </span>
+                      <span style={code}>
+                        {r.patient_code
+                          ? <PatientLink onOpen={abrirFicha && (() => abrirFicha(r.patient_id, r.protocol_id))} label={`Abrir la ficha del sujeto ${r.patient_code}`}>{r.patient_code}</PatientLink>
+                          : '—'}
+                      </span>
+                      {abrirFicha && <PatientLinkArrow />}
                       <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{r.protocol_code}</span></span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
                       Reporte pendiente · {r.report_name} de {r.procedure_name}{days > 0 ? ` · hace ${days} d` : ''}
                     </div>
                   </div>
-                </button>
+                </div>
                 <button
                   type="button"
                   style={dismissBtn}
@@ -272,10 +300,15 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                 : `Reporte de procedimiento fuera de plazo · ${vName}`
               return (
                 <div key={a.id} style={{ position: 'relative' }}>
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   className="spira-card-link"
                   onClick={() => setOpenVisitId(a.id)}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenVisitId(a.id) }
+                  }}
                   aria-label={`Abrir la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
                   style={alertItemStyle(c, { conBotonDescartar: true })}
                 >
@@ -283,14 +316,23 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                     <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={18} color={c} />
                   </span>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.patient_name}</span>
-                      <span style={code}>{a.patient_code ?? '—'}</span>
+                    <div className="spira-link-group" style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                        <PatientLink onOpen={abrirFicha && (() => abrirFicha(a.patient_id, a.protocol_id))} label={`Abrir la ficha de ${a.patient_name}`}>
+                          {a.patient_name}
+                        </PatientLink>
+                      </span>
+                      <span style={code}>
+                        {a.patient_code
+                          ? <PatientLink onOpen={abrirFicha && (() => abrirFicha(a.patient_id, a.protocol_id))} label={`Abrir la ficha del sujeto ${a.patient_code}`}>{a.patient_code}</PatientLink>
+                          : '—'}
+                      </span>
+                      {abrirFicha && <PatientLinkArrow />}
                       <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{a.protocol_code}</span></span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>
                   </div>
-                </button>
+                </div>
                 <button
                   type="button"
                   style={dismissBtn}
@@ -383,6 +425,9 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           accent={accent}
           onClose={() => setOpenVisitId(null)}
           onChanged={() => alertsQ.refetch()}
+          // El mismo gesto que ya tiene la fila: reusa `abrirFicha`, que ya cae a `undefined`
+          // sin `onNavigate` y así el encabezado del modal degrada solo a texto.
+          onOpenPatient={abrirFicha}
         />
       )}
     </div>

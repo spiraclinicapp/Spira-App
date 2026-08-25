@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
+import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import type { TrackVisitRow } from '../data/visits'
 import { useActiveAlerts } from '../data/alertDismissals'
 import { visitTitle } from '../lib/visits'
 import { formatAR } from '../lib/dates'
+import type { NavTarget } from '../views/types'
 import { VISIT_STATES } from '../views/visitStates'
 
 /* ============================================================================
@@ -27,8 +29,8 @@ import { VISIT_STATES } from '../views/visitStates'
 
 interface NotificationsMenuProps {
   /** Navegar (lo provee el shell = AppShell.navigate). */
-  onNavigate: (moduleKey: string, subKey: string) => void
-  /** Gate de acceso del shell (para el footer "Ver todas"). */
+  onNavigate: (moduleKey: string, subKey: string, target?: NavTarget) => void
+  /** Gate de acceso del shell (para el footer "Ver todas" y para el link del paciente). */
   isAllowed: (moduleKey: string) => boolean
 }
 
@@ -84,6 +86,15 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
 
   const goAll = () => { setOpen(false); onNavigate('track', 'alertas') }
 
+  /* La campana no tiene `module` (no es una vista de contenido), así que no hay `useAbrirFicha`:
+     el destino es siempre `track/protocolos`, con guard EXPLÍCITO — sin el módulo Coordinación
+     el nombre queda como texto pelado (ver `PatientLink`), en vez de un `navigate` que
+     `isAllowed` descartaría en silencio del lado del shell. */
+  const abrirFicha = (patientId: string, protocolId: string) =>
+    (isAllowed('track')
+      ? () => { setOpen(false); onNavigate('track', 'protocolos', { patientId, protocolId }) }
+      : undefined)
+
   const label = count > 0 ? `Notificaciones, ${count} sin leer` : 'Notificaciones'
 
   return (
@@ -128,15 +139,27 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
               <>
                 {procRows.map((r) => {
                   const c = 'var(--spira-primary)'
+                  /* Una sola resolución por fila: se reusa en los dos links y en el gateo de la
+                     flecha (lección 2 de constraints.md). */
+                  const abrir = abrirFicha(r.patient_id, r.protocol_id)
                   return (
                     <div key={`${r.visit_id}:${r.report_definition_id}`} style={rowStyle}>
                       <span style={{ ...rowIcon, background: c + '18' }}>
                         <Icon name="clipboardCheck" size={16} color={c} />
                       </span>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={rowTitle}>
-                          <span style={{ fontSize: 12.5, color: 'var(--spira-ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.patient_name}</span>
-                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.patient_code ?? '—'}</span>
+                        <div className="spira-link-group" style={rowTitle}>
+                          <span style={{ fontSize: 12.5, color: 'var(--spira-ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                            <PatientLink onOpen={abrir} label={`Abrir la ficha de ${r.patient_name}`}>
+                              {r.patient_name}
+                            </PatientLink>
+                          </span>
+                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>
+                            {r.patient_code
+                              ? <PatientLink onOpen={abrir} label={`Abrir la ficha del sujeto ${r.patient_code}`}>{r.patient_code}</PatientLink>
+                              : '—'}
+                          </span>
+                          {abrir && <PatientLinkArrow />}
                           <span style={{ color: 'var(--spira-faint)' }}>·</span>
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.protocol_code}</span>
                         </div>
@@ -148,15 +171,25 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
                 {rows.map((a) => {
                   const c = VISIT_STATES[a.computed_status].color
                   const overdue = a.computed_status === 'ventana_vencida'
+                  const abrir = abrirFicha(a.patient_id, a.protocol_id)
                   return (
                     <div key={a.id} style={rowStyle}>
                       <span style={{ ...rowIcon, background: c + '18' }}>
                         <Icon name={overdue ? 'alertCircle' : 'clock'} size={16} color={c} />
                       </span>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={rowTitle}>
-                          <span style={{ fontSize: 12.5, color: 'var(--spira-ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.patient_name}</span>
-                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{a.patient_code ?? '—'}</span>
+                        <div className="spira-link-group" style={rowTitle}>
+                          <span style={{ fontSize: 12.5, color: 'var(--spira-ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                            <PatientLink onOpen={abrir} label={`Abrir la ficha de ${a.patient_name}`}>
+                              {a.patient_name}
+                            </PatientLink>
+                          </span>
+                          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>
+                            {a.patient_code
+                              ? <PatientLink onOpen={abrir} label={`Abrir la ficha del sujeto ${a.patient_code}`}>{a.patient_code}</PatientLink>
+                              : '—'}
+                          </span>
+                          {abrir && <PatientLinkArrow />}
                           <span style={{ color: 'var(--spira-faint)' }}>·</span>
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{a.protocol_code}</span>
                         </div>

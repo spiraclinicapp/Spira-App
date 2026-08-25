@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { PatientLink, PatientLinkArrow } from '../../../components/PatientLink'
 import { formatNumberAR, formatPctAR, sharePct } from '../../../lib/numbers'
 import { formatAR, formatTimeAR } from '../../../lib/dates'
 import { conFilaOtros } from './agregados'
@@ -133,7 +134,13 @@ export function TablaMedicamentos({ filas, totalUnidades }: { filas: FilaMedicam
  * Va con más aire que el resto (pedido del Director): es la tabla que se lee cruzando ocho
  * columnas, y a `10px 12px` las filas se pisaban entre sí.
  */
-export function TablaDetalle({ filas, enPantalla = 14 }: { filas: FilaDetalle[]; enPantalla?: number }) {
+export function TablaDetalle({ filas, enPantalla = 14, onOpenPaciente }: {
+  filas: FilaDetalle[]
+  enPantalla?: number
+  /** Cómo abrir la ficha del paciente de una fila. Devuelve `undefined` para las filas sólo-IP,
+   *  que no tienen `patient_id`: ahí el nombre queda como texto (ver `PatientLink`). */
+  onOpenPaciente?: (f: FilaDetalle) => (() => void) | undefined
+}) {
   const visibles = filas.slice(0, enPantalla)
   return (
     <div style={{ ...card, overflow: 'hidden' }}>
@@ -147,20 +154,35 @@ export function TablaDetalle({ filas, enPantalla = 14 }: { filas: FilaDetalle[];
             </tr>
           </thead>
           <tbody>
-            {visibles.map((f) => (
-              <tr key={f.dispensationId} className={rowHover}>
-                <td style={{ ...tdDense, fontVariantNumeric: 'tabular-nums' }}>{f.numero}</td>
-                <td style={{ ...tdDense, fontVariantNumeric: 'tabular-nums' }}>{formatAR(f.fecha)}</td>
-                <td style={{ ...tdDense, fontVariantNumeric: 'tabular-nums' }}>{formatTimeAR(f.deliveredAt)}</td>
-                <td style={tdDense}>{f.pacienteNombre ?? <span style={dash}>—</span>}</td>
-                <td style={{ ...tdDense, fontVariantNumeric: 'tabular-nums' }}>
-                  {f.pacienteCodigo ?? <span style={dash}>—</span>}
-                </td>
-                <td style={tdDense}>{f.protocolCode ?? <span style={dash}>—</span>}</td>
-                <td style={tdDense}>{f.visitaCodigo ?? <span style={dash}>—</span>}</td>
-                <td style={tdDense}>{f.medicamentos}</td>
-              </tr>
-            ))}
+            {visibles.map((f) => {
+              /* Una sola resolución por fila: se reusa en los dos links y en el gateo de la
+                 flecha (lección 2 de constraints.md — sin gate, un onOpen `undefined` deja un
+                 hueco muerto que nunca puede encender el `:has()`). */
+              const abrir = onOpenPaciente?.(f)
+              return (
+                <tr key={f.dispensationId} className={`${rowHover} spira-link-group`}>
+                  <td style={{ ...tdDense, fontVariantNumeric: 'tabular-nums' }}>{f.numero}</td>
+                  <td style={{ ...tdDense, fontVariantNumeric: 'tabular-nums' }}>{formatAR(f.fecha)}</td>
+                  <td style={{ ...tdDense, fontVariantNumeric: 'tabular-nums' }}>{formatTimeAR(f.deliveredAt)}</td>
+                  <td style={tdDense}>
+                    {f.pacienteNombre
+                      ? <PatientLink onOpen={abrir} label={`Abrir la ficha de ${f.pacienteNombre}`}>{f.pacienteNombre}</PatientLink>
+                      : <span style={dash}>—</span>}
+                  </td>
+                  <td style={{ ...tdDense, fontVariantNumeric: 'tabular-nums' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      {f.pacienteCodigo
+                        ? <PatientLink onOpen={abrir} label={`Abrir la ficha del sujeto ${f.pacienteCodigo}`}>{f.pacienteCodigo}</PatientLink>
+                        : <span style={dash}>—</span>}
+                      {abrir && <PatientLinkArrow />}
+                    </span>
+                  </td>
+                  <td style={tdDense}>{f.protocolCode ?? <span style={dash}>—</span>}</td>
+                  <td style={tdDense}>{f.visitaCodigo ?? <span style={dash}>—</span>}</td>
+                  <td style={tdDense}>{f.medicamentos}</td>
+                </tr>
+              )
+            })}
             <SinFilas cantidad={filas.length} columnas={8} />
           </tbody>
           {filas.length > 0 && (

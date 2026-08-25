@@ -78,7 +78,7 @@ export function VisitDetail({
    * que puede navegar; desde la ficha del paciente NO se pasa, porque el enlace llevaría a donde ya
    * estás. Cierra el modal antes de navegar: la vista destino es otra y el modal es de esta.
    */
-  onOpenPatient?: (patientId: string) => void
+  onOpenPatient?: (patientId: string, protocolId: string) => void
 }) {
   const q = useVisit(visitId)
   const fetched = q.data?.[0] ?? null
@@ -218,7 +218,7 @@ export function VisitDetail({
               onClose={onClose}
               onSaved={refrescar}
               onError={setErr}
-              onOpenPatient={onOpenPatient ? () => { onClose(); onOpenPatient(visit.patient_id) } : undefined}
+              onOpenPatient={onOpenPatient ? () => { onClose(); onOpenPatient(visit.patient_id, visit.protocol_id) } : undefined}
             />
 
             <VisitActionBar

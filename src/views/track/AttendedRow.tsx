@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
+import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
 import { fromNow, durationShort } from '../../lib/dates'
 import type { DayVisitRow } from '../../data/dayVisits'
 
@@ -7,11 +8,13 @@ import type { DayVisitRow } from '../../data/dayVisits'
  * Fila sobria de un paciente ya atendido por el médico. Atenuada a propósito (identidad en tono
  * `faint`) para que la sección "Atendidos" no compita visualmente con "Faltan atender".
  */
-export function AttendedRow({ visit, busy, onUndo }: {
+export function AttendedRow({ visit, busy, onUndo, onOpenPatient }: {
   visit: DayVisitRow
   busy: boolean
   /** Deshacer (vuelve a pendiente). Capacidad existente antes del rediseño; discreta a propósito. */
   onUndo: () => void
+  /** Abrir la ficha del paciente. Sin esto, nombre e IVRS quedan como texto (ver `PatientLink`). */
+  onOpenPatient?: () => void
 }) {
   return (
     <div style={row}>
@@ -23,17 +26,30 @@ export function AttendedRow({ visit, busy, onUndo }: {
         <div style={sinceLabel}>{fromNow(visit.doctor_seen_at ?? '')}</div>
       </div>
 
-      <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+      <div className="spira-link-group" style={{ flex: '1 1 200px', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="spira-mono" style={{ fontSize: 13.5, color: 'var(--spira-muted)' }}>
-            {visit.patient_code ?? 'Sin IVRS'}
+            {visit.patient_code
+              ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
+              : 'Sin IVRS'}
           </span>
           <span className="spira-mono" style={{ ...protocolPill, color: 'var(--spira-muted)' }}>
             {visit.protocol_code}
           </span>
         </div>
         <div style={identityLine}>
-          {visit.patient_name}{visit.doctor_motivo ? ` · ${visit.doctor_motivo}` : ''}
+          <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+            {visit.patient_name}
+          </PatientLink>
+          {/* `identityLine` es texto corrido, no flex (tiene su propio `text-overflow: ellipsis` y
+              volverlo flex se lo rompería) — así que el aire de 8px no puede venir de un `gap` de
+              contenedor como en el resto de las pantallas. JSX además se come el salto de línea
+              entre `</PatientLink>` y `<PatientLinkArrow />` (es whitespace-only entre dos tags, no
+              inserta ni un espacio), y sin el `marginLeft` la flecha queda pegada a la última letra
+              del nombre. El margen va en este `<span>` envolvente y no en `PatientLinkArrow` porque
+              esa flecha la usan también contenedores flex, donde el gap YA reserva el hueco. */}
+          {onOpenPatient && <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>}
+          {visit.doctor_motivo ? ` · ${visit.doctor_motivo}` : ''}
         </div>
       </div>
 

@@ -61,18 +61,23 @@ const AR_OFFSET = '-03:00'
  * NO se llega por `patient_visits`: Farmacia no puede leerla (0006:162) y el embed le volvía null.
  * Los tres embeds van CALIFICADOS por su FK aunque hoy no haya ambigüedad — es la lección de la
  * 0076, que con una FK nueva dejó un embed ambiguo y volteó el tablero entero con un PGRST201.
+ *
+ * El `id` del paciente y del protocolo viajan para que el nombre de las tres pantallas de
+ * Dispensaciones abra su ficha, y bajo el protocolo correcto. Agregar una COLUMNA a un embed no
+ * toca FKs, así que no aplica el PGRST201 de la 0076: ese lo dispara una FK nueva sobre una tabla
+ * ya embebida, no un `select` más ancho.
  */
 const CONTEXTO =
   'visit_code, ' +
-  'enrollment:enrollments!enrollment_id(patient:patients(code, full_name)), ' +
-  'protocol:protocols!protocol_id(code, name)'
+  'enrollment:enrollments!enrollment_id(patient:patients(id, code, full_name)), ' +
+  'protocol:protocols!protocol_id(id, code, name)'
 
 /** Igual, con `!inner`, para que los filtros del historial EXCLUYAN filas en vez de dejar el
  *  embed en null. Ahora el inner cae sobre tablas que Farmacia SÍ puede leer. */
 const CONTEXTO_INNER =
   'visit_code, ' +
-  'enrollment:enrollments!enrollment_id!inner(patient:patients!inner(code, full_name)), ' +
-  'protocol:protocols!protocol_id!inner(code, name)'
+  'enrollment:enrollments!enrollment_id!inner(patient:patients!inner(id, code, full_name)), ' +
+  'protocol:protocols!protocol_id!inner(id, code, name)'
 
 const REQUEST_COLS =
   'id, status, source, rejection_reason, notes, created_at, updated_at, visit_id, ' +

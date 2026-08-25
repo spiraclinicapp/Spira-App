@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
+import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { alertItemStyle } from './alertItem'
 import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
@@ -11,6 +12,7 @@ import { dayLabel, formatAR } from '../lib/dates'
 import { VISIT_STATES, VisitChip } from './visitStates'
 import { VisitSummaryRow } from './VisitSummaryRow'
 import { ErrorBloque, FilasFantasma } from './resumenEstados'
+import { useAbrirFicha } from './useAbrirFicha'
 import type { ViewProps } from './types'
 
 const card: CSSProperties = {
@@ -47,12 +49,18 @@ function KpiCard({ label, value, sub, dot, cargando }: { label: string; value: n
  * alertas son las VIGENTES —`useActiveAlerts` deja afuera las descartadas (0070)—: si acá se
  * listaran todas, esta pantalla contradiría a la campana y a las otras dos que muestran alertas.
  */
-export function TrackResumenView({ module, onNavigate }: ViewProps) {
+export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const accent = module.accent
   const protocols = useProtocols()
   const patients = usePatients()
   const upcoming = useUpcomingVisits()
   const alerts = useActiveAlerts()
+
+  const abrirFicha = useAbrirFicha({
+    module,
+    onNavigate,
+    volver: () => ({ moduleKey: module.key, subKey: submodule.key, label: 'Volver al resumen', hint: 'Volver al resumen de Coordinación' }),
+  })
 
   /* Sin gate global: cada bloque falla y carga por su cuenta. Un error en la consulta de
      pacientes solía borrar las alertas de ventana vencida, que es información clínica —
@@ -120,6 +128,7 @@ export function TrackResumenView({ module, onNavigate }: ViewProps) {
                       chip={<VisitChip status={v.computed_status} compact />}
                       onClick={() => onNavigate?.('track', 'visitas', { visitId: v.id, visitDate: v.estimated_date ?? undefined })}
                       ariaLabel={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
+                      onOpenPatient={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))}
                     />
                   ))}
                 </div>
@@ -149,11 +158,16 @@ export function TrackResumenView({ module, onNavigate }: ViewProps) {
                   ? `Ventana vencida el ${a.window_end ? formatAR(a.window_end) : '—'} · ${vName}`
                   : `Reporte de procedimiento fuera de plazo · ${vName}`
                 return (
-                  <button
+                  <div
                     key={a.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     className="spira-card-link"
                     onClick={() => onNavigate?.('track', 'alertas', { visitId: a.id })}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate?.('track', 'alertas', { visitId: a.id }) }
+                    }}
                     aria-label={`Abrir en Alertas la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
                     style={alertItemStyle(c)}
                   >
@@ -161,14 +175,23 @@ export function TrackResumenView({ module, onNavigate }: ViewProps) {
                       <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={18} color={c} />
                     </span>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.patient_name}</span>
-                        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 400 }}>{a.patient_code}</span>
+                      <div className="spira-link-group" style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                          <PatientLink onOpen={abrirFicha && (() => abrirFicha(a.patient_id, a.protocol_id))} label={`Abrir la ficha de ${a.patient_name}`}>
+                            {a.patient_name}
+                          </PatientLink>
+                        </span>
+                        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 400 }}>
+                          {a.patient_code
+                            ? <PatientLink onOpen={abrirFicha && (() => abrirFicha(a.patient_id, a.protocol_id))} label={`Abrir la ficha del sujeto ${a.patient_code}`}>{a.patient_code}</PatientLink>
+                            : '—'}
+                        </span>
+                        {abrirFicha && <PatientLinkArrow />}
                         <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span className="spira-mono" style={{ fontSize: 12.5 }}>{a.protocol_code}</span></span>
                       </div>
                       <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>
                     </div>
-                  </button>
+                  </div>
                 )
               })}
             </div>

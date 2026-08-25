@@ -624,6 +624,30 @@ input:-webkit-autofill:focus {
   text-align: left;
   text-decoration: none;
   text-underline-offset: 3px;
+  /* Trunca SOLO — sin esto un nombre largo se corta en seco. El `<button>` es una caja ATÓMICA
+     para el layout en línea: cuando el contenedor que lo aloja corta con
+     `overflow: hidden; text-overflow: ellipsis` (como truncan casi todas las listas de la app), el
+     navegador puede partir un texto normal a la mitad de una palabra y poner el `…`, pero no puede
+     meter el `…` ADENTRO de una caja atómica — la recorta en seco, sin ningún indicio de que el
+     nombre sigue. Es justo lo que encontró el review de la Task 7 con nombres compuestos (normales
+     en Argentina) en columnas angostas: "Maria Fernanda Guadalupe Rod", sin puntos suspensivos, una
+     regresión contra el texto plano de antes de este plan.
+     La cura es que el link se trunque a SÍ MISMO: `max-width: 100%` lo ata al ancho del padre en vez
+     de crecer con su contenido (el `<button>` ya es `inline-block` por default del navegador; acá lo
+     dejamos explícito porque de eso depende que `max-width` tenga algo a qué atarse), y
+     `overflow`/`text-overflow`/`white-space` le dan su PROPIO `…` cuando no entra. Si el link entra
+     entero, esta regla no hace nada — el `max-width` nunca se activa y el truncado por contenedor que
+     ya funcionaba en algunas pantallas sigue funcionando igual, porque el link termina midiendo lo
+     mismo que antes. `vertical-align: bottom` para no romper la línea de base cuando el link comparte
+     renglón con texto corrido (identityLine de Atendidos, y el mismo patrón que se repite en la cola
+     del médico): el baseline por default de un `<button>` queda un poco más arriba que el texto
+     normal de al lado, y acá no hay flex que lo resuelva con `align-items`. */
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 .spira-textlink:hover,
 .spira-textlink:focus-visible { text-decoration: underline; }
@@ -644,6 +668,56 @@ input:-webkit-autofill:focus {
 .spira-link-group:has(.spira-textlink:active) .spira-textlink {
   text-decoration: underline;
 }
+
+/* —— La flecha del texto que navega ——
+   Marca de destino para el par nombre + Nº de sujeto. Aparece SOLO al apuntar o al enfocar por
+   teclado: en una lista de veinte alertas, una flecha permanente por renglón son cuarenta marcas
+   compitiendo con la señal que esa pantalla sí tiene que dar (el color de la severidad).
+
+   No cambia de color al aparecer, solo de opacidad: pintar el hover rompe la regla de la casa —el
+   color dice significado clínico, el realce dice elevación—. Y `pointer-events: none` porque
+   apuntar la flecha no puede contar como apuntar el link: sin eso queda un blanco que se subraya
+   pero no se puede clickear.
+
+   El hueco lo reserva el `gap`/`margin` de quien la usa, presente desde el primer render, así que
+   al aparecer no corre nada. Donde `:has()` no exista, la flecha simplemente nunca aparece y el
+   subrayado sigue funcionando — misma degradación que ya declara `.spira-link-group`. */
+.spira-link-arrow {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--spira-muted);
+  opacity: 0;
+  pointer-events: none;
+  /* Para los contenedores que NO son flex: varias filas alinean su identidad con un div de
+     texto corrido que ya lleva su propio ellipsis (`identityLine` de la cola del medico y de
+     las atendidas), y volverlos flex les romperia ese truncado. Con `vertical-align` la flecha
+     se para bien en los dos casos: dentro de un flex manda el `align-items` del padre, dentro
+     de texto manda esto. */
+  vertical-align: middle;
+  transition: opacity 0.14s var(--spira-ease-out);
+}
+.spira-link-group:has(.spira-textlink:hover) .spira-link-arrow,
+.spira-link-group:has(.spira-textlink:focus-visible) .spira-link-arrow {
+  opacity: 0.75;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spira-link-arrow { transition: none; }
+}
+
+/* —— Red para la flecha sin gatear ——
+   Esta regla es RED, no reemplazo del gateo explícito en cada fila (`{onOpenPatient &&
+   <PatientLinkArrow />}`). La Task 7 encontró `PatientLinkArrow` renderizada SIN condición en
+   `AttendedRow`: cuando el call-site no pasaba `onOpenPatient`, `PatientLink` caía a texto pelado
+   (correcto, es su diseño) pero la flecha se quedaba con `opacity: 0` y sin ningún
+   `.spira-textlink` hermano que pudiera activar el `:has()` de arriba — nunca podía aparecer, y
+   aun así reservaba su ancho (`flex: 0 0 auto`), 20px muertos midiendo `scrollWidth` que le comían
+   presupuesto de truncado al texto vecino. Un `.spira-link-group` sin NINGÚN `.spira-textlink` no
+   tiene destino, así que su flecha no tiene nada que anunciar y no debe ocupar lugar.
+   Esto cubre a quien se olvide de gatear en las tareas 8 a 12 de este plan, pero no dispensa de
+   gatear en el call-site: el gateo explícito es la forma correcta (evita el nodo muerto en vez de
+   ocultarlo) y sigue siendo obligatorio en cada fila nueva. */
+.spira-link-group:not(:has(.spira-textlink)) .spira-link-arrow { display: none; }
 
 /* —— Previsualizador ampliable (constancia de IP, tamaño "chica") ——
    Toda la tarjeta de 140px invita a ampliar, no solo el botón "Ampliar" de la esquina —el mock

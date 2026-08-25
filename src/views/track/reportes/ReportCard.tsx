@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
+import { PatientLink, PatientLinkArrow } from '../../../components/PatientLink'
 import { platformMeta } from '../procedimientos/reportes'
 import { dueLabel, isStage, nextStage, prevStage, STAGE_META } from './estados'
 import type { ReportStage } from './estados'
@@ -24,7 +25,7 @@ import { formatDateTimeAR } from '../../../lib/dates'
  * portal y un fondo no necesita contraste propio) y el texto pasa a tinta: 12:1 en los dos temas.
  * El color sigue leyéndose en el punto.
  */
-export function ReportCard({ row, variante, primero = false, canOperate, busy, onStage, onOpenVisit }: {
+export function ReportCard({ row, variante, primero = false, canOperate, busy, onStage, onOpenVisit, onOpenPatient }: {
   row: ReportStatusRow
   variante: 'tablero' | 'visita'
   /** Primero de su lista: en la variante `visita` se dibuja sin la línea separadora de arriba. */
@@ -34,6 +35,10 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
   onStage: (stage: ReportStage) => void
   /** Abre el detalle de ESTA visita (el 📎 del handoff). Sólo en el tablero. */
   onOpenVisit?: () => void
+  /** Abre la ficha del paciente. Sólo en el tablero — la variante `visita` no muestra su
+   *  identidad (ver el comentario de `enTablero` más abajo). Sin esto, nombre e IVRS quedan
+   *  como texto (ver `PatientLink`). */
+  onOpenPatient?: () => void
 }) {
   const enTablero = variante === 'tablero'
   const [verHistorial, setVerHistorial] = useState(false)
@@ -70,14 +75,23 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
               {row.visit_name ?? ''}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 3 }}>
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {row.patient_name}
+          <div className="spira-link-group" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 3 }}>
+            <span style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 16 }}>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${row.patient_name}`}>
+                    {row.patient_name}
+                  </PatientLink>
+                </span>
+                <span className="spira-mono" style={{ display: 'block', fontSize: 11, color: 'var(--spira-muted)' }}>
+                  {row.patient_code
+                    ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${row.patient_code}`}>{row.patient_code}</PatientLink>
+                    : '—'}
+                </span>
               </span>
-              <span className="spira-mono" style={{ display: 'block', fontSize: 11, color: 'var(--spira-muted)' }}>
-                {row.patient_code ?? '—'}
-              </span>
+              {/* Acá el par SÍ está apilado en un bloque propio de identidad (no comparte renglón
+                  con otro dato), así que la flecha va al costado con `gap`, no con margen. */}
+              {onOpenPatient && <PatientLinkArrow />}
             </span>
             {onOpenVisit && (
               <button

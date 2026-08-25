@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
+import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { visitCode } from '../lib/visits'
 import { KIND_LABELS } from '../lib/visitLabels'
 import type { TrackVisitRow } from '../data/visits'
@@ -31,7 +32,7 @@ import { ProtoTag, ProcDots } from './visitAtoms'
  * se comen el arreglo entero.
  */
 export function VisitSummaryRow({
-  visit, chip, procs, accent, onClick, ariaLabel,
+  visit, chip, procs, accent, onClick, ariaLabel, onOpenPatient,
 }: {
   visit: TrackVisitRow
   /**
@@ -50,25 +51,37 @@ export function VisitSummaryRow({
   accent: string
   onClick: () => void
   ariaLabel: string
+  /** Abrir la ficha del paciente. Sin esto, nombre e IVRS quedan como texto (ver `PatientLink`). */
+  onOpenPatient?: () => void
 }) {
   const codigo = visitCode(visit)
   const nombreVisita = visit.visit_name ?? KIND_LABELS[visit.kind]
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       className="spira-row-link spira-no-press"
       onClick={onClick}
+      onKeyDown={(e) => {
+        // La guarda de siempre: sin ella, Enter sobre el nombre abre la ficha Y la visita.
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() }
+      }}
       aria-label={ariaLabel}
       style={fila}
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="spira-link-group" style={{ flex: 1, minWidth: 0 }}>
         {/* línea 1 — el paciente es el titular */}
         <div style={linea1}>
           {visit.visit_type === 'telefonica' && (
             <Icon name="phone" size={13} color="var(--spira-faint)" style={{ flex: '0 0 auto' }} />
           )}
-          <span style={nombre}>{visit.patient_name}</span>
+          <span style={nombre}>
+            <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+              {visit.patient_name}
+            </PatientLink>
+          </span>
         </div>
 
         {/* línea 2 — de qué visita hablamos. Envuelve en vez de recortar: un IVRS cortado a la
@@ -77,9 +90,12 @@ export function VisitSummaryRow({
           <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
           {visit.patient_code && (
             <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
-              {visit.patient_code}
+              <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>
+                {visit.patient_code}
+              </PatientLink>
             </span>
           )}
+          {onOpenPatient && <PatientLinkArrow />}
           {codigo && <span style={pastillaVisita}>{codigo}</span>}
           <span style={{ fontSize: 12.5, color: 'var(--spira-faint)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {nombreVisita}
@@ -95,7 +111,7 @@ export function VisitSummaryRow({
       </div>
 
       <span style={{ flex: '0 0 auto' }}>{chip}</span>
-    </button>
+    </div>
   )
 }
 

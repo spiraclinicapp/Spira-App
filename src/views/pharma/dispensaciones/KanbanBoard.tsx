@@ -15,11 +15,12 @@ import { KanbanCard } from './KanbanCard'
  * Este tablero NO arrastra —avanza por el CTA de la tarjeta—, así que no le pasa `onDropInColumn`
  * y el armazón ni se entera de que soltar es posible.
  */
-export function KanbanBoard({ rows, busyId, canOperate, onOpen, onAdvance }: {
+export function KanbanBoard({ rows, busyId, canOperate, onOpen, onOpenPatient, onAdvance }: {
   rows: Map<BoardColumn, DispensationRequestRow[]>
   busyId: string | null
   canOperate: boolean
   onOpen: (r: DispensationRequestRow) => void
+  onOpenPatient?: (r: DispensationRequestRow) => (() => void) | undefined
   onAdvance: (r: DispensationRequestRow, column: BoardColumn) => void
 }) {
   return (
@@ -35,6 +36,7 @@ export function KanbanBoard({ rows, busyId, canOperate, onOpen, onAdvance }: {
           canOperate={canOperate}
           busy={busyId === r.id}
           onOpen={() => onOpen(r)}
+          onOpenPatient={onOpenPatient?.(r)}
           onAdvance={() => onAdvance(r, column)}
         />
       )}

@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Drawer } from '../../../components/Drawer'
 import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
+import { PatientLink, PatientLinkArrow } from '../../../components/PatientLink'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow } from '../../../data/pharma'
 import {
@@ -29,12 +30,13 @@ import { ComprobanteImprimible } from './ComprobanteImprimible'
  * para que el foco caiga ahí y no en el ✕ del encabezado — sin eso, el primer disparo del lector
  * de código de barras se pierde.
  */
-export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChanged, onToast }: {
+export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChanged, onToast, onOpenPatient }: {
   r: DispensationRequestRow
   onClose: () => void
   /** Refresca el TABLERO. Se llama una sola vez, al cerrar (ver `refrescar` abajo). */
   onChanged: () => void
   onToast: (msg: string) => void
+  onOpenPatient?: () => void
 }) {
   /**
    * El cajón trabaja sobre su PROPIA copia del pedido, no sobre la del tablero.
@@ -152,10 +154,19 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
               <h2 style={tituloEstilo}>
                 {titulo} · {estado}
               </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 5, flexWrap: 'wrap' }}>
-                <span style={{ color: 'var(--spira-ink)', fontWeight: 600 }}>{paciente?.full_name ?? '—'}</span>
+              <div className="spira-link-group" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 5, flexWrap: 'wrap' }}>
+                <span style={{ color: 'var(--spira-ink)', fontWeight: 600 }}>
+                  <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${paciente?.full_name ?? 'este paciente'}`}>
+                    {paciente?.full_name ?? '—'}
+                  </PatientLink>
+                </span>
                 <span style={dot} />
-                <span className="spira-mono">{paciente?.code ?? '—'}</span>
+                <span className="spira-mono">
+                  {paciente?.code
+                    ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${paciente.code}`}>{paciente.code}</PatientLink>
+                    : '—'}
+                </span>
+                {onOpenPatient && <PatientLinkArrow />}
                 <span style={dot} />
                 <span className="spira-mono">{protocolo?.code ?? '—'}</span>
                 <span style={dot} />
