@@ -1,0 +1,333 @@
+<title>Flecha al paciente</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap">
+
+<style>
+  :root {
+    --ink: #14302E;
+    --ink-2: #2A4744;
+    --ink-soft: #556966;
+    --muted: #7C8C87;
+    --faint: #A6B0AC;
+    --paper: #F4F1EA;
+    --surface: #FBFAF6;
+    --white: #FFFFFF;
+    --line: #E4DECF;
+    --primary: #0F5F57;
+    --track: #2E7D74;
+    --danger: #A6483B;
+    --shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.06);
+    --tinte-alerta: rgba(166, 72, 59, 0.055);
+    --borde-alerta: rgba(166, 72, 59, 0.19);
+    --display: 'Schibsted Grotesk', system-ui, sans-serif;
+    --text: 'Inter', system-ui, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #EDEDED;
+      --ink-2: #DCDCDC;
+      --ink-soft: #B2B2B2;
+      --muted: #A1A1A1;
+      --faint: #6E6E6E;
+      --paper: #121212;
+      --surface: #1C1C1C;
+      --white: #212121;
+      --line: #2A2A2A;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+      --tinte-alerta: rgba(166, 72, 59, 0.13);
+      --borde-alerta: rgba(166, 72, 59, 0.34);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ink: #EDEDED;
+    --ink-2: #DCDCDC;
+    --ink-soft: #B2B2B2;
+    --muted: #A1A1A1;
+    --faint: #6E6E6E;
+    --paper: #121212;
+    --surface: #1C1C1C;
+    --white: #212121;
+    --line: #2A2A2A;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --tinte-alerta: rgba(166, 72, 59, 0.13);
+    --borde-alerta: rgba(166, 72, 59, 0.34);
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--text);
+    line-height: 1.6;
+    margin: 0;
+    padding: 40px 24px 72px;
+  }
+
+  .wrap { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+
+  .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .lede { max-width: 62ch; display: flex; flex-direction: column; gap: 8px; }
+  .eyebrow {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--faint); margin: 0;
+  }
+  h1 {
+    font-family: var(--display); font-weight: 700; font-size: 30px;
+    letter-spacing: -0.02em; line-height: 1.1; margin: 0; color: var(--ink);
+    text-wrap: balance;
+  }
+  .sub { font-size: 14px; color: var(--ink-soft); margin: 0; }
+
+  .themer { display: flex; gap: 6px; padding: 4px; background: var(--white); border: 1px solid var(--line); border-radius: 999px; }
+  .themer button {
+    font: inherit; font-size: 12.5px; font-weight: 600; color: var(--muted);
+    background: transparent; border: none; border-radius: 999px;
+    padding: 6px 14px; cursor: pointer;
+  }
+  .themer button[aria-pressed="true"] { background: var(--paper); color: var(--ink); box-shadow: var(--shadow-sm); }
+  .themer button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  .variant { display: flex; flex-direction: column; gap: 14px; }
+  .vhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .vkey {
+    font-family: var(--text); font-size: 12px; font-weight: 700;
+    height: 24px; padding: 0 11px; border-radius: 999px; flex: 0 0 auto;
+    display: grid; place-items: center; font-variant-numeric: tabular-nums;
+    background: var(--primary); color: #FFFFFF;
+  }
+  .vname { font-family: var(--display); font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 0; color: var(--ink); }
+  .elegido {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--primary); background: rgba(15, 95, 87, 0.10);
+    border: 1px solid rgba(15, 95, 87, 0.28); border-radius: 999px; padding: 3px 10px;
+  }
+  .vnote { font-size: 13.5px; color: var(--ink-soft); margin: 0; max-width: 70ch; }
+
+  .stage {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px; display: grid; gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+  .ctx { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+  .ctxlabel {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--faint);
+  }
+
+  .modal {
+    background: var(--white); border: 1px solid var(--line); border-radius: 12px;
+    padding: 15px 18px;
+  }
+  .idn { border-left: 3px solid var(--track); padding-left: 13px; min-width: 0; }
+  .nm {
+    font-family: var(--display); font-weight: 700; font-size: 23px;
+    letter-spacing: -0.02em; margin: 0; color: var(--ink-2); line-height: 1.15;
+  }
+  .pid {
+    font-size: 17px; font-weight: 600; color: var(--ink-soft);
+    font-variant-numeric: tabular-nums; letter-spacing: 0.02em; margin-top: 5px;
+  }
+
+  .alerta {
+    display: flex; gap: 11px; width: 100%; padding: 12px 13px;
+    border-radius: 11px; text-align: left; cursor: pointer;
+    background: var(--tinte-alerta); border: 1px solid var(--borde-alerta);
+    transition: box-shadow 0.16s cubic-bezier(0.2, 0, 0, 1), transform 0.16s cubic-bezier(0.2, 0, 0, 1);
+  }
+  .alerta:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+  .alerta .ico { flex: 0 0 auto; margin-top: 1px; color: var(--danger); display: flex; }
+  .alerta .body { min-width: 0; flex: 1; }
+  .aline { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .aname { color: var(--ink); min-width: 0; }
+  .acode { font-size: 12.5px; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .amotivo { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
+  .tl {
+    border: none; background: transparent; padding: 0; margin: 0; cursor: pointer;
+    color: inherit; font: inherit; letter-spacing: inherit; text-align: left;
+    text-decoration: none; text-underline-offset: 3px;
+    display: inline-flex; align-items: center; max-width: 100%; min-width: 0;
+  }
+  .tl > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .tl:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 3px; }
+  .grp:has(.tl:hover) .tl, .grp:has(.tl:focus-visible) .tl { text-decoration: underline; }
+
+  .solo {
+    display: inline-flex; align-items: center; flex: 0 0 auto; color: var(--muted);
+    opacity: 0; transition: opacity 0.14s cubic-bezier(0.2, 0, 0, 1); pointer-events: none;
+  }
+  .grp:has(.tl:hover) .solo, .grp:has(.tl:focus-visible) .solo { opacity: 0.75; }
+
+  .identidad { display: flex; align-items: center; min-width: 0; }
+  .identidad > div { min-width: 0; }
+
+  .aire-10 .identidad { gap: 10px; }
+  .aire-10 .aline .solo { margin-left: 2px; }
+
+  .aire-16 .identidad { gap: 16px; }
+  .aire-16 .aline .solo { margin-left: 8px; }
+
+  .aire-22 .identidad { gap: 22px; }
+  .aire-22 .aline .solo { margin-left: 14px; }
+
+  .foot {
+    border-top: 1px solid var(--line); padding-top: 24px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .foot h2 { font-family: var(--display); font-size: 17px; font-weight: 700; margin: 0; color: var(--ink); }
+  .foot p { font-size: 13.5px; color: var(--ink-soft); margin: 0; max-width: 70ch; }
+  .foot code { font-family: var(--text); font-size: 12.5px; background: var(--white); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; color: var(--ink); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .alerta, .solo { transition: none; }
+  }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div class="lede">
+      <p class="eyebrow">Spira · Sereno</p>
+      <h1>Cuánto aire lleva la flecha</h1>
+      <p class="sub">Mock de referencia del spec del 2026-08-24. La separación aprobada por el Director es <strong>16 / 8</strong>; las otras dos quedan para que se vea contra qué se decidió. Pasá el mouse por el nombre o el número.</p>
+    </div>
+    <div class="themer" role="group" aria-label="Tema">
+      <button type="button" data-set="light" aria-pressed="false">Claro</button>
+      <button type="button" data-set="dark" aria-pressed="false">Oscuro</button>
+    </div>
+  </div>
+
+  <section class="variant aire-10">
+    <div class="vhead">
+      <span class="vkey" aria-hidden="true">10 / 2</span>
+      <h2 class="vname">Como estaba</h2>
+    </div>
+    <p class="vnote">La flecha queda a la distancia de un ítem más de la fila — el mismo respiro que separa el nombre del número.</p>
+    <div class="stage">
+      <div class="ctx">
+        <span class="ctxlabel">Apilado · modal de visita</span>
+        <div class="modal">
+          <div class="idn">
+            <div class="identidad grp">
+              <div>
+                <h3 class="nm"><button type="button" class="tl"><span>Susana Rodriguez</span></button></h3>
+                <div class="pid"><button type="button" class="tl"><span>ARG-04-017</span></button></div>
+              </div>
+              <span class="solo" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ctx">
+        <span class="ctxlabel">En línea · fila de alerta</span>
+        <div class="alerta">
+          <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>
+          <div class="body">
+            <div class="aline grp">
+              <button type="button" class="tl aname"><span>María de los Ángeles Fernández</span></button>
+              <button type="button" class="tl acode"><span>ARG-04-009</span></button>
+              <span class="solo" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span>
+            </div>
+            <div class="amotivo">Ventana vencida el 18/08/2026 · Visita 6</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="variant aire-16">
+    <div class="vhead">
+      <span class="vkey" aria-hidden="true">16 / 8</span>
+      <h2 class="vname">Con aire</h2>
+      <span class="elegido">Elegido</span>
+    </div>
+    <p class="vnote">La flecha deja de ser el tercer dato de la línea y pasa a leerse como lo que es: el destino, parado al costado de la identidad.</p>
+    <div class="stage">
+      <div class="ctx">
+        <span class="ctxlabel">Apilado · modal de visita</span>
+        <div class="modal">
+          <div class="idn">
+            <div class="identidad grp">
+              <div>
+                <h3 class="nm"><button type="button" class="tl"><span>Susana Rodriguez</span></button></h3>
+                <div class="pid"><button type="button" class="tl"><span>ARG-04-017</span></button></div>
+              </div>
+              <span class="solo" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ctx">
+        <span class="ctxlabel">En línea · fila de alerta</span>
+        <div class="alerta">
+          <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>
+          <div class="body">
+            <div class="aline grp">
+              <button type="button" class="tl aname"><span>María de los Ángeles Fernández</span></button>
+              <button type="button" class="tl acode"><span>ARG-04-009</span></button>
+              <span class="solo" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span>
+            </div>
+            <div class="amotivo">Ventana vencida el 18/08/2026 · Visita 6</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="variant aire-22">
+    <div class="vhead">
+      <span class="vkey" aria-hidden="true">22 / 14</span>
+      <h2 class="vname">Bien despegada</h2>
+    </div>
+    <p class="vnote">Aire de sobra. En el modal respira bien; en el renglón empieza a flotar sola y la relación con el paciente se afloja.</p>
+    <div class="stage">
+      <div class="ctx">
+        <span class="ctxlabel">Apilado · modal de visita</span>
+        <div class="modal">
+          <div class="idn">
+            <div class="identidad grp">
+              <div>
+                <h3 class="nm"><button type="button" class="tl"><span>Susana Rodriguez</span></button></h3>
+                <div class="pid"><button type="button" class="tl"><span>ARG-04-017</span></button></div>
+              </div>
+              <span class="solo" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ctx">
+        <span class="ctxlabel">En línea · fila de alerta</span>
+        <div class="alerta">
+          <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>
+          <div class="body">
+            <div class="aline grp">
+              <button type="button" class="tl aname"><span>María de los Ángeles Fernández</span></button>
+              <button type="button" class="tl acode"><span>ARG-04-009</span></button>
+              <span class="solo" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span>
+            </div>
+            <div class="amotivo">Ventana vencida el 18/08/2026 · Visita 6</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <h2>Por qué el aire cambia lo que la flecha significa</h2>
+    <p>En el renglón de una línea, nombre y número ya están separados por 8px. Con la flecha a esa misma distancia se lee como un tercer dato de la fila; despegándola, pasa a leerse como el destino del grupo. Es la separación, y no el ícono, lo que dice de qué está hablando.</p>
+    <p>El aire no mueve nada al aparecer: el hueco lo reserva el <code>gap</code> del contenedor, que está ahí desde el primer render. La flecha solo pasa de <code>opacity: 0</code> a <code>0.75</code>.</p>
+  </div>
+</div>
+
+<script>
+  const root = document.documentElement
+  const botones = document.querySelectorAll('.themer button')
+  const pintar = (modo) => {
+    root.setAttribute('data-theme', modo)
+    botones.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.set === modo)))
+  }
+  botones.forEach((b) => b.addEventListener('click', () => pintar(b.dataset.set)))
+  const oscuro = window.matchMedia('(prefers-color-scheme: dark)').matches
+  pintar(oscuro ? 'dark' : 'light')
+</script>
