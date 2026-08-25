@@ -17,9 +17,11 @@ export interface SelectOption {
 /** A partir de cuántas opciones aparece el buscador cuando searchable='auto'. */
 const SEARCH_THRESHOLD = 5
 
-interface Props {
-  value: string
-  onChange: (value: string) => void
+/* El modo se elige por props DISCRIMINADAS y no por un `value: string | string[]` suelto: con la
+   union floja, cada uno de los ~24 consumidores de una sola opción tendría que estrechar el tipo en
+   su `onChange`, y una vista que se olvide de pasar `multiple` compilaría igual pasando un array.
+   Así, quien no dice `multiple` sigue teniendo exactamente la firma de siempre. */
+interface BaseProps {
   options: readonly SelectOption[]
   placeholder: string
   /** Solo relevante si el buscador se muestra. */
@@ -54,17 +56,47 @@ interface Props {
   leadingIcon?: ComponentProps<typeof Icon>['name']
 }
 
+interface SingleProps extends BaseProps {
+  multiple?: false
+  value: string
+  onChange: (value: string) => void
+}
+
+interface MultiProps extends BaseProps {
+  /** Varias opciones a la vez. El menú NO cierra al elegir —se sigue tildando— y el disparador
+   *  resume cuántas hay. Sin alta ni baja de ítems: elegir de un conjunto y administrarlo son dos
+   *  trabajos distintos, y mezclarlos en el mismo panel invita a borrar cuando querías filtrar. */
+  multiple: true
+  value: readonly string[]
+  onChange: (value: string[]) => void
+  onCreate?: never
+  onDelete?: never
+  /** Cómo nombrar el conjunto cuando hay más de uno ("3 protocolos"). Default: `entity` en plural. */
+  pluralLabel?: string
+}
+
+type Props = SingleProps | MultiProps
+
 /**
  * Desplegable estándar de la App: una opción, con buscador interno que aparece según la cantidad
  * de opciones (umbral SEARCH_THRESHOLD), navegación por teclado (WCAG 2.1 AA), y alta ("Agregar
  * nuevo") / baja por ítem opcionales. El popover se posiciona `fixed` (getBoundingClientRect) para
  * NO recortarse dentro de un modal con overflow. Cierra al elegir, click afuera o Esc.
  */
-export function SearchableSelect({
-  value, onChange, options, placeholder, searchPlaceholder, entity = 'ítem',
-  searchable = 'auto', menuWidth = 'trigger', flip = true, disabled = false, autoFocus = false,
-  onCreate, onDelete, mono, id, variant = 'field', leadingIcon,
-}: Props) {
+export function SearchableSelect(props: Props) {
+  const {
+    options, placeholder, searchPlaceholder, entity = 'ítem',
+    searchable = 'auto', menuWidth = 'trigger', flip = true, disabled = false, autoFocus = false,
+    mono, id, variant = 'field', leadingIcon,
+  } = props
+  /* `multiple` estrecha la union en cada uso: TS no deja leer `onCreate` en el modo múltiple ni
+     pasarle un array al `onChange` de una sola opción. */
+  const multiple = props.multiple === true
+  const onCreate = multiple ? undefined : props.onCreate
+  const onDelete = multiple ? undefined : props.onDelete
+  /** Selección normalizada a lista, para que el resto del componente no ramifique en cada línea. */
+  const selected: readonly string[] = multiple ? props.value : (props.value ? [props.value] : [])
+  const value = multiple ? '' : props.value
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
@@ -94,11 +126,19 @@ export function SearchableSelect({
   }, [open])
 
   const labelOf = (v: string) => options.find((o) => o.value === v)?.label ?? extra[v] ?? ''
-  const current = value ? labelOf(value) : ''
+  /* Con una sola opción, su etiqueta. Con varias: la etiqueta si es una, y el recuento si son más
+     —listarlas todas desborda un disparador que vive en una fila de filtros—. */
+  const current = multiple
+    ? (selected.length === 0 ? '' : selected.length === 1 ? labelOf(selected[0]) : `${selected.length} ${props.pluralLabel ?? `${entity}s`}`)
+    : (value ? labelOf(value) : '')
   /* Punto de la opción elegida (si la tiene). Sale de `options` y no de `extra`, así que una opción
      recién creada con `onCreate` no muestra punto hasta que el refetch la traiga — correcto: todavía
      no sabemos de qué color es. */
-  const currentDot = value ? options.find((o) => o.value === value)?.dot : undefined
+  /* El punto solo tiene sentido cuando el disparador nombra UNA opción: con varias no hay una
+     categoría que pintar. */
+  const currentDot = multiple
+    ? (selected.length === 1 ? options.find((o) => o.value === selected[0])?.dot : undefined)
+    : (value ? options.find((o) => o.value === value)?.dot : undefined)
   const typed = q.trim()
   const filtered = options.filter((o) => o.label.toLowerCase().includes(typed.toLowerCase()))
 
@@ -129,7 +169,18 @@ export function SearchableSelect({
   }, [activeIndex, open])
 
   const backToList = () => { setMode('list'); setCreateName(''); setCreateConfirm(false); setDeleteTarget(null); setErr(null) }
-  const pick = (o: SelectOption) => { onChange(o.value); setOpen(false) }
+  const pick = (o: SelectOption) => {
+    if (props.multiple) {
+      /* Togglea y deja el menú ABIERTO: elegir varios es una sola tarea, y cerrar en cada tilde
+         obligaría a reabrir el panel una vez por opción. Cierra con Esc, con un click afuera o con
+         el propio disparador, como cualquier popover del repo. */
+      const ya = props.value.includes(o.value)
+      props.onChange(ya ? props.value.filter((v) => v !== o.value) : [...props.value, o.value])
+      return
+    }
+    props.onChange(o.value)
+    setOpen(false)
+  }
 
   const move = (delta: number) => setActiveIndex((i) => {
     if (filtered.length === 0) return -1
@@ -164,7 +215,11 @@ export function SearchableSelect({
   }
 
   const doCreate = async () => {
-    if (!onCreate) return
+    /* Se chequea `props.multiple` y no solo `onCreate` para ESTRECHAR la union: el alta fija la
+       opción recién creada como valor, y ese `onChange` es el de una sola opción. En el modo
+       múltiple `onCreate` no existe (el tipo lo prohíbe), así que esta rama no corre nunca ahí. */
+    if (props.multiple || !props.onCreate) return
+    const onCreate = props.onCreate
     const name = createName.trim()
     if (!name) { createRef.current?.focus(); return }
     setBusy(true); setErr(null)
@@ -172,7 +227,7 @@ export function SearchableSelect({
     setBusy(false)
     if ('error' in res) { setErr(res.error); return }
     setExtra((m) => ({ ...m, [res.value]: res.label }))
-    onChange(res.value)
+    props.onChange(res.value)
     setOpen(false)
   }
 
@@ -299,6 +354,7 @@ export function SearchableSelect({
                 ref={listRef}
                 id={listId}
                 role="listbox"
+                aria-multiselectable={multiple || undefined}
                 className="spira-scroll"
                 tabIndex={showSearch ? undefined : -1}
                 aria-activedescendant={showSearch ? undefined : activeId}
@@ -310,13 +366,20 @@ export function SearchableSelect({
                     No se encuentran resultados para tu búsqueda.
                   </div>
                 ) : filtered.map((o, idx) => {
-                  const on = o.value === value
+                  const on = selected.includes(o.value)
                   const active = idx === activeIndex
                   return (
                     <div key={o.value} data-idx={idx} style={{ display: 'flex', alignItems: 'center', borderRadius: 8, ...(on ? { background: 'rgba(15,95,87,.10)' } : active ? { background: 'var(--spira-surface)' } : null) }}>
                       <button type="button" id={`${baseId}-opt-${idx}`} role="option" aria-selected={on} onMouseEnter={() => setActiveIndex(idx)} onClick={() => pick(o)} style={{ ...option, flex: 1, color: on ? 'var(--spira-primary)' : 'var(--spira-ink)', fontWeight: on ? 600 : 400 }}>
                         {o.dot && <span aria-hidden style={{ ...dotStyle, background: o.dot }} />}
-                        <span className={mono ? 'spira-mono' : undefined} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
+                        <span className={mono ? 'spira-mono' : undefined} style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
+                        {/* El tilde solo en múltiple: con una sola opción, el resalte de la fila ya
+                            dice cuál está elegida y no hay nada que destildar. */}
+                        {multiple && (
+                          <span aria-hidden style={{ flex: '0 0 auto', display: 'grid', placeItems: 'center', width: 16 }}>
+                            {on && <Icon name="check" size={14} color="var(--spira-primary)" stroke={2.6} />}
+                          </span>
+                        )}
                       </button>
                       {onDelete && (
                         <button type="button" aria-label={`Eliminar ${o.label}`} title="Eliminar" onClick={() => { setDeleteTarget(o); setErr(null) }} style={trashBtn}>
