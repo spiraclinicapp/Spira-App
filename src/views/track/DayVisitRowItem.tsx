@@ -9,7 +9,7 @@ import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import type { DayProcedureSummary } from '../../data/procedures'
 import { OperationalStageChip, OPERATIONAL_STAGES, VisitChip, VISIT_STATES } from '../visitStates'
-import { ProtoTag, ProcDots, Persona } from '../visitAtoms'
+import { ProtoTag, ProcDots, Persona, VisitCodeTag } from '../visitAtoms'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 import { etapaProgreso } from './visitHeaderRules'
 
@@ -67,7 +67,20 @@ export function DayVisitRowItem({
     // Padding izquierdo igual al derecho: la barra de color a sangre que ocupaba esos 6px de más
     // se fue, y su trabajo lo hace ahora el riel de la columna de estado.
     overflow: 'hidden', padding: '12px 16px', marginBottom: 8,
-    display: 'flex', alignItems: 'center', gap: 16,
+    /* GRID y no flex: es una lista de columnas, y con flex cada fila resolvía sus anchos por el
+       largo de SU contenido —la identidad medía lo que midiera su línea más ancha—, así que lo que
+       venía después caía en un x distinto en cada renglón. Con anchos determinísticos, las columnas
+       coinciden entre filas por construcción y no por casualidad de que los nombres midan parecido.
+       Y el sobrante va a la identidad, que es la que lo necesita: con `flex: 1` se depositaba en un
+       vacío muerto en el medio de la fila mientras los nombres truncaban al lado.
+
+       CUATRO grupos y no cinco (Director, 2026-08-25): la visita tuvo su propia columna por un rato
+       y quedaba tocando nada —a ~295px del nombre y ~186px de los responsables—, ni parte de la
+       identidad ni parte de los metadatos. Un elemento alineado pero sin vecino se lee peor que uno
+       pegado a algo. Volvió al renglón de contexto, que es donde tiene vecinos: protocolo e IVRS
+       hablan de la misma visita. */
+    display: 'grid', gridTemplateColumns: '104px minmax(0, 1fr) 206px auto',
+    alignItems: 'center', gap: 16,
   }
 
   return (
@@ -94,7 +107,7 @@ export function DayVisitRowItem({
           "Por llegar", y dejar ese chip diría que el paciente está por llegar cuando ya se sabe
           que no viene. Se mira `computed_status` y no `no_show_at` porque la vista ya resuelve la
           precedencia (ventana vencida le gana a por reprogramar). */}
-      <div style={{ flex: '0 0 auto', width: 104 }}>
+      <div>
         {visit.computed_status === 'por_reprogramar'
           ? <VisitChip status="por_reprogramar" compact />
           : <OperationalStageChip stage={stage} compact />}
@@ -103,12 +116,20 @@ export function DayVisitRowItem({
         </div>
       </div>
 
-      {/* bloque central */}
-      <div className="spira-link-group" style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
-            {visit.patient_name}
-          </PatientLink>
+      {/* identidad — columna 2 */}
+      <div className="spira-link-group" style={{ minWidth: 0 }}>
+        {/* La flecha va al lado del NOMBRE (Director, 2026-08-25): es el titular y lo que se apunta
+            primero, así que la marca de destino le corresponde a él. Que el número también navega
+            lo dice el subrayado emparejado del `.spira-link-group` —apuntar uno subraya los dos—,
+            que es la señal que ya existía para eso; una segunda flecha abajo sería decir dos veces
+            lo mismo. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+            <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+              {visit.patient_name}
+            </PatientLink>
+          </div>
+          {onOpenPatient && <PatientLinkArrow />}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
           <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
@@ -117,10 +138,11 @@ export function DayVisitRowItem({
               ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
               : 'Sin IVRS'}
           </span>
-          {onOpenPatient && <PatientLinkArrow />}
-          <span style={{ padding: '2px 9px', borderRadius: 6, background: 'var(--spira-ink)', color: 'var(--spira-paper)', fontSize: 11.5, fontWeight: 800 }}>
-            {visitCode(visit)}
-          </span>
+          {/* Visita y semana viven acá, con el protocolo y el IVRS: los cuatro son el contexto
+              de la misma visita, y juntos forman UN renglón de datos en vez de un bloque suelto
+              flotando en el medio de la fila. El código conserva el peso (tinta plena) porque
+              es el que se busca; la semana lo acompaña en gris, atrás. */}
+          <VisitCodeTag code={visitCode(visit)} />
           <span style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visitName}</span>
         </div>
         {procs && procs.names.length > 0 && (
@@ -128,14 +150,14 @@ export function DayVisitRowItem({
         )}
       </div>
 
-      {/* responsables: coordinador + médico (ancho fijo, alineados a la derecha) */}
-      <div style={{ flex: '0 0 auto', width: 206, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, overflow: 'hidden' }}>
+      {/* responsables — columna 4 (ancho fijo, alineados a la derecha) */}
+      <div style={{ width: 206, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, overflow: 'hidden' }}>
         <Persona role="Coord." name={visit.coordinator_name} icon="user" />
         <Persona role="Médico" name={visit.treating_physician} icon="users" />
       </div>
 
-      {/* acciones (ancho fijo) */}
-      <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+      {/* acciones — columna 5 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <DoctorButton visit={visit} accent={accent} canClinical={canClinical} busy={busy} onOpenDoctor={onOpenDoctor} />
         <AdvanceCTA stage={stage} accent={accent} canAdvance={advanceRole(stage) === 'reception' ? canReception : advanceRole(stage) === 'clinical' ? canClinical : false} busy={busy} onAdvance={(next) => onAdvance(visit, next)} />
         <RowMenu visit={visit} canReception={canReception} busy={busy} onNoShow={onNoShow} onReschedule={onReschedule} />

@@ -59,7 +59,25 @@ export function FilterDropdown({ accent, value, onChange, options, menuLabel, ic
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        style={{ ...trigger, border: `1px solid ${open || on ? accent : 'var(--spira-line-2)'}`, background: on ? accent + '12' : 'var(--spira-white)' }}
+        style={{
+          ...trigger,
+          /* Abierto = ELEVACIÓN, nunca un borde de color (regla del Director, 2026-08-06; es la
+             misma que ya rige el foco de los inputs). Acá el borde se pintaba con el acento al
+             abrir el menú, que es exactamente el verde desterrado: desplegar un filtro no es
+             significado, es estado de interacción, y eso se dice levantando. Mismo tratamiento que
+             `SearchableSelect` —el desplegable de Alertas— para que los dos se sientan igual.
+             El COLOR se queda donde sí significa: un filtro activo dice que estás viendo un
+             subconjunto, y eso lo cuentan el fondo teñido, el ícono y el texto en acento.
+             El borde va en LONGHANDS y no en la abreviada: los estados de abajo pisan solo el
+             color, y mezclar abreviada con longhand deja el borde roto cuando el estado se apaga
+             (React vacía los longhand al resolver el conflicto — ver CLAUDE.md). */
+          borderWidth: 1,
+          borderStyle: 'solid',
+          borderColor: open ? 'var(--spira-faint)' : 'var(--spira-line-2)',
+          background: on ? accent + '12' : 'var(--spira-white)',
+          boxShadow: open ? '0 5px 14px rgba(20,48,46,.10)' : 'none',
+          transition: 'box-shadow .14s var(--spira-ease-out), border-color .14s var(--spira-ease-out)',
+        }}
       >
         <Icon name={icon} size={15} color={on ? accent : 'var(--spira-muted)'} />
         {prefix && <span style={prefixLabel}>{prefix}:</span>}

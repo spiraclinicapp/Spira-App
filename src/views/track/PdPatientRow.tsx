@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
-import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
+import { PatientLink } from '../../components/PatientLink'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
 import { orderVisits, todaySplit, visitIndex, visitCode } from '../../lib/visits'
@@ -77,11 +77,15 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12 }}>
           {/* identidad */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-            {/* Nombre y IVRS abren los dos la ficha —el mismo par que el encabezado de la visita—,
-                así que van en un `.spira-link-group` y comparten UNA flecha. La flecha va al final
-                del par y no al costado del bloque: la fila es una rejilla de tres columnas
-                (identidad · tracker · acciones) y al costado quedaría pegada al tracker, leyéndose
-                como parte de él. */}
+            {/* Nombre e IVRS abren los dos la ficha —el mismo par que el encabezado de la visita—,
+                así que van en un `.spira-link-group` y se subrayan juntos al apuntar cualquiera.
+
+                SIN flecha, a diferencia de las otras catorce pantallas (Director, 2026-08-25):
+                acá la fila ENTERA ya abre la ficha, así que una marca de "esto lleva a otro lado"
+                no distingue nada —todo lleva al mismo lado— y solo suma ruido. Es el mismo
+                criterio por el que la flecha no va en la esquina de una tarjeta: habla del
+                DESTINO, y donde el destino es único no hay nada que anunciar. En Visitas o
+                Alertas sí va, porque ahí la fila abre la VISITA y el nombre abre otra cosa. */}
             <div className="spira-link-group" style={{ minWidth: 0 }}>
               <div style={{ maxWidth: '100%', fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 <PatientLink onOpen={() => onOpen(patient.id)} label={`Abrir la ficha de ${patient.full_name}`}>
@@ -94,7 +98,6 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
                     ? <PatientLink onOpen={() => onOpen(patient.id)} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
                     : 'Sin IVRS'}
                 </span>
-                <PatientLinkArrow />
                 {protocolCode && (
                   <span className="spira-mono" style={{ fontSize: 11.5, padding: '1px 8px', borderRadius: 'var(--spira-radius-pill)', background: accent + '14', color: accent, whiteSpace: 'nowrap', flex: '0 0 auto' }}>{protocolCode}</span>
                 )}

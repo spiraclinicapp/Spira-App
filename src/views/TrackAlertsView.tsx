@@ -83,7 +83,11 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const accent = module.accent
   const alertsQ = useActiveAlerts()
   const protocols = useProtocols()
-  const [protocolFilter, setProtocolFilter] = useUrlState('protocolo', 'all')
+  /* Varios protocolos a la vez (Director, 2026-08-25). La lista VACÍA es "todos": no hay opción
+     "Todos los protocolos" que tildar, porque en un filtro múltiple esa opción tendría que
+     destildar a las demás y se lee como una más de la lista. El placeholder ya lo dice.
+     Viaja en la URL con `codecs.list`, que escapa la coma dentro de cada valor. */
+  const [protocolFilter, setProtocolFilter] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
   const [ageDays, setAgeDays] = useUrlState('antiguedad', 0, { codec: codecs.num })
   /* Solo el id: `VisitDetail` trae sus propios datos por id (`useVisit`), así que no hace falta
      encontrar la fila ni esperar a que carguen las alertas — por eso una alerta se puede abrir aunque
@@ -129,7 +133,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const filtered = useMemo(() => {
     const today = todayISO()
     return allRows.filter((a) => {
-      if (protocolFilter !== 'all' && a.protocol_id !== protocolFilter) return false
+      if (protocolFilter.length > 0 && !protocolFilter.includes(a.protocol_id)) return false
       if (ageDays > 0) {
         const ref = refDate(a)
         if (!ref) return false
@@ -143,7 +147,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const filteredProc = useMemo(() => {
     const today = todayISO()
     return procRows.filter((r) => {
-      if (protocolFilter !== 'all' && r.protocol_id !== protocolFilter) return false
+      if (protocolFilter.length > 0 && !protocolFilter.includes(r.protocol_id)) return false
       if (ageDays > 0) {
         const age = daysDiffISO(r.report_due_at.slice(0, 10), today)
         if (age > ageDays) return false
@@ -176,10 +180,10 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     const list = (protocols.data ?? []).filter((p) => byId.has(p.id))
     return list.map((p) => ({ id: p.id, code: p.code }))
   })()
-  const protocolOptions = [
-    { value: 'all', label: 'Todos los protocolos' },
-    ...protoOptions.map((p) => ({ value: p.id, label: p.code })),
-  ]
+  /* Sin "Todos los protocolos" como opción: con selección múltiple sería una opción tildeable que
+     tendría que destildar a las demás, y se leería como una más de la lista. Ninguno tildado ya
+     significa todos, y el placeholder lo dice. */
+  const protocolOptions = protoOptions.map((p) => ({ value: p.id, label: p.code }))
   const ageOptions = AGE_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))
 
   return (
@@ -187,10 +191,12 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 180 }}>
           <SearchableSelect
+            multiple
             value={protocolFilter}
             onChange={setProtocolFilter}
             options={protocolOptions}
             placeholder="Todos los protocolos"
+            pluralLabel="protocolos"
             searchPlaceholder="Buscar protocolo…"
             entity="protocolo"
             mono
@@ -374,6 +380,12 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                 (r) => r.visit_id === d.visit_id && r.report_definition_id === d.report_definition_id,
               )
               const nombre = vis?.patient_name ?? rep?.patient_name ?? null
+              /* El paciente sale de la alerta viva que respalda al descarte, sea de visita o de
+                 reporte: las dos filas traen su `patient_id` y su `protocol_id`. Cuando ninguna
+                 está —la alerta dejó de ser vigente y el renglón dice justamente eso— no hay a
+                 quién abrir, y el nombre ni siquiera existe. */
+              const pac = vis ?? rep ?? null
+              const abrirPac = abrirFicha && pac ? () => abrirFicha(pac.patient_id, pac.protocol_id) : undefined
               const detalle = d.kind === 'reporte_procedimiento'
                 ? (rep ? `${rep.report_name} de ${rep.procedure_name}` : 'Reporte de procedimiento')
                 : (vis ? `${VISIT_STATES[vis.computed_status].label} · ${visitTitle(vis)}` : 'Alerta de visita')
@@ -381,8 +393,15 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                 <div key={d.id} style={dismissedRow}>
                   <Icon name="check" size={16} color="var(--spira-faint)" style={{ flex: '0 0 auto', marginTop: 2 }} />
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>
-                      {nombre ?? 'Alerta ya no vigente'}
+                    {/* Una alerta descartada no dejó de ser de alguien: el archivo también nombra a
+                        un paciente, así que también lleva a su ficha. La flecha va después del
+                        nombre —donde el par termina, que acá es de uno solo— y el detalle queda
+                        detrás como texto. */}
+                    <div className="spira-link-group" style={{ fontSize: 13, fontWeight: 600 }}>
+                      {nombre
+                        ? <PatientLink onOpen={abrirPac} label={`Abrir la ficha de ${nombre}`}>{nombre}</PatientLink>
+                        : 'Alerta ya no vigente'}
+                      {abrirPac && <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>}
                       <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}> · {detalle}</span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
