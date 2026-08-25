@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from '../../components/Icon'
+import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
 import { usePopover } from '../../components/usePopover'
 import { visitCode } from '../../lib/visits'
 import { KIND_LABELS } from '../../lib/visitLabels'
@@ -22,7 +23,7 @@ import { etapaProgreso } from './visitHeaderRules'
  */
 export function DayVisitRowItem({
   visit, accent, canReception, canClinical, busyId, procs,
-  onAdvance, onOpenDoctor, onNoShow, onReschedule, onOpen,
+  onAdvance, onOpenDoctor, onNoShow, onReschedule, onOpen, onOpenPatient,
 }: {
   visit: DayVisitRow
   accent: string
@@ -40,6 +41,8 @@ export function DayVisitRowItem({
   onNoShow: (visit: DayVisitRow, value: boolean) => void
   onReschedule: (visit: DayVisitRow) => void
   onOpen: (visit: DayVisitRow) => void
+  /** Abrir la ficha del paciente. Sin esto, nombre e IVRS quedan como texto (ver `PatientLink`). */
+  onOpenPatient?: () => void
 }) {
   const stage = visit.operational_stage
   const busy = busyId === visit.id
@@ -101,15 +104,20 @@ export function DayVisitRowItem({
       </div>
 
       {/* bloque central */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="spira-link-group" style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {visit.patient_name}
+          <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+            {visit.patient_name}
+          </PatientLink>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
           <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
           <span className="spira-mono" style={{ fontSize: 12.5, color: visit.patient_code ? 'var(--spira-muted)' : 'var(--spira-faint)' }}>
-            {visit.patient_code ?? 'Sin IVRS'}
+            {visit.patient_code
+              ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
+              : 'Sin IVRS'}
           </span>
+          <PatientLinkArrow />
           <span style={{ padding: '2px 9px', borderRadius: 6, background: 'var(--spira-ink)', color: 'var(--spira-paper)', fontSize: 11.5, fontWeight: 800 }}>
             {visitCode(visit)}
           </span>
