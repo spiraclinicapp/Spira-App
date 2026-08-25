@@ -269,26 +269,32 @@ function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen, onOpenP
       <WaitBadge iso={visit.wants_doctor_at} />
 
       <div className="spira-link-group" style={{ flex: '1 1 220px', minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span className="spira-mono" style={{ fontSize: 15, fontWeight: 700, color: visit.patient_code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>
-            {visit.patient_code
-              ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
-              : 'Sin IVRS'}
-          </span>
-          <span className="spira-mono" style={{ ...protocolPill, background: accent + '16', color: accent }}>
-            {visit.protocol_code}
-          </span>
-          {vcode && <span style={visitChip}>{vcode}</span>}
-        </div>
-        <div style={identityLine}>
-          <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
-            {visit.patient_name}
-          </PatientLink>
-          {/* `identityLine` es texto corrido (ver el comentario completo en AttendedRow.tsx): sin
-              `gap` de contenedor que reserve el aire, el margen de la flecha va inline. */}
-          {onOpenPatient && <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>}
-          {demographics ? ` · ${demographics}` : ''}
-          {visit.treating_physician ? ` · ${visit.treating_physician}` : ''}
+        {/* La flecha se para al COSTADO del par y centrada entre sus dos líneas, no colgando del
+            nombre: el número vive arriba y el nombre abajo, así que dentro de una de las dos se lee
+            caída respecto de la otra. El motivo y el "vía" quedan FUERA de este flex: la flecha se
+            centra contra la identidad, que es lo que abre. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span className="spira-mono" style={{ fontSize: 15, fontWeight: 700, color: visit.patient_code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>
+                {visit.patient_code
+                  ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
+                  : 'Sin IVRS'}
+              </span>
+              <span className="spira-mono" style={{ ...protocolPill, background: accent + '16', color: accent }}>
+                {visit.protocol_code}
+              </span>
+              {vcode && <span style={visitChip}>{vcode}</span>}
+            </div>
+            <div style={identityLine}>
+              <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+                {visit.patient_name}
+              </PatientLink>
+              {demographics ? ` · ${demographics}` : ''}
+              {visit.treating_physician ? ` · ${visit.treating_physician}` : ''}
+            </div>
+          </div>
+          {onOpenPatient && <PatientLinkArrow />}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 5 }}>
           <MotivoChip motivo={visit.doctor_motivo} />
