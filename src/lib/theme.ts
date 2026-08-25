@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+/**
+ * El tema, reducido a lo que de verdad es suyo: resolver una preferencia a claro/oscuro y pintarla
+ * en el DOM.
+ *
+ * **La persistencia se mudó a `lib/prefs.tsx`** (migración 0093): el tema dejó de guardarse en
+ * localStorage —donde era una preferencia de la MÁQUINA, compartida por todos los que se sientan en
+ * esa computadora— y pasó a ser una preferencia de la CUENTA, junto con el formato de fecha y la
+ * pantalla de arranque. Este archivo ya no guarda nada; `prefs.tsx` lo llama cuando corresponde y
+ * mantiene el caché local que evita el parpadeo del primer frame.
+ */
 
 /** Tema efectivamente aplicado al shell (lo que se ve). */
 export type Theme = 'light' | 'dark'
@@ -7,25 +16,11 @@ export type Theme = 'light' | 'dark'
     'system' quedaría congelado al valor del momento y perdería su gracia. */
 export type ThemePref = 'light' | 'dark' | 'system'
 
-const KEY = 'spira-theme'
-
-/** Media query del modo oscuro del sistema (null en entornos sin matchMedia). */
-function systemMql(): MediaQueryList | null {
+/** Media query del modo oscuro del sistema (null en entornos sin matchMedia).
+    Exportada porque `prefs.tsx` la necesita para seguir al sistema en vivo. */
+export function systemMql(): MediaQueryList | null {
   if (typeof window === 'undefined' || !window.matchMedia) return null
   return window.matchMedia('(prefers-color-scheme: dark)')
-}
-
-/** Lee la preferencia guardada. Default 'light': la primera vez la app abre SIEMPRE en claro
-    (papel cálido, la cara de marca "Sereno"), sin importar el modo del SO. El usuario puede
-    pasar a oscuro o a 'system' (seguir el SO) desde Ajustes, y esa elección queda guardada. */
-export function getStoredPref(): ThemePref {
-  try {
-    const v = localStorage.getItem(KEY)
-    if (v === 'dark' || v === 'light' || v === 'system') return v
-  } catch {
-    /* almacenamiento no disponible */
-  }
-  return 'light'
 }
 
 /** Resuelve una preferencia a un tema concreto (claro/oscuro). */
@@ -34,56 +29,8 @@ export function resolveTheme(pref: ThemePref): Theme {
   return pref
 }
 
-/** Aplica una preferencia: la resuelve, la pinta en <html data-theme> y persiste
-    la PREFERENCIA. Lo llama main.tsx antes del primer render (evita parpadeo). */
+/** Pinta una preferencia en `<html data-theme>`. No persiste nada — de eso se encarga `prefs.tsx`.
+    Lo llama `main.tsx` antes del primer render (con el caché) para que no haya parpadeo. */
 export function applyTheme(pref: ThemePref): void {
   document.documentElement.dataset.theme = resolveTheme(pref)
-  try {
-    localStorage.setItem(KEY, pref)
-  } catch {
-    /* almacenamiento no disponible — se ignora */
-  }
-}
-
-/** Hook de tema. Devuelve:
-    - `pref`  → la preferencia (claro/oscuro/sistema): la usa el segmented de Ajustes.
-    - `theme` → el tema RESUELTO (claro/oscuro): lo usa el ícono del botón de la barra.
-    - `setPref` → fija una preferencia explícita (incluye 'system').
-    - `toggle` → alterna sobre lo que se VE (no sobre la preferencia): en modo 'system'
-                 resuelto a oscuro, el botón ofrece 'claro', no 'oscuro'. */
-export function useTheme(): {
-  pref: ThemePref
-  theme: Theme
-  setPref: (pref: ThemePref) => void
-  toggle: () => void
-} {
-  const [pref, setPrefState] = useState<ThemePref>(getStoredPref)
-  const [theme, setThemeState] = useState<Theme>(() => resolveTheme(getStoredPref()))
-
-  const setPref = useCallback((next: ThemePref) => {
-    applyTheme(next)
-    setPrefState(next)
-    setThemeState(resolveTheme(next))
-  }, [])
-
-  /* Con preferencia 'system', reaccionar en vivo si el SO cambia de claro a oscuro
-     (sin este listener, 'sistema' sería un snapshot al montar, no "según tu sistema"). */
-  useEffect(() => {
-    if (pref !== 'system') return
-    const mql = systemMql()
-    if (!mql) return
-    const onChange = () => {
-      const next: Theme = mql.matches ? 'dark' : 'light'
-      document.documentElement.dataset.theme = next
-      setThemeState(next)
-    }
-    mql.addEventListener('change', onChange)
-    return () => mql.removeEventListener('change', onChange)
-  }, [pref])
-
-  const toggle = useCallback(() => {
-    setPref(theme === 'dark' ? 'light' : 'dark')
-  }, [theme, setPref])
-
-  return { pref, theme, setPref, toggle }
 }

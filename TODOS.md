@@ -592,3 +592,102 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 - **Empezar por:** las tres vistas que más duelen — `v_patient_visits`, `v_track_visits` y
   `v_procedure_report_alerts`.
 - **Depende de / bloqueado por:** nada.
+
+---
+
+## Ajustes · Preferencias — Idioma (i18n de la app)
+
+- **Qué:** el selector Español/English que la maqueta de Preferencias mostraba, con la
+  traducción real detrás.
+- **Por qué:** se cortó de la sección al hacerla funcional (plan `docs/plan-ajustes-funcional.md`,
+  2026-08-25). No es una preferencia: es traducir la app entera.
+- **Pros:** abriría Spira a centros o monitores que no trabajan en castellano.
+- **Contras:** **no es un toggle.** Hoy todo el copy está literal en los componentes, sin
+  librería de i18n ni claves. Es un proyecto propio, no un control de Ajustes. Y hay una
+  decisión de producto atrás: los comentarios y el dominio del repo son en castellano
+  rioplatense por convención explícita.
+- **Contexto:** el control existía en `PrefsSection.tsx` como `useState` que no hacía nada.
+  Dejar un toggle que promete inglés y no lo entrega viola la regla de honestidad de datos.
+- **Empezar por:** decidir si Spira va a ser multilingüe (decisión de producto, no técnica).
+  Recién después, elegir librería y extraer el copy.
+- **Depende de / bloqueado por:** decisión de producto del Director.
+
+---
+
+## Ajustes · Preferencias — Densidad de listas y tablas
+
+- **Qué:** el selector Cómoda/Compacta que la maqueta mostraba, con efecto real sobre el
+  espaciado de listas y tablas.
+- **Por qué:** se cortó al hacer funcional la sección (mismo plan). Requiere que los
+  espaciados sean variables, y hoy no lo son.
+- **Pros:** en pantallas chicas entrarían bastantes más filas por vista, que es un pedido
+  natural de quien trabaja todo el día contra una lista.
+- **Contras:** los paddings y gaps están escritos a mano en estilos inline por toda la app.
+  Hacerlo de verdad es tokenizar el espaciado en `tokens.css` y migrar los consumidores:
+  un proyecto de sistema de diseño, no un control.
+- **Contexto:** `PrefsSection.tsx` lo tenía como `useState` inerte.
+- **Empezar por:** `src/styles/tokens.css` — definir la escala de espaciado como variables y
+  medir cuántos componentes habría que migrar antes de comprometerse.
+- **Depende de / bloqueado por:** nada técnico; es cuestión de tamaño.
+
+---
+
+## Ajustes · Preferencias — Zona horaria
+
+- **Qué:** dejar elegir la zona horaria en vez de tomar la del navegador.
+- **Por qué:** se cortó al hacer funcional la sección (mismo plan), y de los tres cortes es
+  el único con consecuencia clínica.
+- **Pros:** un monitor o un sponsor mirando desde otro huso vería las fechas como las ve el centro.
+- **Contras:** ⚠️ **cambiar la zona horaria cambia qué día es "hoy"**, y de eso dependen la
+  Agenda, las ventanas de visita, los vencimientos y las alertas. Una ventana que se calcula
+  contra un "hoy" distinto puede marcar una visita fuera de plazo cuando no lo está —
+  o al revés. En un sistema auditable eso no es una preferencia cosmética.
+- **Contexto:** `PrefsSection.tsx` lo mostraba como "Tomada de tu navegador" con un botón
+  Cambiar inerte. Ese botón inerte era, de hecho, la decisión correcta.
+- **Empezar por:** `src/lib/dates.ts` — auditar cada cálculo que asume la zona local antes de
+  permitir que sea configurable.
+- **Depende de / bloqueado por:** que exista un caso de uso real (hoy no lo hay: todos
+  trabajan en Mendoza).
+
+---
+
+## Equipo y accesos · registrar los intentos rechazados
+
+- **Qué:** dejar rastro de los intentos de cambiar un acceso que el sistema rechaza (sin
+  permiso, auto-despojo de gerencia, último administrador, conflicto de concurrencia).
+- **Por qué:** los cambios exitosos quedan auditados por `trg_audit_module_roles` desde la
+  0003, pero los rechazados no dejan nada: el `raise exception` revierte la transacción y se
+  lleva puesto cualquier insert que se hubiera hecho dentro.
+- **Pros:** en un sistema regulado, los intentos rechazados son justamente lo que se mira
+  para detectar a alguien tanteando los límites de sus permisos.
+- **Contras:** escribir fuera de una transacción que revierte no es trivial: hace falta una
+  tabla aparte escrita por una función autónoma, o un canal fuera de la transacción. Es
+  complejidad real sobre la superficie más delicada de la app.
+- **Contexto:** surgió en la `/plan-ceo-review` de Ajustes (2026-08-25, sección 8). Se difirió
+  a propósito: con diez personas en el centro y quien administra siendo de confianza, el costo
+  supera al valor de hoy. Cuando el equipo crezca, la pregunta vuelve.
+- **Empezar por:** los RPC de `supabase/migrations/0095_consola_de_accesos.sql` — cada `raise`
+  es un punto donde habría que registrar.
+- **Depende de / bloqueado por:** que la consola de accesos esté en producción.
+- **Prioridad:** P3.
+
+---
+
+## Equipo y accesos · exportar la matriz de accesos
+
+- **Qué:** un botón que baje un CSV (o una hoja imprimible y firmable) con quién tenía qué
+  acceso a una fecha determinada.
+- **Por qué:** es el tipo de entregable que se pide en una auditoría de sistemas, y los datos
+  ya están todos en la pantalla.
+- **Pros:** barato de construir una vez que la consola existe: son horas, no días. La app ya
+  genera comprobantes imprimibles en Farmacia, así que el camino técnico está probado.
+- **Contras:** es especulativo. Nadie pidió todavía este papel y no sabemos qué formato acepta
+  una inspección. Construir un entregable regulatorio a ciegas suele terminar en rehacerlo
+  contra el requisito real.
+- **Contexto:** propuesto como expansión E3 en la `/plan-ceo-review` de Ajustes (2026-08-25) y
+  diferido deliberadamente por el Director. Ver `docs/plan-ajustes-funcional.md`.
+- **Empezar por:** la vista de equipo de `0095_consola_de_accesos.sql`, que ya devuelve la
+  matriz completa; y el patrón de impresión de las constancias de dispensación.
+- **Depende de / bloqueado por:** conocer el requisito real, o que el Director decida un
+  formato propio.
+- **Prioridad:** P3.

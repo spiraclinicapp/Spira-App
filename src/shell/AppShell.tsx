@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useLayoutEffect, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
-import { useTheme } from '../lib/theme'
+import { readLastModule, usePrefs, writeLastModule } from '../lib/prefs'
 import { useAuth } from '../lib/auth'
 import { MODULES } from '../modules/registry'
 import { resolveView } from '../views/registry'
@@ -12,9 +12,8 @@ import { UserMenu } from './UserMenu'
 import { NotificationsMenu } from './NotificationsMenu'
 import { AboutMenu } from './AboutMenu'
 import { FeedbackModal } from './FeedbackModal'
-import { SettingsModal } from './settings/SettingsModal'
-import type { SettingsSection } from './settings/SettingsModal'
-import { pushUrl, useUrlLocation } from '../lib/useUrlState'
+import { parseSettingsSection, SettingsModal } from './settings/SettingsModal'
+import { pushUrl, replaceUrl, useUrlLocation, useUrlState } from '../lib/useUrlState'
 import { NotFoundView } from './NotFoundView'
 
 /** Atajo del buscador global, según plataforma. */
@@ -88,7 +87,7 @@ function primaryActionBtn(accentSolid: string): CSSProperties {
 }
 
 export function AppShell() {
-  const { pref, theme, setPref, toggle } = useTheme()
+  const { prefs, theme, toggleTheme } = usePrefs()
   const { modules: userModules } = useAuth()
   /* Dónde estás parado sale de la URL, no de un useState: es lo que hace que F5 te deje donde estabas
      y que un link lleve a cualquier pantalla. `null` = la ruta no existe → NotFoundView (Task 5). */
@@ -114,9 +113,17 @@ export function AppShell() {
   /* Popover "Acerca de" (novedades + versión). El estado vive acá y no adentro del componente
      porque se abre desde dos lados: su botón del riel y el "Ver todas" de Novedades. */
   const [aboutOpen, setAboutOpen] = useState(false)
-  /* Ajustes (menú de usuario). null = cerrado; string = sección abierta. Es un
-     overlay: NO toca moduleKey/subKey, así cerrar vuelve a donde estabas. */
-  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
+  /* Ajustes (menú de usuario) vive en la URL: `?ajustes=<sección>`. Sigue siendo un overlay que NO
+     toca moduleKey/subKey —cerrar vuelve exactamente a donde estabas—, pero ahora sobrevive al F5,
+     se puede linkear, y el atrás del navegador lo cierra en vez de sacarte de la pantalla de atrás.
+     ABRIR apila (`push`) y CERRAR reemplaza (`replace`): el mismo criterio que usa `useUrlEntity`
+     para cualquier entidad abierta — si cerrar también apilara, el atrás la REABRIRÍA.
+     Cambiar de sección DENTRO de Ajustes también reemplaza: recorrer las tres pestañas no tiene por
+     qué costar tres "atrás" para salir. */
+  const [ajustesCrudo, abrirAjustes] = useUrlState('ajustes', '', { mode: 'push' })
+  const [, moverAjustes] = useUrlState('ajustes', '', { mode: 'replace' })
+  const settingsSection = parseSettingsSection(ajustesCrudo)
+  const cerrarAjustes = () => moverAjustes('')
   /* Navegación izquierda plegable completa (riel de módulos + panel de submódulos). Se
      togglea con el botón «Menú» del top bar. Preferencia global persistida en localStorage;
      se lee en el initializer para no parpadear al montar. */
@@ -126,6 +133,32 @@ export function AppShell() {
   useEffect(() => {
     try { localStorage.setItem('spira:nav:oculto', navHidden ? '1' : '0') } catch { /* storage no disponible */ }
   }, [navHidden])
+
+  /* Recordar por dónde ibas, para la preferencia "Página de inicio → Último módulo". Solo módulos
+     de verdad: volver a "Inicio" ya es lo que hace la otra opción, así que guardarlo lo volvería
+     indistinguible. */
+  useEffect(() => {
+    if (moduleKey !== 'inicio') writeLastModule(moduleKey)
+  }, [moduleKey])
+
+  /* Arranque según la preferencia. Corre UNA sola vez y sólo si seguís parado en la home: las
+     preferencias llegan de la base después del primer render, y para entonces el usuario puede haber
+     navegado —o haber entrado por un link directo, que es el caso importante—. Mandarlo al último
+     módulo en cualquiera de esos casos sería secuestrarle la navegación.
+     Va con `replaceUrl` y no `pushUrl`: el atrás no tiene que llevar a una home por la que el
+     usuario nunca pasó realmente. */
+  const arranqueResuelto = useRef(false)
+  useEffect(() => {
+    if (arranqueResuelto.current) return
+    if (moduleKey !== 'inicio' || subKey !== 'resumen') { arranqueResuelto.current = true; return }
+    if (prefs.homeView !== 'ultimo') return // puede que las prefs todavía no hayan llegado
+    arranqueResuelto.current = true
+    const ultimo = readLastModule()
+    if (!ultimo) return
+    const m = MODULES.find((x) => x.key === ultimo)
+    if (!m || !isAllowed(m.key) || !m.submodules[0]) return
+    replaceUrl({ moduleKey: m.key, subKey: m.submodules[0].key, path: [], query: {} })
+  }, [prefs.homeView, moduleKey, subKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Al cambiar de módulo/submódulo, limpiar el encabezado contextual (que no quede
      pegado de otra vista). Es un LAYOUT effect a propósito: flushea antes que los
@@ -148,7 +181,7 @@ export function AppShell() {
   const selectModule = (key: string) => {
     const m = MODULES.find((x) => x.key === key)
     if (!m || !isAllowed(m.key)) return
-    setSettingsSection(null) // navegar cierra Ajustes (era un overlay encima)
+    // Navegar cierra Ajustes solo: pushUrl escribe un query vacío y se lleva el ?ajustes= con él.
     setNavTarget(null) // navegación manual: sin objetivo pendiente
     setReturnTo(null)  // …ni camino de vuelta: te fuiste por tu cuenta
     /* La URL reemplaza a los dos useState de antes. Va con push: cambiar de módulo ES navegar, así
@@ -164,7 +197,6 @@ export function AppShell() {
   const navigate = (mKey: string, sKey: string, target?: NavTarget, back?: ReturnTo) => {
     const m = MODULES.find((x) => x.key === mKey)
     if (!m || !isAllowed(m.key) || !m.submodules.some((s) => s.key === sKey)) return
-    setSettingsSection(null) // navegar cierra Ajustes
     setNavTarget(target ?? null)
     setReturnTo(back ?? null)
     pushUrl({ moduleKey: mKey, subKey: sKey, path: [], query: {} })
@@ -289,14 +321,14 @@ export function AppShell() {
             <span className="spira-search-label">Buscar…</span>
             <span className="spira-search-kbd">{KBD}</span>
           </button>
-          <button onClick={toggle} style={iconBtn} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
+          <button onClick={toggleTheme} style={iconBtn} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
             <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} color="var(--spira-ink)" />
           </button>
           <NotificationsMenu onNavigate={navigate} isAllowed={isAllowed} />
 
           <span style={{ width: 1, height: 26, background: 'var(--spira-line)', margin: '0 4px' }} />
 
-          <UserMenu onOpenSettings={setSettingsSection} />
+          <UserMenu onOpenSettings={abrirAjustes} />
         </div>
       </header>
 
@@ -404,7 +436,7 @@ export function AppShell() {
                   <button
                     key={s.key}
                     onClick={() => {
-                      setSettingsSection(null); setNavTarget(null); setReturnTo(null)
+                      setNavTarget(null); setReturnTo(null)
                       pushUrl({ moduleKey, subKey: s.key, path: [], query: {} })
                     }}
                     /* El riel de módulos ya tenía `title`; el panel de submódulos era la única
@@ -569,15 +601,13 @@ export function AppShell() {
         />
       )}
 
-      {/* Modal de Ajustes (se abre desde el menú de usuario). Overlay a nivel shell,
-          junto a los demás. El tema (pref/setPref) es el único control ya "vivo". */}
+      {/* Modal de Ajustes (se abre desde el menú de usuario). Overlay a nivel shell, junto a los
+          demás. No recibe las preferencias por props: desde la 0093 las lee del PrefsProvider. */}
       {settingsSection && (
         <SettingsModal
           section={settingsSection}
-          setSection={setSettingsSection}
-          onClose={() => setSettingsSection(null)}
-          pref={pref}
-          setPref={setPref}
+          setSection={moverAjustes}
+          onClose={cerrarAjustes}
         />
       )}
     </div>

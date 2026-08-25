@@ -7,9 +7,11 @@ import { UserAvatar } from '../../components/UserAvatar'
 import { fieldInput } from '../../components/FormField'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import { useAuth } from '../../lib/auth'
-import type { ModuleRole } from '../../lib/auth'
+import { accessLabel } from '../../lib/roles'
+import { lockedUntil } from '../../lib/perfil'
 import { initialsOf } from '../../lib/initials'
 import { ACCENT, StCard, StRow, StPill, btnGhost, btnSolid } from './primitives'
+import { useMarkDirty } from './SettingsModal'
 
 /* Mi cuenta. Card de perfil editable "de verdad" (reglas server-side, migración 0045):
    · Nombre y correo → 1 cambio cada 30 días (RPC + timestamps; el input se bloquea
@@ -23,23 +25,9 @@ import { ACCENT, StCard, StRow, StPill, btnGhost, btnSolid } from './primitives'
 /** Catálogo de puestos. DEBE coincidir con el validador de update_my_puesto (0045). */
 const PUESTOS = ['Coordinadora', 'Investigador principal', 'Data manager', 'Farmacéutico', 'Enfermería', 'Administración']
 
-const ROLE_RANK: Record<ModuleRole, number> = { viewer: 1, operator: 2, leader: 3, admin: 4 }
-const ROLE_LABEL: Record<ModuleRole, string> = { viewer: 'Lectura', operator: 'Operador', leader: 'Líder', admin: 'Administrador' }
-
-/** Nivel de acceso más alto del usuario (para el badge). */
-function accessLabel(roles: Partial<Record<string, ModuleRole>>): string {
-  const rs = Object.values(roles).filter(Boolean) as ModuleRole[]
-  if (rs.length === 0) return 'Sin acceso'
-  return ROLE_LABEL[rs.reduce((a, b) => (ROLE_RANK[b] > ROLE_RANK[a] ? b : a))]
-}
-
-/** Si el campo está bloqueado por la regla de 30 días, devuelve la fecha en que se
-    libera (dd/mm/aaaa); si ya está disponible, null. */
-function lockedUntil(iso: string | null): string | null {
-  if (!iso) return null
-  const next = new Date(iso).getTime() + 30 * 24 * 60 * 60 * 1000
-  return next > Date.now() ? new Date(next).toLocaleDateString('es-AR') : null
-}
+/* `accessLabel` (nivel más alto) y `lockedUntil` (la ventana de 30 días) se mudaron a `lib/roles.ts`
+   y `lib/perfil.ts`: son reglas puras y ahora tienen tests. La segunda es de las que fallan callada
+   —un signo invertido deja el campo bloqueado para siempre, y eso no se ve mal en pantalla—. */
 
 export function AccountSection() {
   const { profile, session, roles, updateProfile, updatePuesto, requestEmailChange, updatePassword, signOutOthers } = useAuth()
@@ -50,6 +38,12 @@ export function AccountSection() {
   const access = accessLabel(roles)
   const nameLock = lockedUntil(profile?.nameChangedAt ?? null)
   const emailLock = lockedUntil(profile?.emailChangedAt ?? null)
+  /* Cambio de correo pedido y todavía sin confirmar. Sale de la SESIÓN, no de un useState: el aviso
+     de "te mandamos un link" vivía en el estado del componente y se evaporaba al cerrar Ajustes, así
+     que el usuario quedaba con un cambio a medio camino y ninguna pista de que existía. Supabase
+     expone el correo pendiente en `user.new_email` hasta que se confirma; mientras esté ahí, el
+     aviso está en pantalla, sobreviva lo que sobreviva. */
+  const pendingEmail = session?.user?.new_email ?? null
 
   const fields: { l: string; v: string; icon: IconName }[] = [
     { l: 'Nombre completo', v: name, icon: 'user' },
@@ -64,30 +58,63 @@ export function AccountSection() {
   const [dEmail, setDEmail] = useState(email)
   const [dPuesto, setDPuesto] = useState(puesto)
   const [saving, setSaving] = useState(false)
-  const [formErr, setFormErr] = useState<string | null>(null)
+  /* Un renglón POR CAMPO, no un string. Antes los tres errores se concatenaban con un espacio y
+     salían pegoteados en una línea, sin decir cuál campo era cuál — y como el formulario solo se
+     cerraba si NO había ningún error, una falla parcial te dejaba adentro sin saber que el puesto
+     ya se había guardado. Cada campo es una operación independiente contra su propio RPC; el
+     resultado tiene que leerse igual de independiente. */
+  const [formErr, setFormErr] = useState<{ campo: string; error: string }[]>([])
+  const [guardados, setGuardados] = useState<string[]>([])
   const [notice, setNotice] = useState<string | null>(null)
 
-  const startEdit = () => { setDName(name); setDEmail(email); setDPuesto(puesto); setFormErr(null); setNotice(null); setEditing(true) }
+  const startEdit = () => {
+    setDName(name); setDEmail(email); setDPuesto(puesto)
+    setFormErr([]); setGuardados([]); setNotice(null); setEditing(true)
+  }
+
   const save = async () => {
-    setSaving(true); setFormErr(null)
-    const errors: string[] = []
+    setSaving(true); setFormErr([]); setGuardados([])
+
+    /* Los tres campos van por RPCs distintos, así que "guardar" son hasta tres operaciones que
+       pueden fallar por separado. Se intentan TODAS —no se corta en la primera que falla— y cada
+       una deja su resultado: el usuario tiene que poder ver de un vistazo qué quedó guardado y qué
+       hay que reintentar. */
+    const errores: { campo: string; error: string }[] = []
+    const ok: string[] = []
+
     if (dPuesto !== puesto) {
       const { error } = await updatePuesto(dPuesto || null)
-      if (error) errors.push(error)
+      if (error) errores.push({ campo: 'Rol', error })
+      else ok.push('el rol')
     }
     if (!nameLock && dName.trim() && dName.trim() !== name) {
       const { error } = await updateProfile(dName)
-      if (error) errors.push(error)
+      if (error) errores.push({ campo: 'Nombre completo', error })
+      else ok.push('el nombre')
     }
-    let pending = false
+    let pedidoCorreo: string | null = null
     if (!emailLock && dEmail.trim() && dEmail.trim() !== email) {
-      const { error, pending: p } = await requestEmailChange(dEmail)
-      if (error) errors.push(error)
-      else pending = p
+      const { error, pending } = await requestEmailChange(dEmail)
+      if (error) errores.push({ campo: 'Correo institucional', error })
+      else if (pending) pedidoCorreo = dEmail.trim()
     }
+
     setSaving(false)
-    if (errors.length) { setFormErr(errors.join(' ')); return }
-    setNotice(pending ? `Te enviamos un link a ${dEmail.trim()} para confirmar el nuevo correo.` : 'Perfil actualizado.')
+
+    if (errores.length) {
+      /* Se queda en el formulario para poder reintentar, pero mostrando las DOS mitades: qué falló
+         (por campo) y qué sí quedó guardado. Sin la segunda, el usuario reintenta a ciegas lo que
+         ya había funcionado. */
+      setFormErr(errores)
+      setGuardados(ok)
+      return
+    }
+
+    setNotice(
+      pedidoCorreo
+        ? `Te enviamos un link a ${pedidoCorreo} para confirmar el nuevo correo.`
+        : 'Perfil actualizado.',
+    )
     setEditing(false)
   }
 
@@ -110,6 +137,10 @@ export function AccountSection() {
     setChanging(false); setPassDone(true)
   }
 
+  /* Con el perfil o la contraseña a medio editar, cerrar Ajustes pregunta antes de descartar. Los
+     dos formularios cuentan: los dos tienen texto escrito que no está guardado en ningún lado. */
+  useMarkDirty(editing || changing)
+
   /* cerrar otras sesiones */
   const [closing, setClosing] = useState(false)
   const [sess, setSess] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -125,6 +156,17 @@ export function AccountSection() {
       {notice && !editing && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-good)', background: '#5C8A5A16', border: '1px solid #5C8A5A33', borderRadius: 10, padding: '10px 14px' }}>
           <Icon name="check" size={15} color="#5C8A5A" /> {notice}
+        </div>
+      )}
+
+      {/* Cambio de correo pedido y sin confirmar. Va en ámbar (pendiente, no error ni éxito) y sale
+          de la sesión, así que sigue acá aunque cierres Ajustes, recargues o entres mañana — hasta
+          que el link se use. Antes esto era un `notice` de useState y desaparecía al primer cierre:
+          el correo quedaba a medio cambiar sin nada en pantalla que lo dijera. */}
+      {pendingEmail && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#B0823F', background: '#B0823F16', border: '1px solid #B0823F33', borderRadius: 10, padding: '10px 14px' }}>
+          <Icon name="clock" size={15} color="#B0823F" />
+          <span>Tenés un cambio de correo sin confirmar a <strong style={{ fontWeight: 600 }}>{pendingEmail}</strong>. Revisá esa casilla — el correo actual sigue siendo el de arriba hasta que lo confirmes.</span>
         </div>
       )}
 
@@ -169,7 +211,18 @@ export function AccountSection() {
               </div>
               <div style={note}>Definido por el centro asociado a tu cuenta.</div>
             </div>
-            {formErr && <div style={err}>{formErr}</div>}
+            {formErr.length > 0 && (
+              <div role="alert" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {formErr.map((f) => (
+                  <div key={f.campo} style={err}><strong style={{ fontWeight: 600 }}>{f.campo}:</strong> {f.error}</div>
+                ))}
+                {/* Lo que SÍ se guardó, en verde: sin esto el usuario reintenta a ciegas lo que ya
+                    funcionó, y en el caso del correo ese reintento consume la ventana de 30 días. */}
+                {guardados.length > 0 && (
+                  <div style={ok}>Se guardó {guardados.join(' y ')}.</div>
+                )}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button style={btnSolid()} onClick={save} disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</button>
               <button style={btnGhost} onClick={() => setEditing(false)} disabled={saving}>Cancelar</button>
