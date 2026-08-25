@@ -11,6 +11,7 @@ import { btnOutline, btnPrimary } from '../components/buttons'
 import { useDoctorQueue, markDoctorSeen } from '../data/dayVisits'
 import type { DayVisitRow } from '../data/dayVisits'
 import { visitCode, ageFromBirth, SEX_SHORT } from '../lib/visits'
+import { ProtoTag, VisitCodeTag } from './visitAtoms'
 import { todayISO, elapsedMinutes, elapsedShort } from '../lib/dates'
 import { oneOf } from '../lib/router'
 import { useUrlEntity, useUrlState } from '../lib/useUrlState'
@@ -281,10 +282,13 @@ function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen, onOpenP
                   ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
                   : 'Sin IVRS'}
               </span>
-              <span className="spira-mono" style={{ ...protocolPill, background: accent + '16', color: accent }}>
-                {visit.protocol_code}
-              </span>
-              {vcode && <span style={visitChip}>{vcode}</span>}
+              {/* Los MISMOS chips que Visitas del día (`ProtoTag` teñido por protocolo + código de
+                  visita en tinta plena), y no una píldora propia: es el mismo par de datos sobre la
+                  misma visita, y verlo distinto según la pantalla obliga a reaprenderlo. Pedido del
+                  Director (2026-08-25). El teñido además distingue los protocolos de un vistazo,
+                  que el verde del acento —igual para todos— no hacía. */}
+              <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
+              {vcode && <VisitCodeTag code={vcode} />}
             </div>
             <div style={identityLine}>
               <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
@@ -326,13 +330,6 @@ const rowCard: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 16,
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
   borderRadius: 14, padding: '16px 18px', marginBottom: 12,
-}
-const protocolPill: CSSProperties = {
-  fontSize: 11.5, padding: '1px 8px', borderRadius: 'var(--spira-radius-pill)', whiteSpace: 'nowrap',
-}
-const visitChip: CSSProperties = {
-  fontSize: 11.5, fontWeight: 600, color: 'var(--spira-muted)', background: 'var(--spira-surface)',
-  border: '1px solid var(--spira-line)', borderRadius: 6, padding: '1px 7px', whiteSpace: 'nowrap',
 }
 const identityLine: CSSProperties = {
   fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3,

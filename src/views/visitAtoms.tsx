@@ -46,6 +46,31 @@ export function ProtoTag({ code, protocolId }: { code: string; protocolId: strin
 }
 
 /**
+ * Etiqueta del código de visita ("V20", "Scr"): tinta plena, el contraste más alto de la fila.
+ *
+ * Va en negativo y no teñida como el protocolo, porque dice otra cosa: el protocolo identifica un
+ * estudio —y por eso su color varía y significa—, mientras que el código de visita ubica a esta
+ * visita en SU cronograma. Es el dato que se busca al escanear la lista, así que se lleva el peso.
+ *
+ * Vive acá, junto a `ProtoTag`, desde que la cola del médico adoptó el mismo par (pedido del
+ * Director, 2026-08-25): los dos chips tienen que verse igual en las dos pantallas, y tenerlos
+ * inline en cada vista es justo cómo se habían separado.
+ */
+export function VisitCodeTag({ code }: { code: string }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', padding: '2px 9px', borderRadius: 6,
+        background: 'var(--spira-ink)', color: 'var(--spira-paper)',
+        fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap',
+      }}
+    >
+      {code}
+    </span>
+  )
+}
+
+/**
  * Tags de procedimiento en la fila — variante `punto` del handoff: punto + nombre, en `muted`,
  * con wrap. Monocromo (el punto en `accent`): el catálogo real de procedimientos es de texto libre,
  * no tiene los 7 tonos/letras fijos del prototipo de demo → no se inventa una escala de color.
