@@ -113,7 +113,8 @@ que el día que se descomente esa línea la ruta se habilita sola, sin tocar el 
 /coordinacion/visitas                                Visitas del día (hoy, sin filtros)
 /coordinacion/visitas?dia=2026-08-22&estado=pendiente
 /coordinacion/visitas?dia=2026-08-22&visita=a3f9c1d2-77b4-4e11-9d0a-6c2f5b8e1a3d
-/farmacia/stock?apartado=protocolo&estado=pronto
+/farmacia/stock/catalogo?estado=vencido                     el catálogo, filtrado
+/farmacia/recepcion/nueva                                   creando una recepción
 /farmacia/dispensaciones                             tablero
 /farmacia/dispensaciones/D-3-240826-MP                      con el cajón abierto
 /farmacia/estadisticas?periodo=anio
@@ -149,11 +150,12 @@ Relevado uno por uno contra el `useState` de cada archivo. Todo lo que no figura
 | | `vista` | `vista` (`tablero`/`historial`) | `tablero` |
 | | `protocolo` | `protoSel[]` | vacío |
 | | `buscar` | `query` | vacío |
-| **Stock** | `apartado` | `apartado` (`menu`/`protocolo`/`ambulatoria`/`catalogo`) | `menu` |
+| **Stock** | *path* | `apartado` — el LUGAR va en la dirección: `/farmacia/stock/catalogo` | `menu` = sin segmento |
 | | `estado` | `filtro` (`todos`/`vigentes`/`pronto`/`vencido`) | `todos` |
 | | `buscar` | `busqueda` | vacío |
 | | `protocolo` | `protoSel[]` | vacío |
-| **Recepción** | `estado` | `fEstados[]` | vacío |
+| **Recepción** | *path* | `creating` — `/farmacia/recepcion/nueva` (dice que el wizard está abierto; **no** restaura lo cargado) | cerrado = sin segmento |
+| | `estado` | `fEstados[]` | vacío |
 | | `tipo` | `fTipos[]` | vacío |
 | | `medicamento` | `fMeds[]` | vacío |
 | | `protocolo` | `fProtoSel[]` | vacío |
