@@ -154,7 +154,10 @@ function PatientRowItem({ patient, accent, accentSolid, last, onOpenPatient }: {
             {patient.full_name}
           </PatientLink>
         </span>
-        {onOpenPatient && <PatientLinkArrow />}
+        {/* Gateada con `abrir` y NO con `onOpenPatient`: son condiciones distintas —`abrir` pide
+            además que el paciente tenga protocolo visible— y con la laxa un paciente sin
+            enrolamiento quedaría con la flecha pero sin ningún link que la encienda. */}
+        {abrir && <PatientLinkArrow />}
       </span>
       <span role="cell">
         <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 'var(--spira-radius-pill)', fontSize: 12, fontWeight: 600, color: statusVar(patient.status), background: `color-mix(in srgb, ${statusVar(patient.status)} 15%, transparent)` }}>
