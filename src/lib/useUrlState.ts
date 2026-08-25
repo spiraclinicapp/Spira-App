@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import type { Codec, UrlState } from './router'
 import { buildUrl, codecs, parseHref, readParam, writeParam } from './router'
 
@@ -13,7 +13,18 @@ import { buildUrl, codecs, parseHref, readParam, writeParam } from './router'
 
 const suscriptores = new Set<() => void>()
 
+/** El bloqueo de navegación activo, si alguno se registró (ver `useNavigationGuard`, más abajo).
+ *  Sólo puede haber uno a la vez — el propio hook documenta el límite. */
+let bloqueo: (() => void) | null = null
+
+/** La URL vigente ANTES del próximo cambio. Se actualiza en cada `avisar()` —el único punto donde
+ *  push/replace/popstate confirman una navegación—, así que cuando llega el `popstate` de un
+ *  bloqueo activo, acá está la URL que hay que reponer: el evento se dispara DESPUÉS de que el
+ *  navegador ya aplicó el cambio, así que `window.location` para entonces ya es la nueva. */
+let ultimaUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/'
+
 function avisar() {
+  if (typeof window !== 'undefined') ultimaUrl = window.location.pathname + window.location.search
   suscriptores.forEach((fn) => fn())
 }
 
@@ -25,7 +36,24 @@ function suscribir(fn: () => void): () => void {
 /* popstate = el usuario tocó atrás/adelante. Nuestros propios push/replace avisan a mano, porque el
    navegador NO emite popstate cuando el cambio lo hace el script. */
 if (typeof window !== 'undefined') {
-  window.addEventListener('popstate', avisar)
+  window.addEventListener('popstate', () => {
+    if (bloqueo) {
+      /* Alguien pidió que no se salga sin preguntar (un formulario con datos a medio cargar). El
+         `popstate` ya cambió la URL del navegador, así que la reponemos ANTES de avisarle a nadie:
+         los suscriptores nunca se enteran de que el usuario intentó salir, y por lo tanto no se
+         desmonta el componente que pidió el bloqueo — que es justo lo que hacía imposible resolver
+         esto desde ADENTRO del wizard (un `popstate` propio, registrado en el componente, perdía la
+         carrera contra este listener de módulo: éste corre primero porque se registró primero,
+         avisa a los suscriptores, y ese aviso desmonta el wizard —sacándole su listener— antes de
+         que el navegador le dé su turno en el mismo despacho del evento nativo).
+         `pushState` no emite un `popstate` nuevo (el navegador no lo hace para cambios por script),
+         así que reponer acá no realimenta este mismo listener. */
+      window.history.pushState(null, '', ultimaUrl)
+      bloqueo()
+      return
+    }
+    avisar()
+  })
 }
 
 function snapshot(): string {
@@ -85,17 +113,17 @@ export function useUrlState(
   key: string,
   def: string,
   opts?: { mode?: 'push' | 'replace' },
-): [string, (valor: string) => void]
+): [string, (valor: string | ((prev: string) => string)) => void]
 export function useUrlState<T>(
   key: string,
   def: T,
   opts: { codec: Codec<T>; mode?: 'push' | 'replace' },
-): [T, (valor: T) => void]
+): [T, (valor: T | ((prev: T) => T)) => void]
 export function useUrlState<T>(
   key: string,
   def: T,
   opts: { codec?: Codec<T>; mode?: 'push' | 'replace' } = {},
-): [T, (valor: T) => void] {
+): [T, (valor: T | ((prev: T) => T)) => void] {
   const codec = (opts.codec ?? codecs.str) as Codec<T>
   const mode = opts.mode ?? 'replace'
   const crudo = useUrlSnapshot()
@@ -103,25 +131,49 @@ export function useUrlState<T>(
   /* Memoizado por el mismo motivo que `useUrlLocation`, y acá pesa más: los codecs de lista
      (`codecs.list`, `listOf`) devuelven un ARRAY NUEVO en cada parseo. Sin memo, un filtro multi
      cambia de identidad en cada render, y una vista que lo ponga en las deps de un `useEffect` con
-     `setState` adentro entra en loop. `def` y `codec` quedan fuera de las deps por lo mismo que en
-     `setValor`: son literales del render. */
+     `setState` adentro entra en loop. `def` y `codec` quedan fuera de las deps: son literales del
+     render (`''`, `[]`, `codecs.list`) y meterlos acá volvería a calcular `valor` en CADA render,
+     deshaciendo el memo. Es seguro igual: acá arriba no se necesita el truco de ref que sí hace
+     falta en `setValor` (más abajo), porque en esta app un `def` que cambia entre renders SIEMPRE lo
+     hace por otro parámetro de la URL (el preset de Estadísticas, p. ej.), y ese cambio ya mueve
+     `crudo` — así que este `useMemo` recalcula de todos modos y ve el `def` vigente. */
   const valor = useMemo(() => {
     const estado = parseHref(crudo)
     return estado ? readParam(estado.query, key, def, codec) : def
   }, [crudo, key])
 
+  /* El setter (abajo) necesita el `def`/`codec` VIGENTES al momento de escribir, no los del render en
+     que se creó — y a diferencia de `valor`, acá no hay ningún `crudo` que lo salve: el `useCallback`
+     de más abajo tiene que quedar ESTABLE (varias vistas ponen el setter en las deps de un efecto), así
+     que `def`/`codec` no pueden ir en sus deps. La salida es un ref actualizado en cada render: el
+     setter sigue siendo la misma función siempre, pero lee estos valores frescos en vez de los que
+     cerró la primera vez. Sin esto, leer y escribir podían usar defaults DISTINTOS — no se notaba
+     porque la mayoría de los `def` de la app son literales estructuralmente iguales entre renders, pero
+     `dia` (Dispensaciones, Visitas del día, la cola médica) no lo es: su default es `todayISO()`, que
+     CAMBIA al cruzar la medianoche con la pestaña abierta. Sin este ref, un componente montado el día
+     anterior seguía escribiendo, al primer toque del día siguiente, contra el default con el que se
+     había montado — no el de hoy. */
+  const defCodecRef = useRef({ def, codec })
+  defCodecRef.current = { def, codec }
+
   const setValor = useCallback(
-    (nuevo: T) => {
+    (nuevo: T | ((prev: T) => T)) => {
+      const { def, codec } = defCodecRef.current
       const actual = parseHref(window.location.pathname + window.location.search)
       if (!actual) return
-      const siguiente: UrlState = { ...actual, query: writeParam(actual.query, key, nuevo, def, codec) }
+      /* Aceptamos el updater de `useState` (`setX(v => !v)`) y no sólo el valor: la firma promete ser
+         la de `useState` y varias vistas tienen toggles escritos así. Se resuelve contra lo que hay
+         en la URL AHORA —no contra el valor del render— por el mismo motivo por el que el resto de
+         este setter relee `window.location`: dos actualizaciones seguidas tienen que componer. */
+      const previo = readParam(actual.query, key, def, codec)
+      /* `typeof nuevo === 'function'` es seguro ACÁ porque ningún `T` de este proyecto es invocable
+         (son strings, arrays de strings, números y booleanos): si algún día se usa este hook con un
+         `T` que sea función, este chequeo lo confundiría con un updater. No es el caso hoy. */
+      const valorFinal = typeof nuevo === 'function' ? (nuevo as (prev: T) => T)(previo) : nuevo
+      const siguiente: UrlState = { ...actual, query: writeParam(actual.query, key, valorFinal, def, codec) }
       if (mode === 'push') pushUrl(siguiente)
       else replaceUrl(siguiente)
     },
-    /* `def` y `codec` quedan FUERA de las deps a propósito: son literales del render (`''`, `[]`,
-       `codecs.list`), así que su identidad cambia en cada render y meterlos acá recrearía el setter
-       cada vez — y varias vistas lo pasan en el array de dependencias de sus efectos. Lo que el
-       setter lee de ellos se resuelve en el momento de escribir, no cuando se creó. */
     [key, mode],
   )
 
@@ -134,17 +186,46 @@ export function useUrlState<T>(
  * Existe porque `parse` usa `null` como centinela de "valor inválido", así que `null` no puede ser
  * además un valor legítimo y la ausencia se representa con `''`. Sin este helper, cada vista que abre
  * algo repite el mismo adaptador entre `''` y `null` y se hace la misma pregunta ("¿me acordé del
- * `|| null`?"). Acá vive también la decisión de que abrir una entidad APILA historial: el atrás del
- * navegador la cierra, que es lo que el usuario espera del gesto.
+ * `|| null`?").
+ *
+ * ABRIR apila historial (`push`): el atrás del navegador cierra la entidad, que es lo que el usuario
+ * espera del gesto. CERRAR reemplaza (`replace`), no apila: si cerrar también apilara, el historial
+ * quedaría `[ficha, ficha?visita=X, ficha]` y el atrás REABRIRÍA el cajón que el usuario acaba de
+ * cerrar — costaría dos "atrás" por cada visita abierta y cerrada. Por eso son DOS instancias de
+ * `useUrlState` sobre la misma clave, una fija en cada modo: cada una ya trae resuelta la lectura del
+ * query y la escritura con push/replace, así que no hay que reimplementar ese cableado acá — solo
+ * elegir cuál `setValor` llamar según si `id` es `null`.
+ *
+ * El setter NO acepta updater (`(prev) => next`) como el de `useUrlState`: una entidad abierta se
+ * ABRE o se CIERRA, no se transforma a partir de sí misma —no hay un `setEntidad(prev => ...)` con
+ * sentido, porque abrir siempre necesita el id de afuera (el que se clickeó) y cerrar siempre es
+ * `null`—. Si algún día aparece un caso que sí necesite leer el valor previo, se agrega ahí.
+ *
+ * Devuelve TRES elementos, no dos: el segundo (`abrir`) es para cuando el usuario ABRE algo con una
+ * acción —apila, el atrás cierra, es la navegación de verdad—. El tercero (`moverA`) también escribe
+ * un id pero en REPLACE, para los casos que no son "entrar" a la pantalla: moverse de una entidad a
+ * otra sin salir de donde estás (el stepper ↑↓ de Visitas del día — recorrer quince visitas con el
+ * segundo setter apilaba QUINCE entradas, y el atrás no sacaba de la pantalla, reabría la visita 14,
+ * después la 13…) y resolver un `navTarget` que el shell YA apiló al traerte hasta acá (abrir ahí con
+ * el segundo setter apila una SEGUNDA entrada y el atrás queda a mitad de camino — el mismo problema
+ * que la Fase C ya había resuelto para `useUrlPath` con su `mode: 'replace'`, y que acá faltaba
+ * resolver igual). `moverA` reusa `cerrar` tal cual —es el mismo `useUrlState` en modo replace sobre
+ * esta clave— porque escribir un id con él hace exactamente lo mismo que abrir, solo que sin apilar.
  */
-export function useUrlEntity(key: string): [string | null, (id: string | null) => void] {
-  const [valor, setValor] = useUrlState(key, '', { mode: 'push' })
+export function useUrlEntity(key: string): [
+  string | null,
+  (id: string | null) => void,
+  (id: string | null) => void,
+] {
+  const [valor, abrir] = useUrlState(key, '', { mode: 'push' })
+  const [, cerrar] = useUrlState(key, '', { mode: 'replace' })
   /* `useCallback` y no una flecha inline: `setValor` (el de `useUrlState`) ya está memoizado —según
      sus propios comentarios— justamente porque varias vistas lo van a poner en las deps de un efecto.
      Sin esto, `useUrlPath` (abajo) conservaba esa propiedad y `useUrlEntity` la perdía sin avisar: de
      los dos helpers, uno quedaba estable y el otro no. */
-  const setEntidad = useCallback((id: string | null) => setValor(id ?? ''), [setValor])
-  return [valor || null, setEntidad]
+  const setEntidad = useCallback((id: string | null) => (id === null ? cerrar('') : abrir(id)), [abrir, cerrar])
+  const moverA = useCallback((id: string | null) => cerrar(id ?? ''), [cerrar])
+  return [valor || null, setEntidad, moverA]
 }
 
 /**
@@ -167,19 +248,66 @@ export function useUrlEntity(key: string): [string | null, (id: string | null) =
  * lista, cada vista pide EXACTAMENTE lo suyo: nada de todo-o-nada. El default sigue siendo descartar
  * (`conservar` ausente o vacío).
  */
-export function useUrlPath(): [string[], (path: string[], opts?: { conservar?: string[] }) => void] {
+export function useUrlPath(): [
+  string[],
+  (path: string[], opts?: { conservar?: string[]; mode?: 'push' | 'replace' }) => void,
+] {
   const ubicacion = useUrlLocation()
   const path = useMemo(() => ubicacion?.path ?? [], [ubicacion])
-  const setPath = useCallback((siguiente: string[], opts: { conservar?: string[] } = {}) => {
-    /* Se relee la URL del momento en vez de cerrar sobre `ubicacion`: el setter suele viajar en las
-       deps de un efecto y tiene que escribir sobre el estado de AHORA, no sobre el del render en que
-       se creó. */
-    const actual = parseHref(window.location.pathname + window.location.search)
-    if (!actual) return
-    const query = Object.fromEntries(
-      Object.entries(actual.query).filter(([k]) => opts.conservar?.includes(k)),
-    )
-    pushUrl({ ...actual, path: siguiente, query })
-  }, [])
+  const setPath = useCallback(
+    (siguiente: string[], opts: { conservar?: string[]; mode?: 'push' | 'replace' } = {}) => {
+      /* Se relee la URL del momento en vez de cerrar sobre `ubicacion`: el setter suele viajar en las
+         deps de un efecto y tiene que escribir sobre el estado de AHORA, no sobre el del render en que
+         se creó. */
+      const actual = parseHref(window.location.pathname + window.location.search)
+      if (!actual) return
+      const query = Object.fromEntries(
+        Object.entries(actual.query).filter(([k]) => opts.conservar?.includes(k)),
+      )
+      const siguienteState = { ...actual, path: siguiente, query }
+      /* `mode` existe por un caso puntual: cuando la vista está RESOLVIENDO un objetivo que le dejó el
+         shell (un `navTarget` del buscador global), no está navegando — el shell ya apiló su entrada al
+         traerte hasta acá. Apilar una segunda dejaría el "atrás" a mitad de camino: te devolvería a la
+         grilla en vez de a la pantalla desde la que buscaste. Ahí va `replace`; en todo lo demás, `push`. */
+      if (opts.mode === 'replace') replaceUrl(siguienteState)
+      else pushUrl(siguienteState)
+    },
+    [],
+  )
   return [path, setPath]
+}
+
+/**
+ * Bloquea el atrás/adelante del navegador mientras `activo` es true: en vez de dejar que la
+ * navegación avise a los suscriptores (lo que desmontaría al que pide el bloqueo), repone la URL
+ * anterior y llama a `alIntentarSalir` — pensado para un formulario con datos a medio cargar que
+ * necesita preguntar antes de perderlos (el mismo diálogo que ya muestra su botón Cancelar).
+ *
+ * Sólo intercepta atrás/adelante. **No** agrega `beforeunload`: recargar o cerrar la pestaña es un
+ * problema distinto, fuera del alcance de este hook.
+ *
+ * `alIntentarSalir` puede ser una función nueva en cada render (una arrow inline que cierra sobre
+ * estado del componente): se guarda en un ref actualizado en cada render, y el registro contra el
+ * módulo pasa por una función ESTABLE — así activar/desactivar el bloqueo no depende de la
+ * identidad de `alIntentarSalir`, sólo de `activo`.
+ *
+ * Sólo puede haber UN bloqueo activo a la vez: alcanza para hoy (un único formulario bloqueante por
+ * pantalla, nunca dos anidados). Si en algún momento hace falta apilar, hay que resolverlo acá — no
+ * es un caso real todavía, así que no se construye la pila por las dudas. Con el límite actual, un
+ * segundo consumidor que se activa simplemente TOMA el lugar del primero sin avisar.
+ */
+export function useNavigationGuard(activo: boolean, alIntentarSalir: () => void): void {
+  const alIntentarSalirRef = useRef(alIntentarSalir)
+  alIntentarSalirRef.current = alIntentarSalir
+
+  useEffect(() => {
+    if (!activo) return
+    const propio = () => alIntentarSalirRef.current()
+    bloqueo = propio
+    return () => {
+      // Sólo lo limpiamos si el bloqueo activo sigue siendo el nuestro: si otro consumidor ya
+      // tomó el lugar (ver el límite documentado arriba), este cleanup no debe borrárselo.
+      if (bloqueo === propio) bloqueo = null
+    }
+  }, [activo])
 }

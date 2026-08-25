@@ -10,6 +10,8 @@ import { useAuth } from '../../../lib/auth'
 import { formatAR } from '../../../lib/dates'
 import { toCsv, downloadCsv } from '../../../lib/csv'
 import { formatNumberAR, formatPctAR } from '../../../lib/numbers'
+import { codecs, oneOf } from '../../../lib/router'
+import { useUrlState } from '../../../lib/useUrlState'
 import {
   useReportExpired, useReportItems, useReportReceptions, useReportRejected,
 } from '../../../data/pharma'
@@ -48,10 +50,26 @@ import { sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
 export function ReportesView({ module }: ViewProps) {
   const { profile } = useAuth()
 
-  const [preset, setPreset] = useState<Preset>('30dias')
-  const [rango, setRango] = useState(() => rangoDePreset('30dias'))
+  /* El rango NO se guarda aparte: se deriva del preset, y solo cuando el preset es 'custom' viajan
+     desde/hasta. Guardar los dos sería poder contradecirse — una URL que dice periodo=anio con un
+     rango de tres días. */
+  const [preset, setPreset] = useUrlState<Preset>('periodo', '30dias', {
+    codec: oneOf(['30dias', 'mesEnCurso', 'anio', 'custom'] as const),
+  })
+  const [desde, setDesde] = useUrlState('desde', '')
+  const [hasta, setHasta] = useUrlState('hasta', '')
+  /* Memoizado: antes era `useState` (identidad estable); al derivarlo en cada render, un objeto
+     NUEVO en cada pasada arrastraba al `useMemo` de `d` más abajo —la pasada única sobre hasta 5.000
+     filas que arma serie, agregados e invariantes— que lo tiene en sus deps. No hay bucle (las
+     consultas dependen de los strings `desde`/`hasta`, no de `rango`), así que era costo y no
+     corrección, pero deshacía en silencio la decisión de diseño de ese comentario. */
+  const rango = useMemo(
+    () => (preset === 'custom' && desde && hasta ? { desde, hasta } : rangoDePreset(preset === 'custom' ? '30dias' : preset)),
+    [preset, desde, hasta],
+  )
+  const setRango = (r: { desde: string; hasta: string }) => { setDesde(r.desde); setHasta(r.hasta) }
   /** Protocolos del recorte, por CÓDIGO (así los filtran las vistas 0083). Vacío = todos. */
-  const [protoSel, setProtoSel] = useState<string[]>([])
+  const [protoSel, setProtoSel] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
   const [reporteEnCurso, setReporteEnCurso] = useState<string | null>(null)
   const [angosto, setAngosto] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1024)
 
@@ -171,15 +189,23 @@ export function ReportesView({ module }: ViewProps) {
     downloadCsv(`dispensaciones_${rango.desde}_${rango.hasta}.csv`, csv)
   }
 
+  /* Elegir un preset SUELTA cualquier rango cargado a mano: si `desde`/`hasta` quedaran con las
+     fechas del `custom` anterior, el cálculo de arriba las ignora (ya no es `custom`) pero seguirían
+     viajando en la URL sin usarse — la misma clase de auto-contradicción que el diseño evita.
+     Se limpian ANTES de cambiar el preset, mismo orden que `elegirRango`: la escritura de
+     desde/hasta va primero. */
   function elegirPreset(p: Exclude<Preset, 'custom'>) {
+    setRango({ desde: '', hasta: '' })
     setPreset(p)
-    setRango(rangoDePreset(p))
   }
 
-  /** Un rango elegido a mano deja de coincidir con cualquier preset: se apagan los tres chips. */
+  /** Un rango elegido a mano deja de coincidir con cualquier preset: se apagan los tres chips.
+      El ORDEN importa: primero desde/hasta, recién después preset='custom' — si se invirtiera, el
+      render que cae entre las dos escrituras vería preset='custom' con desde/hasta todavía vacíos
+      (o con los del rango anterior) y derivaría el rango del preset viejo en vez del elegido. */
   function elegirRango(desde: string, hasta: string) {
-    setPreset('custom')
     setRango({ desde, hasta })
+    setPreset('custom')
   }
 
   /* ── Estados ─────────────────────────────────────────────────────────────── */

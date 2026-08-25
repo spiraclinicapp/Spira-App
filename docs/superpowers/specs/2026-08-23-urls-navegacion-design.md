@@ -55,6 +55,15 @@ una máquina compartida de clínica) y en los logs de acceso de Vercel. Es una d
 Director, no un descuido. Si alguna vez hay que revertirla, el §6 (`buildUrl`/`parseUrl` como único
 lugar que arma URLs) hace que sea un cambio de una función y no una cacería por todo el repo.
 
+**Y una segunda vía, también ratificada (2026-08-24): `?buscar=` puede llevar un nombre.** Los
+buscadores de Visitas del día y de Pacientes matchean el nombre del paciente además del código, así
+que `/coordinacion/visitas?buscar=Rodriguez` deja un apellido en el historial, en los logs y en
+cualquier link compartido. **No es el identificador de la pantalla** —eso sigue siendo el IVRS— sino
+texto que el usuario tipeó, pero es el único camino por el que un nombre llega a la barra. El Director
+lo evaluó de frente y decidió dejarlo: se gana que recargar mantenga la búsqueda y que se pueda
+compartir una lista filtrada, y es coherente con la decisión del 2026-08-04 de mostrar el nombre en
+toda la app. Queda escrito acá para que sea una decisión y no un descubrimiento.
+
 ---
 
 ## 3. Decisiones
@@ -104,9 +113,10 @@ que el día que se descomente esa línea la ruta se habilita sola, sin tocar el 
 /coordinacion/visitas                                Visitas del día (hoy, sin filtros)
 /coordinacion/visitas?dia=2026-08-22&estado=pendiente
 /coordinacion/visitas?dia=2026-08-22&visita=a3f9c1d2-77b4-4e11-9d0a-6c2f5b8e1a3d
-/farmacia/stock?apartado=protocolo&estado=pronto
+/farmacia/stock/catalogo?estado=vencido                     el catálogo, filtrado
+/farmacia/recepcion/nueva                                   creando una recepción
 /farmacia/dispensaciones                             tablero
-/farmacia/dispensaciones/D-0417                      con el cajón abierto
+/farmacia/dispensaciones/D-3-240826-MP                      con el cajón abierto
 /farmacia/estadisticas?periodo=anio
 ```
 
@@ -124,7 +134,7 @@ Relevado uno por uno contra el `useState` de cada archivo. Todo lo que no figura
 | | `buscar` | `q` | vacío |
 | | `estado` | `fEstado[]` | vacío |
 | | `protocolo` | `fProto[]` | vacío |
-| | `medicacion` | `fMed[]` | vacío |
+| | `medico` | `fMed[]` (filtra por `treating_physician`, texto libre) | vacío |
 | | `coordinadora` | `fCoord[]` | vacío |
 | | `agrupar` | `group` (`operativo`/`estado`/`protocolo`/`medico`/`coordinador`/`ninguno`) | `operativo` |
 | | `visita` | `openVisit` | `null` |
@@ -140,11 +150,12 @@ Relevado uno por uno contra el `useState` de cada archivo. Todo lo que no figura
 | | `vista` | `vista` (`tablero`/`historial`) | `tablero` |
 | | `protocolo` | `protoSel[]` | vacío |
 | | `buscar` | `query` | vacío |
-| **Stock** | `apartado` | `apartado` (`menu`/`protocolo`/`ambulatoria`/`catalogo`) | `menu` |
+| **Stock** | *path* | `apartado` — el LUGAR va en la dirección: `/farmacia/stock/catalogo` | `menu` = sin segmento |
 | | `estado` | `filtro` (`todos`/`vigentes`/`pronto`/`vencido`) | `todos` |
 | | `buscar` | `busqueda` | vacío |
 | | `protocolo` | `protoSel[]` | vacío |
-| **Recepción** | `estado` | `fEstados[]` | vacío |
+| **Recepción** | *path* | `creating` — `/farmacia/recepcion/nueva` (dice que el wizard está abierto; **no** restaura lo cargado) | cerrado = sin segmento |
+| | `estado` | `fEstados[]` | vacío |
 | | `tipo` | `fTipos[]` | vacío |
 | | `medicamento` | `fMeds[]` | vacío |
 | | `protocolo` | `fProtoSel[]` | vacío |
@@ -164,24 +175,28 @@ Los multi-valor van separados por coma: `?estado=pendiente,en-curso`.
    dictable y no una tira de veinte parámetros redundantes.
 2. **Se escribe el legible, se leen los dos.** `buildUrl` emite siempre el código; `parseUrl` acepta
    código o UUID y resuelve contra los datos ya cargados.
-3. **El identificador corto son los primeros 8 caracteres del UUID, y lo usa solo el paciente sin
+3. **Los códigos NO distinguen mayúsculas** (decisión del Director, 2026-08-24): estas URLs se dictan
+   por teléfono. El match exacto gana; si no hay, se prueba ignorando la caja y sólo vale si es ÚNICO
+   — el `unique` de la base sí distingue, así que podrían convivir un `abc123` y un `ABC123`, y ante
+   ese empate no se abre ninguno. Lo resuelve `resolveCode` en `router.ts`.
+4. **El identificador corto son los primeros 8 caracteres del UUID, y lo usa solo el paciente sin
    IVRS** (con prefijo `p-`, para que nunca se confunda con un IVRS, que es numérico). 8 caracteres
    hex son 4.300 millones de combinaciones sobre un universo de miles de filas: la colisión es
    improbable, pero **no se asume**. El prefijo se resuelve contra los datos ya cargados y, si dos
    filas empatan, no se abre ninguna: se cae a la pantalla de "no se encontró" (§8). Nunca se elige
    una al azar — en una ficha clínica eso sería mostrarte el paciente equivocado.
-4. **La visita abierta (`?visita=`) va con el UUID completo**, no con el corto. Un identificador corto
+5. **La visita abierta (`?visita=`) va con el UUID completo**, no con el corto. Un identificador corto
    hay que resolverlo contra las filas cargadas, y la visita puede perfectamente no estar entre ellas:
-   [`TrackAlertsView.tsx:84`](../../../src/views/TrackAlertsView.tsx) lo dice explícitamente — `VisitDetail`
-   trae sus propios datos por id, y por eso **una alerta se puede abrir aunque los filtros de la vista
-   la dejen fuera**. Acortar el id rompería esa propiedad para ganar veinte caracteres de barra en un
-   modal. No vale el cambio.
-5. **Push vs replace**, según la tabla del §3. La distinción vive en el hook, no en cada vista: el tercer
+   el comentario de `useUrlEntity` en [`TrackAlertsView.tsx`](../../../src/views/TrackAlertsView.tsx)
+   lo dice explícitamente — `VisitDetail` trae sus propios datos por id, y por eso **una alerta se
+   puede abrir aunque los filtros de la vista la dejen fuera**. Acortar el id rompería esa propiedad
+   para ganar veinte caracteres de barra en un modal. No vale el cambio.
+6. **Push vs replace**, según la tabla del §3. La distinción vive en el hook, no en cada vista: el tercer
    argumento de `useUrlState` la declara una vez por campo.
-6. **Los valores viajan en minúscula y sin tildes.** Los enums de la base ya vienen así
+7. **Los valores viajan en minúscula y sin tildes.** Los enums de la base ya vienen así
    (`activo`, `pendiente`, `mesEnCurso`); donde el valor interno tenga mayúsculas se normaliza en el mapa
    de `router.ts`, nunca a mano en la vista.
-7. **Un parámetro desconocido o con un valor inválido se ignora en silencio** y se cae al default. Una
+8. **Un parámetro desconocido o con un valor inválido se ignora en silencio** y se cae al default. Una
    URL vieja, mal tipeada o recortada por WhatsApp abre la pantalla, no un error.
 
 ---

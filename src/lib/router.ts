@@ -44,6 +44,18 @@ const SUB_SLUG: Record<string, string> = {
 const MODULE_KEY: Record<string, string> = invertir(MODULE_SLUG)
 const SUB_KEY: Record<string, string> = invertir(SUB_SLUG)
 
+/* Submódulos que llevan segmentos propios después del submódulo: Pacientes (el protocolo y la ficha),
+   Dispensaciones (el código del cajón), Medicamentos/Stock (el apartado: protocolo, ambulatoria,
+   catálogo) y Recepción (el wizard de recepción nueva). Los cuatro son LUGARES a los que la app ya
+   apila historial y desde los que el atrás ya vuelve a donde estabas — esto solo lo hace visible en
+   la dirección. Para todos los demás submódulos, cualquier cosa que venga después es una ruta que no
+   existe — el §8 del spec pide avisarlo, no ignorarlo en silencio.
+   OJO al agregar un submódulo nuevo con segmentos propios: olvidarse de sumarlo acá NO falla al
+   CONSTRUIR la URL (`buildUrl` la arma igual, con el path adentro) — falla al ABRIRLA. `parseUrl`
+   la rechaza más abajo (`resto.length > 0 && !SUB_CON_PATH.has(subKey)`) y sale la pantalla de "esa
+   dirección no existe". Si un link nuevo no abre, este `Set` es el primer lugar para mirar. */
+const SUB_CON_PATH = new Set(['protocolos', 'dispensaciones', 'medicamentos', 'recepcion'])
+
 function invertir(mapa: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(mapa).map(([k, v]) => [v, k]))
 }
@@ -106,6 +118,7 @@ export function parseUrl(pathname: string, search: string): UrlState | null {
   const subKey = SUB_KEY[slugSub] ?? slugSub
   if (subSlug(moduleKey, subKey) !== slugSub) return null
   if (!mod.submodules.some((s) => s.key === subKey)) return null
+  if (resto.length > 0 && !SUB_CON_PATH.has(subKey)) return null
 
   return { moduleKey, subKey, path: resto, query }
 }
@@ -184,8 +197,15 @@ export const codecs = {
 
   /* Multi-valor separado por coma: ?estado=pendiente,en-curso */
   list: {
-    parse: (raw: string) => raw.split(',').filter(Boolean),
-    format: (v: string[]) => v.join(','),
+    /* Se escapa la coma DENTRO de cada elemento porque hay filtros sobre texto libre (el médico
+       tratante se carga con autocompletado, no de un catálogo): sin esto, "Pérez, Juan" vuelve del
+       parseo partido en dos y el filtro deja de encontrar nada — con la pantalla afirmando que
+       ninguna visita coincide, que es peor que un error.
+       El escape sobrevive el viaje: `URLSearchParams` convierte este `%2C` en `%252C`, así que el
+       `replace(/%2C/g, ',')` de `buildUrl` —que existe para que el SEPARADOR se dicte como coma— no
+       lo toca, y al leer se decodifica de vuelta a `%2C` para que este `parse` lo desescape. */
+    parse: (raw: string) => raw.split(',').filter(Boolean).map((v) => v.replace(/%2C/g, ',')),
+    format: (v: string[]) => v.map((x) => x.replace(/,/g, '%2C')).join(','),
   } as Codec<string[]>,
 
   num: {
@@ -214,6 +234,9 @@ export function oneOf<T extends string>(valores: readonly T[]): Codec<T> {
  * Existe para que los filtros multi-selección (estados, tipos) no tengan que castear `codecs.list`
  * al tipo del enum — un cast así compila pero deja pasar `?estado=inventado` como si fuera un valor
  * legítimo, tipado y todo, sin caer al default. Acá el valor inválido simplemente no entra.
+ *
+ * Sin el escape de coma que sí tiene `codecs.list`: los valores son de un enum CERRADO (`valores`),
+ * nunca texto libre cargado por alguien, así que ningún elemento puede traer una coma adentro.
  */
 export function listOf<T extends string>(valores: readonly T[]): Codec<T[]> {
   return {
@@ -282,4 +305,21 @@ export function resolveShortId<T extends { id: string }>(filas: T[], token: stri
   if (token.length < SHORT_ID_LEN) return null
   const candidatas = filas.filter((f) => f.id.startsWith(token))
   return candidatas.length === 1 ? candidatas[0] : null
+}
+
+/**
+ * Resuelve un código legible de la URL contra las filas cargadas, **sin distinguir mayúsculas**.
+ *
+ * Existe porque estas URLs se dictan por teléfono, y quien las escribe no tiene por qué respetar la
+ * caja del código. El match exacto gana; recién si no hay ninguno se prueba ignorando mayúsculas.
+ *
+ * Si al ignorarlas empatan DOS filas devuelve `null`: el `unique` de la base sí distingue caja, así
+ * que nada impide que convivan un `abc123` y un `ABC123`. Mismo criterio que `resolveShortId` ante un
+ * empate de prefijo — abrir el registro equivocado es peor que no abrir ninguno.
+ */
+export function resolveCode<T>(filas: T[], token: string, code: (fila: T) => string | null): T | null {
+  const exacto = filas.find((f) => code(f) === token)
+  if (exacto) return exacto
+  const flexible = filas.filter((f) => code(f)?.toLowerCase() === token.toLowerCase())
+  return flexible.length === 1 ? flexible[0] : null
 }

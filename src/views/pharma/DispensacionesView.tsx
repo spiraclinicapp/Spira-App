@@ -24,6 +24,8 @@ import { HistorialPorDias } from './dispensaciones/HistorialPorDias'
 import { btnOutline } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
 import { todayISO } from '../../lib/dates'
+import { codecs, oneOf, resolveCode, resolveShortId, shortId } from '../../lib/router'
+import { useUrlLocation, useUrlPath, useUrlState } from '../../lib/useUrlState'
 import type { ViewProps } from '../types'
 
 
@@ -39,19 +41,20 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const { hasMinRole } = useAuth()
   const canOperate = hasMinRole('pharma', 'operator')
 
-  const [day, setDay] = useState(todayISO())
+  const [day, setDay] = useUrlState('dia', todayISO())
   /* Protocolos elegidos por CÓDIGO; vacío = todos. Multi como en Stock y Visitas. `protoKey` es la
      versión estable para las deps: un array cambia de identidad en cada render y haría refetchear
      la consulta del historial (y reiniciar la paginación) sin que nadie toque el filtro. */
-  const [protoSel, setProtoSel] = useState<string[]>([])
+  const [protoSel, setProtoSel] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
   const protoKey = protoSel.join(',')
-  const [query, setQuery] = useState('')
-  const [vista, setVista] = useState<'tablero' | 'historial'>('tablero')
+  const [query, setQuery] = useUrlState('buscar', '')
+  const [vista, setVista] = useUrlState<'tablero' | 'historial'>('vista', 'tablero', {
+    codec: oneOf(['tablero', 'historial'] as const),
+  })
   const [pagina, setPagina] = useState(0)
   const [acumuladas, setAcumuladas] = useState<DispensationRequestRow[]>([])
   /** Última página ya volcada en `acumuladas`, para no aplicarla dos veces. */
   const aplicadaRef = useRef(-1)
-  const [openId, setOpenId] = useState<string | null>(null)
   const [creando, setCreando] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -59,6 +62,63 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
 
   const q = useDispensationBoard(day)
   const all = useMemo(() => q.data ?? [], [q.data])
+
+  /* El cajón va en el PATH y no en el query porque la dispensación tiene código legible propio:
+     /farmacia/dispensaciones/D-0417. Push, como toda entidad abierta: el atrás lo cierra.
+     El código NO vive en la fila de la solicitud: es de la dispensación EJECUTADA, embebida en
+     `dispensations[]` (0 o 1 por pedido) — se llega con `activeDispensation`, igual que en el resto
+     de este archivo (ver la búsqueda y el toast de `advance`).
+     Pero ese código se SELLA recién al marcar la dispensación lista (migración 0055:
+     `D-{n}-{ddmmyy}-{iniciales}`, `NULL` hasta entonces) — una que quedó rechazada, cancelada o
+     todavía en preparación nunca lo tiene, y tiene que poder enlazarse igual. Mismo criterio que el
+     paciente sin IVRS (`protocolsNav.ts`, IVRS que también se asigna tarde, en randomización): sin
+     código legible, el segmento es `shortId(id)` — acá SIN prefijo, a diferencia del `p-` de
+     Pacientes, porque no hace falta desambiguar: el código real siempre arranca con `D-` y un hex
+     corto de 8 nunca se confunde con eso. */
+  const codigoDe = (r: DispensationRequestRow) => activeDispensation(r)?.dispensation_code ?? null
+  const urlLocation = useUrlLocation()
+  const codigoAbierto = urlLocation?.path[0] ?? null
+  /* Se prueba primero `resolveCode` (el código legible, sin distinguir mayúsculas — decisión del
+     Director, 2026-08-24, porque estas direcciones se dictan por teléfono) y recién si no hay match
+     se cae a `resolveShortId` contra el `id`. Mismo orden que `protocolsNav.ts`, y por la misma
+     razón: sostiene una URL vieja con el identificador corto cuando la dispensación se SELLA
+     DESPUÉS de haberla compartido — el `id` no cambia, así que `shortId(id)` la sigue encontrando
+     aunque ya tenga código.
+     Se busca en `all` Y en `acumuladas` en cada paso, igual que `open` más abajo: el historial
+     pagina hacia atrás y muestra entregas de días anteriores al `day` elegido, que no están en `all`
+     (acotado al día) — buscar solo ahí dejaba esas filas sin poder abrirse por URL. */
+  const openId = codigoAbierto
+    ? (
+        resolveCode(all, codigoAbierto, codigoDe) ??
+        resolveCode(acumuladas, codigoAbierto, codigoDe) ??
+        resolveShortId(all, codigoAbierto) ??
+        resolveShortId(acumuladas, codigoAbierto)
+      )?.id ?? null
+    : null
+  const [, setPath] = useUrlPath()
+  const setOpenId = (id: string | null) => {
+    const fila = id ? all.find((d) => d.id === id) ?? acumuladas.find((d) => d.id === id) ?? null : null
+    // Sin código sellado (rechazada, cancelada o todavía en preparación) se escribe el identificador
+    // corto — ver el comentario de `codigoDe` más arriba.
+    //
+    // Hay un caso más: id SIN fila. Es el del alta (ver el `onCreated` de más abajo), que abre el
+    // cajón de preparación apenas se crea la solicitud — pero el `refetch` que la trae es asíncrono,
+    // así que en el momento de este llamado la fila todavía no está ni en `all` ni en `acumuladas`.
+    // Se escribe igual el corto del id: una dispensación recién creada NUNCA tiene código sellado (se
+    // sella al marcar lista), así que el corto es SIEMPRE el segmento correcto para ese caso, no una
+    // aproximación. Cuando llegue el refetch, `resolveShortId` la encuentra contra ese mismo corto y
+    // el cajón abre solo, sin que nadie tenga que volver a llamar a este setter.
+    const codigo = fila ? (codigoDe(fila) ?? shortId(fila.id)) : id ? shortId(id) : null
+    /* Se conservan los cuatro filtros del tablero: abrir un cajón no puede resetearte el tablero que
+       tenías detrás, ni dejarte ahí al cerrarlo.
+       Y abrir apila (el atrás cierra el cajón) pero **cerrar reemplaza**: si cerrar también apilara,
+       el atrás REABRIRÍA el cajón que acabás de cerrar, y en esta pantalla abrir y cerrar cajones es
+       el trabajo. Es la misma lección que costó el review de la Fase D con el stepper de Visitas. */
+    setPath(codigo ? [codigo] : [], {
+      conservar: ['dia', 'vista', 'protocolo', 'buscar'],
+      mode: codigo ? 'push' : 'replace',
+    })
+  }
 
   // El historial no FILTRA por fecha (sigue mostrando todos los días, como pide el handoff): la
   // fecha mueve el punto de partida de la lista, que arranca ahí y avanza hacia atrás.
@@ -149,6 +209,21 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
   const open = openId
     ? all.find((r) => r.id === openId) ?? acumuladas.find((r) => r.id === openId) ?? null
     : null
+
+  /**
+   * Aviso sereno cuando la URL trae un código que no matchea ninguna fila cargada. NO es "no existe":
+   * el tablero legítimamente no contiene TODAS las dispensaciones (las columnas activas se acotan al
+   * día y el historial pagina), así que afirmar eso sería mentir. Se avisa lo que sabemos —no está
+   * entre lo cargado— y se sugiere dónde mirar.
+   *
+   * No es un caso de laboratorio: un link a una dispensación entregada, compartido hoy y abierto
+   * mañana —con `dia` en su default, que por eso no viaja en la URL—, cae justo acá: el tablero de
+   * mañana no la trae (acotado al día) y el historial ni siquiera se consultó (arranca en `tablero`).
+   *
+   * Tres condiciones, ni una menos ni una más: hay segmento en la URL, las DOS consultas (tablero e
+   * historial) ya terminaron de cargar, y no resolvió contra ninguna fila.
+   */
+  const codigoNoResuelto = codigoAbierto !== null && !q.loading && !h.loading && !open
 
   /**
    * La acción primaria va en la fila del título (donde el shell la alinea con el H1); los tres
@@ -278,6 +353,13 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
         </div>
       )}
 
+      {codigoNoResuelto && (
+        <div style={avisoBox} role="status">
+          <Icon name="info" size={15} />
+          <span>No encontramos esa dispensación entre las de esta fecha. Probá el historial, o movete al día en que se entregó.</span>
+        </div>
+      )}
+
       {vista === 'historial' ? (
         h.loading && acumuladas.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '10px 2px' }}>Cargando historial…</div>
@@ -387,4 +469,12 @@ const errBox: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto', fontSize: 13,
   color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.08)',
   border: '1px solid rgba(166, 72, 59, 0.25)', borderRadius: 10, padding: '10px 13px',
+}
+
+// Misma forma que errBox (icono + texto en una caja con borde), pero en el tono calmo de aviso —
+// no de error — que ya usa el resto de la app para "esto no es lo que esperabas, pero no rompió nada".
+const avisoBox: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto', fontSize: 13,
+  color: 'var(--spira-acc-deep-warn)', background: 'var(--spira-surface)',
+  border: '1px solid var(--spira-line-2)', borderRadius: 10, padding: '10px 13px',
 }

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { MODULES } from '../modules/registry'
 import type { Codec } from './router'
 import {
-  buildUrl, codecs, homeUrl, listOf, oneOf, parseHref, parseUrl, readParam, resolveShortId, shortId, writeParam,
+  buildUrl, codecs, homeUrl, listOf, oneOf, parseHref, parseUrl, readParam, resolveCode, resolveShortId, shortId,
+  writeParam,
 } from './router'
 
 /**
@@ -64,6 +65,42 @@ describe('parseUrl · módulo y submódulo', () => {
     })
   })
 
+  /* Solo Pacientes (protocolo + ficha) y Dispensaciones (código del cajón) usan los segmentos que
+     siguen al submódulo. Para el resto, cualquier cosa después es una ruta que no existe — antes se
+     ignoraba en silencio y abría el submódulo igual, pisando la pantalla de "esa dirección no existe"
+     que el §8 del spec promete. */
+  it('un submódulo que no lleva path rechaza los segmentos de más', () => {
+    expect(parseUrl('/coordinacion/visitas/loquesea', '')).toBeNull()
+    expect(parseUrl('/coordinacion/alertas/x/y', '')).toBeNull()
+  })
+
+  it('los que sí llevan path los siguen aceptando', () => {
+    expect(parseUrl('/coordinacion/pacientes/EFC18244', '')).toMatchObject({ path: ['EFC18244'] })
+    expect(parseUrl('/farmacia/dispensaciones/D-0417', '')).toMatchObject({ path: ['D-0417'] })
+  })
+
+  /* El apartado de Stock y el wizard de Recepción nueva son LUGARES, no filtros: el apartado ya
+     apila historial y el atrás ya vuelve al menú, así que la URL tiene que decirlo. Mismo mecanismo
+     que Pacientes/Dispensaciones — sumar la key al Set de `SUB_CON_PATH` — y misma pantalla serena
+     ante un segmento inválido, que valida cada VISTA (acá solo se prueba que `parseUrl` deja pasar el
+     segmento; MedicamentosView y RecepcionView son las que deciden si ESE segmento existe). */
+  it('medicamentos (Stock) y recepción también llevan path: el apartado y el wizard son un lugar', () => {
+    expect(parseUrl('/farmacia/stock/catalogo', '')).toMatchObject({
+      moduleKey: 'pharma', subKey: 'medicamentos', path: ['catalogo'],
+    })
+    expect(parseUrl('/farmacia/recepcion/nueva', '')).toMatchObject({
+      moduleKey: 'pharma', subKey: 'recepcion', path: ['nueva'],
+    })
+  })
+
+  /* Sumar dos keys a SUB_CON_PATH no puede aflojar el resto: Visitas y Alertas (Coordinación) siguen
+     sin path propio y un segmento de más sigue siendo una ruta que no existe, no un submódulo nuevo
+     que empezó a aceptar cualquier cola en silencio. */
+  it('los submódulos sin path (Visitas, Alertas) los siguen rechazando', () => {
+    expect(parseUrl('/coordinacion/visitas/loquesea', '')).toBeNull()
+    expect(parseUrl('/coordinacion/alertas/x', '')).toBeNull()
+  })
+
   it('lee el query', () => {
     expect(parseUrl('/coordinacion/visitas', '?dia=2026-08-22&estado=pendiente')).toMatchObject({
       query: { dia: '2026-08-22', estado: 'pendiente' },
@@ -118,6 +155,9 @@ describe('buildUrl', () => {
       '/farmacia/dispensaciones',
       '/farmacia/dispensaciones/D-0417',
       '/farmacia/estadisticas',
+      // El apartado de Stock y el wizard de Recepción nueva: lugares, no filtros (2026-08-24).
+      '/farmacia/stock/catalogo',
+      '/farmacia/recepcion/nueva',
       // Con query: son la mitad de los ejemplos del §4.2 y faltaban. El primero es el que agarra la
       // coma porcentuada.
       '/coordinacion/visitas?dia=2026-08-22&estado=pendiente,en-curso',
@@ -189,6 +229,27 @@ describe('codecs', () => {
   it('listOf: ida y vuelta de una lista válida', () => {
     const c = listOf(['activo', 'pausado'] as const)
     expect(c.parse(c.format(['activo', 'pausado']))).toEqual(['activo', 'pausado'])
+  })
+})
+
+describe('codecs.list · escapa la coma DENTRO de un elemento (texto libre, no un enum)', () => {
+  /* `treating_physician` (el filtro "Médico" de Visitas del día) es texto libre cargado con
+     autocompletado, no un catálogo cerrado: un médico guardado como "Pérez, Juan" tiene que
+     sobrevivir el viaje completo por la URL sin partirse en dos elementos — si se parte, el filtro
+     deja de encontrar coincidencias y la pantalla dice "ninguna visita coincide", que es peor que
+     un error (fallo en SILENCIO, con una afirmación falsa en una app auditable). */
+  it('un elemento con coma sobrevive la ida y vuelta del codec', () => {
+    expect(codecs.list.parse(codecs.list.format(['Pérez, Juan']))).toEqual(['Pérez, Juan'])
+  })
+
+  it('sobrevive el viaje completo por buildUrl → parseUrl, mezclado con el separador real', () => {
+    const estado = {
+      moduleKey: 'track', subKey: 'visitas', path: [],
+      query: { medico: codecs.list.format(['Pérez, Juan', 'García']) },
+    }
+    const url = buildUrl(estado)
+    const vuelta = parseHref(url)
+    expect(readParam(vuelta!.query, 'medico', [], codecs.list)).toEqual(['Pérez, Juan', 'García'])
   })
 })
 
@@ -294,6 +355,46 @@ describe('identificadores cortos', () => {
   it('resuelve por PREFIJO, no por subcadena', () => {
     const enElMedio = [{ id: 'aaaaaaaa-0000-4000-8000-8f3a2c1d0000' }]
     expect(resolveShortId(enElMedio, '8f3a2c1d')).toBeNull()
+  })
+})
+
+describe('resolveCode · el código de la URL no distingue mayúsculas', () => {
+  /* POR QUÉ: estas URLs se dictan por teléfono y quien las escribe no tiene por qué respetar la
+     caja del código. Pero el `unique` de la base SÍ distingue mayúsculas, así que nada impide que
+     convivan un 'abc123' y un 'ABC123' como protocolos distintos — de ahí la trampa que fijan los
+     tests de empate: ignorar la caja no puede elegir por vos cuando hay más de un candidato. */
+  const code = (f: { code: string | null }) => f.code
+
+  it('match exacto', () => {
+    const filas = [{ code: 'EFC18244' }, { code: 'OTRO' }]
+    expect(resolveCode(filas, 'EFC18244', code)).toBe(filas[0])
+  })
+
+  it('match con la caja cambiada', () => {
+    const filas = [{ code: 'EFC18244' }, { code: 'OTRO' }]
+    expect(resolveCode(filas, 'efc18244', code)).toBe(filas[0])
+  })
+
+  it('dos filas que solo difieren en la caja: no elige ninguna', () => {
+    const filas = [{ code: 'abc123' }, { code: 'ABC123' }]
+    // 'Abc123' no matchea EXACTO con ninguna de las dos, así que cae al flexible — y ahí empatan.
+    expect(resolveCode(filas, 'Abc123', code)).toBeNull()
+  })
+
+  it('el exacto gana sobre el flexible cuando existen los dos', () => {
+    const filas = [{ code: 'abc' }, { code: 'ABC' }]
+    expect(resolveCode(filas, 'abc', code)).toBe(filas[0])
+  })
+
+  it('sin coincidencias devuelve null', () => {
+    const filas = [{ code: 'abc' }]
+    expect(resolveCode(filas, 'xyz', code)).toBeNull()
+  })
+
+  it('filas con el código en null no rompen', () => {
+    const filas = [{ code: null }, { code: 'EFC18244' }]
+    expect(resolveCode(filas, 'efc18244', code)).toBe(filas[1])
+    expect(resolveCode(filas, 'nope', code)).toBeNull()
   })
 })
 

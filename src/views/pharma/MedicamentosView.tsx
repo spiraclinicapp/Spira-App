@@ -9,6 +9,8 @@ import { MultiFilterMenu } from '../../components/MultiFilterMenu'
 import type { MultiFilterOption } from '../../components/MultiFilterMenu'
 import { btnOutline } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
+import { codecs, oneOf, resolveCode } from '../../lib/router'
+import { useUrlPath, useUrlState } from '../../lib/useUrlState'
 import { useProtocols } from '../../data/protocols'
 import {
   useProtocolLots,
@@ -23,12 +25,35 @@ import { AdjustStockModal } from './AdjustStockModal'
 import { CodigoModal } from './CodigoModal'
 import { DeleteMedicationModal } from './DeleteMedicationModal'
 import { Toast } from '../../components/Toast'
+import { NotFoundView } from '../../shell/NotFoundView'
 import type { ViewProps } from '../types'
 import { ESTADO_CFG } from './expiryState'
 import type { Estado } from './expiryState'
 
 type Apartado = 'menu' | 'protocolo' | 'ambulatoria' | 'catalogo'
 type EstadoFilter = 'todos' | 'vigentes' | 'pronto' | 'vencido'
+
+/** Apartados que ocupan un segmento del path. 'menu' NO está: es la AUSENCIA de segmento, igual que
+    `/coordinacion/pacientes` sin código es la grilla — nunca se escribe `/stock/menu`. */
+const APARTADOS_SEGMENTO: readonly Apartado[] = ['protocolo', 'ambulatoria', 'catalogo']
+
+/** Claves de los filtros de ESTA vista (los `useUrlState` que quedan más abajo): se conservan al
+    abrir o cerrar un apartado, para que `setPath` —que por default DESCARTA todo el query— no se
+    los lleve puestos. */
+const FILTROS_STOCK = ['estado', 'buscar', 'protocolo']
+
+/**
+ * El segmento del path → el `Apartado` que ya conoce el resto de la vista (la traducción va SOLO en
+ * este borde, igual que la de `protoCodes` más abajo). `null` = el segmento no es ninguno de los tres
+ * apartados (`/farmacia/stock/inventado`): la vista tiene que mostrar la pantalla serena DENTRO del
+ * marco, como hace `ProtocolsView` con un código de protocolo inexistente — no caer al menú en
+ * silencio, que escondería que el link estaba roto.
+ */
+function apartadoDesdePath(path: string[]): Apartado | null {
+  if (path.length === 0) return 'menu'
+  if (path.length === 1 && (APARTADOS_SEGMENTO as string[]).includes(path[0])) return path[0] as Apartado
+  return null
+}
 
 /** Etiqueta del apartado para la miga del breadcrumb (null en el menú = header genérico). */
 const APARTADO_LABEL: Record<Apartado, string | null> = {
@@ -71,10 +96,24 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   const { hasMinRole } = useAuth()
   const canManage = hasMinRole('pharma', 'leader')
 
-  const [apartado, setApartado] = useState<Apartado>('menu')
-  const [filtro, setFiltro] = useState<EstadoFilter>('todos')
-  const [busqueda, setBusqueda] = useState('')
-  const [protoSel, setProtoSel] = useState<string[]>([])
+  /* El apartado es un LUGAR (2026-08-24): vive en el path, no en el query. `menu` es la ausencia de
+     segmento. Abrir un apartado apila (push, el atrás vuelve al menú); volver al menú reemplaza (si
+     apilara, el atrás reabriría el apartado que acabás de cerrar) — la misma distinción que ya
+     resolvía `useUrlEntity` para una entidad abierta, acá con dos wrappers de `setPath` en vez de dos
+     instancias de `useUrlState`. */
+  const [path, setPath] = useUrlPath()
+  const apartadoResuelto = apartadoDesdePath(path)
+  const apartado: Apartado = apartadoResuelto ?? 'menu'
+  const apartadoRoto = apartadoResuelto === null
+  const abrirApartado = (siguiente: Apartado) =>
+    setPath([siguiente], { conservar: FILTROS_STOCK, mode: 'push' })
+  const [filtro, setFiltro] = useUrlState<EstadoFilter>('estado', 'todos', {
+    codec: oneOf(['todos', 'vigentes', 'pronto', 'vencido'] as const),
+  })
+  const [busqueda, setBusqueda] = useUrlState('buscar', '')
+  /* La URL habla CÓDIGOS (dictables); la lógica interna sigue con ids. La traducción vive sólo en
+     este borde, así el filtrado, los menús y las queries no se enteran. */
+  const [protoCodes, setProtoCodes] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
   const [dropdownId, setDropdownId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<MedicationRow | null>(null)
@@ -84,6 +123,12 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   const [ajuste, setAjuste] = useState<{ lotId: string; name: string; lotLabel: string } | null>(null)
 
   const protocols = useProtocols()
+  const protoSel = useMemo(
+    () => protoCodes.map((c) => resolveCode(protocols.data ?? [], c, (p) => p.code)?.id).filter((id): id is string => !!id),
+    [protoCodes, protocols.data],
+  )
+  const setProtoSel = (ids: string[]) =>
+    setProtoCodes(ids.map((id) => (protocols.data ?? []).find((p) => p.id === id)?.code).filter((c): c is string => !!c))
   const protoLots = useProtocolLots()
   const ambuLots = useAmbulatoriaLots()
   const ipAll = useIpStockAll()
@@ -105,7 +150,10 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     return () => document.removeEventListener('keydown', onKey)
   }, [dropdownId])
 
-  const goMenu = useCallback(() => { setApartado('menu'); setBusqueda(''); setFiltro('todos'); setProtoSel([]); setDropdownId(null) }, [])
+  const goMenu = useCallback(() => {
+    setPath([], { conservar: FILTROS_STOCK, mode: 'replace' })
+    setBusqueda(''); setFiltro('todos'); setProtoCodes([]); setDropdownId(null)
+  }, [setPath])
   const refetchAll = () => { protoLots.refetch(); ambuLots.refetch(); catalog.refetch(); codes.refetch() }
 
   // Encabezado contextual: el shell ya pone breadcrumb + título ("Stock") + botón de acción.
@@ -125,6 +173,11 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     }
     return () => setHeader(null)
   }, [setHeader, apartado, canManage, goMenu])
+
+  // Un segmento que no es ninguno de los tres apartados (`/farmacia/stock/inventado`): pantalla
+  // serena DENTRO del marco, igual que ProtocolsView ante un código de protocolo inexistente. NO cae
+  // al menú en silencio — eso escondería que el link estaba roto.
+  if (apartadoRoto) return <NotFoundView motivo="ruta" />
 
   const openEdit = (row: MedicationRow) => { setDropdownId(null); setEditing(row) }
   const openEliminar = (row: MedicationRow) => { setDropdownId(null); setDeleting(row) }
@@ -153,19 +206,19 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
             icon="file" tint="rgba(15, 95, 87,.14)" iconColor="var(--spira-pharma-solid)"
             title="Farmacia Protocolo" desc="Medicación de estudio, por protocolo"
             counter={`${nProto} ${nProto === 1 ? 'protocolo' : 'protocolos'}`}
-            onClick={() => setApartado('protocolo')}
+            onClick={() => abrirApartado('protocolo')}
           />
           <ApartadoCard
             icon="pill" tint="rgba(58,107,140,.12)" iconColor="var(--spira-contable)"
             title="Farmacia Ambulatoria" desc="Farmacia general, listado plano"
             counter={`${nAmbu} ${nAmbu === 1 ? 'medicamento' : 'medicamentos'}`}
-            onClick={() => setApartado('ambulatoria')}
+            onClick={() => abrirApartado('ambulatoria')}
           />
           <ApartadoCard
             icon="list" tint="rgba(15,95,87,.10)" iconColor="var(--spira-primary)"
             title="Catálogo" desc="Todo el catálogo global"
             counter={`${nCat} ${nCat === 1 ? 'medicamento' : 'medicamentos'}`}
-            onClick={() => setApartado('catalogo')}
+            onClick={() => abrirApartado('catalogo')}
           />
         </div>
       </div>

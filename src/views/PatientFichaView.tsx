@@ -6,6 +6,7 @@ import { Modal } from '../components/Modal'
 import type { ProtocolRow } from '../data/protocols'
 import type { PatientRow } from '../data/patients'
 import { usePatientVisits, useVisitAlerts } from '../data/visits'
+import { useUrlEntity } from '../lib/useUrlState'
 import {
   adherence, ageFromBirth, currentVisit, orderVisits, visitTitle, studyTime,
   FERTILITY_LABELS, SEX_LABELS,
@@ -59,7 +60,12 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   // Detalle de una visita del cronograma: el MISMO componente que abre la vista del día
   // (VisitDetail), sincronizado por leer de la misma vista. Guardamos el id y el detalle se
   // trae sus propios datos.
-  const [openVisitId, setOpenVisitId] = useState<string | null>(null)
+  /* La visita abierta va con push —abrirla es navegar y el atrás tiene que cerrarla—, y con el UUID
+     COMPLETO, no corto: `VisitDetail` trae sus propios datos por id, así que puede abrir una visita
+     que NO esté entre las filas cargadas. Un identificador corto habría que resolverlo contra esas
+     filas y rompería justamente eso (ver el comentario de `useUrlEntity` en TrackAlertsView.tsx, el
+     que explica por qué usa el id completo). */
+  const [openVisitId, setOpenVisitId] = useUrlEntity('visita')
 
   /* Enrolamiento del protocolo en contexto: de ahí salen el médico y la fecha de
      ingreso (sin depender de que existan visitas). */

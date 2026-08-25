@@ -6,6 +6,7 @@ import { Modal } from '../../components/Modal'
 import { btnOutline, btnPrimary } from '../../components/buttons'
 import { createReception, createIpReception, useMedicationCodes } from '../../data/pharma'
 import type { ReceptionKind, StorageLocation } from '../../data/pharma'
+import { useNavigationGuard } from '../../lib/useUrlState'
 import { Step0Setup } from './wizard/Step0Setup'
 import { Step1Scan } from './wizard/Step1Scan'
 import { Step2Lots } from './wizard/Step2Lots'
@@ -99,6 +100,18 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
     : meds.length > 0
   // guard: si hay datos cargados, pide confirmación antes de ejecutar la acción.
   const guard = (action: () => void) => { if (hasData) setConfirmDiscard(() => action); else action() }
+
+  /* El atrás/adelante del navegador usa el MISMO criterio (`hasData`) y el MISMO diálogo
+   * (`confirmDiscard`) que el botón Cancelar de arriba — si fueran dos criterios distintos, el
+   * usuario vería el cartel en un camino y no en el otro, que es peor que no tenerlo en ninguno.
+   * La intercepción NO puede vivir en un listener de `popstate` local a este componente: se probó y
+   * se descartó (ver el hallazgo original en `.superpowers/sdd/recepcion-nueva-report.md`) porque el
+   * listener de MÓDULO de `useUrlState.ts` está registrado antes de que este componente exista, así
+   * que corre primero, avisa a sus suscriptores, y ese aviso desmonta este wizard —sacándole su
+   * propio listener— antes de que el navegador le dé su turno en el mismo despacho del evento
+   * nativo. `useNavigationGuard` resuelve esto registrándose contra ESE listener compartido en vez
+   * de agregar uno propio (ver `useUrlState.ts`). */
+  useNavigationGuard(hasData, () => setConfirmDiscard(() => onClose))
 
   /** Validación por paso, ramificada por `isIp`. El Paso 3 se cierra con el botón Confirmar (abajo),
    *  no con "Siguiente", así que su gate real vive en el `disabled` del botón. */
