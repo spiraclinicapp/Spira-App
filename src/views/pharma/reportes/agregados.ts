@@ -232,8 +232,12 @@ export interface FilaDetalle {
   numero: number
   fecha: string
   deliveredAt: string
+  /** Para abrir la ficha desde la tabla. Null en las filas de dispensación sólo-IP. */
+  pacienteId: string | null
   pacienteNombre: string | null
   pacienteCodigo: string | null
+  /** Protocolo de contexto de la ficha (ver `resolverFichaDestino`). */
+  protocolId: string | null
   protocolCode: string | null
   visitaCodigo: string | null
   medicamentos: string
@@ -258,8 +262,10 @@ export function detalle(items: ReportItemRow[]): FilaDetalle[] {
         numero: it.correlative_number,
         fecha: it.fecha,
         deliveredAt: it.delivered_at,
+        pacienteId: it.patient_id,
         pacienteNombre: it.patient_name,
         pacienteCodigo: it.patient_code,
+        protocolId: it.protocol_id,
         protocolCode: it.protocol_code,
         visitaCodigo: it.visit_code,
         medicamentos: '',
