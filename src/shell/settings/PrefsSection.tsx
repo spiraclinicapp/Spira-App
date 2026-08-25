@@ -65,7 +65,9 @@ export function PrefsSection() {
       </StCard>
 
       <StCard title="Regional">
-        <StRow label="Formato de fecha" sub="Cómo se escriben las fechas en toda la app" last>
+        {/* El sub avisa la recarga porque va a pasar y sorprende: es preferible decirlo antes que
+            explicarlo después. El motivo técnico está en `lib/prefs.tsx`. */}
+        <StRow label="Formato de fecha" sub="Cómo se escriben las fechas en toda la app · al cambiarlo, la pantalla se actualiza" last>
           <StSeg
             label="Formato de fecha"
             value={prefs.dateFormat}

@@ -99,6 +99,23 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => resolveTheme(readCache().theme))
   const [soloLocal, setSoloLocal] = useState(false)
 
+  /* ─── Por qué el formato de fecha recarga la app ───
+     `dates.ts` guarda el formato en una variable de módulo, así que `formatAR` no es reactiva: un
+     re-render la vuelve a llamar y toma el valor nuevo, pero hay UI que no se re-renderiza aunque
+     el árbol entero lo haga. El caso concreto: varias vistas registran su encabezado con
+     `setHeader({ content: <DateNavButton …/> })` desde un efecto, o sea guardan un ELEMENTO YA
+     CONSTRUIDO en el estado del shell; ese elemento queda congelado hasta que el efecto vuelva a
+     correr por sus propias deps (el día, el acento), y el formato no está entre ellas. Resultado:
+     la mitad de las fechas cambiaban y la otra mitad no, hasta que el usuario navegara.
+     Y aunque se resolviera eso, quedan formateadores ad-hoc fuera de `dates.ts` (ver TODOS.md,
+     "converger el formateo de fecha") que tampoco lo respetarían.
+     Recargar es la única salida que deja TODA la app en el mismo formato al mismo tiempo. Es
+     aceptable porque es una acción rara y deliberada, y porque desde que Ajustes vive en la URL la
+     recarga te devuelve exactamente donde estabas, con Ajustes abierto en Preferencias.
+     El caché SIEMPRE se escribe antes de recargar (lo hace `aplicar`), así que al volver `main.tsx`
+     pinta el formato nuevo y no hay forma de entrar en un ciclo de recargas. */
+  const formatoAlArrancar = useRef(readCache().dateFormat)
+
   /* Aplica una preferencia a los tres lugares donde se nota: el DOM (tema), la variable de módulo
      de `dates.ts` (formato de fecha) y el caché. El re-render que hace que las fechas ya pintadas
      cambien de formato lo dispara el `setPrefs` de abajo, no esto: `dates.ts` no es reactivo, pero
@@ -134,6 +151,15 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
         const p = parsePrefs(data)
         setPrefs(p)
         aplicar(p)
+        /* La cuenta dice un formato distinto del que esta máquina venía usando: es la primera vez
+           que entrás acá, o lo cambiaste desde otra computadora. `aplicar` ya dejó el caché al día,
+           así que recargar es seguro y hace que los encabezados ya registrados no queden con el
+           formato viejo (ver la nota larga de arriba). */
+        if (p.dateFormat !== formatoAlArrancar.current) {
+          formatoAlArrancar.current = p.dateFormat
+          window.location.reload()
+          return
+        }
       } else {
         /* Sin fila: primera vez de esta persona. Se sube lo que tenga esta máquina (que puede ser
            el tema que ya venía eligiendo antes de la 0093) en vez de imponerle los defaults. */
@@ -173,7 +199,15 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     setPrefs(siguiente)
     aplicar(siguiente)
 
-    if (!userId || soloLocal) return { error: null } // sin cuenta o sin tabla: el caché es todo
+    // Sin cuenta o sin tabla, el caché es todo: no hay nada que escribir, pero el formato de fecha
+    // igual necesita su recarga para que la app quede pareja.
+    if (!userId || soloLocal) {
+      if (siguiente.dateFormat !== previo.current.dateFormat) {
+        formatoAlArrancar.current = siguiente.dateFormat
+        window.location.reload()
+      }
+      return { error: null }
+    }
 
     const { error } = await supabase.from('user_preferences').upsert({
       user_id: userId,
@@ -189,6 +223,14 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
       setPrefs(previo.current)
       aplicar(previo.current)
       return { error: 'No pudimos guardar la preferencia. Probá de nuevo en un momento.' }
+    }
+
+    /* Guardado y confirmado: si lo que cambió fue el formato de fecha, recargamos para que la app
+       entera quede en el mismo formato (ver la nota larga arriba). El caché ya está escrito, así
+       que al volver se pinta el formato nuevo desde el primer frame. */
+    if (siguiente.dateFormat !== previo.current.dateFormat) {
+      formatoAlArrancar.current = siguiente.dateFormat
+      window.location.reload()
     }
     return { error: null }
   }, [prefs, userId, soloLocal, aplicar])
