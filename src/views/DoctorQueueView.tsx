@@ -270,32 +270,39 @@ function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen, onOpenP
       <WaitBadge iso={visit.wants_doctor_at} />
 
       <div className="spira-link-group" style={{ flex: '1 1 220px', minWidth: 0 }}>
-        {/* La flecha se para al COSTADO del par y centrada entre sus dos líneas, no colgando del
-            nombre: el número vive arriba y el nombre abajo, así que dentro de una de las dos se lee
-            caída respecto de la otra. El motivo y el "vía" quedan FUERA de este flex: la flecha se
-            centra contra la identidad, que es lo que abre. */}
+        {/* La flecha se para al COSTADO del par y centrada entre sus dos líneas, no colgando de una
+            de ellas, donde se leería caída respecto de la otra. El motivo y el "vía" quedan FUERA
+            de este flex: la flecha se centra contra la identidad, que es lo que abre. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span className="spira-mono" style={{ fontSize: 15, fontWeight: 700, color: visit.patient_code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>
+            {/* El NOMBRE arriba y el número abajo (Director, 2026-08-25). Antes iba al revés, con el
+                IVRS de titular en 15/700: invertir el orden sin invertir el peso habría dejado a la
+                identidad primaria más chica que su propio dato de apoyo. Los dos registros se
+                intercambian enteros, así que la densidad de la tarjeta no cambia.
+                Es además el criterio de la casa desde el 2026-08-04 (ver CLAUDE.md): nombre en tinta
+                como identidad primaria, IVRS en mono como secundario. */}
+            <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+              <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+                {visit.patient_name}
+              </PatientLink>
+            </div>
+            {/* Mismo renglón de contexto que Visitas del día —protocolo, IVRS y código de visita en
+                ese orden— más lo que esta pantalla necesita: sexo/edad y médico tratante. Los chips
+                son los MISMOS y no una píldora propia: es el mismo par de datos sobre la misma
+                visita, y verlo distinto según la pantalla obliga a reaprenderlo. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+              <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
+              <span className="spira-mono" style={{ fontSize: 12.5, color: visit.patient_code ? 'var(--spira-muted)' : 'var(--spira-faint)' }}>
                 {visit.patient_code
                   ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
                   : 'Sin IVRS'}
               </span>
-              {/* Los MISMOS chips que Visitas del día (`ProtoTag` teñido por protocolo + código de
-                  visita en tinta plena), y no una píldora propia: es el mismo par de datos sobre la
-                  misma visita, y verlo distinto según la pantalla obliga a reaprenderlo. Pedido del
-                  Director (2026-08-25). El teñido además distingue los protocolos de un vistazo,
-                  que el verde del acento —igual para todos— no hacía. */}
-              <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
               {vcode && <VisitCodeTag code={vcode} />}
-            </div>
-            <div style={identityLine}>
-              <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
-                {visit.patient_name}
-              </PatientLink>
-              {demographics ? ` · ${demographics}` : ''}
-              {visit.treating_physician ? ` · ${visit.treating_physician}` : ''}
+              {(demographics || visit.treating_physician) && (
+                <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {[demographics, visit.treating_physician].filter(Boolean).join(' · ')}
+                </span>
+              )}
             </div>
           </div>
           {onOpenPatient && <PatientLinkArrow />}
@@ -330,9 +337,5 @@ const rowCard: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 16,
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
   borderRadius: 14, padding: '16px 18px', marginBottom: 12,
-}
-const identityLine: CSSProperties = {
-  fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3,
-  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
 }
 const viaLabel: CSSProperties = { fontSize: 11.5, color: 'var(--spira-faint)' }
