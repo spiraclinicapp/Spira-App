@@ -10,9 +10,13 @@ import { PdVisitFlow } from './PdVisitFlow'
 const microLabel: CSSProperties = { fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }
 
 /**
- * Fila de paciente del Detalle de Protocolo. Plegada: identidad (avatar privacidad +
- * código + médico) + tracker Anterior→Actualidad→Próxima + "Abrir ficha". Click en la
- * fila despliega el tracker horizontal completo; "Abrir ficha" navega (stopPropagation).
+ * Fila de paciente del Detalle de Protocolo. Plegada: identidad (nombre + IVRS + médico) +
+ * tracker Anterior→Actualidad→Próxima + botón "Resumen". Click en la fila abre la FICHA del
+ * paciente —el destino de la tarjeta es el paciente, que es lo que la tarjeta muestra—; el
+ * botón "Resumen" despliega el tracker horizontal completo sin salir de la lista
+ * (stopPropagation). El nombre va además como `.spira-textlink`: la fila entera es un `<div>`
+ * con `onClick` (no un `button`, para no anidar el de "Resumen" adentro), así que el nombre es
+ * la puerta a la ficha que sí alcanza el teclado.
  */
 export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: {
   patient: PatientRow
@@ -68,12 +72,20 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
         transition: 'box-shadow .15s ease, border-color .15s ease, transform .15s ease',
       }}
     >
-      <div onClick={() => { if (expandable) setOpen((o) => !o) }} style={{ cursor: expandable ? 'pointer' : 'default', padding: '13px 16px' }}>
+      <div onClick={() => onOpen(patient.id)} style={{ cursor: 'pointer', padding: '13px 16px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12 }}>
           {/* identidad */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{patient.full_name}</div>
+              <button
+                type="button"
+                className="spira-textlink spira-no-press"
+                onClick={(e) => { e.stopPropagation(); onOpen(patient.id) }}
+                title={`Abrir la ficha de ${patient.full_name}`}
+                style={{ display: 'block', maxWidth: '100%', fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+              >
+                {patient.full_name}
+              </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, marginTop: 2 }}>
                 <span className="spira-mono" style={{ fontSize: 13, color: patient.code ? 'var(--spira-muted)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</span>
                 {protocolCode && (
@@ -94,22 +106,27 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
           ) : (
             <div style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>Sin visitas registradas</div>
           )}
-          {/* acción */}
+          {/* acción: solo el desplegable del recorrido. Abrir la ficha es el gesto de la fila
+              entera (el `onClick` de arriba), así que no lleva botón propio. Sin visitas no hay
+              resumen que desplegar y el botón directamente no está — la fila igual abre la ficha. */}
           <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button
-              onClick={(e) => { e.stopPropagation(); onOpen(patient.id) }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = accent; e.currentTarget.style.color = 'var(--spira-on-accent)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = accent + '10'; e.currentTarget.style.color = accent }}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 11px', borderRadius: 8,
-                border: `1px solid ${accent}59`, background: accent + '10', color: accent, cursor: 'pointer',
-                fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap', transition: 'background .14s, color .14s',
-              }}
-            >
-              Abrir ficha <Icon name="arrowRight" size={14} color="currentColor" />
-            </button>
             {expandable && (
-              <Icon name="chevronDown" size={17} color={open ? accent : 'var(--spira-muted)'} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s, color .15s', flex: '0 0 auto' }} />
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+                title={open ? 'Ocultar el recorrido de visitas' : 'Ver el recorrido de visitas'}
+                onMouseEnter={(e) => { e.currentTarget.style.background = accent; e.currentTarget.style.color = 'var(--spira-on-accent)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = accent + '10'; e.currentTarget.style.color = accent }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 11px', borderRadius: 8,
+                  border: `1px solid ${accent}59`, background: accent + '10', color: accent, cursor: 'pointer',
+                  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap', transition: 'background .14s, color .14s',
+                }}
+              >
+                Resumen
+                <Icon name="chevronDown" size={15} color="currentColor" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+              </button>
             )}
           </div>
         </div>
