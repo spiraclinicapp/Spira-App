@@ -48,7 +48,7 @@ export function AttendedRow({ visit, busy, onUndo, onOpenPatient }: {
               inserta ni un espacio), y sin el `marginLeft` la flecha queda pegada a la última letra
               del nombre. El margen va en este `<span>` envolvente y no en `PatientLinkArrow` porque
               esa flecha la usan también contenedores flex, donde el gap YA reserva el hueco. */}
-          <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>
+          {onOpenPatient && <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>}
           {visit.doctor_motivo ? ` · ${visit.doctor_motivo}` : ''}
         </div>
       </div>

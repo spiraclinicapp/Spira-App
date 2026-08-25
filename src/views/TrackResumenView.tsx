@@ -186,7 +186,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
                             {a.patient_code}
                           </PatientLink>
                         </span>
-                        <PatientLinkArrow />
+                        {abrirFicha && <PatientLinkArrow />}
                         <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span className="spira-mono" style={{ fontSize: 12.5 }}>{a.protocol_code}</span></span>
                       </div>
                       <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>

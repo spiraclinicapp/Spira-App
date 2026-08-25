@@ -705,6 +705,20 @@ input:-webkit-autofill:focus {
   .spira-link-arrow { transition: none; }
 }
 
+/* —— Red para la flecha sin gatear ——
+   Esta regla es RED, no reemplazo del gateo explícito en cada fila (`{onOpenPatient &&
+   <PatientLinkArrow />}`). La Task 7 encontró `PatientLinkArrow` renderizada SIN condición en
+   `AttendedRow`: cuando el call-site no pasaba `onOpenPatient`, `PatientLink` caía a texto pelado
+   (correcto, es su diseño) pero la flecha se quedaba con `opacity: 0` y sin ningún
+   `.spira-textlink` hermano que pudiera activar el `:has()` de arriba — nunca podía aparecer, y
+   aun así reservaba su ancho (`flex: 0 0 auto`), 20px muertos midiendo `scrollWidth` que le comían
+   presupuesto de truncado al texto vecino. Un `.spira-link-group` sin NINGÚN `.spira-textlink` no
+   tiene destino, así que su flecha no tiene nada que anunciar y no debe ocupar lugar.
+   Esto cubre a quien se olvide de gatear en las tareas 8 a 12 de este plan, pero no dispensa de
+   gatear en el call-site: el gateo explícito es la forma correcta (evita el nodo muerto en vez de
+   ocultarlo) y sigue siendo obligatorio en cada fila nueva. */
+.spira-link-group:not(:has(.spira-textlink)) .spira-link-arrow { display: none; }
+
 /* —— Previsualizador ampliable (constancia de IP, tamaño "chica") ——
    Toda la tarjeta de 140px invita a ampliar, no solo el botón "Ampliar" de la esquina —el mock
    (estado 4 de "Tarjeta partida - estados.html") define el hover sobre el `.prev` entero. Mismo

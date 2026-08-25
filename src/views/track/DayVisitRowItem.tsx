@@ -117,7 +117,7 @@ export function DayVisitRowItem({
               ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
               : 'Sin IVRS'}
           </span>
-          <PatientLinkArrow />
+          {onOpenPatient && <PatientLinkArrow />}
           <span style={{ padding: '2px 9px', borderRadius: 6, background: 'var(--spira-ink)', color: 'var(--spira-paper)', fontSize: 11.5, fontWeight: 800 }}>
             {visitCode(visit)}
           </span>

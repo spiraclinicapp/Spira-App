@@ -266,7 +266,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                           ? <PatientLink onOpen={abrirFicha && (() => abrirFicha(r.patient_id, r.protocol_id))} label={`Abrir la ficha del sujeto ${r.patient_code}`}>{r.patient_code}</PatientLink>
                           : '—'}
                       </span>
-                      <PatientLinkArrow />
+                      {abrirFicha && <PatientLinkArrow />}
                       <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{r.protocol_code}</span></span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
@@ -326,7 +326,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                           ? <PatientLink onOpen={abrirFicha && (() => abrirFicha(a.patient_id, a.protocol_id))} label={`Abrir la ficha del sujeto ${a.patient_code}`}>{a.patient_code}</PatientLink>
                           : '—'}
                       </span>
-                      <PatientLinkArrow />
+                      {abrirFicha && <PatientLinkArrow />}
                       <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{a.protocol_code}</span></span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>
