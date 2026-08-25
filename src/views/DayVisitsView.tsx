@@ -519,8 +519,8 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
           // Y se deja el pasaje de VUELTA con la visita y su día: volver no te deja en la lista de
           // hoy, te devuelve la misma visita abierta el día que estabas mirando (esta vista ya sabe
           // reabrirla, es lo que consume `navTarget.visitId` / `visitDate`).
-          onOpenPatient={(patientId) => onNavigate?.(
-            module.key, 'protocolos', { patientId },
+          onOpenPatient={(patientId, protocolId) => onNavigate?.(
+            module.key, 'protocolos', { patientId, protocolId },
             {
               moduleKey: module.key,
               subKey: submodule.key,

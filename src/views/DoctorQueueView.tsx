@@ -229,8 +229,8 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
           // del historial.
           // El pasaje de vuelta trae de nuevo a la cola, pero SIN reabrir el modal: esta vista no
           // consume `navTarget` (a diferencia de Visitas del día), así que prometerlo sería mentir.
-          onOpenPatient={(patientId) => onNavigate?.(
-            module.key, 'protocolos', { patientId },
+          onOpenPatient={(patientId, protocolId) => onNavigate?.(
+            module.key, 'protocolos', { patientId, protocolId },
             { moduleKey: module.key, subKey: submodule.key, label: 'Volver a la cola', hint: 'Volver a Para ver médico' },
           )}
         />
