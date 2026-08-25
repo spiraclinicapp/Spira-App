@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
-import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
+import { PatientLink } from '../components/PatientLink'
 import type { PatientProtocol, PatientRow, PatientStatus } from '../data/patients'
 
 /* Grilla compartida entre encabezado y filas: código · nombre · estado · protocolos · nacimiento. */
@@ -129,6 +129,7 @@ function PatientRowItem({ patient, accent, accentSolid, last, onOpenPatient }: {
   const protocols = patient.enrollments
     .map((e) => e.protocol)
     .filter((x): x is PatientProtocol => x != null)
+  const [hov, setHov] = useState(false)
   const shown = protocols.slice(0, 2)
   const extra = protocols.length - shown.length
   /* El gateo mira las DOS condiciones: que la vista sepa navegar Y que este paciente tenga a dónde.
@@ -139,10 +140,32 @@ function PatientRowItem({ patient, accent, accentSolid, last, onOpenPatient }: {
   const abrir = onOpenPatient && protocols.length > 0 ? () => onOpenPatient(patient.id) : undefined
 
   return (
-    // `spira-link-group` en la fila entera (código y nombre viven en columnas separadas de la
-    // grilla, no en un bloque de identidad contiguo): el `:has()` no exige hijos directos, así que
-    // alcanza igual para que ambos links y la flecha se enciendan juntos.
-    <div role="row" className="spira-link-group" style={{ display: 'grid', gridTemplateColumns: COLS, gap: 16, padding: '13px 18px', alignItems: 'center', borderBottom: last ? 'none' : '1px solid var(--spira-line)' }}>
+    /* `spira-link-group` en la fila entera (código y nombre viven en columnas separadas de la
+       grilla, no en un bloque de identidad contiguo): el `:has()` no exige hijos directos, así que
+       alcanza igual para que ambos links se subrayen juntos.
+
+       La FILA entera abre la ficha, igual que en Coordinación (Director, 2026-08-25). Las dos
+       pantallas de "Todos los pacientes" muestran cosas distintas y no por gusto —Farmacia no puede
+       leer `patient_visits` (sin SELECT en la RLS), así que no tiene el tracker de visitas y a
+       cambio muestra estado, protocolos y nacimiento—, pero se OPERAN igual: el gesto grande lleva
+       a la ficha en las dos.
+       Se mantiene `role="row"` y no `role="button"`: esto es una tabla y romperle la semántica
+       dejaría las cinco columnas sin encabezado que las nombre. El `onClick` es el atajo de mouse;
+       el camino de teclado son los dos `PatientLink` de adentro, que siguen ahí. */
+    <div
+      role="row"
+      className="spira-link-group"
+      onClick={abrir}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'grid', gridTemplateColumns: COLS, gap: 16, padding: '13px 18px', alignItems: 'center',
+        borderBottom: last ? 'none' : '1px solid var(--spira-line)',
+        cursor: abrir ? 'pointer' : 'default',
+        background: hov && abrir ? 'var(--spira-surface)' : 'transparent',
+        transition: 'background-color .14s var(--spira-ease-out)',
+      }}
+    >
       <span role="cell" className="spira-mono" style={{ fontSize: 13, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>
         {patient.code
           ? <PatientLink onOpen={abrir} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
@@ -154,10 +177,6 @@ function PatientRowItem({ patient, accent, accentSolid, last, onOpenPatient }: {
             {patient.full_name}
           </PatientLink>
         </span>
-        {/* Gateada con `abrir` y NO con `onOpenPatient`: son condiciones distintas —`abrir` pide
-            además que el paciente tenga protocolo visible— y con la laxa un paciente sin
-            enrolamiento quedaría con la flecha pero sin ningún link que la encienda. */}
-        {abrir && <PatientLinkArrow />}
       </span>
       <span role="cell">
         <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 'var(--spira-radius-pill)', fontSize: 12, fontWeight: 600, color: statusVar(patient.status), background: `color-mix(in srgb, ${statusVar(patient.status)} 15%, transparent)` }}>
