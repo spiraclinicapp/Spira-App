@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.43', text: 'En Pacientes, la tarjeta lleva de una vez a la ficha; el recorrido de visitas se despliega desde el botón "Resumen", sin salir de la lista.' },
     { version: '0.42', text: 'La navegación vive en la URL: F5 te deja donde estabas, el botón atrás funciona y cualquier pantalla se comparte por link.' },
     { version: '0.41', text: 'Un procedimiento puede generar varios reportes, cada uno con su plataforma y su plazo: tablero de Reportes pendientes, desglose dentro de la visita y procedimientos del estudio en el cronograma.' },
     { version: '0.40', text: 'Los filtros de Farmacia hablan el mismo idioma en las cinco pantallas, y la visita se edita desde donde se abra: la ficha del paciente, la cola del médico o las alertas, no solo desde Visitas del día.' },
