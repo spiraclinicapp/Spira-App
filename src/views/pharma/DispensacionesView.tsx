@@ -26,6 +26,7 @@ import { useAuth } from '../../lib/auth'
 import { todayISO } from '../../lib/dates'
 import { codecs, oneOf, resolveCode, resolveShortId, shortId } from '../../lib/router'
 import { useUrlLocation, useUrlPath, useUrlState } from '../../lib/useUrlState'
+import { useAbrirFicha } from '../useAbrirFicha'
 import type { ViewProps } from '../types'
 
 
@@ -37,9 +38,25 @@ import type { ViewProps } from '../types'
  * todo lo pendiente sin importar el día, porque una solicitud de ayer sin atender tiene que seguir
  * a la vista. Solo Listas y Entregadas se acotan al día elegido.
  */
-export function DispensacionesView({ module, setHeader }: ViewProps) {
+export function DispensacionesView({ module, submodule, setHeader, onNavigate }: ViewProps) {
   const { hasMinRole } = useAuth()
   const canOperate = hasMinRole('pharma', 'operator')
+
+  /* `module.key` y no `'track'` fijo: acá puede valer `pharma`, y `pharma/protocolos` comparte la
+     misma `ProtocolsView` — así una farmacéutica sin el módulo Coordinación llega igual a la ficha
+     (ver el comentario de cabecera de `useAbrirFicha`). */
+  const abrirFicha = useAbrirFicha({
+    module,
+    onNavigate,
+    volver: () => ({ moduleKey: module.key, subKey: submodule.key, label: 'Volver a Dispensaciones', hint: 'Volver al tablero de dispensaciones' }),
+  })
+
+  /* Cae a `undefined` cuando el embed vino en null (RLS o dato incompleto): con eso el `PatientLink`
+     degrada solo a texto pelado, sin que cada pantalla tenga que chequearlo. */
+  const abrirPacienteDe = (r: DispensationRequestRow) => {
+    const pid = r.enrollment?.patient?.id
+    return abrirFicha && pid ? () => abrirFicha(pid, r.protocol?.id) : undefined
+  }
 
   const [day, setDay] = useUrlState('dia', todayISO())
   /* Protocolos elegidos por CÓDIGO; vacío = todos. Multi como en Stock y Visitas. `protoKey` es la
@@ -385,6 +402,7 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
             hasMore={h.data?.hasMore ?? false}
             loading={h.loading}
             onOpen={(r) => setOpenId(r.id)}
+            onOpenPatient={abrirPacienteDe}
             onMore={() => setPagina((p) => p + 1)}
           />
         )
@@ -422,6 +440,7 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
           busyId={busyId}
           canOperate={canOperate}
           onOpen={(r) => setOpenId(r.id)}
+          onOpenPatient={abrirPacienteDe}
           onAdvance={advance}
         />
       )}
@@ -432,6 +451,7 @@ export function DispensacionesView({ module, setHeader }: ViewProps) {
           onClose={() => setOpenId(null)}
           onChanged={() => q.refetch()}
           onToast={setToast}
+          onOpenPatient={abrirPacienteDe(open)}
         />
       )}
 

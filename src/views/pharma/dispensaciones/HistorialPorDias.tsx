@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { btnOutline } from '../../../components/buttons'
+import { PatientLink, PatientLinkArrow } from '../../../components/PatientLink'
 import type { DispensationRequestRow } from '../../../data/pharma'
 import { activeDispensation, totalUnits } from '../../../data/pharma'
 import { badgeOf } from './estados'
@@ -15,11 +16,12 @@ import { dayGroupLabel, fromNow } from '../../../lib/dates'
  * Paginado de verdad (`hasMore` + "Cargar más"): la versión vieja de esta pantalla traía todo el
  * histórico sin límite.
  */
-export function HistorialPorDias({ rows, hasMore, loading, onOpen, onMore }: {
+export function HistorialPorDias({ rows, hasMore, loading, onOpen, onOpenPatient, onMore }: {
   rows: DispensationRequestRow[]
   hasMore: boolean
   loading: boolean
   onOpen: (r: DispensationRequestRow) => void
+  onOpenPatient?: (r: DispensationRequestRow) => (() => void) | undefined
   onMore: () => void
 }) {
   const grupos = agruparPorDia(rows)
@@ -35,7 +37,7 @@ export function HistorialPorDias({ rows, hasMore, loading, onOpen, onMore }: {
           </header>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            {g.filas.map((r) => <Fila key={r.id} r={r} onOpen={() => onOpen(r)} />)}
+            {g.filas.map((r) => <Fila key={r.id} r={r} onOpen={() => onOpen(r)} onOpenPatient={onOpenPatient?.(r)} />)}
           </div>
         </section>
       ))}
@@ -51,7 +53,7 @@ export function HistorialPorDias({ rows, hasMore, loading, onOpen, onMore }: {
   )
 }
 
-function Fila({ r, onOpen }: { r: DispensationRequestRow; onOpen: () => void }) {
+function Fila({ r, onOpen, onOpenPatient }: { r: DispensationRequestRow; onOpen: () => void; onOpenPatient?: () => void }) {
   const disp = activeDispensation(r)
   const meta = badgeOf(r)
   const meds = r.items.map((i) => i.medication?.name ?? 'Medicamento').join(', ')
@@ -61,21 +63,31 @@ function Fila({ r, onOpen }: { r: DispensationRequestRow; onOpen: () => void }) 
       role="button"
       tabIndex={0}
       onClick={onOpen}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
+      onKeyDown={(e) => {
+        // Solo si el evento nació en la fila misma: sin esta guarda, Enter sobre el link del
+        // paciente dispara SU acción y además abre el cajón.
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() }
+      }}
       style={fila}
       aria-label={`${disp?.dispensation_code ?? 'Solicitud'}, ${meta.label}`}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div className="spira-link-group" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 15, fontWeight: 700, color: 'var(--spira-ink)' }}>
             {disp?.dispensation_code ?? 'Solicitud'}
           </span>
           <span style={{ fontSize: 13, color: 'var(--spira-ink)' }}>
-            · {r.enrollment?.patient?.full_name ?? '—'}
+            · <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${r.enrollment?.patient?.full_name ?? 'el paciente'}`}>
+                {r.enrollment?.patient?.full_name ?? '—'}
+              </PatientLink>
           </span>
           <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>
-            {r.enrollment?.patient?.code ?? 'Sin IVRS'}
+            <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${r.enrollment?.patient?.code ?? ''}`}>
+              {r.enrollment?.patient?.code ?? 'Sin IVRS'}
+            </PatientLink>
           </span>
+          {onOpenPatient && <PatientLinkArrow />}
           <span className="spira-mono" style={chipProto}>{r.protocol?.code ?? '—'}</span>
         </div>
         <div style={linea2}>{meds} · {totalUnits(r)} u.</div>
