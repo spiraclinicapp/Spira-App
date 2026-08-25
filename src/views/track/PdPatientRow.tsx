@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
+import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
 import { orderVisits, todaySplit, visitIndex, visitCode } from '../../lib/visits'
@@ -14,9 +15,9 @@ const microLabel: CSSProperties = { fontSize: 9.5, textTransform: 'uppercase', l
  * tracker Anterior→Actualidad→Próxima + botón "Resumen". Click en la fila abre la FICHA del
  * paciente —el destino de la tarjeta es el paciente, que es lo que la tarjeta muestra—; el
  * botón "Resumen" despliega el tracker horizontal completo sin salir de la lista
- * (stopPropagation). El nombre va además como `.spira-textlink`: la fila entera es un `<div>`
- * con `onClick` (no un `button`, para no anidar el de "Resumen" adentro), así que el nombre es
- * la puerta a la ficha que sí alcanza el teclado.
+ * (stopPropagation). El nombre y el IVRS van además como `.spira-textlink`: la fila entera es un
+ * `<div>` con `onClick` (no un `button`, para no anidar el de "Resumen" adentro), así que el par
+ * nombre/IVRS es la puerta a la ficha que sí alcanza el teclado.
  */
 export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: {
   patient: PatientRow
@@ -76,18 +77,24 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12 }}>
           {/* identidad */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-            <div style={{ minWidth: 0 }}>
-              <button
-                type="button"
-                className="spira-textlink spira-no-press"
-                onClick={(e) => { e.stopPropagation(); onOpen(patient.id) }}
-                title={`Abrir la ficha de ${patient.full_name}`}
-                style={{ display: 'block', maxWidth: '100%', fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-              >
-                {patient.full_name}
-              </button>
+            {/* Nombre y IVRS abren los dos la ficha —el mismo par que el encabezado de la visita—,
+                así que van en un `.spira-link-group` y comparten UNA flecha. La flecha va al final
+                del par y no al costado del bloque: la fila es una rejilla de tres columnas
+                (identidad · tracker · acciones) y al costado quedaría pegada al tracker, leyéndose
+                como parte de él. */}
+            <div className="spira-link-group" style={{ minWidth: 0 }}>
+              <div style={{ maxWidth: '100%', fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <PatientLink onOpen={() => onOpen(patient.id)} label={`Abrir la ficha de ${patient.full_name}`}>
+                  {patient.full_name}
+                </PatientLink>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, marginTop: 2 }}>
-                <span className="spira-mono" style={{ fontSize: 13, color: patient.code ? 'var(--spira-muted)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</span>
+                <span className="spira-mono" style={{ fontSize: 13, color: patient.code ? 'var(--spira-muted)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>
+                  {patient.code
+                    ? <PatientLink onOpen={() => onOpen(patient.id)} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
+                    : 'Sin IVRS'}
+                </span>
+                <PatientLinkArrow />
                 {protocolCode && (
                   <span className="spira-mono" style={{ fontSize: 11.5, padding: '1px 8px', borderRadius: 'var(--spira-radius-pill)', background: accent + '14', color: accent, whiteSpace: 'nowrap', flex: '0 0 auto' }}>{protocolCode}</span>
                 )}
