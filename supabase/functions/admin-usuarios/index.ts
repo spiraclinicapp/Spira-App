@@ -59,11 +59,38 @@ function error(status: number, mensaje: string): Response {
   return json(status, { error: mensaje })
 }
 
-/** Contraseña inicial que nadie va a conocer nunca: la cuenta nace con ella y la persona la
- *  reemplaza con el link. No se devuelve, no se registra y no se puede recuperar — es basura
- *  criptográfica cuya única función es que la cuenta exista antes de generar el link. */
+/**
+ * Error que NO supimos traducir: se loguea entero y se muestra el texto original entre comillas.
+ *
+ * Antes esto devolvía "Probá de nuevo en un momento" y nada más, y el primer alta real falló con un
+ * motivo perfectamente explícito del lado de Auth que no llegó a ninguna parte: ni a la pantalla ni
+ * a los logs. Quien administra se quedó mirando un cartel que no decía nada.
+ *
+ * Mostrar el texto crudo es seguro acá: son errores de Auth sobre la operación que la propia
+ * persona acaba de pedir, no datos de terceros, y sólo gerencia llega a esta pantalla. Entre un
+ * mensaje feo y un mensaje inútil, el feo se puede arreglar.
+ */
+function errorOpaco(accion: string, e: unknown, encabezado: string): Response {
+  const detalle = (e as { message?: string })?.message ?? String(e)
+  console.error(`[admin-usuarios] ${accion} falló:`, detalle)
+  return json(500, { error: `${encabezado} El sistema respondió: «${detalle}»` })
+}
+
+/**
+ * Contraseña inicial que nadie va a conocer nunca: la cuenta nace con ella y la persona la
+ * reemplaza con el link. No se devuelve, no se registra y no se puede recuperar — es basura
+ * criptográfica cuya única función es que la cuenta exista antes de generar el link.
+ *
+ * ⚠️ TIENE QUE QUEDAR POR DEBAJO DE 72 CARACTERES. Auth hashea con bcrypt, que no acepta más, y
+ * rechaza el alta entera con "Password cannot be longer than 72 characters". La primera versión
+ * concatenaba DOS uuid (36 + 36) más un sufijo: 74, y ninguna cuenta se podía crear.
+ *
+ * Un uuid v4 son 122 bits de entropía, de sobra para una clave que vive minutos y que nadie tipea.
+ * El sufijo garantiza que haya mayúscula, minúscula, dígito y símbolo por si el proyecto tiene
+ * exigencias de composición activadas.
+ */
 function passwordDescartable(): string {
-  return crypto.randomUUID() + crypto.randomUUID().toUpperCase() + '!9';
+  return crypto.randomUUID() + 'Aa1!'   // 36 + 4 = 40
 }
 
 Deno.serve(async (req) => {
@@ -152,8 +179,10 @@ Deno.serve(async (req) => {
         if (msg.includes('already') || msg.includes('exists') || msg.includes('registered')) {
           return error(409, 'Ya existe una cuenta con ese correo.')
         }
-        if (msg.includes('password')) return error(500, 'No pudimos crear la cuenta. Probá de nuevo.')
-        return error(500, 'No pudimos crear la cuenta. Probá de nuevo en un momento.')
+        if (msg.includes('invalid') && msg.includes('email')) {
+          return error(400, 'Auth rechazó ese correo. Revisá que esté bien escrito.')
+        }
+        return errorOpaco('crear', errCrear, 'No pudimos crear la cuenta.')
       }
 
       const { data: link, error: errLink } = await admin.auth.admin.generateLink({
@@ -190,7 +219,7 @@ Deno.serve(async (req) => {
       })
 
       if (errLink || !link?.properties?.action_link) {
-        return error(500, 'No pudimos generar el link. Probá de nuevo en un momento.')
+        return errorOpaco('link_restablecimiento', errLink, 'No pudimos generar el link.')
       }
       return json(200, { actionLink: link.properties.action_link })
     }
@@ -208,7 +237,7 @@ Deno.serve(async (req) => {
       const { error: errBan } = await admin.auth.admin.updateUserById(userId, {
         ban_duration: '876000h', // 100 años: la Admin API no tiene "para siempre".
       })
-      if (errBan) return error(500, 'Revocamos los accesos, pero no pudimos bloquear el ingreso. Avisá para revisarlo.')
+      if (errBan) return errorOpaco('banear', errBan, 'Revocamos los accesos, pero no pudimos bloquear el ingreso.')
       return json(200, { ok: true })
     }
 
@@ -228,7 +257,7 @@ Deno.serve(async (req) => {
         if (msg.includes('foreign key') || msg.includes('violates') || msg.includes('23503')) {
           return error(409, 'Esta cuenta ya registró actividad en el sistema, así que no se puede eliminar. Podés darle de baja.')
         }
-        return error(500, 'No pudimos eliminar la cuenta. Probá de nuevo en un momento.')
+        return errorOpaco('eliminar', errBorrar, 'No pudimos eliminar la cuenta.')
       }
       return json(200, { ok: true })
     }
