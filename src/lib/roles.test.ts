@@ -191,4 +191,41 @@ describe('auditLine', () => {
   it('sobrevive a una cuenta borrada', () => {
     expect(auditLine({ ...base, target_name: null }, nombre)).toContain('una cuenta que ya no existe')
   })
+
+  /* Los eventos de la CUENTA (0098/0099, visibles desde la 0100). Llegan sin módulo y sin niveles,
+     así que el riesgo no es que se vean feos: es que caigan en la rama de UPDATE y se redacten como
+     "volvió a guardar el acceso a un módulo, sin cambiar el nivel (—)". Una frase impecable que
+     dice algo que no pasó, dentro del registro de auditoría. Por eso cada una se afirma entera y
+     además se verifica que NO haya caído en la rama equivocada. */
+  const deCuenta = { ...base, module: null, role_before: null, role_after: null }
+
+  it('el alta dice quién creó la cuenta', () => {
+    expect(auditLine({ ...deCuenta, action: 'ALTA' }, nombre)).toBe('Lucía creó la cuenta de Carla')
+  })
+
+  it('la baja nombra sus dos efectos, que es lo que la distingue de revocar un módulo', () => {
+    const l = auditLine({ ...deCuenta, action: 'BAJA' }, nombre)
+    expect(l).toContain('dio de baja a Carla')
+    expect(l).toContain('bloqueó el ingreso')
+  })
+
+  it('la eliminación se distingue de la baja', () => {
+    expect(auditLine({ ...deCuenta, action: 'ELIMINACION' }, nombre)).toBe('Lucía eliminó la cuenta de Carla')
+  })
+
+  it('ningún evento de cuenta cae en la rama de módulos', () => {
+    for (const action of ['ALTA', 'BAJA', 'ELIMINACION']) {
+      const l = auditLine({ ...deCuenta, action }, nombre)
+      expect(l).not.toContain('un módulo')
+      expect(l).not.toContain('sin cambiar el nivel')
+      expect(l).not.toContain('→')
+    }
+  })
+
+  it('la eliminación conserva el nombre aunque la cuenta ya no exista', () => {
+    // La vista lo rescata del payload (0100): es la única línea que prueba que esa cuenta existió,
+    // y decir "una cuenta que ya no existe" ahí sería perder justo el dato que importa.
+    expect(auditLine({ ...deCuenta, action: 'ELIMINACION', target_name: 'Carla Gómez' }, nombre))
+      .toBe('Lucía eliminó la cuenta de Carla Gómez')
+  })
 })

@@ -11,7 +11,10 @@ import {
 } from '../../lib/roles'
 import type { Accesos, ModuleKey, ModuleRole } from '../../lib/roles'
 import { formatDateAR } from '../../lib/dates'
-import { ACCENT, StCard, StRow, StPill, StToggle, btnGhost, btnSolid } from './primitives'
+import {
+  ACCENT, StCard, StRow, StPill, StToggle, btnGhost, btnSolid, dialogCard, dialogScrim, dialogTitulo,
+} from './primitives'
+import { AccionesDeCuenta } from './AccionesDeCuenta'
 import { useMarkDirty } from './SettingsModal'
 
 /* ============================================================================
@@ -242,7 +245,19 @@ export function AccesoEditor({ persona, actorId, administradores, onCerrar, onGu
         </div>
       </StCard>
 
-      {/* 4 · el historial (lo escribe el trigger de la 0003, acá sólo se lee) */}
+      {/* 4 · la cuenta en sí: contraseña, baja y eliminación.
+             Va DESPUÉS del acceso y ANTES del historial a propósito: primero lo que se edita y se
+             guarda con el botón de abajo, después lo que se aplica en el acto, y al final el
+             registro de las dos cosas. Estas acciones NO pasan por el borrador — se ejecutan al
+             confirmarlas—, y por eso cada una tiene su propia confirmación. */}
+      <AccionesDeCuenta
+        persona={persona}
+        actorId={actorId}
+        onCambio={onGuardado}
+        onEliminada={() => { onGuardado(); onCerrar() }}
+      />
+
+      {/* 5 · el historial (lo escribe el trigger de la 0003, acá sólo se lee) */}
       <StCard title="Historial de accesos" desc="Quién le cambió el acceso, y cuándo" pad={false}>
         {audit.loading && <div style={vacio}>Cargando…</div>}
         {!audit.loading && (audit.data?.length ?? 0) === 0 && (
@@ -272,9 +287,9 @@ export function AccesoEditor({ persona, actorId, administradores, onCerrar, onGu
       {/* Confirmación de DAR la administración. El único control de la app que reparte poder sobre
           todo el centro merece que se lea qué se está dando antes de marcarlo. */}
       {confirmandoAdmin && (
-        <div style={scrim} role="presentation" onMouseDown={() => setConfirmandoAdmin(false)}>
-          <div style={card} role="alertdialog" aria-modal="true" aria-label="Dar la administración de accesos" onMouseDown={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 17, color: 'var(--spira-ink)' }}>
+        <div style={dialogScrim} role="presentation" onMouseDown={() => setConfirmandoAdmin(false)}>
+          <div style={dialogCard} role="alertdialog" aria-modal="true" aria-label="Dar la administración de accesos" onMouseDown={(e) => e.stopPropagation()}>
+            <div style={dialogTitulo}>
               ¿Darle la administración del centro?
             </div>
             <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', marginTop: 8, lineHeight: 1.5 }}>
@@ -300,14 +315,6 @@ export function AccesoEditor({ persona, actorId, administradores, onCerrar, onGu
 }
 
 const vacio: CSSProperties = { padding: '16px 18px', fontSize: 13, color: 'var(--spira-muted)' }
-const scrim: CSSProperties = {
-  position: 'fixed', inset: 0, zIndex: 240, background: 'rgba(20, 48, 46, 0.30)',
-  display: 'grid', placeItems: 'center', padding: 24, animation: 'spOverlayIn .12s ease-out',
-}
-const card: CSSProperties = {
-  width: 'min(460px, 100%)', background: 'var(--spira-white)', borderRadius: 16,
-  border: '1px solid var(--spira-line)', boxShadow: '0 24px 60px rgba(20, 48, 46, 0.26)', padding: '20px 22px 18px',
-}
 
 /** Chip de nivel, reusado por la lista del equipo. */
 export function ChipDeAcceso({ nombre, nivel }: { nombre: string; nivel: ModuleRole }) {
