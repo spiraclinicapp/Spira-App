@@ -31,6 +31,13 @@ describe('parsePrefs', () => {
     })
   })
 
+  it('acepta el formato con el mes en letras (0097)', () => {
+    // El valor nuevo tiene que entrar por las DOS puertas, la de la base y la del caché: si sólo
+    // entrara por una, la preferencia se guardaría bien y volvería como 'dmy' al recargar.
+    expect(parsePrefs({ date_format: 'dmesy' }).dateFormat).toBe('dmesy')
+    expect(parsePrefs({ dateFormat: 'dmesy' }).dateFormat).toBe('dmesy')
+  })
+
   it('los campos ausentes toman su default', () => {
     expect(parsePrefs({ theme: 'dark' })).toEqual({ ...PREFS_DEFAULT, theme: 'dark' })
   })

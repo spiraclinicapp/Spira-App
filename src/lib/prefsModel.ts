@@ -12,7 +12,7 @@
 export type { ThemePref } from './theme'
 import type { ThemePref } from './theme'
 
-export type DateFormat = 'dmy' | 'iso'
+export type DateFormat = 'dmy' | 'iso' | 'dmesy'
 export type HomeView = 'inicio' | 'ultimo'
 
 export interface Prefs {
@@ -26,7 +26,7 @@ export interface Prefs {
 export const PREFS_DEFAULT: Prefs = { theme: 'light', dateFormat: 'dmy', homeView: 'inicio' }
 
 const THEMES: ThemePref[] = ['light', 'dark', 'system']
-const FORMATS: DateFormat[] = ['dmy', 'iso']
+const FORMATS: DateFormat[] = ['dmy', 'iso', 'dmesy']
 const HOMES: HomeView[] = ['inicio', 'ultimo']
 
 /**

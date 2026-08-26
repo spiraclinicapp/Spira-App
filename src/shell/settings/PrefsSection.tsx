@@ -72,7 +72,10 @@ export function PrefsSection() {
             label="Formato de fecha"
             value={prefs.dateFormat}
             onChange={(dateFormat: DateFormat) => void guardar({ dateFormat })}
-            options={[{ v: 'dmy', l: '31/12/2026' }, { v: 'iso', l: '2026-12-31' }]}
+            /* Las tres etiquetas SON el formato, escrito: no hace falta explicar ninguna, se ve.
+               La tercera lleva el mes abreviado en letras, que es como se leen las fechas en las
+               fuentes clínicas y evita la ambigüedad de si el primer número es el día o el mes. */
+            options={[{ v: 'dmy', l: '31/12/2026' }, { v: 'iso', l: '2026-12-31' }, { v: 'dmesy', l: '31 Ago 2026' }]}
           />
         </StRow>
       </StCard>

@@ -1,3 +1,5 @@
+import type { DateFormat } from './prefsModel'
+
 /**
  * Helpers de fecha sobre strings `YYYY-MM-DD` (formato `date` de Postgres).
  * Nunca derivan el día vía `Date.toISOString()`: en UTC-3 eso corre la fecha
@@ -31,6 +33,11 @@ export function daysDiffISO(from: string, to: string): number {
   return Math.round((parseISO(to).getTime() - parseISO(from).getTime()) / 86_400_000)
 }
 
+/* Abreviaturas en minúscula porque así se leen dentro de una frase ("Jueves 26 jun"). El formato
+   `dmesy` las capitaliza; ver `mesAbrevCap`. Viven acá arriba —y no junto a `MONTH_NAMES`, donde
+   nacieron— porque `armarFecha` las usa y está a pocas líneas de acá. */
+const MONTH_ABBR = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
 /* ─── Formato de fecha elegido por el usuario (Ajustes › Preferencias, migración 0093) ───
    Vive como variable de módulo y NO como parámetro de cada función: `formatAR` se llama desde
    veinte archivos, y pasarle el formato por argumento en cada punto de uso sería un refactor
@@ -39,21 +46,34 @@ export function daysDiffISO(from: string, to: string): number {
    y re-renderiza el árbol, que vuelve a llamar a estas funciones. Todo lo que muestra fechas cuelga
    de ese provider, así que en la práctica el cambio se ve de inmediato.
    El default es el comportamiento de siempre: quien no elija nada no nota nada. */
-let formatoFecha: 'dmy' | 'iso' = 'dmy'
+let formatoFecha: DateFormat = 'dmy'
 
-/** Fija el formato de fecha de toda la app. Lo llama `PrefsProvider`; nadie más debería. */
-export function setDateFormat(f: 'dmy' | 'iso'): void {
+/** Fija el formato de fecha de toda la app. Lo llama `PrefsProvider`; nadie más debería.
+    El tipo viene de `prefsModel` a propósito: es el mismo conjunto cerrado que valida `parsePrefs`
+    y que hace cumplir el check de la base, y repetir la unión acá sería una copia esperando a
+    divergir — el día que se agregue un formato, TypeScript obliga a contemplarlo también acá. */
+export function setDateFormat(f: DateFormat): void {
   formatoFecha = f
+}
+
+/** Abreviatura del mes con mayúscula inicial ("Ago"), para el formato `dmesy`. Va capitalizada
+    porque ahí el mes es una PIEZA de la fecha —pegada al número de día, no dentro de una frase—
+    y en minúscula se leería como una palabra cortada. */
+function mesAbrevCap(m: string): string {
+  const mes = MONTH_ABBR[Number(m) - 1] ?? ''
+  return mes.charAt(0).toUpperCase() + mes.slice(1)
 }
 
 /** Arma la fecha con el formato elegido, a partir de sus tres piezas ya rellenadas con ceros.
     Es el ÚNICO lugar donde se decide el orden: las tres funciones públicas de fecha pasan por acá
     para que la preferencia no llegue a dos de las tres y la app muestre dos formatos a la vez. */
 function armarFecha(y: string, m: string, d: string): string {
-  return formatoFecha === 'iso' ? `${y}-${m}-${d}` : `${d}/${m}/${y}`
+  if (formatoFecha === 'iso') return `${y}-${m}-${d}`
+  if (formatoFecha === 'dmesy') return `${d} ${mesAbrevCap(m)} ${y}`
+  return `${d}/${m}/${y}`
 }
 
-/** `YYYY-MM-DD` → `dd/mm/yyyy` o `yyyy-mm-dd`, según la preferencia. Sin pasar por Date. */
+/** `YYYY-MM-DD` → `dd/mm/yyyy`, `yyyy-mm-dd` o `dd Mmm yyyy`, según la preferencia. Sin Date. */
 export function formatAR(iso: string): string {
   const [y, m, d] = iso.split('-')
   return armarFecha(y, m, d)
@@ -120,8 +140,6 @@ export function formatShortAR(iso: string): string {
   const [, m, d] = iso.split('-')
   return `${d}/${m}`
 }
-
-const MONTH_ABBR = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 /** `YYYY-MM-DD` → `Martes 18 de agosto`. Fecha larga con día de la semana y sin año: para el
  *  encabezado de Inicio, donde el año no aporta y el día de la semana sí. Sin cero a la
@@ -290,15 +308,48 @@ export function yearsFromTodayISO(n: number): string {
   return toISO(new Date(d.getFullYear() + n, d.getMonth(), d.getDate()))
 }
 
-/** `dd/mm/aaaa` (o `d/m/aa`, separador / - .) → ISO `YYYY-MM-DD`, o null si no es una fecha real. */
-export function parseARInput(s: string): string | null {
-  const m = s.trim().match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/)
-  if (!m) return null
-  const day = Number(m[1]), month = Number(m[2])
-  let year = Number(m[3])
-  if (m[3].length === 2) year += year < 50 ? 2000 : 1900
+/** Año tipeado con dos dígitos → siglo (26 → 2026, 98 → 1998). Con cuatro, tal cual. */
+function anioCompleto(txt: string): number {
+  const n = Number(txt)
+  return txt.length === 2 ? n + (n < 50 ? 2000 : 1900) : n
+}
+
+/** Trío día/mes/año → ISO, o null si esa fecha no existe (ej. 31/02): el `Date` se "corre" de mes
+    y no matchea lo tipeado, que es justamente cómo se detecta. */
+function fechaValidaISO(day: number, month: number, year: number): string | null {
   const d = new Date(year, month - 1, day)
-  // Rechazar fechas inexistentes (ej. 31/02): el Date se "corre" y no matchea lo tipeado.
   if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null
   return toISO(d)
+}
+
+/**
+ * Fecha tipeada a mano → ISO `YYYY-MM-DD`, o null si no es una fecha real.
+ *
+ * Entiende las TRES formas en que la app puede estar mostrando una fecha (`31/12/2026`,
+ * `2026-12-31`, `31 Dic 2026`) y no sólo la primera, porque el `DateField` escribe el valor con el
+ * formato elegido en Preferencias y vuelve a LEER lo que quedó en el input al salir del campo: si
+ * sólo entendiera `dd/mm/aaaa`, quien tenga puesto otro formato vería su propio texto rebotar al
+ * valor anterior, y el campo sólo se podría cambiar con el calendario. Falla en silencio —no rompe
+ * nada, simplemente no toma lo que la persona escribió—, que es la clase de regla que acá se testea.
+ *
+ * Separadores flexibles (`/`, `-`, `.` y el espacio) porque tipear una fecha es un gesto rápido y
+ * el separador es lo primero que se erra; el mes en letras se compara por sus tres primeras letras,
+ * así entran `dic`, `Dic`, `dic.` y `diciembre` por el mismo camino.
+ */
+export function parseARInput(s: string): string | null {
+  const t = s.trim()
+
+  const dmy = t.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/)              // 31/12/2026
+  if (dmy) return fechaValidaISO(Number(dmy[1]), Number(dmy[2]), anioCompleto(dmy[3]))
+
+  const iso = t.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/)                // 2026-12-31
+  if (iso) return fechaValidaISO(Number(iso[3]), Number(iso[2]), Number(iso[1]))
+
+  const conMes = t.match(/^(\d{1,2})[\s/\-.]+([A-Za-zÁÉÍÓÚáéíóú]{3,})\.?[\s/\-.]+(\d{2,4})$/)  // 31 Dic 2026
+  if (conMes) {
+    const mes = MONTH_ABBR.indexOf(conMes[2].toLowerCase().slice(0, 3))
+    if (mes >= 0) return fechaValidaISO(Number(conMes[1]), mes + 1, anioCompleto(conMes[3]))
+  }
+
+  return null
 }
