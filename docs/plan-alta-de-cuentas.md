@@ -185,7 +185,7 @@ no se puede quitar la última.
 | PR | Qué entra | Verificación |
 |---|---|---|
 | **PR-1** | Migración: `user_activity_summary` + `dar_de_baja`. Sin UI | `npm run build` verde + los RPC probados contra una cuenta `TEST-*` |
-| **PR-2** | Edge Function + `data/team.ts`. Sin UI todavía | La Function responde 403 a una cuenta sin gerencia (la prueba que importa) |
+| **PR-2** | Edge Function + `data/team.ts` + migración 0099 (la huella del alta y de la eliminación, el mismo hueco que la 0098 cerró para la baja). Sin UI todavía | La Function responde 403 a una cuenta sin gerencia (la prueba que importa) |
 | **PR-3** | La UI: crear, los tres botones, el panel del link. Y el ensanche de `v_access_audit` para que la baja se vea en el historial (hallazgo 7) | El camino completo con una cuenta `TEST-*`: crear, copiar link, definir contraseña, dar de baja, eliminar |
 
 ⚠️ La migración del **PR-3** sí toca una vista que el front ya consume: esa va **DESPUÉS** del
