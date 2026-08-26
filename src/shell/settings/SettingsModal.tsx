@@ -7,7 +7,7 @@ import type { SettingsSection } from './section'
 import { ACCENT, btnGhost, btnSolid } from './primitives'
 import { AccountSection } from './AccountSection'
 import { PrefsSection } from './PrefsSection'
-import { RolesSection } from './RolesSection'
+import { EquipoYAccesosSection } from './EquipoYAccesosSection'
 
 /* ============================================================================
    SettingsModal — pantalla de Ajustes.
@@ -52,10 +52,10 @@ interface NavDef { key: SettingsSection; name: string; icon: IconName }
 const SETTINGS_NAV: NavDef[] = [
   { key: 'cuenta', name: 'Mi cuenta', icon: 'user' },
   { key: 'prefs', name: 'Preferencias', icon: 'settings' },
-  { key: 'roles', name: 'Roles y permisos', icon: 'lock' },
+  { key: 'roles', name: 'Equipo y accesos', icon: 'lock' },
 ]
 const SETTINGS_TITLE: Record<SettingsSection, string> = {
-  cuenta: 'Mi cuenta', prefs: 'Preferencias', roles: 'Roles y permisos',
+  cuenta: 'Mi cuenta', prefs: 'Preferencias', roles: 'Equipo y accesos',
 }
 
 interface SettingsModalProps {
@@ -72,7 +72,7 @@ function renderSection(cur: SettingsSection) {
   switch (cur) {
     case 'cuenta': return <AccountSection />
     case 'prefs': return <PrefsSection />
-    case 'roles': return <RolesSection />
+    case 'roles': return <EquipoYAccesosSection />
   }
 }
 

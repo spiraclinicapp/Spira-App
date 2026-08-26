@@ -183,6 +183,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const uid = session.user.id
     let active = true
+
+    /* Cada quien mantiene al día su propia copia del correo en `public.users` (columna de la 0095,
+       la que la sección "Equipo y accesos" muestra). Va así y no con un trigger sobre `auth.users`
+       porque ese esquema no es nuestro y un error ahí no rompe una pantalla: rompe el ingreso de
+       todo el centro. Al entrar cada persona la suya, el conjunto converge solo.
+       Fire-and-forget a propósito: es mantenimiento de un dato que sólo mira gerencia, no puede
+       demorar la carga del shell ni dejar a nadie afuera si falla. La función sólo puede tocar la
+       fila del que llama — no recibe un id, así que no hay forma de pedirle otra cosa. */
+    void supabase.rpc('sync_my_email')
     type ProfRow = { full_name: string; puesto: string | null; centro: string | null; name_changed_at: string | null; email_changed_at: string | null }
     void (async () => {
       try {
