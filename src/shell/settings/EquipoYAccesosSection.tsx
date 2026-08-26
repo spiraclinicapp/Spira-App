@@ -8,8 +8,9 @@ import { describeAccess, MODULO_ADMIN, ROLE_LABEL } from '../../lib/roles'
 import type { ModuleKey, ModuleRole } from '../../lib/roles'
 import { useTeamAccess } from '../../data/team'
 import type { TeamMemberRow } from '../../data/team'
-import { ACCENT, StCard, StPill, btnGhost } from './primitives'
+import { ACCENT, StCard, StPill, btnGhost, btnSolid } from './primitives'
 import { AccesoEditor } from './AccesoEditor'
+import { CrearCuentaDialog } from './AccionesDeCuenta'
 
 /* ============================================================================
    Equipo y accesos — reemplaza la maqueta de "Roles y permisos".
@@ -39,6 +40,7 @@ export function EquipoYAccesosSection() {
 
   const { data, loading, error, refetch } = useTeamAccess()
   const [editando, setEditando] = useState<string | null>(null)
+  const [creando, setCreando] = useState(false)
 
   const equipo = useMemo(() => data ?? [], [data])
   const administradores = useMemo(
@@ -86,6 +88,11 @@ export function EquipoYAccesosSection() {
         title="Equipo del centro"
         desc={`${equipo.length} ${equipo.length === 1 ? 'persona' : 'personas'}`}
         pad={false}
+        action={
+          <button style={btnSolid()} onClick={() => setCreando(true)}>
+            <Icon name="plus" size={15} color="#fff" /> Crear cuenta
+          </button>
+        }
       >
         {equipo.map((p, i) => (
           <FilaDePersona
@@ -98,15 +105,20 @@ export function EquipoYAccesosSection() {
         ))}
       </StCard>
 
-      {/* El alta de cuentas no pasa por acá y decirlo es más honesto que un botón "Invitar" inerte:
-          la maqueta tenía uno, deshabilitado, prometiendo algo que no existe. */}
+      {/* Hasta la v0.44.0 acá decía que las cuentas se creaban desde el panel de Supabase. Ya no:
+          el botón de arriba las crea de verdad. Lo que queda dicho es lo que sigue siendo cierto y
+          no se ve — que todo esto deja rastro. */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 12.5, color: 'var(--spira-muted)', padding: '0 2px' }}>
         <Icon name="info" size={15} color="var(--spira-faint)" />
         <span>
-          Las cuentas nuevas se crean desde el panel de Supabase; acá se les da el acceso. Cada cambio
-          queda registrado con quién lo hizo y cuándo.
+          Cada alta, cambio de acceso y baja queda registrado con quién lo hizo y cuándo. Una cuenta
+          nueva nace sin acceso a ningún módulo: se lo das desde su ficha.
         </span>
       </div>
+
+      {creando && (
+        <CrearCuentaDialog onCerrar={() => setCreando(false)} onCreada={refetch} />
+      )}
     </div>
   )
 }
@@ -134,10 +146,17 @@ function FilaDePersona({
       </div>
 
       <div style={{ flex: '1 1 260px', display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+        {/* Una cuenta dada de baja queda sin módulos, así que sin este chip se vería EXACTAMENTE
+            igual que alguien recién creado a quien todavía no le dieron acceso. Son dos situaciones
+            opuestas —una se cerró, la otra espera— y confundirlas lleva a "dale acceso a esta que
+            está sin nada" sobre alguien que se dio de baja a propósito. */}
+        {!persona.is_active && (
+          <StPill tone="danger"><Icon name="lock" size={12} color="#A6483B" /> Dada de baja</StPill>
+        )}
         {administra && (
           <StPill tone="accent"><Icon name="shield" size={12} color={ACCENT} /> Administra</StPill>
         )}
-        {modulos.length === 0
+        {modulos.length === 0 && persona.is_active
           ? <StPill tone="neutral">Sin acceso a módulos</StPill>
           : modulos.map(([k, nivel]) => (
               <StPill key={k} tone="neutral">

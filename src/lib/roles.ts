@@ -204,6 +204,15 @@ export function auditLine(row: AccessAuditRow, nombreModulo: (key: string) => st
   const modulo = row.module ? nombreModulo(row.module) : 'un módulo'
   const esAdmin = row.module === MODULO_ADMIN
 
+  /* Eventos de la CUENTA (0098 y 0099), que la vista empezó a devolver en la 0100. No son de
+     ningún módulo: llegan con `module` y los dos niveles en null, así que van ANTES de todo lo
+     demás. Si cayeran en la rama de UPDATE de abajo, se redactarían como "volvió a guardar el
+     acceso a un módulo, sin cambiar el nivel (—)" — una frase impecable que dice algo que no pasó,
+     que es exactamente la falla silenciosa contra la que existe el test de esta función. */
+  if (row.action === 'ALTA') return `${quien} creó la cuenta de ${aQuien}`
+  if (row.action === 'BAJA') return `${quien} dio de baja a ${aQuien}: le revocó todos los accesos y le bloqueó el ingreso`
+  if (row.action === 'ELIMINACION') return `${quien} eliminó la cuenta de ${aQuien}`
+
   if (row.action === 'DELETE') {
     return esAdmin
       ? `${quien} le quitó la administración de accesos a ${aQuien}`

@@ -171,6 +171,29 @@ export function btnSolid(): CSSProperties {
     + `title` — nunca finge acción (regla de app auditable: cero clicks muertos). */
 export const btnGhostSoon: CSSProperties = { ...btnGhost, opacity: 0.55, cursor: 'default' }
 
+/** Acción destructiva. El color va en el TEXTO y el borde queda neutro: teñir el fondo entero
+    convertiría cada baja en una alarma, y acá lo destructivo es el resultado, no el botón. El rojo
+    es el mismo `--spira-danger` de los errores, que ya significa "esto no se deshace fácil". */
+export const btnPeligro: CSSProperties = {
+  ...btnGhost, color: 'var(--spira-danger)', borderColor: 'rgba(166, 72, 59, 0.35)',
+}
+
+/* ---------- diálogo de confirmación (scrim + tarjeta) ----------
+   Vivían inline en `AccesoEditor`; se subieron acá cuando el segundo consumidor (las acciones de
+   cuenta) los necesitó idénticos. Dos copias de un scrim divergen en el z-index y una termina
+   apareciendo por debajo del modal de Ajustes. */
+export const dialogScrim: CSSProperties = {
+  position: 'fixed', inset: 0, zIndex: 240, background: 'rgba(20, 48, 46, 0.30)',
+  display: 'grid', placeItems: 'center', padding: 24, animation: 'spOverlayIn .12s ease-out',
+}
+export const dialogCard: CSSProperties = {
+  width: 'min(460px, 100%)', background: 'var(--spira-white)', borderRadius: 16,
+  border: '1px solid var(--spira-line)', boxShadow: '0 24px 60px rgba(20, 48, 46, 0.26)', padding: '20px 22px 18px',
+}
+export const dialogTitulo: CSSProperties = {
+  fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 17, color: 'var(--spira-ink)',
+}
+
 /* ---------- banner "Vista previa" (prominente, para secciones-maqueta) ----------
    Borde punteado + ícono + explicación: se nota que la sección es una maqueta,
    sin esconderlo en una píldora chica. Va arriba de todo en la sección. */
