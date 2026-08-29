@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FilaRecepcion } from './derivados'
-import { armarMotivo, coincideBusqueda, contenidoDe, esCodigoDeBarras, medicamentosDistintos, resumenContenido, totalesDelDia, unidadesDe } from './derivados'
+import { armarMotivo, coincideBusqueda, contenidoDe, esCodigoDeBarras, medicamentosDistintos, renglonesParaRepetir, resumenContenido, totalesDelDia, unidadesDe } from './derivados'
 
 /**
  * Los derivados de Recepción.
@@ -317,5 +317,36 @@ describe('coincideBusqueda · una anulada se sigue encontrando', () => {
     const r = fila({ status: 'anulada', folio: 11, items: [item({ lote: 'L-2291' })] })
     expect(coincideBusqueda(r, '11')).toBe(true)
     expect(coincideBusqueda(r, 'L-2291')).toBe(true)
+  })
+})
+
+describe('renglonesParaRepetir', () => {
+  it('agrupa por medicamento y SUMA: el mismo fármaco en dos lotes vuelve como uno', () => {
+    // El caso que rompe la copia ingenua. Copiar renglón por renglón dejaría el mismo producto dos
+    // veces en el Escaneo, y el wizard lo aceptaría sin decir nada: se descubriría cuando la
+    // recepción nueva entrara a stock partida en dos.
+    const r = fila({ items: [item({ med: 'm1', lote: 'L-8', qty: 4 }), item({ med: 'm1', lote: 'L-9', qty: 5 })] })
+    expect(renglonesParaRepetir(r)).toEqual([
+      { medicationId: 'm1', name: 'Alvetide 184/22 mcg', quantity: 9, lots: [] },
+    ])
+  })
+
+  it('no repite el lote ni el vencimiento: vuelve el producto, no el envío', () => {
+    const r = fila({ items: [item({ lote: 'L-2291', qty: 3 })] })
+    // `lots` vacío es lo que hace que el wizard siembre un lote EN BLANCO con la cantidad total al
+    // entrar al paso Lotes (seedLots). Si esto trajera el lote viejo, la farmacéutica ingresaría
+    // stock bajo un lote que ya no corresponde y la pantalla se vería perfecta.
+    expect(renglonesParaRepetir(r)[0].lots).toEqual([])
+  })
+
+  it('conserva el orden de aparición y los medicamentos distintos', () => {
+    const r = fila({ items: [item({ med: 'm2', nombre: 'Bemzed' }), item({ med: 'm1', nombre: 'Alvetide' })] })
+    expect(renglonesParaRepetir(r).map((m) => m.medicationId)).toEqual(['m2', 'm1'])
+  })
+
+  it('una recepción de IP no tiene renglones que repetir', () => {
+    // Lleva la cantidad total de kits (0038), no reception_items: repetirla hereda ámbito y
+    // protocolo y nada más.
+    expect(renglonesParaRepetir(ip())).toEqual([])
   })
 })

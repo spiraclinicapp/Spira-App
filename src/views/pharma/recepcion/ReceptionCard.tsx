@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
-import { btnOutline } from '../../../components/buttons'
+import { ActionMenu } from '../../../components/ActionMenu'
+import type { ActionMenuItem } from '../../../components/ActionMenu'
 import { dateToISO, formatDayMonthYear, formatTimeAR, todayISO } from '../../../lib/dates'
 import type { ReceptionRow } from '../../../data/pharma'
 import { ESTADO_CFG, estadoFromExpiry } from '../expiryState'
@@ -22,7 +23,7 @@ import { esCodigoDeBarras, resumenContenido } from './derivados'
  * borde queda en longhands porque React vacía las longhand al apagarse el estado y con la
  * abreviada el color caería a `currentColor` (negro).
  */
-export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify, onAnular }: {
+export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify, onAnular, onRepetir }: {
   r: ReceptionRow
   canManage: boolean
   busy: boolean
@@ -32,6 +33,8 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify, 
   error: string | null
   onVerify: () => void
   onAnular: () => void
+  /** Abre el wizard sembrado con el contenido de esta recepción. No escribe nada. */
+  onRepetir: () => void
 }) {
   const ambito = KIND_CHIP[r.tipo] ?? KIND_CHIP.protocolo
   const esIp = r.tipo === 'investigacion'
@@ -44,7 +47,7 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify, 
 
   return (
     <article style={cardStyle} aria-label={`Recepción Nº ${r.folio}`}>
-      <Banda r={r} canManage={canManage} busy={busy} error={error} onVerify={onVerify} onAnular={onAnular} />
+      <Banda r={r} canManage={canManage} busy={busy} error={error} onVerify={onVerify} onAnular={onAnular} onRepetir={onRepetir} />
 
       {/* Encabezado de DOCUMENTO, no fila de tabla: identidad a la izquierda, procedencia a la
           derecha, aire en el medio. No comparte la grilla de la tabla ni entra en su scroll.
@@ -102,9 +105,9 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify, 
    La ANULADA va en gris neutro, no en rojo: el rojo de esta banda está tomado por "No se pudo
    verificar", que sí es una falla del sistema. Anular es una decisión deliberada de la
    farmacéutica, y pintarla de error la acusa de algo que no pasó. */
-function Banda({ r, canManage, busy, error, onVerify, onAnular }: {
+function Banda({ r, canManage, busy, error, onVerify, onAnular, onRepetir }: {
   r: ReceptionRow; canManage: boolean; busy: boolean; error: string | null
-  onVerify: () => void; onAnular: () => void
+  onVerify: () => void; onAnular: () => void; onRepetir: () => void
 }) {
   const verificada = r.status === 'verificada'
   const anulada = r.status === 'anulada'
@@ -141,14 +144,15 @@ function Banda({ r, canManage, busy, error, onVerify, onAnular }: {
           {/* El `auto` va en UN solo elemento de la fila. Dos margin-auto del mismo lado no se
               acumulan: flexbox reparte el espacio libre en partes iguales entre ellos, y el
               resumen terminaba flotando en el medio de la banda en los dos estados más comunes
-              (pendiente y verificada con permiso). Si hay botones, el que empuja es su bloque. */}
-          <span style={{ ...textoBanda, marginLeft: canManage && !anulada ? 0 : 'auto' }}>{resumen}</span>
+              (pendiente y verificada con permiso). Si hay acciones, el que empuja es su bloque —y
+              ahora las hay en los TRES estados, anulada incluida. */}
+          <span style={{ ...textoBanda, marginLeft: canManage ? 0 : 'auto' }}>{resumen}</span>
         </>
       )}
 
-      {canManage && !anulada && (
+      {canManage && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flex: '0 0 auto' }}>
-          {!verificada && (
+          {!verificada && !anulada && (
             <button
               type="button"
               onClick={onVerify}
@@ -159,20 +163,34 @@ function Banda({ r, canManage, busy, error, onVerify, onAnular }: {
               {busy ? 'Verificando…' : error ? 'Reintentar' : 'Verificar e ingresar a stock'}
             </button>
           )}
-          {/* Secundaria por PESO, no por color: el rojo aparece recién en el modal. Una lista no
-              es un formulario de borrado. */}
-          <button
-            type="button"
-            onClick={onAnular}
-            disabled={busy}
-            style={{ ...btnOutline, height: 38, fontSize: 13, opacity: busy ? 0.7 : 1 }}
-          >
-            Anular
-          </button>
+          <ActionMenu ariaLabel={`Más acciones de la recepción Nº ${r.folio}`} items={accionesDe(r, busy, onRepetir, onAnular)} />
         </div>
       )}
     </div>
   )
+}
+
+/**
+ * Las acciones secundarias de la recepción, por estado.
+ *
+ * REPETIR está en los tres estados, y en la ANULADA es donde más se gana: hasta ahora una recepción
+ * anulada no tenía ni un botón, y el motivo más frecuente para anularla —"Datos incorrectos (lote o
+ * vencimiento)"— termina siempre en volver a cargar la misma medicación a mano. Ahí "Repetir" es la
+ * continuación natural del trabajo, no una opción de más.
+ *
+ * ANULAR no lleva `danger`. Es deliberado y es la misma decisión que ya toma la banda al pintar el
+ * estado 'anulada' en gris y no en rojo: anular es una decisión de la farmacéutica, no una falla, y
+ * el rojo de esta pantalla está tomado por "No se pudo verificar". La confirmación en rojo aparece
+ * recién en el modal, que es donde se decide de verdad.
+ */
+function accionesDe(r: ReceptionRow, busy: boolean, onRepetir: () => void, onAnular: () => void): ActionMenuItem[] {
+  const items: ActionMenuItem[] = [
+    { key: 'repetir', label: 'Repetir recepción', icon: 'copy', disabled: busy, onClick: onRepetir },
+  ]
+  if (r.status !== 'anulada') {
+    items.push({ key: 'anular', label: 'Anular recepción', icon: 'x', disabled: busy, onClick: onAnular })
+  }
+  return items
 }
 
 /**

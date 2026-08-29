@@ -16,12 +16,13 @@ import { useProtocols } from '../../data/protocols'
 import { useReceptions, useMedications, verifyReception, voidReception, TECHO_RECEPCIONES } from '../../data/pharma'
 import type { ReceptionRow, ReceptionKind, ReceptionStatus } from '../../data/pharma'
 import { ReceptionWizard } from './ReceptionWizard'
+import type { CountedMed } from './ReceptionWizard'
 import { ReceptionCard } from './recepcion/ReceptionCard'
 import { ConfirmarVerificacion } from './recepcion/ConfirmarVerificacion'
 import { AnularRecepcion, esAnulable } from './recepcion/AnularRecepcion'
 import type { AnulableReceptionRow } from './recepcion/AnularRecepcion'
 import { KIND_CHIP } from './recepcion/ambitos'
-import { coincideBusqueda, totalesDelDia } from './recepcion/derivados'
+import { coincideBusqueda, renglonesParaRepetir, totalesDelDia } from './recepcion/derivados'
 import { NotFoundView } from '../../shell/NotFoundView'
 import type { ViewProps } from '../types'
 
@@ -33,6 +34,15 @@ const SEGMENTO_NUEVA = 'nueva'
 /** Claves de los filtros de esta vista: se conservan al abrir o cerrar el wizard, para que
  *  `setPath` —que por default descarta todo el query— no se los lleve puestos. */
 const FILTROS_RECEPCION = ['estado', 'tipo', 'medicamento', 'protocolo', 'buscar', 'desde', 'hasta']
+
+/** Semilla del wizard cuando se abre desde "Repetir recepción": el ámbito, el protocolo y los
+ *  renglones de la recepción que se está repitiendo. No es un borrador guardado ni toca la base —
+ *  se descarta apenas se sale del wizard. */
+interface PlantillaRecepcion {
+  tipo: ReceptionKind
+  protocolId: string
+  meds: CountedMed[]
+}
 
 /** El path → si el wizard está abierto. `null` = el segmento no es `nueva`: ruta rota, la vista
  *  muestra la pantalla serena dentro del marco (igual que Stock ante un apartado inexistente). */
@@ -125,6 +135,9 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   )
   const cerrarWizard = () => setPath([], { conservar: FILTROS_RECEPCION, mode: 'replace' })
 
+  /** La recepción que se está repitiendo, mientras el wizard esté abierto. Ver `PlantillaRecepcion`. */
+  const [plantilla, setPlantilla] = useState<PlantillaRecepcion | null>(null)
+
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [confirmando, setConfirmando] = useState<ReceptionRow | null>(null)
@@ -148,6 +161,17 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     const t = setTimeout(() => setHighlightId(null), 5000)
     return () => clearTimeout(t)
   }, [highlightId])
+
+  /* La plantilla muere con el wizard, y se limpia ACÁ y no en `cerrarWizard` porque hay salidas
+     que no pasan por ahí: el atrás del navegador cambia el path por su cuenta y el wizard se
+     desmonta solo. Colgada de `creating`, las cubre a todas. Si no, una plantilla vieja quedaba
+     esperando y sembraba la PRÓXIMA "Nueva recepción" con el contenido de una recepción que el
+     usuario ya había dejado atrás — que es exactamente el tipo de dato inventado que esta app no
+     puede permitirse. `repetirRecepcion` no se pisa a sí misma: siembra y empuja el path en el
+     mismo evento, así que para cuando este efecto corre `creating` ya es true. */
+  useEffect(() => {
+    if (!creating) setPlantilla(null)
+  }, [creating])
 
   // Encabezado contextual del shell: "Nueva recepción" arriba a la derecha (gating leader),
   // y la miga "Nueva recepción" mientras el wizard está abierto.
@@ -191,11 +215,14 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     return (
       <ReceptionWizard
         accentSolid={accentSolid}
-        // Igual que con el protocolo: el wizard hereda el tipo solo si hay UNO filtrado.
-        initialTipo={fTipos.length === 1 ? fTipos[0] : 'protocolo'}
+        // La plantilla le GANA a los filtros: si se está repitiendo una recepción, el ámbito y el
+        // protocolo son los de ESA recepción, no los de lo que quedó filtrado en la lista.
+        // Sin plantilla vale lo de siempre: el wizard hereda el tipo solo si hay UNO filtrado.
+        initialTipo={plantilla ? plantilla.tipo : fTipos.length === 1 ? fTipos[0] : 'protocolo'}
         // Solo si hay UN protocolo filtrado: con varios elegidos no hay uno "en contexto" y
         // adivinar cuál sembraría el wizard con un dato que nadie pidió.
-        initialProtocolId={fProtoSel.length === 1 ? fProtoSel[0] : ''}
+        initialProtocolId={plantilla ? plantilla.protocolId : fProtoSel.length === 1 ? fProtoSel[0] : ''}
+        initialMeds={plantilla?.meds}
         onClose={cerrarWizard}
         // Al crear: resetear TODOS los filtros para que la recepción nueva nunca quede oculta por
         // un filtro activo y el highlight de 5 s se vea.
@@ -240,6 +267,22 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     setErrorAnular(null)
     receptions.refetch()
     setToast(`Recepción Nº ${r.folio} anulada`)
+  }
+
+  /**
+   * "Repetir recepción": abre el wizard sembrado con el contenido de ésta. NO escribe nada —la
+   * recepción original queda intacta, y hasta que no se confirme el wizard no existe nada nuevo.
+   *
+   * El lote y el vencimiento NO se copian (ver `renglonesParaRepetir`): vuelve el mismo producto,
+   * casi nunca el mismo lote.
+   *
+   * Lo que se repite es una recepción concreta, así que el ámbito y el protocolo salen de la fila y
+   * no de los filtros; sin protocolo (una ambulatoria) va vacío, que es lo que su rama del wizard
+   * espera. Y va con `push`: el atrás del navegador vuelve a la lista, igual que con el alta normal.
+   */
+  const repetirRecepcion = (r: ReceptionRow) => {
+    setPlantilla({ tipo: r.tipo, protocolId: r.protocol_id ?? '', meds: renglonesParaRepetir(r) })
+    abrirWizard()
   }
 
   // ── Toolbar (siempre visible, también en loading/error/vacío) ────────────────
@@ -407,6 +450,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
                     highlight={r.id === highlightId}
                     error={errorPorId[r.id] ?? null}
                     onVerify={() => setConfirmando(r)}
+                    onRepetir={() => repetirRecepcion(r)}
                     onAnular={() => {
                       // Guard real, no cosmético: el botón que dispara esto ya está gateado por
                       // `!anulada` en ReceptionCard, pero es ACÁ donde se lo demuestra al
