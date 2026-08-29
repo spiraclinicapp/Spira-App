@@ -29,6 +29,10 @@ interface Props {
   accentSolid: string
   initialTipo: ReceptionKind
   initialProtocolId: string
+  /** Renglones con los que arranca el Escaneo ("Repetir recepción"). Semilla inicial y nada más:
+   *  a partir del montaje el estado es del wizard, y cambiar de ámbito los descarta como siempre
+   *  (con su cartel de confirmación, porque a los ojos del wizard esto ES data cargada). */
+  initialMeds?: CountedMed[]
   onClose: () => void
   onCreated: (id: string) => void
 }
@@ -44,7 +48,7 @@ interface Props {
  *    Carga general (temperatura OK/Excursión + cantidad total + rango) → Doble check (documentación +
  *    IRT) → Cierre (ubicación + Confirmar). NO escanea kit por kit; el stock se lleva por cantidad.
  */
-export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, onClose, onCreated }: Props) {
+export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, initialMeds, onClose, onCreated }: Props) {
   const [step, setStep] = useState(0)
   const [maxReached, setMaxReached] = useState(0)
   const [tipo, setTipo] = useState<ReceptionKind>(initialTipo)
@@ -60,7 +64,12 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, o
   const [confirmNoCode, setConfirmNoCode] = useState<null | (() => void)>(null)
 
   // ── Estado rama base ────────────────────────────────────────────────────────
-  const [meds, setMeds] = useState<CountedMed[]>([])
+  // Copia propia y no `initialMeds ?? []` a secas: los pasos 1 y 2 reemplazan `meds` entero pero
+  // el llamador conserva su plantilla, y compartir el array (y sus `lots`) los ataría. En un
+  // inicializador de función, así la copia corre una sola vez y no en cada render.
+  const [meds, setMeds] = useState<CountedMed[]>(
+    () => (initialMeds ?? []).map((m) => ({ ...m, lots: m.lots.map((l) => ({ ...l })) })),
+  )
   // Códigos de barra del catálogo (fuente única para el Escaneo): mapa medicamento→código.
   const codes = useMedicationCodes()
   const codeByMed = useMemo(() => {

@@ -1,4 +1,8 @@
 import { formatNumberAR } from '../../../lib/numbers'
+// Import de TIPO solamente (se borra al compilar): `renglonesParaRepetir` devuelve exactamente lo
+// que el wizard consume, y declararlo estructuralmente acá sería una copia que se despega el día
+// que `CountedMed` cambie sin que nada falle.
+import type { CountedMed } from '../ReceptionWizard'
 
 /**
  * Los derivados de la lista de Recepción: las frases con números y la decisión de qué fila
@@ -193,4 +197,40 @@ export function armarMotivo(motivo: string, nota: string): string {
   const m = motivo.trim()
   const n = nota.trim()
   return n ? `${m} — ${n}` : m
+}
+
+/**
+ * Los renglones de una recepción, listos para sembrar el wizard de "Repetir recepción".
+ *
+ * Agrupa POR MEDICAMENTO y suma las cantidades, que es el punto y lo único que puede fallar en
+ * silencio: el unique de `reception_items` es por (recepción, medicamento, LOTE) — 0002:267 —, así
+ * que el mismo Salbutral en dos lotes son dos renglones y UN medicamento. Copiar los renglones tal
+ * cual dejaría el mismo producto dos veces en el Escaneo, y el wizard lo aceptaría: nadie lo vería
+ * hasta que la recepción nueva entre a stock partida en dos.
+ *
+ * `lots: []` a propósito: el lote y el vencimiento NO se repiten. Lo que vuelve a llegar es el
+ * mismo producto, casi nunca el mismo lote, y arrastrarlo sería sembrar el dato más delicado de la
+ * carga con algo que probablemente ya no corresponde. Vacío, el `seedLots` del wizard crea al
+ * entrar al paso Lotes un único lote en blanco con la cantidad total — que es exactamente la
+ * pantalla que la farmacéutica tiene que completar.
+ *
+ * Tampoco viaja el `code`: `Step1Scan` lo resuelve contra el catálogo vivo, así que sembrarlo acá
+ * congelaría el código que tenía el medicamento el día de la recepción original.
+ *
+ * Una recepción de IP no tiene renglones (lleva la cantidad total de kits), así que devuelve la
+ * lista vacía sin necesidad de un caso aparte: repetir un cargamento hereda ámbito y protocolo.
+ */
+export function renglonesParaRepetir(r: FilaRecepcion): CountedMed[] {
+  const porMedicamento = new Map<string, CountedMed>()
+  for (const it of r.items) {
+    const ya = porMedicamento.get(it.medication_id)
+    if (ya) { ya.quantity += it.quantity; continue }
+    porMedicamento.set(it.medication_id, {
+      medicationId: it.medication_id,
+      name: it.medication?.name ?? '—',
+      quantity: it.quantity,
+      lots: [],
+    })
+  }
+  return [...porMedicamento.values()]
 }
