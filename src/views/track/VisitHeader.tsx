@@ -9,10 +9,12 @@ import type { DayVisitRow } from '../../data/dayVisits'
 import { useProtocolCoordinators } from '../../data/pharma/coordinators'
 import { useTreatingPhysicians } from '../../data/patients'
 import { setEstimatedDate, setRealDate } from '../../data/visits'
+import { formatAR } from '../../lib/dates'
 import { desvioDias, fueraDeVentana, visitCode, visitTitle } from '../../lib/visits'
 import { VisitDateInline } from './VisitDateInline'
 import {
-  datosDelPaciente, medicoDeVisita, puedeEditarCoordinador, puedeEditarFechaReal, puedeEditarMedico,
+  datosDelPaciente, fechaSegunProtocolo, horaDeAtencion, medicoDeVisita, muestraFechaReal,
+  puedeEditarCoordinador, puedeEditarMedico,
 } from './visitHeaderRules'
 
 /**
@@ -62,6 +64,14 @@ export function VisitHeader({
   // valor, para no ensanchar el campo (handoff §6). El desvío solo existe con las dos fechas.
   const d = desvioDias(visit.estimated_date, visit.real_date)
   const fuera = fueraDeVentana(visit.real_date, visit.window_start, visit.window_end)
+  // La hora del sello de atención (0102), o null si no hay ninguna que mostrar sin mentir.
+  const hora = horaDeAtencion(visit)
+  // Lo que manda el cronograma, o null si el protocolo no fija fecha para esta visita.
+  const protocolo = fechaSegunProtocolo(visit)
+  /* El interruptor del segundo campo: rótulo, valor y columna de guardado salen los TRES de acá
+     (ver `muestraFechaReal`). Un solo predicado para las tres cosas es lo que impide que el campo
+     diga "Citado" y escriba en `real_date`. */
+  const atendida = muestraFechaReal(visit)
 
   return (
     <div style={{ background: 'var(--spira-white)', flex: '0 0 auto' }}>
@@ -139,27 +149,43 @@ export function VisitHeader({
           </div>
         )}
 
+        {/* TRES TIEMPOS, DOS CAMPOS (decisión del Director, 2026-08-29). La visita tiene tres
+            fechas distintas y el encabezado sólo distinguía dos: lo que manda el protocolo · para
+            cuándo la citamos · cuándo vino. El primero es de referencia y no se toca; los otros dos
+            comparten campo porque nunca conviven — hasta que se atiende lo que gobierna es la
+            citación, y desde que se atiende, la fecha real. */}
         <div className="spira-visit-dates" style={{ ...col, paddingLeft: 24 }}>
           <VisitDateInline
-            label="Fecha est."
-            value={visit.estimated_date}
-            editable={!readOnly}
+            label="Según protocolo"
+            value={protocolo}
+            /* Nunca editable, y no por falta de permiso: es una CUENTA (randomización + offset del
+               cronograma), no un dato guardado. Lo que se edita es el cronograma. */
+            editable={false}
             tone="soft"
-            onSave={async (iso) => {
-              // `setEstimatedDate` y NO `rescheduleVisit`: aquella además limpia la marca de "No
-              // vino", que es lo que significa reagendar — no lo que significa corregir un tipeo.
-              const res = await setEstimatedDate(visit.id, iso)
-              if (res.error) return res.error
-              onSaved()
-              return null
-            }}
+            title={protocolo
+              ? 'La fecha que manda el cronograma del estudio'
+              : 'El protocolo no fija fecha para esta visita (visita suelta o de agenda libre)'}
           />
           <div style={{ marginTop: 8 }}>
             <VisitDateInline
-              label="Fecha real"
-              value={visit.real_date}
-              editable={!readOnly && puedeEditarFechaReal(visit)}
-              title={puedeEditarFechaReal(visit) ? undefined : 'Se completa al iniciar la atención'}
+              /* EL MISMO CAMPO CON DOS NOMBRES. Mientras no hay atención muestra para cuándo la
+                 citamos; en cuanto se marca el inicio, pasa a ser la fecha real. No conviven: la
+                 citación gobierna hasta que el paciente llega, y desde ahí lo que importa es
+                 cuándo vino. Se editan campos distintos según el estado, y ésa es la clave —
+                 el `onSave` de abajo va a `estimated_date` o a `real_date` según qué se esté
+                 mostrando; escribir el otro sería corregir una fecha que la pantalla no muestra. */
+              label={atendida ? 'Fecha real' : 'Citado'}
+              value={atendida ? visit.real_date : visit.estimated_date}
+              editable={!readOnly}
+              /* La hora del sello (0102) va al lado de la fecha, atenuada: es cuándo se apretó
+                 "Iniciar atención", no una segunda fecha. `horaDeAtencion` decide si mostrarla —
+                 devuelve null cuando el sello no existe (visitas anteriores a la 0102) o cuando
+                 ya no le corresponde a la fecha real que tiene la visita. */
+              suffix={hora && <span style={horaSello} title="Hora en que se marcó el inicio de atención">{hora}</span>}
+              /* Atendida, la citación deja de estar en pantalla — es la contra de fundir los dos
+                 campos en uno. Vive acá para no perderse: es el dato que EXPLICA un desvío ("vino
+                 el día que lo citamos; lo corrido era la cita"). */
+              title={atendida && visit.estimated_date ? `Citado para el ${formatAR(visit.estimated_date)}` : undefined}
               badge={
                 <>
                   {d != null && d !== 0 && <span style={dev}>{d > 0 ? '+' : '−'}{Math.abs(d)} d</span>}
@@ -172,7 +198,16 @@ export function VisitHeader({
                 </>
               }
               onSave={async (iso) => {
-                const res = await setRealDate(visit.id, iso)
+                /* Edita LO QUE SE ESTÁ MOSTRANDO. Es lo único de este campo que puede fallar sin
+                   verse: guardar siempre en `real_date` dejaría que corregir una citación fechara
+                   la visita como atendida —`real_date` no nula ES "inicio de atención" (0069)—, o
+                   sea que un tipeo saltaría dos etapas del recorrido.
+
+                   `setEstimatedDate` y NO `rescheduleVisit`: aquella además limpia la marca de
+                   "No vino", que es lo que significa reagendar, no lo que significa corregir. */
+                const res = atendida
+                  ? await setRealDate(visit.id, iso)
+                  : await setEstimatedDate(visit.id, iso)
                 if (res.error) return res.error
                 onSaved()
                 return null
@@ -436,6 +471,19 @@ const coordRO: CSSProperties = {
 const cl: CSSProperties = {
   fontSize: 9.5, fontWeight: 700, letterSpacing: '.11em', textTransform: 'uppercase',
   color: 'var(--spira-faint)',
+}
+/* La hora del sello, al lado de la fecha real. Más chica y atenuada a propósito: la fecha es el
+   dato clínico —la que alimenta el desvío y la ventana del cronograma— y la hora es la marca
+   administrativa de cuándo se apretó el botón. Al mismo peso competirían y el campo se leería como
+   si tuviera dos datos del mismo rango. Cifras tabulares como todo el bloque de fechas.
+
+   `ink-soft` y NO `muted`, aunque "atenuado" pida el segundo: medido sobre el blanco de esta
+   banda, `muted` da 3,52:1 y a 12px esto es texto NORMAL, así que el umbral de WCAG AA es 4,5:1.
+   `ink-soft` (#556966) lo pasa. Es la misma regla que ya rige para todo el texto secundario del
+   sistema; ver el gotcha de los tonos atenuados sobre papel. */
+const horaSello: CSSProperties = {
+  marginLeft: 7, fontSize: 12, fontWeight: 500, color: 'var(--spira-ink-soft)',
+  fontVariantNumeric: 'tabular-nums', letterSpacing: 0, flex: '0 0 auto',
 }
 const dev: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', height: 19, padding: '0 6px', borderRadius: 5,

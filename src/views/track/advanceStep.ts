@@ -29,24 +29,23 @@ export function advanceRole(stage: OperationalStage): 'reception' | 'clinical' |
  *
  * El modal se abre desde cuatro pantallas, y desde la ficha o las alertas es fácil tener delante
  * una visita de hace dos meses y avanzarla creyendo que es la del día. Una visita SIN fecha real
- * también se confirma: avanzar le va a escribir una (ver `fechaRealAlAvanzar`).
+ * también se confirma: que no esté fechada es justamente lo que impide saber de qué día es.
  */
 export function necesitaConfirmacion(realDate: string | null, hoy: string): boolean {
   return realDate !== hoy
 }
 
-/**
- * Qué fecha real hay que ESCRIBIR al avanzar, o `null` si no hay que tocarla.
+/* AVANZAR YA NO ESCRIBE LA FECHA REAL. Acá vivía `fechaRealAlAvanzar`, que al marcar la LLEGADA de
+ * una visita sin fechar le ponía la de hoy (regla del Director, 2026-08-20: "una visita no debería
+ * cambiar de etapa sin quedar fechada").
  *
- * Regla del Director (2026-08-20): si la visita no tiene fecha real, avanzar se la pone con la de
- * hoy —una visita no debería cambiar de etapa sin quedar fechada—; si ya tiene, no se toca nunca:
- * es un dato clínico, y pisarlo cambiaría cuándo dice la historia que pasó la visita.
+ * Se retiró el 2026-08-30, y no por gusto: `real_date` no nula ES "inicio de atención" en la
+ * derivación de etapas (0068/0069), así que esa escritura hacía SALTAR la visita a esa etapa sin
+ * pasar por `start_visit_attention` — o sea sin el sello horario y sin el coordinador que la 0102
+ * agregó, y con el botón "Iniciar atención" ya consumido. Marcar la llegada se saltaba entera la
+ * marca de atención. Sólo pasaba desde el modal: la fila de Visitas del día nunca fechó al llegar,
+ * y ahora los dos caminos hacen lo mismo.
  *
- * `inicio_atencion` queda afuera porque ESE avance ya es el que fecha la visita (`markAttended`):
- * escribirla antes sería hacer dos veces lo mismo.
- */
-export function fechaRealAlAvanzar(realDate: string | null, next: OperationalStage, hoy: string): string | null {
-  if (realDate) return null
-  if (next === 'inicio_atencion') return null
-  return hoy
-}
+ * Lo que la regla del 20/08 buscaba —que la visita no cambie de etapa sin quedar fechada— lo cumple
+ * ahora el propio RPC, que fecha en el momento en que la atención empieza. Que es, además, cuándo
+ * la visita ocurrió de verdad. */

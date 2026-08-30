@@ -2,14 +2,14 @@ import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { OPERATIONAL_STAGES, STAGE_ORDER } from '../visitStates'
 import { advanceRole } from './advanceStep'
 import { ageFromBirth, SEX_LABELS, FERTILITY_LABELS } from '../../lib/visits'
-import { formatAR } from '../../lib/dates'
+import { addDaysISO, dateToISO, formatAR, formatTimeAR } from '../../lib/dates'
 
 /**
  * Reglas puras del encabezado de la visita (rediseño `docs/handoff-visitas-encabezado/`).
  *
  * POR QUÉ VIVEN ACÁ Y NO ADENTRO DEL JSX: son las que pueden estar al revés **sin que se vea**.
  * Un riel mal llenado o una etiqueta corrida se detectan mirando la pantalla; que
- * `puedeEditarFechaReal` devuelva `true` de más, no — la pantalla se ve impecable y la visita
+ * `muestraFechaReal` devuelva `true` de más, no — la pantalla se ve impecable y la visita
  * termina marcada como atendida sin que nadie la haya atendido. Extraídas, tienen test
  * (`visitHeader.test.ts`) y el gate de `npm run build` las cuida. Mismo criterio que
  * `views/pharma/dispensaciones/estados.ts`.
@@ -33,19 +33,28 @@ export function estaConcretada(visit: Pick<DayVisitRow, 'operational_stage'>): b
 }
 
 /**
- * ¿Se puede editar la fecha REAL? Solo si ya existe (decisión del Director, 2026-08-13).
+ * ¿El segundo campo de fechas está mostrando la fecha REAL? Si no, está mostrando la citación.
  *
- * El handoff pide las dos fechas siempre editables y afirma que "corregirla no mueve la ruta".
- * Con el modelo actual eso es falso al crearla: la etapa se DERIVA de las marcas y `real_date`
- * no nula ES "Inicio de atención" (0069), así que escribirla en una visita "Por llegar" la
- * saltaría dos etapas. Corregir una que ya existe, en cambio, nunca cambia la etapa —
- * `real_date` sigue siendo no nula antes y después—, que es exactamente lo que el handoff
- * promete. La fecha la CREA "Iniciar atención"; este campo solo la corrige.
+ * Gobierna las TRES cosas del campo a la vez —el rótulo ("Fecha real" o "Citado"), el valor que
+ * pinta y la columna que escribe al guardar—, y que sea UN solo predicado es el punto: si el
+ * rótulo se decidiera por un lado y el destino del guardado por otro, el campo podría decir
+ * "Citado" y escribir en `real_date`.
  *
- * Deuda anotada en `TODOS.md` ("desacoplar la etapa operativa de la fecha real"): si algún día
- * la atención tiene su propia marca, esta función se cae y el campo pasa a ser siempre editable.
+ * Y ESO ES EL GUARD, no una preferencia de diseño. La etapa operativa se DERIVA de las marcas, y
+ * `real_date` no nula ES "Inicio de atención" (0069): escribirla desde este campo en una visita
+ * "Por llegar" la saltaría dos etapas del recorrido, sin que nadie haya atendido a nadie. Al mirar
+ * `real_date`, el campo sólo puede escribirla cuando ya existe — corregir nunca mueve la ruta.
+ * La fecha la CREA "Iniciar atención" (`start_visit_attention`, 0102), nunca este campo.
+ *
+ * Antes se llamaba `puedeEditarFechaReal` y era el candado de edición del campo "Fecha real"
+ * (decisión del Director, 2026-08-13). Con los dos campos fundidos en uno (2026-08-29) el mismo
+ * predicado pasó a decidir además qué se muestra; cambió el nombre, no la regla.
+ *
+ * Deuda anotada en `TODOS.md` ("desacoplar la etapa operativa de la fecha real"): si algún día la
+ * atención tiene su propia marca de etapa, el guard deja de hacer falta — pero el interruptor
+ * entre citación y fecha real sigue siendo éste.
  */
-export function puedeEditarFechaReal(visit: Pick<DayVisitRow, 'real_date'>): boolean {
+export function muestraFechaReal(visit: Pick<DayVisitRow, 'real_date'>): boolean {
   return visit.real_date != null
 }
 
@@ -63,6 +72,76 @@ export function puedeEditarMedico(visit: Pick<DayVisitRow, 'operational_stage'>)
  *  comportamiento a una función en producción. Ver el comentario de la migración. */
 export function puedeEditarCoordinador(visit: Pick<DayVisitRow, 'operational_stage'>): boolean {
   return !estaConcretada(visit)
+}
+
+// ————————————————————————————————————————————————————
+// El sello de la atención (0102)
+// ————————————————————————————————————————————————————
+
+/**
+ * La fecha que el CRONOGRAMA manda para esta visita, o null si el protocolo no manda ninguna.
+ *
+ * Es el primero de los tres tiempos que el encabezado distingue desde el 2026-08-29: lo que dice
+ * el protocolo · para cuándo la citamos (`estimated_date`) · cuándo vino (`real_date`). Antes los
+ * dos primeros estaban fundidos en un campo llamado "Fecha est.", que en realidad mostraba la
+ * citación —es la que cambia al reagendar—, no lo que manda el estudio.
+ *
+ * EL ANCLA ES LA RANDOMIZACIÓN, NO EL ENROLAMIENTO, y ésta es la parte que hay que no equivocar:
+ * el generador vigente (`generate_patient_visits`, 0022) inserta el cronograma con
+ * `randomization_date + offset_days`. La versión de la 0003 usaba `enrollment_date` y quedó
+ * superada por la 0021/0022 — derivar desde ahí daría una fecha equivocada en TODA visita de
+ * tratamiento, y equivocada en silencio: se vería como una fecha perfectamente plausible.
+ *
+ * DEVUELVE NULL EN CUATRO CASOS, y ninguno es un descuido:
+ *   · `kind <> 'programada'` — firma, screening y randomización son visitas SUELTAS: se crean de a
+ *     una y el protocolo no les fija fecha. No hay nada que derivar.
+ *   · `date_mode = 'libre'` — el cronograma declara que esa visita se agenda a criterio del centro.
+ *     Su `offset_days` existe pero es una referencia, no una fecha mandada.
+ *   · sin `offset_days` o sin fecha de randomización — falta el término de la cuenta.
+ * En todos ellos el encabezado muestra "—". Es la respuesta honesta: el protocolo no manda fecha,
+ * y ponerle una calculada igual sería inventar el número contra el que después se mide un desvío.
+ *
+ * Se deriva y no se guarda: el cronograma se edita (`ScheduleEditor`), así que esto contesta "qué
+ * dice el protocolo HOY". Para una visita generada antes de un cambio de cronograma, el resultado
+ * puede no coincidir con el `estimated_date` con el que nació — y así tiene que ser: la citación
+ * quedó registrada en su propio campo.
+ */
+export function fechaSegunProtocolo(
+  visit: Pick<DayVisitRow, 'kind' | 'date_mode' | 'offset_days' | 'enrollment_randomization_date'>,
+): string | null {
+  if (visit.kind !== 'programada') return null
+  if (visit.date_mode === 'libre') return null
+  if (visit.offset_days == null || visit.enrollment_randomization_date == null) return null
+  // `addDaysISO` y no `new Date(iso)`: aquél parsea en UTC y correría el día.
+  return addDaysISO(visit.enrollment_randomization_date, visit.offset_days)
+}
+
+/**
+ * La hora del inicio de atención, o null si no hay hora que mostrar.
+ *
+ * DEVUELVE NULL EN DOS CASOS Y LOS DOS IMPORTAN:
+ *
+ * 1. **Sin sello.** Las visitas atendidas antes de la 0102 no tienen `attended_at` — no se
+ *    backfillearon porque `real_date` es un `date` y las 00:00 serían una hora que nadie registró.
+ *    Ahí se muestra sólo la fecha.
+ *
+ * 2. **Sello que ya no le corresponde a la fecha.** Si alguien CORRIGE la fecha real a otro día,
+ *    el sello sigue apuntando al momento en que se apretó el botón. Mostrarlos juntos —"14/08/2026
+ *    16:31" con el sello del 29— es una hora que ese día no pasó. Y es el caso que falla en
+ *    silencio: la pantalla se ve impecable y el dato miente. Por eso la comparación de días es lo
+ *    que gobierna, no la existencia del sello.
+ *
+ * El día del sello sale del `Date` y NO de recortar el ISO: `attended_at` es un `timestamptz` que
+ * llega en UTC, así que `slice(0, 10)` daría el día UTC y todo lo marcado después de las 21:00
+ * hora argentina se compararía contra el día siguiente — es decir, la hora desaparecería justo en
+ * las atenciones de la tarde. Mismo cuidado que `ingresadaPor` en Recepción.
+ */
+export function horaDeAtencion(
+  visit: Pick<DayVisitRow, 'real_date' | 'attended_at'>,
+): string | null {
+  if (!visit.attended_at || !visit.real_date) return null
+  if (dateToISO(new Date(visit.attended_at)) !== visit.real_date) return null
+  return formatTimeAR(visit.attended_at)
 }
 
 // ————————————————————————————————————————————————————

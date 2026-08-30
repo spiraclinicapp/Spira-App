@@ -229,7 +229,7 @@ export async function setEstimatedDate(id: string, newDate: string): Promise<{ e
  * Corrige la fecha REAL de una visita que YA la tiene. Solo corrige: crearla desde el encabezado
  * movería la ruta dos etapas, porque la etapa se deriva de esta columna (`real_date` no nula ⇒
  * "Inicio de atención", 0069). El front no ofrece el campo cuando está vacía
- * (`puedeEditarFechaReal`, `views/track/visitHeader.ts`); la crea "Iniciar atención" vía
+ * (`muestraFechaReal`, `views/track/visitHeader.ts`); la crea "Iniciar atención" vía
  * `registerVisit`. Ver la deuda anotada en `TODOS.md`.
  */
 export async function setRealDate(id: string, newDate: string): Promise<{ error: string | null }> {

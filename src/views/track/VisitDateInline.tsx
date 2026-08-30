@@ -25,12 +25,21 @@ import { formatAR, parseARInput } from '../../lib/dates'
  * ```
  */
 export function VisitDateInline({
-  label, value, editable, tone = 'strong', badge, placeholder = '—', title, onSave,
+  label, value, editable, tone = 'strong', badge, suffix, placeholder = '—', title, onSave,
 }: {
   label: string
   /** Fecha ISO ('YYYY-MM-DD') o null. */
   value: string | null
   editable: boolean
+  /**
+   * Adorno a la derecha del VALOR, sólo en lectura (la hora del sello de atención, 0102).
+   *
+   * Va como nodo aparte y NO concatenado al texto de la fecha, y no es cosmético: al entrar a
+   * editar, este campo RELEE su propio valor con `parseARInput`, que sólo entiende una fecha. Un
+   * "29/08/2026 16:31" adentro del valor volvería intipeable el campo — el mismo pozo que en la
+   * v0.45.0 dejó al `DateField` sin poder tipearse con el formato `iso`.
+   */
+  suffix?: ReactNode
   /** `soft` = la estimada (tinta atenuada); `strong` = la real. */
   tone?: 'soft' | 'strong'
   /** Pastillas de la etiqueta (desvío, fuera de ventana). Van al lado del RÓTULO y no del valor,
@@ -39,8 +48,9 @@ export function VisitDateInline({
   placeholder?: string
   /** Explicación cuando no se puede editar (ej.: la fecha real todavía no existe). */
   title?: string
-  /** Devuelve el mensaje de error, o null si guardó. */
-  onSave: (iso: string) => Promise<string | null>
+  /** Devuelve el mensaje de error, o null si guardó. Opcional: un campo que nunca es editable no
+   *  tiene nada que guardar (la fecha "según protocolo" es una cuenta, no un dato). */
+  onSave?: (iso: string) => Promise<string | null>
 }) {
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState('')
@@ -64,6 +74,7 @@ export function VisitDateInline({
     const iso = parseARInput(text.trim())
     if (!iso) { setErr('Fecha inválida. Usá dd/mm/aaaa.'); return }
     if (iso === value) { setEditing(false); return }   // sin cambios: no molestamos a la base
+    if (!onSave) { setEditing(false); return }         // campo de sólo lectura: nada que guardar
     setBusy(true)
     const e = await onSave(iso)
     setBusy(false)
@@ -83,6 +94,7 @@ export function VisitDateInline({
         // entre editable y bloqueado no mueva el encabezado.
         <div style={{ ...bigBase, border: '1px solid transparent', background: 'transparent', cursor: 'default', ...(value ? toneStyle(tone) : phStyle) }} title={title}>
           {value ? formatAR(value) : placeholder}
+          {value && suffix}
         </div>
       ) : editing ? (
         // Confirmar y descartar van DENTRO de la caja, en el lugar que ocupa el ícono de agenda
@@ -126,6 +138,7 @@ export function VisitDateInline({
           style={{ ...bigBase, ...(value ? toneStyle(tone) : phStyle) }}
         >
           {value ? formatAR(value) : placeholder}
+          {value && suffix}
           <Icon name="calendar" size={16} color="var(--spira-track)" style={{ marginLeft: 'auto', flex: '0 0 auto' }} />
         </div>
       )}
