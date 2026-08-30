@@ -14,7 +14,7 @@ import { desvioDias, fueraDeVentana, visitCode, visitTitle } from '../../lib/vis
 import { VisitDateInline } from './VisitDateInline'
 import {
   datosDelPaciente, fechaSegunProtocolo, horaDeAtencion, medicoDeVisita, muestraFechaReal,
-  puedeEditarCoordinador, puedeEditarMedico,
+  opcionesDeCoordinador, puedeEditarCoordinador, puedeEditarMedico,
 } from './visitHeaderRules'
 
 /**
@@ -367,10 +367,10 @@ function CoordinatorChip({ visit, readOnly, onSaved, onError }: {
       menuWidth="auto"
       value={visit.coordinator_id ?? ''}
       onChange={change}
-      options={[
-        { value: '', label: '— Sin asignar —' },
-        ...(coords.data ?? []).map((c) => ({ value: c.id, label: c.full_name })),
-      ]}
+      /* Incluye al coordinador ya asignado aunque no sea del protocolo — puede pasar desde la 0102.
+         Sin eso el chip no encuentra su propio valor y dice "Asignar coordinador" sobre una visita
+         que ya tiene uno. Ver `opcionesDeCoordinador`. */
+      options={opcionesDeCoordinador(visit, coords.data ?? [])}
       placeholder={coords.loading ? 'Cargando…' : 'Asignar coordinador'}
       disabled={busy || coords.loading}
       entity="coordinador"

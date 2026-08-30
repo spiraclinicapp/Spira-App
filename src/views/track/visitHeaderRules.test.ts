@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   contextoDeEtapa, datosDelPaciente, estaConcretada, etapaProgreso, fechaSegunProtocolo,
-  horaDeAtencion, marcaDeEtapa,
+  horaDeAtencion, marcaDeEtapa, opcionesDeCoordinador,
   medicoDeVisita, puedeEditarCoordinador, muestraFechaReal, puedeEditarMedico,
 } from './visitHeaderRules'
 import { desvioDias, fueraDeVentana } from '../../lib/visits'
@@ -267,5 +267,38 @@ describe('fechaSegunProtocolo · lo que manda el cronograma', () => {
 
   it('cruza el fin de mes sin correrse', () => {
     expect(fechaSegunProtocolo(prog({ enrollment_randomization_date: '2026-01-31', offset_days: 29 }))).toBe('2026-03-01')
+  })
+})
+
+describe('opcionesDeCoordinador · el chip tiene que poder nombrar lo que ya está asignado', () => {
+  const DEL_PROTO = [{ id: 'u-lau', full_name: 'Lautaro Molina' }]
+
+  it('sin coordinador asignado, sólo el protocolo', () => {
+    const o = opcionesDeCoordinador({ coordinator_id: null, coordinator_name: null }, DEL_PROTO)
+    expect(o.map((x) => x.value)).toEqual(['', 'u-lau'])
+  })
+
+  it('el asignado que SÍ es del protocolo no se duplica', () => {
+    const o = opcionesDeCoordinador({ coordinator_id: 'u-lau', coordinator_name: 'Lautaro Molina' }, DEL_PROTO)
+    expect(o.filter((x) => x.value === 'u-lau')).toHaveLength(1)
+  })
+
+  it('el asignado que NO es del protocolo se agrega con su nombre sellado', () => {
+    // El bug del 2026-08-30: desde la 0102 la marca de atención sella a quien apriete, sin validar
+    // contra protocol_coordinators. Sin esta opción el desplegable no encontraba su propio valor y
+    // caía al placeholder: "Asignar coordinador" sobre una visita que ya tenía coordinador.
+    const o = opcionesDeCoordinador({ coordinator_id: 'u-ger', coordinator_name: 'Spira Clinic' }, DEL_PROTO)
+    expect(o.some((x) => x.value === 'u-ger' && x.label === 'Spira Clinic')).toBe(true)
+  })
+
+  it('sin nombre sellado (filas anteriores a la 0065) etiqueta genérico, nunca vacío', () => {
+    // Una opción sin texto devolvería el chip al placeholder, que es el bug otra vez.
+    const o = opcionesDeCoordinador({ coordinator_id: 'u-viejo', coordinator_name: null }, DEL_PROTO)
+    expect(o.find((x) => x.value === 'u-viejo')?.label).toBe('Coordinador asignado')
+  })
+
+  it('sin coordinadores en el protocolo igual puede nombrar al asignado', () => {
+    const o = opcionesDeCoordinador({ coordinator_id: 'u-ger', coordinator_name: 'Spira Clinic' }, [])
+    expect(o.map((x) => x.label)).toEqual(['— Sin asignar —', 'Spira Clinic'])
   })
 })
