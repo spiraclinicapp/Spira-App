@@ -145,6 +145,52 @@ export function horaDeAtencion(
 }
 
 // ————————————————————————————————————————————————————
+// Coordinador de la visita
+// ————————————————————————————————————————————————————
+
+/** Una opción del desplegable de coordinador. */
+export interface OpcionCoordinador { value: string; label: string }
+
+/**
+ * Las opciones del chip de coordinador: las del protocolo, más —si hace falta— el que la visita
+ * TIENE asignado aunque no esté entre ellas.
+ *
+ * ESA ÚLTIMA LÍNEA ES TODA LA FUNCIÓN, y viene de un bug real (2026-08-30). Desde la 0102, marcar
+ * el inicio de atención sella como coordinador a quien apretó el botón **sin validarlo contra
+ * `protocol_coordinators`** (decisión del Director). Gerencia ve todas las visitas, así que puede
+ * quedar sellada en un protocolo que no coordina — y entonces su id no está entre las opciones.
+ *
+ * Un desplegable que no encuentra su propio valor cae al placeholder, así que el modal mostraba
+ * **"Asignar coordinador" sobre una visita que YA tenía coordinador**, mientras la fila de al lado
+ * mostraba el nombre correcto (lo lee del snapshot `coordinator_name`, que no depende de esta
+ * lista). Dos pantallas del mismo dato diciendo cosas distintas, y la que mentía era la que
+ * invitaba a escribir.
+ *
+ * Se resuelve mostrando lo que hay, que es la regla de la casa: el valor asignado se agrega como
+ * opción con su nombre sellado. No se lo marca como anómalo en la etiqueta — el chip tiene ancho de
+ * chip— y no hace falta: quien mire la lista desplegada ve que esa persona no está entre las del
+ * protocolo.
+ *
+ * `coordinator_name` puede ser null en filas viejas (la columna nació con la 0065 y las anteriores
+ * quedaron sin snapshot). Ahí se etiqueta genérico antes que dejar una opción sin texto: el chip
+ * diría "Asignar coordinador" otra vez, que es exactamente el bug.
+ */
+export function opcionesDeCoordinador(
+  visit: Pick<DayVisitRow, 'coordinator_id' | 'coordinator_name'>,
+  delProtocolo: { id: string; full_name: string }[],
+): OpcionCoordinador[] {
+  const opciones: OpcionCoordinador[] = [
+    { value: '', label: '— Sin asignar —' },
+    ...delProtocolo.map((c) => ({ value: c.id, label: c.full_name })),
+  ]
+  const asignado = visit.coordinator_id
+  if (asignado && !opciones.some((o) => o.value === asignado)) {
+    opciones.push({ value: asignado, label: visit.coordinator_name ?? 'Coordinador asignado' })
+  }
+  return opciones
+}
+
+// ————————————————————————————————————————————————————
 // Médico a cargo
 // ————————————————————————————————————————————————————
 
