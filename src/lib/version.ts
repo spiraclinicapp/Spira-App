@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.47', text: 'El encabezado de la visita distingue las tres fechas que hasta ahora estaban fundidas en dos: la que manda el protocolo, la que le dimos al paciente y el día que vino. Iniciar la atención deja además sellada la hora y quién la marcó.' },
     { version: '0.46', text: 'Una recepción se puede repetir: el alta se abre con la misma medicación y sus cantidades, y sólo hay que cargar los lotes que llegaron ahora. Repetir y anular viven en el menú de cada recepción.' },
     { version: '0.45', text: 'Las cuentas del centro se crean, se restablecen y se dan de baja desde Ajustes.' },
     { version: '0.44', text: 'Ajustes deja de ser una maqueta: Mi cuenta guarda de verdad y avisa qué quedó pendiente, tus preferencias viajan con tu cuenta en vez de quedarse en la computadora, y Equipo y accesos muestra quién entra a qué en el centro, con el registro de cada cambio.' },

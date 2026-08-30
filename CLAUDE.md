@@ -60,7 +60,7 @@ npm run build       # typecheck + tests + build de producción  ← el GATE de v
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
-   número. La última aplicada va por la `0101` (ver `supabase/README.md`).
+   número. La última aplicada va por la `0102` (ver `supabase/README.md`).
    **Si una migración es _breaking_ para el front desplegado** (p. ej. una vista que empieza a
    emitir valores que el código viejo no conoce): **se despliega el front PRIMERO y se aplica la
    migración inmediatamente después**, no al revés. Ya pasó una vez al revés (0068, 2026-08-05) y
