@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  contextoDeEtapa, datosDelPaciente, estaConcretada, etapaProgreso, marcaDeEtapa,
-  medicoDeVisita, puedeEditarCoordinador, puedeEditarFechaReal, puedeEditarMedico,
+  contextoDeEtapa, datosDelPaciente, estaConcretada, etapaProgreso, fechaSegunProtocolo,
+  horaDeAtencion, marcaDeEtapa,
+  medicoDeVisita, puedeEditarCoordinador, muestraFechaReal, puedeEditarMedico,
 } from './visitHeaderRules'
 import { desvioDias, fueraDeVentana } from '../../lib/visits'
 
@@ -9,7 +10,7 @@ import { desvioDias, fueraDeVentana } from '../../lib/visits'
  * Las reglas del encabezado de la visita.
  *
  * POR QUÉ ESTAS Y NO OTRAS: son las que fallan EN SILENCIO. Que el riel se llene al 75 % en vez
- * de al 50 % se ve mirando la pantalla; que `puedeEditarFechaReal` devuelva `true` de más, no —
+ * de al 50 % se ve mirando la pantalla; que `muestraFechaReal` devuelva `true` de más, no —
  * la pantalla queda impecable y la visita termina marcada como atendida sin que nadie la haya
  * atendido, con la ruta dos etapas adelante. Lo mismo con `desvioDias`: un signo invertido
  * muestra "+3 d" cuando el paciente vino tres días ANTES, y eso es un desvío de protocolo leído
@@ -22,7 +23,7 @@ import { desvioDias, fueraDeVentana } from '../../lib/visits'
 /** Fila mínima: cada test pisa solo los campos que le importan. */
 type Fila = Parameters<typeof datosDelPaciente>[0] &
   Parameters<typeof marcaDeEtapa>[0] &
-  Parameters<typeof puedeEditarFechaReal>[0] &
+  Parameters<typeof muestraFechaReal>[0] &
   Parameters<typeof medicoDeVisita>[0]
 
 function fila(over: Partial<Fila> = {}): Fila {
@@ -57,20 +58,20 @@ describe('candados por etapa', () => {
   })
 })
 
-describe('puedeEditarFechaReal — "corregir sí, crear no"', () => {
+describe('muestraFechaReal — el interruptor citación / fecha real', () => {
   it('sin fecha real NO se edita: crearla desde el campo saltaría dos etapas', () => {
-    expect(puedeEditarFechaReal(fila({ real_date: null }))).toBe(false)
+    expect(muestraFechaReal(fila({ real_date: null }))).toBe(false)
   })
 
   it('con fecha real SÍ se edita: corregirla no mueve la ruta', () => {
-    expect(puedeEditarFechaReal(fila({ real_date: '2026-08-14' }))).toBe(true)
+    expect(muestraFechaReal(fila({ real_date: '2026-08-14' }))).toBe(true)
   })
 
   it('la fecha real cargada habilita la edición en TODAS las etapas que la implican', () => {
     // real_date no nula ⇒ la vista ya derivó inicio_atencion o fin_atencion (0069). En las dos
     // el campo se edita: es la corrección de un dato, no un avance de etapa.
     for (const s of ['inicio_atencion', 'fin_atencion'] as const) {
-      expect(puedeEditarFechaReal(fila({ real_date: '2026-08-14', operational_stage: s }))).toBe(true)
+      expect(muestraFechaReal(fila({ real_date: '2026-08-14', operational_stage: s }))).toBe(true)
     }
   })
 })
@@ -190,5 +191,81 @@ describe('desvío y ventana (sin test desde que existen, ahora visibles en el en
     // de protocolo que señalar: pintar la pastilla roja ahí sería inventar un hallazgo.
     expect(fueraDeVentana('2026-08-15', null, null)).toBe(false)
     expect(fueraDeVentana('2026-08-15', '2026-08-10', null)).toBe(false)
+  })
+})
+
+describe('horaDeAtencion · el sello del inicio de atención (0102)', () => {
+  // 16:31 hora argentina = 19:31 UTC. Se escribe en UTC a propósito: es como llega el
+  // timestamptz de la base, y es lo que hace fallar a cualquier implementación que recorte el ISO.
+  const selloTarde = '2026-08-29T19:31:00Z'
+
+  it('devuelve la hora cuando el sello es del mismo día que la fecha real', () => {
+    expect(horaDeAtencion({ real_date: '2026-08-29', attended_at: selloTarde })).toBe('16:31')
+  })
+
+  it('sin sello no inventa hora: las visitas anteriores a la 0102 muestran solo la fecha', () => {
+    expect(horaDeAtencion({ real_date: '2026-08-29', attended_at: null })).toBeNull()
+  })
+
+  it('sin fecha real no hay nada que acompañar', () => {
+    expect(horaDeAtencion({ real_date: null, attended_at: selloTarde })).toBeNull()
+  })
+
+  it('si CORRIGIERON la fecha real, el sello deja de mostrarse', () => {
+    // Éste es el caso que falla en silencio: la pantalla se ve impecable y la hora que muestra
+    // pertenece a otro día. "14/08/2026 16:31" sería una hora que ese día no pasó.
+    expect(horaDeAtencion({ real_date: '2026-08-14', attended_at: selloTarde })).toBeNull()
+  })
+
+  it('una atención de la TARDE no se compara contra el día UTC', () => {
+    // 21:45 hora argentina del 29 = 00:45 UTC del 30. Recortando el ISO (slice(0,10)) el día
+    // saldría '2026-08-30', no coincidiría con real_date y la hora desaparecería justo en las
+    // atenciones de la tarde — sin ningún error a la vista.
+    const nocturno = '2026-08-30T00:45:00Z'
+    expect(horaDeAtencion({ real_date: '2026-08-29', attended_at: nocturno })).toBe('21:45')
+    expect(nocturno.slice(0, 10)).toBe('2026-08-30')   // el valor que NO hay que usar
+  })
+})
+
+describe('fechaSegunProtocolo · lo que manda el cronograma', () => {
+  /** Visita del cronograma: randomizada el 20/05, con offset de 84 días → 12/08. */
+  const prog = (over: Record<string, unknown> = {}) => ({
+    kind: 'programada' as const,
+    date_mode: 'automatica' as const,
+    offset_days: 84,
+    enrollment_randomization_date: '2026-05-20',
+    ...over,
+  })
+
+  it('ancla en la RANDOMIZACIÓN, no en el enrolamiento', () => {
+    // El generador vigente (0022) inserta el cronograma con randomization_date + offset_days.
+    // La versión de la 0003 usaba enrollment_date y quedó superada: derivar desde ahí daría una
+    // fecha plausible y equivocada en toda visita de tratamiento.
+    expect(fechaSegunProtocolo(prog())).toBe('2026-08-12')
+  })
+
+  it('una visita SUELTA no tiene fecha de protocolo', () => {
+    // Firma, screening y randomización se crean de a una; el protocolo no les fija fecha.
+    for (const kind of ['firma', 'screening', 'randomizacion']) {
+      expect(fechaSegunProtocolo(prog({ kind }))).toBeNull()
+    }
+  })
+
+  it('agenda libre tampoco: su offset es una referencia, no una fecha mandada', () => {
+    expect(fechaSegunProtocolo(prog({ date_mode: 'libre' }))).toBeNull()
+  })
+
+  it('sin randomización o sin offset no hay cuenta que hacer', () => {
+    expect(fechaSegunProtocolo(prog({ enrollment_randomization_date: null }))).toBeNull()
+    expect(fechaSegunProtocolo(prog({ offset_days: null }))).toBeNull()
+  })
+
+  it('un offset de 0 SÍ da fecha: es el día de la randomización, no un dato ausente', () => {
+    // El caso que rompe cualquier guard escrito con `if (!offset_days)`.
+    expect(fechaSegunProtocolo(prog({ offset_days: 0 }))).toBe('2026-05-20')
+  })
+
+  it('cruza el fin de mes sin correrse', () => {
+    expect(fechaSegunProtocolo(prog({ enrollment_randomization_date: '2026-01-31', offset_days: 29 }))).toBe('2026-03-01')
   })
 })

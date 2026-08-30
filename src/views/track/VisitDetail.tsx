@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { useVisit, markArrived, markAttended, markReady, markReadyWithOutcome, discontinueEnrollment } from '../../data/dayVisits'
+import { useVisit, markArrived, markAttended, startVisitAttention, markReady, markReadyWithOutcome, discontinueEnrollment } from '../../data/dayVisits'
 import { todayISO } from '../../lib/dates'
 import { ConfirmarAvance } from './ConfirmarAvance'
 import { ReadyOutcomeModal } from './ReadyOutcomeModal'
@@ -181,8 +181,10 @@ export function VisitDetail({
     const res =
       next === 'concurrio_al_centro' ? await markArrived(visit.id)
       // Preserva la fecha real que ya tenga: acá "iniciar atención" puede estar corrigiendo el
-      // recorrido de una visita vieja, y pisarla con hoy le cambiaría el dato clínico.
-      : next === 'inicio_atencion' ? await markAttended(visit.id, visit.real_date ?? todayISO())
+      // recorrido de una visita vieja, y pisarla con hoy le cambiaría el dato clínico. Desde la
+      // 0102 esa preservación la garantiza además el servidor (`coalesce(pv.real_date, …)`), así
+      // que ya no depende de que este call-site se acuerde.
+      : next === 'inicio_atencion' ? await startVisitAttention(visit.id, visit.real_date ?? todayISO())
       : next === 'fin_atencion' ? await markReady(visit.id)
       : { error: 'Etapa desconocida.' }
 

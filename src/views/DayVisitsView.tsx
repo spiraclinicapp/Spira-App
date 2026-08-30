@@ -14,7 +14,7 @@ import { codecs, oneOf } from '../lib/router'
 import { useUrlEntity, useUrlState } from '../lib/useUrlState'
 import { useAbrirFicha } from './useAbrirFicha'
 import {
-  useVisitsForDay, markArrived, markAttended, markReady, markNoShow,
+  useVisitsForDay, markArrived, startVisitAttention, markReady, markNoShow,
   markReadyWithOutcome, discontinueEnrollment,
 } from '../data/dayVisits'
 import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
@@ -252,8 +252,11 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
      recorrido (es un estado clínico), así que no tiene contador propio. */
   const conteo = contarVisitas(filtered)
 
-  /* Despacha la mutación de la etapa SIGUIENTE. 'inicio_atencion' reusa markAttended con `date` (el
-     día que se está mirando, no necesariamente hoy) porque es lo que setea real_date. El resto son
+  /* Despacha la mutación de la etapa SIGUIENTE. 'inicio_atencion' va por `startVisitAttention` con
+     `date` (el día que se está mirando, no necesariamente hoy): desde la 0102 esa marca sella
+     además la HORA del click y el coordinador que la apretó, así que tiene que ser la MISMA
+     llamada que hace el modal — si acá quedara el update suelto de `real_date`, marcar desde la
+     fila y marcar desde el modal dejarían datos distintos según por dónde entraste. El resto son
      eventos en vivo (now() server-side). "Fin de atención" de una visita de screening/randomización
      NO marca directo: abre el cierre clínico, que captura el IVRS o la randomización. */
   const advance = async (visit: DayVisitRow, next: OperationalStage) => {
@@ -267,7 +270,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
     setActionError(null)
     const res =
       next === 'concurrio_al_centro' ? await markArrived(visit.id)
-      : next === 'inicio_atencion' ? await markAttended(visit.id, date)
+      : next === 'inicio_atencion' ? await startVisitAttention(visit.id, date)
       : next === 'fin_atencion' ? await markReady(visit.id)
       : { error: 'Etapa desconocida.' }
     setBusyId(null)

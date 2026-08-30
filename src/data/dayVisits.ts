@@ -54,6 +54,16 @@ export interface DayVisitRow extends TrackVisitRow {
    * y hacía que la rejilla se recompusiera a la vista del usuario al abrir el modal.
    */
   fertility: string | null
+  /**
+   * Momento exacto en que se marcó el inicio de atención (migración 0102). null = la atención no
+   * se marcó, o se marcó ANTES de la 0102 — esas visitas no se backfillearon, porque `real_date`
+   * es un `date` sin hora y las 00:00 serían una hora que nadie registró. El encabezado muestra
+   * sólo la fecha cuando esto viene vacío, nunca una hora inventada.
+   *
+   * Es un dato de PRESENTACIÓN, no de estado: la etapa operativa se sigue derivando de
+   * `real_date` (0068/0069). Ver la deuda de `TODOS.md`.
+   */
+  attended_at: string | null
   /** Coordinador ASIGNADO a la visita (migración 0065); null = sin asignar. */
   coordinator_id: string | null
   /**
@@ -193,11 +203,41 @@ export async function markArrived(visitId: string): Promise<{ error: string | nu
 }
 
 /**
- * Marca "Atendido" = setea real_date (dispara materialize_checklist). REUSA registerVisit
- * de ./visits — no hay segunda ruta a real_date. Clínico/coordinador (RLS de patient_visits).
+ * Fecha una visita (`real_date`) SIN marcar el inicio de atención. REUSA registerVisit de ./visits.
+ *
+ * Es el caso del que avanza a otra etapa con la visita sin fechar: la regla del Director
+ * (`fechaRealAlAvanzar`) dice que una visita no cambia de etapa sin quedar fechada. Para el inicio
+ * de atención NO se usa esto — se usa `startVisitAttention`, que además sella la hora y el
+ * coordinador.
  */
 export async function markAttended(visitId: string, realDate: string): Promise<{ error: string | null }> {
   return registerVisit(visitId, realDate)
+}
+
+/**
+ * Marca el INICIO DE ATENCIÓN. Sella tres cosas de una sola vez y del lado del servidor
+ * (`start_visit_attention`, RPC SECURITY DEFINER de la 0102):
+ *
+ *   · `real_date`, sólo si faltaba (nunca se pisa: es un dato clínico);
+ *   · `attended_at`, la hora exacta del click — el dato que antes no existía;
+ *   · el coordinador que apretó el botón, que a diferencia de los otros dos SÍ se pisa siempre
+ *     (decisión del Director, 2026-08-29) y no se valida contra `protocol_coordinators`.
+ *
+ * Tuvo que ser un RPC y no tres updates del front por dos motivos: los tres campos son UN hecho y
+ * sueltos podían quedar a medias —fecha sí, coordinador no, y la visita diciendo que la atendió
+ * alguien que no fue—, y `coordinator_name` es un snapshot que la RLS de `users` no deja resolver
+ * desde el cliente (sólo expone la fila propia). Mismo motivo que llevó a la 0065 a un RPC.
+ *
+ * `realDate` sigue viajando porque "Visitas del día" marca con **el día que se está mirando**, que
+ * no siempre es hoy. El servidor igual le gana con la fecha que la visita ya tenga.
+ */
+export async function startVisitAttention(visitId: string, realDate: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('start_visit_attention', {
+    p_visit_id: visitId,
+    p_real_date: realDate,
+  })
+  if (error) return { error: rpcError(error.code, error.message) }
+  return { error: null }
 }
 
 /** Marca "Listo para irse" (ready_at = now()). Clínico/coordinador o gerencia. */
