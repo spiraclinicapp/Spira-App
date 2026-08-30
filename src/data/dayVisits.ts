@@ -1,7 +1,6 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import type { QueryResult } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
-import { registerVisit } from './visits'
 import type { TrackVisitRow } from './visits'
 
 /** Etapa del recorrido del paciente en el centro (derivada de las marcas, NO clínica). */
@@ -202,17 +201,11 @@ export async function markArrived(visitId: string): Promise<{ error: string | nu
   return { error: null }
 }
 
-/**
- * Fecha una visita (`real_date`) SIN marcar el inicio de atención. REUSA registerVisit de ./visits.
- *
- * Es el caso del que avanza a otra etapa con la visita sin fechar: la regla del Director
- * (`fechaRealAlAvanzar`) dice que una visita no cambia de etapa sin quedar fechada. Para el inicio
- * de atención NO se usa esto — se usa `startVisitAttention`, que además sella la hora y el
- * coordinador.
- */
-export async function markAttended(visitId: string, realDate: string): Promise<{ error: string | null }> {
-  return registerVisit(visitId, realDate)
-}
+/* Acá vivía `markAttended`, que fechaba una visita sin marcar el inicio de atención (envoltorio de
+ * `registerVisit`). Se retiró el 2026-08-30 junto con `fechaRealAlAvanzar`, su único llamador: ese
+ * camino escribía `real_date` al marcar la LLEGADA y hacía saltar la etapa por encima del inicio de
+ * atención, salteándose el sello de la 0102. Hoy la única ruta al inicio de atención es
+ * `startVisitAttention`, acá abajo; corregir una fecha ya cargada sigue siendo `setRealDate`. */
 
 /**
  * Marca el INICIO DE ATENCIÓN. Sella tres cosas de una sola vez y del lado del servidor

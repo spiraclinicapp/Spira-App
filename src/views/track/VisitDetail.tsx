@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { useVisit, markArrived, markAttended, startVisitAttention, markReady, markReadyWithOutcome, discontinueEnrollment } from '../../data/dayVisits'
+import { useVisit, markArrived, startVisitAttention, markReady, markReadyWithOutcome, discontinueEnrollment } from '../../data/dayVisits'
 import { todayISO } from '../../lib/dates'
 import { ConfirmarAvance } from './ConfirmarAvance'
 import { ReadyOutcomeModal } from './ReadyOutcomeModal'
@@ -10,7 +10,7 @@ import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { VisitProcedures } from './VisitProcedures'
 import { CommentThread } from './CommentThread'
 import { VisitDispensationPanel } from '../pharma/VisitDispensationPanel'
-import { advanceRole, necesitaConfirmacion, fechaRealAlAvanzar } from './advanceStep'
+import { advanceRole, necesitaConfirmacion } from './advanceStep'
 import { Panel } from './Panel'
 import { VisitHeader } from './VisitHeader'
 import { VisitActionBar } from './VisitActionBar'
@@ -155,14 +155,10 @@ export function VisitDetail({
     if (!visit) return
     setBusy(true); setErr(null)
 
-    /* Sin fecha real, avanzar la registra con la de HOY (pedido del Director, 2026-08-20): una
-       visita no debería cambiar de etapa sin quedar fechada. Si YA tiene, no se toca.
-       `markAttended` es la única ruta a `real_date` (ver su comentario en data/dayVisits). */
-    const fechar = fechaRealAlAvanzar(visit.real_date, next, todayISO())
-    if (fechar) {
-      const res = await markAttended(visit.id, fechar)
-      if (res.error) { setBusy(false); setErr(res.error); return }
-    }
+    /* Avanzar NO escribe la fecha real. Acá se le ponía la de hoy a la visita sin fechar; se
+       retiró el 2026-08-30 porque hacía saltar la etapa por encima del inicio de atención y se
+       comía el sello de la 0102 — ver el comentario en `advanceStep.ts`. La fecha la pone
+       `start_visit_attention`, cuando la atención empieza. */
 
     if (onAdvance) {
       await onAdvance(visit, next)

@@ -1,6 +1,6 @@
 import { Modal } from '../../components/Modal'
 import { btnOutline, btnPrimary } from '../../components/buttons'
-import { formatAR, todayISO } from '../../lib/dates'
+import { formatAR } from '../../lib/dates'
 import type { DayVisitRow } from '../../data/dayVisits'
 import { NEXT_STEP } from './advanceStep'
 
@@ -14,8 +14,13 @@ import { NEXT_STEP } from './advanceStep'
  *
  * Dos casos, dos textos:
  *  · La visita ya tiene fecha real → se avisa cuál es y la fecha NO se toca.
- *  · No tiene → al avanzar se le pone la de HOY (decisión del Director), y el cartel lo dice
- *    antes, no después: es un dato que queda escrito en la historia de la visita.
+ *  · No tiene → avanzar tampoco se la pone: eso lo hace recién el inicio de atención. El cartel
+ *    lo dice, porque una visita sin fechar es justamente la que no se sabe de qué día es.
+ *
+ * El segundo texto decía lo contrario hasta el 2026-08-30 —"al avanzar se le va a registrar la de
+ * hoy"— y era verdad: el modal fechaba al marcar la llegada. Se retiró porque esa escritura hacía
+ * saltar la etapa por encima del inicio de atención (ver `advanceStep.ts`). El cartel se corrige
+ * junto con la conducta: un aviso que promete una escritura que ya no ocurre es peor que no tenerlo.
  *
  * Cuando la fecha real es la de hoy no hay nada que advertir y este modal no aparece: sería
  * fricción pura en el recorrido normal del día, que es donde se usa cien veces.
@@ -27,7 +32,6 @@ export function ConfirmarAvance({ visit, busy, onCancel, onConfirmar }: {
   onConfirmar: () => void
 }) {
   const accion = NEXT_STEP[visit.operational_stage]?.label ?? 'Avanzar'
-  const hoy = todayISO()
 
   return (
     <Modal
@@ -45,8 +49,8 @@ export function ConfirmarAvance({ visit, busy, onCancel, onConfirmar }: {
         </p>
       ) : (
         <p style={parrafo}>
-          Esta visita <strong>no tiene fecha real</strong>. Al avanzar se le va a registrar la de
-          <strong> hoy, {formatAR(hoy)}</strong>.
+          Esta visita <strong>todavía no tiene fecha real</strong>: se registra recién al iniciar
+          la atención. Avanzar sólo cambia su estado.
         </p>
       )}
 
