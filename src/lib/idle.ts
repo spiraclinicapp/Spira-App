@@ -56,6 +56,20 @@ export function estadoInactividad(
   return { fase, segundosRestantes }
 }
 
+/**
+ * Segundos → "menos de 2 minutos". El mismo dato que la cuenta regresiva, pero para quien no la ve:
+ * el número que late cada segundo sale del árbol accesible (leerlo en voz alta sería insoportable) y
+ * este texto es lo que queda en su lugar.
+ *
+ * Existe como función y no como interpolación suelta por el plural. Escrito a mano quedaba
+ * "menos de 1 minutos" en el último tramo, y ése es un error que NADIE ve: no está en la pantalla,
+ * sólo lo escucha quien usa un lector.
+ */
+export function textoMinutosRestantes(segundos: number): string {
+  const minutos = Math.max(1, Math.ceil(Math.max(0, segundos) / 60))
+  return `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`
+}
+
 /** Segundos → "4:32". Para la cuenta regresiva del cartel; siempre dos dígitos en los segundos. */
 export function formatoCuentaRegresiva(segundos: number): string {
   const total = Math.max(0, Math.floor(segundos))

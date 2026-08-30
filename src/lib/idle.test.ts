@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estadoInactividad, formatoCuentaRegresiva, INACTIVIDAD } from './idle'
+import { estadoInactividad, formatoCuentaRegresiva, INACTIVIDAD, textoMinutosRestantes } from './idle'
 
 /* El reloj del guardián de inactividad.
  *
@@ -66,6 +66,27 @@ describe('INACTIVIDAD', () => {
   it('el aviso llega ANTES del cierre', () => {
     // Invertidos, el cartel nunca aparecería y la sesión se cerraría sin explicación previa.
     expect(INACTIVIDAD.avisoMs).toBeLessThan(INACTIVIDAD.cierreMs)
+  })
+})
+
+describe('textoMinutosRestantes', () => {
+  /* El texto que reemplaza a la cuenta regresiva para quien no la ve. Se testea porque su error
+     natural —el plural— es invisible por definición: no está en la pantalla, sólo lo escucha quien
+     usa un lector. Salió mal en la verificación del 2026-08-30 ("menos de 1 minutos"). */
+  it('el último tramo va en SINGULAR', () => {
+    expect(textoMinutosRestantes(60)).toBe('1 minuto')
+    expect(textoMinutosRestantes(14)).toBe('1 minuto')
+  })
+
+  it('redondea hacia arriba: 61 segundos ya son dos minutos', () => {
+    expect(textoMinutosRestantes(61)).toBe('2 minutos')
+    expect(textoMinutosRestantes(300)).toBe('5 minutos')
+  })
+
+  it('nunca dice "0 minutos" ni un número negativo', () => {
+    // Con el cierre a punto de dispararse, "quedan 0 minutos" es peor que "menos de 1 minuto".
+    expect(textoMinutosRestantes(0)).toBe('1 minuto')
+    expect(textoMinutosRestantes(-5)).toBe('1 minuto')
   })
 })
 

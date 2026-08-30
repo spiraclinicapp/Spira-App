@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { Modal } from '../components/Modal'
 import { btnOutline, btnPrimary } from '../components/buttons'
-import { estadoInactividad, formatoCuentaRegresiva, INACTIVIDAD } from '../lib/idle'
+import { estadoInactividad, formatoCuentaRegresiva, INACTIVIDAD, textoMinutosRestantes } from '../lib/idle'
 import { useAuth } from '../lib/auth'
 
 /**
@@ -109,7 +109,7 @@ export function IdleGuard() {
           {formatoCuentaRegresiva(segundosRestantes)}
         </div>
         <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
-          Quedan menos de {Math.ceil(segundosRestantes / 60)} minutos.
+          Quedan menos de {textoMinutosRestantes(segundosRestantes)}.
         </span>
 
         <div style={{ display: 'flex', gap: 10 }}>
