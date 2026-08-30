@@ -4,11 +4,17 @@ import type { AuthError, Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import { meetsMinRole } from './roles'
 import type { ModuleKey, ModuleRole } from './roles'
+import { avisoDeSalida, declararSalida, tomarMotivoDeSalida } from './sessionExit'
+import type { AvisoAuth, MotivoSalida } from './sessionExit'
+import { regreso } from './sessionReturn'
 
 /* El vocabulario del acceso (los tipos y la escalera de niveles) vive en `lib/roles.ts`: es puro y
    por lo tanto testeable, y estaba duplicado a mano en dos archivos. Se reexporta desde acá porque
    media app lo importa de `lib/auth` desde antes de la mudanza. */
 export type { ModuleKey, ModuleRole } from './roles'
+/* Ídem con el vocabulario de la salida (por qué te quedaste sin sesión): la definición vive en
+   `lib/sessionExit.ts` porque es pura y testeable, pero se consume desde acá. */
+export type { AvisoAuth, MotivoSalida } from './sessionExit'
 
 interface Profile {
   id: string
@@ -62,9 +68,15 @@ interface AuthState {
       PASSWORD_RECOVERY): hay una sesión de recuperación activa y hay que pedirle la clave nueva
       antes de dejarlo entrar (ver el Gate en App.tsx). */
   recovering: boolean
-  /** Aviso para mostrar en el login (p. ej. el link de recuperación venció o es inválido).
-      Se setea leyendo el error que Supabase devuelve en el hash de la URL. */
-  authNotice: string | null
+  /** Aviso para mostrar en el login: por qué te quedaste sin sesión (ver `lib/sessionExit.ts`), o
+      el error que Supabase devuelve en el hash de la URL (el link de recuperación venció o ya se
+      usó). El `tone` separa los dos casos, y no es cosmético: que se te venza la sesión no es un
+      error tuyo, y pintarlo de rojo dice lo contrario. */
+  authNotice: AvisoAuth | null
+  /** Por qué se cerró la última sesión. `null` mientras hay una viva, y también si nunca hubo
+      ninguna en esta pestaña. Lo lee el Gate (App.tsx) para decidir si guarda adónde volver: una
+      salida voluntaria no deja rastro, una caída sí. */
+  exitReason: MotivoSalida | null
   /** Descarta el aviso del login (lo llaman las acciones del formulario al empezar). */
   clearAuthNotice: () => void
   /** ¿El usuario tiene en `module` un nivel >= `min`? Espejo de public.has_min_role. */
@@ -90,7 +102,7 @@ interface AuthState {
       la pantalla igual cambiaría a Inicio (ver `UserMenu`) mientras la sesión sigue viva — en una
       máquina compartida de clínica eso es peor que no mover nada, porque el usuario se va creyendo
       que cerró sesión. */
-  signOut: () => Promise<string | null>
+  signOut: (motivo?: MotivoSalida) => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined)
@@ -109,7 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      llenar, un formulario de alta). Derivado, esa transición no cambia nada. */
   const modulesLoading = session != null && modulesUserId !== session.user.id
   const [recovering, setRecovering] = useState(false)
-  const [authNotice, setAuthNotice] = useState<string | null>(null)
+  const [authNotice, setAuthNotice] = useState<AvisoAuth | null>(null)
+  const [exitReason, setExitReason] = useState<MotivoSalida | null>(null)
 
   // sesión inicial + suscripción a cambios de auth
   useEffect(() => {
@@ -132,13 +145,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const isSignupDisabled =
         code === 'signup_disabled' ||
         (desc.includes('signup') && (desc.includes('disabled') || desc.includes('not allowed')))
-      setAuthNotice(
-        isSignupDisabled
+      setAuthNotice({
+        text: isSignupDisabled
           ? 'No encontramos una cuenta con ese correo. Si necesitás acceso, pedíselo al administrador de Spira.'
           : code === 'otp_expired'
             ? 'El enlace para restablecer la contraseña venció. Pedí uno nuevo desde "Olvidé mi contraseña".'
             : 'El enlace no es válido o ya se usó. Pedí uno nuevo desde "Olvidé mi contraseña".',
-      )
+        // Éste SÍ es un error (un link que no sirve), a diferencia de los avisos de salida.
+        tone: 'error',
+      })
       // Limpiamos el hash y SOLO los parámetros de Supabase: desde que la navegación vive en la URL
       // (ver src/lib/router.ts), el query lleva el estado de la pantalla —el día, los filtros, la
       // entidad abierta— y borrarlo entero se lo llevaba puesto. Un error de auth no tiene por qué
@@ -149,7 +164,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
     }
 
+    /* ¿Hubo una sesión en esta pestaña antes de este montaje? Es la pregunta que distingue "recién
+       llegás" de "se te cayó mientras no mirabas" cuando la app arranca SIN sesión. El listener de
+       abajo no puede responderla —para él los dos casos se ven idénticos, un `next` en null—, y sin
+       la respuesta el F5 sobre una sesión ya vencida vuelve al login mudo de siempre. */
+    let habiaSesion = false
+
     supabase.auth.getSession().then(({ data }) => {
+      if (data.session) habiaSesion = true
+      else if (regreso.huboSesion()) {
+        // Había alguien acá y ya no hay sesión: se cayó. No sabemos por qué (el motivo se declara en
+        // vida y esta pestaña se recargó), así que decimos exactamente eso y nada más.
+        setExitReason('expirada')
+        // Sin pisar: si arriba quedó el aviso de un link vencido, ése es más específico que éste.
+        setAuthNotice((prev) => prev ?? avisoDeSalida('expirada'))
+      }
       setSession(data.session)
       setLoading(false)
     })
@@ -165,6 +194,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // salimos del modo recovering: si no, el Gate seguiría mostrando "Definí tu nueva contraseña"
       // sobre una sesión nula y el guardado fallaría con un mensaje genérico.
       if (!next) setRecovering(false)
+      /* Acá se resuelve POR QUÉ te quedaste sin sesión, que es lo que deja de ser mudo en el login.
+         El motivo lo declara quien cierra —el guardián de inactividad, el botón de Cerrar sesión— y
+         todo lo demás es una caída que nadie pidió: el token que no se pudo refrescar después de que
+         la máquina durmió, la sesión revocada desde otro lado.
+         La guarda `habiaSesion` importa: sin ella, abrir la app por primera vez (un `next` en null
+         que sólo significa "no hay nadie logueado") saludaría con "tu sesión se cerró por seguridad"
+         a alguien que nunca tuvo una. */
+      if (!next && habiaSesion) {
+        const motivo = tomarMotivoDeSalida()
+        setExitReason(motivo)
+        setAuthNotice(avisoDeSalida(motivo))
+      }
+      // Entró: el aviso de la salida anterior ya cumplió y no tiene que sobrevivirle al ingreso.
+      if (next) {
+        setExitReason(null)
+        setAuthNotice(null)
+      }
+      habiaSesion = next != null
       setSession(next)
     })
     return () => sub.subscription.unsubscribe()
@@ -183,6 +230,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const uid = session.user.id
     let active = true
+
+    /* Queda constancia en la pestaña de que acá hubo alguien. Es lo único que permite que, si la
+       sesión se cae y la persona recarga antes de volver a entrar, el login sepa explicarle por qué
+       está mirando el login. Vive en sessionStorage, igual que la sesión: muere con la pestaña. */
+    regreso.marcarSesion()
 
     /* Cada quien mantiene al día su propia copia del correo en `public.users` (columna de la 0095,
        la que la sección "Equipo y accesos" muestra). Va así y no con un trigger sobre `auth.users`
@@ -322,9 +374,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? authErrorMessage(error) : null }
   }
 
-  const signOut: AuthState['signOut'] = async () => {
+  const signOut: AuthState['signOut'] = async (motivo = 'usuario') => {
     setRecovering(false)
-    const { error } = await supabase.auth.signOut()
+    /* La intención se declara ANTES de cerrar, nunca después: el evento SIGNED_OUT puede llegar en
+       el mismo tick que esta llamada, y para entonces el motivo ya tiene que estar puesto o el
+       listener lo lee como una caída involuntaria y le afirma al usuario una causa equivocada. */
+    declararSalida(motivo)
+    // Salida voluntaria: a la máquina compartida no le queda ni la pantalla donde estabas.
+    if (motivo === 'usuario') regreso.limpiar()
+    /* Sólo la salida VOLUNTARIA es global. El guardián de inactividad protege ESTA pantalla —la
+       máquina del pasillo con la ficha abierta—, y revocar por eso las sesiones de los demás
+       dispositivos sacaría a la persona de su propia notebook, donde puede estar trabajando en ese
+       mismo momento. Cerrar de más también es un costo. */
+    const { error } = await supabase.auth.signOut(motivo === 'usuario' ? undefined : { scope: 'local' })
+    /* `auth-js` NO borra la sesión local si la llamada falla por red (es el motivo de que esta
+       función devuelva el error, ver el comentario de arriba). Entonces el SIGNED_OUT nunca llega y
+       la intención queda pegada esperando: el vencimiento de mañana heredaría este motivo y diría
+       "cerraste sesión" sobre una sesión que se cayó sola. La consumimos nosotros. */
+    if (error) tomarMotivoDeSalida()
     return error ? authErrorMessage(error) : null
   }
 
@@ -332,7 +399,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         session, profile, modules, roles, loading, modulesLoading, recovering, hasMinRole,
-        authNotice, clearAuthNotice: () => setAuthNotice(null),
+        authNotice, exitReason, clearAuthNotice: () => setAuthNotice(null),
         signIn, signInWithGoogle, requestPasswordReset, updatePassword, updateProfile, updatePuesto, requestEmailChange, signOutOthers, signOut,
       }}
     >
