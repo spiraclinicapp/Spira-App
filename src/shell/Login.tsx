@@ -138,7 +138,12 @@ export function Login() {
           <PasswordInput id="password" value={password} onChange={setPassword} autoComplete="current-password" />
         </div>
 
-        {authNotice && !note && !error && <div style={errorBox}>{authNotice}</div>}
+        {/* El tono decide el color: un link de recuperación vencido SÍ es un error (rojo), pero que
+            se te haya caído la sesión no —es el sistema cuidando una máquina compartida— y pintarlo
+            de rojo le diría a la persona que hizo algo mal. Ver `lib/sessionExit.ts`. */}
+        {authNotice && !note && !error && (
+          <div style={authNotice.tone === 'error' ? errorBox : noteBox}>{authNotice.text}</div>
+        )}
         {note && <div style={noteBox}>{note}</div>}
         {error && <div style={errorBox}>{error}</div>}
 
