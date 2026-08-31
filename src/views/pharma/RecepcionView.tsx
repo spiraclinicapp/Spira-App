@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { EmptyState } from '../../components/EmptyState'
-import { Chip } from '../../components/Chip'
 import { Toast } from '../../components/Toast'
 import { btnOutline } from '../../components/buttons'
 import { MultiFilterMenu } from '../../components/MultiFilterMenu'
@@ -302,8 +301,20 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
       label: s === 'pendiente' ? 'Pendientes' : s === 'verificada' ? 'Verificadas' : 'Anuladas',
       count: receptions.data ? receptions.data.filter((r) => r.status === s).length : null,
     }))
+  /* UNA SOLA FILA EN UNA NOTEBOOK. Medido en el navegador a 1536×864 —la pantalla en la que se usa
+     esto—, el área de contenido deja 1185px útiles y los ocho controles pedían 1203: el selector de
+     fechas se caía a un segundo renglón SIEMPRE, y con un filtro puesto (que suma el "Limpiar N" y
+     ensancha el selector para mostrar el rango) se pasaba por 76px más. El encabezado terminaba
+     midiendo el doble que el de Coordinación, que resuelve lo suyo en un renglón.
+     Entró sacando el control de más y haciendo elástico el buscador:
+       · los atajos 7/30 se mudaron ADENTRO del selector de fechas (escriben el mismo desde/hasta
+         que el calendario, así que nunca fueron un eje aparte) — 167px liberados;
+       · el gap baja de 10 a 8, el de la fila de Visitas del día;
+       · el buscador deja de medir 250 fijos y flexiona entre 150 y 340, absorbiendo lo que sobre.
+     Con eso queda en un renglón en 1536, 1440 y 1366, y en 1536 aguanta también el peor caso
+     (filtro puesto + rango elegido + "Limpiar N"). Antes de sumar un control acá, medilo. */
   const toolbar = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       {/* Buscador con la misma caja que el resto de los controles de la fila (38 de alto, radio 10):
           quedaba una píldora de 40 entre botones rectangulares de 38. Con la lupa como hermana flex
           y no como capa absoluta, además, no puede taparla el levante del foco. */}
@@ -361,15 +372,9 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         searchPlaceholder="Buscar protocolo…"
       />
 
-      <span style={separador} />
-
-      {/* Los presets NO son un eje aparte del rango: escriben el mismo desde/hasta que el
-          calendario, así que lo que muestra el selector es siempre lo que se está aplicando.
-          Antes eran dos filtros distintos que se acumulaban en silencio. */}
-      <div style={{ display: 'flex', gap: 7 }}>
-        <Chip toggle label="7 días" selected={presetActivo(7)} onClick={() => togglePreset(7)} accent={accentSolid} />
-        <Chip toggle label="30 días" selected={presetActivo(30)} onClick={() => togglePreset(30)} accent={accentSolid} />
-      </div>
+      {/* Los atajos 7/30 viajan ADENTRO del selector, arriba del calendario. Nunca fueron un eje
+          aparte —escriben el mismo desde/hasta—, así que lo que muestra el disparador es siempre lo
+          que se está aplicando; afuera eran, además, el control que no dejaba cerrar la fila. */}
       <DateRangeField
         accent={accentSolid}
         desde={desde}
@@ -379,6 +384,10 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         aniosAtras={10}
         placeholder="Todas las fechas"
         ariaLabel="Filtrar las recepciones por rango de fechas"
+        atajos={[
+          { label: '7 días', activo: presetActivo(7), onClick: () => togglePreset(7) },
+          { label: '30 días', activo: presetActivo(30), onClick: () => togglePreset(30) },
+        ]}
       />
 
       {nFiltros > 0 && (
@@ -495,9 +504,13 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
 const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16 }
 const errorBox: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 10, padding: '12px 14px' }
 const avisoBox: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, color: 'var(--spira-ink-soft)', background: 'rgba(176,130,63,.10)', borderRadius: 10, padding: '11px 14px', lineHeight: 1.5 }
-const separador: CSSProperties = { width: 1, height: 24, background: 'var(--spira-line)', flex: '0 0 auto' }
+/* El único elástico de la fila: es el que puede ceder ancho sin perder qué es. El `flex-basis` de
+   170 es lo que decide si la fila se parte —el navegador corta el renglón por el tamaño hipotético,
+   no por el encogido—, el `minWidth` es el piso al repartir, y el tope de 340 evita que en una
+   pantalla ancha se estire hasta parecer otra cosa. */
 const searchWrap: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8, height: 38, width: 250, padding: '0 12px',
+  display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 12px',
+  flex: '1 1 170px', minWidth: 150, maxWidth: 340,
   borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
 }
 const searchInput: CSSProperties = {

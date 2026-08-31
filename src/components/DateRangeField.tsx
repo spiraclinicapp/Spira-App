@@ -7,6 +7,7 @@ import { es } from 'react-day-picker/locale'
 import 'react-day-picker/style.css'
 import './DateField.css'
 import { CalendarCaption } from './CalendarCaption'
+import { Chip } from './Chip'
 import { Icon } from './Icon'
 import { usePopover } from './usePopover'
 import { dateToISO, formatAR, isoToDate, todayISO } from '../lib/dates'
@@ -29,6 +30,20 @@ interface Props {
   placeholder?: string
   /** Texto accesible del disparador (default: el del informe de Reportes). */
   ariaLabel?: string
+  /**
+   * Accesos rápidos de período ("7 días", "30 días"), arriba del calendario.
+   *
+   * VIVÍAN AFUERA, como chips sueltos en la barra de filtros, y era el control de más: medido en el
+   * navegador, la fila de Recepción pedía 1203px contra 1185 útiles en una notebook de 1536 y el
+   * selector de fechas se caía a un segundo renglón — con un filtro puesto se pasaba por 76px más.
+   * Adentro no son un eje aparte: escriben el mismo desde/hasta que el calendario, así que el
+   * disparador muestra siempre lo que se está aplicando (que es justo lo que se buscaba cuando eran
+   * dos filtros que se acumulaban en silencio).
+   *
+   * El cálculo del rango se queda en el CONSUMIDOR —él sabe qué significa cada atajo y si está
+   * puesto—; acá sólo se dibujan y se cierra el popover al elegir.
+   */
+  atajos?: readonly { label: string; activo: boolean; onClick: () => void }[]
 }
 
 /**
@@ -49,7 +64,7 @@ interface Props {
  *     oscuro (el tinte que oscurece sobre papel claro queda invisible sobre fondo oscuro; es el
  *     mismo problema que documenta `--spira-tint-track` en tokens.css).
  */
-export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras = 5, placeholder, ariaLabel }: Props) {
+export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras = 5, placeholder, ariaLabel, atajos }: Props) {
   const [open, setOpen] = useState(false)
   /* Sin rango puesto: el calendario tiene que abrir en ALGÚN mes, y `formatAR('')` devolvería
      "undefined/undefined/". Se cae a hoy para el mes visible y al placeholder para el rótulo. */
@@ -165,6 +180,22 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
           aria-label="Elegir el período del informe"
           style={{ ...popover, top: pos.top, left: pos.left }}
         >
+          {atajos && atajos.length > 0 && (
+            /* Alineados con el padding horizontal del calendario (`.rdp-root`, 8px 10px) para que
+               los chips arranquen en la misma vertical que la grilla de días. */
+            <div style={atajosFila} role="group" aria-label="Períodos rápidos">
+              {atajos.map((a) => (
+                <Chip
+                  key={a.label}
+                  toggle
+                  label={a.label}
+                  selected={a.activo}
+                  accent={accent}
+                  onClick={() => { a.onClick(); setOpen(false) }}
+                />
+              ))}
+            </div>
+          )}
           <DayPicker
             mode="range"
             locale={es}
@@ -224,6 +255,10 @@ const trigger: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 9,
   borderWidth: 1, borderStyle: 'solid',
   fontFamily: 'var(--spira-font-text)',
+}
+
+const atajosFila: CSSProperties = {
+  display: 'flex', gap: 7, flexWrap: 'wrap', padding: '10px 10px 0',
 }
 
 const popover: CSSProperties = {

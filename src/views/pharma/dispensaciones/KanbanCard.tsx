@@ -79,30 +79,28 @@ export function KanbanCard({ r, column, canOperate, onOpen, onOpenPatient, onAdv
       style={card}
       aria-label={`${disp?.dispensation_code ?? 'Solicitud'}, paciente ${r.enrollment?.patient?.code ?? 'sin código'}, ${COLUMN_META[column].estado}`}
     >
-      {/* 1 · paciente + protocolo
-          En una columna angosta el renglón no entra completo (IVRS + flecha + chip de protocolo ya
-          suman ~175px de un ancho real de 175px) y el nombre —el único con `minWidth: 0`— absorbía
-          el déficit hasta medir 0px. `flexWrap: 'wrap'` en el contenedor EXTERNO deja que el chip
-          baje de línea solo; el nombre + IVRS + flecha van en un grupo interno propio (con su
-          propio `minWidth: 0`) para que sigan flexionando JUNTOS en la primera línea en vez de que
-          el layout los reparta cada uno en su propio renglón. Nunca se trunca el IVRS ni el código
-          de protocolo (ver constraints.md): el que cede es el nombre, que tiene `text-overflow:
-          ellipsis` para eso. */}
-      <div className="spira-link-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-            <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${patient?.full_name ?? 'este paciente'}`}>
-              {patient?.full_name ?? '—'}
-            </PatientLink>
-          </span>
-          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', flex: '0 0 auto' }}>
-            {patient?.code
-              ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
-              : '—'}
-          </span>
-          {onOpenPatient && <PatientLinkArrow />}
-        </div>
-        <span className="spira-mono" style={protoChip}>{r.protocol?.code ?? '—'}</span>
+      {/* 1 · paciente — UN SOLO RENGLÓN.
+          El chip de protocolo vivía acá y en una columna del tablero NUNCA entraba: medido en el
+          navegador, con columnas de 291px la tarjeta tiene 239px útiles y el grupo nombre + IVRS +
+          flecha ya pide entre 171 y 239 según el nombre. O sea que el chip bajaba de línea SIEMPRE
+          —no en el caso apretado— y, por su `marginLeft: 'auto'`, aterrizaba solo y tirado
+          contra el margen derecho: un renglón entero de alto para un dato que encima parecía
+          desprendido de la tarjeta. Bajó al renglón de metadatos, que es donde ya viven los otros
+          datos de contexto. Acá queda la identidad y nada más, así que alcanza un flex sin
+          `wrap` ni grupo interno: el nombre es el único con `minWidth: 0` y es el
+          que cede con ellipsis; el IVRS no se trunca nunca (constraints.md). */}
+      <div className="spira-link-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, minWidth: 0 }}>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+          <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${patient?.full_name ?? 'este paciente'}`}>
+            {patient?.full_name ?? '—'}
+          </PatientLink>
+        </span>
+        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', flex: '0 0 auto' }}>
+          {patient?.code
+            ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
+            : '—'}
+        </span>
+        {onOpenPatient && <PatientLinkArrow />}
       </div>
 
       {/* 1b · la excepción viaja hasta acá (D11). Una dispensación fuera de cronograma le cambia el
@@ -126,7 +124,8 @@ export function KanbanCard({ r, column, canOperate, onOpen, onOpenPatient, onAdv
           todavía no existe: ahí la card no muestra ninguno en vez de inventar un provisorio.
           Las unidades solo si hay renglones: "0 u." en un pedido de IP solo no es un dato, es una
           resta mal hecha (el IP no se cuenta en unidades sino en kits, y recién al entregar). */}
-      <div style={{ display: 'flex', gap: 5, fontSize: 11, color: 'var(--spira-muted)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--spira-muted)', flexWrap: 'wrap' }}>
+        <span className="spira-mono" style={protoChip}>{r.protocol?.code ?? '—'}</span>
         {r.items.length > 0 && <span>{totalUnits(r)} u.</span>}
         {r.includes_ip && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600, color: 'var(--spira-acc-deep-warn)' }}>
@@ -236,7 +235,10 @@ function ctaFor(column: BoardColumn, r: DispensationRequestRow): {
   return null
 }
 
+/** El protocolo, ahora encabezando el renglón de metadatos. Sigue siendo una píldora teñida y no
+ *  texto mono suelto a propósito: al lado va el código de dispensación (D-1046), también en mono, y
+ *  dos códigos con la misma pinta en fila obligan a leer cuál es cuál. */
 const protoChip: CSSProperties = {
-  marginLeft: 'auto', fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
+  fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, flex: '0 0 auto',
   background: 'rgba(15, 95, 87, 0.14)', color: 'var(--spira-pharma-solid)',
 }
