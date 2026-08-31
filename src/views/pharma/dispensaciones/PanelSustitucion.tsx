@@ -90,7 +90,7 @@ export function PanelSustitucion({ itemId, paciente, onHecho, onCancelar }: {
       {(alternativas?.length ?? 0) > 0 && (
         <>
           <label htmlFor={`motivo-${itemId}`} style={etiqueta}>
-            Motivo <span style={{ fontWeight: 400, color: 'var(--spira-faint)' }}>(opcional)</span>
+            Motivo <span style={{ fontWeight: 400, color: 'var(--spira-muted)' }}>(opcional)</span>
           </label>
           <input
             id={`motivo-${itemId}`}
@@ -140,7 +140,7 @@ const pick: CSSProperties = {
 const pickNo: CSSProperties = {
   flex: '0 0 auto', height: 30, padding: '0 11px', borderRadius: 8,
   borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)',
-  background: 'var(--spira-surface)', color: 'var(--spira-faint)',
+  background: 'var(--spira-surface)', color: 'var(--spira-muted)',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12, cursor: 'default',
 }
 

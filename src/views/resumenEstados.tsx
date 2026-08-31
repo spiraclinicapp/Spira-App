@@ -74,13 +74,13 @@ export function ContadoresDia({
   conteo: { total: number; porLlegar: number; enCentro: number; finalizadas: number }
   accent: string
 }) {
-  const sep = <span style={{ color: 'var(--spira-faint)' }}>·</span>
+  const sep = <span style={{ color: 'var(--spira-muted)' }}>·</span>
   return (
     <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', display: 'inline-flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
       <span>{conteo.total} {conteo.total === 1 ? 'visita' : 'visitas'}</span>
       {conteo.porLlegar > 0 && <>{sep}<span style={{ color: 'var(--spira-warn)', fontWeight: 600 }}>{conteo.porLlegar} por llegar</span></>}
       {conteo.enCentro > 0 && <>{sep}<span style={{ color: accent, fontWeight: 600 }}>{conteo.enCentro} en el centro</span></>}
-      {conteo.finalizadas > 0 && <>{sep}<span style={{ color: 'var(--spira-faint)', fontWeight: 600 }}>{conteo.finalizadas} finalizadas</span></>}
+      {conteo.finalizadas > 0 && <>{sep}<span style={{ color: 'var(--spira-muted)', fontWeight: 600 }}>{conteo.finalizadas} finalizadas</span></>}
     </span>
   )
 }

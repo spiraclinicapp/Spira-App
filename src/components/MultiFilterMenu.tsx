@@ -82,7 +82,7 @@ export function MultiFilterMenu({ accent, label, icon = 'filter', options, selec
           )}
           <div className="spira-scroll" style={{ maxHeight: 280, overflow: 'auto' }}>
             {visibles.length === 0 && (
-              <div style={{ padding: '8px 10px', fontSize: 12.5, color: 'var(--spira-faint)' }}>
+              <div style={{ padding: '8px 10px', fontSize: 12.5, color: 'var(--spira-muted)' }}>
                 {term ? 'Sin resultados' : 'Sin opciones'}
               </div>
             )}
@@ -98,7 +98,7 @@ export function MultiFilterMenu({ accent, label, icon = 'filter', options, selec
                   style={{ ...item, background: sel ? accent + '14' : 'transparent' }}
                 >
                   <span style={{ flex: 1, textAlign: 'left', color: sel ? accent : 'var(--spira-muted)', fontWeight: sel ? 700 : 500 }}>{o.label}</span>
-                  {o.count != null && <span style={{ fontSize: 11.5, color: 'var(--spira-faint)', fontVariantNumeric: 'tabular-nums' }}>{o.count}</span>}
+                  {o.count != null && <span style={{ fontSize: 11.5, color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums' }}>{o.count}</span>}
                   <span style={checkSlot}>{sel && <Icon name="check" size={14} color={accent} stroke={2.6} />}</span>
                 </button>
               )
@@ -140,7 +140,7 @@ const item: CSSProperties = {
   fontFamily: 'var(--spira-font-text)', fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 10,
 }
 const eyebrow: CSSProperties = {
-  fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--spira-faint)',
+  fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--spira-muted)',
   fontWeight: 700, padding: '7px 10px 6px',
 }
 /* El tilde va del lado DERECHO (pedido del Director, 2026-08-20): sin casillero a la izquierda las

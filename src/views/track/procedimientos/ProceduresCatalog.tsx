@@ -215,7 +215,7 @@ export function ProceduresCatalog({ protocolId, accent, accentSolid, canEdit, ca
                 <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', background: categoriaColor(g.categoria) as string }} />
               )}
               <span className="spira-eyebrow">{g.categoria}</span>
-              <span className="spira-mono" style={{ fontSize: 11.5, color: 'var(--spira-faint)' }}>{g.items.length}</span>
+              <span className="spira-mono" style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{g.items.length}</span>
             </div>
             {g.items.map((r) => {
               /* Hasta 3 puntitos de plataforma junto a la píldora. Tres y no todos: son una pista de

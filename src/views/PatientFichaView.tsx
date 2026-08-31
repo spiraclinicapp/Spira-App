@@ -127,7 +127,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       <span style={{ fontWeight: 600, textAlign: 'right' }}>{value}</span>
     </div>
   )
-  const dash = <span style={{ color: 'var(--spira-faint)' }}>—</span>
+  const dash = <span style={{ color: 'var(--spira-muted)' }}>—</span>
 
   /* ventana: días hasta que cierra (window_end − hoy); "Vencida" si ya pasó. */
   let ventanaTxt = '—'
@@ -208,7 +208,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
           <div>
             <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.2, textWrap: 'balance' }}>{patient.full_name}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 5 }}>
-              <span className="spira-mono" style={{ fontSize: 13.5, color: patient.code ? 'var(--spira-muted)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</span>
+              <span className="spira-mono" style={{ fontSize: 13.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</span>
               <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 13px', borderRadius: 10, background: statusColor + '14', border: `1px solid ${statusColor}38`, color: statusColor, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, flex: '0 0 auto' }} />{statusLabel}
               </span>

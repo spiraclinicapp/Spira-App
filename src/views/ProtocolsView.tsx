@@ -394,7 +394,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
           background: 'transparent', cursor: target ? 'pointer' : 'default', font: 'inherit', color: 'inherit',
         }}
       >
-        <span className="spira-mono" style={{ fontSize: 13, color: pt.code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>{pt.code ? highlight(pt.code, q, accent) : 'Sin IVRS'}</span>
+        <span className="spira-mono" style={{ fontSize: 13, color: pt.code ? 'var(--spira-ink)' : 'var(--spira-muted)' }}>{pt.code ? highlight(pt.code, q, accent) : 'Sin IVRS'}</span>
         <span style={{ fontSize: 13, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{highlight(pt.full_name, q, accent)}</span>
         <span style={{ display: 'flex', gap: 6, overflow: 'hidden' }}>
           {ptProtocols.length === 0 ? (

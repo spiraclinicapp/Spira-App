@@ -85,4 +85,4 @@
 .rdp-root .rdp-disabled .rdp-day_button { cursor: default; }
 
 /* Placeholder dd/mm/aaaa tenue pero legible (no el gris default del navegador). */
-.spira-date-input::placeholder { color: var(--spira-faint); }
+.spira-date-input::placeholder { color: var(--spira-muted); }

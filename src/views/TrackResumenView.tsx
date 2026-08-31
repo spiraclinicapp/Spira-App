@@ -34,9 +34,9 @@ function KpiCard({ label, value, sub, dot, cargando }: { label: string; value: n
         {label}
       </div>
       <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 38, letterSpacing: '-0.02em', marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>
-        {cargando ? <span style={{ color: 'var(--spira-faint)' }}>—</span> : value}
+        {cargando ? <span style={{ color: 'var(--spira-muted)' }}>—</span> : value}
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', marginTop: 2 }}>{sub}</div>
+      <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>{sub}</div>
     </div>
   )
 }
@@ -114,7 +114,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
             <div style={{ marginTop: 6 }}>
               {groups.map((g) => (
                 <div key={g.date}>
-                  <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--spira-faint)', fontWeight: 700, padding: '12px 0 6px' }}>
+                  <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--spira-muted)', fontWeight: 700, padding: '12px 0 6px' }}>
                     {dayLabel(g.date)}
                   </div>
                   {g.visits.map((v) => (
@@ -187,7 +187,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
                             : '—'}
                         </span>
                         {abrirFicha && <PatientLinkArrow />}
-                        <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span className="spira-mono" style={{ fontSize: 12.5 }}>{a.protocol_code}</span></span>
+                        <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}>· <span className="spira-mono" style={{ fontSize: 12.5 }}>{a.protocol_code}</span></span>
                       </div>
                       <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>
                     </div>
@@ -196,7 +196,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
               })}
             </div>
           )}
-          <div style={{ marginTop: 'auto', paddingTop: 14, fontSize: 11.5, color: 'var(--spira-faint)' }}>
+          <div style={{ marginTop: 'auto', paddingTop: 14, fontSize: 11.5, color: 'var(--spira-muted)' }}>
             Ventana vencida (roja) · Ítem vencido (ámbar)
           </div>
         </div>

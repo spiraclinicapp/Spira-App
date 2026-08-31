@@ -6,7 +6,7 @@ import { formatDayMonth, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 
 const pill: CSSProperties = {
-  fontSize: 10.5, fontWeight: 700, color: 'var(--spira-faint)', background: 'var(--spira-surface)',
+  fontSize: 10.5, fontWeight: 700, color: 'var(--spira-muted)', background: 'var(--spira-surface)',
   border: '1px solid var(--spira-line)', borderRadius: 'var(--spira-radius-pill)', padding: '3px 7px', flex: '0 0 auto',
 }
 
@@ -77,7 +77,7 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
         </div>
         <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 12.5, color: cur ? accent : 'var(--spira-ink)', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</div>
         {st != null && <div style={{ fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>{st.unit === 'dia' ? `${st.value}d` : `W${st.value}`}</div>}
-        <div style={{ fontFamily: 'var(--spira-font-text)', fontVariantNumeric: 'tabular-nums', fontSize: 10.5, color: 'var(--spira-faint)', marginTop: 1, whiteSpace: 'nowrap' }}>{fecha ? formatDayMonth(fecha) : '—'}</div>
+        <div style={{ fontFamily: 'var(--spira-font-text)', fontVariantNumeric: 'tabular-nums', fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>{fecha ? formatDayMonth(fecha) : '—'}</div>
       </div>
     )
   }

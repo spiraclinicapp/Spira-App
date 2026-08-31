@@ -232,7 +232,7 @@ export function AccesoEditor({ persona, actorId, administradores, onCerrar, onGu
             </div>
           ))}
           {descripcion.noVe.length > 0 && (
-            <div style={{ fontSize: 13, color: 'var(--spira-faint)' }}>
+            <div style={{ fontSize: 13, color: 'var(--spira-muted)' }}>
               No ve: {descripcion.noVe.join(' · ')}
             </div>
           )}
@@ -269,7 +269,7 @@ export function AccesoEditor({ persona, actorId, administradores, onCerrar, onGu
             style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '11px 18px', borderBottom: i < (audit.data?.length ?? 0) - 1 ? '1px solid var(--spira-line)' : 'none' }}
           >
             <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--spira-ink)' }}>{auditLine(r, nombreModulo)}</span>
-            <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-faint)', flex: '0 0 auto' }}>
+            <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)', flex: '0 0 auto' }}>
               {formatDateAR(r.occurred_at)}
             </span>
           </div>

@@ -241,7 +241,7 @@ export function AccountSection() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 28px', padding: '6px 18px 14px' }}>
               {fields.map((f, i) => (
                 <div key={f.l} style={{ padding: '13px 0', borderBottom: i < fields.length - 2 ? '1px solid var(--spira-line)' : 'none' }}>
-                  <div style={{ fontSize: 11.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--spira-faint)', fontWeight: 700 }}>{f.l}</div>
+                  <div style={{ fontSize: 11.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--spira-muted)', fontWeight: 700 }}>{f.l}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
                     <Icon name={f.icon} size={15} color="var(--spira-muted)" />
                     <span style={{ fontSize: 14, color: 'var(--spira-ink)' }}>{f.v}</span>
@@ -296,7 +296,7 @@ export function AccountSection() {
 }
 
 const lbl: CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)', marginBottom: 6 }
-const note: CSSProperties = { fontSize: 12, color: 'var(--spira-faint)', marginTop: 5 }
+const note: CSSProperties = { fontSize: 12, color: 'var(--spira-muted)', marginTop: 5 }
 const err: CSSProperties = { fontSize: 12.5, color: 'var(--spira-danger)' }
 const ok: CSSProperties = { fontSize: 12.5, color: 'var(--spira-good)' }
 const readonlyField: CSSProperties = {

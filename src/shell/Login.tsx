@@ -111,7 +111,7 @@ export function Login() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
-          <span style={{ color: 'var(--spira-faint)', fontSize: 12, fontWeight: 600 }}>o</span>
+          <span style={{ color: 'var(--spira-muted)', fontSize: 12, fontWeight: 600 }}>o</span>
           <div style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
         </div>
 

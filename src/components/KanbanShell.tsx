@@ -124,5 +124,5 @@ const colBody: CSSProperties = {
 }
 
 const vacio: CSSProperties = {
-  textAlign: 'center', fontSize: 12.5, color: 'var(--spira-faint)', padding: '22px 8px',
+  textAlign: 'center', fontSize: 12.5, color: 'var(--spira-muted)', padding: '22px 8px',
 }

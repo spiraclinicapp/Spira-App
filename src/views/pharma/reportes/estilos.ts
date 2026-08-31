@@ -85,7 +85,7 @@ export const tfootTd: CSSProperties = {
 export const subLine: CSSProperties = { fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 2 }
 
 /** Guion de celda vacía. Acá SÍ va `faint`: es una marca de ausencia, no texto que se lee. */
-export const dash: CSSProperties = { color: 'var(--spira-faint)' }
+export const dash: CSSProperties = { color: 'var(--spira-muted)' }
 
 export const tabla: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 }
 

@@ -105,7 +105,7 @@ export function AgendaView({ module, submodule, onNavigate }: ViewProps) {
                 {isToday && <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: accent }}>Hoy</span>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                {visits.length === 0 && <div style={{ fontSize: 12, color: 'var(--spira-faint)', padding: '4px 0' }}>Sin visitas</div>}
+                {visits.length === 0 && <div style={{ fontSize: 12, color: 'var(--spira-muted)', padding: '4px 0' }}>Sin visitas</div>}
                 {visits.map((v) => {
                   const c = VISIT_STATES[v.computed_status].color
                   const movable = canMove && v.real_date === null

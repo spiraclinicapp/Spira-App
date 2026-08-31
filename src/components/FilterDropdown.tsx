@@ -143,7 +143,7 @@ const menu: CSSProperties = {
   boxShadow: '0 12px 30px rgba(20,48,46,.16)', padding: 6,
 }
 const eyebrow: CSSProperties = {
-  fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--spira-faint)',
+  fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--spira-muted)',
   fontWeight: 700, padding: '7px 10px 6px',
 }
 const item: CSSProperties = {

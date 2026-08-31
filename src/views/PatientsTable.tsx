@@ -166,7 +166,7 @@ function PatientRowItem({ patient, accent, accentSolid, last, onOpenPatient }: {
         transition: 'background-color .14s var(--spira-ease-out)',
       }}
     >
-      <span role="cell" className="spira-mono" style={{ fontSize: 13, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-faint)' }}>
+      <span role="cell" className="spira-mono" style={{ fontSize: 13, color: patient.code ? 'var(--spira-ink)' : 'var(--spira-muted)' }}>
         {patient.code
           ? <PatientLink onOpen={abrir} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
           : 'Sin IVRS'}

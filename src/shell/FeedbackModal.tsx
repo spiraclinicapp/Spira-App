@@ -166,7 +166,7 @@ function solidBtn(accentSolid: string): CSSProperties {
 }
 const disabledBtn: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 8, height: 42, padding: '0 20px', borderRadius: 11,
-  border: 'none', background: 'var(--spira-line)', color: 'var(--spira-faint)',
+  border: 'none', background: 'var(--spira-line)', color: 'var(--spira-muted)',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 14, cursor: 'default',
 }
 const cancelBtn: CSSProperties = {

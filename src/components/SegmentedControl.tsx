@@ -35,4 +35,4 @@ export function SegmentedControl<T extends string>({ options, value, onChange, a
     </div>
   )
 }
-const badge: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--spira-faint)', border: '1px solid var(--spira-line-2)', borderRadius: 999, padding: '1px 7px' }
+const badge: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--spira-muted)', border: '1px solid var(--spira-line-2)', borderRadius: 999, padding: '1px 7px' }

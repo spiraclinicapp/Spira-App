@@ -104,7 +104,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
       <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{label}</span>
       <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
         <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, fontVariantNumeric: 'tabular-nums', color: warn ? 'var(--spira-warn)' : 'var(--spira-ink)' }}>{value}</span>
-        {sub && <span style={{ fontSize: 11.5, color: 'var(--spira-faint)' }}>{sub}</span>}
+        {sub && <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{sub}</span>}
       </span>
     </div>
   )

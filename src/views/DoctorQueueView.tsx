@@ -134,7 +134,7 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
 
   const sectionHead: CSSProperties = {
     fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
-    color: 'var(--spira-faint)', fontWeight: 700, padding: '0 0 8px 2px',
+    color: 'var(--spira-muted)', fontWeight: 700, padding: '0 0 8px 2px',
   }
 
   return (
@@ -293,7 +293,7 @@ function QueueRow({ visit, accent, busy, onOpen, onComments, onMarkSeen, onOpenP
                 visita, y verlo distinto según la pantalla obliga a reaprenderlo. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
               <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
-              <span className="spira-mono" style={{ fontSize: 12.5, color: visit.patient_code ? 'var(--spira-muted)' : 'var(--spira-faint)' }}>
+              <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
                 {visit.patient_code
                   ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
                   : 'Sin IVRS'}
@@ -337,4 +337,4 @@ const rowCard: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
   borderRadius: 14, padding: '16px 18px', marginBottom: 12,
 }
-const viaLabel: CSSProperties = { fontSize: 11.5, color: 'var(--spira-faint)' }
+const viaLabel: CSSProperties = { fontSize: 11.5, color: 'var(--spira-muted)' }

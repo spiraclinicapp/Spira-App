@@ -34,13 +34,13 @@ export function Stepper({ steps, current, maxReached, onJump, accent }: StepperP
                 style={{
                   ...dot,
                   background: done || active ? accent : 'var(--spira-surface)',
-                  color: done || active ? 'var(--spira-on-accent)' : 'var(--spira-faint)',
+                  color: done || active ? 'var(--spira-on-accent)' : 'var(--spira-muted)',
                   border: done || active ? `1px solid ${accent}` : '1px solid var(--spira-line-2)',
                 }}
               >
                 {done ? <Icon name="check" size={15} color="var(--spira-on-accent)" stroke={3} /> : i + 1}
               </span>
-              <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', color: active ? 'var(--spira-ink)' : done ? 'var(--spira-muted)' : 'var(--spira-faint)' }}>{label}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', color: active ? 'var(--spira-ink)' : done ? 'var(--spira-ink-soft)' : 'var(--spira-muted)' }}>{label}</span>
             </button>
             {notLast && <span style={{ flex: 1, height: 2, margin: '0 14px', minWidth: 24, background: done ? accent : 'var(--spira-line)' }} />}
           </div>

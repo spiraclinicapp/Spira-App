@@ -277,7 +277,7 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
       {/* Notas */}
       <label style={campo}>
         <span style={fieldLabelStyle}>
-          Notas o instrucciones <span style={{ fontWeight: 400, color: 'var(--spira-faint)' }}>(opcional)</span>
+          Notas o instrucciones <span style={{ fontWeight: 400, color: 'var(--spira-muted)' }}>(opcional)</span>
         </span>
         <textarea
           value={notes}

@@ -170,7 +170,7 @@ const dot: CSSProperties = {
   // 12px se veía fino y ópticamente descentrado dentro del círculo.
   fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 700, lineHeight: 1,
   fontVariantNumeric: 'tabular-nums',
-  border: '1.5px solid var(--spira-line-2)', color: 'var(--spira-faint)',
+  border: '1.5px solid var(--spira-line-2)', color: 'var(--spira-muted)',
   background: 'var(--spira-surface)', zIndex: 1,
 }
 

@@ -268,7 +268,7 @@ function TablaRenglones({ r, hoyISO }: { r: ReceptionRow; hoyISO: string }) {
                         producción marca como código de barras a códigos de dos dígitos. */}
                     {!esCodigoDeBarras(codigo) && <span style={qualifier}>interno</span>}
                   </>
-                ) : <span style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>— sin código —</span>}
+                ) : <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>— sin código —</span>}
               </td>
               <td style={celdaDe(2)}>
                 <span className="spira-mono" style={chipLote}>{it.lot_number}</span>

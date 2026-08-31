@@ -61,7 +61,7 @@ export function CommentThread({ visitId, accent = 'var(--spira-track)', onAdded 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '18px 14px', textAlign: 'center' }}>
           <Icon name="message" size={22} color="var(--spira-faint)" />
           <div style={{ fontSize: 13, color: 'var(--spira-muted)' }}>Todavía no hay comentarios.</div>
-          <div style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>Escribí el primero para el equipo.</div>
+          <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>Escribí el primero para el equipo.</div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -72,7 +72,7 @@ export function CommentThread({ visitId, accent = 'var(--spira-track)', onAdded 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 13, fontWeight: 700 }}>{c.author_name}</span>
                   <span style={roleChip}>{c.author_role}</span>
-                  <span style={{ fontSize: 11.5, color: 'var(--spira-faint)', marginLeft: 'auto' }}>{fromNow(c.created_at)}</span>
+                  <span style={{ fontSize: 11.5, color: 'var(--spira-muted)', marginLeft: 'auto' }}>{fromNow(c.created_at)}</span>
                 </div>
                 <div style={bubble}>{c.body}</div>
               </div>
@@ -129,6 +129,6 @@ const retryBtn: CSSProperties = {
 const sendBtn = (active: boolean, accent: string): CSSProperties => ({
   alignSelf: 'flex-end', height: 40, padding: '0 18px', borderRadius: 10, border: 'none',
   background: active ? accent : 'var(--spira-line)',
-  color: active ? 'var(--spira-on-accent)' : 'var(--spira-faint)',
+  color: active ? 'var(--spira-on-accent)' : 'var(--spira-muted)',
   cursor: active ? 'pointer' : 'default', fontFamily: 'var(--spira-font-text)', fontWeight: 700, fontSize: 13.5,
 })

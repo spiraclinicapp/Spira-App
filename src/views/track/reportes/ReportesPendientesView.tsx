@@ -183,7 +183,7 @@ export function ReportesPendientesView({ protocolId, accent, onOpenVisit, onOpen
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: cerradas.length ? 8 : 0 }}>
             <Icon name="check" size={14} color="var(--spira-primary)" />
             <span className="spira-eyebrow">Visitas cerradas · alerta finalizada</span>
-            <span style={{ fontSize: 11.5, color: 'var(--spira-faint)' }}>últimos {DIAS_CERRADAS} días</span>
+            <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>últimos {DIAS_CERRADAS} días</span>
           </div>
           {cerradas.map((c) => {
             const r = c.rows[0]
@@ -223,7 +223,7 @@ export function ReportesPendientesView({ protocolId, accent, onOpenVisit, onOpen
             )
           })}
           {cerradasOcultas > 0 && (
-            <div style={{ fontSize: 11.5, color: 'var(--spira-faint)', padding: '8px 2px 0' }}>
+            <div style={{ fontSize: 11.5, color: 'var(--spira-muted)', padding: '8px 2px 0' }}>
               {cerradasOcultas} {cerradasOcultas === 1 ? 'visita cerrada hace más' : 'visitas cerradas hace más'} de {DIAS_CERRADAS} días.
               El registro completo queda en la ficha de cada paciente.
             </div>

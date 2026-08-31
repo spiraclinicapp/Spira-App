@@ -335,11 +335,11 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
       {/* cabecera: fecha + contadores coloreados */}
       <div className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ textTransform: 'capitalize' }}>{dayName(date)} {formatShortAR(date)}</span>
-        <span style={{ color: 'var(--spira-faint)' }}>·</span>
+        <span style={{ color: 'var(--spira-muted)' }}>·</span>
         <span>{conteo.total} {conteo.total === 1 ? 'visita' : 'visitas'}</span>
-        {conteo.porLlegar > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: 'var(--spira-warn)', fontWeight: 600 }}>{conteo.porLlegar} por llegar</span></>)}
-        {conteo.enCentro > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: accent, fontWeight: 600 }}>{conteo.enCentro} en el centro</span></>)}
-        {conteo.finalizadas > 0 && (<><span style={{ color: 'var(--spira-faint)' }}>·</span><span style={{ color: 'var(--spira-faint)', fontWeight: 600 }}>{conteo.finalizadas} finalizadas</span></>)}
+        {conteo.porLlegar > 0 && (<><span style={{ color: 'var(--spira-muted)' }}>·</span><span style={{ color: 'var(--spira-warn)', fontWeight: 600 }}>{conteo.porLlegar} por llegar</span></>)}
+        {conteo.enCentro > 0 && (<><span style={{ color: 'var(--spira-muted)' }}>·</span><span style={{ color: accent, fontWeight: 600 }}>{conteo.enCentro} en el centro</span></>)}
+        {conteo.finalizadas > 0 && (<><span style={{ color: 'var(--spira-muted)' }}>·</span><span style={{ color: 'var(--spira-muted)', fontWeight: 600 }}>{conteo.finalizadas} finalizadas</span></>)}
       </div>
 
       {/* fila de filtros */}
@@ -400,7 +400,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
             <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span className="spira-mono">{v.patient_code ?? 'Sin IVRS'}</span>
-                <span style={{ color: 'var(--spira-faint)' }}> · <span className="spira-mono">{v.protocol_code}</span></span>
+                <span style={{ color: 'var(--spira-muted)' }}> · <span className="spira-mono">{v.protocol_code}</span></span>
                 <span style={{ color: 'var(--spira-muted)' }}> — generá el tratamiento o marcá el resultado</span>
               </span>
               {canClinical(v) && (
@@ -441,7 +441,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
               {showHeaders && g.label && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 2px 9px' }}>
                   <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 12.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--spira-muted)' }}>{g.label}</span>
-                  <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-faint)' }}>{g.items.length}</span>
+                  <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-muted)' }}>{g.items.length}</span>
                   <span style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
                 </div>
               )}

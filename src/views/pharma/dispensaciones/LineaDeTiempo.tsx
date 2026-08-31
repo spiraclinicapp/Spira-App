@@ -114,9 +114,8 @@ const scroll: CSSProperties = {
 /**
  * Encabezado de día. Pegajoso: con veinte movimientos el día se pierde al scrollear.
  *
- * `ink-soft` y no `muted`: medido en el navegador, `--spira-muted` sobre el papel del modal da
- * **3,52:1** y la AA pide 4,5 para todo lo que no sea texto grande —700 a 11,5px no lo es—. Ver el
- * bloque de contrastes al pie del archivo.
+ * `ink-soft` y no `muted`, aunque desde la recalibración de la rampa (2026-08-31) los dos pasen
+ * AA: la razón sigue siendo la jerarquía. Ver el bloque de contrastes al pie del archivo.
  */
 const diaTitulo: CSSProperties = {
   position: 'sticky', top: 0, zIndex: 1, margin: 0, padding: '6px 0 8px',
@@ -173,11 +172,11 @@ const detalle: CSSProperties = {
 /*
  * ┌─ CONTRASTE, MEDIDO EN EL NAVEGADOR (no estimado) ────────────────────────────────────────────┐
  * │                                                                                              │
- * │ Sobre el papel del modal (#FFFFFF):                                                          │
+ * │ Sobre el papel del modal (#FFFFFF), tras recalibrar la rampa el 2026-08-31:                  │
  * │     --spira-ink        14,08:1   título del evento                                           │
- * │     --spira-ink-soft    5,84:1   día, hora, quién, detalle   ← AA (4,5) con margen           │
- * │     --spira-muted       3,52:1   ✗ no llega                                                  │
- * │     --spira-faint       2,23:1   ✗ ni cerca                                                  │
+ * │     --spira-ink-soft    7,08:1   día, hora, quién, detalle   ← AA (4,5) con margen           │
+ * │     --spira-muted       5,19:1   ahora SÍ llega (antes 3,52)                                 │
+ * │     --spira-faint       3,46:1   sigue sin llegar, y ya no se usa para texto en ningún lado   │
  * │                                                                                              │
  * │ La primera versión de esta pantalla usaba `muted` para el detalle y `faint` para la hora y el │
  * │ nombre, que es lo que venía haciendo el historial viejo. Ninguno de los dos pasa: la jerarquía│
