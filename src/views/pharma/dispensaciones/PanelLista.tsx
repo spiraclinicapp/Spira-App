@@ -118,7 +118,7 @@ export function PanelLista({ r, disp, onChanged, onClose, onPrint, onToast }: {
                 style={{
                   ...kitsInput,
                   borderStyle: kitsSinDeclarar ? 'dashed' : 'solid',
-                  color: kitsSinDeclarar ? 'var(--spira-faint)' : 'var(--spira-ink)',
+                  color: kitsSinDeclarar ? 'var(--spira-muted)' : 'var(--spira-ink)',
                 }}
               />
               {kitsSinDeclarar && <span style={pillPendiente}>Sin declarar</span>}

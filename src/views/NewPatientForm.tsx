@@ -133,7 +133,7 @@ export function NewPatientForm({ accentSolid, protocolId, protocols, onClose, on
 
           {/* ── Opcionales ── */}
           <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--spira-faint)' }}>Opcionales</span>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--spira-muted)' }}>Opcionales</span>
             <div style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
           </div>
           <FormField label="Número de sujeto (IVRS)">

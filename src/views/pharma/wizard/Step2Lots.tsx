@@ -43,7 +43,7 @@ export function Step2Lots({ meds, setMeds, accentSolid: _accentSolid }: Props) {
               </span>
             </div>
             {/* Labels de columna (handoff 1d, paso Lotes) */}
-            <div style={{ ...lotGrid, fontSize: 11.5, color: 'var(--spira-faint)', marginBottom: 6 }}>
+            <div style={{ ...lotGrid, fontSize: 11.5, color: 'var(--spira-muted)', marginBottom: 6 }}>
               <span>Número de lote</span><span>Vencimiento</span><span>Cantidad</span><span />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

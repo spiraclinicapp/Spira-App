@@ -86,7 +86,7 @@ export function Step0Setup({ accentSolid, tipo, protocolId, coordinatorId, onTip
             entity="protocolo"
           />
           {!isIp && (
-            <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', marginTop: 8 }}>Vas a recibir medicación para el protocolo seleccionado.</div>
+            <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 8 }}>Vas a recibir medicación para el protocolo seleccionado.</div>
           )}
         </label>
       )}

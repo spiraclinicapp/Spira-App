@@ -85,5 +85,5 @@ export function ConfirmarAvance({ visit, busy, onCancel, onConfirmar }: {
 
 const parrafo = { margin: '0 0 14px', fontSize: 14, lineHeight: 1.55, color: 'var(--spira-ink)' } as const
 const ficha = { display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '7px 14px', margin: 0 } as const
-const dt = { fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-faint)', fontWeight: 700, paddingTop: 2 } as const
+const dt = { fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-muted)', fontWeight: 700, paddingTop: 2 } as const
 const dd = { margin: 0, fontSize: 13.5, color: 'var(--spira-ink)' } as const

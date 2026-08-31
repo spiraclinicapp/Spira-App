@@ -160,7 +160,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
                               : '—'}
                           </span>
                           {abrir && <PatientLinkArrow />}
-                          <span style={{ color: 'var(--spira-faint)' }}>·</span>
+                          <span style={{ color: 'var(--spira-muted)' }}>·</span>
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{r.protocol_code}</span>
                         </div>
                         <div style={rowReason}>Reporte pendiente — {r.report_name} · {r.procedure_name}</div>
@@ -190,7 +190,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
                               : '—'}
                           </span>
                           {abrir && <PatientLinkArrow />}
-                          <span style={{ color: 'var(--spira-faint)' }}>·</span>
+                          <span style={{ color: 'var(--spira-muted)' }}>·</span>
                           <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 600 }}>{a.protocol_code}</span>
                         </div>
                         <div style={rowReason}>{visitTitle(a)} — {reasonLabel(a)}</div>
@@ -260,7 +260,7 @@ const rowReason: CSSProperties = {
   overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
 }
 const rowWhen: CSSProperties = {
-  flex: '0 0 auto', fontSize: 11.5, color: 'var(--spira-faint)', fontWeight: 500, marginTop: 2, whiteSpace: 'nowrap',
+  flex: '0 0 auto', fontSize: 11.5, color: 'var(--spira-muted)', fontWeight: 500, marginTop: 2, whiteSpace: 'nowrap',
 }
 const emptyState: CSSProperties = {
   padding: '30px 16px 34px', textAlign: 'center',

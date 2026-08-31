@@ -83,20 +83,20 @@ const attendedLabel: CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
   fontSize: 13, fontWeight: 700, color: 'var(--spira-good)',
 }
-const sinceLabel: CSSProperties = { fontSize: 11, color: 'var(--spira-faint)', marginTop: 2 }
+const sinceLabel: CSSProperties = { fontSize: 11, color: 'var(--spira-muted)', marginTop: 2 }
 const protocolPill: CSSProperties = {
   fontSize: 10.5, background: 'var(--spira-line)', padding: '1px 8px',
   borderRadius: 'var(--spira-radius-pill)',
 }
 const identityLine: CSSProperties = {
-  fontSize: 12, color: 'var(--spira-faint)', marginTop: 2,
+  fontSize: 12, color: 'var(--spira-muted)', marginTop: 2,
   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
 }
 const sideBlock: CSSProperties = { flex: '0 0 auto', textAlign: 'right' }
-const sideLabel: CSSProperties = { fontSize: 11.5, color: 'var(--spira-faint)' }
+const sideLabel: CSSProperties = { fontSize: 11.5, color: 'var(--spira-muted)' }
 const sideValue: CSSProperties = { fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)', marginTop: 1 }
 const undoBtn: CSSProperties = {
   flex: '0 0 auto', height: 30, padding: '0 10px', border: '1px solid var(--spira-line)',
-  borderRadius: 8, background: 'transparent', color: 'var(--spira-faint)',
+  borderRadius: 8, background: 'transparent', color: 'var(--spira-muted)',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 11.5,
 }

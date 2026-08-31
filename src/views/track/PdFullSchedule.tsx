@@ -58,7 +58,7 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen }: {
                     {formatShortAR(v.real_date)}
                     {fuera && <span role="img" aria-label="Fuera de ventana" title="Fuera de ventana" style={{ display: 'inline-flex' }}><Icon name="alert" size={12} color="var(--spira-danger)" /></span>}
                   </span>
-                  <span style={{ display: 'block', fontSize: 10.5, color: 'var(--spira-faint)' }}>
+                  <span style={{ display: 'block', fontSize: 10.5, color: 'var(--spira-muted)' }}>
                     est {v.estimated_date ? formatShortAR(v.estimated_date) : '—'}{desv != null ? ` · ${desv > 0 ? '+' : ''}${desv} d` : ''}
                   </span>
                 </>

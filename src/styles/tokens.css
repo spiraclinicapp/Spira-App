@@ -13,14 +13,45 @@
   --spira-paper:    #F4F1EA;
   --spira-surface:  #FBFAF6;
   --spira-white:    #FFFFFF;
-  --spira-muted:    #7C8C87;
-  --spira-faint:    #A6B0AC;
-  /* Tinta atenuada que SÍ pasa AA en cuerpos chicos (11–13px). Es `ink` mezclado al 72%
-     con `surface`: se lee como texto secundario, pero sin el agujero de contraste de
-     `muted`, que sobre surface da 3.37:1 en claro (AA pide 4.5:1 para texto normal).
-     Usalo para descriptores y segundas líneas; `muted` queda para rótulos grandes,
-     íconos y texto ≥18px. Medido: 5.62:1 en claro, 8.08:1 en oscuro. */
-  --spira-ink-soft: #556966;
+  /* —— LA RAMPA DE GRISES, RECALIBRADA (2026-08-31) ——
+     La regla anterior existía y decía lo correcto —"`muted` queda para rótulos grandes, íconos y
+     texto ≥18px"—, pero el código la desobedecía en 403 lugares de 118 archivos: `muted` y
+     `faint` eran, de hecho, los dos tonos de texto secundario de toda la app. Una regla que
+     pierde 403 a 0 no es una regla, es una deuda.
+
+     Y la deuda era real: sobre PAPEL (el fondo más exigente, más oscuro que la card blanca donde
+     se venía midiendo) `muted` daba 3,12:1 y `faint` 1,97:1, contra los 4,5:1 que AA pide
+     para texto normal. En castellano: la mitad de lo que dice la app no se leía bien.
+
+     Se corrigió BAJANDO LOS TONOS, no migrando los 403 usos, por dos razones. Una, mandarlos a
+     `ink-soft` era un salto MÁS grande (3,12 → 5,17) que corregir el token (3,12 → 4,61): el
+     remedio se notaba más que la enfermedad. Dos, un reemplazo masivo aplasta cuatro niveles de
+     texto en dos, y la jerarquía de Sereno vive en esos escalones.
+
+     Los tres tonos se bajaron en OKLab —misma L, mismo matiz y croma— manteniendo el ritmo de
+     pasos que ya tenía la rampa. Medido sobre papel #F4F1EA:
+
+       token       antes            ahora            paso al de arriba
+       ink         #14302E 12,48    igual            —
+       ink-2       #2A4744  8,94    igual            ×1,40  (era ×1,40)
+       ink-soft    #556966  5,17 →  #465A57  6,50    ×1,37  (era ×1,73)
+       muted       #7C8C87  3,12 →  #61706C  4,61    ×1,41  (era ×1,66)   ← ahora SÍ es texto
+       faint       #A6B0AC  1,97 →  #838C89  3,06    ×1,50  (era ×1,58)   ← ya NO es texto
+
+     `faint` es el único que NO llega a 4,5 y no puede llegar: para hacerlo tendría que ser el
+     mismo color que `muted` y la rampa perdería el escalón de abajo. Queda como tono de
+     COMPONENTE no textual —íconos, bordes, la barra de scroll, el fondo apagado de una barra de
+     gráfico—, donde el piso es 3:1 y 3,06 alcanza. Sus 108 usos como texto se migraron a `muted`
+     en el mismo barrido. Si vas a pintar texto, el tono más claro disponible es `muted`.
+
+     El tema oscuro no se tocó: ahí los mismos tokens ya daban 6,23:1 y 7,25:1 sobre la card. El
+     agujero era del tema claro nada más — y por eso no se veía mirando el tema equivocado. */
+  --spira-muted:    #61706C;
+  --spira-faint:    #838C89;
+  /* Tinta atenuada para descriptores y segundas líneas. Es el nivel de texto secundario FUERTE:
+     `muted` también es legible ahora, así que la diferencia entre los dos es jerarquía, no
+     accesibilidad. Medido: 6,50:1 sobre papel, 7,08:1 sobre blanco, 8,08:1 en oscuro. */
+  --spira-ink-soft: #465A57;
   /* Un punto menos negro que `ink`, para NOMBRES y VALORES (nombre del paciente, médico,
      coordinador, datos de la rejilla del encabezado de visita). `ink` queda para la estructura
      —bordes, microcopy fuerte— y esto para lo que se lee como contenido: baja la dureza del
@@ -138,7 +169,7 @@
   --spira-surface:  #1C1C1C;   /* superficie elevada (sube con el fondo para conservar el escalón) */
   --spira-white:    #212121;   /* card / elevado */
   --spira-muted:    #A1A1A1;   /* texto secundario */
-  --spira-faint:    #6E6E6E;   /* texto terciario / placeholders */
+  --spira-faint:    #6E6E6E;   /* NO es texto (3,16:1 sobre la card): íconos, bordes, scroll */
   --spira-ink-soft: #B2B2B2;   /* tinta atenuada AA para cuerpos chicos (8.08:1 sobre surface) */
   --spira-ink-2:    #DCDCDC;   /* nombres y valores: un punto por debajo de `ink`, mismo gesto que el #2A4744 del tema claro */
   --spira-ghost-bg: rgba(157, 230, 214, 0.15); /* resalte del fantasma en oscuro: menta tenue (el petróleo no se ve sobre fondo oscuro) */
@@ -166,7 +197,7 @@
 .spira-h1      { font-family: var(--spira-font-display); font-weight: 700; font-size: 40px; letter-spacing: -0.02em; line-height: 1.05; color: var(--spira-ink); }
 .spira-h2      { font-family: var(--spira-font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; color: var(--spira-ink); }
 .spira-h3      { font-family: var(--spira-font-display); font-weight: 700; font-size: 17px; color: var(--spira-ink); }
-.spira-eyebrow { font-family: var(--spira-font-text); font-weight: 700; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--spira-faint); }
+.spira-eyebrow { font-family: var(--spira-font-text); font-weight: 700; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--spira-muted); }
 .spira-mono    { font-family: var(--spira-font-mono); font-variant-numeric: tabular-nums; }
 
 /* —— Base —— */
@@ -435,7 +466,7 @@ input:-webkit-autofill:focus {
 }
 /* © fijo abajo, como footer; no entra en el centrado del formulario. */
 .spira-auth-foot {
-  flex-shrink: 0; text-align: center; color: var(--spira-faint); font-size: 12px; padding-top: 16px;
+  flex-shrink: 0; text-align: center; color: var(--spira-muted); font-size: 12px; padding-top: 16px;
 }
 @media (min-width: 900px) {
   .spira-auth-cover { display: flex; }
@@ -453,7 +484,7 @@ input:-webkit-autofill:focus {
 }
 .spira-search-trigger .spira-search-label { flex: 1; text-align: left; white-space: nowrap; }
 .spira-search-trigger .spira-search-kbd {
-  font-size: 11.5px; font-weight: 600; color: var(--spira-faint);
+  font-size: 11.5px; font-weight: 600; color: var(--spira-muted);
   background: var(--spira-white); border: 1px solid var(--spira-line);
   border-radius: 6px; padding: 2px 7px;
 }

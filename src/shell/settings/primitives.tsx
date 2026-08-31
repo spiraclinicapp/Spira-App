@@ -213,5 +213,5 @@ export function PreviewBanner({ children }: { children: ReactNode }) {
 
 /** Nota al pie, sobria: aclara que algo todavía no se guarda / no es real. */
 export function StNote({ children }: { children: ReactNode }) {
-  return <div style={{ fontSize: 12, color: 'var(--spira-faint)', padding: '2px 2px 0' }}>{children}</div>
+  return <div style={{ fontSize: 12, color: 'var(--spira-muted)', padding: '2px 2px 0' }}>{children}</div>
 }

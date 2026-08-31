@@ -64,17 +64,17 @@ export function Step1ControlCargaIp({
             placeholder="0" className="spira-mono" style={fieldInput}
             aria-label="Cantidad total de kits recibidos"
           />
-          <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', marginTop: 8 }}>Total recibido en el cargamento, para cruzar con el shipment.</div>
+          <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 8 }}>Total recibido en el cargamento, para cruzar con el shipment.</div>
         </label>
 
         <div>
-          <div className="spira-eyebrow" style={{ marginBottom: 9 }}>Rango de numeración <span style={{ color: 'var(--spira-faint)', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>· opcional</span></div>
+          <div className="spira-eyebrow" style={{ marginBottom: 9 }}>Rango de numeración <span style={{ color: 'var(--spira-muted)', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>· opcional</span></div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
             <label style={{ width: 160 }}>
               <div style={{ fontSize: 12, color: 'var(--spira-muted)', marginBottom: 5 }}>Desde kit</div>
               <input value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)} placeholder="001" className="spira-mono" style={{ ...fieldInput, height: 40 }} />
             </label>
-            <span style={{ color: 'var(--spira-faint)', paddingBottom: 10 }}>→</span>
+            <span style={{ color: 'var(--spira-muted)', paddingBottom: 10 }}>→</span>
             <label style={{ width: 160 }}>
               <div style={{ fontSize: 12, color: 'var(--spira-muted)', marginBottom: 5 }}>Hasta kit</div>
               <input value={rangeTo} onChange={(e) => setRangeTo(e.target.value)} placeholder="050" className="spira-mono" style={{ ...fieldInput, height: 40 }} />

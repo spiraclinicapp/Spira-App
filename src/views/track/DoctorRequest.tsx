@@ -152,7 +152,7 @@ const cancelBtn = (busy: boolean): CSSProperties => ({
 })
 const primaryBtn = (active: boolean, accent: string, busy: boolean): CSSProperties => ({
   flex: 1, height: 40, borderRadius: 10, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-  background: active ? accent : 'var(--spira-line)', color: active ? 'var(--spira-on-accent)' : 'var(--spira-faint)',
+  background: active ? accent : 'var(--spira-line)', color: active ? 'var(--spira-on-accent)' : 'var(--spira-muted)',
   cursor: active && !busy ? 'pointer' : 'default', fontFamily: 'var(--spira-font-text)', fontWeight: 700, fontSize: 13.5,
   opacity: busy ? 0.6 : 1,
 })

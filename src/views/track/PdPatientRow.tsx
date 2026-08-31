@@ -56,7 +56,7 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
 
   const col = (label: string, value: string, isNow: boolean) => (
     <div style={{ minWidth: 88, textAlign: 'center' }}>
-      <div style={{ ...microLabel, color: isNow ? accent : 'var(--spira-faint)' }}>{label}</div>
+      <div style={{ ...microLabel, color: isNow ? accent : 'var(--spira-muted)' }}>{label}</div>
       <div style={{ fontFamily: 'var(--spira-font-text)', fontVariantNumeric: 'tabular-nums', fontSize: 12.5, marginTop: 3, whiteSpace: 'nowrap', color: isNow ? 'var(--spira-ink)' : 'var(--spira-muted)', fontWeight: isNow ? 700 : 400 }}>{value}</div>
     </div>
   )
@@ -93,7 +93,7 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
                 </PatientLink>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, marginTop: 2 }}>
-                <span className="spira-mono" style={{ fontSize: 13, color: patient.code ? 'var(--spira-muted)' : 'var(--spira-faint)', whiteSpace: 'nowrap' }}>
+                <span className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
                   {patient.code
                     ? <PatientLink onOpen={() => onOpen(patient.id)} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
                     : 'Sin IVRS'}
@@ -114,7 +114,7 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
               {col('Próxima', cell(next), false)}
             </div>
           ) : (
-            <div style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>Sin visitas registradas</div>
+            <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>Sin visitas registradas</div>
           )}
           {/* acción: solo el desplegable del recorrido. Abrir la ficha es el gesto de la fila
               entera (el `onClick` de arriba), así que no lleva botón propio. Sin visitas no hay

@@ -216,7 +216,7 @@ export function PanelNuevaDispensacion({ onClose, onCreated }: {
         )}
 
         {items.length === 0 ? (
-          <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', padding: '6px 2px' }}>
+          <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', padding: '6px 2px' }}>
             Todavía no agregaste medicación.
           </div>
         ) : (

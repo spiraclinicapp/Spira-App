@@ -100,7 +100,7 @@ export const STATUS_META: Record<
   preparando: { label: 'Preparando', color: COLUMN_META.preparando.color, tint: COLUMN_META.preparando.tint },
   atendida: { label: 'Entregada', color: 'var(--spira-good)', tint: 'rgba(92, 138, 90, 0.14)' },
   rechazada: { label: 'Rechazada', color: 'var(--spira-danger)', tint: DANGER_TINT },
-  cancelada: { label: 'Cancelada', color: 'var(--spira-faint)', tint: 'var(--spira-surface)' },
+  cancelada: { label: 'Cancelada', color: 'var(--spira-muted)', tint: 'var(--spira-surface)' },
 }
 
 /**

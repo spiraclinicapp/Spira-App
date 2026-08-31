@@ -99,7 +99,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   if (!loading && !error && items.length === 0) {
     return (
       <ProceduresPanel accent={accent}>
-        <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', padding: '4px 0' }}>
+        <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', padding: '4px 0' }}>
           {visitDefId
             ? 'Esta visita no tiene procedimientos asignados. Se asignan por visita en el cronograma del protocolo.'
             : 'Las visitas sueltas no tienen procedimientos del cuadro.'}

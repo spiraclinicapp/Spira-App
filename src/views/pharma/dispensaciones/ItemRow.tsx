@@ -65,7 +65,7 @@ export function ItemRow({
         {modo === 'escaneo' ? (
           <Dial unidades={unidades} quantity={quantity} completo={completo} pct={pct} />
         ) : (
-          <span style={{ color: 'var(--spira-faint)', flex: '0 0 auto', display: 'flex' }}>
+          <span style={{ color: 'var(--spira-muted)', flex: '0 0 auto', display: 'flex' }}>
             <Icon name="barcode" size={16} />
           </span>
         )}

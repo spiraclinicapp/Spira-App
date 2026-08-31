@@ -265,7 +265,7 @@ export function SearchableSelect(props: Props) {
         {currentDot && <span aria-hidden style={{ ...dotStyle, background: currentDot }} />}
         <span className={mono && current ? 'spira-mono' : undefined} style={variant === 'chip'
           ? { color: current ? 'var(--spira-ink)' : 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 210 }
-          : { flex: 1, textAlign: 'left', color: current ? 'var(--spira-ink)' : 'var(--spira-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          : { flex: 1, textAlign: 'left', color: current ? 'var(--spira-ink)' : 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {current || placeholder}
         </span>
         <Icon name="chevronDown" size={variant === 'chip' ? 13 : 16} color="var(--spira-muted)" style={{ flex: '0 0 auto', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
@@ -299,7 +299,7 @@ export function SearchableSelect(props: Props) {
             </div>
           ) : mode === 'create' ? (
             <div style={{ padding: 4 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-faint)', padding: '2px 6px 7px' }}>Agregar {entity}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-muted)', padding: '2px 6px 7px' }}>Agregar {entity}</div>
               <input
                 ref={createRef}
                 className="spira-bare-input"

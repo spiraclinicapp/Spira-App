@@ -105,10 +105,10 @@ export function Persona({ role, name, icon }: { role: string; name: string | nul
       }}
     >
       <Icon name={icon} size={13} color="var(--spira-faint)" />
-      <span style={{ color: 'var(--spira-faint)', flex: '0 0 auto' }}>{role}</span>
+      <span style={{ color: 'var(--spira-muted)', flex: '0 0 auto' }}>{role}</span>
       <span
         style={{
-          color: name ? 'var(--spira-ink)' : 'var(--spira-faint)', fontWeight: name ? 600 : 400,
+          color: name ? 'var(--spira-ink)' : 'var(--spira-muted)', fontWeight: name ? 600 : 400,
           overflow: 'hidden', textOverflow: 'ellipsis',
         }}
       >

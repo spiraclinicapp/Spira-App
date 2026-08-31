@@ -198,7 +198,7 @@ export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, onNav
 
         {/* 3 · resultados */}
         <div style={resultsWrap} role="listbox" id={listboxId} aria-label="Resultados">
-          <div className="spira-eyebrow" aria-live="polite" style={{ padding: '6px 12px 8px', color: 'var(--spira-faint)' }}>
+          <div className="spira-eyebrow" aria-live="polite" style={{ padding: '6px 12px 8px', color: 'var(--spira-muted)' }}>
             {header}
           </div>
 

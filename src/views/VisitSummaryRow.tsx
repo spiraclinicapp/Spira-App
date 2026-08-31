@@ -97,7 +97,7 @@ export function VisitSummaryRow({
           )}
           {onOpenPatient && <PatientLinkArrow />}
           {codigo && <span style={pastillaVisita}>{codigo}</span>}
-          <span style={{ fontSize: 12.5, color: 'var(--spira-faint)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {nombreVisita}
           </span>
         </div>

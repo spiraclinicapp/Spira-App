@@ -150,7 +150,7 @@ export function VisitDateInline({
 
 const dlb: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 7, fontSize: 10, fontWeight: 700,
-  letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--spira-faint)', marginBottom: 4,
+  letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--spira-muted)', marginBottom: 4,
 }
 const bigBase: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 9, height: 32, padding: '0 10px', borderRadius: 8,
@@ -168,7 +168,7 @@ const bigBase: CSSProperties = {
 const focusLift: CSSProperties = {
   boxShadow: '0 5px 14px rgba(20, 48, 46, 0.1)', transform: 'translateY(-1px)',
 }
-const phStyle: CSSProperties = { color: 'var(--spira-faint)', fontWeight: 500 }
+const phStyle: CSSProperties = { color: 'var(--spira-muted)', fontWeight: 500 }
 const toneStyle = (t: 'soft' | 'strong'): CSSProperties => ({
   color: t === 'soft' ? 'var(--spira-ink-soft)' : 'var(--spira-ink-2)',
 })

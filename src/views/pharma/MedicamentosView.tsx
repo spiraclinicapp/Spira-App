@@ -198,7 +198,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     const nCat = catalog.data?.length ?? 0
     return (
       <div style={wrap}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-faint)' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-muted)' }}>
           Elegí el apartado
         </div>
         <div style={menuGrid}>
@@ -560,7 +560,7 @@ function SectionHeader({ eyebrow, nMeds, nLotes }: { eyebrow: string; nMeds: num
     : `${nMeds} ${nMeds === 1 ? 'medicamento' : 'medicamentos'} · ${nLotes} ${nLotes === 1 ? 'lote' : 'lotes'}`
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: -2 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-faint)' }}>{eyebrow}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-muted)' }}>{eyebrow}</span>
       <span style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
       <span style={{ fontSize: 11, color: 'var(--spira-muted)' }}>{cuenta}</span>
     </div>
@@ -579,7 +579,7 @@ function ApartadoCard({ icon, tint, iconColor, title, desc, counter, onClick }: 
       <div className="spira-display" style={{ fontSize: 18, fontWeight: 700, color: 'var(--spira-ink)' }}>{title}</div>
       <div style={{ fontSize: 13, color: 'var(--spira-muted)', marginTop: 2 }}>{desc}</div>
       <div style={{ borderTop: '1px solid var(--spira-line)', marginTop: 12, paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 11.5, color: 'var(--spira-faint)' }}>{counter}</span>
+        <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{counter}</span>
         <span style={{ fontSize: 13, fontWeight: 600, color: iconColor, display: 'flex', alignItems: 'center', gap: 4 }}>Entrar <Icon name="arrowRight" size={14} color={iconColor} /></span>
       </div>
     </button>
@@ -721,7 +721,7 @@ function StockCell({ qty }: { qty: number }) {
       <Eyebrow>Stock</Eyebrow>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 2 }}>
         <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 18, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color }}>{qty}</span>
-        <span style={{ fontSize: 11.5, color: 'var(--spira-faint)' }}>u.</span>
+        <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>u.</span>
         {low && <span style={stockBadgeLow}>Bajo</span>}
         {out && <span style={stockBadgeOut}>Agotado</span>}
       </div>
@@ -730,7 +730,7 @@ function StockCell({ qty }: { qty: number }) {
 }
 
 function Eyebrow({ children }: { children: ReactNode }) {
-  return <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-faint)' }}>{children}</div>
+  return <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-muted)' }}>{children}</div>
 }
 function KebabItem({ icon, children, onClick, disabled, danger }: { icon: IconName; children: ReactNode; onClick?: () => void; disabled?: boolean; danger?: boolean }) {
   const color = disabled ? 'var(--spira-faint)' : danger ? 'var(--spira-danger)' : 'var(--spira-ink)'
@@ -743,7 +743,7 @@ function KebabItem({ icon, children, onClick, disabled, danger }: { icon: IconNa
   )
 }
 function PillPronto() {
-  return <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--spira-faint)', border: '1px solid var(--spira-line)', borderRadius: 99, padding: '1px 6px' }}>Pronto</span>
+  return <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--spira-muted)', border: '1px solid var(--spira-line)', borderRadius: 99, padding: '1px 6px' }}>Pronto</span>
 }
 
 /* ── Estilos ────────────────────────────────────────────────────────────────── */
@@ -780,7 +780,7 @@ const kebabItem: CSSProperties = { width: '100%', display: 'flex', alignItems: '
 const kebabDivider: CSSProperties = { height: 1, background: 'var(--spira-line)', margin: '4px 6px' }
 const asignarChip: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 4, height: 25, padding: '0 10px', marginTop: 3, borderRadius: 99,
-  background: 'var(--spira-surface)', border: '1px dashed var(--spira-line-2)', color: 'var(--spira-faint)', fontFamily: 'var(--spira-font-text)',
+  background: 'var(--spira-surface)', border: '1px dashed var(--spira-line-2)', color: 'var(--spira-muted)', fontFamily: 'var(--spira-font-text)',
   fontSize: 12, fontWeight: 600, cursor: 'pointer',
 }
 const stockBadgeBase: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: '.02em', padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap' }

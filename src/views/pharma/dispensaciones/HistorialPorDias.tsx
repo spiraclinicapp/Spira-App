@@ -101,7 +101,7 @@ function Fila({ r, onOpen, onOpenPatient }: { r: DispensationRequestRow; onOpen:
         {meta.label}
       </span>
 
-      <span style={{ fontSize: 11.5, color: 'var(--spira-faint)', minWidth: 64, textAlign: 'right' }}>
+      <span style={{ fontSize: 11.5, color: 'var(--spira-muted)', minWidth: 64, textAlign: 'right' }}>
         {fromNow(r.updated_at)}
       </span>
 

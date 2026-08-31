@@ -120,7 +120,7 @@ export function ActionMenu({ items, ariaLabel = 'Más acciones', width = 226 }: 
    `currentColor` (negro). Es el mismo pozo documentado en `btnOutline`. */
 const trigger: CSSProperties = {
   width: 34, height: 34, borderRadius: 9, borderWidth: 1, borderStyle: 'solid',
-  cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--spira-faint)',
+  cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--spira-muted)',
   flex: '0 0 auto',
 }
 

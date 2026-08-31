@@ -133,7 +133,7 @@ export function DayVisitRowItem({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
           <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
-          <span className="spira-mono" style={{ fontSize: 12.5, color: visit.patient_code ? 'var(--spira-muted)' : 'var(--spira-faint)' }}>
+          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
             {visit.patient_code
               ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
               : 'Sin IVRS'}
@@ -143,7 +143,7 @@ export function DayVisitRowItem({
               flotando en el medio de la fila. El código conserva el peso (tinta plena) porque
               es el que se busca; la semana lo acompaña en gris, atrás. */}
           <VisitCodeTag code={visitCode(visit)} />
-          <span style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visitName}</span>
+          <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{visitName}</span>
         </div>
         {procs && procs.names.length > 0 && (
           <div style={{ marginTop: 9 }}><ProcDots names={procs.names} accent={accent} /></div>
@@ -282,7 +282,7 @@ function RowMenu({ visit, canReception, busy, onNoShow, onReschedule }: {
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
         onKeyDown={(e) => e.stopPropagation()}
         title="Más acciones"
-        style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${open ? 'var(--spira-line-2)' : 'transparent'}`, background: open ? 'var(--spira-surface)' : 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--spira-faint)' }}
+        style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${open ? 'var(--spira-line-2)' : 'transparent'}`, background: open ? 'var(--spira-surface)' : 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--spira-muted)' }}
       >
         <Icon name="moreVertical" size={17} color="currentColor" />
       </button>

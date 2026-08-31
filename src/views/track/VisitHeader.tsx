@@ -78,7 +78,7 @@ export function VisitHeader({
       {/* ── Fila de utilidades ── */}
       <div style={util}>
         <b style={{ fontFamily: 'var(--spira-font-display)', fontSize: 13, fontWeight: 700 }}>{visit.protocol_name}</b>
-        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-faint)' }}>{visit.protocol_code}</span>
+        <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{visit.protocol_code}</span>
         <span style={visTag}>
           <Icon name="calendar" size={13} color="var(--spira-primary)" />
           {code ? `Visita ${code}` : visitTitle(visit)}
@@ -256,7 +256,7 @@ function PhysicianField({ visit, readOnly, onSaved }: {
         />
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, minHeight: 30 }}>
-          <span style={nombre ? mn : { ...mn, color: 'var(--spira-faint)', fontWeight: 500 }}>
+          <span style={nombre ? mn : { ...mn, color: 'var(--spira-muted)', fontWeight: 500 }}>
             {nombre ?? 'Sin asignar'}
           </span>
           {editable && (
@@ -432,14 +432,14 @@ const facts: CSSProperties = {
 }
 const k: CSSProperties = {
   fontSize: 10.5, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase',
-  color: 'var(--spira-faint)', whiteSpace: 'nowrap',
+  color: 'var(--spira-muted)', whiteSpace: 'nowrap',
 }
 const v: CSSProperties = {
   fontSize: 13, fontWeight: 600, marginTop: 1, whiteSpace: 'nowrap', color: 'var(--spira-ink-2)',
 }
 const mlab: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 6, fontSize: 9.5, fontWeight: 700,
-  letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--spira-faint)',
+  letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--spira-muted)',
 }
 const mn: CSSProperties = {
   fontFamily: 'var(--spira-font-display)', fontSize: 15, fontWeight: 700, letterSpacing: '-.01em',
@@ -470,7 +470,7 @@ const coordRO: CSSProperties = {
 }
 const cl: CSSProperties = {
   fontSize: 9.5, fontWeight: 700, letterSpacing: '.11em', textTransform: 'uppercase',
-  color: 'var(--spira-faint)',
+  color: 'var(--spira-muted)',
 }
 /* La hora del sello, al lado de la fecha real. Más chica y atenuada a propósito: la fecha es el
    dato clínico —la que alimenta el desvío y la ventana del cronograma— y la hora es la marca

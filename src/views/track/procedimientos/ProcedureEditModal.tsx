@@ -241,7 +241,7 @@ export function ProcedureEditModal({
           </div>
 
           {drafts.length === 0 && editando !== 'nuevo' && (
-            <div style={{ fontSize: 12.5, color: 'var(--spira-faint)', padding: '2px 0' }}>
+            <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', padding: '2px 0' }}>
               Este procedimiento todavía no genera ningún reporte.
             </div>
           )}

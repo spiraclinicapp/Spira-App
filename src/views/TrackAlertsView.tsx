@@ -34,7 +34,7 @@ const code: CSSProperties = { fontSize: 12.5, color: 'var(--spira-muted)', fontW
 const dismissBtn: CSSProperties = {
   position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: 8,
   display: 'grid', placeItems: 'center', border: 'none', background: 'transparent',
-  color: 'var(--spira-faint)', cursor: 'pointer',
+  color: 'var(--spira-muted)', cursor: 'pointer',
 }
 const dismissedRow: CSSProperties = {
   display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 0',
@@ -274,7 +274,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                           : '—'}
                       </span>
                       {abrirFicha && <PatientLinkArrow />}
-                      <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{r.protocol_code}</span></span>
+                      <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}>· <span style={code}>{r.protocol_code}</span></span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
                       Reporte pendiente · {r.report_name} de {r.procedure_name}{days > 0 ? ` · hace ${days} d` : ''}
@@ -334,7 +334,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                           : '—'}
                       </span>
                       {abrirFicha && <PatientLinkArrow />}
-                      <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}>· <span style={code}>{a.protocol_code}</span></span>
+                      <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}>· <span style={code}>{a.protocol_code}</span></span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>
                   </div>
@@ -358,7 +358,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
             })}
           </div>
         )}
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--spira-line)', fontSize: 11.5, color: 'var(--spira-faint)' }}>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--spira-line)', fontSize: 11.5, color: 'var(--spira-muted)' }}>
           Ventana vencida (roja) · Pendiente vencido (ámbar) · Reporte pendiente (petróleo)
         </div>
       </div>
@@ -402,11 +402,11 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                         ? <PatientLink onOpen={abrirPac} label={`Abrir la ficha de ${nombre}`}>{nombre}</PatientLink>
                         : 'Alerta ya no vigente'}
                       {abrirPac && <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>}
-                      <span style={{ color: 'var(--spira-faint)', fontWeight: 400 }}> · {detalle}</span>
+                      <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}> · {detalle}</span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
                       {reasonLabel(d.reason)}{d.detail ? ` — ${d.detail}` : ''} · {d.dismissed_by_name}
-                      <span style={{ color: 'var(--spira-faint)' }}> ({d.dismissed_by_role}) · {fromNow(d.dismissed_at)}</span>
+                      <span style={{ color: 'var(--spira-muted)' }}> ({d.dismissed_by_role}) · {fromNow(d.dismissed_at)}</span>
                     </div>
                   </div>
                   <button
