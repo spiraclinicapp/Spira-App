@@ -455,9 +455,9 @@ function Filtros({
       </div>
 
       <p style={aplicada}>
-        El recorte vale para todo el apartado: cada reporte que imprimas lleva este período y este
-        filtro en su encabezado. El de dispensaciones declara sólo el período, como se acordó con la
-        Fundación.
+        El recorte vale para todo el apartado: cada reporte que imprimas sale con ese mismo período
+        y ese mismo filtro declarados en el encabezado de la hoja. El reporte de dispensaciones
+        declara sólo el período, como el formato acordado con la Fundación.
       </p>
     </>
   )
@@ -514,10 +514,13 @@ const chipActivo: CSSProperties = {
 
 /**
  * La nota del recorte, a lo ANCHO. Tenía un tope de 92ch —696px medidos— que la partía en TRES
- * renglones cuando debajo tenía 1200px libres: un bloque de texto donde iba un pie de barra. Sin
- * tope entra en uno solo en la notebook (1105px de texto contra 1185 útiles) y en dos en pantallas
- * más chicas. Un renglón largo se lee de una pasada y no obliga a volver al margen; el tope de
- * 65-75ch cuida la prosa de varios renglones, que no es lo que esto es.
+ * renglones cuando debajo tenía 1185px libres: un bloque de texto donde iba un pie de barra. Sin
+ * tope entra en DOS (el texto mide 1425px de corrido), y ahí se queda de 800px para arriba.
+ *
+ * Sí, son renglones más largos que los 65-75ch que se le piden a la prosa. Ese tope cuida la vuelta
+ * al margen en un texto de muchas líneas; esto son dos renglones de 12px que se leen una vez, y el
+ * alto que ganan vale más que el ancho que gastan. Para bajarlo a UN renglón habría que recortar el
+ * texto a ~205 caracteres y el copy se deja como está (decisión del Director, 2026-08-31).
  */
 const aplicada: CSSProperties = {
   fontSize: 12, color: 'var(--spira-ink-soft)', margin: '0 0 16px', lineHeight: 1.55,
