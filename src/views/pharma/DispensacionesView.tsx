@@ -327,9 +327,6 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
           />
         </div>
 
-        {/* Empuja los controles al margen derecho, como en el mock. */}
-        <div style={{ flex: 1 }} />
-
         <MultiFilterMenu
           accent={module.accentSolid}
           label="Protocolo"
@@ -474,8 +471,14 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
   )
 }
 
+/* El `marginRight: auto` empuja los filtros al margen derecho, como en el mock. Reemplaza a un
+   `<div style={{ flex: 1 }} />` que hacía lo mismo siendo un ítem más de la fila: con `gap: 12`,
+   ese separador vacío se cobraba 24px de ancho que esta fila —que NO tiene `flex-wrap`, o sea que
+   desborda en vez de partirse— no puede regalar. Es además el mismo mecanismo que usan Recepción y
+   Stock, así que las tres toolbars de Farmacia dicen lo mismo de la misma forma: el buscador a la
+   izquierda, los filtros a la derecha, y el hueco del medio separando los dos oficios. */
 const searchWrap: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 9, width: 300, height: 42,
+  display: 'flex', alignItems: 'center', gap: 9, width: 300, height: 42, marginRight: 'auto',
   padding: '0 15px', borderRadius: 999, background: 'var(--spira-white)',
   border: '1px solid var(--spira-line-2)',
 }
