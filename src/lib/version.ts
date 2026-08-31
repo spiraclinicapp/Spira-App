@@ -19,7 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
-    { version: '0.49', text: 'Los encabezados de Farmacia entran en un solo renglón en una notebook, y el texto se lee mejor en toda la app: el secundario en tema claro, y los colores de estado y de módulo en tema oscuro. En el calendario, elegir un año o un mes del desplegable ya no cierra el selector.' },
+    { version: '0.49', text: 'Los encabezados de Farmacia entran en un solo renglón en una notebook, y el texto se lee mejor en toda la app: el secundario en tema claro, y los colores de estado y de módulo en tema oscuro. En el calendario, elegir un año o un mes del desplegable ya no cierra el selector. En Recepción, los filtros se alinean con el borde derecho y dejan de confundirse con el buscador.' },
     { version: '0.48', text: 'El login ahora explica por qué se cerró tu sesión, y la barra de direcciones deja de mostrar la ficha donde estabas. Cierre automático a los 30 minutos sin actividad, con aviso antes.' },
     { version: '0.47', text: 'El encabezado de la visita distingue las tres fechas que hasta ahora estaban fundidas en dos: la que manda el protocolo, la que le dimos al paciente y el día que vino. Iniciar la atención deja además sellada la hora y quién la marcó.' },
     { version: '0.46', text: 'Una recepción se puede repetir: el alta se abre con la misma medicación y sus cantidades, y sólo hay que cargar los lotes que llegaron ahora. Repetir y anular viven en el menú de cada recepción.' },
