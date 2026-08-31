@@ -507,10 +507,23 @@ const avisoBox: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap
 /* El único elástico de la fila: es el que puede ceder ancho sin perder qué es. El `flex-basis` de
    170 es lo que decide si la fila se parte —el navegador corta el renglón por el tamaño hipotético,
    no por el encogido—, el `minWidth` es el piso al repartir, y el tope de 340 evita que en una
-   pantalla ancha se estire hasta parecer otra cosa. */
+   pantalla ancha se estire hasta parecer otra cosa.
+
+   EL `marginRight: auto` ES LO QUE PEGA LOS FILTROS A LA DERECHA. Con el buscador topado en 340, en
+   una notebook de 1536 sobraban 73px que quedaban muertos DESPUÉS del selector de fechas: el borde
+   derecho de la fila no cerraba con el de "Nueva recepción", que está justo arriba. El margen auto
+   se lleva ese sobrante y lo pone del otro lado, así los filtros terminan a ras del borde y queda
+   un hueco de 81px que separa el buscador —que es otra cosa: busca, no filtra— del primer filtro.
+
+   Va como margen auto y no como separador `flex: 1` por dos razones medidas. Una, el auto margin se
+   reparte DESPUÉS de resolver el flex, así que no le compite el crecimiento al buscador (sigue
+   llegando a 340 y recién ahí aparece el hueco). Y dos, un separador sería un ítem más en la fila y
+   sumaría su propio `gap` de 8px al ancho hipotético — justo la cuenta que la #93 dejó al límite.
+   Medido en el banco de pruebas a 1536/1440/1366, con la fila vacía y en el peor caso (dos filtros
+   puestos + rango + "Limpiar 2"): el corte de renglón queda EXACTAMENTE como estaba. */
 const searchWrap: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 12px',
-  flex: '1 1 170px', minWidth: 150, maxWidth: 340,
+  flex: '1 1 170px', minWidth: 150, maxWidth: 340, marginRight: 'auto',
   borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
 }
 const searchInput: CSSProperties = {
