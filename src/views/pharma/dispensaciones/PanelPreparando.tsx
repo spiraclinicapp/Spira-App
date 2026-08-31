@@ -188,7 +188,7 @@ export function PanelPreparando({ r, scanRef, onChanged, onVerConstancia, visorA
               <span
                 style={{
                   marginLeft: 'auto', fontSize: 12, fontWeight: 600,
-                  color: completo ? 'var(--spira-good)' : 'var(--spira-primary-deep)',
+                  color: completo ? 'var(--spira-acc-deep-good)' : 'var(--spira-acc-deep-track)',
                 }}
               >
                 {completo ? 'Completo' : `Faltan ${uTot - uOk}`}
@@ -313,7 +313,7 @@ const sustBtnOn: CSSProperties = {
 
 const errBox: CSSProperties = {
   display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 11, fontSize: 12.5,
-  color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.08)',
+  color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.08)',
   border: '1px solid rgba(166, 72, 59, 0.28)', borderRadius: 10, padding: '10px 12px',
   lineHeight: 1.4,
 }

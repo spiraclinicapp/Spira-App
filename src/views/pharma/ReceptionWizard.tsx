@@ -363,6 +363,6 @@ const footerBar: CSSProperties = {
   display: 'flex', alignItems: 'center',
 }
 const submitErrorBox: CSSProperties = {
-  fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)',
+  fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166,72,59,0.10)',
   borderRadius: 8, padding: '8px 12px',
 }

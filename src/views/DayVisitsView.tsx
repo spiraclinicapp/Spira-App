@@ -301,7 +301,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   if (day.error) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
           <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
           No pudimos cargar las visitas del día. Probá de nuevo.
         </div>
@@ -377,7 +377,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
       </div>
 
       {actionError && (
-        <div role="alert" style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
+        <div role="alert" style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
           {actionError}
         </div>
       )}

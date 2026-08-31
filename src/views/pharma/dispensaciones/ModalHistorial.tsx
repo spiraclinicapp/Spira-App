@@ -40,7 +40,7 @@ export function ModalHistorial({ requestId, codigo, nombreMedicamento, onClose }
   return (
     <Modal title={`Historial · ${codigo}`} onClose={onClose} maxWidth={620} icon="clock">
       {loading && <div style={aviso}>Buscando el historial…</div>}
-      {error && <div style={{ ...aviso, color: 'var(--spira-danger)' }} role="alert">{error}</div>}
+      {error && <div style={{ ...aviso, color: 'var(--spira-acc-deep-danger)' }} role="alert">{error}</div>}
 
       {!loading && !error && eventos.length === 0 && (
         <div style={aviso}>Este pedido todavía no tiene movimientos registrados.</div>

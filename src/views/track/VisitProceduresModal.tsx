@@ -287,7 +287,7 @@ export function VisitProceduresModal({
             dispensadora. Si corresponde, marcala desde el editor de la visita.
           </div>
         )}
-        {error && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{error}</div>}
+        {error && <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>{error}</div>}
 
         {/* Pie */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', paddingTop: 2 }}>
@@ -345,6 +345,6 @@ function reorderBtn(disabled: boolean): CSSProperties {
   }
 }
 const hintBox: CSSProperties = {
-  fontSize: 12.5, color: 'var(--spira-warn)', background: 'rgba(176,130,63,0.10)',
+  fontSize: 12.5, color: 'var(--spira-acc-deep-warn)', background: 'rgba(176,130,63,0.10)',
   borderRadius: 8, padding: '8px 11px', lineHeight: 1.45,
 }

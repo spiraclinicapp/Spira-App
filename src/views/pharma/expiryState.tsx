@@ -20,8 +20,8 @@ export const ESTADO_CFG: Record<Estado, { color: string; icon: IconName | null; 
   // ADVERTENCIA, no identidad del módulo: usaba --spira-pharma-solid solo porque el ámbar de
   // Farmacia y el de alerta eran el mismo color. Con la identidad en petróleo, esto tiene que
   // seguir siendo ámbar o "vence pronto" se vería igual que un ícono cualquiera del módulo.
-  pronto: { color: 'var(--spira-warn)', icon: 'clock', label: 'Vence pronto' },
-  vencido: { color: 'var(--spira-danger)', icon: 'alert', label: 'Vencido' },
+  pronto: { color: 'var(--spira-acc-deep-warn)', icon: 'clock', label: 'Vence pronto' },
+  vencido: { color: 'var(--spira-acc-deep-danger)', icon: 'alert', label: 'Vencido' },
 }
 
 /**

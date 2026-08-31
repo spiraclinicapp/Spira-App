@@ -181,7 +181,7 @@ const dotCur: CSSProperties = {
 
 const dotDone: CSSProperties = {
   background: 'rgba(46, 125, 116, 0.14)', borderColor: 'rgba(46, 125, 116, 0.5)',
-  color: 'var(--spira-track)',
+  color: 'var(--spira-acc-deep-teal)',
 }
 
 const tt: CSSProperties = {

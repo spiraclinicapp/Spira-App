@@ -42,7 +42,7 @@ export function FilasFantasma({ n = 3 }: { n?: number }) {
 export function ErrorBloque({ que, onReintentar }: { que: string; onReintentar: () => void }) {
   return (
     <div role="alert" style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 0 4px' }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-danger)' }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>
         <Icon name="alertCircle" size={16} color="var(--spira-danger)" />
         No pudimos cargar {que}.
       </span>
@@ -78,7 +78,7 @@ export function ContadoresDia({
   return (
     <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', display: 'inline-flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
       <span>{conteo.total} {conteo.total === 1 ? 'visita' : 'visitas'}</span>
-      {conteo.porLlegar > 0 && <>{sep}<span style={{ color: 'var(--spira-warn)', fontWeight: 600 }}>{conteo.porLlegar} por llegar</span></>}
+      {conteo.porLlegar > 0 && <>{sep}<span style={{ color: 'var(--spira-acc-deep-warn)', fontWeight: 600 }}>{conteo.porLlegar} por llegar</span></>}
       {conteo.enCentro > 0 && <>{sep}<span style={{ color: accent, fontWeight: 600 }}>{conteo.enCentro} en el centro</span></>}
       {conteo.finalizadas > 0 && <>{sep}<span style={{ color: 'var(--spira-muted)', fontWeight: 600 }}>{conteo.finalizadas} finalizadas</span></>}
     </span>

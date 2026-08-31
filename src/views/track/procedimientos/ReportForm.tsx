@@ -261,7 +261,7 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
         {!etaOk ? (
           /* El mensaje habla en la unidad que la persona está usando: decirle "entre 1 y 8760"
              a alguien que escribió "400 días" no le dice nada sobre qué corregir. */
-          <span style={{ fontSize: 11, color: 'var(--spira-danger)' }}>
+          <span style={{ fontSize: 11, color: 'var(--spira-acc-deep-danger)' }}>
             {plazo.unidad === 'd'
               ? `El plazo tiene que ser un número entero de días, entre 1 y ${PLAZO_MAX.d} (un año).`
               : `El plazo tiene que ser un número entero de horas, entre 1 y ${PLAZO_MAX.h} (un año).`}

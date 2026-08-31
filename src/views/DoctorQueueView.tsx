@@ -140,7 +140,7 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {actionError && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '11px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '11px 14px' }}>
           <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
           {actionError}
         </div>
@@ -163,7 +163,7 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
         <EmptyState accent={accent} icon={submodule.icon} title="Cargando cola…" description="Un momento." />
       ) : queue.error ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
             <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
             No pudimos cargar la cola. Probá de nuevo.
           </div>

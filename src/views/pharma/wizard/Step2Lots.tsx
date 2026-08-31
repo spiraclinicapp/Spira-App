@@ -63,11 +63,11 @@ export function Step2Lots({ meds, setMeds, accentSolid: _accentSolid }: Props) {
               })}
             </div>
             {(dup || hasEmpty) && (
-              <div style={{ fontSize: 12.5, color: 'var(--spira-danger)', marginTop: 6 }} aria-live="assertive">
+              <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', marginTop: 6 }} aria-live="assertive">
                 {dup ? 'Hay lotes repetidos en este medicamento.' : 'Cada lote necesita un número de lote.'}
               </div>
             )}
-            {hasPast && <div style={{ fontSize: 12.5, color: 'var(--spira-danger)', marginTop: 6 }}>Hay un lote con vencimiento pasado — revisalo (no bloquea).</div>}
+            {hasPast && <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', marginTop: 6 }}>Hay un lote con vencimiento pasado — revisalo (no bloquea).</div>}
             <button type="button" onClick={() => addLot(m.medicationId)} style={addLotBtn}>
               <Icon name="plus" size={15} color="var(--spira-muted)" /> Dividir en varios lotes
             </button>

@@ -127,7 +127,7 @@ export function ReadyOutcomeModal({
             </div>
           </>
         )}
-        {error && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{error}</div>}
+        {error && <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>{error}</div>}
       </div>
     </Modal>
   )

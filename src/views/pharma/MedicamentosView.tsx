@@ -517,7 +517,7 @@ function ProtocoloGroups({ filtradas, protocols, ipAll, sinFiltro, soloProtos, a
           <div key={pid} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
               <span style={groupIconSq}><Icon name="file" size={14} color="var(--spira-pharma-solid)" /></span>
-              <span className="spira-mono" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-pharma-solid)' }}>{proto?.code ?? '—'}</span>
+              <span className="spira-mono" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-acc-deep-track)' }}>{proto?.code ?? '—'}</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)' }}>{proto?.name ?? ''}</span>
               <span style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
               <span style={{ fontSize: 11, color: 'var(--spira-muted)' }}>{contador(lotes)}</span>
@@ -536,7 +536,7 @@ function IpCard({ totalKits, recepciones }: { totalKits: number; recepciones: nu
     <div style={ipCard}>
       <span style={ipIconSq}><Icon name="flask" size={18} color="var(--spira-primary)" stroke={1.9} /></span>
       <div>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-primary)' }}>Producto de Investigación</div>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--spira-acc-deep-track)' }}>Producto de Investigación</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
           <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 22, fontVariantNumeric: 'tabular-nums' }}>{totalKits}</span>
           <span style={{ fontSize: 13, fontWeight: 600 }}>{totalKits === 1 ? 'kit' : 'kits'} en stock</span>
@@ -753,7 +753,7 @@ const apartadoCard: CSSProperties = {
   display: 'flex', flexDirection: 'column', textAlign: 'left', background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
   borderRadius: 16, padding: 16, boxShadow: 'var(--spira-shadow-sm)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)',
 }
-const errorBox: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 10, padding: '12px 14px' }
+const errorBox: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 10, padding: '12px 14px' }
 const searchWrap: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 8, height: 38, width: 240, padding: '0 12px',
   borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
@@ -785,5 +785,5 @@ const asignarChip: CSSProperties = {
 }
 const stockBadgeBase: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: '.02em', padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap' }
 /** Stock bajo es una ADVERTENCIA: se queda en ámbar aunque la identidad del módulo pase a petróleo. */
-const stockBadgeLow: CSSProperties = { ...stockBadgeBase, color: 'var(--spira-warn)', background: 'rgba(176,130,63,.14)' }
-const stockBadgeOut: CSSProperties = { ...stockBadgeBase, color: 'var(--spira-danger)', background: 'rgba(166,72,59,.12)' }
+const stockBadgeLow: CSSProperties = { ...stockBadgeBase, color: 'var(--spira-acc-deep-warn)', background: 'rgba(176,130,63,.14)' }
+const stockBadgeOut: CSSProperties = { ...stockBadgeBase, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166,72,59,.12)' }

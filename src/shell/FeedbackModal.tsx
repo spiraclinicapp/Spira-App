@@ -154,7 +154,7 @@ const contextBox: CSSProperties = {
   background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', borderRadius: 10,
 }
 const errorBox: CSSProperties = {
-  marginTop: 12, fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)',
+  marginTop: 12, fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)',
   borderRadius: 10, padding: '10px 12px',
 }
 function solidBtn(accentSolid: string): CSSProperties {

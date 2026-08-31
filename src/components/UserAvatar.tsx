@@ -5,8 +5,9 @@ import { Icon } from './Icon'
 
    Círculo de tinte petróleo suave + aro esmeralda apoyado sobre el borde + badge de
    check (la "pelotita"). El aro y la pelotita llevan el verde (--spira-avatar-ring,
-   emerald-600 claro / emerald-400 oscuro); las iniciales van del mismo verde pero
-   ATENUADAS (opacity) para que pasen desapercibidas.
+   emerald-600 claro / emerald-400 oscuro); las iniciales van en --spira-avatar-ink, el
+   mismo verde llevado a contraste de TEXTO (antes eran el del aro con opacity .6, que
+   las dejaba en 3,77:1 y bajando).
 
    Centrado a prueba de balas: las iniciales viven en una capa `position:absolute;
    inset:0` que llena el círculo interior y las centra con flex (el nodo de texto
@@ -31,7 +32,11 @@ export function UserAvatar({ initials, size }: { initials: string; size: number 
         style={{
           position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: font, lineHeight: 1,
-          color: 'var(--spira-avatar-ring)', opacity: 0.6,
+          /* `avatar-ink` y sin `opacity`: el aro sigue en `avatar-ring`, pero las iniciales son
+             texto y con el verde del aro atenuado al 60% quedaban en 3,77:1 ANTES de aplicar la
+             opacidad. Atenuar bajando el contraste es lo que el sistema no hace: acá lo discreto lo
+             dan el tamaño (10-17px) y el círculo que las contiene. */
+          color: 'var(--spira-avatar-ink)',
         }}
       >
         {initials}

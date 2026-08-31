@@ -118,5 +118,5 @@ const choiceCard: CSSProperties = {
 const excursionBanner: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 9, marginTop: 12, padding: '12px 14px', borderRadius: 10,
   background: 'rgba(166,72,59,0.10)', border: '1px solid rgba(166,72,59,0.35)',
-  color: 'var(--spira-danger)', fontSize: 13.5, fontWeight: 600,
+  color: 'var(--spira-acc-deep-danger)', fontSize: 13.5, fontWeight: 600,
 }

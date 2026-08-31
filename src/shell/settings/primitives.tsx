@@ -144,9 +144,9 @@ export type PillTone = 'good' | 'warn' | 'danger' | 'neutral' | 'accent'
 /* Colores semánticos: constantes en ambos temas (ver tokens.css) → hex literal
    para concatenar el alfa `16` (~8.6%) que pide el handoff. El neutral usa borde. */
 const PILL: Record<PillTone, { color: string; bg?: string; border?: string }> = {
-  good: { color: '#5C8A5A', bg: '#5C8A5A16' },
-  warn: { color: '#B0823F', bg: '#B0823F16' },
-  danger: { color: '#A6483B', bg: '#A6483B16' },
+  good: { color: 'var(--spira-acc-deep-good)', bg: '#5C8A5A16' },
+  warn: { color: 'var(--spira-acc-deep-warn)', bg: '#B0823F16' },
+  danger: { color: 'var(--spira-acc-deep-danger)', bg: '#A6483B16' },
   accent: { color: ACCENT, bg: ACCENT + '14' },
   neutral: { color: 'var(--spira-muted)', bg: 'var(--spira-surface)', border: '1px solid var(--spira-line)' },
 }
@@ -175,7 +175,7 @@ export const btnGhostSoon: CSSProperties = { ...btnGhost, opacity: 0.55, cursor:
     convertiría cada baja en una alarma, y acá lo destructivo es el resultado, no el botón. El rojo
     es el mismo `--spira-danger` de los errores, que ya significa "esto no se deshace fácil". */
 export const btnPeligro: CSSProperties = {
-  ...btnGhost, color: 'var(--spira-danger)', borderColor: 'rgba(166, 72, 59, 0.35)',
+  ...btnGhost, color: 'var(--spira-acc-deep-danger)', borderColor: 'rgba(166, 72, 59, 0.35)',
 }
 
 /* ---------- diálogo de confirmación (scrim + tarjeta) ----------

@@ -103,7 +103,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
       <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{label}</span>
       <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, fontVariantNumeric: 'tabular-nums', color: warn ? 'var(--spira-warn)' : 'var(--spira-ink)' }}>{value}</span>
+        <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, fontVariantNumeric: 'tabular-nums', color: warn ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink)' }}>{value}</span>
         {sub && <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{sub}</span>}
       </span>
     </div>
@@ -245,7 +245,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
                 onChanged={() => { visits.refetch(); kpis.refetch() }}
               />
             ) : visits.error ? (
-              <div style={{ fontSize: 13, color: 'var(--spira-danger)', padding: '8px 4px' }}>No pudimos cargar las visitas.</div>
+              <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', padding: '8px 4px' }}>No pudimos cargar las visitas.</div>
             ) : shown.length === 0 ? (
               <EmptyState accent={accent} icon="users" title="Sin pacientes" description="Este protocolo todavía no tiene pacientes para mostrar." minHeight={220} />
             ) : (

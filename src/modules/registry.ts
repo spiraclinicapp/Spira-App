@@ -66,7 +66,10 @@ export const MODULES: ModuleDef[] = [
   },
   {
     key: 'track', name: 'Coordinación', full: 'Spira Coordinación', icon: 'activity',
-    accent: '#2E7D74', accentSolid: '#2E7D74',
+    /* #2B766D y no #2E7D74: la tinta papel sobre el teal viejo daba 4,33:1 y el botón primario
+       —que usa `accentSolid` de fondo en 50 lugares— va a 14px/600, donde AA pide 4,5. Un punto
+       más oscuro cierra el número (4,76:1) sin salirse del teal. */
+    accent: '#2B766D', accentSolid: '#2B766D',
     submodules: [
       { key: 'resumen', name: 'Resumen', icon: 'dashboard', hint: 'Cómo viene el día' },
       // El ícono pasó de `file` a `users`: el papel contradecía al rótulo y era parte de por

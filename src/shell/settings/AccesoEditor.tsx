@@ -154,7 +154,7 @@ export function AccesoEditor({ persona, actorId, administradores, onCerrar, onGu
       </div>
 
       {errores.length > 0 && (
-        <div role="alert" style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', border: '1px solid rgba(166, 72, 59, 0.20)', borderRadius: 10, padding: '10px 14px' }}>
+        <div role="alert" style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', border: '1px solid rgba(166, 72, 59, 0.20)', borderRadius: 10, padding: '10px 14px' }}>
           {errores.map((e) => <div key={e}>{e}</div>)}
         </div>
       )}

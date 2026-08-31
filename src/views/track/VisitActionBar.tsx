@@ -173,7 +173,7 @@ const gated: CSSProperties = {
 }
 const fin: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 8, height: 42, padding: '0 15px', borderRadius: 11,
-  background: 'rgba(46, 125, 116, 0.14)', fontSize: 13, fontWeight: 700, color: 'var(--spira-primary)',
+  background: 'rgba(46, 125, 116, 0.14)', fontSize: 13, fontWeight: 700, color: 'var(--spira-acc-deep-track)',
   whiteSpace: 'nowrap',
 }
 const finD: CSSProperties = {
@@ -185,5 +185,5 @@ const chipWarn: CSSProperties = {
   fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
 }
 const chipGood: CSSProperties = {
-  ...chipWarn, background: 'rgba(92, 138, 90, 0.16)', color: 'var(--spira-good)',
+  ...chipWarn, background: 'rgba(92, 138, 90, 0.16)', color: 'var(--spira-acc-deep-good)',
 }

@@ -216,7 +216,7 @@ const menuStyle: CSSProperties = {
 /* Mismo tinte "danger" tenue que ya usa `iconBox` en este archivo — coherencia sin inventar un
    sistema de notificaciones nuevo, solo un cuadro de texto adentro del menú. */
 const logoutErrorBox: CSSProperties = {
-  fontSize: 12.5, lineHeight: 1.4, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)',
+  fontSize: 12.5, lineHeight: 1.4, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)',
   borderRadius: 8, padding: '8px 10px', margin: '4px 4px 2px',
 }
 const headerName: CSSProperties = {

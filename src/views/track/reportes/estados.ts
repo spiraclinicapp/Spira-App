@@ -30,7 +30,7 @@ export interface StageMeta {
 export const STAGE_META: Record<ReportStage, StageMeta> = {
   pendiente:    { label: 'Pendiente',    cta: null,                  color: 'var(--spira-muted)' },
   descargado:   { label: 'Descargado',   cta: 'Marcar descargado',   color: '#3A6B8C' },
-  evolucionado: { label: 'Evolucionado', cta: 'Marcar evolucionado', color: 'var(--spira-primary)' },
+  evolucionado: { label: 'Evolucionado', cta: 'Marcar evolucionado', color: 'var(--spira-acc-deep-track)' },
 }
 
 /** ¿El texto es una etapa conocida? La base tiene un check, pero el front puede leer un schema

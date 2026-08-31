@@ -45,7 +45,7 @@ export function AgendaView({ module, submodule, onNavigate }: ViewProps) {
   if (week.error) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
           <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
           No pudimos cargar la agenda. Probá de nuevo.
         </div>

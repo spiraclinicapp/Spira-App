@@ -502,7 +502,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
 }
 
 const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16 }
-const errorBox: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 10, padding: '12px 14px' }
+const errorBox: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 10, padding: '12px 14px' }
 const avisoBox: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, color: 'var(--spira-ink-soft)', background: 'rgba(176,130,63,.10)', borderRadius: 10, padding: '11px 14px', lineHeight: 1.5 }
 /* El único elástico de la fila: es el que puede ceder ancho sin perder qué es. El `flex-basis` de
    170 es lo que decide si la fila se parte —el navegador corta el renglón por el tamaño hipotético,

@@ -53,7 +53,7 @@ export function DeleteMedicationModal({ row, onClose, onDeleted }: {
         </div>
 
         <div style={warnCard}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--spira-danger)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--spira-acc-deep-danger)' }}>
             <Icon name="alertCircle" size={16} color="var(--spira-danger)" />
             Esta acción es permanente y no se puede deshacer.
           </div>
@@ -81,7 +81,7 @@ export function DeleteMedicationModal({ row, onClose, onDeleted }: {
         </div>
 
         {error && (
-          <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166,72,59,.10)', borderRadius: 8, padding: '8px 12px' }} aria-live="assertive">
+          <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166,72,59,.10)', borderRadius: 8, padding: '8px 12px' }} aria-live="assertive">
             {error}
           </div>
         )}

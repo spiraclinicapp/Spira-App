@@ -153,7 +153,7 @@ const linea2: CSSProperties = {
 
 const chipProto: CSSProperties = {
   fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
-  background: 'rgba(15, 95, 87, 0.14)', color: 'var(--spira-pharma-solid)',
+  background: 'rgba(15, 95, 87, 0.14)', color: 'var(--spira-acc-deep-track)',
 }
 
 const badge: CSSProperties = {

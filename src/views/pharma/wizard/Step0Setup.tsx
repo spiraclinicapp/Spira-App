@@ -106,7 +106,7 @@ export function Step0Setup({ accentSolid, tipo, protocolId, coordinatorId, onTip
               disabled={coordList.length === 0}
             />
             {coordList.length === 0 && (
-              <div style={{ fontSize: 12.5, color: 'var(--spira-warn)', marginTop: 8 }}>Este protocolo no tiene coordinadores asignados en Coordinación.</div>
+              <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-warn)', marginTop: 8 }}>Este protocolo no tiene coordinadores asignados en Coordinación.</div>
             )}
           </label>
           <label>

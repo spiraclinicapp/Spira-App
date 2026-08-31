@@ -5,9 +5,9 @@ import type { CSSProperties, ReactNode } from 'react'
 export type BadgeTone = 'good' | 'warn' | 'danger' | 'neutral'
 
 const TONES: Record<BadgeTone, { color: string; bg: string }> = {
-  good:    { color: 'var(--spira-good)',   bg: 'rgba(92,138,90,0.12)' },
-  warn:    { color: 'var(--spira-warn)',   bg: 'rgba(176,130,63,0.12)' },
-  danger:  { color: 'var(--spira-danger)', bg: 'rgba(166,72,59,0.10)' },
+  good:    { color: 'var(--spira-acc-deep-good)',   bg: 'rgba(92,138,90,0.12)' },
+  warn:    { color: 'var(--spira-acc-deep-warn)',   bg: 'rgba(176,130,63,0.12)' },
+  danger:  { color: 'var(--spira-acc-deep-danger)', bg: 'rgba(166,72,59,0.10)' },
   neutral: { color: 'var(--spira-muted)',  bg: 'var(--spira-surface)' },
 }
 

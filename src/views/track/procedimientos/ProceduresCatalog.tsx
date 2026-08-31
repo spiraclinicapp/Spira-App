@@ -134,7 +134,7 @@ export function ProceduresCatalog({ protocolId, accent, accentSolid, canEdit, ca
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {barra}
-        <div style={{ fontSize: 13, color: 'var(--spira-danger)', padding: '8px 4px' }}>No pudimos cargar los procedimientos del estudio.</div>
+        <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', padding: '8px 4px' }}>No pudimos cargar los procedimientos del estudio.</div>
       </div>
     )
   }
@@ -193,7 +193,7 @@ export function ProceduresCatalog({ protocolId, accent, accentSolid, canEdit, ca
         </div>
       )}
 
-      {error && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{error}</div>}
+      {error && <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>{error}</div>}
 
       {rows.length === 0 ? (
         <EmptyState

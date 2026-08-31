@@ -36,7 +36,7 @@ const uniqStrings = (arr: (string | null | undefined)[]) => [...new Set(arr.filt
 /** Botón secundario en tono peligro (contorno danger, fondo blanco) para la zona de eliminación. */
 const btnOutlineDanger: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 15px', borderRadius: 10,
-  border: '1px solid rgba(166,72,59,.42)', background: 'var(--spira-white)', color: 'var(--spira-danger)',
+  border: '1px solid rgba(166,72,59,.42)', background: 'var(--spira-white)', color: 'var(--spira-acc-deep-danger)',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 14, cursor: 'pointer', flex: '0 0 auto',
 }
 
@@ -308,7 +308,7 @@ export function NewMedicationForm({ onClose, onCreated, editing: initialEditing,
           </div>
         )}
         {error && (
-          <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
+          <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
             {error}
           </div>
         )}
@@ -340,7 +340,7 @@ export function NewMedicationForm({ onClose, onCreated, editing: initialEditing,
 function FieldLabel({ children, required }: { children: ReactNode; required?: boolean }) {
   return (
     <div style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 700, color: 'var(--spira-muted)', marginBottom: 6 }}>
-      {children}{required && <span style={{ color: 'var(--spira-danger)' }}> *</span>}
+      {children}{required && <span style={{ color: 'var(--spira-acc-deep-danger)' }}> *</span>}
     </div>
   )
 }

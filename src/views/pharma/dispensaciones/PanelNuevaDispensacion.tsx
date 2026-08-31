@@ -301,7 +301,7 @@ const quitar: CSSProperties = {
 
 const avisoBox: CSSProperties = {
   display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 10, marginBottom: 4, fontSize: 12.5,
-  color: 'var(--spira-warn)', background: 'rgba(176, 130, 63, 0.09)',
+  color: 'var(--spira-acc-deep-warn)', background: 'rgba(176, 130, 63, 0.09)',
   border: '1px solid rgba(176, 130, 63, 0.28)', borderRadius: 10, padding: '10px 12px', lineHeight: 1.45,
 }
 
@@ -313,6 +313,6 @@ const notaBox: CSSProperties = {
 
 const errBox: CSSProperties = {
   display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 12, fontSize: 12.5,
-  color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.08)',
+  color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.08)',
   border: '1px solid rgba(166, 72, 59, 0.25)', borderRadius: 8, padding: '9px 11px',
 }

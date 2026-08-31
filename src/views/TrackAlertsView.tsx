@@ -42,7 +42,7 @@ const dismissedRow: CSSProperties = {
 }
 const linkBtn: CSSProperties = {
   background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', whiteSpace: 'nowrap',
-  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-primary)',
+  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-acc-deep-track)',
 }
 
 /** La alerta que el usuario está por archivar (lo que necesita el RPC + cómo nombrarla). */
@@ -162,7 +162,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   if (error) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
           <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
           No pudimos cargar las alertas. Probá de nuevo.
         </div>
@@ -225,7 +225,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       </div>
 
       {actionError && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '10px 13px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '10px 13px' }}>
           <Icon name="alertCircle" size={17} color="var(--spira-danger)" />
           {actionError}
         </div>
@@ -527,7 +527,7 @@ function DismissModal({ target, accent, onClose, onDone, onError }: {
           </div>
         )}
         {err && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-danger)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>
             <Icon name="alertCircle" size={16} color="var(--spira-danger)" />
             {err}
           </div>

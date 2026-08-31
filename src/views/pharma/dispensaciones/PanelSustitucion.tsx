@@ -41,7 +41,7 @@ export function PanelSustitucion({ itemId, paciente, onHecho, onCancelar }: {
       </div>
 
       {loading && <div style={aviso}>Buscando equivalentes…</div>}
-      {error && <div style={{ ...aviso, color: 'var(--spira-danger)' }} role="alert">{error}</div>}
+      {error && <div style={{ ...aviso, color: 'var(--spira-acc-deep-danger)' }} role="alert">{error}</div>}
 
       {!loading && !error && alternativas?.length === 0 && (
         // Honesto sobre por qué no hay nada: una lista vacía sin explicación manda a buscar el
@@ -61,7 +61,7 @@ export function PanelSustitucion({ itemId, paciente, onHecho, onCancelar }: {
               {/* El stock sin registrar NO impide sustituir (ver el botón), pero se avisa: es la
                   diferencia entre "no hay" y "todavía no se cargó", y quien tiene la caja en la
                   mano es la única que puede saberlo. */}
-              <span style={a.stock === 0 ? { color: 'var(--spira-warn)', fontWeight: 600 } : undefined}>
+              <span style={a.stock === 0 ? { color: 'var(--spira-acc-deep-warn)', fontWeight: 600 } : undefined}>
                 {a.stock} u. en stock
               </span>
               {a.motivo && <> · {a.motivo}</>}
@@ -102,7 +102,7 @@ export function PanelSustitucion({ itemId, paciente, onHecho, onCancelar }: {
         </>
       )}
 
-      {err && <div style={{ ...aviso, color: 'var(--spira-danger)' }} role="alert">{err}</div>}
+      {err && <div style={{ ...aviso, color: 'var(--spira-acc-deep-danger)' }} role="alert">{err}</div>}
 
       <div style={pie}>
         <span aria-hidden style={puntoAmbar} />

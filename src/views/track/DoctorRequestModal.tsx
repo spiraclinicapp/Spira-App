@@ -49,7 +49,7 @@ export function DoctorRequestModal({ visitId, accent, canClinical, onClose, onCh
       {q.loading && !visit ? (
         <div style={{ padding: '20px 4px', fontSize: 13.5, color: 'var(--spira-muted)' }}>Cargando visita…</div>
       ) : q.error ? (
-        <div style={{ padding: '16px 4px', fontSize: 13.5, color: 'var(--spira-danger)' }}>No pudimos cargar la visita. Probá de nuevo.</div>
+        <div style={{ padding: '16px 4px', fontSize: 13.5, color: 'var(--spira-acc-deep-danger)' }}>No pudimos cargar la visita. Probá de nuevo.</div>
       ) : !visit ? (
         <div style={{ padding: '16px 4px', fontSize: 13.5, color: 'var(--spira-muted)' }}>No se encontró la visita.</div>
       ) : (
@@ -66,5 +66,5 @@ export function DoctorRequestModal({ visitId, accent, canClinical, onClose, onCh
 }
 
 const errBox: CSSProperties = {
-  fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px',
+  fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px',
 }

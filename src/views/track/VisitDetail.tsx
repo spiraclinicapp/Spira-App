@@ -202,7 +202,7 @@ export function VisitDetail({
         {q.loading && !visit ? (
           <div style={{ padding: '40px 24px', fontSize: 13.5, color: 'var(--spira-muted)' }}>Cargando visita…</div>
         ) : q.error ? (
-          <div style={{ padding: '30px 24px', fontSize: 13.5, color: 'var(--spira-danger)' }}>No se pudo cargar la visita: {q.error}</div>
+          <div style={{ padding: '30px 24px', fontSize: 13.5, color: 'var(--spira-acc-deep-danger)' }}>No se pudo cargar la visita: {q.error}</div>
         ) : !visit ? (
           <div style={{ padding: '30px 24px', fontSize: 13.5, color: 'var(--spira-muted)' }}>No se encontró la visita.</div>
         ) : (
@@ -229,7 +229,7 @@ export function VisitDetail({
             />
 
             {err && (
-              <div style={{ margin: '12px 18px 0', fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px', flex: '0 0 auto' }}>{err}</div>
+              <div style={{ margin: '12px 18px 0', fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px', flex: '0 0 auto' }}>{err}</div>
             )}
 
             {/* Cuerpo: lo que se HACE en la visita, en dos columnas parejas (handoff §8). */}

@@ -370,7 +370,7 @@ export function SearchableSelect(props: Props) {
                   const active = idx === activeIndex
                   return (
                     <div key={o.value} data-idx={idx} style={{ display: 'flex', alignItems: 'center', borderRadius: 8, ...(on ? { background: 'rgba(15,95,87,.10)' } : active ? { background: 'var(--spira-surface)' } : null) }}>
-                      <button type="button" id={`${baseId}-opt-${idx}`} role="option" aria-selected={on} onMouseEnter={() => setActiveIndex(idx)} onClick={() => pick(o)} style={{ ...option, flex: 1, color: on ? 'var(--spira-primary)' : 'var(--spira-ink)', fontWeight: on ? 600 : 400 }}>
+                      <button type="button" id={`${baseId}-opt-${idx}`} role="option" aria-selected={on} onMouseEnter={() => setActiveIndex(idx)} onClick={() => pick(o)} style={{ ...option, flex: 1, color: on ? 'var(--spira-acc-deep-track)' : 'var(--spira-ink)', fontWeight: on ? 600 : 400 }}>
                         {o.dot && <span aria-hidden style={{ ...dotStyle, background: o.dot }} />}
                         <span className={mono ? 'spira-mono' : undefined} style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
                         {/* El tilde solo en múltiple: con una sola opción, el resalte de la fila ya
@@ -460,7 +460,7 @@ const trashBtn: CSSProperties = {
 const divider: CSSProperties = { height: 1, background: 'var(--spira-line)', margin: '4px 6px' }
 const addNew: CSSProperties = {
   width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 10px', borderRadius: 8, border: 'none',
-  background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600, color: 'var(--spira-primary)',
+  background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600, color: 'var(--spira-acc-deep-track)',
 }
 const btnCreate: CSSProperties = {
   height: 36, padding: '0 14px', border: 'none', borderRadius: 9, background: 'var(--spira-primary)', color: 'var(--spira-paper)',
@@ -471,4 +471,4 @@ const btnCancel: CSSProperties = {
   height: 36, padding: '0 14px', border: '1px solid var(--spira-line-2)', borderRadius: 9, background: 'var(--spira-white)',
   color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
 }
-const errText: CSSProperties = { fontSize: 12.5, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 8, padding: '7px 10px', marginTop: 8 }
+const errText: CSSProperties = { fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 8, padding: '7px 10px', marginTop: 8 }

@@ -194,7 +194,7 @@ export function ScheduleEditor({
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {barra}
-        <div style={{ fontSize: 13, color: 'var(--spira-danger)', padding: '8px 4px' }}>No pudimos cargar el cronograma.</div>
+        <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', padding: '8px 4px' }}>No pudimos cargar el cronograma.</div>
       </div>
     )
   }
@@ -204,7 +204,7 @@ export function ScheduleEditor({
       {barra}
 
       {reordering && <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>Guardando orden…</div>}
-      {error && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{error}</div>}
+      {error && <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>{error}</div>}
 
       {rows.length === 0 ? (
         <EmptyState
@@ -317,7 +317,7 @@ export function ScheduleEditor({
               {(impact?.attended ?? 0) > 0 ? 'Querés quitar ' : 'Vas a quitar '}
               <span className="spira-mono" style={{ fontWeight: 600 }}>{confirmDelete.code ?? confirmDelete.name}</span> del cronograma.
             </div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.5, color: (impact?.attended ?? 0) > 0 ? 'var(--spira-warn)' : 'var(--spira-muted)' }}>
+            <div style={{ fontSize: 13.5, lineHeight: 1.5, color: (impact?.attended ?? 0) > 0 ? 'var(--spira-acc-deep-warn)' : 'var(--spira-muted)' }}>
               {impact === null
                 ? 'Se borrarán sus visitas programadas no atendidas; si alguna ya ocurrió, no se podrá quitar.'
                 : impact.attended > 0

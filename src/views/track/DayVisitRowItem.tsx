@@ -181,7 +181,7 @@ function DoctorButton({ visit, accent, canClinical, busy, onOpenDoctor }: {
   }
   if (visit.doctor_seen_at) {
     return (
-      <div title="Atendido por el médico" style={{ ...base, background: '#5C8A5A22', color: 'var(--spira-good)', border: '1px solid transparent' }}>
+      <div title="Atendido por el médico" style={{ ...base, background: '#5C8A5A22', color: 'var(--spira-acc-deep-good)', border: '1px solid transparent' }}>
         <Icon name="users" size={15} color="var(--spira-good)" /> Visto por médico
       </div>
     )
@@ -222,7 +222,7 @@ function AdvanceCTA({ stage, accent, canAdvance, busy, onAdvance }: {
 }) {
   if (stage === 'fin_atencion') {
     return (
-      <div style={{ width: 150, height: 40, borderRadius: 10, background: '#5C8A5A22', color: 'var(--spira-good)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, flex: '0 0 auto' }}>
+      <div style={{ width: 150, height: 40, borderRadius: 10, background: '#5C8A5A22', color: 'var(--spira-acc-deep-good)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, flex: '0 0 auto' }}>
         <Icon name="check" size={15} color="var(--spira-good)" /> Finalizada
       </div>
     )
@@ -333,7 +333,7 @@ function MenuItem({ label, onClick, danger = false, disabled = false }: {
       style={{
         width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent',
         cursor: disabled ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 500,
-        color: disabled ? 'var(--spira-faint)' : danger ? 'var(--spira-danger)' : 'var(--spira-ink)',
+        color: disabled ? 'var(--spira-faint)' : danger ? 'var(--spira-acc-deep-danger)' : 'var(--spira-ink)',
       }}
     >
       {label}

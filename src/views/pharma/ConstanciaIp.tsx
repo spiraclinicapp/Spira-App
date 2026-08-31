@@ -246,7 +246,7 @@ export function ConstanciaVista({ doc, size, accent, onReemplazar }: {
         )}
       </div>
       {ampliarError && (
-        <div style={{ fontSize: 11.5, color: 'var(--spira-danger)', marginTop: 6 }} role="alert">{ampliarError}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--spira-acc-deep-danger)', marginTop: 6 }} role="alert">{ampliarError}</div>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginTop: 9, padding: '10px 12px', border: '1px solid var(--spira-line)', borderRadius: 12, background: 'var(--spira-white)' }}>
         <span style={{ flex: '0 0 auto', width: 32, height: 32, borderRadius: 9, background: `${accent}1F`, display: 'grid', placeItems: 'center' }}>
@@ -330,7 +330,7 @@ export function ConstanciaAcciones({ doc, layout, accent }: {
         {busy === 'descargar' ? 'Bajando…' : 'Descargar'}
       </button>
       {err && (
-        <div style={{ fontSize: 11.5, color: 'var(--spira-danger)', lineHeight: 1.4, flexBasis: '100%' }} role="alert">{err}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--spira-acc-deep-danger)', lineHeight: 1.4, flexBasis: '100%' }} role="alert">{err}</div>
       )}
     </div>
   )
