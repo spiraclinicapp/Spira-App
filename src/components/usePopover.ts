@@ -2,6 +2,31 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 export interface PopoverPos { top: number; left: number; width: number }
 
+/* REGISTRO DE POPOVERS ABIERTOS — para que uno ANIDADO no cierre al de afuera.
+ *
+ * El cierre por click afuera se decide por CONTENCIÓN EN EL DOM (`contains`), y todos los popovers
+ * de la casa se portalean a `document.body` (hizo falta: un ancestro con `backdrop-filter` los
+ * dejaba aterrizando lejos del campo). Las dos cosas juntas rompen el caso ANIDADO: el desplegable
+ * de mes/año del calendario es un `SearchableSelect` cuyo menú también vive en `body`, así que para
+ * el popover del CALENDARIO ese click cae "afuera" y se cierra entero. Y como cierra en el
+ * `mousedown`, la opción se desmonta antes de que llegue el `click`: el año ni siquiera se elegía,
+ * y la única forma de cambiarlo era pasar mes por mes con los chevrones. Medido en el navegador el
+ * 2026-08-31, igual en los dos calendarios (`DateField` y `DateRangeField`) y también en el mes.
+ *
+ * La contención por DOM no alcanza porque el parentesco real es el del ÁRBOL DE REACT, que el portal
+ * corta. Así que lo anotamos: cada popover abierto queda acá junto a un getter de su disparador. Con
+ * eso se reconstruye la cadena lógica —opción → menú que la contiene → disparador de ese menú →
+ * popover que contiene a ese disparador → …— y el calendario descubre que el click era suyo. Guarda
+ * solo popovers ABIERTOS: el ref callback los da de baja al desmontar.
+ */
+const abiertos = new Map<HTMLElement, () => HTMLElement | null>()
+
+/** El popover registrado que contiene a `n`, si hay alguno. */
+function popoverQueContiene(n: Node): HTMLElement | null {
+  for (const nodo of abiertos.keys()) if (nodo.contains(n)) return nodo
+  return null
+}
+
 /**
  * Popover posicionado `fixed` (no se recorta en modales con overflow): posición por
  * getBoundingClientRect del trigger, con flip hacia arriba si no entra abajo, reposición en
@@ -53,10 +78,14 @@ export function usePopover<T extends HTMLElement, P extends HTMLElement>(open: b
   // montaje desconectaba al observer vivo antes de su primer disparo y el reajuste nunca llegaba.
   const roRef = useRef<ResizeObserver | null>(null)
   const popRef = useCallback((node: P | null) => {
+    // El disparador se anota como GETTER y no por valor: React adjunta los refs de abajo hacia
+    // arriba, así que en el commit del montaje `triggerRef.current` puede no estar puesto todavía.
+    if (popNodeRef.current) abiertos.delete(popNodeRef.current)
     popNodeRef.current = node
     roRef.current?.disconnect()
     roRef.current = null
     if (node) {
+      abiertos.set(node, () => triggerRef.current)
       reposition()
       const ro = new ResizeObserver(() => reposition())
       ro.observe(node)
@@ -68,10 +97,33 @@ export function usePopover<T extends HTMLElement, P extends HTMLElement>(open: b
     if (!open) return
     reposition()
     const onScroll = () => reposition()
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current() }
+    /* ¿El click cae adentro mío, contando los popovers que abrieron mis descendientes? Se sube por
+       la cadena lógica: si el nodo no está en mi caja, se busca el popover registrado que lo contiene
+       y se salta a SU disparador, que sí puede vivir adentro mío (es el caso del mes/año del
+       calendario). El tope de saltos es una red por si dos popovers llegaran a contenerse entre sí. */
+    const adentro = (t: Node) => {
+      let n: Node | null = t
+      for (let salto = 0; salto < 8 && n; salto++) {
+        if (triggerRef.current?.contains(n) || popNodeRef.current?.contains(n)) return true
+        const pop = popoverQueContiene(n)
+        n = pop ? abiertos.get(pop)?.() ?? null : null
+      }
+      return false
+    }
+    /** ¿Hay algún popover abierto que sea MÍO (su disparador vive adentro de mi caja)? */
+    const conDescendienteAbierto = () => {
+      for (const [nodo, dueño] of abiertos) {
+        if (nodo === popNodeRef.current) continue
+        const disparador = dueño()
+        if (disparador && popNodeRef.current?.contains(disparador)) return true
+      }
+      return false
+    }
+    // Esc cierra el popover de ADENTRO, uno por vez: si tengo un desplegable propio abierto, se ocupa
+    // él y yo me quedo. Sin esto, el mismo Esc que cerraba el mes/año se llevaba puesto el calendario.
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !conDescendienteAbierto()) onCloseRef.current() }
     const onDown = (e: MouseEvent) => {
-      const t = e.target as Node
-      if (triggerRef.current?.contains(t) || popNodeRef.current?.contains(t)) return
+      if (adentro(e.target as Node)) return
       onCloseRef.current()
     }
     window.addEventListener('scroll', onScroll, true)
