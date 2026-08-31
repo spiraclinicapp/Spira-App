@@ -31,7 +31,9 @@ interface Props {
   /** Texto accesible del disparador (default: el del informe de Reportes). */
   ariaLabel?: string
   /**
-   * Accesos rápidos de período ("7 días", "30 días"), arriba del calendario.
+   * Accesos rápidos de período ("7 días", "30 días"), en el PIE del popover — el mismo panel donde
+   * viven la ayuda y los botones, y no arriba del calendario, que fue donde nacieron (Director,
+   * 2026-08-31).
    *
    * VIVÍAN AFUERA, como chips sueltos en la barra de filtros, y era el control de más: medido en el
    * navegador, la fila de Recepción pedía 1203px contra 1185 útiles en una notebook de 1536 y el
@@ -180,22 +182,6 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
           aria-label="Elegir el período del informe"
           style={{ ...popover, top: pos.top, left: pos.left }}
         >
-          {atajos && atajos.length > 0 && (
-            /* Alineados con el padding horizontal del calendario (`.rdp-root`, 8px 10px) para que
-               los chips arranquen en la misma vertical que la grilla de días. */
-            <div style={atajosFila} role="group" aria-label="Períodos rápidos">
-              {atajos.map((a) => (
-                <Chip
-                  key={a.label}
-                  toggle
-                  label={a.label}
-                  selected={a.activo}
-                  accent={accent}
-                  onClick={() => { a.onClick(); setOpen(false) }}
-                />
-              ))}
-            </div>
-          )}
           <DayPicker
             mode="range"
             locale={es}
@@ -218,6 +204,20 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
             onSelect={elegir}
           />
           <div style={pie}>
+            {atajos && atajos.length > 0 && (
+              <div style={atajosFila} role="group" aria-label="Períodos rápidos">
+                {atajos.map((a) => (
+                  <Chip
+                    key={a.label}
+                    toggle
+                    label={a.label}
+                    selected={a.activo}
+                    accent={accent}
+                    onClick={() => { a.onClick(); setOpen(false) }}
+                  />
+                ))}
+              </div>
+            )}
             <span style={textoDelPie}>
               {!listo
                 ? 'Elegí un día, o dos para un tramo.'
@@ -257,8 +257,15 @@ const trigger: CSSProperties = {
   fontFamily: 'var(--spira-font-text)',
 }
 
+/* Fila propia dentro del pie, y con el MISMO truco de ancho que `textoDelPie` (`width: 0` +
+   `minWidth: '100%'` + `flex: 'none'`): así no aporta su max-content y el que sigue mandando el
+   ancho del popover es el calendario. Puestos en el renglón de los botones se veían mejor, pero
+   entre los dos chips y los dos botones el max-content del pie saltaba a ~336px contra los 286 del
+   calendario, y el popover quedaba con 50px de vacío a la derecha — que es exactamente lo que
+   documenta el comentario de acá abajo. */
 const atajosFila: CSSProperties = {
-  display: 'flex', gap: 7, flexWrap: 'wrap', padding: '10px 10px 0',
+  width: 0, minWidth: '100%', flex: 'none',
+  display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 2,
 }
 
 const popover: CSSProperties = {
