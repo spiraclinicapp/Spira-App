@@ -116,7 +116,7 @@ export function ReportesPendientesView({ protocolId, accent, onOpenVisit, onOpen
     return <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', padding: '10px 4px' }}>Cargando reportes…</div>
   }
   if (q.error) {
-    return <div style={{ fontSize: 13, color: 'var(--spira-danger)', padding: '10px 4px' }}>No pudimos cargar los reportes de este protocolo.</div>
+    return <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', padding: '10px 4px' }}>No pudimos cargar los reportes de este protocolo.</div>
   }
 
   if (rows.length === 0) {
@@ -155,7 +155,7 @@ export function ReportesPendientesView({ protocolId, accent, onOpenVisit, onOpen
         </div>
       </div>
 
-      {error && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{error}</div>}
+      {error && <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>{error}</div>}
 
       <KanbanShell<ReportStage, ReportStatusRow>
         columns={STAGE_ORDER.map((k) => ({ key: k, label: STAGE_META[k].label, color: STAGE_META[k].color }))}
@@ -207,7 +207,7 @@ export function ReportesPendientesView({ protocolId, accent, onOpenVisit, onOpen
                 className="spira-row-link spira-no-press"
                 style={filaCerrada}
               >
-                <span className="spira-mono" style={{ fontSize: 12, fontWeight: 700, color: 'var(--spira-track)', flex: '0 0 auto' }}>
+                <span className="spira-mono" style={{ fontSize: 12, fontWeight: 700, color: 'var(--spira-acc-deep-teal)', flex: '0 0 auto' }}>
                   {r.visit_code ?? '—'}
                 </span>
                 <span className="spira-link-group" style={{ fontSize: 13, color: 'var(--spira-ink)', flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -237,7 +237,7 @@ export function ReportesPendientesView({ protocolId, accent, onOpenVisit, onOpen
 const badgeVencidos: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 5, height: 24, padding: '0 10px',
   borderRadius: 'var(--spira-radius-pill)', background: 'rgba(166,72,59,.10)',
-  color: 'var(--spira-danger)', fontSize: 12, fontWeight: 700,
+  color: 'var(--spira-acc-deep-danger)', fontSize: 12, fontWeight: 700,
 }
 const cerradasBox: CSSProperties = {
   flex: '0 0 auto', border: '1px solid var(--spira-line)', borderRadius: 14,

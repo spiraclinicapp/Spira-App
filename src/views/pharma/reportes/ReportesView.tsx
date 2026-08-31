@@ -409,7 +409,7 @@ function Filtros({
     <>
       <div style={filtrosFila}>
         <DateRangeField
-          accent="var(--spira-pharma)"
+          accent={accentSolid}
           desde={rango.desde}
           hasta={rango.hasta}
           onChange={onRango}
@@ -508,7 +508,7 @@ const chip: CSSProperties = {
 }
 
 const chipActivo: CSSProperties = {
-  background: 'rgba(15, 95, 87, 0.10)', borderColor: 'rgba(15, 95, 87, 0.35)', color: 'var(--spira-pharma)',
+  background: 'rgba(15, 95, 87, 0.10)', borderColor: 'rgba(15, 95, 87, 0.35)', color: 'var(--spira-acc-deep-track)',
 }
 
 

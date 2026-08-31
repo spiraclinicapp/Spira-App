@@ -135,7 +135,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   if (error) {
     return (
       <ProceduresPanel accent={accent}>
-        <div style={{ padding: '2px 0', fontSize: 13, color: 'var(--spira-danger)' }}>No se pudieron cargar los procedimientos: {error}</div>
+        <div style={{ padding: '2px 0', fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>No se pudieron cargar los procedimientos: {error}</div>
       </ProceduresPanel>
     )
   }
@@ -151,7 +151,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
         </span>
       }
     >
-      {actionError && <div style={{ marginBottom: 10, fontSize: 12.5, color: 'var(--spira-danger)' }}>{actionError}</div>}
+      {actionError && <div style={{ marginBottom: 10, fontSize: 12.5, color: 'var(--spira-acc-deep-danger)' }}>{actionError}</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {items.map((p) => {

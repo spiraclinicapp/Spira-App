@@ -99,7 +99,7 @@ const TONOS: Record<TonoEvento, { color: string; tint: string }> = {
   // (tokens.css §"Acento PROFUNDO"): todo color que se oscurece para leerse sobre tinte claro
   // necesita su versión CLARA para oscuro. `acc-deep-track` la tiene (menta #9DE6D6).
   avance: { color: 'var(--spira-acc-deep-track)', tint: 'var(--spira-tint-track)' },
-  listo: { color: 'var(--spira-good)', tint: 'rgba(92, 138, 90, 0.15)' },
+  listo: { color: 'var(--spira-acc-deep-good)', tint: 'rgba(92, 138, 90, 0.15)' },
   alerta: { color: 'var(--spira-acc-deep-warn)', tint: 'rgba(176, 130, 63, 0.17)' },
   // Mismo motivo que `avance`: `--spira-danger` tampoco tiene versión clara y en oscuro daba
   // 2,55:1. `--spira-acc-deep-danger` se agregó a los tokens para esto (vale igual en claro).

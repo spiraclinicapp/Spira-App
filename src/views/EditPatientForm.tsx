@@ -185,7 +185,7 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
         </div>
 
         {error && (
-          <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
+          <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
             {error}
           </div>
         )}
@@ -267,7 +267,7 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
                 placeholder={`Reescribí ${delTarget}`} autoFocus
                 className={patient.code ? 'spira-mono' : undefined}
                 style={{ ...fieldInput, ...(patient.code ? { fontVariantNumeric: 'tabular-nums' } : {}) }} />
-              {delError && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{delError}</div>}
+              {delError && <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>{delError}</div>}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <button type="button" onClick={() => setDeleting(false)} style={btnOutline}>Cancelar</button>
                 <button type="button" onClick={() => void doDelete()} disabled={delBusy || !delReady}

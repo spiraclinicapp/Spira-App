@@ -42,7 +42,7 @@ const modalHeaderBtn: CSSProperties = {
 }
 const activePill = (active: boolean): CSSProperties => ({
   flex: '0 0 auto', fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 'var(--spira-radius-pill)',
-  color: active ? 'var(--spira-good)' : 'var(--spira-muted)',
+  color: active ? 'var(--spira-acc-deep-good)' : 'var(--spira-muted)',
   background: active ? GOOD_TINT : 'var(--spira-surface)',
 })
 
@@ -283,7 +283,7 @@ function EditMedicationModal({
       )}
 
       {err && (
-        <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: DANGER_TINT, borderRadius: 8, padding: '9px 12px', marginBottom: 14 }}>
+        <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: DANGER_TINT, borderRadius: 8, padding: '9px 12px', marginBottom: 14 }}>
           {err}
         </div>
       )}

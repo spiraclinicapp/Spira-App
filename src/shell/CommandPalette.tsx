@@ -203,7 +203,7 @@ export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, onNav
           </div>
 
           {partialError && (
-            <div style={{ padding: '2px 12px 10px', fontSize: 12.5, color: 'var(--spira-warn)' }}>
+            <div style={{ padding: '2px 12px 10px', fontSize: 12.5, color: 'var(--spira-acc-deep-warn)' }}>
               No pudimos cargar algunos resultados; puede faltar información.
             </div>
           )}

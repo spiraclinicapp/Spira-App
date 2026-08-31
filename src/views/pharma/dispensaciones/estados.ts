@@ -46,28 +46,28 @@ export const COLUMN_META: Record<
     label: 'Solicitadas',
     estado: 'Solicitada',
     paso: 'Tomar la solicitud',
-    color: '#7C8C87',
+    color: 'var(--spira-muted)',
     tint: 'rgba(124, 140, 135, 0.16)',
   },
   preparando: {
     label: 'Preparando',
     estado: 'Preparando',
     paso: 'Preparar y escanear',
-    color: '#3A6B8C',
+    color: 'var(--spira-acc-deep-blue)',
     tint: 'rgba(58, 107, 140, 0.13)',
   },
   lista: {
     label: 'Listas',
     estado: 'Lista para retirar',
     paso: 'Lista para retirar',
-    color: '#2E7D74',
+    color: 'var(--spira-acc-deep-teal)',
     tint: 'rgba(46, 125, 116, 0.14)',
   },
   entregada: {
     label: 'Entregadas',
     estado: 'Entregada',
     paso: 'Entregar',
-    color: '#4E7A3F',
+    color: 'var(--spira-acc-deep-good)',
     tint: 'rgba(78, 122, 63, 0.15)',
   },
 }
@@ -96,10 +96,10 @@ export const STATUS_META: Record<
   // Ámbar cálido (--spira-warn #B0823F), no gris: "Solicitada" es lo que está pendiente y más
   // necesita verse; con el gris muted quedaba enterrada entre canceladas y entregadas. Lee como
   // "esperando" sin alarmar (el rojo es para rechazo). WCAG ok: el badge lleva texto además del color.
-  solicitada: { label: 'Solicitada', color: 'var(--spira-warn)', tint: 'rgba(176, 130, 63, 0.15)' },
+  solicitada: { label: 'Solicitada', color: 'var(--spira-acc-deep-warn)', tint: 'rgba(176, 130, 63, 0.15)' },
   preparando: { label: 'Preparando', color: COLUMN_META.preparando.color, tint: COLUMN_META.preparando.tint },
-  atendida: { label: 'Entregada', color: 'var(--spira-good)', tint: 'rgba(92, 138, 90, 0.14)' },
-  rechazada: { label: 'Rechazada', color: 'var(--spira-danger)', tint: DANGER_TINT },
+  atendida: { label: 'Entregada', color: 'var(--spira-acc-deep-good)', tint: 'rgba(92, 138, 90, 0.14)' },
+  rechazada: { label: 'Rechazada', color: 'var(--spira-acc-deep-danger)', tint: DANGER_TINT },
   cancelada: { label: 'Cancelada', color: 'var(--spira-muted)', tint: 'var(--spira-surface)' },
 }
 
@@ -144,7 +144,7 @@ export function scanSignal(pending: number, total: number): {
 } {
   const done = total - pending
   return pending === 0
-    ? { icon: 'check', color: 'var(--spira-good)', label: `${done}/${total} escaneados` }
+    ? { icon: 'check', color: 'var(--spira-acc-deep-good)', label: `${done}/${total} escaneados` }
     : { icon: 'barcode', color: COLUMN_META.preparando.color, label: `${done}/${total} escaneados` }
 }
 

@@ -321,7 +321,7 @@ function PhysicianEditor({ visit, inicial, onCerrar, onSaved }: {
           <Icon name="x" size={13} color="var(--spira-muted)" />
         </button>
       </div>
-      {err && <div style={{ fontSize: 11.5, color: 'var(--spira-danger)', marginTop: 4 }}>{err}</div>}
+      {err && <div style={{ fontSize: 11.5, color: 'var(--spira-acc-deep-danger)', marginTop: 4 }}>{err}</div>}
     </>
   )
 }
@@ -389,7 +389,7 @@ const util: CSSProperties = {
 const visTag: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 7, height: 25, padding: '0 11px', borderRadius: 7,
   background: 'rgba(46, 125, 116, 0.14)', fontFamily: 'var(--spira-font-display)', fontSize: 13,
-  fontWeight: 700, color: 'var(--spira-primary)', whiteSpace: 'nowrap', letterSpacing: '-.01em',
+  fontWeight: 700, color: 'var(--spira-acc-deep-track)', whiteSpace: 'nowrap', letterSpacing: '-.01em',
 }
 const navpill: CSSProperties = {
   display: 'flex', alignItems: 'center', height: 30, borderRadius: 9, overflow: 'hidden',
@@ -492,6 +492,6 @@ const dev: CSSProperties = {
 }
 const devDanger: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 4, height: 19, padding: '0 6px', borderRadius: 5,
-  background: 'rgba(166, 72, 59, 0.14)', color: 'var(--spira-danger)', fontSize: 10.5,
+  background: 'rgba(166, 72, 59, 0.14)', color: 'var(--spira-acc-deep-danger)', fontSize: 10.5,
   fontWeight: 700, letterSpacing: 0, textTransform: 'none', whiteSpace: 'nowrap',
 }

@@ -195,10 +195,10 @@ export function Step1Scan({ accentSolid, meds, setMeds, codeByMed, onCodesChange
                         <button type="button" onClick={() => void saveAssign(m.medicationId)} disabled={!assignCode.trim() || assignBusy} style={{ ...btnPrimary(accentSolid), height: 32, fontSize: 12.5, padding: '0 12px', opacity: (!assignCode.trim() || assignBusy) ? 0.6 : 1 }}>Guardar</button>
                         <button type="button" onClick={cancelAssign} style={{ ...btnOutline, height: 32, fontSize: 12.5, padding: '0 12px' }}>Cancelar</button>
                       </div>
-                      {assignErr && <div style={{ fontSize: 12, color: 'var(--spira-danger)', marginTop: 4 }} aria-live="assertive">{assignErr}</div>}
+                      {assignErr && <div style={{ fontSize: 12, color: 'var(--spira-acc-deep-danger)', marginTop: 4 }} aria-live="assertive">{assignErr}</div>}
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--spira-warn)', marginTop: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--spira-acc-deep-warn)', marginTop: 1 }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <Icon name="alertCircle" size={12} color="var(--spira-warn)" /> Sin código de barras
                       </span>
@@ -238,7 +238,7 @@ export function Step1Scan({ accentSolid, meds, setMeds, codeByMed, onCodesChange
 }
 
 const linkPanel = { border: '1px solid rgba(176,130,63,0.38)', background: 'rgba(176,130,63,0.10)', borderRadius: 12, padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 10 } as const
-const errorBox = { fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 8, padding: '8px 12px' } as const
+const errorBox = { fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 8, padding: '8px 12px' } as const
 const listCard = { background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, overflow: 'hidden', boxShadow: 'var(--spira-shadow-sm)' } as const
 const iconSq = { width: 38, height: 38, flex: '0 0 auto', borderRadius: 10, background: 'rgba(15, 95, 87,.13)', display: 'grid', placeItems: 'center' } as const
 const qtyGroup = { display: 'inline-flex', alignItems: 'center', border: '1px solid var(--spira-line-2)', borderRadius: 9, overflow: 'hidden', background: 'var(--spira-white)' } as const

@@ -128,7 +128,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
             {alerts.loading && rows.length === 0 && procRows.length === 0 ? (
               <div style={emptyBox}>Cargando…</div>
             ) : alerts.error ? (
-              <div style={{ ...emptyBox, color: 'var(--spira-danger)' }}>No pudimos cargar las notificaciones.</div>
+              <div style={{ ...emptyBox, color: 'var(--spira-acc-deep-danger)' }}>No pudimos cargar las notificaciones.</div>
             ) : rows.length === 0 && procRows.length === 0 ? (
               <div style={emptyState}>
                 <span style={emptyIcon}><Icon name="check" size={20} color="var(--spira-good)" /></span>
@@ -240,7 +240,7 @@ const headerRow: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 9, padding: '13px 15px 11px', flex: '0 0 auto',
 }
 const countPill: CSSProperties = {
-  fontSize: 11.5, fontWeight: 700, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)',
+  fontSize: 11.5, fontWeight: 700, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)',
   borderRadius: 999, padding: '2px 8px', lineHeight: 1.4,
 }
 const listWrap: CSSProperties = {

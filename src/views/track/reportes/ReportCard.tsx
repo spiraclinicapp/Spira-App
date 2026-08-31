@@ -68,7 +68,7 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
         <>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 10.5, color: 'var(--spira-muted)' }}>{row.protocol_code}</span>
-            <span className="spira-mono" style={{ fontSize: 11, fontWeight: 700, color: 'var(--spira-track)' }}>
+            <span className="spira-mono" style={{ fontSize: 11, fontWeight: 700, color: 'var(--spira-acc-deep-teal)' }}>
               {row.visit_code ?? '—'}
             </span>
             <span style={{ fontSize: 11, color: 'var(--spira-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -151,7 +151,7 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
       )}
 
       {/* Vencimiento (si sigue pendiente) o cuándo se movió. */}
-      <div style={{ fontSize: 10.5, marginTop: 6, color: vence.overdue ? 'var(--spira-danger)' : 'var(--spira-muted)', fontWeight: vence.overdue ? 700 : 400 }}>
+      <div style={{ fontSize: 10.5, marginTop: 6, color: vence.overdue ? 'var(--spira-acc-deep-danger)' : 'var(--spira-muted)', fontWeight: vence.overdue ? 700 : 400 }}>
         {stage === 'pendiente'
           ? vence.texto
           : `${STAGE_META[stage].label} ${row.updated_at ? formatDateTimeAR(row.updated_at) : ''}`}
@@ -200,7 +200,7 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
           {verHistorial && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 5 }}>
               {historial.loading && <span style={histLinea}>Cargando…</span>}
-              {historial.error && <span style={{ ...histLinea, color: 'var(--spira-danger)' }}>No pudimos cargar el historial.</span>}
+              {historial.error && <span style={{ ...histLinea, color: 'var(--spira-acc-deep-danger)' }}>No pudimos cargar el historial.</span>}
               {(historial.data ?? []).map((h) => (
                 <span key={h.id} style={histLinea}>
                   {formatDateTimeAR(h.changed_at)} · {isStage(h.stage) ? STAGE_META[h.stage].label : h.stage} · {h.changed_by_name}
@@ -253,7 +253,7 @@ const avanzarBtn: CSSProperties = {
 }
 const cerrado: CSSProperties = {
   flex: 1, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-  fontSize: 12.5, fontWeight: 600, color: 'var(--spira-primary)',
+  fontSize: 12.5, fontWeight: 600, color: 'var(--spira-acc-deep-track)',
 }
 const histBtn: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 6, width: '100%', marginTop: 9, padding: '5px 0',

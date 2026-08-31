@@ -139,9 +139,9 @@ function LineaConsistencia({ consistencia, totales, emitidoEn }: {
       display: 'flex', alignItems: 'flex-start', gap: 9,
       margin: '12px 0 0', padding: '11px 14px',
       background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', borderRadius: 10,
-      fontSize: 12.5, lineHeight: 1.5, color: ok ? 'var(--spira-ink-soft)' : 'var(--spira-danger)',
+      fontSize: 12.5, lineHeight: 1.5, color: ok ? 'var(--spira-ink-soft)' : 'var(--spira-acc-deep-danger)',
     }}>
-      <span style={{ flex: '0 0 15px', marginTop: 1, color: ok ? 'var(--spira-good)' : 'var(--spira-danger)' }}>
+      <span style={{ flex: '0 0 15px', marginTop: 1, color: ok ? 'var(--spira-acc-deep-good)' : 'var(--spira-acc-deep-danger)' }}>
         <Icon name={ok ? 'check' : 'alert'} size={15} stroke={1.9} />
       </span>
       {ok ? (

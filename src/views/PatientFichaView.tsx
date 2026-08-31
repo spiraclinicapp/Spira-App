@@ -290,7 +290,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
           {visitsQ.error ? (
             <div style={{ ...card }}>
-              <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>No pudimos cargar las visitas del paciente.</div>
+              <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>No pudimos cargar las visitas del paciente.</div>
             </div>
           ) : rows.length === 0 ? (
             <EmptyState accent={accent} icon="calendar" title="Sin visitas programadas" description="Este paciente no tiene cronograma de visitas todavía (el protocolo necesita un esquema de visitas)." />

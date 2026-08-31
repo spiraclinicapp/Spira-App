@@ -487,7 +487,7 @@ const searchInput: CSSProperties = {
 
 const errBox: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto', fontSize: 13,
-  color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.08)',
+  color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.08)',
   border: '1px solid rgba(166, 72, 59, 0.25)', borderRadius: 10, padding: '10px 13px',
 }
 

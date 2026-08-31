@@ -21,7 +21,7 @@
   font-weight: 600;
 }
 .rdp-root .rdp-today:not(.rdp-selected) .rdp-day_button {
-  color: var(--spira-primary);
+  color: var(--spira-acc-deep-track);
   font-weight: 700;
 }
 .rdp-root .rdp-day_button:hover:not([disabled]) {

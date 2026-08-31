@@ -109,6 +109,24 @@
      para esto — que es exactamente la trampa que advierte el bloque de arriba: la mezcla se
      oscurece y en tema oscuro queda invisible. Por eso entra a ESTA familia y no como token propio. */
   --spira-acc-deep-good: #3D6B3B;
+  /* El teal y el azul, que faltaban y por eso los tres ámbitos de Recepción —"Protocolo",
+     "Investigación", "Ambulatoria"— pintaban su etiqueta con el acento crudo. En oscuro medían
+     2,14 / 3,30 / 2,81 contra los 4,5 de AA: la etiqueta no se leía. OJO con el nombre: el
+     `-track` de arriba es el PETRÓLEO (viene del rename de 2026-08-14), así que el teal de
+     Coordinación necesitaba el suyo. Se eligieron por matiz, no por luminancia: teal y azul quedan
+     casi a la misma L —1,01:1 entre ellos— y se distinguen por color, que acá alcanza porque la
+     etiqueta siempre dice su nombre al lado. */
+  --spira-acc-deep-teal: #21726A;
+  /* En claro el azul ya pasaba (5,08:1) y se deja igual: este token existe por el lado oscuro,
+     como el rojo de acá arriba. */
+  --spira-acc-deep-blue: #3A6B8C;
+
+  /* —— Iniciales del avatar ——
+     Iban en `--spira-avatar-ring` con `opacity: .6` encima "para que pasen desapercibidas", y eso
+     las dejaba en 3,77:1 ANTES de aplicar la opacidad. Atenuar bajando el contraste es justo lo que
+     el sistema no hace: la jerarquía la dan el tamaño y el peso. Este verde se lee (5,04:1) y sigue
+     siendo el de la familia; la opacidad se sacó. */
+  --spira-avatar-ink: #00764C;
 
   /* —— Banda del rótulo de la tarjeta destacada (Dispensación) ——
      El acento a secas NO sirve de fondo acá: la tinta papel sobre él da 4,33:1 y el rótulo va a
@@ -181,6 +199,9 @@
   --spira-acc-deep-warn: #E8CE8A;
   --spira-acc-deep-danger: #EDA093; /* salmón: aclarado, no oscurecido. 7,09:1 sobre el tinte rojo */
   --spira-acc-deep-good: #A9D9A6;   /* verde claro: aclarado, no oscurecido. 8,97:1 sobre el tinte verde */
+  --spira-acc-deep-teal: #5FABA2;   /* 6,01:1 sobre la card; mismo matiz que el teal de Coordinación */
+  --spira-acc-deep-blue: #71A4C7;   /* 6,01:1 sobre la card */
+  --spira-avatar-ink:    #39B283;   /* 6,03:1 sobre la card */
   /* La banda NO se invierte: es un bloque de color pleno con texto claro encima, así que en oscuro
      funciona igual que en claro (y aclararla con la menta la volvería un bloque brillante con el
      texto papel ilegible). Se sube un escalón nada más, para que no se confunda con el fondo. */
@@ -506,7 +527,7 @@ input:-webkit-autofill:focus {
 }
 .spira-menu-item:hover,
 .spira-menu-item:focus-visible { background: var(--spira-paper); outline: none; }
-.spira-menu-item--danger { color: var(--spira-danger); }
+.spira-menu-item--danger { color: var(--spira-acc-deep-danger); }
 .spira-menu-item--danger:hover,
 .spira-menu-item--danger:focus-visible { background: rgba(166, 72, 59, 0.08); }
 
@@ -514,7 +535,7 @@ input:-webkit-autofill:focus {
 .spira-notif-all {
   flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 7px;
   width: 100%; padding: 12px; border: none; background: transparent; cursor: pointer;
-  font-family: var(--spira-font-text); font-size: 13px; font-weight: 600; color: var(--spira-primary);
+  font-family: var(--spira-font-text); font-size: 13px; font-weight: 600; color: var(--spira-acc-deep-track);
 }
 .spira-notif-all:hover,
 .spira-notif-all:focus-visible { background: var(--spira-surface); outline: none; }

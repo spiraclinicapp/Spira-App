@@ -81,7 +81,7 @@ const row: CSSProperties = {
 const leftBlock: CSSProperties = { flex: '0 0 auto', width: 92, textAlign: 'center' }
 const attendedLabel: CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-  fontSize: 13, fontWeight: 700, color: 'var(--spira-good)',
+  fontSize: 13, fontWeight: 700, color: 'var(--spira-acc-deep-good)',
 }
 const sinceLabel: CSSProperties = { fontSize: 11, color: 'var(--spira-muted)', marginTop: 2 }
 const protocolPill: CSSProperties = {

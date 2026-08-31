@@ -13,7 +13,7 @@ const TYPES: { value: VisitType; label: string }[] = [
 
 /* Hint de validación bajo un campo: texto chico y sereno en color de peligro. */
 function Hint({ children }: { children: ReactNode }) {
-  return <div style={{ marginTop: 4, fontSize: 12, color: 'var(--spira-danger)' }}>{children}</div>
+  return <div style={{ marginTop: 4, fontSize: 12, color: 'var(--spira-acc-deep-danger)' }}>{children}</div>
 }
 
 /* Una sola "etapa de la visita" de dominio que deriva role + date_mode, en vez de
@@ -164,7 +164,7 @@ export function ScheduleDefinitionForm({
           Entrega producto en investigación (IP)
         </label>
 
-        {error && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{error}</div>}
+        {error && <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button type="button" style={btnOutline} onClick={onClose}>

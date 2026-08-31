@@ -41,7 +41,7 @@ const WARN_TINT_PILL = 'rgba(176, 130, 63, 0.20)'
 // pero para la coordinadora son cosas distintas (una la puede ir a buscar el paciente).
 
 const errBox: CSSProperties = {
-  fontSize: 12.5, color: 'var(--spira-danger)', background: DANGER_TINT, borderRadius: 8, padding: '8px 11px', marginBottom: 10,
+  fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', background: DANGER_TINT, borderRadius: 8, padding: '8px 11px', marginBottom: 10,
 }
 const muted: CSSProperties = { fontSize: 12.5, color: 'var(--spira-muted)' }
 

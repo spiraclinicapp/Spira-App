@@ -154,7 +154,7 @@ export function AccountSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 720 }}>
       {notice && !editing && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-good)', background: '#5C8A5A16', border: '1px solid #5C8A5A33', borderRadius: 10, padding: '10px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-acc-deep-good)', background: '#5C8A5A16', border: '1px solid #5C8A5A33', borderRadius: 10, padding: '10px 14px' }}>
           <Icon name="check" size={15} color="#5C8A5A" /> {notice}
         </div>
       )}
@@ -297,8 +297,8 @@ export function AccountSection() {
 
 const lbl: CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)', marginBottom: 6 }
 const note: CSSProperties = { fontSize: 12, color: 'var(--spira-muted)', marginTop: 5 }
-const err: CSSProperties = { fontSize: 12.5, color: 'var(--spira-danger)' }
-const ok: CSSProperties = { fontSize: 12.5, color: 'var(--spira-good)' }
+const err: CSSProperties = { fontSize: 12.5, color: 'var(--spira-acc-deep-danger)' }
+const ok: CSSProperties = { fontSize: 12.5, color: 'var(--spira-acc-deep-good)' }
 const readonlyField: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 8, height: 44, padding: '0 14px', borderRadius: 10,
   border: '1px solid var(--spira-line)', background: 'var(--spira-surface)', color: 'var(--spira-muted)', fontSize: 14,

@@ -51,7 +51,7 @@ export function CommentThread({ visitId, accent = 'var(--spira-track)', onAdded 
         <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', padding: '4px 0' }}>Cargando comentarios…</div>
       ) : q.error ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '9px 12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '9px 12px' }}>
             <Icon name="alertCircle" size={16} color="var(--spira-danger)" />
             No pudimos cargar los comentarios.
           </div>
@@ -83,7 +83,7 @@ export function CommentThread({ visitId, accent = 'var(--spira-track)', onAdded 
 
       {/* composer: textarea (Enter envía, Shift+Enter salta) + Enviar */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--spira-line)', paddingTop: 12 }}>
-        {err && <div style={{ fontSize: 12.5, color: 'var(--spira-danger)' }}>{err}</div>}
+        {err && <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)' }}>{err}</div>}
         <textarea
           value={txt}
           onChange={(e) => setTxt(e.target.value)}

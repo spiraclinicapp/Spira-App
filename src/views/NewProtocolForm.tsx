@@ -82,7 +82,7 @@ export function NewProtocolForm({ accentSolid, userId, onClose, onCreated }: New
         </FormField>
 
         {error && (
-          <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
+          <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>
             {error}
           </div>
         )}

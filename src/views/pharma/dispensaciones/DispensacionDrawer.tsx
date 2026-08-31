@@ -195,7 +195,7 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
               )}
 
               {errAccion && (
-                <div style={{ fontSize: 12.5, color: 'var(--spira-danger)', marginTop: 8 }} role="alert">
+                <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', marginTop: 8 }} role="alert">
                   {errAccion}
                 </div>
               )}
@@ -329,7 +329,7 @@ function RejectModal({ request, onClose, onDone }: {
         autoFocus
       />
 
-      {err && <div style={{ fontSize: 12.5, color: 'var(--spira-danger)', marginTop: 9 }} role="alert">{err}</div>}
+      {err && <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', marginTop: 9 }} role="alert">{err}</div>}
 
       <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
         <button type="button" onClick={onClose} style={btnOutline}>Volver</button>

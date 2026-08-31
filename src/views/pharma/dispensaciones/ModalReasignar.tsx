@@ -38,7 +38,7 @@ export function ModalReasignar({ requestId, onClose, onHecho }: {
       </p>
 
       {loading && <div style={aviso}>Buscando…</div>}
-      {error && <div style={{ ...aviso, color: 'var(--spira-danger)' }} role="alert">{error}</div>}
+      {error && <div style={{ ...aviso, color: 'var(--spira-acc-deep-danger)' }} role="alert">{error}</div>}
 
       {!loading && !error && gente?.length === 0 && (
         <div style={aviso}>
@@ -60,7 +60,7 @@ export function ModalReasignar({ requestId, onClose, onHecho }: {
         </>
       )}
 
-      {err && <div style={{ fontSize: 12.5, color: 'var(--spira-danger)', marginTop: 9 }} role="alert">{err}</div>}
+      {err && <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', marginTop: 9 }} role="alert">{err}</div>}
 
       <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
         <button type="button" onClick={onClose} style={btnOutline}>Volver</button>

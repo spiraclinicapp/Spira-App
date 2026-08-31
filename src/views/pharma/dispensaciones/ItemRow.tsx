@@ -79,7 +79,7 @@ export function ItemRow({
                 {completo ? 'completo' : faltan === 1 ? 'falta 1 u.' : `faltan ${faltan} u.`}
                 {/* Sin esta marca la sustitución sería invisible: la fila mostraría el medicamento
                     nuevo como si hubiera sido el pedido desde el principio. */}
-                {sustituido && <span style={{ color: 'var(--spira-primary-deep)', fontWeight: 600 }}> · sustituido</span>}
+                {sustituido && <span style={{ color: 'var(--spira-acc-deep-track)', fontWeight: 600 }}> · sustituido</span>}
               </>
             ) : (
               <>
@@ -157,7 +157,7 @@ function Dial({ unidades, quantity, completo, pct }: {
       <span style={{ ...dialCentro, background: completo ? '#F1F6F0' : 'var(--spira-white)' }}>
         {/* Tipografía de TEXTO, no mono (handoff §10, decisión 8): en mono se veía fino y
             ópticamente descentrado dentro del círculo. */}
-        <span style={{ ...dialTexto, color: completo ? 'var(--spira-good)' : 'var(--spira-primary-deep)' }}>
+        <span style={{ ...dialTexto, color: completo ? 'var(--spira-acc-deep-good)' : 'var(--spira-acc-deep-track)' }}>
           {unidades}/{quantity}
         </span>
       </span>

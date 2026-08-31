@@ -37,7 +37,7 @@ export function DoctorRequest({ visit, accent, readOnly, busy, onMark, onUnmark,
   if (seen) {
     return wrap('Atención médica', (
       <>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-good)', fontWeight: 600 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-acc-deep-good)', fontWeight: 600 }}>
           <Icon name="check" size={15} color="var(--spira-good)" /> Visto por el médico
         </div>
         {visit.doctor_motivo && <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 6 }}>Motivo: {visit.doctor_motivo}</div>}

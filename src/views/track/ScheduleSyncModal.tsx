@@ -59,7 +59,7 @@ export function ScheduleSyncModal({
       {loading ? (
         <div style={{ fontSize: 13.5, color: 'var(--spira-muted)' }}>Calculando cambios…</div>
       ) : error ? (
-        <div style={{ fontSize: 13.5, color: 'var(--spira-danger)' }}>{error}</div>
+        <div style={{ fontSize: 13.5, color: 'var(--spira-acc-deep-danger)' }}>{error}</div>
       ) : !plan ? (
         <div style={{ fontSize: 13.5, color: 'var(--spira-muted)' }}>No pudimos leer el plan del cronograma.</div>
       ) : (
@@ -81,7 +81,7 @@ export function ScheduleSyncModal({
           )}
           {/* Las atendidas nunca se tocan; si difieren del cronograma se avisa, haya o no cambios. */}
           {plan.attended_divergent > 0 && (
-            <div style={{ fontSize: 13, color: 'var(--spira-warn)', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-warn)', lineHeight: 1.5 }}>
               {plan.attended_divergent} {plan.attended_divergent === 1 ? 'visita atendida difiere' : 'visitas atendidas difieren'} del cronograma. Se dejan intactas.
             </div>
           )}

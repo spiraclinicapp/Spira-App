@@ -10,11 +10,11 @@ const DANGER_TINT = 'rgba(166, 72, 59, 0.10)'
 /** Traduce el movimiento crudo (action + active antes/después) a etiqueta + ícono + color. La base
  *  devuelve los campos crudos a propósito; el castellano se compone acá. */
 function movimiento(r: MedicationHistoryRow): { label: string; icon: IconName; color: string } {
-  if (r.action === 'INSERT') return { label: 'Agregada', icon: 'plus', color: 'var(--spira-good)' }
-  if (r.action === 'DELETE') return { label: 'Eliminada', icon: 'trash', color: 'var(--spira-danger)' }
+  if (r.action === 'INSERT') return { label: 'Agregada', icon: 'plus', color: 'var(--spira-acc-deep-good)' }
+  if (r.action === 'DELETE') return { label: 'Eliminada', icon: 'trash', color: 'var(--spira-acc-deep-danger)' }
   // UPDATE: distinguimos activar/desactivar por el cambio de `active`; el resto es "Modificada".
-  if (r.active_before === false && r.active_after === true) return { label: 'Reactivada', icon: 'check', color: 'var(--spira-good)' }
-  if (r.active_before === true && r.active_after === false) return { label: 'Desactivada', icon: 'minus', color: 'var(--spira-warn)' }
+  if (r.active_before === false && r.active_after === true) return { label: 'Reactivada', icon: 'check', color: 'var(--spira-acc-deep-good)' }
+  if (r.active_before === true && r.active_after === false) return { label: 'Desactivada', icon: 'minus', color: 'var(--spira-acc-deep-warn)' }
   return { label: 'Modificada', icon: 'pencil', color: 'var(--spira-muted)' }
 }
 
@@ -45,7 +45,7 @@ export function HistorialMedicacionModal({
       {q.loading && rows.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '8px 2px' }}>Cargando historial…</div>
       ) : q.error ? (
-        <div style={{ fontSize: 13, color: 'var(--spira-danger)', background: DANGER_TINT, borderRadius: 8, padding: '10px 13px' }}>
+        <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: DANGER_TINT, borderRadius: 8, padding: '10px 13px' }}>
           No pudimos cargar el historial de medicación.
         </div>
       ) : rows.length === 0 ? (
@@ -64,7 +64,7 @@ export function HistorialMedicacionModal({
             const m = movimiento(r)
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '11px 0', borderTop: i ? '1px solid var(--spira-line)' : 'none' }}>
-                <span style={{ ...iconChip, background: m.color + '18' }}>
+                <span style={{ ...iconChip, background: `color-mix(in srgb, ${m.color} 9%, transparent)` }}>
                   <Icon name={m.icon} size={15} color={m.color} />
                 </span>
                 <div style={{ minWidth: 0, flex: 1 }}>

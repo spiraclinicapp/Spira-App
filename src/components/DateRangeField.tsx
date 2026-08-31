@@ -146,6 +146,11 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
     setOpen(false)
   }
 
+  /** El acento, aclarado según el tema: el mismo mecanismo que usa `Chip` (ver tokens.css,
+   *  `--spira-aclarado-acento`). En claro devuelve el acento intacto; en oscuro lo levanta, que es
+   *  lo que necesita para ser TEXTO sobre un fondo casi negro. */
+  const tono = `color-mix(in oklab, ${accent}, white var(--spira-aclarado-acento))`
+
   return (
     <>
       <button
@@ -156,15 +161,15 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
         aria-expanded={open}
         aria-label={ariaLabel ?? 'Elegir el período del informe'}
         style={puesto
-          ? { ...trigger, borderColor: accent, background: accent + '0F', color: accent }
+          ? { ...trigger, borderColor: tono, background: accent + '0F', color: tono }
           : { ...trigger, borderColor: 'var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)' }}
       >
-        <Icon name="calendar" size={15} color={puesto ? accent : 'var(--spira-muted)'} stroke={1.8} />
+        <Icon name="calendar" size={15} color={puesto ? tono : 'var(--spira-muted)'} stroke={1.8} />
         <span className={puesto ? 'spira-mono' : undefined} style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14 }}>
           {!puesto ? placeholder : desde === hasta ? formatAR(desde) : `${formatAR(desde)} – ${formatAR(hasta)}`}
         </span>
         <Icon
-          name="chevronDown" size={14} color={puesto ? accent : 'var(--spira-muted)'}
+          name="chevronDown" size={14} color={puesto ? tono : 'var(--spira-muted)'}
           style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}
         />
       </button>

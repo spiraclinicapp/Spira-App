@@ -189,4 +189,4 @@ const koBtn: CSSProperties = {
   ...sqBtn, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
   background: 'var(--spira-white)',
 }
-const errStyle: CSSProperties = { fontSize: 11.5, color: 'var(--spira-danger)', marginTop: 4, maxWidth: 200 }
+const errStyle: CSSProperties = { fontSize: 11.5, color: 'var(--spira-acc-deep-danger)', marginTop: 4, maxWidth: 200 }

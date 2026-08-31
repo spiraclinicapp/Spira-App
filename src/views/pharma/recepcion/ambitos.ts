@@ -17,7 +17,7 @@ import type { ReceptionKind } from '../../../data/pharma'
  * el color nunca es el único portador del significado.
  */
 export const KIND_CHIP: Record<ReceptionKind, { label: string; color: string; bg: string }> = {
-  protocolo:     { label: 'Protocolo',     color: 'var(--spira-primary)',  bg: 'rgba(15,95,87,.12)' },
-  investigacion: { label: 'Investigación', color: 'var(--spira-track)',    bg: 'rgba(46,125,116,.14)' },
-  ambulatoria:   { label: 'Ambulatoria',   color: 'var(--spira-contable)', bg: 'rgba(58,107,140,.12)' },
+  protocolo:     { label: 'Protocolo',     color: 'var(--spira-acc-deep-track)',  bg: 'rgba(15,95,87,.12)' },
+  investigacion: { label: 'Investigación', color: 'var(--spira-acc-deep-teal)',    bg: 'rgba(46,125,116,.14)' },
+  ambulatoria:   { label: 'Ambulatoria',   color: 'var(--spira-acc-deep-blue)', bg: 'rgba(58,107,140,.12)' },
 }

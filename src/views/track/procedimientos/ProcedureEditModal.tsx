@@ -307,7 +307,7 @@ export function ProcedureEditModal({
           )}
         </div>
 
-        {error && <div style={{ fontSize: 13, color: 'var(--spira-danger)' }}>{error}</div>}
+        {error && <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>{error}</div>}
 
         {/* Footer ÚNICO para todo el modal */}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4, borderTop: '1px solid var(--spira-line)', marginTop: 2 }}>

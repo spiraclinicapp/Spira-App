@@ -10,7 +10,7 @@ import { btnOutline, btnPrimary } from '../components/buttons'
 import { Vilano } from '../components/Vilano'
 
 const errorBox: CSSProperties = {
-  fontSize: 13, color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.10)',
+  fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)',
   borderRadius: 8, padding: '8px 12px',
 }
 // Nota serena (confirmación de envío de reset / pista). Tinte primario tenue, no de error.
@@ -19,7 +19,7 @@ const noteBox: CSSProperties = {
   borderRadius: 8, padding: '8px 12px', lineHeight: 1.45,
 }
 const linkStyle: CSSProperties = {
-  background: 'transparent', border: 'none', color: 'var(--spira-primary)',
+  background: 'transparent', border: 'none', color: 'var(--spira-acc-deep-track)',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', padding: 0,
 }
 

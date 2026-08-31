@@ -248,7 +248,7 @@ const noteTeal: CSSProperties = {
 
 const errBox: CSSProperties = {
   display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 12, fontSize: 12.5,
-  color: 'var(--spira-danger)', background: 'rgba(166, 72, 59, 0.08)',
+  color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.08)',
   border: '1px solid rgba(166, 72, 59, 0.25)', borderRadius: 8, padding: '9px 11px',
 }
 
