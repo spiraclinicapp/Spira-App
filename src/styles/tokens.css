@@ -98,6 +98,15 @@
      hay que ACLARAR con la menta. Medido, no estimado. */
   --spira-tint-track: rgba(46, 125, 116, 0.10);
 
+  /* Cuánto hay que ACLARAR un acento de módulo para que sirva de TEXTO sobre la superficie del
+     tema. En claro, cero: el acento ya es oscuro y contrasta contra el papel. En oscuro no alcanza
+     con dejarlo —el petróleo #0F5F57 sobre una card #212121 da 1,98:1, la mitad del mínimo AA—, y
+     tampoco se puede resolver con un token por color: el acento entra como hex crudo desde el
+     registro de módulos, así que la corrección tiene que ser una OPERACIÓN sobre lo que llegue.
+     Es la misma regla que ya escriben a mano los `--spira-acc-deep-*`: en oscuro se aclara, no se
+     oscurece. */
+  --spira-aclarado-acento: 0%;
+
   /* —— Constantes de tema —— */
   --spira-on-accent:  #F4F1EA;
   --spira-brand-mark: #0F5F57;
@@ -148,6 +157,8 @@
   /* El tinte del CUERPO sí se invierte: con el petróleo, el cuerpo quedaba MÁS OSCURO que las
      tarjetas neutras (22,33,32 contra 28,28,28) y el realce se leía como un apagón. La menta lo levanta. */
   --spira-tint-track: rgba(157, 230, 214, 0.13);
+  /* 55%: medido, deja al petróleo del módulo en 8,9:1 sobre el tinte de un chip elegido. */
+  --spira-aclarado-acento: 55%;
 }
 
 /* —— Estilos tipográficos semánticos —— */

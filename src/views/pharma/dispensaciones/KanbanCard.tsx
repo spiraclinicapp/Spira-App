@@ -237,8 +237,13 @@ function ctaFor(column: BoardColumn, r: DispensationRequestRow): {
 
 /** El protocolo, ahora encabezando el renglón de metadatos. Sigue siendo una píldora teñida y no
  *  texto mono suelto a propósito: al lado va el código de dispensación (D-1046), también en mono, y
- *  dos códigos con la misma pinta en fila obligan a leer cuál es cuál. */
+ *  dos códigos con la misma pinta en fila obligan a leer cuál es cuál.
+ *
+ *  El texto va en `--spira-acc-deep-track` y no en `--spira-pharma-solid`: son el MISMO #0F5F57 en
+ *  tema claro, pero los acentos de módulo no se redefinen en oscuro y ese petróleo sobre una card
+ *  #212121 medía 1,98:1 — el código de protocolo era invisible de noche. `acc-deep-track` es el par
+ *  que sí tiene versión clara (menta #9DE6D6): 6,03:1 en claro y 10,35:1 en oscuro. */
 const protoChip: CSSProperties = {
   fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, flex: '0 0 auto',
-  background: 'rgba(15, 95, 87, 0.14)', color: 'var(--spira-pharma-solid)',
+  background: 'rgba(15, 95, 87, 0.14)', color: 'var(--spira-acc-deep-track)',
 }
