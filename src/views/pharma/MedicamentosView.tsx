@@ -357,7 +357,13 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
 
   return (
     <div style={wrap}>
+      {/* El buscador ABRE la fila, y los filtros van pegados a la derecha (el `marginRight: auto`
+          de `searchWrap`). Estaba al revés —filtros a la izquierda, buscador empujado al final—, y
+          eso lo dejaba en dos lugares distintos dentro de la MISMA vista: en Catálogo, que no tiene
+          filtros, abría la fila. Buscar y filtrar son dos oficios: el de la izquierda encuentra una
+          fila, los de la derecha recortan el conjunto. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {buscador('Nombre, droga, lote o código…')}
         <FilterDropdown
           accent={accentSolid}
           value={filtro}
@@ -383,7 +389,6 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
             <Icon name="x" size={13} color="var(--spira-muted)" /> Limpiar {nFiltros}
           </button>
         )}
-        <div style={{ marginLeft: 'auto' }}>{buscador('Nombre, droga, lote o código…')}</div>
       </div>
 
       <ListStatus q={q} onRetry={() => q.refetch()} accent={accent} icon={submodule.icon} vacio="Todavía no hay lotes en stock (se cargan al recibir).">
@@ -754,8 +759,12 @@ const apartadoCard: CSSProperties = {
   borderRadius: 16, padding: 16, boxShadow: 'var(--spira-shadow-sm)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)',
 }
 const errorBox: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166,72,59,0.10)', borderRadius: 10, padding: '12px 14px' }
+/* El `marginRight: auto` es lo que manda los filtros al borde derecho en Stock. En Catálogo, donde
+   el buscador es lo único de la fila, no cambia nada: el margen se come el sobrante que ya estaba
+   a su derecha. */
 const searchWrap: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8, height: 38, width: 240, padding: '0 12px',
+  display: 'flex', alignItems: 'center', gap: 8, height: 38, width: 240, marginRight: 'auto',
+  padding: '0 12px',
   borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
 }
 const searchInput: CSSProperties = {
