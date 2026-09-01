@@ -285,15 +285,18 @@ function accionesDe(
   // visita ya en `fin_atencion` deja una visita fantasma en la fecha nueva con `real_date` intacto.
   const canReschedule = canReception && visit.real_date === null
 
+  /* Los íconos son los del set (no hay uno de "ausente"): la `x` en rojo para la falta —el mismo
+     par que usa Anular en Recepción—, `rotateCcw` para deshacerla, `calendar` para reprogramar y
+     `copy` para copiar, que acá es su significado literal. */
   const items: ActionMenuItem[] = []
   if (canNoShow && !faltaMarcada) {
-    items.push({ key: 'no-vino', label: 'Marcar como no vino', danger: true, disabled: busy, onClick: () => onNoShow(visit, true) })
+    items.push({ key: 'no-vino', label: 'Marcar como no vino', icon: 'x', danger: true, disabled: busy, onClick: () => onNoShow(visit, true) })
   }
   if (canNoShow && faltaMarcada) {
-    items.push({ key: 'deshacer-no-vino', label: 'Deshacer “no vino”', disabled: busy, onClick: () => onNoShow(visit, false) })
+    items.push({ key: 'deshacer-no-vino', label: 'Deshacer “no vino”', icon: 'rotateCcw', disabled: busy, onClick: () => onNoShow(visit, false) })
   }
   if (canReschedule) {
-    items.push({ key: 'reprogramar', label: 'Reprogramar', disabled: busy, onClick: () => onReschedule(visit) })
+    items.push({ key: 'reprogramar', label: 'Reprogramar', icon: 'calendar', disabled: busy, onClick: () => onReschedule(visit) })
   }
   /* Va siempre, así que el menú nunca queda sin ítems (`ActionMenu` no dibuja el disparador vacío:
      un botón que no abre nada miente). Inerte si la visita no trae el código — la acción existe y
@@ -301,6 +304,7 @@ function accionesDe(
   items.push({
     key: 'copiar-codigo',
     label: 'Copiar N° de paciente',
+    icon: 'copy',
     disabled: !visit.patient_code,
     onClick: () => { if (visit.patient_code) navigator.clipboard?.writeText(visit.patient_code) },
   })
