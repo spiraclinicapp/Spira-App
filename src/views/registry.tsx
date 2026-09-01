@@ -10,14 +10,22 @@ import { MedicamentosView } from './pharma/MedicamentosView'
 import { RecepcionView } from './pharma/RecepcionView'
 import { DispensacionesView } from './pharma/DispensacionesView'
 import { ReportesView } from './pharma/reportes/ReportesView'
+import type { RegisteredView } from './registryKeys'
 import type { ViewComponent } from './types'
+
+export { isViewRegistered } from './registryKeys'
 
 /**
  * Vistas reales por clave "<moduleKey>/<subKey>". Lo que no esté listado acá
  * cae al Placeholder, así los submódulos aún no portados siguen funcionando.
  * Protocolos es compartida por Track y Pharma (los pacientes viven adentro).
+ *
+ * El tipo es `Record<RegisteredView, …>` y no `Record<string, …>` a propósito: las claves las fija
+ * `registryKeys.ts`, que es lo que pueden importar los tests (este archivo arrastra toda la app y
+ * no carga fuera del navegador). Con el Record cerrado, olvidarse de registrar una vista o dejar
+ * una clave huérfana es un error de compilación, no un Placeholder que aparece en producción.
  */
-const VIEW_REGISTRY: Record<string, ViewComponent> = {
+const VIEW_REGISTRY: Record<RegisteredView, ViewComponent> = {
   'inicio/resumen': InicioResumenView,
   'track/resumen': TrackResumenView,
   'track/protocolos': ProtocolsView,
@@ -32,14 +40,9 @@ const VIEW_REGISTRY: Record<string, ViewComponent> = {
   'pharma/reportes': ReportesView,
 }
 
+/* El cast es necesario y acotado: la clave se arma con dos strings cualesquiera (vienen de la URL),
+   así que no se puede indexar el Record de claves literales sin ensancharlo. El `?? Placeholder`
+   sigue siendo el que cubre lo no registrado. */
 export function resolveView(moduleKey: string, subKey: string): ViewComponent {
-  return VIEW_REGISTRY[`${moduleKey}/${subKey}`] ?? Placeholder
-}
-
-/**
- * ¿El submódulo tiene una vista real (no cae al Placeholder)? Lo usa el buscador
- * global para no indexar "páginas" que llevarían a una pantalla vacía.
- */
-export function isViewRegistered(moduleKey: string, subKey: string): boolean {
-  return `${moduleKey}/${subKey}` in VIEW_REGISTRY
+  return (VIEW_REGISTRY as Record<string, ViewComponent>)[`${moduleKey}/${subKey}`] ?? Placeholder
 }

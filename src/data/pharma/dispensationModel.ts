@@ -296,3 +296,37 @@ export function origenLabel(m: DispensationRequestRow['requested_by_module']): s
   if (m === 'pharma') return 'Alta manual · Farmacia'
   return '—'
 }
+
+/**
+ * Cómo se nombra y de qué color va el estado de una solicitud en una LÍNEA DE TEXTO.
+ *
+ * Del handoff `design_handoff_resumen_tareas_enfoque`: se descartó el pill sólido con fondo teñido
+ * (`background: tono+"1a"`) y el estado pasó a integrarse en la línea secundaria del ítem, separado
+ * por punto medio — `solicitada hace 2 h · preparando`. Sin caja propia: es una palabra más de la
+ * oración, en su color y en negrita.
+ *
+ * POR QUÉ SE FUE EL PILL, y no es sólo gusto: el patrón `color: tono; background: tono+16` viene
+ * fallando WCAG en esta app (se midieron 16 combinaciones y cinco de cinco tonos de protocolo caían
+ * por debajo de AA en tema oscuro). Texto teñido sobre la superficie de la tarjeta, en cambio, se
+ * mide contra un fondo conocido y los tonos `--spira-acc-deep-*` ya están calibrados para eso.
+ *
+ * OJO CON EL UMBRAL: esto se dibuja a 12px/700, que para WCAG es texto NORMAL (4,5:1), no grande.
+ * De ahí que los tonos salgan de `--spira-acc-deep-*` y no del acento crudo: son los únicos que
+ * tienen versión aclarada para el tema oscuro. El handoff proponía `#8A631F` para el ámbar; se usa
+ * el token de la casa (#6E5620 en claro), que es más oscuro — o sea, más contraste, no menos.
+ *
+ * El mapa cubre los CINCO estados aunque el Resumen sólo muestre los dos abiertos: una clave
+ * faltante no rompe nada, simplemente rinde `undefined` y el texto sale sin color ni rótulo. Es
+ * exactamente la clase de falla silenciosa que el test de al lado hace imposible.
+ */
+export const ESTADO_SOLICITUD: Record<RequestStatus, { label: string; tono: string }> = {
+  solicitada: { label: 'solicitada', tono: 'var(--spira-muted)' },
+  preparando: { label: 'preparando', tono: 'var(--spira-acc-deep-blue)' },
+  atendida: { label: 'atendida', tono: 'var(--spira-acc-deep-good)' },
+  rechazada: { label: 'rechazada', tono: 'var(--spira-acc-deep-danger)' },
+  cancelada: { label: 'cancelada', tono: 'var(--spira-muted)' },
+}
+
+/** Los dos estados ABIERTOS: lo que la coordinadora todavía está esperando. Es el filtro de la
+ *  tarjeta "Dispensaciones solicitadas" del Resumen y el mismo par que ya usa el tablero del día. */
+export const ESTADOS_ABIERTOS: readonly RequestStatus[] = ['solicitada', 'preparando']

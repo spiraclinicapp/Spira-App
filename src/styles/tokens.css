@@ -178,6 +178,11 @@
   --spira-shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.06);
   --spira-shadow-md: 0 12px 32px rgba(20, 48, 46, 0.10);
   --spira-shadow-lg: 0 18px 40px rgba(20, 48, 46, 0.14);
+  /* La sombra del HOVER de una tarjeta-enlace, y sólo ésa. Es un escalón propio y no una de las
+     tres de arriba a propósito: la `sm` es la sombra en REPOSO de una tarjeta (la usan ~20 lugares)
+     y a 1px/6 % no alcanza para leerse como reacción; la `md` es sombra de overlay. Ver el
+     comentario de `.spira-card-link` para el porqué del número. */
+  --spira-shadow-hover: 0 4px 14px rgba(20, 48, 46, 0.12);
 }
 
 /* —— Tema oscuro —— (acentos/primario/semánticos se mantienen) */
@@ -211,6 +216,12 @@
   --spira-tint-track: rgba(157, 230, 214, 0.13);
   /* 55%: medido, deja al petróleo del módulo en 8,9:1 sobre el tinte de un chip elegido. */
   --spira-aclarado-acento: 55%;
+  /* La ÚNICA sombra que el tema oscuro redefine, y por necesidad: las otras tres tiñen con
+     petróleo (20,48,46) y sobre el papel oscuro (#121212) eso es prácticamente el fondo — a 12 %
+     no se vería nada y el hover de tarjeta se perdería entero. Acá la sombra tiene que ser negra y
+     bastante más opaca para que el escalón se lea sobre una card #212121. Las de reposo (`sm`) no
+     se tocan: en oscuro una tarjeta se separa por su fondo más claro, no por su sombra. */
+  --spira-shadow-hover: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
 /* —— Estilos tipográficos semánticos —— */
@@ -361,7 +372,7 @@ input:-webkit-autofill:focus {
   transition: box-shadow 0.14s var(--spira-ease-out), transform 0.14s var(--spira-ease-out);
 }
 .spira-plataforma:hover {
-  box-shadow: var(--spira-shadow-sm);
+  box-shadow: var(--spira-shadow-hover);
   transform: translateY(-1px);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -620,10 +631,17 @@ input:-webkit-autofill:focus {
    tarjeta se queda sin borde ("Removing borderColor border" en consola). Es el gotcha de
    abreviada vs longhand, en su variante imperativa.
 
-   La sombra es la `sm` (0 1px 2px) y NO la `md`: la `md` es `0 12px 32px`, una sombra de overlay
-   —dice "esto flota 12px sobre la página"— y encima de un levante de 1px queda a contramano de sí
-   misma; ese desajuste de escala es lo que hacía ver la animación pegoteada. Sombra y levante
-   comparten duración y curva para llegar juntos. */
+   LA SOMBRA ES `--spira-shadow-hover` (0 4px 14px / 12 %), token propio del hover y de nadie más.
+   Tiene historia y conviene no repetirla: primero fue la `md` (`0 12px 32px`), una sombra de
+   OVERLAY —dice "esto flota 12px sobre la página"— que encima de un levante de 1px queda a
+   contramano de sí misma; ese desajuste de escala es lo que hacía ver la animación pegoteada. Se
+   corrigió bajando a la `sm`, y ahí el péndulo se pasó para el otro lado: `0 1px 2px` al 6 % es la
+   sombra de una tarjeta en REPOSO —de hecho es la que usan ~20 tarjetas quietas— así que al
+   apuntarla no pasaba casi nada y la señal de "esto se toca" quedaba sólo en el cursor.
+   4px con un levante de 1px es el punto donde la sombra acompaña al movimiento en vez de anunciar
+   una altura que el elemento no tiene. Viene del handoff de Resumen (2026-09-01), medido en pantalla.
+   La `sm` NO se toca: sigue siendo la sombra de reposo, y son dos cosas distintas.
+   Sombra y levante comparten duración y curva para llegar juntos. */
 /* El borde acá es el POR DEFECTO. Una tarjeta con borde propio de estado —los ítems de Alertas,
    teñidos por severidad— lo declara inline y lo pisa; el resto del realce le sigue corriendo. */
 .spira-card-link {
@@ -637,7 +655,7 @@ input:-webkit-autofill:focus {
   transition: box-shadow 0.16s var(--spira-ease-out), transform 0.16s var(--spira-ease-out);
 }
 .spira-card-link:hover {
-  box-shadow: var(--spira-shadow-sm);
+  box-shadow: var(--spira-shadow-hover);
 }
 
 /* —— Fila-enlace ——
@@ -656,7 +674,14 @@ input:-webkit-autofill:focus {
   background-color: transparent;
   transition: background-color 0.14s var(--spira-ease-out);
 }
-.spira-row-link:hover {
+/* El resaltado va también con el TECLADO. Sin esta regla, la fila era la única cosa pulsable de la
+   app cuya señal de estado dependía del mouse: al llegar tabulando quedaba el outline de foco y
+   nada más, así que en un listado largo no se veía qué renglón estaba por abrirse. Es la misma
+   señal, no una parecida: quien navega con teclado ve exactamente lo que ve quien apunta.
+   Va sobre la fila y no `:focus-within`: cuando el foco está en el link del paciente que vive
+   ADENTRO, el destino de un Enter ya no es la fila, y resaltarla afirmaría lo contrario. */
+.spira-row-link:hover,
+.spira-row-link:focus-visible {
   background-color: var(--spira-surface);
 }
 /* Reduced-motion: el cambio de estado se mantiene (sombra y resaltado siguen ahí, son señal, no
@@ -758,11 +783,18 @@ input:-webkit-autofill:focus {
      se para bien en los dos casos: dentro de un flex manda el `align-items` del padre, dentro
      de texto manda esto. */
   vertical-align: middle;
-  transition: opacity 0.14s var(--spira-ease-out);
+  /* Entra DESLIZANDO 4px desde la izquierda, igual que el rótulo de destino de `.spira-dest`
+     (abajo). Los dos revelados son el mismo gesto —"a dónde te lleva esto"— y antes se sentían
+     distintos: éste fundía y aquél deslizaba. Es `transform`, así que no corre el layout de la
+     fila ni le come presupuesto al truncado del nombre; el hueco lo sigue reservando el
+     `gap`/`margin` de quien la coloca, presente desde el primer render. */
+  transform: translateX(-4px);
+  transition: opacity 0.14s var(--spira-ease-out), transform 0.14s var(--spira-ease-out);
 }
 .spira-link-group:has(.spira-textlink:hover) .spira-link-arrow,
 .spira-link-group:has(.spira-textlink:focus-visible) .spira-link-arrow {
   opacity: 0.75;
+  transform: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .spira-link-arrow { transition: none; }
@@ -782,6 +814,51 @@ input:-webkit-autofill:focus {
    ocultarlo) y sigue siendo obligatorio en cada fila nueva. */
 .spira-link-group:not(:has(.spira-textlink)) .spira-link-arrow { display: none; }
 
+/* —— Rótulo de destino revelado ——
+   "A dónde te lleva esto", en palabras: el nombre del submódulo + flecha que aparece al apuntar un
+   KPI o el pie "Ver todo" del Resumen. Es el hermano mayor de `.spira-link-arrow` —misma idea, misma
+   duración, mismo deslizamiento— y se separa en dos clases porque los disparadores son distintos:
+   aquélla la enciende un `.spira-textlink` hermano (el nombre del paciente), ésta la enciende el
+   contenedor entero.
+
+   POR QUÉ NO VA EN `onMouseEnter`, aunque el mock del handoff lo haga así: escribir el realce desde
+   un handler es el gotcha de la casa (React vacía los longhand del borde en el render siguiente y
+   el elemento se queda sin borde), y además un handler no tiene `:focus-visible`. Acá el revelado
+   dispara con el mouse Y con el teclado, que era lo único que le faltaba al diseño original.
+
+   EL HUECO ESTÁ SIEMPRE. Se revela con `opacity`/`transform`, nunca cambiando `display`: el
+   elemento ocupa su lugar desde el primer render y al aparecer no corre nada. (El README del
+   handoff dice que "ese espacio no existe" sin hover, pero su propio código lo reserva igual —
+   manda el código, y además es lo correcto.)
+
+   `pointer-events: none` porque apuntar el rótulo no puede ser un blanco distinto de apuntar la
+   tarjeta: el hover lo cobra el contenedor y el rótulo es sólo lo que se ve.
+
+   EL COLOR LO PONE QUIEN LA USA, y tiene que ser un token `--spira-acc-deep-*`: son los únicos
+   acentos con versión aclarada para el tema oscuro. Un hex crudo del acento del módulo se ve bien
+   en claro y desaparece en oscuro. Va a 12px/700, o sea texto NORMAL para WCAG: 4,5:1. */
+.spira-dest {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-4px);
+  pointer-events: none;
+  transition: opacity 0.15s var(--spira-ease-out), transform 0.15s var(--spira-ease-out);
+}
+.spira-dest-group:hover .spira-dest,
+.spira-dest-group:focus-visible .spira-dest {
+  opacity: 1;
+  transform: none;
+}
+/* Mismo criterio que el resto: el ESTADO se mantiene (el rótulo aparece, es información), el
+   RECORRIDO desaparece. */
+@media (prefers-reduced-motion: reduce) {
+  .spira-dest { transition: none; }
+}
+
 /* —— Previsualizador ampliable (constancia de IP, tamaño "chica") ——
    Toda la tarjeta de 140px invita a ampliar, no solo el botón "Ampliar" de la esquina —el mock
    (estado 4 de "Tarjeta partida - estados.html") define el hover sobre el `.prev` entero. Mismo
@@ -795,7 +872,7 @@ input:-webkit-autofill:focus {
 }
 .spira-zoom-preview:hover {
   transform: translateY(-1px);
-  box-shadow: var(--spira-shadow-sm);
+  box-shadow: var(--spira-shadow-hover);
 }
 
 /* —— Impresión del comprobante de dispensación ——
