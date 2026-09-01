@@ -37,8 +37,19 @@ export function alertItemStyle(
   return {
     display: 'flex', gap: 11, width: '100%', padding: '12px 13px', borderRadius: 11,
     ...(opts.conBotonDescartar ? { paddingRight: 42 } : null),
-    background: tone + '0E',
-    borderWidth: 1, borderStyle: 'solid', borderColor: tone + '30',
+    /* `color-mix` y NO concatenar hex (`tone + '0E'`), que es como estaba y era un bug de verdad:
+       esa forma sólo funciona si `tone` es un hex de 6 dígitos. La lista de reportes pendientes le
+       pasa un TOKEN (`var(--spira-primary)`), y `var(--spira-primary)0E` no es CSS válido: el
+       navegador descarta las dos declaraciones, el fondo se cae a transparente y el borde a
+       `currentColor` —que en este mismo objeto es `--spira-ink`—, así que esas filas salían con un
+       recuadro casi negro sobre blanco en vez de su superficie teñida. Medido en el navegador:
+       `background: rgba(0,0,0,0)` y `borderColor: rgb(20,48,46)`.
+       Los porcentajes replican EXACTO lo que rendían los hex que sí funcionaban (0E = 5,5 %,
+       30 = 19 %), así que las filas rojas y ámbar no cambian ni un punto. Es el mismo patrón que ya
+       usa `Chip.tsx`, y acepta tanto un hex como un token. */
+    background: `color-mix(in srgb, ${tone} 5.5%, transparent)`,
+    borderWidth: 1, borderStyle: 'solid',
+    borderColor: `color-mix(in srgb, ${tone} 19%, transparent)`,
     textAlign: 'left', cursor: 'pointer',
     fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
   }

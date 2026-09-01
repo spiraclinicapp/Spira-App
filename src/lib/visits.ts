@@ -12,7 +12,18 @@ import { KIND_LABELS, KIND_SHORT } from './visitLabels'
  * del kind para las sueltas ("VNP", "Retest"). Para títulos de modal, ficha, lista vertical.
  */
 export function visitTitle(v: TrackVisitRow): string {
-  if (v.visit_code) return v.visit_name ? `${v.visit_code} - ${v.visit_name}` : v.visit_code
+  if (v.visit_code) {
+    /* "V1 - V1" no es un título, es un tartamudeo. Pasa seguido con datos reales: varios protocolos
+       cargan la definición con el mismo texto en el código y en el nombre, y la pantalla lo repetía
+       dos veces separado por un guión, como si fueran dos datos distintos.
+       Se colapsa SÓLO cuando son idénticos (comparando sin espacios ni mayúsculas). Nada de
+       "contiene a": con "V1" y "V1 basal" el nombre agrega información real, y descartarlo para que
+       lea más lindo sería esconder un dato en una app auditable. */
+    const nombre = v.visit_name?.trim()
+    if (!nombre) return v.visit_code
+    if (nombre.toLocaleLowerCase() === v.visit_code.trim().toLocaleLowerCase()) return v.visit_code
+    return `${v.visit_code} - ${nombre}`
+  }
   return v.visit_name ?? KIND_LABELS[v.kind]
 }
 

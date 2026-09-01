@@ -220,3 +220,26 @@ export function repartirTablero(
 export function contarVencidos(rows: readonly ReportStatusRow[], now: number = Date.now()): number {
   return rows.filter((r) => isOverdue(r, now)).length
 }
+
+/**
+ * Cómo se nombra un reporte en una línea de texto: "<reporte> de <procedimiento>".
+ *
+ * COLAPSA CUANDO LOS DOS SON EL MISMO TEXTO. Con datos reales pasa seguido —varios estudios cargan
+ * la definición del reporte con el nombre del procedimiento— y la pantalla escribía
+ * "Electrocardiograma (ECG) de Electrocardiograma (ECG)", que lee como un error de la app.
+ *
+ * SÓLO cuando son idénticos, y esto importa: "ECG de Electrocardiograma (ECG)" queda tal cual,
+ * aunque el procedimiento contenga al reporte. En la misma visita puede haber DOS reportes del
+ * mismo procedimiento —uno llamado "ECG" y otro "Electrocardiograma (ECG)"—; colapsar por
+ * "contiene a" los dejaría con el mismo rótulo y serían indistinguibles en pantalla. Redundante se
+ * puede leer; ambiguo, no.
+ *
+ * (Si el redundante molesta, la cura no es acá: es nombrar las definiciones de reporte por lo que
+ * el reporte ES, no por el procedimiento del que cuelga.)
+ */
+export function reporteTitulo(reportName: string, procedureName: string): string {
+  const a = reportName.trim()
+  const b = procedureName.trim()
+  if (a.toLocaleLowerCase() === b.toLocaleLowerCase()) return a
+  return `${a} de ${b}`
+}

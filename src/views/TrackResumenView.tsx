@@ -589,7 +589,9 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
         </div>
       ) : (
         <>
-          <div style={{ marginTop: 4 }}>
+          {/* Sin `marginTop` propio: la separación con la banda teñida la pone ahora la cabecera
+              (su margen inferior), para que las dos pantallas que la usan respiren igual. */}
+          <div>
             {visibles.map((a, i) => {
               const c = VISIT_STATES[a.computed_status].color
               const vName = visitTitle(a)
