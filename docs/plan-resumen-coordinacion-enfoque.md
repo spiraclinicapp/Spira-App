@@ -379,6 +379,61 @@ merge de C, no en paralelo.
 
 ---
 
+## Estado de la implementación (2026-09-01)
+
+Rama `feat/resumen-coordinacion-enfoque`, dos commits, **sin migraciones**. `npm run build` verde:
+typecheck + **524 tests** (+18) + build.
+
+**D12, decidida al implementar.** Al abrir el código aparecieron tres hechos que la revisión no
+tenía: (1) `InicioResumenView` **no** lista alertas —sólo cuenta—, así que `alertItemStyle` tenía
+**dos** consumidores y no tres (el comentario que decía "tres" estaba stale y se corrigió);
+(2) `TrackAlertsView` tiene un **tercer** tipo de alerta —reportes de procedimiento, en teal— que
+`severidadMaxima` no rankea; (3) ahí la lista es larga y mezclada, y la superficie teñida es su
+forma de barrido. Resolución: **la cabecera se comparte en las dos pantallas; las filas se aplanan
+sólo en el Resumen.**
+
+**Lo que la medición desmintió.** El riesgo P0 del plan —que la grilla `1fr 1fr` angostara la fila
+de visitas por debajo de su presupuesto— **estaba sobreestimado**. Medido en la notebook de
+referencia (1536×864 → 1185px, viewport emulado):
+
+| | medido |
+|---|---|
+| Columna `1fr 1fr` | **586px** |
+| Bloque de texto disponible | 442px |
+| Línea 2, vocabulario completo | 442px, una sola línea (no envuelve) |
+| Nombre peor caso (30 caracteres) | 237px, sin truncar |
+
+El presupuesto de ~505px del comentario de `VisitSummaryRow` se calculó contra `1fr 1fr` **a 1440**;
+a 1536 esa misma grilla da 586. Se pierden 116px respecto del `1.5fr` anterior y sobra margen.
+
+**Tres bugs que sólo aparecieron midiendo**, ninguno visible leyendo el código:
+
+1. **`background` inline en "Ver todo"** le ganaba por especificidad al `:hover` de
+   `.spira-row-link`: el pie revelaba el rótulo y no se resaltaba. Es el gotcha que
+   `VisitSummaryRow` ya documenta, cometido de nuevo.
+2. **`--spira-primary` en "Ver todo"** (lo que dice el handoff): **2,14:1 en tema oscuro**. Ese token
+   está FIJO en los dos temas; va `--spira-acc-deep-track`.
+3. El `:hover` **no se puede medir con el documento oculto** ni con el viewport en 0×0 — hubo que
+   emular tamaño y apagar transiciones antes de leer `getComputedStyle`, o todo devuelve el valor
+   inicial y se diagnostica un bug que no existe.
+
+**Contraste verificado** en los dos temas, sobre fondo compuesto: claro 5,04–7,51 · oscuro
+6,01–11,95. Todo AA a 12px/700 (texto normal, 4,5:1).
+
+**Verificado con banco de pruebas temporal** (borrado antes de commitear): el Resumen exige sesión y
+el preview es un navegador aparte del del Director. Se comprobaron reposo, `:hover` y
+`:focus-visible` de KPI, fila y pie; el revelado con Tab; las reglas de `prefers-reduced-motion`; y
+el contraste en ambos temas.
+
+### Lo que queda
+
+- **QA logueado**: mirar la pantalla real con datos reales (el banco usa datos de mentira).
+- **Cuenta sólo de Coordinación** para el scopeo de la RLS de dispensaciones — la de QA tiene los
+  cinco módulos y no lo reproduce.
+- Revisar `.spira-link-arrow` con su deslizamiento nuevo en Visitas del día, la cola del médico y
+  Alertas (vive en ~15 pantallas).
+- La sombra de hover nueva es **global**: mirar Inicio y las tarjetas de módulo.
+
 ## GSTACK REVIEW REPORT
 
 | Runs | Status | Findings |
