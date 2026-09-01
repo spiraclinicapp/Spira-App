@@ -42,6 +42,14 @@ export interface TrackVisitRow {
   enrollment_date: string
   /** Médico tratante del paciente. Nullable. Migración 0016 (origen movido a patients en 0020). */
   treating_physician: string | null
+  /**
+   * Coordinador asignado a la visita. Migración 0065; `v_track_visits` los proyecta desde
+   * entonces — sólo faltaba declararlos acá, y esa ausencia hizo creer que la vista no los tenía.
+   * `null` = sin asignar. `coordinator_name` es un snapshot desnormalizado: la RLS de `users` sólo
+   * deja ver la fila propia, así que joinear esa tabla devolvería null para todos los demás.
+   */
+  coordinator_id: string | null
+  coordinator_name: string | null
   protocol_code: string
   protocol_name: string
   patient_code: string | null

@@ -39,6 +39,19 @@ export interface ProcedureReportAlertRow {
   patient_name: string
   visit_name: string | null
   visit_code: string | null
+  /**
+   * Médico tratante y coordinador de la visita. Migración **0103**, y existen para que los filtros
+   * de Médico y Coordinador de la vista de Alertas puedan decidir también sobre esta lista: esa
+   * pantalla muestra dos, y un filtro que sólo sabe de una deja a la otra siempre adentro o siempre
+   * afuera — no filtra, o esconde alertas sin decirlo.
+   *
+   * `treating_physician` viene con el mismo `coalesce` visita→paciente que usa `v_track_visits`
+   * (0079): si se resolviera distinto, la misma persona aparecería bajo dos médicos según de qué
+   * lista viniera su alerta.
+   */
+  treating_physician: string | null
+  coordinator_id: string | null
+  coordinator_name: string | null
 }
 
 /**
