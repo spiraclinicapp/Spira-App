@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="design_doc_mode" content="canvas">
+<title>Spira · Resumen — variantes de enfoque</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; background: #EDE9DD; }
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; }
+  .label { position: absolute; top: -34px; left: 0; font-family: 'Hanken Grotesk', sans-serif; font-weight: 700; font-size: 15px; color: #14302E; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="SpiraVilanos.jsx"></script>
+<script type="text/babel" src="Icons.jsx"></script>
+<script type="text/babel" src="spiraTokens.jsx"></script>
+<script type="text/babel">
+const S = window.SPIRA;
+const accent = "#2E7D74";
+const warnDeep = "#8A631F";
+
+function card(extra) { return { background: S.white, border: `1px solid ${S.line}`, borderRadius: 16, padding: "18px 20px", ...extra }; }
+function outlineBtn(extra) { return { height: 30, padding: "0 12px", borderRadius: 9, border: `1px solid ${S.line2}`, background: S.white, fontFamily: S.fontText, fontSize: 12.5, fontWeight: 600, color: S.ink, cursor: "pointer", display: "inline-flex", alignItems: "center", ...extra }; }
+function dot(bg) { return { width: 7, height: 7, borderRadius: "50%", background: bg, flex: "0 0 auto" }; }
+function pill(bg, color) { return { display: "inline-flex", alignItems: "center", height: 22, padding: "0 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: bg, color }; }
+
+function Row({ children, first }) {
+  const [hover, setHover] = React.useState(false);
+  return <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 20px", margin: "0 -20px", borderTop: first ? "none" : `1px solid ${S.line}`, cursor: "pointer", background: hover ? S.surface : "transparent", transition: "background .15s" }}>{children}</div>;
+}
+
+function VerTodo({ label, first }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", margin: "0 -20px", borderTop: first ? "none" : `1px solid ${S.line}`, fontSize: 12.5, fontWeight: 600, color: S.primary }}>
+      <span onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ cursor: "pointer" }}>Ver todo</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 4, color: accent, opacity: hover ? 1 : 0, transform: hover ? "translateX(0)" : "translateX(-4px)", transition: "opacity .15s, transform .15s" }}>{label} <Icon name="arrowRight" size={13} color={accent} stroke={2.2} /></span>
+    </div>
+  );
+}
+
+const DEST_LABEL = { pacientes: "Pacientes", alertas: "Alertas", visitas: "Visitas", reportes: "Reportes" };
+
+function Stat({ label, value, sub, tone, to }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div
+      onClick={() => console.log("navegar a:", to)}
+      style={card({ display: "flex", flexDirection: "column", gap: 10, cursor: to ? "pointer" : "default", transition: "box-shadow .15s, transform .15s", boxShadow: hover ? "0 4px 14px rgba(20,48,46,.12)" : "none", transform: hover ? "translateY(-1px)" : "none" })}
+      onMouseEnter={() => to && setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: S.muted, fontWeight: 600 }}>
+        <span style={dot(tone)} /><span style={{ flex: 1 }}>{label}</span>
+        {to && <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: accent, opacity: hover ? 1 : 0, transform: hover ? "translateX(0)" : "translateX(-4px)", transition: "opacity .15s, transform .15s" }}>{DEST_LABEL[to] || to} <Icon name="arrowRight" size={12} color={accent} stroke={2.2} /></span>}
+      </div>
+      <div style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 34, letterSpacing: "-0.02em", lineHeight: 1, color: S.ink }}>{value}</div>
+      <div style={{ fontSize: 12, color: S.faint }}>{sub}</div>
+    </div>
+  );
+}
+
+function Shell({ children, rail, titleRight }) {
+  return (
+    <div style={{ width: 1580, minHeight: 860, display: "flex", flexDirection: "column", fontFamily: S.fontText, color: S.ink, background: S.paper, border: `1px solid ${S.line}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 18px 40px rgba(20,48,46,.14)" }}>
+      <header style={{ height: 60, flex: "0 0 60px", borderBottom: `1px solid ${S.line}`, background: S.white, display: "flex", alignItems: "center", padding: "0 18px 0 20px", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+          <Vilano1 size={26} color={S.primary} stroke={1.6} />
+          <span style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 21, letterSpacing: "-0.02em" }}>Spira</span>
+          <span style={{ width: 1, height: 26, background: S.line, margin: "0 5px" }} />
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 26, height: 26, borderRadius: 7, background: accent + "18", display: "grid", placeItems: "center" }}><Icon name="activity" size={15} color={accent} stroke={2} /></span>
+            <span style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 17 }}>Coordinación</span>
+          </span>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 8, width: 210, height: 38, padding: "0 8px 0 12px", border: `1px solid ${S.line2}`, borderRadius: 10, background: S.surface, color: S.muted, fontSize: 13.5 }}>
+            <Icon name="search" size={16} color={S.muted} stroke={1.9} /><span style={{ flex: 1 }}>Buscar…</span>
+          </span>
+          <span style={{ width: 32, height: 32, borderRadius: "50%", background: S.surface, border: `1.5px solid ${S.line2}`, color: S.primary, display: "grid", placeItems: "center", fontFamily: S.fontDisp, fontWeight: 700, fontSize: 12 }}>SC</span>
+        </div>
+      </header>
+      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        <aside style={{ width: 64, flex: "0 0 64px", background: S.white, borderRight: `1px solid ${S.line}` }} />
+        <aside style={{ width: 216, flex: "0 0 216px", background: S.surface, borderRight: `1px solid ${S.line}`, padding: "18px 12px" }}>
+          <div style={{ fontSize: 10.5, letterSpacing: "0.16em", textTransform: "uppercase", color: S.faint, fontWeight: 700, padding: "2px 12px 0" }}>Submódulos</div>
+          <nav style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 14 }}>
+            {[{ icon: "dashboard", name: "Resumen", sub: "Cómo viene el día", on: true }, { icon: "users", name: "Pacientes" }, { icon: "activity", name: "Visitas" }, { icon: "clock", name: "Alertas" }].map((it) => (
+              <div key={it.name} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 12px", borderRadius: 9, background: it.on ? accent + "1f" : "transparent" }}>
+                <Icon name={it.icon} size={17} color={it.on ? accent : S.muted} stroke={1.9} style={{ marginTop: 1 }} />
+                <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  <span style={{ fontSize: 14, fontWeight: it.on ? 600 : 500 }}>{it.name}</span>
+                  {it.sub && <span style={{ fontSize: 11.5, color: S.muted }}>{it.sub}</span>}
+                </span>
+              </div>
+            ))}
+          </nav>
+        </aside>
+        <main style={{ flex: 1, display: "flex", minWidth: 0, overflow: "auto" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <div style={{ padding: "20px 26px 4px", display: "flex", alignItems: "flex-start", gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: S.muted }}>Spira Coordinación <Icon name="chevronRight" size={13} color={S.faint} /> <span style={{ color: S.ink, fontWeight: 600 }}>Resumen</span></div>
+                <div style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 24, letterSpacing: "-0.02em", marginTop: 1 }}>Resumen</div>
+              </div>
+              {titleRight}
+            </div>
+            <div style={{ padding: "14px 26px 26px", display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 14 }}>
+                <Stat label="Protocolos activos" value="6" sub="6 en total" tone={accent} to="pacientes" />
+                <Stat label="Pacientes activos" value="23" sub="23 registrados" tone={S.good} to="pacientes" />
+                <Stat label="Alertas activas" value="3" sub="2 vencidas · 1 por vencer" tone={S.danger} to="alertas" />
+                <Stat label="Visitas asignadas a mí" value="5" sub="próximos 7 días" tone={accent} to="visitas" />
+              </div>
+              {children}
+            </div>
+          </div>
+          {rail && <div style={{ width: 300, flex: "0 0 300px", borderLeft: `1px solid ${S.line}`, background: S.white, padding: 18, display: "flex" }}>{rail}</div>}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function Reportes() {
+  return (
+    <div style={card()}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <span style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 16, flex: 1 }}>Reportes pendientes</span>
+        <span style={{ width: 100, height: 6, borderRadius: 999, background: S.line, overflow: "hidden" }}><span style={{ display: "block", width: "37%", height: "100%", background: accent }} /></span>
+        <span style={{ fontSize: 12.5, color: S.muted }}>3 de 8</span>
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <Row>
+          <span style={{ width: 16, height: 16, borderRadius: 6, border: `1.5px solid ${S.line2}`, flex: "0 0 auto" }} />
+          <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13.5, fontWeight: 600 }}>Firmar 4 visitas de EFC18419</div><div style={{ fontSize: 12, marginTop: 2 }}><span style={{ color: S.muted }}>auditoría el 27 de agosto</span><span style={{ color: S.faint }}> · </span><span style={{ color: warnDeep, fontWeight: 700 }}>vence 25/08</span></div></div>
+          <Icon name="arrowRight" size={15} color={S.muted} stroke={2} />
+        </Row>
+        <Row>
+          <span style={{ width: 16, height: 16, borderRadius: 6, border: `1.5px solid ${S.line2}`, flex: "0 0 auto" }} />
+          <div style={{ flex: 1, minWidth: 0, fontSize: 13.5 }}><span style={{ fontWeight: 600 }}>Reprogramar 2 visitas fuera de ventana</span><span style={{ color: S.faint }}> · </span><span style={{ color: S.danger, fontWeight: 700 }}>atrasada</span></div>
+          <Icon name="arrowRight" size={15} color={S.muted} stroke={2} />
+        </Row>
+        <VerTodo label="Reportes pendientes" />
+      </div>
+    </div>
+  );
+}
+
+function Alertas() {
+  return (
+    <div style={card({ padding: 0, overflow: "hidden" })}>
+      <div style={{ padding: "14px 20px", background: S.danger + "1a", display: "flex", alignItems: "center", gap: 10 }}>
+        <Icon name="clock" size={18} color={S.danger} stroke={2} />
+        <span style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 15, color: S.danger, flex: 1 }}>Alertas</span>
+        <span style={pill(S.white, S.danger)}>3</span>
+      </div>
+      <div style={{ padding: "4px 20px 16px" }}>
+        <Row first>
+          <span style={dot(S.danger)} /><span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>Ventana vencida · V1 · M. Aguirre</span>
+          <Icon name="arrowRight" size={15} color={S.muted} stroke={2} />
+        </Row>
+        <Row>
+          <span style={dot(S.warn)} /><span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>Cierra en 2 días · V17 · R. Benítez</span>
+          <Icon name="arrowRight" size={15} color={S.muted} stroke={2} />
+        </Row>
+        <VerTodo label="Alertas" />
+      </div>
+    </div>
+  );
+}
+
+function Dispensaciones() {
+  return (
+    <div style={card()}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Icon name="clipboardCheck" size={18} color="#3A6B8C" stroke={2} />
+        <span style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 16, flex: 1 }}>Dispensaciones solicitadas</span>
+        <span style={pill("#3A6B8C1e", "#3A6B8C")}>4 pendientes</span>
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <Row first>
+          <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13.5, fontWeight: 600 }}>Insulina glargina · M. Aguirre</div><div style={{ fontSize: 12, marginTop: 2 }}><span style={{ color: S.muted }}>solicitada hace 2 h</span><span style={{ color: S.faint }}> · </span><span style={{ color: "#3A6B8C", fontWeight: 700 }}>preparando</span></div></div>
+          <Icon name="arrowRight" size={15} color={S.muted} stroke={2} />
+        </Row>
+        <Row>
+          <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13.5, fontWeight: 600 }}>Apósitos hidrocoloides · R. Benítez</div><div style={{ fontSize: 12, marginTop: 2 }}><span style={{ color: S.muted }}>solicitada hoy 09:10</span><span style={{ color: S.faint }}> · </span><span style={{ color: S.muted, fontWeight: 700 }}>solicitada</span></div></div>
+          <Icon name="arrowRight" size={15} color={S.muted} stroke={2} />
+        </Row>
+      </div>
+    </div>
+  );
+}
+
+function Pacientes() {
+  return (
+    <div style={card()}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Icon name="users" size={18} color="#3A6B8C" stroke={2} />
+        <span style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 16, flex: 1 }}>Pacientes</span>
+        <span style={{ fontSize: 12, color: S.muted }}>12 vistos hoy</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14 }}>
+        {["MA", "RB", "CD"].map((i) => <span key={i} style={{ width: 30, height: 30, borderRadius: "50%", background: S.surface, border: `1px solid ${S.line}`, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700, color: S.muted }}>{i}</span>)}
+        <span style={{ fontSize: 12.5, color: S.muted }}>y 9 más</span>
+      </div>
+      <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${S.line}`, fontSize: 12.5, fontWeight: 600, color: S.primary, cursor: "pointer" }}>Buscar paciente</div>
+    </div>
+  );
+}
+
+// —— Variante A: Tareas como card ancha con dos columnas internas (vencidas / hoy) ——
+function TareasA() {
+  return (
+    <div style={card()}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Icon name="clipboardCheck" size={19} color={warnDeep} stroke={2} />
+        <span style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 17, flex: 1 }}>Tareas personales</span>
+        <span style={pill("#B0823F1e", warnDeep)}>2 pendientes</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 16 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: S.danger, marginBottom: 8 }}>Vencida</div>
+          <div style={{ background: S.surface, border: `1px solid ${S.line}`, borderRadius: 12, padding: "13px 14px" }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Confirmar horario con Dra. Ibarra</div>
+            <div style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>estimada 15 min · vencida hace 8 min</div>
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: S.muted, marginBottom: 8 }}>Restan 12 min</div>
+          <div style={{ background: S.surface, border: `1px solid ${S.line}`, borderRadius: 12, padding: "13px 14px" }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Llamar a proveedor de insumos</div>
+            <div style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>estimada 30 min</div>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16, paddingTop: 14, borderTop: `1px solid ${S.line}` }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: S.primary, cursor: "pointer" }}>Ver todas</span>
+        <button style={outlineBtn({ background: accent, border: "none", color: S.onAccent })}>+ Nueva tarea</button>
+      </div>
+    </div>
+  );
+}
+
+// —— Variante B: Tareas como columna vertical, ocupa toda la altura de la derecha ——
+function TareasB() {
+  const items = [
+    { t: "Confirmar horario con Dra. Ibarra", m: "vencida hace 8 min", tone: S.danger },
+    { t: "Llamar a proveedor de insumos", m: "restan 12 min", tone: accent },
+    { t: "Revisar consentimiento P-071", m: "hoy · 14:00", tone: S.muted },
+    { t: "Actualizar ficha de M. Aguirre", m: "mañana", tone: S.muted },
+  ];
+  return (
+    <div style={card({ display: "flex", flexDirection: "column", height: "100%" })}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Icon name="clipboardCheck" size={19} color={warnDeep} stroke={2} />
+        <span style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 17, flex: 1 }}>Tareas personales</span>
+        <span style={pill("#B0823F1e", warnDeep)}>4</span>
+      </div>
+      <div style={{ marginTop: 10, flex: 1 }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "13px 0", borderTop: i ? `1px solid ${S.line}` : "none" }}>
+            <span style={{ ...dot(it.tone), marginTop: 6 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{it.t}</div>
+              <div style={{ fontSize: 12, color: S.muted, marginTop: 2 }}>{it.m}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button style={outlineBtn({ background: accent, border: "none", color: S.onAccent, height: 36, justifyContent: "center", marginTop: 8 })}>+ Nueva tarea</button>
+    </div>
+  );
+}
+
+function VariantA() {
+  return (
+    <Shell>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}><Reportes /><Alertas /></div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}><TareasA /><Pacientes /></div>
+      </div>
+    </Shell>
+  );
+}
+
+function VariantB() {
+  return (
+    <Shell>
+      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 14, alignItems: "stretch" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}><Reportes /><Alertas /><Dispensaciones /></div>
+        <TareasB />
+      </div>
+    </Shell>
+  );
+}
+
+// —— Variante C: columna de tareas fija junto al título, corre toda la altura de la página ——
+function VariantC() {
+  return (
+    <Shell rail={<TareasB />}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}><Reportes /><Dispensaciones /></div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}><Alertas /><Pacientes /></div>
+      </div>
+    </Shell>
+  );
+}
+
+// —— Variante D: tarjeta compacta de tareas al lado del título, resto del mosaico a ancho completo ——
+function TareasCompact() {
+  const items = [
+    { t: "Confirmar horario con Dra. Ibarra", m: "vencida hace 8 min", tone: S.danger },
+    { t: "Llamar a proveedor de insumos", m: "restan 12 min", tone: accent },
+  ];
+  return (
+    <div style={card({ width: 360, padding: "14px 16px", flex: "0 0 auto" })}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Icon name="clipboardCheck" size={16} color={warnDeep} stroke={2} />
+        <span style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 14, flex: 1 }}>Tareas personales</span>
+        <span style={pill("#B0823F1e", warnDeep)}>4</span>
+      </div>
+      {items.map((it, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "9px 0", borderTop: i ? `1px solid ${S.line}` : "none" }}>
+          <span style={{ ...dot(it.tone), marginTop: 5 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600 }}>{it.t}</div>
+            <div style={{ fontSize: 11, color: S.muted, marginTop: 1 }}>{it.m}</div>
+          </div>
+        </div>
+      ))}
+      <div style={{ marginTop: 4, paddingTop: 8, borderTop: `1px solid ${S.line}`, fontSize: 12, fontWeight: 600, color: S.primary, cursor: "pointer" }}>Ver las 4 tareas</div>
+    </div>
+  );
+}
+
+function VariantD() {
+  return (
+    <Shell titleRight={<TareasCompact />}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}><Reportes /><Dispensaciones /></div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}><Alertas /><Pacientes /></div>
+      </div>
+    </Shell>
+  );
+}
+
+function App() {
+  const gap = 1650;
+  return (
+    <div style={{ position: "relative", width: gap * 4, height: 960 }}>
+      <div style={{ position: "absolute", left: 0, top: 60 }}><span className="label">A · Tareas personales agrupadas (vencida / próxima), izquierda: pendientes + alertas</span><VariantA /></div>
+      <div style={{ position: "absolute", left: gap, top: 60 }}><span className="label">B · Tareas personales como columna completa a la derecha</span><VariantB /></div>
+      <div style={{ position: "absolute", left: gap * 2, top: 60 }}><span className="label">C · Riel de tareas fijo junto al título, corre toda la altura</span><VariantC /></div>
+      <div style={{ position: "absolute", left: gap * 3, top: 60 }}><span className="label">D · Tarjeta compacta de tareas junto al título</span><VariantD /></div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
