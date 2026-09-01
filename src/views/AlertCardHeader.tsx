@@ -31,7 +31,29 @@ import type { AlertSeverity } from './alertSeverity'
  * SANGRA hasta los bordes de la tarjeta con márgenes negativos que cancelan el padding estándar
  * (`18px 20px`), el mismo truco que usan las filas a ancho completo. Se apoya en que las dos
  * tarjetas que la usan tienen ese padding; si alguna vez se usa en una con otro, hay que parametrizarlo.
+ *
+ * ⚠️ Y POR ESO LLEVA SUS PROPIAS ESQUINAS REDONDEADAS ARRIBA. Una banda teñida que sangra hasta el
+ * borde de una tarjeta redondeada asoma por las cuatro puntas si no las repite: se ve un rectángulo
+ * de color sobresaliendo de la tarjeta, que es exactamente como se veía antes de esta corrección.
+ *
+ * NO se arregla con `overflow: hidden` en la tarjeta, que es el reflejo obvio: eso recortaría
+ * también el `outline-offset: 2px` del foco de teclado de las filas de adentro, y cambiar un defecto
+ * visual por uno de accesibilidad no es arreglarlo.
+ *
+ * El radio es el INTERIOR, no el de la tarjeta: la banda llega al borde del padding, o sea por
+ * dentro del borde de 1px, y ahí la curva del borde ya midió un pixel menos. Con los 16px pelados
+ * queda una luz blanca de un pixel en cada punta — el defecto de al lado, más chico y más difícil
+ * de ver.
  */
+/**
+ * El radio de la CARA INTERNA del borde de la tarjeta: su radio menos el ancho del borde.
+ *
+ * Es la regla de siempre para cualquier cosa que sangre hasta el borde de un contenedor redondeado,
+ * y vale la pena tenerla nombrada: el día que otra banda a ancho completo toque una esquina —una
+ * cabecera teñida en otra tarjeta, un pie de color— este es el valor, no el radio pelado.
+ */
+const RADIO_INTERIOR = 'calc(var(--spira-radius-lg) - 1px)'
+
 export function AlertCardHeader({ severidad, cantidad }: {
   /** La peor alerta de la lista, o `null` si no hay ninguna (cabecera neutra). */
   severidad: AlertSeverity | null
@@ -58,7 +80,13 @@ export function AlertCardHeader({ severidad, cantidad }: {
     <div
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
-        margin: '-18px -20px 0', padding: '14px 20px',
+        /* El `14px` de abajo NO es simetría: es separación. Sin él, el primer ítem de la lista
+           arranca pegado al borde de la banda teñida y su propio borde de color se encima al rojo,
+           que es lo que hace que la tarjeta se lea apretada justo donde más calma hace falta. El
+           tinte tiene que terminar y respirar antes de que empiece la primera alerta. */
+        margin: '-18px -20px 14px', padding: '14px 20px',
+        borderTopLeftRadius: RADIO_INTERIOR,
+        borderTopRightRadius: RADIO_INTERIOR,
         background: fondo,
         borderBottomWidth: severidad ? 0 : 1,
         borderBottomStyle: 'solid',

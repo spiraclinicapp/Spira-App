@@ -5,6 +5,7 @@ import { btnOutline } from '../components/buttons'
 import { FilterDropdown } from '../components/FilterDropdown'
 import type { FilterOption } from '../components/FilterDropdown'
 import { MultiFilterMenu } from '../components/MultiFilterMenu'
+import { ClearFilters, FilterSearch } from '../components/FilterBar'
 import type { MultiFilterOption } from '../components/MultiFilterMenu'
 import { DateNavButton } from '../components/DateNavButton'
 import { todayISO, dayName, formatShortAR } from '../lib/dates'
@@ -350,29 +351,13 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
         <MultiFilterMenu accent={accent} label="Coordinador" icon="user" options={coordOptions} selected={fCoord} onChange={setFCoord} />
         <span style={{ width: 1, height: 22, background: 'var(--spira-line)', margin: '0 2px' }} />
         <FilterDropdown accent={accent} value={group} onChange={(v) => setGroup(v as GroupBy)} options={groupOptions} menuLabel="Ordenar por" prefix="Ordenar por" icon="sliders" deselectable />
-        {anyActive && (
-          <button
-            type="button"
-            onClick={clearAll}
-            style={{ height: 38, padding: '0 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--spira-muted)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <Icon name="x" size={13} color="var(--spira-muted)" /> Limpiar{nFilters > 0 ? ` ${nFilters}` : ''}
-          </button>
-        )}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 12px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', width: 240 }}>
-          <Icon name="search" size={15} color="var(--spira-faint)" />
-          <input
-            className="spira-bare-input"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Paciente, N° o protocolo…"
-            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 13, minWidth: 0 }}
-          />
-          {q && (
-            <button type="button" onClick={() => setQ('')} aria-label="Limpiar búsqueda" style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 0 }}>
-              <Icon name="x" size={13} color="var(--spira-faint)" />
-            </button>
-          )}
+        {anyActive && <ClearFilters n={nFilters} onClear={clearAll} />}
+        {/* Estas dos piezas se extrajeron de acá a `components/FilterBar` cuando Alertas pidió la
+            misma barra ("que se vean iguales y que interactúen igual"). Compartir el componente es
+            lo único que hace que eso siga siendo cierto: dos copias del mismo JSX divergen en el
+            primer ajuste que alguien haga en una sola de las dos. */}
+        <div style={{ marginLeft: 'auto' }}>
+          <FilterSearch value={q} onChange={setQ} placeholder="Paciente, N° o protocolo…" />
         </div>
       </div>
 

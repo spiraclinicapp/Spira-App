@@ -6,8 +6,14 @@ import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { alertItemStyle } from './alertItem'
 import { AlertCardHeader } from './AlertCardHeader'
 import { severidadMaxima } from './alertSeverity'
+import { reporteTitulo } from './track/reportes/estados'
 import { EmptyState } from '../components/EmptyState'
 import { SearchableSelect } from '../components/SearchableSelect'
+import { MultiFilterMenu } from '../components/MultiFilterMenu'
+import type { MultiFilterOption } from '../components/MultiFilterMenu'
+import { FilterDropdown } from '../components/FilterDropdown'
+import { ClearFilters, FilterSearch } from '../components/FilterBar'
+import { coincideBusqueda, opcionesCoordinador, opcionesMedico, SIN_VALOR } from './alertFilters'
 import { Modal } from '../components/Modal'
 import type { TrackVisitRow } from '../data/visits'
 import { useProtocols } from '../data/protocols'
@@ -62,6 +68,15 @@ const AGE_OPTIONS: { value: number; label: string }[] = [
   { value: 30, label: 'Últimos 30 días' },
 ]
 
+/**
+ * Valor centinela de "Reporte pendiente" DENTRO del filtro Estado.
+ *
+ * No es un `computed_status` de visita: los reportes pendientes vienen de otra consulta. Pero
+ * como FILTRO pertenece al mismo eje, porque quien mira piensa "mostrame sólo los reportes", no
+ * "cruzá dos listas". Mismo criterio que `ESPERA_MEDICO` en Visitas del día.
+ */
+const REPORTE_PENDIENTE = 'reporte_pendiente'
+
 /** Fecha de referencia de una alerta para el filtro de antigüedad. */
 function refDate(a: TrackVisitRow): string | null {
   return a.window_end ?? a.estimated_date ?? null
@@ -91,6 +106,12 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
      Viaja en la URL con `codecs.list`, que escapa la coma dentro de cada valor. */
   const [protocolFilter, setProtocolFilter] = useUrlState<string[]>('protocolo', [], { codec: codecs.list })
   const [ageDays, setAgeDays] = useUrlState('antiguedad', 0, { codec: codecs.num })
+  /* Mismos nombres de parámetro que en Visitas del día (`estado`, `buscar`), a propósito: las dos
+     pantallas filtran lo mismo y una URL se lee igual en las dos. */
+  const [fEstado, setFEstado] = useUrlState<string[]>('estado', [], { codec: codecs.list })
+  const [q, setQ] = useUrlState('buscar', '')
+  const [fMed, setFMed] = useUrlState<string[]>('medico', [], { codec: codecs.list })
+  const [fCoord, setFCoord] = useUrlState<string[]>('coordinadora', [], { codec: codecs.list })
   /* Solo el id: `VisitDetail` trae sus propios datos por id (`useVisit`), así que no hace falta
      encontrar la fila ni esperar a que carguen las alertas — por eso una alerta se puede abrir aunque
      los filtros de la vista la dejen fuera. Y por lo mismo va el UUID COMPLETO, no el corto: acortarlo
@@ -135,7 +156,11 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const filtered = useMemo(() => {
     const today = todayISO()
     return allRows.filter((a) => {
+      if (fEstado.length > 0 && !fEstado.includes(a.computed_status)) return false
       if (protocolFilter.length > 0 && !protocolFilter.includes(a.protocol_id)) return false
+      if (fMed.length > 0 && !fMed.includes(a.treating_physician ?? SIN_VALOR)) return false
+      if (fCoord.length > 0 && !fCoord.includes(a.coordinator_id ?? SIN_VALOR)) return false
+      if (!coincideBusqueda(a, q)) return false
       if (ageDays > 0) {
         const ref = refDate(a)
         if (!ref) return false
@@ -144,19 +169,29 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       }
       return true
     })
-  }, [allRows, protocolFilter, ageDays])
+  }, [allRows, fEstado, protocolFilter, fMed, fCoord, q, ageDays])
 
   const filteredProc = useMemo(() => {
     const today = todayISO()
     return procRows.filter((r) => {
+      /* Los reportes pendientes son UNA opción del filtro Estado: si hay estados tildados y el
+         suyo no está, esta lista entera queda afuera. Sin esta línea, tildar "Ventana vencida"
+         dejaría igual todos los reportes abajo y el filtro parecería roto. */
+      if (fEstado.length > 0 && !fEstado.includes(REPORTE_PENDIENTE)) return false
       if (protocolFilter.length > 0 && !protocolFilter.includes(r.protocol_id)) return false
+      /* Los dos campos que la 0103 agregó a `v_procedure_report_alerts`. Sin ellos, tildar un
+         médico dejaba esta lista SIEMPRE entera o SIEMPRE vacía — o el filtro no filtraba, o
+         escondía alertas sin decirlo. */
+      if (fMed.length > 0 && !fMed.includes(r.treating_physician ?? SIN_VALOR)) return false
+      if (fCoord.length > 0 && !fCoord.includes(r.coordinator_id ?? SIN_VALOR)) return false
+      if (!coincideBusqueda(r, q)) return false
       if (ageDays > 0) {
         const age = daysDiffISO(r.report_due_at.slice(0, 10), today)
         if (age > ageDays) return false
       }
       return true
     })
-  }, [procRows, protocolFilter, ageDays])
+  }, [procRows, fEstado, protocolFilter, fMed, fCoord, q, ageDays])
 
   if (loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title="Cargando alertas…" description="Un momento." />
@@ -185,37 +220,80 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   /* Sin "Todos los protocolos" como opción: con selección múltiple sería una opción tildeable que
      tendría que destildar a las demás, y se leería como una más de la lista. Ninguno tildado ya
      significa todos, y el placeholder lo dice. */
-  const protocolOptions = protoOptions.map((p) => ({ value: p.id, label: p.code }))
   const ageOptions = AGE_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))
+
+  /* Opciones CON CONTEO, igual que en Visitas: el número dice cuántas alertas caen en cada opción
+     ANTES de aplicar ese menú, así se ve qué va a pasar antes de tildar. Un filtro que deja la
+     lista vacía y no lo avisó es la forma más rápida de que alguien crea que no hay alertas. */
+  const protoMultiOptions: MultiFilterOption[] = protoOptions.map((p) => ({
+    value: p.id,
+    label: p.code,
+    count: allRows.filter((a) => a.protocol_id === p.id).length
+      + procRows.filter((r) => r.protocol_id === p.id).length,
+  }))
+
+  /* Los TRES avisos de esta pantalla en un solo eje. Los dos primeros son estados calculados de la
+     visita; el tercero no lo es —es un reporte pendiente, que vive en otra consulta— pero como
+     FILTRO pertenece acá: quien mira piensa "mostrame sólo los reportes", no "cruzá dos listas". */
+  const estadoOptions: MultiFilterOption[] = [
+    { value: 'ventana_vencida', label: VISIT_STATES.ventana_vencida.label, count: allRows.filter((a) => a.computed_status === 'ventana_vencida').length },
+    { value: 'item_vencido', label: VISIT_STATES.item_vencido.label, count: allRows.filter((a) => a.computed_status === 'item_vencido').length },
+    { value: REPORTE_PENDIENTE, label: 'Reporte pendiente', count: procRows.length },
+  ]
+
+  /* Las dos listas juntas: un médico que sólo tiene reportes pendientes tiene que aparecer igual
+     en el menú, o sus alertas quedan inalcanzables por filtro (0103 es lo que lo hace posible). */
+  const medOptions = opcionesMedico([allRows, procRows])
+  const coordOptions = opcionesCoordinador([allRows, procRows])
+
+  const nFiltros = fEstado.length + protocolFilter.length + fMed.length + fCoord.length + (ageDays > 0 ? 1 : 0)
+  const hayFiltros = nFiltros > 0 || q.trim() !== ''
+  const limpiarFiltros = () => {
+    setFEstado([]); setProtocolFilter([]); setFMed([]); setFCoord([]); setAgeDays(0); setQ('')
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 180 }}>
-          <SearchableSelect
-            multiple
-            value={protocolFilter}
-            onChange={setProtocolFilter}
-            options={protocolOptions}
-            placeholder="Todos los protocolos"
-            pluralLabel="protocolos"
-            searchPlaceholder="Buscar protocolo…"
-            entity="protocolo"
-            mono
-            menuWidth="auto"  // mismo filtro de protocolo que Recepción: opciones largas, menú al contenido
-          />
+      {/* LA MISMA BARRA QUE "VISITAS DEL DÍA", con los mismos componentes y no con copias parecidas
+          (pedido del Director: "que se vean iguales y que interactúen igual"). `MultiFilterMenu` ya
+          era compartido; el buscador y el botón de limpiar se extrajeron a `components/FilterBar`
+          en este mismo cambio, y Visitas pasó a usarlos también — que es lo único que garantiza que
+          sigan iguales cuando alguien ajuste uno.
+
+          FALTAN MÉDICO Y COORDINADOR, y no por olvido: ninguna de las dos consultas de esta
+          pantalla los trae. `v_track_visits` no proyecta el coordinador (vive en `patient_visits`
+          desde la 0065) y la vista de alertas de reporte tampoco trae el médico tratante. Dibujar
+          esos dos menús con las opciones vacías sería un filtro que finge filtrar; entran con la
+          migración que los exponga. Ver TODOS.md. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <MultiFilterMenu accent={accent} label="Estado" icon="filter" options={estadoOptions} selected={fEstado} onChange={setFEstado} />
+        <MultiFilterMenu accent={accent} label="Protocolo" icon="file" options={protoMultiOptions} selected={protocolFilter} onChange={setProtocolFilter} searchPlaceholder="Buscar protocolo…" />
+        <MultiFilterMenu accent={accent} label="Médico" icon="users" options={medOptions} selected={fMed} onChange={setFMed} />
+        <MultiFilterMenu accent={accent} label="Coordinador" icon="user" options={coordOptions} selected={fCoord} onChange={setFCoord} />
+        <span style={{ width: 1, height: 22, background: 'var(--spira-line)', margin: '0 2px' }} />
+        {/* La antigüedad es un UMBRAL, no una selección múltiple: "últimos 7 días" y "últimos 30"
+            no se suman, uno contiene al otro. Por eso va en el desplegable simple, el mismo hueco
+            que en Visitas ocupa "Ordenar por". */}
+        <FilterDropdown
+          accent={accent}
+          value={String(ageDays)}
+          onChange={(v) => setAgeDays(Number(v))}
+          options={ageOptions}
+          menuLabel="Antigüedad"
+          prefix="Antigüedad"
+          icon="clock"
+        />
+        {hayFiltros && <ClearFilters n={nFiltros} onClear={limpiarFiltros} />}
+        <div style={{ marginLeft: 'auto' }}>
+          <FilterSearch value={q} onChange={setQ} placeholder="Paciente, N° o protocolo…" />
         </div>
-        <div style={{ minWidth: 170 }}>
-          <SearchableSelect
-            value={String(ageDays)}
-            onChange={(v) => setAgeDays(Number(v))}
-            options={ageOptions}
-            placeholder="Cualquier antigüedad"
-            searchPlaceholder="Buscar…"
-            entity="antigüedad"
-          />
-        </div>
-        <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--spira-muted)' }}>
+      </div>
+
+      {/* El recuento y las descartadas bajan a su propia línea: son el RESULTADO de la barra, no un
+          control más de ella. Arriba competían por el mismo borde derecho que el buscador y hacían
+          que la fila envolviera en la notebook de referencia. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -6 }}>
+        <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
           {filtered.length + filteredProc.length} de {allRows.length + procRows.length}{' '}
           {allRows.length + procRows.length === 1 ? 'alerta' : 'alertas'}
         </span>
@@ -252,7 +330,17 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {filteredProc.map((r) => {
-              const c = 'var(--spira-primary)'
+              /* Azul de "en curso" y no el petróleo de marca, que es lo que había.
+                 Dos motivos. Uno semántico: el petróleo es el acento del módulo y el color del ítem
+                 de navegación activo, así que una fila teñida con él se lee como "seleccionada"
+                 antes que como una clase de alerta. Y uno de jerarquía: de los tres avisos de esta
+                 pantalla, un reporte pendiente es el MENOS grave —todavía está en plazo— y el azul
+                 lo dice sin competir con el rojo de ventana vencida ni con el ámbar del vencido.
+                 No es un color inventado: es el mismo `--spira-acc-deep-blue` que ya marca
+                 "preparando" en dispensaciones y "realizada" en los estados de visita, y tiene
+                 variante aclarada para el tema oscuro (un hex crudo acá desaparecería). Se
+                 distingue de los otros dos por matiz Y por luminancia, como pide PRODUCT.md. */
+              const c = 'var(--spira-acc-deep-blue)'
               // report_due_at = completed_at + ETA (hora arbitraria); la antigüedad en días es
               // aproximada (±1 día cerca de medianoche UTC).
               const days = daysDiffISO(r.report_due_at.slice(0, 10), todayISO())
@@ -289,7 +377,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                       <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}>· <span style={code}>{r.protocol_code}</span></span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
-                      Reporte pendiente · {r.report_name} de {r.procedure_name}{days > 0 ? ` · hace ${days} d` : ''}
+                      Reporte pendiente · {reporteTitulo(r.report_name, r.procedure_name)}{days > 0 ? ` · hace ${days} d` : ''}
                     </div>
                   </div>
                 </div>
@@ -302,7 +390,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                   onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--spira-faint)' }}
                   onClick={() => setDismissing({
                     kind: 'reporte_procedimiento', visitId: r.visit_id, reportDefinitionId: r.report_definition_id,
-                    label: `${r.report_name} de ${r.procedure_name} · ${r.patient_name}`,
+                    label: `${reporteTitulo(r.report_name, r.procedure_name)} · ${r.patient_name}`,
                   })}
                 >
                   <Icon name="x" size={15} />
@@ -399,7 +487,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
               const pac = vis ?? rep ?? null
               const abrirPac = abrirFicha && pac ? () => abrirFicha(pac.patient_id, pac.protocol_id) : undefined
               const detalle = d.kind === 'reporte_procedimiento'
-                ? (rep ? `${rep.report_name} de ${rep.procedure_name}` : 'Reporte de procedimiento')
+                ? (rep ? reporteTitulo(rep.report_name, rep.procedure_name) : 'Reporte de procedimiento')
                 : (vis ? `${VISIT_STATES[vis.computed_status].label} · ${visitTitle(vis)}` : 'Alerta de visita')
               return (
                 <div key={d.id} style={dismissedRow}>

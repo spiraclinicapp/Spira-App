@@ -3,6 +3,7 @@ import type { ReportStatusRow } from '../../../data/reportStatus'
 import {
   canUntickProcedure, closedBy, contarVencidos, dueLabel, isOverdue, isStage,
   nextStage, porEtapa, prevStage, repartirTablero, visitClosed,
+  reporteTitulo,
 } from './estados'
 
 /**
@@ -261,5 +262,27 @@ describe('guard del destilde', () => {
       row({ report_definition_id: 'c', stage: 'pendiente' }),
     ])
     expect(r).toEqual({ puede: false, avanzados: 2 })
+  })
+})
+
+describe('reporteTitulo', () => {
+  /* La regla es "iguales", no "contiene a", y ese matiz es todo el test: en una misma visita puede
+     haber DOS reportes del mismo procedimiento —uno llamado "ECG" y otro "Electrocardiograma
+     (ECG)"—, y colapsar por "contiene" los dejaría con el mismo rótulo, indistinguibles en
+     pantalla. Redundante se puede leer; ambiguo, no. */
+  it('colapsa cuando el reporte y el procedimiento son el mismo texto', () => {
+    expect(reporteTitulo('Electrocardiograma (ECG)', 'Electrocardiograma (ECG)')).toBe('Electrocardiograma (ECG)')
+  })
+
+  it('colapsa con diferencias de mayúsculas o espacios', () => {
+    expect(reporteTitulo(' Holter ', 'holter')).toBe('Holter')
+  })
+
+  it('NO colapsa cuando el procedimiento sólo CONTIENE al reporte', () => {
+    expect(reporteTitulo('ECG', 'Electrocardiograma (ECG)')).toBe('ECG de Electrocardiograma (ECG)')
+  })
+
+  it('compone normalmente cuando son distintos', () => {
+    expect(reporteTitulo('Informe del cardiólogo', 'Ergometría')).toBe('Informe del cardiólogo de Ergometría')
   })
 })

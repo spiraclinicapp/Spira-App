@@ -50,6 +50,15 @@ export interface NavTarget {
    * porque resuelve una persona y no un enrolamiento. Ver `resolverFichaDestino`.
    */
   protocolId?: string
+  /**
+   * Pestaña con la que abrir el DETALLE del protocolo. La manda quien sabe a qué venís: el Resumen
+   * de Coordinación abre en 'reportes' desde su tarjeta de reportes pendientes, porque ahí es donde
+   * ese reporte se gestiona. Sin esto, el salto aterriza en 'pacientes' y hay que buscar la pestaña
+   * a mano, que es medio viaje.
+   *
+   * Va junto con `protocolId` y SIN `patientId`: es el detalle del protocolo, no la ficha de nadie.
+   */
+  protocolTab?: 'pacientes' | 'cronograma' | 'reportes'
   /** Visita concreta a abrir (su modal en "Visitas del día"). */
   visitId?: string
   /**
