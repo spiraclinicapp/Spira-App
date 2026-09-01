@@ -153,3 +153,34 @@ export async function setReportStage(
   if (error) return { error: reportStatusErrorMessage(error.code, error.message) }
   return { error: null }
 }
+
+/**
+ * Reportes de TODOS los protocolos, para la tarjeta "Reportes pendientes" del Resumen de
+ * Coordinación.
+ *
+ * Es la misma vista que el tablero por protocolo, sin el `.eq('protocol_id', …)`. Vale la pena
+ * dejarlo escrito porque en la revisión del handoff se dio por sentado lo contrario —"el tablero es
+ * por protocolo, no hay consulta global"— y eso hizo que la tarjeta quedara fuera de alcance por
+ * una tarde: el filtro por protocolo era una decisión de `useProtocolReportStatus`, no un límite de
+ * `v_protocol_report_status`.
+ *
+ * NO HACE FALTA FILTRAR POR PERMISO acá: la RLS de las tablas de abajo ya scopea la vista por
+ * protocolo coordinado, en silencio y del lado del servidor. Quien coordina dos estudios ve los
+ * reportes de esos dos; gerencia los ve todos. Corolario de siempre: la cuenta de QA tiene los
+ * cinco módulos, así que NO reproduce ese scopeo — para verlo hace falta una cuenta acotada.
+ *
+ * `visita_iniciada` es el mismo filtro del tablero: un reporte cuya visita todavía no arrancó no es
+ * una tarjeta, porque su plazo ni siquiera empezó a correr.
+ */
+export function useReportesPendientes() {
+  return useSupabaseQuery<ReportStatusRow[]>(
+    (c) =>
+      c
+        .from('v_protocol_report_status')
+        .select('*')
+        .eq('visita_iniciada', true)
+        .order('due_at', { ascending: true, nullsFirst: false })
+        .returns<ReportStatusRow[]>(),
+    [],
+  )
+}
