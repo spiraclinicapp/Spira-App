@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
@@ -5,6 +6,7 @@ import { AlertCardHeader } from './AlertCardHeader'
 import { severidadMaxima } from './alertSeverity'
 import { KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
+import { recortarGrupos } from './resumen/recorte'
 import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
 import { useUpcomingVisits } from '../data/visits'
@@ -128,8 +130,19 @@ function KpiCard({ label, value, sub, dot, cargando, kpi, onNavigate }: {
 }
 
 /**
- * El pie "Ver todo" de una tarjeta: a la izquierda el texto fijo, a la derecha el nombre del
- * submódulo revelado al apuntarlo.
+ * Cuántas filas muestra una tarjeta antes de mandar el resto al pie.
+ *
+ * Tres es el número que pidió el Director, y tiene una razón que se ve en pantalla: con cuatro
+ * tarjetas en el mosaico, la que se estira decide el alto de su columna y empuja a la de abajo
+ * fuera de vista. Tres filas dejan las cuatro comparables de un vistazo, que es lo que un resumen
+ * tiene que dar; lo que no entra NO se esconde — cada pie dice cuántas faltan y cómo verlas.
+ */
+const MAX_FILAS = 3
+
+/**
+ * El pie "Ver más" que NAVEGA: a la izquierda el texto, a la derecha el nombre del submódulo
+ * revelado al apuntarlo. Lo llevan las tarjetas cuya lista completa existe como pantalla —Alertas y
+ * Próximas visitas—, porque ahí "ver más" es literalmente ir a verla.
  *
  * VA EN UN `<button>` A ANCHO COMPLETO, y ahí se separa del mock a propósito. En el handoff el
  * listener de hover vive en un `<span>` que **no tiene ningún `onClick`**: es un pie que parece un
@@ -138,20 +151,14 @@ function KpiCard({ label, value, sub, dot, cargando, kpi, onNavigate }: {
  *
  * `.spira-no-press` porque hereda la micro-interacción global y se levantaría 1px: acá el realce es
  * el revelado del rótulo, no un salto. Mismo criterio que `PatientLink`.
- *
- * SÓLO LO LLEVA ALERTAS (decisión D11). Ni la tarjeta de visitas ni la de dispensaciones: el
- * submódulo Visitas muestra EL DÍA y no los próximos siete, así que un "Ver todo" ahí prometería
- * una lista que esa pantalla no da; y las dispensaciones no tienen submódulo alcanzable para quien
- * coordina —su destino por fila ya es la visita—. El pie aparece donde hay una lista completa a la
- * que ir, no como adorno de cierre de tarjeta.
  */
-function VerTodo({ nombre, onClick }: { nombre: string; onClick: () => void }) {
+function VerMas({ nombre, restantes, onClick }: { nombre: string; restantes: number; onClick: () => void }) {
   return (
     <button
       type="button"
       className="spira-row-link spira-no-press spira-dest-group"
       onClick={onClick}
-      aria-label={`Ver todo en ${nombre}`}
+      aria-label={restantes > 0 ? `Ver las ${restantes} restantes en ${nombre}` : `Ver todo en ${nombre}`}
       /* SIN `background` inline: `.spira-row-link` ya declara el transparente de reposo, y un
          inline le ganaría por especificidad al `:hover` de la clase — el pie revelaría el rótulo
          pero no se resaltaría, que es medio gesto. Es el mismo gotcha que documenta
@@ -168,8 +175,46 @@ function VerTodo({ nombre, onClick }: { nombre: string; onClick: () => void }) {
         fontSize: 12.5, fontWeight: 600, color: 'var(--spira-acc-deep-track)',
       }}
     >
-      Ver todo
+      Ver más{restantes > 0 ? ` (${restantes})` : ''}
       <ChipDestino nombre={nombre} />
+    </button>
+  )
+}
+
+/**
+ * El pie "Ver más" que DESPLIEGA ahí mismo, para las tarjetas que no tienen una pantalla a la que
+ * mandar: Reportes pendientes (Coordinación no tiene submódulo Reportes) y Dispensaciones
+ * solicitadas (viven en Farmacia, que quien coordina puede no tener).
+ *
+ * Es deliberadamente DISTINTO del que navega, y se nota a simple vista: dice cuántas faltan y lleva
+ * un chevron en vez del rótulo de un submódulo. Dos acciones distintas no pueden verse iguales — un
+ * mismo "Ver más" que a veces te saca de la pantalla y a veces no es de las cosas que se aprenden
+ * sólo probando.
+ *
+ * `aria-expanded` porque es lo que convierte esto en un control entendible para un lector de
+ * pantalla: sin él, "Ver más" y "Ver menos" son dos botones distintos apareciendo y desapareciendo.
+ */
+function VerMasLocal({ restantes, expandido, onToggle }: {
+  restantes: number
+  expandido: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="spira-row-link spira-no-press"
+      onClick={onToggle}
+      aria-expanded={expandido}
+      aria-label={expandido ? 'Ver menos' : `Ver las ${restantes} restantes`}
+      style={{
+        ...filaAncha,
+        alignItems: 'center', justifyContent: 'space-between',
+        marginTop: 'auto',
+        fontSize: 12.5, fontWeight: 600, color: 'var(--spira-acc-deep-track)',
+      }}
+    >
+      {expandido ? 'Ver menos' : `Ver más (${restantes})`}
+      <Icon name={expandido ? 'chevronUp' : 'chevronDown'} size={14} stroke={2.4} />
     </button>
   )
 }
@@ -199,28 +244,32 @@ function CardHeader({ icon, color, titulo, extra }: {
  * · **Los textos de ejemplo.** "Firmar 4 visitas de EFC18419", "Reprogramar 2 visitas fuera de
  *   ventana": eso no son reportes, son tareas. El renglón real dice qué reporte, de qué paciente y
  *   para cuándo, que es lo que la vista sabe.
- * · **El pie "Ver todo"** (decisión D14): el tablero de reportes vive adentro del detalle de cada
- *   protocolo y Coordinación no tiene un submódulo "Reportes" al que mandar. Antes que prometer un
- *   destino que no existe, la tarjeta no lo lleva — y por eso tampoco recorta la lista: si mostrara
- *   sólo los primeros, los demás no quedarían en ningún lado.
+ * · **Un pie que navegue.** Coordinación no tiene submódulo "Reportes" al que mandar, así que el
+ *   pie DESPLIEGA la lista acá mismo en vez de prometer un lugar que no existe. Lo que sí navega es
+ *   cada FILA, y va al tablero de SU protocolo con la pestaña ya abierta, que es donde ese reporte
+ *   se gestiona de verdad.
  *
  * La barra de progreso son los EVOLUCIONADOS sobre el total, que es el único par de números que
  * significa algo acá: cuántos de los reportes en juego ya están cerrados.
  */
-function ReportesCard({ rows, loading, error, onReintentar, onOpenVisit, onOpenPatient }: {
+function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOpenPatient }: {
   rows: ReportStatusRow[]
   loading: boolean
   error: string | null
   onReintentar: () => void
-  onOpenVisit?: (visitId: string) => void
+  /** Abre el tablero de reportes DEL PROTOCOLO de esa fila (detalle del protocolo, pestaña abierta). */
+  onOpenReportes?: (protocolId: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
 }) {
+  const [expandido, setExpandido] = useState(false)
   /* `esTarjeta` = el procedimiento está marcado realizado. Antes de eso el plazo no arrancó y el
      reporte no es todavía nada que gestionar (misma regla que el tablero, ya testeada). */
   const tarjetas = rows.filter(esTarjeta)
   const resueltos = tarjetas.filter((r) => r.stage === 'evolucionado').length
   const pendientes = tarjetas.filter((r) => r.stage !== 'evolucionado')
   const pct = tarjetas.length === 0 ? 0 : Math.round((resueltos / tarjetas.length) * 100)
+  const visibles = expandido ? pendientes : pendientes.slice(0, MAX_FILAS)
+  const restantes = pendientes.length - visibles.length
 
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
@@ -251,9 +300,9 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenVisit, onOpenP
         </div>
       ) : (
         <div style={{ marginTop: 8 }}>
-          {pendientes.map((r, i) => {
+          {visibles.map((r, i) => {
             const plazo = dueLabel(r)
-            const abrir = onOpenVisit ? () => onOpenVisit(r.visit_id) : undefined
+            const abrir = onOpenReportes ? () => onOpenReportes(r.protocol_id) : undefined
             const visita = r.visit_code ?? r.visit_name ?? '—'
             return (
               <div
@@ -266,7 +315,7 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenVisit, onOpenP
                   if (e.target !== e.currentTarget) return
                   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir() }
                 } : undefined}
-                aria-label={abrir ? `Abrir la visita de ${r.patient_name} — ${r.report_name}, ${plazo.texto}` : undefined}
+                aria-label={abrir ? `Abrir los reportes pendientes de ${r.protocol_code} — ${r.report_name} de ${r.patient_name}, ${plazo.texto}` : undefined}
                 style={{ ...filaAncha, alignItems: 'center', ...(i === 0 ? { borderTopWidth: 0 } : null), ...(abrir ? null : { cursor: 'default' }) }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -296,6 +345,9 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenVisit, onOpenP
             )
           })}
         </div>
+      )}
+      {(restantes > 0 || expandido) && (
+        <VerMasLocal restantes={restantes} expandido={expandido} onToggle={() => setExpandido((v) => !v)} />
       )}
     </div>
   )
@@ -440,19 +492,23 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
         EL MOSAICO — dos tarjetas por columna, parejo (D2 + D13).
 
           ┌──────────────────────────┬──────────────────────────┐
-          │ Reportes pendientes      │ Próximas visitas · 7 d   │
-          │  (lo que hay que cerrar) │  (quién viene)           │
+          │ Reportes pendientes      │ Dispensaciones solicit.  │
+          │  (lo que hay que cerrar) │  (lo que estás esperando)│
           ├──────────────────────────┼──────────────────────────┤
-          │ Alertas                  │ Dispensaciones solicit.  │
-          │  (lo que se pasó)        │  (lo que estás esperando)│
+          │ Alertas                  │ Próximas visitas · 7 d   │
+          │  (lo que se pasó)        │  (quién viene)           │
           └──────────────────────────┴──────────────────────────┘
 
         La izquierda es TRABAJO PROPIO —reportes que cerrar, desvíos que resolver—; la derecha es lo
-        que depende de otros: pacientes que van a venir y pedidos que Farmacia tiene que atender.
+        que depende de otros: pedidos que Farmacia tiene que atender y pacientes que van a venir.
         Esa es la lectura que hace que la columna izquierda se mire primero.
 
-        Cuando entren las Tareas personales van arriba a la derecha y Dispensaciones baja a la
-        izquierda; por eso cada tarjeta es un componente con nombre y esta grilla son cuatro líneas.
+        Las visitas van ABAJO de todo en su columna (pedido del Director): es la única lista que
+        crece sin techo —agrupa por día— así que arriba empujaría a la de dispensaciones fuera de
+        vista cada vez que la semana viene cargada.
+
+        Cuando entren las Tareas personales van arriba a la derecha; por eso cada tarjeta es un
+        componente con nombre y esta grilla son cuatro líneas.
 
         `align-items: start` para que ninguna columna estire sus tarjetas al alto de la otra: sin
         eso, una tarjeta de dos renglones al lado de una lista larga se dibuja con un vacío enorme.
@@ -464,7 +520,10 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
             loading={reportes.loading}
             error={reportes.error}
             onReintentar={reportes.refetch}
-            onOpenVisit={onNavigate && ((visitId) => onNavigate('track', 'visitas', { visitId }))}
+            /* Al tablero de reportes DEL PROTOCOLO de esa fila, con la pestaña ya abierta —
+               `/coordinacion/pacientes/<código>?tab=reportes`. Ahí es donde el reporte se mueve de
+               etapa; abrir la visita sería dejar a la persona a un paso todavía. */
+            onOpenReportes={onNavigate && ((protocolId) => onNavigate('track', 'protocolos', { protocolId, protocolTab: 'reportes' }))}
             onOpenPatient={abrirFicha}
           />
           <AlertasCard
@@ -479,6 +538,14 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+          <DispensacionesCard
+            rows={solicitudRows}
+            loading={solicitudes.loading}
+            error={solicitudes.error}
+            onReintentar={solicitudes.refetch}
+            onOpenVisit={onNavigate && ((visitId) => onNavigate('track', 'visitas', { visitId }))}
+            onOpenPatient={abrirFicha}
+          />
           <VisitasCard
             groups={groups}
             accent={accent}
@@ -487,14 +554,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
             onReintentar={upcoming.refetch}
             onOpenVisit={onNavigate && ((visitId, visitDate) => onNavigate('track', 'visitas', { visitId, visitDate }))}
             onOpenPatient={abrirFicha}
-          />
-          <DispensacionesCard
-            rows={solicitudRows}
-            loading={solicitudes.loading}
-            error={solicitudes.error}
-            onReintentar={solicitudes.refetch}
-            onOpenVisit={onNavigate && ((visitId) => onNavigate('track', 'visitas', { visitId }))}
-            onOpenPatient={abrirFicha}
+            onVerMas={onNavigate ? () => onNavigate('track', 'visitas') : undefined}
           />
         </div>
       </div>
@@ -512,6 +572,10 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
   onOpenPatient?: (patientId: string, protocolId: string) => void
   onVerTodo?: () => void
 }) {
+  /* El contador de la cabecera cuenta TODAS, no las visibles: recortar la lista no puede cambiar
+     cuántas alertas hay — ése es el número que importa y el que la campana también muestra. */
+  const visibles = rows.slice(0, MAX_FILAS)
+  const restantes = rows.length - visibles.length
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
       <AlertCardHeader severidad={severidadMaxima(rows)} cantidad={rows.length} />
@@ -526,7 +590,7 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
       ) : (
         <>
           <div style={{ marginTop: 4 }}>
-            {rows.map((a, i) => {
+            {visibles.map((a, i) => {
               const c = VISIT_STATES[a.computed_status].color
               const vName = visitTitle(a)
               const motivo = a.computed_status === 'ventana_vencida'
@@ -582,13 +646,13 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
           </div>
         </>
       )}
-      {onVerTodo && <VerTodo nombre="Alertas" onClick={onVerTodo} />}
+      {onVerTodo && <VerMas nombre="Alertas" restantes={restantes} onClick={onVerTodo} />}
     </div>
   )
 }
 
 /** Próximas visitas del cronograma (7 días), agrupadas por día. */
-function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit, onOpenPatient }: {
+function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit, onOpenPatient, onVerMas }: {
   groups: { date: string; visits: TrackVisitRow[] }[]
   accent: string
   loading: boolean
@@ -596,7 +660,11 @@ function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit
   onReintentar: () => void
   onOpenVisit?: (visitId: string, visitDate?: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
+  onVerMas?: () => void
 }) {
+  /* El recorte respeta los grupos de día y nunca deja un encabezado sin visitas debajo; la regla
+     está en `recortarGrupos`, con su test, porque acá un off-by-one esconde una visita en silencio. */
+  const { grupos: visibles, restantes } = recortarGrupos(groups, MAX_FILAS)
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -613,7 +681,7 @@ function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit
         </div>
       ) : (
         <div style={{ marginTop: 6 }}>
-          {groups.map((g) => (
+          {visibles.map((g) => (
             <div key={g.date}>
               <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--spira-muted)', fontWeight: 700, padding: '12px 0 6px' }}>
                 {dayLabel(g.date)}
@@ -636,6 +704,12 @@ function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit
           ))}
         </div>
       )}
+      {/* El pie NAVEGA al submódulo Visitas. Ojo con lo que promete: esa pantalla muestra EL DÍA,
+          no los próximos siete, así que el rótulo dice "Ver más" y no "Ver todo" — te lleva a
+          seguir mirando visitas, no a la misma lista de siete días, que no existe en otro lado. */}
+      {onVerMas && groups.length > 0 && (
+        <VerMas nombre="Visitas" restantes={restantes} onClick={onVerMas} />
+      )}
     </div>
   )
 }
@@ -649,6 +723,9 @@ function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, o
   onOpenVisit?: (visitId: string) => void
   onOpenPatient?: (patientId: string, protocolId?: string) => void
 }) {
+  const [expandido, setExpandido] = useState(false)
+  const visibles = expandido ? rows : rows.slice(0, MAX_FILAS)
+  const restantes = rows.length - visibles.length
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
       <CardHeader
@@ -673,7 +750,7 @@ function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, o
         </div>
       ) : (
         <div style={{ marginTop: 8 }}>
-          {rows.map((s, i) => (
+          {visibles.map((s, i) => (
             <SolicitudRow
               key={s.id}
               s={s}
@@ -688,8 +765,12 @@ function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, o
           ))}
         </div>
       )}
-      {/* Sin "Ver todo" a propósito (D11): Farmacia › Dispensaciones exige un módulo que quien
-          coordina puede no tener, y el destino por fila ya es la visita. */}
+      {/* El pie DESPLIEGA acá mismo y no navega (D11 + D15): Farmacia › Dispensaciones exige un
+          módulo que quien coordina puede no tener, así que mandar ahí le dejaría un pie muerto a
+          media plantilla. El destino por fila ya es la visita, que sí está garantizado. */}
+      {(restantes > 0 || expandido) && (
+        <VerMasLocal restantes={restantes} expandido={expandido} onToggle={() => setExpandido((v) => !v)} />
+      )}
     </div>
   )
 }

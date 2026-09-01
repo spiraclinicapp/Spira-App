@@ -23,7 +23,7 @@ import { EditProtocolForm } from './EditProtocolForm'
 import { navDesdePath, pathDesdeNav, resolverFichaDestino } from './protocolsNav'
 import type { Nav } from './protocolsNav'
 import { NotFoundView } from '../shell/NotFoundView'
-import type { ViewProps } from './types'
+import type { NavTarget, ViewProps } from './types'
 
 /* Identidad de una posición interna, para comparar "¿seguimos donde nos dejaron?". Con el paciente
    incluido: pasar de una ficha a la de otro paciente SÍ es haberse ido. */
@@ -151,6 +151,10 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
   })
   const [creating, setCreating] = useState<null | 'protocol' | 'patient'>(null)
   const [editingProtocol, setEditingProtocol] = useState(false)
+  /* Pestaña con la que abrir el detalle del protocolo cuando llegamos con un objetivo que la
+     declara. Sobrevive al `onTargetConsumed` (que limpia el navTarget) porque el detalle se monta
+     recién en el render siguiente; de ahí en más la URL manda y esto no vuelve a mirarse. */
+  const [tabPendiente, setTabPendiente] = useState<NavTarget['protocolTab']>(undefined)
 
   /* Objetivo del buscador global: abrir la ficha de un paciente directo. La ficha necesita el
      protocolo de contexto; como un paciente puede estar en varios, se toma su enrolamiento
@@ -161,13 +165,30 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
      corre en `replace`, no queda un "atrás" que lo arregle— y consumimos el objetivo una sola vez
      —haya o no ficha que abrir— para que un refetch no lo reabra solo. */
   useEffect(() => {
-    if (!navTarget?.patientId) return
     if (patients.loading || protocols.loading) return
+
+    /* SIN paciente pero CON protocolo: no es "abrime la ficha de alguien", es "abrime el detalle de
+       este protocolo" — el salto que hace el Resumen desde su tarjeta de reportes pendientes, que
+       además dice en qué pestaña aterrizar. La pestaña se guarda acá porque `onTargetConsumed`
+       borra el `navTarget` enseguida y el detalle todavía no se montó para leerla. */
+    if (!navTarget?.patientId && navTarget?.protocolId) {
+      const existe = (protocols.data ?? []).some((p) => p.id === navTarget.protocolId)
+      if (existe) {
+        const destino: Nav = { mode: 'protocol', protocolId: navTarget.protocolId }
+        setTabPendiente(navTarget.protocolTab)
+        setNav(destino, { resolviendoTarget: true })
+        llegada.current = navKey(destino)
+      }
+      onTargetConsumed?.()
+      return
+    }
+
+    if (!navTarget?.patientId) return
     const pt = (patients.data ?? []).find((p) => p.id === navTarget.patientId)
     const destino = resolverFichaDestino(pt, navTarget.protocolId)
     if (destino) { setNav(destino, { resolviendoTarget: true }); llegada.current = navKey(destino) }
     onTargetConsumed?.()
-  }, [navTarget, patients.loading, patients.data, protocols.loading, onTargetConsumed])
+  }, [navTarget, patients.loading, patients.data, protocols.loading, protocols.data, onTargetConsumed])
 
   /* El pasaje de vuelta del shell ("Volver a la visita de X") vale mientras sigas DONDE te dejaron.
      Esta vista navega por adentro sin cambiar de submódulo —de una ficha a la grilla, o a otro
@@ -257,6 +278,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
           canManageSchedule={canManageSchedule}
           canCreatePatient={canCreatePatient}
           setHeader={setHeader}
+          initialTab={tabPendiente}
           onBack={() => setNav({ mode: 'list' })}
           onOpenPatient={(patientId) => setNav({ mode: 'patient', protocolId: proto.id, patientId })}
           onNewPatient={() => setCreating('patient')}

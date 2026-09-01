@@ -13,7 +13,9 @@ import { PdPatientRow } from './track/PdPatientRow'
 import { CronogramaTab } from './track/CronogramaTab'
 import { ReportesPendientesView } from './track/reportes/ReportesPendientesView'
 import { VisitDetail } from './track/VisitDetail'
-import type { ViewHeader } from './types'
+import { useUrlState } from '../lib/useUrlState'
+import { oneOf } from '../lib/router'
+import type { NavTarget, ViewHeader } from './types'
 
 const card: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, padding: '18px 20px',
@@ -42,11 +44,21 @@ export interface ProtocolDetailViewProps {
   onNewPatient: () => void
   onEdit: () => void
   onGoAgenda: () => void
+  /**
+   * Pestaña con la que abrir cuando se llega desde una pantalla que sabe a qué venís: el Resumen de
+   * Coordinación abre en 'reportes' desde su tarjeta de reportes pendientes, porque ahí es donde ese
+   * reporte se gestiona. Sin esto el salto aterriza en 'pacientes' y hay que buscar la pestaña a
+   * mano, que es medio viaje.
+   *
+   * Es sólo el VALOR INICIAL: si la URL trae `tab`, manda la URL; a partir del primer clic, manda
+   * el usuario.
+   */
+  initialTab?: NonNullable<NavTarget['protocolTab']>
 }
 
 /** Detalle de Protocolo: ficha lateral (KPIs/adherencia/acciones) + lista de pacientes con tracker. */
 export function ProtocolDetailView(props: ProtocolDetailViewProps) {
-  const { protocol, patients, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda } = props
+  const { protocol, patients, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda, initialTab } = props
   const kpis = useProtocolKpis(protocol.id)
   const visits = useProtocolVisits(protocol.id)
   const [filter, setFilter] = useState<'activos' | 'todos'>('todos')
@@ -54,7 +66,18 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
      "Reportes pendientes" (0090) la ven todos los que llegan acá — un coordinador que no arma el
      cuadro igual necesita ver qué reportes le quedan por descargar. Quién puede MOVERLOS lo
      resuelve la propia vista, y en última instancia la RPC. */
-  const [rightTab, setRightTab] = useState<'pacientes' | 'cronograma' | 'reportes'>('pacientes')
+  /* VIVE EN LA URL, no en `useState`. Dos motivos, y el segundo es el que lo hizo necesario:
+     sobrevive un F5 —antes recargar en "Reportes pendientes" te devolvía a "Pacientes"— y hace que
+     `/coordinacion/pacientes/EFC18419?tab=reportes` sea una dirección dictable, que es exactamente
+     lo que el Resumen necesita para mandarte al tablero del protocolo y no a su lista de pacientes.
+     El default es `initialTab`: quien te trajo decide dónde aterrizás, y si la URL trae `tab` gana
+     la URL. `oneOf` valida contra las tres pestañas — un `?tab=inventado` cae al default en
+     silencio, que es lo correcto para una URL vieja o recortada. */
+  const [rightTab, setRightTab] = useUrlState<'pacientes' | 'cronograma' | 'reportes'>(
+    'tab',
+    initialTab ?? 'pacientes',
+    { codec: oneOf(['pacientes', 'cronograma', 'reportes'] as const) },
+  )
   /** Visita abierta desde el tablero de reportes (el 📎 de la tarjeta). */
   const [openVisitId, setOpenVisitId] = useState<string | null>(null)
 
