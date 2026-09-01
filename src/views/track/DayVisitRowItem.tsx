@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
-import { createPortal } from 'react-dom'
+import { ActionMenu } from '../../components/ActionMenu'
+import type { ActionMenuItem } from '../../components/ActionMenu'
 import { Icon } from '../../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
-import { usePopover } from '../../components/usePopover'
 import { visitCode } from '../../lib/visits'
 import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
@@ -160,7 +160,10 @@ export function DayVisitRowItem({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <DoctorButton visit={visit} accent={accent} canClinical={canClinical} busy={busy} onOpenDoctor={onOpenDoctor} />
         <AdvanceCTA stage={stage} accent={accent} canAdvance={advanceRole(stage) === 'reception' ? canReception : advanceRole(stage) === 'clinical' ? canClinical : false} busy={busy} onAdvance={(next) => onAdvance(visit, next)} />
-        <RowMenu visit={visit} canReception={canReception} busy={busy} onNoShow={onNoShow} onReschedule={onReschedule} />
+        <ActionMenu
+          ariaLabel={`Más acciones de la visita de ${visit.patient_name}`}
+          items={accionesDe(visit, canReception, busy, onNoShow, onReschedule)}
+        />
       </div>
     </div>
   )
@@ -248,21 +251,29 @@ function AdvanceCTA({ stage, accent, canAdvance, busy, onAdvance }: {
   )
 }
 
-/** Menú ⋯ de la fila: acciones que SÍ están cableadas (no vino · reprogramar · copiar N°). */
-function RowMenu({ visit, canReception, busy, onNoShow, onReschedule }: {
-  visit: DayVisitRow
-  canReception: boolean
-  busy: boolean
+/**
+ * Ítems del menú ⋯ de la fila: acciones que SÍ están cableadas (no vino · reprogramar · copiar N°).
+ *
+ * Era `RowMenu`, una copia privada del menú ⋮ con su propio popover, su propio portal y su propio
+ * `MenuItem` de estilos inline. `ActionMenu` salió justamente de acá (PR #89) para que Recepción no
+ * copiara el gesto una segunda vez, y esta fila quedó sin migrar a propósito: era otra vista y otro
+ * riesgo, y aquella tanda era de Recepción.
+ *
+ * Ya se habían despegado, que es lo que pasa siempre con dos copias que se ven igual: el de acá no
+ * llevaba `aria-label` —sólo `title`, que computa nombre accesible pero es el último recurso del
+ * algoritmo— ni los roles `menu`/`menuitem`, y sus ítems no usaban `.spira-menu-item`, así que se
+ * perdían el resalte de hover y foco de la casa. Lo destapó el QA visual del 2026-08-31.
+ *
+ * Lo único que queda acá son los GUARDS, que son de esta vista y no del componente.
+ */
+function accionesDe(
+  visit: DayVisitRow,
+  canReception: boolean,
+  busy: boolean,
   /** Marca (true) o deshace (false) "No vino". */
-  onNoShow: (visit: DayVisitRow, value: boolean) => void
-  onReschedule: (visit: DayVisitRow) => void
-}) {
-  const [open, setOpen] = useState(false)
-  // usePopover posiciona `fixed` (getBoundingClientRect) → el menú escapa al `overflow: hidden` de
-  // la fila (que existe para recortar el rail). Sin esto el popover se abría CLIPADO por la fila y no
-  // se veía. Maneja Esc + click-afuera. El menú se monta como descendiente en el árbol de React, así
-  // que igual corta la propagación del click para no abrir el modal de la fila.
-  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
+  onNoShow: (visit: DayVisitRow, value: boolean) => void,
+  onReschedule: (visit: DayVisitRow) => void,
+): ActionMenuItem[] {
   // Marcar la falta solo tiene sentido antes de que el paciente llegue; deshacerla, mientras siga
   // marcada. El server además rechaza marcar como ausente una visita ya atendida o con la llegada
   // ya marcada (migración 0067).
@@ -274,69 +285,26 @@ function RowMenu({ visit, canReception, busy, onNoShow, onReschedule }: {
   // visita ya en `fin_atencion` deja una visita fantasma en la fecha nueva con `real_date` intacto.
   const canReschedule = canReception && visit.real_date === null
 
-  return (
-    <div style={{ flex: '0 0 auto' }}>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
-        onKeyDown={(e) => e.stopPropagation()}
-        title="Más acciones"
-        style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${open ? 'var(--spira-line-2)' : 'transparent'}`, background: open ? 'var(--spira-surface)' : 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--spira-muted)' }}
-      >
-        <Icon name="moreVertical" size={17} color="currentColor" />
-      </button>
-      {/* PORTALEADO a document.body: el menú es `position: fixed` con coordenadas de viewport y
-          cualquier ancestro con `backdrop-filter`/`transform` pasaría a ser su bloque contenedor.
-          Acá además la fila tiene `overflow: hidden` (recorta la barra a sangre), que ya había
-          clipado este mismo menú una vez — el portal lo saca de los dos problemas de una. */}
-      {open && pos && createPortal(
-        <div
-          ref={popRef}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 60, width: 210, padding: 5, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 11, boxShadow: 'var(--spira-shadow-md)' }}
-        >
-          {canNoShow && !faltaMarcada && (
-            <MenuItem label="Marcar como no vino" danger disabled={busy} onClick={() => { if (!busy) onNoShow(visit, true); setOpen(false) }} />
-          )}
-          {canNoShow && faltaMarcada && (
-            <MenuItem label="Deshacer “no vino”" disabled={busy} onClick={() => { if (!busy) onNoShow(visit, false); setOpen(false) }} />
-          )}
-          {canReschedule && (
-            <MenuItem label="Reprogramar" disabled={busy} onClick={() => { if (!busy) onReschedule(visit); setOpen(false) }} />
-          )}
-          <MenuItem
-            label="Copiar N° de paciente"
-            disabled={!visit.patient_code}
-            onClick={() => { if (visit.patient_code) navigator.clipboard?.writeText(visit.patient_code); setOpen(false) }}
-          />
-        </div>,
-        document.body,
-      )}
-    </div>
-  )
+  const items: ActionMenuItem[] = []
+  if (canNoShow && !faltaMarcada) {
+    items.push({ key: 'no-vino', label: 'Marcar como no vino', danger: true, disabled: busy, onClick: () => onNoShow(visit, true) })
+  }
+  if (canNoShow && faltaMarcada) {
+    items.push({ key: 'deshacer-no-vino', label: 'Deshacer “no vino”', disabled: busy, onClick: () => onNoShow(visit, false) })
+  }
+  if (canReschedule) {
+    items.push({ key: 'reprogramar', label: 'Reprogramar', disabled: busy, onClick: () => onReschedule(visit) })
+  }
+  /* Va siempre, así que el menú nunca queda sin ítems (`ActionMenu` no dibuja el disparador vacío:
+     un botón que no abre nada miente). Inerte si la visita no trae el código — la acción existe y
+     ahora mismo no se puede, que informa más que esconderla. */
+  items.push({
+    key: 'copiar-codigo',
+    label: 'Copiar N° de paciente',
+    disabled: !visit.patient_code,
+    onClick: () => { if (visit.patient_code) navigator.clipboard?.writeText(visit.patient_code) },
+  })
+  return items
 }
 
-function MenuItem({ label, onClick, danger = false, disabled = false }: {
-  label: string
-  onClick: () => void
-  danger?: boolean
-  disabled?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={(e) => { e.stopPropagation(); if (!disabled) onClick() }}
-      onKeyDown={(e) => e.stopPropagation()}
-      style={{
-        width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent',
-        cursor: disabled ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 500,
-        color: disabled ? 'var(--spira-faint)' : danger ? 'var(--spira-acc-deep-danger)' : 'var(--spira-ink)',
-      }}
-    >
-      {label}
-    </button>
-  )
-}
+
