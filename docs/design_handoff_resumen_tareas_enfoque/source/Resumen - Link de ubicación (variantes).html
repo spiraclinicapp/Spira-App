@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="design_doc_mode" content="canvas">
+<title>Spira · Link de ubicación — variantes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; background: #EDE9DD; }
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  .label { position: absolute; top: -34px; left: 0; font-family: 'Hanken Grotesk', sans-serif; font-weight: 700; font-size: 15px; color: #14302E; }
+  .cap { position: absolute; top: -12px; left: 0; font-family: 'Hanken Grotesk', sans-serif; font-weight: 500; font-size: 12.5px; color: #5C6663; width: 260px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="SpiraVilanos.jsx"></script>
+<script type="text/babel" src="Icons.jsx"></script>
+<script type="text/babel" src="spiraTokens.jsx"></script>
+<script type="text/babel">
+const S = window.SPIRA;
+const accent = "#2E7D74";
+
+function card(extra) { return { background: S.white, border: `1px solid ${S.line}`, borderRadius: 16, padding: "18px 20px", width: 280, ...extra }; }
+function dot(bg) { return { width: 7, height: 7, borderRadius: "50%", background: bg, flex: "0 0 auto" }; }
+
+// V1 — el renglón inferior (donde hoy va "23 registrados") se reemplaza por el link, con fundido cruzado. Misma altura siempre.
+function StatV1() {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div
+      style={card({ display: "flex", flexDirection: "column", gap: 10, cursor: "pointer", transition: "box-shadow .15s, transform .15s", boxShadow: hover ? "0 4px 14px rgba(20,48,46,.12)" : "none", transform: hover ? "translateY(-1px)" : "none" })}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: S.muted, fontWeight: 600 }}><span style={dot(S.good)} />Pacientes activos</div>
+      <div style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 34, letterSpacing: "-0.02em", lineHeight: 1, color: S.ink }}>23</div>
+      <div style={{ position: "relative", height: 16 }}>
+        <div style={{ position: "absolute", inset: 0, fontSize: 12, color: S.faint, opacity: hover ? 0 : 1, transition: "opacity .15s" }}>23 registrados</div>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, color: accent, opacity: hover ? 1 : 0, transition: "opacity .15s" }}>Ir a Pacientes <Icon name="arrowRight" size={13} color={accent} stroke={2.2} /></div>
+      </div>
+    </div>
+  );
+}
+
+// V2 — el link se agrega al final del texto secundario, en el mismo renglón, sin agregar una fila nueva.
+function StatV2() {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div
+      style={card({ display: "flex", flexDirection: "column", gap: 10, cursor: "pointer", transition: "box-shadow .15s, transform .15s", boxShadow: hover ? "0 4px 14px rgba(20,48,46,.12)" : "none", transform: hover ? "translateY(-1px)" : "none" })}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: S.muted, fontWeight: 600 }}><span style={dot(S.good)} />Pacientes activos</div>
+      <div style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 34, letterSpacing: "-0.02em", lineHeight: 1, color: S.ink }}>23</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, height: 16 }}>
+        <span style={{ color: S.faint }}>23 registrados</span>
+        <span style={{ color: S.faint, opacity: hover ? 1 : 0, transition: "opacity .15s" }}>·</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 3, color: accent, fontWeight: 700, opacity: hover ? 1 : 0, maxWidth: hover ? 140 : 0, overflow: "hidden", whiteSpace: "nowrap", transition: "opacity .15s, max-width .18s" }}>Ir a Pacientes <Icon name="arrowRight" size={13} color={accent} stroke={2.2} /></span>
+      </div>
+    </div>
+  );
+}
+
+// V3 — el renglón del título ("Pacientes activos") se convierte en el link al pasar el mouse; el texto secundario no cambia.
+function StatV3() {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div
+      style={card({ display: "flex", flexDirection: "column", gap: 10, cursor: "pointer", transition: "box-shadow .15s, transform .15s", boxShadow: hover ? "0 4px 14px rgba(20,48,46,.12)" : "none", transform: hover ? "translateY(-1px)" : "none" })}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+    >
+      <div style={{ position: "relative", height: 18 }}>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: S.muted, fontWeight: 600, opacity: hover ? 0 : 1, transition: "opacity .15s" }}><span style={dot(S.good)} />Pacientes activos</div>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: accent, opacity: hover ? 1 : 0, transition: "opacity .15s" }}>Ir a Pacientes <Icon name="arrowRight" size={13} color={accent} stroke={2.2} /></div>
+      </div>
+      <div style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 34, letterSpacing: "-0.02em", lineHeight: 1, color: S.ink }}>23</div>
+      <div style={{ fontSize: 12, color: S.faint, height: 16 }}>23 registrados</div>
+    </div>
+  );
+}
+
+// V4 — a la derecha del título, solo una flecha aparece en hover. Sin texto.
+function StatV4() {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div style={card({ display: "flex", flexDirection: "column", gap: 10, cursor: "pointer", transition: "box-shadow .15s, transform .15s", boxShadow: hover ? "0 4px 14px rgba(20,48,46,.12)" : "none", transform: hover ? "translateY(-1px)" : "none" })} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: S.muted, fontWeight: 600 }}>
+        <span style={dot(S.good)} /><span style={{ flex: 1 }}>Pacientes activos</span>
+        <Icon name="arrowRight" size={14} color={accent} stroke={2.2} style={{ opacity: hover ? 1 : 0, transform: hover ? "translateX(0)" : "translateX(-4px)", transition: "opacity .15s, transform .15s" }} />
+      </div>
+      <div style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 34, letterSpacing: "-0.02em", lineHeight: 1, color: S.ink }}>23</div>
+      <div style={{ fontSize: 12, color: S.faint, height: 16 }}>23 registrados</div>
+    </div>
+  );
+}
+
+// V5 — a la derecha del título, "Ver" corto aparece en hover.
+function StatV5() {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div style={card({ display: "flex", flexDirection: "column", gap: 10, cursor: "pointer", transition: "box-shadow .15s, transform .15s", boxShadow: hover ? "0 4px 14px rgba(20,48,46,.12)" : "none", transform: hover ? "translateY(-1px)" : "none" })} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: S.muted, fontWeight: 600 }}>
+        <span style={dot(S.good)} /><span style={{ flex: 1 }}>Pacientes activos</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: accent, opacity: hover ? 1 : 0, transform: hover ? "translateX(0)" : "translateX(-4px)", transition: "opacity .15s, transform .15s" }}>Ver <Icon name="arrowRight" size={12} color={accent} stroke={2.2} /></span>
+      </div>
+      <div style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 34, letterSpacing: "-0.02em", lineHeight: 1, color: S.ink }}>23</div>
+      <div style={{ fontSize: 12, color: S.faint, height: 16 }}>23 registrados</div>
+    </div>
+  );
+}
+
+// V6 — a la derecha del título, "Ir a Pacientes" completo, siempre reservando su lugar pero visible solo en hover.
+function StatV6() {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div style={card({ display: "flex", flexDirection: "column", gap: 10, cursor: "pointer", transition: "box-shadow .15s, transform .15s", boxShadow: hover ? "0 4px 14px rgba(20,48,46,.12)" : "none", transform: hover ? "translateY(-1px)" : "none" })} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: S.muted, fontWeight: 600 }}>
+        <span style={dot(S.good)} /><span style={{ flex: 1 }}>Pacientes activos</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: accent, opacity: hover ? 1 : 0, transform: hover ? "translateX(0)" : "translateX(-4px)", transition: "opacity .15s, transform .15s" }}>Ir a Pacientes <Icon name="arrowRight" size={12} color={accent} stroke={2.2} /></span>
+      </div>
+      <div style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 34, letterSpacing: "-0.02em", lineHeight: 1, color: S.ink }}>23</div>
+      <div style={{ fontSize: 12, color: S.faint, height: 16 }}>23 registrados</div>
+    </div>
+  );
+}
+
+// V8 — a la derecha del título, "Pacientes" + flecha (sin "Ir a").
+function StatV8() {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div style={card({ display: "flex", flexDirection: "column", gap: 10, cursor: "pointer", transition: "box-shadow .15s, transform .15s", boxShadow: hover ? "0 4px 14px rgba(20,48,46,.12)" : "none", transform: hover ? "translateY(-1px)" : "none" })} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: S.muted, fontWeight: 600 }}>
+        <span style={dot(S.good)} /><span style={{ flex: 1 }}>Pacientes activos</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: accent, opacity: hover ? 1 : 0, transform: hover ? "translateX(0)" : "translateX(-4px)", transition: "opacity .15s, transform .15s" }}>Pacientes <Icon name="arrowRight" size={12} color={accent} stroke={2.2} /></span>
+      </div>
+      <div style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 34, letterSpacing: "-0.02em", lineHeight: 1, color: S.ink }}>23</div>
+      <div style={{ fontSize: 12, color: S.faint, height: 16 }}>23 registrados</div>
+    </div>
+  );
+}
+
+// V7 — a la derecha del título, chip/pill con fondo que aparece en hover (más peso visual).
+function StatV7() {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div style={card({ display: "flex", flexDirection: "column", gap: 10, cursor: "pointer", transition: "box-shadow .15s, transform .15s", boxShadow: hover ? "0 4px 14px rgba(20,48,46,.12)" : "none", transform: hover ? "translateY(-1px)" : "none" })} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: S.muted, fontWeight: 600 }}>
+        <span style={dot(S.good)} /><span style={{ flex: 1 }}>Pacientes activos</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11.5, fontWeight: 700, color: accent, background: accent + "1a", borderRadius: 999, padding: "3px 9px", opacity: hover ? 1 : 0, transform: hover ? "scale(1)" : "scale(.92)", transition: "opacity .15s, transform .15s" }}>Ir a Pacientes <Icon name="arrowRight" size={11} color={accent} stroke={2.4} /></span>
+      </div>
+      <div style={{ fontFamily: S.fontDisp, fontWeight: 700, fontSize: 34, letterSpacing: "-0.02em", lineHeight: 1, color: S.ink }}>23</div>
+      <div style={{ fontSize: 12, color: S.faint, height: 16 }}>23 registrados</div>
+    </div>
+  );
+}
+
+function App() {
+  const gap = 380;
+  return (
+    <div style={{ position: "relative", width: gap * 5, height: 260 }}>
+      <div style={{ position: "absolute", left: 0, top: 60 }}>
+        <span className="label">V4 · Solo flecha, junto al título</span>
+        <span className="cap">Nada de texto: una flecha aparece a la derecha del título en hover.</span>
+        <StatV4 />
+      </div>
+      <div style={{ position: "absolute", left: gap, top: 60 }}>
+        <span className="label">V5 · "Ver", junto al título</span>
+        <span className="cap">Texto corto y genérico a la derecha del título.</span>
+        <StatV5 />
+      </div>
+      <div style={{ position: "absolute", left: gap * 2, top: 60 }}>
+        <span className="label">V6 · "Ir a Pacientes", junto al título</span>
+        <span className="cap">Texto completo con el destino, a la derecha del título.</span>
+        <StatV6 />
+      </div>
+      <div style={{ position: "absolute", left: gap * 3, top: 60 }}>
+        <span className="label">V7 · Chip con fondo, junto al título</span>
+        <span className="cap">Mismo texto que V6 pero con fondo de color, más peso visual.</span>
+        <StatV7 />
+      </div>
+      <div style={{ position: "absolute", left: gap * 4, top: 60 }}>
+        <span className="label">V8 · Flecha + "Pacientes", junto al título</span>
+        <span className="cap">Como V4 pero con el nombre del destino, sin el "Ir a".</span>
+        <StatV8 />
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

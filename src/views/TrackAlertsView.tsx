@@ -4,6 +4,8 @@ import { Icon } from '../components/Icon'
 import { btnOutline } from '../components/buttons'
 import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { alertItemStyle } from './alertItem'
+import { AlertCardHeader } from './AlertCardHeader'
+import { severidadMaxima } from './alertSeverity'
 import { EmptyState } from '../components/EmptyState'
 import { SearchableSelect } from '../components/SearchableSelect'
 import { Modal } from '../components/Modal'
@@ -232,6 +234,16 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       )}
 
       <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+        {/* Misma cabecera que la tarjeta de Alertas del Resumen: las dos pantallas abren con el
+            mismo renglón teñido por la PEOR alerta presente. Lo que NO se unifica es el interior —
+            acá los ítems conservan su superficie teñida, porque a veinte alertas de tipos mezclados
+            el bloque de color es cómo se encuentra la grave sin leer; en el Resumen son dos o tres
+            de reojo y las filas van planas (decisión D12).
+            El tinte lo fijan las alertas de VISITA, que son las que tienen severidad rankeada; los
+            reportes pendientes suman a la lista pero no suben el tono: son un pendiente que todavía
+            está en plazo, no un desvío. Sin contador: el de la barra de filtros dice "3 de 12", que
+            es más que un número suelto. */}
+        <AlertCardHeader severidad={severidadMaxima(filtered)} />
         {filtered.length === 0 && filteredProc.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
             <Icon name="check" size={16} color="var(--spira-good)" />

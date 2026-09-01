@@ -1,6 +1,7 @@
 import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import { supabase } from '../../lib/supabase'
 import { pharmaErrorMessage } from './errors'
+import { ESTADOS_ABIERTOS } from './dispensationModel'
 import type { DispensationRequestRow, HistorialEntradaRow, RequestStatus } from './dispensationModel'
 
 /**
@@ -734,6 +735,73 @@ export function useDispensationHistorial(requestId: string | null) {
       return { data: (data as HistorialEntradaRow[]) ?? [], error }
     },
     [requestId],
+    (e) => pharmaErrorMessage(e.code, e.message),
+  )
+}
+
+
+/**
+ * ┌─ Solicitudes abiertas, en versión LIVIANA — para el Resumen de Coordinación ──────────────┐
+ *
+ * La tarjeta "Dispensaciones solicitadas" del Resumen pinta cuatro datos por renglón: qué
+ * medicación, para qué paciente, hace cuánto se pidió y en qué estado está. Nada más.
+ *
+ * POR QUÉ NO REUSA `useDispensationBoard`, que ya trae exactamente estas filas: porque las trae con
+ * `REQUEST_COLS`, o sea con los lotes, los ítems ya dispensados y los comprobantes de IP — todo lo
+ * que el TABLERO de Farmacia necesita y esta tarjeta no mira. Son dos consultas con seis niveles de
+ * embed para dibujar dos renglones de texto, en una de las pantallas más visitadas de la app. Y como
+ * Spira no cachea consultas entre vistas, ir de Inicio a Coordinación las ejecutaba dos veces
+ * enteras. Acá es UNA consulta con lo justo.
+ *
+ * El otro motivo es de acoplamiento: cualquier embed que mañana se le agregue al tablero lo pagaría
+ * también el Resumen, sin que nadie lo note.
+ *
+ * ⚠️ `medication:medications!medication_id(name)` — el `!medication_id` NO SE SACA. Desde la 0076
+ * `dispensation_request_items` tiene DOS claves foráneas a `medications` (la del renglón y la de la
+ * sustitución), así que sin nombrar cuál el embed queda ambiguo: PostgREST responde `PGRST201` y
+ * **voltea la consulta entera**, no sólo el embed. Es lo que tiró el tablero de Farmacia el
+ * 2026-08-13. Ver el bloque grande de arriba, que cuenta el episodio completo.
+ *
+ * LA RLS SCOPEA EN SILENCIO Y ESO ES CORRECTO: la policy "ver solicitudes" (0006:252) deja ver una
+ * fila si tenés `pharma`/`gerencia` **o** si `coordina_visita(visit_id)`. O sea que una coordinadora
+ * ve las solicitudes de SUS protocolos y una farmacéutica las ve todas — la misma tarjeta cuenta
+ * cosas distintas según quién mire, sin error ni aviso. El copy de la tarjeta tiene que ser honesto
+ * con eso. Y ojo al verificarlo: la cuenta de QA tiene los cinco módulos, así que NO reproduce el
+ * scopeo; hace falta una cuenta sólo de Coordinación.
+ *
+ * Efecto útil de esa misma policy: si ves la fila, coordinás la visita → el destino del renglón
+ * (abrir la visita) está garantizado por construcción. Por eso el Resumen no manda a
+ * `pharma/dispensaciones`, que exigiría un módulo que la coordinadora puede no tener.
+ * └───────────────────────────────────────────────────────────────────────────────────────────┘
+ */
+export interface SolicitudPendienteRow {
+  id: string
+  status: RequestStatus
+  created_at: string
+  /** A dónde lleva el renglón. Nunca es null en la práctica (la FK es obligatoria), pero el tipo lo
+   *  admite para que el consumidor pueda degradar a fila inerte antes que a un link muerto. */
+  visit_id: string | null
+  items: { medication: { name: string } | null }[]
+  enrollment: { patient: { id: string; code: string | null; full_name: string } | null } | null
+  protocol: { id: string; code: string } | null
+}
+
+const SOLICITUD_PENDIENTE_COLS =
+  'id, status, created_at, visit_id, ' +
+  'items:dispensation_request_items(medication:medications!medication_id(name)), ' +
+  'enrollment:enrollments!enrollment_id(patient:patients(id, code, full_name)), ' +
+  'protocol:protocols!protocol_id(id, code)'
+
+export function useSolicitudesPendientes() {
+  return useSupabaseQuery<SolicitudPendienteRow[]>(
+    (c) =>
+      c
+        .from('dispensation_requests')
+        .select(SOLICITUD_PENDIENTE_COLS)
+        .in('status', [...ESTADOS_ABIERTOS])
+        .order('created_at', { ascending: false })
+        .returns<SolicitudPendienteRow[]>(),
+    [],
     (e) => pharmaErrorMessage(e.code, e.message),
   )
 }

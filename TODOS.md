@@ -691,3 +691,57 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 - **Depende de / bloqueado por:** conocer el requisito real, o que el Director decida un
   formato propio.
 - **Prioridad:** P3.
+
+---
+
+## Coordinación · "Tareas personales" (el submódulo Inicio › Tareas está vacío)
+
+- **Qué:** la agenda de pendientes propios de quien coordina — dar de alta una tarea con título,
+  duración estimada y vencimiento, verla vencida o por vencer, y marcarla hecha. Es el sujeto real
+  del handoff `design_handoff_resumen_tareas_enfoque` (sus cuatro variantes A/B/C/D exploran
+  únicamente DÓNDE ponerla), y hoy no existe ni una línea de código.
+- **Por qué:** `inicio/tareas` ya está declarado en `src/modules/registry.ts` con ícono y todo, pero
+  no está en `VIEW_REGISTRY`, así que cae al `Placeholder`. Es un renglón del menú que promete una
+  pantalla que no existe. El handoff lo confirma como necesidad de producto, no como capricho de
+  diseño: la coordinadora hoy lleva esos pendientes en papel o en la cabeza.
+- **Pros:** la casa ya está reservada (submódulo declarado y ruteado). El patrón de datos es el más
+  simple de la app — una tabla propia, sin desnormalizaciones ni vistas—, y el handoff ya trae
+  cuatro layouts dibujados y descartados entre sí, así que la parte de diseño está medio hecha.
+- **Contras:** es una feature entera, no un ajuste: tabla + migración + RLS + trigger de auditoría +
+  capa de datos + vista + modal de alta. Y el handoff dibuja la CARD, no el MODELO: no dice quién ve
+  la tarea de quién, si se comparte, si se asigna a otra persona, qué pasa al vencer, ni si entra al
+  `audit_log`. Todo eso hay que decidirlo antes de escribir la migración.
+- **Contexto:** surgió en la `/plan-eng-review` del 2026-09-01 (ver
+  `docs/plan-resumen-coordinacion-enfoque.md`, decisión D1). Se difirió a propósito: el resto del
+  handoff se pudo aplicar sin migraciones y ésta las necesita todas. **Ojo con la trampa conocida:**
+  una postergación deliberada sin fecha de vencimiento es indistinguible de "no se hace" a los tres
+  días — si el Director la quiere, conviene abrirle su `/office-hours` antes que su PR.
+- **Empezar por:** `/office-hours` para fijar el modelo (visibilidad, asignación, ciclo de vida) →
+  migración con RLS y auditoría → `src/data/tareas.ts` → vista en `src/views/` + alta en
+  `src/views/registry.tsx` bajo `inicio/tareas`. El layout ya está: el handoff prefiere la variante
+  compacta junto al título (D) o la columna completa a la derecha (B).
+- **Depende de / bloqueado por:** una decisión de producto sobre el modelo. Nada técnico.
+- **Prioridad:** P2.
+
+---
+
+## Coordinación · KPI "Visitas asignadas a mí" (falta el coordinador en v_track_visits)
+
+- **Qué:** reemplazar o acompañar el KPI "Próximas visitas" del Resumen de Coordinación con uno que
+  cuente sólo las visitas de las que esa persona es coordinadora.
+- **Por qué:** el handoff lo pide explícitamente y es la diferencia entre "cómo viene el centro" y
+  "cómo viene mi día", que es lo que el submódulo promete en el menú ("Cómo viene el día"). Con 23
+  pacientes en 6 protocolos, el número global ya empieza a no decirle nada a nadie en particular.
+- **Pros:** el dato EXISTE: `patient_visits` tiene `coordinator_id` y `coordinator_name` desde la
+  migración 0065, y el RPC `set_visit_coordinator` ya los escribe. Es exponerlo, no inventarlo.
+- **Contras:** `v_track_visits` no los proyecta, así que hace falta una migración que la recree. Es
+  **aditiva** (una columna que ningún front viejo consulta), o sea que va **migración primero y front
+  después** — el orden inverso al de una vista que cambia lo que ya emite. Y hay que confirmar que
+  agregar la columna no vuelva ambiguo ningún embed existente sobre esa vista.
+- **Contexto:** quedó fuera del alcance de la `/plan-eng-review` del 2026-09-01
+  (`docs/plan-resumen-coordinacion-enfoque.md`), cuyo alcance acordado excluía migraciones.
+- **Empezar por:** buscar la migración que define `v_track_visits` (0013, más las que la recrean),
+  grepear `v_track_visits` en los `select(...)` del front antes de tocarla, y recién ahí escribir la
+  migración nueva. Luego `TrackVisitRow` en `src/data/visits.ts` y el KPI en `TrackResumenView`.
+- **Depende de / bloqueado por:** ventana para aplicar SQL en prod (a mano, en el dashboard).
+- **Prioridad:** P3.
