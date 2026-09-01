@@ -134,7 +134,16 @@ export function VisitDateInline({
         <div
           role="button" tabIndex={0} onClick={abrir}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir() } }}
-          title={`Editar ${label.toLowerCase()}`}
+          /* El `title` que llega por prop VA PRIMERO, y la ayuda de edición queda detrás. Esta rama
+             lo ignoraba —tenía `Editar ${label}` fijo— y sólo lo usaba la rama de sólo-lectura, así
+             que el dato que el encabezado manda acá no llegaba nunca a la pantalla de quien puede
+             editar, que son casi todos. Se lo comía en silencio: un prop que no se lee no rompe
+             nada, no avisa, y el defecto sobrevive a cualquier revisión que mire el que lo pasa en
+             vez del que lo recibe. Concreto: al fundir "Citado" y "Fecha real" en un solo campo
+             (tres tiempos, dos campos, 2026-08-29), la citación deja de estar en pantalla y este
+             tooltip es lo único que la conserva — el dato que EXPLICA un desvío. Detectado en el QA
+             visual de Coordinación del 2026-08-31. */
+          title={title ? `${title} · Editar ${label.toLowerCase()}` : `Editar ${label.toLowerCase()}`}
           style={{ ...bigBase, ...(value ? toneStyle(tone) : phStyle) }}
         >
           {value ? formatAR(value) : placeholder}
