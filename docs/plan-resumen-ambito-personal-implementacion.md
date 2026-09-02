@@ -291,7 +291,7 @@ export function filtrarPorAmbito<T>(ambito: Ambito, filas: T[], esMia: (fila: T)
 npx vitest run src/views/resumen/ambito.test.ts
 ```
 
-Esperado: **PASS**, 12 tests.
+Esperado: **PASS**, 13 tests.
 
 - [ ] **Paso 5: Typecheck**
 
@@ -892,7 +892,7 @@ commit del Director donde no va.
 ## Verificación final
 
 - [ ] `npm run build` verde.
-- [ ] Los 12 tests de `ambito.test.ts` pasan, y los 598 previos siguen pasando.
+- [ ] Los 13 tests de `ambito.test.ts` pasan, y los 598 previos siguen pasando.
 - [ ] La 0104 está avisada **en el chat** como aditiva (va antes del deploy del front).
 - [ ] `supabase/README.md` actualizado apenas el Director confirme "aplicada".
 - [ ] Lo que **no** se verificó (cuenta acotada de Coordinación) queda dicho explícitamente, no
