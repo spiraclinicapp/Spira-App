@@ -690,8 +690,12 @@ function ProtocoloCards({ protocols, lotes, ipAll, seleccionados, accentSolid, o
           const titular = ip
             ? `${ip.total_kits} ${ip.total_kits === 1 ? 'kit' : 'kits'} en stock`
             : `${nMeds} ${nMeds === 1 ? 'medicamento' : 'medicamentos'} · ${delProto.length} ${delProto.length === 1 ? 'lote' : 'lotes'}`
+          /* "IRT" a secas y no "IRT del sponsor": con un protocolo que además tiene lotes, la
+             línea entera no entra en los ~286px de la tarjeta y se corta con puntos suspensivos
+             (medido con datos reales en la notebook de referencia). La frase completa está a un
+             renglón de distancia, en la card de IP de la tabla de abajo. */
           const partes: string[] = []
-          if (ip) partes.push(`${ip.recepciones} ${ip.recepciones === 1 ? 'recepción' : 'recepciones'} · IRT del sponsor`)
+          if (ip) partes.push(`${ip.recepciones} ${ip.recepciones === 1 ? 'recepción' : 'recepciones'} · IRT`)
           if (ip && delProto.length > 0) partes.push(`${delProto.length} ${delProto.length === 1 ? 'lote' : 'lotes'} más`)
           if (!ip) partes.push(nBajos > 0 ? `${nBajos} en stock bajo o agotado` : `${unidades} u. en stock`)
           return (

@@ -772,6 +772,11 @@ input:-webkit-autofill:focus {
   text-align: left;
   cursor: pointer;
 }
+/* El foco global se dibuja FUERA (`outline-offset: 2px`) y esta tarjeta tiene `overflow: hidden`
+   para redondearle las esquinas a los lotes. El disparador arranca pegado al borde interno de la
+   tarjeta, así que ese anillo se recortaría por la izquierda y por arriba: quien navega con
+   teclado vería medio recuadro. Mismo color y mismo grosor, dibujado hacia adentro. */
+.spira-medgroup__summary:focus-visible { outline-offset: -2px; }
 .spira-medgroup__chev {
   flex: 0 0 auto;
   width: var(--spira-stock-chev);
