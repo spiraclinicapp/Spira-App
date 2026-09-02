@@ -692,6 +692,150 @@ input:-webkit-autofill:focus {
   .spira-zoom-preview { transition: none; }
 }
 
+/* —— Grupo de medicamento en la lista de Stock (Farmacia › Stock) ——
+   Un medicamento con varios lotes se dibuja como una fila resumen plegable con sus lotes
+   adentro, atados por un conector de árbol. El conector va acá y no en el objeto de estilo de
+   React —como el resto de esa vista— porque usa `::before`/`::after`, que en React no existen.
+
+   GEOMETRÍA COMPARTIDA. Estas medidas las leen las DOS mitades: el conector de acá abajo y los
+   estilos inline de `MedicamentosView` (vía `var()`). Están juntas a propósito: el conector no
+   elige su posición, la DERIVA del centro del ícono de la fila de arriba, y si el número
+   estuviera copiado a mano se desincronizaría sin que nadie lo note en un diff.
+
+     fila resumen │←16→│ chev 15 │←14→│  pillsq 40  │←14→│ nombre …
+                  pad            gap        ▲        gap
+                                         centro
+     fila de lote │←16→│· · · · · · · · · │· · · · · ·
+                  pad                     x = 15 + 14 + 20 = 49
+
+   El padding horizontal se cancela porque las dos filas comparten los mismos 16px. Si eso deja
+   de ser cierto, `--spira-stock-conector-x` hay que rehacerlo. */
+:root {
+  --spira-stock-pad-x: 16px;
+  --spira-stock-gap: 14px;
+  --spira-stock-chev: 15px;
+  --spira-stock-pill: 40px;
+  --spira-stock-nodo: 7px;
+  --spira-stock-lote-pad-y: 11px;
+  --spira-stock-conector-x: calc(
+    var(--spira-stock-chev) + var(--spira-stock-gap) + var(--spira-stock-pill) / 2
+  );
+  /* El color del conector NO es `--spira-line-2` a secas, y tiene su propio token por eso: en
+     claro ese tono da 1,54:1 sobre la fila de lote y funciona como todas las hairlines del
+     sistema, pero en OSCURO cae a 1,50:1 y la línea desaparece — la feature existiría sólo en un
+     tema. En oscuro pasa a `--spira-faint` (3,34:1), que es justamente el tono que ese tema
+     reserva para "íconos, bordes, scroll". Medido con canvas en los dos temas. */
+  --spira-stock-conector: var(--spira-line-2);
+}
+[data-theme='dark'] {
+  --spira-stock-conector: var(--spira-faint);
+}
+
+.spira-medgroup {
+  border: 1px solid var(--spira-line);
+  border-radius: 14px;
+  background: var(--spira-white);
+  box-shadow: var(--spira-shadow-sm);
+  overflow: hidden;
+}
+/* El disparador de plegado es un <button> de verdad (Enter, Espacio, foco y aria-expanded
+   gratis) y el kebab es su HERMANO, no va anidado: un botón adentro de otro es HTML inválido.
+   `.spira-no-press` lo saca del levante global — es una fila dentro de una superficie, y una
+   fila no se levanta, se resalta (mismo criterio que `.spira-row-link`). */
+/* El kebab es hermano del disparador, no hijo, así que la fila resumen son DOS elementos: el
+   button (que crece) y el menú. El padding derecho vive acá para que la columna Stock termine a
+   la misma distancia del borde que en las otras dos formas de fila. */
+.spira-medgroup__head {
+  display: flex;
+  align-items: center;
+  gap: var(--spira-stock-gap);
+  padding-right: var(--spira-stock-pad-x);
+  transition: background-color 0.14s var(--spira-ease-out);
+}
+/* El resaltado se pinta en la fila entera aunque lo dispare sólo el button: si se quedara dentro
+   del button, cortaría 66px antes del borde derecho y leería como medio subrayado. */
+.spira-medgroup__head:has(.spira-medgroup__summary:hover),
+.spira-medgroup__head:has(.spira-medgroup__summary:focus-visible) {
+  background-color: var(--spira-surface);
+}
+.spira-medgroup__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--spira-stock-gap);
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 13px 0 13px var(--spira-stock-pad-x);
+  border: none;
+  background-color: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.spira-medgroup__chev {
+  flex: 0 0 auto;
+  width: var(--spira-stock-chev);
+  height: var(--spira-stock-chev);
+  display: grid;
+  place-items: center;
+  transition: transform 0.15s var(--spira-ease-out);
+}
+.spira-medgroup__summary[aria-expanded='true'] .spira-medgroup__chev {
+  transform: rotate(90deg);
+}
+
+.spira-lot-rows { border-top: 1px solid var(--spira-line); }
+.spira-lot-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spira-stock-gap);
+  padding: var(--spira-stock-lote-pad-y) var(--spira-stock-pad-x);
+  background: var(--spira-surface);
+}
+.spira-lot-row + .spira-lot-row { border-top: 1px solid var(--spira-line); }
+
+/* El spacer que ocupa el lugar del nombre en la fila de lote. Es el ÚNICO ítem flexible de esa
+   fila, igual que `.name` lo es en las otras dos: así el inicio de la columna EAN cae en la
+   misma X en las tres formas de fila, sea cual sea el ancho del contenedor. */
+.spira-lot-indent {
+  position: relative;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+}
+/* La línea corre de borde a borde vertical del row (compensando su padding) para verse continua
+   entre lotes consecutivos. En el ÚLTIMO se corta a la mitad: no debe sobresalir por debajo del
+   último nodo. */
+.spira-lot-indent::before {
+  content: '';
+  position: absolute;
+  left: var(--spira-stock-conector-x);
+  top: calc(-1 * var(--spira-stock-lote-pad-y));
+  bottom: calc(-1 * var(--spira-stock-lote-pad-y));
+  width: 1px;
+  background: var(--spira-stock-conector);
+}
+.spira-lot-row:last-child .spira-lot-indent::before { bottom: 50%; }
+/* El nodo: círculo hueco relleno del MISMO color de fondo de la fila, para que se vea recortado
+   sobre la línea en vez de superpuesto. */
+.spira-lot-indent::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--spira-stock-conector-x) - var(--spira-stock-nodo) / 2);
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--spira-stock-nodo);
+  height: var(--spira-stock-nodo);
+  border-radius: 999px;
+  background: var(--spira-surface);
+  border: 1.5px solid var(--spira-stock-conector);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spira-medgroup__head,
+  .spira-medgroup__chev { transition: none; }
+}
+
 /* —— Texto que navega (link en línea) ——
    Para un dato que ADEMÁS lleva a otro lado: el nombre y el Nº de sujeto del encabezado de visita,
    que abren la ficha del paciente. Un `<button>` pelado que hereda tipografía y color del texto que

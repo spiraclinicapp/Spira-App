@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="design_doc_mode" content="canvas" />
+<title>Conector — variantes</title>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root{--ink:#14302E;--primary:#0F5F57;--surface:#FBFAF6;--white:#fff;--muted:#7C8C87;--line:#E4DECF;--line2:#D8CBB0;--warn:#B0823F;--pharma:#A8842F;--fdisp:'Schibsted Grotesk',system-ui,sans-serif;--ftext:'Hanken Grotesk',system-ui,sans-serif;--fmono:'IBM Plex Mono',ui-monospace,monospace;--sh-sm:0 1px 2px rgba(20,48,46,.06);--warn-ink:color-mix(in oklab, var(--warn) 78%, var(--ink))}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--ftext);color:var(--ink);background:#EDE9DD;font-size:14px}
+.eyebrow{font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.frame{position:absolute;width:980px}
+.flabel{font-family:var(--fdisp);font-weight:700;font-size:15px;margin-bottom:10px}
+.medgroup{border:1px solid var(--line);border-radius:14px;background:var(--white);box-shadow:var(--sh-sm);overflow:hidden}
+.med-summary{display:flex;align-items:center;gap:14px;padding:13px 16px}
+.chev{flex:0 0 auto;display:grid;place-items:center;transform:rotate(90deg)}
+.pillsq{width:40px;height:40px;flex:0 0 auto;border-radius:11px;background:rgba(15,95,87,.13);display:grid;place-items:center}
+.name{flex:1 1 240px;min-width:0}
+.mname{font-size:15px;font-weight:600}
+.mdrug{font-size:12px;color:var(--muted);margin-top:2px}
+.col{flex:0 0 auto;min-width:0}
+.col.ean{width:150px}
+.col.lote{width:96px}
+.col.venc{width:130px}
+.col.stock{width:120px}
+.ean-v,.lote-v,.venc-v{margin-top:3px;font-family:var(--fmono);font-size:13px}
+.stock-v{display:flex;align-items:baseline;gap:6px;margin-top:3px}
+.stock-v b{font-family:var(--fdisp);font-weight:700;font-size:19px}
+.stock-v span{font-size:11.5px;color:var(--muted)}
+.badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:rgba(176,130,63,.14);color:var(--warn-ink)}
+.kebab{width:34px;height:34px;flex:0 0 auto;border:1px solid var(--line2);border-radius:9px;background:var(--white);display:grid;place-items:center;margin-left:auto}
+.lot-rows{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.lot-row{display:flex;align-items:center;gap:14px;padding:11px 16px;background:var(--surface)}
+.lot-row+.lot-row{border-top:1px solid var(--line)}
+
+/* 1 — línea continua + punto (actual) */
+.v1 .lot-indent{position:relative;flex:1 1 auto;align-self:stretch}
+.v1 .lot-indent::before{content:'';position:absolute;left:49px;top:-11px;bottom:-11px;width:1px;background:var(--line2)}
+.v1 .lot-row:last-child .lot-indent::before{bottom:50%}
+.v1 .lot-indent::after{content:'';position:absolute;left:45.5px;top:50%;width:7px;height:7px;border-radius:99px;background:var(--surface);border:1.5px solid var(--line2);transform:translateY(-50%)}
+
+/* 2 — codo (elbow), sin línea continua entre lotes */
+.v2 .lot-indent{position:relative;flex:1 1 auto;align-self:stretch}
+.v2 .lot-indent::before{content:'';position:absolute;left:49px;top:-11px;bottom:50%;width:1px;border-left:1px dashed var(--line2)}
+.v2 .lot-indent::after{content:'';position:absolute;left:49px;bottom:50%;width:14px;height:1px;border-top:1px dashed var(--line2)}
+
+/* 3 — banda de indentación (sin línea, solo bloque de color) */
+.v3 .lot-indent{flex:1 1 auto;align-self:stretch;background:rgba(15,95,87,.05);border-radius:8px;margin:-2px 0}
+
+/* 4 — minimal, solo aire (sin gráfico) */
+.v4 .lot-indent{flex:1 1 auto}
+</style>
+</head>
+<body>
+
+<div class="frame" style="left:40px;top:40px">
+  <div class="flabel">1 · Línea continua + nodo (actual)</div>
+  <div class="medgroup v1">
+    <div class="med-summary">
+      <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m9 18 6-6-6-6" stroke="#7C8C87" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="pillsq"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8842F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
+      <div class="name"><div class="mname">Alvetide 92/22 mcg</div><div class="mdrug">Fluticasona furoato + Vilanterol</div></div>
+      <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+      <div class="col lote"><div class="eyebrow">Lote</div><div class="ean-v">2 lotes</div></div>
+      <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="ean-v">—</div></div>
+      <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">9</b><span>u.</span><span class="badge">Bajo</span></div></div>
+      <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+    </div>
+    <div class="lot-rows">
+      <div class="lot-row"><div class="lot-indent"></div>
+        <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+        <div class="col lote"><div class="eyebrow">Lote</div><div class="lote-v">TEST01</div></div>
+        <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="venc-v">16/06/2027</div></div>
+        <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">4</b><span>u.</span><span class="badge">Bajo</span></div></div>
+        <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+      </div>
+      <div class="lot-row"><div class="lot-indent"></div>
+        <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+        <div class="col lote"><div class="eyebrow">Lote</div><div class="lote-v">DFA-6545</div></div>
+        <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="venc-v">29/07/2027</div></div>
+        <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">5</b><span>u.</span><span class="badge">Bajo</span></div></div>
+        <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="frame" style="left:40px;top:400px">
+  <div class="flabel">2 · Codo punteado (por lote, sin continuidad)</div>
+  <div class="medgroup v2">
+    <div class="med-summary">
+      <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m9 18 6-6-6-6" stroke="#7C8C87" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="pillsq"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8842F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
+      <div class="name"><div class="mname">Alvetide 92/22 mcg</div><div class="mdrug">Fluticasona furoato + Vilanterol</div></div>
+      <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+      <div class="col lote"><div class="eyebrow">Lote</div><div class="ean-v">2 lotes</div></div>
+      <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="ean-v">—</div></div>
+      <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">9</b><span>u.</span><span class="badge">Bajo</span></div></div>
+      <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+    </div>
+    <div class="lot-rows">
+      <div class="lot-row"><div class="lot-indent"></div>
+        <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+        <div class="col lote"><div class="eyebrow">Lote</div><div class="lote-v">TEST01</div></div>
+        <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="venc-v">16/06/2027</div></div>
+        <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">4</b><span>u.</span><span class="badge">Bajo</span></div></div>
+        <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+      </div>
+      <div class="lot-row"><div class="lot-indent"></div>
+        <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+        <div class="col lote"><div class="eyebrow">Lote</div><div class="lote-v">DFA-6545</div></div>
+        <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="venc-v">29/07/2027</div></div>
+        <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">5</b><span>u.</span><span class="badge">Bajo</span></div></div>
+        <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="frame" style="left:40px;top:760px">
+  <div class="flabel">3 · Banda de indentación (sin línea)</div>
+  <div class="medgroup v3">
+    <div class="med-summary">
+      <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m9 18 6-6-6-6" stroke="#7C8C87" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="pillsq"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8842F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
+      <div class="name"><div class="mname">Alvetide 92/22 mcg</div><div class="mdrug">Fluticasona furoato + Vilanterol</div></div>
+      <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+      <div class="col lote"><div class="eyebrow">Lote</div><div class="ean-v">2 lotes</div></div>
+      <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="ean-v">—</div></div>
+      <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">9</b><span>u.</span><span class="badge">Bajo</span></div></div>
+      <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+    </div>
+    <div class="lot-rows">
+      <div class="lot-row"><div class="lot-indent"></div>
+        <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+        <div class="col lote"><div class="eyebrow">Lote</div><div class="lote-v">TEST01</div></div>
+        <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="venc-v">16/06/2027</div></div>
+        <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">4</b><span>u.</span><span class="badge">Bajo</span></div></div>
+        <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+      </div>
+      <div class="lot-row"><div class="lot-indent"></div>
+        <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+        <div class="col lote"><div class="eyebrow">Lote</div><div class="lote-v">DFA-6545</div></div>
+        <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="venc-v">29/07/2027</div></div>
+        <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">5</b><span>u.</span><span class="badge">Bajo</span></div></div>
+        <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="frame" style="left:40px;top:1120px">
+  <div class="flabel">4 · Minimal (solo indentación, sin gráfico)</div>
+  <div class="medgroup v4">
+    <div class="med-summary">
+      <span class="chev"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m9 18 6-6-6-6" stroke="#7C8C87" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="pillsq"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8842F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
+      <div class="name"><div class="mname">Alvetide 92/22 mcg</div><div class="mdrug">Fluticasona furoato + Vilanterol</div></div>
+      <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+      <div class="col lote"><div class="eyebrow">Lote</div><div class="ean-v">2 lotes</div></div>
+      <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="ean-v">—</div></div>
+      <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">9</b><span>u.</span><span class="badge">Bajo</span></div></div>
+      <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+    </div>
+    <div class="lot-rows">
+      <div class="lot-row"><div class="lot-indent"></div>
+        <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+        <div class="col lote"><div class="eyebrow">Lote</div><div class="lote-v">TEST01</div></div>
+        <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="venc-v">16/06/2027</div></div>
+        <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">4</b><span>u.</span><span class="badge">Bajo</span></div></div>
+        <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+      </div>
+      <div class="lot-row"><div class="lot-indent"></div>
+        <div class="col ean"><div class="eyebrow">Código EAN13</div><div class="ean-v">0</div></div>
+        <div class="col lote"><div class="eyebrow">Lote</div><div class="lote-v">DFA-6545</div></div>
+        <div class="col venc"><div class="eyebrow">Vencimiento</div><div class="venc-v">29/07/2027</div></div>
+        <div class="col stock"><div class="eyebrow">Stock</div><div class="stock-v"><b style="color:var(--pharma)">5</b><span>u.</span><span class="badge">Bajo</span></div></div>
+        <span class="kebab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="1.4" fill="#7C8C87"/><circle cx="12" cy="12" r="1.4" fill="#7C8C87"/><circle cx="12" cy="18" r="1.4" fill="#7C8C87"/></svg></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

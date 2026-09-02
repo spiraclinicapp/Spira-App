@@ -10,6 +10,7 @@ import { useUrlPath, useUrlState } from '../lib/useUrlState'
 import { listOf } from '../lib/router'
 import { useProtocols } from '../data/protocols'
 import type { ProtocolRow, ProtocolStatus } from '../data/protocols'
+import { protocolStatusLabel, protocolStatusVar } from './protocolStatus'
 import { usePatients } from '../data/patients'
 import type { PatientProtocol, PatientRow } from '../data/patients'
 import { useAllVisits } from '../data/visits'
@@ -30,16 +31,10 @@ import type { NavTarget, ViewProps } from './types'
 const navKey = (n: Nav) => (n.mode === 'patient' ? `patient:${n.patientId}` : n.mode)
 
 /* Estado del protocolo → token de color (theme-aware). activo resalta, cerrado apaga. */
-function statusVar(status: ProtocolStatus): string {
-  if (status === 'activo') return 'var(--spira-good)'
-  if (status === 'pausado') return 'var(--spira-muted)'
-  return 'var(--spira-faint)'
-}
-function statusLabel(status: ProtocolStatus): string {
-  if (status === 'activo') return 'Activo'
-  if (status === 'pausado') return 'Pausado'
-  return 'Cerrado'
-}
+/* El color y el rótulo del estado se mudaron a `./protocolStatus`: el selector de protocolos de
+   Stock los muestra igual, y tenerlos dos veces garantizaba que se separaran. */
+const statusVar = protocolStatusVar
+const statusLabel = protocolStatusLabel
 
 const cardBase: CSSProperties = {
   background: 'var(--spira-white)', borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
