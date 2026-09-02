@@ -458,8 +458,12 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
             })}
           </div>
         )}
+        {/* La leyenda tiene que nombrar el color que se VE. Decía "petróleo" desde antes de que el
+            reporte pendiente pasara a azul (ver el comentario del color, más arriba): quedó
+            describiendo una versión de la pantalla que ya no existe, y es justamente el texto que
+            alguien lee cuando no sabe qué significa un tinte. */}
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--spira-line)', fontSize: 11.5, color: 'var(--spira-muted)' }}>
-          Ventana vencida (roja) · Pendiente vencido (ámbar) · Reporte pendiente (petróleo)
+          Ventana vencida (roja) · Pendiente vencido (ámbar) · Reporte pendiente (azul)
         </div>
       </div>
 
