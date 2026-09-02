@@ -23,6 +23,8 @@ import { VISIT_STATES, VisitChip } from './visitStates'
 import { VisitSummaryRow } from './VisitSummaryRow'
 import { ErrorBloque, FilasFantasma } from './resumenEstados'
 import { useAbrirFicha } from './useAbrirFicha'
+import { VisitDetail } from './track/VisitDetail'
+import { useUrlEntity } from '../lib/useUrlState'
 import type { ViewProps } from './types'
 
 const card: CSSProperties = {
@@ -448,6 +450,23 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const solicitudes = useSolicitudesPendientes()
   const reportes = useReportesPendientes()
 
+  /* La visita abierta en el modal, DESDE ACÁ y sin salir del Resumen.
+
+     Nace por la tarjeta de dispensaciones: llevaba a `track/visitas` con el `visitId`, y esa vista
+     busca la visita ENTRE LAS DEL DÍA CARGADO (DayVisitsView:151). Como una solicitud puede ser de
+     una visita de cualquier fecha y la fila no trae la suya, el salto aterrizaba en la lista de hoy
+     sin abrir nada — un clic que parecía no hacer efecto. `VisitDetail` no tiene ese problema: trae
+     sus datos por id (`useVisit`) y resuelve los permisos solo, así que abre cualquier visita
+     independientemente de la fecha.
+
+     Y es mejor destino, no sólo uno que funciona: el pedido de medicación se mira y se resuelve en
+     la visita, no en una lista. Mismo criterio que Alertas, que abre su modal ahí adentro en vez de
+     saltar a otra pantalla.
+
+     `useUrlEntity` da push al abrir y replace al cerrar: el atrás del navegador CIERRA el modal en
+     vez de sacarte del Resumen, y la URL con `?visita=` se puede compartir. */
+  const [visitaAbierta, setVisitaAbierta] = useUrlEntity('visita')
+
   const abrirFicha = useAbrirFicha({
     module,
     onNavigate,
@@ -543,7 +562,10 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
             loading={solicitudes.loading}
             error={solicitudes.error}
             onReintentar={solicitudes.refetch}
-            onOpenVisit={onNavigate && ((visitId) => onNavigate('track', 'visitas', { visitId }))}
+            /* Abre el modal ACÁ, no salta a Visitas. Ver el comentario de `visitaAbierta`: esa
+               vista busca la visita entre las del día cargado, y una solicitud puede ser de
+               cualquier fecha — el salto aterrizaba en la lista de hoy sin abrir nada. */
+            onOpenVisit={(visitId) => setVisitaAbierta(visitId)}
             onOpenPatient={abrirFicha}
           />
           <VisitasCard
@@ -558,6 +580,21 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
           />
         </div>
       </div>
+
+      {visitaAbierta && (
+        <VisitDetail
+          visitId={visitaAbierta}
+          accent={accent}
+          onClose={() => setVisitaAbierta(null)}
+          /* Lo que se hace en el modal puede cerrar la solicitud o mover la visita, así que las dos
+             tarjetas que dependen de eso se refrescan al volver. Las otras dos no: sus datos no los
+             toca este modal, y refetchearlas de más haría parpadear media pantalla al cerrar. */
+          onChanged={() => { solicitudes.refetch(); upcoming.refetch() }}
+          /* El mismo gesto que ya tienen las filas: `abrirFicha` cae solo a `undefined` sin
+             `onNavigate`, y ahí el encabezado del modal degrada a texto pelado. */
+          onOpenPatient={abrirFicha}
+        />
+      )}
     </div>
   )
 }
