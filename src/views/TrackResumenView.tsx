@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
+import { SegmentedControl } from '../components/SegmentedControl'
+import { useAuth } from '../lib/auth'
 import { AlertCardHeader } from './AlertCardHeader'
 import { severidadMaxima } from './alertSeverity'
 import { KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
 import { recortarGrupos } from './resumen/recorte'
-import { useProtocols } from '../data/protocols'
+import { AMBITOS, esDeMisProtocolos, filtrarPorAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
+import type { Ambito } from './resumen/ambito'
+import { useProtocols, useMyCoordinations } from '../data/protocols'
 import { usePatients } from '../data/patients'
 import { useUpcomingVisits } from '../data/visits'
 import { useActiveAlerts } from '../data/alertDismissals'
@@ -25,6 +29,8 @@ import { ErrorBloque, FilasFantasma } from './resumenEstados'
 import { useAbrirFicha } from './useAbrirFicha'
 import { VisitDetail } from './track/VisitDetail'
 import { useUrlEntity } from '../lib/useUrlState'
+import { useUrlState } from '../lib/useUrlState'
+import { oneOf } from '../lib/router'
 import type { ViewProps } from './types'
 
 const card: CSSProperties = {
@@ -450,6 +456,43 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const solicitudes = useSolicitudesPendientes()
   const reportes = useReportesPendientes()
 
+  /* ┌─ El ámbito: "Lo mío" (por defecto) o "Todo" ────────────────────────────────────────────┐
+     La pantalla YA venía filtrada por la RLS al nivel de protocolo, sin que ninguna palabra lo
+     dijera (ver `data/reportStatus.ts` y `data/pharma/dispensations.ts`). Esto hace dos cosas: lo
+     vuelve visible, y lo estrecha un paso más — de "mis protocolos" a "lo que yo hice".
+
+     EL ALTERNADOR NO ES UN LUJO. Filtrar a "lo que yo atendí" es MÁS ANGOSTO que lo de hoy: si una
+     compañera atendió una visita de mi protocolo, no cargó el reporte y se fue de licencia, sin
+     escape ese pendiente no aparece en la pantalla de nadie. "Todo" es esa salida, y no expone ni
+     un dato de más: muestra exactamente lo que la RLS ya deja ver.
+
+     SE LLAMA "Todo" Y NO "Mi protocolo" porque para gerencia —que no coordina ninguno y ve el centro
+     entero— lo segundo sería mentira. "Todo" es literal para los dos y evita una rama de copy por
+     rol.
+
+     VA EN LA URL con `mode: 'replace'` (el default): un filtro no es navegación, y si apilara,
+     salir del Resumen después de un rato serían quince "atrás". Mismo criterio que el día y el
+     buscador de Visitas del día.
+     └──────────────────────────────────────────────────────────────────────────────────────────┘ */
+  const { profile } = useAuth()
+  const userId = profile?.id ?? null
+  const coordinaciones = useMyCoordinations(userId)
+  const [ambito, setAmbito] = useUrlState<Ambito>('ambito', 'mio', { codec: oneOf(AMBITOS) })
+
+  const misProtocolos = useMemo(
+    () => new Set((coordinaciones.data ?? []).map((c) => c.protocol_id)),
+    [coordinaciones.data],
+  )
+
+  /* Quien no coordina NINGÚN protocolo (gerencia, farmacia) no ve el alternador y la pantalla le
+     queda como siempre: para esa persona "Lo mío" no significa nada y sólo daría cuatro tarjetas
+     vacías. Se deduce del dato, sin rol nuevo ni configuración.
+
+     Mientras `useMyCoordinations` carga, `misProtocolos` está vacío — así que el alternador aparece
+     recién cuando se sabe que hay coordinaciones, y no parpadea. */
+  const esCoordinador = misProtocolos.size > 0
+  const ambitoEfectivo: Ambito = esCoordinador ? ambito : 'todo'
+
   /* La visita abierta en el modal, DESDE ACÁ y sin salir del Resumen.
 
      Nace por la tarjeta de dispensaciones: llevaba a `track/visitas` con el `visitId`, y esa vista
@@ -475,11 +518,23 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
 
   const cargandoKpis = protocols.loading || patients.loading || upcoming.loading || alerts.loading
 
+  /* Los KPIs de protocolos y pacientes NO se filtran, y no es un olvido: ya vienen scopeados por
+     RLS (policies "ver protocolos asignados" 0006:92 y "ver pacientes de mis protocolos" 0006:128),
+     y además un protocolo no se "atiende" — no tiene versión "lo que yo hice". */
   const allProtocols = protocols.data ?? []
   const allPatients = patients.data ?? []
-  const upcomingRows = upcoming.data ?? []
-  const alertRows = alerts.visitAlerts
-  const solicitudRows = solicitudes.data ?? []
+
+  /* Las cuatro listas del mosaico, cada una con SU definición de "mío" (spec, D2). El ámbito manda
+     sobre toda la pantalla —KPIs incluidos— porque un número y su lista tienen que contar lo mismo:
+     si el KPI dijera 7 y la tarjeta listara 3, el que está mal es el que mira. */
+  const upcomingRows = filtrarPorAmbito(ambitoEfectivo, upcoming.data ?? [], (v) =>
+    esDeMisProtocolos(v, misProtocolos))
+  const alertRows = filtrarPorAmbito(ambitoEfectivo, alerts.visitAlerts, (a) =>
+    loAtendiYo(a, userId))
+  const solicitudRows = filtrarPorAmbito(ambitoEfectivo, solicitudes.data ?? [], (s) =>
+    loPediYo(s, userId))
+  const reporteRows = filtrarPorAmbito(ambitoEfectivo, reportes.data ?? [], (r) =>
+    loAtendiYo(r, userId))
 
   const activeProtocols = allProtocols.filter((p) => p.status === 'activo').length
   const activePatients = allPatients.filter((p) => p.status === 'activo').length
@@ -499,6 +554,21 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* El alternador sólo existe para quien coordina algo (ver `esCoordinador`). Se apoya en
+          SegmentedControl, que ya resuelve el `role="radiogroup"` y el teclado; no se dibuja a mano
+          para no repetir la accesibilidad. El realce del seleccionado es el del componente: borde y
+          fondo teñidos con el acento del módulo, sin nada agregado desde un handler. */}
+      {esCoordinador && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <SegmentedControl<Ambito>
+            options={[{ value: 'mio', label: 'Lo mío' }, { value: 'todo', label: 'Todo' }]}
+            value={ambito}
+            onChange={setAmbito}
+            accent={accent}
+          />
+        </div>
+      )}
+
       {/* KPIs — los cuatro navegan a su submódulo (D8). El rótulo del chip sale del registry. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
         <KpiCard kpi="protocolos" onNavigate={onNavigate} label="Protocolos activos" value={activeProtocols} sub={`${allProtocols.length} en total`} dot={accent} cargando={cargandoKpis} />
@@ -535,7 +605,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
           <ReportesCard
-            rows={reportes.data ?? []}
+            rows={reporteRows}
             loading={reportes.loading}
             error={reportes.error}
             onReintentar={reportes.refetch}
