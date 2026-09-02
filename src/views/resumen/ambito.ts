@@ -81,9 +81,46 @@ export function loPediYo(fila: ConAutor, userId: string | null): boolean {
 }
 
 /**
+ * "Mío" para Alertas — y SÓLO para Alertas, distinta a propósito de la de Reportes/Dispensaciones
+ * (`loAtendiYo` a secas).
+ *
+ * LA ALERTA MÁS GRAVE ES JUSTO LA QUE `loAtendiYo` SOLA BORRA. `computed_status = 'ventana_vencida'`
+ * exige `pv.real_date is null` (0102); y `real_date` lo escribe `start_visit_attention` EN EL MISMO
+ * update que sella `coordinator_id`. Es decir: una visita en ventana vencida nunca fue atendida, así
+ * que su `coordinator_id` es `null` casi siempre (salvo la asignación manual de `protocol_coordinators`,
+ * que es opcional) — filtrar alertas con `loAtendiYo` a secas vacía la clase de alerta más grave
+ * apenas alguien prende "Lo mío", sin un solo error.
+ *
+ * Por eso acá "mía" es la ATENDÍ YO, O nadie la atendió todavía y es de un protocolo que coordino:
+ * la ausencia de coordinador no dice "no es tuya", dice "todavía no la agarró nadie" — y si el
+ * protocolo es el mío, se supone que la agarro yo.
+ */
+export function esAlertaMia(
+  fila: ConCoordinador & ConProtocolo,
+  userId: string | null,
+  misProtocolos: Set<string>,
+): boolean {
+  if (!userId) return false
+  if (loAtendiYo(fila, userId)) return true
+  return fila.coordinator_id === null && esDeMisProtocolos(fila, misProtocolos)
+}
+
+/**
  * Aplica el ámbito a una lista. En "todo" devuelve TODAS —nunca ninguna—, que es el error clásico
  * del otro lado y el que vacía una pantalla sin decir por qué.
  */
 export function filtrarPorAmbito<T>(ambito: Ambito, filas: T[], esMia: (fila: T) => boolean): T[] {
   return ambito === 'todo' ? filas : filas.filter(esMia)
+}
+
+/**
+ * ¿Corresponde ofrecer "Ver todo"? Sólo cuando el ámbito activo es "mío" Y hay algo del otro lado:
+ * ofrecerlo con "Todo" también vacío manda a alguien a confirmar una nada, y en esta pantalla un
+ * viaje en falso cuesta confianza. `hayEnTodo` lo calcula quien llama, sobre la lista SIN filtrar —
+ * y con el MISMO criterio de vacío que usa la tarjeta, no cualquier `.length > 0` (una tarjeta puede
+ * considerarse vacía con filas todavía presentes en la lista cruda, como Reportes pendientes con
+ * `esTarjeta` + etapa).
+ */
+export function hayAvisoDeAmbito(ambitoEfectivo: Ambito, hayEnTodo: boolean): boolean {
+  return ambitoEfectivo === 'mio' && hayEnTodo
 }

@@ -1,11 +1,20 @@
 import type { CSSProperties } from 'react'
 
 interface Option<T extends string> { value: T; label: string; disabled?: boolean; badge?: string }
-interface Props<T extends string> { options: Option<T>[]; value: T | ''; onChange: (v: T) => void; accent: string }
+interface Props<T extends string> {
+  options: Option<T>[]
+  value: T | ''
+  onChange: (v: T) => void
+  accent: string
+  /** Nombre accesible del grupo (ARIA lo exige en un `role="radiogroup"`: sin él el lector anuncia
+   *  "grupo" y nada más). Opcional para no romper un consumidor que ya traiga su propio rótulo
+   *  visible al lado. */
+  label?: string
+}
 
-export function SegmentedControl<T extends string>({ options, value, onChange, accent }: Props<T>) {
+export function SegmentedControl<T extends string>({ options, value, onChange, accent, label }: Props<T>) {
   return (
-    <div role="radiogroup" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+    <div role="radiogroup" aria-label={label} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
       {options.map((o) => {
         const selected = o.value === value
         return (
@@ -18,9 +27,15 @@ export function SegmentedControl<T extends string>({ options, value, onChange, a
             disabled={o.disabled}
             onClick={() => !o.disabled && onChange(o.value)}
             className={o.disabled ? 'spira-no-press' : undefined}
+            /* El seleccionado se marca con fondo teñido, NUNCA con un borde de color (regla dura del
+               proyecto): mismo molde que la solapa de `CronogramaTab` (`tab()`) — borde transparente
+               al seleccionar, línea visible al no seleccionar. `borderColor` va en LONGHAND junto a
+               `borderWidth`/`borderStyle` y nunca mezclado con la abreviada `border` (gotcha de la
+               casa: React vacía los longhand en el render siguiente y el borde se rompe). */
             style={{
               minHeight: 44, padding: '10px 16px', borderRadius: 'var(--spira-radius-md)',
-              border: `1px solid ${selected ? accent : 'var(--spira-line-2)'}`,
+              borderWidth: 1, borderStyle: 'solid',
+              borderColor: selected ? 'transparent' : 'var(--spira-line-2)',
               background: selected ? accent + '14' : 'var(--spira-white)',
               color: o.disabled ? 'var(--spira-faint)' : 'var(--spira-ink)',
               fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 14,

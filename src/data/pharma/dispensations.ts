@@ -781,9 +781,9 @@ export interface SolicitudPendienteRow {
   /** A dónde lleva el renglón. Nunca es null en la práctica (la FK es obligatoria), pero el tipo lo
    *  admite para que el consumidor pueda degradar a fila inerte antes que a un link muerto. */
   visit_id: string | null
-  /** Quién pidió la medicación (columna de la 0006; la usa su propia policy de INSERT). Lo usa el
-   *  ámbito "Lo mío" del Resumen. `null` no debería ocurrir, pero el tipo lo admite: una fila sin
-   *  autor no es de nadie, nunca "mía". */
+  /** Quién pidió la medicación (columna de la 0002; la 0006 es donde vive la policy de INSERT que la
+   *  usa). Lo usa el ámbito "Lo mío" del Resumen. `null` no debería ocurrir, pero el tipo lo admite:
+   *  una fila sin autor no es de nadie, nunca "mía". */
   requested_by: string | null
   items: { medication: { name: string } | null }[]
   enrollment: { patient: { id: string; code: string | null; full_name: string } | null } | null
