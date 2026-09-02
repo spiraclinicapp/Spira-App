@@ -241,6 +241,36 @@ function CardHeader({ icon, color, titulo, extra }: {
 }
 
 /**
+ * El vacío de una tarjeta cuando el ámbito es "Lo mío".
+ *
+ * NO ES DECORACIÓN: sin esto, una tarjeta vacía dice "no hay nada que hacer", y acá puede
+ * significar "no lo hiciste vos". La diferencia importa — del otro lado puede haber un reporte
+ * venciendo. Por eso el texto nombra el motivo y ofrece la salida en el mismo lugar donde apareció
+ * la duda, en vez de mandar a buscarla arriba.
+ *
+ * El botón es un `<button>` de verdad y no un span pulsable: es el único camino de teclado a "Todo"
+ * desde acá, y mudarlo a un div lo dejaría sin foco sin que se note mirando la pantalla.
+ */
+function VacioDelAmbito({ texto, onVerTodo }: { texto: string; onVerTodo: () => void }) {
+  return (
+    <div style={{ padding: '14px 0 4px', fontSize: 13, color: 'var(--spira-muted)', lineHeight: 1.5 }}>
+      {texto}{' '}
+      <button
+        type="button"
+        onClick={onVerTodo}
+        style={{
+          background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+          font: 'inherit', fontWeight: 700, color: 'var(--spira-acc-deep-track)',
+          textDecoration: 'underline', textUnderlineOffset: 3,
+        }}
+      >
+        Ver todo
+      </button>
+    </div>
+  )
+}
+
+/**
  * Tarjeta "Reportes pendientes": los reportes de TODOS los protocolos que la persona coordina,
  * los que vencen primero arriba.
  *
@@ -260,7 +290,7 @@ function CardHeader({ icon, color, titulo, extra }: {
  * La barra de progreso son los EVOLUCIONADOS sobre el total, que es el único par de números que
  * significa algo acá: cuántos de los reportes en juego ya están cerrados.
  */
-function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOpenPatient }: {
+function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOpenPatient, vacioDelAmbito }: {
   rows: ReportStatusRow[]
   loading: boolean
   error: string | null
@@ -268,6 +298,10 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
   /** Abre el tablero de reportes DEL PROTOCOLO de esa fila (detalle del protocolo, pestaña abierta). */
   onOpenReportes?: (protocolId: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
+  /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
+   *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
+   *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
+  vacioDelAmbito?: ReactNode
 }) {
   const [expandido, setExpandido] = useState(false)
   /* `esTarjeta` = el procedimiento está marcado realizado. Antes de eso el plazo no arrancó y el
@@ -303,9 +337,11 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
       ) : error ? (
         <ErrorBloque que="los reportes pendientes" onReintentar={onReintentar} />
       ) : pendientes.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-          {tarjetas.length === 0 ? 'Sin reportes en juego.' : 'Todos los reportes están cerrados.'}
-        </div>
+        vacioDelAmbito ?? (
+          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
+            {tarjetas.length === 0 ? 'Sin reportes en juego.' : 'Todos los reportes están cerrados.'}
+          </div>
+        )
       ) : (
         <div style={{ marginTop: 8 }}>
           {visibles.map((r, i) => {
@@ -536,6 +572,17 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const reporteRows = filtrarPorAmbito(ambitoEfectivo, reportes.data ?? [], (r) =>
     loAtendiYo(r, userId))
 
+  /* El aviso sólo tiene sentido si hay algo del otro lado. Ofrecer "Ver todo" cuando "Todo" también
+     está vacío manda a alguien a confirmar una nada — y en esta pantalla un viaje en falso cuesta
+     confianza. Por eso se compara contra la lista SIN filtrar, que la vista ya tiene a mano.
+
+     En ámbito "Todo" devuelve `undefined` y cada tarjeta cae a su vacío de siempre: ahí "no hay
+     nada" es la verdad completa y no hay a dónde mandar a nadie. */
+  const avisoDeAmbito = (texto: string, hayEnTodo: boolean) =>
+    ambitoEfectivo === 'mio' && hayEnTodo
+      ? <VacioDelAmbito texto={texto} onVerTodo={() => setAmbito('todo')} />
+      : undefined
+
   const activeProtocols = allProtocols.filter((p) => p.status === 'activo').length
   const activePatients = allPatients.filter((p) => p.status === 'activo').length
   const overdueItems = alertRows.filter((a) => a.computed_status === 'item_vencido').length
@@ -614,6 +661,8 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
                etapa; abrir la visita sería dejar a la persona a un paso todavía. */
             onOpenReportes={onNavigate && ((protocolId) => onNavigate('track', 'protocolos', { protocolId, protocolTab: 'reportes' }))}
             onOpenPatient={abrirFicha}
+            vacioDelAmbito={avisoDeAmbito('No atendiste visitas con reportes pendientes.',
+              (reportes.data ?? []).length > 0)}
           />
           <AlertasCard
             rows={alertRows}
@@ -623,6 +672,8 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
             onOpenAlerta={onNavigate && ((visitId) => onNavigate('track', 'alertas', { visitId }))}
             onOpenPatient={abrirFicha}
             onVerTodo={onNavigate ? irAAlertas : undefined}
+            vacioDelAmbito={avisoDeAmbito('Ninguna de tus visitas está en alerta.',
+              alerts.visitAlerts.length > 0)}
           />
         </div>
 
@@ -637,6 +688,8 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
                cualquier fecha — el salto aterrizaba en la lista de hoy sin abrir nada. */
             onOpenVisit={(visitId) => setVisitaAbierta(visitId)}
             onOpenPatient={abrirFicha}
+            vacioDelAmbito={avisoDeAmbito('No pediste medicación que siga abierta.',
+              (solicitudes.data ?? []).length > 0)}
           />
           <VisitasCard
             groups={groups}
@@ -647,6 +700,8 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
             onOpenVisit={onNavigate && ((visitId, visitDate) => onNavigate('track', 'visitas', { visitId, visitDate }))}
             onOpenPatient={abrirFicha}
             onVerMas={onNavigate ? () => onNavigate('track', 'visitas') : undefined}
+            vacioDelAmbito={avisoDeAmbito('No hay visitas próximas en tus protocolos.',
+              (upcoming.data ?? []).length > 0)}
           />
         </div>
       </div>
@@ -670,7 +725,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
 }
 
 /** Alertas vigentes: cabecera teñida por la PEOR presente, filas planas con punto de severidad. */
-function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenPatient, onVerTodo }: {
+function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenPatient, onVerTodo, vacioDelAmbito }: {
   rows: TrackVisitRow[]
   loading: boolean
   error: string | null
@@ -678,6 +733,10 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
   onOpenAlerta?: (visitId: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
   onVerTodo?: () => void
+  /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
+   *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
+   *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
+  vacioDelAmbito?: ReactNode
 }) {
   /* El contador de la cabecera cuenta TODAS, no las visibles: recortar la lista no puede cambiar
      cuántas alertas hay — ése es el número que importa y el que la campana también muestra. */
@@ -691,9 +750,11 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
       ) : error ? (
         <ErrorBloque que="las alertas" onReintentar={onReintentar} />
       ) : rows.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-          Sin alertas. Todo al día.
-        </div>
+        vacioDelAmbito ?? (
+          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
+            Sin alertas. Todo al día.
+          </div>
+        )
       ) : (
         <>
           {/* Sin `marginTop` propio: la separación con la banda teñida la pone ahora la cabecera
@@ -761,7 +822,7 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
 }
 
 /** Próximas visitas del cronograma (7 días), agrupadas por día. */
-function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit, onOpenPatient, onVerMas }: {
+function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit, onOpenPatient, onVerMas, vacioDelAmbito }: {
   groups: { date: string; visits: TrackVisitRow[] }[]
   accent: string
   loading: boolean
@@ -770,6 +831,10 @@ function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit
   onOpenVisit?: (visitId: string, visitDate?: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
   onVerMas?: () => void
+  /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
+   *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
+   *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
+  vacioDelAmbito?: ReactNode
 }) {
   /* El recorte respeta los grupos de día y nunca deja un encabezado sin visitas debajo; la regla
      está en `recortarGrupos`, con su test, porque acá un off-by-one esconde una visita en silencio. */
@@ -785,9 +850,11 @@ function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit
       ) : error ? (
         <ErrorBloque que="las próximas visitas" onReintentar={onReintentar} />
       ) : groups.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-          Sin visitas en los próximos 7 días.
-        </div>
+        vacioDelAmbito ?? (
+          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
+            Sin visitas en los próximos 7 días.
+          </div>
+        )
       ) : (
         <div style={{ marginTop: 6 }}>
           {visibles.map((g) => (
@@ -824,13 +891,17 @@ function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit
 }
 
 /** Lo que Coordinación pidió a Farmacia y todavía espera. */
-function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, onOpenPatient }: {
+function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, onOpenPatient, vacioDelAmbito }: {
   rows: SolicitudPendienteRow[]
   loading: boolean
   error: string | null
   onReintentar: () => void
   onOpenVisit?: (visitId: string) => void
   onOpenPatient?: (patientId: string, protocolId?: string) => void
+  /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
+   *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
+   *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
+  vacioDelAmbito?: ReactNode
 }) {
   const [expandido, setExpandido] = useState(false)
   const visibles = expandido ? rows : rows.slice(0, MAX_FILAS)
@@ -854,9 +925,11 @@ function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, o
       ) : error ? (
         <ErrorBloque que="las dispensaciones solicitadas" onReintentar={onReintentar} />
       ) : rows.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-          Sin dispensaciones pendientes.
-        </div>
+        vacioDelAmbito ?? (
+          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
+            Sin dispensaciones pendientes.
+          </div>
+        )
       ) : (
         <div style={{ marginTop: 8 }}>
           {visibles.map((s, i) => (
