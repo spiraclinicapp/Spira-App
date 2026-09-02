@@ -768,3 +768,29 @@ como contexto histórico; borrarla cuando ese PR se mergee.
   cambio es agregar `useStock(null)` en `MedicamentosView` y cruzar por `medication_id` en
   `construirGrupos`; si no, alcanza con leer el umbral y seguir listando sólo lo que tiene lotes.
 - **Prioridad:** P2.
+
+## Coordinación · El scopeo de la RLS nunca se probó con una cuenta acotada
+
+- **Qué:** entrar con una cuenta que tenga **sólo** el módulo `track` y confirmar que el Resumen,
+  Alertas y sus filtros muestran lo de SUS protocolos — ni de más, ni de menos.
+- **Por qué:** la policy `"ver solicitudes"` (`0006_rls_policies.sql:251`) tiene tres caminos —
+  `has_module('gerencia')`, `has_module('pharma')` y `coordina_visita(visit_id)`. **La cuenta de QA
+  tiene los cinco módulos**, así que siempre entra por el segundo y ve el centro entero: el tercer
+  camino, el único que usa una coordinadora real, **nunca se ejecutó**.
+- **Qué se rompería sin ruido:** `TrackResumenView` trae las dispensaciones sin gate de rol, y con
+  cero filas pinta *"Sin dispensaciones pendientes."* **La RLS filtra en silencio: no tira error,
+  devuelve cero filas.** Si `coordina_visita()` quedara más angosto de lo que debe, esa frase sería
+  falsa para esa persona, sin ningún síntoma, en la pantalla que contesta "cómo viene el día". Lo
+  mismo, más callado, en las opciones de los filtros de Alertas: se arman con las filas visibles.
+- **Contras / por qué se difirió:** montar una cuenta de laboratorio prueba la policy, no el uso.
+  El Director decidió (2026-09-01) esperar a la coordinadora real, que además va a ejercitar los
+  protocolos que de verdad coordina en vez de un caso armado.
+- **DISPARADOR (esto no es "algún día"):** apenas exista **la primera cuenta de coordinación real**
+  — o antes, si se toca `coordina_visita()`, la policy `"ver solicitudes"`, o se agrega una tarjeta
+  al Resumen que lea datos de otro módulo. Cualquiera de esas tres cosas lo vuelve urgente.
+- **Empezar por:** crear el usuario en el dashboard (Auth → Users, **Auto Confirm**; no hay
+  auto-registro) y darle UN solo módulo:
+  `insert into user_module_roles (user_id, module, role) values ('<uuid>', 'track', 'member');`
+  Después: Inicio, Coordinación › Resumen y Coordinación › Alertas, comparando los números contra
+  los que ve la cuenta de QA. **Si son iguales, algo está mal** — tienen que ser distintos.
+- **Prioridad:** P2.
