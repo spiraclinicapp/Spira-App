@@ -58,6 +58,14 @@ export interface ReportStatusRow {
   visit_name: string | null
   visit_sort_order: number | null
   history_count: number
+  /** Quién ATENDIÓ la visita (0104; la columna es de `patient_visits`, 0065). `null` = sin
+   *  coordinador asignado. Es retrospectivo: lo sella `start_visit_attention` (0102) con quien
+   *  apretó "iniciar atención", así que dice quién la hizo y no a quién le toca. Lo usa el ámbito
+   *  "Lo mío" del Resumen. */
+  coordinator_id: string | null
+  /** Nombre DESNORMALIZADO del coordinador (0104). La RLS de `users` sólo deja ver el perfil
+   *  propio, así que joinear esa tabla habría devuelto null para todos los demás, en silencio. */
+  coordinator_name: string | null
 }
 
 /** Fila de `report_status_history` (0090): un cambio de etapa, con quién y cuándo. */

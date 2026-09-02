@@ -37,6 +37,7 @@ function row(over: Partial<ReportStatusRow> = {}): ReportStatusRow {
     protocol_id: 'pr1', patient_id: 'pa1', visit_def_id: 'vd1',
     protocol_code: 'ACT18301', patient_code: 'ACT18301-004', patient_name: 'Herrera, Marisol',
     visit_code: 'V3', visit_name: 'Randomización', visit_sort_order: 3, history_count: 0,
+    coordinator_id: null, coordinator_name: null,
     ...over,
   }
 }
