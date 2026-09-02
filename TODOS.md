@@ -745,3 +745,26 @@ como contexto histórico; borrarla cuando ese PR se mergee.
   migración nueva. Luego `TrackVisitRow` en `src/data/visits.ts` y el KPI en `TrackResumenView`.
 - **Depende de / bloqueado por:** ventana para aplicar SQL en prod (a mano, en el dashboard).
 - **Prioridad:** P3.
+
+## Farmacia · El umbral de stock bajo es configurable en la base y el front lo ignora
+
+- **Qué:** que "Bajo" y "Agotado" en Stock salgan de `v_medication_stock` (`is_low_stock`,
+  `low_stock_threshold`) en vez del `≤ 5` escrito a mano en `stock/agrupacion.ts` (`STOCK_BAJO`).
+- **Por qué:** el umbral correcto depende del medicamento — cinco unidades de un inhalador que se
+  dispensa de a uno no es lo mismo que cinco de algo que se entrega por caja. Hoy la farmacéutica
+  puede configurar ese número y el front no lo mira, así que el campo es decorativo.
+- **Pros:** el dato EXISTE desde la migración **0032** y ya está expuesto en `useStock()`
+  (`src/data/pharma/stock.ts`), usado por `PatientMedicationsCard`. No hace falta migración.
+- **Contras:** `v_medication_stock` incluye los medicamentos ASIGNADOS a un protocolo con stock
+  **cero**, que hoy la pantalla no lista (lee `v_medication_lots_detail`, que sólo tiene lotes). O
+  sea que cablearla cambia **qué filas se muestran**, no sólo cómo se rotulan — y eso es una
+  decisión de producto ("¿Stock muestra lo que hay o lo que debería haber?"), no un detalle de
+  implementación. Además suma una segunda consulta con su propio estado de carga.
+- **Contexto:** quedó fuera del alcance de la `/plan-eng-review` del 2026-09-01
+  (`docs/plan-stock-agrupacion-por-medicamento.md`, decisión **D8**). El mock del handoff marcaba
+  "Bajo" en un lote de **6** unidades, que con el `≤ 5` de hoy no se marca: es justamente el síntoma
+  de que el umbral debería venir de la base.
+- **Empezar por:** decidir con el Director si Stock debe listar medicamentos sin lotes. Si sí, el
+  cambio es agregar `useStock(null)` en `MedicamentosView` y cruzar por `medication_id` en
+  `construirGrupos`; si no, alcanza con leer el umbral y seguir listando sólo lo que tiene lotes.
+- **Prioridad:** P2.
