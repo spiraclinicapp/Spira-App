@@ -40,7 +40,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange, l
                significado clínico, no para "el mouse está acá", y esto no toca el acento ni depende
                de distinguir colores. Los dos siguen cumpliendo AA 4,5:1 contra su propio fondo (`ink`
                sobre `white` elevado, `muted` sobre `paper` de página) en los dos temas — medido, no
-               estimado: ver el comentario de tarea que dejó los seis números. `borderColor` va en
+               estimado (claro 14,1:1 y 4,6:1; oscuro 13,8:1 y 7,3:1). `borderColor` va en
                LONGHAND junto a `borderWidth`/`borderStyle` y nunca mezclado con la abreviada `border`
                (gotcha de la casa: React vacía los longhand en el render siguiente y el borde se
                rompe). */
