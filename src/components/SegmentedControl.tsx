@@ -32,16 +32,25 @@ export function SegmentedControl<T extends string>({ options, value, onChange, l
                visible) — así el elegido se lee arriba del resto en los dos temas, sin depender de
                una tinta que en oscuro se invierte (`--spira-white` es más OSCURO que `--spira-paper`
                ahí, así que un teñido semitransparente del seleccionado componía más oscuro que el no
-               seleccionado). `borderColor` va en LONGHAND junto a `borderWidth`/`borderStyle` y nunca
-               mezclado con la abreviada `border` (gotcha de la casa: React vacía los longhand en el
-               render siguiente y el borde se rompe). */
+               seleccionado). Pero la elevación SOLA deja fondo-contra-fondo en ~1,1:1 (muy por debajo
+               del 3:1 de WCAG 1.4.11: la sombra sostiene poco en oscuro) — así que la señal se
+               completa con JERARQUÍA DE TINTA, no con acento: seleccionado en `--spira-ink` (tinta
+               fuerte), no seleccionado en `--spira-muted` (gris de texto). Es tipografía, no
+               señalización cromática de estado — la regla de la casa reserva el color para
+               significado clínico, no para "el mouse está acá", y esto no toca el acento ni depende
+               de distinguir colores. Los dos siguen cumpliendo AA 4,5:1 contra su propio fondo (`ink`
+               sobre `white` elevado, `muted` sobre `paper` de página) en los dos temas — medido, no
+               estimado: ver el comentario de tarea que dejó los seis números. `borderColor` va en
+               LONGHAND junto a `borderWidth`/`borderStyle` y nunca mezclado con la abreviada `border`
+               (gotcha de la casa: React vacía los longhand en el render siguiente y el borde se
+               rompe). */
             style={{
               minHeight: 44, padding: '10px 16px', borderRadius: 'var(--spira-radius-md)',
               borderWidth: 1, borderStyle: 'solid',
               borderColor: selected ? 'transparent' : 'var(--spira-line-2)',
               background: selected ? 'var(--spira-white)' : 'transparent',
               boxShadow: selected ? 'var(--spira-shadow-md)' : 'none',
-              color: o.disabled ? 'var(--spira-faint)' : 'var(--spira-ink)',
+              color: o.disabled ? 'var(--spira-faint)' : selected ? 'var(--spira-ink)' : 'var(--spira-muted)',
               fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 14,
               cursor: o.disabled ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 8,
             }}
