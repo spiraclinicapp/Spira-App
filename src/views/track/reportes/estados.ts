@@ -107,6 +107,20 @@ export function esTarjeta(row: Pick<ReportStatusRow, 'completed'>): boolean {
 }
 
 /**
+ * ¿Este reporte cuenta como PENDIENTE en el Resumen de Coordinación? Es tarjeta (`esTarjeta`) y
+ * todavía no llegó a la última etapa.
+ *
+ * SACADA A FUNCIÓN PORQUE YA SE ESCRIBIÓ DOS VECES Y DIVERGIÓ: `ReportesCard` la usa para decidir
+ * si tiene algo que mostrar, y la vista la vuelve a necesitar para decidir si el aviso de "Lo mío"
+ * vacío ofrece "Ver todo" — que las dos copias dijeran lo mismo fue justamente lo que un review
+ * anterior tuvo que corregir a mano. Con una sola definición, no hay una segunda copia para que se
+ * desalinee la próxima vez que cambie el criterio.
+ */
+export function esReportePendiente(row: Pick<ReportStatusRow, 'completed' | 'stage'>): boolean {
+  return esTarjeta(row) && row.stage !== 'evolucionado'
+}
+
+/**
  * ¿La visita quedó cerrada?
  *
  * DOS condiciones, y la segunda es la que se olvida: todos los procedimientos con reporte tienen

@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
+import { SegmentedControl } from '../components/SegmentedControl'
+import { useAuth } from '../lib/auth'
 import { AlertCardHeader } from './AlertCardHeader'
 import { severidadMaxima } from './alertSeverity'
 import { KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
 import { recortarGrupos } from './resumen/recorte'
-import { useProtocols } from '../data/protocols'
+import { AMBITOS, esAlertaMia, esDeMisProtocolos, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
+import type { Ambito } from './resumen/ambito'
+import { useProtocols, useMyCoordinations } from '../data/protocols'
 import { usePatients } from '../data/patients'
 import { useUpcomingVisits } from '../data/visits'
 import { useActiveAlerts } from '../data/alertDismissals'
@@ -15,7 +19,7 @@ import { useSolicitudesPendientes, ESTADO_SOLICITUD } from '../data/pharma'
 import type { SolicitudPendienteRow } from '../data/pharma'
 import { useReportesPendientes } from '../data/reportStatus'
 import type { ReportStatusRow } from '../data/reportStatus'
-import { dueLabel, esTarjeta } from './track/reportes/estados'
+import { dueLabel, esReportePendiente, esTarjeta } from './track/reportes/estados'
 import type { TrackVisitRow } from '../data/visits'
 import { visitTitle } from '../lib/visits'
 import { dayLabel, formatAR, fromNow } from '../lib/dates'
@@ -24,7 +28,8 @@ import { VisitSummaryRow } from './VisitSummaryRow'
 import { ErrorBloque, FilasFantasma } from './resumenEstados'
 import { useAbrirFicha } from './useAbrirFicha'
 import { VisitDetail } from './track/VisitDetail'
-import { useUrlEntity } from '../lib/useUrlState'
+import { useUrlEntity, useUrlState } from '../lib/useUrlState'
+import { oneOf } from '../lib/router'
 import type { ViewProps } from './types'
 
 const card: CSSProperties = {
@@ -235,6 +240,36 @@ function CardHeader({ icon, color, titulo, extra }: {
 }
 
 /**
+ * El vacío de una tarjeta cuando el ámbito es "Lo mío".
+ *
+ * NO ES DECORACIÓN: sin esto, una tarjeta vacía dice "no hay nada que hacer", y acá puede
+ * significar "no lo hiciste vos". La diferencia importa — del otro lado puede haber un reporte
+ * venciendo. Por eso el texto nombra el motivo y ofrece la salida en el mismo lugar donde apareció
+ * la duda, en vez de mandar a buscarla arriba.
+ *
+ * El botón es un `<button>` de verdad y no un span pulsable: es el único camino de teclado a "Todo"
+ * desde acá, y mudarlo a un div lo dejaría sin foco sin que se note mirando la pantalla.
+ */
+function VacioDelAmbito({ texto, onVerTodo }: { texto: string; onVerTodo: () => void }) {
+  return (
+    <div style={{ padding: '14px 0 4px', fontSize: 13, color: 'var(--spira-muted)', lineHeight: 1.5 }}>
+      {texto}{' '}
+      <button
+        type="button"
+        onClick={onVerTodo}
+        style={{
+          background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+          font: 'inherit', fontWeight: 700, color: 'var(--spira-acc-deep-track)',
+          textDecoration: 'underline', textUnderlineOffset: 3,
+        }}
+      >
+        Ver todo
+      </button>
+    </div>
+  )
+}
+
+/**
  * Tarjeta "Reportes pendientes": los reportes de TODOS los protocolos que la persona coordina,
  * los que vencen primero arriba.
  *
@@ -254,7 +289,7 @@ function CardHeader({ icon, color, titulo, extra }: {
  * La barra de progreso son los EVOLUCIONADOS sobre el total, que es el único par de números que
  * significa algo acá: cuántos de los reportes en juego ya están cerrados.
  */
-function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOpenPatient }: {
+function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOpenPatient, vacioDelAmbito }: {
   rows: ReportStatusRow[]
   loading: boolean
   error: string | null
@@ -262,13 +297,20 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
   /** Abre el tablero de reportes DEL PROTOCOLO de esa fila (detalle del protocolo, pestaña abierta). */
   onOpenReportes?: (protocolId: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
+  /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
+   *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
+   *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
+  vacioDelAmbito?: ReactNode
 }) {
   const [expandido, setExpandido] = useState(false)
   /* `esTarjeta` = el procedimiento está marcado realizado. Antes de eso el plazo no arrancó y el
-     reporte no es todavía nada que gestionar (misma regla que el tablero, ya testeada). */
+     reporte no es todavía nada que gestionar (misma regla que el tablero, ya testeada). `pendientes`
+     usa `esReportePendiente` —no un filtro repetido acá— porque es la MISMA definición que decide el
+     aviso de "Lo mío" vacío más abajo en la vista: que coincidan dejó de ser un acuerdo tácito entre
+     dos filtros y pasó a ser una sola función. */
   const tarjetas = rows.filter(esTarjeta)
   const resueltos = tarjetas.filter((r) => r.stage === 'evolucionado').length
-  const pendientes = tarjetas.filter((r) => r.stage !== 'evolucionado')
+  const pendientes = rows.filter(esReportePendiente)
   const pct = tarjetas.length === 0 ? 0 : Math.round((resueltos / tarjetas.length) * 100)
   const visibles = expandido ? pendientes : pendientes.slice(0, MAX_FILAS)
   const restantes = pendientes.length - visibles.length
@@ -297,9 +339,11 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
       ) : error ? (
         <ErrorBloque que="los reportes pendientes" onReintentar={onReintentar} />
       ) : pendientes.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-          {tarjetas.length === 0 ? 'Sin reportes en juego.' : 'Todos los reportes están cerrados.'}
-        </div>
+        vacioDelAmbito ?? (
+          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
+            {tarjetas.length === 0 ? 'Sin reportes en juego.' : 'Todos los reportes están cerrados.'}
+          </div>
+        )
       ) : (
         <div style={{ marginTop: 8 }}>
           {visibles.map((r, i) => {
@@ -450,6 +494,43 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const solicitudes = useSolicitudesPendientes()
   const reportes = useReportesPendientes()
 
+  /* ┌─ El ámbito: "Lo mío" (por defecto) o "Todo" ────────────────────────────────────────────┐
+     La pantalla YA venía filtrada por la RLS al nivel de protocolo, sin que ninguna palabra lo
+     dijera (ver `data/reportStatus.ts` y `data/pharma/dispensations.ts`). Esto hace dos cosas: lo
+     vuelve visible, y lo estrecha un paso más — de "mis protocolos" a "lo que yo hice".
+
+     EL ALTERNADOR NO ES UN LUJO. Filtrar a "lo que yo atendí" es MÁS ANGOSTO que lo de hoy: si una
+     compañera atendió una visita de mi protocolo, no cargó el reporte y se fue de licencia, sin
+     escape ese pendiente no aparece en la pantalla de nadie. "Todo" es esa salida, y no expone ni
+     un dato de más: muestra exactamente lo que la RLS ya deja ver.
+
+     SE LLAMA "Todo" Y NO "Mi protocolo" porque para gerencia —que no coordina ninguno y ve el centro
+     entero— lo segundo sería mentira. "Todo" es literal para los dos y evita una rama de copy por
+     rol.
+
+     VA EN LA URL con `mode: 'replace'` (el default): un filtro no es navegación, y si apilara,
+     salir del Resumen después de un rato serían quince "atrás". Mismo criterio que el día y el
+     buscador de Visitas del día.
+     └──────────────────────────────────────────────────────────────────────────────────────────┘ */
+  const { profile } = useAuth()
+  const userId = profile?.id ?? null
+  const coordinaciones = useMyCoordinations(userId)
+  const [ambito, setAmbito] = useUrlState<Ambito>('ambito', 'mio', { codec: oneOf(AMBITOS) })
+
+  const misProtocolos = useMemo(
+    () => new Set((coordinaciones.data ?? []).map((c) => c.protocol_id)),
+    [coordinaciones.data],
+  )
+
+  /* Quien no coordina NINGÚN protocolo (gerencia, farmacia) no ve el alternador y la pantalla le
+     queda como siempre: para esa persona "Lo mío" no significa nada y sólo daría cuatro tarjetas
+     vacías. Se deduce del dato, sin rol nuevo ni configuración.
+
+     Mientras `useMyCoordinations` carga, `misProtocolos` está vacío — así que el alternador aparece
+     recién cuando se sabe que hay coordinaciones, y no parpadea. */
+  const esCoordinador = misProtocolos.size > 0
+  const ambitoEfectivo: Ambito = esCoordinador ? ambito : 'todo'
+
   /* La visita abierta en el modal, DESDE ACÁ y sin salir del Resumen.
 
      Nace por la tarjeta de dispensaciones: llevaba a `track/visitas` con el `visitId`, y esa vista
@@ -473,13 +554,53 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
     volver: () => ({ moduleKey: module.key, subKey: submodule.key, label: 'Volver al resumen', hint: 'Volver al resumen de Coordinación' }),
   })
 
-  const cargandoKpis = protocols.loading || patients.loading || upcoming.loading || alerts.loading
+  /* `coordinaciones` entra acá y en el `loading` de las cuatro tarjetas, y NO por prolijidad:
+     mientras esa consulta no resuelve, `misProtocolos` está vacío ⇒ `esCoordinador` da false ⇒
+     `ambitoEfectivo` cae a "todo" — si otra consulta resuelve primero, la pantalla pinta KPIs y
+     listas SIN filtrar y se encogen un instante después. `coordinaciones.error` NO entra: con error,
+     `coordinaciones.data` queda `null` y `misProtocolos` cae al mismo vacío que con loading —
+     `ambitoEfectivo` ya degrada solo a "todo", que es la dirección segura, sin que haga falta
+     gatear nada. */
+  const cargandoKpis = protocols.loading || patients.loading || upcoming.loading || alerts.loading || coordinaciones.loading
 
+  /* Los KPIs de protocolos y pacientes NO se filtran, y no es un olvido: ya vienen scopeados por
+     RLS (policies "ver protocolos asignados" 0006:92 y "ver pacientes de mis protocolos" 0006:128),
+     y además un protocolo no se "atiende" — no tiene versión "lo que yo hice". */
   const allProtocols = protocols.data ?? []
   const allPatients = patients.data ?? []
-  const upcomingRows = upcoming.data ?? []
-  const alertRows = alerts.visitAlerts
-  const solicitudRows = solicitudes.data ?? []
+
+  /* Las cuatro listas del mosaico, cada una con SU definición de "mío" (spec, D2). El ámbito manda
+     sobre toda la pantalla —KPIs incluidos— porque un número y su lista tienen que contar lo mismo:
+     si el KPI dijera 7 y la tarjeta listara 3, el que está mal es el que mira. */
+  const upcomingRows = filtrarPorAmbito(ambitoEfectivo, upcoming.data ?? [], (v) =>
+    esDeMisProtocolos(v, misProtocolos))
+  /* Alertas usa `esAlertaMia` y NO `loAtendiYo` a secas —la única de las cuatro que se aparta—
+     porque la alerta más grave (ventana vencida) exige `real_date is null` (0102) y `real_date`
+     lo escribe la MISMA operación que sella `coordinator_id`: esa alerta NUNCA tiene coordinador,
+     así que filtrar con `loAtendiYo` borraría la clase entera apenas alguien prenda "Lo mío". Acá
+     "mía" es la atendí yo, o nadie la atendió todavía y es de un protocolo que coordino. Ver el
+     comentario de `esAlertaMia` en `ambito.ts`. */
+  const alertRows = filtrarPorAmbito(ambitoEfectivo, alerts.visitAlerts, (a) =>
+    esAlertaMia(a, userId, misProtocolos))
+  const solicitudRows = filtrarPorAmbito(ambitoEfectivo, solicitudes.data ?? [], (s) =>
+    loPediYo(s, userId))
+  const reporteRows = filtrarPorAmbito(ambitoEfectivo, reportes.data ?? [], (r) =>
+    loAtendiYo(r, userId))
+
+  /* El aviso sólo tiene sentido si hay algo del otro lado. Ofrecer "Ver todo" cuando "Todo" también
+     está vacío manda a alguien a confirmar una nada — y en esta pantalla un viaje en falso cuesta
+     confianza. Por eso se compara contra la lista SIN filtrar, que la vista ya tiene a mano — y con
+     el MISMO criterio de vacío que usa cada tarjeta (ver `hayEnTodo` de Reportes más abajo: no
+     alcanza un `.length > 0` crudo si la tarjeta decide su vacío con otro criterio).
+
+     La condición de dos partes (`ambitoEfectivo === 'mio' && hayEnTodo`) vive en `hayAvisoDeAmbito`
+     y tiene su test — acá sólo queda la construcción del elemento React. En ámbito "Todo" devuelve
+     `undefined` y cada tarjeta cae a su vacío de siempre: ahí "no hay nada" es la verdad completa y
+     no hay a dónde mandar a nadie. */
+  const avisoDeAmbito = (texto: string, hayEnTodo: boolean) =>
+    hayAvisoDeAmbito(ambitoEfectivo, hayEnTodo)
+      ? <VacioDelAmbito texto={texto} onVerTodo={() => setAmbito('todo')} />
+      : undefined
 
   const activeProtocols = allProtocols.filter((p) => p.status === 'activo').length
   const activePatients = allPatients.filter((p) => p.status === 'activo').length
@@ -499,6 +620,24 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* El alternador sólo existe para quien coordina algo (ver `esCoordinador`). Se apoya en
+          SegmentedControl, que ya resuelve el `role="radiogroup"` (con `aria-label` propio) y no se
+          dibuja a mano para no repetir la accesibilidad. EL TECLADO NO LO RESUELVE: son N `<button>`
+          nativos sin flechas ni roving tabindex — se navega con Tab y se activa con Espacio/Enter,
+          que alcanza para WCAG 2.1.1 pero no es lo mismo que un radiogroup con flechas. El realce del
+          seleccionado es el del componente: ELEVACIÓN (fondo sólido + sombra), sin borde ni fondo
+          de color y sin nada agregado desde un handler. */}
+      {esCoordinador && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <SegmentedControl<Ambito>
+            options={[{ value: 'mio', label: 'Lo mío' }, { value: 'todo', label: 'Todo' }]}
+            value={ambito}
+            onChange={setAmbito}
+            label="Ámbito del resumen"
+          />
+        </div>
+      )}
+
       {/* KPIs — los cuatro navegan a su submódulo (D8). El rótulo del chip sale del registry. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
         <KpiCard kpi="protocolos" onNavigate={onNavigate} label="Protocolos activos" value={activeProtocols} sub={`${allProtocols.length} en total`} dot={accent} cargando={cargandoKpis} />
@@ -535,8 +674,8 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
           <ReportesCard
-            rows={reportes.data ?? []}
-            loading={reportes.loading}
+            rows={reporteRows}
+            loading={reportes.loading || coordinaciones.loading}
             error={reportes.error}
             onReintentar={reportes.refetch}
             /* Al tablero de reportes DEL PROTOCOLO de esa fila, con la pestaña ya abierta —
@@ -544,22 +683,32 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
                etapa; abrir la visita sería dejar a la persona a un paso todavía. */
             onOpenReportes={onNavigate && ((protocolId) => onNavigate('track', 'protocolos', { protocolId, protocolTab: 'reportes' }))}
             onOpenPatient={abrirFicha}
+            /* `ReportesCard` no se considera vacía con un `.length > 0` crudo: usa `esReportePendiente`
+               (el procedimiento está realizado y el reporte no llegó a `evolucionado`; ver esa
+               función en `estados.ts`, la MISMA que usa la tarjeta puertas adentro). Comparar acá
+               contra el dato crudo podía ofrecer "Ver todo" cuando del otro lado sólo había reportes
+               cerrados por otra persona — un viaje en falso a "Todos los reportes están cerrados",
+               justo lo que este aviso existe para evitar. */
+            vacioDelAmbito={avisoDeAmbito('No atendiste visitas con reportes pendientes.',
+              (reportes.data ?? []).some(esReportePendiente))}
           />
           <AlertasCard
             rows={alertRows}
-            loading={alerts.loading}
+            loading={alerts.loading || coordinaciones.loading}
             error={alerts.error}
             onReintentar={alerts.refetch}
             onOpenAlerta={onNavigate && ((visitId) => onNavigate('track', 'alertas', { visitId }))}
             onOpenPatient={abrirFicha}
             onVerTodo={onNavigate ? irAAlertas : undefined}
+            vacioDelAmbito={avisoDeAmbito('Ninguna de tus visitas está en alerta.',
+              alerts.visitAlerts.length > 0)}
           />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
           <DispensacionesCard
             rows={solicitudRows}
-            loading={solicitudes.loading}
+            loading={solicitudes.loading || coordinaciones.loading}
             error={solicitudes.error}
             onReintentar={solicitudes.refetch}
             /* Abre el modal ACÁ, no salta a Visitas. Ver el comentario de `visitaAbierta`: esa
@@ -567,16 +716,20 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
                cualquier fecha — el salto aterrizaba en la lista de hoy sin abrir nada. */
             onOpenVisit={(visitId) => setVisitaAbierta(visitId)}
             onOpenPatient={abrirFicha}
+            vacioDelAmbito={avisoDeAmbito('No pediste medicación que siga abierta.',
+              (solicitudes.data ?? []).length > 0)}
           />
           <VisitasCard
             groups={groups}
             accent={accent}
-            loading={upcoming.loading}
+            loading={upcoming.loading || coordinaciones.loading}
             error={upcoming.error}
             onReintentar={upcoming.refetch}
             onOpenVisit={onNavigate && ((visitId, visitDate) => onNavigate('track', 'visitas', { visitId, visitDate }))}
             onOpenPatient={abrirFicha}
             onVerMas={onNavigate ? () => onNavigate('track', 'visitas') : undefined}
+            vacioDelAmbito={avisoDeAmbito('No hay visitas próximas en tus protocolos.',
+              (upcoming.data ?? []).length > 0)}
           />
         </div>
       </div>
@@ -600,7 +753,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
 }
 
 /** Alertas vigentes: cabecera teñida por la PEOR presente, filas planas con punto de severidad. */
-function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenPatient, onVerTodo }: {
+function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenPatient, onVerTodo, vacioDelAmbito }: {
   rows: TrackVisitRow[]
   loading: boolean
   error: string | null
@@ -608,9 +761,16 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
   onOpenAlerta?: (visitId: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
   onVerTodo?: () => void
+  /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
+   *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
+   *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
+  vacioDelAmbito?: ReactNode
 }) {
   /* El contador de la cabecera cuenta TODAS, no las visibles: recortar la lista no puede cambiar
-     cuántas alertas hay — ése es el número que importa y el que la campana también muestra. */
+     cuántas alertas hay — ése es el número que importa. YA NO es el mismo que muestra la campana:
+     `NotificationsMenu` usa `useActiveAlerts` sin filtrar por ámbito, así que con "Lo mío" puesto
+     acá cuentan menos alertas que las que la campana anuncia (a propósito — es el punto del
+     alternador). */
   const visibles = rows.slice(0, MAX_FILAS)
   const restantes = rows.length - visibles.length
   return (
@@ -621,9 +781,11 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
       ) : error ? (
         <ErrorBloque que="las alertas" onReintentar={onReintentar} />
       ) : rows.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-          Sin alertas. Todo al día.
-        </div>
+        vacioDelAmbito ?? (
+          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
+            Sin alertas. Todo al día.
+          </div>
+        )
       ) : (
         <>
           {/* Sin `marginTop` propio: la separación con la banda teñida la pone ahora la cabecera
@@ -685,13 +847,17 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
           </div>
         </>
       )}
-      {onVerTodo && <VerMas nombre="Alertas" restantes={restantes} onClick={onVerTodo} />}
+      {/* Gateado por `rows.length > 0` como `VisitasCard`: con la tarjeta vacía, "Ver todo" (cambia
+          el ámbito, del `vacioDelAmbito` de arriba) y "Ver más · Alertas" (navega a otra pantalla)
+          son dos affordances que navegan a lugares distintos — con las dos presentes a la vez, cuál
+          hace qué deja de ser obvio. */}
+      {onVerTodo && rows.length > 0 && <VerMas nombre="Alertas" restantes={restantes} onClick={onVerTodo} />}
     </div>
   )
 }
 
 /** Próximas visitas del cronograma (7 días), agrupadas por día. */
-function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit, onOpenPatient, onVerMas }: {
+function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit, onOpenPatient, onVerMas, vacioDelAmbito }: {
   groups: { date: string; visits: TrackVisitRow[] }[]
   accent: string
   loading: boolean
@@ -700,6 +866,10 @@ function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit
   onOpenVisit?: (visitId: string, visitDate?: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
   onVerMas?: () => void
+  /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
+   *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
+   *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
+  vacioDelAmbito?: ReactNode
 }) {
   /* El recorte respeta los grupos de día y nunca deja un encabezado sin visitas debajo; la regla
      está en `recortarGrupos`, con su test, porque acá un off-by-one esconde una visita en silencio. */
@@ -715,9 +885,11 @@ function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit
       ) : error ? (
         <ErrorBloque que="las próximas visitas" onReintentar={onReintentar} />
       ) : groups.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-          Sin visitas en los próximos 7 días.
-        </div>
+        vacioDelAmbito ?? (
+          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
+            Sin visitas en los próximos 7 días.
+          </div>
+        )
       ) : (
         <div style={{ marginTop: 6 }}>
           {visibles.map((g) => (
@@ -754,13 +926,17 @@ function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit
 }
 
 /** Lo que Coordinación pidió a Farmacia y todavía espera. */
-function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, onOpenPatient }: {
+function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, onOpenPatient, vacioDelAmbito }: {
   rows: SolicitudPendienteRow[]
   loading: boolean
   error: string | null
   onReintentar: () => void
   onOpenVisit?: (visitId: string) => void
   onOpenPatient?: (patientId: string, protocolId?: string) => void
+  /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
+   *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
+   *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
+  vacioDelAmbito?: ReactNode
 }) {
   const [expandido, setExpandido] = useState(false)
   const visibles = expandido ? rows : rows.slice(0, MAX_FILAS)
@@ -784,9 +960,11 @@ function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, o
       ) : error ? (
         <ErrorBloque que="las dispensaciones solicitadas" onReintentar={onReintentar} />
       ) : rows.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-          Sin dispensaciones pendientes.
-        </div>
+        vacioDelAmbito ?? (
+          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
+            Sin dispensaciones pendientes.
+          </div>
+        )
       ) : (
         <div style={{ marginTop: 8 }}>
           {visibles.map((s, i) => (
