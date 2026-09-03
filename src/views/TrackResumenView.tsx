@@ -19,7 +19,7 @@ import { useSolicitudesPendientes, ESTADO_SOLICITUD } from '../data/pharma'
 import type { SolicitudPendienteRow } from '../data/pharma'
 import { useReportesPendientes } from '../data/reportStatus'
 import type { ReportStatusRow } from '../data/reportStatus'
-import { dueLabel, esTarjeta } from './track/reportes/estados'
+import { dueLabel, esReportePendiente, esTarjeta } from './track/reportes/estados'
 import type { TrackVisitRow } from '../data/visits'
 import { visitTitle } from '../lib/visits'
 import { dayLabel, formatAR, fromNow } from '../lib/dates'
@@ -304,10 +304,13 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
 }) {
   const [expandido, setExpandido] = useState(false)
   /* `esTarjeta` = el procedimiento está marcado realizado. Antes de eso el plazo no arrancó y el
-     reporte no es todavía nada que gestionar (misma regla que el tablero, ya testeada). */
+     reporte no es todavía nada que gestionar (misma regla que el tablero, ya testeada). `pendientes`
+     usa `esReportePendiente` —no un filtro repetido acá— porque es la MISMA definición que decide el
+     aviso de "Lo mío" vacío más abajo en la vista: que coincidan dejó de ser un acuerdo tácito entre
+     dos filtros y pasó a ser una sola función. */
   const tarjetas = rows.filter(esTarjeta)
   const resueltos = tarjetas.filter((r) => r.stage === 'evolucionado').length
-  const pendientes = tarjetas.filter((r) => r.stage !== 'evolucionado')
+  const pendientes = rows.filter(esReportePendiente)
   const pct = tarjetas.length === 0 ? 0 : Math.round((resueltos / tarjetas.length) * 100)
   const visibles = expandido ? pendientes : pendientes.slice(0, MAX_FILAS)
   const restantes = pendientes.length - visibles.length
@@ -622,15 +625,14 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
           dibuja a mano para no repetir la accesibilidad. EL TECLADO NO LO RESUELVE: son N `<button>`
           nativos sin flechas ni roving tabindex — se navega con Tab y se activa con Espacio/Enter,
           que alcanza para WCAG 2.1.1 pero no es lo mismo que un radiogroup con flechas. El realce del
-          seleccionado es el del componente: fondo teñido con el acento del módulo, sin borde de
-          color y sin nada agregado desde un handler. */}
+          seleccionado es el del componente: ELEVACIÓN (fondo sólido + sombra), sin borde ni fondo
+          de color y sin nada agregado desde un handler. */}
       {esCoordinador && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <SegmentedControl<Ambito>
             options={[{ value: 'mio', label: 'Lo mío' }, { value: 'todo', label: 'Todo' }]}
             value={ambito}
             onChange={setAmbito}
-            accent={accent}
             label="Ámbito del resumen"
           />
         </div>
@@ -681,13 +683,14 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
                etapa; abrir la visita sería dejar a la persona a un paso todavía. */
             onOpenReportes={onNavigate && ((protocolId) => onNavigate('track', 'protocolos', { protocolId, protocolTab: 'reportes' }))}
             onOpenPatient={abrirFicha}
-            /* `ReportesCard` no se considera vacía con un `.length > 0` crudo: filtra por `esTarjeta`
-               (el procedimiento está realizado) y descarta los ya `evolucionado` (ver esa tarjeta).
-               Comparar acá contra el dato crudo podía ofrecer "Ver todo" cuando del otro lado sólo
-               había reportes cerrados por otra persona — un viaje en falso a "Todos los reportes
-               están cerrados", justo lo que este aviso existe para evitar. */
+            /* `ReportesCard` no se considera vacía con un `.length > 0` crudo: usa `esReportePendiente`
+               (el procedimiento está realizado y el reporte no llegó a `evolucionado`; ver esa
+               función en `estados.ts`, la MISMA que usa la tarjeta puertas adentro). Comparar acá
+               contra el dato crudo podía ofrecer "Ver todo" cuando del otro lado sólo había reportes
+               cerrados por otra persona — un viaje en falso a "Todos los reportes están cerrados",
+               justo lo que este aviso existe para evitar. */
             vacioDelAmbito={avisoDeAmbito('No atendiste visitas con reportes pendientes.',
-              (reportes.data ?? []).filter(esTarjeta).some((r) => r.stage !== 'evolucionado'))}
+              (reportes.data ?? []).some(esReportePendiente))}
           />
           <AlertasCard
             rows={alertRows}

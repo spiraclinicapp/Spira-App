@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ReportStatusRow } from '../../../data/reportStatus'
 import {
-  canUntickProcedure, closedBy, contarVencidos, dueLabel, isOverdue, isStage,
+  canUntickProcedure, closedBy, contarVencidos, dueLabel, esReportePendiente, isOverdue, isStage,
   nextStage, porEtapa, prevStage, repartirTablero, visitClosed,
   reporteTitulo,
 } from './estados'
@@ -61,6 +61,26 @@ describe('etapas', () => {
     // en la primera: dos botones que no pueden hacer nada.
     expect(nextStage('evolucionado')).toBeNull()
     expect(prevStage('pendiente')).toBeNull()
+  })
+})
+
+describe('esReportePendiente', () => {
+  // Única definición de "pendiente" del Resumen de Coordinación: la usan `ReportesCard` (para saber
+  // si tiene algo que mostrar) y `TrackResumenView` (para decidir si el aviso de "Lo mío" vacío
+  // ofrece "Ver todo"). Que las dos coincidan es justo lo que un review anterior tuvo que arreglar
+  // a mano — este test es lo que evita que vuelvan a divergir.
+  it('es pendiente cuando el procedimiento está realizado y no llegó a evolucionado', () => {
+    expect(esReportePendiente(row({ completed: true, stage: 'pendiente' }))).toBe(true)
+    expect(esReportePendiente(row({ completed: true, stage: 'descargado' }))).toBe(true)
+  })
+
+  it('no es pendiente una vez evolucionado', () => {
+    expect(esReportePendiente(row({ completed: true, stage: 'evolucionado' }))).toBe(false)
+  })
+
+  it('no es pendiente si el procedimiento todavía no se realizó', () => {
+    // Antes de `completed`, el plazo no arrancó: no es una tarjeta todavía, sin importar `stage`.
+    expect(esReportePendiente(row({ completed: false, stage: 'pendiente' }))).toBe(false)
   })
 })
 

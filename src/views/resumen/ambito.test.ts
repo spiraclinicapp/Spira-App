@@ -8,7 +8,7 @@ import { esAlertaMia, esDeMisProtocolos, filtrarPorAmbito, hayAvisoDeAmbito, loA
  * esconder filas sin decirlo. Una regla invertida no rompe nada visible — la pantalla se dibuja
  * perfecta y te muestra el trabajo de otro, o te esconde el tuyo.
  *
- * EL CASO QUE MÁS IMPORTA ES EL `null`, y por eso está en las tres. Dos nulls comparados con `===`
+ * EL CASO QUE MÁS IMPORTA ES EL `null`, y por eso está en las cuatro. Dos nulls comparados con `===`
  * dan `true`: si la sesión todavía no resolvió (`userId === null`) y la visita no tiene coordinador
  * asignado (`coordinator_id === null`), una comparación ingenua declara TODAS esas filas "mías". El
  * resultado sería una pantalla llena de trabajo ajeno, en el primer render y sin ningún error.

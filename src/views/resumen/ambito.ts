@@ -8,19 +8,32 @@
  * Una regla invertida no tira ningún error — dibuja la pantalla entera, prolija, con las filas
  * equivocadas. Aisladas y puras se pueden testear; adentro de un `.filter()` en medio del JSX, no.
  *
- * HAY TRES Y NO UNA porque en la base hay tres cosas distintas que se parecen a "mío", y usar la
- * que no va rompe en silencio (spec, D2):
+ * HAY CUATRO REGLAS porque en la base hay tres cosas distintas que se parecen a "mío", y usar la
+ * que no va rompe en silencio (spec, D2) — más una cuarta, `esAlertaMia`, que combina dos de esas
+ * tres porque ninguna alcanza sola para Alertas (ver más abajo):
  *
  *   · `coordinator_id` (patient_visits) es RETROSPECTIVO: lo pisa `start_visit_attention` (0102)
  *     con quien apretó "iniciar atención". Dice quién ATENDIÓ, no a quién le toca. Una visita
  *     futura lo tiene en null — por eso NO sirve para "Próximas visitas", que quedaría vacía
- *     siempre.
+ *     siempre. `loAtendiYo` lo lee a secas, y con eso alcanza para Reportes.
  *   · `protocol_coordinators` es PROSPECTIVO y estable: qué te toca, incluso lo que no pasó.
- *   · `requested_by` (dispensation_requests) es AUTORÍA: quién pidió la medicación.
+ *     `esDeMisProtocolos` lo lee, y con eso alcanza para "Próximas visitas".
+ *   · `requested_by` (dispensation_requests) es AUTORÍA: quién pidió la medicación. `loPediYo` lo
+ *     lee, y con eso alcanza para Dispensaciones.
  *
- * CADA REGLA PIDE SÓLO EL CAMPO QUE MIRA, y no la fila entera: así una misma regla sirve para las
- * dos listas que comparten campo (alertas y reportes miran las dos `coordinator_id`) sin tener que
- * escribirla dos veces — y la segunda copia sería la que se olvide de un caso. Mismo criterio que
+ * ALERTAS ES LA QUE NO ENTRA EN EL MOLDE de "un campo, una regla, una lista": `loAtendiYo` a secas
+ * BORRARÍA justo la alerta más grave. "Ventana vencida" exige `real_date is null` (0102), y
+ * `real_date` lo escribe la MISMA operación que sella `coordinator_id` (`start_visit_attention`) —
+ * así que una visita en ventana vencida NUNCA fue atendida, y su `coordinator_id` es null casi
+ * siempre (salvo la asignación manual y opcional de `protocol_coordinators`). Filtrar esa lista con
+ * `loAtendiYo` a secas dejaría la clase de alerta más grave vacía apenas alguien prenda "Lo mío",
+ * sin un solo error. Por eso `esAlertaMia` es "la atendí yo, O nadie la atendió todavía y es de un
+ * protocolo que coordino": combina `loAtendiYo` con `esDeMisProtocolos` en vez de ser una lectura
+ * simple de un solo campo.
+ *
+ * CADA REGLA SIMPLE PIDE SÓLO EL CAMPO QUE MIRA, y no la fila entera: eso es lo que permite que
+ * `esDeMisProtocolos` (mira sólo `protocol_id`) se REUSE dentro de `esAlertaMia` en vez de repetirse
+ * — y la copia sería la que se olvide de un caso el día que cambie el original. Mismo criterio que
  * `Buscable` en `alertFilters.ts`.
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
