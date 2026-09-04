@@ -13,7 +13,23 @@ export type { ThemePref } from './theme'
 import type { ThemePref } from './theme'
 
 export type DateFormat = 'dmy' | 'iso' | 'dmesy'
-export type HomeView = 'inicio' | 'ultimo'
+
+/**
+ * Dónde abre Spira al entrar y a dónde lleva el logo del top bar: la **clave de un módulo** del
+ * shell, o `'ultimo'` (el último que usaste en esta máquina, que no es un módulo sino una regla).
+ *
+ * Nació con dos valores (`'inicio' | 'ultimo'`) y se abrió a los módulos el 2026-09-04, a pedido
+ * del Director. `'inicio'` sigue siendo válido y sigue siendo el default porque **ya era una clave
+ * de módulo**: no hubo que traducir ninguna fila.
+ *
+ * ⚠️ Esta lista está escrita en TRES lugares y los tres tienen que decir lo mismo: acá, el
+ * `check` de `user_preferences.home_view` (migración 0105) y `MODULES` en `modules/registry.ts`.
+ * Un módulo nuevo en el registro no se puede elegir como inicio hasta que entre en las otras dos.
+ * Es el costo que la 0093 aceptó a propósito al tipar cada preferencia en vez de usar un `jsonb`.
+ * Que el valor sea *elegible* es otra pregunta, y la contesta `modulosElegibles` en `home.ts`:
+ * acá sólo decimos qué se admite guardar.
+ */
+export type HomeView = 'ultimo' | 'inicio' | 'track' | 'pharma' | 'lab' | 'contable'
 
 export interface Prefs {
   theme: ThemePref
@@ -27,7 +43,7 @@ export const PREFS_DEFAULT: Prefs = { theme: 'light', dateFormat: 'dmy', homeVie
 
 const THEMES: ThemePref[] = ['light', 'dark', 'system']
 const FORMATS: DateFormat[] = ['dmy', 'iso', 'dmesy']
-const HOMES: HomeView[] = ['inicio', 'ultimo']
+const HOMES: HomeView[] = ['ultimo', 'inicio', 'track', 'pharma', 'lab', 'contable']
 
 /**
  * Valida un objeto cualquiera —una fila de la base, un JSON del caché, la respuesta de una versión

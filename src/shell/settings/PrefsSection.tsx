@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Icon } from '../../components/Icon'
+import { useAuth } from '../../lib/auth'
 import { usePrefs } from '../../lib/prefs'
 import type { DateFormat, HomeView } from '../../lib/prefs'
+import { modulosElegibles } from '../../lib/home'
 import type { ThemePref } from '../../lib/theme'
+import { MODULES } from '../../modules/registry'
 import { StCard, StRow, StSeg } from './primitives'
 
 /* ============================================================================
@@ -22,7 +25,26 @@ import { StCard, StRow, StSeg } from './primitives'
 
 export function PrefsSection() {
   const { prefs, savePrefs, soloLocal } = usePrefs()
+  const { modules } = useAuth()
   const [error, setError] = useState<string | null>(null)
+
+  /* La pantalla de inicio se elige entre los módulos que ESTA persona puede abrir: ofrecerle
+     Farmacia a quien no la tiene sería prometerle una puerta cerrada, igual que los candados que
+     el riel dejó de mostrar. La regla es la misma que usa el riel (`lib/home.ts`), no una copia.
+     "El último" va al final y aparte: no es un módulo sino una regla, y describe el ARRANQUE — el
+     logo no la sigue (ver `resolveHome`). */
+  const opcionesInicio = useMemo(
+    () => [
+      ...modulosElegibles(modules, MODULES).map((m) => ({ v: m.key as HomeView, l: m.name })),
+      { v: 'ultimo' as HomeView, l: 'El último' },
+    ],
+    [modules],
+  )
+
+  /* Si lo guardado ya no está entre las opciones —te revocaron ese módulo— el control marca Inicio,
+     que es a donde la app te lleva de verdad (`resolveHome` degrada). Un radiogroup sin ninguna
+     opción marcada diría que no elegiste nada, y no es cierto: elegiste algo que hoy no se abre. */
+  const valorInicio: HomeView = opcionesInicio.some((o) => o.v === prefs.homeView) ? prefs.homeView : 'inicio'
 
   /* Guardado inmediato por control: cada preferencia es una escritura chiquita e independiente, así
      que no hay estado pendiente que un cierre distraído pueda tirar. Si la escritura falla, el
@@ -80,13 +102,15 @@ export function PrefsSection() {
         </StRow>
       </StCard>
 
-      <StCard title="Al iniciar sesión">
-        <StRow label="Página de inicio" sub="Dónde abre Spira cuando entrás" last>
+      {/* Antes se llamaba "Al iniciar sesión", y desde que esta preferencia también gobierna el
+          logo del top bar el rótulo se quedó corto: ya no es sólo el arranque. */}
+      <StCard title="Inicio">
+        <StRow label="Página de inicio" sub="Dónde abre Spira al entrar, y a dónde te lleva el logo" last>
           <StSeg
             label="Página de inicio"
-            value={prefs.homeView}
+            value={valorInicio}
             onChange={(homeView: HomeView) => void guardar({ homeView })}
-            options={[{ v: 'inicio', l: 'Inicio' }, { v: 'ultimo', l: 'Último módulo' }]}
+            options={opcionesInicio}
           />
         </StRow>
       </StCard>
