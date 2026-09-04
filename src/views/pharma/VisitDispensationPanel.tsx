@@ -164,7 +164,7 @@ const addBtn: CSSProperties = {
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, color: 'var(--spira-ink)',
 }
 /**
- * La MISMA forma de "Agregar medicación", un escalón más callada, para la salida "Dispensar fuera
+ * La MISMA forma de "Elegir medicación", un escalón más callada, para la salida "Dispensar fuera
  * de cronograma": la tarjeta ya tiene un idioma para "acá se suma algo" y reusarlo la integra por
  * estructura en vez de dejarla como un enlace suelto. Lo secundario lo dice el TONO —chapa más
  * baja, tinta atenuada y el ícono sin acento—, no una forma distinta (mock, estado 5).
@@ -940,9 +940,18 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 </div>
               )}
 
+              {/* "Elegir" y no "Agregar": en el resto de Spira "Agregar" quiere decir DAR DE ALTA
+                  —"Agregar medicamento" es el alta en el catálogo global de Farmacia, "Agregar al
+                  catálogo" la cierra, y el "Agregar" de la ficha le ASIGNA medicación al paciente—.
+                  Acá no se da de alta nada: se elige entre la medicación que el paciente YA tiene
+                  asignada, para pedirle a Farmacia que la dispense. Encima, con el rótulo viejo este
+                  botón y el que suma el renglón (30px más abajo, adentro del recuadro que este mismo
+                  abre) decían los dos "Agregar" para dos cosas distintas. Ahora la cadena es
+                  Elegir → Agregar → Listo → Solicitar: un verbo por paso. Lo reportó el Director,
+                  que no lo entendió al usarlo — 2026-09-04. */}
               {!readOnly && !soliciting && (
                 <button type="button" onClick={() => { setSoliciting(true); setErr(null) }} style={addBtn}>
-                  <Icon name="plus" size={16} color={accent} /> Agregar medicación
+                  <Icon name="plus" size={16} color={accent} /> Elegir medicación
                 </button>
               )}
 
