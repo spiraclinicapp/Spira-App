@@ -185,12 +185,13 @@ export function AppShell() {
   const sub = mod.submodules.find((s) => s.key === subKey) ?? mod.submodules[0]
   const accent = mod.accent
 
-  /* A dónde lleva el logo: la pantalla de inicio elegida en Ajustes › Preferencias, ya resuelta a
-     un módulo que esta persona PUEDE abrir (si le revocaron el que había elegido, cae a Inicio).
+  /* A dónde lleva el logo: su PROPIA preferencia (`logoView`), no la del arranque — son dos
+     preguntas distintas y desde la 0106 se responden aparte. Ya viene resuelta a un módulo que esta
+     persona PUEDE abrir: si le revocaron el que había elegido, cae a Inicio.
      Se calcula en el render y no en un memo —son dos `find` sobre un array de cinco— y así queda
-     al día si el acceso cambia en vivo. El `null` en lugar del último módulo es deliberado: ver el
-     comentario del logo, más abajo. */
-  const home = resolveHome(prefs.homeView, null, userModules, MODULES)
+     al día si el acceso cambia en vivo. El `null` no es un truco acá: `LogoView` no admite
+     'ultimo', así que no hay ningún rastro que seguir. */
+  const home = resolveHome(prefs.logoView, null, userModules, MODULES)
   const homeNombre = MODULES.find((m) => m.key === home.moduleKey)?.name ?? 'Inicio'
 
   const selectModule = (key: string) => {
@@ -307,12 +308,13 @@ export function AppShell() {
             <Icon name="menu" size={20} stroke={2} color="currentColor" />
           </button>
 
-          {/* Logo = tu pantalla de inicio, no siempre `inicio/resumen`: desde el 2026-09-04 lleva
-              al módulo que elegiste en Ajustes › Preferencias (pedido del Director). El ícono
-              Inicio del riel NO cambia y sigue yendo a `inicio/resumen` — si los dos obedecieran
-              la preferencia, quien eligiera otro módulo se quedaría sin ningún camino a la pantalla
-              de Inicio.
-              `readLastModule` va como `null` A PROPÓSITO: ver el porqué en `resolveHome`. */}
+          {/* Logo = el módulo que elegiste en Ajustes › Preferencias › "Logo de Spira", no
+              siempre `inicio/resumen` (pedido del Director, 2026-09-04). Es una preferencia
+              APARTE de la del arranque: se puede querer abrir la sesión en Coordinación y que el
+              logo igual devuelva al panorama de Inicio.
+              El ícono Inicio del riel NO cambia y sigue yendo a `inicio/resumen` — si los dos
+              obedecieran la preferencia, quien eligiera otro módulo se quedaría sin ningún camino
+              a la pantalla de Inicio. */}
           <button
             onClick={() => selectModule(home.moduleKey)}
             title={home.moduleKey === 'inicio' ? 'Ir al inicio de Spira' : `Ir a ${homeNombre}`}

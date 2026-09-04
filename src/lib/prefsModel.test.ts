@@ -12,14 +12,14 @@ import { parsePrefs, PREFS_DEFAULT } from './prefsModel'
 
 describe('parsePrefs', () => {
   it('acepta una fila de la base tal como llega (snake_case)', () => {
-    expect(parsePrefs({ theme: 'dark', date_format: 'iso', home_view: 'ultimo' })).toEqual({
-      theme: 'dark', dateFormat: 'iso', homeView: 'ultimo',
+    expect(parsePrefs({ theme: 'dark', date_format: 'iso', home_view: 'ultimo', logo_view: 'track' })).toEqual({
+      theme: 'dark', dateFormat: 'iso', homeView: 'ultimo', logoView: 'track',
     })
   })
 
   it('acepta el caché del navegador (camelCase)', () => {
-    expect(parsePrefs({ theme: 'system', dateFormat: 'iso', homeView: 'inicio' })).toEqual({
-      theme: 'system', dateFormat: 'iso', homeView: 'inicio',
+    expect(parsePrefs({ theme: 'system', dateFormat: 'iso', homeView: 'inicio', logoView: 'pharma' })).toEqual({
+      theme: 'system', dateFormat: 'iso', homeView: 'inicio', logoView: 'pharma',
     })
   })
 
@@ -27,7 +27,7 @@ describe('parsePrefs', () => {
     // 'oscuro' es el error natural: alguien escribiendo el valor en castellano. Tiene que caer a
     // 'light' SIN llevarse puesto el formato de fecha, que sí era válido.
     expect(parsePrefs({ theme: 'oscuro', date_format: 'iso' })).toEqual({
-      theme: 'light', dateFormat: 'iso', homeView: 'inicio',
+      theme: 'light', dateFormat: 'iso', homeView: 'inicio', logoView: 'inicio',
     })
   })
 
@@ -57,6 +57,34 @@ describe('parsePrefs', () => {
 
   it('los defaults son el comportamiento previo a la 0093', () => {
     // Si esto cambia, todo el que nunca tocó Ajustes ve la app distinta de un día para el otro.
-    expect(PREFS_DEFAULT).toEqual({ theme: 'light', dateFormat: 'dmy', homeView: 'inicio' })
+    expect(PREFS_DEFAULT).toEqual({ theme: 'light', dateFormat: 'dmy', homeView: 'inicio', logoView: 'inicio' })
+  })
+
+  /* ─── El destino del logo, separado del arranque (0106) ─── */
+
+  it('acepta un módulo como destino del logo, por las dos puertas', () => {
+    expect(parsePrefs({ logo_view: 'track' }).logoView).toBe('track')
+    expect(parsePrefs({ logoView: 'track' }).logoView).toBe('track')
+  })
+
+  it('el logo NO acepta "ultimo", aunque el arranque sí', () => {
+    // ESTA es la única diferencia entre los dos campos, y la que se rompe sola si algún día alguien
+    // "unifica" las dos listas de valores válidos por parecerse tanto. El rastro del último módulo
+    // se reescribe en cada cambio de módulo, así que un logo que lo siguiera llevaría siempre al
+    // módulo donde ya estás parado — un botón que no hace nada.
+    const p = parsePrefs({ home_view: 'ultimo', logo_view: 'ultimo' })
+    expect(p.homeView).toBe('ultimo')
+    expect(p.logoView).toBe('inicio')
+  })
+
+  it('los dos destinos son independientes: uno no arrastra al otro', () => {
+    // El motivo de que la 0106 exista: abrir la sesión en Coordinación y que el logo devuelva a
+    // Inicio tiene que poder expresarse.
+    expect(parsePrefs({ home_view: 'track', logo_view: 'inicio' })).toMatchObject({
+      homeView: 'track', logoView: 'inicio',
+    })
+    expect(parsePrefs({ home_view: 'inicio', logo_view: 'pharma' })).toMatchObject({
+      homeView: 'inicio', logoView: 'pharma',
+    })
   })
 })
