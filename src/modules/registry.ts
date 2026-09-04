@@ -37,8 +37,10 @@ export interface ModuleDef {
   accent: string
   /** Relleno sólido para texto papel sobre acento (botones/cards hero). */
   accentSolid: string
-  /** Módulo aún no construido: se muestra con candado para TODOS (sin importar el
-   *  rol) y no se puede entrar. Se saca el flag cuando el módulo exista de verdad. */
+  /** Módulo aún no construido: NO le aparece a nadie en el riel, sin importar el rol, no se puede
+   *  entrar y tampoco se puede elegir como pantalla de inicio (la regla única está en
+   *  `moduloHabilitado`, en `lib/home.ts`). Hasta el 2026-09-04 se dibujaba con candado; el porqué
+   *  de sacarlo está en el riel de `AppShell`. Se saca el flag cuando el módulo exista de verdad. */
   proximamente?: boolean
   submodules: SubModule[]
 }

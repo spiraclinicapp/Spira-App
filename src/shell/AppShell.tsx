@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
 import { readLastModule, usePrefs, writeLastModule } from '../lib/prefs'
+import { moduloHabilitado, resolveHome } from '../lib/home'
 import { useAuth } from '../lib/auth'
 import { MODULES } from '../modules/registry'
 import { resolveView } from '../views/registry'
@@ -151,13 +152,18 @@ export function AppShell() {
   useEffect(() => {
     if (arranqueResuelto.current) return
     if (moduleKey !== 'inicio' || subKey !== 'resumen') { arranqueResuelto.current = true; return }
-    if (prefs.homeView !== 'ultimo') return // puede que las prefs todavía no hayan llegado
+    /* 'inicio' es el default, así que este `return` cubre dos cosas a la vez: la preferencia que
+       dice "abrí en Inicio" (no hay nada que hacer) y las preferencias que todavía no llegaron de
+       la base. En los dos casos la respuesta es quedarse acá, y sin marcar el arranque como
+       resuelto — si las prefs llegan un instante después con otro valor, este efecto tiene que
+       poder actuar. */
+    if (prefs.homeView === 'inicio') return
     arranqueResuelto.current = true
-    const ultimo = readLastModule()
-    if (!ultimo) return
-    const m = MODULES.find((x) => x.key === ultimo)
-    if (!m || !isAllowed(m.key) || !m.submodules[0]) return
-    replaceUrl({ moduleKey: m.key, subKey: m.submodules[0].key, path: [], query: {} })
+    /* Toda la resolución (incluida la degradación a Inicio si el módulo elegido ya no se puede
+       abrir) vive en `resolveHome`, y está testeada ahí. */
+    const destino = resolveHome(prefs.homeView, readLastModule(), userModules, MODULES)
+    if (destino.moduleKey === 'inicio') return
+    replaceUrl({ moduleKey: destino.moduleKey, subKey: destino.subKey, path: [], query: {} })
   }, [prefs.homeView, moduleKey, subKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Al cambiar de módulo/submódulo, limpiar el encabezado contextual (que no quede
@@ -168,15 +174,24 @@ export function AppShell() {
      así que la vista conserva el control de su encabezado mientras esté en su submódulo. */
   useLayoutEffect(() => { setViewHeader(null) }, [moduleKey, subKey])
 
-  /* 'inicio' siempre disponible; el resto, según los roles reales del usuario.
-     Los módulos `proximamente` quedan bloqueados para todos, tengan rol o no. */
-  const isAllowed = (key: string) =>
-    key === 'inicio' ||
-    (!MODULES.find((m) => m.key === key)?.proximamente && (userModules as string[]).includes(key))
+  /* 'inicio' siempre disponible; el resto, según los roles reales del usuario. Los módulos
+     `proximamente` quedan bloqueados para todos, tengan rol o no.
+     La regla se mudó a `lib/home.ts` cuando Preferencias necesitó la misma respuesta para armar su
+     desplegable de pantalla de inicio: escrita en dos lados, se desincroniza sin que nada deje de
+     compilar, y de los dos lados gobierna un acceso. */
+  const isAllowed = (key: string) => moduloHabilitado(key, userModules, MODULES)
 
   const mod = MODULES.find((m) => m.key === moduleKey) ?? MODULES[0]
   const sub = mod.submodules.find((s) => s.key === subKey) ?? mod.submodules[0]
   const accent = mod.accent
+
+  /* A dónde lleva el logo: la pantalla de inicio elegida en Ajustes › Preferencias, ya resuelta a
+     un módulo que esta persona PUEDE abrir (si le revocaron el que había elegido, cae a Inicio).
+     Se calcula en el render y no en un memo —son dos `find` sobre un array de cinco— y así queda
+     al día si el acceso cambia en vivo. El `null` en lugar del último módulo es deliberado: ver el
+     comentario del logo, más abajo. */
+  const home = resolveHome(prefs.homeView, null, userModules, MODULES)
+  const homeNombre = MODULES.find((m) => m.key === home.moduleKey)?.name ?? 'Inicio'
 
   const selectModule = (key: string) => {
     const m = MODULES.find((x) => x.key === key)
@@ -292,10 +307,15 @@ export function AppShell() {
             <Icon name="menu" size={20} stroke={2} color="currentColor" />
           </button>
 
-          {/* Logo = hub: vuelve al inicio de Spira (inicio/resumen). */}
+          {/* Logo = tu pantalla de inicio, no siempre `inicio/resumen`: desde el 2026-09-04 lleva
+              al módulo que elegiste en Ajustes › Preferencias (pedido del Director). El ícono
+              Inicio del riel NO cambia y sigue yendo a `inicio/resumen` — si los dos obedecieran
+              la preferencia, quien eligiera otro módulo se quedaría sin ningún camino a la pantalla
+              de Inicio.
+              `readLastModule` va como `null` A PROPÓSITO: ver el porqué en `resolveHome`. */}
           <button
-            onClick={() => selectModule('inicio')}
-            title="Ir al inicio de Spira"
+            onClick={() => selectModule(home.moduleKey)}
+            title={home.moduleKey === 'inicio' ? 'Ir al inicio de Spira' : `Ir a ${homeNombre}`}
             className="spira-no-press"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 11, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', fontFamily: 'inherit' }}
           >
