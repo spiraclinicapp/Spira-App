@@ -137,9 +137,13 @@ export interface DescripcionDeAcceso {
  * hacia eso, la respuesta es no.
  *
  * Lo que hace valiosa a esta función es el tercer caso, el que nadie ve venir: un módulo marcado
- * `proximamente` en el registro se muestra con candado para TODOS sin importar el rol, así que
- * darle "Lab" a alguien hoy no le da absolutamente nada. Sin esto, gerencia marca la casilla, se
- * queda tranquila, y la persona no ve nada — sin que ninguna de las dos entienda por qué.
+ * `proximamente` en el registro NO le aparece a NADIE, tenga el rol que tenga, así que darle "Lab"
+ * a alguien hoy no le da absolutamente nada. Sin esto, gerencia marca la casilla, se queda
+ * tranquila, y la persona no ve nada — sin que ninguna de las dos entienda por qué.
+ *
+ * Desde que el riel dejó de dibujarlos con candado (2026-09-04) esta pantalla es el ÚNICO lugar de
+ * la app donde gerencia puede enterarse de que ese acceso no rinde: antes el candado se lo
+ * insinuaba de refilón, ahora no queda ninguna otra señal.
  *
  * `modulos` se inyecta (en vez de importar el registro acá) para poder testear la función con un
  * catálogo controlado, sin atarla a los módulos que existan hoy.

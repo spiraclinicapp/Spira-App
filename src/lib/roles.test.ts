@@ -119,9 +119,10 @@ describe('describeAccess', () => {
   })
 
   it('un módulo que todavía no existe va aparte, NO como algo que ve', () => {
-    // ESTE es el caso que justifica la función entera. Los módulos `proximamente` salen con candado
-    // para todos sin importar el rol, así que dar "Lab" hoy no da absolutamente nada. Si cayera en
-    // `ve`, gerencia marcaría la casilla y se quedaría tranquila mientras la persona no ve nada.
+    // ESTE es el caso que justifica la función entera. Los módulos `proximamente` no le aparecen a
+    // nadie en el riel, sin importar el rol, así que dar "Lab" hoy no da absolutamente nada. Si
+    // cayera en `ve`, gerencia marcaría la casilla y se quedaría tranquila mientras la persona no
+    // ve nada.
     const d = describeAccess({ lab: 'admin' }, MODULOS)
     expect(d.ve).toHaveLength(0)
     expect(d.inertes.map((a) => a.nombre)).toEqual(['Lab'])
