@@ -351,55 +351,37 @@ export function AppShell() {
         >
           {/* height:100% para que el `marginTop:auto` del AboutMenu lo empuje al pie del riel. */}
           <div style={{ width: 64, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 0', gap: 6 }}>
-          {MODULES.map((m) => {
+          {/* SOLO los módulos que esta persona puede abrir. Antes el riel los listaba todos y
+              tapaba los ajenos con un candado: gris sobre el ícono para los que existen y no son
+              tuyos, y uno más grande sobre el ícono difuminado para los que todavía no están
+              construidos (Lab, Contable). Se van los dos.
+
+              El porqué: un candado promete una puerta. Se lee como "pedí acceso y entrás", y para
+              Lab y Contable no hay acceso que pedir porque del otro lado no hay nada — el ícono más
+              grande del riel era el de lo que menos se puede hacer. Tres candados fijos que no se
+              abren nunca son ruido permanente en la navegación, y un control que finge una acción
+              inexistente es justo lo que la app no hace en ningún otro lado. Decisión del Director,
+              2026-09-04: "que muestre únicamente los íconos de lo que tenés habilitado".
+
+              `isAllowed` cubre los dos casos de una sola: ya devuelve false para los
+              `proximamente` tengan el rol que tengan (ver su definición, más arriba). Y el riel no
+              era el guard —lo son `selectModule`, `navigate` y el `sinAcceso` de abajo—, así que
+              esto no afloja nada: quien escriba a mano la URL de un módulo ajeno sigue viendo el
+              aviso de "sin acceso", con Inicio y lo suyo en el riel para volver. */}
+          {MODULES.filter((m) => isAllowed(m.key)).map((m) => {
             const on = m.key === moduleKey
-            const locked = !isAllowed(m.key)
-            /* Módulo aún no construido: no se muestra qué es. El ícono del módulo va
-               difuminado y casi transparente (ilegible a propósito) y encima un candado
-               más grande. Da la señal de "hay más, pero cerrado" sin revelar el módulo. */
-            if (m.proximamente) {
-              return (
-                <button
-                  key={m.key}
-                  disabled
-                  title={`${m.full} · próximamente`}
-                  className="spira-no-press"
-                  style={{
-                    width: 46, height: 46, borderRadius: 12, border: 'none', cursor: 'default',
-                    background: 'transparent', display: 'grid', placeItems: 'center',
-                    position: 'relative',
-                  }}
-                >
-                  <Icon
-                    name={m.icon}
-                    size={22}
-                    stroke={1.9}
-                    color="var(--spira-faint)"
-                    style={{ filter: 'blur(3.5px)', opacity: 0.3, position: 'absolute' }}
-                  />
-                  <Icon name="lock" size={24} stroke={2} color="var(--spira-faint)" style={{ position: 'relative' }} />
-                </button>
-              )
-            }
             return (
               <button
                 key={m.key}
                 onClick={() => selectModule(m.key)}
-                disabled={locked}
-                title={locked ? `${m.full} · sin acceso` : m.full}
+                title={m.full}
                 style={{
-                  width: 46, height: 46, borderRadius: 12, border: 'none',
-                  cursor: locked ? 'default' : 'pointer',
+                  width: 46, height: 46, borderRadius: 12, border: 'none', cursor: 'pointer',
                   background: on ? m.accent + '16' : 'transparent',
                   display: 'grid', placeItems: 'center',
                 }}
               >
-                <Icon
-                  name={locked ? 'lock' : m.icon}
-                  size={21}
-                  stroke={1.9}
-                  color={locked ? 'var(--spira-faint)' : on ? m.accent : 'var(--spira-muted)'}
-                />
+                <Icon name={m.icon} size={21} stroke={1.9} color={on ? m.accent : 'var(--spira-muted)'} />
               </button>
             )
           })}
@@ -411,7 +393,8 @@ export function AppShell() {
 
         {/* panel de submódulos — oculto en Inicio (su única vista es Resumen, la home) y también
             cuando `sinAcceso`: listar los submódulos de un módulo denegado revelaría justo lo que
-            el candado del riel oculta a propósito (para Lab/Contable, cuáles son sus secciones). */}
+            el riel ya no muestra (para Lab/Contable, cuáles son sus secciones). Acá se llega por
+            URL escrita a mano, que es el único camino que quedó a un módulo ajeno. */}
         {moduleKey !== 'inicio' && !sinAcceso && (
         <aside
           className="spira-navcol"
