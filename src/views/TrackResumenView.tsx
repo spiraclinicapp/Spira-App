@@ -8,12 +8,11 @@ import { AlertCardHeader } from './AlertCardHeader'
 import { severidadMaxima } from './alertSeverity'
 import { KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
-import { recortarGrupos } from './resumen/recorte'
 import { AMBITOS, esAlertaMia, esDeMisProtocolos, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
 import type { Ambito } from './resumen/ambito'
 import { useProtocols, useMyCoordinations } from '../data/protocols'
 import { usePatients } from '../data/patients'
-import { useUpcomingVisits } from '../data/visits'
+import { useVisitsPorReprogramar } from '../data/visits'
 import { useActiveAlerts } from '../data/alertDismissals'
 import { useSolicitudesPendientes, ESTADO_SOLICITUD } from '../data/pharma'
 import type { SolicitudPendienteRow } from '../data/pharma'
@@ -22,7 +21,8 @@ import type { ReportStatusRow } from '../data/reportStatus'
 import { dueLabel, esReportePendiente, esTarjeta } from './track/reportes/estados'
 import type { TrackVisitRow } from '../data/visits'
 import { visitTitle } from '../lib/visits'
-import { dayLabel, formatAR, fromNow } from '../lib/dates'
+import { notaDeAtraso } from './resumen/reprogramar'
+import { formatAR, fromNow, todayISO } from '../lib/dates'
 import { VISIT_STATES, VisitChip } from './visitStates'
 import { VisitSummaryRow } from './VisitSummaryRow'
 import { ErrorBloque, FilasFantasma } from './resumenEstados'
@@ -228,7 +228,7 @@ function VerMasLocal({ restantes, expandido, onToggle }: {
 
 /** Cabecera de tarjeta con ícono, título y un dato al margen. */
 function CardHeader({ icon, color, titulo, extra }: {
-  icon: 'box' | 'clipboardCheck'; color: string; titulo: string; extra?: ReactNode
+  icon: 'box' | 'clipboardCheck' | 'calendar'; color: string; titulo: string; extra?: ReactNode
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -468,16 +468,17 @@ function SolicitudRow({ s, primera, onOpenVisit, onOpenPatient }: {
 }
 
 /**
- * Resumen del módulo Track: KPIs + próximas visitas (7 días) + alertas + dispensaciones pedidas.
+ * Resumen del módulo Track: KPIs + reportes pendientes + alertas + dispensaciones pedidas + visitas
+ * por reprogramar.
  *
  * Rediseñado el 2026-09-01 desde `docs/design_handoff_resumen_tareas_enfoque/`. Lo que cambió y por
  * qué está en `docs/plan-resumen-coordinacion-enfoque.md` (decisiones D1 a D12); lo que NO se portó
  * del handoff está igual de documentado ahí, y vale la pena saberlo antes de "completarlo": las
  * tarjetas de Tareas personales, Reportes pendientes y Pacientes piden datos que la base no tiene.
  *
- * Cada fila lleva a SU ítem: una visita próxima abre su detalle en Visitas del día (saltando a su
- * fecha), una alerta lleva a Alertas —que abre ahí el modal— y una dispensación abre la visita de
- * la que salió. Las alertas son las VIGENTES —`useActiveAlerts` deja afuera las descartadas
+ * Cada fila lleva a SU ítem: una visita por reprogramar abre su detalle en Visitas del día
+ * (saltando a su fecha, que es donde el menú ⋯ ofrece "Reprogramar"), una alerta lleva a Alertas
+ * —que abre ahí el modal— y una dispensación abre la visita de la que salió. Las alertas son las VIGENTES —`useActiveAlerts` deja afuera las descartadas
  * (0070)—: si acá se listaran todas, esta pantalla contradiría a la campana y a las otras dos que
  * muestran alertas.
  *
@@ -489,7 +490,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const accent = module.accent
   const protocols = useProtocols()
   const patients = usePatients()
-  const upcoming = useUpcomingVisits()
+  const porReprogramar = useVisitsPorReprogramar()
   const alerts = useActiveAlerts()
   const solicitudes = useSolicitudesPendientes()
   const reportes = useReportesPendientes()
@@ -561,7 +562,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
      `coordinaciones.data` queda `null` y `misProtocolos` cae al mismo vacío que con loading —
      `ambitoEfectivo` ya degrada solo a "todo", que es la dirección segura, sin que haga falta
      gatear nada. */
-  const cargandoKpis = protocols.loading || patients.loading || upcoming.loading || alerts.loading || coordinaciones.loading
+  const cargandoKpis = protocols.loading || patients.loading || porReprogramar.loading || alerts.loading || coordinaciones.loading
 
   /* Los KPIs de protocolos y pacientes NO se filtran, y no es un olvido: ya vienen scopeados por
      RLS (policies "ver protocolos asignados" 0006:92 y "ver pacientes de mis protocolos" 0006:128),
@@ -572,7 +573,11 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   /* Las cuatro listas del mosaico, cada una con SU definición de "mío" (spec, D2). El ámbito manda
      sobre toda la pantalla —KPIs incluidos— porque un número y su lista tienen que contar lo mismo:
      si el KPI dijera 7 y la tarjeta listara 3, el que está mal es el que mira. */
-  const upcomingRows = filtrarPorAmbito(ambitoEfectivo, upcoming.data ?? [], (v) =>
+  /* Sigue con `esDeMisProtocolos` y no con `loAtendiYo`, y acá es todavía más claro que en
+     "Próximas visitas": estas visitas tienen `real_date is null` POR DEFINICIÓN, y
+     `coordinator_id` lo sella la misma operación que escribe `real_date` (`start_visit_attention`,
+     0102). Filtrar por quién la atendió vaciaría la tarjeta entera apenas alguien prenda "Lo mío". */
+  const reprogramarRows = filtrarPorAmbito(ambitoEfectivo, porReprogramar.data ?? [], (v) =>
     esDeMisProtocolos(v, misProtocolos))
   /* Alertas usa `esAlertaMia` y NO `loAtendiYo` a secas —la única de las cuatro que se aparta—
      porque la alerta más grave (ventana vencida) exige `real_date is null` (0102) y `real_date`
@@ -606,15 +611,6 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const activePatients = allPatients.filter((p) => p.status === 'activo').length
   const overdueItems = alertRows.filter((a) => a.computed_status === 'item_vencido').length
 
-  /* Próximas visitas agrupadas por día (vienen ordenadas por fecha de la query). */
-  const groups: { date: string; visits: TrackVisitRow[] }[] = []
-  for (const v of upcomingRows) {
-    if (!v.estimated_date) continue // próximas visitas = del cronograma (las sueltas no tienen estimada)
-    const last = groups[groups.length - 1]
-    if (last && last.date === v.estimated_date) last.visits.push(v)
-    else groups.push({ date: v.estimated_date, visits: [v] })
-  }
-
   const irAAlertas = () => onNavigate?.('track', 'alertas')
 
 
@@ -643,7 +639,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
         <KpiCard kpi="protocolos" onNavigate={onNavigate} label="Protocolos activos" value={activeProtocols} sub={`${allProtocols.length} en total`} dot={accent} cargando={cargandoKpis} />
         <KpiCard kpi="pacientes" onNavigate={onNavigate} label="Pacientes activos" value={activePatients} sub={`${allPatients.length} registrados`} dot={accent} cargando={cargandoKpis} />
         <KpiCard kpi="pendientes" onNavigate={onNavigate} label="Pendientes vencidos" value={overdueItems} sub="reportes fuera de plazo" dot={overdueItems > 0 ? 'var(--spira-warn)' : accent} cargando={cargandoKpis} />
-        <KpiCard kpi="visitas" onNavigate={onNavigate} label="Próximas visitas" value={upcomingRows.length} sub="próximos 7 días" dot={accent} cargando={cargandoKpis} />
+        <KpiCard kpi="reprogramar" onNavigate={onNavigate} label="Por reprogramar" value={reprogramarRows.length} sub="sin atender fuera de fecha" dot={reprogramarRows.length > 0 ? 'var(--spira-warn)' : accent} cargando={cargandoKpis} />
       </div>
 
       {/*
@@ -653,17 +649,22 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
           │ Reportes pendientes      │ Dispensaciones solicit.  │
           │  (lo que hay que cerrar) │  (lo que estás esperando)│
           ├──────────────────────────┼──────────────────────────┤
-          │ Alertas                  │ Próximas visitas · 7 d   │
-          │  (lo que se pasó)        │  (quién viene)           │
+          │ Alertas                  │ Por reprogramar          │
+          │  (lo que se pasó)        │  (lo que quedó colgado)  │
           └──────────────────────────┴──────────────────────────┘
 
-        La izquierda es TRABAJO PROPIO —reportes que cerrar, desvíos que resolver—; la derecha es lo
-        que depende de otros: pedidos que Farmacia tiene que atender y pacientes que van a venir.
-        Esa es la lectura que hace que la columna izquierda se mire primero.
+        La izquierda es TRABAJO PROPIO —reportes que cerrar, desvíos que resolver—; a la derecha,
+        arriba, lo que depende de otros: pedidos que Farmacia tiene que atender. Esa es la lectura
+        que hace que la columna izquierda se mire primero.
 
-        Las visitas van ABAJO de todo en su columna (pedido del Director): es la única lista que
-        crece sin techo —agrupa por día— así que arriba empujaría a la de dispensaciones fuera de
-        vista cada vez que la semana viene cargada.
+        LA TARJETA DE ABAJO A LA DERECHA CAMBIÓ DE EJE el 2026-09-05: era "Próximas visitas · 7
+        días" —quién viene— y pasó a ser "Por reprogramar" —qué quedó sin resolver. Es un cambio
+        deliberado y con un costo asumido: el Resumen deja de anunciar la semana que viene. Se
+        cambió porque no hay ninguna otra pantalla que junte las visitas atrasadas (Visitas del día
+        muestra UN día, Alertas sólo las de ventana vencida), y ésta es la que más se mira.
+
+        Sigue ABAJO de todo en su columna (pedido del Director): es la única lista que crece sin
+        techo, así que arriba empujaría a la de dispensaciones fuera de vista.
 
         Cuando entren las Tareas personales van arriba a la derecha; por eso cada tarjeta es un
         componente con nombre y esta grilla son cuatro líneas.
@@ -719,17 +720,19 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
             vacioDelAmbito={avisoDeAmbito('No pediste medicación que siga abierta.',
               (solicitudes.data ?? []).length > 0)}
           />
-          <VisitasCard
-            groups={groups}
+          <PorReprogramarCard
+            rows={reprogramarRows}
             accent={accent}
-            loading={upcoming.loading || coordinaciones.loading}
-            error={upcoming.error}
-            onReintentar={upcoming.refetch}
+            loading={porReprogramar.loading || coordinaciones.loading}
+            error={porReprogramar.error}
+            onReintentar={porReprogramar.refetch}
+            /* A Visitas del día con la fecha puesta: ahí vive el menú ⋯ que reprograma. El salto
+               funciona con fechas pasadas justamente porque va con `visitDate` — sin eso aterriza
+               en la lista de hoy sin abrir nada (ver el comentario de `visitaAbierta`). */
             onOpenVisit={onNavigate && ((visitId, visitDate) => onNavigate('track', 'visitas', { visitId, visitDate }))}
             onOpenPatient={abrirFicha}
-            onVerMas={onNavigate ? () => onNavigate('track', 'visitas') : undefined}
-            vacioDelAmbito={avisoDeAmbito('No hay visitas próximas en tus protocolos.',
-              (upcoming.data ?? []).length > 0)}
+            vacioDelAmbito={avisoDeAmbito('No hay visitas por reprogramar en tus protocolos.',
+              (porReprogramar.data ?? []).length > 0)}
           />
         </div>
       </div>
@@ -742,7 +745,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
           /* Lo que se hace en el modal puede cerrar la solicitud o mover la visita, así que las dos
              tarjetas que dependen de eso se refrescan al volver. Las otras dos no: sus datos no los
              toca este modal, y refetchearlas de más haría parpadear media pantalla al cerrar. */
-          onChanged={() => { solicitudes.refetch(); upcoming.refetch() }}
+          onChanged={() => { solicitudes.refetch(); porReprogramar.refetch() }}
           /* El mismo gesto que ya tienen las filas: `abrirFicha` cae solo a `undefined` sin
              `onNavigate`, y ahí el encabezado del modal degrada a texto pelado. */
           onOpenPatient={abrirFicha}
@@ -847,7 +850,7 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
           </div>
         </>
       )}
-      {/* Gateado por `rows.length > 0` como `VisitasCard`: con la tarjeta vacía, "Ver todo" (cambia
+      {/* Gateado por `rows.length > 0`: con la tarjeta vacía, "Ver todo" (cambia
           el ámbito, del `vacioDelAmbito` de arriba) y "Ver más · Alertas" (navega a otra pantalla)
           son dos affordances que navegan a lugares distintos — con las dos presentes a la vez, cuál
           hace qué deja de ser obvio. */}
@@ -856,70 +859,95 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
   )
 }
 
-/** Próximas visitas del cronograma (7 días), agrupadas por día. */
-function VisitasCard({ groups, accent, loading, error, onReintentar, onOpenVisit, onOpenPatient, onVerMas, vacioDelAmbito }: {
-  groups: { date: string; visits: TrackVisitRow[] }[]
+/**
+ * Visitas SIN ATENDER que quedaron fuera de fecha: o el paciente no vino y se marcó la falta, o
+ * simplemente se pasó la fecha citada y nadie la tocó. La más atrasada primero.
+ *
+ * REEMPLAZÓ A "Próximas visitas · 7 días" el 2026-09-05 (ver `docs/plan-por-reprogramar.md`), y con
+ * ella se fue el AGRUPADO POR DÍA. Hacia adelante agrupar ordenaba —en siete días varias visitas
+ * caen el mismo día—; hacia atrás las fechas están dispersas, así que daría un encabezado por fila:
+ * tres encabezados para las tres que entran. En su lugar cada fila lleva su atraso en la `nota`,
+ * que dice lo mismo en un tercio del espacio y agrega hace cuánto, que es lo que decide a cuál
+ * agarrar primero.
+ *
+ * SE SOLAPA CON ALERTAS A PROPÓSITO. Una visita en ventana vencida está en las dos tarjetas de esta
+ * pantalla, y no es un descuido: Alertas dice "hay un desvío que documentar o descartar" y ésta dice
+ * "hay que darle fecha nueva" — dos acciones distintas sobre la misma fila. Y los ciclos son
+ * distintos: una alerta DESCARTADA (0070) desaparece de Alertas y de la campana, y la visita sigue
+ * sin fecha. Si esta tarjeta la excluyera "porque ya está en Alertas", se caería de las dos.
+ *
+ * EL PIE DESPLIEGA ACÁ MISMO y no navega, igual que Dispensaciones y por el mismo criterio: no
+ * existe ninguna pantalla con esta lista. Visitas del día muestra UN día, así que mandar ahí desde
+ * una lista de atrasadas repartidas en semanas sería prometer algo que no se va a mostrar. Lo que sí
+ * navega es cada FILA, y va a la visita, que es donde se reprograma.
+ */
+function PorReprogramarCard({ rows, accent, loading, error, onReintentar, onOpenVisit, onOpenPatient, vacioDelAmbito }: {
+  rows: TrackVisitRow[]
   accent: string
   loading: boolean
   error: string | null
   onReintentar: () => void
   onOpenVisit?: (visitId: string, visitDate?: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
-  onVerMas?: () => void
   /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
    *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
    *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
   vacioDelAmbito?: ReactNode
 }) {
-  /* El recorte respeta los grupos de día y nunca deja un encabezado sin visitas debajo; la regla
-     está en `recortarGrupos`, con su test, porque acá un off-by-one esconde una visita en silencio. */
-  const { grupos: visibles, restantes } = recortarGrupos(groups, MAX_FILAS)
+  const [expandido, setExpandido] = useState(false)
+  const visibles = expandido ? rows : rows.slice(0, MAX_FILAS)
+  const restantes = rows.length - visibles.length
+  /* UN SOLO `hoy` para toda la tarjeta. Si cada fila lo pidiera por su cuenta, una lista dibujada
+     al filo de la medianoche contaría los días contra dos fechas distintas y dos filas de la misma
+     jornada dirían antigüedades incoherentes. */
+  const hoy = todayISO()
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <span style={cardTitle}>Próximas visitas · 7 días</span>
-        <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>agrupadas por día</span>
-      </div>
+      <CardHeader
+        icon="calendar"
+        color="var(--spira-acc-deep-warn)"
+        titulo="Por reprogramar"
+        extra={
+          rows.length > 0 ? (
+            <span style={{ fontSize: 12, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
+              {rows.length} {rows.length === 1 ? 'visita' : 'visitas'}
+            </span>
+          ) : undefined
+        }
+      />
       {loading ? (
         <FilasFantasma />
       ) : error ? (
-        <ErrorBloque que="las próximas visitas" onReintentar={onReintentar} />
-      ) : groups.length === 0 ? (
+        <ErrorBloque que="las visitas por reprogramar" onReintentar={onReintentar} />
+      ) : rows.length === 0 ? (
         vacioDelAmbito ?? (
           <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-            Sin visitas en los próximos 7 días.
+            No hay visitas por reprogramar.
           </div>
         )
       ) : (
-        <div style={{ marginTop: 6 }}>
-          {visibles.map((g) => (
-            <div key={g.date}>
-              <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--spira-muted)', fontWeight: 700, padding: '12px 0 6px' }}>
-                {dayLabel(g.date)}
-              </div>
-              {g.visits.map((v) => (
-                <VisitSummaryRow
-                  key={v.id}
-                  visit={v}
-                  accent={accent}
-                  /* Eje CLÍNICO, no operativo: estas visitas todavía no ocurrieron, así que "por
-                     llegar" no querría decir nada. Lo que importa acá es el estado del expediente.
-                     Sin ProcDots por lo mismo: hechos/total sería siempre 0. */
-                  chip={<VisitChip status={v.computed_status} compact />}
-                  onClick={() => onOpenVisit?.(v.id, v.estimated_date ?? undefined)}
-                  ariaLabel={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
-                  onOpenPatient={onOpenPatient && (() => onOpenPatient(v.patient_id, v.protocol_id))}
-                />
-              ))}
-            </div>
+        <div style={{ marginTop: 8 }}>
+          {visibles.map((v) => (
+            <VisitSummaryRow
+              key={v.id}
+              visit={v}
+              accent={accent}
+              /* Eje CLÍNICO, como en la tarjeta que reemplazó: lo que importa es el estado del
+                 expediente. El chip y la nota NO dicen lo mismo aunque se parezcan — el chip da el
+                 estado que ve el sponsor ("Ventana vencida", "Por reprogramar") y la nota da el
+                 hecho y su antigüedad, que es lo que ordena el trabajo. Sin ProcDots: estas visitas
+                 no se atendieron, así que hechos/total sería siempre 0. */
+              chip={<VisitChip status={v.computed_status} compact />}
+              nota={notaDeAtraso(v, hoy)}
+              onClick={() => onOpenVisit?.(v.id, v.estimated_date ?? undefined)}
+              ariaLabel={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
+              onOpenPatient={onOpenPatient && (() => onOpenPatient(v.patient_id, v.protocol_id))}
+            />
           ))}
         </div>
       )}
-      {/* El pie NAVEGA al submódulo Visitas. Ojo con lo que promete: esa pantalla muestra EL DÍA,
-          no los próximos siete, así que el rótulo dice "Ver más" y no "Ver todo" — te lleva a
-          seguir mirando visitas, no a la misma lista de siete días, que no existe en otro lado. */}
-      {onVerMas && groups.length > 0 && (
-        <VerMas nombre="Visitas" restantes={restantes} onClick={onVerMas} />
+      {(restantes > 0 || expandido) && (
+        <VerMasLocal restantes={restantes} expandido={expandido} onToggle={() => setExpandido((x) => !x)} />
       )}
     </div>
   )

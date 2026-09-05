@@ -32,7 +32,7 @@ import { ProtoTag, ProcDots } from './visitAtoms'
  * se comen el arreglo entero.
  */
 export function VisitSummaryRow({
-  visit, chip, procs, accent, onClick, ariaLabel, onOpenPatient,
+  visit, chip, procs, nota, accent, onClick, ariaLabel, onOpenPatient,
 }: {
   visit: TrackVisitRow
   /**
@@ -48,6 +48,17 @@ export function VisitSummaryRow({
    *  línea simplemente no se pinta y la fila crece cuando llega (no reservamos alto porque la
    *  mayoría de las visitas no tiene procedimientos). */
   procs?: DayProcedureSummary
+  /**
+   * Una línea al pie de la fila, para lo que la pantalla necesite decir de ESTA visita y no quepa
+   * en el chip: hoy, el atraso en "Por reprogramar" ("No vino el 28/08/2026 · hace 8 días").
+   *
+   * VA ABAJO Y NO EN LA LÍNEA 2 porque el presupuesto de ancho de esta fila está medido al límite
+   * (ver la cabecera): un dato más ahí adentro empuja al nombre de la visita fuera de vista. Como
+   * renglón propio no compite con nada y la fila simplemente crece.
+   *
+   * La arma la pantalla, igual que el chip: la fila no sabe qué está mirando quien la usa.
+   */
+  nota?: ReactNode
   accent: string
   onClick: () => void
   ariaLabel: string
@@ -108,6 +119,9 @@ export function VisitSummaryRow({
             <ProcDots names={procs.names} accent={accent} />
           </div>
         )}
+
+        {/* línea 4 — lo que la pantalla tenga para decir de esta visita. Ver `nota`. */}
+        {nota && <div style={notaLinea}>{nota}</div>}
       </div>
 
       <span style={{ flex: '0 0 auto' }}>{chip}</span>
@@ -136,6 +150,12 @@ const nombre: CSSProperties = {
   fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15,
   letterSpacing: '-0.01em', lineHeight: 1.25,
   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+}
+
+/* Tono `muted` y no `faint`: es un dato que se lee, no un adorno — y desde la recalibración de la
+   rampa de grises (PR #95) `faint` ya no llega a AA para texto. */
+const notaLinea: CSSProperties = {
+  fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 6, lineHeight: 1.35,
 }
 
 const linea2: CSSProperties = {
