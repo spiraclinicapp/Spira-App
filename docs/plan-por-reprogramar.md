@@ -115,26 +115,47 @@ La **fila** sí sigue navegando a `track/visitas` con `{visitId, visitDate}` —
 reprograma, desde el menú ⋮ de la fila. Ese salto ya funciona con fechas pasadas porque va con la
 fecha puesta.
 
-### D6 · El KPI sigue a la tarjeta
+### D6 · El KPI sigue a la tarjeta — ~~aplicada~~ **REVERTIDA el 2026-09-05**
 
-`KpiKey.visitas` → `reprogramar`. Rótulo **"Por reprogramar"**, subtítulo "sin atender fuera de
-fecha", destino igual (`track/visitas`, chip "Visitas"). El punto pasa a ámbar cuando hay alguna,
-como el de "Pendientes vencidos".
+Se implementó (`KpiKey.visitas` → `reprogramar`) y el Director la revirtió el mismo día, al ver la
+pantalla en producción: **el KPI vuelve a decir "Próximas visitas · próximos 7 días"**.
 
-Es la regla que el propio archivo ya tiene escrita para el ámbito: *un número y su lista tienen que
-contar lo mismo; si el KPI dice 7 y la tarjeta lista 3, el que está mal es el que mira.*
+El argumento original —un número y su lista tienen que contar lo mismo— no aplicaba tan derecho como
+parecía: el KPI vive en el mosaico de cifras de ARRIBA y la tarjeta en el mosaico de ABAJO, así que
+no se leen como par. Y la cifra de próximas visitas es información del centro que no está en ninguna
+otra parte de la pantalla; cambiarla la perdía a cambio de repetir un número que la tarjeta ya
+muestra en su cabecera.
+
+Consecuencia: `useUpcomingVisits` y `useVisitsPorReprogramar` **conviven** en la vista, cada una
+alimentando lo suyo.
 
 ### D7 · `useUpcomingVisits` no se toca
 
 Sigue viva y sin cambios: la usa el **buscador global** (`shell/search/searchIndex.ts:184`). El hook
 nuevo se agrega al lado.
 
-### D8 · El ámbito sigue con `esDeMisProtocolos`
+### D8 · El ámbito — ~~`esDeMisProtocolos`~~ **CORREGIDA el 2026-09-05: `esMiaSinAtender`**
 
-Y ahora con más razón que antes: estas visitas tienen `real_date is null` por definición, y
-`coordinator_id` lo sella la misma operación que escribe `real_date` (`start_visit_attention`,
-0102). Filtrar con `loAtendiYo` vaciaría la tarjeta entera apenas alguien prenda "Lo mío" — el
-mismo error que `esAlertaMia` documenta para Alertas.
+**La decisión original estaba MAL, y se vio mirando producción, no el código.** El razonamiento fue
+correcto hasta la mitad: estas visitas tienen `real_date is null` por definición, así que
+`loAtendiYo` a secas vaciaría la tarjeta apenas alguien prenda "Lo mío". De ahí salté a
+`esDeMisProtocolos` a secas, copiando "Próximas visitas" — donde es correcto **porque una visita
+futura nunca tiene coordinador**. Acá sí lo puede tener (asignación manual), y ahí las dos reglas
+discrepan:
+
+| | Visita de mi protocolo, asignada a otra persona |
+|---|---|
+| `esDeMisProtocolos` (Alertas **no** la usa) | es mía → aparece en Por reprogramar |
+| `esMiaSinAtender` (la que usa Alertas) | no es mía → **no** aparece en Alertas |
+
+Resultado: **la misma fila era tuya en una tarjeta y ajena en la de al lado**, en la misma pantalla y
+sin nada que lo explicara. Es la clase de incoherencia que el propio código advierte que hace
+desconfiar del sistema entero.
+
+Las dos tarjetas de visitas sin atender usan ahora **la misma regla**. Al generalizarla,
+`esAlertaMia` pasó a llamarse **`esMiaSinAtender`**: el nombre viejo describía una lista, el nuevo
+describe la condición, que es lo que se reusa. La divergencia quedó fijada con un test en
+`ambito.test.ts`.
 
 ---
 

@@ -21,15 +21,17 @@
  *   · `requested_by` (dispensation_requests) es AUTORÍA: quién pidió la medicación. `loPediYo` lo
  *     lee, y con eso alcanza para Dispensaciones.
  *
- * ALERTAS ES LA QUE NO ENTRA EN EL MOLDE de "un campo, una regla, una lista": `loAtendiYo` a secas
- * BORRARÍA justo la alerta más grave. "Ventana vencida" exige `real_date is null` (0102), y
+ * LAS LISTAS DE VISITAS SIN ATENDER NO ENTRAN EN EL MOLDE de "un campo, una regla, una lista":
+ * `loAtendiYo` a secas BORRARÍA justo la fila más grave. "Ventana vencida" exige `real_date is null` (0102), y
  * `real_date` lo escribe la MISMA operación que sella `coordinator_id` (`start_visit_attention`) —
  * así que una visita en ventana vencida NUNCA fue atendida, y su `coordinator_id` es null casi
  * siempre (salvo la asignación manual y opcional de `protocol_coordinators`). Filtrar esa lista con
  * `loAtendiYo` a secas dejaría la clase de alerta más grave vacía apenas alguien prenda "Lo mío",
  * sin un solo error. Por eso `esAlertaMia` es "la atendí yo, O nadie la atendió todavía y es de un
  * protocolo que coordino": combina `loAtendiYo` con `esDeMisProtocolos` en vez de ser una lectura
- * simple de un solo campo.
+ * simple de un solo campo. La usan las DOS tarjetas que listan visitas sin atender —Alertas y Por
+ * reprogramar— y tienen que usar la misma: son la misma pantalla, y dos reglas distintas hacen que
+ * una fila sea "tuya" en una tarjeta y ajena en la de al lado, sin que nada lo explique.
  *
  * CADA REGLA SIMPLE PIDE SÓLO EL CAMPO QUE MIRA, y no la fila entera: eso es lo que permite que
  * `esDeMisProtocolos` (mira sólo `protocol_id`) se REUSE dentro de `esAlertaMia` en vez de repetirse
@@ -94,21 +96,28 @@ export function loPediYo(fila: ConAutor, userId: string | null): boolean {
 }
 
 /**
- * "Mío" para Alertas — y SÓLO para Alertas, distinta a propósito de la de Reportes/Dispensaciones
- * (`loAtendiYo` a secas).
+ * "Mío" para las listas de VISITAS SIN ATENDER (`real_date is null`): las tarjetas de **Alertas** y
+ * **Por reprogramar**. Distinta a propósito de la de Reportes/Dispensaciones (`loAtendiYo` a secas).
  *
- * LA ALERTA MÁS GRAVE ES JUSTO LA QUE `loAtendiYo` SOLA BORRA. `computed_status = 'ventana_vencida'`
+ * LA FILA MÁS GRAVE ES JUSTO LA QUE `loAtendiYo` SOLA BORRA. `computed_status = 'ventana_vencida'`
  * exige `pv.real_date is null` (0102); y `real_date` lo escribe `start_visit_attention` EN EL MISMO
  * update que sella `coordinator_id`. Es decir: una visita en ventana vencida nunca fue atendida, así
- * que su `coordinator_id` es `null` casi siempre (salvo la asignación manual de `protocol_coordinators`,
- * que es opcional) — filtrar alertas con `loAtendiYo` a secas vacía la clase de alerta más grave
- * apenas alguien prende "Lo mío", sin un solo error.
+ * que su `coordinator_id` es `null` casi siempre (salvo la asignación manual, que es opcional) —
+ * filtrar con `loAtendiYo` a secas vacía la clase más grave apenas alguien prende "Lo mío", sin un
+ * solo error.
  *
  * Por eso acá "mía" es la ATENDÍ YO, O nadie la atendió todavía y es de un protocolo que coordino:
  * la ausencia de coordinador no dice "no es tuya", dice "todavía no la agarró nadie" — y si el
  * protocolo es el mío, se supone que la agarro yo.
+ *
+ * SE LLAMABA `esAlertaMia` Y SE RENOMBRÓ el 2026-09-05, cuando "Por reprogramar" pasó a ser su
+ * segundo consumidor. El nombre viejo describía UNA LISTA; éste describe la CONDICIÓN, que es lo
+ * que se reusa. Y el desliz que corrige es real: "Por reprogramar" nació filtrando con
+ * `esDeMisProtocolos` a secas —copiado de "Próximas visitas", donde era correcto porque una visita
+ * futura nunca tiene coordinador— y con eso una visita asignada a OTRA persona quedaba fuera de
+ * Alertas y dentro de Por reprogramar, en la misma pantalla y sin nada que lo explicara.
  */
-export function esAlertaMia(
+export function esMiaSinAtender(
   fila: ConCoordinador & ConProtocolo,
   userId: string | null,
   misProtocolos: Set<string>,
