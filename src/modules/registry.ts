@@ -63,7 +63,7 @@ export const MODULES: ModuleDef[] = [
     submodules: [
       { key: 'resumen', name: 'Resumen', icon: 'home' },
       { key: 'tareas', name: 'Tareas', icon: 'clipboardCheck' },
-      { key: 'alertas', name: 'Alertas', icon: 'bell' },
+      { key: 'alertas', name: 'Pendientes', icon: 'bell' },
     ],
   },
   {
@@ -85,7 +85,12 @@ export const MODULES: ModuleDef[] = [
       // esta línea + el botón "Ver agenda del protocolo" (ProtocolDetailView) y las entradas
       // de "Visita" del buscador (searchIndex.ts). La vista y su ruta siguen intactas.
       // { key: 'agenda', name: 'Agenda', icon: 'calendar' },
-      { key: 'alertas', name: 'Alertas', icon: 'bell', hint: 'Pendientes y por vencer' },
+      /* "Pendientes" y no "Alertas" desde el 2026-09-05: la pantalla ya junta clases distintas
+         —ventanas vencidas y reportes fuera de plazo— y va a sumar visitas por reprogramar y
+         tareas. "Alertas" nombraba la más grave y dejaba afuera al resto. LA CLAVE NO CAMBIA: es
+         la de la URL y la del registro de vistas; sólo cambia el rótulo (mismo criterio que
+         Coordinación/Farmacia sobre track/pharma). */
+      { key: 'alertas', name: 'Pendientes', icon: 'bell', hint: 'Lo que hay que resolver' },
     ],
   },
   {
