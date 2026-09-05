@@ -5,7 +5,8 @@ import { btnOutline } from '../components/buttons'
 import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { alertItemStyle } from './alertItem'
 import { AlertCardHeader } from './AlertCardHeader'
-import { severidadMaxima } from './alertSeverity'
+import { PendientesProtocoloCards } from './PendientesProtocoloCards'
+import { GRAVEDAD, severidadMaxima } from './alertSeverity'
 import { reporteTitulo } from './track/reportes/estados'
 import { EmptyState } from '../components/EmptyState'
 import { SearchableSelect } from '../components/SearchableSelect'
@@ -233,12 +234,22 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       + procRows.filter((r) => r.protocol_id === p.id).length,
   }))
 
-  /* Los TRES avisos de esta pantalla en un solo eje. Los dos primeros son estados calculados de la
-     visita; el tercero no lo es —es un reporte pendiente, que vive en otra consulta— pero como
-     FILTRO pertenece acá: quien mira piensa "mostrame sólo los reportes", no "cruzá dos listas". */
+  /* Los CUATRO avisos de esta pantalla en un solo eje. Los tres primeros son estados calculados de
+     la visita; el último no lo es —es un reporte pendiente, que vive en otra consulta— pero como
+     FILTRO pertenece acá: quien mira piensa "mostrame sólo los reportes", no "cruzá dos listas".
+
+     ⚠️ ESTA LISTA ES UN CONSUMIDOR DE LA CLASE DE ALERTA y hay que barrerla cada vez que la clase
+     se ensancha. La 0107 sumó "Por reprogramar" y esto quedó con tres opciones: las visitas de
+     "No vino" no se podían pedir por filtro, no aparecían en el menú con su conteo, y tildar
+     cualquier otra opción las escondía sin manera de traerlas de vuelta. Nada falló — el menú se
+     dibujaba perfecto con una opción menos. El orden es el de GRAVEDAD, igual que el desglose de
+     las tarjetas de arriba. */
   const estadoOptions: MultiFilterOption[] = [
-    { value: 'ventana_vencida', label: VISIT_STATES.ventana_vencida.label, count: allRows.filter((a) => a.computed_status === 'ventana_vencida').length },
-    { value: 'item_vencido', label: VISIT_STATES.item_vencido.label, count: allRows.filter((a) => a.computed_status === 'item_vencido').length },
+    ...GRAVEDAD.map((s) => ({
+      value: s,
+      label: VISIT_STATES[s].label,
+      count: allRows.filter((a) => a.computed_status === s).length,
+    })),
     { value: REPORTE_PENDIENTE, label: 'Reporte pendiente', count: procRows.length },
   ]
 
@@ -255,17 +266,29 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* El atajo por protocolo: tildar una tarjeta escribe el MISMO `protocolFilter` que el
+          desplegable de abajo, así que las dos son la misma preferencia vista de dos maneras. Va
+          ARRIBA de la barra, como en Stock: primero elegís en qué mirás y después lo afinás.
+          Recibe las listas CRUDAS a propósito — ver el comentario del componente. */}
+      <PendientesProtocoloCards
+        visitas={allRows}
+        reportes={procRows}
+        seleccionados={protocolFilter}
+        accentSolid={module.accentSolid}
+        onToggle={(id) => setProtocolFilter(
+          protocolFilter.includes(id) ? protocolFilter.filter((x) => x !== id) : [...protocolFilter, id],
+        )}
+      />
+
       {/* LA MISMA BARRA QUE "VISITAS DEL DÍA", con los mismos componentes y no con copias parecidas
           (pedido del Director: "que se vean iguales y que interactúen igual"). `MultiFilterMenu` ya
-          era compartido; el buscador y el botón de limpiar se extrajeron a `components/FilterBar`
-          en este mismo cambio, y Visitas pasó a usarlos también — que es lo único que garantiza que
-          sigan iguales cuando alguien ajuste uno.
+          era compartido; el buscador y el botón de limpiar se extrajeron a `components/FilterBar`,
+          y Visitas usa los mismos — que es lo único que garantiza que sigan iguales cuando alguien
+          ajuste uno.
 
-          FALTAN MÉDICO Y COORDINADOR, y no por olvido: ninguna de las dos consultas de esta
-          pantalla los trae. `v_track_visits` no proyecta el coordinador (vive en `patient_visits`
-          desde la 0065) y la vista de alertas de reporte tampoco trae el médico tratante. Dibujar
-          esos dos menús con las opciones vacías sería un filtro que finge filtrar; entran con la
-          migración que los exponga. Ver TODOS.md. */}
+          (Acá vivía una nota diciendo que faltaban Médico y Coordinador "porque las consultas no los
+          traen". Los trajo la 0103 y los dos menús están dibujados abajo desde entonces: la nota
+          quedó describiendo una pantalla que ya no existe.) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <MultiFilterMenu accent={accent} label="Estado" icon="filter" options={estadoOptions} selected={fEstado} onChange={setFEstado} />
         <MultiFilterMenu accent={accent} label="Protocolo" icon="file" options={protoMultiOptions} selected={protocolFilter} onChange={setProtocolFilter} searchPlaceholder="Buscar protocolo…" />
@@ -461,12 +484,21 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
             })}
           </div>
         )}
-        {/* La leyenda tiene que nombrar el color que se VE. Decía "petróleo" desde antes de que el
-            reporte pendiente pasara a azul (ver el comentario del color, más arriba): quedó
-            describiendo una versión de la pantalla que ya no existe, y es justamente el texto que
-            alguien lee cuando no sabe qué significa un tinte. */}
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--spira-line)', fontSize: 11.5, color: 'var(--spira-muted)' }}>
-          Ventana vencida (roja) · Pendiente vencido (ámbar) · Reporte pendiente (azul)
+        {/* La leyenda tiene que nombrar el color que se VE, y por eso SE ARMA sola desde
+            `GRAVEDAD`: escrita a mano ya quedó falsa dos veces —decía "petróleo" cuando el reporte
+            pendiente pasó a azul, y se olvidó del terracota cuando la 0107 sumó "Por reprogramar"—.
+            Un texto que explica los colores y no nombra uno de los que están en pantalla es peor
+            que no tener leyenda: es justamente lo que alguien lee cuando no entiende un tinte.
+            El punto va al lado del nombre en vez de describir el color con una palabra: "terracota"
+            no le dice nada a nadie, y el color se puede mirar. */}
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--spira-line)', fontSize: 11.5, color: 'var(--spira-muted)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {[...GRAVEDAD.map((s) => ({ label: VISIT_STATES[s].label, color: VISIT_STATES[s].color })),
+            { label: 'Reporte pendiente', color: 'var(--spira-acc-deep-blue)' }].map((x) => (
+            <span key={x.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: x.color, flex: '0 0 auto' }} />
+              {x.label}
+            </span>
+          ))}
         </div>
       </div>
 
