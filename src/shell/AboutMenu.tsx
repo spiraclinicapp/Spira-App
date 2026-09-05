@@ -26,9 +26,11 @@ interface AboutMenuProps {
     onOpenChange: (v: boolean) => void
 }
 
-/** Cuántas novedades se muestran por defecto; el resto se pliega para que el
-    popover no crezca sin techo a medida que se acumulan releases. */
-const VISIBLE_NEWS = 5
+/** Cuántas novedades se muestran por defecto; el resto se pliega tras "Ver más
+    antiguas". Tres, no cinco: los textos del changelog son párrafos, así que con
+    cinco el popover llegaba a su techo (ver `panel`) y arrancaba scrolleando aunque
+    estuviera plegado. Con tres abre corto y se lee entero de una. */
+const VISIBLE_NEWS = 3
 
 export function AboutMenu({ accent, onFeedback, open, onOpenChange }: AboutMenuProps) {
   const setOpen = onOpenChange
