@@ -28,16 +28,17 @@ interface AboutMenuProps {
 }
 
 /** Cuántas novedades se muestran por defecto; el resto se pliega tras "Ver más
-    antiguas". Tres, no cinco: los textos del changelog son párrafos, así que con
-    cinco el popover llegaba a su techo (ver `panel`) y arrancaba scrolleando aunque
-    estuviera plegado. Con tres abre corto y se lee entero de una. */
+    antiguas". Tres, no cinco: decisión del Director al ver que el popover abría
+    scrolleando. Se sostiene aunque los textos hoy sean cortos — lo que se busca al
+    abrir es enterarse de lo último, no leer la historia entera. */
 const VISIBLE_NEWS = 3
 
-/** Cuántos renglones se muestran de cada novedad antes de recortarla. Los textos del
-    changelog son párrafos —la 0.53 son ocho renglones a este ancho—, así que sin
-    recorte tres entradas ya desbordaban el techo del popover y la lista dejaba de
-    servir como índice: no se veía qué hay, se leía la primera. Con tres renglones
-    cada novedad es un resumen y el detalle se pide. */
+/** Cuántos renglones se muestran de cada novedad antes de recortarla. Hoy **ninguna
+    llega** a los tres: el changelog se acortó a una línea por entrada (2026-09-04) y
+    `version.ts` lo pide explícitamente. Esto queda como red: cuando alguien escriba
+    una novedad larga —ya pasó, la 0.53 llegó a ocho renglones a este ancho—, el
+    popover no se estira, la recorta y ofrece "Seguir leyendo". Si el botón aparece,
+    es una señal de que ese texto se pasó de una línea. */
 const NEWS_LINES = 3
 
 export function AboutMenu({ accent, onFeedback, open, onOpenChange }: AboutMenuProps) {
