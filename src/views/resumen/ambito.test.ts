@@ -77,16 +77,15 @@ describe('esMiaSinAtender', () => {
     expect(esMiaSinAtender({ coordinator_id: null, protocol_id: 'p1' }, null, new Set(['p1']))).toBe(false)
   })
 
-  /* EL CASO QUE COSTÓ UN BUG EN PROD (2026-09-05). "Por reprogramar" nació filtrando con
-     `esDeMisProtocolos` a secas, copiado de "Próximas visitas" —donde es correcto, porque una visita
-     futura nunca tiene coordinador—. Pero sus filas son `real_date is null` igual que las de
-     Alertas, y ahí las dos reglas DISCREPAN: una visita de mi protocolo asignada a otra persona
-     queda fuera de Alertas y dentro de Por reprogramar, en la misma pantalla y sin nada que lo
-     explique.
+  /* EL CASO QUE COSTÓ UN BUG EN PROD (2026-09-05). La tarjeta "Por reprogramar" —ya retirada—
+     filtraba con `esDeMisProtocolos` a secas, copiado de "Próximas visitas", donde ES correcto
+     porque una visita futura nunca tiene coordinador. Pero sus filas eran `real_date is null` igual
+     que las de Alertas, y ahí las dos reglas DISCREPAN: una visita de mi protocolo asignada a otra
+     persona quedaba fuera de una tarjeta y dentro de la otra, en la misma pantalla.
 
-     Este test no prueba el cableado —eso vive en la vista— pero deja escrita la razón por la que
-     las dos tarjetas de visitas sin atender tienen que compartir regla: si alguien vuelve a elegir
-     la floja, acá está el caso donde se separan. */
+     El test sobrevive a la tarjeta a propósito: la lección no es sobre esa pantalla sino sobre la
+     elección de regla, y lo atrasado vuelve como clase de alerta. Si alguien elige la floja otra
+     vez, acá está el caso exacto donde se separan. */
   it('DISCREPA de esDeMisProtocolos cuando la visita es de otra coordinadora', () => {
     const fila = { coordinator_id: OTRO, protocol_id: 'p1' }
     const mios = new Set(['p1'])

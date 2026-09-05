@@ -29,9 +29,10 @@
  * `loAtendiYo` a secas dejaría la clase de alerta más grave vacía apenas alguien prenda "Lo mío",
  * sin un solo error. Por eso `esAlertaMia` es "la atendí yo, O nadie la atendió todavía y es de un
  * protocolo que coordino": combina `loAtendiYo` con `esDeMisProtocolos` en vez de ser una lectura
- * simple de un solo campo. La usan las DOS tarjetas que listan visitas sin atender —Alertas y Por
- * reprogramar— y tienen que usar la misma: son la misma pantalla, y dos reglas distintas hacen que
- * una fila sea "tuya" en una tarjeta y ajena en la de al lado, sin que nada lo explique.
+ * simple de un solo campo. La usa toda lista de visitas SIN ATENDER (`real_date is null`), que hoy
+ * es una sola —Alertas— y ya fueron dos: mientras existió la tarjeta "Por reprogramar" al lado, cada
+ * una usaba su propia regla y la misma fila era "tuya" en una y ajena en la otra, sin que nada lo
+ * explicara. Esa es la razón de que la regla tenga nombre propio y no viva dentro de una pantalla.
  *
  * CADA REGLA SIMPLE PIDE SÓLO EL CAMPO QUE MIRA, y no la fila entera: eso es lo que permite que
  * `esDeMisProtocolos` (mira sólo `protocol_id`) se REUSE dentro de `esAlertaMia` en vez de repetirse
@@ -111,11 +112,13 @@ export function loPediYo(fila: ConAutor, userId: string | null): boolean {
  * protocolo es el mío, se supone que la agarro yo.
  *
  * SE LLAMABA `esAlertaMia` Y SE RENOMBRÓ el 2026-09-05, cuando "Por reprogramar" pasó a ser su
- * segundo consumidor. El nombre viejo describía UNA LISTA; éste describe la CONDICIÓN, que es lo
- * que se reusa. Y el desliz que corrige es real: "Por reprogramar" nació filtrando con
- * `esDeMisProtocolos` a secas —copiado de "Próximas visitas", donde era correcto porque una visita
- * futura nunca tiene coordinador— y con eso una visita asignada a OTRA persona quedaba fuera de
- * Alertas y dentro de Por reprogramar, en la misma pantalla y sin nada que lo explicara.
+ * segundo consumidor. Esa tarjeta se retiró el mismo día —lo atrasado se muda a Pendientes como una
+ * clase de alerta más— pero **el nombre se queda**: describe la CONDICIÓN y no una lista, que es lo
+ * correcto para algo que van a volver a consumir dos pantallas. Y el desliz que corrigió es real:
+ * "Por reprogramar" nació filtrando con `esDeMisProtocolos` a secas —copiado de "Próximas visitas",
+ * donde era correcto porque una visita futura nunca tiene coordinador— y con eso una visita
+ * asignada a OTRA persona quedaba fuera de Alertas y dentro de la otra tarjeta, en la misma
+ * pantalla y sin nada que lo explicara.
  */
 export function esMiaSinAtender(
   fila: ConCoordinador & ConProtocolo,

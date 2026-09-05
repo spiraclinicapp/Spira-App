@@ -131,7 +131,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const abrirFicha = useAbrirFicha({
     module,
     onNavigate,
-    volver: () => ({ moduleKey: module.key, subKey: submodule.key, label: 'Volver a Alertas', hint: 'Volver a la lista de alertas' }),
+    volver: () => ({ moduleKey: module.key, subKey: submodule.key, label: `Volver a ${submodule.name}`, hint: `Volver a la lista de ${submodule.name.toLowerCase()}` }),
   })
 
   /* Llegada CON objetivo (desde "Lo prioritario" en Inicio): abrir esa alerta apenas montamos.

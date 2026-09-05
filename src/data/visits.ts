@@ -91,47 +91,6 @@ export function useUpcomingVisits() {
   )
 }
 
-/**
- * Visitas SIN ATENDER que quedaron fuera de fecha — la tarjeta "Por reprogramar" del Resumen de
- * Coordinación y su KPI. Dos clases en una sola lista: las que tienen la falta marcada
- * (`no_show_at`) y las que simplemente se pasaron de fecha sin que nadie las tocara.
- *
- * EL FILTRO NO PASA POR `computed_status`, aunque exista el estado `por_reprogramar` y sea lo
- * obvio. El `case` de la vista pone **ventana vencida por encima de por reprogramar** (0102, ramas
- * 2 y 3): una visita marcada "No vino" cuya ventana ADEMÁS venció pierde el estado que la nombra y
- * pasa a `ventana_vencida`. Filtrar por el estado dejaría afuera justo la que más necesita fecha
- * nueva. Por eso la condición se escribe sobre `no_show_at`, que es el hecho.
- *
- * ORDEN: la más atrasada primero. Es una lista de trabajo pendiente y lo más viejo es lo más grave.
- * SIN CORTE HACIA ATRÁS a propósito — un tope de N días escondería lo peor sin decirlo.
- *
- * `estimated_date is not null` deja afuera las visitas SUELTAS (`kind <> 'programada'`), que no
- * tienen fecha citada: sin fecha no hay atraso que medir ni nada que reprogramar.
- *
- * `enrollment_status in ('activo','screening')` es un filtro que NINGUNA otra consulta de visitas
- * tiene, y va acá porque acá cambia el resultado: con una ventana de siete días hacia adelante un
- * paciente discontinuado no aparece nunca, pero en una lista sin límite hacia atrás sus visitas
- * abiertas encabezan para siempre y nada las cierra. Una visita de alguien que salió del estudio no
- * se va a reprogramar: listarla es inventar trabajo, y arriba de todo.
- */
-export function useVisitsPorReprogramar() {
-  const today = todayISO()
-  return useSupabaseQuery<TrackVisitRow[]>(
-    (c) =>
-      c
-        .from('v_track_visits')
-        .select('*')
-        .is('real_date', null)
-        .not('estimated_date', 'is', null)
-        .in('enrollment_status', ['activo', 'screening'])
-        .or(`no_show_at.not.is.null,estimated_date.lt.${today}`)
-        .order('estimated_date', { ascending: true })
-        .order('patient_code', { ascending: true })
-        .returns<TrackVisitRow[]>(),
-    [],
-  )
-}
-
 /** Visitas en alerta: ventana vencida (roja) o pendiente fuera de plazo (ámbar). */
 export function useVisitAlerts() {
   return useSupabaseQuery<TrackVisitRow[]>(

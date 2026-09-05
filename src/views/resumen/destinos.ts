@@ -24,17 +24,31 @@ import { MODULES } from '../../modules/registry'
  */
 
 /** Las cuatro tarjetas de cifras del Resumen de Coordinación, en el orden en que se muestran. */
-export type KpiKey = 'protocolos' | 'pacientes' | 'pendientes' | 'visitas'
+export type KpiKey = 'protocolos' | 'pacientes' | 'reportes' | 'visitas'
 
 export interface Destino {
   moduleKey: string
   subKey: string
 }
 
+/**
+ * El submódulo que junta lo que hay que resolver — se llama **Pendientes** desde el 2026-09-05 y su
+ * clave sigue siendo `alertas`.
+ *
+ * Está acá arriba y con nombre propio porque lo apuntan TRES lugares (el KPI, el pie de la tarjeta
+ * de alertas del Resumen y el enlace de vuelta de la propia vista), y hasta hoy dos de ellos lo
+ * nombraban con un literal escrito a mano. Un literal habría sobrevivido al renombre sin fallar:
+ * la pantalla diría "Alertas" y el menú "Pendientes", sin un solo error.
+ */
+export const DESTINO_PENDIENTES: Destino = { moduleKey: 'track', subKey: 'alertas' }
+
 export const KPI_DESTINOS: Record<KpiKey, Destino> = {
   protocolos: { moduleKey: 'track', subKey: 'protocolos' },
   pacientes: { moduleKey: 'track', subKey: 'protocolos' },
-  pendientes: { moduleKey: 'track', subKey: 'alertas' },
+  /* El KPI se llama "Reportes vencidos" y NO "Pendientes vencidos" desde que el submódulo se llama
+     Pendientes: "los pendientes vencidos de Pendientes" no dice nada. Y de paso es más exacto —
+     cuenta `item_vencido`, que es un REPORTE del estudio fuera de plazo. */
+  reportes: DESTINO_PENDIENTES,
   visitas: { moduleKey: 'track', subKey: 'visitas' },
 }
 
