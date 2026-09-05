@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.55', text: 'Alertas pasa a llamarse Pendientes, y el Resumen muestra las visitas del próximo día.' },
     { version: '0.54', text: 'El panel de novedades abre corto y se recorre adentro, sin salirse de la pantalla.' },
     { version: '0.53', text: 'Elegís en qué módulo abre Spira y, por separado, a dónde te lleva el logo.' },
     { version: '0.52', text: 'El Resumen de Coordinación abre mostrando lo tuyo, con un alternador para ver todo.' },
