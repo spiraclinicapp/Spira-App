@@ -727,6 +727,9 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
             onOpenPatient={abrirFicha}
             onVerTodo={onNavigate ? irAAlertas : undefined}
             nombreDestino={nombrePendientes}
+            /* El registry manda; si el submódulo no estuviera, el fallback nombra la pantalla por
+               lo que hace y no por una copia del rótulo. */
+            titulo={nombrePendientes ?? 'Pendientes'}
             vacioDelAmbito={avisoDeAmbito('Ninguna de tus visitas está en alerta.',
               alerts.visitAlerts.length > 0)}
           />
@@ -784,7 +787,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
 }
 
 /** Alertas vigentes: cabecera teñida por la PEOR presente, filas planas con punto de severidad. */
-function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenPatient, onVerTodo, nombreDestino, vacioDelAmbito }: {
+function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenPatient, onVerTodo, nombreDestino, titulo, vacioDelAmbito }: {
   rows: TrackVisitRow[]
   loading: boolean
   error: string | null
@@ -797,6 +800,9 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
    *  quedado prometiendo una pantalla con otro nombre, sin un solo error. `null` = el destino no
    *  existe en el registry ⇒ no se dibuja el pie, mismo criterio que `KpiCard`. */
   nombreDestino?: string | null
+  /** El rótulo de la banda teñida. Mismo origen que `nombreDestino` — el registry— y por eso en la
+   *  práctica son el mismo texto: la tarjeta se llama como la pantalla a la que lleva. */
+  titulo: string
   /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
    *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
    *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
@@ -811,7 +817,7 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
   const restantes = rows.length - visibles.length
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-      <AlertCardHeader severidad={severidadMaxima(rows)} cantidad={rows.length} />
+      <AlertCardHeader titulo={titulo} severidad={severidadMaxima(rows)} cantidad={rows.length} />
       {loading ? (
         <FilasFantasma />
       ) : error ? (
@@ -845,7 +851,7 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
                     if (e.target !== e.currentTarget) return
                     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir() }
                   } : undefined}
-                  aria-label={abrir ? `Abrir en Alertas la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}` : undefined}
+                  aria-label={abrir ? `Abrir en ${titulo} la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}` : undefined}
                   style={{ ...filaAncha, ...(i === 0 ? { borderTopWidth: 0 } : null), ...(abrir ? null : { cursor: 'default' }) }}
                 >
                   <Punto color={c} />
@@ -884,7 +890,7 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
         </>
       )}
       {/* Gateado por `rows.length > 0`: con la tarjeta vacía, "Ver todo" (cambia
-          el ámbito, del `vacioDelAmbito` de arriba) y "Ver más · Alertas" (navega a otra pantalla)
+          el ámbito, del `vacioDelAmbito` de arriba) y el pie que navega a otra pantalla
           son dos affordances que navegan a lugares distintos — con las dos presentes a la vez, cuál
           hace qué deja de ser obvio. */}
       {onVerTodo && nombreDestino && rows.length > 0 && (
