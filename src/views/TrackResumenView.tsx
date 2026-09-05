@@ -8,11 +8,11 @@ import { AlertCardHeader } from './AlertCardHeader'
 import { severidadMaxima } from './alertSeverity'
 import { KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
-import { AMBITOS, esAlertaMia, esDeMisProtocolos, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
+import { AMBITOS, esMiaSinAtender, esDeMisProtocolos, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
 import type { Ambito } from './resumen/ambito'
 import { useProtocols, useMyCoordinations } from '../data/protocols'
 import { usePatients } from '../data/patients'
-import { useVisitsPorReprogramar } from '../data/visits'
+import { useUpcomingVisits, useVisitsPorReprogramar } from '../data/visits'
 import { useActiveAlerts } from '../data/alertDismissals'
 import { useSolicitudesPendientes, ESTADO_SOLICITUD } from '../data/pharma'
 import type { SolicitudPendienteRow } from '../data/pharma'
@@ -490,6 +490,10 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const accent = module.accent
   const protocols = useProtocols()
   const patients = usePatients()
+  /* Las dos consultas conviven: el KPI de arriba cuenta las PRÓXIMAS (7 días) y la tarjeta de abajo
+     lista las ATRASADAS. Son dos preguntas distintas —qué se viene y qué quedó colgado— y el
+     Director quiso conservar las dos (2026-09-05). */
+  const upcoming = useUpcomingVisits()
   const porReprogramar = useVisitsPorReprogramar()
   const alerts = useActiveAlerts()
   const solicitudes = useSolicitudesPendientes()
@@ -562,7 +566,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
      `coordinaciones.data` queda `null` y `misProtocolos` cae al mismo vacío que con loading —
      `ambitoEfectivo` ya degrada solo a "todo", que es la dirección segura, sin que haga falta
      gatear nada. */
-  const cargandoKpis = protocols.loading || patients.loading || porReprogramar.loading || alerts.loading || coordinaciones.loading
+  const cargandoKpis = protocols.loading || patients.loading || upcoming.loading || alerts.loading || coordinaciones.loading
 
   /* Los KPIs de protocolos y pacientes NO se filtran, y no es un olvido: ya vienen scopeados por
      RLS (policies "ver protocolos asignados" 0006:92 y "ver pacientes de mis protocolos" 0006:128),
@@ -573,20 +577,26 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   /* Las cuatro listas del mosaico, cada una con SU definición de "mío" (spec, D2). El ámbito manda
      sobre toda la pantalla —KPIs incluidos— porque un número y su lista tienen que contar lo mismo:
      si el KPI dijera 7 y la tarjeta listara 3, el que está mal es el que mira. */
-  /* Sigue con `esDeMisProtocolos` y no con `loAtendiYo`, y acá es todavía más claro que en
-     "Próximas visitas": estas visitas tienen `real_date is null` POR DEFINICIÓN, y
-     `coordinator_id` lo sella la misma operación que escribe `real_date` (`start_visit_attention`,
-     0102). Filtrar por quién la atendió vaciaría la tarjeta entera apenas alguien prenda "Lo mío". */
-  const reprogramarRows = filtrarPorAmbito(ambitoEfectivo, porReprogramar.data ?? [], (v) =>
+  /* Próximas visitas SÍ usa `esDeMisProtocolos` a secas: son futuras, así que ninguna tiene
+     coordinador todavía y no hay nada más fino que preguntar. */
+  const upcomingRows = filtrarPorAmbito(ambitoEfectivo, upcoming.data ?? [], (v) =>
     esDeMisProtocolos(v, misProtocolos))
-  /* Alertas usa `esAlertaMia` y NO `loAtendiYo` a secas —la única de las cuatro que se aparta—
+  /* Por reprogramar usa `esMiaSinAtender`, LA MISMA QUE ALERTAS, y no `esDeMisProtocolos` como
+     nació: sus filas tienen `real_date is null` por definición, que es exactamente la población
+     para la que existe esa regla. Con la regla floja, una visita asignada a OTRA coordinadora
+     quedaba FUERA de Alertas y DENTRO de acá — dos tarjetas de la misma pantalla discrepando sobre
+     si la fila es tuya, que es la clase de incoherencia que hace desconfiar de la pantalla entera.
+     Se cazó mirando prod el 2026-09-05, no leyendo el código. */
+  const reprogramarRows = filtrarPorAmbito(ambitoEfectivo, porReprogramar.data ?? [], (v) =>
+    esMiaSinAtender(v, userId, misProtocolos))
+  /* Alertas usa `esMiaSinAtender` y NO `loAtendiYo` a secas —la única de las cuatro que se aparta—
      porque la alerta más grave (ventana vencida) exige `real_date is null` (0102) y `real_date`
      lo escribe la MISMA operación que sella `coordinator_id`: esa alerta NUNCA tiene coordinador,
      así que filtrar con `loAtendiYo` borraría la clase entera apenas alguien prenda "Lo mío". Acá
      "mía" es la atendí yo, o nadie la atendió todavía y es de un protocolo que coordino. Ver el
-     comentario de `esAlertaMia` en `ambito.ts`. */
+     comentario de `esMiaSinAtender` en `ambito.ts`. */
   const alertRows = filtrarPorAmbito(ambitoEfectivo, alerts.visitAlerts, (a) =>
-    esAlertaMia(a, userId, misProtocolos))
+    esMiaSinAtender(a, userId, misProtocolos))
   const solicitudRows = filtrarPorAmbito(ambitoEfectivo, solicitudes.data ?? [], (s) =>
     loPediYo(s, userId))
   const reporteRows = filtrarPorAmbito(ambitoEfectivo, reportes.data ?? [], (r) =>
@@ -639,7 +649,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
         <KpiCard kpi="protocolos" onNavigate={onNavigate} label="Protocolos activos" value={activeProtocols} sub={`${allProtocols.length} en total`} dot={accent} cargando={cargandoKpis} />
         <KpiCard kpi="pacientes" onNavigate={onNavigate} label="Pacientes activos" value={activePatients} sub={`${allPatients.length} registrados`} dot={accent} cargando={cargandoKpis} />
         <KpiCard kpi="pendientes" onNavigate={onNavigate} label="Pendientes vencidos" value={overdueItems} sub="reportes fuera de plazo" dot={overdueItems > 0 ? 'var(--spira-warn)' : accent} cargando={cargandoKpis} />
-        <KpiCard kpi="reprogramar" onNavigate={onNavigate} label="Por reprogramar" value={reprogramarRows.length} sub="sin atender fuera de fecha" dot={reprogramarRows.length > 0 ? 'var(--spira-warn)' : accent} cargando={cargandoKpis} />
+        <KpiCard kpi="visitas" onNavigate={onNavigate} label="Próximas visitas" value={upcomingRows.length} sub="próximos 7 días" dot={accent} cargando={cargandoKpis} />
       </div>
 
       {/*
@@ -745,7 +755,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
           /* Lo que se hace en el modal puede cerrar la solicitud o mover la visita, así que las dos
              tarjetas que dependen de eso se refrescan al volver. Las otras dos no: sus datos no los
              toca este modal, y refetchearlas de más haría parpadear media pantalla al cerrar. */
-          onChanged={() => { solicitudes.refetch(); porReprogramar.refetch() }}
+          onChanged={() => { solicitudes.refetch(); porReprogramar.refetch(); upcoming.refetch() }}
           /* El mismo gesto que ya tienen las filas: `abrirFicha` cae solo a `undefined` sin
              `onNavigate`, y ahí el encabezado del modal degrada a texto pelado. */
           onOpenPatient={abrirFicha}

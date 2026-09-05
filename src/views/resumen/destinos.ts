@@ -24,7 +24,7 @@ import { MODULES } from '../../modules/registry'
  */
 
 /** Las cuatro tarjetas de cifras del Resumen de Coordinación, en el orden en que se muestran. */
-export type KpiKey = 'protocolos' | 'pacientes' | 'pendientes' | 'reprogramar'
+export type KpiKey = 'protocolos' | 'pacientes' | 'pendientes' | 'visitas'
 
 export interface Destino {
   moduleKey: string
@@ -35,10 +35,7 @@ export const KPI_DESTINOS: Record<KpiKey, Destino> = {
   protocolos: { moduleKey: 'track', subKey: 'protocolos' },
   pacientes: { moduleKey: 'track', subKey: 'protocolos' },
   pendientes: { moduleKey: 'track', subKey: 'alertas' },
-  /* Sigue apuntando a Visitas —no a Alertas— aunque el KPI ya no cuente próximas visitas: Visitas
-     del día es donde se reprograma, desde el menú ⋯ de la fila. El destino es dónde se RESUELVE, no
-     dónde vuelve a estar la misma lista (que no existe en ningún otro lado). */
-  reprogramar: { moduleKey: 'track', subKey: 'visitas' },
+  visitas: { moduleKey: 'track', subKey: 'visitas' },
 }
 
 /**
