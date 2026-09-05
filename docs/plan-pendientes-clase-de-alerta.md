@@ -144,9 +144,7 @@ tocar el `check` del `reason` ⇒ una cosa menos en la migración.
 
 ---
 
-## ⚠️ Decisión ABIERTA — necesita tu visto bueno antes de implementar
-
-### D9 · ¿La clase filtra por `enrollment_status`?
+## D9 · La clase NO filtra por `enrollment_status` — **cerrada** (Director, 2026-09-05)
 
 En el plan anterior (D3) la lista de atrasadas se limitó a enrolamientos `activo`/`screening`,
 porque las visitas abiertas de un paciente **discontinuado** encabezan para siempre y nada las
@@ -165,9 +163,13 @@ Las tres salidas:
 | **B. Filtrar sólo `por_reprogramar`** | Nada de lo que hoy se ve cambia, y la clase nueva no arrastra basura. El costo: dos reglas en la misma lista, y hay que poder explicar por qué. |
 | **C. No filtrar** | Cero riesgo de esconder algo. Las visitas de discontinuados alertan para siempre — y son justamente las que el descarte de la 0070 existe para archivar, con motivo y autor. |
 
-**Recomiendo C**, y me corrijo respecto del plan anterior: en una lista **que tiene descarte
-auditable**, esconder por regla es peor que dejar que alguien archive con motivo. El filtro de la
-pieza 1 tenía sentido porque aquella tarjeta **no tenía** cómo descartar; Pendientes sí.
+**Quedó C**, y me corrijo respecto del plan anterior: en una lista **que tiene descarte auditable**,
+esconder por regla es peor que dejar que alguien archive con motivo y autor. El filtro de la pieza 1
+tenía sentido porque aquella tarjeta **no tenía** cómo descartar; Pendientes sí.
+
+Consecuencia asumida: un "no vino" de un paciente discontinuado va a alertar **para siempre** hasta
+que alguien lo archive. Eso es una tarea, no un defecto — y queda con motivo, autor y fecha en
+`alert_dismissals`, que es más de lo que dejaría un filtro.
 
 ---
 
