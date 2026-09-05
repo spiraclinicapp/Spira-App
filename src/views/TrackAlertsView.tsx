@@ -273,6 +273,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       <PendientesProtocoloCards
         visitas={allRows}
         reportes={procRows}
+        protocols={protocols.data ?? []}
         seleccionados={protocolFilter}
         accentSolid={module.accentSolid}
         onToggle={(id) => setProtocolFilter(
@@ -330,12 +331,88 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
         )}
       </div>
 
+      {/* Arriba del cajón y no debajo: "Restaurar" se aprieta ADENTRO del cajón, así que con el
+          aviso abajo el mensaje de error aparecía fuera de la vista justo cuando la acción falla. */}
       {actionError && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '10px 13px' }}>
           <Icon name="alertCircle" size={17} color="var(--spira-danger)" />
           {actionError}
         </div>
       )}
+
+      {/* EL CAJÓN VA ACÁ, PEGADO A SU BOTÓN, y no al final de la pantalla como estaba.
+          El botón vive en esta línea y el panel se dibujaba DESPUÉS de la lista entera: con
+          cuarenta y pico de pendientes, tildarlo no cambiaba nada de lo que se veía y había que
+          scrollear hasta el fondo para descubrir que sí había hecho algo. Un control cuyo efecto
+          ocurre fuera de la vista se lee como un botón roto. Ahora el archivo se despliega donde se
+          lo pidió, y la lista de pendientes queda abajo — que es el orden en que se leen las dos
+          cosas: "esto decidí no atender" y después "esto sí".
+
+          El archivo, no la papelera: nada se borró — la condición clínica sigue en la base y esto es
+          el registro de quién decidió no atenderla, con su motivo. Restaurar la devuelve a la lista. */}
+      {showDismissed && dismissals.length > 0 && (
+        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15 }}>Descartados</div>
+          <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3, lineHeight: 1.45 }}>
+            No se borró nada: la condición sigue en la base y esto queda auditado. Si la visita se
+            reprograma o cambia de estado, la alerta vuelve a la lista sola.
+          </div>
+          <div style={{ marginTop: 8 }}>
+            {dismissals.map((d) => {
+              const vis = alertsQ.allVisitAlerts.find((a) => a.id === d.visit_id)
+              const rep = alertsQ.allReportAlerts.find(
+                (r) => r.visit_id === d.visit_id && r.report_definition_id === d.report_definition_id,
+              )
+              const nombre = vis?.patient_name ?? rep?.patient_name ?? null
+              /* El paciente sale de la alerta viva que respalda al descarte, sea de visita o de
+                 reporte: las dos filas traen su `patient_id` y su `protocol_id`. Cuando ninguna
+                 está —la alerta dejó de ser vigente y el renglón dice justamente eso— no hay a
+                 quién abrir, y el nombre ni siquiera existe. */
+              const pac = vis ?? rep ?? null
+              const abrirPac = abrirFicha && pac ? () => abrirFicha(pac.patient_id, pac.protocol_id) : undefined
+              const detalle = d.kind === 'reporte_procedimiento'
+                ? (rep ? reporteTitulo(rep.report_name, rep.procedure_name) : 'Reporte de procedimiento')
+                : (vis ? `${VISIT_STATES[vis.computed_status].label} · ${visitTitle(vis)}` : 'Alerta de visita')
+              return (
+                <div key={d.id} style={dismissedRow}>
+                  <Icon name="check" size={16} color="var(--spira-faint)" style={{ flex: '0 0 auto', marginTop: 2 }} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    {/* Una alerta descartada no dejó de ser de alguien: el archivo también nombra a
+                        un paciente, así que también lleva a su ficha. La flecha va después del
+                        nombre —donde el par termina, que acá es de uno solo— y el detalle queda
+                        detrás como texto. */}
+                    <div className="spira-link-group" style={{ fontSize: 13, fontWeight: 600 }}>
+                      {nombre
+                        ? <PatientLink onOpen={abrirPac} label={`Abrir la ficha de ${nombre}`}>{nombre}</PatientLink>
+                        : 'Alerta ya no vigente'}
+                      {abrirPac && <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>}
+                      <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}> · {detalle}</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
+                      {reasonLabel(d.reason)}{d.detail ? ` — ${d.detail}` : ''} · {d.dismissed_by_name}
+                      <span style={{ color: 'var(--spira-muted)' }}> ({d.dismissed_by_role}) · {fromNow(d.dismissed_at)}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    style={linkBtn}
+                    onClick={async () => {
+                      setActionError(null)
+                      const { error: e } = await restoreAlert(d.id)
+                      if (e) setActionError(e)
+                      else alertsQ.refetch()
+                    }}
+                  >
+                    Restaurar
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+
 
       <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
         {/* Misma cabecera que la tarjeta de Alertas del Resumen: las dos pantallas abren con el
@@ -501,71 +578,6 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           ))}
         </div>
       </div>
-
-      {/* Descartadas: el archivo, no la papelera. Nada se borró — la condición clínica sigue en la
-          base y esto es el registro de quién decidió no atenderla, con su motivo. Restaurar la
-          devuelve a la lista. */}
-      {showDismissed && dismissals.length > 0 && (
-        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15 }}>Descartados</div>
-          <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3, lineHeight: 1.45 }}>
-            No se borró nada: la condición sigue en la base y esto queda auditado. Si la visita se
-            reprograma o cambia de estado, la alerta vuelve a la lista sola.
-          </div>
-          <div style={{ marginTop: 8 }}>
-            {dismissals.map((d) => {
-              const vis = alertsQ.allVisitAlerts.find((a) => a.id === d.visit_id)
-              const rep = alertsQ.allReportAlerts.find(
-                (r) => r.visit_id === d.visit_id && r.report_definition_id === d.report_definition_id,
-              )
-              const nombre = vis?.patient_name ?? rep?.patient_name ?? null
-              /* El paciente sale de la alerta viva que respalda al descarte, sea de visita o de
-                 reporte: las dos filas traen su `patient_id` y su `protocol_id`. Cuando ninguna
-                 está —la alerta dejó de ser vigente y el renglón dice justamente eso— no hay a
-                 quién abrir, y el nombre ni siquiera existe. */
-              const pac = vis ?? rep ?? null
-              const abrirPac = abrirFicha && pac ? () => abrirFicha(pac.patient_id, pac.protocol_id) : undefined
-              const detalle = d.kind === 'reporte_procedimiento'
-                ? (rep ? reporteTitulo(rep.report_name, rep.procedure_name) : 'Reporte de procedimiento')
-                : (vis ? `${VISIT_STATES[vis.computed_status].label} · ${visitTitle(vis)}` : 'Alerta de visita')
-              return (
-                <div key={d.id} style={dismissedRow}>
-                  <Icon name="check" size={16} color="var(--spira-faint)" style={{ flex: '0 0 auto', marginTop: 2 }} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    {/* Una alerta descartada no dejó de ser de alguien: el archivo también nombra a
-                        un paciente, así que también lleva a su ficha. La flecha va después del
-                        nombre —donde el par termina, que acá es de uno solo— y el detalle queda
-                        detrás como texto. */}
-                    <div className="spira-link-group" style={{ fontSize: 13, fontWeight: 600 }}>
-                      {nombre
-                        ? <PatientLink onOpen={abrirPac} label={`Abrir la ficha de ${nombre}`}>{nombre}</PatientLink>
-                        : 'Alerta ya no vigente'}
-                      {abrirPac && <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>}
-                      <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}> · {detalle}</span>
-                    </div>
-                    <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
-                      {reasonLabel(d.reason)}{d.detail ? ` — ${d.detail}` : ''} · {d.dismissed_by_name}
-                      <span style={{ color: 'var(--spira-muted)' }}> ({d.dismissed_by_role}) · {fromNow(d.dismissed_at)}</span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    style={linkBtn}
-                    onClick={async () => {
-                      setActionError(null)
-                      const { error: e } = await restoreAlert(d.id)
-                      if (e) setActionError(e)
-                      else alertsQ.refetch()
-                    }}
-                  >
-                    Restaurar
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {dismissing && (
         <DismissModal
