@@ -12,11 +12,16 @@ import type { VisitStatus } from '../data/visits'
  * "rojo" todos los días. En una app auditable eso no es un detalle estético — es exagerar un dato
  * clínico, y además gasta la señal: cuando de verdad se venza una ventana, ya nadie la mira.
  *
- * Por eso el tinte lo decide la PEOR alerta presente. `ventana_vencida` (roja) manda siempre sobre
- * `item_vencido` (ámbar); sin alertas devuelve `null` y la cabecera va neutra.
+ * Por eso el tinte lo decide la PEOR alerta presente. `ventana_vencida` (roja) manda siempre; sin
+ * alertas devuelve `null` y la cabecera va neutra.
  *
- * ⚠️ SI ALGÚN DÍA HAY UN TERCER TIPO DE ALERTA hay que agregarlo a `GRAVEDAD` y ordenarlo acá. Un
- * estado que no esté en la lista se IGNORA a propósito: preferimos que una alerta desconocida no
+ * ⚠️ EL TERCER TIPO LLEGÓ (0107): `por_reprogramar`. Va SEGUNDO —entre la ventana vencida y el
+ * reporte fuera de plazo— porque un paciente que no vino y no tiene fecha nueva es una visita del
+ * protocolo que NO OCURRIÓ, mientras que `item_vencido` es un dato que falta cargar sobre una
+ * visita que sí ocurrió. El orden del `case` de la vista no dice nada al respecto: sus ramas 3 y 5
+ * exigen `real_date` nulo y no nulo, así que nunca compiten.
+ *
+ * Un estado que no esté en la lista se IGNORA a propósito: preferimos que una alerta desconocida no
  * suba el tinte a que lo suba mal. El test cubre ese caso.
  *
  * El COLOR no sale de acá: sale de `VISIT_STATES[severidad].color`, que es la paleta que ya usan
@@ -30,10 +35,10 @@ import type { VisitStatus } from '../data/visits'
  * base rompe acá— sin ensanchar el tipo a los ocho, que es lo que haría que `SEVERIDAD_TINTA`
  * tuviera que cubrir "completa" o "por reprogramar".
  */
-export type AlertSeverity = Extract<VisitStatus, 'ventana_vencida' | 'item_vencido'>
+export type AlertSeverity = Extract<VisitStatus, 'ventana_vencida' | 'por_reprogramar' | 'item_vencido'>
 
 /** De la más grave a la menos. El orden ES la regla: `severidadMaxima` devuelve la primera que encuentra. */
-export const GRAVEDAD: readonly AlertSeverity[] = ['ventana_vencida', 'item_vencido']
+export const GRAVEDAD: readonly AlertSeverity[] = ['ventana_vencida', 'por_reprogramar', 'item_vencido']
 
 export function severidadMaxima(
   alertas: readonly { computed_status: VisitStatus }[],
@@ -59,5 +64,18 @@ export function severidadMaxima(
  */
 export const SEVERIDAD_TINTA: Record<AlertSeverity, string> = {
   ventana_vencida: 'var(--spira-acc-deep-danger)',
+  /* REUSA el token de `item_vencido` en vez de estrenar uno. El color del estado es `#8A5A3C`, un
+     terracota que como TEXTO no llega a 4,5:1 sobre papel y que —como todo hex crudo— no se aclara
+     en tema oscuro: es el mismo problema que este archivo ya documenta para el ámbar. Medido, el
+     token rinde 6,07:1 en claro y 9,62:1 en oscuro sobre esta banda.
+
+     EL COSTO, MEDIDO Y ASUMIDO: las bandas de "no vino" y "reporte vencido" quedan casi iguales.
+     El fondo sí sale del hex de cada estado, pero al 10 % de alpha resuelven a 243,239,236 y
+     247,243,236 — cuatro puntos de diferencia, o sea indistinguibles en la práctica. La cabecera
+     comunica el ESCALÓN de gravedad (rojo / ámbar / neutro) y no la clase, y eso está bien: para
+     eso están los ítems, donde `alertItemStyle` recibe el hex del estado y el borde al 19 % sí
+     separa los dos tonos. Estrenar un token propio para el terracota exigiría calibrarlo a AA en
+     los dos temas para ganar una distinción que la cabecera no tiene que hacer. */
+  por_reprogramar: 'var(--spira-acc-deep-warn)',
   item_vencido: 'var(--spira-acc-deep-warn)',
 }

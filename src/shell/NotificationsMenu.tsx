@@ -8,7 +8,11 @@ import { visitTitle } from '../lib/visits'
 import { formatAR } from '../lib/dates'
 import type { NavTarget } from '../views/types'
 import { VISIT_STATES } from '../views/visitStates'
+import { priorizarAlertas } from '../views/visitRules'
 import { DESTINO_PENDIENTES, nombreDeDestino } from '../views/resumen/destinos'
+
+/** Cuántos ítems entran en el desplegable. Ver el porqué del recorte donde se aplica. */
+const MAX_NOTIFICACIONES = 10
 
 /* ============================================================================
    NotificationsMenu — desplegable de notificaciones (campana, top bar).
@@ -61,10 +65,28 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
 
-  const rows = alerts.visitAlerts
-  const procRows = alerts.reportAlerts
-  const count = rows.length + procRows.length
+  const todasLasVisitas = alerts.visitAlerts
+  const todosLosReportes = alerts.reportAlerts
+  const count = todasLasVisitas.length + todosLosReportes.length
   const badge = count > 9 ? '9+' : String(count)
+
+  /* ┌─ EL PANEL SE RECORTA; EL CONTADOR NO ────────────────────────────────────────────────────┐
+     El desplegable mapeaba TODO sin tope y ya venía renderizando 43 ítems: para llegar al pie
+     ("Ver todos los pendientes") había que scrollear la lista entera, o sea que el camino a la
+     pantalla que sí tiene filtros y buscador quedaba escondido detrás del problema que resuelve.
+     El badge, en cambio, no se toca: ya está topeado en "9+" y sigue contando TODAS — recortar la
+     vista no puede cambiar cuántas hay.
+
+     Se muestran las MÁS GRAVES, no las primeras: la consulta las trae por fecha, así que sin
+     ordenar el recorte dejaría afuera una ventana vencida por diez pendientes más viejos. El orden
+     lo sabe priorizarAlertas (con test), que hasta hoy no tenia ningun consumidor.
+
+     Los reportes van primero y completos hasta llenar el cupo, igual que en la lista sin recortar:
+     el orden entre las dos listas es el que ya tenía el panel y no es lo que este cambio discute.
+     └──────────────────────────────────────────────────────────────────────────────────────────┘ */
+  const procRows = todosLosReportes.slice(0, MAX_NOTIFICACIONES)
+  const rows = priorizarAlertas(todasLasVisitas).slice(0, MAX_NOTIFICACIONES - procRows.length)
+  const ocultas = count - procRows.length - rows.length
 
   // Cerrar al click afuera.
   useEffect(() => {
@@ -211,7 +233,10 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
             <>
               <div style={footerSep} />
               <button type="button" onClick={goAll} className="spira-notif-all">
-                Ver todos los {(nombreDeDestino(DESTINO_PENDIENTES) ?? 'Pendientes').toLowerCase()}
+                {/* El pie DICE cuántas quedaron afuera. Sin ese número, un panel recortado se lee
+                    como la lista completa y nadie va a buscar el resto — que es peor que la lista
+                    larga: esconde sin avisar. */}
+                Ver {ocultas > 0 ? `las ${ocultas} restantes` : 'todos'} en {nombreDeDestino(DESTINO_PENDIENTES) ?? 'Pendientes'}
                 <Icon name="arrowRight" size={15} color="var(--spira-primary)" />
               </button>
             </>

@@ -91,14 +91,30 @@ export function useUpcomingVisits() {
   )
 }
 
-/** Visitas en alerta: ventana vencida (roja) o pendiente fuera de plazo (ámbar). */
+/**
+ * Visitas en alerta. **Tres clases desde la 0107**, no dos:
+ *
+ * · `ventana_vencida` — la visita no se atendió y su ventana ya cerró. Roja.
+ * · `por_reprogramar` — el paciente no vino, se marcó la falta y todavía no tiene fecha nueva.
+ * · `item_vencido` — un REPORTE del estudio fuera de plazo, sobre una visita ya atendida.
+ *
+ * Las dos primeras exigen `real_date is null` y la tercera lo contrario, así que nunca describen la
+ * misma fila: **una visita produce como mucho una alerta**, con la severidad que el `case` de la
+ * vista ya resolvió (0102). Eso es lo que hace que "por reprogramar" pueda vivir acá en vez de en
+ * una tarjeta aparte, que es de donde vino (ver `docs/plan-pendientes-clase-de-alerta.md`).
+ *
+ * NO FILTRA POR `enrollment_status`, y es deliberado (Director, 2026-09-05): un "no vino" de un
+ * paciente discontinuado va a alertar para siempre, y la salida correcta es que alguien lo ARCHIVE
+ * con motivo y autor (0070), no que una regla lo esconda. En una lista con descarte auditable,
+ * esconder por regla es lo peor de los dos.
+ */
 export function useVisitAlerts() {
   return useSupabaseQuery<TrackVisitRow[]>(
     (c) =>
       c
         .from('v_track_visits')
         .select('*')
-        .in('computed_status', ['ventana_vencida', 'item_vencido'])
+        .in('computed_status', ['ventana_vencida', 'item_vencido', 'por_reprogramar'])
         .order('estimated_date', { ascending: true })
         .returns<TrackVisitRow[]>(),
     [],

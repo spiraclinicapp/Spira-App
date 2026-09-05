@@ -47,8 +47,10 @@ export interface AlertDismissalRow {
   /** computed_status al archivar (solo kind='visita'). Parte de la huella. */
   status: string | null
   /**
-   * Valor que definía la condición al archivar: `window_end` para las de visita, `report_due_at`
-   * para las de reporte. Si la condición cambia, el descarte deja de aplicar y la alerta vuelve.
+   * Valor que definía la condición al archivar. Cuál columna es DEPENDE DEL ESTADO, y no es un
+   * detalle: `report_due_at` en las de reporte, `window_end` en las de ventana vencida y
+   * `estimated_date` en las de "no vino" (0107). Si la condición cambia, el descarte deja de
+   * aplicar y la alerta vuelve. Ver `anclaDeLaVisita`.
    */
   anchor: string
   reason: string
@@ -65,21 +67,46 @@ export interface AlertDismissalRow {
 }
 
 /**
+ * Qué columna es la HUELLA de una alerta de visita, según su estado (0107).
+ *
+ * `ventana_vencida` se define por su ventana: si la visita se reprograma, la ventana es otra y el
+ * descarte deja de valer. Pero **"no vino" existe justamente porque la ventana TODAVÍA NO venció**,
+ * así que ahí `window_end` está en el FUTURO y no describe nada de lo que se archivó — dos visitas
+ * con la misma ventana y citas distintas tendrían la misma huella. Lo que define esa condición es
+ * **a qué cita no vino el paciente**: `estimated_date`.
+ *
+ * TIENE QUE ESPEJAR AL SERVIDOR. El ancla la calcula `dismiss_alert` (0107) con este mismo `case`,
+ * y acá se compara contra lo guardado: si los dos lados eligen columnas distintas, ningún descarte
+ * coincide nunca —o peor, coincide de más y silencia una alerta que no correspondía—. Las dos
+ * mitades de la regla viven lejos, así que están escritas igual y nombradas igual a propósito.
+ */
+function anclaDeLaVisita(
+  visit: Pick<TrackVisitRow, 'computed_status' | 'window_end' | 'estimated_date'>,
+): string | null {
+  return visit.computed_status === 'por_reprogramar' ? visit.estimated_date : visit.window_end
+}
+
+/**
  * ¿Está archivada esta alerta de VISITA? El descarte vale solo mientras la condición sea la
- * misma que al archivarla: mismo `computed_status` y misma ventana. Si la visita se reprograma
- * (cambia `window_end`) o cambia de estado, la alerta reaparece sola — que es justo lo que
- * evita que un descarte tape un vencimiento futuro.
+ * misma que al archivarla: mismo `computed_status` y misma huella (ver `anclaDeLaVisita`). Si la
+ * visita se reprograma, se reagenda o cambia de estado, la alerta reaparece sola — que es justo lo
+ * que evita que un descarte tape un vencimiento futuro.
+ *
+ * EL ESTADO ES PARTE DE LA HUELLA, y de ahí sale una consecuencia buscada: un "no vino" archivado
+ * cuya ventana después vence pasa a `ventana_vencida`, deja de coincidir y **vuelve a aparecer, en
+ * rojo**. La situación empeoró, así que corresponde volver a avisar.
  */
 export function isVisitAlertDismissed(
   dismissals: AlertDismissalRow[],
-  visit: Pick<TrackVisitRow, 'id' | 'computed_status' | 'window_end'>,
+  visit: Pick<TrackVisitRow, 'id' | 'computed_status' | 'window_end' | 'estimated_date'>,
 ): boolean {
+  const ancla = anclaDeLaVisita(visit)
   return dismissals.some(
     (d) =>
       d.kind === 'visita' &&
       d.visit_id === visit.id &&
       (d.status ?? '') === visit.computed_status &&
-      sameAnchor(d.anchor, visit.window_end),
+      sameAnchor(d.anchor, ancla),
   )
 }
 
@@ -114,11 +141,11 @@ export function isReportAlertDismissed(
  * timestamptz ISO y la ventana es un `date`, así que comparamos por instante; sin fecha, la 0070
  * guarda `-infinity`, que Postgres devuelve con ese literal.
  */
-export function sameAnchor(anchor: string, windowEnd: string | null): boolean {
-  if (!windowEnd) return anchor === '-infinity'
+export function sameAnchor(anchor: string, fecha: string | null): boolean {
+  if (!fecha) return anchor === '-infinity'
   if (anchor === '-infinity') return false
   const a = new Date(anchor).getTime()
-  const b = new Date(`${windowEnd}T00:00:00Z`).getTime()
+  const b = new Date(`${fecha}T00:00:00Z`).getTime()
   return !Number.isNaN(a) && !Number.isNaN(b) && a === b
 }
 
