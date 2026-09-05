@@ -9,7 +9,7 @@ import { parsePrefs, PREFS_DEFAULT } from './prefsModel'
 import type { Prefs } from './prefsModel'
 
 export { parsePrefs, PREFS_DEFAULT } from './prefsModel'
-export type { DateFormat, HomeView, Prefs, ThemePref } from './prefsModel'
+export type { DateFormat, HomeView, LogoView, ModuloDestino, Prefs, ThemePref } from './prefsModel'
 
 /* ============================================================================
    Preferencias del usuario (Ajustes › Preferencias), migración 0093.
@@ -165,7 +165,8 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
            el tema que ya venía eligiendo antes de la 0093) en vez de imponerle los defaults. */
         const local = readCache()
         await supabase.from('user_preferences').upsert({
-          user_id: userId, theme: local.theme, date_format: local.dateFormat, home_view: local.homeView,
+          user_id: userId, theme: local.theme, date_format: local.dateFormat,
+          home_view: local.homeView, logo_view: local.logoView,
         })
       }
     })()
@@ -214,6 +215,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
       theme: siguiente.theme,
       date_format: siguiente.dateFormat,
       home_view: siguiente.homeView,
+      logo_view: siguiente.logoView,
     })
 
     if (error) {

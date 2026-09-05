@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { useAuth } from '../../lib/auth'
 import { usePrefs } from '../../lib/prefs'
-import type { DateFormat, HomeView } from '../../lib/prefs'
+import type { DateFormat, HomeView, LogoView } from '../../lib/prefs'
 import { modulosElegibles } from '../../lib/home'
 import type { ThemePref } from '../../lib/theme'
 import { MODULES } from '../../modules/registry'
@@ -28,23 +28,28 @@ export function PrefsSection() {
   const { modules } = useAuth()
   const [error, setError] = useState<string | null>(null)
 
-  /* La pantalla de inicio se elige entre los módulos que ESTA persona puede abrir: ofrecerle
-     Farmacia a quien no la tiene sería prometerle una puerta cerrada, igual que los candados que
-     el riel dejó de mostrar. La regla es la misma que usa el riel (`lib/home.ts`), no una copia.
-     "El último" va al final y aparte: no es un módulo sino una regla, y describe el ARRANQUE — el
-     logo no la sigue (ver `resolveHome`). */
-  const opcionesInicio = useMemo(
-    () => [
-      ...modulosElegibles(modules, MODULES).map((m) => ({ v: m.key as HomeView, l: m.name })),
-      { v: 'ultimo' as HomeView, l: 'El último' },
-    ],
+  /* Los dos destinos se eligen entre los módulos que ESTA persona puede abrir: ofrecerle Farmacia
+     a quien no la tiene sería prometerle una puerta cerrada, igual que los candados que el riel
+     dejó de mostrar. La regla es la misma que usa el riel (`lib/home.ts`), no una copia. */
+  const opcionesLogo: { v: LogoView; l: string }[] = useMemo(
+    () => modulosElegibles(modules, MODULES).map((m) => ({ v: m.key as LogoView, l: m.name })),
     [modules],
+  )
+
+  /* El arranque es el mismo juego de módulos MÁS "El último", que no es un módulo sino una regla
+     ("seguime a donde estuve"). Va solo acá: el logo no puede ofrecerlo, porque el rastro se
+     reescribe en cada cambio de módulo y lo llevaría siempre a donde ya estás parado. Eso está
+     cerrado en el tipo (`LogoView`), no sólo en esta lista. */
+  const opcionesInicio: { v: HomeView; l: string }[] = useMemo(
+    () => [...opcionesLogo, { v: 'ultimo', l: 'El último' }],
+    [opcionesLogo],
   )
 
   /* Si lo guardado ya no está entre las opciones —te revocaron ese módulo— el control marca Inicio,
      que es a donde la app te lleva de verdad (`resolveHome` degrada). Un radiogroup sin ninguna
      opción marcada diría que no elegiste nada, y no es cierto: elegiste algo que hoy no se abre. */
   const valorInicio: HomeView = opcionesInicio.some((o) => o.v === prefs.homeView) ? prefs.homeView : 'inicio'
+  const valorLogo: LogoView = opcionesLogo.some((o) => o.v === prefs.logoView) ? prefs.logoView : 'inicio'
 
   /* Guardado inmediato por control: cada preferencia es una escritura chiquita e independiente, así
      que no hay estado pendiente que un cierre distraído pueda tirar. Si la escritura falla, el
@@ -102,15 +107,25 @@ export function PrefsSection() {
         </StRow>
       </StCard>
 
-      {/* Antes se llamaba "Al iniciar sesión", y desde que esta preferencia también gobierna el
-          logo del top bar el rótulo se quedó corto: ya no es sólo el arranque. */}
+      {/* Antes se llamaba "Al iniciar sesión". Son DOS destinos distintos y la card los junta
+          porque responden la misma pregunta del usuario —"¿dónde quiero estar?"—, pero cada uno
+          guarda su propio valor: se puede abrir la sesión en Coordinación y que el logo igual
+          devuelva al panorama de Inicio (Director, 2026-09-04). */}
       <StCard title="Inicio">
-        <StRow label="Página de inicio" sub="Dónde abre Spira al entrar, y a dónde te lleva el logo" last>
+        <StRow label="Página de inicio" sub="Dónde abre Spira cuando entrás">
           <StSeg
             label="Página de inicio"
             value={valorInicio}
             onChange={(homeView: HomeView) => void guardar({ homeView })}
             options={opcionesInicio}
+          />
+        </StRow>
+        <StRow label="Logo de Spira" sub="A dónde te lleva tocarlo, arriba a la izquierda" last>
+          <StSeg
+            label="Logo de Spira"
+            value={valorLogo}
+            onChange={(logoView: LogoView) => void guardar({ logoView })}
+            options={opcionesLogo}
           />
         </StRow>
       </StCard>

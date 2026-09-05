@@ -29,21 +29,40 @@ export type DateFormat = 'dmy' | 'iso' | 'dmesy'
  * Que el valor sea *elegible* es otra pregunta, y la contesta `modulosElegibles` en `home.ts`:
  * acá sólo decimos qué se admite guardar.
  */
-export type HomeView = 'ultimo' | 'inicio' | 'track' | 'pharma' | 'lab' | 'contable'
+export type ModuloDestino = 'inicio' | 'track' | 'pharma' | 'lab' | 'contable'
+
+/** Dónde ABRE Spira al entrar. Admite `'ultimo'` además de los módulos. */
+export type HomeView = 'ultimo' | ModuloDestino
+
+/**
+ * A dónde lleva el LOGO del top bar. Un módulo y nada más.
+ *
+ * **No admite `'ultimo'` a propósito**, y es la única diferencia con `HomeView`: "el último que
+ * usé" describe con qué abrir la SESIÓN. El rastro se reescribe en cada cambio de módulo, así que
+ * un logo que lo siguiera llevaría siempre al módulo donde ya estás parado — un botón que no hace
+ * nada. Que el tipo no lo admita es lo que impide reintroducirlo por descuido.
+ */
+export type LogoView = ModuloDestino
 
 export interface Prefs {
   theme: ThemePref
   dateFormat: DateFormat
+  /** Dónde abre Spira al entrar. */
   homeView: HomeView
+  /** A dónde lleva el logo. Nació junto con `homeView` (0105) y se separó al día siguiente
+   *  (0106): son dos preguntas distintas y con un solo campo no se podían responder aparte. */
+  logoView: LogoView
 }
 
 /** Los defaults son el comportamiento VIGENTE antes de esta feature: nadie ve un cambio por el
     solo hecho de que esto exista. Espejo de los `default` de la migración 0093. */
-export const PREFS_DEFAULT: Prefs = { theme: 'light', dateFormat: 'dmy', homeView: 'inicio' }
+export const PREFS_DEFAULT: Prefs = { theme: 'light', dateFormat: 'dmy', homeView: 'inicio', logoView: 'inicio' }
 
 const THEMES: ThemePref[] = ['light', 'dark', 'system']
 const FORMATS: DateFormat[] = ['dmy', 'iso', 'dmesy']
-const HOMES: HomeView[] = ['ultimo', 'inicio', 'track', 'pharma', 'lab', 'contable']
+const MODULOS: ModuloDestino[] = ['inicio', 'track', 'pharma', 'lab', 'contable']
+const HOMES: HomeView[] = ['ultimo', ...MODULOS]
+const LOGOS: LogoView[] = MODULOS
 
 /**
  * Valida un objeto cualquiera —una fila de la base, un JSON del caché, la respuesta de una versión
@@ -66,5 +85,6 @@ export function parsePrefs(raw: unknown): Prefs {
     theme: uno(o.theme, THEMES, PREFS_DEFAULT.theme),
     dateFormat: uno(o.dateFormat ?? o.date_format, FORMATS, PREFS_DEFAULT.dateFormat),
     homeView: uno(o.homeView ?? o.home_view, HOMES, PREFS_DEFAULT.homeView),
+    logoView: uno(o.logoView ?? o.logo_view, LOGOS, PREFS_DEFAULT.logoView),
   }
 }
