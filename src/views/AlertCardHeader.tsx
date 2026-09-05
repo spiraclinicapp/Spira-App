@@ -54,7 +54,14 @@ import type { AlertSeverity } from './alertSeverity'
  */
 const RADIO_INTERIOR = 'calc(var(--spira-radius-lg) - 1px)'
 
-export function AlertCardHeader({ severidad, cantidad }: {
+export function AlertCardHeader({ titulo, severidad, cantidad }: {
+  /**
+   * El rótulo de la banda. LO PASA QUIEN LA USA y no se escribe acá: es el nombre del submódulo
+   * (`Pendientes`), que vive en `modules/registry.ts`. Escrito a mano acá se separó del menú el día
+   * que el submódulo se renombró — la banda siguió diciendo "Alertas" sin un solo error, en las dos
+   * pantallas a la vez. Mismo criterio que `nombreDestino` en las tarjetas del Resumen.
+   */
+  titulo: string
   /** La peor alerta de la lista, o `null` si no hay ninguna (cabecera neutra). */
   severidad: AlertSeverity | null
   /**
@@ -95,7 +102,7 @@ export function AlertCardHeader({ severidad, cantidad }: {
     >
       <Icon name={icono} size={18} color={tinta} />
       <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 16, flex: 1 }}>
-        Alertas
+        {titulo}
       </span>
       {cantidad !== undefined && cantidad > 0 && (
         <span
@@ -107,7 +114,10 @@ export function AlertCardHeader({ severidad, cantidad }: {
             borderRadius: 'var(--spira-radius-pill)', background: 'var(--spira-white)',
             color: tinta, fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
           }}
-          aria-label={`${cantidad} ${cantidad === 1 ? 'alerta vigente' : 'alertas vigentes'}`}
+          /* Sin nombrar el sustantivo: el título está en el mismo renglón y a la izquierda, así que
+             el lector lee "Pendientes, 43 vigentes". Nombrarlo acá obligaría a pasar también su
+             singular y su plural para que "1 pendientes vigentes" no exista. */
+          aria-label={`${cantidad} ${cantidad === 1 ? 'vigente' : 'vigentes'}`}
         >
           {cantidad}
         </span>

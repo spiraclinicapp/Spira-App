@@ -8,6 +8,7 @@ import { visitTitle } from '../lib/visits'
 import { formatAR } from '../lib/dates'
 import type { NavTarget } from '../views/types'
 import { VISIT_STATES } from '../views/visitStates'
+import { DESTINO_PENDIENTES, nombreDeDestino } from '../views/resumen/destinos'
 
 /* ============================================================================
    NotificationsMenu — desplegable de notificaciones (campana, top bar).
@@ -18,7 +19,9 @@ import { VISIT_STATES } from '../views/visitStates'
    mismas que alimentan la vista Alertas, no hay feed inventado. El badge muestra el conteo
    real combinado (reemplaza el puntito hardcodeado); vacío → "Estás al día".
 
-   El footer "Ver todas las alertas" navega a track/alertas (destino real).
+   El footer navega a track/alertas (destino real) y se ROTULA CON EL REGISTRY: decía "Ver todas
+   las alertas" a mano, y el día que ese submódulo pasó a llamarse Pendientes siguió prometiendo
+   una pantalla con otro nombre, sin un solo error.
    Marcar-como-leído es fase 2 (igual que en TrackAlertsView): por ahora es una
    ventana de solo lectura hacia la vista completa.
 
@@ -133,7 +136,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
               <div style={emptyState}>
                 <span style={emptyIcon}><Icon name="check" size={20} color="var(--spira-good)" /></span>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)' }}>Estás al día</div>
-                <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>No tenés alertas nuevas.</div>
+                <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>No tenés pendientes nuevos.</div>
               </div>
             ) : (
               <>
@@ -208,7 +211,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
             <>
               <div style={footerSep} />
               <button type="button" onClick={goAll} className="spira-notif-all">
-                Ver todas las alertas
+                Ver todos los {(nombreDeDestino(DESTINO_PENDIENTES) ?? 'Pendientes').toLowerCase()}
                 <Icon name="arrowRight" size={15} color="var(--spira-primary)" />
               </button>
             </>

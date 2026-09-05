@@ -148,7 +148,7 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
           {track && (
             <CardModulo
               nombre={track.name}
-              bajada="Agenda, visitas y alertas"
+              bajada="Agenda, visitas y pendientes"
               icono="activity"
               acento="var(--spira-track)"
               chipFondo="rgba(46,125,116,.13)"
@@ -158,7 +158,7 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
                 { n: dato(rango.loading, estaSemana), rotulo: 'esta semana' },
                 {
                   n: dato(alertsQ.loading, alertas.length),
-                  rotulo: plural(alertas.length, 'alerta', 'alertas'),
+                  rotulo: plural(alertas.length, 'pendiente', 'pendientes'),
                   /* `acc-deep-danger` y no `danger`: el rojo plano da 2.77:1 sobre la card oscura,
                      que es texto ilegible. La variante de oscuro es un salmón aclarado. */
                   tono: alertas.length > 0 ? 'var(--spira-acc-deep-danger)' : undefined,

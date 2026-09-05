@@ -125,7 +125,8 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const [actionError, setActionError] = useState<string | null>(null)
 
   /* La vuelta NO reabre la alerta puntual: este `volver` no lleva `target`, así que devuelve a la
-     lista genérica de Alertas — el label ya lo dice ("Volver a Alertas"), no promete de más.
+     lista genérica — el label ya lo dice ("Volver a Pendientes", armado con `submodule.name`),
+     no promete de más.
      Distinto de "Volver a la visita" en Visitas del día, que sí trae de vuelta la visita puntual
      porque su `volver` completa el `target`. */
   const abrirFicha = useAbrirFicha({
@@ -194,7 +195,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   }, [procRows, fEstado, protocolFilter, fMed, fCoord, q, ageDays])
 
   if (loading) {
-    return <EmptyState accent={accent} icon={submodule.icon} title="Cargando alertas…" description="Un momento." />
+    return <EmptyState accent={accent} icon={submodule.icon} title={`Cargando ${submodule.name.toLowerCase()}…`} description="Un momento." />
   }
   if (error) {
     return (
@@ -295,11 +296,13 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -6 }}>
         <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
           {filtered.length + filteredProc.length} de {allRows.length + procRows.length}{' '}
-          {allRows.length + procRows.length === 1 ? 'alerta' : 'alertas'}
+          {allRows.length + procRows.length === 1 ? 'pendiente' : 'pendientes'}
         </span>
         {dismissals.length > 0 && (
           <button type="button" style={linkBtn} onClick={() => setShowDismissed((v) => !v)}>
-            {showDismissed ? 'Ocultar descartadas' : `Ver descartadas (${dismissals.length})`}
+            {/* "descartados" en masculino: concuerda con "pendientes", que es el sustantivo de
+                esta pantalla desde el renombre. Con "alertas" era femenino. */}
+            {showDismissed ? 'Ocultar descartados' : `Ver descartados (${dismissals.length})`}
           </button>
         )}
       </div>
@@ -321,11 +324,11 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
             reportes pendientes suman a la lista pero no suben el tono: son un pendiente que todavía
             está en plazo, no un desvío. Sin contador: el de la barra de filtros dice "3 de 12", que
             es más que un número suelto. */}
-        <AlertCardHeader severidad={severidadMaxima(filtered)} />
+        <AlertCardHeader titulo={submodule.name} severidad={severidadMaxima(filtered)} />
         {filtered.length === 0 && filteredProc.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
             <Icon name="check" size={16} color="var(--spira-good)" />
-            {allRows.length === 0 && procRows.length === 0 ? 'Sin alertas. Todo al día.' : 'Ninguna alerta coincide con los filtros.'}
+            {allRows.length === 0 && procRows.length === 0 ? 'Sin pendientes. Todo al día.' : 'Ningún pendiente coincide con los filtros.'}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -472,7 +475,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           devuelve a la lista. */}
       {showDismissed && dismissals.length > 0 && (
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15 }}>Descartadas</div>
+          <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15 }}>Descartados</div>
           <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3, lineHeight: 1.45 }}>
             No se borró nada: la condición sigue en la base y esto queda auditado. Si la visita se
             reprograma o cambia de estado, la alerta vuelve a la lista sola.
