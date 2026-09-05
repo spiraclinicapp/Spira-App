@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
 import { SPIRA_VERSION } from '../lib/version'
+import type { ChangelogEntry } from '../lib/version'
 
 /* ============================================================================
    AboutMenu — botón «i» al pie del rail de módulos + popover "Acerca de Spira".
@@ -26,9 +27,18 @@ interface AboutMenuProps {
     onOpenChange: (v: boolean) => void
 }
 
-/** Cuántas novedades se muestran por defecto; el resto se pliega para que el
-    popover no crezca sin techo a medida que se acumulan releases. */
-const VISIBLE_NEWS = 5
+/** Cuántas novedades se muestran por defecto; el resto se pliega tras "Ver más
+    antiguas". Tres, no cinco: los textos del changelog son párrafos, así que con
+    cinco el popover llegaba a su techo (ver `panel`) y arrancaba scrolleando aunque
+    estuviera plegado. Con tres abre corto y se lee entero de una. */
+const VISIBLE_NEWS = 3
+
+/** Cuántos renglones se muestran de cada novedad antes de recortarla. Los textos del
+    changelog son párrafos —la 0.53 son ocho renglones a este ancho—, así que sin
+    recorte tres entradas ya desbordaban el techo del popover y la lista dejaba de
+    servir como índice: no se veía qué hay, se leía la primera. Con tres renglones
+    cada novedad es un resumen y el detalle se pide. */
+const NEWS_LINES = 3
 
 export function AboutMenu({ accent, onFeedback, open, onOpenChange }: AboutMenuProps) {
   const setOpen = onOpenChange
@@ -36,6 +46,7 @@ export function AboutMenu({ accent, onFeedback, open, onOpenChange }: AboutMenuP
   const [showAllNews, setShowAllNews] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const listRef = useRef<HTMLDivElement | null>(null)
 
   // Cerrar al click afuera.
   useEffect(() => {
@@ -62,6 +73,12 @@ export function AboutMenu({ accent, onFeedback, open, onOpenChange }: AboutMenuP
 
   // Al cerrar, volver a plegar las novedades viejas: reabrir arranca colapsado.
   useEffect(() => { if (!open) setShowAllNews(false) }, [open])
+
+  // Desplegar (o plegar) devuelve la lista al tope: lo que se quiere leer al tocar
+  // "Ver más antiguas" es la novedad siguiente a la última visible, no el punto donde
+  // había quedado el scroll. Al plegar, además, el navegador dejaría un scrollTop
+  // heredado de la lista larga sobre una lista corta.
+  useEffect(() => { if (listRef.current) listRef.current.scrollTop = 0 }, [showAllNews])
 
   const V = SPIRA_VERSION
   // Canal pre-release (beta/alpha/rc) → etiqueta junto al wordmark. En 'estable' no
@@ -103,21 +120,18 @@ export function AboutMenu({ accent, onFeedback, open, onOpenChange }: AboutMenuP
             </button>
           </div>
 
-          {/* 2 · novedades — por defecto solo las VISIBLE_NEWS más recientes;
-               las viejas se pliegan tras un botón para no estirar el popover. */}
-          <div style={{ padding: '12px 18px' }}>
-            <div className="spira-eyebrow" style={{ marginBottom: 8 }}>Novedades</div>
-            {(showAllNews ? V.changelog : V.changelog.slice(0, VISIBLE_NEWS)).map((c, i) => (
-              <div key={i} style={{ display: 'flex', gap: 9, padding: '5px 0', alignItems: 'flex-start' }}>
-                <span className="spira-mono" style={verBadge}>{c.version}</span>
-                <span style={{ fontSize: 12.5, color: 'var(--spira-ink)', lineHeight: 1.35 }}>{c.text}</span>
-              </div>
-            ))}
+          {/* 2 · barra de la sección — rótulo + plegado. Va FIJA (fuera del área que
+               scrollea) porque con las 40 novedades desplegadas el botón de "Ver menos"
+               quedaba al fondo de la lista: para volver a plegar había que recorrerla
+               entera. Acá el control está siempre a un clic. */}
+          <div style={newsBar}>
+            <span className="spira-eyebrow">Novedades</span>
             {V.changelog.length > VISIBLE_NEWS && (
               <button
                 type="button"
                 onClick={() => setShowAllNews((v) => !v)}
                 aria-expanded={showAllNews}
+                aria-controls="spira-about-novedades"
                 style={moreNewsBtn(accent)}
               >
                 {showAllNews ? 'Ver menos' : `Ver ${V.changelog.length - VISIBLE_NEWS} más antiguas`}
@@ -126,8 +140,17 @@ export function AboutMenu({ accent, onFeedback, open, onOpenChange }: AboutMenuP
             )}
           </div>
 
-          {/* 3 · pie — dar feedback */}
-          <div style={{ padding: '11px 14px', borderTop: '1px solid var(--spira-line)', background: 'var(--spira-surface)' }}>
+          {/* 3 · listado — la ÚNICA banda que scrollea. Por defecto solo las
+               VISIBLE_NEWS más recientes; desplegadas, el popover deja de crecer al
+               llegar a su techo (ver `panel`) y la lista se recorre acá adentro. */}
+          <div ref={listRef} id="spira-about-novedades" className="spira-scroll" style={newsList}>
+            {(showAllNews ? V.changelog : V.changelog.slice(0, VISIBLE_NEWS)).map((c, i) => (
+              <NewsItem key={i} entry={c} />
+            ))}
+          </div>
+
+          {/* 4 · pie — dar feedback */}
+          <div style={{ flex: '0 0 auto', padding: '11px 14px', borderTop: '1px solid var(--spira-line)', background: 'var(--spira-surface)' }}>
             <button type="button" onClick={feedback} style={feedbackBtn}>
               <Icon name="message" size={16} color={accent} /> Dar feedback
             </button>
@@ -138,15 +161,73 @@ export function AboutMenu({ accent, onFeedback, open, onOpenChange }: AboutMenuP
   )
 }
 
+/* ————————————————————————————————————————————————————————————————————————————
+   Una novedad del changelog: badge de versión + texto recortado a NEWS_LINES
+   renglones, con "Seguir leyendo" debajo para desplegarla en el lugar.
+   ———————————————————————————————————————————————————————————————————————————— */
+function NewsItem({ entry }: { entry: ChangelogEntry }) {
+  const [expanded, setExpanded] = useState(false)
+  const textRef = useRef<HTMLParagraphElement | null>(null)
+  // ¿El texto REALMENTE se recortó? Las novedades viejas son de un renglón: ahí no hay
+  // nada que seguir leyendo y el botón sería un control que no hace nada. Se mide
+  // comparando el alto del contenido contra la ventana que le deja el recorte, y solo
+  // mientras está plegado (desplegado los dos coinciden y la respuesta sería siempre
+  // "no"). Sin array de deps a propósito: cualquier re-render lo revalida, así que si
+  // la tipografía carga tarde y cambia el alto de renglón, la respuesta se corrige.
+  const [clipped, setClipped] = useState(false)
+  useLayoutEffect(() => {
+    const el = textRef.current
+    if (!el || expanded) return
+    setClipped(el.scrollHeight > el.clientHeight + 1)
+  })
+
+  return (
+    <div style={{ display: 'flex', gap: 9, padding: '5px 0', alignItems: 'flex-start' }}>
+      <span className="spira-mono" style={verBadge}>{entry.version}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p ref={textRef} style={expanded ? newsText : newsTextClipped}>{entry.text}</p>
+        {clipped && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            style={readMoreBtn}
+          >
+            {expanded ? 'Mostrar menos' : 'Seguir leyendo'}
+            <Icon name={expanded ? 'chevronUp' : 'chevronDown'} size={12} color="var(--spira-muted)" />
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* —— estilos —— */
+/** El popover está anclado por su borde INFERIOR (`bottom`) al pie del riel, así que
+    crece hacia arriba: sin techo, desplegar las novedades viejas lo empujaba fuera del
+    viewport y el `overflow: hidden` recortaba la cabecera — el comienzo quedaba
+    inalcanzable, sin scroll que lo trajera de vuelta. El techo cuenta los 60px de la
+    barra superior más aire arriba y abajo; de ahí en más scrollea el listado, que es
+    columna flexible con `minHeight: 0` (sin eso, un hijo flex no se deja achicar por
+    debajo de su contenido y el `overflow` del listado no llega a activarse). */
 const panel: CSSProperties = {
   position: 'absolute', bottom: 10, left: 60, zIndex: 40, width: 288,
+  maxHeight: 'calc(100vh - 104px)', display: 'flex', flexDirection: 'column',
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 18,
   boxShadow: '0 24px 60px rgba(20, 48, 46, 0.24)', overflow: 'hidden',
 }
 const header: CSSProperties = {
-  display: 'flex', alignItems: 'flex-start', gap: 11, padding: '15px 12px 13px 18px',
-  borderBottom: '1px solid var(--spira-line)',
+  display: 'flex', alignItems: 'flex-start', gap: 11, flex: '0 0 auto',
+  padding: '15px 12px 13px 18px', borderBottom: '1px solid var(--spira-line)',
+}
+/** Rótulo de la sección + el plegado, en un renglón fijo sobre el listado. */
+const newsBar: CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+  flex: '0 0 auto', padding: '12px 18px 6px',
+}
+const newsList: CSSProperties = {
+  flex: '1 1 auto', minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain',
+  padding: '0 18px 12px',
 }
 const markBox: CSSProperties = {
   width: 38, height: 38, flex: '0 0 auto', borderRadius: 11, display: 'grid', placeItems: 'center',
@@ -165,17 +246,37 @@ const closeBtn: CSSProperties = {
   width: 28, height: 28, flex: '0 0 auto', borderRadius: 8, border: 'none', background: 'transparent',
   cursor: 'pointer', display: 'grid', placeItems: 'center',
 }
+const newsText: CSSProperties = {
+  margin: 0, fontSize: 12.5, color: 'var(--spira-ink)', lineHeight: 1.35,
+}
+/** El recorte por renglones (`line-clamp`) en vez de un alto fijo: así el corte cae
+    siempre entre líneas y no parte una a la mitad, y el "…" lo pone el navegador. */
+const newsTextClipped: CSSProperties = {
+  ...newsText,
+  display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: NEWS_LINES,
+  overflow: 'hidden',
+}
+/** "Seguir leyendo": deliberadamente MÁS discreto que el "Ver más antiguas" de la
+    barra (gris en vez del acento). Se repite una vez por novedad, y tres o cuatro
+    textos con el color del módulo en una lista de 288px convierten el acento en
+    decoración — que es justo lo que no hace en esta app. */
+const readMoreBtn: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 4, marginTop: 3, padding: 0,
+  border: 'none', background: 'transparent', cursor: 'pointer',
+  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 11.5,
+  color: 'var(--spira-muted)',
+}
 const verBadge: CSSProperties = {
   flex: '0 0 auto', fontSize: 10.5, fontWeight: 500, color: 'var(--spira-muted)',
   background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', borderRadius: 6,
   padding: '1px 6px', whiteSpace: 'nowrap',
 }
-/** Botón de plegado de novedades: texto discreto tintado con el acento, al borde
-    izquierdo del listado (alineado con los badges de versión). */
+/** Botón de plegado de novedades: texto discreto tintado con el acento, a la derecha
+    del rótulo de la sección. */
 function moreNewsBtn(accent: string): CSSProperties {
   return {
-    display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, padding: '4px 0',
-    border: 'none', background: 'transparent', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 5, flex: '0 0 auto', padding: 0,
+    border: 'none', background: 'transparent', cursor: 'pointer', whiteSpace: 'nowrap',
     fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12, color: accent,
   }
 }
