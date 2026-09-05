@@ -155,4 +155,27 @@ describe('priorizarAlertas', () => {
     priorizarAlertas(original)
     expect(original).toEqual(copia)
   })
+
+  /* T13 — las TRES clases, desde la 0107. El orden sale de `GRAVEDAD`, así que este test y el de
+     `alertSeverity` fijan la misma decisión desde los dos lados: si alguien reordena esa lista, se
+     entera acá también. Antes "no vino" y "reporte vencido" empataban. */
+  it('T13 · ordena las tres clases y "no vino" queda en el medio', () => {
+    const r = priorizarAlertas([
+      alerta('item_vencido', 'reporte'),
+      alerta('por_reprogramar', 'no-vino'),
+      alerta('ventana_vencida', 'ventana'),
+    ])
+    expect(r.map((a) => a.id)).toEqual(['ventana', 'no-vino', 'reporte'])
+  })
+
+  /* Un estado que no es de alerta va AL FINAL y no al principio: `indexOf` devuelve -1, y sin
+     normalizarlo lo treparía al tope de la lista. */
+  it('un estado desconocido queda último, no primero', () => {
+    const r = priorizarAlertas([
+      alerta('completa', 'rara'),
+      alerta('item_vencido', 'reporte'),
+      alerta('ventana_vencida', 'ventana'),
+    ])
+    expect(r.map((a) => a.id)).toEqual(['ventana', 'reporte', 'rara'])
+  })
 })

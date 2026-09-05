@@ -87,8 +87,8 @@ describe('isReportAlertDismissed', () => {
 })
 
 describe('isVisitAlertDismissed', () => {
-  const visita: Pick<TrackVisitRow, 'id' | 'computed_status' | 'window_end'> =
-    { id: VISITA, computed_status: 'ventana_vencida', window_end: '2026-08-20' }
+  const visita: Pick<TrackVisitRow, 'id' | 'computed_status' | 'window_end' | 'estimated_date'> =
+    { id: VISITA, computed_status: 'ventana_vencida', window_end: '2026-08-20', estimated_date: '2026-08-13' }
   const dv = (over: Partial<AlertDismissalRow> = {}) =>
     descarte({
       kind: 'visita',
@@ -111,9 +111,56 @@ describe('isVisitAlertDismissed', () => {
   })
 
   it('sin ventana, la huella es -infinity', () => {
-    const sinFecha: Pick<TrackVisitRow, 'id' | 'computed_status' | 'window_end'> =
-      { id: VISITA, computed_status: 'item_vencido', window_end: null }
+    const sinFecha: Pick<TrackVisitRow, 'id' | 'computed_status' | 'window_end' | 'estimated_date'> =
+      { id: VISITA, computed_status: 'item_vencido', window_end: null, estimated_date: null }
     expect(isVisitAlertDismissed([dv({ status: 'item_vencido', anchor: '-infinity' })], sinFecha)).toBe(true)
     expect(isVisitAlertDismissed([dv({ status: 'item_vencido' })], sinFecha)).toBe(false)
+  })
+
+  /* ── El ancla POR ESTADO (0107) ──────────────────────────────────────────────────────────────
+     Es el cambio que más silenciosamente puede fallar de toda la pieza: comparar contra el campo
+     equivocado SILENCIA DE MÁS, y una alerta que no aparece no deja rastro en pantalla.
+
+     Un "no vino" existe justamente porque la ventana TODAVÍA NO venció, así que su `window_end`
+     está en el FUTURO y no describe nada de lo que se archivó. Lo que define esa condición es a qué
+     cita no vino el paciente: `estimated_date`.
+
+     Los cuatro cruces (estado × campo) están abajo, y el que prueba la regla es el tercero: con la
+     versión vieja —anclada siempre en `window_end`— ese caso daba `true` y silenciaba una alerta
+     que no correspondía. */
+  const noVino: Pick<TrackVisitRow, 'id' | 'computed_status' | 'window_end' | 'estimated_date'> =
+    { id: VISITA, computed_status: 'por_reprogramar', window_end: '2026-09-30', estimated_date: '2026-08-13' }
+  const dnv = (over: Partial<AlertDismissalRow> = {}) =>
+    dv({ status: 'por_reprogramar', anchor: '2026-08-13T00:00:00+00:00', ...over })
+
+  it('"no vino": silencia con la MISMA fecha citada', () => {
+    expect(isVisitAlertDismissed([dnv()], noVino)).toBe(true)
+  })
+
+  it('"no vino": NO silencia si la visita se reagendó (fecha citada nueva)', () => {
+    expect(isVisitAlertDismissed([dnv()], { ...noVino, estimated_date: '2026-09-01' })).toBe(false)
+  })
+
+  it('"no vino": el ancla NO es la ventana — un descarte anclado ahí no aplica', () => {
+    // Con la regla vieja esto daba true: comparaba window_end (2026-09-30) contra el ancla.
+    expect(isVisitAlertDismissed([dnv({ anchor: '2026-09-30T00:00:00+00:00' })], noVino)).toBe(false)
+  })
+
+  it('"ventana vencida": el ancla sigue siendo la VENTANA, no la fecha citada', () => {
+    // Retrocompatibilidad: todos los descartes ya guardados son de esta clase.
+    expect(isVisitAlertDismissed([dv()], visita)).toBe(true)
+    expect(isVisitAlertDismissed([dv({ anchor: '2026-08-13T00:00:00+00:00' })], visita)).toBe(false)
+  })
+
+  /* La consecuencia buscada de D3: al vencer la ventana el estado cambia, la huella deja de
+     coincidir y la alerta VUELVE, ahora en rojo. La situación empeoró. */
+  it('un "no vino" descartado REAPARECE cuando su ventana vence', () => {
+    expect(isVisitAlertDismissed([dnv()], { ...noVino, computed_status: 'ventana_vencida' })).toBe(false)
+  })
+
+  it('"no vino" sin fecha citada: la huella es -infinity', () => {
+    const sinCita = { ...noVino, estimated_date: null }
+    expect(isVisitAlertDismissed([dnv({ anchor: '-infinity' })], sinCita)).toBe(true)
+    expect(isVisitAlertDismissed([dnv()], sinCita)).toBe(false)
   })
 })

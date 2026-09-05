@@ -1,5 +1,6 @@
 import type { OperationalStage } from '../data/dayVisits'
 import type { VisitStatus } from '../data/visits'
+import { GRAVEDAD } from './alertSeverity'
 
 /**
  * Reglas puras sobre listas de visitas: contar, ordenar, priorizar. Las usan la cabecera de
@@ -74,7 +75,16 @@ export function ordenarDia<T extends { arrived_at: string | null; patient_code: 
 }
 
 /**
- * "Lo prioritario": las CRÍTICAS (ventana vencida) arriba, el resto abajo.
+ * "Lo prioritario": las alertas ordenadas de la más grave a la menos.
+ *
+ * EL ORDEN SALE DE `GRAVEDAD` (`alertSeverity.ts`) y no de un `if` propio, que es como estaba:
+ * decía `ventana_vencida ? 0 : 1`, o sea sólo distinguía la crítica del resto. Con tres clases
+ * (0107) eso dejaba "no vino" y "reporte fuera de plazo" empatados, y el empate contradecía a la
+ * cabecera de la tarjeta, que sí los distingue. **Dos ordenamientos de la misma cosa es la clase de
+ * duplicación que se desincroniza sin que nada deje de compilar** — acá hay uno solo.
+ *
+ * Un estado que no esté en `GRAVEDAD` va al final (`indexOf` da -1, y por eso se normaliza): no
+ * debería llegar ninguno, pero enterrarlo es preferible a que un -1 lo suba al tope.
  *
  * El comparador devuelve 0 para dos alertas del mismo grupo y el `sort` de JS es estable desde
  * ES2019, así que dentro de cada grupo se conserva el orden en que vinieron — que es POR FECHA,
@@ -84,6 +94,9 @@ export function ordenarDia<T extends { arrived_at: string | null; patient_code: 
  * No muta: devuelve una lista nueva.
  */
 export function priorizarAlertas<T extends { computed_status: VisitStatus }>(rows: T[]): T[] {
-  const critica = (s: VisitStatus) => (s === 'ventana_vencida' ? 0 : 1)
-  return [...rows].sort((a, b) => critica(a.computed_status) - critica(b.computed_status))
+  const rango = (s: VisitStatus) => {
+    const i = GRAVEDAD.indexOf(s as (typeof GRAVEDAD)[number])
+    return i === -1 ? GRAVEDAD.length : i
+  }
+  return [...rows].sort((a, b) => rango(a.computed_status) - rango(b.computed_status))
 }

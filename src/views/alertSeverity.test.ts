@@ -40,8 +40,33 @@ describe('severidadMaxima', () => {
     ).toBe('ventana_vencida')
   })
 
+  /* ── El grado nuevo (0107) ───────────────────────────────────────────────────────────────────
+     "No vino" entró como tercera clase y NO al final: va entre la ventana vencida y el reporte
+     fuera de plazo. Es una decisión (D4 del plan) y su modo de falla es mudo — un orden mal puesto
+     tiñe la cabecera con la gravedad equivocada y la pantalla se ve perfecta. */
+  it('sólo "no vino" → su propio grado, no null', () => {
+    expect(severidadMaxima([alerta('por_reprogramar')])).toBe('por_reprogramar')
+  })
+
+  it('la ventana vencida le gana a "no vino"', () => {
+    expect(severidadMaxima([alerta('por_reprogramar'), alerta('ventana_vencida')])).toBe('ventana_vencida')
+    expect(severidadMaxima([alerta('ventana_vencida'), alerta('por_reprogramar')])).toBe('ventana_vencida')
+  })
+
+  it('"no vino" le gana al reporte fuera de plazo', () => {
+    // Una visita del protocolo que NO ocurrió pesa más que un dato sin cargar sobre una que sí.
+    expect(severidadMaxima([alerta('item_vencido'), alerta('por_reprogramar')])).toBe('por_reprogramar')
+    expect(severidadMaxima([alerta('por_reprogramar'), alerta('item_vencido')])).toBe('por_reprogramar')
+  })
+
+  it('las tres juntas → manda la ventana vencida', () => {
+    expect(
+      severidadMaxima([alerta('item_vencido'), alerta('por_reprogramar'), alerta('ventana_vencida')]),
+    ).toBe('ventana_vencida')
+  })
+
   it('ignora estados que no son de alerta en vez de teñir mal', () => {
-    // `useActiveAlerts` filtra por los dos estados de alerta, así que esto no debería llegar. Si
+    // `useActiveAlerts` filtra por los TRES estados de alerta, así que esto no debería llegar. Si
     // algún día llega —un estado nuevo del enum, una consulta que cambie— preferimos cabecera
     // neutra antes que una gravedad inventada.
     expect(severidadMaxima([alerta('completa'), alerta('proxima')])).toBeNull()
@@ -54,6 +79,8 @@ describe('severidadMaxima', () => {
     // qué gana.
     expect(GRAVEDAD[0]).toBe('ventana_vencida')
     expect(GRAVEDAD[GRAVEDAD.length - 1]).toBe('item_vencido')
+    // Y el del medio, que es el que se agregó: fija la D4 contra un reordenamiento distraído.
+    expect([...GRAVEDAD]).toEqual(['ventana_vencida', 'por_reprogramar', 'item_vencido'])
   })
 })
 
