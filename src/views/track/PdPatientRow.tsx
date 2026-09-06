@@ -4,9 +4,9 @@ import { Icon } from '../../components/Icon'
 import { PatientLink } from '../../components/PatientLink'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
-import { orderVisits, todaySplit, visitIndex, visitCode } from '../../lib/visits'
+import { orderVisits, todaySplit, ubicacionDeHoy, visitIndex, visitCode } from '../../lib/visits'
 import { formatDayMonth, todayISO } from '../../lib/dates'
-import { PdVisitFlow } from './PdVisitFlow'
+import { PdFullSchedule } from './PdFullSchedule'
 
 const microLabel: CSSProperties = { fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }
 
@@ -19,7 +19,7 @@ const microLabel: CSSProperties = { fontSize: 9.5, textTransform: 'uppercase', l
  * `<div>` con `onClick` (no un `button`, para no anidar el de "Resumen" adentro), así que el par
  * nombre/IVRS es la puerta a la ficha que sí alcanza el teclado.
  */
-export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: {
+export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen, onOpenVisit }: {
   patient: PatientRow
   visits: TrackVisitRow[]
   accent: string
@@ -27,6 +27,9 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
    * cruza-protocolos (Todos los pacientes). El tablero de un protocolo lo omite. */
   protocolCode?: string
   onOpen: (patientId: string) => void
+  /** Abrir el detalle de UNA visita del cronograma desplegado. Sin esto las filas quedan inertes
+   *  (es lo que hacía el tracker horizontal, que no abría nada). */
+  onOpenVisit?: (visitId: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const idx = visitIndex(visits)
@@ -141,9 +144,21 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
           </div>
         </div>
       </div>
+      {/* EL PADDING IZQUIERDO ERA 70 Y AHORA ES 16, igual que el del bloque de identidad de arriba.
+          Con 70 la línea de tiempo arrancaba 54 px más adentro que todo el resto de la tarjeta y
+          terminaba al ras del borde derecho: no estaba alineada a nada, y eso se lee como que el
+          bloque no pertenece a esta caja. Fue lo primero que el Director marcó como "no me termina
+          de cerrar", antes incluso que el desborde. */}
       {open && expandable && (
-        <div style={{ padding: '6px 16px 16px 70px' }}>
-          <PdVisitFlow visits={visits} currentId={flowCurrentId} accent={accent} />
+        <div style={{ padding: '6px 16px 16px' }}>
+          <PdFullSchedule
+            visits={visits}
+            currentId={flowCurrentId}
+            accent={accent}
+            ventana={3}
+            pie={ubicacionDeHoy(visits, today)}
+            onOpen={onOpenVisit}
+          />
         </div>
       )}
     </div>

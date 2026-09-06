@@ -45,6 +45,11 @@ export interface ProtocolDetailViewProps {
   onEdit: () => void
   onGoAgenda: () => void
   /**
+   * Ir a Pendientes con ESTE protocolo ya filtrado, desde el KPI "Ventanas por vencer".
+   * Opcional: sin esto el KPI queda inerte, que es lo correcto cuando no hay a dónde ir.
+   */
+  onVerPendientes?: () => void
+  /**
    * Pestaña con la que abrir cuando se llega desde una pantalla que sabe a qué venís: el Resumen de
    * Coordinación abre en 'reportes' desde su tarjeta de reportes pendientes, porque ahí es donde ese
    * reporte se gestiona. Sin esto el salto aterriza en 'pacientes' y hay que buscar la pestaña a
@@ -58,7 +63,7 @@ export interface ProtocolDetailViewProps {
 
 /** Detalle de Protocolo: ficha lateral (KPIs/adherencia/acciones) + lista de pacientes con tracker. */
 export function ProtocolDetailView(props: ProtocolDetailViewProps) {
-  const { protocol, patients, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda, initialTab } = props
+  const { protocol, patients, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda, onVerPendientes, initialTab } = props
   const kpis = useProtocolKpis(protocol.id)
   const visits = useProtocolVisits(protocol.id)
   const [filter, setFilter] = useState<'activos' | 'todos'>('todos')
@@ -122,15 +127,50 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
     </div>
   )
 
-  const kpiRow = (label: string, value: ReactNode, sub: string | null, warn = false) => (
-    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-      <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{label}</span>
-      <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, fontVariantNumeric: 'tabular-nums', color: warn ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink)' }}>{value}</span>
-        {sub && <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{sub}</span>}
-      </span>
-    </div>
-  )
+  /**
+   * Un KPI de la ficha. Con `onIr` LLEVA A SU PANTALLA y lo dice con una flecha permanente.
+   *
+   * La flecha no es decoración: en el Resumen los números grandes con esta misma tipografía navegan
+   * y acá tres de los cuatro no, y hasta ahora nada los distinguía — se aprendía la regla en una
+   * pantalla y fallaba en la otra. La flecha es la señal, y va SIEMPRE visible (no al apuntar):
+   * un affordance que sólo aparece con el mouse encima no se puede descubrir sin haber apuntado
+   * primero, que es exactamente el defecto que tenían las tarjetas de KPI del Resumen.
+   *
+   * Los que no navegan se quedan como están, inertes y sin flecha. Un KPI que no lleva a ningún
+   * lado no tiene que fingir que sí.
+   */
+  const kpiRow = (label: string, value: ReactNode, sub: string | null, warn = false, onIr?: () => void) => {
+    const cuerpo = (
+      <>
+        <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{label}</span>
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, fontVariantNumeric: 'tabular-nums', color: warn ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink)' }}>{value}</span>
+          {sub && <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{sub}</span>}
+          {onIr && <Icon name="chevronRight" size={15} color="var(--spira-faint)" style={{ alignSelf: 'center' }} />}
+        </span>
+      </>
+    )
+    const base: CSSProperties = { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }
+    if (!onIr) return <div style={base}>{cuerpo}</div>
+    /* Sangra a los bordes de la card (padding 20) para que el resaltado del hover llegue al borde
+       en vez de flotar adentro — el mismo `calc(100% + 40px)` que `filaAncha`, y por el mismo
+       motivo: con `width: 100%` el margen negativo derecho queda inerte. */
+    return (
+      <button
+        type="button"
+        className="spira-row-link spira-no-press"
+        onClick={onIr}
+        aria-label={`${label}: ${value}. Ver en Pendientes`}
+        style={{
+          ...base, width: 'calc(100% + 40px)', margin: '0 -20px', padding: '4px 20px',
+          border: 'none', background: 'transparent', textAlign: 'left', font: 'inherit',
+          color: 'inherit', cursor: 'pointer',
+        }}
+      >
+        {cuerpo}
+      </button>
+    )
+  }
 
   const actBtn = (icon: IconName, label: string, kind: 'ghost' | 'primary') => {
     const primary = kind === 'primary'
@@ -183,7 +223,10 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
             {kpiRow('Pacientes enrolados', k?.enrolled ?? 0, k ? `${k.active} activos` : null)}
             {kpiRow('Visitas realizadas', `${k?.visits_done ?? 0}/${k?.visits_total ?? 0}`, null)}
-            {kpiRow('Ventanas por vencer', k?.windows_due_7d ?? 0, 'próx. 7 días', (k?.windows_due_7d ?? 0) > 0)}
+            {/* El único de los cuatro que navega, y es el que lo pide: una ventana por vencer es
+                algo que hay que ir a resolver, no un dato para mirar. Va a Pendientes con ESTE
+                protocolo ya filtrado. Sin `onVerPendientes` queda inerte, como los otros tres. */}
+            {kpiRow('Ventanas por vencer', k?.windows_due_7d ?? 0, 'próx. 7 días', (k?.windows_due_7d ?? 0) > 0, onVerPendientes)}
             {/* Adherencia es UN KPI MÁS y ahora se dibuja como tal: mismo `kpiRow` que sus tres
                 hermanos, con la barra debajo. Venía con su propia receta —label a 12 en vez de 12.5,
                 valor en Inter 12/600 teñido con el acento en vez de Schibsted 21/700 en tinta— y era
@@ -277,7 +320,10 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
               <EmptyState accent={accent} icon="users" title="Sin pacientes" description="Este protocolo todavía no tiene pacientes para mostrar." minHeight={220} />
             ) : (
               shown.map((p) => (
-                <PdPatientRow key={p.id} patient={p} visits={visitsByPatient.get(p.id) ?? []} accent={accent} onOpen={onOpenPatient} />
+                /* `onOpenVisit` reusa el `VisitDetail` que esta vista ya monta para el tablero de
+                   reportes: el cronograma desplegado de cada fila abre la misma ficha de visita que
+                   el resto de la app, sin agregar una segunda máquina para lo mismo. */
+                <PdPatientRow key={p.id} patient={p} visits={visitsByPatient.get(p.id) ?? []} accent={accent} onOpen={onOpenPatient} onOpenVisit={setOpenVisitId} />
               ))
             )}
           </div>
