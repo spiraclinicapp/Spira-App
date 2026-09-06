@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { esDeMisProtocolos, esMiaSinAtender, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './ambito'
+import { esDeMisProtocolos, esMiaSinAtender, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './ambito'
 
 /**
  * Las reglas de "¿esta fila es mía?" del Resumen de Coordinación.
@@ -106,6 +106,37 @@ describe('loPediYo', () => {
   it('sin autor, o sin sesión, no es de nadie', () => {
     expect(loPediYo({ requested_by: null }, UID)).toBe(false)
     expect(loPediYo({ requested_by: null }, null)).toBe(false)
+  })
+})
+
+describe('esTareaMia', () => {
+  /* Decide DOS cosas con la misma respuesta: si la tarea entra en "Lo mío" y si su fila lleva el
+     tilde para marcarla hecha. Invertida, "Lo mío" muestra lo que le encargaste a otro y esconde lo
+     tuyo — la pantalla se dibuja perfecta diciendo lo contrario de lo que tenés que hacer. */
+  it('es mía cuando soy uno de los asignados', () => {
+    expect(esTareaMia({ task_assignees: [{ user_id: UID }] }, UID)).toBe(true)
+  })
+
+  it('es mía también cuando somos varios', () => {
+    // Una tarea grupal es de cada uno de los que la tienen: no la reclama sólo el primero.
+    expect(esTareaMia({ task_assignees: [{ user_id: OTRO }, { user_id: UID }] }, UID)).toBe(true)
+  })
+
+  it('la que creé y le encargué a otro NO es mía', () => {
+    /* El caso que da sentido al alternador: la tarea aparece igual en la lista —la RLS la devuelve
+       porque soy el autor— pero en "Lo mío" no va, porque no la tengo que hacer yo. Y su fila no
+       lleva tilde: `set_task_done` cierra la parte de un ASIGNADO y me rechazaría. */
+    expect(esTareaMia({ task_assignees: [{ user_id: OTRO }] }, UID)).toBe(false)
+  })
+
+  it('una tarea sin asignados no es de nadie', () => {
+    // Los RPC no dejan crearla así, pero si llegara, `some` sobre lista vacía ya devuelve false.
+    expect(esTareaMia({ task_assignees: [] }, UID)).toBe(false)
+  })
+
+  it('sin sesión resuelta no reclama nada', () => {
+    expect(esTareaMia({ task_assignees: [{ user_id: OTRO }] }, null)).toBe(false)
+    expect(esTareaMia({ task_assignees: [{ user_id: UID }] }, null)).toBe(false)
   })
 })
 

@@ -4,19 +4,24 @@ import { Icon } from '../components/Icon'
 import { ActionMenu } from '../components/ActionMenu'
 import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../lib/auth'
-import { formatAR, todayISO } from '../lib/dates'
+import { todayISO } from '../lib/dates'
 import { useMyTasks, setTaskDone, deleteTask } from '../data/tareas'
 import type { TaskRow } from '../data/tareas'
 import {
-  avanceDeTarea, cerreYoMiParte, estadoDeTarea, estaHecha, puedeEditar, puedeEliminar,
+  avanceDeTarea, cerreYoMiParte, duracionEstimada, estadoDeTarea, estaHecha, etiquetaDeVencimiento,
+  puedeEditar, puedeEliminar,
 } from './tareas/estados'
 import type { EstadoDeTarea } from './tareas/estados'
 import { TareaModal } from './tareas/TareaModal'
 import type { ViewProps } from './types'
 
 /**
- * `Inicio › Tareas` — la agenda de pendientes propios, que hasta hoy era un renglón del menú
- * prometiendo una pantalla que no existía (caía al `Placeholder`).
+ * `Coordinación › Tareas` — la agenda de pendientes propios.
+ *
+ * NACIÓ COMO `inicio/tareas` Y SE MUDÓ el 2026-09-06. La vista no cambió una línea por eso: recibe
+ * `module` del shell, así que hereda sola el acento de Coordinación. El motivo de la mudanza está en
+ * `modules/registry.ts` — en Inicio no había forma de abrirla con el mouse, porque ese módulo no
+ * dibuja panel de submódulos.
  *
  * NO HAY MOCK DE ESTA PANTALLA, y conviene saberlo antes de "corregirla" contra el handoff: las
  * cuatro variantes de `design_handoff_resumen_tareas_enfoque` exploran dónde poner una CARD de
@@ -221,6 +226,9 @@ function FilaDeTarea({ t, userId, hoy, accentSolid, ocupada, onMarcar, onEditar,
   const avance = avanceDeTarea(t, t.task_assignees)
   const estado = estadoDeTarea(t, t.task_assignees, hoy)
   const tono = TONO_ESTADO[estado]
+  /* La misma etiqueta que muestra la tarjeta del Resumen de Coordinación. Vivía inline acá; se
+     extrajo para que las dos pantallas no puedan discrepar sobre el tiempo verbal de una fecha. */
+  const vence = etiquetaDeVencimiento(t.due_date, hoy)
 
   const acciones = []
   if (puedeEditar(t, t.task_assignees, userId)) {
@@ -267,20 +275,16 @@ function FilaDeTarea({ t, userId, hoy, accentSolid, ocupada, onMarcar, onEditar,
         )}
 
         <div style={metadatos}>
-          {t.due_date && (
+          {vence && (
             <span style={{ ...parte, color: tono, fontWeight: estado === 'vencida' || estado === 'vence_hoy' ? 700 : 600 }}>
               <Icon name="calendar" size={12} color={tono} stroke={2.2} />
-              {/* El tiempo verbal sale de la FECHA y no del estado. Atado al estado, una tarea
-                  hecha tarde decía "vence 29/08/2026" —presente sobre una fecha que ya pasó—,
-                  porque su estado es `hecha` y no `vencida`. Son dos preguntas distintas: si la
-                  fecha pasó, y si la tarea se resolvió. */}
-              {t.due_date < hoy ? 'venció' : 'vence'} {formatAR(t.due_date)}
+              {vence.texto}
             </span>
           )}
           {t.estimated_minutes && (
             <span style={parte}>
               <Icon name="clock" size={12} color="var(--spira-faint)" stroke={2.2} />
-              {duracion(t.estimated_minutes)}
+              {duracionEstimada(t.estimated_minutes)}
             </span>
           )}
           {avance && (
@@ -305,14 +309,6 @@ function FilaDeTarea({ t, userId, hoy, accentSolid, ocupada, onMarcar, onEditar,
       </span>
     </div>
   )
-}
-
-/** "20 min", "1 h", "1 h 30". Sin decimales: nadie estima un pendiente en horas con coma. */
-function duracion(min: number): string {
-  if (min < 60) return `${min} min`
-  const h = Math.floor(min / 60)
-  const r = min % 60
-  return r === 0 ? `${h} h` : `${h} h ${r}`
 }
 
 /* Los tonos del handoff: `vence`/`urgente` en ámbar profundo y `atrasada` en rojo. Van por token y
