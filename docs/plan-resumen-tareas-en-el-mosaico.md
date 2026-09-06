@@ -577,14 +577,49 @@ tarjeta y se midió:
 falla de `homeView` no existe, y `parseUrl` ya rechaza la ruta retirada en vez de dejarla caer al
 `Placeholder` (tiene test desde ahora).
 
+### T7 — las mediciones, hechas en la pantalla real (sesión del Director, 1536×864)
+
+El ancho de contenido medido dio **1185 px**, exacto al valor que documenta el repo: el método
+mide bien.
+
+| # | Qué | Medido | |
+|---|---|---|---|
+| **T7.1** | Subtítulo del KPI de visitas | caja **244 px**; el texto más largo posible ("137 asignadas a mí") mide **111,42 px** | ✅ entra con el doble de margen |
+| **T7.2** | Título largo en la fila de tarea | texto **572 px** contra una caja de **514** → trunca, con puntos suspensivos | ✅ |
+| **T7.3** | Barra de submódulos con seis renglones | los seis miden **51,41 px** de alto (ninguno envuelve); descriptor más ancho **137,89 px** sobre 145 | ✅ |
+| — | **T0, con datos reales** | fila **1/1**, pie **1/1** | ✅ el defecto de producción, cerrado |
+| — | Columnas del mosaico | izquierda **513,5 px**, derecha **602,25 px** → **88,75 px** de desbalance | ✅ mejor que los 118 del mock |
+| — | Ancho de tarjeta | **585,5 px** = (1185 − 14) / 2 | ✅ |
+| — | Alineación del título | **51 px**, con tilde y sin tilde | ✅ |
+
+**Y una confirmación empírica del hallazgo 1:** con datos de producción el subtítulo dice
+"próximos 7 días", o sea **`asignadasAMi === 0`**. El campo no está poblado en ninguna visita
+futura. Un KPI propio "Visitas asignadas a mí" habría mostrado un cero permanente, que es
+exactamente lo que la decisión 1B evitó.
+
+### QA logueado — hecho, con una tarea `TEST-*` creada y borrada
+
+- **El alta desde el pie de la tarjeta**: abre `TareaModal`, el padrón del equipo carga, se crea y
+  la tarjeta se refresca sola. ✅
+- **El tilde contra `set_task_done`**: la fila desaparece y la tarjeta vuelve a "No te queda nada
+  pendiente". ✅
+- **"Ver todas"** llega a `/coordinacion/tareas`, con el submódulo marcado en el menú y el botón
+  "Nueva tarea" en el encabezado. ✅
+- La tarea de prueba se **borró** desde el menú ⋮ de la pantalla de Tareas; no quedó ningún `TEST-`.
+
+**No observado, no "verificado":** el estado deshabilitado del tilde mientras espera al servidor
+—la RPC volvió antes de los 400 ms de la sonda—, y el campo de fecha del modal, que no tomó el
+valor puesto con el setter nativo (tiene su propio parseo; **no es de esta tarjeta**, pero conviene
+mirarlo alguna vez a mano).
+
 ### Lo que queda
 
-- **QA logueado**: tildar una tarea de verdad contra `set_task_done`, en los dos modos de cierre; el
-  alta desde el pie; y el "Ver todas" llegando a `Coordinación › Tareas`.
-- **La medición T7 en la pantalla real**: el subtítulo del KPI con dos dígitos, y la barra de
-  submódulos con su sexto renglón.
+- **Los dos modos de cierre** (`cualquiera` / `cada_uno`) con una tarea de verdad de dos personas.
+  La regla está testeada y se verificó en el banco, pero no contra el servidor.
 - **Una cuenta sin Coordinación** (gerencia/Farmacia): confirmar que Tareas le queda inalcanzable
-  pero no rota — es el costo asumido de D3=B.
+  pero no rota — es el costo asumido de D3=B. La cuenta con la que se probó tiene Coordinación y,
+  además, **no coordina ningún protocolo**, así que tampoco dibujó el alternador "Lo mío / Todo":
+  el filtro de ámbito de tareas **no se ejercitó en pantalla** (sí en sus tests).
 
 ---
 
