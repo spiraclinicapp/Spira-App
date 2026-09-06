@@ -1,3 +1,4 @@
+import type { IconName } from '../components/Icon'
 import type { VisitStatus } from '../data/visits'
 
 /**
@@ -78,4 +79,29 @@ export const SEVERIDAD_TINTA: Record<AlertSeverity, string> = {
      los dos temas para ganar una distinción que la cabecera no tiene que hacer. */
   por_reprogramar: 'var(--spira-acc-deep-warn)',
   item_vencido: 'var(--spira-acc-deep-warn)',
+}
+
+/**
+ * El ÍCONO de cada severidad.
+ *
+ * Vive acá por la misma razón que `SEVERIDAD_TINTA`: es un atributo de la severidad, y hasta hoy
+ * estaba escrito dos veces, distinto, en dos pantallas que muestran las mismas alertas —
+ * `AlertCardHeader` resolvía por tres vías (`alertCircle` / `clock` / `bell`) y `TrackAlertsView`
+ * por dos (`alertCircle` o `clock` para todo lo demás), así que "no vino" salía con un ícono en la
+ * tarjeta del resumen y con otro en la lista. Ninguna de las dos estaba mal a la vista; entre ellas,
+ * sí. Una tercera copia en la campana habría hecho tres verdades sobre lo mismo.
+ *
+ * `por_reprogramar` lleva `calendar` y no `bell`: el hecho que nombra es "no vino a la cita y no
+ * tiene fecha nueva", que es un asunto de calendario. Y `bell` era además el peor candidato posible
+ * para el desplegable de la campana, donde el ícono de la campana ya es el marco de todo lo que se
+ * está mirando: adentro de ese panel no distingue nada.
+ *
+ * El tipo `Record<AlertSeverity, IconName>` es la garantía de que ningún nombre acá sea un ícono que
+ * no existe: `IconName` son las claves reales del set de `Icon.tsx`, así que un typo no compila. Por
+ * eso el test de abajo cubre la COBERTURA y la distinción entre grados, y no la existencia.
+ */
+export const SEVERIDAD_ICONO: Record<AlertSeverity, IconName> = {
+  ventana_vencida: 'alertCircle',
+  por_reprogramar: 'calendar',
+  item_vencido: 'clock',
 }

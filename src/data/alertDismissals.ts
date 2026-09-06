@@ -6,7 +6,7 @@ import { useVisitAlerts } from './visits'
 import type { TrackVisitRow } from './visits'
 import { useProcedureReportAlerts } from './reports'
 import type { ProcedureReportAlertRow } from './reports'
-import { isReportAlertDismissed, isVisitAlertDismissed } from './alertDismissalModel'
+import { descarteListo, isReportAlertDismissed, isVisitAlertDismissed } from './alertDismissalModel'
 
 /* Descartar una alerta (migración 0070).
 
@@ -26,9 +26,11 @@ import { isReportAlertDismissed, isVisitAlertDismissed } from './alertDismissalM
    acá para que los consumidores sigan importando de un solo lugar. */
 
 export {
+  descarteListo,
   DISMISS_REASONS,
   isReportAlertDismissed,
   isVisitAlertDismissed,
+  MOTIVO_OTRO,
   reasonLabel,
 } from './alertDismissalModel'
 export type { AlertDismissalRow, AlertKind } from './alertDismissalModel'
@@ -169,7 +171,12 @@ export interface DismissAlertInput {
  */
 export async function dismissAlert(input: DismissAlertInput): Promise<{ error: string | null }> {
   if (!input.visitId) return { error: 'No pudimos identificar la alerta. Recargá la página.' }
-  if (input.reason === 'otro' && !input.detail?.trim()) {
+  /* La MISMA regla que habilita el botón en las dos pantallas, no una copia parecida: si el guard
+     de acá y el de la UI se separan, o el botón queda habilitado y rebota contra la base, o corta
+     algo que la pantalla ya dio por válido. Los dos mensajes distinguen los dos casos que
+     `descarteListo` junta, porque el usuario no tiene por qué leer un texto genérico. */
+  if (!input.reason) return { error: 'Elegí un motivo para archivar la alerta.' }
+  if (!descarteListo(input.reason, input.detail ?? '')) {
     return { error: 'Contanos el motivo para poder archivarla.' }
   }
   const { error } = await supabase.rpc('dismiss_alert', {

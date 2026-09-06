@@ -970,3 +970,62 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
   iniciales** — nombres cortos en fila, o directamente otra forma de tarjeta. Recién después, código.
 - **Depende de / bloqueado por:** esa decisión de diseño.
 - **Prioridad:** P3.
+
+---
+
+## Testing · render tests para lo que hoy sólo verifica el ojo
+
+- **Qué:** sumar `@testing-library/react` a la suite para poder testear componentes, no sólo reglas
+  puras.
+- **Por qué:** hay 41 archivos de test y 717 tests, todos sobre reglas puras — **cero render tests**.
+  Los 15 ítems del checklist de §12 del handoff de notificaciones (el punto oculto en cero, la
+  columna de acción siempre reservada, el guion cuando no hay fecha, el truncado con `title`, el
+  popover que voltea, `Descartar` deshabilitado sin motivo) son 100% ojo humano. Ninguno lo agarra
+  `npm run build`.
+- **Pros:** el gate dejaría de depender de que alguien mire; las regresiones de UI que este repo ya
+  sufrió —el borde que desaparece al salir del hover, el badge que se corre, la fila corrida 40 px—
+  se agarrarían en CI en vez de en producción.
+- **Contras:** es infraestructura de test nueva, no es gratis, y **CLAUDE.md fija a propósito el
+  criterio contrario**: se testea lo que falla EN SILENCIO, y lo que falla de manera visible se
+  verifica mirando. Este TODO propone **revisar** ese criterio, no saltearlo por la ventana.
+- **Contexto:** surgió en la `/plan-eng-review` del handoff de notificaciones (2026-09-06,
+  `docs/plan-campana-notificaciones.md`). El disparador fue que la reescritura de la campana
+  introduce doce comportamientos visuales y ninguno es testeable hoy: la cobertura del plan es 22
+  reglas puras y 15 verificaciones a ojo.
+- **Empezar por:** decidir con el Director si el criterio de CLAUDE.md se revisa. Si sí,
+  `vite.config.ts` (entorno jsdom) → un primer test sobre `NotificationsMenu`, que es la vista con
+  más comportamiento visual por línea.
+- **Depende de / bloqueado por:** esa decisión, porque el TODO contradice de frente una regla escrita.
+- **Prioridad:** P3.
+
+---
+
+## Diseño · los bundles de handoff llegan con la paleta vieja
+
+- **Qué:** pedirle a diseño que regenere `spira-app-tokens.css` desde el `src/styles/tokens.css` del
+  repo, y que feche los bundles.
+- **Por qué:** el bundle de notificaciones (05/09/2026) trae tres tokens **anteriores a la
+  recalibración de la rampa de grises** (PR #95):
+
+  | Token | En el bundle | En el repo |
+  |---|---|---|
+  | `--spira-muted` | `#7C8C87` | `#61706C` |
+  | `--spira-faint` | `#A6B0AC` | `#838C89` |
+  | `--spira-ink-soft` | `#556966` | `#465A57` |
+
+  No es cosmético: sobre esos valores, la afirmación de accesibilidad de §9 del propio handoff es
+  falsa (su `muted` da 3,52:1, no 4,5:1). El README §11 del bundle sí tiene los valores buenos, así
+  que **el bundle se contradice a sí mismo**, y quien implemente "desde el CSS" en vez de "desde la
+  tabla" se lleva los viejos. Y **no es la primera vez**: ya hubo un handoff con paleta vieja en
+  este repo. Es un costo recurrente, no un incidente.
+- **Pros:** el próximo bundle llega con los tokens vivos, y la medición de contraste que hace diseño
+  vale contra la app real en vez de contra una paleta que ya no existe.
+- **Contras:** es coordinación, no código; depende de que el generador de bundles lea el `tokens.css`
+  del repo, cosa que no se controla desde acá.
+- **Contexto:** surgió en la `/plan-eng-review` del handoff de notificaciones (2026-09-06), diffeando
+  los 40 tokens del bundle contra los 54 del repo.
+- **Empezar por:** mandarle a diseño el diff de los tres tokens de arriba. **Cómo se detecta en el
+  futuro:** diffear el `:root` del bundle contra `src/styles/tokens.css` **antes** de leer nada más
+  — es lo primero que hay que hacer con un bundle nuevo.
+- **Depende de / bloqueado por:** nada del lado del repo.
+- **Prioridad:** P3.

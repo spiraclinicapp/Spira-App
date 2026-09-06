@@ -20,6 +20,7 @@ import type { TrackVisitRow } from '../data/visits'
 import { useProtocols } from '../data/protocols'
 import {
   useActiveAlerts, dismissAlert, restoreAlert, DISMISS_REASONS, reasonLabel,
+  descarteListo, MOTIVO_OTRO,
 } from '../data/alertDismissals'
 import type { AlertKind } from '../data/alertDismissals'
 import { visitTitle } from '../lib/visits'
@@ -641,8 +642,10 @@ function DismissModal({ target, accent, onClose, onDone, onError }: {
   const [detail, setDetail] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const necesitaDetalle = reason === 'otro'
-  const listo = reason !== '' && (!necesitaDetalle || detail.trim() !== '')
+  /* La condición NO se escribe acá: la comparten esta pantalla y el popover de la campana, que
+     archivan la misma alerta con el mismo RPC. Ver `descarteListo` en `alertDismissalModel`. */
+  const necesitaDetalle = reason === MOTIVO_OTRO
+  const listo = descarteListo(reason, detail)
 
   const confirmar = async () => {
     if (!listo || busy) return

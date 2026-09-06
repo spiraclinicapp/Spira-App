@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VisitStatus } from '../data/visits'
-import { GRAVEDAD, SEVERIDAD_TINTA, severidadMaxima } from './alertSeverity'
+import { GRAVEDAD, SEVERIDAD_ICONO, SEVERIDAD_TINTA, severidadMaxima } from './alertSeverity'
 
 /**
  * La severidad que muestra la cabecera de la tarjeta de Alertas.
@@ -98,5 +98,33 @@ describe('SEVERIDAD_TINTA', () => {
     for (const nivel of GRAVEDAD) {
       expect(SEVERIDAD_TINTA[nivel]).toMatch(/^var\(--spira-acc-deep-[a-z]+\)$/)
     }
+  })
+})
+
+describe('SEVERIDAD_ICONO', () => {
+  it('tiene ícono para todas las severidades que GRAVEDAD declara', () => {
+    // Lo mismo que se le pide a la tinta: un grado nuevo sin ícono rompería en la lectura
+    // (`CLASES[...].icono` sería undefined) y no al compilar, porque el Record se completa solo si
+    // alguien se acuerda. Que no dependa de acordarse.
+    for (const nivel of GRAVEDAD) {
+      expect(SEVERIDAD_ICONO[nivel], `falta el ícono de "${nivel}"`).toBeDefined()
+    }
+  })
+
+  it('cada severidad tiene un ícono DISTINTO', () => {
+    /* Es la razón de existir de esta tabla. `TrackAlertsView` resolvía por dos vías —ventana
+       vencida o "clock" para todo lo demás—, así que "no vino" y "pendiente vencido" compartían
+       glifo y la lista no los distinguía. El tipo no puede impedir eso: dos claves con el mismo
+       valor compilan perfecto. */
+    const iconos = GRAVEDAD.map((n) => SEVERIDAD_ICONO[n])
+    expect(new Set(iconos).size).toBe(GRAVEDAD.length)
+  })
+
+  it('"no vino" no usa la campana', () => {
+    /* Fija la decisión: `bell` es el marco del desplegable de notificaciones, así que adentro de
+       ese panel no distingue nada. Si alguien lo devuelve al valor que tenía `AlertCardHeader`,
+       este test le cuenta por qué se cambió. */
+    expect(SEVERIDAD_ICONO.por_reprogramar).not.toBe('bell')
+    expect(SEVERIDAD_ICONO.por_reprogramar).toBe('calendar')
   })
 })
