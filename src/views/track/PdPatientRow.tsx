@@ -5,6 +5,7 @@ import { PatientLink } from '../../components/PatientLink'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
 import { orderVisits, todaySplit, ubicacionDeHoy, visitIndex, visitCode } from '../../lib/visits'
+import { GLOSARIO } from '../../lib/glosario'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { PdFullSchedule } from './PdFullSchedule'
 
@@ -96,7 +97,11 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen, on
                 </PatientLink>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, marginTop: 2 }}>
-                <span className="spira-mono" style={{ fontSize: 13, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
+                {/* `title` sin subrayado punteado: el IVRS se repite en las diez filas de la lista
+                    y marcarlo diez veces no enseña nada —la definición es la misma— pero sí
+                    convierte la columna en un texto resaltado. La marca visual del glosario se gasta
+                    una sola vez, en los rótulos de KPI de la ficha del protocolo. */}
+                <span className="spira-mono" title={GLOSARIO.ivrs} style={{ fontSize: 13, color: 'var(--spira-muted)', whiteSpace: 'nowrap', cursor: 'help' }}>
                   {patient.code
                     ? <PatientLink onOpen={() => onOpen(patient.id)} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
                     : 'Sin IVRS'}

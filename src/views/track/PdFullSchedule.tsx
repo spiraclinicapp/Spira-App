@@ -4,6 +4,7 @@ import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
 import { dotVisual, flowWindow, orderVisits, visitIndex, visitStateLabel, visitTitle, studyTime, desvioDias, fueraDeVentana } from '../../lib/visits'
 import { dotColor } from '../visitStates'
+import { ayudaDeRotulo, GLOSARIO } from '../../lib/glosario'
 import { formatShortAR, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 
@@ -76,6 +77,7 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
         const estLabel = visitStateLabel(v, today)
         const n = idx.get(v.id)
         const label = visitTitle(v)
+        const ayuda = ayudaDeRotulo(label)
         const st = studyTime(v)
         const desv = desvioDias(v.estimated_date, v.real_date)
         const fuera = fueraDeVentana(v.real_date, v.window_start, v.window_end)
@@ -91,15 +93,43 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
           <>
             <VisitDot visit={v} number={n ?? '·'} today={today} size={26} isToday={cur} accent={accent} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: cur ? accent : 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
-              {st != null && <div style={{ fontSize: 11.5, color: 'var(--spira-muted)', marginTop: 1 }}>{st.unit === 'dia' ? `Día ${st.value}` : `Semana W${st.value}`}</div>}
+              {/* Las visitas SUELTAS se rotulan con una abreviatura que la app da por sabida —VNP,
+                  Scr, Rando, F+S—, así que ésas se marcan como término del glosario. Las del
+                  cronograma ("V5 - Screening") no: `ayudaDeRotulo` devuelve `undefined` y el
+                  renglón queda como estaba. Marcar algo que no lo necesita es ruido. */}
+              {ayuda ? (
+                <abbr
+                  className="spira-termino"
+                  title={ayuda}
+                  /* `inline-block` + `maxWidth` y NO `block`: en bloque la caja ocupa los 480 px de
+                     la columna, así que el `cursor: help` aparecía sobre el espacio vacío a la
+                     derecha de la palabra — una pista de ayuda flotando sobre la nada. Así abraza
+                     el texto y sigue truncando si el rótulo no entra. */
+                  style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: cur ? accent : 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block', maxWidth: '100%', verticalAlign: 'bottom' }}
+                >
+                  {label}
+                </abbr>
+              ) : (
+                <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: cur ? accent : 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+              )}
+              {/* La semana lleva `title` y NO subrayado: se repite en cada renglón, y marcar las
+                  siete volvería la columna un texto resaltado. La explicación está cuando se la
+                  busca; la señal se gasta donde rinde. */}
+              {st != null && (
+                <div title={st.unit === 'dia' ? GLOSARIO.dia : GLOSARIO.semana} style={{ fontSize: 11.5, color: 'var(--spira-muted)', marginTop: 1, cursor: 'help', width: 'fit-content' }}>
+                  {st.unit === 'dia' ? `Día ${st.value}` : `Semana W${st.value}`}
+                </div>
+              )}
             </div>
             <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', minWidth: 78, textAlign: 'right', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
               {v.real_date ? (
                 <>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end', color: 'var(--spira-ink)' }}>
                     {formatShortAR(v.real_date)}
-                    {fuera && <span role="img" aria-label="Fuera de ventana" title="Fuera de ventana" style={{ display: 'inline-flex' }}><Icon name="alert" size={12} color="var(--spira-danger)" /></span>}
+                    {/* El `title` explica qué ES una ventana, no repite el `aria-label`: este ícono
+                        es el lugar donde alguien nuevo se topa con el concepto por primera vez y se
+                        pregunta qué tiene de malo esa fecha. */}
+                    {fuera && <span role="img" aria-label="Fuera de ventana" title={`Fuera de ventana. ${GLOSARIO.ventana}`} style={{ display: 'inline-flex' }}><Icon name="alert" size={12} color="var(--spira-danger)" /></span>}
                   </span>
                   <span style={{ display: 'block', fontSize: 10.5, color: 'var(--spira-muted)' }}>
                     est {v.estimated_date ? formatShortAR(v.estimated_date) : '—'}{desv != null ? ` · ${desv > 0 ? '+' : ''}${desv} d` : ''}
