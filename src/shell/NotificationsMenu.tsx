@@ -425,6 +425,14 @@ function BotonDescartar({ destino }: { destino: Descarte }) {
           aria-label="Descartar la alerta"
           className="spira-notif-pop"
           style={{ top: pos.top, left: pos.left }}
+          /* LA OTRA MITAD DEL PORTAL, y la que faltaba. `usePopover` resuelve la contención en el
+             DOM —que este popover no cierre el panel—, pero **React propaga sus eventos por el
+             árbol de REACT, no por el DOM**: aunque este div vive en `document.body`, su padre
+             React es el tacho, que está adentro del `<div onClick>` de la caja. Sin esto, elegir un
+             motivo burbujeaba hasta la caja y abría la ficha del paciente en vez de archivar.
+             Va en el contenedor y no en cada botón: cualquier control que se agregue acá adentro
+             —el textarea, Cancelar, Descartar— hereda la contención sin tener que acordarse. */
+          onClick={(e) => e.stopPropagation()}
         >
           <div style={popTitulo}>¿Descartar esta alerta?</div>
           <div style={popBajada}>
