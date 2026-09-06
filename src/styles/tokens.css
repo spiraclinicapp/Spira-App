@@ -551,6 +551,161 @@ input:-webkit-autofill:focus {
 .spira-notif-all:hover,
 .spira-notif-all:focus-visible { background: var(--spira-surface); outline: none; }
 
+/* —— Desplegable de la campana ——
+   Geometría del handoff `docs/design_handoff_notificaciones`, con las decisiones del plan
+   `docs/plan-campana-notificaciones.md`. Vive acá y no en objetos de estilo de React por una razón
+   concreta: el realce de la caja toca el BORDE, y escribirlo desde un handler sobre un `border`
+   abreviado inline deja el elemento sin borde en el render siguiente. Es la misma trampa que ya
+   documentan `.spira-card-link` y `.spira-row-link`. */
+
+/* El indicador de la campana: un PUNTO, no un contador. El número exacto vive en la cabecera del
+   panel y en la lista; sobre el ícono, a 9 px, era ilegible. El punto responde la única pregunta
+   que se hace desde la barra: ¿tengo algo? El color lo pone `tonoDelPunto` (la peor severidad
+   presente), así que además responde "¿y es grave?" sin costar un píxel más. */
+.spira-notif-punto {
+  position: absolute; top: 5px; right: 4px;
+  width: 8px; height: 8px; border-radius: 999px;
+  border: 2px solid var(--spira-white); box-sizing: content-box;
+  pointer-events: none;
+}
+
+.spira-notif-panel {
+  position: fixed; z-index: 90;
+  width: 440px; max-height: 520px;
+  display: flex; flex-direction: column;
+  background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(20, 48, 46, 0.14);
+  overflow: hidden; outline: none;
+}
+
+/* `min-height: 0` no es decorativo: sin él, un hijo flex con `overflow: auto` se niega a achicarse
+   por debajo de su contenido y la lista empuja la cabecera y el pie fuera de la caja. El
+   `overflow: hidden` del radio los recorta y el usuario lo reporta como "no me deja scrollear". */
+.spira-notif-lista {
+  flex: 1 1 auto; min-height: 0; max-height: 420px; overflow-y: auto;
+  border-top: 1px solid var(--spira-line);
+  padding: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+
+/* La grilla que hace que TODAS las cajas se lean igual: ícono, cuerpo, datos y acción caen en la
+   misma vertical de arriba abajo, y ninguna caja cambia de alto por el largo del contenido.
+   La cuarta columna se reserva SIEMPRE, con o sin tacho: si apareciera sólo a veces, las cajas
+   dejarían de alinear entre sí, que es el principio entero del diseño. */
+.spira-notif-caja {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) 76px 22px;
+  column-gap: 11px; align-items: center;
+  padding: 11px; min-height: 66px;
+  border: 1px solid var(--spira-line); border-radius: 10px;
+  background: var(--spira-white);
+  transition: background-color 0.14s var(--spira-ease-out), border-color 0.14s var(--spira-ease-out),
+              box-shadow 0.14s var(--spira-ease-out);
+}
+/* La fila NO se levanta: se resalta. Mismo criterio que `.spira-row-link`. Y no lleva
+   `:focus-within` a propósito, por lo mismo que aquella: cuando el foco está en el link del
+   paciente que vive adentro, el destino de un Enter ya no es la caja, y resaltarla afirmaría lo
+   contrario. */
+.spira-notif-caja--link { cursor: pointer; }
+.spira-notif-caja--link:hover {
+  background: var(--spira-surface);
+  border-color: var(--spira-line-2);
+  box-shadow: var(--spira-shadow-sm);
+}
+
+.spira-notif-icono {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: grid; place-items: center;
+}
+
+.spira-notif-cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.spira-notif-l1 { display: flex; align-items: center; gap: 7px; min-width: 0; }
+/* El nombre es el único que cede ancho. El código va `flex: 0 0 auto` para que no se corra al
+   truncarse el nombre — si los dos se achicaran, la identidad se leería distinta en cada fila. */
+.spira-notif-nombre {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; font-weight: 600; color: var(--spira-ink);
+}
+.spira-notif-codigo {
+  flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--spira-muted);
+  font-variant-numeric: tabular-nums;
+}
+.spira-notif-motivo {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; line-height: 1.35; color: var(--spira-muted);
+}
+
+.spira-notif-datos {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 0;
+}
+/* La fecha va en `muted` y no en `faint`, que es lo que pedía el handoff: medido, `faint` da 3,46:1
+   sobre blanco y 3,31:1 sobre el fondo de hover, y 11 px es texto NORMAL para WCAG (umbral 4,5:1).
+   `muted` rinde 4,97:1 en el peor caso. El guion de "sin fecha" sí puede ir en `faint`: no es un
+   dato, es un relleno que mantiene alineadas las cajas. */
+.spira-notif-fecha {
+  font-size: 11px; font-weight: 500; color: var(--spira-muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.spira-notif-fecha--vacia { color: var(--spira-faint); }
+
+.spira-notif-accion { width: 22px; display: grid; place-items: center; }
+/* SIEMPRE visible, no en hover: un botón que aparece al pasar el mouse es un botón que no existe
+   en una pantalla táctil. */
+.spira-notif-tacho {
+  width: 22px; height: 22px; border: none; border-radius: 50%;
+  background: transparent; color: var(--spira-faint);
+  display: grid; place-items: center; cursor: pointer;
+  transition: background-color 0.12s var(--spira-ease-out), color 0.12s var(--spira-ease-out);
+}
+.spira-notif-tacho:hover,
+.spira-notif-tacho:focus-visible {
+  color: var(--spira-acc-deep-danger);
+  background: color-mix(in srgb, var(--spira-acc-deep-danger) 12%, transparent);
+}
+
+/* El popover de confirmación del descarte. Va portaleado a `document.body` (si se anidara dentro de
+   la lista, su `overflow-y` lo recortaría) y por eso el panel entra al registro de `usePopover`:
+   sin eso, cada clic en un motivo caería "afuera" del panel y lo cerraría entero. */
+.spira-notif-pop {
+  position: fixed; z-index: 200; width: 246px;
+  background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 12px;
+  box-shadow: 0 14px 34px rgba(20, 48, 46, 0.14);
+  padding: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.spira-notif-motivo-op {
+  width: 100%; text-align: left; padding: 6px 8px; border-radius: 7px;
+  border: 1px solid transparent; background: transparent; cursor: pointer;
+  font-family: var(--spira-font-text); font-size: 12px; color: var(--spira-ink);
+  transition: background-color 0.12s var(--spira-ease-out);
+}
+.spira-notif-motivo-op:hover { background: var(--spira-surface); }
+.spira-notif-motivo-op[aria-pressed='true'] {
+  border-color: var(--spira-primary); color: var(--spira-primary); font-weight: 600;
+  background: color-mix(in srgb, var(--spira-primary) 7%, transparent);
+}
+
+/* —— Entrada del panel ——
+   Crece desde la esquina donde está la campana (`transform-origin: top right`), no desde el centro.
+   NADA se anima al cerrar: una salida animada retrasa la respuesta a un clic que ya fue dado. */
+@keyframes spNotifPanelIn {
+  from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes spNotifCajaIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .spira-notif-panel {
+    transform-origin: top right;
+    animation: spNotifPanelIn 0.19s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+  /* La cascada la escalona `--i`, que pone la caja al montarse. El tope de 10 ítems del panel la
+     mantiene corta: sin él, 43 cajas a 22 ms terminarían de dibujarse casi un segundo después. */
+  .spira-notif-caja {
+    animation: spNotifCajaIn 0.26s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+    animation-delay: calc(var(--i, 0) * 22ms);
+  }
+}
+
 /* —— Animaciones del modal de Ajustes ——
    Entrada del overlay (fade) + de la tarjeta (fade + leve subida/escala). Valores
    del handoff. En reduced-motion la tarjeta entra sólo con fade (sin transform). */

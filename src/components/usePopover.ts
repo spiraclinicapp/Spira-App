@@ -34,7 +34,22 @@ function popoverQueContiene(n: Node): HTMLElement | null {
  * afuera o Esc. `onClose` se lee por ref para que el efecto dependa solo de [open, reposition]
  * (identidad estable, como el SearchableSelect original).
  */
-export function usePopover<T extends HTMLElement, P extends HTMLElement>(open: boolean, onClose: () => void, flip = true) {
+export function usePopover<T extends HTMLElement, P extends HTMLElement>(
+  open: boolean,
+  onClose: () => void,
+  flip = true,
+  /**
+   * Con qué borde del disparador se alinea el popover. `'start'` (el default de siempre) pega su
+   * izquierda a la del disparador; `'end'` pega su DERECHA a la derecha del disparador.
+   *
+   * Lo estrena el desplegable de la campana: es un panel de 440 px colgado de un botón de 38 px que
+   * vive al final de la barra superior. Alineado por la izquierda se iría de la pantalla, y el
+   * recorte contra el viewport lo dejaría flotando lejos de su botón — que es justo lo que el
+   * `transform-origin: top right` de su animación promete que no pasa. El recorte sigue valiendo en
+   * los dos modos: nunca se sale de los 8 px de margen.
+   */
+  align: 'start' | 'end' = 'start',
+) {
   const triggerRef = useRef<T | null>(null)
   const popNodeRef = useRef<P | null>(null)
   const [pos, setPos] = useState<PopoverPos | null>(null)
@@ -56,9 +71,13 @@ export function usePopover<T extends HTMLElement, P extends HTMLElement>(open: b
     // Alineado al borde izquierdo del disparador; pero si el menú es más ancho que él (modo 'auto':
     // crece a su contenido) y se pasaría del borde derecho, se corre a la izquierda lo justo para
     // entrar (nunca antes del borde izquierdo de la ventana). Necesita el ancho real ya pintado.
-    const left = pw > 0 ? Math.max(8, Math.min(r.left, window.innerWidth - 8 - pw)) : r.left
+    // El borde de referencia según `align`; en la primera pasada `pw` es 0 (el popover todavía no
+    // montó) y ahí no hay con qué alinear por la derecha, así que cae al disparador. No se ve: las
+    // dos pasadas corren en el mismo commit, antes de que el navegador pinte.
+    const deseado = align === 'end' && pw > 0 ? r.right - pw : r.left
+    const left = pw > 0 ? Math.max(8, Math.min(deseado, window.innerWidth - 8 - pw)) : r.left
     setPos({ top: flipUp ? r.top - 6 - ph : below, left, width: r.width })
-  }, [flip])
+  }, [flip, align])
 
   // Ref callback en vez de un RefObject simple: en cuanto el popover se monta —con su tamaño real
   // ya calculable— remedimos ahí mismo, en fase de commit (antes de que el navegador pinte nada), y
