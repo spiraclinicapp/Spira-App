@@ -29,7 +29,6 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
   onOpen: (patientId: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const [hovered, setHovered] = useState(false)
   const idx = visitIndex(visits)
   /* "Hoy" en la línea de tiempo: anterior, hoy, próxima. */
   const today = todayISO()
@@ -62,16 +61,17 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen }: 
   )
   const arrow = <Icon name="arrowRight" size={15} color={accent} style={{ flex: '0 0 auto', marginTop: 8 }} />
 
+  /* EL REALCE VIVE EN `.spira-card-link`, NO EN `onMouseEnter`. Antes esta tarjeta llevaba un
+     `useState` de hover que escribía `--spira-shadow-md` inline: esa es la sombra del MODAL
+     (`0 12px 32px`), tres veces la escala de un levante de 1px, y `tokens.css` documenta en diez
+     renglones por qué ese desajuste "hacía ver la animación pegoteada" — para eso existe
+     `--spira-shadow-hover` (`0 4px 14px`), que es la que ya usaba el Resumen. Dos gestos idénticos
+     con dos sombras distintas es de las cosas que el ojo registra y no puede explicar. La clase
+     trae borde, sombra correcta y la transición sincronizada con el levante. */
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        border: `1px solid ${hovered || open ? 'var(--spira-line-2)' : 'var(--spira-line)'}`, borderRadius: 14, background: 'var(--spira-white)',
-        marginBottom: 10, boxShadow: hovered || open ? 'var(--spira-shadow-md)' : 'none',
-        transform: hovered ? 'translateY(-1px)' : 'none',
-        transition: 'box-shadow .15s ease, border-color .15s ease, transform .15s ease',
-      }}
+      className="spira-card-link"
+      style={{ borderRadius: 14, background: 'var(--spira-white)', marginBottom: 10 }}
     >
       <div onClick={() => onOpen(patient.id)} style={{ cursor: 'pointer', padding: '13px 16px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12 }}>

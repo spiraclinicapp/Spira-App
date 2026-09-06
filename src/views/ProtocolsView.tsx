@@ -135,7 +135,6 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
   /* Dónde nos dejó la navegación del shell, y si ya lo pisamos (ver el efecto de más abajo). */
   const llegada = useRef<string | null>(null)
   const armado = useRef(false)
-  const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [search, setSearch] = useUrlState('buscar', '')
   /* Filtro por estado del protocolo (multi; vacío = todos). Es el único eje que esta grilla tiene
      para filtrar: "protocolo" no sería un filtro acá, sería la lista misma.
@@ -357,22 +356,20 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
   // ---- Modo: lista de protocolos + búsqueda unificada (protocolos + pacientes) ----
   const q = search.trim()
 
+  /* El realce va en `.spira-card-link` y no en `onMouseEnter` — misma corrección que `PdPatientRow`:
+     escribía `--spira-shadow-md`, que es la sombra del modal, sobre un levante de 1px. La clase trae
+     el borde, `--spira-shadow-hover` y la transición sincronizada con la micro-interacción global,
+     que es la que ya pone el levante (por eso tampoco hace falta el `transform` a mano). */
   const renderCard = (p: ProtocolRow) => {
     const count = countByProtocol.get(p.id) ?? 0
-    const on = hoveredId === p.id
     return (
       <button
         key={p.id}
+        className="spira-card-link"
         onClick={() => setNav({ mode: 'protocol', protocolId: p.id })}
-        onMouseEnter={() => setHoveredId(p.id)}
-        onMouseLeave={() => setHoveredId((h) => (h === p.id ? null : h))}
         style={{
           ...cardBase,
-          border: `1px solid ${on ? 'var(--spira-line-2)' : 'var(--spira-line)'}`,
-          boxShadow: on ? 'var(--spira-shadow-md)' : 'none',
-          transform: on ? 'translateY(-1px)' : 'none',
-          transition: 'box-shadow .15s ease, border-color .15s ease, transform .15s ease',
-          cursor: 'pointer', textAlign: 'left', font: 'inherit', color: 'inherit',
+          textAlign: 'left', font: 'inherit', color: 'inherit',
           display: 'flex', flexDirection: 'column', gap: 8,
         }}
       >
@@ -392,7 +389,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)', fontVariantNumeric: 'tabular-nums' }}>
             {count} {count === 1 ? 'paciente' : 'pacientes'}
           </span>
-          <Icon name="chevronRight" size={18} color={on ? 'var(--spira-muted)' : 'var(--spira-faint)'} />
+          <Icon name="chevronRight" size={18} color="var(--spira-faint)" />
         </div>
       </button>
     )

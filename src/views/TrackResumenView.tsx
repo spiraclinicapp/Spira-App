@@ -5,7 +5,7 @@ import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { SegmentedControl } from '../components/SegmentedControl'
 import { useAuth } from '../lib/auth'
 import { AlertCardHeader } from './AlertCardHeader'
-import { card, cardTitle, ChipDestino, filaAncha, MAX_FILAS } from './resumen/piezas'
+import { CabeceraDeTarjeta, card, ChipDestino, DetalleConEstado, filaAncha, FilaDeResumen, MAX_FILAS } from './resumen/piezas'
 import { severidadMaxima } from './alertSeverity'
 import { DESTINO_PENDIENTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
@@ -182,19 +182,6 @@ function VerMasLocal({ restantes, expandido, onToggle }: {
   )
 }
 
-/** Cabecera de tarjeta con ícono, título y un dato al margen. */
-function CardHeader({ icon, color, titulo, extra }: {
-  icon: 'box' | 'clipboardCheck' | 'calendar'; color: string; titulo: string; extra?: ReactNode
-}) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <Icon name={icon} size={18} color={color} stroke={2} />
-      <span style={{ ...cardTitle, flex: 1, minWidth: 0 }}>{titulo}</span>
-      {extra}
-    </div>
-  )
-}
-
 /**
  * El vacío de una tarjeta cuando el ámbito es "Lo mío".
  *
@@ -273,10 +260,11 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
 
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <span style={{ ...cardTitle, flex: 1, minWidth: 0 }}>Reportes pendientes</span>
-        {tarjetas.length > 0 && (
-          <>
+      <CabeceraDeTarjeta
+        icon="fileText"
+        titulo="Reportes pendientes"
+        extra={tarjetas.length > 0 ? (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '0 0 auto' }}>
             <span
               style={{ width: 100, height: 6, borderRadius: 'var(--spira-radius-pill)', background: 'var(--spira-line)', overflow: 'hidden', flex: '0 0 auto' }}
               role="img"
@@ -287,9 +275,9 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
             <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }} aria-hidden="true">
               {resueltos} de {tarjetas.length}
             </span>
-          </>
-        )}
-      </div>
+          </span>
+        ) : undefined}
+      />
       <CuerpoDeTarjeta
         loading={loading}
         error={error}
@@ -305,21 +293,13 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
             const abrir = onOpenReportes ? () => onOpenReportes(r.protocol_id) : undefined
             const visita = r.visit_code ?? r.visit_name ?? '—'
             return (
-              <div
+              <FilaDeResumen
                 key={`${r.visit_id}:${r.report_definition_id}`}
-                role={abrir ? 'button' : undefined}
-                tabIndex={abrir ? 0 : undefined}
-                className={abrir ? 'spira-row-link spira-no-press' : undefined}
-                onClick={abrir}
-                onKeyDown={abrir ? (e) => {
-                  if (e.target !== e.currentTarget) return
-                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir() }
-                } : undefined}
-                aria-label={abrir ? `Abrir los reportes pendientes de ${r.protocol_code} — ${r.report_name} de ${r.patient_name}, ${plazo.texto}` : undefined}
-                style={{ ...filaAncha, alignItems: 'center', ...(i === 0 ? { borderTopWidth: 0 } : null), ...(abrir ? null : { cursor: 'default' }) }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="spira-link-group" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, minWidth: 0 }}>
+                primera={i === 0}
+                onAbrir={abrir}
+                ariaLabel={`Abrir los reportes pendientes de ${r.protocol_code} — ${r.report_name} de ${r.patient_name}, ${plazo.texto}`}
+                titular={
+                  <>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{r.report_name}</span>
                     <span style={{ color: 'var(--spira-muted)', fontWeight: 400, flex: '0 0 auto' }}>·</span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
@@ -328,20 +308,18 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
                       </PatientLink>
                     </span>
                     {onOpenPatient && <PatientLinkArrow />}
-                  </div>
-                  <div style={{ fontSize: 12, marginTop: 2 }}>
-                    <span style={{ color: 'var(--spira-muted)' }}>
-                      {visita} · <span className="spira-mono">{r.protocol_code}</span>
-                    </span>
-                    <span style={{ color: 'var(--spira-faint)' }}> · </span>
-                    {/* El color lo decide `dueLabel`, que ya sabe si venció: así es imposible pintar
-                        de rojo un texto que dice "Vence en 3 días". */}
-                    <span style={{ color: plazo.overdue ? 'var(--spira-acc-deep-danger)' : 'var(--spira-muted)', fontWeight: 700 }}>
-                      {plazo.texto}
-                    </span>
-                  </div>
-                </div>
-              </div>
+                  </>
+                }
+                detalle={
+                  /* El color lo decide `dueLabel`, que ya sabe si venció: así es imposible pintar
+                     de rojo un texto que dice "Vence en 3 días". */
+                  <DetalleConEstado
+                    contexto={<>{visita} · <span className="spira-mono">{r.protocol_code}</span></>}
+                    estado={plazo.texto}
+                    tono={plazo.overdue ? 'var(--spira-acc-deep-danger)' : 'var(--spira-muted)'}
+                  />
+                }
+              />
             )
           })}
         </div>
@@ -383,25 +361,12 @@ function SolicitudRow({ s, primera, onOpenVisit, onOpenPatient }: {
   const abrir = s.visit_id && onOpenVisit ? () => onOpenVisit(s.visit_id as string) : undefined
 
   return (
-    <div
-      role={abrir ? 'button' : undefined}
-      tabIndex={abrir ? 0 : undefined}
-      className={abrir ? 'spira-row-link spira-no-press' : undefined}
-      onClick={abrir}
-      onKeyDown={abrir ? (e) => {
-        // Sin esta guarda, Enter sobre el nombre del paciente abre la ficha Y la visita.
-        if (e.target !== e.currentTarget) return
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir() }
-      } : undefined}
-      aria-label={abrir ? `Abrir la visita de ${paciente?.full_name ?? 'el paciente'} — ${titulo}, ${estado.label}` : undefined}
-      style={{
-        ...filaAncha, alignItems: 'center',
-        ...(primera ? { borderTopWidth: 0 } : null),
-        ...(abrir ? null : { cursor: 'default' }),
-      }}
-    >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="spira-link-group" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, minWidth: 0 }}>
+    <FilaDeResumen
+      primera={primera}
+      onAbrir={abrir}
+      ariaLabel={`Abrir la visita de ${paciente?.full_name ?? 'el paciente'} — ${titulo}, ${estado.label}`}
+      titular={
+        <>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{titulo}</span>
           <span style={{ color: 'var(--spira-muted)', fontWeight: 400, flex: '0 0 auto' }}>·</span>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
@@ -410,14 +375,16 @@ function SolicitudRow({ s, primera, onOpenVisit, onOpenPatient }: {
             </PatientLink>
           </span>
           {onOpenPatient && paciente && <PatientLinkArrow />}
-        </div>
-        <div style={{ fontSize: 12, marginTop: 2 }}>
-          <span style={{ color: 'var(--spira-muted)' }}>solicitada {fromNow(s.created_at)}</span>
-          <span style={{ color: 'var(--spira-faint)' }}> · </span>
-          <span style={{ color: estado.tono, fontWeight: 700 }}>{estado.label}</span>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+      detalle={
+        <DetalleConEstado
+          contexto={`solicitada ${fromNow(s.created_at)}`}
+          estado={estado.label}
+          tono={estado.tono}
+        />
+      }
+    />
   )
 }
 
@@ -754,7 +721,6 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
           <ProximasVisitasCard
             dia={proximoDia}
             rows={visitasDelProximoDia}
-            accent={accent}
             loading={upcoming.loading || coordinaciones.loading}
             error={upcoming.error}
             onReintentar={upcoming.refetch}
@@ -841,23 +807,15 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
                 : `Reporte de procedimiento fuera de plazo · ${vName}`
               const abrir = onOpenAlerta ? () => onOpenAlerta(a.id) : undefined
               return (
-                <div
+                <FilaDeResumen
                   key={a.id}
-                  role={abrir ? 'button' : undefined}
-                  tabIndex={abrir ? 0 : undefined}
-                  className={abrir ? 'spira-row-link spira-no-press' : undefined}
-                  onClick={abrir}
-                  onKeyDown={abrir ? (e) => {
-                    if (e.target !== e.currentTarget) return
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir() }
-                  } : undefined}
-                  aria-label={abrir ? `Abrir en ${titulo} la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}` : undefined}
-                  style={{ ...filaAncha, ...(i === 0 ? { borderTopWidth: 0 } : null), ...(abrir ? null : { cursor: 'default' }) }}
-                >
-                  <Punto color={c} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="spira-link-group" style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                  primera={i === 0}
+                  onAbrir={abrir}
+                  ariaLabel={`Abrir en ${titulo} la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
+                  punto={<Punto color={c} />}
+                  titular={
+                    <>
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
                         <PatientLink onOpen={onOpenPatient && (() => onOpenPatient(a.patient_id, a.protocol_id))} label={`Abrir la ficha de ${a.patient_name}`}>
                           {a.patient_name}
                         </PatientLink>
@@ -869,10 +827,10 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
                       </span>
                       {onOpenPatient && <PatientLinkArrow />}
                       <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}>· <span className="spira-mono" style={{ fontSize: 12.5 }}>{a.protocol_code}</span></span>
-                    </div>
-                    <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>{motivo}</div>
-                  </div>
-                </div>
+                    </>
+                  }
+                  detalle={motivo}
+                />
               )
             })}
           </div>
@@ -924,12 +882,11 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
  * versiones anteriores no podían decir eso — una prometía siete días que ninguna pantalla junta, la
  * otra atrasadas repartidas en semanas.
  */
-function ProximasVisitasCard({ dia, rows, accent, loading, error, onReintentar, onOpenVisit, onOpenPatient, onVerMas, nombreDestino, vacioDelAmbito }: {
+function ProximasVisitasCard({ dia, rows, loading, error, onReintentar, onOpenVisit, onOpenPatient, onVerMas, nombreDestino, vacioDelAmbito }: {
   /** El día que se muestra, o `null` si no hay ninguno en el horizonte de la consulta. */
   dia: string | null
   /** Las visitas de ESE día, ya filtradas por la vista. */
   rows: TrackVisitRow[]
-  accent: string
   loading: boolean
   error: string | null
   onReintentar: () => void
@@ -947,15 +904,16 @@ function ProximasVisitasCard({ dia, rows, accent, loading, error, onReintentar, 
   const restantes = rows.length - visibles.length
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <span style={cardTitle}>Próximas visitas</span>
-        {/* QUÉ día, no "agrupadas por día": con una sola jornada en pantalla, el dato al margen que
-            sirve es cuál es. `dayLabel` dice "Mañana" cuando corresponde y el nombre del día
-            cuando no — que es justo la diferencia que hay que ver de un vistazo un viernes. */}
-        {dia && (
+      <CabeceraDeTarjeta
+        icon="calendar"
+        titulo="Próximas visitas"
+        /* QUÉ día, no "agrupadas por día": con una sola jornada en pantalla, el dato al margen que
+           sirve es cuál es. `dayLabel` dice "Mañana" cuando corresponde y el nombre del día
+           cuando no — que es justo la diferencia que hay que ver de un vistazo un viernes. */
+        extra={dia ? (
           <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>{dayLabel(dia)}</span>
-        )}
-      </div>
+        ) : undefined}
+      />
       <CuerpoDeTarjeta
         loading={loading}
         error={error}
@@ -965,15 +923,21 @@ function ProximasVisitasCard({ dia, rows, accent, loading, error, onReintentar, 
         vacio={<VacioSimple>Sin visitas en los próximos 7 días.</VacioSimple>}
         vacioDelAmbito={vacioDelAmbito}
       >
-        <div style={{ marginTop: 6 }}>
-          {visibles.map((v) => (
+        <div style={{ marginTop: 8 }}>
+          {visibles.map((v, i) => (
             <VisitSummaryRow
               key={v.id}
               visit={v}
-              accent={accent}
+              primera={i === 0}
               /* Eje CLÍNICO, no operativo: estas visitas todavía no ocurrieron, así que "por
-                 llegar" no querría decir nada. Sin ProcDots por lo mismo: hechos/total sería 0. */
-              chip={<VisitChip status={v.computed_status} compact />}
+                 llegar" no querría decir nada. Sin ProcDots por lo mismo: hechos/total sería 0.
+
+                 Y EL CHIP SÓLO CUANDO LA VISITA SE SALIÓ DE LO ESPERADO. `proxima` rotula
+                 "Pendiente", que es el estado por defecto de toda visita futura: en una tarjeta que
+                 muestra justamente las visitas que vienen, decía lo mismo en las tres filas, todos
+                 los días. Un dato que nunca varía no informa — ocupa el margen derecho y le enseña
+                 al ojo a ignorar esa columna, que es donde después aparece la ventana vencida. */
+              chip={v.computed_status === 'proxima' ? null : <VisitChip status={v.computed_status} compact />}
               onClick={() => onOpenVisit?.(v.id, v.estimated_date ?? undefined)}
               ariaLabel={`Abrir la visita de ${v.patient_name} — ${visitTitle(v)}`}
               onOpenPatient={onOpenPatient && (() => onOpenPatient(v.patient_id, v.protocol_id))}
@@ -1006,9 +970,8 @@ function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, o
   const restantes = rows.length - visibles.length
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-      <CardHeader
+      <CabeceraDeTarjeta
         icon="box"
-        color="var(--spira-acc-deep-blue)"
         titulo="Dispensaciones solicitadas"
         extra={
           rows.length > 0 ? (
