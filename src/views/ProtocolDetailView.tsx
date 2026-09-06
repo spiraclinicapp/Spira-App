@@ -184,12 +184,16 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
             {kpiRow('Pacientes enrolados', k?.enrolled ?? 0, k ? `${k.active} activos` : null)}
             {kpiRow('Visitas realizadas', `${k?.visits_done ?? 0}/${k?.visits_total ?? 0}`, null)}
             {kpiRow('Ventanas por vencer', k?.windows_due_7d ?? 0, 'próx. 7 días', (k?.windows_due_7d ?? 0) > 0)}
+            {/* Adherencia es UN KPI MÁS y ahora se dibuja como tal: mismo `kpiRow` que sus tres
+                hermanos, con la barra debajo. Venía con su propia receta —label a 12 en vez de 12.5,
+                valor en Inter 12/600 teñido con el acento en vez de Schibsted 21/700 en tinta— y era
+                el único de los cuatro que no se leía como parte de la misma columna. La barra sí es
+                suya: es el único de los cuatro cuyo valor es una proporción y admite mostrarse. */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--spira-muted)', marginBottom: 6 }}>
-                <span>Adherencia</span>
-                <span style={{ fontWeight: 600, color: accent, fontVariantNumeric: 'tabular-nums' }}>{adherencePct}%</span>
+              {kpiRow('Adherencia', `${adherencePct}%`, null)}
+              <div style={{ marginTop: 7 }}>
+                <Bar pct={adherencePct} color={accent} />
               </div>
-              <Bar pct={adherencePct} color={accent} />
             </div>
           </div>
 

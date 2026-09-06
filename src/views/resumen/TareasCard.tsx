@@ -7,7 +7,7 @@ import type { TaskRow } from '../../data/tareas'
 import { duracionEstimada, estaHecha, etiquetaDeVencimiento } from '../tareas/estados'
 import { TareaModal } from '../tareas/TareaModal'
 import { esTareaMia } from './ambito'
-import { card, cardTitle, ChipDestino, filaAncha, MAX_FILAS } from './piezas'
+import { CabeceraDeTarjeta, card, ChipDestino, filaAncha, MAX_FILAS } from './piezas'
 import { CuerpoDeTarjeta, VacioSimple } from '../resumenEstados'
 
 /**
@@ -88,15 +88,18 @@ export function TareasCard({
 
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Icon name="clipboardCheck" size={18} color="var(--spira-acc-deep-warn)" stroke={2} />
-        <span style={{ ...cardTitle, flex: 1, minWidth: 0 }}>Tareas personales</span>
-        {pendientes.length > 0 && (
+      {/* El ícono venía en `--spira-acc-deep-warn`, que es el token de ADVERTENCIA, sobre una
+          tarjeta que no advierte nada: una tarea con fecha lejana no es una alerta. Ahora toma el
+          acento del módulo, como las otras cuatro. El ámbar queda reservado para severidad. */}
+      <CabeceraDeTarjeta
+        icon="clipboardCheck"
+        titulo="Tareas personales"
+        extra={pendientes.length > 0 ? (
           <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
             {pendientes.length} {pendientes.length === 1 ? 'pendiente' : 'pendientes'}
           </span>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {errorEscritura && (
         <div role="alert" style={aviso}>

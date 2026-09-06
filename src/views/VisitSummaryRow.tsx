@@ -1,38 +1,39 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
-import { visitCode } from '../lib/visits'
-import { KIND_LABELS } from '../lib/visitLabels'
+import { visitTitle } from '../lib/visits'
 import type { TrackVisitRow } from '../data/visits'
-import type { DayProcedureSummary } from '../data/procedures'
-import { ProtoTag, ProcDots } from './visitAtoms'
+import { FilaDeResumen } from './resumen/piezas'
 
 /**
- * Fila de VISITA de los resúmenes: la usan "Tu día" (Inicio) y "Próximas visitas · 7 días"
- * (Coordinación). Trae el vocabulario de Visitas del día —nombre de titular, etiqueta de
- * protocolo, pastilla de visita— a una columna que es menos de la mitad de ancha.
+ * Fila de VISITA del mosaico del Resumen ("Próximas visitas").
+ *
+ * ES UNA FILA DEL MOSAICO ANTES QUE UNA FILA DE VISITA, y ése es todo el cambio del 2026-09-06.
+ * Venía escrita a mano con el vocabulario de *Visitas del día* —nombre en la fuente display,
+ * etiqueta de protocolo teñida, pastilla de visita en tinta plena— y era la única de las cinco
+ * tarjetas que no usaba el canon de `FilaDeResumen`. Medido contra sus cuatro hermanas: cuatro pesos
+ * tipográficos contra uno, cinco tamaños contra dos, tres cajas con fondo teñido contra cero, dos
+ * familias contra una y 69 px de alto contra 56. El Director lo reportó como "tiene mucha negrita o
+ * algo que no hace que se parezca al resto", que es exactamente lo que la medición dice.
+ *
+ * POR QUÉ LA PASTILLA DE VISITA NO VUELVE. En Visitas del día y en la cola del médico va en tinta
+ * plena con una razón escrita en `visitAtoms.tsx`: "es el dato que se busca al escanear la lista".
+ * Allá es cierto — la fila ES el contenido de la página y se escanea por código de visita. Acá es
+ * falso: se escanea por NOMBRE DE PACIENTE, y el código es contexto. Tenía el elemento de más
+ * contraste de toda la pantalla puesto en el dato menos importante del renglón. La regla que se
+ * lleva de acá: copiar un tratamiento visual arrastra su premisa, y la premisa no siempre viaja.
+ *
+ * Y ARRASTRABA UN DEFECTO REAL: la pastilla salía de `visitCode()` y el texto de al lado de
+ * `visit.visit_name` crudo, salteando `visitTitle()`, que es quien tiene la regla que colapsa
+ * "V21 - V21". Con datos de producción se veía `[V21] V21` en las tres filas — un dato impreso dos
+ * veces, que en una app auditable se lee como error de carga. `visitTitle()` lo resuelve solo.
  *
  * NO dibuja alertas, aunque una alerta sea también un `TrackVisitRow`. Comparten el tipo de dato
  * pero no la forma: la alerta se señala con una superficie teñida por severidad (ver
  * `alertItem.ts`), y eso no es un renglón. Compartir tipo no es compartir forma.
- *
- * EL PRESUPUESTO DE ANCHO manda acá, y está medido, no estimado. Con el shell real (riel 64 +
- * submenú 220 + padding 26×2) una columna de la grilla `1fr 1fr` deja ~505 px a 1440 de viewport,
- * y de ahí hay que descontar el chip. El vocabulario de la línea 2 mide 340 px con las fuentes
- * reales. Por eso:
- *
- *   · el chip va SIEMPRE en `compact` (lo manda la pantalla, ver abajo): 144 → ~110 px;
- *   · NO hay rótulo "Presencial/Telefónica" (59 px). Lo telefónico se marca con un ícono de 13 px
- *     al lado del nombre, que es el único caso que cambia lo que hacés con la visita;
- *   · el nombre va a 15 px y no a los 17 del handoff. Adentro de una tarjeta cuyo título es de
- *     16 px, 17 invertía la jerarquía: el renglón le ganaba a su propio encabezado. En Visitas del
- *     día 17 está bien porque ahí la fila ES el contenido de la página.
- *
- * Antes de agregarle un dato a esta fila, medilo. Coordinador y médico NO entran: son ~206 px y
- * se comen el arreglo entero.
  */
 export function VisitSummaryRow({
-  visit, chip, procs, nota, accent, onClick, ariaLabel, onOpenPatient,
+  visit, chip, primera, onClick, ariaLabel, onOpenPatient,
 }: {
   visit: TrackVisitRow
   /**
@@ -42,129 +43,54 @@ export function VisitSummaryRow({
    * qué campos trae la fila. Si la fila lo dedujera del dato, el día que una consulta de 7 días
    * empiece a traer `operational_stage` mostraría "Por llegar" para visitas de la semana que
    * viene, y se vería bien haciéndolo.
+   *
+   * `null` es un valor esperado y frecuente: ver por qué en `ProximasVisitasCard`.
    */
   chip: ReactNode
-  /** Resumen de procedimientos. `undefined` = esta visita no tiene, o todavía no llegaron: la
-   *  línea simplemente no se pinta y la fila crece cuando llega (no reservamos alto porque la
-   *  mayoría de las visitas no tiene procedimientos). */
-  procs?: DayProcedureSummary
-  /**
-   * Una línea al pie de la fila, para lo que la pantalla necesite decir de ESTA visita y no quepa
-   * en el chip: hoy, el atraso en "Por reprogramar" ("No vino el 28/08/2026 · hace 8 días").
-   *
-   * VA ABAJO Y NO EN LA LÍNEA 2 porque el presupuesto de ancho de esta fila está medido al límite
-   * (ver la cabecera): un dato más ahí adentro empuja al nombre de la visita fuera de vista. Como
-   * renglón propio no compite con nada y la fila simplemente crece.
-   *
-   * La arma la pantalla, igual que el chip: la fila no sabe qué está mirando quien la usa.
-   */
-  nota?: ReactNode
-  accent: string
+  primera: boolean
   onClick: () => void
   ariaLabel: string
   /** Abrir la ficha del paciente. Sin esto, nombre e IVRS quedan como texto (ver `PatientLink`). */
   onOpenPatient?: () => void
 }) {
-  const codigo = visitCode(visit)
-  const nombreVisita = visit.visit_name ?? KIND_LABELS[visit.kind]
-
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      className="spira-row-link spira-no-press"
-      onClick={onClick}
-      onKeyDown={(e) => {
-        // La guarda de siempre: sin ella, Enter sobre el nombre abre la ficha Y la visita.
-        if (e.target !== e.currentTarget) return
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() }
-      }}
-      aria-label={ariaLabel}
-      style={fila}
-    >
-      <div className="spira-link-group" style={{ flex: 1, minWidth: 0 }}>
-        {/* línea 1 — el paciente es el titular */}
-        <div style={linea1}>
+    <FilaDeResumen
+      primera={primera}
+      onAbrir={onClick}
+      ariaLabel={ariaLabel}
+      derecha={chip}
+      titular={
+        <>
           {visit.visit_type === 'telefonica' && (
             <Icon name="phone" size={13} color="var(--spira-faint)" style={{ flex: '0 0 auto' }} />
           )}
-          <span style={nombre}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
             <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
               {visit.patient_name}
             </PatientLink>
           </span>
-        </div>
-
-        {/* línea 2 — de qué visita hablamos. Envuelve en vez de recortar: un IVRS cortado a la
-            mitad parece completo y no lo es, y es el número que el paciente dice por teléfono. */}
-        <div style={linea2}>
-          <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
-          {visit.patient_code && (
-            <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
-              <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>
-                {visit.patient_code}
-              </PatientLink>
-            </span>
-          )}
           {onOpenPatient && <PatientLinkArrow />}
-          {codigo && <span style={pastillaVisita}>{codigo}</span>}
-          <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {nombreVisita}
-          </span>
-        </div>
-
-        {/* línea 3 — qué le exige la visita al día. Solo si hay procedimientos. */}
-        {procs && procs.names.length > 0 && (
-          <div style={{ marginTop: 7 }}>
-            <ProcDots names={procs.names} accent={accent} />
-          </div>
-        )}
-
-        {/* línea 4 — lo que la pantalla tenga para decir de esta visita. Ver `nota`. */}
-        {nota && <div style={notaLinea}>{nota}</div>}
-      </div>
-
-      <span style={{ flex: '0 0 auto' }}>{chip}</span>
-    </div>
+        </>
+      }
+      /* De qué visita hablamos, en el orden en que se pregunta: cuál visita es, de qué protocolo, de
+         qué sujeto. Todo texto, sin una sola caja — el canon de la línea 2. */
+      detalle={
+        <>
+          {visitTitle(visit)}
+          <span style={{ color: 'var(--spira-faint)' }}> · </span>
+          <span className="spira-mono">{visit.protocol_code}</span>
+          {visit.patient_code && (
+            <>
+              <span style={{ color: 'var(--spira-faint)' }}> · </span>
+              <span className="spira-mono">
+                <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>
+                  {visit.patient_code}
+                </PatientLink>
+              </span>
+            </>
+          )}
+        </>
+      }
+    />
   )
-}
-
-/* El separador de arriba es de la fila, así que la fila NO se levanta al hover (`.spira-no-press`):
-   moverla partiría la línea de 1px que la separa de la anterior. Se resalta y se queda quieta.
-   Sin radio por lo mismo, y sin `background` inline — inline le ganaría por especificidad al hover
-   de la clase y el resaltado no se vería nunca. El borde va en longhands: cada fila le suma su
-   `borderTopWidth` y mezclar la abreviada con las longhand deja el borde roto (ver CLAUDE.md). */
-const fila: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 11, padding: '11px 0', width: '100%',
-  borderWidth: 0, borderTopWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)',
-  textAlign: 'left', cursor: 'pointer',
-  fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
-}
-
-const linea1: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 6, minWidth: 0,
-}
-
-/* 15 px y no 17: ver el comentario de cabecera sobre la jerarquía contra el título de la tarjeta. */
-const nombre: CSSProperties = {
-  fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15,
-  letterSpacing: '-0.01em', lineHeight: 1.25,
-  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-}
-
-/* Tono `muted` y no `faint`: es un dato que se lee, no un adorno — y desde la recalibración de la
-   rampa de grises (PR #95) `faint` ya no llega a AA para texto. */
-const notaLinea: CSSProperties = {
-  fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 6, lineHeight: 1.35,
-}
-
-const linea2: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 5, minWidth: 0,
-}
-
-/* La pastilla de la visita es el elemento de MÁS contraste de la fila (tinta sobre papel, al revés
-   que todo lo demás): es lo que se lee de un vistazo cuando escaneás la columna — V6, EOT, VNP. */
-const pastillaVisita: CSSProperties = {
-  padding: '2px 8px', borderRadius: 6, background: 'var(--spira-ink)', color: 'var(--spira-paper)',
-  fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap', flex: '0 0 auto',
 }

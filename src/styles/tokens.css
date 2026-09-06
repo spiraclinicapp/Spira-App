@@ -644,8 +644,20 @@ input:-webkit-autofill:focus {
    Sombra y levante comparten duración y curva para llegar juntos. */
 /* El borde acá es el POR DEFECTO. Una tarjeta con borde propio de estado —los ítems de Alertas,
    teñidos por severidad— lo declara inline y lo pisa; el resto del realce le sigue corriendo. */
+/* El `cursor` va ACÁ y no en el `style` de cada consumidor. Sin él, una tarjeta que navega
+   —`role="button"` sobre un `<div>`, que no trae cursor propio como sí lo trae `<button>`— se ve
+   idéntica a una que no navega. Faltaba justo en las cuatro tarjetas de KPI del Resumen, que son
+   los cuatro blancos más grandes de la pantalla: su única señal de que llevan a algún lado era el
+   `ChipDestino`, que nace en `opacity: 0`, o sea que para descubrir que la tarjeta era pulsable
+   había que ya haberla apuntado. Y en la misma pantalla las filas SÍ daban la mano, así que la
+   pantalla enseñaba una regla y después se la desmentía a sí misma.
+
+   Declararlo en la clase cierra la clase de bug: cualquier consumidor que necesite lo contrario
+   —`ConstanciaIp`, que lo apaga mientras está ocupada— le gana igual por especificidad desde su
+   `style` inline. */
 .spira-card-link {
   border: 1px solid var(--spira-line);
+  cursor: pointer;
 }
 /* Los mismos `:not(...)` que la micro-interacción global de arriba, y a propósito: sin ellos esa
    regla —que es más específica— le pisa la transición a la tarjeta y la sombra entra de golpe
