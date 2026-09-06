@@ -181,7 +181,11 @@ export function TareasView({ module, submodule, setHeader }: ViewProps) {
           accent={accent}
           accentSolid={accentSolid}
           onClose={() => setAbierta(null)}
-          onGuardada={() => { setAbierta(null); tareas.refetch() }}
+          /* Se limpia el aviso de error de LA VISTA, no sólo el del modal: los dos escriben en
+             estados distintos, así que un error de "marcar hecha" quedaba colgado arriba mientras
+             la edición que venía después salía bien. Un cartel que dice que algo falló sobre una
+             pantalla que muestra que salió es peor que no avisar nada. Se cazó en el QA logueado. */
+          onGuardada={() => { setAbierta(null); setError(null); tareas.refetch() }}
         />
       )}
     </div>
