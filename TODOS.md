@@ -737,6 +737,23 @@ Lo que sigue abierto de esta feature está abajo, en su propia entrada (la naveg
 
 ---
 
+## ~~Shell · Inicio no tiene barra de submódulos~~ — HECHO el 2026-09-06 (v0.59.0, PR #129)
+
+**Resuelto por disolución, no por parche.** Tareas se mudó a Coordinación (`track/tareas`, último
+del menú) y se retiraron `tareas` y `alertas` de los submódulos de Inicio. Con eso a Inicio le queda
+UNA sola vista, así que su panel oculto dejó de ser un defecto y `AppShell.tsx:420` no se tocó.
+Entró además el test de invariante *"todo submódulo de un módulo operativo tiene vista registrada"*,
+que es lo que habría cazado este defecto y el de `inicio/tareas` sin que nadie mirara.
+
+**Lo único que queda abierto de esto** es el costo asumido: gerencia y Farmacia no llegan a Tareas
+por clic, porque no tienen el módulo Coordinación. El Director lo aceptó con un "por ahora"
+explícito (2026-09-06). Vuelve el día que alguien de Farmacia pida tareas; las salidas serían el
+panel en Inicio —lo que se descartó al ver el mock— o Tareas como módulo propio del riel.
+
+Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
+
+<details><summary>La entrada original, para contexto</summary>
+
 ## Shell · Inicio no tiene barra de submódulos: Tareas y Pendientes no se pueden abrir con el mouse
 
 - **Qué:** `AppShell.tsx:420` dibuja el panel de submódulos con la condición
@@ -789,7 +806,9 @@ Lo que sigue abierto de esta feature está abajo, en su propia entrada (la naveg
 
 ---
 
-## Coordinación · KPI "Visitas asignadas a mí" (falta el coordinador en v_track_visits)
+</details>
+
+## Coordinación · KPI "Visitas asignadas a mí" (el coordinador YA está en la vista — ver la corrección adentro)
 
 - **Qué:** reemplazar o acompañar el KPI "Próximas visitas" del Resumen de Coordinación con uno que
   cuente sólo las visitas de las que esa persona es coordinadora.
