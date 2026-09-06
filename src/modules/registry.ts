@@ -60,10 +60,16 @@ export const MODULES: ModuleDef[] = [
   {
     key: 'inicio', name: 'Inicio', full: 'Inicio', icon: 'dashboard',
     accent: '#0F5F57', accentSolid: '#0F5F57',
+    /* UNA SOLA VISTA, y por eso `AppShell` no le dibuja panel de submódulos — que es correcto y no
+       un defecto. Tuvo dos más y las dos eran un problema: `tareas` se mudó a Coordinación
+       (2026-09-06, pedido del Director: "esto no va en el Inicio") y `alertas` NUNCA tuvo vista
+       registrada, así que su renglón habría caído al `Placeholder` el día que ese panel se dibujara.
+       Los Pendientes viven completos en Coordinación.
+
+       Antes de agregar acá un submódulo nuevo: o le das vista y hacés que el panel se dibuje, o no
+       se llega con el mouse. El test de `destinos.test.ts` ya no deja registrar uno sin vista. */
     submodules: [
       { key: 'resumen', name: 'Resumen', icon: 'home' },
-      { key: 'tareas', name: 'Tareas', icon: 'clipboardCheck' },
-      { key: 'alertas', name: 'Pendientes', icon: 'bell' },
     ],
   },
   {
@@ -91,6 +97,21 @@ export const MODULES: ModuleDef[] = [
          la de la URL y la del registro de vistas; sólo cambia el rótulo (mismo criterio que
          Coordinación/Farmacia sobre track/pharma). */
       { key: 'alertas', name: 'Pendientes', icon: 'bell', hint: 'Lo que hay que resolver' },
+      /* Tareas vive ACÁ y no en Inicio desde el 2026-09-06. Nació como `inicio/tareas` y el panel
+         de submódulos de Inicio no se dibuja, así que no había forma de abrirla con el mouse: se
+         llegaba sólo escribiendo la URL. Se evaluó dibujar ese panel y el Director lo descartó al
+         ver el mock ("esto no va en el Inicio"), que además es la salida barata — mudándola, a
+         Inicio le queda una sola vista y su panel oculto deja de ser un problema.
+
+         VA ÚLTIMA a propósito: no corre ningún renglón de los que ya estaban, y cierra el menú con
+         lo propio después de lo del estudio (el mismo eje que el mosaico del Resumen).
+
+         COSTO ASUMIDO, con un "por ahora" explícito del Director: quien no tiene Coordinación
+         —gerencia, Farmacia— pierde el acceso por clic, y las tareas son personales y cruzan
+         módulos. Vuelve el día que alguien de Farmacia las pida (ver `TODOS.md`).
+
+         El descriptor está MEDIDO con la fuente cargada: 109,7px sobre los 145 útiles. */
+      { key: 'tareas', name: 'Tareas', icon: 'clipboardCheck', hint: 'Lo que anotaste vos' },
     ],
   },
   {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { formatAR } from '../../lib/dates'
 import {
-  avanceDeTarea, cerreYoMiParte, estadoDeTarea, estaHecha, puedeEditar, puedeEliminar,
+  avanceDeTarea, cerreYoMiParte, estadoDeTarea, estaHecha, etiquetaDeVencimiento,
+  puedeEditar, puedeEliminar,
 } from './estados'
 import type { AsignadoMinimo, TareaMinima } from './estados'
 
@@ -142,6 +144,49 @@ describe('puedeEditar', () => {
 
   it('sin sesión resuelta no se ofrece nada', () => {
     expect(puedeEditar(tarea({ created_by: YO }), [asig(YO)], null)).toBe(false)
+  })
+})
+
+describe('etiquetaDeVencimiento', () => {
+  /* El tiempo verbal sale de la FECHA, no del estado — por eso `estaHecha` no entra acá. Es la
+     regla que hace que una tarea hecha tarde diga "venció" y no "vence 29/08" en presente sobre una
+     fecha que ya pasó. Invertida no rompe nada: dibuja prolijo afirmando lo contrario.
+
+     No se asierta el FORMATO de la fecha: eso lo decide `formatAR` según la preferencia del
+     usuario, y fijarlo acá haría fallar el test el día que alguien elija otro formato sin que la
+     regla que este archivo cuida haya cambiado. Lo que se asierta es el VERBO. */
+  const HACE_UNA_SEMANA = '2026-08-30'
+  const MANANA = '2026-09-07'
+
+  it('una fecha pasada va en pasado, y se declara vencida', () => {
+    const e = etiquetaDeVencimiento(HACE_UNA_SEMANA, HOY)
+    expect(e).toEqual({ texto: `venció ${formatAR(HACE_UNA_SEMANA)}`, vencida: true })
+  })
+
+  it('una fecha futura va en presente', () => {
+    const e = etiquetaDeVencimiento(MANANA, HOY)
+    expect(e).toEqual({ texto: `vence ${formatAR(MANANA)}`, vencida: false })
+  })
+
+  it('HOY todavía no venció', () => {
+    // El borde: vence hoy es "vence", no "venció". Un `<=` acá reprocharía algo que está a tiempo.
+    const e = etiquetaDeVencimiento(HOY, HOY)
+    expect(e).toEqual({ texto: `vence ${formatAR(HOY)}`, vencida: false })
+  })
+
+  it('sin fecha devuelve null, no un texto de relleno', () => {
+    /* Una tarea sin vencimiento es válida ("cuando pueda"). Devolver "sin fecha" acá obligaría a
+       las dos pantallas a reconocer ese texto para poder no mostrarlo. */
+    expect(etiquetaDeVencimiento(null, HOY)).toBeNull()
+  })
+
+  it('el color no se puede separar de la palabra', () => {
+    /* `vencida` viaja CON el texto justamente para que sea imposible pintar de rojo un "vence" o
+       de gris un "venció": las dos cosas salen de la misma comparación. */
+    for (const fecha of [HACE_UNA_SEMANA, HOY, MANANA]) {
+      const e = etiquetaDeVencimiento(fecha, HOY)!
+      expect(e.vencida).toBe(e.texto.startsWith('venció'))
+    }
   })
 })
 

@@ -42,6 +42,17 @@ export interface Destino {
  */
 export const DESTINO_PENDIENTES: Destino = { moduleKey: 'track', subKey: 'alertas' }
 
+/**
+ * Dónde vive la pantalla completa de Tareas. **Es `track` y no `inicio` desde el 2026-09-06**, y por
+ * eso está acá con nombre en vez de escrito a mano en el pie de la tarjeta: nació como
+ * `inicio/tareas`, se mudó a Coordinación, y un literal habría sobrevivido a esa mudanza sin fallar
+ * — el pie seguiría prometiendo un lugar que ya no existe, sin un solo error.
+ *
+ * Que quede en Coordinación tiene una consecuencia buena: el "Ver todas" NO cruza de módulo, así que
+ * no hay `navigate` que `isAllowed` pueda descartar en silencio ni pasaje de vuelta que armar.
+ */
+export const DESTINO_TAREAS: Destino = { moduleKey: 'track', subKey: 'tareas' }
+
 export const KPI_DESTINOS: Record<KpiKey, Destino> = {
   protocolos: { moduleKey: 'track', subKey: 'protocolos' },
   pacientes: { moduleKey: 'track', subKey: 'protocolos' },

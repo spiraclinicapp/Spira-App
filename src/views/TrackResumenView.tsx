@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { SegmentedControl } from '../components/SegmentedControl'
 import { useAuth } from '../lib/auth'
 import { AlertCardHeader } from './AlertCardHeader'
+import { card, cardTitle, ChipDestino, filaAncha, MAX_FILAS } from './resumen/piezas'
 import { severidadMaxima } from './alertSeverity'
-import { DESTINO_PENDIENTES, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
+import { DESTINO_PENDIENTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
 import { proximoDiaConVisitas } from './resumen/proximoDia'
-import { AMBITOS, esMiaSinAtender, esDeMisProtocolos, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
+import { AMBITOS, esMiaSinAtender, esDeMisProtocolos, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
 import type { Ambito } from './resumen/ambito'
 import { useProtocols, useMyCoordinations } from '../data/protocols'
 import { usePatients } from '../data/patients'
@@ -17,6 +18,9 @@ import { useUpcomingVisits } from '../data/visits'
 import { useActiveAlerts } from '../data/alertDismissals'
 import { useSolicitudesPendientes, ESTADO_SOLICITUD } from '../data/pharma'
 import type { SolicitudPendienteRow } from '../data/pharma'
+import { useMyTasks } from '../data/tareas'
+import { estaHecha } from './tareas/estados'
+import { TareasCard } from './resumen/TareasCard'
 import { useReportesPendientes } from '../data/reportStatus'
 import type { ReportStatusRow } from '../data/reportStatus'
 import { dueLabel, esReportePendiente, esTarjeta } from './track/reportes/estados'
@@ -25,59 +29,16 @@ import { visitTitle } from '../lib/visits'
 import { dayLabel, formatAR, fromNow, todayISO } from '../lib/dates'
 import { VISIT_STATES, VisitChip } from './visitStates'
 import { VisitSummaryRow } from './VisitSummaryRow'
-import { ErrorBloque, FilasFantasma } from './resumenEstados'
+import { CuerpoDeTarjeta, VacioSimple } from './resumenEstados'
 import { useAbrirFicha } from './useAbrirFicha'
 import { VisitDetail } from './track/VisitDetail'
 import { useUrlEntity, useUrlState } from '../lib/useUrlState'
 import { oneOf } from '../lib/router'
 import type { ViewProps } from './types'
 
-const card: CSSProperties = {
-  background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
-  borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
-}
-const cardTitle: CSSProperties = { fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 16 }
-
-/* Fila a ancho completo de la tarjeta: los márgenes negativos cancelan el padding horizontal
-   (20px) para que el resaltado del hover llegue a los bordes en vez de flotar adentro con una
-   franja de aire a los costados. Es el patrón del handoff y el mismo que ya usan otras listas.
-   El separador de arriba es de la fila, así que la fila NO se levanta (`.spira-no-press`):
-   moverla partiría esa línea de 1px. Sin radio por lo mismo. */
-const filaAncha: CSSProperties = {
-  display: 'flex', alignItems: 'flex-start', gap: 11, width: '100%',
-  margin: '0 -20px', padding: '11px 20px',
-  borderWidth: 0, borderTopWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)',
-  textAlign: 'left', cursor: 'pointer',
-  fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)',
-}
-
 /** El punto de color de una fila plana: sustituye a la superficie teñida como marca de severidad. */
 function Punto({ color }: { color: string }) {
   return <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flex: '0 0 auto', marginTop: 6 }} />
-}
-
-/**
- * El rótulo del destino que aparece al apuntar (o al enfocar con Tab) una tarjeta o el pie
- * "Ver todo": el nombre real del submódulo + flecha, deslizando 4px desde la izquierda.
- *
- * El movimiento y el disparo viven en CSS (`.spira-dest` / `.spira-dest-group`), NO en
- * `onMouseEnter` como el mock del handoff: escribir el realce desde un handler es el gotcha de la
- * casa, y además un handler no tiene `:focus-visible`, así que con teclado no se vería nunca.
- *
- * `aria-hidden` porque es decoración: a dónde lleva ya lo dice el `aria-label` del contenedor, que
- * es lo que anuncia el lector de pantalla. Duplicarlo lo haría leer el destino dos veces.
- */
-function ChipDestino({ nombre }: { nombre: string }) {
-  return (
-    <span
-      className="spira-dest"
-      aria-hidden="true"
-      style={{ fontSize: 12, fontWeight: 700, color: 'var(--spira-acc-deep-track)' }}
-    >
-      {nombre}
-      <Icon name="arrowRight" size={12} stroke={2.4} />
-    </span>
-  )
 }
 
 /**
@@ -135,16 +96,6 @@ function KpiCard({ label, value, sub, dot, cargando, kpi, onNavigate }: {
     </div>
   )
 }
-
-/**
- * Cuántas filas muestra una tarjeta antes de mandar el resto al pie.
- *
- * Tres es el número que pidió el Director, y tiene una razón que se ve en pantalla: con cuatro
- * tarjetas en el mosaico, la que se estira decide el alto de su columna y empuja a la de abajo
- * fuera de vista. Tres filas dejan las cuatro comparables de un vistazo, que es lo que un resumen
- * tiene que dar; lo que no entra NO se esconde — cada pie dice cuántas faltan y cómo verlas.
- */
-const MAX_FILAS = 3
 
 /**
  * El pie "Ver más" que NAVEGA: a la izquierda el texto, a la derecha el nombre del submódulo
@@ -339,17 +290,15 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
           </>
         )}
       </div>
-      {loading ? (
-        <FilasFantasma />
-      ) : error ? (
-        <ErrorBloque que="los reportes pendientes" onReintentar={onReintentar} />
-      ) : pendientes.length === 0 ? (
-        vacioDelAmbito ?? (
-          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-            {tarjetas.length === 0 ? 'Sin reportes en juego.' : 'Todos los reportes están cerrados.'}
-          </div>
-        )
-      ) : (
+      <CuerpoDeTarjeta
+        loading={loading}
+        error={error}
+        que="los reportes pendientes"
+        onReintentar={onReintentar}
+        vacia={pendientes.length === 0}
+        vacio={<VacioSimple>{tarjetas.length === 0 ? 'Sin reportes en juego.' : 'Todos los reportes están cerrados.'}</VacioSimple>}
+        vacioDelAmbito={vacioDelAmbito}
+      >
         <div style={{ marginTop: 8 }}>
           {visibles.map((r, i) => {
             const plazo = dueLabel(r)
@@ -396,7 +345,7 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
             )
           })}
         </div>
-      )}
+      </CuerpoDeTarjeta>
       {(restantes > 0 || expandido) && (
         <VerMasLocal restantes={restantes} expandido={expandido} onToggle={() => setExpandido((v) => !v)} />
       )}
@@ -499,6 +448,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const alerts = useActiveAlerts()
   const solicitudes = useSolicitudesPendientes()
   const reportes = useReportesPendientes()
+  const tareas = useMyTasks()
 
   /* ┌─ El ámbito: "Lo mío" (por defecto) o "Todo" ────────────────────────────────────────────┐
      La pantalla YA venía filtrada por la RLS al nivel de protocolo, sin que ninguna palabra lo
@@ -594,6 +544,9 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
     loPediYo(s, userId))
   const reporteRows = filtrarPorAmbito(ambitoEfectivo, reportes.data ?? [], (r) =>
     loAtendiYo(r, userId))
+  /* Tareas: "Lo mío" = las que tengo que hacer yo; "Todo" suma las que creé y le encargué a otro
+     —que es justo lo que la RLS de la 0108 devuelve—. Ver `esTareaMia`. */
+  const tareaRows = filtrarPorAmbito(ambitoEfectivo, tareas.data ?? [], (t) => esTareaMia(t, userId))
 
   /* El aviso sólo tiene sentido si hay algo del otro lado. Ofrecer "Ver todo" cuando "Todo" también
      está vacío manda a alguien a confirmar una nada — y en esta pantalla un viaje en falso cuesta
@@ -635,6 +588,23 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const irAAlertas = () => onNavigate?.('track', 'alertas')
   const nombrePendientes = nombreDeDestino(DESTINO_PENDIENTES)
   const nombreVisitas = nombreDeDestino(KPI_DESTINOS.visitas)
+  const nombreTareas = nombreDeDestino(DESTINO_TAREAS)
+
+  /* CUÁNTAS DE LAS PRÓXIMAS SON TUYAS. Va en el SUBTÍTULO del KPI y no como KPI propio, aunque el
+     handoff pida una tarjeta entera para "Visitas asignadas a mí": el campo existe
+     (`v_track_visits` proyecta `coordinator_id` desde la 0065) pero en visitas FUTURAS casi nunca
+     está poblado — se sella al ATENDER (`start_visit_attention`, 0102) o a mano desde el encabezado
+     de la visita, que es opcional y hoy casi no se usa. Un KPI en cero permanente no se lee como
+     "no tenés nada": se lee como que la app está rota.
+
+     Y sólo aparece cuando hay alguna: un "0 asignadas a mí" todos los días es ruido con forma de
+     dato. El día que el equipo empiece a asignar coordinador por adelantado, esto pide su tarjeta.
+
+     Se cuenta sobre `upcomingRows` —ya filtradas por ámbito— y no sobre el dato crudo: el número
+     grande y su subtítulo tienen que contar lo mismo. Y usa `loAtendiYo`, que YA tiene la guarda
+     del `userId` nulo y su test; escribir `=== userId` a mano acá reintroduce el bug de declarar
+     tuyas todas las visitas sin coordinador durante el render en que la sesión no resolvió. */
+  const asignadasAMi = upcomingRows.filter((v) => loAtendiYo(v, userId)).length
 
 
   return (
@@ -662,23 +632,38 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
         <KpiCard kpi="protocolos" onNavigate={onNavigate} label="Protocolos activos" value={activeProtocols} sub={`${allProtocols.length} en total`} dot={accent} cargando={cargandoKpis} />
         <KpiCard kpi="pacientes" onNavigate={onNavigate} label="Pacientes activos" value={activePatients} sub={`${allPatients.length} registrados`} dot={accent} cargando={cargandoKpis} />
         <KpiCard kpi="reportes" onNavigate={onNavigate} label="Reportes vencidos" value={overdueItems} sub="fuera de plazo" dot={overdueItems > 0 ? 'var(--spira-warn)' : accent} cargando={cargandoKpis} />
-        <KpiCard kpi="visitas" onNavigate={onNavigate} label="Próximas visitas" value={upcomingRows.length} sub="próximos 7 días" dot={accent} cargando={cargandoKpis} />
+        <KpiCard kpi="visitas" onNavigate={onNavigate} label="Próximas visitas" value={upcomingRows.length} sub={asignadasAMi > 0 ? `${asignadasAMi} ${asignadasAMi === 1 ? 'asignada' : 'asignadas'} a mí` : 'próximos 7 días'} dot={accent} cargando={cargandoKpis} />
       </div>
 
       {/*
-        EL MOSAICO — dos tarjetas por columna, parejo (D2 + D13).
+        EL MOSAICO — cinco tarjetas, dos columnas (D2 + D13 + la decisión 12 del 2026-09-06).
 
           ┌──────────────────────────┬──────────────────────────┐
-          │ Reportes pendientes      │ Dispensaciones solicit.  │
-          │  (lo que hay que cerrar) │  (lo que estás esperando)│
+          │ Reportes pendientes      │ Tareas personales        │
+          │  (lo que hay que cerrar) │  (lo que anotaste vos)   │
           ├──────────────────────────┼──────────────────────────┤
-          │ Pendientes               │ Próximas visitas         │
-          │  (lo que se pasó)        │  (quién viene, un día)   │
-          └──────────────────────────┴──────────────────────────┘
+          │ Pendientes               │ Dispensaciones solicit.  │
+          │  (lo que se pasó)        │  (lo que estás esperando)│
+          └──────────────────────────┼──────────────────────────┤
+                 603 px              │ Próximas visitas         │
+                                     │  (quién viene, un día)   │
+                                     └──────────────────────────┘
+                                                721 px
 
-        La izquierda es TRABAJO PROPIO —reportes que cerrar, desvíos que resolver—; a la derecha, lo
-        que no depende de vos: pedidos que Farmacia tiene que atender y pacientes que van a venir.
-        Esa es la lectura que hace que la columna izquierda se mire primero.
+        EL EJE, REESCRITO al entrar Tareas: a la izquierda **los desvíos del estudio** —reportes que
+        cerrar, pendientes que resolver—; a la derecha **lo tuyo y lo que viene**: tus tareas, lo que
+        le pediste a Farmacia, quién llega mañana. Antes decía "izquierda = trabajo propio", y con
+        las tareas personales a la derecha eso dejaba de ser cierto: un diagrama stale es peor que
+        ninguno.
+
+        POR QUÉ TAREAS VA ARRIBA A LA DERECHA Y NO SE MUEVE NADA MÁS. La review había propuesto mudar
+        "Próximas visitas" a la izquierda para emparejar las columnas, estimando que las cinco
+        tarjetas miden parecido. Medidas en el mock (`docs/mock-resumen-tareas-en-el-mosaico.html`):
+        Reportes 271, Pendientes 289, Tareas 280, Próximas visitas 214 y Dispensaciones **171** —esta
+        última es chica porque tiene dos filas y ningún pie—. Con esos números la recomendación se da
+        vuelta: mudándola el desbalance es de **337 px** y "Próximas visitas" queda ENTERA debajo de
+        la línea de flotación en 1536×864; dejándola es de **118 px** y la página mide 111 px menos.
+        Si vas a reacomodar esto, medí antes: acá estimar ya falló una vez.
 
         LA DE ABAJO A LA DERECHA DIO DOS VUELTAS EL MISMO DÍA (2026-09-05) y las dos quedaron
         escritas para que no se relean como indecisión: era "Próximas visitas · 7 días", pasó a "Por
@@ -691,8 +676,8 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
         sin techo y empujaba a la de Dispensaciones fuera de vista cada semana cargada. Una jornada
         entra en tres filas.
 
-        Cuando entren las Tareas personales van arriba a la derecha; por eso cada tarjeta es un
-        componente con nombre y esta grilla son cuatro líneas.
+        Que cada tarjeta sea un componente con nombre y esta grilla sean cuatro líneas es lo que hizo
+        que sumar la quinta fuera una línea, no un rediseño.
 
         `align-items: start` para que ninguna columna estire sus tarjetas al alto de la otra: sin
         eso, una tarjeta de dos renglones al lado de una lista larga se dibuja con un vacío enorme.
@@ -736,6 +721,23 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+          <TareasCard
+            rows={tareaRows}
+            loading={tareas.loading || coordinaciones.loading}
+            error={tareas.error}
+            onReintentar={tareas.refetch}
+            userId={userId}
+            accent={accent}
+            accentSolid={module.accentSolid}
+            onVerTodas={onNavigate ? () => onNavigate(DESTINO_TAREAS.moduleKey, DESTINO_TAREAS.subKey) : undefined}
+            nombreDestino={nombreTareas}
+            onCambio={tareas.refetch}
+            /* Mismo criterio de vacío que usa la tarjeta puertas adentro (`estaHecha`, no un
+               `completed_at === null`): comparar contra el dato crudo podía ofrecer "Ver todo"
+               cuando del otro lado sólo había tareas ya cerradas — un viaje en falso. */
+            vacioDelAmbito={avisoDeAmbito('No tenés tareas asignadas.',
+              (tareas.data ?? []).some((t) => !estaHecha(t, t.task_assignees)))}
+          />
           <DispensacionesCard
             rows={solicitudRows}
             loading={solicitudes.loading || coordinaciones.loading}
@@ -818,17 +820,15 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
       <AlertCardHeader titulo={titulo} severidad={severidadMaxima(rows)} cantidad={rows.length} />
-      {loading ? (
-        <FilasFantasma />
-      ) : error ? (
-        <ErrorBloque que="las alertas" onReintentar={onReintentar} />
-      ) : rows.length === 0 ? (
-        vacioDelAmbito ?? (
-          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-            Sin alertas. Todo al día.
-          </div>
-        )
-      ) : (
+      <CuerpoDeTarjeta
+        loading={loading}
+        error={error}
+        que="las alertas"
+        onReintentar={onReintentar}
+        vacia={rows.length === 0}
+        vacio={<VacioSimple>Sin alertas. Todo al día.</VacioSimple>}
+        vacioDelAmbito={vacioDelAmbito}
+      >
         <>
           {/* Sin `marginTop` propio: la separación con la banda teñida la pone ahora la cabecera
               (su margen inferior), para que las dos pantallas que la usan respiren igual. */}
@@ -888,7 +888,7 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
             ))}
           </div>
         </>
-      )}
+      </CuerpoDeTarjeta>
       {/* Gateado por `rows.length > 0`: con la tarjeta vacía, "Ver todo" (cambia
           el ámbito, del `vacioDelAmbito` de arriba) y el pie que navega a otra pantalla
           son dos affordances que navegan a lugares distintos — con las dos presentes a la vez, cuál
@@ -956,17 +956,15 @@ function ProximasVisitasCard({ dia, rows, accent, loading, error, onReintentar, 
           <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>{dayLabel(dia)}</span>
         )}
       </div>
-      {loading ? (
-        <FilasFantasma />
-      ) : error ? (
-        <ErrorBloque que="las próximas visitas" onReintentar={onReintentar} />
-      ) : rows.length === 0 ? (
-        vacioDelAmbito ?? (
-          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-            Sin visitas en los próximos 7 días.
-          </div>
-        )
-      ) : (
+      <CuerpoDeTarjeta
+        loading={loading}
+        error={error}
+        que="las próximas visitas"
+        onReintentar={onReintentar}
+        vacia={rows.length === 0}
+        vacio={<VacioSimple>Sin visitas en los próximos 7 días.</VacioSimple>}
+        vacioDelAmbito={vacioDelAmbito}
+      >
         <div style={{ marginTop: 6 }}>
           {visibles.map((v) => (
             <VisitSummaryRow
@@ -982,7 +980,7 @@ function ProximasVisitasCard({ dia, rows, accent, loading, error, onReintentar, 
             />
           ))}
         </div>
-      )}
+      </CuerpoDeTarjeta>
       {onVerMas && nombreDestino && rows.length > 0 && (
         <VerMas nombre={nombreDestino} restantes={restantes} onClick={onVerMas} />
       )}
@@ -1020,17 +1018,15 @@ function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, o
           ) : undefined
         }
       />
-      {loading ? (
-        <FilasFantasma />
-      ) : error ? (
-        <ErrorBloque que="las dispensaciones solicitadas" onReintentar={onReintentar} />
-      ) : rows.length === 0 ? (
-        vacioDelAmbito ?? (
-          <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
-            Sin dispensaciones pendientes.
-          </div>
-        )
-      ) : (
+      <CuerpoDeTarjeta
+        loading={loading}
+        error={error}
+        que="las dispensaciones solicitadas"
+        onReintentar={onReintentar}
+        vacia={rows.length === 0}
+        vacio={<VacioSimple>Sin dispensaciones pendientes.</VacioSimple>}
+        vacioDelAmbito={vacioDelAmbito}
+      >
         <div style={{ marginTop: 8 }}>
           {visibles.map((s, i) => (
             <SolicitudRow
@@ -1046,7 +1042,7 @@ function DispensacionesCard({ rows, loading, error, onReintentar, onOpenVisit, o
             />
           ))}
         </div>
-      )}
+      </CuerpoDeTarjeta>
       {/* El pie DESPLIEGA acá mismo y no navega (D11 + D15): Farmacia › Dispensaciones exige un
           módulo que quien coordina puede no tener, así que mandar ahí le dejaría un pie muerto a
           media plantilla. El destino por fila ya es la visita, que sí está garantizado. */}

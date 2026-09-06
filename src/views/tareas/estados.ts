@@ -22,7 +22,7 @@
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 
-import { daysDiffISO } from '../../lib/dates'
+import { daysDiffISO, formatAR } from '../../lib/dates'
 import type { CompletionMode } from '../../data/tareas'
 
 /** Lo que estas reglas necesitan de una tarea. */
@@ -100,6 +100,49 @@ export function estadoDeTarea(
   if (dias < 0) return 'vencida'
   if (dias === 0) return 'vence_hoy'
   return 'proxima'
+}
+
+/**
+ * "20 min", "1 h", "1 h 30". Sin decimales: nadie estima un pendiente en horas con coma.
+ *
+ * Vivía local en `TareasView` y se subió acá cuando la tarjeta del Resumen mostró el mismo dato:
+ * dos copias de un formato dan dos textos distintos para el mismo número en cuanto alguien toque
+ * una. No tiene test —falla de manera VISIBLE, que es el criterio de la casa— pero sí un solo lugar.
+ */
+export function duracionEstimada(min: number): string {
+  if (min < 60) return `${min} min`
+  const h = Math.floor(min / 60)
+  const r = min % 60
+  return r === 0 ? `${h} h` : `${h} h ${r}`
+}
+
+/**
+ * La etiqueta del vencimiento: "venció 04/09" / "vence 09/09", y si esa fecha ya pasó.
+ *
+ * EL TIEMPO VERBAL SALE DE LA FECHA Y NO DEL ESTADO, y esa distinción es todo el motivo de que esto
+ * exista. Atado al estado, una tarea hecha tarde decía "vence 29/08" —presente sobre una fecha que
+ * ya pasó—, porque su estado es `hecha` y no `vencida`. Son dos preguntas distintas: si la fecha
+ * pasó, y si la tarea se resolvió.
+ *
+ * DEVUELVE EL `vencida` EN VEZ DE QUE LO CALCULE QUIEN LLAMA, por el mismo motivo que `dueLabel` en
+ * reportes: así es imposible pintar de rojo un texto que dice "vence" o de gris uno que dice
+ * "venció". El color y la palabra salen de la misma comparación.
+ *
+ * VIVÍA INLINE EN EL JSX DE `TareasView` y se extrajo cuando la tarjeta del Resumen necesitó la
+ * misma etiqueta: copiada, eran dos verdades sobre la misma columna, y se separan la primera vez
+ * que alguien toca una. Falla en silencio —dibuja prolijo diciendo lo contrario— así que va con test.
+ *
+ * `null` cuando no hay fecha: una tarea sin vencimiento es válida ("cuando pueda") y quien llama
+ * decide si no muestra nada o dice "sin fecha". Devolver un texto de relleno acá obligaría a las dos
+ * pantallas a saber cuál es para poder ignorarlo.
+ */
+export function etiquetaDeVencimiento(
+  dueDate: string | null,
+  hoy: string,
+): { texto: string; vencida: boolean } | null {
+  if (!dueDate) return null
+  const vencida = dueDate < hoy
+  return { texto: `${vencida ? 'venció' : 'vence'} ${formatAR(dueDate)}`, vencida }
 }
 
 /**

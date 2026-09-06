@@ -75,3 +75,53 @@ describe('destinos de los KPI del Resumen', () => {
     expect(nombreDeDestino({ moduleKey: 'inexistente', subKey: 'resumen' })).toBeNull()
   })
 })
+
+/**
+ * El menú y las vistas, cruzados. **Esto no es sobre el Resumen: es sobre toda la navegación.**
+ *
+ * NACE DE DOS DEFECTOS REALES EN DOS DÍAS, que son la misma cosa vista de los dos lados:
+ *
+ *   · **2026-09-05** — `inicio/tareas` estaba en el menú y no tenía vista: el renglón prometía una
+ *     pantalla y mostraba "En construcción".
+ *   · **2026-09-06** — `inicio/alertas` estaba igual, y nadie lo notó porque el panel de submódulos
+ *     de Inicio no se dibuja. Iba a aparecer en cuanto alguien lo dibujara.
+ *
+ * NINGUNO DE LOS DOS ROMPE NADA: `resolveView` cae al `Placeholder` sin error, sin 404 y sin
+ * excepción en consola. Es exactamente el criterio de la casa —se testea lo que falla en silencio—
+ * y es lo único que había entre el menú y las vistas, que hasta hoy eran dos listas escritas a mano
+ * que nadie cruzaba.
+ *
+ * SÓLO SE TESTEA UNA DIRECCIÓN, y a propósito: todo renglón del menú tiene que tener vista. La
+ * inversa —toda vista registrada tiene que estar en el menú— sería FALSA: `track/agenda` está
+ * registrada y fuera del menú por pedido del Director, con su ruta intacta para reponerla.
+ *
+ * Los módulos `proximamente` (Lab, Contable) quedan afuera: no le aparecen a nadie en el riel y no
+ * se puede entrar, así que sus submódulos son un plan, no una promesa rota.
+ */
+describe('el menú no promete pantallas que no existen', () => {
+  const OPERATIVOS = MODULES.filter((m) => !m.proximamente)
+
+  it('hay módulos operativos que revisar (si no, este test no prueba nada)', () => {
+    // La guarda de siempre: un filtro que se vacía deja los `for` de abajo pasando sin mirar nada.
+    expect(OPERATIVOS.length).toBeGreaterThan(0)
+  })
+
+  it('cada submódulo de un módulo operativo tiene una vista real detrás', () => {
+    for (const modulo of OPERATIVOS) {
+      for (const sub of modulo.submodules) {
+        expect(
+          isViewRegistered(modulo.key, sub.key),
+          `${modulo.key}/${sub.key} ("${sub.name}") está en el menú y cae al Placeholder`,
+        ).toBe(true)
+      }
+    }
+  })
+
+  it('ningún módulo operativo se queda sin submódulos', () => {
+    /* `resolverInicio` entra por `submodules[0]` y `AppShell` usa el primero al entrar a un módulo:
+       una lista vacía deja el módulo sin destino, y el riel llevaría a la nada. */
+    for (const modulo of OPERATIVOS) {
+      expect(modulo.submodules.length, `el módulo ${modulo.key} no tiene submódulos`).toBeGreaterThan(0)
+    }
+  })
+})

@@ -52,7 +52,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 /* Vistas portadas que traen sus propias acciones contextuales (o son de solo
    lectura): para ellas se suprime el botón de acción genérico del shell. */
-const HIDE_ACTION = new Set(['inicio/resumen', 'inicio/tareas', 'inicio/alertas', 'track/resumen', 'track/protocolos', 'track/visitas', 'track/para-ver-medico', 'track/agenda', 'track/alertas', 'pharma/protocolos', 'pharma/recepcion', 'pharma/medicamentos', 'pharma/reportes'])
+const HIDE_ACTION = new Set(['inicio/resumen', 'track/resumen', 'track/tareas', 'track/protocolos', 'track/visitas', 'track/para-ver-medico', 'track/agenda', 'track/alertas', 'pharma/protocolos', 'pharma/recepcion', 'pharma/medicamentos', 'pharma/reportes'])
 
 const iconBtn: CSSProperties = {
   width: 38, height: 38, borderRadius: 10, border: 'none',

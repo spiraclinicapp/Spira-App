@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 
 /**
@@ -59,6 +60,58 @@ export function ErrorBloque({ que, onReintentar }: { que: string; onReintentar: 
         Reintentar
       </button>
     </div>
+  )
+}
+
+/**
+ * El cuerpo de una tarjeta del mosaico: cargando → error → vacío → filas, en ese orden.
+ *
+ * ESTABA COPIADO CINCO VECES, palabra por palabra, y lo único que cambiaba entre las copias era el
+ * texto del `que=`. Una escalera repetida así es donde se cuela el olvido invisible: la tarjeta que
+ * no dibuja su error y se queda en blanco, o la que ignora el aviso de ámbito y dice "no hay nada"
+ * cuando en realidad el trabajo lo hizo otro. Ninguna de las dos se ve mirando la pantalla en un día
+ * normal, porque en un día normal los tres estados no aparecen.
+ *
+ * EL ORDEN NO ES ARBITRARIO y por eso vive acá y no en cada tarjeta: cargando gana sobre vacío
+ * —mostrar "no hay nada" mientras la consulta viaja es afirmar algo que todavía no se sabe— y el
+ * error gana sobre las filas, porque una lista a medias con un error debajo se lee como una lista
+ * completa.
+ *
+ * `vacioDelAmbito` PISA al vacío propio cuando existe. La distinción importa: "no hay reportes
+ * pendientes" y "no atendiste vos ninguna visita con reportes pendientes" son cosas distintas, y la
+ * segunda tiene salida ("Ver todo"). Quien decide cuál va es la vista, que es la única que conoce
+ * el ámbito; la tarjeta sólo muestra lo que le den (ver el prop del mismo nombre en cada una).
+ *
+ * NO DECIDE SI LA LISTA ESTÁ VACÍA — se lo pasan hecho. Cada tarjeta tiene su propio criterio y no
+ * siempre es `.length > 0`: Reportes se considera vacía cuando ninguna fila pasa `esReportePendiente`,
+ * aunque la consulta haya traído filas. Calcularlo acá obligaría a esa regla a mudarse, y es de la
+ * tarjeta.
+ */
+export function CuerpoDeTarjeta({
+  loading, error, que, onReintentar, vacia, vacio, vacioDelAmbito, children,
+}: {
+  loading: boolean
+  error: string | null
+  /** Qué no se pudo cargar, en minúscula y con artículo: «las alertas», «los reportes pendientes». */
+  que: string
+  onReintentar: () => void
+  vacia: boolean
+  /** El vacío PROPIO de la tarjeta: lo que dice cuando de verdad no hay nada. */
+  vacio: ReactNode
+  /** El vacío del ámbito, si corresponde. Pisa al propio. */
+  vacioDelAmbito?: ReactNode
+  children: ReactNode
+}) {
+  if (loading) return <FilasFantasma />
+  if (error) return <ErrorBloque que={que} onReintentar={onReintentar} />
+  if (vacia) return <>{vacioDelAmbito ?? vacio}</>
+  return <>{children}</>
+}
+
+/** El texto de un vacío propio. Existe para que las cinco tarjetas no repitan el mismo `style`. */
+export function VacioSimple({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>{children}</div>
   )
 }
 

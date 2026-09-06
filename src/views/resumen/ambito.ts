@@ -130,6 +130,44 @@ export function esMiaSinAtender(
   return fila.coordinator_id === null && esDeMisProtocolos(fila, misProtocolos)
 }
 
+/** Lo que hace falta saber de un asignado a una tarea (`task_assignees`, 0108). */
+export interface ConAsignados {
+  task_assignees: readonly { user_id: string }[]
+}
+
+/**
+ * "Mío" para la tarjeta de TAREAS. La quinta definición de la pantalla, y la única que no habla de
+ * visitas.
+ *
+ * EL ÁMBITO YA SIGNIFICABA ALGO ACÁ, SIN INVENTAR NADA. `useMyTasks` no filtra por usuario a
+ * propósito: la RLS de la 0108 devuelve las tareas donde sos **autor o asignado**, que son dos cosas
+ * distintas. Entonces:
+ *
+ *   · **"Lo mío"** = las que tengo que hacer yo (soy asignado).
+ *   · **"Todo"**   = eso, más las que creé y le encargué a otra persona.
+ *
+ * Es exactamente la misma forma que las otras cuatro tarjetas —lo mío estrecho, "Todo" = lo que la
+ * RLS deja ver— y encima rima con la columna donde vive: a la derecha del mosaico está lo que
+ * depende de otro, y una tarea delegada es justamente eso.
+ *
+ * SIN ESTO LA TARJETA SERÍA LA ÚNICA QUE NO REACCIONA AL ALTERNADOR, y esa excepción no se puede
+ * ver: cuatro tarjetas se ensanchan al prender "Todo" y una se queda igual, sin nada que lo diga.
+ *
+ * La guarda del `userId` nulo es la de siempre y por el mismo motivo que en `loAtendiYo`: durante el
+ * render en que la sesión todavía no resolvió, sin ella `undefined === undefined` no pasa, pero un
+ * `some` sobre una lista con `user_id` vacío sí podría — y sobre todo, sin sesión no se puede
+ * afirmar que algo sea tuyo.
+ *
+ * DECIDE DOS COSAS, NO UNA, y por eso la usa también la fila: si no sos asignado, además de quedar
+ * fuera de "Lo mío" **no podés tildarla** (`set_task_done` cierra la parte de un asignado y te
+ * rechazaría). Que las dos decisiones salgan de la MISMA función es lo que impide que exista una
+ * fila filtrada como propia y dibujada como ajena.
+ */
+export function esTareaMia(tarea: ConAsignados, userId: string | null): boolean {
+  if (!userId) return false
+  return tarea.task_assignees.some((a) => a.user_id === userId)
+}
+
 /**
  * Aplica el ámbito a una lista. En "todo" devuelve TODAS —nunca ninguna—, que es el error clásico
  * del otro lado y el que vacía una pantalla sin decir por qué.

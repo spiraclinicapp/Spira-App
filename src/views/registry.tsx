@@ -28,8 +28,10 @@ export { isViewRegistered } from './registryKeys'
  */
 const VIEW_REGISTRY: Record<RegisteredView, ViewComponent> = {
   'inicio/resumen': InicioResumenView,
-  'inicio/tareas': TareasView,
   'track/resumen': TrackResumenView,
+  /* Tareas se mudó de Inicio a Coordinación el 2026-09-06 — ver el comentario de `modules/registry.ts`.
+     La VISTA no cambió: recibe `module` del shell, así que hereda el acento de Coordinación sola. */
+  'track/tareas': TareasView,
   'track/protocolos': ProtocolsView,
   'track/visitas': DayVisitsView,
   'track/para-ver-medico': DoctorQueueView,

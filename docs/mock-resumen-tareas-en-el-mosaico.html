@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spira · Mock — Resumen de Coordinación con Tareas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================================
+   TOKENS — copiados de src/styles/tokens.css el 2026-09-06 (tema claro).
+   NO se inventó ninguno: es el gotcha de los handoffs con paleta vieja.
+   ========================================================================== */
+:root {
+  --spira-ink:      #14302E;
+  --spira-ink-2:    #2A4744;
+  --spira-ink-soft: #465A57;
+  --spira-primary:  #0F5F57;
+  --spira-paper:    #F4F1EA;
+  --spira-surface:  #FBFAF6;
+  --spira-white:    #FFFFFF;
+  --spira-muted:    #61706C;
+  --spira-faint:    #838C89;
+  --spira-line:     #E4DECF;
+  --spira-line-2:   #D8CBB0;
+  --spira-good:     #5C8A5A;
+  --spira-warn:     #B0823F;
+  --spira-danger:   #A6483B;
+  --spira-track:    #2E7D74;
+  --spira-acc-deep-track:  #0F5F57;
+  --spira-acc-deep-warn:   #6E5620;
+  --spira-acc-deep-danger: #A6483B;
+  --spira-on-accent: #F4F1EA;
+  --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif;
+  --spira-font-text:    'Inter', system-ui, sans-serif;
+  --spira-radius-md: 10px;
+  --spira-radius-lg: 16px;
+  --spira-radius-pill: 999px;
+  --spira-shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.06);
+  --spira-shadow-hover: 0 4px 14px rgba(20, 48, 46, 0.12);
+  /* Acento del módulo Coordinación — modules/registry.ts (NO es --spira-track). */
+  --track-accent: #2B766D;
+  --inicio-accent: #0F5F57;
+}
+
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; background: #EDE9DD; font-family: var(--spira-font-text); color: var(--spira-ink); }
+button { font-family: inherit; }
+
+/* —— cromo de la página del mock (no es la app) —————————————————————— */
+.page { max-width: 1560px; margin: 0 auto; padding: 26px 16px 60px; }
+.mockbar {
+  background: #FFF8E6; border: 1px solid var(--spira-line-2); border-radius: 12px;
+  padding: 12px 16px; font-size: 13px; color: var(--spira-ink-soft); line-height: 1.5;
+  display: flex; gap: 12px; align-items: flex-start; margin-bottom: 22px;
+}
+.mockbar b { color: var(--spira-ink); }
+.boardlabel { font-weight: 700; font-size: 15px; margin: 30px 0 10px; color: var(--spira-ink); }
+.boardlabel span { font-weight: 400; color: var(--spira-muted); font-size: 13px; }
+.viewport { overflow-x: auto; border-radius: 14px; }
+.scaler { transform-origin: top left; }
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.toolbar button {
+  border: 1px solid var(--spira-line-2); background: var(--spira-white); color: var(--spira-ink);
+  border-radius: 8px; padding: 6px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.toolbar button.on { background: var(--spira-ink); color: var(--spira-on-accent); border-color: var(--spira-ink); }
+.notes { background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 14px; padding: 20px 24px; margin-top: 34px; }
+.notes h3 { font-family: var(--spira-font-display); font-size: 17px; margin: 0 0 10px; }
+.notes h4 { font-family: var(--spira-font-display); font-size: 14px; margin: 20px 0 6px; }
+.notes p, .notes li { font-size: 13.5px; line-height: 1.6; color: var(--spira-ink-soft); }
+.notes code { font-family: var(--spira-font-text); font-size: 12.5px; background: var(--spira-surface); border: 1px solid var(--spira-line); border-radius: 5px; padding: 1px 5px; }
+.notes ul { margin: 6px 0; padding-left: 20px; }
+
+/* —— comparación de menús (board 2) —————————————————————————————— */
+.menucompare { display: flex; align-items: flex-start; gap: 22px; flex-wrap: wrap; }
+.menucap { font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--spira-muted); margin-bottom: 8px; }
+.menupanel { width: 220px; background: var(--spira-surface); border: 1px solid var(--spira-line); border-radius: 12px; padding: 18px 12px; }
+.menuarrow { align-self: center; font-size: 24px; color: var(--spira-faint); margin-top: 40px; }
+.menunote { flex: 1; min-width: 280px; font-size: 13px; line-height: 1.6; color: var(--spira-ink-soft); background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 12px; padding: 16px 18px; }
+.menunote b { color: var(--spira-ink); }
+
+/* —— el shell de Spira ————————————————————————————————————————————— */
+.app {
+  width: 1536px; height: 810px; background: var(--spira-paper);
+  border: 1px solid var(--spira-line-2); border-radius: 14px; overflow: hidden;
+  display: flex; flex-direction: column; box-shadow: 0 10px 34px rgba(20,48,46,.10);
+}
+.topbar {
+  height: 60px; flex: 0 0 auto; background: var(--spira-white);
+  border-bottom: 1px solid var(--spira-line);
+  display: flex; align-items: center; gap: 14px; padding: 0 18px;
+}
+.logo { display: flex; align-items: center; gap: 9px; font-family: var(--spira-font-display); font-weight: 700; font-size: 19px; }
+.vsep { width: 1px; height: 26px; background: var(--spira-line); }
+.modname { display: flex; align-items: center; gap: 9px; font-family: var(--spira-font-display); font-weight: 700; font-size: 16px; }
+.search {
+  margin-left: auto; width: 210px; height: 38px; border: 1px solid var(--spira-line);
+  border-radius: var(--spira-radius-md); background: var(--spira-surface);
+  display: flex; align-items: center; gap: 8px; padding: 0 11px; color: var(--spira-muted); font-size: 13px;
+}
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--spira-surface);
+  border: 2px solid #059669; display: grid; place-items: center;
+  font-size: 11.5px; font-weight: 700; color: var(--spira-ink-soft);
+}
+.body { flex: 1; display: flex; min-height: 0; }
+.rail {
+  width: 64px; flex: 0 0 auto; background: var(--spira-white); border-right: 1px solid var(--spira-line);
+  display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 6px;
+}
+.railbtn { width: 46px; height: 46px; border-radius: 12px; border: none; background: transparent; display: grid; place-items: center; cursor: pointer; }
+.navcol { width: 220px; flex: 0 0 auto; background: var(--spira-surface); border-right: 1px solid var(--spira-line); }
+.navinner { width: 220px; padding: 18px 12px; }
+.eyebrow { font-family: var(--spira-font-text); font-weight: 700; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--spira-muted); padding: 2px 12px 0; }
+.navlist { display: flex; flex-direction: column; gap: 2px; margin-top: 14px; }
+.navitem {
+  display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-radius: var(--spira-radius-md);
+  border: none; background: transparent; cursor: pointer; text-align: left; width: 100%;
+}
+.navitem .nl { font-size: 13.5px; font-weight: 600; color: var(--spira-ink); line-height: 1.25; }
+.navitem .nh { font-size: 11.5px; color: var(--spira-muted); line-height: 1.25; margin-top: 1px; white-space: nowrap; }
+.navitem.on { box-shadow: var(--spira-shadow-sm); }
+.content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.chead { display: flex; align-items: center; gap: 12px; padding: 20px 26px 4px; flex-wrap: wrap; }
+.crumbs { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--spira-muted); }
+.ctitle { font-family: var(--spira-font-display); font-weight: 700; font-size: 24px; letter-spacing: -.02em; margin-top: 1px; }
+.cbody { flex: 1; overflow: auto; padding: 16px 26px 0; }
+
+/* —— piezas del Resumen ————————————————————————————————————————————— */
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.seg {
+  display: inline-flex; background: var(--spira-surface); border: 1px solid var(--spira-line);
+  border-radius: var(--spira-radius-md); padding: 3px;
+}
+.seg button {
+  border: none; background: transparent; border-radius: 7px; padding: 5px 14px;
+  font-size: 12.5px; font-weight: 600; color: var(--spira-muted); cursor: pointer;
+}
+.seg button.on { background: var(--spira-white); color: var(--spira-ink); box-shadow: var(--spira-shadow-sm); }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+.card {
+  background: var(--spira-white); border: 1px solid var(--spira-line);
+  border-radius: var(--spira-radius-lg); padding: 18px 20px;
+  display: flex; flex-direction: column;
+}
+.cardlink { transition: box-shadow .15s, transform .15s; cursor: pointer; }
+.cardlink:hover { box-shadow: var(--spira-shadow-hover); transform: translateY(-1px); }
+.kpitop { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--spira-muted); }
+.kdot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.klabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kvalue { font-family: var(--spira-font-display); font-weight: 700; font-size: 38px; letter-spacing: -.02em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.ksub { font-size: 12.5px; color: var(--spira-muted); margin-top: 2px; }
+.ksub.hi { color: var(--spira-acc-deep-track); font-weight: 600; }
+
+/* el chip de destino: aparece al apuntar la tarjeta o el pie (CSS, nunca onMouseEnter) */
+.dest {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700;
+  color: var(--spira-acc-deep-track); opacity: 0; transform: translateX(-4px);
+  transition: opacity .15s, transform .15s; white-space: nowrap; flex: 0 0 auto;
+}
+.destgroup:hover .dest, .destgroup:focus-visible .dest { opacity: 1; transform: translateX(0); }
+
+.mosaic { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.axis {
+  font-family: var(--spira-font-text); font-weight: 700; font-size: 10.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--spira-faint); padding: 0 2px 2px;
+}
+.ctitletxt { font-family: var(--spira-font-display); font-weight: 700; font-size: 16px; flex: 1; min-width: 0; }
+.chead2 { display: flex; align-items: center; gap: 10px; }
+.atmargin { font-size: 12.5px; color: var(--spira-muted); white-space: nowrap; }
+
+/* Fila a ancho completo — cancela el padding de 20px de la tarjeta.
+
+   EL ANCHO ES `calc(100% + 40px)` Y NO `100%`, y esto es un bug real de la app copiado acá y
+   corregido: con un `width: 100%` explícito el margen negativo DERECHO queda INERTE. El izquierdo
+   corre la caja 20px; el derecho no puede ensancharla, porque el ancho ya está fijado. Resultado
+   medido: la fila arranca pegada al borde izquierdo y termina 40px antes del derecho — todo el
+   contenido de la tarjeta se lee corrido hacia la izquierda, y encima no coincide con la banda
+   teñida de la cabecera, que no declara ancho y por eso SÍ sangra parejo. */
+.row {
+  display: flex; align-items: flex-start; gap: 11px; width: calc(100% + 40px);
+  margin: 0 -20px; padding: 11px 20px;
+  border: 0 solid var(--spira-line); border-top-width: 1px;
+  text-align: left; background: transparent; transition: background .14s;
+}
+.row.first { border-top-width: 0; }
+.rowlink { cursor: pointer; }
+.rowlink:hover { background: var(--spira-surface); }
+.rowbody { flex: 1; min-width: 0; }
+.rowtitle { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; min-width: 0; }
+.rowtitle .clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.rowsub { font-size: 12px; margin-top: 2px; color: var(--spira-muted); }
+.sep { color: var(--spira-faint); }
+.mid { color: var(--spira-muted); font-weight: 400; flex: 0 0 auto; }
+.mono { font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.danger { color: var(--spira-acc-deep-danger); font-weight: 700; }
+.warn { color: var(--spira-acc-deep-warn); font-weight: 700; }
+.calm { color: var(--spira-muted); font-weight: 700; }
+.blue { color: #3A6B8C; font-weight: 700; }
+.pdot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; margin-top: 6px; }
+
+/* el nombre del paciente, que abre su ficha */
+.plink { color: inherit; text-decoration: none; }
+.rowlink:hover .plink { text-decoration: underline; text-underline-offset: 3px; }
+.parrow { opacity: 0; transition: opacity .15s, transform .15s; transform: translateX(-4px); color: var(--spira-muted); flex: 0 0 auto; }
+.rowlink:hover .parrow { opacity: 1; transform: translateX(0); }
+
+/* pies */
+.foot {
+  /* Mismo `calc(100% + 40px)` que `.row`, y por el mismo motivo. */
+  display: flex; align-items: center; justify-content: space-between; width: calc(100% + 40px);
+  margin: 0 -20px; padding: 11px 20px; margin-top: auto;
+  border: 0 solid var(--spira-line); border-top-width: 1px;
+  background: transparent; cursor: pointer; transition: background .14s;
+  font-size: 12.5px; font-weight: 600; color: var(--spira-acc-deep-track);
+}
+.foot:hover { background: var(--spira-surface); }
+.footleft { display: inline-flex; align-items: center; gap: 8px; }
+
+/* banda teñida por severidad — AlertCardHeader */
+.sevband {
+  display: flex; align-items: center; gap: 10px;
+  margin: -18px -20px 14px; padding: 14px 20px;
+  border-top-left-radius: calc(var(--spira-radius-lg) - 1px);
+  border-top-right-radius: calc(var(--spira-radius-lg) - 1px);
+}
+.sevcount {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 9px;
+  border-radius: var(--spira-radius-pill); background: var(--spira-white);
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+
+/* barra de progreso de Reportes */
+.bar { width: 100px; height: 6px; border-radius: var(--spira-radius-pill); background: var(--spira-line); overflow: hidden; flex: 0 0 auto; }
+.bar > i { display: block; height: 100%; background: var(--spira-acc-deep-track); }
+
+/* el tilde de una tarea */
+.tick {
+  width: 19px; height: 19px; border-radius: 6px; border: 1.5px solid var(--spira-line-2);
+  background: var(--spira-white); cursor: pointer; flex: 0 0 auto; margin-top: 2px;
+  display: grid; place-items: center; padding: 0; transition: border-color .14s, background .14s;
+}
+.tick:hover { border-color: var(--track-accent); }
+.tick.on { background: var(--track-accent); border-color: var(--track-accent); }
+.tickslot { width: 19px; flex: 0 0 auto; }
+
+/* botón primario del pie de Tareas */
+.btnprimary {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px;
+  border: none; border-radius: 8px; background: var(--track-accent); color: var(--spira-on-accent);
+  font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.chip {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 9px;
+  border-radius: var(--spira-radius-pill); font-size: 12px; font-weight: 700;
+}
+.newtag {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: var(--spira-radius-pill);
+  background: var(--track-accent); color: var(--spira-on-accent); font-size: 9.5px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; margin-left: 8px; vertical-align: middle;
+}
+.moved {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: var(--spira-radius-pill);
+  background: var(--spira-surface); border: 1px solid var(--spira-line-2); color: var(--spira-muted);
+  font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; margin-left: 8px; vertical-align: middle;
+}
+.marks .newtag, .marks .moved { display: none; }
+.marks-on .newtag, .marks-on .moved { display: inline-flex; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="mockbar">
+    <div style="font-size:19px;line-height:1">📐</div>
+    <div>
+      <b>MOCK — no es la app.</b> Todos los datos son de ejemplo. Implementa
+      <b>docs/plan-resumen-tareas-en-el-mosaico.md</b> (review del 2026-09-06): la tarjeta de
+      <b>Tareas personales</b> arriba a la derecha, el eje del mosaico reescrito, el subtítulo nuevo
+      del KPI de visitas y <b>Tareas como submódulo de Coordinación</b>. Inicio no se toca.<br>
+      Los colores, tipografías, radios y sombras salen de <b>src/styles/tokens.css</b> tal como está
+      hoy — no de la paleta del handoff, que traía tonos retirados.
+      <b>El alternador “Lo mío / Todo” funciona:</b> tocalo para ver la decisión 2C.
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button id="btnFit" class="on">Ajustar al ancho</button>
+    <button id="btnReal">Tamaño real (1536 px)</button>
+    <button id="btnMarks" class="on">Marcar lo que cambia</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       BOARD 1 — Coordinación › Resumen
+       ══════════════════════════════════════════════════════════════════ -->
+  <div class="boardlabel">1 · Coordinación › Resumen <span>— la pantalla del pedido. 1536×864, que es la notebook de referencia.</span></div>
+  <div class="viewport"><div class="scaler">
+    <div class="app marks marks-on" id="board1">
+      <div class="topbar">
+        <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2B766D" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M12 12v9"/><path d="M8.5 6.5 4 4M15.5 6.5 20 4M8.5 9.5 4 12M15.5 9.5 20 12"/></svg> Spira</div>
+        <div class="vsep"></div>
+        <div class="modname"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2B766D" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Coordinación</div>
+        <div class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg> Buscar…</div>
+        <div class="avatar">SC</div>
+      </div>
+      <div class="body">
+        <div class="rail">
+          <button class="railbtn"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></button>
+          <button class="railbtn" style="background:rgba(43,118,109,.14)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#2B766D" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></button>
+          <button class="railbtn"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a5 5 0 0 0-7-7l-10 10a5 5 0 0 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></button>
+        </div>
+        <div class="navcol"><div class="navinner">
+          <div class="eyebrow">Submódulos</div>
+          <div class="navlist">
+            <button class="navitem on" style="background:rgba(43,118,109,.12)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2B766D" stroke-width="1.9" style="margin-top:1px"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+              <span><span class="nl">Resumen</span><br><span class="nh">Cómo viene el día</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2"/><path d="M17 11a3 3 0 1 0 0-6"/><path d="M18 20c0-2.4-1-4-2.6-4.8"/></svg>
+              <span><span class="nl">Pacientes</span><br><span class="nh">Información de pacientes</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              <span><span class="nl">Visitas</span><br><span class="nh">Las visitas de hoy</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              <span><span class="nl">Para ver médico</span><br><span class="nh">Cola de atención</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+              <span><span class="nl">Pendientes</span><br><span class="nh">Lo que hay que resolver</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><path d="M9 3h6v3H9z"/><path d="M15 4.5h2.5A1.5 1.5 0 0 1 19 6v13.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5V6a1.5 1.5 0 0 1 1.5-1.5H9"/><path d="m9 13 2 2 4-4"/></svg>
+              <span><span class="nl">Tareas<span class="newtag">nuevo</span></span><br><span class="nh">Lo que anotaste vos</span></span>
+            </button>
+          </div>
+        </div></div>
+        <div class="content">
+          <div class="chead">
+            <div style="min-width:0">
+              <div class="crumbs">Spira Coordinación
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#838C89" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
+                Resumen
+              </div>
+              <div class="ctitle">Resumen</div>
+            </div>
+          </div>
+          <div class="cbody">
+            <div class="stack">
+
+              <div style="display:flex;justify-content:flex-end">
+                <div class="seg">
+                  <button class="on" data-amb="mio">Lo mío</button>
+                  <button data-amb="todo">Todo</button>
+                </div>
+              </div>
+
+              <!-- KPIs -->
+              <div class="kpis">
+                <div class="card cardlink destgroup">
+                  <div class="kpitop"><i class="kdot" style="background:#2B766D"></i><span class="klabel">Protocolos activos</span><span class="dest">Pacientes <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+                  <div class="kvalue" data-k="protocolos">6</div>
+                  <div class="ksub" data-k="protocolos-sub">6 en total</div>
+                </div>
+                <div class="card cardlink destgroup">
+                  <div class="kpitop"><i class="kdot" style="background:#2B766D"></i><span class="klabel">Pacientes activos</span><span class="dest">Pacientes <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+                  <div class="kvalue" data-k="pacientes">23</div>
+                  <div class="ksub" data-k="pacientes-sub">23 registrados</div>
+                </div>
+                <div class="card cardlink destgroup">
+                  <div class="kpitop"><i class="kdot" style="background:#B0823F"></i><span class="klabel">Reportes vencidos</span><span class="dest">Pendientes <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+                  <div class="kvalue" data-k="reportes">2</div>
+                  <div class="ksub" data-k="reportes-sub">fuera de plazo</div>
+                </div>
+                <div class="card cardlink destgroup">
+                  <div class="kpitop"><i class="kdot" style="background:#2B766D"></i><span class="klabel">Próximas visitas</span><span class="dest">Visitas <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+                  <div class="kvalue" data-k="visitas">5</div>
+                  <div class="ksub hi" data-k="visitas-sub">3 asignadas a mí<span class="newtag">nuevo</span></div>
+                </div>
+              </div>
+
+              <!-- MOSAICO -->
+              <div class="mosaic">
+
+                <!-- ───────── columna izquierda: LOS DESVÍOS DEL ESTUDIO ───────── -->
+                <div class="col">
+                  <div class="axis">Los desvíos del estudio</div>
+
+                  <!-- Reportes pendientes -->
+                  <div class="card">
+                    <div class="chead2">
+                      <span class="ctitletxt">Reportes pendientes</span>
+                      <span class="bar"><i style="width:38%"></i></span>
+                      <span class="atmargin">3 de 8</span>
+                    </div>
+                    <div style="margin-top:8px">
+                      <div class="row first rowlink">
+                        <div class="rowbody">
+                          <div class="rowtitle"><span class="clip">Reporte de evolución</span><span class="mid">·</span><span class="clip"><span class="plink">Marta Aguirre</span></span><span class="parrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+                          <div class="rowsub"><span>V3 · <span class="mono">EFC18419</span></span><span class="sep"> · </span><span class="danger">Venció hace 2 días</span></div>
+                        </div>
+                      </div>
+                      <div class="row rowlink">
+                        <div class="rowbody">
+                          <div class="rowtitle"><span class="clip">Evento adverso</span><span class="mid">·</span><span class="clip"><span class="plink">Ricardo Benítez</span></span><span class="parrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+                          <div class="rowsub"><span>V17 · <span class="mono">LTS17231</span></span><span class="sep"> · </span><span class="warn">Vence mañana</span></div>
+                        </div>
+                      </div>
+                      <div class="row rowlink">
+                        <div class="rowbody">
+                          <div class="rowtitle"><span class="clip">Control de signos vitales</span><span class="mid">·</span><span class="clip"><span class="plink">Celia Domínguez</span></span><span class="parrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+                          <div class="rowsub"><span>V2 · <span class="mono">EFC18419</span></span><span class="sep"> · </span><span class="calm">Vence en 4 días</span></div>
+                        </div>
+                      </div>
+                    </div>
+                    <button class="foot">
+                      <span class="footleft" data-k="rep-foot">Ver más (2)</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                  </div>
+
+                  <!-- Pendientes -->
+                  <div class="card">
+                    <div class="sevband" style="background:#A6483B1A">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A6483B" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.2v.2"/></svg>
+                      <span class="ctitletxt">Pendientes</span>
+                      <span class="sevcount" style="color:#A6483B" data-k="pend-count">4</span>
+                    </div>
+                    <div>
+                      <div class="row first rowlink">
+                        <i class="pdot" style="background:#A6483B"></i>
+                        <div class="rowbody">
+                          <div class="rowtitle"><span class="clip">Ventana vencida · V1</span><span class="mid">·</span><span class="clip"><span class="plink">Marta Aguirre</span></span><span class="parrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+                          <div class="rowsub">Cerró el 28/08 · <span class="mono">EFC18419</span></div>
+                        </div>
+                      </div>
+                      <div class="row rowlink">
+                        <i class="pdot" style="background:#8A5A3C"></i>
+                        <div class="rowbody">
+                          <div class="rowtitle"><span class="clip">No vino · V4</span><span class="mid">·</span><span class="clip"><span class="plink">Ricardo Benítez</span></span><span class="parrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+                          <div class="rowsub">Se marcó el 03/09 · sin fecha nueva</div>
+                        </div>
+                      </div>
+                      <div class="row rowlink">
+                        <i class="pdot" style="background:#B0823F"></i>
+                        <div class="rowbody">
+                          <div class="rowtitle"><span class="clip">Pendiente vencido · V17</span><span class="mid">·</span><span class="clip"><span class="plink">Celia Domínguez</span></span><span class="parrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+                          <div class="rowsub">Fuera de plazo hace 5 días</div>
+                        </div>
+                      </div>
+                    </div>
+                    <button class="foot destgroup">
+                      <span class="footleft" data-k="pend-foot">Ver más (1)</span>
+                      <span class="dest">Pendientes <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- ───────── columna derecha: LO TUYO Y LO QUE VIENE ───────── -->
+                <div class="col">
+                  <div class="axis">Lo tuyo y lo que viene</div>
+
+                  <!-- ★ TAREAS PERSONALES — la tarjeta nueva -->
+                  <div class="card">
+                    <div class="chead2">
+                      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#6E5620" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v3H9z"/><path d="M15 4.5h2.5A1.5 1.5 0 0 1 19 6v13.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5V6a1.5 1.5 0 0 1 1.5-1.5H9"/><path d="m9 13 2 2 4-4"/></svg>
+                      <span class="ctitletxt">Tareas personales<span class="newtag">nueva</span></span>
+                      <span class="chip" style="background:#B0823F1E;color:#6E5620" data-k="tar-count">3 pendientes</span>
+                    </div>
+                    <div id="tareas"></div>
+                    <div class="foot" style="cursor:default;gap:12px">
+                      <span class="footleft destgroup" style="cursor:pointer">
+                        Ver todas
+                        <span class="dest">Tareas <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+                      </span>
+                      <button class="btnprimary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg> Nueva tarea</button>
+                    </div>
+                  </div>
+
+                  <!-- Dispensaciones solicitadas -->
+                  <div class="card">
+                    <div class="chead2">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F5F57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 12 4l9 4.5v7L12 20l-9-4.5z"/><path d="M3 8.5 12 13l9-4.5M12 13v7"/></svg>
+                      <span class="ctitletxt">Dispensaciones solicitadas</span>
+                      <span class="chip" style="background:#0F5F571A;color:#0F5F57" data-k="disp-count">2</span>
+                    </div>
+                    <div>
+                      <div class="row first rowlink" style="align-items:center">
+                        <div class="rowbody">
+                          <div class="rowtitle"><span class="clip">Insulina glargina</span><span class="mid">·</span><span class="clip"><span class="plink">Marta Aguirre</span></span><span class="parrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+                          <div class="rowsub"><span>solicitada hace 2 h</span><span class="sep"> · </span><span class="blue">preparando</span></div>
+                        </div>
+                      </div>
+                      <div class="row rowlink" style="align-items:center">
+                        <div class="rowbody">
+                          <div class="rowtitle"><span class="clip">Apósitos hidrocoloides</span><span class="mid">·</span><span class="clip"><span class="plink">Ricardo Benítez</span></span><span class="parrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+                          <div class="rowsub"><span>solicitada hoy 09:10</span><span class="sep"> · </span><span class="calm">solicitada</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Próximas visitas — SE QUEDA acá: la medición del 2026-09-06 dio vuelta la recomendación -->
+                  <div class="card">
+                    <div class="chead2">
+                      <span class="ctitletxt">Próximas visitas</span>
+                      <span class="atmargin">Mañana</span>
+                    </div>
+                    <div style="margin-top:6px">
+                      <div class="row first rowlink" style="align-items:center">
+                        <div class="rowbody">
+                          <div class="rowtitle"><span class="clip"><span class="plink">Celia Domínguez</span></span><span class="parrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></span><span class="mid mono" style="font-size:12.5px">CD-004</span></div>
+                          <div class="rowsub">V5 · Semana 12 · <span class="mono">EFC18419</span></div>
+                        </div>
+                        <span class="chip" style="background:#7C8C8724;color:var(--spira-ink)">Pendiente</span>
+                      </div>
+                      <div class="row rowlink" style="align-items:center">
+                        <div class="rowbody">
+                          <div class="rowtitle"><span class="clip"><span class="plink">Ricardo Benítez</span></span><span class="parrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></span><span class="mid mono" style="font-size:12.5px">RB-011</span></div>
+                          <div class="rowsub">V18 · Semana 40 · <span class="mono">LTS17231</span></div>
+                        </div>
+                        <span class="chip" style="background:#7C8C8724;color:var(--spira-ink)">Pendiente</span>
+                      </div>
+                    </div>
+                    <button class="foot destgroup">
+                      <span class="footleft">Ver todo</span>
+                      <span class="dest">Visitas <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       BOARD 2 — El menú de Coordinación, antes y después (T6)
+       ══════════════════════════════════════════════════════════════════ -->
+  <div class="boardlabel">2 · El menú de Coordinación, antes y después <span>— T6. Tareas pasa a ser submódulo de Coordinación. Inicio NO se toca.</span></div>
+  <div class="menucompare marks marks-on">
+    <div>
+      <div class="menucap">Hoy</div>
+      <div class="menupanel">
+        <div class="eyebrow">Submódulos</div>
+        <div class="navlist">
+            <button class="navitem on" style="background:rgba(43,118,109,.12)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2B766D" stroke-width="1.9" style="margin-top:1px"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+              <span><span class="nl">Resumen</span><br><span class="nh">Cómo viene el día</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2"/><path d="M17 11a3 3 0 1 0 0-6"/><path d="M18 20c0-2.4-1-4-2.6-4.8"/></svg>
+              <span><span class="nl">Pacientes</span><br><span class="nh">Información de pacientes</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              <span><span class="nl">Visitas</span><br><span class="nh">Las visitas de hoy</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              <span><span class="nl">Para ver médico</span><br><span class="nh">Cola de atención</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+              <span><span class="nl">Pendientes</span><br><span class="nh">Lo que hay que resolver</span></span>
+            </button>
+        </div>
+      </div>
+    </div>
+    <div class="menuarrow">→</div>
+    <div>
+      <div class="menucap">Con este PR</div>
+      <div class="menupanel">
+        <div class="eyebrow">Submódulos</div>
+        <div class="navlist">
+            <button class="navitem on" style="background:rgba(43,118,109,.12)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2B766D" stroke-width="1.9" style="margin-top:1px"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+              <span><span class="nl">Resumen</span><br><span class="nh">Cómo viene el día</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2"/><path d="M17 11a3 3 0 1 0 0-6"/><path d="M18 20c0-2.4-1-4-2.6-4.8"/></svg>
+              <span><span class="nl">Pacientes</span><br><span class="nh">Información de pacientes</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              <span><span class="nl">Visitas</span><br><span class="nh">Las visitas de hoy</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              <span><span class="nl">Para ver médico</span><br><span class="nh">Cola de atención</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+              <span><span class="nl">Pendientes</span><br><span class="nh">Lo que hay que resolver</span></span>
+            </button>
+            <button class="navitem">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.9" style="margin-top:1px"><path d="M9 3h6v3H9z"/><path d="M15 4.5h2.5A1.5 1.5 0 0 1 19 6v13.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5V6a1.5 1.5 0 0 1 1.5-1.5H9"/><path d="m9 13 2 2 4-4"/></svg>
+              <span><span class="nl">Tareas<span class="newtag">nuevo</span></span><br><span class="nh">Lo que anotaste vos</span></span>
+            </button>
+        </div>
+      </div>
+    </div>
+    <div class="menunote">
+      <b>Un renglón nuevo, al final.</b> Ninguno de los cinco que ya están se mueve de lugar.
+      El descriptor está medido con la fuente cargada: <b>“Lo que anotaste vos” = 109,7 px</b> sobre
+      los 145 disponibles, así que entra en una línea con aire.
+      <br><br>
+      <b>Inicio no se toca.</b> Su panel de submódulos sigue sin dibujarse, y ahora eso es correcto y
+      no un defecto: al mudar Tareas acá, a Inicio le queda <i>una sola</i> vista — su Resumen — y un
+      módulo de una sola pantalla no necesita barra.
+      <br><br>
+      <b>Y se retiran dos renglones fantasma de Inicio</b> (decisión 13): <code>tareas</code>, que
+      ahora vive en Coordinación, y <code>alertas</code>, que nunca tuvo vista y caía al
+      <i>Placeholder</i>. Queda una sola dirección para cada pantalla.
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="notes">
+    <h3>Qué mirar, y qué NO es este mock</h3>
+    <p>
+      Es una maqueta HTML con datos inventados, hecha para decidir el layout — no código para copiar.
+      La geometría y el color salen de <code>tokens.css</code> vivo; la implementación va sobre los
+      componentes que ya existen (<code>.spira-row-link</code>, <code>.spira-card-link</code>,
+      <code>AlertCardHeader</code>, <code>VisitSummaryRow</code>).
+    </p>
+
+    <h4>Las cuatro cosas que cambian</h4>
+    <ul>
+      <li><b>Tareas personales, arriba a la derecha</b> — con tilde para marcar hecha, “Ver todas” y “+ Nueva tarea” en el pie.</li>
+      <li><b>El eje del mosaico, reescrito</b> — izquierda: <i>los desvíos del estudio</i> (Reportes, Pendientes). Derecha: <i>lo tuyo y lo que viene</i> (Tareas, Dispensaciones, Próximas visitas). <b>Ninguna tarjeta existente cambia de lugar</b>: sólo se inserta Tareas arriba a la derecha.</li>
+      <li><b>El subtítulo del KPI de visitas</b> — “3 asignadas a mí”, que aparece sólo cuando hay alguna. El KPI sigue contando las próximas.</li>
+      <li><b>Tareas como submódulo de Coordinación</b> — un renglón nuevo al final del menú, que es lo que la vuelve alcanzable con el mouse. <b>Inicio no se toca</b>: al mudar Tareas acá, su panel oculto deja de ser un defecto — le queda una sola vista y un módulo de una sola pantalla no necesita barra.</li>
+    </ul>
+
+    <h4>Tocá “Todo” en el alternador</h4>
+    <p>
+      Es la decisión 2C y es la más difícil de imaginar leyendo. En <b>“Lo mío”</b> la tarjeta muestra
+      las tareas <b>asignadas a vos</b>. En <b>“Todo”</b> suma <b>las que encargaste a otra persona</b> —
+      y ahí entra una que es más urgente y empuja al resto para abajo. El resto de la pantalla se
+      ensancha al mismo tiempo, que es lo que el alternador ya hace hoy.
+    </p>
+
+    <h4>Dibujarlo dio vuelta una decisión de la review</h4>
+    <p>
+      La <code>/plan-eng-review</code> había recomendado <b>mudar “Próximas visitas” a la izquierda</b>
+      para emparejar las columnas. Esa recomendación salió de <i>estimar</i> que las cinco tarjetas
+      miden parecido. Medidas acá: Reportes <b>271</b>, Pendientes <b>289</b>, Tareas <b>280</b>,
+      Próximas visitas <b>214</b> y Dispensaciones <b>171</b> — la última es chica porque tiene dos
+      filas y ningún pie. Con esos números la recomendación se da vuelta:
+    </p>
+    <ul>
+      <li><b>Mudándola:</b> izquierda 831 px · derecha 494 px → <b>337 px</b> de desbalance, y “Próximas visitas” queda entera debajo de la línea de flotación en 1536×864.</li>
+      <li><b>Dejándola:</b> izquierda 603 px · derecha 721 px → <b>118 px</b> de desbalance, y la página mide <b>111 px menos</b>.</li>
+    </ul>
+    <p>
+      Se dejó donde estaba. Es la regla de la casa aplicada a mí mismo: <b>medí, no estimes</b> — y un
+      mock existe justamente para que la medición ocurra antes del código, no después.
+    </p>
+
+    <h4>Un detalle que apareció dibujándolo, y que el plan tiene que absorber</h4>
+    <p>
+      <b>Una tarea delegada no lleva tilde.</b> <code>set_task_done</code> cierra la parte de un
+      <i>asignado</i>; si la creaste y se la encargaste a otro, no sos asignado y el RPC te rechazaría.
+      Un tilde que rebota es peor que no tenerlo, así que en “Todo” esas filas van sin él y la segunda
+      línea dice de quién es. Se ve tocando el alternador. Va como nota a la tarea <b>T4</b>.
+    </p>
+
+    <h4>Lo que el mock NO puede decidir</h4>
+    <ul>
+      <li><b>El ancho del subtítulo del KPI</b> — “3 asignadas a mí” entra holgado; con dos dígitos y la tarjeta en su ancho mínimo hay que verificarlo (T7.1).</li>
+      <li><b>Que “Tareas” no rompa el menú</b> — el descriptor está medido (109,7 px), pero el rótulo suma un sexto renglón a la barra: hay que mirarla entera en la notebook real.</li>
+      <li><b>Los estados de carga, error y vacío</b> — cinco tarjetas × tres estados. Van con <code>CuerpoDeTarjeta</code> (T1) y se verifican en el navegador.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+/* ── datos de ejemplo ────────────────────────────────────────────────────── */
+const TAREAS = {
+  mio: [
+    { t: 'Confirmar horario con Dra. Ibarra', est: 'estimada 15 min', venc: 'venció 04/09', tono: 'danger', tick: true },
+    { t: 'Llamar al proveedor de insumos',    est: 'estimada 30 min', venc: 'vence hoy',    tono: 'warn',   tick: true },
+    { t: 'Revisar el consentimiento de V3',   est: null,              venc: 'vence 09/09',  tono: 'calm',   tick: true },
+  ],
+  todo: [
+    { t: 'Cargar la CRF de la V3',            est: 'le pedí a M. Duarte', venc: 'venció 03/09', tono: 'danger', tick: false },
+    { t: 'Confirmar horario con Dra. Ibarra', est: 'estimada 15 min',     venc: 'venció 04/09', tono: 'danger', tick: true  },
+    { t: 'Llamar al proveedor de insumos',    est: 'estimada 30 min',     venc: 'vence hoy',    tono: 'warn',   tick: true  },
+  ],
+};
+const CIFRAS = {
+  mio:  { protocolos: '6', 'protocolos-sub': '6 en total', pacientes: '23', 'pacientes-sub': '23 registrados',
+          reportes: '2', 'reportes-sub': 'fuera de plazo', visitas: '5', 'visitas-sub': '3 asignadas a mí',
+          'tar-count': '3 pendientes', 'pend-count': '4', 'disp-count': '2',
+          'rep-foot': 'Ver más (2)', 'pend-foot': 'Ver más (1)' },
+  todo: { protocolos: '6', 'protocolos-sub': '6 en total', pacientes: '23', 'pacientes-sub': '23 registrados',
+          reportes: '5', 'reportes-sub': 'fuera de plazo', visitas: '12', 'visitas-sub': '3 asignadas a mí',
+          'tar-count': '5 pendientes', 'pend-count': '9', 'disp-count': '6',
+          'rep-foot': 'Ver más (7)', 'pend-foot': 'Ver más (6)' },
+};
+
+const ARROW = '<span class="parrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></span>';
+
+function pintarTareas(amb) {
+  const cont = document.getElementById('tareas');
+  cont.innerHTML = TAREAS[amb].map((x, i) => `
+    <div class="row rowlink ${i === 0 ? 'first' : ''}">
+      ${x.tick
+        ? '<button class="tick" aria-pressed="false" title="Marcar como hecha"></button>'
+        : '<span class="tickslot" title="No sos asignado: no podés marcarla hecha"></span>'}
+      <div class="rowbody">
+        <div class="rowtitle"><span class="clip">${x.t}</span></div>
+        <div class="rowsub">${x.est ? `<span>${x.est}</span><span class="sep"> · </span>` : ''}<span class="${x.tono}">${x.venc}</span></div>
+      </div>
+    </div>`).join('');
+  cont.querySelectorAll('.tick').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const on = b.classList.toggle('on');
+    b.setAttribute('aria-pressed', String(on));
+    b.innerHTML = on ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F4F1EA" stroke-width="3.2"><path d="m5 12 5 5 9-9"/></svg>' : '';
+  }));
+}
+
+function pintarCifras(amb) {
+  Object.entries(CIFRAS[amb]).forEach(([k, v]) => {
+    document.querySelectorAll(`[data-k="${k}"]`).forEach((el) => {
+      const marca = el.querySelector('.newtag, .moved');
+      el.textContent = v;
+      if (marca) el.appendChild(marca);
+    });
+  });
+}
+
+document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('.seg button').forEach((o) => o.classList.remove('on'));
+  b.classList.add('on');
+  const amb = b.dataset.amb;
+  pintarTareas(amb);
+  pintarCifras(amb);
+}));
+
+/* ── escalado del tablero ────────────────────────────────────────────────── */
+let ajustar = true;
+/* El factor NUNCA sale de un ancho medido sin red: un documento oculto (o una captura de
+   miniatura, o un `print`) reporta clientWidth 0, y `0 / 1536` deja el tablero en scale(0)
+   — el mock se ve VACÍO y parece roto justo cuando alguien lo abre de apuro. Con el
+   fallback a 1536 y el piso de 0.25, el peor caso es que se vea a tamaño real y haya que
+   scrollear, que es un inconveniente y no una pantalla en blanco. */
+function escalar() {
+  document.querySelectorAll('.viewport').forEach((vp) => {
+    const sc = vp.querySelector('.scaler');
+    const app = sc.querySelector('.app');
+    const ancho = vp.clientWidth || vp.parentElement.clientWidth || 1536;
+    const f = ajustar ? Math.max(0.25, Math.min(1, ancho / 1536)) : 1;
+    sc.style.transform = `scale(${f})`;
+    vp.style.height = `${app.offsetHeight * f + 4}px`;
+  });
+}
+/* El ancho puede llegar DESPUÉS del primer render (fuentes, panel que se abre, documento que
+   deja de estar oculto), así que no alcanza con medir una vez. */
+if (window.ResizeObserver) {
+  const ro = new ResizeObserver(() => escalar());
+  document.querySelectorAll('.viewport').forEach((vp) => ro.observe(vp));
+}
+window.addEventListener('load', escalar);
+document.getElementById('btnFit').addEventListener('click', function () {
+  ajustar = true; this.classList.add('on');
+  document.getElementById('btnReal').classList.remove('on'); escalar();
+});
+document.getElementById('btnReal').addEventListener('click', function () {
+  ajustar = false; this.classList.add('on');
+  document.getElementById('btnFit').classList.remove('on'); escalar();
+});
+document.getElementById('btnMarks').addEventListener('click', function () {
+  const on = this.classList.toggle('on');
+  document.querySelectorAll('.marks').forEach((b) => b.classList.toggle('marks-on', on));
+});
+window.addEventListener('resize', escalar);
+
+pintarTareas('mio');
+escalar();
+</script>
+</body>
+</html>

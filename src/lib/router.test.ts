@@ -51,8 +51,20 @@ describe('parseUrl · módulo y submódulo', () => {
   /* Los módulos cuyo slug ES su key (Inicio, Lab, Contable) no caen en la regla de arriba: ahí no
      hay dos vocabularios, hay uno solo. */
   it('un módulo cuyo slug coincide con su key sigue siendo válido', () => {
-    expect(parseUrl('/inicio/tareas', '')).toMatchObject({ moduleKey: 'inicio', subKey: 'tareas' })
+    /* Era `/inicio/tareas` hasta el 2026-09-06, cuando Tareas se mudó a Coordinación y el módulo
+       Inicio quedó con un solo submódulo. Se cambió por `/inicio/resumen`, que existe y sirve para
+       lo mismo: acá lo que se prueba es el SLUG del módulo, no cuál sea el submódulo. */
+    expect(parseUrl('/inicio/resumen', '')).toMatchObject({ moduleKey: 'inicio', subKey: 'resumen' })
     expect(parseUrl('/lab/muestras', '')).toMatchObject({ moduleKey: 'lab', subKey: 'muestras' })
+  })
+
+  /* La ruta vieja de Tareas, ahora inválida. No es un detalle de limpieza: prueba que el router
+     RECHAZA una ruta retirada en vez de dejarla caer al `Placeholder`, que es lo que hacía
+     `inicio/alertas` —en el menú y sin vista— hasta este mismo cambio. */
+  it('la ruta de un submódulo retirado deja de resolver', () => {
+    expect(parseUrl('/inicio/tareas', '')).toBeNull()
+    expect(parseUrl('/inicio/alertas', '')).toBeNull()
+    expect(parseUrl('/coordinacion/tareas', '')).toMatchObject({ moduleKey: 'track', subKey: 'tareas' })
   })
 
   it('un path mal codificado es null, no una excepción', () => {

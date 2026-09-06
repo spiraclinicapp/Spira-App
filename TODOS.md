@@ -762,7 +762,29 @@ Lo que sigue abierto de esta feature está abajo, en su propia entrada (la naveg
   quedar" en una sesión aparte (2026-09-06), junto con el rediseño del Resumen contra el handoff
   `design_handoff_resumen_tareas_enfoque`. **Las dos cosas son el mismo problema**: dónde vive
   Tareas en la navegación y cómo se ve en el Resumen.
-- **Mientras tanto:** `/inicio/tareas` y `/inicio/alertas` funcionan escritas a mano.
+- **✅ DECIDIDO (2026-09-06): ninguna de las tres. Tareas se MUDA a Coordinación.** La review había
+  elegido la opción 1 (dibujar el panel en Inicio); el Director la descartó **al ver el mock**:
+  *"esto no va en el Inicio, el Inicio sigue como está ahora, eso pasaría a ir en Coordinación por
+  ahora"*. Tareas pasa a ser submódulo de `track` —precedente: `protocolos`, compartida por track y
+  pharma— y se retiran `tareas` y `alertas` de los submódulos de Inicio.
+  **Con eso el problema se disuelve en vez de arreglarse:** a Inicio le queda UNA sola vista, así
+  que su panel oculto deja de ser un defecto y `AppShell.tsx:420` no se toca.
+  Plan e implementación: `docs/plan-resumen-tareas-en-el-mosaico.md`, tarea **T6**.
+  Mock: `docs/mock-resumen-tareas-en-el-mosaico.html`.
+  **Esta entrada se cierra cuando ese PR mergee, no antes.**
+- **Lo que el cambio deja abierto, y hay que anotarlo:** gerencia y Farmacia **pierden el acceso por
+  clic** a Tareas, porque no tienen el módulo Coordinación. El Director lo asumió con un "por ahora"
+  explícito. Vuelve el día que alguien de Farmacia pida tareas; las salidas serían el panel en
+  Inicio (lo que se acaba de descartar) o Tareas como módulo propio del riel.
+- **⚠️ CORRECCIÓN:** esta entrada decía que `/inicio/alertas` funciona escrita a mano. **No
+  funciona.** `inicio/alertas` está en `modules/registry.ts:66` pero **no** en `REGISTERED_VIEWS`
+  (`views/registryKeys.ts:14`), así que `resolveView` cae al `Placeholder` (`registry.tsx:44`).
+  Hoy no se nota porque el panel está oculto; al dibujarlo aparecería un renglón "Pendientes" que
+  lleva a "En construcción" — el defecto inverso al que esta entrada viene a arreglar. Por eso T6
+  también lo **saca** del menú de Inicio (Pendientes ya vive completo en Coordinación) y agrega el
+  test de invariante *"todo submódulo de un módulo no-`proximamente` tiene vista registrada"*, que
+  es lo que habría cazado esto y lo de `inicio/tareas` sin que nadie mirara.
+- **Mientras tanto:** `/inicio/tareas` funciona escrita a mano. `/inicio/alertas` NO.
 - **Prioridad:** P1 — hay una feature entera en producción que nadie puede encontrar.
 
 ---
@@ -776,16 +798,25 @@ Lo que sigue abierto de esta feature está abajo, en su propia entrada (la naveg
   pacientes en 6 protocolos, el número global ya empieza a no decirle nada a nadie en particular.
 - **Pros:** el dato EXISTE: `patient_visits` tiene `coordinator_id` y `coordinator_name` desde la
   migración 0065, y el RPC `set_visit_coordinator` ya los escribe. Es exponerlo, no inventarlo.
-- **Contras:** `v_track_visits` no los proyecta, así que hace falta una migración que la recree. Es
-  **aditiva** (una columna que ningún front viejo consulta), o sea que va **migración primero y front
-  después** — el orden inverso al de una vista que cambia lo que ya emite. Y hay que confirmar que
-  agregar la columna no vuelva ambiguo ningún embed existente sobre esa vista.
+- **⚠️ CORRECCIÓN (2026-09-06, `/plan-eng-review`).** Esta entrada decía que `v_track_visits` no los
+  proyecta y que hacía falta una migración. **Es falso, y era el mismo error dos veces.**
+  `0102_sello_de_atencion.sql:168` los proyecta (`v.coordinator_id, v.coordinator_name, -- 0065`) y
+  `src/data/visits.ts:51` ya los declara, con un comentario que dice textualmente que "esa ausencia
+  hizo creer que la vista no los tenía". **No hace falta ningún SQL.**
+- **Contras (los de verdad):** el campo casi nunca está poblado **en visitas futuras**, que es
+  justo lo que este KPI mira. Se escribe cuando alguien ATIENDE la visita (`start_visit_attention`,
+  0102, retrospectivo) o a mano desde el encabezado (`VisitHeader.tsx:357`, opcional y hoy sin uso
+  real). El propio código lo dice: `TrackResumenView.tsx:578` — "son futuras, así que ninguna tiene
+  coordinador todavía". Un KPI en cero permanente se lee como app rota, no como "no tenés nada".
 - **Contexto:** quedó fuera del alcance de la `/plan-eng-review` del 2026-09-01
-  (`docs/plan-resumen-coordinacion-enfoque.md`), cuyo alcance acordado excluía migraciones.
-- **Empezar por:** buscar la migración que define `v_track_visits` (0013, más las que la recrean),
-  grepear `v_track_visits` en los `select(...)` del front antes de tocarla, y recién ahí escribir la
-  migración nueva. Luego `TrackVisitRow` en `src/data/visits.ts` y el KPI en `TrackResumenView`.
-- **Depende de / bloqueado por:** ventana para aplicar SQL en prod (a mano, en el dashboard).
+  (`docs/plan-resumen-coordinacion-enfoque.md`). La del 2026-09-06
+  (`docs/plan-resumen-tareas-en-el-mosaico.md`, hallazgo 1) resolvió mostrar el dato como
+  **subtítulo** del KPI "Próximas visitas", visible sólo cuando hay alguna asignada.
+- **DISPARADOR:** el día que el equipo empiece a asignar coordinador **por adelantado**. Ahí el
+  subtítulo deja de alcanzar y la tarjeta propia del handoff pasa a tener sentido.
+- **Empezar por:** mirar cuántas visitas futuras tienen `coordinator_id` no nulo. Si son pocas, el
+  problema no es el KPI: es que el flujo de asignación no se usa.
+- **Depende de / bloqueado por:** nada técnico. Depende del uso.
 - **Prioridad:** P3.
 
 ## Farmacia · El umbral de stock bajo es configurable en la base y el front lo ignora
@@ -836,3 +867,87 @@ Lo que sigue abierto de esta feature está abajo, en su propia entrada (la naveg
   Después: Inicio, Coordinación › Resumen y Coordinación › Alertas, comparando los números contra
   los que ve la cuenta de QA. **Si son iguales, algo está mal** — tienen que ser distintos.
 - **Prioridad:** P2.
+
+---
+
+## Resumen · las otras cuatro tarjetas del mosaico siguen dentro de `TrackResumenView.tsx`
+
+- **Qué:** mover `ReportesCard`, `AlertasCard`, `DispensacionesCard` y `ProximasVisitasCard` a
+  archivos propios en `src/views/resumen/`, como ya nace `TareasCard.tsx`.
+- **Por qué:** el PR del 2026-09-06 deja el archivo con **cuatro tarjetas adentro y una afuera**.
+  La mezcla es deliberada, pero sin esta nota es indistinguible de un descuido, y el próximo que
+  agregue una tarjeta va a tener que adivinar cuál de los dos criterios seguir.
+- **Pros:** el archivo de la vista baja de ~1250 a ~350 líneas y pasa a ser lo que dice ser (la
+  orquestación, no los componentes). Cada tarjeta gana su comentario de cabecera y su historia de
+  git propia, que hoy están todas mezcladas en un solo blame.
+- **Contras:** ~700 líneas de puro movimiento. Sobre un working copy **compartido** con el Director,
+  un diff así es conflicto casi garantizado si él toca el Resumen en paralelo. Y un diff de
+  movimiento esconde cualquier cambio real que se cuele adentro.
+- **Contexto:** salió del hallazgo 6 de la `/plan-eng-review` del 2026-09-06
+  (`docs/plan-resumen-tareas-en-el-mosaico.md`). Se eligió 6A —sólo la tarjeta nueva sale— para no
+  inflar el diff del PR que había que revisar contra el handoff.
+- **Empezar por:** `ProximasVisitasCard`, que es la más autocontenida (no comparte helpers locales
+  salvo `card`, `cardTitle`, `filaAncha` y `MAX_FILAS`, que hay que subir a un módulo compartido
+  primero). Después las otras tres.
+- **Depende de / bloqueado por:** una ventana **sin trabajo paralelo** sobre el Resumen. Confirmarlo
+  con el Director antes de empezar, no después.
+- **Prioridad:** P3.
+
+---
+
+## Coordinación · `useMyTasks` trae el histórico completo (y el atajo obvio está mal)
+
+- **Qué:** acotar la consulta de tareas cuando el volumen lo justifique — por ejemplo, las abiertas
+  más las cerradas de los últimos N días.
+- **Por qué:** `useMyTasks` (`src/data/tareas.ts:81`) hace `select('*, task_assignees(*)')` sin
+  filtro: trae todas mis tareas de siempre, hechas incluidas. Desde el 2026-09-06 la disparan **dos**
+  pantallas (`Inicio › Tareas` y la tarjeta del Resumen de Coordinación), y la tarjeta usa tres
+  filas. Crece para siempre y nunca se achica.
+- **⚠️ LA TRAMPA, que es lo caro de esta entrada:** el filtro obvio —`completed_at is null` en el
+  servidor— **ESTÁ MAL**. En modo `cada_uno` la tarea cierra cuando cierran TODOS sus asignados, y
+  ese hecho vive en `task_assignees.completed_at`, no en la columna de la tarea (ver `estaHecha` en
+  `src/views/tareas/estados.ts`). Con ese filtro, una tarea grupal terminada por todo el mundo
+  seguiría apareciendo como pendiente. Y un `.limit(3)` tampoco sirve: el orden es por `due_date` y
+  las hechas vienen intercaladas, así que las tres primeras pueden ser tres tareas ya cerradas.
+  **Es el patrón de "filtrá por la columna del HECHO, no por el estado derivado".**
+- **Pros:** la carga deja de depender del histórico; el Resumen —que ya dispara ocho consultas— abre
+  más liviano.
+- **Contras:** cualquier acotación tiene que respetar los dos modos de cierre, o duplica la lógica de
+  `estaHecha` en SQL y crea una segunda definición de "pendiente" desincronizada desde el día uno.
+  La salida sana probablemente sea una **vista** que exponga el "hecha" ya resuelto, no un filtro
+  suelto en el `select`.
+- **Contexto:** hallazgo 11 de la `/plan-eng-review` del 2026-09-06. Se eligió 11A —reusar el hook y
+  filtrar en el cliente con `estaHecha`— porque con el volumen actual el costo es despreciable y el
+  riesgo de corrección del atajo es alto.
+- **Empezar por:** medir el volumen real (`select count(*) from tasks`) antes de tocar nada. Si son
+  cientos, evaluar una vista con el "hecha" resuelto en el servidor.
+- **Depende de / bloqueado por:** ver el volumen después de unos meses de uso real.
+- **Prioridad:** P3.
+
+---
+
+## Resumen · la tarjeta "Pacientes" del handoff (y por qué no se portó tal cual)
+
+- **Qué:** la quinta tarjeta que dibujan las variantes A, C y D de
+  `design_handoff_resumen_tareas_enfoque`: "Pacientes · 12 vistos hoy", con avatares y un pie
+  "Buscar paciente".
+- **Por qué:** es la única pieza del bundle que queda sin portar. Sin esta nota, dentro de tres meses
+  alguien la ve en el mock y rehace el mismo análisis desde cero.
+- **Pros:** el dato de arriba **existe**: "N visitas hoy" sale de `useVisitsForDay`, la misma consulta
+  que ya usa `InicioResumenView`. La razón por la que se difirió el 2026-09-01 —"métrica inventada,
+  sin consulta que la sostenga"— **ya no aplica**.
+- **⚠️ EL CONFLICTO, que es el dato que no está en el handoff:** el mock la resuelve con **avatares de
+  INICIALES** (`MA`, `RB`, `CD`, "y 9 más" — `source/Resumen - Tareas enfoque (variantes).html:213`).
+  Eso es exactamente el `PrivacyAvatar` que el Director mandó **eliminar el 2026-08-04**, cuando
+  decidió que el nombre completo del paciente se muestra en toda la app y el IVRS queda como
+  identificador secundario. Portarla tal cual reintroduce un patrón retirado por decisión explícita;
+  portarla bien exige rediseñarla con nombres — o sea apartarse del mock justo en la tarjeta que se
+  agrega para parecerse a él.
+- **Contras:** además del conflicto, el mosaico se acaba de rebalancear a 3 y 2 (2026-09-06); una
+  sexta tarjeta lo vuelve a desbalancear y hay que decidir dónde va.
+- **Contexto:** quedó fuera del alcance en D1=B de la `/plan-eng-review` del 2026-09-06
+  (`docs/plan-resumen-tareas-en-el-mosaico.md`).
+- **Empezar por:** decidir con el Director **cómo se muestran esos pacientes sin volver a las
+  iniciales** — nombres cortos en fila, o directamente otra forma de tarjeta. Recién después, código.
+- **Depende de / bloqueado por:** esa decisión de diseño.
+- **Prioridad:** P3.
