@@ -13,6 +13,7 @@
  */
 export const REGISTERED_VIEWS = [
   'inicio/resumen',
+  'inicio/tareas',
   'track/resumen',
   'track/protocolos',
   'track/visitas',

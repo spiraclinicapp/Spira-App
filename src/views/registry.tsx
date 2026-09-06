@@ -10,6 +10,7 @@ import { MedicamentosView } from './pharma/MedicamentosView'
 import { RecepcionView } from './pharma/RecepcionView'
 import { DispensacionesView } from './pharma/DispensacionesView'
 import { ReportesView } from './pharma/reportes/ReportesView'
+import { TareasView } from './TareasView'
 import type { RegisteredView } from './registryKeys'
 import type { ViewComponent } from './types'
 
@@ -27,6 +28,7 @@ export { isViewRegistered } from './registryKeys'
  */
 const VIEW_REGISTRY: Record<RegisteredView, ViewComponent> = {
   'inicio/resumen': InicioResumenView,
+  'inicio/tareas': TareasView,
   'track/resumen': TrackResumenView,
   'track/protocolos': ProtocolsView,
   'track/visitas': DayVisitsView,
