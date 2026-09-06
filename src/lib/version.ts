@@ -19,7 +19,11 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
-    { version: '0.58', text: 'Inicio suma Tareas: anotá tus pendientes, asignalos a alguien del equipo y marcalos hechos.' },
+    { version: '0.59', text: 'Tus tareas viven en Coordinación y asoman en el Resumen: tildalas o anotá una sin salir.' },
+    /* Decía "Inicio suma Tareas" y dejó de ser cierto en la 0.59, cuando Tareas se mudó a
+       Coordinación. Se corrige el texto y no se agrega una entrada nueva: el changelog cuenta qué
+       cambió, no dónde estuvo cada cosa una semana. */
+    { version: '0.58', text: 'Llegan las Tareas: anotá tus pendientes, asignalos a alguien del equipo y marcalos hechos.' },
     { version: '0.57', text: 'Pendientes se enfoca por protocolo desde tarjetas, y el filtro de estado suma «Por reprogramar».' },
     { version: '0.56', text: 'Las visitas a las que el paciente no vino ya aparecen en Pendientes, y se pueden archivar.' },
     { version: '0.55', text: 'Alertas pasa a llamarse Pendientes, y el Resumen muestra las visitas del próximo día.' },
