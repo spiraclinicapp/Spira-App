@@ -27,6 +27,7 @@ import { dueLabel, esReportePendiente, esTarjeta } from './track/reportes/estado
 import type { TrackVisitRow } from '../data/visits'
 import { visitTitle } from '../lib/visits'
 import { dayLabel, formatAR, fromNow, todayISO } from '../lib/dates'
+import { GLOSARIO_ESTADOS } from '../lib/glosario'
 import { VISIT_STATES, VisitChip } from './visitStates'
 import { VisitSummaryRow } from './VisitSummaryRow'
 import { CuerpoDeTarjeta, VacioSimple } from './resumenEstados'
@@ -838,10 +839,12 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
               salen de VISIT_STATES para que no se separen de los chips del resto de la app el día
               que alguno se renombre. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 12, fontSize: 11.5, color: 'var(--spira-muted)' }}>
+            {/* La leyenda explica cada estado al apuntarlo, y lleva la marca del glosario: aparece
+                una sola vez en la tarjeta, así que enseña el gesto sin salpicar las filas. */}
             {(['ventana_vencida', 'item_vencido'] as const).map((s) => (
               <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: VISIT_STATES[s].color }} />
-                {VISIT_STATES[s].label}
+                <abbr className="spira-termino" title={GLOSARIO_ESTADOS[s]}>{VISIT_STATES[s].label}</abbr>
               </span>
             ))}
           </div>

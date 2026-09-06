@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { visitTitle } from '../lib/visits'
+import { GLOSARIO } from '../lib/glosario'
 import type { TrackVisitRow } from '../data/visits'
 import { FilaDeResumen } from './resumen/piezas'
 
@@ -82,7 +83,8 @@ export function VisitSummaryRow({
           {visit.patient_code && (
             <>
               <span style={{ color: 'var(--spira-faint)' }}> · </span>
-              <span className="spira-mono">
+              {/* `title` sin marca visual: se repite en cada fila. Ver el criterio en `Termino`. */}
+              <span className="spira-mono" title={GLOSARIO.ivrs}>
                 <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>
                   {visit.patient_code}
                 </PatientLink>

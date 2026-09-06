@@ -26,6 +26,7 @@ import { visitTitle } from '../lib/visits'
 import { formatAR, todayISO, daysDiffISO, fromNow } from '../lib/dates'
 import { codecs } from '../lib/router'
 import { useUrlEntity, useUrlState } from '../lib/useUrlState'
+import { GLOSARIO, GLOSARIO_ESTADOS } from '../lib/glosario'
 import { VISIT_STATES } from './visitStates'
 import { VisitDetail } from './track/VisitDetail'
 import { useAbrirFicha } from './useAbrirFicha'
@@ -585,11 +586,15 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
             El punto va al lado del nombre en vez de describir el color con una palabra: "terracota"
             no le dice nada a nadie, y el color se puede mirar. */}
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--spira-line)', fontSize: 11.5, color: 'var(--spira-muted)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          {[...GRAVEDAD.map((s) => ({ label: VISIT_STATES[s].label, color: VISIT_STATES[s].color })),
-            { label: 'Reporte pendiente', color: 'var(--spira-acc-deep-blue)' }].map((x) => (
+          {/* CADA RÓTULO DE LA LEYENDA EXPLICA SU ESTADO al apuntarlo, y acá sí lleva la marca
+              visual del glosario: la leyenda aparece UNA vez por pantalla y es, literalmente, el
+              lugar al que va alguien que no entiende lo que está viendo. Marcar acá enseña que la
+              app se puede preguntar, sin salpicar de punteados la lista de arriba. */}
+          {[...GRAVEDAD.map((s) => ({ label: VISIT_STATES[s].label, color: VISIT_STATES[s].color, ayuda: GLOSARIO_ESTADOS[s] })),
+            { label: 'Reporte pendiente', color: 'var(--spira-acc-deep-blue)', ayuda: GLOSARIO.reportePendiente }].map((x) => (
             <span key={x.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: x.color, flex: '0 0 auto' }} />
-              {x.label}
+              <abbr className="spira-termino" title={x.ayuda}>{x.label}</abbr>
             </span>
           ))}
         </div>
