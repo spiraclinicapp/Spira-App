@@ -3,6 +3,8 @@ import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
+import { Termino } from '../components/Termino'
+import type { ClaveGlosario } from '../lib/glosario'
 import type { ProtocolRow } from '../data/protocols'
 import type { PatientRow } from '../data/patients'
 import { useProtocolVisits } from '../data/visits'
@@ -139,10 +141,17 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
    * Los que no navegan se quedan como están, inertes y sin flecha. Un KPI que no lleva a ningún
    * lado no tiene que fingir que sí.
    */
-  const kpiRow = (label: string, value: ReactNode, sub: string | null, warn = false, onIr?: () => void) => {
+  const kpiRow = (label: string, value: ReactNode, sub: string | null, warn = false, onIr?: () => void, glosario?: ClaveGlosario) => {
     const cuerpo = (
       <>
-        <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{label}</span>
+        {/* ACÁ SÍ VA LA MARCA VISUAL del glosario, y es el único bloque de las dos pantallas donde
+            va. Estos cuatro rótulos aparecen UNA vez cada uno y no se repiten al scrollear, así que
+            el subrayado punteado enseña que la app se puede preguntar sin volverse ruido —que es lo
+            que pasaría marcando los quince IVRS de una lista, donde la definición es la misma
+            quince veces. Una vez que alguien descubre el gesto acá, lo prueba en el resto. */}
+        {glosario
+          ? <Termino clave={glosario} style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{label}</Termino>
+          : <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{label}</span>}
         <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
           <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, fontVariantNumeric: 'tabular-nums', color: warn ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink)' }}>{value}</span>
           {sub && <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{sub}</span>}
@@ -221,19 +230,19 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
-            {kpiRow('Pacientes enrolados', k?.enrolled ?? 0, k ? `${k.active} activos` : null)}
-            {kpiRow('Visitas realizadas', `${k?.visits_done ?? 0}/${k?.visits_total ?? 0}`, null)}
+            {kpiRow('Pacientes enrolados', k?.enrolled ?? 0, k ? `${k.active} activos` : null, false, undefined, 'pacientesEnrolados')}
+            {kpiRow('Visitas realizadas', `${k?.visits_done ?? 0}/${k?.visits_total ?? 0}`, null, false, undefined, 'visitasRealizadas')}
             {/* El único de los cuatro que navega, y es el que lo pide: una ventana por vencer es
                 algo que hay que ir a resolver, no un dato para mirar. Va a Pendientes con ESTE
                 protocolo ya filtrado. Sin `onVerPendientes` queda inerte, como los otros tres. */}
-            {kpiRow('Ventanas por vencer', k?.windows_due_7d ?? 0, 'próx. 7 días', (k?.windows_due_7d ?? 0) > 0, onVerPendientes)}
+            {kpiRow('Ventanas por vencer', k?.windows_due_7d ?? 0, 'próx. 7 días', (k?.windows_due_7d ?? 0) > 0, onVerPendientes, 'ventanasPorVencer')}
             {/* Adherencia es UN KPI MÁS y ahora se dibuja como tal: mismo `kpiRow` que sus tres
                 hermanos, con la barra debajo. Venía con su propia receta —label a 12 en vez de 12.5,
                 valor en Inter 12/600 teñido con el acento en vez de Schibsted 21/700 en tinta— y era
                 el único de los cuatro que no se leía como parte de la misma columna. La barra sí es
                 suya: es el único de los cuatro cuyo valor es una proporción y admite mostrarse. */}
             <div>
-              {kpiRow('Adherencia', `${adherencePct}%`, null)}
+              {kpiRow('Adherencia', `${adherencePct}%`, null, false, undefined, 'adherencia')}
               <div style={{ marginTop: 7 }}>
                 <Bar pct={adherencePct} color={accent} />
               </div>

@@ -900,6 +900,30 @@ input:-webkit-autofill:focus {
 }
 .spira-textlink:hover,
 .spira-textlink:focus-visible { text-decoration: underline; }
+
+/* —— Término del glosario ——
+   Una palabra de la jerga del centro (IVRS, VNP, W12, "Ventana vencida") con su explicación al
+   apuntarla. El texto vive en `lib/glosario.ts`; acá va sólo la señal de que se puede preguntar.
+
+   LA SEÑAL ES EL SUBRAYADO PUNTEADO Y `cursor: help`, y NADA MÁS: sin color, sin ícono, sin
+   pastilla. El color en esta app significa marca, módulo o estado (DESIGN.md §2), y "acá hay una
+   definición" no es ninguna de las tres; teñir la mitad de las palabras de una lista de pacientes
+   la volvería un texto marcado con resaltador. El punteado se lee como "hay algo más" sin competir
+   con nada, que es exactamente el registro de esta app.
+
+   El subrayado va en `--spira-faint`, que desde la recalibración de la rampa (PR #95) NO llega a
+   AA para texto — y está bien, porque acá no es texto: es una línea decorativa de 1px sobre una
+   palabra que ya se lee en tinta. El contraste que importa es el de la palabra, que no se toca.
+
+   Es un `<abbr>`: la semántica correcta para un término con expansión, y la que hace que un lector
+   de pantalla anuncie la definición sin que haya que agregarle un `aria-label` que duplique el
+   `title`. */
+.spira-termino {
+  text-decoration: underline dotted var(--spira-faint);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  cursor: help;
+}
 /* Va SIEMPRE con `.spira-no-press` (lo pone el componente, no el que lo usa): es un `<button>`, así
    que sin esa marca hereda la micro-interacción global y el texto se LEVANTA 1px al apuntarlo. En un
    botón eso es la señal de "esto se toca"; en un nombre de 23px en medio de un bloque de identidad

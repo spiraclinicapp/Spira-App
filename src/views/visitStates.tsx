@@ -1,6 +1,7 @@
 import type { VisitStatus } from '../data/visits'
 import type { OperationalStage } from '../data/dayVisits'
 import type { DotVisual } from '../lib/visits'
+import { GLOSARIO_ESTADOS } from '../lib/glosario'
 
 /**
  * Paleta de los estados CLÍNICOS de la visita (identidad visual, TrackContent.jsx). Constante en
@@ -79,6 +80,15 @@ export function VisitChip({ status, compact = false }: { status: VisitStatus; co
   const e = VISIT_STATES[status] ?? VISIT_STATES.proxima
   return (
     <span
+      /* El chip explica su propio estado al apuntarlo. Acá y no en cada pantalla: `VisitChip` es el
+         único lugar donde se dibujan estos rótulos, así que "Pendiente vencido" queda explicado en
+         toda la app de una vez — y el día que se agregue un estado, el `Record` cerrado de
+         `GLOSARIO_ESTADOS` no compila hasta que alguien escriba qué significa.
+
+         SIN subrayado punteado: el chip ya es un objeto con forma propia y marcarlo además lo
+         convertiría en el elemento más cargado de la fila, que es justo lo que acabamos de sacarle
+         a "Próximas visitas". Acá alcanza con que la explicación esté cuando se la busca. */
+      title={GLOSARIO_ESTADOS[status]}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
         color: 'var(--spira-ink)', whiteSpace: 'nowrap', background: e.color + '24', padding: '3px 10px',
