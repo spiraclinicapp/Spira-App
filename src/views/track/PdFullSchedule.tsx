@@ -1,13 +1,14 @@
+import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
-import { dotVisual, orderVisits, visitIndex, visitStateLabel, visitTitle, studyTime, desvioDias, fueraDeVentana } from '../../lib/visits'
+import { dotVisual, flowWindow, orderVisits, visitIndex, visitStateLabel, visitTitle, studyTime, desvioDias, fueraDeVentana } from '../../lib/visits'
 import { dotColor } from '../visitStates'
 import { formatShortAR, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 
 /**
- * Cronograma vertical: todas las visitas del paciente (programadas + sueltas). Por fila: pelotita con
+ * Cronograma vertical: las visitas del paciente (programadas + sueltas). Por fila: pelotita con
  * el NÚMERO de visita (gris sin atender, contorno verde atendida, relleno verde completa), nombre
  * ("Visita N", conteo de todas las visitas), semana/fecha y pill del estado operativo (Atendido,
  * Fuera del sitio, etc.).
@@ -16,20 +17,60 @@ import { VisitDot } from './VisitDot'
  * del día, sincronizado por leer de la misma fuente. La fila se vuelve `role="button"` (a11y + el
  * "levante" al hover del CSS global) y muestra un chevron como affordance de que se puede abrir.
  */
-export function PdFullSchedule({ visits, currentId, accent, onOpen }: {
+export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie }: {
   visits: TrackVisitRow[]
   currentId: string | null
   accent: string
   onOpen?: (visitId: string) => void
+  /**
+   * Mostrar sólo ±`ventana` visitas alrededor de la actual, con controles para traer el resto.
+   * Sin esto se muestran todas, que es el modo de la ficha del paciente (una card entera para el
+   * cronograma). El listado de pacientes lo usa en 3: ahí el cronograma vive DENTRO de una fila que
+   * se despliega, y trece visitas empujarían la fila siguiente fuera de vista.
+   *
+   * EL RECORTE ES DE LO QUE SE PINTA, NO DE LO QUE SE NUMERA. `visitIndex` se calcula sobre TODAS
+   * las visitas antes de recortar: si se le pasara la rebanada, la primera visita visible se
+   * numeraría "1" y la pelotita mentiría sobre cuántas veces vino el paciente.
+   */
+  ventana?: number
+  /** Una línea al pie (hoy: `ubicacionDeHoy`). Ver por qué existe en `lib/visits.ts`. */
+  pie?: string
 }) {
   const ordered = orderVisits(visits)
   const idx = visitIndex(visits)
   const today = todayISO()
   const clickable = !!onOpen
+  const [expandido, setExpandido] = useState(false)
+
+  /* La misma ventana de ±3 que dibujaba el tracker horizontal, pero acá el "+N" PUEDE CUMPLIR:
+     una lista crece hacia abajo, donde hay espacio. En la versión horizontal las pastillas "+N"
+     eran un `<div>` sin `onClick` — le decían al usuario "hay 7 más de ese lado" y no le daban
+     forma de verlas, que es peor que no decírselo. */
+  const recorte = ventana != null && !expandido ? flowWindow(visits, currentId, ventana) : null
+  const visibles = recorte ? recorte.window : ordered
+
+  const masBtn = (cuantas: number, texto: string) => (
+    <button
+      type="button"
+      className="spira-row-link spira-no-press"
+      onClick={() => setExpandido(true)}
+      aria-label={`Mostrar las ${cuantas} visitas ${texto}`}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 4px',
+        border: 'none', background: 'transparent', textAlign: 'left',
+        fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 600,
+        color: 'var(--spira-acc-deep-track)', cursor: 'pointer',
+      }}
+    >
+      <Icon name={texto === 'anteriores' ? 'chevronUp' : 'chevronDown'} size={14} stroke={2.4} />
+      {cuantas} {cuantas === 1 ? 'visita' : 'visitas'} {texto}
+    </button>
+  )
 
   return (
     <div>
-      {ordered.map((v, k) => {
+      {recorte && recorte.moreBefore > 0 && masBtn(recorte.moreBefore, 'anteriores')}
+      {visibles.map((v, k) => {
         const cur = v.id === currentId
         const estColor = dotColor(dotVisual(v), accent)
         const estLabel = visitStateLabel(v, today)
@@ -40,7 +81,9 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen }: {
         const fuera = fueraDeVentana(v.real_date, v.window_start, v.window_end)
         const rowStyle: CSSProperties = {
           display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '11px 4px',
-          borderTop: k ? '1px solid var(--spira-line)' : 'none',
+          /* El separador lo lleva la fila de arriba, así que la primera no lo tiene — salvo que
+             arriba haya quedado el control de "N visitas anteriores", que sí es una fila. */
+          borderTop: k || (recorte && recorte.moreBefore > 0) ? '1px solid var(--spira-line)' : 'none',
           background: 'transparent', textAlign: 'left', color: 'inherit', font: 'inherit',
           cursor: clickable ? 'pointer' : 'default',
         }
@@ -90,6 +133,12 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen }: {
           </div>
         )
       })}
+      {recorte && recorte.moreAfter > 0 && masBtn(recorte.moreAfter, 'siguientes')}
+      {pie && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--spira-line)', fontSize: 11.5, color: 'var(--spira-muted)' }}>
+          {pie}
+        </div>
+      )}
     </div>
   )
 }

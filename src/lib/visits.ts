@@ -171,8 +171,32 @@ export function fueraDeVentana(real: string | null, windowStart: string | null, 
 }
 
 /**
- * Ventana de ±radius visitas alrededor de la actual para el tracker horizontal,
- * con cuántas quedan fuera a cada lado (para los chips "+N").
+ * Dónde cae HOY respecto del cronograma, en una línea: "Hoy · entre VNP y V7 · Agendada".
+ *
+ * Vivía adentro de `PdVisitFlow`, que dibujaba una línea de tiempo horizontal donde la posición de
+ * hoy se leía en el espacio (un marcador a mitad del tramo). Al pasar la fila del listado de
+ * pacientes al cronograma VERTICAL, esa señal espacial se perdía: una lista de fechas no dice, por
+ * sí sola, de qué lado del hoy estás parado. Es información real y barata, así que se rescata como
+ * texto en vez de dejarla caer con el componente.
+ *
+ * Cuatro casos, y el orden importa: hoy CAE en una visita (la nombra), hoy cae ENTRE dos, hoy es
+ * anterior a todas, hoy es posterior a todas. El estado que se cita es siempre el de la visita que
+ * viene —la que todavía se puede hacer algo con ella—, salvo cuando ya no hay ninguna.
+ */
+export function ubicacionDeHoy(rows: TrackVisitRow[], today: string): string {
+  const idx = visitIndex(rows)
+  const { prev, next, todayVisit } = todaySplit(rows, today)
+  const labelOf = (v: TrackVisitRow) => visitCode(v, idx.get(v.id))
+  if (todayVisit) return `Hoy · ${labelOf(todayVisit)} · ${visitStateLabel(todayVisit, today)}`
+  if (prev && next) return `Hoy · entre ${labelOf(prev)} y ${labelOf(next)} · ${visitStateLabel(next, today)}`
+  if (next) return `Hoy · antes de ${labelOf(next)} · ${visitStateLabel(next, today)}`
+  if (prev) return `Hoy · después de ${labelOf(prev)}`
+  return ''
+}
+
+/**
+ * Ventana de ±radius visitas alrededor de la actual, con cuántas quedan fuera a cada lado
+ * (para los controles "+N" que expanden).
  */
 export function flowWindow(
   rows: TrackVisitRow[],

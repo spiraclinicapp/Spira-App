@@ -21,6 +21,7 @@ import { NewPatientForm } from './NewPatientForm'
 import { ProtocolDetailView } from './ProtocolDetailView'
 import { PatientFichaView } from './PatientFichaView'
 import { EditProtocolForm } from './EditProtocolForm'
+import { DESTINO_PENDIENTES } from './resumen/destinos'
 import { navDesdePath, pathDesdeNav, resolverFichaDestino } from './protocolsNav'
 import type { Nav } from './protocolsNav'
 import { NotFoundView } from '../shell/NotFoundView'
@@ -278,6 +279,14 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
           onNewPatient={() => setCreating('patient')}
           onEdit={() => setEditingProtocol(true)}
           onGoAgenda={() => onNavigate?.('track', 'agenda')}
+          /* El destino sale de `DESTINO_PENDIENTES` y no de dos literales: el submódulo ya se
+             renombró una vez (Alertas → Pendientes) y un literal habría sobrevivido a la mudanza
+             sin fallar, mandando a un lugar inexistente sin un solo error. */
+          onVerPendientes={onNavigate && (() => onNavigate(
+            DESTINO_PENDIENTES.moduleKey,
+            DESTINO_PENDIENTES.subKey,
+            { protocolFilter: [proto.id] },
+          ))}
         />
         {creating === 'patient' && (
           <NewPatientForm

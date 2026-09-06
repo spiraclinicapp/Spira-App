@@ -51,6 +51,16 @@ export interface NavTarget {
    */
   protocolId?: string
   /**
+   * Con qué protocolos entrar YA FILTRADA a la pantalla destino (hoy: Pendientes). Es una lista
+   * porque el filtro de esa pantalla es múltiple; mandar uno solo es el caso normal.
+   *
+   * NO es lo mismo que `protocolId`, aunque los dos lleven un id de protocolo: aquél dice "bajo qué
+   * enrolamiento abrir esta ficha" —desambigua a un paciente que está en dos protocolos— y éste
+   * dice "qué mostrar de una lista". Un solo campo para las dos cosas se leería igual en el call
+   * site y haría cosas distintas según quién lo reciba.
+   */
+  protocolFilter?: string[]
+  /**
    * Pestaña con la que abrir el DETALLE del protocolo. La manda quien sabe a qué venís: el Resumen
    * de Coordinación abre en 'reportes' desde su tarjeta de reportes pendientes, porque ahí es donde
    * ese reporte se gestiona. Sin esto, el salto aterriza en 'pacientes' y hay que buscar la pestaña

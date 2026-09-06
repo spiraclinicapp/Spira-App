@@ -148,6 +148,22 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     onTargetConsumed?.()
   }, [navTarget, onTargetConsumed])
 
+  /* Llegada CON un protocolo para filtrar (desde el KPI "Ventanas por vencer" de la ficha del
+     protocolo). Es el mismo `setProtocolFilter` que escribe el atajo de las tarjetas de más abajo,
+     así que la pantalla queda en un estado que el usuario podría haber armado a mano — y la URL lo
+     dice, o sea que es dictable y sobrevive un F5.
+
+     Efecto aparte del de `visitId` y no una rama del mismo: son dos objetivos independientes (se
+     puede llegar con uno, con el otro o con los dos) y unirlos obligaría a que consumir uno
+     descartara el otro. */
+  useEffect(() => {
+    const filtro = navTarget?.protocolFilter
+    if (!filtro || filtro.length === 0) return
+    setProtocolFilter(filtro)
+    onTargetConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navTarget, onTargetConsumed])
+
   const loading = alertsQ.loading || protocols.loading
   const error = alertsQ.error || protocols.error
 
