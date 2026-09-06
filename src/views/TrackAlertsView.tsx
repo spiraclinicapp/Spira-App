@@ -6,7 +6,7 @@ import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { alertItemStyle } from './alertItem'
 import { AlertCardHeader } from './AlertCardHeader'
 import { PendientesProtocoloCards } from './PendientesProtocoloCards'
-import { GRAVEDAD, severidadMaxima } from './alertSeverity'
+import { claseDeAlerta, GRAVEDAD, ICONO_REPORTE, SEVERIDAD_ICONO, severidadMaxima } from './alertSeverity'
 import { reporteTitulo } from './track/reportes/estados'
 import { EmptyState } from '../components/EmptyState'
 import { SearchableSelect } from '../components/SearchableSelect'
@@ -481,7 +481,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                   aria-label={`Abrir la visita de ${r.patient_name} — reporte de procedimiento pendiente`}
                   style={alertItemStyle(c, { conBotonDescartar: true })}
                 >
-                  <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="clipboardCheck" size={18} color={c} /></span>
+                  <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name={ICONO_REPORTE} size={18} color={c} /></span>
                   <div style={{ minWidth: 0 }}>
                     <div className="spira-link-group" style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
@@ -540,7 +540,11 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                   style={alertItemStyle(c, { conBotonDescartar: true })}
                 >
                   <span style={{ flex: '0 0 auto', marginTop: 1 }}>
-                    <Icon name={a.computed_status === 'ventana_vencida' ? 'alertCircle' : 'clock'} size={18} color={c} />
+                    {/* Desde `SEVERIDAD_ICONO` y no de un ternario propio, que resolvía por DOS vías
+                        —ventana vencida, o el reloj para todo lo demás— y dejaba "no vino" y
+                        "pendiente vencido" con el mismo glifo: la lista no los distinguía, aunque
+                        el color sí. Tres clases, tres íconos. */}
+                    <Icon name={SEVERIDAD_ICONO[claseDeAlerta(a.computed_status)]} size={18} color={c} />
                   </span>
                   <div style={{ minWidth: 0 }}>
                     <div className="spira-link-group" style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>

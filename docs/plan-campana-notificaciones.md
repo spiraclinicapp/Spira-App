@@ -219,29 +219,44 @@ export function tonoDelPunto(
 export function textoDePildora(n: number): string
 ```
 
-### 5.3 `SEVERIDAD_ICONO` en `alertSeverity.ts` — converge dos mapeos que ya discrepan
+### 5.3 `SEVERIDAD_ICONO` en `alertSeverity.ts` — converge los mapeos que ya discrepan
 
-Hoy hay **dos** tablas de ícono por clase, y no coinciden:
+**Al implementarlo aparecieron TRES tablas escritas a mano, no dos**, y ninguna coincidía con otra:
 
 ```
-  AlertCardHeader.tsx:84   ventana_vencida → alertCircle │ item_vencido → clock │ por_reprogramar → bell
-  TrackAlertsView.tsx:542  ventana_vencida → alertCircle │ TODO LO DEMÁS → clock
+  AlertCardHeader.tsx:84          ventana_vencida → alertCircle │ item_vencido → clock │ por_reprogramar → bell
+  TrackAlertsView.tsx:542         ventana_vencida → alertCircle │ TODO LO DEMÁS → clock
+  PendientesProtocoloCards.tsx    ventana_vencida → alertCircle │ TODO LO DEMÁS → clock  ← y su comentario
+                                  decía "el ícono espeja al de la campana"
 ```
 
-Una tercera en la campana serían tres verdades sobre lo mismo. Va **una sola**, en
+Una cuarta en la campana serían cuatro verdades sobre lo mismo. Va **una sola**, en
 `alertSeverity.ts`, junto a `SEVERIDAD_TINTA`:
 
 ```ts
 export const SEVERIDAD_ICONO: Record<AlertSeverity, IconName> = {
   ventana_vencida: 'alertCircle',
-  por_reprogramar: 'calendar',   // ← cambia respecto de AlertCardHeader
+  por_reprogramar: 'calendar',   // ← cambia respecto de las tres
   item_vencido:    'clock',
 }
+
+/** La cuarta clase, que no es una severidad de visita. El literal andaba suelto en tres pantallas. */
+export const ICONO_REPORTE: IconName = 'clipboardCheck'
 ```
 
+**Dos defectos que la convergencia destapó, además del ícono compartido:**
+
+1. `TrackAlertsView` y `PendientesProtocoloCards` resolvían por DOS vías, así que **"no vino" y
+   "pendiente vencido" salían con el mismo glifo**: el color los distinguía y el ícono no.
+2. En `PendientesProtocoloCards`, `p.peor` es `null` cuando los únicos pendientes de un protocolo son
+   **reportes**, y ese caso también caía en el reloj. Es el mismo hueco que D11 tapó en el punto de la
+   campana; acá lo cierra `ICONO_REPORTE`.
+
 **Cambio visible fuera del alcance, declarado a propósito:** `por_reprogramar` pasa de `bell` a
-`calendar` en la cabecera de la tarjeta de alertas. `bell` adentro del menú de la campana no dice
-nada, y "no vino a la cita" es un hecho de calendario. **Mirarlo en el QA visual.**
+`calendar` en la cabecera de la tarjeta de alertas, y de `clock` a `calendar` en la lista de
+Pendientes y en las tarjetas de protocolo. `bell` es además el ícono del submódulo —el que esa misma
+cabecera usa para decir "ninguna alerta"—, así que el mismo glifo significaba dos cosas.
+**Mirarlo en el QA visual.**
 
 ---
 

@@ -50,6 +50,28 @@ export function severidadMaxima(
   return null
 }
 
+/** ¿Este estado es una de las tres severidades de alerta? */
+export function esSeveridad(status: VisitStatus): status is AlertSeverity {
+  return (GRAVEDAD as readonly VisitStatus[]).includes(status)
+}
+
+/**
+ * Con qué severidad se PINTA una visita.
+ *
+ * Un estado que no sea de alerta cae al grado MÁS BAJO en vez de devolver `undefined`. No debería
+ * llegar ninguno —las tres pantallas que la usan leen de `useActiveAlerts`, que filtra por los
+ * tres— pero si llegara, un `SEVERIDAD_TINTA[undefined]` o un `SEVERIDAD_ICONO[undefined]` deja el
+ * componente sin color ni ícono, y en la campana —que vive en el shell— eso desmonta el árbol y
+ * apaga el topbar en todos los módulos a la vez. Caer de grado es la falla mansa.
+ *
+ * OJO CON EL TEXTO: bajar de grado sirve para poder pintar, no para rotular. Quien tenga que
+ * NOMBRAR el estado debe usar el suyo (`VISIT_STATES` lo tiene para los ocho), no el del grado al
+ * que cayó — ver `motivoDeAlerta` en `shell/notificaciones`.
+ */
+export function claseDeAlerta(status: VisitStatus): AlertSeverity {
+  return esSeveridad(status) ? status : GRAVEDAD[GRAVEDAD.length - 1]
+}
+
 /**
  * La TINTA de la cabecera para cada severidad.
  *
@@ -105,3 +127,15 @@ export const SEVERIDAD_ICONO: Record<AlertSeverity, IconName> = {
   por_reprogramar: 'calendar',
   item_vencido: 'clock',
 }
+
+/**
+ * El ícono de la CUARTA clase, la que no es una severidad de visita: el reporte de procedimiento
+ * pendiente. Vive acá, al lado de las otras tres, aunque no entre en el `Record` —los reportes
+ * salen de otra consulta y no tienen `computed_status`, así que no son un `AlertSeverity`—.
+ *
+ * Está con nombre porque el literal ya andaba suelto en tres pantallas, y porque es el que hace
+ * falta en el caso que se escapa: cuando lo único pendiente son reportes no hay severidad de visita
+ * que consultar, y quien no tenga a mano este ícono va a caer en el reloj de `item_vencido`, que
+ * dice otra cosa.
+ */
+export const ICONO_REPORTE: IconName = 'clipboardCheck'

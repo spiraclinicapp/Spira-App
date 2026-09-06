@@ -4,7 +4,9 @@ import type { TrackVisitRow, VisitStatus } from '../data/visits'
 import { formatAR, formatDateAR } from '../lib/dates'
 import { visitTitle } from '../lib/visits'
 import type { AlertSeverity } from '../views/alertSeverity'
-import { GRAVEDAD, SEVERIDAD_ICONO, SEVERIDAD_TINTA, severidadMaxima } from '../views/alertSeverity'
+import {
+  esSeveridad, GRAVEDAD, ICONO_REPORTE, SEVERIDAD_ICONO, SEVERIDAD_TINTA, severidadMaxima,
+} from '../views/alertSeverity'
 import { VISIT_STATES } from '../views/visitStates'
 
 /**
@@ -74,7 +76,7 @@ const DE_VISITA = Object.fromEntries(
 export const CLASES: Record<ClaseDeAlerta, EstiloDeClase> = {
   ...DE_VISITA,
   reporte: {
-    icono: 'clipboardCheck',
+    icono: ICONO_REPORTE,
     tinta: 'var(--spira-acc-deep-track)',
     base: 'var(--spira-primary)',
     rotulo: 'Reporte pendiente',
@@ -98,22 +100,11 @@ export function tinte(color: string, porcentaje: number): string {
   return `color-mix(in srgb, ${color} ${porcentaje}%, transparent)`
 }
 
-/** ¿Este estado es una de las tres severidades de alerta? */
-export function esSeveridad(status: VisitStatus): status is AlertSeverity {
-  return (GRAVEDAD as readonly VisitStatus[]).includes(status)
-}
-
-/**
- * La clase con la que se pinta una alerta de visita.
- *
- * Un estado que no sea de alerta cae al GRADO MÁS BAJO en vez de devolver `undefined`. No debería
- * llegar ninguno —`useVisitAlerts` filtra por los tres— pero si llegara, un `CLASES[undefined].tinta`
- * desmonta el árbol de React y deja el topbar en blanco en todos los módulos a la vez. Caer de
- * grado es la falla mansa; la otra es una pantalla vacía.
- */
-export function claseDeAlerta(status: VisitStatus): AlertSeverity {
-  return esSeveridad(status) ? status : GRAVEDAD[GRAVEDAD.length - 1]
-}
+/* `esSeveridad` y `claseDeAlerta` VIVEN EN `alertSeverity`, junto a `GRAVEDAD` y a las dos tablas
+   que indexan. Se reexportan desde acá porque la campana las usa —y porque nacieron acá— pero el
+   dueño es aquel archivo: la vista de Pendientes también las necesita, y `views/` importando de
+   `shell/` sería una dependencia al revés. */
+export { claseDeAlerta, esSeveridad } from '../views/alertSeverity'
 
 /**
  * La fecha que la caja muestra para una alerta de visita.

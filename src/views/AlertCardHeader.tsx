@@ -1,6 +1,6 @@
 import { Icon } from '../components/Icon'
 import { VISIT_STATES } from './visitStates'
-import { SEVERIDAD_TINTA } from './alertSeverity'
+import { SEVERIDAD_ICONO, SEVERIDAD_TINTA } from './alertSeverity'
 import type { AlertSeverity } from './alertSeverity'
 
 /**
@@ -75,13 +75,17 @@ export function AlertCardHeader({ titulo, severidad, cantidad }: {
 }) {
   const tinta = severidad ? SEVERIDAD_TINTA[severidad] : 'var(--spira-muted)'
   const fondo = severidad ? `${VISIT_STATES[severidad].color}1A` : 'transparent'
-  /* Con ventana vencida, el círculo de alerta; con pendientes, el reloj — los mismos dos íconos que
-     ya usan las filas, para que la cabecera resuma y no invente.
-     Sin severidad va la CAMPANA (el ícono del submódulo Alertas) y NO un visto: `severidad === null`
-     cubre dos situaciones que no son la misma —no hay alertas, o todavía no llegaron— y un visto
-     verde afirmaría "todo al día" durante la carga, cuando todavía no sabemos nada. La buena
-     noticia la da el vacío de abajo, que sí espera al dato. */
-  const icono = severidad === 'ventana_vencida' ? 'alertCircle' : severidad === 'item_vencido' ? 'clock' : 'bell'
+  /* El ícono sale de `SEVERIDAD_ICONO` y no de un ternario propio: son los mismos íconos que usan
+     las filas de la lista y las cajas de la campana, para que la cabecera resuma y no invente.
+     Escrito a mano acá, este ternario mandaba "no vino" a la campana —que además es el ÍCONO DEL
+     SUBMÓDULO, o sea el que esta misma cabecera usa para decir "ninguna alerta"—, mientras la lista
+     de al lado lo mandaba al reloj. Dos pantallas del mismo dato, tres íconos, ningún error.
+
+     Sin severidad va la CAMPANA y NO un visto: `severidad === null` cubre dos situaciones que no
+     son la misma —no hay alertas, o todavía no llegaron— y un visto verde afirmaría "todo al día"
+     durante la carga, cuando todavía no sabemos nada. La buena noticia la da el vacío de abajo,
+     que sí espera al dato. */
+  const icono = severidad ? SEVERIDAD_ICONO[severidad] : 'bell'
 
   return (
     <div

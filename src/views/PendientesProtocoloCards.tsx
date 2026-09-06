@@ -3,6 +3,7 @@ import { Icon } from '../components/Icon'
 import { protocolStatusLabel, protocolStatusVar } from './protocolStatus'
 import type { ProtocolRow } from '../data/protocols'
 import { VISIT_STATES } from './visitStates'
+import { claseDeAlerta, ICONO_REPORTE, SEVERIDAD_ICONO } from './alertSeverity'
 import { pendientesPorProtocolo } from './pendientesPorProtocolo'
 import type { ReporteConProtocolo, VisitaConProtocolo } from './pendientesPorProtocolo'
 
@@ -73,10 +74,15 @@ export function PendientesProtocoloCards({ visitas, reportes, protocols, selecci
         {filas.map((p) => {
           const sel = seleccionados.includes(p.protocolId)
           const proto = porId.get(p.protocolId)
-          /* El ícono espeja al de la campana: círculo de alerta cuando hay una ventana vencida,
-             reloj cuando lo que hay es más leve. Un ícono fijo desperdiciaría el único lugar de la
-             tarjeta donde la gravedad se ve sin leer. */
-          const critica = p.peor === 'ventana_vencida'
+          /* El ícono espeja al de la campana, y desde que hay UNA sola tabla eso es literal en vez
+             de una intención: sale de `SEVERIDAD_ICONO`, la misma que leen la campana, la lista de
+             abajo y la cabecera de la tarjeta de alertas. Antes era un ternario propio
+             —`ventana_vencida ? alertCircle : clock`— con dos agujeros: "no vino" quedaba con el
+             reloj de "pendiente vencido", y `p.peor === null` —que es el caso de un protocolo cuyos
+             únicos pendientes son REPORTES— también, cuando ahí el ícono correcto es el del reporte.
+             Un ícono fijo desperdiciaría el único lugar de la tarjeta donde la gravedad se ve sin
+             leer; uno equivocado es peor, porque igual se lee. */
+          const icono = p.peor ? SEVERIDAD_ICONO[claseDeAlerta(p.peor)] : ICONO_REPORTE
           const tono = p.peor ? VISIT_STATES[p.peor].color : 'var(--spira-acc-deep-blue)'
           return (
             <button
@@ -128,7 +134,7 @@ export function PendientesProtocoloCards({ visitas, reportes, protocols, selecci
                   diccionario paralelo de rótulos — justo lo que viene fallando en esta pantalla. */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                 <span style={{ width: 36, height: 36, borderRadius: 10, flex: '0 0 auto', display: 'grid', placeItems: 'center', background: tinte(tono) }}>
-                  <Icon name={critica ? 'alertCircle' : 'clock'} size={18} color={tono} stroke={1.8} />
+                  <Icon name={icono} size={18} color={tono} stroke={1.8} />
                 </span>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)' }}>

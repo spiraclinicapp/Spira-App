@@ -6,7 +6,6 @@ import { GRAVEDAD, SEVERIDAD_TINTA } from '../views/alertSeverity'
 import {
   CLASES,
   claseDeAlerta,
-  esSeveridad,
   fechaDeReporte,
   fechaDeVisita,
   motivoDeAlerta,
@@ -115,22 +114,16 @@ describe('tinte', () => {
   })
 })
 
-describe('esSeveridad / claseDeAlerta', () => {
-  it('los tres estados de alerta son severidad', () => {
-    for (const nivel of GRAVEDAD) expect(esSeveridad(nivel)).toBe(true)
-  })
-
-  it('un estado que no es de alerta no lo es', () => {
-    expect(esSeveridad('completa')).toBe(false)
-    expect(esSeveridad('proxima')).toBe(false)
-  })
-
-  it('un estado inesperado cae al grado MÁS BAJO en vez de quedar sin clase', () => {
-    /* `useVisitAlerts` filtra por los tres, así que esto no debería llegar. Si llegara, un
+describe('CLASES vs claseDeAlerta', () => {
+  it('un estado inesperado siempre encuentra una clase con la que pintarse', () => {
+    /* La regla de caer de grado vive en `alertSeverity` (y se testea allá); lo que se fija ACÁ es
+       que la tabla de la campana cubra lo que esa regla devuelve. Si las dos se separaran, un
        `CLASES[undefined].tinta` desmonta el árbol y deja el topbar en blanco en TODOS los módulos
-       a la vez — la campana vive en el shell. Caer de grado es la falla mansa. */
-    expect(claseDeAlerta('completa')).toBe(GRAVEDAD[GRAVEDAD.length - 1])
-    expect(CLASES[claseDeAlerta('completa' as VisitStatus)]).toBeDefined()
+       a la vez — la campana vive en el shell. */
+    for (const s of ['completa', 'proxima', 'futura', 'realizada'] as VisitStatus[]) {
+      expect(CLASES[claseDeAlerta(s)], `sin clase para "${s}"`).toBeDefined()
+    }
+    for (const nivel of GRAVEDAD) expect(CLASES[claseDeAlerta(nivel)]).toBe(CLASES[nivel])
   })
 })
 

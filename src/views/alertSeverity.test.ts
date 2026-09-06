@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { VisitStatus } from '../data/visits'
-import { GRAVEDAD, SEVERIDAD_ICONO, SEVERIDAD_TINTA, severidadMaxima } from './alertSeverity'
+import {
+  claseDeAlerta, esSeveridad, GRAVEDAD, SEVERIDAD_ICONO, SEVERIDAD_TINTA, severidadMaxima,
+} from './alertSeverity'
 
 /**
  * La severidad que muestra la cabecera de la tarjeta de Alertas.
@@ -121,10 +123,45 @@ describe('SEVERIDAD_ICONO', () => {
   })
 
   it('"no vino" no usa la campana', () => {
+    /* Y no es un capricho: `bell` es el ícono del SUBMÓDULO, el que `AlertCardHeader` usa para
+       decir "ninguna alerta". Usarlo también para una clase de alerta hacía que el mismo glifo
+       significara "no hay nada" y "el paciente no vino" en la misma cabecera. */
     /* Fija la decisión: `bell` es el marco del desplegable de notificaciones, así que adentro de
        ese panel no distingue nada. Si alguien lo devuelve al valor que tenía `AlertCardHeader`,
        este test le cuenta por qué se cambió. */
     expect(SEVERIDAD_ICONO.por_reprogramar).not.toBe('bell')
     expect(SEVERIDAD_ICONO.por_reprogramar).toBe('calendar')
+  })
+})
+
+describe('esSeveridad / claseDeAlerta', () => {
+  it('los tres estados de alerta son severidad', () => {
+    for (const nivel of GRAVEDAD) expect(esSeveridad(nivel)).toBe(true)
+  })
+
+  it('un estado que no es de alerta no lo es', () => {
+    expect(esSeveridad('completa')).toBe(false)
+    expect(esSeveridad('proxima')).toBe(false)
+  })
+
+  it('los estados de alerta se pintan con su propia severidad', () => {
+    for (const nivel of GRAVEDAD) expect(claseDeAlerta(nivel)).toBe(nivel)
+  })
+
+  it('un estado inesperado cae al grado MÁS BAJO en vez de quedar sin severidad', () => {
+    /* Las tres pantallas que la usan leen de `useActiveAlerts`, que filtra por los tres estados,
+       así que esto no debería llegar. Si llegara, un `SEVERIDAD_TINTA[undefined]` deja el elemento
+       sin color y un `SEVERIDAD_ICONO[undefined]` sin ícono; en la campana —que vive en el shell—
+       eso desmonta el árbol y apaga el topbar en todos los módulos a la vez. Caer de grado es la
+       falla mansa. */
+    expect(claseDeAlerta('completa')).toBe(GRAVEDAD[GRAVEDAD.length - 1])
+  })
+
+  it('lo que devuelve SIEMPRE tiene tinta e ícono', () => {
+    // La invariante que hace segura la caída de grado: las dos tablas cubren lo que ella entrega.
+    for (const s of ['completa', 'proxima', 'futura', 'realizada', 'en_atencion'] as VisitStatus[]) {
+      expect(SEVERIDAD_TINTA[claseDeAlerta(s)], `sin tinta para "${s}"`).toBeDefined()
+      expect(SEVERIDAD_ICONO[claseDeAlerta(s)], `sin ícono para "${s}"`).toBeDefined()
+    }
   })
 })
