@@ -407,7 +407,7 @@ function BotonDescartar({ destino }: { destino: Descarte }) {
       <button
         ref={triggerRef}
         type="button"
-        className="spira-notif-tacho spira-no-press"
+        className="spira-notif-tacho"
         title="Eliminar notificación"
         aria-label={`Descartar la alerta: ${destino.etiqueta}`}
         aria-haspopup="dialog"
@@ -487,7 +487,11 @@ function BotonDescartar({ destino }: { destino: Descarte }) {
 
 /* —— estilos —— */
 const bellBtn: CSSProperties = {
-  width: 38, height: 38, borderRadius: 10, border: 'none', background: 'transparent',
+  /* `padding: 0` explícito: el `1px 6px` que trae el navegador achica la caja de contenido a 26×36
+     y el ícono se centra ahí adentro, no en el botón. Con 18 px todavía entra y no se nota — el
+     tacho de la caja, con 15 px en 22, no entraba y salía corrido 2,5 px. Se declara para que un
+     ícono más grande mañana no reviva el mismo defecto. */
+  width: 38, height: 38, padding: 0, borderRadius: 10, border: 'none', background: 'transparent',
   cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--spira-ink)',
   position: 'relative',
 }

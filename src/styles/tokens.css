@@ -648,17 +648,33 @@ input:-webkit-autofill:focus {
 
 .spira-notif-accion { width: 22px; display: grid; place-items: center; }
 /* SIEMPRE visible, no en hover: un botón que aparece al pasar el mouse es un botón que no existe
-   en una pantalla táctil. */
+   en una pantalla táctil.
+
+   ⚠ `padding: 0` NO ES COSMÉTICO. Un `<button>` trae `padding: 1px 6px` del navegador, y con
+   `box-sizing: border-box` eso deja la caja de contenido en 10 px de ancho: el ícono de 15 px no
+   entra, así que `place-items: center` no puede centrarlo —se apoya en el borde de contenido y
+   desborda hacia la derecha— y el glifo termina 2,5 px corrido. Medido: el svg quedaba a 6 px del
+   borde izquierdo y a 1 px del derecho. En vertical no pasaba (15 entra en los 20 que quedan), y
+   por eso se leía como un desprolijo y no como un bug. */
 .spira-notif-tacho {
-  width: 22px; height: 22px; border: none; border-radius: 50%;
+  width: 22px; height: 22px; padding: 0; border: none; border-radius: 50%;
   background: transparent; color: var(--spira-faint);
   display: grid; place-items: center; cursor: pointer;
-  transition: background-color 0.12s var(--spira-ease-out), color 0.12s var(--spira-ease-out);
+  transition: background-color 0.12s var(--spira-ease-out), color 0.12s var(--spira-ease-out),
+              box-shadow 0.12s var(--spira-ease-out);
 }
+/* EL REALCE ES LA LÍNEA, NO UNA MANCHA. Antes acá había un disco teñido al 12 % — un halo de color
+   sin desplazamiento, que es decoración y no profundidad, y que además hacía visible el corrimiento
+   de arriba. Ahora manda el trazo: el tacho se pone en el rojo de la familia y la pastilla sube a
+   nivel de tarjeta con la sombra chica del sistema. Es el mismo criterio que rige en toda la app
+   —el realce es elevación, y el color se reserva para el significado— y acá el significado es que
+   este botón borra algo. El levante de 1 px lo pone la micro-interacción global; por eso el botón
+   ya no lleva `spira-no-press`. */
 .spira-notif-tacho:hover,
 .spira-notif-tacho:focus-visible {
   color: var(--spira-acc-deep-danger);
-  background: color-mix(in srgb, var(--spira-acc-deep-danger) 12%, transparent);
+  background: var(--spira-white);
+  box-shadow: var(--spira-shadow-sm);
 }
 
 /* El popover de confirmación del descarte. Va portaleado a `document.body` (si se anidara dentro de
