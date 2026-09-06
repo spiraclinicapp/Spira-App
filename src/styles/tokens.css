@@ -660,21 +660,29 @@ input:-webkit-autofill:focus {
   width: 22px; height: 22px; padding: 0; border: none; border-radius: 50%;
   background: transparent; color: var(--spira-faint);
   display: grid; place-items: center; cursor: pointer;
-  transition: background-color 0.12s var(--spira-ease-out), color 0.12s var(--spira-ease-out),
-              box-shadow 0.12s var(--spira-ease-out);
+  transition: color 0.12s var(--spira-ease-out), filter 0.12s var(--spira-ease-out);
 }
-/* EL REALCE ES LA LÍNEA, NO UNA MANCHA. Antes acá había un disco teñido al 12 % — un halo de color
-   sin desplazamiento, que es decoración y no profundidad, y que además hacía visible el corrimiento
-   de arriba. Ahora manda el trazo: el tacho se pone en el rojo de la familia y la pastilla sube a
-   nivel de tarjeta con la sombra chica del sistema. Es el mismo criterio que rige en toda la app
-   —el realce es elevación, y el color se reserva para el significado— y acá el significado es que
-   este botón borra algo. El levante de 1 px lo pone la micro-interacción global; por eso el botón
-   ya no lleva `spira-no-press`. */
+/* EL REALCE ES LA LÍNEA, Y NADA MÁS QUE LA LÍNEA.
+   Acá hubo dos intentos con fondo y los dos terminaban en lo mismo, un disco: primero teñido al
+   12 % —un halo de color sin desplazamiento, que es decoración y no profundidad— y después blanco
+   con `box-shadow`. Ese segundo tampoco sirve SIN fondo opaco: la sombra de caja se pinta por fuera
+   del borde, así que sobre un botón transparente queda un anillo circular flotando alrededor del
+   ícono. Medido y mirado: el fantasma del disco seguía ahí.
+
+   La sombra va sobre el GLIFO, con `drop-shadow`, que sigue el canal alfa: la sombra la proyecta el
+   trazo del tacho, no una caja detrás. Así el realce es exactamente lo que se ve —la línea se pone
+   en el rojo de la familia y se despega un milímetro del papel— y el levante de 1 px lo pone la
+   micro-interacción global (por eso el botón ya no lleva `spira-no-press`).
+
+   Es deliberadamente MÍNIMA: a tamaño real casi no se percibe, y ese es el punto — el color hace el
+   trabajo y el color, en esta app, se reserva para el significado. Acá significa que este botón
+   borra algo. El tono es el petróleo de la tinta, nunca negro; la alfa es más alta que la de
+   `--spira-shadow-sm` porque un trazo de 1,7 px tiene mucha menos superficie que una caja y al 6 %
+   no se vería. En tema oscuro no rinde, y está bien: ahí la elevación la comunica la claridad. */
 .spira-notif-tacho:hover,
 .spira-notif-tacho:focus-visible {
   color: var(--spira-acc-deep-danger);
-  background: var(--spira-white);
-  box-shadow: var(--spira-shadow-sm);
+  filter: drop-shadow(0 1px 1px rgba(20, 48, 46, 0.28));
 }
 
 /* El popover de confirmación del descarte. Va portaleado a `document.body` (si se anidara dentro de
