@@ -694,6 +694,16 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 
 ---
 
+## ~~Coordinación · "Tareas personales"~~ — HECHO el 2026-09-06 (v0.58.0, migraciones 0108/0109)
+
+Se construyó completa: tabla, RLS, auditoría, cuatro RPC, capa de datos, reglas puras con 21 tests,
+pantalla y modal. Plan y decisiones en `docs/plan-tareas.md`. **QA logueado hecho con dos cuentas**,
+incluida la prueba de que gerencia NO ve las tareas ajenas.
+
+Lo que sigue abierto de esta feature está abajo, en su propia entrada (la navegación).
+
+<details><summary>La entrada original, para contexto</summary>
+
 ## Coordinación · "Tareas personales" (el submódulo Inicio › Tareas está vacío)
 
 - **Qué:** la agenda de pendientes propios de quien coordina — dar de alta una tarea con título,
@@ -722,6 +732,38 @@ como contexto histórico; borrarla cuando ese PR se mergee.
   compacta junto al título (D) o la columna completa a la derecha (B).
 - **Depende de / bloqueado por:** una decisión de producto sobre el modelo. Nada técnico.
 - **Prioridad:** P2.
+
+</details>
+
+---
+
+## Shell · Inicio no tiene barra de submódulos: Tareas y Pendientes no se pueden abrir con el mouse
+
+- **Qué:** `AppShell.tsx:420` dibuja el panel de submódulos con la condición
+  `{moduleKey !== 'inicio' && !sinAcceso && (…)}`. **El módulo Inicio queda excluido a propósito**,
+  así que sus tres submódulos —Resumen, **Tareas** y **Pendientes**— no tienen ningún renglón que
+  clickear. A Resumen se llega porque es el destino por defecto al entrar; a los otros dos **sólo
+  se llega escribiendo la URL**.
+- **Cómo apareció:** el Director abrió el preview a buscar Tareas y no la encontró (2026-09-06).
+  Es el error inverso del que esta misma jornada arregló: antes había un renglón que prometía una
+  pantalla inexistente; ahora hay una pantalla sin renglón.
+- **Por qué se me pasó, y vale anotarlo:** la vista se registró, se verificó que renderiza y se le
+  hizo el QA completo con dos cuentas — **navegando siempre por URL**. Nunca se comprobó que se
+  pudiera *llegar* haciendo clic. **Registrar una vista no es hacerla alcanzable**, y son dos
+  comprobaciones distintas.
+- **Opciones** (decisión de producto, no técnica):
+  1. **Dibujar el panel también en Inicio.** Es quitar una condición. Consecuencia: Inicio pierde
+     los 220 px de ancho completo que hoy usa su Resumen, que está diseñado como tablero.
+  2. **Tarjetas en el Resumen de Inicio.** Encaja con lo que ese Resumen ya hace (tiene tarjetas de
+     módulo con "Entrar a Coordinación") y no toca el ancho. Deja la URL como único acceso directo.
+  3. **Mover Tareas al riel** como su propio módulo. El más caro y el que más cambia el modelo
+     mental del shell.
+- **Contexto:** el Director prefirió **dejar Tareas funcional como está** y resolver el "cómo va a
+  quedar" en una sesión aparte (2026-09-06), junto con el rediseño del Resumen contra el handoff
+  `design_handoff_resumen_tareas_enfoque`. **Las dos cosas son el mismo problema**: dónde vive
+  Tareas en la navegación y cómo se ve en el Resumen.
+- **Mientras tanto:** `/inicio/tareas` y `/inicio/alertas` funcionan escritas a mano.
+- **Prioridad:** P1 — hay una feature entera en producción que nadie puede encontrar.
 
 ---
 
