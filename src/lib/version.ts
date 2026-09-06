@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.58', text: 'Inicio suma Tareas: anotá tus pendientes, asignalos a alguien del equipo y marcalos hechos.' },
     { version: '0.57', text: 'Pendientes se enfoca por protocolo desde tarjetas, y el filtro de estado suma «Por reprogramar».' },
     { version: '0.56', text: 'Las visitas a las que el paciente no vino ya aparecen en Pendientes, y se pueden archivar.' },
     { version: '0.55', text: 'Alertas pasa a llamarse Pendientes, y el Resumen muestra las visitas del próximo día.' },
