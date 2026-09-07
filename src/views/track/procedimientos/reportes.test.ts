@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   agruparPorCategoria,
+  claveDePlataforma,
   ETA_PRESETS,
   etaLabel,
   horasDesde,
@@ -9,8 +10,10 @@ import {
   isPlatform,
   knownReports,
   linkOnPlatformChange,
+  platformList,
   platformMeta,
-  PLATFORMS,
+  PLATFORMS_SEED,
+  setPlatformCatalog,
   PLAZO_MAX,
   plazoLibreInicial,
   resumenDeReportes,
@@ -38,8 +41,12 @@ function def(over: Partial<{ id: string; name: string; platform: string; eta_hou
   }
 }
 
+const OTRO_SEED = PLATFORMS_SEED[PLATFORMS_SEED.length - 1]
+
 describe('plataformas', () => {
-  it('reconoce las cinco del check de la base', () => {
+  it('el respaldo reconoce las cinco que siembra la 0111', () => {
+    // Sin catálogo de la base todavía, `reportes.ts` responde con PLATFORMS_SEED: es lo que se ve
+    // mientras la consulta viaja, y lo que queda si falla.
     for (const p of ['iqvia', 'labcorp', 'clario', 'roche4g', 'otro']) {
       expect(isPlatform(p)).toBe(true)
     }
@@ -48,9 +55,64 @@ describe('plataformas', () => {
   it('un valor desconocido cae a "otro" en vez de romper', () => {
     // El front puede leer datos de un schema más nuevo que él: nunca asumir que el valor es válido.
     expect(isPlatform('medidata')).toBe(false)
-    expect(platformMeta('medidata')).toBe(PLATFORMS.otro)
-    expect(platformMeta(null)).toBe(PLATFORMS.otro)
-    expect(platformMeta(undefined)).toBe(PLATFORMS.otro)
+    expect(platformMeta('medidata')).toBe(OTRO_SEED)
+    expect(platformMeta(null)).toBe(OTRO_SEED)
+    expect(platformMeta(undefined)).toBe(OTRO_SEED)
+  })
+})
+
+/* El catálogo vivo (0111).
+ *
+ * Este bloque MUTA una variable de módulo, así que cada caso repone el respaldo al terminar. No es
+ * higiene de más: si dejara el catálogo pisado, los tests de link de más abajo estarían mirando
+ * plataformas que no son las que ellos suponen, y fallarían por un motivo que no tiene nada que ver
+ * con lo que prueban. El último caso verifica justamente que quedó repuesto. */
+describe('catálogo desde la base', () => {
+  const DE_LA_BASE = [
+    { key: 'clario', label: 'Clario', color: '#B0823F', url: 'https://portal.clario.test', activa: true },
+    { key: 'medidata', label: 'Medidata', color: '#123456', url: null, activa: true },
+    { key: 'vieja', label: 'CRO retirada', color: '#999999', url: null, activa: false },
+    { key: 'otro', label: 'Otra plataforma', color: '#7C8C87', url: null, activa: true },
+  ]
+
+  it('una plataforma que la base agregó pasa a existir', () => {
+    // El motivo entero de la tabla: sumar una CRO deja de ser una migración más una línea de código.
+    expect(isPlatform('medidata')).toBe(false)
+    setPlatformCatalog(DE_LA_BASE)
+    expect(isPlatform('medidata')).toBe(true)
+    expect(platformMeta('medidata').label).toBe('Medidata')
+    setPlatformCatalog(PLATFORMS_SEED)
+  })
+
+  it('una plataforma RETIRADA no se ofrece, pero sigue resolviendo los reportes que la usan', () => {
+    // El punto fino de `is_active`, y una falla silenciosa de manual: si una retirada cayera a
+    // "Otra plataforma", un reporte histórico perdería el nombre de su portal sin que nadie lo note.
+    setPlatformCatalog(DE_LA_BASE)
+    expect(platformList().map((p) => p.key)).not.toContain('vieja')
+    expect(platformMeta('vieja').label).toBe('CRO retirada')
+    setPlatformCatalog(PLATFORMS_SEED)
+  })
+
+  it('la URL de la base alimenta el autocompletado del link', () => {
+    // La cadena completa que se pidió: cargar la URL en Ajustes y que al elegir Clario el link
+    // aparezca solo. El mecanismo ya existía desde la 0089; lo que faltaba era el dato.
+    setPlatformCatalog(DE_LA_BASE)
+    expect(linkOnPlatformChange('otro', 'clario', '')).toBe('https://portal.clario.test')
+    setPlatformCatalog(PLATFORMS_SEED)
+  })
+
+  it('un catálogo VACÍO se ignora en vez de dejar la app sin plataformas', () => {
+    // Cero filas puede ser la RLS filtrando en silencio, o la 0111 sin aplicar. Quedarse sin
+    // catálogo dejaría los chips en gris y el desplegable sin opciones: se ve como una app rota.
+    setPlatformCatalog(DE_LA_BASE)
+    setPlatformCatalog([])
+    expect(platformMeta('medidata').label).toBe('Medidata')
+    setPlatformCatalog(PLATFORMS_SEED)
+  })
+
+  it('el respaldo quedó repuesto para los tests que siguen', () => {
+    expect(isPlatform('medidata')).toBe(false)
+    expect(platformList().map((p) => p.key)).toEqual(['iqvia', 'labcorp', 'clario', 'roche4g', 'otro'])
   })
 })
 
@@ -74,9 +136,10 @@ describe('link pegajoso', () => {
   })
 
   it('al cambiar de plataforma, un link vacío toma el default de la nueva', () => {
-    // Hoy ninguna plataforma trae URL cargada (ver la nota de PLATFORMS), así que el default es ''.
-    // El test fija el COMPORTAMIENTO, no el dato: si mañana se cargan las URLs reales, sigue valiendo.
-    expect(linkOnPlatformChange('iqvia', 'labcorp', '')).toBe(PLATFORMS.labcorp.url ?? '')
+    // El respaldo no trae URLs (las carga el Director desde Ajustes), así que acá el default es ''.
+    // El test fija el COMPORTAMIENTO, no el dato: el caso con URL cargada está más arriba, en
+    // "la URL de la base alimenta el autocompletado del link".
+    expect(linkOnPlatformChange('iqvia', 'labcorp', '')).toBe(platformMeta('labcorp').url ?? '')
   })
 
   it('recorta los espacios del link que conserva', () => {
@@ -299,5 +362,43 @@ describe('agruparPorCategoria', () => {
   it('trata la categoría vacía como "sin categoría"', () => {
     const g = agruparPorCategoria([{ category: '   ' }, { category: 'Laboratorio' }])
     expect(g.map((x) => x.categoria)).toEqual(['Laboratorio', 'Sin categoría'])
+  })
+})
+
+describe('claveDePlataforma', () => {
+  it('deriva una clave válida para el check de la base', () => {
+    // El check es `^[a-z0-9_]+$`. Una clave inválida rebota con un error de Postgres que no
+    // explica nada, y la clave se elige UNA vez: queda escrita en todos los reportes que la usen.
+    for (const nombre of ['Clario', 'Roche 4G', 'Medidata Rave', 'IQVIA']) {
+      expect(claveDePlataforma(nombre)).toMatch(/^[a-z0-9_]+$/)
+    }
+  })
+
+  it('saca los acentos en vez de convertirlos en guiones', () => {
+    // "Análisis Clínicos" con acentos daría `an_lisis_cl_nicos`: una clave que se lee como si
+    // faltaran letras. La normalización NFD las conserva.
+    expect(claveDePlataforma('Análisis Clínicos')).toBe('analisis_clinicos')
+    expect(claveDePlataforma('Ñandú')).toBe('nandu')
+  })
+
+  it('no deja guiones bajos colgando en las puntas', () => {
+    expect(claveDePlataforma('  Clario!  ')).toBe('clario')
+    expect(claveDePlataforma('¡Roche 4G!')).toBe('roche_4g')
+  })
+
+  it('un nombre sin una sola letra ni número igual da una clave usable', () => {
+    // Sin el respaldo, la clave saldría vacía y el insert rebotaría con el check.
+    expect(claveDePlataforma('!!!')).toBe('plataforma')
+  })
+
+  it('desempata contra las claves que ya existen', () => {
+    // El caso real: cargar "Clario" cuando ya está "clario". Sin desempate, el insert tira un
+    // 23505 sobre la PK — un error de clave duplicada para dos nombres que se ven distintos.
+    expect(claveDePlataforma('Clario', ['clario'])).toBe('clario_2')
+    expect(claveDePlataforma('Clario', ['clario', 'clario_2'])).toBe('clario_3')
+  })
+
+  it('sin colisión no agrega sufijo', () => {
+    expect(claveDePlataforma('Clario', ['iqvia', 'otro'])).toBe('clario')
   })
 })

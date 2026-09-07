@@ -8,6 +8,7 @@ import { describeAccess, MODULO_ADMIN, ROLE_LABEL } from '../../lib/roles'
 import type { ModuleKey, ModuleRole } from '../../lib/roles'
 import { useTeamAccess } from '../../data/team'
 import type { TeamMemberRow } from '../../data/team'
+import { useProtocols } from '../../data/protocols'
 import { ACCENT, StCard, StPill, btnGhost, btnSolid } from './primitives'
 import { AccesoEditor } from './AccesoEditor'
 import { CrearCuentaDialog } from './AccionesDeCuenta'
@@ -39,6 +40,11 @@ export function EquipoYAccesosSection() {
   const miId = session?.user?.id ?? ''
 
   const { data, loading, error, refetch } = useTeamAccess()
+  /* Los protocolos se piden ACÁ y no adentro de `AccesoEditor`, aunque sólo los use él.
+     `useSupabaseQuery` no cachea —el repo no usa react-query—, así que en la ficha se volvería a
+     consultar la MISMA lista cada vez que se entra y se sale de una persona. Acá se pide una vez
+     por apertura de Ajustes. Baja por prop, igual que `administradores`. */
+  const protocolos = useProtocols()
   const [editando, setEditando] = useState<string | null>(null)
   const [creando, setCreando] = useState(false)
 
@@ -75,6 +81,8 @@ export function EquipoYAccesosSection() {
         persona={personaEditada}
         actorId={miId}
         administradores={administradores}
+        protocolos={protocolos.data ?? []}
+        protocolosCargando={protocolos.loading}
         onCerrar={() => setEditando(null)}
         onGuardado={refetch}
       />

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { AuthProvider, useAuth } from './lib/auth'
 import type { MotivoSalida } from './lib/auth'
 import { PrefsProvider } from './lib/prefs'
+import { PlatformsProvider } from './lib/platforms'
 import { HOME } from './lib/router'
 import { regreso } from './lib/sessionReturn'
 import { replaceUrl } from './lib/useUrlState'
@@ -77,10 +78,15 @@ function Gate() {
      porque `main.tsx` pinta el caché local antes del primer render.
      El guardián de inactividad va afuera de las preferencias (no depende de ninguna) y después del
      shell (su cartel se dibuja por encima de todo). */
+  /* Las plataformas van adentro de las preferencias por la misma razón que ellas van adentro de la
+     sesión: son un catálogo de la base, y sin sesión no hay nada que traer. Envuelven al shell y
+     no a la app entera para que el Login no dispare una consulta que la RLS iba a rechazar. */
   return (
     <>
       <PrefsProvider>
-        <AppShell />
+        <PlatformsProvider>
+          <AppShell />
+        </PlatformsProvider>
       </PrefsProvider>
       <IdleGuard />
     </>

@@ -11,7 +11,7 @@ import {
   contarVencidos, DIAS_CERRADAS, porEtapa, repartirTablero, STAGE_META, STAGE_ORDER,
 } from './estados'
 import type { ReportStage } from './estados'
-import { PLATFORMS, PLATFORM_ORDER } from '../procedimientos/reportes'
+import { platformList } from '../procedimientos/reportes'
 import { useProtocolReportStatus, setReportStage } from '../../../data/reportStatus'
 import type { ReportStatusRow } from '../../../data/reportStatus'
 import { formatDateTimeAR } from '../../../lib/dates'
@@ -76,7 +76,7 @@ export function ReportesPendientesView({ protocolId, accent, onOpenVisit, onOpen
     const presentes = new Set(rows.map((r) => r.platform))
     return [
       { value: 'todas', label: 'Todas las plataformas' },
-      ...PLATFORM_ORDER.filter((p) => presentes.has(p)).map((p) => ({ value: p, label: PLATFORMS[p].label })),
+      ...platformList().filter((p) => presentes.has(p.key)).map((p) => ({ value: p.key, label: p.label })),
     ]
   }, [rows])
 

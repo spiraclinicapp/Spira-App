@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { accessLabel, auditLine, canRevokeAdmin, describeAccess, meetsMinRole, ROLE_RANK } from './roles'
-import type { AccessAuditRow } from './roles'
+import {
+  accessLabel, auditLine, canRevokeAdmin, describeAccess, meetsMinRole, mezclarHistorial,
+  protocolAuditLine, ROLE_RANK,
+} from './roles'
+import type { AccessAuditRow, ProtocolAccessAuditRow } from './roles'
 
 /* La escalera de acceso: viewer < operator < leader < admin.
  *
@@ -240,5 +243,112 @@ describe('auditLine', () => {
     // y decir "una cuenta que ya no existe" ahí sería perder justo el dato que importa.
     expect(auditLine({ ...deCuenta, action: 'ELIMINACION', target_name: 'Carla Gómez' }, nombre))
       .toBe('Lucía eliminó la cuenta de Carla Gómez')
+  })
+})
+
+/* El historial de asignaciones a protocolos (0110) y la mezcla de los dos historiales.
+ *
+ * Misma clase de falla que `auditLine`, y por eso el mismo cuidado: invertir actor y objetivo, o
+ * decir "dio" donde fue "quitó", produce una frase perfectamente redactada que dice lo contrario de
+ * lo que pasó. En el registro de quién le dio acceso a los pacientes de un estudio, eso no es un
+ * detalle de estilo. */
+
+const PROTO_BASE: ProtocolAccessAuditRow = {
+  id: 'p1',
+  occurred_at: '2026-09-07T10:00:00Z',
+  action: 'INSERT',
+  protocol_code: 'ACT18301',
+  protocol_name: 'Asma leve',
+  actor_name: 'Ana Gerente',
+  target_name: 'Bea Coord',
+}
+
+describe('protocolAuditLine', () => {
+  it('no invierte actor y objetivo', () => {
+    const t = protocolAuditLine(PROTO_BASE)
+    expect(t.indexOf('Ana Gerente')).toBeLessThan(t.indexOf('Bea Coord'))
+    expect(t).toContain('ACT18301')
+  })
+
+  it('quitar dice que se quitó, no que se dio', () => {
+    expect(protocolAuditLine({ ...PROTO_BASE, action: 'DELETE' })).toContain('le quitó el acceso')
+    expect(protocolAuditLine({ ...PROTO_BASE, action: 'DELETE' })).not.toContain('le dio acceso')
+  })
+
+  it('prefiere el código del estudio, que es su identidad en la app', () => {
+    expect(protocolAuditLine(PROTO_BASE)).toContain('ACT18301')
+    // Sin código, el nombre alcanza para saber de qué estudio habla.
+    expect(protocolAuditLine({ ...PROTO_BASE, protocol_code: null })).toContain('Asma leve')
+  })
+
+  it('sobrevive a un protocolo borrado y lo DICE', () => {
+    // audit_log es inmutable: sus líneas siguen ahí cuando el protocolo ya no está. Quedar coja
+    // ("le dio acceso al estudio  a Bea") se leería como un bug de la app.
+    const t = protocolAuditLine({ ...PROTO_BASE, protocol_code: null, protocol_name: null })
+    expect(t).toContain('un estudio que ya no existe')
+  })
+
+  it('sobrevive a un actor nulo y a una cuenta borrada', () => {
+    expect(protocolAuditLine({ ...PROTO_BASE, actor_name: null })).toContain('El sistema')
+    expect(protocolAuditLine({ ...PROTO_BASE, target_name: null })).toContain('una cuenta que ya no existe')
+  })
+
+  it('un update que no movió nada se nombra por lo que fue', () => {
+    // La tabla sólo tiene (protocol_id, user_id, assigned_at): un UPDATE no puede haber cambiado el
+    // acceso. Redactarlo como "le dio acceso" sería inventar un evento.
+    expect(protocolAuditLine({ ...PROTO_BASE, action: 'UPDATE' })).toContain('sin cambiarla')
+  })
+})
+
+describe('mezclarHistorial', () => {
+  const nombreModulo = (k: string) => (k === 'track' ? 'Coordinación' : k)
+  const mod = (id: string, occurred_at: string): AccessAuditRow => ({
+    id, occurred_at, action: 'INSERT', module: 'track',
+    role_before: null, role_after: 'operator', actor_name: 'Ana', target_name: 'Bea',
+  })
+  const proto = (id: string, occurred_at: string): ProtocolAccessAuditRow => ({
+    ...PROTO_BASE, id, occurred_at,
+  })
+
+  it('intercala las dos fuentes por fecha, de lo más nuevo a lo más viejo', () => {
+    // El caso que justifica la función: si cada lista se pintara por separado, o si se concatenaran
+    // sin ordenar, la ficha diría que lo último que pasó fue algo de hace un mes.
+    const out = mezclarHistorial(
+      [mod('m1', '2026-09-01T00:00:00Z'), mod('m2', '2026-09-05T00:00:00Z')],
+      [proto('p1', '2026-09-03T00:00:00Z'), proto('p2', '2026-09-07T00:00:00Z')],
+      nombreModulo,
+    )
+    expect(out.map((l) => l.id)).toEqual(['p2', 'm2', 'p1', 'm1'])
+  })
+
+  it('recorta al tope DESPUÉS de mezclar, no antes', () => {
+    // Recortar cada lista antes de mezclar dejaría entrar filas viejas de una fuente y dejaría
+    // afuera filas nuevas de la otra: la lista se vería completa y estaría mal.
+    const out = mezclarHistorial(
+      [mod('m1', '2026-09-01T00:00:00Z'), mod('m2', '2026-09-02T00:00:00Z')],
+      [proto('p1', '2026-09-08T00:00:00Z'), proto('p2', '2026-09-09T00:00:00Z')],
+      nombreModulo,
+      2,
+    )
+    expect(out.map((l) => l.id)).toEqual(['p2', 'p1'])
+  })
+
+  it('con la misma fecha al microsegundo, el orden es estable', () => {
+    // Dos filas escritas en la MISMA transacción comparten `occurred_at`. Sin desempate, el orden
+    // entre ellas podría cambiar entre renders y la lista se reordenaría sola en pantalla.
+    const mismaFecha = '2026-09-07T12:00:00Z'
+    const a = mezclarHistorial([mod('m1', mismaFecha)], [proto('p1', mismaFecha)], nombreModulo)
+    const b = mezclarHistorial([mod('m1', mismaFecha)], [proto('p1', mismaFecha)], nombreModulo)
+    expect(a.map((l) => l.id)).toEqual(b.map((l) => l.id))
+  })
+
+  it('cada línea llega ya redactada por la función que le corresponde', () => {
+    const out = mezclarHistorial([mod('m1', '2026-09-01T00:00:00Z')], [proto('p1', '2026-09-02T00:00:00Z')], nombreModulo)
+    expect(out[0].texto).toContain('estudio ACT18301')
+    expect(out[1].texto).toContain('Coordinación')
+  })
+
+  it('sin nada que mostrar devuelve una lista vacía, no revienta', () => {
+    expect(mezclarHistorial([], [], nombreModulo)).toEqual([])
   })
 })

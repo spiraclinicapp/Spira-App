@@ -7,8 +7,8 @@ import { fieldInput, fieldLabelStyle } from '../../../components/FormField'
 import { SearchableSelect } from '../../../components/SearchableSelect'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import {
-  ETA_PRESETS, PLATFORM_ORDER, PLATFORMS, PLAZO_MAX, etaValida, horasDesde, isDefaultLink,
-  linkOnPlatformChange, platformMeta, plazoLibreInicial,
+  ETA_PRESETS, PLAZO_MAX, etaValida, horasDesde, isDefaultLink,
+  linkOnPlatformChange, platformList, platformMeta, plazoLibreInicial,
 } from './reportes'
 import type { KnownReport, UnidadPlazo } from './reportes'
 import type { ReportInput } from '../../../data/protocolProcedures'
@@ -90,7 +90,7 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
   const suggestions: Suggestion[] = known.map((k, i) => ({
     value: String(i),
     label: k.name,
-    hint: PLATFORMS[k.platform].label,
+    hint: platformMeta(k.platform).label,
   }))
 
   const pick = (value: string) => {
@@ -152,7 +152,7 @@ export function ReportForm({ inicial, known, accent, accentSolid, onCancel, onSa
         <SearchableSelect
           value={platform}
           onChange={cambiarPlataforma}
-          options={PLATFORM_ORDER.map((p) => ({ value: p, label: PLATFORMS[p].label, dot: PLATFORMS[p].color }))}
+          options={platformList().map((p) => ({ value: p.key, label: p.label, dot: p.color }))}
           placeholder="Elegí la plataforma"
           searchable="never"
         />

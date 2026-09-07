@@ -8,6 +8,7 @@ import { ACCENT, btnGhost, btnSolid } from './primitives'
 import { AccountSection } from './AccountSection'
 import { PrefsSection } from './PrefsSection'
 import { EquipoYAccesosSection } from './EquipoYAccesosSection'
+import { PlataformasSection } from './PlataformasSection'
 
 /* ============================================================================
    SettingsModal — pantalla de Ajustes.
@@ -53,9 +54,10 @@ const SETTINGS_NAV: NavDef[] = [
   { key: 'cuenta', name: 'Mi cuenta', icon: 'user' },
   { key: 'prefs', name: 'Preferencias', icon: 'settings' },
   { key: 'roles', name: 'Equipo y accesos', icon: 'lock' },
+  { key: 'plataformas', name: 'Plataformas', icon: 'externalLink' },
 ]
 const SETTINGS_TITLE: Record<SettingsSection, string> = {
-  cuenta: 'Mi cuenta', prefs: 'Preferencias', roles: 'Equipo y accesos',
+  cuenta: 'Mi cuenta', prefs: 'Preferencias', roles: 'Equipo y accesos', plataformas: 'Plataformas',
 }
 
 interface SettingsModalProps {
@@ -73,6 +75,7 @@ function renderSection(cur: SettingsSection) {
     case 'cuenta': return <AccountSection />
     case 'prefs': return <PrefsSection />
     case 'roles': return <EquipoYAccesosSection />
+    case 'plataformas': return <PlataformasSection />
   }
 }
 
