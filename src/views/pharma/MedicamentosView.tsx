@@ -387,9 +387,11 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
      acordarse de limpiarlo. */
   const clavePlegado = claveDePlegado(busqueda, filtro)
   const manualPlegado = plegado.clave === clavePlegado ? plegado.manual : {}
-  const toggleGrupo = (medicationId: string, abiertoAhora: boolean) => {
+  /* Indexado por `grupo.key` —(medicamento, ámbito)— y no por medicationId: el mismo medicamento
+     puede tener un grupo por protocolo, y con la clave vieja plegar uno plegaba al otro. */
+  const toggleGrupo = (clave: string, abiertoAhora: boolean) => {
     setDropdownId(null)
-    setPlegado({ clave: clavePlegado, manual: { ...manualPlegado, [medicationId]: !abiertoAhora } })
+    setPlegado({ clave: clavePlegado, manual: { ...manualPlegado, [clave]: !abiertoAhora } })
   }
   const grupoProps = {
     canManage, dropdownId, setDropdownId, busqueda,
@@ -483,7 +485,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
               : (
                 <>
                   <SectionHeader eyebrow="Todos los medicamentos" cuenta={contarGrupos(grupos)} />
-                  <div style={lista}>{grupos.map((g) => <GrupoFila key={g.medicationId} grupo={g} {...grupoProps} />)}</div>
+                  <div style={lista}>{grupos.map((g) => <GrupoFila key={g.key} grupo={g} {...grupoProps} />)}</div>
                 </>
               )
           }
@@ -595,7 +597,7 @@ function ProtocoloGroups({ grupos, protocols, ipAll, sinFiltro, soloProtos, acce
               <span style={{ fontSize: 11, color: 'var(--spira-muted)' }}>{contarGrupos(delProto)}</span>
             </div>
             {ip && <IpCard totalKits={ip.total_kits} recepciones={ip.recepciones} />}
-            <div style={lista}>{delProto.map((g) => <GrupoFila key={g.medicationId} grupo={g} {...grupoProps} />)}</div>
+            <div style={lista}>{delProto.map((g) => <GrupoFila key={g.key} grupo={g} {...grupoProps} />)}</div>
           </div>
         )
       })}
@@ -823,9 +825,10 @@ interface RowProps {
 }
 interface GrupoProps extends RowProps {
   busqueda: string
-  /** Toggles manuales del usuario; le ganan a `abiertoPorDefecto` (ver `claveDePlegado`). */
+  /** Toggles manuales del usuario, indexados por `GrupoVisible.key`; le ganan a
+   *  `abiertoPorDefecto` (ver `claveDePlegado`, que decide cuándo se olvidan). */
   manual: Record<string, boolean>
-  onToggle: (medicationId: string, abiertoAhora: boolean) => void
+  onToggle: (clave: string, abiertoAhora: boolean) => void
 }
 
 /**
@@ -843,7 +846,7 @@ function GrupoFila({ grupo, ...props }: { grupo: GrupoVisible } & GrupoProps) {
 
 /* ── Medicamento con varios lotes: resumen plegable + lotes con conector ────── */
 function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, setDropdownId, onCodigo, onCopiar, onAjustar }: { grupo: GrupoVisible } & GrupoProps) {
-  const abierto = manual[grupo.medicationId] ?? grupo.abiertoPorDefecto
+  const abierto = manual[grupo.key] ?? grupo.abiertoPorDefecto
   const est = estadoDelGrupo(grupo.lotes)
   const cfg = ESTADO_CFG[est]
   const venc = vencimientoDelGrupo(grupo.lotes)
@@ -859,7 +862,7 @@ function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, se
           type="button"
           className="spira-medgroup__summary spira-no-press"
           aria-expanded={abierto}
-          onClick={() => onToggle(grupo.medicationId, abierto)}
+          onClick={() => onToggle(grupo.key, abierto)}
         >
           <span className="spira-medgroup__chev">
             <Icon name="chevronRight" size={15} color="var(--spira-muted)" stroke={2} />
@@ -881,7 +884,7 @@ function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, se
         </button>
         {/* Acciones del MEDICAMENTO. El EAN13 es uno por medicamento, así que vive acá y no
             repetido en cada lote; ajustar stock necesita un lote y vive abajo. */}
-        <KebabMenu id={`med:${grupo.medicationId}`} dropdownId={dropdownId} setDropdownId={setDropdownId}>
+        <KebabMenu id={`med:${grupo.key}`} dropdownId={dropdownId} setDropdownId={setDropdownId}>
           <KebabItem icon="barcode" onClick={() => { setDropdownId(null); onCodigo(grupo.medicationId, grupo.name, grupo.code) }}>
             {hasCode ? 'Modificar código' : 'Asignar código'}
           </KebabItem>
