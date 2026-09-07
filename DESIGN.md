@@ -7,16 +7,16 @@ colors:
   paper: "#F4F1EA"
   surface: "#FBFAF6"
   white: "#FFFFFF"
-  muted: "#7C8C87"
-  faint: "#A6B0AC"
+  muted: "#61706C"
+  faint: "#838C89"
   line: "#E4DECF"
   line-2: "#D8CBB0"
   good: "#5C8A5A"
   warn: "#B0823F"
   danger: "#A6483B"
   track: "#2E7D74"
-  pharma: "#C9A24A"
-  pharma-solid: "#A8842F"
+  pharma: "#0F5F57"
+  pharma-solid: "#0F5F57"
   lab: "#5C8A5A"
   contable: "#3A6B8C"
   on-accent: "#F4F1EA"
@@ -129,8 +129,9 @@ cuatro, está mal.
 ## 2. Colors: La paleta Sereno
 
 Verdes petróleo de baja saturación sobre neutros cálidos; los acentos por módulo conviven en la
-misma familia (verdes, ámbar, azul acero apagados). El color se reserva para significar, no para
-decorar.
+misma familia (verdes y azul acero apagados). El color se reserva para significar, no para
+decorar — y el ámbar quedó **reservado para advertencia**, que es el motivo por el que Farmacia
+dejó de llevarlo (ver más abajo).
 
 ### Primary
 - **Petróleo** (`#0F5F57`): color de marca. Rellenos sólidos de marca (avatar de usuario, login),
@@ -142,9 +143,14 @@ decorar.
 Cada módulo toma un acento de la misma familia; el acento "solid" da contraste suficiente para
 texto papel encima.
 - **Teal Track** (`#2E7D74`): módulo de coordinación clínica.
-- **Ámbar Pharma** (`#C9A24A`, relleno sólido `#A8842F`): farmacia de investigación.
+- **Petróleo Farmacia** (`#0F5F57`, sólido igual): farmacia de investigación. **Era ámbar**
+  (`#C9A24A` / `#A8842F`) hasta el 2026-08-11 y se cambió por una razón que conviene no olvidar: el
+  ámbar de identidad estaba a cuatro dígitos hex de `--spira-warn` (`#B0823F`), así que "esto es de
+  Farmacia" y "esto está por vencer" se veían igual. Consecuencia asumida: comparte tono con el
+  módulo Inicio, y en la navegación los dos se distinguen por nombre e ícono, no por color.
 - **Salvia Lab** (`#5C8A5A`): muestras y análisis.
-- **Azul acero Contable** (`#3A6B8C`): facturación y costos (elegido para no chocar con el ámbar).
+- **Azul acero Contable** (`#3A6B8C`): facturación y costos (elegido en su momento para no chocar
+  con el ámbar que entonces llevaba Farmacia).
 
 ### Tertiary — semánticos
 - **Bien** (`#5C8A5A`): éxito / estado correcto.
@@ -156,7 +162,11 @@ texto papel encima.
   (texto sobre acento, constante en ambos temas).
 - **Superficie** (`#FBFAF6`): fondos sutiles (tintes de hover, chips).
 - **Blanco** (`#FFFFFF`): cards, inputs, top bar.
-- **Apagado** (`#7C8C87`) / **tenue** (`#A6B0AC`): texto secundario y terciario; íconos inactivos.
+- **Apagado** (`#61706C`): **el único** tono de texto secundario. 5,19:1 sobre blanco y 4,97:1
+  sobre superficie — con margen sobre el 4,5:1 que pide AA.
+- **Tenue** (`#838C89`): **NO es texto.** 3,46:1 sobre blanco. Es para íconos inactivos, bordes,
+  el pulgar del scroll y rellenos de alineación (el guion de una celda sin dato). Si un dato se
+  lee, va en `muted`.
 - **Línea** (`#E4DECF`) divisores y bordes de card; **Línea 2** (`#D8CBB0`) bordes de input.
 
 ### Named Rules
@@ -165,6 +175,12 @@ estado. Nunca es decorativo. Si un color no comunica una de esas tres cosas, sob
 
 **La regla del acento apagado.** Atención es ámbar tostado y Riesgo es terracota, no amarillo ni
 rojo de semáforo. El estado se nota por contexto + ícono + texto, no por saturación.
+
+**La regla de la rampa de grises.** Hay **dos** grises y hacen cosas distintas: `muted` es texto,
+`faint` no. La rampa se recalibró bajando los tres tonos en OKLab (mismo matiz y croma) porque el
+texto secundario no llegaba a AA sobre papel cálido, y `faint` quedó del otro lado del umbral a
+propósito. Al elegir un gris, la pregunta no es cuál se ve más elegante: es si eso que estás
+pintando **se lee**. Si se lee, `muted`.
 
 ## 3. Typography
 
@@ -184,7 +200,7 @@ ya está comprometida con él.
 - **Title / H3** (Schibsted Grotesk 700, 17px): subtítulos, encabezados de card.
 - **Body** (Inter 400, 14px, line-height 1.5): texto y controles. Descriptivos a ~13.5px muted.
 - **Label de campo** (Inter 600, 12.5px, color muted): label de formulario en columna.
-- **Eyebrow / rótulo** (Inter 700, 10.5px, tracking 0.16em, MAYÚSCULAS, color faint): rótulos como
+- **Eyebrow / rótulo** (Inter 700, 10.5px, tracking 0.16em, MAYÚSCULAS, color muted): rótulos como
   "SUBMÓDULOS", "SOLO LECTURA". Es el único uso de mayúsculas con tracking.
 
 ### Named Rules
@@ -226,7 +242,8 @@ puro. Una sombra fría delata el sistema.
 - **Shape:** radio 10px (`{rounded.md}`); alto 40px (acciones de formulario/vista) o 38px (acciones
   del encabezado y botones de ícono).
 - **Primary** (`btnPrimary(accentSolid)` en [buttons.ts](src/components/buttons.ts)): relleno
-  **sólido del módulo activo** (p. ej. petróleo, ámbar `#A8842F`, teal), texto papel
+  **sólido del módulo activo** (p. ej. petróleo `#0F5F57` en Inicio y Farmacia, teal `#2E7D74` en
+  Coordinación, azul acero `#3A6B8C` en Contable), texto papel
   (`--spira-on-accent`), Inter 600 14px, sin borde, padding `0 16px`.
 - **Outline / secundario** (`btnOutline`): fondo blanco, borde 1px `--spira-line-2`, texto ink. El
   patrón por defecto para acciones no primarias.
