@@ -239,7 +239,7 @@ export function SettingsModal({ section, setSection, onClose }: SettingsModalPro
 
 /* —— estilos —— */
 const scrim: CSSProperties = {
-  position: 'fixed', inset: 0, zIndex: 220, background: 'rgba(20, 48, 46, 0.40)', backdropFilter: 'blur(3px)',
+  position: 'fixed', inset: 0, zIndex: 'var(--spira-z-modal)', background: 'rgba(20, 48, 46, 0.40)', backdropFilter: 'blur(3px)',
   display: 'grid', placeItems: 'center', padding: 28, animation: 'spOverlayIn .16s ease-out',
 }
 const card: CSSProperties = {

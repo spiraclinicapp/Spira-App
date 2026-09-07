@@ -125,6 +125,6 @@ const trigger: CSSProperties = {
 }
 
 const menu: CSSProperties = {
-  position: 'fixed', zIndex: 60, padding: 5, background: 'var(--spira-white)',
+  position: 'fixed', zIndex: 'var(--spira-z-popover)', padding: 5, background: 'var(--spira-white)',
   border: '1px solid var(--spira-line)', borderRadius: 11, boxShadow: 'var(--spira-shadow-md)',
 }

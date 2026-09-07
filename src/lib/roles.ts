@@ -122,7 +122,8 @@ export interface DescripcionDeAcceso {
   ve: AccesoDescripto[]
   /** Módulos con acceso dado pero que todavía no existen: no los va a ver. */
   inertes: AccesoDescripto[]
-  /** Nombres de los módulos construidos a los que NO tiene acceso. */
+  /** Nombres de los módulos CONSTRUIDOS a los que NO tiene acceso. Los que todavía no existen no
+   *  entran acá: ver la regla de `proximamente` en `describeAccess`. */
   noVe: string[]
   /** ¿Puede administrar los accesos del centro? */
   administra: boolean
@@ -145,6 +146,22 @@ export interface DescripcionDeAcceso {
  * la app donde gerencia puede enterarse de que ese acceso no rinde: antes el candado se lo
  * insinuaba de refilón, ahora no queda ninguna otra señal.
  *
+ * ── LA REGLA DE `proximamente`, EN DOS MITADES (2026-09-07, pedido del Director) ──
+ * Un módulo que todavía no existe se nombra SÓLO si alguien lo tiene:
+ *
+ *     proximamente + SIN nivel  →  no se nombra en ningún lado (tampoco en `noVe`)
+ *     proximamente + CON nivel  →  sigue en `inertes`, con su aviso
+ *
+ * La primera mitad es el pedido literal ("no quiero que se vea eso que dice todavía no está
+ * construido"): listar "No ve: Lab · Contable" le ofrece a gerencia una decisión que no existe,
+ * y la grilla de `AccesoEditor` ya dejó de mostrarlos, así que desde la UI ni siquiera se puede
+ * llegar a ese estado.
+ *
+ * La segunda NO se toca, y es lo que impide que esto sea esconder en vez de limpiar: si en
+ * producción quedó un `lab` de antes, ésta sigue siendo la única pantalla donde alguien puede
+ * enterarse y revocarlo. Un acceso que existe se muestra; uno que nadie tiene y que además no
+ * daría nada, no.
+ *
  * `modulos` se inyecta (en vez de importar el registro acá) para poder testear la función con un
  * catálogo controlado, sin atarla a los módulos que existan hoy.
  */
@@ -161,6 +178,9 @@ export function describeAccess(
     if (m.key === 'inicio') continue
     const nivel = accesos[m.key as ModuleKey]
     if (!nivel) {
+      // Sin nivel Y sin construir: no se nombra. Ver "LA REGLA DE `proximamente`" arriba — el
+      // caso con nivel cae más abajo, en `inertes`, y ése sí se muestra siempre.
+      if (m.proximamente) continue
       noVe.push(m.name)
       continue
     }

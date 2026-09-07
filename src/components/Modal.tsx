@@ -19,7 +19,7 @@ interface ModalProps {
 
 const backdrop: CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(20, 48, 46, 0.32)', backdropFilter: 'blur(2px)',
-  display: 'grid', placeItems: 'center', zIndex: 50, padding: 24,
+  display: 'grid', placeItems: 'center', zIndex: 'var(--spira-z-drawer)', padding: 24,
 }
 const cardBase: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16,

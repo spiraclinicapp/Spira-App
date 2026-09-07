@@ -20,17 +20,26 @@ import { useMarkDirty } from './SettingsModal'
 /* ============================================================================
    Editor de acceso de UNA persona.
 
-   Tres bloques y en este orden, que no es casual:
-     1. MÓDULOS — la grilla de siempre, un nivel por módulo.
+   Cinco bloques y en este orden, que no es casual:
+     1. MÓDULOS — la grilla de siempre, un nivel por módulo (sólo los CONSTRUIDOS: ver
+        `MODULOS_ASIGNABLES` más abajo).
      2. ADMINISTRACIÓN — `gerencia` SOLO, en su propio bloque y con confirmación. No es un módulo:
         no tiene pantallas, es el permiso de tocar los accesos de todo el centro. Listarlo como una
         fila más al lado de Coordinación y Farmacia hacía que se marcara sin entender qué se estaba
         dando (decisión del Director, 2026-08-25).
      3. CON ESTO VE… — la consecuencia, en castellano, ANTES de guardar.
+     4. LA CUENTA — contraseña, baja y eliminación. No pasan por el borrador: se aplican al
+        confirmarlas, y por eso cada una lleva su propia confirmación.
+     5. HISTORIAL — quién le cambió el acceso y cuándo. Lo escribe el trigger de la 0003; acá
+        sólo se lee.
+
+   Los tres primeros se editan y se guardan con el botón del final; el 4 se aplica en el acto, y
+   el 5 es el registro de las dos cosas. (Este comentario decía "tres bloques" desde antes de que
+   existieran el 4 y el 5.)
 
    El bloque 3 es el que evita el error caro de esta pantalla. Marcar "operator en Farmacia" no le
-   dice a nadie qué va a encontrar la persona al entrar; y sobre todo, no avisa que darle un módulo
-   que todavía no está construido no le da absolutamente nada.
+   dice a nadie qué va a encontrar la persona al entrar; y sigue siendo el único lugar donde
+   aparece un acceso a un módulo que todavía no está construido, si quedó alguno de antes.
 
    ⚠️ Es una SIMULACIÓN de solo lectura. NO es entrar como esa persona: suplantar a alguien en un
    sistema auditable rompe el rastro, porque las acciones quedarían firmadas por quien no las hizo.
@@ -41,8 +50,15 @@ import { useMarkDirty } from './SettingsModal'
    ============================================================================ */
 
 /** Los módulos asignables, en el orden del registro. `inicio` no se asigna (lo tiene todo el mundo)
-    y la administración va aparte, en su propio bloque. */
-const MODULOS_ASIGNABLES = MODULES.filter((m) => m.key !== 'inicio')
+    y la administración va aparte, en su propio bloque.
+
+    Los `proximamente` (Lab, Contable) tampoco: darles acceso no le muestra NADA a nadie, así que
+    ofrecer el desplegable era ofrecer una decisión que no existe — y el renglón "Todavía no está
+    construido" convertía media pantalla en ruido (pedido del Director, 2026-09-07). Con esto,
+    desde la UI ya no se puede CREAR un acceso inerte. Los que hayan quedado de antes en la base
+    siguen apareciendo abajo, en el bloque "Con esto ve…", que es la otra mitad de la regla
+    (ver `describeAccess` en `lib/roles.ts`). */
+const MODULOS_ASIGNABLES = MODULES.filter((m) => m.key !== 'inicio' && !m.proximamente)
 
 const NIVELES: ModuleRole[] = (Object.keys(ROLE_RANK) as ModuleRole[]).sort(
   (a, b) => ROLE_RANK[a] - ROLE_RANK[b],
@@ -165,7 +181,6 @@ export function AccesoEditor({ persona, actorId, administradores, onCerrar, onGu
           <StRow
             key={m.key}
             label={m.name}
-            sub={m.proximamente ? 'Todavía no está construido: darle acceso no le muestra nada' : undefined}
             last={i === MODULOS_ASIGNABLES.length - 1}
           >
             <div style={{ width: 190 }}>

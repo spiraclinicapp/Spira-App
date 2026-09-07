@@ -134,12 +134,24 @@ describe('describeAccess', () => {
     expect(d.ve.map((a) => a.nombre)).toEqual(['Coordinación'])
   })
 
+  it('un módulo que todavía no existe y que NADIE tiene, no se nombra', () => {
+    // La otra mitad de la regla de `proximamente` (2026-09-07). "No ve: Lab" le ofrece a gerencia
+    // una decisión que no existe: no puede dárselo desde la grilla (que ya los filtra) y, si
+    // pudiera, no le mostraría nada a nadie. El par con el test de arriba es lo que hace que esto
+    // sea limpiar y no esconder: sin nivel no se nombra, CON nivel sigue apareciendo en `inertes`.
+    const d = describeAccess({ track: 'operator' }, MODULOS)
+    expect(d.noVe).not.toContain('Lab')
+    expect(d.inertes).toHaveLength(0)
+  })
+
   it('sin ningún acceso: no ve nada y no administra', () => {
     const d = describeAccess({}, MODULOS)
     expect(d.ve).toHaveLength(0)
     expect(d.inertes).toHaveLength(0)
     expect(d.administra).toBe(false)
-    expect(d.noVe).toEqual(['Coordinación', 'Farmacia', 'Lab'])
+    // Lab NO está en la lista aunque no tenga nivel: es `proximamente`. Este `toEqual` es el que
+    // avisa si algún día alguien vuelve a meter los módulos sin construir en "no ve".
+    expect(d.noVe).toEqual(['Coordinación', 'Farmacia'])
   })
 })
 
