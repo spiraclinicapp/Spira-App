@@ -224,6 +224,7 @@ export function VisitDetail({
               readOnly={readOnly}
               canAdvance={canAdvance}
               busy={busy}
+              accent={accent}
               onAdvance={advance}
               onSolicitarMedico={() => { setErr(null); setDoctorOpen(true) }}
             />

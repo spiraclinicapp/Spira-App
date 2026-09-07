@@ -15,9 +15,21 @@ import { useVisitComments, addVisitComment } from '../../data/visitComments'
  * Nota: los comentarios se pueden escribir SIEMPRE (también desde la ficha en `context="patient"`):
  * "solo lectura" en el detalle aplica a las etapas operativas, no a dejar una nota.
  */
-export function CommentThread({ visitId, accent = 'var(--spira-track)', onAdded }: {
+export function CommentThread({ visitId, accent, onAdded }: {
   visitId: string
-  accent?: string
+  /**
+   * OBLIGATORIO, y el default que tenía era una mina.
+   *
+   * Era `'var(--spira-track)'`, y este componente usa el acento de DOS formas que un `var()` rompe:
+   * `accent + '1F'` para el tinte del avatar —concatenar un alfa sobre un `var()` da CSS inválido,
+   * que se descarta en silencio y deja el avatar transparente— y como relleno sólido bajo texto
+   * papel en el chip activo, donde ese teal da 4,33:1 y AA pide 4,5.
+   *
+   * Nunca llegó a fallar porque las tres pantallas que la montan le pasan el hex del módulo. Pero
+   * un default que sólo funciona mientras nadie lo use no es un default: es una trampa con fecha
+   * abierta. Sin él, olvidarse no compila.
+   */
+  accent: string
   /** Se llama tras agregar un comentario, para que el padre refresque su contador (badge de la fila). */
   onAdded?: () => void
 }) {
