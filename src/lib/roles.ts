@@ -262,3 +262,85 @@ export function auditLine(row: AccessAuditRow, nombreModulo: (key: string) => st
   }
   return `${quien} cambió a ${aQuien} en ${modulo}: ${antes} → ${despues}`
 }
+
+/* ─── El historial de asignaciones a protocolos (E4, migración 0110) ─── */
+
+/** Una fila de `v_protocol_access_audit` (0110), tal como llega. */
+export interface ProtocolAccessAuditRow {
+  id: string
+  occurred_at: string
+  action: string
+  /** `null` si el protocolo se borró: `audit_log` es inmutable y sus líneas sobreviven. */
+  protocol_code: string | null
+  protocol_name: string | null
+  actor_name: string | null
+  target_name: string | null
+}
+
+/**
+ * Una línea del historial de protocolos, en castellano.
+ *
+ * Vive aparte de `auditLine` y no como una rama suya por la misma razón por la que la vista es
+ * aparte: son dos hechos distintos —"a qué pantallas entra" y "sobre qué pacientes"— y mezclarlos
+ * en una función que ya ramifica por seis acciones invita a que una fila caiga en la rama
+ * equivocada y se redacte perfecto diciendo otra cosa.
+ *
+ * Se testea por lo mismo que `auditLine`: invertir actor y objetivo, o dar por quitar, produce una
+ * frase impecable que dice exactamente lo contrario de lo que pasó.
+ */
+export function protocolAuditLine(row: ProtocolAccessAuditRow): string {
+  const quien = row.actor_name ?? 'El sistema'
+  const aQuien = row.target_name ?? 'una cuenta que ya no existe'
+  /* El código es la identidad del estudio en toda la app; el nombre es el respaldo. Si no hay
+     ninguno de los dos, el protocolo se borró — y la línea lo dice en vez de quedar coja. */
+  const estudio = row.protocol_code ?? row.protocol_name ?? 'un estudio que ya no existe'
+
+  if (row.action === 'INSERT') return `${quien} le dio acceso al estudio ${estudio} a ${aQuien}`
+  if (row.action === 'DELETE') return `${quien} le quitó el acceso al estudio ${estudio} a ${aQuien}`
+  /* UPDATE: la tabla sólo tiene (protocol_id, user_id, assigned_at), así que un update es una
+     reescritura que no movió el acceso. `set_protocol_access` no los genera —sale sin escribir
+     cuando no hay nada que cambiar—, pero una carga vieja por SQL sí pudo dejarlos. Se nombra por
+     lo que fue en vez de inventarle un cambio. */
+  return `${quien} volvió a guardar la asignación de ${aQuien} al estudio ${estudio}, sin cambiarla`
+}
+
+/* ─── Los dos historiales, en una sola lista ─── */
+
+/** Una línea ya redactada, lista para pintar. Lo único que las dos fuentes tienen en común. */
+export interface LineaDeHistorial {
+  id: string
+  occurred_at: string
+  texto: string
+}
+
+/**
+ * Mezcla el historial de módulos y el de protocolos en una sola lista, de lo más nuevo a lo más
+ * viejo, y la recorta a `tope`.
+ *
+ * ⚠️ POR QUÉ EL RECORTE ACÁ ES CORRECTO Y NO UNA APROXIMACIÓN. Cada consulta trae sus 20 más
+ * nuevas por separado, y podría parecer que mezclar dos listas ya recortadas pierde filas. No las
+ * pierde: las 20 más nuevas de la UNIÓN salen necesariamente de las 20 más nuevas de cada lado —
+ * cualquier fila descartada por una consulta es más vieja que las 20 que esa consulta sí trajo, así
+ * que no puede colarse entre las 20 primeras del total. El resultado es idéntico al de pedir el
+ * union ordenado con `limit 20`.
+ *
+ * Se testea porque el error de ordenar al revés produce una lista perfectamente creíble que miente
+ * sobre qué pasó último — y en un registro de accesos, "qué pasó último" es toda la pregunta.
+ */
+export function mezclarHistorial(
+  modulos: readonly AccessAuditRow[],
+  protocolos: readonly ProtocolAccessAuditRow[],
+  nombreModulo: (key: string) => string,
+  tope = 20,
+): LineaDeHistorial[] {
+  const lineas: LineaDeHistorial[] = [
+    ...modulos.map((r) => ({ id: r.id, occurred_at: r.occurred_at, texto: auditLine(r, nombreModulo) })),
+    ...protocolos.map((r) => ({ id: r.id, occurred_at: r.occurred_at, texto: protocolAuditLine(r) })),
+  ]
+  /* Orden por fecha descendente. El desempate por `id` no es cosmético: dos filas escritas en la
+     MISMA transacción comparten `occurred_at` al microsegundo (el `now()` de una transacción es
+     fijo), y sin criterio de desempate el orden entre ellas cambiaría entre renders — una lista que
+     se reordena sola al re-renderizar parece un error de la app. */
+  lineas.sort((a, b) => (b.occurred_at.localeCompare(a.occurred_at)) || b.id.localeCompare(a.id))
+  return lineas.slice(0, tope)
+}

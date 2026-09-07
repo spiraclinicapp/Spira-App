@@ -12,6 +12,14 @@ export interface SelectOption {
    *  tiñendo el texto porque `color: tono` sobre `tono + alpha` no llega al 4.5:1 de WCAG. El punto
    *  es decoración con el rótulo al lado, así que el contraste lo cumple el texto en tinta. */
   dot?: string
+  /** Segunda línea de la opción: QUÉ significa elegirla. Opcional y de estreno en la consola de
+   *  accesos (2026-09-07), donde "Líder" no le dice a nadie qué gana la persona.
+   *
+   *  Sólo cambia la forma de la opción cuando está presente: sin `desc`, el renglón se dibuja
+   *  exactamente igual que siempre —una línea con ellipsis— en los ~24 consumidores que ya existen.
+   *  Con `desc`, el menú conviene abrirlo con `menuWidth="auto"`: un disparador angosto recorta
+   *  una frase. */
+  desc?: string
 }
 
 /** A partir de cuántas opciones aparece el buscador cuando searchable='auto'. */
@@ -141,6 +149,10 @@ export function SearchableSelect(props: Props) {
     : (value ? options.find((o) => o.value === value)?.dot : undefined)
   const typed = q.trim()
   const filtered = options.filter((o) => o.label.toLowerCase().includes(typed.toLowerCase()))
+  /* Con descripciones cada opción ocupa dos renglones, así que el techo de siempre (220px) dejaba
+     una lista de cinco a media pantalla y con scroll. El techo alto sólo aplica cuando hay `desc`:
+     una lista de rótulos sueltos no gana nada con ser más larga. */
+  const hayDesc = options.some((o) => o.desc != null)
 
   // El buscador se muestra según searchable + umbral, solo en el modo lista.
   const showSearch = mode === 'list' && !deleteTarget &&
@@ -359,7 +371,7 @@ export function SearchableSelect(props: Props) {
                 tabIndex={showSearch ? undefined : -1}
                 aria-activedescendant={showSearch ? undefined : activeId}
                 onKeyDown={(e) => { onListKeyDown(e); if (!showSearch) onListTypeahead(e) }}
-                style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, outline: 'none' }}
+                style={{ maxHeight: hayDesc ? 340 : 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, outline: 'none' }}
               >
                 {filtered.length === 0 ? (
                   <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', padding: '10px 10px', lineHeight: 1.4 }}>
@@ -372,7 +384,19 @@ export function SearchableSelect(props: Props) {
                     <div key={o.value} data-idx={idx} style={{ display: 'flex', alignItems: 'center', borderRadius: 8, ...(on ? { background: 'rgba(15,95,87,.10)' } : active ? { background: 'var(--spira-surface)' } : null) }}>
                       <button type="button" id={`${baseId}-opt-${idx}`} role="option" aria-selected={on} onMouseEnter={() => setActiveIndex(idx)} onClick={() => pick(o)} style={{ ...option, flex: 1, color: on ? 'var(--spira-acc-deep-track)' : 'var(--spira-ink)', fontWeight: on ? 600 : 400 }}>
                         {o.dot && <span aria-hidden style={{ ...dotStyle, background: o.dot }} />}
-                        <span className={mono ? 'spira-mono' : undefined} style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
+                        {/* Con descripción, el rótulo y su explicación van en columna. Se ramifica
+                            en vez de envolver siempre para no tocar el renglón de una línea de los
+                            ~24 consumidores que no usan `desc`: el ellipsis es sensible a la caja
+                            que lo contiene y no vale arriesgarlo por uniformidad. El `minWidth: 0`
+                            es lo que deja al ellipsis funcionar adentro de un flex. */}
+                        {o.desc ? (
+                          <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <span className={mono ? 'spira-mono' : undefined} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
+                            <span style={optionDesc}>{o.desc}</span>
+                          </span>
+                        ) : (
+                          <span className={mono ? 'spira-mono' : undefined} style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
+                        )}
                         {/* El tilde solo en múltiple: con una sola opción, el resalte de la fila ya
                             dice cuál está elegida y no hay nada que destildar. */}
                         {multiple && (
@@ -449,6 +473,13 @@ const option: CSSProperties = {
   minHeight: 36, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 8,
   border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--spira-font-text)',
   fontSize: 13.5, minWidth: 0,
+}
+/** Segunda línea de una opción (`SelectOption.desc`): qué significa elegirla. Envuelve a propósito
+ *  (`normal`) — es una frase, no un rótulo, y recortarla con puntos suspensivos sería esconder
+ *  justo la mitad que explica. `fontWeight: 400` fijo: la opción elegida pone el rótulo en 600 y
+ *  la explicación no tiene por qué engordar con él. */
+const optionDesc: CSSProperties = {
+  fontSize: 12, lineHeight: 1.35, color: 'var(--spira-muted)', whiteSpace: 'normal', fontWeight: 400,
 }
 /** Punto de color opcional de una opción (`SelectOption.dot`). Decorativo: el significado lo lleva
  *  el rótulo de al lado, así que no necesita contraste propio. */
