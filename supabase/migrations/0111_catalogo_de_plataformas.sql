@@ -41,6 +41,18 @@
 -- un valor desconocido ya cae a "otro" sin romper (`reportes.test.ts`). Va ANTES del front.
 -- APLICAR: a mano en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0110. IDEMPOTENTE.
 -- Registrar en supabase/README.md al confirmarse en prod.
+--
+-- ⚠️ EL PRIMER INTENTO FALLÓ (2026-09-07) y esta versión está escrita para CORRERSE DE NUEVO
+-- ENTERA, desde arriba, sobre la base que quedó a medias. El motivo está en el comentario de la
+-- columna `id`, más abajo. Lo que había quedado committeado antes del error —la tabla, sus
+-- constraints, los dos triggers— lo reencuentra cada sentencia con su `if not exists` / `if
+-- exists` / `on conflict do nothing`, así que volver a correr el bloque completo es la forma
+-- correcta de terminarla, y no hay que limpiar nada a mano.
+--
+-- Lo que NO llegó a correr en ese intento es todo lo que viene después del seed: el retiro del
+-- check, la FK, la RLS, las policies y los grants. O sea que entre el intento fallido y esta
+-- corrida, la tabla existe pero está inaccesible para `authenticated` (sin grants) — inerte, no
+-- un agujero.
 -- ============================================================================
 
 
@@ -48,7 +60,21 @@
 -- `key` es la PK y es TEXTO, no un uuid: es el valor que `report_definitions.platform` ya guarda
 -- en producción ('clario', 'iqvia', …). Con un uuid habría que migrar esa columna entera y
 -- reescribir el histórico; con texto, la FK cierra sobre lo que ya está escrito.
+--
+-- ⚠️ `id` NO ES LA CLAVE, y no está de adorno: lo exige `audit_row()`.
+-- La función genérica de auditoría (0003:195) hace
+--     (case when tg_op = 'DELETE' then old.id else new.id end)
+-- y Postgres resuelve `old.id` AL PLANIFICAR, sin importar por qué rama vaya a pasar. En una tabla
+-- sin columna `id` eso revienta en la primera escritura con un error desconcertante y lejísimos de
+-- la causa: `42703: record "old" has no field "id"`, señalando el cuerpo de `audit_row`.
+-- Pasó de verdad al aplicar esta migración por primera vez (2026-09-07): la tabla se creó, los
+-- triggers también, y el seed de abajo fue la primera escritura y la que se cayó.
+-- Las otras veinte tablas auditadas tienen `id uuid primary key` y por eso nunca se notó.
+-- La identidad de una plataforma sigue siendo `key` —es lo que guarda `report_definitions` y a lo
+-- que apunta la FK—; `id` existe únicamente para que la auditoría genérica pueda escribir su
+-- `entity_id`.
 create table if not exists public.report_platforms (
+  id         uuid not null default uuid_generate_v4(),
   key        text primary key,
   label      text not null,
   -- Nullable a propósito: null = "todavía no cargada". Distinto de '' (que sería "no tiene"), y es
@@ -65,6 +91,12 @@ create table if not exists public.report_platforms (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Para la base donde esta migración YA SE INTENTÓ y quedó a medias: el `create table if not
+-- exists` de arriba no le agrega la columna a una tabla que ya existe, así que la sumamos aparte.
+-- En una base limpia esto no hace nada. Las dos rutas terminan en la misma tabla.
+alter table public.report_platforms add column if not exists id uuid not null default uuid_generate_v4();
+create unique index if not exists uq_report_platforms_id on public.report_platforms (id);
 
 do $mig$ begin
   alter table public.report_platforms add constraint report_platforms_key_chk
