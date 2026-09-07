@@ -8,9 +8,11 @@ import type { AlertKind } from '../data/alertDismissalModel'
 import {
   descarteListo, dismissAlert, DISMISS_REASONS, MOTIVO_OTRO, useActiveAlerts,
 } from '../data/alertDismissals'
-import type { NavTarget } from '../views/types'
+import { MODULES } from '../modules/registry'
+import type { NavTarget, ReturnTo } from '../views/types'
 import { priorizarAlertas } from '../views/visitRules'
 import { ProtoTag } from '../views/visitAtoms'
+import { VisitDetail } from '../views/track/VisitDetail'
 import { DESTINO_PENDIENTES, nombreDeDestino } from '../views/resumen/destinos'
 import type { ClaseDeAlerta } from './notificaciones'
 import {
@@ -20,6 +22,11 @@ import {
 
 /** Cuántos ítems entran en el desplegable. Ver el porqué del recorte donde se aplica. */
 const MAX_NOTIFICACIONES = 10
+
+/* El acento con el que se pinta el modal de la visita. Sale del registry y no de un hex escrito a
+   mano: la campana no vive en ningún módulo, pero lo que abre es una visita de Coordinación, y tiene
+   que verse igual que abierta desde su propia pantalla. */
+const ACENTO_TRACK = MODULES.find((m) => m.key === 'track')?.accent ?? 'var(--spira-primary)'
 
 /* ============================================================================
    NotificationsMenu — desplegable de notificaciones (campana, top bar).
@@ -60,8 +67,8 @@ const MAX_NOTIFICACIONES = 10
    ============================================================================ */
 
 interface NotificationsMenuProps {
-  /** Navegar (lo provee el shell = AppShell.navigate). */
-  onNavigate: (moduleKey: string, subKey: string, target?: NavTarget) => void
+  /** Navegar (lo provee el shell = AppShell.navigate). `back` arma el botón de vuelta del destino. */
+  onNavigate: (moduleKey: string, subKey: string, target?: NavTarget, back?: ReturnTo) => void
   /** Gate de acceso del shell (para el pie, el link del paciente y el tacho). */
   isAllowed: (moduleKey: string) => boolean
 }
@@ -86,6 +93,12 @@ interface Descarte {
 interface Caja {
   key: string
   clase: ClaseDeAlerta
+  /**
+   * La visita de la que HABLA la alerta, que es lo que abre el gesto grande. Las dos clases la
+   * tienen: las de visita SON la visita, y las de reporte cuelgan de aquella donde se hizo el
+   * procedimiento.
+   */
+  visitId: string
   patientId: string
   patientName: string
   patientCode: string | null
@@ -99,6 +112,8 @@ interface Caja {
 export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuProps) {
   const alerts = useActiveAlerts()
   const [open, setOpen] = useState(false)
+  /** La visita que muestra el modal, cuando se abrió una desde una caja. */
+  const [visitaAbierta, setVisitaAbierta] = useState<string | null>(null)
   const cerrar = useCallback(() => setOpen(false), [])
 
   /* `flip` apagado: la campana vive pegada al borde SUPERIOR de la ventana, así que voltear hacia
@@ -158,16 +173,46 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
   /* La campana no tiene `module` (no es una vista de contenido), así que no hay `useAbrirFicha`:
      el destino es siempre `track/protocolos`, con guard EXPLÍCITO — sin el módulo Coordinación
      el nombre queda como texto pelado (ver `PatientLink`), en vez de un `navigate` que
-     `isAllowed` descartaría en silencio del lado del shell. */
+     `isAllowed` descartaría en silencio del lado del shell.
+
+     EL PASAJE DE VUELTA apunta a Pendientes y no a "la campana", que no es un lugar al que se pueda
+     volver. Es el mismo destino que promete el pie, y el rótulo sale del registry por la misma
+     razón que aquel: escrito a mano sobrevive a un renombre prometiendo una pantalla que ya no
+     existe. Sin esto, quien abría un paciente desde acá caía en la ficha sin ningún camino de
+     regreso — el panel ya se había cerrado. */
+  const volverAPendientes = (): ReturnTo => {
+    const nombre = nombreDeDestino(DESTINO_PENDIENTES) ?? 'Pendientes'
+    return {
+      moduleKey: DESTINO_PENDIENTES.moduleKey,
+      subKey: DESTINO_PENDIENTES.subKey,
+      label: `Volver a ${nombre}`,
+      hint: `Volver a la lista de ${nombre.toLowerCase()}`,
+    }
+  }
+
+  const abrirFichaDe = (patientId: string, protocolId: string) => {
+    setOpen(false)
+    onNavigate('track', 'protocolos', { patientId, protocolId }, volverAPendientes())
+  }
   const abrirFicha = (patientId: string, protocolId: string) =>
-    (puedeCoordinar
-      ? () => { setOpen(false); onNavigate('track', 'protocolos', { patientId, protocolId }) }
-      : undefined)
+    (puedeCoordinar ? () => abrirFichaDe(patientId, protocolId) : undefined)
+
+  /* EL GESTO GRANDE ABRE LA VISITA, no al paciente — el mismo reparto que la vista de Pendientes:
+     la caja muestra de qué habla la alerta, y el nombre lleva a quién. Antes los dos hacían lo
+     mismo y el panel tenía un solo destino donde la pantalla de al lado tiene dos.
+
+     CIERRA EL PANEL AL ABRIR, y ahí sí nos apartamos de Pendientes: allá la lista es una pantalla y
+     se queda atrás; acá es un popover que se cerraría solo con el primer clic dentro del modal
+     —`usePopover` lo vería "afuera"— y quedaría escondido detrás. Cerrarlo de entrada es lo mismo
+     que va a pasar, dicho de una vez y sin el estado intermedio. */
+  const abrirVisita = (visitId: string) =>
+    (puedeCoordinar ? () => { setOpen(false); setVisitaAbierta(visitId) } : undefined)
 
   const cajas: Caja[] = [
     ...procRows.map((r): Caja => ({
       key: `${r.visit_id}:${r.report_definition_id}`,
       clase: 'reporte',
+      visitId: r.visit_id,
       patientId: r.patient_id,
       patientName: r.patient_name,
       patientCode: r.patient_code,
@@ -185,6 +230,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
     ...rows.map((a): Caja => ({
       key: a.id,
       clase: claseDeAlerta(a.computed_status),
+      visitId: a.id,
       patientId: a.patient_id,
       patientName: a.patient_name,
       patientCode: a.patient_code,
@@ -258,7 +304,8 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
                   key={c.key}
                   caja={c}
                   indice={i}
-                  abrir={abrirFicha(c.patientId, c.protocolId)}
+                  abrirVisita={abrirVisita(c.visitId)}
+                  abrirPaciente={abrirFicha(c.patientId, c.protocolId)}
                   puedeDescartar={puedeCoordinar}
                 />
               ))
@@ -282,6 +329,22 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
         </div>,
         document.body,
       )}
+
+      {/* La visita que abrió una caja. Va FUERA del portal del panel a propósito: el panel se cierra
+          al abrirla, y si el modal colgara de ahí adentro se desmontaría con él.
+          `VisitDetail` calcula sus propios permisos (`useVisitPermissions`), así que desde acá sólo
+          hacen falta la visita, el acento del módulo y cómo cerrar. `onChanged` releé las alertas:
+          si en el modal se reagenda la visita o se carga lo que faltaba, la alerta deja de estar
+          vigente y el punto de la campana tiene que enterarse. */}
+      {visitaAbierta && (
+        <VisitDetail
+          visitId={visitaAbierta}
+          accent={ACENTO_TRACK}
+          onClose={() => setVisitaAbierta(null)}
+          onChanged={() => alerts.refetch()}
+          onOpenPatient={abrirFichaDe}
+        />
+      )}
     </>
   )
 }
@@ -294,17 +357,36 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
  * cuarta parada de Tab por fila —cuarenta antes de llegar al pie— y tres de ellas irían al mismo
  * destino. La caja es una comodidad de mouse; el teclado ya tiene su camino.
  */
-function CajaDeAlerta({ caja, indice, abrir, puedeDescartar }: {
+function CajaDeAlerta({ caja, indice, abrirVisita, abrirPaciente, puedeDescartar }: {
   caja: Caja
   indice: number
-  abrir?: () => void
+  /** El gesto grande: la visita de la que habla la alerta. */
+  abrirVisita?: () => void
+  /** El link del nombre y del código: la ficha del paciente. */
+  abrirPaciente?: () => void
   puedeDescartar: boolean
 }) {
   const estilo = CLASES[caja.clase]
   return (
     <div
-      className={`spira-notif-caja${abrir ? ' spira-notif-caja--link' : ''}`}
-      onClick={abrir}
+      /* `spira-no-press` porque `role="button"` la mete en la micro-interacción global y la caja se
+         levantaría 1 px: en una lista, la fila se RESALTA y no se levanta (mismo criterio que
+         `.spira-row-link`). Es la única diferencia deliberada con la fila de Pendientes, que es una
+         card y sí se levanta. */
+      className={`spira-notif-caja${abrirVisita ? ' spira-notif-caja--link spira-no-press' : ''}`}
+      role={abrirVisita ? 'button' : undefined}
+      tabIndex={abrirVisita ? 0 : undefined}
+      onClick={abrirVisita}
+      /* El guard de `e.target !== e.currentTarget` es el mismo que usa Pendientes: sin él, un Enter
+         sobre el nombre del paciente —que vive adentro y tiene su propio destino— dispararía
+         además el de la caja, y se abrirían las dos cosas de un saque. */
+      onKeyDown={abrirVisita
+        ? (e) => {
+          if (e.target !== e.currentTarget) return
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirVisita() }
+        }
+        : undefined}
+      aria-label={abrirVisita ? `Abrir la visita de ${caja.patientName} — ${caja.motivo}` : undefined}
       // La cascada de entrada: cada caja entra 22 ms después de la anterior.
       style={{ '--i': indice } as CSSProperties}
     >
@@ -318,21 +400,21 @@ function CajaDeAlerta({ caja, indice, abrir, puedeDescartar }: {
       <div className="spira-notif-cuerpo">
         <div className="spira-link-group spira-notif-l1">
           <span className="spira-notif-nombre" title={caja.patientName}>
-            <PatientLink onOpen={abrir} label={`Abrir la ficha de ${caja.patientName}`}>
+            <PatientLink onOpen={abrirPaciente} label={`Abrir la ficha de ${caja.patientName}`}>
               {caja.patientName}
             </PatientLink>
           </span>
           <span className="spira-mono spira-notif-codigo">
             {caja.patientCode
               ? (
-                <PatientLink onOpen={abrir} label={`Abrir la ficha del sujeto ${caja.patientCode}`}>
+                <PatientLink onOpen={abrirPaciente} label={`Abrir la ficha del sujeto ${caja.patientCode}`}>
                   {caja.patientCode}
                 </PatientLink>
               )
               : '—'}
           </span>
           {/* Siempre AFUERA del span que trunca: adentro se cortaría antes que el nombre. */}
-          {abrir && <PatientLinkArrow />}
+          {abrirPaciente && <PatientLinkArrow />}
         </div>
         <div className="spira-notif-motivo" title={caja.motivo}>{caja.motivo}</div>
       </div>
