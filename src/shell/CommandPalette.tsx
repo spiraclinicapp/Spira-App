@@ -255,7 +255,7 @@ export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, onNav
 
 /* —— estilos —— */
 const scrim: CSSProperties = {
-  position: 'fixed', inset: 0, zIndex: 100,
+  position: 'fixed', inset: 0, zIndex: 'var(--spira-z-palette)',
   background: 'rgba(20, 48, 46, 0.34)', backdropFilter: 'blur(2px)',
   display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '11vh',
 }

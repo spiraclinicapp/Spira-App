@@ -329,7 +329,7 @@ export function VisitDetail({
 
 const backdrop: CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(20, 48, 46, 0.42)', backdropFilter: 'blur(2px)',
-  display: 'grid', placeItems: 'center', zIndex: 50, padding: 22,
+  display: 'grid', placeItems: 'center', zIndex: 'var(--spira-z-drawer)', padding: 22,
   animation: 'spOverlayIn .18s ease both',
 }
 /** 1120 y no los 1020 de antes: con la dispensación hecha formulario, la columna derecha pasó a

@@ -115,7 +115,7 @@ export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusR
 
 const backdrop: CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(20, 48, 46, 0.32)', backdropFilter: 'blur(2px)',
-  display: 'flex', justifyContent: 'flex-end', zIndex: 50, animation: 'spOverlayIn 0.18s ease',
+  display: 'flex', justifyContent: 'flex-end', zIndex: 'var(--spira-z-drawer)', animation: 'spOverlayIn 0.18s ease',
 }
 const panelBase: CSSProperties = {
   background: 'var(--spira-white)', borderLeft: '1px solid var(--spira-line)',

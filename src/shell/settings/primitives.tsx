@@ -183,7 +183,7 @@ export const btnPeligro: CSSProperties = {
    cuenta) los necesitó idénticos. Dos copias de un scrim divergen en el z-index y una termina
    apareciendo por debajo del modal de Ajustes. */
 export const dialogScrim: CSSProperties = {
-  position: 'fixed', inset: 0, zIndex: 240, background: 'rgba(20, 48, 46, 0.30)',
+  position: 'fixed', inset: 0, zIndex: 'var(--spira-z-dialog)', background: 'rgba(20, 48, 46, 0.30)',
   display: 'grid', placeItems: 'center', padding: 24, animation: 'spOverlayIn .12s ease-out',
 }
 export const dialogCard: CSSProperties = {

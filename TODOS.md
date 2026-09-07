@@ -1029,3 +1029,53 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
   — es lo primero que hay que hacer con un bundle nuevo.
 - **Depende de / bloqueado por:** nada del lado del repo.
 - **Prioridad:** P3.
+
+---
+
+## Equipo y accesos · la baja no limpia `protocol_coordinators`
+
+- **Qué:** `dar_de_baja` (`supabase/migrations/0098_baja_y_actividad_de_cuentas.sql:127`) borra
+  las filas de `user_module_roles` y pone `is_active = false`, pero **deja intactas** las
+  asignaciones de `protocol_coordinators`. Una persona dada de baja conserva sus protocolos.
+- **Por qué:** hoy es **inerte** y no hay fuga: sin ninguna fila en `user_module_roles`, todas
+  las policies que gatean por `has_min_role('track', …)` la rechazan, así que la asignación no
+  le habilita nada. El problema es de lectura, no de seguridad — y aparece recién con E4: la
+  ficha de una cuenta dada de baja va a mostrar "3 protocolos" asignados y nadie va a poder
+  distinguir si eso es un acceso vivo o basura de la baja.
+- **Pros:** la baja pasa a significar una sola cosa ("no entra y no ve nada") en vez de dos con
+  una excepción; la pantalla nueva deja de mostrar un acceso que en la práctica no existe.
+- **Contras:** al reactivar una cuenta habría que reasignarle los protocolos a mano — hoy
+  vuelven solos porque nunca se fueron. Y toca un RPC que ya está en producción: un
+  `create or replace` con la firma cambiada dejaría una sobrecarga viva (ya pasó en este repo).
+- **Contexto:** surgió en la `/plan-eng-review` del 2026-09-07 sobre el modal de Ajustes, al
+  revisar qué escribe y qué no escribe cada operación de cuenta. Ver
+  `docs/plan-ajustes-capas-protocolos-plataformas.md`, tanda 2.
+- **Empezar por:** `0098_baja_y_actividad_de_cuentas.sql:127` (el cuerpo de `dar_de_baja`, donde
+  ya hay un `delete from public.user_module_roles`) y el bloque de protocolos de `AccesoEditor`.
+- **Depende de / bloqueado por:** que E4 (elegir protocolos por usuario) esté en producción —
+  antes de eso el síntoma no se ve en ninguna pantalla.
+- **Prioridad:** P3.
+
+---
+
+## Coordinación · alerta de protocolo activo sin coordinadora
+
+- **Qué:** una clase nueva en Pendientes: protocolo con `status = 'activo'` y cero filas en
+  `protocol_coordinators`.
+- **Por qué:** sus pacientes desaparecen de Coordinación **sin ningún error** — gerencia y
+  Farmacia los siguen viendo, así que ni siquiera parece un problema de datos. El síntoma llega
+  semanas después como "falta un paciente", que es carísimo de diagnosticar. El aviso que trae
+  E4 cubre sólo el camino de la pantalla ("con esto, PROT-01 se queda sin coordinadora"); la
+  baja de una cuenta y el SQL a mano lo esquivan.
+- **Pros:** el único agujero que la RLS no puede señalar sola pasa a tener un vigilante
+  permanente, en la pantalla donde ya se mira lo que hay que resolver.
+- **Contras:** es una feature, no un ajuste: vista nueva + clase de alerta + descarte. Y
+  Pendientes ya junta cuatro clases (ventanas vencidas, reportes fuera de plazo, por
+  reprogramar, tareas); una quinta necesita que el orden de prioridad se piense de nuevo.
+- **Contexto:** surgió en la `/plan-eng-review` del 2026-09-07, al decidir si bloquear o avisar
+  cuando se le quita el último protocolo a alguien (se eligió avisar, para no impedir revocarle
+  el acceso a quien se va). Ver `docs/plan-ajustes-capas-protocolos-plataformas.md`, decisión 8.
+- **Empezar por:** `v_track_alerts` y el patrón de la `0107_alerta_por_reprogramar.sql`, que es
+  la clase de alerta más parecida y la más reciente.
+- **Depende de / bloqueado por:** nada. Se puede hacer antes o después de E4.
+- **Prioridad:** P3.

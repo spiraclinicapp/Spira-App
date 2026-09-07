@@ -96,6 +96,6 @@ const todayBtn: CSSProperties = {
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13,
 }
 const popover: CSSProperties = {
-  position: 'fixed', zIndex: 60, background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)',
+  position: 'fixed', zIndex: 'var(--spira-z-popover)', background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)',
   borderRadius: 12, boxShadow: '0 12px 30px rgba(20,48,46,.16)',
 }

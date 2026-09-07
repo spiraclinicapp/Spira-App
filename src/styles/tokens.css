@@ -183,6 +183,29 @@
      y a 1px/6 % no alcanza para leerse como reacción; la `md` es sombra de overlay. Ver el
      comentario de `.spira-card-link` para el porqué del número. */
   --spira-shadow-hover: 0 4px 14px rgba(20, 48, 46, 0.12);
+
+  /* —— Capas (z-index) ——
+     El orden de apilado de la app, en UN solo lugar. Se lee de abajo hacia arriba: lo de más
+     abajo lo tapa lo de más arriba.
+
+     ⚠️ EL POPOVER VA SIEMPRE ÚLTIMO, y no es una preferencia estética. Todos los popovers de la
+     casa se portalean a `document.body` (hizo falta: un ancestro con `backdrop-filter` los dejaba
+     aterrizando lejos del campo), así que dejan de ser descendientes de quien los abrió y pasan a
+     competir con él en el contexto de apilado RAÍZ. Un overlay con z-index más alto los pinta
+     detrás de su propio fondo opaco: el menú se abre, se posiciona bien, y no se ve.
+
+     Pasó de verdad. Los nueve popovers estaban clavados en 60 y `SettingsModal` en 220: TODOS los
+     desplegables de Ajustes eran invisibles —el de Módulos y también el de Rol en Mi cuenta, que
+     nadie llegó a reportar—. La falla es silenciosa: no hay error, no hay warning, el menú
+     simplemente no está. Por eso el orden está clavado con un test (`capas.test.ts`) que lee
+     ESTE archivo: es lo único que impide que el próximo overlay vuelva a taparlos.
+
+     Los huecos entre números son a propósito: dejan lugar para una capa intermedia sin renumerar. */
+  --spira-z-drawer:   50;   /* Drawer, Modal chico, overlays de vista */
+  --spira-z-palette: 100;   /* CommandPalette — tapa un Drawer, y Ajustes lo tapa a él */
+  --spira-z-modal:   220;   /* SettingsModal — overlay de pantalla completa */
+  --spira-z-dialog:  240;   /* confirmación DENTRO de un modal */
+  --spira-z-popover: 300;   /* menús, calendarios y desplegables portaleados a body */
 }
 
 /* —— Tema oscuro —— (acentos/primario/semánticos se mantienen) */

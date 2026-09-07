@@ -131,7 +131,7 @@ const badge: CSSProperties = {
   display: 'inline-grid', placeItems: 'center',
 }
 const menu: CSSProperties = {
-  position: 'fixed', zIndex: 60, width: 'max-content', maxWidth: 'min(300px, calc(100vw - 16px))',
+  position: 'fixed', zIndex: 'var(--spira-z-popover)', width: 'max-content', maxWidth: 'min(300px, calc(100vw - 16px))',
   background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)', borderRadius: 14,
   boxShadow: '0 12px 30px rgba(20,48,46,.16)', padding: 6,
 }
