@@ -30,14 +30,38 @@ export function protoTone(protocolId: string): string {
  * texto normal (13 px bold lo es; "grande" arranca en 18.66 px). El color no se pierde: se queda
  * en el fondo, que es donde significa "este protocolo", y el fondo sube a 14 % para que se lea.
  */
-export function ProtoTag({ code, protocolId }: { code: string; protocolId: string }) {
+export function ProtoTag({ code, protocolId, compacto = false }: {
+  code: string
+  protocolId: string
+  /**
+   * Versión chica, para columnas angostas: la usa el desplegable de la campana, cuya caja le da al
+   * chip una columna FIJA de 76 px. Sólo cambia la escala —tono, contraste y significado son los
+   * mismos—, así que el mismo protocolo se reconoce por su color en las dos pantallas.
+   */
+  compacto?: boolean
+}) {
   const tone = protoTone(protocolId)
   return (
     <span
+      title={code}
       style={{
-        display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 7,
-        background: tone + '24', color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-display)',
-        fontSize: 13, fontWeight: 700, letterSpacing: '0.01em', whiteSpace: 'nowrap',
+        /* `inline-block` en compacto y no `inline-flex`: **`text-overflow` no aplica sobre un
+           contenedor flex**, así que con `inline-flex` el código largo se cortaba EN SECO, sin los
+           puntos suspensivos —medido en el banco de pruebas, 2026-09-06—. El centrado vertical no
+           se pierde: en la columna de datos lo da el flex del padre. La variante grande se queda
+           como estaba, que es donde el chip convive con otros átomos en una fila. */
+        display: compacto ? 'inline-block' : 'inline-flex', alignItems: 'center',
+        lineHeight: compacto ? 1.45 : undefined,
+        padding: compacto ? '2px 7px' : '3px 10px', borderRadius: compacto ? 99 : 7,
+        background: tone + '24', color: 'var(--spira-ink)',
+        fontFamily: compacto ? 'var(--spira-font-text)' : 'var(--spira-font-display)',
+        fontSize: compacto ? 11 : 13, fontWeight: 700, letterSpacing: '0.01em', whiteSpace: 'nowrap',
+        /* `protocol_code` es TEXTO LIBRE en la base y estos chips viven en columnas de ancho fijo:
+           sin el recorte, un código largo se sale de su celda y pisa lo que tiene al lado. Los
+           códigos reales son de 8 caracteres, así que casi nunca se ve — y por eso conviene que
+           esté puesto antes de que aparezca el que no lo es. El `title` deja el código completo a
+           mano cuando la elipsis se lo come. */
+        maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis',
       }}
     >
       {code}

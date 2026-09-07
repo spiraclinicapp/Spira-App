@@ -29,6 +29,35 @@ export function reasonLabel(value: string): string {
   return DISMISS_REASONS.find((r) => r.value === value)?.label ?? value
 }
 
+/**
+ * El único motivo que exige explicación. Va con nombre porque el literal `'otro'` ya estaba escrito
+ * a mano en tres lugares —el catálogo de acá, el guard de `dismissAlert` y el `necesitaDetalle` del
+ * modal de Pendientes— y del otro lado hay un `check` de la 0070 que lo exige. Tres copias de una
+ * cadena que la base valida es una desincronización esperando: el día que el motivo se llame
+ * distinto, dos de las tres siguen compilando.
+ */
+export const MOTIVO_OTRO = 'otro'
+
+/**
+ * ¿El descarte está listo para confirmarse?
+ *
+ * Hay motivo elegido y, si el motivo es "Otro", hay explicación con algo más que espacios.
+ *
+ * PARECE DEMASIADO CHICA PARA UN TEST, y es exactamente la clase que este repo testea. Vive en la
+ * frontera de dos pantallas —el modal de Pendientes y el popover de la campana— que archivan la
+ * MISMA alerta con el MISMO RPC, y su modo de falla es mudo: si una de las dos copias se queda con
+ * la condición al revés, esa pantalla deja archivar sin explicación. No hay error, no hay nada roto
+ * que mirar; el motivo simplemente llega vacío al `audit_log`, y el motivo es lo único que un
+ * auditor lee para entender por qué alguien silenció un desvío clínico.
+ *
+ * El servidor igual se defiende (`dismissAlert` corta antes del RPC y la 0070 tiene su `check`),
+ * pero un botón habilitado que rebota contra la base es una promesa rota, no una validación.
+ */
+export function descarteListo(reason: string, detail: string): boolean {
+  if (reason === '') return false
+  return reason !== MOTIVO_OTRO || detail.trim() !== ''
+}
+
 /** Fila de alert_dismissals (0070) + el nombre de quien archivó, resuelto por join. */
 export interface AlertDismissalRow {
   id: string

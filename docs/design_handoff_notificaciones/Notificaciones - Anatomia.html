@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spira · Notificaciones — anatomía y especificación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{--ink:#14302E;--primary:#0F5F57;--paper:#F4F1EA;--surface:#FBFAF6;--white:#fff;--muted:#61706C;--faint:#838C89;--line:#E4DECF;--line2:#D8CBB0;--danger:#A6483B;--good:#5C8A5A;--on-accent:#F4F1EA;--fdisp:'Schibsted Grotesk',system-ui,sans-serif;--ftext:'Inter',system-ui,sans-serif;--sh-md:0 14px 34px rgba(20,48,46,.14);--sh-sm:0 1px 2px rgba(20,48,46,.06)}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+html,body{margin:0}
+body{font-family:var(--ftext);color:var(--ink);background:var(--paper);font-size:14px;line-height:1.5}
+button{font-family:inherit}
+code{font-family:var(--ftext);font-size:.92em;background:rgba(20,48,46,.06);padding:1px 5px;border-radius:4px;font-variant-numeric:tabular-nums}
+.mono{font-variant-numeric:tabular-nums}
+.wrap{max-width:1080px;margin:0 auto;padding:44px 26px 120px}
+.masthead{border-bottom:1px solid var(--line2);padding-bottom:22px;margin-bottom:36px}
+.kicker{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--primary)}
+h1{font-family:var(--fdisp);font-weight:800;font-size:34px;letter-spacing:-.025em;margin:8px 0 10px;line-height:1.1}
+.masthead p{font-size:14.5px;color:var(--muted);margin:0;max-width:640px;text-wrap:pretty}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.meta span{font-size:11.5px;font-weight:600;color:var(--muted);background:var(--white);border:1px solid var(--line);border-radius:99px;padding:4px 11px}
+section{margin-bottom:46px}
+h2{font-family:var(--fdisp);font-weight:700;font-size:19px;letter-spacing:-.015em;margin:0 0 6px;display:flex;align-items:baseline;gap:10px}
+h2 .n{font-size:12px;font-weight:700;color:var(--primary);background:rgba(15,95,87,.1);border-radius:6px;padding:2px 7px;flex:0 0 auto}
+.lead{font-size:13.5px;color:var(--muted);margin:0 0 18px;max-width:660px;text-wrap:pretty}
+h3{font-family:var(--fdisp);font-weight:700;font-size:14px;margin:22px 0 9px;color:var(--ink)}
+.card-w{background:var(--white);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.demo{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:26px;display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.demo.col{flex-direction:column}
+.demo.center{justify-content:center}
+.demo.tight{padding:18px}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media(max-width:820px){.split{grid-template-columns:minmax(0,1fr)}}
+dl.specs{margin:0;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:6px 14px}
+dl.specs>div{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+dl.specs>div:last-child{border-bottom:none}
+dt{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding-top:2px}
+dd{margin:0;font-size:12.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+.figrow{display:flex;flex-wrap:wrap;gap:22px}
+.fig{display:flex;flex-direction:column;gap:8px}
+.figcap{font-size:11.5px;color:var(--muted);font-weight:500}
+.figcap b{color:var(--ink);font-weight:600}
+.tokrow{display:flex;flex-wrap:wrap;gap:10px}
+.tok{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:9px 12px 10px;min-width:150px}
+.tok .sw{height:26px;border-radius:6px;border:1px solid rgba(20,48,46,.08);margin-bottom:8px}
+.tok .tn{font-size:11.5px;font-weight:600;color:var(--ink)}
+.tok .tv{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums;margin-top:1px}
+table{width:100%;border-collapse:collapse;background:var(--white);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:12.5px}
+th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);padding:10px 13px;border-bottom:1px solid var(--line);background:var(--surface)}
+td{padding:10px 13px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink)}
+tr:last-child td{border-bottom:none}
+td code{font-size:11.5px}
+.note{background:var(--white);border:1px solid var(--line);border-left:none;border-radius:12px;padding:14px 16px;font-size:13px;color:var(--ink);display:grid;grid-template-columns:20px minmax(0,1fr);gap:11px;align-items:start}
+.note .ic{width:20px;height:20px;display:grid;place-items:center;margin-top:1px}
+.note b{font-weight:700}
+.ok{color:var(--good);font-weight:700}
+.no{color:var(--danger);font-weight:700}
+ul.plain{margin:0;padding-left:19px;font-size:13.5px;line-height:1.65}
+ul.plain li{margin-bottom:6px;text-wrap:pretty}
+
+/* ——— componentes reales del diseño ——— */
+.topbar{height:56px;display:flex;align-items:center;gap:10px;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:0 14px;width:100%}
+.topbar .fill{flex:1}
+.search{height:34px;padding:0 12px;border:1px solid var(--line2);border-radius:8px;background:var(--surface);color:var(--faint);font-size:13px;display:flex;align-items:center;gap:8px;width:190px}
+.av{width:30px;height:30px;border-radius:50%;background:var(--primary);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:11.5px;font-family:var(--fdisp)}
+.bell{position:relative;flex:0 0 auto;width:38px;height:38px;border-radius:10px;border:none;background:transparent;cursor:pointer;display:grid;place-items:center;color:var(--ink)}
+.bell.hov{background:var(--surface)}
+.badge{position:absolute;border-radius:999px;background:var(--danger);color:#fff;font-weight:700;display:grid;place-items:center;box-sizing:content-box;line-height:1}
+.bell.b1 .badge{top:1px;right:0;min-width:14px;height:14px;padding:0 3px;font-size:9.5px;border:1.5px solid var(--white)}
+.bell.b2 .badge{top:0;right:-1px;min-width:16px;height:16px;padding:0 4px;font-size:10.5px;border:2px solid var(--white)}
+.bell.b3 .badge{top:-2px;right:-3px;min-width:18px;height:18px;padding:0 5px;font-size:11.5px;border:2px solid var(--white)}
+.bell.b8 .badge{top:0;right:-1px;min-width:16px;height:16px;padding:0 4px;border-radius:5px;font-size:10.5px;border:2px solid var(--white)}
+.bell.b4 .badge,.bell.b5 .badge{top:5px;right:4px;min-width:8px;height:8px;padding:0;font-size:0;border:2px solid var(--white)}
+.bell.b5 .badge::after{content:"";position:absolute;inset:-2px;border-radius:999px;border:1.5px solid var(--danger);animation:pulse 2s cubic-bezier(.2,.7,.4,1) infinite}
+@keyframes pulse{0%{transform:scale(1);opacity:.7}70%,100%{transform:scale(2.4);opacity:0}}
+.bell.b6{width:auto;padding:0 9px 0 7px;display:flex;gap:7px;place-items:center}
+.bell.b6 .badge{position:static;min-width:0;height:17px;padding:0 7px;font-size:11px;border:none;color:var(--danger);background:rgba(166,72,59,.12)}
+.bell.b7{background:rgba(166,72,59,.1)}
+.bell.b7 svg path{stroke:var(--danger)}
+.bell.b7 .badge{display:none}
+.frame{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:16px;overflow:hidden;display:grid;place-items:start end;min-height:158px}
+.mini{width:206px;transform-origin:top right;background:var(--white);border:1px solid var(--line);border-radius:10px;box-shadow:var(--sh-md);overflow:hidden}
+.mini .mh{padding:8px 10px 7px;font-family:var(--fdisp);font-weight:700;font-size:10.5px;border-bottom:1px solid var(--line)}
+.mini .mr{display:grid;grid-template-columns:18px minmax(0,1fr) 34px;column-gap:7px;align-items:center;margin:5px;padding:6px;border:1px solid var(--line);border-radius:6px}
+.mini .mr .a{height:18px;border-radius:5px;background:rgba(15,95,87,.12)}
+.mini .mr .b{height:6px;border-radius:99px;background:rgba(20,48,46,.16)}
+.mini .mr .b2{height:5px;border-radius:99px;background:rgba(20,48,46,.08);margin-top:4px}
+.mini .mr .c{height:6px;border-radius:99px;background:rgba(15,95,87,.2)}
+.tl{display:flex;align-items:center;gap:0}
+.tl .seg{height:7px;border-radius:99px;flex:0 0 auto}
+@media(prefers-reduced-motion:reduce){.bell.b5 .badge::after{animation:none;opacity:.4}}
+.panel{width:440px;max-width:100%;background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh-md);overflow:hidden;display:flex;flex-direction:column}
+.phead{display:flex;align-items:center;gap:9px;padding:13px 15px 11px}
+.phead .t{font-family:var(--fdisp);font-weight:700;font-size:15px}
+.cntpill{font-size:11.5px;font-weight:700;color:var(--danger);background:rgba(166,72,59,.10);border-radius:999px;padding:2px 8px;line-height:1.4;white-space:nowrap}
+.plist{border-top:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:8px}
+.card{position:relative;display:grid;align-items:center;flex:0 0 auto;background:var(--white);border:1px solid var(--line);border-radius:10px;cursor:pointer;transition:border-color .14s,background-color .14s,box-shadow .14s}
+.card>*{min-width:0;overflow:hidden}
+.card:hover,.card.hov{border-color:var(--line2);background:var(--surface);box-shadow:var(--sh-sm)}
+.card.foc{outline:2px solid var(--primary);outline-offset:2px}
+.card-a{grid-template-columns:32px minmax(0,1fr) 76px 22px;column-gap:11px;padding:11px;min-height:66px}
+.card-b{grid-template-columns:minmax(0,1fr);padding:0;min-height:0}
+.card-b .bhead{display:grid;grid-template-columns:auto minmax(0,1fr) 22px;align-items:center;column-gap:8px;padding:7px 11px;border-bottom:1px solid var(--line);background:rgba(15,95,87,.03);border-radius:9px 9px 0 0}
+.card-b .bhead .pproto{justify-self:start}
+.card-b .bbody{display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:11px;align-items:center;padding:10px 11px}
+.card-c{grid-template-columns:28px minmax(0,1fr) 78px 22px;column-gap:10px;padding:9px 11px;min-height:58px}
+.card-c .colr{flex-direction:row;align-items:baseline;gap:7px}
+.ricon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center}
+.ricon.sm{width:28px;height:28px;border-radius:7px}
+.rbody{min-width:0}
+.plink{border:none;background:transparent;padding:0;margin:0;cursor:pointer;color:inherit;font:inherit;text-decoration:none;text-underline-offset:3px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom}
+.plink:hover,.plink:focus-visible{text-decoration:underline}
+.plink.u{text-decoration:underline}
+.l1{display:flex;align-items:baseline;gap:8px;min-width:0;font-size:12px;line-height:1.3}
+.pname{color:var(--ink);font-weight:600;min-width:0}
+.pcode{color:var(--muted);font-weight:600;flex:0 0 auto}
+.l2{font-size:12px;color:var(--muted);line-height:1.35;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pproto{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;white-space:nowrap;justify-self:end}
+.when{font-size:11px;color:var(--faint);font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums;justify-self:end}
+.colr{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.rowdel{opacity:1;width:22px;height:22px;border-radius:50%;border:none;background:transparent;color:var(--faint);display:grid;place-items:center;cursor:pointer;transition:background-color .12s,color .12s;justify-self:end}
+.rowdel:hover,.rowdel.hov{background:rgba(166,72,59,.12);color:var(--danger)}
+.rowdel.cell{width:100%;height:100%;border-radius:0;border-left:1px solid var(--line);justify-self:stretch;align-self:stretch}
+.card-a.delcell{grid-template-columns:32px minmax(0,1fr) 76px 36px;padding:0 0 0 11px;align-items:stretch}
+.card-a.delcell>.ricon{align-self:center}
+.card-a.delcell>.rbody,.card-a.delcell>.colr{align-self:center;padding:11px 0}
+.footersep{height:1px;background:var(--line);flex:0 0 auto}
+.footbtn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:12px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:var(--primary)}
+.footbtn:hover{background:var(--surface)}
+.empty{padding:30px 16px 34px;text-align:center}
+.empty .ic{display:inline-grid;place-items:center;width:42px;height:42px;border-radius:50%;background:rgba(92,138,90,.12);margin-bottom:10px}
+.empty .t1{font-size:14px;font-weight:600}
+.empty .t2{font-size:12.5px;color:var(--muted);margin-top:2px}
+.pop{width:246px;background:var(--white);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh-md);padding:12px}
+.pop .ctitle{font-family:var(--fdisp);font-weight:700;font-size:13.5px;color:var(--ink)}
+.pop .ctext{font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:4px}
+.pop .clbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:10px 0 4px}
+.pop .copt{display:block;width:100%;text-align:left;border:1px solid transparent;background:transparent;padding:6px 8px;border-radius:7px;font-size:12px;color:var(--ink);cursor:pointer;font-family:var(--ftext)}
+.pop .copt:hover{background:var(--surface)}
+.pop .copt.sel{border-color:var(--primary);background:rgba(15,95,87,.07);font-weight:600;color:var(--primary)}
+.pop .cfoot{display:flex;gap:6px;margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
+.pop .cbtn{flex:1;height:30px;border-radius:8px;border:1px solid var(--line2);background:var(--white);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer}
+.pop .cbtn:hover{background:var(--surface)}
+.pop .cbtn.danger{border-color:var(--danger);background:var(--danger);color:#fff}
+.pop .cbtn[disabled]{opacity:.45;cursor:default}
+
+/* pins de anotación */
+.anno{position:relative;display:inline-block}
+.pin{position:absolute;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;box-shadow:0 2px 5px rgba(20,48,46,.3);z-index:5;font-variant-numeric:tabular-nums}
+.legend{margin:0;padding:0;list-style:none;font-size:12.5px}
+.legend li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:9px;padding:7px 0;border-bottom:1px solid var(--line)}
+.legend li:last-child{border-bottom:none}
+.legend .k{width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.legend b{font-weight:600}
+.legend span{color:var(--muted)}
+.chosen{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--good);background:rgba(92,138,90,.12);border-radius:99px;padding:3px 10px}
+.rejected{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);background:rgba(20,48,46,.05);border-radius:99px;padding:3px 10px}
+.dim{opacity:.62}
+.grid-overlay{position:relative}
+.grid-overlay::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(166,72,59,.10) 0 32px,transparent 32px 43px,rgba(15,95,87,.07) 43px calc(100% - 120px),transparent calc(100% - 120px) calc(100% - 109px),rgba(166,72,59,.10) calc(100% - 109px) calc(100% - 33px),transparent calc(100% - 33px) calc(100% - 22px),rgba(166,72,59,.10) calc(100% - 22px) 100%);border-radius:10px}
+a{color:var(--primary)}
+a:hover{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="masthead">
+  <div class="kicker">Spira · Handoff de diseño</div>
+  <h1>Campana de notificaciones</h1>
+  <p>Rediseño del menú de notificaciones del topbar: caja por alerta, alineaciones fijas, fila enteramente clickeable y descarte con confirmación y motivo.</p>
+  <div class="meta">
+    <span>Alta fidelidad</span>
+    <span>Reemplaza <code>src/shell/NotificationsMenu.tsx</code></span>
+    <span>Español rioplatense</span>
+    <span>05/09/2026</span>
+  </div>
+</div>
+
+<section>
+  <h2><span class="n">1</span> El problema que resuelve</h2>
+  <p class="lead">Tres defectos concretos del menú actual, y la decisión que los corrige.</p>
+  <table>
+    <tr><th style="width:31%">Defecto actual</th><th style="width:34%">Por qué pasa</th><th>Corrección</th></tr>
+    <tr>
+      <td><b>El badge se ve roto</b> — el número queda flotando fuera de la campana.</td>
+      <td>El contador es un hermano del ícono en un flex, no un hijo posicionado del botón.</td>
+      <td><code>.badge</code> es <code>position:absolute</code> dentro del propio botón (<code>top:1px / right:0</code>), 14&nbsp;px de alto y anillo blanco de 1.5&nbsp;px.</td>
+    </tr>
+    <tr>
+      <td><b>La fecha se pisa con el código de protocolo</b> en la misma línea del nombre.</td>
+      <td>Nombre, código, protocolo y fecha compiten en un único flex sin ancho reservado.</td>
+      <td>Grilla de 4 columnas fijas; protocolo y fecha bajan a una <b>columna derecha propia de 76&nbsp;px</b>.</td>
+    </tr>
+    <tr>
+      <td><b>Solo el nombre linkea</b>, el resto de la fila no hace nada.</td>
+      <td>El link es el <code>PatientLink</code>; la fila es un <code>div</code> inerte.</td>
+      <td>La caja entera navega (patrón <code>.spira-row-link</code>); el nombre y el código siguen siendo botones reales para teclado.</td>
+    </tr>
+    <tr>
+      <td><b>No se puede sacar una notificación</b> de la lista.</td>
+      <td>No existía la acción en el menú.</td>
+      <td>Tacho por fila → popup de confirmación con motivo obligatorio (<code>dismiss_alert</code>).</td>
+    </tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">2</span> El indicador de la campana</h2>
+  <p class="lead">La campana vive en el topbar, entre el buscador y el avatar. Botón de 38×38&nbsp;px, ícono <code>Icon name="bell"</code> a 18&nbsp;px trazo 1.8. El indicador elegido es un <b>punto de 8&nbsp;px sin número</b>.</p>
+  <div class="demo col">
+    <div class="topbar">
+      <div class="search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#838C89" stroke-width="1.8"></circle><path d="M20 20l-4-4" stroke="#838C89" stroke-width="1.8" stroke-linecap="round"></path></svg>Buscar…</div>
+      <div class="fill"></div>
+      <button class="bell b4"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14302E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg><span class="badge"></span></button>
+      <div class="av">SC</div>
+    </div>
+    <div class="lbl" style="margin-top:6px">Estados</div>
+    <div class="figrow" id="bellStates"></div>
+  </div>
+  <div class="split" style="margin-top:20px">
+    <div class="note">
+      <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5C8A5A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+      <div><b>El punto no cuenta, avisa.</b> El número exacto ya está en la cabecera del panel y en la lista misma; repetirlo en un badge de 9&nbsp;px sobre el ícono lo volvía ilegible y ruidoso. El punto resuelve la única pregunta que importa desde el topbar: ¿tengo algo?</div>
+    </div>
+    <dl class="specs">
+      <div><dt>Botón</dt><dd>38 × 38 px · radio 10 px</dd></div>
+      <div><dt>Hover</dt><dd>fondo <code>--surface</code></dd></div>
+      <div><dt>Punto</dt><dd>8 × 8 px · <code>top:5px right:4px</code></dd></div>
+      <div><dt>Color</dt><dd><code>--danger</code> #A6483B</dd></div>
+      <div><dt>Anillo</dt><dd>2 px <code>--white</code> (content-box)</dd></div>
+      <div><dt>En cero</dt><dd><code>display:none</code> — no se dibuja</dd></div>
+    </dl>
+  </div>
+  <h3>Variantes evaluadas</h3>
+  <p class="lead">Ocho tratamientos del indicador. Queda el punto; el resto se documenta para no volver a proponerlo.</p>
+  <div class="demo col">
+    <div class="figrow" id="bellVariants"></div>
+  </div>
+  <table style="margin-top:18px">
+    <tr><th style="width:23%">Variante</th><th style="width:16%">Estado</th><th>Nota</th></tr>
+    <tr><td><b>Punto 8 px</b></td><td><span class="chosen">Elegida</span></td><td>Avisa sin cuantificar; nada tapa el ícono</td></tr>
+    <tr><td>Badge 14 px</td><td><span class="rejected">Descartada</span></td><td>El número queda demasiado chico para leerse</td></tr>
+    <tr><td>Badge 16 px</td><td><span class="rejected">Descartada</span></td><td>Legible, pero le come el hombro derecho a la campana</td></tr>
+    <tr><td>Badge 18 px</td><td><span class="rejected">Descartada</span></td><td>Se sale del botón y desalinea el topbar</td></tr>
+    <tr><td>Badge cuadrado</td><td><span class="rejected">Descartada</span></td><td>Menos "red social", pero el radio de 5 px pelea con el resto del chrome</td></tr>
+    <tr><td>Punto con pulso</td><td><span class="rejected">Descartada</span></td><td>Movimiento permanente en el topbar, cansa</td></tr>
+    <tr><td>Contador al lado</td><td><span class="rejected">Descartada</span></td><td>Ensancha el botón y corre el avatar</td></tr>
+    <tr><td>Campana teñida</td><td><span class="rejected">Descartada</span></td><td>Sobria, pero el fondo rojo se lee como error de sistema</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">3</span> Anatomía del panel</h2>
+  <p class="lead">Ancho fijo de 440&nbsp;px anclado al borde derecho del botón, 8&nbsp;px por debajo. Alto máximo 520&nbsp;px; la lista scrollea, la cabecera y el pie quedan fijos.</p>
+  <div class="split">
+    <div class="demo center">
+      <div class="anno">
+        <span class="pin" style="top:-9px;left:-9px">1</span>
+        <span class="pin" style="top:44px;left:-9px">2</span>
+        <span class="pin" style="top:96px;left:-9px">3</span>
+        <span class="pin" style="top:96px;right:-9px">4</span>
+        <span class="pin" style="bottom:36px;right:-9px">5</span>
+        <span class="pin" style="bottom:-9px;left:-9px">6</span>
+        <div class="panel">
+          <div class="phead"><span class="t">Notificaciones</span><span class="cntpill">5 pendientes</span></div>
+          <div class="plist" id="panelList"></div>
+          <div class="footersep"></div>
+          <button class="footbtn">Ver todas las alertas
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F5F57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="lbl">Referencias</div>
+      <ul class="legend">
+        <li><span class="k">1</span><div><b>Panel</b> <span>· 440 px, radio 14, borde <code>--line</code>, sombra <code>--sh-md</code></span></div></li>
+        <li><span class="k">2</span><div><b>Cabecera</b> <span>· pad 13/15/11, título Schibsted 700 15 px + píldora <code>5 pendientes</code></span></div></li>
+        <li><span class="k">3</span><div><b>Lista</b> <span>· pad 10, <code>gap:8px</code>, max-alto 420 px, scroll-y</span></div></li>
+        <li><span class="k">4</span><div><b>Caja de alerta</b> <span>· una por notificación, radio 10, borde <code>--line</code></span></div></li>
+        <li><span class="k">5</span><div><b>Hairline</b> <span>· 1 px <code>--line</code> separando lista del pie</span></div></li>
+        <li><span class="k">6</span><div><b>Pie</b> <span>· “Ver todas las alertas” → Track › Alertas</span></div></li>
+      </ul>
+      <div class="note" style="margin-top:14px">
+        <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F5F57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"></path></svg></span>
+        <div><b>El gap reemplaza a los divisores.</b> Las cajas se separan con <code>gap:8px</code> sobre el fondo blanco del panel, no con bordes inferiores. Da la repetición visual sin líneas que se corten en las esquinas.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">4</span> Animación de despliegue</h2>
+  <p class="lead">El panel crece desde la esquina superior derecha —donde está la campana— y las cajas entran en cascada detrás. Es la única animación del componente.</p>
+  <div class="demo col">
+    <div class="lbl">Fotogramas del panel</div>
+    <div class="figrow" id="animFrames"></div>
+    <div class="lbl" style="margin-top:10px">Cascada de las cajas · 22 ms entre una y otra</div>
+    <div class="figrow" id="animStagger"></div>
+  </div>
+  <div class="split" style="margin-top:20px">
+    <table>
+      <tr><th style="width:26%">Propiedad</th><th>De → a</th><th style="width:23%">Duración</th></tr>
+      <tr><td><code>opacity</code> del panel</td><td>0 → 1</td><td>160 ms</td></tr>
+      <tr><td><code>transform</code> del panel</td><td><code>scale(.95) translateY(-8px)</code> → <code>none</code></td><td>190 ms</td></tr>
+      <tr><td><code>transform-origin</code></td><td colspan="2"><code>top right</code> — el panel sale de la campana, no del centro</td></tr>
+      <tr><td>Curva</td><td colspan="2"><code>cubic-bezier(.2,.8,.3,1)</code> — arranca rápido, frena suave</td></tr>
+      <tr><td>Cajas</td><td><code>opacity 0 / translateY(-5px)</code> → <code>none</code></td><td>260 ms · retardo <code>i × 22 ms</code></td></tr>
+    </table>
+    <div>
+      <div class="note">
+        <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A6483B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg></span>
+        <div><b>Nada se anima al cerrar.</b> El panel desaparece de una: una salida animada retrasa la respuesta a un clic que ya fue dado.</div>
+      </div>
+      <div class="note" style="margin-top:12px">
+        <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5C8A5A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+        <div><b><code>prefers-reduced-motion</code></b> cancela la transición del panel y la cascada. El panel aparece sin más.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">5</span> La caja de alerta · grilla</h2>
+  <p class="lead">Cuatro columnas, siempre las mismas, en todas las filas. Es lo que hace que la lista se lea como una tabla aunque cada fila sea una caja.</p>
+  <div class="demo col">
+    <div class="lbl">Columnas resaltadas</div>
+    <div style="width:100%;max-width:418px" class="grid-overlay" id="gridDemo"></div>
+    <div class="lbl" style="margin-top:6px">Repetición sobre 5 alertas reales</div>
+    <div style="width:100%;max-width:418px;display:flex;flex-direction:column;gap:8px" id="repeatDemo"></div>
+  </div>
+  <div class="split" style="margin-top:20px">
+    <table>
+      <tr><th>Columna</th><th>Ancho</th><th>Contenido</th></tr>
+      <tr><td><b>1 · Ícono</b></td><td><code>32px</code></td><td>Tipo de alerta, cuadrado 32 px radio 8, fondo del color al 9&nbsp;%</td></tr>
+      <tr><td><b>2 · Cuerpo</b></td><td><code>minmax(0,1fr)</code></td><td>Línea 1: nombre + código. Línea 2: motivo (truncado a 1 línea)</td></tr>
+      <tr><td><b>3 · Datos</b></td><td><code>76px</code></td><td>Chip de protocolo arriba, fecha abajo, ambos alineados a la derecha</td></tr>
+      <tr><td><b>4 · Acción</b></td><td><code>22px</code></td><td>Tacho. Reservada siempre, incluso sin hover</td></tr>
+    </table>
+    <dl class="specs">
+      <div><dt>Caja</dt><dd>min-alto 66 px · radio 10 px</dd></div>
+      <div><dt>Padding</dt><dd>11 px en los 4 lados</dd></div>
+      <div><dt>Column-gap</dt><dd>11 px</dd></div>
+      <div><dt>Borde</dt><dd>1 px <code>--line</code> #E4DECF</dd></div>
+      <div><dt>Nombre</dt><dd>Inter 600 · 12 px · <code>--ink</code></dd></div>
+      <div><dt>Código</dt><dd>Inter 600 · 12 px · <code>--muted</code><br>tabular-nums</dd></div>
+      <div><dt>Motivo</dt><dd>Inter 400 · 12 px · <code>--muted</code></dd></div>
+      <div><dt>Chip</dt><dd>Inter 700 · 11 px · pad 2/7</dd></div>
+      <div><dt>Fecha</dt><dd>Inter 500 · 11 px · <code>--faint</code></dd></div>
+    </dl>
+  </div>
+  <div class="note" style="margin-top:16px">
+    <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F5F57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"></path></svg></span>
+    <div><b>Sin fecha se dibuja un guion.</b> Las alertas de reporte pendiente no tienen vencimiento; en vez de dejar la celda vacía va un <code>—</code> en <code>--faint</code>, así el chip de protocolo no se corre hacia abajo y las cajas mantienen el mismo alto.</div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">6</span> Los dos tipos de alerta</h2>
+  <p class="lead">El tipo se codifica en el ícono y su color; nunca solo en el color. El chip de protocolo usa el color propio del protocolo, que es independiente del tipo de alerta.</p>
+  <div class="demo col" id="kindsDemo"></div>
+  <div class="split" style="margin-top:20px">
+    <table>
+      <tr><th>Tipo</th><th>Ícono</th><th>Color</th><th>Origen</th></tr>
+      <tr><td><b>Reporte pendiente</b></td><td><code>clipboardCheck</code></td><td><code>--primary</code> #0F5F57</td><td><code>ProcedureReportAlertRow</code></td></tr>
+      <tr><td><b>Ventana vencida</b></td><td><code>alertCircle</code></td><td><code>--danger</code> #A6483B</td><td><code>TrackVisitRow</code></td></tr>
+    </table>
+    <dl class="specs">
+      <div><dt>Cuadrado</dt><dd>32 × 32 px · radio 8 px</dd></div>
+      <div><dt>Fondo</dt><dd>color del tipo al 9 % (<code>18</code> hex)</dd></div>
+      <div><dt>Glifo</dt><dd>16 px · trazo 1.8 · redondeado</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">7</span> Estados de la caja</h2>
+  <p class="lead">Reposo, hover, foco de teclado y la fila mientras su popup está abierto.</p>
+  <div class="demo col" id="statesDemo"></div>
+  <div class="split" style="margin-top:20px">
+    <table>
+      <tr><th>Estado</th><th>Cambios</th></tr>
+      <tr><td><b>Reposo</b></td><td>borde <code>--line</code>, fondo <code>--white</code>, sin sombra</td></tr>
+      <tr><td><b>Hover</b></td><td>borde <code>--line2</code>, fondo <code>--surface</code>, sombra <code>--sh-sm</code> · transición 140 ms</td></tr>
+      <tr><td><b>Foco (Tab)</b></td><td><code>outline: 2px solid --primary</code>, offset 2 px · nunca se remueve el outline</td></tr>
+      <tr><td><b>Link interno</b></td><td>nombre y código se subrayan en hover/foco (offset 3 px), sin cambio de color</td></tr>
+    </table>
+    <div class="note">
+      <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A6483B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg></span>
+      <div><b>La fila no se levanta.</b> Igual que <code>.spira-row-link</code> en el resto de la app: el hover resalta con fondo y borde, no con <code>translateY</code> ni sombra grande. Nada de movimiento vertical en listas.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">8</span> Botón de descarte · variantes evaluadas</h2>
+  <p class="lead">Se probaron cuatro tratamientos. Queda el tacho: es el que lee como “sacar esto de acá” sin ambigüedad y ya existe como <code>Icon name="trash"</code>.</p>
+  <div class="demo col" id="delDemo"></div>
+  <div class="split" style="margin-top:20px">
+    <table>
+      <tr><th>Variante</th><th>Estado</th><th>Nota</th></tr>
+      <tr><td><b>Cruz fina</b></td><td><span class="rejected">Descartada</span></td><td>Se lee como “cerrar el panel”, no como eliminar</td></tr>
+      <tr><td><b>Tacho</b></td><td><span class="chosen">Elegida</span></td><td>Explícita; <code>Icon name="trash"</code>, ya en el design system</td></tr>
+      <tr><td><b>Kebab</b></td><td><span class="rejected">Descartada</span></td><td>Suma un clic para una sola acción</td></tr>
+      <tr><td><b>Celda con divisor</b></td><td><span class="rejected">Descartada</span></td><td>La línea vertical corta la simetría de la lista</td></tr>
+    </table>
+    <dl class="specs">
+      <div><dt>Botón</dt><dd>22 × 22 px · radio 50 %</dd></div>
+      <div><dt>Ícono</dt><dd>15 px · trazo 1.7</dd></div>
+      <div><dt>Reposo</dt><dd>color <code>--faint</code>, fondo transparente</dd></div>
+      <div><dt>Hover</dt><dd>color <code>--danger</code>, fondo <code>rgba(166,72,59,.12)</code></dd></div>
+      <div><dt>Visibilidad</dt><dd>siempre visible, no aparece en hover</dd></div>
+    </dl>
+  </div>
+  <div class="note" style="margin-top:16px">
+    <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5C8A5A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+    <div><b>El tacho está siempre visible.</b> Decisión explícita: el hit target de 22 px no debe depender de que el mouse esté encima, y en touch un botón que aparece en hover es un botón que no existe.</div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">9</span> Popup de confirmación</h2>
+  <p class="lead">Descartar una alerta se registra con motivo y autor, así que no se borra en seco. El tacho abre un popover de 246&nbsp;px anclado al botón; el motivo es obligatorio.</p>
+  <div class="demo" style="align-items:flex-start;gap:26px">
+    <div class="fig">
+      <div class="pop">
+        <div class="ctitle">¿Descartar esta alerta?</div>
+        <div class="ctext">Se archiva con motivo y autor; si la condición cambia, vuelve a aparecer.</div>
+        <div class="clbl">Motivo</div>
+        <button class="copt">Ya resuelta fuera del sistema</button>
+        <button class="copt">La visita se reprogramó</button>
+        <button class="copt">No aplica a este protocolo</button>
+        <button class="copt">Cargada por error</button>
+        <button class="copt">Otro (explicar)</button>
+        <div class="cfoot"><button class="cbtn">Cancelar</button><button class="cbtn danger" disabled>Descartar</button></div>
+      </div>
+      <div class="figcap"><b>Al abrir</b> · sin motivo elegido, “Descartar” deshabilitado al 45&nbsp;%</div>
+    </div>
+    <div class="fig">
+      <div class="pop">
+        <div class="ctitle">¿Descartar esta alerta?</div>
+        <div class="ctext">Se archiva con motivo y autor; si la condición cambia, vuelve a aparecer.</div>
+        <div class="clbl">Motivo</div>
+        <button class="copt">Ya resuelta fuera del sistema</button>
+        <button class="copt sel">La visita se reprogramó</button>
+        <button class="copt">No aplica a este protocolo</button>
+        <button class="copt">Cargada por error</button>
+        <button class="copt">Otro (explicar)</button>
+        <div class="cfoot"><button class="cbtn">Cancelar</button><button class="cbtn danger">Descartar</button></div>
+      </div>
+      <div class="figcap"><b>Con motivo</b> · opción marcada en <code>--primary</code>, acción habilitada</div>
+    </div>
+  </div>
+  <div class="split" style="margin-top:20px">
+    <table>
+      <tr><th>Elemento</th><th>Especificación</th></tr>
+      <tr><td><b>Contenedor</b></td><td>246 px · radio 12 · pad 12 · sombra <code>--sh-md</code> · <code>position:fixed</code>, <code>z-index:200</code></td></tr>
+      <tr><td><b>Anclaje</b></td><td>a la izquierda del tacho (<code>left = botón.left − 256</code>), tope alineado 4 px arriba del botón</td></tr>
+      <tr><td><b>Volteo</b></td><td>si no entra abajo, se alinea su base con la base del botón — nunca se corta contra el viewport</td></tr>
+      <tr><td><b>Título</b></td><td>Schibsted Grotesk 700 · 13.5 px</td></tr>
+      <tr><td><b>Bajada</b></td><td>Inter 400 · 11.5 px · <code>--muted</code> · line-height 1.45</td></tr>
+      <tr><td><b>Label “Motivo”</b></td><td>Inter 700 · 10 px · tracking .12em · uppercase · <code>--faint</code></td></tr>
+      <tr><td><b>Opción</b></td><td>12 px · pad 6/8 · radio 7 · hover <code>--surface</code></td></tr>
+      <tr><td><b>Opción elegida</b></td><td>borde + texto <code>--primary</code>, fondo primary 7&nbsp;%, peso 600</td></tr>
+      <tr><td><b>Acciones</b></td><td>alto 30 px, mismo ancho (<code>flex:1</code>); Cancelar neutro, Descartar en <code>--danger</code></td></tr>
+    </table>
+    <div>
+      <div class="lbl">Motivos (catálogo)</div>
+      <dl class="specs">
+        <div><dt>1</dt><dd>Ya resuelta fuera del sistema</dd></div>
+        <div><dt>2</dt><dd>La visita se reprogramó</dd></div>
+        <div><dt>3</dt><dd>No aplica a este protocolo</dd></div>
+        <div><dt>4</dt><dd>Cargada por error</dd></div>
+        <div><dt>5</dt><dd>Otro (explicar)</dd></div>
+      </dl>
+      <div class="note" style="margin-top:14px">
+        <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A6483B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg></span>
+        <div><b>“Otro” pide texto.</b> En producción esa opción despliega un campo obligatorio antes de habilitar “Descartar”. El prototipo no lo implementa.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">10</span> Estado vacío</h2>
+  <p class="lead">Sin alertas: el badge desaparece de la campana y el panel muestra el mensaje. La lista no se dibuja y el pie se mantiene.</p>
+  <div class="demo center">
+    <div class="panel">
+      <div class="phead"><span class="t">Notificaciones</span></div>
+      <div class="plist" style="padding:0">
+        <div class="empty">
+          <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5C8A5A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+          <div class="t1">Estás al día</div>
+          <div class="t2">No tenés alertas nuevas.</div>
+        </div>
+      </div>
+      <div class="footersep"></div>
+      <button class="footbtn">Ver todas las alertas
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F5F57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+      </button>
+    </div>
+  </div>
+  <div class="note" style="margin-top:16px">
+    <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F5F57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"></path></svg></span>
+    <div>La píldora de conteo de la cabecera <b>también se oculta</b> en cero — no queda un “0” al lado del título.</div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">11</span> Casos límite y truncado</h2>
+  <p class="lead">Todo el contenido variable trunca con elipsis en una línea. Ninguna caja crece de alto por texto largo.</p>
+  <div class="demo col">
+    <div style="width:100%;max-width:418px;display:flex;flex-direction:column;gap:8px" id="edgeDemo"></div>
+  </div>
+  <table style="margin-top:18px">
+    <tr><th>Caso</th><th>Comportamiento</th></tr>
+    <tr><td>Nombre muy largo</td><td>trunca con <code>…</code>; el código nunca se desplaza (<code>flex:0 0 auto</code>)</td></tr>
+    <tr><td>Motivo muy largo</td><td>una sola línea con <code>…</code>; el texto completo va en el <code>title</code></td></tr>
+    <tr><td>Sin fecha</td><td><code>—</code> en <code>--faint</code></td></tr>
+    <tr><td>Más de 9 alertas</td><td>badge muestra <code>9+</code>; la lista scrollea a los 420 px</td></tr>
+    <tr><td>Panel contra el borde</td><td>el popover se voltea; el panel siempre queda anclado a la derecha</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="n">12</span> Armados descartados</h2>
+  <p class="lead">Se evaluaron otros dos armados de caja. Quedan documentados para no volver a proponerlos.</p>
+  <div class="demo col">
+    <div class="figrow" style="width:100%;gap:26px">
+      <div class="fig dim" style="flex:1;min-width:300px">
+        <div id="varB"></div>
+        <div class="figcap"><span class="rejected">Descartada</span> <b>B · caja con cabecera</b> — protocolo y fecha en una franja propia. Sube el alto a 82 px y la franja compite con la cabecera del panel.</div>
+      </div>
+      <div class="fig dim" style="flex:1;min-width:300px">
+        <div id="varC"></div>
+        <div class="figcap"><span class="rejected">Descartada</span> <b>C · tipo tabla</b> — protocolo y fecha en línea. Más compacta (58 px) pero deja el motivo sin ancho suficiente.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">13</span> Tokens usados</h2>
+  <p class="lead">Todos de <code>src/styles/tokens.css</code>. No se declara ningún hex nuevo.</p>
+  <div class="lbl">Color</div>
+  <div class="tokrow">
+    <div class="tok"><div class="sw" style="background:#14302E"></div><div class="tn">--spira-ink</div><div class="tv">#14302E · nombre, títulos</div></div>
+    <div class="tok"><div class="sw" style="background:#0F5F57"></div><div class="tn">--spira-acc-deep-track</div><div class="tv">#0F5F57 · reporte, links</div></div>
+    <div class="tok"><div class="sw" style="background:#A6483B"></div><div class="tn">--spira-acc-deep-danger</div><div class="tv">#A6483B · vencida, badge</div></div>
+    <div class="tok"><div class="sw" style="background:#5C8A5A"></div><div class="tn">--spira-good</div><div class="tv">#5C8A5A · estado vacío</div></div>
+    <div class="tok"><div class="sw" style="background:#61706C"></div><div class="tn">--spira-muted</div><div class="tv">#61706C · motivo, código</div></div>
+    <div class="tok"><div class="sw" style="background:#838C89"></div><div class="tn">--spira-faint</div><div class="tv">#838C89 · fecha, tacho</div></div>
+    <div class="tok"><div class="sw" style="background:#E4DECF"></div><div class="tn">--spira-line</div><div class="tv">#E4DECF · bordes</div></div>
+    <div class="tok"><div class="sw" style="background:#D8CBB0"></div><div class="tn">--spira-line2</div><div class="tv">#D8CBB0 · borde hover</div></div>
+    <div class="tok"><div class="sw" style="background:#FBFAF6"></div><div class="tn">--spira-surface</div><div class="tv">#FBFAF6 · fondo hover</div></div>
+    <div class="tok"><div class="sw" style="background:#F4F1EA"></div><div class="tn">--spira-paper</div><div class="tv">#F4F1EA · fondo app</div></div>
+  </div>
+  <div class="lbl" style="margin-top:20px">Tipografía</div>
+  <div class="card-w" style="padding:18px 20px">
+    <div style="font-family:var(--fdisp);font-weight:700;font-size:15px">Schibsted Grotesk 700 · 15 px — título del panel</div>
+    <div style="font-family:var(--fdisp);font-weight:700;font-size:13.5px;margin-top:8px">Schibsted Grotesk 700 · 13.5 px — título del popup</div>
+    <div style="font-size:12px;font-weight:600;margin-top:10px">Inter 600 · 12 px — nombre del paciente</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">Inter 400 · 12 px — motivo de la alerta</div>
+    <div style="font-size:11px;font-weight:700;margin-top:4px">Inter 700 · 11 px — chip de protocolo</div>
+    <div style="font-size:11px;font-weight:500;color:var(--faint);margin-top:4px;font-variant-numeric:tabular-nums">Inter 500 · 11 px · tabular — fecha, 02 Jul 2026</div>
+  </div>
+  <div class="lbl" style="margin-top:20px">Radios, sombras, movimiento</div>
+  <div class="tokrow">
+    <div class="tok"><div class="tn">Radio panel / popup</div><div class="tv">14 px / 12 px</div></div>
+    <div class="tok"><div class="tn">Radio caja</div><div class="tv">10 px</div></div>
+    <div class="tok"><div class="tn">Radio ícono</div><div class="tv">8 px (32) · 7 px (28)</div></div>
+    <div class="tok"><div class="tn">--sh-md</div><div class="tv">0 14px 34px rgba(20,48,46,.14)</div></div>
+    <div class="tok"><div class="tn">--sh-sm</div><div class="tv">0 1px 2px rgba(20,48,46,.06)</div></div>
+    <div class="tok"><div class="tn">Transición</div><div class="tv">140 ms (caja) · 120 ms (tacho)</div></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">14</span> Interacciones</h2>
+  <table>
+    <tr><th style="width:32%">Gesto</th><th>Resultado</th></tr>
+    <tr><td>Clic en la campana</td><td>abre/cierra el panel</td></tr>
+    <tr><td>Clic afuera · <kbd>Esc</kbd></td><td>cierra el panel y cualquier popover abierto</td></tr>
+    <tr><td>Clic en la caja</td><td>navega a la ficha del paciente y cierra el panel</td></tr>
+    <tr><td>Clic en nombre o código</td><td>igual destino; existen como botones aparte para navegación por teclado</td></tr>
+    <tr><td>Clic en el tacho</td><td>abre el popup de confirmación; no propaga a la fila</td></tr>
+    <tr><td>Clic en un motivo</td><td>lo marca y habilita “Descartar”</td></tr>
+    <tr><td>“Descartar”</td><td>saca la alerta de la lista, decrementa el badge, cierra el popup</td></tr>
+    <tr><td>“Cancelar” · clic afuera</td><td>cierra el popup sin cambios; el panel sigue abierto</td></tr>
+    <tr><td><kbd>Tab</kbd></td><td>recorre: caja → nombre → código → tacho, fila por fila</td></tr>
+  </table>
+  <div class="note" style="margin-top:16px">
+    <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F5F57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"></path></svg></span>
+    <div><b>El popover no vive dentro de la lista.</b> Se monta en <code>document.body</code> con <code>position:fixed</code> — si se anida en la lista, el <code>overflow-y</code> del scroll lo recorta. En React: portal.</div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">15</span> Para implementar</h2>
+  <ul class="plain">
+    <li>Reemplaza <code>src/shell/NotificationsMenu.tsx</code>. La fuente de datos no cambia: <code>ProcedureReportAlertRow</code> + <code>TrackVisitRow</code>.</li>
+    <li>El nombre y el código deben seguir siendo <code>&lt;PatientLink&gt;</code>, no texto plano.</li>
+    <li>Íconos vía <code>&lt;Icon name="…"&gt;</code>: <code>bell</code>, <code>clipboardCheck</code>, <code>alertCircle</code>, <code>trash</code>, <code>arrowRight</code>, <code>check</code>. No pegar SVGs sueltos.</li>
+    <li>El descarte escribe por <code>dismiss_alert</code> (ver <code>src/data/alertDismissals.ts</code> y <code>alertDismissalModel.ts</code>) con motivo y autor. La UI es optimista: saca la fila al confirmar y revierte si falla.</li>
+    <li>El popover va en portal, no dentro del contenedor con scroll.</li>
+    <li>Los colores del chip de protocolo vienen del protocolo, no del tipo de alerta.</li>
+    <li>El prototipo re-renderiza con <code>innerHTML</code> y usa <code>alert()</code> para navegar — nada de eso viaja a producción.</li>
+  </ul>
+</section>
+
+</div>
+<script>
+const ICON = {
+  reporte:'<rect x="8" y="2" width="8" height="4" rx="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="m9 14 2 2 4-4"></path>',
+  ventana:'<circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path>'
+};
+const DEL = {
+  cruz:'<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>',
+  tacho:'<path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>',
+  kebab:'<circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle>'
+};
+function ico(kind, sm){
+  const c = kind === 'reporte' ? '#0F5F57' : '#A6483B';
+  return '<span class="ricon'+(sm?' sm':'')+'" style="background:'+c+'18"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+ICON[kind]+'</svg></span>';
+}
+function delBtn(shape, cls){
+  return '<button class="rowdel'+(cls?' '+cls:'')+'" title="Eliminar notificación"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+DEL[shape]+'</svg></button>';
+}
+function chip(p, c){ return '<span class="pproto mono" style="color:'+c+';background:'+c+'14">'+p+'</span>'; }
+function nameCode(n, u){
+  return '<span class="plink pname'+(u?' u':'')+'">'+n.patient+'</span><span class="pcode mono"><span class="plink'+(u?' u':'')+'">'+n.code+'</span></span>';
+}
+function cardA(n, o){
+  o = o || {};
+  return '<div class="card card-a'+(o.cls?' '+o.cls:'')+'">' + ico(n.kind)
+    + '<div class="rbody"><div class="l1">'+nameCode(n,o.underline)+'</div><div class="l2" title="'+n.reason+'">'+n.reason+'</div></div>'
+    + '<div class="colr">'+chip(n.proto,n.protoColor)+'<span class="when">'+(n.when||'—')+'</span></div>'
+    + delBtn('tacho', o.delHov ? 'hov' : '') + '</div>';
+}
+const D = [
+  {kind:'reporte',patient:'María González',code:'032001500001',proto:'LTS17231',protoColor:'#0F5F57',reason:'Reporte pendiente — Electrocardiograma (ECG)',when:''},
+  {kind:'reporte',patient:'María González',code:'032001500002',proto:'LTS17231',protoColor:'#0F5F57',reason:'Reporte pendiente — Espirometría',when:''},
+  {kind:'ventana',patient:'Jorge Pelaitay',code:'032001500002',proto:'LTS17231',protoColor:'#0F5F57',reason:'V1 — Ventana vencida',when:'02 Jul 2026'},
+  {kind:'ventana',patient:'Jorge Pelaitay',code:'032001500001',proto:'ACT18301',protoColor:'#A6483B',reason:'V18 — Ventana vencida',when:'13 Jul 2026'},
+  {kind:'reporte',patient:'Ana Torres',code:'032001500003',proto:'EFC18244',protoColor:'#A6483B',reason:'Reporte pendiente — Laboratorio central',when:''}
+];
+const bellSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14302E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>';
+function bellFig(cls, inner, cap){
+  return '<div class="fig"><div style="background:#fff;border:1px solid #E4DECF;border-radius:10px;padding:7px;display:grid;place-items:center;min-height:52px"><button class="bell '+cls+'">'+bellSvg+inner+'</button></div><div class="figcap">'+cap+'</div></div>';
+}
+document.getElementById('bellStates').innerHTML =
+  bellFig('b4','<span class="badge" style="display:none"></span>','<b>Sin alertas</b> · el punto no se dibuja')
++ bellFig('b4','<span class="badge"></span>','<b>Con alertas</b> · punto 8 px en <code>--danger</code>')
++ bellFig('b4 hov','<span class="badge"></span>','<b>Hover</b> · fondo <code>--surface</code>');
+document.getElementById('bellVariants').innerHTML =
+  bellFig('b4','<span class="badge"></span>','<span class="chosen">Elegida</span> <b>Punto 8 px</b>')
++ bellFig('b1','<span class="badge">5</span>','<b>Badge 14 px</b>')
++ bellFig('b2','<span class="badge">5</span>','<b>Badge 16 px</b>')
++ bellFig('b3','<span class="badge">5</span>','<b>Badge 18 px</b>')
++ bellFig('b8','<span class="badge">5</span>','<b>Cuadrado</b> · radio 5')
++ bellFig('b5','<span class="badge"></span>','<b>Punto con pulso</b>')
++ bellFig('b6','<span class="badge">5</span>','<b>Contador al lado</b>')
++ bellFig('b7','<span class="badge"></span>','<b>Campana teñida</b>');
+function miniPanel(rows, extra){
+  let r = '';
+  for (let i = 0; i < 3; i++) r += '<div class="mr" style="'+(rows[i]||'')+'"><div class="a"></div><div><div class="b"></div><div class="b2"></div></div><div class="c"></div></div>';
+  return '<div class="mini" style="'+(extra||'')+'"><div class="mh">Notificaciones</div>'+r+'</div>';
+}
+document.getElementById('animFrames').innerHTML = [
+  ['0 ms','opacity:0;transform:scale(.95) translateY(-8px)',['opacity:0','opacity:0','opacity:0']],
+  ['~95 ms','opacity:.55;transform:scale(.976) translateY(-4px)',['opacity:.7','opacity:.35','opacity:0']],
+  ['190 ms','opacity:1',['','','']]
+].map(([cap, st, rows]) =>
+  '<div class="fig" style="flex:1;min-width:248px"><div class="frame">'+miniPanel(rows, st)+'</div><div class="figcap"><b>'+cap+'</b></div></div>'
+).join('');
+document.getElementById('animStagger').innerHTML = [0,1,2,3,4].map(i =>
+  '<div class="fig" style="flex:1;min-width:118px"><div class="tl">'
+  + '<span class="seg" style="width:'+(i*9)+'px;background:rgba(20,48,46,.09)"></span>'
+  + '<span class="seg" style="width:50px;background:var(--primary)"></span></div>'
+  + '<div class="figcap">Caja '+(i+1)+' · retardo <b>'+(i*22)+' ms</b></div></div>'
+).join('');
+document.getElementById('panelList').innerHTML = D.slice(0,3).map(n => cardA(n)).join('');
+document.getElementById('gridDemo').innerHTML = cardA(D[3]);
+document.getElementById('repeatDemo').innerHTML = D.map(n => cardA(n)).join('');
+document.getElementById('kindsDemo').innerHTML =
+  '<div class="figrow" style="width:100%">'
+  + '<div class="fig" style="flex:1;min-width:300px">'+cardA(D[0])+'<div class="figcap"><b>Reporte pendiente</b> · <code>clipboardCheck</code> en <code>--primary</code></div></div>'
+  + '<div class="fig" style="flex:1;min-width:300px">'+cardA(D[3])+'<div class="figcap"><b>Ventana vencida</b> · <code>alertCircle</code> en <code>--danger</code></div></div>'
+  + '</div>';
+document.getElementById('statesDemo').innerHTML =
+  '<div class="figrow" style="width:100%">'
+  + ['<div class="fig" style="flex:1;min-width:300px">'+cardA(D[0])+'<div class="figcap"><b>Reposo</b></div></div>',
+     '<div class="fig" style="flex:1;min-width:300px">'+cardA(D[0],{cls:'hov'})+'<div class="figcap"><b>Hover en la fila</b> · borde y fondo</div></div>',
+     '<div class="fig" style="flex:1;min-width:300px">'+cardA(D[2],{cls:'foc'})+'<div class="figcap"><b>Foco de teclado</b> · outline 2 px</div></div>',
+     '<div class="fig" style="flex:1;min-width:300px">'+cardA(D[2],{cls:'hov',underline:true})+'<div class="figcap"><b>Hover en el link</b> · subrayado, sin cambio de color</div></div>',
+     '<div class="fig" style="flex:1;min-width:300px">'+cardA(D[3],{cls:'hov',delHov:true})+'<div class="figcap"><b>Hover en el tacho</b> · <code>--danger</code> sobre rojo 12 %</div></div>'
+    ].join('') + '</div>';
+document.getElementById('delDemo').innerHTML =
+  '<div class="figrow" style="width:100%">'
+  + [['cruz','1 · Cruz fina','rejected'],['tacho','2 · Tacho','chosen'],['kebab','3 · Kebab','rejected']].map(([s,cap,tag]) =>
+      '<div class="fig'+(tag==='rejected'?' dim':'')+'" style="flex:1;min-width:300px"><div class="card card-a">'+ico(D[3].kind)
+      + '<div class="rbody"><div class="l1">'+nameCode(D[3])+'</div><div class="l2">'+D[3].reason+'</div></div>'
+      + '<div class="colr">'+chip(D[3].proto,D[3].protoColor)+'<span class="when">'+D[3].when+'</span></div>'
+      + delBtn(s) + '</div><div class="figcap"><span class="'+tag+'">'+(tag==='chosen'?'Elegida':'Descartada')+'</span> <b>'+cap+'</b></div></div>'
+    ).join('')
+  + '<div class="fig dim" style="flex:1;min-width:300px"><div class="card card-a delcell">'+ico(D[3].kind)
+  + '<div class="rbody"><div class="l1">'+nameCode(D[3])+'</div><div class="l2">'+D[3].reason+'</div></div>'
+  + '<div class="colr">'+chip(D[3].proto,D[3].protoColor)+'<span class="when">'+D[3].when+'</span></div>'
+  + delBtn('cruz','cell') + '</div><div class="figcap"><span class="rejected">Descartada</span> <b>4 · Celda con divisor</b></div></div>'
+  + '</div>';
+document.getElementById('edgeDemo').innerHTML = [
+  {kind:'reporte',patient:'María de los Ángeles Fernández Etchegaray',code:'032001500001',proto:'LTS17231',protoColor:'#0F5F57',reason:'Reporte pendiente — Electrocardiograma (ECG)',when:''},
+  {kind:'ventana',patient:'Ana Torres',code:'032001500003',proto:'EFC18244',protoColor:'#A6483B',reason:'V12 — Ventana vencida, requiere reprogramación con el investigador principal antes del cierre del período',when:'13 Jul 2026'},
+  {kind:'reporte',patient:'Jorge Pelaitay',code:'032001500002',proto:'ACT18301',protoColor:'#A6483B',reason:'Reporte pendiente — Espirometría',when:''}
+].map(n => cardA(n)).join('');
+document.getElementById('varB').innerHTML =
+  '<div class="card card-b"><div class="bhead">'+chip(D[3].proto,D[3].protoColor)+'<span class="when">'+D[3].when+'</span>'+delBtn('tacho')+'</div>'
+  + '<div class="bbody">'+ico(D[3].kind,true)+'<div class="rbody"><div class="l1">'+nameCode(D[3])+'</div><div class="l2">'+D[3].reason+'</div></div></div></div>';
+document.getElementById('varC').innerHTML =
+  '<div class="card card-c">'+ico(D[3].kind,true)
+  + '<div class="rbody"><div class="l1"><span class="plink pname">'+D[3].patient+'</span><span class="pcode mono" style="font-size:11.5px">'+D[3].code+'</span></div><div class="l2">'+D[3].reason+'</div></div>'
+  + '<div class="colr">'+chip(D[3].proto,D[3].protoColor)+'<span class="when">'+D[3].when+'</span></div>'+delBtn('tacho')+'</div>';
+</script>
+</body>
+</html>

@@ -13,45 +13,14 @@
   --spira-paper:    #F4F1EA;
   --spira-surface:  #FBFAF6;
   --spira-white:    #FFFFFF;
-  /* —— LA RAMPA DE GRISES, RECALIBRADA (2026-08-31) ——
-     La regla anterior existía y decía lo correcto —"`muted` queda para rótulos grandes, íconos y
-     texto ≥18px"—, pero el código la desobedecía en 403 lugares de 118 archivos: `muted` y
-     `faint` eran, de hecho, los dos tonos de texto secundario de toda la app. Una regla que
-     pierde 403 a 0 no es una regla, es una deuda.
-
-     Y la deuda era real: sobre PAPEL (el fondo más exigente, más oscuro que la card blanca donde
-     se venía midiendo) `muted` daba 3,12:1 y `faint` 1,97:1, contra los 4,5:1 que AA pide
-     para texto normal. En castellano: la mitad de lo que dice la app no se leía bien.
-
-     Se corrigió BAJANDO LOS TONOS, no migrando los 403 usos, por dos razones. Una, mandarlos a
-     `ink-soft` era un salto MÁS grande (3,12 → 5,17) que corregir el token (3,12 → 4,61): el
-     remedio se notaba más que la enfermedad. Dos, un reemplazo masivo aplasta cuatro niveles de
-     texto en dos, y la jerarquía de Sereno vive en esos escalones.
-
-     Los tres tonos se bajaron en OKLab —misma L, mismo matiz y croma— manteniendo el ritmo de
-     pasos que ya tenía la rampa. Medido sobre papel #F4F1EA:
-
-       token       antes            ahora            paso al de arriba
-       ink         #14302E 12,48    igual            —
-       ink-2       #2A4744  8,94    igual            ×1,40  (era ×1,40)
-       ink-soft    #556966  5,17 →  #465A57  6,50    ×1,37  (era ×1,73)
-       muted       #7C8C87  3,12 →  #61706C  4,61    ×1,41  (era ×1,66)   ← ahora SÍ es texto
-       faint       #A6B0AC  1,97 →  #838C89  3,06    ×1,50  (era ×1,58)   ← ya NO es texto
-
-     `faint` es el único que NO llega a 4,5 y no puede llegar: para hacerlo tendría que ser el
-     mismo color que `muted` y la rampa perdería el escalón de abajo. Queda como tono de
-     COMPONENTE no textual —íconos, bordes, la barra de scroll, el fondo apagado de una barra de
-     gráfico—, donde el piso es 3:1 y 3,06 alcanza. Sus 108 usos como texto se migraron a `muted`
-     en el mismo barrido. Si vas a pintar texto, el tono más claro disponible es `muted`.
-
-     El tema oscuro no se tocó: ahí los mismos tokens ya daban 6,23:1 y 7,25:1 sobre la card. El
-     agujero era del tema claro nada más — y por eso no se veía mirando el tema equivocado. */
-  --spira-muted:    #61706C;
-  --spira-faint:    #838C89;
-  /* Tinta atenuada para descriptores y segundas líneas. Es el nivel de texto secundario FUERTE:
-     `muted` también es legible ahora, así que la diferencia entre los dos es jerarquía, no
-     accesibilidad. Medido: 6,50:1 sobre papel, 7,08:1 sobre blanco, 8,08:1 en oscuro. */
-  --spira-ink-soft: #465A57;
+  --spira-muted:    #7C8C87;
+  --spira-faint:    #A6B0AC;
+  /* Tinta atenuada que SÍ pasa AA en cuerpos chicos (11–13px). Es `ink` mezclado al 72%
+     con `surface`: se lee como texto secundario, pero sin el agujero de contraste de
+     `muted`, que sobre surface da 3.37:1 en claro (AA pide 4.5:1 para texto normal).
+     Usalo para descriptores y segundas líneas; `muted` queda para rótulos grandes,
+     íconos y texto ≥18px. Medido: 5.62:1 en claro, 8.08:1 en oscuro. */
+  --spira-ink-soft: #556966;
   /* Un punto menos negro que `ink`, para NOMBRES y VALORES (nombre del paciente, médico,
      coordinador, datos de la rejilla del encabezado de visita). `ink` queda para la estructura
      —bordes, microcopy fuerte— y esto para lo que se lee como contenido: baja la dureza del
@@ -103,30 +72,6 @@
      advierte el bloque de arriba, un token más allá. Estrenado por la línea de tiempo del historial
      de dispensación (2026-08-15), donde el punto de "rechazado" es rojo. */
   --spira-acc-deep-danger: #A6483B;
-  /* El verde de la familia. Nace con la banda "Verificada" de Recepción (0085 / reskin 2c), donde
-     el texto va sobre el tinte verde al 10%: `--spira-good` a secas da ahí 3,58:1 y AA pide 4,5:1.
-     Oscurecido llega a 5,57:1 conservando el matiz. El handoff proponía un `color-mix` con `ink`
-     para esto — que es exactamente la trampa que advierte el bloque de arriba: la mezcla se
-     oscurece y en tema oscuro queda invisible. Por eso entra a ESTA familia y no como token propio. */
-  --spira-acc-deep-good: #3D6B3B;
-  /* El teal y el azul, que faltaban y por eso los tres ámbitos de Recepción —"Protocolo",
-     "Investigación", "Ambulatoria"— pintaban su etiqueta con el acento crudo. En oscuro medían
-     2,14 / 3,30 / 2,81 contra los 4,5 de AA: la etiqueta no se leía. OJO con el nombre: el
-     `-track` de arriba es el PETRÓLEO (viene del rename de 2026-08-14), así que el teal de
-     Coordinación necesitaba el suyo. Se eligieron por matiz, no por luminancia: teal y azul quedan
-     casi a la misma L —1,01:1 entre ellos— y se distinguen por color, que acá alcanza porque la
-     etiqueta siempre dice su nombre al lado. */
-  --spira-acc-deep-teal: #21726A;
-  /* En claro el azul ya pasaba (5,08:1) y se deja igual: este token existe por el lado oscuro,
-     como el rojo de acá arriba. */
-  --spira-acc-deep-blue: #3A6B8C;
-
-  /* —— Iniciales del avatar ——
-     Iban en `--spira-avatar-ring` con `opacity: .6` encima "para que pasen desapercibidas", y eso
-     las dejaba en 3,77:1 ANTES de aplicar la opacidad. Atenuar bajando el contraste es justo lo que
-     el sistema no hace: la jerarquía la dan el tamaño y el peso. Este verde se lee (5,04:1) y sigue
-     siendo el de la familia; la opacidad se sacó. */
-  --spira-avatar-ink: #00764C;
 
   /* —— Banda del rótulo de la tarjeta destacada (Dispensación) ——
      El acento a secas NO sirve de fondo acá: la tinta papel sobre él da 4,33:1 y el rótulo va a
@@ -146,15 +91,6 @@
      más apagada que las tarjetas neutras de al lado, o sea al revés de lo que se pidió. En oscuro
      hay que ACLARAR con la menta. Medido, no estimado. */
   --spira-tint-track: rgba(46, 125, 116, 0.10);
-
-  /* Cuánto hay que ACLARAR un acento de módulo para que sirva de TEXTO sobre la superficie del
-     tema. En claro, cero: el acento ya es oscuro y contrasta contra el papel. En oscuro no alcanza
-     con dejarlo —el petróleo #0F5F57 sobre una card #212121 da 1,98:1, la mitad del mínimo AA—, y
-     tampoco se puede resolver con un token por color: el acento entra como hex crudo desde el
-     registro de módulos, así que la corrección tiene que ser una OPERACIÓN sobre lo que llegue.
-     Es la misma regla que ya escriben a mano los `--spira-acc-deep-*`: en oscuro se aclara, no se
-     oscurece. */
-  --spira-aclarado-acento: 0%;
 
   /* —— Constantes de tema —— */
   --spira-on-accent:  #F4F1EA;
@@ -178,11 +114,6 @@
   --spira-shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.06);
   --spira-shadow-md: 0 12px 32px rgba(20, 48, 46, 0.10);
   --spira-shadow-lg: 0 18px 40px rgba(20, 48, 46, 0.14);
-  /* La sombra del HOVER de una tarjeta-enlace, y sólo ésa. Es un escalón propio y no una de las
-     tres de arriba a propósito: la `sm` es la sombra en REPOSO de una tarjeta (la usan ~20 lugares)
-     y a 1px/6 % no alcanza para leerse como reacción; la `md` es sombra de overlay. Ver el
-     comentario de `.spira-card-link` para el porqué del número. */
-  --spira-shadow-hover: 0 4px 14px rgba(20, 48, 46, 0.12);
 }
 
 /* —— Tema oscuro —— (acentos/primario/semánticos se mantienen) */
@@ -192,7 +123,7 @@
   --spira-surface:  #1C1C1C;   /* superficie elevada (sube con el fondo para conservar el escalón) */
   --spira-white:    #212121;   /* card / elevado */
   --spira-muted:    #A1A1A1;   /* texto secundario */
-  --spira-faint:    #6E6E6E;   /* NO es texto (3,16:1 sobre la card): íconos, bordes, scroll */
+  --spira-faint:    #6E6E6E;   /* texto terciario / placeholders */
   --spira-ink-soft: #B2B2B2;   /* tinta atenuada AA para cuerpos chicos (8.08:1 sobre surface) */
   --spira-ink-2:    #DCDCDC;   /* nombres y valores: un punto por debajo de `ink`, mismo gesto que el #2A4744 del tema claro */
   --spira-ghost-bg: rgba(157, 230, 214, 0.15); /* resalte del fantasma en oscuro: menta tenue (el petróleo no se ve sobre fondo oscuro) */
@@ -203,10 +134,6 @@
   --spira-acc-deep-track:  #9DE6D6;  /* menta: en oscuro hay que ACLARAR, no oscurecer */
   --spira-acc-deep-warn: #E8CE8A;
   --spira-acc-deep-danger: #EDA093; /* salmón: aclarado, no oscurecido. 7,09:1 sobre el tinte rojo */
-  --spira-acc-deep-good: #A9D9A6;   /* verde claro: aclarado, no oscurecido. 8,97:1 sobre el tinte verde */
-  --spira-acc-deep-teal: #5FABA2;   /* 6,01:1 sobre la card; mismo matiz que el teal de Coordinación */
-  --spira-acc-deep-blue: #71A4C7;   /* 6,01:1 sobre la card */
-  --spira-avatar-ink:    #39B283;   /* 6,03:1 sobre la card */
   /* La banda NO se invierte: es un bloque de color pleno con texto claro encima, así que en oscuro
      funciona igual que en claro (y aclararla con la menta la volvería un bloque brillante con el
      texto papel ilegible). Se sube un escalón nada más, para que no se confunda con el fondo. */
@@ -214,14 +141,6 @@
   /* El tinte del CUERPO sí se invierte: con el petróleo, el cuerpo quedaba MÁS OSCURO que las
      tarjetas neutras (22,33,32 contra 28,28,28) y el realce se leía como un apagón. La menta lo levanta. */
   --spira-tint-track: rgba(157, 230, 214, 0.13);
-  /* 55%: medido, deja al petróleo del módulo en 8,9:1 sobre el tinte de un chip elegido. */
-  --spira-aclarado-acento: 55%;
-  /* La ÚNICA sombra que el tema oscuro redefine, y por necesidad: las otras tres tiñen con
-     petróleo (20,48,46) y sobre el papel oscuro (#121212) eso es prácticamente el fondo — a 12 %
-     no se vería nada y el hover de tarjeta se perdería entero. Acá la sombra tiene que ser negra y
-     bastante más opaca para que el escalón se lea sobre una card #212121. Las de reposo (`sm`) no
-     se tocan: en oscuro una tarjeta se separa por su fondo más claro, no por su sombra. */
-  --spira-shadow-hover: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
 /* —— Estilos tipográficos semánticos —— */
@@ -229,7 +148,7 @@
 .spira-h1      { font-family: var(--spira-font-display); font-weight: 700; font-size: 40px; letter-spacing: -0.02em; line-height: 1.05; color: var(--spira-ink); }
 .spira-h2      { font-family: var(--spira-font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; color: var(--spira-ink); }
 .spira-h3      { font-family: var(--spira-font-display); font-weight: 700; font-size: 17px; color: var(--spira-ink); }
-.spira-eyebrow { font-family: var(--spira-font-text); font-weight: 700; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--spira-muted); }
+.spira-eyebrow { font-family: var(--spira-font-text); font-weight: 700; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--spira-faint); }
 .spira-mono    { font-family: var(--spira-font-mono); font-variant-numeric: tabular-nums; }
 
 /* —— Base —— */
@@ -308,10 +227,7 @@ button { font-family: inherit; }
    campo para no desalinearse del texto al enfocar. */
 .spira-input-affix { position: relative; }
 .spira-input-affix > .spira-input-affix-icon {
-  /* `top/bottom: 0` en vez de una altura fija: así centra el ícono en el campo mida lo que mida
-     (44 en el login, 40 en el buscador de Recepción, 34 en el de los menús de filtro). Con la
-     altura clavada, cualquier campo más bajo lo dejaba caído y asomando por abajo. */
-  position: absolute; left: 12px; top: 0; bottom: 0;
+  position: absolute; left: 12px; top: 0; height: 44px;
   display: grid; place-items: center;
   color: var(--spira-muted); pointer-events: none; z-index: 1;
 }
@@ -363,63 +279,6 @@ input:-webkit-autofill:focus {
   border: 2px solid transparent; background-clip: padding-box;
 }
 .spira-scroll:hover::-webkit-scrollbar-thumb { background: var(--spira-faint); background-clip: padding-box; }
-
-/* —— Botón de plataforma del reporte ——
-   Es un enlace real a un portal externo (IQVIA, LabCorp…), así que se comporta como enlace: se
-   eleva al pasarle el mouse, como todo lo pulsable del sistema. El fondo teñido con el color del
-   portal viaja inline (cambia por plataforma) y por eso acá sólo va la elevación. */
-.spira-plataforma {
-  transition: box-shadow 0.14s var(--spira-ease-out), transform 0.14s var(--spira-ease-out);
-}
-.spira-plataforma:hover {
-  box-shadow: var(--spira-shadow-hover);
-  transform: translateY(-1px);
-}
-@media (prefers-reduced-motion: reduce) {
-  .spira-plataforma { transition: box-shadow 0.14s var(--spira-ease-out); }
-  .spira-plataforma:hover { transform: none; }
-}
-
-/* —— Desplegable (disclosure) ——
-   Abrir "de cero hasta lo que mida el contenido" sin medirlo a mano ni fijar un alto: la grilla va
-   de `0fr` a `1fr` y el hijo recorta. Es la única forma de animar un alto desconocido sin
-   JavaScript, y evita el parpadeo del `max-height: 9999px` (que anima a una velocidad que no tiene
-   nada que ver con el contenido real).
-
-   El contenido se renderiza SIEMPRE, abierto o cerrado: si sólo existiera al abrirlo no habría
-   desde dónde animar y aparecería de golpe, que es justo lo que se quiere evitar.
-
-   La duración (.22s) está del lado corto del rango de producto: el usuario está en una tarea, no
-   mirando la animación. Curva `ease-out` del sistema — sin bounce, que la marca lo prohíbe. */
-.spira-disclosure {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition: grid-template-rows 0.22s var(--spira-ease-out), opacity 0.16s var(--spira-ease-out);
-}
-.spira-disclosure[data-abierto='true'] {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-/* `min-height: 0` es obligatorio: sin él el hijo de una grilla se niega a bajar de su alto
-   intrínseco y la fila nunca colapsa a cero. */
-.spira-disclosure > * {
-  overflow: hidden;
-  min-height: 0;
-}
-@media (prefers-reduced-motion: reduce) {
-  /* El cambio de estado se mantiene —abrir sigue abriendo— pero llega sin recorrido. */
-  .spira-disclosure { transition: none; }
-}
-
-/* —— Numérico sin flechitas ——
-   Las spin buttons que el navegador le pone a `input[type=number]` se comen ~15px de ancho útil y
-   son un blanco de 8px que nadie apunta. En un campo angosto eso se nota: en el plazo del reporte
-   (0089) el máximo de cuatro dígitos no entraba por culpa de ellas. Se apagan por clase y no
-   globalmente: donde el campo es ancho, la flechita no molesta y hay quien la usa. */
-.spira-num-limpio { -moz-appearance: textfield; appearance: textfield; }
-.spira-num-limpio::-webkit-outer-spin-button,
-.spira-num-limpio::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* —— Pantallas de acceso (Login / definir contraseña) ——
    Dos mitades: a la izquierda un panel VERDE (marca) con el logo de Spira arriba y la foto
@@ -498,7 +357,7 @@ input:-webkit-autofill:focus {
 }
 /* © fijo abajo, como footer; no entra en el centrado del formulario. */
 .spira-auth-foot {
-  flex-shrink: 0; text-align: center; color: var(--spira-muted); font-size: 12px; padding-top: 16px;
+  flex-shrink: 0; text-align: center; color: var(--spira-faint); font-size: 12px; padding-top: 16px;
 }
 @media (min-width: 900px) {
   .spira-auth-cover { display: flex; }
@@ -516,7 +375,7 @@ input:-webkit-autofill:focus {
 }
 .spira-search-trigger .spira-search-label { flex: 1; text-align: left; white-space: nowrap; }
 .spira-search-trigger .spira-search-kbd {
-  font-size: 11.5px; font-weight: 600; color: var(--spira-muted);
+  font-size: 11.5px; font-weight: 600; color: var(--spira-faint);
   background: var(--spira-white); border: 1px solid var(--spira-line);
   border-radius: 6px; padding: 2px 7px;
 }
@@ -538,7 +397,7 @@ input:-webkit-autofill:focus {
 }
 .spira-menu-item:hover,
 .spira-menu-item:focus-visible { background: var(--spira-paper); outline: none; }
-.spira-menu-item--danger { color: var(--spira-acc-deep-danger); }
+.spira-menu-item--danger { color: var(--spira-danger); }
 .spira-menu-item--danger:hover,
 .spira-menu-item--danger:focus-visible { background: rgba(166, 72, 59, 0.08); }
 
@@ -546,189 +405,10 @@ input:-webkit-autofill:focus {
 .spira-notif-all {
   flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 7px;
   width: 100%; padding: 12px; border: none; background: transparent; cursor: pointer;
-  font-family: var(--spira-font-text); font-size: 13px; font-weight: 600; color: var(--spira-acc-deep-track);
+  font-family: var(--spira-font-text); font-size: 13px; font-weight: 600; color: var(--spira-primary);
 }
 .spira-notif-all:hover,
 .spira-notif-all:focus-visible { background: var(--spira-surface); outline: none; }
-
-/* —— Desplegable de la campana ——
-   Geometría del handoff `docs/design_handoff_notificaciones`, con las decisiones del plan
-   `docs/plan-campana-notificaciones.md`. Vive acá y no en objetos de estilo de React por una razón
-   concreta: el realce de la caja toca el BORDE, y escribirlo desde un handler sobre un `border`
-   abreviado inline deja el elemento sin borde en el render siguiente. Es la misma trampa que ya
-   documentan `.spira-card-link` y `.spira-row-link`. */
-
-/* El indicador de la campana: un PUNTO, no un contador. El número exacto vive en la cabecera del
-   panel y en la lista; sobre el ícono, a 9 px, era ilegible. El punto responde la única pregunta
-   que se hace desde la barra: ¿tengo algo? El color lo pone `tonoDelPunto` (la peor severidad
-   presente), así que además responde "¿y es grave?" sin costar un píxel más. */
-.spira-notif-punto {
-  position: absolute; top: 5px; right: 4px;
-  width: 8px; height: 8px; border-radius: 999px;
-  border: 2px solid var(--spira-white); box-sizing: content-box;
-  pointer-events: none;
-}
-
-.spira-notif-panel {
-  position: fixed; z-index: 90;
-  width: 440px; max-height: 520px;
-  display: flex; flex-direction: column;
-  background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 14px;
-  box-shadow: 0 14px 34px rgba(20, 48, 46, 0.14);
-  overflow: hidden; outline: none;
-}
-
-/* `min-height: 0` no es decorativo: sin él, un hijo flex con `overflow: auto` se niega a achicarse
-   por debajo de su contenido y la lista empuja la cabecera y el pie fuera de la caja. El
-   `overflow: hidden` del radio los recorta y el usuario lo reporta como "no me deja scrollear". */
-.spira-notif-lista {
-  flex: 1 1 auto; min-height: 0; max-height: 420px; overflow-y: auto;
-  border-top: 1px solid var(--spira-line);
-  padding: 10px; display: flex; flex-direction: column; gap: 8px;
-}
-
-/* La grilla que hace que TODAS las cajas se lean igual: ícono, cuerpo, datos y acción caen en la
-   misma vertical de arriba abajo, y ninguna caja cambia de alto por el largo del contenido.
-   La cuarta columna se reserva SIEMPRE, con o sin tacho: si apareciera sólo a veces, las cajas
-   dejarían de alinear entre sí, que es el principio entero del diseño. */
-.spira-notif-caja {
-  display: grid; grid-template-columns: 32px minmax(0, 1fr) 76px 22px;
-  column-gap: 11px; align-items: center;
-  padding: 11px; min-height: 66px;
-  border: 1px solid var(--spira-line); border-radius: 10px;
-  background: var(--spira-white);
-  transition: background-color 0.14s var(--spira-ease-out), border-color 0.14s var(--spira-ease-out),
-              box-shadow 0.14s var(--spira-ease-out);
-}
-/* La fila NO se levanta: se resalta. Mismo criterio que `.spira-row-link`. Y no lleva
-   `:focus-within` a propósito, por lo mismo que aquella: cuando el foco está en el link del
-   paciente que vive adentro, el destino de un Enter ya no es la caja, y resaltarla afirmaría lo
-   contrario. */
-.spira-notif-caja--link { cursor: pointer; }
-.spira-notif-caja--link:hover {
-  background: var(--spira-surface);
-  border-color: var(--spira-line-2);
-  box-shadow: var(--spira-shadow-sm);
-}
-
-.spira-notif-icono {
-  width: 32px; height: 32px; border-radius: 8px;
-  display: grid; place-items: center;
-}
-
-.spira-notif-cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.spira-notif-l1 { display: flex; align-items: center; gap: 7px; min-width: 0; }
-/* El nombre es el único que cede ancho. El código va `flex: 0 0 auto` para que no se corra al
-   truncarse el nombre — si los dos se achicaran, la identidad se leería distinta en cada fila. */
-.spira-notif-nombre {
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 12px; font-weight: 600; color: var(--spira-ink);
-}
-.spira-notif-codigo {
-  flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--spira-muted);
-  font-variant-numeric: tabular-nums;
-}
-.spira-notif-motivo {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 12px; line-height: 1.35; color: var(--spira-muted);
-}
-
-.spira-notif-datos {
-  display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 0;
-}
-/* La fecha va en `muted` y no en `faint`, que es lo que pedía el handoff: medido, `faint` da 3,46:1
-   sobre blanco y 3,31:1 sobre el fondo de hover, y 11 px es texto NORMAL para WCAG (umbral 4,5:1).
-   `muted` rinde 4,97:1 en el peor caso. El guion de "sin fecha" sí puede ir en `faint`: no es un
-   dato, es un relleno que mantiene alineadas las cajas. */
-.spira-notif-fecha {
-  font-size: 11px; font-weight: 500; color: var(--spira-muted);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.spira-notif-fecha--vacia { color: var(--spira-faint); }
-
-.spira-notif-accion { width: 22px; display: grid; place-items: center; }
-/* SIEMPRE visible, no en hover: un botón que aparece al pasar el mouse es un botón que no existe
-   en una pantalla táctil.
-
-   ⚠ `padding: 0` NO ES COSMÉTICO. Un `<button>` trae `padding: 1px 6px` del navegador, y con
-   `box-sizing: border-box` eso deja la caja de contenido en 10 px de ancho: el ícono de 15 px no
-   entra, así que `place-items: center` no puede centrarlo —se apoya en el borde de contenido y
-   desborda hacia la derecha— y el glifo termina 2,5 px corrido. Medido: el svg quedaba a 6 px del
-   borde izquierdo y a 1 px del derecho. En vertical no pasaba (15 entra en los 20 que quedan), y
-   por eso se leía como un desprolijo y no como un bug. */
-.spira-notif-tacho {
-  width: 22px; height: 22px; padding: 0; border: none; border-radius: 50%;
-  background: transparent; color: var(--spira-faint);
-  display: grid; place-items: center; cursor: pointer;
-  transition: color 0.12s var(--spira-ease-out), filter 0.12s var(--spira-ease-out);
-}
-/* EL REALCE ES LA LÍNEA, Y NADA MÁS QUE LA LÍNEA.
-   Acá hubo dos intentos con fondo y los dos terminaban en lo mismo, un disco: primero teñido al
-   12 % —un halo de color sin desplazamiento, que es decoración y no profundidad— y después blanco
-   con `box-shadow`. Ese segundo tampoco sirve SIN fondo opaco: la sombra de caja se pinta por fuera
-   del borde, así que sobre un botón transparente queda un anillo circular flotando alrededor del
-   ícono. Medido y mirado: el fantasma del disco seguía ahí.
-
-   La sombra va sobre el GLIFO, con `drop-shadow`, que sigue el canal alfa: la sombra la proyecta el
-   trazo del tacho, no una caja detrás. Así el realce es exactamente lo que se ve —la línea se pone
-   en el rojo de la familia y se despega un milímetro del papel— y el levante de 1 px lo pone la
-   micro-interacción global (por eso el botón ya no lleva `spira-no-press`).
-
-   Es deliberadamente MÍNIMA: a tamaño real casi no se percibe, y ese es el punto — el color hace el
-   trabajo y el color, en esta app, se reserva para el significado. Acá significa que este botón
-   borra algo. El tono es el petróleo de la tinta, nunca negro; la alfa es más alta que la de
-   `--spira-shadow-sm` porque un trazo de 1,7 px tiene mucha menos superficie que una caja y al 6 %
-   no se vería. En tema oscuro no rinde, y está bien: ahí la elevación la comunica la claridad. */
-.spira-notif-tacho:hover,
-.spira-notif-tacho:focus-visible {
-  color: var(--spira-acc-deep-danger);
-  filter: drop-shadow(0 1px 1px rgba(20, 48, 46, 0.28));
-}
-
-/* El popover de confirmación del descarte. Va portaleado a `document.body` (si se anidara dentro de
-   la lista, su `overflow-y` lo recortaría) y por eso el panel entra al registro de `usePopover`:
-   sin eso, cada clic en un motivo caería "afuera" del panel y lo cerraría entero. */
-.spira-notif-pop {
-  position: fixed; z-index: 200; width: 246px;
-  background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 12px;
-  box-shadow: 0 14px 34px rgba(20, 48, 46, 0.14);
-  padding: 12px; display: flex; flex-direction: column; gap: 8px;
-}
-.spira-notif-motivo-op {
-  width: 100%; text-align: left; padding: 6px 8px; border-radius: 7px;
-  border: 1px solid transparent; background: transparent; cursor: pointer;
-  font-family: var(--spira-font-text); font-size: 12px; color: var(--spira-ink);
-  transition: background-color 0.12s var(--spira-ease-out);
-}
-.spira-notif-motivo-op:hover { background: var(--spira-surface); }
-.spira-notif-motivo-op[aria-pressed='true'] {
-  border-color: var(--spira-primary); color: var(--spira-primary); font-weight: 600;
-  background: color-mix(in srgb, var(--spira-primary) 7%, transparent);
-}
-
-/* —— Entrada del panel ——
-   Crece desde la esquina donde está la campana (`transform-origin: top right`), no desde el centro.
-   NADA se anima al cerrar: una salida animada retrasa la respuesta a un clic que ya fue dado. */
-@keyframes spNotifPanelIn {
-  from { opacity: 0; transform: scale(0.95) translateY(-8px); }
-  to   { opacity: 1; transform: none; }
-}
-@keyframes spNotifCajaIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to   { opacity: 1; transform: none; }
-}
-@media (prefers-reduced-motion: no-preference) {
-  .spira-notif-panel {
-    transform-origin: top right;
-    animation: spNotifPanelIn 0.19s cubic-bezier(0.2, 0.8, 0.3, 1) both;
-  }
-  /* La cascada la escalona `--i`, que pone la caja al montarse. El tope de 10 ítems del panel la
-     mantiene corta: sin él, 43 cajas a 22 ms terminarían de dibujarse casi un segundo después. */
-  .spira-notif-caja {
-    animation: spNotifCajaIn 0.26s cubic-bezier(0.2, 0.8, 0.3, 1) both;
-    animation-delay: calc(var(--i, 0) * 22ms);
-  }
-}
 
 /* —— Animaciones del modal de Ajustes ——
    Entrada del overlay (fade) + de la tarjeta (fade + leve subida/escala). Valores
@@ -810,33 +490,14 @@ input:-webkit-autofill:focus {
    tarjeta se queda sin borde ("Removing borderColor border" en consola). Es el gotcha de
    abreviada vs longhand, en su variante imperativa.
 
-   LA SOMBRA ES `--spira-shadow-hover` (0 4px 14px / 12 %), token propio del hover y de nadie más.
-   Tiene historia y conviene no repetirla: primero fue la `md` (`0 12px 32px`), una sombra de
-   OVERLAY —dice "esto flota 12px sobre la página"— que encima de un levante de 1px queda a
-   contramano de sí misma; ese desajuste de escala es lo que hacía ver la animación pegoteada. Se
-   corrigió bajando a la `sm`, y ahí el péndulo se pasó para el otro lado: `0 1px 2px` al 6 % es la
-   sombra de una tarjeta en REPOSO —de hecho es la que usan ~20 tarjetas quietas— así que al
-   apuntarla no pasaba casi nada y la señal de "esto se toca" quedaba sólo en el cursor.
-   4px con un levante de 1px es el punto donde la sombra acompaña al movimiento en vez de anunciar
-   una altura que el elemento no tiene. Viene del handoff de Resumen (2026-09-01), medido en pantalla.
-   La `sm` NO se toca: sigue siendo la sombra de reposo, y son dos cosas distintas.
-   Sombra y levante comparten duración y curva para llegar juntos. */
+   La sombra es la `sm` (0 1px 2px) y NO la `md`: la `md` es `0 12px 32px`, una sombra de overlay
+   —dice "esto flota 12px sobre la página"— y encima de un levante de 1px queda a contramano de sí
+   misma; ese desajuste de escala es lo que hacía ver la animación pegoteada. Sombra y levante
+   comparten duración y curva para llegar juntos. */
 /* El borde acá es el POR DEFECTO. Una tarjeta con borde propio de estado —los ítems de Alertas,
    teñidos por severidad— lo declara inline y lo pisa; el resto del realce le sigue corriendo. */
-/* El `cursor` va ACÁ y no en el `style` de cada consumidor. Sin él, una tarjeta que navega
-   —`role="button"` sobre un `<div>`, que no trae cursor propio como sí lo trae `<button>`— se ve
-   idéntica a una que no navega. Faltaba justo en las cuatro tarjetas de KPI del Resumen, que son
-   los cuatro blancos más grandes de la pantalla: su única señal de que llevan a algún lado era el
-   `ChipDestino`, que nace en `opacity: 0`, o sea que para descubrir que la tarjeta era pulsable
-   había que ya haberla apuntado. Y en la misma pantalla las filas SÍ daban la mano, así que la
-   pantalla enseñaba una regla y después se la desmentía a sí misma.
-
-   Declararlo en la clase cierra la clase de bug: cualquier consumidor que necesite lo contrario
-   —`ConstanciaIp`, que lo apaga mientras está ocupada— le gana igual por especificidad desde su
-   `style` inline. */
 .spira-card-link {
   border: 1px solid var(--spira-line);
-  cursor: pointer;
 }
 /* Los mismos `:not(...)` que la micro-interacción global de arriba, y a propósito: sin ellos esa
    regla —que es más específica— le pisa la transición a la tarjeta y la sombra entra de golpe
@@ -846,7 +507,7 @@ input:-webkit-autofill:focus {
   transition: box-shadow 0.16s var(--spira-ease-out), transform 0.16s var(--spira-ease-out);
 }
 .spira-card-link:hover {
-  box-shadow: var(--spira-shadow-hover);
+  box-shadow: var(--spira-shadow-sm);
 }
 
 /* —— Fila-enlace ——
@@ -865,14 +526,7 @@ input:-webkit-autofill:focus {
   background-color: transparent;
   transition: background-color 0.14s var(--spira-ease-out);
 }
-/* El resaltado va también con el TECLADO. Sin esta regla, la fila era la única cosa pulsable de la
-   app cuya señal de estado dependía del mouse: al llegar tabulando quedaba el outline de foco y
-   nada más, así que en un listado largo no se veía qué renglón estaba por abrirse. Es la misma
-   señal, no una parecida: quien navega con teclado ve exactamente lo que ve quien apunta.
-   Va sobre la fila y no `:focus-within`: cuando el foco está en el link del paciente que vive
-   ADENTRO, el destino de un Enter ya no es la fila, y resaltarla afirmaría lo contrario. */
-.spira-row-link:hover,
-.spira-row-link:focus-visible {
+.spira-row-link:hover {
   background-color: var(--spira-surface);
 }
 /* Reduced-motion: el cambio de estado se mantiene (sombra y resaltado siguen ahí, son señal, no
@@ -881,155 +535,6 @@ input:-webkit-autofill:focus {
   .spira-card-link:not(:disabled):not([aria-disabled='true']),
   .spira-row-link,
   .spira-zoom-preview { transition: none; }
-}
-
-/* —— Grupo de medicamento en la lista de Stock (Farmacia › Stock) ——
-   Un medicamento con varios lotes se dibuja como una fila resumen plegable con sus lotes
-   adentro, atados por un conector de árbol. El conector va acá y no en el objeto de estilo de
-   React —como el resto de esa vista— porque usa `::before`/`::after`, que en React no existen.
-
-   GEOMETRÍA COMPARTIDA. Estas medidas las leen las DOS mitades: el conector de acá abajo y los
-   estilos inline de `MedicamentosView` (vía `var()`). Están juntas a propósito: el conector no
-   elige su posición, la DERIVA del centro del ícono de la fila de arriba, y si el número
-   estuviera copiado a mano se desincronizaría sin que nadie lo note en un diff.
-
-     fila resumen │←16→│ chev 15 │←14→│  pillsq 40  │←14→│ nombre …
-                  pad            gap        ▲        gap
-                                         centro
-     fila de lote │←16→│· · · · · · · · · │· · · · · ·
-                  pad                     x = 15 + 14 + 20 = 49
-
-   El padding horizontal se cancela porque las dos filas comparten los mismos 16px. Si eso deja
-   de ser cierto, `--spira-stock-conector-x` hay que rehacerlo. */
-:root {
-  --spira-stock-pad-x: 16px;
-  --spira-stock-gap: 14px;
-  --spira-stock-chev: 15px;
-  --spira-stock-pill: 40px;
-  --spira-stock-nodo: 7px;
-  --spira-stock-lote-pad-y: 11px;
-  --spira-stock-conector-x: calc(
-    var(--spira-stock-chev) + var(--spira-stock-gap) + var(--spira-stock-pill) / 2
-  );
-  /* El color del conector NO es `--spira-line-2` a secas, y tiene su propio token por eso: en
-     claro ese tono da 1,54:1 sobre la fila de lote y funciona como todas las hairlines del
-     sistema, pero en OSCURO cae a 1,50:1 y la línea desaparece — la feature existiría sólo en un
-     tema. En oscuro pasa a `--spira-faint` (3,34:1), que es justamente el tono que ese tema
-     reserva para "íconos, bordes, scroll". Medido con canvas en los dos temas. */
-  --spira-stock-conector: var(--spira-line-2);
-}
-[data-theme='dark'] {
-  --spira-stock-conector: var(--spira-faint);
-}
-
-.spira-medgroup {
-  border: 1px solid var(--spira-line);
-  border-radius: 14px;
-  background: var(--spira-white);
-  box-shadow: var(--spira-shadow-sm);
-  overflow: hidden;
-}
-/* El disparador de plegado es un <button> de verdad (Enter, Espacio, foco y aria-expanded
-   gratis) y el kebab es su HERMANO, no va anidado: un botón adentro de otro es HTML inválido.
-   `.spira-no-press` lo saca del levante global — es una fila dentro de una superficie, y una
-   fila no se levanta, se resalta (mismo criterio que `.spira-row-link`). */
-/* El kebab es hermano del disparador, no hijo, así que la fila resumen son DOS elementos: el
-   button (que crece) y el menú. El padding derecho vive acá para que la columna Stock termine a
-   la misma distancia del borde que en las otras dos formas de fila. */
-.spira-medgroup__head {
-  display: flex;
-  align-items: center;
-  gap: var(--spira-stock-gap);
-  padding-right: var(--spira-stock-pad-x);
-  transition: background-color 0.14s var(--spira-ease-out);
-}
-/* El resaltado se pinta en la fila entera aunque lo dispare sólo el button: si se quedara dentro
-   del button, cortaría 66px antes del borde derecho y leería como medio subrayado. */
-.spira-medgroup__head:has(.spira-medgroup__summary:hover),
-.spira-medgroup__head:has(.spira-medgroup__summary:focus-visible) {
-  background-color: var(--spira-surface);
-}
-.spira-medgroup__summary {
-  display: flex;
-  align-items: center;
-  gap: var(--spira-stock-gap);
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 13px 0 13px var(--spira-stock-pad-x);
-  border: none;
-  background-color: transparent;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-/* El foco global se dibuja FUERA (`outline-offset: 2px`) y esta tarjeta tiene `overflow: hidden`
-   para redondearle las esquinas a los lotes. El disparador arranca pegado al borde interno de la
-   tarjeta, así que ese anillo se recortaría por la izquierda y por arriba: quien navega con
-   teclado vería medio recuadro. Mismo color y mismo grosor, dibujado hacia adentro. */
-.spira-medgroup__summary:focus-visible { outline-offset: -2px; }
-.spira-medgroup__chev {
-  flex: 0 0 auto;
-  width: var(--spira-stock-chev);
-  height: var(--spira-stock-chev);
-  display: grid;
-  place-items: center;
-  transition: transform 0.15s var(--spira-ease-out);
-}
-.spira-medgroup__summary[aria-expanded='true'] .spira-medgroup__chev {
-  transform: rotate(90deg);
-}
-
-.spira-lot-rows { border-top: 1px solid var(--spira-line); }
-.spira-lot-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spira-stock-gap);
-  padding: var(--spira-stock-lote-pad-y) var(--spira-stock-pad-x);
-  background: var(--spira-surface);
-}
-.spira-lot-row + .spira-lot-row { border-top: 1px solid var(--spira-line); }
-
-/* El spacer que ocupa el lugar del nombre en la fila de lote. Es el ÚNICO ítem flexible de esa
-   fila, igual que `.name` lo es en las otras dos: así el inicio de la columna EAN cae en la
-   misma X en las tres formas de fila, sea cual sea el ancho del contenedor. */
-.spira-lot-indent {
-  position: relative;
-  flex: 1 1 auto;
-  align-self: stretch;
-  min-width: 0;
-}
-/* La línea corre de borde a borde vertical del row (compensando su padding) para verse continua
-   entre lotes consecutivos. En el ÚLTIMO se corta a la mitad: no debe sobresalir por debajo del
-   último nodo. */
-.spira-lot-indent::before {
-  content: '';
-  position: absolute;
-  left: var(--spira-stock-conector-x);
-  top: calc(-1 * var(--spira-stock-lote-pad-y));
-  bottom: calc(-1 * var(--spira-stock-lote-pad-y));
-  width: 1px;
-  background: var(--spira-stock-conector);
-}
-.spira-lot-row:last-child .spira-lot-indent::before { bottom: 50%; }
-/* El nodo: círculo hueco relleno del MISMO color de fondo de la fila, para que se vea recortado
-   sobre la línea en vez de superpuesto. */
-.spira-lot-indent::after {
-  content: '';
-  position: absolute;
-  left: calc(var(--spira-stock-conector-x) - var(--spira-stock-nodo) / 2);
-  top: 50%;
-  transform: translateY(-50%);
-  width: var(--spira-stock-nodo);
-  height: var(--spira-stock-nodo);
-  border-radius: 999px;
-  background: var(--spira-surface);
-  border: 1.5px solid var(--spira-stock-conector);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spira-medgroup__head,
-  .spira-medgroup__chev { transition: none; }
 }
 
 /* —— Texto que navega (link en línea) ——
@@ -1052,57 +557,9 @@ input:-webkit-autofill:focus {
   text-align: left;
   text-decoration: none;
   text-underline-offset: 3px;
-  /* Trunca SOLO — sin esto un nombre largo se corta en seco. El `<button>` es una caja ATÓMICA
-     para el layout en línea: cuando el contenedor que lo aloja corta con
-     `overflow: hidden; text-overflow: ellipsis` (como truncan casi todas las listas de la app), el
-     navegador puede partir un texto normal a la mitad de una palabra y poner el `…`, pero no puede
-     meter el `…` ADENTRO de una caja atómica — la recorta en seco, sin ningún indicio de que el
-     nombre sigue. Es justo lo que encontró el review de la Task 7 con nombres compuestos (normales
-     en Argentina) en columnas angostas: "Maria Fernanda Guadalupe Rod", sin puntos suspensivos, una
-     regresión contra el texto plano de antes de este plan.
-     La cura es que el link se trunque a SÍ MISMO: `max-width: 100%` lo ata al ancho del padre en vez
-     de crecer con su contenido (el `<button>` ya es `inline-block` por default del navegador; acá lo
-     dejamos explícito porque de eso depende que `max-width` tenga algo a qué atarse), y
-     `overflow`/`text-overflow`/`white-space` le dan su PROPIO `…` cuando no entra. Si el link entra
-     entero, esta regla no hace nada — el `max-width` nunca se activa y el truncado por contenedor que
-     ya funcionaba en algunas pantallas sigue funcionando igual, porque el link termina midiendo lo
-     mismo que antes. `vertical-align: bottom` para no romper la línea de base cuando el link comparte
-     renglón con texto corrido (identityLine de Atendidos, y el mismo patrón que se repite en la cola
-     del médico): el baseline por default de un `<button>` queda un poco más arriba que el texto
-     normal de al lado, y acá no hay flex que lo resuelva con `align-items`. */
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: bottom;
 }
 .spira-textlink:hover,
 .spira-textlink:focus-visible { text-decoration: underline; }
-
-/* —— Término del glosario ——
-   Una palabra de la jerga del centro (IVRS, VNP, W12, "Ventana vencida") con su explicación al
-   apuntarla. El texto vive en `lib/glosario.ts`; acá va sólo la señal de que se puede preguntar.
-
-   LA SEÑAL ES EL SUBRAYADO PUNTEADO Y `cursor: help`, y NADA MÁS: sin color, sin ícono, sin
-   pastilla. El color en esta app significa marca, módulo o estado (DESIGN.md §2), y "acá hay una
-   definición" no es ninguna de las tres; teñir la mitad de las palabras de una lista de pacientes
-   la volvería un texto marcado con resaltador. El punteado se lee como "hay algo más" sin competir
-   con nada, que es exactamente el registro de esta app.
-
-   El subrayado va en `--spira-faint`, que desde la recalibración de la rampa (PR #95) NO llega a
-   AA para texto — y está bien, porque acá no es texto: es una línea decorativa de 1px sobre una
-   palabra que ya se lee en tinta. El contraste que importa es el de la palabra, que no se toca.
-
-   Es un `<abbr>`: la semántica correcta para un término con expansión, y la que hace que un lector
-   de pantalla anuncie la definición sin que haya que agregarle un `aria-label` que duplique el
-   `title`. */
-.spira-termino {
-  text-decoration: underline dotted var(--spira-faint);
-  text-underline-offset: 3px;
-  text-decoration-thickness: 1px;
-  cursor: help;
-}
 /* Va SIEMPRE con `.spira-no-press` (lo pone el componente, no el que lo usa): es un `<button>`, así
    que sin esa marca hereda la micro-interacción global y el texto se LEVANTA 1px al apuntarlo. En un
    botón eso es la señal de "esto se toca"; en un nombre de 23px en medio de un bloque de identidad
@@ -1121,108 +578,6 @@ input:-webkit-autofill:focus {
   text-decoration: underline;
 }
 
-/* —— La flecha del texto que navega ——
-   Marca de destino para el par nombre + Nº de sujeto. Aparece SOLO al apuntar o al enfocar por
-   teclado: en una lista de veinte alertas, una flecha permanente por renglón son cuarenta marcas
-   compitiendo con la señal que esa pantalla sí tiene que dar (el color de la severidad).
-
-   No cambia de color al aparecer, solo de opacidad: pintar el hover rompe la regla de la casa —el
-   color dice significado clínico, el realce dice elevación—. Y `pointer-events: none` porque
-   apuntar la flecha no puede contar como apuntar el link: sin eso queda un blanco que se subraya
-   pero no se puede clickear.
-
-   El hueco lo reserva el `gap`/`margin` de quien la usa, presente desde el primer render, así que
-   al aparecer no corre nada. Donde `:has()` no exista, la flecha simplemente nunca aparece y el
-   subrayado sigue funcionando — misma degradación que ya declara `.spira-link-group`. */
-.spira-link-arrow {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  color: var(--spira-muted);
-  opacity: 0;
-  pointer-events: none;
-  /* Para los contenedores que NO son flex: varias filas alinean su identidad con un div de
-     texto corrido que ya lleva su propio ellipsis (`identityLine` de la cola del medico y de
-     las atendidas), y volverlos flex les romperia ese truncado. Con `vertical-align` la flecha
-     se para bien en los dos casos: dentro de un flex manda el `align-items` del padre, dentro
-     de texto manda esto. */
-  vertical-align: middle;
-  /* Entra DESLIZANDO 4px desde la izquierda, igual que el rótulo de destino de `.spira-dest`
-     (abajo). Los dos revelados son el mismo gesto —"a dónde te lleva esto"— y antes se sentían
-     distintos: éste fundía y aquél deslizaba. Es `transform`, así que no corre el layout de la
-     fila ni le come presupuesto al truncado del nombre; el hueco lo sigue reservando el
-     `gap`/`margin` de quien la coloca, presente desde el primer render. */
-  transform: translateX(-4px);
-  transition: opacity 0.14s var(--spira-ease-out), transform 0.14s var(--spira-ease-out);
-}
-.spira-link-group:has(.spira-textlink:hover) .spira-link-arrow,
-.spira-link-group:has(.spira-textlink:focus-visible) .spira-link-arrow {
-  opacity: 0.75;
-  transform: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .spira-link-arrow { transition: none; }
-}
-
-/* —— Red para la flecha sin gatear ——
-   Esta regla es RED, no reemplazo del gateo explícito en cada fila (`{onOpenPatient &&
-   <PatientLinkArrow />}`). La Task 7 encontró `PatientLinkArrow` renderizada SIN condición en
-   `AttendedRow`: cuando el call-site no pasaba `onOpenPatient`, `PatientLink` caía a texto pelado
-   (correcto, es su diseño) pero la flecha se quedaba con `opacity: 0` y sin ningún
-   `.spira-textlink` hermano que pudiera activar el `:has()` de arriba — nunca podía aparecer, y
-   aun así reservaba su ancho (`flex: 0 0 auto`), 20px muertos midiendo `scrollWidth` que le comían
-   presupuesto de truncado al texto vecino. Un `.spira-link-group` sin NINGÚN `.spira-textlink` no
-   tiene destino, así que su flecha no tiene nada que anunciar y no debe ocupar lugar.
-   Esto cubre a quien se olvide de gatear en las tareas 8 a 12 de este plan, pero no dispensa de
-   gatear en el call-site: el gateo explícito es la forma correcta (evita el nodo muerto en vez de
-   ocultarlo) y sigue siendo obligatorio en cada fila nueva. */
-.spira-link-group:not(:has(.spira-textlink)) .spira-link-arrow { display: none; }
-
-/* —— Rótulo de destino revelado ——
-   "A dónde te lleva esto", en palabras: el nombre del submódulo + flecha que aparece al apuntar un
-   KPI o el pie "Ver todo" del Resumen. Es el hermano mayor de `.spira-link-arrow` —misma idea, misma
-   duración, mismo deslizamiento— y se separa en dos clases porque los disparadores son distintos:
-   aquélla la enciende un `.spira-textlink` hermano (el nombre del paciente), ésta la enciende el
-   contenedor entero.
-
-   POR QUÉ NO VA EN `onMouseEnter`, aunque el mock del handoff lo haga así: escribir el realce desde
-   un handler es el gotcha de la casa (React vacía los longhand del borde en el render siguiente y
-   el elemento se queda sin borde), y además un handler no tiene `:focus-visible`. Acá el revelado
-   dispara con el mouse Y con el teclado, que era lo único que le faltaba al diseño original.
-
-   EL HUECO ESTÁ SIEMPRE. Se revela con `opacity`/`transform`, nunca cambiando `display`: el
-   elemento ocupa su lugar desde el primer render y al aparecer no corre nada. (El README del
-   handoff dice que "ese espacio no existe" sin hover, pero su propio código lo reserva igual —
-   manda el código, y además es lo correcto.)
-
-   `pointer-events: none` porque apuntar el rótulo no puede ser un blanco distinto de apuntar la
-   tarjeta: el hover lo cobra el contenedor y el rótulo es sólo lo que se ve.
-
-   EL COLOR LO PONE QUIEN LA USA, y tiene que ser un token `--spira-acc-deep-*`: son los únicos
-   acentos con versión aclarada para el tema oscuro. Un hex crudo del acento del módulo se ve bien
-   en claro y desaparece en oscuro. Va a 12px/700, o sea texto NORMAL para WCAG: 4,5:1. */
-.spira-dest {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  flex: 0 0 auto;
-  white-space: nowrap;
-  opacity: 0;
-  transform: translateX(-4px);
-  pointer-events: none;
-  transition: opacity 0.15s var(--spira-ease-out), transform 0.15s var(--spira-ease-out);
-}
-.spira-dest-group:hover .spira-dest,
-.spira-dest-group:focus-visible .spira-dest {
-  opacity: 1;
-  transform: none;
-}
-/* Mismo criterio que el resto: el ESTADO se mantiene (el rótulo aparece, es información), el
-   RECORRIDO desaparece. */
-@media (prefers-reduced-motion: reduce) {
-  .spira-dest { transition: none; }
-}
-
 /* —— Previsualizador ampliable (constancia de IP, tamaño "chica") ——
    Toda la tarjeta de 140px invita a ampliar, no solo el botón "Ampliar" de la esquina —el mock
    (estado 4 de "Tarjeta partida - estados.html") define el hover sobre el `.prev` entero. Mismo
@@ -1236,7 +591,7 @@ input:-webkit-autofill:focus {
 }
 .spira-zoom-preview:hover {
   transform: translateY(-1px);
-  box-shadow: var(--spira-shadow-hover);
+  box-shadow: var(--spira-shadow-sm);
 }
 
 /* —— Impresión del comprobante de dispensación ——

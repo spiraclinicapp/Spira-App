@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest'
 // `window` al cargarse. Estas reglas son comparación de cadenas y no necesitan nada de eso.
 import type { TrackVisitRow } from './visits'
 import type { AlertDismissalRow } from './alertDismissalModel'
-import { isReportAlertDismissed, isVisitAlertDismissed } from './alertDismissalModel'
+import {
+  descarteListo,
+  DISMISS_REASONS,
+  isReportAlertDismissed,
+  isVisitAlertDismissed,
+  MOTIVO_OTRO,
+} from './alertDismissalModel'
 
 /**
  * Los dos predicados de "esta alerta está archivada" (0070 / 0092).
@@ -162,5 +168,50 @@ describe('isVisitAlertDismissed', () => {
     const sinCita = { ...noVino, estimated_date: null }
     expect(isVisitAlertDismissed([dnv({ anchor: '-infinity' })], sinCita)).toBe(true)
     expect(isVisitAlertDismissed([dnv()], sinCita)).toBe(false)
+  })
+})
+
+/* ── ¿Se puede confirmar este descarte? ───────────────────────────────────────────────────────
+   La regla la comparten DOS pantallas que archivan la misma alerta con el mismo RPC: el modal de
+   Pendientes y el popover de la campana. Vive en un solo lugar desde el plan de la campana
+   (`docs/plan-campana-notificaciones.md`, D6) justamente porque su modo de falla es mudo: una copia
+   con la condición al revés deja archivar sin explicación, y el motivo es lo único que se lee
+   después en la auditoría. */
+describe('descarteListo', () => {
+  it('sin motivo elegido, no', () => {
+    expect(descarteListo('', '')).toBe(false)
+    // Ni siquiera con explicación: el motivo es de catálogo y el texto libre no lo reemplaza.
+    expect(descarteListo('', 'la resolvimos por teléfono')).toBe(false)
+  })
+
+  it('un motivo de catálogo que no es "Otro" alcanza solo', () => {
+    expect(descarteListo('resuelta_fuera_del_sistema', '')).toBe(true)
+    expect(descarteListo('visita_reprogramada', '')).toBe(true)
+    expect(descarteListo('no_aplica', '')).toBe(true)
+    expect(descarteListo('cargada_por_error', '')).toBe(true)
+  })
+
+  it('"Otro" sin explicación, no', () => {
+    expect(descarteListo(MOTIVO_OTRO, '')).toBe(false)
+  })
+
+  it('"Otro" con espacios en blanco tampoco: es el mismo vacío disfrazado', () => {
+    /* El caso que un `!detail` pelado deja pasar. Una explicación de tres espacios llega al
+       `audit_log` como una explicación, y no lo es. */
+    expect(descarteListo(MOTIVO_OTRO, '   ')).toBe(false)
+    expect(descarteListo(MOTIVO_OTRO, '\n\t ')).toBe(false)
+  })
+
+  it('"Otro" con explicación, sí', () => {
+    expect(descarteListo(MOTIVO_OTRO, 'el paciente avisó por WhatsApp')).toBe(true)
+    // Con espacios alrededor sigue habiendo texto: se recorta para juzgar, no para guardar.
+    expect(descarteListo(MOTIVO_OTRO, '  ya vino  ')).toBe(true)
+  })
+
+  it('el catálogo incluye el motivo que exige explicación', () => {
+    /* Fija el vínculo entre la constante y el catálogo: si alguien renombra el valor en
+       `DISMISS_REASONS` y se olvida de `MOTIVO_OTRO`, la explicación deja de ser obligatoria en
+       silencio —el `check` de la 0070 seguiría rechazándolo, pero recién contra la base. */
+    expect(DISMISS_REASONS.some((r) => r.value === MOTIVO_OTRO)).toBe(true)
   })
 })
