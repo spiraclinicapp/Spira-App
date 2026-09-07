@@ -1079,3 +1079,36 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
   la clase de alerta más parecida y la más reciente.
 - **Depende de / bloqueado por:** nada. Se puede hacer antes o después de E4.
 - **Prioridad:** P3.
+
+---
+
+## Equipo y accesos · un acceso inerte se muestra pero no se puede quitar
+
+- **Qué:** la grilla de módulos de `AccesoEditor` filtra los `proximamente` (2026-09-07), así que si
+  una persona tiene `lab` o `contable` en la base, la ficha lo **nombra** —en "Con esto ve…", con el
+  aviso de que el módulo no está construido— pero **no ofrece ningún control para revocarlo**. La
+  pantalla te dice que el acceso existe y no te deja resolverlo.
+- **Por qué:** hoy no molesta y por eso es P3: el 2026-09-07 quedaron en **cero** (se revocaron las
+  cuatro filas que había) y desde la UI ya no se puede crear otro. Pero el hueco sigue abierto para
+  tres caminos: una carga por SQL a mano, un import, o —el más probable— que un módulo **ya
+  asignado** se marque `proximamente` en el registro. En cualquiera de los tres, gerencia queda
+  mirando un acceso que no puede tocar, y la salida vuelve a ser un script.
+- **Pros:** cierra el círculo de la regla de `proximamente`: lo que la pantalla muestra, la pantalla
+  lo resuelve. Y saca del medio la única operación de accesos que hoy exige salir de la app.
+- **Contras:** la salida NO es volver a listar Lab y Contable en la grilla — eso es exactamente lo
+  que el Director pidió sacar, y reintroducirlo por un caso que hoy no existe sería peor. Lo que
+  corresponde es una acción puntual ("Quitar") en el renglón de `inertes` del bloque "Con esto ve…",
+  que sólo se dibuja **cuando el acceso existe de verdad**. Es UI nueva en un bloque que hasta hoy
+  era de solo lectura, y hay que decidir si entra al borrador (se guarda con el botón) o se aplica
+  en el acto como las acciones de cuenta.
+- **Contexto:** salió del QA logueado del 2026-09-07, al ver que los chips "Lab · Administrador" de
+  la lista del equipo eran accesos reales. Se limpiaron con `set_module_access` desde el cliente de
+  la app (no con el `.sql`, porque no hay acceso SQL a producción), y ahí quedó claro que la consola
+  no tenía cómo hacerlo sola. Ver `docs/bitacora/2026-09-07.md` §3 y §10, y
+  `supabase/_limpiar_accesos_inertes.sql`.
+- **Empezar por:** `src/shell/settings/AccesoEditor.tsx` — `MODULOS_ASIGNABLES` (línea ~61, el filtro
+  que crea el hueco) y el `descripcion.inertes.map(...)` del bloque "Con esto ve…", que es donde
+  iría el control. La regla de las dos mitades está en `describeAccess`, en `src/lib/roles.ts`.
+- **Depende de / bloqueado por:** nada. Pero conviene esperar a que aparezca el caso: mientras no
+  haya un solo acceso inerte, esta pantalla no tiene nada que resolver.
+- **Prioridad:** P3.
