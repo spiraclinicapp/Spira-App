@@ -3,50 +3,136 @@
 // lo tocó el usuario, y qué reportes ya se usaron en el protocolo para ofrecerlos en el combobox.
 // Lo visual (colores, chips) se verifica mirando; esto se verifica con `reportes.test.ts`.
 
-/** Plataformas donde aparece un reporte. Espejo del check de `report_definitions.platform` (0089). */
-export type Platform = 'iqvia' | 'labcorp' | 'clario' | 'roche4g' | 'otro'
+/**
+ * Clave de plataforma.
+ *
+ * Era una union de cinco literales, espejo del check de la 0089. Desde la **0111** el catálogo vive
+ * en la base (`report_platforms`) y se pueden agregar desde Ajustes, así que la clave es texto: una
+ * union mentiría en cuanto alguien cargue una CRO nueva. Lo desconocido sigue cayendo a `otro`.
+ */
+export type Platform = string
 
 export interface PlatformMeta {
   label: string
   /** Color de marca de la plataforma. NO es un token del sistema: identifica al proveedor, no a un
    *  estado clínico. Por eso vive acá y no en tokens.css. */
   color: string
-  /** URL por defecto del portal. Ver la nota de DEFAULT_URLS abajo: hoy todas van vacías. */
+  /** URL del portal. `null` = todavía no cargada (distinto de "no tiene"). */
   url: string | null
 }
 
+/** Una plataforma del catálogo, con su clave. */
+export interface PlatformEntry extends PlatformMeta {
+  key: Platform
+  /** Retirada: no se ofrece para elegir, pero sigue resolviendo los reportes que ya la usan. */
+  activa: boolean
+}
+
 /**
- * ⚠️ URLs por defecto: VACÍAS a propósito.
+ * El catálogo de respaldo: las cinco de la 0089, sin URL.
  *
- * El handoff pide que el link se autocomplete con la URL de la plataforma elegida, y el mecanismo
- * está entero (autocompletado + botón de restablecer + link pegajoso). Lo que falta es el dato:
- * las direcciones reales de los portales varían por estudio y por sponsor, y en un sistema donde
- * un click manda a la coordinadora a cargar un resultado, un link inventado es peor que ninguno
- * (regla de honestidad de datos del repo).
- *
- * Para activarlo: poner la URL real de cada portal en `url`. El resto ya funciona — apenas una
- * plataforma tenga URL, su campo se autocompleta y aparece el botón de restablecer.
+ * ⚠️ NO es la fuente de verdad — desde la 0111 lo es `report_platforms`. Vive acá por dos razones
+ * concretas: es lo que se ve mientras la consulta viaja (sin esto, los chips de color parpadearían
+ * en gris y el desplegable saldría vacío en el primer render), y es lo que queda si la consulta
+ * falla. Las URLs van en null a propósito: en un sistema donde un click manda a la coordinadora a
+ * cargar un resultado, un link inventado es peor que ninguno.
  */
-export const PLATFORMS: Record<Platform, PlatformMeta> = {
-  iqvia:   { label: 'IQVIA',            color: '#3A6B8C', url: null },
-  labcorp: { label: 'LabCorp',          color: '#5C8A5A', url: null },
-  clario:  { label: 'Clario',           color: '#B0823F', url: null },
-  roche4g: { label: 'Roche 4G',         color: '#A6483B', url: null },
-  otro:    { label: 'Otra plataforma',  color: '#7C8C87', url: null },
+export const PLATFORMS_SEED: PlatformEntry[] = [
+  { key: 'iqvia',   label: 'IQVIA',           color: '#3A6B8C', url: null, activa: true },
+  { key: 'labcorp', label: 'LabCorp',         color: '#5C8A5A', url: null, activa: true },
+  { key: 'clario',  label: 'Clario',          color: '#B0823F', url: null, activa: true },
+  { key: 'roche4g', label: 'Roche 4G',        color: '#A6483B', url: null, activa: true },
+  // 'otro' último: es la salida, no una opción más. Y es el default de la columna en la base, así
+  // que es el ÚNICO que no puede faltar — `platformMeta` cae acá cuando no reconoce una clave.
+  { key: 'otro',    label: 'Otra plataforma', color: '#7C8C87', url: null, activa: true },
+]
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   El catálogo vivo.
+
+   Variable de módulo y no un contexto de React, con el mismo criterio que el formato de fecha de
+   `lib/dates.ts`: `platformMeta` la llaman cinco lugares desde adentro de funciones puras y de
+   `.map()`s, y volverla un hook obligaría a cablear el contexto por todos ellos —incluido
+   `resumenDeReportes`, que se testea desde node y no puede montar un provider—.
+
+   Lo que hace que esto NO sea un dato congelado es quién la escribe: `PlatformsProvider`
+   (`lib/platforms.tsx`) llama a `setPlatformCatalog` y ADEMÁS guarda las filas en su propio estado,
+   así que el subárbol entero re-renderiza y todos los `platformMeta(...)` se recalculan. Es el
+   mismo par que usa `prefs.tsx` con `setDateFormat`.
+
+   ⚠️ La trampa conocida de este patrón —un elemento YA CONSTRUIDO guardado en estado, como los
+   encabezados que se registran con `setHeader({ content: <X/> })`— no aplica: ninguno de los cinco
+   consumidores de `platformMeta` vive en un header registrado. Verificado antes de elegir el patrón.
+   Si algún día uno lo hace, va a necesitar el catálogo entre sus deps.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+let catalogo: PlatformEntry[] = PLATFORMS_SEED
+let porClave: Record<string, PlatformEntry> = Object.fromEntries(PLATFORMS_SEED.map((p) => [p.key, p]))
+
+/**
+ * Reemplaza el catálogo con lo que trajo la base. Lo llama SÓLO `PlatformsProvider`.
+ *
+ * Una lista vacía se ignora: si la consulta devolviera cero filas —RLS que filtró en silencio, o
+ * una base a la que todavía no se le aplicó la 0111— quedarse sin catálogo dejaría todos los chips
+ * en gris y el desplegable sin opciones, que se ve como una app rota. El respaldo es peor que la
+ * verdad pero mucho mejor que nada.
+ */
+export function setPlatformCatalog(filas: readonly PlatformEntry[]): void {
+  if (filas.length === 0) return
+  catalogo = [...filas]
+  porClave = Object.fromEntries(catalogo.map((p) => [p.key, p]))
 }
 
-/** Orden de aparición en el desplegable. 'otro' último: es la salida, no una opción más. */
-export const PLATFORM_ORDER: Platform[] = ['iqvia', 'labcorp', 'clario', 'roche4g', 'otro']
+/** Las plataformas que se pueden ELEGIR hoy, en orden. Las retiradas quedan afuera. */
+export function platformList(): PlatformEntry[] {
+  return catalogo.filter((p) => p.activa)
+}
 
-/** ¿El texto es una plataforma conocida? La base tiene un check, pero el front lee datos que
- *  pueden venir de una versión más nueva del schema: nunca asumir que sí. */
+/** ¿La clave existe en el catálogo vivo? */
 export function isPlatform(value: string | null | undefined): value is Platform {
-  return value != null && value in PLATFORMS
+  return value != null && value in porClave
 }
 
-/** Metadata de una plataforma, tolerante a valores desconocidos (cae a 'otro' en vez de romper). */
+/**
+ * Metadata de una plataforma, tolerante a valores desconocidos.
+ *
+ * Resuelve TAMBIÉN las retiradas (`activa: false`), y ese es el punto fino: un reporte histórico
+ * cargado con una plataforma que después se dio de baja tiene que seguir mostrando su nombre. Si
+ * cayera a "Otra plataforma", el registro perdería el dato en silencio.
+ */
 export function platformMeta(value: string | null | undefined): PlatformMeta {
-  return isPlatform(value) ? PLATFORMS[value] : PLATFORMS.otro
+  if (value != null && porClave[value]) return porClave[value]
+  return porClave.otro ?? PLATFORMS_SEED[PLATFORMS_SEED.length - 1]
+}
+
+/**
+ * La clave con la que se guarda una plataforma nueva, derivada de su nombre.
+ *
+ * La clave es la PK de `report_platforms` y lo que queda escrito en `report_definitions.platform`
+ * de todos los reportes que la usen: se elige UNA vez y no se toca más. Por eso la deriva el
+ * sistema y no se le pide al usuario — nadie tiene por qué saber que "Roche 4G" se guarda como
+ * `roche_4g`.
+ *
+ * Se testea porque falla en silencio de dos maneras. Si produjera una clave inválida, el insert
+ * rebota con el check `^[a-z0-9_]+$` y el error de Postgres no explica nada; y si no desempatara
+ * las colisiones, cargar "Medidata" cuando ya existe "medidata" tiraría un 23505 sobre la PK — un
+ * error de "clave duplicada" para dos nombres que el usuario ve distintos.
+ */
+export function claveDePlataforma(nombre: string, existentes: readonly string[] = []): string {
+  const base =
+    nombre
+      .normalize('NFD')
+      // Saca los diacríticos (Á → A, ñ → n): el check de la base sólo acepta a-z, 0-9 y guión bajo.
+      // Escapado y no con los caracteres literales: son marcas combinantes, invisibles en el editor.
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'plataforma'
+  if (!existentes.includes(base)) return base
+  // Desempate por sufijo. Arranca en 2 porque el primero es el que ya está ("clario", "clario_2").
+  let n = 2
+  while (existentes.includes(`${base}_${n}`)) n++
+  return `${base}_${n}`
 }
 
 /** URL por defecto de una plataforma, o null si no tiene una cargada. */
@@ -199,7 +285,7 @@ export function resumenDeReportes(
   const cuenta = `${reports.length} ${reports.length === 1 ? 'reporte' : 'reportes'}`
 
   const plataformas = [...new Set(reports.map((r) => (isPlatform(r.platform) ? r.platform : 'otro')))]
-  const nombres = plataformas.map((p) => PLATFORMS[p].label)
+  const nombres = plataformas.map((p) => platformMeta(p).label)
   const donde =
     nombres.length === 1 ? nombres[0]
     : nombres.length === 2 ? `${nombres[0]} y ${nombres[1]}`
