@@ -27,12 +27,23 @@ import { contextoDeEtapa, etapaProgreso, marcaDeEtapa } from './visitHeaderRules
  * `audit_log`, que por RLS solo lee gerencia. Anotadas en `TODOS.md`.
  */
 export function VisitActionBar({
-  visit, readOnly, canAdvance, busy, onAdvance, onSolicitarMedico,
+  visit, readOnly, canAdvance, busy, accent, onAdvance, onSolicitarMedico,
 }: {
   visit: DayVisitRow
   readOnly: boolean
   canAdvance: boolean
   busy: boolean
+  /**
+   * El acento del módulo desde el que se abrió la visita — el MISMO que ya recibe `VisitDetail`,
+   * que es quien monta esta barra.
+   *
+   * Lo necesita el botón primario, y no es una preferencia estética: ese botón lleva texto papel
+   * sobre relleno sólido, que es el trabajo de `accentSolid` del registry (#2B766D en Coordinación,
+   * 4,76:1) y NO el de `--spira-track` (#2E7D74), que es el teal de PINTAR —íconos, riel, botones
+   * con un ícono adentro— y a 4,33:1 no llega al 4,5:1 que AA pide para texto normal. Ese ajuste se
+   * hizo en `modules/registry.ts` y este botón se lo había perdido.
+   */
+  accent: string
   onAdvance: (next: OperationalStage) => void
   onSolicitarMedico: () => void
 }) {
@@ -103,7 +114,7 @@ export function VisitActionBar({
             {step && canAdvance ? (
               <button
                 type="button" onClick={() => { if (!busy) onAdvance(step.next) }} disabled={busy}
-                style={{ ...cta, opacity: busy ? 0.6 : 1 }}
+                style={{ ...cta(accent), opacity: busy ? 0.6 : 1 }}
               >
                 {busy ? 'Guardando…' : step.label}
                 <Icon name="arrowRight" size={16} color="var(--spira-on-accent)" />
@@ -154,12 +165,16 @@ const railFill: CSSProperties = {
 const grp: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto', flex: '0 0 auto',
 }
-const cta: CSSProperties = {
-  border: 'none', cursor: 'pointer', background: 'var(--spira-track)', color: 'var(--spira-on-accent)',
-  boxShadow: '0 2px 8px rgba(46, 125, 116, 0.24)', fontFamily: 'var(--spira-font-text)',
+/* Función del acento, como `okBtn(busy)` más abajo: el relleno sale del módulo desde el que se abrió
+   la visita, no de un token fijo. La sombra se DERIVA del mismo acento en vez de llevar el
+   `rgba(46, 125, 116, .24)` que tenía escrito a mano — que era, además, el teal viejo. */
+const cta = (accent: string): CSSProperties => ({
+  border: 'none', cursor: 'pointer', background: accent, color: 'var(--spira-on-accent)',
+  boxShadow: `0 2px 8px color-mix(in srgb, ${accent} 24%, transparent)`,
+  fontFamily: 'var(--spira-font-text)',
   fontWeight: 700, fontSize: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   gap: 8, height: 42, borderRadius: 11, padding: '0 20px', whiteSpace: 'nowrap',
-}
+})
 const sec: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 8, height: 42, padding: '0 16px', borderRadius: 11,
   borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)', background: 'var(--spira-white)',
