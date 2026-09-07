@@ -60,7 +60,12 @@ npm run build       # typecheck + tests + build de producción  ← el GATE de v
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
-   número. La última aplicada va por la `0109` (ver `supabase/README.md`).
+   número. La última aplicada va por la `0111` (ver `supabase/README.md`).
+   **Y si la tabla nueva lleva trigger de auditoría, necesita una columna `id`**: `audit_row()`
+   (0003) hace `case when tg_op = 'DELETE' then old.id else new.id end` y Postgres resuelve
+   `old.id` **al planificar**, sin importar por qué rama vaya a pasar. Sin esa columna revienta en
+   la primera escritura con `42703: record "old" has no field "id"`, señalando el cuerpo de
+   `audit_row` y no tu tabla. Pasó con la 0111 (PK de texto). El `id` puede no ser la clave.
    **Si una migración es _breaking_ para el front desplegado** (p. ej. una vista que empieza a
    emitir valores que el código viejo no conoce): **se despliega el front PRIMERO y se aplica la
    migración inmediatamente después**, no al revés. Ya pasó una vez al revés (0068, 2026-08-05) y
