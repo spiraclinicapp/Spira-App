@@ -149,6 +149,14 @@ El Director trabaja, commitea y mergea en paralelo sobre esta misma carpeta:
 - **`preview_screenshot` se cuelga (timeout 30s) casi siempre** (iframe de YouTube del
   login + el preview corre como documento oculto). No insistas: verificá por
   **snapshot/eval/estilos computados** y presentá evidencia de DOM.
+- **SÍ se puede hacer QA con el panel OCULTO** (comprobado el 2026-09-08: QA logueado completo
+  contra prod, con kebabs, tres desplegables, inputs y dos formularios enviados). La conclusión del
+  2026-09-07 —*"React programa el re-render y nunca lo ejecuta"*— era demasiado fuerte. Lo que pasa
+  de verdad: **renderiza LENTO** (timers throttled, hay que esperar 4-5 s después de un `navigate`;
+  leer en el mismo batch devuelve "Cargando…" y parece un cuelgue), y **los clicks llegan**. Lo que
+  falla es APUNTAR: el click por coordenadas exige un **screenshot previo** que fije el marco, y un
+  `ref_N` calculado antes de que la lista termine de renderizar cae al vacío — idéntico a "React no
+  responde". Lo robusto es `element.click()` desde `javascript_tool`, buscando por selector.
 - Documento oculto ⇒ **transiciones y rAF pausados**: un "congelado" no es un bug de la app.
   Corolario al medir un `:hover`: `getComputedStyle` devuelve el valor **inicial** aunque la regla
   aplique. Apagá la transición del elemento (`el.style.transition = 'none'`) y medí de nuevo, o vas
