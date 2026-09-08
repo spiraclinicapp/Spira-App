@@ -1112,3 +1112,33 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 - **Depende de / bloqueado por:** nada. Pero conviene esperar a que aparezca el caso: mientras no
   haya un solo acceso inerte, esta pantalla no tiene nada que resolver.
 - **Prioridad:** P3.
+
+---
+
+## Pharma · Reportes no ve los movimientos entre ámbitos
+
+- **Qué:** desde la 0113 el stock se puede mover de un protocolo a otro (o a Ambulatoria) con
+  `reassign_lot_stock`, pero los Reportes de Farmacia no lo muestran en ningún lado: siguen
+  contando los ingresos **por recepción**. Si entraron 40 unidades al estudio A y después se
+  movieron 10 al B, el reporte de A va a seguir diciendo 40 y el de B, cero.
+- **Por qué:** no es un bug — el reporte responde *"qué entró"*, no *"dónde está"*, y las dos
+  preguntas son legítimas. El problema es que ahora hay una tercera vía por la que el stock de un
+  ámbito cambia sin que ninguna recepción lo explique, y quien concilie el papel con la pantalla no
+  tiene dónde ver la diferencia.
+- **Pros:** cierra la conciliación: entradas por recepción + entradas por reasignación − salidas por
+  dispensación = lo que hay en el estante. Hoy esa cuenta no cierra y no hay forma de saber por qué.
+- **Contras:** kits y unidades no se suman entre sí (regla de la 0083), y una reasignación tampoco
+  es un ingreso: mezclarla en la columna de recepciones inflaría el total con stock que ya estaba en
+  la casa. Tiene que ser una **fila o sección propia**, y eso es diseño, no una columna más.
+- **Contexto:** salió de la `/plan-eng-review` de `docs/plan-reasignar-stock.md` (2026-09-07). Se
+  dejó fuera del PR a propósito: el núcleo era poder mover el stock, y ampliar Reportes en el mismo
+  diff mezclaba dos discusiones. Se verificó que el tipo nuevo **no rompe ni duplica** nada:
+  `v_pharma_report_items` filtra `movement_type = 'dispensacion'` y `v_pharma_report_receptions` lee
+  `reception_items`, así que ninguna de las dos ve los asientos de `reasignacion`.
+- **Empezar por:** `supabase/migrations/0083_reportes_vistas.sql` — decidir si la vista nueva sale de
+  `stock_movements` filtrando `movement_type = 'reasignacion'` (los dos asientos vienen emparejados
+  por `reference_id`, así que una transferencia es un `group by` de dos filas). Después
+  `src/views/pharma/reportes/agregados.ts` y `Tablas.tsx`.
+- **Depende de / bloqueado por:** que aparezca el caso. Mientras nadie haya reasignado nada, la
+  sección estaría siempre vacía.
+- **Prioridad:** P3.

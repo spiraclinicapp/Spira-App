@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { LotDetailRow } from '../../../data/pharma'
 import {
-  agruparPorMedicamento,
+  agruparPorMedicamentoYAmbito,
+  claveDeGrupo,
   claveDePlegado,
   construirGrupos,
   contarGrupos,
@@ -24,8 +25,11 @@ import {
  * desaparece al sumar, o el "1 de 3 lotes" que no avisa que el filtro recortó. El conector de
  * árbol, la elevación y el chevron fallan de manera VISIBLE y se verifican mirando.
  *
- * Las cuatro que empiezan con "REGRESIÓN" cubren conducta que YA funciona hoy con la lista
- * plana y que agrupar podría romper.
+ * Las que empiezan con "REGRESIÓN" cubren conducta que YA funciona hoy con la lista plana y que
+ * agrupar podría romper. Las que empiezan con "ÁMBITO" cubren lo contrario: conducta que hoy
+ * está MAL y no se veía, porque hasta que la clave incluyó el protocolo un mismo medicamento con
+ * lotes en dos estudios se fusionaba en un grupo — sumando stock ajeno y desapareciendo de uno
+ * de los dos. Ningún fixture las tocaba: la factory pone `protocol_id: 'p1'` en todo.
  *
  * Sin base y sin navegador: son funciones puras sobre filas de `v_medication_lots_detail`.
  */
@@ -63,38 +67,75 @@ function lote(over: {
   }
 }
 
-describe('agruparPorMedicamento', () => {
+describe('claveDeGrupo', () => {
+  it('junta medicamento y protocolo', () => {
+    expect(claveDeGrupo('m1', 'p1')).toBe('m1:p1')
+  })
+
+  /* Sin protocolo no es "sin dato": es el ámbito ambulatorio (CHECK de la 0035). Serializarlo a
+     cadena vacía lo haría indistinguible de un protocolo sin id, y las dos claves colisionarían. */
+  it('nombra el ámbito ambulatorio en vez de dejar el hueco vacío', () => {
+    expect(claveDeGrupo('m1', null)).toBe('m1:ambulatoria')
+    expect(claveDeGrupo('m1', null)).not.toBe(claveDeGrupo('m1', ''))
+  })
+
+  it('el mismo medicamento en dos protocolos da dos claves', () => {
+    expect(claveDeGrupo('m1', 'p1')).not.toBe(claveDeGrupo('m1', 'p2'))
+  })
+})
+
+describe('agruparPorMedicamentoYAmbito', () => {
   it('sin lotes devuelve un mapa vacío', () => {
-    expect(agruparPorMedicamento([]).size).toBe(0)
+    expect(agruparPorMedicamentoYAmbito([]).size).toBe(0)
   })
 
   it('junta los lotes del mismo medicamento en un solo grupo', () => {
-    const g = agruparPorMedicamento([
+    const g = agruparPorMedicamentoYAmbito([
       lote({ id: 'a', numero: 'TEST01' }),
       lote({ id: 'b', numero: 'DFA-6545' }),
     ])
     expect(g.size).toBe(1)
-    expect(g.get('m1')).toHaveLength(2)
+    expect(g.get(claveDeGrupo('m1', 'p1'))).toHaveLength(2)
   })
 
   it('separa medicamentos distintos', () => {
-    const g = agruparPorMedicamento([lote({ med: 'm1' }), lote({ med: 'm2' })])
-    expect([...g.keys()]).toEqual(['m1', 'm2'])
+    const g = agruparPorMedicamentoYAmbito([lote({ med: 'm1' }), lote({ med: 'm2' })])
+    expect([...g.keys()]).toEqual([claveDeGrupo('m1', 'p1'), claveDeGrupo('m2', 'p1')])
   })
 
   /* Dos productos distintos pueden llamarse igual. Agrupar por nombre sumaría el stock de los
      dos y mostraría un solo medicamento donde hay dos. */
   it('agrupa por medication_id, NUNCA por nombre', () => {
-    const g = agruparPorMedicamento([
+    const g = agruparPorMedicamentoYAmbito([
       lote({ med: 'm1', nombre: 'Alvetide 92/22 mcg' }),
       lote({ med: 'm2', nombre: 'Alvetide 92/22 mcg' }),
     ])
     expect(g.size).toBe(2)
   })
 
+  /* El catálogo es global (0032) y recibir asigna solo (0040): dos estudios que usen el mismo
+     producto comparten medication_id. Con la clave vieja esto daba UN grupo. */
+  it('ÁMBITO: el mismo medicamento en dos protocolos son DOS grupos', () => {
+    const g = agruparPorMedicamentoYAmbito([
+      lote({ id: 'a', med: 'm1', protocolo: 'p1' }),
+      lote({ id: 'b', med: 'm1', protocolo: 'p2' }),
+    ])
+    expect(g.size).toBe(2)
+    expect(g.get(claveDeGrupo('m1', 'p1'))).toHaveLength(1)
+    expect(g.get(claveDeGrupo('m1', 'p2'))).toHaveLength(1)
+  })
+
+  it('ÁMBITO: protocolo y ambulatoria tampoco se fusionan', () => {
+    const g = agruparPorMedicamentoYAmbito([
+      lote({ id: 'a', med: 'm1', protocolo: 'p1' }),
+      lote({ id: 'b', med: 'm1', protocolo: null }),
+    ])
+    expect(g.size).toBe(2)
+  })
+
   it('conserva el orden de llegada de la query', () => {
-    const g = agruparPorMedicamento([lote({ med: 'm2' }), lote({ med: 'm1' })])
-    expect([...g.keys()]).toEqual(['m2', 'm1'])
+    const g = agruparPorMedicamentoYAmbito([lote({ med: 'm2' }), lote({ med: 'm1' })])
+    expect([...g.keys()]).toEqual([claveDeGrupo('m2', 'p1'), claveDeGrupo('m1', 'p1')])
   })
 })
 
@@ -208,6 +249,7 @@ describe('claveDePlegado — cuándo se olvidan los cierres a mano', () => {
 
 describe('etiquetaLotes', () => {
   const g = (visibles: number, total: number) => ({
+    key: claveDeGrupo('m1', 'p1'),
     medicationId: 'm1', name: 'x', drugName: null, code: null, protocolId: 'p1',
     lotes: Array.from({ length: visibles }, (_, i) => lote({ id: `l${i}` })),
     totalLotes: total, abiertoPorDefecto: false,
@@ -287,6 +329,38 @@ describe('construirGrupos — el armado completo', () => {
     expect(grupos).toHaveLength(1)
     expect(grupos[0].protocolId).toBeNull()
     expect(grupos[0].lotes).toHaveLength(2)
+  })
+
+  /* La query de Farmacia Protocolo trae los lotes de TODOS los protocolos de una vez y el front
+     reparte después por `protocolId`. Con la clave vieja este caso daba UN grupo, colgado del
+     protocolo del primer lote: sumaba 40 + 25 = 65 unidades de dos estudios distintos y el
+     medicamento desaparecía del segundo. En pantalla se veía impecable. */
+  it('ÁMBITO: dos estudios con el mismo medicamento no comparten grupo ni suman stock', () => {
+    const grupos = construirGrupos(
+      [
+        lote({ id: 'a', med: 'm1', numero: 'L-11', qty: 40, protocolo: 'p1' }),
+        lote({ id: 'b', med: 'm1', numero: 'L-22', qty: 25, protocolo: 'p2' }),
+      ],
+      '', 'todos',
+    )
+    expect(grupos).toHaveLength(2)
+    expect(grupos.map((g) => g.protocolId)).toEqual(['p1', 'p2'])
+    expect(grupos.map((g) => stockTotal(g.lotes))).toEqual([40, 25])
+    expect(grupos.map((g) => g.totalLotes)).toEqual([1, 1])
+  })
+
+  /* La `key` es lo que separa a esos dos grupos en React, en el plegado y en el kebab. Si
+     colisionara, plegar uno plegaría al otro y abrir un menú abriría los dos. */
+  it('ÁMBITO: cada grupo trae su propia key, y el medicationId sigue siendo el del medicamento', () => {
+    const grupos = construirGrupos(
+      [
+        lote({ id: 'a', med: 'm1', protocolo: 'p1' }),
+        lote({ id: 'b', med: 'm1', protocolo: 'p2' }),
+      ],
+      '', 'todos',
+    )
+    expect(grupos[0].key).not.toBe(grupos[1].key)
+    expect(grupos.map((g) => g.medicationId)).toEqual(['m1', 'm1'])
   })
 
   it('el filtro de vencimiento RECORTA los lotes y el total los recuerda', () => {
