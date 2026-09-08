@@ -17,6 +17,7 @@ import { protocolStatusLabel, protocolStatusVar } from '../protocolStatus'
 import {
   useProtocolLots,
   useAmbulatoriaLots,
+  useSalidasAmbulatorias,
   useIpStockAll,
   useMedications,
   useMedicationCodes,
@@ -25,6 +26,8 @@ import type { LotDetailRow, MedicationRow } from '../../data/pharma'
 import { NewMedicationForm } from './NewMedicationForm'
 import { AdjustStockModal } from './AdjustStockModal'
 import { ReasignarStockModal } from './ReasignarStockModal'
+import { SalidaAmbulatoriaModal } from './SalidaAmbulatoriaModal'
+import { filaDeSalida } from './salidaAmbulatoria'
 import { CodigoModal } from './CodigoModal'
 import { DeleteMedicationModal } from './DeleteMedicationModal'
 import { Toast } from '../../components/Toast'
@@ -179,6 +182,11 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   const [reasignando, setReasignando] = useState<
     { medicationId: string; protocolId: string | null; name: string; lotIdInicial: string | null } | null
   >(null)
+  /* Entregar no lleva `protocolId`: sólo existe en el ámbito ambulatorio, donde por definición
+     es null (CHECK de la 0035). Guardarlo sería guardar una constante. */
+  const [entregando, setEntregando] = useState<
+    { medicationId: string; name: string; lotIdInicial: string | null } | null
+  >(null)
 
   const protocols = useProtocols()
   const protoSel = useMemo(
@@ -189,6 +197,10 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     setProtoCodes(ids.map((id) => (protocols.data ?? []).find((p) => p.id === id)?.code).filter((c): c is string => !!c))
   const protoLots = useProtocolLots()
   const ambuLots = useAmbulatoriaLots()
+  /* Las últimas salidas ambulatorias, para el bloque del pie. Se consulta siempre (el hook no
+     ramifica por apartado) pero sólo se dibuja en ambulatoria: son 20 filas y la alternativa era
+     un hook condicional, que React no permite. */
+  const salidas = useSalidasAmbulatorias()
   const ipAll = useIpStockAll()
   const catalog = useMedications()
   const codes = useMedicationCodes()
@@ -212,7 +224,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     setPath([], { conservar: FILTROS_STOCK, mode: 'replace' })
     setBusqueda(''); setFiltro('todos'); setProtoCodes([]); setDropdownId(null)
   }, [setPath])
-  const refetchAll = () => { protoLots.refetch(); ambuLots.refetch(); catalog.refetch(); codes.refetch() }
+  const refetchAll = () => { protoLots.refetch(); ambuLots.refetch(); catalog.refetch(); codes.refetch(); salidas.refetch() }
 
   // Encabezado contextual: el shell ya pone breadcrumb + título ("Stock") + botón de acción.
   // La vista suma la miga del apartado, hace "Stock" clickeable (vuelve al menú) y cablea
@@ -258,6 +270,23 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     setDropdownId(null)
     setReasignando({ medicationId: row.medication_id, protocolId: row.protocol_id, name: row.name, lotIdInicial: row.lot_id })
   }
+  /* Entregar: las mismas dos puertas que Reasignar, y por la misma razón. Sólo existe en el ámbito
+     AMBULATORIO — la condición se lee del dato (`protocol_id === null`, el CHECK de la 0035) y no
+     del apartado que se está mirando: es la misma verdad y no depende de por dónde se entró. */
+  const openEntregarGrupo = (grupo: GrupoVisible) => {
+    setDropdownId(null)
+    setEntregando({ medicationId: grupo.medicationId, name: grupo.name, lotIdInicial: null })
+  }
+  const openEntregarLote = (row: LotDetailRow) => {
+    setDropdownId(null)
+    setEntregando({ medicationId: row.medication_id, name: row.name, lotIdInicial: row.lot_id })
+  }
+  /* Los lotes ambulatorios del medicamento que se está entregando. Siempre de `ambuLots` (no hay
+     ámbito que elegir: entregar sólo existe en ambulatoria) y sin filtrar por vencimiento, igual
+     que Reasignar. El filtro de agotados lo hace `lotesEntregables` adentro del modal. */
+  const lotesAEntregar = entregando
+    ? (ambuLots.data ?? []).filter((l) => l.medication_id === entregando.medicationId)
+    : []
   /* Los lotes del grupo que se está reasignando, SIN filtrar por vencimiento —si el usuario venía
      filtrando por "Vencidos", igual tiene que poder mover cualquiera— pero SÍ sin los agotados: de
      un lote en cero no hay nada que mover, y ofrecerlo deja el formulario sin ninguna cantidad
@@ -392,6 +421,20 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
           onReasignado={(mensaje) => { setReasignando(null); setToast(mensaje); refetchAll() }}
         />
       )}
+      {/* Mismo criterio que arriba: sin guard por `lotesAEntregar.length`, el modal lo dice. */}
+      {entregando && (
+        <SalidaAmbulatoriaModal
+          accentSolid={accentSolid}
+          medicationName={entregando.name}
+          lotes={lotesAEntregar}
+          lotIdInicial={entregando.lotIdInicial}
+          formatFecha={formatFecha}
+          onClose={() => setEntregando(null)}
+          /* `refetchAll` y no sólo los lotes: la lista de últimas salidas es otra consulta y tiene
+             que mostrar la entrega recién hecha, o el registro parece no haber pasado. */
+          onEntregado={(mensaje) => { setEntregando(null); setToast(mensaje); refetchAll() }}
+        />
+      )}
     </>
   )
 
@@ -447,6 +490,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     canManage, dropdownId, setDropdownId, busqueda,
     onCodigo: openCodigo, onCopiar: copyText, onAjustar: openAjuste,
     onReasignarLote: openReasignarLote, onReasignarGrupo: openReasignarGrupo,
+    onEntregarLote: openEntregarLote, onEntregarGrupo: openEntregarGrupo,
     manual: manualPlegado, onToggle: toggleGrupo,
   }
 
@@ -551,10 +595,55 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
           />
         }}
       </ListStatus>
+
+      {/* Cierra el circuito: la farmacéutica ve el efecto de lo que acaba de registrar sin irse de
+          la pantalla. Sin esto, la entrega se siente un trámite sin devolución — y un registro que
+          no se puede mirar es el que se deja de cargar. Reportes NO las levanta: su vista arranca
+          `from dispensations` y una salida ambulatoria no tiene fila ahí (ver TODOS.md). */}
+      {apartado === 'ambulatoria' && (
+        <div style={ultimasCard}>
+          <p className="spira-eyebrow" style={{ margin: '0 0 12px' }}>Últimas salidas</p>
+          {salidas.loading ? (
+            <div style={ultimasVacio}>Cargando…</div>
+          ) : salidas.error ? (
+            <div style={ultimasVacio}>{salidas.error}</div>
+          ) : (salidas.data ?? []).length === 0 ? (
+            <div style={ultimasVacio}>Todavía no se entregó nada por farmacia ambulatoria.</div>
+          ) : (
+            (salidas.data ?? []).map((sal) => {
+              const f = filaDeSalida(sal)
+              return (
+                <div key={sal.id} style={ultimasRow}>
+                  <span style={ultimasFecha}>{f.fecha}</span>
+                  <span style={ultimasMed}>{f.medicamento}</span>
+                  <span style={ultimasQty}>{f.cantidad}</span>
+                  <span style={ultimasQuien}>{f.quien}</span>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+
       {modals}
     </div>
   )
 }
+
+/* ── Estilos del bloque "Últimas salidas" (mock docs/mock-salida-ambulatoria.html, §3) ──────── */
+const ultimasCard: CSSProperties = {
+  background: 'var(--spira-white)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)',
+  borderRadius: 16, padding: '18px 20px', marginTop: 18,
+}
+const ultimasRow: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 12, padding: '11px 4px',
+  borderBottomWidth: 1, borderBottomStyle: 'solid', borderBottomColor: 'var(--spira-line)', fontSize: 13.5,
+}
+const ultimasFecha: CSSProperties = { color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums', width: 62, flex: '0 0 auto' }
+const ultimasMed: CSSProperties = { flex: 1, minWidth: 0, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const ultimasQty: CSSProperties = { fontVariantNumeric: 'tabular-nums', fontWeight: 700, width: 62, textAlign: 'right', flex: '0 0 auto' }
+const ultimasQuien: CSSProperties = { color: 'var(--spira-ink-soft)', width: 300, flex: '0 0 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const ultimasVacio: CSSProperties = { padding: '18px 4px', fontSize: 13, color: 'var(--spira-muted)' }
 
 /* ── Derivación de estado (WCAG 1.4.1: forma + color, no color solo) ────────── */
 /* `estadoDe` y el resto de las reglas viven en ./stock/agrupacion (con tests). ESTADO_CFG
@@ -875,6 +964,8 @@ interface RowProps {
   onAjustar: (row: LotDetailRow) => void
   /** Reasignar con ESE lote ya elegido. La puerta por medicamento vive en `GrupoProps`. */
   onReasignarLote: (row: LotDetailRow) => void
+  /** Entregar con ESE lote ya elegido. Sólo se ofrece en el ámbito ambulatorio. */
+  onEntregarLote: (row: LotDetailRow) => void
 }
 interface GrupoProps extends RowProps {
   busqueda: string
@@ -884,6 +975,8 @@ interface GrupoProps extends RowProps {
   onToggle: (clave: string, abiertoAhora: boolean) => void
   /** Reasignar eligiendo el lote adentro del modal. */
   onReasignarGrupo: (grupo: GrupoVisible) => void
+  /** Entregar eligiendo el lote adentro del modal. Sólo en el ámbito ambulatorio. */
+  onEntregarGrupo: (grupo: GrupoVisible) => void
 }
 
 /**
@@ -900,7 +993,7 @@ function GrupoFila({ grupo, ...props }: { grupo: GrupoVisible } & GrupoProps) {
 }
 
 /* ── Medicamento con varios lotes: resumen plegable + lotes con conector ────── */
-function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, setDropdownId, onCodigo, onCopiar, onAjustar, onReasignarLote, onReasignarGrupo }: { grupo: GrupoVisible } & GrupoProps) {
+function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, setDropdownId, onCodigo, onCopiar, onAjustar, onReasignarLote, onReasignarGrupo, onEntregarLote, onEntregarGrupo }: { grupo: GrupoVisible } & GrupoProps) {
   const abierto = manual[grupo.key] ?? grupo.abiertoPorDefecto
   const est = estadoDelGrupo(grupo.lotes)
   const cfg = ESTADO_CFG[est]
@@ -947,7 +1040,13 @@ function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, se
           {hasCode && <KebabItem icon="copy" onClick={() => { setDropdownId(null); onCopiar(grupo.code as string) }}>Copiar EAN13</KebabItem>}
           {/* Reasignar sí mira `canManage` (los tres de arriba no): mueve stock, como Ajustar. El
               lote se elige adentro del modal, que es lo que esta puerta agrega sobre la del lote. */}
-          {canManage && <><div style={kebabDivider} /><KebabItem icon="logout" onClick={() => onReasignarGrupo(grupo)}>Reasignar stock</KebabItem></>}
+          {/* Entregar va PRIMERO de las acciones de stock: en ambulatoria es la más frecuente.
+              La condición mira el DATO (`protocolId === null`, el CHECK de la 0035) y no el
+              apartado: es la misma verdad y no depende de por dónde se entró a la pantalla. */}
+          {canManage && grupo.protocolId === null && (
+            <><div style={kebabDivider} /><KebabItem icon="arrowUpRight" onClick={() => onEntregarGrupo(grupo)}>Entregar</KebabItem></>
+          )}
+          {canManage && <>{grupo.protocolId !== null && <div style={kebabDivider} />}<KebabItem icon="logout" onClick={() => onReasignarGrupo(grupo)}>Reasignar stock</KebabItem></>}
         </KebabMenu>
       </div>
       {abierto && (
@@ -955,7 +1054,7 @@ function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, se
           {grupo.lotes.map((r) => (
             <LotRow key={r.lot_id} row={r} busqueda={busqueda} canManage={canManage}
               dropdownId={dropdownId} setDropdownId={setDropdownId} onAjustar={onAjustar}
-              onReasignarLote={onReasignarLote} />
+              onReasignarLote={onReasignarLote} onEntregarLote={onEntregarLote} />
           ))}
         </div>
       )}
@@ -964,7 +1063,7 @@ function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, se
 }
 
 /* ── Fila de lote DENTRO de un grupo: sin nombre, con el conector de árbol ──── */
-function LotRow({ row, busqueda, canManage, dropdownId, setDropdownId, onAjustar, onReasignarLote }: {
+function LotRow({ row, busqueda, canManage, dropdownId, setDropdownId, onAjustar, onReasignarLote, onEntregarLote }: {
   row: LotDetailRow
   busqueda: string
   canManage: boolean
@@ -972,6 +1071,7 @@ function LotRow({ row, busqueda, canManage, dropdownId, setDropdownId, onAjustar
   setDropdownId: (id: string | null) => void
   onAjustar: (row: LotDetailRow) => void
   onReasignarLote: (row: LotDetailRow) => void
+  onEntregarLote: (row: LotDetailRow) => void
 }) {
   const cfg = ESTADO_CFG[estadoDe(row)]
   return (
@@ -994,6 +1094,10 @@ function LotRow({ row, busqueda, canManage, dropdownId, setDropdownId, onAjustar
         {canManage
           ? <KebabItem icon="pencil" onClick={() => onAjustar(row)}>Ajustar stock</KebabItem>
           : <KebabItem icon="pencil" disabled>Ajustar stock</KebabItem>}
+        {/* Entregar sólo existe en ambulatoria: la condición mira el dato, no el apartado. */}
+        {canManage && row.protocol_id === null && (
+          <KebabItem icon="arrowUpRight" onClick={() => onEntregarLote(row)}>Entregar</KebabItem>
+        )}
         {canManage
           ? <KebabItem icon="logout" onClick={() => onReasignarLote(row)}>Reasignar stock</KebabItem>
           : <KebabItem icon="logout" disabled>Reasignar stock</KebabItem>}
@@ -1003,7 +1107,7 @@ function LotRow({ row, busqueda, canManage, dropdownId, setDropdownId, onAjustar
 }
 
 /* ── Medicamento de UN solo lote: fila plana, con el menú completo ──────────── */
-function LoteRow({ row, busqueda, canManage, dropdownId, setDropdownId, onCodigo, onCopiar, onAjustar, onReasignarLote }: { row: LotDetailRow; busqueda: string } & RowProps) {
+function LoteRow({ row, busqueda, canManage, dropdownId, setDropdownId, onCodigo, onCopiar, onAjustar, onReasignarLote, onEntregarLote }: { row: LotDetailRow; busqueda: string } & RowProps) {
   const cfg = ESTADO_CFG[estadoDe(row)]
   const hasCode = !!row.code
   return (
@@ -1034,6 +1138,9 @@ function LoteRow({ row, busqueda, canManage, dropdownId, setDropdownId, onCodigo
         {canManage && (
           <>
             <div style={kebabDivider} />
+            {row.protocol_id === null && (
+              <KebabItem icon="arrowUpRight" onClick={() => onEntregarLote(row)}>Entregar</KebabItem>
+            )}
             <KebabItem icon="pencil" onClick={() => onAjustar(row)}>Ajustar stock</KebabItem>
             <KebabItem icon="logout" onClick={() => onReasignarLote(row)}>Reasignar stock</KebabItem>
           </>
