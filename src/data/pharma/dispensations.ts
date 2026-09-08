@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { pharmaErrorMessage } from './errors'
 import { ESTADOS_ABIERTOS } from './dispensationModel'
 import type { DispensationRequestRow, HistorialEntradaRow, RequestStatus } from './dispensationModel'
+import type { VisitKind } from '../../lib/visitLabels'
 
 /**
  * El MODELO (formas de fila + lo que se deriva de ellas) vive en `dispensationModel.ts`, que no
@@ -289,12 +290,35 @@ export function useDispensationHistory(opts: {
 }
 
 
-/** Visita candidata para un alta manual (RPC `visitas_dispensables`, 0059). */
+/**
+ * Visita candidata para un alta manual (RPC `visitas_dispensables`, 0059 · ensanchada por la 0115).
+ *
+ * Cumple `VisitTitleFields` (`lib/visits`) a propósito: el desplegable la nombra con `visitTitle`,
+ * el mismo helper que usa Coordinación, en vez de armar la etiqueta en SQL. Un `case` de plpgsql
+ * duplicaría `KIND_LABELS` sin que nada obligue a completarlo cuando aparezca un `visit_kind`
+ * nuevo — caería al `else`, en silencio.
+ */
 export interface VisitaDispensableRow {
   visit_id: string
-  visit_name: string
+  /** Código de la definición ("V7") o null si es una visita suelta (VNP, retest, firma…). */
+  visit_code: string | null
+  visit_name: string | null
+  kind: VisitKind
   visit_date: string | null
+  /** El cronograma marcó esta visita como entregadora de medicación (`visit_definitions.dispenses`).
+   *  Si es false, el pedido necesita declarar un motivo fuera de cronograma. */
+  dispenses: boolean
+  /** Ídem para producto en investigación (`dispenses_ip`, 0071). Candado aparte del anterior. */
+  dispenses_ip: boolean
   /** Ya tiene una solicitud viva (solicitada o preparando): ofrecerla duplicaría el pedido. */
+  ya_solicitada: boolean
+}
+
+/** Lo que devuelve el RPC ANTES de la 0115: las cuatro columnas viejas. Existe para tipar la
+ *  normalización de abajo sin un `any` — no para que la use nadie más. */
+type VisitaDispensableCruda = Partial<VisitaDispensableRow> & {
+  visit_id: string
+  visit_date: string | null
   ya_solicitada: boolean
 }
 
@@ -308,10 +332,66 @@ export function useVisitasDispensables(enrollmentId: string | null) {
     async (c) => {
       if (!enrollmentId) return { data: [], error: null }
       const { data, error } = await c.rpc('visitas_dispensables', { p_enrollment_id: enrollmentId })
-      return { data: (data as VisitaDispensableRow[]) ?? [], error }
+      const crudas = (data as VisitaDispensableCruda[]) ?? []
+      return { data: crudas.map(normalizarVisitaDispensable), error }
     },
     [enrollmentId],
   )
+}
+
+/**
+ * Rellena las columnas que agrega la 0115 cuando todavía no está aplicada.
+ *
+ * Esta tanda se despliega en tres pasos y la 0115 va TERCERA: es breaking para el front viejo
+ * (le mostraría visitas que no dispensan sin saber pedirlas con motivo), así que primero sube el
+ * front y después la migración. En esa ventana el front NUEVO habla con la función VIEJA, y sin
+ * este colchón el desplegable quedaría con `kind` undefined —`KIND_LABELS[undefined]` es
+ * undefined, o sea una opción sin texto— y con `dispenses` undefined, que es falsy: le pediría
+ * motivo a TODAS las visitas, incluidas las normales, sellando `off_schedule` de más. Justo la
+ * falla silenciosa que esta tanda vino a evitar.
+ *
+ * Por eso los defaults no son "neutros" sino los del comportamiento ACTUAL: `dispenses: true`
+ * (la función vieja sólo devuelve visitas que dispensan, así que es la verdad) y `kind:
+ * 'programada'` con el `visit_name` que ya venía. Aplicada la 0115, esta función deja de tocar
+ * nada y se puede borrar en la limpieza siguiente.
+ */
+function normalizarVisitaDispensable(r: VisitaDispensableCruda): VisitaDispensableRow {
+  return {
+    visit_id: r.visit_id,
+    visit_code: r.visit_code ?? null,
+    visit_name: r.visit_name ?? null,
+    kind: r.kind ?? 'programada',
+    visit_date: r.visit_date,
+    dispenses: r.dispenses ?? true,
+    dispenses_ip: r.dispenses_ip ?? false,
+    ya_solicitada: r.ya_solicitada,
+  }
+}
+
+/**
+ * Registra una visita NO PROGRAMADA para poder dispensar fuera de cronograma (RPC `registrar_vnp`,
+ * 0114). Devuelve el id de la visita nueva.
+ *
+ * Existe aparte de `registerVisitEvent` (`data/visitEvents`) por una razón de permisos, no de
+ * comodidad: aquella función no acepta a Farmacia en su authz, así que llamarla desde el mostrador
+ * devuelve 42501. El RPC nuevo está acotado a `kind='vnp'` en el cuerpo — no hay parámetro de tipo
+ * que mandar— y suma `pharma operator+` a los tres caminos que ya existían.
+ *
+ * La visita nace AGENDADA, no atendida: marcarla atendida dispara la materialización del checklist,
+ * y eso es del coordinador. Farmacia registra que el paciente vino a buscar medicación.
+ */
+export async function registrarVnp(
+  enrollmentId: string,
+  date: string,
+  notes: string | null = null,
+): Promise<{ error: string | null; code?: string; id?: string }> {
+  const { data, error } = await supabase.rpc('registrar_vnp', {
+    p_enrollment_id: enrollmentId,
+    p_date: date,
+    p_notes: notes,
+  })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null, id: data as string }
 }
 
 /** Renglón a solicitar (entrada para `create_dispensation_request`). */

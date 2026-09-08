@@ -186,8 +186,21 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 - **Empezar por:** pedir el handoff de diseño de la pantalla de alta. Después
   `supabase/migrations/0050_pharma_dispensacion.sql:316` (el FEFO a espejar) y
   `0035_pharma_recepcion_tipos.sql` (la rama ambulatoria que ya existe del lado de la entrada).
-- **Depende de / bloqueado por:** nada técnico. Reportes ya lee del libro compartido, así que
-  cuando esto exista aparece en el reporte sin tocar nada.
+- **Depende de / bloqueado por:** **el handoff de diseño de la pantalla de alta ambulatoria.**
+  Pedirlo es el único paso que falta para desbloquear la entrada; nada más está esperando.
+  (Decía "nada técnico", que es cierto y por eso mismo la dejó dormida: sin un bloqueo con
+  nombre, una entrada no se toma nunca.) Del lado de la base no hay espera: Reportes ya lee
+  del libro compartido, así que cuando esto exista aparece en el reporte sin tocar nada.
+- **RE-PEDIDO el 2026-09-08:** el Director volvió a pedir la funcionalidad, con estas palabras:
+  *"quiero poder dispensar libremente, no que esté anidado a una visita y a un paciente
+  necesariamente"*. Se difirió otra vez **a propósito**, en la `/plan-eng-review` de ese día
+  (`docs/superpowers/plans/2026-09-08-dispensacion-libre-vnp.md`, decisión D1): el caso urgente
+  —dispensar sin cronograma— se resolvió haciendo la VNP dispensable desde Farmacia, que no
+  toca el modelo. Lo que sigue abierto acá es estrictamente el stock **ambulatorio**, que entra
+  por recepción tipada (0035) y no tiene por dónde salir. La decisión de diseño (tabla propia,
+  no aflojar `dispensation_requests`) se reconfirmó y sigue en pie.
+  Anotado porque el pedido llegó como si fuera nuevo, con el análisis rehecho desde cero,
+  estando esta entrada escrita desde el 2026-08-15.
 
 ---
 
@@ -880,6 +893,16 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 - **DISPARADOR (esto no es "algún día"):** apenas exista **la primera cuenta de coordinación real**
   — o antes, si se toca `coordina_visita()`, la policy `"ver solicitudes"`, o se agrega una tarjeta
   al Resumen que lea datos de otro módulo. Cualquiera de esas tres cosas lo vuelve urgente.
+- **DISPARADOR 2 — el mismo agujero, del lado de FARMACIA (agregado 2026-09-08):** apenas se
+  agregue una RPC o una policy con authz propia de `pharma`, hay que probarla con una cuenta que
+  tenga **solo** el módulo `pharma`. El primer caso es `registrar_vnp`
+  (`docs/superpowers/plans/2026-09-08-dispensacion-libre-vnp.md`), cuya rama
+  `has_min_role('pharma','operator')` **la cuenta de QA nunca ejecuta**: con los cinco módulos
+  entra siempre por `has_module('gerencia')`, así que el botón anda perfecto en el QA y puede
+  tirar 42501 en el mostrador real, con el paciente esperando. Es el patrón idéntico al de
+  `coordina_visita()` descrito arriba, y este PR no dispara la entrada tal como estaba redactada
+  —no toca `coordina_visita()` ni la policy "ver solicitudes"— aunque abre la misma clase de
+  agujero. Por eso el disparador aparte.
 - **Empezar por:** crear el usuario en el dashboard (Auth → Users, **Auto Confirm**; no hay
   auto-registro) y darle UN solo módulo:
   `insert into user_module_roles (user_id, module, role) values ('<uuid>', 'track', 'member');`

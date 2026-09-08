@@ -21,6 +21,11 @@ import {
 } from '../../data/pharma'
 import type { DispensationRequestRow, IpDocumentRow, UltimaDispensacionRow } from '../../data/pharma'
 import { badgeOf } from './dispensaciones/estados'
+import {
+  MOTIVOS_FUERA_CRONOGRAMA,
+  FALTA_MOTIVO_MSG,
+  necesitaMotivoFueraCronograma,
+} from './motivosFueraCronograma'
 import { Panel } from '../track/Panel'
 import { ConstanciaDropzone, ConstanciaPendiente, ConstanciaVista } from './ConstanciaIp'
 
@@ -91,28 +96,11 @@ function Sub({ label, first, excepcion, children }: {
   )
 }
 
-/**
- * Motivos de una dispensación fuera de cronograma. Desplegable y no texto libre: el Director
- * prefiere valores preestablecidos para no depender de cómo lo escriba cada operador, y este texto
- * no se queda en la pantalla donde se decidió — viaja a la card del tablero de Farmacia, al cajón y
- * al COMPROBANTE IMPRESO que lee un monitor. Por eso lo que se manda al servidor es la etiqueta
- * legible y no la clave (ver `motivoLabel`).
- *
- * PENDIENTE: lista propuesta, a confirmar por el Director (2026-08-09). Si la corrige, se corrige
- * acá y en ningún otro lado.
- */
-const MOTIVOS_FUERA_CRONOGRAMA: readonly SelectOption[] = [
-  { value: 'reposicion', label: 'Reposición por pérdida o rotura' },
-  { value: 'vnp', label: 'Visita no programada (VNP)' },
-  { value: 'ajuste_dosis', label: 'Ajuste de dosis indicado por el investigador' },
-  { value: 'viaje', label: 'Adelanto por viaje del paciente' },
-  { value: 'otro', label: 'Otro' },
-]
-
-/** Mismo texto por los dos caminos que crean el pedido (renglones y constancia): la falta es la
- *  misma y el coordinador tiene que leer siempre lo mismo. Sereno, en castellano, sin culpar. */
-const FALTA_MOTIVO_MSG =
-  'Elegí el motivo de la dispensación fuera de cronograma antes de solicitarla.'
+/* Los motivos de la excepción y la regla de cuándo hace falta uno viven en
+   `./motivosFueraCronograma` (ver el import de arriba): los comparte con el alta manual del
+   mostrador de Farmacia, que declara exactamente el mismo hecho clínico y lo imprime en el
+   mismo comprobante. Estaban acá como consts privadas con un comentario que prometía fuente
+   única; cuando el mostrador necesitó la lista, la promesa pasó a ser cierta por construcción. */
 
 /** Renglón de medicación del pedido ABIERTO: fila plana con su propio borde (mock `.item`), sin la
  *  card completa que sí usan las cerradas (`renderCard`) — esas cards traen fecha/estado/cancelar
@@ -498,8 +486,14 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    * mostraba el motivo SELLADO del anterior en vez de pedir uno nuevo, así que la solicitud se iba
    * sin motivo y la base la rechazaba con "Esta visita no entrega medicación": un error del servidor
    * por algo que la pantalla ya sabía.
+   *
+   * El camino es 'cualquiera' porque ESTA pantalla ofrece los dos: renglones de medicación y
+   * constancia de IP. Alcanza con que el cronograma autorice uno para que la visita no sea una
+   * excepción — y la sección de concomitante está gateada aparte (`mostrarConcomitante`), así
+   * que no se llega a mandar renglones por el hueco que deja el otro camino. El mostrador de
+   * Farmacia, que siempre manda renglones, usa 'renglones'.
    */
-  const necesitaMotivo = !readOnly && !destino && !visit.dispenses && !visit.dispenses_ip
+  const necesitaMotivo = !readOnly && !destino && necesitaMotivoFueraCronograma(visit, 'cualquiera')
   const razonExcepcion = necesitaMotivo ? motivoLabel : null
   /**
    * Sin motivo no hay excepción: es la ÚNICA puerta que tiene la base para saltear el cronograma

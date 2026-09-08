@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackVisitRow } from '../data/visits'
 import { visitTitle } from './visits'
+import type { VisitTitleFields } from './visits'
 
 /**
  * Cómo se nombra una visita en una línea de texto.
@@ -47,5 +48,39 @@ describe('visitTitle', () => {
     expect(visitTitle(v({ visit_code: null, visit_name: 'Visita no programada' }))).toBe('Visita no programada')
     expect(visitTitle(v({ visit_code: null, visit_name: null, kind: 'vnp' }))).toBe('VNP')
     expect(visitTitle(v({ visit_code: null, visit_name: null, kind: 'firma_screening' }))).toBe('Firma y Screening')
+  })
+})
+
+/**
+ * El contrato que consume el desplegable del mostrador de Farmacia.
+ *
+ * `visitas_dispensables` (0115) devuelve un puñado de columnas, no una `TrackVisitRow`: Farmacia
+ * no puede leer `patient_visits`, así que el RPC le manda lo justo. Estos casos fijan que la
+ * función siga andando con ESE objeto mínimo, sin `as TrackVisitRow` ni campos inventados.
+ *
+ * Y fijan la razón por la que el RPC devuelve `kind` en vez de una etiqueta ya armada en SQL:
+ * si la etiqueta se armara allá, `KIND_LABELS` quedaría duplicado en un `case` de plpgsql que
+ * no obliga a nada cuando se sume un `visit_kind` nuevo — cae al `else`, en silencio. Acá el
+ * `Record<VisitKind, string>` obliga al compilador a completarlo.
+ */
+describe('visitTitle · el objeto mínimo del mostrador de Farmacia', () => {
+  const suelta: VisitTitleFields = { visit_code: null, visit_name: null, kind: 'vnp' }
+  const delCuadro: VisitTitleFields = { visit_code: 'V7', visit_name: 'Semana 12', kind: 'programada' }
+
+  it('nombra la suelta por su tipo, sin necesitar una fila entera', () => {
+    // Sin esto, las sueltas del desplegable caían todas a un mismo texto genérico y la
+    // farmacéutica elegía entre varios renglones idénticos contra cuál dispensar medicación.
+    expect(visitTitle(suelta)).toBe('VNP')
+    expect(visitTitle({ ...suelta, kind: 'retest' })).toBe('Retest')
+  })
+
+  it('nombra la del cuadro con código y nombre', () => {
+    expect(visitTitle(delCuadro)).toBe('V7 - Semana 12')
+  })
+
+  it('dos VNP del mismo paciente comparten título: la fecha es lo que las distingue', () => {
+    // No es un defecto, es el motivo por el que el desplegable muestra la fecha al lado. Queda
+    // fijado acá para que nadie "arregle" el título metiéndole un contador adentro.
+    expect(visitTitle(suelta)).toBe(visitTitle({ ...suelta }))
   })
 })
