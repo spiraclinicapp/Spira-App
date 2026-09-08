@@ -60,7 +60,15 @@ npm run build       # typecheck + tests + build de producción  ← el GATE de v
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
-   número. La última aplicada va por la `0111` (ver `supabase/README.md`).
+   número. La última aplicada va por la `0113` (ver `supabase/README.md`).
+   **Y adentro de una función con `set search_path` acotado, calificá todo lo que no sea de
+   `public` ni de `pg_catalog`.** `uuid_generate_v4()` (uuid-ossp) vive en el schema `extensions`
+   en Supabase: sin calificar, la migración aplica **en verde** —plpgsql no resuelve las llamadas
+   al crear el cuerpo— y revienta en la primera llamada real con `42883`, que `pharmaErrorMessage`
+   traduce a "falta aplicar una actualización de la base", mandándote a buscar una migración que ya
+   corriste. Las ~60 apariciones del schema son `default` de columna, que Postgres resuelve al hacer
+   el DDL y guarda por OID: por eso ésas andan. Para uuid en runtime usá `gen_random_uuid()`, que
+   está en `pg_catalog`. Pasó con la 0113 (2026-09-08).
    **Y si la tabla nueva lleva trigger de auditoría, necesita una columna `id`**: `audit_row()`
    (0003) hace `case when tg_op = 'DELETE' then old.id else new.id end` y Postgres resuelve
    `old.id` **al planificar**, sin importar por qué rama vaya a pasar. Sin esa columna revienta en

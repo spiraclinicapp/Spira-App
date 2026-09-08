@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.62', text: 'Reasignar stock: mover unidades de un lote a otro protocolo o al ámbito ambulatorio.' },
     { version: '0.61', text: 'Ajustes: los desplegables se ven, cada nivel explica qué habilita, y se eligen estudios y portales.' },
     { version: '0.60', text: 'La campana se rediseña: cada aviso abre su visita y podés descartarlo ahí mismo.' },
     { version: '0.59', text: 'Tus tareas viven en Coordinación y asoman en el Resumen: tildalas o anotá una sin salir.' },
