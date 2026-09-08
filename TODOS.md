@@ -1165,3 +1165,45 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 - **Depende de / bloqueado por:** que aparezca el caso. Mientras nadie haya reasignado nada, la
   sección estaría siempre vacía.
 - **Prioridad:** P3.
+
+---
+
+## Core · la huella de borrado de un paciente cuenta Coordinación y el guard que bloquea es de Farmacia
+
+- **Qué:** que la confirmación de "Eliminar paciente" cuente también las solicitudes de
+  dispensación de Farmacia, o que directamente avise que el borrado no va a proceder. Hoy promete
+  un borrado que el servidor rechaza.
+- **Por qué:** son dos preguntas distintas contestadas contra dos tablas de módulos distintos.
+  La **huella** (`patientFootprint`, `src/data/patients.ts:196`) cuenta `track_dispensations` — la
+  tabla de Coordinación de la 0023 (kit_code, dispensed_by). El **guard** que efectivamente
+  bloquea (`delete_patient`, `0024_delete_patient.sql:30`) mira `dispensation_requests`, que es la
+  de Farmacia. Un paciente puede tener 0 en la primera y N en la segunda, que es exactamente lo
+  que pasa cuando dispensás desde el mostrador.
+- **Cómo se ve:** el modal dice *"Se eliminarán 1 visita y **0 dispensaciones**, y todo el registro
+  de la atención del paciente. Es permanente."*, el usuario reescribe el nombre completo para
+  confirmar —una fricción deliberada, pensada para una acción irreversible— y recién ahí la base
+  responde *"No se puede eliminar: el paciente tiene dispensaciones de farmacia registradas.
+  Marcalo como Inactivo en lugar de borrarlo."*. El mensaje del servidor es correcto y sereno; el
+  problema es que llega **después** de que la pantalla afirmó lo contrario y cobró el peaje.
+- **Pros:** el usuario sabe antes de escribir el nombre que ese paciente no se borra, y por qué.
+  Y el número deja de ser engañoso: "0 dispensaciones" en un paciente que tiene dispensaciones es
+  falso a secas, en una app cuyo criterio es no mostrar nunca un dato inventado como real.
+- **Contras:** la huella es un `count` scopeado por RLS de Track a propósito (el comentario de
+  `patients.ts:189` lo dice). Sumarle Farmacia significa o un `count` más contra
+  `dispensation_requests` —que Coordinación **no puede leer** para todos los protocolos— o un RPC
+  que devuelva la huella completa server-side. La segunda es la buena y es la que cuesta.
+- **Contexto:** encontrado el 2026-09-08 en el QA logueado de la dispensación libre
+  (`docs/superpowers/plans/2026-09-08-dispensacion-libre-vnp.md`), al intentar borrar el paciente
+  `TEST-*` que se había usado para probar el camino completo del mostrador. **No lo introdujo esa
+  tanda**: el desajuste existe desde que conviven la 0023 y la 0024, y sólo se hace visible cuando
+  un paciente junta una solicitud de Farmacia, que antes de la 0115 era más difícil de lograr.
+  El guard de la 0024 está bien como está — los registros de medicación son regulados y no se
+  cascadean; lo que hay que arreglar es lo que la pantalla promete antes.
+- **Empezar por:** `src/data/patients.ts:181-198` (`PatientFootprint` / `patientFootprint`) y
+  `src/views/EditPatientForm.tsx:257`. El guard a espejar está en
+  `supabase/migrations/0024_delete_patient.sql:30-38`. Si se hace por RPC, conviene que devuelva
+  también `puede_borrarse boolean`, así la pantalla decide con un solo dato en vez de recalcular
+  la regla del servidor.
+- **Depende de / bloqueado por:** nada. Es independiente de todo lo demás.
+- **Prioridad:** P2 — no rompe datos ni pierde nada, pero le miente al usuario justo en el paso
+  previo a una acción irreversible.
