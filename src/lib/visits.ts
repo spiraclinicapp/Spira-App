@@ -1,5 +1,6 @@
 import type { TrackVisitRow } from '../data/visits'
 import { KIND_LABELS, KIND_SHORT } from './visitLabels'
+import type { VisitKind } from './visitLabels'
 
 /**
  * Lógica de cronograma de visitas de un paciente, en helpers puros sobre
@@ -8,10 +9,27 @@ import { KIND_LABELS, KIND_SHORT } from './visitLabels'
  */
 
 /**
+ * Lo MÍNIMO que hace falta para nombrar una visita. `TrackVisitRow` lo cumple sin adaptar nada
+ * (tipado estructural), así que los seis consumidores que ya existen le siguen pasando su fila
+ * entera y el compilador verifica que encaje.
+ *
+ * Existe porque el desplegable del mostrador de Farmacia también necesita nombrar visitas, y lo
+ * que recibe de `visitas_dispensables` (0115) es un puñado de columnas, no una `TrackVisitRow`:
+ * Farmacia no puede leer `patient_visits` (RLS 0006:162) y el RPC le devuelve lo justo. Pedirle
+ * la fila completa habría obligado a inventarle campos vacíos con tal de satisfacer el tipo, que
+ * es exactamente el momento en que un tipo deja de proteger y empieza a estorbar.
+ */
+export interface VisitTitleFields {
+  visit_code: string | null
+  visit_name: string | null
+  kind: VisitKind
+}
+
+/**
  * Título ancho de una visita: "V1 - Screening" (def con código y nombre) o el label
  * del kind para las sueltas ("VNP", "Retest"). Para títulos de modal, ficha, lista vertical.
  */
-export function visitTitle(v: TrackVisitRow): string {
+export function visitTitle(v: VisitTitleFields): string {
   if (v.visit_code) {
     /* "V1 - V1" no es un título, es un tartamudeo. Pasa seguido con datos reales: varios protocolos
        cargan la definición con el mismo texto en el código y en el nombre, y la pantalla lo repetía
