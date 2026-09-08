@@ -7,7 +7,9 @@ import { DateField } from '../../components/DateField'
 import { SegmentedControl } from '../../components/SegmentedControl'
 import { btnOutline, btnPrimary } from '../../components/buttons'
 import { useAuth } from '../../lib/auth'
-import { createTask, updateTask, useTeamRoster } from '../../data/tareas'
+import { createTask, updateTask } from '../../data/tareas'
+// El padrón vive en la capa Core, no en la de Tareas: también lo usa Farmacia (0109).
+import { useTeamRoster } from '../../data/team'
 import type { CompletionMode, TaskRow } from '../../data/tareas'
 
 /**
