@@ -35,7 +35,9 @@ interface Props {
   lotIdInicial: string | null
   /** Ámbito de ORIGEN. null = ambulatoria (CHECK de la 0035). */
   protocolIdActual: string | null
-  protocolos: readonly ProtocolRow[]
+  /** `null` = la lista de protocolos todavía no cargó o falló. NO es lo mismo que `[]`: con el
+   *  arreglo vacío el modal afirma que no hay a dónde mover, y eso sería inventar un hecho. */
+  protocolos: readonly ProtocolRow[] | null
   /** El formato de fecha de la lista que abrió el modal. Se pasa en vez de importar un helper para
    *  no estrenar un TERCER formato de vencimiento en Pharma (ver TODOS.md): el mismo lote no puede
    *  mostrar una fecha distinta a un clic de distancia. */
@@ -59,8 +61,12 @@ export function ReasignarStockModal({
   accentSolid, medicationName, lotes, lotIdInicial, protocolIdActual, protocolos, formatFecha, onClose, onReasignado,
 }: Props) {
   /* Con un solo lote no hay nada que elegir, así que viene puesto aunque se haya entrado por el
-     medicamento: obligar a abrir un desplegable de una opción es fricción sin información. */
-  const [lotId, setLotId] = useState(lotIdInicial ?? (lotes.length === 1 ? lotes[0].lot_id : ''))
+     medicamento: obligar a abrir un desplegable de una opción es fricción sin información. El
+     `lotIdInicial` se acepta sólo si sigue en la lista — quien lo manda no sabe que acá se filtran
+     los agotados, y un valor que no está entre las opciones deja el desplegable mostrando su
+     placeholder con un lote "elegido" por dentro. */
+  const inicial = lotes.some((l) => l.lot_id === lotIdInicial) ? (lotIdInicial as string) : ''
+  const [lotId, setLotId] = useState(inicial || (lotes.length === 1 ? lotes[0].lot_id : ''))
   const [cantidad, setCantidad] = useState('')
   const [destinoValue, setDestinoValue] = useState('')
   const [motivo, setMotivo] = useState('')
@@ -69,7 +75,7 @@ export function ReasignarStockModal({
   const [busy, setBusy] = useState(false)
 
   const destinos = useMemo(
-    () => destinosPara(protocolIdActual, protocolos),
+    () => destinosPara(protocolIdActual, protocolos ?? []),
     [protocolIdActual, protocolos],
   )
   const lote = lotes.find((l) => l.lot_id === lotId) ?? null
@@ -105,17 +111,25 @@ export function ReasignarStockModal({
     )
   }
 
-  /* Sin destino posible el formulario no tiene sentido: es el caso del único estudio abierto, o el
-     de un lote ambulatorio cuando no hay ningún protocolo. Se dice por qué en vez de mostrar un
-     desplegable vacío. */
-  if (destinos.length === 0) {
+  /* Dos callejones sin salida, cada uno con su explicación. Sin lotes con unidades no hay nada que
+     mover; sin destino no hay a dónde. En los dos casos el formulario sería un trámite imposible,
+     así que se dice por qué en vez de mostrar desplegables vacíos. */
+  const sinSalida =
+    lotes.length === 0
+      ? 'Este medicamento no tiene unidades para mover en este ámbito: todos sus lotes están en cero.'
+      : protocolos === null
+        /* Sin la lista de estudios no se puede AFIRMAR que no hay destino: eso sería presentar un
+           dato que no tenemos como si fuera un hecho. Se dice lo que pasa de verdad. */
+        ? 'No pudimos leer la lista de estudios, así que todavía no sabemos a dónde se puede mover. Cerrá y volvé a intentar en un momento.'
+        : destinos.length === 0
+          ? 'No hay a dónde mover este stock: no hay ningún otro estudio abierto, y este lote ya está en el único ámbito disponible. Los estudios cerrados no reciben medicación.'
+          : null
+
+  if (sinSalida) {
     return (
       <Modal title={`Reasignar stock · ${medicationName}`} onClose={onClose}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <p style={{ fontSize: 13.5, color: 'var(--spira-muted)', lineHeight: 1.55, margin: 0 }}>
-            No hay a dónde mover este stock: no hay otro estudio abierto, y este lote ya está en el
-            único ámbito disponible. Los estudios cerrados no reciben medicación.
-          </p>
+          <p style={{ fontSize: 13.5, color: 'var(--spira-muted)', lineHeight: 1.55, margin: 0 }}>{sinSalida}</p>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button type="button" onClick={onClose} style={btnOutline}>Cerrar</button>
           </div>

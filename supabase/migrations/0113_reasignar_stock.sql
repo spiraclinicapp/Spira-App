@@ -110,8 +110,18 @@ declare
   v_expiry       date;
   v_stock        integer;
   v_destino_lot  uuid;
+  v_destino_tipo reception_kind;
   v_destino_st   protocol_status;
-  v_ref          uuid := uuid_generate_v4();
+  -- gen_random_uuid() y NO uuid_generate_v4(), aunque el resto del schema use uuid-ossp: aquéllas
+  -- son todas `default` de columna, que Postgres resuelve al hacer el DDL y guarda por OID, así que
+  -- andan con cualquier search_path. Ésta es la primera llamada en RUNTIME, y esta función fija
+  -- `set search_path = public` mientras las extensiones de Supabase viven en el schema
+  -- `extensions`: sin calificar, la 0113 aplicaría EN VERDE (plpgsql no resuelve las llamadas al
+  -- crear el cuerpo) y reventaría recién en la primera reasignación con `42883`, que
+  -- pharmaErrorMessage traduce a "falta aplicar una actualización de la base" — mandando a buscar
+  -- una migración que ya se aplicó. gen_random_uuid() está en pg_catalog desde PG13 y resuelve
+  -- siempre, sin atar el archivo a dónde quedó instalada ninguna extensión.
+  v_ref          uuid := gen_random_uuid();
   it             record;
 begin
   if not public.has_min_role('pharma','leader') then
@@ -216,29 +226,57 @@ begin
          updated_at       = now()
    where id = p_lot_id;
 
-  select l.id into v_destino_lot
+  -- Un lote destino que existe y es de OTRO ámbito no se toca. El unique de la 0032 es
+  -- (medication_id, protocol_id, lot_number) y no incluye el `tipo`, así que una fila legacy con
+  -- tipo 'investigacion' ocuparía la misma clave: el upsert de abajo le sumaría las unidades y las
+  -- dejaría dentro de un lote rotulado como IP, en silencio. Se corta acá con una frase.
+  select l.tipo into v_destino_tipo
     from public.medication_lots l
    where l.medication_id = v_med
      and l.lot_number = v_lot_number
      and l.protocol_id is not distinct from p_destino_protocol_id;
 
-  if v_destino_lot is null then
-    -- El `tipo` se escribe LITERAL desde el parámetro, no se deduce del protocol_id: el CHECK de
-    -- la 0035 ata los dos campos y un `case` que "calcula" el tipo es la clase de astucia que
-    -- sobrevive hasta el día que aparezca un cuarto ámbito.
+  if v_destino_tipo is not null and v_destino_tipo <> p_destino_tipo then
+    raise exception 'En el destino ya hay un lote % de tipo % y no se le pueden sumar unidades de tipo %',
+      v_lot_number, v_destino_tipo, p_destino_tipo using errcode = 'check_violation';
+  end if;
+
+  -- UPSERT y no "buscar y después insertar": el loop de locks de arriba sólo puede bloquear filas
+  -- que YA existen, así que cuando el lote destino todavía no existe nada impide que otra escritura
+  -- concurrente —otra reasignación, o la verificación de una recepción con ese mismo lote— lo cree
+  -- en el medio. Con SELECT+INSERT las dos verían "no existe" y la segunda moriría con `23505`, que
+  -- pharmaErrorMessage muestra como "código o lote repetido": un mensaje sobre códigos en una
+  -- pantalla donde no se cargó ninguno, y el traslado sin hacer. El índice resuelve la carrera, que
+  -- es exactamente cómo la resuelve `apply_reception_stock` (0035 §4, 0040 §1).
+  --
+  -- Las dos ramas existen porque los índices son distintos: con protocolo manda el unique
+  -- medication_lots_med_proto_lot_key (0032), y en ambulatoria el parcial
+  -- medication_lots_ambulatoria_lot_key (0035), que los NULL del unique no cubren.
+  --
+  -- El `tipo` se escribe LITERAL desde el parámetro, no se deduce del protocol_id: el CHECK de la
+  -- 0035 ata los dos campos y un `case` que "calcula" el tipo es la clase de astucia que sobrevive
+  -- hasta el día que aparezca un cuarto ámbito. Y el vencimiento sigue el mismo criterio que la
+  -- recepción: el lote destino conserva el suyo y sólo lo toma del origen si no tenía ninguno.
+  if p_destino_protocol_id is not null then
     insert into public.medication_lots
       (medication_id, protocol_id, tipo, lot_number, expiry_date, quantity_on_hand)
     values
-      (v_med, p_destino_protocol_id, p_destino_tipo, v_lot_number, v_expiry, p_quantity)
+      (v_med, p_destino_protocol_id, 'protocolo', v_lot_number, v_expiry, p_quantity)
+    on conflict (medication_id, protocol_id, lot_number) do update
+      set quantity_on_hand = medication_lots.quantity_on_hand + excluded.quantity_on_hand,
+          expiry_date      = coalesce(medication_lots.expiry_date, excluded.expiry_date),
+          updated_at       = now()
     returning id into v_destino_lot;
   else
-    -- Mismo criterio de vencimiento que el upsert de apply_reception_stock (0035/0040): el lote
-    -- destino conserva el suyo y sólo lo toma del origen si no tenía ninguno.
-    update public.medication_lots
-       set quantity_on_hand = quantity_on_hand + p_quantity,
-           expiry_date      = coalesce(expiry_date, v_expiry),
-           updated_at       = now()
-     where id = v_destino_lot;
+    insert into public.medication_lots
+      (medication_id, protocol_id, tipo, lot_number, expiry_date, quantity_on_hand)
+    values
+      (v_med, null, 'ambulatoria', v_lot_number, v_expiry, p_quantity)
+    on conflict (medication_id, lot_number) where protocol_id is null do update
+      set quantity_on_hand = medication_lots.quantity_on_hand + excluded.quantity_on_hand,
+          expiry_date      = coalesce(medication_lots.expiry_date, excluded.expiry_date),
+          updated_at       = now()
+    returning id into v_destino_lot;
   end if;
 
   -- Los DOS asientos, con el mismo reference_id: es lo único que los vuelve una transferencia y

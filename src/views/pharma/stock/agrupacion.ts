@@ -165,7 +165,7 @@ export function debeAbrirse(lotes: LotDetailRow[], busqueda: string): boolean {
  * una vez escondería para siempre un lote que vence la semana que viene.
  */
 export function claveDePlegado(busqueda: string, filtro: EstadoFilter): string {
-  return `${filtro} ${busqueda.trim().toLowerCase()}`
+  return `${filtro} ${busqueda.trim().toLowerCase()}`
 }
 
 /* ── Armado de la lista ─────────────────────────────────────────────────────── */

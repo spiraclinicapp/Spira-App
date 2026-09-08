@@ -258,11 +258,16 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     setDropdownId(null)
     setReasignando({ medicationId: row.medication_id, protocolId: row.protocol_id, name: row.name, lotIdInicial: row.lot_id })
   }
-  /* Los lotes del grupo que se está reasignando, SIN filtrar por vencimiento. El ámbito elige la
-     query: los ambulatorios viven en `ambuLots` (protocol_id null) y los de estudio en `protoLots`. */
+  /* Los lotes del grupo que se está reasignando, SIN filtrar por vencimiento —si el usuario venía
+     filtrando por "Vencidos", igual tiene que poder mover cualquiera— pero SÍ sin los agotados: de
+     un lote en cero no hay nada que mover, y ofrecerlo deja el formulario sin ninguna cantidad
+     válida posible. El ámbito elige la query: los ambulatorios viven en `ambuLots` (protocol_id
+     null) y los de estudio en `protoLots`. */
   const lotesAReasignar = reasignando
     ? ((reasignando.protocolId === null ? ambuLots.data : protoLots.data) ?? []).filter(
-        (l) => claveDeGrupo(l.medication_id, l.protocol_id) === claveDeGrupo(reasignando.medicationId, reasignando.protocolId),
+        (l) =>
+          l.quantity_on_hand > 0 &&
+          claveDeGrupo(l.medication_id, l.protocol_id) === claveDeGrupo(reasignando.medicationId, reasignando.protocolId),
       )
     : []
 
@@ -368,14 +373,17 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
           onAdjusted={() => { setAjuste(null); refetchAll() }}
         />
       )}
-      {reasignando && lotesAReasignar.length > 0 && (
+      {/* Sin guard por `lotesAReasignar.length`: si no quedan lotes con unidades, el modal lo DICE.
+          No renderizar nada dejaría el renglón del menú sin efecto visible, que es el peor final
+          posible para un clic. */}
+      {reasignando && (
         <ReasignarStockModal
           accentSolid={accentSolid}
           medicationName={reasignando.name}
           lotes={lotesAReasignar}
           lotIdInicial={reasignando.lotIdInicial}
           protocolIdActual={reasignando.protocolId}
-          protocolos={protocols.data ?? []}
+          protocolos={protocols.data}
           formatFecha={formatFecha}
           onClose={() => setReasignando(null)}
           /* `refetchAll` refresca los DOS apartados, que es justo lo que hace falta: el lote sale
