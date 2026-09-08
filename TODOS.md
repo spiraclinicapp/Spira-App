@@ -201,6 +201,25 @@ como contexto histórico; borrarla cuando ese PR se mergee.
   no aflojar `dispensation_requests`) se reconfirmó y sigue en pie.
   Anotado porque el pedido llegó como si fuera nuevo, con el análisis rehecho desde cero,
   estando esta entrada escrita desde el 2026-08-15.
+- **⚠️ EL DIRECTOR CORRIGIÓ EL ENCUADRE EL MISMO DÍA, Y ESTO ES LO QUE PEDÍA.** Con la tanda de la
+  VNP ya desplegada, aclaró:
+
+  > *"Sigue sin ser una dispensación libre. Es decir, por ahí pasa que viene el director y te dice
+  > dale un Seretide a él. Para estos casos se utilizaría la farmacia ambulatoria, pero no estaría
+  > asociado a ningún paciente activo; puede que sea el hijo del director, por ejemplo, que no
+  > figura en ningún lado."*
+
+  **La VNP no cubre este caso y no puede cubrirlo.** Una VNP resuelve "el paciente enrolado vino
+  sin cita": sigue habiendo paciente, enrolamiento y protocolo, y por eso entra en el modelo
+  actual. Acá **no hay ninguna de las tres cosas** — el destinatario puede no existir como fila en
+  `patients`, y darlo de alta como paciente de investigación sólo para entregarle un inhalador
+  sería meter dato falso en una base auditable (el mismo argumento por el que se descartó el
+  "protocolo sintético"). Requisito que se desprende del ejemplo y que hay que llevar al diseño:
+  **el destinatario tiene que poder ser alguien que no está en el sistema**, así que la pantalla de
+  alta necesita resolver cómo se lo identifica sin inventarle un enrolamiento.
+
+  **Esta entrada deja de ser "algún día": es el próximo trabajo.** Lo único que la bloquea sigue
+  siendo el handoff de diseño de la pantalla de alta.
 
 ---
 
