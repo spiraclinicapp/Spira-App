@@ -230,7 +230,6 @@ export function PanelNuevaDispensacion({ onClose, onCreated }: {
             type="button"
             onClick={crearVnp}
             disabled={creandoVnp}
-            className="spira-row-link"
             style={{
               ...btnOutline,
               marginTop: 8, display: 'flex', alignItems: 'center', gap: 7,
