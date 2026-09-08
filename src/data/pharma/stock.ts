@@ -125,6 +125,45 @@ export function useAmbulatoriaLots() {
 }
 
 /**
+ * A dónde va el stock que se reasigna. Es una unión y no un `protocolId: string | null` a propósito:
+ * con el null solo, "mové a Ambulatoria" y "me olvidé de mandar el protocolo" se escriben igual, y
+ * la diferencia entre esas dos es un lote entero en el estante equivocado. El RPC recibe los dos
+ * campos y los cruza entre sí, con el mismo criterio que `create_reception` (0035).
+ */
+export type AmbitoDestino =
+  | { tipo: 'protocolo'; protocolId: string }
+  | { tipo: 'ambulatoria' }
+
+/**
+ * Mueve `quantity` unidades de un lote a otro protocolo o al ámbito ambulatorio, con motivo
+ * obligatorio (RPC `reassign_lot_stock`, 0113, pharma leader+).
+ *
+ * NO cambia el `protocol_id` de la fila: la base descuenta del lote origen y suma (o crea) el lote
+ * destino con el mismo número y vencimiento, y graba DOS `stock_movements` emparejados por un
+ * `reference_id` compartido. Mover la fila rompería la trazabilidad de las dispensaciones
+ * históricas, que quedaron ancladas a ese lote con el protocolo que tenía al dispensarse.
+ *
+ * La base rechaza el mismo ámbito de origen, los protocolos cerrados, la cantidad mayor al stock
+ * y el ámbito de investigación (que no lleva lotes: su stock sale de las recepciones, 0038).
+ */
+export async function reassignLotStock(
+  lotId: string,
+  destino: AmbitoDestino,
+  quantity: number,
+  reason: string,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('reassign_lot_stock', {
+    p_lot_id: lotId,
+    p_destino_tipo: destino.tipo,
+    p_destino_protocol_id: destino.tipo === 'protocolo' ? destino.protocolId : null,
+    p_quantity: quantity,
+    p_reason: reason,
+  })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/**
  * Ajuste manual de stock de un lote (+/-) con motivo obligatorio (RPC `adjust_stock`,
  * pharma leader+). Graba un `stock_movement`; la base impide dejar el stock en negativo.
  */

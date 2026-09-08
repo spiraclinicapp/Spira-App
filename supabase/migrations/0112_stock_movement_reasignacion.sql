@@ -1,0 +1,26 @@
+-- ============================================================================
+-- 0112 — Stock: el movimiento de reasignación entre ámbitos
+--
+-- SOLO el valor de enum, en un archivo aparte y aplicado ANTES de la 0113. En Postgres un valor
+-- recién agregado con ALTER TYPE ... ADD VALUE no se puede usar en la MISMA transacción que lo
+-- creó, y la 0113 lo usa en un INSERT. Es la trampa de la 0053 y el motivo por el que la 0086
+-- existe separada de la 0087; separarlos es la única forma de que las dos corran de un saque en
+-- el editor.
+--
+--   stock_movement_type.reasignacion — mover unidades de un ámbito a otro se llama por su nombre
+--                                      en el libro. Ver docs/plan-reasignar-stock.md (D2).
+--
+-- Por qué NO se recicla 'ajuste_manual', que ya existe desde la 0032 y también es ±: un traslado
+-- no es una corrección. Con ajuste_manual, quien sume el libro ve una pérdida en un estudio y una
+-- ganancia en otro, sin nada que las relacione; para emparejarlas habría que machear por hora,
+-- cantidad y texto del motivo. La 0113 les pone además un `reference_id` compartido, y eso sólo
+-- tiene sentido si el tipo dice de qué son las dos mitades.
+--
+-- ORDEN DE DESPLIEGUE: esta migración y la 0113 van PRIMERO, antes del front. Son puramente
+-- ADITIVAS y el que no funciona sin ellas es el código nuevo.
+--
+-- APLICAR A MANO en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0111 y ANTES de la
+-- 0113. IDEMPOTENTE: la sentencia se puede repetir.
+-- ============================================================================
+
+alter type public.stock_movement_type add value if not exists 'reasignacion';

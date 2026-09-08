@@ -24,6 +24,7 @@ import {
 import type { LotDetailRow, MedicationRow } from '../../data/pharma'
 import { NewMedicationForm } from './NewMedicationForm'
 import { AdjustStockModal } from './AdjustStockModal'
+import { ReasignarStockModal } from './ReasignarStockModal'
 import { CodigoModal } from './CodigoModal'
 import { DeleteMedicationModal } from './DeleteMedicationModal'
 import { Toast } from '../../components/Toast'
@@ -32,6 +33,7 @@ import type { ViewProps } from '../types'
 import { ESTADO_CFG } from './expiryState'
 import type { Estado } from './expiryState'
 import {
+  claveDeGrupo,
   claveDePlegado,
   construirGrupos,
   contarGrupos,
@@ -170,6 +172,13 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   const [toast, setToast] = useState<string | null>(null)
   const [codigo, setCodigo] = useState<{ medicationId: string; name: string; mode: 'asignar' | 'modificar'; currentCode?: string | null } | null>(null)
   const [ajuste, setAjuste] = useState<{ lotId: string; name: string; lotLabel: string } | null>(null)
+  /* La reasignación guarda la IDENTIDAD del grupo —(medicamento, ámbito)— y no sus lotes: los lotes
+     que la lista tiene a mano ya pasaron el filtro de vencimiento, y el modal necesita TODOS (si el
+     usuario venía filtrando por "Vencidos", igual tiene que poder mover cualquier lote). Se derivan
+     abajo desde la query cruda, que además los deja frescos después del refetch. */
+  const [reasignando, setReasignando] = useState<
+    { medicationId: string; protocolId: string | null; name: string; lotIdInicial: string | null } | null
+  >(null)
 
   const protocols = useProtocols()
   const protoSel = useMemo(
@@ -239,6 +248,23 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
     const venc = row.expiry_date ? ` · vence ${formatFecha(row.expiry_date)}` : ''
     setAjuste({ lotId: row.lot_id, name: row.name, lotLabel: `${row.lot_number}${venc} · ${row.quantity_on_hand} en stock` })
   }
+  /* Dos puertas al mismo modal: desde el medicamento se elige el lote adentro, desde un lote ya
+     viene elegido. Es la misma operación, así que es el mismo modal y no dos. */
+  const openReasignarGrupo = (grupo: GrupoVisible) => {
+    setDropdownId(null)
+    setReasignando({ medicationId: grupo.medicationId, protocolId: grupo.protocolId, name: grupo.name, lotIdInicial: null })
+  }
+  const openReasignarLote = (row: LotDetailRow) => {
+    setDropdownId(null)
+    setReasignando({ medicationId: row.medication_id, protocolId: row.protocol_id, name: row.name, lotIdInicial: row.lot_id })
+  }
+  /* Los lotes del grupo que se está reasignando, SIN filtrar por vencimiento. El ámbito elige la
+     query: los ambulatorios viven en `ambuLots` (protocol_id null) y los de estudio en `protoLots`. */
+  const lotesAReasignar = reasignando
+    ? ((reasignando.protocolId === null ? ambuLots.data : protoLots.data) ?? []).filter(
+        (l) => claveDeGrupo(l.medication_id, l.protocol_id) === claveDeGrupo(reasignando.medicationId, reasignando.protocolId),
+      )
+    : []
 
   // ── Screen A: menú de apartado ──────────────────────────────────────────────
   if (apartado === 'menu') {
@@ -342,6 +368,22 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
           onAdjusted={() => { setAjuste(null); refetchAll() }}
         />
       )}
+      {reasignando && lotesAReasignar.length > 0 && (
+        <ReasignarStockModal
+          accentSolid={accentSolid}
+          medicationName={reasignando.name}
+          lotes={lotesAReasignar}
+          lotIdInicial={reasignando.lotIdInicial}
+          protocolIdActual={reasignando.protocolId}
+          protocolos={protocols.data ?? []}
+          formatFecha={formatFecha}
+          onClose={() => setReasignando(null)}
+          /* `refetchAll` refresca los DOS apartados, que es justo lo que hace falta: el lote sale
+             de uno y entra en el otro, y refrescar sólo el que se está mirando dejaría al destino
+             mintiendo hasta el próximo montaje. */
+          onReasignado={(mensaje) => { setReasignando(null); setToast(mensaje); refetchAll() }}
+        />
+      )}
     </>
   )
 
@@ -396,6 +438,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
   const grupoProps = {
     canManage, dropdownId, setDropdownId, busqueda,
     onCodigo: openCodigo, onCopiar: copyText, onAjustar: openAjuste,
+    onReasignarLote: openReasignarLote, onReasignarGrupo: openReasignarGrupo,
     manual: manualPlegado, onToggle: toggleGrupo,
   }
 
@@ -822,6 +865,8 @@ interface RowProps {
   onCodigo: (medicationId: string, name: string, current: string | null) => void
   onCopiar: (text: string) => void
   onAjustar: (row: LotDetailRow) => void
+  /** Reasignar con ESE lote ya elegido. La puerta por medicamento vive en `GrupoProps`. */
+  onReasignarLote: (row: LotDetailRow) => void
 }
 interface GrupoProps extends RowProps {
   busqueda: string
@@ -829,6 +874,8 @@ interface GrupoProps extends RowProps {
    *  `abiertoPorDefecto` (ver `claveDePlegado`, que decide cuándo se olvidan). */
   manual: Record<string, boolean>
   onToggle: (clave: string, abiertoAhora: boolean) => void
+  /** Reasignar eligiendo el lote adentro del modal. */
+  onReasignarGrupo: (grupo: GrupoVisible) => void
 }
 
 /**
@@ -845,7 +892,7 @@ function GrupoFila({ grupo, ...props }: { grupo: GrupoVisible } & GrupoProps) {
 }
 
 /* ── Medicamento con varios lotes: resumen plegable + lotes con conector ────── */
-function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, setDropdownId, onCodigo, onCopiar, onAjustar }: { grupo: GrupoVisible } & GrupoProps) {
+function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, setDropdownId, onCodigo, onCopiar, onAjustar, onReasignarLote, onReasignarGrupo }: { grupo: GrupoVisible } & GrupoProps) {
   const abierto = manual[grupo.key] ?? grupo.abiertoPorDefecto
   const est = estadoDelGrupo(grupo.lotes)
   const cfg = ESTADO_CFG[est]
@@ -890,13 +937,17 @@ function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, se
           </KebabItem>
           <KebabItem icon="plus" disabled>Agregar variante comercial<PillPronto /></KebabItem>
           {hasCode && <KebabItem icon="copy" onClick={() => { setDropdownId(null); onCopiar(grupo.code as string) }}>Copiar EAN13</KebabItem>}
+          {/* Reasignar sí mira `canManage` (los tres de arriba no): mueve stock, como Ajustar. El
+              lote se elige adentro del modal, que es lo que esta puerta agrega sobre la del lote. */}
+          {canManage && <><div style={kebabDivider} /><KebabItem icon="logout" onClick={() => onReasignarGrupo(grupo)}>Reasignar stock</KebabItem></>}
         </KebabMenu>
       </div>
       {abierto && (
         <div className="spira-lot-rows">
           {grupo.lotes.map((r) => (
             <LotRow key={r.lot_id} row={r} busqueda={busqueda} canManage={canManage}
-              dropdownId={dropdownId} setDropdownId={setDropdownId} onAjustar={onAjustar} />
+              dropdownId={dropdownId} setDropdownId={setDropdownId} onAjustar={onAjustar}
+              onReasignarLote={onReasignarLote} />
           ))}
         </div>
       )}
@@ -905,13 +956,14 @@ function MedGroup({ grupo, busqueda, manual, onToggle, canManage, dropdownId, se
 }
 
 /* ── Fila de lote DENTRO de un grupo: sin nombre, con el conector de árbol ──── */
-function LotRow({ row, busqueda, canManage, dropdownId, setDropdownId, onAjustar }: {
+function LotRow({ row, busqueda, canManage, dropdownId, setDropdownId, onAjustar, onReasignarLote }: {
   row: LotDetailRow
   busqueda: string
   canManage: boolean
   dropdownId: string | null
   setDropdownId: (id: string | null) => void
   onAjustar: (row: LotDetailRow) => void
+  onReasignarLote: (row: LotDetailRow) => void
 }) {
   const cfg = ESTADO_CFG[estadoDe(row)]
   return (
@@ -934,13 +986,16 @@ function LotRow({ row, busqueda, canManage, dropdownId, setDropdownId, onAjustar
         {canManage
           ? <KebabItem icon="pencil" onClick={() => onAjustar(row)}>Ajustar stock</KebabItem>
           : <KebabItem icon="pencil" disabled>Ajustar stock</KebabItem>}
+        {canManage
+          ? <KebabItem icon="logout" onClick={() => onReasignarLote(row)}>Reasignar stock</KebabItem>
+          : <KebabItem icon="logout" disabled>Reasignar stock</KebabItem>}
       </KebabMenu>
     </div>
   )
 }
 
 /* ── Medicamento de UN solo lote: fila plana, con el menú completo ──────────── */
-function LoteRow({ row, busqueda, canManage, dropdownId, setDropdownId, onCodigo, onCopiar, onAjustar }: { row: LotDetailRow; busqueda: string } & RowProps) {
+function LoteRow({ row, busqueda, canManage, dropdownId, setDropdownId, onCodigo, onCopiar, onAjustar, onReasignarLote }: { row: LotDetailRow; busqueda: string } & RowProps) {
   const cfg = ESTADO_CFG[estadoDe(row)]
   const hasCode = !!row.code
   return (
@@ -966,7 +1021,15 @@ function LoteRow({ row, busqueda, canManage, dropdownId, setDropdownId, onCodigo
         </KebabItem>
         <KebabItem icon="plus" disabled>Agregar variante comercial<PillPronto /></KebabItem>
         {hasCode && <KebabItem icon="copy" onClick={() => { setDropdownId(null); onCopiar(row.code as string) }}>Copiar EAN13</KebabItem>}
-        {canManage && <><div style={kebabDivider} /><KebabItem icon="pencil" onClick={() => onAjustar(row)}>Ajustar stock</KebabItem></>}
+        {/* Un medicamento de un solo lote es las dos puertas a la vez, así que el lote ya viene
+            elegido: acá "por medicamento" y "por lote" son lo mismo. */}
+        {canManage && (
+          <>
+            <div style={kebabDivider} />
+            <KebabItem icon="pencil" onClick={() => onAjustar(row)}>Ajustar stock</KebabItem>
+            <KebabItem icon="logout" onClick={() => onReasignarLote(row)}>Reasignar stock</KebabItem>
+          </>
+        )}
       </KebabMenu>
     </div>
   )
