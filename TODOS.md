@@ -186,11 +186,19 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 - **Empezar por:** pedir el handoff de diseño de la pantalla de alta. Después
   `supabase/migrations/0050_pharma_dispensacion.sql:316` (el FEFO a espejar) y
   `0035_pharma_recepcion_tipos.sql` (la rama ambulatoria que ya existe del lado de la entrada).
-- **Depende de / bloqueado por:** **el handoff de diseño de la pantalla de alta ambulatoria.**
-  Pedirlo es el único paso que falta para desbloquear la entrada; nada más está esperando.
-  (Decía "nada técnico", que es cierto y por eso mismo la dejó dormida: sin un bloqueo con
-  nombre, una entrada no se toma nunca.) Del lado de la base no hay espera: Reportes ya lee
-  del libro compartido, así que cuando esto exista aparece en el reporte sin tocar nada.
+- **Depende de / bloqueado por:** ~~el handoff de diseño~~ **NADA — ya está desbloqueada.** El
+  diseño se cerró el 2026-09-08 con el Director (siete decisiones) y hay spec y mock en el repo:
+  `docs/superpowers/specs/2026-09-08-dispensacion-ambulatoria-design.md` y
+  `docs/mock-salida-ambulatoria.html`. Lo que sigue es escribir el plan de implementación.
+- **⚠️ CORRECCIÓN — esta entrada afirmaba algo FALSO.** Decía: *"Reportes ya lee del libro
+  compartido, así que cuando esto exista aparece en el reporte sin tocar nada."* Verificado contra
+  el `.sql` el 2026-09-08: la vista de Reportes (`0083`) arranca `from public.dispensations d` y
+  llega al libro por un join con `reference_type = 'dispensation'`; hasta el índice de apoyo
+  (`0083:40-42`) es **parcial** sobre ese valor. Una salida ambulatoria no tiene fila en
+  `dispensations`, así que **no aparecería**. Que aparezca exige reescribir la vista para que salga
+  del libro — código que alimenta números que se le muestran al sponsor — y por eso quedó
+  explícitamente fuera del alcance del spec. Quinta vez en el proyecto que un "ya está resuelto"
+  resulta falso por haberse verificado contra el front y no contra el schema.
 - **RE-PEDIDO el 2026-09-08:** el Director volvió a pedir la funcionalidad, con estas palabras:
   *"quiero poder dispensar libremente, no que esté anidado a una visita y a un paciente
   necesariamente"*. Se difirió otra vez **a propósito**, en la `/plan-eng-review` de ese día

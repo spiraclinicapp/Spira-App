@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spira · Mock — Salida ambulatoria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================================
+   TOKENS — copiados de src/styles/tokens.css el 2026-09-08 (tema claro).
+   NO se inventó ninguno: es el gotcha de los handoffs con paleta vieja.
+   ========================================================================== */
+:root {
+  --spira-ink:      #14302E;
+  --spira-ink-2:    #2A4744;
+  --spira-ink-soft: #465A57;
+  --spira-primary:  #0F5F57;
+  --spira-paper:    #F4F1EA;
+  --spira-surface:  #FBFAF6;
+  --spira-white:    #FFFFFF;
+  --spira-muted:    #61706C;
+  --spira-line:     #E4DECF;
+  --spira-line-2:   #D8CBB0;
+  --spira-good:     #5C8A5A;
+  --spira-warn:     #B0823F;
+  --spira-danger:   #A6483B;
+  --spira-acc-deep-warn:   #6E5620;
+  --spira-acc-deep-danger: #A6483B;
+  --spira-acc-deep-blue:   #3A6B8C;   /* Ambulatoria — ambitos.ts */
+  --spira-pharma-solid:    #0F5F57;
+  --spira-on-accent: #F4F1EA;
+  --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif;
+  --spira-font-text:    'Inter', system-ui, sans-serif;
+  --spira-radius-md: 10px;
+  --spira-radius-lg: 16px;
+  --spira-radius-pill: 999px;
+  --spira-shadow-sm:    0 1px 2px rgba(20, 48, 46, 0.06);
+  --spira-shadow-md:    0 2px 8px rgba(20, 48, 46, 0.10);
+  --spira-shadow-hover: 0 4px 14px rgba(20, 48, 46, 0.12);
+}
+
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; background: #EDE9DD; font-family: var(--spira-font-text); color: var(--spira-ink); }
+button, input { font-family: inherit; }
+
+/* —— cromo de la página del mock (no es la app) —————————————————————— */
+.page { max-width: 1180px; margin: 0 auto; padding: 26px 16px 70px; }
+.mockbar {
+  background: #FFF8E6; border: 1px solid var(--spira-line-2); border-radius: 12px;
+  padding: 13px 16px; font-size: 13px; color: var(--spira-ink-soft); line-height: 1.55;
+  margin-bottom: 26px;
+}
+.mockbar b { color: var(--spira-ink); }
+.mockbar ul { margin: 8px 0 0; padding-left: 20px; }
+.mockbar li { margin: 3px 0; }
+.boardlabel { font-weight: 700; font-size: 15px; margin: 34px 0 10px; color: var(--spira-ink); font-family: var(--spira-font-display); }
+.boardlabel span { font-weight: 400; color: var(--spira-muted); font-size: 13px; }
+.nuevo { color: var(--spira-acc-deep-blue); font-weight: 700; }
+
+/* —— piezas de la app ————————————————————————————————————————————— */
+.card {
+  background: var(--spira-white); border: 1px solid var(--spira-line);
+  border-radius: var(--spira-radius-lg); padding: 18px 20px;
+}
+.eyebrow {
+  font-family: var(--spira-font-display); font-size: 11px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--spira-muted);
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
+  border-radius: var(--spira-radius-pill); font-size: 12px; font-weight: 600;
+  color: var(--spira-acc-deep-blue); background: rgba(58,107,140,.12);
+}
+.seg { display: flex; gap: 6px; margin-bottom: 18px; }
+.seg button {
+  padding: 7px 14px; border-radius: var(--spira-radius-pill); font-size: 13px; font-weight: 600;
+  border: 1px solid var(--spira-line-2); background: var(--spira-white); color: var(--spira-muted);
+  cursor: pointer; transition: transform .12s ease, box-shadow .12s ease;
+}
+.seg button:hover { transform: translateY(-1px); box-shadow: var(--spira-shadow-sm); }
+.seg button[aria-pressed="true"] {
+  background: var(--spira-pharma-solid); color: var(--spira-on-accent); border-color: var(--spira-pharma-solid);
+}
+
+/* fila de medicamento con su kebab */
+.medrow {
+  display: flex; align-items: center; gap: 14px; padding: 14px 4px;
+  border-bottom: 1px solid var(--spira-line);
+}
+.medrow:last-child { border-bottom: none; }
+.medname { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; }
+.medname small { display: block; font-weight: 400; font-size: 12.5px; color: var(--spira-muted); margin-top: 2px; }
+.units { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; }
+.units small { font-weight: 400; color: var(--spira-muted); font-size: 11.5px; }
+.kebab {
+  width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent;
+  background: transparent; color: var(--spira-muted); cursor: pointer; font-size: 17px; line-height: 1;
+}
+.kebab:hover { background: var(--spira-surface); }
+
+/* menú del kebab */
+.menu {
+  width: 232px; background: var(--spira-white); border: 1px solid var(--spira-line);
+  border-radius: 12px; box-shadow: var(--spira-shadow-hover); padding: 6px; margin-left: auto;
+}
+.menu button {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  padding: 9px 10px; border: none; background: transparent; border-radius: 8px;
+  font-size: 13.5px; color: var(--spira-ink); cursor: pointer;
+}
+.menu button:hover { background: var(--spira-surface); }
+.menu button.danger { color: var(--spira-acc-deep-danger); }
+.menu hr { border: none; border-top: 1px solid var(--spira-line); margin: 5px 2px; }
+.menu .ico { width: 16px; text-align: center; color: var(--spira-muted); font-size: 13px; }
+.menu button.nuevoitem .ico { color: var(--spira-acc-deep-blue); }
+
+/* modal */
+.modal {
+  width: 520px; background: var(--spira-white); border: 1px solid var(--spira-line);
+  border-radius: var(--spira-radius-lg); box-shadow: var(--spira-shadow-hover); overflow: hidden;
+}
+.modal header { padding: 18px 22px 14px; border-bottom: 1px solid var(--spira-line); }
+.modal h3 { margin: 0; font-family: var(--spira-font-display); font-size: 17px; font-weight: 700; }
+.modal .ctx { margin-top: 9px; font-size: 13px; color: var(--spira-muted); line-height: 1.5; }
+.modal .ctx b { color: var(--spira-ink); font-weight: 600; }
+.modal .body { padding: 18px 22px 20px; }
+.modal .foot {
+  display: flex; gap: 10px; align-items: center; padding: 14px 22px;
+  border-top: 1px solid var(--spira-line); background: var(--spira-white);
+}
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--spira-muted); margin-bottom: 6px; }
+.field .req { color: var(--spira-acc-deep-danger); }
+.inp {
+  width: 100%; height: 44px; padding: 0 12px; border-radius: var(--spira-radius-md);
+  border: 1px solid var(--spira-line-2); background: var(--spira-white);
+  color: var(--spira-ink); font-size: 14px;
+}
+.inp::placeholder { color: #9AA5A2; }
+.inp.narrow { width: 96px; }
+.select {
+  width: 100%; height: 44px; padding: 0 12px; border-radius: var(--spira-radius-md);
+  border: 1px solid var(--spira-line-2); background: var(--spira-white);
+  display: flex; align-items: center; justify-content: space-between; font-size: 14px; cursor: pointer;
+}
+.select.placeholder { color: #9AA5A2; }
+.row2 { display: flex; gap: 12px; }
+.row2 > * { flex: 1; }
+.btn {
+  height: 42px; padding: 0 18px; border-radius: var(--spira-radius-md); font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: transform .12s ease, box-shadow .12s ease;
+}
+.btn:hover { transform: translateY(-1px); box-shadow: var(--spira-shadow-sm); }
+.btn.ghost { background: var(--spira-white); border: 1px solid var(--spira-line-2); color: var(--spira-ink); }
+.btn.primary { background: var(--spira-pharma-solid); border: 1px solid var(--spira-pharma-solid); color: var(--spira-on-accent); }
+.spacer { flex: 1; }
+.nota {
+  display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 12px;
+  color: var(--spira-muted); background: var(--spira-surface);
+  border: 1px solid var(--spira-line); border-radius: var(--spira-radius-md); padding: 10px 12px; line-height: 1.45;
+}
+
+/* historial */
+.hist { margin-top: 4px; }
+.histrow {
+  display: flex; align-items: center; gap: 12px; padding: 11px 4px;
+  border-bottom: 1px solid var(--spira-line); font-size: 13.5px;
+}
+.histrow:last-child { border-bottom: none; }
+.histdate { color: var(--spira-muted); font-variant-numeric: tabular-nums; width: 62px; flex: 0 0 auto; }
+.histmed { flex: 1; min-width: 0; font-weight: 600; }
+.histqty { font-variant-numeric: tabular-nums; font-weight: 700; width: 52px; text-align: right; flex: 0 0 auto; }
+.histwho { color: var(--spira-ink-soft); width: 300px; flex: 0 0 auto; }
+.histwho small { color: var(--spira-muted); }
+.vacio { padding: 22px 4px; font-size: 13px; color: var(--spira-muted); }
+
+.side { display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }
+.side > .card { flex: 1; min-width: 420px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="mockbar">
+    <b>Mock · Salida ambulatoria</b> — spec en
+    <code>docs/superpowers/specs/2026-09-08-dispensacion-ambulatoria-design.md</code>.
+    Es una maqueta estática: los colores y tipografías salen de <code>tokens.css</code>, no se inventó ninguno.
+    <ul>
+      <li>Lo <span class="nuevo">marcado en azul</span> es lo nuevo. El resto ya existe.</li>
+      <li><b>Ambulatoria es azul</b> (<code>--spira-acc-deep-blue</code>) por <code>ambitos.ts</code>; el acento de Farmacia sigue siendo petróleo.</li>
+      <li>Lo pulsable se levanta ~1px al hover — pasá el mouse. <b>Ningún borde de color</b> como realce.</li>
+    </ul>
+  </div>
+
+  <!-- ══════════════ 1 · el apartado, con el kebab abierto ══════════════ -->
+  <div class="boardlabel">1 · Farmacia › Medicamentos › Farmacia Ambulatoria <span>— el kebab gana un renglón</span></div>
+
+  <div class="side">
+    <div class="card">
+      <div class="seg">
+        <button type="button">Farmacia Protocolo</button>
+        <button type="button" aria-pressed="true">Farmacia Ambulatoria</button>
+        <button type="button">Catálogo</button>
+      </div>
+
+      <div class="medrow">
+        <span class="chip">Ambulatoria</span>
+        <span class="medname">Seretide 25/250 mcg<small>2 lotes · vence el próximo 03/2027</small></span>
+        <span class="units">14 <small>u.</small></span>
+        <button class="kebab" type="button" aria-label="Acciones">⋯</button>
+      </div>
+      <div class="medrow">
+        <span class="chip">Ambulatoria</span>
+        <span class="medname">Salbutamol 100 mcg<small>1 lote · vence 11/2026</small></span>
+        <span class="units">32 <small>u.</small></span>
+        <button class="kebab" type="button" aria-label="Acciones">⋯</button>
+      </div>
+      <div class="medrow">
+        <span class="chip">Ambulatoria</span>
+        <span class="medname">Ibuprofeno 400 mg<small>1 lote · vence 07/2027</small></span>
+        <span class="units">120 <small>u.</small></span>
+        <button class="kebab" type="button" aria-label="Acciones">⋯</button>
+      </div>
+    </div>
+
+    <div class="menu" role="menu" aria-label="Acciones de Seretide 25/250 mcg">
+      <button type="button" class="nuevoitem" role="menuitem"><span class="ico">↗</span> <span><b style="font-weight:600">Entregar</b></span></button>
+      <button type="button" role="menuitem"><span class="ico">⇄</span> Reasignar stock</button>
+      <button type="button" role="menuitem"><span class="ico">±</span> Ajustar stock</button>
+      <hr />
+      <button type="button" role="menuitem"><span class="ico">✎</span> Editar medicamento</button>
+      <button type="button" role="menuitem" class="danger"><span class="ico">🗑</span> Eliminar</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ 2 · el modal ══════════════ -->
+  <div class="boardlabel">2 · El modal <span>— un solo acto: no hay estados, ni escaneo, ni comprobante</span></div>
+
+  <div class="modal">
+    <header>
+      <h3>Entregar medicación</h3>
+      <div class="ctx">
+        <b>Seretide 25/250 mcg</b> · lote <b>L-4471</b> · vence 03/2027<br />
+        Disponible: <b>14 u.</b>
+      </div>
+    </header>
+    <div class="body">
+      <div class="row2">
+        <div class="field" style="flex:0 0 96px">
+          <label>Cantidad <span class="req">*</span></label>
+          <input class="inp narrow" value="1" />
+        </div>
+        <div class="field">
+          <label>Quién recibe <span class="req">*</span></label>
+          <input class="inp" placeholder="Nombre y apellido" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Documento <span style="font-weight:400">(opcional)</span></label>
+        <input class="inp" placeholder="DNI, si corresponde" />
+      </div>
+
+      <div class="field">
+        <label>Quién autoriza <span class="req">*</span></label>
+        <div class="select placeholder">Elegí quién autorizó la entrega <span>▾</span></div>
+      </div>
+
+      <div class="field" style="margin-bottom:0">
+        <label>Notas <span style="font-weight:400">(opcional)</span></label>
+        <input class="inp" placeholder="Algo que valga la pena dejar anotado" />
+      </div>
+
+      <div class="nota">
+        <span>ⓘ</span>
+        <span>La entrega queda registrada en el libro de stock y no se puede editar ni borrar.
+        Si te equivocás, se corrige con un ajuste.</span>
+      </div>
+    </div>
+    <div class="foot">
+      <button class="btn ghost" type="button">Cancelar</button>
+      <span class="spacer"></span>
+      <button class="btn primary" type="button">Entregar</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ 3 · el historial ══════════════ -->
+  <div class="boardlabel">3 · Últimas salidas <span>— debajo del stock, en el mismo apartado</span></div>
+
+  <div class="card">
+    <p class="eyebrow" style="margin:0 0 12px">Últimas salidas</p>
+    <div class="hist">
+      <div class="histrow">
+        <span class="histdate">08 Sep</span>
+        <span class="histmed">Seretide 25/250 mcg</span>
+        <span class="histqty">1 u.</span>
+        <span class="histwho">a <b>Juan Pérez</b> · <small>autorizó L. Molina</small></span>
+      </div>
+      <div class="histrow">
+        <span class="histdate">05 Sep</span>
+        <span class="histmed">Salbutamol 100 mcg</span>
+        <span class="histqty">2 u.</span>
+        <span class="histwho">a <b>Marta Gómez</b> · <small>autorizó L. Molina</small></span>
+      </div>
+      <div class="histrow">
+        <span class="histdate">02 Sep</span>
+        <span class="histmed">Ibuprofeno 400 mg</span>
+        <span class="histqty">10 u.</span>
+        <span class="histwho">a <b>Carlos Ruiz</b> · <small>autorizó A. Fernández</small></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="boardlabel">3b · El mismo bloque, sin salidas todavía</div>
+  <div class="card">
+    <p class="eyebrow" style="margin:0 0 4px">Últimas salidas</p>
+    <div class="vacio">Todavía no se entregó nada por farmacia ambulatoria.</div>
+  </div>
+
+</div>
+</body>
+</html>
