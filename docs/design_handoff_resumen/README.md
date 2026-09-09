@@ -131,7 +131,10 @@ Cifra: `--spira-font-display` 700 · 26px · `letter-spacing:-.025em`. Rótulo 1
 **Solo se muestran los módulos disponibles.** Laboratorio y Contable (bloqueados) NO aparecen en esta vista.
 
 Card de módulo: `var(--spira-white)`, `border:1px solid var(--spira-line)`, `border-radius:16px`, `overflow:hidden`, `display:flex`.
-- Barra de acento: `width:5px; flex:0 0 5px`, color del módulo.
+- ~~Barra de acento: `width:5px; flex:0 0 5px`, color del módulo.~~ **SACADA el 2026-09-09**
+  (decisión del Director): el sistema prohíbe la franja lateral de color y en oscuro nunca llegó
+  al contraste mínimo. No la repongas al implementar desde este handoff — el porqué completo está
+  en el comentario de `CardModulo` (`src/views/inicio/piezas.tsx`).
 - Cuerpo: `flex:1; min-width:0; padding:19px 21px` (alto natural, sin `justify-content`).
 - Encabezado: `display:flex; align-items:center; gap:11px`
   - Chip de ícono 38×38, `border-radius:11px`, fondo = acento al 11-13% de alfa, ícono 20px trazo del acento.
