@@ -4,6 +4,7 @@ import { pharmaErrorMessage } from './errors'
 import { ESTADOS_ABIERTOS } from './dispensationModel'
 import type { DispensationRequestRow, HistorialEntradaRow, RequestStatus } from './dispensationModel'
 import type { HistorialFilaRow } from './historialModel'
+import { addDaysISO, todayISO } from '../../lib/dates'
 import type { VisitKind } from '../../lib/visitLabels'
 
 /**
@@ -678,8 +679,11 @@ export function useUltimaDispensacion(enrollmentId: string | null, visitId: stri
   return useSupabaseQuery<UltimaDispensacionRow[]>(
     async (c) => {
       if (!enrollmentId) return { data: [], error: null }
-      const desde = new Date(Date.now() - DIAS_AVISO_DISPENSACION * 86_400_000)
-        .toISOString().slice(0, 10)
+      /* El borde se arma con el calendario LOCAL y no con `toISOString()`, que devuelve el día
+         UTC: entre las 21:00 y la medianoche de Mendoza la ventana empezaba un día tarde y el
+         aviso se perdía la dispensación más vieja del rango. Era además una contradicción con la
+         línea de abajo, que arma el instante con `AR_OFFSET` — dos husos en la misma consulta. */
+      const desde = addDaysISO(todayISO(), -DIAS_AVISO_DISPENSACION)
       const { data, error } = await c
         .from('dispensation_requests')
         // OJO — desvío del brief: `patient_visits` (0002) NO tiene columna `visit_name` (eso

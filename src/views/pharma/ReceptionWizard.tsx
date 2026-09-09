@@ -7,6 +7,7 @@ import { btnOutline, btnPrimary } from '../../components/buttons'
 import { createReception, createIpReception, useMedicationCodes } from '../../data/pharma'
 import type { ReceptionKind, StorageLocation } from '../../data/pharma'
 import { useNavigationGuard } from '../../lib/useUrlState'
+import { todayISO } from '../../lib/dates'
 import { Step0Setup } from './wizard/Step0Setup'
 import { Step1Scan } from './wizard/Step1Scan'
 import { Step2Lots } from './wizard/Step2Lots'
@@ -53,7 +54,12 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, i
   const [maxReached, setMaxReached] = useState(0)
   const [tipo, setTipo] = useState<ReceptionKind>(initialTipo)
   const [protocolId, setProtocolId] = useState(initialProtocolId)
-  const [receptionDate, setReceptionDate] = useState(new Date().toISOString().slice(0, 10))
+  /* `todayISO()` y NO `new Date().toISOString().slice(0, 10)`, que era lo que estaba: el segundo
+     devuelve el día **UTC**, así que entre las 21:00 y la medianoche de Mendoza este campo abría con
+     MAÑANA puesto — y este valor viaja al servidor como `reception_date`. Una recepción fechada al
+     día siguiente de cuando ocurrió no es un detalle cosmético en una base auditable. Es la misma
+     trampa que documenta `formatDateAR` en `lib/dates` desde el 2026-08-10. */
+  const [receptionDate, setReceptionDate] = useState(todayISO())
   const [notes, setNotes] = useState('')
   const [submitBusy, setSubmitBusy] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)

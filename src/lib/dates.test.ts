@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  addDaysISO, formatAR, formatDateAR, formatDateTimeAR, groupByDay, parseARInput, setDateFormat,
+  addDaysISO, formatAR, formatDateAR, formatDateTimeAR, groupByDay, isoDayAR, parseARInput, setDateFormat,
 } from './dates'
 
 /**
@@ -137,5 +137,56 @@ describe('parseARInput', () => {
     expect(parseARInput('31 Xyz 2026')).toBeNull()
     expect(parseARInput('mañana')).toBeNull()
     expect(parseARInput('')).toBeNull()
+  })
+})
+
+/**
+ * ┌──────────────────────────────────────────────────────────────────────────────────────────┐
+ * │ `isoDayAR` — el día calendario argentino de un TIMESTAMPTZ                                 │
+ * │                                                                                           │
+ * │ Es la hermana que le faltaba a `formatDateAR`: aquélla FORMATEA para mostrar, ésta         │
+ * │ devuelve el día para AGRUPAR y COMPARAR. Se testea directo —y no sólo de rebote a través   │
+ * │ de quien la use— porque es la que sostiene cuatro llamadores en tres módulos, y porque el  │
+ * │ modo de falla no se ve: una fila en el grupo equivocado se ve tan normal como una bien     │
+ * │ puesta.                                                                                    │
+ * │                                                                                           │
+ * │ **Los timestamps van en UTC (`+00:00`), que es como los manda PostgREST.** Escribirlos en  │
+ * │ `-03:00` haría que un simple recorte del texto pasara estos casos por casualidad: el test  │
+ * │ verificaría una premisa que producción nunca produce. Ya pasó (2026-09-08).                 │
+ * │                                                                                           │
+ * │ Y el offset de la función es FIJO, no el del navegador, así que estos casos dan igual en   │
+ * │ CI —que corre en UTC— que en la máquina del Director.                                      │
+ * └──────────────────────────────────────────────────────────────────────────────────────────┘
+ */
+describe('isoDayAR', () => {
+  it('un mediodía cualquiera cae en su propio día', () => {
+    expect(isoDayAR('2026-09-08T15:00:00+00:00')).toBe('2026-09-08')
+  })
+
+  /* EL CASO QUE MOTIVA TODO: 01:37 UTC del 9 son las 22:37 del 8 en Mendoza. Recortando el texto
+     daba '2026-09-09' y la entrega figuraba al día siguiente de cuando ocurrió. */
+  it('las 22:37 de Mendoza pertenecen al día 8, no al 9', () => {
+    expect(isoDayAR('2026-09-09T01:37:29.272045+00:00')).toBe('2026-09-08')
+  })
+
+  it('el borde exacto de la medianoche argentina', () => {
+    expect(isoDayAR('2026-09-09T02:59:59+00:00')).toBe('2026-09-08') // 23:59:59 del 8
+    expect(isoDayAR('2026-09-09T03:00:00+00:00')).toBe('2026-09-09') // 00:00:00 del 9
+  })
+
+  /* La contracara del caso de arriba: restar de más pasaría aquél y rompería toda la mañana. */
+  it('la mañana argentina NO se corre al día anterior', () => {
+    expect(isoDayAR('2026-09-09T12:00:00+00:00')).toBe('2026-09-09') // 09:00 del 9
+  })
+
+  it('cruza el fin de mes y el fin de año sin ayuda', () => {
+    expect(isoDayAR('2026-10-01T01:00:00+00:00')).toBe('2026-09-30')
+    expect(isoDayAR('2027-01-01T02:00:00+00:00')).toBe('2026-12-31')
+  })
+
+  /* Repliegue: ante basura devuelve el recorte en vez de 'NaN-NaN-NaN'. No es correcto, pero es
+     legible y no propaga un valor que rompa una comparación de cadenas río abajo. */
+  it('ante un valor inválido devuelve el recorte, no NaN', () => {
+    expect(isoDayAR('no-es-una-fecha')).toBe('no-es-una-')
   })
 })
