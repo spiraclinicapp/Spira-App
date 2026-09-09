@@ -24,7 +24,7 @@ import {
 } from '../data/alertDismissals'
 import type { AlertKind } from '../data/alertDismissals'
 import { visitTitle } from '../lib/visits'
-import { formatAR, todayISO, daysDiffISO, fromNow } from '../lib/dates'
+import { formatAR, todayISO, daysDiffISO, fromNow, isoDayAR } from '../lib/dates'
 import { codecs } from '../lib/router'
 import { useUrlEntity, useUrlState } from '../lib/useUrlState'
 import { GLOSARIO, GLOSARIO_ESTADOS } from '../lib/glosario'
@@ -206,7 +206,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       if (fCoord.length > 0 && !fCoord.includes(r.coordinator_id ?? SIN_VALOR)) return false
       if (!coincideBusqueda(r, q)) return false
       if (ageDays > 0) {
-        const age = daysDiffISO(r.report_due_at.slice(0, 10), today)
+        const age = daysDiffISO(isoDayAR(r.report_due_at), today)
         if (age > ageDays) return false
       }
       return true
@@ -464,7 +464,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
               const c = 'var(--spira-acc-deep-blue)'
               // report_due_at = completed_at + ETA (hora arbitraria); la antigüedad en días es
               // aproximada (±1 día cerca de medianoche UTC).
-              const days = daysDiffISO(r.report_due_at.slice(0, 10), todayISO())
+              const days = daysDiffISO(isoDayAR(r.report_due_at), todayISO())
               return (
                 <div key={`${r.visit_id}:${r.report_definition_id}`} style={{ position: 'relative' }}>
                 <div

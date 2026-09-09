@@ -3,10 +3,13 @@ import { fieldInput } from '../../../components/FormField'
 import { Badge } from '../../../components/Badge'
 import { Icon } from '../../../components/Icon'
 import { DateField } from '../../../components/DateField'
-import { yearsFromTodayISO } from '../../../lib/dates'
+import { todayISO, yearsFromTodayISO } from '../../../lib/dates'
 
 interface Props { meds: CountedMed[]; setMeds: React.Dispatch<React.SetStateAction<CountedMed[]>>; accentSolid: string }
-const today = () => new Date().toISOString().slice(0, 10)
+/* `todayISO()` y NO `new Date().toISOString().slice(0, 10)`: el segundo devuelve el día UTC, así
+   que entre las 21:00 y la medianoche de Mendoza marca como "vencido" un lote que vence MAÑANA.
+   Es la trampa que documenta `formatDateAR` en `lib/dates`. */
+const today = todayISO
 
 /**
  * Paso 2 del wizard de recepción (rama base): lotes por medicamento. Re-piel del handoff 1d:
