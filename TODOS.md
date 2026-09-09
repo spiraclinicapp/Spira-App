@@ -154,6 +154,23 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 
 ---
 
+## ~~Pharma · dispensación ambulatoria (feature propia, con pantalla de alta)~~ — HECHO el 2026-09-08 (v0.64.0, migración 0116)
+
+> **Cerrada.** Spec en `docs/superpowers/specs/2026-09-08-dispensacion-ambulatoria-design.md`, mock
+> en `docs/mock-salida-ambulatoria.html`, plan en
+> `docs/superpowers/plans/2026-09-08-salida-ambulatoria.md`. Salió como **tabla propia
+> `ambulatory_dispensations`** y un modal en el kebab de Farmacia Ambulatoria, tal como estaba
+> diseñado acá desde agosto. La entrada se deja entera: el razonamiento de por qué NO se aflojó
+> `dispensation_requests` sigue valiendo, y la corrección sobre Reportes de más abajo es un
+> pendiente vivo.
+>
+> **LO QUE QUEDA ABIERTO, y es su propia tanda:** que estas salidas aparezcan en **Reportes de
+> Farmacia**. No es gratis (ver la corrección al final de la entrada): hay que reescribir la vista
+> `0083` para que salga del libro en vez de `from dispensations`. Hoy las salidas ambulatorias se
+> ven **sólo** en el bloque "Últimas salidas" del apartado.
+
+<details><summary>La entrada original, para contexto</summary>
+
 ## Pharma · dispensación ambulatoria (feature propia, con pantalla de alta)
 
 - **Qué:** habilitar que la farmacia ambulatoria **dispense**, no sólo reciba: tabla propia
@@ -186,11 +203,19 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 - **Empezar por:** pedir el handoff de diseño de la pantalla de alta. Después
   `supabase/migrations/0050_pharma_dispensacion.sql:316` (el FEFO a espejar) y
   `0035_pharma_recepcion_tipos.sql` (la rama ambulatoria que ya existe del lado de la entrada).
-- **Depende de / bloqueado por:** **el handoff de diseño de la pantalla de alta ambulatoria.**
-  Pedirlo es el único paso que falta para desbloquear la entrada; nada más está esperando.
-  (Decía "nada técnico", que es cierto y por eso mismo la dejó dormida: sin un bloqueo con
-  nombre, una entrada no se toma nunca.) Del lado de la base no hay espera: Reportes ya lee
-  del libro compartido, así que cuando esto exista aparece en el reporte sin tocar nada.
+- **Depende de / bloqueado por:** ~~el handoff de diseño~~ **NADA — ya está desbloqueada.** El
+  diseño se cerró el 2026-09-08 con el Director (siete decisiones) y hay spec y mock en el repo:
+  `docs/superpowers/specs/2026-09-08-dispensacion-ambulatoria-design.md` y
+  `docs/mock-salida-ambulatoria.html`. Lo que sigue es escribir el plan de implementación.
+- **⚠️ CORRECCIÓN — esta entrada afirmaba algo FALSO.** Decía: *"Reportes ya lee del libro
+  compartido, así que cuando esto exista aparece en el reporte sin tocar nada."* Verificado contra
+  el `.sql` el 2026-09-08: la vista de Reportes (`0083`) arranca `from public.dispensations d` y
+  llega al libro por un join con `reference_type = 'dispensation'`; hasta el índice de apoyo
+  (`0083:40-42`) es **parcial** sobre ese valor. Una salida ambulatoria no tiene fila en
+  `dispensations`, así que **no aparecería**. Que aparezca exige reescribir la vista para que salga
+  del libro — código que alimenta números que se le muestran al sponsor — y por eso quedó
+  explícitamente fuera del alcance del spec. Quinta vez en el proyecto que un "ya está resuelto"
+  resulta falso por haberse verificado contra el front y no contra el schema.
 - **RE-PEDIDO el 2026-09-08:** el Director volvió a pedir la funcionalidad, con estas palabras:
   *"quiero poder dispensar libremente, no que esté anidado a una visita y a un paciente
   necesariamente"*. Se difirió otra vez **a propósito**, en la `/plan-eng-review` de ese día
@@ -220,6 +245,15 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 
   **Esta entrada deja de ser "algún día": es el próximo trabajo.** Lo único que la bloquea sigue
   siendo el handoff de diseño de la pantalla de alta.
+
+</details>
+
+**Cómo se resolvió el requisito del destinatario** (el que quedaba abierto arriba): **nombre
+obligatorio en texto libre + documento opcional**, sin ficha de persona reutilizable. Alcanza para
+que el inventario pueda decir a dónde fue la medicación, y no obliga a darle de alta una identidad
+a alguien que no es sujeto de investigación. Se suma **quién autoriza**, obligatorio y por
+desplegable (FK a `users`): la farmacéutica ejecuta pero no decide, y sin esa columna sería la
+única persona registrada en una decisión que no tomó.
 
 ---
 
@@ -912,7 +946,22 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 - **DISPARADOR (esto no es "algún día"):** apenas exista **la primera cuenta de coordinación real**
   — o antes, si se toca `coordina_visita()`, la policy `"ver solicitudes"`, o se agrega una tarjeta
   al Resumen que lea datos de otro módulo. Cualquiera de esas tres cosas lo vuelve urgente.
-- **DISPARADOR 2 — el mismo agujero, del lado de FARMACIA (agregado 2026-09-08):** apenas se
+- **DISPARADOR 2 — el lado de FARMACIA (agregado 2026-09-08, CORREGIDO el mismo día).**
+  ⚠️ La primera redacción de este disparador decía que `registrar_vnp` (0114) y
+  `dispensar_ambulatoria` (0116) habían pasado el QA "entrando por gerencia", dejando su rama
+  `has_min_role('pharma','operator')` sin ejecutar. **Eso es falso, verificado contra el `.sql`:**
+  en la 0116 (línea 192) ese chequeo es **el único que hay** —no existe bypass por gerencia— y en
+  la 0114 (línea 74) es **la primera condición del `or`**, que en plpgsql corta apenas encuentra un
+  true. La cuenta de QA tiene `pharma` operator+, así que en las dos **esa rama sí se ejecutó**.
+  Es la misma clase de error que este archivo ya cometió cinco veces: afirmar sobre permisos sin
+  leer la función.
+  **Lo que SÍ queda sin probar, y es más chico:** (a) que una cuenta **sin** `pharma` sea
+  correctamente RECHAZADA —el caso negativo, que la cuenta de QA no puede producir—, y (b) las
+  tres ramas de respaldo de `registrar_vnp` (gerencia, track admin, track operator asignado), que
+  el `or` nunca llega a evaluar. Ninguna de las dos es un camino inalcanzable como el de
+  `coordina_visita()`: son casos que faltan, no ramas muertas.
+  Sigue el texto original del disparador de Coordinación, que **sí** describe una rama inalcanzable:
+  apenas se
   agregue una RPC o una policy con authz propia de `pharma`, hay que probarla con una cuenta que
   tenga **solo** el módulo `pharma`. El primer caso es `registrar_vnp`
   (`docs/superpowers/plans/2026-09-08-dispensacion-libre-vnp.md`), cuya rama

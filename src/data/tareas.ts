@@ -52,13 +52,6 @@ export interface TaskRow {
   task_assignees: TaskAssigneeRow[]
 }
 
-/** Fila de `v_team_roster` (0109): el padrón mínimo para el selector de "asignar a". */
-export interface RosterRow {
-  id: string
-  full_name: string
-  puesto: string | null
-}
-
 /**
  * Traduce los errores de LECTURA. El caso que hace falta de verdad es el de la migración sin
  * aplicar: sin esto, `useSupabaseQuery` muestra el `message` crudo de PostgREST —en inglés y
@@ -99,25 +92,8 @@ export function useMyTasks(): QueryResult<TaskRow[]> {
   )
 }
 
-/**
- * El padrón para el selector de "asignar a" (0109).
- *
- * NO se usa `v_team_access`: está cerrada a gerencia por RLS y devuelve una sola fila —la propia—
- * para todos los demás, en silencio. Con esa fuente, el selector mostraría una única persona y
- * asignarle a otro sería imposible sin ningún error que lo explicara.
- */
-export function useTeamRoster(): QueryResult<RosterRow[]> {
-  return useSupabaseQuery<RosterRow[]>(
-    (c) =>
-      c
-        .from('v_team_roster')
-        .select('id, full_name, puesto')
-        .order('full_name', { ascending: true })
-        .returns<RosterRow[]>(),
-    [],
-    tareasReadErrorMessage,
-  )
-}
+/* El padrón del equipo (`useTeamRoster` / `RosterRow`) se mudó a `data/team.ts` el 2026-09-08:
+   no es de Coordinación, es del Core, y también lo consume Farmacia. */
 
 /**
  * Traduce los errores de ESCRITURA a un texto sereno en castellano.

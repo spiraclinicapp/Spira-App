@@ -305,3 +305,45 @@ export async function eliminarCuenta(userId: string, datos: { email: string | nu
   })
   return { error: null }
 }
+
+/* ============================================================================
+   El padrón mínimo del equipo (vista `v_team_roster`, 0109).
+
+   Vivía en `data/tareas.ts` hasta el 2026-09-08 y se mudó acá: no es de Coordinación, es del Core.
+   Lo consumen el selector de "asignar a" de Tareas y el de "quién autoriza" de la salida
+   ambulatoria de Farmacia, y un import de Pharma hacia `data/tareas` describiría una relación
+   entre módulos que no existe.
+   ========================================================================== */
+
+/** Fila de `v_team_roster` (0109): id, nombre y puesto de las cuentas ACTIVAS. */
+export interface RosterRow {
+  id: string
+  full_name: string
+  puesto: string | null
+}
+
+/**
+ * El padrón para cualquier selector de personas del centro.
+ *
+ * ⚠️ NO se usa `v_team_access`, y es la razón por la que esta vista existe: está cerrada a
+ * gerencia por RLS y devuelve **una sola fila —la propia— para todos los demás, en silencio**.
+ * Con esa fuente, el selector mostraría una única persona (uno mismo) y elegir a otro sería
+ * imposible sin ningún error que lo explicara. Le pasó a Tareas (0108→0109) y le habría pasado
+ * igual al desplegable de autorizante de la salida ambulatoria.
+ *
+ * Sólo devuelve cuentas activas: los selectores existen para elegir a alguien que puede recibir
+ * trabajo o autorizar algo, y una cuenta dada de baja no puede. Lo ya asignado no se rompe porque
+ * los consumidores guardan el nombre como snapshot.
+ */
+export function useTeamRoster(): QueryResult<RosterRow[]> {
+  return useSupabaseQuery<RosterRow[]>(
+    (c) =>
+      c
+        .from('v_team_roster')
+        .select('id, full_name, puesto')
+        .order('full_name', { ascending: true })
+        .returns<RosterRow[]>(),
+    [],
+    teamReadErrorMessage,
+  )
+}

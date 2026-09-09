@@ -6,6 +6,7 @@
 export * from './drugs'
 export * from './medications'
 export * from './stock'
+export * from './ambulatoria'
 export * from './receptions'
 export * from './laboratorios'
 export * from './ipStock'
