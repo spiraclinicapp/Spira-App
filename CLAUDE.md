@@ -60,7 +60,7 @@ npm run build       # typecheck + tests + build de producción  ← el GATE de v
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
-   número. La última aplicada va por la `0116` (ver `supabase/README.md`).
+   número. La última aplicada va por la `0117` (ver `supabase/README.md`).
    **Y adentro de una función con `set search_path` acotado, calificá todo lo que no sea de
    `public` ni de `pg_catalog`.** `uuid_generate_v4()` (uuid-ossp) vive en el schema `extensions`
    en Supabase: sin calificar, la migración aplica **en verde** —plpgsql no resuelve las llamadas
