@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { DispensationRequestRow, IpDocumentRow, RequestItemRow } from '../../../data/pharma/dispensationModel'
-import { primerPendiente, readyBlockedReason, requisitos } from './estados'
+import type { DispensationRequestRow, IpDocumentRow, RequestItemRow, RequestStatus } from '../../../data/pharma/dispensationModel'
+import { badgeDeHistorial, badgeOf, primerPendiente, readyBlockedReason, requisitos, STATUS_META } from './estados'
 
 /**
  * Los requisitos del cajón y el motivo del bloqueo.
@@ -200,5 +200,66 @@ describe('readyBlockedReason', () => {
     for (const r of casos) {
       expect(readyBlockedReason(r) === null).toBe(primerPendiente(r) === null)
     }
+  })
+})
+
+/**
+ * ┌──────────────────────────────────────────────────────────────────────────────────────────┐
+ * │ LA RED QUE PROTEGE AL HISTORIAL DE PROTOCOLO                                              │
+ * │                                                                                           │
+ * │ La 0117 unió las dos fuentes del historial y, con eso, la fila dejó de ser un              │
+ * │ `DispensationRequestRow`: ahora llegan los dos estados CRUDOS en columnas sueltas. El      │
+ * │ badge se calcula desde ahí, y ése era el riesgo de toda la tanda — `HistorialPorDias` es   │
+ * │ código en producción que funciona, y un badge que dice "Entregada" sobre una que sólo está │
+ * │ lista para retirar no se ve roto: se ve perfecto y miente.                                │
+ * │                                                                                           │
+ * │ Este bloque recorre TODAS las combinaciones de estado y exige que el badge nuevo sea       │
+ * │ idéntico al que la pantalla venía dibujando. No compara contra valores escritos a mano —   │
+ * │ compara contra `badgeOf`, la función vieja, sobre la misma fila.                           │
+ * └──────────────────────────────────────────────────────────────────────────────────────────┘
+ */
+describe('badgeDeHistorial · la rama de protocolo no cambia de comportamiento', () => {
+  const ESTADOS: RequestStatus[] = ['solicitada', 'preparando', 'atendida', 'rechazada', 'cancelada']
+  const DISPENSACIONES = [null, 'en_preparacion', 'lista', 'entregada'] as const
+
+  for (const status of ESTADOS) {
+    for (const disp of DISPENSACIONES) {
+      it(`${status} + ${disp ?? 'sin dispensación'} da el mismo badge que antes`, () => {
+        const r: DispensationRequestRow = {
+          ...pedido(),
+          status,
+          dispensations: disp
+            ? [{
+                id: 'd1', status: disp, correlative_number: 17, dispensation_code: null,
+                daily_number: 1, delivered_at: null, ip_kits: null, items: [],
+              }]
+            : [],
+        }
+        expect(badgeDeHistorial({
+          tipo: 'protocolo',
+          estado_solicitud: r.status,
+          estado_dispensacion: disp,
+        })).toEqual(badgeOf(r))
+      })
+    }
+  }
+})
+
+describe('badgeDeHistorial · la rama ambulatoria', () => {
+  /* Una salida ambulatoria nace entregada y no se mueve nunca: la 0116 no le dio estados ni
+     policies de update. Reusa el verde de `atendida` porque para quien mira es lo mismo. */
+  it('siempre dice Entregada, sin mirar los estados que no tiene', () => {
+    expect(badgeDeHistorial({ tipo: 'ambulatoria', estado_solicitud: null, estado_dispensacion: null }))
+      .toEqual(STATUS_META.atendida)
+  })
+})
+
+describe('badgeDeHistorial · el caso que no debería pasar', () => {
+  /* La vista garantiza el estado en toda fila de protocolo, así que esto es defensa. Y por eso
+     mismo NO se inventa un estado: decir "Solicitada" sobre algo que no llegó es afirmar lo que
+     no sabemos, en la pantalla donde se viene a averiguar qué pasó. */
+  it('sin estado no inventa uno: lo dice', () => {
+    expect(badgeDeHistorial({ tipo: 'protocolo', estado_solicitud: null, estado_dispensacion: null }).label)
+      .toBe('Sin estado')
   })
 })

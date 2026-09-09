@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 // Del MODELO y no del índice de `data/pharma`: ese arrastra el cliente de Supabase, que lee
 // `window` al cargarse, y este archivo es vocabulario + reglas puras. Así se testea sin navegador.
 import type { BoardColumn, DispensationRequestRow, RequestStatus } from '../../../data/pharma/dispensationModel'
+import type { HistorialTipo } from '../../../data/pharma/historialModel'
 import {
   activeDispensation,
   constanciaImpresa,
@@ -108,14 +109,65 @@ export const STATUS_META: Record<
  * en `RequestStatus` son ambas `atendida` pero para la coordinadora son cosas muy distintas: una
  * la puede ir a buscar el paciente, la otra ya se la llevó.
  */
-export function badgeOf(r: DispensationRequestRow): { label: string; color: string; tint: string } {
-  if (r.status === 'atendida' || r.status === 'preparando') {
-    const d = activeDispensation(r)
-    if (d?.status === 'lista') return { label: 'Lista para retirar', color: COLUMN_META.lista.color, tint: COLUMN_META.lista.tint }
-    if (d?.status === 'entregada') return STATUS_META.atendida
-  }
-  return STATUS_META[r.status]
+export function badgeOf(r: DispensationRequestRow): Badge {
+  return badgeDeEstado(r.status, activeDispensation(r)?.status ?? null)
 }
+
+/** Etiqueta + color de un badge. Nombrado para que las tres funciones digan lo mismo. */
+export interface Badge { label: string; color: string; tint: string }
+
+/**
+ * LA regla, sobre los dos estados crudos y nada más.
+ *
+ * `badgeOf` la llama con la fila entera y `badgeDeHistorial` con las dos columnas que trae la
+ * vista `v_pharma_history` (0117): son la misma pregunta hecha desde dos formas de fila, así que
+ * es UNA sola función y no dos que hay que acordarse de mantener iguales. Cuando el historial
+ * dejó de traer `DispensationRequestRow` entera, copiar el cuerpo acá habría sido el camino
+ * corto: dos ramas que se ven idénticas hoy y divergen en el primer estado nuevo, en silencio y
+ * sólo en una de las dos pantallas.
+ */
+export function badgeDeEstado(solicitud: RequestStatus, dispensacion: string | null): Badge {
+  if (solicitud === 'atendida' || solicitud === 'preparando') {
+    if (dispensacion === 'lista') return { label: 'Lista para retirar', color: COLUMN_META.lista.color, tint: COLUMN_META.lista.tint }
+    if (dispensacion === 'entregada') return STATUS_META.atendida
+  }
+  return STATUS_META[solicitud]
+}
+
+/**
+ * Badge de una fila del historial unificado, sea de protocolo o ambulatoria.
+ *
+ * Una salida ambulatoria SÓLO puede estar entregada: la 0116 no le dio estados ni policies de
+ * update, así que nace entregada y no se mueve nunca. Reusa el mismo verde de `atendida` porque
+ * para quien mira es exactamente lo mismo — "esto ya salió".
+ *
+ * El `null` del final NO debería pasar (la vista garantiza el estado en toda fila de protocolo),
+ * y por eso mismo no se inventa uno: decir "Solicitada" sobre un estado que no llegó es afirmar
+ * algo que no sabemos, en la pantalla donde se viene a averiguar qué pasó.
+ */
+export function badgeDeHistorial(f: {
+  tipo: HistorialTipo
+  estado_solicitud: RequestStatus | null
+  estado_dispensacion: string | null
+}): Badge {
+  if (f.tipo === 'ambulatoria') return STATUS_META.atendida
+  if (f.estado_solicitud === null) return { label: 'Sin estado', color: 'var(--spira-muted)', tint: 'var(--spira-surface)' }
+  return badgeDeEstado(f.estado_solicitud, f.estado_dispensacion)
+}
+
+/**
+ * Chip que reemplaza al del protocolo en una salida ambulatoria.
+ *
+ * Azul profundo (`--spira-acc-deep-blue`), el mismo tono con el que Farmacia ya marca
+ * "Preparando" — no estrena un color. **El color no es la única señal**: el chip lleva la
+ * palabra al lado, que es lo que pide WCAG 1.4.1 y lo que hace que se entienda en una captura
+ * en blanco y negro.
+ */
+export const CHIP_AMBULATORIA = {
+  label: 'Ambulatoria',
+  color: 'var(--spira-acc-deep-blue)',
+  tint: 'rgba(58, 107, 140, 0.13)',
+} as const
 
 /**
  * Chip de "Fuera de cronograma", igual en la card del tablero y en el encabezado del cajón: es la

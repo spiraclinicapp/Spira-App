@@ -4,16 +4,22 @@ import { Icon } from '../../../components/Icon'
 import { PanelNuevaDispensacion } from './PanelNuevaDispensacion'
 
 /**
- * Cajón del alta manual: el formulario que CREA la solicitud. Al confirmarla se abre el cajón de
- * preparación, que es donde vive el riel de proceso.
+ * Cajón del alta manual: el formulario que da de alta lo que sale por el mostrador.
+ *
+ * Tiene DOS ramas bajo un alternador (ver `PanelNuevaDispensacion`): la **de protocolo**, que crea
+ * una solicitud y abre el cajón de preparación —donde vive el riel de proceso—, y la
+ * **ambulatoria**, que entrega en un solo acto y termina ahí. Por eso son dos callbacks y no uno:
+ * lo que pasa después de confirmar es distinto, y un único `onCreated` obligaría a que quien lo
+ * recibe adivine cuál de las dos fue.
  *
  * Antes mostraba acá la barra de pasos marcando "Preparando". Se sacó al reemplazarla por el riel:
  * el riel enumera los requisitos de un pedido REAL (constancia, renglones, unidades) y acá todavía
  * no hay pedido del que hablar — habría que inventarle un estado a algo que no existe.
  */
-export function NuevaDispensacionDrawer({ onClose, onCreated }: {
+export function NuevaDispensacionDrawer({ onClose, onCreated, onEntregado }: {
   onClose: () => void
   onCreated: (requestId: string) => void
+  onEntregado: (mensaje: string) => void
 }) {
   return (
     // Mismo ancho que el cajón de una solicitud existente: son el mismo flujo.
@@ -31,7 +37,7 @@ export function NuevaDispensacionDrawer({ onClose, onCreated }: {
           </div>
         </div>
 
-        <PanelNuevaDispensacion onClose={onClose} onCreated={onCreated} />
+        <PanelNuevaDispensacion onClose={onClose} onCreated={onCreated} onEntregado={onEntregado} />
       </div>
     </Drawer>
   )

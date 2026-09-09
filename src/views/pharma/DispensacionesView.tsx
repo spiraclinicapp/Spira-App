@@ -9,16 +9,19 @@ import { Toast } from '../../components/Toast'
 import {
   useDispensationBoard,
   useDispensationHistory,
+  useDispensationRequest,
+  useSalidaAmbulatoria,
   columnOf,
   startDispensationPreparation,
   markDispensationReady,
   deliverDispensation,
   activeDispensation,
 } from '../../data/pharma'
-import type { BoardColumn, DispensationRequestRow } from '../../data/pharma'
+import type { BoardColumn, DispensationRequestRow, HistorialFilaRow, HistorialTipo } from '../../data/pharma'
 import { readyBlockedReason } from './dispensaciones/estados'
 import { KanbanBoard } from './dispensaciones/KanbanBoard'
 import { DispensacionDrawer } from './dispensaciones/DispensacionDrawer'
+import { SalidaAmbulatoriaDrawer } from './dispensaciones/SalidaAmbulatoriaDrawer'
 import { NuevaDispensacionDrawer } from './dispensaciones/NuevaDispensacionDrawer'
 import { HistorialPorDias } from './dispensaciones/HistorialPorDias'
 import { btnOutline } from '../../components/buttons'
@@ -58,6 +61,14 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
     return abrirFicha && pid ? () => abrirFicha(pid, r.protocol?.id) : undefined
   }
 
+  /* Lo mismo para una fila del historial, que desde la 0117 ya no es un `DispensationRequestRow`.
+     `destinatario_id` viene en null en las salidas ambulatorias —no hay ficha que abrir— así que
+     la misma condición que cubre "el embed no cargó" cubre "esta persona no es paciente". */
+  const abrirPacienteDeFila = (f: HistorialFilaRow) => {
+    const pid = f.destinatario_id
+    return abrirFicha && pid ? () => abrirFicha(pid, f.protocol_id ?? undefined) : undefined
+  }
+
   const [day, setDay] = useUrlState('dia', todayISO())
   /* Protocolos elegidos por CÓDIGO; vacío = todos. Multi como en Stock y Visitas. `protoKey` es la
      versión estable para las deps: un array cambia de identidad en cada render y haría refetchear
@@ -69,7 +80,7 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
     codec: oneOf(['tablero', 'historial'] as const),
   })
   const [pagina, setPagina] = useState(0)
-  const [acumuladas, setAcumuladas] = useState<DispensationRequestRow[]>([])
+  const [acumuladas, setAcumuladas] = useState<HistorialFilaRow[]>([])
   /** Última página ya volcada en `acumuladas`, para no aplicarla dos veces. */
   const aplicadaRef = useRef(-1)
   const [creando, setCreando] = useState(false)
@@ -95,47 +106,75 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
   const codigoDe = (r: DispensationRequestRow) => activeDispensation(r)?.dispensation_code ?? null
   const urlLocation = useUrlLocation()
   const codigoAbierto = urlLocation?.path[0] ?? null
-  /* Se prueba primero `resolveCode` (el código legible, sin distinguir mayúsculas — decisión del
-     Director, 2026-08-24, porque estas direcciones se dictan por teléfono) y recién si no hay match
-     se cae a `resolveShortId` contra el `id`. Mismo orden que `protocolsNav.ts`, y por la misma
-     razón: sostiene una URL vieja con el identificador corto cuando la dispensación se SELLA
-     DESPUÉS de haberla compartido — el `id` no cambia, así que `shortId(id)` la sigue encontrando
-     aunque ya tenga código.
-     Se busca en `all` Y en `acumuladas` en cada paso, igual que `open` más abajo: el historial
-     pagina hacia atrás y muestra entregas de días anteriores al `day` elegido, que no están en `all`
-     (acotado al día) — buscar solo ahí dejaba esas filas sin poder abrirse por URL. */
-  const openId = codigoAbierto
-    ? (
-        resolveCode(all, codigoAbierto, codigoDe) ??
-        resolveCode(acumuladas, codigoAbierto, codigoDe) ??
-        resolveShortId(all, codigoAbierto) ??
-        resolveShortId(acumuladas, codigoAbierto)
-      )?.id ?? null
-    : null
+
+  /* Prefijo de las salidas ambulatorias en la URL, igual que el `p-` de Pacientes. Hace falta
+     porque una ambulatoria NUNCA tiene código legible (no emite comprobante), así que su segmento
+     es siempre un identificador corto — y sin marca no habría cómo saber, mirando la URL, en cuál
+     de las dos fuentes buscarlo. Las de protocolo siguen sin prefijo: su código real arranca con
+     `D-` y un hex corto de 8 nunca se confunde con eso. */
+  const AMBU_PREFIX = 'a-'
+  const esSegmentoAmbulatorio = codigoAbierto?.toLowerCase().startsWith(AMBU_PREFIX) ?? false
+  /* Dentro de la rama de protocolo se prueba primero `resolveCode` (el código legible, sin
+     distinguir mayúsculas — decisión del Director, 2026-08-24, porque estas direcciones se dictan
+     por teléfono) y recién si no hay match se cae a `resolveShortId` contra el `id`. Mismo orden
+     que `protocolsNav.ts`, y por la misma razón: sostiene una URL vieja con el identificador corto
+     cuando la dispensación se SELLA DESPUÉS de haberla compartido — el `id` no cambia, así que
+     `shortId(id)` la sigue encontrando aunque ya tenga código. */
+  /**
+   * Qué señala la URL: el TIPO de fila y su id. El tipo importa porque de él depende con qué
+   * consulta se trae el detalle — una salida ambulatoria no vive en `dispensation_requests`.
+   *
+   * Sale de las filas ya cargadas y no de una consulta propia, igual que antes: si el segmento no
+   * matchea nada de lo cargado, `codigoNoResuelto` lo dice con serenidad en vez de afirmar que no
+   * existe (el tablero se acota al día y el historial pagina, así que legítimamente no están todas).
+   */
+  const seleccion: { tipo: HistorialTipo; id: string } | null = (() => {
+    if (!codigoAbierto) return null
+    if (esSegmentoAmbulatorio) {
+      const token = codigoAbierto.slice(AMBU_PREFIX.length)
+      const f = resolveShortId(acumuladas.filter((r) => r.tipo === 'ambulatoria'), token)
+      return f ? { tipo: 'ambulatoria', id: f.id } : null
+    }
+    /* Se prueba primero el código legible y recién después el identificador corto, en las dos
+       fuentes cada vez: el historial pagina hacia atrás y muestra días anteriores al `day`
+       elegido, que no están en `all`. */
+    const protocolo = acumuladas.filter((r) => r.tipo === 'protocolo')
+    const hit =
+      resolveCode(all, codigoAbierto, codigoDe)?.id ??
+      resolveCode(protocolo, codigoAbierto, (f) => f.codigo)?.id ??
+      resolveShortId(all, codigoAbierto)?.id ??
+      resolveShortId(protocolo, codigoAbierto)?.id ??
+      null
+    return hit ? { tipo: 'protocolo', id: hit } : null
+  })()
+
   const [, setPath] = useUrlPath()
-  const setOpenId = (id: string | null) => {
-    const fila = id ? all.find((d) => d.id === id) ?? acumuladas.find((d) => d.id === id) ?? null : null
-    // Sin código sellado (rechazada, cancelada o todavía en preparación) se escribe el identificador
-    // corto — ver el comentario de `codigoDe` más arriba.
-    //
-    // Hay un caso más: id SIN fila. Es el del alta (ver el `onCreated` de más abajo), que abre el
-    // cajón de preparación apenas se crea la solicitud — pero el `refetch` que la trae es asíncrono,
-    // así que en el momento de este llamado la fila todavía no está ni en `all` ni en `acumuladas`.
-    // Se escribe igual el corto del id: una dispensación recién creada NUNCA tiene código sellado (se
-    // sella al marcar lista), así que el corto es SIEMPRE el segmento correcto para ese caso, no una
-    // aproximación. Cuando llegue el refetch, `resolveShortId` la encuentra contra ese mismo corto y
-    // el cajón abre solo, sin que nadie tenga que volver a llamar a este setter.
-    const codigo = fila ? (codigoDe(fila) ?? shortId(fila.id)) : id ? shortId(id) : null
+  /**
+   * Escribe el segmento que corresponde a la fila que se abre.
+   *
+   * Sin código sellado (rechazada, cancelada o todavía en preparación) va el identificador corto —
+   * ver el comentario de `codigoDe` más arriba. Las ambulatorias van SIEMPRE por el corto, con su
+   * prefijo: no tienen código que sellar.
+   *
+   * Hay un caso más: abrir por id SIN fila en mano. Es el del alta, que abre el cajón de
+   * preparación apenas se crea la solicitud — pero el `refetch` que la trae es asíncrono, así que
+   * en ese momento la fila todavía no está en ninguna de las dos listas. Se escribe igual el corto:
+   * una dispensación recién creada NUNCA tiene código sellado (se sella al marcar lista), así que
+   * el corto es SIEMPRE el segmento correcto para ese caso, no una aproximación. Cuando llegue el
+   * refetch, `resolveShortId` la encuentra contra ese mismo corto y el cajón abre solo.
+   */
+  const abrir = (tipo: HistorialTipo, id: string, codigo: string | null) => {
+    const segmento = tipo === 'ambulatoria' ? `${AMBU_PREFIX}${shortId(id)}` : (codigo ?? shortId(id))
     /* Se conservan los cuatro filtros del tablero: abrir un cajón no puede resetearte el tablero que
        tenías detrás, ni dejarte ahí al cerrarlo.
        Y abrir apila (el atrás cierra el cajón) pero **cerrar reemplaza**: si cerrar también apilara,
        el atrás REABRIRÍA el cajón que acabás de cerrar, y en esta pantalla abrir y cerrar cajones es
        el trabajo. Es la misma lección que costó el review de la Fase D con el stepper de Visitas. */
-    setPath(codigo ? [codigo] : [], {
-      conservar: ['dia', 'vista', 'protocolo', 'buscar'],
-      mode: codigo ? 'push' : 'replace',
-    })
+    setPath([segmento], { conservar: ['dia', 'vista', 'protocolo', 'buscar'], mode: 'push' })
   }
+  const cerrar = () => setPath([], { conservar: ['dia', 'vista', 'protocolo', 'buscar'], mode: 'replace' })
+  /** Abrir una dispensación de protocolo cuya fila del tablero ya tenemos a mano. */
+  const abrirPedido = (r: DispensationRequestRow) => abrir('protocolo', r.id, codigoDe(r))
 
   // El historial no FILTRA por fecha (sigue mostrando todos los días, como pide el handoff): la
   // fecha mueve el punto de partida de la lista, que arranca ahí y avanza hacia atrás.
@@ -156,6 +195,21 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
     setAcumuladas([])
     aplicadaRef.current = -1
   }, [protoKey, query, vista, day])
+
+  /**
+   * Vuelve a traer el historial desde la primera página, para mostrar algo que acaba de pasar.
+   *
+   * Los tres pasos son necesarios y ninguno alcanza solo: `setPagina(0)` no dispara nada si ya
+   * estaba en 0 (las deps no cambian), `aplicadaRef` tiene que soltar la página 0 o el efecto de
+   * acumulación la descarta por ya aplicada, y el `refetch` es el que efectivamente vuelve a
+   * consultar cuando la página no se movió.
+   */
+  const recargarHistorial = () => {
+    setPagina(0)
+    setAcumuladas([])
+    aplicadaRef.current = -1
+    h.refetch()
+  }
 
   /**
    * Acumulación de páginas, con dos guardas que no son paranoia:
@@ -218,14 +272,30 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
   }, [all, protoSel, query])
 
   const visibles = useMemo(() => [...byColumn.values()].reduce((n, l) => n + l.length, 0), [byColumn])
+
   /**
-   * La fila abierta puede venir de cualquiera de las dos vistas, así que se busca en las dos. El
-   * tablero solo tiene los cuatro estados vivos: una rechazada o cancelada existe únicamente en el
-   * historial, y buscarla solo en `all` dejaba el cajón sin abrir al clickearla ahí.
+   * El DETALLE de lo que la URL señala, que desde la 0117 ya no siempre está en mano.
+   *
+   * Antes el cajón se alimentaba de la fila del historial, que traía el pedido entero. Ahora el
+   * historial devuelve filas de PRESENTACIÓN —lo justo para dibujar el renglón— así que el detalle
+   * se trae por id, con la consulta que corresponda a cada tipo.
+   *
+   * Se pregunta primero por el TABLERO: si la fila ya está cargada ahí (el caso normal, que es
+   * trabajar sobre lo del día), no se gasta una consulta. Recién si no está —una rechazada, una
+   * cancelada, o cualquier cosa de un día anterior que sólo vive en el historial— se pide por id.
+   *
+   * Los dos hooks se llaman SIEMPRE, con null cuando no aplican: un hook condicional es justo lo
+   * que React no permite, y el `null` ya está contemplado en los dos (devuelven data null sin
+   * consultar).
    */
-  const open = openId
-    ? all.find((r) => r.id === openId) ?? acumuladas.find((r) => r.id === openId) ?? null
+  const delTablero = seleccion?.tipo === 'protocolo'
+    ? all.find((r) => r.id === seleccion.id) ?? null
     : null
+  const pedido = useDispensationRequest(
+    seleccion?.tipo === 'protocolo' && !delTablero ? seleccion.id : null,
+  )
+  const salida = useSalidaAmbulatoria(seleccion?.tipo === 'ambulatoria' ? seleccion.id : null)
+  const open = delTablero ?? pedido.data ?? null
 
   /**
    * Aviso sereno cuando la URL trae un código que no matchea ninguna fila cargada. NO es "no existe":
@@ -238,9 +308,13 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
    * mañana no la trae (acotado al día) y el historial ni siquiera se consultó (arranca en `tablero`).
    *
    * Tres condiciones, ni una menos ni una más: hay segmento en la URL, las DOS consultas (tablero e
-   * historial) ya terminaron de cargar, y no resolvió contra ninguna fila.
+   * historial) ya terminaron de cargar, y el segmento no resolvió contra ninguna fila.
+   *
+   * Se mira `seleccion` y NO el detalle: si el segmento resolvió, el cajón ya está abierto y es él
+   * quien cuenta si su consulta todavía viaja o vino vacía. Mirar el detalle acá haría parpadear
+   * este aviso durante cada carga, diciendo "no la encontramos" sobre algo que sí se encontró.
    */
-  const codigoNoResuelto = codigoAbierto !== null && !q.loading && !h.loading && !open
+  const codigoNoResuelto = codigoAbierto !== null && !q.loading && !h.loading && !seleccion
 
   /**
    * La acción primaria va en la fila del título (donde el shell la alinea con el H1); los tres
@@ -266,7 +340,7 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
       setBusyId(null)
       if (res.error) { setErr(res.error); return }
       q.refetch()
-      setOpenId(r.id)          // preparar = abrir el cajón y ponerse a escanear
+      abrirPedido(r)            // preparar = abrir el cajón y ponerse a escanear
       return
     }
     if (column === 'preparando') {
@@ -277,7 +351,7 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
       // pedido de IP solo no tiene ningún renglón — con la cuenta a mano daba cero pendientes, el
       // tablero intentaba marcarlo lista y el servidor lo rechazaba con un error crudo, salteando
       // el bloqueo que el cajón sí aplica. Una sola regla, en `estados.ts`, para las dos pantallas.
-      if (readyBlockedReason(r)) { setBusyId(null); setOpenId(r.id); return }
+      if (readyBlockedReason(r)) { setBusyId(null); abrirPedido(r); return }
       const res = await markDispensationReady(r.id)
       setBusyId(null)
       if (res.error) { setErr(res.error); return }
@@ -292,7 +366,7 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
       // salieron, y ese número descuenta stock y no se corrige nunca más. Entregar desde acá salteaba
       // el campo y el pop-up enteros —los dos viven en el cajón— y mandaba la entrega sin kits. Se
       // abre el cajón, que es donde se declara.
-      if (r.includes_ip) { setBusyId(null); setOpenId(r.id); return }
+      if (r.includes_ip) { setBusyId(null); abrirPedido(r); return }
       const res = await deliverDispensation(disp.id)
       setBusyId(null)
       if (res.error) { setErr(res.error); return }
@@ -380,7 +454,7 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
         ) : h.error ? (
           <div style={errBox} role="alert">
             <Icon name="alertCircle" size={15} />
-            <span>No pudimos cargar el historial.</span>
+            <span>{h.error}</span>
           </div>
         ) : acumuladas.length === 0 ? (
           <EmptyState
@@ -398,8 +472,8 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
             rows={acumuladas}
             hasMore={h.data?.hasMore ?? false}
             loading={h.loading}
-            onOpen={(r) => setOpenId(r.id)}
-            onOpenPatient={abrirPacienteDe}
+            onOpen={(f) => abrir(f.tipo, f.id, f.codigo)}
+            onOpenPatient={abrirPacienteDeFila}
             onMore={() => setPagina((p) => p + 1)}
           />
         )
@@ -436,7 +510,7 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
           rows={byColumn}
           busyId={busyId}
           canOperate={canOperate}
-          onOpen={(r) => setOpenId(r.id)}
+          onOpen={abrirPedido}
           onOpenPatient={abrirPacienteDe}
           onAdvance={advance}
         />
@@ -445,10 +519,23 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
       {open && (
         <DispensacionDrawer
           r={open}
-          onClose={() => setOpenId(null)}
-          onChanged={() => q.refetch()}
+          onClose={cerrar}
+          onChanged={() => { q.refetch(); pedido.refetch() }}
           onToast={setToast}
           onOpenPatient={abrirPacienteDe(open)}
+        />
+      )}
+
+      {/* El cajón de una salida ambulatoria: sólo lectura, porque la tabla es inmutable (0116).
+          Se monta con la SELECCIÓN y no con el dato, para poder contar la carga y el error de su
+          propia consulta — si esperara a tener la fila, un link a una salida vieja no mostraría
+          nada mientras viaja y se leería como un clic que no hizo nada. */}
+      {seleccion?.tipo === 'ambulatoria' && (
+        <SalidaAmbulatoriaDrawer
+          salida={salida.data ?? null}
+          cargando={salida.loading}
+          error={salida.error}
+          onClose={cerrar}
         />
       )}
 
@@ -460,8 +547,18 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
             // preparación, que es donde la farmacéutica ya está por ponerse a escanear.
             setCreando(false)
             q.refetch()
-            void startDispensationPreparation(id).then(() => { q.refetch(); setOpenId(id) })
+            void startDispensationPreparation(id).then(() => { q.refetch(); abrir('protocolo', id, null) })
             setToast('Dispensación creada · escaneá para prepararla')
+          }}
+          onEntregado={(mensaje) => {
+            /* La ambulatoria NO abre ningún cajón después: nace y termina entregada, así que no
+               hay nada que preparar ni que escanear. Lo que sí hace falta es que se VEA — si no,
+               el registro parece no haber pasado, y un registro que no se puede mirar es el que
+               se deja de cargar. Como no entra en el tablero (no tiene estado), se recarga el
+               historial, que es donde va a aparecer. */
+            setCreando(false)
+            recargarHistorial()
+            setToast(mensaje)
           }}
         />
       )}

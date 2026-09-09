@@ -16,6 +16,64 @@ import {
   necesitaMotivoFueraCronograma,
 } from '../motivosFueraCronograma'
 import { opcionesDeEnrolamiento } from './opcionesEnrolamiento'
+import { SegmentedControl } from '../../../components/SegmentedControl'
+import { AltaAmbulatoria } from './AltaAmbulatoria'
+
+/** Las dos cosas que se pueden dar de alta desde el mostrador. */
+type TipoAlta = 'protocolo' | 'ambulatoria'
+
+/**
+ * El alta del mostrador, con sus DOS ramas bajo un alternador.
+ *
+ * ┌──────────────────────────────────────────────────────────────────────────────────────────┐
+ * │ POR QUÉ HAY UN ALTERNADOR ACÁ, Y NO DOS PUERTAS EN DOS PANTALLAS                          │
+ * │                                                                                           │
+ * │ La `v0.64.0` puso la entrega ambulatoria en el kebab del medicamento, dentro de Stock. El │
+ * │ Director, con la pantalla en producción: *"quiero que se pueda manejar todo desde el mismo │
+ * │ panel; genera muchísima fricción si lo hacemos en el panqueque de stock"*.                 │
+ * │                                                                                           │
+ * │ Las dos ramas responden a la MISMA pregunta del mostrador —"le tengo que dar medicación a  │
+ * │ alguien"— y lo único que cambia es si esa persona es paciente de un estudio. Esa pregunta  │
+ * │ se contesta en un botón, no eligiendo primero por qué pantalla entrar.                     │
+ * └──────────────────────────────────────────────────────────────────────────────────────────┘
+ *
+ * Las ramas NO comparten estado, y cambiar de pestaña desmonta la otra: un formulario a medio
+ * llenar para un paciente no tiene ningún campo que signifique lo mismo del otro lado, y
+ * arrastrarlo sería llevar un dato al lugar equivocado.
+ *
+ * El alternador vive AFUERA del cuerpo que scrollea, no adentro: es la decisión de la que cuelga
+ * todo lo demás y tiene que seguir a la vista aunque el formulario sea largo.
+ */
+export function PanelNuevaDispensacion({ onClose, onCreated, onEntregado }: {
+  onClose: () => void
+  onCreated: (requestId: string) => void
+  /** La ambulatoria no crea una solicitud que haya que preparar: nace y termina entregada. */
+  onEntregado: (mensaje: string) => void
+}) {
+  const [tipo, setTipo] = useState<TipoAlta>('protocolo')
+
+  return (
+    <>
+      <div style={alternador}>
+        <SegmentedControl<TipoAlta>
+          label="Tipo de dispensación"
+          value={tipo}
+          onChange={setTipo}
+          options={[
+            { value: 'protocolo', label: 'De protocolo' },
+            { value: 'ambulatoria', label: 'Ambulatoria' },
+          ]}
+        />
+      </div>
+
+      {tipo === 'protocolo'
+        ? <AltaProtocolo onClose={onClose} onCreated={onCreated} />
+        : <AltaAmbulatoria onClose={onClose} onEntregado={onEntregado} />}
+    </>
+  )
+}
+
+const alternador: CSSProperties = { padding: '0 22px 16px', flex: '0 0 auto' }
 
 /**
  * Alta manual desde el mostrador (el "Nueva dispensación" del handoff).
@@ -49,7 +107,7 @@ import { opcionesDeEnrolamiento } from './opcionesEnrolamiento'
  * 4 · Las visitas que ya tienen una solicitud viva se ofrecen deshabilitadas, con el motivo. No
  *     se esconden: que no aparezcan haría pensar que la visita no existe.
  */
-export function PanelNuevaDispensacion({ onClose, onCreated }: {
+function AltaProtocolo({ onClose, onCreated }: {
   onClose: () => void
   onCreated: (requestId: string) => void
 }) {
