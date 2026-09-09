@@ -56,12 +56,16 @@ export function SalidaAmbulatoriaDrawer({ salida, cargando, error, onClose }: {
           <div style={cabecera}>
             <span style={ico}><Icon name="pill" size={20} color="var(--spira-pharma-solid)" /></span>
             <div style={{ minWidth: 0 }}>
-              <div style={nombreMed}>
-                {salida.medication_name}
-                {salida.medication_dosis ? <span style={dosis}> · {salida.medication_dosis}</span> : null}
-              </div>
+              {/* SOLO el nombre, sin agregarle `medication_dosis`. En los datos reales el nombre YA
+                  la trae ("Alvetide 184/22 mcg"), así que concatenarla la escribía dos veces —
+                  visto en el QA del 2026-09-08. Y es además lo que hace el resto de Farmacia: la
+                  lista de Stock, el alta y el renglón del historial muestran `name` a secas. */}
+              <div style={nombreMed}>{salida.medication_name}</div>
               <div className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3 }}>
-                {salida.quantity} {salida.medication_unit ?? 'u.'} · lote {salida.lot_number}
+                {/* "u." y NO `medication_unit`: esa columna guarda la FORMA farmacéutica ("Polvo
+                    seco"), no una unidad de conteo, y detrás de un número se leía "1 Polvo seco".
+                    Dispensaciones cuenta en unidades en todas sus pantallas (ver `totalUnits`). */}
+                {salida.quantity} u. · lote {salida.lot_number}
               </div>
             </div>
           </div>
@@ -124,7 +128,6 @@ const nombreMed: CSSProperties = {
   fontFamily: 'var(--spira-font-display)', fontSize: 15.5, fontWeight: 700, color: 'var(--spira-ink)',
 }
 
-const dosis: CSSProperties = { fontSize: 13, fontWeight: 400, color: 'var(--spira-muted)' }
 
 const sub: CSSProperties = { fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3 }
 
