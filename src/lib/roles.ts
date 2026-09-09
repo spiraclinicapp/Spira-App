@@ -198,6 +198,89 @@ export function describeAccess(
   return { ve, inertes, noVe, administra: accesos[MODULO_ADMIN] != null }
 }
 
+/* ─── La línea de acceso de la lista del equipo ─── */
+
+/**
+ * Qué dice la línea que va debajo del nombre, en la lista del equipo.
+ *
+ * Devuelve el CASO y no un texto armado, a propósito: el componente redacta y elige el color, y
+ * el test afirma la regla en vez de la redacción. Con un string no habría forma de saber que un
+ * caso es el ámbar sin volver a parsear lo que esta función acaba de escribir.
+ *
+ *     ┌──────────────────── resumenDeAccesoEnLinea ────────────────────┐
+ *     │                                                                │
+ *     │   ¿activa === false? ──sí──► {tipo:'baja'}   (chip rojo)        │
+ *     │            │ no                                                │
+ *     │   ¿0 módulos?        ──sí──► {tipo:'sin-modulos'}               │
+ *     │            │ no                                                │
+ *     │            └──────────────► {tipo:'acceso', modulos, estudios,  │
+ *     │                              aviso?: 'sin-estudios'}            │
+ *     └────────────────────────────────────────────────────────────────┘
+ *
+ * ⚠️ EL ORDEN NO ES DECORATIVO. Las dos primeras ramas son verdaderas A LA VEZ: dar de baja una
+ * cuenta la deja sin módulos, así que si "sin módulos" se evaluara primero, una cuenta cerrada se
+ * leería EXACTAMENTE igual que una recién creada esperando accesos. Son situaciones opuestas —una
+ * se cerró, la otra espera— y confundirlas lleva a "dale acceso a ésta que está sin nada" sobre
+ * alguien a quien se dio de baja a propósito. Nada se ve mal en pantalla mientras pasa.
+ *
+ * `gerencia` NO se nombra: lo dice el escudito que va pegado al nombre (§01 del handoff). Por eso
+ * alguien que sólo administra accesos cae en `sin-modulos`, y está bien — no tiene pantallas
+ * propias, así que la fila queda "nombre + escudito / sin acceso a ningún módulo", que es la
+ * verdad completa leída junta.
+ *
+ * Los módulos `proximamente` CON nivel sí se nombran, con la misma regla que `describeAccess`: un
+ * acceso que existe en la base se muestra aunque no rinda nada. Si la línea lo escondiera, un
+ * `lab` que quedó de antes sería invisible desde la lista y nadie podría enterarse para revocarlo.
+ *
+ * `modulos` se inyecta por el mismo motivo que en `describeAccess`: para poder testear la función
+ * con un catálogo controlado.
+ */
+export type ResumenDeAccesoEnLinea =
+  | { tipo: 'baja' }
+  | { tipo: 'sin-modulos' }
+  | {
+      tipo: 'acceso'
+      /** En el orden del REGISTRO de módulos, no en el del jsonb que llega de la vista. */
+      modulos: { nombre: string; nivel: ModuleRole }[]
+      /** Cuántos estudios ve. El singular/plural lo pone el componente: un plural al revés se ve. */
+      estudios: number
+      /** Entra a Coordinación y no va a ver un solo paciente. Se pinta en ámbar. */
+      aviso?: 'sin-estudios'
+    }
+
+export function resumenDeAccesoEnLinea(
+  accesos: Accesos,
+  modulos: { key: string; name: string; proximamente?: boolean }[],
+  activa: boolean,
+  estudios: number,
+): ResumenDeAccesoEnLinea {
+  if (!activa) return { tipo: 'baja' }
+
+  const conAcceso: { nombre: string; nivel: ModuleRole }[] = []
+  for (const m of modulos) {
+    // 'inicio' lo tiene todo el mundo y `gerencia` la dice el escudito: ninguno de los dos es
+    // "un módulo al que esta persona entra", que es lo que la línea enumera.
+    if (m.key === 'inicio' || m.key === MODULO_ADMIN) continue
+    const nivel = accesos[m.key as ModuleKey]
+    if (nivel) conAcceso.push({ nombre: m.name, nivel })
+  }
+
+  if (conAcceso.length === 0) return { tipo: 'sin-modulos' }
+
+  /* El aviso es de Coordinación y de nadie más. `protocol_coordinators` (0006) scopea únicamente
+     ese módulo; Farmacia es central y ve todos los protocolos, así que ponerle el ámbar sería
+     inventar un filtro que la RLS no aplica. Es el mismo `track != null` que ya decide si el
+     bloque de estudios aparece en la ficha de edición. */
+  const sinEstudios = accesos.track != null && estudios === 0
+
+  return {
+    tipo: 'acceso',
+    modulos: conAcceso,
+    estudios,
+    ...(sinEstudios ? { aviso: 'sin-estudios' as const } : null),
+  }
+}
+
 /* ─── El historial de cambios de acceso (E2) ─── */
 
 /** Una fila de `v_access_audit` (migración 0096), tal como llega. */
