@@ -946,10 +946,22 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 - **DISPARADOR (esto no es "algún día"):** apenas exista **la primera cuenta de coordinación real**
   — o antes, si se toca `coordina_visita()`, la policy `"ver solicitudes"`, o se agrega una tarjeta
   al Resumen que lea datos de otro módulo. Cualquiera de esas tres cosas lo vuelve urgente.
-- **DISPARADOR 2 — el mismo agujero, del lado de FARMACIA (agregado 2026-09-08).** Ya son **dos**
-  las RPC con authz propia de `pharma` sin probar con una cuenta acotada: `registrar_vnp` (0114) y
-  **`dispensar_ambulatoria` (0116)**. Las dos pasaron el QA entrando por `gerencia`, así que su
-  rama `has_min_role('pharma','operator')` **nunca se ejecutó**. Sigue el texto original: apenas se
+- **DISPARADOR 2 — el lado de FARMACIA (agregado 2026-09-08, CORREGIDO el mismo día).**
+  ⚠️ La primera redacción de este disparador decía que `registrar_vnp` (0114) y
+  `dispensar_ambulatoria` (0116) habían pasado el QA "entrando por gerencia", dejando su rama
+  `has_min_role('pharma','operator')` sin ejecutar. **Eso es falso, verificado contra el `.sql`:**
+  en la 0116 (línea 192) ese chequeo es **el único que hay** —no existe bypass por gerencia— y en
+  la 0114 (línea 74) es **la primera condición del `or`**, que en plpgsql corta apenas encuentra un
+  true. La cuenta de QA tiene `pharma` operator+, así que en las dos **esa rama sí se ejecutó**.
+  Es la misma clase de error que este archivo ya cometió cinco veces: afirmar sobre permisos sin
+  leer la función.
+  **Lo que SÍ queda sin probar, y es más chico:** (a) que una cuenta **sin** `pharma` sea
+  correctamente RECHAZADA —el caso negativo, que la cuenta de QA no puede producir—, y (b) las
+  tres ramas de respaldo de `registrar_vnp` (gerencia, track admin, track operator asignado), que
+  el `or` nunca llega a evaluar. Ninguna de las dos es un camino inalcanzable como el de
+  `coordina_visita()`: son casos que faltan, no ramas muertas.
+  Sigue el texto original del disparador de Coordinación, que **sí** describe una rama inalcanzable:
+  apenas se
   agregue una RPC o una policy con authz propia de `pharma`, hay que probarla con una cuenta que
   tenga **solo** el módulo `pharma`. El primer caso es `registrar_vnp`
   (`docs/superpowers/plans/2026-09-08-dispensacion-libre-vnp.md`), cuya rama
