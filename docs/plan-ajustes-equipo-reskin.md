@@ -1,6 +1,6 @@
 # Plan · Ajustes → Equipo y accesos: reskin y mejoras prácticas
 
-**Estado:** revisado, listo para implementar · **Fecha:** 2026-09-09 · **Rama base:** `main` (v0.66.0)
+**Estado:** IMPLEMENTADO (T1-T8) en `feat/ajustes-equipo-reskin` · falta el QA logueado · **Fecha:** 2026-09-09 · **Rama base:** `main` (v0.66.0)
 **Handoff:** [`docs/design_handoff_ajustes_equipo/`](design_handoff_ajustes_equipo/README.md) (8 sep 2026)
 **Revisión:** `/plan-eng-review` — 11 decisiones tomadas, 0 migraciones, 0 SQL para producción.
 
@@ -116,18 +116,23 @@ Las **siete piezas** del handoff `Ajustes → Equipo y accesos`, completas. Nada
               ▼                         ▼                         ▼
       {tipo:'baja'}          {tipo:'sin-modulos'}      {tipo:'acceso',
       chip rojo,             «sin acceso a              modulos:[{nombre,nivel}],
-      la prosa NO se          ningún módulo»            estudios: n,
+      la prosa NO se          ningún módulo»            estudios: n | null,
       dibuja                                            aviso?: 'sin-estudios'}
                                                                   │
-                                         ┌────────────────────────┴───────────────┐
-                                         ▼                                        ▼
-                              track && n === 0                             el resto
-                              aviso = 'sin-estudios'                       sin aviso
-                              (ámbar acc-deep-warn)
-                                    ↑
+                                    ┌─────────────────────────────┼─────────────────────┐
+                                    ▼                             ▼                     ▼
+                            SIN track                    track && n === 0          el resto
+                            estudios = null              aviso='sin-estudios'      estudios = n
+                            (no scopea por estudio)      (ámbar acc-deep-warn)      sin aviso
+                                    ↑                             ↑
         LA TRAMPA: «baja» GANA sobre «sin-módulos», y una cuenta dada de baja
         queda sin módulos — o sea, las dos ramas son verdaderas a la vez.
         Si el orden queda al revés, la pantalla se ve PERFECTA diciendo lo que no es.
+
+        LA SEGUNDA, encontrada al wirear la fila (2026-09-09): `estudios: null`
+        NO ES CERO. Sin Coordinación no hay recorte por estudio —Farmacia es
+        central—, así que «Farmacia · Administrador · 0 estudios» afirmaría que
+        no ve pacientes, que es lo contrario de la verdad.
 
         Y `gerencia` NO entra nunca en la prosa: lo dice el escudito (§01 del handoff).
 ```
@@ -321,35 +326,35 @@ orden de ataque que como reparto entre worktrees.
 
 Sintetizado de los hallazgos de la revisión. Cada tarea sale de un hallazgo concreto.
 
-- [ ] **T1 (P1, humano: ~3h / CC: ~20min)** — `src/lib/roles.ts` — Escribir `resumenDeAccesoEnLinea` como unión discriminada, con sus 10 tests
+- [x] **T1 (P1, humano: ~3h / CC: ~20min)** — `src/lib/roles.ts` — Escribir `resumenDeAccesoEnLinea` como unión discriminada, con sus 10 tests
   - Surgió en: Tests — la prioridad «baja gana sobre sin-módulos» es un hueco crítico silencioso
   - Archivos: `src/lib/roles.ts`, `src/lib/roles.test.ts`
   - Verifica: `npx vitest run src/lib/roles.test.ts`
-- [ ] **T2 (P1, humano: ~1d / CC: ~40min)** — `src/components/InfoTip.tsx` — Construir el ⓘ sobre `usePopover`, con hover + foco + click y las tres condiciones de WCAG 1.4.13
+- [x] **T2 (P1, humano: ~1d / CC: ~40min)** — `src/components/InfoTip.tsx` — Construir el ⓘ sobre `usePopover`, con hover + foco + click y las tres condiciones de WCAG 1.4.13
   - Surgió en: Arquitectura A1 — no hay ningún tooltip en la app y el ⓘ va dentro de un menú portaleado
   - Archivos: `src/components/InfoTip.tsx` (nuevo), `src/components/Termino.tsx` (actualizar el comentario de la convención)
   - Verifica: en el navegador, abrir el menú de niveles y tocar un ⓘ: el menú **no** se cierra
-- [ ] **T3 (P1, humano: ~1d / CC: ~30min)** — `src/components/SearchableSelect.tsx` — Sumar `variant:'boton'` y `modo:'sumar'`, opt-in
+- [x] **T3 (P1, humano: ~1d / CC: ~30min)** — `src/components/SearchableSelect.tsx` — Sumar `variant:'boton'` y `modo:'sumar'`, opt-in
   - Surgió en: Arquitectura A2 — el handoff pide un menú que suma, no que alterna
   - Archivos: `src/components/SearchableSelect.tsx`
   - Verifica: `npm run build` (43 usos existentes tienen que seguir compilando y andando)
-- [ ] **T4 (P1, humano: ~1d / CC: ~40min)** — `src/shell/settings/` — La fila del equipo: prosa, escudito, ojo y «Editar acceso»
+- [x] **T4 (P1, humano: ~1d / CC: ~40min)** — `src/shell/settings/` — La fila del equipo: prosa, escudito, ojo y «Editar acceso»
   - Surgió en: el §01 del handoff + Calidad C2 (conservar el aviso de «Dada de baja»)
   - Archivos: `EquipoYAccesosSection.tsx`, `primitives.tsx`
   - Verifica: en el navegador, con una cuenta dada de baja a la vista
-- [ ] **T5 (P1, humano: ~1d / CC: ~40min)** — `src/shell/settings/ResumenDeAcceso.tsx` — El popup del ojo, portaleado y con techo de altura
+- [x] **T5 (P1, humano: ~1d / CC: ~40min)** — `src/shell/settings/ResumenDeAcceso.tsx` — El popup del ojo, portaleado y con techo de altura
   - Surgió en: Arquitectura A3 + Performance P1 — el `backdrop-filter` del scrim y las 46 consultas
   - Archivos: `ResumenDeAcceso.tsx` (nuevo), `EquipoYAccesosSection.tsx`
   - Verifica: en el navegador con una persona de muchos estudios; y contar las consultas en la pestaña de red al abrir Ajustes
-- [ ] **T6 (P1, humano: ~1d / CC: ~40min)** — `src/shell/settings/AccesoEditor.tsx` — La tarjeta de Estudios con botón verde y chips ×, el ⓘ en Módulos y el retítulo
+- [x] **T6 (P1, humano: ~1d / CC: ~40min)** — `src/shell/settings/AccesoEditor.tsx` — La tarjeta de Estudios con botón verde y chips ×, el ⓘ en Módulos y el retítulo
   - Surgió en: los §03, §04 y §05 del handoff
   - Archivos: `AccesoEditor.tsx`
   - Verifica: sumar y quitar estudios sin cerrar el menú; «Todos asignados» al completarlos
-- [ ] **T7 (P2, humano: ~2h / CC: ~10min)** — `src/shell/settings/` — Subir `useAllProtocolAssignments` a la sección y bajarla por prop
+- [x] **T7 (P2, humano: ~2h / CC: ~10min)** — `src/shell/settings/` — Subir `useAllProtocolAssignments` a la sección y bajarla por prop
   - Surgió en: Arquitectura A4 — hoy se reconsulta en cada entrada a una ficha
   - Archivos: `EquipoYAccesosSection.tsx`, `AccesoEditor.tsx`
   - Verifica: entrar y salir de tres fichas y ver una sola consulta de asignaciones
-- [ ] **T8 (P2, humano: ~1h / CC: ~10min)** — `src/shell/settings/` — Ámbar y escudo por token (`--spira-acc-deep-warn` / `--spira-acc-deep-track`)
+- [x] **T8 (P2, humano: ~1h / CC: ~10min)** — `src/shell/settings/` — Ámbar y escudo por token (`--spira-acc-deep-warn` / `--spira-acc-deep-track`)
   - Surgió en: Calidad C1 — 3,44:1 y 2,14:1 medidos, ambos por debajo de AA
   - Archivos: `AccesoEditor.tsx`, `EquipoYAccesosSection.tsx`
   - Verifica: mirar la pantalla en tema oscuro, que es donde hoy desaparece el escudito

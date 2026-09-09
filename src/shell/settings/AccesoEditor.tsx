@@ -6,8 +6,10 @@ import { MODULES } from '../../modules/registry'
 import { setModuleAccess } from '../../data/team'
 import type { TeamMemberRow } from '../../data/team'
 import { useAccessAudit } from '../../data/team'
-import { setProtocolAccess, useAllProtocolAssignments, useProtocolAccessAudit } from '../../data/protocolAccess'
+import { setProtocolAccess, useProtocolAccessAudit } from '../../data/protocolAccess'
+import type { AsignacionRow } from '../../data/protocolAccess'
 import type { ProtocolRow } from '../../data/protocols'
+import { InfoTip } from '../../components/InfoTip'
 import {
   canRevokeAdmin, describeAccess, mezclarHistorial, MODULO_ADMIN, ROLE_LABEL, ROLE_RANK,
 } from '../../lib/roles'
@@ -15,7 +17,7 @@ import type { Accesos, ModuleKey, ModuleRole } from '../../lib/roles'
 import { puedeEnModulo, SIN_ACCESO_PUEDE } from '../../lib/permisos'
 import { formatDateAR } from '../../lib/dates'
 import {
-  ACCENT, StCard, StRow, StPill, StToggle, btnGhost, btnSolid, dialogCard, dialogScrim, dialogTitulo,
+  EstudioChip, StCard, StRow, StPill, StToggle, btnGhost, btnSolid, dialogCard, dialogScrim, dialogTitulo,
 } from './primitives'
 import { AccionesDeCuenta } from './AccionesDeCuenta'
 import { useMarkDirty } from './SettingsModal'
@@ -78,6 +80,25 @@ function nombreModulo(key: string): string {
   return MODULES.find((m) => m.key === key)?.name ?? key
 }
 
+/** Cómo se llama el nivel elegido para ese módulo en el borrador. Sin nivel, "Sin acceso" — que es
+ *  una respuesta, no un hueco: el ⓘ tiene que poder explicar también el estado de no tener nada. */
+function nivelDe(borrador: Accesos, key: string): string {
+  const n = borrador[key as ModuleKey]
+  return n ? ROLE_LABEL[n] : 'Sin acceso'
+}
+
+/** Qué puede hacer con el nivel elegido. Mismo diccionario que las opciones del menú. */
+function explicacionDe(borrador: Accesos, key: string): string {
+  const n = borrador[key as ModuleKey]
+  return n ? puedeEnModulo(key, n) : SIN_ACCESO_PUEDE
+}
+
+/** La primera letra en mayúscula. Las frases de `permisos.ts` están escritas para ir DESPUÉS de un
+ *  guión ("Coordinación — puede cargar y editar"); en un ⓘ arrancan una oración. */
+function mayuscula(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 interface Props {
   persona: TeamMemberRow
   /** Id del usuario en sesión: hace falta para el guard de "no te saques la administración". */
@@ -89,13 +110,22 @@ interface Props {
    *  que se entra y se sale de una ficha, siendo siempre la misma lista. */
   protocolos: ProtocolRow[]
   protocolosCargando: boolean
+  /** TODAS las asignaciones del centro, no sólo las de esta persona: hacen falta enteras para saber
+   *  si un estudio se queda sin ninguna coordinadora al guardar. Bajan por prop desde la sección
+   *  por el mismo motivo que `protocolos` — `useSupabaseQuery` no cachea, y pedirlas acá las
+   *  reconsultaba en cada entrada y salida de una ficha. */
+  asignaciones: AsignacionRow[]
+  asignacionesCargando: boolean
+  /** Para que la sección vuelva a pedir las asignaciones después de guardar. */
+  onAsignacionesCambiadas: () => void
   onCerrar: () => void
   /** Se llama tras guardar con éxito, para que la lista se refresque. */
   onGuardado: () => void
 }
 
 export function AccesoEditor({
-  persona, actorId, administradores, protocolos, protocolosCargando, onCerrar, onGuardado,
+  persona, actorId, administradores, protocolos, protocolosCargando,
+  asignaciones, asignacionesCargando, onAsignacionesCambiadas, onCerrar, onGuardado,
 }: Props) {
   /* El borrador arranca como una copia del acceso vigente. El vigente (`persona.accesos`) se
      conserva intacto porque es el `expected` que viaja al servidor en cada cambio: es lo que el
@@ -108,12 +138,11 @@ export function AccesoEditor({
 
   const audit = useAccessAudit(persona.id)
   const auditProtocolos = useProtocolAccessAudit(persona.id)
-  const asignaciones = useAllProtocolAssignments()
 
   /* Lo que la base dice hoy que ve esta persona. */
   const protocolosVigentes = useMemo(
-    () => (asignaciones.data ?? []).filter((a) => a.user_id === persona.id).map((a) => a.protocol_id),
-    [asignaciones.data, persona.id],
+    () => asignaciones.filter((a) => a.user_id === persona.id).map((a) => a.protocol_id),
+    [asignaciones, persona.id],
   )
 
   /* El borrador de protocolos arranca en `null` = "todavía no lo tocaron", y recién ahí se muestra
@@ -162,13 +191,13 @@ export function AccesoEditor({
      asignaciones vigentes de TODO el centro: hace falta saber si queda alguien más, no sólo qué
      tiene esta persona. Sólo los `activo` — un estudio cerrado sin coordinadora es correcto. */
   const huerfanos = useMemo(() => {
-    const filas = asignaciones.data ?? []
+    const filas = asignaciones
     return cambiosProtocolos
       .filter((c) => !c.asignado)
       .map((c) => protocolos.find((p) => p.id === c.protocolId))
       .filter((p): p is ProtocolRow => p != null && p.status === 'activo')
       .filter((p) => filas.filter((f) => f.protocol_id === p.id).length <= 1)
-  }, [cambiosProtocolos, asignaciones.data, protocolos])
+  }, [cambiosProtocolos, asignaciones, protocolos])
 
   /* El historial es UNO SOLO en pantalla aunque sean dos vistas en la base: para gerencia, "qué le
      pasó al acceso de esta persona" es una sola pregunta. El tope se aplica después de mezclar. */
@@ -225,7 +254,7 @@ export function AccesoEditor({
       if (error) fallas.push(`${protocolos.find((p) => p.id === c.protocolId)?.code ?? 'Estudio'}: ${error}`)
     }
     setGuardando(false)
-    void asignaciones.refetch()
+    onAsignacionesCambiadas()
     if (fallas.length) {
       // Igual que en Mi cuenta: un renglón por lo que falló, y el resto SÍ quedó guardado.
       setErrores(fallas)
@@ -265,24 +294,38 @@ export function AccesoEditor({
             label={m.name}
             last={i === MODULOS_ASIGNABLES.length - 1}
           >
-            <div style={{ width: 190 }}>
-              <SearchableSelect
-                id={`acceso-${m.key}`}
-                value={borrador[m.key as ModuleKey] ?? 'none'}
-                onChange={(v) => setNivel(m.key as ModuleKey, v === 'none' ? null : (v as ModuleRole))}
-                /* Cada variante dice QUÉ da, no sólo cómo se llama: "Líder" no le informa a nadie
-                   qué gana la persona, y el nivel se elige una vez y queda. Las frases salen de
-                   `lib/permisos.ts`, donde cada una cita la policy que la hace verdad. */
-                options={[
-                  { value: 'none', label: 'Sin acceso', desc: SIN_ACCESO_PUEDE },
-                  ...NIVELES.map((n) => ({ value: n, label: ROLE_LABEL[n], desc: puedeEnModulo(m.key, n) })),
-                ]}
-                placeholder="Sin acceso"
-                searchPlaceholder="Buscar nivel…"
-                entity="nivel"
-                /* Con descripciones, clavar el menú a los 190px del disparador cortaría las frases
-                   en dos palabras por renglón. */
-                menuWidth="auto"
+            {/* El ⓘ va PEGADO al selector, a su derecha, y no debajo del rótulo: explica el valor
+                elegido, así que tiene que estar donde está el valor (§03 y §06 del handoff). */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
+              <div style={{ width: 190 }}>
+                <SearchableSelect
+                  id={`acceso-${m.key}`}
+                  value={borrador[m.key as ModuleKey] ?? 'none'}
+                  onChange={(v) => setNivel(m.key as ModuleKey, v === 'none' ? null : (v as ModuleRole))}
+                  /* Cada variante dice QUÉ da, no sólo cómo se llama: "Líder" no le informa a nadie
+                     qué gana la persona, y el nivel se elige una vez y queda. Las frases salen de
+                     `lib/permisos.ts`, donde cada una cita la policy que la hace verdad.
+                     Van en el ⓘ de cada opción y no impresas debajo: cuatro frases por módulo, en
+                     dos módulos, ocupaban media pantalla para explicar tres niveles que nadie mira
+                     después de elegir una vez. */
+                  options={[
+                    { value: 'none', label: 'Sin acceso', info: { titulo: 'Sin acceso', cuerpo: mayuscula(SIN_ACCESO_PUEDE) } },
+                    ...NIVELES.map((n) => ({
+                      value: n,
+                      label: ROLE_LABEL[n],
+                      info: { titulo: ROLE_LABEL[n], cuerpo: mayuscula(puedeEnModulo(m.key, n)) },
+                    })),
+                  ]}
+                  placeholder="Sin acceso"
+                  searchPlaceholder="Buscar nivel…"
+                  entity="nivel"
+                  menuWidth="auto"
+                />
+              </div>
+              <InfoTip
+                titulo={nivelDe(borrador, m.key)}
+                cuerpo={mayuscula(explicacionDe(borrador, m.key))}
+                etiqueta={`Qué puede hacer en ${m.name} con el nivel elegido`}
               />
             </div>
           </StRow>
@@ -296,6 +339,10 @@ export function AccesoEditor({
              ninguna tabla — y hasta hoy eso se cargaba a mano por SQL. */}
       {tieneCoordinacion && (
         <StCard title="Estudios que ve" desc="Sobre qué pacientes puede trabajar en Coordinación">
+          {/* Lo asignado se VE (chips) y lo que falta se SUMA (botón). Antes era un desplegable que
+              tildaba y destildaba: el mismo control para dos gestos opuestos, y con lo elegido
+              resumido en "3 estudios" adentro del disparador — o sea, para saber cuáles eran había
+              que abrir el menú. Ahora se leen sin tocar nada. */}
           <StRow
             label="Estudios asignados"
             sub={
@@ -303,30 +350,58 @@ export function AccesoEditor({
                 ? 'Sin ninguno no va a ver pacientes, aunque tenga el módulo'
                 : `Ve los pacientes de ${protosElegidos.length === 1 ? 'este estudio' : `estos ${protosElegidos.length} estudios`}`
             }
-            last
           >
-            <div style={{ width: 240 }}>
-              <SearchableSelect
-                id="acceso-protocolos"
-                multiple
-                value={protosElegidos}
-                onChange={setBorradorProtos}
-                options={protocolos.map((p) => ({
-                  value: p.id,
-                  label: p.code,
-                  // El nombre del estudio como segunda línea: el código solo no alcanza para
-                  // elegir bien, y el nombre solo es demasiado largo para el disparador.
-                  desc: p.status === 'activo' ? p.name : `${p.name} · ${p.status}`,
-                }))}
-                placeholder={protocolosCargando ? 'Cargando estudios…' : 'Ninguno'}
-                searchPlaceholder="Buscar estudio…"
-                entity="estudio"
-                pluralLabel="estudios"
-                disabled={protocolosCargando || asignaciones.loading}
-                menuWidth="auto"
-              />
-            </div>
+            <SearchableSelect
+              id="acceso-protocolos"
+              multiple
+              modo="sumar"
+              variant="boton"
+              leadingIcon="plus"
+              mono
+              value={protosElegidos}
+              onChange={setBorradorProtos}
+              options={protocolos.map((p) => ({
+                value: p.id,
+                label: p.code,
+                // El nombre del estudio como segunda línea: el código solo no alcanza para
+                // elegir bien, y el nombre solo es demasiado largo para el disparador.
+                desc: p.status === 'activo' ? p.name : `${p.name} · ${p.status}`,
+              }))}
+              placeholder={protocolosCargando ? 'Cargando estudios…' : 'Añadir estudio'}
+              sinRestantes={{ label: 'Todos asignados', mensaje: 'Ya están todos los estudios asignados.' }}
+              searchPlaceholder="Buscar estudio…"
+              entity="estudio"
+              pluralLabel="estudios"
+              disabled={protocolosCargando || asignacionesCargando}
+              /* Siempre, aunque queden pocos por sumar: si el buscador apareciera y desapareciera
+                 según cuántos faltan, se iría a mitad de la tarea llevándose el foco del teclado. */
+              searchable="always"
+              menuWidth="auto"
+            />
           </StRow>
+
+          {/* Los chips, debajo del separador que deja `StRow`. El aire (gap 9, padding 6/18) es el
+              del §04 del handoff: sin él, los chips quedan pegados al selector de arriba y al borde
+              de la tarjeta, y se leen como parte del control en vez de como su resultado. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, padding: '6px 0 18px' }}>
+            {protosElegidos.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-acc-deep-warn)' }}>
+                <Icon name="alert" size={15} color="var(--spira-acc-deep-warn)" />
+                Sin ningún estudio asignado entra a Coordinación y no ve un solo paciente.
+              </div>
+            ) : (
+              protocolos
+                .filter((p) => protosElegidos.includes(p.id))
+                .map((p) => (
+                  <EstudioChip
+                    key={p.id}
+                    codigo={p.code}
+                    nombre={p.name}
+                    onQuitar={() => setBorradorProtos(protosElegidos.filter((id) => id !== p.id))}
+                  />
+                ))
+            )}
+          </div>
         </StCard>
       )}
 
@@ -350,7 +425,7 @@ export function AccesoEditor({
       </StCard>
 
       {/* 4 · la consecuencia, antes de guardar */}
-      <StCard title={`Con esto, ${persona.full_name.split(' ')[0]} ve…`} desc="Vista previa de lo que va a encontrar al entrar">
+      <StCard title="Qué va a ver al entrar" desc="Con el acceso que estás dejándole">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 0 4px' }}>
           {descripcion.ve.length === 0 && descripcion.inertes.length === 0 && (
             <div style={{ fontSize: 13.5, color: 'var(--spira-muted)' }}>
@@ -359,7 +434,7 @@ export function AccesoEditor({
           )}
           {descripcion.ve.map((a) => (
             <div key={a.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5 }}>
-              <Icon name="check" size={14} color="#5C8A5A" />
+              <Icon name="check" size={14} color="var(--spira-acc-deep-good)" />
               <span style={{ color: 'var(--spira-ink)' }}>
                 <strong style={{ fontWeight: 600 }}>{a.nombre}</strong> — {a.puede}
               </span>
@@ -368,8 +443,8 @@ export function AccesoEditor({
           {/* El caso que nadie ve venir: acceso dado a un módulo que todavía no existe. */}
           {descripcion.inertes.map((a) => (
             <div key={a.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5 }}>
-              <Icon name="clock" size={14} color="#B0823F" />
-              <span style={{ color: '#B0823F' }}>
+              <Icon name="clock" size={14} color="var(--spira-acc-deep-warn)" />
+              <span style={{ color: 'var(--spira-acc-deep-warn)' }}>
                 <strong style={{ fontWeight: 600 }}>{a.nombre}</strong> — le diste acceso, pero el módulo
                 todavía no está construido, así que no lo va a ver
               </span>
@@ -382,9 +457,9 @@ export function AccesoEditor({
               <Icon
                 name={protosElegidos.length === 0 ? 'clock' : 'check'}
                 size={14}
-                color={protosElegidos.length === 0 ? '#B0823F' : '#5C8A5A'}
+                color={protosElegidos.length === 0 ? 'var(--spira-acc-deep-warn)' : 'var(--spira-acc-deep-good)'}
               />
-              <span style={{ color: protosElegidos.length === 0 ? '#B0823F' : 'var(--spira-ink)' }}>
+              <span style={{ color: protosElegidos.length === 0 ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink)' }}>
                 {protosElegidos.length === 0 ? (
                   <>Sin ningún estudio asignado: entra a Coordinación pero <strong style={{ fontWeight: 600 }}>no ve ningún paciente</strong></>
                 ) : (
@@ -406,8 +481,8 @@ export function AccesoEditor({
               colgados y nadie puede enterarse ni limpiarlos. */}
           {!tieneCoordinacion && protocolosVigentes.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5 }}>
-              <Icon name="clock" size={14} color="#B0823F" />
-              <span style={{ color: '#B0823F' }}>
+              <Icon name="clock" size={14} color="var(--spira-acc-deep-warn)" />
+              <span style={{ color: 'var(--spira-acc-deep-warn)' }}>
                 Tiene <strong style={{ fontWeight: 600 }}>{protocolosVigentes.length} estudio{protocolosVigentes.length > 1 ? 's' : ''}</strong> asignado{protocolosVigentes.length > 1 ? 's' : ''},
                 pero sin acceso a Coordinación no le sirven de nada
               </span>
@@ -419,8 +494,8 @@ export function AccesoEditor({
               guard impediría revocarle el acceso hasta conseguirle reemplazo. Avisa y deja decidir. */}
           {huerfanos.map((p) => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5 }}>
-              <Icon name="alert" size={14} color="#B0823F" />
-              <span style={{ color: '#B0823F' }}>
+              <Icon name="alert" size={14} color="var(--spira-acc-deep-warn)" />
+              <span style={{ color: 'var(--spira-acc-deep-warn)' }}>
                 <strong style={{ fontWeight: 600 }}>{p.code}</strong> se queda sin ninguna coordinadora:
                 sus pacientes dejan de verse en Coordinación (gerencia y Farmacia los siguen viendo)
               </span>
@@ -433,8 +508,8 @@ export function AccesoEditor({
             </div>
           )}
           {descripcion.administra && (
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5, color: ACCENT }}>
-              <Icon name="shield" size={14} color={ACCENT} />
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5, color: 'var(--spira-acc-deep-track)' }}>
+              <Icon name="shield" size={14} color="var(--spira-acc-deep-track)" />
               <span>Además, puede cambiarle el acceso a cualquiera del centro.</span>
             </div>
           )}
