@@ -134,3 +134,51 @@ Una sola `Fila` que ramifica por `tipo`. La ambulatoria:
 protocolo no debe cambiar de comportamiento: el alternador tiene que dejarla exactamente donde
 está, y el renglón del historial de protocolo tiene que renderizarse igual que hoy. Cualquier test
 que se escriba conviene que fije eso primero.
+
+---
+
+## Lo implementado (2026-09-08, rama `feat/dispensacion-panel-unico`)
+
+**Estado:** construido y con `npm run build` verde (**883 tests**, eran 843). Falta aplicar la
+**`0117`** y el QA logueado contra producción.
+
+### Tres decisiones que este plan dejaba abiertas
+
+| # | Qué | Decisión |
+|---|---|---|
+| **D8'** | Qué hace el clic sobre una salida ambulatoria en el historial | **Cajón de sólo lectura.** El plan decía "el detalle lo trae el cajón por id" pensando en las de protocolo; una ambulatoria no tiene riel ni escaneo ni comprobante. Pero el renglón deja afuera **documento, lote, nota, quién despachó y la hora**, que en base auditable son el motivo por el que la fila se guarda. Segmento propio en la URL con prefijo `a-`, como el `p-` de Pacientes: una ambulatoria nunca tiene código legible, así que sin marca no habría cómo saber en cuál de las dos fuentes buscarla. |
+| **D9'** | De dónde salen las `unidades` de la fila de protocolo | **De `dispensation_request_items`, no del libro de stock.** La tabla de este plan decía "del libro" y habría cambiado el número: en una rechazada no hay asiento, y en una con sustitución el número es otro. La regla "la rama de protocolo no cambia de comportamiento" gana. |
+| **D10'** | "Resolver el lote por FEFO" | **Se resuelve, no se obliga.** Elegir el medicamento deja el lote puesto por FEFO —con las DOS reglas que la base ya aplica en `dispensar` (0050:316): el vencido no entra, y el que no tiene vencimiento va al final— pero el desplegable queda con todos los lotes. Quitarle la decisión a quien tiene el estante enfrente sería decidir con menos información que ella. |
+
+### Lo que el alcance no listaba y hubo que tocar
+
+`src/views/pharma/DispensacionesView.tsx`. Resolvía la URL y alimentaba el cajón buscando la fila
+en `acumuladas`; con filas de presentación eso deja de servir, así que el detalle pasa a traerse
+por id (`useDispensationRequest`, que ya existía, y `useSalidaAmbulatoria`, nuevo). Se pregunta
+primero por el tablero: si la fila ya está cargada ahí, no se gasta una consulta.
+
+### La red que protege la rama de protocolo
+
+El riesgo que este plan señalaba se fijó con un test que recorre **las 20 combinaciones** de
+`request_status` × `dispensation_status` y exige que `badgeDeHistorial` devuelva exactamente lo
+mismo que `badgeOf` sobre la misma fila. No compara contra valores escritos a mano: compara contra
+la función vieja. Y `badgeOf` pasó a delegar en la misma regla, así que no son dos cuerpos que haya
+que acordarse de mantener iguales.
+
+### Verificado en el navegador (banco de pruebas temporal, sin sesión)
+
+Las dos formas de renglón a 1181px (la notebook de referencia): **las seis filas miden 65px**, o
+sea que la ambulatoria no se sale de la grilla. Chip **Ambulatoria** medido en **4,8:1** sobre su
+tinte (AA pide 4,5 a 10,5px/600) — medido, no estimado, por el precedente de los chips teñidos. La
+fila ambulatoria tiene **0 links** y la de protocolo 2, que es la regla de "no hay ficha que
+abrir". El renglón sin renglones de medicación (pedido de IP solo) dice `0 u.` y ya no arrastra el
+separador colgando que tenía antes — **es la única diferencia cosmética respecto de hoy en la rama
+de protocolo**, y es una corrección.
+
+### Falta
+
+1. **Aplicar la `0117`** (aditiva → va ANTES del deploy) y comprobarla con la sonda de PostgREST.
+2. **QA logueado** contra producción: alternador, alta ambulatoria de punta a punta, historial
+   intercalado, cajón, y que Stock ya no ofrezca "Entregar" ni "Últimas salidas".
+3. Sigue afuera y a propósito: **Reportes** no levanta las salidas ambulatorias (es su propia
+   tanda, ver el punto 1 del handoff del 2026-09-08).
