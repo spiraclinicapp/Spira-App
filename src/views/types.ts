@@ -122,6 +122,11 @@ export interface ViewProps {
   /** Abre el popover "Acerca de" del pie del riel, que es donde viven las novedades completas.
    *  Lo usa el "Ver todas" de la card de Novedades en Inicio › Resumen. Opcional. */
   onOpenAbout?: () => void
+  /** Abre el modal "Dar feedback" (el mismo que el pie del popover Acerca de, montado a nivel
+   *  shell). Lo usa el bloque de feedback de la card de Novedades en Inicio › Resumen: es el
+   *  MISMO flujo, no otro — el feedback viaja por el RPC `submit_feedback` y queda registrado.
+   *  Opcional. */
+  onOpenFeedback?: () => void
   /** Registrar/limpiar el encabezado contextual del shell. Opcional. */
   setHeader?: (header: ViewHeader | null) => void
   /** Entidad a abrir al montar/actualizar (la puso un `onNavigate` con objetivo). null = ninguna. */

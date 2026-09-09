@@ -569,6 +569,7 @@ export function AppShell() {
                       onNavigate={navigate}
                       setHeader={setViewHeader}
                       onOpenAbout={() => setAboutOpen(true)}
+                      onOpenFeedback={() => setFeedbackOpen(true)}
                       navTarget={navTarget}
                       onTargetConsumed={() => setNavTarget(null)}
                       onNavigatedAway={() => setReturnTo(null)}

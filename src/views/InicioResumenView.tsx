@@ -32,8 +32,12 @@ import type { ViewProps } from './types'
  *
  * Sin gate global: la pantalla se pinta entera de entrada y cada número aparece cuando llega, con
  * un guion mientras viaja. Un cero mientras carga afirmaría que no hay ninguno.
+ *
+ * LA PANTALLA CIERRA COMO UN RECTÁNGULO (2026-09-09): el borde de abajo lo marcan las cards de
+ * módulo y la columna de Novedades llega hasta ahí, con el bloque de feedback al pie. Cómo se
+ * sostiene ese límite está en la celda derecha, más abajo.
  */
-export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
+export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: ViewProps) {
   const { profile } = useAuth()
   const hoy = todayISO()
   /* `weekDates` devuelve la semana HÁBIL en curso (lunes a viernes, cinco fechas), que es la
@@ -101,7 +105,11 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
   const pharma = MODULES.find((m) => m.key === 'pharma')
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 372px', gap: 16, alignItems: 'start' }}>
+    /* `alignItems: 'stretch'` (el default, escrito) y no el `'start'` de antes: la columna de
+       Novedades tiene que llegar hasta el pie de las cards de módulo para que el Resumen cierre
+       como un rectángulo — pedido del Director (2026-09-09). El alto lo manda SIEMPRE la columna
+       izquierda; ver el comentario de la celda derecha. */
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 372px', gap: 16, alignItems: 'stretch' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <BandaSaludo
           fecha={formatDayLong(hoy)}
@@ -186,13 +194,30 @@ export function InicioResumenView({ onNavigate, onOpenAbout }: ViewProps) {
         </div>
       </div>
 
-      <CardNovedades
-        destacada={destacada}
-        secundarias={secundarias}
-        /* "Ver todas" abre el popover Acerca de del pie del riel, que es donde vive el
-           changelog completo. No hay una pantalla de novedades: ese popover ES la pantalla. */
-        onVerTodas={() => onOpenAbout?.()}
-      />
+      {/* La celda de Novedades: `relative` con la card en `absolute inset: 0`.
+          Parece un rodeo y es lo que fija el CUADRO. Una card normal en la celda haría que la
+          grilla mida la fila por la MÁS ALTA de las dos columnas: el día que una novedad se
+          estire a cuatro renglones, la que quedaría colgando con un hueco al pie sería la
+          izquierda, o sea el mismo desprolijo al revés. Sacando la card del flujo, la fila la
+          mide siempre la columna izquierda —las cards de módulo son el borde de abajo, como se
+          pidió— y la card se estira a ese alto exacto; si su contenido no entra, scrollea
+          adentro (ver `CardNovedades`). El `minHeight` es el piso para que el panel no se
+          aplaste si algún día la izquierda queda muy corta. */}
+      <div style={{ position: 'relative', minHeight: 340 }}>
+        <div style={{ position: 'absolute', inset: 0 }}>
+          <CardNovedades
+            destacada={destacada}
+            secundarias={secundarias}
+            /* "Ver todas" abre el popover Acerca de del pie del riel, que es donde vive el
+               changelog completo. No hay una pantalla de novedades: ese popover ES la pantalla. */
+            onVerTodas={() => onOpenAbout?.()}
+            /* El mismo modal "Dar feedback" que el pie del popover Acerca de: un solo camino,
+               que ya escribe en la base por `submit_feedback`. Si el shell no lo pasa, el bloque
+               del pie no se dibuja. */
+            onFeedback={onOpenFeedback}
+          />
+        </div>
+      </div>
     </div>
   )
 }
