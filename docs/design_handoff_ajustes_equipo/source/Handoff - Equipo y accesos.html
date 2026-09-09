@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Handoff · Ajustes → Equipo y accesos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+doc-page:not(:defined){visibility:hidden}
+:root{--ink:#14302E;--ink2:#2A4744;--primary:#0F5F57;--surface:#FBFAF6;--muted:#7C8C87;--faint:#A6B0AC;--line:#E4DECF;--line2:#D8CBB0;--warn:#B0823F;--deep-warn:#6E5620;--fdisp:'Schibsted Grotesk',system-ui,sans-serif;--ftext:'Inter',system-ui,sans-serif}
+doc-page{font-family:var(--ftext);color:var(--ink);font-size:11pt;line-height:1.55}
+h1{font-family:var(--fdisp);font-weight:700;font-size:24pt;letter-spacing:-.02em;margin:0 0 6px}
+.sub{color:var(--muted);font-size:10.5pt;margin:0 0 4px}
+.meta{color:var(--faint);font-size:9pt;margin:0 0 26px}
+h2{font-family:var(--fdisp);font-weight:700;font-size:14pt;margin:30px 0 2px;padding-top:14px;border-top:1px solid var(--line)}
+h2 .num{color:var(--faint);font-weight:500;margin-right:8px}
+h3{font-family:var(--fdisp);font-weight:600;font-size:11pt;margin:18px 0 4px}
+p{margin:0 0 9px;text-wrap:pretty}
+ul{margin:0 0 9px;padding-left:18px}
+li{margin:0 0 4px}
+figure{margin:12px 0 14px;break-inside:avoid}
+figure img{display:block;width:100%;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+figcaption{color:var(--muted);font-size:8.5pt;margin-top:6px}
+.eyeb{font-family:var(--fdisp);font-size:8pt;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 6px}
+.tag{display:inline-block;font-size:8.5pt;border:1px solid var(--line2);border-radius:99px;padding:1px 9px;color:var(--ink2);background:var(--surface)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin:10px 0 12px}
+.box{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:var(--surface);break-inside:avoid}
+.box .k{font-family:var(--fdisp);font-weight:600;font-size:10pt;margin-bottom:3px}
+.box p{margin:0;font-size:10pt;color:var(--ink2)}
+table{width:100%;border-collapse:collapse;font-size:10pt;margin:8px 0 14px}
+th{text-align:left;font-family:var(--fdisp);font-size:8.5pt;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line2);padding:0 10px 5px 0}
+td{border-bottom:1px solid var(--line);padding:7px 10px 7px 0;vertical-align:top}
+td:first-child{white-space:nowrap;font-weight:600}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt;background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:0 4px}
+.warn{border:1px solid #B0823F55;background:#B0823F12;color:var(--deep-warn);border-radius:10px;padding:10px 13px;font-size:10pt;break-inside:avoid;margin:10px 0}
+.copy{border-left:2px solid var(--primary);padding:2px 0 2px 12px;margin:8px 0 12px}
+.copy div{font-size:10pt}
+.copy .old{color:var(--muted);text-decoration:line-through}
+a{color:var(--primary)}a:hover{color:#0B4A42}
+</style>
+</head>
+<body>
+<doc-page margin="0.8in">
+<p class="eyeb">Spira · Handoff de diseño</p>
+<h1>Ajustes → Equipo y accesos</h1>
+<p class="sub">Cambios cerrados sobre la lista del equipo, el resumen de solo lectura y la ficha de edición de acceso.</p>
+<p class="meta">8 de septiembre de 2026 · Mock de referencia: <code>Ajustes - Variantes.html</code></p>
+
+<p>La sección tiene tres piezas: la <b>lista del equipo</b>, un <b>popup de solo lectura</b> que se abre con el ojo, y la <b>ficha de edición</b> a la que se entra con «Editar acceso». La ficha queda en la <b>variante A</b> (pila de tarjetas); el mock conserva B y C sólo como registro de la comparación.</p>
+
+<h2><span class="num">01</span>Lista del equipo</h2>
+<p>Cada persona ocupa una línea: avatar, nombre y, debajo, el acceso dicho en castellano corrido, separado por puntos medios. Sin chips ni tabla.</p>
+<figure>
+<img src="img-lista-escudo.png" alt="Fila de la lista con escudito junto al nombre" />
+<figcaption>Fila de la lista. El escudito verde va pegado al nombre; el resumen de acceso no lo repite en texto.</figcaption>
+</figure>
+<h3>Escudito de administración</h3>
+<ul>
+<li>Quien administra los accesos lleva un <b>ícono de escudo suelto</b> (sin pill, sin fondo ni aura verde) inmediatamente a la derecha del nombre. 14&nbsp;px, color <code>#0F5F57</code>, alineado con la línea de texto.</li>
+<li>Al pasar por encima muestra la tarjetita de ayuda: título <b>«Administra los accesos»</b>, cuerpo «Ve a todo el equipo y le cambia el acceso a cualquiera del centro.»</li>
+<li>El texto «administra los accesos» <b>se eliminó</b> de la línea de resumen: lo dice el escudito.</li>
+</ul>
+<div class="copy">
+<div class="old">Coordinación · Administrador · Farmacia · Administrador · 3 estudios · administra los accesos</div>
+<div>Coordinación · Administrador · Farmacia · Administrador · 3 estudios <span class="tag">+ escudito junto al nombre</span></div>
+</div>
+<h3>Acciones de la fila</h3>
+<ul>
+<li><b>Ojo</b> (botón de ícono): abre el resumen de solo lectura.</li>
+<li><b>Editar acceso</b> (link): entra a la ficha.</li>
+<li>Si no tiene acceso a ningún módulo, la línea dice «sin acceso a ningún módulo»; si tiene Coordinación sin estudios, «sin estudios asignados» en ámbar <code>#B0823F</code>.</li>
+</ul>
+
+<h2><span class="num">02</span>Popup de visualizar (solo lectura)</h2>
+<p>Se abre desde el ojo, sobre el modal, sin scrim de página completa. Es lectura: no hay controles editables, y el pie ofrece «Cerrar» y «Editar acceso» (que salta a la ficha de esa persona).</p>
+<figure>
+<img src="img-popup-resumen.png" alt="Popup de resumen de una persona" />
+<figcaption>Resumen de «pablo»: rol con ⓘ al lado, estudios como chips separados, estado de la cuenta y último cambio.</figcaption>
+</figure>
+<h3>Rol con ⓘ</h3>
+<ul>
+<li>Cada módulo muestra el nombre a la izquierda y el <b>nivel en negrita</b> a la derecha, con un <b>ⓘ al lado del rol</b>.</li>
+<li>La descripción del nivel ya <b>no se imprime debajo</b>: vive en el tooltip del ⓘ, igual que en la ficha de edición. El texto es el mismo diccionario (<code>PUEDE[módulo][nivel]</code>), con la primera letra en mayúscula.</li>
+</ul>
+<h3>Estudios como chips</h3>
+<ul>
+<li>Los estudios pasaron de una lista <code>ACT18301 · EFC18244</code> a <b>chips separados</b> con código en negrita y nombre en gris, sin ×  (es lectura), <code>gap: 7px</code>.</li>
+<li>Si tiene Coordinación y ningún estudio: «Ninguno: entra a Coordinación pero no ve pacientes» en ámbar.</li>
+</ul>
+<div class="grid">
+<div class="box"><div class="k">A qué entra</div><p>Un renglón por módulo con acceso, más Estudios y Administración.</p></div>
+<div class="box"><div class="k">La cuenta</div><p>Estado (Activa / Dada de baja) y último cambio con fecha.</p></div>
+</div>
+
+<h2><span class="num">03</span>Ficha de edición · Módulos</h2>
+<p>Un renglón por módulo con un selector de nivel y el ⓘ al lado. El ⓘ es el único lugar donde vive la explicación del nivel: antes cada fila la imprimía debajo y ocupaba media pantalla.</p>
+<figure>
+<img src="img-modulos-info.png" alt="Tarjeta de módulos con selectores de nivel y ⓘ" />
+<figcaption>Tarjeta «Módulos». El ⓘ se apoya sobre el selector, a la derecha.</figcaption>
+</figure>
+<ul>
+<li>Tooltip: <b>título</b> = nombre del nivel, <b>cuerpo</b> = qué puede hacer, caret apuntando al ícono, entrada suave. Aparece por hover y por foco de teclado.</li>
+<li>El menú de niveles también trae un ⓘ por opción, para comparar antes de elegir.</li>
+<li>Los menús se reubican en scroll y resize para no salirse del modal.</li>
+</ul>
+
+<h2><span class="num">04</span>Ficha de edición · Estudios</h2>
+<p>Sólo aparece si la persona tiene acceso a Coordinación. Lo asignado se ve como chips; lo que falta se suma desde un botón.</p>
+<figure>
+<img src="img-estudios-card.png" alt="Tarjeta de estudios con botón verde Añadir estudio y chips" />
+<figcaption>Tarjeta «Estudios que ve»: botón verde «+ Añadir estudio» arriba a la derecha, chips debajo con más aire.</figcaption>
+</figure>
+<h3>Botón «Añadir estudio»</h3>
+<ul>
+<li>Es un <b>botón verde sólido</b> con ícono <code>+</code> a la izquierda, mismo estilo que «Nueva recepción» o «Crear cuenta». Ya no es un select con chevron.</li>
+<li>Copy: <b>«Añadir estudio»</b> (singular). Cuando ya están todos asignados queda <b>deshabilitado</b> y dice <b>«Todos asignados»</b>, con opacidad 0.5.</li>
+</ul>
+<h3>Elegir suma, no alterna</h3>
+<figure>
+<img src="img-menu-anadir.png" alt="Menú de añadir estudio con buscador y signo más por fila" />
+<figcaption>El menú lista sólo los estudios que faltan; cada fila termina en <code>+</code>.</figcaption>
+</figure>
+<ul>
+<li>El menú ofrece <b>únicamente los estudios que faltan</b>. Elegir uno lo <b>suma</b> y limpia la búsqueda; el menú queda abierto para seguir sumando.</li>
+<li>Ya no hay tilde ni toggle: <b>quitar se hace desde la × del chip</b>, no desde el menú.</li>
+<li>Cada fila: código en negrita (tabular), nombre en gris, <code>+</code> a la derecha.</li>
+<li>Vacíos: sin resultados de búsqueda → «No se encuentran resultados para tu búsqueda.»; sin nada por añadir → «Ya están todos los estudios asignados.»</li>
+</ul>
+<h3>Chips de estudios</h3>
+<ul>
+<li>Chip con <b>código y nombre</b> y una <b>×</b> para quitarlo de a uno.</li>
+<li><b>Más aire</b>: <code>gap: 9px</code> entre chips y <code>padding: 6px 0 18px</code> en la fila, para que respire respecto del selector de arriba y del borde de la tarjeta.</li>
+</ul>
+<div class="warn"><b>Sin estudios.</b> Si tiene Coordinación y ningún estudio asignado, en lugar de los chips va el aviso ámbar: «Sin ningún estudio asignado entra a Coordinación y no ve un solo paciente.»</div>
+
+<h2><span class="num">05</span>Ficha de edición · Consecuencia</h2>
+<p>El bloque que traduce el acceso elegido a lo que la persona va a encontrar cambió de título en las tres variantes.</p>
+<div class="copy">
+<div class="old">Con esto, coordinadora.a ve… / Vista previa de lo que va a encontrar al entrar</div>
+<div><b>Qué va a ver al entrar</b> / Con el acceso que estás dejándole</div>
+</div>
+<ul>
+<li>Variante A (definitiva): título de tarjeta + subtítulo.</li>
+<li>El contenido no cambió: un renglón con tilde por módulo, el renglón de pacientes por estudio (o el aviso ámbar), «No ve: …» y, si administra accesos, el renglón con escudo.</li>
+</ul>
+
+<h2><span class="num">06</span>Reglas y tokens</h2>
+<table>
+<thead><tr><th>Elemento</th><th>Regla</th></tr></thead>
+<tbody>
+<tr><td>Escudo</td><td>Ícono suelto <code>#0F5F57</code> al lado del nombre. Nunca pill ni texto duplicado.</td></tr>
+<tr><td>ⓘ</td><td>Siempre al lado del valor que explica (rol), nunca como texto permanente. Título + cuerpo, hover y foco.</td></tr>
+<tr><td>Estudios</td><td>Se ven como chips (código + nombre). Se suman desde el botón verde, se quitan desde la × del chip.</td></tr>
+<tr><td>Ámbar</td><td><code>#B0823F</code> para «entra pero no ve pacientes». Es advertencia, no error: no bloquea guardar.</td></tr>
+<tr><td>Botón primario</td><td>Verde sólido <code>#0F5F57</code>, ícono a la izquierda, texto en singular imperativo.</td></tr>
+<tr><td>Menús</td><td>Portaleados y reubicados en scroll/resize para no recortarse dentro del modal.</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">07</span>Decisión y pendiente</h2>
+<p><b>La ficha queda en la variante A</b>: pila de tarjetas (Módulos, Estudios, Administración, Qué va a ver al entrar, La cuenta, Historial). Las variantes B (dos columnas) y C (documento) se descartan.</p>
+<ul>
+<li>Definir si se mockean también «Mi cuenta», «Preferencias» y «Plataformas» con este nivel de detalle.</li>
+</ul>
+</doc-page>
+<script src="./doc-page.js"></script>
+</body>
+</html>
