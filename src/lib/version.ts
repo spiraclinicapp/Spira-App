@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.64', text: 'Farmacia puede entregar medicación a alguien que no es paciente de ningún estudio.' },
     { version: '0.63', text: 'Farmacia dispensa fuera de cronograma y registra la visita no programada desde el mostrador.' },
     { version: '0.62', text: 'Reasignar stock: mover unidades de un lote a otro protocolo o al ámbito ambulatorio.' },
     { version: '0.61', text: 'Ajustes: los desplegables se ven, cada nivel explica qué habilita, y se eligen estudios y portales.' },
