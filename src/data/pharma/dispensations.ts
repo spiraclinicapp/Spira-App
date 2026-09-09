@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { pharmaErrorMessage } from './errors'
 import { ESTADOS_ABIERTOS } from './dispensationModel'
 import type { DispensationRequestRow, HistorialEntradaRow, RequestStatus } from './dispensationModel'
+import type { HistorialFilaRow } from './historialModel'
 import type { VisitKind } from '../../lib/visitLabels'
 
 /**
@@ -14,6 +15,7 @@ import type { VisitKind } from '../../lib/visitLabels'
  * que antes de la separación, así que ninguna vista tuvo que tocar sus imports.
  */
 export * from './dispensationModel'
+export * from './historialModel'
 
 // UUID nulo: filtro imposible para devolver vacío cuando todavía no hay visita resuelta (el hook
 // se llama siempre, pero el panel recién se muestra con una visita en contexto). Evita traer TODO.
@@ -74,13 +76,6 @@ const CONTEXTO =
   'enrollment:enrollments!enrollment_id(patient:patients(id, code, full_name)), ' +
   'protocol:protocols!protocol_id(id, code, name)'
 
-/** Igual, con `!inner`, para que los filtros del historial EXCLUYAN filas en vez de dejar el
- *  embed en null. Ahora el inner cae sobre tablas que Farmacia SÍ puede leer. */
-const CONTEXTO_INNER =
-  'visit_code, ' +
-  'enrollment:enrollments!enrollment_id!inner(patient:patients!inner(id, code, full_name)), ' +
-  'protocol:protocols!protocol_id!inner(id, code, name)'
-
 const REQUEST_COLS =
   'id, status, source, rejection_reason, notes, created_at, updated_at, visit_id, ' +
   'requested_by_module, prepared_by, preparation_started_at, ' +
@@ -93,20 +88,11 @@ const REQUEST_COLS =
   'ip_documents:dispensation_ip_documents(id, storage_path, file_name, mime_type, size_bytes, uploaded_at, superseded_at, printed_at, printed_by), ' +
   CONTEXTO
 
-/**
- * Igual que `REQUEST_COLS` pero con `!inner`, para que los filtros del historial (protocolo,
- * código de paciente) EXCLUYAN filas en vez de dejar el embed en null.
- *
- * EL `!inner` ANTES CAÍA SOBRE `patient_visits`, y ahí estaba el bug: una farmacéutica sin el
- * módulo Coordinación no puede leer esa tabla (0006:162), así que el inner descartaba TODAS sus
- * filas y el historial le salía vacío, sin un solo error. El comentario viejo justificaba el inner
- * diciendo que "toda solicitud tiene visita → enrolamiento → paciente y protocolo": razonaba sobre
- * completitud de DATOS, que es cierta, y no sobre visibilidad de RLS, que es otra cosa.
- *
- * Ahora cae sobre `enrollments`, `patients` y `protocols`, que Farmacia SÍ lee (0010, 0006:130
- * y 0006:96).
- */
-const HISTORY_COLS = REQUEST_COLS.replace(CONTEXTO, CONTEXTO_INNER)
+/* EL `!inner` DEL HISTORIAL SE MUDÓ A LA 0117, y con él la lección que costó: antes caía sobre
+   `patient_visits`, que una farmacéutica sin el módulo Coordinación no puede leer (0006:162), así
+   que el inner le descartaba TODAS las filas y el historial le salía vacío sin un solo error. En
+   la vista los joins inner caen sobre `enrollments`, `patients` y `protocols`, que Farmacia SÍ
+   lee (0010, 0006:130 y 0006:96) — y quedaron ahí documentados, porque es donde ahora viven. */
 
 /**
  * Solicitudes de dispensación de una visita (para el panel de `VisitDetail` en Track). Más nuevas
@@ -214,6 +200,30 @@ export function useDispensationBoard(dayISO: string) {
 export const HISTORY_PAGE_SIZE = 40
 
 /**
+ * Traduce los errores de LECTURA del historial.
+ *
+ * Hace falta por un caso concreto y reciente: si la 0117 no está aplicada, `useSupabaseQuery`
+ * muestra el `message` crudo de PostgREST —en inglés y nombrando una vista del schema— en la cara
+ * de la farmacéutica, y el historial entero se lee como roto. Pasó el 2026-09-08 con la 0114, que
+ * se aplicó tarde y dejó una afordancia muerta sin ninguna explicación. Mismo criterio y mismos
+ * códigos que `ambulatoriaReadErrorMessage`.
+ */
+function historyReadErrorMessage(e: { code?: string }): string {
+  const code = e.code ?? ''
+  if (code === 'PGRST202' || code === 'PGRST205' || code === '42P01') {
+    return 'Falta aplicar una actualización de la base para ver el historial. Avisale al equipo técnico.'
+  }
+  if (code === '42501') return 'No tenés permiso para ver el historial de dispensaciones.'
+  return 'No pudimos cargar el historial. Probá de nuevo en un momento.'
+}
+
+/** Las columnas de `v_pharma_history` (0117), en el orden en que las declara `HistorialFilaRow`. */
+const HISTORY_ROW_COLS =
+  'tipo, id, ordenado_por, codigo, correlativo, destinatario, destinatario_id, ' +
+  'destinatario_ref, protocol_code, protocol_id, medicamentos, unidades, ' +
+  'estado_solicitud, estado_dispensacion, autorizado_por'
+
+/**
  * Historial completo, paginado y filtrado SERVER-SIDE.
  *
  * La versión vieja de esta vista traía todo el histórico de todos los protocolos sin `.limit()` y
@@ -222,6 +232,21 @@ export const HISTORY_PAGE_SIZE = 40
  *
  * `hasMore` sale de pedir una fila de más (`PAGE_SIZE + 1`) y descartarla: evita un `count` exacto,
  * que en Postgres obliga a recorrer la tabla entera solo para dibujar un botón.
+ *
+ * ┌──────────────────────────────────────────────────────────────────────────────────────────┐
+ * │ DESDE LA 0117 LEE UNA VISTA, NO LA TABLA, Y DEVUELVE FILAS DE PRESENTACIÓN                │
+ * │                                                                                           │
+ * │ El historial muestra DOS fuentes: las dispensaciones de protocolo y las salidas            │
+ * │ ambulatorias (0116), que no tienen paciente ni protocolo. Unirlas en el front NO servía —  │
+ * │ y no por diseño visual: esta lista está PAGINADA, así que dos fuentes paginadas por        │
+ * │ separado dejarían una salida vieja apareciendo recién en la página 2, en el lugar          │
+ * │ equivocado del orden cronológico. El `union all` va donde el `order by` y el `limit` son   │
+ * │ de verdad.                                                                                 │
+ * │                                                                                           │
+ * │ Consecuencia: acá ya NO viajan los embeds del pedido (renglones, escaneos, constancias).  │
+ * │ Eso es del CAJÓN, que lo trae por id con `useDispensationRequest`. Traerlo por fila era    │
+ * │ hacer cuarenta veces el trabajo para dibujar una lista.                                    │
+ * └──────────────────────────────────────────────────────────────────────────────────────────┘
  */
 export function useDispensationHistory(opts: {
   page: number
@@ -254,25 +279,32 @@ export function useDispensationHistory(opts: {
   /* Los códigos viajan a las deps como texto: un array literal cambia de identidad en cada render
      del consumidor y dispararía un refetch por render. */
   const protoKey = protocolCodes.join(',')
-  return useSupabaseQuery<{ rows: DispensationRequestRow[]; hasMore: boolean; page: number }>(
+  return useSupabaseQuery<{ rows: HistorialFilaRow[]; hasMore: boolean; page: number }>(
     async (c) => {
       if (!enabled) return { data: { rows: [], hasMore: false, page }, error: null }
       const from = page * HISTORY_PAGE_SIZE
       let q = c
-        .from('dispensation_requests')
-        // `!inner` en toda la cadena: sin eso, un filtro sobre un embed anidado NO excluye la fila
-        // padre, solo deja el embed en null — la página vendría llena de huecos y la paginación
-        // contaría filas que no se muestran.
-        .select(HISTORY_COLS)
-        .order('updated_at', { ascending: false })
+        .from('v_pharma_history')
+        .select(HISTORY_ROW_COLS)
+        .order('ordenado_por', { ascending: false })
+        // Desempate por `id`: sin él, dos filas con el MISMO instante quedan en un orden que
+        // Postgres no promete, y basta con que lo elija distinto entre dos páginas para que una
+        // se repita en las dos y otra no aparezca nunca. Es raro y silencioso — justo la clase
+        // de defecto que un paginado esconde bien.
+        .order('id', { ascending: false })
         .range(from, from + HISTORY_PAGE_SIZE) // una de más para saber si hay página siguiente
 
       // Punto de partida: todo lo que pasó hasta el final del día elegido, hacia atrás.
-      if (fromDay) q = q.lte('updated_at', `${fromDay}T23:59:59.999${AR_OFFSET}`)
-      if (protocolCodes.length > 0) q = q.in('protocol.code', protocolCodes)
-      if (needle) q = q.ilike('enrollment.patient.code', `%${needle}%`)
+      if (fromDay) q = q.lte('ordenado_por', `${fromDay}T23:59:59.999${AR_OFFSET}`)
+      /* Los DOS filtros dejan afuera las salidas ambulatorias solas, porque la vista les pone
+         null en las dos columnas — y es lo correcto: si preguntás "qué pasó en PROT-A", una
+         entrega a alguien que no es paciente de nada no forma parte de esa respuesta.
+         `paciente_codigo` y no `destinatario_ref`: la segunda lleva el DOCUMENTO del otro lado
+         del union, y buscar "301" traería la salida de un DNI que empieza así. */
+      if (protocolCodes.length > 0) q = q.in('protocol_code', protocolCodes)
+      if (needle) q = q.ilike('paciente_codigo', `%${needle}%`)
 
-      const { data, error } = await q.returns<DispensationRequestRow[]>()
+      const { data, error } = await q.returns<HistorialFilaRow[]>()
       if (error) return { data: null, error }
 
       let rows = data ?? []
@@ -286,6 +318,7 @@ export function useDispensationHistory(opts: {
       return { data: { rows, hasMore, page }, error: null }
     },
     [page, protoKey, needle, enabled, fromDay],
+    historyReadErrorMessage,
   )
 }
 

@@ -52,6 +52,32 @@ export function useSalidasAmbulatorias(limit = 20) {
 }
 
 /**
+ * UNA salida ambulatoria, por id — el detalle que abre el cajón desde el historial.
+ *
+ * Va por id y no reusa la lista porque el historial pagina: una salida de hace tres semanas no
+ * está entre las últimas veinte, y sin esto un link compartido a esa fila abriría un cajón vacío.
+ * Mismo criterio y misma forma que `useDispensationRequest` para las de protocolo.
+ *
+ * El cajón muestra lo que el renglón no tiene lugar de mostrar —documento, lote, nota, quién
+ * entregó y la hora exacta—, que en una base auditable es justo lo que se viene a buscar.
+ */
+export function useSalidaAmbulatoria(id: string | null) {
+  return useSupabaseQuery<SalidaAmbulatoriaRow | null>(
+    async (c) => {
+      if (!id) return { data: null, error: null }
+      const { data, error } = await c
+        .from('v_ambulatory_dispensations')
+        .select(SALIDA_COLS)
+        .eq('id', id)
+        .maybeSingle()
+      return { data: (data as SalidaAmbulatoriaRow | null) ?? null, error }
+    },
+    [id],
+    ambulatoriaReadErrorMessage,
+  )
+}
+
+/**
  * Registra una entrega ambulatoria (RPC `dispensar_ambulatoria`, 0116, pharma operator+).
  *
  * Atómico: la base inserta la fila, descuenta el lote y escribe el asiento en `stock_movements`
