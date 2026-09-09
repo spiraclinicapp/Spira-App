@@ -121,6 +121,40 @@ export function formatDateAR(ts: string): string {
   return armarFecha(String(d.getFullYear()), mm, dd)
 }
 
+/** Minutos que Mendoza está detrás de UTC. Fijo y no una aproximación: Argentina no aplica horario
+ *  de verano desde 2009. Es el mismo `-03:00` que la capa de datos manda en los bordes del día. */
+const AR_OFFSET_MIN = 180
+
+/**
+ * TIMESTAMPTZ → el DÍA CALENDARIO argentino, como `YYYY-MM-DD`. Para AGRUPAR, no para mostrar.
+ *
+ * ┌──────────────────────────────────────────────────────────────────────────────────────────┐
+ * │ POR QUÉ NO ALCANZA CON `ts.slice(0, 10)`, QUE ES LO QUE ESTABA ESCRITO                     │
+ * │                                                                                           │
+ * │ PostgREST devuelve los `timestamptz` en **UTC** (`2026-09-09T01:37:29+00:00`), así que el  │
+ * │ recorte da el día UTC: una entrega de las 22:37 de Mendoza se agrupa bajo el día           │
+ * │ SIGUIENTE. Es la misma trampa que documenta `formatDateAR` acá arriba, y el historial de   │
+ * │ Farmacia la tenía: el 2026-09-08 una salida hecha a las 22:37 aparecía bajo "Miércoles 09  │
+ * │ sep" mientras su propio cajón —que sí localiza— decía "08 Sep 2026 22:37". Dos fechas      │
+ * │ distintas para el mismo hecho, a un clic de distancia, en un sistema auditable.            │
+ * │                                                                                           │
+ * │ EL OFFSET VA FIJO Y NO SALE DEL NAVEGADOR, a diferencia de `formatDateAR` y compañía. No   │
+ * │ es una inconsistencia: esta función tiene que coincidir con el BORDE DEL DÍA que la        │
+ * │ consulta ya manda a Postgres (`${dia}T23:59:59.999-03:00`, ver `AR_OFFSET` en              │
+ * │ `data/pharma/dispensations.ts`). Si el agrupamiento usara la zona del navegador y ésta no  │
+ * │ fuera la argentina, una fila podría entrar en la ventana de la consulta y caer en el grupo │
+ * │ del día siguiente — el filtro y la lista contándose distinto.                              │
+ * └──────────────────────────────────────────────────────────────────────────────────────────┘
+ */
+export function isoDayAR(ts: string): string {
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ts.slice(0, 10)
+  const ar = new Date(d.getTime() - AR_OFFSET_MIN * 60_000)
+  const mm = String(ar.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(ar.getUTCDate()).padStart(2, '0')
+  return `${ar.getUTCFullYear()}-${mm}-${dd}`
+}
+
 /**
  * TIMESTAMPTZ → `HH:MM` en hora LOCAL, sin la fecha. Para el listón de la barra de acción de la
  * visita ("Concurrió al centro · 10:31"), donde el día ya lo dice el contexto.

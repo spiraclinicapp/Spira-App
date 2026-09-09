@@ -1,4 +1,5 @@
 import type { RequestStatus } from './dispensationModel'
+import { isoDayAR } from '../../lib/dates'
 
 /**
  * El MODELO del historial unificado de Farmacia: la forma de la fila y las reglas que se derivan
@@ -93,12 +94,14 @@ export function tituloDeFila(f: HistorialFilaRow): string {
 }
 
 /**
- * Agrupa por día calendario, preservando el orden que trajo el servidor (más nuevo primero).
+ * Agrupa por día calendario ARGENTINO, preservando el orden que trajo el servidor (más nuevo
+ * primero).
  *
- * Se corta el ISO a diez caracteres en vez de construir un `Date`: `new Date(iso).getDate()` lo
- * resuelve en la zona del navegador y una entrega de las 21:30 de Mendoza cae al día siguiente,
- * que es exactamente el bug que la 0117 evita del lado del servidor con el offset fijo. Acá el
- * texto ya viene con la zona resuelta.
+ * EL DÍA SALE DE `isoDayAR` Y NO DE RECORTAR EL ISO, y ésa es toda la sustancia de esta función.
+ * PostgREST devuelve los `timestamptz` en UTC, así que `ts.slice(0, 10)` da el día UTC y todo lo
+ * entregado después de las 21:00 de Mendoza se agrupa un día adelante. Estaba así desde antes de
+ * unir las dos fuentes y se vio en el QA del 2026-09-08: una salida de las 22:37 quedó bajo
+ * "Miércoles 09 sep" con su propio cajón diciendo "08 Sep 2026 22:37".
  *
  * Genérica sobre `{ ordenado_por }` para poder testearla sin fabricar una fila entera.
  */
@@ -108,7 +111,7 @@ export function agruparPorDia<T extends { ordenado_por: string }>(
 ): { dia: string; filas: T[] }[] {
   const out: { dia: string; filas: T[] }[] = []
   for (const f of filas) {
-    const etiqueta = etiquetaDe(f.ordenado_por.slice(0, 10))
+    const etiqueta = etiquetaDe(isoDayAR(f.ordenado_por))
     const ultimo = out[out.length - 1]
     if (ultimo && ultimo.dia === etiqueta) ultimo.filas.push(f)
     else out.push({ dia: etiqueta, filas: [f] })

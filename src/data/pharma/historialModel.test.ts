@@ -17,7 +17,7 @@ import type { HistorialFilaRow } from './historialModel'
 const fila = (over: Partial<HistorialFilaRow> = {}): HistorialFilaRow => ({
   tipo: 'protocolo',
   id: 'r1',
-  ordenado_por: '2026-09-08T14:30:00-03:00',
+  ordenado_por: '2026-09-08T17:30:00+00:00',
   codigo: 'D-0417',
   correlativo: 17,
   destinatario: 'Juan Pérez',
@@ -100,9 +100,9 @@ describe('agruparPorDia', () => {
   it('junta las filas del mismo día en un grupo y respeta el orden que vino', () => {
     const out = agruparPorDia(
       [
-        fila({ id: 'a', ordenado_por: '2026-09-08T18:00:00-03:00' }),
-        fila({ id: 'b', ordenado_por: '2026-09-08T09:00:00-03:00' }),
-        fila({ id: 'c', ordenado_por: '2026-09-07T11:00:00-03:00' }),
+        fila({ id: 'a', ordenado_por: '2026-09-08T21:00:00+00:00' }),
+        fila({ id: 'b', ordenado_por: '2026-09-08T12:00:00+00:00' }),
+        fila({ id: 'c', ordenado_por: '2026-09-07T14:00:00+00:00' }),
       ],
       etiqueta,
     )
@@ -116,9 +116,9 @@ describe('agruparPorDia', () => {
   it('intercala las dos fuentes en el mismo día', () => {
     const out = agruparPorDia(
       [
-        fila({ id: 'p', ordenado_por: '2026-09-08T18:00:00-03:00' }),
-        ambulatoria({ id: 'a', ordenado_por: '2026-09-08T17:00:00-03:00' }),
-        fila({ id: 'p2', ordenado_por: '2026-09-08T16:00:00-03:00' }),
+        fila({ id: 'p', ordenado_por: '2026-09-08T21:00:00+00:00' }),
+        ambulatoria({ id: 'a', ordenado_por: '2026-09-08T20:00:00+00:00' }),
+        fila({ id: 'p2', ordenado_por: '2026-09-08T19:00:00+00:00' }),
       ],
       etiqueta,
     )
@@ -127,24 +127,44 @@ describe('agruparPorDia', () => {
   })
 
   /**
-   * EL DÍA SE CORTA DEL TEXTO, no se construye un `Date`.
-   *
-   * `new Date(iso).getDate()` lo resuelve en la zona del NAVEGADOR: una entrega de las 21:30 de
-   * Mendoza cae al día siguiente en UTC y desaparece del día en que se trabajó. Es exactamente el
-   * bug que costó una noche el 2026-08-10 en el tablero, y la razón por la que la consulta manda
-   * el offset fijo `-03:00`. Este caso lo fija: dos filas de la misma noche, una de ellas después
-   * de las 21, tienen que caer en el MISMO grupo.
+   * ┌────────────────────────────────────────────────────────────────────────────────────────┐
+   * │ EL CASO QUE COSTÓ EL BUG, Y LA PRIMERA VERSIÓN DE ESTE TEST QUE NO LO ATRAPABA           │
+   * │                                                                                         │
+   * │ **Los timestamps van en UTC (`+00:00`), que es como los manda PostgREST.** La versión    │
+   * │ anterior de este caso los fabricaba en `-03:00` y pasaba con la implementación ROTA:     │
+   * │ recortar `'2026-09-08T22:15:00-03:00'` da `2026-09-08` de casualidad, porque el texto ya │
+   * │ venía en hora local. Producción nunca manda eso. El test verificaba una premisa que no   │
+   * │ ocurre, y el bug apareció igual en el QA: una salida de las 22:37 de Mendoza llega como  │
+   * │ `2026-09-09T01:37:29+00:00` y se agrupaba bajo el día siguiente.                          │
+   * │                                                                                         │
+   * │ Pasa igual en CI, que corre en UTC: el offset de `isoDayAR` es FIJO y no sale del reloj  │
+   * │ de la máquina, así que este caso no depende de dónde se ejecute.                         │
+   * └────────────────────────────────────────────────────────────────────────────────────────┘
    */
-  it('una entrega de las 22:00 de Mendoza queda en su propio día, no en el siguiente', () => {
+  it('una entrega de las 22:37 de Mendoza queda en su día, no en el siguiente', () => {
     const out = agruparPorDia(
       [
-        fila({ id: 'noche', ordenado_por: '2026-09-08T22:15:00-03:00' }),
-        fila({ id: 'tarde', ordenado_por: '2026-09-08T15:00:00-03:00' }),
+        // 01:37 UTC del 9 = 22:37 del 8 en Mendoza. Es la fila real del QA del 2026-09-08.
+        fila({ id: 'noche', ordenado_por: '2026-09-09T01:37:29.272045+00:00' }),
+        fila({ id: 'tarde', ordenado_por: '2026-09-08T18:00:00+00:00' }),
       ],
       etiqueta,
     )
     expect(out).toHaveLength(1)
     expect(out[0].dia).toBe('2026-09-08')
+  })
+
+  /* La contracara: pasada la medianoche de Mendoza el día SÍ tiene que cambiar. Sin este caso, un
+     `isoDayAR` que restara de más pasaría el test de arriba y agruparía mal todo lo de la mañana. */
+  it('pero pasada la medianoche de Mendoza sí cambia de día', () => {
+    const out = agruparPorDia(
+      [
+        fila({ id: 'madrugada', ordenado_por: '2026-09-09T03:10:00+00:00' }), // 00:10 del 9 en AR
+        fila({ id: 'noche', ordenado_por: '2026-09-09T02:50:00+00:00' }),     // 23:50 del 8 en AR
+      ],
+      etiqueta,
+    )
+    expect(out.map((g) => g.dia)).toEqual(['2026-09-09', '2026-09-08'])
   })
 
   it('tolera la lista vacía', () => {
