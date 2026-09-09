@@ -182,3 +182,59 @@ de protocolo**, y es una corrección.
    intercalado, cajón, y que Stock ya no ofrezca "Entregar" ni "Últimas salidas".
 3. Sigue afuera y a propósito: **Reportes** no levanta las salidas ambulatorias (es su propia
    tanda, ver el punto 1 del handoff del 2026-09-08).
+
+---
+
+## QA logueado contra producción (2026-09-08)
+
+La **`0117` quedó aplicada y comprobada**: `v_pharma_history` responde `401/42501` contra PostgREST
+sin sesión (existe, sin permiso) y una columna inventada da `400/42703` — la diferencia entre las
+dos respuestas es lo que confirma el contrato.
+
+### Lo verificado
+
+- **La vista igualada contra la consulta vieja.** Los `!inner` de `HISTORY_COLS` devuelven **6
+  filas** y `v_pharma_history` con `tipo = protocolo` devuelve **las mismas 6**. Ninguna aparece ni
+  desaparece.
+- **Paginación estable.** Tres páginas de 3 reensamblan exactamente la misma secuencia que una
+  consulta completa: sin repetidas, sin huecos y en orden cronológico descendente. Es lo que fija
+  el desempate por `id` que se le sumó al `order`.
+- **El falso positivo del buscador, demostrado con dato real.** Con un destinatario de documento
+  `99887766`: buscar "9988" por `paciente_codigo` —como hace el front— da **cero**; por
+  `destinatario_ref` —la columna de mostrar— **habría traído la ambulatoria**. La columna extra se
+  ganó el lugar.
+- **Alta ambulatoria de punta a punta.** Elegir el medicamento dejó el lote puesto por FEFO, la
+  entrega salió por el RPC desde el panel nuevo, la fila apareció intercalada con su chip, el cajón
+  mostró documento, lote, nota y quién despachó, y el stock volvió a **0**: el ajuste de +1 y la
+  entrega de −1 netean cero en el libro (`reference_type = 'ambulatoria'`, `quantity_delta = -1`).
+- **Stock.** Sin "Entregar" en el kebab (queda Modificar código / Agregar variante / Copiar EAN13 /
+  Ajustar stock / Reasignar stock) y sin el bloque "Últimas salidas".
+
+### Dos defectos encontrados, y el segundo no era de esta tanda
+
+**1 · El cajón escribía la dosis dos veces.** El `name` del medicamento ya la trae en los datos
+reales ("Alvetide 184/22 mcg"), así que concatenarle `medication_dosis` daba
+"Alvetide 184/22 mcg · 184/22 mcg". Y la cantidad usaba `medication_unit`, que guarda la **forma
+farmacéutica**: detrás de un número se leía "1 Polvo seco". Corregido — el nombre a secas y "u.",
+como cuenta el resto de Dispensaciones.
+
+**2 · El historial agrupaba por el día UTC.** Recortaba el timestamp a diez caracteres, y PostgREST
+los manda en UTC: todo lo trabajado **después de las 21:00 de Mendoza caía un día adelante**. Ya
+estaba así antes de esta tanda; se vio ahora porque el cajón nuevo muestra la hora al lado y las
+dos fechas se contradecían en pantalla. Se arregló con `isoDayAR` (`lib/dates`), con el offset
+**fijo** para que coincida con el borde del día que la consulta ya manda a Postgres — si usara la
+zona del navegador, una fila podría entrar en la ventana del filtro y caer en el grupo siguiente.
+
+> ⚠️ **Esto SÍ cambia el comportamiento de la rama de protocolo**, y corrige lo afirmado más
+> arriba. Medido en producción: **2 de 8 filas cambian de grupo**, las dos al día correcto — una es
+> de prueba y la otra una **solicitud real** que figuraba el 12/08 y ocurrió a las 23:26 del 11/08.
+
+Y **el test que decía cubrir ese caso no lo cubría**: fabricaba los timestamps en `-03:00`, que
+producción nunca manda, así que pasaba con la implementación rota. Es la trampa del harness
+incompleto, aplicada a un test unitario: si el dato de prueba no tiene la forma del dato real, el
+test verifica una premisa que no ocurre.
+
+### Estado
+
+`npm run build` verde: **884 tests**. Falta abrir la PR. Sigue afuera y a propósito: **Reportes** no
+levanta las salidas ambulatorias (es su propia tanda).
