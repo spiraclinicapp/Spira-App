@@ -348,7 +348,10 @@ export function SearchableSelect(props: Props) {
           />
         )}
         {currentDot && <span aria-hidden style={{ ...dotStyle, background: currentDot }} />}
-        <span className={mono && current ? 'spira-mono' : undefined} style={variant === 'chip'
+        {/* `mono` sólo cuando el disparador muestra el rótulo de una opción. En 'boton' muestra la
+            ACCIÓN ("Añadir estudio"), y ponerle la monoespaciada del código de estudio dejaría el
+            botón escrito en otra tipografía que el resto de los botones de la tarjeta. */}
+        <span className={mono && current && variant !== 'boton' ? 'spira-mono' : undefined} style={variant === 'chip'
           ? { color: current ? 'var(--spira-ink)' : 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 210 }
           : variant === 'boton'
             ? { whiteSpace: 'nowrap' }

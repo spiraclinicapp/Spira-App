@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
+import type { IconName } from './Icon'
 import { usePopover } from './usePopover'
 
 /* ============================================================================
@@ -54,9 +55,13 @@ interface Props {
   /** Qué anuncia el lector de pantalla al llegar al ícono. Por defecto nombra el título. */
   etiqueta?: string
   color?: string
+  /** Con qué ícono se dispara. El default es el ⓘ, pero a veces el disparador ES el dato: el
+   *  escudito de quien administra los accesos explica lo que él mismo significa, y ponerle un ⓘ al
+   *  lado sería dibujar dos íconos para una sola idea. */
+  icono?: IconName
 }
 
-export function InfoTip({ titulo, cuerpo, size = 15, etiqueta, color }: Props) {
+export function InfoTip({ titulo, cuerpo, size = 15, etiqueta, color, icono = 'info' }: Props) {
   const [open, setOpen] = useState(false)
   const timer = useRef<number | null>(null)
   const tipId = useId()
@@ -112,7 +117,7 @@ export function InfoTip({ titulo, cuerpo, size = 15, etiqueta, color }: Props) {
         onClick={() => (open ? cerrar() : abrir())}
         style={{ ...disparador, width: size + 6, height: size + 6 }}
       >
-        <Icon name="info" size={size} color={color ?? 'var(--spira-faint)'} />
+        <Icon name={icono} size={size} color={color ?? 'var(--spira-faint)'} />
       </button>
 
       {open && pos && createPortal(
