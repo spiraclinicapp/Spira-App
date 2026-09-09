@@ -207,14 +207,17 @@ describe('resumenDeAccesoEnLinea', () => {
     })
   })
 
-  it('Farmacia con cero estudios NO lleva aviso: es central y ve todos los protocolos', () => {
-    // El aviso es de Coordinación y de nadie más. `protocol_coordinators` scopea únicamente a ese
-    // módulo; poner el ámbar acá sería inventar un filtro que la RLS no aplica.
+  it('Farmacia sin Coordinación: ni aviso ni conteo, porque el conteo mentiría', () => {
+    // `null` NO ES CERO. `protocol_coordinators` (0006) scopea únicamente a Coordinación; Farmacia
+    // es central y ve TODOS los protocolos. Escribir "0 estudios" al lado de "Farmacia ·
+    // Administrador" afirmaría que no ve pacientes, que es lo contrario de la verdad — y esta es la
+    // pantalla donde se reparte el acceso, así que el que lea ese cero va a decidir con él.
+    // El ámbar tampoco va: sería inventar un filtro que la RLS no aplica.
     const r = resumenDeAccesoEnLinea({ pharma: 'admin' }, MODULOS, true, 0)
     expect(r).toEqual({
       tipo: 'acceso',
       modulos: [{ nombre: 'Farmacia', nivel: 'admin' }],
-      estudios: 0,
+      estudios: null,
     })
   })
 
@@ -254,7 +257,7 @@ describe('resumenDeAccesoEnLinea', () => {
     expect(r).toEqual({
       tipo: 'acceso',
       modulos: [{ nombre: 'Lab', nivel: 'admin' }],
-      estudios: 0,
+      estudios: null,
     })
   })
 
@@ -273,6 +276,19 @@ describe('resumenDeAccesoEnLinea', () => {
     // la línea tiene que decir "sin acceso a ningún módulo" y no "Inicio · Lectura".
     expect(resumenDeAccesoEnLinea({ inicio: 'viewer' } as unknown as Accesos, MODULOS, true, 0))
       .toEqual({ tipo: 'sin-modulos' })
+  })
+
+  it('con Coordinación entre varios módulos, el conteo SÍ va', () => {
+    // El par del test de Farmacia sola: alcanza con que tenga Coordinación en alguna parte para
+    // que el número signifique algo. Sin este par, `estudios: null` podría implementarse como
+    // "nunca hay conteo" y los dos tests seguirían pasando.
+    const r = resumenDeAccesoEnLinea({ track: 'viewer', pharma: 'admin' }, MODULOS, true, 4)
+    // `toEqual` y no `toMatchObject`: la igualdad completa es lo que prueba que NO hay aviso.
+    expect(r).toEqual({
+      tipo: 'acceso',
+      modulos: [{ nombre: 'Coordinación', nivel: 'viewer' }, { nombre: 'Farmacia', nivel: 'admin' }],
+      estudios: 4,
+    })
   })
 
   it('el orden lo manda el registro de módulos, no el objeto de accesos', () => {

@@ -242,8 +242,15 @@ export type ResumenDeAccesoEnLinea =
       tipo: 'acceso'
       /** En el orden del REGISTRO de módulos, no en el del jsonb que llega de la vista. */
       modulos: { nombre: string; nivel: ModuleRole }[]
-      /** Cuántos estudios ve. El singular/plural lo pone el componente: un plural al revés se ve. */
-      estudios: number
+      /** Cuántos estudios ve, o `null` cuando el conteo NO SIGNIFICA NADA para esta persona.
+       *
+       *  `null` no es cero: sin Coordinación no hay recorte por estudio —Farmacia es central y ve
+       *  todos los protocolos—, así que escribir "0 estudios" al lado de "Farmacia · Administrador"
+       *  afirmaría que no ve pacientes, que es exactamente lo contrario de la verdad. Un cero que
+       *  miente es peor que un dato ausente, sobre todo en la pantalla donde se reparte el acceso.
+       *
+       *  El singular/plural lo pone el componente: un plural al revés se ve. */
+      estudios: number | null
       /** Entra a Coordinación y no va a ver un solo paciente. Se pinta en ámbar. */
       aviso?: 'sin-estudios'
     }
@@ -267,17 +274,17 @@ export function resumenDeAccesoEnLinea(
 
   if (conAcceso.length === 0) return { tipo: 'sin-modulos' }
 
-  /* El aviso es de Coordinación y de nadie más. `protocol_coordinators` (0006) scopea únicamente
-     ese módulo; Farmacia es central y ve todos los protocolos, así que ponerle el ámbar sería
-     inventar un filtro que la RLS no aplica. Es el mismo `track != null` que ya decide si el
-     bloque de estudios aparece en la ficha de edición. */
-  const sinEstudios = accesos.track != null && estudios === 0
+  /* El recorte por estudio es de Coordinación y de nadie más. `protocol_coordinators` (0006)
+     scopea únicamente ese módulo; Farmacia es central y ve todos los protocolos, así que tanto el
+     conteo como el ámbar sólo tienen sentido con `track`. Es el mismo `track != null` que ya decide
+     si el bloque de estudios aparece en la ficha de edición. */
+  const scopeaPorEstudio = accesos.track != null
 
   return {
     tipo: 'acceso',
     modulos: conAcceso,
-    estudios,
-    ...(sinEstudios ? { aviso: 'sin-estudios' as const } : null),
+    estudios: scopeaPorEstudio ? estudios : null,
+    ...(scopeaPorEstudio && estudios === 0 ? { aviso: 'sin-estudios' as const } : null),
   }
 }
 
