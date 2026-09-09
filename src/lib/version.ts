@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.66', text: 'El Resumen cierra parejo y desde Novedades podés contarnos qué mejorarías.' },
     { version: '0.65', text: 'La entrega ambulatoria se hace desde Dispensaciones. Lo cargado de noche ya no se fecha mañana.' },
     { version: '0.64', text: 'Farmacia puede entregar medicación a alguien que no es paciente de ningún estudio.' },
     { version: '0.63', text: 'Farmacia dispensa fuera de cronograma y registra la visita no programada desde el mostrador.' },
