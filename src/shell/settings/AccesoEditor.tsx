@@ -385,10 +385,20 @@ export function AccesoEditor({
               de la tarjeta, y se leen como parte del control en vez de como su resultado. */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, padding: '6px 0 18px' }}>
             {protosElegidos.length === 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-acc-deep-warn)' }}>
-                <Icon name="alert" size={15} color="var(--spira-acc-deep-warn)" />
-                Sin ningún estudio asignado entra a Coordinación y no ve un solo paciente.
-              </div>
+              /* El ámbar SÓLO si el recorte le aplica, y con `gerencia` NO le aplica: las tres
+                 policies de la 0006 que gobiernan Coordinación abren con `has_module('gerencia')
+                 or …`. Mira el BORRADOR, así que darle o quitarle la administración cambia el aviso
+                 en el acto, sin guardar. */
+              esAdminAhora ? (
+                <div style={{ fontSize: 13, color: 'var(--spira-muted)' }}>
+                  Ninguno asignado. Como administra los accesos, igual ve a todos los pacientes del centro.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-acc-deep-warn)' }}>
+                  <Icon name="alert" size={15} color="var(--spira-acc-deep-warn)" />
+                  Sin ningún estudio asignado entra a Coordinación y no ve un solo paciente.
+                </div>
+              )
             ) : (
               protocolos
                 .filter((p) => protosElegidos.includes(p.id))
@@ -452,15 +462,21 @@ export function AccesoEditor({
           ))}
           {/* Los estudios, debajo de los módulos: el módulo es la puerta y el estudio es el
               alcance, y leerlos juntos es lo que evita el "le di Coordinación y no ve nada". */}
+          {/* El recorte por estudio le aplica sólo a quien NO administra: las tres policies de la
+              0006 que gobiernan Coordinación (`patients`, `enrollments`, `patient_visits`) abren
+              con `has_module('gerencia') or …`. Con la administración puesta en el borrador, cero
+              estudios no es un problema y decirlo en ámbar sería alarmar por nada. */}
           {tieneCoordinacion && (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5 }}>
               <Icon
-                name={protosElegidos.length === 0 ? 'clock' : 'check'}
+                name={protosElegidos.length === 0 && !esAdminAhora ? 'clock' : 'check'}
                 size={14}
-                color={protosElegidos.length === 0 ? 'var(--spira-acc-deep-warn)' : 'var(--spira-acc-deep-good)'}
+                color={protosElegidos.length === 0 && !esAdminAhora ? 'var(--spira-acc-deep-warn)' : 'var(--spira-acc-deep-good)'}
               />
-              <span style={{ color: protosElegidos.length === 0 ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink)' }}>
-                {protosElegidos.length === 0 ? (
+              <span style={{ color: protosElegidos.length === 0 && !esAdminAhora ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink)' }}>
+                {protosElegidos.length === 0 && esAdminAhora ? (
+                  <>Todos los pacientes del centro, <strong style={{ fontWeight: 600 }}>porque administra los accesos</strong> — no por los estudios</>
+                ) : protosElegidos.length === 0 ? (
                   <>Sin ningún estudio asignado: entra a Coordinación pero <strong style={{ fontWeight: 600 }}>no ve ningún paciente</strong></>
                 ) : (
                   <>

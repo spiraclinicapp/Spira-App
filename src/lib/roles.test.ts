@@ -237,7 +237,8 @@ describe('resumenDeAccesoEnLinea', () => {
     expect(r).toEqual({
       tipo: 'acceso',
       modulos: [{ nombre: 'Coordinación', nivel: 'admin' }],
-      estudios: 2,
+      // `null` y no 2: con gerencia el recorte por estudio no aplica — ver el test de abajo.
+      estudios: null,
     })
   })
 
@@ -276,6 +277,34 @@ describe('resumenDeAccesoEnLinea', () => {
     // la línea tiene que decir "sin acceso a ningún módulo" y no "Inicio · Lectura".
     expect(resumenDeAccesoEnLinea({ inicio: 'viewer' } as unknown as Accesos, MODULOS, true, 0))
       .toEqual({ tipo: 'sin-modulos' })
+  })
+
+  it('gerencia SALTEA el recorte: ni conteo ni ámbar, aunque tenga Coordinación', () => {
+    /* La falsa alarma que encontró el QA logueado del 2026-09-09, en las DOS cuentas de
+       administración del centro. Las tres policies de la 0006 que gobiernan Coordinación abren con
+       `has_module('gerencia') or …`, así que quien administra ve el centro entero tenga los estudios
+       que tenga. Decirle "sin estudios asignados" en ámbar es avisarle de un problema que no existe,
+       en la fila más mirada de la pantalla. */
+    const r = resumenDeAccesoEnLinea({ track: 'admin', gerencia: 'admin' }, MODULOS, true, 0)
+    expect(r).toEqual({
+      tipo: 'acceso',
+      modulos: [{ nombre: 'Coordinación', nivel: 'admin' }],
+      estudios: null,
+    })
+  })
+
+  it('gerencia CON estudios tampoco muestra el conteo: no lo limita', () => {
+    // El conteo sería cierto y aun así engañoso: en esa fila implicaría un límite que no existe.
+    const r = resumenDeAccesoEnLinea({ track: 'operator', gerencia: 'admin' }, MODULOS, true, 3)
+    expect(r).toMatchObject({ estudios: null })
+  })
+
+  it('Farmacia NO saltea el recorte: con Coordinación y cero estudios, el ámbar va igual', () => {
+    /* El par del test de gerencia, y la razón por la que no alcanza con "tiene otro módulo".
+       `pharma` abre `patients` pero NO `enrollments` ni `patient_visits`, así que esta persona entra
+       a Coordinación y no puede trabajar. El aviso corresponde. */
+    const r = resumenDeAccesoEnLinea({ track: 'operator', pharma: 'admin' }, MODULOS, true, 0)
+    expect(r).toMatchObject({ estudios: 0, aviso: 'sin-estudios' })
   })
 
   it('con Coordinación entre varios módulos, el conteo SÍ va', () => {

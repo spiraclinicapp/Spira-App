@@ -142,9 +142,18 @@ export function ResumenDeAcceso({
             <div style={{ ...fila, alignItems: 'flex-start' }}>
               <span style={{ ...etiqueta, paddingTop: 4 }}>Estudios</span>
               {estudios.length === 0 ? (
-                <span style={{ fontSize: 13, color: 'var(--spira-acc-deep-warn)', textAlign: 'right', lineHeight: 1.4 }}>
-                  Ninguno: entra a Coordinación pero no ve pacientes
-                </span>
+                /* El ámbar SÓLO si el recorte le aplica. Con `gerencia` las tres policies de la
+                   0006 lo saltean (`patients`, `enrollments`, `patient_visits` abren todas con
+                   `has_module('gerencia') or …`), así que avisarle que no ve pacientes sería
+                   alarmar por un problema que no existe. Sin estudios y sin administración, en
+                   cambio, el aviso es exacto. */
+                administra ? (
+                  <span style={{ fontSize: 13.5, color: 'var(--spira-muted)' }}>Ninguno asignado</span>
+                ) : (
+                  <span style={{ fontSize: 13, color: 'var(--spira-acc-deep-warn)', textAlign: 'right', lineHeight: 1.4 }}>
+                    Ninguno: entra a Coordinación pero no ve pacientes
+                  </span>
+                )
               ) : (
                 <span style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'flex-end', minWidth: 0 }}>
                   {estudios.map((p) => <EstudioChip key={p.id} codigo={p.code} nombre={p.name} />)}

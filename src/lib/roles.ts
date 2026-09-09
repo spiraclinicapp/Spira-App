@@ -244,10 +244,17 @@ export type ResumenDeAccesoEnLinea =
       modulos: { nombre: string; nivel: ModuleRole }[]
       /** Cuántos estudios ve, o `null` cuando el conteo NO SIGNIFICA NADA para esta persona.
        *
-       *  `null` no es cero: sin Coordinación no hay recorte por estudio —Farmacia es central y ve
-       *  todos los protocolos—, así que escribir "0 estudios" al lado de "Farmacia · Administrador"
-       *  afirmaría que no ve pacientes, que es exactamente lo contrario de la verdad. Un cero que
-       *  miente es peor que un dato ausente, sobre todo en la pantalla donde se reparte el acceso.
+       *  `null` no es cero: es "acá el recorte por estudio no aplica". Dos casos lo producen, los
+       *  dos leídos de las policies de la 0006 y no de una intuición:
+       *
+       *    · SIN `track` → no hay nada que recortar. Farmacia es central y ve todos los protocolos.
+       *    · CON `gerencia` → la policy lo SALTEA. `patients`, `enrollments` y `patient_visits`
+       *      abren todas con `has_module('gerencia') or …`, así que quien administra ve el centro
+       *      entero tenga los estudios que tenga.
+       *
+       *  En los dos casos escribir "0 estudios" —o peor, el aviso ámbar— afirmaría que esa persona
+       *  no ve pacientes, que es exactamente lo contrario de la verdad. Un cero que miente es peor
+       *  que un dato ausente, y más en la pantalla donde se reparte el acceso.
        *
        *  El singular/plural lo pone el componente: un plural al revés se ve. */
       estudios: number | null
@@ -274,11 +281,23 @@ export function resumenDeAccesoEnLinea(
 
   if (conAcceso.length === 0) return { tipo: 'sin-modulos' }
 
-  /* El recorte por estudio es de Coordinación y de nadie más. `protocol_coordinators` (0006)
-     scopea únicamente ese módulo; Farmacia es central y ve todos los protocolos, así que tanto el
-     conteo como el ámbar sólo tienen sentido con `track`. Es el mismo `track != null` que ya decide
-     si el bloque de estudios aparece en la ficha de edición. */
-  const scopeaPorEstudio = accesos.track != null
+  /* ¿A esta persona el recorte por estudio le aplica de verdad? DOS condiciones, y la segunda es la
+     que se olvida: hace falta `track` (Farmacia es central y ve todos los protocolos) Y NO tener
+     `gerencia`, porque la administración SALTEA el recorte. No es una interpretación — está escrito
+     en las tres policies de la 0006 que gobiernan Coordinación:
+
+         patients        using ( has_module('gerencia') or has_module('pharma') or <coordinadora> )
+         enrollments     using ( has_module('gerencia') or is_assigned_coordinator(protocol_id) )
+         patient_visits  using ( has_module('gerencia') or <coordinadora de la visita> )
+
+     Sin la segunda condición, la lista le pone «sin estudios asignados» en ámbar a quien administra
+     el centro —que ve absolutamente todo— y encima en la fila más mirada de la pantalla. Se detectó
+     en el QA logueado del 2026-09-09: la falsa alarma salía en las DOS cuentas de administración.
+
+     `pharma` NO alcanza para saltear: abre `patients` pero no `enrollments` ni `patient_visits`, así
+     que quien tiene Coordinación + Farmacia y cero estudios sigue sin poder trabajar en Coordinación
+     y el aviso corresponde. */
+  const scopeaPorEstudio = accesos.track != null && accesos[MODULO_ADMIN] == null
 
   return {
     tipo: 'acceso',
