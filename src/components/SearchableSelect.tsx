@@ -3,6 +3,8 @@ import type { CSSProperties, ComponentProps, KeyboardEvent as ReactKeyboardEvent
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 import { usePopover } from './usePopover'
+import { btnPrimary } from './buttons'
+import { InfoTip } from './InfoTip'
 
 export interface SelectOption {
   value: string
@@ -20,6 +22,13 @@ export interface SelectOption {
    *  Con `desc`, el menú conviene abrirlo con `menuWidth="auto"`: un disparador angosto recorta
    *  una frase. */
   desc?: string
+  /** Un ⓘ al final de la opción, con la explicación adentro en vez de impresa (§03 del handoff de
+   *  Ajustes: "el menú de niveles también trae un ⓘ por opción, para comparar antes de elegir").
+   *
+   *  Convive con `desc` y no lo reemplaza: son dos formas de decir lo mismo y cuál conviene depende
+   *  de la lista. Una lista corta de niveles se compara mejor con las frases a la vista; una larga
+   *  de estudios se lee mejor sin ellas, con la explicación a un apunte de distancia. */
+  info?: { titulo: string; cuerpo: string }
 }
 
 /** A partir de cuántas opciones aparece el buscador cuando searchable='auto'. */
@@ -58,9 +67,11 @@ interface BaseProps {
   id?: string
   /** Apariencia del disparador. 'field' (default): el campo de ancho completo de siempre. 'chip':
    *  un pill compacto (inline) para meterlo en una línea densa —ej. el coordinador en el header del
-   *  modal de visita—; el popover y todo lo demás no cambian. */
-  variant?: 'field' | 'chip'
-  /** Ícono al inicio del disparador (solo se dibuja en variant 'chip'). */
+   *  modal de visita—. 'boton': un botón sólido de acento que NO muestra lo elegido, sólo invita a
+   *  abrir el menú —"+ Añadir estudio"—; va de la mano de `modo: 'sumar'`, donde lo elegido se ve
+   *  afuera, en chips. El popover y todo lo demás no cambian en ninguna de las tres. */
+  variant?: 'field' | 'chip' | 'boton'
+  /** Ícono al inicio del disparador (sólo se dibuja en variant 'chip' y 'boton'). */
   leadingIcon?: ComponentProps<typeof Icon>['name']
 }
 
@@ -81,6 +92,22 @@ interface MultiProps extends BaseProps {
   onDelete?: never
   /** Cómo nombrar el conjunto cuando hay más de uno ("3 protocolos"). Default: `entity` en plural. */
   pluralLabel?: string
+  /** Cómo se comporta el menú.
+   *
+   *  'alternar' (default, lo de siempre): lista TODO, tilda y destilda, quitar se hace desde acá.
+   *
+   *  'sumar': el menú ofrece ÚNICAMENTE lo que falta, cada fila termina en `+`, y elegir SUMA y
+   *  limpia la búsqueda para seguir sumando. Quitar NO se hace desde el menú — se hace afuera, en
+   *  el chip de lo elegido. La diferencia no es cosmética: en 'alternar' el menú es el inventario
+   *  completo y el tilde dice el estado; en 'sumar' el menú es una bandeja de lo que queda, así
+   *  que una fila que ya no está ES la señal de que se sumó. Mezclar las dos —lista completa y
+   *  botón de `+`— daría un `+` sobre algo ya agregado, que es un click que no hace nada. */
+  modo?: 'alternar' | 'sumar'
+  /** Sólo con `modo: 'sumar'`. Qué mostrar cuando ya no queda nada por sumar: el rótulo que toma el
+   *  disparador (que además se deshabilita solo) y la frase que ocupa el lugar de la lista. Van
+   *  juntos en un objeto porque son el mismo estado dicho en dos lugares, y las frases las pone
+   *  quien llama porque el género lo manda la entidad ("todos los estudios", "todas las dosis"). */
+  sinRestantes?: { label: string; mensaje: string }
 }
 
 type Props = SingleProps | MultiProps
@@ -102,6 +129,9 @@ export function SearchableSelect(props: Props) {
   const multiple = props.multiple === true
   const onCreate = multiple ? undefined : props.onCreate
   const onDelete = multiple ? undefined : props.onDelete
+  /** El menú suma en vez de alternar. Sólo existe en modo múltiple: alternar una sola opción no es
+   *  "sumar", es reemplazar, y ahí un `+` mentiría sobre lo que va a pasar. */
+  const sumar = multiple && props.modo === 'sumar'
   /** Selección normalizada a lista, para que el resto del componente no ramifique en cada línea. */
   const selected: readonly string[] = multiple ? props.value : (props.value ? [props.value] : [])
   const value = multiple ? '' : props.value
@@ -148,13 +178,24 @@ export function SearchableSelect(props: Props) {
     ? (selected.length === 1 ? options.find((o) => o.value === selected[0])?.dot : undefined)
     : (value ? options.find((o) => o.value === value)?.dot : undefined)
   const typed = q.trim()
-  const filtered = options.filter((o) => o.label.toLowerCase().includes(typed.toLowerCase()))
+  /* El inventario del que se elige. En 'sumar' lo ya elegido SALE de la lista: el menú es la
+     bandeja de lo que falta, no el inventario con estados. Una fila que ya no está ES la señal de
+     que se sumó — por eso no hace falta tilde, y por eso un `+` sobre algo ya agregado (que sería
+     un click que no hace nada) no puede existir. */
+  const disponibles = sumar ? options.filter((o) => !selected.includes(o.value)) : options
+  const filtered = disponibles.filter((o) => o.label.toLowerCase().includes(typed.toLowerCase()))
+  /** No queda nada por sumar. Sólo puede pasar en 'sumar': en 'alternar' la lista es fija. */
+  const agotado = sumar && disponibles.length === 0
   /* Con descripciones cada opción ocupa dos renglones, así que el techo de siempre (220px) dejaba
      una lista de cinco a media pantalla y con scroll. El techo alto sólo aplica cuando hay `desc`:
      una lista de rótulos sueltos no gana nada con ser más larga. */
   const hayDesc = options.some((o) => o.desc != null)
 
-  // El buscador se muestra según searchable + umbral, solo en el modo lista.
+  /* El buscador se muestra según searchable + umbral, solo en el modo lista.
+     El umbral mira `options` y NO `disponibles` a propósito, aunque en 'sumar' la lista se achique
+     al elegir: si mirara los restantes, el buscador desaparecería a mitad de la tarea —justo
+     cuando quedan pocos— y se llevaría el foco del teclado con él. Que sobre un buscador para dos
+     opciones es más barato que perder el cursor mientras alguien está escribiendo. */
   const showSearch = mode === 'list' && !deleteTarget &&
     (searchable === 'always' || (searchable !== 'never' && options.length >= SEARCH_THRESHOLD))
 
@@ -183,6 +224,18 @@ export function SearchableSelect(props: Props) {
   const backToList = () => { setMode('list'); setCreateName(''); setCreateConfirm(false); setDeleteTarget(null); setErr(null) }
   const pick = (o: SelectOption) => {
     if (props.multiple) {
+      if (props.modo === 'sumar') {
+        /* SUMA y nunca quita: en este modo el menú no es un interruptor. Quitar se hace desde la ×
+           del chip, afuera. El `includes` es una red por si un click doble llegara antes de que el
+           padre propague el estado nuevo — sumar dos veces el mismo id no rompe nada visible, pero
+           mandaría un cambio de más al servidor.
+           Limpia la búsqueda y devuelve el foco al buscador: la tarea sigue siendo "sumar varios",
+           así que lo que se espera después de elegir es escribir el siguiente, no volver a apuntar. */
+        if (!props.value.includes(o.value)) props.onChange([...props.value, o.value])
+        setQ('')
+        searchRef.current?.focus()
+        return
+      }
       /* Togglea y deja el menú ABIERTO: elegir varios es una sola tarea, y cerrar en cada tilde
          obligaría a reabrir el panel una vez por opción. Cierra con Esc, con un click afuera o con
          el propio disparador, como cualquier popover del repo. */
@@ -255,6 +308,17 @@ export function SearchableSelect(props: Props) {
   const boxStyle = { ...searchWrap, ...(searchFocused ? searchWrapFocus : null) }
   const activeId = filtered[activeIndex] ? `${baseId}-opt-${activeIndex}` : undefined
 
+  const sinRestantes = multiple ? props.sinRestantes : undefined
+  /* El disparador 'boton' NO nombra lo elegido —eso se ve afuera, en chips—: nombra la acción. Y
+     cuando no queda nada por sumar, nombra el final. */
+  const triggerLabel = variant === 'boton'
+    ? (agotado && sinRestantes ? sinRestantes.label : placeholder)
+    : (current || placeholder)
+  /* Se apaga solo al quedarse sin nada por sumar… pero NUNCA mientras su propio menú está abierto:
+     a ese estado se llega justamente sumando el último CON el menú abierto, y un botón inerte ahí
+     dejaría un click muerto sobre lo único que puede cerrar lo que él mismo abrió. */
+  const triggerDisabled = disabled || (agotado && !open)
+
   return (
     <div style={{ position: 'relative' }}>
       <button
@@ -264,23 +328,38 @@ export function SearchableSelect(props: Props) {
         // El chip lleva foco de teclado propio (halo suave en vez del outline petróleo de 2px, que
         // sobre el pill compacto pesa como un recuadro duro). Ver `.spira-chip-select` en tokens.css.
         className={variant === 'chip' ? 'spira-chip-select' : undefined}
-        disabled={disabled}
-        aria-disabled={disabled || undefined}
-        onClick={() => { if (!disabled) setOpen((o) => !o) }}
+        disabled={triggerDisabled}
+        aria-disabled={triggerDisabled || undefined}
+        onClick={() => { if (!triggerDisabled) setOpen((o) => !o) }}
         aria-haspopup="listbox"
         aria-expanded={open}
         style={variant === 'chip'
-          ? { ...chipBtn, ...(current ? null : chipBtnEmpty), ...(open ? chipBtnOpen : null), ...(disabled ? chipBtnDisabled : null) }
-          : { ...fieldBtn, ...(open ? fieldBtnOpen : null), ...(disabled ? fieldBtnDisabled : null) }}
+          ? { ...chipBtn, ...(current ? null : chipBtnEmpty), ...(open ? chipBtnOpen : null), ...(triggerDisabled ? chipBtnDisabled : null) }
+          : variant === 'boton'
+            ? { ...botonBtn, ...(triggerDisabled ? botonBtnDisabled : null) }
+            : { ...fieldBtn, ...(open ? fieldBtnOpen : null), ...(triggerDisabled ? fieldBtnDisabled : null) }}
       >
-        {variant === 'chip' && leadingIcon && <Icon name={leadingIcon} size={14} color="var(--spira-primary)" style={{ flex: '0 0 auto' }} />}
+        {variant !== 'field' && leadingIcon && (
+          <Icon
+            name={leadingIcon}
+            size={variant === 'boton' ? 15 : 14}
+            color={variant === 'boton' ? 'var(--spira-on-accent)' : 'var(--spira-primary)'}
+            style={{ flex: '0 0 auto' }}
+          />
+        )}
         {currentDot && <span aria-hidden style={{ ...dotStyle, background: currentDot }} />}
         <span className={mono && current ? 'spira-mono' : undefined} style={variant === 'chip'
           ? { color: current ? 'var(--spira-ink)' : 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 210 }
-          : { flex: 1, textAlign: 'left', color: current ? 'var(--spira-ink)' : 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {current || placeholder}
+          : variant === 'boton'
+            ? { whiteSpace: 'nowrap' }
+            : { flex: 1, textAlign: 'left', color: current ? 'var(--spira-ink)' : 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {triggerLabel}
         </span>
-        <Icon name="chevronDown" size={variant === 'chip' ? 13 : 16} color="var(--spira-muted)" style={{ flex: '0 0 auto', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+        {/* El 'boton' no lleva chevron: no es un campo que muestra un valor y se despliega, es una
+            acción. El §04 del handoff lo dice explícito — "ya no es un select con chevron". */}
+        {variant !== 'boton' && (
+          <Icon name="chevronDown" size={variant === 'chip' ? 13 : 16} color="var(--spira-muted)" style={{ flex: '0 0 auto', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+        )}
       </button>
 
       {open && pos && createPortal(
@@ -375,7 +454,12 @@ export function SearchableSelect(props: Props) {
               >
                 {filtered.length === 0 ? (
                   <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', padding: '10px 10px', lineHeight: 1.4 }}>
-                    No se encuentran resultados para tu búsqueda.
+                    {/* Dos vacíos distintos y hay que decirlos distinto: "no encontré lo que
+                        buscás" invita a corregir la búsqueda; "ya está todo" dice que la tarea
+                        terminó. Confundirlos manda a alguien a buscar algo que no falta. */}
+                    {agotado && sinRestantes
+                      ? sinRestantes.mensaje
+                      : 'No se encuentran resultados para tu búsqueda.'}
                   </div>
                 ) : filtered.map((o, idx) => {
                   const on = selected.includes(o.value)
@@ -398,13 +482,29 @@ export function SearchableSelect(props: Props) {
                           <span className={mono ? 'spira-mono' : undefined} style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
                         )}
                         {/* El tilde solo en múltiple: con una sola opción, el resalte de la fila ya
-                            dice cuál está elegida y no hay nada que destildar. */}
+                            dice cuál está elegida y no hay nada que destildar. En 'sumar' no hay
+                            tilde que poner —lo elegido no está en la lista— y va un `+`, que dice
+                            qué pasa al tocar en vez de qué estado tiene la fila. */}
                         {multiple && (
                           <span aria-hidden style={{ flex: '0 0 auto', display: 'grid', placeItems: 'center', width: 16 }}>
-                            {on && <Icon name="check" size={14} color="var(--spira-primary)" stroke={2.6} />}
+                            {sumar
+                              ? <Icon name="plus" size={15} color="var(--spira-muted)" stroke={2.2} />
+                              : on && <Icon name="check" size={14} color="var(--spira-primary)" stroke={2.6} />}
                           </span>
                         )}
                       </button>
+                      {/* HERMANO de la opción, nunca adentro: un `<button>` dentro de otro es HTML
+                          inválido y el navegador lo desarma, dejando el ⓘ fuera de la fila. Su
+                          panel se portalea a `body` y le caería "afuera" a este menú, que cerraría
+                          en el `mousedown` antes de que el click llegue a la opción — pero
+                          `usePopover` mantiene el registro de popovers abiertos y reconstruye el
+                          parentesco que el portal corta, así que el menú se reconoce dueño y no se
+                          cierra. Ver el comentario de `abiertos` en usePopover.ts. */}
+                      {o.info && (
+                        <span style={{ flex: '0 0 auto', marginRight: 6, display: 'grid', placeItems: 'center' }}>
+                          <InfoTip titulo={o.info.titulo} cuerpo={o.info.cuerpo} size={14} />
+                        </span>
+                      )}
                       {onDelete && (
                         <button type="button" aria-label={`Eliminar ${o.label}`} title="Eliminar" onClick={() => { setDeleteTarget(o); setErr(null) }} style={trashBtn}>
                           <Icon name="trash" size={14} color="var(--spira-muted)" />
@@ -452,6 +552,20 @@ const chipBtn: CSSProperties = {
 const chipBtnEmpty: CSSProperties = { borderStyle: 'dashed' } // sin valor: invita a elegir
 const chipBtnOpen: CSSProperties = { boxShadow: '0 4px 12px rgba(20,48,46,.10)', borderColor: 'var(--spira-faint)' }
 const chipBtnDisabled: CSSProperties = { opacity: 0.6, cursor: 'default', boxShadow: 'none' }
+/* Variante 'boton': una acción sólida de acento, no un campo. Las medidas (34 / radio 9 / 13px) no
+   son las del `btnPrimary` genérico (40 / 10 / 14): son las del primario COMPACTO de Ajustes
+   (`btnSolid`), porque este disparador vive pegado a esa familia —en la misma tarjeta que "Crear
+   cuenta"— y un botón medio centímetro más alto que su vecino se lee como un error, no como una
+   variante. El handoff lo pide explícito: "mismo estilo que «Nueva recepción» o «Crear cuenta»".
+   Sin estado `open`: la sombra de "abierto" es la señal de un campo desplegado, y este botón ya se
+   levanta al pulsar como cualquier pulsable de la casa. */
+const botonBtn: CSSProperties = {
+  ...btnPrimary('var(--spira-primary)'),
+  height: 34, padding: '0 14px', borderRadius: 9, fontSize: 13,
+  display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
+}
+/** Sin nada por sumar. La opacidad 0.5 es la del §04 del handoff. */
+const botonBtnDisabled: CSSProperties = { opacity: 0.5, cursor: 'default' }
 const popover: CSSProperties = {
   position: 'fixed', zIndex: 'var(--spira-z-popover)', background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)',
   borderRadius: 12, boxShadow: '0 12px 30px rgba(20,48,46,.16)', padding: 6,
