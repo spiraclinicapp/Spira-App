@@ -765,6 +765,19 @@ input:-webkit-autofill:focus {
   @keyframes spModalIn { from { opacity: 0; } to { opacity: 1; } }
 }
 
+/* —— Entrada del InfoTip (el ⓘ) ——
+   "Entrada suave" del handoff: un fade con 3px de subida, cortísimo. Es una pista que aparece al
+   apuntar, así que cualquier cosa más larga que ~130ms se siente como una demora y no como una
+   animación. NADA se anima al cerrar: el panel tiene que desaparecer en el instante en que el
+   mouse se va, o se lee como que quedó pegado. */
+@keyframes spInfoTipIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .spira-infotip { animation: spInfoTipIn 0.13s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+}
+
 /* —— Animación del Drawer (panel deslizable desde la derecha) ——
    El hilo de comentarios de visita entra desde el borde derecho. Movimiento corto que se asienta
    (§Movimiento del sistema): deslizado + fade, sin overshoot. En reduced-motion entra sólo con fade. */
