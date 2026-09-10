@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   accessLabel, auditLine, canRevokeAdmin, describeAccess, meetsMinRole, mezclarHistorial,
-  protocolAuditLine, ROLE_RANK,
+  protocolAuditLine, resumenDeAccesoEnLinea, ROLE_RANK,
 } from './roles'
-import type { AccessAuditRow, ProtocolAccessAuditRow } from './roles'
+import type { Accesos, AccessAuditRow, ProtocolAccessAuditRow } from './roles'
 
 /* La escalera de acceso: viewer < operator < leader < admin.
  *
@@ -155,6 +155,181 @@ describe('describeAccess', () => {
     // Lab NO está en la lista aunque no tenga nivel: es `proximamente`. Este `toEqual` es el que
     // avisa si algún día alguien vuelve a meter los módulos sin construir en "no ve".
     expect(d.noVe).toEqual(['Coordinación', 'Farmacia'])
+  })
+})
+
+/* La línea de acceso de la lista del equipo (handoff de Ajustes → Equipo y accesos, §01).
+ *
+ * Es la regla más silenciosa de esa pantalla y por eso está acá entera. Decide entre CUATRO casos
+ * y dos de ellos son verdaderos a la vez: una cuenta dada de baja queda sin módulos, así que
+ * "baja" y "sin módulos" se disputan la misma fila. Si el orden queda al revés, la pantalla NO se
+ * ve rota: se ve prolija diciendo que a alguien le falta acceso cuando en realidad la cerraron. Y
+ * el error que sigue es caro —darle accesos a una cuenta que se dio de baja a propósito— y queda
+ * firmado en el `audit_log` con el nombre de quien lo hizo.
+ *
+ * El resto de los casos son la misma clase de cosa: qué se nombra y qué no. Ninguno se ve mal.
+ */
+describe('resumenDeAccesoEnLinea', () => {
+  const MODULOS = [
+    { key: 'inicio', name: 'Inicio' },
+    { key: 'track', name: 'Coordinación' },
+    { key: 'pharma', name: 'Farmacia' },
+    { key: 'lab', name: 'Lab', proximamente: true },
+  ]
+
+  it('la baja GANA, aunque además esté sin ningún módulo', () => {
+    // LOS DOS CASOS SON VERDADEROS. Una cuenta dada de baja queda sin módulos (es lo que hace la
+    // baja), así que si "sin-modulos" se evaluara primero, una cuenta cerrada se leería
+    // EXACTAMENTE igual que una recién creada esperando accesos. Son situaciones opuestas.
+    expect(resumenDeAccesoEnLinea({}, MODULOS, false, 0)).toEqual({ tipo: 'baja' })
+  })
+
+  it('la baja GANA también sobre los módulos y los estudios que hayan quedado', () => {
+    // Una baja no borra los accesos: los deja inertes. La fila tiene que decir que está cerrada,
+    // no enumerar lo que ya no rinde nada.
+    expect(resumenDeAccesoEnLinea({ track: 'admin', pharma: 'viewer' }, MODULOS, false, 3))
+      .toEqual({ tipo: 'baja' })
+  })
+
+  it('activa y sin ningún módulo: lo dice, no se queda muda', () => {
+    expect(resumenDeAccesoEnLinea({}, MODULOS, true, 0)).toEqual({ tipo: 'sin-modulos' })
+  })
+
+  it('Coordinación con CERO estudios lleva el aviso: entra y no ve un solo paciente', () => {
+    // El caso que la pantalla existe para evitar. `is_assigned_coordinator` (0006) no la deja
+    // pasar en ninguna tabla, así que el módulo dado sin estudios no le muestra nada.
+    const r = resumenDeAccesoEnLinea({ track: 'operator' }, MODULOS, true, 0)
+    expect(r).toEqual({
+      tipo: 'acceso',
+      modulos: [{ nombre: 'Coordinación', nivel: 'operator' }],
+      estudios: 0,
+      aviso: 'sin-estudios',
+    })
+  })
+
+  it('Farmacia sin Coordinación: ni aviso ni conteo, porque el conteo mentiría', () => {
+    // `null` NO ES CERO. `protocol_coordinators` (0006) scopea únicamente a Coordinación; Farmacia
+    // es central y ve TODOS los protocolos. Escribir "0 estudios" al lado de "Farmacia ·
+    // Administrador" afirmaría que no ve pacientes, que es lo contrario de la verdad — y esta es la
+    // pantalla donde se reparte el acceso, así que el que lea ese cero va a decidir con él.
+    // El ámbar tampoco va: sería inventar un filtro que la RLS no aplica.
+    const r = resumenDeAccesoEnLinea({ pharma: 'admin' }, MODULOS, true, 0)
+    expect(r).toEqual({
+      tipo: 'acceso',
+      modulos: [{ nombre: 'Farmacia', nivel: 'admin' }],
+      estudios: null,
+    })
+  })
+
+  it('Coordinación CON estudios no lleva aviso y devuelve el conteo', () => {
+    const r = resumenDeAccesoEnLinea({ track: 'leader' }, MODULOS, true, 3)
+    expect(r).toEqual({
+      tipo: 'acceso',
+      modulos: [{ nombre: 'Coordinación', nivel: 'leader' }],
+      estudios: 3,
+    })
+  })
+
+  it('la administración NO se nombra en la línea: la dice el escudito', () => {
+    // §01 del handoff: el texto "administra los accesos" se eliminó del resumen porque lo dice el
+    // ícono de escudo pegado al nombre. Decirlo dos veces en la misma fila es ruido.
+    const r = resumenDeAccesoEnLinea({ track: 'admin', gerencia: 'admin' }, MODULOS, true, 2)
+    expect(r).toEqual({
+      tipo: 'acceso',
+      modulos: [{ nombre: 'Coordinación', nivel: 'admin' }],
+      // `null` y no 2: con gerencia el recorte por estudio no aplica — ver el test de abajo.
+      estudios: null,
+    })
+  })
+
+  it('alguien que SÓLO administra accesos cae en "sin módulos"', () => {
+    // Y está bien: `gerencia` no tiene pantallas propias (ver MODULO_ADMIN). La fila queda
+    // "nombre + escudito / sin acceso a ningún módulo", que es exactamente la verdad — administra
+    // los accesos del centro y no entra ni a Coordinación ni a Farmacia.
+    expect(resumenDeAccesoEnLinea({ gerencia: 'admin' }, MODULOS, true, 0))
+      .toEqual({ tipo: 'sin-modulos' })
+  })
+
+  it('un módulo que todavía no existe pero que la persona TIENE, se nombra', () => {
+    // Misma regla que `describeAccess`: un acceso que existe en la base se MUESTRA aunque no
+    // rinda nada. Si la línea lo escondiera, un `lab` que quedó de antes sería invisible desde la
+    // lista y nadie podría enterarse para revocarlo.
+    const r = resumenDeAccesoEnLinea({ lab: 'admin' }, MODULOS, true, 0)
+    expect(r).toEqual({
+      tipo: 'acceso',
+      modulos: [{ nombre: 'Lab', nivel: 'admin' }],
+      estudios: null,
+    })
+  })
+
+  it('un módulo que todavía no existe y que NADIE tiene, no aparece', () => {
+    const r = resumenDeAccesoEnLinea({ track: 'viewer' }, MODULOS, true, 1)
+    expect(r).toEqual({
+      tipo: 'acceso',
+      modulos: [{ nombre: 'Coordinación', nivel: 'viewer' }],
+      estudios: 1,
+    })
+  })
+
+  it('Inicio nunca aparece: lo tiene todo el mundo', () => {
+    // El `as unknown as Accesos` no es pereza: el tipo no admite 'inicio', pero el jsonb llega de
+    // `v_team_access` y TypeScript no guarda nada en runtime. Si algún día una fila trae 'inicio',
+    // la línea tiene que decir "sin acceso a ningún módulo" y no "Inicio · Lectura".
+    expect(resumenDeAccesoEnLinea({ inicio: 'viewer' } as unknown as Accesos, MODULOS, true, 0))
+      .toEqual({ tipo: 'sin-modulos' })
+  })
+
+  it('gerencia SALTEA el recorte: ni conteo ni ámbar, aunque tenga Coordinación', () => {
+    /* La falsa alarma que encontró el QA logueado del 2026-09-09, en las DOS cuentas de
+       administración del centro. Las tres policies de la 0006 que gobiernan Coordinación abren con
+       `has_module('gerencia') or …`, así que quien administra ve el centro entero tenga los estudios
+       que tenga. Decirle "sin estudios asignados" en ámbar es avisarle de un problema que no existe,
+       en la fila más mirada de la pantalla. */
+    const r = resumenDeAccesoEnLinea({ track: 'admin', gerencia: 'admin' }, MODULOS, true, 0)
+    expect(r).toEqual({
+      tipo: 'acceso',
+      modulos: [{ nombre: 'Coordinación', nivel: 'admin' }],
+      estudios: null,
+    })
+  })
+
+  it('gerencia CON estudios tampoco muestra el conteo: no lo limita', () => {
+    // El conteo sería cierto y aun así engañoso: en esa fila implicaría un límite que no existe.
+    const r = resumenDeAccesoEnLinea({ track: 'operator', gerencia: 'admin' }, MODULOS, true, 3)
+    expect(r).toMatchObject({ estudios: null })
+  })
+
+  it('Farmacia NO saltea el recorte: con Coordinación y cero estudios, el ámbar va igual', () => {
+    /* El par del test de gerencia, y la razón por la que no alcanza con "tiene otro módulo".
+       `pharma` abre `patients` pero NO `enrollments` ni `patient_visits`, así que esta persona entra
+       a Coordinación y no puede trabajar. El aviso corresponde. */
+    const r = resumenDeAccesoEnLinea({ track: 'operator', pharma: 'admin' }, MODULOS, true, 0)
+    expect(r).toMatchObject({ estudios: 0, aviso: 'sin-estudios' })
+  })
+
+  it('con Coordinación entre varios módulos, el conteo SÍ va', () => {
+    // El par del test de Farmacia sola: alcanza con que tenga Coordinación en alguna parte para
+    // que el número signifique algo. Sin este par, `estudios: null` podría implementarse como
+    // "nunca hay conteo" y los dos tests seguirían pasando.
+    const r = resumenDeAccesoEnLinea({ track: 'viewer', pharma: 'admin' }, MODULOS, true, 4)
+    // `toEqual` y no `toMatchObject`: la igualdad completa es lo que prueba que NO hay aviso.
+    expect(r).toEqual({
+      tipo: 'acceso',
+      modulos: [{ nombre: 'Coordinación', nivel: 'viewer' }, { nombre: 'Farmacia', nivel: 'admin' }],
+      estudios: 4,
+    })
+  })
+
+  it('el orden lo manda el registro de módulos, no el objeto de accesos', () => {
+    // `Object.entries` devuelve el orden de inserción del jsonb que llega de la vista, que no es
+    // el orden en que el centro lee sus módulos. Sin recorrer el registro, dos personas con los
+    // mismos accesos podrían mostrarlos en distinto orden, y la lista se vería desprolija sin que
+    // nadie entienda por qué.
+    const r = resumenDeAccesoEnLinea({ pharma: 'viewer', track: 'admin' }, MODULOS, true, 1)
+    expect(r).toMatchObject({ modulos: [
+      { nombre: 'Coordinación', nivel: 'admin' },
+      { nombre: 'Farmacia', nivel: 'viewer' },
+    ] })
   })
 })
 

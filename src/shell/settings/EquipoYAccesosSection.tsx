@@ -1,16 +1,21 @@
 import { useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
+import { InfoTip } from '../../components/InfoTip'
 import { UserAvatar } from '../../components/UserAvatar'
+import { usePopover } from '../../components/usePopover'
 import { useAuth } from '../../lib/auth'
 import { initialsOf } from '../../lib/initials'
 import { MODULES } from '../../modules/registry'
-import { describeAccess, MODULO_ADMIN, ROLE_LABEL } from '../../lib/roles'
-import type { ModuleKey, ModuleRole } from '../../lib/roles'
+import { describeAccess, MODULO_ADMIN, ROLE_LABEL, resumenDeAccesoEnLinea } from '../../lib/roles'
 import { useTeamAccess } from '../../data/team'
 import type { TeamMemberRow } from '../../data/team'
 import { useProtocols } from '../../data/protocols'
-import { ACCENT, StCard, StPill, btnGhost, btnSolid } from './primitives'
+import { useAllProtocolAssignments } from '../../data/protocolAccess'
+import type { ProtocolRow } from '../../data/protocols'
+import { StCard, StPill, btnIcono, btnSolid } from './primitives'
 import { AccesoEditor } from './AccesoEditor'
+import { ResumenDeAcceso } from './ResumenDeAcceso'
 import { CrearCuentaDialog } from './AccionesDeCuenta'
 
 /* ============================================================================
@@ -45,7 +50,15 @@ export function EquipoYAccesosSection() {
      consultar la MISMA lista cada vez que se entra y se sale de una persona. Acá se pide una vez
      por apertura de Ajustes. Baja por prop, igual que `administradores`. */
   const protocolos = useProtocols()
+  /* Las ASIGNACIONES suben por el mismo motivo, y de paso arreglan lo que faltaba: vivían adentro
+     de `AccesoEditor`, así que se reconsultaban en cada entrada y salida de una ficha. Acá las
+     necesitan tres: la línea de cada fila ("· 3 estudios"), el resumen del ojo y la ficha. */
+  const asignaciones = useAllProtocolAssignments()
   const [editando, setEditando] = useState<string | null>(null)
+  /* Quién tiene el resumen abierto. Misma forma que `editando` — y es lo que hace que las dos
+     consultas de historial del resumen se disparen UNA vez, al abrirlo, y no una por persona al
+     entrar a la sección. Ver el comentario de cabecera de `ResumenDeAcceso`. */
+  const [viendo, setViendo] = useState<string | null>(null)
   const [creando, setCreando] = useState(false)
 
   const equipo = useMemo(() => data ?? [], [data])
@@ -53,6 +66,12 @@ export function EquipoYAccesosSection() {
     () => equipo.filter((p) => p.accesos[MODULO_ADMIN] != null).map((p) => p.id),
     [equipo],
   )
+  /** Cuántos estudios ve cada persona. Se cuenta acá, una vez, y no por fila. */
+  const estudiosPorPersona = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const a of asignaciones.data ?? []) m.set(a.user_id, (m.get(a.user_id) ?? 0) + 1)
+    return m
+  }, [asignaciones.data])
   const personaEditada = equipo.find((p) => p.id === editando) ?? null
 
   if (loading) {
@@ -83,6 +102,9 @@ export function EquipoYAccesosSection() {
         administradores={administradores}
         protocolos={protocolos.data ?? []}
         protocolosCargando={protocolos.loading}
+        asignaciones={asignaciones.data ?? []}
+        asignacionesCargando={asignaciones.loading}
+        onAsignacionesCambiadas={asignaciones.refetch}
         onCerrar={() => setEditando(null)}
         onGuardado={refetch}
       />
@@ -108,7 +130,13 @@ export function EquipoYAccesosSection() {
             persona={p}
             soyYo={p.id === miId}
             ultima={i === equipo.length - 1}
-            onEditar={() => setEditando(p.id)}
+            estudios={estudiosPorPersona.get(p.id) ?? 0}
+            protocolos={protocolos.data ?? []}
+            protocolosDeLaPersona={(asignaciones.data ?? []).filter((a) => a.user_id === p.id).map((a) => a.protocol_id)}
+            viendo={viendo === p.id}
+            onVer={() => setViendo(viendo === p.id ? null : p.id)}
+            onCerrarVista={() => setViendo(null)}
+            onEditar={() => { setViendo(null); setEditando(p.id) }}
           />
         ))}
       </StCard>
@@ -131,51 +159,153 @@ export function EquipoYAccesosSection() {
   )
 }
 
-/** Una fila del equipo: identidad + a qué entra + el gesto de editar. */
+/** Una fila del equipo: identidad, a qué entra dicho en castellano corrido, y los dos gestos.
+ *
+ *  ANTES ERAN CHIPS y ahora es prosa (§01 del handoff). No es sólo estética: cuatro píldoras
+ *  —"Coordinación · Administrador", "Farmacia · Administrador", "Administra", "Sin acceso"— le dan
+ *  el mismo peso visual a cosas de distinto orden, y en veinte filas el ojo no encuentra nada. La
+ *  línea corrida se lee como una frase, y lo excepcional (una baja, un acceso sin estudios) es lo
+ *  único que se tiñe.
+ *
+ *  EL OJO ES DUEÑO DEL POPOVER pero NO de las consultas: `usePopover` con `open=false` no engancha
+ *  ni un listener, así que tenerlo en cada fila no cuesta nada, mientras que `ResumenDeAcceso`
+ *  —que sí consulta— se monta únicamente en la fila abierta. */
 function FilaDePersona({
-  persona, soyYo, ultima, onEditar,
-}: { persona: TeamMemberRow; soyYo: boolean; ultima: boolean; onEditar: () => void }) {
-  const entradas = Object.entries(persona.accesos) as [ModuleKey, ModuleRole][]
-  const modulos = entradas.filter(([k]) => k !== MODULO_ADMIN)
+  persona, soyYo, ultima, estudios, protocolos, protocolosDeLaPersona, viendo, onVer, onCerrarVista, onEditar,
+}: {
+  persona: TeamMemberRow
+  soyYo: boolean
+  ultima: boolean
+  estudios: number
+  protocolos: ProtocolRow[]
+  protocolosDeLaPersona: string[]
+  viendo: boolean
+  onVer: () => void
+  onCerrarVista: () => void
+  onEditar: () => void
+}) {
   const administra = persona.accesos[MODULO_ADMIN] != null
+  const resumen = resumenDeAccesoEnLinea(persona.accesos, MODULES, persona.is_active, estudios)
+  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(viendo, onCerrarVista)
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 18px', borderBottom: ultima ? 'none' : '1px solid var(--spira-line)' }}>
       <UserAvatar initials={initialsOf(persona.full_name)} size={38} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)' }}>
-          {persona.full_name}
-          {soyYo && <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--spira-muted)' }}> · vos</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {persona.full_name}
+            {soyYo && <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--spira-muted)' }}> · vos</span>}
+          </span>
+          {/* El escudito reemplaza a la píldora "Administra" Y al texto que lo repetía en la línea
+              de abajo: una sola marca para una sola idea. Va en `acc-deep-track` y no en el
+              petróleo crudo, que sobre la card del tema oscuro da 2,14:1 — o sea, la única señal de
+              quién reparte el poder del centro sería la que no se ve. */}
+          {administra && (
+            <InfoTip
+              icono="shield"
+              size={14}
+              color="var(--spira-acc-deep-track)"
+              titulo="Administra los accesos"
+              cuerpo="Ve a todo el equipo y le cambia el acceso a cualquiera del centro."
+              etiqueta={`${persona.full_name} administra los accesos`}
+            />
+          )}
         </div>
-        <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {persona.email ?? 'Sin correo registrado'}
-        </div>
+        <LineaDeAcceso resumen={resumen} />
       </div>
 
-      <div style={{ flex: '1 1 260px', display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
-        {/* Una cuenta dada de baja queda sin módulos, así que sin este chip se vería EXACTAMENTE
-            igual que alguien recién creado a quien todavía no le dieron acceso. Son dos situaciones
-            opuestas —una se cerró, la otra espera— y confundirlas lleva a "dale acceso a esta que
-            está sin nada" sobre alguien que se dio de baja a propósito. */}
-        {!persona.is_active && (
-          <StPill tone="danger"><Icon name="lock" size={12} color="#A6483B" /> Dada de baja</StPill>
-        )}
-        {administra && (
-          <StPill tone="accent"><Icon name="shield" size={12} color={ACCENT} /> Administra</StPill>
-        )}
-        {modulos.length === 0 && persona.is_active
-          ? <StPill tone="neutral">Sin acceso a módulos</StPill>
-          : modulos.map(([k, nivel]) => (
-              <StPill key={k} tone="neutral">
-                {MODULES.find((m) => m.key === k)?.name ?? k} · {ROLE_LABEL[nivel]}
-              </StPill>
-            ))}
-      </div>
+      <button
+        ref={triggerRef}
+        type="button"
+        style={btnIcono}
+        aria-label={`Ver el acceso de ${persona.full_name}`}
+        title="Ver el acceso"
+        aria-expanded={viendo}
+        onClick={onVer}
+      >
+        <Icon name="eye" size={16} color="var(--spira-muted)" />
+      </button>
+      <button type="button" className="spira-textlink spira-no-press" style={linkEditar} onClick={onEditar}>
+        Editar acceso
+      </button>
 
-      <button style={{ ...btnGhost, flex: '0 0 auto' }} onClick={onEditar}>Editar acceso</button>
+      {viendo && pos && (
+        <ResumenDeAcceso
+          persona={persona}
+          protocolos={protocolos}
+          protocolosDeLaPersona={protocolosDeLaPersona}
+          popRef={popRef}
+          pos={pos}
+          onCerrar={onCerrarVista}
+          onEditar={onEditar}
+        />
+      )}
     </div>
   )
+}
+
+/** La línea de abajo del nombre. La REGLA vive en `lib/roles.ts` con sus tests; acá sólo se pinta:
+ *  qué caso gana sobre cuál es lo que puede fallar sin verse, y eso no se decide en un componente. */
+function LineaDeAcceso({ resumen }: { resumen: ReturnType<typeof resumenDeAccesoEnLinea> }) {
+  if (resumen.tipo === 'baja') {
+    /* La ÚNICA fila que se tiñe. Una cuenta dada de baja queda sin módulos, así que sin esto se
+       vería exactamente igual que alguien recién creado esperando accesos — y ahí es donde alguien
+       le da accesos a una cuenta que se cerró a propósito, con su nombre en el `audit_log`. */
+    return (
+      <div style={{ marginTop: 3 }}>
+        <StPill tone="danger"><Icon name="lock" size={12} color="var(--spira-acc-deep-danger)" /> Dada de baja</StPill>
+      </div>
+    )
+  }
+
+  if (resumen.tipo === 'sin-modulos') {
+    return <div style={linea}>Sin acceso a ningún módulo</div>
+  }
+
+  return (
+    <div style={{ ...linea, display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
+      {resumen.modulos.map((m, i) => (
+        <span key={m.nombre} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
+          {i > 0 && <Punto />}
+          <span style={{ color: 'var(--spira-ink)', fontWeight: 600 }}>{m.nombre}</span>
+          <Punto />
+          <span>{ROLE_LABEL[m.nivel]}</span>
+        </span>
+      ))}
+      {/* El conteo puede NO IR: `estudios: null` significa que esta persona no scopea por estudio
+          (no tiene Coordinación), y ahí un "0 estudios" al lado de "Farmacia · Administrador" diría
+          que no ve pacientes, que es lo contrario de la verdad. */}
+      {resumen.aviso === 'sin-estudios' ? (
+        <><Punto /><span style={{ color: 'var(--spira-acc-deep-warn)', fontWeight: 600 }}>sin estudios asignados</span></>
+      ) : resumen.estudios != null ? (
+        <><Punto /><span>{resumen.estudios} {resumen.estudios === 1 ? 'estudio' : 'estudios'}</span></>
+      ) : null}
+    </div>
+  )
+}
+
+/** El punto medio que separa. `aria-hidden` porque es puntuación: el lector de pantalla ya hace la
+ *  pausa por el elemento, y "punto medio" leído quince veces por fila es ruido. */
+function Punto() {
+  return <span aria-hidden style={{ color: 'var(--spira-faint)' }}>·</span>
+}
+
+/* —— estilos de la fila —— */
+
+/** La línea de acceso. `flexWrap` y no ellipsis: en 1185px de contenido una persona con los dos
+ *  módulos entra holgada, y si algún día no entrara, cortar el acceso a la mitad es peor que
+ *  ocupar dos renglones. */
+const linea: CSSProperties = { fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }
+
+/** «Editar acceso» es un LINK y no un botón con caja (§01 del handoff): comparte fila con el ojo,
+ *  que sí la lleva, y dos cajas vecinas del mismo peso no dejan ver cuál es el gesto principal.
+ *  `spira-no-press` porque el levante de 1px sobre un texto suelto se lee como un salto; su señal
+ *  de estado es el subrayado que pone `.spira-textlink` al apuntarlo o enfocarlo. */
+const linkEditar: CSSProperties = {
+  flex: '0 0 auto', fontSize: 13, fontWeight: 600, color: 'var(--spira-acc-deep-track)',
+  fontFamily: 'var(--spira-font-text)',
 }
 
 /** Lo que ve quien no administra: su propio acceso, explicado. */
@@ -193,15 +323,15 @@ function TuAcceso({ persona }: { persona: TeamMemberRow | null }) {
           )}
           {descripcion.ve.map((a) => (
             <div key={a.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5 }}>
-              <Icon name="check" size={14} color="#5C8A5A" />
+              <Icon name="check" size={14} color="var(--spira-acc-deep-good)" />
               <span style={{ color: 'var(--spira-ink)' }}>
                 <strong style={{ fontWeight: 600 }}>{a.nombre}</strong> — {a.puede}
               </span>
             </div>
           ))}
           {descripcion.inertes.map((a) => (
-            <div key={a.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5, color: '#B0823F' }}>
-              <Icon name="clock" size={14} color="#B0823F" />
+            <div key={a.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5, color: 'var(--spira-acc-deep-warn)' }}>
+              <Icon name="clock" size={14} color="var(--spira-acc-deep-warn)" />
               <span><strong style={{ fontWeight: 600 }}>{a.nombre}</strong> — todavía no está construido</span>
             </div>
           ))}

@@ -138,9 +138,28 @@ export function usePopover<T extends HTMLElement, P extends HTMLElement>(
       }
       return false
     }
-    // Esc cierra el popover de ADENTRO, uno por vez: si tengo un desplegable propio abierto, se ocupa
-    // él y yo me quedo. Sin esto, el mismo Esc que cerraba el mes/año se llevaba puesto el calendario.
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !conDescendienteAbierto()) onCloseRef.current() }
+    /* Esc cierra el popover de ADENTRO, uno por vez: si tengo un desplegable propio abierto, se
+       ocupa él y yo me quedo. Sin esto, el mismo Esc que cerraba el mes/año se llevaba puesto el
+       calendario.
+       ─────────────────────────────────────────────────────────────────────────────────────────
+       Y CORTA LA PROPAGACIÓN, siempre que haya un popover abierto. Este listener vive en
+       `document`; los contenedores que también cierran con Esc —el modal de Ajustes, el Drawer, la
+       paleta— escuchan en `window`, que está más arriba en el camino del evento. Sin el corte, los
+       dos corrían: un Esc con el desplegable de nivel abierto adentro de Ajustes cerraba el
+       desplegable Y el modal entero, de un saque (medido en el QA logueado del 2026-09-09; venía
+       pasando desde que Ajustes tiene desplegables). Esc cierra UNA capa por vez, que es lo que
+       espera cualquiera.
+       Se corta aunque este popover no sea el que cierra: si no cierro es porque lo hace un
+       descendiente mío, o sea el Esc igual lo consumió la pila de popovers y `window` no tiene nada
+       que hacer con él.
+       Va `stopPropagation` y NO `stopImmediatePropagation`: los otros popovers abiertos también
+       tienen su listener en `document`, y cada uno necesita su turno para decidir si le toca cerrar
+       a él. Frenar a los hermanos dejaría el cierre a merced del orden de registro. */
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      if (!conDescendienteAbierto()) onCloseRef.current()
+    }
     const onDown = (e: MouseEvent) => {
       if (adentro(e.target as Node)) return
       onCloseRef.current()

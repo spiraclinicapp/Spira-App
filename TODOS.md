@@ -1275,3 +1275,88 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 - **Depende de / bloqueado por:** nada. Es independiente de todo lo demás.
 - **Prioridad:** P2 — no rompe datos ni pierde nada, pero le miente al usuario justo en el paso
   previo a una acción irreversible.
+
+---
+
+## Ajustes · mockear «Mi cuenta», «Preferencias» y «Plataformas»
+
+- **Qué:** decidir si las otras tres secciones del modal de Ajustes se rediseñan con el mismo
+  vocabulario que quedó en «Equipo y accesos» (línea en prosa, ⓘ con título y cuerpo, chips con
+  ×, rótulos de sección en versalitas).
+- **Por qué:** al aplicar el handoff de Equipo y accesos, **una** de las cuatro secciones del
+  modal habla el idioma nuevo y las otras tres el viejo, a un click de distancia.
+- **Pros:** el modal queda coherente; y el `InfoTip` y las primitivas nuevas ya estarían
+  construidos, así que las tres secciones restantes serían aplicar, no inventar.
+- **Contras:** es trabajo de **diseño**, no de ingeniería: hoy no hay mock de ninguna de las
+  tres. Diseñarlas a ojo desde el código es exactamente lo que ya costó una reescritura.
+- **Contexto:** es el pendiente que el propio handoff escribe en su §07, palabra por palabra:
+  *"Definir si se mockean también «Mi cuenta», «Preferencias» y «Plataformas» con este nivel de
+  detalle."* Estado de cada una hoy: **Preferencias** es la más limpia (tres controles vivos,
+  ninguna maqueta, ver `PrefsSection.tsx`); **Mi cuenta** y **Plataformas** tienen más
+  superficie. Se difirió a propósito en la `/plan-eng-review` del 2026-09-09 (decisión D1).
+- **Empezar por:** abrir el modal con el idioma nuevo ya en producción y mirar el contraste
+  entre secciones — esa es la evidencia que decide si vale la pena.
+- **Depende de / bloqueado por:** que `docs/plan-ajustes-equipo-reskin.md` esté en prod, y que
+  el Director produzca los mocks.
+- **Prioridad:** P3.
+
+---
+
+## Capa de datos · los hooks de auditoría consultan aunque el id sea `null`
+
+- **Qué:** que `useAccessAudit` y `useProtocolAccessAudit` **no viajen a Supabase** cuando el
+  `userId` que reciben es `null`.
+- **Por qué:** hoy no se saltean nada: filtran por un UUID centinela y mandan la consulta igual.
+
+  ```ts
+  // src/data/team.ts:86
+  .eq('target_user_id', userId ?? '00000000-0000-0000-0000-000000000000')
+  ```
+
+  Cualquiera que monte uno de estos hooks "apagado" paga una consulta por montaje sin
+  enterarse. Medido: si el popup de solo lectura de Equipo y accesos se montara **por fila**,
+  serían 2 consultas × 23 personas = **46 viajes** al abrir Ajustes, para no mostrar nada.
+- **Pros:** arreglo chico y bien delimitado que protege a cualquier consumidor futuro sin que
+  tenga que conocer la trampa.
+- **Contras:** hay que averiguar primero si `useSupabaseQuery` admite un "no consultes"
+  (`enabled`) o si hay que agregárselo — eso decide si son 6 líneas o 30, y lo segundo alcanza
+  a **toda** la capa de datos.
+- **Contexto:** lo encontró la revisión de performance de la `/plan-eng-review` del 2026-09-09
+  (`docs/plan-ajustes-equipo-reskin.md`, sección 4). Esa tanda **esquiva** el problema montando
+  un único popup a nivel de sección, igual que ya hace con el editor; la causa sigue intacta y
+  la esquiva es una convención que hay que recordar.
+- **Empezar por:** `src/lib/useSupabaseQuery.ts` (ver si ya hay forma de no consultar) →
+  `src/data/team.ts:79` y `src/data/protocolAccess.ts:66`.
+- **Depende de / bloqueado por:** nada. Es independiente.
+- **Prioridad:** P3 — no rompe nada hoy, sólo gasta.
+
+---
+
+## Diseño · el ámbar crudo que queda usado como color de TEXTO
+
+- **Qué:** pasar a `var(--spira-acc-deep-warn)` los `#B0823F` que se usan como **color de
+  texto** en los archivos que la tanda del reskin de Equipo y accesos no abre.
+- **Por qué:** medido con las fórmulas de WCAG contra los tokens reales del repo:
+
+  | Color | Sobre | Contraste | Veredicto |
+  |---|---|---|---|
+  | `#B0823F` | papel blanco | **3,44:1** | ❌ falla AA para texto (pide 4,5) |
+  | `#B0823F` | card oscura `#212121` | 4,69:1 | ✅ pasa |
+  | `--spira-acc-deep-warn` | papel blanco | 6,97:1 | ✅ |
+  | `--spira-acc-deep-warn` | card oscura | 10,45:1 | ✅ |
+
+- **Pros:** cambio mecánico, verificable con `npm run build`, y deja un solo ámbar en la app.
+- **Contras:** **un barrido a ciegas rompe cosas.** De los 31 `#B0823F` del código, sólo 17 son
+  color; el resto son fondos (`#B0823F16`) y bordes (`#B0823F33`), que hay que dejar como
+  están. Y los `<Icon color="#B0823F">` **también pasan**: los gráficos no textuales piden 3:1,
+  no 4,5. Sólo se toca el texto.
+- **Contexto:** surgió en la `/plan-eng-review` del 2026-09-09 al revisar el §06 del handoff,
+  que prescribe el hex crudo. Esa tanda arregla los de `AccesoEditor.tsx` y
+  `EquipoYAccesosSection.tsx` porque los abre igual (decisión C1); quedan afuera
+  `AccionesDeCuenta.tsx`, `AccountSection.tsx`, `PrefsSection.tsx` y `views/visitStates.tsx`.
+  El repo ya es inconsistente consigo mismo: `PILL.warn` en `primitives.tsx` **sí** usa el
+  token.
+- **Empezar por:** `grep -rn "color: '#B0823F'" src/` y filtrar los cuatro archivos de arriba.
+- **Depende de / bloqueado por:** conviene después del reskin, para no chocar en los mismos
+  archivos.
+- **Prioridad:** P3.

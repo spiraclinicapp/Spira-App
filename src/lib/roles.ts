@@ -198,6 +198,115 @@ export function describeAccess(
   return { ve, inertes, noVe, administra: accesos[MODULO_ADMIN] != null }
 }
 
+/* ─── La línea de acceso de la lista del equipo ─── */
+
+/**
+ * Qué dice la línea que va debajo del nombre, en la lista del equipo.
+ *
+ * Devuelve el CASO y no un texto armado, a propósito: el componente redacta y elige el color, y
+ * el test afirma la regla en vez de la redacción. Con un string no habría forma de saber que un
+ * caso es el ámbar sin volver a parsear lo que esta función acaba de escribir.
+ *
+ *     ┌──────────────────── resumenDeAccesoEnLinea ────────────────────┐
+ *     │                                                                │
+ *     │   ¿activa === false? ──sí──► {tipo:'baja'}   (chip rojo)        │
+ *     │            │ no                                                │
+ *     │   ¿0 módulos?        ──sí──► {tipo:'sin-modulos'}               │
+ *     │            │ no                                                │
+ *     │            └──────────────► {tipo:'acceso', modulos, estudios,  │
+ *     │                              aviso?: 'sin-estudios'}            │
+ *     └────────────────────────────────────────────────────────────────┘
+ *
+ * ⚠️ EL ORDEN NO ES DECORATIVO. Las dos primeras ramas son verdaderas A LA VEZ: dar de baja una
+ * cuenta la deja sin módulos, así que si "sin módulos" se evaluara primero, una cuenta cerrada se
+ * leería EXACTAMENTE igual que una recién creada esperando accesos. Son situaciones opuestas —una
+ * se cerró, la otra espera— y confundirlas lleva a "dale acceso a ésta que está sin nada" sobre
+ * alguien a quien se dio de baja a propósito. Nada se ve mal en pantalla mientras pasa.
+ *
+ * `gerencia` NO se nombra: lo dice el escudito que va pegado al nombre (§01 del handoff). Por eso
+ * alguien que sólo administra accesos cae en `sin-modulos`, y está bien — no tiene pantallas
+ * propias, así que la fila queda "nombre + escudito / sin acceso a ningún módulo", que es la
+ * verdad completa leída junta.
+ *
+ * Los módulos `proximamente` CON nivel sí se nombran, con la misma regla que `describeAccess`: un
+ * acceso que existe en la base se muestra aunque no rinda nada. Si la línea lo escondiera, un
+ * `lab` que quedó de antes sería invisible desde la lista y nadie podría enterarse para revocarlo.
+ *
+ * `modulos` se inyecta por el mismo motivo que en `describeAccess`: para poder testear la función
+ * con un catálogo controlado.
+ */
+export type ResumenDeAccesoEnLinea =
+  | { tipo: 'baja' }
+  | { tipo: 'sin-modulos' }
+  | {
+      tipo: 'acceso'
+      /** En el orden del REGISTRO de módulos, no en el del jsonb que llega de la vista. */
+      modulos: { nombre: string; nivel: ModuleRole }[]
+      /** Cuántos estudios ve, o `null` cuando el conteo NO SIGNIFICA NADA para esta persona.
+       *
+       *  `null` no es cero: es "acá el recorte por estudio no aplica". Dos casos lo producen, los
+       *  dos leídos de las policies de la 0006 y no de una intuición:
+       *
+       *    · SIN `track` → no hay nada que recortar. Farmacia es central y ve todos los protocolos.
+       *    · CON `gerencia` → la policy lo SALTEA. `patients`, `enrollments` y `patient_visits`
+       *      abren todas con `has_module('gerencia') or …`, así que quien administra ve el centro
+       *      entero tenga los estudios que tenga.
+       *
+       *  En los dos casos escribir "0 estudios" —o peor, el aviso ámbar— afirmaría que esa persona
+       *  no ve pacientes, que es exactamente lo contrario de la verdad. Un cero que miente es peor
+       *  que un dato ausente, y más en la pantalla donde se reparte el acceso.
+       *
+       *  El singular/plural lo pone el componente: un plural al revés se ve. */
+      estudios: number | null
+      /** Entra a Coordinación y no va a ver un solo paciente. Se pinta en ámbar. */
+      aviso?: 'sin-estudios'
+    }
+
+export function resumenDeAccesoEnLinea(
+  accesos: Accesos,
+  modulos: { key: string; name: string; proximamente?: boolean }[],
+  activa: boolean,
+  estudios: number,
+): ResumenDeAccesoEnLinea {
+  if (!activa) return { tipo: 'baja' }
+
+  const conAcceso: { nombre: string; nivel: ModuleRole }[] = []
+  for (const m of modulos) {
+    // 'inicio' lo tiene todo el mundo y `gerencia` la dice el escudito: ninguno de los dos es
+    // "un módulo al que esta persona entra", que es lo que la línea enumera.
+    if (m.key === 'inicio' || m.key === MODULO_ADMIN) continue
+    const nivel = accesos[m.key as ModuleKey]
+    if (nivel) conAcceso.push({ nombre: m.name, nivel })
+  }
+
+  if (conAcceso.length === 0) return { tipo: 'sin-modulos' }
+
+  /* ¿A esta persona el recorte por estudio le aplica de verdad? DOS condiciones, y la segunda es la
+     que se olvida: hace falta `track` (Farmacia es central y ve todos los protocolos) Y NO tener
+     `gerencia`, porque la administración SALTEA el recorte. No es una interpretación — está escrito
+     en las tres policies de la 0006 que gobiernan Coordinación:
+
+         patients        using ( has_module('gerencia') or has_module('pharma') or <coordinadora> )
+         enrollments     using ( has_module('gerencia') or is_assigned_coordinator(protocol_id) )
+         patient_visits  using ( has_module('gerencia') or <coordinadora de la visita> )
+
+     Sin la segunda condición, la lista le pone «sin estudios asignados» en ámbar a quien administra
+     el centro —que ve absolutamente todo— y encima en la fila más mirada de la pantalla. Se detectó
+     en el QA logueado del 2026-09-09: la falsa alarma salía en las DOS cuentas de administración.
+
+     `pharma` NO alcanza para saltear: abre `patients` pero no `enrollments` ni `patient_visits`, así
+     que quien tiene Coordinación + Farmacia y cero estudios sigue sin poder trabajar en Coordinación
+     y el aviso corresponde. */
+  const scopeaPorEstudio = accesos.track != null && accesos[MODULO_ADMIN] == null
+
+  return {
+    tipo: 'acceso',
+    modulos: conAcceso,
+    estudios: scopeaPorEstudio ? estudios : null,
+    ...(scopeaPorEstudio && estudios === 0 ? { aviso: 'sin-estudios' as const } : null),
+  }
+}
+
 /* ─── El historial de cambios de acceso (E2) ─── */
 
 /** Una fila de `v_access_audit` (migración 0096), tal como llega. */

@@ -147,7 +147,9 @@ const PILL: Record<PillTone, { color: string; bg?: string; border?: string }> = 
   good: { color: 'var(--spira-acc-deep-good)', bg: '#5C8A5A16' },
   warn: { color: 'var(--spira-acc-deep-warn)', bg: '#B0823F16' },
   danger: { color: 'var(--spira-acc-deep-danger)', bg: '#A6483B16' },
-  accent: { color: ACCENT, bg: ACCENT + '14' },
+  /* El TEXTO va en el token que se aclara en oscuro: el petróleo crudo #0F5F57 sobre la card
+     #212121 da 2,14:1. El TINTE de fondo sí se queda en el acento — es decoración, no información. */
+  accent: { color: 'var(--spira-acc-deep-track)', bg: ACCENT + '14' },
   neutral: { color: 'var(--spira-muted)', bg: 'var(--spira-surface)', border: '1px solid var(--spira-line)' },
 }
 
@@ -170,6 +172,67 @@ export function btnSolid(): CSSProperties {
 /** Variante inerte: acción todavía no cableada (Próximamente). Va con `disabled`
     + `title` — nunca finge acción (regla de app auditable: cero clicks muertos). */
 export const btnGhostSoon: CSSProperties = { ...btnGhost, opacity: 0.55, cursor: 'default' }
+
+/** Botón de ÍCONO SOLO: cuadrado de 34, mismo contorno que `btnGhost`. Lo estrena el ojo de la
+    lista del equipo. Lleva borde —y no el ícono suelto— porque comparte fila con «Editar acceso»,
+    que es texto: sin caja, dos acciones vecinas se leerían como una sola línea de adorno. Siempre
+    con `aria-label` y `title`: un ícono sin nombre no se puede anunciar ni buscar. */
+export const btnIcono: CSSProperties = {
+  ...btnGhost, width: 34, padding: 0, justifyContent: 'center', flex: '0 0 auto',
+}
+
+/* ---------- rótulo de bloque (versalitas) ----------
+   Separa las dos mitades del resumen de acceso ("A QUÉ ENTRA" / "LA CUENTA"). Es un rótulo, no un
+   título: por eso va chico, espaciado y en `muted`, y no compite con el nombre de la persona. */
+export function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <div style={{
+      fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase',
+      color: 'var(--spira-muted)',
+    }}>
+      {children}
+    </div>
+  )
+}
+
+/* ---------- chip de estudio ----------
+   Código en mono + nombre en gris. La × sólo cuando se puede quitar: en el resumen de solo lectura
+   no va, y un chip que muestra una × que no hace nada es un botón muerto. */
+export function EstudioChip({ codigo, nombre, onQuitar }: {
+  codigo: string
+  nombre?: string
+  onQuitar?: () => void
+}) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 7, maxWidth: '100%',
+      padding: onQuitar ? '5px 5px 5px 11px' : '5px 11px', borderRadius: 999,
+      background: 'var(--spira-surface)', border: '1px solid var(--spira-line-2)',
+    }}>
+      <span className="spira-mono" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--spira-ink)' }}>{codigo}</span>
+      {nombre && (
+        <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {nombre}
+        </span>
+      )}
+      {onQuitar && (
+        <button
+          type="button"
+          className="spira-no-press"
+          aria-label={`Quitar ${codigo}`}
+          title={`Quitar ${codigo}`}
+          onClick={onQuitar}
+          style={{
+            width: 20, height: 20, flex: '0 0 auto', display: 'grid', placeItems: 'center',
+            border: 'none', background: 'transparent', cursor: 'pointer', borderRadius: '50%', padding: 0,
+          }}
+        >
+          <Icon name="x" size={13} color="var(--spira-muted)" />
+        </button>
+      )}
+    </span>
+  )
+}
 
 /** Acción destructiva. El color va en el TEXTO y el borde queda neutro: teñir el fondo entero
     convertiría cada baja en una alarma, y acá lo destructivo es el resultado, no el botón. El rojo
@@ -201,7 +264,7 @@ export function PreviewBanner({ children }: { children: ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 14px', marginBottom: 18, borderRadius: 12, background: 'var(--spira-surface)', border: '1px dashed var(--spira-line-2)' }}>
       <span style={{ width: 30, height: 30, flex: '0 0 auto', borderRadius: 8, display: 'grid', placeItems: 'center', background: ACCENT + '14' }}>
-        <Icon name="eye" size={16} color={ACCENT} />
+        <Icon name="eye" size={16} color="var(--spira-acc-deep-track)" />
       </span>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--spira-ink)' }}>Vista previa</div>
