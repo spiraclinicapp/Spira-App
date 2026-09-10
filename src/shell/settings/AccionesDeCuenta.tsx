@@ -86,7 +86,7 @@ export function PanelDeLink({ link, onListo }: { link: string; onListo?: () => v
         </button>
         {onListo && <button type="button" style={btnGhost} onClick={onListo}>Listo</button>}
         {falloCopiar && (
-          <span style={{ fontSize: 12.5, color: '#B0823F' }}>
+          <span style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-warn)' }}>
             No pudimos copiarlo. Seleccionalo y copialo a mano.
           </span>
         )}
@@ -350,8 +350,18 @@ export function AccionesDeCuenta({ persona, actorId, onCambio, onEliminada }: Ac
 
 /* ---------- piezas chicas ---------- */
 
+/* Los colores de TEXTO salen de la familia `--spira-acc-deep-*`, que es la única que tiene versión
+   aclarada para el tema oscuro; los tintes de fondo y los bordes siguen saliendo del hex sólido con
+   alpha, que es para lo que ese hex sirve. Medido sobre el tinte real de cada aviso:
+
+     ámbar  #B0823F        3,14:1 claro · 4,20:1 oscuro   ❌     acc-deep-warn    6,36 · 9,37  ✅
+     rojo   --spira-danger 5,05:1 claro · 2,57:1 oscuro   ❌     acc-deep-danger  5,05 · 7,15  ✅
+
+   El rojo pasa en claro y se cae en oscuro porque `--spira-danger` NO se redefine para ese tema:
+   se queda en #A6483B sobre una card casi negra. Es el mismo defecto que el ámbar, y va en el mismo
+   arreglo porque vive en la misma línea. */
 function Aviso({ tono, children }: { tono: 'danger' | 'warn'; children: ReactNode }) {
-  const color = tono === 'danger' ? 'var(--spira-danger)' : '#B0823F'
+  const color = tono === 'danger' ? 'var(--spira-acc-deep-danger)' : 'var(--spira-acc-deep-warn)'
   const fondo = tono === 'danger' ? 'rgba(166, 72, 59, 0.10)' : '#B0823F16'
   const borde = tono === 'danger' ? 'rgba(166, 72, 59, 0.20)' : '#B0823F33'
   return (

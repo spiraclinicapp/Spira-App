@@ -1332,31 +1332,26 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 
 ---
 
-## Diseño · el ámbar crudo que queda usado como color de TEXTO
+## Diseño · el ámbar de MotivoChip, en Coordinación
 
-- **Qué:** pasar a `var(--spira-acc-deep-warn)` los `#B0823F` que se usan como **color de
-  texto** en los archivos que la tanda del reskin de Equipo y accesos no abre.
-- **Por qué:** medido con las fórmulas de WCAG contra los tokens reales del repo:
+**HECHO el 2026-09-10 para Ajustes** — quedaba esto, que es de otro módulo.
 
-  | Color | Sobre | Contraste | Veredicto |
-  |---|---|---|---|
-  | `#B0823F` | papel blanco | **3,44:1** | ❌ falla AA para texto (pide 4,5) |
-  | `#B0823F` | card oscura `#212121` | 4,69:1 | ✅ pasa |
-  | `--spira-acc-deep-warn` | papel blanco | 6,97:1 | ✅ |
-  | `--spira-acc-deep-warn` | card oscura | 10,45:1 | ✅ |
-
-- **Pros:** cambio mecánico, verificable con `npm run build`, y deja un solo ámbar en la app.
-- **Contras:** **un barrido a ciegas rompe cosas.** De los 31 `#B0823F` del código, sólo 17 son
-  color; el resto son fondos (`#B0823F16`) y bordes (`#B0823F33`), que hay que dejar como
-  están. Y los `<Icon color="#B0823F">` **también pasan**: los gráficos no textuales piden 3:1,
-  no 4,5. Sólo se toca el texto.
-- **Contexto:** surgió en la `/plan-eng-review` del 2026-09-09 al revisar el §06 del handoff,
-  que prescribe el hex crudo. Esa tanda arregla los de `AccesoEditor.tsx` y
-  `EquipoYAccesosSection.tsx` porque los abre igual (decisión C1); quedan afuera
-  `AccionesDeCuenta.tsx`, `AccountSection.tsx`, `PrefsSection.tsx` y `views/visitStates.tsx`.
-  El repo ya es inconsistente consigo mismo: `PILL.warn` en `primitives.tsx` **sí** usa el
-  token.
-- **Empezar por:** `grep -rn "color: '#B0823F'" src/` y filtrar los cuatro archivos de arriba.
-- **Depende de / bloqueado por:** conviene después del reskin, para no chocar en los mismos
-  archivos.
+- **Qué:** `src/views/track/MotivoChip.tsx` pinta el texto del chip con `var(--spira-warn)` sobre un
+  tinte del mismo color (`+1A`). Ese token es `#B0823F` y **no se redefine para el tema oscuro**.
+- **Por qué:** medido sobre el tinte real, **3,09:1 en claro y 4,08:1 en oscuro**. AA pide 4,5 para
+  texto. Es el mismo defecto que se barrió en Ajustes, en otro módulo.
+- **Pros:** el arreglo es una línea — `colorVar` pasa a `var(--spira-acc-deep-warn)`. El
+  `colorHex` del fondo **no se toca**: para eso el hex sólido sirve.
+- **Contras:** `MOTIVO_TONOS` tiene más entradas que la ámbar (hay verdes y rojas). Conviene medirlas
+  todas de una y no sólo la que se encontró, porque el patrón `colorVar` + `colorHex` se repite.
+- **Contexto:** salió del barrido del 2026-09-10, que cerró los cuatro casos de Ajustes
+  (`AccionesDeCuenta` ×2, `AccountSection`, `PrefsSection`). **Ese barrido también encontró que
+  `--spira-danger` no se aclara en oscuro** —2,57:1 sobre el tinte rojo— y lo arregló en el `Aviso`
+  de `AccionesDeCuenta`; si aparece `var(--spira-danger)` como color de TEXTO en otro lado, es el
+  mismo caso.
+- **⚠️ Lo que NO hay que tocar,** y que el barrido confirmó mirando cómo se consume cada uno:
+  `visitStates.tsx` (su `.color` es `background: e.color + '24'` y un punto, nunca texto) y los
+  colores de `procedimientos/reportes.ts` (puntos de 7×7 px). Un barrido a ciegas los rompe.
+- **Empezar por:** `src/views/track/MotivoChip.tsx:16-17`.
+- **Depende de / bloqueado por:** nada.
 - **Prioridad:** P3.
