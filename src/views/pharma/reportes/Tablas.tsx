@@ -264,7 +264,15 @@ export function TablaAmbulatorias({ filas, total, enPantalla = 14 }: {
                 ? `${formatNumberAR(total.salidas)} ${total.salidas === 1 ? 'salida' : 'salidas'}`
                 : `Mostrando ${enPantalla} de ${formatNumberAR(filas.length)}. El reporte impreso sale con todas.`}
             </td>
-            <td style={{ ...tfootTd, textAlign: 'center' }}>{formatNumberAR(total.unidades)}</td>
+            <td style={{ ...tfootTd, textAlign: 'center' }}>
+              {/* Cuando corta, la celda de la izquierda ya no dice "N salidas": el número de acá
+                  podría leerse como la suma de las filas visibles. Rotularlo con "del período"
+                  aclara que es el total, no una suma parcial. Sin corte el par "N salidas" +
+                  el número ya se lee bien solo. */}
+              {filas.length <= enPantalla
+                ? formatNumberAR(total.unidades)
+                : `${formatNumberAR(total.unidades)} u. en el período`}
+            </td>
             <td style={tfootTd} colSpan={2} />
           </tr>
         </tfoot>

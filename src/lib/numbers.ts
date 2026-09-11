@@ -3,7 +3,7 @@
  *
  * POR QUÉ ESTO EXISTE Y POR QUÉ TIENE TEST. `lib/dates.ts` tiene veinticinco helpers de fecha y
  * ninguno de número, así que hasta acá cada pantalla formateaba a mano. La de Reportes tiene
- * catorce hojas impresas, cinco tablas y seis indicadores: sin un helper compartido, la misma
+ * quince hojas impresas, cinco tablas y seis indicadores: sin un helper compartido, la misma
  * regla se escribe cuarenta veces.
  *
  * Y falla EN SILENCIO. Si el separador queda al revés, `3.482` se lee "tres coma cuatro ocho dos"

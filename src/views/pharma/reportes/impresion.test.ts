@@ -79,6 +79,21 @@ describe('el saldo: resumen, balance y todo tienen que decir lo mismo', () => {
     const c = ctx()
     expect(REPORTES.todo.pares!(c)).toEqual(REPORTES.resumen.pares!(c))
   })
+
+  it('resumen: con conAmbulatoria: false, NO trae el renglón de Salidas ambulatorias y el saldo es de DOS términos', () => {
+    // POR QUÉ ESTE TEST. Los dos de arriba —y el `ctx()` por defecto— sólo ejercitan
+    // `resumen.pares` con `conAmbulatoria: true`. El `if (c.conAmbulatoria)` de `impresion.tsx:80`
+    // que agrega (o no) el renglón "Salidas ambulatorias" al RESUMEN —la hoja más impresa del
+    // sistema— quedaba sin ningún test que lo cazara: borrarlo o invertirlo deja los cuatro tests
+    // de este archivo en verde, y la hoja vuelve a mostrar 1000 ingresadas, 300 dispensadas y un
+    // saldo de +660 sin el renglón que explica las 40 unidades que faltan — irreconciliable.
+    const c = ctx({ conAmbulatoria: false, ambulatorias: { unidades: 0, salidas: 0 } })
+    const pares = REPORTES.resumen.pares!(c)
+    expect(valorDe(pares, 'Salidas ambulatorias')).toBeUndefined()
+    // Reconciliable con las dos líneas de arriba: 1000 ingresadas − 300 dispensadas, sin un
+    // tercer término que restar porque acá no se midió.
+    expect(valorDe(pares, 'Balance del período')).toBe('+700 u. de saldo')
+  })
 })
 
 describe('balance: "no se midió" no es lo mismo que "midió cero"', () => {
