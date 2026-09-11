@@ -164,8 +164,8 @@ export function AccountSection() {
           que el link se use. Antes esto era un `notice` de useState y desaparecía al primer cierre:
           el correo quedaba a medio cambiar sin nada en pantalla que lo dijera. */}
       {pendingEmail && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#B0823F', background: '#B0823F16', border: '1px solid #B0823F33', borderRadius: 10, padding: '10px 14px' }}>
-          <Icon name="clock" size={15} color="#B0823F" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--spira-acc-deep-warn)', background: '#B0823F16', border: '1px solid #B0823F33', borderRadius: 10, padding: '10px 14px' }}>
+          <Icon name="clock" size={15} color="var(--spira-acc-deep-warn)" />
           <span>Tenés un cambio de correo sin confirmar a <strong style={{ fontWeight: 600 }}>{pendingEmail}</strong>. Revisá esa casilla — el correo actual sigue siendo el de arriba hasta que lo confirmes.</span>
         </div>
       )}

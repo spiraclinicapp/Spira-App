@@ -67,8 +67,8 @@ export function PrefsSection() {
           obligatorio: sin este aviso, la persona elegiría un tema creyendo que la va a seguir a otra
           computadora y descubriría que no, sin ninguna pista de por qué. */}
       {soloLocal && (
-        <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: '#B0823F', background: '#B0823F16', border: '1px solid #B0823F33', borderRadius: 10, padding: '10px 14px' }}>
-          <Icon name="clock" size={15} color="#B0823F" />
+        <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-acc-deep-warn)', background: '#B0823F16', border: '1px solid #B0823F33', borderRadius: 10, padding: '10px 14px' }}>
+          <Icon name="clock" size={15} color="var(--spira-acc-deep-warn)" />
           <span>Tus preferencias se están guardando solo en esta computadora. Falta aplicar una actualización del sistema para que viajen con tu cuenta.</span>
         </div>
       )}
