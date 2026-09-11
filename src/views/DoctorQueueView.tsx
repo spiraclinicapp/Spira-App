@@ -154,6 +154,11 @@ export function DoctorQueueView({ module, submodule, onNavigate, setHeader }: Vi
           value={longestWaitIso ? elapsedShort(longestWaitIso) : '—'}
           label="Espera más larga"
           color={longestColor}
+          /* Sin nadie esperando, `longestColor` es el gris clarito de "sin dato": sirve de tinte y
+             NO de tinta (2,09:1 sobre papel). La tinta va al gris de texto, que es además el mismo
+             que usa el WaitBadge en ese estado. Con un tono real no se pasa nada: el color-mix del
+             StatCard ya lo resuelve. */
+          tinta={longestTone ? undefined : 'var(--spira-muted)'}
         />
         <StatCard icon="check" value={String(atendidos.length)} label={`Atendidos${isToday ? ' hoy' : ''}`} color={accent} />
       </div>
