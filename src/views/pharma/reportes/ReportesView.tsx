@@ -326,6 +326,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
           <Resumen
             totales={d.totales}
             ingresos={d.ingresos}
+            ambulatorias={ambEnRecorte}
             indicadores={armarIndicadores(d, ctx)}
             consistencia={d.consistencia}
             emitidoEn={emitidoEn}
