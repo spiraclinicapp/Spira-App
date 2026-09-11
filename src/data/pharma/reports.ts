@@ -4,11 +4,12 @@ import { pharmaErrorMessage } from './errors'
 import type { ReportAmbulatoryRow, ReportExpiredRow, ReportItemRow, ReportReceptionRow, ReportRejectedRow, Rango } from './reportModel'
 
 /**
- * Lecturas de Reportes de Farmacia (vistas de la migración 0083).
+ * Lecturas de Reportes de Farmacia (vistas de la migración 0083, más `v_ambulatory_dispensations`
+ * de la 0116, extendida por la 0118).
  *
  * TRES DECISIONES QUE EXPLICAN ESTE ARCHIVO:
  *
- * 1 · Las tres lecturas pasan `traducirError`. Estas vistas son NUEVAS y las migraciones se
+ * 1 · Las cinco lecturas pasan `traducirError`. Estas vistas son NUEVAS y las migraciones se
  *     aplican a mano, así que la ventana "front desplegado, migración sin aplicar" es real. Sin
  *     el traductor, la farmacéutica lee "Could not find the table 'public.v_pharma_report_items'
  *     in the schema cache" — en inglés y nombrando el schema.
@@ -19,13 +20,24 @@ import type { ReportAmbulatoryRow, ReportExpiredRow, ReportItemRow, ReportRecept
  *     lo que hay y cortar fuerte si no coincide, en vez de mostrar un número corto.
  *
  * 3 · El eje de unidades sale de UNA sola consulta (`v_pharma_report_items`) y todos los
- *     agregados se derivan en TypeScript. Es lo que garantiza que la pantalla y las catorce hojas
+ *     agregados se derivan en TypeScript. Es lo que garantiza que la pantalla y las quince hojas
  *     impresas hablen del mismo instante: si cada bloque consultara por su cuenta, una entrega en
  *     el medio dejaría el KPI y la tabla contradiciéndose en la misma hoja.
  */
 
 /** Techo de filas por consulta. Por encima, el reporte no se muestra: avisa y pide achicar. */
 export const TECHO_FILAS = 5000
+
+/**
+ * Columnas de `v_ambulatory_dispensations` para ESTE informe. En las otras cuatro lecturas el `*`
+ * es inocuo porque esas vistas se escribieron a medida para el reporte; ésta es la vista de
+ * Farmacia Ambulatoria y trae además `notes` (texto libre sobre una entrega) y
+ * `dispensed_by_name`, que este bloque no muestra — mismo patrón que `SALIDA_COLS` en
+ * `ambulatoria.ts`.
+ */
+const REPORT_AMBULATORY_COLS =
+  'id, created_at, fecha, quantity, recipient_name, recipient_document, authorized_by_name, ' +
+  'medication_name, medication_dosis, lot_number'
 
 export interface ReportQuery<T> extends QueryResult<T> {
   /** Filas que la base dice que hay. Si supera `TECHO_FILAS`, `data` no es confiable. */
@@ -177,7 +189,7 @@ export function useReportAmbulatory(rango: Rango): ReportQuery<ReportAmbulatoryR
       async (c) => {
         const { data, error, count } = await c
           .from('v_ambulatory_dispensations')
-          .select('*', { count: 'exact' })
+          .select(REPORT_AMBULATORY_COLS, { count: 'exact' })
           .gte('fecha', rango.desde)
           .lte('fecha', rango.hasta)
           .order('created_at', { ascending: false })

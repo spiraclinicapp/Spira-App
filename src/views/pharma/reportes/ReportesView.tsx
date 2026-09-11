@@ -107,7 +107,18 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
 
   const cargando = items.loading || recepciones.loading || rechazados.loading || vencidos.loading || salidas.loading
   const error = items.error ?? recepciones.error ?? rechazados.error ?? vencidos.error ?? salidas.error
-  const truncado = items.truncado || recepciones.truncado || salidas.truncado
+  /* Cuál consulta cortó, y con cuántas filas. Antes el aviso citaba SIEMPRE el total de `items`
+     aunque el corte lo hubiera causado otra, y aconsejaba filtrar por protocolo — que no achica
+     la consulta de salidas ambulatorias, porque no lo recibe. Un consejo inerte con la impresión
+     bloqueada deja a la farmacéutica sin salida. */
+  const fuenteTruncada = items.truncado
+    ? { que: 'dispensaciones', total: items.total, filtrable: true }
+    : recepciones.truncado
+      ? { que: 'recepciones', total: recepciones.total, filtrable: true }
+      : salidas.truncado
+        ? { que: 'salidas ambulatorias', total: salidas.total, filtrable: false }
+        : null
+  const truncado = fuenteTruncada !== null
 
   /* Todo lo que se muestra sale de acá. Una sola dependencia (`items.data`) y una sola pasada:
      si esto se partiera en varios useMemo con deps distintas, los bloques podrían quedar
@@ -165,6 +176,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
     ingresos: d.ingresos,
     ambulatorias: ambEnRecorte,
     salidasAmbulatorias: filasAmbulatorias,
+    conAmbulatoria: enRecorteAmbulatorio,
     minutosPromedio: d.porDisp.minutosPromedio,
     cumplimientoPct: d.porDisp.cumplimientoPct,
     rechazados: (rechazados.data ?? []).length,
@@ -301,11 +313,14 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
         puedeImprimir={puedeImprimir}
       />
 
-      {truncado && (
+      {fuenteTruncada && (
         <Aviso>
-          El período trae más registros de los que la pantalla puede leer de una
-          ({formatNumberAR(items.total ?? 0)}). Acotá el rango o filtrá por protocolo: con el
-          informe cortado los totales saldrían mal y no se pueden imprimir.
+          El período trae más registros de los que la pantalla puede leer de una:{' '}
+          {formatNumberAR(fuenteTruncada.total ?? 0)} en {fuenteTruncada.que}.{' '}
+          {fuenteTruncada.filtrable
+            ? 'Acotá el rango o filtrá por protocolo'
+            : 'Acotá el rango — el filtro por protocolo no achica esta lista, porque una salida ambulatoria no tiene protocolo'}
+          : con el informe cortado los totales saldrían mal y no se pueden imprimir.
         </Aviso>
       )}
 
@@ -350,16 +365,13 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
 
           {enRecorteAmbulatorio && (
             <>
-              <div style={sectionHead}>
-                <h2 style={sectionTitle}>Salidas ambulatorias</h2>
-                <div style={sectionRule} />
-                <div style={sectionHint}>
-                  {formatNumberAR(ambEnRecorte.salidas)} {ambEnRecorte.salidas === 1 ? 'salida' : 'salidas'}
-                  {' · '}
-                  {formatNumberAR(ambEnRecorte.unidades)} u. en el período
-                </div>
-                <BotonImprimir clave="ambulatorias" que="las salidas ambulatorias" onImprimir={imprimir} />
-              </div>
+              <Seccion
+                titulo="Salidas ambulatorias"
+                hint={`${formatNumberAR(ambEnRecorte.salidas)} ${ambEnRecorte.salidas === 1 ? 'salida' : 'salidas'} · ${formatNumberAR(ambEnRecorte.unidades)} u. en el período`}
+                reporte="ambulatorias"
+                que="las salidas ambulatorias"
+                onImprimir={imprimir}
+              />
               <TablaAmbulatorias filas={filasAmbulatorias} total={ambEnRecorte} />
             </>
           )}

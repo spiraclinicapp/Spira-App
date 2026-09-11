@@ -213,11 +213,16 @@ export function TablaDetalle({ filas, enPantalla = 14, onOpenPaciente }: {
  *
  * Sin participación ni barras: no hay un total del que estas unidades sean una parte. Son un
  * egreso aparte, y el bloque completo desaparece cuando hay un protocolo elegido.
+ *
+ * Mismo contrato de techo que `TablaDetalle`: con el preset "Año" y volumen real esta tabla podía
+ * dibujar cientos de `<tr>`. El reporte impreso sigue saliendo con todas las filas.
  */
-export function TablaAmbulatorias({ filas, total }: {
+export function TablaAmbulatorias({ filas, total, enPantalla = 14 }: {
   filas: ReportAmbulatoryRow[]
   total: { unidades: number; salidas: number }
+  enPantalla?: number
 }) {
+  const visibles = filas.slice(0, enPantalla)
   return (
     <Tabla>
       <thead>
@@ -231,7 +236,7 @@ export function TablaAmbulatorias({ filas, total }: {
         </tr>
       </thead>
       <tbody>
-        {filas.map((f) => (
+        {visibles.map((f) => (
           <tr key={f.id} className={rowHover}>
             <td style={{ ...td, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
               {formatAR(f.fecha)}
@@ -255,7 +260,9 @@ export function TablaAmbulatorias({ filas, total }: {
         <tfoot>
           <tr>
             <td style={tfootTd} colSpan={3}>
-              {formatNumberAR(total.salidas)} {total.salidas === 1 ? 'salida' : 'salidas'}
+              {filas.length <= enPantalla
+                ? `${formatNumberAR(total.salidas)} ${total.salidas === 1 ? 'salida' : 'salidas'}`
+                : `Mostrando ${enPantalla} de ${formatNumberAR(filas.length)}. El reporte impreso sale con todas.`}
             </td>
             <td style={{ ...tfootTd, textAlign: 'center' }}>{formatNumberAR(total.unidades)}</td>
             <td style={tfootTd} colSpan={2} />

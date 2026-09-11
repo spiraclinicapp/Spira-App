@@ -167,7 +167,7 @@ function LineaConsistencia({ consistencia, totales, emitidoEn }: {
           <b style={{ color: 'var(--spira-ink-2)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
             {formatNumberAR(totales.dispensaciones)}
           </b>{' '}
-          dispensaciones. La serie diaria y las tablas coinciden con este total.
+          dispensaciones. La serie diaria y las tablas por protocolo y por medicamento coinciden con este total.
           Emitido el <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatDateTimeAR(emitidoEn)}</span>.
         </span>
       ) : (

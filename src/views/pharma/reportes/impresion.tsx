@@ -9,9 +9,9 @@ import type { ReportAmbulatoryRow, Rango } from '../../../data/pharma/reportMode
 /**
  * El sistema de impresión: un registro declarativo y dos hojas.
  *
- * POR QUÉ UN REGISTRO Y NO UN COMPONENTE POR REPORTE. Son doce hojas que comparten membrete,
+ * POR QUÉ UN REGISTRO Y NO UN COMPONENTE POR REPORTE. Son quince hojas que comparten membrete,
  * período y línea de filtros. Escritas una por una, el día que la Fundación cambie el pie de
- * página hay que tocar doce archivos y el que se olvide sale impreso distinto y firmado. Acá el
+ * página hay que tocar quince archivos y el que se olvide sale impreso distinto y firmado. Acá el
  * encabezado existe UNA vez y cada reporte declara su título y su cuerpo.
  *
  * LA EXCEPCIÓN ESTÁ DECLARADA, no disuelta en el patrón: el reporte de dispensaciones tiene
@@ -35,6 +35,10 @@ export interface ContextoReporte {
   /** Salidas ambulatorias del período, YA recortadas por el filtro de protocolo. */
   ambulatorias: { unidades: number; salidas: number }
   salidasAmbulatorias: ReportAmbulatoryRow[]
+  /** Si el recorte INCLUYE la ambulatoria. Falso cuando hay un protocolo elegido: una salida
+   *  ambulatoria no pertenece a ninguno, así que ahí no se mide — que es distinto de medir cero.
+   *  El papel tiene que poder decir esa diferencia. */
+  conAmbulatoria: boolean
   minutosPromedio: number | null
   cumplimientoPct: number | null
   rechazados: number
@@ -64,19 +68,29 @@ const u = (n: number) => `${formatNumberAR(n)} u.`
 export const REPORTES: Record<string, DefinicionReporte> = {
   resumen: {
     titulo: 'RESUMEN DEL PERÍODO',
-    pares: (c) => [
-      ['Unidades dispensadas', `${u(c.totales.unidades)} en ${formatNumberAR(c.totales.dispensaciones)} dispensaciones`],
-      ['Unidades ingresadas', `${u(c.ingresos.unidades)} en ${formatNumberAR(c.ingresos.recepciones)} recepciones verificadas`],
-      ['Balance del período', `${c.ingresos.unidades - c.totales.unidades >= 0 ? '+' : ''}${u(c.ingresos.unidades - c.totales.unidades)} de saldo`],
-      ['Producto de investigación', `${formatNumberAR(c.totales.kits)} kits entregados · ${formatNumberAR(c.ingresos.kits)} recibidos`],
-      ['Pacientes distintos atendidos', formatNumberAR(c.totales.pacientes)],
-      ['Droga más dispensada', c.medicamentos[0] ? `${c.medicamentos[0].medicationName} — ${u(c.medicamentos[0].unidades)} (${formatPctAR(c.medicamentos[0].pct)})` : 'sin dispensaciones'],
-      ['Protocolo con más dispensaciones', c.protocolos[0] ? `${c.protocolos[0].protocolCode} — ${formatNumberAR(c.protocolos[0].dispensaciones)} (${formatPctAR(c.protocolos[0].pct)})` : 'sin dispensaciones'],
-      ['Tiempo promedio hasta la entrega', c.minutosPromedio == null ? 'sin datos' : `${formatNumberAR(c.minutosPromedio)} min`],
-      ['Cumplimiento del pedido', c.cumplimientoPct == null ? 'sin datos' : formatPctAR(c.cumplimientoPct)],
-      ['Pedidos rechazados o cancelados', formatNumberAR(c.rechazados)],
-      ['Stock vencido sin usar (al día de hoy)', `${u(c.vencidos.unidades)} en ${formatNumberAR(c.vencidos.lotes)} lotes`],
-    ],
+    pares: (c) => {
+      const saldo = saldoDelPeriodo(c.ingresos.unidades, c.totales.unidades, c.ambulatorias.unidades)
+      const filas: Par[] = [
+        ['Unidades dispensadas', `${u(c.totales.unidades)} en ${formatNumberAR(c.totales.dispensaciones)} dispensaciones`],
+        ['Unidades ingresadas', `${u(c.ingresos.unidades)} en ${formatNumberAR(c.ingresos.recepciones)} recepciones verificadas`],
+      ]
+      /* El renglón existe sólo si la ambulatoria está en el recorte. Sin él, el saldo de abajo no
+         se puede reconciliar con las dos líneas de arriba: el lector vería 1000 y 300 y un saldo
+         de 660, sin nada que explique las 40 que faltan. */
+      if (c.conAmbulatoria) filas.push(['Salidas ambulatorias', u(c.ambulatorias.unidades)])
+      filas.push(['Balance del período', `${saldo >= 0 ? '+' : ''}${u(saldo)} de saldo`])
+      filas.push(
+        ['Producto de investigación', `${formatNumberAR(c.totales.kits)} kits entregados · ${formatNumberAR(c.ingresos.kits)} recibidos`],
+        ['Pacientes distintos atendidos', formatNumberAR(c.totales.pacientes)],
+        ['Droga más dispensada', c.medicamentos[0] ? `${c.medicamentos[0].medicationName} — ${u(c.medicamentos[0].unidades)} (${formatPctAR(c.medicamentos[0].pct)})` : 'sin dispensaciones'],
+        ['Protocolo con más dispensaciones', c.protocolos[0] ? `${c.protocolos[0].protocolCode} — ${formatNumberAR(c.protocolos[0].dispensaciones)} (${formatPctAR(c.protocolos[0].pct)})` : 'sin dispensaciones'],
+        ['Tiempo promedio hasta la entrega', c.minutosPromedio == null ? 'sin datos' : `${formatNumberAR(c.minutosPromedio)} min`],
+        ['Cumplimiento del pedido', c.cumplimientoPct == null ? 'sin datos' : formatPctAR(c.cumplimientoPct)],
+        ['Pedidos rechazados o cancelados', formatNumberAR(c.rechazados)],
+        ['Stock vencido sin usar (al día de hoy)', `${u(c.vencidos.unidades)} en ${formatNumberAR(c.vencidos.lotes)} lotes`],
+      )
+      return filas
+    },
   },
   dispensadas: {
     titulo: 'UNIDADES DISPENSADAS',
@@ -100,11 +114,24 @@ export const REPORTES: Record<string, DefinicionReporte> = {
     titulo: 'BALANCE DEL PERÍODO',
     pares: (c) => {
       const saldo = saldoDelPeriodo(c.ingresos.unidades, c.totales.unidades, c.ambulatorias.unidades)
+      const signo = `${saldo >= 0 ? '+' : ''}${u(saldo)}`
+      /* Con un protocolo elegido la ambulatoria queda FUERA del recorte, no en cero. Imprimir
+         "Salidas ambulatorias: 0 u." afirmaría que se midió y no hubo — y las recepciones
+         ambulatorias tampoco están del otro lado, así que el saldo vuelve a ser de dos términos
+         legítimamente. */
+      if (!c.conAmbulatoria) {
+        return [
+          ['Ingresadas', u(c.ingresos.unidades)],
+          ['Dispensadas', u(c.totales.unidades)],
+          ['Saldo', signo],
+          ['Nota', 'El saldo es sólo de unidades. Este recorte es por protocolo: las salidas ambulatorias no pertenecen a ninguno y quedan afuera, igual que las recepciones ambulatorias del lado de los ingresos. Los kits de investigación se informan aparte.'],
+        ]
+      }
       return [
         ['Ingresadas', u(c.ingresos.unidades)],
         ['Dispensadas a protocolo', u(c.totales.unidades)],
         ['Salidas ambulatorias', u(c.ambulatorias.unidades)],
-        ['Saldo', `${saldo >= 0 ? '+' : ''}${u(saldo)}`],
+        ['Saldo', signo],
         ['Nota', 'El saldo es sólo de unidades y descuenta los DOS egresos: el estante es uno solo. Los kits de investigación se informan aparte.'],
       ]
     },
@@ -276,7 +303,7 @@ function HojaEstandar({ def, ctx }: { def: DefinicionReporte; ctx: ContextoRepor
         </Seccion>
       )}
 
-      {def.tablas?.includes('ambulatorias') && (
+      {def.tablas?.includes('ambulatorias') && ctx.conAmbulatoria && (
         <Seccion titulo="Salidas ambulatorias">
           <table style={tablaImpresa}>
             <thead>

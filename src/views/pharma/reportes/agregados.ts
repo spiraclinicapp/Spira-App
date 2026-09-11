@@ -5,7 +5,7 @@ import type { ReportAmbulatoryRow, ReportItemRow, ReportReceptionRow } from '../
  *
  * Todas funciones puras sobre las filas que devuelve la vista. Viven en TypeScript y no en SQL
  * (decisión del eng review) por dos motivos: para que los tests prueben el código que realmente
- * corre en producción, y para que un solo snapshot en memoria alimente la pantalla Y las catorce
+ * corre en producción, y para que un solo snapshot en memoria alimente la pantalla Y las quince
  * hojas impresas, con lo cual papel y pantalla no pueden divergir aunque alguien entregue
  * medicación mientras la farmacéutica mira.
  *
