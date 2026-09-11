@@ -1,7 +1,7 @@
 import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import type { QueryResult } from '../../lib/useSupabaseQuery'
 import { pharmaErrorMessage } from './errors'
-import type { ReportExpiredRow, ReportItemRow, ReportReceptionRow, ReportRejectedRow, Rango } from './reportModel'
+import type { ReportAmbulatoryRow, ReportExpiredRow, ReportItemRow, ReportReceptionRow, ReportRejectedRow, Rango } from './reportModel'
 
 /**
  * Lecturas de Reportes de Farmacia (vistas de la migración 0083).
@@ -155,6 +155,38 @@ export function useReportRejected(rango: Rango, protocolCodes: string[]): Report
         return { data: { rows: data ?? [], total: count ?? null }, error: null }
       },
       [rango.desde, rango.hasta, protoKey],
+      (e) => pharmaErrorMessage(e.code, e.message),
+    ),
+  )
+}
+
+/**
+ * Las salidas ambulatorias del período (0116): medicación entregada a alguien que NO es paciente
+ * de investigación.
+ *
+ * NO RECIBE PROTOCOLOS, y no es un olvido: una salida ambulatoria no tiene protocolo que filtrar.
+ * Quién decide qué hacer cuando hay un protocolo elegido es la PANTALLA —esconde el bloque entero
+ * y saca estas unidades del balance—, no esta consulta. Ver D3 del spec.
+ *
+ * Filtra por `fecha` (la columna local de la 0118) y no por `created_at`: contra el timestamp en
+ * UTC, la entrega de las 21:30 del último día del período cae afuera del recorte.
+ */
+export function useReportAmbulatory(rango: Rango): ReportQuery<ReportAmbulatoryRow[]> {
+  return conTecho(
+    useSupabaseQuery<{ rows: ReportAmbulatoryRow[]; total: number | null }>(
+      async (c) => {
+        const { data, error, count } = await c
+          .from('v_ambulatory_dispensations')
+          .select('*', { count: 'exact' })
+          .gte('fecha', rango.desde)
+          .lte('fecha', rango.hasta)
+          .order('created_at', { ascending: false })
+          .limit(TECHO_FILAS)
+          .returns<ReportAmbulatoryRow[]>()
+        if (error) return { data: null, error }
+        return { data: { rows: data ?? [], total: count ?? null }, error: null }
+      },
+      [rango.desde, rango.hasta],
       (e) => pharmaErrorMessage(e.code, e.message),
     ),
   )
