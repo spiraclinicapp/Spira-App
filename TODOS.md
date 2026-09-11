@@ -1332,37 +1332,41 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 
 ---
 
-## Diseño · los dos tonos del WaitBadge que fallan en tema oscuro
+## Diseño · el ícono del StatCard usa el mismo color que su propio tinte
 
-**HECHO el 2026-09-11 para `MotivoChip`** — los cuatro tonos, no sólo el ámbar. Queda su hermano,
-que tiene el mismo patrón y **NO el mismo veredicto**.
+**HECHO el 2026-09-11 para `WaitBadge`** — queda este, que es el último de la familia y el que
+necesita tocar una API compartida.
 
-- **Qué:** `src/views/track/WaitBadge.tsx` pinta el valor con `var(--spira-${tono})` sobre un tinte
-  del mismo color (`+12`). Dos de los cuatro tonos fallan, y sólo en tema oscuro.
-- **Por qué:** el valor va en **19px/800**, que para WCAG es **texto GRANDE** — umbral **3:1**, no
-  4,5. Eso cambia el veredicto respecto de `MotivoChip`, y es la razón por la que este archivo no se
-  barrió junto con aquél. Medido sobre el tinte real:
+- **Qué:** `src/components/StatCard.tsx` recibe UN solo prop `color` y lo usa para dos cosas: el
+  tinte del cuadrito (`color + '16'`) **y el ícono adentro de ese cuadrito**. O sea el ícono queda
+  del mismo tono que su fondo.
+- **Por qué:** medido sobre el tinte real, con el umbral de gráficos (3:1, es un ícono de 18px):
 
   | tono | claro | oscuro |
   |---|---|---|
-  | `good` | 3,71:1 ✅ | 3,72:1 ✅ |
-  | `warn` | 3,19:1 ✅ | 4,27:1 ✅ |
-  | `danger` | 5,26:1 ✅ | **2,63:1** ❌ |
-  | sin dato (`faint`) | 3,28:1 ✅ | **2,78:1** ❌ |
+  | `good` | 3,64:1 ✅ | 3,63:1 ✅ |
+  | `warn` | 3,14:1 ✅ | 4,20:1 ✅ |
+  | `danger` | 5,13:1 ✅ | **2,61:1** ❌ |
+  | sin dato (`FAINT_HEX`) | **2,09:1** ❌ | 6,20:1 ✅ |
 
-- **Pros:** son dos líneas. `danger` → `--spira-acc-deep-danger`; el caso sin dato necesita pensar
-  un poco más (ver contras).
-- **Contras:** **`good` y `warn` NO hay que tocarlos** — pasan, y cambiarlos movería un color que no
-  tiene problema. Y el caso "sin dato" no se arregla con un `acc-deep-*`: no hay uno gris. Su texto
-  ya usa `var(--spira-faint)`, que **sí** tiene versión oscura (`#6E6E6E`) y aun así queda en 2,78:1,
-  porque el tinte es un gris CLARO (`#A6B0AC` al 7%) sobre una card casi negra. Probablemente lo
-  correcto sea `--spira-muted` para ese caso, pero hay que medirlo.
-- **Contexto:** salió del arreglo de `MotivoChip` del 2026-09-11, que midió los dos archivos porque
-  el comentario de cabecera de `MotivoChip` los emparenta ("mismos hex que `TONE_HEX`"). La lección
-  del par: **mismo patrón no es mismo veredicto** — el tamaño de la tipografía cambia el umbral, y
-  barrer por patrón sin mirar el tamaño habría tocado dos tonos sanos y dejado el peor sin arreglar.
-- **⚠️ `TONE_HEX` está EXPORTADO** y lo usa el StatCard "Espera más larga" de `DoctorQueueView`. Si
-  se toca algo ahí, mirá ese consumidor también.
-- **Empezar por:** `src/views/track/WaitBadge.tsx:44-45` (donde se arma `colorVar`).
+  El 2,09:1 del gris en tema claro es **el peor número de toda la familia**, y se entiende: ahí el
+  ícono es literalmente `#A6B0AC` sobre `#A6B0AC` al 8,6%.
+
+- **Por qué no entró con `WaitBadge`:** el arreglo **no es un swap de token**. La prop `color` de
+  `StatCard` está documentada como HEX LITERAL obligatorio, justamente porque le concatena el alfa —
+  `var(--spira-x)16` no es CSS válido y se descarta en silencio. Para que el ícono use un token hay
+  que **separar las dos cosas**: un `iconColor?: string` opcional (que sí puede ser `var()`) con
+  default `color`, y que `DoctorQueueView` le pase el `--spira-acc-deep-*` para el ícono y siga
+  pasando el hex para el tinte. Es una API compartida, y por eso es una decisión y no un barrido.
+- **Pros:** blast radius chico de verdad — `StatCard` tiene **3 consumidores, los tres en
+  `DoctorQueueView`**, y sólo uno (el de "Espera más larga") necesita el prop nuevo. Los otros dos
+  usan el acento del módulo.
+- **Contras:** agregar una prop a un componente compartido por un caso; y hay que medir también el
+  `accent` del módulo en los otros dos StatCards antes de dar el tema por cerrado.
+- **Contexto:** cierra la familia que empezó el 2026-09-10 con los avisos de Ajustes (PR #150) y
+  siguió con `MotivoChip` (PR #151) y `WaitBadge` (2026-09-11). **La lección del conjunto:** mismo
+  patrón no es mismo veredicto — el umbral cambia con el tamaño de la tipografía (4,5:1 texto normal,
+  3:1 texto grande y gráficos), así que hay que medir cada caso y no barrer por patrón.
+- **Empezar por:** `src/components/StatCard.tsx:16-26` y `src/views/DoctorQueueView.tsx:101,152-157`.
 - **Depende de / bloqueado por:** nada.
 - **Prioridad:** P3.
