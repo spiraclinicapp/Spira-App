@@ -163,6 +163,8 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
     emitidoEn,
     totales: d.totales,
     ingresos: d.ingresos,
+    ambulatorias: ambEnRecorte,
+    salidasAmbulatorias: filasAmbulatorias,
     minutosPromedio: d.porDisp.minutosPromedio,
     cumplimientoPct: d.porDisp.cumplimientoPct,
     rechazados: (rechazados.data ?? []).length,

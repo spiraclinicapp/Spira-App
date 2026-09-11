@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { formatAR, formatDateTimeAR, formatShortAR, formatTimeAR } from '../../../lib/dates'
 import { formatNumberAR, formatPctAR } from '../../../lib/numbers'
 import type { FilaDetalle, FilaMedicamento, FilaProtocolo, Totales } from './agregados'
-import type { Rango } from '../../../data/pharma/reportModel'
+import { saldoDelPeriodo } from './agregados'
+import type { ReportAmbulatoryRow, Rango } from '../../../data/pharma/reportModel'
 
 /**
  * El sistema de impresión: un registro declarativo y dos hojas.
@@ -31,6 +32,9 @@ export interface ContextoReporte {
   emitidoEn: string
   totales: Totales
   ingresos: { unidades: number; recepciones: number; kits: number }
+  /** Salidas ambulatorias del período, YA recortadas por el filtro de protocolo. */
+  ambulatorias: { unidades: number; salidas: number }
+  salidasAmbulatorias: ReportAmbulatoryRow[]
   minutosPromedio: number | null
   cumplimientoPct: number | null
   rechazados: number
@@ -50,7 +54,7 @@ interface DefinicionReporte {
   /** Pares clave-valor del cuerpo. */
   pares?: (c: ContextoReporte) => Par[]
   /** Tablas que se anexan debajo de los pares. */
-  tablas?: ('protocolos' | 'medicamentos')[]
+  tablas?: ('protocolos' | 'medicamentos' | 'ambulatorias')[]
   /** Formato propio, sin el encabezado estándar (la hoja acordada con la Fundación). */
   propia?: boolean
 }
@@ -94,12 +98,16 @@ export const REPORTES: Record<string, DefinicionReporte> = {
   },
   balance: {
     titulo: 'BALANCE DEL PERÍODO',
-    pares: (c) => [
-      ['Ingresadas', u(c.ingresos.unidades)],
-      ['Dispensadas', u(c.totales.unidades)],
-      ['Saldo', `${c.ingresos.unidades - c.totales.unidades >= 0 ? '+' : ''}${u(c.ingresos.unidades - c.totales.unidades)}`],
-      ['Nota', 'El saldo es sólo de unidades. Los kits de investigación se informan aparte.'],
-    ],
+    pares: (c) => {
+      const saldo = saldoDelPeriodo(c.ingresos.unidades, c.totales.unidades, c.ambulatorias.unidades)
+      return [
+        ['Ingresadas', u(c.ingresos.unidades)],
+        ['Dispensadas a protocolo', u(c.totales.unidades)],
+        ['Salidas ambulatorias', u(c.ambulatorias.unidades)],
+        ['Saldo', `${saldo >= 0 ? '+' : ''}${u(saldo)}`],
+        ['Nota', 'El saldo es sólo de unidades y descuenta los DOS egresos: el estante es uno solo. Los kits de investigación se informan aparte.'],
+      ]
+    },
   },
   pacientes: {
     titulo: 'PACIENTES ATENDIDOS',
@@ -127,6 +135,15 @@ export const REPORTES: Record<string, DefinicionReporte> = {
   },
   medicamentos: { titulo: 'MEDICAMENTOS MÁS DISPENSADOS', tablas: ['medicamentos'] },
   protocolos: { titulo: 'DISPENSACIONES POR PROTOCOLO', tablas: ['protocolos'] },
+  ambulatorias: {
+    titulo: 'SALIDAS AMBULATORIAS',
+    pares: (c) => [
+      ['Unidades entregadas', u(c.ambulatorias.unidades)],
+      ['Salidas', formatNumberAR(c.ambulatorias.salidas)],
+      ['Nota', 'Medicación de farmacia ambulatoria entregada a personas que no son pacientes de investigación. No pertenece a ningún protocolo: no entra en las tablas por protocolo ni por paciente, y sí descuenta del saldo.'],
+    ],
+    tablas: ['ambulatorias'],
+  },
   rechazadas: {
     titulo: 'PEDIDOS RECHAZADOS O CANCELADOS',
     pares: (c) => [
@@ -154,7 +171,7 @@ export const REPORTES: Record<string, DefinicionReporte> = {
   todo: {
     titulo: 'INFORME DE FARMACIA DEL PERÍODO',
     pares: (c) => REPORTES.resumen.pares!(c),
-    tablas: ['protocolos', 'medicamentos'],
+    tablas: ['protocolos', 'medicamentos', 'ambulatorias'],
   },
   detalle: { titulo: 'REPORTE DE DISPENSACIONES', propia: true },
 }
@@ -254,6 +271,42 @@ function HojaEstandar({ def, ctx }: { def: DefinicionReporte; ctx: ContextoRepor
                 </tr>
               ))}
               <SinDatos cantidad={ctx.medicamentos.length} columnas={4} />
+            </tbody>
+          </table>
+        </Seccion>
+      )}
+
+      {def.tablas?.includes('ambulatorias') && (
+        <Seccion titulo="Salidas ambulatorias">
+          <table style={tablaImpresa}>
+            <thead>
+              <tr>
+                <th style={thImpresa}>Fecha</th>
+                <th style={thImpresa}>Medicamento</th>
+                <th style={thImpresa}>Lote</th>
+                <th style={{ ...thImpresa, textAlign: 'right' }}>Unidades</th>
+                <th style={thImpresa}>Retiró</th>
+                <th style={thImpresa}>Autorizó</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ctx.salidasAmbulatorias.map((f) => (
+                <tr key={f.id}>
+                  <td style={tdImpresa}>{formatAR(f.fecha)}</td>
+                  <td style={tdImpresa}>
+                    {f.medication_name}
+                    {f.medication_dosis && <span style={{ color: '#444' }}> · {f.medication_dosis}</span>}
+                  </td>
+                  <td style={tdImpresa}>{f.lot_number}</td>
+                  <td style={{ ...tdImpresa, textAlign: 'right' }}>{formatNumberAR(f.quantity)}</td>
+                  <td style={tdImpresa}>
+                    {f.recipient_name}
+                    {f.recipient_document && <span style={{ color: '#444' }}> · {f.recipient_document}</span>}
+                  </td>
+                  <td style={tdImpresa}>{f.authorized_by_name}</td>
+                </tr>
+              ))}
+              <SinDatos cantidad={ctx.salidasAmbulatorias.length} columnas={6} />
             </tbody>
           </table>
         </Seccion>
