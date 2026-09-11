@@ -1332,26 +1332,37 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 
 ---
 
-## Diseño · el ámbar de MotivoChip, en Coordinación
+## Diseño · los dos tonos del WaitBadge que fallan en tema oscuro
 
-**HECHO el 2026-09-10 para Ajustes** — quedaba esto, que es de otro módulo.
+**HECHO el 2026-09-11 para `MotivoChip`** — los cuatro tonos, no sólo el ámbar. Queda su hermano,
+que tiene el mismo patrón y **NO el mismo veredicto**.
 
-- **Qué:** `src/views/track/MotivoChip.tsx` pinta el texto del chip con `var(--spira-warn)` sobre un
-  tinte del mismo color (`+1A`). Ese token es `#B0823F` y **no se redefine para el tema oscuro**.
-- **Por qué:** medido sobre el tinte real, **3,09:1 en claro y 4,08:1 en oscuro**. AA pide 4,5 para
-  texto. Es el mismo defecto que se barrió en Ajustes, en otro módulo.
-- **Pros:** el arreglo es una línea — `colorVar` pasa a `var(--spira-acc-deep-warn)`. El
-  `colorHex` del fondo **no se toca**: para eso el hex sólido sirve.
-- **Contras:** `MOTIVO_TONOS` tiene más entradas que la ámbar (hay verdes y rojas). Conviene medirlas
-  todas de una y no sólo la que se encontró, porque el patrón `colorVar` + `colorHex` se repite.
-- **Contexto:** salió del barrido del 2026-09-10, que cerró los cuatro casos de Ajustes
-  (`AccionesDeCuenta` ×2, `AccountSection`, `PrefsSection`). **Ese barrido también encontró que
-  `--spira-danger` no se aclara en oscuro** —2,57:1 sobre el tinte rojo— y lo arregló en el `Aviso`
-  de `AccionesDeCuenta`; si aparece `var(--spira-danger)` como color de TEXTO en otro lado, es el
-  mismo caso.
-- **⚠️ Lo que NO hay que tocar,** y que el barrido confirmó mirando cómo se consume cada uno:
-  `visitStates.tsx` (su `.color` es `background: e.color + '24'` y un punto, nunca texto) y los
-  colores de `procedimientos/reportes.ts` (puntos de 7×7 px). Un barrido a ciegas los rompe.
-- **Empezar por:** `src/views/track/MotivoChip.tsx:16-17`.
+- **Qué:** `src/views/track/WaitBadge.tsx` pinta el valor con `var(--spira-${tono})` sobre un tinte
+  del mismo color (`+12`). Dos de los cuatro tonos fallan, y sólo en tema oscuro.
+- **Por qué:** el valor va en **19px/800**, que para WCAG es **texto GRANDE** — umbral **3:1**, no
+  4,5. Eso cambia el veredicto respecto de `MotivoChip`, y es la razón por la que este archivo no se
+  barrió junto con aquél. Medido sobre el tinte real:
+
+  | tono | claro | oscuro |
+  |---|---|---|
+  | `good` | 3,71:1 ✅ | 3,72:1 ✅ |
+  | `warn` | 3,19:1 ✅ | 4,27:1 ✅ |
+  | `danger` | 5,26:1 ✅ | **2,63:1** ❌ |
+  | sin dato (`faint`) | 3,28:1 ✅ | **2,78:1** ❌ |
+
+- **Pros:** son dos líneas. `danger` → `--spira-acc-deep-danger`; el caso sin dato necesita pensar
+  un poco más (ver contras).
+- **Contras:** **`good` y `warn` NO hay que tocarlos** — pasan, y cambiarlos movería un color que no
+  tiene problema. Y el caso "sin dato" no se arregla con un `acc-deep-*`: no hay uno gris. Su texto
+  ya usa `var(--spira-faint)`, que **sí** tiene versión oscura (`#6E6E6E`) y aun así queda en 2,78:1,
+  porque el tinte es un gris CLARO (`#A6B0AC` al 7%) sobre una card casi negra. Probablemente lo
+  correcto sea `--spira-muted` para ese caso, pero hay que medirlo.
+- **Contexto:** salió del arreglo de `MotivoChip` del 2026-09-11, que midió los dos archivos porque
+  el comentario de cabecera de `MotivoChip` los emparenta ("mismos hex que `TONE_HEX`"). La lección
+  del par: **mismo patrón no es mismo veredicto** — el tamaño de la tipografía cambia el umbral, y
+  barrer por patrón sin mirar el tamaño habría tocado dos tonos sanos y dejado el peor sin arreglar.
+- **⚠️ `TONE_HEX` está EXPORTADO** y lo usa el StatCard "Espera más larga" de `DoctorQueueView`. Si
+  se toca algo ahí, mirá ese consumidor también.
+- **Empezar por:** `src/views/track/WaitBadge.tsx:44-45` (donde se arma `colorVar`).
 - **Depende de / bloqueado por:** nada.
 - **Prioridad:** P3.
