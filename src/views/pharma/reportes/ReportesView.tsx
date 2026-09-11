@@ -13,14 +13,14 @@ import { formatNumberAR, formatPctAR } from '../../../lib/numbers'
 import { codecs, oneOf } from '../../../lib/router'
 import { useUrlState } from '../../../lib/useUrlState'
 import {
-  useReportExpired, useReportItems, useReportReceptions, useReportRejected,
+  useReportAmbulatory, useReportExpired, useReportItems, useReportReceptions, useReportRejected,
 } from '../../../data/pharma'
 import { useProtocols } from '../../../data/protocols'
 import { useAbrirFicha } from '../../useAbrirFicha'
 import type { ViewProps } from '../../types'
 import {
   detalle as armarDetalle, invariantes, porDispensacion, porMedicamento, porProtocolo,
-  totales as calcularTotales, totalesIngresos,
+  totales as calcularTotales, totalesAmbulatorias, totalesIngresos,
 } from './agregados'
 import { diasDelRango, extremos, rangoDePreset, serieDiaria } from './serie'
 import type { Preset } from './serie'
@@ -28,7 +28,7 @@ import { Composicion } from './Composicion'
 import { GraficoDiario } from './GraficoDiario'
 import { BotonImprimir, Resumen } from './Resumen'
 import type { IndicadorTira } from './Resumen'
-import { TablaDetalle, TablaMedicamentos, TablaProtocolos } from './Tablas'
+import { TablaAmbulatorias, TablaDetalle, TablaMedicamentos, TablaProtocolos } from './Tablas'
 import { HojaImpresa } from './impresion'
 import type { ContextoReporte } from './impresion'
 import { sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
@@ -92,6 +92,9 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
   const recepciones = useReportReceptions(rango, protoSel)
   const rechazados = useReportRejected(rango, protoSel)
   const vencidos = useReportExpired(protoSel)
+  /* Sin `protoSel`: una salida ambulatoria no tiene protocolo. El recorte se aplica más abajo,
+     escondiendo el bloque entero y sacando estas unidades del balance (D3 del spec). */
+  const salidas = useReportAmbulatory(rango)
 
   /* Las opciones del menú salen del catálogo de protocolos, NO de los datos del período. Derivarlas
      de lo que se muestra parece más prolijo, pero con multi-selección es una trampa: al elegir el
@@ -102,9 +105,9 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
   const protoOptions: MultiFilterOption[] = (protocols.data ?? [])
     .map((p) => ({ value: p.code, label: `${p.code} — ${p.name}` }))
 
-  const cargando = items.loading || recepciones.loading || rechazados.loading || vencidos.loading
-  const error = items.error ?? recepciones.error ?? rechazados.error ?? vencidos.error
-  const truncado = items.truncado || recepciones.truncado
+  const cargando = items.loading || recepciones.loading || rechazados.loading || vencidos.loading || salidas.loading
+  const error = items.error ?? recepciones.error ?? rechazados.error ?? vencidos.error ?? salidas.error
+  const truncado = items.truncado || recepciones.truncado || salidas.truncado
 
   /* Todo lo que se muestra sale de acá. Una sola dependencia (`items.data`) y una sola pasada:
      si esto se partiera en varios useMemo con deps distintas, los bloques podrían quedar
@@ -121,6 +124,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
     const ext = extremos(serie)
     return {
       serie, protocolos, medicamentos, totales, ingresos, porDisp,
+      ambulatorias: totalesAmbulatorias(salidas.data ?? []),
       detalle: armarDetalle(filas),
       consistencia: invariantes(filas, serie, protocolos, medicamentos),
       diaMax: ext.max, diaMin: ext.min,
@@ -129,7 +133,18 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
         lotes: (vencidos.data ?? []).length,
       },
     }
-  }, [items.data, recepciones.data, vencidos.data, rango])
+  }, [items.data, recepciones.data, vencidos.data, salidas.data, rango])
+
+  /* Con un protocolo elegido, la ambulatoria sale del recorte ENTERA: el bloque se esconde y el
+     balance vuelve a dos términos.
+     NO ES COSMÉTICO. La consulta de salidas no filtra por protocolo porque no tiene por dónde,
+     pero las RECEPCIONES ambulatorias sí se caen solas del lado de los ingresos (el
+     `in('protocol_code', ...)` no matchea NULL). Si el saldo siguiera restando estas salidas, los
+     dos lados hablarían de universos distintos y el saldo quedaría CORTO — el mismo defecto que
+     esta tanda arregla, con el signo al revés. */
+  const enRecorteAmbulatorio = protoSel.length === 0
+  const ambEnRecorte = enRecorteAmbulatorio ? d.ambulatorias : { unidades: 0, salidas: 0 }
+  const filasAmbulatorias = enRecorteAmbulatorio ? (salidas.data ?? []) : []
 
   /* Va impreso en el encabezado de cada hoja: tiene que declarar el recorte COMPLETO. Con varios
      protocolos se listan todos —nombrar solo uno, o decir "3 protocolos", dejaría una hoja firmada
@@ -261,7 +276,13 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
     )
   }
 
-  const sinMovimientos = d.totales.dispensaciones === 0 && d.ingresos.recepciones === 0
+  /* La tercera condición no es de adorno: un período con SÓLO salidas ambulatorias mostraría
+     "No hubo movimientos" y taparía justamente el bloque nuevo. Va con el recorte aplicado, o un
+     filtro por protocolo sin movimientos de ese protocolo dejaría la pantalla llena de bloques
+     vacíos por unas salidas que ni siquiera pertenecen al recorte. */
+  const sinMovimientos = d.totales.dispensaciones === 0
+    && d.ingresos.recepciones === 0
+    && ambEnRecorte.salidas === 0
 
   return (
     <div>
@@ -323,6 +344,22 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
 
           <Seccion titulo="Medicamentos más dispensados" reporte="medicamentos" que="los medicamentos más dispensados" onImprimir={imprimir} />
           <TablaMedicamentos filas={d.medicamentos} totalUnidades={d.totales.unidades} />
+
+          {enRecorteAmbulatorio && (
+            <>
+              <div style={sectionHead}>
+                <h2 style={sectionTitle}>Salidas ambulatorias</h2>
+                <div style={sectionRule} />
+                <div style={sectionHint}>
+                  {formatNumberAR(ambEnRecorte.salidas)} {ambEnRecorte.salidas === 1 ? 'salida' : 'salidas'}
+                  {' · '}
+                  {formatNumberAR(ambEnRecorte.unidades)} u. en el período
+                </div>
+                <BotonImprimir clave="ambulatorias" que="las salidas ambulatorias" onImprimir={imprimir} />
+              </div>
+              <TablaAmbulatorias filas={filasAmbulatorias} total={ambEnRecorte} />
+            </>
+          )}
 
           <div style={sectionHead}>
             <h2 style={sectionTitle}>Detalle de dispensaciones</h2>
