@@ -4,6 +4,7 @@ import { formatNumberAR, formatPctAR, sharePct } from '../../../lib/numbers'
 import { formatAR, formatTimeAR } from '../../../lib/dates'
 import { conFilaOtros } from './agregados'
 import type { FilaDetalle, FilaMedicamento, FilaProtocolo } from './agregados'
+import type { ReportAmbulatoryRow } from '../../../data/pharma/reportModel'
 import { card, dash, rowHover, subLine, tabla, td, tdNum, tfootTd, th } from './estilos'
 
 /**
@@ -199,6 +200,84 @@ export function TablaDetalle({ filas, enPantalla = 14, onOpenPaciente }: {
         </table>
       </div>
     </div>
+  )
+}
+
+/**
+ * Las salidas ambulatorias del período: una fila por salida.
+ *
+ * Es la única tabla del informe SIN protocolo y SIN paciente, y no es que falten: el destinatario
+ * puede no existir en el sistema — ése es el caso de uso de la 0116 ("dale un Seretide a él"). Por
+ * eso las dos columnas que cargan el peso son "Retiró" y "Autorizó": sin ellas, el inventario no
+ * puede decir a dónde fue la unidad que falta del estante.
+ *
+ * Sin participación ni barras: no hay un total del que estas unidades sean una parte. Son un
+ * egreso aparte, y el bloque completo desaparece cuando hay un protocolo elegido.
+ *
+ * Mismo contrato de techo que `TablaDetalle`: con el preset "Año" y volumen real esta tabla podía
+ * dibujar cientos de `<tr>`. El reporte impreso sigue saliendo con todas las filas.
+ */
+export function TablaAmbulatorias({ filas, total, enPantalla = 14 }: {
+  filas: ReportAmbulatoryRow[]
+  total: { unidades: number; salidas: number }
+  enPantalla?: number
+}) {
+  const visibles = filas.slice(0, enPantalla)
+  return (
+    <Tabla>
+      <thead>
+        <tr>
+          <th style={th}>Fecha</th>
+          <th style={th}>Medicamento</th>
+          <th style={th}>Lote</th>
+          <th style={{ ...th, textAlign: 'center' }}>Unidades</th>
+          <th style={th}>Retiró</th>
+          <th style={th}>Autorizó</th>
+        </tr>
+      </thead>
+      <tbody>
+        {visibles.map((f) => (
+          <tr key={f.id} className={rowHover}>
+            <td style={{ ...td, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+              {formatAR(f.fecha)}
+            </td>
+            <td style={td}>
+              <div style={{ fontWeight: 600 }}>{f.medication_name}</div>
+              {f.medication_dosis && <div style={subLine}>{f.medication_dosis}</div>}
+            </td>
+            <td style={{ ...td, fontVariantNumeric: 'tabular-nums' }}>{f.lot_number}</td>
+            <td style={tdNum}>{formatNumberAR(f.quantity)}</td>
+            <td style={td}>
+              <div>{f.recipient_name}</div>
+              {f.recipient_document && <div style={subLine}>Doc. {f.recipient_document}</div>}
+            </td>
+            <td style={td}>{f.authorized_by_name}</td>
+          </tr>
+        ))}
+        <SinFilas cantidad={filas.length} columnas={6} />
+      </tbody>
+      {filas.length > 0 && (
+        <tfoot>
+          <tr>
+            <td style={tfootTd} colSpan={3}>
+              {filas.length <= enPantalla
+                ? `${formatNumberAR(total.salidas)} ${total.salidas === 1 ? 'salida' : 'salidas'}`
+                : `Mostrando ${enPantalla} de ${formatNumberAR(filas.length)}. El reporte impreso sale con todas.`}
+            </td>
+            <td style={{ ...tfootTd, textAlign: 'center' }}>
+              {/* Cuando corta, la celda de la izquierda ya no dice "N salidas": el número de acá
+                  podría leerse como la suma de las filas visibles. Rotularlo con "del período"
+                  aclara que es el total, no una suma parcial. Sin corte el par "N salidas" +
+                  el número ya se lee bien solo. */}
+              {filas.length <= enPantalla
+                ? formatNumberAR(total.unidades)
+                : `${formatNumberAR(total.unidades)} u. en el período`}
+            </td>
+            <td style={tfootTd} colSpan={2} />
+          </tr>
+        </tfoot>
+      )}
+    </Tabla>
   )
 }
 

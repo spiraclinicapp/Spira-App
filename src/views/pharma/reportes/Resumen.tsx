@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../../components/Icon'
 import { formatNumberAR, sharePct } from '../../../lib/numbers'
 import { formatDateTimeAR } from '../../../lib/dates'
+import { saldoDelPeriodo } from './agregados'
 import type { Consistencia, Totales } from './agregados'
 import { bigNumber, card, cardFooter, eyebrow, printBtn, unidadSufijo } from './estilos'
 
@@ -35,10 +36,12 @@ export interface IndicadorTira {
 }
 
 export function Resumen({
-  totales, ingresos, indicadores, consistencia, emitidoEn, sparkline, onImprimir,
+  totales, ingresos, ambulatorias, indicadores, consistencia, emitidoEn, sparkline, onImprimir,
 }: {
   totales: Totales
   ingresos: { unidades: number; recepciones: number }
+  /** Las salidas ambulatorias YA recortadas por el filtro de protocolo (cero si hay uno puesto). */
+  ambulatorias: { unidades: number; salidas: number }
   indicadores: IndicadorTira[]
   consistencia: Consistencia
   emitidoEn: string
@@ -46,8 +49,12 @@ export function Resumen({
   sparkline: number[]
   onImprimir: (clave: string) => void
 }) {
-  const balance = ingresos.unidades - totales.unidades
+  const balance = saldoDelPeriodo(ingresos.unidades, totales.unidades, ambulatorias.unidades)
   const promedioDiario = totales.dispensaciones === 0 ? 0 : totales.unidades / totales.dispensaciones
+
+  /* El máximo de las TRES barras, no de dos: sin la ambulatoria en la cuenta, un período con más
+     salidas ambulatorias que dispensaciones dibujaría una barra que se pasa del carril. */
+  const maxBalance = Math.max(ingresos.unidades, totales.unidades, ambulatorias.unidades, 1)
 
   return (
     <>
@@ -80,13 +87,20 @@ export function Resumen({
           onImprimir={onImprimir}
           extra={
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7, width: '100%' }}>
-              <BarraBalance label="Ingresadas" valor={ingresos.unidades} max={Math.max(ingresos.unidades, totales.unidades)} color="var(--spira-good)" />
-              <BarraBalance label="Dispensadas" valor={totales.unidades} max={Math.max(ingresos.unidades, totales.unidades)} color="var(--spira-pharma-solid)" />
+              <BarraBalance label="Ingresadas" valor={ingresos.unidades} max={maxBalance} color="var(--spira-good)" />
+              <BarraBalance label="Dispensadas" valor={totales.unidades} max={maxBalance} color="var(--spira-pharma-solid)" />
+              {/* La tercera barra aparece SÓLO si hubo salidas: un carril en cero en todos los
+                  períodos de un centro que no hace ambulatoria es ruido, no información. */}
+              {ambulatorias.salidas > 0 && (
+                <BarraBalance label="Ambulatorias" valor={ambulatorias.unidades} max={maxBalance} color="var(--spira-muted)" />
+              )}
             </div>
           }
           /* El balance es SÓLO de unidades. Los kits del producto de investigación son otra
              magnitud y restarlos de unidades daría un número sin significado. */
-          pie="Sólo unidades. El producto de investigación se mide en kits y va aparte."
+          pie={ambulatorias.salidas > 0
+            ? 'Sólo unidades, y descuenta los dos egresos: el estante es uno solo. El producto de investigación se mide en kits y va aparte.'
+            : 'Sólo unidades. El producto de investigación se mide en kits y va aparte.'}
         />
       </div>
 
@@ -153,7 +167,7 @@ function LineaConsistencia({ consistencia, totales, emitidoEn }: {
           <b style={{ color: 'var(--spira-ink-2)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
             {formatNumberAR(totales.dispensaciones)}
           </b>{' '}
-          dispensaciones. La serie diaria y las tablas coinciden con este total.
+          dispensaciones. La serie diaria y las tablas por protocolo y por medicamento coinciden con este total.
           Emitido el <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatDateTimeAR(emitidoEn)}</span>.
         </span>
       ) : (

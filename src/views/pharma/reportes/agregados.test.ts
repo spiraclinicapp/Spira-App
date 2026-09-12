@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { ReportItemRow, ReportReceptionRow } from '../../../data/pharma/reportModel'
+import type { ReportAmbulatoryRow, ReportItemRow, ReportReceptionRow } from '../../../data/pharma/reportModel'
 import {
-  conFilaOtros, detalle, invariantes, porDispensacion, porMedicamento, porProtocolo, totales, totalesIngresos,
+  conFilaOtros, detalle, invariantes, porDispensacion, porMedicamento, porProtocolo,
+  saldoDelPeriodo, totales, totalesAmbulatorias, totalesIngresos,
 } from './agregados'
 import { serieDiaria } from './serie'
 
@@ -41,6 +42,22 @@ function item(over: Partial<ReportItemRow> & { id?: string } = {}): ReportItemRo
     medication_id: over.medication_id === undefined ? 'm1' : over.medication_id,
     medication_name: over.medication_name === undefined ? 'Empagliflozina 25 mg' : over.medication_name,
     unidades: over.unidades ?? 0,
+  }
+}
+
+/** Una salida ambulatoria. Acá una fila ES un hecho: no hay grano que desarmar. */
+function salida(over: Partial<ReportAmbulatoryRow> = {}): ReportAmbulatoryRow {
+  return {
+    id: over.id ?? 's1',
+    created_at: over.created_at ?? '2026-08-01T15:00:00-03:00',
+    fecha: over.fecha ?? '2026-08-01',
+    quantity: over.quantity ?? 1,
+    recipient_name: over.recipient_name ?? 'Juan Pérez',
+    recipient_document: over.recipient_document === undefined ? null : over.recipient_document,
+    authorized_by_name: over.authorized_by_name ?? 'Dra. Scherbovsky',
+    medication_name: over.medication_name ?? 'Salmeterol/Fluticasona',
+    medication_dosis: over.medication_dosis === undefined ? '25/250 mcg' : over.medication_dosis,
+    lot_number: over.lot_number ?? 'L-2401',
   }
 }
 
@@ -284,5 +301,38 @@ describe('invariantes', () => {
   it('un período vacío es consistente, no un error', () => {
     const r = invariantes([], serieDiaria([], rango), [], [])
     expect(r.ok).toBe(true)
+  })
+})
+
+describe('totalesAmbulatorias', () => {
+  it('suma unidades y cuenta salidas', () => {
+    const t = totalesAmbulatorias([
+      salida({ id: 's1', quantity: 2 }),
+      salida({ id: 's2', quantity: 3 }),
+      salida({ id: 's3', quantity: 1 }),
+    ])
+    expect(t.unidades).toBe(6)
+    expect(t.salidas).toBe(3)
+  })
+
+  it('sin salidas devuelve ceros y no null', () => {
+    // El bloque y el balance restan este número siempre: un null acá propagaría NaN al saldo.
+    expect(totalesAmbulatorias([])).toEqual({ unidades: 0, salidas: 0 })
+  })
+})
+
+describe('saldoDelPeriodo', () => {
+  it('descuenta las ambulatorias ADEMÁS de las dispensadas', () => {
+    // El defecto que esta tanda arregla: antes el saldo era 700 y las 40 unidades ambulatorias
+    // salían del estante sin restarse, mientras sus recepciones SÍ sumaban del otro lado.
+    expect(saldoDelPeriodo(1000, 300, 40)).toBe(660)
+  })
+
+  it('sin salidas ambulatorias da el mismo saldo de siempre', () => {
+    expect(saldoDelPeriodo(1000, 300, 0)).toBe(700)
+  })
+
+  it('puede dar negativo: en el período salió más de lo que entró', () => {
+    expect(saldoDelPeriodo(100, 300, 40)).toBe(-240)
   })
 })

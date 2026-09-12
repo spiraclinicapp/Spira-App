@@ -1,11 +1,11 @@
-import type { ReportItemRow, ReportReceptionRow } from '../../../data/pharma/reportModel'
+import type { ReportAmbulatoryRow, ReportItemRow, ReportReceptionRow } from '../../../data/pharma/reportModel'
 
 /**
  * Los agregados del reporte: totales, tablas y la verificación de que todo cierra.
  *
  * Todas funciones puras sobre las filas que devuelve la vista. Viven en TypeScript y no en SQL
  * (decisión del eng review) por dos motivos: para que los tests prueben el código que realmente
- * corre en producción, y para que un solo snapshot en memoria alimente la pantalla Y las catorce
+ * corre en producción, y para que un solo snapshot en memoria alimente la pantalla Y las quince
  * hojas impresas, con lo cual papel y pantalla no pueden divergir aunque alguien entregue
  * medicación mientras la farmacéutica mira.
  *
@@ -106,6 +106,41 @@ export function totalesIngresos(recepciones: ReportReceptionRow[]): {
     kits += r.total_kits ?? 0
   }
   return { unidades, recepciones: recepciones.length, lotes, kits }
+}
+
+export interface TotalesAmbulatorias {
+  unidades: number
+  salidas: number
+}
+
+/**
+ * Unidades y cantidad de salidas ambulatorias del período.
+ *
+ * SIN la trampa del grano que atraviesa el resto del archivo: una fila de
+ * `v_ambulatory_dispensations` ES una salida (un medicamento, un lote, 0116), así que sumar la
+ * columna y contar las filas es correcto. Se escribe igual como función pura para que el bloque
+ * de la pantalla, el saldo del balance y la hoja impresa lean el MISMO número.
+ */
+export function totalesAmbulatorias(filas: ReportAmbulatoryRow[]): TotalesAmbulatorias {
+  let unidades = 0
+  for (const f of filas) unidades += f.quantity
+  return { unidades, salidas: filas.length }
+}
+
+/**
+ * El saldo del período: lo que entró, menos TODO lo que salió.
+ *
+ * LOS TRES TÉRMINOS SON EL ARREGLO DE ESTA TANDA. Hasta acá el saldo era
+ * `ingresadas − dispensadas`, mientras el lado de las ingresadas YA incluía las recepciones
+ * ambulatorias: `v_pharma_report_receptions` (0083) no filtra por `tipo`. O sea que el stock
+ * ambulatorio sumaba al entrar y no restaba al salir, y el saldo salía inflado exactamente en esas
+ * unidades — en la tarjeta de la pantalla y en una hoja que se firma.
+ *
+ * Es una resta de tres números y aun así tiene test, por eso mismo: un signo al revés no se ve
+ * mal. Sale un número razonable, bien formateado, y nadie tiene con qué compararlo.
+ */
+export function saldoDelPeriodo(ingresadas: number, dispensadas: number, ambulatorias: number): number {
+  return ingresadas - dispensadas - ambulatorias
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

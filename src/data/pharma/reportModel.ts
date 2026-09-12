@@ -93,6 +93,37 @@ export interface ReportRejectedRow {
   protocol_code: string | null
 }
 
+/**
+ * Fila de `v_ambulatory_dispensations` (0116, con `fecha` desde la 0118): UNA salida ambulatoria.
+ *
+ * SIN LA TRAMPA DEL GRANO de `ReportItemRow`: acá una fila es un hecho. Una salida ambulatoria
+ * entrega un medicamento de un lote (la tabla de la 0116 tiene `medication_id` y `lot_id`
+ * singulares), así que sumar `quantity` a lo largo de las filas y contar filas es correcto.
+ *
+ * No tiene protocolo, ni enrolamiento, ni paciente, y no es un dato que falte: el destinatario
+ * puede no existir en el sistema — ése es exactamente el caso de uso de la 0116. Por eso el
+ * registro guarda el nombre de quien retira y el de quien autorizó.
+ *
+ * Declara lo que el bloque de Estadísticas muestra, más `created_at`: la tabla muestra sólo la
+ * fecha, así que el orden dentro de un mismo día lo fija ese timestamp y no otra cosa. La vista
+ * trae además `dispensed_by_name`, `notes`, `medication_unit` y `medication_id`, que los usa el
+ * cajón de Farmacia Ambulatoria.
+ */
+export interface ReportAmbulatoryRow {
+  id: string
+  created_at: string
+  /** `YYYY-MM-DD` en hora de Argentina, ya resuelto por la vista (0118). */
+  fecha: string
+  quantity: number
+  recipient_name: string
+  recipient_document: string | null
+  /** Snapshot del nombre al momento de la entrega (0116): sobrevive a una baja o a un renombre. */
+  authorized_by_name: string
+  medication_name: string
+  medication_dosis: string | null
+  lot_number: string
+}
+
 /** El período del reporte. Ambos bordes INCLUSIVE. */
 export interface Rango {
   desde: string
