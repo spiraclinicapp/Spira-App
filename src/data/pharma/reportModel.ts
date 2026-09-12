@@ -4,7 +4,7 @@
  * Viven acá y no en `reports.ts` por el mismo motivo que `dispensationModel.ts`: las reglas puras
  * de `views/pharma/reportes/` los necesitan para testearse SIN tocar la base ni el navegador, y
  * un import desde el archivo que crea el cliente de Supabase arrastraría el cliente entero al
- * test. El modelo es un archivo de tipos, sin dependencias.
+ * test. El modelo es tipos más una regla pura (`estaTruncado`), sin dependencias.
  */
 
 /**
@@ -133,4 +133,28 @@ export interface Rango {
 /** El recorte completo: lo que se declara en el encabezado de cada hoja impresa. */
 export interface FiltrosReporte {
   protocolCode: string | null
+}
+
+/**
+ * ¿La consulta volvió cortada?
+ *
+ * Compara lo que LLEGÓ contra lo que la base dice que hay, y no contra nuestro techo. La diferencia
+ * importa: el techo propio (`.limit(TECHO_FILAS)`) no es el único corte posible — PostgREST tiene su
+ * propio `max-rows` de proyecto, y si es más chico que el nuestro corta ANTES, devolviendo 200 OK.
+ * Comparando contra el techo propio, ese corte es invisible: los totales salen calculados sobre una
+ * fracción de las filas, sin aviso, y se imprimen.
+ *
+ * Contra lo que llegó, los dos cortes se detectan igual y el valor de `max-rows` deja de importar.
+ *
+ * `total` en null es "no sabemos": el conteo exacto no llegó, así que no se puede afirmar que haya
+ * corte. Devuelve false, que es lo que hacía antes en ese caso.
+ *
+ * Parámetro OBJETO y no dos posicionales: son dos `number | null` seguidos, y si el día de mañana
+ * alguien escribe el cableado invertido (`estaTruncado(total, rows.length)`), compila, pasa los
+ * tests y devuelve `false` siempre — el bug original, exacto, sin ninguna red. Nombrados, invertirlos
+ * ya no compila.
+ */
+export function estaTruncado({ llegaron, total }: { llegaron: number; total: number | null }): boolean {
+  if (total == null) return false
+  return llegaron < total
 }
