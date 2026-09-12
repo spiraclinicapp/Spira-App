@@ -41,7 +41,7 @@ const REPORT_AMBULATORY_COLS =
   'medication_name, medication_dosis, lot_number'
 
 export interface ReportQuery<T> extends QueryResult<T> {
-  /** Filas que la base dice que hay. Si supera `TECHO_FILAS`, `data` no es confiable. */
+  /** Filas que la base dice que hay. Si supera a las que llegaron (`truncado` en true), `data` no es confiable. */
   total: number | null
   truncado: boolean
 }
@@ -49,7 +49,7 @@ export interface ReportQuery<T> extends QueryResult<T> {
 /** Envuelve el resultado con el conteo exacto y la bandera de truncamiento. */
 function conTecho<T>(res: QueryResult<{ rows: T[]; total: number | null }>): ReportQuery<T[]> {
   const total = res.data?.total ?? null
-  const truncado = estaTruncado(res.data?.rows.length ?? 0, total)
+  const truncado = estaTruncado({ llegaron: res.data?.rows.length ?? 0, total })
   return {
     data: res.data ? res.data.rows : null,
     loading: res.loading,

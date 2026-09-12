@@ -37,7 +37,7 @@ export interface IndicadorTira {
 
 export function Resumen({
   totales, ingresos, ambulatorias, indicadores, consistencia, emitidoEn, sparkline, onImprimir,
-  puedeImprimir,
+  puedeImprimir, motivo,
 }: {
   totales: Totales
   ingresos: { unidades: number; recepciones: number }
@@ -51,6 +51,8 @@ export function Resumen({
   onImprimir: (clave: string) => void
   /** Con el informe cortado o los números sin cerrar, los botones de este bloque van inertes. */
   puedeImprimir: boolean
+  /** Por qué, cuando `!puedeImprimir`: el `title` de cada botón de impresión del bloque. */
+  motivo?: string
 }) {
   const balance = saldoDelPeriodo(ingresos.unidades, totales.unidades, ambulatorias.unidades)
   const promedioDiario = totales.dispensaciones === 0 ? 0 : totales.unidades / totales.dispensaciones
@@ -69,6 +71,7 @@ export function Resumen({
           reporte="dispensadas"
           onImprimir={onImprimir}
           puedeImprimir={puedeImprimir}
+          motivo={motivo}
           extra={<Sparkline valores={sparkline} />}
           pie={`${formatNumberAR(totales.dispensaciones)} dispensaciones · ${formatNumberAR(promedioDiario)} u. por dispensación`}
         />
@@ -80,6 +83,7 @@ export function Resumen({
           reporte="ingresadas"
           onImprimir={onImprimir}
           puedeImprimir={puedeImprimir}
+          motivo={motivo}
           pie={`${formatNumberAR(ingresos.recepciones)} recepciones verificadas`}
         />
 
@@ -91,6 +95,7 @@ export function Resumen({
           reporte="balance"
           onImprimir={onImprimir}
           puedeImprimir={puedeImprimir}
+          motivo={motivo}
           extra={
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7, width: '100%' }}>
               <BarraBalance label="Ingresadas" valor={ingresos.unidades} max={maxBalance} color="var(--spira-good)" />
@@ -132,7 +137,7 @@ export function Resumen({
                 </div>
               )}
             </div>
-            <BotonImprimir clave={ind.reporte} que={ind.label} onImprimir={onImprimir} habilitado={puedeImprimir} absoluto />
+            <BotonImprimir clave={ind.reporte} que={ind.label} onImprimir={onImprimir} habilitado={puedeImprimir} motivo={motivo} absoluto />
           </div>
         ))}
       </div>
@@ -189,7 +194,7 @@ function LineaConsistencia({ consistencia, totales, emitidoEn }: {
 
 /* ── Piezas ──────────────────────────────────────────────────────────────────── */
 
-function Hero({ label, valor, sufijo, color, pie, extra, reporte, onImprimir, puedeImprimir }: {
+function Hero({ label, valor, sufijo, color, pie, extra, reporte, onImprimir, puedeImprimir, motivo }: {
   label: string
   valor: string
   sufijo?: string
@@ -199,10 +204,11 @@ function Hero({ label, valor, sufijo, color, pie, extra, reporte, onImprimir, pu
   reporte: string
   onImprimir: (clave: string) => void
   puedeImprimir: boolean
+  motivo?: string
 }) {
   return (
     <div style={{ ...card, padding: '16px 18px 14px', display: 'flex', flexDirection: 'column', gap: 10, position: 'relative' }}>
-      <BotonImprimir clave={reporte} que={label} onImprimir={onImprimir} habilitado={puedeImprimir} absoluto />
+      <BotonImprimir clave={reporte} que={label} onImprimir={onImprimir} habilitado={puedeImprimir} motivo={motivo} absoluto />
       <div style={eyebrow}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
         <div style={{ ...bigNumber, color }}>
@@ -251,23 +257,29 @@ function Sparkline({ valores }: { valores: number[] }) {
 /**
  * El botón de impresión de un bloque.
  *
- * `aria-label` propio y no `title="Imprimir"`: hay nueve en la pantalla y con el genérico un
- * lector de pantalla los lee todos igual, sin manera de saber cuál imprime qué.
+ * `aria-label` PROPIO, SIEMPRE puesto (habilitado o no): hay quince en la pantalla y con el
+ * genérico "Imprimir" un lector de pantalla los lee todos igual, sin manera de saber cuál imprime
+ * qué. Sacarlo cuando se apaga no evitaba nada — con `aria-label` presente, el lector de pantalla
+ * igual lee el `title` como descripción — y sólo le quitaba el nombre propio al botón apagado.
  *
  * `habilitado` es OBLIGATORIO y no un default en `true`: con el informe cortado, `imprimir()`
  * ya frenaba río abajo (`if (!puedeImprimir) return`), pero el botón se dibujaba igual, con su
  * `title` de "Imprimir…" y sin ningún indicio de que clickearlo no hacía nada. Un botón que no
  * hace nada al clickearlo es la clase de defecto que este proyecto no permite (nunca botones que
- * finjan acción; lo no cableado va inerte). Deshabilitado, además, no lleva el `aria-label` de
- * ACCIÓN: un lector de pantalla no tiene que anunciar "Imprimir tal cosa" sobre algo que no se
- * puede imprimir — el `title` explica por qué, y sin `aria-label` es lo que termina leyéndose.
+ * finjan acción; lo no cableado va inerte). Apagado, además, TIENE que verse y sentirse apagado:
+ * `printBtn` trae `cursor: 'pointer'` inline (le gana a cualquier hoja de estilos, así que hay que
+ * pisarlo acá) y sin `opacity` un botón `disabled` es visualmente idéntico al habilitado. Y el
+ * `title` dice POR QUÉ con `motivo`, no con un texto fijo: el bloqueo tiene dos causas posibles
+ * (el corte, o que los números no cierren) y un texto fijo miente en una de las dos.
  */
-export function BotonImprimir({ clave, que, onImprimir, absoluto, habilitado }: {
+export function BotonImprimir({ clave, que, onImprimir, absoluto, habilitado, motivo }: {
   clave: string
   que: string
   onImprimir: (clave: string) => void
   absoluto?: boolean
   habilitado: boolean
+  /** Por qué no se puede imprimir, cuando no se puede. Es el `title` sólo si `!habilitado`. */
+  motivo?: string
 }) {
   return (
     <button
@@ -275,11 +287,12 @@ export function BotonImprimir({ clave, que, onImprimir, absoluto, habilitado }: 
       className="spira-card-link"
       onClick={() => onImprimir(clave)}
       disabled={!habilitado}
-      aria-label={habilitado ? `Imprimir ${que.toLowerCase()}` : undefined}
-      title={habilitado ? `Imprimir ${que.toLowerCase()}` : 'El informe está cortado: no se puede imprimir.'}
-      style={absoluto
-        ? { ...printBtn, position: 'absolute', top: 11, right: 11 }
-        : printBtn}
+      aria-label={`Imprimir ${que.toLowerCase()}`}
+      title={habilitado ? `Imprimir ${que.toLowerCase()}` : motivo}
+      style={{
+        ...(absoluto ? { ...printBtn, position: 'absolute', top: 11, right: 11 } : printBtn),
+        ...(habilitado ? null : { cursor: 'default', opacity: 0.5 }),
+      }}
     >
       <Icon name="printer" size={14} stroke={1.8} />
     </button>

@@ -227,6 +227,16 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
   /** Los números no cierran: no se imprime. Una hoja firmada con datos inconsistentes es peor. */
   const puedeImprimir = d.consistencia.ok && !truncado && !cargando && !error
 
+  /* Por qué no se puede imprimir, cuando no se puede. Son dos razones distintas y las dos son
+     alcanzables en pantalla; un tooltip fijo miente en una de las dos, y encima es el nombre
+     accesible del botón. (`cargando`/`error` no llegan hasta acá: la vista corta antes con sus
+     propios estados — ver los `if` de más abajo — así que no hace falta un tercer motivo.) */
+  const motivoSinImprimir = truncado
+    ? 'El informe está cortado: no se puede imprimir.'
+    : !d.consistencia.ok
+      ? 'Los números del informe no cierran: la impresión está bloqueada.'
+      : undefined
+
   function imprimir(clave: string) {
     if (!puedeImprimir) return
     setReporteEnCurso(clave)
@@ -359,7 +369,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
       ) : (
         <>
           <Seccion titulo="Resumen del período" hint="Cada indicador se imprime solo desde su ícono"
-            reporte="resumen" que="el resumen del período" onImprimir={imprimir} puedeImprimir={puedeImprimir} />
+            reporte="resumen" que="el resumen del período" onImprimir={imprimir} puedeImprimir={puedeImprimir} motivo={motivoSinImprimir} />
 
           <Resumen
             totales={d.totales}
@@ -371,18 +381,19 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
             sparkline={d.serie.map((p) => p.unidades)}
             onImprimir={imprimir}
             puedeImprimir={puedeImprimir}
+            motivo={motivoSinImprimir}
           />
 
-          <Seccion titulo="Evolución y composición" reporte="evolucion" que="la evolución diaria" onImprimir={imprimir} puedeImprimir={puedeImprimir} />
+          <Seccion titulo="Evolución y composición" reporte="evolucion" que="la evolución diaria" onImprimir={imprimir} puedeImprimir={puedeImprimir} motivo={motivoSinImprimir} />
           <div style={chartRow}>
             <GraficoDiario serie={d.serie} />
             <Composicion protocolos={d.protocolos} kits={d.totales.kits} unidades={d.totales.unidades} />
           </div>
 
-          <Seccion titulo="Dispensaciones por protocolo" reporte="protocolos" que="las dispensaciones por protocolo" onImprimir={imprimir} puedeImprimir={puedeImprimir} />
+          <Seccion titulo="Dispensaciones por protocolo" reporte="protocolos" que="las dispensaciones por protocolo" onImprimir={imprimir} puedeImprimir={puedeImprimir} motivo={motivoSinImprimir} />
           <TablaProtocolos filas={d.protocolos} total={d.totales} />
 
-          <Seccion titulo="Medicamentos más dispensados" reporte="medicamentos" que="los medicamentos más dispensados" onImprimir={imprimir} puedeImprimir={puedeImprimir} />
+          <Seccion titulo="Medicamentos más dispensados" reporte="medicamentos" que="los medicamentos más dispensados" onImprimir={imprimir} puedeImprimir={puedeImprimir} motivo={motivoSinImprimir} />
           <TablaMedicamentos filas={d.medicamentos} totalUnidades={d.totales.unidades} />
 
           {enRecorteAmbulatorio && (
@@ -394,6 +405,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
                 que="las salidas ambulatorias"
                 onImprimir={imprimir}
                 puedeImprimir={puedeImprimir}
+                motivo={motivoSinImprimir}
               />
               <TablaAmbulatorias filas={filasAmbulatorias} total={ambEnRecorte} />
             </>
@@ -411,7 +423,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
                 Descargar
               </span>
             </button>
-            <BotonImprimir clave="detalle" que="el reporte de dispensaciones" onImprimir={imprimir} habilitado={puedeImprimir} />
+            <BotonImprimir clave="detalle" que="el reporte de dispensaciones" onImprimir={imprimir} habilitado={puedeImprimir} motivo={motivoSinImprimir} />
           </div>
           <TablaDetalle
             filas={d.detalle}
@@ -538,20 +550,21 @@ function Filtros({
   )
 }
 
-function Seccion({ titulo, hint, reporte, que, onImprimir, puedeImprimir }: {
+function Seccion({ titulo, hint, reporte, que, onImprimir, puedeImprimir, motivo }: {
   titulo: string
   hint?: string
   reporte: string
   que: string
   onImprimir: (clave: string) => void
   puedeImprimir: boolean
+  motivo?: string
 }) {
   return (
     <div style={sectionHead}>
       <h2 style={sectionTitle}>{titulo}</h2>
       <div style={sectionRule} />
       {hint && <div style={sectionHint}>{hint}</div>}
-      <BotonImprimir clave={reporte} que={que} onImprimir={onImprimir} habilitado={puedeImprimir} />
+      <BotonImprimir clave={reporte} que={que} onImprimir={onImprimir} habilitado={puedeImprimir} motivo={motivo} />
     </div>
   )
 }

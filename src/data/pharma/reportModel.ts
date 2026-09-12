@@ -4,7 +4,7 @@
  * Viven acá y no en `reports.ts` por el mismo motivo que `dispensationModel.ts`: las reglas puras
  * de `views/pharma/reportes/` los necesitan para testearse SIN tocar la base ni el navegador, y
  * un import desde el archivo que crea el cliente de Supabase arrastraría el cliente entero al
- * test. El modelo es un archivo de tipos, sin dependencias.
+ * test. El modelo es tipos más una regla pura (`estaTruncado`), sin dependencias.
  */
 
 /**
@@ -148,8 +148,13 @@ export interface FiltrosReporte {
  *
  * `total` en null es "no sabemos": el conteo exacto no llegó, así que no se puede afirmar que haya
  * corte. Devuelve false, que es lo que hacía antes en ese caso.
+ *
+ * Parámetro OBJETO y no dos posicionales: son dos `number | null` seguidos, y si el día de mañana
+ * alguien escribe el cableado invertido (`estaTruncado(total, rows.length)`), compila, pasa los
+ * tests y devuelve `false` siempre — el bug original, exacto, sin ninguna red. Nombrados, invertirlos
+ * ya no compila.
  */
-export function estaTruncado(filasQueLlegaron: number, totalQueHay: number | null): boolean {
-  if (totalQueHay == null) return false
-  return filasQueLlegaron < totalQueHay
+export function estaTruncado({ llegaron, total }: { llegaron: number; total: number | null }): boolean {
+  if (total == null) return false
+  return llegaron < total
 }

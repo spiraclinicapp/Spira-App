@@ -23,7 +23,7 @@ import { formatNumberAR } from '../../../lib/numbers'
  */
 
 export interface FuenteDeDatos {
-  /** Cómo se nombra en el aviso, en plural y en minúscula: "dispensaciones", "lotes vencidos". */
+  /** Cómo se nombra en el aviso, en plural y en minúscula: "renglones dispensados", "lotes vencidos". */
   que: string
   /** Filas que la base dice que hay. Nunca es null cuando `truncado` es true (ver abajo). */
   total: number | null
@@ -54,8 +54,8 @@ function enumerar(partes: string[]): string {
  * impresión, así que no puede ser un objeto vacío.
  *
  * `total ?? 0` no es una red contra el null: `conTecho` sólo levanta `truncado` cuando el conteo
- * exacto llegó y superó el techo, así que una fuente en esta lista siempre tiene número. El
- * fallback está para que el tipo cierre sin un `!`.
+ * exacto llegó y fue mayor que las filas que efectivamente llegaron, así que una fuente en esta
+ * lista siempre tiene número. El fallback está para que el tipo cierre sin un `!`.
  */
 export function truncamiento(fuentes: FuenteDeDatos[]): Truncamiento | null {
   const cortadas = fuentes.filter((f) => f.truncado)
