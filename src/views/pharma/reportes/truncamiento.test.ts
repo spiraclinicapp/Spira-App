@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { truncamiento } from './truncamiento'
+import { notaDeDetalleCortado, truncamiento } from './truncamiento'
 import type { FuenteDeDatos } from './truncamiento'
 
 /**
@@ -109,6 +109,26 @@ describe('truncamiento · el consejo', () => {
     const r = truncamiento([SALIDAS, VENCIDOS])
     expect(r?.consejo).toBe(
       'Acotá el rango y filtrá por protocolo: ninguno de los dos alcanza por separado.',
+    )
+  })
+})
+
+describe('notaDeDetalleCortado', () => {
+  it('sin corte no hay nota', () => {
+    // Y esto es lo que impide un archivo que declara un corte que no hubo.
+    expect(notaDeDetalleCortado({ renglonesLeidos: 300, renglonesEnTotal: 300 })).toBeNull()
+  })
+
+  it('sin conteo exacto tampoco se afirma un corte', () => {
+    expect(notaDeDetalleCortado({ renglonesLeidos: 300, renglonesEnTotal: null })).toBeNull()
+  })
+
+  it('con corte dice las dos cifras, en renglones y con separador de miles', () => {
+    // Las cifras son de RENGLONES, no de las filas del archivo: la consulta y su techo cuentan
+    // (dispensación × medicamento), y el CSV agrupa por dispensación. Son unidades distintas.
+    expect(notaDeDetalleCortado({ renglonesLeidos: 5000, renglonesEnTotal: 12000 })).toBe(
+      'Este detalle está cortado: la pantalla pudo leer 5.000 de 12.000 renglones del período, '
+      + 'así que faltan dispensaciones acá.',
     )
   })
 })

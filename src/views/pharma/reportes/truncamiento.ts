@@ -80,3 +80,24 @@ export function truncamiento(fuentes: FuenteDeDatos[]): Truncamiento | null {
 
   return { detalle, consejo }
 }
+
+/**
+ * La nota que declara que el detalle descargable salió cortado, o `null` si no lo está.
+ *
+ * POR QUÉ DEVUELVE `null` Y NO UN BOOLEANO APARTE: la nota y la condición para mostrarla son la
+ * misma cosa. Con dos piezas separadas se puede escribir una sin la otra — un archivo que declara
+ * un corte que no hubo, o peor, uno cortado que no lo dice.
+ *
+ * LOS NÚMEROS SON DE RENGLONES, no de dispensaciones, y eso NO es un detalle de redacción. El CSV
+ * tiene una fila por dispensación (`detalle()` agrupa por `dispensation_id`), pero la consulta y su
+ * techo cuentan RENGLONES —una fila por (dispensación × medicamento)—, así que las dos cifras viven
+ * en unidades distintas. Comparar las filas del archivo contra el total de la consulta diría
+ * "cortado" en CADA descarga, porque casi siempre hay más renglones que dispensaciones.
+ */
+export function notaDeDetalleCortado(
+  { renglonesLeidos, renglonesEnTotal }: { renglonesLeidos: number; renglonesEnTotal: number | null },
+): string | null {
+  if (renglonesEnTotal == null || renglonesLeidos >= renglonesEnTotal) return null
+  return `Este detalle está cortado: la pantalla pudo leer ${formatNumberAR(renglonesLeidos)} de `
+    + `${formatNumberAR(renglonesEnTotal)} renglones del período, así que faltan dispensaciones acá.`
+}

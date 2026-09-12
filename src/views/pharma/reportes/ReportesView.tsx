@@ -24,7 +24,7 @@ import {
 } from './agregados'
 import { diasDelRango, extremos, rangoDePreset, serieDiaria } from './serie'
 import type { Preset } from './serie'
-import { truncamiento } from './truncamiento'
+import { notaDeDetalleCortado, truncamiento } from './truncamiento'
 import { Composicion } from './Composicion'
 import { GraficoDiario } from './GraficoDiario'
 import { BotonImprimir, Resumen } from './Resumen'
@@ -243,6 +243,10 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
   }
 
   function descargar() {
+    const notaDelCorte = notaDeDetalleCortado({
+      renglonesLeidos: items.data?.length ?? 0,
+      renglonesEnTotal: items.total,
+    })
     const filas = d.detalle.map((f) => [
       f.numero, formatAR(f.fecha), f.deliveredAt.slice(11, 16),
       f.pacienteNombre ?? '', f.pacienteCodigo ?? '', f.protocolCode ?? '', f.visitaCodigo ?? '',
@@ -255,6 +259,10 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
         [`Período: ${formatAR(rango.desde)} a ${formatAR(rango.hasta)}`],
         [`Filtros: ${filtrosTexto}`],
         [`Generado por: ${ctx.generadoPor}`],
+        /* La nota del corte va ACÁ ARRIBA y no al pie: un CSV se abre en una grilla y el pie queda
+           a cinco mil filas de distancia. Si el detalle salió entero no se emite ninguna fila — un
+           archivo que declara un corte que no hubo es tan mentiroso como uno que lo calla. */
+        ...(notaDelCorte ? [[notaDelCorte]] : []),
         [],
         ...filas,
       ],
@@ -284,13 +292,20 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
   /* ── Estados ─────────────────────────────────────────────────────────────── */
 
   if (angosto) {
+    /* Acá la descarga es lo ÚNICO que se ofrece y el aviso de corte ni se dibuja (este retorno va
+       antes que él), así que si no lo dice este texto el usuario se entera recién al abrir el
+       archivo — si es que lee la fila 5 de una grilla. */
+    const notaDelCorte = notaDeDetalleCortado({
+      renglonesLeidos: items.data?.length ?? 0,
+      renglonesEnTotal: items.total,
+    })
     return (
       <div>
         <EmptyState
           icon="barChart"
           accent={module.accent}
           title="El informe necesita más ancho"
-          description="Esta pantalla se diseñó para monitores de 1024px o más. Podés descargar el detalle del período y abrirlo desde acá."
+          description={`Esta pantalla se diseñó para monitores de 1024px o más. Podés descargar el detalle del período y abrirlo desde acá.${notaDelCorte ? ` ${notaDelCorte}` : ''}`}
         />
         <div style={{ display: 'grid', placeItems: 'center', marginTop: 14 }}>
           <button type="button" style={btnOutline} onClick={descargar}>Descargar el detalle</button>
