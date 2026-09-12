@@ -164,10 +164,22 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 > `dispensation_requests` sigue valiendo, y la corrección sobre Reportes de más abajo es un
 > pendiente vivo.
 >
-> **LO QUE QUEDA ABIERTO, y es su propia tanda:** que estas salidas aparezcan en **Reportes de
-> Farmacia**. No es gratis (ver la corrección al final de la entrada): hay que reescribir la vista
-> `0083` para que salga del libro en vez de `from dispensations`. Hoy las salidas ambulatorias se
-> ven **sólo** en el bloque "Últimas salidas" del apartado.
+> **LO QUE QUEDABA ABIERTO — CERRADO el 2026-09-11** (migración `0118`; spec y plan en
+> `docs/superpowers/{specs,plans}/2026-09-11-reportes-salidas-ambulatorias-*`). Las salidas
+> ambulatorias aparecen en **Farmacia › Estadísticas** con bloque propio, tabla de detalle y hoja
+> impresa, y se descuentan del saldo.
+>
+> **Y el defecto real no era la ausencia.** `v_pharma_report_receptions` (0083) no filtra por
+> `tipo`, así que las recepciones ambulatorias YA sumaban del lado de los ingresos mientras las
+> salidas no restaban del lado de los egresos: **el saldo del Balance estaba inflado** exactamente
+> en esas unidades, en pantalla y en una hoja que se firma. Medido en prod el día del cierre:
+> decía +54 y son +51.
+>
+> **La receta que esta entrada proponía era incorrecta.** Reescribir la `0083` "para que salga del
+> libro" **pierde las dispensaciones de sólo IP y sus kits**, porque los kits no pasan por
+> `stock_movements` (decisión 3 de la propia 0083). Por ese camino hace falta un `union all`, no un
+> cambio de `from` — y no compra nada, porque la ambulatoria terminó siendo categoría propia. La
+> lectura salió de extender `v_ambulatory_dispensations` con la fecha local.
 
 <details><summary>La entrada original, para contexto</summary>
 
@@ -1329,3 +1341,44 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
   `src/data/team.ts:79` y `src/data/protocolAccess.ts:66`.
 - **Depende de / bloqueado por:** nada. Es independiente.
 - **Prioridad:** P3 — no rompe nada hoy, sólo gasta.
+
+---
+
+## Estadísticas de Farmacia · el techo de filas no cubre dos consultas que SÍ se imprimen
+
+- **Qué:** `rechazados.truncado` y `vencidos.truncado` no participan del cálculo de `truncado` en
+  `ReportesView.tsx`, así que no bloquean la impresión ni disparan el aviso. Los dos números se
+  imprimen igual: "Pedidos rechazados o cancelados" sale en la hoja `resumen` y en la `rechazadas`,
+  y el stock vencido en la `vencidos`.
+- **Por qué:** un techo alcanzado ahí saldría como un **número corto en una hoja firmada, sin
+  aviso** — la misma clase de defecto que la tanda del 2026-09-11 arregló para el saldo. Hoy no
+  pasa porque esas listas son chicas, pero nada lo garantiza.
+- **Pros:** cierra la clase entera; son dos ramas más en la escalera de `fuenteTruncada`.
+- **Contras:** **cambia cuándo se bloquea la impresión.** Un período que hoy se imprime podría
+  dejar de imprimirse, y eso es decisión del Director, no de quien toma el ticket.
+- **Contexto:** lo encontró el review final de rama (opus) de la tanda de salidas ambulatorias
+  (2026-09-11). Es PREEXISTENTE: en `main` `truncado` ya era sólo `items || recepciones`. Se dejó
+  afuera de esa tanda a propósito, por el contra de arriba.
+- **Empezar por:** `src/views/pharma/reportes/ReportesView.tsx`, la constante `fuenteTruncada`.
+- **Depende de / bloqueado por:** decisión del Director sobre bloquear la impresión en esos dos casos.
+- **Prioridad:** P3 — riesgo latente, sin caso real todavía.
+
+---
+
+## Estadísticas de Farmacia · dos remates finos del bloque de salidas ambulatorias
+
+- **Qué:** dos cosas chicas que quedaron fuera de la tanda del 2026-09-11, a propósito:
+  1. `REPORTES.ambulatorias.pares` no mira `conAmbulatoria`: fuera del recorte imprimiría ceros y,
+     desde el arreglo, **sin tabla**. Hoy es **inalcanzable** (su botón vive dentro del bloque que
+     se esconde con el filtro de protocolo puesto).
+  2. `fuenteTruncada` nombra sólo la PRIMERA consulta que cortó; si cortan dos, la segunda aparece
+     recién después de achicar el rango.
+- **Por qué:** el (1) es correctitud por construcción — hoy depende de dónde está el botón y no de
+  la hoja misma, así que un cambio de navegación futuro lo vuelve alcanzable sin que nadie lo note.
+- **Contras:** cerrar el (1) pedía un `if` por clave adentro de `HojaImpresa`, que es justo la
+  bandera-para-un-caso que la cabecera de `impresion.tsx` evita a propósito. Hace falta pensar la
+  forma, no sólo escribirlo.
+- **Contexto:** re-review (opus) de la tanda de salidas ambulatorias, 2026-09-11.
+- **Empezar por:** `src/views/pharma/reportes/impresion.tsx` (`REPORTES.ambulatorias`, `HojaImpresa`).
+- **Depende de / bloqueado por:** nada.
+- **Prioridad:** P3 — ninguno es alcanzable hoy.
