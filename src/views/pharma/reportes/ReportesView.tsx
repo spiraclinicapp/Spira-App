@@ -24,6 +24,7 @@ import {
 } from './agregados'
 import { diasDelRango, extremos, rangoDePreset, serieDiaria } from './serie'
 import type { Preset } from './serie'
+import { truncamiento } from './truncamiento'
 import { Composicion } from './Composicion'
 import { GraficoDiario } from './GraficoDiario'
 import { BotonImprimir, Resumen } from './Resumen'
@@ -107,18 +108,30 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
 
   const cargando = items.loading || recepciones.loading || rechazados.loading || vencidos.loading || salidas.loading
   const error = items.error ?? recepciones.error ?? rechazados.error ?? vencidos.error ?? salidas.error
-  /* Cuál consulta cortó, y con cuántas filas. Antes el aviso citaba SIEMPRE el total de `items`
-     aunque el corte lo hubiera causado otra, y aconsejaba filtrar por protocolo — que no achica
-     la consulta de salidas ambulatorias, porque no lo recibe. Un consejo inerte con la impresión
-     bloqueada deja a la farmacéutica sin salida. */
-  const fuenteTruncada = items.truncado
-    ? { que: 'dispensaciones', total: items.total, filtrable: true }
-    : recepciones.truncado
-      ? { que: 'recepciones', total: recepciones.total, filtrable: true }
-      : salidas.truncado
-        ? { que: 'salidas ambulatorias', total: salidas.total, filtrable: false }
-        : null
-  const truncado = fuenteTruncada !== null
+  /* Las CINCO consultas con su techo, y a qué control responde cada una — que no es simétrico.
+     `rechazados` y `vencidos` no participaban del techo, y sus dos números se imprimen: en la hoja
+     del resumen, en la propia y en el informe completo. Un techo alcanzado ahí salía como número
+     corto en una hoja firmada, sin aviso.
+     El `motivo` viaja al lado del rótulo a propósito: es lo que el consejo le dice a la
+     farmacéutica cuando uno de los dos controles no le va a servir. */
+  const corte = truncamiento([
+    { que: 'dispensaciones', total: items.total, truncado: items.truncado, porRango: true, porProtocolo: true },
+    { que: 'recepciones', total: recepciones.total, truncado: recepciones.truncado, porRango: true, porProtocolo: true },
+    { que: 'pedidos rechazados o cancelados', total: rechazados.total, truncado: rechazados.truncado, porRango: true, porProtocolo: true },
+    {
+      que: 'salidas ambulatorias',
+      total: salidas.total, truncado: salidas.truncado,
+      porRango: true, porProtocolo: false,
+      motivo: 'una salida ambulatoria no tiene protocolo',
+    },
+    {
+      que: 'lotes vencidos',
+      total: vencidos.total, truncado: vencidos.truncado,
+      porRango: false, porProtocolo: true,
+      motivo: 'un lote está vencido hoy, no durante el período',
+    },
+  ])
+  const truncado = corte !== null
 
   /* Todo lo que se muestra sale de acá. Una sola dependencia (`items.data`) y una sola pasada:
      si esto se partiera en varios useMemo con deps distintas, los bloques podrían quedar
@@ -313,14 +326,10 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
         puedeImprimir={puedeImprimir}
       />
 
-      {fuenteTruncada && (
+      {corte && (
         <Aviso>
-          El período trae más registros de los que la pantalla puede leer de una:{' '}
-          {formatNumberAR(fuenteTruncada.total ?? 0)} en {fuenteTruncada.que}.{' '}
-          {fuenteTruncada.filtrable
-            ? 'Acotá el rango o filtrá por protocolo'
-            : 'Acotá el rango — el filtro por protocolo no achica esta lista, porque una salida ambulatoria no tiene protocolo'}
-          : con el informe cortado los totales saldrían mal y no se pueden imprimir.
+          El período trae más registros de los que la pantalla puede leer de una: {corte.detalle}.{' '}
+          {corte.consejo} Con el informe cortado los totales saldrían mal y no se pueden imprimir.
         </Aviso>
       )}
 
