@@ -1344,35 +1344,29 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 
 ---
 
-## Estadísticas de Farmacia · el techo de filas no cubre dos consultas que SÍ se imprimen
+## ~~Estadísticas de Farmacia · el techo de filas no cubre dos consultas que SÍ se imprimen~~ — HECHO el 2026-09-12 (v0.68.0+, PR pendiente de merge)
 
-- **Qué:** `rechazados.truncado` y `vencidos.truncado` no participan del cálculo de `truncado` en
-  `ReportesView.tsx`, así que no bloquean la impresión ni disparan el aviso. Los dos números se
-  imprimen igual: "Pedidos rechazados o cancelados" sale en la hoja `resumen` y en la `rechazadas`,
-  y el stock vencido en la `vencidos`.
-- **Por qué:** un techo alcanzado ahí saldría como un **número corto en una hoja firmada, sin
-  aviso** — la misma clase de defecto que la tanda del 2026-09-11 arregló para el saldo. Hoy no
-  pasa porque esas listas son chicas, pero nada lo garantiza.
-- **Pros:** cierra la clase entera; son dos ramas más en la escalera de `fuenteTruncada`.
-- **Contras:** **cambia cuándo se bloquea la impresión.** Un período que hoy se imprime podría
-  dejar de imprimirse, y eso es decisión del Director, no de quien toma el ticket.
-- **Contexto:** lo encontró el review final de rama (opus) de la tanda de salidas ambulatorias
-  (2026-09-11). Es PREEXISTENTE: en `main` `truncado` ya era sólo `items || recepciones`. Se dejó
-  afuera de esa tanda a propósito, por el contra de arriba.
-- **Empezar por:** `src/views/pharma/reportes/ReportesView.tsx`, la constante `fuenteTruncada`.
-- **Depende de / bloqueado por:** decisión del Director sobre bloquear la impresión en esos dos casos.
-- **Prioridad:** P3 — riesgo latente, sin caso real todavía.
-
+> **Cerrada.** Spec en `docs/superpowers/specs/2026-09-11-techo-de-filas-design.md`, plan en
+> `docs/superpowers/plans/2026-09-11-techo-de-filas.md`. Las cinco consultas participan del techo, y
+> el consejo del aviso se deriva de **qué control achica cada una** — que no es simétrico.
+>
+> **Y el review encontró algo más grave que lo anotado acá:** `conTecho` decidía el truncamiento
+> contra su PROPIO techo (`total > TECHO_FILAS`) y **nunca contra lo que realmente llegó**. Todo el
+> archivo se justifica en que PostgREST corta por `max-rows` devolviendo 200 OK — y ése era justo el
+> corte que no veía: con el `max-rows` del proyecto por debajo de 5.000 (el default del dashboard es
+> **1.000**), los totales salían calculados sobre una fracción de las filas, sin aviso, impresos. O
+> sea que **el techo entero podía no estar detectando nada**. La regla se extrajo a `estaTruncado`
+> (en `reportModel.ts`, con tests) y ahora compara lo que llegó contra lo que hay, con lo cual el
+> valor de `max-rows` dejó de importar.
 ---
 
-## Estadísticas de Farmacia · dos remates finos del bloque de salidas ambulatorias
+## Estadísticas de Farmacia · un remate fino del bloque de salidas ambulatorias
 
-- **Qué:** dos cosas chicas que quedaron fuera de la tanda del 2026-09-11, a propósito:
+- **Qué:** una cosa chica que quedó fuera de la tanda del 2026-09-11, a propósito (su punto 2, el
+  aviso que nombraba sólo la primera consulta cortada, lo resolvió la tanda del techo de filas):
   1. `REPORTES.ambulatorias.pares` no mira `conAmbulatoria`: fuera del recorte imprimiría ceros y,
      desde el arreglo, **sin tabla**. Hoy es **inalcanzable** (su botón vive dentro del bloque que
      se esconde con el filtro de protocolo puesto).
-  2. `fuenteTruncada` nombra sólo la PRIMERA consulta que cortó; si cortan dos, la segunda aparece
-     recién después de achicar el rango.
 - **Por qué:** el (1) es correctitud por construcción — hoy depende de dónde está el botón y no de
   la hoja misma, así que un cambio de navegación futuro lo vuelve alcanzable sin que nadie lo note.
 - **Contras:** cerrar el (1) pedía un `if` por clave adentro de `HojaImpresa`, que es justo la
@@ -1381,4 +1375,71 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 - **Contexto:** re-review (opus) de la tanda de salidas ambulatorias, 2026-09-11.
 - **Empezar por:** `src/views/pharma/reportes/impresion.tsx` (`REPORTES.ambulatorias`, `HojaImpresa`).
 - **Depende de / bloqueado por:** nada.
+- **Prioridad:** P3 — no es alcanzable hoy.
+
+---
+
+## Estadísticas de Farmacia · la descarga del CSV no mira el techo
+
+- **Qué:** `descargar()` en `ReportesView.tsx` exporta el detalle sin consultar `puedeImprimir`. Con
+  el informe cortado, el CSV sale igual, con el encabezado "Reporte de dispensaciones — Spira ·
+  Fundación Scherbovsky", el período y los filtros declarados, y **sin una sola línea que diga que
+  está recortado**.
+- **Por qué:** la tesis de toda esta familia de trabajo es "cortado ⇒ no se firma", y el CSV es el
+  otro papel que sale de esta pantalla. Peor: en pantallas de **menos de 1024px** el `return`
+  temprano ocurre ANTES del aviso, así que ahí la descarga es **lo único que se ofrece** y el aviso
+  ni se dibuja.
+- **Pros:** cierra la última puerta por la que un número corto sale de Estadísticas.
+- **Contras:** hay que decidir entre bloquear la descarga (deja al usuario angosto sin ninguna
+  salida) o dejarla salir con una fila de nota en la cabecera del CSV. **La segunda parece mejor y
+  es más barata, pero es decisión del Director.**
+- **Contexto:** lo encontró el review final de rama (opus) de la tanda del techo de filas
+  (2026-09-12). Es PREEXISTENTE.
+- **Empezar por:** `src/views/pharma/reportes/ReportesView.tsx`, la función `descargar()` y el
+  bloque `if (angosto)`.
+- **Depende de / bloqueado por:** decisión del Director entre bloquear o anotar.
+- **Prioridad:** P3 — riesgo latente, sin caso real todavía.
+
+---
+
+## Recepción · el aviso manda a un filtro que no viaja a la base
+
+- **Qué:** el aviso de `RecepcionView.tsx` dice *"Hay más de 500 recepciones y la lista muestra las
+  más recientes. **Acotá por fecha** o por ámbito…"*. Pero el rango de fechas filtra **en memoria**
+  sobre las 500 filas ya recortadas: el único filtro que viaja a la base es el ámbito
+  (`useReceptions(fTipos, null)` — el `protocolId` va fijo en `null`).
+- **Por qué:** acotar por fecha no trae ni una fila más. Es el **consejo inerte**, exactamente la
+  misma clase de defecto que la tanda del techo de filas arregló en Estadísticas. Y tiene un
+  agravante: elegir un período viejo muestra "Nada con esos filtros" cuando sí hubo recepciones,
+  sólo que quedaron más allá del techo.
+- **Pros:** cierra la clase en la otra pantalla que la tiene.
+- **Contras:** hay que decidir si el arreglo es de copy (decir la verdad sobre qué achica) o de
+  transporte (hacer que la fecha viaje a la base). El segundo es una tanda de verdad.
+- **Contexto:** lo encontró el review final de rama (opus) de la tanda del techo de filas
+  (2026-09-12), respondiendo a la pregunta de si la clase quedaba abierta en otro lado.
+- **Empezar por:** `src/views/pharma/RecepcionView.tsx`, el aviso y la llamada a `useReceptions`.
+- **Depende de / bloqueado por:** nada.
+- **Prioridad:** P3.
+
+---
+
+## Estadísticas de Farmacia · dos caminos defensivos de `truncamiento.ts` sin cubrir
+
+- **Qué:** dos casos que hoy son **inalcanzables** con las cinco fuentes reales:
+  1. El fallback `motivo ?? 'no responde a ese control'` no lo ejerce ningún test. Si una fuente
+     futura declara un `porRango`/`porProtocolo` en `false` sin su `motivo`, el consejo cae en ese
+     texto genérico y queda circular ("no achica X: no responde a ese control").
+  2. Una fuente con `porRango: false` **y** `porProtocolo: false` caería en la rama mixta, cuyo
+     texto dice que ninguno de los dos controles alcanza por separado — cierto — pero la rama
+     tampoco ofrece salida, así que la impresión quedaría bloqueada sin ninguna acción posible.
+- **Por qué:** es el archivo que existe para que el consejo nunca se equivoque en silencio, y son
+  sus dos únicos caminos sin red.
+- **Pros:** hay una forma de cerrar los dos **sin una línea de runtime ni un test nuevo**: una unión
+  discriminada que los vuelve irrepresentables — `tsc` pasa a exigir el `motivo` justo cuando hay un
+  `false`, y rechaza la fuente con los dos en `false`.
+- **Contras:** esa unión rompe la fábrica `fuente(over: Partial<FuenteDeDatos>)` del test, que hay
+  que rehacer. No es gratis.
+- **Contexto:** review y re-review (opus) de la tanda del techo de filas, 2026-09-12.
+- **Empezar por:** `src/views/pharma/reportes/truncamiento.ts` (el tipo `FuenteDeDatos`) y su test.
+- **Depende de / bloqueado por:** nada. Conviene hacerlo el día que se agregue una sexta fuente.
 - **Prioridad:** P3 — ninguno es alcanzable hoy.
