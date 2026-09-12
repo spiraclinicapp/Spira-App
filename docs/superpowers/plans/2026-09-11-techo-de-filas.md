@@ -27,7 +27,7 @@
 | Archivo | Qué hace | Task |
 |---|---|---|
 | `src/views/pharma/reportes/truncamiento.ts` | **Crear.** `FuenteDeDatos`, `Truncamiento` y la función pura `truncamiento()` | 1 |
-| `src/views/pharma/reportes/truncamiento.test.ts` | **Crear.** Los siete casos: `null`, la enumeración con 1/2/3 fuentes, y las cuatro ramas del consejo | 1 |
+| `src/views/pharma/reportes/truncamiento.test.ts` | **Crear.** Los nueve casos: `null`, la enumeración con 1/2/3 fuentes, y las cuatro ramas del consejo | 1 |
 | `src/views/pharma/reportes/ReportesView.tsx` | **Modificar.** Arma las cinco candidatas, reemplaza la escalera de ternarios y el texto del `Aviso` | 2 |
 
 ---

@@ -76,7 +76,7 @@ export function truncamiento(fuentes: FuenteDeDatos[]): Truncamiento | null {
         ? `Acotá el rango. Filtrar por protocolo no achica ${enumerar(sinProtocolo.map((f) => f.que))}: ${enumerar(sinProtocolo.map((f) => f.motivo ?? 'no responde a ese control'))}.`
         : sinProtocolo.length === 0
           ? `Filtrá por protocolo. Acotar el rango no achica ${enumerar(sinRango.map((f) => f.que))}: ${enumerar(sinRango.map((f) => f.motivo ?? 'no responde a ese control'))}.`
-          : 'Acotá el rango y filtrá por protocolo: cada una de estas listas responde a uno de los dos.'
+          : 'Acotá el rango y filtrá por protocolo: ninguno de los dos alcanza por separado.'
 
   return { detalle, consejo }
 }

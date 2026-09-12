@@ -134,3 +134,22 @@ export interface Rango {
 export interface FiltrosReporte {
   protocolCode: string | null
 }
+
+/**
+ * ¿La consulta volvió cortada?
+ *
+ * Compara lo que LLEGÓ contra lo que la base dice que hay, y no contra nuestro techo. La diferencia
+ * importa: el techo propio (`.limit(TECHO_FILAS)`) no es el único corte posible — PostgREST tiene su
+ * propio `max-rows` de proyecto, y si es más chico que el nuestro corta ANTES, devolviendo 200 OK.
+ * Comparando contra el techo propio, ese corte es invisible: los totales salen calculados sobre una
+ * fracción de las filas, sin aviso, y se imprimen.
+ *
+ * Contra lo que llegó, los dos cortes se detectan igual y el valor de `max-rows` deja de importar.
+ *
+ * `total` en null es "no sabemos": el conteo exacto no llegó, así que no se puede afirmar que haya
+ * corte. Devuelve false, que es lo que hacía antes en ese caso.
+ */
+export function estaTruncado(filasQueLlegaron: number, totalQueHay: number | null): boolean {
+  if (totalQueHay == null) return false
+  return filasQueLlegaron < totalQueHay
+}

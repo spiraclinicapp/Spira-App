@@ -108,26 +108,46 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
 
   const cargando = items.loading || recepciones.loading || rechazados.loading || vencidos.loading || salidas.loading
   const error = items.error ?? recepciones.error ?? rechazados.error ?? vencidos.error ?? salidas.error
+
+  /* Con un protocolo elegido, la ambulatoria sale del recorte ENTERA: el bloque se esconde y el
+     balance vuelve a dos términos.
+     NO ES COSMÉTICO. La consulta de salidas no filtra por protocolo porque no tiene por dónde,
+     pero las RECEPCIONES ambulatorias sí se caen solas del lado de los ingresos (el
+     `in('protocol_code', ...)` no matchea NULL). Si el saldo siguiera restando estas salidas, los
+     dos lados hablarían de universos distintos y el saldo quedaría CORTO — el mismo defecto que
+     esta tanda arregla, con el signo al revés.
+     Se calcula ACÁ arriba (y no donde se usa para armar `ambEnRecorte`) porque la lista de
+     candidatas al techo, un poco más abajo, también la necesita. */
+  const enRecorteAmbulatorio = protoSel.length === 0
+
   /* Las CINCO consultas con su techo, y a qué control responde cada una — que no es simétrico.
      `rechazados` y `vencidos` no participaban del techo, y sus dos números se imprimen: en la hoja
      del resumen, en la propia y en el informe completo. Un techo alcanzado ahí salía como número
      corto en una hoja firmada, sin aviso.
      El `motivo` viaja al lado del rótulo a propósito: es lo que el consejo le dice a la
-     farmacéutica cuando uno de los dos controles no le va a servir. */
+     farmacéutica cuando uno de los dos controles no le va a servir.
+     Y con un protocolo elegido, la ambulatoria no está en el informe (sale del recorte entera, ver
+     `enRecorteAmbulatorio` arriba), así que su techo no tiene por qué bloquearlo — de ahí el
+     `&& enRecorteAmbulatorio` en su entrada. */
   const corte = truncamiento([
-    { que: 'dispensaciones', total: items.total, truncado: items.truncado, porRango: true, porProtocolo: true },
+    { que: 'renglones dispensados', total: items.total, truncado: items.truncado, porRango: true, porProtocolo: true },
     { que: 'recepciones', total: recepciones.total, truncado: recepciones.truncado, porRango: true, porProtocolo: true },
     { que: 'pedidos rechazados o cancelados', total: rechazados.total, truncado: rechazados.truncado, porRango: true, porProtocolo: true },
     {
       que: 'salidas ambulatorias',
-      total: salidas.total, truncado: salidas.truncado,
-      porRango: true, porProtocolo: false,
+      total: salidas.total,
+      truncado: salidas.truncado && enRecorteAmbulatorio,
+      porRango: true,
+      // useReportAmbulatory no recibe protocolos (src/data/pharma/reports.ts:187).
+      porProtocolo: false,
       motivo: 'una salida ambulatoria no tiene protocolo',
     },
     {
       que: 'lotes vencidos',
       total: vencidos.total, truncado: vencidos.truncado,
-      porRango: false, porProtocolo: true,
+      // useReportExpired no recibe rango (src/data/pharma/reports.ts:125).
+      porRango: false,
+      porProtocolo: true,
       motivo: 'un lote está vencido hoy, no durante el período',
     },
   ])
@@ -159,14 +179,6 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
     }
   }, [items.data, recepciones.data, vencidos.data, salidas.data, rango])
 
-  /* Con un protocolo elegido, la ambulatoria sale del recorte ENTERA: el bloque se esconde y el
-     balance vuelve a dos términos.
-     NO ES COSMÉTICO. La consulta de salidas no filtra por protocolo porque no tiene por dónde,
-     pero las RECEPCIONES ambulatorias sí se caen solas del lado de los ingresos (el
-     `in('protocol_code', ...)` no matchea NULL). Si el saldo siguiera restando estas salidas, los
-     dos lados hablarían de universos distintos y el saldo quedaría CORTO — el mismo defecto que
-     esta tanda arregla, con el signo al revés. */
-  const enRecorteAmbulatorio = protoSel.length === 0
   const ambEnRecorte = enRecorteAmbulatorio ? d.ambulatorias : { unidades: 0, salidas: 0 }
   const filasAmbulatorias = enRecorteAmbulatorio ? (salidas.data ?? []) : []
 
@@ -328,7 +340,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
 
       {corte && (
         <Aviso>
-          El período trae más registros de los que la pantalla puede leer de una: {corte.detalle}.{' '}
+          Hay más registros de los que la pantalla puede leer de una: {corte.detalle}.{' '}
           {corte.consejo} Con el informe cortado los totales saldrían mal y no se pueden imprimir.
         </Aviso>
       )}
@@ -347,7 +359,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
       ) : (
         <>
           <Seccion titulo="Resumen del período" hint="Cada indicador se imprime solo desde su ícono"
-            reporte="resumen" que="el resumen del período" onImprimir={imprimir} />
+            reporte="resumen" que="el resumen del período" onImprimir={imprimir} puedeImprimir={puedeImprimir} />
 
           <Resumen
             totales={d.totales}
@@ -358,18 +370,19 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
             emitidoEn={emitidoEn}
             sparkline={d.serie.map((p) => p.unidades)}
             onImprimir={imprimir}
+            puedeImprimir={puedeImprimir}
           />
 
-          <Seccion titulo="Evolución y composición" reporte="evolucion" que="la evolución diaria" onImprimir={imprimir} />
+          <Seccion titulo="Evolución y composición" reporte="evolucion" que="la evolución diaria" onImprimir={imprimir} puedeImprimir={puedeImprimir} />
           <div style={chartRow}>
             <GraficoDiario serie={d.serie} />
             <Composicion protocolos={d.protocolos} kits={d.totales.kits} unidades={d.totales.unidades} />
           </div>
 
-          <Seccion titulo="Dispensaciones por protocolo" reporte="protocolos" que="las dispensaciones por protocolo" onImprimir={imprimir} />
+          <Seccion titulo="Dispensaciones por protocolo" reporte="protocolos" que="las dispensaciones por protocolo" onImprimir={imprimir} puedeImprimir={puedeImprimir} />
           <TablaProtocolos filas={d.protocolos} total={d.totales} />
 
-          <Seccion titulo="Medicamentos más dispensados" reporte="medicamentos" que="los medicamentos más dispensados" onImprimir={imprimir} />
+          <Seccion titulo="Medicamentos más dispensados" reporte="medicamentos" que="los medicamentos más dispensados" onImprimir={imprimir} puedeImprimir={puedeImprimir} />
           <TablaMedicamentos filas={d.medicamentos} totalUnidades={d.totales.unidades} />
 
           {enRecorteAmbulatorio && (
@@ -380,6 +393,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
                 reporte="ambulatorias"
                 que="las salidas ambulatorias"
                 onImprimir={imprimir}
+                puedeImprimir={puedeImprimir}
               />
               <TablaAmbulatorias filas={filasAmbulatorias} total={ambEnRecorte} />
             </>
@@ -397,7 +411,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
                 Descargar
               </span>
             </button>
-            <BotonImprimir clave="detalle" que="el reporte de dispensaciones" onImprimir={imprimir} />
+            <BotonImprimir clave="detalle" que="el reporte de dispensaciones" onImprimir={imprimir} habilitado={puedeImprimir} />
           </div>
           <TablaDetalle
             filas={d.detalle}
@@ -524,26 +538,27 @@ function Filtros({
   )
 }
 
-function Seccion({ titulo, hint, reporte, que, onImprimir }: {
+function Seccion({ titulo, hint, reporte, que, onImprimir, puedeImprimir }: {
   titulo: string
   hint?: string
   reporte: string
   que: string
   onImprimir: (clave: string) => void
+  puedeImprimir: boolean
 }) {
   return (
     <div style={sectionHead}>
       <h2 style={sectionTitle}>{titulo}</h2>
       <div style={sectionRule} />
       {hint && <div style={sectionHint}>{hint}</div>}
-      <BotonImprimir clave={reporte} que={que} onImprimir={onImprimir} />
+      <BotonImprimir clave={reporte} que={que} onImprimir={onImprimir} habilitado={puedeImprimir} />
     </div>
   )
 }
 
 function Aviso({ children }: { children: React.ReactNode }) {
   return (
-    <p style={{
+    <p role="status" style={{
       display: 'flex', gap: 9, alignItems: 'flex-start', margin: '0 0 16px', padding: '11px 14px',
       background: 'var(--spira-surface)', border: '1px solid var(--spira-line-2)', borderRadius: 10,
       fontSize: 12.5, lineHeight: 1.5, color: 'var(--spira-acc-deep-warn)',

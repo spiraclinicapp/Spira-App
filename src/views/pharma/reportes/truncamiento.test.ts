@@ -102,11 +102,13 @@ describe('truncamiento · el consejo', () => {
     )
   })
 
-  it('si cada una responde a un control distinto, pide los DOS', () => {
-    // El caso incómodo, y el que un consejo fijo resolvía mal: por separado ninguno alcanza.
+  it('si truncan una que sólo responde al rango y otra que sólo responde al protocolo, pide los DOS', () => {
+    // El caso incómodo, y el que un consejo fijo resolvía mal: por separado ninguno alcanza. La
+    // frase no puede decir "cada una responde a uno de los dos": con un período enorme donde
+    // cortan las cinco, tres de ellas responden a los DOS controles, no a uno solo.
     const r = truncamiento([SALIDAS, VENCIDOS])
     expect(r?.consejo).toBe(
-      'Acotá el rango y filtrá por protocolo: cada una de estas listas responde a uno de los dos.',
+      'Acotá el rango y filtrá por protocolo: ninguno de los dos alcanza por separado.',
     )
   })
 })

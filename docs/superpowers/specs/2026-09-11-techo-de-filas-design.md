@@ -62,6 +62,10 @@ separado alcanza. Hay que usar los dos.
 dispensaciones, que no lo usa. Se paga el día que pase, y a cambio no hay que mantener un mapa de
 hoja → consultas que se desactualiza en silencio.
 
+Lo más incómodo, que todavía no estaba dicho: a `vencidos` no la achica el rango, así que si algún
+día trunca no hay período que destrabe la impresión — o alcanza con filtrar por un protocolo, o la
+pantalla queda sin poder imprimir.
+
 ## La forma
 
 **Un archivo nuevo: `src/views/pharma/reportes/truncamiento.ts`.** Una función pura, sin React y sin
