@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.69', text: 'El informe avisa cuándo la lista quedó cortada y con qué filtro achicarla.' },
     { version: '0.68', text: 'Las salidas ambulatorias entran en Estadísticas, y el saldo del período las descuenta.' },
     { version: '0.67', text: 'Equipo y accesos: cada persona en una línea, y el ojo muestra su acceso sin entrar a editar.' },
     { version: '0.66', text: 'El Resumen cierra parejo y desde Novedades podés contarnos qué mejorarías.' },
