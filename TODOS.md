@@ -1430,6 +1430,15 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 
 ## Estadísticas de Farmacia · dos caminos defensivos de `truncamiento.ts` sin cubrir
 
+> **CERRADO el 2026-09-13, con la unión discriminada** que proponía esta entrada. `FuenteDeDatos`
+> pasó a `{ que, total, truncado } & AlcanceDeFuente`, y `AlcanceDeFuente` sólo admite tres formas:
+> los dos controles, o uno en `false` **con `motivo` obligatorio**. El fallback
+> `motivo ?? 'no responde a ese control'` desapareció (el consejo recibe el `motivo` tipado como
+> `string` por guardas de tipo), y la fuente con los dos en `false` ya no compila. `ReportesView`
+> compiló sin cambios. La fábrica del test se rehízo (el alcance va en su propio parámetro) y los
+> dos casos quedaron fijados con `@ts-expect-error`, verificados por mutación: aflojar la unión de
+> cualquiera de las dos maneras hace caer `tsc` con "Unused '@ts-expect-error' directive".
+
 - **Qué:** dos casos que hoy son **inalcanzables** con las cinco fuentes reales:
   1. El fallback `motivo ?? 'no responde a ese control'` no lo ejerce ningún test. Si una fuente
      futura declara un `porRango`/`porProtocolo` en `false` sin su `motivo`, el consejo cae en ese
