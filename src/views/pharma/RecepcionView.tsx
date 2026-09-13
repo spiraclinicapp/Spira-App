@@ -12,7 +12,8 @@ import { codecs, listOf, resolveCode } from '../../lib/router'
 import { useUrlPath, useUrlState } from '../../lib/useUrlState'
 import { addDaysISO, groupByDay, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
-import { useReceptions, useMedications, verifyReception, voidReception, TECHO_RECEPCIONES } from '../../data/pharma'
+import { useReceptions, useMedications, verifyReception, voidReception } from '../../data/pharma'
+import { formatNumberAR } from '../../lib/numbers'
 import type { ReceptionRow, ReceptionKind, ReceptionStatus } from '../../data/pharma'
 import { ReceptionWizard } from './ReceptionWizard'
 import type { CountedMed } from './ReceptionWizard'
@@ -149,10 +150,10 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   /** Error de verificación POR recepción: se muestra en la banda de su card, no en el tope. */
   const [errorPorId, setErrorPorId] = useState<Record<string, string>>({})
 
-  // El tipo filtra server-side (el resto es client-side sobre lo traído): hay techo de filas, y
-  // filtrando en memoria "solo ambulatorias" podría no encontrar ninguna por haber traído 500 de
-  // protocolo. Ver el comentario de useReceptions.
-  const receptions = useReceptions(fTipos, null)
+  // Tipo, protocolo y fechas filtran EN LA BASE; estado, medicamento y búsqueda, sobre lo traído.
+  // Hay techo de filas, y con un filtro en memoria "enero del año pasado" podía no encontrar
+  // ninguna por haber traído las 500 más nuevas. Ver `consultaDeRecepciones`.
+  const receptions = useReceptions({ tipos: fTipos, protocolIds: fProtoSel, desde, hasta })
 
   // Auto-limpia el highlight tras 5 s para no dejar el resaltado indefinidamente.
   useEffect(() => {
@@ -186,6 +187,11 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     return () => setHeader(null)
   }, [setHeader, creating, canManage, abrirWizard])
 
+  /* El protocolo y las fechas ya filtran en la base, y se repiten acá A PROPÓSITO: la consulta
+     refresca sin vaciar la lista (`useSupabaseQuery` deja visibles las filas viejas mientras
+     llega la respuesta), así que durante ese rato lo que se ve es el resultado del filtro ANTERIOR.
+     Filtrado otra vez en memoria, al elegir "7 días" la lista se achica en el acto en vez de mostrar
+     por un momento recepciones fuera del rango. Con la respuesta nueva, este filtro no quita nada. */
   const rows = useMemo(() => {
     return (receptions.data ?? []).filter((r) => {
       if (fEstados.length > 0 && !fEstados.includes(r.status)) return false
@@ -294,7 +300,8 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
   const tipoOptions: MultiFilterOption[] = (Object.keys(KIND_CHIP) as ReceptionKind[])
     .map((k) => ({ value: k, label: KIND_CHIP[k].label }))
   /* El estado SÍ lleva conteo: filtra en memoria, así que cuenta sobre todo lo cargado. Si hay un
-     tipo elegido, cuenta dentro de ese universo — que es el que se está mirando. */
+     tipo, un protocolo o un rango elegido, cuenta dentro de ese universo — que es el que se está
+     mirando. */
   const estadoOptions: MultiFilterOption[] = (['pendiente', 'verificada', 'anulada'] as ReceptionStatus[])
     .map((s) => ({
       value: s,
@@ -420,13 +427,19 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     <div style={wrap}>
       {toolbar}
 
-      {/* La lista llegó recortada: los totales por día dirían menos de lo que hubo. */}
+      {/* La lista llegó recortada: los totales por día dirían menos de lo que hubo.
+          Nombra SÓLO los controles que filtran en la base (ver `consultaDeRecepciones`): estado,
+          medicamento y búsqueda trabajan sobre lo traído y no traen ni una recepción más. Antes
+          decía "acotá por fecha o por ámbito", y la fecha filtraba en memoria y "ámbito" no es el
+          nombre de ningún control.
+          Los números son los que LLEGARON y los que HAY, no el techo: si el `max-rows` del proyecto
+          corta antes, "más de 500" sería falso. */}
       {receptions.truncado && (
         <div style={avisoBox} role="status">
           <Icon name="alertCircle" size={16} color="var(--spira-warn)" />
           <span>
-            Hay más de {TECHO_RECEPCIONES} recepciones y la lista muestra las más recientes.
-            Acotá por fecha o por ámbito para que los totales de cada día sean del período completo.
+            Se muestran las {formatNumberAR(receptions.data?.length ?? 0)} recepciones más recientes de {formatNumberAR(receptions.total ?? 0)}.
+            Acotá por fecha, tipo o protocolo para ver el período completo.
           </span>
         </div>
       )}
@@ -436,8 +449,12 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
           accent={accent}
           icon={submodule.icon}
           title={hayFiltros ? 'Nada con esos filtros' : 'Sin recepciones'}
+          /* Con la lista recortada, "ninguna coincide" sería falso: puede haber coincidencias entre
+             las que quedaron afuera. Se dice sobre qué se buscó; el aviso de arriba dice qué hacer. */
           description={hayFiltros
-            ? 'Ninguna recepción coincide con la búsqueda o los filtros activos.'
+            ? receptions.truncado
+              ? `Ninguna de las ${formatNumberAR(receptions.data?.length ?? 0)} más recientes coincide.`
+              : 'Ninguna recepción coincide con la búsqueda o los filtros activos.'
             : 'Cuando llegue medicación, cargá la recepción y verificala para ingresar el stock.'}
         />
       ) : (

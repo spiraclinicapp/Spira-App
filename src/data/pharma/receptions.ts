@@ -1,6 +1,9 @@
 import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import { supabase } from '../../lib/supabase'
 import { pharmaErrorMessage } from './errors'
+import { estaTruncado } from './reportModel'
+import { consultaDeRecepciones } from './receptionsModel'
+import type { FiltrosDeBaseRecepcion } from './receptionsModel'
 
 /** Ámbito/tipo de la recepción (enum `reception_kind`, migración 0035). */
 export type ReceptionKind = 'protocolo' | 'investigacion' | 'ambulatoria'
@@ -86,29 +89,31 @@ export interface ReceptionsQuery {
   loading: boolean
   error: string | null
   refetch: () => void
-  /** Filas que la base dice que hay. Si supera el techo, la lista está recortada. */
+  /** Filas que la base dice que hay, con los filtros de base aplicados. */
   total: number | null
+  /** Llegaron menos filas de las que hay: la lista está recortada. Ver `estaTruncado`. */
   truncado: boolean
 }
 
 /** Recepciones (cola; más nuevas primero), con renglones, protocolo e ítems/unidades.
- *  tipos=[] → todos los tipos (lista transversal). Solo ambulatoria → además, sin protocolo.
- *  Con un tipo y protocolId → filtra por protocolo; sin protocolId trae todas del tipo.
+ *  Sin filtros → todas (lista transversal). Qué viaja y en qué forma: `consultaDeRecepciones`.
  *
- *  El filtro va en la BASE y no en el cliente porque hay TECHO: filtrando acá, el recorte y el
- *  conteo miran el mismo universo. Con el filtro en memoria, pedir "solo ambulatorias" podría no
- *  encontrar ninguna simplemente porque las 500 más nuevas eran de protocolo. */
-export function useReceptions(tipos: ReceptionKind[], protocolId: string | null): ReceptionsQuery {
-  // Los tipos van a las deps como texto: un array literal cambia de identidad en cada render.
-  const tiposKey = tipos.join(',')
+ *  Los filtros van en la BASE y no en el cliente porque hay TECHO: filtrando acá, el recorte y el
+ *  conteo miran el mismo universo. Con el filtro en memoria, pedir "solo ambulatorias" o "enero del
+ *  año pasado" podía no encontrar ninguna simplemente porque las 500 más nuevas eran otras. */
+export function useReceptions(filtros: Partial<FiltrosDeBaseRecepcion> = {}): ReceptionsQuery {
+  const consulta = consultaDeRecepciones({
+    tipos: filtros.tipos ?? [], protocolIds: filtros.protocolIds ?? [],
+    desde: filtros.desde ?? '', hasta: filtros.hasta ?? '',
+  })
   const res = useSupabaseQuery<{ rows: ReceptionRow[]; total: number | null }>(
     async (c) => {
       let q = c.from('medication_receptions').select(RECEPTION_COLS, { count: 'exact' })
-      if (tipos.length > 0) q = q.in('tipo', tipos)
-      // El guard de "ambulatoria no lleva protocolo" solo vale si se pidió ESE tipo y nada más:
-      // mezclado con protocolo o investigación borraría justamente las que sí tienen protocolo.
-      if (tipos.length === 1 && tipos[0] === 'ambulatoria') q = q.is('protocol_id', null)
-      else if (tipos.length === 1 && protocolId) q = q.eq('protocol_id', protocolId)
+      if (consulta.tipos.length > 0) q = q.in('tipo', consulta.tipos)
+      if (consulta.soloSinProtocolo) q = q.is('protocol_id', null)
+      if (consulta.protocolIds.length > 0) q = q.in('protocol_id', consulta.protocolIds)
+      if (consulta.desde) q = q.gte('reception_date', consulta.desde)
+      if (consulta.hasta) q = q.lte('reception_date', consulta.hasta)
       // El folio desempata: dos recepciones del mismo día salían en orden arbitrario, y el orden
       // de la lista no debería depender de cómo se le dio la gana a Postgres esa vez.
       const { data, error, count } = await q
@@ -119,17 +124,22 @@ export function useReceptions(tipos: ReceptionKind[], protocolId: string | null)
       if (error) return { data: null, error }
       return { data: { rows: data ?? [], total: count ?? null }, error: null }
     },
-    [tiposKey, protocolId],
+    // La clave y no los arrays: un array literal cambia de identidad en cada render.
+    [consulta.clave],
   )
 
+  const rows = res.data?.rows ?? null
   const total = res.data?.total ?? null
   return {
-    data: res.data ? res.data.rows : null,
+    data: rows,
     loading: res.loading,
     error: res.error,
     refetch: res.refetch,
     total,
-    truncado: total != null && total > TECHO_RECEPCIONES,
+    /* Contra lo que LLEGÓ y no contra `TECHO_RECEPCIONES`: el `max-rows` de PostgREST puede cortar
+       antes que nuestro techo, con 200 OK, y comparando contra el techo propio ese corte no se ve.
+       Es el mismo defecto que se cerró en Estadísticas el 2026-09-12; acá seguía vivo. */
+    truncado: rows != null && estaTruncado({ llegaron: rows.length, total }),
   }
 }
 
