@@ -4,7 +4,7 @@ import { useActiveAlerts } from '../data/alertDismissals'
 import { useWeekVisits } from '../data/visits'
 import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
-import { useReceptions } from '../data/pharma'
+import { usePendingReceptionsCount } from '../data/pharma'
 import { useDispensationBoard } from '../data/pharma/dispensations'
 import { fueraDeVentana } from '../lib/visits'
 import { addDaysISO, formatDayLong, todayISO, weekDates } from '../lib/dates'
@@ -55,7 +55,9 @@ export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: V
      de la card de Coordinación. El rango va de hace 30 días al fin de la semana en curso para que
      los dos entren; `useWeekVisits` toma cualquier rango, pese al nombre. */
   const rango = useWeekVisits(hace30, semanaFin > hoy ? semanaFin : hoy)
-  const recep = useReceptions()
+  /* Un CONTEO en la base, no la lista: la lista tiene techo de 500 y contar pendientes sobre ella
+     dejaba afuera a las más viejas. Ver `usePendingReceptionsCount`. */
+  const pendientesRecep = usePendingReceptionsCount()
   /* El tablero del día trae los pedidos ABIERTOS ('solicitada'/'preparando') más los atendidos hoy.
      Los abiertos son la cifra que el handoff pide en la banda y en la card de Farmacia. */
   const board = useDispensationBoard(hoy)
@@ -81,7 +83,6 @@ export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: V
 
   const protocolosActivos = (protocols.data ?? []).filter((p) => p.status === 'activo').length
   const pacientesActivos = (patients.data ?? []).filter((p) => p.status === 'activo').length
-  const porVerificar = (recep.data ?? []).filter((r) => r.status === 'pendiente').length
   const dispensacionesAbiertas = (board.data ?? []).filter(
     (d) => d.status === 'solicitada' || d.status === 'preparando',
   ).length
@@ -186,7 +187,8 @@ export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: V
                  todavía no existe, y un número inventado en Farmacia es justo lo que no puede
                  pasar. Entra cuando esté la consulta. */
               cifras={[
-                { n: dato(recep.loading, porVerificar), rotulo: 'por verificar' },
+                /* Sin conteo (cargando o error) va el guion: un 0 diría que no hay ninguna. */
+                { n: pendientesRecep.n ?? '—', rotulo: 'por verificar' },
                 { n: dato(board.loading, dispensacionesAbiertas), rotulo: plural(dispensacionesAbiertas, 'pendiente', 'pendientes') },
               ]}
             />

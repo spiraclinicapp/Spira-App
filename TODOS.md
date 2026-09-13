@@ -1403,10 +1403,11 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 > propio en vez de contra lo que llegó — el mismo defecto que se cerró en Estadísticas el
 > 2026-09-12, que acá seguía vivo. Ahora usa `estaTruncado`.
 >
-> **Queda uno de la misma clase, sin tocar:** Inicio › Resumen cuenta "por verificar" sobre las 500
-> recepciones más recientes (`useReceptions()` sin filtros). Una pendiente vieja más allá del techo
-> no se cuenta. No se midió cuántas recepciones hay en producción (la sesión del preview había
-> vencido); se corrige pidiendo el conteo en la base con `status = pendiente`.
+> ~~**Queda uno de la misma clase, sin tocar:** Inicio › Resumen cuenta "por verificar" sobre las 500
+> recepciones más recientes.~~ **También cerrado el 2026-09-13:** la cifra sale de
+> `usePendingReceptionsCount`, un conteo en la base (`head: true`, `status = pendiente`) sin techo.
+> De paso Inicio dejó de bajar 500 recepciones con renglones embebidos para mostrar un número. En
+> producción había 11 recepciones y 0 pendientes, así que el defecto nunca llegó a verse.
 
 - **Qué:** el aviso de `RecepcionView.tsx` dice *"Hay más de 500 recepciones y la lista muestra las
   más recientes. **Acotá por fecha** o por ámbito…"*. Pero el rango de fechas filtra **en memoria**
