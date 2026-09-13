@@ -143,6 +143,32 @@ export function useReceptions(filtros: Partial<FiltrosDeBaseRecepcion> = {}): Re
   }
 }
 
+/**
+ * Cuántas recepciones están PENDIENTES de verificar, contadas en la base.
+ *
+ * Existe por la cifra "por verificar" de Inicio › Resumen, que antes contaba en memoria sobre
+ * `useReceptions()`: las 500 recepciones más recientes. Una pendiente más vieja que esas 500 no
+ * entraba en la cuenta, y la cifra decía menos de lo que había sin ningún aviso — el mismo techo que
+ * la #161 cerró en la lista de Recepción. Con `head: true` no viaja ninguna fila, así que además
+ * Inicio dejó de bajar 500 recepciones con sus renglones embebidos para mostrar un número.
+ *
+ * `null` es "no sabemos" (cargando, o sin conteo), nunca cero: un 0 afirmaría que no hay ninguna.
+ * La RLS filtra en silencio, igual que antes: quien no ve recepciones cuenta 0.
+ */
+export function usePendingReceptionsCount(): { n: number | null; loading: boolean; error: string | null } {
+  const res = useSupabaseQuery<number>(
+    async (c) => {
+      const { count, error } = await c
+        .from('medication_receptions')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pendiente')
+      return { data: count, error }
+    },
+    [],
+  )
+  return { n: res.data, loading: res.loading, error: res.error }
+}
+
 /** Renglón a recibir (entrada para `create_reception`). */
 export interface ReceptionItemInput {
   medication_id: string
