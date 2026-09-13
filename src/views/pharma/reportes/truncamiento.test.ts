@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { notaDeDetalleCortado, truncamiento } from './truncamiento'
-import type { FuenteDeDatos } from './truncamiento'
+import type { AlcanceDeFuente, FuenteDeDatos } from './truncamiento'
 
 /**
  * El aviso de truncamiento.
@@ -16,29 +16,30 @@ import type { FuenteDeDatos } from './truncamiento'
  * por separado alcanza.
  */
 
-/** Fuente sana por defecto: no truncada y achicable por los dos controles. */
-function fuente(over: Partial<FuenteDeDatos> = {}): FuenteDeDatos {
-  return {
-    que: over.que ?? 'dispensaciones',
-    total: over.total ?? 6000,
-    truncado: over.truncado ?? true,
-    porRango: over.porRango ?? true,
-    porProtocolo: over.porProtocolo ?? true,
-    motivo: over.motivo,
-  }
+const AMBOS: AlcanceDeFuente = { porRango: true, porProtocolo: true }
+
+/**
+ * Fuente truncada por defecto, achicable por los dos controles.
+ *
+ * El alcance va en su propio parámetro y no mezclado en `over`: `FuenteDeDatos` es una unión, y un
+ * `Partial` de la unión dejaba armar desde el test justo las fuentes que el tipo prohíbe.
+ */
+function fuente(
+  over: Partial<Pick<FuenteDeDatos, 'que' | 'total' | 'truncado'>> = {},
+  alcance: AlcanceDeFuente = AMBOS,
+): FuenteDeDatos {
+  return { que: over.que ?? 'dispensaciones', total: over.total ?? 6000, truncado: over.truncado ?? true, ...alcance }
 }
 
-const SALIDAS = fuente({
-  que: 'salidas ambulatorias',
-  porProtocolo: false,
-  motivo: 'una salida ambulatoria no tiene protocolo',
-})
+const SALIDAS = fuente(
+  { que: 'salidas ambulatorias' },
+  { porRango: true, porProtocolo: false, motivo: 'una salida ambulatoria no tiene protocolo' },
+)
 
-const VENCIDOS = fuente({
-  que: 'lotes vencidos',
-  porRango: false,
-  motivo: 'un lote está vencido hoy, no durante el período',
-})
+const VENCIDOS = fuente(
+  { que: 'lotes vencidos' },
+  { porRango: false, porProtocolo: true, motivo: 'un lote está vencido hoy, no durante el período' },
+)
 
 describe('truncamiento', () => {
   it('sin ninguna truncada devuelve null', () => {
@@ -110,6 +111,32 @@ describe('truncamiento · el consejo', () => {
     expect(r?.consejo).toBe(
       'Acotá el rango y filtrá por protocolo: ninguno de los dos alcanza por separado.',
     )
+  })
+})
+
+describe('truncamiento · las fuentes que no se pueden escribir', () => {
+  /*
+   * Estos casos los verifica `tsc`, no vitest: cada `@ts-expect-error` exige que la línea de abajo NO
+   * compile, y `npm run build` corre `tsc` antes que los tests. Si alguien afloja `AlcanceDeFuente`
+   * y la fuente pasa a compilar, la directiva queda sin error y el build cae con
+   * "Unused '@ts-expect-error' directive".
+   *
+   * Van como LLAMADAS en una sola línea y no como `const` sueltas a propósito: con `noUnusedLocals`,
+   * una constante sin usar ya da error por sí sola y dejaría la directiva satisfecha aunque la unión
+   * se aflojara — el candado estaría puesto y no cerraría nada.
+   */
+  const acepta = (f: FuenteDeDatos) => f
+
+  it('un control que no sirve exige decir por qué', () => {
+    // @ts-expect-error — porProtocolo en false sin motivo: el consejo quedaría circular.
+    expect(acepta({ que: 'x', total: 1, truncado: true, porRango: true, porProtocolo: false }).que).toBe('x')
+    // @ts-expect-error — porRango en false sin motivo: ídem.
+    expect(acepta({ que: 'x', total: 1, truncado: true, porRango: false, porProtocolo: true }).que).toBe('x')
+  })
+
+  it('una fuente que no achica ningún control no entra en este aviso', () => {
+    // @ts-expect-error — los dos en false: el consejo pediría dos controles que no achican nada.
+    expect(acepta({ que: 'x', total: 1, truncado: true, porRango: false, porProtocolo: false, motivo: 'm' }).que).toBe('x')
   })
 })
 

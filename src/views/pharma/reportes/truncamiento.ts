@@ -22,19 +22,46 @@ import { formatNumberAR } from '../../../lib/numbers'
  * equivocado se lee perfecto y manda a tocar un control inerte con la impresión bloqueada.
  */
 
-export interface FuenteDeDatos {
+/**
+ * A qué controles responde una fuente. UNIÓN DISCRIMINADA y no dos booleanos sueltos, porque con
+ * booleanos sueltos se podían escribir dos fuentes que el consejo no sabe tratar, y que compilaban:
+ *
+ *   · una con un `false` y SIN `motivo`: el consejo caía en un "no responde a ese control" genérico,
+ *     que es circular ("filtrar por protocolo no achica X: no responde a ese control");
+ *   · una con los DOS en `false`: caía en la rama mixta, que pide usar los dos controles — y ninguno
+ *     de los dos la achica. La impresión quedaba bloqueada sin ninguna acción posible.
+ *
+ * Con la unión, `tsc` exige el `motivo` justo cuando hay un `false` y rechaza la fuente con los dos en
+ * `false`. Ninguna de las dos era alcanzable con las cinco fuentes reales; ahora tampoco se pueden
+ * ESCRIBIR, que es lo que importa el día que se sume una sexta. Si alguna vez existe una lista que no
+ * achica ningún control, no se la agrega acá: necesita otro aviso, porque el de este archivo siempre
+ * ofrece algo que hacer. Fijado con `@ts-expect-error` en el test.
+ */
+export type AlcanceDeFuente =
+  | { porRango: true; porProtocolo: true; motivo?: undefined }
+  | {
+      porRango: true
+      porProtocolo: false
+      /** Por qué filtrar por protocolo no la achica. Se lee en el consejo. */
+      motivo: string
+    }
+  | {
+      porRango: false
+      porProtocolo: true
+      /** Por qué acotar el período no la achica. Se lee en el consejo. */
+      motivo: string
+    }
+
+export type FuenteDeDatos = {
   /** Cómo se nombra en el aviso, en plural y en minúscula: "renglones dispensados", "lotes vencidos". */
   que: string
   /** Filas que la base dice que hay. Nunca es null cuando `truncado` es true (ver abajo). */
   total: number | null
   truncado: boolean
-  /** ¿Acotar el período achica esta lista? */
-  porRango: boolean
-  /** ¿Filtrar por protocolo achica esta lista? */
-  porProtocolo: boolean
-  /** Por qué esta lista no responde a uno de los dos controles. Sólo para las que tienen un `false`. */
-  motivo?: string
-}
+} & AlcanceDeFuente
+
+type SinProtocolo = Extract<FuenteDeDatos, { porProtocolo: false }>
+type SinRango = Extract<FuenteDeDatos, { porRango: false }>
 
 export interface Truncamiento {
   /** Las fuentes que cortaron, con su número: "6.000 en dispensaciones y 7.200 en recepciones". */
@@ -63,8 +90,11 @@ export function truncamiento(fuentes: FuenteDeDatos[]): Truncamiento | null {
 
   const detalle = enumerar(cortadas.map((f) => `${formatNumberAR(f.total ?? 0)} en ${f.que}`))
 
-  const sinProtocolo = cortadas.filter((f) => !f.porProtocolo)
-  const sinRango = cortadas.filter((f) => !f.porRango)
+  /* Guardas de tipo y no un filtro pelado: así el `motivo` llega tipado como `string` y el consejo lo
+     usa sin fallback. Antes había un `motivo ?? 'no responde a ese control'` que ningún test ejercía
+     y que producía una frase circular. */
+  const sinProtocolo = cortadas.filter((f): f is SinProtocolo => !f.porProtocolo)
+  const sinRango = cortadas.filter((f): f is SinRango => !f.porRango)
 
   /* Las cuatro ramas salen de la UNIÓN de lo que cortó, no de la primera fuente: ofrecer un control
      que no achica NADA de lo que cortó es peor que no decir nada, porque la farmacéutica lo usa,
@@ -73,9 +103,9 @@ export function truncamiento(fuentes: FuenteDeDatos[]): Truncamiento | null {
     sinProtocolo.length === 0 && sinRango.length === 0
       ? 'Acotá el rango o filtrá por protocolo.'
       : sinRango.length === 0
-        ? `Acotá el rango. Filtrar por protocolo no achica ${enumerar(sinProtocolo.map((f) => f.que))}: ${enumerar(sinProtocolo.map((f) => f.motivo ?? 'no responde a ese control'))}.`
+        ? `Acotá el rango. Filtrar por protocolo no achica ${enumerar(sinProtocolo.map((f) => f.que))}: ${enumerar(sinProtocolo.map((f) => f.motivo))}.`
         : sinProtocolo.length === 0
-          ? `Filtrá por protocolo. Acotar el rango no achica ${enumerar(sinRango.map((f) => f.que))}: ${enumerar(sinRango.map((f) => f.motivo ?? 'no responde a ese control'))}.`
+          ? `Filtrá por protocolo. Acotar el rango no achica ${enumerar(sinRango.map((f) => f.que))}: ${enumerar(sinRango.map((f) => f.motivo))}.`
           : 'Acotá el rango y filtrá por protocolo: ninguno de los dos alcanza por separado.'
 
   return { detalle, consejo }
