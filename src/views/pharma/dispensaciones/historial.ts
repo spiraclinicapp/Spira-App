@@ -96,6 +96,8 @@ const CAMPOS: Record<string, string> = {
   includes_ip: 'Lleva producto en investigación',
   off_schedule: 'Fuera de cronograma',
   off_schedule_reason: 'Motivo de la excepción',
+  base_sin_cronograma: 'No prevista en el cronograma', // 0121
+  prepared_by_name: 'Lo prepara', // 0121
   ip_kits: 'Kits de IP',
   correlative_number: 'N° de comprobante',
   daily_number: 'N° del día',
@@ -178,6 +180,8 @@ function pedido(
       : despues.requested_by_module === 'pharma' ? 'Alta manual desde Farmacia' : null
     const partes = [origen]
     if (despues.off_schedule === true) partes.push('Fuera de cronograma')
+    // 0121: la base que la visita no preveía. Se dice sólo si no es ya una excepción declarada.
+    else if (despues.base_sin_cronograma === true) partes.push('No prevista en el cronograma')
     return { titulo: 'Se creó el pedido', detalle: unir(partes), icono: 'plus', tono: 'neutro' }
   }
 

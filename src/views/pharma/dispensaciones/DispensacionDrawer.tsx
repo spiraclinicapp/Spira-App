@@ -193,6 +193,16 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
                   </span>
                 </div>
               )}
+              {/* 0121: base que la visita no preveía. Un dato sin motivo (no es una excepción), con
+                  el mismo chip para que la farmacéutica lo lea donde ya mira. */}
+              {r.base_sin_cronograma && !r.off_schedule && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  <span style={chipExcepcion}>
+                    <Icon name="info" size={11} stroke={2.4} />
+                    No prevista en el cronograma
+                  </span>
+                </div>
+              )}
 
               {errAccion && (
                 <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', marginTop: 8 }} role="alert">

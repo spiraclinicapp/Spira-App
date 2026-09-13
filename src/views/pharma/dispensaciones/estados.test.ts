@@ -53,7 +53,7 @@ function pedido(over: {
     requested_by_module: 'track', prepared_by: 'u1', preparation_started_at: '2026-08-11T09:00:00Z',
     items: over.items ?? [], dispensations: [],
     includes_ip: over.ip ?? false,
-    off_schedule: false, off_schedule_reason: null,
+    off_schedule: false, off_schedule_reason: null, base_sin_cronograma: false, prepared_by_name: null,
     ip_documents: over.docs ?? [],
     enrollment: null,
     protocol: null,

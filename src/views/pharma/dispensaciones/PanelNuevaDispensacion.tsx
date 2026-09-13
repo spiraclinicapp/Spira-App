@@ -147,7 +147,9 @@ function AltaProtocolo({ onClose, onCreated }: {
         ? 'Ya tiene una solicitud abierta'
         : necesitaMotivoFueraCronograma(v, 'renglones')
           ? 'Fuera de cronograma · pide motivo'
-          : undefined,
+          // 0121: la base ya no pide motivo, pero la visita sigue sin preverla y el pedido lo va a
+          // sellar. Se dice como dato, antes de elegirla.
+          : !v.dispenses ? 'Fuera de cronograma' : undefined,
     })),
     [visitas.data],
   )
@@ -166,9 +168,9 @@ function AltaProtocolo({ onClose, onCreated }: {
 
   /**
    * Este panel SIEMPRE manda renglones de medicación (el botón exige al menos uno), así que el
-   * camino es 'renglones' y no 'cualquiera'. La diferencia importa: una visita que entrega IP
-   * pero no medicación concomitante autorizaría el pedido por el otro camino y la base igual
-   * rechazaría estos renglones con "Esta visita no entrega medicación".
+   * camino es 'renglones'. Desde la 0121 ese camino nunca pide motivo: la base es libre del
+   * cronograma y el servidor sella `base_sin_cronograma` solo. Se sigue preguntando a la regla en
+   * vez de borrar el desplegable acá, para que el día que la regla cambie cambie en un solo lugar.
    */
   const necesitaMotivo = visitaElegida != null && necesitaMotivoFueraCronograma(visitaElegida, 'renglones')
   const motivoLabel = MOTIVOS_FUERA_CRONOGRAMA.find((m) => m.value === motivo)?.label ?? null

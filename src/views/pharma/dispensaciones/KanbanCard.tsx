@@ -112,6 +112,13 @@ export function KanbanCard({ r, column, canOperate, onOpen, onOpenPatient, onAdv
           Fuera de cronograma
         </div>
       )}
+      {/* 0121: base que la visita no preveía — un dato, no una excepción. */}
+      {r.base_sin_cronograma && !r.off_schedule && (
+        <div style={{ ...chipExcepcion, marginBottom: 6 }}>
+          <Icon name="info" size={11} stroke={2.4} />
+          No prevista en el cronograma
+        </div>
+      )}
 
       {/* 2 · qué se dispensa. Con cero renglones (IP solo) la línea quedaría VACÍA: se dice qué es,
           que además es la información que hace entendible el "0 u." que no mostramos abajo. */}
