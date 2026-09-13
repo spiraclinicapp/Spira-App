@@ -1394,6 +1394,20 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 
 ## Recepción · el aviso manda a un filtro que no viaja a la base
 
+> **CERRADO el 2026-09-13, por transporte** (decisión del Director entre copy y transporte). La
+> fecha y el protocolo filtran en la base (`consultaDeRecepciones`, en
+> `src/data/pharma/receptionsModel.ts`, con tests); estado, medicamento y búsqueda siguen en
+> memoria. El aviso nombra sólo los controles que traen filas nuevas —fecha, tipo y protocolo— y
+> dice cuántas llegaron de cuántas hay. **Y había dos cosas más que esta entrada no decía:** el
+> protocolo TAMBIÉN filtraba en memoria (no sólo la fecha), y el detector comparaba contra el techo
+> propio en vez de contra lo que llegó — el mismo defecto que se cerró en Estadísticas el
+> 2026-09-12, que acá seguía vivo. Ahora usa `estaTruncado`.
+>
+> **Queda uno de la misma clase, sin tocar:** Inicio › Resumen cuenta "por verificar" sobre las 500
+> recepciones más recientes (`useReceptions()` sin filtros). Una pendiente vieja más allá del techo
+> no se cuenta. No se midió cuántas recepciones hay en producción (la sesión del preview había
+> vencido); se corrige pidiendo el conteo en la base con `status = pendiente`.
+
 - **Qué:** el aviso de `RecepcionView.tsx` dice *"Hay más de 500 recepciones y la lista muestra las
   más recientes. **Acotá por fecha** o por ámbito…"*. Pero el rango de fechas filtra **en memoria**
   sobre las 500 filas ya recortadas: el único filtro que viaja a la base es el ámbito
