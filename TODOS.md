@@ -1379,27 +1379,17 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 
 ---
 
-## Estadísticas de Farmacia · la descarga del CSV no mira el techo
+## ~~Estadísticas de Farmacia · la descarga del CSV no mira el techo~~ — HECHA el 2026-09-12 (coda `v0.69.1`, PR #157)
 
-- **Qué:** `descargar()` en `ReportesView.tsx` exporta el detalle sin consultar `puedeImprimir`. Con
-  el informe cortado, el CSV sale igual, con el encabezado "Reporte de dispensaciones — Spira ·
-  Fundación Scherbovsky", el período y los filtros declarados, y **sin una sola línea que diga que
-  está recortado**.
-- **Por qué:** la tesis de toda esta familia de trabajo es "cortado ⇒ no se firma", y el CSV es el
-  otro papel que sale de esta pantalla. Peor: en pantallas de **menos de 1024px** el `return`
-  temprano ocurre ANTES del aviso, así que ahí la descarga es **lo único que se ofrece** y el aviso
-  ni se dibuja.
-- **Pros:** cierra la última puerta por la que un número corto sale de Estadísticas.
-- **Contras:** hay que decidir entre bloquear la descarga (deja al usuario angosto sin ninguna
-  salida) o dejarla salir con una fila de nota en la cabecera del CSV. **La segunda parece mejor y
-  es más barata, pero es decisión del Director.**
-- **Contexto:** lo encontró el review final de rama (opus) de la tanda del techo de filas
-  (2026-09-12). Es PREEXISTENTE.
-- **Empezar por:** `src/views/pharma/reportes/ReportesView.tsx`, la función `descargar()` y el
-  bloque `if (angosto)`.
-- **Depende de / bloqueado por:** decisión del Director entre bloquear o anotar.
-- **Prioridad:** P3 — riesgo latente, sin caso real todavía.
-
+> **Cerrada.** No se bloqueó la descarga —eso dejaba al usuario de pantalla angosta sin ninguna
+> salida, que es donde más la necesita— sino que **el archivo declara el corte**: una fila en la
+> cabecera del CSV, y la misma oración sumada al texto de la pantalla angosta, para que se entere
+> **antes** de bajarlo. La nota va arriba y no al pie porque un CSV se abre en una grilla.
+>
+> **La trampa que casi pone un número falso:** el CSV tiene una fila por dispensación (`detalle()`
+> agrupa por `dispensation_id`) pero la consulta y su techo cuentan **renglones**. Comparar las filas
+> del archivo contra el total de la consulta habría dicho "cortado" en CADA descarga. La nota compara
+> renglones con renglones.
 ---
 
 ## Recepción · el aviso manda a un filtro que no viaja a la base
