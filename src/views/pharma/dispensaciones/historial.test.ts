@@ -48,6 +48,19 @@ describe('el pedido', () => {
     expect(e.detalle).toBe('Lo dio de alta Coordinación')
   })
 
+  it('0121: la base que la visita no preveía se dice al crear, y no pisa a la excepción declarada', () => {
+    const base = uno(fila({
+      accion: 'INSERT',
+      despues: { status: 'solicitada', requested_by_module: 'track', base_sin_cronograma: true, off_schedule: false },
+    }))
+    expect(base.detalle).toBe('Lo dio de alta Coordinación · No prevista en el cronograma')
+    const ambas = uno(fila({
+      accion: 'INSERT',
+      despues: { status: 'solicitada', requested_by_module: 'track', base_sin_cronograma: true, off_schedule: true },
+    }))
+    expect(ambas.detalle).toBe('Lo dio de alta Coordinación · Fuera de cronograma')
+  })
+
   it('tomar la preparación se lee como tal, no como tres columnas', () => {
     const e = uno(fila({
       antes: { status: 'solicitada', prepared_by: null, preparation_started_at: null },

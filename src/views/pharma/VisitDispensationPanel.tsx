@@ -11,6 +11,9 @@ import {
   createDispensationRequest,
   addDispensationItems,
   cancelDispensationRequest,
+  updateDispensationItemQuantity,
+  removeDispensationItem,
+  useStockDeLaVisita,
   activeDispensation,
   columnOf,
   constanciaVigente,
@@ -21,6 +24,8 @@ import {
 } from '../../data/pharma'
 import type { DispensationRequestRow, IpDocumentRow, UltimaDispensacionRow } from '../../data/pharma'
 import { bumpIpEstado } from '../../data/visitIp'
+import { avisoStock, descripcionStock } from './stockVisita'
+import { edicionDelPedido, quienLoPrepara } from './edicionPedido'
 import { badgeOf } from './dispensaciones/estados'
 import {
   MOTIVOS_FUERA_CRONOGRAMA,
@@ -109,6 +114,22 @@ function Sub({ label, first, excepcion, children }: {
 const itemRow: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, padding: '8px 12px',
   border: '1px solid var(--spira-line)', borderRadius: 11, background: 'var(--spira-white)',
+}
+
+/** Editar la cantidad de un renglón ya pedido (0121): el input entra en el alto del renglón. */
+const qtyInline: CSSProperties = {
+  width: 64, height: 30, borderRadius: 8, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+  background: 'var(--spira-white)', padding: '0 8px', fontFamily: 'var(--spira-font-text)', fontSize: 13,
+  color: 'var(--spira-ink)', flex: '0 0 auto',
+}
+/** Lápiz y cruz de un renglón ya pedido: el mismo botón mudo que quita un renglón sin enviar. */
+const iconBtn: CSSProperties = {
+  flex: '0 0 auto', background: 'transparent', border: 'none', cursor: 'pointer',
+  display: 'grid', placeItems: 'center', padding: 2,
+}
+/** El aviso de stock (0121): una línea en tinta atenuada, sin caja — informa, no bloquea. */
+const avisoStockStyle: CSSProperties = {
+  fontSize: 12, color: 'var(--spira-acc-deep-warn)', padding: '4px 12px 0', lineHeight: 1.4,
 }
 
 /** Aviso "Falta la constancia": texto en TINTA, el ámbar queda solo en el ícono y el fondo
@@ -395,6 +416,14 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    */
   const [fueraCronograma, setFueraCronograma] = useState(false)
   const [motivo, setMotivo] = useState('')
+  /** El renglón del pedido cuya cantidad se está cambiando (0121, D5), y el valor que se tipea. */
+  const [editando, setEditando] = useState<{ itemId: string; qty: string } | null>(null)
+  /**
+   * Stock de la medicación habilitada, del protocolo de la visita (0121, D6). Una consulta por panel y
+   * sólo donde se puede pedir: en la ficha (lectura) no hay nada que decidir con ese número.
+   */
+  const stockQ = useStockDeLaVisita(visit.id, !readOnly)
+  const stockDe = (medicationId: string) => (stockQ.data ?? []).find((s) => s.medication_id === medicationId)
 
   const requests = reqQ.data ?? []
   // Abiertas = todavía accionables (solicitada / preparando / lista para retirar); van siempre
@@ -461,12 +490,12 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   /** Se muestra la subsección: viva, o ya consumada (el pedido de excepción entregado). */
   const mostrarExcepcion = excepcionViva || reqExcepcion !== null
   /**
-   * La concomitante se ofrece cuando la visita la entrega O mientras la excepción está viva: fuera
-   * de cronograma se dispensa justamente lo que el cronograma no previó, así que las dos vías tienen
-   * que estar disponibles (mock, estado 8). Con la excepción ya consumada no se reabre: ahí el
-   * pedido está entregado y sus renglones viven en el historial.
+   * La concomitante se ofrece SIEMPRE (0121, plan D4): la medicación de base es independiente del
+   * cronograma. Antes se gateaba con `visit.dispenses || excepcionViva`, y una visita que el
+   * cronograma no marcaba obligaba a declarar un motivo para pedir un paracetamol. Si la visita no la
+   * preveía, el servidor sella `base_sin_cronograma` solo, como dato para el comprobante.
    */
-  const mostrarConcomitante = visit.dispenses || excepcionViva
+  const mostrarConcomitante = true
   /**
    * Motivo elegido, como ETIQUETA LEGIBLE. Lo que viaja al servidor es el label y no la clave: ese
    * texto sale impreso en el comprobante que lee un monitor, y `ajuste_dosis` ahí no dice nada.
@@ -494,7 +523,16 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    * que no se llega a mandar renglones por el hueco que deja el otro camino. El mostrador de
    * Farmacia, que siempre manda renglones, usa 'renglones'.
    */
-  const necesitaMotivo = !readOnly && !destino && necesitaMotivoFueraCronograma(visit, 'cualquiera')
+  /*
+   * 0121: con la base libre, el motivo es SÓLO del producto en investigación fuera de cronograma. Hace
+   * falta cuando lo que nace es un pedido que lleva la constancia y el cronograma no prevé IP — o
+   * cuando el pedido abierto al que se sumaría no la acepta (`ipVaAparte`, abajo) y el IP tiene que
+   * nacer en uno propio. Un pedido de pura base nunca pide motivo.
+   */
+  const destinoAceptaIp = destino !== null && (destino.includes_ip || destino.off_schedule)
+  const ipVaAparte = archivo !== null && destino !== null && !destinoAceptaIp
+  const necesitaMotivo = !readOnly && archivo !== null && (destino === null || ipVaAparte)
+    && necesitaMotivoFueraCronograma(visit, 'solo_ip')
   const razonExcepcion = necesitaMotivo ? motivoLabel : null
   /**
    * Sin motivo no hay excepción: es la ÚNICA puerta que tiene la base para saltear el cronograma
@@ -510,7 +548,12 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const yaEnPedido = new Set(openMedItems.map((it) => it.medication_id))
   const options: SelectOption[] = activeMeds
     .filter((m) => !pendingIds.has(m.medication_id) && !yaEnPedido.has(m.medication_id))
-    .map((m) => ({ value: m.medication_id, label: m.medication?.name ?? 'Medicamento' }))
+    .map((m) => ({
+      value: m.medication_id,
+      label: m.medication?.name ?? 'Medicamento',
+      // 0121 (D6): el stock, antes de elegir. Sin dato (cargando o error) no se afirma nada.
+      desc: descripcionStock(stockDe(m.medication_id)),
+    }))
 
   /**
    * Que lo que se solicite va a abrir un pedido APARTE, escrito antes de mandar y no después.
@@ -639,7 +682,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    * Sin pedido abierto no hay nada sellado todavía: recién ahí cae al cronograma, que es lo que un
    * pedido NUEVO va a heredar al crearse (0071 §8) — y es el único caso legítimo de mirarlo.
    */
-  const ipAceptaAdjunto = destino ? destino.includes_ip || destino.off_schedule : visit.dispenses_ip
+  // 0121: con la excepción abierta, un pedido de pura base abierto ya no bloquea el adjunto — el IP
+  // nace en su propio pedido con el motivo (`ipVaAparte` en `enviar`), porque ese pedido de base no
+  // tiene `off_schedule` que lo habilite y el servidor lo rechazaría.
+  const ipAceptaAdjunto = destino ? destinoAceptaIp || excepcionViva : visit.dispenses_ip || excepcionViva
 
   /**
    * "Falta la constancia" (el aviso + la píldora "Incompleta" del pie) solo es CIERTO cuando el
@@ -700,28 +746,42 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     if (faltaMotivo) { setErr(FALTA_MOTIVO_MSG); return }
     setBusy(true); setErr(null)
 
+    // Ante un rechazo del servidor se RELEE: el caso típico es que Farmacia tomó el pedido mientras la
+    // tarjeta estaba abierta, y sin releer `destino` seguía apuntando a un pedido que ya no acepta
+    // cambios — cada reintento chocaba contra el mismo guard y nunca aparecía "Lo está preparando".
+    const releer = () => { reqQ.refetch(); stockQ.refetch() }
+
     let requestId = destino?.id ?? null
     if (!requestId) {
       const payload = items.map((i) => ({ medication_id: i.medication_id, quantity: i.quantity }))
       const res = await createDispensationRequest(visit.id, payload, null, 'track', razonExcepcion)
-      if (res.error) { setBusy(false); setErr(res.error); return }
+      if (res.error) { setBusy(false); setErr(res.error); releer(); return }
       requestId = res.id!
     } else if (items.length) {
       const res = await addDispensationItems(requestId, items.map((i) => ({ medication_id: i.medication_id, quantity: i.quantity })))
-      if (res.error) { setBusy(false); setErr(res.error); return }
+      if (res.error) { setBusy(false); setErr(res.error); releer(); return }
     }
     // Los renglones ya entraron: se limpian ANTES de subir para que un fallo del adjunto no los deje
     // en pantalla como si faltara mandarlos (y un segundo intento los duplicaría).
     setItems([]); setSoliciting(false)
 
     if (archivo) {
-      const up = await uploadIpDocument(requestId, visit.protocol_id, archivo)
-      if (up.error) { setBusy(false); setErr(up.error); reqQ.refetch(); bumpIpEstado(); return }
+      // 0121: el pedido abierto es de pura base y no acepta la constancia (no tiene `off_schedule`
+      // que lo habilite). El IP nace en SU pedido, con el motivo — son dos comprobantes, y es el
+      // único camino que no le abre el IP a un pedido sin motivo.
+      let ipRequestId = requestId
+      if (ipVaAparte) {
+        const res = await createDispensationRequest(visit.id, [], null, 'track', razonExcepcion)
+        if (res.error) { setBusy(false); setErr(res.error); releer(); bumpIpEstado(); return }
+        ipRequestId = res.id!
+      }
+      const up = await uploadIpDocument(ipRequestId, visit.protocol_id, archivo)
+      if (up.error) { setBusy(false); setErr(up.error); releer(); bumpIpEstado(); return }
       setArchivo(null); setReemplazando(false)
     }
 
     setBusy(false)
-    reqQ.refetch()
+    releer()
     // La fila del IP del panel de Procedimientos (0119) lee otra consulta: sin este aviso seguía
     // diciendo "Sin pedir" al lado de un pedido recién mandado, hasta reabrir el modal.
     bumpIpEstado()
@@ -730,9 +790,33 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   async function cancel(requestId: string) {
     setErr(null)
     const res = await cancelDispensationRequest(requestId)
-    if (res.error) { setErr(res.error); return }
-    reqQ.refetch()
+    // Releer también ante el error: si Farmacia ya lo tomó, la tarjeta tiene que dejar de ofrecer
+    // "Cancelar solicitud" sobre un pedido que ya no se puede cancelar desde acá.
+    if (res.error) { setErr(res.error); reqQ.refetch(); return }
+    reqQ.refetch(); stockQ.refetch()
     bumpIpEstado()
+  }
+
+  /** Guarda la cantidad nueva de un renglón del pedido abierto (0121, D5). */
+  async function guardarCantidad(itemId: string, texto: string) {
+    const n = parseInt(texto, 10)
+    if (!Number.isFinite(n) || n <= 0) { setErr('La cantidad debe ser mayor a cero.'); return }
+    setBusy(true); setErr(null)
+    const res = await updateDispensationItemQuantity(itemId, n)
+    setBusy(false)
+    if (res.error) { setErr(res.error); reqQ.refetch(); stockQ.refetch(); return }
+    setEditando(null)
+    reqQ.refetch(); stockQ.refetch()
+  }
+
+  /** Quita un renglón del pedido abierto (0121, D5). El último de un pedido sin IP no se quita. */
+  async function quitarRenglon(itemId: string) {
+    setBusy(true); setErr(null)
+    const res = await removeDispensationItem(itemId)
+    setBusy(false)
+    if (res.error) { setErr(res.error); reqQ.refetch(); stockQ.refetch(); return }
+    if (editando?.itemId === itemId) setEditando(null)
+    reqQ.refetch(); stockQ.refetch()
   }
 
   /**
@@ -816,10 +900,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     )
   }
 
-  // Los `mostrar*` y no los flags del cronograma: si el cronograma se destildó con un pedido de IP
-  // abierto —o si esta dispensación existe por EXCEPCIÓN, donde el cronograma dice que no—, la
-  // tarjeta seguiría diciendo "esta visita no entrega medicación" arriba de un pedido vivo.
-  const nada = !mostrarConcomitante && !mostrarIp && !mostrarExcepcion
+  /* 0121: ya no existe el estado "Esta visita no entrega medicación". La base se pide en cualquier
+     visita, así que la tarjeta siempre tiene algo que ofrecer, y la salida punteada "Dispensar fuera
+     de cronograma" pasó a ser SÓLO la del producto en investigación (ver `ofrecerIpFueraDeCronograma`). */
+  const ofrecerIpFueraDeCronograma = !readOnly && !mostrarIp
 
   return (
     <Panel
@@ -834,26 +918,6 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
       highlight
       tint={{ band: 'var(--spira-band-track)', body: 'var(--spira-tint-track)' }}
     >
-      {nada ? (
-        <>
-          {/* `ink-soft` y no el `faint` de antes: sobre el tinte del cuerpo el faint da 1,66:1 y esta
-              frase es la que explica por qué la sección está vacía, o sea justo la que hay que poder
-              leer. `ink-soft` da 4,58:1, apenas arriba del 4,5 de AA y sin subir al ink pleno, que
-              la pondría a gritar en una tarjeta que no tiene nada para hacer. */}
-          <div style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)', padding: '4px 0' }}>Esta visita no entrega medicación.</div>
-          {/* La salida (mock, estado 5). Solo en la vista del día: en la ficha del paciente no se
-              dispensa. El 4 de padding de arriba + este margen dan los 11px de aire del mock. */}
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={() => { setFueraCronograma(true); setErr(null) }}
-              style={{ ...addBtnQuiet, marginTop: 7 }}
-            >
-              <Icon name="plus" size={15} color="var(--spira-muted)" /> Dispensar fuera de cronograma
-            </button>
-          )}
-        </>
-      ) : (
         <>
           {err && <div style={errBox}>{err}</div>}
 
@@ -863,7 +927,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               porque es el único contexto en el que una entrega repetida es un riesgo real.
               Sin guarda de `ultima`: `AvisoReciente` recibe el `QueryResult` entero y decide sola si
               hay algo que mostrar (loading / error / dato / nada) — ver el porqué en su comentario. */}
-          {!mostrarExcepcion && <AvisoReciente query={ultimaQ} alerta={false} accent={accent} />}
+          {/* 0121: sin la excepción, el ámbar se conserva cuando la visita NO preveía base. Antes ese
+              caso pasaba por la excepción y tomaba el tono de alerta; con la base libre se habría
+              perdido justo donde una entrega repetida es más probable. */}
+          {!mostrarExcepcion && <AvisoReciente query={ultimaQ} alerta={!visit.dispenses} accent={accent} />}
 
           {mostrarExcepcion && (
             <Sub label="Fuera de cronograma" first excepcion>
@@ -902,14 +969,66 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             <Sub label="Medicación concomitante" first={!mostrarExcepcion}>
               {openMedItems.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 9 }}>
-                  {openMedItems.map((it) => (
-                    <div key={it.id} style={itemRow}>
-                      <span style={{ flex: 1, minWidth: 0, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {it.medication?.name ?? 'Medicamento'}
-                      </span>
-                      <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>x{it.quantity}</span>
-                    </div>
-                  ))}
+                  {openReqs.flatMap((r) => r.items.map((it) => {
+                    /* 0121 (D5): los renglones de un pedido todavía SOLICITADO se editan acá mismo —
+                       cantidad y quitar—, por RPC con el guard de estado. Los de un pedido que Farmacia
+                       ya tomó quedan en lectura: el pie dice quién lo tiene. */
+                    const ed = edicionDelPedido(r, readOnly)
+                    const qtyEdit = editando && editando.itemId === it.id ? editando.qty : null
+                    const enEdicion = qtyEdit !== null
+                    const nombre = it.medication?.name ?? 'Medicamento'
+                    const aviso = qtyEdit !== null ? avisoStock(stockDe(it.medication_id), parseInt(qtyEdit, 10), it.quantity) : null
+                    return (
+                      <div key={it.id}>
+                        <div style={itemRow}>
+                          <span style={{ flex: 1, minWidth: 0, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {nombre}
+                          </span>
+                          {enEdicion ? (
+                            <>
+                              <input
+                                type="number" min={1} autoFocus value={qtyEdit ?? ''}
+                                aria-label={`Cantidad de ${nombre}`}
+                                onChange={(e) => setEditando({ itemId: it.id, qty: e.target.value })}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') void guardarCantidad(it.id, qtyEdit ?? '')
+                                  if (e.key === 'Escape') setEditando(null)
+                                }}
+                                style={qtyInline}
+                              />
+                              <button type="button" disabled={busy} onClick={() => void guardarCantidad(it.id, qtyEdit ?? '')} style={linkBtn}>Guardar</button>
+                              <button type="button" disabled={busy} onClick={() => setEditando(null)} style={{ ...linkBtn, marginLeft: 0 }}>Cancelar</button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>x{it.quantity}</span>
+                              {ed.editable && (
+                                <button
+                                  type="button" aria-label={`Cambiar la cantidad de ${nombre}`} title="Cambiar la cantidad"
+                                  disabled={busy} onClick={() => { setEditando({ itemId: it.id, qty: String(it.quantity) }); setErr(null) }}
+                                  style={iconBtn}
+                                >
+                                  <Icon name="pencil" size={14} color="var(--spira-muted)" />
+                                </button>
+                              )}
+                              {ed.editable && (
+                                <button
+                                  type="button" aria-label={`Quitar ${nombre} del pedido`}
+                                  title={ed.porQueNoQuitar ?? 'Quitar del pedido'}
+                                  disabled={busy || !ed.puedeQuitar}
+                                  onClick={() => void quitarRenglon(it.id)}
+                                  style={{ ...iconBtn, opacity: ed.puedeQuitar ? 1 : 0.4, cursor: ed.puedeQuitar ? 'pointer' : 'default' }}
+                                >
+                                  <Icon name="x" size={15} color="var(--spira-muted)" />
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        {aviso && <div style={avisoStockStyle}>{aviso}</div>}
+                      </div>
+                    )
+                  }))}
                 </div>
               )}
 
@@ -984,6 +1103,11 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                           Agregar
                         </button>
                       </div>
+                      {/* 0121 (D6): el aviso de stock, en memoria sobre la consulta del panel. Nunca
+                          bloquea "Agregar": el stock puede cambiar antes del mostrador. */}
+                      {pick && qty && avisoStock(stockDe(pick), parseInt(qty, 10)) && (
+                        <div style={{ ...avisoStockStyle, paddingLeft: 2 }}>{avisoStock(stockDe(pick), parseInt(qty, 10))}</div>
+                      )}
 
                     </>
                   )}
@@ -1130,6 +1254,18 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             </div>
           )}
 
+          {/* La salida punteada (mock, estado 5). Desde la 0121 es SÓLO la del producto en
+              investigación: la base ya se pide sin ella. Solo en la vista del día. */}
+          {ofrecerIpFueraDeCronograma && (
+            <button
+              type="button"
+              onClick={() => { setFueraCronograma(true); setErr(null) }}
+              style={{ ...addBtnQuiet, marginTop: 4 }}
+            >
+              <Icon name="plus" size={15} color="var(--spira-muted)" /> Pedir producto en investigación fuera de cronograma
+            </button>
+          )}
+
           {/* pie común: fecha + estado + cancelar, UNA sola vez — es lo que dice que arriba hay un
               pedido y no dos (ver el comentario de cabecera). */}
           {openReq && (
@@ -1141,6 +1277,9 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 {comprobanteAbierto !== null && (
                   <> · Comprobante N° <span className="spira-mono">{comprobanteAbierto}</span></>
                 )}
+                {/* 0121 (D5): con el pedido tomado no se edita, y la salida es pedirle a quien lo
+                    tiene que lo libere — por eso se nombra. */}
+                {quienLoPrepara(openReq) && <> · {quienLoPrepara(openReq)}</>}
               </span>
               {constanciaIncompleta ? (
                 // "Incompleta" pisa el badge normal: falta la constancia importa más que si la
@@ -1163,7 +1302,6 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             </div>
           )}
         </>
-      )}
     </Panel>
   )
 }

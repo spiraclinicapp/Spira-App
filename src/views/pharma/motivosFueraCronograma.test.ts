@@ -31,33 +31,19 @@ describe('necesitaMotivoFueraCronograma', () => {
     expect(necesitaMotivoFueraCronograma(v(true, true), 'renglones')).toBe(false)
   })
 
-  it('la visita que NO dispensa pide motivo para los renglones', () => {
-    // El caso del mostrador: la VNP nunca dispensa según el cronograma (no tiene definición).
-    expect(necesitaMotivoFueraCronograma(v(false, false), 'renglones')).toBe(true)
+  it('REGRESIÓN 0121: la base NUNCA pide motivo, aunque el cronograma no la prevea', () => {
+    // Hasta la 0121 esto daba `true` en una visita que no dispensa (el caso del mostrador: la VNP no
+    // tiene definición). Con la base libre (plan D4), un `true` acá sellaría `off_schedule` con un
+    // motivo inventado en una entrega normal — exactamente la falla silenciosa del encabezado.
+    for (const [d, ip] of [[false, false], [false, true], [true, false], [true, true]] as const) {
+      expect(necesitaMotivoFueraCronograma(v(d, ip), 'renglones')).toBe(false)
+    }
   })
 
-  it('entrega IP pero no medicación: pide motivo para los renglones y NO para la constancia', () => {
-    // El caso que separa los tres caminos. Con una sola regla (`!dispenses && !dispenses_ip`),
-    // el mostrador mandaría renglones sin motivo y la base los rechazaría con "Esta visita no
-    // entrega medicación" — un error del servidor por algo que la pantalla ya sabía.
-    const soloIp = v(false, true)
-    expect(necesitaMotivoFueraCronograma(soloIp, 'renglones')).toBe(true)
-    expect(necesitaMotivoFueraCronograma(soloIp, 'solo_ip')).toBe(false)
-  })
-
-  it('entrega medicación pero no IP: al revés', () => {
-    const soloMed = v(true, false)
-    expect(necesitaMotivoFueraCronograma(soloMed, 'renglones')).toBe(false)
-    expect(necesitaMotivoFueraCronograma(soloMed, 'solo_ip')).toBe(true)
-  })
-
-  it('"cualquiera" pide motivo solo cuando NINGÚN camino está autorizado', () => {
-    // Es la condición de la sección de excepción en Coordinación, que ofrece los dos caminos:
-    // alcanza con que uno esté habilitado para que la visita no sea una excepción.
-    expect(necesitaMotivoFueraCronograma(v(false, false), 'cualquiera')).toBe(true)
-    expect(necesitaMotivoFueraCronograma(v(true, false), 'cualquiera')).toBe(false)
-    expect(necesitaMotivoFueraCronograma(v(false, true), 'cualquiera')).toBe(false)
-    expect(necesitaMotivoFueraCronograma(v(true, true), 'cualquiera')).toBe(false)
+  it('el IP sigue pidiendo motivo cuando el cronograma no lo prevé', () => {
+    expect(necesitaMotivoFueraCronograma(v(true, false), 'solo_ip')).toBe(true)
+    expect(necesitaMotivoFueraCronograma(v(false, false), 'solo_ip')).toBe(true)
+    expect(necesitaMotivoFueraCronograma(v(false, true), 'solo_ip')).toBe(false)
   })
 })
 

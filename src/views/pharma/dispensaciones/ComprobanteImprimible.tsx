@@ -121,6 +121,16 @@ export function ComprobanteImprimible({ r, disp }: {
           </div>
         </div>
       )}
+      {/* 0121: medicación de base en una visita cuyo cronograma no la preveía. NO es una excepción
+          —no lleva motivo—, pero el papel tiene que decirlo igual: es el mismo dato que un monitor
+          busca. Si el pedido además es una excepción declarada, manda el bloque de arriba. */}
+      {r.base_sin_cronograma && !r.off_schedule && (
+        <div style={excepcion}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em' }}>
+            MEDICACIÓN NO PREVISTA EN EL CRONOGRAMA
+          </div>
+        </div>
+      )}
 
       <div style={firmas}>
         <div style={{ flex: 1 }}>

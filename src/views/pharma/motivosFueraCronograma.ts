@@ -57,18 +57,20 @@ export interface VisitaDispensadora {
  * Por cuál de sus dos caminos nace el pedido. NO es un detalle de presentación: la base valida
  * distinto según el caso, y una sola constante para los dos mentiría en uno de ellos.
  *
- *   create_dispensation_request, 0071:481-487, cuando NO viene motivo:
- *     items > 0  →  exige vd.dispenses      ("Esta visita no entrega medicación")
- *     items = 0  →  exige vd.dispenses_ip   ("Un pedido sin renglones y sin IP no es un pedido")
+ *   create_dispensation_request, desde la 0121, cuando NO viene motivo:
+ *     items > 0  →  NADA: la medicación de base ya no pide cronograma (plan D4). Si la visita no la
+ *                   preveía, el servidor sella `base_sin_cronograma`, que es un dato y no una excepción.
+ *     items = 0  →  exige el IP del cronograma ("Un pedido sin renglones y sin IP no es un pedido")
+ *
+ * Hasta la 0121 existía un tercer camino, 'cualquiera', para la sección de excepción de
+ * Coordinación que ofrecía base e IP juntos. Con la base libre, la excepción es sólo del IP y ese
+ * camino dejó de tener sentido: se borró en vez de dejarlo devolviendo algo que ya no es cierto.
  */
 export type CaminoDelPedido =
-  /** Renglones de medicación. Es SIEMPRE el caso del mostrador de Farmacia. */
+  /** Renglones de medicación de base. Es SIEMPRE el caso del mostrador de Farmacia. */
   | 'renglones'
-  /** Sin renglones: el pedido es la constancia de IP. */
+  /** El pedido lleva la constancia de IP. */
   | 'solo_ip'
-  /** Ninguno de los dos está autorizado por el cronograma, así que da igual por dónde se entre.
-   *  Es la condición de la sección de excepción en Coordinación, que ofrece los dos caminos. */
-  | 'cualquiera'
 
 /**
  * ¿Hace falta declarar un motivo para que la base acepte este pedido?
@@ -87,8 +89,8 @@ export function necesitaMotivoFueraCronograma(
   camino: CaminoDelPedido,
 ): boolean {
   switch (camino) {
-    case 'renglones': return !v.dispenses
+    // 0121: la base es libre. `v` se sigue recibiendo para que el llamador no tenga que saberlo.
+    case 'renglones': return false
     case 'solo_ip': return !v.dispenses_ip
-    case 'cualquiera': return !v.dispenses && !v.dispenses_ip
   }
 }

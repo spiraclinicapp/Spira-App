@@ -79,8 +79,10 @@ const CONTEXTO =
 
 const REQUEST_COLS =
   'id, status, source, rejection_reason, notes, created_at, updated_at, visit_id, ' +
-  'requested_by_module, prepared_by, preparation_started_at, ' +
-  'includes_ip, off_schedule, off_schedule_reason, ' +
+  'requested_by_module, prepared_by, prepared_by_name, preparation_started_at, ' +
+  // `prepared_by_name` y `base_sin_cronograma` son de la 0121: sin ella aplicada, PostgREST voltea la
+  // consulta ENTERA (42703). Es la razón de que la 0121 vaya antes del deploy.
+  'includes_ip, off_schedule, off_schedule_reason, base_sin_cronograma, ' +
   'items:dispensation_request_items(id, medication_id, quantity, scanned_at, scanned_by, ' +
     'scanned_units, substituted_from_medication_id, substitution_reason, ' +
     'medication:medications!medication_id(name, dosis, unit, drug:drugs(id, name))), ' +
@@ -488,6 +490,62 @@ export async function addDispensationItems(
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null }
+}
+
+/**
+ * Cambia la cantidad de un renglón del pedido (RPC `update_dispensation_item_quantity`, 0121). Sólo
+ * con el pedido en `solicitada`; si Farmacia ya lo tomó, la base dice quién lo tiene. El renglón
+ * sigue teniendo que estar habilitado para el paciente (el trigger corre también en el UPDATE).
+ */
+export async function updateDispensationItemQuantity(
+  itemId: string,
+  quantity: number,
+): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('update_dispensation_item_quantity', { p_item_id: itemId, p_quantity: quantity })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/**
+ * Quita un renglón del pedido (RPC `remove_dispensation_item`, 0121). Mismas condiciones que cambiar
+ * la cantidad, y además no deja un pedido vacío: el último renglón de un pedido sin IP se cancela
+ * con el pedido, no se quita.
+ */
+export async function removeDispensationItem(itemId: string): Promise<{ error: string | null; code?: string }> {
+  const { error } = await supabase.rpc('remove_dispensation_item', { p_item_id: itemId })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/** Una fila de `stock_de_la_visita` (0121): el stock que Coordinación puede ver, sin lotes. */
+export interface StockVisitaRow {
+  medication_id: string
+  /** Vigente en estante, del protocolo de la visita. Mismo predicado que el FEFO. */
+  en_estante: number
+  /** El lote vigente más grande: Farmacia arma cada medicamento desde UN lote (0075). */
+  maximo_armable: number
+  /** Pedido en pedidos abiertos de ESTA visita que todavía no se descontó. */
+  pedido_esta_visita: number
+  /** Ídem, de las demás visitas del protocolo. */
+  pedido_otras: number
+}
+
+/**
+ * El stock de la medicación habilitada del paciente, para la visita. Una sola consulta por panel: la
+ * advertencia se resuelve en memoria al elegir (ver `stockVisita.ts`), porque una consulta por
+ * selección muestra el dato del medicamento anterior mientras vuelve la respuesta.
+ */
+export function useStockDeLaVisita(visitId: string | null, activo: boolean) {
+  return useSupabaseQuery<StockVisitaRow[]>(
+    async (c) => {
+      if (!visitId || !activo) return { data: [], error: null }
+      const { data, error } = await c.rpc('stock_de_la_visita', { p_visit_id: visitId })
+      if (error) return { data: null, error }
+      return { data: (data ?? []) as StockVisitaRow[], error: null }
+    },
+    [visitId, activo],
+    (e) => pharmaErrorMessage(e.code, e.message),
+  )
 }
 
 /**

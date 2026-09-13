@@ -138,6 +138,8 @@ export interface DispensationRequestRow {
   requested_by_module: 'track' | 'pharma' | null
   /** Quién tomó la preparación y desde cuándo (0054). Sirve para no pisarse entre farmacéuticas. */
   prepared_by: string | null
+  /** Snapshot del nombre de quien lo prepara (0121). Coordinación no puede leer `users` por RLS. */
+  prepared_by_name: string | null
   preparation_started_at: string | null
   items: RequestItemRow[]
   /** La dispensación ejecutada; array por el schema (FK inversa), en la práctica 0 o 1. */
@@ -147,6 +149,11 @@ export interface DispensationRequestRow {
   /** Dispensación fuera de cronograma + su motivo obligatorio (0071). */
   off_schedule: boolean
   off_schedule_reason: string | null
+  /**
+   * Medicación de base en una visita cuyo cronograma no la preveía (0121). Lo sella el servidor y es
+   * un DATO, no una excepción: no lleva motivo ni habilita el IP. No confundir con `off_schedule`.
+   */
+  base_sin_cronograma: boolean
   ip_documents: IpDocumentRow[]
   /**
    * Contexto para la cola de Pharma: paciente (nombre + código IVRS), protocolo y visita.
