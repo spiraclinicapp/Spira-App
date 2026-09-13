@@ -5,6 +5,30 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
+## Dispensación · Farmacia y gerencia pueden cambiar el ESTADO de un pedido por fuera de la app
+
+- **Qué:** frenar los UPDATE directos por PostgREST de `dispensation_requests.status` (y de
+  `prepared_by`), igual que la 0122 hizo con las columnas selladas.
+- **Por qué:** la policy «pharma atiende solicitud» (`0009_role_levels.sql:161-163`) deja a Farmacia y
+  a gerencia hacer UPDATE de cualquier columna del pedido. La 0122 cerró las que sella el servidor
+  (protocolo, IP, excepción, sello de base), pero `status` sigue abierto. Con un PATCH se puede, por
+  ejemplo, pasar un pedido a `atendida` sin que exista la dispensación, o devolver uno a `solicitada`
+  sin pasar por `cancel_dispensation_preparation`, que es la que devuelve el stock.
+- **Pros:** el estado del pedido sólo cambia por las funciones que mantienen el stock y el
+  comprobante coherentes.
+- **Contras:** hay que confirmar primero que NINGÚN camino legítimo cambia el estado con un UPDATE
+  directo (a 2026-09-13, un grep de `src` no encontró ninguno), y que la corrección de un error real por
+  gerencia tenga otra vía.
+- **Contexto:** se vio en el QA logueado de la Tanda 2 del plan `docs/plan-dispensacion-base-e-imp.md`:
+  un PATCH con la cuenta de QA (que tiene Farmacia y gerencia) cambió `includes_ip` de un pedido de
+  prueba. Se revirtió y se cerró con la 0122. `status` quedó afuera a propósito: no estaba en lo
+  decidido y toca el flujo de Farmacia.
+- **Empezar por:** `supabase/migrations/0122_pedido_columnas_selladas.sql`. El mismo guard por
+  `current_user` alcanza, sumando las columnas a la lista.
+- **Depende de / bloqueado por:** nada.
+
+---
+
 ## Alertas · la campana y Pendientes se enteran de lo hecho en otra sesión recién al recargar
 
 - **Qué:** que las superficies de alertas (campana, Pendientes, Inicio y Resumen) se pongan al día
