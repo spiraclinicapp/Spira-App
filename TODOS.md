@@ -5,6 +5,34 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
+## Alertas · la campana y Pendientes se enteran de lo hecho en otra sesión recién al recargar
+
+- **Qué:** que las superficies de alertas (campana, Pendientes, Inicio y Resumen) se pongan al día
+  sin recargar la página cuando la alerta cambia por algo que pasó FUERA de esta pestaña.
+- **Por qué:** cada instancia de `useActiveAlerts` lee una sola vez al montarse. No hay realtime,
+  intervalo ni relectura al volver el foco (`src/lib/useSupabaseQuery.ts`). El único aviso entre
+  instancias es el de los descartes (`bumpDismissals`, `src/data/alertDismissals.ts:47-57`: *"descartar
+  no cambia las alertas en sí"*). Síntomas que **ya pasan hoy**, con todas las clases:
+  - se reprograma una visita desde Pendientes y la campana, montada en el shell, sigue mostrándola;
+  - una ventana que vence con la app abierta no aparece hasta recargar.
+- **Pros:** las cuatro superficies cuentan lo mismo. La alerta nueva «IP sin entregar» (plan
+  `docs/plan-dispensacion-base-e-imp.md`, D3) se apaga sola en la campana cuando Farmacia entrega
+  desde su sesión, y aparece cuando se cumplen las 48 h. A este volumen (~23 pacientes) una
+  relectura al volver el foco cuesta casi nada.
+- **Contras:** releer al volver el foco multiplica las consultas: hay cuatro instancias de
+  `useActiveAlerts`, cada una con tres o cuatro consultas. Realtime sería más preciso pero es infraestructura
+  nueva (canales + RLS de realtime).
+- **Contexto:** lo encontró la `/plan-eng-review` de dispensación base/IMP (2026-09-13). El hallazgo
+  se verificó contra el código y se rebajó a P3 porque es **preexistente**, no una regresión del
+  plan. El plan sí suma un contador compartido (`bumpAlertas`, mismo patrón que `dismissalsVersion`)
+  para los cambios hechos **en esta misma sesión**. Esta entrada cubre los hechos en OTRA.
+- **Empezar por:** `src/data/alertDismissals.ts` (`useActiveAlerts`) y `src/lib/useSupabaseQuery.ts`.
+  La opción barata es un listener de `visibilitychange` que llame a `refetch`.
+- **Depende de / bloqueado por:** nada. Conviene hacerlo después de la Tanda 1 del plan, que suma
+  la quinta clase de alerta.
+
+---
+
 ## Pharma · converger el formateo de fecha de vencimiento a un solo helper
 
 **Bundleado (2026-07-13):** se resuelve como parte del submódulo de Dispensación (ver design doc
