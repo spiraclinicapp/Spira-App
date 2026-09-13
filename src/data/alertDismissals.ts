@@ -6,6 +6,7 @@ import { useVisitAlerts } from './visits'
 import type { TrackVisitRow } from './visits'
 import { useProcedureReportAlerts } from './reports'
 import type { ProcedureReportAlertRow } from './reports'
+import { useIpDeliveryAlerts } from './visitIp'
 import { descarteListo, isReportAlertDismissed, isVisitAlertDismissed } from './alertDismissalModel'
 
 /* Descartar una alerta (migración 0070).
@@ -97,6 +98,10 @@ export function useAlertDismissals(): QueryResult<AlertDismissalRow[]> {
 export function useActiveAlerts() {
   const alerts = useVisitAlerts()
   const reports = useProcedureReportAlerts()
+  /* La tercera clase: «IP sin entregar» (0119, D3). NO pasa por los descartes — no se archiva; la
+     apagan la entrega o un cierre explícito en la visita. Por eso tampoco tiene lista "cruda": la
+     vigente y la cruda son la misma. */
+  const ips = useIpDeliveryAlerts()
   const dismissals = useAlertDismissals()
 
   const rows = alerts.data
@@ -118,11 +123,12 @@ export function useActiveAlerts() {
   return {
     visitAlerts,
     reportAlerts,
+    ipAlerts: ips.data ?? [],
     dismissals: dRows ?? [],
     /** Todas las alertas crudas, sin filtrar (para resolver de qué visita habla un descarte). */
     allVisitAlerts: rows ?? [],
     allReportAlerts: procRows ?? [],
-    loading: alerts.loading || reports.loading || dismissals.loading,
+    loading: alerts.loading || reports.loading || ips.loading || dismissals.loading,
     /**
      * El error de los DESCARTES no se propaga a propósito. Mientras la 0070 no esté aplicada,
      * `alert_dismissals` no existe y esa consulta falla — si ese error subiera, la campana, el
@@ -132,7 +138,13 @@ export function useActiveAlerts() {
      * lección de la 0068). Descartar sí avisa si falla: eso es una acción del usuario.
      */
     error: alerts.error || reports.error,
-    refetch: () => { alerts.refetch(); reports.refetch(); dismissals.refetch() },
+    /**
+     * El error de la alerta de IP va APARTE y no en `error`: Inicio y el Resumen también leen de acá
+     * y no muestran esta clase, así que una falla suya los tiraría abajo por algo que ni dibujan. Lo
+     * muestra Pendientes, que es donde la lista existe.
+     */
+    ipError: ips.error,
+    refetch: () => { alerts.refetch(); reports.refetch(); ips.refetch(); dismissals.refetch() },
   }
 }
 

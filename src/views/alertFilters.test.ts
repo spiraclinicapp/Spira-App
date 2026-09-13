@@ -70,6 +70,14 @@ describe('opciones de Médico y Coordinador', () => {
     expect(opcionesMedico([visitas, reportes]).map((o) => o.label)).toEqual(['Dr. Sosa', 'Dra. Ibarra'])
   })
 
+  it('cruza la tercera lista, el IP sin entregar (0119): quien sólo tiene esa alerta aparece', () => {
+    const visitas = [p('Dra. Ibarra', 'u1', 'Sofía Cabrera')]
+    const reportes = [p('Dra. Ibarra', 'u1', 'Sofía Cabrera')]
+    const ips = [p('Dr. Sosa', 'u2', 'Marta Díaz')]
+    expect(opcionesMedico([visitas, reportes, ips]).map((o) => o.label)).toEqual(['Dr. Sosa', 'Dra. Ibarra'])
+    expect(opcionesCoordinador([visitas, reportes, ips]).find((o) => o.value === 'u2')?.count).toBe(1)
+  })
+
   it('cuenta sumando las dos listas', () => {
     const visitas = [p('Dra. Ibarra', null, null), p('Dra. Ibarra', null, null)]
     const reportes = [p('Dra. Ibarra', null, null)]

@@ -8,6 +8,7 @@ import { AlertCardHeader } from './AlertCardHeader'
 import { PendientesProtocoloCards } from './PendientesProtocoloCards'
 import { claseDeAlerta, GRAVEDAD, ICONO_REPORTE, SEVERIDAD_ICONO, severidadMaxima } from './alertSeverity'
 import { reporteTitulo } from './track/reportes/estados'
+import { motivoAlertaIp } from './track/ipEstado'
 import { EmptyState } from '../components/EmptyState'
 import { SearchableSelect } from '../components/SearchableSelect'
 import { MultiFilterMenu } from '../components/MultiFilterMenu'
@@ -79,6 +80,8 @@ const AGE_OPTIONS: { value: number; label: string }[] = [
  * "cruzá dos listas". Mismo criterio que `ESPERA_MEDICO` en Visitas del día.
  */
 const REPORTE_PENDIENTE = 'reporte_pendiente'
+/** La opción del filtro Estado para el IP sin entregar (0119). Tampoco es un `computed_status`. */
+const IP_SIN_ENTREGAR = 'ip_sin_entregar'
 
 /** Fecha de referencia de una alerta para el filtro de antigüedad. */
 function refDate(a: TrackVisitRow): string | null {
@@ -171,6 +174,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
 
   const allRows = alertsQ.visitAlerts
   const procRows = alertsQ.reportAlerts
+  const ipRows = alertsQ.ipAlerts
   const dismissals = alertsQ.dismissals
 
   const filtered = useMemo(() => {
@@ -213,6 +217,24 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     })
   }, [procRows, fEstado, protocolFilter, fMed, fCoord, q, ageDays])
 
+  /* La tercera lista: IP sin entregar (0119). Los MISMOS cinco filtros que las otras dos — una lista
+     que un filtro no alcanza queda siempre entera o siempre vacía, y las dos cosas mienten. */
+  const filteredIp = useMemo(() => {
+    const today = todayISO()
+    return ipRows.filter((r) => {
+      if (fEstado.length > 0 && !fEstado.includes(IP_SIN_ENTREGAR)) return false
+      if (protocolFilter.length > 0 && !protocolFilter.includes(r.protocol_id)) return false
+      if (fMed.length > 0 && !fMed.includes(r.treating_physician ?? SIN_VALOR)) return false
+      if (fCoord.length > 0 && !fCoord.includes(r.coordinator_id ?? SIN_VALOR)) return false
+      if (!coincideBusqueda(r, q)) return false
+      if (ageDays > 0) {
+        const age = daysDiffISO(isoDayAR(r.vence_at), today)
+        if (age > ageDays) return false
+      }
+      return true
+    })
+  }, [ipRows, fEstado, protocolFilter, fMed, fCoord, q, ageDays])
+
   if (loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title={`Cargando ${submodule.name.toLowerCase()}…`} description="Un momento." />
   }
@@ -234,6 +256,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     const byId = new Map<string, string>()
     for (const a of allRows) byId.set(a.protocol_id, a.protocol_code)
     for (const r of procRows) byId.set(r.protocol_id, r.protocol_code)
+    for (const r of ipRows) byId.set(r.protocol_id, r.protocol_code)
     const list = (protocols.data ?? []).filter((p) => byId.has(p.id))
     return list.map((p) => ({ id: p.id, code: p.code }))
   })()
@@ -249,7 +272,8 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     value: p.id,
     label: p.code,
     count: allRows.filter((a) => a.protocol_id === p.id).length
-      + procRows.filter((r) => r.protocol_id === p.id).length,
+      + procRows.filter((r) => r.protocol_id === p.id).length
+      + ipRows.filter((r) => r.protocol_id === p.id).length,
   }))
 
   /* Los CUATRO avisos de esta pantalla en un solo eje. Los tres primeros son estados calculados de
@@ -268,13 +292,15 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       label: VISIT_STATES[s].label,
       count: allRows.filter((a) => a.computed_status === s).length,
     })),
+    // 0119: el barrido que pide el aviso de arriba. Va antes del reporte: es más grave.
+    { value: IP_SIN_ENTREGAR, label: 'IP sin entregar', count: ipRows.length },
     { value: REPORTE_PENDIENTE, label: 'Reporte pendiente', count: procRows.length },
   ]
 
-  /* Las dos listas juntas: un médico que sólo tiene reportes pendientes tiene que aparecer igual
-     en el menú, o sus alertas quedan inalcanzables por filtro (0103 es lo que lo hace posible). */
-  const medOptions = opcionesMedico([allRows, procRows])
-  const coordOptions = opcionesCoordinador([allRows, procRows])
+  /* Las tres listas juntas: un médico que sólo tiene reportes pendientes (o un IP sin entregar) tiene
+     que aparecer igual en el menú, o sus alertas quedan inalcanzables por filtro. */
+  const medOptions = opcionesMedico([allRows, procRows, ipRows])
+  const coordOptions = opcionesCoordinador([allRows, procRows, ipRows])
 
   const nFiltros = fEstado.length + protocolFilter.length + fMed.length + fCoord.length + (ageDays > 0 ? 1 : 0)
   const hayFiltros = nFiltros > 0 || q.trim() !== ''
@@ -291,6 +317,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       <PendientesProtocoloCards
         visitas={allRows}
         reportes={procRows}
+        ips={ipRows}
         protocols={protocols.data ?? []}
         seleccionados={protocolFilter}
         accentSolid={module.accentSolid}
@@ -339,8 +366,8 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           acá (ver `ClearFilters`), pegado al número que el filtro cambió. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -6 }}>
         <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
-          {filtered.length + filteredProc.length} de {allRows.length + procRows.length}{' '}
-          {allRows.length + procRows.length === 1 ? 'pendiente' : 'pendientes'}
+          {filtered.length + filteredProc.length + filteredIp.length} de {allRows.length + procRows.length + ipRows.length}{' '}
+          {allRows.length + procRows.length + ipRows.length === 1 ? 'pendiente' : 'pendientes'}
         </span>
         {hayFiltros && <ClearFilters n={nFiltros} onClear={limpiarFiltros} />}
         {dismissals.length > 0 && (
@@ -446,13 +473,64 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
             está en plazo, no un desvío. Sin contador: el de la barra de filtros dice "3 de 12", que
             es más que un número suelto. */}
         <AlertCardHeader titulo={submodule.name} severidad={severidadMaxima(filtered)} />
-        {filtered.length === 0 && filteredProc.length === 0 ? (
+        {alertsQ.ipError && (
+          <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', padding: '8px 0 0' }}>
+            No se pudieron cargar las alertas de producto en investigación: {alertsQ.ipError}
+          </div>
+        )}
+        {filtered.length === 0 && filteredProc.length === 0 && filteredIp.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
             <Icon name="check" size={16} color="var(--spira-good)" />
-            {allRows.length === 0 && procRows.length === 0 ? 'Sin pendientes. Todo al día.' : 'Ningún pendiente coincide con los filtros.'}
+            {allRows.length === 0 && procRows.length === 0 && ipRows.length === 0 ? 'Sin pendientes. Todo al día.' : 'Ningún pendiente coincide con los filtros.'}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {filteredIp.map((r) => {
+              /* IP sin entregar (0119). Ámbar `acc-deep-warn`, el de `CLASES.ip` de la campana: más
+                 grave que un reporte en plazo, menos que una ventana vencida. SIN tacho: esta alerta
+                 no se archiva — se resuelve en la visita (la entrega, o "No se entrega acá"), y a esa
+                 visita lleva el gesto grande. */
+              const c = 'var(--spira-acc-deep-warn)'
+              const visita = r.visit_code ?? r.visit_name ?? 'Visita'
+              const days = daysDiffISO(isoDayAR(r.vence_at), todayISO())
+              return (
+                <div key={`ip:${r.visit_id}`} style={{ position: 'relative' }}>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="spira-card-link"
+                  onClick={() => setOpenVisitId(r.visit_id)}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenVisitId(r.visit_id) }
+                  }}
+                  aria-label={`Abrir la visita de ${r.patient_name} — producto en investigación sin entregar`}
+                  style={alertItemStyle(c, { conBotonDescartar: false })}
+                >
+                  <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="pill" size={18} color={c} /></span>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="spira-link-group" style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                        <PatientLink onOpen={abrirFicha && (() => abrirFicha(r.patient_id, r.protocol_id))} label={`Abrir la ficha de ${r.patient_name}`}>
+                          {r.patient_name}
+                        </PatientLink>
+                      </span>
+                      <span style={code}>
+                        {r.patient_code
+                          ? <PatientLink onOpen={abrirFicha && (() => abrirFicha(r.patient_id, r.protocol_id))} label={`Abrir la ficha del sujeto ${r.patient_code}`}>{r.patient_code}</PatientLink>
+                          : '—'}
+                      </span>
+                      {abrirFicha && <PatientLinkArrow />}
+                      <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}>· <span style={code}>{r.protocol_code}</span></span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
+                      {motivoAlertaIp(r.estado)} · {visita}{days > 0 ? ` · hace ${days} d` : ''}
+                    </div>
+                  </div>
+                </div>
+                </div>
+              )
+            })}
             {filteredProc.map((r) => {
               /* Azul de "en curso" y no el petróleo de marca, que es lo que había.
                  Dos motivos. Uno semántico: el petróleo es el acento del módulo y el color del ítem

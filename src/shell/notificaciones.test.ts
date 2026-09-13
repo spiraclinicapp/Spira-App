@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import type { ProcedureReportAlertRow } from '../data/reports'
+import type { IpDeliveryAlertRow } from '../data/visitIp'
 import type { TrackVisitRow, VisitStatus } from '../data/visits'
 import { formatAR } from '../lib/dates'
 import { GRAVEDAD, SEVERIDAD_TINTA } from '../views/alertSeverity'
 import {
   CLASES,
   claseDeAlerta,
+  fechaDeIp,
   fechaDeReporte,
   fechaDeVisita,
   motivoDeAlerta,
+  motivoDeIp,
   motivoDeReporte,
   textoDePildora,
   tinte,
@@ -53,14 +56,15 @@ const r = (campos: Partial<ProcedureReportAlertRow> = {}) =>
   }) as ProcedureReportAlertRow
 
 describe('CLASES', () => {
-  it('cubre las cuatro clases que la campana muestra', () => {
+  it('cubre las cinco clases que la campana muestra', () => {
     // Las tres de visita salen de GRAVEDAD, así que un grado nuevo se cubre solo. El test lo fija
-    // por si alguien las vuelve a escribir a mano.
+    // por si alguien las vuelve a escribir a mano. La quinta, el IP sin entregar, es de la 0119.
     for (const nivel of GRAVEDAD) {
       expect(CLASES[nivel], `falta la clase "${nivel}"`).toBeDefined()
     }
     expect(CLASES.reporte).toBeDefined()
-    expect(Object.keys(CLASES)).toHaveLength(GRAVEDAD.length + 1)
+    expect(CLASES.ip).toBeDefined()
+    expect(Object.keys(CLASES)).toHaveLength(GRAVEDAD.length + 2)
   })
 
   it('cada clase tiene ícono, tinta, base y rótulo', () => {
@@ -250,6 +254,37 @@ describe('tonoDelPunto', () => {
 
   it('con las dos clases manda la visita, que es la que tiene grados', () => {
     expect(tonoDelPunto([alerta('ventana_vencida')], [r()])).toBe(SEVERIDAD_TINTA.ventana_vencida)
+  })
+
+  it('un IP sin entregar le gana a los reportes, pero no a una alerta de visita (0119)', () => {
+    expect(tonoDelPunto([], [r()], [{}])).toBe(CLASES.ip.tinta)
+    expect(tonoDelPunto([], [], [{}])).toBe(CLASES.ip.tinta)
+    expect(tonoDelPunto([alerta('por_reprogramar')], [], [{}])).toBe(SEVERIDAD_TINTA.por_reprogramar)
+  })
+
+  it('sin IP el tercer argumento no cambia nada (llamadores viejos)', () => {
+    expect(tonoDelPunto([], [r()])).toBe(CLASES.reporte.tinta)
+  })
+})
+
+describe('motivoDeIp y fechaDeIp', () => {
+  const ip = (campos: Partial<IpDeliveryAlertRow>): IpDeliveryAlertRow => ({
+    visit_id: 'v7', estado: 'sin_pedir', ancla: '2026-09-10T13:00:00+00:00', vence_at: '2026-09-12T13:00:00+00:00',
+    pedido_at: null, solicitantes: null, protocol_id: 'p', patient_id: 'pa', protocol_code: 'ACT18301',
+    protocol_name: 'ACT', patient_code: null, patient_name: 'Ana', visit_name: 'Tratamiento', visit_code: 'V7',
+    real_date: '2026-09-10', treating_physician: null, coordinator_id: null, coordinator_name: null,
+    ...campos,
+  })
+
+  it('nombra la visita por su código y dice en qué quedó el pedido', () => {
+    expect(motivoDeIp(ip({}))).toBe('V7 — IP sin pedir')
+    expect(motivoDeIp(ip({ estado: 'rechazado' }))).toBe('V7 — IP rechazado por Farmacia')
+    expect(motivoDeIp(ip({ visit_code: null }))).toBe('Tratamiento — IP sin pedir')
+  })
+
+  it('la fecha es un timestamptz y NO pasa por formatAR (que devolvería basura)', () => {
+    expect(fechaDeIp(ip({}))).not.toContain('T')
+    expect(fechaDeIp(ip({}))).toMatch(/\d/)
   })
 })
 

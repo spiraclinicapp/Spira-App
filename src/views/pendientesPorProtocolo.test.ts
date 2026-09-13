@@ -36,6 +36,29 @@ describe('pendientesPorProtocolo', () => {
     ])
   })
 
+  it('suma la TERCERA lista, el IP sin entregar (0119), en el total y en su propio contador', () => {
+    const [p] = pendientesPorProtocolo([v('A', 'ventana_vencida')], [r('A')], [r('A'), r('A')])
+    expect(p.total).toBe(4)
+    expect(p.ips).toBe(2)
+    expect(p.reportes).toBe(1)
+  })
+
+  it('un protocolo que SÓLO tiene IP sin entregar existe igual', () => {
+    // El mismo modo de falla que los reportes: si se recorrieran sólo las dos primeras listas, este
+    // protocolo no tendría tarjeta y su alerta quedaría inalcanzable por atajo.
+    const [p] = pendientesPorProtocolo([], [], [r('Z')])
+    expect(p.code).toBe('Z')
+    expect(p.total).toBe(1)
+    expect(p.ips).toBe(1)
+    expect(p.peor).toBeNull()
+  })
+
+  it('sin tercera lista cuenta igual que antes (ips en cero)', () => {
+    const [p] = pendientesPorProtocolo([], [r('A')])
+    expect(p.ips).toBe(0)
+    expect(p.total).toBe(1)
+  })
+
   it('un protocolo que SÓLO tiene reportes existe igual', () => {
     // Si la función se armara recorriendo únicamente las visitas, este protocolo no tendría tarjeta
     // y sus reportes quedarían inalcanzables por atajo.

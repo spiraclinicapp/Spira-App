@@ -9,6 +9,9 @@ import type { ReportStatusRow } from '../../data/reportStatus'
 import { canUntickProcedure } from './reportes/estados'
 import type { ReportStage } from './reportes/estados'
 import { ReportCard } from './reportes/ReportCard'
+import { useVisitIpStatus } from '../../data/visitIp'
+import { IpDeliveryRow } from './IpDeliveryRow'
+import { cuentaIp } from './ipEstado'
 
 /**
  * Suelta las marcas optimistas que el dato fresco ya confirma. Devuelve el MISMO objeto si no hay
@@ -91,6 +94,17 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
     setOptDone((o) => settled(o, data, (p) => p.completed))
   }, [data])
 
+  /* La entrega del producto en investigación (0119, D1): va PRIMERA y en los cuatro estados del
+     panel. No sale de `useVisitProcedureStatus` a propósito — ese hook corta en seco cuando la visita
+     no tiene procedimientos del cronograma (procedures.ts:171 y :184), y una V con IP y sin otros
+     procedimientos se quedaría sin su fila. `null` = la visita no lleva IP. */
+  const ipQ = useVisitIpStatus(visitId)
+  const ip = ipQ.data
+  const ipRow = ip
+    ? <IpDeliveryRow row={ip} accent={accent} readOnly={readOnly} />
+    : null
+  const ipCuenta = ip ? cuentaIp(ip.estado) : { total: 0, hecho: 0 }
+
   const items = data ?? []
   // Sin procedimientos asignados → se DICE, no se calla. Antes devolvía null: como en la ficha el
   // componente va dentro de un `Panel` que el padre ya pintó, el "no mostrar nada" dejaba un cuadro
@@ -98,11 +112,15 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   // que Dispensación ("Esta visita no entrega medicación"): el vacío explicado.
   if (!loading && !error && items.length === 0) {
     return (
-      <ProceduresPanel accent={accent}>
+      <ProceduresPanel
+        accent={accent}
+        aside={ipCuenta.total > 0 ? <Contador done={ipCuenta.hecho} total={ipCuenta.total} /> : undefined}
+      >
+        {ipRow && <div style={{ marginBottom: 10 }}>{ipRow}</div>}
         <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', padding: '4px 0' }}>
           {visitDefId
-            ? 'Esta visita no tiene procedimientos asignados. Se asignan por visita en el cronograma del protocolo.'
-            : 'Las visitas sueltas no tienen procedimientos del cuadro.'}
+            ? `Esta visita no tiene ${ipRow ? 'otros ' : ''}procedimientos asignados. Se asignan por visita en el cronograma del protocolo.`
+            : `Las visitas sueltas no tienen ${ipRow ? 'otros ' : ''}procedimientos del cuadro.`}
         </div>
       </ProceduresPanel>
     )
@@ -128,6 +146,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   if (loading) {
     return (
       <ProceduresPanel accent={accent}>
+        {ipRow && <div style={{ marginBottom: 10 }}>{ipRow}</div>}
         <div style={{ padding: '2px 0', fontSize: 13, color: 'var(--spira-muted)' }}>Cargando procedimientos…</div>
       </ProceduresPanel>
     )
@@ -135,25 +154,24 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   if (error) {
     return (
       <ProceduresPanel accent={accent}>
+        {ipRow && <div style={{ marginBottom: 10 }}>{ipRow}</div>}
         <div style={{ padding: '2px 0', fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>No se pudieron cargar los procedimientos: {error}</div>
       </ProceduresPanel>
     )
   }
 
-  const done = items.filter((p) => doneOf(p)).length
+  const done = items.filter((p) => doneOf(p)).length + ipCuenta.hecho
 
   return (
     <ProceduresPanel
       accent={accent}
-      aside={
-        <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums' }}>
-          {done}/{items.length} realizados
-        </span>
-      }
+      aside={<Contador done={done} total={items.length + ipCuenta.total} />}
     >
       {actionError && <div style={{ marginBottom: 10, fontSize: 12.5, color: 'var(--spira-acc-deep-danger)' }}>{actionError}</div>}
+      {ipQ.error && <div style={{ marginBottom: 10, fontSize: 12.5, color: 'var(--spira-acc-deep-danger)' }}>No se pudo cargar la entrega del producto en investigación: {ipQ.error}</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {ipRow}
         {items.map((p) => {
           const isDone = doneOf(p)
           /** Los reportes definidos para este procedimiento en este estudio (0089). */
@@ -292,6 +310,15 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
  *  (cargando / error / sin procedimientos / lista). */
 function ProceduresPanel({ accent, aside, children }: { accent: string; aside?: ReactNode; children: ReactNode }) {
   return <Panel title="Procedimientos" icon="clipboardCheck" accent={accent} aside={aside}>{children}</Panel>
+}
+
+/** "n/total realizados". La entrega del IP suma como un procedimiento más (ver `cuentaIp`). */
+function Contador({ done, total }: { done: number; total: number }) {
+  return (
+    <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontVariantNumeric: 'tabular-nums' }}>
+      {done}/{total} realizados
+    </span>
+  )
 }
 
 /**

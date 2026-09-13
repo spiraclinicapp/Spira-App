@@ -20,6 +20,7 @@ import {
   IP_MIME_TYPES,
 } from '../../data/pharma'
 import type { DispensationRequestRow, IpDocumentRow, UltimaDispensacionRow } from '../../data/pharma'
+import { bumpIpEstado } from '../../data/visitIp'
 import { badgeOf } from './dispensaciones/estados'
 import {
   MOTIVOS_FUERA_CRONOGRAMA,
@@ -715,12 +716,15 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
 
     if (archivo) {
       const up = await uploadIpDocument(requestId, visit.protocol_id, archivo)
-      if (up.error) { setBusy(false); setErr(up.error); reqQ.refetch(); return }
+      if (up.error) { setBusy(false); setErr(up.error); reqQ.refetch(); bumpIpEstado(); return }
       setArchivo(null); setReemplazando(false)
     }
 
     setBusy(false)
     reqQ.refetch()
+    // La fila del IP del panel de Procedimientos (0119) lee otra consulta: sin este aviso seguía
+    // diciendo "Sin pedir" al lado de un pedido recién mandado, hasta reabrir el modal.
+    bumpIpEstado()
   }
 
   async function cancel(requestId: string) {
@@ -728,6 +732,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     const res = await cancelDispensationRequest(requestId)
     if (res.error) { setErr(res.error); return }
     reqQ.refetch()
+    bumpIpEstado()
   }
 
   /**
