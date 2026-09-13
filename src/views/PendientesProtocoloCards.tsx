@@ -36,11 +36,13 @@ import type { ReporteConProtocolo, VisitaConProtocolo } from './pendientesPorPro
  * que verse distinta con el mouse en cualquier lado. Mismo idioma que `MultiFilterMenu` y que las
  * tarjetas de Stock.
  */
-export function PendientesProtocoloCards({ visitas, reportes, protocols, seleccionados, accentSolid, onToggle }: {
+export function PendientesProtocoloCards({ visitas, reportes, ips, protocols, seleccionados, accentSolid, onToggle }: {
   /** Alertas de visita SIN filtrar. */
   visitas: readonly VisitaConProtocolo[]
   /** Reportes pendientes SIN filtrar. */
   reportes: readonly ReporteConProtocolo[]
+  /** IP sin entregar SIN filtrar (0119). */
+  ips: readonly ReporteConProtocolo[]
   /**
    * El catálogo, para el NOMBRE y el ESTADO de cada protocolo: las filas de alerta traen el código
    * pero no el resto. Si un protocolo todavía no está acá —la consulta carga por su cuenta— la
@@ -53,7 +55,7 @@ export function PendientesProtocoloCards({ visitas, reportes, protocols, selecci
   accentSolid: string
   onToggle: (protocolId: string) => void
 }) {
-  const filas = pendientesPorProtocolo(visitas, reportes)
+  const filas = pendientesPorProtocolo(visitas, reportes, ips)
   const porId = new Map(protocols.map((p) => [p.id, p]))
   /* Con un solo protocolo el atajo no sirve de nada: enfocar en el único que hay deja la lista igual.
      Se esconde entero en vez de dibujar una tarjeta que no cambia nada al tocarla. */
@@ -82,8 +84,11 @@ export function PendientesProtocoloCards({ visitas, reportes, protocols, selecci
              únicos pendientes son REPORTES— también, cuando ahí el ícono correcto es el del reporte.
              Un ícono fijo desperdiciaría el único lugar de la tarjeta donde la gravedad se ve sin
              leer; uno equivocado es peor, porque igual se lee. */
-          const icono = p.peor ? SEVERIDAD_ICONO[claseDeAlerta(p.peor)] : ICONO_REPORTE
-          const tono = p.peor ? VISIT_STATES[p.peor].color : 'var(--spira-acc-deep-blue)'
+          /* Sin alerta de visita, el IP sin entregar (0119) manda sobre los reportes: mismo orden que
+             el punto de la campana (`tonoDelPunto`). Ícono y tono son los de `CLASES.ip`, escritos acá
+             porque `views/` no importa de `shell/`. */
+          const icono = p.peor ? SEVERIDAD_ICONO[claseDeAlerta(p.peor)] : p.ips > 0 ? 'pill' : ICONO_REPORTE
+          const tono = p.peor ? VISIT_STATES[p.peor].color : p.ips > 0 ? 'var(--spira-acc-deep-warn)' : 'var(--spira-acc-deep-blue)'
           return (
             <button
               key={p.protocolId}
@@ -149,6 +154,12 @@ export function PendientesProtocoloCards({ visitas, reportes, protocols, selecci
                         {VISIT_STATES[x.estado].short} <b style={cifra}>{x.n}</b>
                       </span>
                     ))}
+                    {p.ips > 0 && (
+                      <span style={parte}>
+                        <span style={{ ...punto, background: 'var(--spira-acc-deep-warn)' }} />
+                        IP <b style={cifra}>{p.ips}</b>
+                      </span>
+                    )}
                     {p.reportes > 0 && (
                       <span style={parte}>
                         <span style={{ ...punto, background: 'var(--spira-acc-deep-blue)' }} />

@@ -2,7 +2,8 @@ import type { CSSProperties } from 'react'
 
 /**
  * La superficie de un ítem de alerta. **La usa una sola pantalla: la vista de Alertas**
- * (`TrackAlertsView`), en sus dos listas — las alertas de visita y los reportes pendientes.
+ * (`TrackAlertsView`), en sus tres listas — las alertas de visita, el IP sin entregar (0119) y los
+ * reportes pendientes.
  *
  * (El comentario anterior decía "las tres pantallas: el resumen de Inicio, el de Coordinación y la
  * vista de Alertas", y hacía rato que no era cierto: Inicio dejó de listar alertas —sólo cuenta— y

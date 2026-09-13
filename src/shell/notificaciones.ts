@@ -1,6 +1,8 @@
 import type { IconName } from '../components/Icon'
 import type { ProcedureReportAlertRow } from '../data/reports'
+import type { IpDeliveryAlertRow } from '../data/visitIp'
 import type { TrackVisitRow, VisitStatus } from '../data/visits'
+import { motivoAlertaIp } from '../views/track/ipEstado'
 import { formatAR, formatDateAR } from '../lib/dates'
 import { visitTitle } from '../lib/visits'
 import type { AlertSeverity } from '../views/alertSeverity'
@@ -28,13 +30,14 @@ import { VISIT_STATES } from '../views/visitStates'
  */
 
 /**
- * Las CUATRO clases que la campana muestra: las tres severidades de visita más los reportes de
- * procedimiento pendientes, que vienen de otra consulta y no tienen `computed_status`.
+ * Las CINCO clases que la campana muestra: las tres severidades de visita, los reportes de
+ * procedimiento pendientes y el producto en investigación sin entregar (0119). Las dos últimas
+ * vienen de consultas propias y no tienen `computed_status`.
  *
- * El handoff modelaba dos ("reporte pendiente" y "ventana vencida"). Son cuatro, y por eso el
- * ternario que se reemplaza acá agrupaba mal: no había dónde poner las otras dos.
+ * El handoff modelaba dos ("reporte pendiente" y "ventana vencida"). Eran cuatro, y por eso el
+ * ternario que se reemplazó acá agrupaba mal: no había dónde poner las otras dos.
  */
-export type ClaseDeAlerta = 'reporte' | AlertSeverity
+export type ClaseDeAlerta = 'reporte' | 'ip' | AlertSeverity
 
 export interface EstiloDeClase {
   icono: IconName
@@ -80,6 +83,14 @@ export const CLASES: Record<ClaseDeAlerta, EstiloDeClase> = {
     tinta: 'var(--spira-acc-deep-track)',
     base: 'var(--spira-primary)',
     rotulo: 'Reporte pendiente',
+  },
+  /* Ámbar de "hay que hacer algo", de la familia `acc-deep` para que se lea en oscuro. No es el rojo
+     de ventana vencida: un IP a las 48 h todavía se resuelve con un llamado a Farmacia. */
+  ip: {
+    icono: 'pill',
+    tinta: 'var(--spira-acc-deep-warn)',
+    base: 'var(--spira-warn)',
+    rotulo: 'IP sin entregar',
   },
 }
 
@@ -156,6 +167,20 @@ export function motivoDeReporte(r: ProcedureReportAlertRow): string {
   return `${CLASES.reporte.rotulo} — ${r.report_name} · ${r.procedure_name}`
 }
 
+/** La segunda línea de la caja para un IP sin entregar: qué visita y en qué quedó el pedido. */
+export function motivoDeIp(r: IpDeliveryAlertRow): string {
+  const visita = r.visit_code ?? r.visit_name ?? 'Visita'
+  return `${visita} — ${motivoAlertaIp(r.estado)}`
+}
+
+/**
+ * La fecha de una alerta de IP: cuándo se cumplieron las 48 h. `vence_at` es `timestamptz`, así que
+ * va por `formatDateAR` y nunca por `formatAR` (ver `fechaDeReporte`).
+ */
+export function fechaDeIp(r: IpDeliveryAlertRow): string | null {
+  return r.vence_at ? formatDateAR(r.vence_at) : null
+}
+
 /**
  * El color del punto de la campana, sobre el conjunto ENTERO de alertas vigentes. `null` = no se
  * dibuja.
@@ -165,18 +190,21 @@ export function motivoDeReporte(r: ProcedureReportAlertRow): string {
  * venza una ventana de verdad no diría nada distinto. Es la misma decisión que `alertSeverity` ya
  * documenta para la cabecera de la tarjeta de alertas, y acá vale igual.
  *
- * `severidadMaxima` sólo sabe de alertas de VISITA. El cuarto grado —sólo reportes pendientes— lo
- * agrega esta función: es el más bajo de la escala, y va en el mismo verde con el que el ícono de
- * la caja ya identifica un reporte, para que el topbar y la lista digan lo mismo.
+ * `severidadMaxima` sólo sabe de alertas de VISITA. Los dos grados de abajo los agrega esta
+ * función: primero el IP sin entregar (0119) —un kit que no llegó pesa más que un informe por bajar—
+ * y al final los reportes pendientes, el más bajo de la escala, en el mismo verde con el que el ícono
+ * de la caja ya identifica un reporte, para que el topbar y la lista digan lo mismo.
  */
 export function tonoDelPunto(
   visitas: readonly { computed_status: VisitStatus }[],
   /* Sólo importa CUÁNTOS hay: los reportes no tienen grados entre sí. Tipar la fila entera acá
      ataría esta regla a una vista de la base que no necesita leer. */
   reportes: readonly unknown[],
+  ips: readonly unknown[] = [],
 ): string | null {
   const severidad = severidadMaxima(visitas)
   if (severidad) return SEVERIDAD_TINTA[severidad]
+  if (ips.length > 0) return CLASES.ip.tinta
   return reportes.length > 0 ? CLASES.reporte.tinta : null
 }
 

@@ -16,7 +16,7 @@ import { VisitDetail } from '../views/track/VisitDetail'
 import { DESTINO_PENDIENTES, nombreDeDestino } from '../views/resumen/destinos'
 import type { ClaseDeAlerta } from './notificaciones'
 import {
-  CLASES, claseDeAlerta, fechaDeReporte, fechaDeVisita, motivoDeAlerta, motivoDeReporte,
+  CLASES, claseDeAlerta, fechaDeIp, fechaDeReporte, fechaDeVisita, motivoDeAlerta, motivoDeIp, motivoDeReporte,
   textoDePildora, tinte, tonoDelPunto,
 } from './notificaciones'
 
@@ -106,7 +106,9 @@ interface Caja {
   protocolCode: string
   motivo: string
   fecha: string | null
-  descarte: Descarte
+  /** `null` = esta clase no se archiva (el IP sin entregar, 0119: lo apaga la entrega o un cierre
+   *  explícito en la visita, nunca un descarte). Sin tacho, no con un tacho que no hace nada. */
+  descarte: Descarte | null
 }
 
 export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuProps) {
@@ -131,7 +133,8 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
 
   const todasLasVisitas = alerts.visitAlerts
   const todosLosReportes = alerts.reportAlerts
-  const count = todasLasVisitas.length + todosLosReportes.length
+  const todosLosIp = alerts.ipAlerts
+  const count = todasLasVisitas.length + todosLosReportes.length + todosLosIp.length
 
   /* ┌─ EL PANEL SE RECORTA; EL CONTADOR NO ────────────────────────────────────────────────────┐
      El desplegable mapeaba TODO sin tope y ya venía renderizando 43 ítems: para llegar al pie
@@ -147,9 +150,12 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
      Los reportes van primero y completos hasta llenar el cupo, igual que en la lista sin recortar:
      el orden entre las dos listas es el que ya tenía el panel y no es lo que este cambio discute.
      └──────────────────────────────────────────────────────────────────────────────────────────┘ */
-  const procRows = todosLosReportes.slice(0, MAX_NOTIFICACIONES)
-  const rows = priorizarAlertas(todasLasVisitas).slice(0, MAX_NOTIFICACIONES - procRows.length)
-  const ocultas = count - procRows.length - rows.length
+  /* El IP sin entregar (0119) entra PRIMERO al cupo: es un kit que no le llegó a un paciente, y la
+     lista es corta por construcción (una por visita, sólo después de 48 h). */
+  const ipRows = todosLosIp.slice(0, MAX_NOTIFICACIONES)
+  const procRows = todosLosReportes.slice(0, MAX_NOTIFICACIONES - ipRows.length)
+  const rows = priorizarAlertas(todasLasVisitas).slice(0, MAX_NOTIFICACIONES - ipRows.length - procRows.length)
+  const ocultas = count - ipRows.length - procRows.length - rows.length
 
   const puedeCoordinar = isAllowed('track')
 
@@ -209,6 +215,19 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
     (puedeCoordinar ? () => { setOpen(false); setVisitaAbierta(visitId) } : undefined)
 
   const cajas: Caja[] = [
+    ...ipRows.map((r): Caja => ({
+      key: `ip:${r.visit_id}`,
+      clase: 'ip',
+      visitId: r.visit_id,
+      patientId: r.patient_id,
+      patientName: r.patient_name,
+      patientCode: r.patient_code,
+      protocolId: r.protocol_id,
+      protocolCode: r.protocol_code,
+      motivo: motivoDeIp(r),
+      fecha: fechaDeIp(r),
+      descarte: null,
+    })),
     ...procRows.map((r): Caja => ({
       key: `${r.visit_id}:${r.report_definition_id}`,
       clase: 'reporte',
@@ -247,7 +266,7 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
     })),
   ]
 
-  const punto = tonoDelPunto(todasLasVisitas, todosLosReportes)
+  const punto = tonoDelPunto(todasLasVisitas, todosLosReportes, todosLosIp)
   const label = count > 0 ? `Notificaciones, ${count} sin leer` : 'Notificaciones'
   const vacio = cajas.length === 0
 
@@ -431,7 +450,7 @@ function CajaDeAlerta({ caja, indice, abrirVisita, abrirPaciente, puedeDescartar
       {/* La columna se reserva SIEMPRE, con o sin tacho: si apareciera sólo a veces, las cajas no
           alinearían entre sí. */}
       <div className="spira-notif-accion">
-        {puedeDescartar && <BotonDescartar destino={caja.descarte} />}
+        {puedeDescartar && caja.descarte && <BotonDescartar destino={caja.descarte} />}
       </div>
     </div>
   )
