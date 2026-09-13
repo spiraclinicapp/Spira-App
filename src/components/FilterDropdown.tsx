@@ -35,6 +35,16 @@ interface Props {
    * es lo correcto cuando la opción ya se explica sola, como en la cola del médico).
    */
   prefix?: string
+  /**
+   * Lo que dice el disparador mientras el valor es el neutro (`options[0]`), en lugar de la etiqueta
+   * de esa opción. Es la forma de los menús multi de la misma fila —"Estado", "Protocolo"—: quieto,
+   * el botón nombra la DIMENSIÓN; con algo elegido, muestra lo elegido ("Últimos 14 días").
+   * Nació en Pendientes: "Antigüedad: Cualquier antigüedad" medía 307px y partía la barra en dos
+   * renglones; "Antigüedad" mide 155 (medido, 2026-09-13). En el menú la opción neutra conserva su
+   * etiqueta larga, que ahí sí se lee debajo del rótulo. No se combina con `prefix`: son las dos
+   * maneras de decir qué hace el menú, y juntas se leería "Antigüedad: Antigüedad".
+   */
+  neutralLabel?: string
 }
 
 /**
@@ -44,11 +54,12 @@ interface Props {
  * Comparte `usePopover` (fixed + clamp de viewport) con `SearchableSelect`/`DateField`, así el
  * popover nunca se recorta contra el borde de la pantalla.
  */
-export function FilterDropdown({ accent, value, onChange, options, menuLabel, icon = 'filter', id, deselectable = false, prefix }: Props) {
+export function FilterDropdown({ accent, value, onChange, options, menuLabel, icon = 'filter', id, deselectable = false, prefix, neutralLabel }: Props) {
   const [open, setOpen] = useState(false)
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
   const active = options.find((o) => o.value === value) ?? options[0]
   const on = options.length > 0 && value !== options[0].value
+  const triggerText = !on && neutralLabel ? neutralLabel : active?.label
 
   return (
     <div style={{ position: 'relative' }}>
@@ -81,7 +92,7 @@ export function FilterDropdown({ accent, value, onChange, options, menuLabel, ic
       >
         <Icon name={icon} size={15} color={on ? accent : 'var(--spira-muted)'} />
         {prefix && <span style={prefixLabel}>{prefix}:</span>}
-        <span style={{ ...triggerLabel, color: on ? accent : 'var(--spira-ink)' }}>{active?.label}</span>
+        <span style={{ ...triggerLabel, color: on ? accent : 'var(--spira-ink)' }}>{triggerText}</span>
         {active?.count != null && <span style={{ ...badge, background: accent }}>{active.count}</span>}
         <Icon name="chevronDown" size={15} color="var(--spira-muted)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
       </button>
@@ -120,17 +131,19 @@ export function FilterDropdown({ accent, value, onChange, options, menuLabel, ic
   )
 }
 
+/* Padding 12 y gap 7, los mismos que `MultiFilterMenu` (ver la nota ahí): comparten fila. */
 const trigger: CSSProperties = {
-  height: 38, padding: '0 13px', borderRadius: 10, cursor: 'pointer',
-  display: 'inline-flex', alignItems: 'center', gap: 9,
+  height: 38, padding: '0 12px', borderRadius: 10, cursor: 'pointer',
+  display: 'inline-flex', alignItems: 'center', gap: 7,
   fontFamily: 'var(--spira-font-text)',
 }
 const triggerLabel: CSSProperties = { fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }
 /* El prefijo es el rótulo, no el valor: va en peso normal y en gris para que el ojo caiga en lo
-   elegido. Marca negativa para pegarlo a su valor sin romper el `gap` del resto del botón. */
+   elegido. Marca negativa para pegarlo a su valor sin romper el `gap` del resto del botón: deja
+   5px entre los dos, igual que cuando el gap era 9 y la marca -4. */
 const prefixLabel: CSSProperties = {
   fontFamily: 'var(--spira-font-text)', fontWeight: 500, fontSize: 13.5,
-  color: 'var(--spira-muted)', whiteSpace: 'nowrap', marginRight: -4,
+  color: 'var(--spira-muted)', whiteSpace: 'nowrap', marginRight: -2,
 }
 const badge: CSSProperties = {
   fontSize: 11.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums', minWidth: 18, height: 18,

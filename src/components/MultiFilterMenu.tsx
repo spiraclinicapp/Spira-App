@@ -120,9 +120,13 @@ export function MultiFilterMenu({ accent, label, icon = 'filter', options, selec
   )
 }
 
+/* Padding 12 y gap 7 (eran 13 y 9): la barra de Visitas partía en dos renglones a ~1010px de
+   contenido, y estos dos números se repiten cinco veces por fila — 6px por disparador, más de 30 en
+   la barra, sin que el botón se vea más apretado (medido, 2026-09-13). Mismos valores en
+   `FilterDropdown`, que comparte la fila y tiene que medir igual. */
 const trigger: CSSProperties = {
-  height: 38, padding: '0 13px', borderRadius: 10, cursor: 'pointer',
-  display: 'inline-flex', alignItems: 'center', gap: 9, fontFamily: 'var(--spira-font-text)',
+  height: 38, padding: '0 12px', borderRadius: 10, cursor: 'pointer',
+  display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: 'var(--spira-font-text)',
 }
 const triggerLabel: CSSProperties = { fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }
 const badge: CSSProperties = {
