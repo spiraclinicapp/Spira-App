@@ -304,8 +304,11 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
         <EmptyState
           icon="barChart"
           accent={module.accent}
-          title="El informe necesita más ancho"
-          description={`Esta pantalla se diseñó para monitores de 1024px o más. Podés descargar el detalle del período y abrirlo desde acá.${notaDelCorte ? ` ${notaDelCorte}` : ''}`}
+          /* Corto a propósito (pedido del Director, 2026-09-13): el texto del mock explicaba píxeles y
+             "monitores", y lo que pasa casi siempre es una ventana angosta, no un monitor chico. El
+             botón de abajo ya se explica solo. */
+          title="El informe necesita más espacio"
+          description={`Agrandá la ventana para verlo.${notaDelCorte ? ` ${notaDelCorte}` : ''}`}
         />
         <div style={{ display: 'grid', placeItems: 'center', marginTop: 14 }}>
           <button type="button" style={btnOutline} onClick={descargar}>Descargar el detalle</button>
