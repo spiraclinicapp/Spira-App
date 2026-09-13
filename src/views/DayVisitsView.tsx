@@ -362,8 +362,13 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
             componente es lo único que hace que eso siga siendo cierto: dos copias del mismo JSX
             divergen en el primer ajuste que alguien haga en una sola de las dos.
             Va SIN envoltorio: el buscador es el ítem elástico de la fila y el que se pega a la
-            derecha, y metido en un div el que cede sería el div (que no sabe encogerse). */}
-        <FilterSearch value={q} onChange={setQ} placeholder="Paciente, N° o protocolo…" />
+            derecha, y metido en un div el que cede sería el div (que no sabe encogerse).
+            El placeholder era "Paciente, N° o protocolo…" y se acortó (pedido del Director,
+            2026-09-13) para que se lea entero con la barra quieta en una notebook angosta. Lo que
+            evita que la barra parta con filtros puestos NO es esto sino el piso del buscador (ver
+            `FilterSearch`). La búsqueda sigue encontrando por N° (IVRS); sólo dejó de anunciarlo.
+            Mismo texto en Pendientes, que comparte la barra. */}
+        <FilterSearch value={q} onChange={setQ} placeholder="Paciente o protocolo…" />
       </div>
 
       {actionError && (

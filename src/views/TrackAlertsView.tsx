@@ -329,7 +329,8 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           neutralLabel="Antigüedad"
           icon="clock"
         />
-        <FilterSearch value={q} onChange={setQ} placeholder="Paciente, N° o protocolo…" />
+        {/* Mismo placeholder que Visitas (ver la nota ahí): sigue buscando por N°. */}
+        <FilterSearch value={q} onChange={setQ} placeholder="Paciente o protocolo…" />
       </div>
 
       {/* El recuento y las descartadas bajan a su propia línea: son el RESULTADO de la barra, no un
