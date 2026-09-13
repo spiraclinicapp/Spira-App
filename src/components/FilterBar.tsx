@@ -28,10 +28,15 @@ import { Icon } from './Icon'
  * es lo que lo mantiene contra el borde derecho. Por debajo del techo el placeholder se corta con
  * puntos suspensivos; por debajo del piso, recién ahí, baja de renglón.
  *
+ * El PISO ES 130, y es lo que decide si la barra parte — no el largo del placeholder. Con 160, Visitas
+ * con dos filtros y el orden cambiado partía a ~1020px de contenido aunque el placeholder se acortara
+ * (quedaban 143px; medido logueado, 2026-09-13). A 130 el campo conserva ~80px útiles: el texto de
+ * ayuda se lee cortado ("Paciente o prot…"), pero un apellido escrito todavía entra entero con la X.
+ *
  * La X para limpiar aparece SOLO con texto: un botón de limpiar sobre un campo vacío es un control
  * que no hace nada, y ocupa el lugar donde el ojo busca el cursor.
  */
-export function FilterSearch({ value, onChange, placeholder, minWidth = 160, maxWidth = 240 }: {
+export function FilterSearch({ value, onChange, placeholder, minWidth = 130, maxWidth = 240 }: {
   value: string
   onChange: (next: string) => void
   placeholder: string
