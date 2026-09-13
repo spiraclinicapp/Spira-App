@@ -341,6 +341,12 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
         {conteo.porLlegar > 0 && (<><span style={{ color: 'var(--spira-muted)' }}>·</span><span style={{ color: 'var(--spira-warn)', fontWeight: 600 }}>{conteo.porLlegar} por llegar</span></>)}
         {conteo.enCentro > 0 && (<><span style={{ color: 'var(--spira-muted)' }}>·</span><span style={{ color: accent, fontWeight: 600 }}>{conteo.enCentro} en el centro</span></>)}
         {conteo.finalizadas > 0 && (<><span style={{ color: 'var(--spira-muted)' }}>·</span><span style={{ color: 'var(--spira-muted)', fontWeight: 600 }}>{conteo.finalizadas} finalizadas</span></>)}
+        {/* "Limpiar" vive acá y no en la barra de abajo: ver `ClearFilters`. Al lado de los
+            contadores, que son justo lo que el filtro cambió. Sin separador "·": no es un número
+            más de la cuenta sino la manera de deshacerla. El envoltorio es `flex` y no un span
+            común: con el renglón de texto de la fuente mono adentro, la línea crecía 1.5px al
+            aparecer el botón y la barra de abajo saltaba al tocar el primer filtro (medido). */}
+        {anyActive && <span style={{ display: 'flex', marginLeft: 10, alignSelf: 'center' }}><ClearFilters n={nFilters} onClear={clearAll} /></span>}
       </div>
 
       {/* fila de filtros */}
@@ -351,14 +357,13 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
         <MultiFilterMenu accent={accent} label="Coordinador" icon="user" options={coordOptions} selected={fCoord} onChange={setFCoord} />
         <span style={{ width: 1, height: 22, background: 'var(--spira-line)', margin: '0 2px' }} />
         <FilterDropdown accent={accent} value={group} onChange={(v) => setGroup(v as GroupBy)} options={groupOptions} menuLabel="Ordenar por" prefix="Ordenar por" icon="sliders" deselectable />
-        {anyActive && <ClearFilters n={nFilters} onClear={clearAll} />}
-        {/* Estas dos piezas se extrajeron de acá a `components/FilterBar` cuando Alertas pidió la
-            misma barra ("que se vean iguales y que interactúen igual"). Compartir el componente es
-            lo único que hace que eso siga siendo cierto: dos copias del mismo JSX divergen en el
-            primer ajuste que alguien haga en una sola de las dos. */}
-        <div style={{ marginLeft: 'auto' }}>
-          <FilterSearch value={q} onChange={setQ} placeholder="Paciente, N° o protocolo…" />
-        </div>
+        {/* El buscador y el "Limpiar" de arriba se extrajeron de acá a `components/FilterBar` cuando
+            Alertas pidió la misma barra ("que se vean iguales y que interactúen igual"). Compartir el
+            componente es lo único que hace que eso siga siendo cierto: dos copias del mismo JSX
+            divergen en el primer ajuste que alguien haga en una sola de las dos.
+            Va SIN envoltorio: el buscador es el ítem elástico de la fila y el que se pega a la
+            derecha, y metido en un div el que cede sería el div (que no sabe encogerse). */}
+        <FilterSearch value={q} onChange={setQ} placeholder="Paciente, N° o protocolo…" />
       </div>
 
       {actionError && (

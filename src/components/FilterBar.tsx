@@ -14,24 +14,35 @@ import { Icon } from './Icon'
  */
 
 /**
- * Buscador de la barra de filtros. Ancho fijo de 240px y pegado a la derecha por el `marginLeft:
- * auto` de quien lo coloca — no lo pone esta pieza, porque en una fila con pocos filtros puede
- * convenir que vaya seguido.
+ * Buscador de la barra de filtros: la ÚNICA pieza elástica de la fila, y va pegado a la derecha.
+ *
+ * Elástico porque es el único control cuyo ancho no lo dicta su contenido: los menús miden lo que
+ * mide su rótulo, y el buscador mide lo que se le dé. Con 240px fijos, las dos barras (Visitas y
+ * Pendientes) partían en dos renglones a ~1010px de contenido (medido, 2026-09-13): la fila entera
+ * bajaba 46px por culpa del único control que podía ceder.
+ *
+ * El `flex-basis` es el PISO y no el techo, a propósito: `flex-wrap` decide el corte con el tamaño
+ * hipotético (la base acotada por `min-width`), no con el encogido. Con base 240 y `flex-shrink` la
+ * fila habría partido igual. Base chica → reserva poco para decidir el corte, y después `flex-grow`
+ * lo estira hasta el techo. Lo que sobra más allá del techo se lo come el `margin-left: auto`, que
+ * es lo que lo mantiene contra el borde derecho. Por debajo del techo el placeholder se corta con
+ * puntos suspensivos; por debajo del piso, recién ahí, baja de renglón.
  *
  * La X para limpiar aparece SOLO con texto: un botón de limpiar sobre un campo vacío es un control
  * que no hace nada, y ocupa el lugar donde el ojo busca el cursor.
  */
-export function FilterSearch({ value, onChange, placeholder, width = 240 }: {
+export function FilterSearch({ value, onChange, placeholder, minWidth = 160, maxWidth = 240 }: {
   value: string
   onChange: (next: string) => void
   placeholder: string
-  width?: number
+  minWidth?: number
+  maxWidth?: number
 }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 12px',
       borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
-      width, flex: '0 0 auto',
+      flex: `1 1 ${minWidth}px`, minWidth, maxWidth, marginLeft: 'auto', boxSizing: 'border-box',
     }}>
       <Icon name="search" size={15} color="var(--spira-faint)" />
       <input
@@ -42,6 +53,7 @@ export function FilterSearch({ value, onChange, placeholder, width = 240 }: {
         style={{
           flex: 1, border: 'none', outline: 'none', background: 'transparent',
           color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 13, minWidth: 0,
+          textOverflow: 'ellipsis',
         }}
       />
       {value && (
@@ -64,6 +76,12 @@ export function FilterSearch({ value, onChange, placeholder, width = 240 }: {
  * El número no es adorno: en una barra de cuatro menús, "Limpiar" a secas no deja ver si estás
  * mirando una lista filtrada por uno o por tres, que es justo la duda que hace desconfiar de un
  * listado incompleto.
+ *
+ * VIVE EN LA LÍNEA DEL RECUENTO, NO EN LA BARRA (pedido del Director, 2026-09-13). En la barra
+ * sumaba ~100px justo en el momento en que aparecía —al marcar el primer filtro o escribir la
+ * primera letra— y la fila partía en dos renglones bajo el cursor: la lista entera saltaba 46px
+ * por tocar un filtro. Junto al recuento no desplaza nada, y queda al lado del número que cambió.
+ * Por eso tiene forma de texto y no de botón de 38px: se apoya en un renglón de 12.5px.
  */
 export function ClearFilters({ n, onClear }: { n: number; onClear: () => void }) {
   return (
@@ -71,12 +89,15 @@ export function ClearFilters({ n, onClear }: { n: number; onClear: () => void })
       type="button"
       onClick={onClear}
       style={{
-        height: 38, padding: '0 12px', borderRadius: 10, border: 'none', background: 'transparent',
+        /* El padding agranda el área de click; el margen negativo lo devuelve, así el texto queda
+           alineado con el resto del renglón como si no tuviera caja. */
+        padding: '3px 6px', margin: '-3px -6px', borderRadius: 6, border: 'none', background: 'transparent',
         color: 'var(--spira-muted)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)',
-        fontWeight: 600, fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 6,
+        fontWeight: 600, fontSize: 12.5, lineHeight: 1.2, whiteSpace: 'nowrap',
+        display: 'inline-flex', alignItems: 'center', gap: 5,
       }}
     >
-      <Icon name="x" size={13} color="var(--spira-muted)" /> Limpiar{n > 0 ? ` ${n}` : ''}
+      <Icon name="x" size={12} color="var(--spira-muted)" /> Limpiar{n > 0 ? ` ${n}` : ''}
     </button>
   )
 }

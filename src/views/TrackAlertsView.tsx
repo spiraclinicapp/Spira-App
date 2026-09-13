@@ -316,30 +316,32 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
         <span style={{ width: 1, height: 22, background: 'var(--spira-line)', margin: '0 2px' }} />
         {/* La antigüedad es un UMBRAL, no una selección múltiple: "últimos 7 días" y "últimos 30"
             no se suman, uno contiene al otro. Por eso va en el desplegable simple, el mismo hueco
-            que en Visitas ocupa "Ordenar por". */}
+            que en Visitas ocupa "Ordenar por".
+            Sin prefijo y con rótulo neutro: quieto dice "Antigüedad", como "Estado" o "Protocolo"
+            a su izquierda, y con un umbral elegido dice el umbral. "Antigüedad: Cualquier
+            antigüedad" repetía la palabra y medía el doble — era lo que partía la barra. */}
         <FilterDropdown
           accent={accent}
           value={String(ageDays)}
           onChange={(v) => setAgeDays(Number(v))}
           options={ageOptions}
           menuLabel="Antigüedad"
-          prefix="Antigüedad"
+          neutralLabel="Antigüedad"
           icon="clock"
         />
-        {hayFiltros && <ClearFilters n={nFiltros} onClear={limpiarFiltros} />}
-        <div style={{ marginLeft: 'auto' }}>
-          <FilterSearch value={q} onChange={setQ} placeholder="Paciente, N° o protocolo…" />
-        </div>
+        <FilterSearch value={q} onChange={setQ} placeholder="Paciente, N° o protocolo…" />
       </div>
 
       {/* El recuento y las descartadas bajan a su propia línea: son el RESULTADO de la barra, no un
           control más de ella. Arriba competían por el mismo borde derecho que el buscador y hacían
-          que la fila envolviera en la notebook de referencia. */}
+          que la fila envolviera en la notebook de referencia. Por la misma razón "Limpiar" vive
+          acá (ver `ClearFilters`), pegado al número que el filtro cambió. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -6 }}>
         <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
           {filtered.length + filteredProc.length} de {allRows.length + procRows.length}{' '}
           {allRows.length + procRows.length === 1 ? 'pendiente' : 'pendientes'}
         </span>
+        {hayFiltros && <ClearFilters n={nFiltros} onClear={limpiarFiltros} />}
         {dismissals.length > 0 && (
           <button type="button" style={linkBtn} onClick={() => setShowDismissed((v) => !v)}>
             {/* "descartados" en masculino: concuerda con "pendientes", que es el sustantivo de
