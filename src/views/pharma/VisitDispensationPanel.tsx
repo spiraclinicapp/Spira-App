@@ -466,7 +466,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
 
   /**
    * Si el IP está PREVISTO en esta visita, que es lo que decide entre ofrecer el dropzone y el estado
-   * vacío «El cronograma no lo prevé». Tres razones, cualquiera alcanza:
+   * vacío «El cronograma no lo pide». Tres razones, cualquiera alcanza:
    *
    *   · el CRONOGRAMA lo dice (`dispenses_ip`), que es el caso normal;
    *   · un pedido abierto lo tiene SELLADO (`ipSellado`): el servidor sella `includes_ip` al crear

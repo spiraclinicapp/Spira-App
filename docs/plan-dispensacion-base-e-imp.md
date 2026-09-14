@@ -755,10 +755,18 @@ de Coordinación (`src/views/pharma/FormularioOtro.tsx`) pueden ir en paralelo; 
 - [x] **3b-3 (P2, humano: ~3h / CC: ~20min)** · Front · «1 (de 2 indicados)» en comprobante, cajón e
   historial (D27); caja de saldos en el alta manual de Farmacia (R10).
 
-  **Al implementar la 3b (2026-09-14):** migración `0123` en la PR #171; front en `feat/dispensacion-3b`,
-  **sin PR hasta que la 0123 esté aplicada** (el front pide columnas nuevas y un deploy antes voltea la
-  tarjeta con 42703). `npm run build` verde (1025 tests) y los avisos verificados con un banco de pruebas
-  sin sesión. **Faltan las sondas y el QA logueado.**
+  **Al implementar la 3b (2026-09-14):** migración `0123` (PR #171, **aplicada en prod el 2026-09-14**);
+  front en `feat/dispensacion-3b`. `npm run build` verde (1025 tests).
+  - **Sondas:** sin sesión, columnas y funciones existen y ningún embed quedó ambiguo; con sesión, las dos
+    funciones internas dan `42501`. **Cero pedidos con un medicamento repetido** (9 renglones en prod).
+  - **QA logueado de sólo lectura** (ACT18301, Susana Rodriguez): aviso rojo real al elegir Alvetide en la
+    V5 («tiene pedido … sin retirar», por el pedido abierto de la V6); «En partes» apaga «Agregar» con lo
+    indicado inválido y muestra el saldo que queda; renglón «x1 de 2 · Sin solicitar»; tablero de
+    Farmacia y alta manual cargan; consola limpia. No se solicitó nada.
+  - **Sin QA con datos reales, por decisión del Director:** el saldo de punta a punta y el rojo por entrega
+    reciente (no hay entregas en los últimos 31 días en prod). Cubiertos por tests y banco de pruebas.
+  - **Copy (Director, 2026-09-14):** el estado vacío del IP dice «El cronograma no lo pide en esta visita.»
+    (antes «no lo prevé»).
   - **Un renglón por medicamento va como GUARD por trigger, no índice único:** no depende de que no haya
     duplicados viejos (el conteo en prod quedó pendiente porque la sesión se cerró) y los locks sobre el
     pedido que ya toman las funciones cierran las carreras.

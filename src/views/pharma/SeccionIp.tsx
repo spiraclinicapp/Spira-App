@@ -117,7 +117,7 @@ export function SeccionIp({
       )
       break
     case 'cargando':
-      // Sin este freno, durante la primera lectura la sección afirma "no lo prevé" o abre un dropzone
+      // Sin este freno, durante la primera lectura la sección afirma "no lo pide" o abre un dropzone
       // que crearía un pedido NUEVO sobre una visita que ya tiene uno. Los refetch conservan las filas
       // viejas (`useSupabaseQuery`), así que es sólo el primer montaje.
       cuerpo = <div style={{ ...muted, padding: '2px 0' }}>Cargando…</div>
@@ -139,7 +139,7 @@ export function SeccionIp({
       // quedaba con todo y el texto caía a 38px de ancho, una palabra por renglón (QA, 2026-09-14).
       cuerpo = (
         <div style={{ ...lineaStyle, flexWrap: 'wrap', rowGap: 8 }}>
-          <span style={{ flex: '1 1 200px', minWidth: 0 }}>El cronograma no lo prevé en esta visita.</span>
+          <span style={{ flex: '1 1 200px', minWidth: 0 }}>El cronograma no lo pide en esta visita.</span>
           {onPedirFueraDeCronograma && (
             <button
               type="button" onClick={onPedirFueraDeCronograma} style={btnChico}
