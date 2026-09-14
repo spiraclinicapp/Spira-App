@@ -106,6 +106,18 @@ describe('historialPlegado', () => {
     ])
   })
 
+  it('un «Otro» que no se habilitó también se nombra, con cómo terminó (0124)', () => {
+    const hab = (estado: string) => ({ estado, quantity: 1, quantity_indicated: null, saldo_de_item_id: null, medication: { name: 'Budesonida' } }) as never
+    const h = historialPlegado([
+      pedido({ status: 'rechazada', updated_at: '2026-09-13T12:00:00+00:00', habilitaciones: [hab('no_habilitada')] }),
+      pedido({ status: 'cancelada', updated_at: '2026-09-12T12:00:00+00:00', items: [item('Paracetamol', 2)], habilitaciones: [hab('pendiente'), hab('habilitada')] }),
+    ])!
+    expect(h.renglones.map((r) => r.que)).toEqual([
+      'Budesonida x1 (no habilitado)',
+      'Paracetamol x2 · Budesonida x1 (sin habilitar)',
+    ])
+  })
+
   it('el comprobante sólo si se emitió: una preparación cancelada deja el número reservado', () => {
     const h = historialPlegado([
       pedido({ disp: { status: 'entregada', delivered_at: '2026-09-13T12:00:00+00:00', n: 11 } }),

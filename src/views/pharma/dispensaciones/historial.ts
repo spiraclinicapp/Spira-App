@@ -108,6 +108,9 @@ const CAMPOS: Record<string, string> = {
   printed_at: 'Marcada como impresa',
   superseded_at: 'Reemplazada el',
   scanned_at: 'Último escaneo',
+  estado: 'Estado', // 0124
+  motivo_texto: 'Motivo', // 0124
+  active: 'Habilitado', // 0124
 }
 
 /**
@@ -125,6 +128,9 @@ const OCULTOS = new Set([
   'substituted_from_medication_id',
   'requested_by', 'prepared_by', 'executed_by', 'scanned_by', 'uploaded_by', 'printed_by',
   'substituted_at', 'substituted_by', 'uploaded_at',
+  // 0124: plomería de la habilitación y la marca de una entrega.
+  'receta_path', 'receta_mime', 'receta_size', 'item_id', 'saldo_de_item_id', 'origen_habilitacion_id',
+  'habilitacion_id', 'enrollment_id', 'assigned_by', 'decided_by', 'decided_at', 'requested_at',
 ])
 
 /** Nombres de tabla → castellano, para el respaldo y para los casos sin regla. */
@@ -133,6 +139,8 @@ const ENTIDADES: Record<string, string> = {
   dispensation_request_items: 'un renglón',
   dispensation_ip_documents: 'la constancia del IRT',
   dispensations: 'la dispensación',
+  dispensation_habilitaciones: 'el pedido de habilitación', // 0124
+  patient_medications: 'la medicación habilitada', // 0124
 }
 
 /** Resuelve `medication_id` → nombre. Lo arma el cajón con los renglones que ya tiene cargados. */
@@ -163,6 +171,8 @@ function describir(f: HistorialEntradaRow, nombreDe: NombreMedicamento): Descrip
   if (f.entidad === 'dispensations') return dispensacion(f, antes, despues)
   if (f.entidad === 'dispensation_request_items') return renglon(f, antes, despues, nombreDe)
   if (f.entidad === 'dispensation_ip_documents') return constancia(f, antes, despues)
+  if (f.entidad === 'dispensation_habilitaciones') return habilitacion(f, antes, despues, nombreDe)
+  if (f.entidad === 'patient_medications') return medicacionDelPaciente(f, antes, despues, nombreDe)
 
   return respaldo(f, antes, despues)
 }
@@ -434,6 +444,92 @@ function constancia(
  * escribirle su regla. Muestra los campos con etiqueta legible y sin uuids; si después de filtrar
  * no queda nada que contar, lo dice en vez de dibujar una línea vacía.
  */
+// ── «Otro medicamento» (0124, R13) ───────────────────────────────────────────────────────────
+
+/** El motivo de «No habilitar», de lista (D28). Misma lista que `MOTIVOS_NO_HABILITAR` del modelo. */
+const MOTIVO_NO_HABILITAR: Record<string, string> = {
+  receta_ilegible: 'Receta ilegible o incompleta',
+  receta_sin_firma: 'Receta sin firma del médico',
+  no_corresponde: 'No corresponde a este paciente',
+  sin_stock: 'Sin stock en el protocolo',
+}
+
+function habilitacion(
+  f: HistorialEntradaRow,
+  antes: Record<string, unknown>,
+  despues: Record<string, unknown>,
+  nombreDe: NombreMedicamento,
+): Descripcion {
+  const nombre = nombreDe(despues.medication_id ?? antes.medication_id)
+
+  if (f.accion === 'INSERT') {
+    return {
+      titulo: 'Se pidió habilitar un medicamento',
+      detalle: unir([
+        nombre,
+        cantidad(despues.quantity),
+        // Un saldo de un «Otro» no trae receta nueva: reusa la aprobada (R6), y el historial lo dice.
+        despues.origen_habilitacion_id ? 'saldo, con la misma receta' : texto(despues.receta_file_name),
+      ]),
+      icono: 'fileText',
+      tono: 'avance',
+    }
+  }
+
+  if (f.accion === 'DELETE') {
+    return { titulo: 'Se quitó el pedido de habilitación', detalle: nombre, icono: 'x', tono: 'corte' }
+  }
+
+  const est = transicion(antes, despues, 'estado')
+  if (est?.a === 'habilitada') {
+    return { titulo: 'Se habilitó para esta entrega', detalle: nombre, icono: 'check', tono: 'listo' }
+  }
+  if (est?.a === 'no_habilitada') {
+    const motivo = despues.motivo_codigo === 'otro'
+      ? texto(despues.motivo_texto)
+      : MOTIVO_NO_HABILITAR[String(despues.motivo_codigo)] ?? null
+    return { titulo: 'No se habilitó', detalle: unir([nombre, motivo]), icono: 'x', tono: 'corte' }
+  }
+
+  // «Habilitar» escribe dos veces: la decisión y, recién después de sumar el renglón, cuál es. Son
+  // dos filas del log y se muestran las dos (regla de oro: no se agrupan hechos).
+  if (antes.item_id == null && despues.item_id != null) {
+    return { titulo: 'Se sumó al pedido', detalle: nombre, icono: 'plus', tono: 'neutro' }
+  }
+
+  return respaldo(f, antes, despues)
+}
+
+/** La medicación habilitada del paciente, cuando la mueve una habilitación del pedido. */
+function medicacionDelPaciente(
+  f: HistorialEntradaRow,
+  antes: Record<string, unknown>,
+  despues: Record<string, unknown>,
+  nombreDe: NombreMedicamento,
+): Descripcion {
+  const nombre = nombreDe(despues.medication_id ?? antes.medication_id)
+  const seActivo = f.accion === 'INSERT' ? despues.active === true : antes.active !== true && despues.active === true
+
+  if (seActivo) {
+    return {
+      titulo: 'Se habilitó para el paciente',
+      detalle: unir([nombre, despues.habilitacion_id ? 'sólo para esta entrega' : null]),
+      icono: 'check',
+      tono: 'avance',
+    }
+  }
+  if (antes.active === true && despues.active === false) {
+    return {
+      titulo: 'Se volvió a deshabilitar',
+      // Lo desactiva el cierre del pedido (R6): la receta habilitaba una sola entrega.
+      detalle: unir([nombre, antes.habilitacion_id ? 'la receta habilitaba una sola entrega' : null]),
+      icono: 'lock',
+      tono: 'neutro',
+    }
+  }
+  return respaldo(f, antes, despues)
+}
+
 function respaldo(
   f: HistorialEntradaRow,
   antes: Record<string, unknown>,

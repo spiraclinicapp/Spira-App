@@ -163,6 +163,11 @@ export interface DispensationRequestRow {
   base_sin_cronograma: boolean
   ip_documents: IpDocumentRow[]
   /**
+   * Pedidos de habilitación de «Otro medicamento» (0124). Opcional por la ventana de despliegue: sin
+   * la 0124 aplicada el select no los pide. Ausente se lee como «no hay ninguno».
+   */
+  habilitaciones?: HabilitacionRow[]
+  /**
    * Contexto para la cola de Pharma: paciente (nombre + código IVRS), protocolo y visita.
    *
    * SALE DE LAS COLUMNAS DESNORMALIZADAS DEL PEDIDO (`protocol_id` 0071, `enrollment_id` 0082,
@@ -425,4 +430,66 @@ export interface ContextoDispensacionRow {
   /** `indicacion`: si el medicamento sigue habilitado para el paciente (D21). */
   habilitado: boolean | null
   ip_kits: number | null
+  /**
+   * `indicacion`: la habilitación aprobada que sumó el renglón original, si fue un «Otro» (0124). Con
+   * ella el saldo se pide como una habilitación nueva con la misma receta, aunque el medicamento ya no
+   * esté habilitado (R6). Opcional por la ventana de despliegue.
+   */
+  habilitacion_id?: string | null
+}
+
+/* ┌─ «Otro medicamento»: el pedido de habilitación (0124) ─────────────────────────────────────┐
+   Un medicamento del catálogo del protocolo que el paciente no tiene habilitado, con receta. Viaja
+   como pedido de habilitación, no como renglón: el candado de la 0050 no se afloja. Farmacia lo
+   habilita al preparar (se suma el renglón) o no lo habilita con un motivo de lista (D28).
+   └────────────────────────────────────────────────────────────────────────────────────────────┘ */
+
+export type EstadoHabilitacion = 'pendiente' | 'habilitada' | 'no_habilitada'
+export type MotivoNoHabilitar = 'receta_ilegible' | 'receta_sin_firma' | 'no_corresponde' | 'sin_stock' | 'otro'
+
+/** Fila de `dispensation_habilitaciones` (0124), con el medicamento embebido. */
+export interface HabilitacionRow {
+  id: string
+  medication_id: string
+  quantity: number
+  quantity_indicated: number | null
+  saldo_de_item_id: string | null
+  receta_path: string
+  receta_file_name: string
+  receta_mime: string
+  receta_size: number
+  /** La habilitación original cuya receta reusa un saldo (R6). */
+  origen_habilitacion_id: string | null
+  requested_by_name: string | null
+  requested_at: string
+  estado: EstadoHabilitacion
+  motivo_codigo: MotivoNoHabilitar | null
+  /** Sólo con `motivo_codigo = 'otro'`: el motivo contado. */
+  motivo_texto: string | null
+  decided_by_name: string | null
+  decided_at: string | null
+  /** El renglón que sumó «Habilitar». */
+  item_id: string | null
+  medication: { name: string; dosis: string | null; unit: string; drug: { id: string; name: string } | null } | null
+}
+
+/** Los motivos de «No habilitar», de lista y en este orden (D28). `otro` pide contarlo. */
+export const MOTIVOS_NO_HABILITAR: readonly { value: MotivoNoHabilitar; label: string }[] = [
+  { value: 'receta_ilegible', label: 'Receta ilegible o incompleta' },
+  { value: 'receta_sin_firma', label: 'Receta sin firma del médico' },
+  { value: 'no_corresponde', label: 'No corresponde a este paciente' },
+  { value: 'sin_stock', label: 'Sin stock en el protocolo' },
+  { value: 'otro', label: 'Otro motivo' },
+]
+
+/** El motivo de una habilitación no aprobada, en palabras. `null` si no hay decisión negativa. */
+export function motivoNoHabilitado(h: Pick<HabilitacionRow, 'estado' | 'motivo_codigo' | 'motivo_texto'>): string | null {
+  if (h.estado !== 'no_habilitada' || !h.motivo_codigo) return null
+  if (h.motivo_codigo === 'otro') return h.motivo_texto?.trim() || 'Otro motivo'
+  return MOTIVOS_NO_HABILITAR.find((m) => m.value === h.motivo_codigo)?.label ?? 'Otro motivo'
+}
+
+/** Las habilitaciones que todavía esperan a Farmacia. */
+export function habilitacionesPendientes(r: Pick<DispensationRequestRow, 'habilitaciones'>): HabilitacionRow[] {
+  return (r.habilitaciones ?? []).filter((h) => h.estado === 'pendiente')
 }

@@ -222,9 +222,12 @@ function AltaProtocolo({ onClose, onCreated }: {
 
   /* Un medicamento con renglón normal en la lista no admite además su saldo: la base no deja dos
      renglones del mismo medicamento en un pedido (0123). */
+  /* El saldo de un «Otro» (0124) queda afuera: ya no está habilitado y se pide como habilitación con
+     la misma receta, que es un circuito de la tarjeta de la visita. Acá se pediría como renglón y la
+     base lo rechazaría. */
   const saldos = saldosDeLaVisita(
     contexto.data ?? [], items, new Set(items.filter((i) => !i.saldo_de_item_id).map((i) => i.medication_id)),
-  )
+  ).filter((s) => !s.habilitacionId)
   const pedirSaldo = (s: SaldoCaja) => { setItems((prev) => [...prev, renglonDeSaldo(s)]); setErr(null) }
 
   const agregar = () => {

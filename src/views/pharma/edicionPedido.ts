@@ -7,7 +7,8 @@
  *   después      nada: el stock ya se descontó y el comprobante ya salió
  *
  * Y una regla que no depende del estado: el último renglón de un pedido SIN IP no se quita, se
- * cancela el pedido. Un pedido vacío no es un pedido (la misma regla que al crearlo).
+ * cancela el pedido. Un pedido vacío no es un pedido (la misma regla que al crearlo). Un «Otro» por
+ * habilitar (0124) también cuenta como algo: el pedido sigue siendo el de esa habilitación.
  *
  * Espeja los guards de `update_dispensation_item_quantity` / `remove_dispensation_item` (0121). Si la
  * pantalla ofreciera lo que la base rechaza, la coordinadora vería un error por algo que la pantalla
@@ -19,6 +20,7 @@ import type { DispensationRequestRow } from '../../data/pharma'
 
 type PedidoEditable = Pick<DispensationRequestRow, 'status' | 'includes_ip' | 'prepared_by_name'> & {
   items: readonly unknown[]
+  habilitaciones?: readonly { estado: string }[]
 }
 
 export interface EdicionDelPedido {
@@ -32,7 +34,8 @@ export interface EdicionDelPedido {
 
 export function edicionDelPedido(p: PedidoEditable, readOnly: boolean): EdicionDelPedido {
   const editable = !readOnly && p.status === 'solicitada'
-  const puedeQuitar = editable && (p.items.length > 1 || p.includes_ip)
+  const otroPendiente = (p.habilitaciones ?? []).some((h) => h.estado === 'pendiente')
+  const puedeQuitar = editable && (p.items.length > 1 || p.includes_ip || otroPendiente)
   return {
     editable,
     puedeQuitar,

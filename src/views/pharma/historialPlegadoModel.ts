@@ -30,6 +30,7 @@ import type { Badge } from './dispensaciones/estados'
 export type PedidoHistorial = Pick<
   DispensationRequestRow,
   'id' | 'status' | 'created_at' | 'updated_at' | 'rejection_reason' | 'includes_ip' | 'items' | 'dispensations'
+  | 'habilitaciones'
 >
 
 export interface RenglonHistorial {
@@ -94,6 +95,13 @@ function queSePidio(r: PedidoHistorial): string {
   }
   // 0123 (D27): «Fenisona x1 de 2», «Fenisona x1 saldo».
   for (const it of r.items) partes.push(`${it.medication?.name ?? 'Medicamento'} ${cantidadConPartes(it.quantity, partesDeRenglon(it), 'corto')}`)
+  // 0124: un «Otro» que no llegó a ser renglón también es parte de lo que se pidió. Los habilitados ya
+  // están arriba como renglón; los que no, se nombran con cómo terminaron.
+  for (const h of r.habilitaciones ?? []) {
+    if (h.estado === 'habilitada') continue
+    const cant = cantidadConPartes(h.quantity, { indicado: h.quantity_indicated, esSaldo: h.saldo_de_item_id != null }, 'corto')
+    partes.push(`${h.medication?.name ?? 'Medicamento'} ${cant} (${h.estado === 'no_habilitada' ? 'no habilitado' : 'sin habilitar'})`)
+  }
   return partes.length ? partes.join(' · ') : 'Sin renglones'
 }
 

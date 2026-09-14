@@ -15,7 +15,12 @@
  *   ya_pedido       lo que falta ya está en camino                    «… · ya pedido», sin botón
  *   ocupado         el medicamento ya tiene renglón en el pedido      sin botón (un renglón por medicamento)
  *   no_habilitado   se deshabilitó después de entregar la primera     «Ya no está habilitada», sin botón (D21)
+ *                   (salvo que fuera un «Otro»: ver abajo)
  *   pedible         nada de lo anterior                               «Pedir el saldo»
+ *
+ * EL SALDO DE UN «OTRO» (0124, R6). La receta habilita UNA entrega: al entregar la primera parte el
+ * medicamento se vuelve a desactivar. Ese saldo NO es «Ya no está habilitada»: se pide igual, como una
+ * habilitación nueva con la misma receta ya aprobada (`habilitacionId`), que Farmacia aprueba al preparar.
  *
  * POR QUÉ ES PURO Y CON TEST. Un saldo mal contado se dibuja igual de prolijo: ofrecer otra vez lo
  * que ya está en camino (y entregar de más), o esconder un saldo que existe (y que el paciente se
@@ -31,6 +36,8 @@ export interface RenglonLocal {
   medication_id: string
   quantity: number
   saldo_de_item_id?: string | null
+  /** Saldo de un «Otro»: la habilitación original cuya receta se reusa (0124, R6). */
+  origen_habilitacion_id?: string | null
 }
 
 export type EstadoSaldo = 'en_pantalla' | 'ya_pedido' | 'ocupado' | 'no_habilitado' | 'pedible'
@@ -51,6 +58,8 @@ export interface SaldoCaja {
   restante: number
   /** La última parte entregada. */
   ultimaEntrega: string | null
+  /** Si el original fue un «Otro»: el saldo se pide como habilitación con la misma receta (R6). */
+  habilitacionId: string | null
   estado: EstadoSaldo
 }
 
@@ -81,7 +90,8 @@ export function saldosDeLaVisita(
     if (enPantalla > 0) estado = 'en_pantalla'
     else if (pendiente === 0) estado = 'ya_pedido'
     else if (ocupados.has(f.medication_id)) estado = 'ocupado'
-    else if (f.habilitado === false) estado = 'no_habilitado'
+    // Un «Otro» deshabilitado es lo esperado (R6), no una traba: se pide por habilitación.
+    else if (f.habilitado === false && !f.habilitacion_id) estado = 'no_habilitado'
     else estado = 'pedible'
 
     cajas.push({
@@ -95,6 +105,7 @@ export function saldosDeLaVisita(
       enPantalla,
       restante: Math.max(0, pendiente - enPantalla),
       ultimaEntrega: f.instante,
+      habilitacionId: f.habilitado === false ? f.habilitacion_id ?? null : null,
       estado,
     })
   }
@@ -103,7 +114,10 @@ export function saldosDeLaVisita(
 
 /** El renglón que agrega «Pedir el saldo»: todo lo que falta, del mismo medicamento. */
 export function renglonDeSaldo(s: SaldoCaja): RenglonLocal & { quantity: number } {
-  return { medication_id: s.medicationId, quantity: s.restante, saldo_de_item_id: s.itemId }
+  return {
+    medication_id: s.medicationId, quantity: s.restante, saldo_de_item_id: s.itemId,
+    ...(s.habilitacionId ? { origen_habilitacion_id: s.habilitacionId } : {}),
+  }
 }
 
 /** Fecha de la última parte, en hora argentina. */
