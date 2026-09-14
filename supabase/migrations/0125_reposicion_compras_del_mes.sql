@@ -238,7 +238,7 @@ grant execute on function public.anular_pedido_reposicion(uuid) to authenticated
 
 
 -- 7 · insumos_de_reposicion: los datos crudos de la card (D11, D37) ------------------------------
--- La FORMA del JSON es la de InsumosReposicion en src/views/pharma/reportes/reposicionModel.ts: si se
+-- La FORMA del JSON es la de InsumosReposicion en src/data/pharma/reposicionModel.ts: si se
 -- cambia una, se cambia la otra. Siempre todos los estudios no cerrados (D37: ningún filtro la mueve).
 -- p_hoy lo manda el front en hora AR: current_date en Supabase es UTC.
 create or replace function public.insumos_de_reposicion(p_hoy date)

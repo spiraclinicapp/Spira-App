@@ -215,8 +215,8 @@ a tablas embebidas en `select`s existentes: **migración primero, front después
 
 | Archivo | Qué |
 |---|---|
-| `src/views/pharma/reportes/reposicionModel.ts` (nuevo) | La cuenta pura, con el diagrama de arriba en el comentario de cabecera y los tipos del JSON. `hoy` siempre por parámetro. |
-| `src/views/pharma/reportes/reposicionModel.test.ts` (nuevo) | Ver «Tests». |
+| `src/data/pharma/reposicionModel.ts` (nuevo) | La cuenta pura, con el diagrama de arriba en el comentario de cabecera y los tipos del JSON. `hoy` siempre por parámetro. |
+| `src/data/pharma/reposicionModel.test.ts` (nuevo) | Ver «Tests». |
 | `src/data/pharma/reposicion.ts` (nuevo) | `useInsumosDeReposicion(protocolIds)` (**sin el período en las deps**), `configurarReposicion`, `guardarDemoraCompra`, `registrarPedido`, `anularPedido`, `guardarExcepcionDelPaciente`. Tipos a mano citando la `0125`; errores por `pharmaErrorMessage`. |
 | `src/views/pharma/reportes/FaltantePorEstudio.tsx` (nuevo) | La card: por estudio, un renglón por medicamento («A comprar 6»), detalle plegable, avisos, pedidos. |
 | `src/views/pharma/reportes/FormularioReposicion.tsx` (nuevo) | Modo por desplegable (no texto libre) + cantidad. |
