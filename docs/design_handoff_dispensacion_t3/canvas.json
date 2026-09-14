@@ -1,0 +1,43 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Coordinación" },
+    { "id": "page-2", "name": "Farmacia" },
+    { "id": "page-3", "name": "Historial" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "title": "1 · Aviso rojo al elegir", "x": 0, "y": 0, "w": 578, "h": 600, "page": "page-1" },
+    { "file": "OtroDesplegable.dc.html", "title": "2 · «Otro» en el desplegable", "x": 678, "y": 0, "w": 578, "h": 600, "page": "page-1" },
+    { "file": "OtroReceta.dc.html", "title": "3 · «Otro» con la receta", "x": 1356, "y": 0, "w": 578, "h": 820, "page": "page-1" },
+    { "file": "OtroPedido.dc.html", "title": "4 · Pedido: por habilitar", "x": 2034, "y": 0, "w": 578, "h": 520, "page": "page-1" },
+    { "file": "OtroRechazado.dc.html", "title": "4b · No habilitado", "x": 2034, "y": 760, "w": 578, "h": 520, "page": "page-1" },
+    { "file": "EnPartes.dc.html", "title": "5 · Entrega en partes", "x": 0, "y": 1560, "w": 578, "h": 600, "page": "page-1" },
+    { "file": "SaldoOfrecido.dc.html", "title": "6 · Visita siguiente: el saldo", "x": 678, "y": 1560, "w": 578, "h": 380, "page": "page-1" },
+    { "file": "SaldoPedido.dc.html", "title": "7 · Saldo pedido y otra droga en rojo", "x": 1356, "y": 1560, "w": 578, "h": 640, "page": "page-1" },
+    { "file": "Tablero.dc.html", "title": "8 · Tablero de Farmacia", "x": 0, "y": 0, "w": 339, "h": 450, "page": "page-2" },
+    { "file": "CajonHabilitacion.dc.html", "title": "9 · Cajón: habilitar al preparar", "x": 439, "y": 0, "w": 720, "h": 840, "page": "page-2" },
+    { "file": "NoHabilitar.dc.html", "title": "10 · No habilitar", "x": 1259, "y": 0, "w": 544, "h": 360, "page": "page-2" },
+    { "file": "HistorialHoy.dc.html", "title": "Hoy · el historial y el botón del IP", "x": 0, "y": 0, "w": 578, "h": 520, "page": "page-3" },
+    { "file": "HistorialA.dc.html", "title": "A · Renglones planos (descartada)", "x": 678, "y": 0, "w": 578, "h": 440, "page": "page-3" },
+    { "file": "HistorialB.dc.html", "title": "B · Plegado en una línea (ELEGIDA)", "x": 1356, "y": 0, "w": 578, "h": 380, "page": "page-3" },
+    { "file": "HistorialBRechazo.dc.html", "title": "B · con un pedido rechazado", "x": 2034, "y": 0, "w": 578, "h": 480, "page": "page-3" }
+  ],
+  "annotations": [
+    { "id": "n1", "page": "page-1", "x": 0, "y": -210, "w": 578, "text": "1 · El aviso rojo sale apenas se elige una medicación cuya DROGA se entregó en los últimos 30 días, en este protocolo o en otro. Acá se entregó omeprazol 20 mg en PROT-B y se eligió el de 40 mg. Dice droga, presentación, fecha y protocolo. Reemplaza al aviso «Última dispensación» y nunca bloquea. Con varias drogas en rojo, una sola caja con una línea por droga (D25)." },
+    { "id": "n2", "page": "page-1", "x": 678, "y": -210, "w": 578, "text": "2 · «Otro medicamento» es la última opción del desplegable, separada de la medicación habilitada. Lista sólo lo que tiene stock en el protocolo (D20)." },
+    { "id": "n3", "page": "page-1", "x": 1356, "y": -210, "w": 578, "text": "3 · Se elige del stock del protocolo, entre lo que el paciente no tiene habilitado. La receta es obligatoria: sin archivo, «Agregar» queda apagado. Se ve antes de mandar, igual que la constancia del IP." },
+    { "id": "n4", "page": "page-1", "x": 2034, "y": -210, "w": 578, "text": "4 · Viaja como pedido de habilitación, no como renglón: la fila dice «Por habilitar» hasta que Farmacia lo resuelve. Un «Otro» solo abre su propio pedido (D26)." },
+    { "id": "n4b", "page": "page-1", "x": 2034, "y": 570, "w": 578, "text": "4b · Si Farmacia no lo habilita, la fila queda «No habilitado», con el motivo y quién lo decidió. «Pedir de nuevo» abre «Otro» con el medicamento y la cantidad cargados; falta sólo la receta nueva (D23)." },
+    { "id": "n5", "page": "page-1", "x": 0, "y": 1370, "w": 578, "text": "5 · Entrega en partes, por envases. «Cant.» es lo que se entrega ahora; «En partes» suma lo indicado. El renglón queda «x1 de 2», y el comprobante dice «1 (de 2 indicados)» (D27)." },
+    { "id": "n6", "page": "page-1", "x": 678, "y": 1370, "w": 578, "text": "6 · En la visita siguiente, el saldo aparece arriba. Se calcula con lo entregado, no se guarda. «Pedir el saldo» suma el renglón con un clic. Si ya no está habilitada, la caja sigue sin el botón (D21)." },
+    { "id": "n7", "page": "page-1", "x": 1356, "y": 1370, "w": 578, "text": "7 · El saldo no es una entrega repetida: va informativo aunque sea de hace menos de 30 días. Si piden MÁS que el saldo, pasa a rojo (D24). Otra droga reciente sigue en rojo, y el rojo va primero." },
+    { "id": "decisiones", "page": "page-1", "x": 2034, "y": 1560, "w": 578, "text": "Revisión de diseño (2026-09-13) · decisiones D17 a D28, detalladas en docs/plan-dispensacion-base-e-imp.md:\n· La tarjeta, de arriba abajo: avisos · concomitante · producto en investigación (siempre) · solicitar · pie del pedido · historial plegado.\n· El motivo del IP fuera de cronograma vive dentro de su sección.\n· «Marcar lista» espera la habilitación.\n· «No habilitar» con motivos de lista.\n\nNombres y cantidades son de ejemplo." },
+    { "id": "n8", "page": "page-2", "x": 0, "y": -250, "w": 339, "text": "8 · La tarjeta avisa que el pedido trae una habilitación: quien lo toma sabe que hay trabajo extra." },
+    { "id": "n9", "page": "page-2", "x": 439, "y": -250, "w": 720, "text": "9 · Al preparar, la habilitación va arriba de todo, como la constancia del IP, y es el primer pendiente de la columna de pasos. «Marcar lista» espera a que se resuelva (D22). Recién al habilitar, Budesonida pasa a ser un renglón para escanear. Fenisona dice «1 de 2 indicados»: se arma sólo lo de ahora." },
+    { "id": "n10", "page": "page-2", "x": 1259, "y": -250, "w": 544, "text": "10 · «No habilitar» pide un motivo de lista (D28): receta ilegible o incompleta · receta sin firma del médico · no corresponde a este paciente · sin stock en el protocolo · otro motivo (texto obligatorio)." },
+    { "id": "h0", "page": "page-3", "x": 0, "y": -210, "w": 578, "text": "Hoy · El historial es una tarjeta por pedido y abajo, pegado a «Ver 1 más», queda «Pedir producto en investigación fuera de cronograma»: otra caja blanca del mismo ancho y el mismo borde. Se lee como un pedido más del historial, y es una salida del IP que vive lejos de la sección del IP." },
+    { "id": "hA", "page": "page-3", "x": 678, "y": -210, "w": 578, "text": "A (descartada) · El historial siempre a la vista, en renglones de una línea dentro de una sola caja." },
+    { "id": "hB", "page": "page-3", "x": 1356, "y": -210, "w": 578, "text": "B (ELEGIDA, D17) · La sección del IP existe siempre; si el cronograma no lo prevé, su estado vacío ofrece «Pedir fuera de cronograma» (D18). El historial se pliega en una línea al pie; «Ver historial» despliega los renglones." },
+    { "id": "hBr", "page": "page-3", "x": 2034, "y": -210, "w": 578, "text": "B con un rechazo · la línea lo nombra y el historial abre desplegado, con el motivo en una segunda línea." }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

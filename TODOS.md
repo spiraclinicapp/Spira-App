@@ -5,6 +5,27 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
+## Dispensación · Archivos huérfanos en el bucket `ip-docs`
+
+- **Qué:** listar los objetos de `ip-docs` que ninguna fila referencia (ni
+  `dispensation_ip_documents.storage_path` ni `dispensation_habilitaciones.receta_path`) y borrarlos a
+  mano con el rol de servicio.
+- **Por qué:** el bucket NO tiene policy de borrado, a propósito (es evidencia: `0071:246-290`). La
+  constancia y la receta se suben ANTES de la función que registra la fila, así que cada fallo o
+  reintento después de subir deja un objeto sin dueño. El «borrado best-effort» del front
+  (`uploadIpDocument`) no borra nada: sin policy, Storage devuelve vacío sin error.
+- **Pros:** el bucket no acumula documentos de pacientes sin fila que los explique.
+- **Contras:** script manual con permisos altos; hay que cruzar contra las DOS tablas antes de borrar
+  para no tocar evidencia referenciada.
+- **Contexto:** hallazgo 4 de la voz externa en la revisión de arquitectura de la Tanda 3
+  (`docs/plan-dispensacion-base-e-imp.md`, R5). Se aceptó convivir con los huérfanos en vez de abrir
+  una policy de delete sobre evidencia.
+- **Empezar por:** `select name from storage.objects where bucket_id = 'ip-docs'` contra las dos
+  columnas de path.
+- **Depende de / bloqueado por:** que la Tanda 3c (recetas) esté en prod.
+
+---
+
 ## Dispensación · Farmacia y gerencia pueden cambiar el ESTADO de un pedido por fuera de la app
 
 - **Qué:** frenar los UPDATE directos por PostgREST de `dispensation_requests.status` (y de

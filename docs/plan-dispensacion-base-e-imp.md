@@ -243,8 +243,11 @@ Ante el rechazo del guard, releer el pedido y el stock, arreglando también `:71
 
 ## Tanda 3 · Base, con mock
 
-**Antes de la primera línea:** mock de "Otro", del saldo y del aviso rojo **en el repo**.
-Sugerido: `/plan-design-review`.
+**Mock en el repo:** `docs/design_handoff_dispensacion_t3/` (lienzo publicado:
+<https://claude.ai/code/artifact/e110068f-a952-4880-a78c-76c3cb308780>). Pasó `/plan-design-review`
+el 2026-09-13: las decisiones D17 a D28 y las especificaciones están en
+[«Revisión de diseño · Tanda 3»](#revisión-de-diseño--tanda-3-2026-09-13), más abajo. **Mandan sobre el mock
+donde lo contradicen** (el mock es anterior a la revisión).
 
 - Pedido de habilitación de "Otro": tabla nueva + RPC de coordinación. Su receta va en tabla y RPC
   propias, sobre el bucket existente con prefijo de path propio y sin tocar `includes_ip`.
@@ -361,9 +364,397 @@ contrato SQL (`0119`), la clase de alerta (`src/shell/`, `src/views/`) y la fila
 - [ ] **T5 (P1)** · SQL · `0121`: sello de base, RPCs de edición, `prepared_by_name`, auditoría de
   renglones, cierre de RLS, stock. *Verifica:* sondas + QA con cuenta sólo coordinadora.
 - [ ] **T6 (P1)** · Front · panel de base sin cronograma, edición, stock, relectura ante guard.
-- [ ] **T7 (P2)** · Diseño · mock de "Otro", saldo y aviso rojo en el repo.
-- [ ] **T8 (P1)** · SQL + Front · "Otro" (habilitación en 1 tx, receta aparte), saldo calculado,
-  aviso rojo por droga entre protocolos + 2 tests puros.
+- [x] **T7 (P2)** · Diseño · mock de "Otro", saldo y aviso rojo en el repo
+  (`docs/design_handoff_dispensacion_t3/`) + `/plan-design-review` (2026-09-13).
+- [ ] **T8 (P1)** · Partida en tres entregas por la revisión de arquitectura (R1): ver las tareas
+  **3a**, **3b** y **3c** al final de «Revisión de arquitectura · Tanda 3».
+
+## Revisión de diseño · Tanda 3 (2026-09-13)
+
+`/plan-design-review` sobre el mock `docs/design_handoff_dispensacion_t3/`, **con el pedido del Director
+de simplificar el Historial**: hoy el historial de pedidos cerrados y el botón «Pedir producto en
+investigación fuera de cronograma» quedan pegados al pie de la tarjeta, con la misma caja blanca, y el
+botón se lee como un pedido más (`VisitDispensationPanel.tsx:1218-1267`). Sin voz externa (codex no
+está instalado; el Director eligió no sumar un subagente). Las maquetas son HTML con los tokens reales
+del código, en el lienzo, en lugar de las imágenes del generador de gstack.
+
+### Decisiones (no re-discutir)
+
+- **D17 · Historial plegado en una línea (opción B del lienzo, página «Historial»).** Al pie: «2 pedidos
+  cerrados · el último, entregado el 13/09» + «Ver historial», que despliega renglones de una línea
+  (fecha · qué · comprobante · estado) en una sola caja blanca. **Con un pedido rechazado, la línea lo
+  nombra y abre desplegado**, con el motivo en una segunda línea. Se va la tarjeta completa por pedido
+  (`renderCard`) y el «Ver N más».
+- **D18 · La sección «Producto en investigación» existe siempre, y el motivo del IP fuera de cronograma
+  vive adentro.** Si el cronograma no prevé IP, su estado vacío dice «El cronograma no lo prevé en esta
+  visita.» con un botón chico «Pedir fuera de cronograma». Al tocarlo, el rótulo pasa a ámbar con ⓘ (el
+  tratamiento actual de la excepción) y adentro van el motivo y después la constancia. **Desaparece la
+  subsección aparte «Fuera de cronograma» y el botón suelto al pie.** El aviso rojo de D14 sigue arriba
+  de toda la tarjeta y ya no se muda a la excepción.
+- **D19 · Orden de la tarjeta, fijo:** avisos (rojo → informativo) · Medicación concomitante · Producto
+  en investigación · Solicitar · pie del pedido abierto · Historial plegado (último).
+- **D20 · «Otro» lista sólo lo que tiene stock vigente en el protocolo.** Si no queda nada: «No hay otro
+  medicamento con stock en PROT-A».
+- **D21 · Saldo trabado: visible, sin botón.** Si el medicamento se deshabilitó, la caja del saldo sigue
+  y en lugar de «Pedir el saldo» dice «Ya no está habilitada». Sin stock, se puede pedir con el aviso de
+  stock de siempre.
+- **D22 · «Marcar lista para retirar» espera la habilitación.** Apagado con «Falta resolver la
+  habilitación de <medicamento>», que también es el primer pendiente de la columna de pasos. Mismo
+  criterio que la constancia del IP: lo que cambia el comprobante se resuelve antes de emitirlo.
+- **D23 · «Pedir de nuevo» en la fila «No habilitado».** Abre «Otro» con medicamento y cantidad cargados
+  y pide una receta nueva. El rechazo queda en el historial.
+- **D24 · Pedir MÁS que el saldo pone el aviso en rojo.** *Reescrita por R2 (revisión de
+  arquitectura):* el renglón del saldo nunca supera el saldo. Pedir esa droga como renglón NORMAL
+  teniendo saldo abierto es una indicación nueva y va en rojo, con la pista «Tiene saldo de 1 envase:
+  pedilo con «Pedir el saldo»». Nunca bloquea.
+- **D25 · Varias drogas en rojo: una sola caja**, con el título general («Este paciente recibió omeprazol
+  y budesonida en los últimos 30 días») y una línea por droga (presentación · fecha · protocolo).
+- **D26 · Un «Otro» solo abre su propio pedido, sin renglones**, que entra a Solicitadas con la señal
+  «Pide habilitar». Al habilitar recibe su primer renglón; si no se habilita y no tiene nada más, el
+  pedido se cierra rechazado con ese motivo. *Resuelto en arquitectura: R3 y R4.*
+- **D27 · El comprobante impreso, el cajón y el historial dicen «1 (de 2 indicados)».**
+- **D28 · Motivos de «No habilitar», de lista:** receta ilegible o incompleta · receta sin firma del
+  médico · no corresponde a este paciente · sin stock en el protocolo · otro motivo (texto obligatorio).
+
+### La tarjeta, de arriba abajo (D19)
+
+```
+┌ Dispensación ─────────────────────────────────────────┐
+│ 1 Avisos: rojo (droga reciente) → informativo (saldo) │  lo que frena la mano, ANTES de cargar
+│ 2 Medicación concomitante: renglones · Elegir / Otro  │  lo que se está haciendo
+│ 3 Producto en investigación: siempre presente         │  vacío = «Pedir fuera de cronograma»
+│ 4 Solicitar dispensación (si hay algo sin mandar)     │
+│ 5 Pie del pedido abierto: fecha · estado · Cancelar   │
+│ 6 Historial plegado en una línea                      │  lo que ya pasó, último
+└───────────────────────────────────────────────────────┘
+```
+
+### Estados
+
+```
+PARTE                 | CARGANDO                  | VACÍO                | ERROR                              | LISTO                  | PARCIAL
+----------------------|---------------------------|----------------------|------------------------------------|------------------------|---------------------------
+Aviso rojo / saldo    | «Comprobando entregas     | sin caja             | ámbar: «No se pudo comprobar si    | rojo o informativo     | una droga en rojo y otra
+                      | recientes…» (reloj, sólo  |                      | recibió esta droga hace poco» +    |                        | con saldo: dos cajas, el
+                      | si hay algo elegido)      |                      | «Revisá el historial antes de      |                        | rojo primero (D25)
+                      |                           |                      | pedir.» Nunca se calla un error    |                        |
+Desplegable «Otro»    | como el desplegable de hoy| D20                  | caja de error del panel            | formulario de «Otro»   | —
+Receta de «Otro»      | —                         | «Agregar» apagado,   | mismos mensajes que la constancia  | vista previa + nombre  | si la subida falla, no se
+                      |                           | «Falta la receta»    | del IP (10 MB · PDF, JPG, PNG,     |                        | crea la habilitación; lo
+                      |                           |                      | WEBP)                              |                        | ya pedido queda
+Saldo                 | sin caja hasta saber      | sin saldo: sin caja  | caja ámbar del aviso               | «Pedir el saldo»       | D21
+Historial plegado     | sin línea hasta que carga | sin pedidos cerrados:| caja de error del panel            | la línea               | con un rechazo: abre
+                      |                           | sin línea            |                                    |                        | desplegado (D17)
+Habilitar (Farmacia)  | «Un momento…» en el botón | —                    | mensaje en el panel, sin cerrar    | aviso «Budesonida      | sin stock: se habilita
+                      |                           |                      |                                    | habilitada y sumada»   | igual, como en sustitución
+```
+
+### El recorrido
+
+```
+PASO | QUIÉN HACE                                  | QUÉ SIENTE                   | QUÉ LO RESUELVE
+-----|---------------------------------------------|------------------------------|--------------------------------------------
+1    | Coordinadora abre la visita                 | «¿qué le toca?»              | avisos arriba, antes de cargar nada
+2    | Elige una droga que se entregó hace poco    | duda                         | el rojo nombra droga, fecha y protocolo; no bloquea
+3    | No encuentra el medicamento en la lista     | trabada                      | «Otro medicamento», al final del desplegable
+4    | Adjunta la receta                           | «¿es la de este paciente?»   | vista previa antes de mandar
+5    | Solicita                                    | alivio                       | la fila «Por habilitar» dice quién sigue
+6    | Farmacéutica toma el pedido                 | trabajo extra                | la tarjeta lo anticipa, el cajón lo pone primero (D22)
+7    | No lo habilita                              | tensión con Coordinación     | motivo de lista (D28); «Pedir de nuevo» (D23)
+8    | Visita siguiente                            | «¿cuánto le faltaba?»        | saldo arriba, un clic (D21, D24)
+```
+
+### Especificaciones de sistema y accesibilidad
+
+- «En partes» es la casilla nativa dentro de un `label`, como `ScheduleDefinitionForm.tsx:158`.
+- «Otro» es una opción al pie del `SearchableSelect`, separada por un filete. **No usa `onCreate`**:
+  en la casa «crear» es dar de alta en el catálogo.
+- «No habilitado» usa el color de `rechazada` (`estados.ts:103`); el aviso rojo, `DANGER_TINT` con
+  el título en `--spira-acc-deep-danger` (4,97:1 sobre el tinte).
+- Ancho de referencia: el panel mide ~560px en la notebook de 1536×864. Los renglones del historial
+  recortan con puntos suspensivos el texto del medio, nunca la fecha ni el estado.
+- El aviso rojo va con `role="status"`: se anuncia sin interrumpir, porque nunca bloquea. «Ver
+  historial» con `aria-expanded`. «Pedir el saldo» con nombre accesible «Pedir el saldo de <droga>».
+
+### Lo que ya existe y se reusa
+
+`AvisoReciente` (estados cargando/error, `VisitDispensationPanel.tsx:207`) · `ConstanciaDropzone` y
+`ConstanciaPendiente` para la receta (`ConstanciaIp.tsx`) · `PanelSustitucion` como precedente de
+habilitar en el mismo acto · `TarjetaConstancia` para la receta en el cajón · `RailProceso` +
+`requisitos()` para el pendiente de habilitar · `SearchableSelect` con `desc` · `chipExcepcion`, badges
+de `estados.ts` · `RejectModal` como base del modal «No habilitar».
+
+### NO entra
+
+- **Estado vacío de la receta dibujado en el mock:** lo describe la tabla de estados; no hace falta
+  pantalla propia.
+- **Cajón en tablet:** ya está en `TODOS.md` («el cajón en tablet»).
+- **Historial en la ficha del paciente (solo lectura):** se aplica la misma línea plegada; no se
+  diseñó una vista distinta.
+
+### Tareas de diseño (repartidas en 3a, 3b y 3c por R1)
+
+- [ ] **DT1 (P1)** · Front · Historial plegado (D17) y orden fijo de la tarjeta (D19).
+  `VisitDispensationPanel.tsx`. *Verifica:* QA logueado con una visita con un pedido rechazado.
+- [ ] **DT2 (P1)** · Front · Sección del IP siempre presente con estado vacío y motivo adentro (D18).
+  `VisitDispensationPanel.tsx`. *Verifica:* QA en visita sin IP en el cronograma.
+- [ ] **DT3 (P1)** · Front · Avisos: una caja roja por pedido con líneas por droga (D25), rojo por
+  exceso de saldo (D24), estados cargando/error. `avisoReciente.ts` (pura, con test).
+- [ ] **DT4 (P1)** · Front · «Otro»: sólo con stock (D20), «Pedir de nuevo» (D23).
+- [ ] **DT5 (P1)** · Front · Saldo trabado (D21). `saldoModel.ts` (pura, con test).
+- [ ] **DT6 (P1)** · Front + SQL · Farmacia: «Marcar lista» espera la habilitación (D22), motivos de
+  lista (D28), pedido solo de habilitación (D26, confirmar en arquitectura).
+- [ ] **DT7 (P2)** · Front · «1 (de 2 indicados)» en comprobante, cajón e historial (D27).
+  `ComprobanteImprimible.tsx`, `ItemRow.tsx`.
+
+## Revisión de arquitectura · Tanda 3 (2026-09-13)
+
+`/plan-eng-review` acotado a la Tanda 3, sobre `main` en `88e60ab` (última migración `0122`), con las
+decisiones D17-D28 de la revisión de diseño. Voz externa: subagente Claude (codex no instalado), 15
+hallazgos; los que cambiaban decisiones se verificaron contra el código antes de preguntarlos. **Mandan
+sobre D7-D28 donde los precisan.**
+
+### Correcciones (no re-discutir)
+
+- **R1 · Tres entregas, en orden.** **3a** panel (D17-D19), sólo front. **3b** partes, saldo y aviso
+  rojo (D8, D13, D14, D21, D24, D25, D27). **3c** «Otro» y habilitación (D7, D12, D20, D22, D23, D26,
+  D28). Mismo alcance total; cada una con su QA logueado.
+- **R2 · El saldo es un VÍNCULO al renglón, no una suma por droga (3b).**
+  - `dispensation_request_items` suma `quantity_indicated` (N de «entregar M de N») y
+    `saldo_de_item_id` (FK a la misma tabla, sólo en renglones pedidos con «Pedir el saldo»).
+  - Saldo = indicado del original − entregado (original + sus saldos) − **en camino** (saldos en
+    solicitada / preparando / lista). **Sólo nace de un original ENTREGADO.** Si lo que falta ya está
+    pedido: «Saldo de Fenisona: 1 envase · ya pedido», sin botón.
+  - Validación en el SERVIDOR al crear/sumar: mismo enrolamiento, original raíz y entregado, cantidad
+    ≤ saldo restante. `update_dispensation_item_quantity` aplica el mismo tope y, con indicado,
+    cantidad ≤ indicado.
+  - **Un medicamento, un renglón por pedido**, también en el servidor (índice único o guard). Antes de
+    crearlo, contar duplicados en prod: si hay filas viejas repetidas, el índice no entra.
+  - Así el comprobante cruza lo preparado (`dispensation_items`, agrupado por medicamento) con lo pedido
+    por (pedido, medicamento) y puede decir «1 (de 2 indicados)» (D27).
+  - Sigue a la sustitución porque el vínculo es al renglón.
+- **R3 · Un «Otro» nace atómico (3c).** Una sola función `solicitar_habilitacion(visita, pedido|null,
+  medicamento, cantidad, indicado, receta…)`: con pedido `solicitada` se suma; si no hay, o Farmacia ya
+  lo tomó, crea pedido + habilitación en la MISMA transacción. El alta del pedido (permisos, protocolo,
+  origen) sale a una **función interna** que también usa `create_dispensation_request` (reescrita con la
+  misma firma y el mismo comportamiento). La interna lleva `revoke execute … from authenticated, anon,
+  public` —`0007:30` da permiso de ejecución a toda función nueva— y repite `auth.uid()` y permisos
+  adentro. Sonda sin sesión: `42501` o `PGRST202`.
+- **R4 · Ciclo de la habilitación (3c).**
+  - La fila guarda sólo la decisión de Farmacia: `pendiente` → `habilitada` / `no_habilitada`.
+    **«Anulada» se deduce**: pendiente en un pedido cancelado, rechazado o atendido. Cancelar y rechazar
+    no se reescriben.
+  - Se reescriben, desde su última versión y con la misma firma: `remove_dispensation_item` (0121: una
+    habilitación pendiente cuenta como «el pedido lleva algo») y `mark_dispensation_ready` (0075 tal
+    cual + guard «ninguna habilitación pendiente», D22).
+  - Habilitar / no habilitar exigen pedido `preparando` **y** que no exista dispensación en `lista` o
+    `entregada` (el chequeo de `attach_ip_document`, 0071:352-358): en `lista` el pedido sigue en
+    `preparando`.
+  - No habilitar deja el pedido sin renglones, sin IP y sin otras pendientes → llama a
+    `reject_dispensation_request` con el motivo (D26).
+  - Se revoca `resolve_dispensation` (0050:342, deprecada y sin llamadas) de `authenticated`, y se borra
+    `resolveDispensation` de `dispensations.ts`. El PATCH directo de estados sigue en `TODOS.md`.
+- **R5 · Una tabla, con la receta adentro (3c).** `dispensation_habilitaciones`: `id` (lo exige
+  `audit_row`), `request_id`, `medication_id`, `quantity`, `quantity_indicated`, `receta_path` (unique),
+  `receta_file_name`, `receta_mime`, `receta_size`, `origen_habilitacion_id` (R6), `requested_by/at`,
+  `estado`, `motivo_codigo`, `motivo_texto`, `decided_by/at`. Lectura como `dispensation_ip_documents`;
+  sin insert/update/delete para el cliente; trigger de auditoría.
+  - Receta en `ip-docs/{protocolo}/habilitaciones/{uuid}.{ext}`: las policies de 0071 la cubren y no se
+    tocan. La función exige esa forma exacta, el protocolo de la visita y que el objeto EXISTA en
+    `storage.objects`.
+  - Los huérfanos se aceptan (el bucket no permite borrar, a propósito); se saca la promesa de
+    «borrar si falla». Limpieza anotada en `TODOS.md`.
+  - «Otro» se ofrece sólo a quien puede subir: coordinador asignado o Farmacia. Admin de Coordinación y
+    gerencia no lo ven.
+- **R6 · La receta habilita UNA entrega (decisión del Director, contra la recomendación) (3c).**
+  - Habilitar activa `patient_medications` y anota qué habilitación lo activó (columna nueva en
+    `patient_medications`, con FK nombrada en cualquier embed). Un trigger `AFTER UPDATE OF status` en
+    `dispensation_requests` lo desactiva cuando el pedido termina (atendida, cancelada, rechazada), sólo
+    si la marca sigue apuntando a esa habilitación. `assign_patient_medication` (Farmacia desde la ficha)
+    limpia la marca: si Farmacia lo habilita a mano, queda habilitado. El candado de la 0050 no se afloja.
+  - **Saldo de un «Otro»:** «Pedir el saldo» crea una habilitación nueva con `origen_habilitacion_id` y
+    la MISMA receta ya aprobada (no se sube otra); Farmacia la aprueba al preparar.
+  - Copy: «Se habilita sólo para esta entrega», en el formulario y en el cajón.
+- **R7 · `contexto_dispensacion(p_visit_id)` (3b).** Security definer; permiso como
+  `stock_de_la_visita`. Devuelve **filas crudas**, marcadas por tipo:
+  - `entrega`: entregas de los últimos 31 días de TODAS las visitas y protocolos del paciente, incluida
+    esta: droga, medicamento, presentación, instante, código de protocolo. Nunca lote, cantidad ni
+    nombre del estudio.
+  - `abierto`: pedidos abiertos del paciente (solicitada / preparando / lista) en cualquier visita,
+    salvo el pedido abierto de ESTA visita. «Pedido el 12/09 en PROT-B, todavía sin retirar».
+  - `indicacion`: del enrolamiento, cada renglón con indicado, lo entregado y lo en camino, renglón por
+    renglón (R2).
+  - `ip`: la última entrega de IP del enrolamiento en 31 días (instante, kits, visita).
+  - La ventana exacta en huso AR, la resta del saldo y la clasificación rojo/informativo viven en
+    `avisoReciente.ts` y `saldoModel.ts`, con test. Comparación **por droga si las dos la tienen, si no
+    por el mismo medicamento** (`drug_id` es nullable). La validación de escritura del saldo queda en
+    SQL como autoridad (R2); el QA verifica que las dos cuentas coincidan.
+- **R8 · Despliegue y consultas (3b, 3c).** 3a sin migración. 3b y 3c son **aditivas: migración
+  primero**. Todo anidado nuevo nombra la clave (`medications!medication_id`, y la FK nueva de
+  `patient_medications`); `saldo_de_item_id` no se anida. Sonda sin sesión de cada select nuevo antes del
+  push: `401`/`42501`, nunca `300`/`PGRST201`.
+- **R9 · El panel se parte.** 3a: `HistorialPlegado.tsx`, `SeccionIp.tsx`. 3b: `AvisosDeEntrega.tsx`
+  (y se BORRAN `AvisoReciente` y `useUltimaDispensacion`). 3c: `FormularioOtro.tsx`. Reglas puras:
+  `historialPlegado.ts`, `avisoReciente.ts`, `saldoModel.ts`.
+- **R10 · El saldo también en el alta manual de Farmacia (3b).** `PanelNuevaDispensacion.tsx` muestra
+  la misma caja de saldos con «Pedir el saldo». La salida ambulatoria (0116) no tiene visita y queda
+  afuera.
+- **R11 · 3a sin SQL, pero con la verdad del IP.** `SeccionIp` lee el mismo estado del IP que
+  Procedimientos (`src/data/visitIp.ts`): con un cierre de la 0119 muestra el cierre y no ofrece nada. El
+  aviso viejo sigue arriba con su regla de tono y, al abrir la excepción, aparece dentro de la sección del
+  IP en ámbar, hasta que la 3b lo reemplaza.
+- **R12 · `candidatos_otro(p_visit_id)` (3c).** Medicamentos del protocolo de la visita
+  (`protocol_medications`), con stock vigente (predicado exacto del FEFO, `0075:501-504`) y sin
+  habilitación activa para el paciente: id, nombre, dosis, unidad, en stock, máximo armable. Todo
+  calificado (0056/0058).
+- **R13 · La trazabilidad ve la habilitación (3c).** `dispensation_audit_trail` reescrita sobre la 0121
+  con la misma firma: suma `dispensation_habilitaciones` del pedido y los cambios de
+  `patient_medications` que la referencian. Etiquetas nuevas en `historial.ts`, con test.
+
+### Cómo fluye «Otro» (R3-R6)
+
+```
+ COORDINACIÓN                                   BASE                                    FARMACIA
+ ────────────                                   ────                                    ────────
+ candidatos_otro(visita) ──► protocolo ∩ stock vigente ∖ habilitados
+ elige + receta ──► sube a ip-docs/{prot}/habilitaciones/{uuid}   (huérfano si lo de abajo falla)
+          │
+          ▼
+ solicitar_habilitacion ──► ¿pedido 'solicitada'? ── sí ──► + habilitación 'pendiente'
+                                   │ no
+                                   └──► _alta_pedido (interna, revocada) + habilitación   (1 tx)
+                                                                         │
+                                                  tablero: «Pide habilitar X» ◄───────────┘
+                                                                         │ Preparar
+                                                   ┌─────────────────────┴─────────────────────┐
+                                                   ▼                                           ▼
+                                   habilitar (sin disp. lista/entregada)          no habilitar (motivo de lista)
+                                   patient_medications.active + marca             ¿pedido vacío? → reject_dispensation_request
+                                   + renglón (scanned_units 0)
+                                                   │
+                        mark_dispensation_ready: pendientes = 0 (D22) ─► lista ─► entregada
+                                                   │
+                        trigger AFTER UPDATE OF status (atendida/cancelada/rechazada)
+                        ──► desactiva patient_medications si la marca es de esta habilitación (R6)
+```
+
+### Tests
+
+```
+CÓDIGO                                                     RECORRIDOS
+[3a] historialPlegado.ts (pura)                            [3a] Visita con historial
+  ├── [GAP] resumen «N pedidos cerrados · el último…»        ├── [GAP][→E2E] plegado → «Ver historial» → renglones
+  ├── [GAP] con un rechazado: abre desplegado y lo nombra    ├── [GAP][→E2E] visita sin IP: «Pedir fuera de cronograma»
+  └── [GAP] sin pedidos cerrados: sin línea                  │           → motivo adentro → constancia → solicitar
+[3a] SeccionIp.tsx                                           └── [GAP][→E2E] visita con cierre «No corresponde»: sin oferta
+  └── [REGRESIÓN] motivosFueraCronograma.test.ts sigue verde
+[3b] saldoModel.ts (pura)                                  [3b] Partes y saldo
+  ├── [GAP] indicado − entregado − en camino (R2)            ├── [GAP][→E2E] V1 «1 de 2» → entregar → V2 saldo → pedir
+  ├── [GAP] original no entregado: sin saldo                 ├── [GAP][→E2E] saldo en camino: «ya pedido», sin botón
+  ├── [GAP] sustitución sigue al renglón                     ├── [GAP][→E2E] comprobante «1 (de 2 indicados)»
+  └── [GAP] trabado: deshabilitado / sin stock (D21)         ├── [GAP][→E2E] editar cantidad del saldo por encima → rechazo
+[3b] avisoReciente.ts (pura)                                 └── [GAP][→E2E] «Pedir el saldo» desde el alta manual de Farmacia
+  ├── [GAP] misma droga, otra presentación → rojo          [3b] Aviso rojo
+  ├── [GAP] sin droga: compara por medicamento (R7)          ├── [GAP][→E2E] droga entregada en OTRO protocolo → rojo
+  ├── [GAP] saldo → informativo; renglón normal → rojo (D24) ├── [GAP][→E2E] entregada hoy en ESTA visita → rojo (R7)
+  ├── [GAP] abierto sin retirar → rojo                       ├── [GAP][→E2E] SEGURIDAD: coordinadora SÓLO de otro protocolo
+  ├── [GAP] varias drogas → una caja (D25)                   │           llama contexto_dispensacion → 42501
+  ├── [GAP] borde 30 días en huso AR (timestamps +00:00)     └── [GAP][→E2E] IP fuera de cronograma con IP reciente → ámbar
+  └── [GAP] cargando / error nunca se callan
+[3c] estados.ts requisitos()/readyBlockedReason            [3c] «Otro» de punta a punta
+  └── [REGRESIÓN CRÍTICA] habilitación pendiente es          ├── [GAP][→E2E] «Otro» solo → pedido nuevo en Solicitadas
+       requisito y bloquea «Marcar lista»                    ├── [GAP][→E2E] Preparar → Habilitar → renglón escaneable → lista
+[3c] edicionPedido.ts                                        ├── [GAP][→E2E] entregado → medicamento desactivado (R6)
+  └── [REGRESIÓN] último renglón con habilitación pendiente  ├── [GAP][→E2E] saldo de un «Otro» → habilitación con misma receta
+       se puede quitar                                       ├── [GAP][→E2E] no habilitar, pedido vacío → rechazado
+[3c] historial.ts                                            ├── [GAP][→E2E] «Pedir de nuevo» con receta nueva
+  └── [GAP] etiquetas de habilitación (historial.test.ts)    ├── [GAP][→E2E] cancelar pedido → «anulada»
+[3c] SQL: solicitar/resolver/candidatos/mark_ready           ├── [GAP][→E2E] habilitar con dispensación en lista → rechazo
+  └── [→E2E] sondas sin sesión: función interna (42501/      ├── [GAP][→E2E] ruta de receta de otra forma/protocolo → rechazo
+       PGRST202), resolve_dispensation revocada, selects     └── [GAP][→E2E] PATCH directo a la tabla nueva → 0 filas/42501
+
+COBERTURA de lo nuevo: 0 %  |  a escribir: 3 archivos de test puros + historial.test.ts + 3 regresiones
+E2E (QA logueado, cuenta SÓLO coordinadora + farmacéutica): 25 recorridos
+```
+
+### Modos de falla
+
+| Camino nuevo | Falla realista | ¿Test? | ¿Manejo? | ¿Silenciosa? |
+|---|---|---|---|---|
+| Saldo | saldo en camino ofrecido otra vez | pura | resta en camino (R2) | no |
+| Saldo | renglón colgado de otro paciente | E2E | validación en SQL (R2) | no |
+| Aviso | medicamento sin droga | pura | fallback a medicamento (R7) | no |
+| Aviso | entrega a las 22:00 AR del día 30 | pura | ventana en TS con huso AR | no |
+| Cruce de protocolos | coordinadora ajena lee historia | E2E | permiso por visita (R7) | no |
+| «Otro» solo | se corta entre pedido y habilitación | E2E | una transacción (R3) | no |
+| Función interna | llamada por `/rpc` | sonda | revoke + permisos adentro (R3) | no |
+| Habilitar | con comprobante ya emitido | E2E | chequeo lista/entregada (R4) | no |
+| Una entrega | queda habilitado tras cancelar | E2E | trigger al terminar (R6) | no |
+| Marcar lista | habilitación pendiente | regresión | guard SQL + `requisitos()` | no |
+| Receta | archivo subido, función falla | — | se acepta; `TODOS.md` | **sí, huérfano** (aceptado) |
+| Embed nuevo | FK ambigua voltea el tablero | sonda | FK nombrada (R8) | no |
+
+**Brechas críticas: 0.** El único camino silencioso, el archivo huérfano, se aceptó con su TODO.
+
+### Lo que ya existe y se reusa
+
+`substitute_dispensation_item` (habilitar + renglón en una transacción) · `attach_ip_document` (chequeo
+de protocolo de la ruta y de dispensación emitida) · policies de `ip-docs` (0071) · `reject_dispensation_request`
+(cierre de D26) · `stock_de_la_visita` y `alternativas_sustitucion` (molde de `candidatos_otro`) ·
+`requisitos()` (un solo lugar para el riel y el botón) · `dispensation_audit_trail` · `uploadIpDocument`
+(validaciones de archivo).
+
+### NO entra
+
+- **Borrar recetas huérfanas:** el bucket no lo permite a propósito; limpieza manual en `TODOS.md`.
+- **Cerrar el PATCH directo de estados:** ya está en `TODOS.md`, desde la 0122.
+- **Saldo desde la salida ambulatoria (0116):** no tiene visita ni protocolo.
+- **Tests automáticos de SQL:** el repo no los tiene; se cubren con sondas y QA logueado.
+- **Una cola aparte de habilitaciones:** se evaluó (voz externa) y se mantuvo D12.
+
+### Paralelización
+
+Secuencial entre entregas: las tres tocan `VisitDispensationPanel.tsx` y el orden lo fija R1. Dentro de
+la 3c, una vez escrito el SQL, el lado de Farmacia (`src/views/pharma/dispensaciones/`) y el formulario
+de Coordinación (`src/views/pharma/FormularioOtro.tsx`) pueden ir en paralelo; comparten sólo
+`src/data/pharma/`.
+
+### Tareas por entrega
+
+**3a · Panel (sin SQL)**
+
+- [ ] **3a-1 (P1, humano: ~4h / CC: ~30min)** · Front · `HistorialPlegado.tsx` + `historialPlegado.ts`
+  con test (D17, R9). *Verifica:* `npm run build` + QA con un pedido rechazado.
+- [ ] **3a-2 (P1, humano: ~4h / CC: ~30min)** · Front · `SeccionIp.tsx`: siempre presente, estado vacío,
+  motivo adentro, lee el estado del IP de la 0119, aviso viejo mudado (D18, D19, R11).
+  *Verifica:* QA en visita sin IP y en visita con cierre «No corresponde».
+
+**3b · Partes, saldo y aviso rojo**
+
+- [ ] **3b-1 (P1, humano: ~1 día / CC: ~1h)** · SQL · migración aditiva: `quantity_indicated`,
+  `saldo_de_item_id`, validaciones y tope (R2), un renglón por medicamento (contar duplicados en prod
+  antes), `contexto_dispensacion` con filas crudas (R7). *Verifica:* sondas + QA con cuenta sólo
+  coordinadora de otro protocolo.
+- [ ] **3b-2 (P1, humano: ~1 día / CC: ~1h)** · Front · `saldoModel.ts` + `avisoReciente.ts` con tests,
+  `AvisosDeEntrega.tsx`, «En partes», «Pedir el saldo», borrar `AvisoReciente` y
+  `useUltimaDispensacion` (D8, D13, D14, D21, D24, D25, R9). *Verifica:* `npm run build` + QA.
+- [ ] **3b-3 (P2, humano: ~3h / CC: ~20min)** · Front · «1 (de 2 indicados)» en comprobante, cajón e
+  historial (D27); caja de saldos en el alta manual de Farmacia (R10).
+
+**3c · «Otro» y habilitación**
+
+- [ ] **3c-1 (P1, humano: ~2 días / CC: ~2h)** · SQL · `dispensation_habilitaciones` (R5),
+  `candidatos_otro` (R12), `solicitar_habilitacion` + interna revocada (R3), resolver (R4), reescrituras
+  de `mark_dispensation_ready`, `remove_dispensation_item`, `create_dispensation_request` y
+  `dispensation_audit_trail` (misma firma, desde su última versión), marca y trigger de una entrega
+  (R6), revocar `resolve_dispensation`. *Verifica:* sondas sin sesión + QA.
+- [ ] **3c-2 (P1, humano: ~1 día / CC: ~1h)** · Front · `FormularioOtro.tsx` (receta, sólo para quien
+  puede subir), fila «Por habilitar» / «No habilitado» / «Pedir de nuevo», saldo de un «Otro» (D7, D20,
+  D23, R5, R6).
+- [ ] **3c-3 (P1, humano: ~1 día / CC: ~1h)** · Front · Farmacia: señal en el tablero, sección de
+  habilitación en el cajón, modal «No habilitar» con motivos de lista, `requisitos()` con la regresión
+  crítica, etiquetas de `historial.ts` (D22, D26, D28, R13). *Verifica:* `npm run build` + QA con la
+  farmacéutica.
 
 ## GSTACK REVIEW REPORT
 
@@ -371,17 +762,17 @@ contrato SQL (`0119`), la clase de alerta (`src/shell/`, `src/views/`) y la fila
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — (codex no instalado) | — |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 26 issues (8 arquitectura + 6 de seguimiento + 12 correcciones), 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 2 | CLEAR (PLAN) | T1-T2: 26 issues, 0 critical gaps · T3 (2026-09-13): 22 issues, 0 critical gaps, R1-R13 |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR (FULL) | score: 6/10 → 9/10, 12 decisions (D17-D28), Historial simplificado |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
-- **CROSS-MODEL:** voz externa por subagente Claude. Coincidió con el buscador de SQL, sin haberlo
-  visto, en el sello de `off_schedule` (D9), la regla única del IP (D10) y el candado de
-  `delivered_by`. Hubo una sola tensión, adelantar el aviso rojo, y el Director mantuvo lo decidido
-  (D13). El workflow de verificación se cortó a mitad a pedido del Director: Performance quedó
-  verificada completa (6 sobreviven, 1 refutado); los hallazgos de SQL se verificaron a mano contra
-  el `.sql` vivo; Calidad, Tests y Bordes se cubrieron en línea.
-- **VERDICT:** ENG CLEARED — lista para implementar la Tanda 1. La Tanda 3 necesita mock en el repo y
-  conviene pasarla por `/plan-design-review`.
+- **CROSS-MODEL:** en las dos revisiones de arquitectura la voz externa fue un subagente Claude (codex
+  no instalado). En T1-T2 coincidió con el buscador de SQL en D9, D10 y el candado de `delivered_by`.
+  En T3 aportó 15 hallazgos; 13 entraron como correcciones (R2-R13), y dos tensiones se resolvieron
+  a favor de la revisión: se mantuvo D12 (habilitación colgada del pedido) y se movió la cuenta del
+  saldo y la ventana de 30 días a reglas puras con test. En R6 el Director eligió «una entrega» contra
+  la recomendación («tratamiento»).
+- **VERDICT:** ENG + DESIGN CLEARED. Tandas 1 y 2 en prod. Tanda 3 lista para implementar en tres
+  entregas: 3a (sólo front), 3b y 3c (migración primero en las dos).
 
 NO UNRESOLVED DECISIONS
