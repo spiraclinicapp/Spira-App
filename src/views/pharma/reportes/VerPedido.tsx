@@ -45,6 +45,7 @@ export function VerPedido({ rep, hoy, accentSolid, puedeEditar, onClose, onPedid
   const grupos = pedidoOrdenado(rep, orden)
   const { resumen, plazo } = rep
   const sinCargar = rep.renglones.filter((r) => r.estado === 'sin_cargar')
+  const sinMedicacion = rep.sinMedicacion.reduce((n, x) => n + x.enrolamientos, 0)
 
   /* Mismo mecanismo que Estadísticas: se monta la hoja y recién en el efecto siguiente se imprime. */
   useEffect(() => {
@@ -123,6 +124,16 @@ export function VerPedido({ rep, hoy, accentSolid, puedeEditar, onClose, onPedid
             {sinCargar.length === 1 ? 'Falta cargar ' : 'Faltan cargar '}
             {sinCargar.slice(0, 3).map((r) => `${r.nombre} (${r.estudio.code})`).join(', ')}
             {sinCargar.length > 3 && ` y ${sinCargar.length - 3} más`}: no {sinCargar.length === 1 ? 'está' : 'están'} en el pedido.
+          </span>
+        </div>
+      )}
+
+      {sinMedicacion > 0 && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: sinCargar.length > 0 ? 8 : 16, padding: '10px 12px', borderRadius: 10, background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', fontSize: 12.5, color: 'var(--spira-acc-deep-warn)' }}>
+          <span style={{ flex: '0 0 14px', marginTop: 2 }}><Icon name="alert" size={14} stroke={1.9} /></span>
+          <span>
+            {sinMedicacion} {sinMedicacion === 1 ? 'paciente activo no tiene' : 'pacientes activos no tienen'} medicación habilitada y no {sinMedicacion === 1 ? 'está' : 'están'} en el pedido
+            ({rep.sinMedicacion.map((x) => `${x.estudio.code}: ${x.enrolamientos}`).join(' · ')}).
           </span>
         </div>
       )}

@@ -161,7 +161,10 @@ function Resumen({ rep, desplegada, angosto, puedeEditar, accentSolid, onDespleg
   const total = renglones.length
   const cargados = renglones.filter((r) => r.estado !== 'sin_cargar').length
   const primerDia = cargados === 0
-  const cubierto = resumen.envases === 0 && resumen.enCamino === 0 && resumen.sinCargar === 0
+  // Pacientes activos sin NINGUNA medicación habilitada: no suman, y el número plegado no puede leerse
+  // completo sin decirlo (en prod, 2026-09-14: 21 de 25). Tampoco se puede decir «cubierto» con ellos afuera.
+  const sinMedicacion = rep.sinMedicacion.reduce((t, x) => t + x.enrolamientos, 0)
+  const cubierto = resumen.envases === 0 && resumen.enCamino === 0 && resumen.sinCargar === 0 && sinMedicacion === 0
   const pedido = resumen.envases === 0 && resumen.enCamino > 0
 
   const desplegar = (
@@ -216,6 +219,13 @@ function Resumen({ rep, desplegada, angosto, puedeEditar, accentSolid, onDespleg
         <div style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {partes.map((p, i) => <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{i > 0 && <span aria-hidden style={{ color: 'var(--spira-line-2)' }}>·</span>}{p}</span>)}
         </div>
+        {sinMedicacion > 0 && (
+          <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-warn)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Icon name="alert" size={13} stroke={1.9} />
+            <span>{plural(sinMedicacion, 'paciente activo', 'pacientes activos')} sin medicación habilitada: no {sinMedicacion === 1 ? 'está' : 'están'} en la cuenta</span>
+            {!desplegada && <button type="button" style={linkBoton} onClick={onDesplegar}>· Ver por estudio</button>}
+          </div>
+        )}
       </div>
       {primerDia && puedeEditar
         ? <button type="button" style={{ ...btnPrimary(accentSolid), height: 36 }} onClick={onEmpezar}>Empezar a cargar</button>
