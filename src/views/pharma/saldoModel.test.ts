@@ -61,6 +61,18 @@ describe('saldosDeLaVisita', () => {
     expect(s.pendiente).toBe(1)
   })
 
+  it('el saldo de un «Otro» se pide aunque ya no esté habilitado: con la misma receta (0124, R6)', () => {
+    const [s] = saldosDeLaVisita([indicacion({ habilitado: false, habilitacion_id: 'hab1' })], [])
+    expect(s).toMatchObject({ estado: 'pedible', habilitacionId: 'hab1' })
+    expect(renglonDeSaldo(s)).toEqual({ medication_id: 'fenisona', quantity: 1, saldo_de_item_id: 'orig', origen_habilitacion_id: 'hab1' })
+  })
+
+  it('si Farmacia lo habilitó a mano, el saldo de un «Otro» se pide como renglón común', () => {
+    const [s] = saldosDeLaVisita([indicacion({ habilitado: true, habilitacion_id: 'hab1' })], [])
+    expect(s.habilitacionId).toBeNull()
+    expect(renglonDeSaldo(s)).toEqual({ medication_id: 'fenisona', quantity: 1, saldo_de_item_id: 'orig' })
+  })
+
   it('completo y sin nada en camino: sin caja', () => {
     expect(saldosDeLaVisita([indicacion({ entregado: 2 })], [])).toEqual([])
   })

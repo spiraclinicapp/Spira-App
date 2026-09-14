@@ -34,6 +34,12 @@ describe('edicionDelPedido', () => {
   it('con IP, el último renglón sí se quita: el pedido sigue siendo el del IP', () => {
     expect(edicionDelPedido(pedido('solicitada', 1, true), false).puedeQuitar).toBe(true)
   })
+
+  it('con un «Otro» por habilitar, el último renglón se quita: el pedido sigue siendo el de la habilitación (0124)', () => {
+    expect(edicionDelPedido({ ...pedido('solicitada', 1, false), habilitaciones: [{ estado: 'pendiente' }] }, false).puedeQuitar).toBe(true)
+    // Una ya resuelta no cuenta.
+    expect(edicionDelPedido({ ...pedido('solicitada', 1, false), habilitaciones: [{ estado: 'no_habilitada' }] }, false).puedeQuitar).toBe(false)
+  })
 })
 
 describe('quienLoPrepara', () => {

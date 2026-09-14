@@ -4,7 +4,7 @@ import { PatientLink, PatientLinkArrow } from '../../../components/PatientLink'
 import { Icon } from '../../../components/Icon'
 import type { IconName } from '../../../components/Icon'
 import type { BoardColumn, DispensationRequestRow } from '../../../data/pharma'
-import { activeDispensation, constanciaVigente, pendingScans, totalUnits } from '../../../data/pharma'
+import { activeDispensation, constanciaVigente, habilitacionesPendientes, pendingScans, totalUnits } from '../../../data/pharma'
 import { chipExcepcion, COLUMN_META, readyBlockedReason, scanSignal } from './estados'
 import { fromNow } from '../../../lib/dates'
 
@@ -148,6 +148,12 @@ export function KanbanCard({ r, column, canOperate, onOpen, onOpenPatient, onAdv
       {r.includes_ip && constanciaVigente(r) === null && (
         <Signal icon="fileText" color="var(--spira-acc-deep-warn)" label="Falta la constancia del IP" />
       )}
+
+      {/* 0124 (mock 8): trae un «Otro» por habilitar. Quien lo toma sabe desde el tablero que hay
+          trabajo extra antes de escanear. Una señal por medicamento: con dos, cada nombre importa. */}
+      {habilitacionesPendientes(r).map((h) => (
+        <Signal key={h.id} icon="fileText" color="var(--spira-acc-deep-warn)" label={`Pide habilitar ${h.medication?.name ?? 'un medicamento'}`} />
+      ))}
 
       {/* 4 · señal de estado: ícono + color + texto (nunca color solo)
           Sin renglones no hay escaneo: "0/0 escaneados" con el tilde de completo sobre un pedido de

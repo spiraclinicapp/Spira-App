@@ -79,6 +79,13 @@ interface SingleProps extends BaseProps {
   multiple?: false
   value: string
   onChange: (value: string) => void
+  /**
+   * Una salida al pie del menú, separada por un filete, que NO es una opción de la lista: elegirla
+   * cierra el menú y le avisa a quien llama. Nació para «Otro medicamento» en la tarjeta de
+   * Dispensación (0124): pedir algo que el paciente no tiene habilitado es otro formulario, no un
+   * valor más. No es `onCreate`: en la casa «crear» es dar de alta en el catálogo.
+   */
+  accionAlPie?: { label: string; desc?: string; icon?: ComponentProps<typeof Icon>['name']; onSelect: () => void }
 }
 
 interface MultiProps extends BaseProps {
@@ -129,6 +136,7 @@ export function SearchableSelect(props: Props) {
   const multiple = props.multiple === true
   const onCreate = multiple ? undefined : props.onCreate
   const onDelete = multiple ? undefined : props.onDelete
+  const accionAlPie = multiple ? undefined : props.accionAlPie
   /** El menú suma en vez de alternar. Sólo existe en modo múltiple: alternar una sola opción no es
    *  "sumar", es reemplazar, y ahí un `+` mentiría sobre lo que va a pasar. */
   const sumar = multiple && props.modo === 'sumar'
@@ -517,6 +525,22 @@ export function SearchableSelect(props: Props) {
                   )
                 })}
               </div>
+              {accionAlPie && (
+                <>
+                  <div style={divider} />
+                  <button
+                    type="button"
+                    onClick={() => { setOpen(false); accionAlPie.onSelect() }}
+                    style={{ ...addNew, alignItems: accionAlPie.desc ? 'flex-start' : 'center' }}
+                  >
+                    <Icon name={accionAlPie.icon ?? 'plus'} size={15} color="var(--spira-primary)" style={{ flex: '0 0 auto', marginTop: accionAlPie.desc ? 1 : 0 }} />
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+                      <span>{accionAlPie.label}</span>
+                      {accionAlPie.desc && <span style={optionDesc}>{accionAlPie.desc}</span>}
+                    </span>
+                  </button>
+                </>
+              )}
               {onCreate && (
                 <>
                   <div style={divider} />

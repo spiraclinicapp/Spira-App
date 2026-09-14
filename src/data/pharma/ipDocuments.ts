@@ -89,6 +89,36 @@ export async function uploadIpDocument(
   return { error: null, id: data as string }
 }
 
+/**
+ * Sube la receta de un «Otro medicamento» (0124) y devuelve su ruta, para `solicitarHabilitacion`.
+ *
+ * Mismo bucket, mismos formatos y mismo tope que la constancia del IP, en la carpeta
+ * `{protocolo}/habilitaciones/`: la política de Storage autoriza por el protocolo del principio de la
+ * ruta, y `solicitar_habilitacion` exige esa forma exacta y que el objeto exista.
+ *
+ * Si la subida sale bien y la solicitud falla después, el archivo queda huérfano: el bucket no deja
+ * borrar a propósito (evidencia inmutable). Se acepta y está anotado en TODOS.md.
+ */
+export async function uploadReceta(
+  protocolId: string,
+  file: File,
+): Promise<{ error: string | null; path?: string }> {
+  if (file.size > IP_MAX_BYTES) {
+    return { error: `La receta pesa ${formatBytes(file.size)} y el máximo es 10 MB.` }
+  }
+  if (!IP_MIME_TYPES.includes(file.type)) {
+    return { error: 'Formato no admitido para la receta. Se aceptan PDF, JPG, PNG y WEBP.' }
+  }
+  const path = `${protocolId}/habilitaciones/${crypto.randomUUID()}.${extOf(file)}`
+  const up = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false })
+  if (up.error) {
+    const detalle = up.error.message?.trim()
+    const base = 'No se pudo subir la receta. Probá de nuevo en un momento.'
+    return { error: detalle ? `${base} (${detalle})` : base }
+  }
+  return { error: null, path }
+}
+
 /** URL firmada de vida corta para ver el archivo. Sesenta segundos alcanzan para abrirlo. */
 export async function ipDocumentUrl(path: string): Promise<string | null> {
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60)

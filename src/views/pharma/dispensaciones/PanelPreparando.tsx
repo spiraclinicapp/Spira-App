@@ -6,6 +6,7 @@ import { btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow } from '../../../data/pharma'
 import {
   constanciaVigente,
+  habilitacionesPendientes,
   markDispensationReady,
   scanDispensationItem,
   todoEscaneado,
@@ -17,6 +18,7 @@ import { COLUMN_META, readyBlockedReason } from './estados'
 import { ItemRow, fromRequestItem } from './ItemRow'
 import { PanelSustitucion } from './PanelSustitucion'
 import { TarjetaConstancia } from './TarjetaConstancia'
+import { SeccionHabilitacion } from './SeccionHabilitacion'
 
 /**
  * El paso de preparar: escanear cada renglón contra su código de barras.
@@ -116,6 +118,12 @@ export function PanelPreparando({ r, scanRef, onChanged, onVerConstancia, visorA
   return (
     <>
       <div ref={bodyRef} style={body}>
+        {/* 0124 (D22): un «Otro» por habilitar va primero de todo. Cambia lo que se arma, y lo que
+            cambia el comprobante se resuelve antes de emitirlo. */}
+        {habilitacionesPendientes(r).length > 0 && (
+          <SeccionHabilitacion r={r} habilitaciones={habilitacionesPendientes(r)} onChanged={onChanged} onToast={onToast} />
+        )}
+
         {/* El IP va ARRIBA de los renglones a propósito: acá la constancia no es un adjunto, es lo
             primero que hay que hacer. La farmacéutica la abre, la imprime y la entrega junto con la
             medicación (D2), así que enterrarla debajo de la lista de escaneo sería ponerla justo

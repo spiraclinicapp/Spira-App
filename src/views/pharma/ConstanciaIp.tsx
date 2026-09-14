@@ -26,10 +26,12 @@ import { formatDateTimeAR } from '../../lib/dates'
  * no los decodifica, así que una foto de iPhone se subiría bien pero se vería y se imprimiría en
  * blanco sin ningún error—, ver el comentario en `data/pharma/ipDocuments.ts`.
  */
-export function ConstanciaDropzone({ accent, busy, onFile }: {
+export function ConstanciaDropzone({ accent, busy, onFile, que = 'la constancia' }: {
   accent: string
   busy: boolean
   onFile: (f: File) => void
+  /** Qué se arrastra, para la frase. La receta de «Otro medicamento» (0124) usa la misma zona. */
+  que?: string
 }) {
   const input = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
@@ -64,7 +66,7 @@ export function ConstanciaDropzone({ accent, busy, onFile }: {
       />
       <Icon name="upload" size={20} color={accent} stroke={1.7} />
       <div style={{ fontSize: 13, fontWeight: 600, marginTop: 7 }}>
-        {busy ? 'Subiendo…' : <>Arrastrá la constancia o <span style={{ color: accent, textDecoration: 'underline', textUnderlineOffset: 2 }}>elegí un archivo</span></>}
+        {busy ? 'Subiendo…' : <>Arrastrá {que} o <span style={{ color: accent, textDecoration: 'underline', textUnderlineOffset: 2 }}>elegí un archivo</span></>}
       </div>
       <div style={{ fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 3 }}>
         Preferentemente el PDF · hasta 10&nbsp;MB

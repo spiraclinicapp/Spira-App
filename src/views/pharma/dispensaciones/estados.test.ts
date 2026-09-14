@@ -263,3 +263,37 @@ describe('badgeDeHistorial · el caso que no debería pasar', () => {
       .toBe('Sin estado')
   })
 })
+
+/**
+ * REGRESIÓN CRÍTICA (0124, D22): un «Otro» por habilitar es un requisito y bloquea «Marcar lista».
+ * La base también lo frena (mark_dispensation_ready), pero si la pantalla no lo sabe ofrece un botón
+ * que va a fallar, y el riel muestra «todo listo» sobre un pedido al que le falta una decisión.
+ */
+describe('habilitación pendiente (0124)', () => {
+  const hab = (estado: 'pendiente' | 'habilitada' | 'no_habilitada') => ({
+    id: 'h1', medication_id: 'bud', quantity: 1, quantity_indicated: null, saldo_de_item_id: null,
+    receta_path: 'p/habilitaciones/x.jpg', receta_file_name: 'receta.jpg', receta_mime: 'image/jpeg', receta_size: 10,
+    origen_habilitacion_id: null, requested_by_name: 'Ana', requested_at: '2026-09-14T10:00:00Z',
+    estado, motivo_codigo: estado === 'no_habilitada' ? ('receta_sin_firma' as const) : null, motivo_texto: null,
+    decided_by_name: null, decided_at: null, item_id: null,
+    medication: { name: 'Budesonida 200 mcg', dosis: null, unit: 'u', drug: null },
+  })
+
+  it('va primero en el riel y el pie la nombra, aunque los renglones estén completos', () => {
+    const r = { ...pedido({ items: [item({ qty: 1, unidades: 1 })] }), habilitaciones: [hab('pendiente')] }
+    expect(requisitos(r)[0]).toEqual({ id: 'habilitacion:h1', texto: 'Habilitar Budesonida 200 mcg', cumplido: false, conteo: null })
+    expect(readyBlockedReason(r)).toEqual({ text: 'Falta resolver la habilitación de Budesonida 200 mcg', icon: 'fileText' })
+  })
+
+  it('resuelta (habilitada o no) deja de bloquear', () => {
+    for (const e of ['habilitada', 'no_habilitada'] as const) {
+      const r = { ...pedido({ items: [item({ qty: 1, unidades: 1 })] }), habilitaciones: [hab(e)] }
+      expect(readyBlockedReason(r)).toBeNull()
+    }
+  })
+
+  it('un pedido que es sólo un «Otro» pendiente también bloquea', () => {
+    const r = { ...pedido(), habilitaciones: [hab('pendiente')] }
+    expect(readyBlockedReason(r)?.text).toBe('Falta resolver la habilitación de Budesonida 200 mcg')
+  })
+})

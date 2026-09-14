@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
-import { InfoTip } from '../../components/InfoTip'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import type { SelectOption } from '../../components/SearchableSelect'
-import { formatDateAR } from '../../lib/dates'
+import { formatDateAR, formatDateTimeAR } from '../../lib/dates'
 import {
   usePatientMedications,
   useVisitDispensations,
   useContextoDispensacion,
+  useCandidatosOtro,
+  solicitarHabilitacion,
+  quitarHabilitacion,
+  uploadReceta,
+  openIpDocument,
+  motivoNoHabilitado,
   cantidadConPartes,
   partesDeRenglon,
   createDispensationRequest,
@@ -25,7 +30,7 @@ import {
   IP_MAX_BYTES,
   IP_MIME_TYPES,
 } from '../../data/pharma'
-import type { IpDocumentRow } from '../../data/pharma'
+import type { HabilitacionRow, IpDocumentRow } from '../../data/pharma'
 import { bumpIpEstado, useVisitIpStatus } from '../../data/visitIp'
 import { avisoStock, descripcionStock } from './stockVisita'
 import { edicionDelPedido, quienLoPrepara } from './edicionPedido'
@@ -37,10 +42,12 @@ import {
 } from './motivosFueraCronograma'
 import { Panel } from '../track/Panel'
 import { detalleIp } from '../track/ipEstado'
-import { DANGER_TINT, WARN_TINT, WARN_TINT_PILL, Sub, itemRow, muted, pillBase } from './panelDispensacion'
+import { DANGER_TINT, WARN_TINT, WARN_TINT_PILL, Sub, btnChico, itemRow, muted, pillBase } from './panelDispensacion'
+import { FormularioOtro } from './FormularioOtro'
 import { SeccionIp } from './SeccionIp'
 import { contenidoSeccionIp } from './seccionIpModel'
 import { HistorialPlegado } from './HistorialPlegado'
+import { EntregarEnPartes, partesInvalidas } from './EntregarEnPartes'
 import { AvisoIpReciente, AvisosDeEntrega } from './AvisosDeEntrega'
 import { avisoIp, avisoRojo } from './avisoReciente'
 import type { Elegido } from './avisoReciente'
@@ -104,13 +111,6 @@ const addBtn: CSSProperties = {
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, color: 'var(--spira-ink)',
 }
 
-/** Casilla nativa de «En partes» y su número de indicado, en el renglón del selector (mock 5). */
-const indicadoInline: CSSProperties = {
-  width: 60, height: 36, borderRadius: 10, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
-  background: 'var(--spira-white)', padding: '0 10px', fontFamily: 'var(--spira-font-text)', fontSize: 14,
-  color: 'var(--spira-ink)',
-}
-
 /**
  * Un renglón elegido y todavía sin mandar. `quantity_indicated` si va «en partes» (D8);
  * `saldo_de_item_id` si lo sumó «Pedir el saldo» (R2).
@@ -121,7 +121,24 @@ interface PendingItem {
   quantity: number
   quantity_indicated?: number | null
   saldo_de_item_id?: string | null
+  /** «Otro medicamento» (0124): la receta elegida, que se sube recién al solicitar. */
+  receta?: File | null
+  /** Saldo de un «Otro» (0124, R6): la habilitación original cuya receta se reusa. */
+  origen_habilitacion_id?: string | null
 }
+
+/** Un renglón elegido que viaja como pedido de habilitación y no como renglón (0124). */
+const esOtro = (i: PendingItem) => !!i.receta || !!i.origen_habilitacion_id
+
+/** La línea chica debajo de un renglón: con qué receta va, o por qué no se habilitó. */
+const lineaBajoRenglon: CSSProperties = {
+  display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, fontSize: 12, color: 'var(--spira-ink-soft)',
+  padding: '5px 12px 0', lineHeight: 1.4,
+}
+const verRecetaBtn = (accent: string): CSSProperties => ({
+  background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--spira-font-text)',
+  fontWeight: 600, fontSize: 12, color: accent, textDecoration: 'underline', textUnderlineOffset: 2,
+})
 
 /**
  * Panel "Dispensación" del detalle de visita (Track), partido en dos subsecciones que alimentan
@@ -198,6 +215,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   /** «En partes» (D8): la casilla y lo indicado. Se limpian con el renglón, como `pick` y `qty`. */
   const [enPartes, setEnPartes] = useState(false)
   const [indicado, setIndicado] = useState('')
+  /** El selector muestra el formulario de «Otro medicamento» (0124) en lugar de la lista. */
+  const [modoOtro, setModoOtro] = useState(false)
+  /** «Pedir de nuevo» (D23): lo que el formulario de «Otro» abre ya cargado. */
+  const [inicialOtro, setInicialOtro] = useState<{ medicationId: string; quantity: number; quantityIndicated: number | null } | null>(null)
   const [items, setItems] = useState<PendingItem[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -239,6 +260,12 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    * sólo donde se puede pedir: en la ficha (lectura) no hay nada que decidir con ese número.
    */
   const stockQ = useStockDeLaVisita(visit.id, !readOnly)
+  /**
+   * Los candidatos de «Otro» (0124). Sólo con el selector abierto: casi nunca se usa, y la consulta
+   * también dice si esta persona puede pedirlo (R5: Farmacia o quien coordina la visita).
+   */
+  const candidatosQ = useCandidatosOtro(visit.id, !readOnly && soliciting)
+  const ofrecerOtro = !readOnly && !candidatosQ.sinPermiso
   const stockDe = (medicationId: string) => (stockQ.data ?? []).find((s) => s.medication_id === medicationId)
 
   const requests = reqQ.data ?? []
@@ -363,6 +390,14 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
       desc: descripcionStock(stockDe(m.medication_id)),
     }))
 
+  // —— «Otro medicamento» (0124, Tanda 3c) ——
+  /** Los «Otro» de los pedidos abiertos que se ven como fila: por habilitar o no habilitados. */
+  const habilitacionesAbiertas: { r: (typeof openReqs)[number]; h: HabilitacionRow }[] = openReqs.flatMap((r) =>
+    (r.habilitaciones ?? []).filter((h) => h.estado !== 'habilitada').map((h) => ({ r, h })))
+  const pendientesDeHabilitar = new Set(habilitacionesAbiertas.filter(({ h }) => h.estado === 'pendiente').map(({ h }) => h.medication_id))
+  /** Lo que el formulario de «Otro» no ofrece: ya está en lo que se va a mandar o ya se pidió. */
+  const excluidosOtro = new Set([...pendingIds, ...yaEnPedido, ...pendientesDeHabilitar])
+
   // —— Avisos y saldos (0123, Tanda 3b) ——
   /**
    * Los saldos de lo entregado en partes. «Ocupado» = el medicamento ya tiene un renglón normal en lo
@@ -372,6 +407,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const ocupados = new Set([
     ...items.filter((i) => !i.saldo_de_item_id).map((i) => i.medication_id),
     ...(destino?.items ?? []).map((i) => i.medication_id),
+    ...(destino?.habilitaciones ?? []).filter((h) => h.estado === 'pendiente').map((h) => h.medication_id),
   ])
   const saldos = saldosDeLaVisita(ctxQ.data ?? [], items, ocupados)
   /**
@@ -530,10 +566,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const indicadoNum = enPartes ? parseInt(indicado, 10) : NaN
   const qtyNum = parseInt(qty, 10)
   /** «En partes» con lo indicado sin completar, o no mayor a lo de ahora: «Agregar» no lo deja pasar. */
-  const partesInvalidas = enPartes && (!Number.isFinite(indicadoNum) || !Number.isFinite(qtyNum) || indicadoNum <= qtyNum)
+  const partesMal = partesInvalidas(enPartes, indicado, qtyNum)
 
   function addItem() {
-    if (!pick || !Number.isFinite(qtyNum) || qtyNum <= 0 || partesInvalidas) return
+    if (!pick || !Number.isFinite(qtyNum) || qtyNum <= 0 || partesMal) return
     const med = activeMeds.find((m) => m.medication_id === pick)
     setItems((xs) => [...xs, {
       medication_id: pick, name: med?.medication?.name ?? 'Medicamento', quantity: qtyNum,
@@ -549,6 +585,22 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     ...(i.quantity_indicated ? { quantity_indicated: i.quantity_indicated } : {}),
     ...(i.saldo_de_item_id ? { saldo_de_item_id: i.saldo_de_item_id } : {}),
   })
+
+  /** Quita un «Otro» todavía por habilitar de un pedido solicitado (0124, la ✕ del mock 4). */
+  async function quitarOtro(habilitacionId: string) {
+    setBusy(true); setErr(null)
+    const res = await quitarHabilitacion(habilitacionId)
+    setBusy(false)
+    if (res.error) setErr(res.error)
+    reqQ.refetch(); stockQ.refetch(); ctxQ.refetch()
+  }
+
+  /** Abre la receta en una pestaña: la misma maña de `window.open` que la constancia del IP. */
+  async function verReceta(path: string) {
+    setErr(null)
+    const e = await openIpDocument(path)
+    if (e) setErr(e)
+  }
 
   /**
    * El primero que actúa crea el pedido; el segundo se suma al mismo — igual que `cargarConstancia`,
@@ -592,19 +644,26 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     // cambios — cada reintento chocaba contra el mismo guard y nunca aparecía "Lo está preparando".
     const releer = () => { reqQ.refetch(); stockQ.refetch(); ctxQ.refetch() }
 
+    // 0124: los «Otro» no son renglones; viajan como pedidos de habilitación, al final.
+    const normales = items.filter((i) => !esOtro(i))
+    const otros = items.filter(esOtro)
+
     let requestId = destino?.id ?? null
-    if (!requestId) {
-      const payload = items.map(aRenglonDelPedido)
-      const res = await createDispensationRequest(visit.id, payload, null, 'track', razonExcepcion)
+    if (!requestId && (normales.length > 0 || archivo)) {
+      // Sin renglones comunes ni constancia, no se crea nada acá: la primera habilitación crea el
+      // pedido con ella adentro, en la misma transacción (R3). Un pedido vacío no es un pedido.
+      const res = await createDispensationRequest(visit.id, normales.map(aRenglonDelPedido), null, 'track', razonExcepcion)
       if (res.error) { setBusy(false); setErr(res.error); releer(); return }
       requestId = res.id!
-    } else if (items.length) {
-      const res = await addDispensationItems(requestId, items.map(aRenglonDelPedido))
+    } else if (requestId && normales.length) {
+      const res = await addDispensationItems(requestId, normales.map(aRenglonDelPedido))
       if (res.error) { setBusy(false); setErr(res.error); releer(); return }
     }
     // Los renglones ya entraron: se limpian ANTES de subir para que un fallo del adjunto no los deje
-    // en pantalla como si faltara mandarlos (y un segundo intento los duplicaría).
-    setItems([]); setSoliciting(false)
+    // en pantalla como si faltara mandarlos (y un segundo intento los duplicaría). Los «Otro» quedan
+    // hasta mandarse.
+    setItems(otros)
+    if (!otros.length) setSoliciting(false)
 
     if (archivo) {
       // 0121: el pedido abierto es de pura base y no acepta la constancia (no tiene `off_schedule`
@@ -616,10 +675,42 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
         if (res.error) { setBusy(false); setErr(res.error); releer(); bumpIpEstado(); return }
         ipRequestId = res.id!
       }
+      // Con constancia siempre hay pedido: si no había destino, se creó arriba justamente por ella.
+      if (!ipRequestId) { setBusy(false); releer(); return }
       const up = await uploadIpDocument(ipRequestId, visit.protocol_id, archivo)
       if (up.error) { setBusy(false); setErr(up.error); releer(); bumpIpEstado(); return }
       setArchivo(null); setReemplazando(false)
     }
+
+    // 0124 · Los «Otro», de a uno: se sube la receta y se pide la habilitación. Van al pedido que
+    // quedó arriba; si no hubo ninguno, el primero lo crea y los demás se suman a ése. Si uno falla,
+    // quedan en pantalla los que faltan (los que entraron ya están en la tarjeta) y se relee.
+    let destinoOtro = requestId
+    const quedan = [...otros]
+    while (quedan.length > 0) {
+      const o = quedan[0]
+      let receta: { path: string; fileName: string; mime: string; size: number } | null = null
+      if (o.receta) {
+        const up = await uploadReceta(visit.protocol_id, o.receta)
+        if (up.error || !up.path) { setBusy(false); setErr(up.error ?? 'No se pudo subir la receta.'); setItems(quedan); releer(); return }
+        receta = { path: up.path, fileName: o.receta.name, mime: o.receta.type, size: o.receta.size }
+      }
+      const res = await solicitarHabilitacion({
+        visitId: visit.id,
+        requestId: destinoOtro,
+        medicationId: o.medication_id,
+        quantity: o.quantity,
+        quantityIndicated: o.quantity_indicated ?? null,
+        receta,
+        saldo: o.origen_habilitacion_id && o.saldo_de_item_id
+          ? { origenHabilitacionId: o.origen_habilitacion_id, saldoDeItemId: o.saldo_de_item_id }
+          : null,
+      })
+      if (res.error) { setBusy(false); setErr(res.error); setItems(quedan); releer(); bumpIpEstado(); return }
+      destinoOtro = res.requestId ?? destinoOtro
+      quedan.shift()
+    }
+    if (otros.length) { setItems([]); setSoliciting(false) }
 
     setBusy(false)
     releer()
@@ -793,6 +884,64 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               </div>
             )}
 
+            {/* 0124: los «Otro» de los pedidos abiertos. «Por habilitar» mientras Farmacia no lo
+                resuelve (mock 4); «No habilitado» con el motivo, quién y cuándo, y «Pedir de nuevo»
+                (mock 4b, D23). Los habilitados ya son un renglón de arriba. */}
+            {habilitacionesAbiertas.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 9 }}>
+                {habilitacionesAbiertas.map(({ r, h }) => {
+                  const nombre = h.medication?.name ?? 'Medicamento'
+                  const ed = edicionDelPedido(r, readOnly)
+                  const cant = cantidadConPartes(h.quantity, { indicado: h.quantity_indicated, esSaldo: h.saldo_de_item_id != null }, 'corto')
+                  return (
+                    <div key={h.id}>
+                      <div style={itemRow}>
+                        <span style={{ flex: 1, minWidth: 0, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</span>
+                        <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>{cant}</span>
+                        {h.estado === 'pendiente' ? (
+                          <span style={{ ...pillBase, color: 'var(--spira-acc-deep-warn)', background: WARN_TINT_PILL }}>Por habilitar</span>
+                        ) : (
+                          <span style={{ ...pillBase, color: 'var(--spira-acc-deep-danger)', background: DANGER_TINT }}>No habilitado</span>
+                        )}
+                        {h.estado === 'pendiente' && ed.editable && (
+                          <button
+                            type="button" aria-label={`Quitar ${nombre} del pedido`} title="Quitar del pedido"
+                            disabled={busy} onClick={() => void quitarOtro(h.id)} style={iconBtn}
+                          >
+                            <Icon name="x" size={15} color="var(--spira-muted)" />
+                          </button>
+                        )}
+                      </div>
+                      {h.estado === 'pendiente' ? (
+                        <div style={lineaBajoRenglon}>
+                          <Icon name="fileText" size={13} color="var(--spira-muted)" style={{ flex: '0 0 auto' }} />
+                          <span>Con receta · Farmacia lo habilita al tomar el pedido ·</span>
+                          <button type="button" onClick={() => void verReceta(h.receta_path)} style={verRecetaBtn(accent)}>Ver la receta</button>
+                        </div>
+                      ) : (
+                        <div style={lineaBajoRenglon}>
+                          <span style={{ flex: 1, minWidth: 0 }}>
+                            {[motivoNoHabilitado(h), h.decided_by_name, h.decided_at ? formatDateTimeAR(h.decided_at) : null].filter(Boolean).join(' · ')}
+                          </span>
+                          {ofrecerOtro && !h.origen_habilitacion_id && (
+                            <button
+                              type="button" style={btnChico}
+                              onClick={() => {
+                                setInicialOtro({ medicationId: h.medication_id, quantity: h.quantity, quantityIndicated: h.quantity_indicated })
+                                setModoOtro(true); setSoliciting(true); setErr(null)
+                              }}
+                            >
+                              Pedir de nuevo
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
             {readOnly && requests.length === 0 && !reqQ.loading && (
               <div style={{ ...muted, padding: '2px 0' }}>Sin dispensación solicitada.</div>
             )}
@@ -804,18 +953,29 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             {items.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 9 }}>
                 {items.map((it, i) => (
-                  <div key={it.medication_id} style={itemRow}>
-                    <span style={{ flex: 1, minWidth: 0, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.name}</span>
-                    <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>
-                      {cantidadConPartes(it.quantity, partesDeRenglon(it), 'corto')}
-                    </span>
-                    <span style={{ ...pillBase, color: 'var(--spira-acc-deep-warn)', background: WARN_TINT_PILL }}>Sin solicitar</span>
-                    <button
-                      type="button" aria-label={`Quitar ${it.name}`} onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
-                      style={{ flex: '0 0 auto', background: 'transparent', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 2 }}
-                    >
-                      <Icon name="x" size={15} color="var(--spira-muted)" />
-                    </button>
+                  <div key={it.medication_id}>
+                    <div style={itemRow}>
+                      <span style={{ flex: 1, minWidth: 0, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.name}</span>
+                      <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>
+                        {cantidadConPartes(it.quantity, partesDeRenglon(it), 'corto')}
+                      </span>
+                      <span style={{ ...pillBase, color: 'var(--spira-acc-deep-warn)', background: WARN_TINT_PILL }}>Sin solicitar</span>
+                      <button
+                        type="button" aria-label={`Quitar ${it.name}`} onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
+                        style={{ flex: '0 0 auto', background: 'transparent', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 2 }}
+                      >
+                        <Icon name="x" size={15} color="var(--spira-muted)" />
+                      </button>
+                    </div>
+                    {/* 0124: un «Otro» dice que va con receta, y cuál: es lo que Farmacia va a mirar. */}
+                    {esOtro(it) && (
+                      <div style={lineaBajoRenglon}>
+                        <Icon name="fileText" size={13} color="var(--spira-muted)" style={{ flex: '0 0 auto' }} />
+                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {it.receta ? `Con receta · ${it.receta.name}` : 'Con la receta ya aprobada'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -838,9 +998,33 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
 
             {!readOnly && soliciting && (
               <div style={{ border: '1px solid var(--spira-line-2)', borderRadius: 12, background: 'var(--spira-white)', padding: 13 }}>
-                {activeMeds.length === 0 ? (
+                {modoOtro ? (
+                  // 0124: «Otro medicamento» es su propio formulario (receta, habilitación), no una
+                  // opción más de la lista: se vuelve a la lista con «Volver» o al agregarlo.
+                  <FormularioOtro
+                    key={inicialOtro ? `${inicialOtro.medicationId}-${inicialOtro.quantity}` : 'nuevo'}
+                    candidatos={candidatosQ.data ?? []}
+                    loading={candidatosQ.loading}
+                    error={candidatosQ.sinPermiso ? 'No podés pedir otro medicamento en esta visita.' : candidatosQ.error}
+                    inicial={inicialOtro}
+                    excluidos={excluidosOtro}
+                    accent={accent}
+                    onVolver={() => { setModoOtro(false); setInicialOtro(null); setErr(null) }}
+                    onAgregar={(o) => {
+                      setItems((xs) => [...xs, { ...o }])
+                      setModoOtro(false); setInicialOtro(null); setErr(null)
+                    }}
+                  />
+                ) : activeMeds.length === 0 ? (
                   <div style={muted}>
                     Este paciente no tiene medicación habilitada. La farmacéutica tiene que asignarla primero (en la ficha del paciente).
+                    {ofrecerOtro && (
+                      <div style={{ marginTop: 10 }}>
+                        <button type="button" style={btnChico} onClick={() => { setModoOtro(true); setErr(null) }}>
+                          <Icon name="plus" size={14} color={accent} /> Otro medicamento, con receta
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -852,7 +1036,14 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                           options={options}
                           placeholder={options.length ? 'Medicamento…' : 'No queda medicación para agregar'}
                           searchPlaceholder="Buscar…"
-                          disabled={options.length === 0}
+                          disabled={options.length === 0 && !ofrecerOtro}
+                          // 0124 (mock 2): «Otro» al pie, separado por un filete. No es `onCreate`: en
+                          // la casa «crear» es dar de alta en el catálogo.
+                          accionAlPie={ofrecerOtro ? {
+                            label: 'Otro medicamento',
+                            desc: 'No habilitado para este paciente. Lleva receta.',
+                            onSelect: () => { setModoOtro(true); setPick(''); setErr(null) },
+                          } : undefined}
                         />
                       </div>
                       <input
@@ -860,50 +1051,17 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                         style={{ width: 74, height: 44, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', padding: '0 12px', fontFamily: 'var(--spira-font-text)', fontSize: 14, color: 'var(--spira-ink)' }}
                       />
                       <button
-                        type="button" onClick={addItem} disabled={!pick || !qty || partesInvalidas}
-                        style={{ height: 44, padding: '0 14px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: !pick || !qty || partesInvalidas ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, opacity: !pick || !qty || partesInvalidas ? 0.6 : 1 }}
+                        type="button" onClick={addItem} disabled={!pick || !qty || partesMal}
+                        style={{ height: 44, padding: '0 14px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: !pick || !qty || partesMal ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, opacity: !pick || !qty || partesMal ? 0.6 : 1 }}
                       >
                         Agregar
                       </button>
                     </div>
-                    {/* «ENTREGAR EN PARTES» (D8). Rediseñado por pedido del Director (2026-09-14): «En
-                        partes · entregar … de [2] envases» no se entendía, y los puntos suspensivos
-                        (la cantidad vacía) lo empeoraban. Ahora el rótulo dice la acción entera, el
-                        porqué vive en el ⓘ de al lado, y adentro queda UNA línea corta que se lee
-                        siempre: cuánto se indicó y cuánto queda de saldo. «Cant.» sigue siendo lo que
-                        se entrega hoy. Por envases: partir un envase en dosis quedó afuera del plan. */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 13, color: 'var(--spira-ink)' }}>
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 600 }}>
-                        <input
-                          type="checkbox" checked={enPartes}
-                          onChange={(e) => { setEnPartes(e.target.checked); if (!e.target.checked) setIndicado('') }}
-                          style={{ width: 16, height: 16, margin: 0, accentColor: accent }}
-                        />
-                        Entregar en partes
-                      </label>
-                      <InfoTip
-                        titulo="Entregar en partes"
-                        cuerpo="Para lo que se da de a poco. Hoy se entrega la cantidad de arriba y lo que falta queda como saldo, para pedirlo en otra visita con un clic."
-                        size={14}
-                      />
-                    </div>
-                    {enPartes && (
-                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 8, paddingLeft: 24, fontSize: 13 }}>
-                        <span style={{ color: 'var(--spira-ink-soft)' }}>Total indicado</span>
-                        <input
-                          type="number" min={2} value={indicado} autoFocus onChange={(e) => setIndicado(e.target.value)}
-                          aria-label="Total de envases indicados" style={indicadoInline}
-                        />
-                        <span style={{ color: 'var(--spira-ink-soft)' }}>envases</span>
-                        {Number.isFinite(indicadoNum) && Number.isFinite(qtyNum) && qtyNum > 0 && (
-                          <span style={{ fontSize: 12.5, fontWeight: 600, color: indicadoNum > qtyNum ? 'var(--spira-ink-soft)' : 'var(--spira-acc-deep-warn)' }}>
-                            {indicadoNum > qtyNum
-                              ? `· queda ${indicadoNum - qtyNum} de saldo`
-                              : `· tiene que ser más de ${qtyNum}`}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {/* «ENTREGAR EN PARTES» (D8), compartido con el formulario de «Otro». */}
+                    <EntregarEnPartes
+                      activo={enPartes} onActivo={setEnPartes} indicado={indicado} onIndicado={setIndicado}
+                      cantidad={qtyNum} accent={accent}
+                    />
                     {/* 0121 (D6): el aviso de stock, en memoria sobre la consulta del panel. Nunca
                         bloquea "Agregar": el stock puede cambiar antes del mostrador. */}
                     {pick && qty && avisoStock(stockDe(pick), parseInt(qty, 10)) && (
@@ -916,13 +1074,16 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 {/* El selector ya no solicita nada: solo suma renglones a la lista de arriba. Queda
                     abierto después de agregar —cargar dos o tres medicamentos seguidos es lo
                     normal— y se cierra con "Listo". El envío es uno solo y vive al pie de la
-                    tarjeta, junto con la constancia. */}
-                <button
-                  type="button" onClick={() => { setSoliciting(false); setPick(''); setQty('1'); setEnPartes(false); setIndicado(''); setErr(null) }}
-                  style={{ marginTop: 12, height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13 }}
-                >
-                  Listo
-                </button>
+                    tarjeta, junto con la constancia. Con el formulario de «Otro» abierto, ese
+                    formulario tiene sus propios botones. */}
+                {!modoOtro && (
+                  <button
+                    type="button" onClick={() => { setSoliciting(false); setPick(''); setQty('1'); setEnPartes(false); setIndicado(''); setErr(null) }}
+                    style={{ marginTop: 12, height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13 }}
+                  >
+                    Listo
+                  </button>
+                )}
               </div>
             )}
           </Sub>

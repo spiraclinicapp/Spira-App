@@ -786,18 +786,36 @@ de Coordinación (`src/views/pharma/FormularioOtro.tsx`) pueden ir en paralelo; 
 
 **3c · «Otro» y habilitación**
 
-- [ ] **3c-1 (P1, humano: ~2 días / CC: ~2h)** · SQL · `dispensation_habilitaciones` (R5),
+- [x] **3c-1 (P1, humano: ~2 días / CC: ~2h)** · SQL · `dispensation_habilitaciones` (R5),
   `candidatos_otro` (R12), `solicitar_habilitacion` + interna revocada (R3), resolver (R4), reescrituras
   de `mark_dispensation_ready`, `remove_dispensation_item`, `create_dispensation_request` y
   `dispensation_audit_trail` (misma firma, desde su última versión), marca y trigger de una entrega
   (R6), revocar `resolve_dispensation`. *Verifica:* sondas sin sesión + QA.
-- [ ] **3c-2 (P1, humano: ~1 día / CC: ~1h)** · Front · `FormularioOtro.tsx` (receta, sólo para quien
+- [x] **3c-2 (P1, humano: ~1 día / CC: ~1h)** · Front · `FormularioOtro.tsx` (receta, sólo para quien
   puede subir), fila «Por habilitar» / «No habilitado» / «Pedir de nuevo», saldo de un «Otro» (D7, D20,
   D23, R5, R6).
-- [ ] **3c-3 (P1, humano: ~1 día / CC: ~1h)** · Front · Farmacia: señal en el tablero, sección de
+- [x] **3c-3 (P1, humano: ~1 día / CC: ~1h)** · Front · Farmacia: señal en el tablero, sección de
   habilitación en el cajón, modal «No habilitar» con motivos de lista, `requisitos()` con la regresión
   crítica, etiquetas de `historial.ts` (D22, D26, D28, R13). *Verifica:* `npm run build` + QA con la
   farmacéutica.
+
+  **Al implementar la 3c (2026-09-14):** migración `0124` (PR #173, **aplicada en prod el 2026-09-14**) y
+  front en `feat/dispensacion-3c`. `npm run build` verde (1036 tests).
+  - **Sumado al plan:** `quitar_habilitacion` (el mock tiene una ✕ en la fila «Por habilitar» y no había
+    función) y `accionAlPie` en `SearchableSelect` («Otro medicamento» al pie, que no es `onCreate`).
+  - **Sin FK de la habilitación al renglón**: sería una tabla puente entre pedido y renglón y podría dejar
+    ambiguo el embed de los renglones. El renglón se resuelve por (pedido, medicamento).
+  - **El trigger de «una entrega» no desactiva** si otro pedido abierto del paciente lleva el medicamento:
+    la 0050 lo exige al entregar y ese pedido quedaría trabado.
+  - **El alta manual de Farmacia no ofrece el saldo de un «Otro»**: se pide desde la tarjeta de la visita.
+  - **Sondas:** tabla, funciones y el select completo del tablero sin ambigüedad; internas y
+    `resolve_dispensation` dan `42501` con sesión. **`solicitar_habilitacion` SÍ puede leer Storage**
+    (probado con una receta inexistente, sin escribir nada).
+  - **QA logueado de sólo lectura:** candidatos reales (EFC18419), «Otro» al pie del desplegable, el
+    formulario con la receta elegida y la fila «Sin solicitar · Con receta» (quitada sin mandar), el botón
+    «Otro medicamento, con receta» cuando el paciente no tiene nada habilitado, tablero sin errores.
+  - **Sin QA con datos reales, por decisión del Director:** habilitar, no habilitar, quitar, el cierre de
+    «una entrega» y el saldo de un «Otro». La sección del cajón y el modal se midieron en un banco de pruebas.
 
 ## GSTACK REVIEW REPORT
 

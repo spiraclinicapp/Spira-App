@@ -7,6 +7,7 @@ import {
   activeDispensation,
   constanciaImpresa,
   constanciaVigente,
+  habilitacionesPendientes,
   unidadesEscaneadas,
 } from '../../../data/pharma/dispensationModel'
 import type { IconName } from '../../../components/Icon'
@@ -230,6 +231,18 @@ export interface Requisito {
 export function requisitos(r: DispensationRequestRow): Requisito[] {
   const lista: Requisito[] = []
 
+  // 0124 (D22): un «Otro» por habilitar va ANTES que todo. Cambia lo que se arma —si se habilita, se
+  // suma un renglón— y lo que cambia el comprobante se resuelve antes de emitirlo, igual que la
+  // constancia. Es también el primer pendiente de la columna de pasos del cajón.
+  for (const h of habilitacionesPendientes(r)) {
+    lista.push({
+      id: `habilitacion:${h.id}`,
+      texto: `Habilitar ${h.medication?.name ?? 'el medicamento pedido'}`,
+      cumplido: false,
+      conteo: null,
+    })
+  }
+
   if (r.includes_ip) {
     const doc = constanciaVigente(r)
     lista.push({
@@ -273,6 +286,12 @@ export function primerPendiente(r: DispensationRequestRow): Requisito | null {
  */
 export function readyBlockedReason(r: DispensationRequestRow): { text: string; icon: IconName } | null {
   if (primerPendiente(r) === null) return null
+
+  // 0124 (D22): la habilitación manda sobre todo lo demás; la base espera lo mismo en mark_dispensation_ready.
+  const pendiente = habilitacionesPendientes(r)[0]
+  if (pendiente) {
+    return { text: `Falta resolver la habilitación de ${pendiente.medication?.name ?? 'un medicamento pedido'}`, icon: 'fileText' }
+  }
 
   // La constancia manda sobre el escaneo: se resuelve antes y va con otro ícono.
   if (r.includes_ip) {

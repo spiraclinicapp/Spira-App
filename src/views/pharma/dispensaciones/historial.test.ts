@@ -225,3 +225,42 @@ describe('el respaldo', () => {
     expect(e.detalle).toBe('Estado: En preparación')
   })
 })
+
+/**
+ * «Otro medicamento» en la trazabilidad (0124, R13). La habilitación y el patient_medications que la
+ * acompaña tienen que leerse como hechos, no como el diff crudo de la tabla nueva.
+ */
+describe('habilitación de «Otro» (0124)', () => {
+  const nombreDe = (id: unknown) => (id === 'bud' ? 'Budesonida 200 mcg' : null)
+  const un = (f: Partial<HistorialEntradaRow>) => interpretarHistorial([fila(f)], nombreDe)[0]
+
+  it('el pedido, con receta propia o como saldo con la misma receta', () => {
+    expect(un({ entidad: 'dispensation_habilitaciones', accion: 'INSERT', despues: { medication_id: 'bud', quantity: 1, receta_file_name: 'receta.jpg' } }))
+      .toMatchObject({ titulo: 'Se pidió habilitar un medicamento', detalle: 'Budesonida 200 mcg · 1 u. · receta.jpg', tono: 'avance' })
+    expect(un({ entidad: 'dispensation_habilitaciones', accion: 'INSERT', despues: { medication_id: 'bud', quantity: 1, origen_habilitacion_id: 'h0', receta_file_name: 'receta.jpg' } }).detalle)
+      .toBe('Budesonida 200 mcg · 1 u. · saldo, con la misma receta')
+  })
+
+  it('la decisión de Farmacia: habilitada, no habilitada con motivo de lista o contado', () => {
+    expect(un({ entidad: 'dispensation_habilitaciones', antes: { estado: 'pendiente', medication_id: 'bud' }, despues: { estado: 'habilitada', medication_id: 'bud' } }))
+      .toMatchObject({ titulo: 'Se habilitó para esta entrega', tono: 'listo' })
+    expect(un({ entidad: 'dispensation_habilitaciones', antes: { estado: 'pendiente', medication_id: 'bud' }, despues: { estado: 'no_habilitada', motivo_codigo: 'receta_sin_firma', medication_id: 'bud' } }))
+      .toMatchObject({ titulo: 'No se habilitó', detalle: 'Budesonida 200 mcg · Receta sin firma del médico', tono: 'corte' })
+    expect(un({ entidad: 'dispensation_habilitaciones', antes: { estado: 'pendiente' }, despues: { estado: 'no_habilitada', motivo_codigo: 'otro', motivo_texto: 'Dosis distinta a la indicada' } }).detalle)
+      .toBe('Dosis distinta a la indicada')
+  })
+
+  it('las dos escrituras de «Habilitar» son dos hechos, y quitarla es un corte', () => {
+    expect(un({ entidad: 'dispensation_habilitaciones', antes: { estado: 'habilitada', item_id: null, medication_id: 'bud' }, despues: { estado: 'habilitada', item_id: 'i9', medication_id: 'bud' } }).titulo)
+      .toBe('Se sumó al pedido')
+    expect(un({ entidad: 'dispensation_habilitaciones', accion: 'DELETE', antes: { medication_id: 'bud' } }))
+      .toMatchObject({ titulo: 'Se quitó el pedido de habilitación', tono: 'corte' })
+  })
+
+  it('la medicación del paciente: habilitada para una entrega y vuelta a deshabilitar', () => {
+    expect(un({ entidad: 'patient_medications', accion: 'INSERT', despues: { medication_id: 'bud', active: true, habilitacion_id: 'h1' } }))
+      .toMatchObject({ titulo: 'Se habilitó para el paciente', detalle: 'Budesonida 200 mcg · sólo para esta entrega' })
+    expect(un({ entidad: 'patient_medications', antes: { medication_id: 'bud', active: true, habilitacion_id: 'h1' }, despues: { medication_id: 'bud', active: false, habilitacion_id: null } }))
+      .toMatchObject({ titulo: 'Se volvió a deshabilitar', detalle: 'Budesonida 200 mcg · la receta habilitaba una sola entrega' })
+  })
+})

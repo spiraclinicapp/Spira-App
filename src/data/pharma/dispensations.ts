@@ -2,7 +2,7 @@ import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import { supabase } from '../../lib/supabase'
 import { pharmaErrorMessage } from './errors'
 import { ESTADOS_ABIERTOS } from './dispensationModel'
-import type { ContextoDispensacionRow, DispensationRequestRow, HistorialEntradaRow, RequestStatus } from './dispensationModel'
+import type { ContextoDispensacionRow, DispensationRequestRow, HistorialEntradaRow, MotivoNoHabilitar, RequestStatus } from './dispensationModel'
 import type { HistorialFilaRow } from './historialModel'
 import type { VisitKind } from '../../lib/visitLabels'
 
@@ -92,6 +92,12 @@ const REQUEST_COLS =
   'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ip_kits, ' +
     'items:dispensation_items(id, medication_id, quantity, lot_number, expiry_date, medication:medications(name))), ' +
   'ip_documents:dispensation_ip_documents(id, storage_path, file_name, mime_type, size_bytes, uploaded_at, superseded_at, printed_at, printed_by), ' +
+  // `habilitaciones` son de la 0124: sin ella aplicada, PostgREST no encuentra la relación y voltea la
+  // consulta ENTERA (PGRST200). Por eso la 0124 va antes del deploy. Calificada por su FK (lección 0076).
+  'habilitaciones:dispensation_habilitaciones!request_id(id, medication_id, quantity, quantity_indicated, saldo_de_item_id, ' +
+    'receta_path, receta_file_name, receta_mime, receta_size, origen_habilitacion_id, requested_by_name, requested_at, ' +
+    'estado, motivo_codigo, motivo_texto, decided_by_name, decided_at, item_id, ' +
+    'medication:medications!medication_id(name, dosis, unit, drug:drugs(id, name))), ' +
   CONTEXTO
 
 /* EL `!inner` DEL HISTORIAL SE MUDÓ A LA 0117, y con él la lección que costó: antes caía sobre
@@ -694,20 +700,6 @@ export async function cancelDispensationPreparation(
 }
 
 /**
- * @deprecated Resolvía la dispensación en un paso (RPC `resolve_dispensation`). Reemplazada por el
- * flujo de cuatro estados de la 0054: `startDispensationPreparation` → `scanDispensationItem` →
- * `markDispensationReady` → `deliverDispensation`. La RPC sigue viva en la base hasta confirmar que
- * ningún cliente la llama; no usar en código nuevo.
- */
-export async function resolveDispensation(
-  requestId: string,
-): Promise<{ error: string | null; code?: string; id?: string }> {
-  const { data, error } = await supabase.rpc('resolve_dispensation', { p_request_id: requestId })
-  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
-  return { error: null, id: data as string }
-}
-
-/**
  * El contexto de entregas de la visita (RPC `contexto_dispensacion`, 0123, R7): lo entregado al
  * paciente en los últimos 31 días en TODOS sus protocolos, sus pedidos abiertos en otras visitas, las
  * indicaciones en partes con saldo y la última entrega de IP. Filas crudas: qué va en rojo, qué es un
@@ -731,6 +723,105 @@ export function useContextoDispensacion(visitId: string | null, activo: boolean)
     [visitId, activo],
     (e) => pharmaErrorMessage(e.code, e.message),
   )
+}
+
+/** Un medicamento que se puede pedir como «Otro» (RPC `candidatos_otro`, 0124). Sin lotes. */
+export interface CandidatoOtroRow {
+  medication_id: string
+  nombre: string
+  dosis: string | null
+  unit: string
+  en_estante: number
+  maximo_armable: number
+}
+
+/**
+ * Los candidatos de «Otro medicamento» para la visita (0124, R12, D20): del catálogo del protocolo,
+ * con stock vigente, que el paciente no tiene habilitados ni pedidos para habilitar.
+ *
+ * La RPC contesta `42501` a quien no puede subir la receta (R5: sólo Farmacia o quien coordina la
+ * visita). El panel lo usa para NO ofrecer «Otro» en vez de mostrar un error: `sinPermiso`.
+ */
+export function useCandidatosOtro(visitId: string | null, activo: boolean) {
+  const q = useSupabaseQuery<CandidatoOtroRow[]>(
+    async (c) => {
+      if (!visitId || !activo) return { data: [], error: null }
+      const { data, error } = await c.rpc('candidatos_otro', { p_visit_id: visitId })
+      if (error) return { data: null, error }
+      return { data: (data ?? []) as CandidatoOtroRow[], error: null }
+    },
+    [visitId, activo],
+    // El código viaja en el texto para poder distinguir «sin permiso» de «falló la consulta».
+    (e) => (e.code === '42501' ? SIN_PERMISO_OTRO : pharmaErrorMessage(e.code, e.message)),
+  )
+  return { ...q, sinPermiso: q.error === SIN_PERMISO_OTRO }
+}
+const SIN_PERMISO_OTRO = 'Sin permiso para pedir otro medicamento en esta visita.'
+
+export interface SolicitarHabilitacionInput {
+  visitId: string
+  /** El pedido `solicitada` al que sumarse. Si no acepta cambios (o es null), nace uno nuevo. */
+  requestId: string | null
+  medicationId: string
+  quantity: number
+  quantityIndicated: number | null
+  /** Receta propia: se sube antes de llamar (`uploadReceta`). */
+  receta: { path: string; fileName: string; mime: string; size: number } | null
+  /** Saldo de un «Otro» (R6): reusa la receta de la habilitación original. */
+  saldo: { origenHabilitacionId: string; saldoDeItemId: string } | null
+}
+
+/**
+ * Pide la habilitación de un «Otro» (RPC `solicitar_habilitacion`, 0124): se suma al pedido indicado
+ * o nace uno nuevo con la habilitación adentro, en una transacción. Devuelve el pedido donde quedó.
+ */
+export async function solicitarHabilitacion(i: SolicitarHabilitacionInput): Promise<{ error: string | null; requestId?: string }> {
+  const { data, error } = await supabase.rpc('solicitar_habilitacion', {
+    p_visit_id: i.visitId,
+    p_request_id: i.requestId,
+    p_medication_id: i.medicationId,
+    p_quantity: i.quantity,
+    p_quantity_indicated: i.quantityIndicated,
+    p_receta_path: i.receta?.path ?? null,
+    p_receta_file_name: i.receta?.fileName ?? null,
+    p_receta_mime: i.receta?.mime ?? null,
+    p_receta_size: i.receta?.size ?? null,
+    p_origen_habilitacion_id: i.saldo?.origenHabilitacionId ?? null,
+    p_saldo_de_item_id: i.saldo?.saldoDeItemId ?? null,
+  })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message) }
+  const r = data as { request_id?: string } | null
+  return { error: null, requestId: r?.request_id }
+}
+
+/** Farmacia habilita el «Otro» y suma el renglón (RPC `habilitar_medicamento_pedido`, 0124). */
+export async function habilitarMedicamentoPedido(habilitacionId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('habilitar_medicamento_pedido', { p_habilitacion_id: habilitacionId })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message) }
+  return { error: null }
+}
+
+/**
+ * Farmacia no habilita el «Otro», con un motivo de lista (RPC `no_habilitar_medicamento_pedido`,
+ * 0124). Si el pedido queda vacío, la base lo cierra rechazado (D26).
+ */
+export async function noHabilitarMedicamentoPedido(
+  habilitacionId: string,
+  motivo: MotivoNoHabilitar,
+  detalle: string | null,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('no_habilitar_medicamento_pedido', {
+    p_habilitacion_id: habilitacionId, p_motivo: motivo, p_detalle: detalle,
+  })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message) }
+  return { error: null }
+}
+
+/** Quita un «Otro» todavía pendiente de un pedido solicitado (RPC `quitar_habilitacion`, 0124). */
+export async function quitarHabilitacion(habilitacionId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('quitar_habilitacion', { p_habilitacion_id: habilitacionId })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message) }
+  return { error: null }
 }
 
 /** Una alternativa para sustituir un renglón (RPC `alternativas_sustitucion`, 0076). */
