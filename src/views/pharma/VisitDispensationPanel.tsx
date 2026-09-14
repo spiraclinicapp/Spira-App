@@ -7,7 +7,9 @@ import { formatDateAR } from '../../lib/dates'
 import {
   usePatientMedications,
   useVisitDispensations,
-  useUltimaDispensacion,
+  useContextoDispensacion,
+  cantidadConPartes,
+  partesDeRenglon,
   createDispensationRequest,
   addDispensationItems,
   cancelDispensationRequest,
@@ -22,7 +24,7 @@ import {
   IP_MAX_BYTES,
   IP_MIME_TYPES,
 } from '../../data/pharma'
-import type { IpDocumentRow, UltimaDispensacionRow } from '../../data/pharma'
+import type { IpDocumentRow } from '../../data/pharma'
 import { bumpIpEstado, useVisitIpStatus } from '../../data/visitIp'
 import { avisoStock, descripcionStock } from './stockVisita'
 import { edicionDelPedido, quienLoPrepara } from './edicionPedido'
@@ -34,10 +36,15 @@ import {
 } from './motivosFueraCronograma'
 import { Panel } from '../track/Panel'
 import { detalleIp } from '../track/ipEstado'
-import { DANGER_TINT, WARN_TINT, WARN_TINT_AVISO, WARN_TINT_PILL, Sub, itemRow, muted, pillBase } from './panelDispensacion'
+import { DANGER_TINT, WARN_TINT, WARN_TINT_PILL, Sub, itemRow, muted, pillBase } from './panelDispensacion'
 import { SeccionIp } from './SeccionIp'
 import { contenidoSeccionIp } from './seccionIpModel'
 import { HistorialPlegado } from './HistorialPlegado'
+import { AvisoIpReciente, AvisosDeEntrega } from './AvisosDeEntrega'
+import { avisoIp, avisoRojo } from './avisoReciente'
+import type { Elegido } from './avisoReciente'
+import { renglonDeSaldo, saldosDeLaVisita } from './saldoModel'
+import type { SaldoCaja } from './saldoModel'
 
 // STATUS_META y badgeOf viven en dispensaciones/estados.ts (única fuente para Track y Pharma).
 // badgeOf distingue "lista para retirar" de "entregada": para RequestStatus ambas son `atendida`,
@@ -95,134 +102,25 @@ const addBtn: CSSProperties = {
   borderRadius: 12, border: '1px solid var(--spira-line)', background: 'var(--spira-white)', cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, color: 'var(--spira-ink)',
 }
-/**
- * Aviso de dispensación reciente. Cambia de TONO, no de existencia: dentro de cronograma la entrega
- * estaba prevista y el dato simplemente se ofrece; fuera de cronograma una entrega repetida sí puede
- * ser un error y va en ámbar.
- *
- * El porqué de la distinción, que es lo que más fácil se arruina: en un protocolo con visitas cada
- * 28 días una alarma ámbar saltaría TODAS las veces, y una alarma que siempre suena deja de
- * escucharse justo cuando importa. NUNCA bloquea — avisa.
- *
- * Sobre PAPEL BLANCO en el tono informativo, como todo lo que vive adentro de la tarjeta (los
- * renglones, la zona de adjunto, el archivo): un recuadro teñido adentro de una card teñida es tinte
- * sobre tinte y se ve sucio. La única que se tiñe es la alerta, porque ahí el color es SIGNIFICADO.
- *
- * Recibe el `QueryResult` de `useUltimaDispensacion` COMPLETO —no ya el dato resuelto— porque tiene
- * que cubrir loading y error, no solo el caso feliz: antes solo miraba `ultima`, así que mientras la
- * consulta estaba en vuelo o si fallaba, esta función devolvía `null` igual que "no hubo dispensación
- * reciente" — un falso negativo en el aviso que existe justamente para prevenir una entrega repetida.
- * Mismo criterio que ya usa `reqQ.loading` más abajo (rama de concomitante y de IP) para no afirmar
- * "Sin dispensación solicitada." / "Sin constancia cargada." antes de que la consulta termine — acá el
- * costo de equivocarse es mayor, así que el error además se hace VISIBLE (no un silencio más).
- */
-function AvisoReciente({ query, alerta, accent }: {
-  query: { data: UltimaDispensacionRow[] | null; loading: boolean; error: string | null }
-  alerta: boolean
-  accent: string
-}) {
-  const marginBottom = alerta ? 9 : 12 // ver el porqué de los dos valores más abajo, en el caso feliz.
 
-  if (query.loading) {
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 11,
-        fontSize: 12.5, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', marginBottom,
-      }}>
-        <Icon name="clock" size={15} color="var(--spira-muted)" style={{ flex: '0 0 auto' }} />
-        <span style={{ color: 'var(--spira-muted)' }}>Comprobando dispensaciones recientes…</span>
-      </div>
-    )
-  }
-
-  if (query.error) {
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 11,
-        fontSize: 12.5, background: WARN_TINT_AVISO, border: '1px solid transparent', marginBottom,
-      }}>
-        <Icon name="alert" size={15} color="var(--spira-warn)" style={{ flex: '0 0 auto', marginTop: 1 }} />
-        <span>
-          <span style={{ display: 'block', fontWeight: 600, color: 'var(--spira-ink)' }}>
-            No se pudo comprobar si hubo una dispensación reciente
-          </span>
-          <span style={{ display: 'block', color: 'var(--spira-ink-soft)', marginTop: 2 }}>
-            Revisá el historial de la izquierda antes de dispensar, por las dudas.
-          </span>
-        </span>
-      </div>
-    )
-  }
-
-  const ultima = (query.data ?? [])[0]
-  if (!ultima) return null
-
-  // `entregada_el` es un TIMESTAMPTZ (`dispensations.delivered_at`). Ojo con la tentación de
-  // `formatAR(entregada_el.slice(0, 10))`: el recorte devuelve la fecha en UTC y todo lo entregado
-  // después de las 21:00 hora argentina se mostraría un día adelante — el bug que ya apareció en el
-  // pie de esta misma tarjeta (2026-08-10). `formatDateAR` localiza; ver `lib/dates.ts`.
-  const entregada = new Date(ultima.entregada_el)
-  // La capa de datos rellena con '' si faltara `delivered_at`. Antes que decir "hace NaN días" en una
-  // app auditable, no decir nada.
-  if (Number.isNaN(entregada.getTime())) return null
-
-  const dias = Math.max(0, Math.floor((Date.now() - entregada.getTime()) / 86_400_000))
-  // "hace 0 días" no lo dice nadie, y el singular tampoco es "1 días".
-  const cuando = dias === 0 ? 'hoy' : dias === 1 ? 'hace 1 día' : `hace ${dias} días`
-  /**
-   * QUÉ se entregó, por su nombre. Antes decía "2 renglones de medicación", que es contabilidad
-   * interna y no le sirve a nadie: el que lee este aviso está por decidir si vuelve a entregar, y
-   * para eso necesita saber si lo que sale de vuelta es lo mismo que ya salió.
-   *
-   * Se nombran hasta dos y el resto se cuenta: el aviso vive en dos renglones dentro de una tarjeta
-   * angosta, y una lista de seis medicamentos deja de leerse. Si la lista viene vacía —el pedido era
-   * de IP solo, o la RLS no deja leer los nombres (Track recién desde la 0074)— se cae al conteo,
-   * que es impreciso pero cierto. Nunca "Medicamento, Medicamento".
-   */
-  const meds = ultima.medicamentos
-  const queSeEntrego = meds.length === 0
-    ? (ultima.items ? `${ultima.items} medicamento${ultima.items > 1 ? 's' : ''}` : null)
-    : meds.length <= 2
-      ? meds.join(' y ')
-      : `${meds.slice(0, 2).join(', ')} y ${meds.length - 2} más`
-
-  const detalle = [
-    formatDateAR(ultima.entregada_el),
-    ultima.ip_kits ? `${ultima.ip_kits} kit${ultima.ip_kits > 1 ? 's' : ''} de IP` : null,
-    queSeEntrego,
-    ultima.visita ? `en la visita ${ultima.visita}` : null,
-  ].filter(Boolean).join(' · ')
-
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 11,
-      fontSize: 12.5,
-      // El borde transparente en la alerta (en vez de sacarlo) mantiene la caja del MISMO tamaño en
-      // los dos tonos: es la misma caja en el mismo lugar, solo cambia el color.
-      background: alerta ? WARN_TINT_AVISO : 'var(--spira-white)',
-      border: alerta ? '1px solid transparent' : '1px solid var(--spira-line)',
-      // Alerta = va adentro de la subsección de excepción, pegada al desplegable de motivo (9);
-      // informativo = va suelta arriba de la primera subsección, que respira un poco más (12).
-      marginBottom,
-    }}>
-      <Icon
-        name={alerta ? 'alert' : 'info'} size={15}
-        color={alerta ? 'var(--spira-warn)' : accent}
-        style={{ flex: '0 0 auto', marginTop: 1 }}
-      />
-      <span>
-        <span style={{ display: 'block', fontWeight: 600, color: 'var(--spira-ink)' }}>
-          {alerta ? `Ya se dispensó ${cuando}` : `Última dispensación ${cuando}`}
-        </span>
-        <span style={{ display: 'block', color: 'var(--spira-ink-soft)', marginTop: 2 }}>
-          {detalle}{alerta ? '. Revisá que no sea una entrega repetida.' : '.'}
-        </span>
-      </span>
-    </div>
-  )
+/** Casilla nativa de «En partes» y su número de indicado, en el renglón del selector (mock 5). */
+const indicadoInline: CSSProperties = {
+  width: 60, height: 36, borderRadius: 10, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+  background: 'var(--spira-white)', padding: '0 10px', fontFamily: 'var(--spira-font-text)', fontSize: 14,
+  color: 'var(--spira-ink)',
 }
 
-interface PendingItem { medication_id: string; name: string; quantity: number }
+/**
+ * Un renglón elegido y todavía sin mandar. `quantity_indicated` si va «en partes» (D8);
+ * `saldo_de_item_id` si lo sumó «Pedir el saldo» (R2).
+ */
+interface PendingItem {
+  medication_id: string
+  name: string
+  quantity: number
+  quantity_indicated?: number | null
+  saldo_de_item_id?: string | null
+}
 
 /**
  * Panel "Dispensación" del detalle de visita (Track), partido en dos subsecciones que alimentan
@@ -271,11 +169,12 @@ interface PendingItem { medication_id: string; name: string; quantity: number }
  * (`create_dispensation_request`, 0071), y viaja como etiqueta legible porque termina en el
  * comprobante impreso que lee un monitor.
  *
- * Y arriba de todo, el AVISO DE 30 DÍAS (`useUltimaDispensacion`): si al paciente ya se le dispensó
- * hace poco, se dice antes de que el coordinador cargue nada — si el aviso llega después, llega
- * tarde. Cambia de tono según el contexto y nunca bloquea; el porqué está en `AvisoReciente`. Con la
- * excepción abierta se muda adentro de la sección del IP, en ámbar (plan R11), hasta que la Tanda 3b
- * lo reemplace por los avisos por droga.
+ * Y arriba de todo, los AVISOS (plan D14, D24, D25, Tanda 3b; `AvisosDeEntrega`): si lo que se elige
+ * es una droga que el paciente recibió en los últimos 30 días —en este protocolo o en otro— o tiene
+ * pedida sin retirar, va una caja roja ANTES de cargar nada; si llega después, llega tarde. Nunca
+ * bloquea. Abajo del rojo, los SALDOS de lo entregado en partes, con «Pedir el saldo». Con la
+ * excepción fuera de cronograma abierta, lo que se muda a la sección del IP es el aviso de la última
+ * entrega de IP, en ámbar (`AvisoIpReciente`).
  */
 export function VisitDispensationPanel({ visit, accent, readOnly }: {
   visit: { id: string; enrollment_id: string; protocol_id: string; dispenses: boolean; dispenses_ip: boolean }
@@ -285,24 +184,18 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const reqQ = useVisitDispensations(visit.id)
   const medsQ = usePatientMedications(visit.enrollment_id)
   /**
-   * Última dispensación entregada del enrolamiento dentro de los últimos 30 días, para el aviso.
-   *
-   * Solo en la vista del día (`readOnly ? null` no dispara la consulta). Dos motivos: el aviso
-   * existe para frenar la mano ANTES de dispensar, y donde no se puede dispensar es puro ruido; y
-   * en la ficha del paciente, abriendo una visita de hace dos meses, "última dispensación hace 3
-   * días" habla de OTRA visita — un dato cierto puesto donde se lee como falso.
-   *
-   * OJO si alguna vez se reusa desde Farmacia: la consulta cruza `patient_visits`, que Pharma no
-   * puede leer por RLS (Track se aísla por protocolo, Pharma es central). Está escrito en el hook.
-   *
-   * `visit.id` viaja como segundo argumento para EXCLUIR la visita actual del resultado (ver el
-   * porqué en el hook): sin eso, apenas se dispensa fuera de cronograma, la solicitud recién creada
-   * de ESTA visita gana el "más reciente" y el aviso termina hablando de sí mismo.
+   * Lo entregado, lo pedido y los saldos del paciente, para los avisos (0123, R7). Una consulta por
+   * panel y sólo en la vista del día, por los mismos dos motivos que tenía el aviso viejo: existe para
+   * frenar la mano ANTES de pedir, y en la ficha, abriendo una visita de hace dos meses, «recibió
+   * omeprazol hace 3 días» habla de OTRA visita — un dato cierto puesto donde se lee como falso.
    */
-  const ultimaQ = useUltimaDispensacion(readOnly ? null : visit.enrollment_id, visit.id)
+  const ctxQ = useContextoDispensacion(visit.id, !readOnly)
   const [soliciting, setSoliciting] = useState(false)
   const [pick, setPick] = useState('')
   const [qty, setQty] = useState('')
+  /** «En partes» (D8): la casilla y lo indicado. Se limpian con el renglón, como `pick` y `qty`. */
+  const [enPartes, setEnPartes] = useState(false)
+  const [indicado, setIndicado] = useState('')
   const [items, setItems] = useState<PendingItem[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -468,6 +361,36 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
       desc: descripcionStock(stockDe(m.medication_id)),
     }))
 
+  // —— Avisos y saldos (0123, Tanda 3b) ——
+  /**
+   * Los saldos de lo entregado en partes. «Ocupado» = el medicamento ya tiene un renglón normal en lo
+   * que se va a mandar o en el pedido al que se sumaría: la base no deja dos renglones del mismo
+   * medicamento en un pedido (0123), así que ofrecer «Pedir el saldo» ahí terminaría en un error.
+   */
+  const ocupados = new Set([
+    ...items.filter((i) => !i.saldo_de_item_id).map((i) => i.medication_id),
+    ...(destino?.items ?? []).map((i) => i.medication_id),
+  ])
+  const saldos = saldosDeLaVisita(ctxQ.data ?? [], items, ocupados)
+  /**
+   * Lo elegido que puede disparar el rojo: lo sumado sin mandar y lo que está en el desplegable. Se
+   * avisa apenas se elige, antes de «Agregar» (mock 1): después llega tarde.
+   */
+  const drogaDe = (medicationId: string) => activeMeds.find((m) => m.medication_id === medicationId)?.medication?.drug_id ?? null
+  const elegidos: Elegido[] = [
+    ...items.map((i) => ({ medication_id: i.medication_id, drug_id: drogaDe(i.medication_id), esSaldo: !!i.saldo_de_item_id })),
+    ...(pick && !pendingIds.has(pick) ? [{ medication_id: pick, drug_id: drogaDe(pick), esSaldo: false }] : []),
+  ]
+  const ahora = new Date()
+  const rojo = avisoRojo(ctxQ.data ?? [], elegidos, saldos, ahora)
+
+  /** «Pedir el saldo»: suma el renglón con todo lo que falta. Se manda con el resto, al solicitar. */
+  function pedirSaldo(s: SaldoCaja) {
+    const r = renglonDeSaldo(s)
+    setItems((xs) => [...xs, { ...r, name: s.nombre }])
+    setErr(null)
+  }
+
   /**
    * Que lo que se solicite va a abrir un pedido APARTE, escrito antes de mandar y no después.
    *
@@ -601,13 +524,29 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    */
   const constanciaIncompleta = openReq !== null && openReq.includes_ip && !constanciaAbierta
 
+  /** Lo indicado, si «En partes» está tildado y el número es válido. `null` = entrega completa. */
+  const indicadoNum = enPartes ? parseInt(indicado, 10) : NaN
+  const qtyNum = parseInt(qty, 10)
+  /** «En partes» con lo indicado sin completar, o no mayor a lo de ahora: «Agregar» no lo deja pasar. */
+  const partesInvalidas = enPartes && (!Number.isFinite(indicadoNum) || !Number.isFinite(qtyNum) || indicadoNum <= qtyNum)
+
   function addItem() {
-    const n = parseInt(qty, 10)
-    if (!pick || !Number.isFinite(n) || n <= 0) return
+    if (!pick || !Number.isFinite(qtyNum) || qtyNum <= 0 || partesInvalidas) return
     const med = activeMeds.find((m) => m.medication_id === pick)
-    setItems((xs) => [...xs, { medication_id: pick, name: med?.medication?.name ?? 'Medicamento', quantity: n }])
-    setPick(''); setQty('')
+    setItems((xs) => [...xs, {
+      medication_id: pick, name: med?.medication?.name ?? 'Medicamento', quantity: qtyNum,
+      quantity_indicated: enPartes ? indicadoNum : null,
+    }])
+    setPick(''); setQty(''); setEnPartes(false); setIndicado('')
   }
+
+  /** Lo que viaja al servidor por renglón: lo de siempre, más las partes o el saldo si los hay. */
+  const aRenglonDelPedido = (i: PendingItem) => ({
+    medication_id: i.medication_id,
+    quantity: i.quantity,
+    ...(i.quantity_indicated ? { quantity_indicated: i.quantity_indicated } : {}),
+    ...(i.saldo_de_item_id ? { saldo_de_item_id: i.saldo_de_item_id } : {}),
+  })
 
   /**
    * El primero que actúa crea el pedido; el segundo se suma al mismo — igual que `cargarConstancia`,
@@ -649,16 +588,16 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     // Ante un rechazo del servidor se RELEE: el caso típico es que Farmacia tomó el pedido mientras la
     // tarjeta estaba abierta, y sin releer `destino` seguía apuntando a un pedido que ya no acepta
     // cambios — cada reintento chocaba contra el mismo guard y nunca aparecía "Lo está preparando".
-    const releer = () => { reqQ.refetch(); stockQ.refetch() }
+    const releer = () => { reqQ.refetch(); stockQ.refetch(); ctxQ.refetch() }
 
     let requestId = destino?.id ?? null
     if (!requestId) {
-      const payload = items.map((i) => ({ medication_id: i.medication_id, quantity: i.quantity }))
+      const payload = items.map(aRenglonDelPedido)
       const res = await createDispensationRequest(visit.id, payload, null, 'track', razonExcepcion)
       if (res.error) { setBusy(false); setErr(res.error); releer(); return }
       requestId = res.id!
     } else if (items.length) {
-      const res = await addDispensationItems(requestId, items.map((i) => ({ medication_id: i.medication_id, quantity: i.quantity })))
+      const res = await addDispensationItems(requestId, items.map(aRenglonDelPedido))
       if (res.error) { setBusy(false); setErr(res.error); releer(); return }
     }
     // Los renglones ya entraron: se limpian ANTES de subir para que un fallo del adjunto no los deje
@@ -693,7 +632,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     // Releer también ante el error: si Farmacia ya lo tomó, la tarjeta tiene que dejar de ofrecer
     // "Cancelar solicitud" sobre un pedido que ya no se puede cancelar desde acá.
     if (res.error) { setErr(res.error); reqQ.refetch(); return }
-    reqQ.refetch(); stockQ.refetch()
+    reqQ.refetch(); stockQ.refetch(); ctxQ.refetch()
     bumpIpEstado()
   }
 
@@ -704,9 +643,9 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     setBusy(true); setErr(null)
     const res = await updateDispensationItemQuantity(itemId, n)
     setBusy(false)
-    if (res.error) { setErr(res.error); reqQ.refetch(); stockQ.refetch(); return }
+    if (res.error) { setErr(res.error); reqQ.refetch(); stockQ.refetch(); ctxQ.refetch(); return }
     setEditando(null)
-    reqQ.refetch(); stockQ.refetch()
+    reqQ.refetch(); stockQ.refetch(); ctxQ.refetch()
   }
 
   /** Quita un renglón del pedido abierto (0121, D5). El último de un pedido sin IP no se quita. */
@@ -714,9 +653,9 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     setBusy(true); setErr(null)
     const res = await removeDispensationItem(itemId)
     setBusy(false)
-    if (res.error) { setErr(res.error); reqQ.refetch(); stockQ.refetch(); return }
+    if (res.error) { setErr(res.error); reqQ.refetch(); stockQ.refetch(); ctxQ.refetch(); return }
     if (editando?.itemId === itemId) setEditando(null)
-    reqQ.refetch(); stockQ.refetch()
+    reqQ.refetch(); stockQ.refetch(); ctxQ.refetch()
   }
 
   /**
@@ -769,16 +708,16 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
         <>
           {err && <div style={errBox}>{err}</div>}
 
-          {/* 1 · AVISOS. El de dispensación reciente va ARRIBA DE TODO: si llega después de que el
-              coordinador ya cargó la medicación, llega tarde. Con la excepción en pantalla se muda
-              adentro de la sección del IP y cambia al tono de alerta (R11), porque es el único
-              contexto en el que una entrega repetida del IP es un riesgo real.
-              Sin guarda de `ultima`: `AvisoReciente` recibe el `QueryResult` entero y decide sola si
-              hay algo que mostrar (loading / error / dato / nada) — ver el porqué en su comentario. */}
-          {/* 0121: sin la excepción, el ámbar se conserva cuando la visita NO preveía base. Antes ese
-              caso pasaba por la excepción y tomaba el tono de alerta; con la base libre se habría
-              perdido justo donde una entrega repetida es más probable. */}
-          {!mostrarExcepcion && <AvisoReciente query={ultimaQ} alerta={!visit.dispenses} accent={accent} />}
+          {/* 1 · AVISOS, ARRIBA DE TODO: si llegan después de que el coordinador ya cargó la
+              medicación, llegan tarde. El rojo por droga primero, después los saldos (D25). Recibe la
+              consulta entera y decide sola qué mostrar: carga, error, dato o nada. Con la excepción
+              fuera de cronograma, el aviso del IP va adentro de su sección (`AvisoIpReciente`). */}
+          {!readOnly && (
+            <AvisosDeEntrega
+              query={ctxQ} rojo={rojo} saldos={saldos} hayElegido={elegidos.length > 0}
+              readOnly={readOnly} accent={accent} onPedirSaldo={pedirSaldo}
+            />
+          )}
 
           {/* 2 · MEDICACIÓN CONCOMITANTE, siempre y primera (0121, plan D4): la base es independiente
               del cronograma. Si la visita no la preveía, el servidor sella `base_sin_cronograma` solo,
@@ -818,7 +757,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                           </>
                         ) : (
                           <>
-                            <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>x{it.quantity}</span>
+                            {/* 0123 (D8): «x1 de 2» si va en partes, «x1 saldo» si completa una. */}
+                            <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>
+                              {cantidadConPartes(it.quantity, partesDeRenglon(it), 'corto')}
+                            </span>
                             {ed.editable && (
                               <button
                                 type="button" aria-label={`Cambiar la cantidad de ${nombre}`} title="Cambiar la cantidad"
@@ -862,7 +804,9 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 {items.map((it, i) => (
                   <div key={it.medication_id} style={itemRow}>
                     <span style={{ flex: 1, minWidth: 0, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.name}</span>
-                    <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>x{it.quantity}</span>
+                    <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>
+                      {cantidadConPartes(it.quantity, partesDeRenglon(it), 'corto')}
+                    </span>
                     <span style={{ ...pillBase, color: 'var(--spira-acc-deep-warn)', background: WARN_TINT_PILL }}>Sin solicitar</span>
                     <button
                       type="button" aria-label={`Quitar ${it.name}`} onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
@@ -914,12 +858,42 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                         style={{ width: 74, height: 44, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', padding: '0 12px', fontFamily: 'var(--spira-font-text)', fontSize: 14, color: 'var(--spira-ink)' }}
                       />
                       <button
-                        type="button" onClick={addItem} disabled={!pick || !qty}
-                        style={{ height: 44, padding: '0 14px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: !pick || !qty ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, opacity: !pick || !qty ? 0.6 : 1 }}
+                        type="button" onClick={addItem} disabled={!pick || !qty || partesInvalidas}
+                        style={{ height: 44, padding: '0 14px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-surface)', color: 'var(--spira-ink)', cursor: !pick || !qty || partesInvalidas ? 'default' : 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, opacity: !pick || !qty || partesInvalidas ? 0.6 : 1 }}
                       >
                         Agregar
                       </button>
                     </div>
+                    {/* «EN PARTES» (D8): la casilla nativa dentro de un label, como en el formulario del
+                        cronograma. «Cant.» es lo que se entrega AHORA; lo indicado va acá. Por envases:
+                        partir un envase en dosis quedó afuera del plan. */}
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 10, fontSize: 13, color: 'var(--spira-ink)' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 600 }}>
+                        <input
+                          type="checkbox" checked={enPartes}
+                          onChange={(e) => { setEnPartes(e.target.checked); if (!e.target.checked) setIndicado('') }}
+                          style={{ width: 16, height: 16, margin: 0, accentColor: accent }}
+                        />
+                        En partes
+                      </label>
+                      {enPartes && (
+                        <>
+                          <span style={{ color: 'var(--spira-muted)' }}>· entregar {Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : '…'} de</span>
+                          <input
+                            type="number" min={2} value={indicado} onChange={(e) => setIndicado(e.target.value)}
+                            aria-label="Envases indicados en total" style={indicadoInline}
+                          />
+                          <span style={{ color: 'var(--spira-muted)' }}>envases</span>
+                        </>
+                      )}
+                    </div>
+                    {enPartes && Number.isFinite(indicadoNum) && Number.isFinite(qtyNum) && (
+                      <div style={{ fontSize: 12, color: indicadoNum > qtyNum ? 'var(--spira-muted)' : 'var(--spira-acc-deep-warn)', marginTop: 7, paddingLeft: 24 }}>
+                        {indicadoNum > qtyNum
+                          ? `Queda ${indicadoNum - qtyNum} ${indicadoNum - qtyNum === 1 ? 'envase' : 'envases'} de saldo para la visita siguiente.`
+                          : 'Lo indicado tiene que ser más que lo que se entrega ahora.'}
+                      </div>
+                    )}
                     {/* 0121 (D6): el aviso de stock, en memoria sobre la consulta del panel. Nunca
                         bloquea "Agregar": el stock puede cambiar antes del mostrador. */}
                     {pick && qty && avisoStock(stockDe(pick), parseInt(qty, 10)) && (
@@ -934,7 +908,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                     normal— y se cierra con "Listo". El envío es uno solo y vive al pie de la
                     tarjeta, junto con la constancia. */}
                 <button
-                  type="button" onClick={() => { setSoliciting(false); setPick(''); setQty(''); setErr(null) }}
+                  type="button" onClick={() => { setSoliciting(false); setPick(''); setQty(''); setEnPartes(false); setIndicado(''); setErr(null) }}
                   style={{ marginTop: 12, height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13 }}
                 >
                   Listo
@@ -948,7 +922,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
           <SeccionIp
             contenido={contenidoIp}
             excepcion={mostrarExcepcion ? {
-              aviso: <AvisoReciente query={ultimaQ} alerta accent={accent} />,
+              aviso: <AvisoIpReciente query={ctxQ} aviso={avisoIp(ctxQ.data ?? [], ahora)} />,
               // Con el pedido ya creado manda el motivo SELLADO en la fila, no el desplegable: es el
               // texto que Farmacia ve en el cajón y que sale impreso en el comprobante, y dejarlo
               // editable acá lo haría diferir del papel. Si hace falta un motivo nuevo (nace otro

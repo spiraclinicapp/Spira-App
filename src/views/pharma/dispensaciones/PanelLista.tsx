@@ -137,7 +137,7 @@ export function PanelLista({ r, disp, onChanged, onClose, onPrint, onToast }: {
               Preparado — {disp.items.length} {disp.items.length === 1 ? 'ítem' : 'ítems'}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {disp.items.map((l) => <ItemRow key={l.id} {...fromDispensationLine(l)} />)}
+              {disp.items.map((l) => <ItemRow key={l.id} {...fromDispensationLine(l, r)} />)}
             </div>
           </>
         )}

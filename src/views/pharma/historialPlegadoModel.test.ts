@@ -95,12 +95,12 @@ describe('historialPlegado', () => {
 
   it('nombra qué se pidió: el IP con sus kits primero, después los renglones', () => {
     const h = historialPlegado([
-      pedido({ includes_ip: true, items: [item('Paracetamol', 2), item('Fenisona', 1)], disp: { status: 'entregada', delivered_at: '2026-09-13T12:00:00+00:00', kits: 2 } }),
+      pedido({ includes_ip: true, items: [item('Paracetamol', 2), ({ medication: { name: 'Fenisona' }, quantity: 1, quantity_indicated: 2 }) as never], disp: { status: 'entregada', delivered_at: '2026-09-13T12:00:00+00:00', kits: 2 } }),
       pedido({ status: 'cancelada', includes_ip: true, updated_at: '2026-09-12T12:00:00+00:00' }),
       pedido({ status: 'cancelada', updated_at: '2026-09-11T12:00:00+00:00' }),
     ])!
     expect(h.renglones.map((r) => r.que)).toEqual([
-      'Producto en investigación (2 kits) · Paracetamol x2 · Fenisona x1',
+      'Producto en investigación (2 kits) · Paracetamol x2 · Fenisona x1 de 2',
       'Producto en investigación',
       'Sin renglones',
     ])

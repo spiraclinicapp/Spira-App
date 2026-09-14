@@ -26,6 +26,14 @@ export const itemRow: CSSProperties = {
   border: '1px solid var(--spira-line)', borderRadius: 11, background: 'var(--spira-white)',
 }
 
+/** Botón chico y secundario de adentro de la tarjeta: «Pedir fuera de cronograma» y «Pedir el saldo»
+ *  (mock de la Tanda 3). Mismo alto que la píldora de acción del mock: 32px. */
+export const btnChico: CSSProperties = {
+  flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 12px',
+  borderRadius: 8, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', cursor: 'pointer',
+  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-ink)',
+}
+
 export const pillBase: CSSProperties = {
   flex: '0 0 auto', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 'var(--spira-radius-pill)',
 }

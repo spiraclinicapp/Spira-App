@@ -745,15 +745,32 @@ de Coordinación (`src/views/pharma/FormularioOtro.tsx`) pueden ir en paralelo; 
 
 **3b · Partes, saldo y aviso rojo**
 
-- [ ] **3b-1 (P1, humano: ~1 día / CC: ~1h)** · SQL · migración aditiva: `quantity_indicated`,
+- [x] **3b-1 (P1, humano: ~1 día / CC: ~1h)** · SQL · migración aditiva: `quantity_indicated`,
   `saldo_de_item_id`, validaciones y tope (R2), un renglón por medicamento (contar duplicados en prod
   antes), `contexto_dispensacion` con filas crudas (R7). *Verifica:* sondas + QA con cuenta sólo
   coordinadora de otro protocolo.
-- [ ] **3b-2 (P1, humano: ~1 día / CC: ~1h)** · Front · `saldoModel.ts` + `avisoReciente.ts` con tests,
+- [x] **3b-2 (P1, humano: ~1 día / CC: ~1h)** · Front · `saldoModel.ts` + `avisoReciente.ts` con tests,
   `AvisosDeEntrega.tsx`, «En partes», «Pedir el saldo», borrar `AvisoReciente` y
   `useUltimaDispensacion` (D8, D13, D14, D21, D24, D25, R9). *Verifica:* `npm run build` + QA.
-- [ ] **3b-3 (P2, humano: ~3h / CC: ~20min)** · Front · «1 (de 2 indicados)» en comprobante, cajón e
+- [x] **3b-3 (P2, humano: ~3h / CC: ~20min)** · Front · «1 (de 2 indicados)» en comprobante, cajón e
   historial (D27); caja de saldos en el alta manual de Farmacia (R10).
+
+  **Al implementar la 3b (2026-09-14):** migración `0123` en la PR #171; front en `feat/dispensacion-3b`,
+  **sin PR hasta que la 0123 esté aplicada** (el front pide columnas nuevas y un deploy antes voltea la
+  tarjeta con 42703). `npm run build` verde (1025 tests) y los avisos verificados con un banco de pruebas
+  sin sesión. **Faltan las sondas y el QA logueado.**
+  - **Un renglón por medicamento va como GUARD por trigger, no índice único:** no depende de que no haya
+    duplicados viejos (el conteo en prod quedó pendiente porque la sesión se cerró) y los locks sobre el
+    pedido que ya toman las funciones cierran las carreras.
+  - **La alta de un renglón vive en `alta_renglon_pedido`** (interna, revocada), que usan `create` y `add`:
+    la validación del saldo es una sola.
+  - **Lo entregado se cuenta con la cantidad del renglón**, no con `dispensation_items`: el FEFO arma cada
+    medicamento con esa misma cantidad, y con un renglón por medicamento son el mismo número.
+  - **El rojo cubre también lo elegido en el desplegable** antes de «Agregar» (mock 1), y un saldo pedido
+    con «Pedir el saldo» no dispara rojo por ninguna droga.
+  - **En el alta manual de Farmacia van sólo los saldos** (R10), no el rojo.
+  - Para mostrar partes en el comprobante y el cajón: `partesDelMedicamento`, `cantidadConPartes` y
+    `notaDePartes` en `dispensationModel.ts`, con test.
 
 **3c · «Otro» y habilitación**
 

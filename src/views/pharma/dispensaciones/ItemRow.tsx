@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
-import type { DispensationLineRow, RequestItemRow } from '../../../data/pharma'
-import { fraccion, unidadesEscaneadas } from '../../../data/pharma'
+import type { DispensationLineRow, DispensationRequestRow, RequestItemRow } from '../../../data/pharma'
+import { fraccion, notaDePartes, partesDeRenglon, partesDelMedicamento, unidadesEscaneadas } from '../../../data/pharma'
 
 /**
  * Fila de un renglón, compartida por los cuatro paneles del cajón.
@@ -24,7 +24,7 @@ import { fraccion, unidadesEscaneadas } from '../../../data/pharma'
  * y la sustitución lo volvía ilegible.
  */
 export function ItemRow({
-  name, dosis, drug, unidades, quantity, pct, lot, modo, sustituido, onUnscan, accionExtra, desplegado,
+  name, dosis, drug, unidades, quantity, pct, lot, modo, sustituido, partes, onUnscan, accionExtra, desplegado,
 }: {
   name: string
   dosis: string | null
@@ -44,6 +44,8 @@ export function ItemRow({
   modo: 'escaneo' | 'lectura'
   /** Se sustituyó: la fila lo dice, o el cambio sería invisible. */
   sustituido?: boolean
+  /** «1 de 2 indicados» o «saldo» (0123, D27). Se arma sólo lo de ahora; la fila dice que es una parte. */
+  partes?: string | null
   onUnscan?: () => void
   /** Botón propio a la derecha (hoy: Sustituir). Solo se dibuja en modo escaneo. */
   accionExtra?: React.ReactNode
@@ -76,6 +78,7 @@ export function ItemRow({
             {modo === 'escaneo' ? (
               <>
                 {dosis && <>{dosis} · </>}
+                {partes && <>{partes} · </>}
                 {completo ? 'completo' : faltan === 1 ? 'falta 1 u.' : `faltan ${faltan} u.`}
                 {/* Sin esta marca la sustitución sería invisible: la fila mostraría el medicamento
                     nuevo como si hubiera sido el pedido desde el principio. */}
@@ -84,6 +87,7 @@ export function ItemRow({
             ) : (
               <>
                 {dosis && <>{dosis} · </>}
+                {partes && <>{partes} · </>}
                 {/* Mono SOLO cuando hay lote: es un identificador y se lee como tal. La leyenda de
                     ausencia es prosa, y en mono parecía un valor más. Se le sacó la sigla FEFO
                     (2026-08-15): no aporta nada a quien mira la fila y sí obliga a saberla. */}
@@ -182,12 +186,17 @@ export function fromRequestItem(i: RequestItemRow, modo: 'escaneo' | 'lectura' =
     lot: null,
     modo,
     sustituido: i.substituted_from_medication_id != null,
+    partes: notaDePartes(i.quantity, partesDeRenglon(i)),
   }
 }
 
-/** Adapta un renglón ya preparado (con lote real del snapshot). */
-export function fromDispensationLine(l: DispensationLineRow) {
+/**
+ * Adapta un renglón ya preparado (con lote real del snapshot). `r` es el pedido: lo preparado no
+ * conoce lo indicado, y se cruza con lo pedido por medicamento (`partesDelMedicamento`, D27).
+ */
+export function fromDispensationLine(l: DispensationLineRow, r?: Pick<DispensationRequestRow, 'items'>) {
   return {
+    partes: r ? notaDePartes(l.quantity, partesDelMedicamento(r, l.medication_id)) : null,
     name: l.medication?.name ?? 'Medicamento',
     dosis: null,
     drug: null,

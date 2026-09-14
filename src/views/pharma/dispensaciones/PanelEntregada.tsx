@@ -31,7 +31,7 @@ export function PanelEntregada({ r, disp, onClose, onPrint }: {
           <>
             <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 9 }}>Entregado</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {disp.items.map((l) => <ItemRow key={l.id} {...fromDispensationLine(l)} />)}
+              {disp.items.map((l) => <ItemRow key={l.id} {...fromDispensationLine(l, r)} />)}
             </div>
           </>
         )}

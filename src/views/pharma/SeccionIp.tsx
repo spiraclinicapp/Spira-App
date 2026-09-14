@@ -6,7 +6,7 @@ import type { IpDocumentRow } from '../../data/pharma'
 import { MOTIVOS_FUERA_CRONOGRAMA } from './motivosFueraCronograma'
 import { ConstanciaDropzone, ConstanciaPendiente, ConstanciaVista } from './ConstanciaIp'
 import type { Badge } from './dispensaciones/estados'
-import { Sub, WARN_TINT, itemRow, muted, pillBase } from './panelDispensacion'
+import { Sub, WARN_TINT, btnChico, itemRow, muted, pillBase } from './panelDispensacion'
 import type { ContenidoIp } from './seccionIpModel'
 
 /** Aviso "Falta la constancia": texto en TINTA, el ámbar queda solo en el ícono y el fondo
@@ -27,12 +27,6 @@ const lineaStyle: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--spira-ink-soft)',
 }
 
-/** «Pedir fuera de cronograma»: botón chico, secundario, adentro del estado vacío (mock B). */
-const pedirBtn: CSSProperties = {
-  flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 12px',
-  borderRadius: 8, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', cursor: 'pointer',
-  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-ink)',
-}
 
 export interface ExcepcionIp {
   /** El aviso de dispensación reciente, en tono de alerta (R11: hasta que la 3b lo reemplace). */
@@ -148,7 +142,7 @@ export function SeccionIp({
           <span style={{ flex: '1 1 200px', minWidth: 0 }}>El cronograma no lo prevé en esta visita.</span>
           {onPedirFueraDeCronograma && (
             <button
-              type="button" onClick={onPedirFueraDeCronograma} style={pedirBtn}
+              type="button" onClick={onPedirFueraDeCronograma} style={btnChico}
               aria-label="Pedir producto en investigación fuera de cronograma"
             >
               <Icon name="plus" size={14} color={accent} /> Pedir fuera de cronograma
