@@ -21,7 +21,7 @@
  */
 
 import type { DispensationRequestRow } from '../../data/pharma/dispensationModel'
-import { activeDispensation, columnOf } from '../../data/pharma/dispensationModel'
+import { activeDispensation, cantidadConPartes, columnOf, partesDeRenglon } from '../../data/pharma/dispensationModel'
 import { formatShortAR, isoDayAR } from '../../lib/dates'
 import { badgeOf } from './dispensaciones/estados'
 import type { Badge } from './dispensaciones/estados'
@@ -92,7 +92,8 @@ function queSePidio(r: PedidoHistorial): string {
     const kits = activeDispensation(r as DispensationRequestRow)?.ip_kits ?? null
     partes.push(kits ? `Producto en investigación (${kits} ${kits === 1 ? 'kit' : 'kits'})` : 'Producto en investigación')
   }
-  for (const it of r.items) partes.push(`${it.medication?.name ?? 'Medicamento'} x${it.quantity}`)
+  // 0123 (D27): «Fenisona x1 de 2», «Fenisona x1 saldo».
+  for (const it of r.items) partes.push(`${it.medication?.name ?? 'Medicamento'} ${cantidadConPartes(it.quantity, partesDeRenglon(it), 'corto')}`)
   return partes.length ? partes.join(' · ') : 'Sin renglones'
 }
 

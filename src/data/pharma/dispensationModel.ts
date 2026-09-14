@@ -62,6 +62,13 @@ export interface RequestItemRow {
    */
   substituted_from_medication_id?: string | null
   substitution_reason?: string | null
+  /**
+   * Lo INDICADO cuando se entrega en partes (0123, D8): «entregar `quantity` de `quantity_indicated`».
+   * NULL = entrega completa. Opcional por la ventana de despliegue, como las de arriba.
+   */
+  quantity_indicated?: number | null
+  /** El renglón original del que este renglón pide el saldo (0123, R2). NULL = renglón normal. */
+  saldo_de_item_id?: string | null
   /** Principio activo, para la columna FÁRMACO y para acotar las alternativas de sustitución. */
   medication: { name: string; dosis: string | null; unit: string; drug: { id: string; name: string } | null } | null
 }
@@ -337,3 +344,85 @@ export const ESTADO_SOLICITUD: Record<RequestStatus, { label: string; tono: stri
 /** Los dos estados ABIERTOS: lo que la coordinadora todavía está esperando. Es el filtro de la
  *  tarjeta "Dispensaciones solicitadas" del Resumen y el mismo par que ya usa el tablero del día. */
 export const ESTADOS_ABIERTOS: readonly RequestStatus[] = ['solicitada', 'preparando']
+
+/* ┌─ Entregas en partes (0123, D8 y D27) ──────────────────────────────────────────────────────┐
+   Un renglón «en partes» lleva lo INDICADO (`quantity_indicated`) además de lo que se entrega
+   ahora; uno de «saldo» apunta al renglón original (`saldo_de_item_id`). El saldo nunca se guarda:
+   lo calcula la base al pedirlo y el front al mostrarlo (`views/pharma/saldoModel.ts`).
+   └────────────────────────────────────────────────────────────────────────────────────────────┘ */
+
+/** Qué dice un renglón sobre sus partes: `indicado` si se entrega en partes, `esSaldo` si completa uno. */
+export interface PartesDelRenglon {
+  indicado: number | null
+  esSaldo: boolean
+}
+
+/**
+ * Las partes de lo que se preparó de UN medicamento en un pedido.
+ *
+ * El comprobante y el cajón muestran `dispensation_items` (lo preparado, un renglón por medicamento
+ * desde `mark_dispensation_ready`), que no conoce lo indicado. Se cruza con lo pedido por
+ * (pedido, medicamento), que desde la 0123 es un renglón por medicamento (R2). Si hubiera un pedido
+ * viejo con el medicamento repetido, no se afirma nada.
+ */
+export function partesDelMedicamento(
+  r: Pick<DispensationRequestRow, 'items'>,
+  medicationId: string,
+): PartesDelRenglon {
+  const renglones = r.items.filter((i) => i.medication_id === medicationId)
+  if (renglones.length !== 1) return { indicado: null, esSaldo: false }
+  return partesDeRenglon(renglones[0])
+}
+
+export function partesDeRenglon(i: Pick<RequestItemRow, 'quantity_indicated' | 'saldo_de_item_id'>): PartesDelRenglon {
+  return { indicado: i.quantity_indicated ?? null, esSaldo: i.saldo_de_item_id != null }
+}
+
+/**
+ * La cantidad, dicha con sus partes. `largo` para el comprobante impreso («1 u. (de 2 indicados)»),
+ * `corto` para los renglones de una línea de la tarjeta y el historial («x1 de 2», «x1 saldo»). Un
+ * renglón de siempre queda igual que antes de la 0123.
+ */
+export function cantidadConPartes(cantidad: number, p: PartesDelRenglon, forma: 'largo' | 'corto'): string {
+  if (forma === 'largo') {
+    if (p.indicado != null) return `${cantidad} u. (de ${p.indicado} indicados)`
+    if (p.esSaldo) return `${cantidad} u. (saldo)`
+    return `${cantidad} u.`
+  }
+  if (p.indicado != null) return `x${cantidad} de ${p.indicado}`
+  if (p.esSaldo) return `x${cantidad} saldo`
+  return `x${cantidad}`
+}
+
+/** La nota de la segunda línea del renglón del cajón («1 de 2 indicados», «saldo»). `null` = sin partes. */
+export function notaDePartes(cantidad: number, p: PartesDelRenglon): string | null {
+  if (p.indicado != null) return `${cantidad} de ${p.indicado} indicados`
+  if (p.esSaldo) return 'saldo'
+  return null
+}
+
+/** Una fila de `contexto_dispensacion` (0123, R7). Cada tipo llena sus columnas y deja el resto en null. */
+export type TipoContexto = 'entrega' | 'abierto' | 'indicacion' | 'ip'
+
+export interface ContextoDispensacionRow {
+  tipo: TipoContexto
+  /** `indicacion`: el renglón original (se manda como `saldo_de_item_id`). `abierto`: el renglón. */
+  item_id: string | null
+  medication_id: string | null
+  medication_name: string | null
+  dosis: string | null
+  unit: string | null
+  drug_id: string | null
+  drug_name: string | null
+  /** `entrega`/`ip`: cuándo se entregó. `abierto`: cuándo se pidió. `indicacion`: la última parte entregada. */
+  instante: string | null
+  protocol_code: string | null
+  visit_code: string | null
+  es_esta_visita: boolean | null
+  indicado: number | null
+  entregado: number | null
+  en_camino: number | null
+  /** `indicacion`: si el medicamento sigue habilitado para el paciente (D21). */
+  habilitado: boolean | null
+  ip_kits: number | null
+}

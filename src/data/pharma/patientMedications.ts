@@ -21,13 +21,15 @@ export interface PatientMedicationRow {
   created_at: string
   /** Medicamento embebido para mostrar (nombre + dosis + presentación + monodroga/principio activo).
    *  Ojo: `medications`/`drugs` solo los lee Pharma/gerencia/contable (RLS 0006/0032) — para Track el
-   *  embed vuelve null. La sección de la ficha degrada con fallback. */
-  medication: { name: string; dosis: string | null; unit: string; drug: { name: string } | null } | null
+   *  embed vuelve null. La sección de la ficha degrada con fallback. (Desde la 0074 Coordinación sí lee
+   *  el catálogo.) `drug_id` es la columna del medicamento: es con lo que el aviso de entrega reciente
+   *  compara por droga (0123, D14). */
+  medication: { name: string; dosis: string | null; unit: string; drug_id: string | null; drug: { name: string } | null } | null
 }
 
 const PATIENT_MED_COLS =
   'id, enrollment_id, medication_id, active, notes, created_at, ' +
-  'medication:medications(name, dosis, unit, drug:drugs(name))'
+  'medication:medications(name, dosis, unit, drug_id, drug:drugs(name))'
 
 /**
  * Medicación asignada a un enrolamiento (paciente en un protocolo). Trae activas e inactivas (el

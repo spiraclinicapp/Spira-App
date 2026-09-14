@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { DispensationRequestRow, DispensationRow } from '../../../data/pharma'
-import { constanciaVigente, origenLabel } from '../../../data/pharma'
+import { cantidadConPartes, constanciaVigente, origenLabel, partesDelMedicamento } from '../../../data/pharma'
 import { formatAR, formatDateTimeAR } from '../../../lib/dates'
 
 /**
@@ -81,7 +81,9 @@ export function ComprobanteImprimible({ r, disp }: {
                 <div style={{ fontSize: 11, marginTop: 2 }}>
                   lote {l.lot_number ?? '—'}
                   {l.expiry_date && ` · vence ${formatAR(l.expiry_date)}`}
-                  {' · '}{l.quantity} u.
+                  {/* 0123 (D27): «1 u. (de 2 indicados)». Sin eso, el papel que lee un monitor diría
+                      que se entregó todo lo indicado. */}
+                  {' · '}{cantidadConPartes(l.quantity, partesDelMedicamento(r, l.medication_id), 'largo')}
                 </div>
               </div>
             ))}

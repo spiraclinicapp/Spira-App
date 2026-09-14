@@ -38,7 +38,7 @@ describe('contenidoSeccionIp', () => {
     expect(con({ cerrada: true })).toBe('cierre')
   })
 
-  it('mientras carga no se afirma nada: ni dropzone, ni cierre, ni «no lo prevé»', () => {
+  it('mientras carga no se afirma nada: ni dropzone, ni cierre, ni «no lo pide»', () => {
     expect(con({ cargando: true, prevista: true })).toBe('cargando')
     expect(con({ cargando: true })).toBe('cargando')
   })

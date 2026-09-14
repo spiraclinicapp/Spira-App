@@ -5,7 +5,7 @@ import { SearchableSelect } from '../../../components/SearchableSelect'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { usePatients } from '../../../data/patients'
 import { usePatientMedications } from '../../../data/pharma'
-import { useVisitasDispensables, createDispensationRequest, registrarVnp } from '../../../data/pharma'
+import { useVisitasDispensables, createDispensationRequest, registrarVnp, useContextoDispensacion } from '../../../data/pharma'
 import type { RequestItemInput, VisitaDispensableRow } from '../../../data/pharma'
 import { formatAR, todayISO } from '../../../lib/dates'
 import { visitTitle } from '../../../lib/visits'
@@ -18,6 +18,9 @@ import {
 import { opcionesDeEnrolamiento } from './opcionesEnrolamiento'
 import { SegmentedControl } from '../../../components/SegmentedControl'
 import { AltaAmbulatoria } from './AltaAmbulatoria'
+import { AvisosDeEntrega } from '../AvisosDeEntrega'
+import { renglonDeSaldo, saldosDeLaVisita } from '../saldoModel'
+import type { SaldoCaja } from '../saldoModel'
 
 /** Las dos cosas que se pueden dar de alta desde el mostrador. */
 type TipoAlta = 'protocolo' | 'ambulatoria'
@@ -124,6 +127,12 @@ function AltaProtocolo({ onClose, onCreated }: {
   const pacientes = usePatients()
   const visitas = useVisitasDispensables(enrollmentId || null)
   const medicacion = usePatientMedications(enrollmentId || null)
+  /**
+   * Los saldos de lo entregado en partes (0123, R10): la farmacéutica con el paciente enfrente ve lo
+   * mismo que la coordinadora en la tarjeta de la visita, y lo pide con un clic. Una consulta por
+   * visita elegida.
+   */
+  const contexto = useContextoDispensacion(visitId || null, !!visitId)
 
   const opcionesEnrolamiento = useMemo(
     () => opcionesDeEnrolamiento(pacientes.data),
@@ -210,6 +219,13 @@ function AltaProtocolo({ onClose, onCreated }: {
     setMotivo(MOTIVO_VNP)
     setCreandoVnp(false)
   }
+
+  /* Un medicamento con renglón normal en la lista no admite además su saldo: la base no deja dos
+     renglones del mismo medicamento en un pedido (0123). */
+  const saldos = saldosDeLaVisita(
+    contexto.data ?? [], items, new Set(items.filter((i) => !i.saldo_de_item_id).map((i) => i.medication_id)),
+  )
+  const pedirSaldo = (s: SaldoCaja) => { setItems((prev) => [...prev, renglonDeSaldo(s)]); setErr(null) }
 
   const agregar = () => {
     if (!medId) return
@@ -343,6 +359,14 @@ function AltaProtocolo({ onClose, onCreated }: {
 
         <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 10 }}>Medicación solicitada</p>
 
+        {/* Sólo los saldos: el aviso rojo por droga es de la tarjeta de la visita (R10). */}
+        {visitId && (
+          <AvisosDeEntrega
+            query={contexto} rojo={null} saldos={saldos} hayElegido={false}
+            readOnly={false} accent="var(--spira-pharma-solid)" onPedirSaldo={pedirSaldo}
+          />
+        )}
+
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <SearchableSelect
@@ -392,7 +416,7 @@ function AltaProtocolo({ onClose, onCreated }: {
                 <Icon name="pill" size={16} color="var(--spira-muted)" />
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{nombreMed(i.medication_id)}</span>
                 <span className="spira-mono" style={{ fontSize: 13, fontWeight: 700 }}>
-                  {i.quantity}<span style={{ fontSize: 11, fontWeight: 400, color: 'var(--spira-muted)' }}> u.</span>
+                  {i.quantity}<span style={{ fontSize: 11, fontWeight: 400, color: 'var(--spira-muted)' }}> u.{i.saldo_de_item_id ? ' · saldo' : ''}</span>
                 </span>
                 <button
                   type="button"

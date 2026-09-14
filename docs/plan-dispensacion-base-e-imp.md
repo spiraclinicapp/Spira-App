@@ -745,15 +745,44 @@ de Coordinación (`src/views/pharma/FormularioOtro.tsx`) pueden ir en paralelo; 
 
 **3b · Partes, saldo y aviso rojo**
 
-- [ ] **3b-1 (P1, humano: ~1 día / CC: ~1h)** · SQL · migración aditiva: `quantity_indicated`,
+- [x] **3b-1 (P1, humano: ~1 día / CC: ~1h)** · SQL · migración aditiva: `quantity_indicated`,
   `saldo_de_item_id`, validaciones y tope (R2), un renglón por medicamento (contar duplicados en prod
   antes), `contexto_dispensacion` con filas crudas (R7). *Verifica:* sondas + QA con cuenta sólo
   coordinadora de otro protocolo.
-- [ ] **3b-2 (P1, humano: ~1 día / CC: ~1h)** · Front · `saldoModel.ts` + `avisoReciente.ts` con tests,
+- [x] **3b-2 (P1, humano: ~1 día / CC: ~1h)** · Front · `saldoModel.ts` + `avisoReciente.ts` con tests,
   `AvisosDeEntrega.tsx`, «En partes», «Pedir el saldo», borrar `AvisoReciente` y
   `useUltimaDispensacion` (D8, D13, D14, D21, D24, D25, R9). *Verifica:* `npm run build` + QA.
-- [ ] **3b-3 (P2, humano: ~3h / CC: ~20min)** · Front · «1 (de 2 indicados)» en comprobante, cajón e
+- [x] **3b-3 (P2, humano: ~3h / CC: ~20min)** · Front · «1 (de 2 indicados)» en comprobante, cajón e
   historial (D27); caja de saldos en el alta manual de Farmacia (R10).
+
+  **Al implementar la 3b (2026-09-14):** migración `0123` (PR #171, **aplicada en prod el 2026-09-14**);
+  front en `feat/dispensacion-3b`. `npm run build` verde (1025 tests).
+  - **Sondas:** sin sesión, columnas y funciones existen y ningún embed quedó ambiguo; con sesión, las dos
+    funciones internas dan `42501`. **Cero pedidos con un medicamento repetido** (9 renglones en prod).
+  - **QA logueado de sólo lectura** (ACT18301, Susana Rodriguez): aviso rojo real al elegir Alvetide en la
+    V5 («tiene pedido … sin retirar», por el pedido abierto de la V6); «En partes» apaga «Agregar» con lo
+    indicado inválido y muestra el saldo que queda; renglón «x1 de 2 · Sin solicitar»; tablero de
+    Farmacia y alta manual cargan; consola limpia. No se solicitó nada.
+  - **Sin QA con datos reales, por decisión del Director:** el saldo de punta a punta y el rojo por entrega
+    reciente (no hay entregas en los últimos 31 días en prod). Cubiertos por tests y banco de pruebas.
+  - **Copy (Director, 2026-09-14):** el estado vacío del IP dice «El cronograma no lo pide en esta visita.»
+    (antes «no lo prevé»).
+  - **«Entregar en partes», rediseñado sobre el mock (Director, 2026-09-14):** «En partes · entregar … de
+    [2] envases» no se entendía. Ahora la casilla dice «Entregar en partes» con un ⓘ (`InfoTip`) que
+    explica, y adentro una sola línea: «Total indicado [2] envases · queda 1 de saldo». «Cant.» arranca
+    en 1.
+  - **Un renglón por medicamento va como GUARD por trigger, no índice único:** no depende de que no haya
+    duplicados viejos (el conteo en prod quedó pendiente porque la sesión se cerró) y los locks sobre el
+    pedido que ya toman las funciones cierran las carreras.
+  - **La alta de un renglón vive en `alta_renglon_pedido`** (interna, revocada), que usan `create` y `add`:
+    la validación del saldo es una sola.
+  - **Lo entregado se cuenta con la cantidad del renglón**, no con `dispensation_items`: el FEFO arma cada
+    medicamento con esa misma cantidad, y con un renglón por medicamento son el mismo número.
+  - **El rojo cubre también lo elegido en el desplegable** antes de «Agregar» (mock 1), y un saldo pedido
+    con «Pedir el saldo» no dispara rojo por ninguna droga.
+  - **En el alta manual de Farmacia van sólo los saldos** (R10), no el rojo.
+  - Para mostrar partes en el comprobante y el cajón: `partesDelMedicamento`, `cantidadConPartes` y
+    `notaDePartes` en `dispensationModel.ts`, con test.
 
 **3c · «Otro» y habilitación**
 

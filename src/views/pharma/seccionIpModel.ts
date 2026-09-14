@@ -13,7 +13,7 @@
  *   cierre           la visita tiene un cierre de la 0119                     el cierre, y nada que ofrecer
  *   sin_constancia   prevista, en la ficha o contra un pedido que no la toma  «Sin constancia cargada.»
  *   adjuntar         prevista                                                 el dropzone
- *   no_prevista      nada de lo anterior                                      «El cronograma no lo prevé…»
+ *   no_prevista      nada de lo anterior                                      «El cronograma no lo pide…»
  *
  * «Prevista» = el cronograma, un pedido abierto con el IP sellado o la excepción abierta.
  *
