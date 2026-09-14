@@ -140,9 +140,12 @@ export function SeccionIp({
       cuerpo = <ConstanciaDropzone accent={accent} busy={busy} onFile={onElegirArchivo} />
       break
     case 'no_prevista':
+      // `wrap` + base de 200px: en la notebook (tarjeta de ~560px) texto y botón van en un renglón como
+      // en el mock; en una tarjeta angosta el botón baja. Sin eso, con 286px de tarjeta el botón se
+      // quedaba con todo y el texto caía a 38px de ancho, una palabra por renglón (QA, 2026-09-14).
       cuerpo = (
-        <div style={lineaStyle}>
-          <span style={{ flex: 1, minWidth: 0 }}>El cronograma no lo prevé en esta visita.</span>
+        <div style={{ ...lineaStyle, flexWrap: 'wrap', rowGap: 8 }}>
+          <span style={{ flex: '1 1 200px', minWidth: 0 }}>El cronograma no lo prevé en esta visita.</span>
           {onPedirFueraDeCronograma && (
             <button
               type="button" onClick={onPedirFueraDeCronograma} style={pedirBtn}
