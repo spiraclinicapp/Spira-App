@@ -723,11 +723,25 @@ de Coordinación (`src/views/pharma/FormularioOtro.tsx`) pueden ir en paralelo; 
 
 **3a · Panel (sin SQL)**
 
-- [ ] **3a-1 (P1, humano: ~4h / CC: ~30min)** · Front · `HistorialPlegado.tsx` + `historialPlegado.ts`
+- [x] **3a-1 (P1, humano: ~4h / CC: ~30min)** · Front · `HistorialPlegado.tsx` + `historialPlegado.ts`
   con test (D17, R9). *Verifica:* `npm run build` + QA con un pedido rechazado.
-- [ ] **3a-2 (P1, humano: ~4h / CC: ~30min)** · Front · `SeccionIp.tsx`: siempre presente, estado vacío,
+- [x] **3a-2 (P1, humano: ~4h / CC: ~30min)** · Front · `SeccionIp.tsx`: siempre presente, estado vacío,
   motivo adentro, lee el estado del IP de la 0119, aviso viejo mudado (D18, D19, R11).
   *Verifica:* QA en visita sin IP y en visita con cierre «No corresponde».
+
+  **Al implementar la 3a (2026-09-13, rama `feat/dispensacion-3a`):** `npm run build` verde (998 tests) y
+  el dibujo verificado contra el mock en un banco de pruebas sin sesión. **Falta el QA logueado.**
+  - **Las reglas puras se llaman `*Model.ts`** (`historialPlegadoModel.ts`, `seccionIpModel.ts`), no como
+    dice R9: en Windows `historialPlegado.ts` y `HistorialPlegado.tsx` son el MISMO archivo para `tsc`
+    (TS1149). Vale para la 3b: `avisoReciente.ts` no choca (el componente viejo vive adentro del panel),
+    pero `AvisosDeEntrega.tsx` + `avisosDeEntrega.ts` sí chocaría.
+  - **«Con un pedido rechazado» (D17) es con un rechazo VIGENTE:** el pedido más nuevo que no se canceló
+    es el rechazado. Uno ya resuelto por un pedido posterior no abre el historial, para que la ficha de un
+    paciente de meses no quede desplegada para siempre por algo viejo.
+  - **El historial cuenta TODOS los pedidos cerrados**, también el entregado con IP que la sección del IP
+    muestra como desenlace. Antes se excluía para no repetir el comprobante, pero así sus renglones de
+    base no aparecían en ningún lado de la tarjeta.
+  - Los estilos compartidos del panel se mudaron a `panelDispensacion.tsx`.
 
 **3b · Partes, saldo y aviso rojo**
 
