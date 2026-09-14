@@ -88,3 +88,24 @@ export async function guardarEnvasesDelPaciente(patientMedicationId: string, env
   if (!data || data.length === 0) return { error: 'No tenés permiso para modificar esta medicación.' }
   return { error: null }
 }
+
+/** Cómo se repone cada medicamento del estudio (0125), para la línea de «Editar medicación». */
+export interface ReposicionDelEstudioRow {
+  medication_id: string
+  reposicion_modo: 'mensual' | 'a_demanda' | 'no_se_compra' | null
+  envases_por_mes: number | null
+}
+
+/** Lo lee Farmacia y gerencia (RLS de protocol_medications, 0032); el modal de edición es de Farmacia. */
+export function useReposicionDelEstudio(protocolId: string) {
+  return useSupabaseQuery<ReposicionDelEstudioRow[]>(
+    (c) =>
+      c
+        .from('protocol_medications')
+        .select('medication_id, reposicion_modo, envases_por_mes')
+        .eq('protocol_id', protocolId)
+        .returns<ReposicionDelEstudioRow[]>(),
+    [protocolId],
+    (e) => pharmaErrorMessage(e.code, e.message),
+  )
+}
