@@ -409,7 +409,7 @@ function HojaDispensaciones({ ctx }: { ctx: ContextoReporte }) {
 
 /* ── Piezas ──────────────────────────────────────────────────────────────────── */
 
-function Membrete() {
+export function Membrete() {
   return (
     <div style={{ borderBottom: '1px solid #000', paddingBottom: 7, marginBottom: 12 }}>
       <b style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, display: 'block' }}>
@@ -420,7 +420,7 @@ function Membrete() {
   )
 }
 
-function PieDePagina({ emitidoEn }: { emitidoEn: string }) {
+export function PieDePagina({ emitidoEn }: { emitidoEn: string }) {
   return (
     <div style={{ display: 'flex', marginTop: 20, paddingTop: 8, borderTop: '1px solid #999', fontSize: 9, color: '#666' }}>
       <span>Spira · Farmacia — Fundación Scherbovsky</span>
@@ -469,12 +469,12 @@ function SinDatos({ cantidad, columnas }: { cantidad: number; columnas: number }
   )
 }
 
-const tablaImpresa = { width: '100%', borderCollapse: 'collapse' as const }
-const thImpresa = {
+export const tablaImpresa = { width: '100%', borderCollapse: 'collapse' as const }
+export const thImpresa = {
   textAlign: 'left' as const, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em',
   textTransform: 'uppercase' as const, padding: '6px 8px 6px 0', borderBottom: '1px solid #000',
 }
-const tdImpresa = { padding: '6px 8px 6px 0', borderBottom: '1px solid #999', fontSize: 10.5, verticalAlign: 'top' as const }
+export const tdImpresa = { padding: '6px 8px 6px 0', borderBottom: '1px solid #999', fontSize: 10.5, verticalAlign: 'top' as const }
 /* Encabezado en negro pleno: es el formato acordado. `print-color-adjust: exact` fuerza al
    navegador a imprimir el fondo, que por defecto se descarta para ahorrar tinta. */
 const thNegra = {

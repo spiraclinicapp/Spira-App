@@ -326,6 +326,8 @@ export interface RenglonReposicion {
   nombre: string
   presentacion: string | null
   modo: ModoReposicion | null
+  /** Lo cargado en el estudio, para abrir el formulario con el valor actual. */
+  envasesPorMes: number | null
   estado: EstadoRenglon
   /** Envases a comprar (0 si no aplica). */
   comprar: number
@@ -386,18 +388,19 @@ export function armarReposicion(insumos: InsumosReposicion, hoy: string): Reposi
     const avisos: Aviso[] = []
 
     let comprar = 0
-    let pacientesMes = 0
     let necesidad = 0
     let est: Estante = { alComienzo: 0, faltaEsteMes: 0, vencenEnElMes: [], vigenteHoy: 0 }
+    // Quiénes siguen en el mes se cuenta en TODO renglón, también sin cargar: el formulario de carga
+    // lo muestra («7 pacientes siguen en octubre») antes de que exista el modo.
+    const suman = asignaciones.filter((p) => !duplicados.has(p.patient_medication_id))
+    const delMes = suman.filter((x) => sigueEnElMes(x, m1.desde))
+    const pacientesMes = delMes.length
 
     if (r.modo === 'mensual' || r.modo === 'a_demanda') {
       let pendiente = 0
       if (r.modo === 'mensual') {
-        const suman = asignaciones.filter((p) => !duplicados.has(p.patient_medication_id))
         const mensual = (p: PacienteInsumo) => p.envases_por_mes ?? r.envases_por_mes ?? 0
         for (const p of suman.filter((x) => sigueEnElMes(x, m0.desde))) pendiente += Math.max(0, mensual(p) - p.retirado_mes)
-        const delMes = suman.filter((x) => sigueEnElMes(x, m1.desde))
-        pacientesMes = delMes.length
         necesidad = delMes.reduce((s, p) => s + mensual(p), 0)
 
         const terminaron = asignaciones.filter((p) => terminoCronograma(p, m1.desde))
@@ -437,6 +440,7 @@ export function armarReposicion(insumos: InsumosReposicion, hoy: string): Reposi
       nombre: r.medication_name,
       presentacion: r.presentacion,
       modo: r.modo,
+      envasesPorMes: r.envases_por_mes,
       estado,
       comprar: estado === 'comprar' ? comprar : 0,
       cuenta: { pacientesMes, necesidad, faltaEsteMes: est.faltaEsteMes, alComienzo: est.alComienzo, enCamino, stockFijo: r.stock_fijo },
