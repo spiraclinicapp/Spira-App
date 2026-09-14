@@ -1,0 +1,200 @@
+import type { CSSProperties, ReactNode } from 'react'
+import { Icon } from '../../components/Icon'
+import { SearchableSelect } from '../../components/SearchableSelect'
+import { formatDateAR } from '../../lib/dates'
+import type { IpDocumentRow } from '../../data/pharma'
+import { MOTIVOS_FUERA_CRONOGRAMA } from './motivosFueraCronograma'
+import { ConstanciaDropzone, ConstanciaPendiente, ConstanciaVista } from './ConstanciaIp'
+import type { Badge } from './dispensaciones/estados'
+import { Sub, WARN_TINT, itemRow, muted, pillBase } from './panelDispensacion'
+import type { ContenidoIp } from './seccionIpModel'
+
+/** Aviso "Falta la constancia": texto en TINTA, el ámbar queda solo en el ícono y el fondo
+ *  (`--spira-warn` a 12,5px bold sobre este tinte da 3,2:1; AA pide 4,5:1 — medido en el mock). */
+const warnBox: CSSProperties = {
+  display: 'flex', alignItems: 'flex-start', gap: 9, padding: '9px 11px', borderRadius: 10,
+  background: WARN_TINT, fontSize: 12.5, color: 'var(--spira-ink)', fontWeight: 600, marginBottom: 9,
+}
+
+/** Desenlace de un pedido YA cerrado: el mismo renglón del pie común (fecha · estado · comprobante)
+ *  pero sin el filete, porque no cierra la tarjeta sino la sección. */
+const desenlaceStyle: CSSProperties = {
+  marginTop: 9, display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap',
+}
+
+/** Una línea de texto de la sección: el estado vacío, el cierre, "Sin constancia cargada.". */
+const lineaStyle: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--spira-ink-soft)',
+}
+
+/** «Pedir fuera de cronograma»: botón chico, secundario, adentro del estado vacío (mock B). */
+const pedirBtn: CSSProperties = {
+  flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 12px',
+  borderRadius: 8, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', cursor: 'pointer',
+  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, color: 'var(--spira-ink)',
+}
+
+export interface ExcepcionIp {
+  /** El aviso de dispensación reciente, en tono de alerta (R11: hasta que la 3b lo reemplace). */
+  aviso: ReactNode
+  /** El motivo SELLADO en el pedido. `null` = todavía hay que elegirlo en el desplegable. */
+  motivoSellado: string | null
+  motivo: string
+  onMotivo: (v: string) => void
+}
+
+/**
+ * La sección «Producto en investigación» de la tarjeta de Dispensación. Existe SIEMPRE (plan D18):
+ * qué muestra lo decide `contenidoSeccionIp` (reglas y porqués en `seccionIpModel.ts`); acá sólo se dibuja.
+ *
+ * Es de presentación a propósito: la constancia elegida, el motivo y el envío siguen viviendo en el
+ * panel, porque la solicitud es UNA —renglones y constancia salen juntos por `enviar()`— y partir ese
+ * estado entre dos componentes es partir el acto.
+ *
+ * LA EXCEPCIÓN VIVE ADENTRO. Antes el IP fuera de cronograma abría una subsección aparte, «Fuera de
+ * cronograma», arriba de todo, y se llegaba con un botón suelto al pie. Ahora el rótulo de ESTA
+ * sección pasa a ámbar con ⓘ —el tratamiento de siempre para la excepción— y adentro van, en orden,
+ * el aviso de dispensación reciente, el motivo y la constancia: todo lo del IP en un lugar.
+ */
+export function SeccionIp({
+  contenido, excepcion, readOnly, accent, busy,
+  archivo, onQuitarArchivo, onElegirArchivo,
+  constanciaAbierta, reemplazando, onReemplazar,
+  constanciaIncompleta, entregado, cierre, onPedirFueraDeCronograma,
+}: {
+  contenido: ContenidoIp
+  /** `null` = la visita no está en excepción. */
+  excepcion: ExcepcionIp | null
+  readOnly: boolean
+  accent: string
+  busy: boolean
+  archivo: File | null
+  onQuitarArchivo: () => void
+  onElegirArchivo: (f: File) => void
+  constanciaAbierta: IpDocumentRow | null
+  reemplazando: boolean
+  onReemplazar: () => void
+  /** El pedido abierto la exige y no la tiene (ver `constanciaIncompleta` en el panel). */
+  constanciaIncompleta: boolean
+  entregado: { doc: IpDocumentRow; pedidoEl: string; badge: Badge; comprobante: number | null } | null
+  /** El cierre de la 0119, dicho en palabras (`detalleIp`). */
+  cierre: string | null
+  /** `null` = no se ofrece (en la ficha). */
+  onPedirFueraDeCronograma: (() => void) | null
+}) {
+  let cuerpo: ReactNode = null
+  switch (contenido) {
+    case 'pendiente':
+      // Elegida y todavía sin enviar. Manda sobre cualquier otra rama —incluso sobre una constancia
+      // ya cargada, cuando se está reemplazando—: es lo que va a quedar cuando se cierre la solicitud.
+      cuerpo = archivo && <ConstanciaPendiente file={archivo} accent={accent} onQuitar={onQuitarArchivo} />
+      break
+    case 'en_curso':
+      // Hay un pedido abierto que SÍ acepta la constancia: se carga o se reemplaza CONTRA ÉL.
+      cuerpo = readOnly
+        ? constanciaAbierta
+          ? <ConstanciaVista doc={constanciaAbierta} size="chica" accent={accent} />
+          : <div style={{ ...muted, padding: '2px 0' }}>Sin constancia cargada.</div>
+        : constanciaAbierta && !reemplazando
+          ? <ConstanciaVista doc={constanciaAbierta} size="chica" accent={accent} onReemplazar={onReemplazar} />
+          : <ConstanciaDropzone accent={accent} busy={busy} onFile={onElegirArchivo} />
+      break
+    case 'entregado':
+      // La constancia es la nota fuente de una entrega que ya ocurrió. Va en LECTURA (sin
+      // "Reemplazar") y en lugar del dropzone —que acá crearía un segundo pedido para una visita ya
+      // dispensada— va el desenlace.
+      cuerpo = entregado && (
+        <>
+          <ConstanciaVista doc={entregado.doc} size="chica" accent={accent} />
+          <div style={desenlaceStyle}>
+            <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>
+              Pedido del {formatDateAR(entregado.pedidoEl)}
+            </span>
+            <span style={{ ...pillBase, color: entregado.badge.color, background: entregado.badge.tint }}>
+              {entregado.badge.label}
+            </span>
+            {entregado.comprobante !== null && (
+              <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>
+                Comprobante N° <span className="spira-mono">{entregado.comprobante}</span>
+              </span>
+            )}
+          </div>
+        </>
+      )
+      break
+    case 'cargando':
+      // Sin este freno, durante la primera lectura la sección afirma "no lo prevé" o abre un dropzone
+      // que crearía un pedido NUEVO sobre una visita que ya tiene uno. Los refetch conservan las filas
+      // viejas (`useSupabaseQuery`), así que es sólo el primer montaje.
+      cuerpo = <div style={{ ...muted, padding: '2px 0' }}>Cargando…</div>
+      break
+    case 'cierre':
+      // Sin tilde: «No corresponde» no es algo hecho (no cuenta en Procedimientos, `cuentaIp`), y el
+      // mismo texto sirve para los dos cierres. Deshacerlo es de la fila de Procedimientos, no de acá.
+      cuerpo = <div style={lineaStyle}>{cierre ?? 'Se cerró sin entrega en esta visita.'}</div>
+      break
+    case 'sin_constancia':
+      cuerpo = <div style={{ ...muted, padding: '2px 0' }}>Sin constancia cargada.</div>
+      break
+    case 'adjuntar':
+      cuerpo = <ConstanciaDropzone accent={accent} busy={busy} onFile={onElegirArchivo} />
+      break
+    case 'no_prevista':
+      // `wrap` + base de 200px: en la notebook (tarjeta de ~560px) texto y botón van en un renglón como
+      // en el mock; en una tarjeta angosta el botón baja. Sin eso, con 286px de tarjeta el botón se
+      // quedaba con todo y el texto caía a 38px de ancho, una palabra por renglón (QA, 2026-09-14).
+      cuerpo = (
+        <div style={{ ...lineaStyle, flexWrap: 'wrap', rowGap: 8 }}>
+          <span style={{ flex: '1 1 200px', minWidth: 0 }}>El cronograma no lo prevé en esta visita.</span>
+          {onPedirFueraDeCronograma && (
+            <button
+              type="button" onClick={onPedirFueraDeCronograma} style={pedirBtn}
+              aria-label="Pedir producto en investigación fuera de cronograma"
+            >
+              <Icon name="plus" size={14} color={accent} /> Pedir fuera de cronograma
+            </button>
+          )}
+        </div>
+      )
+      break
+  }
+
+  return (
+    <Sub label="Producto en investigación" excepcion={excepcion !== null}>
+      {excepcion && (
+        <>
+          {excepcion.aviso}
+          {excepcion.motivoSellado !== null ? (
+            // Con el pedido ya creado manda el motivo SELLADO en la fila, no el desplegable: es el
+            // texto que Farmacia ve en el cajón y que sale impreso en el comprobante.
+            <div style={{ ...itemRow, color: 'var(--spira-ink)' }}>{excepcion.motivoSellado}</div>
+          ) : readOnly ? null : (
+            // `searchable="never"`: son cinco motivos cortos, entran todos en el menú.
+            <SearchableSelect
+              value={excepcion.motivo}
+              onChange={excepcion.onMotivo}
+              options={MOTIVOS_FUERA_CRONOGRAMA}
+              placeholder="Motivo de la excepción…"
+              searchable="never"
+            />
+          )}
+          {cuerpo && <div style={{ height: 9 }} />}
+        </>
+      )}
+
+      {constanciaIncompleta && (
+        <div style={warnBox}>
+          <Icon name="alert" size={15} color="var(--spira-warn)" stroke={2} style={{ marginTop: 1, flex: '0 0 auto' }} />
+          <div>
+            Falta la constancia
+            <span style={{ display: 'block', color: 'var(--spira-ink-soft)', fontWeight: 400, marginTop: 2 }}>
+              Farmacia no puede emitir el comprobante hasta que esté cargada.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {cuerpo}
+    </Sub>
+  )
+}
