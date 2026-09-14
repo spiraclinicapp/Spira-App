@@ -767,6 +767,10 @@ de Coordinación (`src/views/pharma/FormularioOtro.tsx`) pueden ir en paralelo; 
     reciente (no hay entregas en los últimos 31 días en prod). Cubiertos por tests y banco de pruebas.
   - **Copy (Director, 2026-09-14):** el estado vacío del IP dice «El cronograma no lo pide en esta visita.»
     (antes «no lo prevé»).
+  - **«Entregar en partes», rediseñado sobre el mock (Director, 2026-09-14):** «En partes · entregar … de
+    [2] envases» no se entendía. Ahora la casilla dice «Entregar en partes» con un ⓘ (`InfoTip`) que
+    explica, y adentro una sola línea: «Total indicado [2] envases · queda 1 de saldo». «Cant.» arranca
+    en 1.
   - **Un renglón por medicamento va como GUARD por trigger, no índice único:** no depende de que no haya
     duplicados viejos (el conteo en prod quedó pendiente porque la sesión se cerró) y los locks sobre el
     pedido que ya toman las funciones cierran las carreras.

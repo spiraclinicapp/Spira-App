@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
+import { InfoTip } from '../../components/InfoTip'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import type { SelectOption } from '../../components/SearchableSelect'
 import { formatDateAR } from '../../lib/dates'
@@ -192,7 +193,8 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const ctxQ = useContextoDispensacion(visit.id, !readOnly)
   const [soliciting, setSoliciting] = useState(false)
   const [pick, setPick] = useState('')
-  const [qty, setQty] = useState('')
+  // Arranca en 1: es lo que se pide casi siempre, y un campo vacío obligaba a tipear (Director, 2026-09-14).
+  const [qty, setQty] = useState('1')
   /** «En partes» (D8): la casilla y lo indicado. Se limpian con el renglón, como `pick` y `qty`. */
   const [enPartes, setEnPartes] = useState(false)
   const [indicado, setIndicado] = useState('')
@@ -537,7 +539,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
       medication_id: pick, name: med?.medication?.name ?? 'Medicamento', quantity: qtyNum,
       quantity_indicated: enPartes ? indicadoNum : null,
     }])
-    setPick(''); setQty(''); setEnPartes(false); setIndicado('')
+    setPick(''); setQty('1'); setEnPartes(false); setIndicado('')
   }
 
   /** Lo que viaja al servidor por renglón: lo de siempre, más las partes o el saldo si los hay. */
@@ -854,7 +856,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                         />
                       </div>
                       <input
-                        type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)} placeholder="Cant."
+                        type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)} placeholder="Cant." aria-label="Cantidad a entregar hoy"
                         style={{ width: 74, height: 44, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', padding: '0 12px', fontFamily: 'var(--spira-font-text)', fontSize: 14, color: 'var(--spira-ink)' }}
                       />
                       <button
@@ -864,34 +866,42 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                         Agregar
                       </button>
                     </div>
-                    {/* «EN PARTES» (D8): la casilla nativa dentro de un label, como en el formulario del
-                        cronograma. «Cant.» es lo que se entrega AHORA; lo indicado va acá. Por envases:
-                        partir un envase en dosis quedó afuera del plan. */}
-                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 10, fontSize: 13, color: 'var(--spira-ink)' }}>
+                    {/* «ENTREGAR EN PARTES» (D8). Rediseñado por pedido del Director (2026-09-14): «En
+                        partes · entregar … de [2] envases» no se entendía, y los puntos suspensivos
+                        (la cantidad vacía) lo empeoraban. Ahora el rótulo dice la acción entera, el
+                        porqué vive en el ⓘ de al lado, y adentro queda UNA línea corta que se lee
+                        siempre: cuánto se indicó y cuánto queda de saldo. «Cant.» sigue siendo lo que
+                        se entrega hoy. Por envases: partir un envase en dosis quedó afuera del plan. */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 13, color: 'var(--spira-ink)' }}>
                       <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 600 }}>
                         <input
                           type="checkbox" checked={enPartes}
                           onChange={(e) => { setEnPartes(e.target.checked); if (!e.target.checked) setIndicado('') }}
                           style={{ width: 16, height: 16, margin: 0, accentColor: accent }}
                         />
-                        En partes
+                        Entregar en partes
                       </label>
-                      {enPartes && (
-                        <>
-                          <span style={{ color: 'var(--spira-muted)' }}>· entregar {Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : '…'} de</span>
-                          <input
-                            type="number" min={2} value={indicado} onChange={(e) => setIndicado(e.target.value)}
-                            aria-label="Envases indicados en total" style={indicadoInline}
-                          />
-                          <span style={{ color: 'var(--spira-muted)' }}>envases</span>
-                        </>
-                      )}
+                      <InfoTip
+                        titulo="Entregar en partes"
+                        cuerpo="Para lo que se da de a poco. Hoy se entrega la cantidad de arriba y lo que falta queda como saldo, para pedirlo en otra visita con un clic."
+                        size={14}
+                      />
                     </div>
-                    {enPartes && Number.isFinite(indicadoNum) && Number.isFinite(qtyNum) && (
-                      <div style={{ fontSize: 12, color: indicadoNum > qtyNum ? 'var(--spira-muted)' : 'var(--spira-acc-deep-warn)', marginTop: 7, paddingLeft: 24 }}>
-                        {indicadoNum > qtyNum
-                          ? `Queda ${indicadoNum - qtyNum} ${indicadoNum - qtyNum === 1 ? 'envase' : 'envases'} de saldo para la visita siguiente.`
-                          : 'Lo indicado tiene que ser más que lo que se entrega ahora.'}
+                    {enPartes && (
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 8, paddingLeft: 24, fontSize: 13 }}>
+                        <span style={{ color: 'var(--spira-ink-soft)' }}>Total indicado</span>
+                        <input
+                          type="number" min={2} value={indicado} autoFocus onChange={(e) => setIndicado(e.target.value)}
+                          aria-label="Total de envases indicados" style={indicadoInline}
+                        />
+                        <span style={{ color: 'var(--spira-ink-soft)' }}>envases</span>
+                        {Number.isFinite(indicadoNum) && Number.isFinite(qtyNum) && qtyNum > 0 && (
+                          <span style={{ fontSize: 12.5, fontWeight: 600, color: indicadoNum > qtyNum ? 'var(--spira-ink-soft)' : 'var(--spira-acc-deep-warn)' }}>
+                            {indicadoNum > qtyNum
+                              ? `· queda ${indicadoNum - qtyNum} de saldo`
+                              : `· tiene que ser más de ${qtyNum}`}
+                          </span>
+                        )}
                       </div>
                     )}
                     {/* 0121 (D6): el aviso de stock, en memoria sobre la consulta del panel. Nunca
@@ -908,7 +918,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                     normal— y se cierra con "Listo". El envío es uno solo y vive al pie de la
                     tarjeta, junto con la constancia. */}
                 <button
-                  type="button" onClick={() => { setSoliciting(false); setPick(''); setQty(''); setEnPartes(false); setIndicado(''); setErr(null) }}
+                  type="button" onClick={() => { setSoliciting(false); setPick(''); setQty('1'); setEnPartes(false); setIndicado(''); setErr(null) }}
                   style={{ marginTop: 12, height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13 }}
                 >
                   Listo
