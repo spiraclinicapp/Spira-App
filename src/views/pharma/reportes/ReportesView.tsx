@@ -32,7 +32,8 @@ import type { IndicadorTira } from './Resumen'
 import { TablaAmbulatorias, TablaDetalle, TablaMedicamentos, TablaProtocolos } from './Tablas'
 import { HojaImpresa } from './impresion'
 import type { ContextoReporte } from './impresion'
-import { sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
+import { avisoCaja, chip, chipActivo, sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
+import { ComprasDelMes } from './ComprasDelMes'
 
 /**
  * Farmacia › Estadísticas (el submódulo se llamaba "Reportes" hasta el 2026-08-20; la carpeta, el
@@ -291,6 +292,11 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
 
   /* ── Estados ─────────────────────────────────────────────────────────────── */
 
+  /* La card de compras va ARRIBA de todo y FUERA de los cortes de abajo (plan de reposición, D28):
+     tiene su propia carga y su propio error, no la mueve el período ni el filtro de estudio (D37), y
+     sigue visible con la ventana angosta (D48). Por eso se arma una vez y entra en cada retorno. */
+  const compras = <ComprasDelMes accentSolid={module.accentSolid} angosto={angosto} />
+
   if (angosto) {
     /* Acá la descarga es lo ÚNICO que se ofrece y el aviso de corte ni se dibuja (este retorno va
        antes que él), así que si no lo dice este texto el usuario se entera recién al abrir el
@@ -301,6 +307,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
     })
     return (
       <div>
+        {compras}
         <EmptyState
           icon="barChart"
           accent={module.accent}
@@ -319,12 +326,15 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
 
   if (error) {
     return (
-      <EmptyState
-        icon="alert"
-        accent="#A6483B"
-        title="No se pudo armar el informe"
-        description={error}
-      />
+      <div>
+        {compras}
+        <EmptyState
+          icon="alert"
+          accent="#A6483B"
+          title="No se pudo armar el informe"
+          description={error}
+        />
+      </div>
     )
   }
 
@@ -334,12 +344,15 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
      informe a medio dibujar es justo lo que no se quiere ver en una app auditable. */
   if (cargando) {
     return (
-      <EmptyState
-        icon="barChart"
-        accent={module.accent}
-        title="Armando el informe del período…"
-        description="Un momento."
-      />
+      <div>
+        {compras}
+        <EmptyState
+          icon="barChart"
+          accent={module.accent}
+          title="Armando el informe del período…"
+          description="Un momento."
+        />
+      </div>
     )
   }
 
@@ -353,6 +366,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
 
   return (
     <div>
+      {compras}
       <Filtros
         rango={rango}
         preset={preset}
@@ -560,7 +574,7 @@ function Filtros({
       </div>
 
       <p style={aplicada}>
-        El recorte vale para todo el apartado: cada reporte que imprimas sale con ese mismo período
+        El recorte vale para todo el informe de abajo (las compras de arriba no dependen de él): cada reporte que imprimas sale con ese mismo período
         y ese mismo filtro declarados en el encabezado de la hoja. El reporte de dispensaciones
         declara sólo el período, como el formato acordado con la Fundación.
       </p>
@@ -589,11 +603,7 @@ function Seccion({ titulo, hint, reporte, que, onImprimir, puedeImprimir, motivo
 
 function Aviso({ children }: { children: React.ReactNode }) {
   return (
-    <p role="status" style={{
-      display: 'flex', gap: 9, alignItems: 'flex-start', margin: '0 0 16px', padding: '11px 14px',
-      background: 'var(--spira-surface)', border: '1px solid var(--spira-line-2)', borderRadius: 10,
-      fontSize: 12.5, lineHeight: 1.5, color: 'var(--spira-acc-deep-warn)',
-    }}>
+    <p role="status" style={avisoCaja}>
       <span style={{ flex: '0 0 15px', marginTop: 1 }}><Icon name="alert" size={15} stroke={1.9} /></span>
       <span>{children}</span>
     </p>
@@ -605,17 +615,6 @@ function Aviso({ children }: { children: React.ReactNode }) {
 const filtrosFila: CSSProperties = {
   display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
   padding: '2px 0 15px', borderBottom: '1px solid var(--spira-line)', marginBottom: 10,
-}
-
-const chip: CSSProperties = {
-  height: 34, padding: '0 14px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-  background: 'var(--spira-white)', borderWidth: 1, borderStyle: 'solid',
-  borderColor: 'var(--spira-line-2)', color: 'var(--spira-muted)',
-  fontFamily: 'var(--spira-font-text)',
-}
-
-const chipActivo: CSSProperties = {
-  background: 'rgba(15, 95, 87, 0.10)', borderColor: 'rgba(15, 95, 87, 0.35)', color: 'var(--spira-acc-deep-track)',
 }
 
 

@@ -7,6 +7,8 @@ import type { SelectOption } from '../../components/SearchableSelect'
 import { btnOutline, btnPrimary } from '../../components/buttons'
 import { formatDateAR } from '../../lib/dates'
 import { HistorialMedicacionModal } from './HistorialMedicacionModal'
+import { lineaDeReposicion } from './excepcionReposicionModel'
+import { fieldInput, fieldLabelStyle } from '../../components/FormField'
 import type { PatientMedicationRow } from '../../data/pharma'
 import {
   usePatientMedications,
@@ -14,6 +16,8 @@ import {
   setPatientMedicationActive,
   useMedications,
   useStock,
+  useReposicionDelEstudio,
+  guardarEnvasesDelPaciente,
 } from '../../data/pharma'
 
 // Tintes con rgba() literal: NO se puede concatenar alfa a un `var(--x)` (`var(--spira-good)14`
@@ -39,6 +43,11 @@ const modalHeaderBtn: CSSProperties = {
   height: 32, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
   cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600,
   color: 'var(--spira-ink)', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 11px',
+}
+// Link chico dentro de la línea de compras de una fila (Cambiar / Volver a la del estudio).
+const linkChico: CSSProperties = {
+  background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
+  fontFamily: 'var(--spira-font-text)', fontSize: 11.5, fontWeight: 600, color: 'var(--spira-muted)',
 }
 const activePill = (active: boolean): CSSProperties => ({
   flex: '0 0 auto', fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 'var(--spira-radius-pill)',
@@ -175,6 +184,11 @@ function EditMedicationModal({
 }) {
   const catalogQ = useMedications()
   const stockQ = useStock(protocolId)
+  // Cómo se repone cada medicamento en el estudio, para la línea de compras de cada fila (plan de
+  // reposición, D2). La excepción del paciente se edita en la fila: update directo de operator.
+  const reposicionQ = useReposicionDelEstudio(protocolId)
+  const [excepcion, setExcepcion] = useState<{ id: string; valor: string } | null>(null)
+  const [guardandoEx, setGuardandoEx] = useState(false)
   const [adding, setAdding] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [pick, setPick] = useState('')
@@ -217,6 +231,15 @@ function EditMedicationModal({
     setConfirming(false)
     setPick('')
     setErr(null)
+  }
+
+  async function guardarExcepcion(id: string, valor: number | null) {
+    setGuardandoEx(true); setErr(null)
+    const res = await guardarEnvasesDelPaciente(id, valor)
+    setGuardandoEx(false)
+    if (res.error) { setErr(res.error); return }
+    setExcepcion(null)
+    onChanged()
   }
 
   async function toggle(id: string, active: boolean) {
@@ -300,11 +323,14 @@ function EditMedicationModal({
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {rows.map((r, i) => (
-            <div
-              key={r.id}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderTop: i ? '1px solid var(--spira-line)' : 'none' }}
-            >
+          {rows.map((r, i) => {
+            const linea = reposicionQ.data ? lineaDeReposicion(r, reposicionQ.data) : null
+            const editandoEsta = excepcion?.id === r.id
+            const valorEx = Number(excepcion?.valor)
+            const valida = Number.isInteger(valorEx) && valorEx >= 1
+            return (
+            <div key={r.id} style={{ padding: '11px 0', borderTop: i ? '1px solid var(--spira-line)' : 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ minWidth: 0, flex: 1, opacity: r.active ? 1 : 0.65 }}>
                 <div style={{ fontSize: 14, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {r.medication?.name ?? 'Medicamento'}
@@ -313,6 +339,18 @@ function EditMedicationModal({
                   Habilitada · {formatDateAR(r.created_at)}
                   {r.medication?.unit ? ` · ${r.medication.unit}` : ''}
                 </div>
+                {linea && (
+                  <div style={{ fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Icon name="cart" size={12} stroke={1.9} color="var(--spira-ink-soft)" />
+                    <span>{linea.texto}</span>
+                    {linea.accion === 'cambiar' && !editandoEsta && (
+                      <button type="button" style={linkChico} onClick={() => setExcepcion({ id: r.id, valor: String(linea.delEstudio ?? 1) })}>· Cambiar</button>
+                    )}
+                    {linea.accion === 'volver' && (
+                      <button type="button" style={linkChico} disabled={guardandoEx} onClick={() => guardarExcepcion(r.id, null)}>· Volver a la del estudio</button>
+                    )}
+                  </div>
+                )}
               </div>
               <span style={activePill(r.active)}>{r.active ? 'Activa' : 'Inactiva'}</span>
               <button
@@ -322,7 +360,30 @@ function EditMedicationModal({
                 {r.active ? 'Desactivar' : 'Reactivar'}
               </button>
             </div>
-          ))}
+            {editandoEsta && excepcion && linea?.accion === 'cambiar' && (
+              <form
+                onSubmit={(e) => { e.preventDefault(); if (valida) void guardarExcepcion(r.id, valorEx) }}
+                onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setExcepcion(null) } }}
+                style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginTop: 10, padding: 12, borderRadius: 11, background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', flexWrap: 'wrap' }}
+              >
+                <label style={{ display: 'block' }}>
+                  <div style={{ ...fieldLabelStyle, marginBottom: 6 }}>Envases por mes para este paciente</div>
+                  <input
+                    type="number" inputMode="numeric" min={1} step={1} autoFocus
+                    value={excepcion.valor} onChange={(e) => setExcepcion({ id: r.id, valor: e.target.value })}
+                    className="spira-mono" style={{ ...fieldInput, width: 84 }}
+                  />
+                </label>
+                <div style={{ flex: 1, fontSize: 12, color: 'var(--spira-ink-soft)', paddingBottom: 12 }}>El estudio dice {linea.delEstudio ?? '—'}.</div>
+                <button type="submit" disabled={!valida || guardandoEx} style={{ ...btnPrimary(accentSolid), height: 36, opacity: !valida || guardandoEx ? 0.6 : 1 }}>
+                  {guardandoEx ? 'Guardando…' : 'Guardar'}
+                </button>
+                <button type="button" style={{ ...btnOutline, height: 36 }} onClick={() => setExcepcion(null)}>Cancelar</button>
+              </form>
+            )}
+            </div>
+            )
+          })}
         </div>
       )}
     </Modal>

@@ -205,6 +205,10 @@ describe('armarReposicion: la cuenta (D10, D31)', () => {
     expect(rep.renglones.map((r) => [r.nombre, r.estado, r.comprar])).toEqual([['Placebo', 'no_se_compra', 0], ['Seretide 250/50', 'sin_cargar', 0]])
     expect(rep.resumen).toMatchObject({ envases: 0, sinCargar: 1 })
   })
+  it('un renglón sin cargar igual cuenta quiénes siguen en el mes (lo usa el formulario de carga)', () => {
+    const [r] = armarReposicion(insumos({ renglones: [renglon({ modo: null, envases_por_mes: null })], pacientes: diezPacientes() }), HOY).renglones
+    expect(r.cuenta).toMatchObject({ pacientesMes: 10, necesidad: 0 })
+  })
   it('la excepción del paciente gana sobre la del estudio', () => {
     const [r] = armarReposicion(insumos({ pacientes: [paciente({ envases_por_mes: 3 }), paciente()] }), HOY).renglones
     expect(r.cuenta.necesidad).toBe(4)

@@ -110,6 +110,29 @@ export const printBtn: CSSProperties = {
 }
 
 /**
+ * Chip de elección (período del informe, orden del pedido, modo de reposición). Estaban en
+ * ReportesView; se movieron acá cuando la card de compras los necesitó (plan de reposición, T9).
+ * El borde va en longhands: el activo pisa sólo `borderColor` sin vaciar la abreviada.
+ */
+export const chip: CSSProperties = {
+  height: 34, padding: '0 14px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+  background: 'var(--spira-white)', borderWidth: 1, borderStyle: 'solid',
+  borderColor: 'var(--spira-line-2)', color: 'var(--spira-muted)',
+  fontFamily: 'var(--spira-font-text)',
+}
+
+export const chipActivo: CSSProperties = {
+  background: 'rgba(15, 95, 87, 0.10)', borderColor: 'rgba(15, 95, 87, 0.35)', color: 'var(--spira-acc-deep-track)',
+}
+
+/** La caja del aviso ámbar de Estadísticas (informe cortado, «ya es tarde»). */
+export const avisoCaja: CSSProperties = {
+  display: 'flex', gap: 9, alignItems: 'flex-start', margin: '0 0 16px', padding: '11px 14px',
+  background: 'var(--spira-surface)', border: '1px solid var(--spira-line-2)', borderRadius: 10,
+  fontSize: 12.5, lineHeight: 1.5, color: 'var(--spira-acc-deep-warn)',
+}
+
+/**
  * Fila de tabla: se RESALTA, no se levanta (tokens.css:513 — "una fila transparente que se mueve
  * 1px no tiene nada que elevar y lee como temblor"). Acá el resaltado es sólo ayuda de lectura
  * para cruzar una fila de nueve columnas: las filas de estas tablas no son clickeables.

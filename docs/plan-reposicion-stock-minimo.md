@@ -218,8 +218,8 @@ a tablas embebidas en `select`s existentes: **migración primero, front después
 | `src/data/pharma/reposicionModel.ts` (nuevo) | La cuenta pura, con el diagrama de arriba en el comentario de cabecera y los tipos del JSON. `hoy` siempre por parámetro. |
 | `src/data/pharma/reposicionModel.test.ts` (nuevo) | Ver «Tests». |
 | `src/data/pharma/reposicion.ts` (nuevo) | `useInsumosDeReposicion(protocolIds)` (**sin el período en las deps**), `configurarReposicion`, `guardarDemoraCompra`, `registrarPedido`, `anularPedido`, `guardarExcepcionDelPaciente`. Tipos a mano citando la `0125`; errores por `pharmaErrorMessage`. |
-| `src/views/pharma/reportes/FaltantePorEstudio.tsx` (nuevo) | La card: por estudio, un renglón por medicamento («A comprar 6»), detalle plegable, avisos, pedidos. |
-| `src/views/pharma/reportes/FormularioReposicion.tsx` (nuevo) | Modo por desplegable (no texto libre) + cantidad. |
+| `src/views/pharma/reportes/ComprasDelMes.tsx` (nuevo) | La card (D44-D45): resumen plegado con sus estados, lista de todos los medicamentos, renglón abierto, carga en línea (modo por chips de valores fijos + cantidad) y la demora. |
+| `src/views/pharma/reportes/VerPedido.tsx` (nuevo) | «Ver pedido» (D46-D47): los tres órdenes, «Imprimir» (hoja con el membrete de Estadísticas) y «Ya lo pedí» con confirmación de fecha. |
 | `src/views/pharma/reportes/ReportesView.tsx` | Monta la card **antes** de `if (angosto)`/`error`/`cargando` y de los filtros (D28); **no** le pasa el filtro de estudio (D37: `p_protocol_ids` null = todos); ajusta el texto de `:562-566`. Ver «Revisión de diseño». |
 | Tarjeta de medicación del paciente (`PatientMedicationsCard.tsx`) | Entrega 3: «1 por mes (del estudio) · cambiar», oculto con `habilitacion_id`. |
 | `supabase/README.md` | Fila de la `0125`; «Aplicada en prod (fecha)» al confirmarse. |
@@ -489,7 +489,7 @@ Compras para octubre ─────────────── A hoy, 05/09 
 
 - [ ] **T9 (P1, humano: ~2 h / CC: ~10 min)**: mover `Aviso`, `chip` y `chipActivo` a `estilos.ts`.
 - [ ] **T10 (P1, humano: ~1 día / CC: ~45 min)**: la card (plegada, desplegada, renglón abierto, carga en
-  línea, estados). Archivo: `FaltantePorEstudio.tsx`. Verifica: QA contra el lienzo a 1185px y a 900px.
+  línea, estados). Archivo: `ComprasDelMes.tsx`. Verifica: QA contra el lienzo a 1185px y a 900px.
 - [ ] **T11 (P1, humano: ~1 día / CC: ~45 min)**: «Ver pedido» con los tres órdenes, «Imprimir» (sobre
   `HojaImpresa`) y «Ya lo pedí» con confirmación y «Deshacer». Las tres agrupaciones son reglas puras en
   `reposicionModel.ts`, con tests (la suma por medicamento falla en silencio).

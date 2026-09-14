@@ -19,6 +19,10 @@ export interface PatientMedicationRow {
   active: boolean
   notes: string | null
   created_at: string
+  /** La habilitación «para una entrega» (0124): esa asignación no suma en las compras y no admite excepción. */
+  habilitacion_id: string | null
+  /** Excepción del paciente a la cantidad mensual del estudio (0125). null = la del estudio. */
+  envases_por_mes: number | null
   /** Medicamento embebido para mostrar (nombre + dosis + presentación + monodroga/principio activo).
    *  Ojo: `medications`/`drugs` solo los lee Pharma/gerencia/contable (RLS 0006/0032) — para Track el
    *  embed vuelve null. La sección de la ficha degrada con fallback. (Desde la 0074 Coordinación sí lee
@@ -28,7 +32,7 @@ export interface PatientMedicationRow {
 }
 
 const PATIENT_MED_COLS =
-  'id, enrollment_id, medication_id, active, notes, created_at, ' +
+  'id, enrollment_id, medication_id, active, notes, created_at, habilitacion_id, envases_por_mes, ' +
   'medication:medications(name, dosis, unit, drug_id, drug:drugs(name))'
 
 /**
