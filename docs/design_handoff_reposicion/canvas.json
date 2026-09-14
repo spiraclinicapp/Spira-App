@@ -1,0 +1,41 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "La card" },
+    { "id": "page-2", "name": "Ver pedido" },
+    { "id": "page-3", "name": "Carga y paciente" },
+    { "id": "page-9", "name": "Versiones anteriores" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "title": "1 · Plegada: sólo el número", "x": 0, "y": 0, "w": 1233, "h": 380, "page": "page-1" },
+    { "file": "ListaDesplegada.dc.html", "title": "2 · Desplegada: todos los medicamentos", "x": 0, "y": 500, "w": 1233, "h": 660, "page": "page-1" },
+    { "file": "RenglonAbierto.dc.html", "title": "3 · Un renglón abierto", "x": 1333, "y": 0, "w": 1233, "h": 320, "page": "page-1" },
+    { "file": "RenglonCarga.dc.html", "title": "4 · Cargar desde la lista", "x": 1333, "y": 440, "w": 1233, "h": 360, "page": "page-1" },
+    { "file": "EstadoPrimerDia.dc.html", "title": "5 · El primer día", "x": 2666, "y": 0, "w": 1233, "h": 220, "page": "page-1" },
+    { "file": "EstadoTarde.dc.html", "title": "6 · Ya es tarde", "x": 2666, "y": 340, "w": 1233, "h": 220, "page": "page-1" },
+    { "file": "EstadoPedido.dc.html", "title": "7 · Después de «Ya lo pedí»", "x": 2666, "y": 680, "w": 1233, "h": 220, "page": "page-1" },
+    { "file": "EstadoCubierto.dc.html", "title": "8 · Todo cubierto", "x": 2666, "y": 1020, "w": 1233, "h": 220, "page": "page-1" },
+    { "file": "Cargando.dc.html", "title": "9 · Cargando", "x": 1333, "y": 920, "w": 768, "h": 220, "page": "page-1" },
+    { "file": "Error.dc.html", "title": "9b · Error", "x": 1333, "y": 1260, "w": 768, "h": 220, "page": "page-1" },
+
+    { "file": "PedidoPorEstudio.dc.html", "title": "Ver pedido · por estudio", "x": 0, "y": 0, "w": 684, "h": 660, "page": "page-2" },
+    { "file": "PedidoPorMedicamento.dc.html", "title": "Ver pedido · por medicamento", "x": 784, "y": 0, "w": 684, "h": 660, "page": "page-2" },
+    { "file": "PedidoPorCantidad.dc.html", "title": "Ver pedido · por cantidad", "x": 1568, "y": 0, "w": 684, "h": 660, "page": "page-2" },
+    { "file": "YaLoPedi.dc.html", "title": "«Ya lo pedí»", "x": 2352, "y": 0, "w": 524, "h": 380, "page": "page-2" },
+
+    { "file": "CargaDemanda.dc.html", "title": "Cargar: a demanda", "x": 0, "y": 0, "w": 608, "h": 300, "page": "page-3" },
+    { "file": "CargaNoSeCompra.dc.html", "title": "Cargar: no se compra", "x": 708, "y": 0, "w": 608, "h": 260, "page": "page-3" },
+    { "file": "Demora.dc.html", "title": "Demora de compra", "x": 0, "y": 420, "w": 492, "h": 360, "page": "page-3" },
+    { "file": "Excepcion.dc.html", "title": "Excepción por paciente", "x": 592, "y": 420, "w": 584, "h": 640, "page": "page-3" },
+
+    { "file": "AnteriorOpcion1.dc.html", "title": "Opción 1 · todos siempre a la vista (no elegida)", "x": 0, "y": 0, "w": 1233, "h": 780, "page": "page-9" },
+    { "file": "AnteriorFormaB.dc.html", "title": "Forma B · card por estudio (reemplazada)", "x": 1333, "y": 0, "w": 1233, "h": 1000, "page": "page-9" },
+    { "file": "AnteriorFormaA.dc.html", "title": "Forma A · inventario por estudio (descartada)", "x": 0, "y": 1120, "w": 1233, "h": 1040, "page": "page-9" },
+    { "file": "AnteriorFormaC.dc.html", "title": "Forma C · lista de compras (descartada)", "x": 1333, "y": 1120, "w": 1233, "h": 820, "page": "page-9" }
+  ],
+  "annotations": [
+    { "id": "nota-card", "x": 0, "y": -170, "w": 620, "page": "page-1", "text": "Pedido del Director (14/09): la card plegada muestra sólo el número y la fecha límite; «Ver todos los medicamentos» despliega la lista simple (todos, sin esconder). El pedido sale con «Ver pedido». La cuenta no cambia: el detalle aparece al abrir un renglón. Datos inventados." },
+    { "id": "nota-pedido", "x": 0, "y": -150, "w": 620, "page": "page-2", "text": "Sólo lo que hay que comprar. Ordenar: por estudio (agrupado), por medicamento (suma entre estudios, con el reparto debajo) o por cantidad. «Imprimir» y «Ya lo pedí», que marca todo el pedido en camino hasta que se recibe." },
+    { "id": "nota-anteriores", "x": 0, "y": -150, "w": 620, "page": "page-9", "text": "Registro de lo que se probó el 14/09 antes de llegar a la versión simple." }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

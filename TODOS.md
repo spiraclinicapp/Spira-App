@@ -5,6 +5,61 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
+## Farmacia · Reposición: sobrante en otro estudio y pacientes por entrar
+
+- **Qué:** en la card de reposición, un total por medicamento entre estudios («sobran 4 de Seretide en
+  ACT18301») y un campo a mano de «pacientes que entran el mes que viene» por estudio.
+- **Por qué:** la compra se calcula por estudio (D7 del plan), pero un leader puede pasar stock de un
+  estudio a otro en una sola operación (`0113`), y los recién reclutados no suman hasta que se les
+  habilita la medicación. La card puede pedir comprar lo que sobra en el estudio de al lado, y quedarse
+  corta el mes que entran pacientes.
+- **Pros:** evita compras de lo que ya hay en la casa y cubre el reclutamiento.
+- **Contras:** más carga manual; reasignar tiene consecuencias de sponsor que la card no conoce, así que
+  el total entre estudios sólo puede informar, nunca sugerir mover.
+- **Contexto:** hallazgo 15 de la voz externa en la `/plan-eng-review` del 2026-09-14
+  (`docs/plan-reposicion-stock-minimo.md`). Se difirió porque recién con la card en uso se sabe si pasa.
+- **Empezar por:** `supabase/migrations/0113_*` (reasignación) y la función `insumos_de_reposicion`.
+- **Disparador:** el primer mes en que se compre algo que sobraba en otro estudio.
+- **Depende de / bloqueado por:** las tres entregas del plan de reposición.
+- **Prioridad:** P3.
+
+---
+
+## Farmacia · Reposición: los restos de lote que el armado no usa
+
+- **Qué:** que el estante del mes siguiente descuente, o al menos avise, los lotes con menos cantidad que
+  una entrega típica.
+- **Por qué:** el armado toma cada medicamento de UN solo lote con stock suficiente (`0123:112`,
+  `0071:640`), así que un resto de 1 envase se saltea hasta que vence. La cuenta FEFO de la card (D15 del
+  plan) lo cuenta como disponible: la card es optimista con los restos.
+- **Pros:** la card deja de prometer envases que Farmacia no va a entregar.
+- **Contras:** hay que definir «entrega típica» (¿la cantidad mensual del estudio?), otra regla más.
+- **Contexto:** hallazgo 12 de la voz externa en la `/plan-eng-review` del 2026-09-14
+  (`docs/plan-reposicion-stock-minimo.md`).
+- **Empezar por:** `estanteAlComienzo` en `src/views/pharma/reportes/reposicionModel.ts` y
+  `mark_dispensation_ready`.
+- **Depende de / bloqueado por:** la entrega 2 del plan de reposición.
+- **Prioridad:** P3.
+
+---
+
+## Farmacia · Reposición: descargar el pedido en CSV/Excel
+
+- **Qué:** un botón «Descargar» en la ventana «Ver pedido», al lado de «Imprimir», con los renglones en
+  el orden elegido (por estudio, por medicamento o por cantidad).
+- **Por qué:** si el pedido se manda por mail a la droguería o al sponsor, un archivo evita copiar a mano.
+  Estadísticas ya descarga CSV de sus tablas.
+- **Pros:** reusa la descarga que ya existe en `ReportesView`.
+- **Contras:** un formato más para mantener.
+- **Contexto:** «Imprimir» sí entra en la entrega 2 (D47 del plan). La descarga se ofreció y el Director
+  eligió sólo imprimir (2026-09-14, `docs/plan-reposicion-stock-minimo.md`).
+- **Empezar por:** la descarga de `ReportesView` y las agrupaciones de `reposicionModel.ts`.
+- **Disparador:** el primer pedido que alguien pase a mano de la hoja impresa a un mail.
+- **Depende de / bloqueado por:** la entrega 2 del plan de reposición.
+- **Prioridad:** P3.
+
+---
+
 ## Dispensación · Archivos huérfanos en el bucket `ip-docs`
 
 - **Qué:** listar los objetos de `ip-docs` que ninguna fila referencia (ni
