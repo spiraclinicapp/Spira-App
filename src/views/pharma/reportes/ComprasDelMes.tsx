@@ -414,7 +414,7 @@ function Detalle({ r, rep, puedeEditar, accentSolid, onCambiar }: { r: RenglonRe
         ))}
         {(r.modo === 'mensual' || r.modo === 'a_demanda') && (
           <div style={{ padding: '6px 0', fontSize: 12, color: 'var(--spira-ink-soft)' }}>
-            Salieron {envases(r.salidas90d)} en los últimos 90 días. Es referencia: no cambia la compra.
+            {r.salidas90d === 1 ? 'Salió' : 'Salieron'} {envases(r.salidas90d)} en los últimos 90 días. Es referencia: no cambia la compra.
           </div>
         )}
         {puedeEditar && (
