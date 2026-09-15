@@ -139,7 +139,7 @@ export function VisitDateInline({
              que el dato que el encabezado manda acá no llegaba nunca a la pantalla de quien puede
              editar, que son casi todos. Se lo comía en silencio: un prop que no se lee no rompe
              nada, no avisa, y el defecto sobrevive a cualquier revisión que mire el que lo pasa en
-             vez del que lo recibe. Concreto: al fundir "Citado" y "Fecha real" en un solo campo
+             vez del que lo recibe. Concreto: al fundir la citación y la fecha real en un solo campo
              (tres tiempos, dos campos, 2026-08-29), la citación deja de estar en pantalla y este
              tooltip es lo único que la conserva — el dato que EXPLICA un desvío. Detectado en el QA
              visual de Coordinación del 2026-08-31. */
@@ -157,8 +157,12 @@ export function VisitDateInline({
   )
 }
 
+/* `flexWrap` y no una sola fila: la columna de fechas mide 200px y el peor caso —"Fecha realizada",
+   el desvío y "Fuera de ventana"— pide 264. En una fila la pastilla roja se salía por la derecha
+   del modal (ya pasaba con "Fecha real", que pedía 227). Bajando al renglón de abajo, el campo
+   conserva su ancho, que es lo que el handoff protege; sólo crece en alto en ese caso. */
 const dlb: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 7, fontSize: 10, fontWeight: 700,
+  display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7, rowGap: 4, fontSize: 10, fontWeight: 700,
   letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--spira-muted)', marginBottom: 4,
 }
 const bigBase: CSSProperties = {

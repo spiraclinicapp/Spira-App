@@ -98,7 +98,7 @@ export function VisitActionBar({
         ) : finalizada ? (
           <span style={fin}>
             <Icon name="check" size={15} color="var(--spira-primary)" stroke={2.4} />
-            Finalizada
+            Realizada
             {/* Sin autor: `patient_visits` guarda `ready_at` pero no quién marcó (no hay
                 `ready_by`). El mock lo muestra; inventarlo sería peor que omitirlo. */}
             {visit.ready_at && <span style={finD}>{formatDateTimeAR(visit.ready_at)}</span>}

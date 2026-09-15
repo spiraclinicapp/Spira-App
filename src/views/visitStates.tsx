@@ -50,14 +50,17 @@ export const OPERATIONAL_STAGES: Record<OperationalStage, { label: string; short
   por_llegar:          { label: 'Por llegar',          short: 'Por llegar',  color: '#7C8C87' },
   concurrio_al_centro: { label: 'Concurrió al centro', short: 'Concurrió',   color: '#2E7D74' },
   inicio_atencion:     { label: 'Inicio de atención',  short: 'En atención', color: '#3A6B8C' },
-  fin_atencion:        { label: 'Fin de atención',     short: 'Finalizada',  color: '#4E7A3F' },
+  // "Realizada" y no "Finalizada" (Director, 2026-09-14): lo que se lee en la lista es que la
+  // visita se hizo. Coincide con el cronograma, donde la pasada cerrada con pendientes dice
+  // "Visita realizada".
+  fin_atencion:        { label: 'Fin de atención',     short: 'Realizada',   color: '#4E7A3F' },
 }
 
 /** Orden lineal de las etapas operativas (para el stepper y el "siguiente paso"). */
 export const STAGE_ORDER: OperationalStage[] = ['por_llegar', 'concurrio_al_centro', 'inicio_atencion', 'fin_atencion']
 
 /** Chip de etapa operativa: punto + etiqueta sobre el color de la etapa al 9 %. `compact` usa la
- *  etiqueta corta ("Concurrió", "Finalizada") para columnas angostas — ver la fila de Visitas del día. */
+ *  etiqueta corta ("Concurrió", "Realizada") para columnas angostas — ver la fila de Visitas del día. */
 export function OperationalStageChip({ stage, compact = false }: { stage: OperationalStage; compact?: boolean }) {
   const e = OPERATIONAL_STAGES[stage] ?? OPERATIONAL_STAGES.por_llegar
   return (
