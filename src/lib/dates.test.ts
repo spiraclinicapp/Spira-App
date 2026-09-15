@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  addDaysISO, formatAR, formatDateAR, formatDateTimeAR, groupByDay, isoDayAR, parseARInput, setDateFormat,
+  addDaysISO, enmascararFecha, formatAR, formatDateAR, formatDateTimeAR, groupByDay, isoDayAR, parseARInput, setDateFormat,
 } from './dates'
 
 /**
@@ -188,5 +188,79 @@ describe('isoDayAR', () => {
      legible y no propaga un valor que rompa una comparación de cadenas río abajo. */
   it('ante un valor inválido devuelve el recorte, no NaN', () => {
     expect(isoDayAR('no-es-una-fecha')).toBe('no-es-una-')
+  })
+})
+
+/* Las barras automáticas. Se simula el tipeo tecla por tecla, que es como las recibe el campo: cada
+   tecla llega como "lo que había + un carácter" (o uno menos al borrar), y el resultado de una es el
+   `anterior` de la siguiente. Probar sólo el texto final escondería justo lo que se rompe, que es la
+   secuencia (la barra que reaparece al borrarla). */
+describe('enmascararFecha', () => {
+  const tipear = (teclas: string, desde = '') => {
+    let texto = desde
+    for (const t of teclas) texto = enmascararFecha(texto, texto + t)
+    return texto
+  }
+  const borrar = (veces: number, desde: string) => {
+    let texto = desde
+    for (let i = 0; i < veces; i++) texto = enmascararFecha(texto, texto.slice(0, -1))
+    return texto
+  }
+
+  it('sólo con números, pone las dos barras', () => {
+    expect(tipear('12082026')).toBe('12/08/2026')
+    expect(parseARInput(tipear('12082026'))).toBe('2026-08-12')
+  })
+
+  it('la barra aparece apenas se completa el día o el mes, no después', () => {
+    expect(tipear('1')).toBe('1')
+    expect(tipear('12')).toBe('12/')
+    expect(tipear('1208')).toBe('12/08/')
+    expect(tipear('12082')).toBe('12/08/2')
+  })
+
+  it('borrar no vuelve a poner la barra', () => {
+    expect(borrar(1, '12/')).toBe('12')
+    expect(borrar(1, '12/08/')).toBe('12/08')
+    expect(borrar(2, '12/08/')).toBe('12/0')
+  })
+
+  it('respeta la barra tipeada a mano después de un solo dígito', () => {
+    expect(tipear('1/8/26')).toBe('1/8/26')
+    expect(parseARInput(tipear('1/8/26'))).toBe('2026-08-01')
+  })
+
+  it('una barra tipeada justo después de la automática no se duplica', () => {
+    expect(tipear('12/08/2026')).toBe('12/08/2026')
+  })
+
+  it('el espacio y el guion también separan (el caso de la captura: "12 8")', () => {
+    expect(tipear('12 8')).toBe('12/8')
+    expect(tipear('1-8-2026')).toBe('1/8/2026')
+  })
+
+  it('el año no pasa de cuatro dígitos', () => {
+    expect(tipear('120820269')).toBe('12/08/2026')
+  })
+
+  /* Con la primera letra deja de enmascarar: es el formato con el mes en letras. La barra que ya se
+     había puesto sola queda, y `parseARInput` acepta la barra como separador, así que tipear el mes a
+     mano igual termina en una fecha válida. */
+  it('tipear el mes en letras sigue llegando a una fecha válida', () => {
+    expect(tipear('12 Ago 2026')).toBe('12/Ago 2026')
+    expect(parseARInput(tipear('12 Ago 2026'))).toBe('2026-08-12')
+  })
+
+  it('pegar la fecha entera la ordena de una', () => {
+    expect(enmascararFecha('', '12082026')).toBe('12/08/2026')
+  })
+
+  it('las otras dos formas de Preferencias pasan como vinieron', () => {
+    expect(enmascararFecha('', '2026-08-12')).toBe('2026-08-12')
+    expect(enmascararFecha('12 Ago 202', '12 Ago 2026')).toBe('12 Ago 2026')
+  })
+
+  it('vacío queda vacío', () => {
+    expect(enmascararFecha('1', '')).toBe('')
   })
 })

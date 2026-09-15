@@ -387,3 +387,45 @@ export function parseARInput(s: string): string | null {
 
   return null
 }
+
+/**
+ * Las barras automáticas de un campo de fecha: lo que se TIPEA se va acomodando a `dd/mm/aaaa`.
+ * Recibe el texto que había y el que dejó la tecla, y devuelve el que tiene que quedar.
+ *
+ * Nace de un pedido del Director (2026-09-14) sobre el encabezado de la visita: tipeaba "12 8", le
+ * contestaba "Fecha inválida. Usá dd/mm/aaaa." y no había nada que lo ayudara a llegar ahí. Con esto,
+ * `12082026` queda `12/08/2026` sin tocar la barra.
+ *
+ * LAS REGLAS, y por qué se testean: si una queda al revés el campo no se rompe a la vista, sólo se
+ * vuelve incómodo — una barra que reaparece al borrarla deja a la persona trabada sin entender por qué.
+ *   · Día y mes aceptan hasta 2 dígitos; el tercero abre el segmento siguiente. El año, hasta 4.
+ *   · Un separador tipeado (`/`, `-`, `.` o espacio) cierra el segmento aunque tenga un solo dígito:
+ *     `1/8/26` se respeta tal cual, y `parseARInput` lo entiende.
+ *   · La barra se AGREGA sola al completar día o mes, pero SÓLO tipeando hacia adelante. Borrando,
+ *     no: si no, borrar la barra de `12/` la volvería a poner y no habría forma de salir.
+ *   · Con letras (`31 Dic 2026`) o con forma ISO (`2026-12-31`) el texto se deja como vino. Son los
+ *     otros dos formatos de Preferencias: el campo puede abrir mostrando uno de ellos, y pegar una
+ *     fecha ISO es un gesto real. `parseARInput` ya los lee.
+ *
+ * Qué NO hace: validar. `31/02/2026` sale enmascarado igual; decir que no existe es trabajo de
+ * `parseARInput` al confirmar. Tampoco sabe dónde está el cursor: quien la usa la aplica sólo cuando
+ * se escribe al final, porque reescribir el valor en medio de una edición manda el cursor al final.
+ */
+export function enmascararFecha(anterior: string, nuevo: string): string {
+  if (/[A-Za-zÁÉÍÓÚáéíóú]/.test(nuevo) || /^\d{4}[/\-.]/.test(nuevo)) return nuevo
+
+  const partes: string[] = ['']
+  for (const ch of nuevo) {
+    const i = partes.length - 1
+    if (ch >= '0' && ch <= '9') {
+      if (i < 2 && partes[i].length === 2) partes.push(ch)
+      else if (i < 2 || partes[i].length < 4) partes[i] += ch
+    } else if ('/-. '.includes(ch) && i < 2 && partes[i] !== '') {
+      partes.push('')
+    }
+  }
+
+  const ultima = partes.length - 1
+  const barraSola = nuevo.length > anterior.length && ultima < 2 && partes[ultima].length === 2
+  return partes.join('/') + (barraSola ? '/' : '')
+}
