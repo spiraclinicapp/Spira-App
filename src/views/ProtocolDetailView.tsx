@@ -181,19 +181,24 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
     )
   }
 
+  /* Sin handlers de mouse: el realce va en CSS. El `ghost` usa `.spira-card-link` —mismo gesto que
+     «Editar paciente» y «Editar medicación» en la ficha— y en reposo sólo pisa `borderColor`
+     (longhand) para conservar el `line-2`; antes un handler le pintaba el borde con el acento.
+     El `primary` perdió el `brightness(1.06)` que le ponía el handler y se queda con el levante de
+     la micro-interacción global, como todo `btnPrimary` de la app. Ninguno lleva `transition`
+     inline: le ganaría a la de la clase y a la del levante, que entraría de golpe. */
   const actBtn = (icon: IconName, label: string, kind: 'ghost' | 'primary') => {
     const primary = kind === 'primary'
     return (
       <button
+        className={primary ? undefined : 'spira-card-link'}
         onClick={primary ? onGoAgenda : icon === 'settings' ? onEdit : handleExport}
-        onMouseEnter={(e) => { if (primary) e.currentTarget.style.filter = 'brightness(1.06)'; else { e.currentTarget.style.borderColor = accent; e.currentTarget.style.background = 'var(--spira-white)' } }}
-        onMouseLeave={(e) => { if (primary) e.currentTarget.style.filter = 'none'; else { e.currentTarget.style.borderColor = 'var(--spira-line-2)'; e.currentTarget.style.background = 'var(--spira-surface)' } }}
         style={{
-          width: '100%', height: 40, borderRadius: 10, cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600,
-          display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px', whiteSpace: 'nowrap', transition: 'border-color .14s, background .14s, filter .14s',
+          width: '100%', height: 40, borderRadius: 10, fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600,
+          display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px', whiteSpace: 'nowrap',
           ...(primary
-            ? { border: 'none', background: accentSolid, color: 'var(--spira-on-accent)', boxShadow: `0 6px 16px ${accent}38` }
-            : { border: '1px solid var(--spira-line-2)', background: 'var(--spira-surface)', color: 'var(--spira-ink)' }),
+            ? { border: 'none', background: accentSolid, color: 'var(--spira-on-accent)', boxShadow: `0 6px 16px ${accent}38`, cursor: 'pointer' }
+            : { borderColor: 'var(--spira-line-2)', background: 'var(--spira-surface)', color: 'var(--spira-ink)' }),
         }}
       >
         <Icon name={icon} size={16} color={primary ? 'var(--spira-on-accent)' : accent} />
