@@ -252,7 +252,10 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, i
   return (
     // minHeight:100% llena el área de contenido → la barra de abajo (margin-top:auto) queda
     // pegada al fondo aun cuando el paso es corto (estado vacío), sin sliver de paper.
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minHeight: '100%' }}>
+    // `.spira-content-al-ras`: le pide al shell que saque el aire de abajo. Es la única vista que lo
+    // necesita — la barra de acciones es sticky al pie, y con padding abajo quedaba un hilo de papel
+    // debajo de ella (ver la regla en tokens.css).
+    <div className="spira-content-al-ras" style={{ display: 'flex', flexDirection: 'column', gap: 18, minHeight: '100%' }}>
       {/* Encabezado: stepper CENTRADO (grid 1fr·auto·1fr → alineado al centro de la barra de
           abajo, entre Atrás y Siguiente) + botón cancelar arriba a la derecha. */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12 }}>
@@ -361,8 +364,9 @@ const footerBar: CSSProperties = {
   position: 'sticky', bottom: 0, zIndex: 10,
   // margin-top:auto la empuja al fondo cuando el paso es corto (junto al minHeight:100% del
   // wizard); sticky la mantiene visible cuando el contenido scrollea. Los -26 laterales sangran
-  // sobre el padding lateral del shell → la barra llega a los bordes. El contenedor del shell ya
-  // NO tiene padding-bottom, así que la barra queda al ras del borde inferior (sin sliver).
+  // sobre el padding lateral del shell → la barra llega a los bordes. Abajo el shell no pone padding
+  // mientras el asistente está montado (`.spira-content-al-ras` en la raíz), así que la barra queda
+  // al ras del borde inferior (sin sliver).
   marginTop: 'auto', marginLeft: -26, marginRight: -26, marginBottom: 0,
   padding: '14px 26px',
   borderTop: '1px solid var(--spira-line)', background: 'var(--spira-white)',
