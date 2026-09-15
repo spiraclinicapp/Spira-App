@@ -46,12 +46,26 @@ export function visitTitle(v: VisitTitleFields): string {
 }
 
 /**
- * Código corto para rótulos COMPACTOS (bajo la burbuja, celdas angostas): "V1" (def)
- * o el short del kind / "V{n}". La burbuja muestra el número cronológico `n`; este es
- * el identificador del cuadro (cuál visita es), que conviven sin chocar.
+ * Código corto para rótulos COMPACTOS (pastillas, celdas angostas): "V1" (def) o el short del
+ * kind ("VNP", "Scr"). Una programada SIN código devuelve '' y cada pantalla decide qué hacer con
+ * el hueco; para un rótulo que no puede quedar vacío, `visitShortLabel`.
  */
-export function visitCode(v: TrackVisitRow, n?: number | null): string {
-  return v.visit_code ?? (KIND_SHORT[v.kind] || (n != null ? `V${n}` : ''))
+export function visitCode(v: TrackVisitRow): string {
+  return v.visit_code ?? KIND_SHORT[v.kind]
+}
+
+/**
+ * Rótulo compacto que NUNCA queda vacío: el código si lo hay, y si no el título (`visitTitle`).
+ * Es el de la línea de tiempo, la fila de paciente y la oración de "Hoy · entre … y …".
+ *
+ * Antes el hueco de la programada sin código se llenaba con "V{n}", donde `n` era el conteo
+ * cronológico de TODAS las visitas del paciente (sueltas incluidas). Salía un "V11" con la forma
+ * exacta de un código de protocolo y sin relación con él: el paciente podía estar en su V6. El
+ * Director lo marcó en la ficha (2026-09-14) y el contador se fue de toda la app. `visit_name` es
+ * `not null` en `visit_definitions` (0002), así que el título siempre tiene de dónde salir.
+ */
+export function visitShortLabel(v: TrackVisitRow): string {
+  return visitCode(v) || visitTitle(v)
 }
 
 /** Agrupa visitas por patient_id (para alimentar el tracker de cada fila en listas). */
@@ -118,18 +132,6 @@ export function todaySplit(rows: TrackVisitRow[], today: string): {
     else if (next === null) next = v
   }
   return { prev, next, todayVisit }
-}
-
-/**
- * Mapa id → número de visita (1-based) sobre TODAS las visitas del paciente (programadas
- * + sueltas), en orden cronológico. Es el conteo de "cuántas veces vino": cada visita lleva
- * su número independientemente del tipo.
- */
-export function visitIndex(rows: TrackVisitRow[]): Map<string, number> {
-  const ordered = orderVisits(rows)
-  const map = new Map<string, number>()
-  ordered.forEach((v, i) => map.set(v.id, i + 1))
-  return map
 }
 
 /**
@@ -202,13 +204,11 @@ export function fueraDeVentana(real: string | null, windowStart: string | null, 
  * viene —la que todavía se puede hacer algo con ella—, salvo cuando ya no hay ninguna.
  */
 export function ubicacionDeHoy(rows: TrackVisitRow[], today: string): string {
-  const idx = visitIndex(rows)
   const { prev, next, todayVisit } = todaySplit(rows, today)
-  const labelOf = (v: TrackVisitRow) => visitCode(v, idx.get(v.id))
-  if (todayVisit) return `Hoy · ${labelOf(todayVisit)} · ${visitStateLabel(todayVisit, today)}`
-  if (prev && next) return `Hoy · entre ${labelOf(prev)} y ${labelOf(next)} · ${visitStateLabel(next, today)}`
-  if (next) return `Hoy · antes de ${labelOf(next)} · ${visitStateLabel(next, today)}`
-  if (prev) return `Hoy · después de ${labelOf(prev)}`
+  if (todayVisit) return `Hoy · ${visitShortLabel(todayVisit)} · ${visitStateLabel(todayVisit, today)}`
+  if (prev && next) return `Hoy · entre ${visitShortLabel(prev)} y ${visitShortLabel(next)} · ${visitStateLabel(next, today)}`
+  if (next) return `Hoy · antes de ${visitShortLabel(next)} · ${visitStateLabel(next, today)}`
+  if (prev) return `Hoy · después de ${visitShortLabel(prev)}`
   return ''
 }
 
@@ -240,7 +240,7 @@ export function flowWindow(
   }
 }
 
-/** Los 3 estados de COLOR/relleno de la pelotita (el label granular lo da visitStateLabel). */
+/** Los 3 estados de la pelotita —color, relleno y marca adentro— (el label granular lo da visitStateLabel). */
 export type DotVisual = 'agendada' | 'en_curso' | 'completa'
 
 /**

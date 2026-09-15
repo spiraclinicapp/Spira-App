@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import type { CSSProperties } from 'react'
 import type { TrackVisitRow } from '../../data/visits'
-import { flowWindow, todaySplit, visitIndex, visitCode, visitStateLabel, studyTime } from '../../lib/visits'
+import { flowWindow, todaySplit, ubicacionDeHoy, visitShortLabel, studyTime } from '../../lib/visits'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 
@@ -11,29 +11,25 @@ const pill: CSSProperties = {
 }
 
 /**
- * Tracker horizontal de visitas: ventana de ±3 con chips "+N" en los extremos. Cada visita: punto de
- * estado + V#/tipo + Semana W# + fecha. Las realizadas llevan check; las futuras, outline; la de hoy
+ * Tracker horizontal de visitas: ventana de ±3 con chips "+N" en los extremos. Cada visita: pelotita
+ * de estado (sin número, ver `VisitDot`) + código/tipo + Semana W# + fecha. Las completas llevan
+ * check; las en curso, contorno con punto; las agendadas, vacías; la de hoy
  * (si cae justo en una visita), anillo. Si hoy cae ENTRE dos visitas, la línea de ese tramo queda a
  * medio llenar con un punto marcador (ningún punto resaltado) y un pie resume "Hoy · entre … · …".
  */
 export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitRow[]; currentId: string | null; accent: string }) {
   const { window, moreBefore, moreAfter } = flowWindow(visits, currentId, 3)
-  const idx = visitIndex(visits)
   const today = todayISO()
-  const { prev: tPrev, next: tNext, todayVisit } = todaySplit(visits, today)
+  const { todayVisit } = todaySplit(visits, today)
   if (window.length === 0) return null
 
   /* Se resalta un punto SOLO si hoy cae justo en una visita; si cae entre dos, el indicador es el
      marcador "Hoy" sobre la línea (ningún punto con anillo). */
   const highlightId = todayVisit?.id ?? null
-  const labelOf = (v: TrackVisitRow) => visitCode(v, idx.get(v.id))
-
-  /* Pie: ubica "Hoy" respecto del cronograma + el estado de la visita en juego. */
-  let caption = ''
-  if (todayVisit) caption = `Hoy · ${labelOf(todayVisit)} · ${visitStateLabel(todayVisit, today)}`
-  else if (tPrev && tNext) caption = `Hoy · entre ${labelOf(tPrev)} y ${labelOf(tNext)} · ${visitStateLabel(tNext, today)}`
-  else if (tNext) caption = `Hoy · antes de ${labelOf(tNext)} · ${visitStateLabel(tNext, today)}`
-  else if (tPrev) caption = `Hoy · después de ${labelOf(tPrev)}`
+  /* Pie: ubica "Hoy" respecto del cronograma + el estado de la visita en juego. Era una copia a mano
+     de `ubicacionDeHoy` (la función nació extrayéndola de acá); ahora es la misma, así que la línea
+     de tiempo y la fila de paciente no pueden volver a decir cosas distintas. */
+  const caption = ubicacionDeHoy(visits, today)
 
   /* Estado del tramo según HOY: lleno si la visita derecha ya pasó; "half" (a medio llenar, con punto
      marcador) si hoy cae entre ambas sin visita justo hoy; vacío si es futuro. */
@@ -66,14 +62,13 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
 
   const col = (v: TrackVisitRow) => {
     const cur = v.id === highlightId
-    const n = idx.get(v.id)
-    const label = visitCode(v, n)
+    const label = visitShortLabel(v)
     const st = studyTime(v)
     const fecha = v.estimated_date ?? v.real_date
     return (
       <div key={v.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 72, flex: '0 0 auto' }}>
         <div style={{ height: 32, display: 'flex', alignItems: 'center' }}>
-          <VisitDot visit={v} number={idx.get(v.id) ?? '·'} today={today} size={28} isToday={v.id === highlightId} accent={accent} />
+          <VisitDot visit={v} today={today} size={28} isToday={v.id === highlightId} accent={accent} />
         </div>
         <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 12.5, color: cur ? accent : 'var(--spira-ink)', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</div>
         {st != null && <div style={{ fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>{st.unit === 'dia' ? `${st.value}d` : `W${st.value}`}</div>}

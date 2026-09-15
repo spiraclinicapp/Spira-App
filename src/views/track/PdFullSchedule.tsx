@@ -2,17 +2,17 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
-import { dotVisual, flowWindow, orderVisits, visitIndex, visitStateLabel, visitTitle, studyTime, desvioDias, fueraDeVentana } from '../../lib/visits'
+import { dotVisual, flowWindow, orderVisits, visitStateLabel, visitTitle, studyTime, desvioDias, fueraDeVentana } from '../../lib/visits'
 import { dotColor } from '../visitStates'
 import { ayudaDeRotulo, GLOSARIO } from '../../lib/glosario'
 import { formatShortAR, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 
 /**
- * Cronograma vertical: las visitas del paciente (programadas + sueltas). Por fila: pelotita con
- * el NÚMERO de visita (gris sin atender, contorno verde atendida, relleno verde completa), nombre
- * ("Visita N", conteo de todas las visitas), semana/fecha y pill del estado operativo (Atendido,
- * Fuera del sitio, etc.).
+ * Cronograma vertical: las visitas del paciente (programadas + sueltas). Por fila: pelotita de
+ * estado (gris vacía sin atender, contorno verde con punto atendida, relleno verde con check
+ * completa — sin número, ver `VisitDot`), título de la visita ("V6 - W8", "VNP"), semana/fecha y
+ * pill del estado operativo.
  *
  * Si se pasa `onOpen`, cada fila abre el detalle de la visita (`VisitDetail`) — el MISMO que la vista
  * del día, sincronizado por leer de la misma fuente. La fila se vuelve `role="button"` (a11y + el
@@ -28,17 +28,12 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
    * Sin esto se muestran todas, que es el modo de la ficha del paciente (una card entera para el
    * cronograma). El listado de pacientes lo usa en 3: ahí el cronograma vive DENTRO de una fila que
    * se despliega, y trece visitas empujarían la fila siguiente fuera de vista.
-   *
-   * EL RECORTE ES DE LO QUE SE PINTA, NO DE LO QUE SE NUMERA. `visitIndex` se calcula sobre TODAS
-   * las visitas antes de recortar: si se le pasara la rebanada, la primera visita visible se
-   * numeraría "1" y la pelotita mentiría sobre cuántas veces vino el paciente.
    */
   ventana?: number
   /** Una línea al pie (hoy: `ubicacionDeHoy`). Ver por qué existe en `lib/visits.ts`. */
   pie?: string
 }) {
   const ordered = orderVisits(visits)
-  const idx = visitIndex(visits)
   const today = todayISO()
   const clickable = !!onOpen
   const [expandido, setExpandido] = useState(false)
@@ -75,7 +70,6 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
         const cur = v.id === currentId
         const estColor = dotColor(dotVisual(v), accent)
         const estLabel = visitStateLabel(v, today)
-        const n = idx.get(v.id)
         const label = visitTitle(v)
         const ayuda = ayudaDeRotulo(label)
         const st = studyTime(v)
@@ -91,7 +85,7 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
         }
         const inner = (
           <>
-            <VisitDot visit={v} number={n ?? '·'} today={today} size={26} isToday={cur} accent={accent} />
+            <VisitDot visit={v} today={today} size={26} isToday={cur} accent={accent} />
             <div style={{ minWidth: 0, flex: 1 }}>
               {/* Las visitas SUELTAS se rotulan con una abreviatura que la app da por sabida —VNP,
                   Scr, Rando, F+S—, así que ésas se marcan como término del glosario. Las del
