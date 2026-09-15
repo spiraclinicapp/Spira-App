@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  contextoDeEtapa, datosDelPaciente, estaConcretada, etapaProgreso, fechaSegunProtocolo,
+  contextoDeEtapa, datosDelPaciente, estaConcretada, estimadaNoAplica, etapaProgreso, fechaSegunProtocolo,
   horaDeAtencion, marcaDeEtapa, opcionesDeCoordinador,
   medicoDeVisita, puedeEditarCoordinador, muestraFechaReal, puedeEditarMedico,
 } from './visitHeaderRules'
@@ -267,6 +267,30 @@ describe('fechaSegunProtocolo · lo que manda el cronograma', () => {
 
   it('cruza el fin de mes sin correrse', () => {
     expect(fechaSegunProtocolo(prog({ enrollment_randomization_date: '2026-01-31', offset_days: 29 }))).toBe('2026-03-01')
+  })
+})
+
+describe('estimadaNoAplica · «N/A» no es lo mismo que «todavía no se puede calcular»', () => {
+  const prog = (over: Record<string, unknown> = {}) => ({
+    kind: 'programada' as const,
+    date_mode: 'automatica' as const,
+    ...over,
+  })
+
+  it('en una visita suelta (VNP, retest, firma…) la estimada NO APLICA', () => {
+    for (const kind of ['vnp', 'retest', 'firma', 'screening', 'firma_screening', 'randomizacion']) {
+      expect(estimadaNoAplica(prog({ kind }))).toBe(true)
+    }
+  })
+
+  it('en una de agenda libre tampoco aplica: el protocolo no manda fecha', () => {
+    expect(estimadaNoAplica(prog({ date_mode: 'libre' }))).toBe(true)
+  })
+
+  it('en una del cronograma SÍ aplica, aunque falte la randomización para calcularla', () => {
+    // El caso que falla en silencio: decir «N/A» acá escondería que al paciente le falta la
+    // fecha de randomización. Esa visita tiene estimada; lo que no hay es con qué hacer la cuenta.
+    expect(estimadaNoAplica(prog())).toBe(false)
   })
 })
 

@@ -13,7 +13,7 @@ import { formatAR } from '../../lib/dates'
 import { desvioDias, fueraDeVentana, visitCode, visitTitle } from '../../lib/visits'
 import { VisitDateInline } from './VisitDateInline'
 import {
-  datosDelPaciente, fechaSegunProtocolo, horaDeAtencion, medicoDeVisita, muestraFechaReal,
+  datosDelPaciente, estimadaNoAplica, fechaSegunProtocolo, horaDeAtencion, medicoDeVisita, muestraFechaReal,
   opcionesDeCoordinador, puedeEditarCoordinador, puedeEditarMedico,
 } from './visitHeaderRules'
 
@@ -219,9 +219,14 @@ export function VisitHeader({
                  cronograma), no un dato guardado. Lo que se edita es el cronograma. */
               editable={false}
               tone="soft"
+              /* "N/A" cuando el protocolo no manda fecha; "—" cuando sí manda pero falta con qué
+                 calcularla. Ver `estimadaNoAplica`. */
+              placeholder={estimadaNoAplica(visit) ? 'N/A' : '—'}
               title={protocolo
                 ? 'La fecha que manda el cronograma del estudio'
-                : 'El protocolo no fija fecha para esta visita (visita suelta o de agenda libre)'}
+                : estimadaNoAplica(visit)
+                  ? 'No aplica: el protocolo no fija fecha para esta visita (visita suelta o de agenda libre)'
+                  : 'Todavía no se puede calcular: falta la fecha de randomización o el día de la visita en el cronograma'}
             />
           </div>
         </div>
