@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.73', text: 'Visitas con fecha estimada, programada y realizada; cada paciente muestra su estado con un punto.' },
     { version: '0.72', text: 'Compras del mes en Estadísticas: el pedido del mes siguiente, ordenable e imprimible.' },
     { version: '0.71', text: 'Entregas en partes con saldo, aviso por droga reciente y «Otro medicamento» con receta.' },
     { version: '0.70', text: 'La entrega del IP va en Procedimientos, y la medicación de base se pide en toda visita, con stock.' },
