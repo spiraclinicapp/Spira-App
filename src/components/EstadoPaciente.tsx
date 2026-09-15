@@ -1,72 +1,80 @@
 import type { CSSProperties } from 'react'
-import { Badge } from './Badge'
 import type { PatientStatus } from '../data/patients'
 
 /* ============================================================================
-   Estado del PACIENTE (activo / inactivo), con UN solo lenguaje en toda la app.
+   Estado del PACIENTE (activo / inactivo), con UN solo lenguaje en toda la app: un punto de color.
+   Verde = activo, rojo = inactivo (decisión del Director, 2026-09-14). Al apuntarlo, un `title`
+   dice en palabras en qué estado está.
 
-   Hasta el 2026-09-14 había tres: la ficha armaba su badge a mano, la tabla de Farmacia tenía una
-   píldora propia y la fila del protocolo no lo mostraba. Y las dos que existían estaban rotas de
-   maneras que no se ven leyendo el código:
-     · la ficha concatenaba alfa hex a un token (`var(--spira-good)` + `'14'`), que es CSS inválido:
-       el navegador descartaba fondo y borde en silencio y quedaba el texto flotando con el padding
-       de una caja que no se dibujaba (ver el gotcha "concatenar hex sobre un token");
-     · la tabla escribía el texto en `--spira-good` sobre su propio tinte: 3,58:1, debajo del 4,5:1
-       que pide AA. `Badge` ya resuelve ese par con `--spira-acc-deep-good`.
+   HISTORIA, porque ya hubo dos intentos:
+     · Hasta la PR #183 había tres representaciones —la ficha con un badge armado a mano con
+       `var(--spira-good)` + `'14'` (CSS inválido: fondo y borde no se dibujaban), la tabla de
+       Farmacia con una píldora en 3,58:1, y el listado del protocolo sin nada—.
+     · La #183 las unificó con un punto delante del nombre en el listado y una píldora debajo del
+       nombre en la ficha. El punto adentro del renglón del nombre ROMPIÓ el listado: el nombre es un
+       `<button>` (`PatientLink`, `inline-block`), o sea un elemento en línea ATÓMICO, y
+       `text-overflow` no puede cortarlo por la mitad — si no entra entero, lo esconde completo y
+       deja sólo "…". Reproducido: con visitas, la columna de identidad topa en 133px; "Susana
+       Rodriguez" mide 122 y entraba sola, pero punto (16) + nombre (122) = 138 y desaparecía. En el
+       banco de pruebas de la #183 no se vio porque las filas no tenían visitas, y sin tracker la
+       columna tenía lugar de sobra (ver el gotcha "un button atómico rompe el ellipsis"). Y la
+       píldora abajo del nombre no le gustó al Director.
+   Por eso ahora el punto va ARRIBA A LA DERECHA, fuera del flujo del texto, en las dos pantallas.
 
-   EL PUNTO ES LA SEÑA, Y NO DEPENDE SÓLO DEL COLOR: activo es un punto LLENO verde; inactivo, un
-   ANILLO gris. La forma distingue los dos estados aunque no se vea el color (daltonismo, pantalla
-   con poco contraste, impresión en blanco y negro). Es la convención de presencia que cualquiera ya
-   conoce —lleno "está", hueco "no está"—, así que se lee sin leyenda.
+   EL COLOR NO ES EL ÚNICO CANAL, pero casi: la palabra vive en el `title` (mouse) y en el
+   `aria-label` (lector de pantalla). En la tabla de Farmacia, que tiene columna "Estado", va además
+   la palabra visible (`forma="etiqueta"`).
 
-   Dos formas, según cuánto lugar y cuánto protagonismo le toca:
-     · `pildora` — la ficha y la columna "Estado" de una tabla: punto + palabra.
-     · `punto`   — el listado de pacientes del protocolo, delante del nombre. Discreto a propósito: la
-       columna de identidad mide ~130-180px en la notebook de referencia y el IVRS ya se lleva ~95,
-       así que un "● Inactivo" con texto no entraba sin comerle el nombre. Lleva `title` para quien
-       apunta y `role="img"` + `aria-label` para el lector de pantalla, y es el MISMO punto de la
-       píldora de la ficha: se aprende en un lado y se reconoce en el otro.
+   LOS TOKENS: verde `--spira-good` (4,02:1 sobre la card oscura, arriba del 3:1 que pide WCAG 1.4.11
+   para lo no textual). Rojo `--spira-acc-deep-danger` y NO `--spira-danger`: en claro valen lo mismo,
+   pero en oscuro `--spira-danger` se pierde y el acento profundo se aclara a salmón. Es el mismo rojo
+   del punto de "rechazado" en el historial de dispensación, que fue el que estrenó ese token.
 
    Sin bordes laterales de color, a pedido del Director: el estado es un dato del paciente, no una
    franja que tiña la tarjeta entera.
    ============================================================================ */
 
+const COLOR: Record<PatientStatus, string> = {
+  activo: 'var(--spira-good)',
+  inactivo: 'var(--spira-acc-deep-danger)',
+}
 const ETIQUETA: Record<PatientStatus, string> = { activo: 'Activo', inactivo: 'Inactivo' }
-
-/** El punto solo. `size` 8 en el listado (convive con texto de 14px), 7 dentro de la píldora (12px). */
-function Punto({ estado, size }: { estado: PatientStatus; size: number }) {
-  const s: CSSProperties = estado === 'activo'
-    ? { background: 'var(--spira-good)' }
-    /* `faint` y no `muted` para el anillo: es un gráfico, no texto (3,46:1 sobre blanco, arriba del
-       3:1 que pide WCAG 1.4.11 para lo no textual). Lo que se LEE —la palabra— sí va en `muted`. */
-    : { border: '1.5px solid var(--spira-faint)', background: 'transparent' }
-  return <span aria-hidden="true" style={{ display: 'inline-block', width: size, height: size, borderRadius: '50%', flex: '0 0 auto', ...s }} />
+/* "En seguimiento" es la palabra que ya usa Inicio para contar a los activos ("23 pacientes en
+   seguimiento"); inactivo es el cese clínico (spec de eliminar paciente, 2026-06-19). */
+const EXPLICACION: Record<PatientStatus, string> = {
+  activo: 'Paciente activo: en seguimiento',
+  inactivo: 'Paciente inactivo: ya no está en seguimiento',
 }
 
-export function EstadoPaciente({ estado, forma }: { estado: PatientStatus; forma: 'pildora' | 'punto' }) {
-  if (forma === 'punto') {
-    const nombre = estado === 'activo' ? 'Paciente activo' : 'Paciente inactivo'
+function Punto({ estado }: { estado: PatientStatus }) {
+  return <span aria-hidden="true" style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: COLOR[estado], flex: '0 0 auto' }} />
+}
+
+export function EstadoPaciente({ estado, forma = 'punto', style }: {
+  estado: PatientStatus
+  /** `punto`: sólo el punto, en la esquina de la ficha y de la tarjeta del listado.
+   *  `etiqueta`: punto + palabra, para una columna "Estado" de tabla. */
+  forma?: 'punto' | 'etiqueta'
+  /** Para posicionarlo (p. ej. `position: absolute` en la esquina de la tarjeta). */
+  style?: CSSProperties
+}) {
+  if (forma === 'etiqueta') {
     return (
-      /* `verticalAlign: middle` y no un flex: vive ADENTRO del renglón del nombre, que corta con
-         `text-overflow: ellipsis`, y eso sólo funciona sobre un bloque con contenido en línea — si el
-         renglón pasara a ser flex para alinear el punto, el nombre largo se cortaría en seco, sin
-         puntos suspensivos. `top: -1px` compensa que `middle` alinea con la mitad de la x y no con
-         la de las mayúsculas: sin él el punto queda apenas caído respecto del nombre. */
-      <span
-        role="img"
-        aria-label={nombre}
-        title={nombre}
-        style={{ display: 'inline-block', verticalAlign: 'middle', position: 'relative', top: -1, marginRight: 8, lineHeight: 0 }}
-      >
-        <Punto estado={estado} size={8} />
+      <span title={EXPLICACION[estado]} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--spira-ink)', whiteSpace: 'nowrap', cursor: 'help', ...style }}>
+        <Punto estado={estado} />{ETIQUETA[estado]}
       </span>
     )
   }
-  /* Inactivo lleva borde `line`: la píldora neutra sin él es `surface` sobre la card blanca, y
-     prácticamente no se ve el contorno — quedaría la palabra suelta, que es justo lo que había.
-     Activo lleva el MISMO borde pero transparente: sin él medía 21px contra los 23 de la inactiva, y
-     en la tabla dos filas vecinas quedaban con la píldora a distinta altura. */
-  return estado === 'activo'
-    ? <Badge tone="good" border="1px solid transparent"><Punto estado="activo" size={7} />{ETIQUETA.activo}</Badge>
-    : <Badge tone="neutral" border="1px solid var(--spira-line)"><Punto estado="inactivo" size={7} />{ETIQUETA.inactivo}</Badge>
+  return (
+    /* La caja de 16px es la zona que responde al mouse: un punto de 8 es un blanco demasiado chico
+       para que el `title` aparezca sin buscarlo. El punto se centra adentro. */
+    <span
+      role="img"
+      aria-label={EXPLICACION[estado]}
+      title={EXPLICACION[estado]}
+      style={{ display: 'grid', placeItems: 'center', width: 16, height: 16, flex: '0 0 auto', cursor: 'help', ...style }}
+    >
+      <Punto estado={estado} />
+    </span>
+  )
 }

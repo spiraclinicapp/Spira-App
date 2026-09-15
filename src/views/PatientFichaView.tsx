@@ -206,17 +206,21 @@ export function PatientFichaView(props: PatientFichaViewProps) {
               enorme mayoría; los pocos que igual no entren cortan con `balance`, que reparte
               las dos líneas en vez de dejar una palabra sola colgando. */}
           <div>
-            <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.2, textWrap: 'balance' }}>{patient.full_name}</div>
             {/* El estado es del PACIENTE (activo/inactivo); el de la VISITA vive en el cronograma.
-                Va en `EstadoPaciente`, el mismo punto que se ve en el listado del protocolo antes de
-                entrar. Antes era un badge armado a mano con `statusColor + '14'` sobre un
-                `var(--…)`: CSS inválido, así que fondo y borde no se dibujaban y la palabra quedaba
-                suelta con el padding de una caja invisible —13px corrida del borde derecho, sin
-                alinear con la columna de valores de abajo—. La píldora termina al ras de esa columna. */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 6 }}>
-              <span className="spira-mono" style={{ fontSize: 13.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</span>
-              <EstadoPaciente estado={patient.status} forma="pildora" />
+                Es el mismo punto de la esquina de la tarjeta en el listado, y acá también va arriba a
+                la derecha, a la altura del nombre (decisión del Director, 2026-09-14: la píldora
+                debajo, junto al IVRS, no le gustaba). El nombre sigue quedándose con el ancho: el
+                punto se lleva 16px + 10 de separación, no los 96 de la píldora vieja que partían los
+                nombres de más de ~19 letras. La caja del punto mide lo mismo que el renglón del
+                nombre (19px × 1.2 ≈ 23) para que quede centrado con la PRIMERA línea aunque el nombre
+                parta en dos. `marginRight: -4` saca la mitad sobrante de la caja de 16px hacia el
+                padding de la card: así es el PUNTO, y no su caja, el que termina al ras de la
+                columna de valores de abajo. */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.2, textWrap: 'balance' }}>{patient.full_name}</div>
+              <EstadoPaciente estado={patient.status} style={{ height: 23, marginRight: -4 }} />
             </div>
+            <div className="spira-mono" style={{ fontSize: 13.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap', marginTop: 5 }}>{patient.code ?? 'Sin IVRS'}</div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>

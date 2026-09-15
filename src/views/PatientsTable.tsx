@@ -172,10 +172,10 @@ function PatientRowItem({ patient, accent, accentSolid, last, onOpenPatient }: {
           </PatientLink>
         </span>
       </span>
-      {/* La misma píldora que la ficha (`EstadoPaciente`). La que había escribía el texto en
-          `--spira-good` sobre su propio tinte: 3,58:1, debajo de AA. */}
+      {/* El mismo punto que la ficha y el listado (`EstadoPaciente`), con la palabra al lado porque
+          esta tabla tiene una columna "Estado" con lugar para escribirla. */}
       <span role="cell">
-        <EstadoPaciente estado={patient.status} forma="pildora" />
+        <EstadoPaciente estado={patient.status} forma="etiqueta" />
       </span>
       <span role="cell" style={{ display: 'flex', gap: 6, alignItems: 'center', overflow: 'hidden' }}>
         {protocols.length === 0 ? (
