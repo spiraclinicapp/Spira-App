@@ -118,6 +118,21 @@ export function fechaSegunProtocolo(
 }
 
 /**
+ * ¿La fecha estimada NO APLICA a esta visita? Decide si el campo vacío dice "N/A" o "—".
+ *
+ * `fechaSegunProtocolo` devuelve null por dos motivos que en pantalla no pueden verse iguales:
+ *   · el protocolo NO MANDA fecha (visita suelta, agenda libre) → "N/A": no hay nada que esperar.
+ *   · el protocolo sí manda, pero falta un término de la cuenta (sin randomización, sin offset)
+ *     → "—": hay una fecha que todavía no se puede calcular.
+ * La raya sola en una VNP no se entendía (Director, 2026-09-14). La alternativa que se descartó
+ * fue repetir la fecha realizada: eso inventa una estimación que nadie hizo y la muestra como dato
+ * de referencia, que en una app auditable es peor que decir que no aplica.
+ */
+export function estimadaNoAplica(visit: Pick<DayVisitRow, 'kind' | 'date_mode'>): boolean {
+  return visit.kind !== 'programada' || visit.date_mode === 'libre'
+}
+
+/**
  * La hora del inicio de atención, o null si no hay hora que mostrar.
  *
  * DEVUELVE NULL EN DOS CASOS Y LOS DOS IMPORTAN:
