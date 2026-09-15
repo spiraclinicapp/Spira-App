@@ -69,7 +69,9 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
   const { protocol, patients, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda, onVerPendientes, initialTab } = props
   const kpis = useProtocolKpis(protocol.id)
   const visits = useProtocolVisits(protocol.id)
-  const [filter, setFilter] = useState<'activos' | 'todos'>('todos')
+  /* Arranca en "Activos" (Director, 2026-09-14): la lista es para trabajar, y un paciente inactivo
+     ya no tiene nada que hacer acá. "Todos" queda a un clic. */
+  const [filter, setFilter] = useState<'activos' | 'todos'>('activos')
   /* Pestaña de la columna derecha. "Cronograma" solo existe para quien puede gestionarlo;
      "Reportes pendientes" (0090) la ven todos los que llegan acá — un coordinador que no arma el
      cuadro igual necesita ver qué reportes le quedan por descargar. Quién puede MOVERLOS lo
@@ -113,7 +115,15 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
 
   const k = kpis.data
   const adherencePct = k && k.visits_total > 0 ? Math.round((k.visits_done / k.visits_total) * 100) : 0
-  const shown = filter === 'activos' ? patients.filter((p) => p.status === 'activo') : patients
+  /* UNA sola definición de "activo" para el KPI y para el filtro: el estado del PACIENTE
+     (`patients.status`), que es el que se edita en "Editar paciente" y el que pinta el punto al lado
+     de cada nombre. El KPI leía `v_protocol_kpis.active`, que cuenta INSCRIPCIONES activas
+     (`enrollments.status`, 0029) — otra columna, que nadie sincroniza con la del paciente. Con un
+     paciente pasado a inactivo y su inscripción intacta, la ficha decía "10 activos" y el filtro de
+     al lado "9 de 10" (2026-09-14). La inscripción además tiene `screening` como estado propio: contar
+     por ahí dejaría afuera de "Activos" a quien está en screening. */
+  const activos = patients.filter((p) => p.status === 'activo')
+  const shown = filter === 'activos' ? activos : patients
 
   const metaRow = (label: string, value: string | null) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
@@ -228,7 +238,10 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
-            {kpiRow('Pacientes enrolados', k?.enrolled ?? 0, k ? `${k.active} activos` : null, false, undefined, 'pacientesEnrolados')}
+            {/* Los dos números salen de la MISMA lista que el "9 de 10" del filtro (ver `activos`), no
+                de `v_protocol_kpis`: si no, cualquier diferencia entre las dos fuentes vuelve a
+                aparecer como dos cuentas que no coinciden en la misma pantalla. */}
+            {kpiRow('Pacientes enrolados', patients.length, `${activos.length} activos`, false, undefined, 'pacientesEnrolados')}
             {kpiRow('Visitas realizadas', `${k?.visits_done ?? 0}/${k?.visits_total ?? 0}`, null, false, undefined, 'visitasRealizadas')}
             {/* El único de los cuatro que navega, y es el que lo pide: una ventana por vencer es
                 algo que hay que ir a resolver, no un dato para mirar. Va a Pendientes con ESTE
