@@ -10,7 +10,8 @@ import type { PatientRow } from '../data/patients'
 import { useProtocolVisits } from '../data/visits'
 import { useProtocolKpis } from '../data/protocolKpis'
 import { toCsv, downloadCsv } from '../lib/csv'
-import { groupVisitsByPatient, visitIndex, desvioDias } from '../lib/visits'
+import { groupVisitsByPatient } from '../lib/visits'
+import { filasVisitasCsv, VISITAS_CSV_HEADERS } from '../lib/visitasCsv'
 import { PdPatientRow } from './track/PdPatientRow'
 import { CronogramaTab } from './track/CronogramaTab'
 import { ReportesPendientesView } from './track/reportes/ReportesPendientesView'
@@ -102,17 +103,9 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
     return () => setHeader?.(null)
   }, [protocol.code, canCreatePatient, setHeader])
 
-  /* Exportar reporte: CSV client-side, una fila por visita. PRIVACIDAD: exporta el
-     código del paciente, nunca el nombre. */
+  /* Exportar reporte: CSV client-side, una fila por visita (ver `lib/visitasCsv.ts`). */
   const handleExport = () => {
-    const rows = visits.data ?? []
-    const idx = visitIndex(rows)
-    const headers = ['Paciente', 'Visita', 'Codigo', 'Nombre visita', 'Estimada', 'Real', 'Desvio (dias)', 'Estado', 'Ventana inicio', 'Ventana fin']
-    const data = rows.map((v) => [
-      v.patient_code, `V${idx.get(v.id)}`, v.visit_code ?? '', v.visit_name,
-      v.estimated_date, v.real_date ?? '', desvioDias(v.estimated_date, v.real_date) ?? '', v.computed_status, v.window_start, v.window_end,
-    ])
-    downloadCsv(`${protocol.code}-visitas.csv`, toCsv(headers, data))
+    downloadCsv(`${protocol.code}-visitas.csv`, toCsv(VISITAS_CSV_HEADERS, filasVisitasCsv(visits.data ?? [])))
   }
 
   /* Visitas agrupadas por paciente (para el tracker de cada fila). */

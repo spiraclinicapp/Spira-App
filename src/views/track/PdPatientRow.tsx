@@ -4,7 +4,7 @@ import { Icon } from '../../components/Icon'
 import { PatientLink } from '../../components/PatientLink'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
-import { orderVisits, todaySplit, ubicacionDeHoy, visitIndex, visitCode } from '../../lib/visits'
+import { orderVisits, todaySplit, ubicacionDeHoy, visitShortLabel } from '../../lib/visits'
 import { GLOSARIO } from '../../lib/glosario'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { PdFullSchedule } from './PdFullSchedule'
@@ -33,7 +33,6 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen, on
   onOpenVisit?: (visitId: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const idx = visitIndex(visits)
   /* "Hoy" en la línea de tiempo: anterior, hoy, próxima. */
   const today = todayISO()
   const { prev: prevByDate, next, todayVisit } = todaySplit(visits, today)
@@ -48,11 +47,11 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen, on
   /* La fila solo se despliega si hay algo que trackear; sin visitas no hay tracker que mostrar. */
   const expandable = visits.length > 0
 
-  /* Etiqueta de la celda del tracker: V# para las programadas; el tipo (Scr/Firma/Rando…) para
-     las sueltas. La fecha sale de la estimada (programadas) o la real (sueltas). */
+  /* Etiqueta de la celda del tracker: el código para las programadas; el tipo (Scr/Firma/Rando…)
+     para las sueltas. La fecha sale de la estimada (programadas) o la real (sueltas). */
   const cell = (v: typeof prev) => {
     if (!v) return '—'
-    const label = visitCode(v, idx.get(v.id))
+    const label = visitShortLabel(v)
     const fecha = v.estimated_date ?? v.real_date
     return fecha ? `${label} · ${formatDayMonth(fecha)}` : label
   }

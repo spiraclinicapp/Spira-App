@@ -64,6 +64,16 @@ describe('ubicacionDeHoy', () => {
     expect(salida).not.toContain('entre')
   })
 
+  it('una programada sin código se nombra por su nombre, no con un contador', () => {
+    // Antes caía a "V{n}", con `n` el conteo de todas las visitas del paciente: acá habría dicho
+    // "entre VNP y V2", un código que el protocolo no tiene.
+    const suelta = v({ kind: 'vnp', estimated_date: null, real_date: '2026-08-10' })
+    const sinCodigo = v({ visit_name: 'Baseline', estimated_date: '2026-09-15' })
+    const salida = ubicacionDeHoy([suelta, sinCodigo], HOY)
+    expect(salida).toContain('entre VNP y Baseline')
+    expect(salida).not.toMatch(/\bV\d/)
+  })
+
   it('después de la última visita, no promete una próxima', () => {
     const previa = v({ visit_code: 'V8', estimated_date: '2026-08-01', real_date: '2026-08-01' })
     const salida = ubicacionDeHoy([previa], HOY)
