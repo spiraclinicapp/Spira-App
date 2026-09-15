@@ -811,6 +811,22 @@ input:-webkit-autofill:focus {
 .spira-menu-toggle:hover { background: var(--spira-line) !important; }
 @media (prefers-reduced-motion: reduce) { .spira-navcol { transition: none; } }
 
+/* —— Área de contenido del shell (lo que scrollea debajo del encabezado) ——
+   26px abajo, los mismos que a los costados: al scrollear hasta el final, la última tarjeta queda
+   apoyada sobre papel y no pegada al borde de la ventana.
+
+   Hasta el 2026-09-14 el padding era `16px 26px 0` A PROPÓSITO, por la barra fija del asistente de
+   Recepción: un `position: sticky; bottom: 0` se detiene donde empieza el padding del contenedor
+   que scrollea, así que con aire abajo quedaba un hilo de papel debajo de la barra. La salida fue
+   quitarlo para todos y dejar que "cada vista maneje su propio respiro inferior" — y lo manejó una
+   sola (Dispensaciones). Inicio, el Resumen de Coordinación, Alertas y el resto terminaban al ras.
+
+   Ahora el aire es el comportamiento por defecto y la excepción se declara: una vista que necesita
+   llegar al borde inferior marca su raíz con `.spira-content-al-ras` y el shell le saca el padding
+   de abajo. Con `:has()` la vista no necesita saber nada del shell ni el shell de la vista. */
+.spira-content { padding: 16px 26px 26px; }
+.spira-content:has(.spira-content-al-ras) { padding-bottom: 0; }
+
 /* —— Micro-interacción estándar de Spira ——
    Todo lo pulsable (botones, links, role=button) se levanta apenas (~1px) en hover y se
    asienta al pulsar. Es la señal universal de "esto se toca", sin depender del cursor.

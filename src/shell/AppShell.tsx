@@ -556,10 +556,11 @@ export function AppShell() {
               </div>
 
               {/* contenido: router de vistas (fallback a Placeholder para lo aún no portado).
-                  Sin padding-bottom: la barra fija del wizard de recepción llega al borde inferior
-                  (un padding-bottom acá dejaba un hilo de paper debajo). Las vistas manejan su propio
-                  respiro inferior; el contenido corto igual queda con aire por el flex:1. */}
-              <div style={{ flex: 1, overflow: 'auto', padding: '16px 26px 0' }}>
+                  El padding vive en `.spira-content` (tokens.css) y no inline: lleva 26px abajo para
+                  que ninguna vista termine pegada al borde, y una regla `:has()` se los saca a la que
+                  tiene que llegar al ras (la barra fija del asistente de Recepción). Inline, esa
+                  excepción no se podría expresar. */}
+              <div className="spira-content" style={{ flex: 1, overflow: 'auto' }}>
                 {(() => {
                   const View = resolveView(moduleKey, sub.key)
                   return (
