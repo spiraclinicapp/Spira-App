@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
+import { fieldInput, fieldLabelStyle } from '../../components/FormField'
 import { useAuth } from '../../lib/auth'
 import { usePlatforms } from '../../lib/platforms'
 import { meetsMinRole, MODULO_ADMIN } from '../../lib/roles'
 import { claveDePlataforma } from '../../views/track/procedimientos/reportes'
 import { crearPlataforma, editarPlataforma } from '../../data/platforms'
 import type { PlatformRow } from '../../data/platforms'
-import { StCard, StRow, StToggle, btnGhost, btnSolid, dialogCard, dialogScrim, dialogTitulo } from './primitives'
+import { StCard, StPill, StToggle, btnGhost, btnIcono, btnSolid, dialogCard, dialogScrim, dialogTitulo } from './primitives'
 import { useMarkDirty } from './SettingsModal'
 
 /* ============================================================================
@@ -59,14 +60,26 @@ export function PlataformasSection() {
     )
   }
 
+  /* `maxWidth: 720`, el mismo tope que Mi cuenta y Preferencias. Sin él la card se estiraba al ancho
+     del modal y el botón «Editar» quedaba a medio metro del nombre al que edita.
+
+     «Agregar plataforma» va en la cabecera de la card y no suelto debajo, que es donde lo pone
+     «Crear cuenta» en Equipo y accesos. Abajo quedaba después de la lista: con cinco plataformas
+     ya caía fuera del alto del modal, y la única forma de dar de alta era scrollear hasta
+     encontrarlo. En la cabecera está siempre a la vista y junto a la lista que modifica. */
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 720 }}>
       <StCard
         title="Plataformas de reportes"
         desc={puedeEditar
           ? 'Al elegir una en un reporte, su link se completa solo'
           : 'Dónde se descarga cada reporte. Sólo lectura: te lo puede cambiar Coordinación o gerencia'}
         pad={false}
+        action={puedeEditar ? (
+          <button type="button" style={btnGhost} onClick={() => setCreando(true)}>
+            <Icon name="plus" size={15} color="var(--spira-muted)" /> Agregar plataforma
+          </button>
+        ) : undefined}
       >
         {ordenadas.map((p, i) => (
           <FilaPlataforma
@@ -78,14 +91,6 @@ export function PlataformasSection() {
           />
         ))}
       </StCard>
-
-      {puedeEditar && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button type="button" style={btnGhost} onClick={() => setCreando(true)}>
-            <Icon name="plus" size={15} color="var(--spira-muted)" /> Agregar plataforma
-          </button>
-        </div>
-      )}
 
       {editando && (
         <EditarDialog
@@ -105,7 +110,12 @@ export function PlataformasSection() {
   )
 }
 
-/* ─── Una fila del catálogo ─── */
+/* ─── Una fila del catálogo ───
+   NO usa `StRow`, y es a propósito. `StRow` está pensada para una card CON padding (`padding: 13px 0`,
+   el margen lateral lo pone la card), y ésta es una lista de borde a borde (`pad={false}`) para que
+   los separadores crucen la card entera. Juntas, las filas quedaban sin margen: el nombre pegado al
+   borde izquierdo y «Editar» tocando el derecho. La fila trae su propio `13px 18px`, que es el de
+   `FilaDePersona` en Equipo y accesos — la otra lista de borde a borde de Ajustes. */
 
 function FilaPlataforma({ fila, last, puedeEditar, onEditar }: {
   fila: PlatformRow
@@ -114,35 +124,65 @@ function FilaPlataforma({ fila, last, puedeEditar, onEditar }: {
   onEditar: () => void
 }) {
   return (
-    <StRow
-      label={fila.label}
-      /* El estado de la URL es LA información de esta pantalla, así que va en la segunda línea y
-         no escondido en el diálogo. "Sin cargar" se dice con todas las letras: un renglón vacío se
-         leería como un problema de la pantalla y no como una tarea pendiente. */
-      sub={fila.url ?? (fila.is_active ? 'Sin cargar: el link no se autocompleta' : 'Retirada')}
-      last={last}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', background: fila.color, flex: '0 0 auto' }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', borderBottom: last ? 'none' : '1px solid var(--spira-line)' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* El punto va PEGADO AL NOMBRE y no del lado de las acciones. Es el color con el que la
+            plataforma aparece en los reportes —identidad—, pero a la derecha, al lado de «Sin cargar»,
+            se leía como un semáforo: Roche en rojo y LabCorp en verde parecían estar mal y bien, cuando
+            las dos estaban igual de vacías. Y como el ícono del link aparece sólo en algunas filas, los
+            puntos además quedaban desalineados entre sí.
+            `height: 23` es el alto de la píldora. Sin fijarlo, el renglón medía 17 sin píldora y 23 con
+            ella, y las filas retiradas quedaban 6px más altas que sus vecinas: la lista se veía
+            despareja justo donde hay un estado que marcar. Con el alto fijo todas las filas miden lo
+            mismo, y el subtítulo pierde su `marginTop` porque el aire ya lo pone el renglón. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, height: 23 }}>
+          <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', background: fila.color, flex: '0 0 auto' }} />
+          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--spira-ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {fila.label}
+          </span>
+          {/* Antes "Retirada" vivía en la segunda línea y SÓLO si no había link: una plataforma
+              retirada con su dirección cargada se veía idéntica a una activa. Es un estado, así que
+              va como píldora al lado del nombre, se tenga link o no. */}
+          {!fila.is_active && <StPill>Retirada</StPill>}
+        </div>
+        {/* El estado de la URL es LA información de esta pantalla, así que va en la segunda línea y
+            no escondido en el diálogo. "Sin cargar" se dice con todas las letras: un renglón vacío se
+            leería como un problema de la pantalla y no como una tarea pendiente.
+            Una URL real de portal trae un `goto=` de trescientos caracteres: sin recorte partía la
+            línea en el `?` y lo que seguía se salía de la card. Va en un renglón con puntos
+            suspensivos y la dirección completa en el `title`. La sangría alinea el texto con el
+            nombre, no con el punto. */}
+        <div
+          title={fila.url ?? undefined}
+          style={{ fontSize: 12.5, color: 'var(--spira-muted)', paddingLeft: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
+          {fila.url ?? 'Sin cargar: el link no se autocompleta'}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
         {fila.url && (
           /* Se abre en pestaña nueva: Ajustes es un modal con cambios sin guardar posibles, y
              navegar en la misma pestaña los tiraría. `noopener` porque es un destino externo que
-             carga el usuario — sin él, el portal recibe una referencia a esta ventana. */
+             carga el usuario — sin él, el portal recibe una referencia a esta ventana.
+             Cuadrado de 34 con el mismo contorno que «Editar» (`btnIcono`): suelto, el ícono se leía
+             como adorno del renglón y no como un segundo botón. */
           <a
             href={fila.url}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: 8, color: 'var(--spira-muted)' }}
+            style={{ ...btnIcono, textDecoration: 'none' }}
+            aria-label={`Abrir ${fila.label} en una pestaña nueva`}
             title="Abrir el portal en una pestaña nueva"
           >
             <Icon name="externalLink" size={15} color="var(--spira-muted)" />
           </a>
         )}
         {puedeEditar && (
-          <button type="button" style={btnGhost} onClick={onEditar}>Editar</button>
+          <button type="button" style={btnGhost} onClick={onEditar} aria-label={`Editar ${fila.label}`}>Editar</button>
         )}
       </div>
-    </StRow>
+    </div>
   )
 }
 
@@ -277,15 +317,14 @@ function CrearDialog({ clavesUsadas, onCerrar, onGuardado }: {
   )
 }
 
-/* —— estilos —— */
-const lbl: CSSProperties = {
-  display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)', marginBottom: 6,
-}
-const input: CSSProperties = {
-  width: '100%', height: 40, padding: '0 12px', boxSizing: 'border-box',
-  background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', borderRadius: 9,
-  color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14, outline: 'none',
-}
+/* —— estilos ——
+   Los campos son los de la casa (`fieldInput` y `fieldLabelStyle`, los mismos de «Crear una cuenta»
+   en Equipo y accesos). Acá había una copia local —alto 40, fondo `surface`, borde `line`, label en
+   tinta— que hacía que los dos diálogos de Ajustes con formulario se vieran de dos familias
+   distintas. Y llevaba `outline: 'none'` inline, que no hacía nada: el foco de los inputs ya es la
+   elevación global de `tokens.css`. */
+const lbl: CSSProperties = { ...fieldLabelStyle, display: 'block', marginBottom: 6 }
+const input = fieldInput
 const nota: CSSProperties = { fontSize: 12, color: 'var(--spira-muted)', marginTop: 6, lineHeight: 1.45 }
 const errorTexto: CSSProperties = {
   fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)',
