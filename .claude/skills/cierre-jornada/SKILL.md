@@ -14,7 +14,11 @@ modo completo sin re-preguntar los pasos.
 1. `git fetch` + `git branch --show-current` + `git status` — el Director commitea y
    mergea en paralelo; el árbol suele tener cambios/borrados ajenos a tu sesión.
 2. Stagear **por ruta** (`git add <archivos>`), nunca `git add -A` ni `.`.
-3. Commits en `main` los bloquea el hook de guardia. Si el Director autorizó commitear
+3. **¿Otra sesión ya está cerrando?** `git worktree list` (una rama `docs/cierre-*` checkeada en un
+   worktree aparece con `+` en `git branch`) y `git ls-remote --tags origin vX.Y.Z`. El 2026-09-14 dos
+   sesiones cerraron la misma noche y una ya había pusheado el tag: en ese caso **no hay release**, se
+   anexa la narrativa propia a la bitácora y al handoff que ya existen.
+4. Commits en `main` los bloquea el hook de guardia. Si el Director autorizó commitear
    en main (release, bitácora), anteponé `SPIRA_ALLOW_MAIN=1` al comando.
 
 ## Modo cierre (siempre)
