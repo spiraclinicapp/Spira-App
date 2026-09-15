@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
+import { EstadoPaciente } from '../../components/EstadoPaciente'
 import { PatientLink } from '../../components/PatientLink'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
@@ -90,7 +91,14 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen, on
                 DESTINO, y donde el destino es único no hay nada que anunciar. En Visitas o
                 Alertas sí va, porque ahí la fila abre la VISITA y el nombre abre otra cosa. */}
             <div className="spira-link-group" style={{ minWidth: 0 }}>
+              {/* El estado del paciente, antes de entrar: un punto delante del nombre (lleno = activo,
+                  anillo = inactivo). Va ADENTRO del renglón que corta con puntos suspensivos y no
+                  como hermano en un flex, para que un nombre largo siga cortando con "…" — ver el
+                  comentario de `EstadoPaciente`, que explica también por qué acá es punto y no
+                  palabra. Con "Todos" en el filtro, es la única forma de distinguir de un vistazo a
+                  quién ya no le toca nada. */}
               <div style={{ maxWidth: '100%', fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <EstadoPaciente estado={patient.status} forma="punto" />
                 <PatientLink onOpen={() => onOpen(patient.id)} label={`Abrir la ficha de ${patient.full_name}`}>
                   {patient.full_name}
                 </PatientLink>

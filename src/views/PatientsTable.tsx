@@ -3,8 +3,9 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
+import { EstadoPaciente } from '../components/EstadoPaciente'
 import { PatientLink } from '../components/PatientLink'
-import type { PatientProtocol, PatientRow, PatientStatus } from '../data/patients'
+import type { PatientProtocol, PatientRow } from '../data/patients'
 
 /* Grilla compartida entre encabezado y filas: código · nombre · estado · protocolos · nacimiento. */
 const COLS = '150px minmax(0, 1fr) 110px minmax(0, 1.3fr) 120px'
@@ -16,13 +17,6 @@ const searchInput: CSSProperties = {
   color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14,
 }
 
-/* Estado → token de color (theme-aware vía CSS var). 'activo' resalta, 'inactivo' apaga. */
-function statusVar(status: PatientStatus): string {
-  return status === 'activo' ? 'var(--spira-good)' : 'var(--spira-muted)'
-}
-function statusLabel(status: PatientStatus): string {
-  return status === 'activo' ? 'Activo' : 'Inactivo'
-}
 /* Formateo AR sin Date(): evita el corrimiento de día por timezone al parsear el ISO. */
 function formatBirthDate(value: string | null): string {
   if (!value) return '—'
@@ -178,10 +172,10 @@ function PatientRowItem({ patient, accent, accentSolid, last, onOpenPatient }: {
           </PatientLink>
         </span>
       </span>
+      {/* La misma píldora que la ficha (`EstadoPaciente`). La que había escribía el texto en
+          `--spira-good` sobre su propio tinte: 3,58:1, debajo de AA. */}
       <span role="cell">
-        <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 'var(--spira-radius-pill)', fontSize: 12, fontWeight: 600, color: statusVar(patient.status), background: `color-mix(in srgb, ${statusVar(patient.status)} 15%, transparent)` }}>
-          {statusLabel(patient.status)}
-        </span>
+        <EstadoPaciente estado={patient.status} forma="pildora" />
       </span>
       <span role="cell" style={{ display: 'flex', gap: 6, alignItems: 'center', overflow: 'hidden' }}>
         {protocols.length === 0 ? (

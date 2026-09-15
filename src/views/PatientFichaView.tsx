@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
+import { EstadoPaciente } from '../components/EstadoPaciente'
 import { Modal } from '../components/Modal'
 import type { ProtocolRow } from '../data/protocols'
 import type { PatientRow } from '../data/patients'
@@ -111,11 +112,6 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   const enrollmentDate = enrollment?.enrollment_date ?? null
   const age = ageFromBirth(patient.birth_date)
 
-  /* El badge del header refleja el estado del PACIENTE (activo/inactivo). El estado de la VISITA
-     vive en el cronograma (centro), no en el header al lado del IVRS. */
-  const statusColor = patient.status === 'activo' ? 'var(--spira-good)' : 'var(--spira-muted)'
-  const statusLabel = patient.status === 'activo' ? 'Activo' : 'Inactivo'
-
   const alerts = (alertsQ.data ?? []).filter((a) => a.patient_id === patient.id)
   const alertColor = alerts.some((a) => a.computed_status === 'ventana_vencida')
     ? VISIT_STATES.ventana_vencida.color
@@ -211,11 +207,15 @@ export function PatientFichaView(props: PatientFichaViewProps) {
               las dos líneas en vez de dejar una palabra sola colgando. */}
           <div>
             <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.2, textWrap: 'balance' }}>{patient.full_name}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 5 }}>
+            {/* El estado es del PACIENTE (activo/inactivo); el de la VISITA vive en el cronograma.
+                Va en `EstadoPaciente`, el mismo punto que se ve en el listado del protocolo antes de
+                entrar. Antes era un badge armado a mano con `statusColor + '14'` sobre un
+                `var(--…)`: CSS inválido, así que fondo y borde no se dibujaban y la palabra quedaba
+                suelta con el padding de una caja invisible —13px corrida del borde derecho, sin
+                alinear con la columna de valores de abajo—. La píldora termina al ras de esa columna. */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 6 }}>
               <span className="spira-mono" style={{ fontSize: 13.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>{patient.code ?? 'Sin IVRS'}</span>
-              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 13px', borderRadius: 10, background: statusColor + '14', border: `1px solid ${statusColor}38`, color: statusColor, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, flex: '0 0 auto' }} />{statusLabel}
-              </span>
+              <EstadoPaciente estado={patient.status} forma="pildora" />
             </div>
           </div>
 
