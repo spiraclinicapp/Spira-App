@@ -60,7 +60,7 @@ export function VisitHeader({
   const code = visitCode(visit)
   const datos = datosDelPaciente(visit)
 
-  // Desvío y fuera de ventana: las dos pastillas van al lado de la ETIQUETA "Fecha real", no del
+  // Desvío y fuera de ventana: las dos pastillas van al lado de la ETIQUETA "Fecha realizada", no del
   // valor, para no ensanchar el campo (handoff §6). El desvío solo existe con las dos fechas.
   const d = desvioDias(visit.estimated_date, visit.real_date)
   const fuera = fueraDeVentana(visit.real_date, visit.window_start, visit.window_end)
@@ -153,20 +153,17 @@ export function VisitHeader({
             fechas distintas y el encabezado sólo distinguía dos: lo que manda el protocolo · para
             cuándo la citamos · cuándo vino. El primero es de referencia y no se toca; los otros dos
             comparten campo porque nunca conviven — hasta que se atiende lo que gobierna es la
-            citación, y desde que se atiende, la fecha real. */}
+            citación, y desde que se atiende, la fecha real.
+
+            LOS NOMBRES DE PANTALLA (Director, 2026-09-14): "Fecha estimada" (la del protocolo),
+            "Fecha programada" (la citación) y "Fecha realizada". Ojo que "estimada" en pantalla NO es
+            la columna `estimated_date`: ésa es la PROGRAMADA. Los nombres de la base no se tocaron.
+
+            Y EL ORDEN SE INVIRTIÓ el mismo día: arriba, como principal, la fecha con la que se
+            trabaja —realizada o programada, la editable—; abajo, de referencia, la estimada. Antes
+            la referencia encabezaba y el dato vivo quedaba segundo. */}
         <div className="spira-visit-dates" style={{ ...col, paddingLeft: 24 }}>
-          <VisitDateInline
-            label="Según protocolo"
-            value={protocolo}
-            /* Nunca editable, y no por falta de permiso: es una CUENTA (randomización + offset del
-               cronograma), no un dato guardado. Lo que se edita es el cronograma. */
-            editable={false}
-            tone="soft"
-            title={protocolo
-              ? 'La fecha que manda el cronograma del estudio'
-              : 'El protocolo no fija fecha para esta visita (visita suelta o de agenda libre)'}
-          />
-          <div style={{ marginTop: 8 }}>
+          <div>
             <VisitDateInline
               /* EL MISMO CAMPO CON DOS NOMBRES. Mientras no hay atención muestra para cuándo la
                  citamos; en cuanto se marca el inicio, pasa a ser la fecha real. No conviven: la
@@ -174,7 +171,7 @@ export function VisitHeader({
                  cuándo vino. Se editan campos distintos según el estado, y ésa es la clave —
                  el `onSave` de abajo va a `estimated_date` o a `real_date` según qué se esté
                  mostrando; escribir el otro sería corregir una fecha que la pantalla no muestra. */
-              label={atendida ? 'Fecha real' : 'Citado'}
+              label={atendida ? 'Fecha realizada' : 'Fecha programada'}
               value={atendida ? visit.real_date : visit.estimated_date}
               editable={!readOnly}
               /* La hora del sello (0102) va al lado de la fecha, atenuada: es cuándo se apretó
@@ -185,7 +182,7 @@ export function VisitHeader({
               /* Atendida, la citación deja de estar en pantalla — es la contra de fundir los dos
                  campos en uno. Vive acá para no perderse: es el dato que EXPLICA un desvío ("vino
                  el día que lo citamos; lo corrido era la cita"). */
-              title={atendida && visit.estimated_date ? `Citado para el ${formatAR(visit.estimated_date)}` : undefined}
+              title={atendida && visit.estimated_date ? `Programada para el ${formatAR(visit.estimated_date)}` : undefined}
               badge={
                 <>
                   {d != null && d !== 0 && <span style={dev}>{d > 0 ? '+' : '−'}{Math.abs(d)} d</span>}
@@ -212,6 +209,19 @@ export function VisitHeader({
                 onSaved()
                 return null
               }}
+            />
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <VisitDateInline
+              label="Fecha estimada"
+              value={protocolo}
+              /* Nunca editable, y no por falta de permiso: es una CUENTA (randomización + offset del
+                 cronograma), no un dato guardado. Lo que se edita es el cronograma. */
+              editable={false}
+              tone="soft"
+              title={protocolo
+                ? 'La fecha que manda el cronograma del estudio'
+                : 'El protocolo no fija fecha para esta visita (visita suelta o de agenda libre)'}
             />
           </div>
         </div>

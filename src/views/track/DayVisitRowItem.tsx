@@ -212,7 +212,7 @@ function DoctorButton({ visit, accent, canClinical, busy, onOpenDoctor }: {
 
 /**
  * CTA de avanzar etapa. Ancho fijo (150), relleno de marca, siempre a la derecha. 'fin_atencion'
- * muestra el estado terminal "Finalizada"; sin paso o sin permiso deja un hueco del mismo ancho
+ * muestra el estado terminal "Realizada"; sin paso o sin permiso deja un hueco del mismo ancho
  * (conserva la alineación de la columna derecha en las demás filas). El desenlace de
  * screening/randomización lo resuelve el padre en `onAdvance` (abre el cierre clínico).
  */
@@ -226,7 +226,9 @@ function AdvanceCTA({ stage, accent, canAdvance, busy, onAdvance }: {
   if (stage === 'fin_atencion') {
     return (
       <div style={{ width: 150, height: 40, borderRadius: 10, background: '#5C8A5A22', color: 'var(--spira-acc-deep-good)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, flex: '0 0 auto' }}>
-        <Icon name="check" size={15} color="var(--spira-good)" /> Finalizada
+        {/* Trazo 2.4 y no el 1.8 por defecto: al lado de un texto semibold, el check fino se leía
+            desteñido (Director, 2026-09-14). Es el mismo trazo que el "Realizada" del modal. */}
+        <Icon name="check" size={15} color="var(--spira-good)" stroke={2.4} /> Realizada
       </div>
     )
   }

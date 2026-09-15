@@ -133,7 +133,7 @@ export function ContadoresDia({
       <span>{conteo.total} {conteo.total === 1 ? 'visita' : 'visitas'}</span>
       {conteo.porLlegar > 0 && <>{sep}<span style={{ color: 'var(--spira-acc-deep-warn)', fontWeight: 600 }}>{conteo.porLlegar} por llegar</span></>}
       {conteo.enCentro > 0 && <>{sep}<span style={{ color: accent, fontWeight: 600 }}>{conteo.enCentro} en el centro</span></>}
-      {conteo.finalizadas > 0 && <>{sep}<span style={{ color: 'var(--spira-muted)', fontWeight: 600 }}>{conteo.finalizadas} finalizadas</span></>}
+      {conteo.finalizadas > 0 && <>{sep}<span style={{ color: 'var(--spira-muted)', fontWeight: 600 }}>{conteo.finalizadas} realizadas</span></>}
     </span>
   )
 }

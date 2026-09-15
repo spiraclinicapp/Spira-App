@@ -125,8 +125,11 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
                         pregunta qué tiene de malo esa fecha. */}
                     {fuera && <span role="img" aria-label="Fuera de ventana" title={`Fuera de ventana. ${GLOSARIO.ventana}`} style={{ display: 'inline-flex' }}><Icon name="alert" size={12} color="var(--spira-danger)" /></span>}
                   </span>
-                  <span style={{ display: 'block', fontSize: 10.5, color: 'var(--spira-muted)' }}>
-                    est {v.estimated_date ? formatShortAR(v.estimated_date) : '—'}{desv != null ? ` · ${desv > 0 ? '+' : ''}${desv} d` : ''}
+                  {/* "prog" y no "est" (2026-09-14): `estimated_date` es la fecha PROGRAMADA, y desde que
+                      el encabezado de la visita llama "Fecha estimada" a la del protocolo, "est" acá
+                      nombraba otra fecha que la que muestra. */}
+                  <span title={v.estimated_date ? `Programada para el ${formatShortAR(v.estimated_date)}` : undefined} style={{ display: 'block', fontSize: 10.5, color: 'var(--spira-muted)' }}>
+                    prog {v.estimated_date ? formatShortAR(v.estimated_date) : '—'}{desv != null ? ` · ${desv > 0 ? '+' : ''}${desv} d` : ''}
                   </span>
                 </>
               ) : (

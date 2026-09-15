@@ -340,7 +340,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
         <span>{conteo.total} {conteo.total === 1 ? 'visita' : 'visitas'}</span>
         {conteo.porLlegar > 0 && (<><span style={{ color: 'var(--spira-muted)' }}>·</span><span style={{ color: 'var(--spira-warn)', fontWeight: 600 }}>{conteo.porLlegar} por llegar</span></>)}
         {conteo.enCentro > 0 && (<><span style={{ color: 'var(--spira-muted)' }}>·</span><span style={{ color: accent, fontWeight: 600 }}>{conteo.enCentro} en el centro</span></>)}
-        {conteo.finalizadas > 0 && (<><span style={{ color: 'var(--spira-muted)' }}>·</span><span style={{ color: 'var(--spira-muted)', fontWeight: 600 }}>{conteo.finalizadas} finalizadas</span></>)}
+        {conteo.finalizadas > 0 && (<><span style={{ color: 'var(--spira-muted)' }}>·</span><span style={{ color: 'var(--spira-muted)', fontWeight: 600 }}>{conteo.finalizadas} realizadas</span></>)}
         {/* "Limpiar" vive acá y no en la barra de abajo: ver `ClearFilters`. Al lado de los
             contadores, que son justo lo que el filtro cambió. Sin separador "·": no es un número
             más de la cuenta sino la manera de deshacerla. El envoltorio es `flex` y no un span

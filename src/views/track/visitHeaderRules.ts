@@ -35,7 +35,8 @@ export function estaConcretada(visit: Pick<DayVisitRow, 'operational_stage'>): b
 /**
  * ¿El segundo campo de fechas está mostrando la fecha REAL? Si no, está mostrando la citación.
  *
- * Gobierna las TRES cosas del campo a la vez —el rótulo ("Fecha real" o "Citado"), el valor que
+ * Gobierna las TRES cosas del campo a la vez —el rótulo ("Fecha realizada" o "Fecha programada";
+ * hasta el 2026-09-14, "Fecha real" o "Citado"), el valor que
  * pinta y la columna que escribe al guardar—, y que sea UN solo predicado es el punto: si el
  * rótulo se decidiera por un lado y el destino del guardado por otro, el campo podría decir
  * "Citado" y escribir en `real_date`.
