@@ -506,6 +506,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
             value={ambito}
             onChange={setAmbito}
             label="Qué protocolos mostrar"
+            size="barra"
           />
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>

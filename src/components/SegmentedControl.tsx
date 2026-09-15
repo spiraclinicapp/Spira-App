@@ -9,9 +9,16 @@ interface Props<T extends string> {
    *  "grupo" y nada más). Opcional para no romper un consumidor que ya traiga su propio rótulo
    *  visible al lado. */
   label?: string
+  /** `'barra'`: 38px y 13,5px de letra, la medida de los botones de una barra de herramientas (Estado,
+   *  Ver pacientes). Suelto, el control mide 44px; metido en una barra al lado de botones de 38px
+   *  quedaba más alto que sus vecinos, y botones equivalentes tienen que medir lo mismo. */
+  size?: 'normal' | 'barra'
 }
 
-export function SegmentedControl<T extends string>({ options, value, onChange, label }: Props<T>) {
+export function SegmentedControl<T extends string>({ options, value, onChange, label, size = 'normal' }: Props<T>) {
+  const medida: CSSProperties = size === 'barra'
+    ? { height: 38, padding: '0 15px', fontSize: 13.5 }
+    : { minHeight: 44, padding: '10px 16px', fontSize: 14 }
   return (
     <div role="radiogroup" aria-label={label} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
       {options.map((o) => {
@@ -45,13 +52,13 @@ export function SegmentedControl<T extends string>({ options, value, onChange, l
                (gotcha de la casa: React vacía los longhand en el render siguiente y el borde se
                rompe). */
             style={{
-              minHeight: 44, padding: '10px 16px', borderRadius: 'var(--spira-radius-md)',
+              ...medida, borderRadius: 'var(--spira-radius-md)',
               borderWidth: 1, borderStyle: 'solid',
               borderColor: selected ? 'transparent' : 'var(--spira-line-2)',
               background: selected ? 'var(--spira-white)' : 'transparent',
               boxShadow: selected ? 'var(--spira-shadow-md)' : 'none',
               color: o.disabled ? 'var(--spira-faint)' : selected ? 'var(--spira-ink)' : 'var(--spira-muted)',
-              fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 14,
+              fontFamily: 'var(--spira-font-text)', fontWeight: 600,
               cursor: o.disabled ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 8,
             }}
           >
