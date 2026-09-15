@@ -256,12 +256,15 @@ export function PatientFichaView(props: PatientFichaViewProps) {
 
           {/* acciones de la ficha: editar paciente + alertas (en botón con contador) */}
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Realce en `.spira-card-link`, no en `onMouseEnter`: la misma corrección que su gemelo
+                «Editar medicación» (`PatientMedicationsCard`), que en Farmacia está justo arriba y
+                tiene que reaccionar igual. En reposo sólo se pisa `borderColor` (longhand) para
+                conservar el `line-2`; sin `transition` inline, que le ganaría a la de la clase. */}
             {canWrite && (
               <button
+                className="spira-card-link"
                 onClick={() => setModal('edit')}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.background = 'var(--spira-white)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--spira-line-2)'; e.currentTarget.style.background = 'var(--spira-surface)' }}
-                style={{ width: '100%', height: 40, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-surface)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)', display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px', transition: 'border-color .14s, background .14s' }}
+                style={{ width: '100%', height: 40, borderRadius: 10, borderColor: 'var(--spira-line-2)', background: 'var(--spira-surface)', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)', display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px' }}
               >
                 <Icon name="pencil" size={16} color={accent} />
                 <span style={{ flex: 1, textAlign: 'left' }}>Editar paciente</span>

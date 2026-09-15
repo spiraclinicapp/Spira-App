@@ -126,12 +126,19 @@ export function PatientMedicationsCard({
           </div>
         )}
 
+        {/* El realce va en `.spira-card-link` y no en `onMouseEnter`: antes los handlers le pintaban
+            el borde con el acento (la regla de la casa es elevación, nunca borde de color) y lo
+            escribían a mano sobre un `border` abreviado inline, que es la trampa que deja el botón
+            sin borde en el render siguiente. La clase trae el borde ABREVIADO, el cursor, la
+            `--spira-shadow-hover` y la transición sincronizada con el levante global; acá sólo se
+            pisa `borderColor` —un longhand, así que no choca— para que en reposo siga en `line-2`
+            como antes. Y no lleva `transition` inline: le ganaría a la de la clase y la sombra
+            entraría de golpe. */}
         {canManage && (
           <button
+            className="spira-card-link"
             onClick={() => setEditing(true)}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.background = 'var(--spira-white)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--spira-line-2)'; e.currentTarget.style.background = 'var(--spira-surface)' }}
-            style={{ width: '100%', height: 40, marginTop: 12, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-surface)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)', display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px', transition: 'border-color .14s, background .14s' }}
+            style={{ width: '100%', height: 40, marginTop: 12, borderRadius: 10, borderColor: 'var(--spira-line-2)', background: 'var(--spira-surface)', fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)', display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px' }}
           >
             <Icon name="pencil" size={16} color={accent} />
             <span style={{ flex: 1, textAlign: 'left' }}>Editar medicación</span>
