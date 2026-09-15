@@ -265,24 +265,33 @@ export function dotVisual(v: TrackVisitRow): DotVisual {
 export type VisitStateLabel =
   | 'Agendada' | 'Por llegar' | 'Concurrió al centro'
   | 'Inicio de atención' | 'Fin de atención'
-  | 'Visita realizada' | 'Completa'
+  | 'Visita realizada' | 'Completa' | 'Sin cerrar'
 
 /**
  * Etiqueta del estado de la visita según el recorrido operativo (lo que pasa en "Visitas del
  * día") + el checklist. `today` (ISO) distingue Agendada (futura) de Por llegar (hoy, sin llegar).
  * Los strings replican a mano los de `OPERATIONAL_STAGES` y `VISIT_STATES`
  * (views/visitStates.tsx). No se importan por una cuestión de CAPAS: `lib/` no depende de
- * `views/`. Si cambian allá, cambian acá.
+ * `views/`. Si cambian allá, cambian acá. "Sin cerrar" es la excepción: no existe en ninguno de los
+ * dos, porque no es una etapa ni un estado de la base sino la combinación de ambos (ver abajo).
  */
 export function visitStateLabel(v: TrackVisitRow, today: string): VisitStateLabel {
   // El recorrido operativo describe EL DÍA de la visita: fuera de ese día, envejece mal. Una visita
   // pasada que quedó a mitad de camino —se atendió y nunca se marcó el cierre, que con el flujo
   // viejo era lo habitual porque cerrar pedía dos marcas más— se rotularía "Inicio de atención",
   // que se lee como que la atención está empezando AHORA sobre algo de hace semanas, y encima
-  // contradice al chip clínico de la misma pantalla. Para lo pasado manda el eje clínico, que es el
-  // que envejece bien. Esto cubre también la carga histórica (real_date sin ninguna marca).
-  // Una visita atendida HOY conserva su etapa operativa, que es cuando esa información sirve.
+  // contradice al chip clínico de la misma pantalla. Una visita atendida HOY conserva su etapa
+  // operativa, que es cuando esa información sirve.
+  //
+  // PERO "PASADA Y SIN CERRAR" NO ES "COMPLETA" (Director, 2026-09-14). Hasta ese día, para lo pasado
+  // mandaba sólo el eje clínico, y una visita sin nada pendiente decía "Completa" aunque nadie le
+  // hubiera marcado el fin de atención: al lado, la pelotita (`dotVisual`, que mira `ready_at`) decía
+  // "en curso" y el modal "sigue fin de atención". Tres lecturas del mismo dato, una contradiciendo a
+  // las otras dos. Ahora se dice lo que pasó —se atendió y no se cerró— con un rótulo que no suena a
+  // "está empezando ahora". Alcanza también a la carga histórica (real_date sin ninguna marca): el
+  // Director lo eligió sabiéndolo, porque es igual de cierto para esas visitas.
   if (v.real_date !== null && v.real_date < today) {
+    if (v.ready_at === null) return 'Sin cerrar'
     return v.computed_status === 'completa' ? 'Completa' : 'Visita realizada'
   }
   // "Completa" solo cuando la visita está CERRADA (terminó la atención + sin checklist pendiente);

@@ -106,6 +106,15 @@ export function VisitDetail({
   const puedeClinica = canClinical ?? (visit ? perms.canClinical(visit) : false)
   const canAdvance = role === 'reception' ? puedeOperar : role === 'clinical' ? puedeClinica : false
 
+  /* CERRAR REFRESCA A LA PANTALLA DE ATRÁS. `onChanged` se llama en vivo desde las acciones que
+     pasan por este archivo (avanzar, encabezado, médico), pero NO desde las que viven en los paneles:
+     tildar un procedimiento o marcar un reporte (`VisitProcedures`) cambia el `computed_status` —el
+     chip pasa de "Visita realizada" a "Completa"— y nadie se enteraba, en ninguna de las siete
+     pantallas que abren el modal: la fila seguía vieja hasta recargar. Enhebrar un aviso por cada
+     panel es frágil (el próximo panel se olvida); al cerrar, en cambio, pasa todo lo que pudo
+     cambiar. El refetch de `useSupabaseQuery` mantiene las filas visibles, así que no parpadea. */
+  const cerrar = () => { onChanged?.(); onClose() }
+
   // Esc cierra; ↑↓/j k navegan (solo si hay lista y el foco no está en un campo de texto).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -118,7 +127,7 @@ export function VisitDetail({
       // El guard por target vale TAMBIÉN para Escape, y no solo para las flechas: con el encabezado
       // nuevo hay campos de fecha y de médico que se editan en línea, y ahí Escape significa
       // "descartar la edición", no "cerrar la visita". Antes cerraba el modal y se perdía lo tipeado.
-      if (e.key === 'Escape') { if (!enCampo && !e.defaultPrevented) onClose(); return }
+      if (e.key === 'Escape') { if (!enCampo && !e.defaultPrevented) { onChanged?.(); onClose() } return }
       if (!canNav) return
       // Si un control interno ya consumió la tecla (un desplegable abierto —ej. el select de
       // coordinador con pocas opciones— hace preventDefault en las flechas), no la robamos: React
@@ -130,7 +139,7 @@ export function VisitDetail({
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose, onPrev, onNext, canNav, doctorOpen])
+  }, [onClose, onChanged, onPrev, onNext, canNav, doctorOpen])
 
   const refrescar = () => { onChanged?.(); q.refetch() }
 
@@ -191,7 +200,7 @@ export function VisitDetail({
 
   return (
     <>
-    <div style={backdrop} onMouseDown={onClose} role="presentation">
+    <div style={backdrop} onMouseDown={cerrar} role="presentation">
       <div
         style={card}
         role="dialog"
@@ -213,7 +222,7 @@ export function VisitDetail({
               pos={pos}
               onPrev={onPrev}
               onNext={onNext}
-              onClose={onClose}
+              onClose={cerrar}
               onSaved={refrescar}
               onError={setErr}
               onOpenPatient={onOpenPatient ? () => { onClose(); onOpenPatient(visit.patient_id, visit.protocol_id) } : undefined}

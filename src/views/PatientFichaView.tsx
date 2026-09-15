@@ -186,6 +186,10 @@ export function PatientFichaView(props: PatientFichaViewProps) {
           visitId={openVisitId}
           accent={accent}
           onClose={() => setOpenVisitId(null)}
+          /* Era la única de las siete pantallas que abren este modal sin `onChanged`: avanzar una
+             etapa o editar el encabezado desde acá no refrescaba el cronograma, el resumen de arriba
+             ni el botón de alertas, y la ficha quedaba mostrando la visita como estaba antes. */
+          onChanged={() => { visitsQ.refetch(); alertsQ.refetch() }}
         />
       )}
 
