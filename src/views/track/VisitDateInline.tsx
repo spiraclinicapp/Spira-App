@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
-import { formatAR, parseARInput } from '../../lib/dates'
+import { CalendarioPopover } from '../../components/CalendarioPopover'
+import { usePopover } from '../../components/usePopover'
+import { enmascararFecha, formatAR, parseARInput, yearsFromTodayISO } from '../../lib/dates'
 
 /**
  * Campo de fecha del encabezado de la visita (handoff §6): 32px, cifras tabulares, ícono de agenda
@@ -14,6 +16,12 @@ import { formatAR, parseARInput } from '../../lib/dates'
  * compacto por prop pondría en riesgo los nueve formularios donde ya vive, para servir a un solo
  * caso. Lo que SÍ se reusa es su lógica pura: `parseARInput` y `formatAR` de `lib/dates`, que son
  * las que saben leer "14/8/26" y escribir "14/08/2026" — DRY donde importa, no en la caja.
+ *
+ * Y DESDE EL 2026-09-14 TAMBIÉN AYUDA A ESCRIBIRLA (pedido del Director, que tipeaba "12 8" y sólo
+ * recibía "Fecha inválida"): las barras se ponen solas (`enmascararFecha`) y hay un calendario
+ * desplegable adentro de la caja, el mismo `CalendarioPopover` del `DateField`. Elegir un día en el
+ * calendario COMPLETA el texto pero NO guarda: la confirmación sigue siendo el ✓ o Enter, por lo
+ * mismo de arriba — un clic en el día equivocado no puede mover el desvío de protocolo.
  *
  * Sin permiso de edición (`editable=false`) se dibuja el MISMO texto al MISMO tamaño, sin borde y
  * sin ícono: ningún salto de layout entre poder y no poder editar (checklist de QA del handoff).
@@ -56,7 +64,10 @@ export function VisitDateInline({
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [calendario, setCalendario] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  // El calendario se ancla a la CAJA de edición (no al botón de 24px): así abre alineado con el campo.
+  const { triggerRef, popRef, pos } = usePopover<HTMLDivElement, HTMLDivElement>(editing && calendario, () => setCalendario(false))
 
   // Si el valor cambia desde afuera (navegar con ↑↓ a otra visita), se sale de edición: seguir
   // editando el texto de la visita anterior sobre la fila nueva es la peor de las confusiones.
@@ -67,9 +78,22 @@ export function VisitDateInline({
     if (!editable || busy) return
     setText(value ? formatAR(value) : '')
     setErr(null)
+    setCalendario(false)
     setEditing(true)
   }
   const descartar = () => { setEditing(false); setErr(null) }
+  /* El día elegido se ESCRIBE en el campo y el foco vuelve al input, con el texto seleccionado:
+     Enter o ✓ lo guardan, y tipear encima lo reemplaza. No guarda solo (ver el comentario de arriba). */
+  const elegir = (iso: string) => {
+    setCalendario(false)
+    if (!iso) return
+    setText(formatAR(iso))
+    setErr(null)
+    requestAnimationFrame(() => inputRef.current?.select())
+  }
+  /* El texto que se está escribiendo, leído como fecha: el calendario abre en ese mes si ya es una
+     fecha válida, y si no en la del valor guardado. */
+  const enCurso = parseARInput(text.trim()) ?? value ?? ''
   const confirmar = async () => {
     const iso = parseARInput(text.trim())
     if (!iso) { setErr('Fecha inválida. Usá dd/mm/aaaa.'); return }
@@ -82,8 +106,23 @@ export function VisitDateInline({
     setEditing(false)
   }
 
+  /* ESCAPE SE MANEJA EN LA RAÍZ DEL CAMPO, no en el input. `VisitDetail` cierra la visita entera con
+     Escape desde un listener en `document`, y sólo se abstiene cuando el foco está en un INPUT. Con el
+     calendario el foco puede estar en el botón de la agenda o en un día del calendario, y ahí ese
+     guard no alcanza: un Escape se llevaba el modal. En la raíz llegan las teclas de los tres —el
+     calendario está portaleado a `body`, pero React burbujea sus eventos por el árbol de componentes—
+     y el `stopPropagation` corta antes de `document`.
+     Una capa por vez: con el calendario abierto cierra el calendario y la edición sigue; recién el
+     segundo Escape descarta. */
+  const onKeyEdicion = (e: ReactKeyboardEvent) => {
+    if (e.key !== 'Escape') return
+    e.stopPropagation(); e.preventDefault()
+    if (calendario) { setCalendario(false); inputRef.current?.focus() }
+    else descartar()
+  }
+
   return (
-    <div>
+    <div onKeyDown={editing ? onKeyEdicion : undefined}>
       <div style={dlb}>
         {label}
         {badge}
@@ -102,7 +141,7 @@ export function VisitDateInline({
         // empuja al resto del encabezado para el costado cada vez que se entra a editar; acá la
         // caja mide siempre lo mismo y no se mueve nada. De paso se leen como parte del campo y
         // no como dos cajitas sueltas.
-        <div style={{ ...bigBase, ...toneStyle(tone), ...focusLift, padding: '0 4px 0 10px', gap: 4 }}>
+        <div ref={triggerRef} style={{ ...bigBase, ...toneStyle(tone), ...focusLift, padding: '0 4px 0 10px', gap: 4 }}>
           <input
             ref={inputRef}
             // `spira-bare-input`: el foco lo señala el RECUADRO (esta caja), no el input pelado de
@@ -110,12 +149,15 @@ export function VisitDateInline({
             // SearchableSelect, ver tokens.css.
             className="spira-bare-input"
             value={text}
-            onChange={(e) => { setText(e.target.value); setErr(null) }}
+            /* Barras automáticas sólo escribiendo al final: en medio de una corrección, reescribir el
+               valor le manda el cursor al final. */
+            onChange={(e) => {
+              const v = e.target.value
+              setText(e.target.selectionStart === v.length ? enmascararFecha(text, v) : v)
+              setErr(null)
+            }}
             onKeyDown={(e) => {
-              // Escape NO puede llegar al listener de `document` de VisitDetail (ahí cierra el
-              // modal entero). Se corta acá además del guard por target que tiene el modal.
-              if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); descartar(); return }
-              if (e.key === 'Enter') { e.preventDefault(); void confirmar() }
+              if (e.key === 'Enter') { e.preventDefault(); setCalendario(false); void confirmar() }
             }}
             placeholder="dd/mm/aaaa"
             inputMode="numeric"
@@ -123,6 +165,17 @@ export function VisitDateInline({
             aria-label={label}
             style={inputStyle}
           />
+          <button
+            type="button"
+            onClick={() => setCalendario((c) => !c)}
+            disabled={busy}
+            title="Elegir en el calendario"
+            aria-label="Elegir en el calendario"
+            aria-expanded={calendario}
+            style={calBtn}
+          >
+            <Icon name="calendar" size={15} color="var(--spira-track)" />
+          </button>
           <button type="button" onClick={() => void confirmar()} disabled={busy} title="Guardar (Enter)" aria-label="Guardar" style={okBtn(busy)}>
             <Icon name="check" size={14} color="var(--spira-on-accent)" stroke={2.4} />
           </button>
@@ -150,6 +203,12 @@ export function VisitDateInline({
           {value && suffix}
           <Icon name="calendar" size={16} color="var(--spira-track)" style={{ marginLeft: 'auto', flex: '0 0 auto' }} />
         </div>
+      )}
+
+      {/* Rango del desplegable de año: 5 años para atrás (hay visitas históricas cargadas) y 3 para
+          adelante. Sólo acota el calendario; tipeada, cualquier fecha real sigue entrando. */}
+      {editing && calendario && pos && (
+        <CalendarioPopover popRef={popRef} pos={pos} value={enCurso} min={yearsFromTodayISO(-5)} max={yearsFromTodayISO(3)} onPick={elegir} />
       )}
 
       {err && <div style={errStyle}>{err}</div>}
@@ -198,6 +257,9 @@ const sqBtn: CSSProperties = {
 const okBtn = (busy: boolean): CSSProperties => ({
   ...sqBtn, border: 'none', background: 'var(--spira-track)', opacity: busy ? 0.6 : 1,
 })
+/* Sin borde ni fondo: es el mismo ícono de agenda que la caja muestra en lectura, ahora pulsable. Con
+   caja propia serían tres botones iguales al lado del texto y el ✓ —la acción— dejaría de destacar. */
+const calBtn: CSSProperties = { ...sqBtn, border: 'none', background: 'transparent' }
 const koBtn: CSSProperties = {
   ...sqBtn, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
   background: 'var(--spira-white)',

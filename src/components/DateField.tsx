@@ -1,17 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { createPortal } from 'react-dom'
-import { DayPicker } from 'react-day-picker'
-import { es } from 'react-day-picker/locale'
-import 'react-day-picker/style.css'
 import './DateField.css'
 import { Icon } from './Icon'
-import { CalendarCaption } from './CalendarCaption'
+import { CalendarioPopover } from './CalendarioPopover'
 import { usePopover } from './usePopover'
-import { isoToDate, dateToISO, parseARInput, formatAR } from '../lib/dates'
+import { enmascararFecha, parseARInput, formatAR } from '../lib/dates'
 
 /* El desplegable de mes/año vivía acá como función local, y por eso `DateRangeField` nació sin él.
-   Ahora es `CalendarCaption`, compartido por los dos calendarios. */
+   Ahora es `CalendarCaption`, compartido por los dos calendarios. Y el popover entero del calendario
+   es `CalendarioPopover` desde el 2026-09-14, compartido con el encabezado de la visita. */
 
 interface Props {
   value: string                 // ISO 'YYYY-MM-DD' | ''
@@ -43,10 +40,6 @@ export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disable
   useEffect(() => { setText(value ? formatAR(value) : '') }, [value])
   useEffect(() => { if (autoFocus) inputRef.current?.focus() }, [autoFocus])
 
-  const selected = value ? isoToDate(value) : undefined
-  const startMonth = min ? isoToDate(min) : undefined
-  const endMonth = max ? isoToDate(max) : undefined
-
   // Al salir del input o Enter: parsear, validar rango, y emitir ISO; si no es válida, revertir.
   const commitText = () => {
     const t = text.trim()
@@ -56,8 +49,8 @@ export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disable
     else setText(value ? formatAR(value) : '')
   }
 
-  const pick = (d: Date | undefined) => {
-    onChange(d ? dateToISO(d) : '')
+  const pick = (iso: string) => {
+    onChange(iso)
     setOpen(false)
     inputRef.current?.focus()
   }
@@ -70,7 +63,12 @@ export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disable
           id={id}
           className="spira-mono spira-date-input spira-bare-input"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          /* Barras automáticas (`enmascararFecha`), sólo cuando se escribe al FINAL: reescribir el
+             valor en medio de una edición le manda el cursor al final a quien corrige un dígito. */
+          onChange={(e) => {
+            const v = e.target.value
+            setText(e.target.selectionStart === v.length ? enmascararFecha(text, v) : v)
+          }}
           onFocus={() => setFocused(true)}
           onBlur={() => { setFocused(false); commitText() }}
           onKeyDown={(e) => {
@@ -87,28 +85,7 @@ export function DateField({ value, onChange, placeholder = 'dd/mm/aaaa', disable
         </button>
       </div>
 
-      {/* PORTALEADO a document.body, como el resto de los popovers. El popover es
-          `position: fixed` con coordenadas de VIEWPORT (usePopover las calcula con
-          getBoundingClientRect), y un ancestro con `backdrop-filter` —el fondo de cualquier
-          modal del repo lleva `blur(2px)`— pasa a ser el bloque contenedor de sus descendientes
-          fixed, igual que un `transform`. Dibujado adentro, el menú aterriza lejos del campo. */}
-      {open && pos && createPortal(
-        <div ref={popRef} style={{ ...popover, top: pos.top, left: pos.left }}>
-          <DayPicker
-            mode="single"
-            locale={es}
-            weekStartsOn={1}
-            captionLayout="dropdown"
-            components={{ Dropdown: CalendarCaption }}
-            startMonth={startMonth}
-            endMonth={endMonth}
-            defaultMonth={selected ?? undefined}
-            selected={selected}
-            onSelect={pick}
-          />
-        </div>,
-        document.body,
-      )}
+      {open && pos && <CalendarioPopover popRef={popRef} pos={pos} value={value} min={min} max={max} onPick={pick} />}
     </div>
   )
 }
@@ -133,8 +110,4 @@ const textInput: CSSProperties = {
 const calBtn: CSSProperties = {
   width: 40, height: 42, flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer',
   display: 'grid', placeItems: 'center', borderRadius: 8,
-}
-const popover: CSSProperties = {
-  position: 'fixed', zIndex: 'var(--spira-z-popover)', background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)',
-  borderRadius: 12, boxShadow: '0 12px 30px rgba(20,48,46,.16)',
 }
