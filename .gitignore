@@ -47,3 +47,6 @@ Thumbs.db
 # Al repo va solo la lógica del generador (parse/mapeo/generar), nunca los datos.
 supabase/scripts/carga-visitas-historicas/out/
 supabase/scripts/carga-visitas-historicas/*.xlsx
+# Ídem la carga de pacientes de la prueba real (2026-09-14): el SQL generado trae nombres y fechas.
+supabase/scripts/pacientes-prueba-real/out/
+supabase/scripts/pacientes-prueba-real/*.xlsx
