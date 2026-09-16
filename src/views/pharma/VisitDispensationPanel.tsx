@@ -274,8 +274,17 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
 
   const requests = reqQ.data ?? []
   /* La visita terminada muestra qué pasó y no invita a cargar. `cerrada` NO reemplaza a `readOnly`,
-     que sigue significando permisos: se combinan. En la ficha de un paciente las dos son ciertas. */
-  const vista = vistaVisitaCerrada({ readyAt: visit.ready_at, pedidos: requests })
+     que sigue significando permisos: se combinan. `readOnly` sale del ROL (`visitPermissions.ts`),
+     no de la pantalla — un operador de Coordinación ve "Corregir entrega" también desde la ficha,
+     y es a propósito: coherente con "leer, con una salida explícita" (Director, 2026-09-15). */
+  const vista = vistaVisitaCerrada({
+    readyAt: visit.ready_at,
+    pedidos: requests,
+    // Tratar el error igual que la carga: sin esto, una consulta que FALLA deja `data` en `null`
+    // para siempre y la tarjeta queda fija diciendo "no se entregó medicación" — dato inventado
+    // presentado como real. `reqQ.error` no se muestra en ningún lado, así que tiene que degradar acá.
+    cargando: reqQ.loading || !!reqQ.error,
+  })
   const cerrada = vista.concomitante.tipo !== 'abierta'
   /** Con la visita cerrada, cargar deja de ser lo normal y pasa a ser una corrección explícita. */
   const [corrigiendo, setCorrigiendo] = useState(false)
@@ -1049,7 +1058,11 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 corrigiendo. La acción va sobria a propósito — sobre una visita terminada se lee, no
                 se carga. Dos rótulos y no uno: donde no hay entrega no hay nada que corregir, y donde
                 la hay «registrar» suena a que todavía no se registró (Director, 2026-09-15). */}
-            {!readOnly && cerrada && !corrigiendo && (
+            {/* `!== 'cargando'` (Hallazgo 1, revisión final 2026-09-15): mientras la primera lectura
+                de pedidos no vuelve, `cerrada` ya da true (dirección segura) pero todavía no se sabe
+                si hubo entrega — ofrecer "Registrar entrega" acá sería la misma afirmación apurada
+                que el texto de abajo, con otras palabras. */}
+            {!readOnly && cerrada && !corrigiendo && vista.concomitante.tipo !== 'cargando' && (
               <button type="button" onClick={() => { setCorrigiendo(true); setSoliciting(true); setErr(null) }} style={btnChico}>
                 {vista.concomitante.tipo === 'entregada' ? 'Corregir entrega' : 'Registrar entrega'}
               </button>
@@ -1155,7 +1168,15 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                       // Sin esto el modo corrección no tiene vuelta atrás: si se abrió por error (o
                       // para mirar) y no quedó nada cargado, hay que volver al botón sobrio en vez de
                       // dejar la tarjeta invitando sola con "Elegir medicación" sobre una visita cerrada.
-                      if (corrigiendo && items.length === 0 && !archivo) setCorrigiendo(false)
+                      if (items.length === 0 && !archivo) {
+                        if (corrigiendo) setCorrigiendo(false)
+                        // `fueraCronograma` es el mismo tipo de estado LOCAL sin enviar que `corrigiendo`
+                        // (Hallazgo 3, revisión final 2026-09-15): sin este reset, "Pedir fuera de
+                        // cronograma" seguido de "Listo" sin cargar nada dejaba la excepción viva para
+                        // siempre y la sección del IP pegada en ámbar diciendo "Sin constancia cargada."
+                        // sobre una visita que nunca llevó IP.
+                        setFueraCronograma(false)
+                      }
                     }}
                     style={{ marginTop: 12, height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13 }}
                   >

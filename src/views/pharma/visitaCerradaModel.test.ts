@@ -21,15 +21,15 @@ const entregado = (items: unknown[], correlativo = 19): PedidoHistorial =>
     }] as PedidoHistorial['dispensations'],
   })
 
-/* `partesDeRenglon` sólo lee `quantity_indicated` y `saldo_de_item_id`, los dos con `?? null`, así
-   que un renglón sin partes da «x1» — que es lo que esperan estos tests. */
+/* `partesDeRenglon` sólo lee `quantity_indicated` (con `?? null`) y `saldo_de_item_id` (con
+   `!= null`), así que un renglón sin partes da «x1» — que es lo que esperan estos tests. */
 const item = (name: string, quantity = 1) => ({
   id: `i-${name}`, quantity, medication: { name }, quantity_indicated: null, saldo_de_item_id: null,
 })
 
 describe('vistaVisitaCerrada', () => {
   it('con la visita abierta no opina: la tarjeta sigue operando como siempre', () => {
-    const v = vistaVisitaCerrada({ readyAt: null, pedidos: [entregado([item('Trelegy')])] })
+    const v = vistaVisitaCerrada({ readyAt: null, pedidos: [entregado([item('Trelegy')])], cargando: false })
     expect(v.concomitante).toEqual({ tipo: 'abierta' })
     expect(v.yaMostrados).toEqual([])
   })
@@ -38,6 +38,7 @@ describe('vistaVisitaCerrada', () => {
     const v = vistaVisitaCerrada({
       readyAt: '2026-08-26T13:00:00+00:00',
       pedidos: [entregado([item('Trelegy Ellipta (92) 92/55/22 mcg')])],
+      cargando: false,
     })
     expect(v.concomitante).toEqual({
       tipo: 'entregada',
@@ -53,7 +54,7 @@ describe('vistaVisitaCerrada', () => {
   })
 
   it('cerrada sin ningún pedido: no se entregó medicación', () => {
-    const v = vistaVisitaCerrada({ readyAt: '2026-08-26T13:00:00+00:00', pedidos: [] })
+    const v = vistaVisitaCerrada({ readyAt: '2026-08-26T13:00:00+00:00', pedidos: [], cargando: false })
     expect(v.concomitante).toEqual({ tipo: 'sin_entrega' })
     expect(v.yaMostrados).toEqual([])
   })
@@ -72,6 +73,7 @@ describe('vistaVisitaCerrada', () => {
           id: 'd1', status: 'lista', delivered_at: null, correlative_number: 20, ip_kits: null,
         }] as PedidoHistorial['dispensations'],
       })],
+      cargando: false,
     })
     expect(v.concomitante).toEqual({ tipo: 'abierta' })
     expect(v.yaMostrados).toEqual([])
@@ -81,6 +83,7 @@ describe('vistaVisitaCerrada', () => {
     const v = vistaVisitaCerrada({
       readyAt: '2026-08-26T13:00:00+00:00',
       pedidos: [pedido({ status: 'solicitada', dispensations: [], items: [item('Frevia')] as PedidoHistorial['items'] })],
+      cargando: false,
     })
     expect(v.concomitante).toEqual({ tipo: 'abierta' })
     expect(v.yaMostrados).toEqual([])
@@ -90,6 +93,7 @@ describe('vistaVisitaCerrada', () => {
     const v = vistaVisitaCerrada({
       readyAt: '2026-08-26T13:00:00+00:00',
       pedidos: [pedido({ status: 'preparando', dispensations: [], items: [item('Frevia')] as PedidoHistorial['items'] })],
+      cargando: false,
     })
     expect(v.concomitante).toEqual({ tipo: 'abierta' })
     expect(v.yaMostrados).toEqual([])
@@ -99,6 +103,7 @@ describe('vistaVisitaCerrada', () => {
     const v = vistaVisitaCerrada({
       readyAt: '2026-08-26T13:00:00+00:00',
       pedidos: [pedido({ status: 'cancelada', items: [item('Frevia')] as PedidoHistorial['items'] })],
+      cargando: false,
     })
     expect(v.concomitante).toEqual({ tipo: 'sin_entrega' })
     expect(v.yaMostrados).toEqual([])
@@ -113,6 +118,7 @@ describe('vistaVisitaCerrada', () => {
         includes_ip: true, items: [],
         dispensations: [{ id: 'd1', status: 'entregada', delivered_at: '2026-08-26T12:30:00+00:00', correlative_number: 19, ip_kits: 2 }] as PedidoHistorial['dispensations'],
       })],
+      cargando: false,
     })
     expect(v.concomitante).toEqual({ tipo: 'sin_entrega' })
     expect(v.yaMostrados).toEqual([])
@@ -124,10 +130,40 @@ describe('vistaVisitaCerrada', () => {
     const v = vistaVisitaCerrada({
       readyAt: '2026-08-26T13:00:00+00:00',
       pedidos: [viejo, entregado([item('Salbutral')], 19)],
+      cargando: false,
     })
     expect(v.concomitante).toMatchObject({ tipo: 'entregada', fecha: '26/08' })
     expect(v.concomitante.tipo === 'entregada' && v.concomitante.renglones.map((r) => r.nombre))
       .toEqual(['Salbutral', 'Frevia'])
     expect([...v.yaMostrados].sort()).toEqual(['r0', 'r1'])
+  })
+
+  /* Hallazgo 1 (revisión final, 2026-09-15): `useSupabaseQuery` arranca en `data: null, loading:
+     true`, y con `readyAt` puesto el modelo no podía distinguir «cero pedidos» de «todavía no leí»
+     — caía en «sin_entrega» y lo decía en pantalla mientras cargaba, y para siempre si la consulta
+     fallaba (`data` se queda en `null` también en el error). Estos casos son el motivo de que
+     `cargando` exista como parámetro aparte de `pedidos`. */
+  describe('cargando: no hay pedidos confiables todavía', () => {
+    it('cerrada y cargando, sin pedidos (el caso real: la primera lectura no volvió): no se afirma nada', () => {
+      const v = vistaVisitaCerrada({ readyAt: '2026-08-26T13:00:00+00:00', pedidos: [], cargando: true })
+      expect(v.concomitante).toEqual({ tipo: 'cargando' })
+      expect(v.yaMostrados).toEqual([])
+    })
+
+    it('cargando manda sobre los pedidos, aunque ya hubiera una entrega: no se adelanta a lo que todavía no confirmó', () => {
+      const v = vistaVisitaCerrada({
+        readyAt: '2026-08-26T13:00:00+00:00',
+        pedidos: [entregado([item('Trelegy')])],
+        cargando: true,
+      })
+      expect(v.concomitante).toEqual({ tipo: 'cargando' })
+      expect(v.yaMostrados).toEqual([])
+    })
+
+    it('la visita abierta sigue sin opinar aunque venga marcada como cargando', () => {
+      const v = vistaVisitaCerrada({ readyAt: null, pedidos: [], cargando: true })
+      expect(v.concomitante).toEqual({ tipo: 'abierta' })
+      expect(v.yaMostrados).toEqual([])
+    })
   })
 })

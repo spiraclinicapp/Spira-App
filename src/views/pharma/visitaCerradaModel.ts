@@ -9,8 +9,9 @@
    todavía falta dispensar — cortar ahí apagaría la tarjeta justo cuando más se usa. `ready_at` es
    el «Realizada 26 Ago 2026 10:00» del encabezado: la atención se cerró.
 
-   Esto vive acá y no adentro del panel (1202 líneas) por el mismo motivo que `seccionIpModel` y
-   `historialPlegadoModel`: la regla se puede leer entera y testear sin montar React.
+   Esto vive acá y no adentro del panel (que ya pasa las mil líneas, y sigue creciendo) por el mismo
+   motivo que `seccionIpModel` y `historialPlegadoModel`: la regla se puede leer entera y testear sin
+   montar React.
    └─────────────────────────────────────────────────────────────────────────────────────────────┘ */
 import { activeDispensation, cantidadConPartes, columnOf, partesDeRenglon } from '../../data/pharma/dispensationModel'
 import type { DispensationRequestRow } from '../../data/pharma/dispensationModel'
@@ -24,13 +25,16 @@ export interface RenglonEntregado {
   nombre: string
   /** «x2», «x1 de 2», «x1 saldo» — el mismo formato corto que usa el resto del panel. */
   cantidad: string
-  /** N° del comprobante. `null` si la dispensación no llegó a emitirlo. */
+  /** N° del comprobante que emitió la entrega. */
   comprobante: number | null
 }
 
 export type EstadoConcomitante =
   /** La visita sigue abierta: la tarjeta opera como siempre y este modelo no opina. */
   | { tipo: 'abierta' }
+  /** Terminó, pero la primera lectura de los pedidos todavía no volvió (o falló): no hay
+      suficiente información para decir si se entregó algo. Ver el comentario de `vistaVisitaCerrada`. */
+  | { tipo: 'cargando' }
   /** Terminó y nadie entregó medicación concomitante. */
   | { tipo: 'sin_entrega' }
   /** Terminó y se entregó. `fecha` es `dd/mm` del desenlace más nuevo. */
@@ -46,6 +50,10 @@ export interface EntradaVistaCerrada {
   /** Fin de atención de la visita. `null` = la visita no se cerró. */
   readyAt: string | null
   pedidos: readonly PedidoHistorial[]
+  /** La primera lectura de `pedidos` todavía no volvió, O FALLÓ. Con `readyAt` puesto pero sin esto
+      el modelo no puede distinguir «cero pedidos» de «todavía no sé»: ver el comentario de
+      `vistaVisitaCerrada`, más abajo, para por qué importa tratar el error igual que la carga. */
+  cargando: boolean
 }
 
 /** Instantes comparados como números: PostgREST recorta los ceros de la fracción. */
@@ -53,8 +61,14 @@ const ms = (ts: string) => Date.parse(ts)
 /** `dd/mm` en hora argentina. `isoDayAR` y no un recorte: después de las 21:00 el UTC ya es mañana. */
 const diaCorto = (ts: string) => formatShortAR(isoDayAR(ts))
 
-export function vistaVisitaCerrada({ readyAt, pedidos }: EntradaVistaCerrada): VistaCerrada {
+export function vistaVisitaCerrada({ readyAt, pedidos, cargando }: EntradaVistaCerrada): VistaCerrada {
   if (!readyAt) return { concomitante: { tipo: 'abierta' }, yaMostrados: [] }
+
+  /* Con la visita cerrada pero la lectura de pedidos todavía sin volver (o rota), `pedidos` llega
+     vacío igual que si nunca hubiera habido ninguno — y sin esta guarda de acá abajo se leía «Sin
+     entrega» un instante en CADA apertura de una visita cerrada, y quedaba FIJO si la consulta
+     fallaba. Va antes que mirar `pedidos`: es la dirección segura, no afirma nada mientras no sabe. */
+  if (cargando) return { concomitante: { tipo: 'cargando' }, yaMostrados: [] }
 
   /* La visita puede cerrarse con un pedido todavía ABIERTO (solicitada, preparando o ya lista
      para retirar): Farmacia tiene un paquete esperando, o ni siquiera lo tomó todavía. Mientras
@@ -79,7 +93,9 @@ export function vistaVisitaCerrada({ readyAt, pedidos }: EntradaVistaCerrada): V
       id: it.id,
       nombre: it.medication?.name ?? 'Medicamento',
       cantidad: cantidadConPartes(it.quantity, partesDeRenglon(it), 'corto'),
-      comprobante: d && d.status !== 'en_preparacion' ? d.correlative_number : null,
+      // `d` ya viene filtrado arriba (`entregados`) a dispensaciones `entregada`: el `!` es sólo
+      // para TypeScript, que no arrastra el narrowing de un `.filter()` externo hasta acá adentro.
+      comprobante: d!.correlative_number,
     })),
   )
 
