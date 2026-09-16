@@ -25,7 +25,7 @@ import { NewPatientForm } from './NewPatientForm'
 import { ProtocolDetailView } from './ProtocolDetailView'
 import { PatientFichaView } from './PatientFichaView'
 import { EditProtocolForm } from './EditProtocolForm'
-import { DESTINO_PENDIENTES } from './resumen/destinos'
+import { DESTINO_PENDIENTES, DESTINO_VISITAS } from './resumen/destinos'
 import { navDesdePath, pathDesdeNav, resolverFichaDestino } from './protocolsNav'
 import type { Nav } from './protocolsNav'
 import { NotFoundView } from '../shell/NotFoundView'
@@ -342,6 +342,21 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
         onBack={() => setNav({ mode: 'protocol', protocolId: proto.id })}
         onGoList={() => setNav({ mode: 'list' })}
         onPatientUpdated={() => patients.refetch()}
+        /* De la visita abierta en la ficha a esa misma visita en «Visitas», parado en su día. Con
+           pasaje de vuelta a la ficha: el salto cruza de submódulo y sin boleto habría que rehacer
+           el camino (estudio → paciente) a mano. */
+        onVerVisitaEnElDia={onNavigate && ((visitId, dia) => onNavigate(
+          DESTINO_VISITAS.moduleKey,
+          DESTINO_VISITAS.subKey,
+          { visitId, visitDate: dia },
+          {
+            moduleKey: module.key,
+            subKey: submodule.key,
+            target: { patientId: fichaPatient.id, protocolId: proto.id },
+            label: 'Volver al paciente',
+            hint: `Volver a la ficha de ${fichaPatient.full_name}`,
+          },
+        ))}
       />
     )
   }

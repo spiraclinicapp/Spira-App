@@ -1,18 +1,22 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
-import { createPortal } from 'react-dom'
-import { DayPicker } from 'react-day-picker'
-import { es } from 'react-day-picker/locale'
-import 'react-day-picker/style.css'
-import './DateField.css'
 import { Icon } from './Icon'
+import { CalendarioPopover } from './CalendarioPopover'
 import { usePopover } from './usePopover'
-import { todayISO, dayLabel, formatAR, isoToDate, dateToISO } from '../lib/dates'
+import { todayISO, dayLabel, formatAR, yearsFromTodayISO } from '../lib/dates'
 
 interface Props {
   accent: string
   date: string
   onChange: (iso: string) => void
+  /**
+   * Rango del calendario y, sobre todo, del desplegable de AÑO. Por defecto 5 años para atrás y 2
+   * para adelante. No es un detalle: sin rango, react-day-picker NO arma la lista de años
+   * (`getYearOptions` devuelve `undefined` sin `navStart`/`navEnd`), así que el calendario se
+   * quedaba sólo con las flechas de mes. Ir de junio de 2026 a junio de 2025 eran doce clicks, y con
+   * las visitas históricas cargadas (2024 en adelante) esa es una navegación real: el Director no
+   * encontraba en Visitas una visita que estaba viendo en la ficha del paciente.
+   */
   min?: string
   max?: string
   /** Atajo "Hoy" a la izquierda cuando la fecha activa no es hoy (default true). */
@@ -30,7 +34,6 @@ export function DateNavButton({ accent, date, onChange, min, max, todayShortcut 
   const [open, setOpen] = useState(false)
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
   const isToday = date === todayISO()
-  const selected = isoToDate(date)
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -60,25 +63,18 @@ export function DateNavButton({ accent, date, onChange, min, max, todayShortcut 
         <Icon name="chevronDown" size={15} color="var(--spira-muted)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
       </button>
 
-      {/* PORTALEADO a document.body, como el resto de los popovers. El popover es
-          `position: fixed` con coordenadas de VIEWPORT (usePopover las calcula con
-          getBoundingClientRect), y un ancestro con `backdrop-filter` —el fondo de cualquier
-          modal del repo lleva `blur(2px)`— pasa a ser el bloque contenedor de sus descendientes
-          fixed, igual que un `transform`. Dibujado adentro, el menú aterriza lejos del campo. */}
-      {open && pos && createPortal(
-        <div ref={popRef} style={{ ...popover, top: pos.top, left: pos.left }}>
-          <DayPicker
-            mode="single"
-            locale={es}
-            weekStartsOn={1}
-            startMonth={min ? isoToDate(min) : undefined}
-            endMonth={max ? isoToDate(max) : undefined}
-            defaultMonth={selected}
-            selected={selected}
-            onSelect={(d) => { if (!d) { setOpen(false); return } onChange(dateToISO(d)); setOpen(false) }}
-          />
-        </div>,
-        document.body,
+      {/* El calendario es el MISMO de los campos de fecha (`CalendarioPopover`): portaleado a
+          `document.body` y con los desplegables de mes y año. Antes este botón dibujaba su propio
+          DayPicker sin `captionLayout`, o sea sin esos dos desplegables. */}
+      {open && pos && (
+        <CalendarioPopover
+          popRef={popRef}
+          pos={pos}
+          value={date}
+          min={min ?? yearsFromTodayISO(-5)}
+          max={max ?? yearsFromTodayISO(2)}
+          onPick={(iso) => { if (iso) onChange(iso); setOpen(false) }}
+        />
       )}
     </div>
   )
@@ -94,8 +90,4 @@ const dateStyle: CSSProperties = { fontSize: 12.5, color: 'var(--spira-muted)' }
 const todayBtn: CSSProperties = {
   height: 38, padding: '0 13px', borderRadius: 10, cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13,
-}
-const popover: CSSProperties = {
-  position: 'fixed', zIndex: 'var(--spira-z-popover)', background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)',
-  borderRadius: 12, boxShadow: '0 12px 30px rgba(20,48,46,.16)',
 }

@@ -44,11 +44,16 @@ export interface PatientFichaViewProps {
   onGoList: () => void
   /** Refetch de la lista de pacientes tras editar (los datos viven en usePatients del padre). */
   onPatientUpdated: () => void
+  /**
+   * Ir a «Visitas» parado en el día de una visita, con ella abierta. Lo pasa el contenedor, que es
+   * el que sabe navegar entre submódulos; sin esto el modal de la visita no ofrece el salto.
+   */
+  onVerVisitaEnElDia?: (visitId: string, dia: string) => void
 }
 
 /** Ficha del paciente: demográficos + contexto + adherencia + alertas | próxima visita + cronograma. */
 export function PatientFichaView(props: PatientFichaViewProps) {
-  const { patient, protocol, moduleKey, accent, accentSolid, canWrite, setHeader, onBack, onGoList, onPatientUpdated } = props
+  const { patient, protocol, moduleKey, accent, accentSolid, canWrite, setHeader, onBack, onGoList, onPatientUpdated, onVerVisitaEnElDia } = props
   const visitsQ = usePatientVisits(patient.id, protocol.id)
   const alertsQ = useVisitAlerts()
   // La gestión de "Medicación asignada" es de Pharma (operator+) Y solo en el contexto del módulo
@@ -186,6 +191,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
              etapa o editar el encabezado desde acá no refrescaba el cronograma, el resumen de arriba
              ni el botón de alertas, y la ficha quedaba mostrando la visita como estaba antes. */
           onChanged={() => { visitsQ.refetch(); alertsQ.refetch() }}
+          onVerEnElDia={onVerVisitaEnElDia}
         />
       )}
 

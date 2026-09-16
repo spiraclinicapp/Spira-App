@@ -13,6 +13,7 @@ import { VisitDispensationPanel } from '../pharma/VisitDispensationPanel'
 import { advanceRole, necesitaConfirmacion } from './advanceStep'
 import { Panel } from './Panel'
 import { VisitHeader } from './VisitHeader'
+import { diaDeLaVisita } from './visitHeaderRules'
 import { VisitActionBar } from './VisitActionBar'
 import { DoctorRequestModal } from './DoctorRequestModal'
 
@@ -47,7 +48,7 @@ import { DoctorRequestModal } from './DoctorRequestModal'
  */
 export function VisitDetail({
   visitId, accent, onClose, canReception, canClinical,
-  onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient,
+  onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient, onVerEnElDia,
 }: {
   visitId: string
   accent: string
@@ -79,12 +80,21 @@ export function VisitDetail({
    * estás. Cierra el modal antes de navegar: la vista destino es otra y el modal es de esta.
    */
   onOpenPatient?: (patientId: string, protocolId: string) => void
+  /**
+   * Ir a «Visitas» parado en el día de ESTA visita, con ella abierta. Lo pasa quien abre el modal
+   * desde fuera de esa pantalla (hoy, la ficha del paciente): la ficha y Visitas muestran lo mismo
+   * y no había forma de pasar de una a la otra. «Visitas del día» no lo pasa —llevaría a donde ya
+   * estás—, igual que `onOpenPatient` desde la ficha.
+   */
+  onVerEnElDia?: (visitId: string, dia: string) => void
 }) {
   const q = useVisit(visitId)
   const fetched = q.data?.[0] ?? null
   // Preferimos el dato fresco de ESTE visitId; si todavía no llegó (nav ↑↓), mostramos el seed; y si
   // no hay seed, el último dato (stale-while-revalidate de useSupabaseQuery evita el spinner).
   const visit = (fetched?.id === visitId ? fetched : seed?.id === visitId ? seed : fetched) ?? null
+  /** El día en el que «Visitas» la tiene (realizada, o programada si todavía no se atendió). */
+  const dia = visit ? diaDeLaVisita(visit) : null
 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -222,6 +232,12 @@ export function VisitDetail({
               pos={pos}
               onPrev={onPrev}
               onNext={onNext}
+              /* Sin día al que saltar (una suelta sin fechas) el botón no se ofrece: uno que no
+                 puede cumplir es peor que no tenerlo. Cierra el modal antes de navegar, como
+                 `onOpenPatient` — la vista destino es otra. */
+              onVerEnElDia={onVerEnElDia && dia
+                ? () => { onClose(); onVerEnElDia(visit.id, dia) }
+                : undefined}
               onClose={cerrar}
               onSaved={refrescar}
               onError={setErr}

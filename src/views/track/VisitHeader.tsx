@@ -37,7 +37,7 @@ import {
  * llegaba después y recomponía la rejilla a la vista del usuario en cada apertura y cada ↑↓.
  */
 export function VisitHeader({
-  visit, readOnly, pos, onPrev, onNext, onClose, onSaved, onError, onOpenPatient,
+  visit, readOnly, pos, onPrev, onNext, onClose, onSaved, onError, onOpenPatient, onVerEnElDia,
 }: {
   visit: DayVisitRow
   readOnly: boolean
@@ -45,6 +45,12 @@ export function VisitHeader({
   onPrev?: () => void
   onNext?: () => void
   onClose: () => void
+  /**
+   * Ir a «Visitas» parado en el DÍA de esta visita, con ella abierta. Lo pasa quien abre el modal
+   * desde fuera de esa pantalla (hoy, la ficha del paciente); «Visitas del día» no lo pasa, porque
+   * el enlace llevaría a donde ya estás — el mismo criterio que `onOpenPatient`.
+   */
+  onVerEnElDia?: () => void
   /** Algo se guardó: refrescar la visita (y la lista del padre). */
   onSaved: () => void
   /** Errores que no caben junto al control (RPC del coordinador): suben al banner del modal. */
@@ -85,6 +91,16 @@ export function VisitHeader({
         </span>
 
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* «Ver en Visitas»: la misma visita, en la pantalla del día. Existe porque la ficha y
+              Visitas muestran lo MISMO y no había forma de pasar de una a la otra: con visitas
+              históricas (2024-2026) encontrarla a mano pedía adivinar el día y viajar con el
+              calendario. Va sólo cuando quien abrió el modal sabe navegar. */}
+          {onVerEnElDia && (
+            <button type="button" onClick={onVerEnElDia} title="Ver esta visita en Visitas, en su día" style={verBtn}>
+              <Icon name="activity" size={14} color="var(--spira-acc-deep-track)" />
+              Ver en Visitas
+            </button>
+          )}
           <CoordinatorChip visit={visit} readOnly={readOnly} onSaved={onSaved} onError={onError} />
           {canNav && (
             <span style={navpill}>
@@ -420,6 +436,14 @@ const cnt: CSSProperties = {
   height: 28, display: 'flex', alignItems: 'center', padding: '0 11px', fontSize: 12, fontWeight: 600,
   color: 'var(--spira-ink-soft)', borderLeft: '1px solid var(--spira-line)',
   borderRight: '1px solid var(--spira-line)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
+}
+/* Sobrio y sin relleno: comparte fila con el chip de coordinador y con el ✕, y la acción principal
+   del modal vive en la barra de abajo. El ícono es el del submódulo Visitas, que es a dónde lleva. */
+const verBtn: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 7, height: 30, padding: '0 11px', borderRadius: 9,
+  borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)', background: 'var(--spira-white)',
+  fontFamily: 'var(--spira-font-text)', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)',
+  cursor: 'pointer', whiteSpace: 'nowrap', flex: '0 0 auto',
 }
 const xb: CSSProperties = {
   width: 30, height: 30, borderRadius: 9, padding: 0, lineHeight: 0,

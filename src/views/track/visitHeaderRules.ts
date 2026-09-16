@@ -60,6 +60,24 @@ export function muestraFechaReal(visit: Pick<DayVisitRow, 'real_date'>): boolean
 }
 
 /**
+ * En qué DÍA hay que pararse en «Visitas» para que esta visita esté en la lista, o `null` si no hay
+ * ninguno.
+
+ * Es exactamente la contracara de lo que consulta `useVisitsForDay`: esa vista trae las de
+ * `estimated_date = día` **o** `real_date = día`, así que la realizada manda cuando existe —una
+ * visita atendida otro día vive en el día que vino, no en el que estaba citada— y la programada
+ * cubre a las que todavía no se atendieron.
+ *
+ * ESTO FALLA SIN VERSE, y por eso está acá con test: elegir el campo equivocado no rompe nada
+ * —navega, abre el día, no tira ningún error— y la visita simplemente no está, que es el síntoma
+ * exacto que este botón vino a resolver. Una suelta sin ninguna de las dos fechas no tiene día: el
+ * llamador no ofrece el salto en vez de mandar a una pantalla vacía.
+ */
+export function diaDeLaVisita(visit: Pick<DayVisitRow, 'real_date' | 'estimated_date'>): string | null {
+  return visit.real_date ?? visit.estimated_date ?? null
+}
+
+/**
  * ¿Se puede editar el médico a cargo? Editable mientras la visita no esté concretada. El mismo
  * candado lo aplica el servidor (`set_visit_physician`, 0079), así que esto es presentación: sin
  * él la pantalla ofrecería un botón que la base va a rechazar.

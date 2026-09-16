@@ -53,6 +53,13 @@ export const DESTINO_PENDIENTES: Destino = { moduleKey: 'track', subKey: 'alerta
  */
 export const DESTINO_TAREAS: Destino = { moduleKey: 'track', subKey: 'tareas' }
 
+/**
+ * Visitas del día. Lo apuntan el KPI del Resumen y, desde el 2026-09-15, el «Ver en Visitas» del
+ * encabezado de una visita abierta desde la ficha del paciente. Mismo motivo que los dos de arriba
+ * para tener nombre en vez de dos literales: un renombre de submódulo no falla, se desincroniza.
+ */
+export const DESTINO_VISITAS: Destino = { moduleKey: 'track', subKey: 'visitas' }
+
 export const KPI_DESTINOS: Record<KpiKey, Destino> = {
   protocolos: { moduleKey: 'track', subKey: 'protocolos' },
   pacientes: { moduleKey: 'track', subKey: 'protocolos' },
@@ -60,7 +67,7 @@ export const KPI_DESTINOS: Record<KpiKey, Destino> = {
      Pendientes: "los pendientes vencidos de Pendientes" no dice nada. Y de paso es más exacto —
      cuenta `item_vencido`, que es un REPORTE del estudio fuera de plazo. */
   reportes: DESTINO_PENDIENTES,
-  visitas: { moduleKey: 'track', subKey: 'visitas' },
+  visitas: DESTINO_VISITAS,
 }
 
 /**

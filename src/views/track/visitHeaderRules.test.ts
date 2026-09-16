@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  contextoDeEtapa, datosDelPaciente, estaConcretada, estimadaNoAplica, etapaProgreso, fechaSegunProtocolo,
+  contextoDeEtapa, datosDelPaciente, diaDeLaVisita, estaConcretada, estimadaNoAplica, etapaProgreso, fechaSegunProtocolo,
   horaDeAtencion, marcaDeEtapa, opcionesDeCoordinador,
   medicoDeVisita, puedeEditarCoordinador, muestraFechaReal, puedeEditarMedico,
 } from './visitHeaderRules'
@@ -324,5 +324,21 @@ describe('opcionesDeCoordinador · el chip tiene que poder nombrar lo que ya est
   it('sin coordinadores en el protocolo igual puede nombrar al asignado', () => {
     const o = opcionesDeCoordinador({ coordinator_id: 'u-ger', coordinator_name: 'Spira Clinic' }, [])
     expect(o.map((x) => x.label)).toEqual(['— Sin asignar —', 'Spira Clinic'])
+  })
+})
+
+/* El día al que salta «Ver en Visitas». Falla en silencio: con el campo equivocado el salto navega,
+   abre un día y la visita no está — el mismo síntoma que el botón vino a resolver. */
+describe('diaDeLaVisita', () => {
+  it('atendida: manda la fecha REALIZADA, aunque estuviera citada otro día', () => {
+    expect(diaDeLaVisita({ real_date: '2025-06-26', estimated_date: '2025-06-20' })).toBe('2025-06-26')
+  })
+
+  it('sin atender: la programada, que es donde la lista la espera', () => {
+    expect(diaDeLaVisita({ real_date: null, estimated_date: '2026-09-30' })).toBe('2026-09-30')
+  })
+
+  it('una suelta sin ninguna de las dos no tiene día', () => {
+    expect(diaDeLaVisita({ real_date: null, estimated_date: null })).toBeNull()
   })
 })
