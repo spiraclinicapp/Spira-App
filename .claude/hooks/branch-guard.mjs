@@ -28,16 +28,34 @@ try {
 if (!/\bgit\b[^\n|&;]*\bcommit\b/.test(command)) process.exit(0)
 if (command.includes('SPIRA_ALLOW_MAIN')) process.exit(0)
 
+/**
+ * DÓNDE preguntar la rama. Por defecto, la carpeta del proyecto — pero un `cd <ruta> && git commit`
+ * commitea en ESA carpeta, que puede ser un worktree parado en otra rama.
+ *
+ * Sin esto el hook se equivocaba en las dos direcciones (2026-09-15):
+ *   · falso POSITIVO — con la principal en main y el worktree en una rama, frenaba un commit que
+ *     iba justo a donde el hook quiere que vaya;
+ *   · falso NEGATIVO, que es el peor — con la principal en una rama y el worktree parado en main,
+ *     el commit a main pasaba sin que el hook llegara a verlo.
+ *
+ * Se lee el ÚLTIMO `cd` del comando: en `cd a && cd b && git commit` manda el b.
+ */
+function dondeMirar(cmd) {
+  const cds = [...cmd.matchAll(/(?:^|[\n|&;]\s*)cd\s+(?:"([^"]+)"|'([^']+)'|([^\s&|;]+))/g)]
+  const ultimo = cds.at(-1)
+  return ultimo ? (ultimo[1] ?? ultimo[2] ?? ultimo[3]) : (process.env.CLAUDE_PROJECT_DIR || process.cwd())
+}
+
 let branch = ''
 try {
   branch = execSync('git branch --show-current', {
-    cwd: process.env.CLAUDE_PROJECT_DIR || process.cwd(),
+    cwd: dondeMirar(command),
     encoding: 'utf8',
     timeout: 5000,
     stdio: ['ignore', 'pipe', 'ignore'],
   }).trim()
 } catch {
-  process.exit(0) // sin git a mano → permitir
+  process.exit(0) // sin git a mano (o el cd apunta a una carpeta que no existe) → permitir
 }
 
 if (branch !== 'main') process.exit(0)
