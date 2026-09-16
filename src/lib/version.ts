@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.76', text: 'La visita terminada muestra qué medicación se entregó, y sale del día en que estaba citada.' },
     { version: '0.75', text: 'Cada estudio muestra su propio número de sujeto, y desde una visita se salta a su día en Visitas.' },
     { version: '0.74', text: 'Pacientes abre en tus estudios asignados, con «Todos» a un clic.' },
     { version: '0.73', text: 'Visitas con fecha estimada, programada y realizada; cada paciente muestra su estado con un punto.' },
