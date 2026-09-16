@@ -54,8 +54,10 @@ export interface HistorialPlegado {
   renglones: RenglonHistorial[]
 }
 
-/** Abiertos = solicitada / preparando / lista para retirar. El resto es historial. */
-function estaCerrado(r: PedidoHistorial): boolean {
+/** Abiertos = solicitada / preparando / lista para retirar. El resto es historial.
+ *  Exportada: `visitaCerradaModel` la reusa para decidir si la tarjeta puede pasar a lectura —
+ *  «abierto» ahí es exactamente lo contrario de este cierre, y conviene una sola definición. */
+export function estaCerrado(r: PedidoHistorial): boolean {
   const col = columnOf(r as DispensationRequestRow)
   return col !== 'solicitada' && col !== 'preparando' && col !== 'lista'
 }

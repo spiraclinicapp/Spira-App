@@ -15,6 +15,7 @@
 import { activeDispensation, cantidadConPartes, columnOf, partesDeRenglon } from '../../data/pharma/dispensationModel'
 import type { DispensationRequestRow } from '../../data/pharma/dispensationModel'
 import { formatShortAR, isoDayAR } from '../../lib/dates'
+import { estaCerrado } from './historialPlegadoModel'
 import type { PedidoHistorial } from './historialPlegadoModel'
 
 /** Un medicamento entregado en la visita, como se lee en la tarjeta. */
@@ -54,6 +55,14 @@ const diaCorto = (ts: string) => formatShortAR(isoDayAR(ts))
 
 export function vistaVisitaCerrada({ readyAt, pedidos }: EntradaVistaCerrada): VistaCerrada {
   if (!readyAt) return { concomitante: { tipo: 'abierta' }, yaMostrados: [] }
+
+  /* La visita puede cerrarse con un pedido todavía ABIERTO (solicitada, preparando o ya lista
+     para retirar): Farmacia tiene un paquete esperando, o ni siquiera lo tomó todavía. Mientras
+     ese pedido no se resuelva (entrega, cancelación o rechazo) la tarjeta tiene que seguir
+     operable para poder gestionarlo — pasarla a lectura lo dejaría inalcanzable. `estaCerrado` es
+     la misma regla que ya usa `historialPlegadoModel` para decidir qué es historial; «abierto»
+     acá es exactamente su negación, así que no se duplica el criterio. */
+  if (pedidos.some((r) => !estaCerrado(r))) return { concomitante: { tipo: 'abierta' }, yaMostrados: [] }
 
   // Sólo lo ENTREGADO. Un pedido cancelado o rechazado no es una entrega, y sigue viviendo en el pie.
   const entregados = pedidos

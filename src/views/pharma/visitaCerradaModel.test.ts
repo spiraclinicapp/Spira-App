@@ -58,6 +58,43 @@ describe('vistaVisitaCerrada', () => {
     expect(v.yaMostrados).toEqual([])
   })
 
+  /* La visita se cerró (readyAt tiene valor) pero queda un pedido ABIERTO: hay un paquete
+     esperando en la farmacia (preparado, comprobante emitido) sin que nadie lo haya retirado
+     todavía. Si esto cayera en «sin_entrega» la tarjeta pasaría a lectura y nadie podría
+     cancelarlo ni gestionarlo desde ahí — motivo real que dio origen a este caso. */
+  it('cerrada pero con un pedido en LISTA para retirar: la tarjeta sigue abierta', () => {
+    const v = vistaVisitaCerrada({
+      readyAt: '2026-08-26T13:00:00+00:00',
+      pedidos: [pedido({
+        status: 'preparando',
+        items: [item('Frevia')] as PedidoHistorial['items'],
+        dispensations: [{
+          id: 'd1', status: 'lista', delivered_at: null, correlative_number: 20, ip_kits: null,
+        }] as PedidoHistorial['dispensations'],
+      })],
+    })
+    expect(v.concomitante).toEqual({ tipo: 'abierta' })
+    expect(v.yaMostrados).toEqual([])
+  })
+
+  it('cerrada pero con un pedido SOLICITADA (Farmacia todavía no lo tomó): la tarjeta sigue abierta', () => {
+    const v = vistaVisitaCerrada({
+      readyAt: '2026-08-26T13:00:00+00:00',
+      pedidos: [pedido({ status: 'solicitada', dispensations: [], items: [item('Frevia')] as PedidoHistorial['items'] })],
+    })
+    expect(v.concomitante).toEqual({ tipo: 'abierta' })
+    expect(v.yaMostrados).toEqual([])
+  })
+
+  it('cerrada pero con un pedido PREPARANDO (sin dispensación lista todavía): la tarjeta sigue abierta', () => {
+    const v = vistaVisitaCerrada({
+      readyAt: '2026-08-26T13:00:00+00:00',
+      pedidos: [pedido({ status: 'preparando', dispensations: [], items: [item('Frevia')] as PedidoHistorial['items'] })],
+    })
+    expect(v.concomitante).toEqual({ tipo: 'abierta' })
+    expect(v.yaMostrados).toEqual([])
+  })
+
   it('cerrada con un pedido CANCELADO: no se entregó, y el pie lo sigue mostrando', () => {
     const v = vistaVisitaCerrada({
       readyAt: '2026-08-26T13:00:00+00:00',
