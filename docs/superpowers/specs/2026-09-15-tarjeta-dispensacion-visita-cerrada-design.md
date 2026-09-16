@@ -32,6 +32,17 @@ cortar ahí apagaría la tarjeta justo en el momento en que más se usa. `ready_
 Este modo es **independiente de `readOnly`**, que sigue significando lo que significa (permisos). Una
 visita cerrada en la vista del día es lectura *con* corrección; en la ficha es lectura a secas.
 
+**Y no alcanza con `ready_at`: si queda un pedido ABIERTO, la tarjeta sigue operable.** Abierto es
+`solicitada`, `preparando` o `lista` — y `lista` es el caso que obliga: el pedido está preparado, con
+el comprobante emitido, esperando que alguien lo retire. Decidir por `ready_at` a secas pondría la
+tarjeta en lectura diciendo «en esta visita no se entregó medicación» —cierto en la letra— **mientras
+hay un paquete esperando en la farmacia**, y sin forma de cancelarlo ni gestionarlo desde ahí. La
+tarjeta pasa a lectura recién cuando todos los pedidos se resolvieron: entregados, cancelados o
+rechazados. La regla de «abierto» no se reescribe: es la de `estaCerrado` en `historialPlegadoModel`,
+que ya la tenía.
+
+(Lo encontró la revisión de la Task 1, no esta spec.)
+
 ### 2 · Medicación concomitante
 
 | Situación | Qué muestra |
