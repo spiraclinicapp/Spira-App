@@ -13,7 +13,7 @@ import { formatAR } from '../../lib/dates'
 import { desvioDias, fueraDeVentana, visitCode, visitTitle } from '../../lib/visits'
 import { VisitDateInline } from './VisitDateInline'
 import {
-  datosDelPaciente, estimadaNoAplica, fechaSegunProtocolo, horaDeAtencion, medicoDeVisita, muestraFechaReal,
+  datosDelPaciente, estimadaNoAplica, fechaSegunProtocolo, medicoDeVisita, muestraFechaReal,
   opcionesDeCoordinador, puedeEditarCoordinador, puedeEditarMedico,
 } from './visitHeaderRules'
 
@@ -70,8 +70,6 @@ export function VisitHeader({
   // valor, para no ensanchar el campo (handoff §6). El desvío solo existe con las dos fechas.
   const d = desvioDias(visit.estimated_date, visit.real_date)
   const fuera = fueraDeVentana(visit.real_date, visit.window_start, visit.window_end)
-  // La hora del sello de atención (0102), o null si no hay ninguna que mostrar sin mentir.
-  const hora = horaDeAtencion(visit)
   // Lo que manda el cronograma, o null si el protocolo no fija fecha para esta visita.
   const protocolo = fechaSegunProtocolo(visit)
   /* El interruptor del segundo campo: rótulo, valor y columna de guardado salen los TRES de acá
@@ -190,11 +188,12 @@ export function VisitHeader({
               label={atendida ? 'Fecha realizada' : 'Fecha programada'}
               value={atendida ? visit.real_date : visit.estimated_date}
               editable={!readOnly}
-              /* La hora del sello (0102) va al lado de la fecha, atenuada: es cuándo se apretó
-                 "Iniciar atención", no una segunda fecha. `horaDeAtencion` decide si mostrarla —
-                 devuelve null cuando el sello no existe (visitas anteriores a la 0102) o cuando
-                 ya no le corresponde a la fecha real que tiene la visita. */
-              suffix={hora && <span style={horaSello} title="Hora en que se marcó el inicio de atención">{hora}</span>}
+              /* SIN HORA AL LADO DE LA FECHA (Director, 2026-09-16). Acá vivía el sello de la
+                 0102: la hora en que se apretó "Iniciar atención". Se leía como si fuera la hora
+                 en que la visita se realizó, y abajo la barra dice "Fin de atención" con otra
+                 —10:40 arriba contra 13:09 abajo, sobre la misma visita—. Dos horas distintas de
+                 la misma cosa aparente es peor que ninguna: la de inicio sigue en el sello de la
+                 base, y la que importa en pantalla es la del cierre, que ya se muestra. */
               /* Atendida, la citación deja de estar en pantalla — es la contra de fundir los dos
                  campos en uno. Vive acá para no perderse: es el dato que EXPLICA un desvío ("vino
                  el día que lo citamos; lo corrido era la cita"). */
@@ -510,19 +509,6 @@ const coordRO: CSSProperties = {
 const cl: CSSProperties = {
   fontSize: 9.5, fontWeight: 700, letterSpacing: '.11em', textTransform: 'uppercase',
   color: 'var(--spira-muted)',
-}
-/* La hora del sello, al lado de la fecha real. Más chica y atenuada a propósito: la fecha es el
-   dato clínico —la que alimenta el desvío y la ventana del cronograma— y la hora es la marca
-   administrativa de cuándo se apretó el botón. Al mismo peso competirían y el campo se leería como
-   si tuviera dos datos del mismo rango. Cifras tabulares como todo el bloque de fechas.
-
-   `ink-soft` y NO `muted`, aunque "atenuado" pida el segundo: medido sobre el blanco de esta
-   banda, `muted` da 3,52:1 y a 12px esto es texto NORMAL, así que el umbral de WCAG AA es 4,5:1.
-   `ink-soft` (#556966) lo pasa. Es la misma regla que ya rige para todo el texto secundario del
-   sistema; ver el gotcha de los tonos atenuados sobre papel. */
-const horaSello: CSSProperties = {
-  marginLeft: 7, fontSize: 12, fontWeight: 500, color: 'var(--spira-ink-soft)',
-  fontVariantNumeric: 'tabular-nums', letterSpacing: 0, flex: '0 0 auto',
 }
 const dev: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', height: 19, padding: '0 6px', borderRadius: 5,

@@ -2,7 +2,7 @@ import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { OPERATIONAL_STAGES, STAGE_ORDER } from '../visitStates'
 import { advanceRole } from './advanceStep'
 import { ageFromBirth, SEX_LABELS, FERTILITY_LABELS } from '../../lib/visits'
-import { addDaysISO, dateToISO, formatAR, formatTimeAR } from '../../lib/dates'
+import { addDaysISO, formatAR } from '../../lib/dates'
 
 /**
  * Reglas puras del encabezado de la visita (rediseño `docs/handoff-visitas-encabezado/`).
@@ -150,33 +150,13 @@ export function estimadaNoAplica(visit: Pick<DayVisitRow, 'kind' | 'date_mode'>)
   return visit.kind !== 'programada' || visit.date_mode === 'libre'
 }
 
-/**
- * La hora del inicio de atención, o null si no hay hora que mostrar.
- *
- * DEVUELVE NULL EN DOS CASOS Y LOS DOS IMPORTAN:
- *
- * 1. **Sin sello.** Las visitas atendidas antes de la 0102 no tienen `attended_at` — no se
- *    backfillearon porque `real_date` es un `date` y las 00:00 serían una hora que nadie registró.
- *    Ahí se muestra sólo la fecha.
- *
- * 2. **Sello que ya no le corresponde a la fecha.** Si alguien CORRIGE la fecha real a otro día,
- *    el sello sigue apuntando al momento en que se apretó el botón. Mostrarlos juntos —"14/08/2026
- *    16:31" con el sello del 29— es una hora que ese día no pasó. Y es el caso que falla en
- *    silencio: la pantalla se ve impecable y el dato miente. Por eso la comparación de días es lo
- *    que gobierna, no la existencia del sello.
- *
- * El día del sello sale del `Date` y NO de recortar el ISO: `attended_at` es un `timestamptz` que
- * llega en UTC, así que `slice(0, 10)` daría el día UTC y todo lo marcado después de las 21:00
- * hora argentina se compararía contra el día siguiente — es decir, la hora desaparecería justo en
- * las atenciones de la tarde. Mismo cuidado que `ingresadaPor` en Recepción.
- */
-export function horaDeAtencion(
-  visit: Pick<DayVisitRow, 'real_date' | 'attended_at'>,
-): string | null {
-  if (!visit.attended_at || !visit.real_date) return null
-  if (dateToISO(new Date(visit.attended_at)) !== visit.real_date) return null
-  return formatTimeAR(visit.attended_at)
-}
+/* ACÁ VIVÍA `horaDeAtencion` (0102), que daba la hora del sello de inicio para mostrarla al lado
+   de la fecha realizada. Se retiró el 2026-09-16 junto con esa hora: el Director la vio decir 10:40
+   arriba mientras la barra de abajo decía "Fin de atención 13:09" sobre la misma visita. El sello
+   sigue en la base (`attended_at`); lo que se fue es mostrarlo ahí. Si alguna vez vuelve, ojo con
+   lo que la función cuidaba: comparar el DÍA del sello con `real_date` usando `Date` y no
+   `slice(0, 10)`, porque el ISO llega en UTC y las atenciones de después de las 21:00 caen al día
+   siguiente. Está en el historial de git, con sus cinco tests. */
 
 // ————————————————————————————————————————————————————
 // Coordinador de la visita
