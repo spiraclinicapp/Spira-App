@@ -50,3 +50,6 @@ supabase/scripts/carga-visitas-historicas/*.xlsx
 # Ídem la carga de pacientes de la prueba real (2026-09-14): el SQL generado trae nombres y fechas.
 supabase/scripts/pacientes-prueba-real/out/
 supabase/scripts/pacientes-prueba-real/*.xlsx
+# Ídem las entregas y el cierre de procedimientos (2026-09-15): el informe nombra a cada paciente.
+supabase/scripts/entregas-y-procedimientos/out/
+supabase/scripts/entregas-y-procedimientos/*.xlsx
