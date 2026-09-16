@@ -149,6 +149,8 @@ Sólo lo que puede fallar **en silencio** —lo que falla a la vista se verifica
   inscripciones en estados distintos.
 - El mapeo motivo → estado: si queda al revés, la pantalla se ve perfecta y el dato miente.
 - Qué visitas entran en el borrado: atendidas nunca, ventana vencida nunca, futuras sin atender sí.
+  Esta regla vive en SQL, así que no la cubre `vitest`: se prueba corriendo la función contra
+  **PGlite** (Postgres real en WASM) en el scratchpad, antes de pasarle la migración al Director.
 
 ## Fuera de alcance
 
