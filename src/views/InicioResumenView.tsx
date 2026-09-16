@@ -4,6 +4,7 @@ import { useActiveAlerts } from '../data/alertDismissals'
 import { useWeekVisits } from '../data/visits'
 import { useProtocols } from '../data/protocols'
 import { usePatients } from '../data/patients'
+import { personaActiva } from '../lib/inscripcion'
 import { usePendingReceptionsCount } from '../data/pharma'
 import { useDispensationBoard } from '../data/pharma/dispensations'
 import { fueraDeVentana } from '../lib/visits'
@@ -82,7 +83,10 @@ export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: V
   ).length
 
   const protocolosActivos = (protocols.data ?? []).filter((p) => p.status === 'activo').length
-  const pacientesActivos = (patients.data ?? []).filter((p) => p.status === 'activo').length
+  /* Personas con al menos una participación abierta. Antes era `patients.status`, que quedó legacy
+     con la 0127 — ver `personaActiva`, que además cuenta como activa a la persona recién dada de
+     alta y todavía sin inscribir a ningún estudio. */
+  const pacientesActivos = (patients.data ?? []).filter(personaActiva).length
   const dispensacionesAbiertas = (board.data ?? []).filter(
     (d) => d.status === 'solicitada' || d.status === 'preparando',
   ).length

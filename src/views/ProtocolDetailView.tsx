@@ -14,6 +14,7 @@ import { groupVisitsByPatient } from '../lib/visits'
 import { filasVisitasCsv, VISITAS_CSV_HEADERS } from '../lib/visitasCsv'
 import { PdPatientRow } from './track/PdPatientRow'
 import { CronogramaTab } from './track/CronogramaTab'
+import { estaAbierta, inscripcionDelEstudio } from '../lib/inscripcion'
 import { ReportesPendientesView } from './track/reportes/ReportesPendientesView'
 import { VisitDetail } from './track/VisitDetail'
 import { useUrlState } from '../lib/useUrlState'
@@ -115,14 +116,18 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
 
   const k = kpis.data
   const adherencePct = k && k.visits_total > 0 ? Math.round((k.visits_done / k.visits_total) * 100) : 0
-  /* UNA sola definición de "activo" para el KPI y para el filtro: el estado del PACIENTE
-     (`patients.status`), que es el que se edita en "Editar paciente" y el que pinta el punto al lado
-     de cada nombre. El KPI leía `v_protocol_kpis.active`, que cuenta INSCRIPCIONES activas
-     (`enrollments.status`, 0029) — otra columna, que nadie sincroniza con la del paciente. Con un
-     paciente pasado a inactivo y su inscripción intacta, la ficha decía "10 activos" y el filtro de
-     al lado "9 de 10" (2026-09-14). La inscripción además tiene `screening` como estado propio: contar
-     por ahí dejaría afuera de "Activos" a quien está en screening. */
-  const activos = patients.filter((p) => p.status === 'activo')
+  /* UNA sola definición de "activo" para el KPI y para el filtro, y desde la 0127 es la del
+     ESTUDIO: la inscripción a ESTE protocolo (`enrollments.status`).
+
+     Antes era el estado de la PERSONA (`patients.status`), que es una sola columna para todos los
+     estudios: por eso cerrar a alguien en ACT18301 lo mostraba cerrado también en LTS17231, que es
+     su extensión y tiene a las mismas personas (prod, 2026-09-16). Y antes de eso el KPI leía
+     `v_protocol_kpis.active` mientras el filtro leía la del paciente, así que la ficha decía "10
+     activos" al lado de "9 de 10" (2026-09-14). Ahora las dos salen de la misma pregunta.
+
+     `screening` cuenta como activo (ver `estaAbierta`): contarlo aparte dejaría fuera de "Activos"
+     a quien está entrando al estudio. */
+  const activos = patients.filter((p) => estaAbierta(inscripcionDelEstudio(p, protocol.id)?.status ?? null))
   const shown = filter === 'activos' ? activos : patients
 
   const metaRow = (label: string, value: string | null) => (

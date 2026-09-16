@@ -10,6 +10,7 @@ import { severidadMaxima } from './alertSeverity'
 import { DESTINO_PENDIENTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
 import { proximoDiaConVisitas } from './resumen/proximoDia'
+import { personaActiva } from '../lib/inscripcion'
 import { AMBITOS, esMiaSinAtender, esDeMisProtocolos, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
 import type { Ambito } from './resumen/ambito'
 import { useProtocols, useMyCoordinations } from '../data/protocols'
@@ -532,7 +533,8 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
       : undefined
 
   const activeProtocols = allProtocols.filter((p) => p.status === 'activo').length
-  const activePatients = allPatients.filter((p) => p.status === 'activo').length
+  /* Mismo criterio que Inicio: personas con alguna participación abierta (0127). */
+  const activePatients = allPatients.filter(personaActiva).length
   const overdueItems = alertRows.filter((a) => a.computed_status === 'item_vencido').length
 
   /* EL PRÓXIMO DÍA CON VISITAS, y no "mañana" a secas.

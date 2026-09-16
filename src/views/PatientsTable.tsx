@@ -3,9 +3,10 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
-import { EstadoPaciente } from '../components/EstadoPaciente'
+import { EstadoPersona } from '../components/EstadoPaciente'
 import { PatientLink } from '../components/PatientLink'
 import type { PatientProtocol, PatientRow } from '../data/patients'
+import { personaActiva } from '../lib/inscripcion'
 
 /* Grilla compartida entre encabezado y filas: código · nombre · estado · protocolos · nacimiento. */
 const COLS = '150px minmax(0, 1fr) 110px minmax(0, 1.3fr) 120px'
@@ -172,10 +173,12 @@ function PatientRowItem({ patient, accent, accentSolid, last, onOpenPatient }: {
           </PatientLink>
         </span>
       </span>
-      {/* El mismo punto que la ficha y el listado (`EstadoPaciente`), con la palabra al lado porque
-          esta tabla tiene una columna "Estado" con lugar para escribirla. */}
+      {/* El mismo punto que la ficha y el listado, con la palabra al lado porque esta tabla tiene
+          una columna "Estado" con lugar para escribirla. Acá va el de la PERSONA y no el de una
+          inscripción: esta lista cruza estudios (la columna de al lado muestra TODOS los protocolos
+          de cada uno), así que no hay un estudio en contexto del que hablar. */}
       <span role="cell">
-        <EstadoPaciente estado={patient.status} forma="etiqueta" />
+        <EstadoPersona activa={personaActiva(patient)} forma="etiqueta" />
       </span>
       <span role="cell" style={{ display: 'flex', gap: 6, alignItems: 'center', overflow: 'hidden' }}>
         {protocols.length === 0 ? (

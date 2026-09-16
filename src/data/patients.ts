@@ -1,6 +1,11 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import type { QueryResult } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
+/* SÓLO EL TIPO, y tiene que seguir siendo así: `lib/inscripcion.ts` importa tipos de este archivo,
+   o sea que es un ciclo. Con `import type` en los dos lados TypeScript los borra al compilar y no
+   queda ciclo en runtime; convertirlo en import de valor (para traerse `MOTIVOS_DE_CIERRE`, por
+   ejemplo) lo vuelve real y revienta con un `undefined` en la carga del módulo, lejos de acá. */
+import type { EnrollmentStatus } from '../lib/inscripcion'
 
 /** Estado del paciente (enum patient_status de la base). */
 export type PatientStatus = 'activo' | 'inactivo'
@@ -26,6 +31,13 @@ export interface PatientEnrollment {
    * puede faltar antes de la randomización, y las inscripciones anteriores a la 0062 no lo tienen.
    */
   ivrs_code: string | null
+  /**
+   * Estado de ESTA inscripción (`enrollments.status`, 0001). Es el estado que manda dentro del
+   * estudio desde la 0127 — `patients.status` quedó legacy. Nullable en el tipo por defensa: si
+   * alguna consulta vieja no lo pide, `estaAbierta` lo trata como abierto en vez de pintar de
+   * cerrado a quien no lo está.
+   */
+  status: EnrollmentStatus | null
   protocol: PatientProtocol | null
 }
 
@@ -55,7 +67,11 @@ export function usePatients() {
     (c) =>
       c
         .from('patients')
-        .select('id, code, full_name, status, birth_date, sex, fertility, treating_physician, enrollments(id, enrollment_date, randomization_date, ivrs_code, protocol:protocols(id, code, name))')
+        /* `status` va DOS veces y son cosas distintas: el de afuera es el de la persona
+           (`patients.status`, legacy desde la 0127, ya nadie lo lee) y el de adentro del embed es el
+           de la inscripción, que es el que manda dentro de un estudio. Sale de la misma fila, así
+           que pedirlo no cuesta nada. */
+        .select('id, code, full_name, status, birth_date, sex, fertility, treating_physician, enrollments(id, enrollment_date, randomization_date, ivrs_code, status, protocol:protocols(id, code, name))')
         .order('code', { ascending: true })
         .returns<PatientRow[]>(),
     [],
@@ -152,7 +168,6 @@ export interface EditPatientInput {
   birth_date: string | null
   sex: string | null
   fertility: string | null
-  status: PatientStatus
   /** Médico tratante de la persona. Nullable. Migración 0020. */
   treating_physician: string | null
 }

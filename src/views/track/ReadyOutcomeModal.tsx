@@ -30,7 +30,8 @@ export function ReadyOutcomeModal({
   onConfirm: (opts: Outcome) => Result
   /** "Recitar": abre Agendar con la randomización preseleccionada. */
   onReschedule: () => void
-  /** "Fallo de screening": inactiva el enrolamiento (discontinue_enrollment). */
+  /** "Fallo de screening": cierra la inscripción a ESTE estudio (discontinue_enrollment). Los
+   *  otros estudios del paciente no se tocan. */
   onDiscontinue: () => Result
 }) {
   const [ivrsAssigned, setIvrsAssigned] = useState(false)
@@ -122,7 +123,7 @@ export function ReadyOutcomeModal({
                   })
                 }
               >
-                Marcar fallo de screening (inactivar paciente)
+                Marcar fallo de screening (cerrar la participación)
               </button>
             </div>
           </>
