@@ -798,7 +798,11 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     cargando: reqQ.loading || ipQ.loading,
     cerrada: ipCerrada,
     prevista: ipPrevisto,
-    readOnly,
+    /* Con la visita terminada el IP se lee, no se carga: es el mismo criterio que la sección de
+       arriba, y arreglar sólo la mitad dejaría la incoherencia 60px más abajo en la misma tarjeta.
+       `contenidoSeccionIp` ya sabe hacerlo: con `readOnly` una visita prevista cae en
+       «sin_constancia» (estado de lectura) en vez de «adjuntar». */
+    readOnly: readOnly || (cerrada && !corrigiendo),
   })
 
   return (
@@ -824,7 +828,11 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
           {!readOnly && (
             <AvisosDeEntrega
               query={ctxQ} rojo={rojo} saldos={saldos} hayElegido={elegidos.length > 0}
-              readOnly={readOnly} accent={accent} onPedirSaldo={pedirSaldo}
+              // No es el `readOnly` de permisos: adentro de `AvisosDeEntrega` este prop sólo tapa el
+              // botón «Pedir el saldo» (el aviso rojo es incondicional). `puedeCargar` (Task 3) ya es
+              // «¿se puede cargar algo en esta tarjeta ahora mismo?» — con la visita cerrada y sin
+              // corrección abierta, tocar el saldo cargaría un renglón sobre un resumen de lectura.
+              readOnly={!puedeCargar} accent={accent} onPedirSaldo={pedirSaldo}
             />
           )}
 
@@ -1185,7 +1193,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               comprobante: comprobanteEntregado,
             } : null}
             cierre={ipCerrada && ipQ.data ? detalleIp(ipQ.data) : null}
-            onPedirFueraDeCronograma={readOnly ? null : () => { setFueraCronograma(true); setErr(null) }}
+            onPedirFueraDeCronograma={readOnly || (cerrada && !corrigiendo) ? null : () => { setFueraCronograma(true); setErr(null) }}
           />
 
           {/* 4 · EL CIERRE DE LA SOLICITUD. Un solo botón para todo lo que se armó arriba —renglones y
