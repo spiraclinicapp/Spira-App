@@ -4,6 +4,7 @@ import { Icon } from '../../components/Icon'
 import { EstadoPaciente } from '../../components/EstadoPaciente'
 import { PatientLink } from '../../components/PatientLink'
 import { ivrsDelEstudio } from '../../lib/ivrs'
+import { inscripcionDelEstudio } from '../../lib/inscripcion'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
 import { orderVisits, todaySplit, ubicacionDeHoy, visitShortLabel } from '../../lib/visits'
@@ -54,6 +55,11 @@ export function PdPatientRow({ patient, visits, accent, protocolId, protocolCode
   const flowCurrentId = todayVisit?.id ?? next?.id ?? prev?.id ?? null
   const medico = patient.treating_physician ?? '—'
   const ivrs = protocolId ? ivrsDelEstudio(patient, protocolId) : patient.code
+  /* El estado que se muestra es el de ESTA inscripción, no el de la persona: la misma persona en
+     dos estudios puede estar cerrada en uno y activa en el otro. Es exactamente el bug del
+     2026-09-16 (baja en ACT18301 → se veía de baja en LTS17231). Sin `protocolId` —ninguna
+     pantalla hoy— no hay estudio en contexto y cae a "sin dato", que se lee como abierta. */
+  const estadoInscripcion = protocolId ? (inscripcionDelEstudio(patient, protocolId)?.status ?? null) : null
   /* La fila solo se despliega si hay algo que trackear; sin visitas no hay tracker que mostrar. */
   const expandable = visits.length > 0
 
@@ -95,7 +101,7 @@ export function PdPatientRow({ patient, visits, accent, protocolId, protocolCode
           que queda justo debajo. Más adentro (se probó 7) terminaba a 5px de la esquina del botón y
           se leía como un aviso DEL BOTÓN, no del paciente. La caja de 16px termina a 20px de arriba
           y el botón arranca en 25: no se pisan, así que el punto no le roba el mouse. */}
-      <EstadoPaciente estado={patient.status} style={{ position: 'absolute', top: 4, right: 4 }} />
+      <EstadoPaciente estado={estadoInscripcion} style={{ position: 'absolute', top: 4, right: 4 }} />
       <div onClick={() => onOpen(patient.id)} style={{ cursor: 'pointer', padding: '13px 16px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12 }}>
           {/* identidad */}

@@ -221,7 +221,9 @@ export function PatientFichaView(props: PatientFichaViewProps) {
               enorme mayoría; los pocos que igual no entren cortan con `balance`, que reparte
               las dos líneas en vez de dejar una palabra sola colgando. */}
           <div>
-            {/* El estado es del PACIENTE (activo/inactivo); el de la VISITA vive en el cronograma.
+            {/* El estado es el de la INSCRIPCIÓN A ESTE ESTUDIO (0127) —no el de la persona, que
+                antes se leía acá y hacía que una baja en ACT18301 se viera en LTS17231—; el de la
+                VISITA vive en el cronograma.
                 Es el mismo punto de la esquina de la tarjeta en el listado, y acá también va arriba a
                 la derecha, a la altura del nombre (decisión del Director, 2026-09-14: la píldora
                 debajo, junto al IVRS, no le gustaba). El nombre sigue quedándose con el ancho: el
@@ -233,7 +235,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                 columna de valores de abajo. */}
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.2, textWrap: 'balance' }}>{patient.full_name}</div>
-              <EstadoPaciente estado={patient.status} style={{ height: 23, marginRight: -4 }} />
+              <EstadoPaciente estado={enrollment?.status ?? null} style={{ height: 23, marginRight: -4 }} />
             </div>
             <div className="spira-mono" style={{ fontSize: 13.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap', marginTop: 5 }}>{ivrs ?? 'Sin IVRS'}</div>
           </div>

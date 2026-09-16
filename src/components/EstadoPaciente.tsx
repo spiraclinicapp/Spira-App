@@ -1,10 +1,22 @@
 import type { CSSProperties } from 'react'
-import type { PatientStatus } from '../data/patients'
+import type { EnrollmentStatus } from '../lib/inscripcion'
+import { estaAbierta, ETIQUETA_ESTADO } from '../lib/inscripcion'
 
 /* ============================================================================
-   Estado del PACIENTE (activo / inactivo), con UN solo lenguaje en toda la app: un punto de color.
-   Verde = activo, rojo = inactivo (decisión del Director, 2026-09-14). Al apuntarlo, un `title`
-   dice en palabras en qué estado está.
+   Estado de la INSCRIPCIÓN AL ESTUDIO EN CONTEXTO, con UN solo lenguaje en toda la app: un punto de
+   color. Verde = la participación sigue en curso, rojo = está cerrada (decisión del Director,
+   2026-09-14 para el punto; 2026-09-16 para que lo que pinte sea la inscripción). Al apuntarlo, un
+   `title` dice en palabras cuál de los CUATRO estados es.
+
+   POR QUÉ LA INSCRIPCIÓN Y NO LA PERSONA: hasta la 0127 esto leía `patients.status`, que es una sola
+   columna para todos los estudios. El 2026-09-16, dar de baja a tres pacientes en ACT18301 los
+   mostró dados de baja también en LTS17231 — que es la extensión de ACT y tiene a las mismas
+   personas inscriptas. El estado de una persona en un estudio no dice nada de su estado en otro.
+
+   BINARIO A PROPÓSITO. Se evaluó un tercer color para distinguir «completó» de «se discontinuó» y el
+   Director prefirió no sumar un color a una lista donde el color ya significa otras cosas. La
+   diferencia igual se dice, en palabras, en el `title` y en el `aria-label`: pintar de rojo a alguien
+   que completó el estudio sería raro, pero decirlo mal sería peor, y el texto no lo dice mal.
 
    HISTORIA, porque ya hubo dos intentos:
      · Hasta la PR #183 había tres representaciones —la ficha con un badge armado a mano con
@@ -34,34 +46,29 @@ import type { PatientStatus } from '../data/patients'
    franja que tiña la tarjeta entera.
    ============================================================================ */
 
-const COLOR: Record<PatientStatus, string> = {
-  activo: 'var(--spira-good)',
-  inactivo: 'var(--spira-acc-deep-danger)',
-}
-const ETIQUETA: Record<PatientStatus, string> = { activo: 'Activo', inactivo: 'Inactivo' }
-/* "En seguimiento" es la palabra que ya usa Inicio para contar a los activos ("23 pacientes en
-   seguimiento"); inactivo es el cese clínico (spec de eliminar paciente, 2026-06-19). */
-const EXPLICACION: Record<PatientStatus, string> = {
-  activo: 'Paciente activo: en seguimiento',
-  inactivo: 'Paciente inactivo: ya no está en seguimiento',
+const VERDE = 'var(--spira-good)'
+const ROJO = 'var(--spira-acc-deep-danger)'
+
+function Punto({ color }: { color: string }) {
+  return <span aria-hidden="true" style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: color, flex: '0 0 auto' }} />
 }
 
-function Punto({ estado }: { estado: PatientStatus }) {
-  return <span aria-hidden="true" style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: COLOR[estado], flex: '0 0 auto' }} />
-}
+/** `punto`: sólo el punto, en la esquina de la ficha y de la tarjeta del listado.
+ *  `etiqueta`: punto + palabra, para una columna "Estado" de tabla. */
+type Forma = 'punto' | 'etiqueta'
 
-export function EstadoPaciente({ estado, forma = 'punto', style }: {
-  estado: PatientStatus
-  /** `punto`: sólo el punto, en la esquina de la ficha y de la tarjeta del listado.
-   *  `etiqueta`: punto + palabra, para una columna "Estado" de tabla. */
-  forma?: 'punto' | 'etiqueta'
-  /** Para posicionarlo (p. ej. `position: absolute` en la esquina de la tarjeta). */
+/** El punto, ya resuelto. Las dos variantes de abajo sólo deciden el color y la palabra. */
+function Semaforo({ abierto, palabra, forma, style }: {
+  abierto: boolean
+  palabra: string
+  forma: Forma
   style?: CSSProperties
 }) {
+  const color = abierto ? VERDE : ROJO
   if (forma === 'etiqueta') {
     return (
-      <span title={EXPLICACION[estado]} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--spira-ink)', whiteSpace: 'nowrap', cursor: 'help', ...style }}>
-        <Punto estado={estado} />{ETIQUETA[estado]}
+      <span title={palabra} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--spira-ink)', whiteSpace: 'nowrap', cursor: 'help', ...style }}>
+        <Punto color={color} />{palabra}
       </span>
     )
   }
@@ -70,11 +77,57 @@ export function EstadoPaciente({ estado, forma = 'punto', style }: {
        para que el `title` aparezca sin buscarlo. El punto se centra adentro. */
     <span
       role="img"
-      aria-label={EXPLICACION[estado]}
-      title={EXPLICACION[estado]}
+      aria-label={palabra}
+      title={palabra}
       style={{ display: 'grid', placeItems: 'center', width: 16, height: 16, flex: '0 0 auto', cursor: 'help', ...style }}
     >
-      <Punto estado={estado} />
+      <Punto color={color} />
     </span>
+  )
+}
+
+/**
+ * Estado del paciente DENTRO DE UN ESTUDIO. Es el que va en la ficha y en el listado de un
+ * protocolo, donde siempre hay un estudio en contexto.
+ */
+export function EstadoPaciente({ estado, forma = 'punto', style }: {
+  /** Estado de la inscripción AL ESTUDIO EN CONTEXTO, no de la persona. `null` = sin dato. */
+  estado: EnrollmentStatus | null
+  forma?: Forma
+  /** Para posicionarlo (p. ej. `position: absolute` en la esquina de la tarjeta). */
+  style?: CSSProperties
+}) {
+  return (
+    <Semaforo
+      abierto={estaAbierta(estado)}
+      // Sin dato se asume abierta, igual que `estaAbierta`.
+      palabra={estado ? ETIQUETA_ESTADO[estado] : ETIQUETA_ESTADO.activo}
+      forma={forma}
+      style={style}
+    />
+  )
+}
+
+/**
+ * Estado de la PERSONA, para las listas CRUZA-ESTUDIOS (Todos los pacientes), donde no hay un
+ * estudio en contexto y preguntar «¿está activo?» sólo tiene una respuesta honesta: si le queda
+ * alguna participación abierta en algún lado. Se calcula con `personaActiva`.
+ *
+ * Es un componente aparte y no un prop más de `EstadoPaciente` para que sea imposible mezclarlos:
+ * son la misma pinta y dos preguntas distintas, y confundirlas es exactamente el bug que la 0127
+ * vino a cerrar.
+ */
+export function EstadoPersona({ activa, forma = 'punto', style }: {
+  activa: boolean
+  forma?: Forma
+  style?: CSSProperties
+}) {
+  return (
+    <Semaforo
+      abierto={activa}
+      palabra={activa ? 'En seguimiento' : 'Sin estudios activos'}
+      forma={forma}
+      style={style}
+    />
   )
 }
