@@ -135,11 +135,15 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   )
   const dash = <span style={{ color: 'var(--spira-muted)' }}>—</span>
 
-  /* ventana: días hasta que cierra (window_end − hoy); "Vencida" si ya pasó. */
+  /* Cuánto queda de ventana. Dice «faltan N d» y no «ventana N d» (Director, 2026-09-15): al lado de
+     una fecha futura, el dato que se busca es cuánto queda, y «ventana» nombra el concepto en vez de
+     responder. Dos casos no entran en esa frase y se dicen aparte: cuando ya cerró («ventana
+     vencida» — no faltan días, sobran) y el día que cierra («vence hoy», que con «faltan 0 d» se
+     leería como un error de cuenta). */
   let ventanaTxt = '—'
   if (current && current.real_date === null && current.window_end) {
     const d = daysDiffISO(todayISO(), current.window_end)
-    ventanaTxt = d < 0 ? 'Vencida' : `${d} d`
+    ventanaTxt = d < 0 ? 'ventana vencida' : d === 0 ? 'vence hoy' : `faltan ${d} d`
   }
 
   return (
@@ -320,14 +324,20 @@ export function PatientFichaView(props: PatientFichaViewProps) {
             <>
               {/* próxima visita */}
               <div style={card}>
-                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                {/* Alineados ARRIBA y no abajo (Director, 2026-09-15: «el día lo veo muy tirado para
+                    abajo»). Con `flex-end` mandaba el bloque más alto —el de la derecha, que tiene
+                    el renglón de la semana— y empujaba la fecha un renglón hacia abajo: los dos
+                    datos principales del encabezado quedaban a distinta altura sin que nada lo
+                    justifique. Arriba, los dos rótulos arrancan en la misma línea y la fecha y la
+                    visita quedan enfrentadas. */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                   <div>
                     <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{current && current.real_date === null ? 'Próxima visita' : 'Última visita'}</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 3 }}>
-                      <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', color: current ? (VISIT_STATES[current.computed_status].color === '#7C8C87' ? 'var(--spira-ink)' : VISIT_STATES[current.computed_status].color) : 'var(--spira-ink)' }}>
+                      <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 25, letterSpacing: '-0.02em', color: current ? (VISIT_STATES[current.computed_status].color === '#7C8C87' ? 'var(--spira-ink)' : VISIT_STATES[current.computed_status].color) : 'var(--spira-ink)' }}>
                         {current && current.estimated_date ? dayLabel(current.estimated_date) : '—'}
                       </span>
-                      {ventanaTxt !== '—' && <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>ventana {ventanaTxt}</span>}
+                      {ventanaTxt !== '—' && <span style={{ fontSize: 13, color: 'var(--spira-ink-soft)' }}>{ventanaTxt}</span>}
                     </div>
                   </div>
                   {/* UN bloque, no dos columnas gemelas (Director, 2026-09-15: «la visita es más
@@ -352,7 +362,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                           ancho) mientras el rótulo colapsa el nombre que sólo repite la semana. */}
                       <div
                         title={visitTitle(statVisit)}
-                        style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.01em', color: accent, marginTop: 3, maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 25, letterSpacing: '-0.02em', color: accent, marginTop: 3, maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                       >
                         {visitTitleConSemanaAparte(statVisit)}
                       </div>
@@ -361,7 +371,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                           Ahora es el PIE de la visita: dice de esa visita en qué semana del estudio
                           cae, y por eso va con su palabra adelante en vez de un rótulo aparte. */}
                       {statStudyTime != null && (
-                        <div className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, whiteSpace: 'nowrap' }}>
+                        <div className="spira-mono" style={{ fontSize: 14, color: 'var(--spira-ink-soft)', marginTop: 2, whiteSpace: 'nowrap' }}>
                           {statStudyTime.unit === 'dia' ? `Día ${statStudyTime.value}` : `Semana W${statStudyTime.value}`}
                         </div>
                       )}
