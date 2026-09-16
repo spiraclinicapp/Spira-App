@@ -45,14 +45,14 @@ describe('historialPlegado', () => {
       pedido({ status: 'atendida', disp: { status: 'entregada', delivered_at: '2026-09-14T01:30:00+00:00', n: 12 } }),
       pedido({ status: 'cancelada', updated_at: '2026-09-11T15:00:00+00:00' }),
     ])!
-    expect(h.resumen).toBe('2 pedidos cerrados · el último, entregado el 13/09')
+    expect(h.resumen).toBe('2 pedidos anteriores · el último, entregado el 13/09')
     expect(h.abiertoDeEntrada).toBe(false)
     expect(h.renglones.map((r) => r.fecha)).toEqual(['13/09', '11/09'])
   })
 
   it('en singular no dice «el último»', () => {
     const h = historialPlegado([pedido({ status: 'cancelada', updated_at: '2026-09-12T12:00:00+00:00' })])!
-    expect(h.resumen).toBe('1 pedido cerrado · cancelado el 12/09')
+    expect(h.resumen).toBe('1 pedido anterior · cancelado el 12/09')
   })
 
   it('ordena por el desenlace, no por la fecha del pedido', () => {
@@ -63,7 +63,7 @@ describe('historialPlegado', () => {
     const nuevoCancelado = pedido({ status: 'cancelada', created_at: '2026-09-05T12:00:00+00:00', updated_at: '2026-09-06T12:00:00+00:00' })
     const h = historialPlegado([nuevoCancelado, viejoEntregadoHoy])!
     expect(h.renglones.map((r) => r.id)).toEqual([viejoEntregadoHoy.id, nuevoCancelado.id])
-    expect(h.resumen).toBe('2 pedidos cerrados · el último, entregado el 13/09')
+    expect(h.resumen).toBe('2 pedidos anteriores · el último, entregado el 13/09')
   })
 
   it('con un rechazo vigente lo nombra, abre desplegado y trae el motivo', () => {
@@ -71,7 +71,7 @@ describe('historialPlegado', () => {
       pedido({ status: 'rechazada', created_at: '2026-09-13T12:00:00+00:00', updated_at: '2026-09-13T14:00:00+00:00', rejection_reason: 'Sin stock del lote pedido' }),
       pedido({ created_at: '2026-09-11T12:00:00+00:00', disp: { status: 'entregada', delivered_at: '2026-09-11T15:00:00+00:00', n: 11 } }),
     ])!
-    expect(h.resumen).toBe('2 pedidos cerrados · uno rechazado')
+    expect(h.resumen).toBe('2 pedidos anteriores · uno rechazado')
     expect(h.abiertoDeEntrada).toBe(true)
     expect(h.renglones[0].motivo).toBe('Sin stock del lote pedido')
     expect(h.renglones[0].badge.label).toBe('Rechazada')
@@ -80,7 +80,7 @@ describe('historialPlegado', () => {
 
   it('un solo pedido, rechazado: abre y lo dice con la fecha', () => {
     const h = historialPlegado([pedido({ status: 'rechazada', updated_at: '2026-09-13T14:00:00+00:00' })])!
-    expect(h.resumen).toBe('1 pedido cerrado · rechazado el 13/09')
+    expect(h.resumen).toBe('1 pedido anterior · rechazado el 13/09')
     expect(h.abiertoDeEntrada).toBe(true)
   })
 
@@ -90,7 +90,7 @@ describe('historialPlegado', () => {
       pedido({ status: 'rechazada', created_at: '2026-09-10T12:00:00+00:00', updated_at: '2026-09-10T14:00:00+00:00' }),
     ])!
     expect(h.abiertoDeEntrada).toBe(false)
-    expect(h.resumen).toBe('2 pedidos cerrados · el último, entregado el 13/09')
+    expect(h.resumen).toBe('2 pedidos anteriores · el último, entregado el 13/09')
   })
 
   it('nombra qué se pidió: el IP con sus kits primero, después los renglones', () => {
@@ -124,6 +124,36 @@ describe('historialPlegado', () => {
       pedido({ status: 'cancelada', updated_at: '2026-09-12T12:00:00+00:00', disp: { status: 'en_preparacion', n: 12 } }),
     ])!
     expect(h.renglones.map((r) => r.comprobante)).toEqual([11, null])
+  })
+})
+
+describe('historialPlegado · «pedido anterior»', () => {
+  it('dice «pedido anterior» y no «pedido cerrado»: el pedido puede ser de hoy', () => {
+    const h = historialPlegado([
+      pedido({ items: [item('Frevia', 1)], disp: { status: 'entregada', delivered_at: '2026-09-13T13:00:00+00:00', n: 19 } }),
+    ])
+    expect(h?.resumen).toBe('1 pedido anterior · entregado el 13/09')
+  })
+
+  it('en plural, «pedidos anteriores»', () => {
+    const h = historialPlegado([
+      pedido({ items: [item('Frevia', 1)], disp: { status: 'entregada', delivered_at: '2026-09-12T13:00:00+00:00', n: 18 } }),
+      pedido({ items: [item('Salbutral', 1)], disp: { status: 'entregada', delivered_at: '2026-09-13T13:00:00+00:00', n: 19 } }),
+    ])
+    expect(h?.resumen).toBe('2 pedidos anteriores · el último, entregado el 13/09')
+  })
+
+  it('excluye lo que la sección de arriba ya muestra', () => {
+    const p = pedido({ id: 'ya-mostrado', items: [item('Frevia', 1)], disp: { status: 'entregada', delivered_at: '2026-09-13T13:00:00+00:00', n: 19 } })
+    expect(historialPlegado([p], ['ya-mostrado'])).toBeNull()
+  })
+
+  it('excluir uno no se lleva puestos a los demás', () => {
+    const entregado = pedido({ id: 'ya-mostrado', items: [item('Frevia', 1)], disp: { status: 'entregada', delivered_at: '2026-09-13T13:00:00+00:00', n: 19 } })
+    const cancelado = pedido({ id: 'cancelado', status: 'cancelada', updated_at: '2026-09-12T13:00:00+00:00', items: [item('Salbutral', 1)] })
+    const h = historialPlegado([entregado, cancelado], ['ya-mostrado'])
+    expect(h?.renglones.map((r) => r.id)).toEqual(['cancelado'])
+    expect(h?.resumen).toBe('1 pedido anterior · cancelado el 12/09')
   })
 })
 

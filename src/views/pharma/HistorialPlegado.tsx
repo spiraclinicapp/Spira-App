@@ -29,10 +29,14 @@ const toggleBtn: CSSProperties = {
  * Mientras la primera lectura no vuelve no hay línea: sin pedidos no hay nada que resumir, y una
  * línea que aparece y cambia es peor que una que aparece una vez.
  */
-export function HistorialPlegado({ requests }: { requests: readonly DispensationRequestRow[] }) {
+export function HistorialPlegado({ requests, excluir }: {
+  requests: readonly DispensationRequestRow[]
+  /** Pedidos que la tarjeta ya muestra arriba (visita cerrada). No se repiten acá. */
+  excluir?: readonly string[]
+}) {
   /** `null` = lo que diga la regla (desplegado con un rechazo vigente); después manda la mano. */
   const [abierto, setAbierto] = useState<boolean | null>(null)
-  const h = historialPlegado(requests)
+  const h = historialPlegado(requests, excluir)
   if (!h) return null
   const desplegado = abierto ?? h.abiertoDeEntrada
 
@@ -43,7 +47,7 @@ export function HistorialPlegado({ requests }: { requests: readonly Dispensation
         <button
           type="button" aria-expanded={desplegado} onClick={() => setAbierto(!desplegado)} style={toggleBtn}
         >
-          {desplegado ? 'Ocultar' : 'Ver historial'}
+          {desplegado ? 'Ocultar' : h.renglones.length === 1 ? 'Ver pedido anterior' : 'Ver pedidos anteriores'}
           <Icon name={desplegado ? 'chevronUp' : 'chevronDown'} size={14} color="var(--spira-muted)" />
         </button>
       </div>

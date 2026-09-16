@@ -278,9 +278,18 @@ export function VisitDetail({
                   </Panel>
                 </div>
 
-                {/* Monta su propio `Panel`, con la banda sólida del realce siempre puesta. */}
+                {/* Monta su propio `Panel`, con la banda sólida del realce siempre puesta.
+
+                    `key={visit.id}` (Hallazgo 2, revisión final 2026-09-15): sin remontar por
+                    visita, pasar de una a otra con ↑↓ arrastraba estado entre pacientes — el modo
+                    `corrigiendo` seguía encendido en la visita B con un aviso que hablaba de "la
+                    entrega anterior" de OTRA visita, y `useVisitDispensations` conservaba el `data`
+                    viejo un instante, así que se pintaban los medicamentos de la visita anterior
+                    como si fueran de ésta. Y de yapa cerraba una fuga preexistente: los renglones
+                    elegidos y sin enviar viajaban al paciente siguiente en vez de perderse, que es
+                    peor. Decisión del Director: remontar. */}
                 <div style={{ minWidth: 0 }}>
-                  <VisitDispensationPanel visit={visit} accent={accent} readOnly={readOnly} />
+                  <VisitDispensationPanel key={visit.id} visit={visit} accent={accent} readOnly={readOnly} />
                 </div>
               </div>
             </div>
