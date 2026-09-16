@@ -325,31 +325,39 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                       {ventanaTxt !== '—' && <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>ventana {ventanaTxt}</span>}
                     </div>
                   </div>
+                  {/* UN bloque, no dos columnas gemelas (Director, 2026-09-15: «la visita es más
+                      importante que la semana»).
+
+                      Antes eran dos stacks del mismo molde —rótulo chico + número grande— separados
+                      28px, y el de la semana iba en 25px tinta contra los 19px de la visita: la
+                      jerarquía quedaba al revés, y con la misma forma los dos se leían como datos
+                      hermanos. Son la misma cosa: CUÁL visita, y en qué semana del estudio cae ésa.
+                      Juntos en un bloque, el renglón tiene dos polos —la fecha a la izquierda, la
+                      visita a la derecha— y la semana pasa a ser el pie de la visita. De paso deja
+                      de haber una segunda columna que se caiga de renglón en pantalla angosta. */}
                   {statVisit && (
-                    <div style={{ display: 'flex', gap: 28 }}>
-                      <div>
-                        <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{statIsActual ? 'Visita actual' : 'Próxima visita'}</div>
-                        {/* Identidad de la visita (código + nombre, o el label de la suelta: "VNP"),
-                            no el conteo "V# de N": en la diaria importa CUÁL visita es, no cuántas van. */}
-                        {/* El bloque de al lado ya dice «Semana W16»: con el nombre repitiéndola, el
-                            título se queda con el código (`visitTitleConSemanaAparte`). El `title` en
-                            cambio lleva el nombre COMPLETO: el tooltip no compite por ancho con nada y
-                            es donde se comprueba qué dice el cronograma. */}
-                        <div
-                          title={visitTitle(statVisit)}
-                          style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 19, color: accent, marginTop: 3, maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                        >
-                          {visitTitleConSemanaAparte(statVisit)}
-                        </div>
+                    <div style={{ textAlign: 'right', minWidth: 0 }}>
+                      <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{statIsActual ? 'Visita actual' : 'Próxima visita'}</div>
+                      {/* Identidad de la visita (código + nombre, o el label de la suelta: "VNP"),
+                          no el conteo "V# de N": en la diaria importa CUÁL visita es, no cuántas van.
+
+                          Va en 22px —debajo de los 24 de la fecha, arriba de todo lo demás— y en el
+                          acento: el tamaño la ordena y el color la separa de la fecha, que se tiñe
+                          por estado. El `title` lleva el nombre COMPLETO (el tooltip no compite por
+                          ancho) mientras el rótulo colapsa el nombre que sólo repite la semana. */}
+                      <div
+                        title={visitTitle(statVisit)}
+                        style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.01em', color: accent, marginTop: 3, maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      >
+                        {visitTitleConSemanaAparte(statVisit)}
                       </div>
                       {/* Día/Semana solo para visitas del cronograma (tienen offset). Las sueltas
-                          —VNP, retest— no tienen tiempo de estudio → se omite (no "Semana —"). */}
+                          —VNP, retest— no tienen tiempo de estudio → se omite (no "Semana —").
+                          Ahora es el PIE de la visita: dice de esa visita en qué semana del estudio
+                          cae, y por eso va con su palabra adelante en vez de un rótulo aparte. */}
                       {statStudyTime != null && (
-                        <div>
-                          <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{statStudyTime.unit === 'dia' ? 'Día' : 'Semana'}</div>
-                          <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 25, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
-                            {statStudyTime.unit === 'dia' ? statStudyTime.value : `W${statStudyTime.value}`}
-                          </div>
+                        <div className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, whiteSpace: 'nowrap' }}>
+                          {statStudyTime.unit === 'dia' ? `Día ${statStudyTime.value}` : `Semana W${statStudyTime.value}`}
                         </div>
                       )}
                     </div>
