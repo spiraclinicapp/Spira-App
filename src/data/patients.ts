@@ -67,7 +67,11 @@ export function usePatients() {
     (c) =>
       c
         .from('patients')
-        .select('id, code, full_name, status, birth_date, sex, fertility, treating_physician, enrollments(id, enrollment_date, randomization_date, ivrs_code, protocol:protocols(id, code, name))')
+        /* `status` va DOS veces y son cosas distintas: el de afuera es el de la persona
+           (`patients.status`, legacy desde la 0127, ya nadie lo lee) y el de adentro del embed es el
+           de la inscripción, que es el que manda dentro de un estudio. Sale de la misma fila, así
+           que pedirlo no cuesta nada. */
+        .select('id, code, full_name, status, birth_date, sex, fertility, treating_physician, enrollments(id, enrollment_date, randomization_date, ivrs_code, status, protocol:protocols(id, code, name))')
         .order('code', { ascending: true })
         .returns<PatientRow[]>(),
     [],
