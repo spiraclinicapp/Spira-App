@@ -1,13 +1,14 @@
 /**
  * ┌─ El historial de pedidos de la visita, plegado en una línea (plan D17, Tanda 3a) ──────────┐
  *
- * Al pie de la tarjeta de Dispensación va UNA línea que resume lo que ya pasó, y «Ver historial»
- * despliega un renglón por pedido cerrado (fecha · qué · comprobante · estado). Antes era una
- * tarjeta completa por pedido con «Ver N más», y el historial se comía la tarjeta.
+ * Al pie de la tarjeta de Dispensación va UNA línea que resume lo que ya pasó, y «Ver pedido(s)
+ * anterior(es)» despliega un renglón por pedido cerrado (fecha · qué · comprobante · estado). Antes
+ * era una tarjeta completa por pedido con «Ver N más», y el historial se comía la tarjeta.
+ * «Anterior» y no «cerrado»/«historial»: el pedido puede ser de hoy (Director, 2026-09-15).
  *
  *   sin pedidos cerrados         sin línea
- *   el último, sin rechazo       «2 pedidos cerrados · el último, entregado el 13/09»   plegado
- *   con un rechazo VIGENTE       «2 pedidos cerrados · uno rechazado»                    desplegado
+ *   el último, sin rechazo       «2 pedidos anteriores · el último, entregado el 13/09»  plegado
+ *   con un rechazo VIGENTE       «2 pedidos anteriores · uno rechazado»                   desplegado
  *
  * «Vigente» = el pedido más nuevo que no se canceló es el rechazado: nadie volvió a pedir (o lo que
  * se volvió a pedir se canceló). Un rechazo que ya se resolvió con un pedido posterior no abre el
@@ -127,17 +128,27 @@ export function rechazoVigente(pedidos: readonly PedidoHistorial[]): boolean {
 /**
  * El historial de la visita. Recibe TODOS los pedidos (también los abiertos): el rechazo deja de
  * estar vigente apenas hay uno nuevo en curso, y eso sólo se sabe mirando los abiertos.
- * `null` = no hay pedidos cerrados y no va la línea.
+ * `null` = no queda nada que resumir y no va la línea.
+ *
+ * `excluir` son los pedidos que la tarjeta ya muestra arriba con la visita cerrada
+ * (`visitaCerradaModel`). La misma entrega dos veces en la misma tarjeta se lee como DOS entregas.
  */
-export function historialPlegado(pedidos: readonly PedidoHistorial[]): HistorialPlegado | null {
+export function historialPlegado(
+  pedidos: readonly PedidoHistorial[],
+  excluir: readonly string[] = [],
+): HistorialPlegado | null {
+  const fuera = new Set(excluir)
   const cerrados = pedidos
+    .filter((r) => !fuera.has(r.id))
     .filter(estaCerrado)
     .map((r) => ({ r, instante: instanteDesenlace(r) }))
     .sort((a, b) => ms(b.instante) - ms(a.instante))
   if (!cerrados.length) return null
 
   const n = cerrados.length
-  const cuantos = `${n} ${n === 1 ? 'pedido cerrado' : 'pedidos cerrados'}`
+  // «anterior» y no «cerrado»/«historial»: el pedido puede ser de hoy, y «historial» suena a archivo
+  // viejo. «Anterior» es cierto en los dos casos (Director, 2026-09-15).
+  const cuantos = `${n} ${n === 1 ? 'pedido anterior' : 'pedidos anteriores'}`
   const vigente = rechazoVigente(pedidos)
   const rechazados = cerrados.filter(({ r }) => r.status === 'rechazada').length
   const ultimo = cerrados[0].r
