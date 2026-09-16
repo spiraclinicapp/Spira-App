@@ -6,6 +6,9 @@ import { EstadoPaciente } from '../components/EstadoPaciente'
 import { Modal } from '../components/Modal'
 import type { ProtocolRow } from '../data/protocols'
 import { ivrsDelEstudio } from '../lib/ivrs'
+import { btnOutline } from '../components/buttons'
+import { estaAbierta } from '../lib/inscripcion'
+import { CerrarInscripcionModal } from './track/CerrarInscripcionModal'
 import type { PatientRow } from '../data/patients'
 import { usePatientVisits, useVisitAlerts } from '../data/visits'
 import { useUrlEntity } from '../lib/useUrlState'
@@ -63,7 +66,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   // parado en Track (la RLS igual la protege server-side, pero como affordance no corresponde).
   const { hasMinRole } = useAuth()
   const canManagePharma = moduleKey === 'pharma' && hasMinRole('pharma', 'operator')
-  const [modal, setModal] = useState<null | 'reschedule' | 'register' | 'edit' | 'alerts'>(null)
+  const [modal, setModal] = useState<null | 'reschedule' | 'register' | 'edit' | 'alerts' | 'cerrar'>(null)
   // Detalle de una visita del cronograma: el MISMO componente que abre la vista del día
   // (VisitDetail), sincronizado por leer de la misma vista. Guardamos el id y el detalle se
   // trae sus propios datos.
@@ -150,6 +153,21 @@ export function PatientFichaView(props: PatientFichaViewProps) {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
       {/* el breadcrumb (Protocolos › CÓDIGO › PACIENTE) y los botones Reprogramar/Registrar
           viven en el encabezado del shell (registrado por el efecto de arriba). */}
+      {modal === 'cerrar' && enrollment && (
+        <CerrarInscripcionModal
+          enrollmentId={enrollment.id}
+          estado={enrollment.status}
+          protocolCode={protocol.code}
+          pacienteNombre={patient.full_name}
+          accentSolid={accentSolid}
+          onClose={() => setModal(null)}
+          /* `onPatientUpdated` es el que importa: el estado que acaba de cambiar viaja en el
+             paciente (su embed de inscripciones), no en las visitas. Los otros dos refetch son
+             porque cerrar BORRA visitas futuras, y el cronograma y las alertas de la ficha las
+             están mostrando. */
+          onDone={() => { setModal(null); onPatientUpdated(); visitsQ.refetch(); alertsQ.refetch() }}
+        />
+      )}
       {modal === 'reschedule' && current && (
         <RescheduleModal visit={current} accentSolid={accentSolid} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
       )}
@@ -221,7 +239,9 @@ export function PatientFichaView(props: PatientFichaViewProps) {
               enorme mayoría; los pocos que igual no entren cortan con `balance`, que reparte
               las dos líneas en vez de dejar una palabra sola colgando. */}
           <div>
-            {/* El estado es del PACIENTE (activo/inactivo); el de la VISITA vive en el cronograma.
+            {/* El estado es el de la INSCRIPCIÓN A ESTE ESTUDIO (0127) —no el de la persona, que
+                antes se leía acá y hacía que una baja en ACT18301 se viera en LTS17231—; el de la
+                VISITA vive en el cronograma.
                 Es el mismo punto de la esquina de la tarjeta en el listado, y acá también va arriba a
                 la derecha, a la altura del nombre (decisión del Director, 2026-09-14: la píldora
                 debajo, junto al IVRS, no le gustaba). El nombre sigue quedándose con el ancho: el
@@ -233,7 +253,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                 columna de valores de abajo. */}
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.2, textWrap: 'balance' }}>{patient.full_name}</div>
-              <EstadoPaciente estado={patient.status} style={{ height: 23, marginRight: -4 }} />
+              <EstadoPaciente estado={enrollment?.status ?? null} style={{ height: 23, marginRight: -4 }} />
             </div>
             <div className="spira-mono" style={{ fontSize: 13.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap', marginTop: 5 }}>{ivrs ?? 'Sin IVRS'}</div>
           </div>
@@ -254,6 +274,18 @@ export function PatientFichaView(props: PatientFichaViewProps) {
             {row('Sponsor', protocol.sponsor || dash)}
             {row('Investigador', protocol.principal_investigator || dash)}
             {row('Especialidad', protocol.specialty || dash)}
+            {/* Cerrar (o reabrir) la participación en ESTE estudio. Vive acá y no en «Editar
+                paciente» porque es una decisión sobre el estudio, no sobre la persona: ése fue
+                justamente el error que la 0127 vino a corregir. */}
+            {enrollment && canWrite && (
+              <button
+                type="button"
+                onClick={() => setModal('cerrar')}
+                style={{ ...btnOutline, marginTop: 5, width: '100%' }}
+              >
+                {estaAbierta(enrollment.status) ? 'Cerrar participación' : 'Reabrir participación'}
+              </button>
+            )}
           </div>
 
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
