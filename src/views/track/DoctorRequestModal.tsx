@@ -44,8 +44,17 @@ export function DoctorRequestModal({ visitId, accent, canClinical, onClose, onCh
     onClose()  // "Quitar de la cola" cierra el popup (decisión de diseño)
   }
 
+  /* «Solicitar atención médica» cuando la visita todavía no tiene pedido (Director, 2026-09-16): es
+     el caso en que el popup se abre para PEDIRLA, y repite el rótulo del botón de la barra que lo
+     abre. Con la visita ya en la cola —o ya vista— se entra desde «Ver atención médica» a mirar o
+     corregir el motivo, y ahí «Solicitar» prometería un segundo pedido que no existe. Mientras carga,
+     el título neutro: todavía no se sabe cuál de los dos casos es. */
+  const titulo = visit && !visit.wants_doctor && !visit.doctor_seen_at
+    ? 'Solicitar atención médica'
+    : 'Atención médica'
+
   return (
-    <Modal title="Atención médica" icon="users" accent={accent} accentSoft={accent + '1F'} maxWidth={520} onClose={onClose}>
+    <Modal title={titulo} icon="users" accent={accent} accentSoft={accent + '1F'} maxWidth={520} onClose={onClose}>
       {q.loading && !visit ? (
         <div style={{ padding: '20px 4px', fontSize: 13.5, color: 'var(--spira-muted)' }}>Cargando visita…</div>
       ) : q.error ? (
