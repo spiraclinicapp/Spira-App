@@ -758,6 +758,12 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     // entrega — sin este reset la tarjeta quedaba mostrando "Elegir medicación" en vez del botón
     // sobrio, con la corrección "viva" sobre un pedido que ya no existe.
     if (corrigiendo) setCorrigiendo(false)
+    // `fueraCronograma` es pegajosa MIENTRAS EL PEDIDO VIVE (ver el comentario de su declaración):
+    // acá el pedido deja de existir, así que ya no hay nada sellado que la reemplace. Sin este
+    // reset, cancelar un pedido "fuera de cronograma" dejaba el flag local prendido para siempre y
+    // la sección del IP volvía a afirmar la excepción —ámbar, "Sin constancia cargada."— sobre una
+    // visita cerrada que nunca llevó IP.
+    setFueraCronograma(false)
   }
 
   /** Guarda la cantidad nueva de un renglón del pedido abierto (0121, D5). */
@@ -810,7 +816,11 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     hayPedidoAbierto: ipEnCurso,
     pedidoAbiertoLaAcepta: ipAceptaAdjunto,
     entregadoConConstancia: constanciaEntregada !== null && reqEntregado !== null,
-    cargando: reqQ.loading || ipQ.loading,
+    // Tratar el error igual que la carga, misma razón que la sección de arriba: una consulta que
+    // FALLA deja `data` en `null` para siempre, y sin esto la sección leía ese cero como un hecho
+    // y afirmaba "El cronograma no lo pide" o "Sin constancia cargada." sobre una visita que sí
+    // llevó producto en investigación.
+    cargando: reqQ.loading || ipQ.loading || !!reqQ.error || !!ipQ.error,
     cerrada: ipCerrada,
     prevista: ipPrevisto,
     /* Con la visita terminada el IP se lee, no se carga: es el mismo criterio que la sección de
