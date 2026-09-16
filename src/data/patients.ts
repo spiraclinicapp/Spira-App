@@ -168,7 +168,6 @@ export interface EditPatientInput {
   birth_date: string | null
   sex: string | null
   fertility: string | null
-  status: PatientStatus
   /** Médico tratante de la persona. Nullable. Migración 0020. */
   treating_physician: string | null
 }

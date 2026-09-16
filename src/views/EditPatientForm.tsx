@@ -8,7 +8,7 @@ import { SearchableSelect } from '../components/SearchableSelect'
 import { DateField } from '../components/DateField'
 import { updatePatient, deletePatient, patientFootprint, useTreatingPhysicians } from '../data/patients'
 import { AutocompleteInput, textSuggestions } from '../components/AutocompleteInput'
-import type { PatientRow, PatientStatus, PatientFootprint } from '../data/patients'
+import type { PatientRow, PatientFootprint } from '../data/patients'
 import { FERTILITY_OPTIONS } from '../lib/visits'
 import { todayISO, yearsFromTodayISO } from '../lib/dates'
 import { useAuth } from '../lib/auth'
@@ -44,7 +44,6 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
   const [birthDate, setBirthDate] = useState(patient.birth_date ?? '')
   const [sex, setSex] = useState(patient.sex ?? '')
   const [fertility, setFertility] = useState(patient.fertility ?? '')
-  const [status, setStatus] = useState<PatientStatus>(patient.status)
   const [physician, setPhysician] = useState(patient.treating_physician ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -105,7 +104,6 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
       birth_date: birthDate || null,
       sex: sex || null,
       fertility: fertility || null,
-      status,
       treating_physician: physician.trim() || null,
     })
     if (res.error) { setBusy(false); setError(res.error); setConfirming(false); return }
@@ -151,17 +149,16 @@ export function EditPatientForm({ patient, accentSolid, onClose, onUpdated, onDe
               entity="fertilidad"
             />
           </FormField>
-          <FormField label="Estado">
-            <SearchableSelect
-              value={status}
-              onChange={(v) => setStatus(v as PatientStatus)}
-              options={[
-                { value: 'activo', label: 'Activo' },
-                { value: 'inactivo', label: 'Inactivo' },
-              ]}
-              placeholder="Estado"
-              entity="estado"
-            />
+          {/* El estado dejó de vivir acá con la 0127. Era una sola columna para TODAS las
+              participaciones de la persona, así que darla de baja desde un estudio la daba de baja
+              en todos (prod, 2026-09-16: ACT18301 → se veía en LTS17231). Ahora es por estudio y se
+              cambia desde la ficha. El campo no se saca en silencio: quien lo venía usando tiene
+              que saber a dónde ir. */}
+          <FormField label="Estado en el estudio">
+            <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', lineHeight: 1.45, paddingTop: 6 }}>
+              El estado es de cada estudio y se cambia desde la ficha del paciente, con «Cerrar
+              participación». Una persona puede haber terminado un estudio y seguir activa en otro.
+            </div>
           </FormField>
           <div style={{ gridColumn: '1 / -1' }}>
             <FormField label="Médico tratante">
