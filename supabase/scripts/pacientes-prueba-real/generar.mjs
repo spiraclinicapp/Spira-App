@@ -95,6 +95,18 @@ const MISMA_PERSONA = {
   '222714|707401': { codigo: '032000740008', conservarNombre: true },
 }
 
+// Erratas de tipeo del listado, corregidas AL LEER. El listado manda sobre Spira, pero una celda mal
+// tipeada no es un dato: es un error que rompe la carga entera y hay que poder nombrarlo.
+//   · 2026-09-15 · La V1 de AGUERO en LTS17231 trae el IVRS de MUÑOZ PAMPILLON (…520002). Se ve en que
+//     esa misma fila dice apellido AGUERO, y las 19 filas siguientes del mismo paciente dicen …520003.
+//     Sin corregirlo, Muñoz Pampillón queda con dos V1 —y el script se frena por visita repetida— y
+//     Aguero pierde la única visita que tiene hecha.
+// La clave es protocolo|ivrs|APELLIDO: el apellido es lo que desempata, porque el IVRS es justo el
+// que está mal. Si el listado se corrige en origen, la entrada deja de encontrar filas y no hace nada.
+const ERRATAS_IVRS = {
+  'LTS17231|032001520002|AGUERO': '032001520003',
+}
+
 // La nota de las visitas con fecha real provisoria. Es el texto por el que se las encuentra después.
 const NOTA_PROVISORIA =
   'Fecha real provisoria: igual a la estimada. El listado del sitio no tiene registro de esta visita (carga del 2026-09-14).'
@@ -154,8 +166,12 @@ for (const [protoExcel, ivrs, apellido, nombre, estado, nac] of resumen) {
   })
 }
 
-for (const [protoExcel, ivrs, , , , , visita, , , estimada, real, estadoVisita] of listado) {
-  const k = clave(PROTOCOLOS[protoExcel], String(ivrs).trim())
+for (const [protoExcel, ivrs, apellido, , , , visita, , , estimada, real, estadoVisita] of listado) {
+  const protocolo = PROTOCOLOS[protoExcel]
+  const crudo = String(ivrs).trim()
+  const corregido = ERRATAS_IVRS[`${protocolo}|${crudo}|${String(apellido).trim().toUpperCase()}`]
+  if (corregido) console.warn(`  errata: ${protocolo} ${apellido} ${visita} · IVRS ${crudo} → ${corregido}`)
+  const k = clave(protocolo, corregido ?? crudo)
   const ins = inscripciones.get(k)
   if (!ins) fallar(`Visita de un paciente que no está en el resumen: ${k}.`)
   if (visita === '(sin fechas cargadas)') continue
