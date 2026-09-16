@@ -738,6 +738,11 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     if (res.error) { setErr(res.error); reqQ.refetch(); return }
     reqQ.refetch(); stockQ.refetch(); ctxQ.refetch()
     bumpIpEstado()
+    // El otro camino que deja el modo corrección sin nada cargado: si el pedido que se acaba de
+    // cancelar era el que había abierto la corrección, la visita vuelve a estar cerrada y sin
+    // entrega — sin este reset la tarjeta quedaba mostrando "Elegir medicación" en vez del botón
+    // sobrio, con la corrección "viva" sobre un pedido que ya no existe.
+    if (corrigiendo) setCorrigiendo(false)
   }
 
   /** Guarda la cantidad nueva de un renglón del pedido abierto (0121, D5). */
@@ -1130,7 +1135,14 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                     formulario tiene sus propios botones. */}
                 {!modoOtro && (
                   <button
-                    type="button" onClick={() => { setSoliciting(false); setPick(''); setQty('1'); setEnPartes(false); setIndicado(''); setErr(null) }}
+                    type="button"
+                    onClick={() => {
+                      setSoliciting(false); setPick(''); setQty('1'); setEnPartes(false); setIndicado(''); setErr(null)
+                      // Sin esto el modo corrección no tiene vuelta atrás: si se abrió por error (o
+                      // para mirar) y no quedó nada cargado, hay que volver al botón sobrio en vez de
+                      // dejar la tarjeta invitando sola con "Elegir medicación" sobre una visita cerrada.
+                      if (corrigiendo && items.length === 0 && !archivo) setCorrigiendo(false)
+                    }}
                     style={{ marginTop: 12, height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13 }}
                   >
                     Listo
