@@ -105,6 +105,29 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
     : null
   const ipCuenta = ip ? cuentaIp(ip.estado) : { total: 0, hecho: 0 }
 
+  /* AL VOLVER A LA PESTAÑA, se releen procedimientos, reportes y el estado del IP.
+     Los procedimientos de una visita NO son una copia: salen de `protocol_activities` por
+     `visit_def_id`, o sea del cuadro del estudio, que se edita en otra pantalla. Abrir el modal ya
+     los trae frescos, pero con la visita YA abierta —y el cuadro editado en otra ventana o en otra
+     sesión— la pantalla se quedaba mostrando la lista vieja sin ninguna señal (Director, 2026-09-15).
+     Volver a la pestaña es el momento exacto en que alguien espera ver lo que acaba de cambiar.
+     El refetch es estable (`useCallback` en `useSupabaseQuery`), así que el efecto se engancha una
+     sola vez; y mientras llega el dato, las filas viejas siguen visibles (no parpadea a "Cargando…"). */
+  useEffect(() => {
+    const refrescar = () => {
+      if (document.visibilityState !== 'visible') return
+      refetch()
+      reportes.refetch()
+      ipQ.refetch()
+    }
+    window.addEventListener('focus', refrescar)
+    document.addEventListener('visibilitychange', refrescar)
+    return () => {
+      window.removeEventListener('focus', refrescar)
+      document.removeEventListener('visibilitychange', refrescar)
+    }
+  }, [refetch, reportes.refetch, ipQ.refetch])
+
   const items = data ?? []
   // Sin procedimientos asignados → se DICE, no se calla. Antes devolvía null: como en la ficha el
   // componente va dentro de un `Panel` que el padre ya pintó, el "no mostrar nada" dejaba un cuadro
@@ -141,6 +164,12 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
       return
     }
     refetch() // el optimismo lo suelta el efecto de arriba, cuando llega el dato fresco
+    /* Y los REPORTES, que son otra consulta (`report_status`, 0090) y dependen de esta marca: su
+       plazo arranca cuando el procedimiento se da por realizado. Sin esto, el desglose seguía
+       diciendo «Se habilita al marcar el procedimiento como realizado» debajo de un tilde recién
+       puesto (Director, 2026-09-15) — y al revés: desmarcar dejaba el plazo corriendo en pantalla.
+       El tilde se veía al instante porque es optimista; el bloque de abajo se quedaba en el pasado. */
+    reportes.refetch()
   }
 
   if (loading) {
