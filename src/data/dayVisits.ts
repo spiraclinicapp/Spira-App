@@ -2,6 +2,7 @@ import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import type { QueryResult } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
 import type { TrackVisitRow } from './visits'
+import { motivosDelDia } from './dayVisitsFilter'
 
 /** Etapa del recorrido del paciente en el centro (derivada de las marcas, NO clínica). */
 export type OperationalStage = 'por_llegar' | 'concurrio_al_centro' | 'inicio_atencion' | 'fin_atencion'
@@ -93,33 +94,19 @@ export interface DayVisitRow extends TrackVisitRow {
 // ————————————————————————————————————————————————————
 
 /**
- * Visitas del día `date` (ISO 'YYYY-MM-DD'). Incluye: programadas de ese día
- * (estimated_date = date), registradas ese día (real_date = date), o con alguna marca
- * operativa ese día (arrived_at/ready_at/left_at dentro de [date, date+1d)).
+ * Visitas del día `date` (ISO 'YYYY-MM-DD'). Los motivos por los que una visita pertenece a un día
+ * —y el porqué de cada uno— viven en `motivosDelDia` (`dayVisitsFilter.ts`), que está aparte para
+ * poder testearse: este archivo importa el cliente de Supabase y vitest no lo puede cargar.
  * Lee la vista `v_track_visits` extendida en 0023 (security_invoker → la RLS scopea).
  * Orden estable: patient_code asc.
  */
 export function useVisitsForDay(date: string): QueryResult<DayVisitRow[]> {
-  // Las marcas operativas (arrived/ready/left) son timestamptz (UTC); `date` es el día
-  // LOCAL (Argentina, UTC-3). Hay que anclar la ventana a -03:00: sin el offset PostgREST
-  // compara en UTC y se cuelan visitas marcadas la noche anterior (bug "visitas pegadas").
-  // AR no observa horario de verano → -03:00 es fijo (mismo criterio que v_patient_visits).
-  const dayEnd = `${date}T23:59:59.999-03:00`
-  const dayStart = `${date}T00:00:00-03:00`
   return useSupabaseQuery<DayVisitRow[]>(
     (c) =>
       c
         .from('v_track_visits')
         .select('*')
-        .or(
-          [
-            `estimated_date.eq.${date}`,
-            `real_date.eq.${date}`,
-            `and(arrived_at.gte.${dayStart},arrived_at.lte.${dayEnd})`,
-            `and(ready_at.gte.${dayStart},ready_at.lte.${dayEnd})`,
-            `and(left_at.gte.${dayStart},left_at.lte.${dayEnd})`,
-          ].join(','),
-        )
+        .or(motivosDelDia(date).join(','))
         .order('patient_code', { ascending: true })
         .returns<DayVisitRow[]>(),
     [date],
@@ -155,24 +142,16 @@ export function useVisit(visitId: string | null): QueryResult<DayVisitRow[]> {
  * sin llegar al final) y luego patient_code. Semilla del futuro módulo Médicos.
  */
 export function useDoctorQueue(date: string): QueryResult<DayVisitRow[]> {
-  // Mismo anclaje a hora local (-03:00) que useVisitsForDay: las marcas son timestamptz (UTC).
-  const dayEnd = `${date}T23:59:59.999-03:00`
-  const dayStart = `${date}T00:00:00-03:00`
+  // De qué día es una visita lo decide `motivosDelDia`, igual que useVisitsForDay: la cola del
+  // médico es una VISTA del mismo día, y dos definiciones del mismo día divergen el día que alguien
+  // arregla una sola. (Lo de acá era una copia literal; se unificó el 2026-09-16.)
   return useSupabaseQuery<DayVisitRow[]>(
     (c) =>
       c
         .from('v_track_visits')
         .select('*')
         .eq('wants_doctor', true)
-        .or(
-          [
-            `estimated_date.eq.${date}`,
-            `real_date.eq.${date}`,
-            `and(arrived_at.gte.${dayStart},arrived_at.lte.${dayEnd})`,
-            `and(ready_at.gte.${dayStart},ready_at.lte.${dayEnd})`,
-            `and(left_at.gte.${dayStart},left_at.lte.${dayEnd})`,
-          ].join(','),
-        )
+        .or(motivosDelDia(date).join(','))
         .order('arrived_at', { ascending: true, nullsFirst: false })
         .order('patient_code', { ascending: true })
         .returns<DayVisitRow[]>(),
