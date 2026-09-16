@@ -678,6 +678,8 @@ function AllPatientsList({ patients, accent, onOpenPatient }: {
                 patient={pt}
                 visits={ptVisits}
                 accent={accent}
+                /* El mismo protocolo del que sale el chip: así el IVRS es el de ESA inscripción. */
+                protocolId={proto?.id}
                 protocolCode={proto?.code}
                 onOpen={onOpenPatient}
               />

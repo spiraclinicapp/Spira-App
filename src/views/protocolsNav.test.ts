@@ -26,7 +26,7 @@ const paciente = (over: Partial<PatientRow> = {}): PatientRow => ({
   id: '22222222-0000-4000-8000-000000000002', code: '32000740001', full_name: 'TEST Paciente',
   status: 'activo', birth_date: null, sex: null, fertility: null, treating_physician: null,
   enrollments: [{
-    id: 'enr-default', enrollment_date: '2026-01-01', randomization_date: null,
+    id: 'enr-default', enrollment_date: '2026-01-01', randomization_date: null, ivrs_code: null,
     protocol: { id: '11111111-0000-4000-8000-000000000001', code: 'EFC18244', name: 'Estudio' },
   }],
   ...over,
@@ -78,7 +78,7 @@ describe('navDesdePath · el paciente tiene que pertenecer al protocolo del path
     id: 'cccccccc-0000-4000-8000-000000000003',
     code: '111',
     enrollments: [{
-      id: 'enr-a', enrollment_date: '2026-01-01', randomization_date: null,
+      id: 'enr-a', enrollment_date: '2026-01-01', randomization_date: null, ivrs_code: null,
       protocol: { id: protoA.id, code: protoA.code, name: protoA.name },
     }],
   })
@@ -86,7 +86,7 @@ describe('navDesdePath · el paciente tiene que pertenecer al protocolo del path
     id: 'dddddddd-0000-4000-8000-000000000004',
     code: '222',
     enrollments: [{
-      id: 'enr-b', enrollment_date: '2026-01-01', randomization_date: null,
+      id: 'enr-b', enrollment_date: '2026-01-01', randomization_date: null, ivrs_code: null,
       protocol: { id: protoB.id, code: protoB.code, name: protoB.name },
     }],
   })
@@ -217,7 +217,7 @@ describe('resolverFichaDestino', () => {
     id: 'pac-1', code: 'ARG-04-017', full_name: 'Susana Rodriguez', status: 'activo',
     birth_date: null, sex: null, fertility: null, treating_physician: null,
     enrollments: protocolIds.map((pid, i) => ({
-      id: `enr-${i}`, enrollment_date: '2026-01-01', randomization_date: null, protocol: proto(pid, `P${i}`),
+      id: `enr-${i}`, enrollment_date: '2026-01-01', randomization_date: null, ivrs_code: null, protocol: proto(pid, `P${i}`),
     })),
   })
 
@@ -238,7 +238,7 @@ describe('resolverFichaDestino', () => {
 
   it('sin enrolamiento visible manda a Todos los pacientes, nunca a una ficha sin contexto', () => {
     const sinProtocolo: PatientRow = { ...paciente([]), enrollments: [
-      { id: 'e', enrollment_date: '2026-01-01', randomization_date: null, protocol: null },
+      { id: 'e', enrollment_date: '2026-01-01', randomization_date: null, ivrs_code: null, protocol: null },
     ] }
     expect(resolverFichaDestino(sinProtocolo, 'pa')).toEqual({ mode: 'all' })
   })

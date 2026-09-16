@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { EstadoPaciente } from '../../components/EstadoPaciente'
 import { PatientLink } from '../../components/PatientLink'
+import { ivrsDelEstudio } from '../../lib/ivrs'
 import type { PatientRow } from '../../data/patients'
 import type { TrackVisitRow } from '../../data/visits'
 import { orderVisits, todaySplit, ubicacionDeHoy, visitShortLabel } from '../../lib/visits'
@@ -21,10 +22,17 @@ const microLabel: CSSProperties = { fontSize: 9.5, textTransform: 'uppercase', l
  * `<div>` con `onClick` (no un `button`, para no anidar el de "Resumen" adentro), así que el par
  * nombre/IVRS es la puerta a la ficha que sí alcanza el teclado.
  */
-export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen, onOpenVisit }: {
+export function PdPatientRow({ patient, visits, accent, protocolId, protocolCode, onOpen, onOpenVisit }: {
   patient: PatientRow
   visits: TrackVisitRow[]
   accent: string
+  /**
+   * Protocolo de esta fila. Con él, el número de sujeto que se muestra es el de ESA inscripción
+   * (`ivrsDelEstudio`) y no el del estudio madre: la misma persona en dos estudios tiene dos IVRS, y
+   * hasta el 2026-09-15 la lista de LTS17231 mostraba los de ACT18301. Sin él —ninguna pantalla hoy—
+   * cae al del paciente.
+   */
+  protocolId?: string
   /** Código del protocolo, opcional: se muestra como chip junto al IVRS en listas
    * cruza-protocolos (Todos los pacientes). El tablero de un protocolo lo omite. */
   protocolCode?: string
@@ -45,6 +53,7 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen, on
   const prev = todayIdx > 0 ? (ordered[todayIdx - 1] ?? null) : prevByDate
   const flowCurrentId = todayVisit?.id ?? next?.id ?? prev?.id ?? null
   const medico = patient.treating_physician ?? '—'
+  const ivrs = protocolId ? ivrsDelEstudio(patient, protocolId) : patient.code
   /* La fila solo se despliega si hay algo que trackear; sin visitas no hay tracker que mostrar. */
   const expandable = visits.length > 0
 
@@ -112,8 +121,8 @@ export function PdPatientRow({ patient, visits, accent, protocolCode, onOpen, on
                     convierte la columna en un texto resaltado. La marca visual del glosario se gasta
                     una sola vez, en los rótulos de KPI de la ficha del protocolo. */}
                 <span className="spira-mono" title={GLOSARIO.ivrs} style={{ fontSize: 13, color: 'var(--spira-muted)', whiteSpace: 'nowrap', cursor: 'help' }}>
-                  {patient.code
-                    ? <PatientLink onOpen={() => onOpen(patient.id)} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
+                  {ivrs
+                    ? <PatientLink onOpen={() => onOpen(patient.id)} label={`Abrir la ficha del sujeto ${ivrs}`}>{ivrs}</PatientLink>
                     : 'Sin IVRS'}
                 </span>
                 {protocolCode && (

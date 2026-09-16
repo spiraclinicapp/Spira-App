@@ -20,6 +20,12 @@ export interface PatientEnrollment {
   /** Fecha de randomización: ancla del cronograma + flag de etapa (null = pre-rando). La setea el
    * registro de la visita de randomización. Nullable. Migración 0021. */
   randomization_date: string | null
+  /**
+   * N° de sujeto IVRS **de esta inscripción** (`enrollments.ivrs_code`, migración 0062). Una persona
+   * en dos estudios tiene DOS: el pivotal y su extensión LTS llevan números distintos. Nullable:
+   * puede faltar antes de la randomización, y las inscripciones anteriores a la 0062 no lo tienen.
+   */
+  ivrs_code: string | null
   protocol: PatientProtocol | null
 }
 
@@ -49,7 +55,7 @@ export function usePatients() {
     (c) =>
       c
         .from('patients')
-        .select('id, code, full_name, status, birth_date, sex, fertility, treating_physician, enrollments(id, enrollment_date, randomization_date, protocol:protocols(id, code, name))')
+        .select('id, code, full_name, status, birth_date, sex, fertility, treating_physician, enrollments(id, enrollment_date, randomization_date, ivrs_code, protocol:protocols(id, code, name))')
         .order('code', { ascending: true })
         .returns<PatientRow[]>(),
     [],

@@ -5,6 +5,7 @@ import { EmptyState } from '../components/EmptyState'
 import { EstadoPaciente } from '../components/EstadoPaciente'
 import { Modal } from '../components/Modal'
 import type { ProtocolRow } from '../data/protocols'
+import { ivrsDelEstudio } from '../lib/ivrs'
 import type { PatientRow } from '../data/patients'
 import { usePatientVisits, useVisitAlerts } from '../data/visits'
 import { useUrlEntity } from '../lib/useUrlState'
@@ -94,6 +95,10 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   /* Para el flujo "Agendar visita": tipos ya registrados (filtra el selector). */
   const usedKinds = rows.map((r) => r.kind)
 
+  /* El IVRS del ESTUDIO en contexto, no el del paciente: la misma persona en dos estudios tiene dos
+     números, y ésta es la ficha de uno solo (ver `ivrsDelEstudio`). */
+  const ivrs = ivrsDelEstudio(patient, protocol.id)
+
   /* Encabezado contextual del shell: Protocolos (→ grilla) › CÓDIGO (→ detalle) › PACIENTE,
      + Reprogramar / Agendar visita a la derecha. Callbacks por ref (deps primitivas).
      Agendar visita está disponible siempre (pre y post rando); Reprogramar solo si hay una
@@ -105,7 +110,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       rootOnClick: () => cb.current.onGoList(),
       crumbs: [
         { label: protocol.code, mono: true, onClick: () => cb.current.onBack() },
-        { label: patient.code ?? 'Sin IVRS', mono: true },
+        { label: ivrs ?? 'Sin IVRS', mono: true },
       ],
       actions: [
         ...(canAct ? [{ key: 'reprogramar', label: 'Reprogramar', icon: 'calendar' as const, onClick: () => cb.current.reschedule() }] : []),
@@ -113,7 +118,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       ],
     })
     return () => setHeader?.(null)
-  }, [protocol.code, patient.code, canAct, canWrite, setHeader])
+  }, [protocol.code, ivrs, canAct, canWrite, setHeader])
   const enrollmentDate = enrollment?.enrollment_date ?? null
   const age = ageFromBirth(patient.birth_date)
 
@@ -226,7 +231,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
               <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.2, textWrap: 'balance' }}>{patient.full_name}</div>
               <EstadoPaciente estado={patient.status} style={{ height: 23, marginRight: -4 }} />
             </div>
-            <div className="spira-mono" style={{ fontSize: 13.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap', marginTop: 5 }}>{patient.code ?? 'Sin IVRS'}</div>
+            <div className="spira-mono" style={{ fontSize: 13.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap', marginTop: 5 }}>{ivrs ?? 'Sin IVRS'}</div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
