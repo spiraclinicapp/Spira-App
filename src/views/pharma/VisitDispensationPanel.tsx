@@ -646,6 +646,12 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    * adjunta contra ese mismo pedido. No se finge éxito ni se borra lo que sí entró.
    */
   async function enviar() {
+    // Guarda por las dudas y no solo por el botón: `items`/`archivo` son estado LOCAL sin enviar,
+    // así que "hay un pedido abierto ⇒ cerrada = false" no los cubre. Sin este freno, un fin de
+    // atención marcado DESPUÉS de elegir medicación deja el pie mostrando "Corregir entrega" arriba
+    // y esta función mandando un RPC real por debajo — el mismo hueco que el del botón, un paso más
+    // adentro.
+    if (!puedeCargar) return
     if (!items.length && !archivo) return
     if (faltaMotivo) { setErr(FALTA_MOTIVO_MSG); return }
     setBusy(true); setErr(null)
@@ -1176,7 +1182,12 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               // el recuadro rojo quedaba pegado en pantalla hasta el próximo intento de solicitar.
               onMotivo: (v) => { setMotivo(v); setErr(null) },
             } : null}
-            readOnly={readOnly}
+            // `!puedeCargar` y no el `readOnly` pelado: `fueraCronograma` es la misma clase de estado
+            // LOCAL sin enviar que `items`/`archivo` (Task 4) — si se abre y la visita cierra sin que
+            // nazca un pedido, `mostrarExcepcion` se prende igual y el desplegable de motivo, gateado
+            // solo por permisos, reaparecía editable sobre una visita cerrada. Con un pedido abierto de
+            // por medio el resultado no cambia: ese caso ya fuerza `cerrada = false`.
+            readOnly={!puedeCargar}
             accent={accent}
             busy={busy}
             archivo={archivo}
@@ -1202,8 +1213,13 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               una tarjeta ya resuelta no queda un botón esperando.
 
               Arriba del botón va lo que hace falta saber ANTES de apretarlo: qué se va a mandar y,
-              si corresponde, que va a abrir un pedido aparte. Enterarse después es enterarse tarde. */}
-          {!readOnly && (items.length > 0 || archivo) && (
+              si corresponde, que va a abrir un pedido aparte. Enterarse después es enterarse tarde.
+
+              `puedeCargar` y no `readOnly`: `items`/`archivo` son estado LOCAL sin enviar, y el
+              invariante "todo pedido ya mandado deja `cerrada` en false" no lo cubre — se puede
+              elegir medicación, marcar fin de atención sin solicitar, y quedar con este botón
+              habilitado sobre una visita que la misma tarjeta ya describe como cerrada. */}
+          {puedeCargar && (items.length > 0 || archivo) && (
             <div style={enviarStyle}>
               {avisoPedidoNuevo && (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '9px 11px', borderRadius: 10, background: WARN_TINT, fontSize: 12.5, color: 'var(--spira-ink)' }}>
