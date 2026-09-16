@@ -299,7 +299,7 @@ export function VisitDetail({
 
     </div>
 
-    {/* "Solicitar médico" de la barra abre el popup que YA existe (motivo por chips + hilo), en vez
+    {/* "Solicitar atención médica" de la barra abre el popup que YA existe (motivo por chips + hilo), en vez
         de duplicar el panel adentro del modal.
 
         Va FUERA del backdrop, no adentro. El backdrop cierra la visita con su `onMouseDown` y el

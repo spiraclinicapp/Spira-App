@@ -832,7 +832,9 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
 
   return (
     <Panel
-      title="Dispensación" icon="pill" accent={accent}
+      /* «de medicación» (Director, 2026-09-16): en el modal de la visita, «Dispensación» a secas
+         convivía con «Procedimientos» y «Comentarios» sin decir QUÉ se dispensa. */
+      title="Dispensación de medicación" icon="pill" accent={accent}
       // SIEMPRE teñida, también sin nada que dispensar. **Revierte la D8** ("el realce se apaga si no
       // hay nada", mock §4) por pedido explícito del Director el 2026-08-11: "agregale color a la
       // dispensación". Lo miró en pantalla y el apagado le dejaba la tarjeta en blanco justo donde

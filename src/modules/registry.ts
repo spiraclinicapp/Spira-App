@@ -83,7 +83,11 @@ export const MODULES: ModuleDef[] = [
       // El ícono pasó de `file` a `users`: el papel contradecía al rótulo y era parte de por
       // qué la fila no se entendía. El descriptor dice la verdad de la vista — se entra por
       // protocolo y los pacientes viven adentro (ProtocolsView).
-      { key: 'protocolos', name: 'Pacientes', icon: 'users', hint: 'Información de pacientes' },
+      // "Estudios y pacientes" y no "Pacientes" desde el 2026-09-16 (Director): la pantalla abre en
+      // la grilla de ESTUDIOS y a los pacientes se llega entrando a uno, así que el rótulo viejo
+      // nombraba sólo la mitad de adentro. La URL sigue en `/pacientes` (`SUB_SLUG` de
+      // `lib/router.ts`) a propósito: cambiarla rompe los links ya compartidos.
+      { key: 'protocolos', name: 'Estudios y pacientes', icon: 'users', hint: 'Información de pacientes' },
       { key: 'visitas', name: 'Visitas', icon: 'activity', hint: 'Las visitas de hoy' },
       // `users` se mudó a Pacientes; una cola de espera se lee mejor con el reloj.
       { key: 'para-ver-medico', name: 'Para ver médico', icon: 'clock', hint: 'Cola de atención' },
@@ -133,9 +137,9 @@ export const MODULES: ModuleDef[] = [
       // descomentar esta línea; al ser el primero, volvería a ser el submódulo por defecto
       // de Pharma (AppShell usa submodules[0] al entrar al módulo).
       // { key: 'resumen', name: 'Resumen', icon: 'dashboard', hint: 'En construcción' },
-      // key 'protocolos' (ruta/vista compartida con Track); rótulo "Pacientes" por pedido
-      // del Director, igual que en Track. La grilla sigue siendo la misma ProtocolsView.
-      { key: 'protocolos', name: 'Pacientes', icon: 'users', hint: 'Información de pacientes' },
+      // key 'protocolos' (ruta/vista compartida con Track); rótulo "Estudios y pacientes" por
+      // pedido del Director, igual que en Track. La grilla sigue siendo la misma ProtocolsView.
+      { key: 'protocolos', name: 'Estudios y pacientes', icon: 'users', hint: 'Información de pacientes' },
       { key: 'recepcion', name: 'Recepción', icon: 'clipboardCheck', hint: 'Ingreso de medicación' },
       // Rótulo "Stock" (era "Medicamentos"): es la palabra de la farmacéutica y desambigua
       // contra Recepción y Dispensaciones, que también son de medicamentos. La `key` NO

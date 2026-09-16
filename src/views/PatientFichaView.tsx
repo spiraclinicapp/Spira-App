@@ -274,6 +274,8 @@ export function PatientFichaView(props: PatientFichaViewProps) {
             {row('Sponsor', protocol.sponsor || dash)}
             {row('Investigador', protocol.principal_investigator || dash)}
             {row('Especialidad', protocol.specialty || dash)}
+            {/* `description` con su rótulo nuevo (2026-09-16), en el mismo orden que la ficha del estudio. */}
+            {row('Patología', protocol.description || dash)}
             {/* Cerrar (o reabrir) la participación en ESTE estudio. Vive acá y no en «Editar
                 paciente» porque es una decisión sobre el estudio, no sobre la persona: ése fue
                 justamente el error que la 0127 vino a corregir. */}

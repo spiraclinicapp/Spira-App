@@ -6,7 +6,7 @@ import { useVisitProcedureStatus, toggleVisitProcedure } from '../../data/proced
 import type { VisitProcedureStatus } from '../../data/procedures'
 import { useVisitReportStatus, setReportStage } from '../../data/reportStatus'
 import type { ReportStatusRow } from '../../data/reportStatus'
-import { canUntickProcedure } from './reportes/estados'
+import { canUntickProcedure, pildoraDeReportes } from './reportes/estados'
 import type { ReportStage } from './reportes/estados'
 import { ReportCard } from './reportes/ReportCard'
 import { useVisitIpStatus } from '../../data/visitIp'
@@ -206,6 +206,8 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
           /** Los reportes definidos para este procedimiento en este estudio (0089). */
           const misReportes = porProcedimiento.get(p.procedure_id) ?? []
           const abierto = abiertos.has(p.procedure_id)
+          /** Texto y tono de la píldora (`pildoraDeReportes`). Null = el procedimiento no define reportes. */
+          const pildora = misReportes.length > 0 ? pildoraDeReportes(misReportes) : null
           /* Espejo del guard de la base: si algún reporte ya salió de pendiente, destildar borraría
              su historial. Se calcula acá para poder DECIRLO en vez de dejar que choque contra el
              error crudo de la RPC. */
@@ -281,7 +283,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                   `alignItems: center` del flex lo resuelve solo, sin ningún desplazamiento a mano.
                   Los `marginTop` calculados que había acá se fueron con el cambio a centrado — un
                   offset fijo y un centrado automático se pelean, y gana el que no se ve. */}
-              {misReportes.length > 0 && (
+              {pildora && (
                 <button
                   type="button"
                   onClick={() => setAbiertos((s) => {
@@ -290,13 +292,14 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
                     return c
                   })}
                   aria-expanded={abierto}
-                  aria-label={`${misReportes.length === 1 ? 'Un reporte' : misReportes.length + ' reportes'} de ${p.name}`}
+                  aria-label={`${pildora.texto}${pildora.tono === 'vencido' ? ', alguno vencido,' : ''} de ${p.name}`}
+                  title={pildora.tono === 'vencido' ? 'Hay reportes con el plazo vencido' : undefined}
                   className="spira-no-press"
-                  style={{ ...pillReportes(abierto), marginRight: 13, flex: '0 0 auto' }}
+                  style={{ ...pillReportes(abierto, pildora.tono), marginRight: 13, flex: '0 0 auto' }}
                 >
-                  <Icon name="fileText" size={12} color={accent} />
-                  {misReportes.length} {misReportes.length === 1 ? 'reporte' : 'reportes'}
-                  <Icon name="chevronDown" size={12} color="var(--spira-muted)" style={{ transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s var(--spira-ease-out)' }} />
+                  <Icon name="fileText" size={12} color={pildora.tono === 'neutro' ? accent : TONO_PILDORA[pildora.tono].texto} />
+                  {pildora.texto}
+                  <Icon name="chevronDown" size={12} color={pildora.tono === 'neutro' ? 'var(--spira-muted)' : TONO_PILDORA[pildora.tono].texto} style={{ transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s var(--spira-ease-out)' }} />
                 </button>
               )}
               </div>
@@ -383,25 +386,54 @@ function tickBox(isDone: boolean, accent: string): CSSProperties {
 /**
  * Píldora "N reportes": el disparador del desglose.
  *
- * Abierta = ELEVADA (papel + sombra), cerrada = al ras. Antes abierta se teñía con el acento y
- * tomaba borde verde; el Director lo cambió (2026-08-24) por el mismo criterio con el que se fue
- * el recuadro de la fila. El borde es el mismo en los dos estados: lo que cambia es la altura.
+ * Abierta = ELEVADA (sombra), cerrada = al ras. Antes abierta se teñía con el acento y tomaba borde
+ * verde; el Director lo cambió (2026-08-24) por el mismo criterio con el que se fue el recuadro de
+ * la fila. El borde es el mismo en los dos estados: lo que cambia es la altura.
  *
- * Cerrada va con fondo transparente y no blanco, para que herede el de su fila —papel si está
- * realizada, blanco si no— y el salto al abrirse se lea como que la píldora se despega, en vez de
- * como un cambio de color.
+ * NEUTRA (nada por hacer): cerrada va con fondo transparente y no blanco, para que herede el de su
+ * fila —papel si está realizada, blanco si no— y el salto al abrirse se lea como que la píldora se
+ * despega, en vez de como un cambio de color.
+ *
+ * CON PENDIENTES es una etiqueta tinte, abierta o cerrada (Director, 2026-09-16): el color acá es
+ * SIGNIFICADO —hay trabajo por hacer, o se pasó el plazo—, que es para lo que la casa lo reserva. El
+ * abrirse lo sigue diciendo la sombra, no el color. Ver `TONO_PILDORA` para por qué el tinte es opaco.
  */
-function pillReportes(abierto: boolean): CSSProperties {
+function pillReportes(abierto: boolean, tono: 'neutro' | 'pendiente' | 'vencido'): CSSProperties {
+  const tinte = tono === 'neutro' ? null : TONO_PILDORA[tono]
   return {
     display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px',
     borderRadius: 'var(--spira-radius-pill)',
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
-    background: abierto ? 'var(--spira-white)' : 'transparent',
+    borderWidth: 1, borderStyle: 'solid', borderColor: tinte ? tinte.borde : 'var(--spira-line-2)',
+    background: tinte ? tinte.fondo : abierto ? 'var(--spira-white)' : 'transparent',
     boxShadow: abierto ? 'var(--spira-shadow-sm)' : 'none',
-    color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 600,
+    color: tinte ? tinte.texto : 'var(--spira-ink)',
+    fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
     cursor: 'pointer',
     transition: 'box-shadow .14s var(--spira-ease-out), background-color .14s var(--spira-ease-out)',
   }
+}
+
+/**
+ * Los dos tonos de la píldora con pendientes. El texto sale de `--spira-acc-deep-*` (los únicos
+ * acentos con versión para el tema oscuro, ver `MotivoChip`) y el tinte, del hex crudo.
+ *
+ * EL TINTE ES OPACO —mezclado contra `--spira-white`— y no un hex con alfa, MEDIDO: una píldora con
+ * pendientes vive casi siempre sobre una fila REALIZADA, que es papel, y el rojo al 10 % transparente
+ * sobre papel da 4,50:1 justo en el borde del AA (12px/600 es texto normal) y al 16 % cae a 4,13. Contra
+ * blanco no depende de la fila: al 12 % da ~4,9:1 el rojo y ~6,1:1 el ámbar en claro, y más de 7:1 los
+ * dos en oscuro. Y de paso la etiqueta se despega del papel, que es lo que la hace leerse como tal.
+ */
+const TONO_PILDORA: Record<'pendiente' | 'vencido', { texto: string; fondo: string; borde: string }> = {
+  pendiente: {
+    texto: 'var(--spira-acc-deep-warn)',
+    fondo: 'color-mix(in srgb, #B0823F 12%, var(--spira-white))',
+    borde: 'color-mix(in srgb, #B0823F 30%, var(--spira-white))',
+  },
+  vencido: {
+    texto: 'var(--spira-acc-deep-danger)',
+    fondo: 'color-mix(in srgb, #A6483B 12%, var(--spira-white))',
+    borde: 'color-mix(in srgb, #A6483B 30%, var(--spira-white))',
+  },
 }
 
 /** Aviso de que el desglose todavía no opera. Se muestra al desplegar ANTES de tildar. */

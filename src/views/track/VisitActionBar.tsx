@@ -11,7 +11,7 @@ import { contextoDeEtapa, etapaProgreso, marcaDeEtapa } from './visitHeaderRules
  *
  * ```
  * ┌ listón (flex:1, máx 440) ──────────────────┐  ┌ acciones (derecha) ─────────────┐
- * │ Concurrió al centro · 10:31 · sigue …  2 DE 4│  │ [chip] [Solicitar médico] [CTA] │
+ * │ Concurrió al centro · 10:31 · sigue …  2 DE 4│  │ [chip] [Solicitar atención médica] [CTA] │
  * │ ▬▬▬▬▬▬▬▬▬▬░░░░░░░░░░  riel al 50 %          │  └─────────────────────────────────┘
  * └─────────────────────────────────────────────┘
  * ```
@@ -19,8 +19,9 @@ import { contextoDeEtapa, etapaProgreso, marcaDeEtapa } from './visitHeaderRules
  * **El estado de la visita se dice UNA sola vez y es acá** (checklist de QA): por eso la identidad
  * del encabezado ya no lleva chip de etapa.
  *
- * **Una sola acción sólida por pantalla, y es la que avanza la etapa.** "Solicitar médico" nunca es
- * sólida y no mueve la ruta. Las etapas de otro rol reemplazan la primaria por el bloque punteado.
+ * **Una sola acción sólida por pantalla, y es la que avanza la etapa.** "Solicitar atención médica"
+ * nunca es sólida y no mueve la ruta. Las etapas de otro rol reemplazan la primaria por el bloque
+ * punteado.
  *
  * El anexo con chevron del mock (retroceder una etapa / ver historial) NO está: las dos son
  * features de punta a punta sin backend — no hay RPC para deshacer una marca y el historial vive en
@@ -107,7 +108,10 @@ export function VisitActionBar({
           <>
             <button type="button" onClick={onSolicitarMedico} disabled={busy} style={sec}>
               <Icon name="users" size={15} color="var(--spira-track)" />
-              {visit.wants_doctor || visit.doctor_seen_at ? 'Ver atención médica' : 'Solicitar médico'}
+              {/* «Solicitar atención médica» y no «Solicitar médico» (Director, 2026-09-16): se pide
+                  la ATENCIÓN, que es lo que abre el popup y el nombre que ya usa la otra cara del
+                  mismo botón. */}
+              {visit.wants_doctor || visit.doctor_seen_at ? 'Ver atención médica' : 'Solicitar atención médica'}
               <Icon name="externalLink" size={13} color="var(--spira-muted)" />
             </button>
 
