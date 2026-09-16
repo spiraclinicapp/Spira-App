@@ -6,6 +6,9 @@ import { EstadoPaciente } from '../components/EstadoPaciente'
 import { Modal } from '../components/Modal'
 import type { ProtocolRow } from '../data/protocols'
 import { ivrsDelEstudio } from '../lib/ivrs'
+import { btnOutline } from '../components/buttons'
+import { estaAbierta } from '../lib/inscripcion'
+import { CerrarInscripcionModal } from './track/CerrarInscripcionModal'
 import type { PatientRow } from '../data/patients'
 import { usePatientVisits, useVisitAlerts } from '../data/visits'
 import { useUrlEntity } from '../lib/useUrlState'
@@ -63,7 +66,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   // parado en Track (la RLS igual la protege server-side, pero como affordance no corresponde).
   const { hasMinRole } = useAuth()
   const canManagePharma = moduleKey === 'pharma' && hasMinRole('pharma', 'operator')
-  const [modal, setModal] = useState<null | 'reschedule' | 'register' | 'edit' | 'alerts'>(null)
+  const [modal, setModal] = useState<null | 'reschedule' | 'register' | 'edit' | 'alerts' | 'cerrar'>(null)
   // Detalle de una visita del cronograma: el MISMO componente que abre la vista del día
   // (VisitDetail), sincronizado por leer de la misma vista. Guardamos el id y el detalle se
   // trae sus propios datos.
@@ -150,6 +153,21 @@ export function PatientFichaView(props: PatientFichaViewProps) {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
       {/* el breadcrumb (Protocolos › CÓDIGO › PACIENTE) y los botones Reprogramar/Registrar
           viven en el encabezado del shell (registrado por el efecto de arriba). */}
+      {modal === 'cerrar' && enrollment && (
+        <CerrarInscripcionModal
+          enrollmentId={enrollment.id}
+          estado={enrollment.status}
+          protocolCode={protocol.code}
+          pacienteNombre={patient.full_name}
+          accentSolid={accentSolid}
+          onClose={() => setModal(null)}
+          /* `onPatientUpdated` es el que importa: el estado que acaba de cambiar viaja en el
+             paciente (su embed de inscripciones), no en las visitas. Los otros dos refetch son
+             porque cerrar BORRA visitas futuras, y el cronograma y las alertas de la ficha las
+             están mostrando. */
+          onDone={() => { setModal(null); onPatientUpdated(); visitsQ.refetch(); alertsQ.refetch() }}
+        />
+      )}
       {modal === 'reschedule' && current && (
         <RescheduleModal visit={current} accentSolid={accentSolid} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
       )}
@@ -256,6 +274,18 @@ export function PatientFichaView(props: PatientFichaViewProps) {
             {row('Sponsor', protocol.sponsor || dash)}
             {row('Investigador', protocol.principal_investigator || dash)}
             {row('Especialidad', protocol.specialty || dash)}
+            {/* Cerrar (o reabrir) la participación en ESTE estudio. Vive acá y no en «Editar
+                paciente» porque es una decisión sobre el estudio, no sobre la persona: ése fue
+                justamente el error que la 0127 vino a corregir. */}
+            {enrollment && canWrite && (
+              <button
+                type="button"
+                onClick={() => setModal('cerrar')}
+                style={{ ...btnOutline, marginTop: 5, width: '100%' }}
+              >
+                {estaAbierta(enrollment.status) ? 'Cerrar participación' : 'Reabrir participación'}
+              </button>
+            )}
           </div>
 
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
