@@ -343,7 +343,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
                 /* `onOpenVisit` reusa el `VisitDetail` que esta vista ya monta para el tablero de
                    reportes: el cronograma desplegado de cada fila abre la misma ficha de visita que
                    el resto de la app, sin agregar una segunda máquina para lo mismo. */
-                <PdPatientRow key={p.id} patient={p} visits={visitsByPatient.get(p.id) ?? []} accent={accent} onOpen={onOpenPatient} onOpenVisit={setOpenVisitId} />
+                <PdPatientRow key={p.id} patient={p} visits={visitsByPatient.get(p.id) ?? []} accent={accent} protocolId={protocol.id} onOpen={onOpenPatient} onOpenVisit={setOpenVisitId} />
               ))
             )}
           </div>
