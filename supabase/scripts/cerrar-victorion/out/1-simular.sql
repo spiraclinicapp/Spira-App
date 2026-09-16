@@ -1,4 +1,4 @@
--- Spira · Cerrar los procedimientos de Victorion, menos la última de cada paciente — 1 · SIMULAR (no guarda nada)
+-- Spira · Cerrar procedimientos y reportes de Victorion, salvo dos pacientes — 1 · SIMULAR (no guarda nada)
 -- ============================================================================
 -- GENERADO por supabase/scripts/cerrar-victorion/generar.mjs. No editar a mano.
 --
@@ -7,27 +7,44 @@
 --
 -- SIMULA. Hace todo y lo deshace al final con raise exception: el mensaje ES el informe.
 --
--- QUÉ HACE: tilda los procedimientos y da por evolucionados los reportes de las visitas realizadas
--- de CKJX839D12302 (Victorion), **menos la última de cada inscripción**, que el Director revisa a mano.
--- Sólo ese protocolo: ACT18301 y ENDURA varían entre sí y los mira él.
+-- QUÉ HACE: tilda los procedimientos y da por evolucionados los reportes de TODAS las visitas
+-- realizadas de CKJX839D12302 (Victorion), **salvo las de los IVRS 4022001 y 4022016**.
+--
+-- ⚠️ EL PORQUÉ, que es lo que hay que poder responder dentro de seis meses: el Director revisó
+-- Victorion contra los registros del sitio el 2026-09-16 y confirmó que todos los pacientes tienen
+-- los procedimientos hechos y los reportes evolucionados —incluida la última visita— salvo esos dos,
+-- cuyos reportes siguen pendientes. Este script transcribe ese hecho; no lo deduce.
+--
+-- NO TOCA los otros tres protocolos, ni a los dos excluidos (ni sus procedimientos ni sus reportes,
+-- aunque alguno ya esté tildado a mano).
 --
 -- ⚠️ NUNCA dos signos peso pegados dentro de un comentario (ver CLAUDE.md, 0071).
 -- ============================================================================
 
 do $victorion$
 declare
-  v_aplicar boolean := false;
-  v_proto   text := 'CKJX839D12302';
-  v_pid     uuid;
-  v_by      uuid;
-  v_by_name text;
-  v_n       int;
+  v_aplicar  boolean := false;
+  v_proto    text := 'CKJX839D12302';
+  v_excluidos text[] := array['4022001', '4022016'];
+  v_pid      uuid;
+  v_by       uuid;
+  v_by_name  text;
+  v_n        int;
   v_abiertas int;
-  v_informe text;
+  v_txt      text;
+  v_informe  text;
 begin
   select id into v_pid from public.protocols where code = v_proto;
   if v_pid is null then
     raise exception 'No encontré el protocolo %. No se cambió nada.', v_proto;
+  end if;
+
+  -- Los excluidos tienen que existir. Un IVRS mal tipeado acá no se nota en el resultado —el script
+  -- cerraría de más y el informe diría un número plausible—, así que se frena antes de escribir.
+  select string_agg(x, ', ') into v_txt from unnest(v_excluidos) as x
+  where not exists (select 1 from public.enrollments e where e.protocol_id = v_pid and e.ivrs_code = x);
+  if v_txt is not null then
+    raise exception 'Estos IVRS excluidos no están en %: %. No se cambió nada.', v_proto, v_txt;
   end if;
 
   -- Autor de las filas nuevas: el editor corre como postgres, sin auth.uid(). Mismo criterio que las
@@ -41,41 +58,35 @@ begin
 
   create temp table _linea (n serial, texto text) on commit drop;
 
-  -- El alcance: las visitas realizadas de Victorion, rankeadas por fecha real DESCENDENTE dentro de
-  -- cada inscripción. rn = 1 es la última de cada paciente y es la que NO se toca. El desempate por
-  -- sort_order importa cuando dos visitas comparten el día.
+  -- El alcance: TODAS las visitas realizadas de Victorion menos las de los excluidos.
   create temp table _cierre on commit drop as
-  select pv.id as visit_id, pv.enrollment_id, pv.visit_def_id, e.ivrs_code, pa.full_name,
-         pv.real_date, coalesce(upper(btrim(vd.code)), '(suelta)') as code,
-         row_number() over (partition by pv.enrollment_id
-                            order by pv.real_date desc, coalesce(vd.sort_order, 0) desc, pv.id) as rn
+  select pv.id as visit_id, pv.visit_def_id, e.ivrs_code, pa.full_name, pv.real_date
   from public.patient_visits pv
   join public.enrollments e on e.id = pv.enrollment_id and e.protocol_id = v_pid
   join public.patients pa   on pa.id = e.patient_id
-  left join public.visit_definitions vd on vd.id = pv.visit_def_id
-  where pv.real_date is not null;
+  where pv.real_date is not null
+    and not (e.ivrs_code = any (v_excluidos));
 
-  select count(*) into v_n from _cierre where rn > 1;
+  select count(*) into v_n from _cierre;
   if v_n = 0 then
-    raise exception 'No hay ninguna visita de % para cerrar. ¿Ya se corrió? No se cambió nada.', v_proto;
+    raise exception 'No hay ninguna visita de % para cerrar. No se cambió nada.', v_proto;
   end if;
 
-  /* Cuántas de las alcanzadas están ABIERTAS hoy. Hay que contarlo ANTES de escribir, y hay que
-     contarlo aparte: el alcance (rn > 1) incluye las que la carga del 2026-09-15 ya cerró, así que
-     informar el alcance a secas diría «288 visitas» cuando las que cambian son 48. Un número que
-     asusta al leerlo hace que nadie lea el resto del informe. */
+  /* Cuántas de las alcanzadas están ABIERTAS hoy. Se cuenta ANTES de escribir y aparte del alcance:
+     la mayoría ya la cerró la carga del 2026-09-15, así que informar el alcance a secas diría «280
+     visitas» cuando las que cambian son muchas menos. Un número que asusta al leerlo hace que nadie
+     lea el resto del informe. */
   select count(*) into v_abiertas from _cierre c
-  where c.rn > 1 and (
-    exists (select 1 from public.protocol_activities pa
-            where pa.visit_def_id = c.visit_def_id
-              and not exists (select 1 from public.visit_procedure_completions vpc
-                              where vpc.visit_id = c.visit_id and vpc.procedure_id = pa.procedure_id))
-    or exists (select 1 from public.protocol_activities pa
-               join public.protocol_procedures pp on pp.protocol_id = v_pid and pp.procedure_id = pa.procedure_id
-               join public.report_definitions rd  on rd.protocol_procedure_id = pp.id
-               left join public.report_status rs  on rs.visit_id = c.visit_id and rs.report_definition_id = rd.id
-               where pa.visit_def_id = c.visit_def_id
-                 and coalesce(rs.stage, 'pendiente') <> 'evolucionado'));
+  where exists (select 1 from public.protocol_activities pa
+                where pa.visit_def_id = c.visit_def_id
+                  and not exists (select 1 from public.visit_procedure_completions vpc
+                                  where vpc.visit_id = c.visit_id and vpc.procedure_id = pa.procedure_id))
+     or exists (select 1 from public.protocol_activities pa
+                join public.protocol_procedures pp on pp.protocol_id = v_pid and pp.procedure_id = pa.procedure_id
+                join public.report_definitions rd  on rd.protocol_procedure_id = pp.id
+                left join public.report_status rs  on rs.visit_id = c.visit_id and rs.report_definition_id = rd.id
+                where pa.visit_def_id = c.visit_def_id
+                  and coalesce(rs.stage, 'pendiente') <> 'evolucionado');
 
   -- Tildar los procedimientos. completed_at = la fecha real a las 10:00 (el fin de atención con que
   -- quedaron selladas): el plazo de los reportes se cuenta desde ahí, así que ponerlo en now() haría
@@ -85,7 +96,6 @@ begin
          (c.real_date + time '10:00') at time zone 'America/Argentina/Buenos_Aires'
   from _cierre c
   join public.protocol_activities pa on pa.visit_def_id = c.visit_def_id
-  where c.rn > 1
   on conflict (visit_id, procedure_id) do nothing;
   get diagnostics v_n = row_count;
   insert into _linea (texto) values (format('%s procedimientos tildados', v_n));
@@ -101,7 +111,6 @@ begin
   join public.protocol_activities pa  on pa.visit_def_id = c.visit_def_id
   join public.protocol_procedures pp  on pp.protocol_id = v_pid and pp.procedure_id = pa.procedure_id
   join public.report_definitions rd   on rd.protocol_procedure_id = pp.id
-  where c.rn > 1
   on conflict (visit_id, report_definition_id) do update
     set stage = 'evolucionado', updated_by = excluded.updated_by,
         updated_by_name = excluded.updated_by_name, updated_at = excluded.updated_at
@@ -114,15 +123,22 @@ begin
     '',
     '== Lo que se cierra ==',
     coalesce((select string_agg(texto, E'\n' order by n) from _linea), '(nada)'),
-    format('visitas que estaban abiertas y se cierran: %s · ya cerradas de antes: %s · quedan para vos: %s',
-           v_abiertas,
-           (select count(*) from _cierre where rn > 1) - v_abiertas,
-           (select count(*) from _cierre where rn = 1)),
+    format('visitas que estaban abiertas y se cierran: %s · ya cerradas de antes: %s',
+           v_abiertas, (select count(*) from _cierre) - v_abiertas),
     '',
-    '== Lo que queda para revisar a mano (la última de cada paciente) ==',
-    coalesce((select string_agg(format('%s · %s · %s del %s', c.ivrs_code, c.full_name, c.code,
-                                       to_char(c.real_date, 'DD/MM/YYYY')), E'\n' order by c.ivrs_code)
-              from _cierre c where c.rn = 1), '(ninguna)')
+    '== Los dos que NO se tocan ==',
+    coalesce((select string_agg(format('%s · %s · %s visitas realizadas, %s todavía con pendientes',
+                                       e.ivrs_code, pa.full_name,
+                                       (select count(*) from public.patient_visits p2
+                                         where p2.enrollment_id = e.id and p2.real_date is not null),
+                                       (select count(*) from public.patient_visits p3
+                                          join public.v_patient_visits v3 on v3.id = p3.id
+                                         where p3.enrollment_id = e.id and p3.real_date is not null
+                                           and v3.computed_status = 'realizada')),
+                                E'\n' order by e.ivrs_code)
+              from public.enrollments e
+              join public.patients pa on pa.id = e.patient_id
+              where e.protocol_id = v_pid and e.ivrs_code = any (v_excluidos)), '(ninguno)')
   ) into v_informe;
 
   if not v_aplicar then
