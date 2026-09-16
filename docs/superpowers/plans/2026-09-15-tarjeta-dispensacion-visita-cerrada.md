@@ -550,12 +550,34 @@ En el `<SeccionIp ... />` (~línea 1093), cambiar:
 
 `SeccionIp` ya trata `null` como «no ofrecer», que es lo que hace hoy en la ficha del paciente. No hay que tocar `SeccionIp.tsx`.
 
-- [ ] **Paso 3: verificar**
+- [ ] **Paso 3: apagar «Pedir el saldo»**
+
+Lo encontró el implementador de la Task 3 y es la misma clase de hueco: `AvisosDeEntrega` («Pedir el
+saldo», arriba de todo) mira sólo `!readOnly`. En una visita cerrada, tocarlo **antes** de apretar
+«Corregir entrega» carga un renglón y destapa «Solicitar dispensación» al pie — contradiciendo el
+resumen de lectura de arriba, y creando un pedido real por RPC.
+
+En el `<AvisosDeEntrega ... />`, cambiar el prop `readOnly` por:
+
+```tsx
+            readOnly={!puedeCargar}
+```
+
+`puedeCargar` ya existe (Task 3) y vale `!readOnly && (!cerrada || corrigiendo)`: es exactamente
+«¿se puede cargar algo en esta tarjeta ahora mismo?», que es lo que ese aviso necesita saber. Con la
+corrección abierta el saldo vuelve a ofrecerse, y está bien: pedir el saldo ES una corrección.
+
+⚠️ Verificá en `AvisosDeEntrega.tsx` que ese `readOnly` gobierne SÓLO el ofrecimiento de «Pedir el
+saldo» y no esconda además el aviso ROJO de la entrega reciente. Ese aviso tiene que seguir
+viéndose siempre: existe para frenar la mano, y una visita que se está corrigiendo es justo cuando
+más importa. Si gobierna las dos cosas, separalas.
+
+- [ ] **Paso 4: verificar**
 
 Ejecutar: `npm run build`
 Esperado: verde.
 
-- [ ] **Paso 4: commit**
+- [ ] **Paso 5: commit**
 
 ```bash
 git add src/views/pharma/VisitDispensationPanel.tsx
