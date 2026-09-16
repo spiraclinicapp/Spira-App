@@ -46,6 +46,32 @@ export function visitTitle(v: VisitTitleFields): string {
 }
 
 /**
+ * El mismo título, PARA PANTALLAS QUE YA MUESTRAN LA SEMANA aparte: colapsa el nombre cuando no
+ * dice nada más que esa semana.
+ *
+ * Es la hermana de la regla de arriba, con otra fuente de repetición. Hay cronogramas cargados con
+ * el nombre = la semana ("V6" / "W16"), y entonces la ficha decía «V6 - W16» al lado de un bloque
+ * «Semana W16», y el cronograma «V6 - W16» arriba de «Semana W16». La misma palabra dos veces en el
+ * mismo renglón se lee como dos datos distintos (Director, 2026-09-15).
+ *
+ * SE COLAPSA EL NOMBRE Y NO LA SEMANA, y sólo acá: donde la semana NO está en pantalla —el
+ * desplegable de Farmacia, las filas del día, el título del modal— `visitTitle` sigue devolviendo
+ * «V6 - W16», que ahí es la única forma de saber de qué semana se trata. Colapsar en la fuente
+ * habría borrado ese dato en seis vistas para arreglar dos.
+ *
+ * Exige coincidencia EXACTA con la semana derivada (`studyTime`): "W16" con semana 16 colapsa;
+ * "W16 basal" no —agrega información real—, "W15" con semana 16 tampoco —si el nombre y la cuenta
+ * discrepan, esconder uno de los dos sería tapar el desacuerdo, que es justo lo que hay que ver.
+ */
+export function visitTitleConSemanaAparte(v: TrackVisitRow): string {
+  const nombre = v.visit_name?.trim()
+  const st = studyTime(v)
+  if (!nombre || !v.visit_code || st?.unit !== 'semana') return visitTitle(v)
+  const comoSemana = nombre.match(/^W\s*(\d+)$/i)
+  return comoSemana && Number(comoSemana[1]) === st.value ? v.visit_code : visitTitle(v)
+}
+
+/**
  * Código corto para rótulos COMPACTOS (pastillas, celdas angostas): "V1" (def) o el short del
  * kind ("VNP", "Scr"). Una programada SIN código devuelve '' y cada pantalla decide qué hacer con
  * el hueco; para un rótulo que no puede quedar vacío, `visitShortLabel`.
