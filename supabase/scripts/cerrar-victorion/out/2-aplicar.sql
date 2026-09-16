@@ -131,7 +131,10 @@ begin
 end
 $victorion$;
 
--- Control. `con_pendientes` tiene que quedar en 48: una por paciente, la última de cada uno.
+-- Control. Queda abierta, como TECHO, una visita por paciente: la última de cada uno. Hoy son 48
+-- pacientes, así que 48 es el máximo — pero el número real puede ser MENOR, porque el Director viene
+-- cerrando algunas a mano (siete, el 2026-09-16). No lo leas como un número fijo: lo que importa es
+-- que ninguna que NO sea la última de su paciente quede abierta.
 select count(*) filter (where v.computed_status = 'completa')  as completas,
        count(*) filter (where v.computed_status = 'realizada') as con_pendientes
 from public.patient_visits pv
