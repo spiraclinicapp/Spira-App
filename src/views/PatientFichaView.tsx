@@ -9,7 +9,7 @@ import type { PatientRow } from '../data/patients'
 import { usePatientVisits, useVisitAlerts } from '../data/visits'
 import { useUrlEntity } from '../lib/useUrlState'
 import {
-  adherence, ageFromBirth, currentVisit, orderVisits, visitTitle, studyTime,
+  adherence, ageFromBirth, currentVisit, orderVisits, visitTitle, visitTitleConSemanaAparte, studyTime,
   FERTILITY_LABELS, SEX_LABELS,
 } from '../lib/visits'
 import { VISIT_STATES } from './visitStates'
@@ -331,11 +331,15 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                         <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{statIsActual ? 'Visita actual' : 'Próxima visita'}</div>
                         {/* Identidad de la visita (código + nombre, o el label de la suelta: "VNP"),
                             no el conteo "V# de N": en la diaria importa CUÁL visita es, no cuántas van. */}
+                        {/* El bloque de al lado ya dice «Semana W16»: con el nombre repitiéndola, el
+                            título se queda con el código (`visitTitleConSemanaAparte`). El `title` en
+                            cambio lleva el nombre COMPLETO: el tooltip no compite por ancho con nada y
+                            es donde se comprueba qué dice el cronograma. */}
                         <div
                           title={visitTitle(statVisit)}
                           style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 19, color: accent, marginTop: 3, maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                         >
-                          {visitTitle(statVisit)}
+                          {visitTitleConSemanaAparte(statVisit)}
                         </div>
                       </div>
                       {/* Día/Semana solo para visitas del cronograma (tienen offset). Las sueltas

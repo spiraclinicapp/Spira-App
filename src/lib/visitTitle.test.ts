@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackVisitRow } from '../data/visits'
-import { visitTitle } from './visits'
+import { visitTitle, visitTitleConSemanaAparte } from './visits'
 import type { VisitTitleFields } from './visits'
 
 /**
@@ -48,6 +48,42 @@ describe('visitTitle', () => {
     expect(visitTitle(v({ visit_code: null, visit_name: 'Visita no programada' }))).toBe('Visita no programada')
     expect(visitTitle(v({ visit_code: null, visit_name: null, kind: 'vnp' }))).toBe('VNP')
     expect(visitTitle(v({ visit_code: null, visit_name: null, kind: 'firma_screening' }))).toBe('Firma y Screening')
+  })
+})
+
+/**
+ * La variante para pantallas que YA muestran la semana (la ficha y su cronograma).
+ *
+ * Falla en silencio de las dos maneras y por eso se testea: si colapsa de menos, vuelve el
+ * «V6 - W16» al lado de «Semana W16» que el Director marcó; si colapsa de más, la pantalla se come
+ * un nombre que decía algo («W16 basal») o tapa un desacuerdo entre el nombre cargado y la semana
+ * que sale de la cuenta — y eso último es exactamente lo que alguien necesita ver.
+ *
+ * `offset_days` + `date_mode` son los que mandan la semana (`studyTime`): 112 días / 7 = W16.
+ */
+describe('visitTitleConSemanaAparte', () => {
+  const trat = (campos: Partial<TrackVisitRow>) =>
+    v({ date_mode: 'automatica', ...campos } as Partial<TrackVisitRow>)
+
+  it('colapsa el nombre cuando no dice más que la semana que ya está en pantalla', () => {
+    expect(visitTitleConSemanaAparte(trat({ visit_code: 'V6', visit_name: 'W16', offset_days: 112 }))).toBe('V6')
+    expect(visitTitleConSemanaAparte(trat({ visit_code: 'V4', visit_name: 'w2', offset_days: 14 }))).toBe('V4')
+  })
+
+  it('NO colapsa cuando el nombre agrega información', () => {
+    expect(visitTitleConSemanaAparte(trat({ visit_code: 'V6', visit_name: 'W16 basal', offset_days: 112 }))).toBe('V6 - W16 basal')
+    expect(visitTitleConSemanaAparte(trat({ visit_code: 'V1', visit_name: 'Screening', offset_days: -59, date_mode: 'libre' }))).toBe('V1 - Screening')
+  })
+
+  it('NO colapsa si el nombre y la semana derivada discrepan: ese desacuerdo se muestra', () => {
+    expect(visitTitleConSemanaAparte(trat({ visit_code: 'V6', visit_name: 'W15', offset_days: 112 }))).toBe('V6 - W15')
+  })
+
+  it('sin semana derivada (sueltas, pre-rando) se comporta como visitTitle', () => {
+    const suelta = v({ visit_code: null, visit_name: null, kind: 'vnp', offset_days: null })
+    expect(visitTitleConSemanaAparte(suelta)).toBe(visitTitle(suelta))
+    const preRando = v({ visit_code: 'V2', visit_name: 'W4', offset_days: -28, date_mode: 'libre' })
+    expect(visitTitleConSemanaAparte(preRando)).toBe('V2 - W4')
   })
 })
 

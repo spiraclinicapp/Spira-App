@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
-import { dotVisual, flowWindow, orderVisits, visitStateLabel, visitTitle, studyTime, desvioDias, fueraDeVentana } from '../../lib/visits'
+import { dotVisual, flowWindow, orderVisits, visitStateLabel, visitTitleConSemanaAparte, studyTime, desvioDias, fueraDeVentana } from '../../lib/visits'
 import { dotColor } from '../visitStates'
 import { ayudaDeRotulo, GLOSARIO } from '../../lib/glosario'
 import { formatShortAR, todayISO } from '../../lib/dates'
@@ -70,7 +70,9 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
         const cur = v.id === currentId
         const estColor = dotColor(dotVisual(v), accent)
         const estLabel = visitStateLabel(v, today)
-        const label = visitTitle(v)
+        /* El renglón de abajo ya dice «Semana W16»: si el nombre no dice más que eso, el título
+           se queda con el código. Ver `visitTitleConSemanaAparte`. */
+        const label = visitTitleConSemanaAparte(v)
         const ayuda = ayudaDeRotulo(label)
         const st = studyTime(v)
         const desv = desvioDias(v.estimated_date, v.real_date)
