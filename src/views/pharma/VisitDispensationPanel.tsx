@@ -47,6 +47,7 @@ import { FormularioOtro } from './FormularioOtro'
 import { SeccionIp } from './SeccionIp'
 import { contenidoSeccionIp } from './seccionIpModel'
 import { HistorialPlegado } from './HistorialPlegado'
+import { vistaVisitaCerrada } from './visitaCerradaModel'
 import { EntregarEnPartes, partesInvalidas } from './EntregarEnPartes'
 import { AvisoIpReciente, AvisosDeEntrega } from './AvisosDeEntrega'
 import { avisoIp, avisoRojo } from './avisoReciente'
@@ -195,7 +196,10 @@ const verRecetaBtn = (accent: string): CSSProperties => ({
  * entrega de IP, en ámbar (`AvisoIpReciente`).
  */
 export function VisitDispensationPanel({ visit, accent, readOnly }: {
-  visit: { id: string; enrollment_id: string; protocol_id: string; dispenses: boolean; dispenses_ip: boolean }
+  /** `ready_at` = fin de atención. Con la visita cerrada la tarjeta muestra qué pasó en vez de
+   *  invitar a dispensar (spec del 2026-09-15). NO se usa `real_date`: esa se pone al EMPEZAR a
+   *  atender, y ahí todavía falta dispensar. */
+  visit: { id: string; enrollment_id: string; protocol_id: string; dispenses: boolean; dispenses_ip: boolean; ready_at: string | null }
   accent: string
   readOnly: boolean
 }) {
@@ -269,6 +273,13 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const stockDe = (medicationId: string) => (stockQ.data ?? []).find((s) => s.medication_id === medicationId)
 
   const requests = reqQ.data ?? []
+  /* La visita terminada muestra qué pasó y no invita a cargar. `cerrada` NO reemplaza a `readOnly`,
+     que sigue significando permisos: se combinan. En la ficha de un paciente las dos son ciertas. */
+  const vista = vistaVisitaCerrada({ readyAt: visit.ready_at, pedidos: requests })
+  const cerrada = vista.concomitante.tipo !== 'abierta'
+  /** Con la visita cerrada, cargar deja de ser lo normal y pasa a ser una corrección explícita. */
+  const [corrigiendo, setCorrigiendo] = useState(false)
+  const puedeCargar = !readOnly && (!cerrada || corrigiendo)
   // Abiertas = todavía accionables (solicitada / preparando / lista para retirar); van siempre
   // arriba. Cerradas = entregada / cancelada / rechazada.
   // `columnOf` devuelve null para cancelada/rechazada y 'entregada' para las ya retiradas.
@@ -816,6 +827,27 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               del cronograma. Si la visita no la preveía, el servidor sella `base_sin_cronograma` solo,
               como dato para el comprobante. */}
           <Sub label="Medicación concomitante" first>
+            {vista.concomitante.tipo === 'entregada' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 9 }}>
+                <div style={{ ...muted, padding: '2px 0' }}>Dispensada el {vista.concomitante.fecha}</div>
+                {vista.concomitante.renglones.map((r) => (
+                  <div key={r.id} style={itemRow}>
+                    <span style={{ flex: 1, minWidth: 0, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={r.nombre}>
+                      {r.nombre}
+                    </span>
+                    <span className="spira-mono" style={{ color: 'var(--spira-ink-soft)', flex: '0 0 auto' }}>{r.cantidad}</span>
+                    {r.comprobante !== null && (
+                      <span className="spira-mono" style={{ flex: '0 0 auto', fontSize: 12, color: 'var(--spira-muted)' }}>N° {r.comprobante}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {vista.concomitante.tipo === 'sin_entrega' && (
+              <div style={{ ...muted, padding: '2px 0', marginBottom: 9 }}>En esta visita no se entregó medicación.</div>
+            )}
+
             {openMedItems.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 9 }}>
                 {openReqs.flatMap((r) => r.items.map((it) => {
@@ -942,7 +974,11 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               </div>
             )}
 
-            {readOnly && requests.length === 0 && !reqQ.loading && (
+            {/* `!cerrada` (Task 3): con la visita cerrada uno de los dos bloques de arriba —«Dispensada
+                el DD/MM» o «En esta visita no se entregó medicación»— YA cubre el caso sin pedidos.
+                Sin esta guarda, una visita cerrada sin ningún pedido pintaba las dos frases juntas,
+                diciendo lo mismo dos veces con palabras distintas. */}
+            {readOnly && !cerrada && requests.length === 0 && !reqQ.loading && (
               <div style={{ ...muted, padding: '2px 0' }}>Sin dispensación solicitada.</div>
             )}
 
@@ -990,13 +1026,29 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 abre) decían los dos "Agregar" para dos cosas distintas. Ahora la cadena es
                 Elegir → Agregar → Listo → Solicitar: un verbo por paso. Lo reportó el Director,
                 que no lo entendió al usarlo — 2026-09-04. */}
-            {!readOnly && !soliciting && (
+            {/* Con la visita cerrada, cargar no es el gesto normal: primero hay que decir que se está
+                corrigiendo. La acción va sobria a propósito — sobre una visita terminada se lee, no
+                se carga. Dos rótulos y no uno: donde no hay entrega no hay nada que corregir, y donde
+                la hay «registrar» suena a que todavía no se registró (Director, 2026-09-15). */}
+            {!readOnly && cerrada && !corrigiendo && (
+              <button type="button" onClick={() => { setCorrigiendo(true); setSoliciting(true); setErr(null) }} style={btnChico}>
+                {vista.concomitante.tipo === 'entregada' ? 'Corregir entrega' : 'Registrar entrega'}
+              </button>
+            )}
+
+            {!readOnly && cerrada && corrigiendo && (
+              <div style={{ ...muted, padding: '2px 0', marginBottom: 9 }}>
+                La entrega anterior queda registrada. Lo que cargues acá la corrige.
+              </div>
+            )}
+
+            {puedeCargar && !soliciting && (
               <button type="button" onClick={() => { setSoliciting(true); setErr(null) }} style={addBtn}>
                 <Icon name="plus" size={16} color={accent} /> Elegir medicación
               </button>
             )}
 
-            {!readOnly && soliciting && (
+            {puedeCargar && soliciting && (
               <div style={{ border: '1px solid var(--spira-line-2)', borderRadius: 12, background: 'var(--spira-white)', padding: 13 }}>
                 {modoOtro ? (
                   // 0124: «Otro medicamento» es su propio formulario (receta, habilitación), no una
@@ -1195,7 +1247,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
 
           {/* 6 · HISTORIAL PLEGADO, último (plan D17 y D19): lo que ya pasó, en una línea. Recibe TODOS
               los pedidos porque un rechazo deja de estar vigente apenas hay uno nuevo en curso. */}
-          <HistorialPlegado requests={requests} />
+          <HistorialPlegado requests={requests} excluir={vista.yaMostrados} />
         </>
     </Panel>
   )
