@@ -324,13 +324,14 @@ export function PatientFichaView(props: PatientFichaViewProps) {
             <>
               {/* próxima visita */}
               <div style={card}>
-                {/* Alineados ARRIBA y no abajo (Director, 2026-09-15: «el día lo veo muy tirado para
-                    abajo»). Con `flex-end` mandaba el bloque más alto —el de la derecha, que tiene
-                    el renglón de la semana— y empujaba la fecha un renglón hacia abajo: los dos
-                    datos principales del encabezado quedaban a distinta altura sin que nada lo
-                    justifique. Arriba, los dos rótulos arrancan en la misma línea y la fecha y la
-                    visita quedan enfrentadas. */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                {/* CENTRADOS entre sí, ni arriba ni abajo (Director, 2026-09-15, en dos vueltas).
+                    Con la alineación al pie mandaba el bloque más alto —el de la derecha, que tiene el renglón
+                    de la semana— y empujaba la fecha un renglón hacia abajo. Alineados arriba, el
+                    problema se dio vuelta: la izquierda tiene DOS renglones y la derecha TRES, así que
+                    quedaba un hueco debajo de la fecha y el bloque se leía corrido hacia arriba.
+                    Centrados, los dos grupos comparten eje y ninguno arrastra al otro; que la
+                    izquierda tenga un renglón menos deja de importar. */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                   <div>
                     <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{current && current.real_date === null ? 'Próxima visita' : 'Última visita'}</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 3 }}>
