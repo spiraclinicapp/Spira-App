@@ -234,12 +234,15 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
             </div>
           </div>
 
-          {protocol.description && <p style={{ fontSize: 13, color: 'var(--spira-muted)', lineHeight: 1.5, margin: '14px 0 0' }}>{protocol.description}</p>}
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
             {metaRow('Sponsor', protocol.sponsor)}
             {metaRow('Investigador', protocol.principal_investigator)}
             {metaRow('Especialidad', protocol.specialty)}
+            {/* La Patología ES la columna `description` (0001), rebautizada en pantalla el 2026-09-16
+                por pedido del Director. Antes iba como párrafo suelto bajo el nombre; ahora es un
+                dato más del estudio, debajo de la especialidad que la contiene. La columna no se
+                renombra: es presentación, y lo que ya estaba cargado pasa a leerse con este rótulo. */}
+            {metaRow('Patología', protocol.description)}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>

@@ -85,11 +85,12 @@ export function EditProtocolForm({ protocol, accentSolid, onClose, onUpdated }: 
           <FormField label="Especialidad">
             <AutocompleteInput value={specialty} onChange={setSpecialty} suggestions={specialtySuggestions} placeholder="ej. Cardiología" />
           </FormField>
-          <div style={{ gridColumn: '1 / -1' }}>
-            <FormField label="Descripción">
-              <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Pista corta del ensayo" style={fieldInput} />
-            </FormField>
-          </div>
+          {/* «Patología» es la columna `description`, con otro rótulo desde el 2026-09-16 (ver
+              ProtocolDetailView). Va al lado de Especialidad y no a lo ancho: son el par general →
+              particular, y así el formulario cierra en tres renglones parejos. */}
+          <FormField label="Patología">
+            <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="ej. Asma grave" style={fieldInput} />
+          </FormField>
         </div>
 
         {error && (
