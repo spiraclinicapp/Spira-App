@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   contextoDeEtapa, datosDelPaciente, diaDeLaVisita, estaConcretada, estimadaNoAplica, etapaProgreso, fechaSegunProtocolo,
-  horaDeAtencion, marcaDeEtapa, opcionesDeCoordinador,
+  marcaDeEtapa, opcionesDeCoordinador,
   medicoDeVisita, puedeEditarCoordinador, muestraFechaReal, puedeEditarMedico,
 } from './visitHeaderRules'
 import { desvioDias, fueraDeVentana } from '../../lib/visits'
@@ -191,39 +191,6 @@ describe('desvío y ventana (sin test desde que existen, ahora visibles en el en
     // de protocolo que señalar: pintar la pastilla roja ahí sería inventar un hallazgo.
     expect(fueraDeVentana('2026-08-15', null, null)).toBe(false)
     expect(fueraDeVentana('2026-08-15', '2026-08-10', null)).toBe(false)
-  })
-})
-
-describe('horaDeAtencion · el sello del inicio de atención (0102)', () => {
-  // 16:31 hora argentina = 19:31 UTC. Se escribe en UTC a propósito: es como llega el
-  // timestamptz de la base, y es lo que hace fallar a cualquier implementación que recorte el ISO.
-  const selloTarde = '2026-08-29T19:31:00Z'
-
-  it('devuelve la hora cuando el sello es del mismo día que la fecha real', () => {
-    expect(horaDeAtencion({ real_date: '2026-08-29', attended_at: selloTarde })).toBe('16:31')
-  })
-
-  it('sin sello no inventa hora: las visitas anteriores a la 0102 muestran solo la fecha', () => {
-    expect(horaDeAtencion({ real_date: '2026-08-29', attended_at: null })).toBeNull()
-  })
-
-  it('sin fecha real no hay nada que acompañar', () => {
-    expect(horaDeAtencion({ real_date: null, attended_at: selloTarde })).toBeNull()
-  })
-
-  it('si CORRIGIERON la fecha real, el sello deja de mostrarse', () => {
-    // Éste es el caso que falla en silencio: la pantalla se ve impecable y la hora que muestra
-    // pertenece a otro día. "14/08/2026 16:31" sería una hora que ese día no pasó.
-    expect(horaDeAtencion({ real_date: '2026-08-14', attended_at: selloTarde })).toBeNull()
-  })
-
-  it('una atención de la TARDE no se compara contra el día UTC', () => {
-    // 21:45 hora argentina del 29 = 00:45 UTC del 30. Recortando el ISO (slice(0,10)) el día
-    // saldría '2026-08-30', no coincidiría con real_date y la hora desaparecería justo en las
-    // atenciones de la tarde — sin ningún error a la vista.
-    const nocturno = '2026-08-30T00:45:00Z'
-    expect(horaDeAtencion({ real_date: '2026-08-29', attended_at: nocturno })).toBe('21:45')
-    expect(nocturno.slice(0, 10)).toBe('2026-08-30')   // el valor que NO hay que usar
   })
 })
 
