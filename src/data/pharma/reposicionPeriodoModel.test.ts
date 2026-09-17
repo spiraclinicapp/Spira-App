@@ -147,8 +147,9 @@ describe('a demanda y renglones sin cuenta', () => {
     )
     expect(rep.enCurso).toBe(false)
     expect(rep.estudios[0].renglones[0]).toMatchObject({
-      comprar: 0, boleta: null, libro: { habia: 0, entro: 10, salio: 4, ajustes: -1, hay: 5 },
+      estado: 'sin_cuenta', comprar: 0, boleta: null, libro: { habia: 0, entro: 10, salio: 4, ajustes: -1, hay: 5 },
     })
+    expect(rep.estudios[0].estadoTarjeta).toBe('sin_cuenta')
   })
 })
 
@@ -168,6 +169,15 @@ describe('vencimientos', () => {
     const r = seretide(insumos({ pacientes: grupo(12, 12), lotes: [lote({ expiry_date: '2026-10-10' })] }))
     expect(r.comprar).toBe(4)
     expect(r.avisos).toContainEqual({ tipo: 'vence', ambar: true, texto: 'Vence el 10/10: lote L1, 8 envases' })
+  })
+  it('la boleta no calla con todo vencido: «quedan al corte» aparece con valor 0', () => {
+    const i = insumos({ pacientes: grupo(12, 12), lotes: [lote({ lot_number: 'L0', expiry_date: '2026-09-01', quantity: 10 })] })
+    expect(seretide(i).comprar).toBe(12)
+    expect(seretide(i).libro.hay).toBe(10)
+    expect(resumenBoleta(i)).toEqual([
+      ['hacen_falta', '', 12, '12 pacientes, 1 envase por mes'],
+      ['quedan_al_corte', '−', 0, 'hay 0 y ya retiraron todos, sin contar 10 vencidos'],
+    ])
   })
 })
 

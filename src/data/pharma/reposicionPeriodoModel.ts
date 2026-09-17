@@ -117,6 +117,15 @@ export interface Boleta {
   aComprar: number
 }
 
+/**
+ * `EstadoRenglon` (la card vieja, `reposicionModel.ts`) más `'sin_cuenta'`: esta vista corta por
+ * `enCurso` (R6) y, en un período que no está en curso, NO calcula la compra — mostrar `'alcanza'`
+ * (como hacía antes) sería un dato inventado presentado como real (regla de honestidad de CLAUDE.md).
+ * `'sin_cuenta'` es sólo para `mensual`/`a_demanda`: `sin_cargar` y `no_se_compra` son configuración del
+ * medicamento, no una cuenta, y siguen valiendo igual esté o no en curso el período.
+ */
+export type EstadoRenglonPeriodo = EstadoRenglon | 'sin_cuenta'
+
 export interface RenglonDelPeriodo {
   clave: string
   protocolMedicationId: string
@@ -127,7 +136,7 @@ export interface RenglonDelPeriodo {
   /** Lo cargado en el estudio, para abrir el formulario con el valor actual. */
   envasesPorMes: number | null
   stockFijo: number | null
-  estado: EstadoRenglon
+  estado: EstadoRenglonPeriodo
   /** Envases a comprar para P1 (0 si no aplica o si el período no está en curso). */
   comprar: number
   libro: Libro
@@ -136,7 +145,8 @@ export interface RenglonDelPeriodo {
   avisos: Aviso[]
 }
 
-export type EstadoTarjeta = 'comprar' | 'cubierto' | 'todo_sin_cargar' | 'sin_medicacion'
+/** `'sin_cuenta'`: el período no está en curso (R6), no se sabe cubierto de verdad — no confundir con `'cubierto'`. */
+export type EstadoTarjeta = 'comprar' | 'cubierto' | 'todo_sin_cargar' | 'sin_medicacion' | 'sin_cuenta'
 
 export interface EstudioReposicion {
   estudio: EstudioInsumo
@@ -196,7 +206,9 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto): RenglonDelPeriodo
   }
   if (r.modo == null) return { ...base, estado: 'sin_cargar', comprar: 0, boleta: null, avisos: [] }
   if (r.modo === 'no_se_compra') return { ...base, estado: 'no_se_compra', comprar: 0, boleta: null, avisos: [] }
-  if (!ctx.actual) return { ...base, estado: 'alcanza', comprar: 0, boleta: null, avisos: [] }
+  // Período que no está en curso (R6): sin_cargar/no_se_compra son configuración y ya se resolvieron
+  // arriba; para mensual/a_demanda no hay cuenta hecha, así que decirlo es honesto y 'alcanza' no lo era.
+  if (!ctx.actual) return { ...base, estado: 'sin_cuenta', comprar: 0, boleta: null, avisos: [] }
 
   const lineas: LineaBoleta[] = []
   const avisos: Aviso[] = []
@@ -257,7 +269,10 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto): RenglonDelPeriodo
       aclaracion: `${pacientesTxt(pendientes)} todavía no ${retiraronTxt(pendientes)} y en el estante no alcanza`,
     })
   }
-  if (est.alComienzo > 0) {
+  // También cuando no queda nada VIGENTE (alComienzo = 0) pero sí hay vencidos o algo que vence antes del
+  // próximo período: si el libro dice «Hay 10» (vencidos) y la boleta pidiera igual sin explicarlo, no
+  // cierra a la vista. Se muestra con valor 0 para que la aclaración diga por qué no cuenta.
+  if (est.alComienzo > 0 || vencidos > 0 || vencenAntes > 0) {
     const partes = [
       pacientesDelPeriodo === 0 ? `hay ${est.vigenteHoy}`
         : pendientes > 0 ? `hay ${est.vigenteHoy}, y ${pacientesTxt(pendientes)} todavía no ${retiraronTxt(pendientes)}`
@@ -315,10 +330,13 @@ export function armarReposicionDelPeriodo(
         pedidos: pedidosDelEstudio,
         destacado: pedidoDestacado(pedidosDelEstudio, proximo),
         resumen: { envases, medicamentos: aComprar.length, sinCargar, reponibles },
+        // 'sin_medicacion' primero: es cierto pase lo que pase con el período. Después, si el período no
+        // está en curso (R6), la tarjeta tampoco inventa 'cubierto': dice 'sin_cuenta'.
         estadoTarjeta: reponibles === 0 ? 'sin_medicacion'
-          : sinCargar === reponibles ? 'todo_sin_cargar'
-            : envases > 0 ? 'comprar'
-              : 'cubierto',
+          : !actual ? 'sin_cuenta'
+            : sinCargar === reponibles ? 'todo_sin_cargar'
+              : envases > 0 ? 'comprar'
+                : 'cubierto',
         sinMedicacionHabilitada: insumos.sin_medicacion.find((s) => s.protocol_id === estudio.id)?.enrolamientos ?? 0,
       }
     })
@@ -337,7 +355,12 @@ export interface RenglonBorrador {
   pedir: number
 }
 
-/** Arranca en lo calculado; lo sin cargar en cero para pedirlo a mano; «no se compra» no aparece. */
+/**
+ * Arranca en lo calculado; lo sin cargar en cero para pedirlo a mano; «no se compra» no aparece.
+ * Sólo tiene sentido con un `EstudioReposicion` del período EN CURSO: `r.comprar` es 0 para todo renglón
+ * `'sin_cuenta'` (período que no está en curso, R6), así que armar el pedido desde uno viejo pediría todo
+ * en cero. Quien la llama es responsable de pasar el estudio del período en curso.
+ */
 export function borradorDelPedido(e: EstudioReposicion): RenglonBorrador[] {
   return e.renglones
     .filter((r) => r.estado !== 'no_se_compra')

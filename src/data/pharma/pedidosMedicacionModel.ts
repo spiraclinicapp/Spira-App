@@ -120,7 +120,8 @@ export function armarPedidos(
         pedidoTotal: renglones.reduce((s, r) => s + r.pedido, 0),
         recibidoTotal,
         faltanteTotal,
-        faltoCerrado: renglones.filter((r) => r.cerrado_at).reduce((s, r) => s + Math.max(0, r.pedido - r.recibido), 0),
+        faltoCerrado: p.anulado_at ? 0
+          : renglones.filter((r) => r.cerrado_at).reduce((s, r) => s + Math.max(0, r.pedido - r.recibido), 0),
         conRecepcionSinVerificar: renglones.some((r) => r.sin_verificar > 0),
       }
     })
@@ -170,12 +171,17 @@ export function pedidosParaRecibir(pedidos: readonly PedidoMedicacion[]): Pedido
 /**
  * El pedido que muestra la tarjeta del estudio: el más nuevo que tenga faltante abierto o que sea para el
  * período que viene. Uno emitido el día de corte ya aparece ese día, y sigue apareciendo mientras falte algo.
+ *
+ * «Para el período que viene» se decide por SUPERPOSICIÓN de rangos (`p.periodo_hasta >= proximo.desde &&
+ * p.periodo_desde <= proximo.hasta`), no por igualdad de `periodo_desde`: si Farmacia cambia el día de
+ * corte después de emitir el pedido, `proximo.desde` se corre y una comparación exacta deja de reconocer
+ * un pedido que sigue siendo, en los hechos, el de ese período.
  */
 export function pedidoDestacado(pedidos: readonly PedidoMedicacion[], proximo: Periodo): PedidoMedicacion | null {
   return [...pedidos]
     .filter((p) => p.estado !== 'anulado')
     .sort((a, b) => b.numero - a.numero)
-    .find((p) => p.faltanteTotal > 0 || p.periodo_desde === proximo.desde) ?? null
+    .find((p) => p.faltanteTotal > 0 || (p.periodo_hasta >= proximo.desde && p.periodo_desde <= proximo.hasta)) ?? null
 }
 
 /** Los renglones con los que arranca el asistente de recepción: lo que falta de cada uno. */

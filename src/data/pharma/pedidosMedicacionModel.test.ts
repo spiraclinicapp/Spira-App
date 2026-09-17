@@ -68,6 +68,10 @@ describe('estado del pedido', () => {
     expect(p).toMatchObject({ estado: 'anulado', faltanteTotal: 0 })
     expect(etiquetaEstado(p)).toBe('anulado')
   })
+  it('un pedido anulado tampoco tiene «faltó cerrado», aunque tenga un renglón cerrado', () => {
+    const p = uno(ANULADO, [item({ recibido: 5, ...CERRADO })])
+    expect(p).toMatchObject({ estado: 'anulado', faltanteTotal: 0, faltoCerrado: 0 })
+  })
   it('avisa si tiene una recepción sin verificar', () => {
     expect(uno({}, [item({ sin_verificar: 6 })]).conRecepcionSinVerificar).toBe(true)
     expect(uno({}, [item()]).conRecepcionSinVerificar).toBe(false)
@@ -153,8 +157,14 @@ describe('pedido destacado en la tarjeta (R2)', () => {
     const ps = armarPedidos([cab()], [item({ recibido: 6 })])
     expect(pedidoDestacado(ps, PROXIMO)?.numero).toBe(14)
   })
+  it('se destaca por SUPERPOSICIÓN de período, no por igualdad: sigue si el corte se movió después de emitir', () => {
+    const ps = armarPedidos([cab({ periodo_desde: '2026-09-27', periodo_hasta: '2026-10-26' })], [item({ recibido: 6 })])
+    expect(pedidoDestacado(ps, PROXIMO)?.numero).toBe(14)
+  })
   it('nada que mostrar: uno viejo y recibido, o uno anulado', () => {
-    expect(pedidoDestacado(armarPedidos([cab({ periodo_desde: '2026-07-29' })], [item({ recibido: 6 })]), PROXIMO)).toBeNull()
+    expect(pedidoDestacado(
+      armarPedidos([cab({ periodo_desde: '2026-07-29', periodo_hasta: '2026-08-28' })], [item({ recibido: 6 })]), PROXIMO,
+    )).toBeNull()
     expect(pedidoDestacado(armarPedidos([cab(ANULADO)], [item()]), PROXIMO)).toBeNull()
   })
 })

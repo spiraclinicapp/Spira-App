@@ -114,8 +114,11 @@ export function useReposicionDelEstudio(protocolId: string) {
 }
 
 // ═══════════════════════════ De corte a corte (0128) ═══════════════════════════
-// docs/superpowers/specs/2026-09-16-reposicion-submodulo-design.md. Lo de arriba (mes calendario, demora,
-// «Ya lo pedí») es de la card de Estadísticas y se va con ella en la Parte 2.
+// docs/superpowers/specs/2026-09-16-reposicion-submodulo-design.md. De lo de arriba, lo que es de la card
+// de Estadísticas (mes calendario) se va CON ELLA en la Parte 2: useInsumosDeReposicion,
+// guardarDemoraCompra, registrarPedidoReposicion y anularPedidoReposicion. configurarReposicion,
+// guardarEnvasesDelPaciente y useReposicionDelEstudio no son de esa card —son de la config del
+// medicamento y del paciente— y QUEDAN: los sigue usando la pantalla nueva.
 
 /**
  * El día de corte de Farmacia (R4). Envuelto en un objeto porque `null` es un valor con significado
