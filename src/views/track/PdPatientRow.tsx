@@ -16,9 +16,10 @@ const microLabel: CSSProperties = { fontSize: 9.5, textTransform: 'uppercase', l
 
 /**
  * Fila de paciente del Detalle de Protocolo. Plegada: identidad (nombre + IVRS + médico) +
- * tracker Anterior→Actualidad→Próxima + botón "Resumen". Click en la fila abre la FICHA del
+ * tracker Anterior→Actualidad→Próxima, con la bandera de estado apoyada en la esquina superior
+ * derecha y el enlace "Resumen" al pie de esa misma columna. Click en la fila abre la FICHA del
  * paciente —el destino de la tarjeta es el paciente, que es lo que la tarjeta muestra—; el
- * botón "Resumen" despliega el tracker horizontal completo sin salir de la lista
+ * enlace "Resumen" despliega el tracker horizontal completo sin salir de la lista
  * (stopPropagation). El nombre y el IVRS van además como `.spira-textlink`: la fila entera es un
  * `<div>` con `onClick` (no un `button`, para no anidar el de "Resumen" adentro), así que el par
  * nombre/IVRS es la puerta a la ficha que sí alcanza el teclado.
@@ -92,16 +93,15 @@ export function PdPatientRow({ patient, visits, accent, protocolId, protocolCode
       className="spira-card-link"
       style={{ position: 'relative', borderRadius: 14, background: 'var(--spira-white)', marginBottom: 10 }}
     >
-      {/* El estado del paciente, antes de entrar: un punto en la esquina superior derecha (verde
-          activo, rojo inactivo; el `title` lo dice en palabras). ABSOLUTO y fuera del renglón del
+      {/* El estado del paciente, antes de entrar: la bandera apoyada en la esquina superior derecha,
+          con la palabra escrita (verde abierta, rojo cerrada). ABSOLUTA y fuera del renglón del
           nombre a propósito: la versión anterior lo ponía delante del nombre y, como el nombre es un
           botón que no se puede cortar a la mitad, en columnas angostas el nombre entero desaparecía
           detrás de un "…". Acá no ocupa lugar en la grilla, así que no le quita un píxel a nada.
-          `top/right: 4` deja el punto con ~8px de aire hacia los dos bordes y ~9px hacia «Resumen»,
-          que queda justo debajo. Más adentro (se probó 7) terminaba a 5px de la esquina del botón y
-          se leía como un aviso DEL BOTÓN, no del paciente. La caja de 16px termina a 20px de arriba
-          y el botón arranca en 25: no se pisan, así que el punto no le roba el mouse. */}
-      <EstadoPaciente estado={estadoInscripcion} style={{ position: 'absolute', top: 4, right: 4 }} />
+          Y la esquina es toda suya: «Resumen» —que antes vivía ahí, como botón con borde— bajó al
+          pie de la misma columna. El radio de la clase (13 = 14 de la tarjeta − 1 del borde) es el
+          de esta tarjeta, así que no hay nada que pasarle. */}
+      <EstadoPaciente estado={estadoInscripcion} />
       <div onClick={() => onOpen(patient.id)} style={{ cursor: 'pointer', padding: '13px 16px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12 }}>
           {/* identidad */}
@@ -151,24 +151,28 @@ export function PdPatientRow({ patient, visits, accent, protocolId, protocolCode
           )}
           {/* acción: solo el desplegable del recorrido. Abrir la ficha es el gesto de la fila
               entera (el `onClick` de arriba), así que no lleva botón propio. Sin visitas no hay
-              resumen que desplegar y el botón directamente no está — la fila igual abre la ficha. */}
-          <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: 10 }}>
+              resumen que desplegar y el enlace directamente no está — la fila igual abre la ficha.
+
+              VA AL PIE DE LA COLUMNA, no al centro: `alignSelf: 'end'` con 1px de respiro deja la
+              base del enlace a la altura de la del renglón del médico, así que la tarjeta se lee en
+              dos esquinas —estado arriba, acción abajo— en vez de amontonar las dos cosas en la
+              misma. Era un botón con caja y se disputaba esos ~90px con la bandera de estado; sin
+              caja mide ~78×17 y el subrayado del hover alcanza como señal (ver
+              `.spira-disclosure-link`). El color es el acento del módulo y el subrayado lo sigue con
+              `currentColor`; el giro del chevron y el estado abierto viven en el CSS, atados a
+              `aria-expanded`, que es el mismo dato que lee el lector de pantalla. */}
+          <div style={{ justifySelf: 'end', alignSelf: 'end', paddingBottom: 1, display: 'flex', justifyContent: 'flex-end' }}>
             {expandable && (
               <button
                 type="button"
+                className="spira-disclosure-link spira-no-press"
                 aria-expanded={open}
                 onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
                 title={open ? 'Ocultar el recorrido de visitas' : 'Ver el recorrido de visitas'}
-                onMouseEnter={(e) => { e.currentTarget.style.background = accent; e.currentTarget.style.color = 'var(--spira-on-accent)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = accent + '10'; e.currentTarget.style.color = accent }}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 11px', borderRadius: 8,
-                  border: `1px solid ${accent}59`, background: accent + '10', color: accent, cursor: 'pointer',
-                  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap', transition: 'background .14s, color .14s',
-                }}
+                style={{ color: accent }}
               >
                 Resumen
-                <Icon name="chevronDown" size={15} color="currentColor" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+                <Icon name="chevronDown" size={14} color="currentColor" />
               </button>
             )}
           </div>

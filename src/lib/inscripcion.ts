@@ -10,11 +10,29 @@ import type { PatientEnrollment, PatientRow } from '../data/patients'
  */
 export type EnrollmentStatus = 'screening' | 'activo' | 'completado' | 'discontinuado'
 
-/** Cómo se dice cada estado en pantalla (va al `title` del punto). */
+/** Cómo se dice cada estado en pantalla (va al `title` y al `aria-label` del punto y la bandera). */
 export const ETIQUETA_ESTADO: Record<EnrollmentStatus, string> = {
   screening: 'En screening',
   activo: 'Activo en el estudio',
   completado: 'Completó el estudio',
+  discontinuado: 'Discontinuado',
+}
+
+/**
+ * Lo mismo en UNA palabra, para la bandera de la esquina de la tarjeta: ahí el texto va a 9,5px en
+ * mayúsculas y "Activo en el estudio" no es una etiqueta, es una oración.
+ *
+ * SON CUATRO PALABRAS Y NO DOS. El handoff de diseño dibujaba «Activo»/«Inactivo» —con 47 de 48
+ * pacientes activos es lo que se ve en pantalla casi siempre—, pero el dato tiene cuatro valores y
+ * la bandera existe justamente para no depender del `title`: decirle «INACTIVO» a alguien que
+ * completó el estudio sería decir MENOS de lo que hoy dice el punto al apuntarlo (Director,
+ * 2026-09-17). El COLOR sigue siendo binario —abierto o cerrado, que es lo que decide
+ * `estaAbierta`—; la palabra es la que matiza.
+ */
+export const PALABRA_ESTADO: Record<EnrollmentStatus, string> = {
+  screening: 'Screening',
+  activo: 'Activo',
+  completado: 'Completado',
   discontinuado: 'Discontinuado',
 }
 
