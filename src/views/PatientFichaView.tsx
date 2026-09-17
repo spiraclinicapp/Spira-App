@@ -225,36 +225,37 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       {/* cuerpo */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, minHeight: 0 }}>
         {/* ficha lateral */}
-        <div style={{ ...card, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto' }}>
+        <div style={{ ...card, position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto' }}>
+          {/* El estado es el de la INSCRIPCIÓN A ESTE ESTUDIO (0127) —no el de la persona, que antes
+              se leía acá y hacía que una baja en ACT18301 se viera en LTS17231—; el de la VISITA vive
+              en el cronograma.
+              Es la misma bandera que la esquina de la tarjeta del listado: las dos pantallas tienen
+              que decir el estado con las mismas palabras y en el mismo lugar, que es lo que se venía
+              persiguiendo desde el 2026-09-14 (primero con una píldora bajo el nombre, después con el
+              punto). El radio va a 15 —16 de esta card menos 1 del borde— porque la ficha redondea un
+              poco más que la tarjeta. `position: relative` en la card es lo único que la bandera pide
+              para anclarse; como la card scrollea, la bandera se va con el contenido, que es lo
+              correcto: pertenece al encabezado, no al marco. */}
+          <EstadoPaciente estado={enrollment?.status ?? null} style={{ borderTopRightRadius: 15 }} />
           {/* El título de la ficha es la IDENTIDAD y nada más: nombre + número de paciente
               (mismo criterio que el header del modal de visita; el nombre manda y el IVRS baja a
               identificador secundario, en mono). El médico tratante colgaba acá como una tercera
               línea sin rótulo —se leía como un dato huérfano, y con el campo vacío era un "—"
               suelto que no decía nada—: ahora vive abajo, rotulado (pedido del Director).
 
-              El nombre se lleva el RENGLÓN ENTERO y el badge de estado baja a la línea del IVRS.
-              Antes compartían fila: entre el badge y su gap le comían 96px de los 278 de la
-              ficha, así que al nombre le quedaban 182px y cualquiera de más de ~19 caracteres
-              partía en dos, con el badge flotando al medio. Con la fila completa entra la
-              enorme mayoría; los pocos que igual no entren cortan con `balance`, que reparte
-              las dos líneas en vez de dejar una palabra sola colgando. */}
-          <div>
-            {/* El estado es el de la INSCRIPCIÓN A ESTE ESTUDIO (0127) —no el de la persona, que
-                antes se leía acá y hacía que una baja en ACT18301 se viera en LTS17231—; el de la
-                VISITA vive en el cronograma.
-                Es el mismo punto de la esquina de la tarjeta en el listado, y acá también va arriba a
-                la derecha, a la altura del nombre (decisión del Director, 2026-09-14: la píldora
-                debajo, junto al IVRS, no le gustaba). El nombre sigue quedándose con el ancho: el
-                punto se lleva 16px + 10 de separación, no los 96 de la píldora vieja que partían los
-                nombres de más de ~19 letras. La caja del punto mide lo mismo que el renglón del
-                nombre (19px × 1.2 ≈ 23) para que quede centrado con la PRIMERA línea aunque el nombre
-                parta en dos. `marginRight: -4` saca la mitad sobrante de la caja de 16px hacia el
-                padding de la card: así es el PUNTO, y no su caja, el que termina al ras de la
-                columna de valores de abajo. */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.2, textWrap: 'balance' }}>{patient.full_name}</div>
-              <EstadoPaciente estado={enrollment?.status ?? null} style={{ height: 23, marginRight: -4 }} />
-            </div>
+              El nombre se lleva el RENGLÓN ENTERO, sin nada que le dispute el ancho. Antes compartía
+              fila con un badge de estado que, con su gap, le comía 96px de los 278 de la ficha: al
+              nombre le quedaban 182px y cualquiera de más de ~19 caracteres partía en dos, con el
+              badge flotando al medio. El punto que lo reemplazó devolvía casi todo ese ancho, pero
+              seguía en la fila; la bandera sale del flujo y lo devuelve entero. Los nombres que igual
+              no entren cortan con `balance`, que reparte las dos líneas en vez de dejar una palabra
+              sola colgando.
+
+              LOS 12px DE ARRIBA son el lugar de la bandera: el contenido de la card arranca a los 18
+              de su padding y la bandera ocupa 22, así que sin ese respiro el nombre le pasaría por
+              debajo. 12 los separa ~8px, el mismo aire que tiene la bandera contra el borde. */}
+          <div style={{ paddingTop: 12 }}>
+            <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--spira-ink)', lineHeight: 1.2, textWrap: 'balance' }}>{patient.full_name}</div>
             <div className="spira-mono" style={{ fontSize: 13.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap', marginTop: 5 }}>{ivrs ?? 'Sin IVRS'}</div>
           </div>
 

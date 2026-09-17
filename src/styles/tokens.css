@@ -935,6 +935,123 @@ input:-webkit-autofill:focus {
   .spira-zoom-preview { transition: none; }
 }
 
+/* —— Bandera de estado del paciente ——
+   El estado de la inscripción, apoyado en la esquina superior derecha de la tarjeta o de la ficha:
+   punto de color + la palabra. Reemplaza al punto solo (handoff «Bandera de estado y enlace
+   Resumen», 2026-09-17): con 47 de 48 pacientes activos, un punto verde repetido 47 veces no
+   informa, y el rojo del único inactivo se lee como "hay un problema acá" antes de que se sepa qué
+   dice. El componente vive en `components/EstadoPaciente.tsx`, con la historia completa.
+
+   SE APOYA, NO FLOTA: sin sombra y sin borde, y con el radio de la esquina que ocupa, así que es la
+   tarjeta la que parece doblada y no una etiqueta pegada encima. Ese radio depende del contenedor
+   (14 − 1 del borde en la tarjeta del listado, 16 − 1 en la ficha), así que el default es el del
+   listado y quien tenga otro lo pisa por `style`.
+
+   ⚠️ EL TINTE DEL FONDO VA ACÁ Y NO EN UN TOKEN, y no es una cuestión de gusto: dentro de una custom
+   property, `var(--spira-white)` se resuelve en el elemento que la DECLARA —`:root`—, así que el
+   token quedaría con el blanco del tema claro horneado adentro y el tema oscuro nunca lo
+   recalcularía. Declarado en la regla del componente, el `color-mix` sigue al fondo real de la card
+   en los dos temas. Es la misma trampa que ya documenta `--spira-acc-deep-good` unas líneas arriba.
+
+   LA TINTA SÍ ES TOKEN, y es la familia `--spira-acc-deep-*` que ya existe —no dos tokens nuevos,
+   como proponía el handoff—: esa familia nació exactamente para TEXTO sobre un tinte de su propio
+   color y sus valores son los mismos que pedía el handoff con dos dígitos hex de diferencia
+   (#3D6B3B vs #3F6B3D), indistinguibles en pantalla. Medido en el navegador sobre el tinte ya
+   resuelto: verde 5,38:1 en claro y 8,63:1 en oscuro; rojo 4,89:1 y 6,11:1. AA pide 4,5:1 para este
+   cuerpo, y el punto —que es no textual— queda en 3,46 y 4,89, arriba del 3:1 de WCAG 1.4.11. */
+.spira-estado-bandera {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px 5px;
+  border-top-right-radius: 13px;
+  border-bottom-left-radius: 10px;
+  font-family: var(--spira-font-text);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  /* El alto de 22px del handoff sale de 4 + 13 + 5, y los 13 hay que DECIRLOS: el `normal` de esta
+     fuente da 11 y la bandera quedaba en 20, un poco chata para los radios de abajo, que están
+     calculados contra 22. */
+  line-height: 13px;
+  /* El `title` sigue estando —dice el estado completo, "Completó el estudio" donde la bandera
+     escribe "Completado"—, así que el cursor lo anuncia como en el resto de los datos con
+     explicación. Y de paso no hereda el `pointer` de la tarjeta: la bandera no abre nada. */
+  cursor: help;
+  background: color-mix(in srgb, var(--spira-good) 13%, var(--spira-white));
+  color: var(--spira-acc-deep-good);
+}
+.spira-estado-bandera__punto {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--spira-good);
+  flex: 0 0 auto;
+}
+/* Inscripción cerrada (completada o discontinuada). El rojo es el ACENTO PROFUNDO y no
+   `--spira-danger`: en claro valen lo mismo, pero en oscuro el otro se pierde sobre su propio
+   tinte. Acá hace de fondo, de tinta y de punto: el tinte al 12% lo deja bastante lejos de sí
+   mismo como para que el texto se lea (medido arriba). */
+.spira-estado-bandera--off {
+  background: color-mix(in srgb, var(--spira-acc-deep-danger) 12%, var(--spira-white));
+  color: var(--spira-acc-deep-danger);
+}
+.spira-estado-bandera--off .spira-estado-bandera__punto {
+  background: var(--spira-acc-deep-danger);
+}
+
+/* —— Disparador de un desplegable, en texto ——
+   El «Resumen» de la fila de paciente: un `<button>` sin caja que abre el recorrido de visitas ahí
+   mismo. Era un botón con borde y fondo tintado, y se disputaba los ~90px de la esquina superior
+   derecha con la bandera de estado; sin caja baja de 86×30 a ~78×17 y se va al PIE de la columna
+   —estado arriba, acción abajo— sin que nada se pise.
+
+   NO ES UN `<a>`: no navega, despliega. Por eso conserva `aria-expanded` y el `stopPropagation` que
+   evita que el click abra además la ficha (que es lo que hace la fila entera).
+
+   LA SEÑAL ES EL SUBRAYADO, y va también en `[aria-expanded='true']`: mientras el panel está abierto
+   el enlace queda subrayado, que es el estado que antes daba el fondo lleno del botón. El color lo
+   pone quien lo usa (es el acento del módulo) y el subrayado lo sigue con `currentColor`, así que la
+   regla sirve igual en Coordinación que en cualquier módulo que la reuse.
+   Lleva `.spira-no-press` puesto por el consumidor: un texto que se levanta 1px al apuntarlo salta;
+   el levante es la señal de una CAJA pulsable, y acá la caja es justamente lo que se sacó. */
+.spira-disclosure-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  padding: 0;
+  font-family: var(--spira-font-text);
+  font-weight: 600;
+  font-size: 12.5px;
+  line-height: 1.35;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.spira-disclosure-link:hover,
+.spira-disclosure-link:focus-visible,
+.spira-disclosure-link[aria-expanded='true'] {
+  border-bottom-color: currentColor;
+}
+.spira-disclosure-link svg {
+  transition: transform 0.15s var(--spira-ease-out);
+}
+/* El chevron gira; LA PALABRA NO CAMBIA (sigue diciendo «Resumen»): lo que cambia al abrir es el
+   `title`, «Ver» → «Ocultar el recorrido de visitas». */
+.spira-disclosure-link[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .spira-disclosure-link svg { transition: none; }
+}
+
 /* —— Grupo de medicamento en la lista de Stock (Farmacia › Stock) ——
    Un medicamento con varios lotes se dibuja como una fila resumen plegable con sus lotes
    adentro, atados por un conector de árbol. El conector va acá y no en el objeto de estilo de

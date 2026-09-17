@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bandera de estado + enlace «Resumen» · especificación</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+:root{--acc:var(--spira-track);--deep-danger:#A6483B;--spira-acc-deep-track:#0F5F57;--spira-flag-good-ink:#3F6B3D;--spira-flag-off-ink:var(--deep-danger)}
+[data-theme="dark"]{--acc:#9DE6D6;--spira-acc-deep-track:#9DE6D6;--deep-danger:#EDA093;--spira-flag-good-ink:#A8D6A2;--spira-flag-off-ink:#EDA093}
+body{margin:0;padding:40px 24px 80px;background:var(--spira-paper);font-family:var(--spira-font-text);color:var(--spira-ink);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1000px;margin:0 auto}
+.kicker{font-family:var(--spira-font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--spira-faint)}
+h1{font-family:var(--spira-font-display);font-weight:700;font-size:32px;letter-spacing:-.02em;margin:8px 0 10px}
+.lede{font-size:14.5px;line-height:1.6;color:var(--spira-muted);max-width:70ch;text-wrap:pretty}
+h2{font-family:var(--spira-font-display);font-weight:700;font-size:17px;margin:44px 0 4px}
+.sub{font-size:12.5px;color:var(--spira-muted);margin-bottom:16px}
+.cap{font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--spira-faint);margin:18px 0 8px}
+.dark{background:var(--spira-paper);border:1px solid var(--spira-line);border-radius:18px;padding:22px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--spira-line);vertical-align:top}
+th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--spira-faint)}
+code{font-family:var(--spira-font-mono);font-size:12px;background:color-mix(in srgb,var(--spira-ink) 5%,transparent);padding:1px 5px;border-radius:5px}
+/* —— tarjeta —— */
+.card{position:relative;border:1px solid var(--spira-line);border-radius:14px;background:var(--spira-white);margin-bottom:10px;transition:box-shadow .16s}
+.card:hover{box-shadow:0 4px 14px rgba(20,48,46,.12)}
+.cardin{padding:13px 16px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
+.name{font-size:14px;font-weight:600;color:var(--spira-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.code2{font-family:var(--spira-font-mono);font-size:13px;color:var(--spira-muted);margin-top:2px}
+.med{font-size:12.5px;color:var(--spira-muted);margin-top:3px}
+.trk{display:flex;align-items:flex-start;gap:8px}
+.col{min-width:88px;text-align:center}
+.ml{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--spira-muted)}
+.col.now .ml{color:var(--acc)}
+.mv{font-size:12.5px;margin-top:3px;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--spira-muted)}
+.col.now .mv{color:var(--spira-ink);font-weight:700}
+.arw{margin-top:8px;flex:0 0 auto;color:var(--acc)}
+.flag{position:absolute;top:0;right:0;display:inline-flex;align-items:center;gap:6px;padding:4px 11px 5px;border-bottom-left-radius:10px;border-top-right-radius:13px;font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;background:color-mix(in srgb,var(--spira-good) 13%,var(--spira-white));color:var(--spira-flag-good-ink)}
+.flag .d{width:6px;height:6px;border-radius:50%;background:var(--spira-good);flex:0 0 auto}
+.flag.off{background:color-mix(in srgb,var(--deep-danger) 12%,var(--spira-white));color:var(--spira-flag-off-ink)}
+.flag.off .d{background:var(--deep-danger)}
+.act{justify-self:end;align-self:end;padding-bottom:1px;display:flex;justify-content:flex-end}
+.lnk{display:inline-flex;align-items:center;gap:5px;border:0;background:none;padding:0;color:var(--acc);font-family:var(--spira-font-text);font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap;border-bottom:1px solid transparent;line-height:1.35}
+.lnk:hover,.lnk[aria-expanded="true"]{border-bottom-color:var(--acc)}
+.lnk svg{transition:transform .15s}
+.lnk[aria-expanded="true"] svg{transform:rotate(180deg)}
+/* —— panel (PdFullSchedule) —— */
+.panel{padding:6px 16px 16px}
+.phead{display:flex;align-items:center;gap:8px;color:var(--spira-acc-deep-track);font-size:12px;font-weight:600;padding:9px 4px}
+.vrow{display:flex;align-items:center;gap:14px;padding:11px 4px;border-top:1px solid var(--spira-line);border-radius:10px}
+.vrow>div:not(.vd){min-width:0;flex:1}
+.vdot{width:26px;height:26px;border-radius:50%;border:2px solid var(--acc);background:var(--spira-white);display:grid;place-items:center;flex:0 0 auto}
+.vdot i{width:8px;height:8px;border-radius:50%;background:var(--acc);display:block}
+.vdot.next{border:1.5px solid var(--spira-line-2);background:var(--spira-surface)}
+.vdot.next i{display:none}
+.vt{font-family:var(--spira-font-display);font-size:14.5px;font-weight:700;color:var(--spira-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vs{font-size:11.5px;color:var(--spira-muted);margin-top:1px}
+.vd{font-family:var(--spira-font-mono);font-size:12.5px;color:var(--spira-muted);min-width:78px;text-align:right;line-height:1.25;flex:0 0 auto}
+.vd b{display:block;font-weight:400;color:var(--spira-ink)}
+.vd span{display:block;font-size:10.5px;color:var(--spira-muted)}
+.vtag{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:var(--spira-radius-pill);background:color-mix(in srgb,var(--acc) 9%,transparent);color:var(--acc);white-space:nowrap;min-width:86px;text-align:center;flex:0 0 auto}
+.vtag.sch{background:#7C8C8716;color:#7C8C87}
+.chv{color:var(--spira-faint);flex:0 0 auto}
+a{color:var(--acc)}a:hover{color:var(--spira-primary)}
+</style></head>
+<body><div class="wrap">
+<div class="kicker">Spira Coordinación · Protocolo → Pacientes</div>
+<h1>Bandera de estado + enlace «Resumen»</h1>
+<p class="lede">Dos cambios en la tarjeta de paciente del listado del protocolo, sin mover la organización de la información: el punto de estado pasa a ser una bandera con la palabra, apoyada en la esquina superior derecha; y el botón «Resumen» pasa a ser un enlace de texto al pie de la columna derecha, a la base del renglón del médico.</p>
+
+<h2>1 · Estado plegado</h2>
+<div class="sub">Activo e inactivo. La bandera se apoya en el radio de la tarjeta (sin sombra, sin borde).</div>
+<div class="card"><span class="flag" role="img" aria-label="Paciente activo: en seguimiento" title="Paciente activo: en seguimiento"><span class="d"></span>Activo</span>
+<div class="cardin"><div><div class="name">Antonio Gerardo Palmieri</div><div class="code2">4022001</div><div class="med">Dr. Eduardo Perez Herranz</div></div>
+<div class="trk"><div class="col"><div class="ml">Anterior</div><div class="mv">V7 · 21 jun</div></div><svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div class="col now"><div class="ml">Actualidad</div><div class="mv">15 sep</div></div><svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div class="col"><div class="ml">Próxima</div><div class="mv">V8 · 18 dic</div></div></div>
+<div class="act"><button class="lnk" aria-expanded="false" title="Ver el recorrido de visitas">Resumen <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button></div></div></div>
+<div class="card"><span class="flag off" role="img" aria-label="Paciente inactivo: ya no está en seguimiento" title="Paciente inactivo: ya no está en seguimiento"><span class="d"></span>Inactivo</span>
+<div class="cardin"><div><div class="name">Clelys Ester Nuñez</div><div class="code2">4022002</div><div class="med">Dr. Eduardo Perez Herranz</div></div>
+<div class="trk"><div class="col"><div class="ml">Anterior</div><div class="mv">V7 · 27 jun</div></div><svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div class="col now"><div class="ml">Actualidad</div><div class="mv">15 sep</div></div><svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div class="col"><div class="ml">Próxima</div><div class="mv">V8 · 24 dic</div></div></div>
+<div class="act"><button class="lnk" aria-expanded="false" title="Ver el recorrido de visitas">Resumen <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button></div></div></div>
+
+<h2>2 · Desplegado</h2>
+<div class="sub">La palabra no cambia; gira el chevron y el subrayado queda fijo (<code>aria-expanded="true"</code>). El panel es <code>PdFullSchedule</code> sin cambios.</div>
+<div class="card"><span class="flag" role="img" aria-label="Paciente activo: en seguimiento"><span class="d"></span>Activo</span>
+<div class="cardin"><div><div class="name">Antonio Gerardo Palmieri</div><div class="code2">4022001</div><div class="med">Dr. Eduardo Perez Herranz</div></div>
+<div class="trk"><div class="col"><div class="ml">Anterior</div><div class="mv">V7 · 21 jun</div></div><svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div class="col now"><div class="ml">Actualidad</div><div class="mv">15 sep</div></div><svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div class="col"><div class="ml">Próxima</div><div class="mv">V8 · 18 dic</div></div></div>
+<div class="act"><button class="lnk" aria-expanded="true" title="Ocultar el recorrido de visitas">Resumen <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button></div></div>
+<div class="panel"><div class="phead"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="transform:rotate(180deg)"><path d="M6 9l6 6 6-6"/></svg>4 visitas anteriores</div>
+<div class="vrow"><span class="vdot"><i></i></span><div><div class="vt">V5 - W90</div><div class="vs">Semana W90</div></div><div class="vd"><b>26/06</b><span>prog 26/06 · 0 d</span></div><span class="vtag">Visita realizada</span><svg class="chv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></div>
+<div class="vrow"><span class="vdot"><i></i></span><div><div class="vt">V6 - W116</div><div class="vs">Semana W116</div></div><div class="vd"><b>23/12</b><span>prog 23/12 · 0 d</span></div><span class="vtag">Visita realizada</span><svg class="chv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></div>
+<div class="vrow"><span class="vdot next"><i></i></span><div><div class="vt">V8 - W167</div><div class="vs">Semana W167</div></div><div class="vd"><b>18/12</b></div><span class="vtag sch">Agendada</span><svg class="chv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></div>
+</div></div>
+
+<h2>3 · Tema oscuro</h2>
+<div class="sub">El tinte del fondo se declara <b>en la regla de la bandera</b>, no en un token: dentro de una custom property el <code>var(--spira-white)</code> se resuelve en <code>:root</code> y el tema oscuro nunca lo vuelve a calcular. La tinta del texto sí es token, aclarado en oscuro.</div>
+<div class="dark" data-theme="dark">
+<div class="card"><span class="flag" role="img" aria-label="Paciente activo: en seguimiento"><span class="d"></span>Activo</span>
+<div class="cardin"><div><div class="name">Antonio Gerardo Palmieri</div><div class="code2">4022001</div><div class="med">Dr. Eduardo Perez Herranz</div></div>
+<div class="trk"><div class="col"><div class="ml">Anterior</div><div class="mv">V7 · 21 jun</div></div><svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div class="col now"><div class="ml">Actualidad</div><div class="mv">15 sep</div></div><svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div class="col"><div class="ml">Próxima</div><div class="mv">V8 · 18 dic</div></div></div>
+<div class="act"><button class="lnk" aria-expanded="false">Resumen <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button></div></div></div>
+<div class="card" style="margin-bottom:0"><span class="flag off" role="img" aria-label="Paciente inactivo: ya no está en seguimiento"><span class="d"></span>Inactivo</span>
+<div class="cardin"><div><div class="name">Clelys Ester Nuñez</div><div class="code2">4022002</div><div class="med">Dr. Eduardo Perez Herranz</div></div>
+<div class="trk"><div class="col"><div class="ml">Anterior</div><div class="mv">V7 · 27 jun</div></div><svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div class="col now"><div class="ml">Actualidad</div><div class="mv">15 sep</div></div><svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div class="col"><div class="ml">Próxima</div><div class="mv">V8 · 24 dic</div></div></div>
+<div class="act"><button class="lnk" aria-expanded="false">Resumen <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button></div></div></div>
+</div>
+
+<h2>4 · Medidas</h2>
+<table>
+<tr><th>Pieza</th><th>Valor</th></tr>
+<tr><td>Bandera · caja</td><td><code>position:absolute; top:0; right:0</code> · padding <code>4px 11px 5px</code> · alto 22px</td></tr>
+<tr><td>Bandera · radios</td><td><code>border-top-right-radius:13px</code> (14 − 1 del borde) · <code>border-bottom-left-radius:10px</code></td></tr>
+<tr><td>Bandera · texto</td><td>9,5px / 700 / <code>letter-spacing:.09em</code> / mayúsculas · punto de 6px, gap 6px</td></tr>
+<tr><td>Enlace</td><td>12,5px / 600 · sin caja · gap 5px con el chevron de 14px · <code>line-height:1.35</code> (17px)</td></tr>
+<tr><td>Enlace · lugar</td><td>Celda de acción con <code>align-self:end; justify-self:end; padding-bottom:1px</code> → base compartida con el renglón del médico</td></tr>
+<tr><td>Enlace · subrayado</td><td><code>border-bottom:1px solid transparent</code>; color en <code>:hover</code>, <code>:focus-visible</code> y <code>[aria-expanded=true]</code></td></tr>
+</table>
+
+<h2>5 · Tokens</h2>
+<table>
+<tr><th>Token</th><th>Claro</th><th>Oscuro</th><th>Uso</th></tr>
+<tr><td>Fondo, activo</td><td colspan="2"><code>color-mix(in srgb, var(--spira-good) 13%, var(--spira-white))</code> — declarado en la regla <code>.flag</code>, no como token</td><td>Sigue a <code>--spira-white</code> en cada tema</td></tr>
+<tr><td><code>--spira-flag-good-ink</code></td><td><code>#3F6B3D</code> · 5,3:1</td><td><code>#A8D6A2</code> · 7,4:1</td><td>Texto, activo</td></tr>
+<tr><td>Fondo, inactivo</td><td colspan="2"><code>color-mix(in srgb, var(--spira-acc-deep-danger) 12%, var(--spira-white))</code> — ídem</td><td>Sigue a <code>--spira-white</code></td></tr>
+<tr><td><code>--spira-flag-off-ink</code></td><td><code>var(--spira-acc-deep-danger)</code> · 4,9:1</td><td><code>#EDA093</code></td><td>Texto, inactivo</td></tr>
+<tr><td>Punto</td><td><code>--spira-good</code> / <code>--spira-acc-deep-danger</code></td><td>ídem</td><td>Sin cambios respecto de hoy</td></tr>
+</table>
+<p class="lede" style="font-size:13px;margin-top:12px">Los dos tokens de tinta son nuevos y van en <code>src/styles/tokens.css</code>, junto a los semánticos, con su override en <code>[data-theme="dark"]</code>. Los fondos van como <code>color-mix</code> en la regla del componente. El resto ya existe.</p>
+</div></body></html>
