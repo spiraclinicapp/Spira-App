@@ -67,8 +67,11 @@ export interface NavTarget {
    * a mano, que es medio viaje.
    *
    * Va junto con `protocolId` y SIN `patientId`: es el detalle del protocolo, no la ficha de nadie.
+   *
+   * Sin 'cronograma' desde el 2026-09-16: dejó de ser pestaña y se abre como modal desde la ficha
+   * lateral del estudio. Nadie navegaba con ese valor.
    */
-  protocolTab?: 'pacientes' | 'cronograma' | 'reportes'
+  protocolTab?: 'pacientes' | 'reportes'
   /** Visita concreta a abrir (su modal en "Visitas del día"). */
   visitId?: string
   /**

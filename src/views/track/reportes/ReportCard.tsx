@@ -138,8 +138,8 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
         /* Sin link no se disfraza de botón: se ve más plano, no toma el cursor de acción y DICE
            qué le falta. Un rectángulo que parece pulsable y no lleva a ningún lado es de las
            cosas que el repo prohíbe — y acá, además, mandaría a la coordinadora a hacer click
-           esperando el portal. El link se carga por reporte en Cronograma › Procedimientos del
-           estudio; si la plataforma tuviera URL por defecto, se completa sola al elegirla. */
+           esperando el portal. El link se carga por reporte en Cronograma y procedimientos ›
+           Procedimientos del estudio; si la plataforma tuviera URL por defecto, se completa sola al elegirla. */
         <div
           style={{ ...plataformaBtn, background: 'transparent', borderWidth: 1, borderStyle: 'dashed', borderColor: 'var(--spira-line-2)', cursor: 'default', color: 'var(--spira-ink-soft)' }}
           title={`${meta.label}: todavía no tiene cargado el link al portal`}

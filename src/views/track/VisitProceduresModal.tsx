@@ -257,7 +257,7 @@ export function VisitProceduresModal({
                       </span>
                     </span>
                     {/* Lápiz, y abre el modal REAL de edición del procedimiento — el mismo de
-                        Cronograma › Procedimientos del estudio. Antes era una impresora que
+                        Cronograma y procedimientos › Procedimientos del estudio. Antes era una impresora que
                         desplegaba acá abajo el editor viejo ("Genera reporte" + un desplegable de
                         ETA), que sólo sabía de un reporte por procedimiento y se muere con la
                         0091. Un lápiz dice "editar esto", que es lo que hace. */}

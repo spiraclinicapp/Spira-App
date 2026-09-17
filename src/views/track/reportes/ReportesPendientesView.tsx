@@ -125,7 +125,7 @@ export function ReportesPendientesView({ protocolId, accent, onOpenVisit, onOpen
         accent={accent}
         icon="fileText"
         title="Sin reportes en curso"
-        description="Acá aparecen los reportes de los procedimientos ya realizados. Se definen en Cronograma › Procedimientos del estudio, y la tarjeta nace cuando el procedimiento se marca realizado en una visita."
+        description="Acá aparecen los reportes de los procedimientos ya realizados. Se definen en «Cronograma y procedimientos», en la ficha del estudio, y la tarjeta nace cuando el procedimiento se marca realizado en una visita."
         minHeight={260}
       />
     )

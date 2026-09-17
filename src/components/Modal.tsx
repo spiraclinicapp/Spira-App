@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
@@ -28,13 +28,41 @@ const cardBase: CSSProperties = {
   maxHeight: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
 }
 
+/**
+ * Los modales abiertos, del más viejo al más nuevo. Esc cierra SÓLO el de arriba.
+ *
+ * Hasta el 2026-09-16 cada modal cerraba con cualquier Esc, y no se notaba porque nunca había dos
+ * abiertos a la vez. Con «Cronograma y procedimientos» pasa a haberlos: el cronograma es un modal y
+ * adentro abre «Editar procedimiento», «Procedimientos · V3» o «Quitar visita». Todos escuchan en
+ * `document`, así que un Esc en el de adentro se llevaba también el cronograma entero, y con él lo
+ * que estabas mirando. Esc cierra UNA capa por vez, como ya hace `usePopover`.
+ *
+ * Por qué una lista de módulo y no el orden de los listeners: los dos corren igual (mismo nodo, y
+ * `stopPropagation` no frena a un hermano), y el orden de registro se desordena si un modal vuelve a
+ * registrarse. Por eso además cada modal entra UNA sola vez, al montarse, y lee `onClose` por ref: si
+ * el efecto dependiera de `onClose` —que casi siempre llega como flecha nueva en cada render—, un
+ * re-render del de abajo lo sacaría y lo volvería a meter arriba de todo, y el próximo Esc cerraría
+ * el equivocado.
+ */
+const abiertos: object[] = []
+
 /** Overlay sobrio reutilizable: backdrop + card scrolleable + accesibilidad (Escape, aria, click afuera). */
 export function Modal({ title, onClose, children, maxWidth = 440, icon, accent, accentSoft }: ModalProps) {
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const yo = {}
+    abiertos.push(yo)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || abiertos[abiertos.length - 1] !== yo) return
+      onCloseRef.current()
+    }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      abiertos.splice(abiertos.indexOf(yo), 1)
+    }
+  }, [])
 
   return (
     <div style={backdrop} onClick={onClose} role="presentation">
