@@ -191,15 +191,18 @@ export function plazo(hoy: string, demora: number | null): Plazo {
 
 // ═══════════════════════════ Reglas por paciente ═══════════════════════════
 
+/** Lo que miran las reglas de cronograma: sirve igual para el JSON del mes (0125) y el del período (0128). */
+type ConCronograma = Pick<PacienteInsumo, 'enrollment_status' | 'tiene_cronograma' | 'ultima_programada'>
+
 /** D16 + D23: el paciente cuenta en el mes que empieza en `desde`. */
-export function sigueEnElMes(p: PacienteInsumo, desde: string): boolean {
+export function sigueEnElMes(p: ConCronograma, desde: string): boolean {
   if (p.enrollment_status !== 'screening' && p.enrollment_status !== 'activo') return false
   if (!p.tiene_cronograma || !p.ultima_programada) return true
   return p.ultima_programada >= desde
 }
 
 /** Terminó su cronograma automático antes del mes y sigue activo: no suma, pero se lista (D23). */
-export function terminoCronograma(p: PacienteInsumo, desde: string): boolean {
+export function terminoCronograma(p: ConCronograma, desde: string): boolean {
   return (p.enrollment_status === 'screening' || p.enrollment_status === 'activo')
     && p.tiene_cronograma && !!p.ultima_programada && p.ultima_programada < desde
 }
@@ -208,8 +211,10 @@ export function terminoCronograma(p: PacienteInsumo, desde: string): boolean {
  * D21: con dos presentaciones activas de la misma droga en un enrolamiento, suma UNA: la última
  * retirada; si ninguna se retiró, la asignada más nueva. Devuelve los ids que NO suman.
  */
-export function presentacionesDuplicadas(pacientes: readonly PacienteInsumo[]): Set<string> {
-  const porClave = new Map<string, PacienteInsumo[]>()
+export function presentacionesDuplicadas(
+  pacientes: readonly Pick<PacienteInsumo, 'patient_medication_id' | 'enrollment_id' | 'drug_id' | 'habilitacion_id' | 'ultimo_retiro' | 'asignado_el'>[],
+): Set<string> {
+  const porClave = new Map<string, (typeof pacientes)[number][]>()
   for (const p of pacientes) {
     if (!p.drug_id || p.habilitacion_id) continue
     const k = `${p.enrollment_id}|${p.drug_id}`
@@ -242,7 +247,7 @@ export interface Estante {
 }
 
 /** D15: lo pendiente del mes en curso sale primero de los lotes que vencen antes. */
-export function estanteAlComienzo(lotes: readonly LoteInsumo[], pendiente: number, hoy: string, mes: Mes): Estante {
+export function estanteAlComienzo(lotes: readonly LoteInsumo[], pendiente: number, hoy: string, mes: Pick<Mes, 'desde' | 'hasta'>): Estante {
   const vigentes = lotes
     .filter((l) => l.quantity > 0 && (l.expiry_date == null || l.expiry_date >= hoy))
     .map((l) => ({ ...l }))
@@ -362,8 +367,10 @@ export interface Reposicion {
   demoraCargada: boolean
 }
 
-const envasesTxt = (n: number) => `${n} ${n === 1 ? 'envase' : 'envases'}`
-const nombres = (ps: readonly PacienteInsumo[]) => {
+/** Compartido por los dos modelos de reposición (el del mes, 0125, y el del período, 0128). */
+export const envasesTxt = (n: number) => `${n} ${n === 1 ? 'envase' : 'envases'}`
+/** Compartido por los dos modelos de reposición (el del mes, 0125, y el del período, 0128). */
+export const nombresDePacientes = (ps: readonly { patient_name: string }[]) => {
   const unicos = [...new Set(ps.map((p) => p.patient_name))].sort((a, b) => a.localeCompare(b, 'es'))
   return unicos.length <= 3 ? unicos.join(', ') : `${unicos.slice(0, 3).join(', ')} y ${unicos.length - 3} más`
 }
@@ -404,13 +411,13 @@ export function armarReposicion(insumos: InsumosReposicion, hoy: string): Reposi
         necesidad = delMes.reduce((s, p) => s + mensual(p), 0)
 
         const terminaron = asignaciones.filter((p) => terminoCronograma(p, m1.desde))
-        if (terminaron.length) avisos.push({ tipo: 'termino_cronograma', ambar: false, texto: `Terminó su cronograma y sigue activo, no suma: ${nombres(terminaron)}` })
+        if (terminaron.length) avisos.push({ tipo: 'termino_cronograma', ambar: false, texto: `Terminó su cronograma y sigue activo, no suma: ${nombresDePacientes(terminaron)}` })
         const sinRetiros = suman.filter((p) => sigueEnElMes(p, m1.desde) && (!p.ultimo_retiro || p.ultimo_retiro.slice(0, 10) < noventaDias(hoy)))
-        if (sinRetiros.length) avisos.push({ tipo: 'sin_retiros', ambar: false, texto: `Sin retiros en 90 días, suma igual: ${nombres(sinRetiros)}` })
+        if (sinRetiros.length) avisos.push({ tipo: 'sin_retiros', ambar: false, texto: `Sin retiros en 90 días, suma igual: ${nombresDePacientes(sinRetiros)}` })
         const dobles = asignaciones.filter((p) => duplicados.has(p.patient_medication_id))
-        if (dobles.length) avisos.push({ tipo: 'dos_presentaciones', ambar: true, texto: `Tiene otra presentación de la misma droga habilitada, suma una sola: ${nombres(dobles)}` })
+        if (dobles.length) avisos.push({ tipo: 'dos_presentaciones', ambar: true, texto: `Tiene otra presentación de la misma droga habilitada, suma una sola: ${nombresDePacientes(dobles)}` })
         const varios = suman.filter((p) => mensual(p) > 0 && p.retirado_mes > mensual(p))
-        if (varios.length) avisos.push({ tipo: 'varios_meses', ambar: false, texto: `Se llevó más de un mes en ${m0.nombre}: ${nombres(varios)}` })
+        if (varios.length) avisos.push({ tipo: 'varios_meses', ambar: false, texto: `Se llevó más de un mes en ${m0.nombre}: ${nombresDePacientes(varios)}` })
       }
       est = estanteAlComienzo(lotes, pendiente, hoy, m1)
       comprar = r.modo === 'mensual'

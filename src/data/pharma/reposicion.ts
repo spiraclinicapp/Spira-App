@@ -1,6 +1,9 @@
 import { supabase } from '../../lib/supabase'
 import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import type { InsumosReposicion, ModoReposicion } from './reposicionModel'
+import type { Periodo } from './periodoDeCorte'
+import type { MotivoAnulacion, MotivoCierre } from './pedidosMedicacionModel'
+import type { InsumosDelPeriodo } from './reposicionPeriodoModel'
 import { pharmaErrorMessage } from './errors'
 
 /**
@@ -108,4 +111,97 @@ export function useReposicionDelEstudio(protocolId: string) {
     [protocolId],
     (e) => pharmaErrorMessage(e.code, e.message),
   )
+}
+
+// ═══════════════════════════ De corte a corte (0128) ═══════════════════════════
+// docs/superpowers/specs/2026-09-16-reposicion-submodulo-design.md. De lo de arriba, lo que es de la card
+// de Estadísticas (mes calendario) se va CON ELLA en la Parte 2: useInsumosDeReposicion,
+// guardarDemoraCompra, registrarPedidoReposicion y anularPedidoReposicion. configurarReposicion,
+// guardarEnvasesDelPaciente y useReposicionDelEstudio no son de esa card —son de la config del
+// medicamento y del paciente— y QUEDAN: los sigue usando la pantalla nueva.
+
+/**
+ * El día de corte de Farmacia (R4). Envuelto en un objeto porque `null` es un valor con significado
+ * («sin cargar»: la pantalla lo pide) y no tiene que confundirse con «todavía no llegó».
+ */
+export function useDiaCorte() {
+  return useSupabaseQuery<{ diaCorte: number | null }>(
+    async (c) => {
+      const { data, error } = await c.from('farmacia_ajustes').select('dia_corte').eq('unica', true).maybeSingle()
+      if (error) return { data: null, error }
+      return { data: { diaCorte: (data as { dia_corte: number | null } | null)?.dia_corte ?? null }, error: null }
+    },
+    [],
+    (e) => pharmaErrorMessage(e.code, e.message),
+  )
+}
+
+/**
+ * Los datos crudos de un período (`reposicion_del_periodo`, 0128). La cuenta la hace
+ * `armarReposicionDelPeriodo` (D11). Sin período todavía (falta el día de corte) no pide nada.
+ * `protocolId` null = todos los estudios no cerrados (la grilla).
+ */
+export function useReposicionDelPeriodo(periodo: Periodo | null, protocolId: string | null = null) {
+  return useSupabaseQuery<InsumosDelPeriodo | null>(
+    async (c) => {
+      if (!periodo) return { data: null, error: null }
+      const { data, error } = await c.rpc('reposicion_del_periodo', {
+        p_desde: periodo.desde,
+        p_hasta: periodo.hasta,
+        p_protocol_id: protocolId,
+      })
+      if (error) return { data: null, error }
+      return { data: data as InsumosDelPeriodo, error: null }
+    },
+    // Los bordes y no el objeto: un período recalculado en cada render cambia de identidad.
+    [periodo?.desde, periodo?.hasta, protocolId],
+    (e) => pharmaErrorMessage(e.code, e.message),
+  )
+}
+
+/** El día de corte (R4). Update directo: 0 filas = sin permiso (RLS). */
+export async function guardarDiaCorte(dia: number): Promise<Resultado> {
+  const { data, error } = await supabase
+    .from('farmacia_ajustes')
+    .update({ dia_corte: dia })
+    .eq('unica', true)
+    .select('id')
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  if (!data || data.length === 0) return { error: 'No tenés permiso para cambiar el día de corte.' }
+  return { error: null }
+}
+
+/** «Emitir e imprimir» (R8): cabecera y renglones en una llamada atómica. Devuelve el número para la hoja. */
+export async function emitirPedidoMedicacion(input: {
+  protocolId: string
+  /** El período PARA el que se pide (P1). */
+  periodo: Periodo
+  /** Hoy en hora AR. */
+  emitidoEl: string
+  renglones: { medication_id: string; calculado: number | null; pedido: number }[]
+}): Promise<Resultado & { id?: string; numero?: number }> {
+  const { data, error } = await supabase.rpc('emitir_pedido_medicacion', {
+    p_protocol_id: input.protocolId,
+    p_desde: input.periodo.desde,
+    p_hasta: input.periodo.hasta,
+    p_emitido_el: input.emitidoEl,
+    p_renglones: input.renglones,
+  })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  const r = data as { id: string; numero: number }
+  return { error: null, id: r.id, numero: r.numero }
+}
+
+/** Anular un pedido emitido (R9). La base lo rechaza si ya tiene recepciones. */
+export async function anularPedidoMedicacion(pedidoId: string, motivo: MotivoAnulacion): Promise<Resultado> {
+  const { error } = await supabase.rpc('anular_pedido_medicacion', { p_pedido_id: pedidoId, p_motivo: motivo })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/** «No va a llegar» (R11): cierra lo que falta de un renglón, que vuelve a la compra. */
+export async function cerrarFaltantePedido(itemId: string, motivo: MotivoCierre): Promise<Resultado> {
+  const { error } = await supabase.rpc('cerrar_faltante_pedido', { p_item_id: itemId, p_motivo: motivo })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
 }
