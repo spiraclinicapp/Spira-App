@@ -140,7 +140,9 @@ comment on column public.medication_receptions.pedido_id is
    trg_validar_pedido_de_recepcion (sección 5) cuando quien escribe es current_user = postgres —una
    función SECURITY DEFINER de ese owner (create_reception) o el editor SQL—; para cualquier otro rol, el
    mismo trigger rechaza de entrada tocar esta columna (o tipo/protocol_id en una fila con pedido) antes de
-   llegar a esa validación. create_reception nunca actualiza pedido_id, sólo lo pone al insertar. 0128.';
+   llegar a esa validación. create_reception nunca actualiza pedido_id, sólo lo pone al insertar. El
+   trigger es BEFORE INSERT OR UPDATE: NO cubre un DELETE de la recepción ni un PATCH directo a
+   reception_items, ambos permitidos por la policy for all de pharma (hueco previo, ver TODOS.md). 0128.';
 
 
 -- 5 · Trigger: la recepción no puede saltear la validación de su pedido (R9, R10) -----------------
@@ -154,7 +156,16 @@ comment on column public.medication_receptions.pedido_id is
 --     protocol_id/tipo a una recepción que ya tiene pedido. Rompe R10: lo recibido suma en el pedido
 --     equivocado y la compra sale mal.
 -- Va DESPUÉS de que existan pedidos_medicacion (sección 2) y medication_receptions.pedido_id (sección 4):
--- lee la primera columna por columna y valida la segunda en cada INSERT/UPDATE.
+-- lee la primera columna por columna y valida la segunda — pero no en cada INSERT/UPDATE: sólo en el
+-- INSERT, o en el UPDATE que cambia pedido_id, tipo o protocol_id (v_toca_pedido, más abajo).
+--
+-- Lo que este trigger NO cubre (hueco previo a esta rama, ver TODOS.md): un DELETE directo de
+-- medication_receptions, y la escritura directa de reception_items — las dos las permite la misma policy
+-- for all de pharma (medication_receptions: 0006:247/0009:153; reception_items: 0006:249/0009:155), y
+-- ninguna dispara este trigger, que es BEFORE INSERT OR UPDATE sólo sobre medication_receptions (sección
+-- 4). Borrar la recepción no revierte el stock ni libera el pedido, y un PATCH a
+-- reception_items.quantity de una recepción verificada con pedido cambia lo recibido de ese pedido —y con
+-- eso la compra— sin que create_reception ni este trigger se enteren.
 --
 -- SIN SECURITY DEFINER, a propósito: con SECURITY DEFINER, current_user adentro de la función sería
 -- SIEMPRE el owner (postgres) sin importar quién disparó el INSERT/UPDATE real, y la distinción por
@@ -170,15 +181,22 @@ comment on column public.medication_receptions.pedido_id is
 -- (42501, genérico) — falla cerrado igual, pero por un error de Postgres en inglés en vez del mensaje de
 -- dominio en castellano que esta migración se toma el trabajo de dar en todos los demás casos. Por eso el
 -- chequeo por rol es la PRIMERA rama de la función y el FOR SHARE queda dentro de la rama
--- current_user = 'postgres': a ese punto sólo llegan create_reception (SECURITY DEFINER, corre como su
--- owner) y el editor SQL, y postgres es DUEÑO de pedidos_medicacion —los dueños de tabla tienen todos los
--- privilegios sobre ella sin necesitar GRANT—, así que el FOR SHARE ahí nunca choca con un permiso.
+-- current_user = 'postgres': a ese punto no sólo llegan create_reception (SECURITY DEFINER, corre como su
+-- owner) y el editor SQL — también verify_reception y void_reception (0087, reemplazada en 0113), que son
+-- SECURITY DEFINER del mismo owner, y cualquier otra función así que se agregue después: current_user
+-- adentro de una SECURITY DEFINER es siempre el dueño, no quien la llamó. Lo que las saca sin lockear no
+-- es el rol, es v_toca_pedido (más abajo): da false para un UPDATE que sólo cambia status —como hacen esas
+-- dos—, así que ni verify_reception ni void_reception llegan al FOR SHARE. Y postgres es DUEÑO de
+-- pedidos_medicacion —los dueños de tabla tienen todos los privilegios sobre ella sin necesitar GRANT—,
+-- así que el FOR SHARE, cuando sí se llega (create_reception insertando, o un UPDATE de pedido_id/
+-- tipo/protocol_id desde el editor SQL), nunca choca con un permiso.
 --
 -- v_toca_pedido decide si hace falta re-lockear/re-validar: sólo cuando cambia pedido_id, tipo o
 -- protocol_id (o es un INSERT). Un UPDATE que sólo toca status/notes/lo que sea —incluida la verificación
--- (verify_reception) o una futura anulación de base, ambas SECURITY DEFINER— no tiene por qué volver a
--- pedir el pedido: si ese pedido se anuló DESPUÉS de que esta recepción (también anulada) quedó asociada,
--- revalidar en cada UPDATE posterior lo rechazaría para siempre por algo que ya no depende de esta fila.
+-- (verify_reception) o la anulación de base (void_reception, 0087/0113), ambas SECURITY DEFINER— no tiene
+-- por qué volver a pedir el pedido: si ese pedido se anuló DESPUÉS de que esta recepción (también anulada)
+-- quedó asociada, revalidar en cada UPDATE posterior lo rechazaría para siempre por algo que ya no depende
+-- de esta fila.
 create or replace function public.validar_pedido_de_recepcion()
 returns trigger language plpgsql set search_path = public as $fn$
 declare
@@ -218,7 +236,10 @@ begin
     return new;
   end if;
 
-  -- A partir de acá, current_user = 'postgres': create_reception (INSERT) o el editor SQL.
+  -- A partir de acá, current_user = 'postgres': create_reception, el editor SQL, o cualquier otra función
+  -- SECURITY DEFINER del owner (verify_reception y void_reception incluidas) — para éstas v_toca_pedido da
+  -- false (sólo cambian status), así que llegan hasta acá y salen por el if de abajo sin lockear ni
+  -- validar nada.
   if v_toca_pedido and new.pedido_id is not null then
     -- for share: serializa contra el for update de anular_pedido_medicacion (antes lo sostenía
     -- create_reception; ahora lo sostiene este trigger, que es el único punto de entrada real).
@@ -241,14 +262,19 @@ $fn$;
 revoke all on function public.validar_pedido_de_recepcion() from public;
 
 comment on function public.validar_pedido_de_recepcion() is
-  'Guarda medication_receptions.pedido_id en cada INSERT/UPDATE. Primero, por rol: si current_user no es
-   postgres (un PATCH/POST directo, no create_reception), rechaza de entrada un INSERT con pedido_id no
-   nulo o un UPDATE que le cambie pedido_id/tipo/protocol_id a una fila con pedido — ANTES de tocar
-   pedidos_medicacion, porque el FOR SHARE de la validación de abajo exige privilegio UPDATE sobre esa
-   tabla, que authenticated no tiene (sólo select), y fallaría con un permission denied genérico en vez
-   del mensaje de dominio. Recién si current_user = postgres (create_reception o el editor SQL) y la fila
-   toca su pedido (INSERT, o cambia pedido_id/tipo/protocol_id), valida con lock: el pedido existe, no
-   está anulado, y la recepción es del mismo estudio (tipo protocolo, mismo protocol_id). R9, R10. 0128.';
+  'Guarda medication_receptions.pedido_id, pero sólo valida en el INSERT o en el UPDATE que cambia
+   pedido_id/tipo/protocol_id (v_toca_pedido) — no en cada INSERT/UPDATE. Primero, por rol: si current_user
+   no es postgres (un PATCH/POST directo, no una función del owner), rechaza de entrada un INSERT con
+   pedido_id no nulo o un UPDATE que le cambie pedido_id/tipo/protocol_id a una fila con pedido — ANTES de
+   tocar pedidos_medicacion, porque el FOR SHARE de la validación de abajo exige privilegio UPDATE sobre
+   esa tabla, que authenticated no tiene (sólo select), y fallaría con un permission denied genérico en vez
+   del mensaje de dominio. Si current_user = postgres (create_reception, el editor SQL, o cualquier otra
+   SECURITY DEFINER del owner como verify_reception/void_reception) y la fila toca su pedido (INSERT, o
+   cambia pedido_id/tipo/protocol_id), valida con lock: el pedido existe, no está anulado, y la recepción
+   es del mismo estudio (tipo protocolo, mismo protocol_id). Un UPDATE de esas mismas SECURITY DEFINER que
+   no toca esas columnas (verify_reception, void_reception) no re-lockea ni revalida: sale por
+   v_toca_pedido = false. NO cubre un DELETE de la recepción ni la escritura directa de reception_items
+   (hueco previo, permitido por la policy for all de pharma — ver TODOS.md). R9, R10. 0128.';
 
 drop trigger if exists trg_validar_pedido_de_recepcion on public.medication_receptions;
 create trigger trg_validar_pedido_de_recepcion

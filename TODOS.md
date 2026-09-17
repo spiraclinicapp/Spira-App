@@ -81,6 +81,37 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
+## Farmacia · Recepción: el DELETE y la escritura directa de renglones no tienen guarda
+
+- **Qué:** un DELETE directo de `medication_receptions` y un INSERT/UPDATE/DELETE directo de
+  `reception_items` no tienen ningún trigger que los frene o los haga consistentes con el stock ni con el
+  pedido.
+- **Por qué:** la policy `pharma administra recepciones` / `pharma administra items recepcion` (0006:247 y
+  0006:249, aflojadas a operator+ en 0009:153/155) es `for all` sobre las dos tablas. El trigger de la
+  0128 (`trg_validar_pedido_de_recepcion`) es BEFORE INSERT OR UPDATE **sobre `medication_receptions`**:
+  no dispara con un DELETE de la recepción ni con ninguna escritura sobre `reception_items`. Ya era un
+  hueco antes de esta rama (borrar una recepción verificada no revierte el stock ni el lote), y la 0128 lo
+  agranda: un PATCH directo a `reception_items.quantity` de una recepción verificada con `pedido_id`
+  cambia lo recibido de ese pedido —y con eso si el pedido se ve «recibido» o «en parte»— sin pasar por
+  `create_reception` ni por ningún trigger, así que también puede alterar la compra calculada.
+- **Pros:** cierra el último hueco de escritura directa sobre Recepción; el DELETE y `reception_items`
+  quedan tan protegidos como ya lo está `pedido_id`.
+- **Contras:** hay que decidir qué hace el guard con un DELETE legítimo (¿ninguno lo es hoy? confirmar
+  primero con un grep de `src`) y replicar el mismo patrón de `current_user` para tres triggers en vez de
+  uno.
+- **Contexto:** review final de la rama `feat/reposicion-periodo-base` (2026-09-17), al documentar el
+  alcance real del trigger de la 0128 en sus comentarios y en `supabase/README.md`.
+- **Empezar por:** el patrón `current_user <> 'postgres'` de `guard_reception_void` (0087/0088) y de
+  `validar_pedido_de_recepcion` (0128): un trigger BEFORE DELETE sobre `medication_receptions` y uno
+  BEFORE INSERT OR UPDATE OR DELETE sobre `reception_items`, sin SECURITY DEFINER, con el mismo criterio
+  de fallar cerrado para cualquier rol que no sea el owner de las funciones legítimas.
+- **Disparador:** el primer DELETE o PATCH directo de renglones que desincronice una recepción verificada
+  (o, con la 0128 en prod, un pedido).
+- **Depende de / bloqueado por:** nada.
+- **Prioridad:** P2.
+
+---
+
 ## Dispensación · Farmacia y gerencia pueden cambiar el ESTADO de un pedido por fuera de la app
 
 - **Qué:** frenar los UPDATE directos por PostgREST de `dispensation_requests.status` (y de

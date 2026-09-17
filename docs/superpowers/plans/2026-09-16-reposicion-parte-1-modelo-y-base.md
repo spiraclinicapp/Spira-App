@@ -2288,7 +2288,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `Periodo` (Task 1), `MotivoAnulacion` y `MotivoCierre` (Task 2), `InsumosDelPeriodo` (Task 3), las funciones de la 0128 (Task 4).
 - Produces (lo que usa la Parte 2):
   - `useDiaCorte(): QueryResult<{ diaCorte: number | null }>`
-  - `useReposicionDelPeriodo(periodo: Periodo | null, hoy: string, protocolId?: string | null): QueryResult<InsumosDelPeriodo | null>`
+  - `useReposicionDelPeriodo(periodo: Periodo | null, protocolId?: string | null): QueryResult<InsumosDelPeriodo | null>`
   - `guardarDiaCorte(dia: number): Promise<Resultado>`
   - `emitirPedidoMedicacion(input: { protocolId: string; periodo: Periodo; emitidoEl: string; renglones: { medication_id: string; calculado: number | null; pedido: number }[] }): Promise<Resultado & { id?: string; numero?: number }>`
   - `anularPedidoMedicacion(pedidoId: string, motivo: MotivoAnulacion): Promise<Resultado>`
@@ -2340,21 +2340,20 @@ export function useDiaCorte() {
  * `armarReposicionDelPeriodo` (D11). Sin período todavía (falta el día de corte) no pide nada.
  * `protocolId` null = todos los estudios no cerrados (la grilla).
  */
-export function useReposicionDelPeriodo(periodo: Periodo | null, hoy: string, protocolId: string | null = null) {
+export function useReposicionDelPeriodo(periodo: Periodo | null, protocolId: string | null = null) {
   return useSupabaseQuery<InsumosDelPeriodo | null>(
     async (c) => {
       if (!periodo) return { data: null, error: null }
       const { data, error } = await c.rpc('reposicion_del_periodo', {
         p_desde: periodo.desde,
         p_hasta: periodo.hasta,
-        p_hoy: hoy,
         p_protocol_id: protocolId,
       })
       if (error) return { data: null, error }
       return { data: data as InsumosDelPeriodo, error: null }
     },
     // Los bordes y no el objeto: un período recalculado en cada render cambia de identidad.
-    [periodo?.desde, periodo?.hasta, hoy, protocolId],
+    [periodo?.desde, periodo?.hasta, protocolId],
     (e) => pharmaErrorMessage(e.code, e.message),
   )
 }
@@ -2577,7 +2576,7 @@ const FALTA = new Set(['PGRST202', 'PGRST203', 'PGRST205', '42703', '42883'])
 const existe = (r) => r.status !== 404 && !FALTA.has(r.body?.code)
 
 const casos = [
-  ['reposicion_del_periodo', await rpc('reposicion_del_periodo', { p_desde: '2026-08-29', p_hasta: '2026-09-28', p_hoy: '2026-09-16' }), existe],
+  ['reposicion_del_periodo', await rpc('reposicion_del_periodo', { p_desde: '2026-08-29', p_hasta: '2026-09-28' }), existe],
   ['emitir_pedido_medicacion', await rpc('emitir_pedido_medicacion', { p_protocol_id: CERO, p_desde: '2026-09-29', p_hasta: '2026-10-28', p_emitido_el: '2026-09-16', p_renglones: [] }), existe],
   ['anular_pedido_medicacion', await rpc('anular_pedido_medicacion', { p_pedido_id: CERO, p_motivo: 'por_error' }), existe],
   ['cerrar_faltante_pedido', await rpc('cerrar_faltante_pedido', { p_item_id: CERO, p_motivo: 'no_lo_tiene' }), existe],
@@ -2621,13 +2620,13 @@ git switch -c docs/0128-aplicada
 En `supabase/README.md`, con Edit, reemplazar:
 
 ```
-Probada con PGlite (dos corridas). |
+Probada con PGlite (tres corridas). |
 ```
 
 por (con la fecha que confirmó el Director):
 
 ```
-Probada con PGlite (dos corridas). **Aplicada en prod (AAAA-MM-DD).** |
+Probada con PGlite (tres corridas). **Aplicada en prod (AAAA-MM-DD).** |
 ```
 
 La fecha va **literal** (por ejemplo `2026-09-17`): el control de CI busca exactamente `Aplicada en prod (\d{4}-\d{2}-\d{2})`.
@@ -2657,6 +2656,36 @@ git status -sb
 ```
 
 Expected: `## main...origin/main` sin cambios.
+
+---
+
+## Desviaciones durante la ejecución
+
+Lo que terminó distinto de lo escrito arriba, para quien lea este plan como referencia y no como bitácora:
+
+- **Helpers exportados, no duplicados.** Donde el plan escribía una cuenta que ya existía en otro archivo
+  del módulo (`reposicionModel.ts`), se exportó y se reusó (`diaMes`, `envasesTxt`, `estanteAlComienzo`,
+  `nombresDePacientes`, `presentacionesDuplicadas`, `sigueEnElMes`, `sumarDias`, `terminoCronograma`) en
+  vez de copiar el cuerpo en `reposicionPeriodoModel.ts`.
+- **`p_hoy` afuera.** `reposicion_del_periodo` nunca lo necesitó —el corte lo hacen `p_desde`/`p_hasta`
+  solos, cortando los movimientos por su día en hora AR— así que se sacó de la firma antes de aplicar
+  nada; no hay una firma vieja con `p_hoy` conviviendo. `useReposicionDelPeriodo` quedó
+  `(periodo, protocolId = null)`, sin `hoy` (ya corregido arriba, Task 5 Step 1).
+- **El trigger de validación de `pedido_id` (Task 4, sección 5 de la 0128) es SIN `SECURITY DEFINER`, y
+  corta por rol ANTES del `FOR SHARE`.** No es lo que este plan detalla: el guard necesita distinguir
+  quién escribe (`current_user`), y con `SECURITY DEFINER` esa distinción se pierde (siempre sería el
+  owner). Y el chequeo de rol tiene que ir ANTES del lock porque un `FOR SHARE` exige privilegio `UPDATE`
+  sobre la tabla, que `authenticated` no tiene — si se intentara el lock primero, un PATCH directo fallaría
+  con un `permission denied` genérico de Postgres en vez del mensaje de dominio en castellano.
+- **`EstadoRenglonPeriodo` con `'sin_cuenta'`, no contemplado acá.** Surgió del review final (2026-09-17):
+  en un período que no está en curso (R6), mostrar `'alcanza'`/`'cubierto'` sin haber calculado nada es un
+  dato inventado presentado como real (regla de honestidad, CLAUDE.md). Ver `src/data/pharma/reposicionPeriodoModel.ts`.
+- **`pedidoDestacado` por SUPERPOSICIÓN de período, no por igualdad de `periodo_desde`.** También del
+  review final: si Farmacia cambia el día de corte después de emitir un pedido, la igualdad exacta dejaba
+  de reconocerlo como «el pedido de este período».
+- **La boleta también avisa con todo vencido.** El renglón «Van a quedar en el estante al corte» ahora
+  aparece (con valor 0 si corresponde) cuando hay vencidos o algo que vence antes del próximo período,
+  aunque no quede nada vigente — antes callaba, y la cuenta no cerraba a la vista.
 
 ---
 
