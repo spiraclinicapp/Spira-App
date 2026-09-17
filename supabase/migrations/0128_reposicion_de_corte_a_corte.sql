@@ -10,8 +10,9 @@
 --    · farmacia_ajustes.dia_corte es nueva y nullable (el front pide demora_compra_dias por nombre);
 --    · dos tablas nuevas que ningún front consulta;
 --    · medication_receptions.pedido_id, nullable. Su FK NO deja ambiguo ningún embed actual (buscado en
---      src el 2026-09-16): el único embed desde medication_receptions es protocol:protocols(code), y
---      pedidos_medicacion no referencia a medication_receptions, así que no es un puente entre las dos;
+--      src el 2026-09-16): los dos embeds desde medication_receptions son protocol:protocols(code) e
+--      items:reception_items(...) (src/data/pharma/receptions.ts), y pedidos_medicacion no referencia a
+--      medication_receptions ni a reception_items, así que no es un puente entre ninguno de los dos;
 --    · create_reception suma p_pedido_id con default null AL FINAL. El front desplegado la llama por
 --      nombre con cinco argumentos y resuelve a la nueva por el default. La firma vieja se BORRA antes:
 --      create or replace con otra firma deja una sobrecarga viva y PostgREST contestaría PGRST203
@@ -134,10 +135,85 @@ create index if not exists medication_receptions_pedido_idx
   on public.medication_receptions (pedido_id) where pedido_id is not null;
 
 comment on column public.medication_receptions.pedido_id is
-  'El pedido de medicación que se está recibiendo (R10). Sólo recepciones de protocolo. Lo pone create_reception. 0128.';
+  'El pedido de medicación que se está recibiendo (R10). Sólo recepciones de protocolo. Que apunte a un
+   pedido que existe, no está anulado y es del mismo estudio —y que no se pueda cambiar por fuera de
+   create_reception— lo garantiza el trigger trg_validar_pedido_de_recepcion (sección 5), no
+   create_reception: la policy de la tabla es for all para operator+, así que un PATCH/POST directo tiene
+   que quedar cubierto igual que el RPC. 0128.';
 
 
--- 5 · emitir_pedido_medicacion (R8) --------------------------------------------------------------
+-- 5 · Trigger: la recepción no puede saltear la validación de su pedido (R9, R10) -----------------
+-- La policy "pharma administra recepciones" (0006:247, aflojada a operator+ en 0009:153) es `for all`
+-- sobre medication_receptions: antes de este trigger, la única validación del pedido vivía DENTRO de
+-- create_reception, así que un operator podía saltearla enteras con un PATCH/POST directo de PostgREST:
+--   · PATCH … {"pedido_id": null} a una recepción ya recibida, y DESPUÉS anular ese pedido — el guard de
+--     anular_pedido_medicacion sólo mira medication_receptions.pedido_id (mr.status <> 'anulada'), y con
+--     pedido_id en null esa recepción deja de contar. Rompe R9.
+--   · POST/PATCH con pedido_id de un pedido anulado, de otro estudio, o un UPDATE que le cambia el
+--     protocol_id/tipo a una recepción que ya tiene pedido. Rompe R10: lo recibido suma en el pedido
+--     equivocado y la compra sale mal.
+-- Va DESPUÉS de que existan pedidos_medicacion (sección 2) y medication_receptions.pedido_id (sección 4):
+-- lee la primera columna por columna y valida la segunda en cada INSERT/UPDATE.
+--
+-- SIN SECURITY DEFINER, a propósito, aunque valide contra pedidos_medicacion (otra tabla): con
+-- SECURITY DEFINER, current_user adentro de la función sería SIEMPRE el owner (postgres) sin importar
+-- quién disparó el INSERT/UPDATE real, y la cláusula `current_user <> 'postgres'` de más abajo dejaría de
+-- distinguir nada — exactamente la trampa que guard_reception_void (0087/0088) evita quedándose sin
+-- SECURITY DEFINER. La lectura de pedidos_medicacion no necesita el privilegio elevado: su policy de
+-- select ya deja pasar a pharma viewer+ (sección 2), y sólo pharma operator+ puede escribir
+-- medication_receptions (0006/0009), así que quien dispara este trigger siempre puede leer el pedido.
+create or replace function public.validar_pedido_de_recepcion()
+returns trigger language plpgsql set search_path = public as $fn$
+declare
+  v_pedido_protocol uuid;
+  v_pedido_anulado  timestamptz;
+begin
+  -- El pedido de una recepción no se cambia por fuera de create_reception: ni ponerlo donde no había,
+  -- ni sacarlo, ni reemplazarlo por otro. current_user <> 'postgres' es "¿este UPDATE vino de un PATCH
+  -- externo o de una función SECURITY DEFINER de este archivo (que corre como su owner, postgres)?" —
+  -- mismo patrón que guard_reception_void (0087/0088). create_reception nunca actualiza pedido_id (sólo
+  -- lo pone al insertar), así que no tiene un camino legítimo que necesite esta puerta abierta.
+  if tg_op = 'UPDATE' and new.pedido_id is distinct from old.pedido_id and current_user <> 'postgres' then
+    raise exception 'El pedido de una recepción no se cambia' using errcode = 'check_violation';
+  end if;
+
+  -- Mismos tres chequeos que hacía create_reception (ahora el único lugar donde viven), en INSERT y en
+  -- UPDATE: así un cambio de protocol_id o de tipo sobre una recepción que YA tiene pedido también queda
+  -- cubierto, sin cláusula aparte — se re-valida contra el mismo pedido en cada UPDATE.
+  if new.pedido_id is not null then
+    -- for share: serializa contra el for update de anular_pedido_medicacion (antes lo sostenía
+    -- create_reception; ahora lo sostiene este trigger, que es el único punto de entrada real).
+    select pe.protocol_id, pe.anulado_at into v_pedido_protocol, v_pedido_anulado
+      from public.pedidos_medicacion pe where pe.id = new.pedido_id for share;
+    if not found then
+      raise exception 'Ese pedido ya no está' using errcode = 'P0002';
+    end if;
+    if v_pedido_anulado is not null then
+      raise exception 'Ese pedido está anulado: no se puede recibir' using errcode = 'check_violation';
+    end if;
+    if new.tipo <> 'protocolo' or v_pedido_protocol is distinct from new.protocol_id then
+      raise exception 'La recepción tiene que ser del mismo estudio que el pedido' using errcode = 'check_violation';
+    end if;
+  end if;
+
+  return new;
+end;
+$fn$;
+revoke all on function public.validar_pedido_de_recepcion() from public;
+
+comment on function public.validar_pedido_de_recepcion() is
+  'Valida medication_receptions.pedido_id en cada INSERT/UPDATE: el pedido existe, no está anulado, y la
+   recepción es del mismo estudio (tipo protocolo, mismo protocol_id que el pedido). En UPDATE, además,
+   bloquea cambiar pedido_id salvo que el UPDATE corra dentro de una función SECURITY DEFINER (current_user
+   = postgres) — create_reception no lo hace nunca, sólo lo pone al insertar. R9, R10. 0128.';
+
+drop trigger if exists trg_validar_pedido_de_recepcion on public.medication_receptions;
+create trigger trg_validar_pedido_de_recepcion
+  before insert or update on public.medication_receptions
+  for each row execute function public.validar_pedido_de_recepcion();
+
+
+-- 6 · emitir_pedido_medicacion (R8) --------------------------------------------------------------
 -- Todo el pedido en una llamada: cabecera y renglones entran juntos o no entra nada.
 -- p_desde/p_hasta: el período para el que se pide. p_emitido_el: el día en hora AR (lo manda el front).
 -- p_renglones: [{ "medication_id": uuid, "calculado": int | null, "pedido": int }, …]
@@ -201,9 +277,9 @@ revoke all on function public.emitir_pedido_medicacion(uuid, date, date, date, j
 grant execute on function public.emitir_pedido_medicacion(uuid, date, date, date, jsonb) to authenticated;
 
 
--- 6 · anular_pedido_medicacion (R9) --------------------------------------------------------------
+-- 7 · anular_pedido_medicacion (R9) --------------------------------------------------------------
 -- Sólo sin recepciones (salvo anuladas): lo que ya entró al estante tiene que poder rastrearse a su pedido.
--- El for update serializa contra create_reception, que toma el pedido for share.
+-- El for update serializa contra trg_validar_pedido_de_recepcion (sección 5), que toma el pedido for share.
 create or replace function public.anular_pedido_medicacion(p_pedido_id uuid, p_motivo text)
 returns void language plpgsql security definer set search_path = public as $fn$
 declare
@@ -239,7 +315,7 @@ revoke all on function public.anular_pedido_medicacion(uuid, text) from public;
 grant execute on function public.anular_pedido_medicacion(uuid, text) to authenticated;
 
 
--- 7 · cerrar_faltante_pedido: «No va a llegar» (R11) ---------------------------------------------
+-- 8 · cerrar_faltante_pedido: «No va a llegar» (R11) ---------------------------------------------
 create or replace function public.cerrar_faltante_pedido(p_item_id uuid, p_motivo text)
 returns void language plpgsql security definer set search_path = public as $fn$
 declare
@@ -260,7 +336,9 @@ begin
   if not found then
     raise exception 'Ese renglón ya no está' using errcode = 'P0002';
   end if;
-  select pe.anulado_at into v_anulado from public.pedidos_medicacion pe where pe.id = v_item.pedido_id;
+  -- for share: mismo criterio que el resto de las funciones que leen un pedido antes de decidir (sección
+  -- 5 y 7) — serializa contra anular_pedido_medicacion, que lo toma for update.
+  select pe.anulado_at into v_anulado from public.pedidos_medicacion pe where pe.id = v_item.pedido_id for share;
   if v_anulado is not null then
     raise exception 'Ese pedido está anulado' using errcode = '23514';
   end if;
@@ -288,8 +366,11 @@ revoke all on function public.cerrar_faltante_pedido(uuid, text) from public;
 grant execute on function public.cerrar_faltante_pedido(uuid, text) to authenticated;
 
 
--- 8 · create_reception con pedido (R10) ----------------------------------------------------------
--- Cuerpo de la 0040 sin cambios, más la validación del pedido y la columna pedido_id.
+-- 9 · create_reception con pedido (R10) ----------------------------------------------------------
+-- Cuerpo de la 0040 sin cambios, más la columna pedido_id en el insert. La validación del pedido (existe,
+-- no anulado, mismo estudio) YA NO vive acá: la hace trg_validar_pedido_de_recepcion (sección 5) sobre
+-- medication_receptions, así que también cubre un INSERT/UPDATE directo de PostgREST por fuera de esta
+-- función — que es exactamente lo que esta función, sola, no podía cubrir.
 drop function if exists public.create_reception(public.reception_kind, uuid, date, text, jsonb);
 
 create or replace function public.create_reception(
@@ -302,27 +383,12 @@ create or replace function public.create_reception(
 )
 returns uuid language plpgsql security definer set search_path = public as $fn$
 declare
-  v_id              uuid;
-  v_item            jsonb;
-  v_pedido_protocol uuid;
-  v_pedido_anulado  timestamptz;
+  v_id   uuid;
+  v_item jsonb;
 begin
   if not public.has_min_role('pharma','leader') then raise exception 'Sin permiso para crear recepciones' using errcode = '42501'; end if;
   if (p_tipo = 'ambulatoria') <> (p_protocol_id is null) then
     raise exception 'El tipo % es incompatible con el protocolo indicado', p_tipo using errcode = 'check_violation';
-  end if;
-  if p_pedido_id is not null then
-    select pe.protocol_id, pe.anulado_at into v_pedido_protocol, v_pedido_anulado
-      from public.pedidos_medicacion pe where pe.id = p_pedido_id for share;
-    if not found then
-      raise exception 'Ese pedido ya no está' using errcode = 'P0002';
-    end if;
-    if v_pedido_anulado is not null then
-      raise exception 'Ese pedido está anulado: no se puede recibir' using errcode = 'check_violation';
-    end if;
-    if p_tipo <> 'protocolo' or v_pedido_protocol is distinct from p_protocol_id then
-      raise exception 'La recepción tiene que ser del mismo estudio que el pedido' using errcode = 'check_violation';
-    end if;
   end if;
 
   insert into public.medication_receptions (tipo, protocol_id, received_by, reception_date, status, notes, pedido_id)
@@ -347,17 +413,20 @@ revoke all on function public.create_reception(public.reception_kind, uuid, date
 grant execute on function public.create_reception(public.reception_kind, uuid, date, text, jsonb, uuid) to authenticated;
 
 
--- 9 · reposicion_del_periodo: los datos crudos de la pantalla (D11, R3, R6) -----------------------
+-- 10 · reposicion_del_periodo: los datos crudos de la pantalla (D11, R3, R6) ----------------------
 -- La FORMA del JSON es la de InsumosDelPeriodo en src/data/pharma/reposicionPeriodoModel.ts: si se
 -- cambia una, se cambia la otra. SECURITY DEFINER porque Farmacia no tiene select sobre patient_visits
 -- (0006:162): una vista security_invoker le devolvería cero pacientes sin ningún error.
--- p_hoy y los bordes del período los manda el front en hora AR (current_date en Supabase es UTC), y los
+-- Los bordes del período los manda el front en hora AR (current_date en Supabase es UTC), y los
 -- movimientos se cortan por su día EN HORA AR: uno de las 23:30 del día de corte es de ese período.
+-- Sin p_hoy: la función nunca lo necesitó —el corte lo hacen p_desde/p_hasta solos—, así que no está en
+-- la firma (se sacó en el fix de review; nunca se aplicó con él, no hay firma vieja que conviva).
 -- p_protocol_id null = todos los estudios no cerrados (la grilla); con valor = uno (la pantalla del estudio).
+drop function if exists public.reposicion_del_periodo(date, date, date, uuid);
+
 create or replace function public.reposicion_del_periodo(
   p_desde       date,
   p_hasta       date,
-  p_hoy         date,
   p_protocol_id uuid default null
 )
 returns jsonb language plpgsql stable security definer set search_path = public as $fn$
@@ -368,7 +437,7 @@ begin
   if not (public.has_min_role('pharma', 'viewer') or public.has_module('gerencia')) then
     raise exception 'No tenés permiso para ver la reposición' using errcode = '42501';
   end if;
-  if p_desde is null or p_hasta is null or p_hoy is null or p_desde > p_hasta then
+  if p_desde is null or p_hasta is null or p_desde > p_hasta then
     raise exception 'El período no es válido' using errcode = '22023';
   end if;
 
@@ -502,5 +571,5 @@ begin
   return v_resultado;
 end;
 $fn$;
-revoke all on function public.reposicion_del_periodo(date, date, date, uuid) from public;
-grant execute on function public.reposicion_del_periodo(date, date, date, uuid) to authenticated;
+revoke all on function public.reposicion_del_periodo(date, date, uuid) from public;
+grant execute on function public.reposicion_del_periodo(date, date, uuid) to authenticated;
