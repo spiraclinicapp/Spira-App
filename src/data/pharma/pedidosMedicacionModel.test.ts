@@ -148,7 +148,10 @@ describe('Recepción: qué se puede recibir (R10)', () => {
 describe('pedido destacado en la tarjeta (R2)', () => {
   it('el más nuevo con faltante', () => {
     const ps = armarPedidos(
-      [cab({ id: 'ped-12', numero: 12, periodo_desde: '2026-07-29' }), cab({ id: 'ped-13', numero: 13, periodo_desde: '2026-08-29' })],
+      [
+        cab({ id: 'ped-12', numero: 12, periodo_desde: '2026-07-29', periodo_hasta: '2026-08-28' }),
+        cab({ id: 'ped-13', numero: 13, periodo_desde: '2026-08-29', periodo_hasta: '2026-09-28' }),
+      ],
       [item({ id: 'i12', pedido_id: 'ped-12', recibido: 6 }), item({ id: 'i13', pedido_id: 'ped-13', recibido: 2 })],
     )
     expect(pedidoDestacado(ps, PROXIMO)?.numero).toBe(13)
@@ -160,6 +163,10 @@ describe('pedido destacado en la tarjeta (R2)', () => {
   it('se destaca por SUPERPOSICIÓN de período, no por igualdad: sigue si el corte se movió después de emitir', () => {
     const ps = armarPedidos([cab({ periodo_desde: '2026-09-27', periodo_hasta: '2026-10-26' })], [item({ recibido: 6 })])
     expect(pedidoDestacado(ps, PROXIMO)?.numero).toBe(14)
+  })
+  it('el período EN CURSO (recibido) no se superpone con el que viene: no se destaca', () => {
+    const ps = armarPedidos([cab({ periodo_desde: '2026-08-29', periodo_hasta: '2026-09-28' })], [item({ recibido: 6 })])
+    expect(pedidoDestacado(ps, PROXIMO)).toBeNull()
   })
   it('nada que mostrar: uno viejo y recibido, o uno anulado', () => {
     expect(pedidoDestacado(

@@ -331,7 +331,12 @@ export function armarReposicionDelPeriodo(
         destacado: pedidoDestacado(pedidosDelEstudio, proximo),
         resumen: { envases, medicamentos: aComprar.length, sinCargar, reponibles },
         // 'sin_medicacion' primero: es cierto pase lo que pase con el período. Después, si el período no
-        // está en curso (R6), la tarjeta tampoco inventa 'cubierto': dice 'sin_cuenta'.
+        // está en curso (R6), la tarjeta tampoco inventa 'cubierto': dice 'sin_cuenta' — incluso si TODOS
+        // los renglones son 'sin_cargar' (sinCargar === reponibles), que fuera de curso nunca se llega a
+        // comparar: la tarjeta no distingue «sin cargar» de cualquier otro renglón mensual/a_demanda
+        // cuando no hay cuenta hecha. No contradice el comentario de ~124: ahí es el estado POR RENGLÓN
+        // (`r.estado`, que sigue dando 'sin_cargar' esté o no en curso el período); esto es el agregado
+        // de la TARJETA, que la vista sólo muestra para el período en curso.
         estadoTarjeta: reponibles === 0 ? 'sin_medicacion'
           : !actual ? 'sin_cuenta'
             : sinCargar === reponibles ? 'todo_sin_cargar'
