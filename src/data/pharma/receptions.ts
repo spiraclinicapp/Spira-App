@@ -184,6 +184,8 @@ export interface NewReceptionInput {
   reception_date: string
   notes: string | null
   items: ReceptionItemInput[]
+  /** El pedido de medicación que se está recibiendo (0128, R10). Sólo recepciones de protocolo. */
+  pedido_id?: string | null
 }
 
 /**
@@ -200,6 +202,8 @@ export async function createReception(
     p_reception_date: input.reception_date,
     p_notes: input.notes,
     p_items: input.items,
+    // Sólo cuando hay pedido: sin él, la llamada es la misma de siempre y no depende de la 0128.
+    ...(input.pedido_id ? { p_pedido_id: input.pedido_id } : {}),
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null, id: data as string }
