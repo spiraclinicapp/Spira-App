@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.79', text: 'El cronograma y los procedimientos se abren desde la ficha del estudio.' },
     { version: '0.78', text: 'Estudios y pacientes, la patología a la vista y los reportes pendientes marcados en la visita.' },
     { version: '0.77', text: 'La baja de un paciente es por estudio: se cierra la participación en uno sin tocar los otros.' },
     { version: '0.76', text: 'La visita terminada muestra qué medicación se entregó, y sale del día en que estaba citada.' },
