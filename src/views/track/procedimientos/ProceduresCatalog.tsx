@@ -24,7 +24,7 @@ import { useProceduresCatalog, createProcedure } from '../../../data/procedures'
  * fundación; si no existe ninguno que sirva, se crea nuevo. "Un poco y un poco", como lo pidió el
  * Director.
  *
- * Lo que NO hace: asignar procedimientos a visitas. Eso sigue viviendo en Cronograma › Visitas
+ * Lo que NO hace: asignar procedimientos a visitas. Eso sigue viviendo en Cronograma y procedimientos › Visitas
  * (`VisitProceduresModal`), que es donde se arma el cuadro visita por visita.
  */
 export function ProceduresCatalog({ protocolId, accent, accentSolid, canEdit, canManageCatalog, header }: {

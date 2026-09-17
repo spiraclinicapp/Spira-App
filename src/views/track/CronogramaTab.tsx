@@ -12,7 +12,9 @@ const SUBS = [
 type Sub = (typeof SUBS)[number]['key']
 
 /**
- * La solapa "Cronograma" del detalle de protocolo, con sus dos mitades:
+ * El contenido del modal «Cronograma y procedimientos» del detalle de protocolo, con sus dos mitades.
+ * Hasta el 2026-09-16 fue una solapa de la columna de pacientes; se mudó a un modal que se abre desde
+ * la ficha lateral del estudio (ver `ProtocolDetailView`), y este componente no cambió:
  *
  *   Visitas                    → el cuadro de visitas (V1, V2…) y qué procedimientos lleva cada una.
  *   Procedimientos del estudio → el catálogo de este protocolo y los reportes que genera cada

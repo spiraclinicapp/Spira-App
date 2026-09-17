@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
+import { Modal } from '../components/Modal'
 import { Termino } from '../components/Termino'
 import type { ClaveGlosario } from '../lib/glosario'
 import type { ProtocolRow } from '../data/protocols'
@@ -39,7 +40,7 @@ export interface ProtocolDetailViewProps {
   accent: string
   accentSolid: string
   canEdit: boolean
-  /** Gestionar el cronograma del protocolo (gerencia o track-admin). Habilita la pestaña "Cronograma". */
+  /** Gestionar el cronograma del protocolo (gerencia o track-admin). Habilita el botón «Cronograma y procedimientos». */
   canManageSchedule: boolean
   canCreatePatient: boolean
   setHeader?: (header: ViewHeader | null) => void
@@ -67,16 +68,21 @@ export interface ProtocolDetailViewProps {
 
 /** Detalle de Protocolo: ficha lateral (KPIs/adherencia/acciones) + lista de pacientes con tracker. */
 export function ProtocolDetailView(props: ProtocolDetailViewProps) {
-  const { protocol, patients, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onGoAgenda, onVerPendientes, initialTab } = props
+  const { protocol, patients, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onVerPendientes, initialTab } = props
   const kpis = useProtocolKpis(protocol.id)
   const visits = useProtocolVisits(protocol.id)
   /* Arranca en "Activos" (Director, 2026-09-14): la lista es para trabajar, y un paciente inactivo
      ya no tiene nada que hacer acá. "Todos" queda a un clic. */
   const [filter, setFilter] = useState<'activos' | 'todos'>('activos')
-  /* Pestaña de la columna derecha. "Cronograma" solo existe para quien puede gestionarlo;
-     "Reportes pendientes" (0090) la ven todos los que llegan acá — un coordinador que no arma el
-     cuadro igual necesita ver qué reportes le quedan por descargar. Quién puede MOVERLOS lo
-     resuelve la propia vista, y en última instancia la RPC. */
+  /* Pestaña de la columna derecha: los pacientes o sus reportes pendientes (0090), que los ve todo
+     el que llega acá — un coordinador que no arma el cuadro igual necesita ver qué reportes le
+     quedan por descargar. Quién puede MOVERLOS lo resuelve la propia vista, y en última instancia
+     la RPC.
+
+     «Cronograma» era una tercera pestaña hasta el 2026-09-16 y se mudó a un botón de la ficha
+     lateral que abre un modal (ver `cronogramaAbierto`). Pedido del Director: el cronograma es del
+     ESTUDIO —la plantilla que comparten todos sus pacientes— y no de la lista de pacientes, que es
+     lo que esta columna muestra. Un `?tab=cronograma` viejo cae a «Pacientes» en silencio (`oneOf`). */
   /* VIVE EN LA URL, no en `useState`. Dos motivos, y el segundo es el que lo hizo necesario:
      sobrevive un F5 —antes recargar en "Reportes pendientes" te devolvía a "Pacientes"— y hace que
      `/coordinacion/pacientes/EFC18419?tab=reportes` sea una dirección dictable, que es exactamente
@@ -84,13 +90,15 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
      El default es `initialTab`: quien te trajo decide dónde aterrizás, y si la URL trae `tab` gana
      la URL. `oneOf` valida contra las tres pestañas — un `?tab=inventado` cae al default en
      silencio, que es lo correcto para una URL vieja o recortada. */
-  const [rightTab, setRightTab] = useUrlState<'pacientes' | 'cronograma' | 'reportes'>(
+  const [rightTab, setRightTab] = useUrlState<'pacientes' | 'reportes'>(
     'tab',
     initialTab ?? 'pacientes',
-    { codec: oneOf(['pacientes', 'cronograma', 'reportes'] as const) },
+    { codec: oneOf(['pacientes', 'reportes'] as const) },
   )
   /** Visita abierta desde el tablero de reportes (el 📎 de la tarjeta). */
   const [openVisitId, setOpenVisitId] = useState<string | null>(null)
+  /** El modal «Cronograma y procedimientos», que se abre desde la ficha lateral. */
+  const [cronogramaAbierto, setCronogramaAbierto] = useState(false)
 
   /* Registra el encabezado contextual del shell: "Protocolos" (clickeable → grilla) ›
      CÓDIGO, + el botón "Nuevo paciente" a la derecha. Las funciones se leen por ref para
@@ -195,12 +203,13 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
      El `primary` perdió el `brightness(1.06)` que le ponía el handler y se queda con el levante de
      la micro-interacción global, como todo `btnPrimary` de la app. Ninguno lleva `transition`
      inline: le ganaría a la de la clase y a la del levante, que entraría de golpe. */
-  const actBtn = (icon: IconName, label: string, kind: 'ghost' | 'primary') => {
+  const actBtn = (icon: IconName, label: string, kind: 'ghost' | 'primary', onClick: () => void) => {
     const primary = kind === 'primary'
     return (
       <button
+        type="button"
         className={primary ? undefined : 'spira-card-link'}
-        onClick={primary ? onGoAgenda : icon === 'settings' ? onEdit : handleExport}
+        onClick={onClick}
         style={{
           width: '100%', height: 40, borderRadius: 10, fontFamily: 'var(--spira-font-text)', fontSize: 13, fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px', whiteSpace: 'nowrap',
@@ -233,6 +242,17 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
               {protocol.name && <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)', marginTop: 2, lineHeight: 1.3 }}>{protocol.name}</div>}
             </div>
           </div>
+
+          {/* «Cronograma y procedimientos» va pegado a la identidad del estudio y ANTES de sus datos
+              (Director, 2026-09-16): es la definición del estudio —qué visitas tiene y qué se hace en
+              cada una—, no una acción sobre la lista. Mismo botón que «Exportar reporte» y «Editar
+              protocolo» de abajo, así los tres se leen como del mismo tipo. Sólo para quien puede
+              gestionar el cronograma, igual que la pestaña que reemplaza. */}
+          {canManageSchedule && (
+            <div style={{ marginTop: 14 }}>
+              {actBtn('calendar', 'Cronograma y procedimientos', 'ghost', () => setCronogramaAbierto(true))}
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
             {metaRow('Sponsor', protocol.sponsor)}
@@ -271,25 +291,23 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
           <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
             <div className="spira-eyebrow" style={{ marginBottom: 11 }}>Acciones</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {actBtn('file', 'Exportar reporte', 'ghost')}
-              {canEdit && actBtn('settings', 'Editar protocolo', 'ghost')}
+              {actBtn('file', 'Exportar reporte', 'ghost', handleExport)}
+              {canEdit && actBtn('settings', 'Editar protocolo', 'ghost', onEdit)}
             </div>
             {/* TEMPORAL: "Ver agenda del protocolo" oculto mientras la Agenda está fuera del
                 menú (navegar a track/agenda sería un no-op). Reponer junto con el submódulo
-                (registry.ts). `onGoAgenda` sigue cableado desde ProtocolsView. */}
+                (registry.ts). `props.onGoAgenda` sigue cableado desde ProtocolsView; no se
+                desestructura mientras no se use, para que TypeScript no lo marque. */}
             {/* <div style={{ height: 1, background: 'var(--spira-line)', margin: '14px 0' }} />
-            {actBtn('calendar', 'Ver agenda del protocolo', 'primary')} */}
+            {actBtn('calendar', 'Ver agenda del protocolo', 'primary', props.onGoAgenda)} */}
           </div>
         </div>
 
-        {/* columna derecha: pacientes / cronograma (pestañas si se puede gestionar el cronograma) */}
+        {/* columna derecha: pacientes / reportes pendientes */}
         <div style={{ ...card, padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '15px 20px', borderBottom: '1px solid var(--spira-line)' }}>
             <div style={{ display: 'flex', gap: 6 }}>
-              {(canManageSchedule
-                ? (['pacientes', 'cronograma', 'reportes'] as const)
-                : (['pacientes', 'reportes'] as const)
-              ).map((t) => (
+              {(['pacientes', 'reportes'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setRightTab(t)}
@@ -300,7 +318,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
                     border: rightTab === t ? 'none' : '1px solid var(--spira-line)', fontFamily: 'var(--spira-font-text)',
                   }}
                 >
-                  {t === 'pacientes' ? 'Pacientes' : t === 'cronograma' ? 'Cronograma' : 'Reportes pendientes'}
+                  {t === 'pacientes' ? 'Pacientes' : 'Reportes pendientes'}
                 </button>
               ))}
             </div>
@@ -334,14 +352,6 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
                 onOpenVisit={(visitId) => setOpenVisitId(visitId)}
                 onOpenPatient={onOpenPatient}
               />
-            ) : rightTab === 'cronograma' ? (
-              <CronogramaTab
-                protocolId={protocol.id}
-                accent={accent}
-                accentSolid={accentSolid}
-                canEdit={canManageSchedule}
-                onChanged={() => { visits.refetch(); kpis.refetch() }}
-              />
             ) : visits.error ? (
               <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', padding: '8px 4px' }}>No pudimos cargar las visitas.</div>
             ) : shown.length === 0 ? (
@@ -363,6 +373,29 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
           cronograma, que edita la plantilla compartida por todos los pacientes del protocolo:
           desde una tarjeta que muestra un nombre propio, eso cambiaría el cuadro de los cuarenta
           sin que nadie se entere (decisión 2A de la review). */}
+      {/* El mismo `CronogramaTab` que vivía en la pestaña, ahora dentro de un modal: sus dos mitades
+          (Visitas / Procedimientos del estudio) y sus modales propios siguen iguales. Los modales que
+          abre adentro cierran de a uno con Esc gracias a la pila de `Modal`. `onChanged` refresca la
+          lista y los KPIs de atrás, igual que antes: editar el cuadro cambia las visitas de todos. */}
+      {cronogramaAbierto && (
+        <Modal
+          title={`Cronograma y procedimientos · ${protocol.code}`}
+          icon="calendar"
+          accent={accent}
+          accentSoft={accent + '16'}
+          maxWidth={960}
+          onClose={() => setCronogramaAbierto(false)}
+        >
+          <CronogramaTab
+            protocolId={protocol.id}
+            accent={accent}
+            accentSolid={accentSolid}
+            canEdit={canManageSchedule}
+            onChanged={() => { visits.refetch(); kpis.refetch() }}
+          />
+        </Modal>
+      )}
+
       {openVisitId && (
         <VisitDetail
           visitId={openVisitId}
