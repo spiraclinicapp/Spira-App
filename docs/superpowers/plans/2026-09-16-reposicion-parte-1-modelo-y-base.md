@@ -2663,10 +2663,16 @@ Expected: `## main...origin/main` sin cambios.
 
 Lo que terminó distinto de lo escrito arriba, para quien lea este plan como referencia y no como bitácora:
 
-- **Helpers exportados, no duplicados.** Donde el plan escribía una cuenta que ya existía en otro archivo
-  del módulo (`reposicionModel.ts`), se exportó y se reusó (`diaMes`, `envasesTxt`, `estanteAlComienzo`,
-  `nombresDePacientes`, `presentacionesDuplicadas`, `sigueEnElMes`, `sumarDias`, `terminoCronograma`) en
-  vez de copiar el cuerpo en `reposicionPeriodoModel.ts`.
+- **Helpers reusados, no duplicados — y sólo dos se exportaron de nuevo.** Donde el plan escribía una
+  cuenta que ya existía en `reposicionModel.ts`, se reusó en vez de copiar el cuerpo en
+  `reposicionPeriodoModel.ts` (`diaMes`, `estanteAlComienzo`, `presentacionesDuplicadas`, `sigueEnElMes`,
+  `sumarDias`, `terminoCronograma`: los seis ya estaban exportados antes de esta rama). Lo que sí se
+  exportó de nuevo fue `envasesTxt` (era `const` interna) y `nombresDePacientes` (era `nombres`, interna y
+  sin ese nombre). De paso, se aflojaron los tipos de parámetro con `Pick` (`sigueEnElMes`/
+  `terminoCronograma` piden `Pick<PacienteInsumo, 'enrollment_status' | 'tiene_cronograma' |
+  'ultima_programada'>`; `presentacionesDuplicadas`, otro `Pick` con los campos que usa;
+  `estanteAlComienzo` pide `Pick<Mes, 'desde' | 'hasta'>`) para que `PacientePeriodoInsumo` —que no es
+  exactamente `PacienteInsumo`— calzara sin castear.
 - **`p_hoy` afuera.** `reposicion_del_periodo` nunca lo necesitó —el corte lo hacen `p_desde`/`p_hasta`
   solos, cortando los movimientos por su día en hora AR— así que se sacó de la firma antes de aplicar
   nada; no hay una firma vieja con `p_hoy` conviviendo. `useReposicionDelPeriodo` quedó

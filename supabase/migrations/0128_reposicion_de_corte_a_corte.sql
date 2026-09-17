@@ -163,9 +163,14 @@ comment on column public.medication_receptions.pedido_id is
 -- medication_receptions, y la escritura directa de reception_items — las dos las permite la misma policy
 -- for all de pharma (medication_receptions: 0006:247/0009:153; reception_items: 0006:249/0009:155), y
 -- ninguna dispara este trigger, que es BEFORE INSERT OR UPDATE sólo sobre medication_receptions (sección
--- 4). Borrar la recepción no revierte el stock ni libera el pedido, y un PATCH a
--- reception_items.quantity de una recepción verificada con pedido cambia lo recibido de ese pedido —y con
--- eso la compra— sin que create_reception ni este trigger se enteren.
+-- 4). Borrar la recepción no revierte el stock: los lotes que la verificación ya escribió no son de
+-- reception_items y quedan como estaban. Lo que SÍ arrastra es el pedido: reception_items cae en CASCADE
+-- (0002:262), así que recibido/sin_verificar bajan solos, el pedido vuelve a figurar con faltante —sube
+-- «ya pedido, sin recibir» en la boleta y la compra calculada sale más corta— y anular_pedido_medicacion,
+-- que sólo mira si queda una recepción no anulada de ese pedido, deja de verla: el pedido se puede anular
+-- con el stock ya puesto en el estante. Y un PATCH a reception_items.quantity de una recepción verificada
+-- con pedido cambia lo recibido de ese pedido —y con eso la compra— sin que create_reception ni este
+-- trigger se enteren.
 --
 -- SIN SECURITY DEFINER, a propósito: con SECURITY DEFINER, current_user adentro de la función sería
 -- SIEMPRE el owner (postgres) sin importar quién disparó el INSERT/UPDATE real, y la distinción por
@@ -185,8 +190,10 @@ comment on column public.medication_receptions.pedido_id is
 -- owner) y el editor SQL — también verify_reception y void_reception (0087, reemplazada en 0113), que son
 -- SECURITY DEFINER del mismo owner, y cualquier otra función así que se agregue después: current_user
 -- adentro de una SECURITY DEFINER es siempre el dueño, no quien la llamó. Lo que las saca sin lockear no
--- es el rol, es v_toca_pedido (más abajo): da false para un UPDATE que sólo cambia status —como hacen esas
--- dos—, así que ni verify_reception ni void_reception llegan al FOR SHARE. Y postgres es DUEÑO de
+-- es el rol, es v_toca_pedido (más abajo): da false para un UPDATE que no toca pedido_id/tipo/protocol_id
+-- —lo único que le importa a esta función—, que es el caso de esas dos: verify_reception escribe status y
+-- verified_by_name (0085:132); void_reception escribe status, voided_at, voided_by, voided_by_name y
+-- void_reason. Ninguna toca las tres columnas del pedido, así que ninguna llega al FOR SHARE. Y postgres es DUEÑO de
 -- pedidos_medicacion —los dueños de tabla tienen todos los privilegios sobre ella sin necesitar GRANT—,
 -- así que el FOR SHARE, cuando sí se llega (create_reception insertando, o un UPDATE de pedido_id/
 -- tipo/protocol_id desde el editor SQL), nunca choca con un permiso.
@@ -238,8 +245,9 @@ begin
 
   -- A partir de acá, current_user = 'postgres': create_reception, el editor SQL, o cualquier otra función
   -- SECURITY DEFINER del owner (verify_reception y void_reception incluidas) — para éstas v_toca_pedido da
-  -- false (sólo cambian status), así que llegan hasta acá y salen por el if de abajo sin lockear ni
-  -- validar nada.
+  -- false, porque ninguna de las dos toca pedido_id/tipo/protocol_id (aunque sí escriben otras columnas:
+  -- verify_reception status/verified_by_name, void_reception status/voided_at/voided_by/voided_by_name/
+  -- void_reason), así que llegan hasta acá y salen por el if de abajo sin lockear ni validar nada.
   if v_toca_pedido and new.pedido_id is not null then
     -- for share: serializa contra el for update de anular_pedido_medicacion (antes lo sostenía
     -- create_reception; ahora lo sostiene este trigger, que es el único punto de entrada real).

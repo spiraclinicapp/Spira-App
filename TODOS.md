@@ -90,10 +90,14 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
   0006:249, aflojadas a operator+ en 0009:153/155) es `for all` sobre las dos tablas. El trigger de la
   0128 (`trg_validar_pedido_de_recepcion`) es BEFORE INSERT OR UPDATE **sobre `medication_receptions`**:
   no dispara con un DELETE de la recepción ni con ninguna escritura sobre `reception_items`. Ya era un
-  hueco antes de esta rama (borrar una recepción verificada no revierte el stock ni el lote), y la 0128 lo
-  agranda: un PATCH directo a `reception_items.quantity` de una recepción verificada con `pedido_id`
-  cambia lo recibido de ese pedido —y con eso si el pedido se ve «recibido» o «en parte»— sin pasar por
-  `create_reception` ni por ningún trigger, así que también puede alterar la compra calculada.
+  hueco antes de esta rama: borrar una recepción verificada no revierte el stock (los lotes que escribió
+  la verificación no son de `reception_items`, quedan como estaban). La 0128 lo agranda por el lado del
+  pedido: `reception_items` cae en CASCADE (`0002:262`), así que un DELETE de la recepción baja
+  `recibido`/`sin_verificar` solo, el pedido vuelve a figurar con faltante y `anular_pedido_medicacion`
+  —que sólo mira si queda una recepción no anulada de ese pedido— deja de verla, así que se puede anular
+  con el stock ya puesto en el estante. Y un PATCH directo a `reception_items.quantity` de una recepción
+  verificada con `pedido_id` cambia lo recibido de ese pedido —y con eso si se ve «recibido» o «en
+  parte», y la compra calculada— sin pasar por `create_reception` ni por ningún trigger.
 - **Pros:** cierra el último hueco de escritura directa sobre Recepción; el DELETE y `reception_items`
   quedan tan protegidos como ya lo está `pedido_id`.
 - **Contras:** hay que decidir qué hace el guard con un DELETE legítimo (¿ninguno lo es hoy? confirmar
