@@ -7,8 +7,12 @@ import type { TrackVisitRow } from './visits'
 import { useProcedureReportAlerts } from './reports'
 import type { ProcedureReportAlertRow } from './reports'
 import { useIpDeliveryAlerts } from './visitIp'
-import { descarteListo, isReportAlertDismissed, isVisitAlertDismissed } from './alertDismissalModel'
+/* `isVisitAlertDismissed` ya no se importa acá: lo usa `activeAlertsFilter.ts`, que es donde vive
+   la regla desde la 0130. Se sigue REEXPORTANDO más abajo, así que ningún consumidor cambia. */
+import { descarteListo, isReportAlertDismissed } from './alertDismissalModel'
 import { bumpAlertArchives, useAlertArchivesVersion } from './alertSignal'
+import { alertasVigentes } from './activeAlertsFilter'
+import { useDeviations } from './deviations'
 
 /* Descartar una alerta (migración 0070).
 
@@ -79,16 +83,23 @@ export function useActiveAlerts() {
      vigente y la cruda son la misma. */
   const ips = useIpDeliveryAlerts()
   const dismissals = useAlertDismissals()
+  /* La cuarta entrada: las desviaciones documentadas (0130). Una ventana vencida con su desvío
+     explicado ya no pide acción — el pendiente era documentarla. */
+  const deviations = useDeviations()
 
   const rows = alerts.data
   const procRows = reports.data
   const dRows = dismissals.data
+  const devRows = deviations.data
 
-  const visitAlerts = useMemo<TrackVisitRow[]>(() => {
-    const list = rows ?? []
-    const d = dRows ?? []
-    return d.length === 0 ? list : list.filter((a) => !isVisitAlertDismissed(d, a))
-  }, [rows, dRows])
+  /* La regla vive en `activeAlertsFilter.ts` y no acá adentro porque decide qué ven las TRES
+     pantallas de alertas y falla en silencio en los dos sentidos: de más, la lista sedimenta;
+     de menos, desaparece trabajo real sin un error en consola. Adentro del useMemo no se puede
+     testear. */
+  const visitAlerts = useMemo<TrackVisitRow[]>(
+    () => alertasVigentes(rows ?? [], dRows ?? [], devRows ?? []),
+    [rows, dRows, devRows],
+  )
 
   const reportAlerts = useMemo<ProcedureReportAlertRow[]>(() => {
     const list = procRows ?? []
@@ -101,17 +112,20 @@ export function useActiveAlerts() {
     reportAlerts,
     ipAlerts: ips.data ?? [],
     dismissals: dRows ?? [],
+    /** Las desviaciones documentadas crudas (para poblar su panel y marcar la visita). 0130. */
+    deviations: devRows ?? [],
     /** Todas las alertas crudas, sin filtrar (para resolver de qué visita habla un descarte). */
     allVisitAlerts: rows ?? [],
     allReportAlerts: procRows ?? [],
-    loading: alerts.loading || reports.loading || ips.loading || dismissals.loading,
+    loading: alerts.loading || reports.loading || ips.loading || dismissals.loading || deviations.loading,
     /**
-     * El error de los DESCARTES no se propaga a propósito. Mientras la 0070 no esté aplicada,
-     * `alert_dismissals` no existe y esa consulta falla — si ese error subiera, la campana, el
-     * resumen y la vista de Alertas se romperían las tres por una tabla que todavía no está.
-     * Sin descartes el resultado correcto es "no hay ninguno", que es exactamente lo que pasa.
+     * El error de los DESCARTES no se propaga a propósito, y desde la 0130 el de las DESVIACIONES
+     * tampoco, por la misma razón. Mientras la migración que las gobierna no esté aplicada, esa
+     * tabla no existe y su consulta falla — si ese error subiera, la campana, el resumen y la
+     * vista de Pendientes se romperían las tres por una tabla que todavía no está. Sin descartes
+     * ni desviaciones el resultado correcto es "no hay ninguno", que es exactamente lo que pasa.
      * Así el front se puede desplegar antes o después de la migración, sin ventana rota (la
-     * lección de la 0068). Descartar sí avisa si falla: eso es una acción del usuario.
+     * lección de la 0068). Archivar sí avisa si falla: eso es una acción del usuario.
      */
     error: alerts.error || reports.error,
     /**
@@ -120,7 +134,9 @@ export function useActiveAlerts() {
      * muestra Pendientes, que es donde la lista existe.
      */
     ipError: ips.error,
-    refetch: () => { alerts.refetch(); reports.refetch(); ips.refetch(); dismissals.refetch() },
+    refetch: () => {
+      alerts.refetch(); reports.refetch(); ips.refetch(); dismissals.refetch(); deviations.refetch()
+    },
   }
 }
 
