@@ -1,0 +1,198 @@
+{
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Recorrido"
+    },
+    {
+      "id": "page-2",
+      "name": "Casos y estados"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Menu.dc.html",
+      "title": "0 · El menú de Farmacia",
+      "x": 0,
+      "y": 0,
+      "w": 220,
+      "h": 480,
+      "page": "page-1"
+    },
+    {
+      "file": "Main.dc.html",
+      "title": "1 · La grilla de estudios",
+      "x": 300,
+      "y": 0,
+      "w": 1237,
+      "h": 360,
+      "page": "page-1"
+    },
+    {
+      "file": "Estudio.dc.html",
+      "title": "2 · El estudio: libro y boleta",
+      "x": 1617,
+      "y": 0,
+      "w": 1237,
+      "h": 880,
+      "page": "page-1"
+    },
+    {
+      "file": "ArmarPedido.dc.html",
+      "title": "3 · Armar pedido",
+      "x": 0,
+      "y": 540,
+      "w": 624,
+      "h": 600,
+      "page": "page-1"
+    },
+    {
+      "file": "PedidoDetalle.dc.html",
+      "title": "5 · El pedido, cuando vuelve",
+      "x": 704,
+      "y": 540,
+      "w": 644,
+      "h": 540,
+      "page": "page-1"
+    },
+    {
+      "file": "HojaPedido.dc.html",
+      "title": "4 · La hoja que va a la farmacia (A4)",
+      "x": 0,
+      "y": 1300,
+      "w": 794,
+      "h": 1123,
+      "page": "page-1"
+    },
+    {
+      "file": "RecepcionCabecera.dc.html",
+      "title": "6 · Recepción: el botón nuevo",
+      "x": 874,
+      "y": 1300,
+      "w": 1237,
+      "h": 200,
+      "page": "page-1"
+    },
+    {
+      "file": "RecibirPedido.dc.html",
+      "title": "6b · Recibir un pedido",
+      "x": 874,
+      "y": 1620,
+      "w": 664,
+      "h": 460,
+      "page": "page-1"
+    },
+    {
+      "file": "Asistente.dc.html",
+      "title": "7 · El asistente arranca con el pedido",
+      "x": 1618,
+      "y": 1620,
+      "w": 900,
+      "h": 360,
+      "page": "page-1"
+    },
+    {
+      "file": "EstadosTarjeta.dc.html",
+      "title": "La tarjeta del estudio en sus estados",
+      "x": 0,
+      "y": 0,
+      "w": 1237,
+      "h": 320,
+      "page": "page-2"
+    },
+    {
+      "file": "CargandoError.dc.html",
+      "title": "Cargando y error",
+      "x": 1317,
+      "y": 0,
+      "w": 1237,
+      "h": 260,
+      "page": "page-2"
+    },
+    {
+      "file": "SinCorte.dc.html",
+      "title": "Sin día de corte",
+      "x": 1317,
+      "y": 380,
+      "w": 1237,
+      "h": 380,
+      "page": "page-2"
+    },
+    {
+      "file": "PeriodoAnterior.dc.html",
+      "title": "Un período anterior",
+      "x": 0,
+      "y": 520,
+      "w": 1237,
+      "h": 640,
+      "page": "page-2"
+    },
+    {
+      "file": "DiaDeCorte.dc.html",
+      "title": "Cargar el día de corte",
+      "x": 1317,
+      "y": 880,
+      "w": 492,
+      "h": 400,
+      "page": "page-2"
+    },
+    {
+      "file": "Anular.dc.html",
+      "title": "Anular un pedido sin recibir",
+      "x": 1889,
+      "y": 880,
+      "w": 492,
+      "h": 440,
+      "page": "page-2"
+    },
+    {
+      "file": "Boletas.dc.html",
+      "title": "La boleta en otros casos",
+      "x": 0,
+      "y": 1400,
+      "w": 1040,
+      "h": 540,
+      "page": "page-2"
+    },
+    {
+      "file": "CargarRenglon.dc.html",
+      "title": "Cargar cómo se repone",
+      "x": 1120,
+      "y": 1440,
+      "w": 1237,
+      "h": 460,
+      "page": "page-2"
+    },
+    {
+      "file": "NoVaALlegar.dc.html",
+      "title": "«No va a llegar»",
+      "x": 1120,
+      "y": 2120,
+      "w": 644,
+      "h": 600,
+      "page": "page-2"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "nota-recorrido",
+      "x": 0,
+      "y": -210,
+      "w": 900,
+      "page": "page-1",
+      "text": "Recorrido de Farmacia: la grilla (1) → el estudio con lo que entró, salió y hay que comprar (2) → «Armar pedido» (3) → la hoja que va a la farmacia (4) → vuelve con la medicación y en Recepción se «Recibe un pedido» (6, 6b, 7) → el pedido se ve recibido (5).\nLa cuenta abierta es la boleta que elegiste el 16/09 (variante A).\nEstudios reales; cantidades, lotes y medicamentos inventados."
+    },
+    {
+      "id": "nota-casos",
+      "x": 0,
+      "y": -250,
+      "w": 900,
+      "page": "page-2",
+      "text": "Tres preguntas abiertas para decidir mirando esto:\n1. «No va a llegar» hoy no se puede deshacer. ¿Hace falta poder volver atrás?\n2. Si se cierra todo lo que falta y no llegó nada, la tarjeta dice «recibido · faltó 6». ¿O preferís «cerrado · no llegó»?\n3. Si la tarjeta muestra un pedido viejo con algo pendiente, ¿hace falta decir además «sin pedido para el período que viene»?"
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-1"
+  }
+}

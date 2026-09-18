@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #F4F1EA; font-family: 'Inter', system-ui, sans-serif; font-size: 14px; color: #14302E; -webkit-font-smoothing: antialiased; }
+    a { color: #0F5F57; }
+    a:hover { color: #0B4A42; }
+    .mono { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+<div style="width: 492px; padding: 32px;">
+  <div style="background: #FFFFFF; border: 1px solid #E4DECF; border-radius: 16px; box-shadow: 0 12px 32px rgba(20, 48, 46, 0.10);">
+    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 22px 24px 14px;">
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-family: 'Schibsted Grotesk', system-ui, sans-serif; font-weight: 700; letter-spacing: -0.02em; font-size: 20px; color: #14302E;">Día de corte</div>
+        <div style="font-size: 13px; color: #61706C; margin-top: 4px; line-height: 1.45;">El día del mes en que cierra cada período. Vale para todos los estudios.</div>
+      </div>
+      <span style="width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; flex: 0 0 auto;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#61706C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></span>
+    </div>
+    <div style="padding: 0 24px 22px;"><div style="font-size: 12.5px; font-weight: 600; color: #61706C; margin-bottom: 6px;">Día del mes</div><div style="display: inline-flex; align-items: center; gap: 10px;">
+  <div class="mono" style="width: 96px; height: 44px; border: 1px solid #D8CBB0; border-radius: 10px; background: #FFFFFF; display: flex; align-items: center; padding: 0 14px; font-size: 14px; color: #14302E; box-shadow: 0 5px 14px rgba(20, 48, 46, 0.10); transform: translateY(-1px);">28</div>
+  
+</div>
+  <div style="font-size: 12.5px; color: #465A57; margin-top: 12px; line-height: 1.5;">Próximos cortes: <span class="mono">28/09 · 28/10 · 28/11</span>. Si un mes no tiene ese día, corta el último.</div>
+  <div style="display: flex; gap: 10px; margin-top: 18px;"><div style="height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #D8CBB0; background: #FFFFFF; color: #14302E; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto;">Cancelar</div><div style="flex: 1;"></div><div style="height: 40px; padding: 0 16px; border-radius: 10px; background: #0F5F57; color: #F4F1EA; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto;">Guardar</div></div></div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
