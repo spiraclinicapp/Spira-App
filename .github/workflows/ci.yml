@@ -1,7 +1,16 @@
 name: CI
 
-# Gate automático del repo (no hay suite de tests): corre en cada PR y en push a main.
-# `npm run build` = `tsc --noEmit && vite build`, así que cubre typecheck + build de producción.
+# Gate automático del repo: corre en cada PR y en push a main.
+#
+# DOS JOBS INDEPENDIENTES, y a propósito. Hasta el 2026-09-17 el chequeo del índice de migraciones
+# era el primer paso del mismo job que el build: cuando fallaba, el typecheck, los tests y el build
+# quedaban SALTEADOS — no en rojo, sin correr. Pasó con la PR #225, que traía una 0131 esperando a
+# que la 0130 de otra rama llegara a main: un hueco de numeración legítimo dejó al CI sin validar el
+# código, y un error real de TypeScript o un test roto habrían pasado sin que nadie lo viera. Ahora
+# cada job informa lo suyo: un índice desincronizado es rojo en «Índice de migraciones» y el código
+# se valida igual.
+#
+# Sin `needs` entre los dos: ninguno depende del otro, así que corren en paralelo.
 
 on:
   pull_request:
@@ -13,17 +22,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Typecheck + build
+  migraciones:
+    name: Índice de migraciones
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Falla rápido si el índice de supabase/README.md quedó atrás de supabase/migrations/
-      # (ya pasó dos veces). No necesita npm ci: es Node puro.
+      # Falla si el índice de supabase/README.md quedó atrás de supabase/migrations/ (ya pasó dos
+      # veces), o si la numeración tiene un hueco o un número repetido. Es Node puro y el runner ya
+      # trae Node: no necesita setup-node ni npm ci.
       - name: Índice de migraciones al día
         run: node scripts/check-migraciones.mjs
+
+  build:
+    # El nombre del job se mantiene: es el que ya figura en el historial de todas las PRs.
+    name: Typecheck + build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4

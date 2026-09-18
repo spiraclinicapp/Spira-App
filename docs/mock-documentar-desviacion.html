@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<title>Mock — Documentar desviación (Pendientes)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  /* Tokens reales de src/styles/tokens.css — el mock no inventa colores. */
+  :root {
+    --spira-ink: #14302E;
+    --spira-paper: #F4F1EA;
+    --spira-white: #FFFFFF;
+    --spira-muted: #61706C;
+    --spira-faint: #838C89;
+    --spira-line: #E4DECF;
+    --spira-line-2: #D8CBB0;
+    --spira-track: #2B766D;
+    --spira-acc-deep-danger: #A6483B;
+    --spira-acc-deep-blue: #3A6B8C;
+    --spira-shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.06);
+    --spira-shadow-md: 0 12px 32px rgba(20, 48, 46, 0.10);
+    --spira-radius-lg: 16px;
+    --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif;
+    --spira-font-text: 'Inter', system-ui, sans-serif;
+    /* Colores de estado (VISIT_STATES en src/views/visitStates.tsx) */
+    --st-ventana: #A6483B;
+    --st-novino: #8A5A3C;
+    --st-reporte: #3A6B8C;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 24px 64px;
+    background: var(--spira-paper); color: var(--spira-ink);
+    font-family: var(--spira-font-text); font-size: 14px; line-height: 1.5;
+  }
+  .wrap { max-width: 1185px; margin: 0 auto; }  /* el ancho útil de la notebook de referencia */
+  h1 { font-family: var(--spira-font-display); font-size: 21px; margin: 0 0 6px; }
+  .sub { color: var(--spira-muted); font-size: 13px; margin: 0 0 28px; max-width: 72ch; }
+  .cols { display: grid; grid-template-columns: 1fr 380px; gap: 28px; align-items: start; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--spira-white); border: 1px solid var(--spira-line);
+    border-radius: var(--spira-radius-lg); padding: 18px 20px;
+  }
+  .card-title { font-family: var(--spira-font-display); font-weight: 700; font-size: 15px; }
+  .lista { display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
+
+  /* alertItemStyle() — mismos números que src/views/alertItem.ts */
+  .item {
+    position: relative; display: flex; gap: 11px; width: 100%;
+    padding: 12px 13px; padding-right: 42px; border-radius: 11px;
+    border: 1px solid; text-align: left; cursor: pointer;
+    background: color-mix(in srgb, var(--tone) 5.5%, transparent);
+    border-color: color-mix(in srgb, var(--tone) 19%, transparent);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  /* El realce es ELEVACIÓN, nunca un borde de color: el color acá ya significa gravedad. */
+  .item:hover { transform: translateY(-1px); box-shadow: var(--spira-shadow-sm); }
+  .item.con-boton { padding-bottom: 34px; }
+
+  .nombre { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .code { font-size: 12.5px; color: var(--spira-muted); font-weight: 600; }
+  .motivo { font-size: 12.5px; color: var(--spira-muted); margin-top: 2px; line-height: 1.4; }
+  .glifo { flex: 0 0 auto; margin-top: 1px; width: 18px; height: 18px; }
+
+  .x {
+    position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 8px;
+    display: grid; place-items: center; border: none; background: transparent;
+    color: var(--spira-faint); cursor: pointer;
+  }
+  .x:hover { color: var(--spira-ink); }
+
+  /* EL ELEMENTO NUEVO */
+  .documentar {
+    position: absolute; bottom: 8px; right: 8px;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 9px;
+    border: 1px solid var(--spira-line-2); background: var(--spira-white);
+    font-family: var(--spira-font-text); font-weight: 600; font-size: 12px;
+    color: var(--spira-ink); cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .documentar:hover { transform: translateY(-1px); box-shadow: var(--spira-shadow-sm); }
+  .documentar:active { transform: translateY(0); box-shadow: none; }
+
+  /* El modal, tal como lo dibuja components/Modal.tsx */
+  .modal {
+    background: var(--spira-white); border: 1px solid var(--spira-line);
+    border-radius: var(--spira-radius-lg); box-shadow: var(--spira-shadow-md);
+    padding: 20px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .modal h2 { font-family: var(--spira-font-display); font-size: 16px; margin: 0; }
+  .campo-label { font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+  .select, .textarea {
+    width: 100%; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--spira-line-2); background: var(--spira-white);
+    font-family: var(--spira-font-text); font-size: 13.5px; color: var(--spira-ink);
+  }
+  .textarea { resize: vertical; min-height: 74px; }
+  .placeholder { color: var(--spira-faint); }
+  .acciones { display: flex; justify-content: flex-end; gap: 9px; }
+  .btn {
+    padding: 8px 14px; border-radius: 10px; font-family: var(--spira-font-text);
+    font-weight: 600; font-size: 13px; cursor: pointer;
+    border: 1px solid var(--spira-line-2); background: var(--spira-white); color: var(--spira-ink);
+  }
+  .btn-primario { background: var(--spira-track); border-color: var(--spira-track); color: #fff; }
+  .btn-inerte { background: var(--spira-line); border-color: var(--spira-line); color: var(--spira-faint); cursor: default; }
+  .nota { font-size: 12.5px; color: var(--spira-muted); line-height: 1.5; }
+  .pie {
+    margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--spira-line);
+    font-size: 12.5px; color: var(--spira-muted); max-width: 80ch;
+  }
+  .pie b { color: var(--spira-ink); }
+  .pie ul { margin: 8px 0 0; padding-left: 18px; }
+  .pie li { margin-bottom: 5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Documentar desviación — el ítem de Pendientes</h1>
+  <p class="sub">
+    Mock del único dibujo nuevo de la feature. A la izquierda, la lista con los tres tipos de ítem:
+    sólo la ventana vencida gana el botón. A la derecha, el modal. Los colores, las medidas y las
+    fuentes salen de los tokens reales; el hover funciona, probalo con el mouse.
+  </p>
+
+  <div class="cols">
+    <div class="card">
+      <div class="card-title">Pendientes</div>
+
+      <div class="lista">
+        <!-- 1 · VENTANA VENCIDA — el único con botón -->
+        <div class="item con-boton" style="--tone: var(--st-ventana)">
+          <svg class="glifo" viewBox="0 0 24 24" fill="none" stroke="var(--st-ventana)" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+          </svg>
+          <div style="min-width:0">
+            <div class="nombre">
+              <span>Marta Giménez</span>
+              <span class="code">LTS-004</span>
+              <span style="color:var(--spira-muted);font-weight:400">· <span class="code">LTS17231</span></span>
+            </div>
+            <div class="motivo">Ventana vencida el 14/08/2026 · V4 Semana 12</div>
+          </div>
+          <button class="x" title="Descartar esta alerta" aria-label="Descartar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+            </svg>
+          </button>
+          <button class="documentar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+              <rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 14 2 2 4-4"/>
+            </svg>
+            Documentar desviación
+          </button>
+        </div>
+
+        <!-- 2 · NO VINO — sin botón: no es una desviación de ventana -->
+        <div class="item" style="--tone: var(--st-novino)">
+          <svg class="glifo" viewBox="0 0 24 24" fill="none" stroke="var(--st-novino)" stroke-width="2" stroke-linecap="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>
+          </svg>
+          <div style="min-width:0">
+            <div class="nombre">
+              <span>Jorge Ledesma</span>
+              <span class="code">ACT-011</span>
+              <span style="color:var(--spira-muted);font-weight:400">· <span class="code">ACT18301</span></span>
+            </div>
+            <div class="motivo">No vino el 02/09/2026 · V7 Semana 24</div>
+          </div>
+          <button class="x" title="Descartar esta alerta" aria-label="Descartar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 3 · REPORTE PENDIENTE — sin botón -->
+        <div class="item" style="--tone: var(--st-reporte)">
+          <svg class="glifo" viewBox="0 0 24 24" fill="none" stroke="var(--st-reporte)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+            <rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 14 2 2 4-4"/>
+          </svg>
+          <div style="min-width:0">
+            <div class="nombre">
+              <span>Elena Barrios</span>
+              <span class="code">CKJ-027</span>
+              <span style="color:var(--spira-muted);font-weight:400">· <span class="code">CKJX839D12302</span></span>
+            </div>
+            <div class="motivo">Reporte pendiente · Electrocardiograma · hace 6 d</div>
+          </div>
+          <button class="x" title="Descartar esta alerta" aria-label="Descartar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EL MODAL -->
+    <div class="modal">
+      <h2>Documentar la desviación</h2>
+      <div style="font-size:13.5px">Ventana vencida · V4 Semana 12 · Marta Giménez</div>
+      <div class="nota">
+        Queda registrado <b style="font-weight:600">qué pasó con esta visita</b>, con tu nombre y la
+        fecha. La visita no cambia de estado y no se borra nada: sale de la lista de pendientes
+        porque ya está explicada.
+      </div>
+      <div>
+        <div class="campo-label">Motivo</div>
+        <select class="select">
+          <option value="" selected>Elegí un motivo</option>
+          <option>El paciente no concurrió y no avisó</option>
+          <option>El paciente no pudo venir y pidió otra fecha</option>
+          <option>Motivo clínico del paciente (internación, evento adverso, enfermedad intercurrente)</option>
+          <option>El centro no pudo (feriado, agenda, falta de producto)</option>
+          <option>El cronograma estaba mal generado</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div>
+        <div class="campo-label">Qué pasó</div>
+        <textarea class="textarea" placeholder="Lo va a leer un monitor dentro de unos meses."></textarea>
+      </div>
+      <div class="acciones">
+        <button class="btn">Cancelar</button>
+        <button class="btn btn-inerte">Documentar</button>
+      </div>
+      <div class="nota" style="font-size:11.5px">
+        El botón se habilita recién con motivo <i>y</i> explicación — abajo se ve activo:
+      </div>
+      <div class="acciones">
+        <button class="btn">Cancelar</button>
+        <button class="btn btn-primario">Documentar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pie">
+    <b>Qué mirar, y qué se decidió acá:</b>
+    <ul>
+      <li><b>El botón va con nombre, no con ícono.</b> Es la acción que resuelve el pendiente; un
+        segundo glifo mudo al lado de la X diría que las dos hacen lo mismo.</li>
+      <li><b>Sólo lo lleva la ventana vencida.</b> "No vino" y "reporte pendiente" no son
+        desviaciones de ventana: se resuelven de otra manera y quedan como están.</li>
+      <li><b>El realce es elevación</b> — el ítem y el botón se levantan ~1px con sombra. Nada de
+        bordes de color: en esta pantalla el color ya significa gravedad clínica.</li>
+      <li><b>La X sigue donde estaba</b>, discreta. Descartar dice "esta alerta no correspondía";
+        documentar dice "el desvío ocurrió, y acá está el porqué". Conviven.</li>
+      <li><b>La explicación se pide siempre</b>, no sólo con el motivo "Otro" — por eso el sexto
+        motivo quedó como "Otro" a secas.</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

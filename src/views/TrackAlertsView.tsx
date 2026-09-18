@@ -24,6 +24,11 @@ import {
   descarteListo, MOTIVO_OTRO,
 } from '../data/alertDismissals'
 import type { AlertKind } from '../data/alertDismissals'
+import {
+  deleteDeviation, deviationReasonLabel, inscripcionCerrada, isVisitDeviationRecorded,
+} from '../data/deviations'
+import { DocumentarDesviacionModal } from './DocumentarDesviacionModal'
+import type { DocumentandoTarget } from './DocumentarDesviacionModal'
 import { visitTitle } from '../lib/visits'
 import { formatAR, todayISO, daysDiffISO, fromNow, isoDayAR } from '../lib/dates'
 import { codecs } from '../lib/router'
@@ -47,6 +52,21 @@ const dismissBtn: CSSProperties = {
   position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: 8,
   display: 'grid', placeItems: 'center', border: 'none', background: 'transparent',
   color: 'var(--spira-muted)', cursor: 'pointer',
+}
+/* Botón de documentar la desviación (0130): hermano del que abre la visita, abajo a la derecha.
+   CON NOMBRE y no un ícono suelto, que es la decisión de fondo: es la acción que RESUELVE el
+   pendiente, y un segundo glifo mudo al lado de la X diría que las dos hacen lo mismo. Sólo lo
+   llevan las de ventana vencida.
+   El realce es por ELEVACIÓN (`.spira-card-link`), nunca un borde de color: en esta pantalla el
+   color ya significa gravedad clínica y teñir un botón le robaría ese sentido. */
+const deviationBtn: CSSProperties = {
+  position: 'absolute', bottom: 8, right: 8,
+  display: 'inline-flex', alignItems: 'center', gap: 6,
+  padding: '5px 10px', borderRadius: 9,
+  borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+  background: 'var(--spira-white)', cursor: 'pointer',
+  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12,
+  color: 'var(--spira-ink)',
 }
 const dismissedRow: CSSProperties = {
   display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 0',
@@ -127,7 +147,11 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
      lo usa el efecto de `navTarget`, porque el shell YA apiló su propia entrada al traer hasta acá. */
   const [openVisitId, setOpenVisitId, moveOpenVisitId] = useUrlEntity('visita')
   const [dismissing, setDismissing] = useState<Dismissing | null>(null)
+  const [documentando, setDocumentando] = useState<DocumentandoTarget | null>(null)
   const [showDismissed, setShowDismissed] = useUrlState('descartadas', false, { codec: codecs.bool })
+  /* Mismo gesto y mismo lugar que los descartes, con su propio parámetro en la URL: son dos
+     archivos distintos y quien comparte un link puede querer abrir cualquiera de los dos. */
+  const [showDeviations, setShowDeviations] = useUrlState('desviaciones', false, { codec: codecs.bool })
   const [actionError, setActionError] = useState<string | null>(null)
 
   /* La vuelta NO reabre la alerta puntual: este `volver` no lleva `target`, así que devuelve a la
@@ -176,6 +200,20 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const procRows = alertsQ.reportAlerts
   const ipRows = alertsQ.ipAlerts
   const dismissals = alertsQ.dismissals
+  const deviations = alertsQ.deviations
+
+  /* Las que quedaron SIN DOCUMENTAR: ventanas vencidas de inscripciones ya cerradas. Salieron de
+     la lista activa porque no hay nada que hacer con ellas —el paciente no está más en el estudio—
+     pero no desaparecen: se listan acá, con su marca, para que el número no se esconda. Salen de
+     `allVisitAlerts` (las CRUDAS) justamente porque el filtro de la lista activa ya las sacó. */
+  const sinDocumentar = useMemo(
+    () => alertsQ.allVisitAlerts.filter(
+      (a) => a.computed_status === 'ventana_vencida' &&
+        inscripcionCerrada(a.enrollment_status) &&
+        !isVisitDeviationRecorded(deviations, a),
+    ),
+    [alertsQ.allVisitAlerts, deviations],
+  )
 
   const filtered = useMemo(() => {
     const today = todayISO()
@@ -377,6 +415,17 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
             {showDismissed ? 'Ocultar descartados' : `Ver descartados (${dismissals.length})`}
           </button>
         )}
+        {/* Las desviaciones van en FEMENINO porque el sustantivo es otro: acá no se nombran
+            pendientes sino desviaciones de protocolo, que es el término clínico y el que va a
+            buscar quien las necesite. El contador suma las documentadas y las que quedaron sin
+            documentar (0130). */}
+        {(deviations.length > 0 || sinDocumentar.length > 0) && (
+          <button type="button" style={linkBtn} onClick={() => setShowDeviations((v) => !v)}>
+            {showDeviations
+              ? 'Ocultar desviaciones'
+              : `Ver desviaciones (${deviations.length + sinDocumentar.length})`}
+          </button>
+        )}
       </div>
 
       {/* Arriba del cajón y no debajo: "Restaurar" se aprieta ADENTRO del cajón, así que con el
@@ -460,7 +509,83 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
         </div>
       )}
 
-
+      {/* EL PANEL GEMELO: las desviaciones documentadas (0130). Misma anatomía y mismo gesto que
+          el de descartados —si dos cosas se piden igual, tienen que verse igual—, con dos
+          diferencias que importan:
+          · lo que se lee acá NO es "decidí no atender esto" sino el registro clínico de por qué
+            una visita no se hizo en su ventana, que es lo que un monitor va a pedir;
+          · abajo van las que quedaron SIN documentar, que son las de pacientes que ya salieron
+            del estudio: no piden acción, pero su número no se esconde. */}
+      {showDeviations && (deviations.length > 0 || sinDocumentar.length > 0) && (
+        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15 }}>Desviaciones</div>
+          <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 3, lineHeight: 1.45 }}>
+            No se borró nada: la visita sigue como está y esto es el registro de por qué no se hizo
+            en su ventana. Las de pacientes que ya salieron del estudio aparecen acá sin pedir acción.
+          </div>
+          <div style={{ marginTop: 8 }}>
+            {deviations.map((d) => {
+              const vis = alertsQ.allVisitAlerts.find((a) => a.id === d.visit_id)
+              const abrirPac = abrirFicha && vis ? () => abrirFicha(vis.patient_id, vis.protocol_id) : undefined
+              const detalle = vis ? visitTitle(vis) : 'Visita'
+              return (
+                <div key={d.id} style={dismissedRow}>
+                  <Icon name="clipboardCheck" size={16} color="var(--spira-faint)" style={{ flex: '0 0 auto', marginTop: 2 }} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div className="spira-link-group" style={{ fontSize: 13, fontWeight: 600 }}>
+                      {vis
+                        ? <PatientLink onOpen={abrirPac} label={`Abrir la ficha de ${vis.patient_name}`}>{vis.patient_name}</PatientLink>
+                        : 'Visita ya no vigente'}
+                      {abrirPac && <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>}
+                      <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}> · {detalle}</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
+                      {deviationReasonLabel(d.reason)} — {d.detail} · {d.recorded_by_name}
+                      <span style={{ color: 'var(--spira-muted)' }}> ({d.recorded_by_role}) · {fromNow(d.recorded_at)}</span>
+                    </div>
+                  </div>
+                  {/* "Borrar" y no "Restaurar": una desviación no vuelve a la lista, se corrige.
+                      La 0130 no tiene UPDATE a propósito — se borra y se documenta de nuevo, y el
+                      audit_log guarda las dos decisiones en vez de una sobrescrita. */}
+                  <button
+                    type="button"
+                    style={linkBtn}
+                    onClick={async () => {
+                      setActionError(null)
+                      const { error: e } = await deleteDeviation(d.id)
+                      if (e) setActionError(e)
+                      else alertsQ.refetch()
+                    }}
+                  >
+                    Borrar
+                  </button>
+                </div>
+              )
+            })}
+            {sinDocumentar.map((a) => (
+              <div key={`sd-${a.id}`} style={dismissedRow}>
+                <Icon name="alertCircle" size={16} color="var(--spira-faint)" style={{ flex: '0 0 auto', marginTop: 2 }} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className="spira-link-group" style={{ fontSize: 13, fontWeight: 600 }}>
+                    <PatientLink
+                      onOpen={abrirFicha && (() => abrirFicha(a.patient_id, a.protocol_id))}
+                      label={`Abrir la ficha de ${a.patient_name}`}
+                    >
+                      {a.patient_name}
+                    </PatientLink>
+                    {abrirFicha && <span style={{ marginLeft: 8 }}><PatientLinkArrow /></span>}
+                    <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}> · {visitTitle(a)}</span>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
+                    Sin documentar · ventana vencida el {a.window_end ? formatAR(a.window_end) : '—'} ·
+                    el paciente ya no está en el estudio
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
         {/* Misma cabecera que la tarjeta de Alertas del Resumen: las dos pantallas abren con el
@@ -618,7 +743,10 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenVisitId(a.id) }
                   }}
                   aria-label={`Abrir la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
-                  style={alertItemStyle(c, { conBotonDescartar: true })}
+                  style={alertItemStyle(c, {
+                    conBotonDescartar: true,
+                    conBotonDesviacion: a.computed_status === 'ventana_vencida',
+                  })}
                 >
                   <span style={{ flex: '0 0 auto', marginTop: 1 }}>
                     {/* Desde `SEVERIDAD_ICONO` y no de un ternario propio, que resolvía por DOS vías
@@ -659,6 +787,24 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                 >
                   <Icon name="x" size={15} />
                 </button>
+                {/* SÓLO la ventana vencida. "No vino" y "pendiente vencido" no son desviaciones de
+                    ventana: se resuelven de otra manera y quedan como estaban. */}
+                {a.computed_status === 'ventana_vencida' && (
+                  <button
+                    type="button"
+                    style={deviationBtn}
+                    className="spira-card-link"
+                    title="Registrar por qué esta visita no se hizo en su ventana"
+                    aria-label={`Documentar la desviación de ${a.patient_name}`}
+                    onClick={() => setDocumentando({
+                      visitId: a.id,
+                      label: `${VISIT_STATES[a.computed_status].label} · ${vName} · ${a.patient_name}`,
+                    })}
+                  >
+                    <Icon name="clipboardCheck" size={14} />
+                    Documentar desviación
+                  </button>
+                )}
                 </div>
               )
             })}
@@ -693,6 +839,16 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           onClose={() => setDismissing(null)}
           onDone={() => { setDismissing(null); setActionError(null); alertsQ.refetch() }}
           onError={(msg) => { setDismissing(null); setActionError(msg) }}
+        />
+      )}
+
+      {documentando && (
+        <DocumentarDesviacionModal
+          target={documentando}
+          accent={accent}
+          onClose={() => setDocumentando(null)}
+          onDone={() => { setDocumentando(null); setActionError(null); alertsQ.refetch() }}
+          onError={(msg) => { setDocumentando(null); setActionError(msg) }}
         />
       )}
 

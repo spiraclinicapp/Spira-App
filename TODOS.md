@@ -1620,3 +1620,34 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
 - **Empezar por:** `src/views/pharma/reportes/truncamiento.ts` (el tipo `FuenteDeDatos`) y su test.
 - **Depende de / bloqueado por:** nada. Conviene hacerlo el día que se agregue una sexta fuente.
 - **Prioridad:** P3 — ninguno es alcanzable hoy.
+
+---
+
+## Coordinación · la visita hecha FUERA DE VENTANA no se documenta (desviación de protocolo)
+
+- **Qué:** cuando una visita se registra con `real_date` fuera de `[window_start, window_end]`, la app lo
+  SEÑALA —pastilla roja «Fuera de ventana» en `VisitHeader`, ícono de alerta en el cronograma del
+  paciente, y la métrica de adherencia del Resumen de Inicio— pero no deja **documentar por qué pasó**.
+  Le falta el mismo registro de desviación que se diseñó para la ventana vencida: motivo de catálogo,
+  detalle, autor y fecha.
+- **Por qué:** clínicamente es la misma desviación de protocolo que la ventana vencida, y es la MÁS
+  FRECUENTE de las dos: con ventanas de 6 días (mediana medida sobre los cuatro protocolos el
+  2026-09-17), un paciente que llega dos días tarde ya está fuera. La diferencia es que ésta **se escapa
+  en silencio**: al cargarse la fecha real el estado pasa a realizada, la alerta nunca entra a Pendientes
+  y nadie la documenta. Es además lo que haría verdadera la métrica de adherencia del Inicio, que hoy
+  cuenta el desvío sin poder explicarlo.
+- **Pros:** reusa entero lo del caso 1 —tabla, catálogo de motivos, pantalla de lectura—; es sólo otra
+  puerta de entrada al mismo registro.
+- **Contras:** toca `RegisterVisitFlow` / `VisitDateInline`, el flujo más usado de la app, y suma un paso
+  a la carga diaria. Hay que decidir si el motivo es obligatorio para guardar o se puede completar
+  después: obligarlo en el momento de cargar es lo que empuja a falsear la fecha real para esquivar el
+  formulario, que es exactamente el dato que no se puede perder.
+- **Contexto:** se ofreció junto con el caso 1 el 2026-09-17 y el Director acotó el alcance («el 1, y
+  anotá el 2»). El caso 1 tenía un agujero estructural —una lista que no drena nunca—; éste es un dato
+  que falta.
+- **Empezar por:** `fueraDeVentana()` en `src/lib/visits.ts:214` y sus tres consumidores; después, la
+  tabla de desviaciones del caso 1.
+- **Disparador:** la primera vez que un monitor pida el listado de desviaciones y falten ahí las visitas
+  que sí se hicieron, tarde.
+- **Depende de / bloqueado por:** el caso 1 (la tabla y el catálogo de motivos salen de ahí).
+- **Prioridad:** P2.
