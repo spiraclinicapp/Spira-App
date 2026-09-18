@@ -9,6 +9,7 @@ import type { DayVisitRow } from '../../data/dayVisits'
 import { useProtocolCoordinators } from '../../data/pharma/coordinators'
 import { useTreatingPhysicians } from '../../data/patients'
 import { setEstimatedDate, setRealDate } from '../../data/visits'
+import { deviationReasonLabel, useDeviations } from '../../data/deviations'
 import { formatAR } from '../../lib/dates'
 import { desvioDias, fueraDeVentana, visitCode, visitTitle } from '../../lib/visits'
 import { VisitDateInline } from './VisitDateInline'
@@ -70,6 +71,13 @@ export function VisitHeader({
   // valor, para no ensanchar el campo (handoff §6). El desvío solo existe con las dos fechas.
   const d = desvioDias(visit.estimated_date, visit.real_date)
   const fuera = fueraDeVentana(visit.real_date, visit.window_start, visit.window_end)
+  /* La desviación documentada de ESTA ventana (0130). Se busca por ancla y no sólo por visita: si
+     la visita se reprogramó y todavía no volvió a vencer, la desviación vieja habla de otra
+     ventana y mostrarla acá afirmaría algo falso sobre la actual. */
+  const deviations = useDeviations()
+  const desviacion = (deviations.data ?? []).find(
+    (dv) => dv.visit_id === visit.id && dv.anchor === visit.window_end,
+  )
   // Lo que manda el cronograma, o null si el protocolo no fija fecha para esta visita.
   const protocolo = fechaSegunProtocolo(visit)
   /* El interruptor del segundo campo: rótulo, valor y columna de guardado salen los TRES de acá
@@ -205,6 +213,15 @@ export function VisitHeader({
                     <span style={devDanger} title="La fecha real cayó fuera de la ventana del cronograma">
                       <Icon name="alert" size={11} color="var(--spira-danger)" stroke={2.4} />
                       Fuera de ventana
+                    </span>
+                  )}
+                  {/* El motivo entra en la pastilla; la EXPLICACIÓN va en el `title`. El motivo
+                      clasifica y se lee de un vistazo; el detalle es lo que un monitor necesita, y
+                      puesto en línea empujaría el encabezado a dos renglones. */}
+                  {desviacion && (
+                    <span style={devWarn} title={`Desviación documentada: ${desviacion.detail}`}>
+                      <Icon name="clipboardCheck" size={11} color="var(--spira-acc-deep-warn)" stroke={2.4} />
+                      <span style={devWarnTexto}>{deviationReasonLabel(desviacion.reason)}</span>
                     </span>
                   )}
                 </>
@@ -519,4 +536,19 @@ const devDanger: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 4, height: 19, padding: '0 6px', borderRadius: 5,
   background: 'rgba(166, 72, 59, 0.14)', color: 'var(--spira-acc-deep-danger)', fontSize: 10.5,
   fontWeight: 700, letterSpacing: 0, textTransform: 'none', whiteSpace: 'nowrap',
+}
+/* La desviación documentada (0130). Ámbar y no rojo a propósito: el rojo de al lado dice "esto
+   está mal"; esto dice "esto está EXPLICADO", que es un grado menos de alarma. El tono sale del
+   mismo token que `dev`, que ya es el ámbar de advertencia de este encabezado. */
+const devWarn: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 4, height: 19, padding: '0 6px', borderRadius: 5,
+  background: 'rgba(176, 130, 63, 0.16)', color: 'var(--spira-acc-deep-warn)', fontSize: 10.5,
+  fontWeight: 700, letterSpacing: 0, textTransform: 'none', maxWidth: 240,
+}
+/* El recorte va en un hijo y no en la pastilla: `text-overflow` NO funciona sobre un contenedor
+   flex —corta en seco, sin los puntos suspensivos—, y la pastilla es flex porque lleva el ícono al
+   lado. El `minWidth: 0` es lo que deja que este hijo se achique dentro del flex en vez de
+   desbordarlo. Hace falta porque el motivo más largo del catálogo es una frase entera. */
+const devWarnTexto: CSSProperties = {
+  minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
 }
