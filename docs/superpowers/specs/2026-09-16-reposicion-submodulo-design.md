@@ -326,11 +326,13 @@ de stock, así que nunca tocaron el estante. Es correcto: Farmacia arrancó en c
    (el editor de Supabase no comparte sesión). Se prueba en **PGlite** antes de pasarla
    (`probar-sql-con-pglite`).
 
-### Migración `0129` (limpieza: DESPUÉS del deploy del front)
+### Migración de limpieza (DESPUÉS del deploy del front)
+
+> La `0129` ya la usa `feedback_lugar.sql` (otra sesión, 2026-09-17). La limpieza toma **el siguiente número libre** cuando se escriba.
 
 `drop` de `insumos_de_reposicion(date)`, `registrar_pedido_reposicion`, `anular_pedido_reposicion`, la
 tabla `reposicion_pedidos` y la columna `farmacia_ajustes.demora_compra_dias`. La card vieja las usa: con
-la 0129 aplicada antes, Estadísticas se rompe en prod.
+la limpieza aplicada antes, Estadísticas se rompe en prod.
 
 - **El archivo no se pushea hasta que el front esté desplegado** (CLAUDE.md §3, 0068 y 0092).
 - Antes, una sonda de sólo lectura confirma que `reposicion_pedidos` está vacía en prod (la limpieza del
@@ -349,7 +351,7 @@ la 0129 aplicada antes, Estadísticas se rompe en prod.
 | `src/views/pharma/RecepcionView.tsx` + `recepcion/RecibirPedido.tsx` (nuevo) | Botón y lista de pedidos con faltante. |
 | `ReceptionWizard.tsx`, `wizard/Step3Summary.tsx`, `data/pharma/receptions.ts`, `recepcion/ReceptionCard.tsx` | `pedidoId` en el wizard, pedido vs recibido en el resumen, `p_pedido_id` en `createReception`, «Pedido Nº» en la tarjeta. |
 | `src/views/pharma/reportes/ReportesView.tsx` | Se saca el montaje de la card y se ajusta el texto que la nombraba. Se borran `ComprasDelMes.tsx` y `VerPedido.tsx`. |
-| `supabase/README.md` | Filas de la 0128 y la 0129; «Aplicada en prod (fecha)» al confirmarse. |
+| `supabase/README.md` | Filas de la 0128 y de la limpieza; «Aplicada en prod (fecha)» al confirmarse. |
 | `docs/plan-reposicion-stock-minimo.md` | Nota al principio: qué decisiones reemplaza este documento. |
 
 Realce por elevación, nunca borde verde; Lucide; copy corto; nombre del paciente visible en los avisos.
@@ -365,7 +367,7 @@ La excepción por paciente de `PatientMedicationsCard` no cambia.
 3. **Front, en una sola PR**: submódulo, pedido, Recepción y salida de la card. QA logueado de lectura.
    Emitir un pedido real deja datos permanentes: **se pregunta antes** y, si no, se cubre con tests
    (`preferencia-qa-sin-datos-de-prueba-en-prod`).
-4. **`0129`** después del deploy.
+4. **La migración de limpieza** después del deploy.
 
 ## Tests (reglas que fallan en silencio)
 
@@ -406,7 +408,7 @@ Fechas fijas en los tests (CI corre en UTC). Fábricas de filas mínimas, sin Su
 | Recepción anulada | el pedido quedaba «recibido» | el estado se deduce de las verificadas | test |
 | `create_reception` con parámetro nuevo | sobrecarga viva, el front llama a la vieja | `drop` de la firma vieja en la 0128 | sonda |
 | FK `pedido_id` | embed ambiguo tira Recepción | búsqueda de embeds antes de escribirla | QA |
-| 0129 antes del front | Estadísticas en blanco en prod | archivo sin pushear hasta el deploy | se vería |
+| Limpieza antes del front | Estadísticas en blanco en prod | archivo sin pushear hasta el deploy | se vería |
 | Doble click en «Emitir» | dos pedidos | botón deshabilitado mientras guarda | QA |
 
 ## Fuera de alcance
@@ -416,3 +418,148 @@ Fechas fijas en los tests (CI corre en UTC). Fábricas de filas mínimas, sin Su
 - **Producto en investigación y Ambulatoria** (D7).
 - **Plata:** «cuánto vamos gastando» se lee en envases, no en pesos.
 - **Un corte distinto por estudio** (R4) y **la demora** (R5).
+
+## Revisión de diseño (`/plan-design-review`, 2026-09-17)
+
+**Mock:** `docs/design_handoff_reposicion_submodulo/` — 27 artboards en dos páginas («Recorrido» y «Casos y
+estados»), generados por `generar-artboards.mjs` con los valores literales de `tokens.css`, `AppShell`,
+`ProtocolsView`, `Modal`, `SearchableSelect`, `impresion.tsx` y `Step1Scan`. Lienzo publicado (versión 2):
+https://claude.ai/artifact/Hib7MiMExG8afRSK3GXC47. **Se implementa copiando la geometría del mock**; los
+datos son inventados. Donde este documento y el mock difieran, manda lo que sigue.
+
+Puntaje de diseño: **7/10 → 9/10**. Segunda opinión: un agente aparte revisó el mock sin ver este análisis
+(Codex no está instalado). Sus hallazgos se verificaron contra el modelo antes de adoptarlos.
+
+### Decisiones del Director (no re-discutir)
+
+- **RD1 · Pedido tarde: ventana de 5 días.** Hasta 5 días después del corte, si el período que empezó no
+  tiene pedido, el pedido que se arma es **para ese período** y pide sólo lo que le falta. El siguiente se pide
+  en el próximo corte. Un pedido por mes, siempre con su período. (Se descartó el «pedido tardío doble».)
+- **RD2 · «No va a llegar» se puede reabrir**, mientras el pedido no esté anulado. Queda registrado quién y
+  cuándo, y lo que llega se recibe con el pedido.
+- **RD3 · Si se cerró todo y no llegó nada: «Cerrado · no llegó»**, nunca «recibido».
+- **RD4 · La tarjeta lleva dos renglones de pedido:** uno **fijo** para el período que viene («Para el período
+  que viene: Pedido Nº 14» / «sin pedido» / «no hace falta pedir») y otro **sólo** si un pedido anterior todavía
+  debe algo («Pedido Nº 13 · falta 1 envase»).
+
+### Arreglos aprobados en bloque
+
+- **RD5 · Después de emitir** (artboard 2b): se imprime la hoja; el estudio y la tarjeta muestran el pedido
+  como lo principal; el botón pasa a «Armar otro pedido» (secundario).
+- **RD6 · Modo tarea y modo tranquilo.** El número grande de la tarjeta es una tarea sólo cuando faltan 7 días
+  o menos para el corte, o durante la ventana de RD1 sin pedido. El resto del mes, el renglón fijo lo dice en
+  tono tranquilo: «Para el corte del 28/10: 12 envases · todavía sin pedido».
+- **RD7 · La franja del corte** acompaña el mes: «faltan 12 días», «Corte mañana», «El corte es hoy», «El
+  corte fue el 28/09 · quedan 3 días para pedir el período que empezó». Cuenta **sólo los estudios que tienen
+  compras y todavía no tienen pedido**.
+- **RD8 · Un solo componente para el estado del pedido** (pastilla, sentence case, texto siempre): Sin recibir ·
+  Llegó, falta verificar · Recibido en parte · Recibido (· faltó N) · Cerrado · no llegó · Anulado.
+- **RD9 · Encabezado agrupado** en la tabla del estudio: «Este período · 29/08 al 28/09» sobre había, entró,
+  salió y hay; «Para el que viene» sobre comprar. Debajo de «Hay», «−1 por ajuste» cuando corresponde.
+- **RD10 · Los motivos arrancan vacíos** («Elegí un motivo», `SearchableSelect`), igual en «No va a llegar» y en
+  «Anular»: el motivo se elige, nunca viene puesto.
+- **RD11 · La hoja** lleva dos renglones por medicamento (por si la farmacia entrega dos lotes). Un pedido
+  anulado se reimprime marcado ANULADO.
+- **RD12 · Glosario y copy.**
+  - «Alcanza» es de un medicamento y «Cubierto», de un estudio.
+  - «En camino» es lo pedido sin recibir. También es el renglón de la boleta, que antes decía «Ya pedido, sin
+    recibir».
+  - Los números van siempre con su nombre: «Pedido Nº 14» y «Recepción Nº 1051». En medio de una frase,
+    «pedido» va en minúscula.
+  - Las fechas se escriben «29/08 al 28/09», sin flecha: el lector de pantalla la lee en voz alta.
+- **RD13 · «Hay» tiene un solo sentido**, el físico. La boleta lo aclara: «hay 10, 2 vencidos» o «hay 10,
+  todos vencidos».
+- **RD14 · Ventana angosta y accesibilidad.** Por debajo de 1024 px, había·entró·salió·hay bajan a un segundo
+  renglón y la grilla pasa a 2 columnas. Los renglones que se abren son `button` con `aria-expanded`. El aviso
+  lleva texto («⚠ 1 aviso») y «Falta» muestra «0» en vez de ✓. Contadores y flechas llevan rótulo.
+- **RD15 · Día de corte con desplegable 1-31** y aviso si se cambia a mitad de período: «el período en curso pasa
+  a ser del 26/08 al 25/09; los pedidos ya emitidos conservan su período».
+- **RD16 · Botones.**
+  - «Ver», «No va a llegar» y «Reabrir» son botones chicos con borde.
+  - En la lista de Recepción, «Recibir» va con borde, no sólido.
+  - Los modales de lectura cierran con «Cerrar» (con borde).
+  - Sin rótulos en mayúsculas sobre las secciones de un modal.
+  - Victorion (sin medicación de base) no es clicable.
+- **RD17 · «Llegó, falta verificar la recepción Nº 1051»** en la tarjeta, el detalle y la boleta, mientras la
+  recepción no se verifique (usa `sin_verificar`).
+- **RD18 · Estados que se agregan:**
+  - corte hoy y «falta 1 día»;
+  - «Recibir» sin pedidos;
+  - quien sólo mira (ve y reimprime);
+  - error al emitir: «Antes de volver a intentarlo, fijate en la lista del estudio si quedó hecho»;
+  - resumen final de la recepción, con lo pedido contra lo que llega.
+
+### Estados
+
+| Parte | Cargando | Vacío | Error | Listo | Parcial |
+|---|---|---|---|---|---|
+| Grilla | «Calculando la reposición…» | Sin día de corte (lo pide; a quien mira, se lo explica) | «No se pudo calcular» + Reintentar | Tarjetas | Tarjeta «Falta cargar cómo se repone» |
+| Estudio | igual que la grilla | Sin medicación de base: no se entra | igual | Libro + boleta | Renglones «Sin cargar» |
+| Armar pedido | botón deshabilitado mientras guarda | Todo en 0: no emite | Aviso en tinte peligro (RD18) | Hoja + 2b | — |
+| Pedido | — | — | — | Recibido | En parte · llegó sin verificar · cerrado |
+| Recibir un pedido | — | «No hay pedidos por recibir» | — | Asistente con renglones | Recepción sin verificar avisada |
+
+### Recorrido de Farmacia
+
+| Paso | Hace | Siente | Lo sostiene |
+|---|---|---|---|
+| 1 | Entra a fin de mes | «¿Qué me toca pedir?» | La franja (RD7) y el número grande sólo donde hay tarea (RD6) |
+| 2 | Abre un estudio | Confianza en el número | La boleta, con cada resta nombrada |
+| 3 | Arma e imprime | Control («pido 6, no 4») | Pedir corregible y lo calculado al lado |
+| 4 | Vuelve a la grilla | Alivio: ese estudio ya está | La tarjeta muestra el pedido (RD5) |
+| 5 | Llega la farmacia | Rapidez | «Recibir un pedido» precarga todo |
+| 6 | Falta algo | Nada queda colgado | «No va a llegar», reversible (RD2) |
+
+### Lo que ya existe y el mock reusa
+
+`ProtocolsView` (tarjeta de estudio), `AppShell` (cabecera, botones de acción, panel de submódulos), `Modal`,
+`SearchableSelect`, `EmptyState` (patrón de ícono 52×52), `reportes/estilos.ts` (th/td), `impresion.tsx`
+(`Membrete`, `FilaKv`, `thImpresa`/`tdImpresa`, `PieDePagina`), `Step1Scan` y `ReceptionWizard` («Crear
+recepción»), `btnChico`/`btnOutline`/`btnPrimary`, la carga de cómo se repone de `ComprasDelMes`.
+
+### Lo que esto le pide a la Parte 2, además de las pantallas
+
+- **Modelo (TS, con tests):**
+  - el período objetivo con la ventana de RD1;
+  - los modos de RD6;
+  - la copy de la boleta de RD12 y RD13 («En camino», «para el período que viene / que empezó», vencidos);
+  - `textoPeriodo` con «al»;
+  - las etiquetas de RD3 y RD8;
+  - el conteo de RD7.
+- **Base (migración aditiva nueva):**
+  - `reabrir_faltante_pedido` (RD2);
+  - una fuente para «Recibir un pedido» que no dependa de un período y traiga el número de la recepción sin
+    verificar. Puede ser un RPC liviano, o sumar `pedido_id` a `RECEPTION_COLS`.
+- **La limpieza de la 0125** toma el siguiente número libre (la `0129` es de feedback) y va después del deploy.
+
+### NOT in scope (diseño)
+
+- **Código de barras en la hoja** para escanear el pedido: se elige de una lista corta (ver decisiones
+  abiertas).
+- **Un pedido de varios estudios juntos** (R12).
+- **Mover un pedido a otro período** si cambia el día de corte: conserva el suyo (RD15).
+
+### Tareas de implementación (diseño)
+
+- [ ] **T1 (P1)** — Modelo: ventana de RD1, modos de RD6, copy de RD12-RD13, estados de RD3 y RD8, conteo de
+  RD7. Con tests.
+- [ ] **T2 (P1)** — Migración aditiva: `reabrir_faltante_pedido` y la fuente de «Recibir un pedido».
+- [ ] **T3 (P1)** — Vistas copiando el mock: grilla, estudio (1185 px y angosta), armar pedido, hoja, detalle,
+  «Recibir un pedido», asistente y resumen.
+- [ ] **T4 (P2)** — Accesibilidad de RD14 y QA de teclado.
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | Codex no instalado; segunda opinión con un agente aparte |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 0 | — | Parte 1 revisada tarea por tarea y en review final de rama (PR #216) |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR (FULL) | puntaje 7/10 → 9/10, 18 decisiones (RD1-RD18), mock v2 con 27 artboards |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+- **VERDICT:** DESIGN CLEARED. Falta el plan de la Parte 2 (y su revisión de ingeniería) antes de implementar.
+
+**UNRESOLVED DECISIONS:**
+- Doble pedido si se corta la red después de guardar: recomendado resolverlo en la Parte 2 con una marca única por intento en `emitir_pedido_medicacion`; mientras tanto, el aviso de RD18.
+- Código de barras del número del pedido en la hoja: recomendado anotarlo en `TODOS.md` y no hacerlo ahora.
