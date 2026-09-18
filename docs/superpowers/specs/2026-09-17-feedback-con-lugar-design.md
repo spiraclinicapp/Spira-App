@@ -43,6 +43,24 @@ paso del wizard) y un **lugar donde leerlo** dentro de la app.
   abre un submódulo en Inicio (hoy Inicio tiene una sola vista y no dibuja panel de submódulos).
 - **F5 · Leer y marcar como visto.** Sin responderle al que reportó: eso es otra feature, con
   notificación incluida, y queda para otra vuelta.
+- **F6 · Va en dos entregas, y arranca la captura.** Primero guardar el lugar; después la bandeja.
+
+## Las dos entregas
+
+| | Qué entra | Qué se puede hacer al terminarla |
+|---|---|---|
+| **1 · Captura** | `lugar.ts` (pila + `armarLugar`), las cinco pantallas que publican, el fallback por migas, la línea de contexto del modal, el atajo de teclado, y la migración con `place_label` / `place_target` + el RPC ampliado | El feedback que llega ya trae el lugar. Se lee en Supabase, como hoy |
+| **2 · Bandeja** | Ajustes › Feedback recibido: lista, filtros, «Ir al lugar», y el marcado de visto con `seen_at` / `seen_by` + `mark_feedback_seen` | Se lee y se gestiona desde la app |
+
+**Por qué este orden y no al revés:** la captura empieza a juntar datos desde el día uno, así que
+cuando llegue la bandeja ya va a tener qué mostrar. Al revés, la bandeja se estrenaría vacía y
+mostrando el `route` pelado de siempre.
+
+**Las columnas van todas en la entrega 1**, aunque `seen_at` / `seen_by` recién se usen en la 2: son
+cuatro `add column` en la misma migración, y partirlas obliga a una segunda migración —con su ida al
+dashboard, a mano, en orden— para agregar dos columnas que no molestan a nadie mientras duermen. El
+RPC `mark_feedback_seen`, en cambio, sí va en la 2: una función que nadie llama es código muerto, y
+además querrá escribirse contra la pantalla que la usa.
 
 ## Arquitectura
 
