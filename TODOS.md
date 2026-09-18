@@ -81,9 +81,9 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
-## ~~Farmacia · Recepción: el DELETE y la escritura directa de renglones no tienen guarda~~ — RESUELTO en la migración 0129 (2026-09-17, falta aplicarla)
+## ~~Farmacia · Recepción: el DELETE y la escritura directa de renglones no tienen guarda~~ — RESUELTO en la migración 0132 (2026-09-17, falta aplicarla)
 
-> **Cerrada en el repo; se aplica después de la 0128.** `0129_recepcion_guarda_borrado_y_renglones.sql`:
+> **Cerrada en el repo; se aplica después de la 0131.** `0132_recepcion_guarda_borrado_y_renglones.sql`:
 > `trg_guard_reception_delete` (BEFORE DELETE sobre `medication_receptions`) y
 > `trg_guard_reception_items_write` (BEFORE INSERT OR UPDATE OR DELETE sobre `reception_items`), sin
 > SECURITY DEFINER, con el corte `current_user <> 'postgres'`. El «Contras» de abajo lo resolvió el

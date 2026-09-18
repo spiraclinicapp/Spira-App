@@ -1,17 +1,18 @@
--- Spira · Migración 0129 — Recepción: una recepción no se borra y sus renglones no se escriben por fuera
+-- Spira · Migración 0132 — Recepción: una recepción no se borra y sus renglones no se escriben por fuera
 -- de create_reception.
 --
--- APLICAR A MANO en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0128.
+-- APLICAR A MANO en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0131.
 -- IDEMPOTENTE: reintentar es volver a correr el archivo entero.
 --
 -- ✅ ORDEN DE DESPLIEGUE INDIFERENTE. No cambia columnas, firmas ni lo que devuelve ningún select: sólo
---    rechaza dos escrituras que el front no hace. Buscado en src el 2026-09-17: sobre medication_receptions
+--    rechaza dos escrituras que el front no hace. Buscado en src el 2026-09-17, y de nuevo el 2026-09-18: sobre medication_receptions
 --    y reception_items el front sólo lee (src/data/pharma/receptions.ts); las altas van por create_reception
 --    y las bajas por void_reception, que siguen pasando (ver más abajo por qué).
 --
--- Numeración: la limpieza de Reposición que la 0128 y su spec llaman «0129» pasa a ser la 0130 (decisión
--- del Director, 2026-09-17). Esta guarda no depende del deploy de ningún front y aquélla sí, así que ésta
--- toma el número que queda libre primero.
+-- Numeración: nació como 0129 y quedó en 0132 (Director, 2026-09-18). Mientras esperaba sin pushear, la
+-- 0129 la tomó feedback_lugar (#222), la 0130 las desviaciones de protocolo (#226) y la 0131 feedback_visto
+-- (#225). La limpieza de Reposición, que la 0128 todavía llama «0129», toma el siguiente número libre
+-- cuando se escriba: depende de un deploy de Farmacia, y esta guarda no depende de ninguno.
 --
 -- ⚠️ NUNCA dos signos peso pegados dentro de un comentario (ver CLAUDE.md, 0071).
 --
@@ -98,7 +99,7 @@ comment on function public.guard_reception_delete() is
    estado, si current_user no es postgres: la policy for all de pharma (0006:247, 0009:153) lo permitía por
    PostgREST, y borrar no revierte el stock ni deja rastro en el pedido (0128). Una recepción cargada por
    error se anula (void_reception). Pasan el editor SQL y las funciones SECURITY DEFINER del owner. Sin
-   SECURITY DEFINER a propósito: con él, current_user sería siempre postgres. 0129.';
+   SECURITY DEFINER a propósito: con él, current_user sería siempre postgres. 0132.';
 
 drop trigger if exists trg_guard_reception_delete on public.medication_receptions;
 create trigger trg_guard_reception_delete
@@ -131,7 +132,7 @@ comment on function public.guard_reception_items_write() is
    0009:155) la permitía por PostgREST, y cambiar un renglón cambia lo recibido sin mover stock (y lo
    recibido de un pedido, 0128). La única escritura legítima es el INSERT de create_reception (SECURITY
    DEFINER). La cascada de un DELETE de la recepción corre como el dueño de la tabla, así que desde el
-   editor SQL pasa. No lee la recepción madre: sin lock, sin carrera con verify_reception. 0129.';
+   editor SQL pasa. No lee la recepción madre: sin lock, sin carrera con verify_reception. 0132.';
 
 drop trigger if exists trg_guard_reception_items_write on public.reception_items;
 create trigger trg_guard_reception_items_write
