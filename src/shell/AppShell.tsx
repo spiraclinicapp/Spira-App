@@ -14,12 +14,11 @@ import { NotificationsMenu } from './NotificationsMenu'
 import { AboutMenu } from './AboutMenu'
 import { FeedbackModal } from './FeedbackModal'
 import { armarLugar, lugarActual } from '../lib/lugar'
+import { KBD_BUSCADOR } from '../lib/teclas'
 import { parseSettingsSection, SettingsModal } from './settings/SettingsModal'
 import { pushUrl, replaceUrl, useUrlLocation, useUrlState } from '../lib/useUrlState'
 import { NotFoundView } from './NotFoundView'
 
-/** Atajo del buscador global, según plataforma. */
-const KBD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘ K' : 'Ctrl K'
 
 /* Crumb del breadcrumb del encabezado. Color uniforme tipo breadcrumb (sin acento):
    el actual (sin onClick) en tinta; los padres clickeables en gris. Subraya al hover. */
@@ -237,6 +236,24 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  /* Atajo global Ctrl/⌘ ⇧ F: abre «Dar feedback».
+     A DIFERENCIA DEL BUSCADOR DE ARRIBA, éste SÍ funciona con un modal abierto, y ése es el punto
+     de la feature: los problemas se ven adentro del detalle de una visita o del wizard de Recepción,
+     y hasta acá había que cerrarlos para poder reportar — con lo que el lugar que se guardaba ya no
+     era donde se vio el problema. Es seguro porque `Modal.tsx` APILA: el de abajo no se desmonta,
+     así que su formulario a medio llenar sigue ahí cuando el feedback se cierra.
+     Si el feedback ya está abierto no hace nada: togglear con la misma tecla tiraría lo escrito. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault()
+        setFeedbackOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
   const showAction = !HIDE_ACTION.has(`${moduleKey}/${sub.key}`)
 
@@ -338,11 +355,11 @@ export function AppShell() {
           <button
             className="spira-search-trigger"
             onClick={() => setPaletteOpen(true)}
-            title={`Buscar en Spira (${KBD})`}
+            title={`Buscar en Spira (${KBD_BUSCADOR})`}
           >
             <Icon name="search" size={16} color="var(--spira-muted)" />
             <span className="spira-search-label">Buscar…</span>
-            <span className="spira-search-kbd">{KBD}</span>
+            <span className="spira-kbd">{KBD_BUSCADOR}</span>
           </button>
           <button onClick={toggleTheme} style={iconBtn} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
             <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} color="var(--spira-ink)" />

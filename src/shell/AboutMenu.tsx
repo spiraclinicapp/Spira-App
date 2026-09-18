@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
 import { SPIRA_VERSION } from '../lib/version'
+import { KBD_FEEDBACK } from '../lib/teclas'
 import type { ChangelogEntry } from '../lib/version'
 
 /* ============================================================================
@@ -152,8 +153,12 @@ export function AboutMenu({ accent, onFeedback, open, onOpenChange }: AboutMenuP
 
           {/* 4 · pie — dar feedback */}
           <div style={{ flex: '0 0 auto', padding: '11px 14px', borderTop: '1px solid var(--spira-line)', background: 'var(--spira-surface)' }}>
+            {/* La tecla no es adorno: es la única forma de descubrir que se puede reportar SIN
+                cerrar lo que estás mirando, que es justo donde más problemas se ven. Este botón, en
+                cambio, sólo se alcanza con todo cerrado — el popover vive al pie del riel. */}
             <button type="button" onClick={feedback} style={feedbackBtn}>
               <Icon name="message" size={16} color={accent} /> Dar feedback
+              <span className="spira-kbd" style={{ marginLeft: 'auto' }}>{KBD_FEEDBACK}</span>
             </button>
           </div>
         </div>
@@ -281,8 +286,10 @@ function moreNewsBtn(accent: string): CSSProperties {
     fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12, color: accent,
   }
 }
+/* Arranca a la IZQUIERDA desde que lleva la tecla del atajo a la derecha: con el contenido centrado,
+   la tecla empujaba el rótulo fuera del eje y el botón se leía torcido. */
 const feedbackBtn: CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', height: 38,
+  display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 8, width: '100%', height: 38, padding: '0 11px',
   border: '1px solid var(--spira-line-2)', borderRadius: 10, background: 'var(--spira-white)',
   color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
 }
