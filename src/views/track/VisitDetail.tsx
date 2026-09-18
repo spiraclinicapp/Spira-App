@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useVisit, markArrived, startVisitAttention, markReady, markReadyWithOutcome, discontinueEnrollment } from '../../data/dayVisits'
 import { todayISO } from '../../lib/dates'
+import { useLugar } from '../../lib/lugar'
+import { visitCode, visitTitle } from '../../lib/visits'
 import { ConfirmarAvance } from './ConfirmarAvance'
 import { ReadyOutcomeModal } from './ReadyOutcomeModal'
 import { RegisterVisitFlow } from './RegisterVisitFlow'
@@ -95,6 +97,18 @@ export function VisitDetail({
   const visit = (fetched?.id === visitId ? fetched : seed?.id === visitId ? seed : fetched) ?? null
   /** El día en el que «Visitas» la tiene (realizada, o programada si todavía no se atendió). */
   const dia = visit ? diaDeLaVisita(visit) : null
+
+  /* Para el feedback: es el modal donde más se trabaja, y donde un problema aparece MIENTRAS se
+     registra la visita — el caso que justifica todo el atajo de teclado. El texto se arma igual que
+     el encabezado que la persona tiene delante (`VisitHeader`), para que el supervisor lea lo mismo
+     que vio quien reportó. `visitDate` es obligatorio para el salto: «Visitas del día» carga UN día,
+     así que sin él la visita no estaría en la lista y no habría nada que abrir.
+     `null` mientras carga: sin datos, el lugar de abajo —la lista o la ficha que abrió este modal—
+     dice más que una «Visita» pelada. */
+  useLugar(visit ? {
+    label: `${visitCode(visit) ? `Visita ${visitCode(visit)}` : visitTitle(visit)} · ${visit.patient_name}`,
+    target: { visitId: visit.id, visitDate: dia ?? undefined },
+  } : null)
 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)

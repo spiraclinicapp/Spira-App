@@ -14,6 +14,7 @@ import { toCsv, downloadCsv } from '../lib/csv'
 import { groupVisitsByPatient } from '../lib/visits'
 import { filasVisitasCsv, VISITAS_CSV_HEADERS } from '../lib/visitasCsv'
 import { PdPatientRow } from './track/PdPatientRow'
+import { useLugar } from '../lib/lugar'
 import { CronogramaTab } from './track/CronogramaTab'
 import { estaAbierta, inscripcionDelEstudio } from '../lib/inscripcion'
 import { ReportesPendientesView } from './track/reportes/ReportesPendientesView'
@@ -95,6 +96,14 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
     initialTab ?? 'pacientes',
     { codec: oneOf(['pacientes', 'reportes'] as const) },
   )
+  /* Para el feedback: acá se está mirando el tablero de UN estudio, y la pestaña forma parte del
+     lugar — «Reportes pendientes» y «Pacientes» son dos pantallas distintas para quien reporta,
+     aunque compartan la dirección. */
+  useLugar({
+    label: `${protocol.code}${rightTab === 'reportes' ? ' · Reportes pendientes' : ''}`,
+    target: { protocolId: protocol.id, protocolTab: rightTab },
+  })
+
   /** Visita abierta desde el tablero de reportes (el 📎 de la tarjeta). */
   const [openVisitId, setOpenVisitId] = useState<string | null>(null)
   /** El modal «Cronograma y procedimientos», que se abre desde la ficha lateral. */

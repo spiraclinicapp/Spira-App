@@ -8,6 +8,7 @@ import { createReception, createIpReception, useMedicationCodes } from '../../da
 import type { ReceptionKind, StorageLocation } from '../../data/pharma'
 import { useNavigationGuard } from '../../lib/useUrlState'
 import { todayISO } from '../../lib/dates'
+import { useLugar } from '../../lib/lugar'
 import { Step0Setup } from './wizard/Step0Setup'
 import { Step1Scan } from './wizard/Step1Scan'
 import { Step2Lots } from './wizard/Step2Lots'
@@ -52,6 +53,10 @@ interface Props {
 export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, initialMeds, onClose, onCreated }: Props) {
   const [step, setStep] = useState(0)
   const [maxReached, setMaxReached] = useState(0)
+  /* Para el feedback: sin `target` a propósito —todavía no hay recepción creada, así que no hay a
+     dónde saltar—, y por eso el lugar HEREDA el salto de la pantalla de atrás (ver `lugar.ts`). El
+     paso sí importa: «no me deja avanzar» en el 2 y en el 4 son dos problemas distintos. */
+  useLugar({ label: `Recepción · paso ${step + 1} de 4` })
   const [tipo, setTipo] = useState<ReceptionKind>(initialTipo)
   const [protocolId, setProtocolId] = useState(initialProtocolId)
   /* `todayISO()` y NO `new Date().toISOString().slice(0, 10)`, que era lo que estaba: el segundo

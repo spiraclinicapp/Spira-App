@@ -19,8 +19,14 @@ import type { FeedbackType } from '../data/feedback'
 
 interface FeedbackModalProps {
   moduleKey: string
-  moduleFull: string
   subKey: string
+  /**
+   * El lugar en palabras, ya armado por el shell: "Coordinación › Estudios y pacientes › Juan Pérez".
+   * Reemplaza al `moduleFull` que se mostraba antes — que era el mismo dato, recortado al módulo.
+   */
+  label: string
+  /** Cómo volver a ese lugar, o null si la pantalla no publicó ninguna entidad. */
+  target: Record<string, unknown> | null
   accent: string
   accentSolid: string
   onClose: () => void
@@ -32,7 +38,7 @@ const TYPES: { key: FeedbackType; label: string; icon: IconName }[] = [
   { key: 'idea', label: 'Idea', icon: 'heart' },
 ]
 
-export function FeedbackModal({ moduleKey, moduleFull, subKey, accent, accentSolid, onClose }: FeedbackModalProps) {
+export function FeedbackModal({ moduleKey, subKey, label, target, accent, accentSolid, onClose }: FeedbackModalProps) {
   const { profile } = useAuth()
   const userName = profile?.fullName ?? 'Usuario'
 
@@ -48,6 +54,7 @@ export function FeedbackModal({ moduleKey, moduleFull, subKey, accent, accentSol
     setError(null)
     const res = await submitFeedback({
       type, message: msg.trim(), module: moduleKey, version: __APP_VERSION__, route: `${moduleKey}/${subKey}`,
+      placeLabel: label, placeTarget: target,
     })
     setBusy(false)
     if (res.error) { setError(res.error); return }
@@ -105,8 +112,12 @@ export function FeedbackModal({ moduleKey, moduleFull, subKey, accent, accentSol
           {/* contexto autoadjuntado */}
           <div style={contextBox}>
             <Icon name="info" size={15} color="var(--spira-faint)" />
+            {/* SE MUESTRA EL LUGAR COMPLETO, y no sólo el módulo como hasta la 0129: lo que se
+                adjunta se muestra, que es la misma regla que el resto de la app. Y de paso quien
+                reporta ve si el lugar es el que quería — si el problema lo vio en otra pantalla, lo
+                puede aclarar en el mensaje en vez de descubrirlo el supervisor días después. */}
             <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', lineHeight: 1.4 }}>
-              Se adjunta automáticamente: <b style={{ color: 'var(--spira-ink)' }}>{moduleFull}</b> · v{__APP_VERSION__} · {userName}
+              Se adjunta automáticamente: <b style={{ color: 'var(--spira-ink)' }}>{label}</b> · v{__APP_VERSION__} · {userName}
             </span>
           </div>
 
