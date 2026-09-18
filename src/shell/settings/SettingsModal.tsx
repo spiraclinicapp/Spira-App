@@ -4,11 +4,14 @@ import { Icon } from '../../components/Icon'
 import type { IconName } from '../../components/Icon'
 import { useNavigationGuard } from '../../lib/useUrlState'
 import type { SettingsSection } from './section'
+import { seccionVisible } from './section'
+import { useAuth } from '../../lib/auth'
 import { ACCENT, btnGhost, btnSolid } from './primitives'
 import { AccountSection } from './AccountSection'
 import { PrefsSection } from './PrefsSection'
 import { EquipoYAccesosSection } from './EquipoYAccesosSection'
 import { PlataformasSection } from './PlataformasSection'
+import { FeedbackSection } from './FeedbackSection'
 
 /* ============================================================================
    SettingsModal — pantalla de Ajustes.
@@ -55,31 +58,38 @@ const SETTINGS_NAV: NavDef[] = [
   { key: 'prefs', name: 'Preferencias', icon: 'settings' },
   { key: 'roles', name: 'Equipo y accesos', icon: 'lock' },
   { key: 'plataformas', name: 'Plataformas', icon: 'externalLink' },
+  { key: 'feedback', name: 'Feedback recibido', icon: 'message' },
 ]
 const SETTINGS_TITLE: Record<SettingsSection, string> = {
   cuenta: 'Mi cuenta', prefs: 'Preferencias', roles: 'Equipo y accesos', plataformas: 'Plataformas',
+  feedback: 'Feedback recibido',
 }
 
 interface SettingsModalProps {
   section: SettingsSection
   setSection: (s: SettingsSection) => void
   onClose: () => void
+  /** Ir al lugar desde donde se reportó un feedback. Lo pasa el shell, que es el que navega. */
+  onIrAlLugar?: (moduleKey: string, subKey: string, target: Record<string, unknown>) => void
 }
 
 /* Ninguna sección recibe datos por props: cada una toma lo suyo de su contexto (`useAuth` para la
    cuenta, `usePrefs` para las preferencias). El tema viajaba por acá cuando era el único control
    vivo y vivía en un useState del shell; desde la 0093 las preferencias son de la cuenta y tienen
    su propio provider, así que hacerlas pasar por el modal solo agregaba un intermediario. */
-function renderSection(cur: SettingsSection) {
+/* La única sección que recibe algo por props es «Feedback recibido», y no es un dato sino un gesto:
+   saltar al lugar desde donde se reportó es NAVEGAR, y el que navega es el shell. */
+function renderSection(cur: SettingsSection, onIrAlLugar?: SettingsModalProps['onIrAlLugar']) {
   switch (cur) {
     case 'cuenta': return <AccountSection />
     case 'prefs': return <PrefsSection />
     case 'roles': return <EquipoYAccesosSection />
     case 'plataformas': return <PlataformasSection />
+    case 'feedback': return <FeedbackSection onIrAlLugar={onIrAlLugar} />
   }
 }
 
-export function SettingsModal({ section, setSection, onClose }: SettingsModalProps) {
+export function SettingsModal({ section, setSection, onClose, onIrAlLugar }: SettingsModalProps) {
   const cardRef = useRef<HTMLDivElement | null>(null)
   const confirmRef = useRef<HTMLDivElement | null>(null)
   const prevFocus = useRef<Element | null>(null)
@@ -159,7 +169,13 @@ export function SettingsModal({ section, setSection, onClose }: SettingsModalPro
     return () => { document.body.style.overflow = prevOverflow; document.body.style.paddingRight = prevPad }
   }, [])
 
-  const cur = section
+  /* «Feedback recibido» es de gerencia: el menú no se la muestra a nadie más y la URL tampoco los
+     deja entrar (`seccionVisible` los manda a «Mi cuenta»). Las dos cosas son presentación: el que
+     decide es la RLS de la 0044, que no le devuelve una fila a nadie más. */
+  const { modules } = useAuth()
+  const esGerencia = modules.includes('gerencia')
+  const navVisible = SETTINGS_NAV.filter((it) => it.key !== 'feedback' || esGerencia)
+  const cur = seccionVisible(section, esGerencia)
 
   return (
     <div style={scrim} role="presentation" onMouseDown={intentarCerrar}>
@@ -184,7 +200,7 @@ export function SettingsModal({ section, setSection, onClose }: SettingsModalPro
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
           <aside style={nav}>
             <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {SETTINGS_NAV.map((it) => {
+              {navVisible.map((it) => {
                 const on = it.key === cur
                 return (
                   <button
@@ -211,7 +227,7 @@ export function SettingsModal({ section, setSection, onClose }: SettingsModalPro
           <main style={content}>
             <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 23, letterSpacing: '-0.02em', color: 'var(--spira-ink)', marginBottom: 18 }}>{SETTINGS_TITLE[cur]}</div>
             <DirtyContext.Provider value={marcarSucio}>
-              {renderSection(cur)}
+              {renderSection(cur, onIrAlLugar)}
             </DirtyContext.Provider>
           </main>
         </div>

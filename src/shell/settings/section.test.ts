@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseSettingsSection, SECCIONES } from './section'
+import { parseSettingsSection, SECCIONES, seccionVisible } from './section'
 
 /* Cómo se lee `?ajustes=` de la URL.
  *
@@ -31,5 +31,25 @@ describe('parseSettingsSection', () => {
   it('cualquier basura también abre en Mi cuenta, no rompe ni cierra', () => {
     expect(parseSettingsSection('cualquier-cosa')).toBe('cuenta')
     expect(parseSettingsSection('CUENTA')).toBe('cuenta') // ojo: distingue mayúsculas, y cae al default
+  })
+})
+
+describe('seccionVisible', () => {
+  it('sin gerencia, «Feedback recibido» cae a Mi cuenta', () => {
+    // La sección no está en el menú, pero ?ajustes=feedback es una URL que cualquiera puede
+    // escribir. Mostrarla igual dejaría una pantalla que sólo puede fallar: la RLS de la 0044 no le
+    // va a devolver ni una fila.
+    expect(seccionVisible('feedback', false)).toBe('cuenta')
+  })
+
+  it('con gerencia, la deja pasar', () => {
+    expect(seccionVisible('feedback', true)).toBe('feedback')
+  })
+
+  it('las demás secciones no dependen de gerencia', () => {
+    for (const s of ['cuenta', 'prefs', 'roles', 'plataformas'] as const) {
+      expect(seccionVisible(s, false)).toBe(s)
+      expect(seccionVisible(s, true)).toBe(s)
+    }
   })
 })

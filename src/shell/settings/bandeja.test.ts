@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FeedbackRow } from '../../data/feedback'
-import { destinoDelLugar, filtrarFeedback } from './bandeja'
+import { alcanzable, destinoDelLugar, filtrarFeedback } from './bandeja'
 
 /* Las reglas de la bandeja de feedback.
  *
@@ -78,5 +78,24 @@ describe('destinoDelLugar', () => {
       subKey: 'recepcion',
       target: {},
     })
+  })
+})
+
+describe('alcanzable', () => {
+  // navigate() del shell sale EN SILENCIO si la persona no puede abrir ese módulo o si el submódulo
+  // ya no existe: el botón «Ir al lugar» quedaría muerto, que es justo lo que la app no se permite.
+  // Mejor no ofrecerlo. El que decide el acceso sigue siendo el shell; esto sólo evita el clic vacío.
+  const destino = { moduleKey: 'pharma', subKey: 'recepcion', target: {} }
+
+  it('con acceso al módulo y un submódulo que existe, se puede ir', () => {
+    expect(alcanzable(destino, ['pharma', 'gerencia'])).toBe(true)
+  })
+
+  it('sin acceso a ese módulo, no', () => {
+    expect(alcanzable(destino, ['track', 'gerencia'])).toBe(false)
+  })
+
+  it('un submódulo que ya no existe (renombrado, sacado), tampoco', () => {
+    expect(alcanzable({ ...destino, subKey: 'ya-no-existe' }, ['pharma'])).toBe(false)
   })
 })

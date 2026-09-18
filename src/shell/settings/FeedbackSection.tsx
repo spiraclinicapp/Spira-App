@@ -6,7 +6,7 @@ import { useAuth } from '../../lib/auth'
 import { formatAR } from '../../lib/dates'
 import { markFeedbackSeen, useFeedbackRecibido } from '../../data/feedback'
 import type { FeedbackRow, FeedbackType } from '../../data/feedback'
-import { destinoDelLugar, filtrarFeedback } from './bandeja'
+import { alcanzable, destinoDelLugar, filtrarFeedback } from './bandeja'
 import type { FiltroTipo, FiltroVisto } from './bandeja'
 import { ACCENT, StCard, StSeg, btnGhost } from './primitives'
 
@@ -107,7 +107,10 @@ export function FeedbackSection({ onIrAlLugar }: {
       )}
 
       {filas.map((f, i) => {
-        const destino = destinoDelLugar(f.place_target)
+        const d = destinoDelLugar(f.place_target)
+        /* Sólo si se puede ir DE VERDAD: `navigate` sale en silencio sin acceso al módulo o con un
+           submódulo que ya no existe, y el botón quedaría muerto (ver `alcanzable`). */
+        const destino = d && alcanzable(d, modules) ? d : null
         const pinta = PINTA[f.type]
         return (
           <div
