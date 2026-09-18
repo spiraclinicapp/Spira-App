@@ -13,6 +13,7 @@ import { UserMenu } from './UserMenu'
 import { NotificationsMenu } from './NotificationsMenu'
 import { AboutMenu } from './AboutMenu'
 import { FeedbackModal } from './FeedbackModal'
+import { armarLugar, lugarActual } from '../lib/lugar'
 import { parseSettingsSection, SettingsModal } from './settings/SettingsModal'
 import { pushUrl, replaceUrl, useUrlLocation, useUrlState } from '../lib/useUrlState'
 import { NotFoundView } from './NotFoundView'
@@ -596,12 +597,24 @@ export function AppShell() {
         />
       )}
 
-      {/* Modal "Dar feedback" (se abre desde el popover Acerca de del rail). */}
+      {/* Modal "Dar feedback" (se abre desde el popover Acerca de del rail).
+
+          EL LUGAR SE CALCULA ACÁ Y UNA SOLA VEZ, al abrir: `lugarActual()` lee una pila que NO es
+          estado de React, así que leerla en cualquier otro render daría un valor distinto según
+          cuándo le toque re-renderizar al shell. Acá queda congelado lo que había cuando la persona
+          pidió reportar, que es exactamente el momento que interesa. */}
       {feedbackOpen && (
         <FeedbackModal
           moduleKey={moduleKey}
-          moduleFull={mod.full}
           subKey={sub.key}
+          {...armarLugar({
+            moduleName: mod.full,
+            moduleKey,
+            subName: sub.name,
+            subKey: sub.key,
+            crumbs: (viewHeader?.crumbs ?? []).map((c) => c.label),
+            lugar: lugarActual(),
+          })}
           accent={accent}
           accentSolid={mod.accentSolid}
           onClose={() => setFeedbackOpen(false)}

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 /** Tipo de feedback (enum informal; el CHECK de la base valida los tres valores). */
 export type FeedbackType = 'sugerencia' | 'problema' | 'idea'
 
-/** Payload del envío. El contexto (módulo/versión/ruta) se autoadjunta; el actor lo fija el server. */
+/** Payload del envío. El contexto (módulo/versión/ruta/lugar) se autoadjunta; el actor lo fija el server. */
 export interface FeedbackInput {
   type: FeedbackType
   message: string
@@ -13,6 +13,19 @@ export interface FeedbackInput {
   version: string
   /** "<mod>/<sub>" (el shell no tiene URL routing). */
   route: string
+  /**
+   * Dónde estaba parada la persona, en palabras: "Coordinación › Estudios y pacientes › Juan Pérez".
+   * Lo arma el shell con `armarLugar` (0129). Es lo que lee quien supervisa.
+   */
+  placeLabel: string
+  /**
+   * Cómo volver a ese lugar: el `NavTarget` de la entidad abierta + el módulo/submódulo. `null`
+   * cuando la pantalla no publicó ninguna entidad — ahí el lugar se lee pero no se salta.
+   *
+   * Va como objeto suelto y no tipado a `NavTarget` a propósito: viaja a una columna `jsonb`, y
+   * atarlo al tipo de la navegación obligaría a esta capa a importar los tipos de las vistas.
+   */
+  placeTarget: Record<string, unknown> | null
 }
 
 /** Traduce el error del RPC a un mensaje sereno en castellano. */
@@ -35,6 +48,8 @@ export async function submitFeedback(input: FeedbackInput): Promise<{ error: str
     p_module: input.module,
     p_version: input.version,
     p_route: input.route,
+    p_place_label: input.placeLabel,
+    p_place_target: input.placeTarget,
   })
   if (error) return { error: feedbackErrorMessage(error.code, error.message) }
   return { error: null }
