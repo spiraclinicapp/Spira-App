@@ -1,4 +1,4 @@
-/* Las reglas PURAS de las desviaciones de protocolo (0130).
+/* Las reglas PURAS de las desviaciones de protocolo (0131).
  *
  * Viven acá y no en `deviations.ts` por lo mismo que `alertDismissalModel.ts`: aquel archivo
  * importa el cliente de Supabase —que lee `window` al cargarse— y estas reglas son comparación de
@@ -15,18 +15,18 @@
  * sistema auditable, una alerta que no aparece es peor que una de más.
  */
 
-/** Fila de `protocol_deviations` (0130). */
+/** Fila de `protocol_deviations` (0131). */
 export interface ProtocolDeviationRow {
   id: string
   visit_id: string
-  /** `window_end` de la ventana que se venció. Parte de la identidad del desvío. 0130. */
+  /** `window_end` de la ventana que se venció. Parte de la identidad del desvío. 0131. */
   anchor: string
   reason: string
-  /** Obligatorio desde la base (check de no-vacío). 0130. */
+  /** Obligatorio desde la base (check de no-vacío). 0131. */
   detail: string
   recorded_by: string
   /**
-   * Nombre y puesto de quien documentó, DESNORMALIZADOS en la fila (0130, mismo motivo que
+   * Nombre y puesto de quien documentó, DESNORMALIZADOS en la fila (0131, mismo motivo que
    * `author_name` en la 0048 y `dismissed_by_name` en la 0070): la RLS de `users` sólo muestra la
    * fila propia, así que un join ocultaría el autor para todo el que no sea gerencia. Es el puesto
    * de entonces.
@@ -42,7 +42,7 @@ export interface ProtocolDeviationRow {
  * "Otro" va a secas y no "Otro (explicar)": acá la explicación se pide SIEMPRE, así que el
  * paréntesis prometía una distinción que no existe.
  *
- * Los valores tienen que ser EXACTAMENTE los del `check` de la 0130. Si se desincronizan, la base
+ * Los valores tienen que ser EXACTAMENTE los del `check` de la 0131. Si se desincronizan, la base
  * levanta un `23514` y el front muestra "El motivo no es válido" — falla ruidosa, que es lo que se
  * quiere de una duplicación inevitable (mismo criterio que el vocabulario de cierre en la 0127).
  */
@@ -96,7 +96,7 @@ export function inscripcionCerrada(enrollmentStatus: string): boolean {
  * taparía la visita para siempre, incluso si se reprograma y vence una ventana NUEVA — que sería
  * un vencimiento oculto, exactamente lo que este módulo existe para evitar.
  *
- * TIENE QUE ESPEJAR AL SERVIDOR: el ancla la calcula `record_protocol_deviation` (0130) leyendo
+ * TIENE QUE ESPEJAR AL SERVIDOR: el ancla la calcula `record_protocol_deviation` (0131) leyendo
  * `window_end` de la visita, y acá se compara contra lo guardado. Si los dos lados eligieran
  * columnas distintas, ninguna desviación coincidiría nunca —o peor, coincidiría de más y taparía
  * una ventana que no correspondía—.

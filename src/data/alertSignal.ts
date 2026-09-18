@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 /* Señal común de "lo que archiva alertas cambió": los descartes (0070) y las desviaciones
-   documentadas (0130).
+   documentadas (0131).
 
    Sin react-query no hay caché compartida: la campana, el resumen de Inicio y la vista de
    Pendientes tienen cada uno SU propia consulta. Si una pantalla refetchea sola después de
@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react'
    sólo cuáles están archivadas. Así que un contador que dispara esas consultas en todas las
    instancias montadas deja a los tres contando lo mismo, sin tocar nada más.
 
-   VIVE EN SU PROPIO ARCHIVO DESDE LA 0130. Nació privada dentro de `alertDismissals.ts`, y las
+   VIVE EN SU PROPIO ARCHIVO DESDE LA 0131. Nació privada dentro de `alertDismissals.ts`, y las
    desviaciones necesitan LA MISMA señal, no una gemela: con dos contadores, documentar una
    desviación relee las desviaciones y deja los descartes —y la campana— con el número viejo, que
    es el mismo bug de siempre por la puerta de al lado. */

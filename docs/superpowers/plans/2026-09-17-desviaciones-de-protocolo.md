@@ -24,7 +24,7 @@ react-query, sin Tailwind.
 - **Estilo:** tokens de `src/styles/tokens.css`, íconos Lucide vía `components/Icon.tsx`.
   **Realce = elevación (~1px + sombra), nunca borde de color.**
 - **Errores de Postgres → mensajes serenos en castellano** (helpers `*ErrorMessage` en `data/`).
-- **Migraciones inmutables y numeradas.** La `0130` es un archivo nuevo; no se edita ni se
+- **Migraciones inmutables y numeradas.** La `0131` es un archivo nuevo; no se edita ni se
   renumera nada. **No hay acceso SQL a producción:** el SQL se le pasa al Director para que lo
   corra a mano, y tiene que correr **tal cual**, sin placeholders.
 - **El gate es `npm run build` verde** (typecheck + tests + build) **más verificación en el
@@ -39,7 +39,7 @@ react-query, sin Tailwind.
 | Archivo | Responsabilidad |
 |---|---|
 | `supabase/migrations/0130_desviacion_de_protocolo.sql` | **Crear.** Tabla, RLS, auditoría y RPC. |
-| `supabase/README.md` | **Modificar.** Registrar la 0130 en el índice. |
+| `supabase/README.md` | **Modificar.** Registrar la 0131 en el índice. |
 | `src/data/deviationModel.ts` | **Crear.** Reglas PURAS: catálogo, "ya documentada", "formulario listo", "inscripción cerrada". Sin imports de Supabase. |
 | `src/data/deviationModel.test.ts` | **Crear.** Los tres casos que fallan en silencio. |
 | `src/data/alertSignal.ts` | **Crear.** La señal compartida de "los archivos de alertas cambiaron", hoy privada dentro de `alertDismissals.ts`. |
@@ -56,7 +56,7 @@ exactamente el mismo motivo, y este archivo es su gemelo.
 
 ---
 
-## Tarea 1 · La migración 0130
+## Tarea 1 · La migración 0131
 
 **Archivos:**
 - Crear: `supabase/migrations/0130_desviacion_de_protocolo.sql`
@@ -73,7 +73,7 @@ exactamente el mismo motivo, y este archivo es su gemelo.
 Crear `supabase/migrations/0130_desviacion_de_protocolo.sql`:
 
 ```sql
--- Spira · Migración 0130 — Track: documentar una desviación de protocolo
+-- Spira · Migración 0131 — Track: documentar una desviación de protocolo
 -- ============================================================================
 -- Una ventana vencida NO tenía salida. Sale de la lista de dos maneras: cargando la visita
 -- (y entonces deja de estar vencida) o DESCARTANDO la alerta (0070) con un motivo de catálogo
@@ -106,7 +106,8 @@ Crear `supabase/migrations/0130_desviacion_de_protocolo.sql`:
 --
 -- ADITIVA y NO BREAKING: no toca ninguna tabla ni vista existente. Ningún front desplegado
 -- consulta esta tabla ni este RPC, así que va PRIMERO y el deploy del front después.
--- APLICAR: a mano en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0128 y la 0129.
+-- APLICAR: a mano en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0128 (reposición
+-- de corte a corte), la 0129 (guarda de Recepción) y la 0130 (limpieza de Reposición).
 -- IDEMPOTENTE. Registrar en supabase/README.md al confirmarse en prod.
 -- ============================================================================
 
@@ -146,12 +147,12 @@ comment on table public.protocol_deviations is
   'Desviaciones de protocolo documentadas sobre una visita que no se hizo dentro de su ventana. '
   'No cambia el estado de la visita ni borra nada: agrega el porqué, con autor y fecha. El ancla '
   '(window_end) hace que valga para ESA ventana: si la visita se reprograma y vuelve a vencerse, '
-  'es otro desvío. 0130.';
+  'es otro desvío. 0131.';
 comment on column public.protocol_deviations.anchor is
-  'window_end de la ventana que se venció. Parte de la identidad del desvío. 0130.';
+  'window_end de la ventana que se venció. Parte de la identidad del desvío. 0131.';
 comment on column public.protocol_deviations.detail is
   'Explicación obligatoria (check de no-vacío). A diferencia de alert_dismissals.detail, acá se '
-  'exige siempre: el lector de esto, meses después, es un monitor. 0130.';
+  'exige siempre: el lector de esto, meses después, es un monitor. 0131.';
 
 -- Una desviación por visita y ventana.
 create unique index if not exists ux_protocol_deviation_visita
@@ -250,7 +251,7 @@ end $$;
 comment on function public.record_protocol_deviation(uuid, text, text) is
   'Documenta una desviación de protocolo sobre una visita con la ventana vencida. Calcula el '
   'ancla (window_end) en el servidor para que un registro no pueda tapar una ventana futura. '
-  'Authz: gerencia o coordinador de la visita. 0130.';
+  'Authz: gerencia o coordinador de la visita. 0131.';
 
 revoke all on function public.record_protocol_deviation(uuid, text, text) from anon, public;
 grant execute on function public.record_protocol_deviation(uuid, text, text) to authenticated;
@@ -270,7 +271,7 @@ Esperado: `marcadores: 2 PAR (ok)`
 
 - [ ] **Paso 3: Registrar la migración en el índice**
 
-En `supabase/README.md`, agregar la 0130 a la tabla de migraciones siguiendo el formato de las
+En `supabase/README.md`, agregar la 0131 a la tabla de migraciones siguiendo el formato de las
 filas vecinas, **sin** la marca de aplicada (todavía no lo está). CI lo vigila con
 `scripts/check-migraciones.mjs`.
 
@@ -284,13 +285,14 @@ Esperado: sin errores.
 
 ```bash
 git add supabase/migrations/0130_desviacion_de_protocolo.sql supabase/README.md
-git commit -m "feat(db): 0130 — documentar una desviación de protocolo"
+git commit -m "feat(db): 0131 — documentar una desviación de protocolo"
 ```
 
 - [ ] **Paso 5: Pasarle el SQL al Director**
 
-La 0130 **no se puede aplicar desde acá** (no hay acceso SQL a prod). Avisarle que está lista,
-que va **después de la 0128 y la 0129**, y que es aditiva (va antes del deploy del front). Apenas
+La 0131 **no se puede aplicar desde acá** (no hay acceso SQL a prod). Avisarle que está lista,
+que va **después de la 0128, la 0129 y la 0130**, y que es aditiva (va antes del deploy del
+front). Apenas
 confirme "aplicada", anotarlo en el índice como **Aplicada en prod (fecha)**.
 
 ---
@@ -401,7 +403,7 @@ Esperado: FAIL — `Failed to resolve import "./deviationModel"`.
 Crear `src/data/deviationModel.ts`:
 
 ```ts
-/* Las reglas PURAS de las desviaciones de protocolo (0130).
+/* Las reglas PURAS de las desviaciones de protocolo (0131).
  *
  * Viven acá y no en `deviations.ts` por lo mismo que `alertDismissalModel.ts`: aquel archivo
  * importa el cliente de Supabase —que lee `window` al cargarse— y estas reglas son comparación
@@ -411,17 +413,17 @@ Crear `src/data/deviationModel.ts`:
  * listas, y un filtro invertido no rompe nada que se mire — muestra de más o de menos. En un
  * sistema auditable, una alerta que no aparece es peor que una de más. */
 
-/** Fila de `protocol_deviations` (0130). */
+/** Fila de `protocol_deviations` (0131). */
 export interface ProtocolDeviationRow {
   id: string
   visit_id: string
-  /** `window_end` de la ventana que se venció. Parte de la identidad del desvío. 0130. */
+  /** `window_end` de la ventana que se venció. Parte de la identidad del desvío. 0131. */
   anchor: string
   reason: string
-  /** Obligatorio desde la base (check de no-vacío). 0130. */
+  /** Obligatorio desde la base (check de no-vacío). 0131. */
   detail: string
   recorded_by: string
-  /** Desnormalizados: la RLS de `users` sólo muestra la fila propia. 0130. */
+  /** Desnormalizados: la RLS de `users` sólo muestra la fila propia. 0131. */
   recorded_by_name: string
   recorded_by_role: string
   recorded_at: string
@@ -534,12 +536,12 @@ Crear `src/data/alertSignal.ts`:
 import { useEffect, useState } from 'react'
 
 /* Señal común de "lo que archiva alertas cambió" (descartes de la 0070 y desviaciones de la
-   0130).
+   0131).
    Sin react-query no hay caché compartida: la campana, el resumen de Inicio y la vista de
    Pendientes tienen cada uno SU propia consulta. Si una pantalla refetchea sola después de
    archivar, la campana se queda con el número viejo — exactamente la incoherencia que este
    módulo existe para evitar (y que se vio en el QA: la lista bajó a 21 y el badge seguía en 22).
-   Vive en su propio archivo desde la 0130: empezó privada dentro de `alertDismissals.ts` y las
+   Vive en su propio archivo desde la 0131: empezó privada dentro de `alertDismissals.ts` y las
    desviaciones necesitan LA MISMA señal, no una gemela — dos contadores dejarían a la campana
    enterándose de la mitad de las cosas. */
 let version = 0
@@ -590,7 +592,7 @@ import { desviacionLista, type ProtocolDeviationRow } from './deviationModel'
 export type { ProtocolDeviationRow } from './deviationModel'
 
 /**
- * Las desviaciones documentadas que este usuario puede ver (la RLS de la 0130 las scopea igual
+ * Las desviaciones documentadas que este usuario puede ver (la RLS de la 0131 las scopea igual
  * que la alerta: gerencia o coordinador de la visita).
  *
  * Se leen TODAS y el cruce lo hace el front, igual que los descartes: una vista de "alertas
@@ -612,7 +614,7 @@ export function useDeviations() {
 
 /** Traduce el código de Postgres a un mensaje sereno. */
 function deviationErrorMessage(code: string | undefined, raw: string): string {
-  /* La 0130 todavía no está aplicada en esta base: PostgREST no encuentra la función (PGRST202)
+  /* La 0131 todavía no está aplicada en esta base: PostgREST no encuentra la función (PGRST202)
      o la tabla (42P01/PGRST205). Es una condición de despliegue, no un error del usuario, así
      que se dice tal cual en vez de inventar una causa. */
   if (code === 'PGRST202' || code === '42P01' || code === 'PGRST205') {
@@ -787,7 +789,7 @@ import type { TrackVisitRow } from './visits'
  *
  * Tres razones para que una alerta salga de la lista, y ninguna la borra:
  *   1. está descartada (0070) — "esta alerta no correspondía";
- *   2. está documentada (0130) — "el desvío ocurrió, y acá está el porqué";
+ *   2. está documentada (0131) — "el desvío ocurrió, y acá está el porqué";
  *   3. su inscripción está cerrada — el paciente ya no está en el estudio.
  *
  * LA TERCERA ES LA MENOS OBVIA y vale el comentario. Al cerrar una inscripción, la 0127 borra
@@ -832,7 +834,7 @@ En `src/data/alertDismissals.ts`, dentro de `useActiveAlerts`:
    las deps.
 3. Devolver `deviations: devRows ?? []` en el objeto de retorno, junto a `dismissals`.
 4. **No sumar `deviations.error` a `error`.** Va con el mismo comentario que ya explica por qué
-   el error de los descartes no se propaga: mientras la 0130 no esté aplicada, esa consulta
+   el error de los descartes no se propaga: mientras la 0131 no esté aplicada, esa consulta
    falla, y si el error subiera, la campana, el Resumen y la vista se romperían las tres por una
    tabla que todavía no existe. Sin desviaciones el resultado correcto es "no hay ninguna", que
    es exactamente lo que pasa. **Esto es lo que permite desplegar el front antes o después de la
@@ -888,7 +890,7 @@ export interface DocumentandoTarget {
 }
 
 /**
- * Documentar la desviación de protocolo de una visita con la ventana vencida (0130).
+ * Documentar la desviación de protocolo de una visita con la ventana vencida (0131).
  *
  * GEMELO del modal de descarte, y a propósito: el gesto es el mismo y las dos acciones viven en
  * el mismo ítem, así que verse distinto sería decir que son cosas de otra naturaleza. Lo que
@@ -1222,7 +1224,7 @@ git commit -m "feat(desviaciones): la visita muestra que su desvío está docume
 
 ## Tarea 8 · Verificación en el navegador
 
-**Requiere la 0130 aplicada en prod.** Hasta que el Director confirme, el front funciona con el
+**Requiere la 0131 aplicada en prod.** Hasta que el Director confirme, el front funciona con el
 mensaje de "falta aplicar una actualización" al intentar documentar, que es lo correcto — pero no
 se puede dar por verificado.
 
