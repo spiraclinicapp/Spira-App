@@ -249,14 +249,16 @@ La `0130` es **aditiva**: tabla y RPC nuevos que ningún front desplegado consul
 el front después. (La regla de "front primero" es para lo que altera lo que el front YA pide; no es
 este caso.)
 
-**Ojo con el número.** La `0128` todavía no está aplicada en prod, y la `0129` (guarda de Recepción)
-vive sin pushear en la rama `fix/recepcion-guarda-borrado-y-renglones`. Esta migración se numeró
-primero como `0131`, porque la `0130` estaba reservada para la limpieza de Reposición; el Director
-la corrió a **`0130`** el 2026-09-17, ya que esa limpieza depende de un deploy de Farmacia que
-todavía no pasó y no tenía sentido que frenara esta feature. La limpieza toma un número posterior.
+**El número.** Esta migración se numeró primero como `0131` —la `0130` estaba reservada para la
+limpieza de Reposición— y el Director la corrió a **`0130`** el 2026-09-17, porque esa limpieza
+depende de un deploy de Farmacia que todavía no pasó y no tenía sentido que frenara esta feature. La
+limpieza toma un número posterior. La `0129` terminó siendo `feedback_lugar` (PR #222), que entró
+a `main` mientras esto se escribía; la guarda de Recepción, que la tenía reservada, pasa a la `0131`.
+(El comentario de cabecera de la `0130` todavía llama «guarda de Recepción» a la 0129: no se corrige
+porque ya está aplicada, y el orden que indica sigue siendo el correcto.)
 
-La consecuencia práctica: mientras la `0129` no esté en `main`, esta rama deja un hueco de
-numeración y **`scripts/check-migraciones.mjs` falla en CI**. Es el mismo motivo por el que la
-guarda de Recepción está esperando sin pushear, y se resuelve igual — el archivo `.sql` no sale a
-una PR hasta que las anteriores estén. El front, en cambio, no depende de eso: verificado en el
-navegador que funciona con la tabla ausente.
+**Aplicada en prod el 2026-09-17.** Dos trampas del editor de Supabase costaron dos intentos y vale
+dejarlas escritas: frena en un aviso de «tabla sin RLS» —se elige **Run and enable RLS**, que no
+cambia nada porque el archivo la activa igual; si se cancela no corre nada, y el "Success" que queda
+en pantalla es de otra ejecución—; y después de aplicarla hace falta `notify pgrst, 'reload schema';`,
+o la API sigue contestando `PGRST205` como si la tabla no existiera.

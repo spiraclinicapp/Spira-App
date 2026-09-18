@@ -17,20 +17,15 @@ react-query, sin Tailwind.
 
 ## Estado (2026-09-17)
 
-**Tareas 1 a 7 hechas y commiteadas** en `feat/desviaciones-de-protocolo`: la migración, las
-reglas puras, la capa de datos, el filtro de la lista activa, el modal, el botón en el pendiente
-con su panel, y la marca en el encabezado de la visita. `npm run build` verde (75 archivos, 1240
-tests) y la `0130` probada con PGlite (17 verificaciones).
+**Las ocho tareas hechas.** La `0130` está **aplicada en prod** y la Tarea 8 se verificó contra la
+base real con un protocolo, un paciente y una visita `TEST-*` creados para eso y **borrados por id**
+al terminar: documentar la desviación desde la pantalla saca el ítem de la lista y **baja la campana
+en el mismo gesto**; el panel muestra motivo, explicación, autor y fecha; el encabezado de la visita
+lleva la marca; y borrarla desde el panel devuelve el ítem a la lista y sube la campana. El
+`audit_log` guardó el `INSERT` y el `DELETE`, cada uno con motivo y autor.
 
-**Falta la Tarea 8**, y no se puede cerrar todavía: verifica el flujo real contra la base y
-necesita la migración **aplicada en prod**. La `0130` está escrita y entregada al Director; va
-después de la `0128` (pendiente de aplicar) y la `0129` (en
-`fix/recepcion-guarda-borrado-y-renglones`, sin pushear).
-
-Mientras tanto esta rama tiene **CI rojo** por el hueco de numeración que deja la `0129` ausente,
-no por un problema del código. Lo que sí se pudo verificar sin la migración —que la pantalla no se
-rompió, el padding real del ítem, los seis motivos, la habilitación del botón y el mensaje sereno
-cuando la tabla no existe— está detallado en el commit `fc0ff11`.
+La rama está rebaseada sobre `main`, que ya trae la `0129_feedback_lugar`: la numeración queda
+contigua y `check-migraciones` pasa (**✓ 130 migraciones, índice al día**).
 
 ## Restricciones globales
 
@@ -1246,18 +1241,18 @@ git commit -m "feat(desviaciones): la visita muestra que su desvío está docume
 mensaje de "falta aplicar una actualización" al intentar documentar, que es lo correcto — pero no
 se puede dar por verificado.
 
-- [ ] **Paso 1: Levantar el preview**
+- [x] **Paso 1: Levantar el preview**
 
 Puerto **5250** (`.claude/launch.json`), no el 5173 del Director. El Director se loguea a mano una
 vez; el agente no ingresa contraseñas.
 
-- [ ] **Paso 2: Crear la condición sin tocar datos reales**
+- [x] **Paso 2: Crear la condición sin tocar datos reales**
 
 No hay ventanas vencidas en prod (medido el 2026-09-17). Crear una visita de prueba con prefijo
 `TEST-*` y ventana pasada, y **borrar exactamente esa** al terminar. **Nunca** borrar en lote por
 categoría.
 
-- [ ] **Paso 3: Documentar la desviación y comprobar las cuatro cosas**
+- [x] **Paso 3: Documentar la desviación y comprobar las cuatro cosas**
 
 1. El ítem **sale de la lista** y el contador baja.
 2. **La campana baja en el mismo gesto** (si no, la señal común de la Tarea 3 no está llegando:
@@ -1270,7 +1265,7 @@ Verificar por **snapshot / `javascript_tool` / estilos computados**, no por capt
 (esperar 4-5 s después de un `navigate`); para apuntar, `element.click()` por selector, no por
 coordenadas.
 
-- [ ] **Paso 4: Borrar el dato de prueba y cerrar**
+- [x] **Paso 4: Borrar el dato de prueba y cerrar**
 
 Borrar la visita `TEST-*` creada, y sólo esa.
 
