@@ -31,13 +31,21 @@ import type { CSSProperties } from 'react'
  */
 export function alertItemStyle(
   tone: string,
-  /** La vista de Alertas superpone un botón de descartar arriba a la derecha: el texto necesita
-   *  aire para no correr por debajo. Los resúmenes no lo tienen. */
-  opts: { conBotonDescartar?: boolean } = {},
+  opts: {
+    /** La vista de Alertas superpone un botón de descartar arriba a la derecha: el texto necesita
+     *  aire para no correr por debajo. Los resúmenes no lo tienen. */
+    conBotonDescartar?: boolean
+    /** Sólo la ventana vencida: el botón "Documentar desviación" se superpone abajo a la derecha
+     *  (0130). Va CON NOMBRE y no con ícono porque es la acción que RESUELVE el pendiente — un
+     *  segundo glifo mudo al lado de la X diría que las dos hacen lo mismo—, y un botón con texto
+     *  necesita su propio renglón de aire. */
+    conBotonDesviacion?: boolean
+  } = {},
 ): CSSProperties {
   return {
     display: 'flex', gap: 11, width: '100%', padding: '12px 13px', borderRadius: 11,
     ...(opts.conBotonDescartar ? { paddingRight: 42 } : null),
+    ...(opts.conBotonDesviacion ? { paddingBottom: 34 } : null),
     /* `color-mix` y NO concatenar hex (`tone + '0E'`), que es como estaba y era un bug de verdad:
        esa forma sólo funciona si `tone` es un hex de 6 dígitos. La lista de reportes pendientes le
        pasa un TOKEN (`var(--spira-primary)`), y `var(--spira-primary)0E` no es CSS válido: el
