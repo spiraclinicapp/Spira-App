@@ -8,7 +8,7 @@ conclusión no se parece al punto de partida.
 Continúa la línea de [`plan-pendientes-clase-de-alerta.md`](plan-pendientes-clase-de-alerta.md) y
 [`plan-por-reprogramar.md`](plan-por-reprogramar.md).
 
-**Una migración: la `0131`.** Es **aditiva** (tabla y RPC nuevos, ningún front viejo los consulta)
+**Una migración: la `0130`.** Es **aditiva** (tabla y RPC nuevos, ningún front viejo los consulta)
 ⇒ va **primero**, el front después.
 
 ---
@@ -158,7 +158,7 @@ vuelve a pedir su documentación. Único `(visit_id, anchor)`.
 
 ---
 
-## Modelo de datos (migración 0131)
+## Modelo de datos (migración 0130)
 
 Tabla `public.protocol_deviations`:
 
@@ -245,16 +245,17 @@ viejo — ya pasó con los descartes).
 
 ## Orden de despliegue
 
-La `0131` es **aditiva**: tabla y RPC nuevos que ningún front desplegado consulta. Va **primero**,
+La `0130` es **aditiva**: tabla y RPC nuevos que ningún front desplegado consulta. Va **primero**,
 el front después. (La regla de "front primero" es para lo que altera lo que el front YA pide; no es
 este caso.)
 
-**Ojo con el número, que tiene una cola de tres adelante.** La `0128` todavía no está aplicada en
-prod; la `0129` (guarda de Recepción) vive en la rama `fix/recepcion-guarda-borrado-y-renglones`,
-sin pushear; y la `0130` está **reservada** para la limpieza de Reposición (decisión del Director
-del 2026-09-17), todavía sin escribir. Por eso esta migración es la **`0131`** y no la `0130`.
+**Ojo con el número.** La `0128` todavía no está aplicada en prod, y la `0129` (guarda de Recepción)
+vive sin pushear en la rama `fix/recepcion-guarda-borrado-y-renglones`. Esta migración se numeró
+primero como `0131`, porque la `0130` estaba reservada para la limpieza de Reposición; el Director
+la corrió a **`0130`** el 2026-09-17, ya que esa limpieza depende de un deploy de Farmacia que
+todavía no pasó y no tenía sentido que frenara esta feature. La limpieza toma un número posterior.
 
-La consecuencia práctica: mientras las dos del medio no estén en `main`, esta rama deja huecos de
+La consecuencia práctica: mientras la `0129` no esté en `main`, esta rama deja un hueco de
 numeración y **`scripts/check-migraciones.mjs` falla en CI**. Es el mismo motivo por el que la
 guarda de Recepción está esperando sin pushear, y se resuelve igual — el archivo `.sql` no sale a
 una PR hasta que las anteriores estén. El front, en cambio, no depende de eso: verificado en el

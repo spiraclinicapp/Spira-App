@@ -8,7 +8,7 @@ import { useProcedureReportAlerts } from './reports'
 import type { ProcedureReportAlertRow } from './reports'
 import { useIpDeliveryAlerts } from './visitIp'
 /* `isVisitAlertDismissed` ya no se importa acá: lo usa `activeAlertsFilter.ts`, que es donde vive
-   la regla desde la 0131. Se sigue REEXPORTANDO más abajo, así que ningún consumidor cambia. */
+   la regla desde la 0130. Se sigue REEXPORTANDO más abajo, así que ningún consumidor cambia. */
 import { descarteListo, isReportAlertDismissed } from './alertDismissalModel'
 import { bumpAlertArchives, useAlertArchivesVersion } from './alertSignal'
 import { alertasVigentes } from './activeAlertsFilter'
@@ -43,7 +43,7 @@ export type { AlertDismissalRow, AlertKind } from './alertDismissalModel'
 
 import type { AlertDismissalRow, AlertKind } from './alertDismissalModel'
 
-/* La señal común de "lo archivado cambió" vive en `alertSignal.ts` desde la 0131.
+/* La señal común de "lo archivado cambió" vive en `alertSignal.ts` desde la 0130.
 
    Nació acá, privada, y se mudó cuando llegaron las desviaciones documentadas: las dos cosas
    archivan alertas y tienen que avisar por el MISMO canal. Con un contador propio para cada una,
@@ -83,7 +83,7 @@ export function useActiveAlerts() {
      vigente y la cruda son la misma. */
   const ips = useIpDeliveryAlerts()
   const dismissals = useAlertDismissals()
-  /* La cuarta entrada: las desviaciones documentadas (0131). Una ventana vencida con su desvío
+  /* La cuarta entrada: las desviaciones documentadas (0130). Una ventana vencida con su desvío
      explicado ya no pide acción — el pendiente era documentarla. */
   const deviations = useDeviations()
 
@@ -112,14 +112,14 @@ export function useActiveAlerts() {
     reportAlerts,
     ipAlerts: ips.data ?? [],
     dismissals: dRows ?? [],
-    /** Las desviaciones documentadas crudas (para poblar su panel y marcar la visita). 0131. */
+    /** Las desviaciones documentadas crudas (para poblar su panel y marcar la visita). 0130. */
     deviations: devRows ?? [],
     /** Todas las alertas crudas, sin filtrar (para resolver de qué visita habla un descarte). */
     allVisitAlerts: rows ?? [],
     allReportAlerts: procRows ?? [],
     loading: alerts.loading || reports.loading || ips.loading || dismissals.loading || deviations.loading,
     /**
-     * El error de los DESCARTES no se propaga a propósito, y desde la 0131 el de las DESVIACIONES
+     * El error de los DESCARTES no se propaga a propósito, y desde la 0130 el de las DESVIACIONES
      * tampoco, por la misma razón. Mientras la migración que las gobierna no esté aplicada, esa
      * tabla no existe y su consulta falla — si ese error subiera, la campana, el resumen y la
      * vista de Pendientes se romperían las tres por una tabla que todavía no está. Sin descartes

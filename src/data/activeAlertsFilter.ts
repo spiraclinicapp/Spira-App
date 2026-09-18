@@ -9,7 +9,7 @@ import type { TrackVisitRow } from './visits'
  *
  * Tres razones para que una salga de la lista, y ninguna la borra:
  *   1. está descartada (0070) — "esta alerta no correspondía";
- *   2. está documentada (0131) — "el desvío ocurrió, y acá está el porqué";
+ *   2. está documentada (0130) — "el desvío ocurrió, y acá está el porqué";
  *   3. su inscripción está cerrada — el paciente ya no está en el estudio.
  *
  * LA TERCERA ES LA MENOS OBVIA y vale el comentario. Al cerrar una inscripción, la 0127 borra las

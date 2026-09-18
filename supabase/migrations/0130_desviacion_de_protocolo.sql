@@ -1,4 +1,4 @@
--- Spira · Migración 0131 — Track: documentar una desviación de protocolo
+-- Spira · Migración 0130 — Track: documentar una desviación de protocolo
 -- ============================================================================
 -- Una ventana vencida NO tenía salida. Sale de la lista de dos maneras: cargando la visita
 -- (y entonces deja de estar vencida) o DESCARTANDO la alerta (0070) con un motivo de catálogo
@@ -34,8 +34,10 @@
 -- en el navegador el 2026-09-17 con el front nuevo y esta migración SIN aplicar: la consulta
 -- falla con PGRST205 y las tres pantallas de alertas (Pendientes, la campana y el Resumen)
 -- siguen enteras, porque ese error no se propaga.
--- APLICAR: a mano en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0128 (reposición
--- de corte a corte), la 0129 (guarda de Recepción) y la 0130 (limpieza de Reposición).
+-- APLICAR: a mano en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0128 (reposición de
+-- corte a corte) y la 0129 (guarda de Recepción). La limpieza de Reposición tenía reservado este
+-- número y pasa a uno posterior (Director, 2026-09-17): no depende de esta migración ni al revés,
+-- y esa limpieza espera un deploy de Farmacia que todavía no pasó.
 -- IDEMPOTENTE. Registrar en supabase/README.md al confirmarse en prod.
 -- ============================================================================
 
@@ -77,12 +79,12 @@ comment on table public.protocol_deviations is
   'Desviaciones de protocolo documentadas sobre una visita que no se hizo dentro de su ventana. '
   'No cambia el estado de la visita ni borra nada: agrega el porqué, con autor y fecha. El ancla '
   '(window_end) hace que valga para ESA ventana: si la visita se reprograma y vuelve a vencerse, '
-  'es otro desvío. 0131.';
+  'es otro desvío. 0130.';
 comment on column public.protocol_deviations.anchor is
-  'window_end de la ventana que se venció. Parte de la identidad del desvío. 0131.';
+  'window_end de la ventana que se venció. Parte de la identidad del desvío. 0130.';
 comment on column public.protocol_deviations.detail is
   'Explicación obligatoria (check de no-vacío). A diferencia de alert_dismissals.detail, acá se '
-  'exige siempre: el lector de esto, meses después, es un monitor. 0131.';
+  'exige siempre: el lector de esto, meses después, es un monitor. 0130.';
 
 -- Una desviación por visita y ventana.
 create unique index if not exists ux_protocol_deviation_visita
@@ -181,7 +183,7 @@ end $fn$;
 comment on function public.record_protocol_deviation(uuid, text, text) is
   'Documenta una desviación de protocolo sobre una visita con la ventana vencida. Calcula el '
   'ancla (window_end) en el servidor para que un registro no pueda tapar una ventana futura. '
-  'Authz: gerencia o coordinador de la visita. 0131.';
+  'Authz: gerencia o coordinador de la visita. 0130.';
 
 revoke all on function public.record_protocol_deviation(uuid, text, text) from anon, public;
 grant execute on function public.record_protocol_deviation(uuid, text, text) to authenticated;

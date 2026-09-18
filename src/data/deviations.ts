@@ -5,7 +5,7 @@ import { bumpAlertArchives, useAlertArchivesVersion } from './alertSignal'
 import { desviacionLista } from './deviationModel'
 import type { ProtocolDeviationRow } from './deviationModel'
 
-/* Documentar una desviación de protocolo (migración 0131).
+/* Documentar una desviación de protocolo (migración 0130).
 
    La salida que le faltaba a la ventana vencida. Hasta acá, una visita que no se hizo dentro de
    su ventana salía de la lista de dos maneras: cargándola (y entonces dejaba de estar vencida) o
@@ -31,7 +31,7 @@ export {
 export type { ProtocolDeviationRow } from './deviationModel'
 
 /**
- * Las desviaciones documentadas que este usuario puede ver (la RLS de la 0131 las scopea igual
+ * Las desviaciones documentadas que este usuario puede ver (la RLS de la 0130 las scopea igual
  * que la alerta: gerencia o coordinador de la visita).
  *
  * Se traen TODAS y el cruce lo hace el front, igual que los descartes: una vista de "alertas
@@ -56,7 +56,7 @@ export function useDeviations(): QueryResult<ProtocolDeviationRow[]> {
 
 /** Traduce el código de Postgres a un mensaje sereno. */
 function deviationErrorMessage(code: string | undefined, raw: string): string {
-  /* La 0131 todavía no está aplicada en esta base: PostgREST no encuentra la función (PGRST202)
+  /* La 0130 todavía no está aplicada en esta base: PostgREST no encuentra la función (PGRST202)
      o la tabla (42P01 / PGRST205). Es una condición de despliegue, no un error del usuario, así
      que se dice tal cual en vez de inventar una causa. */
   if (code === 'PGRST202' || code === '42P01' || code === 'PGRST205') {
@@ -73,7 +73,7 @@ function deviationErrorMessage(code: string | undefined, raw: string): string {
 export interface RecordDeviationInput {
   visitId: string
   reason: string
-  /** Obligatorio SIEMPRE (lo exige también un check de la 0131), no sólo con el motivo "otro". */
+  /** Obligatorio SIEMPRE (lo exige también un check de la 0130), no sólo con el motivo "otro". */
   detail: string
 }
 
@@ -106,7 +106,7 @@ export async function recordDeviation(input: RecordDeviationInput): Promise<{ er
 /**
  * Borra una desviación documentada. Existe para corregir un motivo equivocado: se borra y se
  * vuelve a documentar, y el `audit_log` muestra las dos decisiones en vez de una sobrescrita —
- * por eso la 0131 no tiene policy de UPDATE. Es el mismo criterio que usa la 0070 para restaurar.
+ * por eso la 0130 no tiene policy de UPDATE. Es el mismo criterio que usa la 0070 para restaurar.
  *
  * La RLS decide; 0 filas afectadas = sin permiso, no éxito.
  */
