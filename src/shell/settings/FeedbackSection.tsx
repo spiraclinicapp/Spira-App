@@ -106,11 +106,32 @@ export function FeedbackSection({ onIrAlLugar }: {
         </div>
       )}
 
+      <FeedbackRenglones filas={filas} userModules={modules} errores={errores} onIrAlLugar={onIrAlLugar} onMarcar={marcar} />
+    </StCard>
+  )
+}
+
+/**
+ * Los renglones de la bandeja, aparte de la sección: la sección trae los datos y decide el permiso,
+ * esto sólo dibuja lo que recibe. La separación es la que deja montar el componente REAL con filas de
+ * juguete en un banco de pruebas —sin sesión no hay datos, y sin gerencia la sección ni llega acá—.
+ */
+export function FeedbackRenglones({ filas, userModules, errores, onIrAlLugar, onMarcar }: {
+  filas: FeedbackRow[]
+  /** Los módulos de quien mira: deciden si «Ir al lugar» se puede dar (ver `alcanzable`). */
+  userModules: readonly string[]
+  /** Errores de marcado por id de feedback. */
+  errores: Record<string, string>
+  onIrAlLugar?: (moduleKey: string, subKey: string, target: Record<string, unknown>) => void
+  onMarcar: (f: FeedbackRow) => void
+}) {
+  return (
+    <>
       {filas.map((f, i) => {
         const d = destinoDelLugar(f.place_target)
         /* Sólo si se puede ir DE VERDAD: `navigate` sale en silencio sin acceso al módulo o con un
            submódulo que ya no existe, y el botón quedaría muerto (ver `alcanzable`). */
-        const destino = d && alcanzable(d, modules) ? d : null
+        const destino = d && alcanzable(d, userModules) ? d : null
         const pinta = PINTA[f.type]
         return (
           <div
@@ -141,7 +162,7 @@ export function FeedbackSection({ onIrAlLugar }: {
                 </button>
               )}
               {!f.seen_at && (
-                <button type="button" style={btnGhost} onClick={() => marcar(f)}>
+                <button type="button" style={btnGhost} onClick={() => onMarcar(f)}>
                   Marcar como visto
                 </button>
               )}
@@ -149,6 +170,6 @@ export function FeedbackSection({ onIrAlLugar }: {
           </div>
         )
       })}
-    </StCard>
+    </>
   )
 }
