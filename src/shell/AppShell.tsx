@@ -645,6 +645,9 @@ export function AppShell() {
           section={settingsSection}
           setSection={moverAjustes}
           onClose={cerrarAjustes}
+          /* «Ir al lugar» de la bandeja de feedback. No hace falta cerrar Ajustes a mano: navegar
+             escribe un query vacío y se lleva el `?ajustes=` con él (ver `selectModule`). */
+          onIrAlLugar={(mKey, sKey, target) => navigate(mKey, sKey, target as NavTarget)}
         />
       )}
     </div>

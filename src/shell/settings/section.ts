@@ -6,7 +6,7 @@
  * en un test de node. Misma división que el resto del repo entre las reglas puras y su cáscara.
  */
 
-/* Cuatro secciones. Notificaciones y Ayuda se sacaron (decisión del Director, 2026-08-25): las dos
+/* Cinco secciones, la última sólo para gerencia. Notificaciones y Ayuda se sacaron (decisión del Director, 2026-08-25): las dos
    eran maqueta entera y ninguna perdía función al irse — los avisos in-app siguen en la campana de
    la top bar (`NotificationsMenu`), y la versión y las novedades ya viven en el popover Acerca de
    (`AboutMenu`), que es de donde salían. Lo único que se fue de verdad son dos atajos de teclado.
@@ -15,9 +15,23 @@
    es la única de configuración del centro que no habla de la persona que la abre. Se le muestra a
    todos —saber a qué portal ir a buscar un reporte le sirve a cualquier coordinadora—, pero sólo
    la editan track-leader y gerencia, que es lo que dice la RLS de la 0111. */
-export type SettingsSection = 'cuenta' | 'prefs' | 'roles' | 'plataformas'
+/* `feedback` (entrega 2 del spec del 2026-09-17) va ÚLTIMA por el mismo criterio que `plataformas`:
+   no corre a ninguna de las que ya estaban. Es la única que no ve todo el mundo — ver `seccionVisible`. */
+export type SettingsSection = 'cuenta' | 'prefs' | 'roles' | 'plataformas' | 'feedback'
 
-export const SECCIONES: SettingsSection[] = ['cuenta', 'prefs', 'roles', 'plataformas']
+export const SECCIONES: SettingsSection[] = ['cuenta', 'prefs', 'roles', 'plataformas', 'feedback']
+
+/**
+ * Qué sección mostrar de verdad. «Feedback recibido» es de gerencia: no está en el menú de los
+ * demás, pero `?ajustes=feedback` es una URL que cualquiera puede escribir o recibir. Sin gerencia
+ * cae a «Mi cuenta», igual que una sección desconocida — quien abrió el link pidió entrar a Ajustes.
+ *
+ * Esto NO es el control de acceso: el control es la RLS de la 0044, que no le devuelve una fila a
+ * nadie más. Acá se evita mostrar una pantalla que sólo puede fallar.
+ */
+export function seccionVisible(section: SettingsSection, esGerencia: boolean): SettingsSection {
+  return section === 'feedback' && !esGerencia ? 'cuenta' : section
+}
 
 /**
  * El valor crudo de `?ajustes=` → la sección a mostrar, o `null` si Ajustes está cerrado.
