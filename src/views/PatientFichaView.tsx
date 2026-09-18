@@ -26,6 +26,7 @@ import { RegisterVisitFlow } from './track/RegisterVisitFlow'
 import { EditPatientForm } from './EditPatientForm'
 import { PatientMedicationsCard } from './pharma/PatientMedicationsCard'
 import { useAuth } from '../lib/auth'
+import { useLugar } from '../lib/lugar'
 import type { ViewHeader } from './types'
 
 const card: CSSProperties = {
@@ -101,6 +102,15 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   /* El IVRS del ESTUDIO en contexto, no el del paciente: la misma persona en dos estudios tiene dos
      números, y ésta es la ficha de uno solo (ver `ivrsDelEstudio`). */
   const ivrs = ivrsDelEstudio(patient, protocol.id)
+
+  /* Para el feedback: quien reporta desde acá está mirando a ESTE paciente en ESTE estudio, y eso es
+     lo que quien supervisa va a querer abrir. El `protocolId` viaja junto al paciente por el mismo
+     motivo que el IVRS de arriba: la misma persona puede estar en dos estudios (0127), y sin él la
+     ficha se abriría bajo el que no era. */
+  useLugar({
+    label: `${patient.full_name}${ivrs ? ` · ${ivrs}` : ''}`,
+    target: { patientId: patient.id, protocolId: protocol.id },
+  })
 
   /* Encabezado contextual del shell: Protocolos (→ grilla) › CÓDIGO (→ detalle) › PACIENTE,
      + Reprogramar / Agendar visita a la derecha. Callbacks por ref (deps primitivas).
