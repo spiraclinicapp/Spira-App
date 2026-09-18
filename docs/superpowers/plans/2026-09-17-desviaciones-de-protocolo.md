@@ -15,6 +15,23 @@ alertas (la vista, el Resumen y la campana).
 **Stack:** React + TypeScript strict, Supabase (PostgREST + RPC), vitest. Sin react-router, sin
 react-query, sin Tailwind.
 
+## Estado (2026-09-17)
+
+**Tareas 1 a 7 hechas y commiteadas** en `feat/desviaciones-de-protocolo`: la migración, las
+reglas puras, la capa de datos, el filtro de la lista activa, el modal, el botón en el pendiente
+con su panel, y la marca en el encabezado de la visita. `npm run build` verde (75 archivos, 1240
+tests) y la `0130` probada con PGlite (17 verificaciones).
+
+**Falta la Tarea 8**, y no se puede cerrar todavía: verifica el flujo real contra la base y
+necesita la migración **aplicada en prod**. La `0130` está escrita y entregada al Director; va
+después de la `0128` (pendiente de aplicar) y la `0129` (en
+`fix/recepcion-guarda-borrado-y-renglones`, sin pushear).
+
+Mientras tanto esta rama tiene **CI rojo** por el hueco de numeración que deja la `0129` ausente,
+no por un problema del código. Lo que sí se pudo verificar sin la migración —que la pantalla no se
+rompió, el padding real del ítem, los seis motivos, la habilitación del botón y el mensaje sereno
+cuando la tabla no existe— está detallado en el commit `fc0ff11`.
+
 ## Restricciones globales
 
 - **Castellano rioplatense** en comentarios, nombres de dominio y copy de UI.
@@ -68,7 +85,7 @@ exactamente el mismo motivo, y este archivo es su gemelo.
   Los motivos válidos son los seis valores del `check`, y son los mismos que la Tarea 2 escribe en
   TypeScript.
 
-- [ ] **Paso 1: Escribir la migración**
+- [x] **Paso 1: Escribir la migración**
 
 Crear `supabase/migrations/0130_desviacion_de_protocolo.sql`:
 
@@ -259,7 +276,7 @@ revoke all on function public.record_protocol_deviation(uuid, text, text) from a
 grant execute on function public.record_protocol_deviation(uuid, text, text) to authenticated;
 ```
 
-- [ ] **Paso 2: Contar los dollar-quotes (la trampa de la 0071)**
+- [x] **Paso 2: Contar los dollar-quotes (la trampa de la 0071)**
 
 El editor SQL de Supabase rastrea el dollar-quoting **sin ignorar los comentarios**: un marcador
 suelto dentro de un comentario le invierte la paridad y parte las funciones por sus `;` internos,
@@ -271,7 +288,7 @@ node -e "const s=require('fs').readFileSync('supabase/migrations/0130_desviacion
 
 Esperado: `marcadores: 2 PAR (ok)`
 
-- [ ] **Paso 3: Registrar la migración en el índice**
+- [x] **Paso 3: Registrar la migración en el índice**
 
 En `supabase/README.md`, agregar la 0130 a la tabla de migraciones siguiendo el formato de las
 filas vecinas, **sin** la marca de aplicada (todavía no lo está). CI lo vigila con
@@ -283,14 +300,14 @@ node scripts/check-migraciones.mjs
 
 Esperado: sin errores.
 
-- [ ] **Paso 4: Commit**
+- [x] **Paso 4: Commit**
 
 ```bash
 git add supabase/migrations/0130_desviacion_de_protocolo.sql supabase/README.md
 git commit -m "feat(db): 0130 — documentar una desviación de protocolo"
 ```
 
-- [ ] **Paso 5: Pasarle el SQL al Director**
+- [x] **Paso 5: Pasarle el SQL al Director**
 
 La 0130 **no se puede aplicar desde acá** (no hay acceso SQL a prod). Avisarle que está lista,
 que va **después de la 0128 y la 0129**, y que es aditiva (va antes del deploy del front). Apenas
@@ -309,7 +326,7 @@ confirme "aplicada", anotarlo en el índice como **Aplicada en prod (fecha)**.
   `ProtocolDeviationRow`, `isVisitDeviationRecorded(deviations, visit)`,
   `ESTADOS_DE_INSCRIPCION_CERRADOS`, `inscripcionCerrada(enrollmentStatus)`.
 
-- [ ] **Paso 1: Escribir los tests (van primero)**
+- [x] **Paso 1: Escribir los tests (van primero)**
 
 Crear `src/data/deviationModel.test.ts`:
 
@@ -391,7 +408,7 @@ describe('desviacionLista', () => {
 })
 ```
 
-- [ ] **Paso 2: Correr los tests para verificar que fallan**
+- [x] **Paso 2: Correr los tests para verificar que fallan**
 
 ```bash
 npx vitest run src/data/deviationModel.test.ts
@@ -399,7 +416,7 @@ npx vitest run src/data/deviationModel.test.ts
 
 Esperado: FAIL — `Failed to resolve import "./deviationModel"`.
 
-- [ ] **Paso 3: Escribir el modelo**
+- [x] **Paso 3: Escribir el modelo**
 
 Crear `src/data/deviationModel.ts`:
 
@@ -494,7 +511,7 @@ export function isVisitDeviationRecorded(
 }
 ```
 
-- [ ] **Paso 4: Correr los tests para verificar que pasan**
+- [x] **Paso 4: Correr los tests para verificar que pasan**
 
 ```bash
 npx vitest run src/data/deviationModel.test.ts
@@ -502,7 +519,7 @@ npx vitest run src/data/deviationModel.test.ts
 
 Esperado: PASS, 11 tests.
 
-- [ ] **Paso 5: Commit**
+- [x] **Paso 5: Commit**
 
 ```bash
 git add src/data/deviationModel.ts src/data/deviationModel.test.ts
@@ -529,7 +546,7 @@ avisa "los descartes cambiaron" para que las tres relean a la vez; sin eso, la l
 el badge sigue en 22 (ya pasó en QA). Las desviaciones necesitan **la misma** señal: si estrenan
 una propia, documentar una desviación deja la campana con el número viejo.
 
-- [ ] **Paso 1: Mover la señal a su propio archivo**
+- [x] **Paso 1: Mover la señal a su propio archivo**
 
 Crear `src/data/alertSignal.ts`:
 
@@ -564,7 +581,7 @@ export function useAlertArchivesVersion(): number {
 }
 ```
 
-- [ ] **Paso 2: Hacer que `alertDismissals.ts` use la señal común**
+- [x] **Paso 2: Hacer que `alertDismissals.ts` use la señal común**
 
 En `src/data/alertDismissals.ts`: borrar el contador privado (`dismissalsVersion`,
 `dismissalsSubs`, `bumpDismissals`, `useDismissalsVersion`) y reemplazar sus usos por
@@ -580,7 +597,7 @@ npm run typecheck
 
 Esperado: sin errores.
 
-- [ ] **Paso 3: Escribir la capa de datos de desviaciones**
+- [x] **Paso 3: Escribir la capa de datos de desviaciones**
 
 Crear `src/data/deviations.ts`:
 
@@ -675,7 +692,7 @@ export async function deleteDeviation(deviationId: string): Promise<{ error: str
 }
 ```
 
-- [ ] **Paso 4: Verificar que compila y que la suite sigue verde**
+- [x] **Paso 4: Verificar que compila y que la suite sigue verde**
 
 ```bash
 npm run typecheck && npx vitest run
@@ -685,7 +702,7 @@ Esperado: typecheck sin errores; los tests que ya había, más los 11 de la Tare
 (Ojo: `vitest` corre también los tests de los worktrees, así que el conteo local puede venir
 duplicado — no es un problema.)
 
-- [ ] **Paso 5: Commit**
+- [x] **Paso 5: Commit**
 
 ```bash
 git add src/data/alertSignal.ts src/data/alertDismissals.ts src/data/deviations.ts
@@ -709,7 +726,7 @@ git commit -m "feat(desviaciones): capa de datos y señal común de archivado"
 tres entradas que se combinan. Adentro del `useMemo` no se puede testear, y es exactamente la
 clase de cosa que este repo testea.
 
-- [ ] **Paso 1: Escribir el test**
+- [x] **Paso 1: Escribir el test**
 
 Crear `src/data/activeAlertsFilter.test.ts`:
 
@@ -768,7 +785,7 @@ describe('alertasVigentes', () => {
 })
 ```
 
-- [ ] **Paso 2: Correr el test para verificar que falla**
+- [x] **Paso 2: Correr el test para verificar que falla**
 
 ```bash
 npx vitest run src/data/activeAlertsFilter.test.ts
@@ -776,7 +793,7 @@ npx vitest run src/data/activeAlertsFilter.test.ts
 
 Esperado: FAIL — `Failed to resolve import "./activeAlertsFilter"`.
 
-- [ ] **Paso 3: Escribir el filtro**
+- [x] **Paso 3: Escribir el filtro**
 
 Crear `src/data/activeAlertsFilter.ts`:
 
@@ -817,7 +834,7 @@ export function alertasVigentes(
 }
 ```
 
-- [ ] **Paso 4: Correr el test para verificar que pasa**
+- [x] **Paso 4: Correr el test para verificar que pasa**
 
 ```bash
 npx vitest run src/data/activeAlertsFilter.test.ts
@@ -825,7 +842,7 @@ npx vitest run src/data/activeAlertsFilter.test.ts
 
 Esperado: PASS, 6 tests.
 
-- [ ] **Paso 5: Enchufarlo en `useActiveAlerts`**
+- [x] **Paso 5: Enchufarlo en `useActiveAlerts`**
 
 En `src/data/alertDismissals.ts`, dentro de `useActiveAlerts`:
 
@@ -842,7 +859,7 @@ En `src/data/alertDismissals.ts`, dentro de `useActiveAlerts`:
    migración.**
 5. `loading` sí suma `deviations.loading`.
 
-- [ ] **Paso 6: Verificar**
+- [x] **Paso 6: Verificar**
 
 ```bash
 npm run typecheck && npx vitest run
@@ -850,7 +867,7 @@ npm run typecheck && npx vitest run
 
 Esperado: verde.
 
-- [ ] **Paso 7: Commit**
+- [x] **Paso 7: Commit**
 
 ```bash
 git add src/data/activeAlertsFilter.ts src/data/activeAlertsFilter.test.ts src/data/alertDismissals.ts
@@ -869,7 +886,7 @@ git commit -m "feat(desviaciones): la lista activa deja fuera lo documentado y l
 - Consume: `DEVIATION_REASONS`, `desviacionLista` (Tarea 2); `recordDeviation` (Tarea 3).
 - Produce: `<DocumentarDesviacionModal target={{ visitId, label }} accent onClose onDone onError />`.
 
-- [ ] **Paso 1: Escribir el modal**
+- [x] **Paso 1: Escribir el modal**
 
 Crear `src/views/DocumentarDesviacionModal.tsx`. Es el gemelo del modal de descarte que ya vive
 en `TrackAlertsView.tsx`, con tres diferencias: el catálogo es el de desviaciones, la explicación
@@ -991,7 +1008,7 @@ export function DocumentarDesviacionModal({ target, accent, onClose, onDone, onE
 }
 ```
 
-- [ ] **Paso 2: Reservar el espacio del botón con nombre en el ítem**
+- [x] **Paso 2: Reservar el espacio del botón con nombre en el ítem**
 
 En `src/views/alertItem.ts`, `alertItemStyle` recibe una opción más. El botón de documentar va
 abajo a la derecha, con nombre, así que el texto necesita aire por abajo:
@@ -1020,7 +1037,7 @@ export function alertItemStyle(
 
 Actualizar también el comentario de cabecera del archivo, que enumera quién lo usa.
 
-- [ ] **Paso 3: Verificar que compila**
+- [x] **Paso 3: Verificar que compila**
 
 ```bash
 npm run typecheck
@@ -1028,7 +1045,7 @@ npm run typecheck
 
 Esperado: sin errores. (El modal todavía no se usa en ningún lado; eso es la Tarea 6.)
 
-- [ ] **Paso 4: Commit**
+- [x] **Paso 4: Commit**
 
 ```bash
 git add src/views/DocumentarDesviacionModal.tsx src/views/alertItem.ts
@@ -1046,7 +1063,7 @@ git commit -m "feat(desviaciones): el modal para documentar"
 - Consume: `DocumentarDesviacionModal` (Tarea 5); `useActiveAlerts().deviations` (Tarea 4);
   `deviationReasonLabel` (Tarea 2); `deleteDeviation` (Tarea 3).
 
-- [ ] **Paso 1: El botón, sólo en la ventana vencida**
+- [x] **Paso 1: El botón, sólo en la ventana vencida**
 
 En el `map` de las alertas de visita (el que hoy dibuja el `<button style={dismissBtn}>`), sumar
 un hermano más dentro del mismo `<div style={{ position: 'relative' }}>`, **condicionado a
@@ -1096,7 +1113,7 @@ Y el estado, junto a `dismissing`:
 const [documentando, setDocumentando] = useState<DocumentandoTarget | null>(null)
 ```
 
-- [ ] **Paso 2: Montar el modal**
+- [x] **Paso 2: Montar el modal**
 
 Al lado de donde hoy se monta el modal de descarte:
 
@@ -1112,7 +1129,7 @@ Al lado de donde hoy se monta el modal de descarte:
 )}
 ```
 
-- [ ] **Paso 3: El panel de desviaciones, gemelo del de descartados**
+- [x] **Paso 3: El panel de desviaciones, gemelo del de descartados**
 
 **Se calca el bloque que ya existe en este mismo archivo** —el botón `Ver descartados (N)` y el
 `{showDismissed && dismissals.length > 0 && (...)}` que dibuja el panel "Descartados"— y se le
@@ -1147,7 +1164,7 @@ La bajada del panel, en castellano y sin tecnicismos:
 Cada fila documentada lleva un botón "Borrar" que llama a `deleteDeviation(d.id)` y, ante error,
 escribe en `setActionError` — exactamente como "Restaurar" en el panel de descartados.
 
-- [ ] **Paso 4: Verificar que compila y que la suite sigue verde**
+- [x] **Paso 4: Verificar que compila y que la suite sigue verde**
 
 ```bash
 npm run build
@@ -1155,7 +1172,7 @@ npm run build
 
 Esperado: typecheck + tests + build, todo verde.
 
-- [ ] **Paso 5: Commit**
+- [x] **Paso 5: Commit**
 
 ```bash
 git add src/views/TrackAlertsView.tsx
@@ -1172,7 +1189,7 @@ git commit -m "feat(desviaciones): documentar desde el pendiente y el panel de l
 **Interfaces:**
 - Consume: `useDeviations` (Tarea 3), `deviationReasonLabel`, `isVisitDeviationRecorded` (Tarea 2).
 
-- [ ] **Paso 1: Mostrar la marca**
+- [x] **Paso 1: Mostrar la marca**
 
 En `VisitHeader`, al lado de donde hoy se resuelve `fuera` (`fueraDeVentana(...)`), resolver la
 desviación de ESA ventana:
@@ -1206,7 +1223,7 @@ Y donde se dibuja la pastilla "Fuera de ventana", sumar la marca con el motivo:
 **El `title` lleva la explicación completa**: el motivo clasifica y entra en una línea; el detalle
 es lo que un monitor necesita y no puede empujar el encabezado a dos renglones.
 
-- [ ] **Paso 2: Verificar**
+- [x] **Paso 2: Verificar**
 
 ```bash
 npm run build
@@ -1214,7 +1231,7 @@ npm run build
 
 Esperado: verde.
 
-- [ ] **Paso 3: Commit**
+- [x] **Paso 3: Commit**
 
 ```bash
 git add src/views/track/VisitHeader.tsx
