@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   armarPedidos, armarPorRecibir, comparacionConElPedido, encabezadoDeLoEsperado, faltaTxt, faltaVerificarTxt, faltanteDe,
   metaDelPedido, notaDeReimpresion, numerosDePedidos, pastillaDePedido, pedidoPara, pedidosParaRecibir, porRecibirDe,
-  renglonesParaRecibir, sinVerificarDe, textoDePedidos, textoDeRecepciones, textoParaRecibir, ultimoPedidoPara, yaPedidoDe,
+  renglonesParaRecibir, sePuedeCerrar, sinVerificarDe, textoDePedidos, textoDeRecepciones, textoParaRecibir, ultimoPedidoPara, yaPedidoDe,
   type PedidoItemInsumo, type PedidoMedicacionInsumo, type RecepcionDePedidoInsumo,
 } from './pedidosMedicacionModel'
 
@@ -82,6 +82,11 @@ describe('estado y pastilla del pedido (RD3, RD8, RD17)', () => {
   it('recibido entero no dice «llegó» aunque haya otra recepción pendiente', () => {
     expect(pastillaDePedido(uno({}, [item({ recibido: 6, sin_verificar: 2 })])).clave).toBe('recibido')
   })
+  it('«llegó» es de un renglón que todavía falta: lo pendiente de uno ya completo no tapa al que no llegó', () => {
+    // Seretide llegó entero y tiene 2 más sin verificar; Salbutral falta entero y no tiene nada en la casa.
+    const p = uno({}, [item({ recibido: 6, sin_verificar: 2 }), salbutral()])
+    expect(pastillaDePedido(p)).toEqual({ clave: 'en_parte', texto: 'Recibido en parte' })
+  })
   it('un pedido anulado no tiene faltante ni «faltó», aunque tenga un renglón cerrado', () => {
     const p = uno(ANULADO, [item({ recibido: 5, ...CERRADO })])
     expect(p).toMatchObject({ estado: 'anulado', faltanteTotal: 0, faltoCerrado: 0 })
@@ -123,6 +128,19 @@ describe('el pedido de un período', () => {
     const ps = armarPedidos([cab(), cab({ id: 'ped-15', numero: 15 })], [item(), item({ id: 'i15', pedido_id: 'ped-15', pedido: 3, recibido: 3 })])
     expect(pedidoPara(ps, PROXIMO)?.numero).toBe(14)
   })
+  it('uno que no llegó no es el pedido del período: no lo va a cubrir (Director, 2026-09-19)', () => {
+    const cabs = [cab()]
+    const ps = armarPedidos(cabs, [item({ ...CERRADO })])
+    expect(ps[0].estado).toBe('no_llego')
+    expect(pedidoPara(ps, PROXIMO)).toBeNull()
+    // Pero la base lo sigue contando al emitir: si la pantalla no lo mandara, «Emitir» chocaría con «Ya hay
+    // un pedido (Nº 14)».
+    expect(ultimoPedidoPara(cabs, PROXIMO)).toBe(14)
+  })
+  it('si después del que no llegó se emitió otro, ése es el del período', () => {
+    const ps = armarPedidos([cab(), cab({ id: 'ped-15', numero: 15 })], [item({ ...CERRADO }), item({ id: 'i15', pedido_id: 'ped-15' })])
+    expect(pedidoPara(ps, PROXIMO)?.numero).toBe(15)
+  })
 })
 
 describe('el último pedido que vio la pantalla (concurrencia al emitir)', () => {
@@ -130,6 +148,22 @@ describe('el último pedido que vio la pantalla (concurrencia al emitir)', () =>
     const cabs = [cab(), cab({ id: 'ped-15', numero: 15 }), cab({ id: 'ped-16', numero: 16, ...ANULADO }), cab({ id: 'ped-9', numero: 9, periodo_desde: '2026-07-29', periodo_hasta: '2026-08-28' })]
     expect(ultimoPedidoPara(cabs, PROXIMO)).toBe(15)
     expect(ultimoPedidoPara([], PROXIMO)).toBe(0)
+  })
+})
+
+describe('«No va a llegar»: qué renglón se puede cerrar (la regla de cerrar_faltante_pedido, 0133)', () => {
+  const renglon = (p: Partial<PedidoItemInsumo> = {}) => armarPedidos([cab()], [item(p)])[0].renglones[0]
+  it('uno abierto al que le falta algo y no tiene nada sin verificar', () => {
+    expect(sePuedeCerrar(renglon())).toBe(true)
+    expect(sePuedeCerrar(renglon({ recibido: 4 }))).toBe(true)
+  })
+  it('no si ya está cerrado ni si llegó entero', () => {
+    expect(sePuedeCerrar(renglon({ ...CERRADO }))).toBe(false)
+    expect(sePuedeCerrar(renglon({ recibido: 6 }))).toBe(false)
+  })
+  it('no si tiene una recepción sin verificar, aunque no cubra todo lo que falta: primero se verifica', () => {
+    expect(sePuedeCerrar(renglon({ sin_verificar: 2 }))).toBe(false)
+    expect(sePuedeCerrar(renglon({ recibido: 2, sin_verificar: 4 }))).toBe(false)
   })
 })
 
@@ -185,6 +219,14 @@ describe('textos', () => {
     expect(sinVerificarDe(ps, 'endura', 'seretide')).toEqual([1051])
     expect(sinVerificarDe(ps, 'endura', 'salbu')).toBeNull()
     expect(sinVerificarDe(armarPedidos([cab()], [item()]), 'endura', 'seretide')).toBeNull()
+  })
+  it('nombra sólo las recepciones sin verificar que traen ESE medicamento (0133)', () => {
+    const ps = armarPedidos([cab()], [item({ sin_verificar: 2 }), salbutral({ sin_verificar: 3 })], [
+      recepcion({ status: 'pendiente', verified_by_name: null, envases: 2, medication_ids: ['seretide'] }),
+      recepcion({ id: 'rec-1052', folio: 1052, status: 'pendiente', verified_by_name: null, envases: 3, medication_ids: ['salbu'] }),
+    ])
+    expect(sinVerificarDe(ps, 'endura', 'seretide')).toEqual([1051])
+    expect(sinVerificarDe(ps, 'endura', 'salbu')).toEqual([1052])
   })
 })
 

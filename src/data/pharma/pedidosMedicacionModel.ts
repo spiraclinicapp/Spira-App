@@ -15,7 +15,7 @@ import type { Periodo } from './periodoDeCorte'
  *
  * La PASTILLA (RD8) es una sola en toda la app, y «Llegó, falta verificar» (RD17) le gana a «Sin
  * recibir» y a «Recibido en parte»: hay medicación en la casa que todavía no entró al stock, y
- * recibirla de nuevo la duplicaría.
+ * recibirla de nuevo la duplicaría. Siempre de un renglón que todavía falta.
  *
  * Una recepción anulada deja de sumar en la base, así que el pedido vuelve a tener faltante solo.
  * Lo ya pedido (faltante abierto) se descuenta de la compra (R9) y se llama «En camino» (RD12).
@@ -91,6 +91,11 @@ export interface RecepcionDePedidoInsumo {
   verified_by_name: string | null
   /** La suma de sus renglones. */
   envases: number
+  /**
+   * Los medicamentos que trae (0133): «falta verificar la recepción Nº 1051» se dice sólo al lado de lo que
+   * vino en ella, no de todo el pedido. Sin él —datos de antes o tests— no se filtra.
+   */
+  medication_ids?: string[]
 }
 
 /** RD3: `no_llego` = se cerró todo lo que faltaba y no se recibió nada. */
@@ -169,10 +174,14 @@ export interface PastillaPedido {
   texto: string
 }
 
-/** RD8: el estado del pedido en UNA pastilla, igual en la tarjeta, el estudio, el detalle y Recepción. */
+/**
+ * RD8: el estado del pedido en UNA pastilla, igual en la tarjeta, el estudio, el detalle y Recepción.
+ * «Llegó» es de un renglón que todavía FALTA: una recepción pendiente de un renglón ya completo no dice
+ * nada de lo que sigue sin llegar, y la pastilla lo taparía (revisión final, 5).
+ */
 export function pastillaDePedido(p: PedidoMedicacion): PastillaPedido {
   if (p.estado === 'anulado') return { clave: 'anulado', texto: 'Anulado' }
-  if (p.faltanteTotal > 0 && p.conRecepcionSinVerificar) return { clave: 'llego', texto: 'Llegó, falta verificar' }
+  if (p.renglones.some((r) => r.faltante > 0 && r.sin_verificar > 0)) return { clave: 'llego', texto: 'Llegó, falta verificar' }
   if (p.estado === 'en_parte') return { clave: 'en_parte', texto: 'Recibido en parte' }
   if (p.estado === 'sin_recibir') return { clave: 'sin_recibir', texto: 'Sin recibir' }
   if (p.estado === 'no_llego') return { clave: 'no_llego', texto: 'Cerrado · no llegó' }
@@ -189,10 +198,14 @@ export const seSuperpone = (p: PedidoMedicacionInsumo, periodo: Periodo) =>
  * el día de corte después de emitir (RD15), el pedido conserva su período y una comparación exacta dejaría
  * de reconocerlo. Primero el que debe (revisión de ingeniería, 11): con «Armar otro pedido», un Nº 15 chico
  * y ya recibido no puede tapar al Nº 14 grande que todavía no llegó.
+ * Tampoco cuenta uno «Cerrado · no llegó» (Director, 2026-09-19): no va a llegar, así que no cubre el
+ * período. Si contara, la franja diría que el estudio tiene su pedido, el pedido tarde (RD1) no se
+ * activaría y la tarjeta mostraría lo que faltó en vez de lo que hay que comprar. La tarjeta lo nombra
+ * aparte. `ultimoPedidoPara` SÍ lo cuenta: tiene que coincidir con lo que mira la base al emitir.
  */
 export function pedidoPara(pedidos: readonly PedidoMedicacion[], periodo: Periodo): PedidoMedicacion | null {
   return [...pedidos]
-    .filter((p) => p.estado !== 'anulado' && seSuperpone(p, periodo))
+    .filter((p) => p.estado !== 'anulado' && p.estado !== 'no_llego' && seSuperpone(p, periodo))
     .sort((a, b) => Number(b.faltanteTotal > 0) - Number(a.faltanteTotal > 0) || b.numero - a.numero)[0] ?? null
 }
 
@@ -200,6 +213,9 @@ export function pedidoPara(pedidos: readonly PedidoMedicacion[], periodo: Period
  * El número del último pedido no anulado de ese período que vio la pantalla (0 si ninguno). Viaja con
  * «Emitir e imprimir»: si mientras tanto alguien emitió otro, la base lo rechaza en vez de pedir dos
  * veces lo mismo (revisión de ingeniería, 7). «Armar otro pedido» lo manda y por eso sigue andando.
+ * Cuenta TODO lo no anulado, también lo que no llegó, a diferencia de `pedidoPara`: es lo que cuenta el
+ * `p_ultimo_visto` de la base, y si no coincidieran, emitir después de un «no llegó» chocaría con «Ya hay
+ * un pedido para este período».
  */
 export function ultimoPedidoPara(pedidos: readonly PedidoMedicacionInsumo[], periodo: Periodo): number {
   return pedidos.filter((p) => !p.anulado_at && seSuperpone(p, periodo)).reduce((max, p) => Math.max(max, p.numero), 0)
@@ -256,12 +272,18 @@ export function textoDeRecepciones(folios: readonly number[]): string {
  * RD17: si algo de lo en camino de un medicamento ya llegó y está sin verificar, los números de esas
  * recepciones (vacío si la base no los trae, antes de la 0133). null si no hay nada así. La boleta lo dice
  * para que nadie lo vuelva a pedir ni lo reciba dos veces.
+ * Sólo las que traen ESE medicamento (revisión final, 3): un pedido puede tener dos recepciones pendientes,
+ * y nombrar la que trajo otra cosa manda a verificar la equivocada. Sin `medication_ids` no se filtra.
  */
 export function sinVerificarDe(pedidos: readonly PedidoMedicacion[], protocolId: string, medicationId: string): number[] | null {
   const conPendiente = pedidos.filter((p) => p.estado !== 'anulado' && p.protocol_id === protocolId
     && p.renglones.some((r) => r.medication_id === medicationId && r.faltante > 0 && r.sin_verificar > 0))
   if (conPendiente.length === 0) return null
-  return conPendiente.flatMap((p) => p.recepciones.filter((r) => r.status === 'pendiente').map((r) => r.folio)).sort((a, b) => a - b)
+  return conPendiente
+    .flatMap((p) => p.recepciones
+      .filter((r) => r.status === 'pendiente' && (!r.medication_ids || r.medication_ids.includes(medicationId)))
+      .map((r) => r.folio))
+    .sort((a, b) => a - b)
 }
 
 /** «llegó, falta verificar la recepción Nº 1051» · «llegaron, falta verificar las recepciones Nº 1051 y Nº 1052». */
@@ -294,6 +316,16 @@ export function porRecibir(r: RenglonPedido): number {
 /** Σ de `porRecibir`. 0 = lo que falta ya está entero en recepciones sin verificar: no se ofrece «Recibir». */
 export function porRecibirDe(p: PedidoMedicacion): number {
   return p.renglones.reduce((s, r) => s + porRecibir(r), 0)
+}
+
+/**
+ * «No va a llegar» se ofrece sólo si `cerrar_faltante_pedido` (0133) lo va a aceptar: un renglón abierto, al
+ * que le falta algo y sin NADA en una recepción sin verificar (Director, 2026-09-19). Aunque lo pendiente no
+ * cubra todo lo que falta, primero se verifica: cerrar antes deja la medicación que está en la casa como si
+ * no hubiera llegado, y vuelve a la compra. La regla vive acá para que la pantalla no la reescriba.
+ */
+export function sePuedeCerrar(r: RenglonPedido): boolean {
+  return !r.cerrado_at && r.faltante > 0 && r.sin_verificar === 0
 }
 
 /**

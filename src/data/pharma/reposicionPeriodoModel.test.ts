@@ -243,6 +243,14 @@ describe('el pedido tarde (RD1)', () => {
     expect(e).toMatchObject({ tarde: null, objetivo: { desde: '2026-10-29', hasta: '2026-11-28' } })
     expect(e.pedidosQueDeben.map((p) => p.numero)).toEqual([14])
   })
+  it('un pedido del período que empezó que no llegó no lo cubre: sigue siendo tarde (Director, 2026-09-19)', () => {
+    const cerrado = { cerrado_at: '2026-09-30T14:00:00+00:00', cerrado_por_nombre: 'Lautaro Molina', cerrado_motivo: 'no_lo_tiene' as const }
+    const e = tarde(insumos({ pacientes: grupo(12, 0), lotes: [lote({ quantity: 5 })], pedidos: [cab()], pedido_items: [item({ ...cerrado })] })).estudios[0]
+    expect(e.pedidos[0].estado).toBe('no_llego')
+    expect(e.tarde).not.toBeNull()
+    expect(e).toMatchObject({ objetivo: P0_TARDE, pedidoDelObjetivo: null })
+    expect(e.renglones[0].comprar).toBe(7)
+  })
   it('si al período que empezó no le falta nada, no hay nada tarde que pedir', () => {
     expect(tarde(insumos({ pacientes: grupo(12, 12), lotes: [lote()] })).estudios[0].tarde).toBeNull()
   })

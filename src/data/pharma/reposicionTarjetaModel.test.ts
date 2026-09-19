@@ -137,11 +137,6 @@ describe('la tarjeta con pedido (RD4, RD5, RD17, RD3)', () => {
     expect(t.principal).toMatchObject({ tipo: 'pedido', pastilla: { clave: 'llego' } })
     expect(t.detalle).toEqual([{ texto: 'Recepción Nº 1051 sin verificar', aviso: false }])
   })
-  it('cerrado sin que llegue nada: vuelve a la compra', () => {
-    const t = tarjeta('2026-09-28', COMPRA_4({ pedidos: [cab()], pedido_items: [item({ ...CERRADO })] }))
-    expect(t.principal).toMatchObject({ tipo: 'pedido', pastilla: { clave: 'no_llego', texto: 'Cerrado · no llegó' } })
-    expect(t.detalle).toEqual([{ texto: '4 envases vuelven a la compra', aviso: false }])
-  })
   it('un pedido anterior que debe algo va en su propio renglón', () => {
     const t = tarjeta('2026-09-22', COMPRA_4({
       pedidos: [cab({ id: 'ped-13', numero: 13, periodo_desde: '2026-08-29', periodo_hasta: '2026-09-28' })],
@@ -152,6 +147,54 @@ describe('la tarjeta con pedido (RD4, RD5, RD17, RD3)', () => {
       { texto: 'Para el período que viene: sin pedido', mudo: true },
       { texto: 'Pedido Nº 13 · falta 1 envase', mudo: false },
     ])
+  })
+})
+
+describe('un pedido que no llegó no es el del período (Director, 2026-09-19)', () => {
+  /** El Nº 14 pidió 6 y se cerró entero sin que llegara nada: no va a cubrir el período que viene. */
+  const NO_LLEGO = { pedidos: [cab()], pedido_items: [item({ pedido: 6, calculado: 6, ...CERRADO })] }
+  it('la tarjeta dice lo que hay que comprar de verdad, no lo que faltó, y el renglón fijo lo nombra', () => {
+    expect(tarjeta('2026-09-28', COMPRA_4(NO_LLEGO))).toEqual({
+      principal: { tipo: 'comprar', envases: 4 },
+      detalle: [{ texto: '1 medicamento', aviso: false }],
+      renglones: [{ texto: 'Para el período que viene: el Pedido Nº 14 no llegó', mudo: false }],
+      clicable: true,
+    })
+  })
+  it('la franja lo cuenta como un estudio sin pedido', () => {
+    expect(franjaDelCorte(rep('2026-09-28', COMPRA_4(NO_LLEGO)))?.sub).toBe('1 estudio sin pedido para el período que viene.')
+    expect(franjaDelCorte(rep('2026-09-16', COMPRA_4(NO_LLEGO)))?.sub)
+      .toBe('Período 29/08 al 28/09 · 1 estudio tiene compras y todavía no tiene pedido.')
+  })
+  it('tarde: el período que empezó sigue sin pedido y el renglón lo nombra', () => {
+    const t = tarjeta('2026-10-01', insumos({ ...TARDE(), pedidos: [cab()], pedido_items: [item({ ...CERRADO })] }))
+    expect(t.principal).toEqual({ tipo: 'comprar', envases: 7 })
+    expect(t.renglones).toEqual([{ texto: 'Para el período 29/09 al 28/10: el Pedido Nº 14 no llegó', mudo: false }])
+  })
+  it('en el modo tranquilo también', () => {
+    // 29/09: el Nº 13 (del período en curso) todavía viaja; el Nº 14, para el que viene, se cerró sin llegar.
+    const t = tarjeta('2026-09-29', insumos({
+      pacientes: grupo(12, 0), lotes: [lote({ quantity: 2 })],
+      pedidos: [cab({ id: 'ped-13', numero: 13 }), cab({ periodo_desde: '2026-10-29', periodo_hasta: '2026-11-28' })],
+      pedido_items: [item({ id: 'i13', pedido_id: 'ped-13', pedido: 10, calculado: 10 }), item({ ...CERRADO })],
+    }))
+    expect(t.principal).toEqual({ tipo: 'cubierto' })
+    expect(t.renglones[0]).toEqual({ texto: 'Para el corte del 28/10: 12 envases · el Pedido Nº 14 no llegó', mudo: false })
+  })
+  it('con todo sin cargar, el renglón fijo también lo nombra', () => {
+    const t = tarjeta('2026-09-22', insumos({ ...NO_LLEGO, renglones: [renglon({ modo: null, envases_por_mes: null })] }))
+    expect(t.renglones).toEqual([{ texto: 'Para el período que viene: el Pedido Nº 14 no llegó', mudo: false }])
+  })
+  it('si no hace falta pedir, eso sigue siendo lo que dice', () => {
+    expect(tarjeta('2026-09-22', COMPRA_4({ ...NO_LLEGO, lotes: [lote({ quantity: 20 })] })).renglones)
+      .toEqual([{ texto: 'Para el período que viene: no hace falta pedir', mudo: true }])
+  })
+  it('si después se emitió otro, ése es el pedido de la tarjeta', () => {
+    const t = tarjeta('2026-09-28', COMPRA_4({
+      pedidos: [cab(), cab({ id: 'ped-15', numero: 15 })],
+      pedido_items: [item({ pedido: 6, calculado: 6, ...CERRADO }), item({ id: 'i15', pedido_id: 'ped-15' })],
+    }))
+    expect(t.principal).toMatchObject({ tipo: 'pedido', numero: 15, pastilla: { clave: 'sin_recibir' } })
   })
 })
 
@@ -204,6 +247,16 @@ describe('la franja del corte (RD7)', () => {
       renglones: [renglon(), renglon({ protocol_medication_id: 'pm-monte', medication_id: 'monte', medication_name: 'Montelukast 10 mg', modo: null, envases_por_mes: null })],
     })
     expect(franjaDelCorte(rep('2026-09-16', conSinCargar))?.sub).toBe('Período 29/08 al 28/09 · falta cargar cómo se repone en 1 estudio.')
+  })
+  it('con pedido Y renglones sin cargar dice las dos cosas: una sola taparía la otra (revisión final, T4a)', () => {
+    const ambos = COMPRA_4({
+      pedidos: [cab()], pedido_items: [item()],
+      renglones: [renglon(), renglon({ protocol_medication_id: 'pm-monte', medication_id: 'monte', medication_name: 'Montelukast 10 mg', modo: null, envases_por_mes: null })],
+    })
+    expect(franjaDelCorte(rep('2026-09-16', ambos))?.sub)
+      .toBe('Período 29/08 al 28/09 · todos los estudios con compras tienen su pedido; falta cargar cómo se repone en 1 estudio.')
+    expect(franjaDelCorte(rep('2026-09-28', ambos))?.sub)
+      .toBe('Todos los estudios con compras tienen su pedido; falta cargar cómo se repone en 1 estudio.')
   })
   it('sin compras, lo dice', () => {
     expect(franjaDelCorte(rep('2026-09-16', COMPRA_4({ lotes: [lote({ quantity: 20 })] })))?.sub)
@@ -259,6 +312,19 @@ describe('el resumen del estudio (RD5)', () => {
   })
   it('tarde: para el período que empezó', () => {
     expect(resumen('2026-10-01', TARDE())?.titulo).toBe('Para el período que empezó (29/09 al 28/10)')
+  })
+  it('con el pedido llegado y sin verificar: la pastilla lo dice y lo en camino ya cubre (revisión final, T4c)', () => {
+    const i = COMPRA_4({ pedidos: [cab({ emitido_el: '2026-09-20' })], pedido_items: [item({ sin_verificar: 4 })], recepciones: [recepcion()] })
+    expect(resumen('2026-09-22', i)).toMatchObject({
+      tipo: 'pedido', pastilla: { clave: 'llego', texto: 'Llegó, falta verificar' },
+      detalle: 'Emitido el 20/09 · 4 envases · con esto alcanza',
+    })
+  })
+  it('con un pedido que no llegó: cuánto comprar, y lo nombra en vez de «todavía sin pedido» (Director, 2026-09-19)', () => {
+    expect(resumen('2026-09-16', COMPRA_4({ pedidos: [cab()], pedido_items: [item({ pedido: 6, calculado: 6, ...CERRADO })] }))).toEqual({
+      tipo: 'compra', titulo: 'Para el período que viene (29/09 al 28/10)', envases: 4, sinCargar: 0,
+      detalle: '1 medicamento para comprar · el Pedido Nº 14 no llegó',
+    })
   })
 })
 
