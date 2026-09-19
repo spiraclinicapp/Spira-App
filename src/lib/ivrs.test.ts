@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ivrsDelEstudio } from './ivrs'
+import { ivrsDeInscripcion, ivrsDelEstudio } from './ivrs'
 import type { PatientRow } from '../data/patients'
 
 /**
@@ -41,5 +41,24 @@ describe('ivrsDelEstudio', () => {
 
   it('sin ningún número devuelve null, para que la pantalla diga «Sin IVRS»', () => {
     expect(ivrsDelEstudio(paciente(null, [['lts', null]]), 'lts')).toBeNull()
+  })
+})
+
+describe('ivrsDeInscripcion — el número de un pedido de Farmacia', () => {
+  // El pedido ya viene con SU inscripción (`dispensation_requests.enrollment_id`): no hace falta
+  // buscar por protocolo como en `ivrsDelEstudio`. El caso real: Calderon es 032001500001 como
+  // paciente y 032001520001 en LTS17231, y el comprobante de un pedido de LTS17231 salía con el primero.
+  it('el número de la inscripción del pedido, no el del estudio madre', () => {
+    expect(ivrsDeInscripcion({ ivrs_code: '032001520001', patient: { code: '032001500001' } })).toBe('032001520001')
+  })
+
+  it('sin número propio cae al del paciente, como en el resto de la app', () => {
+    expect(ivrsDeInscripcion({ ivrs_code: null, patient: { code: '032001500001' } })).toBe('032001500001')
+  })
+
+  it('sin inscripción legible, o sin ningún número, devuelve null: la pantalla dice lo suyo', () => {
+    expect(ivrsDeInscripcion(null)).toBeNull()
+    expect(ivrsDeInscripcion({ ivrs_code: null, patient: null })).toBeNull()
+    expect(ivrsDeInscripcion({ ivrs_code: null, patient: { code: null } })).toBeNull()
   })
 })

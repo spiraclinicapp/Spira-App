@@ -175,8 +175,11 @@ export interface DispensationRequestRow {
    * esa tabla (0006:162, que cubre gerencia y coordinadores asignados), así que el embed anterior
    * le devolvía null a la farmacéutica: el tablero, el cajón y el comprobante mostraban "—" donde
    * va el paciente, y el historial —que usaba `!inner`— le salía directamente vacío.
+   *
+   * `ivrs_code` (0062) es el número de sujeto de ESTA inscripción, y es el que se muestra
+   * (`ivrsDeInscripcion`). `patient.code` es el del estudio madre: sólo el respaldo.
    */
-  enrollment: { patient: { id: string; code: string | null; full_name: string } | null } | null
+  enrollment: { ivrs_code: string | null; patient: { id: string; code: string | null; full_name: string } | null } | null
   protocol: { id: string; code: string; name: string } | null
   /** Código de la visita, sellado al crear el pedido (0084). */
   visit_code: string | null
