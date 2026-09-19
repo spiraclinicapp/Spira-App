@@ -7,6 +7,7 @@ import type { BoardColumn, DispensationRequestRow } from '../../../data/pharma'
 import { activeDispensation, constanciaVigente, habilitacionesPendientes, pendingScans, totalUnits } from '../../../data/pharma'
 import { chipExcepcion, COLUMN_META, readyBlockedReason, scanSignal } from './estados'
 import { fromNow } from '../../../lib/dates'
+import { ivrsDeInscripcion } from '../../../lib/ivrs'
 
 /**
  * Card de una solicitud en el tablero. Anatomía del handoff, respetada al pie:
@@ -48,6 +49,8 @@ export function KanbanCard({ r, column, canOperate, onOpen, onOpenPatient, onAdv
   /* El nombre está siempre que hay paciente (el tipo lo garantiza); el IVRS puede faltar — y ahí
      el placeholder va AFUERA del link: un guion no es un destino clickeable. */
   const patient = r.enrollment?.patient
+  /** El número de sujeto de ESTE estudio, no el del estudio madre (`ivrsDeInscripcion`). */
+  const ivrs = ivrsDeInscripcion(r.enrollment)
 
   const card: CSSProperties = {
     background: 'var(--spira-white)',
@@ -77,7 +80,7 @@ export function KanbanCard({ r, column, canOperate, onOpen, onOpenPatient, onAdv
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => { setHover(false); setCtaHover(false) }}
       style={card}
-      aria-label={`${disp?.dispensation_code ?? 'Solicitud'}, paciente ${r.enrollment?.patient?.code ?? 'sin código'}, ${COLUMN_META[column].estado}`}
+      aria-label={`${disp?.dispensation_code ?? 'Solicitud'}, paciente ${ivrs ?? 'sin código'},${COLUMN_META[column].estado}`}
     >
       {/* 1 · paciente — UN SOLO RENGLÓN.
           El chip de protocolo vivía acá y en una columna del tablero NUNCA entraba: medido en el
@@ -96,8 +99,8 @@ export function KanbanCard({ r, column, canOperate, onOpen, onOpenPatient, onAdv
           </PatientLink>
         </span>
         <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', flex: '0 0 auto' }}>
-          {patient?.code
-            ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${patient.code}`}>{patient.code}</PatientLink>
+          {ivrs
+            ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${ivrs}`}>{ivrs}</PatientLink>
             : '—'}
         </span>
         {onOpenPatient && <PatientLinkArrow />}

@@ -21,3 +21,19 @@ export function ivrsDelEstudio(patient: Pick<PatientRow, 'code' | 'enrollments'>
   const insc = patient.enrollments.find((e) => e.protocol?.id === protocolId)
   return insc?.ivrs_code ?? patient.code
 }
+
+/**
+ * El IVRS de un pedido de Farmacia: el de SU inscripción, con el del paciente como respaldo. Es la
+ * misma regla que `ivrsDelEstudio`, pero sin buscar por protocolo, porque el pedido ya viene con la
+ * inscripción a la que pertenece (`dispensation_requests.enrollment_id`).
+ *
+ * Existe porque Farmacia seguía mostrando el número del estudio madre en el cajón, el kanban y el
+ * **comprobante impreso**, que es el papel que va a la carpeta del estudio y ven monitores y sponsor
+ * (pendiente del 2026-09-15). Un pedido de LTS17231 de Calderon salía con 032001500001, que no es su
+ * número en ese estudio.
+ */
+export function ivrsDeInscripcion(
+  inscripcion: { ivrs_code: string | null; patient: { code: string | null } | null } | null | undefined,
+): string | null {
+  return inscripcion?.ivrs_code ?? inscripcion?.patient?.code ?? null
+}
