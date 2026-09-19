@@ -44,6 +44,8 @@ create unique index if not exists pedidos_medicacion_intento_uq
 --   que dos emisiones simultáneas se vean entre sí. null = no se controla (llamadas viejas).
 -- · p_emitido_el tiene que ser hoy en Argentina: la hoja lleva esa fecha y una pantalla abierta desde ayer
 --   emitiría con la de ayer (15A).
+-- · Si el pedido del intento está anulado, el reintento se rechaza en vez de devolverlo: la pantalla no
+--   puede imprimir una hoja de un pedido que ya no existe como si la emisión hubiera salido bien.
 drop function if exists public.emitir_pedido_medicacion(uuid, date, date, date, jsonb);
 
 create or replace function public.emitir_pedido_medicacion(
@@ -60,6 +62,7 @@ declare
   v_id       uuid;
   v_numero   integer;
   v_protocol uuid;
+  v_anulado  timestamptz;
   v_nombre   text;
   v_r        jsonb;
   v_otro     integer;
@@ -74,12 +77,15 @@ begin
   -- reintento después de medianoche tiene que encontrar su pedido, no chocar con la fecha). Sólo si pide
   -- lo mismo: medicamento por medicamento, las mismas cantidades.
   if p_intento is not null then
-    select pe.id, pe.numero, pe.protocol_id into v_id, v_numero, v_protocol
+    select pe.id, pe.numero, pe.protocol_id, pe.anulado_at into v_id, v_numero, v_protocol, v_anulado
       from public.pedidos_medicacion pe
      where pe.intento = p_intento;
     if found then
       if v_protocol <> p_protocol_id then
         raise exception 'Ese pedido ya se emitió para otro estudio' using errcode = '22023';
+      end if;
+      if v_anulado is not null then
+        raise exception 'Ese pedido se anuló: cerrá esta ventana y armalo de nuevo' using errcode = '23514';
       end if;
       if exists (
         select 1
@@ -291,6 +297,8 @@ begin
      where p.status <> 'cerrado'
        and (p_protocol_id is null or p.id = p_protocol_id)
   ),
+  -- Movimientos de protocolo con su día en hora AR. El protocolo sale del LOTE: stock_movements no lo
+  -- tiene (D32). Un ajuste sin lote no se puede atribuir a un estudio y queda afuera.
   movs as (
     select ml.protocol_id, sm.medication_id, sm.movement_type, sm.quantity_delta, sm.reference_type,
            sm.reference_id,
@@ -300,6 +308,7 @@ begin
       join estudios es on es.id = ml.protocol_id
      where ml.tipo = 'protocolo'
   ),
+  -- Lo dispensado por enrolamiento: «ya retiró» (D14), dicho del período.
   retiros as (
     select mv.medication_id, dr.enrollment_id, -mv.quantity_delta as neto, mv.dia
       from movs mv
@@ -345,6 +354,7 @@ begin
       left join cronograma cr on cr.enrollment_id = pm.enrollment_id
      where pm.active
   ),
+  -- Vencidos incluidos: el libro cuenta lo físico y la boleta filtra lo vigente en TypeScript.
   lotes as (
     select ml.protocol_id, ml.medication_id, ml.lot_number, ml.expiry_date, ml.quantity_on_hand as quantity
       from public.medication_lots ml
