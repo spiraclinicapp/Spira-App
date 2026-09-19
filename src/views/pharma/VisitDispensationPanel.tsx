@@ -41,7 +41,7 @@ import {
   necesitaMotivoFueraCronograma,
 } from './motivosFueraCronograma'
 import { Panel } from '../track/Panel'
-import { detalleIp } from '../track/ipEstado'
+import { desenlaceIp } from '../track/ipEstado'
 import { DANGER_TINT, WARN_TINT, WARN_TINT_PILL, Sub, btnChico, itemRow, muted, pillBase } from './panelDispensacion'
 import { FormularioOtro } from './FormularioOtro'
 import { SeccionIp } from './SeccionIp'
@@ -1236,7 +1236,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               badge: badgeEntregado,
               comprobante: comprobanteEntregado,
             } : null}
-            cierre={ipCerrada && ipQ.data ? detalleIp(ipQ.data) : null}
+            cierre={ipCerrada && ipQ.data ? desenlaceIp(ipQ.data, visit.ready_at !== null) : null}
             onPedirFueraDeCronograma={readOnly || (cerrada && !corrigiendo) ? null : () => { setFueraCronograma(true); setErr(null) }}
           />
 

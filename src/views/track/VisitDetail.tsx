@@ -277,7 +277,7 @@ export function VisitDetail({
               <div className="spira-visit-body" style={body}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
                   {/* Monta su propio `Panel` (el contador "n/total" va en la línea del rótulo). */}
-                  <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} />
+                  <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} terminada={visit.ready_at !== null} />
 
                   {/* Comentarios NO está en el mock y se conserva igual (decisión del Director,
                       2026-08-13): es una función en producción desde la 0048 y desde la ficha del
