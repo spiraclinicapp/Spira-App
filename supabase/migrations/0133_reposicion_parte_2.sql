@@ -15,9 +15,13 @@
 --      PGRST203. Ningún front desplegado la llama todavía (la Parte 1 no tiene pantallas), y aunque la
 --      llamara con cinco argumentos por nombre, resolvería a la nueva por los defaults. La fecha de emisión
 --      pasa a tener que ser la de hoy: tampoco rompe a nadie, por lo mismo;
---    · cerrar_faltante_pedido conserva la firma y suma un rechazo (lo que falta ya llegó y está sin verificar);
+--    · cerrar_faltante_pedido conserva la firma y suma un rechazo (no cierra un renglón que tiene una
+--      recepción sin verificar);
 --    · reabrir_faltante_pedido y pedidos_por_recibir son nuevas;
 --    · reposicion_del_periodo conserva la firma y SUMA la clave «recepciones» al JSON: nadie la pide todavía.
+--
+-- Al final, notify pgrst: sin él PostgREST no ve las dos RPC nuevas ni la firma nueva de
+-- emitir_pedido_medicacion y contesta PGRST202 hasta que recarga solo.
 --
 -- ⚠️ NUNCA dos signos peso pegados dentro de un comentario (ver CLAUDE.md, 0071).
 --
@@ -40,8 +44,12 @@ create unique index if not exists pedidos_medicacion_intento_uq
 --   una hoja que no es la que se guardó (revisión de ingeniería, 1A).
 -- · p_ultimo_visto: el número del último pedido de ese período que mostraba la pantalla (0 si ninguno).
 --   Si mientras tanto alguien emitió otro para el mismo estudio y período, se frena y se lo nombra: dos
---   personas con el estudio abierto no emiten dos pedidos por lo mismo (7A). El candado por estudio hace
---   que dos emisiones simultáneas se vean entre sí. null = no se controla (llamadas viejas).
+--   personas con el estudio abierto no emiten dos pedidos por lo mismo (7A). null = no se controla
+--   (llamadas viejas).
+-- · El candado por estudio se toma ANTES de buscar el intento (revisión final, 4): dos emisiones
+--   simultáneas se ven entre sí, y un reintento que llega mientras la primera llamada todavía guarda
+--   espera y encuentra ESE pedido. Si el candado fuera después, no lo encontraba, seguía de largo y
+--   chocaba con p_ultimo_visto: «Ya hay un pedido (Nº N)», siendo N el suyo.
 -- · p_emitido_el tiene que ser hoy en Argentina: la hoja lleva esa fecha y una pantalla abierta desde ayer
 --   emitiría con la de ayer (15A).
 -- · Si el pedido del intento está anulado, el reintento se rechaza en vez de devolverlo: la pantalla no
@@ -72,6 +80,11 @@ begin
   if not public.has_min_role('pharma', 'operator') then
     raise exception 'No tenés permiso para emitir pedidos' using errcode = '42501';
   end if;
+
+  -- Un candado por estudio hasta el fin de la transacción, ANTES de todo lo que lee pedidos: la segunda de
+  -- dos llamadas simultáneas espera a la primera y, al seguir, ya ve su pedido — sea el de su mismo intento
+  -- (y lo devuelve) o uno de otra pantalla (y p_ultimo_visto lo frena).
+  perform pg_advisory_xact_lock(hashtextextended('emitir_pedido_medicacion:' || p_protocol_id::text, 0));
 
   -- Un reintento del mismo «Armar pedido»: devuelve lo que ya quedó guardado, sin volver a validar (un
   -- reintento después de medianoche tiene que encontrar su pedido, no chocar con la fecha). Sólo si pide
@@ -120,9 +133,6 @@ begin
     raise exception 'El pedido está vacío' using errcode = '22023';
   end if;
 
-  -- Un candado por estudio hasta el fin de la transacción: la segunda de dos emisiones simultáneas espera a
-  -- la primera y, al seguir, ya ve su pedido.
-  perform pg_advisory_xact_lock(hashtextextended('emitir_pedido_medicacion:' || p_protocol_id::text, 0));
   if p_ultimo_visto is not null then
     select max(pe.numero) into v_otro
       from public.pedidos_medicacion pe
@@ -144,7 +154,9 @@ begin
     values (p_protocol_id, p_desde, p_hasta, p_emitido_el, auth.uid(), v_nombre, p_intento)
     returning id, numero into v_id, v_numero;
   exception when unique_violation then
-    -- Dos llamadas con el mismo intento a la vez: la otra guardó primero. Se devuelve la suya.
+    -- Red: con el candado de arriba, dos llamadas con el mismo intento y el mismo estudio ya no llegan
+    -- juntas hasta acá (la segunda encuentra el pedido en la búsqueda del intento). Queda por las dudas:
+    -- si otra guardó primero ese intento, se devuelve el suyo en vez de un error de clave duplicada.
     select pe.id, pe.numero into v_id, v_numero
       from public.pedidos_medicacion pe
      where pe.intento = p_intento;
@@ -174,10 +186,13 @@ revoke all on function public.emitir_pedido_medicacion(uuid, date, date, date, j
 grant execute on function public.emitir_pedido_medicacion(uuid, date, date, date, jsonb, uuid, integer) to authenticated;
 
 
--- 2b · cerrar_faltante_pedido: no se cierra lo que ya llegó (revisión de ingeniería, 12A) ------------
--- Misma firma y mismo cuerpo que la 0128, más un rechazo: si lo que falta del renglón ya está en una
--- recepción sin verificar, «No va a llegar» es falso — la medicación está en la casa y volvería a la
--- compra. La pantalla esconde el botón en ese caso; esto cubre la llamada directa y la pantalla vieja.
+-- 2b · cerrar_faltante_pedido: primero se verifica (revisión de ingeniería, 12A; Director, 2026-09-19) --
+-- Misma firma y mismo cuerpo que la 0128, más un rechazo: si el renglón tiene ALGO en una recepción sin
+-- verificar, no se cierra — aunque eso no cubra todo lo que falta. Esa medicación está en la casa: cerrar
+-- antes de verificarla la deja como si no hubiera llegado y vuelve a la compra, y lo que de verdad no va
+-- a llegar sólo se sabe después de contar lo que vino. Se verifica (o se anula) y recién ahí se cierra el
+-- resto. La pantalla esconde el botón con la misma regla (sePuedeCerrar, pedidosMedicacionModel.ts); esto
+-- cubre la llamada directa y la pantalla vieja.
 create or replace function public.cerrar_faltante_pedido(p_item_id uuid, p_motivo text)
 returns void language plpgsql security definer set search_path = public as $fn$
 declare
@@ -219,7 +234,7 @@ begin
   if v_recibido >= v_item.pedido then
     raise exception 'Ese renglón ya se recibió entero' using errcode = '23514';
   end if;
-  if v_recibido + v_sin_verificar >= v_item.pedido then
+  if v_sin_verificar > 0 then
     raise exception 'Ese renglón tiene una recepción sin verificar: verificala o anulala antes' using errcode = '23514';
   end if;
 
@@ -273,6 +288,8 @@ grant execute on function public.reabrir_faltante_pedido(uuid) to authenticated;
 -- 4 · reposicion_del_periodo con las recepciones de cada pedido (RD17) -------------------------------
 -- Misma firma y mismo cuerpo que la 0128, más la CTE «recepciones»: las no anuladas de los pedidos que
 -- trae, con su número, para decir «Llegó, falta verificar la recepción Nº 1051» y listarlas en el pedido.
+-- Con los medicamentos que trae cada una (medication_ids): la boleta nombra, al lado de un medicamento,
+-- sólo la recepción pendiente que lo trajo, no todas las del pedido (revisión final, 3).
 create or replace function public.reposicion_del_periodo(
   p_desde       date,
   p_hasta       date,
@@ -398,7 +415,9 @@ begin
   ),
   recepciones as (
     select mr.id, mr.pedido_id, mr.folio, mr.reception_date, mr.status::text as status, mr.verified_by_name,
-           coalesce((select sum(ri.quantity) from public.reception_items ri where ri.reception_id = mr.id), 0)::integer as envases
+           coalesce((select sum(ri.quantity) from public.reception_items ri where ri.reception_id = mr.id), 0)::integer as envases,
+           coalesce((select array_agg(distinct ri.medication_id) from public.reception_items ri
+                      where ri.reception_id = mr.id), '{}') as medication_ids
       from public.medication_receptions mr
       join pedidos pe on pe.id = mr.pedido_id
      where mr.status in ('pendiente', 'verificada')
@@ -435,7 +454,8 @@ grant execute on function public.reposicion_del_periodo(date, date, uuid) to aut
 -- 5 · pedidos_por_recibir: la lista de «Recibir un pedido» (R10) ------------------------------------
 -- Independiente del período (la Recepción no sabe de cortes): los pedidos no anulados con algún renglón
 -- abierto que todavía no se recibió entero, con su estudio, sus renglones y sus recepciones no anuladas
--- (para avisar la que está sin verificar y no recibir dos veces).
+-- (para avisar la que está sin verificar y no recibir dos veces), con los medicamentos de cada una como
+-- en reposicion_del_periodo.
 create or replace function public.pedidos_por_recibir()
 returns jsonb language plpgsql stable security definer set search_path = public as $fn$
 declare
@@ -478,7 +498,9 @@ begin
   ),
   recepciones as (
     select mr.id, mr.pedido_id, mr.folio, mr.reception_date, mr.status::text as status, mr.verified_by_name,
-           coalesce((select sum(ri.quantity) from public.reception_items ri where ri.reception_id = mr.id), 0)::integer as envases
+           coalesce((select sum(ri.quantity) from public.reception_items ri where ri.reception_id = mr.id), 0)::integer as envases,
+           coalesce((select array_agg(distinct ri.medication_id) from public.reception_items ri
+                      where ri.reception_id = mr.id), '{}') as medication_ids
       from public.medication_receptions mr
      where mr.pedido_id in (select p.id from pedidos p)
        and mr.status in ('pendiente', 'verificada')
@@ -495,3 +517,9 @@ end;
 $fn$;
 revoke all on function public.pedidos_por_recibir() from public;
 grant execute on function public.pedidos_por_recibir() to authenticated;
+
+
+-- 6 · PostgREST tiene que enterarse de las RPC nuevas y de la firma nueva -----------------------------
+-- reabrir_faltante_pedido y pedidos_por_recibir son nuevas, y emitir_pedido_medicacion cambió de firma:
+-- sin recargar el esquema, /rpc contesta PGRST202 (mismo cierre que la 0120, 0121, 0123 y 0124).
+notify pgrst, 'reload schema';
