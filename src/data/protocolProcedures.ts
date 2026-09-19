@@ -40,6 +40,12 @@ export interface EstudioProcedimiento {
   category: string | null
   min_estimated: number | null
   requires_dispensation: boolean
+  /**
+   * Si lleva extracción de sangre EN ESTE ESTUDIO (0134). `null` = sin definir, y es el valor con el
+   * que arranca todo lo cargado antes de la 0134: la agenda no dibuja la gota hasta que alguien lo
+   * define. Ver `views/track/procedimientos/sangre.ts`.
+   */
+  draws_blood: boolean | null
   reports: ReportDefinitionRow[]
   /** En cuántas visitas del cronograma está asignado. 0 = se puede quitar del estudio. */
   visitas: number
@@ -86,13 +92,14 @@ export function useEstudioProcedimientos(protocolId: string | null) {
 
       const ppRes = await c
         .from('protocol_procedures')
-        .select('id, procedure_id, procedure:procedures(code, name, category, min_estimated, requires_dispensation)')
+        .select('id, procedure_id, draws_blood, procedure:procedures(code, name, category, min_estimated, requires_dispensation)')
         .eq('protocol_id', protocolId)
       if (ppRes.error) return { data: null, error: ppRes.error }
 
       const pp = (ppRes.data ?? []) as unknown as {
         id: string
         procedure_id: string
+        draws_blood: boolean | null
         procedure: {
           code: string | null; name: string; category: string | null
           min_estimated: number | null; requires_dispensation: boolean
@@ -137,6 +144,7 @@ export function useEstudioProcedimientos(protocolId: string | null) {
         category: r.procedure?.category ?? null,
         min_estimated: r.procedure?.min_estimated ?? null,
         requires_dispensation: r.procedure?.requires_dispensation ?? false,
+        draws_blood: r.draws_blood ?? null,
         reports: porProc.get(r.id) ?? [],
         visitas: usos.get(r.procedure_id) ?? 0,
       }))
@@ -180,6 +188,29 @@ export async function removeProtocolProcedure(
     p_procedure_id: procedureId,
   })
   if (error) return { error: estudioErrorMessage(error.code, error.message) }
+  return { error: null }
+}
+
+/**
+ * Fija si un procedimiento lleva extracción de sangre EN ESTE ESTUDIO (0134). `null` lo vuelve a
+ * «sin definir».
+ *
+ * UPDATE directo sobre `protocol_procedures`: la política «editar procedimientos del estudio» (0089)
+ * es FOR ALL para gerencia y track-operator — el mismo permiso que los reportes, no el del catálogo
+ * global —, y el trigger de auditoría deja el cambio con su autor. **0 filas = sin permiso**: la RLS
+ * filtra en silencio (ver `updatePatient`).
+ */
+export async function setDrawsBlood(
+  protocolProcedureId: string,
+  value: boolean | null,
+): Promise<{ error: string | null }> {
+  const { data, error } = await supabase
+    .from('protocol_procedures')
+    .update({ draws_blood: value })
+    .eq('id', protocolProcedureId)
+    .select('id')
+  if (error) return { error: estudioErrorMessage(error.code, error.message) }
+  if (!data || data.length === 0) return { error: 'No tenés permiso para editar los procedimientos del estudio.' }
   return { error: null }
 }
 

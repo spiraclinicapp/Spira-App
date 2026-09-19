@@ -8,6 +8,7 @@ import { fieldInput } from '../../../components/FormField'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { ProcedureEditModal } from './ProcedureEditModal'
 import { agruparPorCategoria, categoriaColor, platformMeta } from './reportes'
+import { rotuloSangre, sinDefinirSangre } from './sangre'
 import {
   useEstudioProcedimientos, addProtocolProcedure, removeProtocolProcedure,
 } from '../../../data/protocolProcedures'
@@ -50,6 +51,9 @@ export function ProceduresCatalog({ protocolId, accent, accentSolid, canEdit, ca
   const rows = estudio.data ?? []
   /** Todos los reportes del estudio: el modal los usa para sugerir los ya cargados en OTROS procedimientos. */
   const todosLosReportes = useMemo(() => rows.flatMap((r) => r.reports), [rows])
+  /** Cuántos todavía no dicen si llevan sangre (0134). Sobre TODOS, no sobre lo filtrado por el
+   *  buscador: es el número que dice si el estudio está listo para la agenda con la gota (D19). */
+  const faltaSangre = sinDefinirSangre(rows)
 
   /* Sugerencias del alta: el catálogo GLOBAL menos lo que este estudio ya tiene (ofrecer algo que
      ya está solo lleva al error de duplicado). El `value` es el id del procedimiento; el texto
@@ -195,6 +199,15 @@ export function ProceduresCatalog({ protocolId, accent, accentSolid, canEdit, ca
 
       {error && <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>{error}</div>}
 
+      {/* Lo que falta para que la agenda muestre la gota (0134, D19). Una frase y nada más: se carga
+          en cada procedimiento, y la marca de cada fila dice cuál es. Desaparece en cero. */}
+      {faltaSangre > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-ink-soft)', padding: '0 2px' }}>
+          <Icon name="droplet" size={14} color="var(--spira-faint)" />
+          Falta definir si llevan sangre: {faltaSangre} {faltaSangre === 1 ? 'procedimiento' : 'procedimientos'}.
+        </div>
+      )}
+
       {rows.length === 0 ? (
         <EmptyState
           accent={accent}
@@ -235,10 +248,19 @@ export function ProceduresCatalog({ protocolId, accent, accentSolid, canEdit, ca
                     <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>
                       {r.min_estimated != null ? `~${r.min_estimated} min` : 'Sin duración cargada'}
                       {r.visitas > 0 && ` · en ${r.visitas} ${r.visitas === 1 ? 'visita' : 'visitas'}`}
+                      {/* Sólo lo que falta se dice en palabras: «sí» ya lo dice la gota de la
+                          derecha, y «no» es el caso quieto — repetirlo en cada fila sería ruido. */}
+                      {r.draws_blood === null && ` · ${rotuloSangre(null)}`}
                     </span>
                   </button>
 
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
+                    {r.draws_blood === true && (
+                      /* La misma gota que la agenda del día (handoff §4), en el rojo de la casa. */
+                      <span role="img" aria-label={rotuloSangre(true)} title={rotuloSangre(true)} style={{ display: 'grid', placeItems: 'center' }}>
+                        <Icon name="droplet" size={14} color="var(--spira-danger)" fill="var(--spira-danger)" />
+                      </span>
+                    )}
                     {r.reports.length > 0 ? (
                       <span style={{ ...pill, borderColor: accent + '4D', color: accent }}>
                         {r.reports.length} {r.reports.length === 1 ? 'reporte' : 'reportes'}

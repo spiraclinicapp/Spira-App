@@ -4,13 +4,16 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { SearchableSelect } from '../../../components/SearchableSelect'
 import type { SelectOption } from '../../../components/SearchableSelect'
+import { SegmentedControl } from '../../../components/SegmentedControl'
 import { fieldLabelStyle } from '../../../components/FormField'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { ReportForm, boxInput, Helper } from './ReportForm'
 import {
   CATEGORIAS, DURACION_PRESETS, etaLabel, knownReports, platformMeta,
 } from './reportes'
-import { setProcedureReports, updateProcedureCatalog } from '../../../data/protocolProcedures'
+import { OPCIONES_SANGRE, opcionDeSangre, sangreDeOpcion } from './sangre'
+import type { OpcionSangre } from './sangre'
+import { setDrawsBlood, setProcedureReports, updateProcedureCatalog } from '../../../data/protocolProcedures'
 import type { EstudioProcedimiento, ReportDefinitionRow, ReportInput } from '../../../data/protocolProcedures'
 
 /** Clave estable para un reporte del borrador: el id de la base, o uno temporal para los nuevos. */
@@ -27,17 +30,18 @@ function toDraft(r: ReportDefinitionRow): Draft {
  * Modal "Editar procedimiento": los datos del catálogo arriba, sus reportes abajo, UN solo footer.
  *
  * TODO se guarda junto, con "Guardar cambios". Agregar, editar o borrar un reporte toca únicamente
- * el borrador en memoria; recién al confirmar salen las dos operaciones (el catálogo por UPDATE, los
- * reportes por la RPC atómica `set_procedure_reports`). Esto es una desviación DELIBERADA del
- * handoff, que especificaba que los reportes impactaran al toque: con ese diseño, borrar un reporte
- * y apretar "Cancelar" dejaba el reporte borrado igual. Un botón que dice Cancelar tiene que
- * cancelar (decisión de la review, 2026-08-23).
+ * el borrador en memoria; recién al confirmar salen las operaciones (el catálogo por UPDATE, la
+ * sangre por UPDATE, los reportes por la RPC atómica `set_procedure_reports`). Esto es una desviación
+ * DELIBERADA del handoff, que especificaba que los reportes impactaran al toque: con ese diseño,
+ * borrar un reporte y apretar "Cancelar" dejaba el reporte borrado igual. Un botón que dice Cancelar
+ * tiene que cancelar (decisión de la review, 2026-08-23).
  *
  * Ojo con los permisos, que NO son los mismos arriba y abajo: los campos del catálogo (nombre,
  * iniciales, categoría, duración) viven en `procedures`, que es GLOBAL — renombrar ahí renombra en
- * todos los protocolos — y su RLS pide gerencia o track-leader. Los reportes son de este estudio y
- * piden track-operator. Por eso `canEditCatalog` llega aparte y, sin él, la mitad de arriba se
- * muestra inerte con su motivo en vez de dejar escribir y fallar al guardar.
+ * todos los protocolos — y su RLS pide gerencia o track-leader. La extracción de sangre (0134) y los
+ * reportes son de ESTE estudio (`protocol_procedures`) y piden track-operator. Por eso
+ * `canEditCatalog` llega aparte y, sin él, la mitad de arriba se muestra inerte con su motivo en vez
+ * de dejar escribir y fallar al guardar.
  */
 export function ProcedureEditModal({
   proc, todosLosReportes, accent, accentSolid, canEditCatalog, onClose, onSaved,
@@ -58,6 +62,8 @@ export function ProcedureEditModal({
   /* ¿La duración se carga con el desplegable o con el input libre? Arranca en libre si el valor
      guardado no es uno de los presets (si no, el select mostraría un preset que no es el dato). */
   const [durLibre, setDurLibre] = useState(proc.min_estimated != null && !DURACION_PRESETS.includes(proc.min_estimated))
+  /** ¿Lleva extracción de sangre en este estudio? (0134). Tres valores: ver `sangre.ts`. */
+  const [sangre, setSangre] = useState<OpcionSangre>(opcionDeSangre(proc.draws_blood))
 
   const [drafts, setDrafts] = useState<Draft[]>(proc.reports.map(toDraft))
   /** Qué reporte se está editando: su `key`, 'nuevo', o null (ninguno). */
@@ -116,6 +122,18 @@ export function ProcedureEditModal({
       }
     }
 
+    // Después la sangre, sólo si cambió. Corta igual que el catálogo si falla: que los reportes se
+    // guarden sin la sangre que la persona acaba de elegir la dejaría creyendo que quedó cargada.
+    const nuevaSangre = sangreDeOpcion(sangre)
+    if (nuevaSangre !== proc.draws_blood) {
+      const res = await setDrawsBlood(proc.id, nuevaSangre)
+      if (res.error) {
+        setBusy(false)
+        setError(res.error)
+        return
+      }
+    }
+
     const res = await setProcedureReports(
       proc.id,
       drafts.map((d) => ({ id: d.id, name: d.name, platform: d.platform, link: d.link, eta_hours: d.eta_hours, notes: d.notes })),
@@ -146,9 +164,9 @@ export function ProcedureEditModal({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {!canEditCatalog && (
           <div style={avisoBox}>
-            Podés editar los reportes de este estudio. El nombre, las iniciales, la categoría y la
-            duración son del catálogo general —los comparten todos los protocolos— y los edita
-            gerencia o un líder de Coordinación.
+            Podés editar la extracción de sangre y los reportes de este estudio. El nombre, las
+            iniciales, la categoría y la duración son del catálogo general —los comparten todos los
+            protocolos— y los edita gerencia o un líder de Coordinación.
           </div>
         )}
 
@@ -232,8 +250,24 @@ export function ProcedureEditModal({
           <Helper>Cuánto dura el procedimiento en promedio, de principio a fin.</Helper>
         </div>
 
-        {/* —— Reportes —— */}
+        {/* —— Lo de ESTE estudio: extracción de sangre y reportes —— */}
         <div style={{ borderTop: '1px solid var(--spira-line)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Extracción de sangre (0134). Arriba de los reportes y bajo la misma línea: las dos son
+              del estudio y las edita el mismo permiso, a diferencia de la mitad de arriba. Tres
+              opciones y no un interruptor: «Sin definir» es un estado real —con él la agenda no
+              dibuja la gota— y un interruptor apagado se leería como «No». */}
+          <div style={{ ...campo, marginBottom: 8 }}>
+            <span style={fieldLabelStyle}>Extracción de sangre</span>
+            <SegmentedControl
+              options={[...OPCIONES_SANGRE]}
+              value={sangre}
+              onChange={setSangre}
+              label="¿Lleva extracción de sangre?"
+              size="barra"
+            />
+            <Helper>Se muestra en la lista de visitas del día. Vale para este estudio.</Helper>
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Icon name="fileText" size={16} color={accent} />
             <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15 }}>Reportes</span>
