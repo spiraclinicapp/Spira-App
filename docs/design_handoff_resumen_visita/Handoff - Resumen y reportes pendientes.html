@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handoff · Resumen de la visita y Reportes pendientes</title>
+<style>/* ============================================================
+   Spira · colors_and_type.css
+   Identidad "Sereno" — petróleo + papel cálido, Schibsted Grotesk + Hanken Grotesk.
+   Sistema de tokens para producto y materiales de marca.
+   ============================================================ */
+
+/* Webfonts (Google Fonts). Si se necesitan offline, descargar a /fonts. */
+/* cyrillic-ext */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* latin-ext */
+
+/* latin */
+
+/* latin-ext */
+
+/* latin */
+
+/* latin-ext */
+
+/* latin */
+
+/* latin-ext */
+
+/* latin */
+
+/* latin-ext */
+
+/* latin */
+
+
+
+:root {
+  /* —— Color · base —— */
+  --spira-ink:      #14302E;   /* texto / petróleo casi negro */
+  --spira-primary:  #0F5F57;   /* petróleo — color de marca */
+  --spira-paper:    #F4F1EA;   /* fondo cálido */
+  --spira-surface:  #FBFAF6;   /* superficie elevada clara */
+  --spira-white:    #FFFFFF;
+  --spira-muted:    #7C8C87;   /* texto secundario */
+  --spira-faint:    #A6B0AC;   /* texto terciario / placeholders */
+  --spira-line:     #E4DECF;   /* bordes / divisores */
+  --spira-line-2:   #D8CBB0;   /* bordes de inputs */
+
+  /* —— Color · semántico —— */
+  --spira-good:     #5C8A5A;   /* éxito / activo */
+  --spira-warn:     #B0823F;   /* advertencia / stock bajo */
+  --spira-danger:   #A6483B;   /* error / vencido / crítico */
+
+  /* —— Color · acentos por submódulo (misma familia) —— */
+  --spira-track:    #2E7D74;   /* Spira Track — teal */
+  --spira-pharma:   #C9A24A;   /* Spira Pharma — ámbar/dorado (color histórico) */
+  --spira-pharma-solid: #A8842F; /* ámbar oscuro para rellenos (botones, cards) */
+  --spira-lab:      #5C8A5A;   /* Spira Lab — verde salvia */
+  --spira-contable: #3A6B8C;   /* Spira Contable — azul acero */
+
+  /* —— Tipografía —— */
+  --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif; /* títulos, marca, números */
+  --spira-font-text:    'Hanken Grotesk', system-ui, sans-serif;    /* cuerpo, UI */
+  --spira-font-mono:    'IBM Plex Mono', ui-monospace, monospace;   /* códigos, IDs, datos */
+
+  /* —— Radios —— */
+  --spira-radius-sm: 8px;
+  --spira-radius-md: 10px;
+  --spira-radius-lg: 16px;
+  --spira-radius-pill: 999px;
+
+  /* —— Sombras (suaves, cálidas) —— */
+  --spira-shadow-sm: 0 1px 2px rgba(20,48,46,.06);
+  --spira-shadow-md: 0 12px 32px rgba(20,48,46,.10);
+  --spira-shadow-lg: 0 18px 40px rgba(20,48,46,.14);
+
+  /* —— Espaciado (escala de 4) —— */
+  --spira-space-1: 4px;  --spira-space-2: 8px;  --spira-space-3: 12px;
+  --spira-space-4: 16px; --spira-space-5: 20px; --spira-space-6: 24px;
+  --spira-space-8: 32px; --spira-space-10: 40px; --spira-space-12: 48px;
+}
+
+/* —— Estilos tipográficos semánticos —— */
+.spira-display  { font-family: var(--spira-font-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1.0; color: var(--spira-ink); }
+.spira-h1       { font-family: var(--spira-font-display); font-weight: 700; font-size: 40px; letter-spacing: -0.02em; line-height: 1.05; color: var(--spira-ink); }
+.spira-h2       { font-family: var(--spira-font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; color: var(--spira-ink); }
+.spira-h3       { font-family: var(--spira-font-display); font-weight: 700; font-size: 17px; color: var(--spira-ink); }
+.spira-stat     { font-family: var(--spira-font-display); font-weight: 700; font-size: 38px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.spira-body     { font-family: var(--spira-font-text); font-weight: 400; font-size: 14px; line-height: 1.55; color: var(--spira-ink); }
+.spira-small    { font-family: var(--spira-font-text); font-weight: 400; font-size: 12.5px; color: var(--spira-muted); }
+.spira-eyebrow  { font-family: var(--spira-font-text); font-weight: 700; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--spira-faint); }
+.spira-code     { font-family: var(--spira-font-mono); font-size: 12.5px; }
+
+/* —— Tema oscuro —— (aplicar [data-theme="dark"] en <html> o un contenedor)
+   Acentos por módulo, primario y semánticos se mantienen; cambian fondos,
+   superficies, texto y líneas. El texto sobre acento usa --spira-on-accent. */
+:root { --spira-on-accent: #F4F1EA; --spira-brand-mark: #0F5F57; }
+[data-theme="dark"] {
+  --spira-ink:      #E9F2EF;
+  --spira-paper:    #0E1B1A;
+  --spira-surface:  #142523;
+  --spira-white:    #17302C;   /* fondo de card/elevado en oscuro */
+  --spira-muted:    #8AA39D;
+  --spira-faint:    #5E726D;
+  --spira-line:     #27403B;
+  --spira-line-2:   #34504A;
+  --spira-brand-mark: #9DE6D6;  /* isotipo legible sobre fondo oscuro */
+}
+</style>
+
+<style>
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--spira-paper);color:var(--spira-ink);font-family:var(--spira-font-text);font-size:14.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.doc{max-width:940px;margin:0 auto;padding:40px 28px 100px}
+h1{font-family:var(--spira-font-display);font-size:32px;font-weight:700;letter-spacing:-.02em;margin:8px 0 6px;line-height:1.15}
+h2{font-family:var(--spira-font-display);font-size:21px;font-weight:700;margin:42px 0 4px;letter-spacing:-.01em;padding-top:18px;border-top:1px solid var(--spira-line)}
+h3{font-family:var(--spira-font-display);font-size:15.5px;font-weight:700;margin:26px 0 6px}
+p{margin:0 0 12px;text-wrap:pretty;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:20px;max-width:74ch}li{margin:0 0 5px}
+.eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--spira-faint)}
+.lede{font-size:16px;color:#4A5F5B;max-width:70ch}
+code,kbd{font-family:var(--spira-font-mono);font-size:12.5px;background:var(--spira-white);border:1px solid var(--spira-line);border-radius:5px;padding:1px 5px}
+pre{font-family:var(--spira-font-mono);font-size:12px;line-height:1.55;background:var(--spira-white);border:1px solid var(--spira-line);border-radius:10px;padding:13px 15px;overflow:auto;margin:0 0 14px}
+pre code{background:none;border:none;padding:0;font-size:inherit}
+table{width:100%;border-collapse:collapse;margin:0 0 16px;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--spira-line);vertical-align:top}
+th{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--spira-faint);white-space:nowrap}
+td code{font-size:11.5px}
+figure{margin:18px 0 22px}
+figure img{width:100%;display:block;border:1px solid var(--spira-line);border-radius:12px;background:var(--spira-white)}
+figcaption{font-size:12px;color:#4A5F5B;margin-top:7px}
+.note{background:var(--spira-surface);border:1px solid var(--spira-line);border-radius:12px;padding:13px 16px;margin:0 0 16px}
+.note.warn{border-color:#B0823F55;background:color-mix(in srgb,#B0823F 7%,var(--spira-white))}
+.note .eyebrow{display:block;margin-bottom:4px}
+.note p:last-child{margin:0}
+.sw{display:inline-block;width:13px;height:13px;border-radius:4px;border:1px solid #0001;vertical-align:-2px;margin-right:7px}
+.demo{background:var(--spira-white);border:1px solid var(--spira-line);border-radius:12px;padding:18px;margin:0 0 8px}
+.kv{display:grid;grid-template-columns:150px minmax(0,1fr);gap:4px 14px;font-size:13px;margin:0 0 16px}
+.kv dt{color:#4A5F5B}.kv dd{margin:0;font-weight:600}
+ol.flow{counter-reset:s;list-style:none;padding:0}
+ol.flow li{position:relative;padding-left:30px;margin-bottom:9px}
+ol.flow li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:1px;width:20px;height:20px;border-radius:50%;background:var(--spira-track);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+.chk{list-style:none;padding:0}
+.chk li{position:relative;padding-left:26px}
+.chk li::before{content:'';position:absolute;left:0;top:5px;width:14px;height:14px;border-radius:4px;border:1.5px solid var(--spira-line-2)}
+a{color:var(--spira-track)}a:hover{color:var(--spira-primary)}
+@media print{body{background:#fff}.doc{max-width:none;padding:0}h2{break-after:avoid}figure,table,pre,.note{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="doc">
+<div class="eyebrow">Spira Track · handoff de diseño</div>
+<h1>Resumen de la visita y Reportes pendientes</h1>
+<p class="lede">El panel de Procedimientos del modal de visita pasa a contener <b>sólo</b> lo que requiere acción posterior — los procedimientos que dejan informe — y todo lo que la visita “lleva” se resuelve en un resumen nuevo, legible de un vistazo, que también aparece en la lista de visitas del día para programar la agenda sin abrir cada visita.</p>
+
+<dl class="kv">
+<dt>Prototipo</dt><dd>Visita - Resumen y reportes.html</dd>
+<dt>Alcance</dt><dd>Modal de visita (Spira Track) + fila de la lista de visitas del día</dd>
+<dt>Componentes app</dt><dd><code>VisitProcedures.tsx</code>, <code>DayVisitRowItem.tsx</code>, <code>visitAtoms.tsx</code>, <code>reportes/estados.ts</code></dd>
+<dt>Requiere backend</dt><dd>Sí — marca “lleva sangre” por procedimiento (ver §8)</dd>
+</dl>
+
+<h2>1 · Qué cambia</h2>
+<table>
+<tbody><tr><th>Antes</th><th>Ahora</th></tr>
+<tr><td>Panel “Procedimientos” con los 10 procedimientos de la visita, el reporte escondido en una píldora desplegable.</td><td>Panel <b>“Reportes pendientes”</b> con sólo los procedimientos que dejan informe; el reporte, su estado y su acceso siempre visibles.</td></tr>
+<tr><td>Para saber qué lleva la visita había que abrirla y leer la lista completa.</td><td>Panel <b>“Resumen de la visita”</b> arriba del anterior: conteo, sangre, kit IP, reportes por cargar. El listado completo se ve al pasar el mouse.</td></tr>
+<tr><td>La fila del día no decía nada del contenido de la visita.</td><td>La fila suma la misma tira de indicadores en versión compacta.</td></tr>
+<tr><td>Rótulo propuesto por Dirección: “Procedimientos con reportes pendientes”.</td><td>Rótulo final: <b>“Reportes pendientes”</b>.</td></tr>
+</tbody></table>
+
+<h2>2 · Referencia visual — lista de visitas del día</h2>
+<figure>
+<img src="screenshots/fila-del-dia.png" alt="Tres filas de la lista de visitas del día con la tira de indicadores">
+<figcaption>Tres estados: con sangre y kit IP · sin sangre · sin procedimientos (la tira no se dibuja). El tag del estudio encabeza la fila y el tag del estado va centrado sobre su barra de progreso.</figcaption>
+</figure>
+
+<h3>Anatomía de la fila</h3>
+<p>Grilla de 4 columnas, <code>align-items:center</code>, <code>gap:16px</code>, padding <code>12px 16px</code>, radio <code>14px</code>, borde <code>--spira-line</code>, sombra <code>--spira-shadow-sm</code>:</p>
+<pre><code>grid-template-columns: 104px  minmax(0,1fr)  206px  auto
+                       estado  identidad      personas  acciones</code></pre>
+<p>La columna de identidad apila cuatro bloques, en este orden exacto:</p>
+<ol class="flow">
+<li><b>Tag del estudio</b> (<code>margin-bottom:7px</code>) — encabeza la fila: recuadro 20px de alto, radio 6px, fondo <code>#0F5F57</code> al 9%, borde al 18%, con nombre del estudio en display 11px/700 <code>--spira-primary</code> + protocolo en mono 11px.</li>
+<li><b>Nombre</b> — display 17px/700, <code>letter-spacing:-.01em</code>.</li>
+<li><b>Línea de datos</b> (<code>margin-top:6px</code>, 12.5px, <code>--spira-muted</code>): número de paciente en mono · tag de visita (<code>V1</code>) · semana del cronograma (“Screening”).</li>
+<li><b>Tira de indicadores</b> (<code>margin-top:9px</code>) — §4.</li>
+</ol>
+<p>Columna de estado: el tag va centrado (<code>flex-direction:column; align-items:center</code>) y la barra de progreso ocupa el 100% del ancho de la columna, 3px de alto, radio 2px, riel <code>--spira-line-2</code>.</p>
+
+<h2>3 · Referencia visual — dentro de la visita</h2>
+<figure>
+<img src="screenshots/modal-completo.png" alt="Modal de visita completo con encabezado, resumen y panel de reportes pendientes">
+<figcaption>Orden vertical del modal: barra de estudio → bloque de paciente → barra de ruta → columna izquierda (Resumen + Reportes pendientes) y columna derecha (Dispensación, sin cambios).</figcaption>
+</figure>
+<figure>
+<img src="screenshots/paneles-detalle.png" alt="Detalle de los dos paneles nuevos">
+<figcaption>Detalle de los dos paneles nuevos con los cuatro estados de reporte: Sin empezar, Descargado, Vencido y Evolucionado.</figcaption>
+</figure>
+<p>El cuerpo del modal es una grilla de dos columnas <code>minmax(0,1.18fr) minmax(0,.82fr)</code>, <code>gap:14px</code>, <code>align-items:start</code>, padding <code>16px 18px</code>. La columna izquierda apila Resumen y Reportes pendientes con <code>gap:12px</code>.</p>
+
+<h2>4 · Tira de indicadores</h2>
+<p>El formato es <b>línea</b>: ícono + texto, sin cápsula ni recuadro. La atenuación la carga sólo el ícono; el texto se mantiene legible (nunca por debajo de 4.5:1).</p>
+<div class="demo">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px">
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;cursor:help;border-bottom:1px dotted var(--spira-line-2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2E7D74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="m9 14 2 2 4-4"></path></svg>10 procedimientos</span>
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="#A6483B"><path d="M12 3c3.6 4.3 5.6 7.1 5.6 9.6a5.6 5.6 0 1 1-11.2 0C6.4 10.1 8.4 7.3 12 3Z"></path></svg>Lleva sangre</span>
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B0823F" stroke-width="1.8" stroke-linecap="round"><path d="M10.5 20.5a5 5 0 0 1-7-7l7-7a5 5 0 0 1 7 7z"></path><path d="m8.5 8.5 7 7"></path></svg>Lleva kit IP</span>
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B0823F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h6"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg>2 reportes por cargar</span>
+</div>
+<div class="eyebrow" style="margin-top:16px">Estado apagado</div>
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;margin-top:7px">
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#4A5F5B"><svg width="14" height="14" viewBox="0 0 24 24" fill="#A6B0AC"><path d="M12 3c3.6 4.3 5.6 7.1 5.6 9.6a5.6 5.6 0 1 1-11.2 0C6.4 10.1 8.4 7.3 12 3Z"></path></svg>Sin sangre</span>
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#4A5F5B"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A6B0AC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h6"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg>Reportes al día</span>
+</div>
+</div>
+<table>
+<tbody><tr><th>Indicador</th><th>Ícono</th><th>Encendido</th><th>Apagado</th><th>Texto en fila / en modal</th></tr>
+<tr><td>Procedimientos</td><td><code>clipboard-check</code></td><td><code>--spira-track</code></td><td>—</td><td><code>10 proc.</code> / <code>10 procedimientos</code></td></tr>
+<tr><td>Sangre</td><td><code>droplet</code> (relleno)</td><td><code>#A6483B</code></td><td><code>--spira-faint</code></td><td><code>Sangre</code> · <code>Sin sangre</code> / <code>Lleva sangre</code> · <code>No lleva sangre</code></td></tr>
+<tr><td>Kit IP</td><td><code>pill</code></td><td><code>#B0823F</code></td><td>no se dibuja</td><td><code>Kit IP</code> / <code>Lleva kit IP</code></td></tr>
+<tr><td>Reportes</td><td><code>file-text</code></td><td><code>#B0823F</code></td><td><code>--spira-faint</code></td><td>sólo en modal: <code>N reportes por cargar</code> · <code>Reportes al día</code></td></tr>
+</tbody></table>
+<p>Medidas: ícono 14px, texto 12.5px/600, <code>gap:6px</code> interno, <code>white-space:nowrap</code>. Separación entre indicadores por <code>gap</code>, sin divisores (en la fila <code>8px 18px</code>, en el modal <code>10px 20px</code>) — un divisor como ítem de un flex con wrap queda colgando al final de línea.</p>
+<div class="note warn"><span class="eyebrow">Regla de vacío</span><p>Si la visita no tiene procedimientos del cuadro, la tira <b>no se dibuja</b> y no se escribe ningún texto de reemplazo. Sin “Sin procedimientos”, sin guión, sin nada.</p></div>
+
+<h3>Listado de procedimientos (hover)</h3>
+<p>“10 procedimientos” <b>no es un botón</b>: es texto con <code>border-bottom:1px dotted var(--spira-line-2)</code> y <code>cursor:help</code>, sin chevrón — un chevrón o una cápsula inducen al clic, que no es el gesto. El popup abre con <code>:hover</code> y con <code>:focus-within</code> (accesible por teclado, <code>tabindex="0"</code> + <code>aria-label</code>).</p>
+<div class="demo">
+<div style="width:340px;background:var(--spira-white);border:1px solid var(--spira-line);border-radius:14px;box-shadow:var(--spira-shadow-md);padding:12px 4px 10px">
+<div class="eyebrow" style="padding:0 14px 8px">Lleva 10 procedimientos</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:9px;padding:5px 14px"><span style="width:5px;height:5px;border-radius:50%;background:var(--spira-line-2);flex:0 0 auto"></span><span style="flex:1;font-size:12.5px">Signos vitales</span></div>
+<div style="display:flex;align-items:center;gap:9px;padding:5px 14px"><span style="width:5px;height:5px;border-radius:50%;background:var(--spira-line-2);flex:0 0 auto"></span><span style="flex:1;font-size:12.5px">Laboratorio central — hematología</span><svg width="13" height="13" viewBox="0 0 24 24" fill="#A6483B"><path d="M12 3c3.6 4.3 5.6 7.1 5.6 9.6a5.6 5.6 0 1 1-11.2 0C6.4 10.1 8.4 7.3 12 3Z"></path></svg><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A6B0AC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h6"></path></svg></div>
+<div style="display:flex;align-items:center;gap:9px;padding:5px 14px"><span style="width:5px;height:5px;border-radius:50%;background:var(--spira-line-2);flex:0 0 auto"></span><span style="flex:1;font-size:12.5px">Entrega de producto en investigación</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B0823F" stroke-width="1.8" stroke-linecap="round"><path d="M10.5 20.5a5 5 0 0 1-7-7l7-7a5 5 0 0 1 7 7z"></path><path d="m8.5 8.5 7 7"></path></svg></div>
+</div>
+<div style="border-top:1px solid var(--spira-line);margin:8px 14px 0;padding-top:8px;font-size:11.5px;color:#4A5F5B;display:flex;gap:12px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="#A6483B"><path d="M12 3c3.6 4.3 5.6 7.1 5.6 9.6a5.6 5.6 0 1 1-11.2 0C6.4 10.1 8.4 7.3 12 3Z"></path></svg>extracción</span><span style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B0823F" stroke-width="1.8" stroke-linecap="round"><path d="M10.5 20.5a5 5 0 0 1-7-7l7-7a5 5 0 0 1 7 7z"></path><path d="m8.5 8.5 7 7"></path></svg>kit IP</span><span style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A6B0AC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h6"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg>reporte</span></div>
+</div>
+</div>
+<ul>
+<li>Posición: <code>position:absolute; top:calc(100% + 8px)</code>, ancho 340px, radio 14px, sombra <code>--spira-shadow-md</code>, <code>max-height:300px</code> con scroll.</li>
+<li>Transición: <code>opacity .13s, transform .13s</code> desde <code>translateY(-4px)</code>.</li>
+<li>Cada ítem: viñeta de 5px (<b>no</b> checkbox), nombre 12.5px, y a la derecha las marcas que apliquen — gota de sangre, kit IP, hoja de reporte.</li>
+<li>El listado <b>no</b> muestra si el procedimiento está realizado: no hay forma de tildarlo desde acá, y mostrarlo invitaba al clic. El tilde vive sólo en el panel de Reportes pendientes.</li>
+<li>Pie con la leyenda de las tres marcas.</li>
+</ul>
+
+<h2>5 · Panel “Resumen de la visita”</h2>
+<p>Panel estándar: fondo <code>--spira-surface</code>, borde <code>--spira-line</code>, radio 14px, padding <code>14px 16px</code>. Encabezado: ícono <code>clipboard-check</code> 15px en <code>--spira-track</code> + título display 14px/700. <b>Sin</b> contador de realizados a la derecha.</p>
+<p>Cuerpo: la tira de indicadores del §4 con los rótulos largos. Nada más — no lleva aviso de extracción ni recordatorios operativos (“pedir el retiro del courier” se sabe).</p>
+
+<h2>6 · Panel “Reportes pendientes”</h2>
+<p>Mismo panel estándar, ícono <code>file-text</code>. A la derecha, badge de conteo: alto 24px, radio pill, <code>N por cargar</code> sobre <code>#B0823F</code> al 12% con borde al 30% y texto <code>#8C6520</code>; cuando no queda nada dice <code>Al día</code> en neutro (borde <code>--spira-line</code>, fondo transparente, texto <code>#4A5F5B</code>).</p>
+<p>Contiene <b>sólo</b> procedimientos cuyo <code>reports.length &gt; 0</code>, en el orden del cronograma. Una tarjeta por procedimiento (fondo blanco, borde <code>--spira-line</code>, radio 12px, <code>overflow:hidden</code>, separadas por <code>gap:10px</code>), compuesta por una banda de encabezado y un bloque por reporte.</p>
+
+<h3>Banda de encabezado = el control del tilde</h3>
+<p>Es un <code>&lt;button role="checkbox" aria-checked&gt;</code> que ocupa el 100% del ancho: <b>toda la banda se toca</b>, no sólo el cuadrito. Fondo <code>--spira-surface</code>, borde inferior <code>--spira-line</code>, <code>min-height:44px</code>, padding <code>9px 14px</code>, <code>gap:10px</code>.</p>
+<ul>
+<li><b>Casilla</b> 20×20, radio 6px. Sin tildar: borde 1.5px <code>--spira-muted</code>, fondo transparente. Tildada: relleno <code>--spira-track</code> con check blanco (el check existe siempre, se anima con <code>opacity</code>).</li>
+<li><b>Nombre</b> 12.5px/600. Al tildar: <code>text-decoration:line-through</code> (1px, <code>--spira-muted</code>) y color a <code>#4A5F5B</code>. Lo hecho se tacha; lo que falta sigue contado debajo.</li>
+<li><b>Sublínea</b> 11.5px <code>#4A5F5B</code>, exactamente:
+<ul><li>sin tildar → <code>Sin realizar · N informes</code> (total del procedimiento; nunca decir “al día”),</li>
+<li>tildado con pendientes → <code>Realizado · N informes pendientes</code>,</li>
+<li>tildado y todo evolucionado → <code>Realizado · informes al día</code>.</li></ul></li>
+<li><b>Gota de sangre</b> 13px a la derecha si el procedimiento lleva extracción.</li>
+<li><b>Desmarcado bloqueado</b>: si algún reporte ya pasó de <code>pendiente</code>, la banda deja de responder (<code>cursor:default</code>) y expone el motivo en <code>title</code>: “Tiene reportes ya avanzados: retrocedé el reporte antes de desmarcarlo.”</li>
+</ul>
+
+<h3>Bloque de reporte</h3>
+<p>Padding <code>11px 14px</code>, separados entre sí por <code>border-top:1px solid var(--spira-line)</code>. Jerarquía fija — cada dato tiene siempre el mismo lugar, para que dos reportes del mismo procedimiento no se confundan:</p>
+<ol class="flow">
+<li>Grilla <code>minmax(0,1fr) auto</code>: a la izquierda el <b>nombre del reporte</b> (13.5px/700, es el titular) con la <b>plataforma</b> debajo (11.5px <code>#4A5F5B</code>); a la derecha el <b>tag de estado</b>.</li>
+<li>Debajo (<code>margin-top:9px</code>), la fila de acciones: <code>Abrir en {plataforma}</code> + acción de avance, y al final de la línea (<code>margin-left:auto</code>) el <b>plazo o la constancia</b>.</li>
+</ol>
+<p><b>Botón de plataforma</b>: alto 30px, radio 9px, borde <code>--spira-line-2</code>, fondo blanco, 12px/600, con ícono <code>external-link</code> 12px. <b>Botón de avance</b>: alto 30px, radio 9px, sin borde, fondo <code>--spira-track</code>, texto blanco 12px/700.</p>
+<p>Cuando el procedimiento no está tildado, el bloque <b>no</b> muestra acciones: en su lugar va un aviso (fondo <code>--spira-surface</code>, borde <code>--spira-line</code>, radio 9px, padding <code>8px 11px</code>, 11.5px) con el texto “Se habilita al marcar el procedimiento como realizado.”</p>
+
+<h2>7 · Estados del reporte</h2>
+<table>
+<tbody><tr><th>Estado</th><th>Tag</th><th>Color</th><th>Ícono</th><th>Acción visible</th><th>Texto de plazo</th></tr>
+<tr><td>procedimiento sin tildar</td><td><code>Sin empezar</code></td><td>neutro: borde <code>--spira-line</code>, texto <code>#4A5F5B</code></td><td><code>clock</code></td><td>ninguna (aviso)</td><td>—</td></tr>
+<tr><td><code>pendiente</code></td><td><code>Pendiente</code></td><td><span class="sw" style="background:#B0823F"></span><code>#B0823F</code></td><td><code>clock</code></td><td>Marcar descargado</td><td>“Vence en 2 días”</td></tr>
+<tr><td><code>pendiente</code> + vencido</td><td><code>Vencido</code></td><td><span class="sw" style="background:#A6483B"></span><code>#A6483B</code></td><td><code>alert-circle</code></td><td>Marcar descargado</td><td>“Vencido hace 6 h” con ícono, en <code>#A6483B</code></td></tr>
+<tr><td><code>descargado</code></td><td><code>Descargado</code></td><td><span class="sw" style="background:#3A6B8C"></span><code>#3A6B8C</code></td><td><code>download</code></td><td>Marcar evolucionado</td><td>“Descargado hoy 15:10 · Dra. Bertossi”</td></tr>
+<tr><td><code>evolucionado</code></td><td><code>Evolucionado</code></td><td><span class="sw" style="background:#5C8A5A"></span><code>#5C8A5A</code></td><td><code>check</code></td><td>ninguna</td><td>“Evolucionado 16 Sep · A. Duarte”</td></tr>
+</tbody></table>
+<p>Construcción del tag: alto 24px, radio pill, padding <code>0 9px</code>, texto 11.5px/700, ícono 12px, fondo del color al 12% y borde al 30% (<code>color-mix(in srgb, C 12%, #fff)</code>).</p>
+<pre><code>procedimiento tildado ──► pendiente ──► descargado ──► evolucionado
+                            │              │
+                         (vencido si pasó el plazo)</code></pre>
+
+<h3>Reglas de conteo</h3>
+<p>Un reporte cuenta como pendiente si <b>el procedimiento está realizado</b> y el reporte <b>no llegó a evolucionado</b> — el mismo criterio que <code>esReportePendiente</code> en <code>reportes/estados.ts</code>. No hay dos números distintos en pantalla: el badge del panel y el indicador del resumen leen la misma función.</p>
+<pre><code>const pendientes = reportes.filter(r =&gt;
+  procedimientos[r.procedure_id].completed &amp;&amp; r.stage !== 'evolucionado'
+).length;</code></pre>
+<p>Consecuencia visible: al tildar un procedimiento el conteo <b>sube</b> (aparece trabajo nuevo), y baja sólo al evolucionar.</p>
+
+<h2>8 · Dato nuevo requerido: “lleva sangre”</h2>
+<div class="note warn"><span class="eyebrow">Bloqueante para implementar</span><p>Hoy el catálogo de procedimientos sólo tiene categoría (Laboratorio, Cardio-respiratorio, Medicación…). El indicador de sangre necesita una definición explícita.</p></div>
+<ul>
+<li><b>Opción A (sin backend)</b> — derivarlo de <code>category === 'Laboratorio'</code>. Inmediato, pero marca sangre en laboratorios que no la llevan (por ejemplo orina) y no marca extracciones fuera de esa categoría.</li>
+<li><b>Opción B (recomendada)</b> — campo booleano por procedimiento del protocolo: <code>draws_blood</code>. Se define una vez por estudio en el cuadro de procedimientos y queda consistente en agenda, fila y modal.</li>
+</ul>
+<p>El diseño <b>no</b> muestra volumen ni cantidad de tubos: se descartó explícitamente. El indicador es binario.</p>
+<pre><code>// protocolProcedures.ts
+type ProtocolProcedure = {
+  procedure_id: string
+  name: string
+  category: string
+  draws_blood: boolean   // ← nuevo
+  reports: ProcedureReport[]
+}</code></pre>
+<p>El resto de los datos del resumen ya existen: el conteo sale de los procedimientos de la visita, “lleva kit IP” de la entrega de producto en investigación, y los reportes del cuadro por visita.</p>
+
+<h2>9 · Tokens usados</h2>
+<table>
+<tbody><tr><th>Token</th><th>Valor</th><th>Uso en esta pantalla</th></tr>
+<tr><td><code>--spira-track</code></td><td><span class="sw" style="background:#2E7D74"></span>#2E7D74</td><td>acento del módulo: íconos de panel, casilla tildada, botón de avance</td></tr>
+<tr><td><code>--spira-primary</code></td><td><span class="sw" style="background:#0F5F57"></span>#0F5F57</td><td>tag del estudio, banda de Dispensación</td></tr>
+<tr><td><code>--spira-ink</code></td><td><span class="sw" style="background:#14302E"></span>#14302E</td><td>texto principal</td></tr>
+<tr><td><code>--spira-ink-soft</code> *</td><td><span class="sw" style="background:#4A5F5B"></span>#4A5F5B</td><td>texto secundario de 11.5–12px (sublíneas, plataforma, plazos)</td></tr>
+<tr><td><code>--spira-muted</code></td><td><span class="sw" style="background:#7C8C87"></span>#7C8C87</td><td>bordes de casilla sin tildar, línea del tachado, íconos neutros</td></tr>
+<tr><td><code>--spira-faint</code></td><td><span class="sw" style="background:#A6B0AC"></span>#A6B0AC</td><td>eyebrows e íconos apagados</td></tr>
+<tr><td><code>--spira-line</code> / <code>-2</code></td><td>#E4DECF / #D8CBB0</td><td>divisores / bordes de control</td></tr>
+<tr><td><code>--spira-surface</code></td><td><span class="sw" style="background:#FBFAF6"></span>#FBFAF6</td><td>fondo de panel y de banda de encabezado</td></tr>
+<tr><td><code>--spira-danger</code></td><td><span class="sw" style="background:#A6483B"></span>#A6483B</td><td>gota de sangre, vencido</td></tr>
+<tr><td><code>--spira-warn</code></td><td><span class="sw" style="background:#B0823F"></span>#B0823F</td><td>kit IP, pendiente, badge de conteo</td></tr>
+<tr><td><code>--spira-good</code></td><td><span class="sw" style="background:#5C8A5A"></span>#5C8A5A</td><td>evolucionado, visita realizada</td></tr>
+<tr><td><code>--spira-contable</code></td><td><span class="sw" style="background:#3A6B8C"></span>#3A6B8C</td><td>descargado (azul de “archivo en mano”)</td></tr>
+</tbody></table>
+<p>* <code>--spira-ink-soft</code> y los <code>--spira-acc-deep-*</code> no están declarados en <code>colors_and_type.css</code>: el prototipo los usa con fallback explícito. Conviene declararlos (<code>--spira-ink-soft:#4A5F5B</code>, <code>--spira-acc-deep-warn:#8C6520</code>, <code>--spira-acc-deep-good:#4A7248</code>, <code>--spira-acc-deep-danger:#A6483B</code>, <code>--spira-acc-deep-track:#2E7D74</code>) antes de implementar.</p>
+<p>Tipografía: display <code>Schibsted Grotesk</code> (títulos y nombres), texto <code>Hanken Grotesk</code> (UI), mono <code>IBM Plex Mono</code> (números de paciente, protocolo, horas).</p>
+
+<h2>10 · Copy exacto</h2>
+<table>
+<tbody><tr><th>Lugar</th><th>Texto</th></tr>
+<tr><td>Título del panel</td><td>Reportes pendientes</td></tr>
+<tr><td>Badge del panel</td><td><code>N por cargar</code> · <code>Al día</code></td></tr>
+<tr><td>Título del resumen</td><td>Resumen de la visita</td></tr>
+<tr><td>Indicadores (modal)</td><td>N procedimientos · Lleva sangre / No lleva sangre · Lleva kit IP · N reportes por cargar / Reportes al día</td></tr>
+<tr><td>Indicadores (fila)</td><td>N proc. · Sangre / Sin sangre · Kit IP</td></tr>
+<tr><td>Encabezado del popup</td><td>Lleva N procedimientos</td></tr>
+<tr><td>Sublínea del procedimiento</td><td>Sin realizar · N informes / Realizado · N informes pendientes / Realizado · informes al día</td></tr>
+<tr><td>Acciones</td><td>Abrir en {plataforma} · Marcar descargado · Marcar evolucionado</td></tr>
+<tr><td>Reporte no habilitado</td><td>Se habilita al marcar el procedimiento como realizado.</td></tr>
+<tr><td>Desmarcado bloqueado (tooltip)</td><td>Tiene reportes ya avanzados: retrocedé el reporte antes de desmarcarlo.</td></tr>
+</tbody></table>
+
+<h2>11 · Checklist de QA</h2>
+<ul class="chk">
+<li>Visita sin procedimientos: la fila del día no muestra ninguna tira ni texto de reemplazo.</li>
+<li>Visita sin reportes: el panel “Reportes pendientes” no se renderiza (no un panel vacío).</li>
+<li>Tildar un procedimiento tacha su nombre, habilita sus reportes y sube el conteo en el badge y en el resumen a la vez.</li>
+<li>Con un reporte ya descargado, la banda no permite desmarcar y explica por qué.</li>
+<li>Un procedimiento con dos reportes muestra ambos con la misma jerarquía y estados independientes.</li>
+<li>“N procedimientos” abre el listado con hover y con foco de teclado, y no reacciona al clic.</li>
+<li>A 560px de ancho de columna, la fila de acciones envuelve sin recortar texto.</li>
+<li>Texto secundario de 11.5px en <code>#4A5F5B</code> o más oscuro (≥4.5:1 sobre blanco y sobre <code>--spira-surface</code>).</li>
+<li>Las visitas terminadas muestran “Realizada” como chip tenue, nunca como botón primario.</li>
+</ul>
+</div>
+
+
+</body></html>
