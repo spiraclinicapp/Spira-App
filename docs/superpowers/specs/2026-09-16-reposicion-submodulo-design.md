@@ -563,3 +563,10 @@ recepción»), `btnChico`/`btnOutline`/`btnPrimary`, la carga de cómo se repone
 **UNRESOLVED DECISIONS:**
 - Doble pedido si se corta la red después de guardar: recomendado resolverlo en la Parte 2 con una marca única por intento en `emitir_pedido_medicacion`; mientras tanto, el aviso de RD18.
 - Código de barras del número del pedido en la hoja: recomendado anotarlo en `TODOS.md` y no hacerlo ahora.
+
+**Plan de la Parte 2 (2026-09-18):** [`docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md`](../plans/2026-09-18-reposicion-parte-2-pantallas.md).
+Toma las dos recomendaciones:
+- el doble pedido se resuelve con `pedidos_medicacion.intento` en la `0132`, y el error de RD18 cambia en consecuencia;
+- el código de barras queda en `TODOS.md`.
+
+Sus decisiones propias están en «Decisiones de este plan». Falta la revisión de ingeniería antes de ejecutarlo.
