@@ -27,6 +27,15 @@ const lineaStyle: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--spira-ink-soft)',
 }
 
+/** La línea con un botón al lado (`no_prevista` y `desenlace`, mismo armado de renglón). `wrap` + base
+ *  de 200px: en la notebook (tarjeta de ~560px) texto y botón van en un renglón como en el mock; en
+ *  una tarjeta angosta el botón baja. Sin eso, con 286px de tarjeta el botón se quedaba con todo y el
+ *  texto caía a 38px de ancho, una palabra por renglón (QA, 2026-09-14). */
+const lineaConAccion: CSSProperties = { ...lineaStyle, flexWrap: 'wrap', rowGap: 8 }
+
+/** El texto de esa línea: base de 200px para que el botón tenga dónde bajar. */
+const textoDeLineaConAccion: CSSProperties = { flex: '1 1 200px', minWidth: 0 }
+
 
 export interface ExcepcionIp {
   /** El aviso de dispensación reciente, en tono de alerta (R11: hasta que la 3b lo reemplace). */
@@ -133,11 +142,9 @@ export function SeccionIp({
       // Lo que dice `v_visit_ip_status`, con la MISMA frase que la fila de Procedimientos (spec del
       // 2026-09-19, E1). Con el IP sin entregar va su propia puerta (E3): abre el modo corrección de la
       // tarjeta, el mismo que «Registrar entrega» de concomitante, que nadie iba a buscar ahí para el IP.
-      // El armado del renglón es el de `no_prevista`: texto con base de 200px y el botón que baja en
-      // una tarjeta angosta.
       cuerpo = (
-        <div style={{ ...lineaStyle, flexWrap: 'wrap', rowGap: 8 }}>
-          <span style={{ flex: '1 1 200px', minWidth: 0 }}>{desenlace ?? 'Sin entrega registrada.'}</span>
+        <div style={lineaConAccion}>
+          <span style={textoDeLineaConAccion}>{desenlace ?? 'Sin entrega registrada.'}</span>
           {onRegistrarEntrega && (
             <button
               type="button" onClick={onRegistrarEntrega} style={btnChico}
@@ -163,12 +170,9 @@ export function SeccionIp({
       cuerpo = <ConstanciaDropzone accent={accent} busy={busy} onFile={onElegirArchivo} />
       break
     case 'no_prevista':
-      // `wrap` + base de 200px: en la notebook (tarjeta de ~560px) texto y botón van en un renglón como
-      // en el mock; en una tarjeta angosta el botón baja. Sin eso, con 286px de tarjeta el botón se
-      // quedaba con todo y el texto caía a 38px de ancho, una palabra por renglón (QA, 2026-09-14).
       cuerpo = (
-        <div style={{ ...lineaStyle, flexWrap: 'wrap', rowGap: 8 }}>
-          <span style={{ flex: '1 1 200px', minWidth: 0 }}>El cronograma no lo pide en esta visita.</span>
+        <div style={lineaConAccion}>
+          <span style={textoDeLineaConAccion}>El cronograma no lo pide en esta visita.</span>
           {onPedirFueraDeCronograma && (
             <button
               type="button" onClick={onPedirFueraDeCronograma} style={btnChico}
@@ -180,6 +184,12 @@ export function SeccionIp({
         </div>
       )
       break
+    default: {
+      // Guardia de exhaustividad: si `ContenidoIp` suma un caso nuevo sin su `case` acá, esto rompe la
+      // compilación en vez de dejar la sección en blanco en producción.
+      const sinCaso: never = contenido
+      void sinCaso
+    }
   }
 
   return (

@@ -64,6 +64,11 @@ const kits = (n: number | null) => (n ? ` · ${n} ${n === 1 ? 'kit' : 'kits'}` :
  * dónde se resuelve). Antes cada una decía lo suyo: «Sin pedir» en la fila y «Sin constancia
  * cargada.» en la sección, sobre la misma visita.
  *
+ * OJO CON EL ALCANCE: en la sección esta frase sale sólo en las ramas `desenlace` y `cierre`. Mientras
+ * hay un pedido en curso que acepta la constancia y está en lectura, la sección sigue diciendo «Sin
+ * constancia cargada.» —ahí sí falta un papel—, mientras la fila ya da la frase de `pedido` que sale de
+ * acá. No se contradicen: son ramas distintas de la misma visita.
+ *
  * `terminada` = la visita tiene fin de atención (`ready_at`), la misma señal con la que la tarjeta
  * decide si está cerrada (`vistaVisitaCerrada`). En una que todavía no terminó, «sin entregar» sonaría
  * a problema, y la base tiene cientos así: las próximas visitas del cronograma.

@@ -105,16 +105,18 @@ Qué dibuja `SeccionIp` en cada caso nuevo:
   0119 con `lleva_ip` en falso, cuyo cronograma se tildó más tarde. Además es el resguardo si la
   lectura del §3 no trae la fila.
 
-La prop `cierre` de `SeccionIp` pasa a recibir también `desenlaceIp`, en vez de `detalleIp`. Para los
-dos cierres la frase es la misma, así que en pantalla no cambia nada.
+La prop `cierre` de `SeccionIp` se renombra a `desenlace` y pasa a alimentar también la rama
+`desenlace`, no sólo los dos cierres. Para éstos sigue siendo `desenlaceIp`, en vez de `detalleIp`, y la
+frase es la misma que hoy, así que en pantalla no cambia nada. `SeccionIp` suma además
+`onRegistrarEntrega`, la puerta del §4.
 
 **Queda como está** el «Sin constancia cargada.» de la rama `en_curso` en lectura: un pedido abierto
 que acepta la constancia y todavía no la tiene. Ahí sí falta un papel.
 
 ### 3 · La marca histórica (`src/data/visitIp.ts`)
 
-Un hook nuevo, **`useLlevaIp(visitId)`**, lee de `patient_visits` sólo `lleva_ip`, `real_date` y
-`attended_at` de esa visita:
+Un hook nuevo, **`useMarcaIp(visitId)`**, lee de `patient_visits` sólo `lleva_ip`, `real_date` y
+`attended_at` de esa visita, y devuelve esos tres campos (`MarcaIpRow`), o `null` si no hay fila:
 
 - `historica` = la fila existe, la visita está fechada (`real_date` o `attended_at`) y `lleva_ip` es
   `null`. Es el mismo corte que usa la 0119: «sellada» quiere decir «fechada después de la 0119», sin

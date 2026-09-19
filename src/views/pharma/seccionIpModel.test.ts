@@ -135,5 +135,9 @@ describe('mostrarAvisoIp — el aviso de entrega repetida (E4)', () => {
     expect(mostrarAvisoIp('pendiente', 'entregado')).toBe(true)
     expect(mostrarAvisoIp('adjuntar', 'sin_pedir')).toBe(true)
     expect(mostrarAvisoIp('en_curso', 'pedido')).toBe(true)
+    // El desenlace SÍ avisa salvo con `entregado` (caso ya cubierto arriba): sin estos dos, achicar la
+    // regla a `contenido !== 'desenlace'` pasaría igual de prolijo y ocultaría el aviso de más.
+    expect(mostrarAvisoIp('desenlace', 'sin_pedir')).toBe(true)
+    expect(mostrarAvisoIp('desenlace', 'pedido')).toBe(true)
   })
 })

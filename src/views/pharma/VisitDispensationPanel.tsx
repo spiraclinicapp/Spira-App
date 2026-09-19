@@ -228,9 +228,11 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const [err, setErr] = useState<string | null>(null)
   /**
    * El estado del IP de la visita, el MISMO que lee la fila de Procedimientos (`v_visit_ip_status`,
-   * 0119; plan R11). Acá sólo importa el cierre: con «No corresponde» o «Entregado en otra visita» la
-   * sección lo dice y no ofrece nada. Se refresca solo con `bumpIpEstado`, que ya dispara esta tarjeta
-   * al pedir o cancelar.
+   * 0119; plan R11). Con el cierre —«No corresponde» o «Entregado en otra visita»— la sección lo dice y
+   * no ofrece nada; en los demás estados arma el desenlace (spec 2026-09-19), decide si se ofrece
+   * «Registrar la entrega» (E3, `ofrecerRegistrarIp`) y si va el aviso de entrega repetida (E4,
+   * `mostrarAvisoIp`). Se refresca solo con `bumpIpEstado`, que ya dispara esta tarjeta al pedir o
+   * cancelar.
    */
   const ipQ = useVisitIpStatus(visit.id)
   /** La marca de la 0119, para decir «Visita anterior al registro del IP» sólo cuando es cierto (spec del
@@ -820,8 +822,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   }
 
   /* Qué muestra la sección del producto en investigación: la regla vive en `seccionIpModel.ts`, con test.
-     El cierre sale de `v_visit_ip_status` y la carga cuenta las DOS lecturas: sin la del estado del IP
-     la sección ofrecería un dropzone un instante antes de enterarse de que la visita está cerrada. */
+     El cierre sale de `v_visit_ip_status` y la carga cuenta las TRES lecturas —pedidos (`reqQ`), estado
+     del IP (`ipQ`) y la marca de la 0119 (`marcaQ`)—: sin alguna de ellas la sección ofrecería un
+     dropzone, o afirmaría un desenlace equivocado, un instante antes de enterarse de que la visita está
+     cerrada o es histórica. */
   const ipCerrada = ipQ.data?.estado === 'no_corresponde' || ipQ.data?.estado === 'entregado_en_otra_visita'
   const estadoIp = ipQ.data?.estado ?? null
   const contenidoIp = contenidoSeccionIp({
