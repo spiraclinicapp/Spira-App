@@ -9,12 +9,12 @@
 - **PR A** (Tasks 1-7) trae:
   - los ajustes del modelo que pidió la revisión de diseño (RD1-RD18);
   - un modelo nuevo y puro para lo que dicen la grilla y el estudio;
-  - la migración aditiva `0132`;
+  - la migración aditiva `0133`;
   - la capa de datos.
 
-  No cambia nada visible, igual que la Parte 1. La `0132` se aplica apenas se mergea.
+  No cambia nada visible, igual que la Parte 1. La `0133` se aplica apenas se mergea.
 - **PR B** (Tasks 8-13) trae las pantallas copiando el mock, «Recibir un pedido», la salida de la card y el borrado del modelo viejo.
-- **`0133`** (Task 14) borra lo de la `0125`, **después** del deploy de la PR B.
+- **`0134`** (Task 14) borra lo de la `0125`, **después** del deploy de la PR B.
 
 **Tech Stack:** TypeScript strict, React 19, Supabase (PostgREST + plpgsql), vitest, PGlite para probar el SQL. Estilos inline con los tokens de `src/styles/tokens.css`, íconos Lucide vía `components/Icon`.
 
@@ -26,14 +26,15 @@
 
 ## Decisiones de este plan
 
-Ninguna de estas decisiones está en el spec. Se pueden objetar en la revisión de ingeniería; hasta entonces valen así.
+Ninguna de estas decisiones está en el spec. Pasaron por la revisión de ingeniería del 2026-09-19, que sumó las suyas: ver «Revisión de ingeniería» al final del plan.
 
 1. **Doble pedido: se resuelve con una marca por intento.** Era una decisión abierta de la revisión de diseño, y la recomendación era resolverla en la Parte 2.
    - «Armar pedido» genera un `uuid` al abrirse.
    - `emitir_pedido_medicacion` lo guarda en `pedidos_medicacion.intento` (único).
    - Un reintento con el mismo intento devuelve el pedido que ya quedó guardado.
-   - Por eso el error de RD18 cambia: «No se pudo emitir el pedido. Probá de nuevo: si ya había quedado hecho, no se repite.»
-   - Si se prefiere no hacerlo, se sacan la sección 1-2 de la `0132` y el `intento` de `ArmarPedido`. No toca nada más.
+   - Por eso el error de RD18 cambia: «No se pudo emitir el pedido. Probá de nuevo desde esta ventana: si ya había quedado hecho, no se repite.» («desde esta ventana» lo sumó la revisión de ingeniería: otra ventana trae otro intento.)
+   - Sólo devuelve el guardado si el reintento pide lo mismo. Con otras cantidades, la base lo rechaza (revisión de ingeniería, 1).
+   - Si se prefiere no hacerlo, se sacan la sección 1-2 de la `0133` y el `intento` de `ArmarPedido`. No toca nada más.
 2. **Código de barras de la hoja: queda en `TODOS.md`** (la otra decisión abierta). Se pide la lista corta por número.
 3. **RD6, con falta en el período en curso: tarea.** Si al período en curso le falta medicación (D31), la tarjeta pasa a modo tarea aunque falten más de 7 días para el corte. Si no, el modo tranquilo diría «Cubierto», y sería falso.
 4. **RD1, sólo si al período que empezó le falta algo.** Dentro de los 5 días, un estudio sin pedido para ese período pasa a «pedido tarde» **sólo si** la cuenta tarde da algo para comprar. Si no le falta nada, no hay nada tarde que pedir, y la cuenta sigue siendo la del período que viene.
@@ -41,7 +42,12 @@ Ninguna de estas decisiones está en el spec. Se pueden objetar en la revisión 
 6. **La columna del resumen de recepción** dice «Pedido» la primera vez y «Faltaba» cuando el pedido ya tuvo alguna recepción. Muestra lo que faltaba de cada renglón, no lo pedido al principio.
 7. **«Recibir un pedido» es de `leader`**, igual que «Nueva recepción»: `create_reception` exige `pharma leader`. Farmacia `operator` arma y emite pedidos pero no recibe.
 8. **La grilla es siempre del período en curso.** Los períodos anteriores se miran desde el estudio (`?periodo=AAAA-MM-DD`, cualquier día del período). Volver a la grilla vuelve al período en curso.
-9. **«Sin medicación habilitada»** se sigue diciendo, debajo de la tabla del estudio. Es el aviso de la card vieja («N pacientes activos sin medicación habilitada: no están en la cuenta»), que el mock no dibuja pero que sin él deja la cuenta leyéndose completa cuando no lo está.
+9. **«Sin medicación habilitada»** se sigue diciendo, debajo de la tabla del estudio (y en la tarjeta de la grilla: revisión de ingeniería, 13). Es el aviso de la card vieja («N pacientes activos sin medicación habilitada: no están en la cuenta»), que el mock no dibuja pero que sin él deja la cuenta leyéndose completa cuando no lo está.
+10. **El stock mínimo de cada medicamento se ve en la tabla del estudio** (pedido del Director, 2026-09-19, durante la revisión de ingeniería).
+    - Columna «Mínimo», en el grupo «Para el que viene», antes de «Comprar». No está en el mock.
+    - Es la suma de lo que reciben por mes los pacientes que lo tienen asignado (su cantidad propia o la del estudio) y siguen en el período para el que se compra. A demanda, es el «tener siempre».
+    - Debajo del número, «12 pacientes» o «a demanda». Sin cargar, «no se compra» o en un período cerrado: «—».
+    - Se llama «Mínimo» y no «Hacen falta»: con el pedido tarde, la boleta dice lo que le FALTA al período que empezó y la columna el período entero. Dos números distintos con el mismo nombre confundirían.
 
 ## Global Constraints
 
@@ -91,18 +97,18 @@ Ninguna de estas decisiones está en el spec. Se pueden objetar en la revisión 
 |---|---|---|
 | `src/data/pharma/periodoDeCorte.ts` | `textoPeriodo` con «al», ventana del pedido tarde (RD1), el período que se mira | 1 |
 | `src/data/pharma/pedidosMedicacionModel.ts` | «Cerrado · no llegó», pastilla (RD8, RD17), recepciones de un pedido, textos, pedido de un período, lo que ve el asistente, lista de «Recibir» | 2 |
-| `src/data/pharma/reposicionPeriodoModel.ts` | Objetivo por estudio (RD1), boleta tarde, copy RD12-RD13, `enCamino`, `pacientes`, `faltaEstePeriodo`, pedido del objetivo y los que deben | 3 |
+| `src/data/pharma/reposicionPeriodoModel.ts` | Objetivo por estudio (RD1), boleta tarde, copy RD12-RD13, `enCamino`, `pacientes`, `faltaEstePeriodo`, `minimo`, pedido del objetivo y los que deben | 3 |
 | `src/data/pharma/reposicionTarjetaModel.ts` (nuevo) | Qué dicen la tarjeta (RD4-RD6), la franja (RD7), el subtítulo del período, el resumen del estudio y qué pedidos se listan | 4 |
 | `src/data/pharma/index.ts` | Exporta el modelo nuevo | 4 |
-| `supabase/migrations/0132_reposicion_parte_2.sql` (nuevo) | Intento de pedido, `reabrir_faltante_pedido`, `recepciones` en `reposicion_del_periodo`, `pedidos_por_recibir` | 5 |
-| `src/data/pharma/reposicion.ts` | Período en la lectura, intento, reabrir, `usePedidosPorRecibir`; y en la Task 12, se va lo de la card | 6, 12 |
+| `supabase/migrations/0133_reposicion_parte_2.sql` (nuevo) | Intento de pedido (que compara lo que pide), el último pedido que vio la pantalla, la fecha de hoy, `cerrar_faltante_pedido` que no cierra lo que ya llegó, `reabrir_faltante_pedido`, `recepciones` en `reposicion_del_periodo`, `pedidos_por_recibir` | 5 |
+| `src/data/pharma/reposicion.ts` | Período en la lectura, intento y último pedido visto, reabrir, `usePedidosPorRecibir`; y en la Task 12, se va lo de la card | 6, 12 |
 | `src/modules/registry.ts`, `src/views/registry.tsx`, `src/views/registryKeys.ts`, `src/lib/router.ts`, `src/shell/AppShell.tsx` | El submódulo, su vista, su path y sin botón genérico | 10 |
-| `src/views/pharma/reposicion/piezas.tsx` (nuevo) | Botón chico, número con unidad, pastilla, aviso, caja de estado, título de sección, `useAngosto` | 8 |
+| `src/views/pharma/reposicion/piezas.tsx` (nuevo) | Botón chico, rótulos de columna, punto de estado, número con unidad, pastilla, aviso, caja de estado, título de sección, `useAngosto` | 8 |
 | `src/views/pharma/reposicion/ReposicionView.tsx` (nuevo) | El submódulo: URL, encabezado, estados, grilla o estudio | 10 |
 | `src/views/pharma/reposicion/TarjetaDeEstudio.tsx` (nuevo) | La tarjeta de la grilla | 10 |
 | `src/views/pharma/reposicion/DiaDeCorte.tsx` (nuevo) | El modal del día de corte (RD15) | 10 |
 | `src/views/pharma/reposicion/PantallaEstudio.tsx` (nuevo) | El estudio: encabezado, flechas, resumen, tabla, pedidos | 9 |
-| `src/views/pharma/reposicion/FilaMedicamento.tsx` (nuevo) | Renglón del libro con su boleta | 9 |
+| `src/views/pharma/reposicion/FilaMedicamento.tsx` (nuevo) | Renglón del libro con su mínimo y su boleta | 9 |
 | `src/views/pharma/reposicion/CargarReposicion.tsx` (nuevo) | «Cargar cómo se repone», mudado de la card | 9 |
 | `src/views/pharma/reposicion/ArmarPedido.tsx` (nuevo) | El modal de «Armar pedido» | 8 |
 | `src/views/pharma/reposicion/HojaPedido.tsx` (nuevo) | La hoja A4 y el mecanismo de impresión | 8 |
@@ -114,29 +120,29 @@ Ninguna de estas decisiones está en el spec. Se pueden objetar en la revisión 
 | `src/views/pharma/RecepcionView.tsx`, `ReceptionWizard.tsx`, `wizard/Step1Scan.tsx`, `recepcion/ReceptionCard.tsx`, `src/data/pharma/receptions.ts` | El botón, el asistente con pedido, «Pedido Nº» en la tarjeta | 11 |
 | `src/views/pharma/reportes/ReportesView.tsx`, `ComprasDelMes.tsx` (borrar), `VerPedido.tsx` (borrar), `estilos.ts` | Sale la card | 12 |
 | `src/data/pharma/reposicionModel.ts` + `.test.ts` | Se van la cuenta del mes y el pedido global; quedan las reglas compartidas | 12 |
-| `docs/plan-reposicion-stock-minimo.md`, `TODOS.md` | Nota de reemplazo; el código de barras diferido | 12 |
-| `supabase/migrations/0133_reposicion_limpieza.sql` (nuevo) | Borra lo de la `0125` | 14 |
-| `supabase/README.md` | Filas de la `0132` y la `0133` | 5, 14 |
-| `CLAUDE.md` | La última migración aplicada pasa a `0133` | 14 |
-| `<scratchpad>/pglite-0132/`, `<scratchpad>/pglite-0133/`, `<scratchpad>/sondas-*.mjs` (fuera del repo) | Bancos de prueba y sondas | 5, 7, 14 |
+| `docs/plan-reposicion-stock-minimo.md`, `TODOS.md` | Nota de reemplazo; el código de barras y el intento de `create_reception`, diferidos | 12 |
+| `supabase/migrations/0134_reposicion_limpieza.sql` (nuevo) | Borra lo de la `0125` | 14 |
+| `supabase/README.md` | Filas de la `0133` y la `0134` | 5, 14 |
+| `CLAUDE.md` | La última migración aplicada pasa a `0133` y después a `0134` | 7, 14 |
+| `<scratchpad>/pglite-0133/`, `<scratchpad>/pglite-0134/`, `<scratchpad>/sondas-*.mjs` (fuera del repo) | Bancos de prueba y sondas | 5, 7, 14 |
 
 `<scratchpad>` es la carpeta temporal de la sesión que ejecuta. Los bancos y las sondas no se commitean (precedente: la `0128`).
 
 ## ⚠️ Orden de despliegue
 
-1. **PR A** se mergea. **La `0132` es ADITIVA: se aplica apenas se mergea** (el que no anda sin ella es el front de la PR B). Después, sondas sin sesión y marca «Aplicada».
-2. **PR B** se mergea **después** de que la `0132` esté aplicada y marcada. Vercel la despliega.
-3. **Recién con la PR B en prod** se escribe y se pushea la `0133` (destructiva). **El archivo no se pushea antes**: una migración en el repo se aplica apenas alguien la ve (memoria `gotcha-migracion-front-primero-se-aplica-sola`). Si se aplicara antes del deploy, Estadísticas quedaría en blanco en prod.
+1. **PR A** se mergea. **La `0133` es ADITIVA: se aplica apenas se mergea** (el que no anda sin ella es el front de la PR B). Después, sondas sin sesión y marca «Aplicada».
+2. **PR B** se mergea **después** de que la `0133` esté aplicada y marcada. Vercel la despliega.
+3. **Recién con la PR B en prod** se escribe y se pushea la `0134` (destructiva). **El archivo no se pushea antes**: una migración en el repo se aplica apenas alguien la ve (memoria `gotcha-migracion-front-primero-se-aplica-sola`). Si se aplicara antes del deploy, Estadísticas quedaría en blanco en prod.
 
-**Numeración.**
+**Numeración** (decisión del Director, 2026-09-19).
 
 - El CI exige números contiguos (`scripts/check-migraciones.mjs`).
-- La `0132` es el siguiente número libre en `main` al 2026-09-18. La guarda de Recepción de otra sesión (rama local `fix/recepcion-guarda-borrado-y-renglones`, sin pushear) también espera ese número, y **la que llega primero a `main` se lo queda**.
+- La `0132` es la guarda de Recepción (PR #234, aplicada en prod el 2026-09-19). Esta parte usa la `0133` (aditiva, Task 5) y la `0134` (limpieza, Task 14).
 - La Task 5 lo verifica antes de crear el archivo.
 
 ---
 
-# PR A · modelo, `0132` y datos (sin pantallas)
+# PR A · modelo, `0133` y datos (sin pantallas)
 
 ### Task 1: El período — texto con «al», ventana del pedido tarde y período que se mira
 
@@ -311,7 +317,9 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
   - `type ClavePastilla = 'sin_recibir' | 'llego' | 'en_parte' | 'recibido' | 'no_llego' | 'anulado'`
   - `interface PastillaPedido { clave: ClavePastilla; texto: string }`
   - `pastillaDePedido(p: PedidoMedicacion): PastillaPedido`
-  - `pedidoPara(pedidos: readonly PedidoMedicacion[], periodo: Periodo): PedidoMedicacion | null`
+  - `pedidoPara(pedidos: readonly PedidoMedicacion[], periodo: Periodo): PedidoMedicacion | null` → el más nuevo que todavía debe algo; si ninguno debe, el más nuevo
+  - `seSuperpone(p: PedidoMedicacionInsumo, periodo: Periodo): boolean`
+  - `ultimoPedidoPara(pedidos: readonly PedidoMedicacionInsumo[], periodo: Periodo): number` → el número del último no anulado del período, 0 si ninguno (viaja como `p_ultimo_visto`)
   - `textoDePedidos(pedidos)` → `'pedido Nº 14 del 28/09'` · `'pedidos Nº 13 y Nº 14'` (minúscula)
   - `numerosDePedidos(pedidos: readonly { numero: number }[]): string` → `'Pedido Nº 13'` · `'Pedidos Nº 12 y Nº 13'`
   - `faltaTxt(n: number): string` → `'falta 1 envase'` · `'faltan 13 envases'`
@@ -319,12 +327,14 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
   - `sinVerificarDe(pedidos, protocolId, medicationId): number[] | null` → los números de las recepciones sin verificar de lo en camino de ese medicamento (`[]` si la base no los trae; `null` si no hay ninguna)
   - `faltaVerificarTxt(folios: readonly number[]): string` → `'llegó, falta verificar la recepción Nº 1051'` (RD17, para la boleta)
   - `textoParaRecibir(p: PedidoMedicacion): string` → `'Emitido el 28/09 · faltan 13 envases de 2 medicamentos'`
-  - `metaDelPedido(p: PedidoMedicacion, medicationId: string): { texto: string; aviso: boolean }`
+  - `porRecibir(r: RenglonPedido): number` → lo que falta sin lo que ya está en una recepción sin verificar; `porRecibirDe(p: PedidoMedicacion): number` → su suma
+  - `notaDeReimpresion(r: RenglonPedido): string | null` → `'recibido 5 · falta 1'` · `'no va a llegar'` · null si no llegó nada
+  - `metaDelPedido(p: PedidoMedicacion, medicationId: string, otros: readonly PedidoMedicacion[] = []): { texto: string; aviso: boolean }`
   - `interface FilaComparacion { medicationId; nombre; esperado: number | null; llega: number; nota: string; aviso: boolean }`
-  - `comparacionConElPedido(p, llegan: readonly { medicationId: string; name: string; quantity: number }[]): FilaComparacion[]`
+  - `comparacionConElPedido(p, llegan: readonly { medicationId: string; name: string; quantity: number }[], otros: readonly PedidoMedicacion[] = []): FilaComparacion[]`
   - `encabezadoDeLoEsperado(p: PedidoMedicacion): 'Pedido' | 'Faltaba'`
   - `interface InsumosPorRecibir { estudios: { id: string; code: string; name: string }[]; pedidos; pedido_items; recepciones }`
-  - `interface PedidoPorRecibir { pedido: PedidoMedicacion; estudio: { id: string; code: string; name: string } }`
+  - `interface PedidoPorRecibir { pedido: PedidoMedicacion; estudio: { id: string; code: string; name: string }; otrosDelEstudio: PedidoMedicacion[] }`
   - `armarPorRecibir(i: InsumosPorRecibir): PedidoPorRecibir[]`
   - **Se van** `etiquetaEstado` (la reemplaza `pastillaDePedido`) y `pedidoDestacado` (la reemplazan `pedidoPara` y los pedidos que deben, Task 3). Ninguna pantalla las usa: la Parte 1 no tiene pantallas.
 
@@ -336,8 +346,8 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 import { describe, expect, it } from 'vitest'
 import {
   armarPedidos, armarPorRecibir, comparacionConElPedido, encabezadoDeLoEsperado, faltaTxt, faltaVerificarTxt, faltanteDe,
-  metaDelPedido, numerosDePedidos, pastillaDePedido, pedidoPara, pedidosParaRecibir, renglonesParaRecibir, sinVerificarDe,
-  textoDePedidos, textoDeRecepciones, textoParaRecibir, yaPedidoDe,
+  metaDelPedido, notaDeReimpresion, numerosDePedidos, pastillaDePedido, pedidoPara, pedidosParaRecibir, porRecibirDe,
+  renglonesParaRecibir, sinVerificarDe, textoDePedidos, textoDeRecepciones, textoParaRecibir, ultimoPedidoPara, yaPedidoDe,
   type PedidoItemInsumo, type PedidoMedicacionInsumo, type RecepcionDePedidoInsumo,
 } from './pedidosMedicacionModel'
 
@@ -454,6 +464,18 @@ describe('el pedido de un período', () => {
   it('un anulado no cuenta', () => {
     expect(pedidoPara(armarPedidos([cab(ANULADO)], [item()]), PROXIMO)).toBeNull()
   })
+  it('con dos del mismo período, primero el que todavía debe: uno chico ya recibido no tapa al grande', () => {
+    const ps = armarPedidos([cab(), cab({ id: 'ped-15', numero: 15 })], [item(), item({ id: 'i15', pedido_id: 'ped-15', pedido: 3, recibido: 3 })])
+    expect(pedidoPara(ps, PROXIMO)?.numero).toBe(14)
+  })
+})
+
+describe('el último pedido que vio la pantalla (concurrencia al emitir)', () => {
+  it('el número más alto de los no anulados del período; 0 si no hay', () => {
+    const cabs = [cab(), cab({ id: 'ped-15', numero: 15 }), cab({ id: 'ped-16', numero: 16, ...ANULADO }), cab({ id: 'ped-9', numero: 9, periodo_desde: '2026-07-29', periodo_hasta: '2026-08-28' })]
+    expect(ultimoPedidoPara(cabs, PROXIMO)).toBe(15)
+    expect(ultimoPedidoPara([], PROXIMO)).toBe(0)
+  })
 })
 
 describe('lo ya pedido de un medicamento (R9)', () => {
@@ -532,6 +554,12 @@ describe('Recepción: qué se puede recibir (R10)', () => {
     ])[0]
     expect(renglonesParaRecibir(p)).toEqual([{ medicationId: 'seretide', nombre: 'Seretide 250/50', cantidad: 4 }])
   })
+  it('no vuelve a precargar lo que ya está en una recepción sin verificar (revisión de ingeniería, 8)', () => {
+    const p = armarPedidos([cab()], [item({ sin_verificar: 4 }), salbutral({ sin_verificar: 7 })])[0]
+    expect(renglonesParaRecibir(p)).toEqual([{ medicationId: 'seretide', nombre: 'Seretide 250/50', cantidad: 2 }])
+    expect(porRecibirDe(p)).toBe(2)
+    expect(porRecibirDe(armarPedidos([cab()], [item({ sin_verificar: 6 })])[0])).toBe(0)
+  })
   it('la lista dice cuándo se emitió y cuánto falta de cuántos medicamentos', () => {
     expect(textoParaRecibir(armarPedidos([cab()], [item(), salbutral()])[0])).toBe('Emitido el 28/09 · faltan 13 envases de 2 medicamentos')
     expect(textoParaRecibir(armarPedidos([cab()], [item({ recibido: 5 }), salbutral({ recibido: 7 })])[0]))
@@ -546,6 +574,7 @@ describe('Recepción: qué se puede recibir (R10)', () => {
     })
     expect(lista.map((x) => [x.pedido.numero, x.estudio.code])).toEqual([[13, '222714'], [14, '222714']])
     expect(lista[1].pedido.recepciones.map((r) => r.folio)).toEqual([1051])
+    expect(lista[0].otrosDelEstudio.map((o) => o.numero)).toEqual([14])
   })
 })
 
@@ -579,6 +608,40 @@ describe('el asistente recibiendo un pedido (R10, RD18)', () => {
   it('la columna dice «Pedido» la primera vez y «Faltaba» si ya llegó algo', () => {
     expect(encabezadoDeLoEsperado(armarPedidos([cab()], [item()])[0])).toBe('Pedido')
     expect(encabezadoDeLoEsperado(p())).toBe('Faltaba')
+  })
+  it('si lo espera otro pedido del estudio, lo nombra (revisión de ingeniería, 9)', () => {
+    const trece = armarPedidos([cab({ id: 'ped-13', numero: 13 })], [
+      item({ id: 'i13', pedido_id: 'ped-13', medication_id: 'budeso', medication_name: 'Budesonida 200 mcg', pedido: 2 }),
+    ])
+    expect(metaDelPedido(p(), 'budeso', trece)).toEqual({ texto: 'Se debe en el Pedido Nº 13: recibilo con ese', aviso: true })
+    expect(comparacionConElPedido(p(), [{ medicationId: 'budeso', name: 'Budesonida 200 mcg', quantity: 2 }], trece).at(-1)?.nota)
+      .toBe('Se debe en el Pedido Nº 13: recibilo con ese')
+    const treceSeretide = armarPedidos([cab({ id: 'ped-13', numero: 13 })], [item({ id: 'i13', pedido_id: 'ped-13', pedido: 2 })])
+    expect(comparacionConElPedido(p(), [{ medicationId: 'seretide', name: 'Seretide 250/50', quantity: 3 }], treceSeretide)[1])
+      .toMatchObject({ nota: 'Completo, con 2 de más: se deben en el Pedido Nº 13', aviso: true })
+  })
+  it('lo que llega de un renglón que ya no faltaba se dice así, no «de más»', () => {
+    const lleno = armarPedidos([cab()], [item({ recibido: 6 })])[0]
+    expect(comparacionConElPedido(lleno, [{ medicationId: 'seretide', name: 'Seretide 250/50', quantity: 2 }]))
+      .toEqual([{ medicationId: 'seretide', nombre: 'Seretide 250/50', esperado: 0, llega: 2, nota: 'No faltaba: se recibe igual', aviso: true }])
+  })
+})
+
+describe('la hoja reimpresa (revisión de ingeniería, 10)', () => {
+  it('cada renglón dice lo que ya llegó, lo que falta y lo que no va a llegar', () => {
+    const p = armarPedidos([cab()], [
+      item({ recibido: 5 }),
+      salbutral({ recibido: 7 }),
+      item({ id: 'it-monte', medication_id: 'monte', medication_name: 'Montelukast 10 mg', pedido: 3, ...CERRADO }),
+    ])[0]
+    expect(p.renglones.map((r) => [r.medication_name, notaDeReimpresion(r)])).toEqual([
+      ['Montelukast 10 mg', 'no va a llegar'],
+      ['Salbutral 100 mcg', 'recibido 7'],
+      ['Seretide 250/50', 'recibido 5 · falta 1'],
+    ])
+  })
+  it('sin nada recibido, el renglón queda como en la hoja original', () => {
+    expect(notaDeReimpresion(armarPedidos([cab()], [item()])[0].renglones[0])).toBeNull()
   })
 })
 ```
@@ -672,7 +735,7 @@ export interface PedidoItemInsumo {
 }
 
 /**
- * Una recepción NO anulada que responde a un pedido (0132). Sirve para nombrar la que está sin verificar
+ * Una recepción NO anulada que responde a un pedido (0133). Sirve para nombrar la que está sin verificar
  * (RD17) y para listarlas en el detalle del pedido.
  */
 export interface RecepcionDePedidoInsumo {
@@ -716,7 +779,7 @@ export function faltanteDe(item: PedidoItemInsumo): number {
 
 /**
  * Junta cabeceras, renglones y recepciones y deduce el estado. Del más nuevo al más viejo.
- * `recepciones` es opcional: antes de la 0132 la base no las trae, y sin ellas sólo se pierde el número
+ * `recepciones` es opcional: antes de la 0133 la base no las trae, y sin ellas sólo se pierde el número
  * de la recepción sin verificar (el estado sale de los renglones).
  */
 export function armarPedidos(
@@ -774,15 +837,30 @@ export function pastillaDePedido(p: PedidoMedicacion): PastillaPedido {
   return { clave: 'recibido', texto: p.faltoCerrado > 0 ? `Recibido · faltó ${p.faltoCerrado}` : 'Recibido' }
 }
 
+/** Un pedido es de un período si sus fechas se tocan (ver `pedidoPara`). */
+export const seSuperpone = (p: PedidoMedicacionInsumo, periodo: Periodo) =>
+  p.periodo_hasta >= periodo.desde && p.periodo_desde <= periodo.hasta
+
 /**
- * El pedido de un período: el más nuevo, no anulado, cuyo período se SUPERPONE con `periodo`. Por
- * superposición y no por igualdad: si Farmacia mueve el día de corte después de emitir (RD15), el
- * pedido conserva su período y una comparación exacta dejaría de reconocerlo.
+ * El pedido de un período: entre los no anulados cuyo período se SUPERPONE con `periodo`, el más nuevo que
+ * todavía debe algo; si ninguno debe, el más nuevo. Por superposición y no por igualdad: si Farmacia mueve
+ * el día de corte después de emitir (RD15), el pedido conserva su período y una comparación exacta dejaría
+ * de reconocerlo. Primero el que debe (revisión de ingeniería, 11): con «Armar otro pedido», un Nº 15 chico
+ * y ya recibido no puede tapar al Nº 14 grande que todavía no llegó.
  */
 export function pedidoPara(pedidos: readonly PedidoMedicacion[], periodo: Periodo): PedidoMedicacion | null {
   return [...pedidos]
-    .filter((p) => p.estado !== 'anulado' && p.periodo_hasta >= periodo.desde && p.periodo_desde <= periodo.hasta)
-    .sort((a, b) => b.numero - a.numero)[0] ?? null
+    .filter((p) => p.estado !== 'anulado' && seSuperpone(p, periodo))
+    .sort((a, b) => Number(b.faltanteTotal > 0) - Number(a.faltanteTotal > 0) || b.numero - a.numero)[0] ?? null
+}
+
+/**
+ * El número del último pedido no anulado de ese período que vio la pantalla (0 si ninguno). Viaja con
+ * «Emitir e imprimir»: si mientras tanto alguien emitió otro, la base lo rechaza en vez de pedir dos
+ * veces lo mismo (revisión de ingeniería, 7). «Armar otro pedido» lo manda y por eso sigue andando.
+ */
+export function ultimoPedidoPara(pedidos: readonly PedidoMedicacionInsumo[], periodo: Periodo): number {
+  return pedidos.filter((p) => !p.anulado_at && seSuperpone(p, periodo)).reduce((max, p) => Math.max(max, p.numero), 0)
 }
 
 /** Lo pedido y todavía sin recibir de un medicamento en un estudio: se descuenta de la compra (R9). */
@@ -826,7 +904,7 @@ export function numerosDePedidos(pedidos: readonly { numero: number }[]): string
 /** «falta 1 envase» · «faltan 13 envases». */
 export const faltaTxt = (n: number) => `${n === 1 ? 'falta' : 'faltan'} ${envasesTxt(n)}`
 
-/** «Recepción Nº 1051» · «Recepciones Nº 1051 y Nº 1052». Sin números (antes de la 0132): «Una recepción». */
+/** «Recepción Nº 1051» · «Recepciones Nº 1051 y Nº 1052». Sin números (antes de la 0133): «Una recepción». */
 export function textoDeRecepciones(folios: readonly number[]): string {
   if (folios.length === 0) return 'Una recepción'
   return `${folios.length === 1 ? 'Recepción' : 'Recepciones'} ${listaDeNumeros(folios)}`
@@ -834,7 +912,7 @@ export function textoDeRecepciones(folios: readonly number[]): string {
 
 /**
  * RD17: si algo de lo en camino de un medicamento ya llegó y está sin verificar, los números de esas
- * recepciones (vacío si la base no los trae, antes de la 0132). null si no hay nada así. La boleta lo dice
+ * recepciones (vacío si la base no los trae, antes de la 0133). null si no hay nada así. La boleta lo dice
  * para que nadie lo vuelva a pedir ni lo reciba dos veces.
  */
 export function sinVerificarDe(pedidos: readonly PedidoMedicacion[], protocolId: string, medicationId: string): number[] | null {
@@ -863,7 +941,31 @@ export function textoParaRecibir(p: PedidoMedicacion): string {
   return `Emitido el ${diaMes(p.emitido_el)} · ${faltaTxt(p.faltanteTotal)} de ${meds} ${meds === 1 ? 'medicamento' : 'medicamentos'}`
 }
 
-/** Lo que trae `pedidos_por_recibir` (0132): sólo los pedidos con algo por recibir, con su estudio. */
+/**
+ * Lo que falta recibir de un renglón SIN contar lo que ya está en una recepción sin verificar (revisión de
+ * ingeniería, 8): eso ya llegó a la casa, y precargarlo otra vez en el asistente es recibirlo dos veces.
+ */
+export function porRecibir(r: RenglonPedido): number {
+  return Math.max(0, r.faltante - r.sin_verificar)
+}
+
+/** Σ de `porRecibir`. 0 = lo que falta ya está entero en recepciones sin verificar: no se ofrece «Recibir». */
+export function porRecibirDe(p: PedidoMedicacion): number {
+  return p.renglones.reduce((s, r) => s + porRecibir(r), 0)
+}
+
+/**
+ * Lo que dice la hoja REIMPRESA debajo de cada renglón (revisión de ingeniería, 10): sin esto, reimprimir un
+ * pedido a medio recibir vuelve a pedir lo que ya llegó. null = no llegó nada todavía, y el renglón queda
+ * como en la hoja original.
+ */
+export function notaDeReimpresion(r: RenglonPedido): string | null {
+  if (r.cerrado_at) return r.recibido > 0 ? `recibido ${r.recibido} · el resto no va a llegar` : 'no va a llegar'
+  if (r.recibido === 0) return null
+  return r.faltante === 0 ? `recibido ${r.recibido}` : `recibido ${r.recibido} · falta ${r.faltante}`
+}
+
+/** Lo que trae `pedidos_por_recibir` (0133): sólo los pedidos con algo por recibir, con su estudio. */
 export interface InsumosPorRecibir {
   estudios: { id: string; code: string; name: string }[]
   pedidos: PedidoMedicacionInsumo[]
@@ -874,30 +976,56 @@ export interface InsumosPorRecibir {
 export interface PedidoPorRecibir {
   pedido: PedidoMedicacion
   estudio: { id: string; code: string; name: string }
+  /** Los otros pedidos abiertos del mismo estudio: si llega algo que espera uno de ellos, el asistente lo dice. */
+  otrosDelEstudio: PedidoMedicacion[]
 }
 
 /** La lista de «Recibir un pedido», del más viejo al más nuevo. */
 export function armarPorRecibir(i: InsumosPorRecibir): PedidoPorRecibir[] {
-  return pedidosParaRecibir(armarPedidos(i.pedidos, i.pedido_items, i.recepciones)).flatMap((pedido) => {
+  const abiertos = pedidosParaRecibir(armarPedidos(i.pedidos, i.pedido_items, i.recepciones))
+  return abiertos.flatMap((pedido) => {
     const estudio = i.estudios.find((e) => e.id === pedido.protocol_id)
-    return estudio ? [{ pedido, estudio }] : []
+    if (!estudio) return []
+    return [{ pedido, estudio, otrosDelEstudio: abiertos.filter((o) => o.protocol_id === pedido.protocol_id && o.id !== pedido.id) }]
   })
 }
 
-/** Los renglones con los que arranca el asistente de recepción (R10): lo que falta de cada uno. */
+/**
+ * Los renglones con los que arranca el asistente de recepción (R10): lo que falta de cada uno y no está ya
+ * en una recepción sin verificar.
+ */
 export function renglonesParaRecibir(p: PedidoMedicacion): { medicationId: string; nombre: string; cantidad: number }[] {
   return p.renglones
-    .filter((r) => r.faltante > 0)
-    .map((r) => ({ medicationId: r.medication_id, nombre: r.medication_name, cantidad: r.faltante }))
+    .filter((r) => porRecibir(r) > 0)
+    .map((r) => ({ medicationId: r.medication_id, nombre: r.medication_name, cantidad: porRecibir(r) }))
 }
 
-/** Lo que dice el asistente al lado de cada medicamento cuando se recibe un pedido (mock «Asistente»). */
-export function metaDelPedido(p: PedidoMedicacion, medicationId: string): { texto: string; aviso: boolean } {
+/** El pedido más viejo de `otros` que todavía espera ese medicamento (revisión de ingeniería, 9). */
+function quienLoEspera(otros: readonly PedidoMedicacion[], medicationId: string): PedidoMedicacion | null {
+  return [...otros]
+    .filter((o) => o.estado !== 'anulado' && o.renglones.some((r) => r.medication_id === medicationId && porRecibir(r) > 0))
+    .sort((a, b) => a.numero - b.numero)[0] ?? null
+}
+
+/**
+ * Lo que dice el asistente al lado de cada medicamento cuando se recibe un pedido (mock «Asistente»). Si no
+ * estaba en ESTE pedido pero lo espera otro del estudio, lo nombra: recibido acá, el otro lo seguiría
+ * esperando y la boleta lo restaría como «en camino» aunque ya esté en el estante.
+ */
+export function metaDelPedido(
+  p: PedidoMedicacion,
+  medicationId: string,
+  otros: readonly PedidoMedicacion[] = [],
+): { texto: string; aviso: boolean } {
   const r = p.renglones.find((x) => x.medication_id === medicationId)
-  if (!r) return { texto: 'No estaba en el pedido', aviso: true }
-  if (r.faltante === 0) return { texto: 'No faltaba', aviso: true }
-  if (r.faltante === r.pedido) return { texto: `se pidieron ${r.pedido}`, aviso: false }
-  return { texto: `${r.faltante === 1 ? 'falta' : 'faltan'} ${r.faltante} de ${r.pedido}`, aviso: false }
+  if (!r) {
+    const otro = quienLoEspera(otros, medicationId)
+    return { texto: otro ? `Se debe en el Pedido Nº ${otro.numero}: recibilo con ese` : 'No estaba en el pedido', aviso: true }
+  }
+  const falta = porRecibir(r)
+  if (falta === 0) return { texto: 'No faltaba', aviso: true }
+  if (falta === r.pedido) return { texto: `se pidieron ${r.pedido}`, aviso: false }
+  return { texto: `${falta === 1 ? 'falta' : 'faltan'} ${falta} de ${r.pedido}`, aviso: false }
 }
 
 export interface FilaComparacion {
@@ -911,37 +1039,42 @@ export interface FilaComparacion {
 }
 
 /**
- * El resumen del asistente (RD18): lo que faltaba de cada renglón contra lo que llega. Lo que llega y no
- * estaba en el pedido se recibe igual y no cuenta para ningún renglón (R10).
+ * El resumen del asistente (RD18): lo que faltaba recibir de cada renglón contra lo que llega. Lo que llega y
+ * no estaba en el pedido se recibe igual y no cuenta para ningún renglón (R10). Si lo espera otro pedido del
+ * estudio (o sobra y lo espera otro), se nombra ese pedido (revisión de ingeniería, 9).
  */
 export function comparacionConElPedido(
   p: PedidoMedicacion,
   llegan: readonly { medicationId: string; name: string; quantity: number }[],
+  otros: readonly PedidoMedicacion[] = [],
 ): FilaComparacion[] {
   const filas: FilaComparacion[] = p.renglones
-    .filter((r) => r.faltante > 0 || llegan.some((l) => l.medicationId === r.medication_id))
+    .filter((r) => porRecibir(r) > 0 || llegan.some((l) => l.medicationId === r.medication_id))
     .map((r) => {
+      const esperado = porRecibir(r)
       const llega = llegan.find((l) => l.medicationId === r.medication_id)?.quantity ?? 0
-      const resto = r.faltante - llega
-      return {
-        medicationId: r.medication_id,
-        nombre: r.medication_name,
-        esperado: r.faltante,
-        llega,
-        nota: resto > 0 ? `${resto === 1 ? 'Queda' : 'Quedan'} ${resto} en camino` : resto < 0 ? `Completo, con ${-resto} de más` : 'Completo',
-        aviso: resto > 0,
-      }
+      const resto = esperado - llega
+      const otro = esperado > 0 && resto < 0 ? quienLoEspera(otros, r.medication_id) : null
+      const nota = esperado === 0 ? 'No faltaba: se recibe igual'
+        : resto > 0 ? `${resto === 1 ? 'Queda' : 'Quedan'} ${resto} en camino`
+          : resto < 0 ? (otro ? `Completo, con ${-resto} de más: se deben en el Pedido Nº ${otro.numero}` : `Completo, con ${-resto} de más`)
+            : 'Completo'
+      return { medicationId: r.medication_id, nombre: r.medication_name, esperado, llega, nota, aviso: esperado === 0 || resto > 0 || otro != null }
     })
   for (const l of llegan) {
     if (p.renglones.some((r) => r.medication_id === l.medicationId)) continue
-    filas.push({ medicationId: l.medicationId, nombre: l.name, esperado: null, llega: l.quantity, nota: 'No estaba en el pedido: se recibe igual', aviso: true })
+    const otro = quienLoEspera(otros, l.medicationId)
+    filas.push({
+      medicationId: l.medicationId, nombre: l.name, esperado: null, llega: l.quantity, aviso: true,
+      nota: otro ? `Se debe en el Pedido Nº ${otro.numero}: recibilo con ese` : 'No estaba en el pedido: se recibe igual',
+    })
   }
   return filas
 }
 
-/** La columna muestra lo que FALTABA: la primera vez coincide con lo pedido; después, no. */
+/** La columna muestra lo que FALTABA recibir: la primera vez coincide con lo pedido; después, no. */
 export function encabezadoDeLoEsperado(p: PedidoMedicacion): 'Pedido' | 'Faltaba' {
-  return p.recibidoTotal === 0 ? 'Pedido' : 'Faltaba'
+  return p.renglones.every((r) => porRecibir(r) === r.pedido) ? 'Pedido' : 'Faltaba'
 }
 ```
 
@@ -979,20 +1112,21 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes:
   - de la Task 1: `ventanaTarde`, `VentanaTarde`;
-  - de la Task 2: `armarPedidos(…, recepciones)`, `pedidoPara`, `textoDePedidos` (minúscula), `sinVerificarDe`, `faltaVerificarTxt`, `RecepcionDePedidoInsumo`;
+  - de la Task 2: `armarPedidos(…, recepciones)`, `pedidoPara`, `seSuperpone`, `textoDePedidos` (minúscula), `sinVerificarDe`, `faltaVerificarTxt`, `RecepcionDePedidoInsumo`;
   - de la Parte 1: `diasHastaElCorte`, `enCurso`, `periodoSiguiente`, `estanteAlComienzo`, `presentacionesDuplicadas`, `sigueEnElMes`, `terminoCronograma`.
 - Produces (lo que no se nombra sigue igual):
-  - `InsumosDelPeriodo` suma `recepciones: RecepcionDePedidoInsumo[]` (0132)
+  - `InsumosDelPeriodo` suma `recepciones: RecepcionDePedidoInsumo[]` (0133)
   - `TipoLineaBoleta` suma `'hay_en_el_estante'`
   - `RenglonDelPeriodo` suma:
     - `enCamino: number` (lo que descuenta «En camino»);
-    - `faltaEstePeriodo: number` (D31);
-    - `pacientes: number` (asignaciones activas sin habilitación de una entrega).
+    - `faltaEstePeriodo: number` (D31), neto de lo en camino;
+    - `pacientes: number` (asignaciones activas sin habilitación de una entrega);
+    - `minimo: { envases: number; pacientes: number | null } | null` (el stock mínimo del período, decisión 10).
   - `EstudioReposicion` pierde `destacado` y suma:
     - `objetivo: Periodo | null`;
     - `tarde: VentanaTarde | null`;
     - `pedidoDelObjetivo: PedidoMedicacion | null`;
-    - `pedidosQueDeben: PedidoMedicacion[]`;
+    - `pedidosQueDeben: PedidoMedicacion[]` (de OTROS períodos);
     - `resumen.faltaEstePeriodo: number`.
   - `ReposicionDelPeriodo` suma `diasAlCorte: number | null` y `ventana: VentanaTarde | null`
 
@@ -1079,7 +1213,7 @@ describe('la cuenta del período (R3, R7)', () => {
   it('el ejemplo del Director: había 5, entraron 15, salieron 12, quedan 8 → comprar 4', () => {
     const r = seretide(insumos({ pacientes: grupo(12, 12), lotes: [lote()], movimientos: [mov({ entro: 15, salio: 12, desde_inicio: 3 })] }))
     expect(r.libro).toEqual({ habia: 5, entro: 15, salio: 12, ajustes: 0, hay: 8 })
-    expect(r).toMatchObject({ estado: 'comprar', comprar: 4, enCamino: 0, faltaEstePeriodo: 0, pacientes: 12 })
+    expect(r).toMatchObject({ estado: 'comprar', comprar: 4, enCamino: 0, faltaEstePeriodo: 0, pacientes: 12, minimo: { envases: 12, pacientes: 12 } })
     expect(r.boleta).toEqual({
       aComprar: 4,
       lineas: [
@@ -1130,6 +1264,10 @@ describe('en camino (R9, R11, RD12)', () => {
     }))
     expect(r.boleta?.lineas.at(-1)?.aclaracion).toBe('pedido Nº 14 del 15/09 · llegó, falta verificar la recepción Nº 1051')
   })
+  it('lo en camino también cubre lo que falta del período en curso (revisión de ingeniería, 5)', () => {
+    const r = seretide(insumos({ pacientes: grupo(8, 4), lotes: [lote({ quantity: 3 })], pedidos: [cab()], pedido_items: [item({ pedido: 1, calculado: 1 })] }))
+    expect(r).toMatchObject({ faltaEstePeriodo: 0, enCamino: 1, comprar: 8 })
+  })
   it('lo recibido de un pedido ya no se resta como en camino', () => {
     expect(seretide(insumos({ ...base, pedidos: [cab()], pedido_items: [item({ recibido: 4 })] })).comprar).toBe(2)
   })
@@ -1145,13 +1283,14 @@ describe('a demanda y renglones sin cuenta', () => {
   it('a demanda: tener siempre N menos lo que queda', () => {
     const i = insumos({ renglones: [renglon({ modo: 'a_demanda', envases_por_mes: null, stock_fijo: 5 })], lotes: [lote({ quantity: 2 })] })
     expect(seretide(i).comprar).toBe(3)
+    expect(seretide(i).minimo).toEqual({ envases: 5, pacientes: null })
     expect(resumenBoleta(i)).toEqual([['tener_siempre', '', 5, 'a demanda'], ['quedan_al_corte', '−', 2, 'hay 2']])
   })
   it('sin cargar y no se compra no tienen boleta ni número, pero sí cuántos pacientes lo tienen', () => {
     expect(seretide(insumos({ renglones: [renglon({ modo: null, envases_por_mes: null })], pacientes: grupo(3, 0) })))
-      .toMatchObject({ estado: 'sin_cargar', comprar: 0, boleta: null, pacientes: 3 })
+      .toMatchObject({ estado: 'sin_cargar', comprar: 0, boleta: null, minimo: null, pacientes: 3 })
     expect(seretide(insumos({ renglones: [renglon({ modo: 'no_se_compra', envases_por_mes: null })] })))
-      .toMatchObject({ estado: 'no_se_compra', comprar: 0, boleta: null })
+      .toMatchObject({ estado: 'no_se_compra', comprar: 0, boleta: null, minimo: null })
   })
   it('en un período anterior hay libro pero no cuenta (R6)', () => {
     const rep = armar(
@@ -1160,9 +1299,26 @@ describe('a demanda y renglones sin cuenta', () => {
     )
     expect(rep).toMatchObject({ enCurso: false, diasAlCorte: null, ventana: null })
     expect(rep.estudios[0].renglones[0]).toMatchObject({
-      estado: 'sin_cuenta', comprar: 0, boleta: null, libro: { habia: 0, entro: 10, salio: 4, ajustes: -1, hay: 5 },
+      estado: 'sin_cuenta', comprar: 0, boleta: null, minimo: null, libro: { habia: 0, entro: 10, salio: 4, ajustes: -1, hay: 5 },
     })
     expect(rep.estudios[0]).toMatchObject({ estadoTarjeta: 'sin_cuenta', objetivo: null, tarde: null })
+  })
+})
+
+describe('el stock mínimo (pedido del Director, 2026-09-19)', () => {
+  it('suma la cantidad propia de cada paciente o, si no tiene, la del estudio', () => {
+    const i = insumos({
+      renglones: [renglon({ envases_por_mes: 1 })],
+      pacientes: [paciente({ envases_por_mes: 2 }), paciente({ envases_por_mes: 3 }), paciente()],
+    })
+    expect(seretide(i).minimo).toEqual({ envases: 6, pacientes: 3 })
+  })
+  it('sin pacientes que lo tengan asignado, el mínimo es cero', () => {
+    expect(seretide(insumos({ pacientes: [] })).minimo).toEqual({ envases: 0, pacientes: 0 })
+  })
+  it('no suma la asignación que es la habilitación de una entrega', () => {
+    const i = insumos({ pacientes: [paciente(), paciente({ habilitacion_id: 'hab-1' })] })
+    expect(seretide(i).minimo).toEqual({ envases: 1, pacientes: 1 })
   })
 })
 
@@ -1211,6 +1367,8 @@ describe('el pedido tarde (RD1)', () => {
     const r = tarde(insumos({ pacientes: grupo(12, 3), lotes: [lote({ quantity: 5 })] })).estudios[0].renglones[0]
     expect(r.comprar).toBe(4)
     expect(r.boleta?.lineas[0]).toMatchObject({ valor: 9, aclaracion: '12 pacientes, 1 envase por mes; retiraron 3' })
+    // El mínimo es el del período entero, no lo que le falta: por eso la columna no se llama como la boleta.
+    expect(r.minimo).toEqual({ envases: 12, pacientes: 12 })
   })
   it('a demanda: tener siempre menos lo que hay', () => {
     const r = tarde(insumos({ renglones: [renglon({ modo: 'a_demanda', envases_por_mes: null, stock_fijo: 5 })], lotes: [lote({ quantity: 2 })] })).estudios[0].renglones[0]
@@ -1224,6 +1382,15 @@ describe('el pedido tarde (RD1)', () => {
   })
   it('si al período que empezó no le falta nada, no hay nada tarde que pedir', () => {
     expect(tarde(insumos({ pacientes: grupo(12, 12), lotes: [lote()] })).estudios[0].tarde).toBeNull()
+  })
+  it('lo en camino de un pedido de otro período también se descuenta', () => {
+    const e = tarde(insumos({
+      pacientes: grupo(12, 0), lotes: [lote({ quantity: 5 })],
+      pedidos: [cab({ id: 'ped-13', numero: 13, periodo_desde: '2026-08-29', periodo_hasta: '2026-09-28' })],
+      pedido_items: [item({ id: 'i13', pedido_id: 'ped-13', pedido: 4, calculado: 4, recibido: 1 })],
+    })).estudios[0]
+    expect(e.tarde).not.toBeNull()
+    expect(e.renglones[0]).toMatchObject({ comprar: 4, enCamino: 3 })
   })
   it('pasados los 5 días, tampoco', () => {
     const rep = tarde(insumos({ pacientes: grupo(12, 0), lotes: [lote({ quantity: 5 })] }), '2026-10-05')
@@ -1275,6 +1442,14 @@ describe('la grilla (R2, RD4)', () => {
     expect(e.pedidoDelObjetivo?.numero).toBe(14)
     expect(e.pedidosQueDeben.map((p) => p.numero)).toEqual([13])
   })
+  it('un segundo pedido del mismo período no va al renglón de los anteriores (revisión de ingeniería, 11)', () => {
+    const e = armar(insumos({
+      pedidos: [cab(), cab({ id: 'ped-15', numero: 15 })],
+      pedido_items: [item({ pedido: 12, calculado: 12 }), item({ id: 'i15', pedido_id: 'ped-15', pedido: 3, calculado: 3, recibido: 1 })],
+    })).estudios[0]
+    expect(e.pedidoDelObjetivo?.numero).toBe(15)
+    expect(e.pedidosQueDeben).toEqual([])
+  })
 })
 
 describe('armar el pedido (R8)', () => {
@@ -1325,7 +1500,7 @@ import {
 import type { Aviso, EstadoRenglon, EstudioInsumo, LoteInsumo, ModoReposicion, PacienteInsumo } from './reposicionModel'
 import { diasHastaElCorte, enCurso, periodoSiguiente, ventanaTarde } from './periodoDeCorte'
 import type { Periodo, VentanaTarde } from './periodoDeCorte'
-import { armarPedidos, faltaVerificarTxt, pedidoPara, sinVerificarDe, textoDePedidos, yaPedidoDe } from './pedidosMedicacionModel'
+import { armarPedidos, faltaVerificarTxt, pedidoPara, seSuperpone, sinVerificarDe, textoDePedidos, yaPedidoDe } from './pedidosMedicacionModel'
 import type { PedidoItemInsumo, PedidoMedicacion, PedidoMedicacionInsumo, RecepcionDePedidoInsumo } from './pedidosMedicacionModel'
 
 /**
@@ -1364,7 +1539,7 @@ import type { PedidoItemInsumo, PedidoMedicacion, PedidoMedicacionInsumo, Recepc
  * └────────────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 
-// ═══════════════════════════ El JSON de `reposicion_del_periodo` (0128, 0132) ═══════════════════════════
+// ═══════════════════════════ El JSON de `reposicion_del_periodo` (0128, 0133) ═══════════════════════════
 
 /** Un renglón de `protocol_medications` con lo que se cargó para reponerlo. */
 export interface RenglonPeriodoInsumo {
@@ -1409,7 +1584,7 @@ export interface InsumosDelPeriodo {
   movimientos: MovimientoInsumo[]
   pedidos: PedidoMedicacionInsumo[]
   pedido_items: PedidoItemInsumo[]
-  /** Las recepciones no anuladas de esos pedidos (0132). Antes de la 0132 no viene: se lee como vacía. */
+  /** Las recepciones no anuladas de esos pedidos (0133). Antes de la 0133 no viene: se lee como vacía. */
   recepciones: RecepcionDePedidoInsumo[]
   /** Enrolamientos en screening/activo sin ninguna medicación habilitada, por estudio. */
   sin_medicacion: { protocol_id: string; enrolamientos: number }[]
@@ -1478,8 +1653,20 @@ export interface RenglonDelPeriodo {
   comprar: number
   /** Lo que descuenta el renglón «En camino» de la boleta. */
   enCamino: number
-  /** Lo que el estante no cubre para terminar el período en curso (D31). */
+  /**
+   * Lo que ni el estante ni lo en camino cubren para terminar el período en curso (D31). Neto de lo en
+   * camino (revisión de ingeniería, 5): el día después del corte, con el pedido todavía viajando, lo que
+   * falta ya está pedido y no es una tarea.
+   */
   faltaEstePeriodo: number
+  /**
+   * El stock mínimo de un período entero (pedido del Director, 2026-09-19): lo que reciben por mes los
+   * pacientes que lo tienen asignado y siguen en el período objetivo —con su cantidad propia o, si no
+   * tienen, la del estudio—, o el «tener siempre» si es a demanda (`pacientes` null). Tarde, es el período
+   * que empezó ENTERO: no lo que le falta, que es lo que dice la boleta. null sin cargar, no se compra, o
+   * período que no está en curso.
+   */
+  minimo: { envases: number; pacientes: number | null } | null
   libro: Libro
   /** null: sin cargar, no se compra, o período que no está en curso. */
   boleta: Boleta | null
@@ -1510,7 +1697,7 @@ export interface EstudioReposicion {
     sinCargar: number
     /** Renglones que no son «no se compra». */
     reponibles: number
-    /** Σ de lo que el estante no cubre para terminar el período en curso (D31). */
+    /** Σ de lo que ni el estante ni lo en camino cubren para terminar el período en curso (D31). */
     faltaEstePeriodo: number
   }
   estadoTarjeta: EstadoTarjeta
@@ -1571,8 +1758,8 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
     pacientes: asignaciones.length,
     libro: libroDe(mov, lotes.reduce((s, l) => s + l.quantity, 0)),
   }
-  const sinCuenta: Pick<RenglonDelPeriodo, 'comprar' | 'enCamino' | 'faltaEstePeriodo' | 'boleta' | 'avisos'> =
-    { comprar: 0, enCamino: 0, faltaEstePeriodo: 0, boleta: null, avisos: [] }
+  const sinCuenta: Pick<RenglonDelPeriodo, 'comprar' | 'enCamino' | 'faltaEstePeriodo' | 'minimo' | 'boleta' | 'avisos'> =
+    { comprar: 0, enCamino: 0, faltaEstePeriodo: 0, minimo: null, boleta: null, avisos: [] }
   if (r.modo == null) return { ...base, ...sinCuenta, estado: 'sin_cargar' }
   if (r.modo === 'no_se_compra') return { ...base, ...sinCuenta, estado: 'no_se_compra' }
   // Período que no está en curso (R6): sin_cargar/no_se_compra son configuración y ya se resolvieron
@@ -1586,6 +1773,7 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
   let pendiente = 0
   let pendientes = 0
   let pacientesDelPeriodo = 0
+  let minimo: RenglonDelPeriodo['minimo'] = { envases: r.stock_fijo ?? 0, pacientes: null }
 
   if (r.modo === 'mensual') {
     const suman = asignaciones.filter((p) => !ctx.duplicados.has(p.patient_medication_id))
@@ -1603,6 +1791,7 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
 
     // Tarde, cuentan los del período que empezó; si no, los que siguen en el que viene.
     const delObjetivo = tarde ? delPeriodo : suman.filter((p) => sigueEnElMes(p, ctx.proximo.desde))
+    minimo = { envases: delObjetivo.reduce((s, p) => s + mensual(p), 0), pacientes: delObjetivo.length }
     const propios = delObjetivo.filter((p) => p.envases_por_mes != null).length
     const quienes = delObjetivo.length === 0 ? 'ningún paciente lo recibe'
       : propios > 0 ? `${pacientesTxt(delObjetivo.length)} (${propios} con cantidad propia)`
@@ -1680,7 +1869,7 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
   const comprar = Math.max(0, lineas.reduce((s, l) => (l.signo === '−' ? s - l.valor : s + l.valor), 0))
   const estado: EstadoRenglon = comprar > 0 ? 'comprar' : ya.envases > 0 ? 'en_camino' : 'alcanza'
   return {
-    ...base, estado, comprar, enCamino: ya.envases, faltaEstePeriodo: est.faltaEsteMes,
+    ...base, estado, comprar, enCamino: ya.envases, faltaEstePeriodo: Math.max(0, est.faltaEsteMes - ya.envases), minimo,
     boleta: { lineas, aComprar: comprar }, avisos,
   }
 }
@@ -1729,8 +1918,11 @@ export function armarReposicionDelPeriodo(
         objetivo,
         tarde,
         pedidoDelObjetivo,
+        // RD4: el renglón de «lo anterior» es de OTROS períodos. Un segundo pedido del mismo (con «Armar
+        // otro pedido») se ve en la lista del estudio, no ahí (revisión de ingeniería, 11).
         pedidosQueDeben: pedidosDelEstudio
-          .filter((p) => p.estado !== 'anulado' && p.faltanteTotal > 0 && p.id !== pedidoDelObjetivo?.id)
+          .filter((p) => p.estado !== 'anulado' && p.faltanteTotal > 0 && p.id !== pedidoDelObjetivo?.id
+            && !(objetivo && seSuperpone(p, objetivo)))
           .sort((a, b) => a.numero - b.numero),
         resumen: {
           envases, medicamentos: aComprar.length, sinCargar, reponibles,
@@ -1953,6 +2145,16 @@ describe('la tarjeta sin pedido (RD4, RD6)', () => {
       clicable: true,
     })
   })
+  it('dice cuántos pacientes quedan afuera de la cuenta (revisión de ingeniería, 13)', () => {
+    expect(tarjeta('2026-09-22', COMPRA_4({ sin_medicacion: [{ protocol_id: 'endura', enrolamientos: 2 }] })).detalle).toEqual([
+      { texto: '1 medicamento', aviso: false },
+      { texto: '2 pacientes sin medicación habilitada', aviso: true },
+    ])
+  })
+  it('en un período cerrado no hay cuenta, y lo dice (rama defensiva)', () => {
+    const r = armarReposicionDelPeriodo(COMPRA_4(), '2026-09-16', { desde: '2026-07-29', hasta: '2026-08-28' }, CORTE)
+    expect(tarjetaDe(r.estudios[0], r)).toEqual({ principal: { tipo: 'sin_cuenta' }, detalle: [], renglones: [], clicable: true })
+  })
   it('sin medicación de base no se entra (RD16)', () => {
     expect(tarjeta('2026-09-22', insumos({ renglones: [renglon({ modo: 'no_se_compra', envases_por_mes: null })] }))).toEqual({
       principal: { tipo: 'sin_medicacion' }, detalle: [], renglones: [], clicable: false,
@@ -1998,6 +2200,17 @@ describe('la tarjeta con pedido (RD4, RD5, RD17, RD3)', () => {
   })
 })
 
+describe('la tarjeta el día después del corte (revisión de ingeniería, 5)', () => {
+  it('con el pedido del período en camino, lo que falta ya está pedido: la tarjeta está tranquila', () => {
+    // 29/09: el Nº 14 (para el 29/09 al 28/10) se emitió el 28/09 y todavía no llegó; nadie retiró.
+    const t = tarjeta('2026-09-29', insumos({
+      pacientes: grupo(12, 0), lotes: [lote({ quantity: 2 })], pedidos: [cab()], pedido_items: [item({ pedido: 10, calculado: 10 })],
+    }))
+    expect(t.principal).toEqual({ tipo: 'cubierto' })
+    expect(t.renglones[0]).toEqual({ texto: 'Para el corte del 28/10: 12 envases · todavía sin pedido', mudo: true })
+  })
+})
+
 describe('la tarjeta con el pedido tarde (RD1)', () => {
   it('pasó el corte, sin pedido: la tarea es el período que empezó', () => {
     expect(tarjeta('2026-10-01', TARDE())).toEqual({
@@ -2029,6 +2242,13 @@ describe('la franja del corte (RD7)', () => {
   it('un estudio que ya tiene su pedido no cuenta', () => {
     expect(franjaDelCorte(rep('2026-09-16', COMPRA_4({ pedidos: [cab()], pedido_items: [item()] })))?.sub)
       .toBe('Período 29/08 al 28/09 · todos los estudios con compras tienen su pedido.')
+  })
+  it('con medicamentos sin cargar no dice «no hay nada para pedir» (revisión de ingeniería, 13)', () => {
+    const conSinCargar = COMPRA_4({
+      lotes: [lote({ quantity: 20 })],
+      renglones: [renglon(), renglon({ protocol_medication_id: 'pm-monte', medication_id: 'monte', medication_name: 'Montelukast 10 mg', modo: null, envases_por_mes: null })],
+    })
+    expect(franjaDelCorte(rep('2026-09-16', conSinCargar))?.sub).toBe('Período 29/08 al 28/09 · falta cargar cómo se repone en 1 estudio.')
   })
   it('sin compras, lo dice', () => {
     expect(franjaDelCorte(rep('2026-09-16', COMPRA_4({ lotes: [lote({ quantity: 20 })] })))?.sub)
@@ -2099,6 +2319,13 @@ describe('qué pedidos lista el estudio', () => {
   it('en curso: el del período, el del que viene y los que deben; no los viejos ya recibidos', () => {
     const r = rep('2026-09-16', tres())
     expect(pedidosAMostrar(r.estudios[0], r).map((p) => p.numero)).toEqual([14, 13])
+  })
+  it('en curso, también uno viejo con una recepción sin verificar', () => {
+    const r = rep('2026-09-16', COMPRA_4({
+      pedidos: [cab({ id: 'ped-12', numero: 12, periodo_desde: '2026-07-29', periodo_hasta: '2026-08-28' })],
+      pedido_items: [item({ id: 'i12', pedido_id: 'ped-12', recibido: 4, sin_verificar: 2 })],
+    }))
+    expect(pedidosAMostrar(r.estudios[0], r).map((p) => p.numero)).toEqual([12])
   })
   it('en un período cerrado: los que eran para él', () => {
     const r = armarReposicionDelPeriodo(tres(), '2026-09-16', { desde: '2026-07-29', hasta: '2026-08-28' }, CORTE)
@@ -2186,6 +2413,15 @@ function renglonesQueDeben(e: EstudioReposicion): RenglonTarjeta[] {
 }
 
 export function tarjetaDe(e: EstudioReposicion, rep: ReposicionDelPeriodo): TarjetaEstudio {
+  const t = tarjetaSinAvisos(e, rep)
+  // Revisión de ingeniería, 13: la grilla no puede dar por cerrada una cuenta que deja pacientes afuera. Es
+  // la decisión 9 del plan (el aviso dentro del estudio) llevada a donde se decide si entrar.
+  if (e.sinMedicacionHabilitada === 0 || t.principal.tipo === 'sin_medicacion') return t
+  const fuera = `${plural(e.sinMedicacionHabilitada, 'paciente', 'pacientes')} sin medicación habilitada`
+  return { ...t, detalle: [...t.detalle, { texto: fuera, aviso: true }] }
+}
+
+function tarjetaSinAvisos(e: EstudioReposicion, rep: ReposicionDelPeriodo): TarjetaEstudio {
   const deben = renglonesQueDeben(e)
   if (e.estadoTarjeta === 'sin_medicacion') return { principal: { tipo: 'sin_medicacion' }, detalle: [], renglones: [], clicable: false }
   // La grilla siempre es del período en curso; esto es por si alguna vez se arma con uno cerrado.
@@ -2269,7 +2505,12 @@ export function franjaDelCorte(rep: ReposicionDelPeriodo): FranjaCorte | null {
   }
   // Sólo los que tienen compras Y todavía no tienen pedido: uno que ya pidió no es una tarea pendiente.
   const sinPedido = rep.estudios.filter((e) => e.resumen.envases > 0 && !e.pedidoDelObjetivo).length
-  const nada = rep.estudios.some((e) => e.pedidoDelObjetivo) ? 'todos los estudios con compras tienen su pedido.' : 'no hay nada para pedir.'
+  // «No hay nada para pedir» sólo si la cuenta está completa: con renglones sin cargar no se sabe
+  // (revisión de ingeniería, 13).
+  const sinCargar = rep.estudios.filter((e) => e.resumen.sinCargar > 0).length
+  const nada = rep.estudios.some((e) => e.pedidoDelObjetivo) ? 'todos los estudios con compras tienen su pedido.'
+    : sinCargar > 0 ? `falta cargar cómo se repone en ${plural(sinCargar, 'estudio', 'estudios')}.`
+      : 'no hay nada para pedir.'
   const corte = diaMes(rep.periodo.hasta)
   const cortoSub = sinPedido > 0 ? `${plural(sinPedido, 'estudio', 'estudios')} sin pedido para el período que viene.` : nada.charAt(0).toUpperCase() + nada.slice(1)
   if (rep.diasAlCorte === 0) return { texto: 'El corte es hoy', sub: cortoSub, aviso: true }
@@ -2352,18 +2593,19 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 5: Migración 0132, probada en PGlite
+### Task 5: Migración 0133, probada en PGlite
 
 **Files:**
-- Create: `supabase/migrations/0132_reposicion_parte_2.sql`
-- Modify: `supabase/README.md` (fila de la 0132)
-- Create (fuera del repo): `<scratchpad>/pglite-0132/probar.mjs`
+- Create: `supabase/migrations/0133_reposicion_parte_2.sql`
+- Modify: `supabase/README.md` (fila de la 0133)
+- Create (fuera del repo): `<scratchpad>/pglite-0133/probar.mjs`
 
 **Interfaces:**
-- Consumes: las tablas y funciones de la `0128`.
+- Consumes: las tablas y funciones de la `0128`. La `0132` (la guarda de Recepción) ya está aplicada; esta no la toca.
 - Produces (lo que llama la Task 6):
   - `pedidos_medicacion.intento uuid null`, única;
-  - `emitir_pedido_medicacion(p_protocol_id uuid, p_desde date, p_hasta date, p_emitido_el date, p_renglones jsonb, p_intento uuid default null) → jsonb {id, numero}`;
+  - `emitir_pedido_medicacion(p_protocol_id uuid, p_desde date, p_hasta date, p_emitido_el date, p_renglones jsonb, p_intento uuid default null, p_ultimo_visto integer default null) → jsonb {id, numero}`. `p_emitido_el` tiene que ser hoy en AR. Con `p_ultimo_visto`, rechaza si hay un pedido más nuevo del mismo estudio y período;
+  - `cerrar_faltante_pedido(p_item_id, p_motivo)`: misma firma; rechaza si lo que falta ya está en una recepción sin verificar;
   - `reabrir_faltante_pedido(p_item_id uuid) → void`;
   - `reposicion_del_periodo(p_desde, p_hasta, p_protocol_id)`: misma firma, suma la clave `recepciones` con la forma de `RecepcionDePedidoInsumo`;
   - `pedidos_por_recibir() → jsonb {estudios, pedidos, pedido_items, recepciones}`, con la forma de `InsumosPorRecibir`.
@@ -2375,33 +2617,35 @@ git fetch origin
 git ls-tree --name-only origin/main supabase/migrations/ | tail -3
 ```
 
-Expected: la última es `supabase/migrations/0131_feedback_visto.sql`.
+Expected: la última es `supabase/migrations/0132_recepcion_guarda_borrado_y_renglones.sql` (la guarda de Recepción, PR #234).
 
-- Si ya hay una `0132` en `origin/main` (la guarda de Recepción llegó antes), esta migración pasa a ser la siguiente libre. En ese caso:
-  - cambiá el número en el nombre del archivo, en su cabecera, en la fila del README y en el banco del Step 3;
-  - la limpieza de la Task 14 corre uno más.
-- Si esta se queda con la `0132`, avisale al Director en el chat. La rama local `fix/recepcion-guarda-borrado-y-renglones` tiene que renumerar la suya a la siguiente libre antes de pushear, y hay que actualizar la memoria `plan-guarda-recepcion-0129` con el número nuevo.
+Si hay otra después, esta migración toma la siguiente libre:
+- cambiá el número en el nombre del archivo, en su cabecera, en la fila del README y en el banco del Step 3;
+- la limpieza de la Task 14 corre uno más.
 
 - [ ] **Step 2: Escribir la migración**
 
-`supabase/migrations/0132_reposicion_parte_2.sql`:
+`supabase/migrations/0133_reposicion_parte_2.sql`:
 
 ```sql
--- Spira · Migración 0132 — Reposición, parte 2: pedido sin duplicados, reabrir «No va a llegar», las
+-- Spira · Migración 0133 — Reposición, parte 2: pedido sin duplicados, reabrir «No va a llegar», las
 -- recepciones de cada pedido y la lista de «Recibir un pedido».
 -- Spec: docs/superpowers/specs/2026-09-16-reposicion-submodulo-design.md (revisión de diseño: RD2, RD17,
--- RD18 y la decisión abierta del doble pedido).
+-- RD18 y la decisión abierta del doble pedido). Revisión de ingeniería del plan (2026-09-19): 1A, 7A, 12A
+-- y 15A, anotadas en cada sección.
 -- Plan: docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md (Task 5).
 --
--- APLICAR A MANO en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0131.
+-- APLICAR A MANO en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0132 (la guarda de Recepción).
 -- IDEMPOTENTE: reintentar es volver a correr el archivo entero.
 --
 -- ✅ ADITIVA → VA **ANTES** DEL DEPLOY DEL FRONT (el que no anda sin ella es el front nuevo):
 --    · pedidos_medicacion.intento es nueva y nullable: ningún front la pide;
---    · emitir_pedido_medicacion suma p_intento con default null AL FINAL. Se BORRA antes la firma de cinco:
---      create or replace con otra firma deja una sobrecarga viva y PostgREST contestaría PGRST203. Ningún
---      front desplegado la llama todavía (la Parte 1 no tiene pantallas), y aunque la llamara con cinco
---      argumentos por nombre, resolvería a la nueva por el default;
+--    · emitir_pedido_medicacion suma p_intento y p_ultimo_visto con default null AL FINAL. Se BORRA antes la
+--      firma de cinco: create or replace con otra firma deja una sobrecarga viva y PostgREST contestaría
+--      PGRST203. Ningún front desplegado la llama todavía (la Parte 1 no tiene pantallas), y aunque la
+--      llamara con cinco argumentos por nombre, resolvería a la nueva por los defaults. La fecha de emisión
+--      pasa a tener que ser la de hoy: tampoco rompe a nadie, por lo mismo;
+--    · cerrar_faltante_pedido conserva la firma y suma un rechazo (lo que falta ya llegó y está sin verificar);
 --    · reabrir_faltante_pedido y pedidos_por_recibir son nuevas;
 --    · reposicion_del_periodo conserva la firma y SUMA la clave «recepciones» al JSON: nadie la pide todavía.
 --
@@ -2420,16 +2664,26 @@ create unique index if not exists pedidos_medicacion_intento_uq
   on public.pedidos_medicacion (intento) where intento is not null;
 
 
--- 2 · emitir_pedido_medicacion con intento --------------------------------------------------------
+-- 2 · emitir_pedido_medicacion con intento y con lo que vio la pantalla -----------------------------
+-- · p_intento: un reintento del mismo «Armar pedido» devuelve el pedido ya guardado. Si llega con OTRAS
+--   cantidades (se editó después del corte de red) no se devuelve callado: la farmacéutica se quedaría con
+--   una hoja que no es la que se guardó (revisión de ingeniería, 1A).
+-- · p_ultimo_visto: el número del último pedido de ese período que mostraba la pantalla (0 si ninguno).
+--   Si mientras tanto alguien emitió otro para el mismo estudio y período, se frena y se lo nombra: dos
+--   personas con el estudio abierto no emiten dos pedidos por lo mismo (7A). El candado por estudio hace
+--   que dos emisiones simultáneas se vean entre sí. null = no se controla (llamadas viejas).
+-- · p_emitido_el tiene que ser hoy en Argentina: la hoja lleva esa fecha y una pantalla abierta desde ayer
+--   emitiría con la de ayer (15A).
 drop function if exists public.emitir_pedido_medicacion(uuid, date, date, date, jsonb);
 
 create or replace function public.emitir_pedido_medicacion(
-  p_protocol_id uuid,
-  p_desde       date,
-  p_hasta       date,
-  p_emitido_el  date,
-  p_renglones   jsonb,
-  p_intento     uuid default null
+  p_protocol_id  uuid,
+  p_desde        date,
+  p_hasta        date,
+  p_emitido_el   date,
+  p_renglones    jsonb,
+  p_intento      uuid default null,
+  p_ultimo_visto integer default null
 )
 returns jsonb language plpgsql security definer set search_path = public as $fn$
 declare
@@ -2438,6 +2692,7 @@ declare
   v_protocol uuid;
   v_nombre   text;
   v_r        jsonb;
+  v_otro     integer;
   v_hoy      date := (now() at time zone 'America/Argentina/Buenos_Aires')::date;
 begin
   if auth.uid() is null then raise exception 'No autenticado' using errcode = '42501'; end if;
@@ -2445,7 +2700,9 @@ begin
     raise exception 'No tenés permiso para emitir pedidos' using errcode = '42501';
   end if;
 
-  -- Un reintento del mismo «Armar pedido»: devuelve lo que ya quedó guardado, sin volver a validar.
+  -- Un reintento del mismo «Armar pedido»: devuelve lo que ya quedó guardado, sin volver a validar (un
+  -- reintento después de medianoche tiene que encontrar su pedido, no chocar con la fecha). Sólo si pide
+  -- lo mismo: medicamento por medicamento, las mismas cantidades.
   if p_intento is not null then
     select pe.id, pe.numero, pe.protocol_id into v_id, v_numero, v_protocol
       from public.pedidos_medicacion pe
@@ -2454,6 +2711,22 @@ begin
       if v_protocol <> p_protocol_id then
         raise exception 'Ese pedido ya se emitió para otro estudio' using errcode = '22023';
       end if;
+      if exists (
+        select 1
+          from (select it.medication_id, it.pedido
+                  from public.pedido_medicacion_items it
+                 where it.pedido_id = v_id) guardado
+          full join (select (r.value->>'medication_id')::uuid as medication_id, (r.value->>'pedido')::integer as pedido
+                       from jsonb_array_elements(case when jsonb_typeof(p_renglones) = 'array' then p_renglones
+                                                      else '[]'::jsonb end) r) llega
+            on llega.medication_id = guardado.medication_id
+         where guardado.medication_id is null
+            or llega.medication_id is null
+            or llega.pedido is distinct from guardado.pedido
+      ) then
+        raise exception 'Ese pedido ya quedó emitido con otras cantidades: fijate en la lista del estudio'
+          using errcode = '22023';
+      end if;
       return jsonb_build_object('id', v_id, 'numero', v_numero);
     end if;
   end if;
@@ -2461,14 +2734,31 @@ begin
   if p_desde is null or p_hasta is null or p_desde > p_hasta then
     raise exception 'El período del pedido no es válido' using errcode = '22023';
   end if;
-  if p_emitido_el is null or p_emitido_el > v_hoy then
-    raise exception 'La fecha del pedido no puede ser futura' using errcode = '22023';
+  if p_emitido_el is distinct from v_hoy then
+    raise exception 'La pantalla quedó abierta desde otro día: recargala para emitir' using errcode = '22023';
   end if;
   if not exists (select 1 from public.protocols pr where pr.id = p_protocol_id and pr.status <> 'cerrado') then
     raise exception 'Ese estudio no existe o está cerrado' using errcode = 'P0002';
   end if;
   if p_renglones is null or jsonb_typeof(p_renglones) <> 'array' or jsonb_array_length(p_renglones) = 0 then
     raise exception 'El pedido está vacío' using errcode = '22023';
+  end if;
+
+  -- Un candado por estudio hasta el fin de la transacción: la segunda de dos emisiones simultáneas espera a
+  -- la primera y, al seguir, ya ve su pedido.
+  perform pg_advisory_xact_lock(hashtextextended('emitir_pedido_medicacion:' || p_protocol_id::text, 0));
+  if p_ultimo_visto is not null then
+    select max(pe.numero) into v_otro
+      from public.pedidos_medicacion pe
+     where pe.protocol_id = p_protocol_id
+       and pe.anulado_at is null
+       and pe.periodo_desde <= p_hasta
+       and pe.periodo_hasta >= p_desde
+       and pe.numero > p_ultimo_visto;
+    if v_otro is not null then
+      raise exception 'Ya hay un pedido para este período (Nº %): fijate en la lista del estudio', v_otro
+        using errcode = '23514';
+    end if;
   end if;
 
   select u.full_name into v_nombre from public.users u where u.id = auth.uid();
@@ -2504,8 +2794,67 @@ begin
   return jsonb_build_object('id', v_id, 'numero', v_numero);
 end;
 $fn$;
-revoke all on function public.emitir_pedido_medicacion(uuid, date, date, date, jsonb, uuid) from public;
-grant execute on function public.emitir_pedido_medicacion(uuid, date, date, date, jsonb, uuid) to authenticated;
+revoke all on function public.emitir_pedido_medicacion(uuid, date, date, date, jsonb, uuid, integer) from public;
+grant execute on function public.emitir_pedido_medicacion(uuid, date, date, date, jsonb, uuid, integer) to authenticated;
+
+
+-- 2b · cerrar_faltante_pedido: no se cierra lo que ya llegó (revisión de ingeniería, 12A) ------------
+-- Misma firma y mismo cuerpo que la 0128, más un rechazo: si lo que falta del renglón ya está en una
+-- recepción sin verificar, «No va a llegar» es falso — la medicación está en la casa y volvería a la
+-- compra. La pantalla esconde el botón en ese caso; esto cubre la llamada directa y la pantalla vieja.
+create or replace function public.cerrar_faltante_pedido(p_item_id uuid, p_motivo text)
+returns void language plpgsql security definer set search_path = public as $fn$
+declare
+  v_item          public.pedido_medicacion_items%rowtype;
+  v_anulado       timestamptz;
+  v_recibido      integer;
+  v_sin_verificar integer;
+  v_nombre        text;
+begin
+  if auth.uid() is null then raise exception 'No autenticado' using errcode = '42501'; end if;
+  if not public.has_min_role('pharma', 'operator') then
+    raise exception 'No tenés permiso para cerrar lo que falta de un pedido' using errcode = '42501';
+  end if;
+  if p_motivo is null or p_motivo not in ('no_lo_tiene', 'discontinuado', 'no_hace_falta') then
+    raise exception 'Elegí un motivo' using errcode = '22023';
+  end if;
+
+  select * into v_item from public.pedido_medicacion_items it where it.id = p_item_id for update;
+  if not found then
+    raise exception 'Ese renglón ya no está' using errcode = 'P0002';
+  end if;
+  -- for share: mismo criterio que el resto de las funciones que leen un pedido antes de decidir (0128,
+  -- secciones 5 y 7) — serializa contra anular_pedido_medicacion, que lo toma for update.
+  select pe.anulado_at into v_anulado from public.pedidos_medicacion pe where pe.id = v_item.pedido_id for share;
+  if v_anulado is not null then
+    raise exception 'Ese pedido está anulado' using errcode = '23514';
+  end if;
+  if v_item.cerrado_at is not null then
+    raise exception 'Lo que falta de ese renglón ya está cerrado' using errcode = '23514';
+  end if;
+
+  select coalesce(sum(ri.quantity) filter (where mr.status = 'verificada'), 0)::integer,
+         coalesce(sum(ri.quantity) filter (where mr.status = 'pendiente'), 0)::integer
+    into v_recibido, v_sin_verificar
+    from public.reception_items ri
+    join public.medication_receptions mr on mr.id = ri.reception_id
+   where mr.pedido_id = v_item.pedido_id
+     and ri.medication_id = v_item.medication_id;
+  if v_recibido >= v_item.pedido then
+    raise exception 'Ese renglón ya se recibió entero' using errcode = '23514';
+  end if;
+  if v_recibido + v_sin_verificar >= v_item.pedido then
+    raise exception 'Ese renglón tiene una recepción sin verificar: verificala o anulala antes' using errcode = '23514';
+  end if;
+
+  select u.full_name into v_nombre from public.users u where u.id = auth.uid();
+  update public.pedido_medicacion_items it
+     set cerrado_at = now(), cerrado_por_nombre = v_nombre, cerrado_motivo = p_motivo
+   where it.id = p_item_id;
+end;
+$fn$;
+revoke all on function public.cerrar_faltante_pedido(uuid, text) from public;
+grant execute on function public.cerrar_faltante_pedido(uuid, text) to authenticated;
 
 
 -- 3 · reabrir_faltante_pedido: deshacer «No va a llegar» (RD2) ---------------------------------------
@@ -2774,13 +3123,13 @@ funciones, así que son 8. Ningún comentario tiene dos signos peso pegados. El 
 - [ ] **Step 3: Preparar PGlite y escribir el banco**
 
 ```bash
-mkdir -p "<scratchpad>/pglite-0132" && cd "<scratchpad>/pglite-0132" && npm init -y && npm i @electric-sql/pglite@^0.5.8
+mkdir -p "<scratchpad>/pglite-0133" && cd "<scratchpad>/pglite-0133" && npm init -y && npm i @electric-sql/pglite@^0.5.8
 ```
 
-`<scratchpad>/pglite-0132/probar.mjs`:
+`<scratchpad>/pglite-0133/probar.mjs`:
 
 ```js
-// Corre la 0128 y la 0132 sobre un esquema de juguete y prueba los caminos de la 0132. Fuera del repo:
+// Corre la 0128 y la 0133 sobre un esquema de juguete y prueba los caminos de la 0133. Fuera del repo:
 // es la verificación previa a pasarle el SQL al Director (memoria probar-sql-con-pglite).
 //   node probar.mjs "C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2"
 import { PGlite } from '@electric-sql/pglite'
@@ -2788,7 +3137,7 @@ import { readFileSync } from 'node:fs'
 
 const REPO = process.argv[2] ?? 'C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2'
 const m0128 = readFileSync(`${REPO}/supabase/migrations/0128_reposicion_de_corte_a_corte.sql`, 'utf8')
-const m0132 = readFileSync(`${REPO}/supabase/migrations/0132_reposicion_parte_2.sql`, 'utf8')
+const m0133 = readFileSync(`${REPO}/supabase/migrations/0133_reposicion_parte_2.sql`, 'utf8')
 
 let fallas = 0
 const ok = (cond, msg) => {
@@ -2796,21 +3145,24 @@ const ok = (cond, msg) => {
   else { fallas += 1; console.log('  ✗', msg) }
 }
 
-const marcadores = m0132.match(/\$[A-Za-z_]*\$/g) ?? []
+const marcadores = m0133.match(/\$[A-Za-z_]*\$/g) ?? []
 ok(marcadores.length % 2 === 0, `marcadores de dollar-quote pares (${marcadores.length})`)
-ok(!/--[^\n]*\$\$/.test(m0132), 'ningún comentario con dos signos peso pegados')
+ok(!/--[^\n]*\$\$/.test(m0133), 'ningún comentario con dos signos peso pegados')
 
 const db = new PGlite()
 const q = (sql, params) => db.query(sql, params)
 const uno = async (sql, params) => (await q(sql, params)).rows[0]
-async function falla(sql, params, esperado, msg) {
+async function fallaAl(fn, esperado, msg) {
   try {
-    await q(sql, params)
+    await fn()
     ok(false, `${msg} (no falló)`)
   } catch (e) {
     ok(String(e.message).includes(esperado), `${msg} → ${e.message}`)
   }
 }
+const falla = (sql, params, esperado, msg) => fallaAl(() => q(sql, params), esperado, msg)
+/** Hoy en Argentina: emitir_pedido_medicacion sólo acepta la fecha de hoy (revisión de ingeniería, 15A). */
+const HOY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date())
 const como = (uid, rol) => q(`select set_config('test.uid', $1, false), set_config('test.rol', $2, false)`, [uid ?? '', rol ?? ''])
 
 const U = '00000000-0000-0000-0000-00000000000a'
@@ -2882,7 +3234,7 @@ await db.exec(`
   create table public.stock_movements (id uuid primary key default gen_random_uuid(), medication_id uuid not null,
     lot_id uuid references public.medication_lots(id), movement_type stock_movement_type not null, quantity_delta integer not null,
     reference_id uuid, reference_type text, created_at timestamptz not null default now());
-  -- folio y verified_by_name son de la 0085: la 0132 los lee.
+  -- folio y verified_by_name son de la 0085: la 0133 los lee.
   create table public.medication_receptions (id uuid primary key default gen_random_uuid(), folio serial,
     tipo public.reception_kind not null default 'protocolo', protocol_id uuid references public.protocols(id) on delete restrict,
     received_by uuid references public.users(id), reception_date date not null, status reception_status not null default 'pendiente',
@@ -2908,20 +3260,22 @@ await db.exec(`
     values ('${P1}', '${M1}', 'mensual', 1), ('${P2}', '${M1}', 'mensual', 1);
 `)
 
-console.log('Aplicar la 0128 y la 0132 (dos veces)')
+console.log('Aplicar la 0128 y la 0133 (dos veces)')
 await db.exec(m0128)
-await db.exec(m0132)
-await db.exec(m0132)
+await db.exec(m0133)
+await db.exec(m0133)
 
 const firmas = await uno(`select count(*)::int as n, max(pronargs)::int as args from pg_proc where proname = 'emitir_pedido_medicacion'`)
-ok(firmas.n === 1 && firmas.args === 6, `una sola emitir_pedido_medicacion, con seis argumentos (hay ${firmas.n}, ${firmas.args})`)
+ok(firmas.n === 1 && firmas.args === 7, `una sola emitir_pedido_medicacion, con siete argumentos (hay ${firmas.n}, ${firmas.args})`)
+const cerrar = await uno(`select count(*)::int as n from pg_proc where proname = 'cerrar_faltante_pedido'`)
+ok(cerrar.n === 1, 'una sola cerrar_faltante_pedido (misma firma que la 0128)')
 ok((await uno(`select count(*)::int as n from pg_proc where proname = 'reposicion_del_periodo'`)).n === 1, 'una sola reposicion_del_periodo')
 
 console.log('emitir_pedido_medicacion con intento')
 const R = JSON.stringify([{ medication_id: M1, calculado: 4, pedido: 6 }])
-const emitir = async (protocolo, intento) => (await uno(
-  `select public.emitir_pedido_medicacion($1::uuid, '2026-09-29', '2026-10-28', '2026-09-16', $2::jsonb, $3::uuid) as j`,
-  [protocolo, R, intento],
+const emitir = async (protocolo, intento, { renglones = R, fecha = HOY, desde = '2026-09-29', hasta = '2026-10-28', ultimo = null } = {}) => (await uno(
+  `select public.emitir_pedido_medicacion($1::uuid, $2::date, $3::date, $4::date, $5::jsonb, $6::uuid, $7::integer) as j`,
+  [protocolo, desde, hasta, fecha, renglones, intento, ultimo],
 )).j
 await como(U, 'operator')
 const a = await emitir(P1, I1)
@@ -2929,15 +3283,29 @@ const b = await emitir(P1, I1)
 ok(a.id === b.id && a.numero === b.numero, `el mismo intento devuelve el mismo pedido (Nº ${a.numero})`)
 ok((await uno(`select count(*)::int as n from public.pedidos_medicacion where intento = $1`, [I1])).n === 1, 'y no deja un segundo pedido')
 ok((await uno(`select count(*)::int as n from public.pedido_medicacion_items where pedido_id = $1`, [a.id])).n === 1, 'ni renglones repetidos')
-await falla(`select public.emitir_pedido_medicacion($1::uuid, '2026-09-29', '2026-10-28', '2026-09-16', $2::jsonb, $3::uuid)`, [P2, R, I1], 'otro estudio', 'el mismo intento para otro estudio')
+await fallaAl(() => emitir(P2, I1), 'otro estudio', 'el mismo intento para otro estudio')
+const R5 = JSON.stringify([{ medication_id: M1, calculado: 4, pedido: 5 }])
+await fallaAl(() => emitir(P1, I1, { renglones: R5 }), 'otras cantidades', 'el mismo intento con otra cantidad no devuelve el pedido viejo (1A)')
+await fallaAl(() => emitir(P1, I1, { renglones: '[]' }), 'otras cantidades', 'ni con un renglón de menos')
+ok((await emitir(P1, I1, { fecha: '2020-01-01' })).id === a.id, 'el reintento de otro día encuentra su pedido (no choca con la fecha)')
 const c = await emitir(P1, null)
 const d = await emitir(P1, null)
 ok(c.numero !== d.numero, 'sin intento, dos llamadas son dos pedidos')
 const conCinco = await uno(
-  `select public.emitir_pedido_medicacion(p_protocol_id => $1::uuid, p_desde => '2026-09-29', p_hasta => '2026-10-28', p_emitido_el => '2026-09-16', p_renglones => $2::jsonb) as j`,
-  [P1, R],
+  `select public.emitir_pedido_medicacion(p_protocol_id => $1::uuid, p_desde => '2026-09-29', p_hasta => '2026-10-28', p_emitido_el => $3::date, p_renglones => $2::jsonb) as j`,
+  [P1, R, HOY],
 )
 ok(typeof conCinco.j.numero === 'number', 'la llamada con cinco argumentos por nombre sigue andando')
+await fallaAl(() => emitir(P1, null, { fecha: '2020-01-01' }), 'otro día', 'una pantalla abierta desde otro día no emite (15A)')
+
+console.log('emitir_pedido_medicacion con lo que vio la pantalla (7A)')
+await fallaAl(() => emitir(P1, null, { ultimo: 0 }), `Nº ${conCinco.j.numero})`,
+  'si la pantalla no vio ningún pedido y ya hay uno, se frena y lo nombra (el último)')
+await fallaAl(() => emitir(P1, null, { ultimo: d.numero }), `Nº ${conCinco.j.numero})`, 'también si vio uno más viejo')
+const f = await emitir(P1, null, { ultimo: conCinco.j.numero })
+ok(typeof f.numero === 'number', 'si vio el último, emite (un segundo pedido a propósito, con lo que faltaba)')
+const g = await emitir(P1, null, { ultimo: 0, desde: '2026-10-29', hasta: '2026-11-28' })
+ok(typeof g.numero === 'number', 'los pedidos de otro período no cuentan')
 
 console.log('reabrir_faltante_pedido')
 const itemDe = async (pedido) => (await uno(`select id from public.pedido_medicacion_items where pedido_id = $1`, [pedido])).id
@@ -2973,7 +3341,16 @@ const recibir = async (pedido, lote, cantidad) => (await uno(
 )).id
 await recibir(a.id, 'LA', 4)
 const recD = await recibir(d.id, 'LD', 6)
+const itemD = await itemDe(d.id)
+await falla(`select public.cerrar_faltante_pedido($1::uuid, 'no_lo_tiene')`, [itemD], 'recepción sin verificar',
+  '«No va a llegar» sobre lo que ya llegó y está sin verificar (12A)')
 await q(`update public.medication_receptions set status = 'verificada', verified_by_name = 'Agustín Bazzani' where id = $1`, [recD])
+await falla(`select public.cerrar_faltante_pedido($1::uuid, 'no_lo_tiene')`, [itemD], 'recibió entero', 'verificada, lo que dice es que se recibió entero')
+const h = await emitir(P1, null)
+await recibir(h.id, 'LH', 2)
+await q(`select public.cerrar_faltante_pedido($1::uuid, 'no_lo_tiene')`, [await itemDe(h.id)])
+ok((await uno(`select cerrado_at from public.pedido_medicacion_items where pedido_id = $1`, [h.id])).cerrado_at !== null,
+  'si lo sin verificar no cubre lo que falta, el resto sí se puede cerrar')
 const recAnulada = await recibir(a.id, 'LX', 1)
 await q(`update public.medication_receptions set status = 'anulada' where id = $1`, [recAnulada])
 await como(U, 'viewer')
@@ -3000,9 +3377,9 @@ ok(pr.pedido_items.every((it) => pr.pedidos.some((p) => p.id === it.pedido_id)),
 ok(pr.recepciones.some((r) => r.pedido_id === a.id && r.status === 'pendiente'), 'con la recepción sin verificar, para avisar')
 
 console.log('tercera corrida')
-await db.exec(m0132)
+await db.exec(m0133)
 ok((await uno(`select count(*)::int as n from pg_proc where proname = 'emitir_pedido_medicacion'`)).n === 1, 'sigue habiendo una sola emitir_pedido_medicacion')
-ok((await uno(`select count(*)::int as n from public.pedidos_medicacion`)).n === 5, 'los pedidos siguen ahí (a, c, d, e y el de cinco argumentos)')
+ok((await uno(`select count(*)::int as n from public.pedidos_medicacion`)).n === 8, 'los pedidos siguen ahí (a, c, d, el de cinco argumentos, f, g, e y h)')
 
 console.log(fallas === 0 ? '\nTODO VERDE' : `\n${fallas} FALLAS`)
 process.exit(fallas === 0 ? 0 : 1)
@@ -3010,26 +3387,26 @@ process.exit(fallas === 0 ? 0 : 1)
 
 - [ ] **Step 4: Correr el banco y verificar que pasa entero**
 
-Run: `node "<scratchpad>/pglite-0132/probar.mjs" "C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2"`
+Run: `node "<scratchpad>/pglite-0133/probar.mjs" "C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2"`
 Expected: todas las líneas con `✓` y `TODO VERDE`. Si algo falla, se corrige la **migración** (no el banco)
 y se vuelve a correr entero.
 
-- [ ] **Step 5: Registrar la 0132 en el índice**
+- [ ] **Step 5: Registrar la 0133 en el índice**
 
-En `supabase/README.md`, con la herramienta Edit (el archivo es CRLF), agregar debajo de la fila de la `0131`:
+En `supabase/README.md`, con la herramienta Edit (el archivo es CRLF), agregar debajo de la fila de la `0132`:
 
 ```
-| 0132 | `reposicion_parte_2.sql` — **Reposición, parte 2: pedido sin duplicados, reabrir «No va a llegar», las recepciones de cada pedido y «Recibir un pedido»** (`docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md`). ADITIVA: va **antes** del front. `pedidos_medicacion.intento` (uuid único, null): «Armar pedido» manda uno por vez que se abre y `emitir_pedido_medicacion` devuelve el pedido ya guardado si llega el mismo intento — un reintento después de un corte de red no emite un segundo pedido. `emitir_pedido_medicacion` suma `p_intento` con default null al final; se borra antes la firma de cinco para no dejar sobrecarga. `reabrir_faltante_pedido(p_item_id)` deshace «No va a llegar» (RD2), sólo en pedidos no anulados y sobre renglones cerrados; el quién y cuándo queda en `audit_log`. `reposicion_del_periodo` conserva la firma y suma la clave `recepciones` (las no anuladas de cada pedido, con folio, estado, quién verificó y envases: RD17). `pedidos_por_recibir()` trae, sin depender de un período, los pedidos no anulados con algo por recibir, con su estudio, renglones y recepciones. Probada con PGlite (tres corridas). |
+| 0133 | `reposicion_parte_2.sql` — **Reposición, parte 2: pedido sin duplicados, reabrir «No va a llegar», las recepciones de cada pedido y «Recibir un pedido»** (`docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md`). ADITIVA: va **antes** del front. `pedidos_medicacion.intento` (uuid único, null): «Armar pedido» manda uno por vez que se abre y `emitir_pedido_medicacion` devuelve el pedido ya guardado si llega el mismo intento — un reintento después de un corte de red no emite un segundo pedido; con otras cantidades, lo rechaza. `emitir_pedido_medicacion` suma `p_intento` y `p_ultimo_visto` con default null al final (se borra antes la firma de cinco para no dejar sobrecarga): con el último pedido que vio la pantalla, rechaza si mientras tanto se emitió otro para el mismo estudio y período (candado por estudio), y la fecha de emisión tiene que ser la de hoy en AR. `cerrar_faltante_pedido` conserva la firma y no cierra lo que ya está en una recepción sin verificar. `reabrir_faltante_pedido(p_item_id)` deshace «No va a llegar» (RD2), sólo en pedidos no anulados y sobre renglones cerrados; el quién y cuándo queda en `audit_log`. `reposicion_del_periodo` conserva la firma y suma la clave `recepciones` (las no anuladas de cada pedido, con folio, estado, quién verificó y envases: RD17). `pedidos_por_recibir()` trae, sin depender de un período, los pedidos no anulados con algo por recibir, con su estudio, renglones y recepciones. Probada con PGlite (tres corridas). |
 ```
 
 Run: `node scripts/check-migraciones.mjs`
-Expected: `✓ 132 migraciones, índice al día.`
+Expected: `✓ 133 migraciones, índice al día.`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/0132_reposicion_parte_2.sql supabase/README.md
-git commit -m "feat(db): 0132 — intento de pedido, reabrir, recepciones del pedido y «Recibir un pedido»
+git add supabase/migrations/0133_reposicion_parte_2.sql supabase/README.md
+git commit -m "feat(db): 0133 — intento de pedido, reabrir, recepciones del pedido y «Recibir un pedido»
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -3042,11 +3419,11 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `src/data/pharma/reposicion.ts`
 
 **Interfaces:**
-- Consumes: las funciones de la `0132` (Task 5); `InsumosPorRecibir` (Task 2).
+- Consumes: las funciones de la `0133` (Task 5); `InsumosPorRecibir` (Task 2).
 - Produces:
   - `interface ReposicionLeida { desde: string; hasta: string; insumos: InsumosDelPeriodo }`
   - `useReposicionDelPeriodo(periodo: Periodo | null, protocolId?: string | null): QueryResult<ReposicionLeida | null>`. **Cambia**: antes devolvía `InsumosDelPeriodo`, y no la usa nadie todavía.
-  - `emitirPedidoMedicacion({ protocolId, periodo, emitidoEl, renglones, intento: string })`
+  - `emitirPedidoMedicacion({ protocolId, periodo, emitidoEl, renglones, intento: string, ultimoVisto: number })`
   - `reabrirFaltantePedido(itemId: string): Promise<{ error: string | null; code?: string }>`
   - `usePedidosPorRecibir(): QueryResult<InsumosPorRecibir | null>`
 
@@ -3063,7 +3440,7 @@ export interface ReposicionLeida {
 }
 
 /**
- * Los datos crudos de un período (`reposicion_del_periodo`, 0128 + 0132). La cuenta la hace
+ * Los datos crudos de un período (`reposicion_del_periodo`, 0128 + 0133). La cuenta la hace
  * `armarReposicionDelPeriodo` (D11). Sin período todavía (falta el día de corte) no pide nada.
  * `protocolId` null = todos los estudios no cerrados.
  *
@@ -3098,7 +3475,7 @@ En el mismo archivo, reemplazar `emitirPedidoMedicacion` entera por:
 ```ts
 /**
  * «Emitir e imprimir» (R8): cabecera y renglones en una llamada atómica. Devuelve el número para la hoja.
- * `intento` es un uuid por cada vez que se abre «Armar pedido» (0132): si la red se corta después de
+ * `intento` es un uuid por cada vez que se abre «Armar pedido» (0133): si la red se corta después de
  * guardar y se reintenta, la base devuelve el pedido que ya quedó en vez de emitir otro.
  */
 export async function emitirPedidoMedicacion(input: {
@@ -3109,6 +3486,8 @@ export async function emitirPedidoMedicacion(input: {
   emitidoEl: string
   renglones: { medication_id: string; calculado: number | null; pedido: number }[]
   intento: string
+  /** El último pedido de ese período que mostraba la pantalla, 0 si ninguno (0133, revisión de ingeniería, 7). */
+  ultimoVisto: number
 }): Promise<Resultado & { id?: string; numero?: number }> {
   const { data, error } = await supabase.rpc('emitir_pedido_medicacion', {
     p_protocol_id: input.protocolId,
@@ -3117,6 +3496,7 @@ export async function emitirPedidoMedicacion(input: {
     p_emitido_el: input.emitidoEl,
     p_renglones: input.renglones,
     p_intento: input.intento,
+    p_ultimo_visto: input.ultimoVisto,
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   const r = data as { id: string; numero: number }
@@ -3135,7 +3515,7 @@ export async function reabrirFaltantePedido(itemId: string): Promise<Resultado> 
 }
 
 /**
- * La lista de «Recibir un pedido» (`pedidos_por_recibir`, 0132): independiente del período, porque la
+ * La lista de «Recibir un pedido» (`pedidos_por_recibir`, 0133): independiente del período, porque la
  * Recepción no sabe de cortes. La arma `armarPorRecibir`.
  */
 export function usePedidosPorRecibir() {
@@ -3179,12 +3559,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 7: Gate, PR A, aplicación y sondas
 
 **Files:**
-- Create (fuera del repo): `<scratchpad>/crear-pr.mjs`, `<scratchpad>/sondas-0132.mjs`
+- Create (fuera del repo): `<scratchpad>/crear-pr.mjs`, `<scratchpad>/sondas-0133.mjs`
 - Modify: `supabase/README.md` (marca «Aplicada en prod», en una rama nueva)
 
 **Interfaces:**
 - Consumes: todo lo anterior.
-- Produces: la PR A mergeada y la `0132` aplicada y registrada. Es la condición para mergear la PR B.
+- Produces: la PR A mergeada y la `0133` aplicada y registrada. Es la condición para mergear la PR B.
 
 - [ ] **Step 1: Gate completo**
 
@@ -3239,8 +3619,11 @@ Primera mitad de la Parte 2 del submódulo **Reposición** ([plan](docs/superpow
   - «En camino» y «hay» físico en la boleta (RD12, RD13);
   - «Llegó, falta verificar» (RD17).
 - Un modelo nuevo con lo que dicen la tarjeta, la franja del corte y el estudio (RD4-RD7), con tests.
-- La migración **0132**, probada en PGlite con tres corridas:
-  - un pedido por intento, así un reintento no emite dos;
+- La migración **0133**, probada en PGlite con tres corridas:
+  - un pedido por intento, así un reintento no emite dos (y con otras cantidades, lo rechaza);
+  - el último pedido que vio la pantalla: dos personas con el estudio abierto no emiten dos pedidos por lo mismo;
+  - la fecha de emisión es la de hoy;
+  - «No va a llegar» no cierra lo que ya llegó y está sin verificar;
   - `reabrir_faltante_pedido`;
   - las recepciones de cada pedido;
   - `pedidos_por_recibir`.
@@ -3248,17 +3631,17 @@ Primera mitad de la Parte 2 del submódulo **Reposición** ([plan](docs/superpow
 
 ## ⚠️ Orden de despliegue
 
-La **0132 es ADITIVA: se aplica apenas se mergea esta PR**. Ningún front desplegado usa lo que cambia. La PR de las pantallas va después, con la 0132 ya aplicada.
+La **0133 es ADITIVA: se aplica apenas se mergea esta PR**. Ningún front desplegado usa lo que cambia. La PR de las pantallas va después, con la 0133 ya aplicada.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
-Run: `node "<scratchpad>/crear-pr.mjs" feat/reposicion-parte-2-base "Reposición · parte 2A: modelo, datos y migración 0132" "<scratchpad>/pr-a.md"`
+Run: `node "<scratchpad>/crear-pr.mjs" feat/reposicion-parte-2-base "Reposición · parte 2A: modelo, datos y migración 0133" "<scratchpad>/pr-a.md"`
 Expected: `201 https://github.com/spiraclinicapp/Spira-App/pull/<N>`
 
 - [ ] **Step 4: Avisarle al Director y esperar**
 
-En el chat, en una frase clara: la PR está abierta y **la 0132 se aplica apenas se mergea**. El archivo queda en `supabase/migrations/0132_reposicion_parte_2.sql` de `main` una vez mergeada. No seguir hasta que confirme «aplicada».
+En el chat, en una frase clara: la PR está abierta y **la 0133 se aplica apenas se mergea**. El archivo queda en `supabase/migrations/0133_reposicion_parte_2.sql` de `main` una vez mergeada. No seguir hasta que confirme «aplicada».
 
 - [ ] **Step 5: Traer `main` al local de la copia compartida**
 
@@ -3267,17 +3650,17 @@ cd "C:/Users/Tutuca/Desktop/Spira/Spira App"
 git status -sb
 git fetch origin
 git pull --ff-only
-ls supabase/migrations/0132_reposicion_parte_2.sql
+ls supabase/migrations/0133_reposicion_parte_2.sql
 ```
 
 Expected: el working copy está limpio en `main` antes del pull, y después el archivo existe. Si no está en `main` o tiene cambios, **no** hagas pull: avisale al Director.
 
 - [ ] **Step 6: Sondas sin sesión**
 
-`<scratchpad>/sondas-0132.mjs`:
+`<scratchpad>/sondas-0133.mjs`:
 
 ```js
-// Sondas SIN SESIÓN después de aplicar la 0132. No escriben nada: prueban que cada objeto existe y que
+// Sondas SIN SESIÓN después de aplicar la 0133. No escriben nada: prueban que cada objeto existe y que
 // emitir_pedido_medicacion no quedó ambigua. 401/42501 o «No autenticado» = existe; 404/PGRST202/
 // PGRST205/42703 = falta; PGRST203 = sobrecarga ambigua.
 import { readFileSync } from 'node:fs'
@@ -3303,16 +3686,23 @@ const get = async (ruta) => {
 }
 const FALTA = new Set(['PGRST202', 'PGRST203', 'PGRST205', '42703', '42883'])
 const existe = (r) => r.status !== 404 && !FALTA.has(r.body?.code)
+// Un embed ambiguo (PGRST201) o sin relación (PGRST200) voltea la consulta ENTERA de la lista de Recepción
+// (memoria gotcha-fk-nueva-rompe-embed-postgrest). PostgREST arma el embed antes de mirar permisos: sin
+// sesión se ve igual (revisión de ingeniería, 4).
+const embedSano = (r) => existe(r) && !['PGRST200', 'PGRST201'].includes(r.body?.code)
 const emitir = { p_protocol_id: CERO, p_desde: '2026-09-29', p_hasta: '2026-10-28', p_emitido_el: '2026-09-18', p_renglones: [] }
 
 const casos = [
+  ['emitir_pedido_medicacion con intento y lo que vio la pantalla', await rpc('emitir_pedido_medicacion', { ...emitir, p_intento: CERO, p_ultimo_visto: 0 }), existe],
   ['emitir_pedido_medicacion con intento', await rpc('emitir_pedido_medicacion', { ...emitir, p_intento: CERO }), existe],
   ['emitir_pedido_medicacion con cinco argumentos (sin ambigüedad)', await rpc('emitir_pedido_medicacion', emitir), existe],
   ['reabrir_faltante_pedido', await rpc('reabrir_faltante_pedido', { p_item_id: CERO }), existe],
+  ['cerrar_faltante_pedido (misma firma)', await rpc('cerrar_faltante_pedido', { p_item_id: CERO, p_motivo: 'no_lo_tiene' }), existe],
   ['pedidos_por_recibir', await rpc('pedidos_por_recibir', {}), existe],
   ['reposicion_del_periodo', await rpc('reposicion_del_periodo', { p_desde: '2026-08-29', p_hasta: '2026-09-28' }), existe],
   ['columna pedidos_medicacion.intento', await get('pedidos_medicacion?select=intento&limit=1'), existe],
-  ['CONTROL: función inventada tiene que faltar', await rpc('funcion_que_no_existe_0132', {}), (r) => !existe(r)],
+  ['el embed de la lista de Recepción (PR B)', await get('medication_receptions?select=id,pedido:pedidos_medicacion(numero)&limit=1'), embedSano],
+  ['CONTROL: función inventada tiene que faltar', await rpc('funcion_que_no_existe_0133', {}), (r) => !existe(r)],
   ['CONTROL: columna inventada tiene que faltar', await get('pedidos_medicacion?select=columna_inventada&limit=1'), (r) => !existe(r)],
 ]
 
@@ -3326,8 +3716,10 @@ console.log(fallas === 0 ? '\nTODO VERDE' : `\n${fallas} FALLAS`)
 process.exit(fallas === 0 ? 0 : 1)
 ```
 
-Run: `node "<scratchpad>/sondas-0132.mjs"`
-Expected: ocho `✓` (los dos controles incluidos) y `TODO VERDE`.
+Run: `node "<scratchpad>/sondas-0133.mjs"`
+Expected: once `✓` (los dos controles incluidos) y `TODO VERDE`.
+
+Si el embed de la lista de Recepción da `PGRST201` (ambiguo) o `PGRST200`, **la PR B no se abre así**: en la Task 11, el select de `receptions.ts` se desambigua por columna (`pedido:pedidos_medicacion!pedido_id(numero)`) y se sondea eso mismo (memoria `gotcha-fk-nueva-rompe-embed-postgrest`).
 
 Si «emitir con cinco argumentos» da `PGRST203`, quedó la sobrecarga. Pasarle al Director, tal cual:
 
@@ -3341,10 +3733,10 @@ y volver a correr las sondas. Si alguna da `PGRST202`/`PGRST205` recién aplicad
 
 ```bash
 cd "C:/Users/Tutuca/Desktop/Spira/Spira App"
-git switch -c docs/0132-aplicada
+git switch -c docs/0133-aplicada
 ```
 
-En `supabase/README.md`, con Edit, reemplazar en la fila de la 0132:
+En `supabase/README.md`, con Edit, reemplazar en la fila de la 0133:
 
 ```
 Probada con PGlite (tres corridas). |
@@ -3357,25 +3749,27 @@ Probada con PGlite (tres corridas). **Aplicada en prod (AAAA-MM-DD).** |
 ```
 
 Ojo: el mismo texto `Probada con PGlite (tres corridas). |` puede aparecer en la fila de la 0128. Para que el
-Edit sea único, incluí en `old_string` un pedazo de la fila de la 0132 (por ejemplo, `sus renglones y recepciones.`).
+Edit sea único, incluí en `old_string` un pedazo de la fila de la 0133 (por ejemplo, `sus renglones y recepciones.`).
+
+En `CLAUDE.md` (§3 de las reglas duras), con Edit, la última aplicada pasa de `0132` a `0133`.
 
 Run: `node scripts/check-migraciones.mjs`
-Expected: `✓ 132 migraciones, índice al día.`
+Expected: `✓ 133 migraciones, índice al día.`
 
 ```bash
-git add supabase/README.md
-git commit -m "docs(db): 0132 aplicada en prod
+git add supabase/README.md CLAUDE.md
+git commit -m "docs(db): 0133 aplicada en prod
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-git -c credential.interactive=false push -u origin docs/0132-aplicada
+git -c credential.interactive=false push -u origin docs/0133-aplicada
 ```
 
-Abrir la PR con `crear-pr.mjs` (título «docs(db): 0132 aplicada en prod», cuerpo de una línea con el resultado de las sondas). Después de que el Director la mergee:
+Abrir la PR con `crear-pr.mjs` (título «docs(db): 0133 aplicada en prod», cuerpo de una línea con el resultado de las sondas). Después de que el Director la mergee:
 
 ```bash
 git switch main
 git pull --ff-only
-git branch -d docs/0132-aplicada
+git branch -d docs/0133-aplicada
 ```
 
 ---
@@ -3415,20 +3809,24 @@ Las tareas de la PR B van **de abajo hacia arriba**: primero las piezas y los mo
   - `PastillaPedido`, `ClavePastilla`, `pastillaDePedido`, `PedidoMedicacion`, `RenglonPedido`;
   - `MOTIVOS_CIERRE`, `MOTIVOS_ANULACION`, `faltaTxt`;
   - `cerrarFaltantePedido`, `reabrirFaltantePedido`, `anularPedidoMedicacion`, `emitirPedidoMedicacion`;
-  - `borradorDelPedido`, `renglonesAEmitir`, `cambiosDelBorrador`, `EstudioReposicion`, `Periodo`, `textoPeriodo`, `diaMes`.
+  - `borradorDelPedido`, `renglonesAEmitir`, `cambiosDelBorrador`, `EstudioReposicion`, `Periodo`, `textoPeriodo`, `diaMes`;
+  - `porRecibir`, `notaDeReimpresion`, `EstudioInsumo` (Task 2);
+  - `card` de `../reportes/estilos`; `protocolStatusLabel`, `protocolStatusVar` de `../../protocolStatus`.
 - Produces:
   - `piezas.tsx`:
     - `botonChico: CSSProperties`, `botonAccion(primario: boolean, accentSolid: string): CSSProperties`;
-    - `errorTexto: CSSProperties`, `rotuloColumna: CSSProperties`, `plural(n, uno, varios)`;
+    - `errorTexto: CSSProperties`, `plural(n, uno, varios)`, `mayuscula(s)`, `minuscula(s)`;
+    - `versalita`, `rotuloColumna` (la tabla del estudio) y `rotuloTabla` (los modales): `CSSProperties`;
+    - `PuntoEstado({ status })`: el estado del estudio con su punto de color;
     - `Envases({ n, tamano? })`, `Pastilla({ p })`, `AvisoLinea({ texto, tono? })`;
     - `Informacion({ icono, children })`, `EstadoCaja({ icono, titulo, texto, peligro?, accion? })`, `TituloSeccion({ children })`;
     - `useAngosto(): boolean`.
   - `HojaPedido.tsx`:
-    - `interface DatosHoja { numero; estudio: { code; name }; periodo: Periodo; emitidoEl; emitidoPor: string | null; anulado: boolean; renglones: { nombre; presentacion: string | null; pedido: number }[] }`;
-    - `datosDeHoja(p: PedidoMedicacion, estudio: { code: string; name: string }): DatosHoja`;
+    - `interface DatosHoja { numero; estudio: { code; name }; periodo: Periodo; emitidoEl; emitidoPor: string | null; anulado: boolean; reimpresion: string | null; renglones: { nombre; presentacion: string | null; pedido: number; nota: string | null }[] }`;
+    - `datosDeHoja(p: PedidoMedicacion, estudio: { code: string; name: string }, hoy: string): DatosHoja`: para REIMPRIMIR (marca «REIMPRESIÓN» y lo que ya llegó);
     - `useImpresion(): { hoja: DatosHoja | null; imprimir: (d: DatosHoja) => void }`;
     - `HojaPedido({ d }: { d: DatosHoja | null })`.
-  - `ArmarPedido({ e, objetivo, hoy, accentSolid, onClose, onEmitido: (d: DatosHoja) => void })`
+  - `ArmarPedido({ e, objetivo, hoy, ultimoVisto: number, accentSolid, onClose: (refrescar: boolean) => void, onEmitido: (d: DatosHoja) => void })`
   - `AnularPedido({ p, estudio, onClose, onAnulado })`
   - `PedidoDetalle({ p, estudio, puedeEditar, accentSolid, onClose, onCambio, onReimprimir })`
 
@@ -3441,7 +3839,9 @@ import { useEffect, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../../components/Icon'
 import type { IconName } from '../../../components/Icon'
-import type { ClavePastilla, PastillaPedido } from '../../../data/pharma'
+import type { ClavePastilla, EstudioInsumo, PastillaPedido } from '../../../data/pharma'
+import { protocolStatusLabel, protocolStatusVar } from '../../protocolStatus'
+import { card } from '../reportes/estilos'
 
 /**
  * Piezas chicas del submódulo Reposición, con los valores del mock
@@ -3481,13 +3881,28 @@ export const errorTexto: CSSProperties = {
   borderRadius: 8, padding: '9px 12px', margin: 0,
 }
 
-/** Rótulo de columna en versalita (el `th` de Estadísticas, sin el borde: lo pone la fila). */
-export const rotuloColumna: CSSProperties = {
-  padding: '10px 16px 9px', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-  color: 'var(--spira-ink-soft)', whiteSpace: 'nowrap',
+/** La versalita de los rótulos de columna. Una sola, así las tablas del submódulo no se separan. */
+export const versalita: CSSProperties = {
+  fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--spira-ink-soft)',
 }
+/** Rótulo de columna de la tabla del estudio (el `th` de Estadísticas, sin el borde: lo pone la fila). */
+export const rotuloColumna: CSSProperties = { ...versalita, padding: '10px 16px 9px', whiteSpace: 'nowrap' }
+/** Rótulo de columna de las tablas de los modales («Armar pedido», el pedido). */
+export const rotuloTabla: CSSProperties = { ...versalita, padding: '0 0 8px' }
 
 export const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`
+export const mayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+export const minuscula = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
+
+/** El estado del estudio con su punto de color, como en Pacientes (la grilla y el estudio). */
+export function PuntoEstado({ status }: { status: EstudioInsumo['status'] }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
+      <span style={{ width: 7, height: 7, borderRadius: 999, background: protocolStatusVar(status) }} />
+      {protocolStatusLabel(status)}
+    </span>
+  )
+}
 
 /** El número grande con su unidad («7 envases»). */
 export function Envases({ n, tamano = 22 }: { n: number; tamano?: number }) {
@@ -3547,7 +3962,7 @@ export function EstadoCaja({ icono, titulo, texto, peligro = false, accion }: {
   accion?: ReactNode
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '22px 24px', background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, flexWrap: 'wrap' }}>
+    <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 14, padding: '22px 24px', flexWrap: 'wrap' }}>
       <span style={{ width: 52, height: 52, borderRadius: 14, background: peligro ? 'rgba(166, 72, 59, 0.10)' : 'rgba(15, 95, 87, 0.08)', display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
         <Icon name={icono} size={22} stroke={1.9} color={peligro ? 'var(--spira-danger)' : 'var(--spira-pharma-solid)'} />
       </span>
@@ -3593,13 +4008,16 @@ import { Fragment, useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { formatAR } from '../../../lib/dates'
+import { diaMes, notaDeReimpresion } from '../../../data/pharma'
 import type { Periodo, PedidoMedicacion } from '../../../data/pharma'
 import { FilaKv, Membrete, PieDePagina, tablaImpresa, tdImpresa, thImpresa } from '../reportes/impresion'
 
 /**
  * La hoja A4 del pedido (mock «La hoja que va a la farmacia»): va a la farmacia y vuelve con la medicación.
  * Las tres últimas columnas —entregado, lote, vence— van VACÍAS para completarlas a mano, con dos renglones
- * por medicamento por si la farmacia entrega dos lotes (RD11). Un pedido anulado se reimprime marcado.
+ * por medicamento por si la farmacia entrega dos lotes (RD11). Un pedido anulado se reimprime marcado. Una
+ * REIMPRESIÓN lleva la fecha y, debajo de cada renglón, lo que ya llegó y lo que no va a llegar: es la hoja
+ * con la que se reclama, y sin eso la farmacia volvería a entregar lo recibido (revisión de ingeniería, 10).
  * Se portalea a <body> con `.spira-print-doc`, el mismo mecanismo que las hojas de Estadísticas.
  */
 
@@ -3611,10 +4029,14 @@ export interface DatosHoja {
   emitidoEl: string
   emitidoPor: string | null
   anulado: boolean
-  renglones: { nombre: string; presentacion: string | null; pedido: number }[]
+  /** El día de la reimpresión; null en la primera, que sale al emitir. */
+  reimpresion: string | null
+  /** `nota`: «recibido 5 · falta 1», «no va a llegar»… null si no llegó nada (o es la primera). */
+  renglones: { nombre: string; presentacion: string | null; pedido: number; nota: string | null }[]
 }
 
-export function datosDeHoja(p: PedidoMedicacion, estudio: { code: string; name: string }): DatosHoja {
+/** La hoja para REIMPRIMIR un pedido ya emitido. La primera la arma «Armar pedido» con lo que se emitió. */
+export function datosDeHoja(p: PedidoMedicacion, estudio: { code: string; name: string }, hoy: string): DatosHoja {
   return {
     numero: p.numero,
     estudio: { code: estudio.code, name: estudio.name },
@@ -3622,7 +4044,8 @@ export function datosDeHoja(p: PedidoMedicacion, estudio: { code: string; name: 
     emitidoEl: p.emitido_el,
     emitidoPor: p.emitido_por_nombre,
     anulado: p.estado === 'anulado',
-    renglones: p.renglones.map((r) => ({ nombre: r.medication_name, presentacion: r.presentacion, pedido: r.pedido })),
+    reimpresion: hoy,
+    renglones: p.renglones.map((r) => ({ nombre: r.medication_name, presentacion: r.presentacion, pedido: r.pedido, nota: notaDeReimpresion(r) })),
   }
 }
 
@@ -3647,7 +4070,9 @@ export function HojaPedido({ d }: { d: DatosHoja | null }) {
     <div className="spira-print-doc" aria-hidden="true">
       <Membrete />
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, borderBottom: '1px solid #000', paddingBottom: 6, marginBottom: 10 }}>
-        <b style={{ fontSize: 13, letterSpacing: '0.07em' }}>PEDIDO DE MEDICACIÓN{d.anulado ? ' · ANULADO' : ''}</b>
+        <b style={{ fontSize: 13, letterSpacing: '0.07em' }}>
+          PEDIDO DE MEDICACIÓN{d.anulado ? ' · ANULADO' : ''}{d.reimpresion ? ` · REIMPRESIÓN · ${diaMes(d.reimpresion)}` : ''}
+        </b>
         <span className="spira-mono" style={{ marginLeft: 'auto', fontFamily: 'var(--spira-font-display)', fontSize: 26, fontWeight: 800 }}>Nº {d.numero}</span>
       </div>
       {d.anulado && (
@@ -3677,7 +4102,10 @@ export function HojaPedido({ d }: { d: DatosHoja | null }) {
           {d.renglones.map((r) => (
             <Fragment key={r.nombre}>
               <tr>
-                <td style={celda(PUNTEADA)}><b>{r.nombre}</b></td>
+                <td style={celda(PUNTEADA)}>
+                  <b>{r.nombre}</b>
+                  {r.nota && <div style={{ fontSize: 10.5, marginTop: 3 }}>{r.nota}</div>}
+                </td>
                 <td style={celda(PUNTEADA)}>{r.presentacion ?? '—'}</td>
                 <td style={celda({ ...PUNTEADA, textAlign: 'right' })}><b className="spira-mono">{r.pedido}</b></td>
                 <td style={celda({ ...PUNTEADA, paddingLeft: 18 })} />
@@ -3715,7 +4143,6 @@ export function HojaPedido({ d }: { d: DatosHoja | null }) {
 
 ```tsx
 import { useState } from 'react'
-import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
@@ -3724,12 +4151,9 @@ import { useAuth } from '../../../lib/auth'
 import { borradorDelPedido, cambiosDelBorrador, emitirPedidoMedicacion, renglonesAEmitir, textoPeriodo } from '../../../data/pharma'
 import type { EstudioReposicion, Periodo } from '../../../data/pharma'
 import type { DatosHoja } from './HojaPedido'
-import { AvisoLinea, plural } from './piezas'
+import { AvisoLinea, plural, rotuloTabla } from './piezas'
 
 const COLUMNAS = 'minmax(0, 1fr) 110px 150px'
-const rotulo: CSSProperties = {
-  padding: '0 0 8px', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--spira-ink-soft)',
-}
 const lista = (xs: readonly string[]) => (xs.length === 1 ? xs[0] : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`)
 
 /**
@@ -3737,13 +4161,16 @@ const lista = (xs: readonly string[]) => (xs.length === 1 ? xs[0] : `${xs.slice(
  * en 0 no va al pedido y un pedido vacío no se emite. «Emitir e imprimir» lo guarda con número y abre la
  * hoja; el botón se apaga mientras guarda, así un doble click no emite dos.
  */
-export function ArmarPedido({ e, objetivo, hoy, accentSolid, onClose, onEmitido }: {
+export function ArmarPedido({ e, objetivo, hoy, ultimoVisto, accentSolid, onClose, onEmitido }: {
   e: EstudioReposicion
   /** El período PARA el que se pide: el que viene, o el que empezó si se pide tarde (RD1). */
   objetivo: Periodo
   hoy: string
+  /** El número del último pedido de `objetivo` que muestra la pantalla, 0 si ninguno (`ultimoPedidoPara`). */
+  ultimoVisto: number
   accentSolid: string
-  onClose: () => void
+  /** `refrescar`: hubo un error y la pantalla puede estar vieja (el pedido pudo quedar hecho, u otro lo emitió). */
+  onClose: (refrescar: boolean) => void
   onEmitido: (d: DatosHoja) => void
 }) {
   const { profile } = useAuth()
@@ -3753,11 +4180,17 @@ export function ArmarPedido({ e, objetivo, hoy, accentSolid, onClose, onEmitido 
   const [pedir, setPedir] = useState<Record<string, string>>(
     () => Object.fromEntries(inicial.map((r) => [r.medicationId, String(r.pedir)])),
   )
-  /* Un intento por ventana abierta (0132): si la red se corta después de guardar y se reintenta, la base
+  /* Un intento por ventana abierta (0133): si la red se corta después de guardar y se reintenta, la base
      devuelve el pedido que ya quedó en vez de emitir otro. */
   const [intento] = useState(() => crypto.randomUUID())
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /* Después de CUALQUIER error, cerrar vuelve a pedir los datos (revisión de ingeniería, 6). Sin código es la
+     red: el pedido pudo haber quedado hecho, y si la pantalla sigue diciendo «sin pedido», volver a abrir
+     trae otro intento y emite un segundo. Con código, la base dijo que la pantalla quedó vieja (otro pedido,
+     otro día). */
+  const [fallo, setFallo] = useState(false)
+  const cerrar = () => onClose(fallo)
 
   const borrador = inicial.map((r) => {
     const t = (pedir[r.medicationId] ?? '').trim()
@@ -3773,12 +4206,14 @@ export function ArmarPedido({ e, objetivo, hoy, accentSolid, onClose, onEmitido 
   async function emitir() {
     if (!puede) return
     setEnviando(true); setError(null)
-    const r = await emitirPedidoMedicacion({ protocolId: e.estudio.id, periodo: objetivo, emitidoEl: hoy, renglones, intento })
+    const r = await emitirPedidoMedicacion({ protocolId: e.estudio.id, periodo: objetivo, emitidoEl: hoy, renglones, intento, ultimoVisto })
     setEnviando(false)
     if (r.error || r.numero == null) {
-      /* Con código, es la base diciendo por qué no (permiso, estudio cerrado): va tal cual. Sin código es
-         la red: reintentar es seguro porque viaja el mismo intento. */
-      setError(r.code ? (r.error ?? 'No se pudo emitir el pedido.') : 'No se pudo emitir el pedido. Probá de nuevo: si ya había quedado hecho, no se repite.')
+      /* Con código, es la base diciendo por qué no (permiso, estudio cerrado, ya hay otro pedido, otro día):
+         va tal cual. Sin código es la red: reintentar es seguro DESDE ESTA VENTANA, porque viaja el mismo
+         intento; otra ventana trae otro. */
+      setFallo(true)
+      setError(r.code ? (r.error ?? 'No se pudo emitir el pedido.') : 'No se pudo emitir el pedido. Probá de nuevo desde esta ventana: si ya había quedado hecho, no se repite.')
       return
     }
     onEmitido({
@@ -3788,9 +4223,10 @@ export function ArmarPedido({ e, objetivo, hoy, accentSolid, onClose, onEmitido 
       emitidoEl: hoy,
       emitidoPor: profile?.fullName ?? null,
       anulado: false,
+      reimpresion: null,
       renglones: borrador
         .filter((b) => Number.isInteger(b.pedir) && b.pedir > 0)
-        .map((b) => ({ nombre: b.nombre, presentacion: b.presentacion, pedido: b.pedir })),
+        .map((b) => ({ nombre: b.nombre, presentacion: b.presentacion, pedido: b.pedir, nota: null })),
     })
   }
 
@@ -3799,13 +4235,13 @@ export function ArmarPedido({ e, objetivo, hoy, accentSolid, onClose, onEmitido 
       : ` ${lista(noSeCompran)} no aparecen: no se compran.`}`
 
   return (
-    <Modal title={`Pedido de ${e.estudio.code} · ${e.estudio.name}`} onClose={enviando ? () => {} : onClose} maxWidth={560}>
+    <Modal title={`Pedido de ${e.estudio.code} · ${e.estudio.name}`} onClose={enviando ? () => {} : cerrar} maxWidth={560}>
       <p style={{ fontSize: 13, color: 'var(--spira-muted)', margin: '-8px 0 14px', lineHeight: 1.45 }}>{sub}</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: COLUMNAS, gap: 8, borderBottom: '1px solid var(--spira-line-2)' }}>
-        <div style={rotulo}>Medicamento</div>
-        <div style={{ ...rotulo, textAlign: 'right' }}>Calculado</div>
-        <div style={{ ...rotulo, textAlign: 'right' }}>Pedir</div>
+        <div style={rotuloTabla}>Medicamento</div>
+        <div style={{ ...rotuloTabla, textAlign: 'right' }}>Calculado</div>
+        <div style={{ ...rotuloTabla, textAlign: 'right' }}>Pedir</div>
       </div>
       {borrador.map((r, i) => {
         const cambio = r.calculado != null && r.pedir !== r.calculado
@@ -3851,7 +4287,7 @@ export function ArmarPedido({ e, objetivo, hoy, accentSolid, onClose, onEmitido 
         : <p style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)', margin: '6px 0 0', lineHeight: 1.45 }}>Se guarda con número y queda para recibirlo en Recepción. Un renglón en 0 no va al pedido.</p>}
 
       <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-        <button type="button" onClick={onClose} disabled={enviando} style={btnOutline}>Cancelar</button>
+        <button type="button" onClick={cerrar} disabled={enviando} style={btnOutline}>Cancelar</button>
         <div style={{ flex: 1 }} />
         <button
           type="button" onClick={() => void emitir()} disabled={!puede}
@@ -3934,7 +4370,6 @@ export function AnularPedido({ p, estudio, onClose, onAnulado }: {
 
 ```tsx
 import { useState } from 'react'
-import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { SearchableSelect } from '../../../components/SearchableSelect'
@@ -3942,19 +4377,15 @@ import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { fieldLabelStyle } from '../../../components/FormField'
 import { dateToISO, formatShortAR } from '../../../lib/dates'
 import {
-  MOTIVOS_ANULACION, MOTIVOS_CIERRE, cerrarFaltantePedido, diaMes, faltaTxt, pastillaDePedido, reabrirFaltantePedido, textoPeriodo,
+  MOTIVOS_ANULACION, MOTIVOS_CIERRE, cerrarFaltantePedido, diaMes, faltaTxt, pastillaDePedido, porRecibir, reabrirFaltantePedido, textoPeriodo,
 } from '../../../data/pharma'
 import type { MotivoCierre, PedidoMedicacion, RenglonPedido } from '../../../data/pharma'
 import { AnularPedido } from './AnularPedido'
-import { Pastilla, botonChico, errorTexto, plural } from './piezas'
+import { Pastilla, botonChico, errorTexto, mayuscula, plural, rotuloTabla } from './piezas'
 
 const COLUMNAS = 'minmax(0, 1fr) 64px 76px 56px 150px'
-const rotulo: CSSProperties = {
-  padding: '0 0 8px', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--spira-ink-soft)',
-}
 const fechaDe = (ts: string) => formatShortAR(dateToISO(new Date(ts)))
 const motivoDe = (lista: readonly { value: string; label: string }[], v: string | null) => lista.find((m) => m.value === v)?.label ?? ''
-const mayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 /**
  * El pedido (R11, mocks «5 · El pedido», «No va a llegar», «Un renglón cerrado se puede reabrir», «Llegó,
@@ -4022,10 +4453,10 @@ export function PedidoDetalle({ p, estudio, puedeEditar, accentSolid, onClose, o
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: COLUMNAS, gap: 8, borderBottom: '1px solid var(--spira-line-2)' }}>
-          <div style={rotulo}>Medicamento</div>
-          <div style={{ ...rotulo, textAlign: 'right' }}>Pedido</div>
-          <div style={{ ...rotulo, textAlign: 'right' }}>Recibido</div>
-          <div style={{ ...rotulo, textAlign: 'right' }}>Falta</div>
+          <div style={rotuloTabla}>Medicamento</div>
+          <div style={{ ...rotuloTabla, textAlign: 'right' }}>Pedido</div>
+          <div style={{ ...rotuloTabla, textAlign: 'right' }}>Recibido</div>
+          <div style={{ ...rotuloTabla, textAlign: 'right' }}>Falta</div>
           <div />
         </div>
         {p.renglones.map((r, i) => (
@@ -4039,7 +4470,9 @@ export function PedidoDetalle({ p, estudio, puedeEditar, accentSolid, onClose, o
               <span className="spira-mono" style={{ fontSize: 14, textAlign: 'right', color: 'var(--spira-ink)' }}>{r.recibido}</span>
               <span className="spira-mono" style={{ fontSize: 14, textAlign: 'right', color: r.faltante === 0 ? 'var(--spira-ink-soft)' : 'var(--spira-acc-deep-warn)' }}>{r.faltante}</span>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                {vivo && puedeEditar && r.faltante > 0 && cerrando !== r.id && (
+                {/* Si lo que falta ya está en una recepción sin verificar, llegó: «No va a llegar» sería falso y
+                    lo mandaría otra vez a la compra. La base también lo rechaza (0133, revisión de ingeniería, 12). */}
+                {vivo && puedeEditar && porRecibir(r) > 0 && cerrando !== r.id && (
                   <button type="button" className="spira-card-link" style={botonChico} onClick={() => { setCerrando(r.id); setMotivo('') }}>No va a llegar</button>
                 )}
                 {vivo && puedeEditar && r.cerrado_at && (
@@ -4148,10 +4581,10 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
   - Task 8: piezas, `ArmarPedido`, `PedidoDetalle`, `HojaPedido`, `datosDeHoja`, `useImpresion`;
   - PR A: `RenglonDelPeriodo`, `Boleta`, `EstudioReposicion`, `ReposicionDelPeriodo`, `subtituloDelPeriodo`, `resumenDelEstudio`, `pedidosAMostrar`, `pastillaDePedido`, `periodoAnterior`, `periodoSiguiente`, `textoPeriodo`, `diaMes`, `configurarReposicion`;
   - `chip`, `chipActivo` de `../reportes/estilos`;
-  - `protocolStatusLabel`, `protocolStatusVar` de `../../protocolStatus`.
+  - `ultimoPedidoPara` (Task 2) y `card` de `../reportes/estilos`.
 - Produces:
   - `CargarReposicion({ r, accentSolid, onCancelar, onGuardado })`
-  - `FilaMedicamento({ r, enCurso, ultimo, angosto, puedeEditar, accentSolid, abierto, editando, onAlternar, onEditar, onCerrarEdicion, onGuardado })`, `COLUMNAS`, `COLUMNAS_CERRADO`
+  - `FilaMedicamento({ r, enCurso, ultimo, angosto, puedeEditar, accentSolid, abierto, editando, onAlternar, onEditar, onCerrarEdicion, onGuardado })`, `COLUMNAS` (en curso: nombre, había, entró, salió, hay, mínimo, comprar y la flecha), `COLUMNAS_CERRADO`
   - `PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent, accentSolid, onVolver, onPeriodo, onCambio })`
     - `onPeriodo(fecha: string)`: una fecha dentro del período a mirar, o `''` para el en curso;
     - `onCambio()`: vuelve a pedir los datos.
@@ -4285,8 +4718,12 @@ import type { Boleta, RenglonDelPeriodo } from '../../../data/pharma'
 import { CargarReposicion } from './CargarReposicion'
 import { AvisoLinea, Envases, botonChico, plural } from './piezas'
 
-/** Mock «2 · El estudio»: nombre, había, entró, salió, hay | comprar, y la flecha que abre la boleta. */
-export const COLUMNAS = 'minmax(0, 1fr) 84px 84px 84px 96px 190px 44px'
+/**
+ * Mock «2 · El estudio»: nombre, había, entró, salió, hay | mínimo, comprar, y la flecha que abre la boleta.
+ * «Mínimo» no está en el mock: lo pidió el Director el 2026-09-19 (el stock mínimo de cada medicamento,
+ * sacado de la medicación asignada a los pacientes, sin desplegar la cuenta).
+ */
+export const COLUMNAS = 'minmax(0, 1fr) 84px 84px 84px 96px 96px 190px 44px'
 /** Un período cerrado: había, entró, salió y quedó, sin «comprar» (R6). */
 export const COLUMNAS_CERRADO = 'minmax(0, 1fr) 96px 96px 96px 96px'
 /** Por debajo de 1024 px el libro baja a un segundo renglón (RD14). */
@@ -4336,6 +4773,11 @@ export function FilaMedicamento({ r, enCurso, ultimo, angosto, puedeEditar, acce
           había {r.libro.habia} · entró {r.libro.entro} · salió {r.libro.salio} · {enCurso ? 'hay' : 'quedó'} {r.libro.hay}{ajuste ? ` (${ajuste})` : ''}
         </div>
       )}
+      {angosto && enCurso && r.minimo && (
+        <div style={{ fontSize: 12, color: 'var(--spira-ink-soft)', marginTop: 2 }}>
+          Mínimo <span className="spira-mono">{r.minimo.envases}</span> · {textoMinimo(r.minimo)}
+        </div>
+      )}
     </div>
   )
   const libro = !angosto && (
@@ -4373,7 +4815,8 @@ export function FilaMedicamento({ r, enCurso, ultimo, angosto, puedeEditar, acce
       >
         {nombre}
         {libro}
-        <div style={{ padding: angosto ? 0 : '13px 16px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, alignSelf: 'stretch', ...(angosto ? {} : { borderLeft: '1px solid var(--spira-line)' }) }}>
+        {!angosto && <Minimo r={r} />}
+        <div style={{ padding: angosto ? 0 : '13px 16px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, alignSelf: 'stretch' }}>
           <Comprar r={r} puedeEditar={puedeEditar} accentSolid={accentSolid} onCargar={onEditar} />
         </div>
         <button
@@ -4392,6 +4835,27 @@ export function FilaMedicamento({ r, enCurso, ultimo, angosto, puedeEditar, acce
             : <Cuenta r={r} puedeEditar={puedeEditar} accentSolid={accentSolid} onCambiar={onEditar} />}
         </div>
       )}
+    </div>
+  )
+}
+
+const textoMinimo = (m: NonNullable<RenglonDelPeriodo['minimo']>) =>
+  m.pacientes == null ? 'a demanda' : plural(m.pacientes, 'paciente', 'pacientes')
+
+/**
+ * El stock mínimo del período para el que se compra: la suma de lo que reciben por mes los pacientes que lo
+ * tienen asignado, o el «tener siempre» si es a demanda. Abre el grupo «para el que viene»: el borde de la
+ * izquierda separa lo que pasó de lo que se compra.
+ */
+function Minimo({ r }: { r: RenglonDelPeriodo }) {
+  return (
+    <div style={{ ...numero, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', borderLeft: '1px solid var(--spira-line)' }}>
+      {r.minimo
+        ? <>
+            <span className="spira-mono">{r.minimo.envases}</span>
+            <span style={{ fontSize: 11, color: 'var(--spira-ink-soft)', marginTop: 2, whiteSpace: 'nowrap' }}>{textoMinimo(r.minimo)}</span>
+          </>
+        : <span style={{ color: 'var(--spira-faint)' }}>—</span>}
     </div>
   )
 }
@@ -4483,16 +4947,16 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import {
   diaMes, pastillaDePedido, pedidosAMostrar, periodoAnterior, periodoSiguiente, resumenDelEstudio, subtituloDelPeriodo, textoPeriodo,
+  ultimoPedidoPara,
 } from '../../../data/pharma'
 import type { EstudioReposicion, PedidoMedicacion, ReposicionDelPeriodo } from '../../../data/pharma'
-import { protocolStatusLabel, protocolStatusVar } from '../../protocolStatus'
+import { card } from '../reportes/estilos'
 import { ArmarPedido } from './ArmarPedido'
 import { COLUMNAS, COLUMNAS_CERRADO, FilaMedicamento } from './FilaMedicamento'
 import { HojaPedido, datosDeHoja, useImpresion } from './HojaPedido'
 import { PedidoDetalle } from './PedidoDetalle'
-import { AvisoLinea, Envases, Informacion, Pastilla, TituloSeccion, botonAccion, botonChico, plural, rotuloColumna } from './piezas'
+import { AvisoLinea, Envases, Informacion, Pastilla, PuntoEstado, TituloSeccion, botonAccion, botonChico, plural, rotuloColumna } from './piezas'
 
-const caja: CSSProperties = { background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16 }
 const volver: CSSProperties = {
   width: 38, height: 38, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
   display: 'grid', placeItems: 'center', flex: '0 0 auto', cursor: 'pointer', color: 'var(--spira-ink)',
@@ -4500,9 +4964,6 @@ const volver: CSSProperties = {
 const flecha: CSSProperties = {
   width: 32, height: 32, borderRadius: 9, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
   display: 'grid', placeItems: 'center', color: 'var(--spira-ink)', padding: 0,
-}
-const puntoEstado: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)', whiteSpace: 'nowrap',
 }
 const grupoEncabezado: CSSProperties = { padding: '10px 16px 7px', fontSize: 11.5, fontWeight: 600, color: 'var(--spira-ink-soft)' }
 
@@ -4538,7 +4999,7 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
   const pedidoAbierto = e.pedidos.find((p) => p.id === viendo) ?? null
   const anterior = periodoAnterior(rep.periodo, diaCorte)
   const siguiente = periodoSiguiente(rep.periodo, diaCorte)
-  const reimprimir = (p: PedidoMedicacion) => imprimir(datosDeHoja(p, e.estudio))
+  const reimprimir = (p: PedidoMedicacion) => imprimir(datosDeHoja(p, e.estudio, rep.hoy))
 
   const alternar = (clave: string) => {
     setAbierto((a) => (a === clave ? null : clave))
@@ -4555,10 +5016,7 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
         </button>
         <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em', color: accent }}>{e.estudio.code}</span>
         <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--spira-ink)' }}>{e.estudio.name}</span>
-        <span style={puntoEstado}>
-          <span style={{ width: 7, height: 7, borderRadius: 999, background: protocolStatusVar(e.estudio.status) }} />
-          {protocolStatusLabel(e.estudio.status)}
-        </span>
+        <PuntoEstado status={e.estudio.status} />
         {rep.enCurso && puedeEditar && e.objetivo && (
           <button type="button" onClick={() => setArmando(true)} style={{ ...botonAccion(!e.pedidoDelObjetivo, accentSolid), marginLeft: 'auto' }}>
             <Icon name="cart" size={16} />{e.pedidoDelObjetivo ? 'Armar otro pedido' : 'Armar pedido'}
@@ -4603,7 +5061,7 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
       )}
 
       {resumen && (
-        <div style={{ ...caja, display: 'flex', alignItems: 'center', gap: angosto ? 12 : 20, flexWrap: angosto ? 'wrap' : 'nowrap', padding: '16px 20px', margin: '0 0 14px' }}>
+        <div style={{ ...card, display: 'flex', alignItems: 'center', gap: angosto ? 12 : 20, flexWrap: angosto ? 'wrap' : 'nowrap', padding: '16px 20px', margin: '0 0 14px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>{resumen.titulo}</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
@@ -4641,8 +5099,9 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
         </div>
       )}
 
-      {/* El libro. RD9: encabezado agrupado, había/entró/salió/hay son de ESTE período; «comprar», del que viene. */}
-      <div style={{ ...caja, overflow: 'hidden', ...(rep.enCurso ? {} : { maxWidth: 820 }) }}>
+      {/* El libro. RD9: encabezado agrupado, había/entró/salió/hay son de ESTE período; «mínimo» y «comprar»,
+          del que viene. */}
+      <div style={{ ...card, overflow: 'hidden', ...(rep.enCurso ? {} : { maxWidth: 820 }) }}>
         {angosto ? (
           <div style={{ display: 'flex', padding: '10px 14px 8px', borderBottom: '1px solid var(--spira-line-2)', fontSize: 11.5, fontWeight: 600, color: 'var(--spira-ink-soft)' }}>
             <span style={{ flex: 1 }}>{rep.enCurso ? `Este período · ${textoPeriodo(rep.periodo)}` : `Período ${textoPeriodo(rep.periodo)}`}</span>
@@ -4657,7 +5116,7 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
               </div>
               {rep.enCurso && (
                 <>
-                  <div style={{ ...grupoEncabezado, textAlign: 'right', borderLeft: '1px solid var(--spira-line)' }}>{e.tarde ? 'Para este período' : 'Para el que viene'}</div>
+                  <div style={{ ...grupoEncabezado, gridColumn: 'span 2', textAlign: 'center', borderLeft: '1px solid var(--spira-line)' }}>{e.tarde ? 'Para este período' : 'Para el que viene'}</div>
                   <div />
                 </>
               )}
@@ -4670,7 +5129,8 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
               <div style={{ ...rotuloColumna, textAlign: 'right' }}>{rep.enCurso ? 'Hay' : 'Quedó'}</div>
               {rep.enCurso && (
                 <>
-                  <div style={{ ...rotuloColumna, textAlign: 'right', borderLeft: '1px solid var(--spira-line)' }}>Comprar</div>
+                  <div style={{ ...rotuloColumna, textAlign: 'right', borderLeft: '1px solid var(--spira-line)' }}>Mínimo</div>
+                  <div style={{ ...rotuloColumna, textAlign: 'right' }}>Comprar</div>
                   <div />
                 </>
               )}
@@ -4699,7 +5159,7 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
       {pedidos.length > 0 && (
         <div style={rep.enCurso ? undefined : { maxWidth: 820 }}>
           <TituloSeccion>Pedidos del estudio</TituloSeccion>
-          <div style={{ ...caja, overflow: 'hidden' }}>
+          <div style={{ ...card, overflow: 'hidden' }}>
             {pedidos.map((p, i) => (
               <FilaPedido key={p.id} p={p} ultimo={i === pedidos.length - 1} angosto={angosto} accentSolid={accentSolid}
                 onVer={() => setViendo(p.id)} onReimprimir={() => reimprimir(p)} />
@@ -4710,8 +5170,8 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
 
       {armando && e.objetivo && (
         <ArmarPedido
-          e={e} objetivo={e.objetivo} hoy={rep.hoy} accentSolid={accentSolid}
-          onClose={() => setArmando(false)}
+          e={e} objetivo={e.objetivo} hoy={rep.hoy} ultimoVisto={ultimoPedidoPara(e.pedidos, e.objetivo)} accentSolid={accentSolid}
+          onClose={(refrescar) => { setArmando(false); if (refrescar) onCambio() }}
           onEmitido={(d) => { setArmando(false); imprimir(d); onCambio() }}
         />
       )}
@@ -4766,7 +5226,7 @@ function FilaPedido({ p, ultimo, angosto, accentSolid, onVer, onReimprimir }: {
 Run: `npx tsc --noEmit`
 Expected: sin errores.
 
-Si el typecheck no acepta `e.estudio.status` en `protocolStatusVar`, es porque `ProtocolStatus` (`data/protocols`) y `EstadoEstudio` (`reposicionModel`) son dos uniones con los mismos tres valores. Si no calzan, castear en el llamado con `as ProtocolStatus` y un comentario que diga por qué.
+Si el typecheck no acepta el `status` en `protocolStatusVar` (dentro de `PuntoEstado`, en `piezas.tsx`), es porque `ProtocolStatus` (`data/protocols`) y `EstadoEstudio` (`reposicionModel`) son dos uniones con los mismos tres valores. Si no calzan, castear ahí, en `PuntoEstado`, con `as ProtocolStatus` y un comentario que diga por qué.
 
 - [ ] **Step 5: Commit**
 
@@ -4865,15 +5325,11 @@ const HIDE_ACTION = new Set(['inicio/resumen', 'track/resumen', 'track/tareas', 
 import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import type { EstudioReposicion, TarjetaEstudio } from '../../../data/pharma'
-import { protocolStatusLabel, protocolStatusVar } from '../../protocolStatus'
-import { Envases, Pastilla } from './piezas'
+import { Envases, Pastilla, PuntoEstado } from './piezas'
 
 const caja: CSSProperties = {
   background: 'var(--spira-white)', borderRadius: 'var(--spira-radius-lg)', padding: '18px 20px',
   display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left', font: 'inherit', color: 'inherit',
-}
-const puntoEstado: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)', whiteSpace: 'nowrap',
 }
 
 /**
@@ -4891,10 +5347,7 @@ export function TarjetaDeEstudio({ e, t, accent, onAbrir }: {
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em', color: accent }}>{e.estudio.code}</span>
-        <span style={puntoEstado}>
-          <span style={{ width: 7, height: 7, borderRadius: 999, background: protocolStatusVar(e.estudio.status) }} />
-          {protocolStatusLabel(e.estudio.status)}
-        </span>
+        <PuntoEstado status={e.estudio.status} />
       </div>
       <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.estudio.name}</div>
       <div style={{ height: 1, background: 'var(--spira-line)', margin: '5px 0' }} />
@@ -5244,11 +5697,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes:
   - PR A: `usePedidosPorRecibir`, `armarPorRecibir`, `PedidoPorRecibir`, `pastillaDePedido`, `textoParaRecibir`, `textoDeRecepciones`, `renglonesParaRecibir`, `metaDelPedido`, `comparacionConElPedido`, `encabezadoDeLoEsperado`, `PedidoMedicacion`;
-  - Task 8: `Pastilla`, `AvisoLinea`, `errorTexto`;
+  - Task 8: `Pastilla`, `AvisoLinea`, `errorTexto`, `minuscula`, `versalita`; `card` de `../reportes/estilos`;
+  - PR A (revisión de ingeniería, 8 y 9): `porRecibir`, `porRecibirDe`, `PedidoPorRecibir.otrosDelEstudio`;
   - `createReception` con `pedido_id` (Parte 1).
 - Produces:
   - `RecibirPedido({ accentSolid, onClose, onRecibir: (x: PedidoPorRecibir) => void })`
-  - `BannerPedido({ pedido, paso, accentSolid })`, `ComparacionConPedido({ pedido, meds })`
+  - `BannerPedido({ pedido, paso, accentSolid })`, `ComparacionConPedido({ pedido, otros, meds })`
   - `ReceptionWizard` suma `pedido?: PedidoPorRecibir`
   - `Step1Scan` suma `meta?: (medicationId: string) => { texto: string; aviso: boolean }`
   - `ReceptionRow` suma `pedido?: { numero: number } | null`
@@ -5304,16 +5758,16 @@ const pedidoDeLaRecepcion: CSSProperties = {
 import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { btnOutline } from '../../../components/buttons'
-import { armarPorRecibir, pastillaDePedido, textoDeRecepciones, textoParaRecibir, usePedidosPorRecibir } from '../../../data/pharma'
+import { armarPorRecibir, pastillaDePedido, porRecibirDe, textoDeRecepciones, textoParaRecibir, usePedidosPorRecibir } from '../../../data/pharma'
 import type { PedidoPorRecibir } from '../../../data/pharma'
-import { AvisoLinea, Pastilla, errorTexto } from '../reposicion/piezas'
-
-const minuscula = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
+import { AvisoLinea, Pastilla, errorTexto, minuscula } from '../reposicion/piezas'
 
 /**
  * «Recibir un pedido» (R10, mocks «6b» y «Recibir sin pedidos»): los pedidos con algo por recibir, del más
  * viejo al más nuevo. Se busca el número que viene en la hoja (el código de barras quedó en TODOS.md). Un
- * pedido con una recepción sin verificar lo avisa, para no recibirlo dos veces (RD17). «Recibir» va con
+ * pedido con una recepción sin verificar lo avisa, para no recibirlo dos veces (RD17), y si esa recepción
+ * ya trae todo lo que faltaba no ofrece «Recibir»: se verifica, no se vuelve a cargar (revisión de
+ * ingeniería, 8). «Recibir» va con
  * borde, no sólido (RD16): en esta lista cada renglón es una opción, no la acción principal.
  */
 export function RecibirPedido({ accentSolid, onClose, onRecibir }: {
@@ -5366,6 +5820,7 @@ export function RecibirPedido({ accentSolid, onClose, onRecibir }: {
           {lista.map((x, i) => {
             const folios = x.pedido.recepciones.filter((r) => r.status === 'pendiente').map((r) => r.folio)
             const cuales = folios.length === 0 ? 'una recepción' : `${folios.length === 1 ? 'la' : 'las'} ${minuscula(textoDeRecepciones(folios))}`
+            const llegoTodo = porRecibirDe(x.pedido) === 0
             return (
               <div key={x.pedido.id} style={{ display: 'grid', gridTemplateColumns: '112px minmax(0, 1fr) auto', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: i === lista.length - 1 ? 'none' : '1px solid var(--spira-line)' }}>
                 <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15, color: 'var(--spira-ink)' }}>Pedido Nº {x.pedido.numero}</span>
@@ -5378,13 +5833,17 @@ export function RecibirPedido({ accentSolid, onClose, onRecibir }: {
                   <div style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)', marginTop: 3 }}>{textoParaRecibir(x.pedido)}</div>
                   {x.pedido.conRecepcionSinVerificar && (
                     <div style={{ marginTop: 4 }}>
-                      <AvisoLinea tono="warn" texto={`Ya tiene ${cuales} sin verificar: fijate antes de recibirlo de nuevo.`} />
+                      <AvisoLinea tono="warn" texto={llegoTodo
+                        ? `Lo que faltaba está en ${cuales} sin verificar: se verifica desde la lista de Recepción.`
+                        : `Ya tiene ${cuales} sin verificar: se precarga sólo lo que no está ahí.`} />
                     </div>
                   )}
                 </div>
-                <button type="button" onClick={() => onRecibir(x)} style={{ ...btnOutline, height: 36, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  <Icon name="truck" size={15} />Recibir
-                </button>
+                {llegoTodo ? <span /> : (
+                  <button type="button" onClick={() => onRecibir(x)} style={{ ...btnOutline, height: 36, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <Icon name="truck" size={15} />Recibir
+                  </button>
+                )}
               </div>
             )
           })}
@@ -5400,25 +5859,23 @@ export function RecibirPedido({ accentSolid, onClose, onRecibir }: {
 `src/views/pharma/wizard/PedidoEnRecepcion.tsx`:
 
 ```tsx
-import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
-import { comparacionConElPedido, encabezadoDeLoEsperado } from '../../../data/pharma'
+import { comparacionConElPedido, encabezadoDeLoEsperado, porRecibir } from '../../../data/pharma'
 import type { PedidoMedicacion, PedidoPorRecibir } from '../../../data/pharma'
 import type { CountedMed } from '../ReceptionWizard'
+import { card } from '../reportes/estilos'
+import { versalita } from '../reposicion/piezas'
 
 const COLUMNAS = 'minmax(0, 1fr) 80px 80px minmax(0, 1.1fr)'
-const rotulo: CSSProperties = {
-  fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--spira-ink-soft)',
-}
 
 /** «Recibiendo el pedido Nº 14 · 222714 ENDURA», arriba del Escaneo y del Resumen (mocks «7» y «7b»). */
 export function BannerPedido({ pedido, paso, accentSolid }: { pedido: PedidoPorRecibir; paso: number; accentSolid: string }) {
-  const meds = pedido.pedido.renglones.filter((r) => r.faltante > 0).length
+  const meds = pedido.pedido.renglones.filter((r) => porRecibir(r) > 0).length
   const texto = paso === 1
     ? `Vienen puestos ${meds === 1 ? 'el medicamento' : `los ${meds} medicamentos`} con lo que falta. Si llegó menos, bajá la cantidad: lo que falta queda en el pedido.`
     : 'Lo pedido contra lo que llega. Lo que falta queda en camino en el pedido.'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 12, maxWidth: 820, width: '100%', margin: '0 auto' }}>
+    <div style={{ ...card, borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', maxWidth: 820, width: '100%', margin: '0 auto' }}>
       <span style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(15, 95, 87, 0.08)', display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
         <Icon name="truck" size={17} color={accentSolid} />
       </span>
@@ -5434,16 +5891,22 @@ export function BannerPedido({ pedido, paso, accentSolid }: { pedido: PedidoPorR
 
 /**
  * El resumen del asistente contra el pedido (RD18): lo que faltaba de cada renglón, lo que llega y qué queda.
- * Lo que llega y no estaba en el pedido se recibe igual y no cuenta para ningún renglón (R10).
+ * Lo que llega y no estaba en el pedido se recibe igual y no cuenta para ningún renglón (R10). Si lo espera
+ * otro pedido abierto del estudio, lo nombra (revisión de ingeniería, 9).
  */
-export function ComparacionConPedido({ pedido, meds }: { pedido: PedidoMedicacion; meds: CountedMed[] }) {
-  const filas = comparacionConElPedido(pedido, meds.map((m) => ({ medicationId: m.medicationId, name: m.name, quantity: m.quantity })))
+export function ComparacionConPedido({ pedido, otros, meds }: {
+  pedido: PedidoMedicacion
+  /** Los otros pedidos abiertos del estudio (`PedidoPorRecibir.otrosDelEstudio`). */
+  otros: readonly PedidoMedicacion[]
+  meds: CountedMed[]
+}) {
+  const filas = comparacionConElPedido(pedido, meds.map((m) => ({ medicationId: m.medicationId, name: m.name, quantity: m.quantity })), otros)
   return (
-    <div style={{ background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, maxWidth: 780, width: '100%', margin: '0 auto', overflow: 'hidden' }}>
+    <div style={{ ...card, maxWidth: 780, width: '100%', margin: '0 auto', overflow: 'hidden' }}>
       <div style={{ display: 'grid', gridTemplateColumns: COLUMNAS, gap: 10, padding: '10px 18px 8px', borderBottom: '1px solid var(--spira-line-2)' }}>
-        <div style={rotulo}>Medicamento</div>
-        <div style={{ ...rotulo, textAlign: 'right' }}>{encabezadoDeLoEsperado(pedido)}</div>
-        <div style={{ ...rotulo, textAlign: 'right' }}>Llega</div>
+        <div style={versalita}>Medicamento</div>
+        <div style={{ ...versalita, textAlign: 'right' }}>{encabezadoDeLoEsperado(pedido)}</div>
+        <div style={{ ...versalita, textAlign: 'right' }}>Llega</div>
         <div />
       </div>
       {filas.map((f, i) => (
@@ -5571,14 +6034,14 @@ Antes de `{/* Renderizado del paso actual */}`:
 
 ```tsx
       {pedido && (step === 1 || step === 3) && <BannerPedido pedido={pedido} paso={step} accentSolid={accentSolid} />}
-      {pedido && step === 3 && !isIp && <ComparacionConPedido pedido={pedido.pedido} meds={meds} />}
+      {pedido && step === 3 && !isIp && <ComparacionConPedido pedido={pedido.pedido} otros={pedido.otrosDelEstudio} meds={meds} />}
 ```
 
 En el `Step1Scan` de la rama base, sumar `meta`:
 
 ```tsx
         : <Step1Scan accentSolid={accentSolid} meds={meds} setMeds={setMeds} codeByMed={codeByMed} onCodesChanged={codes.refetch}
-            meta={pedido ? (id) => metaDelPedido(pedido.pedido, id) : undefined} />)}
+            meta={pedido ? (id) => metaDelPedido(pedido.pedido, id, pedido.otrosDelEstudio) : undefined} />)}
 ```
 
 Y el botón «Atrás» aparece desde el primer paso **posible**:
@@ -5704,7 +6167,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: todo lo anterior.
 - Produces:
   - Estadísticas vuelve a ser sólo los números del período (R12).
-  - Nada en `src/` nombra `insumos_de_reposicion`, `registrar_pedido_reposicion`, `anular_pedido_reposicion` ni `demora_compra_dias`. Es la condición para la `0133`.
+  - Nada en `src/` nombra `insumos_de_reposicion`, `registrar_pedido_reposicion`, `anular_pedido_reposicion` ni `demora_compra_dias`. Es la condición para la `0134`.
   - `estanteAlComienzo(lotes, pendiente, hoy, periodo: { desde: string; hasta: string })`.
 
 - [ ] **Step 1: Estadísticas sin la card**
@@ -5765,7 +6228,7 @@ import { pharmaErrorMessage } from './errors'
  * que traen estas lecturas (D11).
  *
  * La card «Compras para …» de Estadísticas (0125) se fue el 2026-09-18 con su lectura, la demora de compra
- * y «Ya lo pedí». Lo que la base todavía tenga de ella lo borra la 0133, DESPUÉS del deploy de este front.
+ * y «Ya lo pedí». Lo que la base todavía tenga de ella lo borra la 0134, DESPUÉS del deploy de este front.
  */
 
 type Resultado = { error: string | null; code?: string }
@@ -5829,7 +6292,7 @@ export function useReposicionDelEstudio(protocolId: string) {
   )
 }
 
-// ═══════════════════════════ De corte a corte (0128, 0132) ═══════════════════════════
+// ═══════════════════════════ De corte a corte (0128, 0133) ═══════════════════════════
 
 /**
  * El día de corte de Farmacia (R4). Envuelto en un objeto porque `null` es un valor con significado
@@ -5855,7 +6318,7 @@ export interface ReposicionLeida {
 }
 
 /**
- * Los datos crudos de un período (`reposicion_del_periodo`, 0128 + 0132). La cuenta la hace
+ * Los datos crudos de un período (`reposicion_del_periodo`, 0128 + 0133). La cuenta la hace
  * `armarReposicionDelPeriodo` (D11). Sin período todavía (falta el día de corte) no pide nada.
  * `protocolId` null = todos los estudios no cerrados.
  *
@@ -5896,7 +6359,7 @@ export async function guardarDiaCorte(dia: number): Promise<Resultado> {
 
 /**
  * «Emitir e imprimir» (R8): cabecera y renglones en una llamada atómica. Devuelve el número para la hoja.
- * `intento` es un uuid por cada vez que se abre «Armar pedido» (0132): si la red se corta después de
+ * `intento` es un uuid por cada vez que se abre «Armar pedido» (0133): si la red se corta después de
  * guardar y se reintenta, la base devuelve el pedido que ya quedó en vez de emitir otro.
  */
 export async function emitirPedidoMedicacion(input: {
@@ -5907,6 +6370,8 @@ export async function emitirPedidoMedicacion(input: {
   emitidoEl: string
   renglones: { medication_id: string; calculado: number | null; pedido: number }[]
   intento: string
+  /** El último pedido de ese período que mostraba la pantalla, 0 si ninguno (0133, revisión de ingeniería, 7). */
+  ultimoVisto: number
 }): Promise<Resultado & { id?: string; numero?: number }> {
   const { data, error } = await supabase.rpc('emitir_pedido_medicacion', {
     p_protocol_id: input.protocolId,
@@ -5915,6 +6380,7 @@ export async function emitirPedidoMedicacion(input: {
     p_emitido_el: input.emitidoEl,
     p_renglones: input.renglones,
     p_intento: input.intento,
+    p_ultimo_visto: input.ultimoVisto,
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   const r = data as { id: string; numero: number }
@@ -5943,7 +6409,7 @@ export async function reabrirFaltantePedido(itemId: string): Promise<Resultado> 
 }
 
 /**
- * La lista de «Recibir un pedido» (`pedidos_por_recibir`, 0132): independiente del período, porque la
+ * La lista de «Recibir un pedido» (`pedidos_por_recibir`, 0133): independiente del período, porque la
  * Recepción no sabe de cortes. La arma `armarPorRecibir`.
  */
 export function usePedidosPorRecibir() {
@@ -6269,7 +6735,7 @@ En `docs/plan-reposicion-stock-minimo.md`, debajo de la primera línea (el títu
 > **⚠️ Reemplazado en parte (2026-09-18).** La card «Compras para …» ya no está en Estadísticas: la reposición vive en el submódulo **Reposición** de Farmacia ([spec](superpowers/specs/2026-09-16-reposicion-submodulo-design.md)). Las decisiones D6, D10, D13, D14, D17, D20, D24, D28, D37 y D44-D48 quedan reemplazadas (ver la tabla «Decisiones del 14/09 que esto reemplaza» del spec). Las demás siguen valiendo.
 ```
 
-En `TODOS.md`, después del primer separador `---` (antes de «## Farmacia · Reposición: sobrante en otro estudio y pacientes por entrar»), agregar:
+En `TODOS.md`, las dos entradas nuevas van después del primer separador `---` (antes de «## Farmacia · Reposición: sobrante en otro estudio y pacientes por entrar»), agregar:
 
 ```markdown
 ## Farmacia · Reposición: código de barras del pedido en la hoja
@@ -6283,6 +6749,18 @@ En `TODOS.md`, después del primer separador `---` (antes de «## Farmacia · Re
 - **Disparador:** que la lista de «Recibir un pedido» pase de diez renglones, o que alguien reciba el pedido equivocado.
 - **Depende de / bloqueado por:** la Parte 2 de Reposición en prod.
 - **Prioridad:** P3.
+
+---
+
+## Recepción: que «Crear recepción» no se duplique si se corta la red
+
+- **Qué:** el mismo intento que la `0133` le puso a «Emitir e imprimir», aplicado a `create_reception`: un uuid por asistente abierto, único en `medication_receptions`. Si llega el mismo intento con los mismos renglones, la función devuelve la recepción ya guardada.
+- **Por qué:** si la red se corta después de guardar y se reintenta, quedan dos recepciones pendientes iguales. Si alguien verifica las dos, el stock se duplica. No es de Reposición: pasa con cualquier recepción desde que existe el asistente.
+- **Pros:** cierra el último camino al doble recibo. «Recibir un pedido» ya no precarga lo que está sin verificar.
+- **Contras:** toca `create_reception`, que usa toda Recepción y que la guarda de la `0132` también rodea.
+- **Contexto:** segunda opinión de la revisión de ingeniería del plan de la Parte 2 de Reposición (2026-09-19, `docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md`). Empezar por la firma actual de `create_reception` (`supabase/migrations/0128_*.sql`), la guarda (`0132_recepcion_guarda_borrado_y_renglones.sql`) y `src/views/pharma/ReceptionWizard.tsx`.
+- **Depende de / bloqueado por:** nada; la guarda (`0132`) ya está en prod.
+- **Prioridad:** P2.
 
 ---
 
@@ -6318,7 +6796,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Create (fuera del repo): `<scratchpad>/pr-b.md`
 
 **Interfaces:**
-- Consumes: la PR A mergeada y la `0132` aplicada y marcada (Task 7).
+- Consumes: la PR A mergeada y la `0133` aplicada y marcada (Task 7).
 - Produces: la PR B mergeada y desplegada. Es la condición para la Task 14.
 
 - [ ] **Step 1: Gate completo**
@@ -6336,7 +6814,7 @@ Con el server del worktree en el 5251 y la sesión que abrió el Director (Task 
 Chequear en cada pantalla:
 
 1. **Estadísticas** abre sin la card, directo en los números del período.
-2. **Reposición:** tarjetas, franja, estudio, boleta, flechas, «Armar pedido» (cancelar), detalle de un pedido si existe (sin cerrar ni anular nada).
+2. **Reposición:** tarjetas, franja, estudio, boleta, flechas, «Armar pedido» (cancelar), detalle de un pedido si existe (sin cerrar ni anular nada). La columna «Mínimo» de cada medicamento coincide con «Hacen falta para el período que viene» de su boleta (salvo con el pedido tarde: ver la decisión 10).
 3. **Recepción:** «Recibir un pedido» (cerrar sin recibir).
 4. **Tema oscuro** (`resize_window` con `colorScheme: 'dark'`): la pastilla, los ámbar y el verde de «Cubierto» se leen. Los tokens `--spira-acc-deep-*` se aclaran solos.
 5. **Consola** sin errores nuevos.
@@ -6364,7 +6842,8 @@ Segunda mitad de la Parte 2 de **Reposición** ([plan](docs/superpowers/plans/20
 - **Farmacia › Reposición**, entre Dispensaciones y Estadísticas:
   - la grilla de estudios con la franja del corte;
   - el estudio con lo que entró, salió y hay, la boleta de cada medicamento y sus pedidos;
-  - los períodos anteriores con flechas.
+  - los períodos anteriores con flechas;
+  - el **mínimo** de cada medicamento, sacado de la medicación asignada a los pacientes (pedido del Director).
 - **Armar pedido** corregible, con la hoja A4 para la farmacia. Un reintento después de un corte de red no emite dos.
 - **El pedido:** lo recibido y lo que falta, «No va a llegar» con motivo, «Reabrir», anular y reimprimir.
 - **Recepción › Recibir un pedido:** el asistente arranca en el Escaneo con lo que falta, y el resumen compara lo pedido con lo que llega.
@@ -6372,8 +6851,8 @@ Segunda mitad de la Parte 2 de **Reposición** ([plan](docs/superpowers/plans/20
 
 ## ⚠️ Orden de despliegue
 
-- **Antes de mergear:** la 0132 tiene que estar aplicada (ya lo está si esta PR se abrió después de su marca).
-- **Después del deploy:** la 0133 borra de la base lo que usaba la card vieja. Va en una PR aparte y **recién con esto en prod**.
+- **Antes de mergear:** la 0133 tiene que estar aplicada (ya lo está si esta PR se abrió después de su marca).
+- **Después del deploy:** la 0134 borra de la base lo que usaba la card vieja. Va en una PR aparte y **recién con esto en prod**.
 
 ## QA
 
@@ -6385,9 +6864,20 @@ De lectura, logueado, en el preview (grilla, estudio, boleta, flechas, modales s
 Run: `node "<scratchpad>/crear-pr.mjs" feat/reposicion-parte-2-pantallas "Reposición · parte 2B: el submódulo, el pedido y «Recibir un pedido»" "<scratchpad>/pr-b.md"`
 Expected: `201 https://github.com/spiraclinicapp/Spira-App/pull/<N>`
 
-- [ ] **Step 4: Esperar el merge y el deploy**
+- [ ] **Step 4: Contar los «Ya lo pedí» de la card vieja, antes de mergear**
 
-Avisarle al Director que la PR está lista y que **la 0133 va después del deploy**. Cuando la mergee, confirmar el deploy por el check de Vercel del commit de merge en `main`.
+La card vieja sigue en prod hasta el deploy de esta PR. Lo que alguien haya marcado con «Ya lo pedí» deja de restarse en Reposición desde el deploy, y se volvería a pedir. El freno de la 0134 lo ve recién después (revisión de ingeniería, 14). Pasarle al Director, para correr tal cual en el editor SQL (sólo lee):
+
+```sql
+select count(*) from public.reposicion_pedidos;
+```
+
+- Si da **0**, seguir.
+- Si da más, **no se mergea todavía**: se decide con él qué hacer con esos pedidos (emitirlos como pedido del estudio, o dejarlos ir sabiendo que se vuelven a pedir) antes del deploy.
+
+- [ ] **Step 5: Esperar el merge y el deploy**
+
+Avisarle al Director que la PR está lista y que **la 0134 va después del deploy**. Cuando la mergee, confirmar el deploy por el check de Vercel del commit de merge en `main`.
 
 `<scratchpad>/estado-pr.mjs`:
 
@@ -6424,12 +6914,12 @@ git pull --ff-only
 
 ---
 
-### Task 14: Migración 0133 — se borra lo de la card vieja
+### Task 14: Migración 0134 — se borra lo de la card vieja
 
 **Files:**
-- Create: `supabase/migrations/0133_reposicion_limpieza.sql`
+- Create: `supabase/migrations/0134_reposicion_limpieza.sql`
 - Modify: `supabase/README.md`, `CLAUDE.md` (la última migración aplicada)
-- Create (fuera del repo): `<scratchpad>/pglite-0133/probar.mjs`, `<scratchpad>/sondas-0133.mjs`
+- Create (fuera del repo): `<scratchpad>/pglite-0134/probar.mjs`, `<scratchpad>/sondas-0134.mjs`
 
 **Interfaces:**
 - Consumes: la PR B **en prod**. Nada del front llama a lo que se borra (Task 12, Step 5).
@@ -6444,17 +6934,17 @@ git switch -c chore/reposicion-limpieza origin/main
 git ls-tree --name-only origin/main supabase/migrations/ | tail -2
 ```
 
-Expected: la última es la `0132` de la Task 5. Si ya hay otra después (la guarda de Recepción, por ejemplo), esta toma el siguiente número: cambiarlo en el nombre del archivo, su cabecera, la fila del README y los dos scripts.
+Expected: la última es la `0133` de la Task 5. Si ya hay otra después, esta toma el siguiente número: cambiarlo en el nombre del archivo, su cabecera, la fila del README y los dos scripts.
 
 - [ ] **Step 2: Escribir la migración**
 
-`supabase/migrations/0133_reposicion_limpieza.sql`:
+`supabase/migrations/0134_reposicion_limpieza.sql`:
 
 ```sql
--- Spira · Migración 0133 — Reposición: se borra lo de la card vieja de Estadísticas (0125).
+-- Spira · Migración 0134 — Reposición: se borra lo de la card vieja de Estadísticas (0125).
 -- Plan: docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md (Task 14).
 --
--- APLICAR A MANO en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0132.
+-- APLICAR A MANO en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0133.
 -- IDEMPOTENTE: reintentar es volver a correr el archivo entero.
 --
 -- ⚠️ DESTRUCTIVA → VA **DESPUÉS** DEL DEPLOY DEL FRONT de la Parte 2. La card «Compras para …» llamaba a
@@ -6502,25 +6992,25 @@ drop table if exists public.reposicion_pedidos;
 -- 4 · La demora de compra (R5: la fecha que importa es el corte) ----------------------------------------
 alter table public.farmacia_ajustes drop column if exists demora_compra_dias;
 comment on table public.farmacia_ajustes is
-  'Ajustes de Farmacia (una sola fila). dia_corte: el día del mes en que cierra cada período de reposición (0128). 0125, 0133.';
+  'Ajustes de Farmacia (una sola fila). dia_corte: el día del mes en que cierra cada período de reposición (0128). 0125, 0134.';
 ```
 
 - [ ] **Step 3: Probarla en PGlite**
 
 ```bash
-mkdir -p "<scratchpad>/pglite-0133" && cd "<scratchpad>/pglite-0133" && npm init -y && npm i @electric-sql/pglite@^0.5.8
+mkdir -p "<scratchpad>/pglite-0134" && cd "<scratchpad>/pglite-0134" && npm init -y && npm i @electric-sql/pglite@^0.5.8
 ```
 
-`<scratchpad>/pglite-0133/probar.mjs`:
+`<scratchpad>/pglite-0134/probar.mjs`:
 
 ```js
-// Prueba la 0133 sobre un esquema de juguete con lo que borra y lo que tiene que quedar.
+// Prueba la 0134 sobre un esquema de juguete con lo que borra y lo que tiene que quedar.
 //   node probar.mjs "C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2"
 import { PGlite } from '@electric-sql/pglite'
 import { readFileSync } from 'node:fs'
 
 const REPO = process.argv[2] ?? 'C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2'
-const m = readFileSync(`${REPO}/supabase/migrations/0133_reposicion_limpieza.sql`, 'utf8')
+const m = readFileSync(`${REPO}/supabase/migrations/0134_reposicion_limpieza.sql`, 'utf8')
 
 let fallas = 0
 const ok = (cond, msg) => {
@@ -6575,41 +7065,41 @@ console.log(fallas === 0 ? '\nTODO VERDE' : `\n${fallas} FALLAS`)
 process.exit(fallas === 0 ? 0 : 1)
 ```
 
-Run: `node "<scratchpad>/pglite-0133/probar.mjs" "C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2"`
+Run: `node "<scratchpad>/pglite-0134/probar.mjs" "C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2"`
 Expected: `TODO VERDE`.
 
 - [ ] **Step 4: Índice, CLAUDE.md y commit**
 
-En `supabase/README.md`, con Edit, debajo de la fila de la 0132:
+En `supabase/README.md`, con Edit, debajo de la fila de la 0133:
 
 ```
-| 0133 | `reposicion_limpieza.sql` — **Reposición: se borra lo de la card vieja de Estadísticas** (`docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md`, Task 14). DESTRUCTIVA: va **después** del deploy del front de la Parte 2, que ya no nombra nada de esto (la card vieja sí). `drop` de `insumos_de_reposicion(date)`, `registrar_pedido_reposicion(jsonb, date)`, `anular_pedido_reposicion(uuid)`, la tabla `reposicion_pedidos` (con su trigger, policies e índices) y la columna `farmacia_ajustes.demora_compra_dias` (R5). Se frena sola, antes de borrar nada, si `reposicion_pedidos` tiene filas. Probada con PGlite (freno con filas y dos corridas). |
+| 0134 | `reposicion_limpieza.sql` — **Reposición: se borra lo de la card vieja de Estadísticas** (`docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md`, Task 14). DESTRUCTIVA: va **después** del deploy del front de la Parte 2, que ya no nombra nada de esto (la card vieja sí). `drop` de `insumos_de_reposicion(date)`, `registrar_pedido_reposicion(jsonb, date)`, `anular_pedido_reposicion(uuid)`, la tabla `reposicion_pedidos` (con su trigger, policies e índices) y la columna `farmacia_ajustes.demora_compra_dias` (R5). Se frena sola, antes de borrar nada, si `reposicion_pedidos` tiene filas. Probada con PGlite (freno con filas y dos corridas). |
 ```
 
-En `CLAUDE.md` (§3 de las reglas duras), actualizar la última aplicada: reemplazar `La última aplicada va por la \`0129\`` por `La última aplicada va por la \`0133\``, recién cuando el Director confirme que la aplicó (Step 6).
+`CLAUDE.md` no va en este commit: la última aplicada pasa de `0133` a `0134` en el Step 6, cuando el Director confirme que la aplicó.
 
 Run: `node scripts/check-migraciones.mjs`
-Expected: `✓ 133 migraciones, índice al día.`
+Expected: `✓ 134 migraciones, índice al día.`
 
 ```bash
-git add supabase/migrations/0133_reposicion_limpieza.sql supabase/README.md
-git commit -m "chore(db): 0133 — se borra lo de la card vieja de Reposición
+git add supabase/migrations/0134_reposicion_limpieza.sql supabase/README.md
+git commit -m "chore(db): 0134 — se borra lo de la card vieja de Reposición
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 git -c credential.interactive=false push -u origin chore/reposicion-limpieza
 ```
 
 Abrir la PR con `crear-pr.mjs`:
-- título «Reposición · limpieza: 0133 borra lo de la card vieja»;
+- título «Reposición · limpieza: 0134 borra lo de la card vieja»;
 - cuerpo: qué borra, que **va después del deploy** (ya pasó) y que se frena sola si `reposicion_pedidos` tiene filas.
 
 - [ ] **Step 5: Aplicación**
 
-En el chat, en una frase: la 0133 es **destructiva**, el front ya no la necesita (deploy confirmado), y **se aplica apenas se mergea**. Si el editor frena con «todavía tiene filas», no se borró nada y hay que decidir qué hacer con esas filas antes de seguir.
+En el chat, en una frase: la 0134 es **destructiva**, el front ya no la necesita (deploy confirmado), y **se aplica apenas se mergea**. Si el editor frena con «todavía tiene filas», no se borró nada y hay que decidir qué hacer con esas filas antes de seguir.
 
 - [ ] **Step 6: Sondas y marca**
 
-`<scratchpad>/sondas-0133.mjs` es `sondas-0132.mjs` con estos `casos`:
+`<scratchpad>/sondas-0134.mjs` es `sondas-0133.mjs` con estos `casos`:
 
 ```js
 const casos = [
@@ -6623,13 +7113,13 @@ const casos = [
 ]
 ```
 
-Run: `node "<scratchpad>/sondas-0133.mjs"`
+Run: `node "<scratchpad>/sondas-0134.mjs"`
 Expected: siete `✓` y `TODO VERDE`. Si «ya no está» falla recién aplicada, falta el `notify pgrst, 'reload schema';`: pasárselo al Director y volver a sondear.
 
-Después, en una rama nueva `docs/0133-aplicada` desde `main` actualizado:
-- en `supabase/README.md`, sumar `**Aplicada en prod (AAAA-MM-DD).**` al final de la fila de la 0133 (con Edit, fecha literal);
-- en `CLAUDE.md`, la última aplicada pasa a `0133`;
-- `node scripts/check-migraciones.mjs`, commit, push, PR con `crear-pr.mjs` (título «docs(db): 0133 aplicada en prod»).
+Después, en una rama nueva `docs/0134-aplicada` desde `main` actualizado:
+- en `supabase/README.md`, sumar `**Aplicada en prod (AAAA-MM-DD).**` al final de la fila de la 0134 (con Edit, fecha literal);
+- en `CLAUDE.md`, la última aplicada pasa de `0133` a `0134`;
+- `node scripts/check-migraciones.mjs`, commit, push, PR con `crear-pr.mjs` (título «docs(db): 0134 aplicada en prod»).
 
 - [ ] **Step 7: Dejar todo en orden**
 
@@ -6641,7 +7131,7 @@ git status -sb
 git fetch origin
 git pull --ff-only
 git worktree remove ../wt-reposicion-2
-git branch -D feat/reposicion-parte-2-base feat/reposicion-parte-2-pantallas chore/reposicion-limpieza docs/0132-aplicada docs/0133-aplicada
+git branch -D feat/reposicion-parte-2-base feat/reposicion-parte-2-pantallas chore/reposicion-limpieza docs/0133-aplicada docs/0134-aplicada
 ```
 
 Antes de borrar cada rama local, comparar su contenido con `main` (`git diff origin/main...<rama> --stat` vacío). Un merge por la web cambia los SHA, y `-d` diría que no está mergeada (memoria `gotcha-cherry-pick-cambia-el-sha`).
@@ -6657,5 +7147,115 @@ Actualizar la memoria `plan-reposicion-corte-a-corte`: Parte 2 en prod, con los 
   - el código de barras de la hoja;
   - el sobrante entre estudios;
   - los restos de lote que el armado no usa;
-  - el hueco del DELETE de recepciones (este lo tomó otra sesión: la guarda de Recepción).
+  - el intento de `create_reception` (P2, de la revisión de ingeniería). El hueco del DELETE de recepciones ya lo cerró la guarda (`0132`).
 - **Una tarea de diseño pendiente de la revisión (T4, P2):** QA de teclado completo del estudio y los modales (RD14). Las piezas llevan `aria-expanded`, rótulos y texto en los avisos, pero nadie lo recorrió con teclado.
+
+---
+
+## Revisión de ingeniería (2026-09-19)
+
+`/plan-eng-review` sobre este plan (PR #233), con alcance completo (D1): el plan toca unos 30 archivos, pero cada pieza responde a R1-R13 o RD1-RD18 y ya venía repartido en dos PRs. La segunda opinión la hizo un agente Claude aparte, sin ver el análisis propio: codex no está instalado. Fueron 16 preguntas y el Director eligió la opción recomendada en todas. En medio, sumó un pedido: ver el stock mínimo de cada medicamento (decisión 10).
+
+### Lo que cambió en el plan (tareas de implementación)
+
+Todo quedó escrito dentro de las Tasks: ejecutar el plan lo cumple.
+
+| Nº | Prioridad | Qué | Dónde |
+|---|---|---|---|
+| 1 | P1 | Un reintento con otras cantidades se rechaza, en vez de devolver el pedido viejo: la hoja ya no puede contradecir a la base | Task 5 (0133 §2 + PGlite) |
+| 2 | P2 | Lo repetido pasa a `piezas`: `versalita`, `rotuloColumna`, `rotuloTabla`, `PuntoEstado`, `mayuscula`, `minuscula`; las cajas reusan `card` de `reportes/estilos` | Tasks 8-11 |
+| 3 | P2 | Cuatro tests más: tarde con un pedido viejo en camino, `pedidosAMostrar` con recepción sin verificar, el resumen de Recepción con algo que no faltaba, la tarjeta «sin cuenta» | Tasks 2-4 |
+| 4 | P2 | Sonda del embed `pedido:pedidos_medicacion(numero)` antes de la PR B | Task 7 |
+| 5 | P1 | `faltaEstePeriodo` neto de lo en camino: sin esto, el día después de cada corte la grilla marcaba tareas falsas | Task 3 + test del 29/09 en la Task 4 |
+| 6 | P2 | Cerrar «Armar pedido» después de un error vuelve a pedir los datos; el aviso dice «desde esta ventana» | Task 8 |
+| 7 | P2 | `p_ultimo_visto` + candado por estudio: dos personas no emiten dos pedidos por lo mismo, y «Armar otro pedido» sigue andando | Tasks 2, 5, 6, 8, 9 |
+| 8 | P2 | `porRecibir`: «Recibir un pedido» no precarga lo que ya está en una recepción sin verificar; si ya llegó todo, no ofrece «Recibir» | Tasks 2, 11 |
+| 9 | P2 | El asistente nombra el pedido que espera lo que llega («Se debe en el Pedido Nº 13: recibilo con ese») | Tasks 2, 11 |
+| 10 | P2 | La hoja reimpresa dice «REIMPRESIÓN · DD/MM» y, por renglón, lo recibido y lo que no va a llegar | Tasks 2, 8 |
+| 11 | P3 | El pedido principal es el que todavía debe; el renglón de «lo anterior» sólo muestra otros períodos | Tasks 2, 3 |
+| 12 | P3 | «No va a llegar» no se ofrece ni se acepta sobre lo que ya llegó y falta verificar | Tasks 5, 8 |
+| 13 | P3 | La tarjeta avisa los pacientes sin medicación habilitada; la franja no dice «nada para pedir» con renglones sin cargar | Task 4 |
+| 14 | P3 | Contar `reposicion_pedidos` antes de mergear la PR B | Task 13 |
+| 15 | P3 | La fecha de emisión tiene que ser la de hoy en hora AR | Task 5 |
+| 16 | P2 (TODO) | Intento en `create_reception`, para que un corte de red no deje dos recepciones iguales | Task 12 (`TODOS.md`) |
+| + | Director | Columna «Mínimo» en la tabla del estudio | Tasks 3, 9 (decisión 10) |
+
+**Verificado en seco con todos los cambios (2026-09-19)**, sobre una copia limpia de `main` (con la `0132` de la guarda):
+- la PR A sola: typecheck limpio, 1333 tests y build;
+- todo junto: typecheck limpio, 1302 tests y build;
+- PGlite: la `0133` pasa 43 comprobaciones en tres corridas, y la `0134` sale verde.
+
+Dos de los tests nuevos (el del 29/09 y el del segundo pedido del mismo período) se probaron al revés: fallan si se saca el arreglo.
+
+### Lo que ya existe y se reusa
+
+- El patrón de `data/` (hooks sobre `useSupabaseQuery`, mutaciones por RPC): la capa de datos no inventa nada.
+- `card`, `chip` y `chipActivo` de `reportes/estilos`; `FilaKv`, `Membrete`, `PieDePagina` y `.spira-print-doc` de `reportes/impresion`: la hoja A4 imprime con el mismo mecanismo que Estadísticas.
+- `FormularioReposicion` de la card se muda como `CargarReposicion`, no se reescribe.
+- `create_reception` con `pedido_id` y `validar_pedido_de_recepcion` (0128): «Recibir un pedido» no suma una función de alta propia.
+- El asistente de Recepción (`ReceptionWizard`, `Step1Scan`) recibe el pedido: no hay un segundo asistente.
+- `protocolStatusLabel` y `protocolStatusVar` de Pacientes, para el estado del estudio.
+- La guarda de Recepción (`0132`) ya cubre el borrado de recepciones y la escritura directa de renglones: esta parte no la duplica.
+
+### Fuera de alcance
+
+- **Intento en `create_reception`:** a `TODOS.md` (P2). Toca toda Recepción y no es de Reposición.
+- **Código de barras en la hoja:** a `TODOS.md` (P3).
+- **Sobrante entre estudios y pacientes por entrar:** ya estaban en `TODOS.md`.
+- **QA de teclado completo (RD14):** queda como tarea de diseño (T4).
+- **Paginar o cachear `reposicion_del_periodo`:** con 4 estudios y unos 12 pedidos por año, no hace falta.
+- **Refrescar la pantalla sola (realtime):** el control de la decisión 7 ya evita el daño (dos pedidos) sin sumar suscripciones.
+
+### Modos de falla
+
+| Camino nuevo | Falla realista | Test | Manejo | ¿Se ve? |
+|---|---|---|---|---|
+| Emitir con la red cortada después de guardar | un segundo pedido al reintentar | PGlite (intento) | intento + refrescar al cerrar | sí: aviso y lista refrescada |
+| Emitir desde dos lugares | dos pedidos por lo mismo | PGlite (último visto) | 23514 que nombra el pedido | sí |
+| Pantalla abierta desde ayer | pedido con la fecha de ayer | PGlite | 22023 «recargala» | sí |
+| Reintento con otras cantidades | hoja distinta de la base | PGlite | 22023 | sí |
+| «No va a llegar» sobre lo que ya llegó | compra de más | PGlite | botón escondido + 23514 | sí |
+| Recibir lo que está sin verificar | stock duplicado | vitest (`porRecibir`) | precarga neta, sin «Recibir» si llegó todo | sí: aviso |
+| El día después del corte con el pedido viajando | tarea falsa en la grilla | vitest (29/09) | modelo | — |
+| Embed nuevo de la lista de Recepción | Recepción en blanco en prod | sonda (Task 7) | desambiguar por columna | se ve antes del deploy |
+| «Ya lo pedí» de la card vieja | compra doble el primer mes | conteo (Task 13) | se decide antes del merge | sí |
+| El mínimo mal sumado | un número prolijo y falso | vitest (tres casos) | modelo | lo cubre el test |
+| Reimprimir un pedido a medio recibir | la farmacia entrega dos veces | vitest (`notaDeReimpresion`) | hoja marcada | sí |
+
+**Huecos críticos: 0.** Todo camino que fallaría en silencio tiene test.
+
+### Paralelización
+
+Secuencial.
+- La PR A (Tasks 1-7) es modelo y base, y la PR B necesita esa base aplicada.
+- Dentro de la PR B, las Tasks 8-10 comparten `src/views/pharma/reposicion/`, y la 11 usa las piezas de la 8.
+- Sólo la Task 12 (sacar la card) podría ir en paralelo con la 11, y ahorra poco.
+
+### Resumen
+
+- **Paso 0, alcance:** completo (D1).
+- **Hallazgos por sección:**
+  - arquitectura: 1;
+  - calidad de código: 1;
+  - tests: 2, con el diagrama de cobertura hecho;
+  - rendimiento: 0.
+- **Segunda opinión:** 11 hallazgos, todos incorporados (agente Claude, porque codex no está instalado).
+- **Secciones obligatorias:** «Lo que ya existe» y «Fuera de alcance» están escritas.
+- **`TODOS.md`:** se propuso una entrada (`create_reception`) y se aceptó.
+- **Modos de falla:** 0 huecos críticos.
+- **Paralelización:** secuencial.
+- **Opción completa:** se eligió en las 16 recomendaciones.
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | codex no está instalado; la segunda opinión la hizo un agente Claude (11 hallazgos, todos incorporados) |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 15 issues, 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR (spec) | RD1-RD18 en el spec (2026-09-17); no figura en el log de gstack de esta máquina |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+- **VERDICT:** ENG CLEARED — listo para ejecutar (subagent-driven, Task 1 en adelante).
+
+NO UNRESOLVED DECISIONS
