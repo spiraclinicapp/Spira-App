@@ -224,3 +224,39 @@ export async function reabrirIpDeVisita(visitId: string): Promise<{ error: strin
   bumpIpEstado()
   return { error: null }
 }
+
+/** La marca `lleva_ip` de una visita (0119), con lo que dice si ya está fechada. */
+export interface MarcaIpRow {
+  /** NULL = fechada antes de la 0119 (o todavía sin fechar): ahí Spira no registraba el IP. */
+  lleva_ip: boolean | null
+  real_date: string | null
+  attended_at: string | null
+}
+
+/**
+ * La marca `lleva_ip` de UNA visita, para saber si es anterior al registro del IP (spec 2026-09-19,
+ * E2 y E5). Se lee aparte porque `v_track_visits` no la trae y sumarla sería una migración, y
+ * `v_visit_ip_status` no tiene fila para esas visitas: justamente las que no llevan la marca.
+ *
+ * `patient_visits` la puede leer Coordinación (policy «ver visitas de mis protocolos», 0006). Farmacia
+ * no, pero este hook sólo corre en el detalle de visita de Coordinación. Si la RLS filtra, vuelve
+ * `null` sin error, y `esVisitaHistorica(null)` no afirma nada. No escucha `bumpIpEstado`: la marca se
+ * sella al fechar la visita, y una visita que se fecha con el modal abierto no es histórica en ninguna
+ * de las dos lecturas.
+ */
+export function useMarcaIp(visitId: string | null): QueryResult<MarcaIpRow | null> {
+  return useSupabaseQuery<MarcaIpRow | null>(
+    async (c) => {
+      if (!visitId) return { data: null, error: null }
+      const { data, error } = await c
+        .from('patient_visits')
+        .select('lleva_ip, real_date, attended_at')
+        .eq('id', visitId)
+        .maybeSingle()
+      if (error) return { data: null, error }
+      return { data: (data as MarcaIpRow | null) ?? null, error: null }
+    },
+    [visitId],
+    traducir,
+  )
+}

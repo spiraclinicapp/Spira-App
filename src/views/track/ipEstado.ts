@@ -58,17 +58,31 @@ export function accionesIp(estado: EstadoIp, readOnly: boolean): { puedeCerrar: 
 
 const kits = (n: number | null) => (n ? ` · ${n} ${n === 1 ? 'kit' : 'kits'}` : '')
 
-/** La segunda línea de la fila: qué pasó, cuándo y quién. */
-export function detalleIp(row: VisitIpStatusRow): string {
+/**
+ * Qué pasó con el IP de la visita, en UNA frase (spec 2026-09-19, E1). La dicen igual la sección
+ * «Producto en investigación» de Dispensación y la fila de Procedimientos (`detalleIp`, que le suma
+ * dónde se resuelve). Antes cada una decía lo suyo: «Sin pedir» en la fila y «Sin constancia
+ * cargada.» en la sección, sobre la misma visita.
+ *
+ * OJO CON EL ALCANCE: en la sección esta frase sale sólo en las ramas `desenlace` y `cierre`. Mientras
+ * hay un pedido en curso que acepta la constancia y está en lectura, la sección sigue diciendo «Sin
+ * constancia cargada.» —ahí sí falta un papel—, mientras la fila ya da la frase de `pedido` que sale de
+ * acá. No se contradicen: son ramas distintas de la misma visita.
+ *
+ * `terminada` = la visita tiene fin de atención (`ready_at`), la misma señal con la que la tarjeta
+ * decide si está cerrada (`vistaVisitaCerrada`). En una que todavía no terminó, «sin entregar» sonaría
+ * a problema, y la base tiene cientos así: las próximas visitas del cronograma.
+ */
+export function desenlaceIp(row: VisitIpStatusRow, terminada: boolean): string {
   switch (row.estado) {
     case 'sin_pedir':
-      return 'Sin pedir. Se pide desde Dispensación.'
+      return terminada ? 'Sin entregar: no se pidió a Farmacia.' : 'Todavía no se pidió a Farmacia.'
+    case 'rechazado':
+      return terminada ? 'Sin entregar: Farmacia rechazó el pedido.' : 'Farmacia rechazó el pedido.'
     case 'pedido':
       return row.pedido_at
-        ? `Pedido a Farmacia el ${formatDateTimeAR(row.pedido_at)}. Se marca cuando Farmacia confirma la entrega.`
-        : 'Pedido a Farmacia. Se marca cuando Farmacia confirma la entrega.'
-    case 'rechazado':
-      return 'Farmacia rechazó el pedido. Volvé a pedirlo desde Dispensación.'
+        ? `Pedido a Farmacia el ${formatDateTimeAR(row.pedido_at)}, sin entregar todavía.`
+        : 'Pedido a Farmacia, sin entregar todavía.'
     case 'entregado': {
       const quien = row.entregado_por_name ? ` por ${row.entregado_por_name}` : ''
       const cuando = row.entregado_at ? ` el ${formatDateTimeAR(row.entregado_at)}` : ''
@@ -86,6 +100,24 @@ export function detalleIp(row: VisitIpStatusRow): string {
       const quien = row.cerrado_por_name ? ` Lo marcó ${row.cerrado_por_name}.` : ''
       return `No corresponde: ${motivo}.${quien}`
     }
+  }
+}
+
+/**
+ * La segunda línea de la fila de Procedimientos: el desenlace y, si queda algo por hacer, dónde.
+ * SIEMPRE empieza con `desenlaceIp` (hay un test que lo exige). En una visita terminada lo pendiente
+ * se «carga», porque lo que se registra es una entrega que ya pasó; en una que no terminó, se «pide».
+ */
+export function detalleIp(row: VisitIpStatusRow, terminada: boolean): string {
+  const desenlace = desenlaceIp(row, terminada)
+  switch (row.estado) {
+    case 'sin_pedir':
+    case 'rechazado':
+      return `${desenlace} ${terminada ? 'Se carga desde Dispensación.' : 'Se pide desde Dispensación.'}`
+    case 'pedido':
+      return `${desenlace} Se marca cuando Farmacia confirma la entrega.`
+    default:
+      return desenlace
   }
 }
 

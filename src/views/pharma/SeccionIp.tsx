@@ -22,10 +22,19 @@ const desenlaceStyle: CSSProperties = {
   marginTop: 9, display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap',
 }
 
-/** Una línea de texto de la sección: el estado vacío, el cierre, "Sin constancia cargada.". */
+/** Una línea de texto de la sección: el estado vacío, el cierre, el desenlace. */
 const lineaStyle: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--spira-ink-soft)',
 }
+
+/** La línea con un botón al lado (`no_prevista` y `desenlace`, mismo armado de renglón). `wrap` + base
+ *  de 200px: en la notebook (tarjeta de ~560px) texto y botón van en un renglón como en el mock; en
+ *  una tarjeta angosta el botón baja. Sin eso, con 286px de tarjeta el botón se quedaba con todo y el
+ *  texto caía a 38px de ancho, una palabra por renglón (QA, 2026-09-14). */
+const lineaConAccion: CSSProperties = { ...lineaStyle, flexWrap: 'wrap', rowGap: 8 }
+
+/** El texto de esa línea: base de 200px para que el botón tenga dónde bajar. */
+const textoDeLineaConAccion: CSSProperties = { flex: '1 1 200px', minWidth: 0 }
 
 
 export interface ExcepcionIp {
@@ -54,7 +63,7 @@ export function SeccionIp({
   contenido, excepcion, readOnly, accent, busy,
   archivo, onQuitarArchivo, onElegirArchivo,
   constanciaAbierta, reemplazando, onReemplazar,
-  constanciaIncompleta, entregado, cierre, onPedirFueraDeCronograma,
+  constanciaIncompleta, entregado, desenlace, onRegistrarEntrega, onPedirFueraDeCronograma,
 }: {
   contenido: ContenidoIp
   /** `null` = la visita no está en excepción. */
@@ -71,8 +80,10 @@ export function SeccionIp({
   /** El pedido abierto la exige y no la tiene (ver `constanciaIncompleta` en el panel). */
   constanciaIncompleta: boolean
   entregado: { doc: IpDocumentRow; pedidoEl: string; badge: Badge; comprobante: number | null } | null
-  /** El cierre de la 0119, dicho en palabras (`detalleIp`). */
-  cierre: string | null
+  /** Qué pasó con el IP, en la frase de `v_visit_ip_status` (`desenlaceIp`): el cierre y el desenlace. */
+  desenlace: string | null
+  /** La puerta de la sección (spec 2026-09-19, E3): abre el modo corrección. `null` = no se ofrece. */
+  onRegistrarEntrega: (() => void) | null
   /** `null` = no se ofrece (en la ficha). */
   onPedirFueraDeCronograma: (() => void) | null
 }) {
@@ -125,21 +136,43 @@ export function SeccionIp({
     case 'cierre':
       // Sin tilde: «No corresponde» no es algo hecho (no cuenta en Procedimientos, `cuentaIp`), y el
       // mismo texto sirve para los dos cierres. Deshacerlo es de la fila de Procedimientos, no de acá.
-      cuerpo = <div style={lineaStyle}>{cierre ?? 'Se cerró sin entrega en esta visita.'}</div>
+      cuerpo = <div style={lineaStyle}>{desenlace ?? 'Se cerró sin entrega en esta visita.'}</div>
       break
-    case 'sin_constancia':
-      cuerpo = <div style={{ ...muted, padding: '2px 0' }}>Sin constancia cargada.</div>
+    case 'desenlace':
+      // Lo que dice `v_visit_ip_status`, con la MISMA frase que la fila de Procedimientos (spec del
+      // 2026-09-19, E1). Con el IP sin entregar va su propia puerta (E3): abre el modo corrección de la
+      // tarjeta, el mismo que «Registrar entrega» de concomitante, que nadie iba a buscar ahí para el IP.
+      cuerpo = (
+        <div style={lineaConAccion}>
+          <span style={textoDeLineaConAccion}>{desenlace ?? 'Sin entrega registrada.'}</span>
+          {onRegistrarEntrega && (
+            <button
+              type="button" onClick={onRegistrarEntrega} style={btnChico}
+              aria-label="Registrar la entrega del producto en investigación"
+            >
+              Registrar la entrega
+            </button>
+          )}
+        </div>
+      )
+      break
+    case 'historica':
+      // Fechada antes de la 0119, cuando Spira no registraba el IP: el dato vivía en papel y la base no
+      // sabe qué pasó. Se dice eso y nada más (E2): sin acción y sin alerta.
+      cuerpo = <div style={{ ...muted, padding: '2px 0' }}>Visita anterior al registro del IP en Spira.</div>
+      break
+    case 'sin_registro':
+      // Prevista y sin nada en la base. El caso raro es una visita fechada después de la 0119 con la marca
+      // en falso y el cronograma tildado más tarde. También es el resguardo si la marca no se pudo leer.
+      cuerpo = <div style={{ ...muted, padding: '2px 0' }}>Sin entrega registrada.</div>
       break
     case 'adjuntar':
       cuerpo = <ConstanciaDropzone accent={accent} busy={busy} onFile={onElegirArchivo} />
       break
     case 'no_prevista':
-      // `wrap` + base de 200px: en la notebook (tarjeta de ~560px) texto y botón van en un renglón como
-      // en el mock; en una tarjeta angosta el botón baja. Sin eso, con 286px de tarjeta el botón se
-      // quedaba con todo y el texto caía a 38px de ancho, una palabra por renglón (QA, 2026-09-14).
       cuerpo = (
-        <div style={{ ...lineaStyle, flexWrap: 'wrap', rowGap: 8 }}>
-          <span style={{ flex: '1 1 200px', minWidth: 0 }}>El cronograma no lo pide en esta visita.</span>
+        <div style={lineaConAccion}>
+          <span style={textoDeLineaConAccion}>El cronograma no lo pide en esta visita.</span>
           {onPedirFueraDeCronograma && (
             <button
               type="button" onClick={onPedirFueraDeCronograma} style={btnChico}
@@ -151,6 +184,12 @@ export function SeccionIp({
         </div>
       )
       break
+    default: {
+      // Guardia de exhaustividad: si `ContenidoIp` suma un caso nuevo sin su `case` acá, esto rompe la
+      // compilación en vez de dejar la sección en blanco en producción.
+      const sinCaso: never = contenido
+      void sinCaso
+    }
   }
 
   return (

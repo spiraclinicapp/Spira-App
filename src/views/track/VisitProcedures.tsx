@@ -45,11 +45,13 @@ function settled(
  * que fea. Toda la fila es el control (como el checklist clínico), así el área de toque llega a los
  * 44px y no hay que apuntarle a un cuadrito de 20.
  */
-export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
+export function VisitProcedures({ visitId, visitDefId, accent, readOnly, terminada }: {
   visitId: string
   visitDefId: string | null
   accent: string
   readOnly: boolean
+  /** Fin de atención puesto (`ready_at`): la fila del IP dice lo pendiente como pendiente (spec 2026-09-19). */
+  terminada: boolean
 }) {
   const { data, loading, error, refetch } = useVisitProcedureStatus(visitId, visitDefId)
   const [pending, setPending] = useState<Set<string>>(new Set())
@@ -101,7 +103,7 @@ export function VisitProcedures({ visitId, visitDefId, accent, readOnly }: {
   const ipQ = useVisitIpStatus(visitId)
   const ip = ipQ.data
   const ipRow = ip
-    ? <IpDeliveryRow row={ip} accent={accent} readOnly={readOnly} />
+    ? <IpDeliveryRow row={ip} accent={accent} readOnly={readOnly} terminada={terminada} />
     : null
   const ipCuenta = ip ? cuentaIp(ip.estado) : { total: 0, hecho: 0 }
 

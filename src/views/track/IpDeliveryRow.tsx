@@ -29,10 +29,12 @@ const TIPOS: SelectOption[] = [
  * sin un pedido vivo en Farmacia. Van plegadas detrás de un botón con nombre: son la excepción, y no
  * pueden competir con la regla.
  */
-export function IpDeliveryRow({ row, accent, readOnly }: {
+export function IpDeliveryRow({ row, accent, readOnly, terminada }: {
   row: VisitIpStatusRow
   accent: string
   readOnly: boolean
+  /** La visita tiene fin de atención: cambia cómo se dice lo pendiente (`desenlaceIp`). */
+  terminada: boolean
 }) {
   const [abierto, setAbierto] = useState(false)
   const [tipo, setTipo] = useState<TipoCierre | null>(null)
@@ -88,12 +90,12 @@ export function IpDeliveryRow({ row, accent, readOnly }: {
           </span>
           <span style={{ minWidth: 0, flex: 1 }}>
             {/* Sin rótulo oculto de "realizado/pendiente": la línea de abajo ya dice el estado en
-                palabras ("Entregado por…", "Sin pedir…"), que es lo que lee el lector de pantalla. */}
+                palabras ("Entregado por…", "Sin entregar…"), que es lo que lee el lector de pantalla. */}
             <span style={{ display: 'block', fontSize: 13.5, color: 'var(--spira-ink)' }}>{TITULO_IP}</span>
             {/* `ink-soft` y no `muted`: sobre el papel de la fila hecha, `muted` no llega a 4.5:1
                 (mismo porqué que en VisitProcedures). */}
             <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: 'var(--spira-ink-soft)', lineHeight: 1.4 }}>
-              {detalleIp(row)}
+              {detalleIp(row, terminada)}
             </span>
           </span>
         </div>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { EstadoIp, VisitIpStatusRow } from '../../data/visitIp'
 import {
-  accionesIp, cierreListo, cuentaIp, detalleIp, ipHecho, MOTIVOS_NO_CORRESPONDE, motivoAlertaIp, rotuloMotivo,
+  accionesIp, cierreListo, cuentaIp, desenlaceIp, detalleIp, ipHecho, MOTIVOS_NO_CORRESPONDE, motivoAlertaIp, rotuloMotivo,
 } from './ipEstado'
 
 /**
@@ -67,42 +67,89 @@ describe('accionesIp — qué se le ofrece', () => {
   })
 })
 
-describe('detalleIp — la segunda línea', () => {
+describe('desenlaceIp — qué pasó con el IP, en una frase (spec 2026-09-19, E1)', () => {
+  it('sin pedir: en una visita terminada es un pendiente; en una que no terminó, todavía no', () => {
+    expect(desenlaceIp(fila({ estado: 'sin_pedir' }), true)).toBe('Sin entregar: no se pidió a Farmacia.')
+    expect(desenlaceIp(fila({ estado: 'sin_pedir' }), false)).toBe('Todavía no se pidió a Farmacia.')
+  })
+
+  it('rechazado: lo mismo, con Farmacia como sujeto', () => {
+    expect(desenlaceIp(fila({ estado: 'rechazado' }), true)).toBe('Sin entregar: Farmacia rechazó el pedido.')
+    expect(desenlaceIp(fila({ estado: 'rechazado' }), false)).toBe('Farmacia rechazó el pedido.')
+  })
+
+  it('pedido: con la fecha del pedido si la hay, y sin ella no inventa una', () => {
+    // Sin comparar la hora: formatDateTimeAR usa la hora local y el CI corre en UTC.
+    const con = desenlaceIp(fila({ estado: 'pedido', pedido_at: '2026-09-17T20:27:00+00:00' }), true)
+    expect(con).toMatch(/^Pedido a Farmacia el .+, sin entregar todavía\.$/)
+    expect(con).toContain('2026')
+    expect(desenlaceIp(fila({ estado: 'pedido' }), true)).toBe('Pedido a Farmacia, sin entregar todavía.')
+  })
+
   it('entregado nombra a quién confirmó y los kits, en singular y plural', () => {
-    const uno = detalleIp(fila({ estado: 'entregado', entregado_por_name: 'Laura Pérez', entregado_at: '2026-09-12T17:30:00+00:00', entregado_ip_kits: 1 }))
+    const uno = desenlaceIp(fila({ estado: 'entregado', entregado_por_name: 'Laura Pérez', entregado_at: '2026-09-12T17:30:00+00:00', entregado_ip_kits: 1 }), true)
     expect(uno).toContain('Entregado por Laura Pérez')
     expect(uno).toContain('· 1 kit.')
-    const dos = detalleIp(fila({ estado: 'entregado', entregado_por_name: 'Laura Pérez', entregado_ip_kits: 2 }))
+    const dos = desenlaceIp(fila({ estado: 'entregado', entregado_por_name: 'Laura Pérez', entregado_ip_kits: 2 }), true)
     expect(dos).toContain('· 2 kits.')
   })
 
   it('una entrega anterior a la 0119 (sin nombre guardado) no inventa a nadie', () => {
-    const d = detalleIp(fila({ estado: 'entregado', entregado_at: '2026-08-20T12:00:00+00:00', entregado_ip_kits: 2 }))
+    const d = desenlaceIp(fila({ estado: 'entregado', entregado_at: '2026-08-20T12:00:00+00:00', entregado_ip_kits: 2 }), true)
     expect(d.startsWith('Entregado el ')).toBe(true)
     expect(d).not.toContain(' por ')
   })
 
   it('entregado en otra visita nombra cuál, y cae a "otra visita" si no tiene código', () => {
-    expect(detalleIp(fila({ estado: 'entregado_en_otra_visita', otra_visita_code: 'VNP', otra_visita_ip_kits: 1 })))
+    expect(desenlaceIp(fila({ estado: 'entregado_en_otra_visita', otra_visita_code: 'VNP', otra_visita_ip_kits: 1 }), true))
       .toContain('Entregado en VNP')
-    expect(detalleIp(fila({ estado: 'entregado_en_otra_visita' }))).toContain('Entregado en otra visita')
+    expect(desenlaceIp(fila({ estado: 'entregado_en_otra_visita' }), true)).toContain('Entregado en otra visita')
   })
 
   it('"No corresponde · otro" muestra lo que se contó, no la palabra "Otro"', () => {
-    const d = detalleIp(fila({ estado: 'no_corresponde', cierre_motivo: 'otro', cierre_detalle: 'Pasó a extensión abierta', cerrado_por_name: 'Ana' }))
+    const d = desenlaceIp(fila({ estado: 'no_corresponde', cierre_motivo: 'otro', cierre_detalle: 'Pasó a extensión abierta', cerrado_por_name: 'Ana' }), true)
     expect(d).toBe('No corresponde: Pasó a extensión abierta. Lo marcó Ana.')
   })
 
   it('"No corresponde" con motivo de lista usa su rótulo', () => {
-    expect(detalleIp(fila({ estado: 'no_corresponde', cierre_motivo: 'discontinuo_tratamiento' })))
+    expect(desenlaceIp(fila({ estado: 'no_corresponde', cierre_motivo: 'discontinuo_tratamiento' }), true))
       .toBe('No corresponde: Discontinuó el tratamiento.')
+  })
+})
+
+describe('detalleIp — la segunda línea de la fila', () => {
+  it('UNA SOLA VOZ: en todos los estados empieza con la frase de la sección', () => {
+    // El candado del spec (E1): si alguien reescribe una de las dos, la fila y la sección vuelven a
+    // decir cosas distintas de la misma visita, y en pantalla no se nota.
+    for (const e of TODOS) {
+      for (const terminada of [true, false]) {
+        const row = fila({ estado: e })
+        expect(detalleIp(row, terminada).startsWith(desenlaceIp(row, terminada)), `${e} · terminada=${terminada}`).toBe(true)
+      }
+    }
+  })
+
+  it('lo que queda por hacer dice dónde: «carga» en una visita terminada, «pide» en una que no', () => {
+    expect(detalleIp(fila({ estado: 'sin_pedir' }), true)).toBe('Sin entregar: no se pidió a Farmacia. Se carga desde Dispensación.')
+    expect(detalleIp(fila({ estado: 'sin_pedir' }), false)).toBe('Todavía no se pidió a Farmacia. Se pide desde Dispensación.')
+    expect(detalleIp(fila({ estado: 'rechazado' }), true)).toBe('Sin entregar: Farmacia rechazó el pedido. Se carga desde Dispensación.')
+    expect(detalleIp(fila({ estado: 'pedido' }), true)).toBe('Pedido a Farmacia, sin entregar todavía. Se marca cuando Farmacia confirma la entrega.')
+  })
+
+  it('lo que ya se resolvió no agrega indicación', () => {
+    for (const e of ['entregado', 'entregado_en_otra_visita', 'no_corresponde'] as EstadoIp[]) {
+      const row = fila({ estado: e })
+      expect(detalleIp(row, true)).toBe(desenlaceIp(row, true))
+    }
   })
 
   it('cada estado tiene su texto, sin caer a vacío', () => {
     for (const e of TODOS) {
-      const d = detalleIp(fila({ estado: e }))
-      expect(d.trim(), `${e} sin texto`).not.toBe('')
-      expect(d, `${e} filtra un null`).not.toMatch(/undefined|null/)
+      for (const terminada of [true, false]) {
+        const d = detalleIp(fila({ estado: e }), terminada)
+        expect(d.trim(), `${e} sin texto`).not.toBe('')
+        expect(d, `${e} filtra un null`).not.toMatch(/undefined|null/)
+      }
     }
   })
 })
