@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.81', text: 'La sección del IP dice qué pasó en cada visita y trae su puerta para registrar la entrega.' },
     { version: '0.80', text: 'Una ventana vencida se documenta como desviación, y el feedback llega a Ajustes con su lugar.' },
     { version: '0.79', text: 'El cronograma y los procedimientos se abren desde la ficha del estudio.' },
     { version: '0.78', text: 'Estudios y pacientes, la patología a la vista y los reportes pendientes marcados en la visita.' },
