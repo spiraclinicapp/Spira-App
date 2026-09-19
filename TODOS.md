@@ -81,7 +81,19 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
-## Farmacia · Recepción: el DELETE y la escritura directa de renglones no tienen guarda
+## ~~Farmacia · Recepción: el DELETE y la escritura directa de renglones no tienen guarda~~ — RESUELTO en la migración 0132 (2026-09-17, falta aplicarla)
+
+> **Cerrada en el repo; se aplica después de la 0131.** `0132_recepcion_guarda_borrado_y_renglones.sql`:
+> `trg_guard_reception_delete` (BEFORE DELETE sobre `medication_receptions`) y
+> `trg_guard_reception_items_write` (BEFORE INSERT OR UPDATE OR DELETE sobre `reception_items`), sin
+> SECURITY DEFINER, con el corte `current_user <> 'postgres'`. El «Contras» de abajo lo resolvió el
+> Director: **ningún DELETE es legítimo, ni siquiera el de una pendiente** (se anula, no se borra —
+> `void_reception` ya sella pendientes y Recepción ofrece «Anular» para cualquiera que no esté anulada), y
+> los renglones tampoco se escriben directo **en ningún estado**. Como la regla no depende del estado, las
+> guardas no leen la recepción madre: sin lock y sin carrera con `verify_reception`. Grep de `src` del
+> 2026-09-17: el front sólo lee las dos tablas. La cascada de la FK corre como el dueño de la tabla, así
+> que un DELETE desde el editor SQL pasa por la guarda de renglones sin chocar. Probada con PGlite (49 casos con las funciones reales de las migraciones, más dos mutantes que el banco
+> detecta). Cuando esté aplicada, esta entrada se puede borrar.
 
 - **Qué:** un DELETE directo de `medication_receptions` y un INSERT/UPDATE/DELETE directo de
   `reception_items` no tienen ningún trigger que los frene o los haga consistentes con el stock ni con el
