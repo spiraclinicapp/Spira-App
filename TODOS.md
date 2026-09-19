@@ -5,6 +5,25 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
+## Coordinación · el tablero de Reportes con el lenguaje del modal de visita
+
+- **Qué:** pasar la variante `tablero` de `ReportCard` (el tablero de Reportes pendientes) al idioma que
+  estrena el modal de visita: tag de estado (Pendiente / Vencido / Descargado / Evolucionado), botón de
+  plataforma blanco con `externalLink` y la constancia «Descargado hoy 15:10 · Dra. Bertossi».
+- **Por qué:** después del rediseño del modal (`docs/plan-resumen-de-visita.md`, PR 2) el MISMO reporte se
+  ve distinto en la visita y en el tablero. `ReportCard` es un solo componente justamente para que las dos
+  vistas no deriven (ver su cabecera).
+- **Pros:** una sola forma de leer un reporte en toda la app.
+- **Contras:** el tablero tiene diseño propio (columnas, arrastrar, encabezado de paciente) que el handoff
+  del modal no cubre: sin mock es diseñar a ciegas.
+- **Contexto:** `/plan-eng-review` del 2026-09-19. Las reglas (`tagDeReporte`, `constanciaDeReporte`) ya
+  quedan puras y compartidas en `views/track/reportes/estados.ts` con la PR 2; falta sólo la presentación.
+- **Empezar por:** `views/track/reportes/ReportCard.tsx` (rama `enTablero`) y `ReportesPendientesView.tsx`.
+- **Depende de / bloqueado por:** la PR 2 del plan y un mock del tablero.
+- **Prioridad:** P3.
+
+---
+
 ## Farmacia · Reposición: sobrante en otro estudio y pacientes por entrar
 
 - **Qué:** en la card de reposición, un total por medicamento entre estudios («sobran 4 de Seretide en
