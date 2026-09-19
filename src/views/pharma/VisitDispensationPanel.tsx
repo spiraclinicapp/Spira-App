@@ -31,7 +31,7 @@ import {
   IP_MIME_TYPES,
 } from '../../data/pharma'
 import type { HabilitacionRow, IpDocumentRow } from '../../data/pharma'
-import { bumpIpEstado, useVisitIpStatus } from '../../data/visitIp'
+import { bumpIpEstado, useMarcaIp, useVisitIpStatus } from '../../data/visitIp'
 import { avisoStock, descripcionStock } from './stockVisita'
 import { edicionDelPedido, quienLoPrepara } from './edicionPedido'
 import { badgeOf } from './dispensaciones/estados'
@@ -45,7 +45,7 @@ import { desenlaceIp } from '../track/ipEstado'
 import { DANGER_TINT, WARN_TINT, WARN_TINT_PILL, Sub, btnChico, itemRow, muted, pillBase } from './panelDispensacion'
 import { FormularioOtro } from './FormularioOtro'
 import { SeccionIp } from './SeccionIp'
-import { contenidoSeccionIp } from './seccionIpModel'
+import { contenidoSeccionIp, esVisitaHistorica, mostrarAvisoIp, ofrecerRegistrarIp } from './seccionIpModel'
 import { HistorialPlegado } from './HistorialPlegado'
 import { vistaVisitaCerrada } from './visitaCerradaModel'
 import { EntregarEnPartes, partesInvalidas } from './EntregarEnPartes'
@@ -233,6 +233,9 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    * al pedir o cancelar.
    */
   const ipQ = useVisitIpStatus(visit.id)
+  /** La marca de la 0119, para decir «Visita anterior al registro del IP» sólo cuando es cierto (spec del
+   *  2026-09-19, E2). Aparte porque `v_track_visits` no la trae. */
+  const marcaQ = useMarcaIp(visit.id)
   // `reemplazando` reabre el dropzone sobre una constancia YA cargada (botón "Reemplazar" de
   // `ConstanciaVista`). La subida en sí ya no vive acá: la hace `enviar()` al cerrar la solicitud.
   const [reemplazando, setReemplazando] = useState(false)
@@ -289,6 +292,15 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   /** Con la visita cerrada, cargar deja de ser lo normal y pasa a ser una corrección explícita. */
   const [corrigiendo, setCorrigiendo] = useState(false)
   const puedeCargar = !readOnly && (!cerrada || corrigiendo)
+  /**
+   * Cuándo se ofrece corregir una visita terminada, y el gesto que lo abre. Lo usan DOS puertas:
+   * «Registrar entrega» / «Corregir entrega» de concomitante y «Registrar la entrega» de la sección
+   * del IP (spec 2026-09-19, E3). Una sola condición y un solo gesto, para que las dos no puedan
+   * divergir. `!== 'cargando'`: mientras la lectura de pedidos no vuelve, no se sabe si hubo entrega
+   * (Hallazgo 1, revisión final 2026-09-15).
+   */
+  const puedeCorregir = !readOnly && cerrada && !corrigiendo && vista.concomitante.tipo !== 'cargando'
+  const abrirCorreccion = () => { setCorrigiendo(true); setSoliciting(true); setErr(null) }
   // Abiertas = todavía accionables (solicitada / preparando / lista para retirar); van siempre
   // arriba. Cerradas = entregada / cancelada / rechazada.
   // `columnOf` devuelve null para cancelada/rechazada y 'entregada' para las ya retiradas.
@@ -811,6 +823,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
      El cierre sale de `v_visit_ip_status` y la carga cuenta las DOS lecturas: sin la del estado del IP
      la sección ofrecería un dropzone un instante antes de enterarse de que la visita está cerrada. */
   const ipCerrada = ipQ.data?.estado === 'no_corresponde' || ipQ.data?.estado === 'entregado_en_otra_visita'
+  const estadoIp = ipQ.data?.estado ?? null
   const contenidoIp = contenidoSeccionIp({
     hayArchivo: archivo !== null,
     hayPedidoAbierto: ipEnCurso,
@@ -818,16 +831,19 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     entregadoConConstancia: constanciaEntregada !== null && reqEntregado !== null,
     // Tratar el error igual que la carga, misma razón que la sección de arriba: una consulta que
     // FALLA deja `data` en `null` para siempre, y sin esto la sección leía ese cero como un hecho
-    // y afirmaba "El cronograma no lo pide" o "Sin constancia cargada." sobre una visita que sí
-    // llevó producto en investigación.
-    cargando: reqQ.loading || ipQ.loading || !!reqQ.error || !!ipQ.error,
+    // y afirmaba "El cronograma no lo pide" o «Sin entrega registrada.» sobre una visita que sí
+    // llevó producto en investigación. La marca de la 0119 entra por lo mismo: sin ella, un instante
+    // de «Sin entrega registrada.» antes de saber que era «anterior al registro».
+    cargando: reqQ.loading || ipQ.loading || marcaQ.loading || !!reqQ.error || !!ipQ.error || !!marcaQ.error,
     cerrada: ipCerrada,
     prevista: ipPrevisto,
     /* Con la visita terminada el IP se lee, no se carga: es el mismo criterio que la sección de
        arriba, y arreglar sólo la mitad dejaría la incoherencia 60px más abajo en la misma tarjeta.
-       `contenidoSeccionIp` ya sabe hacerlo: con `readOnly` una visita prevista cae en
-       «sin_constancia» (estado de lectura) en vez de «adjuntar». */
+       `contenidoSeccionIp` ya sabe hacerlo: con `readOnly` una visita prevista cae en el desenlace,
+       la histórica o «sin registro» (estados de lectura) en vez de «adjuntar». */
     readOnly: readOnly || (cerrada && !corrigiendo),
+    estadoIp,
+    historica: esVisitaHistorica(marcaQ.data),
   })
 
   return (
@@ -1074,8 +1090,8 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 de pedidos no vuelve, `cerrada` ya da true (dirección segura) pero todavía no se sabe
                 si hubo entrega — ofrecer "Registrar entrega" acá sería la misma afirmación apurada
                 que el texto de abajo, con otras palabras. */}
-            {!readOnly && cerrada && !corrigiendo && vista.concomitante.tipo !== 'cargando' && (
-              <button type="button" onClick={() => { setCorrigiendo(true); setSoliciting(true); setErr(null) }} style={btnChico}>
+            {puedeCorregir && (
+              <button type="button" onClick={abrirCorreccion} style={btnChico}>
                 {vista.concomitante.tipo === 'entregada' ? 'Corregir entrega' : 'Registrar entrega'}
               </button>
             )}
@@ -1204,7 +1220,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
           <SeccionIp
             contenido={contenidoIp}
             excepcion={mostrarExcepcion ? {
-              aviso: <AvisoIpReciente query={ctxQ} aviso={avisoIp(ctxQ.data ?? [], ahora)} />,
+              // Sin el aviso sobre una entrega ya hecha (spec 2026-09-19, E4): advertía sobre sí misma.
+              aviso: mostrarAvisoIp(contenidoIp, estadoIp)
+                ? <AvisoIpReciente query={ctxQ} aviso={avisoIp(ctxQ.data ?? [], ahora)} />
+                : null,
               // Con el pedido ya creado manda el motivo SELLADO en la fila, no el desplegable: es el
               // texto que Farmacia ve en el cajón y que sale impreso en el comprobante, y dejarlo
               // editable acá lo haría diferir del papel. Si hace falta un motivo nuevo (nace otro
@@ -1236,7 +1255,8 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               badge: badgeEntregado,
               comprobante: comprobanteEntregado,
             } : null}
-            cierre={ipCerrada && ipQ.data ? desenlaceIp(ipQ.data, visit.ready_at !== null) : null}
+            desenlace={ipQ.data ? desenlaceIp(ipQ.data, visit.ready_at !== null) : null}
+            onRegistrarEntrega={puedeCorregir && ofrecerRegistrarIp(contenidoIp, estadoIp) ? abrirCorreccion : null}
             onPedirFueraDeCronograma={readOnly || (cerrada && !corrigiendo) ? null : () => { setFueraCronograma(true); setErr(null) }}
           />
 
