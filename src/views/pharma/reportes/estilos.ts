@@ -111,7 +111,7 @@ export const printBtn: CSSProperties = {
 
 /**
  * Chip de elección (período del informe, orden del pedido, modo de reposición). Estaban en
- * ReportesView; se movieron acá cuando la card de compras los necesitó (plan de reposición, T9).
+ * ReportesView; hoy los usa también «Cargar cómo se repone» de Reposición.
  * El borde va en longhands: el activo pisa sólo `borderColor` sin vaciar la abreviada.
  */
 export const chip: CSSProperties = {
@@ -125,7 +125,7 @@ export const chipActivo: CSSProperties = {
   background: 'rgba(15, 95, 87, 0.10)', borderColor: 'rgba(15, 95, 87, 0.35)', color: 'var(--spira-acc-deep-track)',
 }
 
-/** La caja del aviso ámbar de Estadísticas (informe cortado, «ya es tarde»). */
+/** La caja del aviso ámbar de Estadísticas (informe cortado). */
 export const avisoCaja: CSSProperties = {
   display: 'flex', gap: 9, alignItems: 'flex-start', margin: '0 0 16px', padding: '11px 14px',
   background: 'var(--spira-surface)', border: '1px solid var(--spira-line-2)', borderRadius: 10,

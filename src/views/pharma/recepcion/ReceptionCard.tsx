@@ -59,6 +59,7 @@ export function ReceptionCard({ r, canManage, busy, highlight, error, onVerify, 
         <div>
           <span style={rotuloCelda}>Recepción</span>
           <span style={valorFolio} className="spira-mono">Nº {r.folio}</span>
+          {r.pedido && <span style={pedidoDeLaRecepcion} className="spira-mono">Pedido Nº {r.pedido.numero}</span>}
         </div>
 
         {/* Procedencia y fecha como UN bloque, unidos por la barra de color. Dos líneas con la
@@ -356,6 +357,10 @@ const rotuloCelda: CSSProperties = {
 }
 const valorFolio: CSSProperties = {
   fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 21, color: 'var(--spira-ink)',
+}
+/* R10: la recepción que respondió a un pedido lo dice debajo de su número, con su nombre (RD12). */
+const pedidoDeLaRecepcion: CSSProperties = {
+  display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--spira-ink-soft)', marginTop: 2,
 }
 /* Ficha de procedencia: etiqueta + valor en dos columnas. Sin protocolo (ambulatoria) la fila
    queda con una sola celda, y como las dos columnas son `auto` el grid no reserva el hueco. */

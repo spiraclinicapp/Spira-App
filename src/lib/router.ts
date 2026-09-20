@@ -46,7 +46,7 @@ const SUB_KEY: Record<string, string> = invertir(SUB_SLUG)
 
 /* Submódulos que llevan segmentos propios después del submódulo: Pacientes (el protocolo y la ficha),
    Dispensaciones (el código del cajón), Medicamentos/Stock (el apartado: protocolo, ambulatoria,
-   catálogo) y Recepción (el wizard de recepción nueva). Los cuatro son LUGARES a los que la app ya
+   catálogo), Recepción (el wizard de recepción nueva) y Reposición (el estudio). Los cinco son LUGARES a los que la app ya
    apila historial y desde los que el atrás ya vuelve a donde estabas — esto solo lo hace visible en
    la dirección. Para todos los demás submódulos, cualquier cosa que venga después es una ruta que no
    existe — el §8 del spec pide avisarlo, no ignorarlo en silencio.
@@ -54,7 +54,7 @@ const SUB_KEY: Record<string, string> = invertir(SUB_SLUG)
    CONSTRUIR la URL (`buildUrl` la arma igual, con el path adentro) — falla al ABRIRLA. `parseUrl`
    la rechaza más abajo (`resto.length > 0 && !SUB_CON_PATH.has(subKey)`) y sale la pantalla de "esa
    dirección no existe". Si un link nuevo no abre, este `Set` es el primer lugar para mirar. */
-const SUB_CON_PATH = new Set(['protocolos', 'dispensaciones', 'medicamentos', 'recepcion'])
+const SUB_CON_PATH = new Set(['protocolos', 'dispensaciones', 'medicamentos', 'recepcion', 'reposicion'])
 
 function invertir(mapa: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(mapa).map(([k, v]) => [v, k]))

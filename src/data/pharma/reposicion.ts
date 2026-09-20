@@ -1,31 +1,24 @@
 import { supabase } from '../../lib/supabase'
 import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
-import type { InsumosReposicion, ModoReposicion } from './reposicionModel'
+import type { ModoReposicion } from './reposicionModel'
 import type { Periodo } from './periodoDeCorte'
 import type { InsumosPorRecibir, MotivoAnulacion, MotivoCierre } from './pedidosMedicacionModel'
 import type { InsumosDelPeriodo } from './reposicionPeriodoModel'
 import { pharmaErrorMessage } from './errors'
 
 /**
- * Compras del mes que viene (docs/plan-reposicion-stock-minimo.md, migración 0125).
+ * Reposición de Farmacia (docs/superpowers/specs/2026-09-16-reposicion-submodulo-design.md): la lectura del
+ * período, el día de corte, los pedidos de medicación y cómo se repone cada medicamento. La cuenta NO vive
+ * acá: la hacen los modelos puros (reposicionPeriodoModel, reposicionTarjetaModel) con los datos crudos
+ * que traen estas lecturas (D11).
  *
- * La lectura trae los datos CRUDOS de `insumos_de_reposicion` y la cuenta la hace
- * `reposicionModel.armarReposicion` (D11). `hoy` lo pone el llamador en hora local (AR): la función
- * usa ese día para el mes en curso, porque `current_date` en Supabase es UTC.
+ * La card «Compras para …» de Estadísticas (0125) se fue el 2026-09-18 con su lectura, la demora de compra
+ * y «Ya lo pedí». Lo que la base todavía tenga de ella lo borra la 0135, DESPUÉS del deploy de este front.
  */
-export function useInsumosDeReposicion(hoy: string) {
-  return useSupabaseQuery<InsumosReposicion>(
-    async (c) => {
-      const { data, error } = await c.rpc('insumos_de_reposicion', { p_hoy: hoy })
-      if (error) return { data: null, error }
-      return { data: data as InsumosReposicion, error: null }
-    },
-    [hoy],
-    (e) => pharmaErrorMessage(e.code, e.message),
-  )
-}
 
 type Resultado = { error: string | null; code?: string }
+
+// ═══════════════════════════ Cómo se repone (0125) ═══════════════════════════
 
 /**
  * Cómo se repone un medicamento del estudio (D2-D4, D25). Por función porque la tabla exige leader
@@ -43,35 +36,6 @@ export async function configurarReposicion(input: {
     p_envases_por_mes: input.modo === 'mensual' ? input.envasesPorMes : null,
     p_stock_fijo: input.modo === 'a_demanda' ? input.stockFijo : null,
   })
-  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
-  return { error: null }
-}
-
-/** La demora de compra de toda Farmacia (D6). Update directo: 0 filas = sin permiso (RLS). */
-export async function guardarDemoraCompra(dias: number): Promise<Resultado> {
-  const { data, error } = await supabase
-    .from('farmacia_ajustes')
-    .update({ demora_compra_dias: dias })
-    .eq('unica', true)
-    .select('id')
-  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
-  if (!data || data.length === 0) return { error: 'No tenés permiso para cambiar la demora de compra.' }
-  return { error: null }
-}
-
-/** «Ya lo pedí» (D47): todo el pedido en una llamada atómica. Devuelve el grupo, para «Deshacer». */
-export async function registrarPedidoReposicion(
-  renglones: { protocol_id: string; medication_id: string; cantidad: number }[],
-  pedidoEl: string,
-): Promise<Resultado & { grupo?: string }> {
-  const { data, error } = await supabase.rpc('registrar_pedido_reposicion', { p_renglones: renglones, p_pedido_el: pedidoEl })
-  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
-  return { error: null, grupo: data as string }
-}
-
-/** «Deshacer» un «Ya lo pedí»: borra las filas del grupo (quedan en audit_log). */
-export async function anularPedidoReposicion(grupo: string): Promise<Resultado> {
-  const { error } = await supabase.rpc('anular_pedido_reposicion', { p_grupo: grupo })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null }
 }
@@ -113,12 +77,7 @@ export function useReposicionDelEstudio(protocolId: string) {
   )
 }
 
-// ═══════════════════════════ De corte a corte (0128) ═══════════════════════════
-// docs/superpowers/specs/2026-09-16-reposicion-submodulo-design.md. De lo de arriba, lo que es de la card
-// de Estadísticas (mes calendario) se va CON ELLA en la Parte 2: useInsumosDeReposicion,
-// guardarDemoraCompra, registrarPedidoReposicion y anularPedidoReposicion. configurarReposicion,
-// guardarEnvasesDelPaciente y useReposicionDelEstudio no son de esa card —son de la config del
-// medicamento y del paciente— y QUEDAN: los sigue usando la pantalla nueva.
+// ═══════════════════════════ De corte a corte (0128, 0133) ═══════════════════════════
 
 /**
  * El día de corte de Farmacia (R4). Envuelto en un objeto porque `null` es un valor con significado

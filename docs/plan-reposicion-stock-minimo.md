@@ -1,5 +1,7 @@
 # Plan · Stock mínimo mensual y faltante a comprar por estudio
 
+> **⚠️ Reemplazado en parte (2026-09-18).** La card «Compras para …» ya no está en Estadísticas: la reposición vive en el submódulo **Reposición** de Farmacia ([spec](superpowers/specs/2026-09-16-reposicion-submodulo-design.md)). Las decisiones D6, D10, D13, D14, D17, D20, D24, D28, D37 y D44-D48 quedan reemplazadas (ver la tabla «Decisiones del 14/09 que esto reemplaza» del spec). Las demás siguen valiendo.
+
 > `/plan-eng-review` del 2026-09-14, sobre `main` en `1a4444f` (v0.71.0, última migración `0124`).
 > **Cuarenta y ocho decisiones del Director, ninguna abierta** (D1-D32 de ingeniería, D33-D48 de
 > diseño; la D44 simplificó la card y reemplaza a D35-D42). Tres entregas = tres PRs. Se escribe **primero el modelo** (con tests), después la migración

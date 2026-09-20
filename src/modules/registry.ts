@@ -146,6 +146,10 @@ export const MODULES: ModuleDef[] = [
       // cambia — la usan views/registry.tsx, el buscador y las rutas guardadas.
       { key: 'medicamentos', name: 'Stock', icon: 'pill', hint: 'Inventario de medicación' },
       { key: 'dispensaciones', name: 'Dispensaciones', icon: 'box', hint: 'Entrega de medicación' },
+      // R1 del spec de Reposición (2026-09-16): submódulo propio entre Dispensaciones y Estadísticas. Es
+      // el paso que sigue en el recorrido de la medicación: lo que entra, lo que hay, lo que sale, lo que
+      // hay que pedir. El descriptor tiene que medir ≤ 145px (ver `hint`): se mide en la Task 10.
+      { key: 'reposicion', name: 'Reposición', icon: 'cart', hint: 'Pedidos de medicación' },
       // Rótulo "Estadísticas" (era "Reportes"), decisión del Director del 2026-08-20: lo que se
       // mira ahí son los números del período; los reportes son lo que se IMPRIME desde adentro.
       // La `key` NO cambia — la usan views/registry.tsx, el buscador y las rutas guardadas.

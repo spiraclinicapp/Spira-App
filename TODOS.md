@@ -5,6 +5,31 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
+## Farmacia · Recepción: saltar pasos del asistente deja los lotes sin cuadrar
+
+- **Qué:** que saltar a un paso anterior del asistente de recepción no permita volver adelante con los
+  lotes sin cuadrar (`goto` no mira `canAdvance`).
+- **Por qué:** desde el Resumen se puede saltar al paso de lotes, romper la suma y volver: lo que se
+  guarda sale de los lotes, pero el resumen (y ahora la comparación con el pedido) muestran lo contado.
+  Es PREEXISTENTE —`Step3Summary` ya mostraba `m.quantity`—, pero con un pedido la afirmación es sobre lo
+  que queda en camino, no sólo sobre el stock.
+- **Pros:** el asistente deja de poder mostrar (y guardar) un número que ya no es la suma real de los
+  lotes cargados.
+- **Contras:** `goto` lo usan tanto el `Stepper` (clic en un paso ya alcanzado) como `next`/`back`; hay
+  que decidir si un salto hacia adelante revalida sólo el paso de destino o toda la cadena intermedia,
+  sin romper el caso legítimo de volver a mirar un paso ya cuadrado.
+- **Contexto:** revisión final de la PR B de Reposición · Parte 2 (2026-09-20). Preexistente a Reposición:
+  el asistente de recepción ya dejaba descuadrar antes; el pedido en camino lo hace visible porque ahora
+  hay una cuenta más (`comparacionConElPedido`) que depende de `m.quantity`.
+- **Empezar por:** `src/views/pharma/ReceptionWizard.tsx` (`goto`, `canAdvance`) y
+  `src/views/pharma/wizard/PedidoEnRecepcion.tsx`.
+- **Disparador:** que alguien reporte un pedido que en el resumen decía «cuadrado» pero el stock que
+  llegó no coincide.
+- **Depende de / bloqueado por:** nada.
+- **Prioridad:** P3.
+
+---
+
 ## Coordinación · el tablero de Reportes con el lenguaje del modal de visita
 
 - **Qué:** pasar la variante `tablero` de `ReportCard` (el tablero de Reportes pendientes) al idioma que
@@ -21,6 +46,32 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 - **Empezar por:** `views/track/reportes/ReportCard.tsx` (rama `enTablero`) y `ReportesPendientesView.tsx`.
 - **Depende de / bloqueado por:** la PR 2 del plan y un mock del tablero.
 - **Prioridad:** P3.
+
+---
+
+## Farmacia · Reposición: código de barras del pedido en la hoja
+
+- **Qué:** imprimir el número del pedido como código de barras en la hoja, y que «Recibir un pedido» lo acepte escaneado.
+- **Por qué:** la hoja vuelve con la medicación y hoy el pedido se elige por número en una lista corta. Escanearlo ahorra el paso y el error de elegir otro.
+- **Pros:** más rápido y sin confusión cuando haya muchos pedidos abiertos.
+- **Contras:** otra forma de identificar el pedido para mantener. Con pocos pedidos por mes, la lista alcanza.
+- **Contexto:** decisión abierta de la revisión de diseño del 2026-09-17 (spec `docs/superpowers/specs/2026-09-16-reposicion-submodulo-design.md`, «UNRESOLVED DECISIONS»). Se recomendó dejarlo para más adelante, y el plan de la Parte 2 lo dejó acá.
+- **Empezar por:** `src/views/pharma/reposicion/HojaPedido.tsx` y `src/views/pharma/recepcion/RecibirPedido.tsx` (el campo de escaneo de `wizard/ScanField.tsx`).
+- **Disparador:** que la lista de «Recibir un pedido» pase de diez renglones, o que alguien reciba el pedido equivocado.
+- **Depende de / bloqueado por:** la Parte 2 de Reposición en prod.
+- **Prioridad:** P3.
+
+---
+
+## Recepción: que «Crear recepción» no se duplique si se corta la red
+
+- **Qué:** el mismo intento que la `0133` le puso a «Emitir e imprimir», aplicado a `create_reception`: un uuid por asistente abierto, único en `medication_receptions`. Si llega el mismo intento con los mismos renglones, la función devuelve la recepción ya guardada.
+- **Por qué:** si la red se corta después de guardar y se reintenta, quedan dos recepciones pendientes iguales. Si alguien verifica las dos, el stock se duplica. No es de Reposición: pasa con cualquier recepción desde que existe el asistente.
+- **Pros:** cierra el último camino al doble recibo. «Recibir un pedido» ya no precarga lo que está sin verificar.
+- **Contras:** toca `create_reception`, que usa toda Recepción y que la guarda de la `0132` también rodea.
+- **Contexto:** segunda opinión de la revisión de ingeniería del plan de la Parte 2 de Reposición (2026-09-19, `docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md`). Empezar por la firma actual de `create_reception` (`supabase/migrations/0128_*.sql`), la guarda (`0132_recepcion_guarda_borrado_y_renglones.sql`) y `src/views/pharma/ReceptionWizard.tsx`.
+- **Depende de / bloqueado por:** nada; la guarda (`0132`) ya está en prod.
+- **Prioridad:** P2.
 
 ---
 
