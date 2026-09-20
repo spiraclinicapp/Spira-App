@@ -1383,3 +1383,51 @@ git commit -m "feat(avisos): cablear los avisos de pedidos en el shell"
 - [ ] PR contra `main` (por API REST; no hay `gh` en esta máquina, y el merge lo hace el Director).
 - [ ] Anotar en `docs/plan-avisos-de-pedidos.md` lo que se haya decidido distinto durante la
       implementación — en particular si "Preparando" terminó apagado en `AVISA`.
+
+---
+
+## Lo que cambió al implementarlo (2026-09-20)
+
+Cuatro desvíos respecto de lo escrito arriba. Los tres primeros salieron al escribir el código; el
+último, al mirarlo en el navegador.
+
+1. **La consulta de lo abierto NO pide `atendida`.** El plan la incluía en el `.in(...)`, y eso es
+   todo el histórico de dispensaciones entregadas de ese coordinador, sin techo, en cada vuelta del
+   reloj. Quedó: lo abierto (`solicitada`, `preparando`) sin fecha, y todo lo demás acotado a los
+   últimos 7 días. **El caso que ese techo deja afuera** es uno solo y está anotado en el código: un
+   pedido LISTO que nadie retiró hace más de una semana pierde su card. Sigue en el tablero de
+   Farmacia, que es donde esa anomalía se resuelve.
+
+2. **El test de `fechaDeCard` no afirma una hora literal.** `formatTimeAR` formatea en hora LOCAL y
+   el CI corre en UTC: `expect(...).toBe('14:05')` pasaba en esta máquina y habría caído en la PR.
+   El test afirma la RAMA elegida (hora vs. fecha), que es la regla.
+
+3. **`estadoVisible` espeja a `badgeDeEstado` y no a `columnOf`**, como ya avisaba la Tarea 1.
+
+4. **Un bug que sólo se vio midiendo: el toast apilado entraba corrido media caja a la izquierda.**
+   `spToastIn` lleva el `translate(-50%, …)` adentro de sus *keyframes*, así que la animación volvía
+   a centrar lo que el modo apilado acababa de desalinear — y el `transform: none` del estilo inline
+   no puede contra una animación corriendo. Medido: `matrix(1,0,0,1,-123,8)` sobre una caja de
+   246 px, con el margen derecho en 160 px en vez de 22. Apilado usa ahora `spNotifCajaIn`, la
+   entrada de las cajas de la campana. **La lección reusable:** neutralizar el posicionamiento de un
+   componente no alcanza si su ANIMACIÓN repite ese posicionamiento adentro.
+
+### Qué quedó verificado, y qué no
+
+**Verificado** con un banco de pruebas temporal (`harness-avisos.html` + `src/__harness__/`, ya
+borrados), a 1536×864 y midiendo el DOM:
+
+- Los dos bloques, con sus rótulos, y el cupo de 5 con su "y 2 más".
+- Los seis estados con su color: ámbar Solicitada, azul Preparando, verde agua Lista, verde
+  Entregada, terracota Rechazada, gris Cancelada.
+- La fecha: hora si es de hoy, fecha si es de otro día.
+- Un nombre largo recorta con puntos suspensivos y no desaparece.
+- La cuarta columna, reservada y vacía (sin ✕).
+- La pila: tres popups apilados abajo a la derecha (margen 22 px), con "y 1 más", portaleados a
+  `document.body`, clickeables, con el contenedor sin robar clicks.
+- La siembra: la primera tanda no dispara ningún popup; la segunda dispara uno por pedido movido.
+
+**Sin verificar todavía, porque necesita sesión** (el agente no ingresa contraseñas): la consulta
+real contra producción — que la RLS devuelva lo que tiene que devolver para un coordinador y para
+Farmacia, que los embeds de paciente y protocolo lleguen completos, y el ciclo de 30 s de punta a
+punta. Es lo primero que hay que hacer cuando el Director se loguee en el preview.
