@@ -13,7 +13,7 @@ import { pharmaErrorMessage } from './errors'
  * que traen estas lecturas (D11).
  *
  * La card «Compras para …» de Estadísticas (0125) se fue el 2026-09-18 con su lectura, la demora de compra
- * y «Ya lo pedí». Lo que la base todavía tenga de ella lo borra la 0134, DESPUÉS del deploy de este front.
+ * y «Ya lo pedí». Lo que la base todavía tenga de ella lo borra la 0135, DESPUÉS del deploy de este front.
  */
 
 type Resultado = { error: string | null; code?: string }

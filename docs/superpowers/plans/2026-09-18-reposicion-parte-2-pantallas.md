@@ -14,7 +14,7 @@
 
   No cambia nada visible, igual que la Parte 1. La `0133` se aplica apenas se mergea.
 - **PR B** (Tasks 8-13) trae las pantallas copiando el mock, «Recibir un pedido», la salida de la card y el borrado del modelo viejo.
-- **`0134`** (Task 14) borra lo de la `0125`, **después** del deploy de la PR B.
+- **`0135`** (Task 14) borra lo de la `0125`, **después** del deploy de la PR B.
 
 **Tech Stack:** TypeScript strict, React 19, Supabase (PostgREST + plpgsql), vitest, PGlite para probar el SQL. Estilos inline con los tokens de `src/styles/tokens.css`, íconos Lucide vía `components/Icon`.
 
@@ -121,10 +121,10 @@ Ninguna de estas decisiones está en el spec. Pasaron por la revisión de ingeni
 | `src/views/pharma/reportes/ReportesView.tsx`, `ComprasDelMes.tsx` (borrar), `VerPedido.tsx` (borrar), `estilos.ts` | Sale la card | 12 |
 | `src/data/pharma/reposicionModel.ts` + `.test.ts` | Se van la cuenta del mes y el pedido global; quedan las reglas compartidas | 12 |
 | `docs/plan-reposicion-stock-minimo.md`, `TODOS.md` | Nota de reemplazo; el código de barras y el intento de `create_reception`, diferidos | 12 |
-| `supabase/migrations/0134_reposicion_limpieza.sql` (nuevo) | Borra lo de la `0125` | 14 |
-| `supabase/README.md` | Filas de la `0133` y la `0134` | 5, 14 |
-| `CLAUDE.md` | La última migración aplicada pasa a `0133` y después a `0134` | 7, 14 |
-| `<scratchpad>/pglite-0133/`, `<scratchpad>/pglite-0134/`, `<scratchpad>/sondas-*.mjs` (fuera del repo) | Bancos de prueba y sondas | 5, 7, 14 |
+| `supabase/migrations/0135_reposicion_limpieza.sql` (nuevo) | Borra lo de la `0125` | 14 |
+| `supabase/README.md` | Filas de la `0133` y la `0135` | 5, 14 |
+| `CLAUDE.md` | La última migración aplicada pasa a `0133` y después a `0135` | 7, 14 |
+| `<scratchpad>/pglite-0133/`, `<scratchpad>/pglite-0135/`, `<scratchpad>/sondas-*.mjs` (fuera del repo) | Bancos de prueba y sondas | 5, 7, 14 |
 
 `<scratchpad>` es la carpeta temporal de la sesión que ejecuta. Los bancos y las sondas no se commitean (precedente: la `0128`).
 
@@ -132,12 +132,12 @@ Ninguna de estas decisiones está en el spec. Pasaron por la revisión de ingeni
 
 1. **PR A** se mergea. **La `0133` es ADITIVA: se aplica apenas se mergea** (el que no anda sin ella es el front de la PR B). Después, sondas sin sesión y marca «Aplicada».
 2. **PR B** se mergea **después** de que la `0133` esté aplicada y marcada. Vercel la despliega.
-3. **Recién con la PR B en prod** se escribe y se pushea la `0134` (destructiva). **El archivo no se pushea antes**: una migración en el repo se aplica apenas alguien la ve (memoria `gotcha-migracion-front-primero-se-aplica-sola`). Si se aplicara antes del deploy, Estadísticas quedaría en blanco en prod.
+3. **Recién con la PR B en prod** se escribe y se pushea la `0135` (destructiva). **El archivo no se pushea antes**: una migración en el repo se aplica apenas alguien la ve (memoria `gotcha-migracion-front-primero-se-aplica-sola`). Si se aplicara antes del deploy, Estadísticas quedaría en blanco en prod.
 
 **Numeración** (decisión del Director, 2026-09-19).
 
 - El CI exige números contiguos (`scripts/check-migraciones.mjs`).
-- La `0132` es la guarda de Recepción (PR #234, aplicada en prod el 2026-09-19). Esta parte usa la `0133` (aditiva, Task 5) y la `0134` (limpieza, Task 14).
+- La `0132` es la guarda de Recepción (PR #234, aplicada en prod el 2026-09-19). Esta parte usa la `0133` (aditiva, Task 5) y la `0135` (limpieza, Task 14).
 - La Task 5 lo verifica antes de crear el archivo.
 
 ---
@@ -6167,7 +6167,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: todo lo anterior.
 - Produces:
   - Estadísticas vuelve a ser sólo los números del período (R12).
-  - Nada en `src/` nombra `insumos_de_reposicion`, `registrar_pedido_reposicion`, `anular_pedido_reposicion` ni `demora_compra_dias`. Es la condición para la `0134`.
+  - Nada en `src/` nombra `insumos_de_reposicion`, `registrar_pedido_reposicion`, `anular_pedido_reposicion` ni `demora_compra_dias`. Es la condición para la `0135`.
   - `estanteAlComienzo(lotes, pendiente, hoy, periodo: { desde: string; hasta: string })`.
 
 - [ ] **Step 1: Estadísticas sin la card**
@@ -6228,7 +6228,7 @@ import { pharmaErrorMessage } from './errors'
  * que traen estas lecturas (D11).
  *
  * La card «Compras para …» de Estadísticas (0125) se fue el 2026-09-18 con su lectura, la demora de compra
- * y «Ya lo pedí». Lo que la base todavía tenga de ella lo borra la 0134, DESPUÉS del deploy de este front.
+ * y «Ya lo pedí». Lo que la base todavía tenga de ella lo borra la 0135, DESPUÉS del deploy de este front.
  */
 
 type Resultado = { error: string | null; code?: string }
@@ -6852,7 +6852,7 @@ Segunda mitad de la Parte 2 de **Reposición** ([plan](docs/superpowers/plans/20
 ## ⚠️ Orden de despliegue
 
 - **Antes de mergear:** la 0133 tiene que estar aplicada (ya lo está si esta PR se abrió después de su marca).
-- **Después del deploy:** la 0134 borra de la base lo que usaba la card vieja. Va en una PR aparte y **recién con esto en prod**.
+- **Después del deploy:** la 0135 borra de la base lo que usaba la card vieja. Va en una PR aparte y **recién con esto en prod**.
 
 ## QA
 
@@ -6866,7 +6866,7 @@ Expected: `201 https://github.com/spiraclinicapp/Spira-App/pull/<N>`
 
 - [ ] **Step 4: Contar los «Ya lo pedí» de la card vieja, antes de mergear**
 
-La card vieja sigue en prod hasta el deploy de esta PR. Lo que alguien haya marcado con «Ya lo pedí» deja de restarse en Reposición desde el deploy, y se volvería a pedir. El freno de la 0134 lo ve recién después (revisión de ingeniería, 14). Pasarle al Director, para correr tal cual en el editor SQL (sólo lee):
+La card vieja sigue en prod hasta el deploy de esta PR. Lo que alguien haya marcado con «Ya lo pedí» deja de restarse en Reposición desde el deploy, y se volvería a pedir. El freno de la 0135 lo ve recién después (revisión de ingeniería, 14). Pasarle al Director, para correr tal cual en el editor SQL (sólo lee):
 
 ```sql
 select count(*) from public.reposicion_pedidos;
@@ -6877,7 +6877,7 @@ select count(*) from public.reposicion_pedidos;
 
 - [ ] **Step 5: Esperar el merge y el deploy**
 
-Avisarle al Director que la PR está lista y que **la 0134 va después del deploy**. Cuando la mergee, confirmar el deploy por el check de Vercel del commit de merge en `main`.
+Avisarle al Director que la PR está lista y que **la 0135 va después del deploy**. Cuando la mergee, confirmar el deploy por el check de Vercel del commit de merge en `main`.
 
 `<scratchpad>/estado-pr.mjs`:
 
@@ -6914,12 +6914,12 @@ git pull --ff-only
 
 ---
 
-### Task 14: Migración 0134 — se borra lo de la card vieja
+### Task 14: Migración 0135 — se borra lo de la card vieja
 
 **Files:**
-- Create: `supabase/migrations/0134_reposicion_limpieza.sql`
+- Create: `supabase/migrations/0135_reposicion_limpieza.sql`
 - Modify: `supabase/README.md`, `CLAUDE.md` (la última migración aplicada)
-- Create (fuera del repo): `<scratchpad>/pglite-0134/probar.mjs`, `<scratchpad>/sondas-0134.mjs`
+- Create (fuera del repo): `<scratchpad>/pglite-0135/probar.mjs`, `<scratchpad>/sondas-0135.mjs`
 
 **Interfaces:**
 - Consumes: la PR B **en prod**. Nada del front llama a lo que se borra (Task 12, Step 5).
@@ -6938,10 +6938,10 @@ Expected: la última es la `0133` de la Task 5. Si ya hay otra después, esta to
 
 - [ ] **Step 2: Escribir la migración**
 
-`supabase/migrations/0134_reposicion_limpieza.sql`:
+`supabase/migrations/0135_reposicion_limpieza.sql`:
 
 ```sql
--- Spira · Migración 0134 — Reposición: se borra lo de la card vieja de Estadísticas (0125).
+-- Spira · Migración 0135 — Reposición: se borra lo de la card vieja de Estadísticas (0125).
 -- Plan: docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md (Task 14).
 --
 -- APLICAR A MANO en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0133.
@@ -6992,25 +6992,25 @@ drop table if exists public.reposicion_pedidos;
 -- 4 · La demora de compra (R5: la fecha que importa es el corte) ----------------------------------------
 alter table public.farmacia_ajustes drop column if exists demora_compra_dias;
 comment on table public.farmacia_ajustes is
-  'Ajustes de Farmacia (una sola fila). dia_corte: el día del mes en que cierra cada período de reposición (0128). 0125, 0134.';
+  'Ajustes de Farmacia (una sola fila). dia_corte: el día del mes en que cierra cada período de reposición (0128). 0125, 0135.';
 ```
 
 - [ ] **Step 3: Probarla en PGlite**
 
 ```bash
-mkdir -p "<scratchpad>/pglite-0134" && cd "<scratchpad>/pglite-0134" && npm init -y && npm i @electric-sql/pglite@^0.5.8
+mkdir -p "<scratchpad>/pglite-0135" && cd "<scratchpad>/pglite-0135" && npm init -y && npm i @electric-sql/pglite@^0.5.8
 ```
 
-`<scratchpad>/pglite-0134/probar.mjs`:
+`<scratchpad>/pglite-0135/probar.mjs`:
 
 ```js
-// Prueba la 0134 sobre un esquema de juguete con lo que borra y lo que tiene que quedar.
+// Prueba la 0135 sobre un esquema de juguete con lo que borra y lo que tiene que quedar.
 //   node probar.mjs "C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2"
 import { PGlite } from '@electric-sql/pglite'
 import { readFileSync } from 'node:fs'
 
 const REPO = process.argv[2] ?? 'C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2'
-const m = readFileSync(`${REPO}/supabase/migrations/0134_reposicion_limpieza.sql`, 'utf8')
+const m = readFileSync(`${REPO}/supabase/migrations/0135_reposicion_limpieza.sql`, 'utf8')
 
 let fallas = 0
 const ok = (cond, msg) => {
@@ -7065,7 +7065,7 @@ console.log(fallas === 0 ? '\nTODO VERDE' : `\n${fallas} FALLAS`)
 process.exit(fallas === 0 ? 0 : 1)
 ```
 
-Run: `node "<scratchpad>/pglite-0134/probar.mjs" "C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2"`
+Run: `node "<scratchpad>/pglite-0135/probar.mjs" "C:/Users/Tutuca/Desktop/Spira/wt-reposicion-2"`
 Expected: `TODO VERDE`.
 
 - [ ] **Step 4: Índice, CLAUDE.md y commit**
@@ -7073,33 +7073,33 @@ Expected: `TODO VERDE`.
 En `supabase/README.md`, con Edit, debajo de la fila de la 0133:
 
 ```
-| 0134 | `reposicion_limpieza.sql` — **Reposición: se borra lo de la card vieja de Estadísticas** (`docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md`, Task 14). DESTRUCTIVA: va **después** del deploy del front de la Parte 2, que ya no nombra nada de esto (la card vieja sí). `drop` de `insumos_de_reposicion(date)`, `registrar_pedido_reposicion(jsonb, date)`, `anular_pedido_reposicion(uuid)`, la tabla `reposicion_pedidos` (con su trigger, policies e índices) y la columna `farmacia_ajustes.demora_compra_dias` (R5). Se frena sola, antes de borrar nada, si `reposicion_pedidos` tiene filas. Probada con PGlite (freno con filas y dos corridas). |
+| 0135 | `reposicion_limpieza.sql` — **Reposición: se borra lo de la card vieja de Estadísticas** (`docs/superpowers/plans/2026-09-18-reposicion-parte-2-pantallas.md`, Task 14). DESTRUCTIVA: va **después** del deploy del front de la Parte 2, que ya no nombra nada de esto (la card vieja sí). `drop` de `insumos_de_reposicion(date)`, `registrar_pedido_reposicion(jsonb, date)`, `anular_pedido_reposicion(uuid)`, la tabla `reposicion_pedidos` (con su trigger, policies e índices) y la columna `farmacia_ajustes.demora_compra_dias` (R5). Se frena sola, antes de borrar nada, si `reposicion_pedidos` tiene filas. Probada con PGlite (freno con filas y dos corridas). |
 ```
 
-`CLAUDE.md` no va en este commit: la última aplicada pasa de `0133` a `0134` en el Step 6, cuando el Director confirme que la aplicó.
+`CLAUDE.md` no va en este commit: la última aplicada pasa de `0133` a `0135` en el Step 6, cuando el Director confirme que la aplicó.
 
 Run: `node scripts/check-migraciones.mjs`
-Expected: `✓ 134 migraciones, índice al día.`
+Expected: `✓ 135 migraciones, índice al día.`
 
 ```bash
-git add supabase/migrations/0134_reposicion_limpieza.sql supabase/README.md
-git commit -m "chore(db): 0134 — se borra lo de la card vieja de Reposición
+git add supabase/migrations/0135_reposicion_limpieza.sql supabase/README.md
+git commit -m "chore(db): 0135 — se borra lo de la card vieja de Reposición
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 git -c credential.interactive=false push -u origin chore/reposicion-limpieza
 ```
 
 Abrir la PR con `crear-pr.mjs`:
-- título «Reposición · limpieza: 0134 borra lo de la card vieja»;
+- título «Reposición · limpieza: 0135 borra lo de la card vieja»;
 - cuerpo: qué borra, que **va después del deploy** (ya pasó) y que se frena sola si `reposicion_pedidos` tiene filas.
 
 - [ ] **Step 5: Aplicación**
 
-En el chat, en una frase: la 0134 es **destructiva**, el front ya no la necesita (deploy confirmado), y **se aplica apenas se mergea**. Si el editor frena con «todavía tiene filas», no se borró nada y hay que decidir qué hacer con esas filas antes de seguir.
+En el chat, en una frase: la 0135 es **destructiva**, el front ya no la necesita (deploy confirmado), y **se aplica apenas se mergea**. Si el editor frena con «todavía tiene filas», no se borró nada y hay que decidir qué hacer con esas filas antes de seguir.
 
 - [ ] **Step 6: Sondas y marca**
 
-`<scratchpad>/sondas-0134.mjs` es `sondas-0133.mjs` con estos `casos`:
+`<scratchpad>/sondas-0135.mjs` es `sondas-0133.mjs` con estos `casos`:
 
 ```js
 const casos = [
@@ -7113,13 +7113,13 @@ const casos = [
 ]
 ```
 
-Run: `node "<scratchpad>/sondas-0134.mjs"`
+Run: `node "<scratchpad>/sondas-0135.mjs"`
 Expected: siete `✓` y `TODO VERDE`. Si «ya no está» falla recién aplicada, falta el `notify pgrst, 'reload schema';`: pasárselo al Director y volver a sondear.
 
-Después, en una rama nueva `docs/0134-aplicada` desde `main` actualizado:
-- en `supabase/README.md`, sumar `**Aplicada en prod (AAAA-MM-DD).**` al final de la fila de la 0134 (con Edit, fecha literal);
-- en `CLAUDE.md`, la última aplicada pasa de `0133` a `0134`;
-- `node scripts/check-migraciones.mjs`, commit, push, PR con `crear-pr.mjs` (título «docs(db): 0134 aplicada en prod»).
+Después, en una rama nueva `docs/0135-aplicada` desde `main` actualizado:
+- en `supabase/README.md`, sumar `**Aplicada en prod (AAAA-MM-DD).**` al final de la fila de la 0135 (con Edit, fecha literal);
+- en `CLAUDE.md`, la última aplicada pasa de `0133` a `0135`;
+- `node scripts/check-migraciones.mjs`, commit, push, PR con `crear-pr.mjs` (título «docs(db): 0135 aplicada en prod»).
 
 - [ ] **Step 7: Dejar todo en orden**
 
@@ -7131,7 +7131,7 @@ git status -sb
 git fetch origin
 git pull --ff-only
 git worktree remove ../wt-reposicion-2
-git branch -D feat/reposicion-parte-2-base feat/reposicion-parte-2-pantallas chore/reposicion-limpieza docs/0133-aplicada docs/0134-aplicada
+git branch -D feat/reposicion-parte-2-base feat/reposicion-parte-2-pantallas chore/reposicion-limpieza docs/0133-aplicada docs/0135-aplicada
 ```
 
 Antes de borrar cada rama local, comparar su contenido con `main` (`git diff origin/main...<rama> --stat` vacío). Un merge por la web cambia los SHA, y `-d` diría que no está mergeada (memoria `gotcha-cherry-pick-cambia-el-sha`).
@@ -7176,8 +7176,8 @@ ejecución, y las dos marcadas «Director» las decidió él:
 
 ## Desviaciones de la ejecución (PR B, 2026-09-20)
 
-El código de la rama manda sobre los bloques de este plan en estos puntos. Salieron de la revisión final
-de la PR B:
+El código de la rama manda sobre los bloques de este plan en estos puntos. Salieron de las revisiones de cada
+tarea; la revisión final de la PR B pidió anotarlas acá:
 
 - **`AvisoLinea` anuncia los errores** (`piezas.tsx`): con `tono="danger"` lleva `role="alert"`, como los
   `role="alert"` de «Anular» y del detalle del pedido. El error de «Emitir e imprimir» no se anunciaba.
@@ -7186,6 +7186,8 @@ de la PR B:
 - **El Stepper sabe desde dónde se puede volver** (`src/components/Stepper.tsx`, que NO estaba en la lista de
   archivos de la Task 11, y `ReceptionWizard.tsx`): prop opcional `desde` (default 0). Recibiendo un pedido, el
   asistente arranca en el Escaneo y el paso «Tipo» se veía hecho y clickeable, pero el click no hacía nada.
+- **La limpieza de la Task 14 es la `0135`, no la `0134`**: mientras se ejecutaba esta parte, «lleva sangre»
+  (PR #241, otra sesión) se llevó la `0134`. Los números de este plan ya dicen `0135`.
 
 ---
 
@@ -7220,7 +7222,7 @@ Todo quedó escrito dentro de las Tasks: ejecutar el plan lo cumple.
 **Verificado en seco con todos los cambios (2026-09-19)**, sobre una copia limpia de `main` (con la `0132` de la guarda):
 - la PR A sola: typecheck limpio, 1333 tests y build;
 - todo junto: typecheck limpio, 1302 tests y build;
-- PGlite: la `0133` pasa 43 comprobaciones en tres corridas, y la `0134` sale verde.
+- PGlite: la `0133` pasa 43 comprobaciones en tres corridas, y la `0135` sale verde.
 
 Dos de los tests nuevos (el del 29/09 y el del segundo pedido del mismo período) se probaron al revés: fallan si se saca el arreglo.
 
