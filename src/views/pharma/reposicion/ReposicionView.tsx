@@ -3,6 +3,7 @@ import { Icon } from '../../../components/Icon'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { useAuth } from '../../../lib/auth'
 import { todayISO } from '../../../lib/dates'
+import { resolveCode } from '../../../lib/router'
 import { useUrlPath, useUrlState } from '../../../lib/useUrlState'
 import {
   armarReposicionDelPeriodo, franjaDelCorte, periodoAMirar, tarjetaDe, useDiaCorte, useReposicionDelPeriodo,
@@ -99,7 +100,9 @@ export function ReposicionView({ module, setHeader }: ViewProps) {
   if (!rep) return calculando
 
   if (codigo) {
-    const e = rep.estudios.find((x) => x.estudio.code === codigo)
+    // resolveCode: el mismo criterio que Pacientes, Dispensaciones y Stock (mayúsculas primero, y si no
+    // hay match exacto cae a ignorar la caja — el código se dicta por teléfono).
+    const e = resolveCode(rep.estudios, codigo, (x) => x.estudio.code)
     // Un código que no está (cerrado, mal escrito): pantalla serena dentro del marco, no la grilla muda.
     if (!e) return <NotFoundView motivo="ruta" />
     return (

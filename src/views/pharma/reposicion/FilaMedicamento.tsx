@@ -141,7 +141,7 @@ function Minimo({ r }: { r: RenglonDelPeriodo }) {
             <span className="spira-mono">{r.minimo.envases}</span>
             <span style={{ fontSize: 11, color: 'var(--spira-ink-soft)', marginTop: 2, whiteSpace: 'nowrap' }}>{textoMinimo(r.minimo)}</span>
           </>
-        : <span style={{ color: 'var(--spira-faint)' }}>—</span>}
+        : <span style={{ color: 'var(--spira-muted)' }}>—</span>}
     </div>
   )
 }

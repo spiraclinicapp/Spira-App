@@ -94,7 +94,7 @@ export function HojaPedido({ d }: { d: DatosHoja | null }) {
         </thead>
         <tbody>
           {d.renglones.map((r) => (
-            <Fragment key={r.nombre}>
+            <Fragment key={`${r.nombre}·${r.presentacion ?? ''}`}>
               <tr>
                 <td style={celda(PUNTEADA)}>
                   <b>{r.nombre}</b>
