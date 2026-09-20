@@ -27,9 +27,23 @@ process.env.TZ = 'America/Argentina/Buenos_Aires'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Versión desde package.json (única fuente de verdad) → constante global __APP_VERSION__.
+  /* Versión desde package.json (única fuente de verdad) → constante global __APP_VERSION__.
+   *
+   * Y EL BUILD SE IDENTIFICA A SÍ MISMO, que es otra cosa. La versión la sacamos a mano al cerrar
+   * la jornada, mientras que cada merge a `main` se despliega solo: entre un merge y su tag,
+   * `package.json` dice una versión más vieja que la que corre. Eso no es un bug —así funciona el
+   * ritual— pero SIN el commit el popover "Acerca de" no queda incompleto: queda MINTIENDO, porque
+   * afirma una versión que no es la que el usuario tiene delante. El 2026-09-20 pasó tres veces en
+   * una tarde, y las dos veces que hubo que contestar "¿qué está corriendo?" se resolvió bajando el
+   * bundle de producción y grepeándolo.
+   *
+   * `VERCEL_GIT_COMMIT_SHA` la pone Vercel en el build. Fuera de Vercel —`npm run build` local, el
+   * CI— no existe y queda 'dev': ahí el dato no serviría igual, porque ese bundle no es el que
+   * nadie está usando. */
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_SHA__: JSON.stringify((process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev').slice(0, 7)),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
   build: {
     // Producción SIN sourcemaps: no se publica el código fuente original.
