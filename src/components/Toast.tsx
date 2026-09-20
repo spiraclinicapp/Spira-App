@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from './Icon'
+import type { IconName } from './Icon'
 
 /**
  * Confirmación breve al pie, centrada. Para acciones que ya ocurrieron y no necesitan respuesta
@@ -12,10 +13,27 @@ import { Icon } from './Icon'
  *
  * Se pausa al pasarle el mouse por encima, por si el mensaje trae un número que hay que anotar.
  */
-export function Toast({ message, onDone, duration = 2400 }: {
+export function Toast({ message, onDone, duration = 2400, tono, onClick, apilado = false }: {
   message: string
   onDone: () => void
   duration?: number
+  /**
+   * Ícono y color del glifo. Por defecto, el check verde de "listo": este componente nació para
+   * confirmar lo que acabás de hacer. Los avisos de pedidos no confirman nada tuyo, y un check
+   * verde sobre "Pedido rechazado" diría lo contrario de lo que pasó.
+   */
+  tono?: { icono: IconName; color: string }
+  /** Si el aviso lleva a algún lado. Sin esto, el toast es texto y no tiene por qué parecer pulsable. */
+  onClick?: () => void
+  /**
+   * Lo ubica el CONTENEDOR, no el toast.
+   *
+   * De fábrica cada toast se planta solo al pie y centrado (`position: fixed`), que es lo correcto
+   * cuando es uno y confirma una acción. La pila de avisos de pedidos muestra hasta tres a la vez:
+   * si cada uno siguiera plantándose solo, los tres caerían exactamente en el mismo lugar, uno
+   * encima del otro.
+   */
+  apilado?: boolean
 }) {
   const [paused, setPaused] = useState(false)
 
@@ -25,15 +43,24 @@ export function Toast({ message, onDone, duration = 2400 }: {
     return () => clearTimeout(t)
   }, [paused, duration, onDone, message])
 
+  const caja = onClick ? { ...wrap, cursor: 'pointer' } : wrap
+  /* El contenedor de la pila va con `pointer-events: none` para no tapar la pantalla de atrás, así
+     que el toast tiene que volver a habilitarlos para sí mismo — si no, no se lo puede clickear ni
+     pausar con el mouse. */
+  const estilo: CSSProperties = apilado
+    ? { ...caja, position: 'static', left: 'auto', bottom: 'auto', transform: 'none', pointerEvents: 'auto' }
+    : caja
+
   return (
     <div
       role="status"
       aria-live="polite"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      style={wrap}
+      onClick={onClick}
+      style={estilo}
     >
-      <Icon name="check" size={16} color="var(--spira-good)" />
+      <Icon name={tono?.icono ?? 'check'} size={16} color={tono?.color ?? 'var(--spira-good)'} />
       <span>{message}</span>
     </div>
   )
