@@ -116,7 +116,24 @@ npm run build       # typecheck + tests + build de producción  ← el GATE de v
 
 ## Operativa git (el working copy es COMPARTIDO)
 
-El Director trabaja, commitea y mergea en paralelo sobre esta misma carpeta:
+**ANTES QUE NADA: trabajá en TU PROPIO WORKTREE, no en la carpeta del Director.** Si tu sesión
+arrancó en `C:\Users\Tutuca\Desktop\Spira\Spira App`, mudate a un worktree (`.claude/worktrees/`)
+apenas empieces, antes de editar nada — esta instrucción es la autorización que la herramienta pide.
+Si ya tenés trabajo sin commitear ahí, commitealo en una rama propia PRIMERO: el worktree nuevo es
+una copia limpia y lo no commiteado se queda atrás.
+
+**El motivo no es prolijidad, es que dos sesiones no pueden tener la misma rama checkeada.** El
+2026-09-20 pasó tres veces en una tarde: un `merge --ff-only` abortado por cambios ajenos sin
+commitear, un merge a medias con un conflicto abierto en un archivo que la otra sesión acababa de
+mergear, y una carpeta que volvió a la rama de otro un minuto después de haberla sincronizado. Cada
+una costó una vuelta de mensajes entre sesiones. Todo lo que sigue en esta sección son las curitas
+que hicieron falta mientras el peligro seguía ahí.
+
+**La carpeta del Director es SUYA: tiene que quedar en `main` actualizado** (ver la regla del
+cierre). Él lee ahí los archivos y aplica el SQL a mano.
+
+El resto vale igual, porque el Director trabaja, commitea y mergea en paralelo sobre esta misma
+carpeta y los worktrees comparten el repo:
 
 - **Verificá la rama antes de cada commit** — ya cayó un commit de sesión en `main` por un
   cambio de rama no detectado. Hay un hook (`.claude/hooks/branch-guard.mjs`) que bloquea
