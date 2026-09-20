@@ -96,27 +96,16 @@ function loHicisteVos(pedido: PedidoAviso, estado: EstadoVisible, uid: string | 
 }
 
 /**
- * El título del popup.
+ * Cómo se nombra el estado cuando quien mira es Farmacia.
  *
- * "Pedido nuevo" es lo que ve Farmacia cuando entra uno: para ella el hecho no es el estado de la
- * solicitud, es que le llegó trabajo.
+ * Hoy tiene UNA entrada y no seis, y eso es el resultado de un cambio de diseño: el aviso dejó de
+ * ser una frase propia («Lo están preparando — Juan Pérez · V3») y pasó a ser la MISMA card de la
+ * campana, que ya dice el estado con las palabras de `badgeDeEstado`. Lo único que no puede salir
+ * de ahí es esto: un pedido sin tomar es "Solicitada" para quien lo pidió y "Pedido nuevo" para
+ * quien lo tiene que atender — no es otro estado, es el mismo hecho visto desde el otro lado del
+ * mostrador.
  */
-const TITULO: Record<EstadoVisible, string> = {
-  solicitada: 'Pedido nuevo',
-  preparando: 'Lo están preparando',
-  lista: 'Lista para retirar',
-  entregada: 'Entregada',
-  rechazada: 'Pedido rechazado',
-  cancelada: 'Pedido cancelado',
-}
-
-/** Una frase, sin tecnicismos y sin el id del pedido: se sabe de qué habla por el paciente y la visita. */
-export function textoDeAviso(m: Movimiento): { titulo: string; detalle: string } {
-  return {
-    titulo: TITULO[m.estado],
-    detalle: `${m.pedido.patient_name} · ${m.pedido.visit_code ?? 'Visita'}`,
-  }
-}
+const PEDIDO_NUEVO = 'Pedido nuevo'
 
 /**
  * El segundo renglón de la card.
@@ -128,7 +117,7 @@ export function textoDeAviso(m: Movimiento): { titulo: string; detalle: string }
 export function rotuloDeCard(p: PedidoAviso, comoFarmacia: boolean): string {
   const estado = estadoDe(p)
   const base = comoFarmacia && estado === 'solicitada'
-    ? TITULO.solicitada
+    ? PEDIDO_NUEVO
     : badgeDeEstado(p.status, p.dispensacion).label
   return `${base} · ${p.visit_code ?? 'Visita'}`
 }

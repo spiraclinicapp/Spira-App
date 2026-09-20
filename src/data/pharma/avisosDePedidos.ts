@@ -49,7 +49,8 @@ const DIAS_ATRAS = 7
 const COLS =
   'id, status, updated_at, visit_id, visit_code, requested_by, ' +
   'dispensations:dispensations(status), ' +
-  'enrollment:enrollments!enrollment_id(ivrs_code, patient:patients(id, full_name)), ' +
+  // `patients.code` viaja además del `ivrs_code` de la inscripción: ver `aplanar`.
+  'enrollment:enrollments!enrollment_id(ivrs_code, patient:patients(id, code, full_name)), ' +
   'protocol:protocols!protocol_id(id, code)'
 
 /** La fila como la devuelve PostgREST, antes de aplanarla. */
@@ -61,7 +62,7 @@ interface FilaCruda {
   visit_code: string | null
   requested_by: string
   dispensations: { status: string }[] | null
-  enrollment: { ivrs_code: string | null; patient: { id: string; full_name: string } | null } | null
+  enrollment: { ivrs_code: string | null; patient: { id: string; code: string | null; full_name: string } | null } | null
   protocol: { id: string; code: string } | null
 }
 
@@ -78,7 +79,13 @@ function aplanar(f: FilaCruda): PedidoAviso {
     requested_by: f.requested_by,
     patient_id: f.enrollment?.patient?.id ?? '',
     patient_name: f.enrollment?.patient?.full_name ?? '—',
-    patient_code: f.enrollment?.ivrs_code ?? null,
+    /* EL IVRS DE ESTA INSCRIPCIÓN, con el código del paciente de respaldo. Es el mismo
+       `coalesce(e.ivrs_code, pa.code)` que la 0126 puso en seis vistas y la 0135 en el historial:
+       `enrollments.ivrs_code` es el número en ESTE estudio y puede faltar —se llena al inscribir en
+       un segundo protocolo—, mientras que `patients.code` es el del estudio madre. Leer sólo el
+       primero deja un guion donde el resto de la app muestra el número, que es peor que mostrar el
+       de al lado: dice "este paciente no tiene número". */
+    patient_code: f.enrollment?.ivrs_code ?? f.enrollment?.patient?.code ?? null,
     protocol_id: f.protocol?.id ?? '',
     protocol_code: f.protocol?.code ?? '—',
   }

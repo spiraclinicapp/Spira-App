@@ -8,9 +8,9 @@ import type { AlertKind } from '../data/alertDismissalModel'
 import {
   descarteListo, dismissAlert, DISMISS_REASONS, MOTIVO_OTRO, useActiveAlerts,
 } from '../data/alertDismissals'
-import { badgeDeEstado } from '../views/pharma/dispensaciones/estados'
 import type { PedidoAviso } from '../data/pharma/dispensationModel'
-import { fechaDeCard, repartir, rotuloDeCard } from './avisosPedidos'
+import { repartir } from './avisosPedidos'
+import { CajaDePedido } from './CajaDePedido'
 import { todayISO } from '../lib/dates'
 import { MODULES } from '../modules/registry'
 import type { NavTarget, ReturnTo } from '../views/types'
@@ -374,6 +374,17 @@ export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos
                     abrirPedido={() => { setOpen(false); onAbrirTablero() }}
                     verMas={() => { setOpen(false); onAbrirTablero() }}
                   />
+                )}
+                {/* Los pendientes clínicos llevan rótulo SÓLO cuando hay un bloque de pedidos
+                    arriba, y es una corrección de algo que se veía mal: con "Tus pedidos" como
+                    único encabezado, las alertas de abajo quedaban leídas bajo ese título —una
+                    alerta de IP sin pedir parecía un pedido tuyo—. Un rótulo que abarca lo que no
+                    le corresponde miente igual que un texto equivocado. Sin pedidos, el panel no
+                    gana un encabezado que nunca necesitó. */}
+                {!sinPedidos && cajas.length > 0 && (
+                  <div className="spira-eyebrow" style={{ padding: '6px 2px 0' }}>
+                    {nombreDeDestino(DESTINO_PENDIENTES) ?? 'Pendientes'}
+                  </div>
                 )}
                 {cajas.map((c, i) => (
                   <CajaDeAlerta
@@ -758,61 +769,5 @@ function BloqueDePedidos({ titulo, pedidos, comoFarmacia, abrirPedido, verMas }:
           : <div style={{ fontSize: 11.5, color: 'var(--spira-muted)', padding: '0 2px 2px' }}>y {ocultos} más</div>
       )}
     </>
-  )
-}
-
-/**
- * Una card de pedido.
- *
- * MISMA grilla que `CajaDeAlerta` (las clases `spira-notif-*`), porque lo único que este panel
- * promete es que todas sus filas se leen igual: ícono, cuerpo, datos y acción en la misma vertical.
- * La cuarta columna se reserva VACÍA — un pedido no se archiva, así que no hay ✕, pero si la
- * columna desapareciera los dos bloques dejarían de alinear entre sí.
- *
- * El nombre va como texto y no como `PatientLink`: el destino de esta card es el pedido, y un
- * segundo destino adentro haría que la misma fila lleve a dos lados según dónde le pegues.
- */
-function CajaDePedido({ pedido, comoFarmacia, hoy, abrir }: {
-  pedido: PedidoAviso
-  comoFarmacia: boolean
-  /** El día de hoy en ISO, para decidir si la fecha se muestra como hora. */
-  hoy: string
-  abrir: () => void
-}) {
-  const badge = badgeDeEstado(pedido.status, pedido.dispensacion)
-  const motivo = rotuloDeCard(pedido, comoFarmacia)
-  return (
-    <div
-      className="spira-notif-caja spira-notif-caja--link spira-no-press"
-      role="button"
-      tabIndex={0}
-      onClick={abrir}
-      onKeyDown={(e) => {
-        if (e.target !== e.currentTarget) return
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir() }
-      }}
-      aria-label={`Abrir el pedido de ${pedido.patient_name} — ${motivo}`}
-    >
-      {/* `tinte()` y no concatenar alpha sobre el token: `var(--…)18` es CSS inválido y el cuadrado
-          queda transparente sin un solo warning. */}
-      <span className="spira-notif-icono" style={{ background: tinte(badge.color, 9) }}>
-        <Icon name="box" size={16} color={badge.color} />
-      </span>
-
-      <div className="spira-notif-cuerpo">
-        <div className="spira-notif-l1">
-          <span className="spira-notif-nombre" title={pedido.patient_name}>{pedido.patient_name}</span>
-          <span className="spira-mono spira-notif-codigo">{pedido.patient_code ?? '—'}</span>
-        </div>
-        <div className="spira-notif-motivo" title={motivo}>{motivo}</div>
-      </div>
-
-      <div className="spira-notif-datos">
-        <ProtoTag code={pedido.protocol_code} protocolId={pedido.protocol_id} compacto />
-        <span className="spira-notif-fecha">{fechaDeCard(pedido, hoy)}</span>
-      </div>
-
-      <div className="spira-notif-accion" />
-    </div>
   )
 }

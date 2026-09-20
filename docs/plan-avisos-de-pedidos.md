@@ -1,7 +1,7 @@
 # Plan — Avisos de pedidos de dispensación
 
 **Fecha:** 2026-09-20 · **Origen:** pedido del Director en sesión (20/09/2026)
-**Toca:** `src/shell/` (campana + host de avisos), `src/data/pharma/`, `src/components/Toast.tsx`
+**Toca:** `src/shell/` (campana, card y host de avisos) y `src/data/pharma/`
 **Migraciones:** **ninguna** · **Estado:** spec, a la espera de revisión.
 
 El pedido, textual: *"que en el panel de notificaciones se vaya actualizando sobre el estado de las
@@ -25,7 +25,7 @@ Este plan es casi todo pegamento. Las piezas están:
 | `badgeDeEstado(solicitud, dispensacion)` | `views/pharma/dispensaciones/estados.ts:131` | **La** regla de "en qué estado está el pedido", con etiqueta y color. Ya distingue `lista` de `entregada`, que en `RequestStatus` son las dos `atendida`. |
 | `columnOf(r)` | `data/pharma/dispensationModel.ts:219` | La columna del tablero, sobre la misma pregunta. |
 | `COLUMN_META` / `STATUS_META` | `views/pharma/dispensaciones/estados.ts` | Los colores que Farmacia ya lee todo el día. |
-| `Toast` | `components/Toast.tsx` | Aviso al pie que se va solo y se pausa al hover, con `role="status"`. |
+| `Toast` | `components/Toast.tsx` | El patrón del aviso que se va solo y se pausa al hover. **No se toca**: el aviso de pedidos terminó siendo una card, no un toast (D12). |
 | `NotificationsMenu` + `notificaciones.ts` | `src/shell/` | El panel, su geometría, `usePopover`, y el reparto "reglas en un archivo con test, JSX en el otro". |
 | `requested_by` | `dispensation_requests` (0002:280) | Quién pidió. Ya está en la tabla; nunca se había pedido al front. |
 | RLS | 0006:252 y 0006:279 | Coordinación ve las solicitudes de sus visitas (`coordina_visita`) y las dispensaciones que cuelgan de ellas. Farmacia ve todo. **No hace falta ninguna política nueva.** |
@@ -91,8 +91,14 @@ ellos te entera el popup.
 lo conversado: si las cards se mezclaran con las alertas, el panel mostraría cinco filas con el punto
 en cero y la incoherencia volvería por la ventana. Van **arriba**, separadas por un encabezado
 sobrio (`spira-eyebrow`, el estilo que ya usa la barra de submódulos): **"Tus pedidos"** para
-Coordinación, **"Pedidos nuevos"** para Farmacia. Debajo sigue todo como está, y el pie —"Ver todos
-los pendientes"— no cambia: lleva a los pendientes clínicos, que es lo que promete.
+Coordinación, **"Pedidos nuevos"** para Farmacia. El pie —"Ver todos los pendientes"— no cambia:
+lleva a los pendientes clínicos, que es lo que promete.
+
+**Y los pendientes clínicos llevan el suyo.** (Agregado el 2026-09-20, mirando el panel con datos
+reales: con "Tus pedidos" como único encabezado, las alertas de abajo quedaban leídas bajo ese
+título — una alerta de «IP sin pedir» parecía un pedido propio. Un rótulo que abarca lo que no le
+corresponde miente igual que un texto equivocado.) Aparece **sólo cuando hay un bloque de pedidos
+arriba**: sin pedidos, el panel no gana un encabezado que nunca necesitó.
 
 **D7 — Cupo propio: hasta 5.** Las cards de pedidos no compiten por los 10 lugares de las alertas
 clínicas; si hay más de 5, el bloque cierra con "y N más". Sin esto, una tarde movida de Farmacia
@@ -101,8 +107,14 @@ sólo si quien mira tiene el módulo Farmacia**; para Coordinación es texto pel
 hoy una pantalla que liste "mis pedidos" y un link que prometa una lista que no hay es peor que no
 tener link. (Si algún día molesta, la pantalla que falta es esa, no el link.)
 
-**D8 — Sin ✕.** Un pedido no se archiva: se apaga solo cuando se cierra. Mismo criterio que el "IP
-sin entregar" (0119) — sin tacho, antes que un tacho que no hace lo que hacen los otros.
+**D8 — La card del panel no lleva ✕.** Un pedido no se archiva: se apaga solo cuando se cierra.
+Mismo criterio que el "IP sin entregar" (0119) — sin tacho, antes que un tacho que no hace lo que
+hacen los otros.
+
+**El aviso flotante sí lleva una ✕, y significa otra cosa**: cierra EL AVISO y no toca el pedido.
+Existe porque el aviso dura 30 segundos sobre la pantalla y tiene que poder sacarse de encima; la
+card del panel no tapa nada. Son la misma card con la cuarta columna usada distinto, que es
+justamente por qué esa columna se reserva siempre.
 
 **D9 — El popup avisa TODOS los movimientos.** Solicitada → Preparando → Lista → Entregada, y
 también Rechazada y Cancelada. Es lo pedido, con los ojos abiertos: un pedido normal da tres popups.
@@ -116,11 +128,20 @@ movimientos viejos.
 **D11 — Ni cuando estás mirando la pantalla que ya lo muestra.** Parado en Farmacia →
 Dispensaciones, el popup no salta: el tablero ya lo está diciendo. La card igual se actualiza.
 
-**D12 — Abajo a la derecha, apilados, hasta 3.** No al pie centrado: ahí vive el `Toast` de
-confirmación ("comprobante N° 1044 generado") y se pisarían. Si hay más de tres movimientos juntos
-—volviste a la pestaña después de un rato— el tercero dice "y N más" en vez de desfilar siete.
-Duración ~6 s, más que el toast de confirmación, porque este aviso no lo provocaste vos; se pausa al
-hover y es clickeable.
+**D12 — El aviso ES la card de la campana, flotando abajo a la derecha, 30 s.** (Corregido el
+2026-09-20, mirando la primera versión en pantalla: era una línea de texto al estilo toast y el
+Director la quería «más estilo notificación».) Misma card que muestra el panel —ícono teñido por
+estado, nombre, IVRS, protocolo y hora—, con una ✕ que cierra EL AVISO y no toca el pedido. Por eso
+la card vive en `CajaDePedido.tsx` y la dibujan los dos lugares: dos copias se separarían en el
+primer retoque y el aviso terminaría contando lo mismo de otra forma.
+
+Va abajo a la derecha y no al pie centrado, donde vive el `Toast` de confirmación («comprobante N°
+1044 generado»): son dos cosas distintas —uno confirma lo que hiciste, el otro te cuenta lo que hizo
+otro— y en el mismo lugar se pisan. Hasta tres a la vez; si hay más, un «y N más» arriba de la pila.
+
+**Dura 30 segundos**, no los 2,4 s del toast de confirmación: aquél confirma algo que acabás de
+hacer y ya estás mirando; éste llega de algo que hizo otra persona mientras estabas en otra
+pantalla. Se pausa con el mouse encima.
 
 ---
 
@@ -206,7 +227,9 @@ un refresco de fondo necesita.
   La pieza central. Siembra sin avisar cuando `previo` está vacío; avisa una sola vez por transición;
   ignora los pedidos propios; no confunde "salió de la lista" con "se movió"; y no avisa cuando el
   estado no cambió aunque `updated_at` sí (una edición de renglones no es un movimiento).
-- `textoDeAviso(mov) → { titulo, detalle }` — la tabla de §4.2, en un solo lugar.
+- `rotuloDeCard(pedido, comoFarmacia) → string` y `fechaDeCard(pedido, hoy) → string` — lo que dice
+  la card, para el panel y para el aviso. (El plan traía acá un `textoDeAviso` con título y detalle
+  propios; el rediseño de D12 lo dejó sin sentido y se borró: el aviso dice lo que dice la card.)
 - `AVISA: Record<EstadoVisible, boolean>` — la constante de D9.
 
 ### 5.3 Pantalla
@@ -215,8 +238,9 @@ un refresco de fondo necesita.
   ancestro con `backdrop-filter`, un `position: fixed` aterriza en cualquier lado (ya nos pasó con
   los popovers). Guarda el estado anterior en un `useRef` y llama a `detectarMovimientos` cuando
   llegan filas nuevas.
-- **`src/components/Toast.tsx`** — dos props opcionales: `tono` (ícono + color, hoy fijo en el check
-  verde) y `onClick`. Los ocho usos actuales no cambian ni una línea.
+- **`src/shell/CajaDePedido.tsx`** (nuevo) — la card, una sola vez, para el panel y para el aviso.
+  (El plan original extendía `components/Toast.tsx` con tres props; D12 cambió el diseño y el
+  `Toast` quedó **sin tocar**: el aviso ya no es un toast.)
 - **`src/shell/NotificationsMenu.tsx` + `notificaciones.ts`** — la cuarta clase (`pedido`), su bloque
   con encabezado, y **el comentario que explica por qué no entra en `count`**. Ese archivo afirma hoy
   que el punto y Pendientes cuentan lo mismo; a partir de acá la afirmación necesita su excepción
