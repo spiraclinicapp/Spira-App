@@ -33,7 +33,6 @@ import { TablaAmbulatorias, TablaDetalle, TablaMedicamentos, TablaProtocolos } f
 import { HojaImpresa } from './impresion'
 import type { ContextoReporte } from './impresion'
 import { avisoCaja, chip, chipActivo, sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
-import { ComprasDelMes } from './ComprasDelMes'
 
 /**
  * Farmacia › Estadísticas (el submódulo se llamaba "Reportes" hasta el 2026-08-20; la carpeta, el
@@ -292,11 +291,6 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
 
   /* ── Estados ─────────────────────────────────────────────────────────────── */
 
-  /* La card de compras va ARRIBA de todo y FUERA de los cortes de abajo (plan de reposición, D28):
-     tiene su propia carga y su propio error, no la mueve el período ni el filtro de estudio (D37), y
-     sigue visible con la ventana angosta (D48). Por eso se arma una vez y entra en cada retorno. */
-  const compras = <ComprasDelMes accentSolid={module.accentSolid} angosto={angosto} />
-
   if (angosto) {
     /* Acá la descarga es lo ÚNICO que se ofrece y el aviso de corte ni se dibuja (este retorno va
        antes que él), así que si no lo dice este texto el usuario se entera recién al abrir el
@@ -307,7 +301,6 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
     })
     return (
       <div>
-        {compras}
         <EmptyState
           icon="barChart"
           accent={module.accent}
@@ -327,7 +320,6 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
   if (error) {
     return (
       <div>
-        {compras}
         <EmptyState
           icon="alert"
           accent="#A6483B"
@@ -345,7 +337,6 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
   if (cargando) {
     return (
       <div>
-        {compras}
         <EmptyState
           icon="barChart"
           accent={module.accent}
@@ -366,7 +357,6 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
 
   return (
     <div>
-      {compras}
       <Filtros
         rango={rango}
         preset={preset}
@@ -574,7 +564,7 @@ function Filtros({
       </div>
 
       <p style={aplicada}>
-        El recorte vale para todo el informe de abajo (las compras de arriba no dependen de él): cada reporte que imprimas sale con ese mismo período
+        El recorte vale para todo el informe: cada reporte que imprimas sale con ese mismo período
         y ese mismo filtro declarados en el encabezado de la hoja. El reporte de dispensaciones
         declara sólo el período, como el formato acordado con la Fundación.
       </p>
