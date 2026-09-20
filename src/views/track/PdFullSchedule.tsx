@@ -12,9 +12,8 @@ import { desvioSegunProtocolo, estimadaNoAplica, fechaSegunProtocolo } from './v
 /**
  * Cronograma vertical: las visitas del paciente (programadas + sueltas). Por fila: pelotita de
  * estado (gris vacía sin atender, contorno verde con punto atendida, relleno verde con check
- * completa — sin número, ver `VisitDot`), título de la visita ("V5 W4", "VNP"), día con su ventana,
- * fecha y
- * pill del estado operativo.
+ * completa — sin número, ver `VisitDot`), título de la visita ("V5 W4", "VNP"), día con su
+ * ventana, fecha y pill del estado operativo.
  *
  * EL VERDE DE LA FILA DICE "LA VENTANA ESTÁ ABIERTA" (Director, 2026-09-20). Hasta ese día pintaba
  * la visita "actual" —la primera sin `real_date`—, sin mirar una sola fecha: una V18 de la semana 56
