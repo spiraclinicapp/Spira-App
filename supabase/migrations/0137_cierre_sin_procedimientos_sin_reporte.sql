@@ -1,4 +1,4 @@
--- Spira · Migración 0136 — Coordinación: la visita cierra por sus REPORTES, no por cada tilde
+-- Spira · Migración 0137 — Coordinación: la visita cierra por sus REPORTES, no por cada tilde
 -- ============================================================================
 -- Plan: docs/plan-resumen-de-visita.md (PR 3; decisiones D1, D13, D15, D18).
 --
@@ -29,7 +29,7 @@
 -- Spira. Ese caso se documenta como desviación de protocolo (0130) o en el eCRF del sponsor.
 --
 -- FORMA: `create or replace view` y NO `drop ... cascade`. `patient_visits` no cambió desde la 0120
--- (verificado hasta la 0135), así que `pv.*` expande igual y la lista de columnas es idéntica; no
+-- (verificado hasta la 0136), así que `pv.*` expande igual y la lista de columnas es idéntica; no
 -- hay que recrear `v_track_visits` ni nada que cuelgue de ella. Si el `create or replace` fallara
 -- por columnas, NO se fuerza con un cascade: se corta y se revisa.
 --
@@ -40,7 +40,7 @@
 -- ORDEN DE DESPLIEGUE: va DESPUÉS del deploy del front (PR #245, ya en prod). El front nuevo no la
 -- necesita para funcionar; lo que esta migración hace es dejar de pedir un tilde que ya no existe.
 --
--- APLICAR: a mano en el SQL Editor de Supabase, DESPUÉS de la 0135. IDEMPOTENTE.
+-- APLICAR: a mano en el SQL Editor de Supabase, DESPUÉS de la 0136. IDEMPOTENTE.
 -- Registrar en supabase/README.md al confirmarse en prod.
 --
 -- Probada con PGlite sobre un esquema de juguete: los cuatro casos de la tabla del plan y la sonda
@@ -94,7 +94,7 @@ select
           and now() > vpc.completed_at + (rd.eta_hours * interval '1 hour')
       ) then 'item_vencido'
       -- 6 · Atendida pero con pendientes: un REPORTE sin evolucionar, o el IP abierto.
-      --     0136 · Se retiró el `exists` de «algún procedimiento del cuadro sin completar». Desde el
+      --     0137 · Se retiró el `exists` de «algún procedimiento del cuadro sin completar». Desde el
       --     rediseño del modal sólo se tildan los procedimientos que dejan informe, así que esa
       --     condición dejaba abiertas para siempre las visitas con procedimientos sin reporte. Para
       --     los que SÍ lo dejan no cambia nada: uno sin tildar lo toma igual el exists de abajo,
@@ -134,7 +134,7 @@ select
 from public.patient_visits pv;
 
 comment on view public.v_patient_visits is
-  'patient_visits + estado clínico de 7 estados + recorrido operativo de 4 etapas. Recreada por la 0136: la rama `realizada` ya NO mira los procedimientos sin completar (desde el rediseño del modal sólo se tildan los que dejan informe); quedan el reporte sin evolucionar y el IP abierto. Resto verbatim de la 0120.';
+  'patient_visits + estado clínico de 7 estados + recorrido operativo de 4 etapas. Recreada por la 0137: la rama `realizada` ya NO mira los procedimientos sin completar (desde el rediseño del modal sólo se tildan los que dejan informe); quedan el reporte sin evolucionar y el IP abierto. Resto verbatim de la 0120.';
 
 -- Los permisos no se tocan, pero se repiten por si la vista se recrea en una base nueva.
 revoke all on public.v_patient_visits from anon;
