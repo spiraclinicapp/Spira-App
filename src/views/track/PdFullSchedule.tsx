@@ -2,11 +2,12 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
-import { dotVisual, flowWindow, orderVisits, visitStateLabel, visitTitleConSemanaAparte, studyTime, desvioDias, fueraDeVentana, ventanaAbierta } from '../../lib/visits'
+import { dotVisual, flowWindow, orderVisits, visitStateLabel, visitTitleConSemanaAparte, studyTime, fueraDeVentana, ventanaAbierta } from '../../lib/visits'
 import { dotColor } from '../visitStates'
 import { ayudaDeRotulo, GLOSARIO } from '../../lib/glosario'
 import { formatShortAR, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
+import { desvioSegunProtocolo, estimadaNoAplica, fechaSegunProtocolo } from './visitHeaderRules'
 
 /**
  * Cronograma vertical: las visitas del paciente (programadas + sueltas). Por fila: pelotita de
@@ -81,7 +82,16 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
         const label = visitTitleConSemanaAparte(v)
         const ayuda = ayudaDeRotulo(label)
         const st = studyTime(v)
-        const desv = desvioDias(v.estimated_date, v.real_date)
+        /* Arriba, la fecha con la que se TRABAJA: la realizada si ya vino, si no la citación. Son
+           las dos caras del mismo campo en el encabezado de la visita, y nunca conviven. */
+        const fechaDeArriba = v.real_date ?? v.estimated_date
+        const estimada = fechaSegunProtocolo(v)
+        const desv = desvioSegunProtocolo(v)
+        const tituloEstimada = estimada
+          ? `Fecha estimada: la que manda el cronograma del estudio${v.real_date ? '' : `. Citada para el ${v.estimated_date ? formatShortAR(v.estimated_date) : '—'}`}`
+          : estimadaNoAplica(v)
+            ? 'No aplica: el protocolo no fija fecha para esta visita (visita suelta o de agenda libre)'
+            : 'Todavía no se puede calcular: falta la fecha de randomización o el día de la visita en el cronograma'
         const fuera = fueraDeVentana(v.real_date, v.window_start, v.window_end)
         const enVentana = ventanaAbierta(v, today)
         /* Superficie teñida, que es la forma que ya usa la app para decir "esto significa algo"
@@ -135,25 +145,24 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
               )}
             </div>
             <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', minWidth: 78, textAlign: 'right', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
-              {v.real_date ? (
-                <>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end', color: 'var(--spira-ink)' }}>
-                    {formatShortAR(v.real_date)}
-                    {/* El `title` explica qué ES una ventana, no repite el `aria-label`: este ícono
-                        es el lugar donde alguien nuevo se topa con el concepto por primera vez y se
-                        pregunta qué tiene de malo esa fecha. */}
-                    {fuera && <span role="img" aria-label="Fuera de ventana" title={`Fuera de ventana. ${GLOSARIO.ventana}`} style={{ display: 'inline-flex' }}><Icon name="alert" size={12} color="var(--spira-danger)" /></span>}
-                  </span>
-                  {/* "prog" y no "est" (2026-09-14): `estimated_date` es la fecha PROGRAMADA, y desde que
-                      el encabezado de la visita llama "Fecha estimada" a la del protocolo, "est" acá
-                      nombraba otra fecha que la que muestra. */}
-                  <span title={v.estimated_date ? `Programada para el ${formatShortAR(v.estimated_date)}` : undefined} style={{ display: 'block', fontSize: 10.5, color: 'var(--spira-muted)' }}>
-                    prog {v.estimated_date ? formatShortAR(v.estimated_date) : '—'}{desv != null ? ` · ${desv > 0 ? '+' : ''}${desv} d` : ''}
-                  </span>
-                </>
-              ) : (
-                v.estimated_date ? formatShortAR(v.estimated_date) : '—'
-              )}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end', color: 'var(--spira-ink)' }}>
+                {fechaDeArriba ? formatShortAR(fechaDeArriba) : '—'}
+                {/* El `title` explica qué ES una ventana, no repite el `aria-label`: este ícono
+                    es el lugar donde alguien nuevo se topa con el concepto por primera vez y se
+                    pregunta qué tiene de malo esa fecha. */}
+                {fuera && <span role="img" aria-label="Fuera de ventana" title={`Fuera de ventana. ${GLOSARIO.ventana}`} style={{ display: 'inline-flex' }}><Icon name="alert" size={12} color="var(--spira-danger)" /></span>}
+              </span>
+              {/* ABAJO VA LA ESTIMADA, la del protocolo (Director, 2026-09-20). Decía "prog" y
+                  mostraba `estimated_date`, o sea la CITACIÓN — que en una visita sin atender es la
+                  misma que va arriba, repetida en chiquito, y en una atendida es una tercera fecha
+                  que compite con la de referencia. El encabezado de la visita ya tenía este orden
+                  desde el 2026-09-14: arriba el dato vivo, abajo la referencia.
+                  Y el renglón se dibuja SIEMPRE, también sin atender (el Director lo pidió mirando
+                  una fila "En ventana", que era la única sin subtítulo).
+                  "N/A" y "—" no son lo mismo: ver `estimadaNoAplica`. */}
+              <span title={tituloEstimada} style={{ display: 'block', fontSize: 10.5, color: 'var(--spira-muted)' }}>
+                est {estimada ? formatShortAR(estimada) : estimadaNoAplica(v) ? 'N/A' : '—'}{desv != null ? ` · ${desv > 0 ? '+' : ''}${desv} d` : ''}
+              </span>
             </span>
             {/* Con la ventana abierta la pastilla ya dice "En ventana" sola (`visitStateLabel`),
                 pero su color sale de la pelotita, que para una visita sin atender es GRIS: la

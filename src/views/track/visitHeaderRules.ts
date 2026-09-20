@@ -1,7 +1,7 @@
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { OPERATIONAL_STAGES, STAGE_ORDER } from '../visitStates'
 import { advanceRole } from './advanceStep'
-import { ageFromBirth, SEX_LABELS, FERTILITY_LABELS } from '../../lib/visits'
+import { ageFromBirth, desvioDias, SEX_LABELS, FERTILITY_LABELS } from '../../lib/visits'
 import { addDaysISO, formatAR } from '../../lib/dates'
 
 /**
@@ -148,6 +148,26 @@ export function fechaSegunProtocolo(
  */
 export function estimadaNoAplica(visit: Pick<DayVisitRow, 'kind' | 'date_mode'>): boolean {
   return visit.kind !== 'programada' || visit.date_mode === 'libre'
+}
+
+/**
+ * Cuántos días se corrió la visita de lo que manda el protocolo. Positivo = vino DESPUÉS.
+ *
+ * Es `desvioDias` anclado en la fecha del PROTOCOLO y no en la citación, y existe como función con
+ * nombre justamente para que ese anclaje sea la cosa que se testea. El cronograma lo muestra bajo
+ * la fecha de cada fila («est 12/08 · +2 d») desde que el Director pidió que abajo vaya la estimada
+ * (2026-09-20): antes decía «prog» y restaba contra `estimated_date`, así que el número y la fecha
+ * de al lado hablaban de la misma cosa. Ahora no lo harían — y una resta que quedó viva bajo un
+ * rótulo nuevo no se ve rota, sólo da un número plausible que no es el que dice ser.
+ *
+ * `null` cuando el protocolo no manda fecha (suelta, agenda libre, sin randomización) o la visita
+ * todavía no se atendió: en los dos casos falta un término, y ponerle un número igual sería
+ * inventar la referencia contra la que se mide.
+ */
+export function desvioSegunProtocolo(
+  visit: Pick<DayVisitRow, 'kind' | 'date_mode' | 'offset_days' | 'enrollment_randomization_date' | 'real_date'>,
+): number | null {
+  return desvioDias(fechaSegunProtocolo(visit), visit.real_date)
 }
 
 /* ACÁ VIVÍA `horaDeAtencion` (0102), que daba la hora del sello de inicio para mostrarla al lado
