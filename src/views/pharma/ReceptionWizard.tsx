@@ -276,7 +276,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, i
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12 }}>
         <span aria-hidden="true" />
         <div style={{ width: 680, maxWidth: '100%' }}>
-          <Stepper steps={STEPS} current={step} maxReached={maxReached} onJump={goto} accent={accentSolid} />
+          <Stepper steps={STEPS} current={step} maxReached={maxReached} onJump={goto} accent={accentSolid} desde={primerPaso} />
         </div>
         <button type="button" onClick={() => guard(onClose)} style={{ ...btnOutline, justifySelf: 'end' }}>Cancelar</button>
       </div>

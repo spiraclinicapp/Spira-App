@@ -1,21 +1,25 @@
 import type { CSSProperties } from 'react'
 import { Icon } from './Icon'
 
-interface StepperProps { steps: string[]; current: number; maxReached: number; onJump: (i: number) => void; accent: string }
+interface StepperProps { steps: string[]; current: number; maxReached: number; onJump: (i: number) => void; accent: string; desde?: number }
 
 /**
  * Stepper del handoff de Recepción: círculos 30px (completado = acento + check,
  * actual = acento + número, futuro = superficie atenuada) y conectores que crecen
  * y se tiñen al completarse. Los pasos ya alcanzados (maxReached) siguen siendo
  * clickeables para saltar — el wizard resiembra lotes en el goto.
+ *
+ * `desde` es el primer paso al que se puede volver: recibiendo un pedido, el tipo y el estudio
+ * los decide el pedido y el asistente arranca en el Escaneo. Esos pasos se muestran hechos,
+ * pero no se pueden clickear: un botón que no hace nada miente.
  */
-export function Stepper({ steps, current, maxReached, onJump, accent }: StepperProps) {
+export function Stepper({ steps, current, maxReached, onJump, accent, desde = 0 }: StepperProps) {
   return (
     <div role="list" style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, maxWidth: 680 }}>
       {steps.map((label, i) => {
         const done = i < current
         const active = i === current
-        const reachable = i <= maxReached && i !== current
+        const reachable = i >= desde && i <= maxReached && i !== current
         const notLast = i < steps.length - 1
         return (
           <div key={label} role="listitem" style={{ display: 'flex', alignItems: 'center', flex: notLast ? 1 : '0 0 auto', minWidth: 0 }}>
