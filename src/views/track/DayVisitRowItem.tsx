@@ -7,9 +7,9 @@ import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
 import { visitCode } from '../../lib/visits'
 import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
-import type { DayProcedureSummary } from '../../data/procedures'
+import type { ResumenVisita } from './resumenVisita'
 import { OperationalStageChip, OPERATIONAL_STAGES, VisitChip, VISIT_STATES } from '../visitStates'
-import { ProtoTag, ProcDots, Persona, VisitCodeTag } from '../visitAtoms'
+import { ProtoTag, IndicadoresVisita, Persona, VisitCodeTag } from '../visitAtoms'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 import { etapaProgreso } from './visitHeaderRules'
 
@@ -22,7 +22,7 @@ import { etapaProgreso } from './visitHeaderRules'
  * queda alineada al pixel entre filas pase lo que pase con el estado.
  */
 export function DayVisitRowItem({
-  visit, accent, canReception, canClinical, busyId, procs,
+  visit, accent, canReception, canClinical, busyId, resumen,
   onAdvance, onOpenDoctor, onNoShow, onReschedule, onOpen, onOpenPatient,
 }: {
   visit: DayVisitRow
@@ -33,8 +33,8 @@ export function DayVisitRowItem({
   canClinical: boolean
   /** id de la visita con mutación en vuelo (deshabilita sus controles). */
   busyId: string | null
-  /** Resumen de procedimientos de la visita (del hook batch); undefined = sin procedimientos. */
-  procs?: DayProcedureSummary
+  /** Qué lleva la visita, para la tira de indicadores. `null` = nada que decir: no se dibuja. */
+  resumen: ResumenVisita | null
   onAdvance: (visit: DayVisitRow, next: OperationalStage) => void
   onOpenDoctor: (visit: DayVisitRow) => void
   /** Marca (true) o deshace (false) "No vino". */
@@ -145,8 +145,10 @@ export function DayVisitRowItem({
           <VisitCodeTag code={visitCode(visit)} />
           <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{visitName}</span>
         </div>
-        {procs && procs.names.length > 0 && (
-          <div style={{ marginTop: 9 }}><ProcDots names={procs.names} accent={accent} /></div>
+        {/* La tira: qué lleva la visita. Sin nada que decir NO se dibuja, ni siquiera un texto de
+            reemplazo — «Sin procedimientos» en cada renglón sería ruido en toda la agenda. */}
+        {resumen && (
+          <div style={{ marginTop: 9 }}><IndicadoresVisita resumen={resumen} variante="fila" /></div>
         )}
       </div>
 

@@ -91,7 +91,7 @@ export function reportStatusErrorMessage(code: string | undefined, raw?: string)
  *
  * La vista ya viene desnormalizada (paciente, visita, procedimiento y definición), así que el
  * tablero no arma esto con tres consultas por visita: con cuarenta pacientes por ocho visitas eso
- * serían cientos de viajes. Mismo criterio que `useDayProceduresSummary`.
+ * serían cientos de viajes. Mismo criterio que `useDayProcedureRows`.
  */
 export function useProtocolReportStatus(protocolId: string | null) {
   return useSupabaseQuery<ReportStatusRow[]>(

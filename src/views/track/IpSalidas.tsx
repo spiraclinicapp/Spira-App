@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Icon } from '../../components/Icon'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import type { SelectOption } from '../../components/SearchableSelect'
 import { cerrarIpDeVisita, reabrirIpDeVisita, useEntregasIpDelEnrolamiento } from '../../data/visitIp'
 import type { MotivoNoCorresponde, VisitIpStatusRow } from '../../data/visitIp'
 import { formatDateAR } from '../../lib/dates'
-import { accionesIp, cierreListo, detalleIp, ipHecho, MOTIVOS_NO_CORRESPONDE, TITULO_IP } from './ipEstado'
+import { accionesIp, cierreListo, MOTIVOS_NO_CORRESPONDE } from './ipEstado'
 
 type TipoCierre = 'no_corresponde' | 'entregado_en_otra_visita'
 
@@ -16,25 +15,23 @@ const TIPOS: SelectOption[] = [
 ]
 
 /**
- * La primera fila del panel de Procedimientos cuando la visita lleva producto en investigación
- * (plan `docs/plan-dispensacion-base-e-imp.md`, D1).
+ * Las dos salidas explícitas del producto en investigación (plan `dispensacion-base-e-imp`, D2 y
+ * D11): «No corresponde entregarlo» y «Se entregó en otra visita», más el deshacer.
  *
- * NO ES UN PROCEDIMIENTO GUARDADO: es el estado de la entrega, leído de `v_visit_ip_status` (0119).
- * Por eso no tiene tilde que se toque — se marca sola cuando Farmacia confirma la entrega, y ése es
- * justamente el pedido: nadie en Coordinación puede darla por hecha. Se ve igual que las demás filas
- * (mismo borde, el mismo "asentarse" en el panel cuando está hecha) porque para quien la lee ES un
- * procedimiento más de la visita.
+ * VIVEN EN LA SECCIÓN «Producto en investigación» DE DISPENSACIÓN, que es donde se cuenta todo lo
+ * del IP. Antes eran la cola de la fila del IP en el panel de Procedimientos; ese panel se retiró
+ * con el rediseño del modal (plan `resumen-de-visita`, D2) y, sin mudarlas, un IP que no
+ * correspondía no se podía cerrar desde ningún lado — y un IP abierto frena el «Completa» de la
+ * visita.
  *
- * Lo único que se ofrece son las dos salidas explícitas (D2, D11), y sólo cuando el IP está abierto y
- * sin un pedido vivo en Farmacia. Van plegadas detrás de un botón con nombre: son la excepción, y no
- * pueden competir con la regla.
+ * NO REPITE EL ESTADO: la sección ya lo dice arriba con `desenlaceIp`, la misma frase para todos los
+ * lugares. Acá va sólo lo que se puede HACER, plegado detrás de un botón con nombre: son la
+ * excepción y no pueden competir con la regla (que es pedirlo a Farmacia).
  */
-export function IpDeliveryRow({ row, accent, readOnly, terminada }: {
+export function IpSalidas({ row, accent, readOnly }: {
   row: VisitIpStatusRow
   accent: string
   readOnly: boolean
-  /** La visita tiene fin de atención: cambia cómo se dice lo pendiente (`desenlaceIp`). */
-  terminada: boolean
 }) {
   const [abierto, setAbierto] = useState(false)
   const [tipo, setTipo] = useState<TipoCierre | null>(null)
@@ -44,7 +41,6 @@ export function IpDeliveryRow({ row, accent, readOnly, terminada }: {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
-  const hecho = ipHecho(row.estado)
   const { puedeCerrar, puedeDeshacer } = accionesIp(row.estado, readOnly)
 
   // Las entregas del enrolamiento se piden recién cuando hacen falta: casi nadie abre este camino.
@@ -77,45 +73,29 @@ export function IpDeliveryRow({ row, accent, readOnly, terminada }: {
     if (res.error) setErr(res.error)
   }
 
+  if (!puedeCerrar && !puedeDeshacer) return null
+
   return (
-    <div style={{ borderRadius: 12, border: '1px solid var(--spira-line)', background: hecho ? 'var(--spira-paper)' : 'var(--spira-white)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div
-          style={{ ...rowBase, flex: 1, minWidth: 0 }}
-          title={hecho ? undefined : 'Se marca cuando Farmacia confirma la entrega.'}
-        >
-          {/* El mismo cuadrito que las demás filas, pero no es un control: no hay tilde que tocar. */}
-          <span aria-hidden="true" style={tickBox(hecho, accent)}>
-            <Icon name="check" size={13} stroke={2.2} color="var(--spira-on-accent)" style={{ opacity: hecho ? 1 : 0 }} />
-          </span>
-          <span style={{ minWidth: 0, flex: 1 }}>
-            {/* Sin rótulo oculto de "realizado/pendiente": la línea de abajo ya dice el estado en
-                palabras ("Entregado por…", "Sin entregar…"), que es lo que lee el lector de pantalla. */}
-            <span style={{ display: 'block', fontSize: 13.5, color: 'var(--spira-ink)' }}>{TITULO_IP}</span>
-            {/* `ink-soft` y no `muted`: sobre el papel de la fila hecha, `muted` no llega a 4.5:1
-                (mismo porqué que en VisitProcedures). */}
-            <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: 'var(--spira-ink-soft)', lineHeight: 1.4 }}>
-              {detalleIp(row, terminada)}
-            </span>
-          </span>
+    <div style={{ marginTop: 9, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {!abierto && (
+        <div style={{ display: 'flex', gap: 8 }}>
+          {puedeCerrar && (
+            <button type="button" className="spira-no-press" onClick={() => setAbierto(true)} style={pill}>
+              No se entrega acá
+            </button>
+          )}
+          {puedeDeshacer && (
+            <button type="button" className="spira-no-press" onClick={() => void deshacer()} disabled={busy} style={pill}>
+              {busy ? 'Deshaciendo…' : 'Deshacer'}
+            </button>
+          )}
         </div>
+      )}
 
-        {puedeCerrar && !abierto && (
-          <button type="button" className="spira-no-press" onClick={() => setAbierto(true)} style={{ ...pill, marginRight: 13 }}>
-            No se entrega acá
-          </button>
-        )}
-        {puedeDeshacer && (
-          <button type="button" className="spira-no-press" onClick={() => void deshacer()} disabled={busy} style={{ ...pill, marginRight: 13 }}>
-            {busy ? 'Deshaciendo…' : 'Deshacer'}
-          </button>
-        )}
-      </div>
-
-      {err && !abierto && <div style={{ padding: '0 13px 11px 45px', fontSize: 12.5, color: 'var(--spira-acc-deep-danger)' }}>{err}</div>}
+      {err && !abierto && <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)' }}>{err}</div>}
 
       {abierto && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '2px 13px 12px 45px' }}>
+        <>
           <SearchableSelect
             options={TIPOS}
             value={tipo ?? ''}
@@ -174,21 +154,10 @@ export function IpDeliveryRow({ row, accent, readOnly, terminada }: {
               {busy ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
-}
-
-const rowBase: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 13px' }
-
-function tickBox(hecho: boolean, accent: string): CSSProperties {
-  return {
-    flex: '0 0 auto', width: 20, height: 20, borderRadius: 6,
-    display: 'grid', placeItems: 'center',
-    borderWidth: 1.5, borderStyle: 'solid', borderColor: hecho ? accent : 'var(--spira-muted)',
-    background: hecho ? accent : 'transparent',
-  }
 }
 
 const pill: CSSProperties = {

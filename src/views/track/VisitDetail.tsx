@@ -38,7 +38,8 @@ import { DoctorRequestModal } from './DoctorRequestModal'
  * ├ VisitActionBar ─────────────────────────────────────────────┤   68px
  * │ etapa · hora · contexto      2 DE 4  │  [sec] [PRIMARIA]     │
  * ├ cuerpo (scroll) ────────────────────────────────────────────┤
- * │ Procedimientos          │  Dispensación                     │
+ * │ Resumen de la visita    │  Dispensación                     │
+ * │ Reportes pendientes     │  (con las salidas del IP)         │
  * │ Comentarios (a ancho completo) ─────────────────────────────│
  * └─────────────────────────────────────────────────────────────┘
  * ```
@@ -276,8 +277,16 @@ export function VisitDetail({
             <div style={{ padding: '16px 22px 24px', overflow: 'auto' }}>
               <div className="spira-visit-body" style={body}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
-                  {/* Monta su propio `Panel` (el contador "n/total" va en la línea del rótulo). */}
-                  <VisitProcedures visitId={visit.id} visitDefId={visit.visit_def_id} accent={accent} readOnly={readOnly} terminada={visit.ready_at !== null} />
+                  {/* Monta sus DOS `Panel` (Resumen de la visita y Reportes pendientes) y es el
+                      dueño de los datos de los dos: el conteo de reportes por cargar sale una sola
+                      vez y baja a ambos, para que no puedan decir números distintos. */}
+                  <VisitProcedures
+                    visitId={visit.id}
+                    visitDefId={visit.visit_def_id}
+                    protocolId={visit.protocol_id}
+                    accent={accent}
+                    readOnly={readOnly}
+                  />
 
                   {/* Comentarios NO está en el mock y se conserva igual (decisión del Director,
                       2026-08-13): es una función en producción desde la 0048 y desde la ficha del

@@ -63,7 +63,7 @@ export function SeccionIp({
   contenido, excepcion, readOnly, accent, busy,
   archivo, onQuitarArchivo, onElegirArchivo,
   constanciaAbierta, reemplazando, onReemplazar,
-  constanciaIncompleta, entregado, desenlace, onRegistrarEntrega, onPedirFueraDeCronograma,
+  constanciaIncompleta, entregado, desenlace, onRegistrarEntrega, onPedirFueraDeCronograma, salidas,
 }: {
   contenido: ContenidoIp
   /** `null` = la visita no está en excepción. */
@@ -86,6 +86,8 @@ export function SeccionIp({
   onRegistrarEntrega: (() => void) | null
   /** `null` = no se ofrece (en la ficha). */
   onPedirFueraDeCronograma: (() => void) | null
+  /** Las salidas del IP (`IpSalidas`), o `null` cuando no hay ninguna disponible. */
+  salidas?: ReactNode
 }) {
   let cuerpo: ReactNode = null
   switch (contenido) {
@@ -228,6 +230,12 @@ export function SeccionIp({
       )}
 
       {cuerpo}
+
+      {/* Las dos salidas explícitas del IP («No corresponde», «Se entregó en otra visita») y su
+          deshacer. Llegaron acá con el rediseño del modal de visita: vivían en la fila del IP del
+          panel de Procedimientos, que ya no existe. Van al final, después del desenlace que las
+          explica: son la excepción, no la regla. */}
+      {salidas}
     </Sub>
   )
 }
