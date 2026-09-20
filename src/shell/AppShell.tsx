@@ -11,6 +11,10 @@ import type { NavTarget, ReturnTo, ViewHeader, ViewHeaderCrumb } from '../views/
 import { CommandPalette } from './CommandPalette'
 import { UserMenu } from './UserMenu'
 import { NotificationsMenu } from './NotificationsMenu'
+import { AvisosDePedidos } from './AvisosDePedidos'
+import { usePedidosParaAvisar } from '../data/pharma/avisosDePedidos'
+import { pedidosVigentes } from './avisosPedidos'
+import { todayISO } from '../lib/dates'
 import { AboutMenu } from './AboutMenu'
 import { FeedbackModal } from './FeedbackModal'
 import { armarLugar, lugarActual } from '../lib/lugar'
@@ -89,7 +93,7 @@ function primaryActionBtn(accentSolid: string): CSSProperties {
 
 export function AppShell() {
   const { prefs, theme, toggleTheme } = usePrefs()
-  const { modules: userModules } = useAuth()
+  const { modules: userModules, session } = useAuth()
   /* Dónde estás parado sale de la URL, no de un useState: es lo que hace que F5 te deje donde estabas
      y que un link lleve a cualquier pantalla. `null` = la ruta no existe → NotFoundView (Task 5). */
   const urlLocation = useUrlLocation()
@@ -180,6 +184,22 @@ export function AppShell() {
      desplegable de pantalla de inicio: escrita en dos lados, se desincroniza sin que nada deje de
      compilar, y de los dos lados gobierna un acceso. */
   const isAllowed = (key: string) => moduloHabilitado(key, userModules, MODULES)
+
+  /* Los avisos de pedidos de dispensación (`docs/plan-avisos-de-pedidos.md`).
+
+     UNA SOLA CONSULTA para los dos consumidores —el bloque de la campana y la pila de popups—, y
+     por eso vive acá arriba y baja por props: con una consulta cada uno serían dos relojes
+     desfasados contando lo mismo, que es el bug que `alertSignal.ts` existe para evitar del lado de
+     las alertas clínicas. */
+  const uid = session?.user.id ?? null
+  const pedidosQuery = usePedidosParaAvisar({
+    uid,
+    verCoordinacion: isAllowed('track'),
+    verFarmacia: isAllowed('pharma'),
+  })
+  /* Qué sigue mereciendo una card es una regla pura y testeada: lo abierto queda siempre, lo
+     cerrado sólo si se cerró hoy. */
+  const pedidos = pedidosQuery.data === null ? null : pedidosVigentes(pedidosQuery.data, todayISO())
 
   const mod = MODULES.find((m) => m.key === moduleKey) ?? MODULES[0]
   const sub = mod.submodules.find((s) => s.key === subKey) ?? mod.submodules[0]
@@ -364,7 +384,14 @@ export function AppShell() {
           <button onClick={toggleTheme} style={iconBtn} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
             <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} color="var(--spira-ink)" />
           </button>
-          <NotificationsMenu onNavigate={navigate} isAllowed={isAllowed} />
+          <NotificationsMenu
+            onNavigate={navigate}
+            isAllowed={isAllowed}
+            pedidos={pedidos}
+            errorPedidos={pedidosQuery.error}
+            uid={uid}
+            onAbrirTablero={() => navigate('pharma', 'dispensaciones')}
+          />
 
           <span style={{ width: 1, height: 26, background: 'var(--spira-line)', margin: '0 4px' }} />
 
@@ -650,6 +677,21 @@ export function AppShell() {
           onIrAlLugar={(mKey, sKey, target) => navigate(mKey, sKey, target as NavTarget)}
         />
       )}
+
+      {/* Los popups de movimiento de un pedido de dispensación. Van acá, a nivel shell y no adentro
+          de la campana, porque tienen que aparecer estés donde estés y con el panel cerrado: de eso
+          se trata el aviso. */}
+      <AvisosDePedidos
+        pedidos={pedidos}
+        uid={uid}
+        enPantallaDelTablero={moduleKey === 'pharma' && subKey === 'dispensaciones'}
+        onAbrir={(p) => {
+          /* Farmacia va al tablero, que es donde ese pedido se trabaja; Coordinación, a la ficha
+             del paciente bajo su protocolo, que es desde donde lo pidió. */
+          if (isAllowed('pharma')) { navigate('pharma', 'dispensaciones'); return }
+          navigate('track', 'protocolos', { patientId: p.patient_id, protocolId: p.protocol_id })
+        }}
+      />
     </div>
   )
 }

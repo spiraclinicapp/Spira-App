@@ -8,6 +8,10 @@ import type { AlertKind } from '../data/alertDismissalModel'
 import {
   descarteListo, dismissAlert, DISMISS_REASONS, MOTIVO_OTRO, useActiveAlerts,
 } from '../data/alertDismissals'
+import { badgeDeEstado } from '../views/pharma/dispensaciones/estados'
+import type { PedidoAviso } from '../data/pharma/dispensationModel'
+import { fechaDeCard, repartir, rotuloDeCard } from './avisosPedidos'
+import { todayISO } from '../lib/dates'
 import { MODULES } from '../modules/registry'
 import type { NavTarget, ReturnTo } from '../views/types'
 import { priorizarAlertas } from '../views/visitRules'
@@ -71,6 +75,20 @@ interface NotificationsMenuProps {
   onNavigate: (moduleKey: string, subKey: string, target?: NavTarget, back?: ReturnTo) => void
   /** Gate de acceso del shell (para el pie, el link del paciente y el tacho). */
   isAllowed: (moduleKey: string) => boolean
+  /** Los pedidos de dispensación del alcance de quien mira. `null` mientras la consulta no volvió. */
+  pedidos: PedidoAviso[] | null
+  /**
+   * Por qué no se pudieron traer, si falló.
+   *
+   * NO ALCANZA CON NO MOSTRAR NADA: si la RLS filtra o la consulta se cae, una lista vacía se lee
+   * como "no tenés pedidos", que es exactamente el falso negativo que este aviso existe para
+   * evitar. Mismo criterio que `AvisosDeEntrega` — nunca se calla.
+   */
+  errorPedidos: string | null
+  /** Para saber cuáles son tuyos. */
+  uid: string | null
+  /** Ir al tablero de Dispensaciones (lo usa el bloque de Farmacia). */
+  onAbrirTablero: () => void
 }
 
 /** Lo que hace falta para archivar una alerta desde acá. */
@@ -111,7 +129,7 @@ interface Caja {
   descarte: Descarte | null
 }
 
-export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuProps) {
+export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos, uid, onAbrirTablero }: NotificationsMenuProps) {
   const alerts = useActiveAlerts()
   const [open, setOpen] = useState(false)
   /** La visita que muestra el modal, cuando se abrió una desde una caja. */
@@ -268,7 +286,22 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
 
   const punto = tonoDelPunto(todasLasVisitas, todosLosReportes, todosLosIp)
   const label = count > 0 ? `Notificaciones, ${count} sin leer` : 'Notificaciones'
-  const vacio = cajas.length === 0
+
+  /* ┌─ LOS PEDIDOS NO ENTRAN EN `count` ───────────────────────────────────────────────────────┐
+     El punto de la campana y el contador de Pendientes son el mismo número y tienen que seguir
+     coincidiendo — es lo que el bloque de arriba explica y lo que hace que este panel se pueda
+     creer—. Un pedido de dispensación en curso NO es un pendiente clínico: es información sobre
+     algo que ya está en movimiento, y de él te enteraste por el popup.
+
+     La contracara es que el panel puede mostrar cinco cards con el punto apagado, y eso, sin una
+     palabra que lo separe, se lee como una incoherencia. Por eso el bloque va ROTULADO y arriba:
+     el encabezado es lo que hace honesta a la excepción. Ver `docs/plan-avisos-de-pedidos.md` (D5, D6).
+     └──────────────────────────────────────────────────────────────────────────────────────────┘ */
+  const { mios, nuevos } = repartir(pedidos ?? [], uid)
+  const sinPedidos = mios.length === 0 && nuevos.length === 0
+  /* El error cuenta como "hay algo que mostrar": si no, un fallo de la consulta caería en el estado
+     vacío ("Estás al día") y afirmaría que no pasa nada justo cuando no sabemos. */
+  const vacio = cajas.length === 0 && sinPedidos && errorPedidos === null
 
   return (
     <>
@@ -318,16 +351,41 @@ export function NotificationsMenu({ onNavigate, isAllowed }: NotificationsMenuPr
                 </div>
               </div>
             ) : (
-              cajas.map((c, i) => (
-                <CajaDeAlerta
-                  key={c.key}
-                  caja={c}
-                  indice={i}
-                  abrirVisita={abrirVisita(c.visitId)}
-                  abrirPaciente={abrirFicha(c.patientId, c.protocolId)}
-                  puedeDescartar={puedeCoordinar}
-                />
-              ))
+              <>
+                {errorPedidos && (
+                  <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', padding: '4px 2px' }}>
+                    No pudimos ver el estado de los pedidos de dispensación.
+                  </div>
+                )}
+                {mios.length > 0 && (
+                  <BloqueDePedidos
+                    titulo="Tus pedidos"
+                    pedidos={mios}
+                    comoFarmacia={false}
+                    abrirPedido={(p) => { setOpen(false); setVisitaAbierta(p.visit_id) }}
+                    verMas={null}
+                  />
+                )}
+                {nuevos.length > 0 && (
+                  <BloqueDePedidos
+                    titulo="Pedidos nuevos"
+                    pedidos={nuevos}
+                    comoFarmacia
+                    abrirPedido={() => { setOpen(false); onAbrirTablero() }}
+                    verMas={() => { setOpen(false); onAbrirTablero() }}
+                  />
+                )}
+                {cajas.map((c, i) => (
+                  <CajaDeAlerta
+                    key={c.key}
+                    caja={c}
+                    indice={i}
+                    abrirVisita={abrirVisita(c.visitId)}
+                    abrirPaciente={abrirFicha(c.patientId, c.protocolId)}
+                    puedeDescartar={puedeCoordinar}
+                  />
+                ))}
+              </>
             )}
           </div>
 
@@ -654,4 +712,107 @@ const popBtnCancelar: CSSProperties = {
 const popBtnConfirmar: CSSProperties = {
   ...popBtn, borderColor: 'var(--spira-acc-deep-danger)',
   background: 'var(--spira-acc-deep-danger)', color: 'var(--spira-white)',
+}
+
+/**
+ * Cuántas cards de pedido entran en el panel.
+ *
+ * CUPO PROPIO: no le compiten a las alertas clínicas los 10 lugares que tienen. Si compartieran
+ * lista, una tarde movida de Farmacia empujaría una ventana vencida fuera del panel — un aviso
+ * informativo tapando un desvío clínico, que es exactamente al revés de lo que esta pantalla es.
+ */
+const MAX_PEDIDOS = 5
+
+/**
+ * Un bloque de cards de pedidos, con su rótulo.
+ *
+ * El rótulo no es decoración: estas cards NO suman al punto de la campana, y sin una palabra que
+ * las separe de los pendientes clínicos el panel se lee como si el contador estuviera mal.
+ */
+function BloqueDePedidos({ titulo, pedidos, comoFarmacia, abrirPedido, verMas }: {
+  titulo: string
+  pedidos: PedidoAviso[]
+  comoFarmacia: boolean
+  abrirPedido: (p: PedidoAviso) => void
+  /** El "y N más" sólo lleva a algún lado si existe una pantalla que los liste. Coordinación no
+   *  tiene una, y un link que promete una lista que no hay es peor que no tener link. */
+  verMas: (() => void) | null
+}) {
+  const visibles = pedidos.slice(0, MAX_PEDIDOS)
+  const ocultos = pedidos.length - visibles.length
+  // El día se lee UNA vez por bloque y no una por card.
+  const hoy = todayISO()
+  return (
+    <>
+      <div className="spira-eyebrow" style={{ padding: '2px 2px 0' }}>{titulo}</div>
+      {visibles.map((p) => (
+        <CajaDePedido key={p.id} pedido={p} comoFarmacia={comoFarmacia} hoy={hoy} abrir={() => abrirPedido(p)} />
+      ))}
+      {ocultos > 0 && (
+        verMas
+          ? (
+            <button type="button" onClick={verMas} className="spira-notif-all" style={{ fontSize: 12 }}>
+              y {ocultos} más
+            </button>
+          )
+          : <div style={{ fontSize: 11.5, color: 'var(--spira-muted)', padding: '0 2px 2px' }}>y {ocultos} más</div>
+      )}
+    </>
+  )
+}
+
+/**
+ * Una card de pedido.
+ *
+ * MISMA grilla que `CajaDeAlerta` (las clases `spira-notif-*`), porque lo único que este panel
+ * promete es que todas sus filas se leen igual: ícono, cuerpo, datos y acción en la misma vertical.
+ * La cuarta columna se reserva VACÍA — un pedido no se archiva, así que no hay ✕, pero si la
+ * columna desapareciera los dos bloques dejarían de alinear entre sí.
+ *
+ * El nombre va como texto y no como `PatientLink`: el destino de esta card es el pedido, y un
+ * segundo destino adentro haría que la misma fila lleve a dos lados según dónde le pegues.
+ */
+function CajaDePedido({ pedido, comoFarmacia, hoy, abrir }: {
+  pedido: PedidoAviso
+  comoFarmacia: boolean
+  /** El día de hoy en ISO, para decidir si la fecha se muestra como hora. */
+  hoy: string
+  abrir: () => void
+}) {
+  const badge = badgeDeEstado(pedido.status, pedido.dispensacion)
+  const motivo = rotuloDeCard(pedido, comoFarmacia)
+  return (
+    <div
+      className="spira-notif-caja spira-notif-caja--link spira-no-press"
+      role="button"
+      tabIndex={0}
+      onClick={abrir}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir() }
+      }}
+      aria-label={`Abrir el pedido de ${pedido.patient_name} — ${motivo}`}
+    >
+      {/* `tinte()` y no concatenar alpha sobre el token: `var(--…)18` es CSS inválido y el cuadrado
+          queda transparente sin un solo warning. */}
+      <span className="spira-notif-icono" style={{ background: tinte(badge.color, 9) }}>
+        <Icon name="box" size={16} color={badge.color} />
+      </span>
+
+      <div className="spira-notif-cuerpo">
+        <div className="spira-notif-l1">
+          <span className="spira-notif-nombre" title={pedido.patient_name}>{pedido.patient_name}</span>
+          <span className="spira-mono spira-notif-codigo">{pedido.patient_code ?? '—'}</span>
+        </div>
+        <div className="spira-notif-motivo" title={motivo}>{motivo}</div>
+      </div>
+
+      <div className="spira-notif-datos">
+        <ProtoTag code={pedido.protocol_code} protocolId={pedido.protocol_id} compacto />
+        <span className="spira-notif-fecha">{fechaDeCard(pedido, hoy)}</span>
+      </div>
+
+      <div className="spira-notif-accion" />
+    </div>
+  )
 }

@@ -128,11 +128,43 @@ export interface Badge { label: string; color: string; tint: string }
  * sólo en una de las dos pantallas.
  */
 export function badgeDeEstado(solicitud: RequestStatus, dispensacion: string | null): Badge {
+  return BADGE_POR_ESTADO[estadoVisible(solicitud, dispensacion)]
+}
+
+/**
+ * La misma regla, pero devolviendo una CLAVE en vez de una etiqueta.
+ *
+ * Existe porque hay dos consumidores con necesidades distintas sobre la misma pregunta: el badge
+ * quiere texto y color, y los avisos de pedidos (la campana y sus popups) necesitan COMPARAR el
+ * estado de ahora contra el de hace treinta segundos. Una comparación no se hace sobre un texto de
+ * interfaz: el día que "Lista para retirar" cambie de redacción, todos los avisos se dispararían de
+ * nuevo como si cada pedido se hubiera movido.
+ *
+ * Por eso `badgeDeEstado` se DERIVA de acá y no al revés. Dos reglas paralelas divergirían en el
+ * primer estado nuevo, en silencio, y sólo en una de las dos pantallas — que es exactamente lo que
+ * el comentario de arriba viene evitando desde la 0117.
+ */
+export type EstadoVisible = 'solicitada' | 'preparando' | 'lista' | 'entregada' | 'rechazada' | 'cancelada'
+
+export function estadoVisible(solicitud: RequestStatus, dispensacion: string | null): EstadoVisible {
   if (solicitud === 'atendida' || solicitud === 'preparando') {
-    if (dispensacion === 'lista') return { label: 'Lista para retirar', color: COLUMN_META.lista.color, tint: COLUMN_META.lista.tint }
-    if (dispensacion === 'entregada') return STATUS_META.atendida
+    if (dispensacion === 'lista') return 'lista'
+    if (dispensacion === 'entregada') return 'entregada'
   }
-  return STATUS_META[solicitud]
+  /* `atendida` sin dispensación no debería pasar, y si pasa se lee "Entregada": es lo que este
+     mismo código viene mostrando en el badge de Track y en el historial. Inventar acá una tercera
+     respuesta haría que el aviso diga una cosa y la pantalla de al lado otra. */
+  return solicitud === 'atendida' ? 'entregada' : solicitud
+}
+
+/** La traducción de cada estado visible a etiqueta y color. Una sola tabla para toda la casa. */
+const BADGE_POR_ESTADO: Record<EstadoVisible, Badge> = {
+  solicitada: STATUS_META.solicitada,
+  preparando: STATUS_META.preparando,
+  lista: { label: 'Lista para retirar', color: COLUMN_META.lista.color, tint: COLUMN_META.lista.tint },
+  entregada: STATUS_META.atendida,
+  rechazada: STATUS_META.rechazada,
+  cancelada: STATUS_META.cancelada,
 }
 
 /**

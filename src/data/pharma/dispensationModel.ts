@@ -496,3 +496,34 @@ export function motivoNoHabilitado(h: Pick<HabilitacionRow, 'estado' | 'motivo_c
 export function habilitacionesPendientes(r: Pick<DispensationRequestRow, 'habilitaciones'>): HabilitacionRow[] {
   return (r.habilitaciones ?? []).filter((h) => h.estado === 'pendiente')
 }
+
+/**
+ * Un pedido APLANADO para los avisos (la campana y sus popups).
+ *
+ * No es `DispensationRequestRow` recortada: es otra forma, con el contexto ya resuelto a strings.
+ * La consulta de los avisos pide lo mínimo —nada de renglones, constancias ni habilitaciones, que
+ * son columnas de migraciones recientes y arrastran su ventana de despliegue— y aplana ahí, para
+ * que las reglas, las cards y los popups lean todos la misma fila.
+ *
+ * VIVE EN ESTE ARCHIVO, que es puro, porque lo comparten dos lados que no se pueden importar entre
+ * sí: la capa de datos (`data/pharma/avisosDePedidos.ts`, que trae el cliente de Supabase) y las
+ * reglas del shell (`shell/avisosPedidos.ts`, que tiene que poder correr en vitest sin navegador).
+ * Mismo reparto y mismo motivo que `alertDismissalModel.ts`.
+ */
+export interface PedidoAviso {
+  id: string
+  status: RequestStatus
+  /** Estado de la dispensación ejecutada, si ya hay una. `null` = todavía no. */
+  dispensacion: string | null
+  /** Última transición de estado (trigger `trg_requests_updated_at`, 0003:29). */
+  updated_at: string
+  visit_id: string
+  visit_code: string | null
+  requested_by: string
+  patient_id: string
+  patient_name: string
+  /** IVRS de ESTA inscripción (0062), no el del estudio madre. */
+  patient_code: string | null
+  protocol_id: string
+  protocol_code: string
+}
