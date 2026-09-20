@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agruparPorDia, conIvrsDelEstudio, detalleDeFila, tituloDeFila } from './historialModel'
+import { agruparPorDia, detalleDeFila, tituloDeFila } from './historialModel'
 import type { HistorialFilaRow } from './historialModel'
 
 /**
@@ -169,37 +169,5 @@ describe('agruparPorDia', () => {
 
   it('tolera la lista vacía', () => {
     expect(agruparPorDia([], etiqueta)).toEqual([])
-  })
-})
-
-describe('conIvrsDelEstudio — el número de cada fila, el de su estudio', () => {
-  // `v_pharma_history` (0117) arma el número con `patients.code`, el del estudio madre. Hasta que la
-  // regla pase a la vista, el front lo corrige con las inscripciones de los pacientes de la página.
-  const insc = (patient_id: string, protocol_id: string, ivrs_code: string | null) => ({ patient_id, protocol_id, ivrs_code })
-
-  it('una fila de protocolo muestra el IVRS de la inscripción de ESE estudio', () => {
-    const filas = [fila({ destinatario_id: 'p1', protocol_id: 'lts', destinatario_ref: '032001500001' })]
-    const [f] = conIvrsDelEstudio(filas, [insc('p1', 'act', '032001500001'), insc('p1', 'lts', '032001520001')])
-    expect(f.destinatario_ref).toBe('032001520001')
-  })
-
-  it('la misma persona en dos estudios: cada fila con el suyo', () => {
-    const filas = [
-      fila({ id: 'a', destinatario_id: 'p1', protocol_id: 'act', destinatario_ref: '032001500001' }),
-      fila({ id: 'b', destinatario_id: 'p1', protocol_id: 'lts', destinatario_ref: '032001500001' }),
-    ]
-    const out = conIvrsDelEstudio(filas, [insc('p1', 'act', '032001500001'), insc('p1', 'lts', '032001520001')])
-    expect(out.map((f) => f.destinatario_ref)).toEqual(['032001500001', '032001520001'])
-  })
-
-  it('sin número propio, o sin inscripción legible, queda el de la vista', () => {
-    const filas = [fila({ destinatario_id: 'p1', protocol_id: 'lts', destinatario_ref: '032001500001' })]
-    expect(conIvrsDelEstudio(filas, [insc('p1', 'lts', null)])[0].destinatario_ref).toBe('032001500001')
-    expect(conIvrsDelEstudio(filas, [])[0].destinatario_ref).toBe('032001500001')
-  })
-
-  it('una salida ambulatoria no se toca: su referencia es el documento de quien retiró', () => {
-    const filas = [ambulatoria()]
-    expect(conIvrsDelEstudio(filas, [insc('p1', 'pr1', '999')])[0]).toEqual(ambulatoria())
   })
 })

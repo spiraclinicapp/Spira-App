@@ -3,8 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { pharmaErrorMessage } from './errors'
 import { ESTADOS_ABIERTOS } from './dispensationModel'
 import type { ContextoDispensacionRow, DispensationRequestRow, HistorialEntradaRow, MotivoNoHabilitar, RequestStatus } from './dispensationModel'
-import { conIvrsDelEstudio } from './historialModel'
-import type { HistorialFilaRow, InscripcionIvrs } from './historialModel'
+import type { HistorialFilaRow } from './historialModel'
 import type { VisitKind } from '../../lib/visitLabels'
 
 /**
@@ -326,22 +325,6 @@ export function useDispensationHistory(opts: {
       let rows = data ?? []
       const hasMore = rows.length > HISTORY_PAGE_SIZE
       if (hasMore) rows = rows.slice(0, HISTORY_PAGE_SIZE)
-
-      /* El IVRS de cada fila, el de SU estudio (`conIvrsDelEstudio`): la vista lo arma con el del
-         estudio madre. Es una lectura chica, sólo de los pacientes de esta página; `enrollments` la
-         lee Farmacia (0010). Si falla, quedan los números de la vista —el respaldo de siempre— antes
-         que dejar el historial entero en error por un dato que tiene respaldo. */
-      const pacientes = [...new Set(
-        rows.filter((f) => f.tipo === 'protocolo' && f.destinatario_id).map((f) => f.destinatario_id as string),
-      )]
-      if (pacientes.length > 0) {
-        const insc = await c
-          .from('enrollments')
-          .select('patient_id, protocol_id, ivrs_code')
-          .in('patient_id', pacientes)
-          .returns<InscripcionIvrs[]>()
-        if (!insc.error) rows = conIvrsDelEstudio(rows, insc.data ?? [])
-      }
 
       // `page` viaja CON los datos: el acumulador de la vista lo necesita para saber si lo que
       // recibió corresponde a la página que pidió. Sin eso, al pasar de la página 0 a la 1 el
