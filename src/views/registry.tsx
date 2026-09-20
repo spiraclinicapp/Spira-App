@@ -9,6 +9,7 @@ import { TrackAlertsView } from './TrackAlertsView'
 import { MedicamentosView } from './pharma/MedicamentosView'
 import { RecepcionView } from './pharma/RecepcionView'
 import { DispensacionesView } from './pharma/DispensacionesView'
+import { ReposicionView } from './pharma/reposicion/ReposicionView'
 import { ReportesView } from './pharma/reportes/ReportesView'
 import { TareasView } from './TareasView'
 import type { RegisteredView } from './registryKeys'
@@ -41,6 +42,7 @@ const VIEW_REGISTRY: Record<RegisteredView, ViewComponent> = {
   'pharma/medicamentos': MedicamentosView,
   'pharma/recepcion': RecepcionView,
   'pharma/dispensaciones': DispensacionesView,
+  'pharma/reposicion': ReposicionView,
   'pharma/reportes': ReportesView,
 }
 
