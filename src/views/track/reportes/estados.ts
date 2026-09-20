@@ -6,6 +6,9 @@
 // La regla de cierre está ESPEJADA en `v_patient_visits.computed_status` desde la 0092, que la
 // derivó de estos mismos casos: el SQL de allá y las funciones de acá tienen que decir lo mismo.
 // Si alguna vez divergen, el tablero y el estado de la visita se contradicen en pantalla.
+// Desde la 0136 el espejo es EXACTO: la vista dejó de mirar los procedimientos sin reporte (que ya
+// no tienen dónde tildarse) y le quedaron las dos condiciones de acá — reportes sin evolucionar —
+// más el producto en investigación abierto, que `visitClosed` no conoce porque no es un reporte.
 import type { ReportStatusRow } from '../../../data/reportStatus'
 
 /** Las tres etapas, en orden. El índice ES el orden: `nextStage`/`prevStage` se mueven sobre él. */

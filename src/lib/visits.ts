@@ -276,8 +276,10 @@ export type DotVisual = 'agendada' | 'en_curso' | 'completa'
  *  · completa → RELLENO verde   (visita CERRADA: terminó la atención y no queda nada pendiente)
  * El contorno verde aparece al marcar "Inicio de atención" (real_date) y se mantiene mientras la
  * visita sigue abierta. Solo se rellena cuando se cierra (ready_at + sin pendientes): "pendiente"
- * hoy son los procedimientos sin tildar y sus reportes sin marcar (`computed_status`, 0064/0068),
- * así que una visita sin procedimientos NO se rellena apenas la atendés.
+ * hoy son los REPORTES sin evolucionar y el producto en investigación sin resolver
+ * (`computed_status`, 0136). Los procedimientos sin reporte dejaron de contar con el rediseño del
+ * modal —sólo se tildan los que dejan informe—, así que una visita que no lleva ninguno se rellena
+ * apenas se cierra la atención.
  * El cierre se lee de `ready_at` y ya no de `left_at`: desde la 0068 "Fuera del sitio" salió del
  * recorrido y nadie vuelve a escribir esa columna — con la condición vieja el punto no se llenaría
  * nunca más.
