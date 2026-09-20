@@ -98,8 +98,10 @@ export function Pastilla({ p }: { p: PastillaPedido }) {
 /** Un aviso de una línea: ícono + frase (los de la boleta, «Armar pedido», el día de corte). */
 export function AvisoLinea({ texto, tono = 'info' }: { texto: ReactNode; tono?: 'info' | 'warn' | 'danger' }) {
   const color = tono === 'warn' ? 'var(--spira-acc-deep-warn)' : tono === 'danger' ? 'var(--spira-acc-deep-danger)' : 'var(--spira-ink-soft)'
+  // En `danger` el aviso es el resultado de algo que se acaba de intentar (no se pudo emitir): se anuncia,
+  // igual que los `role="alert"` de los otros modales. Un aviso informativo o de atención, no.
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '5px 0', fontSize: 12.5, lineHeight: 1.45, color: tono === 'info' ? 'var(--spira-ink)' : color }}>
+    <div role={tono === 'danger' ? 'alert' : undefined} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '5px 0', fontSize: 12.5, lineHeight: 1.45, color: tono === 'info' ? 'var(--spira-ink)' : color }}>
       <span style={{ flex: '0 0 14px', marginTop: 2 }}><Icon name={tono === 'info' ? 'info' : 'alert'} size={14} stroke={1.9} color={color} /></span>
       <span style={{ flex: 1, minWidth: 0 }}>{texto}</span>
     </div>
