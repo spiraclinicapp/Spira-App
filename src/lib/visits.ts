@@ -217,6 +217,31 @@ export function fueraDeVentana(real: string | null, windowStart: string | null, 
 }
 
 /**
+ * ¿La ventana de esta visita está ABIERTA hoy? Es decir: ¿ésta se puede hacer AHORA?
+ *
+ * Espejo temporal de `fueraDeVentana`: aquélla mira el pasado de una visita hecha (¿se cumplió?),
+ * ésta el presente de una pendiente (¿se puede?). Recibe la fila entera y no tres fechas sueltas
+ * porque necesita cuatro datos, y con cuatro parámetros posicionales del mismo tipo el día que se
+ * inviertan dos nadie lo ve.
+ *
+ * Dos exclusiones que son decisiones, no descuidos:
+ *  · Una visita YA ATENDIDA no entra, aunque hoy siga cayendo en su ventana (pasa seguido: se
+ *    atendió el lunes y la ventana cierra el viernes). "Se puede hacer" ya no aplica.
+ *  · Las SUELTAS tampoco: no tienen ventana. No es una guarda defensiva — el check
+ *    `patient_visits_kind_shape` (0022) obliga a que `kind <> 'programada'` traiga las dos columnas
+ *    en null, y a que las programadas las tengan siempre.
+ *
+ * Comparación de ISO como texto, igual que `fueraDeVentana`: con `YYYY-MM-DD` el orden
+ * lexicográfico ES el cronológico, así que no entra ningún `Date` —ni su huso— en una regla de
+ * calendario.
+ */
+export function ventanaAbierta(v: TrackVisitRow, today: string): boolean {
+  if (v.real_date !== null) return false
+  if (!v.window_start || !v.window_end) return false
+  return today >= v.window_start && today <= v.window_end
+}
+
+/**
  * Dónde cae HOY respecto del cronograma, en una línea: "Hoy · entre VNP y V7 · Agendada".
  *
  * Vivía adentro de `PdVisitFlow`, que dibujaba una línea de tiempo horizontal donde la posición de
@@ -291,7 +316,7 @@ export function dotVisual(v: TrackVisitRow): DotVisual {
 }
 
 export type VisitStateLabel =
-  | 'Agendada' | 'Por llegar' | 'Concurrió al centro'
+  | 'Agendada' | 'En ventana' | 'Por llegar' | 'Concurrió al centro'
   | 'Inicio de atención' | 'Fin de atención'
   | 'Visita realizada' | 'Completa' | 'Sin cerrar'
 
@@ -300,8 +325,9 @@ export type VisitStateLabel =
  * día") + el checklist. `today` (ISO) distingue Agendada (futura) de Por llegar (hoy, sin llegar).
  * Los strings replican a mano los de `OPERATIONAL_STAGES` y `VISIT_STATES`
  * (views/visitStates.tsx). No se importan por una cuestión de CAPAS: `lib/` no depende de
- * `views/`. Si cambian allá, cambian acá. "Sin cerrar" es la excepción: no existe en ninguno de los
- * dos, porque no es una etapa ni un estado de la base sino la combinación de ambos (ver abajo).
+ * `views/`. Si cambian allá, cambian acá. Dos no salen de ahí: "Sin cerrar", que es la combinación
+ * de una etapa y un estado y no existe en ninguno de los dos (ver abajo), y "En ventana", que no
+ * mira ninguno de los dos ejes sino el CALENDARIO (`ventanaAbierta`).
  */
 export function visitStateLabel(v: TrackVisitRow, today: string): VisitStateLabel {
   // El recorrido operativo describe EL DÍA de la visita: fuera de ese día, envejece mal. Una visita
@@ -329,7 +355,17 @@ export function visitStateLabel(v: TrackVisitRow, today: string): VisitStateLabe
   if (v.real_date !== null) return 'Inicio de atención'
   if (v.arrived_at !== null) return 'Concurrió al centro'
   const d = v.estimated_date ?? v.real_date ?? ''
-  return d && d <= today ? 'Por llegar' : 'Agendada'
+  if (d && d <= today) return 'Por llegar'
+  // «En ventana» va DESPUÉS de «Por llegar», y el orden es la decisión: una vez que llegó el día
+  // citado, "el paciente tiene que venir hoy" es más urgente y más preciso que "se puede hacer".
+  // Así que este rótulo cubre el tramo de la ventana ANTERIOR a la fecha citada, que hasta ahora no
+  // tenía nombre y se leía igual que una visita del mes que viene.
+  //
+  // Lo que sostiene: el cronograma tiñe la fila cuando `ventanaAbierta` es verdadero, y con este
+  // orden «Agendada» NUNCA convive con el teñido — siempre hay una palabra distinta respaldando al
+  // color, que es lo que pide WCAG 1.4.1 (el color no puede ser la única señal).
+  if (ventanaAbierta(v, today)) return 'En ventana'
+  return 'Agendada'
 }
 
 /** Edad en años desde una fecha ISO de nacimiento (YYYY-MM-DD). null si no hay fecha. */

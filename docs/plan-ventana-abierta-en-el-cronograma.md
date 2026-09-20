@@ -137,8 +137,13 @@ en los dos lados.
 ### Línea de tiempo horizontal — `PdVisitFlow.tsx`
 
 Misma regla, tratamiento adaptado: la columna mide 72px, no hay fila que teñir ni pastilla donde
-poner la palabra. Ahí es **sólo el código en `var(--spira-acc-deep-track)`**, en lugar del
-`cur ? accent` de hoy.
+poner la palabra. Ahí es **sólo el código en `accent`** —el mismo color de hoy— pero decidido por
+`ventanaAbierta` en lugar de por `cur`.
+
+Y `accent`, **no** el acento profundo del cronograma: el profundo existe para texto sobre un
+**tinte** del acento, y acá el fondo es la card blanca. Se probó con el profundo en el banco de
+pruebas y no se lee — `#0F5F57` contra `#14302E` son los dos oscuros y a 12,5px la señal
+desaparece. El acento a secas da 5,36:1 sobre blanco y se lee verde.
 
 Ojo con un detalle que no se ve leyendo el diff: en esa pantalla `cur` **no** es la próxima
 pendiente sino `todayVisit` —hoy cae **justo** en esa visita— (`PdVisitFlow.tsx:28`). Así que acá el

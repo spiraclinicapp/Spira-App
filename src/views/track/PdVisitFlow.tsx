@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import type { CSSProperties } from 'react'
 import type { TrackVisitRow } from '../../data/visits'
-import { flowWindow, todaySplit, ubicacionDeHoy, visitShortLabel, studyTime } from '../../lib/visits'
+import { flowWindow, todaySplit, ubicacionDeHoy, visitShortLabel, studyTime, ventanaAbierta } from '../../lib/visits'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 
@@ -61,7 +61,18 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
   )
 
   const col = (v: TrackVisitRow) => {
-    const cur = v.id === highlightId
+    /* El código se pinta cuando la VENTANA está abierta, igual que en el cronograma de abajo
+       (Director, 2026-09-20): si las dos mitades de la ficha usan el mismo verde para decir cosas
+       distintas, el verde deja de decir nada. Acá el criterio se ENSANCHA, no se da vuelta — antes
+       era `v.id === highlightId`, o sea hoy cayendo JUSTO en esa visita, que es el centro de su
+       propia ventana. Sigue siendo cierto todos los días que antes lo era.
+       La columna mide 72px: no hay fila que teñir ni pastilla donde poner la palabra, así que acá
+       el tratamiento es sólo el color. La palabra la da el cronograma.
+       Y el color es `accent`, NO `--spira-acc-deep-track` como en el cronograma: el profundo existe
+       para texto sobre un TINTE del acento, y acá el fondo es la card blanca. Sobre blanco el
+       profundo (#0F5F57) queda a un suspiro de la tinta (#14302E) —los dos oscuros— y a 12,5px la
+       señal no se lee; el acento da 5,36:1 y se lee verde. */
+    const enVentana = ventanaAbierta(v, today)
     const label = visitShortLabel(v)
     const st = studyTime(v)
     const fecha = v.estimated_date ?? v.real_date
@@ -70,7 +81,7 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
         <div style={{ height: 32, display: 'flex', alignItems: 'center' }}>
           <VisitDot visit={v} today={today} size={28} isToday={v.id === highlightId} accent={accent} />
         </div>
-        <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 12.5, color: cur ? accent : 'var(--spira-ink)', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</div>
+        <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 12.5, color: enVentana ? accent : 'var(--spira-ink)', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</div>
         {st != null && <div style={{ fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>{st.unit === 'dia' ? `${st.value}d` : `W${st.value}`}</div>}
         <div style={{ fontFamily: 'var(--spira-font-text)', fontVariantNumeric: 'tabular-nums', fontSize: 10.5, color: 'var(--spira-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>{fecha ? formatDayMonth(fecha) : '—'}</div>
       </div>

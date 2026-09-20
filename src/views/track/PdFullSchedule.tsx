@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
-import { dotVisual, flowWindow, orderVisits, visitStateLabel, visitTitleConSemanaAparte, studyTime, desvioDias, fueraDeVentana } from '../../lib/visits'
+import { dotVisual, flowWindow, orderVisits, visitStateLabel, visitTitleConSemanaAparte, studyTime, desvioDias, fueraDeVentana, ventanaAbierta } from '../../lib/visits'
 import { dotColor } from '../visitStates'
 import { ayudaDeRotulo, GLOSARIO } from '../../lib/glosario'
 import { formatShortAR, todayISO } from '../../lib/dates'
@@ -13,6 +13,12 @@ import { VisitDot } from './VisitDot'
  * estado (gris vacía sin atender, contorno verde con punto atendida, relleno verde con check
  * completa — sin número, ver `VisitDot`), título de la visita ("V6 - W8", "VNP"), semana/fecha y
  * pill del estado operativo.
+ *
+ * EL VERDE DE LA FILA DICE "LA VENTANA ESTÁ ABIERTA" (Director, 2026-09-20). Hasta ese día pintaba
+ * la visita "actual" —la primera sin `real_date`—, sin mirar una sola fecha: una V18 de la semana 56
+ * salía verde con la cita a un mes de distancia. Un color prendido siempre no es una señal. Ahora lo
+ * decide `ventanaAbierta`, y lo que marca es lo único accionable: ésta se puede hacer HOY.
+ * La marca de "acá está parado el paciente" no se pierde — se la queda la pelotita, que ya la tenía.
  *
  * Si se pasa `onOpen`, cada fila abre el detalle de la visita (`VisitDetail`) — el MISMO que la vista
  * del día, sincronizado por leer de la misma fuente. La fila se vuelve `role="button"` (a11y + el
@@ -77,14 +83,25 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
         const st = studyTime(v)
         const desv = desvioDias(v.estimated_date, v.real_date)
         const fuera = fueraDeVentana(v.real_date, v.window_start, v.window_end)
+        const enVentana = ventanaAbierta(v, today)
+        /* Superficie teñida, que es la forma que ya usa la app para decir "esto significa algo"
+           (las alertas). NO un borde de color: el borde señala pulsabilidad, y el realce por estado
+           en Spira es tinte o elevación. El 8% + `--spira-acc-deep-track` para el texto es el único
+           par medido para AA — el acento a secas sobre su propio tinte da 4,14:1 y el código va a
+           14,5px en negrita, donde AA pide 4,5. Concatenar alfa es válido porque `accent` llega
+           como hex crudo de `registry.ts` (sobre un `var(--…)` no se dibujaría nada). */
         const rowStyle: CSSProperties = {
           display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '11px 4px',
           /* El separador lo lleva la fila de arriba, así que la primera no lo tiene — salvo que
              arriba haya quedado el control de "N visitas anteriores", que sí es una fila. */
           borderTop: k || (recorte && recorte.moreBefore > 0) ? '1px solid var(--spira-line)' : 'none',
-          background: 'transparent', textAlign: 'left', color: 'inherit', font: 'inherit',
+          background: enVentana ? accent + '14' : 'transparent',
+          textAlign: 'left', color: 'inherit', font: 'inherit',
           cursor: clickable ? 'pointer' : 'default',
         }
+        /* El código en tinta salvo con la ventana abierta. `cur` ya no lo pinta: dejaba el acento
+           prendido sobre la próxima pendiente estuviera donde estuviera en el calendario. */
+        const codigoColor = enVentana ? 'var(--spira-acc-deep-track)' : 'var(--spira-ink)'
         const inner = (
           <>
             <VisitDot visit={v} today={today} size={26} isToday={cur} accent={accent} />
@@ -101,12 +118,12 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
                      la columna, así que el `cursor: help` aparecía sobre el espacio vacío a la
                      derecha de la palabra — una pista de ayuda flotando sobre la nada. Así abraza
                      el texto y sigue truncando si el rótulo no entra. */
-                  style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: cur ? accent : 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block', maxWidth: '100%', verticalAlign: 'bottom' }}
+                  style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: codigoColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block', maxWidth: '100%', verticalAlign: 'bottom' }}
                 >
                   {label}
                 </abbr>
               ) : (
-                <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: cur ? accent : 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+                <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: codigoColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
               )}
               {/* La semana lleva `title` y NO subrayado: se repite en cada renglón, y marcar las
                   siete volvería la columna un texto resaltado. La explicación está cuando se la
@@ -138,7 +155,11 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
                 v.estimated_date ? formatShortAR(v.estimated_date) : '—'
               )}
             </span>
-            <span style={{ fontSize: 11.5, fontWeight: 600, color: estColor, background: estColor + '16', padding: '3px 10px', borderRadius: 'var(--spira-radius-pill)', whiteSpace: 'nowrap', minWidth: 86, textAlign: 'center' }}>
+            {/* Con la ventana abierta la pastilla ya dice "En ventana" sola (`visitStateLabel`),
+                pero su color sale de la pelotita, que para una visita sin atender es GRIS: la
+                palabra quedaba en gris sobre una fila verde. Acá se la tiñe, y con eso el color
+                deja de ser la única señal (WCAG 1.4.1) — que es la razón de ser de la palabra. */}
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: enVentana ? 'var(--spira-acc-deep-track)' : estColor, background: enVentana ? accent + '1F' : estColor + '16', padding: '3px 10px', borderRadius: 'var(--spira-radius-pill)', whiteSpace: 'nowrap', minWidth: 86, textAlign: 'center' }}>
               {estLabel}
             </span>
             {clickable && <Icon name="chevronRight" size={16} color="var(--spira-faint)" style={{ flex: '0 0 auto' }} />}
