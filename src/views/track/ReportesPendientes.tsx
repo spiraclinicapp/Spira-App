@@ -109,11 +109,17 @@ export function ReportesPendientes({
                   </span>
                   <span style={{ minWidth: 0, flex: 1 }}>
                     {/* Tachado al tildar, como Tareas: lo hecho se tacha y lo que falta sigue
-                        contado en la sublínea de abajo. */}
+                        contado en la sublínea de abajo.
+
+                        EN LONGHANDS (`textDecorationLine` y no `textDecoration`): mezclar la
+                        abreviada con `textDecorationColor` hace que React, en el render siguiente,
+                        resuelva el conflicto VACIANDO los longhand — el mismo gotcha que ya tiene
+                        la casa con `border` (consola: «Updating textDecoration
+                        textDecorationColor»). Se vio en el QA del 2026-09-20. */}
                     <span style={{
                       display: 'block', fontSize: 12.5, fontWeight: 600,
                       color: p.completed ? 'var(--spira-ink-soft)' : 'var(--spira-ink)',
-                      textDecoration: p.completed ? 'line-through' : undefined,
+                      textDecorationLine: p.completed ? 'line-through' : 'none',
                       textDecorationColor: 'var(--spira-muted)', textDecorationThickness: 1,
                     }}>
                       {p.name}
