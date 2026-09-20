@@ -7174,6 +7174,21 @@ ejecución, y las dos marcadas «Director» las decidió él:
 
 ---
 
+## Desviaciones de la ejecución (PR B, 2026-09-20)
+
+El código de la rama manda sobre los bloques de este plan en estos puntos. Salieron de la revisión final
+de la PR B:
+
+- **`AvisoLinea` anuncia los errores** (`piezas.tsx`): con `tono="danger"` lleva `role="alert"`, como los
+  `role="alert"` de «Anular» y del detalle del pedido. El error de «Emitir e imprimir» no se anunciaba.
+- **Cerrar un renglón cierra su edición** (`PantallaEstudio.tsx`): `alternar` apaga siempre `editando`. Si el
+  renglón se cerraba con la flecha en vez de «Cancelar», volvía a abrirse con el formulario.
+- **El Stepper sabe desde dónde se puede volver** (`src/components/Stepper.tsx`, que NO estaba en la lista de
+  archivos de la Task 11, y `ReceptionWizard.tsx`): prop opcional `desde` (default 0). Recibiendo un pedido, el
+  asistente arranca en el Escaneo y el paso «Tipo» se veía hecho y clickeable, pero el click no hacía nada.
+
+---
+
 ## Revisión de ingeniería (2026-09-19)
 
 `/plan-eng-review` sobre este plan (PR #233), con alcance completo (D1): el plan toca unos 30 archivos, pero cada pieza responde a R1-R13 o RD1-RD18 y ya venía repartido en dos PRs. La segunda opinión la hizo un agente Claude aparte, sin ver el análisis propio: codex no está instalado. Fueron 16 preguntas y el Director eligió la opción recomendada en todas. En medio, sumó un pedido: ver el stock mínimo de cada medicamento (decisión 10).

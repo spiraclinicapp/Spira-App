@@ -26,6 +26,31 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
+## Farmacia · Recepción: saltar pasos del asistente deja los lotes sin cuadrar
+
+- **Qué:** que saltar a un paso anterior del asistente de recepción no permita volver adelante con los
+  lotes sin cuadrar (`goto` no mira `canAdvance`).
+- **Por qué:** desde el Resumen se puede saltar al paso de lotes, romper la suma y volver: lo que se
+  guarda sale de los lotes, pero el resumen (y ahora la comparación con el pedido) muestran lo contado.
+  Es PREEXISTENTE —`Step3Summary` ya mostraba `m.quantity`—, pero con un pedido la afirmación es sobre lo
+  que queda en camino, no sólo sobre el stock.
+- **Pros:** el asistente deja de poder mostrar (y guardar) un número que ya no es la suma real de los
+  lotes cargados.
+- **Contras:** `goto` lo usan tanto el `Stepper` (clic en un paso ya alcanzado) como `next`/`back`; hay
+  que decidir si un salto hacia adelante revalida sólo el paso de destino o toda la cadena intermedia,
+  sin romper el caso legítimo de volver a mirar un paso ya cuadrado.
+- **Contexto:** revisión final de la PR B de Reposición · Parte 2 (2026-09-20). Preexistente a Reposición:
+  el asistente de recepción ya dejaba descuadrar antes; el pedido en camino lo hace visible porque ahora
+  hay una cuenta más (`comparacionConElPedido`) que depende de `m.quantity`.
+- **Empezar por:** `src/views/pharma/ReceptionWizard.tsx` (`goto`, `canAdvance`) y
+  `src/views/pharma/wizard/PedidoEnRecepcion.tsx`.
+- **Disparador:** que alguien reporte un pedido que en el resumen decía «cuadrado» pero el stock que
+  llegó no coincide.
+- **Depende de / bloqueado por:** nada.
+- **Prioridad:** P3.
+
+---
+
 ## Coordinación · el tablero de Reportes con el lenguaje del modal de visita
 
 - **Qué:** pasar la variante `tablero` de `ReportCard` (el tablero de Reportes pendientes) al idioma que
