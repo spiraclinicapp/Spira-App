@@ -6,6 +6,7 @@ import { SearchableSelect } from '../../components/SearchableSelect'
 import type { VisitDefinition, DefinitionInput } from '../../data/visitDefinitions'
 import type { VisitType } from '../../data/visits'
 import { InfoTip } from '../../components/InfoTip'
+import { visitTitle } from '../../lib/visits'
 import { diaTrasCambiarSemana, nombreTrasCambiarEtapa, semanaInicial, semanaTrasCambiarDia } from './semanaDeVisita'
 import type { Etapa } from './semanaDeVisita'
 
@@ -26,50 +27,15 @@ const bareInput: CSSProperties = {
   border: 'none', background: 'transparent', padding: 0, margin: 0, minWidth: 0,
   color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14, alignSelf: 'stretch',
 }
-/* Métrica de los números (código, día, semana): lo mismo que la clase `.spira-mono`, pero inline
-   porque el input del código y el espejo que le da el ancho tienen que compartirla EXACTAMENTE
-   (ver `CodeInput`). */
-const codeText: CSSProperties = {
+/* Métrica de los números (el día y la semana): lo mismo que la clase `.spira-mono`, pero inline
+   para que gane sobre el estilo del input pelado que lo lleva. */
+const numText: CSSProperties = {
   fontFamily: 'var(--spira-font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: 14,
 }
 /* La palabra que rotula una mitad de una casilla compuesta ("Día", "Semana"). Va en tinta atenuada
    y un punto más chica que el valor: nombra al número sin competirle. */
 const unidad: CSSProperties = { fontSize: 13, color: 'var(--spira-muted)', flex: '0 0 auto' }
 
-/**
- * El input del código, que CRECE con lo que se escribe para que el nombre quede pegado a él y los
- * dos se lean como un valor solo ("V16 W48") en vez de a una distancia fija.
- *
- * El ancho no se mide por JS ni con el atributo `size`: la fuente de los códigos es Inter (ver
- * `--spira-font-mono`, que de monoespaciada no tiene nada), así que `size` —que cuenta caracteres
- * de ancho promedio— quedaría corto o largo según las letras. En su lugar, un espejo invisible con
- * el mismo texto y la misma métrica es el ÚNICO elemento en flujo, y por lo tanto el que fija el
- * ancho; el input va absoluto encima. Exacto para cualquier fuente y sin un render de más.
- *
- * El input tiene que estar FUERA DEL FLUJO, no simplemente encima: mientras compartía la celda de
- * un grid con el espejo, el ancho intrínseco del `<input>` seguía entrando en la cuenta del
- * `max-content` y le ponía un piso de 39px a la casilla — ni `size={1}` lo bajaba. Resultado: "V1",
- * "V16" y "V999" medían todos igual y los códigos cortos (o sea, todos) quedaban con un hueco
- * muerto antes de la semana, que es justo lo que se vino a eliminar. Absoluto, no mide nada.
- * Los 2px del espejo son el lugar del cursor cuando está al final del texto.
- */
-function CodeInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <span style={{ position: 'relative', display: 'inline-block', flex: '0 0 auto', alignSelf: 'stretch' }}>
-      <span aria-hidden style={{ ...codeText, display: 'block', visibility: 'hidden', whiteSpace: 'pre', paddingRight: 2 }}>
-        {value || 'V1'}
-      </span>
-      <input
-        className="spira-bare-input"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="V1"
-        aria-label="Código"
-        style={{ ...bareInput, ...codeText, position: 'absolute', inset: 0, width: '100%' }}
-      />
-    </span>
-  )
-}
 
 /* `Etapa` y el ida y vuelta Día ↔ semana viven en `semanaDeVisita.ts`: son reglas puras con test
    propio, porque pueden quedar al revés sin que la pantalla se vea mal. */
@@ -107,8 +73,13 @@ export function ScheduleDefinitionForm({
   onClose: () => void
   onSubmit: (input: DefinitionInput) => Promise<{ error: string | null }>
 }) {
-  const [code, setCode] = useState(initial?.code ?? '')
-  const [name, setName] = useState(initial?.name ?? '')
+  /* UN título, en un solo campo. Al abrir una definición VIEJA —que tiene las dos columnas, "V6" y
+     "W16"— se muestran unidas por `visitTitle`, igual que en el resto de la app, así lo que editás
+     es exactamente lo que venías viendo. Al guardar sale entero a `name` y `code` queda en null: la
+     definición se normaliza sola la primera vez que alguien la toca. */
+  const [titulo, setTitulo] = useState(() =>
+    initial ? visitTitle({ visit_code: initial.code, visit_name: initial.name, kind: 'programada' }) : '',
+  )
   const [etapa, setEtapa] = useState<Etapa>(initial ? fieldsToEtapa(initial.role, initial.date_mode) : 'tratamiento')
   const [visitType, setVisitType] = useState<VisitType>(initial?.visit_type ?? 'presencial')
   const [offset, setOffset] = useState(String(initial?.offset_days ?? 0))
@@ -142,11 +113,11 @@ export function ScheduleDefinitionForm({
     if (d !== null) setOffset(d)
   }
   const cambiarEtapa = (next: Etapa) => {
-    setName(nombreTrasCambiarEtapa(name, etapa, next))
+    setTitulo(nombreTrasCambiarEtapa(titulo, etapa, next))
     setEtapa(next)
   }
 
-  /* Válido = código y nombre con texto + las cantidades en días son enteras (vacío → 0).
+  /* Válido = el título con texto + las cantidades en días son enteras (vacío → 0).
      El offset admite negativos (screening pre-rando); las ventanas son magnitudes, no
      pueden ser negativas ni fraccionarias (la columna es `integer` y un negativo invertiría
      la ventana en silencio al sincronizar). */
@@ -155,14 +126,16 @@ export function ScheduleDefinitionForm({
   const offsetInvalid = !isInt(offset)
   const windowInvalid = !isNonNegInt(windowDays)
   const valid =
-    code.trim() !== '' && name.trim() !== '' && !offsetInvalid && !windowInvalid
+    titulo.trim() !== '' && !offsetInvalid && !windowInvalid
 
   const submit = async () => {
     setBusy(true)
     setError(null)
     const res = await onSubmit({
-      code: code.trim(),
-      name: name.trim(),
+      /* El título entero va al NOMBRE y el código se anula. Si el viejo se dejara ahí, la app lo
+         uniría al título nuevo y mostraría "V1 V5 W4" — el código dejó de ser un dato aparte. */
+      code: null,
+      name: titulo.trim(),
       visit_type: visitType,
       offset_days: Number(offset || 0),
       window_minus: Number(windowDays || 0),
@@ -182,34 +155,16 @@ export function ScheduleDefinitionForm({
   return (
     <Modal title={initial ? 'Editar visita del cuadro' : 'Nueva visita del cuadro'} onClose={onClose} maxWidth={460}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* El código y el nombre son UN dato y se leen de corrido ("V16 W48"), así que viven en un
-            solo recuadro —la geometría de `fieldInput`— con las dos partes peladas adentro, y no en
-            dos campos separados (pedido del Director, 2026-09-20). En la base siguen siendo dos
-            columnas: esto es presentación.
-            No usa `FormField` porque ése envuelve en un <label>, y un label asocia a UN control: con
-            dos adentro, el lector de pantalla le adjudicaría el rótulo al primero y dejaría al otro
-            mudo. Acá el rótulo nombra al grupo (`role="group"` + `aria-labelledby`) y cada mitad
-            lleva su propio `aria-label`: para el ojo es una pieza, para el lector siguen siendo dos
-            partes nombradas. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span id="def-visita-label" style={fieldLabelStyle}>Visita</span>
-          <div
-            className="spira-field-group"
-            role="group"
-            aria-labelledby="def-visita-label"
-            style={{ ...fieldInput, display: 'flex', alignItems: 'center', gap: 8 }}
-          >
-            <CodeInput value={code} onChange={setCode} />
-            <input
-              className="spira-bare-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Nombre de la visita"
-              aria-label="Nombre"
-              style={{ ...bareInput, flex: 1 }}
-            />
-          </div>
-        </div>
+        {/* UN solo cuadro de texto para el título (decisión del Director, 2026-09-20). Antes eran
+            dos campos —Código y Nombre—, después una casilla con las dos mitades pegadas, y esa
+            quedó TAN integrada que no se veía que hubiera dos cosas para llenar: "me costó bastante
+            y yo lo estoy buscando". La salida no fue separarlas mejor sino dejar de separarlas:
+            el título es lo que el usuario escriba, "V5 W4" o lo que quiera.
+            Se guarda entero en `name` y `code` queda en null — la columna sigue existiendo para las
+            definiciones viejas, que `tituloDeDefinicion` une al leer. */}
+        <FormField label="Visita">
+          <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="V5 W4" style={fieldInput} />
+        </FormField>
         <FormField label="Etapa">
           <SearchableSelect value={etapa} onChange={(v) => cambiarEtapa(v as Etapa)} options={ETAPA_OPTS} placeholder="Elegí la etapa" />
         </FormField>
@@ -245,7 +200,7 @@ export function ScheduleDefinitionForm({
               value={offset}
               onChange={(e) => cambiarOffset(e.target.value)}
               aria-label="Día"
-              style={{ ...bareInput, ...codeText, width: 62 }}
+              style={{ ...bareInput, ...numText, width: 62 }}
             />
             <span style={{ ...unidad, marginLeft: 11 }}>Semana</span>
             <input
@@ -255,7 +210,7 @@ export function ScheduleDefinitionForm({
               value={semana}
               onChange={(e) => cambiarSemana(e.target.value)}
               aria-label="Semana"
-              style={{ ...bareInput, ...codeText, width: 52 }}
+              style={{ ...bareInput, ...numText, width: 52 }}
             />
           </div>
           {offsetInvalid && <Hint>Tiene que ser un número entero de días.</Hint>}

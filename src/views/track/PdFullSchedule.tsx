@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
-import { dotVisual, flowWindow, orderVisits, visitStateLabel, visitTitleConSemanaAparte, studyTime, desvioDias, fueraDeVentana, ventanaAbierta } from '../../lib/visits'
+import { dotVisual, flowWindow, orderVisits, visitStateLabel, visitTitle, ventanaDeVisita, desvioDias, fueraDeVentana, ventanaAbierta } from '../../lib/visits'
 import { dotColor } from '../visitStates'
 import { ayudaDeRotulo, GLOSARIO } from '../../lib/glosario'
 import { formatShortAR, todayISO } from '../../lib/dates'
@@ -11,7 +11,8 @@ import { VisitDot } from './VisitDot'
 /**
  * Cronograma vertical: las visitas del paciente (programadas + sueltas). Por fila: pelotita de
  * estado (gris vacía sin atender, contorno verde con punto atendida, relleno verde con check
- * completa — sin número, ver `VisitDot`), título de la visita ("V6 - W8", "VNP"), semana/fecha y
+ * completa — sin número, ver `VisitDot`), título de la visita ("V5 W4", "VNP"), día con su ventana,
+ * fecha y
  * pill del estado operativo.
  *
  * EL VERDE DE LA FILA DICE "LA VENTANA ESTÁ ABIERTA" (Director, 2026-09-20). Hasta ese día pintaba
@@ -76,11 +77,13 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
         const cur = v.id === currentId
         const estColor = dotColor(dotVisual(v), accent)
         const estLabel = visitStateLabel(v, today)
-        /* El renglón de abajo ya dice «Semana W16»: si el nombre no dice más que eso, el título
-           se queda con el código. Ver `visitTitleConSemanaAparte`. */
-        const label = visitTitleConSemanaAparte(v)
+        /* El título, entero y tal como lo escribieron en el cuadro ("V5 W4"). Antes acá se
+           colapsaba el nombre cuando no decía más que la semana, porque el renglón de abajo
+           repetía esa misma semana; desde que abajo va el DÍA con su ventana, no hay repetición
+           que evitar y el título se muestra completo. */
+        const label = visitTitle(v)
         const ayuda = ayudaDeRotulo(label)
-        const st = studyTime(v)
+        const vent = ventanaDeVisita(v)
         const desv = desvioDias(v.estimated_date, v.real_date)
         const fuera = fueraDeVentana(v.real_date, v.window_start, v.window_end)
         const enVentana = ventanaAbierta(v, today)
@@ -125,12 +128,12 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
               ) : (
                 <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: codigoColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
               )}
-              {/* La semana lleva `title` y NO subrayado: se repite en cada renglón, y marcar las
+              {/* El día lleva `title` y NO subrayado: se repite en cada renglón, y marcar los
                   siete volvería la columna un texto resaltado. La explicación está cuando se la
                   busca; la señal se gasta donde rinde. */}
-              {st != null && (
-                <div title={st.unit === 'dia' ? GLOSARIO.dia : GLOSARIO.semana} style={{ fontSize: 11.5, color: 'var(--spira-muted)', marginTop: 1, cursor: 'help', width: 'fit-content' }}>
-                  {st.unit === 'dia' ? `Día ${st.value}` : `Semana W${st.value}`}
+              {vent != null && (
+                <div title={GLOSARIO.dia} style={{ fontSize: 11.5, color: 'var(--spira-muted)', marginTop: 1, cursor: 'help', width: 'fit-content' }}>
+                  {vent}
                 </div>
               )}
             </div>
