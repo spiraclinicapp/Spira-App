@@ -19,6 +19,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.83', text: 'Farmacia estrena Reposición con sus pedidos, y la visita resume sus procedimientos y reportes.' },
     { version: '0.82', text: 'Los procedimientos dicen si llevan sangre, y Farmacia usa el número de sujeto de cada estudio.' },
     { version: '0.81', text: 'La sección del IP dice qué pasó en cada visita y trae su puerta para registrar la entrega.' },
     { version: '0.80', text: 'Una ventana vencida se documenta como desviación, y el feedback llega a Ajustes con su lugar.' },
