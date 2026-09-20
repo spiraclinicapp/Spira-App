@@ -153,6 +153,12 @@ export interface VisitProcedureStatus {
   suggested_order: number | null
   completed: boolean
   completed_at: string | null
+  /**
+   * Si lleva extracción de sangre EN ESTE ESTUDIO (`protocol_procedures.draws_blood`, 0134).
+   * `null` = sin definir, y también es lo que queda si el procedimiento todavía no tiene fila en el
+   * cuadro del estudio. Nunca se degrada a `false`: eso afirmaría que no lleva sangre.
+   */
+  draws_blood: boolean | null
 }
 
 /**
@@ -165,7 +171,13 @@ export interface VisitProcedureStatus {
  * fue con la 0092: en qué anda cada reporte lo dice ahora `report_status` (0090), que es por
  * definición de reporte y no por procedimiento. Lo lee `useVisitReportStatus`.
  */
-export function useVisitProcedureStatus(visitId: string | null, visitDefId: string | null) {
+export function useVisitProcedureStatus(
+  visitId: string | null,
+  visitDefId: string | null,
+  /** El estudio de la visita: sin él no se puede saber si el procedimiento lleva sangre (0134),
+   *  porque esa marca es POR ESTUDIO y el catálogo de procedimientos es global. */
+  protocolId: string | null,
+) {
   return useSupabaseQuery<VisitProcedureStatus[]>(
     async (c) => {
       if (!visitId || !visitDefId) return { data: [], error: null }
@@ -183,13 +195,21 @@ export function useVisitProcedureStatus(visitId: string | null, visitDefId: stri
       }[]
       if (rows.length === 0) return { data: [], error: null }
 
-      const compRes = await c
-        .from('visit_procedure_completions')
-        .select('procedure_id, completed_at')
-        .eq('visit_id', visitId)
+      /* Las realizaciones y la sangre van EN PARALELO: no dependen una de la otra, y encadenarlas
+         sumaba una espera entera a la apertura del modal. */
+      const [compRes, sangreRes] = await Promise.all([
+        c.from('visit_procedure_completions').select('procedure_id, completed_at').eq('visit_id', visitId),
+        protocolId
+          ? c.from('protocol_procedures').select('procedure_id, draws_blood').eq('protocol_id', protocolId)
+          : Promise.resolve({ data: [], error: null }),
+      ])
       if (compRes.error) return { data: null, error: compRes.error }
+      if (sangreRes.error) return { data: null, error: sangreRes.error }
       const comp = new Map<string, string>(
         ((compRes.data ?? []) as { procedure_id: string; completed_at: string }[]).map((r) => [r.procedure_id, r.completed_at]),
+      )
+      const sangre = new Map<string, boolean | null>(
+        ((sangreRes.data ?? []) as { procedure_id: string; draws_blood: boolean | null }[]).map((r) => [r.procedure_id, r.draws_blood]),
       )
 
       const merged: VisitProcedureStatus[] = rows.map((r) => ({
@@ -200,78 +220,94 @@ export function useVisitProcedureStatus(visitId: string | null, visitDefId: stri
         suggested_order: r.suggested_order,
         completed: comp.has(r.procedure_id),
         completed_at: comp.get(r.procedure_id) ?? null,
+        // `?? null` y no `?? false`: sin fila en el cuadro del estudio, la sangre está SIN DEFINIR.
+        draws_blood: sangre.get(r.procedure_id) ?? null,
       }))
       return { data: merged, error: null }
     },
-    [visitId, visitDefId],
+    [visitId, visitDefId, protocolId],
   )
 }
 
-/** Resumen barato de procedimientos de una visita para la LISTA del día. */
-export interface DayProcedureSummary {
-  names: string[]
-  done: number
-  total: number
+/** Una asignación del cronograma: este cuadro de visita lleva este procedimiento. */
+export interface DayAsignacionRow {
+  visit_def_id: string
+  procedure_id: string
+  name: string
+}
+
+/** Un procedimiento del cuadro de un estudio, con las marcas que la tira necesita (0089/0134). */
+export interface DayEstudioRow {
+  protocol_id: string
+  procedure_id: string
+  draws_blood: boolean | null
+  tieneReporte: boolean
 }
 
 /**
- * Resumen de procedimientos para la LISTA del día (0061/0064). En vez de 3 consultas por visita
- * (useVisitProcedureStatus × N filas → decenas de consultas), hace DOS para todo el día: las
- * asignaciones (protocol_activities por los visit_def_id presentes, compartidas entre visitas del
- * mismo cuadro) y las realizaciones (visit_procedure_completions por los visit_id presentes), y las
- * une en el cliente. Devuelve visit_id → { names, done, total }. Sin el circuito de reporte (eso es
- * del modal). Las visitas sin procedimientos no aparecen en el mapa.
+ * Lo que la tira de indicadores de «Visitas del día» necesita saber de los procedimientos: qué
+ * lleva cada cuadro de visita, y qué marcas tiene cada procedimiento EN SU ESTUDIO.
+ *
+ * DOS consultas para todo el día —no una por fila—, y en PARALELO: no dependen una de la otra
+ * (los estudios salen de las filas del día, no de las asignaciones), así que la lista espera una
+ * sola vez en vez de dos. Las visitas del mismo cuadro comparten sus asignaciones.
+ *
+ * La unión la hace `armarResumenesDelDia` (`views/track/resumenVisita.ts`), que es puro y tiene
+ * test: acá sólo se traen las filas. El cruce va SIEMPRE por (estudio, procedimiento) — el catálogo
+ * es global y un día mezcla estudios.
+ *
+ * Los reportes vienen EMBEBIDOS con la relación nombrada (`report_definitions!protocol_procedure_id`)
+ * y no por su nombre a secas: una FK nueva entre esas dos tablas volvería el embed ambiguo y
+ * PostgREST voltearía la consulta entera (pasó con la 0076 y tiró el tablero de Farmacia). Ojo: es
+ * el PRIMER embed de `report_definitions` en el repo — el comentario de la 0111 dice lo contrario y
+ * quedó viejo.
+ *
+ * Ya no se leen las realizaciones: la fila muestra QUÉ LLEVA la visita, no cuánto se hizo.
  */
-export function useDayProceduresSummary(visits: { id: string; visit_def_id: string | null }[]) {
-  const visitIds = [...new Set(visits.map((v) => v.id))].sort()
+export function useDayProcedureRows(visits: { id: string; visit_def_id: string | null; protocol_id: string }[]) {
   const defIds = [...new Set(visits.map((v) => v.visit_def_id).filter((x): x is string => !!x))].sort()
-  const depKey = visitIds.join(',') + '|' + defIds.join(',')
-  return useSupabaseQuery<Record<string, DayProcedureSummary>>(
+  const protocolIds = [...new Set(visits.map((v) => v.protocol_id))].sort()
+  const depKey = defIds.join(',') + '|' + protocolIds.join(',')
+  return useSupabaseQuery<{ asignaciones: DayAsignacionRow[]; delEstudio: DayEstudioRow[] }>(
     async (c) => {
-      if (visitIds.length === 0 || defIds.length === 0) return { data: {}, error: null }
-      const asg = await c
-        .from('protocol_activities')
-        .select('visit_def_id, procedure_id, suggested_order, procedure:procedures(name)')
-        .in('visit_def_id', defIds)
-        .order('suggested_order', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: true })
+      if (defIds.length === 0 && protocolIds.length === 0) {
+        return { data: { asignaciones: [], delEstudio: [] }, error: null }
+      }
+      const [asg, pp] = await Promise.all([
+        defIds.length > 0
+          ? c
+              .from('protocol_activities')
+              .select('visit_def_id, procedure_id, suggested_order, procedure:procedures(name)')
+              .in('visit_def_id', defIds)
+              .order('suggested_order', { ascending: true, nullsFirst: false })
+              .order('created_at', { ascending: true })
+          : Promise.resolve({ data: [], error: null }),
+        c
+          .from('protocol_procedures')
+          .select('protocol_id, procedure_id, draws_blood, report_definitions!protocol_procedure_id(id)')
+          .in('protocol_id', protocolIds),
+      ])
       if (asg.error) return { data: null, error: asg.error }
-      const asgRows = (asg.data ?? []) as unknown as {
+      if (pp.error) return { data: null, error: pp.error }
+
+      const asignaciones: DayAsignacionRow[] = ((asg.data ?? []) as unknown as {
         visit_def_id: string; procedure_id: string; procedure: { name: string } | null
-      }[]
+      }[]).map((r) => ({
+        visit_def_id: r.visit_def_id,
+        procedure_id: r.procedure_id,
+        name: r.procedure?.name ?? 'Procedimiento',
+      }))
 
-      const comp = await c
-        .from('visit_procedure_completions')
-        .select('visit_id, procedure_id')
-        .in('visit_id', visitIds)
-      if (comp.error) return { data: null, error: comp.error }
-      const doneByVisit = new Map<string, Set<string>>()
-      for (const r of (comp.data ?? []) as { visit_id: string; procedure_id: string }[]) {
-        const s = doneByVisit.get(r.visit_id) ?? new Set<string>()
-        s.add(r.procedure_id)
-        doneByVisit.set(r.visit_id, s)
-      }
+      const delEstudio: DayEstudioRow[] = ((pp.data ?? []) as unknown as {
+        protocol_id: string; procedure_id: string; draws_blood: boolean | null; report_definitions: { id: string }[] | null
+      }[]).map((r) => ({
+        protocol_id: r.protocol_id,
+        procedure_id: r.procedure_id,
+        draws_blood: r.draws_blood,
+        tieneReporte: (r.report_definitions ?? []).length > 0,
+      }))
 
-      // Procedimientos (id + nombre, en orden) por definición de visita.
-      const byDef = new Map<string, { procedure_id: string; name: string }[]>()
-      for (const r of asgRows) {
-        const list = byDef.get(r.visit_def_id) ?? []
-        list.push({ procedure_id: r.procedure_id, name: r.procedure?.name ?? 'Procedimiento' })
-        byDef.set(r.visit_def_id, list)
-      }
-
-      const out: Record<string, DayProcedureSummary> = {}
-      for (const v of visits) {
-        const assigned = v.visit_def_id ? byDef.get(v.visit_def_id) ?? [] : []
-        if (assigned.length === 0) continue
-        const doneSet = doneByVisit.get(v.id) ?? new Set<string>()
-        out[v.id] = {
-          names: assigned.map((a) => a.name),
-          done: assigned.filter((a) => doneSet.has(a.procedure_id)).length,
-          total: assigned.length,
-        }
-      }
-      return { data: out, error: null }
+      return { data: { asignaciones, delEstudio }, error: null }
     },
     [depKey],
   )

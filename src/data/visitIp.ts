@@ -124,6 +124,35 @@ export function useVisitIpStatus(visitId: string | null): QueryResult<VisitIpSta
   )
 }
 
+/**
+ * El estado del IP de VARIAS visitas, en una sola consulta. Lo usa la tira de indicadores de
+ * «Visitas del día»: con treinta visitas, una consulta por fila serían treinta viajes.
+ *
+ * Misma vista que el modal, a propósito: `v_visit_ip_status` es la ÚNICA fuente de «esta visita
+ * lleva IP» (0119), que no es lo mismo que el `dispenses_ip` del cronograma —resuelve además el
+ * pedido fuera de cronograma, el valor sellado al fechar la visita y los cierres—. Con dos fuentes,
+ * la fila y el modal se contradirían sobre la misma visita.
+ *
+ * Devuelve sólo las visitas que tienen fila; las que no llevan IP simplemente no están.
+ */
+export function useVisitsIpStatus(visitIds: readonly string[]): QueryResult<VisitIpStatusRow[]> {
+  const version = useIpVersion()
+  const ids = [...new Set(visitIds)].sort()
+  const depKey = ids.join(',')
+  return useSupabaseQuery<VisitIpStatusRow[]>(
+    async (c) => {
+      if (ids.length === 0) return { data: [], error: null }
+      return await c
+        .from('v_visit_ip_status')
+        .select('*')
+        .in('visit_id', ids)
+        .returns<VisitIpStatusRow[]>()
+    },
+    [depKey, version],
+    traducir,
+  )
+}
+
 /** Las alertas «IP sin entregar» vigentes. RLS scopea. No se descartan (D3). */
 export function useIpDeliveryAlerts(): QueryResult<IpDeliveryAlertRow[]> {
   const version = useIpVersion()

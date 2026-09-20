@@ -42,6 +42,7 @@ import {
 } from './motivosFueraCronograma'
 import { Panel } from '../track/Panel'
 import { desenlaceIp } from '../track/ipEstado'
+import { IpSalidas } from '../track/IpSalidas'
 import { DANGER_TINT, WARN_TINT, WARN_TINT_PILL, Sub, btnChico, itemRow, muted, pillBase } from './panelDispensacion'
 import { FormularioOtro } from './FormularioOtro'
 import { SeccionIp } from './SeccionIp'
@@ -1262,6 +1263,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             desenlace={ipQ.data ? desenlaceIp(ipQ.data, visit.ready_at !== null) : null}
             onRegistrarEntrega={puedeCorregir && ofrecerRegistrarIp(contenidoIp, estadoIp) ? abrirCorreccion : null}
             onPedirFueraDeCronograma={readOnly || (cerrada && !corrigiendo) ? null : () => { setFueraCronograma(true); setErr(null) }}
+            /* Las salidas del IP: llegaron con el rediseño del modal de visita, donde el panel de
+               Procedimientos que las alojaba se retiró. `IpSalidas` decide solo si hay algo que
+               ofrecer (no con un pedido vivo en Farmacia, por ejemplo) y si no, no dibuja nada. */
+            salidas={ipQ.data ? <IpSalidas row={ipQ.data} accent={accent} readOnly={readOnly} /> : null}
           />
 
           {/* 4 · EL CIERRE DE LA SOLICITUD. Un solo botón para todo lo que se armó arriba —renglones y

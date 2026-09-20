@@ -935,7 +935,8 @@ function ProximasVisitasCard({ dia, rows, loading, error, onReintentar, onOpenVi
               visit={v}
               primera={i === 0}
               /* Eje CLÍNICO, no operativo: estas visitas todavía no ocurrieron, así que "por
-                 llegar" no querría decir nada. Sin ProcDots por lo mismo: hechos/total sería 0.
+                 llegar" no querría decir nada. Sin la tira de indicadores por lo mismo: lo que la
+                 visita lleva se mira cuando se la va a atender, no acá.
 
                  Y EL CHIP SÓLO CUANDO LA VISITA SE SALIÓ DE LO ESPERADO. `proxima` rotula
                  "Pendiente", que es el estado por defecto de toda visita futura: en una tarjeta que

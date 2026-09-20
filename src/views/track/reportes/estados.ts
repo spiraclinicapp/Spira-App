@@ -230,43 +230,6 @@ export function repartirTablero(
   return { enJuego, cerradas, cerradasOcultas }
 }
 
-/**
- * Qué dice la píldora de reportes de UN procedimiento en el modal de la visita, y en qué tono.
- *
- * Antes decía «N reportes» en neutro pasara lo que pasara, así que un reporte por hacer y uno ya
- * evolucionado se veían idénticos y había que desplegar para enterarse (Director, 2026-09-16: «el
- * reporte tiene que ser más intuitivo»). Ahora, si queda algo por hacer, lo cuenta y lo tiñe:
- *
- *   · `pendiente` (ámbar)  — hay reportes pendientes y ninguno se pasó del plazo. Ámbar y no rojo
- *     porque en el sistema el ámbar es "algo está por vencer", que es exactamente esto.
- *   · `vencido` (rojo)     — al menos uno de los pendientes ya venció (`isOverdue`).
- *   · `neutro`             — nada por hacer: o el procedimiento todavía no se realizó (el plazo no
- *     arrancó, y ahí no hay nada que avisar), o todos llegaron a `evolucionado`.
- *
- * "Pendiente" es `esReportePendiente`, la MISMA definición del Resumen y del tablero: incluye a
- * los `descargado`. Si esta píldora contara sólo la etapa `pendiente`, la visita diría «sin
- * pendientes» mientras el tablero la sigue mostrando.
- *
- * `cantidad` es la de pendientes cuando los hay y la total cuando no: la píldora neutra sigue
- * diciendo cuántos reportes define el procedimiento, como siempre.
- */
-export function pildoraDeReportes(
-  rows: readonly Pick<ReportStatusRow, 'completed' | 'stage' | 'due_at'>[],
-  now: number = Date.now(),
-): { tono: 'neutro' | 'pendiente' | 'vencido'; cantidad: number; texto: string } {
-  const pendientes = rows.filter(esReportePendiente).length
-  if (pendientes === 0) {
-    const n = rows.length
-    return { tono: 'neutro', cantidad: n, texto: `${n} ${n === 1 ? 'reporte' : 'reportes'}` }
-  }
-  const vencido = rows.some((r) => isOverdue(r, now))
-  return {
-    tono: vencido ? 'vencido' : 'pendiente',
-    cantidad: pendientes,
-    texto: `${pendientes} ${pendientes === 1 ? 'reporte pendiente' : 'reportes pendientes'}`,
-  }
-}
-
 /** Cuántos reportes en juego están vencidos (el badge rojo del encabezado). */
 export function contarVencidos(rows: readonly ReportStatusRow[], now: number = Date.now()): number {
   return rows.filter((r) => isOverdue(r, now)).length

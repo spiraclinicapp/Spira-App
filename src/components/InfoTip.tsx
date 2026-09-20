@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
 import { usePopover } from './usePopover'
+import { GRACIA_MS, useHoverIntent } from './useHoverIntent'
 
 /* ============================================================================
    InfoTip — el ⓘ que explica el valor de al lado.
@@ -42,8 +43,6 @@ import { usePopover } from './usePopover'
 /** Ancho FIJO del panel. Fijo y no `max-content` a propósito: con un ancho conocido, la cuenta del
  *  caret es exacta aunque el panel se recorte contra el borde de la ventana. */
 const ANCHO = 250
-/** Cuánto sobrevive el panel después de que el mouse sale, para poder entrar en él. */
-const GRACIA_MS = 140
 
 interface Props {
   /** El nombre de lo que se explica. Va en negrita, arriba. */
@@ -62,26 +61,11 @@ interface Props {
 }
 
 export function InfoTip({ titulo, cuerpo, size = 15, etiqueta, color, icono = 'info' }: Props) {
-  const [open, setOpen] = useState(false)
-  const timer = useRef<number | null>(null)
   const tipId = useId()
-
-  const cancelarCierre = useCallback(() => {
-    if (timer.current != null) { window.clearTimeout(timer.current); timer.current = null }
-  }, [])
-
-  const cerrar = useCallback(() => { cancelarCierre(); setOpen(false) }, [cancelarCierre])
-
-  const cerrarConGracia = useCallback(() => {
-    cancelarCierre()
-    timer.current = window.setTimeout(() => { timer.current = null; setOpen(false) }, GRACIA_MS)
-  }, [cancelarCierre])
-
-  const abrir = useCallback(() => { cancelarCierre(); setOpen(true) }, [cancelarCierre])
-
-  // El timer no puede sobrevivir al desmontaje: un `setOpen` sobre un componente que ya no está es
-  // un aviso en consola y, peor, esconde que el panel quedó vivo un instante de más.
-  useEffect(() => cancelarCierre, [cancelarCierre])
+  /* La apertura por hover con su pausa de gracia vive en `useHoverIntent`, compartida con el
+     listado de procedimientos del Resumen de la visita: dos copias de ese timer derivan en dos
+     comportamientos distintos, uno que se deja entrar con el mouse y otro que no. */
+  const { abierto: open, abrir, cerrar, cerrarConGracia, cancelarCierre, alternar } = useHoverIntent(GRACIA_MS)
 
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, cerrar)
 
@@ -114,7 +98,7 @@ export function InfoTip({ titulo, cuerpo, size = 15, etiqueta, color, icono = 'i
         onMouseLeave={cerrarConGracia}
         onFocus={abrir}
         onBlur={cerrar}
-        onClick={() => (open ? cerrar() : abrir())}
+        onClick={alternar}
         style={{ ...disparador, width: size + 6, height: size + 6 }}
       >
         <Icon name={icono} size={size} color={color ?? 'var(--spira-faint)'} />

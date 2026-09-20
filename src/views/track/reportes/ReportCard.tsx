@@ -5,6 +5,8 @@ import { PatientLink, PatientLinkArrow } from '../../../components/PatientLink'
 import { platformMeta } from '../procedimientos/reportes'
 import { dueLabel, isStage, nextStage, prevStage, STAGE_META } from './estados'
 import type { ReportStage } from './estados'
+import { constanciaDeReporte, tagDeReporte } from './panelDeReportes'
+import { estiloTag } from './tonos'
 import { useReportHistory } from '../../../data/reportStatus'
 import type { ReportStatusRow } from '../../../data/reportStatus'
 import { formatDateTimeAR } from '../../../lib/dates'
@@ -30,6 +32,12 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
   variante: 'tablero' | 'visita'
   /** Primero de su lista: en la variante `visita` se dibuja sin la línea separadora de arriba. */
   primero?: boolean
+  /**
+   * PERMISO para mover el reporte (rol + no estar en la ficha). NO incluye «el procedimiento está
+   * realizado»: eso lo mira el componente con `row.completed`, porque en la variante `visita` cambia
+   * qué se dibuja —el aviso de «se habilita al marcar…» en vez de las acciones— y no sólo si los
+   * botones están. En el tablero todas las filas son tarjetas, así que ahí da igual.
+   */
   canOperate: boolean
   busy: boolean
   onStage: (stage: ReportStage) => void
@@ -47,6 +55,12 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
   const sig = nextStage(stage)
   const ant = prevStage(stage)
   const vence = dueLabel(row)
+  /* En la visita el estado se dice con un TAG y la constancia va a la derecha de las acciones
+     (handoff §7). Las reglas son las mismas del tablero: salen de `panelDeReportes`, que se apoya en
+     `estados.ts`. La constancia va SIN AUTOR a propósito — ver el porqué en esa función. */
+  const tag = tagDeReporte(row)
+  const constancia = constanciaDeReporte(row)
+  const puedeMover = canOperate && row.completed
 
   /* El historial se pide recién al desplegarlo: el conteo ya viaja en la vista y el detalle se
      mira en una de cada veinte tarjetas. */
@@ -113,15 +127,106 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
           sola y hay que ubicarla. Adentro del modal de visita el procedimiento es el renglón de
           arriba —y muchas veces se llama igual que el reporte, como "Electrocardiograma (ECG)"—,
           así que repetirlo es decir dos veces lo mismo. */}
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)' }}>{row.report_name}</div>
-      {enTablero && <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 1 }}>{row.procedure_name}</div>}
+      {enTablero ? (
+        <>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)' }}>{row.report_name}</div>
+          <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 1 }}>{row.procedure_name}</div>
+        </>
+      ) : (
+        /* En la visita, jerarquía FIJA: el nombre del reporte es el titular, la plataforma va debajo
+           y el estado a la derecha, siempre en el mismo lugar. Con dos reportes del mismo
+           procedimiento, esa constancia es lo que evita confundirlos. */
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, alignItems: 'start' }}>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: 'var(--spira-ink)' }}>{row.report_name}</span>
+            <span style={{ display: 'block', fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 1 }}>{meta.label}</span>
+          </span>
+          <span style={estiloTag(tag.tono)}>
+            <Icon name={tag.icono} size={12} color="currentColor" />
+            {tag.texto}
+          </span>
+        </div>
+      )}
       {row.notes && (
         <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 4, lineHeight: 1.45 }}>{row.notes}</div>
       )}
 
+      {/* ── En la VISITA: o el aviso de que todavía no se habilita, o la fila de acciones ──
+          Sin el procedimiento realizado no hay nada que hacer con el reporte: su plazo ni siquiera
+          arrancó. En vez de botones inertes va el aviso que dice qué falta. */}
+      {!enTablero && !row.completed && (
+        <div style={aviso}>Se habilita al marcar el procedimiento como realizado.</div>
+      )}
+
+      {!enTablero && row.completed && (
+        /* Plataforma, avance y —al final de la línea— la constancia. Envuelve a lo ancho de la
+            columna izquierda del modal sin recortar (la fila de acciones es un flex con wrap). */
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 9 }}>
+          {row.link ? (
+            <a
+              href={row.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Abrir ${meta.label} en una pestaña nueva — ${row.link}`}
+              className="spira-plataforma"
+              style={{ ...plataformaVisita, textDecoration: 'none' }}
+            >
+              <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: meta.color, flex: '0 0 auto' }} />
+              Abrir en {meta.label}
+              <Icon name="externalLink" size={12} color="var(--spira-ink)" />
+            </a>
+          ) : (
+            /* Sin link no se disfraza de botón: un rectángulo que parece pulsable y no lleva a
+               ningún lado mandaría a la coordinadora a buscar un portal que la app no tiene. */
+            <span
+              style={{ ...plataformaVisita, borderStyle: 'dashed', cursor: 'default', color: 'var(--spira-ink-soft)' }}
+              title={`${meta.label}: todavía no tiene cargado el link al portal`}
+            >
+              <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: meta.color, flex: '0 0 auto' }} />
+              {meta.label}
+              <span style={{ fontWeight: 400, fontSize: 11.5 }}>· sin link</span>
+            </span>
+          )}
+
+          {puedeMover && sig && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onStage(sig)}
+              style={{ ...avanzarVisita, opacity: busy ? 0.6 : 1 }}
+            >
+              {STAGE_META[sig].cta}
+            </button>
+          )}
+          {/* Retroceder se queda aunque el mock no lo dibuje: el aviso del destilde bloqueado dice
+              «retrocedé el reporte antes de desmarcarlo», y sin este botón esa instrucción no se
+              podría cumplir desde el modal. Va como ícono, que es lo que le corresponde al gesto
+              de excepción. */}
+          {puedeMover && ant && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onStage(ant)}
+              title={`Volver a ${STAGE_META[ant].label.toLowerCase()}`}
+              aria-label={`Volver a ${STAGE_META[ant].label.toLowerCase()}`}
+              style={{ ...iconBtn, width: 30, height: 30, opacity: busy ? 0.6 : 1 }}
+            >
+              <Icon name="rotateCcw" size={13} color="var(--spira-muted)" />
+            </button>
+          )}
+
+          {constancia.texto && (
+            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: constancia.overdue ? 'var(--spira-acc-deep-danger)' : 'var(--spira-ink-soft)', fontWeight: constancia.overdue ? 700 : 400, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              {constancia.overdue && <Icon name="alertCircle" size={12} color="var(--spira-acc-deep-danger)" />}
+              {constancia.texto}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* La plataforma. Con link es un enlace real que abre en pestaña nueva; sin link es un
           rótulo inerte — un botón que no puede abrir nada no se disfraza de botón. */}
-      {row.link ? (
+      {enTablero && (row.link ? (
         <a
           href={row.link}
           target="_blank"
@@ -148,17 +253,19 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
           {meta.label}
           <span style={{ fontWeight: 400, fontSize: 11.5 }}>· sin link</span>
         </div>
-      )}
+      ))}
 
       {/* Vencimiento (si sigue pendiente) o cuándo se movió. */}
-      <div style={{ fontSize: 10.5, marginTop: 6, color: vence.overdue ? 'var(--spira-acc-deep-danger)' : 'var(--spira-muted)', fontWeight: vence.overdue ? 700 : 400 }}>
-        {stage === 'pendiente'
-          ? vence.texto
-          : `${STAGE_META[stage].label} ${row.updated_at ? formatDateTimeAR(row.updated_at) : ''}`}
-      </div>
+      {enTablero && (
+        <div style={{ fontSize: 10.5, marginTop: 6, color: vence.overdue ? 'var(--spira-acc-deep-danger)' : 'var(--spira-muted)', fontWeight: vence.overdue ? 700 : 400 }}>
+          {stage === 'pendiente'
+            ? vence.texto
+            : `${STAGE_META[stage].label} ${row.updated_at ? formatDateTimeAR(row.updated_at) : ''}`}
+        </div>
+      )}
 
       {/* Avanzar / retroceder */}
-      {canOperate && (
+      {enTablero && canOperate && (
         <div style={{ display: 'flex', gap: 7, marginTop: 10 }}>
           {sig ? (
             <button
@@ -239,6 +346,32 @@ const planoConLinea: CSSProperties = {
 const iconBtn: CSSProperties = {
   width: 28, height: 28, flex: '0 0 auto', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
   borderRadius: 8, background: 'var(--spira-white)', cursor: 'pointer', display: 'grid', placeItems: 'center',
+}
+/**
+ * En la VISITA el botón de la plataforma no ocupa el ancho: comparte renglón con el avance y con la
+ * constancia. Blanco con borde, como pide el handoff — el fondo teñido del tablero, al lado del
+ * botón de avance relleno, ponía dos superficies de color compitiendo en la misma línea.
+ */
+const plataformaVisita: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto',
+  height: 30, padding: '0 11px', borderRadius: 9,
+  borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+  background: 'var(--spira-white)', color: 'var(--spira-ink)',
+  fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+}
+/** Avance en la visita: el acento del módulo, como el mock. El tablero conserva el color de la
+ *  etapa de destino, que es lo que ahí codifica la columna a la que va. */
+const avanzarVisita: CSSProperties = {
+  flex: '0 0 auto', height: 30, padding: '0 12px', borderRadius: 9, border: 'none',
+  background: 'var(--spira-track)', color: 'var(--spira-on-accent)',
+  fontFamily: 'var(--spira-font-text)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+  whiteSpace: 'nowrap',
+}
+/** Aviso de que el reporte todavía no opera: se muestra ANTES de tildar el procedimiento. */
+const aviso: CSSProperties = {
+  fontSize: 11.5, color: 'var(--spira-ink-soft)', background: 'var(--spira-surface)',
+  borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)',
+  borderRadius: 9, padding: '8px 11px', lineHeight: 1.45, marginTop: 9,
 }
 /** Botón/rótulo de la plataforma: ancho completo, fondo teñido con su color, texto en tinta. */
 const plataformaBtn: CSSProperties = {

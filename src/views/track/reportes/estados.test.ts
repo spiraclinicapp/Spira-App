@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ReportStatusRow } from '../../../data/reportStatus'
 import {
   canUntickProcedure, closedBy, contarVencidos, dueLabel, esReportePendiente, isOverdue, isStage,
-  nextStage, pildoraDeReportes, porEtapa, prevStage, repartirTablero, visitClosed,
+  nextStage, porEtapa, prevStage, repartirTablero, visitClosed,
   reporteTitulo,
 } from './estados'
 
@@ -81,35 +81,6 @@ describe('esReportePendiente', () => {
   it('no es pendiente si el procedimiento todavía no se realizó', () => {
     // Antes de `completed`, el plazo no arrancó: no es una tarjeta todavía, sin importar `stage`.
     expect(esReportePendiente(row({ completed: false, stage: 'pendiente' }))).toBe(false)
-  })
-})
-
-describe('pildoraDeReportes', () => {
-  // La píldora del modal de la visita. Falla en silencio en las dos direcciones: si cuenta de más,
-  // un procedimiento terminado sigue gritando «pendiente»; si cuenta de menos, un reporte por hacer
-  // se ve neutro, que es justo lo que el cambio vino a evitar. Nada de eso se ve mal en pantalla.
-  it('neutra antes de realizar el procedimiento: el plazo todavía no arrancó', () => {
-    const p = pildoraDeReportes([row({ completed: false }), row({ completed: false })], AHORA)
-    expect(p).toEqual({ tono: 'neutro', cantidad: 2, texto: '2 reportes' })
-  })
-
-  it('cuenta los descargados como pendientes, igual que el tablero', () => {
-    const p = pildoraDeReportes([row({ stage: 'descargado' }), row({ stage: 'evolucionado' })], AHORA)
-    expect(p).toEqual({ tono: 'pendiente', cantidad: 1, texto: '1 reporte pendiente' })
-  })
-
-  it('en rojo apenas UNO de los pendientes venció', () => {
-    const p = pildoraDeReportes([row({ due_at: h(24) }), row({ due_at: h(-1) })], AHORA)
-    expect(p).toEqual({ tono: 'vencido', cantidad: 2, texto: '2 reportes pendientes' })
-  })
-
-  it('un descargado con el plazo pasado NO la vuelve roja: ya se hizo', () => {
-    expect(pildoraDeReportes([row({ stage: 'descargado', due_at: h(-10) })], AHORA).tono).toBe('pendiente')
-  })
-
-  it('vuelve a neutra cuando todo llegó a evolucionado, y dice el total', () => {
-    const p = pildoraDeReportes([row({ stage: 'evolucionado', due_at: h(-10) })], AHORA)
-    expect(p).toEqual({ tono: 'neutro', cantidad: 1, texto: '1 reporte' })
   })
 })
 

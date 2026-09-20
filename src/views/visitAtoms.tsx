@@ -1,5 +1,7 @@
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
+import { ProcedimientosTip } from './ProcedimientosTip'
+import type { ResumenVisita } from './track/resumenVisita'
 
 /**
  * Vocabulario visual de una visita: la etiqueta del protocolo, los puntos de procedimiento y el
@@ -95,27 +97,87 @@ export function VisitCodeTag({ code }: { code: string }) {
 }
 
 /**
- * Tags de procedimiento en la fila — variante `punto` del handoff: punto + nombre, en `muted`,
- * con wrap. Monocromo (el punto en `accent`): el catálogo real de procedimientos es de texto libre,
- * no tiene los 7 tonos/letras fijos del prototipo de demo → no se inventa una escala de color.
+ * ┌─ La tira de indicadores: qué LLEVA la visita ──────────────────────────────────────────────┐
+ *
+ * Cuatro señales en una línea —procedimientos, sangre, kit IP, reportes por cargar—, las mismas en
+ * la fila de «Visitas del día» (compacta) y en el panel «Resumen de la visita» del modal (rótulos
+ * largos). Reemplaza a `ProcDots`, que listaba los nombres de los procedimientos: la lista completa
+ * pasó al listado que se abre al apuntar el conteo, y la fila se quedó con lo que sirve para
+ * programar el día sin abrir cada visita.
+ *
+ * FORMATO LÍNEA, no cápsula: ícono + texto, sin recuadro. La atenuación la carga SÓLO el ícono; el
+ * texto se queda en tinta legible (un secundario a 12,5px teñido no llega a 4,5:1).
+ *
+ * LO QUE NO SE SABE NO SE DIBUJA. Sin sangre definida, no hay gota — ni encendida ni apagada: en una
+ * agenda clínica «Sin sangre» se lee como un hecho (ayuno, tubos, courier). Y si la visita no lleva
+ * nada, el resumen es `null` y acá no se dibuja ni una tira vacía ni un texto de reemplazo.
+ *
+ * La separación va por `gap` y sin divisores: un divisor es un ítem más del flex y, al envolver,
+ * queda colgando al final de la línea.
+ * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-export function ProcDots({ names, accent }: { names: string[]; accent: string }) {
-  if (names.length === 0) return null
+export function IndicadoresVisita({ resumen, variante, porCargar }: {
+  resumen: ResumenVisita
+  variante: 'fila' | 'modal'
+  /** Cuántos reportes quedan por cargar. `null` = la visita no define ninguno (no se dibuja).
+   *  Sólo en el modal: en la fila, los reportes no entran (handoff §4). */
+  porCargar?: number | null
+}) {
+  const enFila = variante === 'fila'
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {names.map((n, i) => (
-        <span
-          key={i}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600,
-            color: 'var(--spira-muted)', whiteSpace: 'nowrap',
-          }}
-        >
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: accent, flex: '0 0 auto' }} />
-          {n}
-        </span>
-      ))}
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: enFila ? '8px 18px' : '10px 20px' }}>
+      <ProcedimientosTip items={resumen.items} variante={variante} />
+
+      {resumen.sangre !== null && (
+        <Indicador
+          encendido={resumen.sangre === 'si'}
+          icono="droplet"
+          relleno
+          color="var(--spira-danger)"
+          texto={
+            resumen.sangre === 'si'
+              ? (enFila ? 'Sangre' : 'Lleva sangre')
+              : (enFila ? 'Sin sangre' : 'No lleva sangre')
+          }
+        />
+      )}
+
+      {/* El kit IP no tiene apagado: o la visita lo lleva, o no se nombra. Decir «Sin kit» en cada
+          visita que no entrega sería ruido en toda la agenda. */}
+      {resumen.kitIp && (
+        <Indicador encendido icono="pill" color="var(--spira-warn)" texto={enFila ? 'Kit IP' : 'Lleva kit IP'} />
+      )}
+
+      {!enFila && porCargar != null && (
+        <Indicador
+          encendido={porCargar > 0}
+          icono="fileText"
+          color="var(--spira-warn)"
+          texto={porCargar > 0 ? `${porCargar} ${porCargar === 1 ? 'reporte' : 'reportes'} por cargar` : 'Reportes al día'}
+        />
+      )}
     </div>
+  )
+}
+
+/** Un indicador de la tira: ícono + texto. Apagado = el ícono en `faint` y el texto atenuado. */
+function Indicador({ encendido, icono, color, texto, relleno = false }: {
+  encendido: boolean
+  icono: IconName
+  color: string
+  texto: string
+  relleno?: boolean
+}) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', color: encendido ? 'var(--spira-ink)' : 'var(--spira-ink-soft)' }}>
+      <Icon
+        name={icono}
+        size={14}
+        color={encendido ? color : 'var(--spira-faint)'}
+        fill={relleno ? (encendido ? color : 'var(--spira-faint)') : undefined}
+      />
+      {texto}
+    </span>
   )
 }
 

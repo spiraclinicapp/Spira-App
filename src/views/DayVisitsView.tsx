@@ -20,7 +20,9 @@ import {
 } from '../data/dayVisits'
 import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
 import { useRandoAttendedWithoutDate } from '../data/visits'
-import { useDayProceduresSummary } from '../data/procedures'
+import { useDayProcedureRows } from '../data/procedures'
+import { useVisitsIpStatus } from '../data/visitIp'
+import { armarResumenesDelDia } from './track/resumenVisita'
 import { OPERATIONAL_STAGES, STAGE_ORDER } from './visitStates'
 import { contarVisitas, enElCentro } from './visitRules'
 import { DayVisitRowItem } from './track/DayVisitRowItem'
@@ -105,8 +107,18 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
 
   const isToday = date === todayISO()
   const rows = day.data ?? []
-  // Resumen de procedimientos de TODO el día en 2 consultas (no 3 por fila), para los puntos de la fila.
-  const dayProcs = useDayProceduresSummary(rows)
+  /* La tira de indicadores de cada fila: qué lleva la visita (procedimientos, sangre, kit IP).
+     TRES consultas para todo el día y no por fila —dos acá y la del IP al lado—, y las tres salen a
+     la vez: ninguna depende de otra. La unión la hace `armarResumenesDelDia`, que es puro y tiene
+     test; acá sólo se juntan las piezas. El estado del IP se lee de `v_visit_ip_status`, la misma
+     fuente que el modal: con `dispenses_ip` los dos se contradecían (IP fuera de cronograma, valor
+     sellado, cierres). */
+  const dayProcs = useDayProcedureRows(rows)
+  const dayIps = useVisitsIpStatus(rows.map((v) => v.id))
+  const resumenes = useMemo(
+    () => armarResumenesDelDia(rows, dayProcs.data?.asignaciones ?? [], dayProcs.data?.delEstudio ?? [], dayIps.data ?? []),
+    [rows, dayProcs.data, dayIps.data],
+  )
 
   /* Push al abrir y replace al cerrar (lo trae `useUrlEntity`): abrir el detalle ES navegar y el
      atrás tiene que cerrarlo, pero si cerrar también apilara, el atrás lo REABRIRÍA — y en esta
@@ -321,7 +333,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
       canReception={canReception}
       canClinical={canClinical(v)}
       busyId={busyId}
-      procs={dayProcs.data?.[v.id]}
+      resumen={resumenes[v.id] ?? null}
       onAdvance={advance}
       onOpenDoctor={(vv) => setDoctorFor(vv)}
       onNoShow={noShow}
