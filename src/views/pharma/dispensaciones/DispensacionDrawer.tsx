@@ -10,6 +10,7 @@ import {
   activeDispensation, cancelDispensationPreparation, columnOf, constanciaVigente,
   origenLabel, rejectDispensationRequest, useDispensationRequest,
 } from '../../../data/pharma'
+import { ivrsDeInscripcion } from '../../../lib/ivrs'
 import { chipExcepcion, COLUMN_META } from './estados'
 import type { AccionMenu } from './MenuAcciones'
 import { MenuAcciones } from './MenuAcciones'
@@ -83,6 +84,8 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
   }, [r.items, disp])
   const rechazada = r.status === 'rechazada'
   const paciente = r.enrollment?.patient
+  /** El número de sujeto de ESTE estudio, no el del estudio madre (`ivrsDeInscripcion`). */
+  const ivrs = ivrsDeInscripcion(r.enrollment)
   const protocolo = r.protocol
   const constancia = constanciaVigente(r)
 
@@ -162,8 +165,8 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
                 </span>
                 <span style={dot} />
                 <span className="spira-mono">
-                  {paciente?.code
-                    ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${paciente.code}`}>{paciente.code}</PatientLink>
+                  {ivrs
+                    ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${ivrs}`}>{ivrs}</PatientLink>
                     : '—'}
                 </span>
                 {onOpenPatient && <PatientLinkArrow />}

@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import type { DispensationRequestRow, DispensationRow } from '../../../data/pharma'
 import { cantidadConPartes, constanciaVigente, origenLabel, partesDelMedicamento } from '../../../data/pharma'
 import { formatAR, formatDateTimeAR } from '../../../lib/dates'
+import { ivrsDeInscripcion } from '../../../lib/ivrs'
 
 /**
  * La hoja del comprobante. NO es la pantalla impresa: es un documento propio que solo existe bajo
@@ -22,7 +23,8 @@ export function ComprobanteImprimible({ r, disp }: {
   r: DispensationRequestRow
   disp: DispensationRow
 }) {
-  const paciente = r.enrollment?.patient?.code ?? '—'
+  // El número de ESTE estudio, no el del estudio madre: este papel va a la carpeta del estudio.
+  const paciente = ivrsDeInscripcion(r.enrollment) ?? '—'
   const protocolo = r.protocol?.code ?? '—'
   const constancia = constanciaVigente(r)
 

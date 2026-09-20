@@ -258,6 +258,9 @@ export function DispensacionesView({ module, submodule, setHeader, onNavigate }:
       if (needle) {
         const hay = [
           activeDispensation(r)?.dispensation_code ?? '',
+          // Los DOS números: el de este estudio, que es el que muestra la tarjeta, y el del estudio
+          // madre, por el que alguien acostumbrado a la numeración vieja lo puede seguir buscando.
+          r.enrollment?.ivrs_code ?? '',
           r.enrollment?.patient?.code ?? '',
           r.protocol?.code ?? '',
           ...r.items.map((i) => i.medication?.name ?? ''),
