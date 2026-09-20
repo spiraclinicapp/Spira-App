@@ -1,4 +1,5 @@
 import type { TrackVisitRow } from '../data/visits'
+import { daysDiffISO } from './dates'
 import { KIND_LABELS, KIND_SHORT } from './visitLabels'
 import type { VisitKind } from './visitLabels'
 
@@ -26,23 +27,39 @@ export interface VisitTitleFields {
 }
 
 /**
- * Título ancho de una visita: "V1 - Screening" (def con código y nombre) o el label
- * del kind para las sueltas ("VNP", "Retest"). Para títulos de modal, ficha, lista vertical.
+ * El TÍTULO de la definición de una visita, o '' si la visita no tiene definición (las sueltas).
+ *
+ * Desde el 2026-09-20 el título es UN SOLO texto libre —"V5 W4", "Control de seguridad"—: el
+ * formulario del cuadro dejó de tener código y nombre por separado (decisión del Director) y lo
+ * guarda entero en `name`, con `code` en null.
+ *
+ * Las definiciones VIEJAS sí tienen las dos columnas ("V6" + "W16") y se unen con un espacio, para
+ * que lean igual que las nuevas. Se unen AL LEER y no con una migración: no toca datos reales, y
+ * cada definición se normaliza sola el día que alguien la edite. El separador es un espacio y ya no
+ * " - " justamente por eso — un título escrito de una sola vez no trae guión, y dos formatos
+ * conviviendo en la misma lista se leen como dos clases de visita.
+ */
+function tituloDeDefinicion(v: VisitTitleFields): string {
+  const codigo = v.visit_code?.trim() ?? ''
+  const nombre = v.visit_name?.trim() ?? ''
+  if (!codigo) return nombre
+  if (!nombre) return codigo
+  /* "V1 V1" no es un título, es un tartamudeo. Pasa seguido con datos reales: varios protocolos
+     cargan la definición con el mismo texto en el código y en el nombre, y la pantalla lo repetía
+     dos veces, como si fueran dos datos distintos.
+     Se colapsa SÓLO cuando son idénticos (comparando sin espacios ni mayúsculas). Nada de
+     "contiene a": con "V1" y "V1 basal" el nombre agrega información real, y descartarlo para que
+     lea más lindo sería esconder un dato en una app auditable. */
+  if (nombre.toLocaleLowerCase() === codigo.toLocaleLowerCase()) return codigo
+  return `${codigo} ${nombre}`
+}
+
+/**
+ * Título ancho de una visita: el de su definición ("V5 W4") o el label del kind para las sueltas
+ * ("VNP", "Retest"). Para títulos de modal, ficha, lista vertical.
  */
 export function visitTitle(v: VisitTitleFields): string {
-  if (v.visit_code) {
-    /* "V1 - V1" no es un título, es un tartamudeo. Pasa seguido con datos reales: varios protocolos
-       cargan la definición con el mismo texto en el código y en el nombre, y la pantalla lo repetía
-       dos veces separado por un guión, como si fueran dos datos distintos.
-       Se colapsa SÓLO cuando son idénticos (comparando sin espacios ni mayúsculas). Nada de
-       "contiene a": con "V1" y "V1 basal" el nombre agrega información real, y descartarlo para que
-       lea más lindo sería esconder un dato en una app auditable. */
-    const nombre = v.visit_name?.trim()
-    if (!nombre) return v.visit_code
-    if (nombre.toLocaleLowerCase() === v.visit_code.trim().toLocaleLowerCase()) return v.visit_code
-    return `${v.visit_code} - ${nombre}`
-  }
-  return v.visit_name ?? KIND_LABELS[v.kind]
+  return tituloDeDefinicion(v) || KIND_LABELS[v.kind]
 }
 
 /**
@@ -50,13 +67,16 @@ export function visitTitle(v: VisitTitleFields): string {
  * dice nada más que esa semana.
  *
  * Es la hermana de la regla de arriba, con otra fuente de repetición. Hay cronogramas cargados con
- * el nombre = la semana ("V6" / "W16"), y entonces la ficha decía «V6 - W16» al lado de un bloque
- * «Semana W16», y el cronograma «V6 - W16» arriba de «Semana W16». La misma palabra dos veces en el
- * mismo renglón se lee como dos datos distintos (Director, 2026-09-15).
+ * el nombre = la semana ("V6" / "W16"), y entonces la ficha decía «V6 W16» al lado de un bloque
+ * «Semana W16». La misma palabra dos veces en el mismo renglón se lee como dos datos distintos
+ * (Director, 2026-09-15).
+ *
+ * Desde el 2026-09-20 le queda UN solo consumidor, la ficha del paciente: el cronograma dejó de
+ * mostrar la semana abajo —ahora va el día con su ventana— y usa `visitTitle` derecho.
  *
  * SE COLAPSA EL NOMBRE Y NO LA SEMANA, y sólo acá: donde la semana NO está en pantalla —el
  * desplegable de Farmacia, las filas del día, el título del modal— `visitTitle` sigue devolviendo
- * «V6 - W16», que ahí es la única forma de saber de qué semana se trata. Colapsar en la fuente
+ * «V6 W16», que ahí es la única forma de saber de qué semana se trata. Colapsar en la fuente
  * habría borrado ese dato en seis vistas para arreglar dos.
  *
  * Exige coincidencia EXACTA con la semana derivada (`studyTime`): "W16" con semana 16 colapsa;
@@ -72,12 +92,18 @@ export function visitTitleConSemanaAparte(v: TrackVisitRow): string {
 }
 
 /**
- * Código corto para rótulos COMPACTOS (pastillas, celdas angostas): "V1" (def) o el short del
- * kind ("VNP", "Scr"). Una programada SIN código devuelve '' y cada pantalla decide qué hacer con
+ * Rótulo COMPACTO (pastillas, celdas angostas): el título de la definición o el short del kind
+ * ("VNP", "Scr"). Una programada sin definición devuelve '' y cada pantalla decide qué hacer con
  * el hueco; para un rótulo que no puede quedar vacío, `visitShortLabel`.
+ *
+ * Devuelve el TÍTULO ENTERO y ya no un código corto aparte, porque desde el 2026-09-20 ese código
+ * corto no existe: el cuadro guarda un solo texto. Decisión del Director, sabiendo el costo — la
+ * pastilla pasa de "V5" a "V5 W4". La alternativa era adivinar el código quedándose con la primera
+ * palabra del título, y adivinar habría puesto "Control" en la pastilla de una visita llamada
+ * "Control V5".
  */
 export function visitCode(v: TrackVisitRow): string {
-  return v.visit_code ?? KIND_SHORT[v.kind]
+  return tituloDeDefinicion(v) || KIND_SHORT[v.kind]
 }
 
 /**
@@ -208,6 +234,41 @@ export function adherence(rows: TrackVisitRow[]): { done: number; planned: numbe
 export function desvioDias(estimated: string | null, real: string | null): number | null {
   if (!estimated || !real) return null
   return Math.round((Date.parse(real) - Date.parse(estimated)) / 86400000)
+}
+
+/**
+ * El día de estudio de una visita con su ventana, para el renglón de abajo del cronograma del
+ * paciente: **"Día 56 (±3 días)"**. `null` para las sueltas, que no tienen offset.
+ *
+ * Reemplazó al "Semana W8" que estaba ahí hasta el 2026-09-20 (pedido del Director): la semana se
+ * mudó al título, que ahora se escribe entero en el cuadro, y el renglón de abajo pasó a decir el
+ * dato que no estaba en ninguna parte — cuándo cae la visita y cuánto se puede correr.
+ *
+ * La ventana sale de las FECHAS de esta visita (`window_start`/`window_end` contra
+ * `estimated_date`) y no de la definición del cuadro: son las que se generaron para este paciente,
+ * y si el cuadro cambió después, lo que vale —y lo que se audita— es la ventana con la que la
+ * visita se agendó.
+ *
+ * Dos decisiones que la hacen honesta y conviene no "simplificar":
+ *  · Una ventana ASIMÉTRICA se dice como es ("−1/+3 días"). La simetría la impone el formulario de
+ *    hoy, pero hay filas viejas con ventanas distintas de cada lado, y promediarlas a un ± sería
+ *    afirmar algo falso sobre una fecha límite.
+ *  · Una ventana de CERO no se escribe: "Día 56" ya lo dice todo y "(±0 días)" es ruido.
+ */
+export function ventanaDeVisita(v: TrackVisitRow): string | null {
+  if (v.offset_days == null) return null
+  const dia = `Día ${v.offset_days}`
+  if (!v.estimated_date || !v.window_start || !v.window_end) return dia
+  const menos = daysDiffISO(v.window_start, v.estimated_date)
+  const mas = daysDiffISO(v.estimated_date, v.window_end)
+  /* Una ventana que NO contiene a su propia fecha estimada es un dato inconsistente —pasa si la
+     fecha se movió sin regenerar la ventana—, y ahí la resta da un lado negativo. Sin esta guarda
+     el renglón escribía "(−31/+-25 días)": una cadena rota, que es peor que no decir nada. Se
+     muestra el día solo, que es lo único que en ese estado sigue siendo cierto. */
+  if (menos < 0 || mas < 0) return dia
+  if (menos === 0 && mas === 0) return dia
+  const unidad = (n: number) => (n === 1 ? 'día' : 'días')
+  return menos === mas ? `${dia} (±${mas} ${unidad(mas)})` : `${dia} (−${menos}/+${mas} días)`
 }
 
 /** ¿La fecha real cayó FUERA de la ventana [window_start, window_end] del cronograma? */

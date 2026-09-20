@@ -6,9 +6,9 @@ import type { VisitTitleFields } from './visits'
 /**
  * Cómo se nombra una visita en una línea de texto.
  *
- * Se testea por lo que casi hace fallar: la regla nueva COLAPSA "V1 - V1" en "V1", y la tentación
+ * Se testea por lo que casi hace fallar: la regla nueva COLAPSA "V1 V1" en "V1", y la tentación
  * al escribirla es colapsar también cuando uno contiene al otro. Eso descartaría el nombre en
- * "V1 - V1 basal", que es información real de un cronograma — esconder un dato para que la línea
+ * "V1 V1 basal", que es información real de un cronograma — esconder un dato para que la línea
  * lea más linda, en una app auditable, es peor que la redundancia que arregla.
  *
  * `visitTitle` vive en seis vistas, así que el caso de más abajo (código sin nombre, sueltas sin
@@ -33,8 +33,8 @@ describe('visitTitle', () => {
   it('NO colapsa cuando el nombre agrega información', () => {
     // El caso que hace que la regla sea "iguales" y no "contiene": acá "basal" es un dato del
     // cronograma y descartarlo sería esconderlo.
-    expect(visitTitle(v({ visit_code: 'V1', visit_name: 'V1 basal' }))).toBe('V1 - V1 basal')
-    expect(visitTitle(v({ visit_code: 'V4', visit_name: 'W2' }))).toBe('V4 - W2')
+    expect(visitTitle(v({ visit_code: 'V1', visit_name: 'V1 basal' }))).toBe('V1 V1 basal')
+    expect(visitTitle(v({ visit_code: 'V4', visit_name: 'W2' }))).toBe('V4 W2')
   })
 
   it('con nombre vacío o en blanco devuelve sólo el código', () => {
@@ -55,7 +55,7 @@ describe('visitTitle', () => {
  * La variante para pantallas que YA muestran la semana (la ficha y su cronograma).
  *
  * Falla en silencio de las dos maneras y por eso se testea: si colapsa de menos, vuelve el
- * «V6 - W16» al lado de «Semana W16» que el Director marcó; si colapsa de más, la pantalla se come
+ * «V6 W16» al lado de «Semana W16» que el Director marcó; si colapsa de más, la pantalla se come
  * un nombre que decía algo («W16 basal») o tapa un desacuerdo entre el nombre cargado y la semana
  * que sale de la cuenta — y eso último es exactamente lo que alguien necesita ver.
  *
@@ -71,19 +71,19 @@ describe('visitTitleConSemanaAparte', () => {
   })
 
   it('NO colapsa cuando el nombre agrega información', () => {
-    expect(visitTitleConSemanaAparte(trat({ visit_code: 'V6', visit_name: 'W16 basal', offset_days: 112 }))).toBe('V6 - W16 basal')
-    expect(visitTitleConSemanaAparte(trat({ visit_code: 'V1', visit_name: 'Screening', offset_days: -59, date_mode: 'libre' }))).toBe('V1 - Screening')
+    expect(visitTitleConSemanaAparte(trat({ visit_code: 'V6', visit_name: 'W16 basal', offset_days: 112 }))).toBe('V6 W16 basal')
+    expect(visitTitleConSemanaAparte(trat({ visit_code: 'V1', visit_name: 'Screening', offset_days: -59, date_mode: 'libre' }))).toBe('V1 Screening')
   })
 
   it('NO colapsa si el nombre y la semana derivada discrepan: ese desacuerdo se muestra', () => {
-    expect(visitTitleConSemanaAparte(trat({ visit_code: 'V6', visit_name: 'W15', offset_days: 112 }))).toBe('V6 - W15')
+    expect(visitTitleConSemanaAparte(trat({ visit_code: 'V6', visit_name: 'W15', offset_days: 112 }))).toBe('V6 W15')
   })
 
   it('sin semana derivada (sueltas, pre-rando) se comporta como visitTitle', () => {
     const suelta = v({ visit_code: null, visit_name: null, kind: 'vnp', offset_days: null })
     expect(visitTitleConSemanaAparte(suelta)).toBe(visitTitle(suelta))
     const preRando = v({ visit_code: 'V2', visit_name: 'W4', offset_days: -28, date_mode: 'libre' })
-    expect(visitTitleConSemanaAparte(preRando)).toBe('V2 - W4')
+    expect(visitTitleConSemanaAparte(preRando)).toBe('V2 W4')
   })
 })
 
@@ -111,7 +111,7 @@ describe('visitTitle · el objeto mínimo del mostrador de Farmacia', () => {
   })
 
   it('nombra la del cuadro con código y nombre', () => {
-    expect(visitTitle(delCuadro)).toBe('V7 - Semana 12')
+    expect(visitTitle(delCuadro)).toBe('V7 Semana 12')
   })
 
   it('dos VNP del mismo paciente comparten título: la fecha es lo que las distingue', () => {

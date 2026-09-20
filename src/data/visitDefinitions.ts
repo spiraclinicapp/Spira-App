@@ -92,7 +92,9 @@ export async function scheduleProtocolVisit(
 
 /** Campos editables de una definición (sin id/protocol_id/sort_order: los maneja la capa). */
 export interface DefinitionInput {
-  code: string
+  /** null desde el 2026-09-20: el cuadro guarda UN título, entero, en `name`. La columna queda
+   *  para las definiciones viejas, que la app une al leer (`visitTitle`). */
+  code: string | null
   name: string
   visit_type: VisitType
   offset_days: number
