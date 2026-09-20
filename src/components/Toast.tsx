@@ -44,11 +44,22 @@ export function Toast({ message, onDone, duration = 2400, tono, onClick, apilado
   }, [paused, duration, onDone, message])
 
   const caja = onClick ? { ...wrap, cursor: 'pointer' } : wrap
-  /* El contenedor de la pila va con `pointer-events: none` para no tapar la pantalla de atrás, así
-     que el toast tiene que volver a habilitarlos para sí mismo — si no, no se lo puede clickear ni
-     pausar con el mouse. */
+  /* Apilado hay que desarmar TRES cosas del toast centrado, y la tercera no se ve leyendo:
+     · la posición fija y el `left: 50%`, que lo plantarían al pie;
+     · los `pointer-events`, porque el contenedor de la pila los apaga para no tapar la pantalla de
+       atrás, y sin volver a encenderlos acá el toast no se puede clickear ni pausar con el mouse;
+     · LA ANIMACIÓN DE ENTRADA. `spToastIn` lleva `translate(-50%, 8px)` adentro de sus keyframes —
+       es el mismo centrado, escrito otra vez— así que un toast apilado entraba corrido media caja
+       hacia la izquierda. Medido en el navegador: `matrix(1,0,0,1,-123,8)` sobre una caja de 246px.
+       En su lugar va `spNotifCajaIn`, que es la entrada de las cajas de la campana: mismo gesto
+       corto de esta casa, y estos avisos son justamente eso. */
   const estilo: CSSProperties = apilado
-    ? { ...caja, position: 'static', left: 'auto', bottom: 'auto', transform: 'none', pointerEvents: 'auto' }
+    ? {
+      ...caja,
+      position: 'static', left: 'auto', bottom: 'auto', transform: 'none',
+      pointerEvents: 'auto',
+      animation: 'spNotifCajaIn .15s ease-out',
+    }
     : caja
 
   return (
