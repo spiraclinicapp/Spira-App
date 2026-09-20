@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  corteDelMes, diasHastaElCorte, enCurso, esDiaDeCorteValido, periodoAnterior, periodoDe, periodoSiguiente,
-  textoPeriodo, ultimoDiaDelMes,
+  corteDelMes, diasHastaElCorte, enCurso, esDiaDeCorteValido, periodoAMirar, periodoAnterior, periodoDe, periodoSiguiente,
+  textoPeriodo, ultimoDiaDelMes, ventanaTarde,
 } from './periodoDeCorte'
 import { sumarDias } from './reposicionModel'
 
@@ -85,10 +85,40 @@ describe('ayudas de pantalla', () => {
     expect(diasHastaElCorte('2026-09-28', p)).toBe(0)
   })
   it('texto del período', () => {
-    expect(textoPeriodo(p)).toBe('29/08 → 28/09')
+    expect(textoPeriodo(p)).toBe('29/08 al 28/09')
   })
   it('día de corte válido: entero del 1 al 31', () => {
     expect([1, 28, 31].every((n) => esDiaDeCorteValido(n))).toBe(true)
     expect([0, 32, 2.5, Number.NaN].some((n) => esDiaDeCorteValido(n))).toBe(false)
+  })
+})
+
+describe('ventanaTarde (RD1)', () => {
+  it('el día siguiente al corte abre la ventana de 5 días', () => {
+    expect(ventanaTarde('2026-09-29', 28)).toEqual({ corte: '2026-09-28', hasta: '2026-10-03', quedan: 5 })
+  })
+  it('cuenta hacia atrás, y el último día queda 1', () => {
+    expect(ventanaTarde('2026-10-01', 28)?.quedan).toBe(3)
+    expect(ventanaTarde('2026-10-03', 28)?.quedan).toBe(1)
+  })
+  it('el sexto día ya no es ventana, y el día del corte tampoco: ese día se pide el que viene', () => {
+    expect(ventanaTarde('2026-10-04', 28)).toBeNull()
+    expect(ventanaTarde('2026-09-28', 28)).toBeNull()
+  })
+  it('cruza el mes: con corte 31, el de enero abre la ventana en febrero', () => {
+    expect(ventanaTarde('2027-02-01', 31)).toEqual({ corte: '2027-01-31', hasta: '2027-02-05', quedan: 5 })
+  })
+})
+
+describe('periodoAMirar', () => {
+  const EN_CURSO = { desde: '2026-08-29', hasta: '2026-09-28' }
+  it('sin fecha, con basura, o con una del período en curso o posterior: el período en curso', () => {
+    expect(periodoAMirar('2026-09-16', 28, '')).toEqual(EN_CURSO)
+    expect(periodoAMirar('2026-09-16', 28, 'basura')).toEqual(EN_CURSO)
+    expect(periodoAMirar('2026-09-16', 28, '2026-09-01')).toEqual(EN_CURSO)
+    expect(periodoAMirar('2026-09-16', 28, '2026-12-01')).toEqual(EN_CURSO)
+  })
+  it('una fecha anterior mira el período que la contiene', () => {
+    expect(periodoAMirar('2026-09-16', 28, '2026-08-10')).toEqual({ desde: '2026-07-29', hasta: '2026-08-28' })
   })
 })

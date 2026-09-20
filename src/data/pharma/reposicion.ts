@@ -2,7 +2,7 @@ import { supabase } from '../../lib/supabase'
 import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import type { InsumosReposicion, ModoReposicion } from './reposicionModel'
 import type { Periodo } from './periodoDeCorte'
-import type { MotivoAnulacion, MotivoCierre } from './pedidosMedicacionModel'
+import type { InsumosPorRecibir, MotivoAnulacion, MotivoCierre } from './pedidosMedicacionModel'
 import type { InsumosDelPeriodo } from './reposicionPeriodoModel'
 import { pharmaErrorMessage } from './errors'
 
@@ -136,13 +136,25 @@ export function useDiaCorte() {
   )
 }
 
+/** Lo leído de un período, CON el período: ver `useReposicionDelPeriodo`. */
+export interface ReposicionLeida {
+  desde: string
+  hasta: string
+  insumos: InsumosDelPeriodo
+}
+
 /**
- * Los datos crudos de un período (`reposicion_del_periodo`, 0128). La cuenta la hace
+ * Los datos crudos de un período (`reposicion_del_periodo`, 0128 + 0133). La cuenta la hace
  * `armarReposicionDelPeriodo` (D11). Sin período todavía (falta el día de corte) no pide nada.
- * `protocolId` null = todos los estudios no cerrados (la grilla).
+ * `protocolId` null = todos los estudios no cerrados.
+ *
+ * Devuelve el período junto con los datos porque `useSupabaseQuery` deja visibles los datos viejos
+ * mientras llegan los nuevos: al pasar de un período a otro con las flechas, la pantalla tiene que poder
+ * saber de qué período es lo que tiene antes de rotularlo, o mostraría el libro de julio con el título
+ * de agosto.
  */
 export function useReposicionDelPeriodo(periodo: Periodo | null, protocolId: string | null = null) {
-  return useSupabaseQuery<InsumosDelPeriodo | null>(
+  return useSupabaseQuery<ReposicionLeida | null>(
     async (c) => {
       if (!periodo) return { data: null, error: null }
       const { data, error } = await c.rpc('reposicion_del_periodo', {
@@ -151,7 +163,7 @@ export function useReposicionDelPeriodo(periodo: Periodo | null, protocolId: str
         p_protocol_id: protocolId,
       })
       if (error) return { data: null, error }
-      return { data: data as InsumosDelPeriodo, error: null }
+      return { data: { desde: periodo.desde, hasta: periodo.hasta, insumos: data as InsumosDelPeriodo }, error: null }
     },
     // Los bordes y no el objeto: un período recalculado en cada render cambia de identidad.
     [periodo?.desde, periodo?.hasta, protocolId],
@@ -171,14 +183,21 @@ export async function guardarDiaCorte(dia: number): Promise<Resultado> {
   return { error: null }
 }
 
-/** «Emitir e imprimir» (R8): cabecera y renglones en una llamada atómica. Devuelve el número para la hoja. */
+/**
+ * «Emitir e imprimir» (R8): cabecera y renglones en una llamada atómica. Devuelve el número para la hoja.
+ * `intento` es un uuid por cada vez que se abre «Armar pedido» (0133): si la red se corta después de
+ * guardar y se reintenta, la base devuelve el pedido que ya quedó en vez de emitir otro.
+ */
 export async function emitirPedidoMedicacion(input: {
   protocolId: string
-  /** El período PARA el que se pide (P1). */
+  /** El período PARA el que se pide. */
   periodo: Periodo
   /** Hoy en hora AR. */
   emitidoEl: string
   renglones: { medication_id: string; calculado: number | null; pedido: number }[]
+  intento: string
+  /** El último pedido de ese período que mostraba la pantalla, 0 si ninguno (0133, revisión de ingeniería, 7). */
+  ultimoVisto: number
 }): Promise<Resultado & { id?: string; numero?: number }> {
   const { data, error } = await supabase.rpc('emitir_pedido_medicacion', {
     p_protocol_id: input.protocolId,
@@ -186,6 +205,8 @@ export async function emitirPedidoMedicacion(input: {
     p_hasta: input.periodo.hasta,
     p_emitido_el: input.emitidoEl,
     p_renglones: input.renglones,
+    p_intento: input.intento,
+    p_ultimo_visto: input.ultimoVisto,
   })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   const r = data as { id: string; numero: number }
@@ -204,4 +225,27 @@ export async function cerrarFaltantePedido(itemId: string, motivo: MotivoCierre)
   const { error } = await supabase.rpc('cerrar_faltante_pedido', { p_item_id: itemId, p_motivo: motivo })
   if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
   return { error: null }
+}
+
+/** «Reabrir» (RD2): lo que se había dado por perdido vuelve a estar en camino. */
+export async function reabrirFaltantePedido(itemId: string): Promise<Resultado> {
+  const { error } = await supabase.rpc('reabrir_faltante_pedido', { p_item_id: itemId })
+  if (error) return { error: pharmaErrorMessage(error.code, error.message), code: error.code }
+  return { error: null }
+}
+
+/**
+ * La lista de «Recibir un pedido» (`pedidos_por_recibir`, 0133): independiente del período, porque la
+ * Recepción no sabe de cortes. La arma `armarPorRecibir`.
+ */
+export function usePedidosPorRecibir() {
+  return useSupabaseQuery<InsumosPorRecibir | null>(
+    async (c) => {
+      const { data, error } = await c.rpc('pedidos_por_recibir')
+      if (error) return { data: null, error }
+      return { data: data as InsumosPorRecibir, error: null }
+    },
+    [],
+    (e) => pharmaErrorMessage(e.code, e.message),
+  )
 }

@@ -72,12 +72,47 @@ export function diasHastaElCorte(hoy: string, p: Periodo): number {
   return Math.round((diaUTC(p.hasta) - diaUTC(hoy)) / 86_400_000)
 }
 
-/** `29/08 → 28/09`. */
+/** `29/08 al 28/09` (RD12: sin flecha, que el lector de pantalla lee en voz alta). */
 export function textoPeriodo(p: Periodo): string {
-  return `${diaMes(p.desde)} → ${diaMes(p.hasta)}`
+  return `${diaMes(p.desde)} al ${diaMes(p.hasta)}`
 }
 
 /** Lo que acepta la columna `farmacia_ajustes.dia_corte` (0128). */
 export function esDiaDeCorteValido(n: number): boolean {
   return Number.isInteger(n) && n >= 1 && n <= 31
+}
+
+/**
+ * RD1 · Pedido tarde. Hasta 5 días después del corte, el período que empezó todavía se puede pedir
+ * (a sí mismo): la farmacéutica que no llegó a pedir el día del corte no tiene que esperar un mes. El
+ * siguiente se pide en el próximo corte. Un pedido por período, siempre con el suyo.
+ */
+export const DIAS_PARA_PEDIR_TARDE = 5
+
+export interface VentanaTarde {
+  /** El día de corte que acaba de pasar. */
+  corte: string
+  /** Último día para pedir el período que empezó, inclusive. */
+  hasta: string
+  /** Días que quedan contando hoy: 5 el día siguiente al corte, 1 el último. */
+  quedan: number
+}
+
+/** `null` fuera de la ventana. El día del corte NO es ventana: ese día se pide el período que viene. */
+export function ventanaTarde(hoy: string, diaCorte: number): VentanaTarde | null {
+  const p = periodoDe(hoy, diaCorte)
+  const hasta = sumarDias(p.desde, DIAS_PARA_PEDIR_TARDE - 1)
+  if (hoy > hasta) return null
+  return { corte: sumarDias(p.desde, -1), hasta, quedan: Math.round((diaUTC(hasta) - diaUTC(hoy)) / 86_400_000) + 1 }
+}
+
+/**
+ * El período que muestra el estudio: el que contiene `fecha` (viene de `?periodo=` en la URL) si es
+ * ANTERIOR al en curso. Vacía, mal formada o del presente en adelante: el período en curso. La flecha ›
+ * no pasa del presente, y una URL editada a mano tampoco.
+ */
+export function periodoAMirar(hoy: string, diaCorte: number, fecha: string): Periodo {
+  const actual = periodoDe(hoy, diaCorte)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || fecha >= actual.desde) return actual
+  return periodoDe(fecha, diaCorte)
 }

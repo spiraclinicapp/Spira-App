@@ -4377,7 +4377,7 @@ import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { fieldLabelStyle } from '../../../components/FormField'
 import { dateToISO, formatShortAR } from '../../../lib/dates'
 import {
-  MOTIVOS_ANULACION, MOTIVOS_CIERRE, cerrarFaltantePedido, diaMes, faltaTxt, pastillaDePedido, porRecibir, reabrirFaltantePedido, textoPeriodo,
+  MOTIVOS_ANULACION, MOTIVOS_CIERRE, cerrarFaltantePedido, diaMes, faltaTxt, pastillaDePedido, reabrirFaltantePedido, sePuedeCerrar, textoPeriodo,
 } from '../../../data/pharma'
 import type { MotivoCierre, PedidoMedicacion, RenglonPedido } from '../../../data/pharma'
 import { AnularPedido } from './AnularPedido'
@@ -4470,9 +4470,9 @@ export function PedidoDetalle({ p, estudio, puedeEditar, accentSolid, onClose, o
               <span className="spira-mono" style={{ fontSize: 14, textAlign: 'right', color: 'var(--spira-ink)' }}>{r.recibido}</span>
               <span className="spira-mono" style={{ fontSize: 14, textAlign: 'right', color: r.faltante === 0 ? 'var(--spira-ink-soft)' : 'var(--spira-acc-deep-warn)' }}>{r.faltante}</span>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                {/* Si lo que falta ya está en una recepción sin verificar, llegó: «No va a llegar» sería falso y
-                    lo mandaría otra vez a la compra. La base también lo rechaza (0133, revisión de ingeniería, 12). */}
-                {vivo && puedeEditar && porRecibir(r) > 0 && cerrando !== r.id && (
+                {/* Con una recepción sin verificar en el renglón, primero se verifica: cerrar mandaría a la compra
+                    lo que ya está en la casa. La regla es la de la base (0133), en `sePuedeCerrar`. */}
+                {vivo && puedeEditar && sePuedeCerrar(r) && cerrando !== r.id && (
                   <button type="button" className="spira-card-link" style={botonChico} onClick={() => { setCerrando(r.id); setMotivo('') }}>No va a llegar</button>
                 )}
                 {vivo && puedeEditar && r.cerrado_at && (
@@ -7149,6 +7149,28 @@ Actualizar la memoria `plan-reposicion-corte-a-corte`: Parte 2 en prod, con los 
   - los restos de lote que el armado no usa;
   - el intento de `create_reception` (P2, de la revisión de ingeniería). El hueco del DELETE de recepciones ya lo cerró la guarda (`0132`).
 - **Una tarea de diseño pendiente de la revisión (T4, P2):** QA de teclado completo del estudio y los modales (RD14). Las piezas llevan `aria-expanded`, rótulos y texto en los avisos, pero nadie lo recorrió con teclado.
+
+---
+
+## Desviaciones de la ejecución (PR A, 2026-09-19)
+
+El código de la rama manda sobre los bloques de este plan en estos puntos. Salieron de las revisiones de la
+ejecución, y las dos marcadas «Director» las decidió él:
+
+- **Reintento de un pedido anulado:** `emitir_pedido_medicacion` rechaza con 23514 «Ese pedido se anuló:
+  cerrá esta ventana y armalo de nuevo» si el pedido de ese intento se anuló (Director).
+- **Un pedido «Cerrado · no llegó» no cubre el período** (Director). `pedidoPara` lo ignora, así que la
+  cuenta, la franja y el pedido tarde lo tratan como si no hubiera pedido. El renglón fijo de la tarjeta y el
+  resumen del estudio dicen «el Pedido Nº 14 no llegó». `ultimoPedidoPara` lo sigue contando, igual que
+  `p_ultimo_visto` en la base.
+- **«No va a llegar» sólo sin recepción sin verificar en el renglón** (Director). La base lo rechaza, y el
+  modelo tiene `sePuedeCerrar(r)`, que usa el botón de la Task 8 (ya corregido arriba).
+- **0133:**
+  - el candado va antes de buscar el intento;
+  - cada recepción trae `medication_ids`, así `sinVerificarDe` nombra sólo las de ese medicamento;
+  - el archivo termina con `notify pgrst, 'reload schema';`.
+- **Pastilla «Llegó, falta verificar»:** sólo si a un renglón que todavía falta le llegó algo sin verificar.
+- **Franja:** junta «todos los estudios con compras tienen su pedido» y «falta cargar…» cuando aplican los dos.
 
 ---
 
