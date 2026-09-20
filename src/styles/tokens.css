@@ -322,6 +322,25 @@ button { font-family: inherit; }
 .spira-bare-input:focus,
 .spira-bare-input:focus-visible { box-shadow: none; transform: none; }
 
+/* —— Campo COMPUESTO: dos controles que se leen como un solo dato ——
+   El caso es el código + el nombre de una visita del cuadro ("V16 W48"): son dos columnas en la
+   base y dos controles en el DOM, pero para el ojo tienen que ser UNA casilla. El recuadro es
+   entonces el campo, y adentro van inputs pelados (`.spira-bare-input`). Por eso el foco no puede
+   vivir en cada mitad —serían dos sombras rectangulares asomando adentro de la caja, el mismo
+   problema que resolvió `.spira-bare-input` en el buscador— sino en la caja entera, con el MISMO
+   gesto que cualquier otro input del formulario: elevación suave, nunca un borde de color. Los
+   valores están copiados de `:where(input…):focus` a propósito: el campo compuesto tiene que
+   levantarse exactamente igual que los campos hermanos del mismo modal. */
+.spira-field-group { transition: box-shadow 0.16s ease, transform 0.16s ease; }
+.spira-field-group:focus-within {
+  box-shadow: 0 5px 14px rgba(20, 48, 46, 0.1);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .spira-field-group { transition: none; }
+  .spira-field-group:focus-within { transform: none; }
+}
+
 /* —— Ícono afijo dentro de un campo (p. ej. el sobre del email en el login) ——
    El ícono es un <span> absoluto SOBRE el input, y va ANTES que él en el DOM. El foco de los
    inputs aplica un `transform` (el levante de 1px de más arriba), que promueve al input a capa /
