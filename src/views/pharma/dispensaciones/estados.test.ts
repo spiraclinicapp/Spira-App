@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DispensationRequestRow, IpDocumentRow, RequestItemRow, RequestStatus } from '../../../data/pharma/dispensationModel'
-import { badgeDeHistorial, badgeOf, primerPendiente, readyBlockedReason, requisitos, STATUS_META } from './estados'
+import { badgeDeEstado, badgeDeHistorial, badgeOf, estadoVisible, primerPendiente, readyBlockedReason, requisitos, STATUS_META } from './estados'
 
 /**
  * Los requisitos del cajón y el motivo del bloqueo.
@@ -295,5 +295,42 @@ describe('habilitación pendiente (0124)', () => {
   it('un pedido que es sólo un «Otro» pendiente también bloquea', () => {
     const r = { ...pedido(), habilitaciones: [hab('pendiente')] }
     expect(readyBlockedReason(r)?.text).toBe('Falta resolver la habilitación de Budesonida 200 mcg')
+  })
+})
+
+describe('estadoVisible', () => {
+  /* La clave del estado que el usuario VE, que no es ninguna de las dos columnas crudas: `lista` y
+     `entregada` viven en la dispensación, y `atendida` es la misma palabra para las dos. Ese par es
+     lo único que los avisos de pedidos tienen que distinguir, así que va con test. */
+  it('distingue lista de entregada dentro de atendida', () => {
+    expect(estadoVisible('atendida', 'lista')).toBe('lista')
+    expect(estadoVisible('atendida', 'entregada')).toBe('entregada')
+  })
+
+  it('una preparación ya lista se lee lista, no preparando', () => {
+    expect(estadoVisible('preparando', 'lista')).toBe('lista')
+    expect(estadoVisible('preparando', null)).toBe('preparando')
+  })
+
+  it('los estados sin dispensación se leen tal cual', () => {
+    expect(estadoVisible('solicitada', null)).toBe('solicitada')
+    expect(estadoVisible('rechazada', null)).toBe('rechazada')
+    expect(estadoVisible('cancelada', null)).toBe('cancelada')
+  })
+
+  /* REGRESIÓN: `atendida` sin dispensación no debería existir, y si aparece se lee "Entregada" —
+     que es lo que `badgeDeEstado` viene mostrando. El riesgo de tocar esto es que el aviso diga una
+     cosa y el badge de al lado otra. */
+  it('atendida sin dispensación se lee entregada, como el badge', () => {
+    expect(estadoVisible('atendida', null)).toBe('entregada')
+  })
+
+  it('badgeDeEstado sigue dando lo mismo para los seis casos', () => {
+    expect(badgeDeEstado('atendida', 'lista').label).toBe('Lista para retirar')
+    expect(badgeDeEstado('atendida', 'entregada')).toEqual(STATUS_META.atendida)
+    expect(badgeDeEstado('preparando', null)).toEqual(STATUS_META.preparando)
+    expect(badgeDeEstado('solicitada', null)).toEqual(STATUS_META.solicitada)
+    expect(badgeDeEstado('rechazada', null)).toEqual(STATUS_META.rechazada)
+    expect(badgeDeEstado('cancelada', null)).toEqual(STATUS_META.cancelada)
   })
 })
