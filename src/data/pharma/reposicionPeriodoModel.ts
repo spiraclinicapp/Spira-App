@@ -59,8 +59,8 @@ export interface RenglonPeriodoInsumo {
   stock_fijo: number | null
 }
 
-/** Una asignación activa, igual que en la 0125 salvo lo retirado, que se mide en el período pedido. */
-export type PacientePeriodoInsumo = Omit<PacienteInsumo, 'retirado_mes'> & {
+/** Una asignación activa, con lo retirado medido en el período pedido. */
+export type PacientePeriodoInsumo = PacienteInsumo & {
   /** Neto retirado entre `p_desde` y `p_hasta` (hora AR), en lista o entregada. */
   retirado_periodo: number
 }

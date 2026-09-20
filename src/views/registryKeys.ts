@@ -24,6 +24,7 @@ export const REGISTERED_VIEWS = [
   'pharma/medicamentos',
   'pharma/recepcion',
   'pharma/dispensaciones',
+  'pharma/reposicion',
   'pharma/reportes',
 ] as const
 

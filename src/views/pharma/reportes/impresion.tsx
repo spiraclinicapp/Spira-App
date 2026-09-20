@@ -429,7 +429,7 @@ export function PieDePagina({ emitidoEn }: { emitidoEn: string }) {
   )
 }
 
-function FilaKv({ k, v }: { k: string; v: string }) {
+export function FilaKv({ k, v }: { k: string; v: string }) {
   return (
     <tr>
       <td style={{ padding: '5px 0', borderBottom: '1px solid #999', fontSize: 11.5, width: '46%' }}>{k}</td>

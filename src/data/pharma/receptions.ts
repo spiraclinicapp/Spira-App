@@ -55,6 +55,9 @@ export interface ReceptionRow {
   notes: string | null
   /** Código del protocolo (to-one) para mostrar/buscar en la lista transversal. */
   protocol: { code: string } | null
+  /** El pedido de medicación que se recibió (0128, R10); null si llegó sin pedido. Opcional porque las
+   *  filas armadas a mano en los tests no lo traen. */
+  pedido?: { numero: number } | null
   /** Cantidad total de kits del cargamento IP (macro, 0038). NULL en recepciones de base. */
   total_kits: number | null
   /** Destino físico del IP: heladera | estante | ambiente (0038). NULL en base. */
@@ -71,6 +74,9 @@ const RECEPTION_COLS =
   // protocol.code para mostrar/buscar en la lista transversal; total_kits/storage_location son el
   // ingreso MACRO del IP (0038): la recepción IP no tiene reception_items (lleva la cantidad total).
   'total_kits, storage_location, protocol:protocols(code), ' +
+  // El pedido que se recibió (0128): «Pedido Nº 14» en la tarjeta. medication_receptions tiene UNA sola FK
+  // a pedidos_medicacion, así que el embed no es ambiguo (gotcha-fk-nueva-rompe-embed-postgrest).
+  'pedido:pedidos_medicacion(numero), ' +
   // El detalle por renglón trae monodroga, laboratorio y códigos embebidos (0032/0033). Un solo
   // round-trip; drug_id/laboratorio_id son FK únicas → sin ambigüedad en PostgREST.
   'items:reception_items(id, medication_id, lot_number, expiry_date, quantity, ' +

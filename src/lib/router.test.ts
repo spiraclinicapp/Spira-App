@@ -105,6 +105,12 @@ describe('parseUrl · módulo y submódulo', () => {
     })
   })
 
+  it('Reposición lleva el código del estudio en el path (y sin él, la grilla)', () => {
+    expect(parseUrl('/farmacia/reposicion', '')).toMatchObject({ moduleKey: 'pharma', subKey: 'reposicion', path: [] })
+    expect(parseUrl('/farmacia/reposicion/222714', '?periodo=2026-08-10'))
+      .toMatchObject({ moduleKey: 'pharma', subKey: 'reposicion', path: ['222714'], query: { periodo: '2026-08-10' } })
+  })
+
   /* Sumar dos keys a SUB_CON_PATH no puede aflojar el resto: Visitas y Alertas (Coordinación) siguen
      sin path propio y un segmento de más sigue siendo una ruta que no existe, no un submódulo nuevo
      que empezó a aceptar cualquier cola en silencio. */
