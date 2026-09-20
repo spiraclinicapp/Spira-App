@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   contextoDeEtapa, datosDelPaciente, diaDeLaVisita, estaConcretada, estimadaNoAplica, etapaProgreso, fechaSegunProtocolo,
-  marcaDeEtapa, opcionesDeCoordinador,
+  desvioSegunProtocolo, marcaDeEtapa, opcionesDeCoordinador,
   medicoDeVisita, puedeEditarCoordinador, muestraFechaReal, puedeEditarMedico,
 } from './visitHeaderRules'
 import { desvioDias, fueraDeVentana } from '../../lib/visits'
@@ -307,5 +307,63 @@ describe('diaDeLaVisita', () => {
 
   it('una suelta sin ninguna de las dos no tiene día', () => {
     expect(diaDeLaVisita({ real_date: null, estimated_date: null })).toBeNull()
+  })
+})
+
+/**
+ * El desvío que muestra el CRONOGRAMA bajo la fecha de cada visita (Director, 2026-09-20).
+ *
+ * Hasta ese día el subtítulo decía «prog 24/08 · +2 d»: la fecha PROGRAMADA (la citación) y la
+ * resta contra ella. El Director pidió que abajo vaya la ESTIMADA —la que manda el protocolo—,
+ * que es el mismo orden que el encabezado ya tenía desde el 2026-09-14: arriba el dato vivo,
+ * abajo la referencia.
+ *
+ * SE TESTEA PORQUE EL NÚMERO NO SE VE ROTO. Si la resta sigue saliendo de `estimated_date`
+ * mientras el rótulo dice «est», el subtítulo muestra «+2 d» al lado de una fecha contra la que
+ * ese 2 no se calculó: dos datos plausibles que no se corresponden, y nadie lo nota sin ir a
+ * buscar el cronograma del estudio. Ya pasó en este repo cambiar el rótulo y dejar viva la resta
+ * vieja.
+ */
+describe('desvioSegunProtocolo · la resta sale de la ESTIMADA, no de la citación', () => {
+  /** Randomizada el 20/05 + offset 84 → el protocolo manda el 12/08. */
+  const visita = (over: Record<string, unknown> = {}) => ({
+    kind: 'programada' as const,
+    date_mode: 'automatica' as const,
+    offset_days: 84,
+    enrollment_randomization_date: '2026-05-20',
+    estimated_date: null,
+    real_date: null,
+    ...over,
+  })
+
+  it('vino después de lo que manda el protocolo: positivo', () => {
+    expect(desvioSegunProtocolo(visita({ real_date: '2026-08-14' }))).toBe(2)
+  })
+
+  it('vino antes: negativo', () => {
+    expect(desvioSegunProtocolo(visita({ real_date: '2026-08-09' }))).toBe(-3)
+  })
+
+  it('vino el día que manda el protocolo: cero, que NO es lo mismo que sin desvío', () => {
+    expect(desvioSegunProtocolo(visita({ real_date: '2026-08-12' }))).toBe(0)
+  })
+
+  /* EL CASO QUE JUSTIFICA EL ARCHIVO. Citada el 24/08 —reprogramada, 12 días después de lo que
+     manda el protocolo— y atendida el 26/08. Contra la citación daría +2, que es lo que la
+     pantalla decía antes; contra el protocolo da +14, que es el desvío real del estudio. Los dos
+     números son plausibles y sólo uno corresponde a la fecha que ahora se muestra al lado. */
+  it('IGNORA la fecha programada, aunque esté cargada y sea distinta', () => {
+    const reprogramada = visita({ estimated_date: '2026-08-24', real_date: '2026-08-26' })
+    expect(desvioSegunProtocolo(reprogramada)).toBe(14)
+  })
+
+  it('sin atender todavía no hay desvío', () => {
+    expect(desvioSegunProtocolo(visita({ estimated_date: '2026-08-24' }))).toBeNull()
+  })
+
+  it('si el protocolo no manda fecha no hay contra qué medir', () => {
+    // Una suelta: se atendió, pero no existe la estimada. «+N» acá sería inventar la referencia.
+    expect(desvioSegunProtocolo(visita({ kind: 'vnp', real_date: '2026-08-26' }))).toBeNull()
+    expect(desvioSegunProtocolo(visita({ date_mode: 'libre', real_date: '2026-08-26' }))).toBeNull()
   })
 })
