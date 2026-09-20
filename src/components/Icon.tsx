@@ -88,16 +88,19 @@ interface IconProps {
   size?: number
   stroke?: number
   color?: string
+  /** Relleno. Por defecto ninguno: los íconos de la casa son de trazo. Existe para la gota de sangre,
+   *  que el handoff de Resumen de la visita dibuja LLENA cuando la visita la lleva (0134). */
+  fill?: string
   style?: CSSProperties
 }
 
-export function Icon({ name, size = 20, stroke = 1.8, color = 'currentColor', style }: IconProps) {
+export function Icon({ name, size = 20, stroke = 1.8, color = 'currentColor', fill = 'none', style }: IconProps) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={fill}
       stroke={color}
       strokeWidth={stroke}
       strokeLinecap="round"
