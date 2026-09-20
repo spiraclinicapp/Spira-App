@@ -57,9 +57,12 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
   const siguiente = periodoSiguiente(rep.periodo, diaCorte)
   const reimprimir = (p: PedidoMedicacion) => imprimir(datosDeHoja(p, e.estudio, rep.hoy))
 
+  /* Abrir o cerrar un renglón deja SIEMPRE la edición cerrada: si el renglón se cierra con la flecha en vez
+     de «Cancelar», dejarla prendida haría que la próxima vez que se abra aparezca el formulario, que nadie
+     pidió. «Cambiar cómo se repone» la vuelve a prender (`editar`), que no pasa por acá. */
   const alternar = (clave: string) => {
     setAbierto((a) => (a === clave ? null : clave))
-    if (editando && editando !== clave) setEditando(null)
+    if (editando) setEditando(null)
   }
   const editar = (clave: string) => { setAbierto(clave); setEditando(clave) }
 
