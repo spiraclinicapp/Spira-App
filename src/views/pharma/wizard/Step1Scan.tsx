@@ -17,6 +17,8 @@ interface Props {
   codeByMed: Map<string, string>
   /** Reconsulta los códigos tras asociar uno nuevo (para que el med salga del "asociar"). */
   onCodesChanged: () => void
+  /** Recibiendo un pedido (R10): qué se pidió de cada medicamento, o que no estaba en el pedido. */
+  meta?: (medicationId: string) => { texto: string; aviso: boolean }
 }
 
 /**
@@ -29,7 +31,7 @@ interface Props {
  * El código de barras de cada fila se resuelve EN EL RENDER (`codeOf`): el escaneado viaja en la
  * fila; el resto sale del mapa `codeByMed`, así no queda un dato viejo si la query cargó después.
  */
-export function Step1Scan({ accentSolid, meds, setMeds, codeByMed, onCodesChanged }: Props) {
+export function Step1Scan({ accentSolid, meds, setMeds, codeByMed, onCodesChanged, meta }: Props) {
   const catalog = useMedications(); const all = catalog.data ?? []
   // Para asociar un código DESCONOCIDO solo ofrecemos medicamentos SIN código (1 código ↔ 1 med).
   const uncoded = useMemo(() => all.filter((m) => !codeByMed.has(m.id)), [all, codeByMed])
@@ -206,6 +208,7 @@ export function Step1Scan({ accentSolid, meds, setMeds, codeByMed, onCodesChange
                     </div>
                   )}
                 </div>
+                {meta && <MetaDelRenglon {...meta(m.medicationId)} />}
                 {/* Stepper −/+ agrupado (handoff 2a); 44px de alto = hit target de la nota del handoff */}
                 <div style={qtyGroup}>
                   <button type="button" aria-label="Restar uno" onClick={() => bump(m.medicationId, m.name, -1)} style={qtyBtn}>
@@ -246,3 +249,12 @@ const qtyBtn = { width: 44, height: 44, border: 'none', background: 'transparent
 const delBtn = { width: 44, height: 44, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', borderRadius: 8 } as const
 const listFooter = { borderTop: '1px solid var(--spira-line)', background: 'var(--spira-surface)', padding: '13px 18px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--spira-muted)' } as const
 const contadorNum = { color: 'var(--spira-ink)', fontWeight: 700, fontFamily: 'var(--spira-font-display)', fontSize: 15, fontVariantNumeric: 'tabular-nums' } as const
+
+/** «se pidieron 7» · «No estaba en el pedido» (mock «7 · El asistente arranca con el pedido»). */
+function MetaDelRenglon({ texto, aviso }: { texto: string; aviso: boolean }) {
+  return (
+    <span style={{ fontSize: 12.5, whiteSpace: 'nowrap', color: aviso ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink-soft)', fontWeight: aviso ? 600 : 400 }}>
+      {texto}
+    </span>
+  )
+}

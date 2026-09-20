@@ -4,8 +4,8 @@ import { Icon } from '../../components/Icon'
 import { Stepper } from '../../components/Stepper'
 import { Modal } from '../../components/Modal'
 import { btnOutline, btnPrimary } from '../../components/buttons'
-import { createReception, createIpReception, useMedicationCodes } from '../../data/pharma'
-import type { ReceptionKind, StorageLocation } from '../../data/pharma'
+import { createReception, createIpReception, metaDelPedido, useMedicationCodes } from '../../data/pharma'
+import type { PedidoPorRecibir, ReceptionKind, StorageLocation } from '../../data/pharma'
 import { useNavigationGuard } from '../../lib/useUrlState'
 import { todayISO } from '../../lib/dates'
 import { useLugar } from '../../lib/lugar'
@@ -16,6 +16,7 @@ import { Step3Summary } from './wizard/Step3Summary'
 import { Step1ControlCargaIp } from './wizard/Step1ControlCargaIp'
 import { Step2DobleCheckIp } from './wizard/Step2DobleCheckIp'
 import { Step3CierreIp } from './wizard/Step3CierreIp'
+import { BannerPedido, ComparacionConPedido } from './wizard/PedidoEnRecepcion'
 
 /** Borrador de un lote a recibir (se construye en el Paso 2). */
 export interface LotDraft { key: number; lotNumber: string; expiryDate: string; quantity: string }
@@ -35,6 +36,9 @@ interface Props {
    *  a partir del montaje el estado es del wizard, y cambiar de ámbito los descarta como siempre
    *  (con su cartel de confirmación, porque a los ojos del wizard esto ES data cargada). */
   initialMeds?: CountedMed[]
+  /** «Recibir un pedido» (R10): el pedido que se está recibiendo. Con él, el estudio y el tipo vienen del
+   *  pedido, el asistente arranca en el Escaneo con lo que falta y la recepción queda atada al pedido. */
+  pedido?: PedidoPorRecibir
   onClose: () => void
   onCreated: (id: string) => void
 }
@@ -50,9 +54,13 @@ interface Props {
  *    Carga general (temperatura OK/Excursión + cantidad total + rango) → Doble check (documentación +
  *    IRT) → Cierre (ubicación + Confirmar). NO escanea kit por kit; el stock se lleva por cantidad.
  */
-export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, initialMeds, onClose, onCreated }: Props) {
-  const [step, setStep] = useState(0)
-  const [maxReached, setMaxReached] = useState(0)
+export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, initialMeds, pedido, onClose, onCreated }: Props) {
+  /* Con un pedido, el estudio y el tipo vienen de él: el asistente arranca en el Escaneo y no deja volver
+     al paso «Tipo». Cambiar el estudio rompería el vínculo con el pedido, que el trigger de la 0128
+     rechazaría igual al guardar. */
+  const primerPaso = pedido ? 1 : 0
+  const [step, setStep] = useState(primerPaso)
+  const [maxReached, setMaxReached] = useState(primerPaso)
   /* Para el feedback: sin `target` a propósito —todavía no hay recepción creada, así que no hay a
      dónde saltar—, y por eso el lugar HEREDA el salto de la pantalla de atrás (ver `lugar.ts`). El
      paso sí importa: «no me deja avanzar» en el 2 y en el 4 son dos problemas distintos. */
@@ -165,6 +173,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, i
 
   // Al entrar a un paso ≥ 2 (por avance o salto) sembramos los lotes faltantes solo en la rama base.
   const goto = (i: number) => {
+    if (i < primerPaso) return
     if (i >= 2 && !isIp) setMeds(seedLots)
     if (step === 3 && i !== 3) setSubmitError(null)
     setStep(i)
@@ -179,7 +188,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, i
     }
     goto(step + 1)
   }
-  const back = () => { if (step === 3) setSubmitError(null); setStep((s) => Math.max(0, s - 1)) }
+  const back = () => { if (step === 3) setSubmitError(null); setStep((s) => Math.max(primerPaso, s - 1)) }
 
   /**
    * Cierre de la recepción. Rama IP: crea el cargamento MACRO ya finalizado (create_ip_reception 0038)
@@ -241,6 +250,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, i
       reception_date: receptionDate,
       notes: notes.trim() || null,
       items,
+      pedido_id: pedido?.pedido.id ?? null,
     })
     setSubmitBusy(false)
     if (res.error) { setSubmitError(res.error); return }
@@ -271,6 +281,9 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, i
         <button type="button" onClick={() => guard(onClose)} style={{ ...btnOutline, justifySelf: 'end' }}>Cancelar</button>
       </div>
 
+      {pedido && (step === 1 || step === 3) && <BannerPedido pedido={pedido} paso={step} accentSolid={accentSolid} />}
+      {pedido && step === 3 && !isIp && <ComparacionConPedido pedido={pedido.pedido} otros={pedido.otrosDelEstudio} meds={meds} />}
+
       {/* Renderizado del paso actual */}
       {step === 0 && (
         <Step0Setup
@@ -289,7 +302,8 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, i
             totalKits={totalKits} setTotalKits={setTotalKits}
             rangeFrom={rangeFrom} setRangeFrom={setRangeFrom}
             rangeTo={rangeTo} setRangeTo={setRangeTo} />
-        : <Step1Scan accentSolid={accentSolid} meds={meds} setMeds={setMeds} codeByMed={codeByMed} onCodesChanged={codes.refetch} />)}
+        : <Step1Scan accentSolid={accentSolid} meds={meds} setMeds={setMeds} codeByMed={codeByMed} onCodesChanged={codes.refetch}
+            meta={pedido ? (id) => metaDelPedido(pedido.pedido, id, pedido.otrosDelEstudio) : undefined} />)}
       {step === 2 && (isIp
         ? <Step2DobleCheckIp
             accentSolid={accentSolid}
@@ -307,7 +321,7 @@ export function ReceptionWizard({ accentSolid, initialTipo, initialProtocolId, i
       {/* Barra de acciones fija abajo. El error del submit vive DENTRO de la barra (el CTA es sticky,
           así que su feedback también tiene que estarlo). "Atrás" no aparece en el primer paso. */}
       <div style={footerBar}>
-        {step > 0 && (
+        {step > primerPaso && (
           <button type="button" onClick={back} style={{ ...btnOutline, height: 44, display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
             <Icon name="chevronLeft" size={16} color="var(--spira-ink)" /> Atrás
           </button>

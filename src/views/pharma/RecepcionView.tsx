@@ -12,12 +12,13 @@ import { codecs, listOf, resolveCode } from '../../lib/router'
 import { useUrlPath, useUrlState } from '../../lib/useUrlState'
 import { addDaysISO, groupByDay, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { useProtocols } from '../../data/protocols'
-import { useReceptions, useMedications, verifyReception, voidReception } from '../../data/pharma'
+import { useReceptions, useMedications, verifyReception, voidReception, renglonesParaRecibir } from '../../data/pharma'
 import { formatNumberAR } from '../../lib/numbers'
-import type { ReceptionRow, ReceptionKind, ReceptionStatus } from '../../data/pharma'
+import type { ReceptionRow, ReceptionKind, ReceptionStatus, PedidoPorRecibir } from '../../data/pharma'
 import { ReceptionWizard } from './ReceptionWizard'
 import type { CountedMed } from './ReceptionWizard'
 import { ReceptionCard } from './recepcion/ReceptionCard'
+import { RecibirPedido } from './recepcion/RecibirPedido'
 import { ConfirmarVerificacion } from './recepcion/ConfirmarVerificacion'
 import { AnularRecepcion, esAnulable } from './recepcion/AnularRecepcion'
 import type { AnulableReceptionRow } from './recepcion/AnularRecepcion'
@@ -42,6 +43,8 @@ interface PlantillaRecepcion {
   tipo: ReceptionKind
   protocolId: string
   meds: CountedMed[]
+  /** «Recibir un pedido»: el pedido que se recibe (R10). Sin él, es «Repetir recepción». */
+  pedido?: PedidoPorRecibir
 }
 
 /** El path → si el wizard está abierto. `null` = el segmento no es `nueva`: ruta rota, la vista
@@ -134,6 +137,9 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
     [setPath],
   )
   const cerrarWizard = () => setPath([], { conservar: FILTROS_RECEPCION, mode: 'replace' })
+  /** La lista de «Recibir un pedido». Memoizada: viaja en las deps del efecto del encabezado. */
+  const [eligiendoPedido, setEligiendoPedido] = useState(false)
+  const abrirRecibir = useCallback(() => setEligiendoPedido(true), [])
 
   /** La recepción que se está repitiendo, mientras el wizard esté abierto. Ver `PlantillaRecepcion`. */
   const [plantilla, setPlantilla] = useState<PlantillaRecepcion | null>(null)
@@ -181,11 +187,16 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
       setHeader({ crumbs: [{ label: 'Nueva recepción' }] })
     } else {
       setHeader(canManage
-        ? { actions: [{ key: 'nueva', label: 'Nueva recepción', icon: 'plus', primary: true, onClick: abrirWizard }] }
+        ? {
+            actions: [
+              { key: 'recibir', label: 'Recibir un pedido', icon: 'truck', onClick: abrirRecibir },
+              { key: 'nueva', label: 'Nueva recepción', icon: 'plus', primary: true, onClick: abrirWizard },
+            ],
+          }
         : null)
     }
     return () => setHeader(null)
-  }, [setHeader, creating, canManage, abrirWizard])
+  }, [setHeader, creating, canManage, abrirWizard, abrirRecibir])
 
   /* El protocolo y las fechas ya filtran en la base, y se repiten acá A PROPÓSITO: la consulta
      refresca sin vaciar la lista (`useSupabaseQuery` deja visibles las filas viejas mientras
@@ -228,6 +239,7 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
         // adivinar cuál sembraría el wizard con un dato que nadie pidió.
         initialProtocolId={plantilla ? plantilla.protocolId : fProtoSel.length === 1 ? fProtoSel[0] : ''}
         initialMeds={plantilla?.meds}
+        pedido={plantilla?.pedido}
         onClose={cerrarWizard}
         // Al crear: resetear TODOS los filtros para que la recepción nueva nunca quede oculta por
         // un filtro activo y el highlight de 5 s se vea.
@@ -287,6 +299,21 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
    */
   const repetirRecepcion = (r: ReceptionRow) => {
     setPlantilla({ tipo: r.tipo, protocolId: r.protocol_id ?? '', meds: renglonesParaRepetir(r) })
+    abrirWizard()
+  }
+
+  /**
+   * «Recibir un pedido» (R10): abre el asistente con el estudio del pedido y lo que falta de cada renglón.
+   * Igual que «Repetir recepción», no escribe nada: la recepción existe recién al confirmar el asistente.
+   */
+  const recibirPedido = (x: PedidoPorRecibir) => {
+    setPlantilla({
+      tipo: 'protocolo',
+      protocolId: x.pedido.protocol_id,
+      meds: renglonesParaRecibir(x.pedido).map((r) => ({ medicationId: r.medicationId, name: r.nombre, quantity: r.cantidad, lots: [] })),
+      pedido: x,
+    })
+    setEligiendoPedido(false)
     abrirWizard()
   }
 
@@ -492,6 +519,10 @@ export function RecepcionView({ module, submodule, setHeader }: ViewProps) {
             </section>
           ))}
         </div>
+      )}
+
+      {eligiendoPedido && (
+        <RecibirPedido accentSolid={accentSolid} onClose={() => setEligiendoPedido(false)} onRecibir={recibirPedido} />
       )}
 
       {confirmando && (
