@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { todayISO } from '../lib/dates'
@@ -64,12 +64,20 @@ export function AvisosDePedidos({ pedidos, uid, enPantallaDelTablero, onAbrir }:
     setCola((previa) => [...previa, ...movimientos])
   }, [pedidos, uid, enPantallaDelTablero])
 
+  /* ESTABLE, y no es un detalle de estilo: `sacar` viaja al reloj de cada aviso, y un reloj cuyo
+     `useEffect` depende de una función nueva en cada render se reinicia cada vez que el shell se
+     vuelve a dibujar —una consulta, una navegación, cualquier cosa—. El aviso entonces no se va
+     nunca, que es exactamente lo que pasó en la primera versión. `useCallback` sin dependencias +
+     el updater funcional de `setCola` lo dejan quieto. */
+  const sacar = useCallback((clave: string) => {
+    setCola((c) => c.filter((x) => claveDe(x) !== clave))
+  }, [])
+
   const visibles = cola.slice(0, MAX_VISIBLES)
   const esperando = cola.length - visibles.length
 
   if (visibles.length === 0) return null
 
-  const sacar = (m: Movimiento) => setCola((c) => c.filter((x) => claveDe(x) !== claveDe(m)))
   const hoy = todayISO()
 
   return createPortal(
@@ -79,10 +87,11 @@ export function AvisosDePedidos({ pedidos, uid, enPantallaDelTablero, onAbrir }:
       {visibles.map((m) => (
         <Aviso
           key={claveDe(m)}
+          clave={claveDe(m)}
           movimiento={m}
           hoy={hoy}
-          onAbrir={() => { sacar(m); onAbrir(m.pedido) }}
-          onCerrar={() => sacar(m)}
+          sacar={sacar}
+          onAbrir={onAbrir}
         />
       ))}
     </div>,
@@ -96,20 +105,25 @@ export function AvisosDePedidos({ pedidos, uid, enPantallaDelTablero, onAbrir }:
  * El temporizador vive acá adentro, uno por aviso: si lo llevara la pila, el primero en vencer
  * arrastraría a los que entraron después. Se pausa con el mouse encima, por si el aviso trae un
  * dato que hay que leer con calma — es lo mismo que hace el `Toast` de la casa.
+ *
+ * LAS DEPENDENCIAS DEL EFECTO SON TODAS ESTABLES (`clave` es un string, `sacar` un `useCallback`
+ * sin dependencias) y eso es el arreglo de un bug real: con la función de cierre creada en cada
+ * render del padre, el efecto se reiniciaba con cada redibujo del shell y el aviso no se iba nunca.
  */
-function Aviso({ movimiento, hoy, onAbrir, onCerrar }: {
+function Aviso({ clave, movimiento, hoy, sacar, onAbrir }: {
+  clave: string
   movimiento: Movimiento
   hoy: string
-  onAbrir: () => void
-  onCerrar: () => void
+  sacar: (clave: string) => void
+  onAbrir: (p: PedidoAviso) => void
 }) {
   const [pausado, setPausado] = useState(false)
 
   useEffect(() => {
     if (pausado) return
-    const t = setTimeout(onCerrar, DURACION_MS)
+    const t = setTimeout(() => sacar(clave), DURACION_MS)
     return () => clearTimeout(t)
-  }, [pausado, onCerrar])
+  }, [pausado, clave, sacar])
 
   return (
     <div
@@ -123,8 +137,8 @@ function Aviso({ movimiento, hoy, onAbrir, onCerrar }: {
            solicitado: ese es exactamente el movimiento que Farmacia recibe. */
         comoFarmacia={movimiento.estado === 'solicitada'}
         hoy={hoy}
-        abrir={onAbrir}
-        onCerrar={onCerrar}
+        abrir={() => { sacar(clave); onAbrir(movimiento.pedido) }}
+        onCerrar={() => sacar(clave)}
       />
     </div>
   )
