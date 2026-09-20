@@ -45,7 +45,8 @@ export interface HistorialFilaRow {
   destinatario: string
   /** `patients.id`, para abrir la ficha. **Null = no hay ficha que abrir** (ambulatoria). */
   destinatario_id: string | null
-  /** IVRS del paciente · documento de quien retiró. Sólo para mostrar (ver `paciente_codigo`). */
+  /** IVRS de la inscripción, el del estudio de la fila (0135) · documento de quien retiró. Sólo
+   *  para mostrar (ver `paciente_codigo`, que es por lo que se filtra y lleva el mismo número). */
   destinatario_ref: string | null
   protocol_code: string | null
   protocol_id: string | null
@@ -117,35 +118,4 @@ export function agruparPorDia<T extends { ordenado_por: string }>(
     else out.push({ dia: etiqueta, filas: [f] })
   }
   return out
-}
-
-/** Una inscripción, con lo justo para saber el número de sujeto de un paciente en un estudio. */
-export interface InscripcionIvrs {
-  patient_id: string
-  protocol_id: string
-  ivrs_code: string | null
-}
-
-/**
- * Corrige el IVRS de cada fila de protocolo: el de la inscripción de ESE estudio y no el del
- * estudio madre, que es el que arma `v_pharma_history` (0117) con `patients.code`. Es la regla de
- * `ivrsDelEstudio`, y el mismo defecto que la 0126 arregló en otras seis vistas.
- *
- * VIVE ACÁ Y NO EN LA VISTA POR UN TEMA DE NUMERACIÓN (2026-09-19): arreglarla era una migración de
- * una línea, pero hubiera sido la 0135, que no se puede pushear hasta que entren la 0133 y la 0134
- * de Reposición. El pendiente está en `TODOS.md`: con la próxima migración de Farmacia, la regla
- * pasa a la vista y esto se borra.
- *
- * Una salida ambulatoria no se toca: no tiene paciente ni estudio, y su referencia es el documento
- * de quien retiró. Sin número propio, o sin la inscripción a mano, queda el de la vista: el respaldo
- * es el mismo que en el resto de la app.
- */
-export function conIvrsDelEstudio(filas: HistorialFilaRow[], inscripciones: InscripcionIvrs[]): HistorialFilaRow[] {
-  const ivrs = new Map<string, string>()
-  for (const i of inscripciones) if (i.ivrs_code) ivrs.set(`${i.patient_id}|${i.protocol_id}`, i.ivrs_code)
-  return filas.map((f) => {
-    if (f.tipo !== 'protocolo' || !f.destinatario_id || !f.protocol_id) return f
-    const propio = ivrs.get(`${f.destinatario_id}|${f.protocol_id}`)
-    return propio ? { ...f, destinatario_ref: propio } : f
-  })
 }

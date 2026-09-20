@@ -5,27 +5,6 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
-## Farmacia · el IVRS de cada estudio, adentro de `v_pharma_history`
-
-- **Qué:** una migración que cambie en `v_pharma_history` (0117) `pa.code as destinatario_ref` y
-  `pa.code as paciente_codigo` por `coalesce(e.ivrs_code, pa.code)`, como la 0126 hizo en otras seis vistas.
-  Después, borrar `conIvrsDelEstudio` (`src/data/pharma/historialModel.ts`) y la lectura de `enrollments`
-  que agrega `useDispensationHistory` (`src/data/pharma/dispensations.ts`).
-- **Por qué:** la vista arma el número con el del estudio madre. Desde el 2026-09-19 el front lo corrige con
-  una lectura aparte, porque la migración de una línea hubiera sido la `0135` y no se podía pushear antes
-  que la `0133` y la `0134` de Reposición. **El buscador no quedó corregido:** filtra en el servidor por
-  `paciente_codigo`, así que se encuentra una fila por el número del estudio madre y no por el de su estudio.
-- **Pros:** la regla vuelve a vivir en un solo lugar (la base), el historial ahorra una consulta, y el
-  buscador encuentra por el número que se ve.
-- **Contras:** ninguno: es una línea, aditiva para el front.
-- **Contexto:** pendiente del 2026-09-15 («Farmacia sigue mostrando el IVRS del estudio madre»). El cajón,
-  el kanban, el comprobante y la búsqueda del tablero ya usan `ivrsDeInscripcion` (`src/lib/ivrs.ts`).
-- **Empezar por:** `supabase/migrations/0117_historial_de_farmacia.sql:69-75`.
-- **Depende de / bloqueado por:** que la `0133` y la `0134` de Reposición estén en `main`.
-- **Prioridad:** P2, con la próxima migración de Farmacia.
-
----
-
 ## Farmacia · Recepción: saltar pasos del asistente deja los lotes sin cuadrar
 
 - **Qué:** que saltar a un paso anterior del asistente de recepción no permita volver adelante con los
