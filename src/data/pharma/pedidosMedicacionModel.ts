@@ -1,4 +1,4 @@
-import { diaMes } from './reposicionModel'
+import { diaMes, envasesTxt } from './reposicionModel'
 import type { Periodo } from './periodoDeCorte'
 
 /**
@@ -10,10 +10,15 @@ import type { Periodo } from './periodoDeCorte'
  *
  *   por renglón:  recibido = Σ recepciones VERIFICADAS de ese pedido y medicamento   (lo trae la 0128)
  *                 faltante = cerrado («No va a llegar») ? 0 : max(0, pedido − recibido)
- *   por pedido:   anulado → anulado · faltante 0 → recibido · algo recibido → en parte · si no → sin recibir
+ *   por pedido:   anulado → anulado · con faltante → en parte o sin recibir
+ *                 sin faltante → recibido, o «no llegó» si se cerró todo sin recibir nada (RD3)
+ *
+ * La PASTILLA (RD8) es una sola en toda la app, y «Llegó, falta verificar» (RD17) le gana a «Sin
+ * recibir» y a «Recibido en parte»: hay medicación en la casa que todavía no entró al stock, y
+ * recibirla de nuevo la duplicaría. Siempre de un renglón que todavía falta.
  *
  * Una recepción anulada deja de sumar en la base, así que el pedido vuelve a tener faltante solo.
- * Lo ya pedido (faltante abierto) se descuenta de la compra (R9).
+ * Lo ya pedido (faltante abierto) se descuenta de la compra (R9) y se llama «En camino» (RD12).
  * └──────────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -39,7 +44,7 @@ export interface PedidoMedicacionInsumo {
   /** Correlativo y legible («Nº 14»). */
   numero: number
   protocol_id: string
-  /** El período PARA el que se pidió (el que se compraba al emitirlo). */
+  /** El período PARA el que se pidió. */
   periodo_desde: string
   periodo_hasta: string
   /** Día de emisión en hora AR. */
@@ -71,7 +76,30 @@ export interface PedidoItemInsumo {
   sin_verificar: number
 }
 
-export type EstadoPedido = 'sin_recibir' | 'en_parte' | 'recibido' | 'anulado'
+/**
+ * Una recepción NO anulada que responde a un pedido (0133). Sirve para nombrar la que está sin verificar
+ * (RD17) y para listarlas en el detalle del pedido.
+ */
+export interface RecepcionDePedidoInsumo {
+  id: string
+  pedido_id: string
+  /** El número de la recepción (0085). */
+  folio: number
+  reception_date: string
+  status: 'pendiente' | 'verificada'
+  /** Snapshot de quien verificó (0085); null mientras está pendiente. */
+  verified_by_name: string | null
+  /** La suma de sus renglones. */
+  envases: number
+  /**
+   * Los medicamentos que trae (0133): «falta verificar la recepción Nº 1051» se dice sólo al lado de lo que
+   * vino en ella, no de todo el pedido. Sin él —datos de antes o tests— no se filtra.
+   */
+  medication_ids?: string[]
+}
+
+/** RD3: `no_llego` = se cerró todo lo que faltaba y no se recibió nada. */
+export type EstadoPedido = 'sin_recibir' | 'en_parte' | 'recibido' | 'no_llego' | 'anulado'
 
 export interface RenglonPedido extends PedidoItemInsumo {
   faltante: number
@@ -79,11 +107,13 @@ export interface RenglonPedido extends PedidoItemInsumo {
 
 export interface PedidoMedicacion extends PedidoMedicacionInsumo {
   renglones: RenglonPedido[]
+  /** Por número. Sólo las no anuladas: una anulada no respondió a nada. */
+  recepciones: RecepcionDePedidoInsumo[]
   estado: EstadoPedido
   pedidoTotal: number
   recibidoTotal: number
   faltanteTotal: number
-  /** Lo que se dio por cerrado sin llegar («recibido · faltó 1»). */
+  /** Lo que se dio por cerrado sin llegar («Recibido · faltó 1»). */
   faltoCerrado: number
   /** Hay una recepción cargada y sin verificar: la Recepción lo avisa para no recibir dos veces. */
   conRecepcionSinVerificar: boolean
@@ -94,13 +124,20 @@ export function faltanteDe(item: PedidoItemInsumo): number {
   return Math.max(0, item.pedido - item.recibido)
 }
 
-/** Junta cabeceras y renglones y deduce el estado. Del más nuevo al más viejo. */
+/**
+ * Junta cabeceras, renglones y recepciones y deduce el estado. Del más nuevo al más viejo.
+ * `recepciones` es opcional: antes de la 0133 la base no las trae, y sin ellas sólo se pierde el número
+ * de la recepción sin verificar (el estado sale de los renglones).
+ */
 export function armarPedidos(
   pedidos: readonly PedidoMedicacionInsumo[],
   items: readonly PedidoItemInsumo[],
+  recepciones: readonly RecepcionDePedidoInsumo[] = [],
 ): PedidoMedicacion[] {
   const porPedido = new Map<string, PedidoItemInsumo[]>()
   for (const it of items) porPedido.set(it.pedido_id, [...(porPedido.get(it.pedido_id) ?? []), it])
+  const recepcionesPorPedido = new Map<string, RecepcionDePedidoInsumo[]>()
+  for (const r of recepciones) recepcionesPorPedido.set(r.pedido_id, [...(recepcionesPorPedido.get(r.pedido_id) ?? []), r])
 
   return pedidos
     .map((p): PedidoMedicacion => {
@@ -109,13 +146,15 @@ export function armarPedidos(
         .sort((a, b) => a.medication_name.localeCompare(b.medication_name, 'es'))
       const faltanteTotal = renglones.reduce((s, r) => s + r.faltante, 0)
       const recibidoTotal = renglones.reduce((s, r) => s + r.recibido, 0)
+      const hayCerrados = renglones.some((r) => r.cerrado_at)
       const estado: EstadoPedido = p.anulado_at ? 'anulado'
-        : faltanteTotal === 0 ? 'recibido'
-          : recibidoTotal > 0 ? 'en_parte'
-            : 'sin_recibir'
+        : faltanteTotal > 0 ? (recibidoTotal > 0 ? 'en_parte' : 'sin_recibir')
+          : recibidoTotal === 0 && hayCerrados ? 'no_llego'
+            : 'recibido'
       return {
         ...p,
         renglones,
+        recepciones: [...(recepcionesPorPedido.get(p.id) ?? [])].sort((a, b) => a.folio - b.folio),
         estado,
         pedidoTotal: renglones.reduce((s, r) => s + r.pedido, 0),
         recibidoTotal,
@@ -128,11 +167,58 @@ export function armarPedidos(
     .sort((a, b) => b.numero - a.numero)
 }
 
-export function etiquetaEstado(p: PedidoMedicacion): string {
-  if (p.estado === 'anulado') return 'anulado'
-  if (p.estado === 'en_parte') return 'recibido en parte'
-  if (p.estado === 'sin_recibir') return 'sin recibir'
-  return p.faltoCerrado > 0 ? `recibido · faltó ${p.faltoCerrado}` : 'recibido'
+export type ClavePastilla = 'sin_recibir' | 'llego' | 'en_parte' | 'recibido' | 'no_llego' | 'anulado'
+
+export interface PastillaPedido {
+  clave: ClavePastilla
+  texto: string
+}
+
+/**
+ * RD8: el estado del pedido en UNA pastilla, igual en la tarjeta, el estudio, el detalle y Recepción.
+ * «Llegó» es de un renglón que todavía FALTA: una recepción pendiente de un renglón ya completo no dice
+ * nada de lo que sigue sin llegar, y la pastilla lo taparía (revisión final, 5).
+ */
+export function pastillaDePedido(p: PedidoMedicacion): PastillaPedido {
+  if (p.estado === 'anulado') return { clave: 'anulado', texto: 'Anulado' }
+  if (p.renglones.some((r) => r.faltante > 0 && r.sin_verificar > 0)) return { clave: 'llego', texto: 'Llegó, falta verificar' }
+  if (p.estado === 'en_parte') return { clave: 'en_parte', texto: 'Recibido en parte' }
+  if (p.estado === 'sin_recibir') return { clave: 'sin_recibir', texto: 'Sin recibir' }
+  if (p.estado === 'no_llego') return { clave: 'no_llego', texto: 'Cerrado · no llegó' }
+  return { clave: 'recibido', texto: p.faltoCerrado > 0 ? `Recibido · faltó ${p.faltoCerrado}` : 'Recibido' }
+}
+
+/** Un pedido es de un período si sus fechas se tocan (ver `pedidoPara`). */
+export const seSuperpone = (p: PedidoMedicacionInsumo, periodo: Periodo) =>
+  p.periodo_hasta >= periodo.desde && p.periodo_desde <= periodo.hasta
+
+/**
+ * El pedido de un período: entre los no anulados cuyo período se SUPERPONE con `periodo`, el más nuevo que
+ * todavía debe algo; si ninguno debe, el más nuevo. Por superposición y no por igualdad: si Farmacia mueve
+ * el día de corte después de emitir (RD15), el pedido conserva su período y una comparación exacta dejaría
+ * de reconocerlo. Primero el que debe (revisión de ingeniería, 11): con «Armar otro pedido», un Nº 15 chico
+ * y ya recibido no puede tapar al Nº 14 grande que todavía no llegó.
+ * Tampoco cuenta uno «Cerrado · no llegó» (Director, 2026-09-19): no va a llegar, así que no cubre el
+ * período. Si contara, la franja diría que el estudio tiene su pedido, el pedido tarde (RD1) no se
+ * activaría y la tarjeta mostraría lo que faltó en vez de lo que hay que comprar. La tarjeta lo nombra
+ * aparte. `ultimoPedidoPara` SÍ lo cuenta: tiene que coincidir con lo que mira la base al emitir.
+ */
+export function pedidoPara(pedidos: readonly PedidoMedicacion[], periodo: Periodo): PedidoMedicacion | null {
+  return [...pedidos]
+    .filter((p) => p.estado !== 'anulado' && p.estado !== 'no_llego' && seSuperpone(p, periodo))
+    .sort((a, b) => Number(b.faltanteTotal > 0) - Number(a.faltanteTotal > 0) || b.numero - a.numero)[0] ?? null
+}
+
+/**
+ * El número del último pedido no anulado de ese período que vio la pantalla (0 si ninguno). Viaja con
+ * «Emitir e imprimir»: si mientras tanto alguien emitió otro, la base lo rechaza en vez de pedir dos
+ * veces lo mismo (revisión de ingeniería, 7). «Armar otro pedido» lo manda y por eso sigue andando.
+ * Cuenta TODO lo no anulado, también lo que no llegó, a diferencia de `pedidoPara`: es lo que cuenta el
+ * `p_ultimo_visto` de la base, y si no coincidieran, emitir después de un «no llegó» chocaría con «Ya hay
+ * un pedido para este período».
+ */
+export function ultimoPedidoPara(pedidos: readonly PedidoMedicacionInsumo[], periodo: Periodo): number {
+  return pedidos.filter((p) => !p.anulado_at && seSuperpone(p, periodo)).reduce((max, p) => Math.max(max, p.numero), 0)
 }
 
 /** Lo pedido y todavía sin recibir de un medicamento en un estudio: se descuenta de la compra (R9). */
@@ -155,12 +241,57 @@ export function yaPedidoDe(
   }
 }
 
-/** «Pedido Nº 14 del 28/09» · «Pedidos Nº 13 y Nº 14» · «Pedidos Nº 12, Nº 13 y Nº 14». */
+/** «Nº 13» · «Nº 13 y Nº 14» · «Nº 12, Nº 13 y Nº 14». */
+function listaDeNumeros(numeros: readonly number[]): string {
+  const n = numeros.map((x) => `Nº ${x}`)
+  return n.length === 1 ? n[0] : `${n.slice(0, -1).join(', ')} y ${n[n.length - 1]}`
+}
+
+/** «pedido Nº 14 del 28/09» · «pedidos Nº 13 y Nº 14». En minúscula: va en medio de la boleta (RD12). */
 export function textoDePedidos(pedidos: readonly { numero: number; emitido_el: string }[]): string {
   if (pedidos.length === 0) return ''
-  if (pedidos.length === 1) return `Pedido Nº ${pedidos[0].numero} del ${diaMes(pedidos[0].emitido_el)}`
-  const numeros = pedidos.map((p) => `Nº ${p.numero}`)
-  return `Pedidos ${numeros.slice(0, -1).join(', ')} y ${numeros[numeros.length - 1]}`
+  if (pedidos.length === 1) return `pedido Nº ${pedidos[0].numero} del ${diaMes(pedidos[0].emitido_el)}`
+  return `pedidos ${listaDeNumeros(pedidos.map((p) => p.numero))}`
+}
+
+/** «Pedido Nº 13» · «Pedidos Nº 12 y Nº 13»: encabeza el renglón de la tarjeta (RD4). */
+export function numerosDePedidos(pedidos: readonly { numero: number }[]): string {
+  return `${pedidos.length === 1 ? 'Pedido' : 'Pedidos'} ${listaDeNumeros(pedidos.map((p) => p.numero))}`
+}
+
+/** «falta 1 envase» · «faltan 13 envases». */
+export const faltaTxt = (n: number) => `${n === 1 ? 'falta' : 'faltan'} ${envasesTxt(n)}`
+
+/** «Recepción Nº 1051» · «Recepciones Nº 1051 y Nº 1052». Sin números (antes de la 0133): «Una recepción». */
+export function textoDeRecepciones(folios: readonly number[]): string {
+  if (folios.length === 0) return 'Una recepción'
+  return `${folios.length === 1 ? 'Recepción' : 'Recepciones'} ${listaDeNumeros(folios)}`
+}
+
+/**
+ * RD17: si algo de lo en camino de un medicamento ya llegó y está sin verificar, los números de esas
+ * recepciones (vacío si la base no los trae, antes de la 0133). null si no hay nada así. La boleta lo dice
+ * para que nadie lo vuelva a pedir ni lo reciba dos veces.
+ * Sólo las que traen ESE medicamento (revisión final, 3): un pedido puede tener dos recepciones pendientes,
+ * y nombrar la que trajo otra cosa manda a verificar la equivocada. Sin `medication_ids` no se filtra.
+ */
+export function sinVerificarDe(pedidos: readonly PedidoMedicacion[], protocolId: string, medicationId: string): number[] | null {
+  const conPendiente = pedidos.filter((p) => p.estado !== 'anulado' && p.protocol_id === protocolId
+    && p.renglones.some((r) => r.medication_id === medicationId && r.faltante > 0 && r.sin_verificar > 0))
+  if (conPendiente.length === 0) return null
+  return conPendiente
+    .flatMap((p) => p.recepciones
+      .filter((r) => r.status === 'pendiente' && (!r.medication_ids || r.medication_ids.includes(medicationId)))
+      .map((r) => r.folio))
+    .sort((a, b) => a - b)
+}
+
+/** «llegó, falta verificar la recepción Nº 1051» · «llegaron, falta verificar las recepciones Nº 1051 y Nº 1052». */
+export function faltaVerificarTxt(folios: readonly number[]): string {
+  if (folios.length === 0) return 'llegó, falta verificar la recepción'
+  return folios.length === 1
+    ? `llegó, falta verificar la recepción Nº ${folios[0]}`
+    : `llegaron, falta verificar las recepciones ${listaDeNumeros(folios)}`
 }
 
 /** «Recibir un pedido»: los no anulados con faltante, del más viejo al más nuevo. */
@@ -168,25 +299,154 @@ export function pedidosParaRecibir(pedidos: readonly PedidoMedicacion[]): Pedido
   return pedidos.filter((p) => p.estado !== 'anulado' && p.faltanteTotal > 0).sort((a, b) => a.numero - b.numero)
 }
 
-/**
- * El pedido que muestra la tarjeta del estudio: el más nuevo que tenga faltante abierto o que sea para el
- * período que viene. Uno emitido el día de corte ya aparece ese día, y sigue apareciendo mientras falte algo.
- *
- * «Para el período que viene» se decide por SUPERPOSICIÓN de rangos (`p.periodo_hasta >= proximo.desde &&
- * p.periodo_desde <= proximo.hasta`), no por igualdad de `periodo_desde`: si Farmacia cambia el día de
- * corte después de emitir el pedido, `proximo.desde` se corre y una comparación exacta deja de reconocer
- * un pedido que sigue siendo, en los hechos, el de ese período.
- */
-export function pedidoDestacado(pedidos: readonly PedidoMedicacion[], proximo: Periodo): PedidoMedicacion | null {
-  return [...pedidos]
-    .filter((p) => p.estado !== 'anulado')
-    .sort((a, b) => b.numero - a.numero)
-    .find((p) => p.faltanteTotal > 0 || (p.periodo_hasta >= proximo.desde && p.periodo_desde <= proximo.hasta)) ?? null
+/** «Emitido el 28/09 · faltan 13 envases de 2 medicamentos»: el renglón de la lista de «Recibir un pedido». */
+export function textoParaRecibir(p: PedidoMedicacion): string {
+  const meds = p.renglones.filter((r) => r.faltante > 0).length
+  return `Emitido el ${diaMes(p.emitido_el)} · ${faltaTxt(p.faltanteTotal)} de ${meds} ${meds === 1 ? 'medicamento' : 'medicamentos'}`
 }
 
-/** Los renglones con los que arranca el asistente de recepción: lo que falta de cada uno. */
+/**
+ * Lo que falta recibir de un renglón SIN contar lo que ya está en una recepción sin verificar (revisión de
+ * ingeniería, 8): eso ya llegó a la casa, y precargarlo otra vez en el asistente es recibirlo dos veces.
+ */
+export function porRecibir(r: RenglonPedido): number {
+  return Math.max(0, r.faltante - r.sin_verificar)
+}
+
+/** Σ de `porRecibir`. 0 = lo que falta ya está entero en recepciones sin verificar: no se ofrece «Recibir». */
+export function porRecibirDe(p: PedidoMedicacion): number {
+  return p.renglones.reduce((s, r) => s + porRecibir(r), 0)
+}
+
+/**
+ * «No va a llegar» se ofrece sólo si `cerrar_faltante_pedido` (0133) lo va a aceptar: un renglón abierto, al
+ * que le falta algo y sin NADA en una recepción sin verificar (Director, 2026-09-19). Aunque lo pendiente no
+ * cubra todo lo que falta, primero se verifica: cerrar antes deja la medicación que está en la casa como si
+ * no hubiera llegado, y vuelve a la compra. La regla vive acá para que la pantalla no la reescriba.
+ */
+export function sePuedeCerrar(r: RenglonPedido): boolean {
+  return !r.cerrado_at && r.faltante > 0 && r.sin_verificar === 0
+}
+
+/**
+ * Lo que dice la hoja REIMPRESA debajo de cada renglón (revisión de ingeniería, 10): sin esto, reimprimir un
+ * pedido a medio recibir vuelve a pedir lo que ya llegó. null = no llegó nada todavía, y el renglón queda
+ * como en la hoja original.
+ */
+export function notaDeReimpresion(r: RenglonPedido): string | null {
+  if (r.cerrado_at) return r.recibido > 0 ? `recibido ${r.recibido} · el resto no va a llegar` : 'no va a llegar'
+  if (r.recibido === 0) return null
+  return r.faltante === 0 ? `recibido ${r.recibido}` : `recibido ${r.recibido} · falta ${r.faltante}`
+}
+
+/** Lo que trae `pedidos_por_recibir` (0133): sólo los pedidos con algo por recibir, con su estudio. */
+export interface InsumosPorRecibir {
+  estudios: { id: string; code: string; name: string }[]
+  pedidos: PedidoMedicacionInsumo[]
+  pedido_items: PedidoItemInsumo[]
+  recepciones: RecepcionDePedidoInsumo[]
+}
+
+export interface PedidoPorRecibir {
+  pedido: PedidoMedicacion
+  estudio: { id: string; code: string; name: string }
+  /** Los otros pedidos abiertos del mismo estudio: si llega algo que espera uno de ellos, el asistente lo dice. */
+  otrosDelEstudio: PedidoMedicacion[]
+}
+
+/** La lista de «Recibir un pedido», del más viejo al más nuevo. */
+export function armarPorRecibir(i: InsumosPorRecibir): PedidoPorRecibir[] {
+  const abiertos = pedidosParaRecibir(armarPedidos(i.pedidos, i.pedido_items, i.recepciones))
+  return abiertos.flatMap((pedido) => {
+    const estudio = i.estudios.find((e) => e.id === pedido.protocol_id)
+    if (!estudio) return []
+    return [{ pedido, estudio, otrosDelEstudio: abiertos.filter((o) => o.protocol_id === pedido.protocol_id && o.id !== pedido.id) }]
+  })
+}
+
+/**
+ * Los renglones con los que arranca el asistente de recepción (R10): lo que falta de cada uno y no está ya
+ * en una recepción sin verificar.
+ */
 export function renglonesParaRecibir(p: PedidoMedicacion): { medicationId: string; nombre: string; cantidad: number }[] {
   return p.renglones
-    .filter((r) => r.faltante > 0)
-    .map((r) => ({ medicationId: r.medication_id, nombre: r.medication_name, cantidad: r.faltante }))
+    .filter((r) => porRecibir(r) > 0)
+    .map((r) => ({ medicationId: r.medication_id, nombre: r.medication_name, cantidad: porRecibir(r) }))
+}
+
+/** El pedido más viejo de `otros` que todavía espera ese medicamento (revisión de ingeniería, 9). */
+function quienLoEspera(otros: readonly PedidoMedicacion[], medicationId: string): PedidoMedicacion | null {
+  return [...otros]
+    .filter((o) => o.estado !== 'anulado' && o.renglones.some((r) => r.medication_id === medicationId && porRecibir(r) > 0))
+    .sort((a, b) => a.numero - b.numero)[0] ?? null
+}
+
+/**
+ * Lo que dice el asistente al lado de cada medicamento cuando se recibe un pedido (mock «Asistente»). Si no
+ * estaba en ESTE pedido pero lo espera otro del estudio, lo nombra: recibido acá, el otro lo seguiría
+ * esperando y la boleta lo restaría como «en camino» aunque ya esté en el estante.
+ */
+export function metaDelPedido(
+  p: PedidoMedicacion,
+  medicationId: string,
+  otros: readonly PedidoMedicacion[] = [],
+): { texto: string; aviso: boolean } {
+  const r = p.renglones.find((x) => x.medication_id === medicationId)
+  if (!r) {
+    const otro = quienLoEspera(otros, medicationId)
+    return { texto: otro ? `Se debe en el Pedido Nº ${otro.numero}: recibilo con ese` : 'No estaba en el pedido', aviso: true }
+  }
+  const falta = porRecibir(r)
+  if (falta === 0) return { texto: 'No faltaba', aviso: true }
+  if (falta === r.pedido) return { texto: `se pidieron ${r.pedido}`, aviso: false }
+  return { texto: `${falta === 1 ? 'falta' : 'faltan'} ${falta} de ${r.pedido}`, aviso: false }
+}
+
+export interface FilaComparacion {
+  medicationId: string
+  nombre: string
+  /** Lo que faltaba recibir de ese renglón; null = no estaba en el pedido. */
+  esperado: number | null
+  llega: number
+  nota: string
+  aviso: boolean
+}
+
+/**
+ * El resumen del asistente (RD18): lo que faltaba recibir de cada renglón contra lo que llega. Lo que llega y
+ * no estaba en el pedido se recibe igual y no cuenta para ningún renglón (R10). Si lo espera otro pedido del
+ * estudio (o sobra y lo espera otro), se nombra ese pedido (revisión de ingeniería, 9).
+ */
+export function comparacionConElPedido(
+  p: PedidoMedicacion,
+  llegan: readonly { medicationId: string; name: string; quantity: number }[],
+  otros: readonly PedidoMedicacion[] = [],
+): FilaComparacion[] {
+  const filas: FilaComparacion[] = p.renglones
+    .filter((r) => porRecibir(r) > 0 || llegan.some((l) => l.medicationId === r.medication_id))
+    .map((r) => {
+      const esperado = porRecibir(r)
+      const llega = llegan.find((l) => l.medicationId === r.medication_id)?.quantity ?? 0
+      const resto = esperado - llega
+      const otro = esperado > 0 && resto < 0 ? quienLoEspera(otros, r.medication_id) : null
+      const nota = esperado === 0 ? 'No faltaba: se recibe igual'
+        : resto > 0 ? `${resto === 1 ? 'Queda' : 'Quedan'} ${resto} en camino`
+          : resto < 0 ? (otro ? `Completo, con ${-resto} de más: se deben en el Pedido Nº ${otro.numero}` : `Completo, con ${-resto} de más`)
+            : 'Completo'
+      return { medicationId: r.medication_id, nombre: r.medication_name, esperado, llega, nota, aviso: esperado === 0 || resto > 0 || otro != null }
+    })
+  for (const l of llegan) {
+    if (p.renglones.some((r) => r.medication_id === l.medicationId)) continue
+    const otro = quienLoEspera(otros, l.medicationId)
+    filas.push({
+      medicationId: l.medicationId, nombre: l.name, esperado: null, llega: l.quantity, aviso: true,
+      nota: otro ? `Se debe en el Pedido Nº ${otro.numero}: recibilo con ese` : 'No estaba en el pedido: se recibe igual',
+    })
+  }
+  return filas
+}
+
+/** La columna muestra lo que FALTABA recibir: la primera vez coincide con lo pedido; después, no. */
+export function encabezadoDeLoEsperado(p: PedidoMedicacion): 'Pedido' | 'Faltaba' {
+  return p.renglones.every((r) => porRecibir(r) === r.pedido) ? 'Pedido' : 'Faltaba'
 }
