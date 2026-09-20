@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
 import { SPIRA_VERSION } from '../lib/version'
+import { formatDateTimeAR } from '../lib/dates'
 import { KBD_FEEDBACK } from '../lib/teclas'
 import type { ChangelogEntry } from '../lib/version'
 
@@ -116,6 +117,24 @@ export function AboutMenu({ accent, onFeedback, open, onOpenChange }: AboutMenuP
                 {isPre && <span style={betaBadge(accent)}>{V.channel}</span>}
               </div>
               <span className="spira-mono" style={{ display: 'inline-block', marginTop: 3, fontSize: 11.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>Plataforma {V.app}</span>
+              {/* EL COMMIT, debajo y en `faint`: no compite con la versión, que sigue siendo el
+                  número que la gente nombra. Está para el momento en que hace falta y sólo
+                  entonces — "¿qué estás usando?" —, porque la versión sola no alcanza: entre un
+                  merge y su tag nombra código más viejo que el que está corriendo. Un build local
+                  dice 'dev', y ahí se omite la fecha: no le sirve a nadie saber a qué hora compiló
+                  su propia máquina. */}
+              <span
+                className="spira-mono"
+                title={V.build.sha === 'dev'
+                  ? 'Build de desarrollo, no es el de producción'
+                  : `Commit ${V.build.sha}, compilado el ${formatDateTimeAR(V.build.time)}`}
+                /* `muted` y NO `faint`: faint da 3,06:1 sobre papel y no es color de TEXTO en esta
+                   app (sirve para íconos y bordes). La jerarquía contra el renglón de arriba la da
+                   el TAMAÑO —10,5 contra 11,5—, no un gris más claro. */
+                style={{ display: 'block', marginTop: 1, fontSize: 10.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}
+              >
+                {V.build.sha === 'dev' ? 'desarrollo' : `${V.build.sha} · ${formatDateTimeAR(V.build.time)}`}
+              </span>
             </div>
             <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" style={closeBtn}>
               <Icon name="x" size={18} color="var(--spira-muted)" />

@@ -12,6 +12,12 @@ interface ImportMeta {
 /** Versión de la app, inyectada en build desde package.json (ver vite.config.ts). */
 declare const __APP_VERSION__: string
 
+/** Commit del que salió ESTE build (7 dígitos), o 'dev' fuera de Vercel. Ver vite.config.ts. */
+declare const __BUILD_SHA__: string
+
+/** Cuándo se compiló, ISO. Junto con el SHA contesta "¿qué está corriendo?" sin bajar el bundle. */
+declare const __BUILD_TIME__: string
+
 /* `node:fs`, sólo para los tests que necesitan leer un archivo del repo como texto (hoy uno:
    `styles/capas.test.ts`, que compara el orden de las capas tal como está escrito en
    `tokens.css`). No alcanza con el `?raw` de Vite: vitest reemplaza los CSS por stubs vacíos

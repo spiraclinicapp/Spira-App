@@ -52,3 +52,29 @@ describe('visitStateLabel · la visita de hoy conserva su etapa operativa', () =
     expect(visitStateLabel(visita, HOY)).toBe('Inicio de atención')
   })
 })
+
+/**
+ * «En ventana» se mete entre «Agendada» y «Por llegar», y el ORDEN es lo que se fija acá: la fecha
+ * citada gana. Estos dos tests son lo único que impide que alguien "arregle" la precedencia sin
+ * darse cuenta de que la está dando vuelta.
+ *
+ * Lo que sostiene el color: siempre que la fila esté teñida de verde, la pastilla dice algo
+ * distinto de «Agendada». Si «En ventana» se colara por encima de «Por llegar», el día de la cita
+ * dejaría de avisar que el paciente tiene que venir HOY.
+ */
+describe('visitStateLabel · la ventana abierta', () => {
+  /* Ventana 10/10-20/10, citada el 15. El 12 la ventana ya abrió y el día todavía no llegó. */
+  const enVentana = { window_start: '2026-10-10', window_end: '2026-10-20', estimated_date: '2026-10-15' }
+
+  it('con la ventana abierta y la fecha citada por venir: «En ventana»', () => {
+    expect(visitStateLabel(v(enVentana), '2026-10-12')).toBe('En ventana')
+  })
+
+  it('el día de la cita manda: «Por llegar», aunque la ventana siga abierta', () => {
+    expect(visitStateLabel(v(enVentana), '2026-10-15')).toBe('Por llegar')
+  })
+
+  it('antes de que abra la ventana sigue siendo «Agendada»', () => {
+    expect(visitStateLabel(v(enVentana), '2026-10-08')).toBe('Agendada')
+  })
+})

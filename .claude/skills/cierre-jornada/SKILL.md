@@ -54,6 +54,12 @@ modo completo sin re-preguntar los pasos.
 - **Mergear y desplegar sin sacar el release** → la versión queda atrás de lo que corre en
   producción (pasó el 2026-08-06: prod con el rediseño y `package.json` en `0.26.0`). Si la jornada
   terminó en merge + deploy, **preguntá si sale versión** antes de dar el cierre por hecho.
+- **Escribir «vX.Y.Z = PRODUCCIÓN» en la bitácora, el handoff o la memoria.** Es verdad por minutos:
+  cada merge a `main` se despliega solo, así que el próximo la vuelve falsa y nadie la corrige. El
+  2026-09-20 hubo que corregirla **tres veces en una tarde**. Escribí **«último tag `vX.Y.Z` · prod =
+  `<sha>`»**, que envejece bien. El `<sha>` sale del popover «Acerca de» de la app, que desde esa
+  fecha muestra el commit del build debajo de la versión — ya no hace falta bajar el bundle y
+  grepearlo. Y si igual querés confirmar el bundle, ese sello es lo que hay que buscar.
 - Buscar la memoria en el proyecto equivocado: hasta el 2026-08-06 esta skill apuntaba a un
   `spira-estado-proyecto.md` que solo existía en la memoria de `Spira-Pharma`, de antes de la
   unificación.

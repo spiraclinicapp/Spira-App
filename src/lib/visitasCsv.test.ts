@@ -25,7 +25,7 @@ const COL_VISITA = VISITAS_CSV_HEADERS.indexOf('Visita')
 describe('filasVisitasCsv', () => {
   it('la columna Visita es el título de la visita, no un contador', () => {
     const [fila] = filasVisitasCsv([v({ visit_code: 'V6', visit_name: 'W8' })])
-    expect(fila[COL_VISITA]).toBe('V6 - W8')
+    expect(fila[COL_VISITA]).toBe('V6 W8')
   })
 
   it('una suelta se nombra por su tipo', () => {
