@@ -12,6 +12,7 @@ import { useTeamAccess } from '../../data/team'
 import type { TeamMemberRow } from '../../data/team'
 import { useProtocols } from '../../data/protocols'
 import { useAllProtocolAssignments } from '../../data/protocolAccess'
+import { useAllPharmaAssignments, usePharmaScopes } from '../../data/pharmaAccess'
 import type { ProtocolRow } from '../../data/protocols'
 import { StCard, StPill, btnIcono, btnSolid } from './primitives'
 import { AccesoEditor } from './AccesoEditor'
@@ -54,6 +55,11 @@ export function EquipoYAccesosSection() {
      de `AccesoEditor`, así que se reconsultaban en cada entrada y salida de una ficha. Acá las
      necesitan tres: la línea de cada fila ("· 3 estudios"), el resumen del ojo y la ficha. */
   const asignaciones = useAllProtocolAssignments()
+  /* Las dos de Farmacia (0139) bajan por prop por el mismo motivo que las de Coordinación:
+     `useSupabaseQuery` no cachea, así que pedirlas adentro del editor las reconsultaría en cada
+     entrada y salida de una ficha, siendo siempre la misma lista del centro entero. */
+  const scopesPharma = usePharmaScopes()
+  const asignacionesPharma = useAllPharmaAssignments()
   const [editando, setEditando] = useState<string | null>(null)
   /* Quién tiene el resumen abierto. Misma forma que `editando` — y es lo que hace que las dos
      consultas de historial del resumen se disparen UNA vez, al abrirlo, y no una por persona al
@@ -105,6 +111,11 @@ export function EquipoYAccesosSection() {
         asignaciones={asignaciones.data ?? []}
         asignacionesCargando={asignaciones.loading}
         onAsignacionesCambiadas={asignaciones.refetch}
+        scopesPharma={scopesPharma.data ?? []}
+        asignacionesPharma={asignacionesPharma.data ?? []}
+        pharmaCargando={scopesPharma.loading || asignacionesPharma.loading}
+        pharmaError={scopesPharma.error ?? asignacionesPharma.error}
+        onPharmaCambiado={() => { scopesPharma.refetch(); asignacionesPharma.refetch() }}
         onCerrar={() => setEditando(null)}
         onGuardado={refetch}
       />

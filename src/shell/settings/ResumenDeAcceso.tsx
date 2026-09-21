@@ -14,6 +14,7 @@ import { formatDateAR } from '../../lib/dates'
 import { useAccessAudit } from '../../data/team'
 import type { TeamMemberRow } from '../../data/team'
 import { useProtocolAccessAudit } from '../../data/protocolAccess'
+import { usePharmaAccessAudit } from '../../data/pharmaAccess'
 import type { ProtocolRow } from '../../data/protocols'
 import { ACCENT, EstudioChip, SectionLabel, btnGhost, btnSolid } from './primitives'
 
@@ -59,17 +60,23 @@ export function ResumenDeAcceso({
 }: Props) {
   const audit = useAccessAudit(persona.id)
   const auditProtocolos = useProtocolAccessAudit(persona.id)
+  const auditPharma = usePharmaAccessAudit(persona.id)
 
   /* El "último cambio" NO es una consulta nueva ni una redacción paralela: es la primera línea del
      MISMO historial mezclado que muestra la ficha. Dos textos para el mismo hecho se desincronizan
-     solos, y en un sistema auditable el que quede viejo es el que alguien va a citar. */
+     solos, y en un sistema auditable el que quede viejo es el que alguien va a citar.
+
+     Por eso la tercera lista (el alcance en Farmacia, 0139) va acá también y no sólo en la ficha:
+     si faltara, acotar a alguien no movería este renglón y el resumen seguiría citando un cambio
+     anterior como si fuera lo último que pasó. */
   const ultimo = useMemo(
     () => mezclarHistorial(
       audit.data ?? [],
       auditProtocolos.data ?? [],
+      auditPharma.data ?? [],
       (key) => MODULES.find((m) => m.key === key)?.name ?? key,
     )[0] ?? null,
-    [audit.data, auditProtocolos.data],
+    [audit.data, auditProtocolos.data, auditPharma.data],
   )
 
   const entradas = (Object.entries(persona.accesos) as [ModuleKey, ModuleRole][])

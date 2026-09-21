@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   accessLabel, auditLine, canRevokeAdmin, describeAccess, meetsMinRole, mezclarHistorial,
-  protocolAuditLine, resumenDeAccesoEnLinea, ROLE_RANK,
+  pharmaAuditLine, protocolAuditLine, resumenDeAccesoEnLinea, ROLE_RANK,
 } from './roles'
-import type { Accesos, AccessAuditRow, ProtocolAccessAuditRow } from './roles'
+import type { Accesos, AccessAuditRow, PharmaAccessAuditRow, ProtocolAccessAuditRow } from './roles'
 
 /* La escalera de acceso: viewer < operator < leader < admin.
  *
@@ -475,22 +475,31 @@ describe('protocolAuditLine', () => {
   })
 })
 
-describe('mezclarHistorial', () => {
-  const nombreModulo = (k: string) => (k === 'track' ? 'Coordinación' : k)
-  const mod = (id: string, occurred_at: string): AccessAuditRow => ({
-    id, occurred_at, action: 'INSERT', module: 'track',
-    role_before: null, role_after: 'operator', actor_name: 'Ana', target_name: 'Bea',
-  })
-  const proto = (id: string, occurred_at: string): ProtocolAccessAuditRow => ({
-    ...PROTO_BASE, id, occurred_at,
-  })
+/* Los tres constructores de filas viven en el alcance del módulo y no adentro de un `describe`:
+   los usan `mezclarHistorial` y el bloque de las tres listas, y una copia sería la que se olvide de
+   un caso el día que cambie el original. */
+const nombreModulo = (k: string) => (k === 'track' ? 'Coordinación' : k)
+const mod = (id: string, occurred_at: string): AccessAuditRow => ({
+  id, occurred_at, action: 'INSERT', module: 'track',
+  role_before: null, role_after: 'operator', actor_name: 'Ana', target_name: 'Bea',
+})
+const proto = (id: string, occurred_at: string): ProtocolAccessAuditRow => ({
+  ...PROTO_BASE, id, occurred_at,
+})
+const farm = (id: string, occurred_at: string): PharmaAccessAuditRow => ({
+  id, occurred_at, action: 'INSERT', clase: 'estudio',
+  protocol_code: 'LTS17231', protocol_name: null, ve_todos: null,
+  actor_name: 'Caro', target_name: 'Bea',
+})
 
+describe('mezclarHistorial', () => {
   it('intercala las dos fuentes por fecha, de lo más nuevo a lo más viejo', () => {
     // El caso que justifica la función: si cada lista se pintara por separado, o si se concatenaran
     // sin ordenar, la ficha diría que lo último que pasó fue algo de hace un mes.
     const out = mezclarHistorial(
       [mod('m1', '2026-09-01T00:00:00Z'), mod('m2', '2026-09-05T00:00:00Z')],
       [proto('p1', '2026-09-03T00:00:00Z'), proto('p2', '2026-09-07T00:00:00Z')],
+      [],
       nombreModulo,
     )
     expect(out.map((l) => l.id)).toEqual(['p2', 'm2', 'p1', 'm1'])
@@ -502,6 +511,7 @@ describe('mezclarHistorial', () => {
     const out = mezclarHistorial(
       [mod('m1', '2026-09-01T00:00:00Z'), mod('m2', '2026-09-02T00:00:00Z')],
       [proto('p1', '2026-09-08T00:00:00Z'), proto('p2', '2026-09-09T00:00:00Z')],
+      [],
       nombreModulo,
       2,
     )
@@ -512,18 +522,125 @@ describe('mezclarHistorial', () => {
     // Dos filas escritas en la MISMA transacción comparten `occurred_at`. Sin desempate, el orden
     // entre ellas podría cambiar entre renders y la lista se reordenaría sola en pantalla.
     const mismaFecha = '2026-09-07T12:00:00Z'
-    const a = mezclarHistorial([mod('m1', mismaFecha)], [proto('p1', mismaFecha)], nombreModulo)
-    const b = mezclarHistorial([mod('m1', mismaFecha)], [proto('p1', mismaFecha)], nombreModulo)
+    const a = mezclarHistorial([mod('m1', mismaFecha)], [proto('p1', mismaFecha)], [], nombreModulo)
+    const b = mezclarHistorial([mod('m1', mismaFecha)], [proto('p1', mismaFecha)], [], nombreModulo)
     expect(a.map((l) => l.id)).toEqual(b.map((l) => l.id))
   })
 
   it('cada línea llega ya redactada por la función que le corresponde', () => {
-    const out = mezclarHistorial([mod('m1', '2026-09-01T00:00:00Z')], [proto('p1', '2026-09-02T00:00:00Z')], nombreModulo)
+    const out = mezclarHistorial([mod('m1', '2026-09-01T00:00:00Z')], [proto('p1', '2026-09-02T00:00:00Z')], [], nombreModulo)
     expect(out[0].texto).toContain('estudio ACT18301')
     expect(out[1].texto).toContain('Coordinación')
   })
 
   it('sin nada que mostrar devuelve una lista vacía, no revienta', () => {
-    expect(mezclarHistorial([], [], nombreModulo)).toEqual([])
+    expect(mezclarHistorial([], [], [], nombreModulo)).toEqual([])
+  })
+})
+
+
+/* El historial del alcance en Farmacia (migración 0139).
+ *
+ * Mismo motivo que `protocolAuditLine`: invertir dar y quitar, o el sentido del interruptor,
+ * produce una frase impecable que dice exactamente lo contrario de lo que pasó — y en un registro
+ * de accesos eso no se nota mirando. La frase además tiene que NOMBRAR el módulo: en el historial
+ * mezclado con el de Coordinación, «le dio el estudio LTS17231» no dice para dónde.
+ */
+describe('pharmaAuditLine', () => {
+  const FARM_BASE: PharmaAccessAuditRow = {
+    id: 'x', occurred_at: '2026-09-20T10:00:00Z', action: 'INSERT', clase: 'estudio',
+    protocol_code: 'LTS17231', protocol_name: 'Lipoproteína', ve_todos: null,
+    actor_name: 'Caro', target_name: 'Bea',
+  }
+
+  it('dar un estudio dice quién a quién, y nombra Farmacia', () => {
+    expect(pharmaAuditLine(FARM_BASE))
+      .toBe('Caro le dio el estudio LTS17231 en Farmacia a Bea')
+  })
+
+  it('quitar un estudio NO se confunde con darlo', () => {
+    expect(pharmaAuditLine({ ...FARM_BASE, action: 'DELETE' }))
+      .toBe('Caro le quitó el estudio LTS17231 en Farmacia a Bea')
+  })
+
+  it('apagar el interruptor dice que lo acotó', () => {
+    expect(pharmaAuditLine({
+      ...FARM_BASE, action: 'UPDATE', clase: 'interruptor',
+      ve_todos: false, protocol_code: null, protocol_name: null,
+    })).toBe('Caro acotó a Bea a una lista de estudios en Farmacia')
+  })
+
+  it('prenderlo dice que le devolvió todos', () => {
+    expect(pharmaAuditLine({
+      ...FARM_BASE, action: 'UPDATE', clase: 'interruptor',
+      ve_todos: true, protocol_code: null, protocol_name: null,
+    })).toBe('Caro le devolvió a Bea todos los estudios en Farmacia')
+  })
+
+  it('la clase manda sobre la acción', () => {
+    // Una línea de interruptor llega con action = 'UPDATE', que en la rama de estudio significa
+    // "volvió a guardar sin cambiar". Si la función ramificara primero por `action`, el cambio de
+    // alcance se redactaría como un no-evento.
+    const t = pharmaAuditLine({ ...FARM_BASE, action: 'UPDATE', clase: 'interruptor', ve_todos: false })
+    expect(t).not.toContain('sin cambiarlo')
+    expect(t).toContain('acotó')
+  })
+
+  it('sobrevive a un estudio borrado: cae al nombre y después al texto genérico', () => {
+    // audit_log es inmutable: sus líneas siguen ahí cuando el protocolo ya no está.
+    expect(pharmaAuditLine({ ...FARM_BASE, protocol_code: null })).toContain('Lipoproteína')
+    expect(pharmaAuditLine({ ...FARM_BASE, protocol_code: null, protocol_name: null }))
+      .toContain('un estudio que ya no existe')
+  })
+
+  it('sin actor ni objetivo, no inventa nombres', () => {
+    expect(pharmaAuditLine({ ...FARM_BASE, action: 'DELETE', actor_name: null, target_name: null }))
+      .toBe('El sistema le quitó el estudio LTS17231 en Farmacia a una cuenta que ya no existe')
+  })
+})
+
+describe('mezclarHistorial con las tres listas', () => {
+  it('las tres fuentes entran en una sola lista, de lo más nuevo a lo más viejo', () => {
+    const out = mezclarHistorial(
+      [mod('m1', '2026-09-20T09:00:00Z')],
+      [proto('p1', '2026-09-20T11:00:00Z')],
+      [farm('f1', '2026-09-20T10:00:00Z')],
+      nombreModulo,
+    )
+    expect(out.map((l) => l.id)).toEqual(['p1', 'f1', 'm1'])
+  })
+
+  it('el tope se aplica DESPUÉS de mezclar, también con tres', () => {
+    const out = mezclarHistorial(
+      [mod('m1', '2026-09-20T09:00:00Z')],
+      [proto('p1', '2026-09-20T11:00:00Z')],
+      [farm('f1', '2026-09-20T10:00:00Z')],
+      nombreModulo,
+      2,
+    )
+    expect(out.map((l) => l.id)).toEqual(['p1', 'f1'])
+  })
+
+  it('sin filas de Farmacia se comporta igual que antes', () => {
+    const out = mezclarHistorial(
+      [mod('m1', '2026-09-20T09:00:00Z')],
+      [proto('p1', '2026-09-20T11:00:00Z')],
+      [],
+      nombreModulo,
+    )
+    expect(out.map((l) => l.id)).toEqual(['p1', 'm1'])
+  })
+
+  it('cada línea la redacta la función que le corresponde', () => {
+    // El error que esto atrapa: si una fila de Farmacia cayera en `protocolAuditLine`, la frase
+    // saldría perfecta y sin nombrar el módulo — indistinguible de una de Coordinación.
+    const out = mezclarHistorial(
+      [mod('m1', '2026-09-20T09:00:00Z')],
+      [proto('p1', '2026-09-20T11:00:00Z')],
+      [farm('f1', '2026-09-20T10:00:00Z')],
+      nombreModulo,
+    )
+    expect(out.find((l) => l.id === 'f1')!.texto).toContain('en Farmacia')
+    expect(out.find((l) => l.id === 'p1')!.texto).not.toContain('en Farmacia')
   })
 })

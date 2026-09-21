@@ -413,7 +413,53 @@ export function protocolAuditLine(row: ProtocolAccessAuditRow): string {
   return `${quien} volvió a guardar la asignación de ${aQuien} al estudio ${estudio}, sin cambiarla`
 }
 
-/* ─── Los dos historiales, en una sola lista ─── */
+/* ─── El historial del alcance en Farmacia (migración 0139) ─── */
+
+/** Una fila de `v_pharma_protocol_access_audit` (0139), tal como llega. */
+export interface PharmaAccessAuditRow {
+  id: string
+  occurred_at: string
+  action: string
+  /** `'estudio'` = entró o salió de la lista. `'interruptor'` = se prendió o apagó el recorte. */
+  clase: string
+  /** `null` si el protocolo se borró, o si la línea es del interruptor. */
+  protocol_code: string | null
+  protocol_name: string | null
+  /** Sólo en las del interruptor: el valor que quedó. `true` = volvió a ver todos. */
+  ve_todos: boolean | null
+  actor_name: string | null
+  target_name: string | null
+}
+
+/**
+ * Una línea del historial de Farmacia, en castellano.
+ *
+ * Vive aparte de `protocolAuditLine` por lo mismo que la vista es aparte: son dos hechos distintos
+ * —el alcance en Coordinación y el alcance en Farmacia— y la frase tiene que nombrar el módulo, o
+ * en el historial mezclado «le dio el estudio LTS17231» no dice para dónde.
+ *
+ * Se testea porque invertir dar y quitar, o el sentido del interruptor, produce una frase impecable
+ * que dice exactamente lo contrario de lo que pasó.
+ */
+export function pharmaAuditLine(row: PharmaAccessAuditRow): string {
+  const quien = row.actor_name ?? 'El sistema'
+  const aQuien = row.target_name ?? 'una cuenta que ya no existe'
+
+  if (row.clase === 'interruptor') {
+    return row.ve_todos
+      ? `${quien} le devolvió a ${aQuien} todos los estudios en Farmacia`
+      : `${quien} acotó a ${aQuien} a una lista de estudios en Farmacia`
+  }
+
+  /* El código es la identidad del estudio en toda la app; el nombre es el respaldo. Si no hay
+     ninguno de los dos, el protocolo se borró — y la línea lo dice en vez de quedar coja. */
+  const estudio = row.protocol_code ?? row.protocol_name ?? 'un estudio que ya no existe'
+  if (row.action === 'INSERT') return `${quien} le dio el estudio ${estudio} en Farmacia a ${aQuien}`
+  if (row.action === 'DELETE') return `${quien} le quitó el estudio ${estudio} en Farmacia a ${aQuien}`
+  return `${quien} volvió a guardar el estudio ${estudio} en Farmacia para ${aQuien}, sin cambiarlo`
+}
+
+/* ─── Los tres historiales, en una sola lista ─── */
 
 /** Una línea ya redactada, lista para pintar. Lo único que las dos fuentes tienen en común. */
 export interface LineaDeHistorial {
@@ -423,15 +469,20 @@ export interface LineaDeHistorial {
 }
 
 /**
- * Mezcla el historial de módulos y el de protocolos en una sola lista, de lo más nuevo a lo más
- * viejo, y la recorta a `tope`.
+ * Mezcla el historial de módulos, el de protocolos de Coordinación y el del alcance en Farmacia en
+ * una sola lista, de lo más nuevo a lo más viejo, y la recorta a `tope`.
+ *
+ * SON TRES LISTAS Y NO UNA CONSULTA porque son tres vistas distintas en la base —y tienen que
+ * serlo, ver el comentario de `v_pharma_protocol_access_audit` (0139)—, pero para gerencia "qué le
+ * pasó al acceso de esta persona" es UNA sola pregunta.
  *
  * ⚠️ POR QUÉ EL RECORTE ACÁ ES CORRECTO Y NO UNA APROXIMACIÓN. Cada consulta trae sus 20 más
- * nuevas por separado, y podría parecer que mezclar dos listas ya recortadas pierde filas. No las
+ * nuevas por separado, y podría parecer que mezclar listas ya recortadas pierde filas. No las
  * pierde: las 20 más nuevas de la UNIÓN salen necesariamente de las 20 más nuevas de cada lado —
  * cualquier fila descartada por una consulta es más vieja que las 20 que esa consulta sí trajo, así
- * que no puede colarse entre las 20 primeras del total. El resultado es idéntico al de pedir el
- * union ordenado con `limit 20`.
+ * que no puede colarse entre las 20 primeras del total. El argumento no depende de cuántas listas
+ * sean: vale igual para dos que para tres. El resultado es idéntico al de pedir el union ordenado
+ * con `limit 20`.
  *
  * Se testea porque el error de ordenar al revés produce una lista perfectamente creíble que miente
  * sobre qué pasó último — y en un registro de accesos, "qué pasó último" es toda la pregunta.
@@ -439,12 +490,14 @@ export interface LineaDeHistorial {
 export function mezclarHistorial(
   modulos: readonly AccessAuditRow[],
   protocolos: readonly ProtocolAccessAuditRow[],
+  farmacia: readonly PharmaAccessAuditRow[],
   nombreModulo: (key: string) => string,
   tope = 20,
 ): LineaDeHistorial[] {
   const lineas: LineaDeHistorial[] = [
     ...modulos.map((r) => ({ id: r.id, occurred_at: r.occurred_at, texto: auditLine(r, nombreModulo) })),
     ...protocolos.map((r) => ({ id: r.id, occurred_at: r.occurred_at, texto: protocolAuditLine(r) })),
+    ...farmacia.map((r) => ({ id: r.id, occurred_at: r.occurred_at, texto: pharmaAuditLine(r) })),
   ]
   /* Orden por fecha descendente. El desempate por `id` no es cosmético: dos filas escritas en la
      MISMA transacción comparten `occurred_at` al microsegundo (el `now()` de una transacción es

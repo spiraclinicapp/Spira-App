@@ -8,6 +8,10 @@ import type { TeamMemberRow } from '../../data/team'
 import { useAccessAudit } from '../../data/team'
 import { setProtocolAccess, useProtocolAccessAudit } from '../../data/protocolAccess'
 import type { AsignacionRow } from '../../data/protocolAccess'
+import { aplicarAlcance, usePharmaAccessAudit } from '../../data/pharmaAccess'
+import type { PharmaAsignacionRow, PharmaScopeRow } from '../../data/pharmaAccess'
+import { cambiosDeAlcance } from '../../data/pharmaAccessModel'
+import type { AlcancePharma } from '../../data/pharmaAccessModel'
 import type { ProtocolRow } from '../../data/protocols'
 import { InfoTip } from '../../components/InfoTip'
 import {
@@ -28,10 +32,16 @@ import { useMarkDirty } from './SettingsModal'
    Seis bloques y en este orden, que no es casual:
      1. MÓDULOS — un nivel por módulo (sólo los CONSTRUIDOS: ver `MODULOS_ASIGNABLES` más abajo).
         Qué PANTALLAS abre.
-     2. ESTUDIOS — sobre qué PACIENTES. La otra mitad del acceso, y va pegada a la primera porque
-        una sin la otra no sirve: "Operador en Coordinación" con cero estudios entra al módulo y
-        no ve un solo paciente (`is_assigned_coordinator`, 0006). Sólo aparece si el borrador
-        tiene Coordinación — Farmacia es central y ve todos los protocolos.
+     2. ESTUDIOS — sobre qué PACIENTES (Coordinación) y sobre qué ESTUDIOS (Farmacia). La otra
+        mitad del acceso, y va pegada a la primera porque una sin la otra no sirve: "Operador en
+        Coordinación" con cero estudios entra al módulo y no ve un solo paciente
+        (`is_assigned_coordinator`, 0006).
+        SON DOS TARJETAS, cada una si su módulo está en el borrador, y tienen predeterminados
+        OPUESTOS: Coordinación es lista blanca siempre (`protocol_coordinators`), y Farmacia
+        arranca viendo todo y se puede acotar (`ve_todos_los_estudios` + `pharma_protocol_access`,
+        0139). Por eso no son dos renglones de un mismo cuadro: un "Estudios que ve" donde vacío
+        significa "todos" en una mitad y "ninguno" en la otra se lee mal sí o sí.
+        (Hasta la 0139, Farmacia era central y este comentario decía que no tenía recorte.)
      3. ADMINISTRACIÓN — `gerencia` SOLO, en su propio bloque y con confirmación. No es un módulo:
         no tiene pantallas, es el permiso de tocar los accesos de todo el centro. Listarlo como una
         fila más al lado de Coordinación y Farmacia hacía que se marcara sin entender qué se estaba
@@ -39,8 +49,9 @@ import { useMarkDirty } from './SettingsModal'
      4. CON ESTO VE… — la consecuencia, en castellano, ANTES de guardar.
      5. LA CUENTA — contraseña, baja y eliminación. No pasan por el borrador: se aplican al
         confirmarlas, y por eso cada una lleva su propia confirmación.
-     6. HISTORIAL — quién le cambió el acceso y cuándo. Lo escriben dos triggers (módulos en la
-        0003, estudios en la 0110) y se leen mezclados: para gerencia es una sola pregunta.
+     6. HISTORIAL — quién le cambió el acceso y cuándo. Sale de TRES vistas (módulos en la 0003,
+        estudios de Coordinación en la 0110, alcance de Farmacia en la 0139) y se leen mezcladas:
+        para gerencia es una sola pregunta.
 
    Los cuatro primeros se editan y se guardan con el botón del final; el 5 se aplica en el acto, y
    el 6 es el registro de las dos cosas. (Este comentario decía "tres bloques" desde antes de que
@@ -118,6 +129,18 @@ interface Props {
   asignacionesCargando: boolean
   /** Para que la sección vuelva a pedir las asignaciones después de guardar. */
   onAsignacionesCambiadas: () => void
+  /** El interruptor de cada persona del centro (`ve_todos_los_estudios`, 0139). Baja por prop por
+   *  el mismo motivo que `asignaciones`: `useSupabaseQuery` no cachea. */
+  scopesPharma: PharmaScopeRow[]
+  /** La lista cerrada de cada persona. Enteras, no sólo las de ésta: mismo criterio. */
+  asignacionesPharma: PharmaAsignacionRow[]
+  pharmaCargando: boolean
+  /** Si alguna de las dos lecturas de Farmacia falló. NO es opcional por diseño: sin él, la tarjeta
+   *  resolvía la ausencia de datos con el `?? true` de "sin fila = ve todos" y afirmaba «Ve todos
+   *  los estudios» sobre alguien de quien no sabía nada. */
+  pharmaError: string | null
+  /** Para que la sección vuelva a pedir las dos de Farmacia después de guardar. */
+  onPharmaCambiado: () => void
   onCerrar: () => void
   /** Se llama tras guardar con éxito, para que la lista se refresque. */
   onGuardado: () => void
@@ -125,7 +148,9 @@ interface Props {
 
 export function AccesoEditor({
   persona, actorId, administradores, protocolos, protocolosCargando,
-  asignaciones, asignacionesCargando, onAsignacionesCambiadas, onCerrar, onGuardado,
+  asignaciones, asignacionesCargando, onAsignacionesCambiadas,
+  scopesPharma, asignacionesPharma, pharmaCargando, pharmaError, onPharmaCambiado,
+  onCerrar, onGuardado,
 }: Props) {
   /* El borrador arranca como una copia del acceso vigente. El vigente (`persona.accesos`) se
      conserva intacto porque es el `expected` que viaja al servidor en cada cambio: es lo que el
@@ -173,7 +198,38 @@ export function AccesoEditor({
       .map((id) => ({ protocolId: id, asignado: elegidos.has(id), expected: vigentes.has(id) }))
   }, [protocolosVigentes, protosElegidos])
 
-  const totalCambios = cambios.length + cambiosProtocolos.length
+  const auditPharma = usePharmaAccessAudit(persona.id)
+
+  /* El alcance en Farmacia que dice hoy la base.
+     SIN FILA = VE TODOS, y no es una guarda defensiva: quien no tiene el módulo no tiene fila en
+     `user_module_roles`, y tratarlo como "acotado a cero" le mostraría el ámbar de "no ve nada" a
+     alguien que ni siquiera entra a Farmacia. Es el mismo `coalesce(..., true)` de
+     `pharma_sin_recorte()` en la base. */
+  const alcancePharmaVigente = useMemo<AlcancePharma>(
+    () => ({
+      veTodos: scopesPharma.find((s) => s.user_id === persona.id)?.ve_todos_los_estudios ?? true,
+      estudios: asignacionesPharma.filter((a) => a.user_id === persona.id).map((a) => a.protocol_id),
+    }),
+    [scopesPharma, asignacionesPharma, persona.id],
+  )
+
+  /* Mismo patrón que `borradorProtos`: `null` = "todavía no lo tocaron". Con un
+     `useState(vigente)` el estado inicial se congelaría en el `{veTodos: true, estudios: []}` del
+     primer render —la consulta todavía viaja— y la persona aparecería sin recorte hasta que alguien
+     tocara algo. El `??` lo resuelve sin efecto de sincronización. */
+  const [borradorPharma, setBorradorPharma] = useState<AlcancePharma | null>(null)
+  const alcancePharma = borradorPharma ?? alcancePharmaVigente
+
+  /* CON LA LECTURA CAÍDA NO SE MANDA NADA. El "vigente" de arriba sería el `?? true` de la
+     ausencia, no lo que dice la base, y todo `expected` calculado contra él sería una suposición. El
+     compare-and-swap del RPC igual lo rechazaría —por eso no hay riesgo de pisar nada—, pero la
+     persona vería un "Alguien más cambió este acceso" que no explica lo que pasó. */
+  const cambiosPharma = useMemo(
+    () => (pharmaError ? [] : cambiosDeAlcance(alcancePharmaVigente, alcancePharma)),
+    [pharmaError, alcancePharmaVigente, alcancePharma],
+  )
+
+  const totalCambios = cambios.length + cambiosProtocolos.length + cambiosPharma.length
   useMarkDirty(totalCambios > 0)
 
   const descripcion = useMemo(() => describeAccess(borrador, MODULES), [borrador])
@@ -186,6 +242,10 @@ export function AccesoEditor({
      el borrador y no lo vigente para que el bloque aparezca en el acto al darle el módulo, sin
      obligar a guardar y volver a entrar. */
   const tieneCoordinacion = borrador.track != null
+
+  /* La tarjeta de Farmacia existe con el mismo criterio: si el borrador tiene el módulo. Así
+     aparece en el acto al dárselo, sin obligar a guardar y volver a entrar. */
+  const tieneFarmacia = borrador.pharma != null
 
   /* Los estudios que se quedarían SIN NINGUNA coordinadora al guardar. Se calcula sobre las
      asignaciones vigentes de TODO el centro: hace falta saber si queda alguien más, no sólo qué
@@ -202,8 +262,8 @@ export function AccesoEditor({
   /* El historial es UNO SOLO en pantalla aunque sean dos vistas en la base: para gerencia, "qué le
      pasó al acceso de esta persona" es una sola pregunta. El tope se aplica después de mezclar. */
   const historial = useMemo(
-    () => mezclarHistorial(audit.data ?? [], auditProtocolos.data ?? [], nombreModulo),
-    [audit.data, auditProtocolos.data],
+    () => mezclarHistorial(audit.data ?? [], auditProtocolos.data ?? [], auditPharma.data ?? [], nombreModulo),
+    [audit.data, auditProtocolos.data, auditPharma.data],
   )
 
   const setNivel = (module: ModuleKey, role: ModuleRole | null) =>
@@ -253,8 +313,16 @@ export function AccesoEditor({
       })
       if (error) fallas.push(`${protocolos.find((p) => p.id === c.protocolId)?.code ?? 'Estudio'}: ${error}`)
     }
+    /* El alcance de Farmacia va al final, y adentro respeta el orden que fija `cambiosDeAlcance`:
+       el interruptor antes que los estudios. Al revés, el historial se lee como si le hubieran dado
+       estudios a alguien que todavía ve todos. */
+    if (cambiosPharma.length > 0) {
+      const { errores } = await aplicarAlcance(persona.id, cambiosPharma)
+      for (const e of errores) fallas.push(`Farmacia: ${e}`)
+    }
     setGuardando(false)
     onAsignacionesCambiadas()
+    onPharmaCambiado()
     if (fallas.length) {
       // Igual que en Mi cuenta: un renglón por lo que falló, y el resto SÍ quedó guardado.
       setErrores(fallas)
@@ -338,7 +406,7 @@ export function AccesoEditor({
              no ve un solo paciente, porque `is_assigned_coordinator` (0006) no lo deja pasar en
              ninguna tabla — y hasta hoy eso se cargaba a mano por SQL. */}
       {tieneCoordinacion && (
-        <StCard title="Estudios que ve" desc="Sobre qué pacientes puede trabajar en Coordinación">
+        <StCard title="Estudios en Coordinación" desc="Sobre qué pacientes puede trabajar">
           {/* Lo asignado se VE (chips) y lo que falta se SUMA (botón). Antes era un desplegable que
               tildaba y destildaba: el mismo control para dos gestos opuestos, y con lo elegido
               resumido en "3 estudios" adentro del disparador — o sea, para saber cuáles eran había
@@ -412,6 +480,118 @@ export function AccesoEditor({
                 ))
             )}
           </div>
+        </StCard>
+      )}
+
+      {/* 2b · estudios en Farmacia — la misma pregunta, con el predeterminado AL REVÉS.
+             Coordinación es lista blanca SIEMPRE (`protocol_coordinators`, 0006): sin estudios no
+             ve un paciente. Farmacia arranca viendo todo y se puede acotar (0139). Por eso son DOS
+             tarjetas y no dos renglones de una: un cuadro que dijera "Estudios que ve" donde vacío
+             significa "todos" en una mitad y "ninguno" en la otra se lee mal sí o sí. */}
+      {tieneFarmacia && pharmaError && (
+        /* Sin datos NO hay interruptor. Mostrarlo prendido sería afirmar «ve todos» sobre alguien
+           de quien no sabemos nada — y si en realidad está acotado, la pantalla diría lo contrario
+           de la verdad justo en la consola que la gente usa para controlarlo. */
+        <StCard title="Estudios en Farmacia" desc="Sobre qué estudios puede trabajar">
+          <div role="alert" style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13, color: 'var(--spira-acc-deep-danger)', padding: '14px 0' }}>
+            <Icon name="alert" size={15} color="var(--spira-acc-deep-danger)" />
+            <span>{pharmaError}</span>
+          </div>
+        </StCard>
+      )}
+
+      {tieneFarmacia && !pharmaError && (
+        <StCard title="Estudios en Farmacia" desc="Sobre qué estudios puede trabajar">
+          <StRow
+            label="Ve todos los estudios"
+            sub={
+              alcancePharma.veTodos
+                ? 'Incluidos los que se den de alta más adelante'
+                : 'Apagado: ve sólo los que elijas acá abajo'
+            }
+            last={alcancePharma.veTodos}
+          >
+            <StToggle
+              on={alcancePharma.veTodos}
+              onClick={() => setBorradorPharma({ ...alcancePharma, veTodos: !alcancePharma.veTodos })}
+              label="Ve todos los estudios en Farmacia"
+            />
+          </StRow>
+
+          {/* Con el interruptor prendido la tarjeta es UN RENGLÓN SOLO: ofrecer el selector sería
+              ofrecer una decisión que no rinde, porque `pharma_sin_recorte()` corta antes de mirar
+              la lista. */}
+          {!alcancePharma.veTodos && (
+            <>
+              <StRow
+                label="Estudios asignados"
+                sub={
+                  alcancePharma.estudios.length === 0
+                    ? 'Sin ninguno no va a ver stock, recepciones ni dispensaciones'
+                    : `Trabaja sobre ${alcancePharma.estudios.length === 1 ? 'este estudio' : `estos ${alcancePharma.estudios.length} estudios`}`
+                }
+              >
+                <SearchableSelect
+                  id="acceso-protocolos-pharma"
+                  multiple
+                  modo="sumar"
+                  variant="boton"
+                  leadingIcon="plus"
+                  mono
+                  value={alcancePharma.estudios}
+                  onChange={(ids) => setBorradorPharma({ ...alcancePharma, estudios: ids })}
+                  options={protocolos.map((p) => ({
+                    value: p.id,
+                    label: p.code,
+                    desc: p.status === 'activo' ? p.name : `${p.name} · ${p.status}`,
+                  }))}
+                  placeholder={protocolosCargando ? 'Cargando estudios…' : 'Añadir estudio'}
+                  sinRestantes={{ label: 'Todos asignados', mensaje: 'Ya están todos los estudios asignados.' }}
+                  searchPlaceholder="Buscar estudio…"
+                  entity="estudio"
+                  pluralLabel="estudios"
+                  disabled={protocolosCargando || pharmaCargando}
+                  searchable="always"
+                  menuWidth="auto"
+                />
+              </StRow>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, padding: '6px 0 12px' }}>
+                {protocolos
+                  .filter((p) => alcancePharma.estudios.includes(p.id))
+                  .map((p) => (
+                    <EstudioChip
+                      key={p.id}
+                      codigo={p.code}
+                      nombre={p.name}
+                      onQuitar={() =>
+                        setBorradorPharma({
+                          ...alcancePharma,
+                          estudios: alcancePharma.estudios.filter((id) => id !== p.id),
+                        })
+                      }
+                    />
+                  ))}
+              </div>
+
+              {/* La contracara de la lista cerrada, y va acá porque es el único lugar donde alguien
+                  puede enterarse ANTES de que pase. Con la administración puesta no aplica: las
+                  policies de la 0139 abren con `has_module('gerencia') or …`, así que gerencia ve
+                  todo igual. Mira el BORRADOR, así que el aviso cambia en el acto. */}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13, padding: '0 0 14px' }}>
+                <Icon
+                  name={esAdminAhora ? 'check' : 'alert'}
+                  size={15}
+                  color={esAdminAhora ? 'var(--spira-acc-deep-good)' : 'var(--spira-acc-deep-warn)'}
+                />
+                <span style={{ color: esAdminAhora ? 'var(--spira-muted)' : 'var(--spira-acc-deep-warn)' }}>
+                  {esAdminAhora
+                    ? 'Como administra los accesos, igual ve todos los estudios del centro.'
+                    : 'Los estudios que se creen más adelante tampoco los va a ver.'}
+                </span>
+              </div>
+            </>
+          )}
         </StCard>
       )}
 
@@ -489,6 +669,55 @@ export function AccesoEditor({
               </span>
             </div>
           )}
+
+          {/* Farmacia, con su propia regla: acá vacío NO es el caso raro — lo predeterminado es
+              verlos todos, y el renglón lo dice para que no haya que deducirlo del silencio. */}
+          {/* Mismo criterio que la tarjeta: con la lectura caída, este bloque no puede decir qué ve.
+              Dice que no lo sabe, en vez de callarse — callado se leería como "nada que avisar". */}
+          {tieneFarmacia && pharmaError && (
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5 }}>
+              <Icon name="alert" size={14} color="var(--spira-acc-deep-warn)" />
+              <span style={{ color: 'var(--spira-acc-deep-warn)' }}>
+                En Farmacia, <strong style={{ fontWeight: 600 }}>no pudimos leer qué estudios ve</strong>
+              </span>
+            </div>
+          )}
+
+          {tieneFarmacia && !pharmaError && (() => {
+            const acotadoSinNada = !alcancePharma.veTodos && alcancePharma.estudios.length === 0
+            const alarma = acotadoSinNada && !esAdminAhora
+            /* LA ADMINISTRACIÓN MANDA SOBRE LA LISTA, no sólo sobre la lista vacía. Las policies de
+               la 0139 abren con `has_module('gerencia') or …` y la cláusula queda AFUERA del `and`,
+               así que quien administra ve todo el centro tenga los estudios que tenga. Con la regla
+               anterior —que miraba la administración sólo cuando no había ninguno— este renglón
+               decía «sólo LTS17231» justo debajo de la tarjeta que avisaba «igual ve todos»: se
+               contradecían, y el que mentía era éste. */
+            return (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5 }}>
+                <Icon
+                  name={alarma ? 'clock' : 'check'}
+                  size={14}
+                  color={alarma ? 'var(--spira-acc-deep-warn)' : 'var(--spira-acc-deep-good)'}
+                />
+                <span style={{ color: alarma ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink)' }}>
+                  {alcancePharma.veTodos ? (
+                    <>En Farmacia, <strong style={{ fontWeight: 600 }}>todos los estudios</strong></>
+                  ) : esAdminAhora ? (
+                    <>Todos los estudios en Farmacia, <strong style={{ fontWeight: 600 }}>porque administra los accesos</strong></>
+                  ) : acotadoSinNada ? (
+                    <>Sin ningún estudio: entra a Farmacia pero <strong style={{ fontWeight: 600 }}>no ve stock ni dispensaciones</strong></>
+                  ) : (
+                    <>
+                      En Farmacia, sólo{' '}
+                      <strong style={{ fontWeight: 600 }}>
+                        {protocolos.filter((p) => alcancePharma.estudios.includes(p.id)).map((p) => p.code).join(' · ')}
+                      </strong>
+                    </>
+                  )}
+                </span>
+              </div>
+            )
+          })()}
 
           {/* Estudios asignados SIN Coordinación: inertes, y por lo tanto invisibles en el bloque de
               arriba (que sólo se dibuja con el módulo). Es exactamente el caso de los módulos
