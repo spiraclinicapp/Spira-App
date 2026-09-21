@@ -82,6 +82,22 @@ Dos tarjetas en el editor de accesos, cada una aparece si su módulo está en el
 Farmacia arranca con un interruptor; al apagarlo se despliegan el mismo botón «Añadir estudio» y los
 mismos chips de la de arriba. No hay control nuevo que aprender.
 
+### D6 · Lo que no es de ningún estudio lo ve todo Farmacia
+
+Decisión del **2026-09-21**, al arrancar la PR 2. Desde la 0035 existe el **stock ambulatorio**: la
+medicación general de la farmacia, que no pertenece a ningún protocolo —lotes y recepciones con
+`protocol_id` null, y las salidas ambulatorias que salen de ellos—. El caso del Director: *"viene el
+director y te dice dale un Seretide a él"*.
+
+El recorte es **por estudio**, y eso no es de ninguno: lo ve todo Farmacia, acotado o no. Se resuelve en
+la función madre —`pharma_alcanza_protocolo(null)` da `true`— y no policy por policy. Lo mismo un
+movimiento de stock **sin lote**, que tampoco se puede atribuir a un estudio. Un id de lote
+**inexistente** sigue sin alcanzarse: null es "no hay", un id inventado es otra cosa.
+
+Se descartaron dos alternativas: que nadie acotado lo vea (el monitor externo no vería los nombres y
+documentos de quienes recibieron medicación ambulatoria, pero una pasante tampoco podría entregar un
+Seretide), y que sea un ítem más de la lista (flexible, pero con columna nueva y cambios en la tarjeta).
+
 ---
 
 ## El modelo
@@ -365,6 +381,26 @@ Farmacia le queda corta. Con gerencia, entera.
 `void_reception`, `adjust_stock`, `reassign_lot_stock`, `dispensar_ambulatoria`, …).
 
 **Se verifica mirando:** Stock y Recepción no listan el estudio oculto, y el total del tablero baja.
+
+**Lo que encontró al hacerla (migración 0140):**
+
+- **15 policies vivas** sobre las seis tablas; se recortan **13** (las otras dos son de borrado y sólo
+  de gerencia). Siete comprueban **nivel** desde la 0009, que cambió `has_module` por `has_min_role`:
+  a todas se les SUMA el alcance, y el test con una *viewer* sin recorte prueba que no se perdió.
+- **Las ocho vistas** que leen estas tablas son `security_invoker`: heredan el recorte sin tocarlas.
+- **Siete RPC escriben** y saltean la RLS: los siete de arriba. Cada uno se reemplaza con su cuerpo
+  **vivo** (0032, 0113, 0128, 0085, 0113, 0039, 0116), extraído por script, más una guarda al principio.
+  Un comparador verifica que, sin la guarda, cada uno es idéntico byte a byte al original.
+- **Los RPC que sólo LEEN también saltean la RLS**, y no van en esta PR: `stock_de_la_visita`,
+  `alternativas_sustitucion`, `candidatos_otro` (dispensaciones → PR 3) y `pedidos_por_recibir`,
+  `reposicion_del_periodo` (reposición → PR 4). Hasta entonces, por ahí se sigue viendo el stock de un
+  estudio oculto: es parte del recorte parcial de la regla operativa.
+- **Las guardas no exceptúan a gerencia**, a propósito. Gerencia **ve** todo el centro (las policies de
+  lectura la dejan afuera del `and`), pero operar el stock es de Farmacia: las policies de escritura
+  nunca tuvieron cláusula de gerencia, y estos RPC piden nivel de Farmacia antes que nada. Sólo muerde a
+  quien tiene gerencia **y** Farmacia acotada.
+- **Nadie fuera de Farmacia** lee estas tablas ni sus vistas, así que D4 no se toca: con los dos
+  módulos, el IP de un estudio que coordinás no desaparece de Coordinación.
 
 ### PR 3 — Dispensaciones
 
