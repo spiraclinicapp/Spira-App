@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dispensación · una sola entrega (variantes v2)</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--spira-paper);font-family:var(--spira-font-text);color:var(--spira-ink);-webkit-font-smoothing:antialiased}
+button{font-family:inherit}
+a{color:var(--spira-track,#2E7D74)}a:hover{color:var(--spira-primary)}
+.lnk{transition:color .13s ease}.lnk:hover{color:var(--spira-primary)}
+.act{transition:filter .13s ease}.act:hover{filter:brightness(.97)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" data-presets="react">
+const { useState } = React;
+const TRACK='#2E7D74', GOOD='#5C8A5A', WARN='#B0823F', INK_SOFT='var(--spira-ink-soft, #4A5F5B)';
+const mix=(hex,pct,base='var(--spira-white)')=>`color-mix(in srgb, ${hex} ${pct}%, ${base})`;
+const eyebrow={fontSize:10.5,fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--spira-faint)'};
+const mono={fontFamily:'var(--spira-font-mono)'};
+
+function Icon({name,size=16,color='currentColor',stroke=1.8,style}){
+  const P={
+    check:<path d="M20 6 9 17l-5-5"/>,
+    clock:<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
+    pill:<><path d="M10.5 20.5a5 5 0 0 1-7-7l7-7a5 5 0 0 1 7 7z"/><path d="m8.5 8.5 7 7"/></>,
+    pencil:<><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></>,
+    plus:<><path d="M5 12h14"/><path d="M12 5v14"/></>,
+    fileText:<><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h6"/><path d="M8 13h8"/><path d="M8 17h5"/></>,
+    history:<><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></>,
+    eye:<><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="3"/></>,
+    chevronDown:<path d="m6 9 6 6 6-6"/>,
+  }[name];
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" style={style}>{P}</svg>;
+}
+
+const CONCO=[{n:'Salbutral 100 mcg',q:'x1'},{n:'Trelegy Ellipta (92) 92/55/22 mcg',q:'x1'}];
+const IPDOC={nombre:'#25 — UMBRIEL - V18.pdf',peso:'142 KB',subido:'16 Sep 2026 10:47',por:'M. Ferrer'};
+/* Historial común: cada entrega dice qué llevó de cada parte. */
+const HIST=[
+  {visita:'V17',fecha:'26 Ago 2026',comp:'71',conco:['Trelegy Ellipta (92) · x1'],ip:'Constancia #24 — UMBRIEL - V17.pdf'},
+  {visita:'V15',fecha:'29 Jul 2026',comp:'64',conco:['Salbutral 100 mcg · x2','Trelegy Ellipta (92) · x1'],ip:null},
+  {visita:'V12',fecha:'01 Jul 2026',comp:'58',conco:[],ip:'Constancia #22 — UMBRIEL - V12.pdf'},
+];
+const PASOS=['Solicitada','Preparando','Lista','Entregada'];
+const META={
+  entregada:{label:'Entregada',color:GOOD,deep:'var(--spira-acc-deep-good, #4A7248)',icon:'check',
+    sub:'16 Sep 2026 · 17:02 · entregó M. Ferrer',paso:3},
+  proceso:{label:'En preparación',color:WARN,deep:'var(--spira-acc-deep-warn, #8C6520)',icon:'clock',
+    sub:'Pedido del 16 Sep 2026 10:30 · lo tiene M. Ferrer',paso:1},
+};
+
+const btnGhost={height:34,padding:'0 12px',borderRadius:9,border:'1px solid var(--spira-line-2)',
+  background:'var(--spira-white)',fontSize:12.5,fontWeight:600,cursor:'pointer',color:'var(--spira-ink)'};
+const linkSutil={background:'none',border:'none',padding:0,cursor:'pointer',fontSize:12,
+  color:'var(--spira-muted)',textDecoration:'underline',textUnderlineOffset:3,display:'inline-flex',alignItems:'center',gap:5};
+
+function Shell({children}){
+  return (
+    <div style={{border:'1px solid var(--spira-line)',borderRadius:16,overflow:'hidden',
+      background:mix(TRACK,5,'var(--spira-surface)'),boxShadow:'var(--spira-shadow-sm)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:TRACK,color:'#fff'}}>
+        <Icon name="pill" size={15} color="#fff" /><span style={{fontSize:13,fontWeight:700}}>Dispensación de medicación</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Grupo({label,children,extra}){
+  return (
+    <div>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+        <span style={{...eyebrow,color:INK_SOFT}}>{label}</span>
+        {extra && <span style={{fontSize:11,color:'var(--spira-muted)',marginLeft:'auto'}}>{extra}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function FilaMed({n,q}){
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:10,height:32,padding:'0 11px',borderRadius:9,
+      border:'1px solid var(--spira-line)',background:'var(--spira-white)',fontSize:12.5}}>
+      <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{n}</span>
+      <span style={{...mono,fontSize:12,color:INK_SOFT}}>{q}</span>
+    </div>
+  );
+}
+
+/* El IP es la constancia adjunta: nombre del PDF, peso, quién y cuándo la subió. */
+function FilaIp({estado}){
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:10,padding:'9px 11px',borderRadius:10,
+      border:'1px solid var(--spira-line)',background:'var(--spira-white)'}}>
+      <Icon name="fileText" size={17} color={INK_SOFT} />
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:12.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{IPDOC.nombre}</div>
+        <div style={{fontSize:11,color:'var(--spira-muted)',marginTop:2}}>
+          {IPDOC.peso} · {estado==='entregada'?'firmada':'cargada'} {IPDOC.subido} · {IPDOC.por}
+        </div>
+      </div>
+      <button className="lnk" style={{...linkSutil,fontSize:11.5,textDecoration:'none',flex:'0 0 auto'}}>
+        <Icon name="eye" size={13} color="var(--spira-muted)" /> Ver
+      </button>
+    </div>
+  );
+}
+
+/* Historial común a las dos partes, plegado. Se despliega por si la última no es la que se busca. */
+function Historial({compacto}){
+  const [abierto,setAbierto]=useState(false);
+  const u=HIST[0];
+  return (
+    <div style={{borderTop:'1px solid var(--spira-line)',paddingTop:9,marginTop:2}}>
+      <div style={{display:'flex',alignItems:'flex-start',gap:7}}>
+        <Icon name="history" size={13} color="var(--spira-faint)" style={{marginTop:2,flex:'0 0 auto'}} />
+        <div style={{flex:1,minWidth:0,fontSize:11.5,color:'var(--spira-muted)',lineHeight:1.45}}>
+          <span style={{color:INK_SOFT,fontWeight:600}}>Entrega anterior</span> · {u.visita} · {u.fecha} · N° <span style={mono}>{u.comp}</span>
+          {!compacto && <><br />Concomitante: {u.conco.length?u.conco.join(' · '):'—'} · IP: {u.ip?'constancia adjunta':'—'}</>}
+        </div>
+        <button className="lnk" onClick={()=>setAbierto(a=>!a)}
+          style={{...linkSutil,fontSize:11.5,textDecoration:'none',flex:'0 0 auto'}}>
+          {abierto?'Ocultar':'Ver más'}
+          <Icon name="chevronDown" size={13} color="var(--spira-muted)" style={{transform:abierto?'rotate(180deg)':'none'}} />
+        </button>
+      </div>
+      {abierto && (
+        <div style={{display:'flex',flexDirection:'column',gap:7,marginTop:9}}>
+          {HIST.map(h=>(
+            <div key={h.comp} style={{border:'1px solid var(--spira-line)',borderRadius:10,background:'var(--spira-white)',padding:'8px 10px'}}>
+              <div style={{display:'flex',alignItems:'baseline',gap:8,fontSize:12}}>
+                <span style={{fontWeight:700}}>{h.visita}</span>
+                <span style={{color:INK_SOFT}}>{h.fecha}</span>
+                <span style={{marginLeft:'auto',...mono,fontSize:11.5,color:'var(--spira-muted)'}}>N° {h.comp}</span>
+              </div>
+              <div style={{display:'flex',gap:7,marginTop:6,fontSize:11.5,color:INK_SOFT}}>
+                <span style={{...eyebrow,fontSize:9.5,color:'var(--spira-faint)',flex:'0 0 78px',paddingTop:2}}>Concomitante</span>
+                <span style={{flex:1,minWidth:0}}>{h.conco.length?h.conco.join(' · '):'Sin entrega'}</span>
+              </div>
+              <div style={{display:'flex',gap:7,marginTop:4,fontSize:11.5,color:INK_SOFT}}>
+                <span style={{...eyebrow,fontSize:9.5,color:'var(--spira-faint)',flex:'0 0 78px',paddingTop:2}}>IP</span>
+                <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                  {h.ip ?? 'Sin entrega'}
+                </span>
+                {h.ip && <button className="lnk" style={{...linkSutil,fontSize:11,textDecoration:'none'}}>Ver</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SinEntrega({hist=true}){
+  return (
+    <div style={{padding:14}}>
+      <div style={{fontSize:12.5,color:'var(--spira-muted)',marginBottom:12}}>En esta visita no se entregó medicación ni producto en investigación.</div>
+      <button className="act" style={{...btnGhost,height:38,width:'100%',display:'inline-flex',alignItems:'center',
+        justifyContent:'center',gap:7,color:'#fff',background:TRACK,borderColor:TRACK,marginBottom:12}}>
+        <Icon name="plus" size={15} color="#fff" /> Registrar entrega
+      </button>
+      {hist && <Historial />}
+    </div>
+  );
+}
+
+/* ══ A · Un solo comprobante, dos renglones adentro ═══════════════════ */
+function VarianteA({estado}){
+  if(estado==='sin') return <Shell><SinEntrega /></Shell>;
+  const m=META[estado];
+  return (
+    <Shell>
+      <div style={{padding:14}}>
+        <div style={{border:`1px solid ${mix(m.color,35)}`,background:mix(m.color,9),borderRadius:12,overflow:'hidden'}}>
+          <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 12px 2px'}}>
+            <span style={{display:'grid',placeItems:'center',width:24,height:24,borderRadius:'50%',background:m.color}}>
+              <Icon name={m.icon} size={14} color="#fff" stroke={2.6} />
+            </span>
+            <span style={{fontSize:14,fontWeight:700,color:m.deep}}>{m.label}</span>
+            <span style={{marginLeft:'auto',...mono,fontSize:12.5,color:m.deep}}>N° 86</span>
+          </div>
+          <div style={{padding:'4px 12px 11px',fontSize:11.5,color:INK_SOFT}}>{m.sub}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:11,padding:'0 11px 11px'}}>
+            <Grupo label="Concomitante">
+              <div style={{display:'flex',flexDirection:'column',gap:6}}>{CONCO.map(x=><FilaMed key={x.n} {...x} />)}</div>
+            </Grupo>
+            <Grupo label="Producto en investigación"><FilaIp estado={estado} /></Grupo>
+          </div>
+          <div style={{display:'flex',alignItems:'center',padding:'8px 12px',borderTop:`1px solid ${mix(m.color,22)}`}}>
+            <button className="lnk" style={linkSutil}>
+              <Icon name="pencil" size={12} color="var(--spira-muted)" />
+              {estado==='entregada'?'Corregir esta entrega':'Cancelar solicitud'}
+            </button>
+          </div>
+        </div>
+        <button className="act" style={{...btnGhost,margin:'11px 0 12px',width:'100%',height:38,display:'inline-flex',
+          alignItems:'center',justifyContent:'center',gap:7,color:TRACK,borderColor:mix(TRACK,35)}}>
+          <Icon name="plus" size={15} color={TRACK} /> Nueva dispensación
+        </button>
+        <Historial />
+      </div>
+    </Shell>
+  );
+}
+
+/* ══ B · Cinta de estado y lista única ═══════════════════════════════ */
+function VarianteB({estado}){
+  if(estado==='sin') return <Shell><SinEntrega /></Shell>;
+  const m=META[estado];
+  return (
+    <Shell>
+      <div style={{background:mix(m.color,13),borderBottom:`1px solid ${mix(m.color,28)}`,padding:'10px 14px 11px'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <Icon name={m.icon} size={15} color={m.deep} stroke={2.4} />
+          <span style={{fontSize:13.5,fontWeight:700,color:m.deep}}>{m.label}</span>
+          <span style={{marginLeft:'auto',...mono,fontSize:12,color:m.deep}}>Comprobante N° 86</span>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:`repeat(${PASOS.length},1fr)`,gap:4,marginTop:9}}>
+          {PASOS.map((p,i)=>(
+            <div key={p}>
+              <div style={{height:3,borderRadius:2,background:i<=m.paso?m.color:mix(m.color,22)}} />
+              <div style={{fontSize:9.5,marginTop:4,fontWeight:i===m.paso?700:500,letterSpacing:'.04em',
+                color:i===m.paso?m.deep:'var(--spira-muted)'}}>{p}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{fontSize:11.5,color:INK_SOFT,marginTop:7}}>{m.sub}</div>
+      </div>
+      <div style={{padding:14,display:'flex',flexDirection:'column',gap:12}}>
+        <Grupo label="Concomitante" extra="2 renglones">
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>{CONCO.map(x=><FilaMed key={x.n} {...x} />)}</div>
+        </Grupo>
+        <Grupo label="Producto en investigación" extra="constancia adjunta">
+          <FilaIp estado={estado} />
+        </Grupo>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <button className="act" style={{...btnGhost,height:36,display:'inline-flex',alignItems:'center',gap:7,
+            color:TRACK,borderColor:mix(TRACK,35)}}>
+            <Icon name="plus" size={15} color={TRACK} /> Nueva dispensación
+          </button>
+          <button className="lnk" style={linkSutil}>{estado==='entregada'?'Corregir entrega':'Cancelar solicitud'}</button>
+        </div>
+        <Historial compacto />
+      </div>
+    </Shell>
+  );
+}
+
+/* ══ C · Ticket único, dos bloques separados por el filete ═══════════ */
+function CuerpoTicket({estado}){
+  const m=META[estado];
+  return (
+    <>
+        <div style={{background:'var(--spira-white)',border:'1px solid var(--spira-line-2)',borderRadius:12,overflow:'hidden'}}>
+          <div style={{display:'flex',alignItems:'flex-start',gap:10,padding:'11px 12px 9px'}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{...eyebrow,color:INK_SOFT}}>Comprobante</div>
+              <div style={{...mono,fontSize:20,fontWeight:500,marginTop:2}}>N° 86</div>
+            </div>
+            <span style={{display:'inline-flex',alignItems:'center',gap:6,height:26,padding:'0 10px',
+              borderRadius:'var(--spira-radius-pill)',background:m.color,color:'#fff',fontSize:11.5,fontWeight:700,
+              letterSpacing:'.06em',textTransform:'uppercase'}}>
+              <Icon name={m.icon} size={13} color="#fff" stroke={2.6} />{m.label}
+            </span>
+          </div>
+          <div style={{fontSize:11.5,color:INK_SOFT,padding:'0 12px 10px'}}>{m.sub}</div>
+          <div style={{borderTop:'1px dashed var(--spira-line-2)',padding:'10px 12px'}}>
+            <div style={{...eyebrow,color:INK_SOFT,marginBottom:7}}>Concomitante</div>
+            <div style={{display:'flex',flexDirection:'column',gap:7}}>
+              {CONCO.map(x=>(
+                <div key={x.n} style={{display:'flex',alignItems:'baseline',gap:10,fontSize:12.5}}>
+                  <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{x.n}</span>
+                  <span style={{...mono,fontSize:12,color:INK_SOFT}}>{x.q}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{borderTop:'1px dashed var(--spira-line-2)',padding:'10px 12px'}}>
+            <div style={{...eyebrow,color:INK_SOFT,marginBottom:7}}>Producto en investigación</div>
+            <div style={{display:'flex',alignItems:'center',gap:9,fontSize:12.5}}>
+              <Icon name="fileText" size={15} color="var(--spira-muted)" />
+              <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{IPDOC.nombre}</span>
+              <button className="lnk" style={{...linkSutil,fontSize:11.5,textDecoration:'none'}}>Ver</button>
+            </div>
+            <div style={{fontSize:11,color:'var(--spira-muted)',marginTop:4,paddingLeft:24}}>
+              {IPDOC.peso} · {estado==='entregada'?'firmada':'cargada'} {IPDOC.subido} · {IPDOC.por}
+            </div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',padding:'8px 12px',borderTop:'1px solid var(--spira-line)'}}>
+            <button className="lnk" style={{...linkSutil,fontSize:11.5,textDecoration:'none'}}>
+              <Icon name="pencil" size={12} color="var(--spira-muted)" />
+              {estado==='entregada'?'Corregir esta entrega':'Cancelar solicitud'}
+            </button>
+          </div>
+        </div>
+        <button className="act" style={{...btnGhost,margin:'11px 0 12px',width:'100%',height:38,display:'inline-flex',
+          alignItems:'center',justifyContent:'center',gap:7,color:TRACK,borderColor:mix(TRACK,35)}}>
+          <Icon name="plus" size={15} color={TRACK} /> Nueva dispensación
+        </button>
+    </>
+  );
+}
+
+function VarianteC({estado}){
+  if(estado==='sin') return <Shell><SinEntrega /></Shell>;
+  return (
+    <Shell>
+      <div style={{padding:14}}>
+        <CuerpoTicket estado={estado} />
+        <Historial />
+      </div>
+    </Shell>
+  );
+}
+
+/* ══ Dónde vive el historial ═════════════════════════════════════════
+   El mismo cuerpo (ticket C) con tres accesos distintos al historial. */
+function ListaHistorial(){
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:7}}>
+      {HIST.map(h=>(
+        <div key={h.comp} style={{border:'1px solid var(--spira-line)',borderRadius:10,background:'var(--spira-white)',padding:'8px 10px'}}>
+          <div style={{display:'flex',alignItems:'baseline',gap:8,fontSize:12}}>
+            <span style={{fontWeight:700}}>{h.visita}</span>
+            <span style={{color:INK_SOFT}}>{h.fecha}</span>
+            <span style={{marginLeft:'auto',...mono,fontSize:11.5,color:'var(--spira-muted)'}}>N° {h.comp}</span>
+          </div>
+          <div style={{display:'flex',gap:7,marginTop:6,fontSize:11.5,color:INK_SOFT}}>
+            <span style={{...eyebrow,fontSize:9.5,color:'var(--spira-faint)',flex:'0 0 78px',paddingTop:2}}>Concomitante</span>
+            <span style={{flex:1,minWidth:0}}>{h.conco.length?h.conco.join(' · '):'Sin entrega'}</span>
+          </div>
+          <div style={{display:'flex',gap:7,marginTop:4,fontSize:11.5,color:INK_SOFT}}>
+            <span style={{...eyebrow,fontSize:9.5,color:'var(--spira-faint)',flex:'0 0 78px',paddingTop:2}}>IP</span>
+            <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.ip ?? 'Sin entrega'}</span>
+            {h.ip && <button className="lnk" style={{...linkSutil,fontSize:11,textDecoration:'none'}}>Ver</button>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const CHIP_LABELS=[
+  {id:'entregas',txt:'Entregas anteriores'},
+  {id:'historial',txt:'Historial'},
+  {id:'conta',txt:'3 entregas'},
+  {id:'solo',txt:'3'},
+];
+
+/* H1 · acceso en el encabezado que abre un popover anclado */
+function AccesoChip({estado}){
+  const [open,setOpen]=useState(false);
+  const [lab,setLab]=useState('historial');
+  const l=CHIP_LABELS.find(x=>x.id===lab);
+  return (
+    <>
+    <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:10}}>
+      {CHIP_LABELS.map(x=>(
+        <button key={x.id} onClick={()=>setLab(x.id)} style={{height:24,padding:'0 9px',borderRadius:'var(--spira-radius-pill)',
+          border:`1px solid ${lab===x.id?TRACK:'var(--spira-line-2)'}`,background:lab===x.id?mix(TRACK,10):'var(--spira-white)',
+          color:lab===x.id?TRACK:'var(--spira-muted)',fontSize:11,fontWeight:600,cursor:'pointer'}}>«{x.txt}»</button>
+      ))}
+    </div>
+    <div style={{border:'1px solid var(--spira-line)',borderRadius:16,overflow:'visible',position:'relative',
+      background:mix(TRACK,5,'var(--spira-surface)'),boxShadow:'var(--spira-shadow-sm)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:TRACK,color:'#fff',
+        borderRadius:'15px 15px 0 0'}}>
+        <Icon name="pill" size={15} color="#fff" />
+        <span style={{fontSize:13,fontWeight:700}}>Dispensación de medicación</span>
+        <button onClick={()=>setOpen(o=>!o)} className="act"
+          style={{marginLeft:'auto',display:'inline-flex',alignItems:'center',gap:6,height:24,padding:'0 9px',
+            borderRadius:'var(--spira-radius-pill)',border:'1px solid rgba(255,255,255,.45)',background:'transparent',
+            color:'#fff',fontSize:11.5,fontWeight:700,cursor:'pointer'}}>
+          <Icon name="history" size={12} color="#fff" /> {l.txt}
+        </button>
+      </div>
+      <div style={{padding:14}}>{estado==='sin'?<SinEntrega hist={false} />:<CuerpoTicket estado={estado} />}</div>
+      {open && (
+        <div style={{position:'absolute',top:42,right:10,zIndex:20,width:'min(100%, 320px)',padding:11,
+          background:'var(--spira-surface)',border:'1px solid var(--spira-line-2)',borderRadius:12,
+          boxShadow:'var(--spira-shadow-lg)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:9}}>
+            <span style={{...eyebrow,color:INK_SOFT}}>Entregas anteriores</span>
+            <button onClick={()=>setOpen(false)} className="lnk" style={{...linkSutil,marginLeft:'auto',fontSize:11.5,textDecoration:'none'}}>Cerrar</button>
+          </div>
+          <ListaHistorial />
+        </div>
+      )}
+    </div>
+    </>
+  );
+}
+
+/* H2 · dos solapas adentro de la tarjeta */
+function AccesoSolapas({estado}){
+  const [tab,setTab]=useState('visita');
+  return (
+    <Shell>
+      <div style={{display:'flex',gap:18,padding:'0 14px',borderBottom:'1px solid var(--spira-line)',background:'var(--spira-white)'}}>
+        {[['visita','Esta visita'],['hist','Historial · 3']].map(([v,l])=>(
+          <button key={v} onClick={()=>setTab(v)} style={{background:'none',border:'none',cursor:'pointer',padding:'11px 0 9px',
+            fontSize:12.5,fontWeight:tab===v?700:600,color:tab===v?TRACK:'var(--spira-muted)',
+            boxShadow:tab===v?`inset 0 -2px 0 ${TRACK}`:'none'}}>{l}</button>
+        ))}
+      </div>
+      <div style={{padding:14}}>
+        {tab==='visita' ? (estado==='sin'?<SinEntrega hist={false} />:<CuerpoTicket estado={estado} />) : <ListaHistorial />}
+      </div>
+    </Shell>
+  );
+}
+
+/* H3 · línea al pie que abre una hoja sobre la tarjeta */
+function AccesoHoja({estado}){
+  const [open,setOpen]=useState(false);
+  const u=HIST[0];
+  return (
+    <div style={{position:'relative',border:'1px solid var(--spira-line)',borderRadius:16,overflow:'hidden',
+      background:mix(TRACK,5,'var(--spira-surface)'),boxShadow:'var(--spira-shadow-sm)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:TRACK,color:'#fff'}}>
+        <Icon name="pill" size={15} color="#fff" /><span style={{fontSize:13,fontWeight:700}}>Dispensación de medicación</span>
+      </div>
+      <div style={{padding:14}}>
+        {estado==='sin'?<SinEntrega hist={false} />:<CuerpoTicket estado={estado} />}
+      </div>
+      <button onClick={()=>setOpen(true)} className="act"
+        style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'10px 14px',border:'none',
+          borderTop:'1px solid var(--spira-line)',background:'var(--spira-white)',cursor:'pointer',textAlign:'left'}}>
+        <Icon name="history" size={14} color="var(--spira-muted)" />
+        <span style={{fontSize:11.5,color:INK_SOFT}}>Anterior: {u.visita} · {u.fecha} · N° <span style={mono}>{u.comp}</span></span>
+        <span style={{marginLeft:'auto',fontSize:11.5,fontWeight:700,color:TRACK}}>Ver las 3</span>
+      </button>
+      {open && (
+        <div style={{position:'absolute',inset:0,background:'color-mix(in srgb, #1B2E2B 45%, transparent)',
+          display:'flex',alignItems:'flex-end'}}>
+          <div style={{width:'100%',maxHeight:'88%',overflow:'auto',background:'var(--spira-surface)',
+            borderRadius:'14px 14px 0 0',padding:13,boxShadow:'var(--spira-shadow-lg)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+              <span style={{fontSize:13,fontWeight:700}}>Historial de dispensaciones</span>
+              <button onClick={()=>setOpen(false)} className="lnk" style={{...linkSutil,marginLeft:'auto',fontSize:11.5,textDecoration:'none'}}>Cerrar</button>
+            </div>
+            <ListaHistorial />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const ACCESOS=[
+  {id:'H1',comp:AccesoChip,title:'Contador en el encabezado',
+   nota:'El acceso vive en la banda del panel y abre el popover ahí mismo. Probá los rótulos de arriba para ver cuál se lee mejor.'},
+  {id:'H2',comp:AccesoSolapas,title:'Solapas en la tarjeta',
+   nota:'Esta visita / Historial. El historial deja de ser un anexo plegado: es una vista hermana, con lugar para todas las entregas y su detalle.'},
+  {id:'H3',comp:AccesoHoja,title:'Barra al pie y hoja',
+   nota:'Al pie queda la línea con la entrega anterior —lo que se consulta el 90% de las veces— y un clic levanta una hoja con la lista completa sobre la tarjeta.'},
+];
+
+const VARIANTES=[
+  {id:'A',comp:VarianteA,title:'Un comprobante, dos renglones',
+   nota:'Concomitante e IP adentro del mismo bloque teñido por el estado: un número de comprobante, una fecha. El IP es la constancia adjunta, con peso, fecha de carga y quién la subió.'},
+  {id:'B',comp:VarianteB,title:'Cinta de estado, lista única',
+   nota:'El estado y el punto del recorrido van arriba, una sola vez para toda la entrega. Debajo, los dos grupos como partes de la misma lista.'},
+  {id:'C',comp:VarianteC,title:'Ticket con dos secciones',
+   nota:'El papel completo: número, sello y dos bloques separados por el filete punteado, con el adjunto del IP al pie del segundo.'},
+];
+const ESTADOS=[['entregada','Entregada'],['proceso','En proceso'],['sin','Sin entrega']];
+
+function App(){
+  const [estado,setEstado]=useState('entregada');
+  return (
+    <div style={{maxWidth:1280,margin:'0 auto',padding:'30px 24px 70px'}}>
+      <div style={eyebrow}>Spira Pharma · exploración v2</div>
+      <h1 style={{margin:'6px 0 8px',fontFamily:'var(--spira-font-display)',fontSize:28,fontWeight:700,letterSpacing:'-.02em'}}>
+        Una sola entrega: concomitante y producto en investigación juntos
+      </h1>
+      <p style={{margin:'0 0 18px',fontSize:14,color:'var(--spira-muted)',maxWidth:800,lineHeight:1.55}}>
+        Las dos partes cuelgan del mismo comprobante y del mismo estado. Abajo, un historial común:
+        la entrega anterior con lo que llevó de cada parte y «Ver más» para recorrer las anteriores,
+        por si la última no es la que se busca.
+      </p>
+      <div style={{display:'inline-flex',gap:2,padding:3,borderRadius:'var(--spira-radius-pill)',
+        border:'1px solid var(--spira-line)',background:'var(--spira-white)',marginBottom:22}}>
+        {ESTADOS.map(([v,l])=>(
+          <button key={v} onClick={()=>setEstado(v)} style={{height:30,padding:'0 14px',borderRadius:'var(--spira-radius-pill)',
+            border:'none',cursor:'pointer',fontSize:12.5,fontWeight:600,
+            background:estado===v?TRACK:'transparent',color:estado===v?'#fff':INK_SOFT}}>{l}</button>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))',gap:22,alignItems:'start'}}>
+        {VARIANTES.map(({id,comp:C,title,nota})=>(
+          <div key={id}>
+            <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
+              <span style={{fontFamily:'var(--spira-font-display)',fontWeight:700,fontSize:12,color:TRACK}}>{id}</span>
+              <h2 style={{margin:0,fontFamily:'var(--spira-font-display)',fontSize:17,fontWeight:700}}>{title}</h2>
+            </div>
+            <p style={{margin:'0 0 12px',fontSize:12.5,color:'var(--spira-muted)',lineHeight:1.5}}>{nota}</p>
+            <C estado={estado} />
+          </div>
+        ))}
+      </div>
+
+      <div style={{borderTop:'1px solid var(--spira-line)',margin:'44px 0 20px',paddingTop:22}}>
+        <h2 style={{margin:'0 0 6px',fontFamily:'var(--spira-font-display)',fontSize:22,fontWeight:700,letterSpacing:'-.02em'}}>
+          Dónde vive el historial
+        </h2>
+        <p style={{margin:'0 0 20px',fontSize:13.5,color:'var(--spira-muted)',maxWidth:800,lineHeight:1.55}}>
+          Mismo cuerpo (el ticket de C), tres accesos. Son combinables con cualquiera de las variantes de arriba.
+        </p>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))',gap:22,alignItems:'start'}}>
+          {ACCESOS.map(({id,comp:C,title,nota})=>(
+            <div key={id}>
+              <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
+                <span style={{fontFamily:'var(--spira-font-display)',fontWeight:700,fontSize:12,color:TRACK}}>{id}</span>
+                <h3 style={{margin:0,fontFamily:'var(--spira-font-display)',fontSize:17,fontWeight:700}}>{title}</h3>
+              </div>
+              <p style={{margin:'0 0 12px',fontSize:12.5,color:'var(--spira-muted)',lineHeight:1.5}}>{nota}</p>
+              <C estado={estado} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
