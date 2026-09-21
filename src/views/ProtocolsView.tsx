@@ -414,14 +414,20 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
           display: 'flex', flexDirection: 'column', gap: 8,
         }}
       >
+        {/* ARRIBA EL ACRÓNIMO, DEBAJO EL CÓDIGO (Director, 2026-09-20). Estaba al revés: el código
+            en 20px y el acrónimo de subtítulo. Por quién los nombra: adentro del centro el estudio
+            es "AIRLYMPUS", y el código es con lo que se lo anota en un papel o se lo busca. El
+            código no pierde su mono —sigue siendo un identificador— pero pasa a tamaño de apoyo.
+            `minWidth: 0` en el acrónimo y `flex: 0 0 auto` en el estado: sin eso, un acrónimo largo
+            empuja el chip fuera de la tarjeta en vez de recortarse. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em', color: accent }}>{highlight(p.code, q, accent)}</span>
-          <span style={statusDot}>
+          <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em', color: accent, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{highlight(p.name, q, accent)}</span>
+          <span style={{ ...statusDot, flex: '0 0 auto' }}>
             <span style={{ width: 7, height: 7, borderRadius: '999px', background: statusVar(p.status) }} />
             {statusLabel(p.status)}
           </span>
         </div>
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{highlight(p.name, q, accent)}</div>
+        <div className="spira-mono" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{highlight(p.code, q, accent)}</div>
         {p.description && (
           <div title={p.description} style={{ fontSize: 13, color: 'var(--spira-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>
         )}
