@@ -213,3 +213,148 @@ grant execute on function public.pharma_alcanza_recepcion(uuid)      to authenti
 grant execute on function public.pharma_alcanza_solicitud(uuid)      to authenticated;
 grant execute on function public.pharma_alcanza_dispensacion(uuid)   to authenticated;
 grant execute on function public.pharma_alcanza_pedido(uuid)         to authenticated;
+
+
+-- 4 · Auditoría ----------------------------------------------------------------------------------
+-- El audit_row() generico de la 0003, el mismo que ya usan las otras ocho tablas auditadas.
+drop trigger if exists trg_audit_pharma_protocol_access on public.pharma_protocol_access;
+create trigger trg_audit_pharma_protocol_access
+  after insert or update or delete on public.pharma_protocol_access
+  for each row execute function public.audit_row();
+
+-- El interruptor NO necesita trigger propio: vive en user_module_roles, que ya esta auditada.
+
+
+-- 5 · El historial legible -----------------------------------------------------------------------
+-- VISTA NUEVA, no una extension de v_protocol_access_audit. El motivo lo dejo escrito la 0110 para
+-- el caso identico: si las filas de Farmacia entran por la vista de Coordinacion, el front que esta
+-- HOY en produccion las redacta como "le dio acceso a los pacientes del estudio X" — una frase
+-- impecable que dice algo que no paso. Con vista aparte la migracion queda puramente aditiva.
+--
+-- Junta las DOS fuentes porque para gerencia son un solo hecho ("que le paso al alcance de esta
+-- persona en Farmacia"): los estudios que entran o salen de la lista, y el interruptor.
+--
+-- security_invoker = true: hereda la policy "gerencia ve auditoria" de audit_log (0006), asi que
+-- quien no es gerencia recibe cero filas. La vista NO decide permisos; solo traduce.
+--
+-- Los LEFT JOIN a protocols y users son a proposito: un protocolo o una cuenta borrados dejan sus
+-- lineas de auditoria en pie —audit_log es inmutable— y perderlas al leer seria recortar el
+-- registro. El front redacta esos casos con el codigo o el nombre en null.
+create or replace view public.v_pharma_protocol_access_audit
+with (security_invoker = true) as
+
+-- (a) un estudio que entra o sale de la lista
+select
+  l.id,
+  l.occurred_at,
+  l.action,
+  'estudio'::text as clase,
+  coalesce(l.after_data ->> 'user_id', l.before_data ->> 'user_id')::uuid as target_user_id,
+  p.code           as protocol_code,
+  p.name           as protocol_name,
+  null::boolean    as ve_todos,
+  l.actor_id,
+  actor.full_name  as actor_name,
+  target.full_name as target_name
+from public.audit_log l
+left join public.users actor  on actor.id = l.actor_id
+left join public.users target
+       on target.id = coalesce(l.after_data ->> 'user_id', l.before_data ->> 'user_id')::uuid
+left join public.protocols p
+       on p.id = coalesce(l.after_data ->> 'protocol_id', l.before_data ->> 'protocol_id')::uuid
+where l.entity_type = 'pharma_protocol_access'
+
+union all
+
+-- (b) el interruptor. Solo las lineas de user_module_roles donde la bandera CAMBIO y el modulo es
+-- Farmacia: un cambio de nivel no es un cambio de alcance y ya lo cuenta v_access_audit.
+select
+  l.id,
+  l.occurred_at,
+  l.action,
+  'interruptor'::text as clase,
+  coalesce(l.after_data ->> 'user_id', l.before_data ->> 'user_id')::uuid as target_user_id,
+  null::text          as protocol_code,
+  null::text          as protocol_name,
+  (l.after_data ->> 've_todos_los_estudios')::boolean as ve_todos,
+  l.actor_id,
+  actor.full_name  as actor_name,
+  target.full_name as target_name
+from public.audit_log l
+left join public.users actor  on actor.id = l.actor_id
+left join public.users target
+       on target.id = coalesce(l.after_data ->> 'user_id', l.before_data ->> 'user_id')::uuid
+where l.entity_type = 'user_module_roles'
+  and l.action = 'UPDATE'
+  and coalesce(l.after_data ->> 'module', l.before_data ->> 'module') = 'pharma'
+  and (l.before_data ->> 've_todos_los_estudios')
+      is distinct from (l.after_data ->> 've_todos_los_estudios');
+
+comment on view public.v_pharma_protocol_access_audit is
+  'Historial legible del alcance por estudio en Farmacia: los estudios que entran o salen de la '
+  'lista (trg_audit_pharma_protocol_access) mas los cambios del interruptor (user_module_roles). '
+  'Vista APARTE de v_protocol_access_audit a proposito: sumarlas habria sido breaking para el front '
+  'desplegado, que redactaria estas lineas como si fueran de Coordinacion. security_invoker → solo '
+  'gerencia. 0138.';
+
+revoke all on public.v_pharma_protocol_access_audit from anon;
+grant select on public.v_pharma_protocol_access_audit to authenticated;
+
+
+-- 6 · v_access_audit deja de contar los cambios de SOLO el interruptor ---------------------------
+-- Sin esto, apagar el interruptor produciria en el historial de modulos la linea "volvio a guardar
+-- el acceso de X a Farmacia, sin cambiar el nivel" — tecnicamente cierta y completamente engañosa,
+-- porque esconde lo unico que si cambio. Y ademas duplicada, porque la vista de arriba ya la cuenta
+-- bien.
+--
+-- Es un cambio SEGURO aunque toque una vista vieja: hoy no existe ni una sola fila que pueda
+-- matchear, porque la columna ve_todos_los_estudios se crea en esta misma migracion.
+--
+-- ⚠️ EL `with (security_invoker = true)` VA SI O SI: create or replace VIEW reemplaza las opciones,
+-- y sin repetirlo la vista se saltearia la RLS de audit_log en silencio. Se sondea al final.
+create or replace view public.v_access_audit
+with (security_invoker = true) as
+select
+  l.id,
+  l.occurred_at,
+  l.action,
+  case
+    when l.entity_type = 'users' then l.entity_id
+    else coalesce(l.after_data ->> 'user_id', l.before_data ->> 'user_id')::uuid
+  end as target_user_id,
+  case when l.entity_type = 'users' then null
+       else coalesce(l.after_data ->> 'module', l.before_data ->> 'module') end as module,
+  case when l.entity_type = 'users' then null else l.before_data ->> 'role' end as role_before,
+  case when l.entity_type = 'users' then null else l.after_data  ->> 'role' end as role_after,
+  l.actor_id,
+  actor.full_name as actor_name,
+  coalesce(
+    target.full_name,
+    l.before_data ->> 'full_name',
+    l.after_data  ->> 'full_name'
+  ) as target_name
+from public.audit_log l
+left join public.users actor
+       on actor.id = l.actor_id
+left join public.users target
+       on target.id = case
+            when l.entity_type = 'users' then l.entity_id
+            else coalesce(l.after_data ->> 'user_id', l.before_data ->> 'user_id')::uuid
+          end
+where (
+        l.entity_type = 'user_module_roles'
+        -- NUEVO en la 0138: fuera los updates que solo movieron el interruptor.
+        and not (
+          l.action = 'UPDATE'
+          and (l.before_data ->> 'role') is not distinct from (l.after_data ->> 'role')
+          and (l.before_data ->> 've_todos_los_estudios')
+              is distinct from (l.after_data ->> 've_todos_los_estudios')
+        )
+      )
+   or (l.entity_type = 'users' and l.action in ('ALTA', 'BAJA', 'ELIMINACION'));
+
+comment on view public.v_access_audit is
+  'Historial legible de accesos: los cambios de modulo (trg_audit_module_roles, 0003) mas el alta, '
+  'la baja y la eliminacion de la cuenta (0098, 0099). Desde la 0138 EXCLUYE los updates que solo '
+  'movieron ve_todos_los_estudios: esos los cuenta v_pharma_protocol_access_audit. '
+  'Solo gerencia, por la policy "gerencia ve auditoria" (0006). 0096, 0100, 0138.';

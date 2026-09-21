@@ -1350,46 +1350,64 @@ create trigger trg_audit_module_roles
   for each row execute function public.audit_row();
 ```
 
-Y agregar estos casos al final de `verificar.mjs`, antes del resumen:
+Y agregar estos casos a `verificar.mjs`, **antes** del bloque de idempotencia (el `await db.exec(parteA)`
+del final), envueltos en el `if` para que la corrida de la Tarea 1 los saltee:
 
 ```js
-// La auditoría: dar y quitar un estudio, y mover el interruptor.
-await db.query(`select set_config('spira.uid', '${U.ana}', false)`)
-await db.exec(`
-  insert into public.pharma_protocol_access (user_id, protocol_id) values ('${U.bea}','${P.act}');
-  delete from public.pharma_protocol_access where user_id = '${U.bea}' and protocol_id = '${P.act}';
-  update public.user_module_roles set ve_todos_los_estudios = true
-   where user_id = '${U.bea}' and module = 'pharma';
-`)
+// ── Auditoría ────────────────────────────────────────────────────────────────────────────────
+// Se compara el CONJUNTO de líneas, NO su orden. Dos motivos, y los dos muerden:
+//   · un `exec` multi-sentencia de PGlite comparte transacción, así que `now()` queda FIJO y todas
+//     las líneas salen con el mismo `occurred_at`;
+//   · el desempate caería entonces en el `id`, que es un uuid aleatorio — el test pasaría o fallaría
+//     según la corrida. Es exactamente el problema que `mezclarHistorial` documenta.
+// El orden se testea donde importa, en `mezclarHistorial` (vitest). Y las escrituras van de a una
+// con `db.query`, no con un `exec` de tres: cada una en su transacción.
+if (!corte.startsWith('-- 4')) {
+  await db.query(`select set_config('spira.uid', '${U.ana}', false)`)
+  await db.query(`insert into public.pharma_protocol_access (user_id, protocol_id) values ('${U.bea}','${P.act}')`)
+  await db.query(`delete from public.pharma_protocol_access where user_id = '${U.bea}' and protocol_id = '${P.act}'`)
+  await db.query(`update public.user_module_roles set ve_todos_los_estudios = true where user_id = '${U.bea}' and module = 'pharma'`)
 
-const hist = (await db.query(
-  `select action, clase, protocol_code, ve_todos from public.v_pharma_protocol_access_audit
-    where target_user_id = '${U.bea}' order by occurred_at, id`)).rows
-const esperado = [
-  { action: 'INSERT', clase: 'estudio',     protocol_code: 'ACT18301', ve_todos: null },
-  { action: 'DELETE', clase: 'estudio',     protocol_code: 'ACT18301', ve_todos: null },
-  { action: 'UPDATE', clase: 'interruptor', protocol_code: null,       ve_todos: true },
-]
-const okHist = JSON.stringify(hist) === JSON.stringify(esperado)
-if (!okHist) { fallos++; console.log('FALLA historial de Farmacia:', JSON.stringify(hist)) }
-else console.log('ok   historial de Farmacia: 3 líneas, las dos clases')
+  const hist = (await db.query(
+    `select action, clase, protocol_code, ve_todos from public.v_pharma_protocol_access_audit
+      where target_user_id = '${U.bea}'`)).rows
+  const clave = (r) => `${r.clase}|${r.action}|${r.protocol_code}|${r.ve_todos}`
+  const got = hist.map(clave).sort()
+  const esperado = [
+    // las dos del armado de arriba, hechas con la uid sin setear
+    'interruptor|UPDATE|null|false',
+    'estudio|INSERT|LTS17231|null',
+    // las tres de este bloque
+    'estudio|INSERT|ACT18301|null',
+    'estudio|DELETE|ACT18301|null',
+    'interruptor|UPDATE|null|true',
+  ].sort()
+  if (JSON.stringify(got) !== JSON.stringify(esperado)) {
+    fallos++
+    console.log('FALLA historial de Farmacia:\n  got      ', got, '\n  esperaba ', esperado)
+  } else {
+    console.log('ok   historial de Farmacia: 5 líneas, las dos clases')
+  }
 
-// v_access_audit NO cuenta el cambio de solo el interruptor.
-const enModulos = (await db.query(
-  `select count(*)::int n from public.v_access_audit
-    where target_user_id = '${U.bea}' and action = 'UPDATE'`)).rows[0].n
-if (enModulos !== 0) { fallos++; console.log(`FALLA v_access_audit cuenta ${enModulos} update(s), esperaba 0`) }
-else console.log('ok   v_access_audit ignora el cambio de solo el interruptor')
+  // v_access_audit NO cuenta los updates que sólo movieron el interruptor.
+  const enModulos = (await db.query(
+    `select count(*)::int n from public.v_access_audit
+      where target_user_id = '${U.bea}' and action = 'UPDATE'`)).rows[0].n
+  if (enModulos !== 0) { fallos++; console.log(`FALLA v_access_audit cuenta ${enModulos} update(s), esperaba 0`) }
+  else console.log('ok   v_access_audit ignora el cambio de sólo el interruptor')
 
-// La sonda de security_invoker en las dos vistas.
-const opts = (await db.query(
-  `select c.relname, c.reloptions from pg_class c join pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'public'
-      and c.relname in ('v_access_audit','v_pharma_protocol_access_audit')`)).rows
-for (const r of opts) {
-  const ok = (r.reloptions || []).some((o) => o === 'security_invoker=true')
-  if (!ok) { fallos++; console.log(`FALLA ${r.relname} perdió security_invoker: ${r.reloptions}`) }
-  else console.log(`ok   ${r.relname} conserva security_invoker`)
+  // La sonda de security_invoker en las dos vistas.
+  const opts = (await db.query(
+    `select c.relname, c.reloptions from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public'
+        and c.relname in ('v_access_audit','v_pharma_protocol_access_audit')
+      order by c.relname`)).rows
+  if (opts.length !== 2) { fallos++; console.log(`FALLA esperaba 2 vistas, encontré ${opts.length}`) }
+  for (const r of opts) {
+    const ok = (r.reloptions || []).some((o) => o === 'security_invoker=true')
+    if (!ok) { fallos++; console.log(`FALLA ${r.relname} perdió security_invoker: ${r.reloptions}`) }
+    else console.log(`ok   ${r.relname} conserva security_invoker`)
+  }
 }
 ```
 
