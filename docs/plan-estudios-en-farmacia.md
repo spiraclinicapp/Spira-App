@@ -508,6 +508,10 @@ la 0141), **y mirada la consulta del bucket del pie de ese archivo.** Entre la 1
 parcial —la grilla filtra pero el stock no—, y en una app auditable una restricción a medias es peor
 que ninguna: promete un candado que todavía no cierra. Va también en el handoff de la jornada.
 
+> **Levantada el 2026-09-21.** La 0140, la 0141 y la 0142 quedaron aplicadas (al tercer intento: las
+> dos primeras corridas no se grabaron), y la consulta del bucket dio exactamente dos filas, "ip docs
+> alta" e "ip docs lectura", las dos recortadas. Desde ahí se puede acotar a una persona en Farmacia.
+
 Y, por lo mismo: **el front se despliega primero y la migración inmediatamente después sólo si el
 cambio altera lo que el front YA pide.** Acá no es el caso en ninguna de las cuatro (todo lo nuevo
 es aditivo y nadie está acotado), así que va **migración primero**.
