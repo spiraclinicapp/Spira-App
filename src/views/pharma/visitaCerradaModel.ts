@@ -10,14 +10,14 @@
    el «Realizada 26 Ago 2026 10:00» del encabezado: la atención se cerró.
 
    Esto vive acá y no adentro del panel (que ya pasa las mil líneas, y sigue creciendo) por el mismo
-   motivo que `seccionIpModel` y `historialPlegadoModel`: la regla se puede leer entera y testear sin
+   motivo que `seccionIpModel` y `pedidosCerradosModel`: la regla se puede leer entera y testear sin
    montar React.
    └─────────────────────────────────────────────────────────────────────────────────────────────┘ */
 import { activeDispensation, cantidadConPartes, columnOf, partesDeRenglon } from '../../data/pharma/dispensationModel'
 import type { DispensationRequestRow } from '../../data/pharma/dispensationModel'
 import { formatShortAR, isoDayAR } from '../../lib/dates'
-import { estaCerrado } from './historialPlegadoModel'
-import type { PedidoHistorial } from './historialPlegadoModel'
+import { estaCerrado } from './pedidosCerradosModel'
+import type { PedidoHistorial } from './pedidosCerradosModel'
 
 /** Un medicamento entregado en la visita, como se lee en la tarjeta. */
 export interface RenglonEntregado {
@@ -74,7 +74,7 @@ export function vistaVisitaCerrada({ readyAt, pedidos, cargando }: EntradaVistaC
      para retirar): Farmacia tiene un paquete esperando, o ni siquiera lo tomó todavía. Mientras
      ese pedido no se resuelva (entrega, cancelación o rechazo) la tarjeta tiene que seguir
      operable para poder gestionarlo — pasarla a lectura lo dejaría inalcanzable. `estaCerrado` es
-     la misma regla que ya usa `historialPlegadoModel` para decidir qué es historial; «abierto»
+     la misma regla de `pedidosCerradosModel` que decide qué pedido ya se cerró; «abierto»
      acá es exactamente su negación, así que no se duplica el criterio. */
   if (pedidos.some((r) => !estaCerrado(r))) return { concomitante: { tipo: 'abierta' }, yaMostrados: [] }
 
