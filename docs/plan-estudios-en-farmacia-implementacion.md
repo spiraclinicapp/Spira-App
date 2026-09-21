@@ -1847,35 +1847,54 @@ Y agregar estos casos a `verificar.mjs` (el corte pasa a `"-- 9 ·"`), corriendo
 no privilegiado para que la RLS se aplique:
 
 ```js
-// El recorte de verdad. PGlite corre como superusuario, que IGNORA la RLS: hay que crear un rol
-// normal y forzarla. Sin esto el test pasaría siempre, que es peor que no tenerlo.
-await db.exec(`
-  alter table public.protocols  force row level security;
-  alter table public.patients   force row level security;
-  alter table public.enrollments force row level security;
-`)
+// ── El recorte de verdad ─────────────────────────────────────────────────────────────────────
+// ⚠️ PGlite corre como SUPERUSUARIO, y un superusuario saltea la RLS entera. `force row level
+// security` NO alcanza: eso sólo somete al DUEÑO de la tabla, y el atributo BYPASSRLS del
+// superusuario le gana igual. Sin un rol normal estas comprobaciones no prueban nada.
+// Por eso cada lectura va con `set role app_user`. Las funciones security definer siguen
+// corriendo como su dueño, que es exactamente lo que pasa en producción.
+if (corte.startsWith('-- 9')) {
+  await db.exec(`
+    create role app_user nologin;
+    grant usage on schema public, auth to app_user;
+    grant select on all tables in schema public to app_user;
+    grant execute on all functions in schema public to app_user;
+    grant execute on all functions in schema auth   to app_user;
+    alter table public.protocols   force row level security;
+    alter table public.patients    force row level security;
+    alter table public.enrollments force row level security;
+  `)
 
-const filas = async (uid, sql) => {
-  await db.query(`select set_config('spira.uid', '${uid}', false)`)
-  return (await db.query(sql)).rows.length
-}
+  const filas = async (uid, sql) => {
+    await db.query(`select set_config('spira.uid', '${uid}', false)`)
+    await db.query('set role app_user')
+    try { return (await db.query(sql)).rows.length }
+    finally { await db.query('reset role') }
+  }
 
 // Bea quedó acotada a LTS + ACT por el camino feliz de la Tarea 3; se la deja sólo con LTS.
 await db.query(`select set_config('spira.uid', '${CARO}', false)`)
 await db.query(`select public.set_pharma_protocol_access('${U.bea}','${P.act}', false, true)`)
 
-const recorte = [
-  ['Ana (sin recorte) ve los 2 estudios', await filas(U.ana, 'select id from public.protocols'), 2],
-  ['Bea (acotada) ve 1 estudio',          await filas(U.bea, 'select id from public.protocols'), 1],
-  ['Ana ve al paciente de dos',           await filas(U.ana, `select id from public.patients where id = '${PA.dos}'`), 1],
-  ['Bea ve al paciente de dos (por LTS)', await filas(U.bea, `select id from public.patients where id = '${PA.dos}'`), 1],
-  ['Ana ve los 2 enrolamientos',          await filas(U.ana, 'select id from public.enrollments'), 2],
-  ['Bea ve 1 enrolamiento',               await filas(U.bea, 'select id from public.enrollments'), 1],
-  ['Caro (gerencia) ve los 2 estudios',   await filas(CARO, 'select id from public.protocols'), 2],
-]
-for (const [nombre, got, esperado] of recorte) {
-  if (got !== esperado) { fallos++; console.log(`FALLA ${nombre} → ${got} (esperaba ${esperado})`) }
-  else console.log(`ok   ${nombre}`)
+  // Bea quedó acotada a LTS + ACT por el camino feliz de los RPC; se la deja sólo con LTS.
+  await db.query(`select set_config('spira.uid', '${CARO}', false)`)
+  await db.query(`select public.set_pharma_protocol_access('${U.bea}','${P.act}', false, true)`)
+
+  const recorte = [
+    ['Ana (sin recorte) ve los 2 estudios', await filas(U.ana, 'select id from public.protocols'), 2],
+    ['Bea (acotada) ve 1 estudio',          await filas(U.bea, 'select id from public.protocols'), 1],
+    ['Ana ve al paciente de dos',           await filas(U.ana, `select id from public.patients where id = '${PA.dos}'`), 1],
+    ['Bea ve al paciente de dos (por LTS)', await filas(U.bea, `select id from public.patients where id = '${PA.dos}'`), 1],
+    ['Ana ve al paciente sin enrolar',      await filas(U.ana, `select id from public.patients where id = '${PA.sin}'`), 1],
+    ['Bea NO ve al paciente sin enrolar',   await filas(U.bea, `select id from public.patients where id = '${PA.sin}'`), 0],
+    ['Ana ve los 2 enrolamientos',          await filas(U.ana, 'select id from public.enrollments'), 2],
+    ['Bea ve 1 enrolamiento',               await filas(U.bea, 'select id from public.enrollments'), 1],
+    ['Caro (gerencia) ve los 2 estudios',   await filas(CARO, 'select id from public.protocols'), 2],
+  ]
+  for (const [nombre, got, esperado] of recorte) {
+    if (got !== esperado) { fallos++; console.log(`FALLA ${nombre} → ${got} (esperaba ${esperado})`) }
+    else console.log(`ok   ${nombre}`)
+  }
 }
 ```
 

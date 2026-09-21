@@ -499,3 +499,115 @@ comment on function public.set_pharma_protocol_access is
   'pharma_protocol_access no tiene policy de escritura a proposito. 0138.';
 
 grant execute on function public.set_pharma_protocol_access(uuid, uuid, boolean, boolean) to authenticated;
+
+
+-- 8 · El recorte: estudios y pacientes -----------------------------------------------------------
+-- NUEVE policies sobre SIETE tablas: siete de SELECT mas las dos de escritura de protocol_alerts
+-- y protocol_medications, que comprueban NIVEL. La transformacion es SIEMPRE aditiva:
+--   has_module('pharma')  →  (has_module('pharma') and pharma_alcanza_*(...))
+-- y la clausula de gerencia queda AFUERA del and.
+--
+-- Cada una se reescribe entera a partir de su definicion VIVA, no de la primera: "ver protocolos
+-- asignados" se redefinio en la 0028, "ver enrolamientos" en la 0010, "ver procedimientos del
+-- estudio" en la 0089 y "ver asignacion" en la 0032. Copiar la version de la 0006 habria REVERTIDO
+-- esas migraciones en silencio.
+
+-- 8.1 · protocols (viva: 0028). El protocolo ES la fila, asi que el alcance va sobre `id`.
+drop policy if exists "ver protocolos asignados" on public.protocols;
+create policy "ver protocolos asignados" on public.protocols for select using (
+  public.has_module('gerencia')
+  or public.is_assigned_coordinator(id)
+  or public.has_role('track','leader')
+  or public.has_min_role('track','admin')
+  or (public.has_module('pharma') and public.pharma_alcanza_protocolo(id))
+  or public.has_module('contable')
+);
+
+-- 8.2 · enrollments (viva: 0010, que amplio la de la 0006 con `alter policy`).
+alter policy "ver enrolamientos de mis protocolos" on public.enrollments
+  using (
+    public.has_module('gerencia')
+    or (public.has_module('pharma') and public.pharma_alcanza_protocolo(protocol_id))
+    or public.is_assigned_coordinator(protocol_id)
+  );
+
+-- 8.3 · patients (viva: 0006). Un paciente puede estar en DOS protocolos: pharma_alcanza_paciente
+-- usa exists, no un `=` contra el primer enrolamiento.
+drop policy if exists "ver pacientes de mis protocolos" on public.patients;
+create policy "ver pacientes de mis protocolos" on public.patients for select using (
+  public.has_module('gerencia')
+  or (public.has_module('pharma') and public.pharma_alcanza_paciente(patients.id))
+  or exists (
+    select 1 from public.enrollments e
+    join public.protocol_coordinators pc on pc.protocol_id = e.protocol_id
+    where e.patient_id = patients.id and pc.user_id = auth.uid()
+  )
+);
+
+-- 8.4 · protocol_activities (viva: 0006).
+drop policy if exists "ver config protocolo (activities)" on public.protocol_activities;
+create policy "ver config protocolo (activities)" on public.protocol_activities for select using (
+  public.has_module('gerencia')
+  or (public.has_module('pharma') and public.pharma_alcanza_protocolo(protocol_activities.protocol_id))
+  or exists (select 1 from public.protocol_coordinators pc
+             where pc.protocol_id = protocol_activities.protocol_id and pc.user_id = auth.uid())
+);
+
+-- 8.5 · protocol_procedures (viva: 0089).
+drop policy if exists "ver procedimientos del estudio" on public.protocol_procedures;
+create policy "ver procedimientos del estudio" on public.protocol_procedures for select using (
+  public.has_module('track')
+  or (public.has_module('pharma') and public.pharma_alcanza_protocolo(protocol_procedures.protocol_id))
+  or public.has_module('gerencia')
+);
+
+-- 8.6 · protocol_alerts (viva: 0006). Son DOS: la de lectura y la de escritura de lideres.
+-- La de escritura comprueba NIVEL (has_role('pharma','leader')), asi que el and se SUMA sin tocarlo
+-- — si se reemplazara, un viewer de Farmacia ganaria escritura.
+drop policy if exists "ver alertas" on public.protocol_alerts;
+create policy "ver alertas" on public.protocol_alerts for select using (
+  public.has_module('track')
+  or (public.has_module('pharma') and public.pharma_alcanza_protocolo(protocol_alerts.protocol_id))
+  or public.has_module('gerencia')
+);
+drop policy if exists "lideres administran alertas" on public.protocol_alerts;
+create policy "lideres administran alertas" on public.protocol_alerts for all
+  using (
+    public.has_role('track','leader')
+    or (public.has_role('pharma','leader')
+        and public.pharma_alcanza_protocolo(protocol_alerts.protocol_id))
+  )
+  with check (
+    public.has_role('track','leader')
+    or (public.has_role('pharma','leader')
+        and public.pharma_alcanza_protocolo(protocol_alerts.protocol_id))
+  );
+
+-- 8.7 · protocol_medications (viva: 0032). Tambien son dos, y la de escritura comprueba nivel.
+drop policy if exists "ver asignacion" on public.protocol_medications;
+create policy "ver asignacion" on public.protocol_medications for select using (
+  (public.has_module('pharma') and public.pharma_alcanza_protocolo(protocol_medications.protocol_id))
+  or public.has_module('gerencia')
+);
+drop policy if exists "pharma leader asigna" on public.protocol_medications;
+create policy "pharma leader asigna" on public.protocol_medications for all
+  using (
+    public.has_min_role('pharma','leader')
+    and public.pharma_alcanza_protocolo(protocol_medications.protocol_id)
+  )
+  with check (
+    public.has_min_role('pharma','leader')
+    and public.pharma_alcanza_protocolo(protocol_medications.protocol_id)
+  );
+
+
+-- 9 · Sonda de security_invoker ------------------------------------------------------------------
+-- Las dos vistas que esta migracion recrea tienen que seguir con security_invoker. Si alguna
+-- devuelve NULL o vacio, la vista se saltea la RLS y hay que volver a correr su bloque.
+select c.relname, c.reloptions
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+ where n.nspname = 'public'
+   and c.relname in ('v_access_audit', 'v_pharma_protocol_access_audit');
+
+notify pgrst, 'reload schema';
