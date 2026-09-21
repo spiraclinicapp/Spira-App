@@ -21,6 +21,19 @@ export interface PopoverPos { top: number; left: number; width: number }
  */
 const abiertos = new Map<HTMLElement, () => HTMLElement | null>()
 
+/**
+ * Si hay algún popover abierto ahora mismo. Para los contenedores que cierran con Escape desde un
+ * listener PROPIO en `document` (el modal de la visita, `VisitDetail`): ese listener se registró al
+ * montar el modal, o sea ANTES que el del popover, y corre primero. El `stopPropagation` de acá abajo
+ * no lo frena —son dos listeners del mismo nodo— y el mismo Esc que cerraba el popover se llevaba el
+ * modal entero. Medido el 2026-09-21 con el chip «Historial» de Dispensación, pero valía para
+ * cualquier popover sin campo de texto adentro del modal. Es confiable porque el registro guarda sólo
+ * los popovers MONTADOS, y todos los de la casa se montan únicamente abiertos.
+ */
+export function hayPopoverAbierto(): boolean {
+  return abiertos.size > 0
+}
+
 /** El popover registrado que contiene a `n`, si hay alguno. */
 function popoverQueContiene(n: Node): HTMLElement | null {
   for (const nodo of abiertos.keys()) if (nodo.contains(n)) return nodo
