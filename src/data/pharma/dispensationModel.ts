@@ -93,6 +93,12 @@ export interface DispensationRow {
   dispensation_code: string | null
   daily_number: number | null
   delivered_at: string | null
+  /**
+   * Snapshot del nombre de quien confirmó la entrega (0119): lo sella el trigger que sella la fecha,
+   * porque Coordinación no puede leer `users` por RLS. NULL en las entregas anteriores a la 0119.
+   * Opcional porque no todas las lecturas lo piden (sólo `REQUEST_COLS`).
+   */
+  delivered_by_name?: string | null
   items: DispensationLineRow[]
   /** Kits de IP entregados. NULL hasta la entrega (0071). */
   ip_kits: number | null
@@ -183,6 +189,21 @@ export interface DispensationRequestRow {
   protocol: { id: string; code: string; name: string } | null
   /** Código de la visita, sellado al crear el pedido (0084). */
   visit_code: string | null
+}
+
+/**
+ * Un pedido ENTREGADO de otra visita del mismo enrolamiento, para el historial de la tarjeta de
+ * Dispensación (`useEntregasDelEnrolamiento`). Es un recorte de `DispensationRequestRow`: sólo lo que
+ * el historial dice — visita, comprobante, qué llevó de cada parte y la constancia para verla.
+ */
+export interface PedidoEntregadoRow {
+  id: string
+  visit_id: string
+  visit_code: string | null
+  includes_ip: boolean
+  items: (Pick<RequestItemRow, 'id' | 'quantity' | 'quantity_indicated' | 'saldo_de_item_id'> & { medication: { name: string } | null })[]
+  dispensations: Pick<DispensationRow, 'id' | 'status' | 'correlative_number' | 'delivered_at' | 'ip_kits'>[]
+  ip_documents: Pick<IpDocumentRow, 'id' | 'storage_path' | 'file_name' | 'superseded_at'>[]
 }
 
 /**

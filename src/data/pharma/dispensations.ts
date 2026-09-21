@@ -2,7 +2,7 @@ import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import { supabase } from '../../lib/supabase'
 import { pharmaErrorMessage } from './errors'
 import { ESTADOS_ABIERTOS } from './dispensationModel'
-import type { ContextoDispensacionRow, DispensationRequestRow, HistorialEntradaRow, MotivoNoHabilitar, RequestStatus } from './dispensationModel'
+import type { ContextoDispensacionRow, DispensationRequestRow, HistorialEntradaRow, MotivoNoHabilitar, PedidoEntregadoRow, RequestStatus } from './dispensationModel'
 import type { HistorialFilaRow } from './historialModel'
 import type { VisitKind } from '../../lib/visitLabels'
 
@@ -92,7 +92,9 @@ const REQUEST_COLS =
     // columna y NUNCA se embebe (R8).
     'quantity_indicated, saldo_de_item_id, ' +
     'medication:medications!medication_id(name, dosis, unit, drug:drugs(id, name))), ' +
-  'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, ip_kits, ' +
+  // `delivered_by_name` es de la 0119 (aplicada en prod el 2026-09-13): el comprobante de la visita
+  // dice quién entregó. Una columna más en un embed que ya existía: no toca FKs.
+  'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, delivered_by_name, ip_kits, ' +
     'items:dispensation_items(id, medication_id, quantity, lot_number, expiry_date, medication:medications(name))), ' +
   'ip_documents:dispensation_ip_documents(id, storage_path, file_name, mime_type, size_bytes, uploaded_at, superseded_at, printed_at, printed_by), ' +
   // `habilitaciones` son de la 0124: sin ella aplicada, PostgREST no encuentra la relación y voltea la
@@ -123,6 +125,40 @@ export function useVisitDispensations(visitId: string | null) {
         .order('created_at', { ascending: false })
         .returns<DispensationRequestRow[]>(),
     [visitId],
+  )
+}
+
+/**
+ * Las entregas de OTRAS visitas del mismo enrolamiento, para el chip «Historial» de la tarjeta de
+ * Dispensación (handoff `design_handoff_dispensacion_estado`, spec D13). Del paciente y no sólo de
+ * la visita: «¿cuándo fue la última entrega?» se pregunta mirando atrás, no adentro.
+ *
+ * Por ENROLAMIENTO y no por paciente: el historial habla en códigos de visita (V17, V12), que son
+ * del cronograma de un estudio, y la RLS de Coordinación igual acota al protocolo. `!inner` sobre
+ * `dispensations` con el filtro de `entregada` es el mismo patrón que `useEntregasIpDelEnrolamiento`:
+ * sin el inner, PostgREST devolvería los pedidos no entregados con el embed vacío.
+ */
+export function useEntregasDelEnrolamiento(enrollmentId: string | null, visitId: string | null) {
+  return useSupabaseQuery<PedidoEntregadoRow[]>(
+    async (c) => {
+      if (!enrollmentId || !visitId) return { data: [], error: null }
+      const { data, error } = await c
+        .from('dispensation_requests')
+        .select(
+          'id, visit_id, visit_code, includes_ip, ' +
+          'items:dispensation_request_items(id, quantity, quantity_indicated, saldo_de_item_id, medication:medications!medication_id(name)), ' +
+          'dispensations:dispensations!inner(id, status, correlative_number, delivered_at, ip_kits), ' +
+          'ip_documents:dispensation_ip_documents(id, storage_path, file_name, superseded_at)',
+        )
+        .eq('enrollment_id', enrollmentId)
+        .neq('visit_id', visitId)
+        .eq('dispensations.status', 'entregada')
+        .order('created_at', { ascending: false })
+        .limit(60)
+      return { data: (data as unknown as PedidoEntregadoRow[] | null) ?? null, error }
+    },
+    [enrollmentId, visitId],
+    (e) => pharmaErrorMessage(e.code, e.message),
   )
 }
 
