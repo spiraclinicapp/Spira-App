@@ -10,14 +10,14 @@
 /** El alcance de una persona en Farmacia: el interruptor y, si está apagado, la lista. */
 export interface AlcancePharma {
   /** true = ve todos los estudios (lo predeterminado). Espejo de
-   *  `user_module_roles.ve_todos_los_estudios` (0138). */
+   *  `user_module_roles.ve_todos_los_estudios` (0139). */
   veTodos: boolean
   /** Ids de los estudios de `pharma_protocol_access`. Sólo rinde con `veTodos` en false. */
   estudios: string[]
 }
 
 /** Una llamada al servidor. `expected` es siempre lo que el navegador creía vigente: es el
- *  compare-and-swap de los dos RPC de la 0138. */
+ *  compare-and-swap de los dos RPC de la 0139. */
 export type LlamadaDeAlcance =
   | { tipo: 'interruptor'; todos: boolean; expected: boolean }
   | { tipo: 'estudio'; protocolId: string; asignado: boolean; expected: boolean }

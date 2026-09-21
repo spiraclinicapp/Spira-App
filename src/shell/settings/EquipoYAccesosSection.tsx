@@ -55,7 +55,7 @@ export function EquipoYAccesosSection() {
      de `AccesoEditor`, así que se reconsultaban en cada entrada y salida de una ficha. Acá las
      necesitan tres: la línea de cada fila ("· 3 estudios"), el resumen del ojo y la ficha. */
   const asignaciones = useAllProtocolAssignments()
-  /* Las dos de Farmacia (0138) bajan por prop por el mismo motivo que las de Coordinación:
+  /* Las dos de Farmacia (0139) bajan por prop por el mismo motivo que las de Coordinación:
      `useSupabaseQuery` no cachea, así que pedirlas adentro del editor las reconsultaría en cada
      entrada y salida de una ficha, siendo siempre la misma lista del centro entero. */
   const scopesPharma = usePharmaScopes()

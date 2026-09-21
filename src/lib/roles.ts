@@ -413,9 +413,9 @@ export function protocolAuditLine(row: ProtocolAccessAuditRow): string {
   return `${quien} volvió a guardar la asignación de ${aQuien} al estudio ${estudio}, sin cambiarla`
 }
 
-/* ─── El historial del alcance en Farmacia (migración 0138) ─── */
+/* ─── El historial del alcance en Farmacia (migración 0139) ─── */
 
-/** Una fila de `v_pharma_protocol_access_audit` (0138), tal como llega. */
+/** Una fila de `v_pharma_protocol_access_audit` (0139), tal como llega. */
 export interface PharmaAccessAuditRow {
   id: string
   occurred_at: string
@@ -473,7 +473,7 @@ export interface LineaDeHistorial {
  * una sola lista, de lo más nuevo a lo más viejo, y la recorta a `tope`.
  *
  * SON TRES LISTAS Y NO UNA CONSULTA porque son tres vistas distintas en la base —y tienen que
- * serlo, ver el comentario de `v_pharma_protocol_access_audit` (0138)—, pero para gerencia "qué le
+ * serlo, ver el comentario de `v_pharma_protocol_access_audit` (0139)—, pero para gerencia "qué le
  * pasó al acceso de esta persona" es UNA sola pregunta.
  *
  * ⚠️ POR QUÉ EL RECORTE ACÁ ES CORRECTO Y NO UNA APROXIMACIÓN. Cada consulta trae sus 20 más

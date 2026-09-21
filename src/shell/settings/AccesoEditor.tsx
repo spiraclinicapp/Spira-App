@@ -39,9 +39,9 @@ import { useMarkDirty } from './SettingsModal'
         SON DOS TARJETAS, cada una si su módulo está en el borrador, y tienen predeterminados
         OPUESTOS: Coordinación es lista blanca siempre (`protocol_coordinators`), y Farmacia
         arranca viendo todo y se puede acotar (`ve_todos_los_estudios` + `pharma_protocol_access`,
-        0138). Por eso no son dos renglones de un mismo cuadro: un "Estudios que ve" donde vacío
+        0139). Por eso no son dos renglones de un mismo cuadro: un "Estudios que ve" donde vacío
         significa "todos" en una mitad y "ninguno" en la otra se lee mal sí o sí.
-        (Hasta la 0138, Farmacia era central y este comentario decía que no tenía recorte.)
+        (Hasta la 0139, Farmacia era central y este comentario decía que no tenía recorte.)
      3. ADMINISTRACIÓN — `gerencia` SOLO, en su propio bloque y con confirmación. No es un módulo:
         no tiene pantallas, es el permiso de tocar los accesos de todo el centro. Listarlo como una
         fila más al lado de Coordinación y Farmacia hacía que se marcara sin entender qué se estaba
@@ -50,7 +50,7 @@ import { useMarkDirty } from './SettingsModal'
      5. LA CUENTA — contraseña, baja y eliminación. No pasan por el borrador: se aplican al
         confirmarlas, y por eso cada una lleva su propia confirmación.
      6. HISTORIAL — quién le cambió el acceso y cuándo. Sale de TRES vistas (módulos en la 0003,
-        estudios de Coordinación en la 0110, alcance de Farmacia en la 0138) y se leen mezcladas:
+        estudios de Coordinación en la 0110, alcance de Farmacia en la 0139) y se leen mezcladas:
         para gerencia es una sola pregunta.
 
    Los cuatro primeros se editan y se guardan con el botón del final; el 5 se aplica en el acto, y
@@ -129,7 +129,7 @@ interface Props {
   asignacionesCargando: boolean
   /** Para que la sección vuelva a pedir las asignaciones después de guardar. */
   onAsignacionesCambiadas: () => void
-  /** El interruptor de cada persona del centro (`ve_todos_los_estudios`, 0138). Baja por prop por
+  /** El interruptor de cada persona del centro (`ve_todos_los_estudios`, 0139). Baja por prop por
    *  el mismo motivo que `asignaciones`: `useSupabaseQuery` no cachea. */
   scopesPharma: PharmaScopeRow[]
   /** La lista cerrada de cada persona. Enteras, no sólo las de ésta: mismo criterio. */
@@ -485,7 +485,7 @@ export function AccesoEditor({
 
       {/* 2b · estudios en Farmacia — la misma pregunta, con el predeterminado AL REVÉS.
              Coordinación es lista blanca SIEMPRE (`protocol_coordinators`, 0006): sin estudios no
-             ve un paciente. Farmacia arranca viendo todo y se puede acotar (0138). Por eso son DOS
+             ve un paciente. Farmacia arranca viendo todo y se puede acotar (0139). Por eso son DOS
              tarjetas y no dos renglones de una: un cuadro que dijera "Estudios que ve" donde vacío
              significa "todos" en una mitad y "ninguno" en la otra se lee mal sí o sí. */}
       {tieneFarmacia && pharmaError && (
@@ -576,7 +576,7 @@ export function AccesoEditor({
 
               {/* La contracara de la lista cerrada, y va acá porque es el único lugar donde alguien
                   puede enterarse ANTES de que pase. Con la administración puesta no aplica: las
-                  policies de la 0138 abren con `has_module('gerencia') or …`, así que gerencia ve
+                  policies de la 0139 abren con `has_module('gerencia') or …`, así que gerencia ve
                   todo igual. Mira el BORRADOR, así que el aviso cambia en el acto. */}
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13, padding: '0 0 14px' }}>
                 <Icon
@@ -687,7 +687,7 @@ export function AccesoEditor({
             const acotadoSinNada = !alcancePharma.veTodos && alcancePharma.estudios.length === 0
             const alarma = acotadoSinNada && !esAdminAhora
             /* LA ADMINISTRACIÓN MANDA SOBRE LA LISTA, no sólo sobre la lista vacía. Las policies de
-               la 0138 abren con `has_module('gerencia') or …` y la cláusula queda AFUERA del `and`,
+               la 0139 abren con `has_module('gerencia') or …` y la cláusula queda AFUERA del `and`,
                así que quien administra ve todo el centro tenga los estudios que tenga. Con la regla
                anterior —que miraba la administración sólo cuando no había ninguno— este renglón
                decía «sólo LTS17231» justo debajo de la tarjeta que avisaba «igual ve todos»: se

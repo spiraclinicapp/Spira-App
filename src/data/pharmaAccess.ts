@@ -10,7 +10,7 @@ import type { LlamadaDeAlcance } from './pharmaAccessModel'
 
    Son dos mecanismos distintos a propósito y por eso viven en archivos distintos: Coordinación es
    lista blanca SIEMPRE (`protocol_coordinators`, 0006) y Farmacia arranca viendo todo y se puede
-   acotar (`user_module_roles.ve_todos_los_estudios` + `pharma_protocol_access`, 0138). Meterlos en
+   acotar (`user_module_roles.ve_todos_los_estudios` + `pharma_protocol_access`, 0139). Meterlos en
    un archivo con un `if` invitaba a que una lectura cayera en la rama equivocada y devolviera lo
    contrario, prolijamente.
 
@@ -23,7 +23,7 @@ import type { LlamadaDeAlcance } from './pharmaAccessModel'
  * Traduce los errores de LECTURA, con el mismo criterio que `protocolAccess.ts`.
  *
  * `42703` va en el grupo de "falta una actualización" y no es un caso teórico: es exactamente lo que
- * devuelve `usePharmaScopes` con la 0138 sin aplicar —la tabla `user_module_roles` existe, la
+ * devuelve `usePharmaScopes` con la 0139 sin aplicar —la tabla `user_module_roles` existe, la
  * COLUMNA no—, mientras las otras dos consultas dan `PGRST205`. Sin él, la misma causa llegaba a la
  * pantalla con dos mensajes distintos, y el de la columna era el genérico "probá de nuevo", que
  * manda a reintentar algo que no se arregla reintentando.
@@ -37,7 +37,7 @@ function leerErrorMessage(e: PostgrestError): string {
   return 'No pudimos traer los estudios de Farmacia. Probá de nuevo en un momento.'
 }
 
-/** El interruptor de una persona. `ve_todos_los_estudios` lo agregó la 0138. */
+/** El interruptor de una persona. `ve_todos_los_estudios` lo agregó la 0139. */
 export interface PharmaScopeRow {
   user_id: string
   ve_todos_los_estudios: boolean
@@ -97,7 +97,7 @@ export function useAllPharmaAssignments(): QueryResult<PharmaAsignacionRow[]> {
 }
 
 /**
- * El historial de alcance de UNA persona (vista `v_pharma_protocol_access_audit`, 0138).
+ * El historial de alcance de UNA persona (vista `v_pharma_protocol_access_audit`, 0139).
  *
  * Limitado a 20 por el mismo motivo que los otros dos: `audit_log` crece sin techo y en la ficha
  * importa lo último que pasó. El tope se aplica de nuevo DESPUÉS de mezclar las tres listas — ver

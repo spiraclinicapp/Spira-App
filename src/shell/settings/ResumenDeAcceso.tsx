@@ -66,7 +66,7 @@ export function ResumenDeAcceso({
      MISMO historial mezclado que muestra la ficha. Dos textos para el mismo hecho se desincronizan
      solos, y en un sistema auditable el que quede viejo es el que alguien va a citar.
 
-     Por eso la tercera lista (el alcance en Farmacia, 0138) va acá también y no sólo en la ficha:
+     Por eso la tercera lista (el alcance en Farmacia, 0139) va acá también y no sólo en la ficha:
      si faltara, acotar a alguien no movería este renglón y el resumen seguiría citando un cambio
      anterior como si fuera lo último que pasó. */
   const ultimo = useMemo(

@@ -10,8 +10,8 @@ monitor— que arranca con acceso a unos pocos estudios y después se le abre el
 
 **Cuatro migraciones y cuatro PRs.** No entra en una: hay **60 policies vivas** que nombran a
 Farmacia sobre 34 tablas —de las cuales **42, sobre 24 tablas, hay que recortar**— y **37 RPC**
-`security definer` que saltean la RLS. Numeración reservada acá: **0138 a 0141** (última aplicada
-en prod, la 0137).
+`security definer` que saltean la RLS. Numeración reservada acá: **0139 a 0142** (última aplicada
+en prod, la 0138).
 
 ---
 
@@ -228,7 +228,7 @@ en la 0006 y otra vez en la 0028; todas las de `ip_units` en la 0037). La que ma
 ### Lo que queda afuera a propósito
 
 **Dieciocho policies sobre diez tablas** que no cuelgan de ningún protocolo. Van listadas en el
-comentario de la 0138 para que la próxima persona no crea que se las saltearon:
+comentario de la 0139 para que la próxima persona no crea que se las saltearon:
 
 `medications`, `drugs`, `medication_codes`, `laboratorios`, `laboratorio_codes` (catálogo global
 desde la 0032/0033 — un producto no es de un estudio), `farmacia_ajustes` (configuración del
@@ -347,7 +347,7 @@ Las migraciones van **primero** en las cuatro: mientras nadie esté acotado, el 
 cambia una sola fila. Es el caso aditivo puro, y el que no funciona sin la migración es el front
 nuevo.
 
-### PR 1 — El modelo, la consola y la grilla de estudios · migración **0138**
+### PR 1 — El modelo, la consola y la grilla de estudios · migración **0139**
 
 Tabla, columna, las siete funciones, los dos RPC, el trigger, la vista de historial, la tarjeta de
 Ajustes, y el recorte sobre `protocols` (0028), `enrollments` (0010), `patients` (0006),
@@ -357,7 +357,7 @@ Ajustes, y el recorte sobre `protocols` (0028), `enrollments` (0010), `patients`
 **Se verifica mirando:** acotás a alguien a un estudio y la grilla de Estudios y pacientes de
 Farmacia le queda corta. Con gerencia, entera.
 
-### PR 2 — Stock y Recepción · migración **0139**
+### PR 2 — Stock y Recepción · migración **0140**
 
 `medication_lots`, `medication_receptions`, `reception_items`, `stock_movements`, `ip_units`,
 `ambulatory_dispensations` + sus RPC (`create_reception`, `create_ip_reception`, `verify_reception`,
@@ -365,7 +365,7 @@ Farmacia le queda corta. Con gerencia, entera.
 
 **Se verifica mirando:** Stock y Recepción no listan el estudio oculto, y el total del tablero baja.
 
-### PR 3 — Dispensaciones · migración **0140**
+### PR 3 — Dispensaciones · migración **0141**
 
 `dispensation_requests`, `dispensation_request_items`, `dispensations`, `dispensation_items`,
 `patient_medications`, `dispensation_ip_documents`, `dispensation_habilitaciones`,
@@ -375,7 +375,7 @@ Farmacia le queda corta. Con gerencia, entera.
 **Se verifica mirando:** el tablero de Farmacia no muestra solicitudes del estudio oculto, ni
 entregadas ni pendientes.
 
-### PR 4 — Reposición, Estadísticas y el barrido final · migración **0141**
+### PR 4 — Reposición, Estadísticas y el barrido final · migración **0142**
 
 `pedidos_medicacion`, `pedido_medicacion_items`, `reposicion_pedidos` (ojo: **`has_min_role`**, no
 `has_module`), las vistas `v_pharma_report_*` / `v_ip_*` / `v_medication_*`, y el cierre: los dos
@@ -386,7 +386,7 @@ reposición no lo incluye.
 
 ### La regla operativa
 
-**No acotar a nadie en prod hasta que la 0141 esté aplicada.** Entre la 1 y la 4 el recorte es
+**No acotar a nadie en prod hasta que la 0142 esté aplicada.** Entre la 1 y la 4 el recorte es
 parcial —la grilla filtra pero el stock no—, y en una app auditable una restricción a medias es peor
 que ninguna: promete un candado que todavía no cierra. Va también en el handoff de la jornada.
 

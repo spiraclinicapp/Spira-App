@@ -539,7 +539,7 @@ describe('mezclarHistorial', () => {
 })
 
 
-/* El historial del alcance en Farmacia (migración 0138).
+/* El historial del alcance en Farmacia (migración 0139).
  *
  * Mismo motivo que `protocolAuditLine`: invertir dar y quitar, o el sentido del interruptor,
  * produce una frase impecable que dice exactamente lo contrario de lo que pasó — y en un registro
