@@ -63,6 +63,15 @@ export async function createProtocol(
 
 /** Campos editables de un protocolo. NO incluye code ni legal_entity (inmutables desde la UI). */
 export interface EditProtocolInput {
+  /**
+   * El CÓDIGO del estudio ("ACT18301"), editable desde el 2026-09-20 por decisión del Director.
+   *
+   * Es `unique` en la base, así que un choque vuelve como 23505 y hay que traducirlo. Y ojo: este
+   * código es el identificador del protocolo **en la URL** (`/coordinacion/pacientes/ACT18301/…`),
+   * así que cambiarlo invalida los links guardados de ese estudio. Se avisa en el formulario.
+   */
+  code: string
+  /** El ACRÓNIMO ("AIRLYMPUS"). La columna sigue siendo `name`: sólo cambió el rótulo. */
   name: string
   sponsor: string | null
   description: string | null

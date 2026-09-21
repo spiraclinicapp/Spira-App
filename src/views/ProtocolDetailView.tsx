@@ -247,8 +247,11 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
               <Icon name="file" size={23} color={accent} stroke={1.9} />
             </span>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', color: accent, whiteSpace: 'nowrap' }}>{protocol.code}</div>
-              {protocol.name && <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)', marginTop: 2, lineHeight: 1.3 }}>{protocol.name}</div>}
+              {/* Acrónimo arriba y código de subtítulo, igual que en la tarjeta de la lista
+                  (Director, 2026-09-20). El `nowrap` se va del título: un acrónimo largo tiene que
+                  recortarse con puntos, no desbordar la ficha. */}
+              <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', color: accent, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{protocol.name}</div>
+              <div className="spira-mono" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.3 }}>{protocol.code}</div>
             </div>
           </div>
 

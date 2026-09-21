@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  detectarMovimientos, fechaDeCard, instantanea, pedidosVigentes, repartir, rotuloDeCard, textoDeAviso,
+  detectarMovimientos, fechaDeCard, instantanea, pedidosVigentes, repartir, rotuloDeCard,
 } from './avisosPedidos'
 import { formatAR, formatTimeAR } from '../lib/dates'
 import type { PedidoAviso } from '../data/pharma/dispensationModel'
@@ -69,7 +69,7 @@ describe('detectarMovimientos', () => {
   it('pero sí del pedido que cargó otro (es lo que ve Farmacia)', () => {
     const movs = detectarMovimientos({}, [p({ id: 'a', requested_by: 'coord-1' })], 'farma-1')
     expect(movs).toHaveLength(1)
-    expect(textoDeAviso(movs[0]).titulo).toBe('Pedido nuevo')
+    expect(rotuloDeCard(movs[0].pedido, true)).toBe('Pedido nuevo · V3')
   })
 
   it('tampoco te avisa de tu propia cancelación, pero sí de un rechazo de Farmacia', () => {

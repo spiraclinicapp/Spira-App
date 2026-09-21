@@ -14,11 +14,28 @@ export interface ChangelogEntry {
 export const SPIRA_VERSION = {
   /** Versión de la app (de package.json). */
   app: __APP_VERSION__,
+  /**
+   * De qué build se trata EXACTAMENTE. No es lo mismo que `app`, y esa diferencia es el punto.
+   *
+   * `app` es la versión curada a mano, que se saca al cerrar la jornada. Cada merge a `main`, en
+   * cambio, se despliega solo. Entre un merge y su tag, `app` nombra una versión más vieja que la
+   * que el usuario tiene delante — normal en este ritual, pero invisible: el popover afirmaba un
+   * número y no había forma de saber desde la app si era cierto. Con el commit al lado, el
+   * desfasaje se ve en vez de esconderse, y el soporte puede contestar "¿qué estás usando?" sin
+   * bajar el bundle de producción y grepearlo (que fue el método el 2026-09-20).
+   *
+   * `sha` es 'dev' fuera de Vercel: un build local no es el que nadie está usando.
+   */
+  build: {
+    sha: __BUILD_SHA__,
+    time: __BUILD_TIME__,
+  },
   /** Canal de release. Si NO es 'estable' (p. ej. 'beta'), el popover lo muestra
       como etiqueta junto al wordmark. */
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.86', text: 'Las dispensaciones avisan su estado en la campana, y el acrónimo del estudio manda sobre el código.' },
     { version: '0.85', text: 'Avisos de los pedidos de Farmacia, y el cronograma dice el título entero, el día y su ventana.' },
     { version: '0.84', text: 'El cronograma marca en verde la visita que se puede hacer hoy, y el cuadro acepta días o semanas.' },
     { version: '0.83', text: 'Farmacia estrena Reposición con sus pedidos, y la visita resume sus procedimientos y reportes.' },

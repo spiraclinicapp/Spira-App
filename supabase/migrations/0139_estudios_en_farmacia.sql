@@ -1,5 +1,5 @@
 -- ============================================================================
--- 0138 · Estudios en Farmacia: el recorte por protocolo
+-- 0139 · Estudios en Farmacia: el recorte por protocolo
 --
 -- Plan: docs/plan-estudios-en-farmacia.md (PR 1).
 --
@@ -24,14 +24,14 @@
 --
 -- ── ALCANCE DE ESTE ARCHIVO ──
 -- Recorta SÓLO los estudios y sus pacientes (PR 1). El stock, las recepciones, las dispensaciones,
--- la reposición y las estadísticas van en las PRs 2 a 4 (migraciones 0139 a 0141), que son puras
+-- la reposición y las estadísticas van en las PRs 2 a 4 (migraciones 0140 a 0142), que son puras
 -- policies porque las funciones de alcance quedan definidas acá.
 --
--- ⚠️ REGLA OPERATIVA: NO acotar a nadie en prod hasta que la 0141 esté aplicada. Entre medio el
+-- ⚠️ REGLA OPERATIVA: NO acotar a nadie en prod hasta que la 0142 esté aplicada. Entre medio el
 -- recorte es parcial —la grilla filtra pero el stock no— y una restricción a medias promete un
 -- candado que todavía no cierra.
 --
--- APLICAR: a mano en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0137. IDEMPOTENTE.
+-- APLICAR: a mano en el SQL Editor de Supabase (rol postgres), DESPUÉS de la 0138. IDEMPOTENTE.
 -- Registrar en supabase/README.md al confirmarse en prod.
 -- ============================================================================
 
@@ -51,7 +51,7 @@ alter table public.user_module_roles
 
 comment on column public.user_module_roles.ve_todos_los_estudios is
   'Farmacia: true = ve todos los estudios (predeterminado). false = ve solo los de '
-  'pharma_protocol_access, y los que se creen despues TAMPOCO. Coordinacion no la lee. 0138.';
+  'pharma_protocol_access, y los que se creen despues TAMPOCO. Coordinacion no la lee. 0139.';
 
 
 -- 2 · La lista cerrada ---------------------------------------------------------------------------
@@ -78,7 +78,7 @@ create index if not exists ix_ppa_protocol on public.pharma_protocol_access (pro
 comment on table public.pharma_protocol_access is
   'Que estudios ve en FARMACIA una persona acotada. Solo se lee cuando '
   'user_module_roles.ve_todos_los_estudios es false. Se escribe UNICAMENTE por '
-  'set_pharma_protocol_access (security definer): no hay policy de escritura. 0138.';
+  'set_pharma_protocol_access (security definer): no hay policy de escritura. 0139.';
 
 alter table public.pharma_protocol_access enable row level security;
 
@@ -122,7 +122,7 @@ $fn$;
 
 comment on function public.pharma_sin_recorte is
   'true = la persona ve todos los estudios en Farmacia (lo predeterminado, y lo que devuelve '
-  'tambien para quien no tiene el modulo). 0138.';
+  'tambien para quien no tiene el modulo). 0139.';
 
 -- ¿Este protocolo esta dentro del alcance de Farmacia de quien consulta?
 create or replace function public.pharma_alcanza_protocolo(proto_id uuid)
@@ -135,7 +135,7 @@ $fn$;
 
 comment on function public.pharma_alcanza_protocolo is
   'Alcance por protocolo en Farmacia. NO comprueba el modulo ni el nivel: se SUMA a la condicion '
-  'que la policy ya tenia, nunca la reemplaza. 0138.';
+  'que la policy ya tenia, nunca la reemplaza. 0139.';
 
 -- ¿Alcanza a este paciente? Si alcanza ALGUNO de sus estudios.
 --
@@ -157,7 +157,7 @@ set search_path = pg_catalog, public as $fn$
 $fn$;
 
 comment on function public.pharma_alcanza_paciente is
-  'Alcanza al paciente si alcanza ALGUNO de sus estudios (hay pacientes en dos protocolos). 0138.';
+  'Alcanza al paciente si alcanza ALGUNO de sus estudios (hay pacientes en dos protocolos). 0139.';
 
 -- Las cinco transitivas que usan las PRs 2, 3 y 4. Se definen ACA para que esas migraciones sean
 -- puras policies: un archivo que solo agrega condiciones es mucho mas facil de revisar que uno que
@@ -295,7 +295,7 @@ comment on view public.v_pharma_protocol_access_audit is
   'lista (trg_audit_pharma_protocol_access) mas los cambios del interruptor (user_module_roles). '
   'Vista APARTE de v_protocol_access_audit a proposito: sumarlas habria sido breaking para el front '
   'desplegado, que redactaria estas lineas como si fueran de Coordinacion. security_invoker → solo '
-  'gerencia. 0138.';
+  'gerencia. 0139.';
 
 revoke all on public.v_pharma_protocol_access_audit from anon;
 grant select on public.v_pharma_protocol_access_audit to authenticated;
@@ -343,7 +343,7 @@ left join public.users target
           end
 where (
         l.entity_type = 'user_module_roles'
-        -- NUEVO en la 0138: fuera los updates que solo movieron el interruptor.
+        -- NUEVO en la 0139: fuera los updates que solo movieron el interruptor.
         and not (
           l.action = 'UPDATE'
           and (l.before_data ->> 'role') is not distinct from (l.after_data ->> 'role')
@@ -355,9 +355,9 @@ where (
 
 comment on view public.v_access_audit is
   'Historial legible de accesos: los cambios de modulo (trg_audit_module_roles, 0003) mas el alta, '
-  'la baja y la eliminacion de la cuenta (0098, 0099). Desde la 0138 EXCLUYE los updates que solo '
+  'la baja y la eliminacion de la cuenta (0098, 0099). Desde la 0139 EXCLUYE los updates que solo '
   'movieron ve_todos_los_estudios: esos los cuenta v_pharma_protocol_access_audit. '
-  'Solo gerencia, por la policy "gerencia ve auditoria" (0006). 0096, 0100, 0138.';
+  'Solo gerencia, por la policy "gerencia ve auditoria" (0006). 0096, 0100, 0139.';
 
 
 -- 7 · Escribir el alcance ------------------------------------------------------------------------
@@ -430,7 +430,7 @@ $fn$;
 comment on function public.set_pharma_todos_los_estudios is
   'Prende (p_todos true = ve todos) o apaga el recorte por estudio en Farmacia. Solo gerencia, '
   'verificado adentro porque es security definer. Con compare-and-swap contra p_expected. La '
-  'auditoria la escribe trg_audit_module_roles. 0138.';
+  'auditoria la escribe trg_audit_module_roles. 0139.';
 
 grant execute on function public.set_pharma_todos_los_estudios(uuid, boolean, boolean) to authenticated;
 
@@ -496,7 +496,7 @@ $fn$;
 comment on function public.set_pharma_protocol_access is
   'Da (p_asignado true) o quita UN estudio del alcance de Farmacia de una persona. Solo gerencia, '
   'verificado adentro porque es security definer. Con compare-and-swap. Existe porque '
-  'pharma_protocol_access no tiene policy de escritura a proposito. 0138.';
+  'pharma_protocol_access no tiene policy de escritura a proposito. 0139.';
 
 grant execute on function public.set_pharma_protocol_access(uuid, uuid, boolean, boolean) to authenticated;
 
