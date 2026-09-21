@@ -35,6 +35,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.87', text: 'La dispensación se lee como comprobante con su historial, y Ajustes suma Estudios en Farmacia.' },
     { version: '0.86', text: 'Las dispensaciones avisan su estado en la campana, y el acrónimo del estudio manda sobre el código.' },
     { version: '0.85', text: 'Avisos de los pedidos de Farmacia, y el cronograma dice el título entero, el día y su ventana.' },
     { version: '0.84', text: 'El cronograma marca en verde la visita que se puede hacer hoy, y el cuadro acepta días o semanas.' },
