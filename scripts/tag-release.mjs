@@ -117,11 +117,27 @@ ok(`${tag} todavía no existe en origin`)
 
 // 5 · El mensaje del tag sale del changelog de esa versión, que es el texto que el Director ya
 //     revisó al sacar el release. Si no está, el tag va sin cuerpo antes que con uno inventado.
+//
+//     PERO NO EN UNA CODA. El changelog se indexa por versión CORTA (`0.86`) y una coda (`0.86.1`) no
+//     agrega línea propia, así que buscar por versión corta devolvía la línea de la `0.86.0`: el tag de
+//     la coda quedaba afirmando que introdujo algo que introdujo otra versión. Se vio en el ensayo de la
+//     `v0.86.1` (2026-09-21), antes de taggear — un tag no se corrige sin borrarlo de origin. En una coda
+//     el mensaje sale del commit de release, que es el que describe qué versiona.
+const [, , parche] = version.split('.').map(Number)
 const corta = version.split('.').slice(0, 2).join('.')
-const linea = git(`show origin/main:src/lib/version.ts`)
-  .split('\n')
-  .find((l) => l.includes(`version: '${corta}'`))
-const texto = linea?.match(/text: '(.*)'/)?.[1]?.replace(/\\'/g, "'")
+let texto
+if (parche > 0) {
+  texto = git(`log -1 --format=%b ${release}`)
+    .split('\n')
+    .filter((l) => !/^Co-Authored-By:/i.test(l))
+    .join('\n')
+    .trim() || undefined
+} else {
+  const linea = git(`show origin/main:src/lib/version.ts`)
+    .split('\n')
+    .find((l) => l.includes(`version: '${corta}'`))
+  texto = linea?.match(/text: '(.*)'/)?.[1]?.replace(/\\'/g, "'")
+}
 
 if (dry) {
   console.log(`\n[dry] pondría ${tag} sobre ${release.slice(0, 7)}`)
