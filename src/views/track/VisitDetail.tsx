@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { useVisit, markArrived, startVisitAttention, markReady, markReadyWithOutcome, discontinueEnrollment } from '../../data/dayVisits'
 import { todayISO } from '../../lib/dates'
 import { useLugar } from '../../lib/lugar'
+import { hayPopoverAbierto } from '../../components/usePopover'
 import { visitCode, visitTitle } from '../../lib/visits'
 import { ConfirmarAvance } from './ConfirmarAvance'
 import { ReadyOutcomeModal } from './ReadyOutcomeModal'
@@ -152,7 +153,10 @@ export function VisitDetail({
       // El guard por target vale TAMBIÉN para Escape, y no solo para las flechas: con el encabezado
       // nuevo hay campos de fecha y de médico que se editan en línea, y ahí Escape significa
       // "descartar la edición", no "cerrar la visita". Antes cerraba el modal y se perdía lo tipeado.
-      if (e.key === 'Escape') { if (!enCampo && !e.defaultPrevented) { onChanged?.(); onClose() } return }
+      // Y con un popover abierto (un menú, un calendario, el historial de Dispensación) el Esc es de
+      // ÉL: se cierra el popover y la visita queda. Este listener corre antes que el del popover, así
+      // que no alcanza con que el popover frene la propagación (ver `hayPopoverAbierto`).
+      if (e.key === 'Escape') { if (!enCampo && !e.defaultPrevented && !hayPopoverAbierto()) { onChanged?.(); onClose() } return }
       if (!canNav) return
       // Si un control interno ya consumió la tecla (un desplegable abierto —ej. el select de
       // coordinador con pocas opciones— hace preventDefault en las flechas), no la robamos: React
