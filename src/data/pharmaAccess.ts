@@ -19,10 +19,18 @@ import type { LlamadaDeAlcance } from './pharmaAccessModel'
    afectaría cero filas EN SILENCIO.
    ========================================================================== */
 
-/** Traduce los errores de LECTURA, con el mismo criterio que `protocolAccess.ts`. */
+/**
+ * Traduce los errores de LECTURA, con el mismo criterio que `protocolAccess.ts`.
+ *
+ * `42703` va en el grupo de "falta una actualización" y no es un caso teórico: es exactamente lo que
+ * devuelve `usePharmaScopes` con la 0138 sin aplicar —la tabla `user_module_roles` existe, la
+ * COLUMNA no—, mientras las otras dos consultas dan `PGRST205`. Sin él, la misma causa llegaba a la
+ * pantalla con dos mensajes distintos, y el de la columna era el genérico "probá de nuevo", que
+ * manda a reintentar algo que no se arregla reintentando.
+ */
 function leerErrorMessage(e: PostgrestError): string {
   const code = e.code ?? ''
-  if (code === 'PGRST202' || code === 'PGRST205' || code === '42P01') {
+  if (code === 'PGRST202' || code === 'PGRST205' || code === '42P01' || code === '42703') {
     return 'Falta aplicar una actualización del sistema para ver los estudios de Farmacia. Avisale al administrador.'
   }
   if (code === '42501') return 'No tenés permiso para ver los estudios de Farmacia.'

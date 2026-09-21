@@ -114,6 +114,7 @@ export function EquipoYAccesosSection() {
         scopesPharma={scopesPharma.data ?? []}
         asignacionesPharma={asignacionesPharma.data ?? []}
         pharmaCargando={scopesPharma.loading || asignacionesPharma.loading}
+        pharmaError={scopesPharma.error ?? asignacionesPharma.error}
         onPharmaCambiado={() => { scopesPharma.refetch(); asignacionesPharma.refetch() }}
         onCerrar={() => setEditando(null)}
         onGuardado={refetch}

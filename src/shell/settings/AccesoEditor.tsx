@@ -135,6 +135,10 @@ interface Props {
   /** La lista cerrada de cada persona. Enteras, no sólo las de ésta: mismo criterio. */
   asignacionesPharma: PharmaAsignacionRow[]
   pharmaCargando: boolean
+  /** Si alguna de las dos lecturas de Farmacia falló. NO es opcional por diseño: sin él, la tarjeta
+   *  resolvía la ausencia de datos con el `?? true` de "sin fila = ve todos" y afirmaba «Ve todos
+   *  los estudios» sobre alguien de quien no sabía nada. */
+  pharmaError: string | null
   /** Para que la sección vuelva a pedir las dos de Farmacia después de guardar. */
   onPharmaCambiado: () => void
   onCerrar: () => void
@@ -145,7 +149,7 @@ interface Props {
 export function AccesoEditor({
   persona, actorId, administradores, protocolos, protocolosCargando,
   asignaciones, asignacionesCargando, onAsignacionesCambiadas,
-  scopesPharma, asignacionesPharma, pharmaCargando, onPharmaCambiado,
+  scopesPharma, asignacionesPharma, pharmaCargando, pharmaError, onPharmaCambiado,
   onCerrar, onGuardado,
 }: Props) {
   /* El borrador arranca como una copia del acceso vigente. El vigente (`persona.accesos`) se
@@ -216,9 +220,13 @@ export function AccesoEditor({
   const [borradorPharma, setBorradorPharma] = useState<AlcancePharma | null>(null)
   const alcancePharma = borradorPharma ?? alcancePharmaVigente
 
+  /* CON LA LECTURA CAÍDA NO SE MANDA NADA. El "vigente" de arriba sería el `?? true` de la
+     ausencia, no lo que dice la base, y todo `expected` calculado contra él sería una suposición. El
+     compare-and-swap del RPC igual lo rechazaría —por eso no hay riesgo de pisar nada—, pero la
+     persona vería un "Alguien más cambió este acceso" que no explica lo que pasó. */
   const cambiosPharma = useMemo(
-    () => cambiosDeAlcance(alcancePharmaVigente, alcancePharma),
-    [alcancePharmaVigente, alcancePharma],
+    () => (pharmaError ? [] : cambiosDeAlcance(alcancePharmaVigente, alcancePharma)),
+    [pharmaError, alcancePharmaVigente, alcancePharma],
   )
 
   const totalCambios = cambios.length + cambiosProtocolos.length + cambiosPharma.length
@@ -480,7 +488,19 @@ export function AccesoEditor({
              ve un paciente. Farmacia arranca viendo todo y se puede acotar (0138). Por eso son DOS
              tarjetas y no dos renglones de una: un cuadro que dijera "Estudios que ve" donde vacío
              significa "todos" en una mitad y "ninguno" en la otra se lee mal sí o sí. */}
-      {tieneFarmacia && (
+      {tieneFarmacia && pharmaError && (
+        /* Sin datos NO hay interruptor. Mostrarlo prendido sería afirmar «ve todos» sobre alguien
+           de quien no sabemos nada — y si en realidad está acotado, la pantalla diría lo contrario
+           de la verdad justo en la consola que la gente usa para controlarlo. */
+        <StCard title="Estudios en Farmacia" desc="Sobre qué estudios puede trabajar">
+          <div role="alert" style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13, color: 'var(--spira-acc-deep-danger)', padding: '14px 0' }}>
+            <Icon name="alert" size={15} color="var(--spira-acc-deep-danger)" />
+            <span>{pharmaError}</span>
+          </div>
+        </StCard>
+      )}
+
+      {tieneFarmacia && !pharmaError && (
         <StCard title="Estudios en Farmacia" desc="Sobre qué estudios puede trabajar">
           <StRow
             label="Ve todos los estudios"
@@ -652,9 +672,26 @@ export function AccesoEditor({
 
           {/* Farmacia, con su propia regla: acá vacío NO es el caso raro — lo predeterminado es
               verlos todos, y el renglón lo dice para que no haya que deducirlo del silencio. */}
-          {tieneFarmacia && (() => {
+          {/* Mismo criterio que la tarjeta: con la lectura caída, este bloque no puede decir qué ve.
+              Dice que no lo sabe, en vez de callarse — callado se leería como "nada que avisar". */}
+          {tieneFarmacia && pharmaError && (
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5 }}>
+              <Icon name="alert" size={14} color="var(--spira-acc-deep-warn)" />
+              <span style={{ color: 'var(--spira-acc-deep-warn)' }}>
+                En Farmacia, <strong style={{ fontWeight: 600 }}>no pudimos leer qué estudios ve</strong>
+              </span>
+            </div>
+          )}
+
+          {tieneFarmacia && !pharmaError && (() => {
             const acotadoSinNada = !alcancePharma.veTodos && alcancePharma.estudios.length === 0
             const alarma = acotadoSinNada && !esAdminAhora
+            /* LA ADMINISTRACIÓN MANDA SOBRE LA LISTA, no sólo sobre la lista vacía. Las policies de
+               la 0138 abren con `has_module('gerencia') or …` y la cláusula queda AFUERA del `and`,
+               así que quien administra ve todo el centro tenga los estudios que tenga. Con la regla
+               anterior —que miraba la administración sólo cuando no había ninguno— este renglón
+               decía «sólo LTS17231» justo debajo de la tarjeta que avisaba «igual ve todos»: se
+               contradecían, y el que mentía era éste. */
             return (
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13.5 }}>
                 <Icon
@@ -665,7 +702,7 @@ export function AccesoEditor({
                 <span style={{ color: alarma ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink)' }}>
                   {alcancePharma.veTodos ? (
                     <>En Farmacia, <strong style={{ fontWeight: 600 }}>todos los estudios</strong></>
-                  ) : acotadoSinNada && esAdminAhora ? (
+                  ) : esAdminAhora ? (
                     <>Todos los estudios en Farmacia, <strong style={{ fontWeight: 600 }}>porque administra los accesos</strong></>
                   ) : acotadoSinNada ? (
                     <>Sin ningún estudio: entra a Farmacia pero <strong style={{ fontWeight: 600 }}>no ve stock ni dispensaciones</strong></>
