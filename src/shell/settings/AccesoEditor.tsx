@@ -202,7 +202,7 @@ export function AccesoEditor({
   /* El historial es UNO SOLO en pantalla aunque sean dos vistas en la base: para gerencia, "qué le
      pasó al acceso de esta persona" es una sola pregunta. El tope se aplica después de mezclar. */
   const historial = useMemo(
-    () => mezclarHistorial(audit.data ?? [], auditProtocolos.data ?? [], nombreModulo),
+    () => mezclarHistorial(audit.data ?? [], auditProtocolos.data ?? [], [], nombreModulo),
     [audit.data, auditProtocolos.data],
   )
 
