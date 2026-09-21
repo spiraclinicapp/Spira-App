@@ -11,6 +11,9 @@ name: CI
 # se valida igual.
 #
 # Sin `needs` entre los dos: ninguno depende del otro, así que corren en paralelo.
+#
+# Desde el 2026-09-21 hay un TERCERO, «Alcance de Farmacia», con el mismo criterio: si fuera un paso
+# del job del índice, un hueco de numeración legítimo lo dejaría sin correr.
 
 on:
   pull_request:
@@ -34,6 +37,22 @@ jobs:
       # trae Node: no necesita setup-node ni npm ci.
       - name: Índice de migraciones al día
         run: node scripts/check-migraciones.mjs
+
+  alcance-farmacia:
+    name: Alcance de Farmacia
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Falla si algo de Farmacia quedó afuera del recorte por estudio (docs/plan-estudios-en-farmacia.md):
+      # una policy que nombra a Farmacia sin pharma_alcanza_*, una vista sobre datos de estudios sin
+      # security_invoker, o un RPC security definer de Farmacia sin guarda. Mira la definición VIVA de
+      # cada objeto a lo largo de todas las migraciones. Si una tabla o función nueva de verdad no cuelga
+      # de ningún estudio (un catálogo global), va a la lista de excepciones del script, con el motivo.
+      # Node puro, como el de arriba.
+      - name: Nada de Farmacia sin recorte por estudio
+        run: node scripts/check-alcance-farmacia.mjs
 
   build:
     # El nombre del job se mantiene: es el que ya figura en el historial de todas las PRs.
