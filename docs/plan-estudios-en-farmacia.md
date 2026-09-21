@@ -255,7 +255,8 @@ datos de estudios sin `security_invoker`, o una función `security definer` que 
 sin guarda. Los greps no ven ninguna de las tres cosas que encontraron las cuatro PRs: policies
 redefinidas más adelante, una tabla dropeada (`reposicion_pedidos`, en la 0136) y RPC que la RLS no
 alcanza. Tampoco miran `storage`, que es donde estaba el último hueco. Sin la 0142, el script lista
-los 13 que cierra; con ella pasa.
+los 13 que cierra; con ella pasa. Corre en el CI de cada PR (job «Alcance de Farmacia»): una tabla o
+un RPC nuevo de Farmacia sin recorte deja la PR en rojo.
 
 ### Lo que queda afuera a propósito
 
@@ -499,7 +500,7 @@ reposición no lo incluye.
   estudios y 44 RPC con guarda o filtro. Sin guarda, a propósito, quedan el catálogo global
   (`create_drug`, `create_laboratorio`, `create_medication`) y `farmaceuticas_disponibles`.
 - Queda en el repo `scripts/check-alcance-farmacia.mjs` (ver "Cómo se verifica que no quedó ninguna
-  afuera"). No está enganchado al CI.
+  afuera"). Desde el 2026-09-21 corre en el CI de cada PR, en su propio job («Alcance de Farmacia»).
 
 ### La regla operativa
 

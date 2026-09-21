@@ -18,6 +18,8 @@
 //
 // Si agregás una tabla o un RPC de Farmacia y esto falla, lo normal es que falte el recorte. Si de
 // verdad no cuelga de ningún estudio (un catálogo global), sumalo a la lista con el motivo.
+//
+// Corre en el CI de cada PR, en su propio job («Alcance de Farmacia», .github/workflows/ci.yml).
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
