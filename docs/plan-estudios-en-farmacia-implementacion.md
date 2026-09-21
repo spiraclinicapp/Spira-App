@@ -129,10 +129,10 @@ Crear `supabase/migrations/0138_estudios_en_farmacia.sql` con esto:
 --
 -- ── ALCANCE DE ESTE ARCHIVO ──
 -- Recorta SÓLO los estudios y sus pacientes (PR 1). El stock, las recepciones, las dispensaciones,
--- la reposición y las estadísticas van en las PRs 2 a 4 (migraciones 0140 a 0142), que son puras
+-- la reposición y las estadísticas van en las PRs 2 a 4 (con el número libre que les toque al pushear), que son puras
 -- policies porque las siete funciones de alcance quedan definidas acá.
 --
--- ⚠️ REGLA OPERATIVA: NO acotar a nadie en prod hasta que la 0142 esté aplicada. Entre medio el
+-- ⚠️ REGLA OPERATIVA: NO acotar a nadie en prod hasta que esté aplicada la migración de la PR 4. Entre medio el
 -- recorte es parcial —la grilla filtra pero el stock no— y una restricción a medias promete un
 -- candado que todavía no cierra.
 --
@@ -1248,7 +1248,7 @@ CI lo vigila con `scripts/check-migraciones.mjs`: un archivo sin fila hace falla
 final de la tabla de `supabase/README.md`, después de la fila de la 0138:
 
 ```markdown
-| 0139 | `estudios_en_farmacia.sql` — **Farmacia se puede acotar por estudio** (`docs/plan-estudios-en-farmacia.md`, PR 1). **ADITIVA**, va **antes** del deploy del front: mientras nadie esté acotado no cambia una sola fila. Agrega `user_module_roles.ve_todos_los_estudios` (el interruptor, default `true`) y la tabla `pharma_protocol_access` (la lista cerrada, sin policy de escritura a propósito). Siete funciones `pharma_alcanza_*` mas `pharma_sin_recorte()` (el atajo que evita que un paciente sin enrolamientos desaparezca para quien NO tiene recorte), que **no comprueban el módulo**: el barrido SUMA la condición y nunca reemplaza la que ya estaba (once de las 42 policies a recortar comprueban NIVEL, y sustituirlas le daría escritura a un viewer). Auditoría con `audit_row()` + vista nueva `v_pharma_protocol_access_audit` (junta los estudios y el interruptor); `v_access_audit` deja de contar los updates que sólo movieron el interruptor. Dos RPC `security definer` con compare-and-swap. Recorta **9 policies sobre 7 tablas** (7 de SELECT + las 2 de escritura de `protocol_alerts` y `protocol_medications`, que comprueban nivel y por eso se les SUMA el alcance en vez de reemplazarlo): `protocols` (0028), `enrollments` (0010), `patients` (0006), `protocol_activities`, `protocol_procedures` (0089), `protocol_alerts` y `protocol_medications` (0032) — cada una reescrita desde su definición **viva**, no desde la 0006. Las dos vistas repiten su `with (security_invoker = true)` y el archivo termina con la sonda de `reloptions`. Probada con PGlite. ⚠️ **No acotar a nadie en prod hasta aplicar la 0142**: entre medio el recorte es parcial. |
+| 0139 | `estudios_en_farmacia.sql` — **Farmacia se puede acotar por estudio** (`docs/plan-estudios-en-farmacia.md`, PR 1). **ADITIVA**, va **antes** del deploy del front: mientras nadie esté acotado no cambia una sola fila. Agrega `user_module_roles.ve_todos_los_estudios` (el interruptor, default `true`) y la tabla `pharma_protocol_access` (la lista cerrada, sin policy de escritura a propósito). Siete funciones `pharma_alcanza_*` mas `pharma_sin_recorte()` (el atajo que evita que un paciente sin enrolamientos desaparezca para quien NO tiene recorte), que **no comprueban el módulo**: el barrido SUMA la condición y nunca reemplaza la que ya estaba (once de las 42 policies a recortar comprueban NIVEL, y sustituirlas le daría escritura a un viewer). Auditoría con `audit_row()` + vista nueva `v_pharma_protocol_access_audit` (junta los estudios y el interruptor); `v_access_audit` deja de contar los updates que sólo movieron el interruptor. Dos RPC `security definer` con compare-and-swap. Recorta **9 policies sobre 7 tablas** (7 de SELECT + las 2 de escritura de `protocol_alerts` y `protocol_medications`, que comprueban nivel y por eso se les SUMA el alcance en vez de reemplazarlo): `protocols` (0028), `enrollments` (0010), `patients` (0006), `protocol_activities`, `protocol_procedures` (0089), `protocol_alerts` y `protocol_medications` (0032) — cada una reescrita desde su definición **viva**, no desde la 0006. Las dos vistas repiten su `with (security_invoker = true)` y el archivo termina con la sonda de `reloptions`. Probada con PGlite. ⚠️ **No acotar a nadie en prod hasta aplicar la migración de la PR 4**: entre medio el recorte es parcial. |
 ```
 
 - [ ] **Paso 5: Correr el chequeo de migraciones**
@@ -2228,7 +2228,7 @@ Cuerpo de la PR: qué hace, el link a `docs/plan-estudios-en-farmacia.md`, y **a
 aviso de orden:
 
 > **La migración `0139` va PRIMERO, antes del deploy.** Es aditiva: mientras nadie esté acotado no
-> cambia una sola fila. Y **no acotar a nadie en prod hasta aplicar la `0142`** — entre medio el
+> cambia una sola fila. Y **no acotar a nadie en prod hasta aplicar la migración de la PR 4** — entre medio el
 > recorte es parcial.
 
 - [ ] **Paso 7: Pasarle el SQL al Director**

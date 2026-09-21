@@ -24,10 +24,10 @@
 --
 -- ── ALCANCE DE ESTE ARCHIVO ──
 -- Recorta SÓLO los estudios y sus pacientes (PR 1). El stock, las recepciones, las dispensaciones,
--- la reposición y las estadísticas van en las PRs 2 a 4 (migraciones 0140 a 0142), que son puras
+-- la reposición y las estadísticas van en las PRs 2 a 4 (con el número libre que les toque al pushear), que son puras
 -- policies porque las funciones de alcance quedan definidas acá.
 --
--- ⚠️ REGLA OPERATIVA: NO acotar a nadie en prod hasta que la 0142 esté aplicada. Entre medio el
+-- ⚠️ REGLA OPERATIVA: NO acotar a nadie en prod hasta que esté aplicada la migración de la PR 4. Entre medio el
 -- recorte es parcial —la grilla filtra pero el stock no— y una restricción a medias promete un
 -- candado que todavía no cierra.
 --
