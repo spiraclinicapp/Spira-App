@@ -3,7 +3,7 @@
    («en esta visita no se entregó medicación» sobre una que sí). Por eso van testeadas. */
 import { describe, expect, it } from 'vitest'
 import { vistaVisitaCerrada } from './visitaCerradaModel'
-import type { PedidoHistorial } from './historialPlegadoModel'
+import type { PedidoHistorial } from './pedidosCerradosModel'
 
 const pedido = (over: Partial<PedidoHistorial> = {}): PedidoHistorial => ({
   id: 'r1', status: 'atendida', created_at: '2026-08-26T12:00:00+00:00',

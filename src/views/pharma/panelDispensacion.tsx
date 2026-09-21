@@ -2,9 +2,9 @@ import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 
 /* Las piezas que comparten las partes de la tarjeta de Dispensación de la visita: el panel
-   (`VisitDispensationPanel`), la sección del producto en investigación (`SeccionIp`) y el historial
-   plegado (`HistorialPlegado`). Vivían privadas en el panel; la Tanda 3a lo partió (plan R9) y copiar
-   los estilos a cada archivo habría sido tres tarjetas esperando a divergir. */
+   (`VisitDispensationPanel`) y la sección del producto en investigación (`SeccionIp`). Vivían
+   privadas en el panel; la Tanda 3a lo partió (plan R9) y copiar los estilos a cada archivo habría
+   sido dos tarjetas esperando a divergir. */
 
 // Tintes con rgba() literal (no se puede concatenar alfa a un var(--x)). --spira-danger #A6483B,
 // --spira-warn #B0823F.

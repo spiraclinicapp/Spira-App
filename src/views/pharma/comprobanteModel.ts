@@ -28,8 +28,8 @@ import { activeDispensation, columnOf } from '../../data/pharma/dispensationMode
 import { formatAR, isoDayAR } from '../../lib/dates'
 import { badgeOf } from './dispensaciones/estados'
 import type { Badge } from './dispensaciones/estados'
-import { rechazoVigente } from './historialPlegadoModel'
-import type { PedidoHistorial } from './historialPlegadoModel'
+import { rechazoVigente } from './pedidosCerradosModel'
+import type { PedidoHistorial } from './pedidosCerradosModel'
 import type { ContenidoIp } from './seccionIpModel'
 
 /** Lo que el comprobante lee de un pedido. */

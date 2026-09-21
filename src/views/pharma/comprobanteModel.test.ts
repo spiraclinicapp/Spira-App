@@ -7,7 +7,7 @@ import {
   rechazoParaAvisar,
 } from './comprobanteModel'
 import type { PedidoComprobante } from './comprobanteModel'
-import type { PedidoHistorial } from './historialPlegadoModel'
+import type { PedidoHistorial } from './pedidosCerradosModel'
 
 /**
  * El comprobante de la tarjeta de Dispensación (spec 2026-09-21).
