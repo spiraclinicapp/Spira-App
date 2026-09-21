@@ -9,6 +9,21 @@ import { formatShortAR, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 import { desvioSegunProtocolo, estimadaNoAplica, fechaSegunProtocolo } from './visitHeaderRules'
 
+/* El título de la fila, que puede usar DOS renglones antes de recortar (Director, 2026-09-20).
+   Antes iba en uno solo con puntos suspensivos, y alcanzaba mientras el título era un código corto;
+   desde que el cuadro guarda un texto libre, "Control de seguridad ampliado" salía como "Control de
+   seguridad ampli…" — el recorte se comía justo la parte que distingue una visita de otra.
+   El tope de dos NO es decorativo: sin él, un título largo estira la fila y desalinea la columna de
+   fechas, que es de alto fijo. Se hace con `line-clamp` y no con una altura máxima porque cortar por
+   altura parte el renglón por la mitad, dejando media línea de letras asomando.
+   `overflowWrap: 'anywhere'` es para el caso sin espacios: sin eso, una palabra más ancha que la
+   columna no corta en ningún lado y desborda en vez de envolver. */
+const tituloTexto: CSSProperties = {
+  fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, lineHeight: 1.25,
+  display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2,
+  overflow: 'hidden', overflowWrap: 'anywhere',
+}
+
 /**
  * Cronograma vertical: las visitas del paciente (programadas + sueltas). Por fila: pelotita de
  * estado (gris vacía sin atender, contorno verde con punto atendida, relleno verde con check
@@ -129,13 +144,13 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
                   /* `inline-block` + `maxWidth` y NO `block`: en bloque la caja ocupa los 480 px de
                      la columna, así que el `cursor: help` aparecía sobre el espacio vacío a la
                      derecha de la palabra — una pista de ayuda flotando sobre la nada. Así abraza
-                     el texto y sigue truncando si el rótulo no entra. */
-                  style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: codigoColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block', maxWidth: '100%', verticalAlign: 'bottom' }}
+                     el texto y sigue recortando si el rótulo no entra. */
+                  style={{ ...tituloTexto, color: codigoColor, maxWidth: '100%', verticalAlign: 'bottom' }}
                 >
                   {label}
                 </abbr>
               ) : (
-                <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14.5, color: codigoColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+                <div style={{ ...tituloTexto, color: codigoColor }}>{label}</div>
               )}
               {/* El día lleva `title` y NO subrayado: se repite en cada renglón, y marcar los
                   siete volvería la columna un texto resaltado. La explicación está cuando se la
