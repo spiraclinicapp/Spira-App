@@ -358,3 +358,144 @@ comment on view public.v_access_audit is
   'la baja y la eliminacion de la cuenta (0098, 0099). Desde la 0138 EXCLUYE los updates que solo '
   'movieron ve_todos_los_estudios: esos los cuenta v_pharma_protocol_access_audit. '
   'Solo gerencia, por la policy "gerencia ve auditoria" (0006). 0096, 0100, 0138.';
+
+
+-- 7 · Escribir el alcance ------------------------------------------------------------------------
+-- Dos RPC y ninguna escritura directa, por la misma razon que la 0110: la consola es de GERENCIA, y
+-- una policy de escritura que la aceptara dejaria de paso que un operator de Farmacia se
+-- auto-asigne estudios por PostgREST. Ademas, un insert directo afectaria CERO FILAS EN SILENCIO —
+-- la RLS filtra callada, y 0 filas no es exito, es falta de permiso.
+--
+-- Los dos llevan compare-and-swap contra p_expected. No es ceremonia: sin el, dos gerencias
+-- editando a la vez se pisan y gana la ultima en silencio — y en permisos "en silencio" significa
+-- que alguien conserva un acceso que se creyo revocado.
+
+-- 7.1 · El interruptor
+create or replace function public.set_pharma_todos_los_estudios(
+  p_user_id  uuid,
+  p_todos    boolean,
+  p_expected boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v_uid    uuid := auth.uid();
+  v_actual boolean;
+begin
+  if v_uid is null then
+    raise exception 'Tu sesión venció.' using errcode = '28000';
+  end if;
+
+  -- VA ACA Y NO EN UNA POLICY: la funcion es security definer, corre con los permisos del dueño y
+  -- la RLS no la mira.
+  if not public.has_module('gerencia') then
+    raise exception 'No tenés permiso para cambiar accesos.' using errcode = '42501';
+  end if;
+
+  select r.ve_todos_los_estudios into v_actual
+    from public.user_module_roles r
+   where r.user_id = p_user_id and r.module = 'pharma';
+
+  -- Sin fila de rol no hay interruptor que mover: el alcance es un modificador DEL ROL y sin el
+  -- modulo no significa nada. Mensaje propio para que no llegue un error de Postgres en ingles.
+  if not found then
+    raise exception 'Primero dale acceso a Farmacia y después elegí los estudios.'
+      using errcode = 'P0001';
+  end if;
+
+  if v_actual is distinct from p_expected then
+    raise exception 'Alguien más cambió este acceso mientras lo editabas. Refrescá y volvé a mirar.'
+      using errcode = 'P0001';
+  end if;
+
+  -- Nada que cambiar: se sale sin escribir. Un historial con lineas de cambios que no ocurrieron es
+  -- un historial que nadie lee.
+  if v_actual = p_todos then
+    return;
+  end if;
+
+  update public.user_module_roles
+     set ve_todos_los_estudios = p_todos
+   where user_id = p_user_id and module = 'pharma';
+
+  -- Volver a "ve todos" NO borra la lista a proposito: si gerencia se arrepiente y vuelve a
+  -- acotarla, encuentra los estudios que habia elegido. La lista sin el interruptor no da acceso a
+  -- nada — pharma_sin_recorte() corta antes.
+end;
+$fn$;
+
+comment on function public.set_pharma_todos_los_estudios is
+  'Prende (p_todos true = ve todos) o apaga el recorte por estudio en Farmacia. Solo gerencia, '
+  'verificado adentro porque es security definer. Con compare-and-swap contra p_expected. La '
+  'auditoria la escribe trg_audit_module_roles. 0138.';
+
+grant execute on function public.set_pharma_todos_los_estudios(uuid, boolean, boolean) to authenticated;
+
+
+-- 7.2 · Un estudio, espejo exacto de set_protocol_access (0110 §3)
+create or replace function public.set_pharma_protocol_access(
+  p_user_id     uuid,
+  p_protocol_id uuid,
+  p_asignado    boolean,
+  p_expected    boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v_uid    uuid := auth.uid();
+  v_actual boolean;
+begin
+  if v_uid is null then
+    raise exception 'Tu sesión venció.' using errcode = '28000';
+  end if;
+
+  if not public.has_module('gerencia') then
+    raise exception 'No tenés permiso para cambiar accesos.' using errcode = '42501';
+  end if;
+
+  -- Que existan las dos puntas. Sin esto fallaria igual por la FK, pero con un mensaje de Postgres
+  -- en ingles nombrando una constraint.
+  if not exists (select 1 from public.users u where u.id = p_user_id) then
+    raise exception 'Esa cuenta ya no existe. Refrescá la lista.' using errcode = '23503';
+  end if;
+  if not exists (select 1 from public.protocols pr where pr.id = p_protocol_id) then
+    raise exception 'Ese estudio ya no existe. Refrescá la lista.' using errcode = '23503';
+  end if;
+
+  select exists (
+    select 1 from public.pharma_protocol_access a
+     where a.user_id = p_user_id and a.protocol_id = p_protocol_id
+  ) into v_actual;
+
+  if v_actual is distinct from p_expected then
+    raise exception 'Alguien más cambió este acceso mientras lo editabas. Refrescá y volvé a mirar.'
+      using errcode = 'P0001';
+  end if;
+
+  if v_actual = p_asignado then
+    return;
+  end if;
+
+  if p_asignado then
+    insert into public.pharma_protocol_access (user_id, protocol_id)
+    values (p_user_id, p_protocol_id)
+    on conflict (user_id, protocol_id) do nothing;
+  else
+    delete from public.pharma_protocol_access a
+     where a.user_id = p_user_id and a.protocol_id = p_protocol_id;
+  end if;
+end;
+$fn$;
+
+comment on function public.set_pharma_protocol_access is
+  'Da (p_asignado true) o quita UN estudio del alcance de Farmacia de una persona. Solo gerencia, '
+  'verificado adentro porque es security definer. Con compare-and-swap. Existe porque '
+  'pharma_protocol_access no tiene policy de escritura a proposito. 0138.';
+
+grant execute on function public.set_pharma_protocol_access(uuid, uuid, boolean, boolean) to authenticated;

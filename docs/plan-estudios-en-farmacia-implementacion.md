@@ -1593,48 +1593,59 @@ grant execute on function public.set_pharma_protocol_access(uuid, uuid, boolean,
 
 El corte pasa a `"-- 8 ·"` (es el segundo argumento, no hay que tocar el guion). Agregar estos casos antes del resumen:
 
+`CARO` se declara **fuera** del `if`: la Tarea 4 lo necesita para el caso de gerencia.
+
 ```js
-// Los RPC. Ana no es gerencia; Caro sí.
+// ── Los RPC ──────────────────────────────────────────────────────────────────────────────────
+// Ana no es gerencia; Caro sí.
 const CARO = '44444444-4444-4444-4444-444444444444'
-await db.exec(`
-  insert into public.users values ('${CARO}','Caro');
-  insert into public.user_module_roles (user_id, module, role) values ('${CARO}','gerencia','admin');
-`)
+if (!corte.startsWith('-- 4') && !corte.startsWith('-- 7')) {
+  await db.exec(`
+    insert into public.users values ('${CARO}','Caro');
+    insert into public.user_module_roles (user_id, module, role) values ('${CARO}','gerencia','admin');
+  `)
 
-const debeFallar = async (uid, sql, parte) => {
-  await db.query(`select set_config('spira.uid', '${uid}', false)`)
-  try { await db.query(sql); return `no falló` }
-  catch (e) { return String(e.message).includes(parte) ? null : `falló con "${e.message}"` }
+  const debeFallar = async (uid, sql, parte) => {
+    await db.query(`select set_config('spira.uid', '${uid}', false)`)
+    try { await db.query(sql); return 'no falló' }
+    catch (e) { return String(e.message).includes(parte) ? null : `falló con "${e.message}"` }
+  }
+
+  const rpcCasos = [
+    ['sin gerencia, el interruptor se niega', await debeFallar(U.ana,
+      `select public.set_pharma_todos_los_estudios('${U.bea}', true, false)`, 'No tenés permiso')],
+    ['sin gerencia, el estudio se niega', await debeFallar(U.ana,
+      `select public.set_pharma_protocol_access('${U.bea}','${P.act}', true, false)`, 'No tenés permiso')],
+    ['compare-and-swap: expected equivocado', await debeFallar(CARO,
+      `select public.set_pharma_protocol_access('${U.bea}','${P.act}', true, true)`, 'Alguien más cambió')],
+    ['estudio inexistente', await debeFallar(CARO,
+      `select public.set_pharma_protocol_access('${U.bea}','aaaaaaaa-0000-0000-0000-000000000009', true, false)`,
+      'Ese estudio ya no existe')],
+    // Caro tiene gerencia pero NO Farmacia: no hay fila de rol, así que no hay interruptor que
+    // mover. Sin este guard llegaría un error de Postgres en inglés, o peor, un update de 0 filas
+    // que parece éxito.
+    ['sin fila de rol en Farmacia, el interruptor avisa', await debeFallar(CARO,
+      `select public.set_pharma_todos_los_estudios('${CARO}', false, true)`,
+      'Primero dale acceso a Farmacia')],
+  ]
+  for (const [nombre, err] of rpcCasos) {
+    if (err) { fallos++; console.log(`FALLA ${nombre}: ${err}`) } else console.log(`ok   ${nombre}`)
+  }
+
+  // El camino feliz: Caro acota a Bea (que el bloque de auditoría dejó en "ve todos") y le da ACT.
+  await db.query(`select set_config('spira.uid', '${CARO}', false)`)
+  await db.query(`select public.set_pharma_todos_los_estudios('${U.bea}', false, true)`)
+  await db.query(`select public.set_pharma_protocol_access('${U.bea}','${P.act}', true, false)`)
+  await db.query(`select set_config('spira.uid', '${U.bea}', false)`)
+  const beaVeAct = (await db.query(`select public.pharma_alcanza_protocolo('${P.act}') v`)).rows[0].v
+  if (beaVeAct !== true) { fallos++; console.log('FALLA Bea no alcanza ACT después de dárselo') }
+  else console.log('ok   camino feliz: acotar + dar un estudio')
+
+  // Idempotencia del RPC: darlo de nuevo no escribe ni rompe.
+  await db.query(`select set_config('spira.uid', '${CARO}', false)`)
+  await db.query(`select public.set_pharma_protocol_access('${U.bea}','${P.act}', true, true)`)
+  console.log('ok   dar dos veces el mismo estudio no rompe')
 }
-
-const rpcCasos = [
-  ['sin gerencia, el interruptor se niega', await debeFallar(U.ana,
-    `select public.set_pharma_todos_los_estudios('${U.bea}', true, false)`, 'No tenés permiso')],
-  ['sin gerencia, el estudio se niega', await debeFallar(U.ana,
-    `select public.set_pharma_protocol_access('${U.bea}','${P.act}', true, false)`, 'No tenés permiso')],
-  ['compare-and-swap: expected equivocado', await debeFallar(CARO,
-    `select public.set_pharma_protocol_access('${U.bea}','${P.act}', true, true)`, 'Alguien más cambió')],
-  ['estudio inexistente', await debeFallar(CARO,
-    `select public.set_pharma_protocol_access('${U.bea}','${P.lts.replace(/1$/, '9')}', true, false)`,
-    'Ese estudio ya no existe')],
-]
-for (const [nombre, err] of rpcCasos) {
-  if (err) { fallos++; console.log(`FALLA ${nombre}: ${err}`) } else console.log(`ok   ${nombre}`)
-}
-
-// El camino feliz: Caro acota a Bea y le da ACT.
-await db.query(`select set_config('spira.uid', '${CARO}', false)`)
-await db.query(`select public.set_pharma_todos_los_estudios('${U.bea}', false, true)`)
-await db.query(`select public.set_pharma_protocol_access('${U.bea}','${P.act}', true, false)`)
-await db.query(`select set_config('spira.uid', '${U.bea}', false)`)
-const beaVeAct = (await db.query(`select public.pharma_alcanza_protocolo('${P.act}') v`)).rows[0].v
-if (beaVeAct !== true) { fallos++; console.log('FALLA Bea no alcanza ACT después de dárselo') }
-else console.log('ok   camino feliz: acotar + dar un estudio')
-
-// Idempotencia del RPC: darlo de nuevo no escribe ni rompe.
-await db.query(`select set_config('spira.uid', '${CARO}', false)`)
-await db.query(`select public.set_pharma_protocol_access('${U.bea}','${P.act}', true, true)`)
-console.log('ok   dar dos veces el mismo estudio no rompe')
 ```
 
 - [ ] **Paso 3: Correr la verificación**
