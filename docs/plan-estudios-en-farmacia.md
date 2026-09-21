@@ -242,9 +242,24 @@ se redefinieron después (`ver drogas` en la 0032 y otra vez en la 0074; `ver pr
 en la 0006 y otra vez en la 0028; todas las de `ip_units` en la 0037). La que manda es la última
 `create policy` de cada nombre.
 
+**Desde la PR 4 eso lo hace un script, y los greps quedan como explicación:**
+
+```bash
+node scripts/check-alcance-farmacia.mjs
+```
+
+Resuelve cada policy, vista y función por su **último evento** en orden de aplicación (una redefinida
+o dropeada después manda sobre la primera, y una tabla borrada no cuenta), y sale con código 1 si
+encuentra una policy de Farmacia sin `pharma_alcanza_*` fuera de las excepciones, una vista sobre
+datos de estudios sin `security_invoker`, o una función `security definer` que Farmacia puede llamar
+sin guarda. Los greps no ven ninguna de las tres cosas que encontraron las cuatro PRs: policies
+redefinidas más adelante, una tabla dropeada (`reposicion_pedidos`, en la 0136) y RPC que la RLS no
+alcanza. Tampoco miran `storage`, que es donde estaba el último hueco. Sin la 0142, el script lista
+los 13 que cierra; con ella pasa.
+
 ### Lo que queda afuera a propósito
 
-**Dieciocho policies sobre diez tablas** que no cuelgan de ningún protocolo. Van listadas en el
+**Diecisiete policies sobre diez tablas** que no cuelgan de ningún protocolo (el diseño decía dieciocho, contadas a mano; el script, que mira la definición viva, da diecisiete). Van listadas en el
 comentario de la 0139 para que la próxima persona no crea que se las saltearon:
 
 `medications`, `drugs`, `medication_codes`, `laboratorios`, `laboratorio_codes` (catálogo global
@@ -449,9 +464,47 @@ greps tienen que dar **sólo** la lista de excepciones documentada.
 **Se verifica mirando:** los números del período se calculan sin el estudio oculto, y el pedido de
 reposición no lo incluye.
 
+**Lo que encontró al hacerla (migración 0142):**
+
+- **El bucket `ip-docs` estaba abierto entero.** Sus dos policies de `storage.objects` (0071) autorizan a
+  Farmacia por el módulo solo, así que con un `list()` se veían todas las rutas y se bajaba la constancia
+  de IP —o la receta— de un estudio oculto. Es el único hueco fuera de `public`, y por eso ningún barrido
+  del schema lo veía: lo encontró leer qué hace el front con los archivos. Se rehacen con el mismo bloque
+  `do` con manejador de la 0071 (`storage.objects` es de `supabase_storage_admin` y puede dar 42501), y la
+  cláusula de Coordinación queda como estaba.
+- **D6 no aplica a los archivos.** El protocolo sale del principio de la ruta (`ip_doc_protocol`), y una ruta
+  que no empieza con un uuid da null. Con `pharma_alcanza_protocolo` eso sería "de ningún estudio" y se le
+  abriría a todo acotado. Pero en ese bucket **todo archivo es de un estudio** —así las arma el front—, así
+  que una ruta sin protocolo es un archivo roto, no uno de nadie. De ahí la función propia,
+  `pharma_alcanza_archivo_ip`, que para quien no está acotado no cambia nada.
+- **El "Success" no prueba lo del bucket.** Si el bloque no pudo, avisa con un `notice` y el resto entra
+  igual; y si en prod hay una policy del bucket hecha a mano con otro nombre, por el OR seguiría abriendo
+  todo. Por eso la migración termina con una consulta sobre `pg_policies` que tiene que devolver
+  exactamente dos filas, las dos recortadas. **Mirarla es parte de aplicar la 0142.**
+- **2 policies** (pedidos de medicación y renglones), **7 RPC con guarda** (6 de Farmacia —los cinco de
+  reposición y `assign_medication_to_protocol`, que es `security definer` y la RLS de la 0139 no
+  alcanzaba— y `list_protocol_coordinators`, mixto por gerencia) y **2 con filtro**.
+- **A dos RPC no les alcanza una guarda**: `pedidos_por_recibir` no tiene parámetros y
+  `reposicion_del_periodo` tiene el protocolo opcional; los dos devuelven varios estudios a la vez. Se les
+  suma **una** condición en el CTE del que cuelga todo lo demás (el script exige que ese lugar aparezca una
+  sola vez en el cuerpo). En `reposicion_del_periodo` gerencia queda afuera del filtro, como en su chequeo.
+  Probados **ejecutándolos** en PGlite con una persona acotada, no sólo compilándolos.
+- **`reposicion_pedidos` ya no existe** (la dropeó la 0136, cuando la reposición pasó a corte a corte):
+  nada que recortar ahí.
+- **Las estadísticas no necesitaron nada propio.** Las vistas `v_pharma_report_*`, `v_ip_*` y
+  `v_medication_*` son todas `security_invoker`, así que heredan el recorte de las policies de la PR 2 y
+  la PR 3. De las 24 vistas vivas, la única sin `security_invoker` es `v_team_roster` (0109), el padrón de
+  personas, a propósito y sin datos de estudios.
+- **El barrido final da cero pendientes**: 44 policies recortadas, 17 de excepción, 19 vistas sobre datos de
+  estudios y 44 RPC con guarda o filtro. Sin guarda, a propósito, quedan el catálogo global
+  (`create_drug`, `create_laboratorio`, `create_medication`) y `farmaceuticas_disponibles`.
+- Queda en el repo `scripts/check-alcance-farmacia.mjs` (ver "Cómo se verifica que no quedó ninguna
+  afuera"). No está enganchado al CI.
+
 ### La regla operativa
 
-**No acotar a nadie en prod hasta que esté aplicada la migración de la PR 4.** Entre la 1 y la 4 el recorte es
+**No acotar a nadie en prod hasta que esté aplicada la migración de la PR 4** (la 0142, después de la 0140 y
+la 0141), **y mirada la consulta del bucket del pie de ese archivo.** Entre la 1 y la 4 el recorte es
 parcial —la grilla filtra pero el stock no—, y en una app auditable una restricción a medias es peor
 que ninguna: promete un candado que todavía no cierra. Va también en el handoff de la jornada.
 
