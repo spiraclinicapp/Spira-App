@@ -42,7 +42,11 @@ modo completo sin re-preguntar los pasos.
 4. Gate: `npm run build` verde. No afirmes "listo" sin eso.
 5. Merge a `main` **solo si el Director lo pide**. PRs: no hay `gh` ni self-merge — API
    REST + `git credential fill` + Node; el Director mergea.
-6. `git tag -a vX.Y.Z -m "…"` + `git push --follow-tags`.
+6. **El tag, DESPUÉS del merge y con `node scripts/tag-release.mjs`** (`--dry` para ver qué haría).
+   Toma la versión de `origin/main`, busca el commit que la subió y se niega a taggear si `main`
+   todavía no lo tiene — que es la carrera que perdió el release dos veces (#228 y #250). No lo
+   pongas a mano: el `git tag` suelto es justo el que puede apuntar a un commit huérfano, y
+   deshacerlo obliga a borrar un tag de `origin`, que se le pregunta al Director.
 
 ## Errores conocidos (no repetir)
 
