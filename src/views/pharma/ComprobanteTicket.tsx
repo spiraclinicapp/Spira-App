@@ -91,7 +91,7 @@ export function ComprobanteTicket({ c, concomitante, ip, onEnlace, busy }: {
 
       {c.enlace && onEnlace && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px', borderTop: '1px solid var(--spira-line)' }}>
-          <button type="button" className="spira-enlace-sobrio spira-no-press" disabled={busy} onClick={onEnlace} style={{ minHeight: 16 }}>
+          <button type="button" className="spira-enlace-sobrio spira-no-press" disabled={busy} onClick={onEnlace}>
             <Icon name={c.enlace === 'corregir' ? 'pencil' : 'x'} size={12} stroke={2} />
             {c.enlace === 'corregir' ? 'Corregir esta entrega' : 'Cancelar solicitud'}
           </button>

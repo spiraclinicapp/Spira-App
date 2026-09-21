@@ -112,7 +112,7 @@ const btnPrimario = (accent: string): CSSProperties => ({
  * aclara en oscuro (6,0:1). El borde en longhands (trampa de la abreviada + longhand).
  */
 const btnNueva: CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', height: 38, marginTop: 12,
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', height: 38,
   borderRadius: 9, borderWidth: 1, borderStyle: 'solid',
   borderColor: 'color-mix(in srgb, var(--spira-acc-deep-teal) 35%, var(--spira-white))',
   background: 'var(--spira-white)', color: 'var(--spira-acc-deep-teal)', cursor: 'pointer',
@@ -1103,7 +1103,9 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
           {/* 1 · LOS COMPROBANTES, primero: el estado de la entrega es lo primero que se lee (handoff,
               punto 1). Un ticket por pedido vivo o entregado; lo normal es uno. */}
           {hayTickets && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            // El margen va abajo de los tickets y no arriba de lo que sigue: los avisos pueden no
+            // dibujar nada, y un envoltorio vacío con margen dejaba un hueco suelto.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
               {tickets.map((r) => {
                 const c = comprobanteDe(r, { puedeCancelar: !readOnly, puedeCorregir: puedeAbrirCorreccion })
                 if (!c) return null
@@ -1118,15 +1120,13 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
               consulta entera y decide sola qué mostrar. Con la excepción fuera de cronograma, el aviso
               del IP va adentro de su sección (`AvisoIpReciente`). */}
           {!readOnly && (
-            <div style={hayTickets ? { marginTop: 12 } : undefined}>
-              <AvisosDeEntrega
-                query={ctxQ} rojo={rojo} saldos={saldos} hayElegido={elegidos.length > 0}
-                // No es el `readOnly` de permisos: adentro de `AvisosDeEntrega` este prop sólo tapa el
-                // botón «Pedir el saldo» (el aviso rojo es incondicional). Con la visita cerrada y sin
-                // corrección abierta, tocar el saldo cargaría un renglón sobre un resumen de lectura.
-                readOnly={!puedeCargar} accent={accent} onPedirSaldo={pedirSaldo}
-              />
-            </div>
+            <AvisosDeEntrega
+              query={ctxQ} rojo={rojo} saldos={saldos} hayElegido={elegidos.length > 0}
+              // No es el `readOnly` de permisos: adentro de `AvisosDeEntrega` este prop sólo tapa el
+              // botón «Pedir el saldo» (el aviso rojo es incondicional). Con la visita cerrada y sin
+              // corrección abierta, tocar el saldo cargaría un renglón sobre un resumen de lectura.
+              readOnly={!puedeCargar} accent={accent} onPedirSaldo={pedirSaldo}
+            />
           )}
 
           {readOnly && !cerrada && !hayTickets && requests.length === 0 && !reqQ.loading && (
