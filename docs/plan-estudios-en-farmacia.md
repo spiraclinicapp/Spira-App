@@ -412,6 +412,34 @@ Farmacia le queda corta. Con gerencia, entera.
 **Se verifica mirando:** el tablero de Farmacia no muestra solicitudes del estudio oculto, ni
 entregadas ni pendientes.
 
+**Lo que encontró al hacerla (migración 0141):**
+
+- **Las dispensaciones son compartidas**, y eso decide todo. El pedido lo crea Coordinación y lo
+  ejecuta Farmacia, así que casi todas las policies y la mitad de los RPC autorizan por **dos caminos**.
+  D4 manda que una coordinadora con Farmacia acotada siga pidiendo medicación para su estudio.
+- **18 policies:** el alcance se suma **sólo** a la cláusula de Farmacia; las de gerencia, contable y
+  Coordinación (`coordina_visita`, `is_assigned_coordinator`) quedan letra por letra.
+- **29 RPC con guarda**, clasificados por **su propio chequeo de permiso** —no por el archivo que los
+  llama, que es el mismo para las dos pantallas—:
+  - **15 de Farmacia**: el cuerpo sólo autoriza a Farmacia. La guarda es el alcance, sin excepciones.
+  - **14 mixtos**: el cuerpo autoriza también por gerencia o Coordinación. La guarda deja pasar **ese
+    camino, copiado del propio cuerpo**, y sólo corta a quien entra únicamente por Farmacia. No hay una
+    regla común de "qué es Coordinación": cada guarda repite la del chequeo que tiene abajo.
+  - **Sin guarda**, a propósito: los cuatro de sólo Coordinación (`cancel_dispensation_request`,
+    `close_visit_ip`, `close_enrollment`, `dispense`), `farmaceuticas_disponibles` (devuelve personas,
+    no datos de un estudio), los triggers, y los dos internos sin `execute` para `authenticated`.
+- **Tres cuerpos vivos decían `create function` a secas** (`contexto_dispensacion`,
+  `deliver_dispensation`, `visitas_dispensables`): en su migración venían después de un `drop function`.
+  Copiados tal cual habrían cortado en prod con *"function already exists"*. Pasan a `create or replace`,
+  y el comparador admite exactamente ese cambio y ningún otro.
+- **Un pedido siempre es de un estudio.** `dispensation_requests.protocol_id` puede ser null en filas de
+  antes de la 0071, y con D6 eso las habría abierto a todo acotado. `pharma_alcanza_solicitud` pasa a
+  resolverlo por la visita, que siempre existe (`visit_id` y `patient_visits.enrollment_id` son not null).
+- **Las seis vistas** que leen estas tablas son `security_invoker`. `v_visit_ip_status` la usa
+  Coordinación, y a alguien con los dos módulos le sigue mostrando el IP de sus estudios por la
+  cláusula de `coordina_visita`.
+- Dos funciones de alcance nuevas: `pharma_alcanza_visita` y `pharma_alcanza_inscripcion`.
+
 ### PR 4 — Reposición, Estadísticas y el barrido final
 
 `pedidos_medicacion`, `pedido_medicacion_items`, `reposicion_pedidos` (ojo: **`has_min_role`**, no
