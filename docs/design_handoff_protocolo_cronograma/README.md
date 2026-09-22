@@ -1,5 +1,20 @@
 # Handoff: Protocolo — acceso a «Cronograma y procedimientos»
 
+> **Implementado el 2026-09-21, con tres desvíos** (ver el comentario de la franja en
+> `src/views/ProtocolDetailView.tsx`):
+>
+> 1. **El contador muestra sólo el número** («19»), no «17 visitas». El mock está dibujado con
+>    Hanken Grotesk; en Inter —la letra de la app— el rótulo mide 176px y no 164, y en los 252px
+>    útiles de la franja al contador le quedaban 25px para una palabra que pide 47: se leía «19 …»
+>    en todos los estudios. Se eligió sacar la palabra antes que el chevron o achicar el rótulo
+>    (Director, 2026-09-21). La frase entera viaja en el `title` y el `aria-label` del botón.
+> 2. **El color sale del acento vivo del módulo** (`#2B766D`), no del `#2E7D74` de acá, aclarado
+>    según el tema como en `Chip`.
+> 3. **El hover es sólo elevación** (`.spira-card-link` tal cual), sin el borde al 45 %: el realce
+>    nunca es un borde de color.
+>
+> De las siete capturas que lista *Files*, el bundle trajo una sola (la de D1, con otro nombre).
+
 ## Overview
 Ubicación y tratamiento del botón **«Cronograma y procedimientos»** en la ficha lateral del detalle de protocolo (`src/views/ProtocolDetailView.tsx`, columna izquierda de 316px).
 

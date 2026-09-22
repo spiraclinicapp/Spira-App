@@ -116,6 +116,10 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
      modal está abierto el botón queda tapado, así que alcanza con ponerlo al día al salir. */
   const cuadro = useProtocolDefinitions(canManageSchedule ? protocol.id : null)
   const cantidadDeVisitas = cuadro.data?.length ?? 0
+  /* Lo que el número de la franja quiere decir, dicho entero: la franja muestra sólo «19» (ver el
+     botón) y esto viaja en su `title` y su `aria-label`. */
+  const rotuloDeVisitas = cantidadDeVisitas === 0 ? null
+    : cantidadDeVisitas === 1 ? '1 visita en el cuadro' : `${cantidadDeVisitas} visitas en el cuadro`
   /* El acento aclarado según el tema, igual que `Chip`: 0 % en claro (queda intacto), 55 % en
      oscuro. Tiñe la franja del cronograma, su borde y sus dos íconos. */
   const tonoAcento = `color-mix(in oklab, ${accent}, white var(--spira-aclarado-acento))`
@@ -290,6 +294,8 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
               type="button"
               className="spira-card-link"
               onClick={() => setCronogramaAbierto(true)}
+              title={rotuloDeVisitas ?? undefined}
+              aria-label={rotuloDeVisitas ? `Cronograma y procedimientos · ${rotuloDeVisitas}` : undefined}
               style={{
                 /* `flex: none`: la ficha es una columna flex con scroll y un botón no protege su
                    alto como un div — se aplastaría hasta el alto de su texto antes de scrollear. */
@@ -303,11 +309,19 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
               <Icon name="calendar" size={14} color={tonoAcento} style={{ flex: 'none' }} />
               {/* El rótulo NUNCA se parte ni se recorta: si el ancho no alcanza, cede el contador. */}
               <span style={{ flex: 'none', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>Cronograma y procedimientos</span>
-              {/* El tamaño del cuadro. Sin cuadro cargado (o mientras llega) no se muestra: «0
-                  visitas» se leería como un dato, cuando lo que pasa es que falta armarlo. */}
+              {/* El tamaño del cuadro. Sin cuadro cargado (o mientras llega) no se muestra: un «0» se
+                  leería como un dato, cuando lo que pasa es que falta armarlo.
+
+                  VA SÓLO EL NÚMERO, no «19 visitas» como dibuja el mock (Director, 2026-09-21). El mock
+                  está hecho con Hanken Grotesk, y en Inter —la letra de la app— el rótulo mide 176px y
+                  no 164: en los 252px útiles de la franja al contador le quedaban 25px y la palabra
+                  pide 47, así que se leía «19 …» en TODOS los estudios, no en un caso raro. Entre sacar
+                  el número, el chevron (que en esta ficha es la señal de que algo lleva a otro lado,
+                  ver `kpiRow`) o achicar el rótulo, se sacó la palabra. Vuelve entera en el `title` y
+                  en el `aria-label` del botón. */}
               {cantidadDeVisitas > 0 && (
-                <span style={{ marginLeft: 'auto', minWidth: 0, fontSize: 11, color: 'var(--spira-ink-soft)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {cantidadDeVisitas === 1 ? '1 visita' : `${cantidadDeVisitas} visitas`}
+                <span style={{ marginLeft: 'auto', minWidth: 0, fontSize: 11, color: 'var(--spira-ink-soft)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {cantidadDeVisitas}
                 </span>
               )}
               <Icon name="chevronRight" size={13} color={tonoAcento} style={{ flex: 'none', marginLeft: cantidadDeVisitas > 0 ? 0 : 'auto' }} />
