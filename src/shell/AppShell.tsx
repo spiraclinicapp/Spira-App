@@ -300,6 +300,22 @@ export function AppShell() {
     return () => { document.title = 'Spira' }
   }, [moduleKey, sub.name, rutaInvalida, sinAcceso])
 
+  /* El lugar reservado para la barra de scroll de `.spira-content` (ver `scrollbar-gutter` en
+     tokens.css). El encabezado de la vista se corre eso a la derecha para que sus acciones terminen
+     donde termina el contenido de abajo. Se mide en vez de suponer 15: depende del sistema (0 con las
+     barras superpuestas de Mac) y del zoom, que cambia su ancho en px de CSS — por eso se vuelve a
+     medir en cada `resize`, que es lo que dispara el zoom. */
+  const contenidoRef = useRef<HTMLDivElement>(null)
+  const [barra, setBarra] = useState(0)
+  useLayoutEffect(() => {
+    const el = contenidoRef.current
+    if (!el) return
+    const medir = () => setBarra(el.offsetWidth - el.clientWidth)
+    medir()
+    window.addEventListener('resize', medir)
+    return () => window.removeEventListener('resize', medir)
+  }, [rutaInvalida, sinAcceso])
+
   /* "Ruta inválida" sigue reemplazando la pantalla ENTERA: acá no hay ningún módulo del cual
      dibujar un marco (mod/sub, arriba, son el fallback a Inicio) — un riel + panel armados con
      ese fallback mentirían sobre dónde estás. "Sin acceso" en cambio SÍ tiene un módulo real (el
@@ -552,7 +568,9 @@ export function AppShell() {
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 26px 4px', flexWrap: 'wrap' }}>
+              {/* El padding en longhands: el derecho cambia con `barra`, y mezclado con la abreviada React
+                  vaciaría los demás al redibujar. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 20, paddingBottom: 4, paddingLeft: 26, paddingRight: 26 + barra, flexWrap: 'wrap' }}>
                 {/* Pasaje de vuelta: lo dejó quien te mandó acá (ej. el nombre del paciente en el modal
                     de una visita). Va ANTES de la miga y no adentro, porque no es un nivel del camino
                     actual sino la salida del que veníais recorriendo. Desaparece solo, en cuanto
@@ -605,7 +623,7 @@ export function AppShell() {
                   que ninguna vista termine pegada al borde, y una regla `:has()` se los saca a la que
                   tiene que llegar al ras (la barra fija del asistente de Recepción). Inline, esa
                   excepción no se podría expresar. */}
-              <div className="spira-content" style={{ flex: 1, overflow: 'auto' }}>
+              <div ref={contenidoRef} className="spira-content" style={{ flex: 1, overflow: 'auto' }}>
                 {(() => {
                   const View = resolveView(moduleKey, sub.key)
                   return (

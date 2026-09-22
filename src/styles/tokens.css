@@ -847,8 +847,17 @@ input:-webkit-autofill:focus {
    Ahora el aire es el comportamiento por defecto y la excepción se declara: una vista que necesita
    llegar al borde inferior marca su raíz con `.spira-content-al-ras` y el shell le saca el padding
    de abajo. Con `:has()` la vista no necesita saber nada del shell ni el shell de la vista. */
-.spira-content { padding: 16px 26px 26px; }
+.spira-content { padding: 16px 26px 26px; scrollbar-gutter: stable; }
 .spira-content:has(.spira-content-al-ras) { padding-bottom: 0; }
+
+/* `scrollbar-gutter: stable` (2026-09-21): el lugar de la barra de scroll queda reservado SIEMPRE.
+   El encabezado de la vista (título + acciones) vive afuera de `.spira-content`, que es lo que
+   scrollea, así que cuando aparecía la barra (15 px en Windows) el contenido se angostaba y el
+   encabezado no: lo alineado a la derecha abajo —las flechas del período de Reposición bajo «Armar
+   pedido»— terminaba 15 px antes que el botón de arriba. Con el lugar reservado, el ancho del
+   contenido ya no depende de si la página scrollea (tampoco salta al cargar los datos), y el shell
+   corre el encabezado exactamente eso: lo mide del propio contenedor (`offsetWidth - clientWidth`),
+   así da 15 en Windows y 0 con las barras superpuestas de Mac. */
 
 /* —— Micro-interacción estándar de Spira ——
    Todo lo pulsable (botones, links, role=button) se levanta apenas (~1px) en hover y se
