@@ -8,14 +8,17 @@
  * Una regla invertida no tira ningún error — dibuja la pantalla entera, prolija, con las filas
  * equivocadas. Aisladas y puras se pueden testear; adentro de un `.filter()` en medio del JSX, no.
  *
- * HAY CUATRO REGLAS porque en la base hay tres cosas distintas que se parecen a "mío", y usar la
- * que no va rompe en silencio (spec, D2) — más una cuarta, `esAlertaMia`, que combina dos de esas
- * tres porque ninguna alcanza sola para Alertas (ver más abajo):
+ * HAY CINCO REGLAS porque en la base hay tres cosas distintas que se parecen a "mío", y usar la
+ * que no va rompe en silencio (spec, D2) — más dos compuestas, `esMiaSinAtender` y `esReporteMio`,
+ * que combinan dos de esas tres porque ninguna alcanza sola para Alertas ni para Reportes (ver más
+ * abajo):
  *
  *   · `coordinator_id` (patient_visits) es RETROSPECTIVO: lo pisa `start_visit_attention` (0102)
  *     con quien apretó "iniciar atención". Dice quién ATENDIÓ, no a quién le toca. Una visita
  *     futura lo tiene en null — por eso NO sirve para "Próximas visitas", que quedaría vacía
- *     siempre. `loAtendiYo` lo lee a secas, y con eso alcanza para Reportes.
+ *     siempre. `loAtendiYo` lo lee a secas, y HOY NINGUNA TARJETA FILTRA SÓLO CON ÉL: Reportes lo
+ *     hacía hasta el 2026-09-22 (ver `esReporteMio`). Sobrevive porque lo usan las dos reglas
+ *     compuestas y el subtítulo "asignadas a mí" del KPI de próximas visitas.
  *   · `protocol_coordinators` es PROSPECTIVO y estable: qué te toca, incluso lo que no pasó.
  *     `esDeMisProtocolos` lo lee, y con eso alcanza para "Próximas visitas".
  *   · `requested_by` (dispensation_requests) es AUTORÍA: quién pidió la medicación. `loPediYo` lo
@@ -98,7 +101,9 @@ export function loPediYo(fila: ConAutor, userId: string | null): boolean {
 
 /**
  * "Mío" para las listas de VISITAS SIN ATENDER (`real_date is null`): las tarjetas de **Alertas** y
- * **Por reprogramar**. Distinta a propósito de la de Reportes/Dispensaciones (`loAtendiYo` a secas).
+ * **Por reprogramar**. Distinta a propósito de la de Reportes (`esReporteMio`): ésta EXIGE que nadie
+ * la haya atendido para adoptar una fila del protocolo, y aquélla no — porque una visita sin atender
+ * que agarró otra persona ya no me toca, y un reporte del estudio me toca igual.
  *
  * LA FILA MÁS GRAVE ES JUSTO LA QUE `loAtendiYo` SOLA BORRA. `computed_status = 'ventana_vencida'`
  * exige `pv.real_date is null` (0102); y `real_date` lo escribe `start_visit_attention` EN EL MISMO
@@ -128,6 +133,43 @@ export function esMiaSinAtender(
   if (!userId) return false
   if (loAtendiYo(fila, userId)) return true
   return fila.coordinator_id === null && esDeMisProtocolos(fila, misProtocolos)
+}
+
+/**
+ * "Mío" para la tarjeta de REPORTES PENDIENTES: es de un estudio que coordino, O la atendí yo.
+ *
+ * HASTA EL 2026-09-22 ERA `loAtendiYo` A SECAS, y el pedido del Director fue exactamente darlo
+ * vuelta: un reporte pendiente no es trabajo de quien atendió la visita, es trabajo DEL ESTUDIO. El
+ * que lo descarga y lo evoluciona casi nunca es el que recibió al paciente —la visita se hace un día
+ * y el informe llega de la plataforma varios después—, así que atarlo a `coordinator_id` escondía en
+ * "Lo mío" un pendiente que me toca igual, y lo escondía EN SILENCIO: la tarjeta se dibujaba
+ * prolija, con menos filas de las que hay que resolver. La versión anterior también dependía de que
+ * `coordinator_id` estuviera poblado, y sólo lo está desde que alguien apretó "iniciar atención".
+ *
+ * NO ES `esDeMisProtocolos` A SECAS, y el `|| loAtendiYo` no es decoración: cubre a quien tiene
+ * gerencia o track-admin y atendió una visita de un estudio que NO coordina (la 0015 se lo permite
+ * explícitamente). Para esa persona `esDeMisProtocolos` da false, y el reporte de la visita que hizo
+ * ella misma se le iría de "Lo mío" — el mismo modo de falla que documenta `esMiaSinAtender`, sólo
+ * que al revés. Un cambio que ENSANCHA "Lo mío" no puede sacar nada de la lista.
+ *
+ * LA GUARDA DEL `userId` NULO NO SE REPITE ACÁ porque las dos mitades ya la tienen: el `Set` vacío de
+ * `esDeMisProtocolos` no reclama nada mientras `useMyCoordinations` carga, y `loAtendiYo` corta con
+ * `!userId`. Un `if (!userId) return false` acá arriba además MENTIRÍA: sin sesión resuelta pero con
+ * coordinaciones ya cargadas, la fila del protocolo propio sí es mía.
+ *
+ * CONSECUENCIA QUE CONVIENE SABER ANTES DE MIRAR LA PANTALLA: para quien sólo coordina estudios, la
+ * RLS ya devuelve nada más que los de esos estudios (`v_protocol_report_status` scopea por
+ * `protocol_coordinators`), así que esta tarjeta muestra LO MISMO en "Lo mío" que en "Todo" — y el
+ * aviso de "Ver todo" no vuelve a aparecer nunca, porque si está vacía de un lado está vacía del
+ * otro. No es el alternador roto: es lo que significa que un reporte sea del estudio. La diferencia
+ * sigue existiendo para gerencia, que ve los de todos los protocolos y en "Lo mío" los que coordina.
+ */
+export function esReporteMio(
+  fila: ConCoordinador & ConProtocolo,
+  userId: string | null,
+  misProtocolos: Set<string>,
+): boolean {
+  return esDeMisProtocolos(fila, misProtocolos) || loAtendiYo(fila, userId)
 }
 
 /** Lo que hace falta saber de un asignado a una tarea (`task_assignees`, 0108). */
