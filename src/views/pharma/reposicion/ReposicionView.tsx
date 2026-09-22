@@ -51,19 +51,36 @@ export function ReposicionView({ module, setHeader }: ViewProps) {
     [insumos, hoy, periodo, diaCorte],
   )
   const [editarCorte, setEditarCorte] = useState(false)
+  // resolveCode: el mismo criterio que Pacientes, Dispensaciones y Stock (mayúsculas primero, y si no
+  // hay match exacto cae a ignorar la caja — el código se dicta por teléfono).
+  const estudioAbierto = useMemo(() => (codigo && rep ? resolveCode(rep.estudios, codigo, (x) => x.estudio.code) : null), [codigo, rep])
+  /* «Armar pedido» es la acción de la pantalla del estudio y va en el encabezado del shell, junto al título
+     (decisión del Director, 2026-09-21: arriba y siempre sólida; antes vivía en el renglón del estudio y
+     pasaba a borde después de emitir, RD5). Se guarda PARA QUÉ código se pidió, no un sí/no: si el atrás del
+     navegador te saca del estudio con el modal abierto, volver a entrar no lo reabre solo. */
+  const [armandoPara, setArmandoPara] = useState<string | null>(null)
+  const puedeArmar = !!(estudioAbierto && rep?.enCurso && puedeEditar && estudioAbierto.objetivo)
+  const conPedido = !!estudioAbierto?.pedidoDelObjetivo
 
   // Memoizadas: viajan en las deps del efecto del encabezado.
   const irAGrilla = useCallback(() => setPath([], { mode: 'push' }), [setPath])
   const abrirCorte = useCallback(() => setEditarCorte(true), [])
+  const abrirArmar = useCallback(() => setArmandoPara(codigo), [codigo])
 
   useEffect(() => {
     if (!setHeader) return
-    if (codigo) setHeader({ rootOnClick: irAGrilla, crumbs: [{ label: codigo, mono: true }] })
-    else if (puedeEditar && corte.data) {
+    if (codigo) {
+      setHeader({
+        rootOnClick: irAGrilla, crumbs: [{ label: codigo, mono: true }],
+        actions: puedeArmar
+          ? [{ key: 'armar', label: conPedido ? 'Armar otro pedido' : 'Armar pedido', icon: 'cart', primary: true, onClick: abrirArmar }]
+          : undefined,
+      })
+    } else if (puedeEditar && corte.data) {
       setHeader({ actions: [{ key: 'corte', label: diaCorte == null ? 'Cargar el día de corte' : `Día de corte: ${diaCorte}`, icon: 'calendar', onClick: abrirCorte }] })
     } else setHeader(null)
     return () => setHeader(null)
-  }, [setHeader, codigo, puedeEditar, corte.data, diaCorte, irAGrilla, abrirCorte])
+  }, [setHeader, codigo, puedeEditar, corte.data, diaCorte, irAGrilla, abrirCorte, puedeArmar, conPedido, abrirArmar])
 
   const modalCorte = editarCorte && (
     <DiaDeCorte
@@ -100,15 +117,13 @@ export function ReposicionView({ module, setHeader }: ViewProps) {
   if (!rep) return calculando
 
   if (codigo) {
-    // resolveCode: el mismo criterio que Pacientes, Dispensaciones y Stock (mayúsculas primero, y si no
-    // hay match exacto cae a ignorar la caja — el código se dicta por teléfono).
-    const e = resolveCode(rep.estudios, codigo, (x) => x.estudio.code)
     // Un código que no está (cerrado, mal escrito): pantalla serena dentro del marco, no la grilla muda.
-    if (!e) return <NotFoundView motivo="ruta" />
+    if (!estudioAbierto) return <NotFoundView motivo="ruta" />
     return (
       <PantallaEstudio
-        rep={rep} e={e} diaCorte={diaCorte} puedeEditar={puedeEditar} angosto={angosto}
+        rep={rep} e={estudioAbierto} diaCorte={diaCorte} puedeEditar={puedeEditar} angosto={angosto}
         accent={module.accent} accentSolid={module.accentSolid}
+        armando={armandoPara === codigo} onSalirDeArmar={() => setArmandoPara(null)}
         onVolver={irAGrilla} onPeriodo={setFecha} onCambio={q.refetch}
       />
     )

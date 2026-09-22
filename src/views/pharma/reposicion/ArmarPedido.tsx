@@ -91,9 +91,7 @@ export function ArmarPedido({ e, objetivo, hoy, ultimoVisto, accentSolid, onClos
       : ` ${lista(noSeCompran)} no aparecen: no se compran.`}`
 
   return (
-    <Modal title={`Pedido de ${e.estudio.code} · ${e.estudio.name}`} onClose={enviando ? () => {} : cerrar} maxWidth={560}>
-      <p style={{ fontSize: 13, color: 'var(--spira-muted)', margin: '-8px 0 14px', lineHeight: 1.45 }}>{sub}</p>
-
+    <Modal title={`Pedido de ${e.estudio.code} · ${e.estudio.name}`} subtitle={sub} onClose={enviando ? () => {} : cerrar} maxWidth={560}>
       <div style={{ display: 'grid', gridTemplateColumns: COLUMNAS, gap: 8, borderBottom: '1px solid var(--spira-line-2)' }}>
         <div style={rotuloTabla}>Medicamento</div>
         <div style={{ ...rotuloTabla, textAlign: 'right' }}>Calculado</div>

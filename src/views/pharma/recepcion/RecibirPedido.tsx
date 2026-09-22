@@ -23,7 +23,10 @@ export function RecibirPedido({ accentSolid, onClose, onRecibir }: {
   const vacia = lista !== null && lista.length === 0
 
   return (
-    <Modal title="Recibir un pedido" onClose={onClose} maxWidth={vacia ? 520 : 620}>
+    <Modal
+      title="Recibir un pedido" onClose={onClose} maxWidth={vacia ? 520 : 620}
+      subtitle={lista && !vacia ? 'Los pedidos con algo por recibir, del más viejo al más nuevo. Buscá el número que figura en la hoja.' : undefined}
+    >
       {q.error ? (
         <>
           <p role="alert" style={errorTexto}>{q.error}</p>
@@ -57,9 +60,6 @@ export function RecibirPedido({ accentSolid, onClose, onRecibir }: {
         </>
       ) : (
         <>
-          <p style={{ fontSize: 13, color: 'var(--spira-muted)', margin: '-8px 0 6px', lineHeight: 1.45 }}>
-            Los pedidos con algo por recibir, del más viejo al más nuevo. Buscá el número que figura en la hoja.
-          </p>
           {lista.map((x, i) => {
             const folios = x.pedido.recepciones.filter((r) => r.status === 'pendiente').map((r) => r.folio)
             const cuales = folios.length === 0 ? 'una recepción' : `${folios.length === 1 ? 'la' : 'las'} ${minuscula(textoDeRecepciones(folios))}`

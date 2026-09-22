@@ -40,10 +40,10 @@ export function DiaDeCorte({ actual, hoy, accentSolid, onClose, onGuardado }: {
   }
 
   return (
-    <Modal title="Día de corte" onClose={guardando ? () => {} : onClose} maxWidth={428}>
-      <p style={{ fontSize: 13, color: 'var(--spira-muted)', lineHeight: 1.45, margin: '-8px 0 14px' }}>
-        El día del mes en que cierra cada período. Vale para todos los estudios.
-      </p>
+    <Modal
+      title="Día de corte" subtitle="El día del mes en que cierra cada período. Vale para todos los estudios."
+      onClose={guardando ? () => {} : onClose} maxWidth={428}
+    >
       <div style={{ ...fieldLabelStyle, marginBottom: 6 }}>Día del mes</div>
       <div style={{ width: 120 }}>
         <SearchableSelect value={dia} onChange={setDia} options={DIAS} placeholder="Elegí" searchable="never" entity="día" />

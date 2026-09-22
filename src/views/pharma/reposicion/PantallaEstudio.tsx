@@ -11,7 +11,7 @@ import { ArmarPedido } from './ArmarPedido'
 import { COLUMNAS, COLUMNAS_CERRADO, FilaMedicamento } from './FilaMedicamento'
 import { HojaPedido, datosDeHoja, useImpresion } from './HojaPedido'
 import { PedidoDetalle } from './PedidoDetalle'
-import { AvisoLinea, Envases, Informacion, Pastilla, PuntoEstado, TituloSeccion, botonAccion, botonChico, plural, rotuloColumna } from './piezas'
+import { AvisoLinea, Envases, Informacion, Pastilla, PuntoEstado, TituloSeccion, botonChico, plural, rotuloColumna } from './piezas'
 
 const volver: CSSProperties = {
   width: 38, height: 38, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
@@ -25,11 +25,14 @@ const grupoEncabezado: CSSProperties = { padding: '10px 16px 7px', fontSize: 11.
 
 /**
  * El estudio (mocks «2 · El estudio», «2b», «Un período anterior», «Quien sólo puede mirar», «Ventana
- * angosta»): encabezado con la acción del período, flechas entre períodos (R6), el resumen de lo que va al
+ * angosta»): el estudio con sus flechas entre períodos (R6) en un renglón, el resumen de lo que va al
  * pedido, el libro con su boleta y los pedidos del estudio. Toda decisión de qué decir está en
  * `reposicionTarjetaModel` (con tests); acá se dibuja.
+ *
+ * «Armar pedido» no vive acá: es la acción de la pantalla y va en el encabezado del shell, junto al
+ * título (lo registra `ReposicionView`). Acá sólo se abre el modal cuando la piden.
  */
-export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent, accentSolid, onVolver, onPeriodo, onCambio }: {
+export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent, accentSolid, armando, onSalirDeArmar, onVolver, onPeriodo, onCambio }: {
   rep: ReposicionDelPeriodo
   e: EstudioReposicion
   diaCorte: number
@@ -37,6 +40,9 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
   angosto: boolean
   accent: string
   accentSolid: string
+  /** Se pidió «Armar pedido» desde el encabezado del shell. */
+  armando: boolean
+  onSalirDeArmar: () => void
   onVolver: () => void
   /** Mirar otro período: una fecha dentro de él, o '' para el en curso. */
   onPeriodo: (fecha: string) => void
@@ -45,7 +51,6 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
 }) {
   const [abierto, setAbierto] = useState<string | null>(null)
   const [editando, setEditando] = useState<string | null>(null)
-  const [armando, setArmando] = useState(false)
   const [viendo, setViendo] = useState<string | null>(null)
   const { hoja, imprimir } = useImpresion()
 
@@ -68,36 +73,36 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
 
   return (
     <div>
-      {/* Encabezado: volver, el estudio y la acción del período (RD5: después de emitir, secundaria). */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 12px', flexWrap: 'wrap' }}>
-        <button type="button" onClick={onVolver} aria-label="Volver a la grilla de estudios" style={volver}>
-          <Icon name="arrowLeft" size={18} />
-        </button>
-        <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em', color: accent }}>{e.estudio.code}</span>
-        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--spira-ink)' }}>{e.estudio.name}</span>
-        <PuntoEstado status={e.estudio.status} />
-        {rep.enCurso && puedeEditar && e.objetivo && (
-          <button type="button" onClick={() => setArmando(true)} style={{ ...botonAccion(!e.pedidoDelObjetivo, accentSolid), marginLeft: 'auto' }}>
-            <Icon name="cart" size={16} />{e.pedidoDelObjetivo ? 'Armar otro pedido' : 'Armar pedido'}
+      {/* Un renglón: qué estudio y qué período. Son dos grupos y no uno solo para que, si no entran (entre
+          1024 y ~1300 px de ventana), las flechas bajen JUNTAS al segundo renglón en vez de partirse a
+          mitad de camino. Sin divisor entre los dos: al bajar quedaría colgando al final del primero; los
+          separa el aire, y las flechas con borde ya marcan dónde empieza el período. */}
+      <div style={{ display: 'flex', alignItems: 'center', columnGap: 28, rowGap: 10, margin: '0 0 14px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
+          <button type="button" onClick={onVolver} aria-label="Volver a la grilla de estudios" style={volver}>
+            <Icon name="arrowLeft" size={18} />
           </button>
-        )}
-      </div>
+          <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em', color: accent }}>{e.estudio.code}</span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--spira-ink)' }}>{e.estudio.name}</span>
+          <PuntoEstado status={e.estudio.status} />
+        </div>
 
-      {/* Las flechas entre períodos (R6): la › se apaga en el período en curso. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: angosto ? '0 0 14px' : '0 0 14px 50px', flexWrap: 'wrap' }}>
-        <button type="button" onClick={() => onPeriodo(anterior.desde)} aria-label={`Período anterior, del ${textoPeriodo(anterior)}`} style={{ ...flecha, cursor: 'pointer' }}>
-          <Icon name="chevronLeft" size={15} />
-        </button>
-        <span className="spira-mono" style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)', padding: '0 4px' }}>{textoPeriodo(rep.periodo)}</span>
-        <button
-          type="button" disabled={rep.enCurso}
-          onClick={() => onPeriodo(rep.hoy <= siguiente.hasta ? '' : siguiente.desde)}
-          aria-label={rep.enCurso ? 'No hay período siguiente: este es el período en curso' : `Período siguiente, del ${textoPeriodo(siguiente)}`}
-          style={{ ...flecha, opacity: rep.enCurso ? 0.45 : 1, cursor: rep.enCurso ? 'default' : 'pointer' }}
-        >
-          <Icon name="chevronRight" size={15} />
-        </button>
-        <span style={{ fontSize: 12.5, marginLeft: 6, color: sub.aviso ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink-soft)', fontWeight: sub.aviso ? 600 : 400 }}>{sub.texto}</span>
+        {/* Las flechas entre períodos (R6): la › se apaga en el período en curso. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => onPeriodo(anterior.desde)} aria-label={`Período anterior, del ${textoPeriodo(anterior)}`} style={{ ...flecha, cursor: 'pointer' }}>
+            <Icon name="chevronLeft" size={15} />
+          </button>
+          <span className="spira-mono" style={{ fontSize: 14, fontWeight: 600, color: 'var(--spira-ink)', padding: '0 4px' }}>{textoPeriodo(rep.periodo)}</span>
+          <button
+            type="button" disabled={rep.enCurso}
+            onClick={() => onPeriodo(rep.hoy <= siguiente.hasta ? '' : siguiente.desde)}
+            aria-label={rep.enCurso ? 'No hay período siguiente: este es el período en curso' : `Período siguiente, del ${textoPeriodo(siguiente)}`}
+            style={{ ...flecha, opacity: rep.enCurso ? 0.45 : 1, cursor: rep.enCurso ? 'default' : 'pointer' }}
+          >
+            <Icon name="chevronRight" size={15} />
+          </button>
+          <span style={{ fontSize: 12.5, marginLeft: 4, color: sub.aviso ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink-soft)', fontWeight: sub.aviso ? 600 : 400 }}>{sub.texto}</span>
+        </div>
       </div>
 
       {!rep.enCurso && (
@@ -230,8 +235,8 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
       {armando && e.objetivo && (
         <ArmarPedido
           e={e} objetivo={e.objetivo} hoy={rep.hoy} ultimoVisto={ultimoPedidoPara(e.pedidos, e.objetivo)} accentSolid={accentSolid}
-          onClose={(refrescar) => { setArmando(false); if (refrescar) onCambio() }}
-          onEmitido={(d) => { setArmando(false); imprimir(d); onCambio() }}
+          onClose={(refrescar) => { onSalirDeArmar(); if (refrescar) onCambio() }}
+          onEmitido={(d) => { onSalirDeArmar(); imprimir(d); onCambio() }}
         />
       )}
       {pedidoAbierto && (
