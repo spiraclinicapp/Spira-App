@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Protocolo · dónde va «Cronograma y procedimientos»</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--spira-paper);font-family:var(--spira-font-text);color:var(--spira-ink);-webkit-font-smoothing:antialiased}
+button{font-family:inherit}
+a{color:var(--spira-track,#2E7D74)}a:hover{color:var(--spira-primary)}
+.ghost{transition:border-color .14s ease,background-color .14s ease,box-shadow .14s ease}
+.ghost:hover{border-color:color-mix(in srgb,#2E7D74 45%,#fff);box-shadow:var(--spira-shadow-sm)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" data-presets="react">
+const TRACK='#2E7D74', INK_SOFT='var(--spira-ink-soft, #4A5F5B)';
+const mix=(hex,pct,base='var(--spira-white)')=>`color-mix(in srgb, ${hex} ${pct}%, ${base})`;
+const eyebrow={fontSize:10.5,fontWeight:700,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--spira-faint)'};
+
+function Icon({name,size=16,color='currentColor',stroke=1.8,style}){
+  const P={
+    file:<><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h6"/></>,
+    calendar:<><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M3 11h18"/></>,
+    settings:<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7.5 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 14.6a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 7.5l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 3.1V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.3Z"/></>,
+    chevronRight:<path d="m9 6 6 6-6 6"/>,
+    list:<><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></>,
+  }[name];
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" style={style}>{P}</svg>;
+}
+
+const META=[['Sponsor','Sanofi'],['Investigador','Dr. Pablo Saez Scherbovsky'],['Especialidad','Neumonología'],['Patología','ASMA SEVERO']];
+const card={background:'var(--spira-white)',border:'1px solid var(--spira-line)',borderRadius:16,padding:18,
+  width:316,display:'flex',flexDirection:'column',minHeight:560};
+
+function BtnAccion({label,kind='ghost',icon='file'}){
+  const primary=kind==='primary';
+  return (
+    <button type="button" className={primary?undefined:'ghost'} style={{width:'100%',height:40,borderRadius:10,fontSize:13,fontWeight:600,
+      display:'flex',alignItems:'center',gap:10,padding:'0 13px',whiteSpace:'nowrap',cursor:'pointer',
+      ...(primary?{border:'none',background:TRACK,color:'#fff',boxShadow:`0 6px 16px ${mix(TRACK,35,'transparent')}`}
+        :{border:'1px solid var(--spira-line-2)',background:'var(--spira-surface)',color:'var(--spira-ink)'})}}>
+      <Icon name={icon} size={16} color={primary?'#fff':TRACK} />
+      <span style={{flex:1,textAlign:'left'}}>{label}</span>
+      <Icon name="chevronRight" size={15} color={primary?'#fff':'var(--spira-faint)'} />
+    </button>
+  );
+}
+
+function Identidad({chip}){
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:12}}>
+      <span style={{width:46,height:46,borderRadius:12,background:mix(TRACK,9),display:'grid',placeItems:'center',flex:'0 0 auto'}}>
+        <Icon name="file" size={23} color={TRACK} stroke={1.9} />
+      </span>
+      <div style={{minWidth:0,flex:1,overflow:'hidden'}}>
+        <div style={{fontFamily:'var(--spira-font-display)',fontWeight:700,fontSize:24,letterSpacing:'-.02em',color:TRACK,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>ACT18301</div>
+        <div style={{fontSize:13.5,fontWeight:600,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>AIRLYMPUS</div>
+      </div>
+      {chip}
+    </div>
+  );
+}
+
+function Datos(){
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:11,marginTop:16,paddingTop:16,borderTop:'1px solid var(--spira-line)'}}>
+      {META.map(([k,v])=>(
+        <div key={k} style={{display:'flex',alignItems:'baseline',gap:10}}>
+          <span style={{fontSize:12.5,color:'var(--spira-muted)',flex:'0 0 auto'}}>{k}</span>
+          <span style={{flex:1,textAlign:'right',fontSize:13,fontWeight:700,lineHeight:1.3}}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Kpis(){
+  const row=(l,v,sub)=>(
+    <div style={{display:'flex',alignItems:'baseline',gap:10}}>
+      <span style={{fontSize:12.5,color:'var(--spira-muted)',flex:1}}>{l}</span>
+      {sub && <span style={{fontSize:11.5,color:'var(--spira-muted)',order:2}}>{sub}</span>}
+      <span style={{fontFamily:'var(--spira-font-display)',fontSize:21,fontWeight:700,letterSpacing:'-.02em'}}>{v}</span>
+    </div>
+  );
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:14,marginTop:18,paddingTop:16,borderTop:'1px solid var(--spira-line)'}}>
+      {row('Pacientes enrolados','8','5 activos')}
+      {row('Visitas realizadas','100/117')}
+      {row('Ventanas por vencer','2','próx. 7 días')}
+      <div>
+        {row('Adherencia','85%')}
+        <div style={{height:7,borderRadius:4,background:'var(--spira-line-2)',marginTop:7,overflow:'hidden'}}>
+          <i style={{display:'block',height:'100%',width:'85%',background:TRACK,borderRadius:4}} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Acciones({extra,primero}){
+  return (
+    <div style={{marginTop:'auto',paddingTop:16,borderTop:'1px solid var(--spira-line)'}}>
+      <div style={{...eyebrow,marginBottom:11}}>Acciones</div>
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        {primero}
+        <BtnAccion label="Exportar reporte" icon="file" />
+        <BtnAccion label="Editar protocolo" icon="settings" />
+        {extra}
+      </div>
+    </div>
+  );
+}
+
+/* ── A · actual: bajo la identidad, antes de los datos ── */
+function A(){
+  return (
+    <div style={card}>
+      <Identidad />
+      <div style={{marginTop:14}}><BtnAccion label="Cronograma y procedimientos" icon="calendar" /></div>
+      <Datos /><Kpis /><Acciones />
+    </div>
+  );
+}
+
+/* ── B · en Acciones, primero de la lista ── */
+function B(){
+  return (
+    <div style={card}>
+      <Identidad /><Datos /><Kpis />
+      <Acciones primero={<BtnAccion label="Cronograma y procedimientos" icon="calendar" />} />
+    </div>
+  );
+}
+
+/* ── C · chip en la identidad ── */
+function C(){
+  const chip=(
+    <button type="button" className="ghost" title="Cronograma y procedimientos"
+      style={{flex:'0 0 auto',display:'inline-flex',alignItems:'center',gap:6,height:30,padding:'0 10px',borderRadius:'var(--spira-radius-pill)',
+        border:`1px solid ${mix(TRACK,35)}`,background:mix(TRACK,7),color:TRACK,fontSize:11.5,fontWeight:700,cursor:'pointer'}}>
+      <Icon name="calendar" size={13} color={TRACK} /> Cronograma
+    </button>
+  );
+  return (
+    <div style={card}>
+      <Identidad chip={chip} /><Datos /><Kpis /><Acciones />
+    </div>
+  );
+}
+
+/* ── D · sección propia «Definición del estudio» ── */
+function D(){
+  const item=(icon,label,sub)=>(
+    <button type="button" className="ghost" style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 11px',borderRadius:10,
+      border:'1px solid var(--spira-line-2)',background:'var(--spira-surface)',cursor:'pointer',textAlign:'left'}}>
+      <Icon name={icon} size={16} color={TRACK} />
+      <span style={{flex:1,minWidth:0}}>
+        <span style={{display:'block',fontSize:13,fontWeight:600}}>{label}</span>
+        <span style={{display:'block',fontSize:11,color:'var(--spira-muted)',marginTop:1}}>{sub}</span>
+      </span>
+      <Icon name="chevronRight" size={15} color="var(--spira-faint)" />
+    </button>
+  );
+  return (
+    <div style={card}>
+      <Identidad /><Datos />
+      <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--spira-line)'}}>
+        <div style={{...eyebrow,marginBottom:10}}>Definición del estudio</div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {item('calendar','Cronograma','17 visitas · ventanas')}
+          {item('list','Procedimientos','24 en el estudio')}
+        </div>
+      </div>
+      <Kpis /><Acciones />
+    </div>
+  );
+}
+
+/* ── E · primario al pie, fijo ── */
+function E(){
+  return (
+    <div style={{...card,paddingBottom:0}}>
+      <Identidad /><Datos /><Kpis /><Acciones />
+      <div style={{position:'sticky',bottom:0,marginTop:14,padding:'12px 0',background:'var(--spira-white)',
+        borderTop:'1px solid var(--spira-line)'}}>
+        <BtnAccion label="Cronograma y procedimientos" icon="calendar" kind="primary" />
+      </div>
+    </div>
+  );
+}
+
+/* ── F · fuera de la ficha: en la barra de la columna derecha ── */
+function F(){
+  return (
+    <div style={{display:'flex',gap:14,alignItems:'stretch'}}>
+      <div style={{...card,width:232,minHeight:420,padding:16}}>
+        <Identidad /><Datos />
+        <div style={{marginTop:'auto',paddingTop:16,borderTop:'1px solid var(--spira-line)'}}>
+          <div style={{...eyebrow,marginBottom:11}}>Acciones</div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            <BtnAccion label="Exportar reporte" icon="file" />
+          </div>
+        </div>
+      </div>
+      <div style={{flex:1,minWidth:280,background:'var(--spira-white)',border:'1px solid var(--spira-line)',borderRadius:16,overflow:'hidden'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,padding:'13px 14px',borderBottom:'1px solid var(--spira-line)',flexWrap:'wrap'}}>
+          <span style={{fontSize:13,fontWeight:600,padding:'6px 13px',borderRadius:'var(--spira-radius-pill)',background:mix(TRACK,12),color:TRACK}}>Pacientes</span>
+          <span style={{fontSize:13,fontWeight:600,padding:'6px 13px',borderRadius:'var(--spira-radius-pill)',border:'1px solid var(--spira-line)',color:'var(--spira-muted)'}}>Reportes</span>
+          <button type="button" className="ghost" style={{marginLeft:'auto',display:'inline-flex',alignItems:'center',gap:7,height:34,padding:'0 12px',
+            borderRadius:9,border:`1px solid ${mix(TRACK,35)}`,background:mix(TRACK,6),color:TRACK,fontSize:12.5,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap',flex:'0 0 auto'}}>
+            <Icon name="calendar" size={15} color={TRACK} /> Cronograma y procedimientos
+          </button>
+        </div>
+        <div style={{padding:16,display:'flex',flexDirection:'column',gap:8}}>
+          {['Octavio Fontana Toledo','Marisa Quintana','Ernesto Valdés','Lucía Ramírez'].map(n=>(
+            <div key={n} style={{border:'1px solid var(--spira-line)',borderRadius:10,padding:'10px 12px',fontSize:13,color:INK_SOFT}}>{n}</div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const OPCIONES=[
+  {id:'A',comp:A,title:'Bajo la identidad (actual)',
+   nota:'Pegado al código del estudio y antes de sus datos. Máxima visibilidad, pero empuja Sponsor/Investigador hacia abajo y compite con la lectura de la ficha.'},
+  {id:'B',comp:B,title:'Primero en Acciones',
+   nota:'Convive con Exportar y Editar, que son del mismo tipo de gesto. Ordena la ficha —identidad, datos, números, acciones— al costo de quedar abajo del todo.'},
+  {id:'C',comp:C,title:'Chip en la identidad',
+   nota:'No ocupa un renglón entero: va al lado del código, como atajo. Deja la ficha intacta, pero el rótulo tiene que acortarse a «Cronograma».'},
+  {id:'D',comp:D,title:'Sección «Definición del estudio»',
+   nota:'Separa lo que define al estudio (cronograma, procedimientos) de las acciones sobre él. Permite entrar directo a cada mitad del modal y muestra un dato de contexto.'},
+  {id:'E',comp:E,title:'Primario fijo al pie',
+   nota:'Barra pegada abajo, siempre visible aunque la ficha scrollee. Es la más fuerte; conviene solo si el cronograma es la entrada más usada del panel.'},
+  {id:'F',comp:F,title:'Fuera de la ficha, en la barra derecha',
+   nota:'El botón acompaña al contenido del estudio, no a la columna de datos. Libera la ficha, pero se aleja de la identidad del protocolo.'},
+];
+
+/* ── variantes compactas del chip en la identidad ── */
+/* C1 · botón sólo ícono, cuadrado, al final de la fila */
+function C1(){
+  return (
+    <div style={{...card,minHeight:0,paddingBottom:16}}>
+      <Identidad chip={
+        <button type="button" className="ghost" title="Cronograma y procedimientos" aria-label="Cronograma y procedimientos"
+          style={{flex:'0 0 auto',width:36,height:36,display:'grid',placeItems:'center',borderRadius:10,
+            border:'1px solid var(--spira-line-2)',background:'var(--spira-surface)',cursor:'pointer'}}>
+          <Icon name="calendar" size={17} color={TRACK} />
+        </button>} />
+      <Datos />
+    </div>
+  );
+}
+
+/* C2 · enlace de texto bajo el nombre del estudio */
+function C2(){
+  return (
+    <div style={{...card,minHeight:0,paddingBottom:16}}>
+      <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+        <span style={{width:46,height:46,borderRadius:12,background:mix(TRACK,9),display:'grid',placeItems:'center',flex:'0 0 auto'}}>
+          <Icon name="file" size={23} color={TRACK} stroke={1.9} />
+        </span>
+        <div style={{minWidth:0,flex:1}}>
+          <div style={{fontFamily:'var(--spira-font-display)',fontWeight:700,fontSize:24,letterSpacing:'-.02em',color:TRACK}}>ACT18301</div>
+          <div style={{fontSize:13.5,fontWeight:600,marginTop:2}}>AIRLYMPUS</div>
+          <button type="button" style={{marginTop:7,display:'inline-flex',alignItems:'center',gap:6,background:'none',border:'none',
+            padding:0,cursor:'pointer',color:TRACK,fontSize:12.5,fontWeight:700}}>
+            <Icon name="calendar" size={14} color={TRACK} /> Cronograma y procedimientos
+            <Icon name="chevronRight" size={13} color={TRACK} />
+          </button>
+        </div>
+      </div>
+      <Datos />
+    </div>
+  );
+}
+
+/* C3 · franja bajo la identidad, media altura y con dato de contexto */
+function C3(){
+  return (
+    <div style={{...card,minHeight:0,paddingBottom:16}}>
+      <Identidad />
+      <button type="button" className="ghost" style={{marginTop:12,width:'100%',height:34,display:'flex',alignItems:'center',gap:8,
+        padding:'0 10px',borderRadius:8,border:'1px solid var(--spira-line-2)',background:'var(--spira-surface)',cursor:'pointer'}}>
+        <Icon name="calendar" size={14} color={TRACK} />
+        <span style={{fontSize:12,fontWeight:600,whiteSpace:'nowrap'}}>Cronograma y procedimientos</span>
+        <span style={{marginLeft:'auto',fontSize:11,color:'var(--spira-muted)',whiteSpace:'nowrap'}}>17 visitas</span>
+        <Icon name="chevronRight" size={13} color="var(--spira-faint)" />
+      </button>
+      <Datos />
+    </div>
+  );
+}
+
+/* C4 · identidad partida: columna de acceso a la derecha */
+function C4(){
+  return (
+    <div style={{...card,minHeight:0,paddingBottom:16}}>
+      <div style={{display:'flex',alignItems:'stretch',border:'1px solid var(--spira-line-2)',borderRadius:12,overflow:'hidden'}}>
+        <div style={{flex:1,minWidth:0,padding:'11px 13px'}}>
+          <div style={{fontFamily:'var(--spira-font-display)',fontWeight:700,fontSize:22,letterSpacing:'-.02em',color:TRACK}}>ACT18301</div>
+          <div style={{fontSize:13,fontWeight:600,marginTop:2}}>AIRLYMPUS</div>
+        </div>
+        <button type="button" className="ghost" title="Cronograma y procedimientos"
+          style={{flex:'0 0 auto',width:58,display:'grid',placeItems:'center',border:'none',
+            borderLeft:'1px solid var(--spira-line-2)',background:mix(TRACK,7),cursor:'pointer',padding:'8px 0'}}>
+          <Icon name="calendar" size={18} color={TRACK} />
+          <span style={{fontSize:9,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',color:TRACK,marginTop:3}}>Cron.</span>
+        </button>
+      </div>
+      <Datos />
+    </div>
+  );
+}
+
+/* C5 · dos chips: cronograma y procedimientos */
+function C5(){
+  const chip=(icon,txt)=>(
+    <button type="button" className="ghost" style={{display:'inline-flex',alignItems:'center',gap:6,height:28,padding:'0 11px',
+      borderRadius:'var(--spira-radius-pill)',border:'1px solid var(--spira-line-2)',background:'var(--spira-surface)',
+      color:'var(--spira-ink)',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+      <Icon name={icon} size={13} color={TRACK} /> {txt}
+    </button>
+  );
+  return (
+    <div style={{...card,minHeight:0,paddingBottom:16}}>
+      <Identidad />
+      <div style={{display:'flex',flexWrap:'wrap',gap:7,marginTop:12}}>
+        {chip('calendar','Cronograma')}
+        {chip('list','Procedimientos')}
+      </div>
+      <Datos />
+    </div>
+  );
+}
+
+/* ── el botón-tile de C1, ahora con texto ── */
+/* C6 · tile con rótulo corto al lado, en la fila de identidad */
+function C6(){
+  return (
+    <div style={{...card,minHeight:0,paddingBottom:16}}>
+      <Identidad chip={
+        <button type="button" className="ghost" style={{flex:'0 0 auto',height:36,display:'inline-flex',alignItems:'center',gap:7,
+          padding:'0 11px 0 9px',borderRadius:10,border:'1px solid var(--spira-line-2)',background:'var(--spira-surface)',
+          color:'var(--spira-ink)',fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>
+          <Icon name="calendar" size={16} color={TRACK} /> Cronograma
+        </button>} />
+      <Datos />
+    </div>
+  );
+}
+
+/* C7 · tile vertical: ícono arriba, versalita abajo, al alto del tile del estudio */
+function C7(){
+  return (
+    <div style={{...card,minHeight:0,paddingBottom:16}}>
+      <Identidad chip={
+        <button type="button" className="ghost" style={{flex:'0 0 auto',width:64,height:46,display:'grid',placeItems:'center',
+          borderRadius:10,border:'1px solid var(--spira-line-2)',background:'var(--spira-surface)',cursor:'pointer',padding:'5px 0'}}>
+          <Icon name="calendar" size={17} color={TRACK} />
+          <span style={{fontSize:8.5,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',color:INK_SOFT,marginTop:2,whiteSpace:'nowrap'}}>Cron.</span>
+        </button>} />
+      <Datos />
+    </div>
+  );
+}
+
+/* C8 · tile + rótulo completo en dos líneas, bajo la identidad, al ancho del contenido */
+function C8(){
+  return (
+    <div style={{...card,minHeight:0,paddingBottom:16}}>
+      <Identidad />
+      <div style={{display:'flex',marginTop:12}}>
+        <button type="button" className="ghost" style={{display:'inline-flex',alignItems:'center',gap:10,height:46,padding:'0 12px 0 10px',
+          borderRadius:12,border:'1px solid var(--spira-line-2)',background:'var(--spira-surface)',cursor:'pointer',textAlign:'left'}}>
+          <span style={{width:30,height:30,borderRadius:8,background:mix(TRACK,9),display:'grid',placeItems:'center',flex:'0 0 auto'}}>
+            <Icon name="calendar" size={16} color={TRACK} />
+          </span>
+          <span style={{fontSize:12.5,fontWeight:700,whiteSpace:'nowrap'}}>Cronograma y procedimientos</span>
+          <Icon name="chevronRight" size={14} color="var(--spira-faint)" />
+        </button>
+      </div>
+      <Datos />
+    </div>
+  );
+}
+
+/* C9 · dos tiles con texto: cada mitad del modal */
+function C9(){
+  const tile=(icon,txt)=>(
+    <button type="button" className="ghost" style={{flex:1,minWidth:0,display:'inline-flex',alignItems:'center',gap:8,height:36,
+      padding:'0 10px',borderRadius:10,border:'1px solid var(--spira-line-2)',background:'var(--spira-surface)',
+      color:'var(--spira-ink)',fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>
+      <Icon name={icon} size={15} color={TRACK} /> {txt}
+    </button>
+  );
+  return (
+    <div style={{...card,minHeight:0,paddingBottom:16}}>
+      <Identidad />
+      <div style={{display:'flex',gap:8,marginTop:12}}>{tile('calendar','Cronograma')}{tile('list','Procedimientos')}</div>
+      <Datos />
+    </div>
+  );
+}
+
+const CHIPS=[
+  {id:'C6',comp:C6,title:'Tile con rótulo corto',nota:'El cuadrado de C1 estirado para que entre la palabra: 36px de alto, ícono + «Cronograma», en la misma fila de la identidad. Sin robar renglón y sin depender del tooltip.'},
+  {id:'C7',comp:C7,title:'Tile vertical con versalita',nota:'Mismo alto que el tile del estudio (46px): ícono arriba, versalita abajo. Se lee como par del ícono de la izquierda; el rótulo tiene que abreviarse.'},
+  {id:'C8',comp:C8,title:'Tile con rótulo completo',nota:'Bajo la identidad y al ancho del contenido: ícono en caja teal y «Cronograma y procedimientos» en una sola línea.'},
+  {id:'C9',comp:C9,title:'Dos tiles con texto',nota:'La fila se parte en dos accesos parejos, uno por mitad del modal. Ambos con ícono y palabra, 36px.'},
+  {id:'C1',comp:C1,title:'Sólo ícono',nota:'Cuadrado de 36px al final de la fila de identidad. Cero texto y cero altura extra; depende del tooltip para explicarse.'},
+  {id:'C2',comp:C2,title:'Enlace bajo el nombre',nota:'Tercer renglón de la identidad, en teal y sin caja. Rotula completo y pesa poco, pero se lee como texto más que como botón.'},
+  {id:'C3',comp:C3,title:'Franja de media altura',nota:'Ancho completo pero 30px en vez de 40, con un dato al costado (17 visitas). Mantiene el rótulo entero y baja el peso a la mitad.'},
+  {id:'C4',comp:C4,title:'Identidad partida',nota:'El encabezado pasa a ser un bloque con una columna de acceso a la derecha. Muy compacto; cambia la forma de la identidad.'},
+  {id:'C5',comp:C5,title:'Dos chips',nota:'Cronograma y Procedimientos como pastillas separadas: cada mitad del modal tiene su entrada, en una línea liviana.'},
+];
+
+/* ── C3 · tratamientos de color de la franja ── */
+function Franja({estilo}){
+  const base={marginTop:12,width:'100%',height:34,display:'flex',alignItems:'center',gap:8,padding:'0 10px',
+    borderRadius:8,cursor:'pointer'};
+  const V={
+    tenida:{st:{...base,border:`1px solid ${mix(TRACK,32)}`,background:mix(TRACK,8)},ico:TRACK,txt:'var(--spira-ink)',dato:INK_SOFT,chev:TRACK},
+    solida:{st:{...base,border:'none',background:TRACK},ico:'#fff',txt:'#fff',dato:'#fff',chev:'#fff'},
+    outline:{st:{...base,border:`1px solid ${TRACK}`,background:'var(--spira-white)'},ico:TRACK,txt:TRACK,dato:'var(--spira-muted)',chev:TRACK},
+    caja:{st:{...base,border:'1px solid var(--spira-line-2)',background:'var(--spira-white)',paddingLeft:6},ico:TRACK,txt:'var(--spira-ink)',dato:'var(--spira-muted)',chev:TRACK,cajaIcono:true},
+    pildora:{st:{...base,border:`1px solid ${mix(TRACK,32)}`,background:mix(TRACK,8)},ico:TRACK,txt:'var(--spira-ink)',chev:TRACK,pill:true},
+  }[estilo];
+  return (
+    <button type="button" className="ghost" style={V.st}>
+      {V.cajaIcono ? (
+        <span style={{width:24,height:24,borderRadius:7,background:mix(TRACK,12),display:'grid',placeItems:'center',flex:'0 0 auto'}}>
+          <Icon name="calendar" size={14} color={V.ico} />
+        </span>
+      ) : <Icon name="calendar" size={14} color={V.ico} />}
+      <span style={{fontSize:12,fontWeight:600,whiteSpace:'nowrap',color:V.txt}}>Cronograma y procedimientos</span>
+      {V.pill ? (
+        <span style={{marginLeft:'auto',display:'inline-flex',alignItems:'center',height:19,padding:'0 7px',borderRadius:'var(--spira-radius-pill)',
+          background:TRACK,color:'#fff',fontSize:10.5,fontWeight:700,whiteSpace:'nowrap'}}>17 visitas</span>
+      ) : (
+        <span style={{marginLeft:'auto',fontSize:11,color:V.dato,whiteSpace:'nowrap'}}>17 visitas</span>
+      )}
+      <Icon name="chevronRight" size={13} color={V.chev} />
+    </button>
+  );
+}
+function FichaFranja({estilo}){
+  return (
+    <div style={{...card,minHeight:0,paddingBottom:16}}>
+      <Identidad />
+      <Franja estilo={estilo} />
+      <Datos />
+    </div>
+  );
+}
+const COLORES=[
+  {id:'D1',estilo:'tenida',title:'Teñida',nota:'Fondo teal al 8% y borde al 32%: la franja se despega del blanco sin gritar. El rótulo queda en tinta, el chevron en teal.'},
+  {id:'D2',estilo:'solida',title:'Teal sólido',nota:'Color pleno y texto blanco. Es la lectura más fuerte de la ficha; conviene solo si el cronograma es la entrada principal del panel.'},
+  {id:'D3',estilo:'outline',title:'Contorno teal',nota:'Fondo blanco, borde y texto en teal. Señala que es acción sin sumar una mancha de color al encabezado.'},
+  {id:'D4',estilo:'caja',title:'Ícono en caja',nota:'La franja queda neutra y el color se concentra en el cuadradito del ícono. El acento aparece una sola vez y en un lugar chico.'},
+  {id:'D5',estilo:'pildora',title:'Teñida con contador',nota:'Como D1 pero el dato pasa a píldora teal sólida: el número de visitas se lee como contenido del cronograma, no como texto al margen.'},
+];
+
+function App(){
+  return (
+    <div style={{maxWidth:1400,margin:'0 auto',padding:'30px 24px 70px'}}>
+      <div style={eyebrow}>Spira Track · exploración</div>
+      <h1 style={{margin:'6px 0 8px',fontFamily:'var(--spira-font-display)',fontSize:28,fontWeight:700,letterSpacing:'-.02em'}}>
+        Dónde va «Cronograma y procedimientos» en el panel del protocolo
+      </h1>
+      <p style={{margin:'0 0 26px',fontSize:14,color:'var(--spira-muted)',maxWidth:820,lineHeight:1.55}}>
+        Seis ubicaciones sobre la misma ficha lateral (316px). Cambian el peso del botón y qué se lee primero:
+        la identidad del estudio, sus datos o la acción.
+      </p>
+      <div style={{display:'flex',flexWrap:'wrap',gap:28,alignItems:'flex-start'}}>
+        {OPCIONES.map(({id,comp:C,title,nota})=>(
+          <div key={id} style={{width:id==='F'?760:316}}>
+            <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
+              <span style={{fontFamily:'var(--spira-font-display)',fontWeight:700,fontSize:12,color:TRACK}}>{id}</span>
+              <h2 style={{margin:0,fontFamily:'var(--spira-font-display)',fontSize:17,fontWeight:700}}>{title}</h2>
+            </div>
+            <p style={{margin:'0 0 12px',fontSize:12.5,color:'var(--spira-muted)',lineHeight:1.5,minHeight:56}}>{nota}</p>
+            <C />
+          </div>
+        ))}
+      </div>
+
+      <div style={{borderTop:'1px solid var(--spira-line)',margin:'44px 0 20px',paddingTop:22}}>
+        <h2 style={{margin:'0 0 6px',fontFamily:'var(--spira-font-display)',fontSize:22,fontWeight:700,letterSpacing:'-.02em'}}>
+          Variantes del acceso compacto
+        </h2>
+        <p style={{margin:'0 0 22px',fontSize:13.5,color:'var(--spira-muted)',maxWidth:820,lineHeight:1.55}}>
+          Sobre la idea de C: que el acceso viva en la identidad sin robarle un renglón de 40px a la ficha.
+          (Las fichas de abajo se cortan después de los datos, para comparar sólo el encabezado.)
+        </p>
+        <div style={{display:'flex',flexWrap:'wrap',gap:28,alignItems:'flex-start'}}>
+          {CHIPS.map(({id,comp:K,title,nota})=>(
+            <div key={id} style={{width:316}}>
+              <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
+                <span style={{fontFamily:'var(--spira-font-display)',fontWeight:700,fontSize:12,color:TRACK}}>{id}</span>
+                <h3 style={{margin:0,fontFamily:'var(--spira-font-display)',fontSize:17,fontWeight:700}}>{title}</h3>
+              </div>
+              <p style={{margin:'0 0 12px',fontSize:12.5,color:'var(--spira-muted)',lineHeight:1.5,minHeight:56}}>{nota}</p>
+              <K />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{borderTop:'1px solid var(--spira-line)',margin:'44px 0 20px',paddingTop:22}}>
+        <h2 style={{margin:'0 0 6px',fontFamily:'var(--spira-font-display)',fontSize:22,fontWeight:700,letterSpacing:'-.02em'}}>
+          C3 con más color
+        </h2>
+        <p style={{margin:'0 0 22px',fontSize:13.5,color:'var(--spira-muted)',maxWidth:820,lineHeight:1.55}}>
+          La misma franja de media altura, cinco tratamientos de color — de más suave a más fuerte.
+        </p>
+        <div style={{display:'flex',flexWrap:'wrap',gap:28,alignItems:'flex-start'}}>
+          {COLORES.map(({id,estilo,title,nota})=>(
+            <div key={id} style={{width:316}}>
+              <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
+                <span style={{fontFamily:'var(--spira-font-display)',fontWeight:700,fontSize:12,color:TRACK}}>{id}</span>
+                <h3 style={{margin:0,fontFamily:'var(--spira-font-display)',fontSize:17,fontWeight:700}}>{title}</h3>
+              </div>
+              <p style={{margin:'0 0 12px',fontSize:12.5,color:'var(--spira-muted)',lineHeight:1.5,minHeight:56}}>{nota}</p>
+              <FichaFranja estilo={estilo} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
