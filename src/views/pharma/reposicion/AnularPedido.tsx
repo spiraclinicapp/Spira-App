@@ -34,8 +34,8 @@ export function AnularPedido({ p, estudio, onClose, onAnulado }: {
     <Modal
       title={`Anular el pedido Nº ${p.numero}`} onClose={enviando ? () => {} : onClose} maxWidth={428}
       icon="alertCircle" accent="var(--spira-danger)" accentSoft="rgba(166,72,59,.12)"
+      subtitle={`${estudio.code} · ${estudio.name} · emitido el ${diaMes(p.emitido_el)}`}
     >
-      <p style={{ fontSize: 13, color: 'var(--spira-muted)', margin: '-8px 0 12px' }}>{estudio.code} · {estudio.name} · emitido el {diaMes(p.emitido_el)}</p>
       <p style={{ fontSize: 13, color: 'var(--spira-ink)', lineHeight: 1.5, margin: '0 0 14px' }}>
         Todavía no se recibió nada. Queda en la lista como anulado y deja de estar en camino.
       </p>

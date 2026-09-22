@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
@@ -7,6 +7,14 @@ interface ModalProps {
   title: string
   onClose: () => void
   children: ReactNode
+  /**
+   * Una línea de contexto bajo el título (de qué estudio, de qué período). Va en el encabezado
+   * fijo y NO como primer hijo del cuerpo: el cuerpo scrollea (`overflow: auto`) y lo que se sube
+   * con margen negativo para arrimarlo al título queda afuera de la zona visible, recortado por
+   * arriba. Pasó en los cinco modales de Reposición (2026-09-21). Acá además queda a la vista
+   * mientras se scrollea una lista larga, y se anuncia como descripción del diálogo.
+   */
+  subtitle?: ReactNode
   /** Ancho máximo de la card. Default 440 (formularios de una columna). */
   maxWidth?: number
   /** Ícono opcional en un cuadro tintado a la izquierda del título. */
@@ -47,7 +55,8 @@ const cardBase: CSSProperties = {
 const abiertos: object[] = []
 
 /** Overlay sobrio reutilizable: backdrop + card scrolleable + accesibilidad (Escape, aria, click afuera). */
-export function Modal({ title, onClose, children, maxWidth = 440, icon, accent, accentSoft }: ModalProps) {
+export function Modal({ title, onClose, children, subtitle, maxWidth = 440, icon, accent, accentSoft }: ModalProps) {
+  const subtitleId = useId()
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   useEffect(() => {
@@ -66,24 +75,35 @@ export function Modal({ title, onClose, children, maxWidth = 440, icon, accent, 
 
   return (
     <div style={backdrop} onClick={onClose} role="presentation">
-      <div style={{ ...cardBase, maxWidth }} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div
+        style={{ ...cardBase, maxWidth }} role="dialog" aria-modal="true" aria-label={title}
+        aria-describedby={subtitle ? subtitleId : undefined} onClick={(e) => e.stopPropagation()}
+      >
         {/* encabezado fijo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '22px 24px 14px', flex: '0 0 auto' }}>
-          {icon && (
-            <span style={{ width: 34, height: 34, flex: '0 0 auto', borderRadius: 9, background: accentSoft ?? 'var(--spira-surface)', display: 'grid', placeItems: 'center' }}>
-              <Icon name={icon} size={18} color={accent ?? 'var(--spira-ink)'} stroke={1.9} />
-            </span>
+        <div style={{ padding: '22px 24px 14px', flex: '0 0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {icon && (
+              <span style={{ width: 34, height: 34, flex: '0 0 auto', borderRadius: 9, background: accentSoft ?? 'var(--spira-surface)', display: 'grid', placeItems: 'center' }}>
+                <Icon name={icon} size={18} color={accent ?? 'var(--spira-ink)'} stroke={1.9} />
+              </span>
+            )}
+            <div className="spira-h2" style={{ flex: 1, fontSize: 20, color: accent }}>{title}</div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              title="Cerrar"
+              style={{ width: 32, height: 32, border: 'none', borderRadius: 8, background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', flex: '0 0 auto' }}
+            >
+              <Icon name="x" size={18} color="var(--spira-muted)" />
+            </button>
+          </div>
+          {/* Alineado con el texto del título: con ícono, corrido lo que ocupa el cuadro (34 + 12). */}
+          {subtitle && (
+            <div id={subtitleId} style={{ fontSize: 13, color: 'var(--spira-muted)', lineHeight: 1.45, marginTop: 4, paddingLeft: icon ? 46 : 0 }}>
+              {subtitle}
+            </div>
           )}
-          <div className="spira-h2" style={{ flex: 1, fontSize: 20, color: accent }}>{title}</div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            title="Cerrar"
-            style={{ width: 32, height: 32, border: 'none', borderRadius: 8, background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', flex: '0 0 auto' }}
-          >
-            <Icon name="x" size={18} color="var(--spira-muted)" />
-          </button>
         </div>
         {/* cuerpo scrolleable */}
         <div style={{ overflow: 'auto', padding: '0 24px 22px' }}>

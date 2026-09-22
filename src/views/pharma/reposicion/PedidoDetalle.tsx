@@ -74,8 +74,7 @@ export function PedidoDetalle({ p, estudio, puedeEditar, accentSolid, onClose, o
 
   return (
     <>
-      <Modal title={`Pedido Nº ${p.numero}`} onClose={onClose} maxWidth={580}>
-        <p style={{ fontSize: 13, color: 'var(--spira-muted)', margin: '-8px 0 14px', lineHeight: 1.45 }}>{sub}</p>
+      <Modal title={`Pedido Nº ${p.numero}`} subtitle={sub} onClose={onClose} maxWidth={580}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px', flexWrap: 'wrap' }}>
           <Pastilla p={pastilla} />
           {estadoTexto && <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>{estadoTexto}</span>}

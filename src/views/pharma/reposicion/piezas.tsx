@@ -23,22 +23,6 @@ export const botonChico: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 11px', flex: '0 0 auto', whiteSpace: 'nowrap',
 }
 
-/**
- * La acción de la fila del estudio: 38 de alto, como las de la cabecera del shell. Sólida o con borde, y el
- * borde SIEMPRE en longhands: el mismo botón pasa de «Armar pedido» (sólido) a «Armar otro pedido» (con
- * borde) sin desmontarse, y mezclar la abreviada con longhands lo dejaría sin borde.
- */
-export function botonAccion(primario: boolean, accentSolid: string): CSSProperties {
-  return {
-    height: 38, padding: '0 15px', borderRadius: 10, borderWidth: 1, borderStyle: 'solid',
-    borderColor: primario ? accentSolid : 'var(--spira-line-2)',
-    background: primario ? accentSolid : 'var(--spira-white)',
-    color: primario ? 'var(--spira-on-accent)' : 'var(--spira-ink)',
-    fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
-    display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap', flex: '0 0 auto',
-  }
-}
-
 export const errorTexto: CSSProperties = {
   fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)',
   borderRadius: 8, padding: '9px 12px', margin: 0,
