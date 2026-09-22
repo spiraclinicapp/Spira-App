@@ -9,10 +9,24 @@ import { AvisoLinea, Envases, botonChico, plural } from './piezas'
  * «Mínimo» no está en el mock: lo pidió el Director el 2026-09-19 (el stock mínimo de cada medicamento,
  * sacado de la medicación asignada a los pacientes, sin desplegar la cuenta).
  */
-export const COLUMNAS = 'minmax(0, 1fr) 84px 84px 84px 96px 96px 190px 44px'
+const FIJAS = [84, 84, 84, 96, 96, 190, 44]
+export const COLUMNAS = `minmax(0, 1fr) ${FIJAS.map((px) => `${px}px`).join(' ')}`
+/**
+ * Lo que tiene que quedarle al nombre para que el libro vaya en columnas: 200 px de texto más el padding de la
+ * celda. Con 200 entran enteros todos los medicamentos que hay hoy salvo el más largo («Trelegy Ellipta (92)
+ * 92/55/22 mcg», 222 px), que se corta con puntos; los demás andan entre 57 y 190.
+ */
+const NOMBRE_MINIMO = 200 + 32
+/**
+ * El ancho de CONTENEDOR por debajo del cual el libro baja a un segundo renglón (RD14): hoy 910 px. Sale de las
+ * mismas columnas, así que si una cambia, el umbral la acompaña. Vale también para el período cerrado, que con
+ * menos columnas entraría antes: un solo corte para toda la pantalla, así el resumen, el libro y los pedidos
+ * cambian de forma juntos.
+ */
+export const ANCHO_LIBRO_EN_COLUMNAS = FIJAS.reduce((s, px) => s + px, 0) + NOMBRE_MINIMO
 /** Un período cerrado: había, entró, salió y quedó, sin «comprar» (R6). */
 export const COLUMNAS_CERRADO = 'minmax(0, 1fr) 96px 96px 96px 96px'
-/** Por debajo de 1024 px el libro baja a un segundo renglón (RD14). */
+/** El libro en dos renglones (RD14): nombre y cuenta a la izquierda, «comprar» y la flecha a la derecha. */
 const COLUMNAS_ANGOSTA = 'minmax(0, 1fr) auto 36px'
 
 const numero: CSSProperties = { padding: '13px 16px', textAlign: 'right', fontSize: 14, color: 'var(--spira-ink)' }

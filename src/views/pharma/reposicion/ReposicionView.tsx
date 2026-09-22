@@ -13,7 +13,7 @@ import type { ViewProps } from '../../types'
 import { DiaDeCorte } from './DiaDeCorte'
 import { PantallaEstudio } from './PantallaEstudio'
 import { TarjetaDeEstudio } from './TarjetaDeEstudio'
-import { EstadoCaja, useAngosto } from './piezas'
+import { EstadoCaja } from './piezas'
 
 /**
  * ┌─ Farmacia › Reposición (docs/superpowers/specs/2026-09-16-reposicion-submodulo-design.md) ────────┐
@@ -29,7 +29,6 @@ import { EstadoCaja, useAngosto } from './piezas'
 export function ReposicionView({ module, setHeader }: ViewProps) {
   const { hasMinRole } = useAuth()
   const puedeEditar = hasMinRole('pharma', 'operator')
-  const angosto = useAngosto()
   const hoy = todayISO()
   const corte = useDiaCorte()
   const diaCorte = corte.data?.diaCorte ?? null
@@ -121,7 +120,7 @@ export function ReposicionView({ module, setHeader }: ViewProps) {
     if (!estudioAbierto) return <NotFoundView motivo="ruta" />
     return (
       <PantallaEstudio
-        rep={rep} e={estudioAbierto} diaCorte={diaCorte} puedeEditar={puedeEditar} angosto={angosto}
+        rep={rep} e={estudioAbierto} diaCorte={diaCorte} puedeEditar={puedeEditar}
         accent={module.accent} accentSolid={module.accentSolid}
         armando={armandoPara === codigo} onSalirDeArmar={() => setArmandoPara(null)}
         onVolver={irAGrilla} onPeriodo={setFecha} onCambio={q.refetch}

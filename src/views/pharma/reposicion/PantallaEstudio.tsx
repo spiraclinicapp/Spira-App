@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import {
@@ -8,10 +8,10 @@ import {
 import type { EstudioReposicion, PedidoMedicacion, ReposicionDelPeriodo } from '../../../data/pharma'
 import { card } from '../reportes/estilos'
 import { ArmarPedido } from './ArmarPedido'
-import { COLUMNAS, COLUMNAS_CERRADO, FilaMedicamento } from './FilaMedicamento'
+import { ANCHO_LIBRO_EN_COLUMNAS, COLUMNAS, COLUMNAS_CERRADO, FilaMedicamento } from './FilaMedicamento'
 import { HojaPedido, datosDeHoja, useImpresion } from './HojaPedido'
 import { PedidoDetalle } from './PedidoDetalle'
-import { AvisoLinea, Envases, Informacion, Pastilla, PuntoEstado, TituloSeccion, botonChico, plural, rotuloColumna } from './piezas'
+import { AvisoLinea, Envases, Informacion, Pastilla, PuntoEstado, TituloSeccion, botonChico, plural, rotuloColumna, useAngosto } from './piezas'
 
 const volver: CSSProperties = {
   width: 38, height: 38, borderRadius: 10, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
@@ -32,12 +32,11 @@ const grupoEncabezado: CSSProperties = { padding: '10px 16px 7px', fontSize: 11.
  * «Armar pedido» no vive acá: es la acción de la pantalla y va en el encabezado del shell, junto al
  * título (lo registra `ReposicionView`). Acá sólo se abre el modal cuando la piden.
  */
-export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent, accentSolid, armando, onSalirDeArmar, onVolver, onPeriodo, onCambio }: {
+export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, accent, accentSolid, armando, onSalirDeArmar, onVolver, onPeriodo, onCambio }: {
   rep: ReposicionDelPeriodo
   e: EstudioReposicion
   diaCorte: number
   puedeEditar: boolean
-  angosto: boolean
   accent: string
   accentSolid: string
   /** Se pidió «Armar pedido» desde el encabezado del shell. */
@@ -53,6 +52,10 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
   const [editando, setEditando] = useState<string | null>(null)
   const [viendo, setViendo] = useState<string | null>(null)
   const { hoja, imprimir } = useImpresion()
+  /* La forma del libro (y con él la del resumen y los pedidos) la decide el ancho de ESTA pantalla, no el de
+     la ventana: ver `useAngosto`. */
+  const raiz = useRef<HTMLDivElement>(null)
+  const angosto = useAngosto(raiz, ANCHO_LIBRO_EN_COLUMNAS)
 
   const sub = subtituloDelPeriodo(rep, e)
   const resumen = resumenDelEstudio(e, rep)
@@ -72,7 +75,7 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, angosto, accent
   const editar = (clave: string) => { setAbierto(clave); setEditando(clave) }
 
   return (
-    <div>
+    <div ref={raiz}>
       {/* Un renglón: qué estudio y qué período. Son dos grupos y no uno solo para que, si no entran (entre
           1024 y ~1300 px de ventana), las flechas bajen JUNTAS al segundo renglón en vez de partirse a
           mitad de camino. Sin divisor entre los dos: al bajar quedaría colgando al final del primero; los
@@ -259,10 +262,12 @@ function FilaPedido({ p, ultimo, angosto, accentSolid, onVer, onReimprimir }: {
   onVer: () => void
   onReimprimir: () => void
 }) {
+  /* El espacio va en longhands: con `gap` (la abreviada) al lado de `rowGap`, el `gap: 14` pisaba al 6 de la
+     forma angosta, y al cambiar de forma en vivo React avisaba que vaciaba uno de los dos. */
   return (
     <div style={{
-      ...(angosto ? { display: 'flex', flexWrap: 'wrap', rowGap: 6 } : { display: 'grid', gridTemplateColumns: '130px 150px minmax(0, 1fr) auto auto' }),
-      alignItems: 'center', gap: 14, padding: '11px 16px', borderBottom: ultimo ? 'none' : '1px solid var(--spira-line)',
+      ...(angosto ? { display: 'flex', flexWrap: 'wrap' } : { display: 'grid', gridTemplateColumns: '130px 150px minmax(0, 1fr) auto auto' }),
+      alignItems: 'center', columnGap: 14, rowGap: angosto ? 6 : 14, padding: '11px 16px', borderBottom: ultimo ? 'none' : '1px solid var(--spira-line)',
     }}>
       <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15, color: 'var(--spira-ink)' }}>Pedido Nº {p.numero}</span>
       <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>Emitido el <span className="spira-mono">{diaMes(p.emitido_el)}</span></span>
