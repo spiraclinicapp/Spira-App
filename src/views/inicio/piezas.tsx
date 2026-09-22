@@ -77,9 +77,13 @@ export function BandaSaludo({
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 26, paddingLeft: 32, borderLeft: '1px solid rgba(244,241,234,.22)' }}>
-        {cifras.map((c, i) => <CifraHero key={i} {...c} />)}
-      </div>
+      {/* Sin cifras (quien no tiene ningún módulo operativo, ver `alcance.ts`) no va el bloque: su
+          `borderLeft` quedaría como una raya suelta al costado del saludo. */}
+      {cifras.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 26, paddingLeft: 32, borderLeft: '1px solid rgba(244,241,234,.22)' }}>
+          {cifras.map((c, i) => <CifraHero key={i} {...c} />)}
+        </div>
+      )}
     </div>
   )
 }
@@ -137,24 +141,28 @@ export function CardFundacion({
           ))}
         </div>
       </div>
-      <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-          {numeros.map((n, i) => (
-            <div
-              key={n.rotulo}
-              style={{
-                padding: i === 0 ? '0 18px 0 0' : i === numeros.length - 1 ? '0 0 0 18px' : '0 18px',
-                borderLeft: i === 0 ? undefined : '1px solid var(--spira-line)',
-              }}
-            >
-              <div style={{ fontFamily: display, fontWeight: 700, fontSize: 26, letterSpacing: '-0.025em', lineHeight: 1, color: n.tono, fontVariantNumeric: 'tabular-nums' }}>
-                {n.cifra}
+      {/* Sin números (quien no tiene ningún módulo operativo, ver `alcance.ts`) no va el bloque: su
+          `borderTop` quedaría como una raya suelta al pie de la identidad. */}
+      {numeros.length > 0 && (
+        <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+            {numeros.map((n, i) => (
+              <div
+                key={n.rotulo}
+                style={{
+                  padding: i === 0 ? '0 18px 0 0' : i === numeros.length - 1 ? '0 0 0 18px' : '0 18px',
+                  borderLeft: i === 0 ? undefined : '1px solid var(--spira-line)',
+                }}
+              >
+                <div style={{ fontFamily: display, fontWeight: 700, fontSize: 26, letterSpacing: '-0.025em', lineHeight: 1, color: n.tono, fontVariantNumeric: 'tabular-nums' }}>
+                  {n.cifra}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--spira-ink-soft)', marginTop: 5 }}>{n.rotulo}</div>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--spira-ink-soft)', marginTop: 5 }}>{n.rotulo}</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
