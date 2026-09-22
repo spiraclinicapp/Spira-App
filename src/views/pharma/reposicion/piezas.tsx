@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import { useLayoutEffect, useState } from 'react'
+import type { CSSProperties, ReactNode, RefObject } from 'react'
 import { Icon } from '../../../components/Icon'
 import type { IconName } from '../../../components/Icon'
 import type { ClavePastilla, EstudioInsumo, PastillaPedido } from '../../../data/pharma'
@@ -134,13 +134,25 @@ export function TituloSeccion({ children }: { children: ReactNode }) {
   )
 }
 
-/** Por debajo de 1024 px el libro baja a un segundo renglón y la grilla pasa a dos columnas (RD14). */
-export function useAngosto(): boolean {
-  const [angosto, setAngosto] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1024)
-  useEffect(() => {
-    const alCambiar = () => setAngosto(window.innerWidth < 1024)
-    window.addEventListener('resize', alCambiar)
-    return () => window.removeEventListener('resize', alCambiar)
-  }, [])
+/**
+ * ¿El contenedor mide menos que `umbral`? Con eso el libro baja a un segundo renglón (RD14).
+ *
+ * Mide el CONTENEDOR, no la ventana. Hasta el 2026-09-21 miraba `window.innerWidth < 1024`, y entre 1024 y
+ * ~1100 px de ventana la columna del nombre quedaba en cero y el rótulo «Medicamento» se pisaba con «Había»:
+ * el riel y el panel de submódulos se comen ~340 px que la ventana no descuenta, y el panel además se pliega
+ * sin que la ventana cambie. Mide en un layout effect, antes de pintar: no llega a verse un cuadro con la
+ * forma equivocada.
+ */
+export function useAngosto(ref: RefObject<HTMLElement | null>, umbral: number): boolean {
+  const [angosto, setAngosto] = useState(false)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const medir = () => setAngosto(el.clientWidth < umbral)
+    medir()
+    const obs = new ResizeObserver(medir)
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [ref, umbral])
   return angosto
 }
