@@ -76,10 +76,11 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, accent, accentS
 
   return (
     <div ref={raiz}>
-      {/* Un renglón: qué estudio y qué período. Son dos grupos y no uno solo para que, si no entran (entre
-          1024 y ~1300 px de ventana), las flechas bajen JUNTAS al segundo renglón en vez de partirse a
-          mitad de camino. Sin divisor entre los dos: al bajar quedaría colgando al final del primero; los
-          separa el aire, y las flechas con borde ya marcan dónde empieza el período. */}
+      {/* Un renglón: qué estudio y qué período. Son dos grupos y no uno solo para que, si no entran, las
+          flechas bajen JUNTAS al segundo renglón en vez de partirse a mitad de camino. El del período va
+          contra el borde derecho, justo debajo de «Armar pedido» del encabezado (pedido del Director,
+          2026-09-21), con el texto ANTES de las flechas para que sean ellas las que queden alineadas con el
+          botón. Sin divisor entre los dos grupos: los separa el aire del medio. */}
       <div style={{ display: 'flex', alignItems: 'center', columnGap: 28, rowGap: 10, margin: '0 0 14px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
           <button type="button" onClick={onVolver} aria-label="Volver a la grilla de estudios" style={volver}>
@@ -91,7 +92,8 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, accent, accentS
         </div>
 
         {/* Las flechas entre períodos (R6): la › se apaga en el período en curso. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
+          <span style={{ fontSize: 12.5, marginRight: 4, color: sub.aviso ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink-soft)', fontWeight: sub.aviso ? 600 : 400 }}>{sub.texto}</span>
           <button type="button" onClick={() => onPeriodo(anterior.desde)} aria-label={`Período anterior, del ${textoPeriodo(anterior)}`} style={{ ...flecha, cursor: 'pointer' }}>
             <Icon name="chevronLeft" size={15} />
           </button>
@@ -104,7 +106,6 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, accent, accentS
           >
             <Icon name="chevronRight" size={15} />
           </button>
-          <span style={{ fontSize: 12.5, marginLeft: 4, color: sub.aviso ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink-soft)', fontWeight: sub.aviso ? 600 : 400 }}>{sub.texto}</span>
         </div>
       </div>
 
