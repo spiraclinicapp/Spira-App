@@ -77,9 +77,13 @@ export function BandaSaludo({
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 26, paddingLeft: 32, borderLeft: '1px solid rgba(244,241,234,.22)' }}>
-        {cifras.map((c, i) => <CifraHero key={i} {...c} />)}
-      </div>
+      {/* Sin cifras (quien no tiene ningún módulo operativo, ver `alcance.ts`) no va el bloque: su
+          `borderLeft` quedaría como una raya suelta al costado del saludo. */}
+      {cifras.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 26, paddingLeft: 32, borderLeft: '1px solid rgba(244,241,234,.22)' }}>
+          {cifras.map((c, i) => <CifraHero key={i} {...c} />)}
+        </div>
+      )}
     </div>
   )
 }

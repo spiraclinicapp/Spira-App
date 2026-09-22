@@ -12,6 +12,7 @@ import { addDaysISO, formatDayLong, todayISO, weekDates } from '../lib/dates'
 import { SPIRA_VERSION } from '../lib/version'
 import { MODULES } from '../modules/registry'
 import { saludoDelDia } from './inicio/saludo'
+import { deMisModulos, modulosDelResumen } from './inicio/alcance'
 import { BandaSaludo, CardFundacion, CardModulo, CardNovedades } from './inicio/piezas'
 import type { Novedad } from './inicio/piezas'
 import type { ViewProps } from './types'
@@ -31,6 +32,10 @@ import type { ViewProps } from './types'
  * · lo que no tiene de dónde salir NO se dibuja: la píldora sin evento, la portada de Novedades y
  *   el toggle de "resumen por mail" (ver `piezas.tsx`).
  *
+ * CADA QUIEN VE SUS MÓDULOS (2026-09-21): las cards de módulo y las cifras de la banda aparecen
+ * sólo si tenés ese módulo asignado, con la misma regla que el riel. El porqué y el test están en
+ * `inicio/alcance.ts`. La card de la Fundación queda para todos: es la clínica, no un módulo.
+ *
  * Sin gate global: la pantalla se pinta entera de entrada y cada número aparece cuando llega, con
  * un guion mientras viaja. Un cero mientras carga afirmaría que no hay ninguno.
  *
@@ -39,7 +44,8 @@ import type { ViewProps } from './types'
  * sostiene ese límite está en la celda derecha, más abajo.
  */
 export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: ViewProps) {
-  const { profile } = useAuth()
+  const { profile, modules } = useAuth()
+  const visibles = modulosDelResumen(modules, MODULES)
   const hoy = todayISO()
   /* `weekDates` devuelve la semana HÁBIL en curso (lunes a viernes, cinco fechas), que es la
      noción de semana que ya usa el resto de la app. Nos quedamos con sus extremos. */
@@ -121,18 +127,20 @@ export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: V
           saludo={nombre ? `Buen día, ${nombre}` : 'Buen día'}
           frase={saludo.frase}
           evento={saludo.evento}
-          cifras={[
-            { n: dato(day.loading, visitasHoy), rotulo: `${plural(visitasHoy, 'visita', 'visitas')} hoy` },
+          cifras={deMisModulos([
+            { modulo: 'track', n: dato(day.loading, visitasHoy), rotulo: `${plural(visitasHoy, 'visita', 'visitas')} hoy` },
             {
+              modulo: 'pharma',
               n: dato(board.loading, dispensacionesAbiertas),
               rotulo: <>{plural(dispensacionesAbiertas, 'dispensación', 'dispensaciones')}<br />{plural(dispensacionesAbiertas, 'pendiente', 'pendientes')}</>,
             },
             {
+              modulo: 'track',
               n: dato(alertsQ.loading, ventanasVencidas),
               rotulo: <>{plural(ventanasVencidas, 'ventana', 'ventanas')}<br />{plural(ventanasVencidas, 'vencida', 'vencidas')}</>,
               tono: '#F0BFB4',
             },
-          ]}
+          ], visibles)}
         />
 
         <CardFundacion
@@ -157,47 +165,52 @@ export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: V
           ]}
         />
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
-          {track && (
-            <CardModulo
-              nombre={track.name}
-              bajada="Agenda, visitas y pendientes"
-              icono="activity"
-              acento="var(--spira-track)"
-              chipFondo="rgba(46,125,116,.13)"
-              onClick={() => onNavigate?.('track', 'resumen')}
-              cifras={[
-                { n: dato(day.loading, visitasHoy), rotulo: `${plural(visitasHoy, 'visita', 'visitas')} hoy` },
-                { n: dato(rango.loading, estaSemana), rotulo: 'esta semana' },
-                {
-                  n: dato(alertsQ.loading, alertas.length),
-                  rotulo: plural(alertas.length, 'pendiente', 'pendientes'),
-                  /* `acc-deep-danger` y no `danger`: el rojo plano da 2.77:1 sobre la card oscura,
-                     que es texto ilegible. La variante de oscuro es un salmón aclarado. */
-                  tono: alertas.length > 0 ? 'var(--spira-acc-deep-danger)' : undefined,
-                },
-              ]}
-            />
-          )}
-          {pharma && (
-            <CardModulo
-              nombre={pharma.name}
-              bajada="Recepción, stock y dispensación"
-              icono="pill"
-              acento="var(--spira-pharma)"
-              chipFondo="rgba(15,95,87,.11)"
-              onClick={() => onNavigate?.('pharma', 'recepcion')}
-              /* Dos cifras y no tres: "lote por vencer" necesita una consulta de vencimientos que
-                 todavía no existe, y un número inventado en Farmacia es justo lo que no puede
-                 pasar. Entra cuando esté la consulta. */
-              cifras={[
-                /* Sin conteo (cargando o error) va el guion: un 0 diría que no hay ninguna. */
-                { n: pendientesRecep.n ?? '—', rotulo: 'por verificar' },
-                { n: dato(board.loading, dispensacionesAbiertas), rotulo: plural(dispensacionesAbiertas, 'pendiente', 'pendientes') },
-              ]}
-            />
-          )}
-        </div>
+        {/* Una columna por módulo visible: con uno solo, su card toma la fila entera (decisión del
+            Director, 2026-09-21) — a media fila dejaba un hueco a la derecha y el Resumen dejaba de
+            cerrar como un rectángulo. Sin ninguno (gerencia sola), la fila no se dibuja. */}
+        {visibles.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibles.length}, minmax(0, 1fr))`, gap: 14 }}>
+            {track && visibles.includes('track') && (
+              <CardModulo
+                nombre={track.name}
+                bajada="Agenda, visitas y pendientes"
+                icono="activity"
+                acento="var(--spira-track)"
+                chipFondo="rgba(46,125,116,.13)"
+                onClick={() => onNavigate?.('track', 'resumen')}
+                cifras={[
+                  { n: dato(day.loading, visitasHoy), rotulo: `${plural(visitasHoy, 'visita', 'visitas')} hoy` },
+                  { n: dato(rango.loading, estaSemana), rotulo: 'esta semana' },
+                  {
+                    n: dato(alertsQ.loading, alertas.length),
+                    rotulo: plural(alertas.length, 'pendiente', 'pendientes'),
+                    /* `acc-deep-danger` y no `danger`: el rojo plano da 2.77:1 sobre la card oscura,
+                       que es texto ilegible. La variante de oscuro es un salmón aclarado. */
+                    tono: alertas.length > 0 ? 'var(--spira-acc-deep-danger)' : undefined,
+                  },
+                ]}
+              />
+            )}
+            {pharma && visibles.includes('pharma') && (
+              <CardModulo
+                nombre={pharma.name}
+                bajada="Recepción, stock y dispensación"
+                icono="pill"
+                acento="var(--spira-pharma)"
+                chipFondo="rgba(15,95,87,.11)"
+                onClick={() => onNavigate?.('pharma', 'recepcion')}
+                /* Dos cifras y no tres: "lote por vencer" necesita una consulta de vencimientos que
+                   todavía no existe, y un número inventado en Farmacia es justo lo que no puede
+                   pasar. Entra cuando esté la consulta. */
+                cifras={[
+                  /* Sin conteo (cargando o error) va el guion: un 0 diría que no hay ninguna. */
+                  { n: pendientesRecep.n ?? '—', rotulo: 'por verificar' },
+                  { n: dato(board.loading, dispensacionesAbiertas), rotulo: plural(dispensacionesAbiertas, 'pendiente', 'pendientes') },
+                ]}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       {/* La celda de Novedades: `relative` con la card en `absolute inset: 0`.
