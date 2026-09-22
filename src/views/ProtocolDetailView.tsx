@@ -10,6 +10,7 @@ import type { ProtocolRow } from '../data/protocols'
 import type { PatientRow } from '../data/patients'
 import { useProtocolVisits } from '../data/visits'
 import { useProtocolKpis } from '../data/protocolKpis'
+import { useProtocolDefinitions } from '../data/visitDefinitions'
 import { toCsv, downloadCsv } from '../lib/csv'
 import { groupVisitsByPatient } from '../lib/visits'
 import { filasVisitasCsv, VISITAS_CSV_HEADERS } from '../lib/visitasCsv'
@@ -108,6 +109,20 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
   const [openVisitId, setOpenVisitId] = useState<string | null>(null)
   /** El modal «Cronograma y procedimientos», que se abre desde la ficha lateral. */
   const [cronogramaAbierto, setCronogramaAbierto] = useState(false)
+  /* El cuadro del estudio, para el «17 visitas» del botón que abre el modal. La MISMA consulta que
+     lista el modal (`ScheduleEditor`), así el número de afuera no puede discrepar con las filas de
+     adentro. Sólo se pide si el botón se va a dibujar. Se refresca al cerrar el modal: dar de alta
+     una visita no avisa por `onChanged` (no toca las visitas de ningún paciente), y mientras el
+     modal está abierto el botón queda tapado, así que alcanza con ponerlo al día al salir. */
+  const cuadro = useProtocolDefinitions(canManageSchedule ? protocol.id : null)
+  const cantidadDeVisitas = cuadro.data?.length ?? 0
+  /* Lo que el número de la franja quiere decir, dicho entero: la franja muestra sólo «19» (ver el
+     botón) y esto viaja en su `title` y su `aria-label`. */
+  const rotuloDeVisitas = cantidadDeVisitas === 0 ? null
+    : cantidadDeVisitas === 1 ? '1 visita en el cuadro' : `${cantidadDeVisitas} visitas en el cuadro`
+  /* El acento aclarado según el tema, igual que `Chip`: 0 % en claro (queda intacto), 55 % en
+     oscuro. Tiñe la franja del cronograma, su borde y sus dos íconos. */
+  const tonoAcento = `color-mix(in oklab, ${accent}, white var(--spira-aclarado-acento))`
 
   /* Registra el encabezado contextual del shell: "Protocolos" (clickeable → grilla) ›
      CÓDIGO, + el botón "Nuevo paciente" a la derecha. Las funciones se leen por ref para
@@ -246,24 +261,71 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
             <span style={{ width: 46, height: 46, borderRadius: 12, background: accent + '16', display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
               <Icon name="file" size={23} color={accent} stroke={1.9} />
             </span>
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
               {/* Acrónimo arriba y código de subtítulo, igual que en la tarjeta de la lista
-                  (Director, 2026-09-20). El `nowrap` se va del título: un acrónimo largo tiene que
-                  recortarse con puntos, no desbordar la ficha. */}
-              <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', color: accent, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{protocol.name}</div>
-              <div className="spira-mono" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.3 }}>{protocol.code}</div>
+                  (Director, 2026-09-20). Los dos renglones se recortan con puntos en vez de partirse
+                  o desbordar la ficha (handoff `design_handoff_protocolo_cronograma`); el `title`
+                  devuelve el texto entero a quien lo necesite. */}
+              <div title={protocol.name} style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', color: accent, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{protocol.name}</div>
+              <div title={protocol.code} className="spira-mono" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{protocol.code}</div>
             </div>
           </div>
 
           {/* «Cronograma y procedimientos» va pegado a la identidad del estudio y ANTES de sus datos
               (Director, 2026-09-16): es la definición del estudio —qué visitas tiene y qué se hace en
-              cada una—, no una acción sobre la lista. Mismo botón que «Exportar reporte» y «Editar
-              protocolo» de abajo, así los tres se leen como del mismo tipo. Sólo para quien puede
-              gestionar el cronograma, igual que la pestaña que reemplaza. */}
+              cada una—, no una acción sobre la lista. Sólo para quien puede gestionar el cronograma,
+              igual que la pestaña que reemplaza.
+
+              Hasta el 2026-09-21 era un `actBtn` de 40px idéntico a «Exportar reporte» y «Editar
+              protocolo», a propósito, para que los tres se leyeran del mismo tipo. Justamente eso era
+              lo que estaba mal: se leía como una acción más de la lista de abajo. El handoff
+              `docs/design_handoff_protocolo_cronograma/` (opción C3 + D1) lo pasa a una franja de
+              media altura, teñida con el acento y con el tamaño del cuadro al costado.
+
+              Dos desvíos del mock, los dos por reglas del repo que el mock no conoce:
+              · El color sale del acento del módulo, no del `#2E7D74` del handoff, y ACLARADO SEGÚN EL
+                TEMA como en `Chip`: el petróleo mezclado sobre la card oscura hundía la franja en vez de
+                despegarla, y como color de ícono no llegaba al 3:1.
+              · El hover es el de `.spira-card-link` tal cual —levante + sombra—, sin el borde al 45%
+                que pide el mock: el realce es elevación, nunca un borde de color (Director, 2026-08-06).
+                El borde va en longhand (`borderColor`) para no pelearse con el de la clase. */}
           {canManageSchedule && (
-            <div style={{ marginTop: 14 }}>
-              {actBtn('calendar', 'Cronograma y procedimientos', 'ghost', () => setCronogramaAbierto(true))}
-            </div>
+            <button
+              type="button"
+              className="spira-card-link"
+              onClick={() => setCronogramaAbierto(true)}
+              title={rotuloDeVisitas ?? undefined}
+              aria-label={rotuloDeVisitas ? `Cronograma y procedimientos · ${rotuloDeVisitas}` : undefined}
+              style={{
+                /* `flex: none`: la ficha es una columna flex con scroll y un botón no protege su
+                   alto como un div — se aplastaría hasta el alto de su texto antes de scrollear. */
+                flex: 'none', marginTop: 12, width: '100%', height: 34, borderRadius: 8, padding: '0 10px',
+                display: 'flex', alignItems: 'center', gap: 8,
+                borderColor: `color-mix(in srgb, ${tonoAcento} 32%, var(--spira-white))`,
+                background: `color-mix(in srgb, ${tonoAcento} 8%, var(--spira-white))`,
+                fontFamily: 'var(--spira-font-text)', color: 'var(--spira-ink)', textAlign: 'left',
+              }}
+            >
+              <Icon name="calendar" size={14} color={tonoAcento} style={{ flex: 'none' }} />
+              {/* El rótulo NUNCA se parte ni se recorta: si el ancho no alcanza, cede el contador. */}
+              <span style={{ flex: 'none', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>Cronograma y procedimientos</span>
+              {/* El tamaño del cuadro. Sin cuadro cargado (o mientras llega) no se muestra: un «0» se
+                  leería como un dato, cuando lo que pasa es que falta armarlo.
+
+                  VA SÓLO EL NÚMERO, no «19 visitas» como dibuja el mock (Director, 2026-09-21). El mock
+                  está hecho con Hanken Grotesk, y en Inter —la letra de la app— el rótulo mide 176px y
+                  no 164: en los 252px útiles de la franja al contador le quedaban 25px y la palabra
+                  pide 47, así que se leía «19 …» en TODOS los estudios, no en un caso raro. Entre sacar
+                  el número, el chevron (que en esta ficha es la señal de que algo lleva a otro lado,
+                  ver `kpiRow`) o achicar el rótulo, se sacó la palabra. Vuelve entera en el `title` y
+                  en el `aria-label` del botón. */}
+              {cantidadDeVisitas > 0 && (
+                <span style={{ marginLeft: 'auto', minWidth: 0, fontSize: 11, color: 'var(--spira-ink-soft)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {cantidadDeVisitas}
+                </span>
+              )}
+              <Icon name="chevronRight" size={13} color={tonoAcento} style={{ flex: 'none', marginLeft: cantidadDeVisitas > 0 ? 0 : 'auto' }} />
+            </button>
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
@@ -396,7 +458,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
           accent={accent}
           accentSoft={accent + '16'}
           maxWidth={960}
-          onClose={() => setCronogramaAbierto(false)}
+          onClose={() => { setCronogramaAbierto(false); cuadro.refetch() }}
         >
           <CronogramaTab
             protocolId={protocol.id}
