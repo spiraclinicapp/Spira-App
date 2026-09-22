@@ -34,20 +34,39 @@ describe('modulosDelResumen', () => {
 describe('deMisModulos', () => {
   /* La forma de las cifras de la banda, en el orden en que se dibujan. */
   const banda = [
-    { modulo: 'track' as const, rotulo: 'visitas hoy' },
-    { modulo: 'pharma' as const, rotulo: 'dispensaciones pendientes' },
-    { modulo: 'track' as const, rotulo: 'ventanas vencidas' },
+    { modulos: ['track'] as const, rotulo: 'visitas hoy' },
+    { modulos: ['pharma'] as const, rotulo: 'dispensaciones pendientes' },
+    { modulos: ['track'] as const, rotulo: 'ventanas vencidas' },
   ]
+  /* Y la de los números de clínica: dos los leen los dos módulos, dos sólo Coordinación. */
+  const clinica = [
+    { modulos: ['track', 'pharma'] as const, rotulo: 'pacientes en seguimiento' },
+    { modulos: ['track', 'pharma'] as const, rotulo: 'protocolos activos' },
+    { modulos: ['track'] as const, rotulo: 'visitas realizadas' },
+    { modulos: ['track'] as const, rotulo: 'visitas dentro de ventana' },
+  ]
+  const rotulos = (piezas: { rotulo: string }[]) => piezas.map((p) => p.rotulo)
 
   it('Farmacia sola no ve las cifras de visitas, que su RLS le daría en cero', () => {
-    expect(deMisModulos(banda, ['pharma']).map((c) => c.rotulo)).toEqual(['dispensaciones pendientes'])
+    expect(rotulos(deMisModulos(banda, ['pharma']))).toEqual(['dispensaciones pendientes'])
+    expect(rotulos(deMisModulos(clinica, ['pharma']))).toEqual(['pacientes en seguimiento', 'protocolos activos'])
+  })
+
+  it('un número de dos módulos aparece con cualquiera de los dos', () => {
+    expect(rotulos(deMisModulos(clinica, ['track']))).toHaveLength(4)
+    expect(rotulos(deMisModulos(clinica, ['pharma']))).toContain('pacientes en seguimiento')
+  })
+
+  it('con los dos módulos no se repite ninguno', () => {
+    expect(rotulos(deMisModulos(clinica, ['track', 'pharma']))).toEqual(rotulos(clinica))
   })
 
   it('conserva el orden de las piezas aunque salteen módulos', () => {
-    expect(deMisModulos(banda, ['track']).map((c) => c.rotulo)).toEqual(['visitas hoy', 'ventanas vencidas'])
+    expect(rotulos(deMisModulos(banda, ['track']))).toEqual(['visitas hoy', 'ventanas vencidas'])
   })
 
   it('sin módulos visibles no queda ninguna', () => {
     expect(deMisModulos(banda, [])).toEqual([])
+    expect(deMisModulos(clinica, [])).toEqual([])
   })
 })

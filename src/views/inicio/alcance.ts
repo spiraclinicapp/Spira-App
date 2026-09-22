@@ -5,10 +5,15 @@ import type { ModuloDeInicio } from '../../lib/home'
  * Qué parte del Resumen de Inicio le toca a cada quien: la de los módulos que tiene asignados.
  *
  * Pedido del Director (2026-09-21): "en la vista resumen ves el widget únicamente de los módulos
- * que tengas asignados". Alcanza a las cards de módulo Y a las cifras de la banda de saludo, que
- * también son de un módulo cada una. La banda no era cosmética: Farmacia no puede leer
- * `patient_visits` (la RLS devuelve cero filas en silencio), así que a quien tiene sólo Farmacia le
- * mostraba "0 visitas hoy", un número falso con cara de dato.
+ * que tengas asignados". Alcanza a las cards de módulo, a las cifras de la banda de saludo y a los
+ * números de clínica de la card de la Fundación. Lo de los números no era cosmético: Farmacia no
+ * puede leer `patient_visits` (la RLS devuelve cero filas en silencio), así que a quien tiene sólo
+ * Farmacia le mostraba "0 visitas hoy" y "0 visitas realizadas", números falsos con cara de dato.
+ *
+ * UN NÚMERO PUEDE SER DE MÁS DE UN MÓDULO: va con los módulos cuya RLS lo deja calcular entero.
+ * "Pacientes en seguimiento" y "protocolos activos" los leen Coordinación y Farmacia (cada una
+ * sobre su alcance, ver la 0139); las visitas, sólo Coordinación. Por eso cada pieza declara una
+ * LISTA y aparece si tenés alguno.
  *
  * LA REGLA ES LA DEL RIEL (`moduloHabilitado`), no una propia. Una card es una puerta al módulo: si
  * el Resumen la dibujara con un criterio y el riel dejara entrar con otro, habría cards que llevan a
@@ -33,11 +38,12 @@ export function modulosDelResumen(
   return MODULOS_DEL_RESUMEN.filter((k) => moduloHabilitado(k, userModules, modulos))
 }
 
-/** Se queda con las piezas de los módulos visibles, sin tocar su orden. Cada pieza declara de qué
- *  módulo es: así la pertenencia queda escrita al lado del número y no en un `if` aparte. */
-export function deMisModulos<T extends { modulo: ModuloDelResumen }>(
+/** Se queda con las piezas que tienen al menos uno de sus módulos visible, sin tocar su orden. Cada
+ *  pieza declara de qué módulos es: así la pertenencia queda escrita al lado del número y no en un
+ *  `if` aparte. */
+export function deMisModulos<T extends { modulos: readonly ModuloDelResumen[] }>(
   piezas: readonly T[],
   visibles: readonly ModuloDelResumen[],
 ): T[] {
-  return piezas.filter((p) => visibles.includes(p.modulo))
+  return piezas.filter((p) => p.modulos.some((m) => visibles.includes(m)))
 }

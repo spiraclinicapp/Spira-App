@@ -32,9 +32,10 @@ import type { ViewProps } from './types'
  * · lo que no tiene de dónde salir NO se dibuja: la píldora sin evento, la portada de Novedades y
  *   el toggle de "resumen por mail" (ver `piezas.tsx`).
  *
- * CADA QUIEN VE SUS MÓDULOS (2026-09-21): las cards de módulo y las cifras de la banda aparecen
- * sólo si tenés ese módulo asignado, con la misma regla que el riel. El porqué y el test están en
- * `inicio/alcance.ts`. La card de la Fundación queda para todos: es la clínica, no un módulo.
+ * CADA QUIEN VE SUS MÓDULOS (2026-09-21): las cards de módulo, las cifras de la banda y los números
+ * de clínica aparecen sólo si tenés un módulo que los pueda calcular, con la misma regla que el
+ * riel. El porqué y el test están en `inicio/alcance.ts`. La identidad de la Fundación (logo y
+ * credenciales) queda para todos: es la institución, no un dato de ningún módulo.
  *
  * Sin gate global: la pantalla se pinta entera de entrada y cada número aparece cuando llega, con
  * un guion mientras viaja. Un cero mientras carga afirmaría que no hay ninguno.
@@ -128,14 +129,14 @@ export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: V
           frase={saludo.frase}
           evento={saludo.evento}
           cifras={deMisModulos([
-            { modulo: 'track', n: dato(day.loading, visitasHoy), rotulo: `${plural(visitasHoy, 'visita', 'visitas')} hoy` },
+            { modulos: ['track'], n: dato(day.loading, visitasHoy), rotulo: `${plural(visitasHoy, 'visita', 'visitas')} hoy` },
             {
-              modulo: 'pharma',
+              modulos: ['pharma'],
               n: dato(board.loading, dispensacionesAbiertas),
               rotulo: <>{plural(dispensacionesAbiertas, 'dispensación', 'dispensaciones')}<br />{plural(dispensacionesAbiertas, 'pendiente', 'pendientes')}</>,
             },
             {
-              modulo: 'track',
+              modulos: ['track'],
               n: dato(alertsQ.loading, ventanasVencidas),
               rotulo: <>{plural(ventanasVencidas, 'ventana', 'ventanas')}<br />{plural(ventanasVencidas, 'vencida', 'vencidas')}</>,
               tono: '#F0BFB4',
@@ -150,11 +151,26 @@ export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: V
             { cifra: '+5.000', rotulo: 'pacientes en ensayos' },
             { cifra: '+40', rotulo: 'sponsors confían' },
           ]}
-          numeros={[
-            { cifra: dato(patients.loading, pacientesActivos), rotulo: `${plural(pacientesActivos, 'paciente', 'pacientes')} en seguimiento` },
-            { cifra: dato(protocols.loading, protocolosActivos), rotulo: `${plural(protocolosActivos, 'protocolo activo', 'protocolos activos')}` },
-            { cifra: dato(rango.loading, realizadas30.length), rotulo: `${plural(realizadas30.length, 'visita realizada', 'visitas realizadas')}` },
+          /* Pacientes y protocolos los leen los dos módulos, cada uno sobre su alcance (0139); las
+             visitas, sólo Coordinación — a Farmacia la RLS de `patient_visits` le da cero filas. */
+          numeros={deMisModulos([
             {
+              modulos: ['track', 'pharma'],
+              cifra: dato(patients.loading, pacientesActivos),
+              rotulo: `${plural(pacientesActivos, 'paciente', 'pacientes')} en seguimiento`,
+            },
+            {
+              modulos: ['track', 'pharma'],
+              cifra: dato(protocols.loading, protocolosActivos),
+              rotulo: `${plural(protocolosActivos, 'protocolo activo', 'protocolos activos')}`,
+            },
+            {
+              modulos: ['track'],
+              cifra: dato(rango.loading, realizadas30.length),
+              rotulo: `${plural(realizadas30.length, 'visita realizada', 'visitas realizadas')}`,
+            },
+            {
+              modulos: ['track'],
               cifra: rango.loading || pctVentana === null ? '—' : `${pctVentana}%`,
               rotulo: 'visitas dentro de ventana',
               /* `acc-deep-good` y no `good`: el verde plano da 4.02:1 sobre la card oscura y esto
@@ -162,7 +178,7 @@ export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: V
                  oscuro (#A9D9A6), que es justo para lo que existe. */
               tono: 'var(--spira-acc-deep-good)',
             },
-          ]}
+          ], visibles)}
         />
 
         {/* Una columna por módulo visible: con uno solo, su card toma la fila entera (decisión del
