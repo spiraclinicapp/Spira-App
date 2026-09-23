@@ -35,6 +35,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.89', text: 'Coordinación estrena Estadísticas para jefatura, y el reporte pendiente es de todo el estudio.' },
     { version: '0.88', text: 'El Resumen muestra sólo tus módulos, la franja abre el cronograma, y Reposición se adapta al panel.' },
     { version: '0.87', text: 'La dispensación se lee como comprobante con su historial, y Ajustes suma Estudios en Farmacia.' },
     { version: '0.86', text: 'Las dispensaciones avisan su estado en la campana, y el acrónimo del estudio manda sobre el código.' },
