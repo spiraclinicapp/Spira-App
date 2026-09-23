@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { useSearchIndex, TYPE_LABEL } from './search/searchIndex'
 import type { SearchItem, SearchType } from './search/searchIndex'
+import type { SubModule } from '../modules/registry'
 
 /* ============================================================================
    CommandPalette — buscador global (Ctrl/⌘ K).
@@ -26,6 +27,8 @@ interface CommandPaletteProps {
   moduleName: string
   /** Gate de acceso del shell (mismo que la navegación). */
   isAllowed: (moduleKey: string) => boolean
+  /** Gate de submódulo del shell (los `soloJefatura`): mismo que el menú. */
+  subVisible: (moduleKey: string, sub: SubModule) => boolean
   /** Navegar a un resultado (lo provee el shell = AppShell.navigate). El 3er arg abre la
    *  entidad concreta al llegar (ej. la ficha del paciente). */
   onNavigate: (moduleKey: string, subKey: string, target?: SearchItem['target']) => void
@@ -46,8 +49,8 @@ const CHIP_DEFS: { type: SearchType; label: string; icon: IconName }[] = [
   { type: 'pagina', label: 'Páginas', icon: 'file' },
 ]
 
-export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, onNavigate, onClose }: CommandPaletteProps) {
-  const { index, loading, partialError } = useSearchIndex(isAllowed)
+export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, subVisible, onNavigate, onClose }: CommandPaletteProps) {
+  const { index, loading, partialError } = useSearchIndex(isAllowed, subVisible)
 
   const [q, setQ] = useState('')
   const [typeFilter, setTypeFilter] = useState<SearchType | null>(null)

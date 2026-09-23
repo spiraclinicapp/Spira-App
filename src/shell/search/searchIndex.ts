@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { IconName } from '../../components/Icon'
 import { MODULES } from '../../modules/registry'
+import type { SubModule } from '../../modules/registry'
 import { isViewRegistered } from '../../views/registry'
 import { useProtocols } from '../../data/protocols'
 import type { ProtocolRow } from '../../data/protocols'
@@ -68,6 +69,8 @@ export interface SearchSources {
 }
 
 type Allowed = (moduleKey: string) => boolean
+/** El gate de submódulo del shell (`submoduloVisible`): un `soloJefatura` no se indexa para el resto. */
+type SubVisible = (moduleKey: string, sub: SubModule) => boolean
 
 /* TEMPORAL: solo la usaba el índice de visitas (hoy comentado, ver más abajo). Se comenta
    para no romper el gate (noUnusedLocals). Reponer junto con la Agenda.
@@ -90,7 +93,7 @@ function sharedProtocolDest(isAllowed: Allowed): { mod: string; sub: string } | 
 }
 
 /** Arma el índice unificado. Puro y testeable (dado `sources` + `isAllowed` → SearchItem[]). */
-export function buildSearchIndex(sources: SearchSources, isAllowed: Allowed): SearchItem[] {
+export function buildSearchIndex(sources: SearchSources, isAllowed: Allowed, subVisible: SubVisible): SearchItem[] {
   const items: SearchItem[] = []
   const pdest = sharedProtocolDest(isAllowed)
 
@@ -151,7 +154,7 @@ export function buildSearchIndex(sources: SearchSources, isAllowed: Allowed): Se
   for (const mdl of MODULES) {
     if (mdl.key === 'inicio' || mdl.proximamente || !isAllowed(mdl.key)) continue
     for (const s of mdl.submodules) {
-      if (!isViewRegistered(mdl.key, s.key)) continue
+      if (!isViewRegistered(mdl.key, s.key) || !subVisible(mdl.key, s)) continue
       items.push({
         id: `pag-${mdl.key}-${s.key}`, type: 'pagina', icon: s.icon,
         title: s.name, crumb: `${mdl.full} / ${s.name}`,
@@ -178,7 +181,7 @@ export interface SearchIndexState {
  * así la PII de paciente entra a memoria únicamente mientras buscás, y cada
  * apertura trae datos frescos (sin cache → sin índice viejo, que en clínica es peor).
  */
-export function useSearchIndex(isAllowed: Allowed): SearchIndexState {
+export function useSearchIndex(isAllowed: Allowed, subVisible: SubVisible): SearchIndexState {
   const protocols = useProtocols()
   const patients = usePatients()
   const visits = useUpcomingVisits()
@@ -197,8 +200,9 @@ export function useSearchIndex(isAllowed: Allowed): SearchIndexState {
           medications: medications.data ?? [],
         },
         isAllowed,
+        subVisible,
       ),
-    // `isAllowed` cambia de identidad cada render pero los roles no cambian en vivo;
+    // `isAllowed`/`subVisible` cambian de identidad cada render pero los roles no cambian en vivo;
     // el rebuild se dispara al llegar cada fuente. (Índice barato; no vale meterlo en deps.)
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [protocols.data, patients.data, visits.data, medications.data],

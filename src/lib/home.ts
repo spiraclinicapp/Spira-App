@@ -13,6 +13,8 @@
  */
 
 import type { HomeView } from './prefsModel'
+import { esJefatura } from './roles'
+import type { Accesos, ModuleKey } from './roles'
 
 /** Lo que estas reglas necesitan saber de un módulo. Estructural a propósito: `ModuleDef` trae
  *  acentos, íconos y descriptores que acá no pintan nada. */
@@ -47,6 +49,22 @@ export function moduloHabilitado(
   const m = modulos.find((x) => x.key === key)
   if (!m || m.proximamente) return false
   return userModules.includes(key)
+}
+
+/**
+ * ¿Esta persona ve este SUBMÓDULO? Se pregunta además de `moduloHabilitado`, no en su lugar.
+ *
+ * Un submódulo `soloJefatura` no existe para el resto: no aparece en el menú ni en el buscador, y
+ * por URL directa sale "esa dirección no existe" (handoff de Estadísticas de Coordinación: "sin
+ * solapa, sin candado, sin ningún rastro visual"). Por eso se usa en los TRES lugares a la vez
+ * —menú, navegación y buscador— y vive acá y no repetida en cada uno.
+ */
+export function submoduloVisible(
+  moduleKey: string,
+  sub: { soloJefatura?: boolean },
+  roles: Accesos,
+): boolean {
+  return !sub.soloJefatura || esJefatura(moduleKey as ModuleKey, roles)
 }
 
 /**

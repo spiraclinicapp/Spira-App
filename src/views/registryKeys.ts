@@ -20,6 +20,7 @@ export const REGISTERED_VIEWS = [
   'track/para-ver-medico',
   'track/agenda',
   'track/alertas',
+  'track/reportes',
   'pharma/protocolos',
   'pharma/medicamentos',
   'pharma/recepcion',

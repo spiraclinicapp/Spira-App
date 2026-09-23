@@ -71,7 +71,9 @@ describe('destinos de los KPI del Resumen', () => {
   })
 
   it('devuelve null para un destino inventado, en vez de un texto de relleno', () => {
-    expect(nombreDeDestino({ moduleKey: 'track', subKey: 'reportes' })).toBeNull()
+    // 'reportes' pasó a ser un submódulo real de track (Estadísticas, 2026-09-22): ya no sirve
+    // como ejemplo de destino inventado, así que el caso usa una key que de verdad no existe.
+    expect(nombreDeDestino({ moduleKey: 'track', subKey: 'submodulo-inventado' })).toBeNull()
     expect(nombreDeDestino({ moduleKey: 'inexistente', subKey: 'resumen' })).toBeNull()
   })
 })

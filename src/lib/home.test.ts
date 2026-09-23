@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { HOME_ULTIMO, moduloHabilitado, modulosElegibles, resolveHome } from './home'
+import { HOME_ULTIMO, moduloHabilitado, modulosElegibles, resolveHome, submoduloVisible } from './home'
 import type { ModuloDeInicio } from './home'
 import type { HomeView } from './prefsModel'
+import { MODULES } from '../modules/registry'
 
 /**
  * Por qué esto se testea y el riel de módulos no.
@@ -45,6 +46,37 @@ describe('moduloHabilitado', () => {
 
   it('una clave que no está en el catálogo no habilita nada', () => {
     expect(moduloHabilitado('contable', ['contable'], MODULOS)).toBe(false)
+  })
+})
+
+describe('submoduloVisible', () => {
+  const soloJefes = { soloJefatura: true }
+
+  it('un submódulo común lo ve cualquiera que entre al módulo', () => {
+    expect(submoduloVisible('track', {}, { track: 'viewer' })).toBe(true)
+  })
+
+  it('uno soloJefatura lo ve Líder o más, y gerencia', () => {
+    expect(submoduloVisible('track', soloJefes, { track: 'leader' })).toBe(true)
+    expect(submoduloVisible('track', soloJefes, { track: 'operator', gerencia: 'admin' })).toBe(true)
+  })
+
+  it('uno soloJefatura NO lo ve un Operador ni un Lectura', () => {
+    expect(submoduloVisible('track', soloJefes, { track: 'operator' })).toBe(false)
+    expect(submoduloVisible('track', soloJefes, { track: 'viewer' })).toBe(false)
+  })
+
+  it('la jefatura se mide en el módulo del submódulo, no en otro', () => {
+    expect(submoduloVisible('track', soloJefes, { track: 'operator', pharma: 'admin' })).toBe(false)
+  })
+})
+
+describe('el registro real', () => {
+  it('Estadísticas de Coordinación es sólo para jefatura (Director, 2026-09-23)', () => {
+    // Si alguien saca el flag, la pantalla le aparece a todo Coordinación y se ve perfecta.
+    const estadisticas = MODULES.find((m) => m.key === 'track')?.submodules.find((s) => s.key === 'reportes')
+    expect(estadisticas?.name).toBe('Estadísticas')
+    expect(estadisticas?.soloJefatura).toBe(true)
   })
 })
 

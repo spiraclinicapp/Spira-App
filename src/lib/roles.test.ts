@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  accessLabel, auditLine, canRevokeAdmin, describeAccess, meetsMinRole, mezclarHistorial,
+  accessLabel, auditLine, canRevokeAdmin, describeAccess, esJefatura, meetsMinRole, mezclarHistorial,
   pharmaAuditLine, protocolAuditLine, resumenDeAccesoEnLinea, ROLE_RANK,
 } from './roles'
 import type { Accesos, AccessAuditRow, PharmaAccessAuditRow, ProtocolAccessAuditRow } from './roles'
@@ -41,6 +41,34 @@ describe('meetsMinRole', () => {
     // El caso que importa: `roles[modulo]` es undefined cuando la persona no tiene el módulo.
     // Si esto devolviera true, la app le mostraría acciones de un módulo al que no entra.
     expect(meetsMinRole(undefined, 'viewer')).toBe(false)
+  })
+})
+
+describe('esJefatura', () => {
+  /* Falla en silencio en las dos direcciones: al revés, a un operador le aparece la pantalla de los
+     jefes y nadie lo nota porque se ve perfecta; y si gerencia quedara afuera, quien administra el
+     centro deja de ver Estadísticas sin ningún error. */
+  it('Líder y Administrador del módulo son jefatura', () => {
+    expect(esJefatura('track', { track: 'leader' })).toBe(true)
+    expect(esJefatura('track', { track: 'admin' })).toBe(true)
+  })
+
+  it('Operador y Lectura del módulo NO son jefatura', () => {
+    expect(esJefatura('track', { track: 'operator' })).toBe(false)
+    expect(esJefatura('track', { track: 'viewer' })).toBe(false)
+  })
+
+  it('gerencia es jefatura de cualquier módulo, tenga el nivel que tenga ahí', () => {
+    expect(esJefatura('track', { track: 'operator', gerencia: 'admin' })).toBe(true)
+    expect(esJefatura('track', { gerencia: 'viewer' })).toBe(true)
+  })
+
+  it('ser líder en OTRO módulo no alcanza', () => {
+    expect(esJefatura('track', { pharma: 'admin', track: 'operator' })).toBe(false)
+  })
+
+  it('sin ningún acceso, no', () => {
+    expect(esJefatura('track', {})).toBe(false)
   })
 })
 
