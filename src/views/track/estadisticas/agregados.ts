@@ -8,12 +8,12 @@ import type { VisitStatus } from '../../../data/visits'
 
 /**
  * Los agregados de Estadísticas › Coordinación se calculan acá, en TypeScript, sobre las filas que
- * trae `useTrackPeriodVisits` — mismo criterio que `views/pharma/reportes/agregados.ts`: UN SOLO
- * snapshot alimenta las dos tablas, así que no pueden contradecirse entre sí ni con el pie de cada
- * una (los `tfoot` se recalculan de las mismas filas, nunca de una consulta aparte).
+ * trae `useEstadisticasEquipo` — mismo criterio que `views/pharma/reportes/agregados.ts`: UN SOLO
+ * snapshot alimenta las tablas del período, así que no pueden contradecirse entre sí ni con el pie de
+ * cada una (los `tfoot` se recalculan de las mismas filas, nunca de una consulta aparte).
  */
 
-/** Fila de `v_track_visits` con las columnas que necesita esta pantalla (ver `data/trackReports.ts`). */
+/** Lo que estas reglas necesitan de una visita (la fila completa es `VisitaEquipo`, en `data/trackReports.ts`). */
 export interface VisitaEstadistica extends VisitaParaTipo {
   id: string
   protocol_id: string
@@ -53,7 +53,7 @@ function esPerdida(v: VisitaEstadistica): boolean {
   return v.no_show_at != null || v.computed_status === 'ventana_vencida'
 }
 
-function esPendiente(v: VisitaEstadistica): boolean {
+export function esPendiente(v: VisitaEstadistica): boolean {
   return PENDIENTE_STATUSES.has(v.computed_status)
 }
 
@@ -126,13 +126,13 @@ export function porEstudio(rows: readonly VisitaEstadistica[], rango: Rango): Re
 /* ───────────────────────────── Promedio por tipo de visita ───────────────────────────── */
 
 /** Duraciones en minutos de UNA visita; `null` cuando falta alguno de los dos sellos que hacen falta. */
-interface Duraciones {
+export interface Duraciones {
   espera: number | null
   atencion: number | null
   estadia: number | null
 }
 
-function duracionesDe(v: VisitaEstadistica): Duraciones {
+export function duracionesDe(v: VisitaEstadistica): Duraciones {
   return {
     espera: v.arrived_at && v.attended_at ? minutesBetween(v.arrived_at, v.attended_at) : null,
     atencion: v.attended_at && v.ready_at ? minutesBetween(v.attended_at, v.ready_at) : null,
@@ -141,13 +141,13 @@ function duracionesDe(v: VisitaEstadistica): Duraciones {
 }
 
 /** Promedio redondeado a minuto entero; `null` sobre una lista vacía (no inventa un cero). */
-function promedioMin(valores: readonly (number | null)[]): number | null {
+export function promedioMin(valores: readonly (number | null)[]): number | null {
   const nums = valores.filter((n): n is number => n != null)
   if (nums.length === 0) return null
   return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length)
 }
 
-function maximoMin(valores: readonly (number | null)[]): number | null {
+export function maximoMin(valores: readonly (number | null)[]): number | null {
   const nums = valores.filter((n): n is number => n != null)
   return nums.length === 0 ? null : Math.max(...nums)
 }
@@ -188,7 +188,7 @@ export interface ResultadoPorTipo {
 }
 
 /** Orden fijo de exhibición (no alfabético: el recorrido clínico real del paciente por el estudio). */
-const ORDEN_TIPOS: readonly TipoVisita[] = ['screening', 'randomizacion', 'tratamiento', 'seguimiento', 'no_programada']
+export const ORDEN_TIPOS: readonly TipoVisita[] = ['screening', 'randomizacion', 'tratamiento', 'seguimiento', 'no_programada']
 
 /**
  * Agrupa las visitas ATENDIDAS del período (`real_date` en rango) por tipo, con desglose por
