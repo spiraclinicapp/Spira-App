@@ -3,9 +3,10 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
 import { readLastModule, usePrefs, writeLastModule } from '../lib/prefs'
-import { moduloHabilitado, resolveHome } from '../lib/home'
+import { moduloHabilitado, resolveHome, submoduloVisible } from '../lib/home'
 import { useAuth } from '../lib/auth'
 import { MODULES } from '../modules/registry'
+import type { SubModule } from '../modules/registry'
 import { resolveView } from '../views/registry'
 import type { NavTarget, ReturnTo, ViewHeader, ViewHeaderCrumb } from '../views/types'
 import { CommandPalette } from './CommandPalette'
@@ -56,7 +57,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 /* Vistas portadas que traen sus propias acciones contextuales (o son de solo
    lectura): para ellas se suprime el botón de acción genérico del shell. */
-const HIDE_ACTION = new Set(['inicio/resumen', 'track/resumen', 'track/tareas', 'track/protocolos', 'track/visitas', 'track/para-ver-medico', 'track/agenda', 'track/alertas', 'pharma/protocolos', 'pharma/recepcion', 'pharma/medicamentos', 'pharma/reportes', 'pharma/reposicion'])
+const HIDE_ACTION = new Set(['inicio/resumen', 'track/resumen', 'track/tareas', 'track/protocolos', 'track/visitas', 'track/para-ver-medico', 'track/agenda', 'track/alertas', 'track/reportes', 'pharma/protocolos', 'pharma/recepcion', 'pharma/medicamentos', 'pharma/reportes', 'pharma/reposicion'])
 
 const iconBtn: CSSProperties = {
   width: 38, height: 38, borderRadius: 10, border: 'none',
@@ -93,7 +94,7 @@ function primaryActionBtn(accentSolid: string): CSSProperties {
 
 export function AppShell() {
   const { prefs, theme, toggleTheme } = usePrefs()
-  const { modules: userModules, session } = useAuth()
+  const { modules: userModules, roles, session } = useAuth()
   /* Dónde estás parado sale de la URL, no de un useState: es lo que hace que F5 te deje donde estabas
      y que un link lleve a cualquier pantalla. `null` = la ruta no existe → NotFoundView (Task 5). */
   const urlLocation = useUrlLocation()
@@ -184,6 +185,9 @@ export function AppShell() {
      desplegable de pantalla de inicio: escrita en dos lados, se desincroniza sin que nada deje de
      compilar, y de los dos lados gobierna un acceso. */
   const isAllowed = (key: string) => moduloHabilitado(key, userModules, MODULES)
+  /* Además del módulo, el submódulo: uno `soloJefatura` no existe para el resto (menú, navegación y
+     buscador preguntan lo mismo, por eso es una sola función). */
+  const subVisible = (mKey: string, s: SubModule) => submoduloVisible(mKey, s, roles)
 
   /* Los avisos de pedidos de dispensación (`docs/plan-avisos-de-pedidos.md`).
 
@@ -232,7 +236,7 @@ export function AppShell() {
      no tiene ninguno — heredar el de un salto anterior ofrecería volver a un lugar equivocado. */
   const navigate = (mKey: string, sKey: string, target?: NavTarget, back?: ReturnTo) => {
     const m = MODULES.find((x) => x.key === mKey)
-    if (!m || !isAllowed(m.key) || !m.submodules.some((s) => s.key === sKey)) return
+    if (!m || !isAllowed(m.key) || !m.submodules.some((s) => s.key === sKey && subVisible(m.key, s))) return
     setNavTarget(target ?? null)
     setReturnTo(back ?? null)
     pushUrl({ moduleKey: mKey, subKey: sKey, path: [], query: {} })
@@ -284,6 +288,11 @@ export function AppShell() {
      `proximamente` (Lab, Contable). */
   const rutaInvalida = urlLocation === null
   const sinAcceso = !rutaInvalida && !isAllowed(moduleKey)
+  /* Un submódulo `soloJefatura` abierto por URL por alguien que no es jefe: "esa dirección no
+     existe", no "no tenés acceso". El segundo confirmaría que la pantalla existe, y el handoff pide
+     que para el resto no quede ningún rastro (mismo criterio que NotFoundView con los recursos).
+     A diferencia de `rutaInvalida`, acá sí hay un módulo real, así que va adentro del marco. */
+  const subOculto = !rutaInvalida && !sinAcceso && !subVisible(mod.key, sub)
 
   /* Título de la pestaña. GENÉRICO a propósito: el título se filtra al historial y a la barra de
      tareas igual que la URL, así que dice la PANTALLA, nunca de quién. El nombre del paciente no sale
@@ -292,13 +301,13 @@ export function AppShell() {
      secas: `moduleKey`/`sub` en ese caso son el módulo REQUERIDO, no el que se muestra — la pantalla
      dice "no tenés acceso", así que la pestaña no puede prometer el submódulo que la pantalla niega. */
   useEffect(() => {
-    document.title = moduleKey === 'inicio' || rutaInvalida || sinAcceso ? 'Spira' : `Spira — ${sub.name}`
+    document.title = moduleKey === 'inicio' || rutaInvalida || sinAcceso || subOculto ? 'Spira' : `Spira — ${sub.name}`
     /* Al desmontar (logout: el Gate cambia a <Login/> y este componente entero se va) la pestaña no
        puede seguir diciendo "Spira — Stock" sobre la pantalla de login — es la misma máquina
        compartida que motivó no dejar el nombre del paciente en el título (ver el comentario de
        arriba). Sin este cleanup, "Cerrar sesión" cerraba la sesión pero el título mentía. */
     return () => { document.title = 'Spira' }
-  }, [moduleKey, sub.name, rutaInvalida, sinAcceso])
+  }, [moduleKey, sub.name, rutaInvalida, sinAcceso, subOculto])
 
   /* El lugar reservado para la barra de scroll de `.spira-content` (ver `scrollbar-gutter` en
      tokens.css). El encabezado de la vista se corre eso a la derecha para que sus acciones terminen
@@ -314,7 +323,7 @@ export function AppShell() {
     medir()
     window.addEventListener('resize', medir)
     return () => window.removeEventListener('resize', medir)
-  }, [rutaInvalida, sinAcceso])
+  }, [rutaInvalida, sinAcceso, subOculto])
 
   /* "Ruta inválida" sigue reemplazando la pantalla ENTERA: acá no hay ningún módulo del cual
      dibujar un marco (mod/sub, arriba, son el fallback a Inicio) — un riel + panel armados con
@@ -496,7 +505,7 @@ export function AppShell() {
           <div style={{ width: 220, padding: '18px 12px', display: 'flex', flexDirection: 'column' }}>
             <div className="spira-eyebrow" style={{ padding: '2px 12px 0' }}>Submódulos</div>
             <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 14 }}>
-              {mod.submodules.map((s) => {
+              {mod.submodules.filter((s) => subVisible(mod.key, s)).map((s) => {
                 const on = s.key === sub.key
                 return (
                   <button
@@ -565,6 +574,10 @@ export function AppShell() {
                reemplazaba la pantalla entera más arriba. */
             <div style={{ flex: 1, minHeight: 0 }}>
               <NotFoundView motivo={motivoSinAcceso} />
+            </div>
+          ) : subOculto ? (
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <NotFoundView motivo="ruta" />
             </div>
           ) : (
             <>
@@ -654,6 +667,7 @@ export function AppShell() {
           moduleKey={moduleKey}
           moduleName={mod.name}
           isAllowed={isAllowed}
+          subVisible={subVisible}
           onNavigate={navigate}
           onClose={() => setPaletteOpen(false)}
         />

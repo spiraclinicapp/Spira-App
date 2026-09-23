@@ -47,6 +47,21 @@ export function meetsMinRole(tiene: ModuleRole | undefined, min: ModuleRole): bo
   return tiene != null && ROLE_RANK[tiene] >= ROLE_RANK[min]
 }
 
+/**
+ * ¿La persona es JEFATURA de este módulo? Líder o más ahí, o gerencia.
+ *
+ * Es el mismo criterio que ya estaba escrito a mano en `EditPatientForm`, `CronogramaTab`,
+ * `ScheduleEditor` y `PlataformasSection` (`hasMinRole(…, 'leader') || gerencia`), y el que define el
+ * handoff de Estadísticas de Coordinación para su zona de jefatura.
+ *
+ * OJO: decide lo que se MUESTRA, no lo que se puede LEER. La RLS de las visitas no distingue a un
+ * líder de un operador (sólo gerencia ve todo el centro — `0028_track_admin_ve_protocolos.sql`), así
+ * que un líder sin gerencia ve los números de los estudios que tiene asignados, igual que cualquiera.
+ */
+export function esJefatura(modulo: ModuleKey, roles: Accesos): boolean {
+  return meetsMinRole(roles[modulo], 'leader') || roles[MODULO_ADMIN] != null
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    La consola de accesos (Ajustes › Equipo y accesos).
    Todo lo de acá abajo es la CARA de reglas que se hacen cumplir en la base

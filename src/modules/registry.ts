@@ -26,6 +26,10 @@ export interface SubModule {
    *  Los submódulos que todavía caen al Placeholder lo dicen ("En construcción") en vez de
    *  prometer una función que no existe. */
   hint?: string
+  /** Sólo lo ve la JEFATURA del módulo (Líder o más ahí, o gerencia — `esJefatura` en `lib/roles.ts`).
+   *  Para el resto no existe: ni en el menú, ni en el buscador, y por URL sale "no existe". La regla
+   *  vive en `submoduloVisible` (`lib/home.ts`). Es presentación, no permiso: la RLS no cambia. */
+  soloJefatura?: boolean
 }
 
 export interface ModuleDef {
@@ -116,6 +120,24 @@ export const MODULES: ModuleDef[] = [
 
          El descriptor está MEDIDO con la fuente cargada: 109,7px sobre los 145 útiles. */
       { key: 'tareas', name: 'Tareas', icon: 'clipboardCheck', hint: 'Lo que anotaste vos' },
+      // Primera entrega (handoff `design_handoff_coordinacion_estadisticas`, 2026-09-22): sólo
+      // "Por estudio" y "Promedio por tipo de visita", el resto del handoff queda afuera a
+      // propósito (ver el comentario de cabecera de `TrackEstadisticasView`). Mismo hint que
+      // `pharma/reportes` ("Estadísticas" ahí también): ya está medido para 145px con Inter 11.5.
+      // SÓLO JEFATURA por decisión del Director (2026-09-23): en el handoff esos dos bloques eran
+      // para todos, pero los quiere para los jefes. Como son lo único que tiene la pantalla, se
+      // oculta el submódulo entero.
+      // LA KEY ES 'reportes' Y NO 'estadisticas' A PROPÓSITO: `lib/router.ts` (`SUB_SLUG`) ya
+      // mapea 'reportes' → slug visible "estadisticas" para Farmacia, y ese mapa es GLOBAL (una
+      // sola entrada por key, para todos los módulos — el comentario de ahí dice "no hay
+      // colisiones posibles porque el módulo ya desambigua", que vale para keys que son su propio
+      // slug pero NO cuando una key nueva quiere el mismo slug DE OTRA key ('estadisticas' ya es
+      // el valor de 'reportes'). Reusar la misma key evita la colisión y de paso empareja el
+      // nombre con el mismo criterio histórico que Farmacia (display "Estadísticas", key vieja
+      // 'reportes'). La vista y la carpeta siguen llamándose `estadisticas` — es más claro leer
+      // `views/track/estadisticas/` que preguntarse por qué el de Coordinación vive en `reportes/`
+      // junto al de reportes de procedimientos (`views/track/reportes/`, otra cosa).
+      { key: 'reportes', name: 'Estadísticas', icon: 'barChart', hint: 'Los números del período', soloJefatura: true },
     ],
   },
   {
