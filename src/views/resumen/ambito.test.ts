@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { esDeMisProtocolos, esMiaSinAtender, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './ambito'
+import { esDeMisProtocolos, esMiaSinAtender, esReporteMio, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './ambito'
 
 /**
  * Las reglas de "¿esta fila es mía?" del Resumen de Coordinación.
@@ -8,7 +8,7 @@ import { esDeMisProtocolos, esMiaSinAtender, esTareaMia, filtrarPorAmbito, hayAv
  * esconder filas sin decirlo. Una regla invertida no rompe nada visible — la pantalla se dibuja
  * perfecta y te muestra el trabajo de otro, o te esconde el tuyo.
  *
- * EL CASO QUE MÁS IMPORTA ES EL `null`, y por eso está en las cuatro. Dos nulls comparados con `===`
+ * EL CASO QUE MÁS IMPORTA ES EL `null`, y por eso está en todas. Dos nulls comparados con `===`
  * dan `true`: si la sesión todavía no resolvió (`userId === null`) y la visita no tiene coordinador
  * asignado (`coordinator_id === null`), una comparación ingenua declara TODAS esas filas "mías". El
  * resultado sería una pantalla llena de trabajo ajeno, en el primer render y sin ningún error.
@@ -91,6 +91,62 @@ describe('esMiaSinAtender', () => {
     const mios = new Set(['p1'])
     expect(esDeMisProtocolos(fila, mios)).toBe(true)   // "es de un protocolo que coordino"
     expect(esMiaSinAtender(fila, UID, mios)).toBe(false) // "pero la agarró otra persona"
+  })
+})
+
+describe('esReporteMio', () => {
+  /* La regla que el 2026-09-22 dejó de ser `loAtendiYo` a secas: un reporte pendiente es trabajo DEL
+     ESTUDIO, no de quien atendió la visita. El modo de falla al que apuntan estos casos es el de
+     siempre —esconder filas sin decirlo—, y acá es doble: si se vuelve a `loAtendiYo` se esconde el
+     reporte del estudio propio que atendió otra persona, y si se escribe `esDeMisProtocolos` a secas
+     se esconde el de gerencia que atendió una visita de un estudio ajeno. */
+  it('es mío cuando coordino el estudio, aunque la visita la haya atendido otra persona', () => {
+    // EL CASO DEL PEDIDO. Con `loAtendiYo` a secas esto daba false y el pendiente no aparecía.
+    expect(esReporteMio({ coordinator_id: OTRO, protocol_id: 'p1' }, UID, new Set(['p1']))).toBe(true)
+  })
+
+  it('es mío cuando coordino el estudio y nadie atendió la visita todavía', () => {
+    // A diferencia de `esMiaSinAtender`, acá el coordinador en null no es una condición: es un dato
+    // más. Un reporte sin atención sellada del estudio propio me toca igual.
+    expect(esReporteMio({ coordinator_id: null, protocol_id: 'p1' }, UID, new Set(['p1']))).toBe(true)
+  })
+
+  it('es mío cuando la atendí yo, aunque el estudio no sea de los que coordino', () => {
+    /* Gerencia / track-admin operando fuera de sus protocolos (la 0015 lo permite). `esDeMisProtocolos`
+       a secas le sacaría de "Lo mío" el reporte de la visita que hizo ella misma: ensanchar la regla
+       no puede quitar nada. */
+    expect(esReporteMio({ coordinator_id: UID, protocol_id: 'p9' }, UID, new Set(['p1']))).toBe(true)
+  })
+
+  it('no es mío cuando el estudio es ajeno y la atendió otra persona', () => {
+    expect(esReporteMio({ coordinator_id: OTRO, protocol_id: 'p9' }, UID, new Set(['p1']))).toBe(false)
+  })
+
+  it('sin sesión resuelta, sólo reclama lo de los estudios que ya sabe que coordina', () => {
+    /* Las dos mitades traen su propia guarda y por eso no se repite arriba: `loAtendiYo` corta con
+       `!userId` —el `null === null` que llenaría la pantalla de trabajo ajeno—, y lo que queda en pie
+       es `esDeMisProtocolos`, que sólo mira el `Set`. Con el `Set` cargado, la fila del protocolo
+       propio SÍ es mía aunque la sesión no haya resuelto: un `if (!userId) return false` acá arriba
+       mentiría. */
+    expect(esReporteMio({ coordinator_id: null, protocol_id: 'p1' }, null, new Set(['p1']))).toBe(true)
+    expect(esReporteMio({ coordinator_id: null, protocol_id: 'p9' }, null, new Set(['p1']))).toBe(false)
+  })
+
+  it('sin coordinaciones cargadas no reclama nada que no haya atendido', () => {
+    // El primer render, con `useMyCoordinations` en vuelo: el `Set` vacío no adopta filas para
+    // soltarlas después. Lo único que sobrevive es lo que atendí yo.
+    expect(esReporteMio({ coordinator_id: OTRO, protocol_id: 'p1' }, UID, new Set())).toBe(false)
+    expect(esReporteMio({ coordinator_id: UID, protocol_id: 'p1' }, UID, new Set())).toBe(true)
+  })
+
+  it('DISCREPA de esMiaSinAtender cuando la visita del estudio propio la atendió otra persona', () => {
+    /* Las dos reglas compuestas de la pantalla se separan justo acá, y es a propósito: una visita sin
+       atender que agarró otra persona ya no me toca (Alertas), y un reporte del estudio me toca igual
+       (Reportes). Si alguien unifica las dos reglas "porque se parecen", este test es el que avisa. */
+    const fila = { coordinator_id: OTRO, protocol_id: 'p1' }
+    const mios = new Set(['p1'])
+    expect(esReporteMio(fila, UID, mios)).toBe(true)
+    expect(esMiaSinAtender(fila, UID, mios)).toBe(false)
   })
 })
 

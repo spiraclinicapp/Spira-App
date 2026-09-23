@@ -11,7 +11,7 @@ import { DESTINO_PENDIENTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } fro
 import type { KpiKey } from './resumen/destinos'
 import { proximoDiaConVisitas } from './resumen/proximoDia'
 import { personaActiva } from '../lib/inscripcion'
-import { AMBITOS, esMiaSinAtender, esDeMisProtocolos, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
+import { AMBITOS, esMiaSinAtender, esDeMisProtocolos, esReporteMio, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
 import type { Ambito } from './resumen/ambito'
 import { useProtocols, useMyCoordinations } from '../data/protocols'
 import { usePatients } from '../data/patients'
@@ -511,8 +511,13 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
     esMiaSinAtender(a, userId, misProtocolos))
   const solicitudRows = filtrarPorAmbito(ambitoEfectivo, solicitudes.data ?? [], (s) =>
     loPediYo(s, userId))
+  /* Reportes usa `esReporteMio` y NO `loAtendiYo`, desde el 2026-09-22: un reporte pendiente es
+     trabajo DEL ESTUDIO y lo ve cualquiera que lo tenga asignado, no sólo quien atendió la visita —
+     el informe llega de la plataforma días después y lo levanta el que está. Para quien sólo coordina
+     estudios la RLS ya devuelve nada más que los suyos, así que esta tarjeta muestra lo mismo en los
+     dos ámbitos; la diferencia queda para gerencia. Ver `esReporteMio` en `ambito.ts`. */
   const reporteRows = filtrarPorAmbito(ambitoEfectivo, reportes.data ?? [], (r) =>
-    loAtendiYo(r, userId))
+    esReporteMio(r, userId, misProtocolos))
   /* Tareas: "Lo mío" = las que tengo que hacer yo; "Todo" suma las que creé y le encargué a otro
      —que es justo lo que la RLS de la 0108 devuelve—. Ver `esTareaMia`. */
   const tareaRows = filtrarPorAmbito(ambitoEfectivo, tareas.data ?? [], (t) => esTareaMia(t, userId))
@@ -669,8 +674,13 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
                función en `estados.ts`, la MISMA que usa la tarjeta puertas adentro). Comparar acá
                contra el dato crudo podía ofrecer "Ver todo" cuando del otro lado sólo había reportes
                cerrados por otra persona — un viaje en falso a "Todos los reportes están cerrados",
-               justo lo que este aviso existe para evitar. */
-            vacioDelAmbito={avisoDeAmbito('No atendiste visitas con reportes pendientes.',
+               justo lo que este aviso existe para evitar.
+
+               EL TEXTO YA NO DICE "no atendiste": desde que la tarjeta filtra por estudio y no por
+               quién atendió (ver `esReporteMio`), "Lo mío" vacío significa que no hay pendientes en
+               los estudios que coordinás. Y este aviso casi no se va a ver: sólo le aparece a
+               gerencia, la única que tiene algo del otro lado. */
+            vacioDelAmbito={avisoDeAmbito('No hay reportes pendientes en tus estudios.',
               (reportes.data ?? []).some(esReportePendiente))}
           />
           <AlertasCard

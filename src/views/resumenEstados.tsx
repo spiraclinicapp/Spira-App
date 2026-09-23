@@ -78,7 +78,7 @@ export function ErrorBloque({ que, onReintentar }: { que: string; onReintentar: 
  * completa.
  *
  * `vacioDelAmbito` PISA al vacío propio cuando existe. La distinción importa: "no hay reportes
- * pendientes" y "no atendiste vos ninguna visita con reportes pendientes" son cosas distintas, y la
+ * pendientes" y "no hay reportes pendientes en tus estudios" son cosas distintas, y la
  * segunda tiene salida ("Ver todo"). Quien decide cuál va es la vista, que es la única que conoce
  * el ámbito; la tarjeta sólo muestra lo que le den (ver el prop del mismo nombre en cada una).
  *
