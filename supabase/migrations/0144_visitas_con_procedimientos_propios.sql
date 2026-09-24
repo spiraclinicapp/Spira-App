@@ -617,3 +617,27 @@ end $fn$;
 drop trigger if exists trg_guard_borrar_suelta on public.patient_visits;
 create trigger trg_guard_borrar_suelta before delete
   on public.patient_visits for each row execute function public.guard_borrar_suelta_con_realizados();
+
+
+-- 11 · Recarga de PostgREST y sondas ----------------------------------------------------------------
+notify pgrst, 'reload schema';
+
+-- Sonda 1: las cinco vistas corren con los permisos de QUIEN CONSULTA. Las cinco tienen que decir
+-- {security_invoker=true}; una sin eso saltea la RLS por estudio en silencio.
+select c.relname, c.reloptions
+from pg_class c
+where c.oid in ('public.v_visit_procedures'::regclass, 'public.v_patient_visits'::regclass,
+                'public.v_track_visits'::regclass, 'public.v_procedure_report_alerts'::regclass,
+                'public.v_protocol_report_status'::regclass)
+order by 1;
+
+-- Sonda 2: ninguna vista calcula «qué debe la visita» por el camino viejo. Tiene que devolver UNA
+-- sola fila, v_visit_procedures. Si aparece otra, es una vista que sigue leyendo el cronograma
+-- directo: avisar antes de desplegar el front.
+select viewname from pg_views
+where schemaname = 'public' and definition ilike '%protocol_activities%'
+order by 1;
+
+-- Sonda 3: register_visit_event quedó con UNA sola firma (la de cinco parámetros). Tiene que dar 1.
+select count(*) as firmas from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'register_visit_event';
