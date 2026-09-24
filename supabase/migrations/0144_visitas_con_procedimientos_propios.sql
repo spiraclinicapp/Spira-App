@@ -150,3 +150,225 @@ comment on view public.v_visit_procedures is
 revoke all on public.v_visit_procedures from anon;
 grant select on public.v_visit_procedures to authenticated;
 revoke insert, update, delete, truncate, references, trigger on public.v_visit_procedures from authenticated;
+
+
+-- 4 · v_patient_visits: las ramas 5 y 6 leen la lista efectiva ---------------------------------
+-- Copia de la 0137 salvo los dos `exists` de reportes, que pasan de
+--     protocol_activities pa ... where pa.visit_def_id = pv.visit_def_id
+-- a  v_visit_procedures vp ... where vp.visit_id = pv.id.
+-- Efecto: la V3 deja de deber lo que pasó a otro día (y cierra), y un retest pasa a deber lo suyo.
+-- Mismas columnas: `create or replace`, sin drop, y v_track_visits no se entera.
+create or replace view public.v_patient_visits with (security_invoker = true) as
+select
+  pv.*,
+  ( case
+      -- 1 · En el centro hoy y sin cerrar la atención (anclado a la hora argentina, 0120).
+      when pv.ready_at is null and pv.arrived_at is not null
+       and (pv.arrived_at at time zone 'America/Argentina/Buenos_Aires')::date
+         = (now()          at time zone 'America/Argentina/Buenos_Aires')::date
+        then 'en_atencion'
+      -- 2 · Ventana vencida. `current_date` es UTC: inconsistencia PREEXISTENTE (0004), sin tocar.
+      when pv.real_date is null and current_date > pv.window_end then 'ventana_vencida'
+      -- 3 · Faltó y todavía no tiene fecha nueva.
+      when pv.real_date is null and pv.no_show_at is not null    then 'por_reprogramar'
+      -- 4 · Pendiente.
+      when pv.real_date is null                                  then 'proxima'
+      -- 5 · Un reporte de un procedimiento hecho, en 'pendiente' y fuera de plazo.
+      when exists (
+        select 1
+        from public.v_visit_procedures vp
+        join public.enrollments e          on e.id  = pv.enrollment_id
+        join public.protocol_procedures pp on pp.protocol_id = e.protocol_id
+                                          and pp.procedure_id = vp.procedure_id
+        join public.report_definitions rd  on rd.protocol_procedure_id = pp.id
+        join public.visit_procedure_completions vpc
+             on vpc.visit_id = pv.id and vpc.procedure_id = vp.procedure_id
+        left join public.report_status rs
+             on rs.visit_id = pv.id and rs.report_definition_id = rd.id
+        where vp.visit_id = pv.id
+          and rd.eta_hours is not null
+          and coalesce(rs.stage, 'pendiente') = 'pendiente'
+          and now() > vpc.completed_at + (rd.eta_hours * interval '1 hour')
+      ) then 'item_vencido'
+      -- 6 · Atendida con pendientes: un reporte sin evolucionar, o el IP abierto (0120).
+      when exists (
+        select 1
+        from public.v_visit_procedures vp
+        join public.enrollments e          on e.id  = pv.enrollment_id
+        join public.protocol_procedures pp on pp.protocol_id = e.protocol_id
+                                          and pp.procedure_id = vp.procedure_id
+        join public.report_definitions rd  on rd.protocol_procedure_id = pp.id
+        left join public.report_status rs
+             on rs.visit_id = pv.id and rs.report_definition_id = rd.id
+        where vp.visit_id = pv.id
+          and coalesce(rs.stage, 'pendiente') <> 'evolucionado'
+      ) or exists (
+        select 1 from public.v_visit_ip_status s
+        where s.visit_id = pv.id and s.sellada and s.abierto
+      ) then 'realizada'
+      else 'completa'
+    end )::visit_status as computed_status,
+  ( case
+      when pv.ready_at   is not null then 'fin_atencion'
+      when pv.real_date  is not null then 'inicio_atencion'
+      when pv.arrived_at is not null then 'concurrio_al_centro'
+      else 'por_llegar'
+    end ) as operational_stage
+from public.patient_visits pv;
+
+comment on view public.v_patient_visits is
+  'patient_visits + estado clínico + recorrido operativo. 0144: los reportes que la visita debe salen de v_visit_procedures (lista efectiva), no del cronograma. Resto como la 0137.';
+revoke all on public.v_patient_visits from anon;
+grant select on public.v_patient_visits to authenticated;
+revoke insert, update, delete, truncate, references, trigger on public.v_patient_visits from authenticated;
+
+
+-- 5 · Las dos vistas de reportes leen la lista efectiva ------------------------------------------
+-- Copias de la 0126 con el mismo cambio de join. v_protocol_report_status suma `visit_kind` AL
+-- FINAL: el tablero nombraba la visita por su definición, y un retest no tiene.
+create or replace view public.v_procedure_report_alerts with (security_invoker = true) as
+select
+  pv.id              as visit_id,
+  rd.id              as report_definition_id,
+  vp.procedure_id,
+  rd.name            as report_name,
+  rd.platform,
+  p.name             as procedure_name,
+  rd.eta_hours,
+  vpc.completed_at,
+  (vpc.completed_at + (rd.eta_hours * interval '1 hour')) as report_due_at,
+  e.protocol_id, e.patient_id,
+  pr.code  as protocol_code, pr.name as protocol_name,
+  coalesce(e.ivrs_code, pac.code) as patient_code,  pac.full_name as patient_name,
+  vd.name  as visit_name,    vd.code as visit_code,
+  coalesce(pv.treating_physician, pac.treating_physician) as treating_physician,
+  pv.coordinator_id,
+  pv.coordinator_name
+from public.patient_visits pv
+join public.enrollments e          on e.id  = pv.enrollment_id
+join public.v_visit_procedures vp  on vp.visit_id = pv.id
+join public.protocol_procedures pp on pp.protocol_id = e.protocol_id
+                                  and pp.procedure_id = vp.procedure_id
+join public.report_definitions rd  on rd.protocol_procedure_id = pp.id
+join public.procedures p           on p.id  = vp.procedure_id
+join public.protocols pr           on pr.id = e.protocol_id
+join public.patients pac           on pac.id = e.patient_id
+join public.visit_procedure_completions vpc
+     on vpc.visit_id = pv.id and vpc.procedure_id = vp.procedure_id
+left join public.visit_definitions vd on vd.id = pv.visit_def_id
+left join public.report_status rs     on rs.visit_id = pv.id and rs.report_definition_id = rd.id
+where rd.eta_hours is not null
+  and coalesce(rs.stage, 'pendiente') = 'pendiente'
+  and now() > vpc.completed_at + (rd.eta_hours * interval '1 hour');
+
+comment on view public.v_procedure_report_alerts is
+  'Reportes vencidos. 0144: los procedimientos salen de v_visit_procedures (lista efectiva). patient_code = IVRS de la inscripción (0126).';
+
+create or replace view public.v_protocol_report_status with (security_invoker = true) as
+select
+  pv.id as visit_id,
+  rd.id                as report_definition_id,
+  rd.name              as report_name,
+  rd.platform,
+  rd.link,
+  rd.eta_hours,
+  rd.notes,
+  rd.sort_order,
+  vp.procedure_id,
+  p.name               as procedure_name,
+  p.code               as procedure_code,
+  p.category           as procedure_category,
+  vp.suggested_order   as procedure_order,
+  vpc.completed_at,
+  (vpc.id is not null)                                as completed,
+  (pv.real_date is not null or vpc.id is not null)    as visita_iniciada,
+  case when rd.eta_hours is null or vpc.completed_at is null then null
+       else vpc.completed_at + (rd.eta_hours * interval '1 hour') end as due_at,
+  coalesce(rs.stage, 'pendiente') as stage,
+  rs.id                as report_status_id,
+  rs.updated_at,
+  rs.updated_by_name,
+  e.protocol_id,
+  e.patient_id,
+  pv.visit_def_id,
+  pr.code              as protocol_code,
+  coalesce(e.ivrs_code, pac.code)             as patient_code,
+  pac.full_name        as patient_name,
+  vd.code              as visit_code,
+  vd.name              as visit_name,
+  vd.sort_order        as visit_sort_order,
+  (select count(*) from public.report_status_history h where h.report_status_id = rs.id) as history_count,
+  pv.coordinator_id,
+  pv.coordinator_name,
+  -- 0144: al final para no alterar el orden anterior. Nombra la visita cuando no tiene definición.
+  pv.kind              as visit_kind
+from public.patient_visits pv
+join public.enrollments e             on e.id  = pv.enrollment_id
+join public.v_visit_procedures vp     on vp.visit_id = pv.id
+join public.protocol_procedures pp    on pp.protocol_id = e.protocol_id and pp.procedure_id = vp.procedure_id
+join public.report_definitions rd     on rd.protocol_procedure_id = pp.id
+join public.procedures p              on p.id  = vp.procedure_id
+join public.protocols pr              on pr.id = e.protocol_id
+join public.patients pac              on pac.id = e.patient_id
+left join public.visit_definitions vd on vd.id = pv.visit_def_id
+left join public.visit_procedure_completions vpc
+       on vpc.visit_id = pv.id and vpc.procedure_id = vp.procedure_id
+left join public.report_status rs     on rs.visit_id = pv.id and rs.report_definition_id = rd.id;
+
+comment on view public.v_protocol_report_status is
+  'Tablero «Reportes pendientes». 0144: los procedimientos salen de v_visit_procedures (lista efectiva) y suma visit_kind al final. patient_code = IVRS de la inscripción (0126).';
+
+
+-- 6 · v_track_visits: la visita de origen de una continuación, al final --------------------------
+-- Copia de la 0126 + cuatro columnas AL FINAL, para que el front arme «Continuación de V3» sin una
+-- segunda consulta. Una continuación tiene un solo origen (set_added_procedures no agrega con
+-- origen), así que el `limit 1` no elige entre dos.
+create or replace view public.v_track_visits with (security_invoker = true) as
+select
+  v.id, v.enrollment_id, v.visit_def_id, v.estimated_date, v.real_date,
+  v.window_start, v.window_end, v.notes, v.computed_status,
+  vd.code as visit_code, vd.name as visit_name,
+  coalesce(vd.visit_type, 'presencial') as visit_type, vd.sort_order,
+  e.protocol_id, e.patient_id, e.status as enrollment_status,
+  e.randomization_date as enrollment_randomization_date,
+  pr.code as protocol_code, pr.name as protocol_name,
+  coalesce(e.ivrs_code, pa.code) as patient_code, pa.full_name as patient_name,
+  pa.sex, pa.birth_date,
+  pa.fertility,
+  vd.offset_days, e.enrollment_date,
+  coalesce(v.treating_physician, pa.treating_physician) as treating_physician,
+  v.coordinator_id, v.coordinator_name,
+  v.kind,
+  v.arrived_at, v.ready_at, v.left_at, v.no_show_at,
+  v.attended_at,
+  v.wants_doctor,
+  v.doctor_seen_at,
+  v.doctor_motivo,
+  v.wants_doctor_at, v.doctor_marked_by,
+  coalesce(vd.dispenses, false) as dispenses,
+  coalesce(vd.dispenses_ip, false) as dispenses_ip,
+  v.operational_stage,
+  vd.role, vd.date_mode,
+  (select count(*) from public.visit_comments vc where vc.visit_id = v.id) as comments_count,
+  -- 0144: al final para no alterar el orden anterior.
+  ori.visit_id as origin_visit_id,
+  ovd.code     as origin_code,
+  ovd.name     as origin_name,
+  opv.kind     as origin_kind
+from public.v_patient_visits v
+left join public.visit_definitions vd on vd.id = v.visit_def_id
+join public.enrollments e on e.id = v.enrollment_id
+join public.protocols pr  on pr.id = e.protocol_id
+join public.patients pa   on pa.id = e.patient_id
+left join lateral (
+  select a.deferred_from_visit_id as visit_id
+  from public.visit_added_procedures a
+  where a.visit_id = v.id and a.deferred_from_visit_id is not null
+  order by a.added_at
+  limit 1
+) ori on true
+left join public.patient_visits opv    on opv.id = ori.visit_id
+left join public.visit_definitions ovd on ovd.id = opv.visit_def_id;
+
+comment on view public.v_track_visits is
+  'Visitas de Coordinación. patient_code = IVRS de la inscripción (0126). 0144: suma origin_* al final (la visita de la que viene una continuación).';
