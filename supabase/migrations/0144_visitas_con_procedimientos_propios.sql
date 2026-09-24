@@ -20,7 +20,8 @@
 --
 -- ORDEN DE DESPLIEGUE: ADITIVA, va PRIMERO. El front viejo lee las vistas con select('*') (las
 -- columnas nuevas le sobran) y llama a register_visit_event con cuatro parámetros, que siguen
--- andando: el quinto tiene default. El front nuevo (PR B) NO anda sin esta migración.
+-- andando: el quinto tiene default, y un retest sin procedimientos se sigue aceptando (la regla
+-- «al menos uno» la pone el front nuevo). El front nuevo (PR B) NO anda sin esta migración.
 --
 -- APLICAR a mano en el SQL Editor de Supabase, después de la 0143. IDEMPOTENTE: si algo corta a
 -- la mitad, se vuelve a correr el archivo entero. Las sondas del final se MIRAN, no alcanza con el
@@ -36,11 +37,17 @@
 -- LAS DOS FK A patient_visits TIRAN PARA LADOS OPUESTOS, y a propósito:
 --   · vap_visita_fk, CASCADE: borrar la continuación borra sus filas, y con eso lo diferido vuelve a
 --     figurar pendiente en la visita de origen. Nadie tiene que acordarse de devolverlo.
---   · vap_origen_fk, RESTRICT: en una cadena V3 → C1 → C2, borrar C1 dejaría a C2 con un origen
---     que no existe mientras la V3 recupera el procedimiento: el mismo procedimiento pendiente en
---     dos visitas. No se borra una visita que pasó cosas a otra mientras la otra exista.
--- Las constraints van NOMBRADAS: el front reconoce el bloqueo por `vap_origen_fk` y embebe la
--- visita destino por `vap_visita_fk` (con dos FK a la misma tabla, el embed sin nombre es ambiguo).
+--   · vap_origen_fk, SET NULL: los borrados del SISTEMA no se traban. delete_patient (0024) se lleva
+--     en cascada la inscripción con el origen y la continuación juntos; cerrar_inscripcion (0127),
+--     delete_visit_definition (0026) y sync_protocol_schedule (0029) borran visitas programadas
+--     pendientes, y una de ésas puede haber pasado procedimientos a otra. Con RESTRICT, cualquiera de
+--     las cuatro reventaba. Con SET NULL, si el sistema borra el origen, la continuación se queda con
+--     lo suyo como propio (figura como 'agregado'): no queda nadie a quien devolvérselo.
+--     La APP, en cambio, no puede borrar una visita que pasó procedimientos a otra: lo ataja la guarda
+--     de la sección 10. En una cadena V3 → C1 → C2, borrar C1 dejaría el procedimiento pendiente en dos
+--     visitas a la vez: la V3 lo recuperaría (ya nadie lo trae de ella) y C2 lo seguiría teniendo.
+-- Las constraints van NOMBRADAS: el front embebe la visita destino por `vap_visita_fk` (con dos FK a
+-- la misma tabla, el embed sin nombre es ambiguo).
 -- `id` es la clave aunque la unicidad sea (visita, procedimiento): audit_row() resuelve `old.id`
 -- al planificar (0003, pasó con la 0111).
 create table if not exists public.visit_added_procedures (
@@ -51,7 +58,7 @@ create table if not exists public.visit_added_procedures (
   added_by               uuid not null default auth.uid() references public.users(id),
   added_at               timestamptz not null default now(),
   constraint vap_visita_fk         foreign key (visit_id)               references public.patient_visits(id) on delete cascade,
-  constraint vap_origen_fk         foreign key (deferred_from_visit_id) references public.patient_visits(id) on delete restrict,
+  constraint vap_origen_fk         foreign key (deferred_from_visit_id) references public.patient_visits(id) on delete set null,
   constraint vap_procedimiento_fk  foreign key (procedure_id)           references public.procedures(id)     on delete restrict,
   constraint vap_visita_procedimiento_unico unique (visit_id, procedure_id),
   constraint vap_origen_distinto   check (deferred_from_visit_id is distinct from visit_id)
@@ -76,8 +83,8 @@ create trigger trg_audit_vap after insert or update or delete
   on public.visit_added_procedures for each row execute function public.audit_row();
 
 
--- 2 · Tres preguntas que se hacen las RPC y las guardas --------------------------------------------
--- SECURITY DEFINER las tres: responden igual para cualquiera que pregunte, sin depender de qué
+-- 2 · Cuatro preguntas que se hacen las RPC y las guardas ------------------------------------------
+-- SECURITY DEFINER las cuatro: responden igual para cualquiera que pregunte, sin depender de qué
 -- filas le deja ver su RLS.
 
 -- Quién puede agendar o cambiar visitas de un estudio. Es la regla de register_visit_event (0030),
@@ -101,12 +108,22 @@ returns boolean language sql security definer stable set search_path = pg_catalo
   select exists (select 1 from public.visit_procedure_completions c where c.visit_id = p_visit_id);
 $fn$;
 
-revoke all on function public.puede_registrar_visitas(uuid) from public;
-revoke all on function public.procedimiento_diferido(uuid, uuid) from public;
-revoke all on function public.visita_tiene_realizados(uuid) from public;
+-- Si la visita pasó algún procedimiento a otra.
+create or replace function public.visita_paso_procedimientos(p_visit_id uuid)
+returns boolean language sql security definer stable set search_path = pg_catalog, public as $fn$
+  select exists (select 1 from public.visit_added_procedures a where a.deferred_from_visit_id = p_visit_id);
+$fn$;
+
+-- `from public, anon`: Supabase le da EXECUTE a anon explícitamente en cada función nueva, así que
+-- sacárselo a public no alcanza.
+revoke all on function public.puede_registrar_visitas(uuid) from public, anon;
+revoke all on function public.procedimiento_diferido(uuid, uuid) from public, anon;
+revoke all on function public.visita_tiene_realizados(uuid) from public, anon;
+revoke all on function public.visita_paso_procedimientos(uuid) from public, anon;
 grant execute on function public.puede_registrar_visitas(uuid) to authenticated;
 grant execute on function public.procedimiento_diferido(uuid, uuid) to authenticated;
 grant execute on function public.visita_tiene_realizados(uuid) to authenticated;
+grant execute on function public.visita_paso_procedimientos(uuid) to authenticated;
 
 
 -- 3 · La LISTA EFECTIVA de cada visita -------------------------------------------------------------
@@ -158,9 +175,33 @@ revoke insert, update, delete, truncate, references, trigger on public.v_visit_p
 -- a  v_visit_procedures vp ... where vp.visit_id = pv.id.
 -- Efecto: la V3 deja de deber lo que pasó a otro día (y cierra), y un retest pasa a deber lo suyo.
 -- Mismas columnas: `create or replace`, sin drop, y v_track_visits no se entera.
+--
+-- POR QUÉ LA LISTA DE COLUMNAS SE ARMA SOLA. La 0143 (ya aplicada) sumó arrived_by, ready_by y
+-- left_by a patient_visits SIN recrear esta vista. Postgres guarda el `*` expandido al crear la
+-- vista, así que la viva sigue con las columnas de la 0137; un `pv.*` escrito hoy metería las tres
+-- nuevas ANTES de computed_status, y `create or replace` no deja correr ni renombrar columnas:
+-- 42P16 «cannot change name of view column». En el editor de Supabase, sin transacción que abarque
+-- el archivo, eso deja la migración a medias: la tabla y v_visit_procedures creadas, las vistas sin
+-- recablear. Por eso la lista sale de la vista TAL COMO ESTÁ AHORA (pg_attribute), en su orden, y
+-- el cuerpo se arma con format(). Es idempotente: volver a correrlo lee la vista ya recreada.
+-- NINGUNA migración futura debería volver a escribir `pv.*` en esta vista: o repite este bloque, o
+-- lista las columnas a mano. Sumar las de la 0143 es un cambio aparte, AL FINAL, cuando alguien
+-- las necesite.
+do $mig$
+declare
+  v_columnas text;
+begin
+  select string_agg('pv.' || quote_ident(a.attname), ', ' order by a.attnum)
+    into v_columnas
+  from pg_attribute a
+  where a.attrelid = 'public.v_patient_visits'::regclass
+    and a.attnum > 0 and not a.attisdropped
+    and a.attname not in ('computed_status', 'operational_stage');
+
+  execute format($vista$
 create or replace view public.v_patient_visits with (security_invoker = true) as
 select
-  pv.*,
+  %s,
   ( case
       -- 1 · En el centro hoy y sin cerrar la atención (anclado a la hora argentina, 0120).
       when pv.ready_at is null and pv.arrived_at is not null
@@ -214,7 +255,9 @@ select
       when pv.arrived_at is not null then 'concurrio_al_centro'
       else 'por_llegar'
     end ) as operational_stage
-from public.patient_visits pv;
+from public.patient_visits pv
+$vista$, v_columnas);
+end $mig$;
 
 comment on view public.v_patient_visits is
   'patient_visits + estado clínico + recorrido operativo. 0144: los reportes que la visita debe salen de v_visit_procedures (lista efectiva), no del cronograma. Resto como la 0137.';
@@ -407,9 +450,10 @@ begin
   if cardinality(v_procs) > 0 and p_kind not in ('vnp', 'retest') then
     raise exception 'Solo el retest y la VNP llevan procedimientos propios' using errcode = 'check_violation';
   end if;
-  if p_kind = 'retest' and cardinality(v_procs) = 0 then
-    raise exception 'Elegí al menos un procedimiento para el retest' using errcode = 'check_violation';
-  end if;
+  -- Un retest vacío SE ACEPTA acá, a propósito. El front desplegado llama con cuatro parámetros y
+  -- no manda procedimientos: exigirlos rompería el alta de retests entre esta migración y el front
+  -- nuevo, y los retests legacy no tienen ninguno. La regla «al menos uno» la pone el front nuevo al
+  -- crear; set_added_procedures sí la exige, porque sólo la llama el front nuevo.
   if exists (select 1 from unnest(v_procs) as t(x)
              where not exists (select 1 from public.protocol_procedures pp
                                where pp.protocol_id = v_protocol and pp.procedure_id = t.x)) then
@@ -465,7 +509,7 @@ begin
 
   return v_visit;
 end $fn$;
-revoke all on function public.register_visit_event(uuid, visit_kind, date, text, uuid[]) from public;
+revoke all on function public.register_visit_event(uuid, visit_kind, date, text, uuid[]) from public, anon;
 grant execute on function public.register_visit_event(uuid, visit_kind, date, text, uuid[]) to authenticated;
 
 
@@ -518,7 +562,7 @@ begin
 
   return v_visit;
 end $fn$;
-revoke all on function public.diferir_procedimientos(uuid, uuid[], date) from public;
+revoke all on function public.diferir_procedimientos(uuid, uuid[], date) from public, anon;
 grant execute on function public.diferir_procedimientos(uuid, uuid[], date) to authenticated;
 
 
@@ -579,7 +623,7 @@ begin
     raise exception 'Un retest lleva al menos un procedimiento' using errcode = 'check_violation';
   end if;
 end $fn$;
-revoke all on function public.set_added_procedures(uuid, uuid[]) from public;
+revoke all on function public.set_added_procedures(uuid, uuid[]) from public, anon;
 grant execute on function public.set_added_procedures(uuid, uuid[]) to authenticated;
 
 
@@ -602,21 +646,34 @@ drop trigger if exists trg_guard_tildar_diferido on public.visit_procedure_compl
 create trigger trg_guard_tildar_diferido before insert
   on public.visit_procedure_completions for each row execute function public.guard_tildar_diferido();
 
--- (b) Una visita suelta con procedimientos hechos no se borra: el cascade se llevaría los tildes y
---     sus reportes sin que nadie lo decida. postgres pasa (limpiezas a mano desde el editor), y la
---     pregunta va PRIMERO, antes de leer nada.
-create or replace function public.guard_borrar_suelta_con_realizados()
+-- (b) Lo que la APP no borra de patient_visits:
+--     · una visita que pasó procedimientos a otra: en una cadena V3 → C1 → C2, borrar C1 dejaría el
+--       procedimiento pendiente en dos visitas (ver sección 1). Primero se deshace la continuación.
+--     · una visita suelta con procedimientos hechos: el cascade se llevaría los tildes y sus
+--       reportes sin que nadie lo decida.
+--     postgres pasa, y la pregunta va PRIMERO, antes de leer nada: postgres es el SISTEMA — las RPC
+--     definer de las que es dueño (delete_patient, cerrar_inscripcion, delete_visit_definition,
+--     sync_protocol_schedule) y las limpiezas a mano desde el editor. Ésos borran el origen a
+--     sabiendas, y vap_origen_fk (SET NULL) le deja a la continuación lo suyo.
+--     Antes se llamaba guard_borrar_suelta_con_realizados / trg_guard_borrar_suelta: el nombre dejó de
+--     decir lo que hace. Se borran los dos nombres viejos, por si una corrida anterior los dejó.
+drop trigger if exists trg_guard_borrar_suelta on public.patient_visits;
+drop function if exists public.guard_borrar_suelta_con_realizados();
+create or replace function public.guard_borrar_visita()
 returns trigger language plpgsql set search_path = pg_catalog, public as $fn$
 begin
   if current_user = 'postgres' then return old; end if;
+  if public.visita_paso_procedimientos(old.id) then
+    raise exception 'Esta visita pasó procedimientos a otra. Deshacé primero esa continuación.' using errcode = 'check_violation';
+  end if;
   if old.visit_def_id is null and public.visita_tiene_realizados(old.id) then
     raise exception 'Esta visita ya tiene procedimientos marcados como realizados. Desmarcalos antes de borrarla.' using errcode = 'check_violation';
   end if;
   return old;
 end $fn$;
-drop trigger if exists trg_guard_borrar_suelta on public.patient_visits;
-create trigger trg_guard_borrar_suelta before delete
-  on public.patient_visits for each row execute function public.guard_borrar_suelta_con_realizados();
+drop trigger if exists trg_guard_borrar_visita on public.patient_visits;
+create trigger trg_guard_borrar_visita before delete
+  on public.patient_visits for each row execute function public.guard_borrar_visita();
 
 
 -- 11 · Recarga de PostgREST y sondas ----------------------------------------------------------------
