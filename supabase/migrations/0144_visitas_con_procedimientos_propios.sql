@@ -522,11 +522,14 @@ revoke all on function public.diferir_procedimientos(uuid, uuid[], date) from pu
 grant execute on function public.diferir_procedimientos(uuid, uuid[], date) to authenticated;
 
 
--- 9 · set_added_procedures: editar lo que lleva una visita suelta ---------------------------------
--- Reemplaza la lista de una visita SIN cronograma. Quitar un procedimiento que vino de otra visita
--- es devolvérselo (se borra la fila). Lo que ESTA visita ya pasó a otra no está en su lista
--- efectiva, así que la pantalla no lo manda: se conserva, porque borrarlo lo dejaría pendiente en
--- dos visitas a la vez. Lo agregado acá nunca trae origen: una continuación no junta dos.
+-- 9 · set_added_procedures: editar lo agregado a mano de un retest o una VNP ------------------------
+-- Reemplaza la lista de un retest o una VNP (sin cronograma). Quitar un procedimiento que vino de
+-- otra visita es devolvérselo (se borra la fila). Lo que ESTA visita ya pasó a otra no está en su
+-- lista efectiva, así que la pantalla no lo manda: se conserva, porque borrarlo lo dejaría pendiente
+-- en dos visitas a la vez. Lo agregado acá nunca trae origen: una continuación no junta dos.
+-- Un protocolo LEGACY (sin cuadro) tiene firma/screening/firma_screening/randomización sueltas
+-- (visit_def_id null, igual que un retest o una VNP): sin este chequeo de v_kind, esta RPC les
+-- dejaba enchufar procedimientos que register_visit_event nunca les permitiría poner al crearlas.
 create or replace function public.set_added_procedures(p_visit_id uuid, p_procedure_ids uuid[])
 returns void language plpgsql security definer set search_path = pg_catalog, public as $fn$
 declare
@@ -547,6 +550,9 @@ begin
   end if;
   if v_def is not null then
     raise exception 'Los procedimientos de una visita del cronograma se editan en el cronograma del protocolo' using errcode = 'check_violation';
+  end if;
+  if v_kind not in ('vnp', 'retest') then
+    raise exception 'Solo el retest y la VNP llevan procedimientos propios' using errcode = 'check_violation';
   end if;
 
   if exists (select 1 from public.visit_added_procedures a
