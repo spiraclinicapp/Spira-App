@@ -372,3 +372,242 @@ left join public.visit_definitions ovd on ovd.id = opv.visit_def_id;
 
 comment on view public.v_track_visits is
   'Visitas de Coordinación. patient_code = IVRS de la inscripción (0126). 0144: suma origin_* al final (la visita de la que viene una continuación).';
+
+
+-- 7 · register_visit_event: procedimientos propios, y el retest en cualquier etapa ------------------
+-- Cuerpo de la 0030 con tres cambios: (a) la authz sale de puede_registrar_visitas (misma regla);
+-- (b) se va el «Retest es solo post-randomización» — el retest de screening es el más común;
+-- (c) recibe p_procedure_ids y los guarda en visit_added_procedures.
+-- La firma cambia, así que va el DROP de la vieja: `create or replace` con un parámetro más deja
+-- una sobrecarga viva, y la llamada de cuatro argumentos resolvería a la vieja en silencio. El
+-- quinto parámetro tiene default: el front viejo, que manda cuatro, sigue andando con la nueva.
+drop function if exists public.register_visit_event(uuid, visit_kind, date, text);
+create or replace function public.register_visit_event(
+  p_enrollment_id uuid, p_kind visit_kind, p_date date, p_notes text default null,
+  p_procedure_ids uuid[] default '{}'
+) returns uuid language plpgsql security definer set search_path = pg_catalog, public as $fn$
+declare
+  v_uid uuid := auth.uid();
+  v_protocol uuid; v_rando date; v_visit uuid;
+  v_has_firma boolean; v_has_screening boolean;
+  v_procs uuid[] := coalesce(array(select distinct t.x from unnest(p_procedure_ids) as t(x) where t.x is not null), '{}');
+begin
+  if v_uid is null then raise exception 'No autenticado' using errcode = '42501'; end if;
+  if p_kind = 'programada' then raise exception 'Las visitas programadas no se crean por acá' using errcode = 'check_violation'; end if;
+  if p_date is null then raise exception 'La fecha es obligatoria' using errcode = '23502'; end if;
+
+  select e.protocol_id, e.randomization_date into v_protocol, v_rando
+    from public.enrollments e where e.id = p_enrollment_id;
+  if v_protocol is null then raise exception 'Enrolamiento inexistente' using errcode = '23503'; end if;
+
+  if not public.puede_registrar_visitas(v_protocol) then
+    raise exception 'No tenés permiso para registrar visitas de este paciente' using errcode = '42501';
+  end if;
+
+  if cardinality(v_procs) > 0 and p_kind not in ('vnp', 'retest') then
+    raise exception 'Solo el retest y la VNP llevan procedimientos propios' using errcode = 'check_violation';
+  end if;
+  if p_kind = 'retest' and cardinality(v_procs) = 0 then
+    raise exception 'Elegí al menos un procedimiento para el retest' using errcode = 'check_violation';
+  end if;
+  if exists (select 1 from unnest(v_procs) as t(x)
+             where not exists (select 1 from public.protocol_procedures pp
+                               where pp.protocol_id = v_protocol and pp.procedure_id = t.x)) then
+    raise exception 'Ese procedimiento no es de este estudio' using errcode = 'check_violation';
+  end if;
+
+  -- Cutover de la 0030: con cuadro, firma/screening/randomización se agendan desde el cuadro.
+  if p_kind in ('firma','screening','firma_screening','randomizacion')
+     and exists (select 1 from public.visit_definitions vd
+                 where vd.protocol_id = v_protocol and vd.role <> 'comun') then
+    raise exception 'Este protocolo usa el cronograma: agendá screening/randomización desde el cuadro' using errcode = 'check_violation';
+  end if;
+
+  if v_rando is not null then
+    if p_kind not in ('vnp','retest') then
+      raise exception 'Después de la randomización solo se registran VNP o Retest' using errcode = 'check_violation';
+    end if;
+  else
+    if p_kind in ('firma','screening','firma_screening','randomizacion')
+       and exists (select 1 from public.patient_visits where enrollment_id = p_enrollment_id and kind = p_kind) then
+      raise exception 'Esa visita ya está registrada' using errcode = 'check_violation';
+    end if;
+    if p_kind in ('firma','screening')
+       and exists (select 1 from public.patient_visits where enrollment_id = p_enrollment_id and kind = 'firma_screening') then
+      raise exception 'Ya hay una visita de Firma y Screening' using errcode = 'check_violation';
+    end if;
+    if p_kind = 'firma_screening'
+       and exists (select 1 from public.patient_visits where enrollment_id = p_enrollment_id and kind in ('firma','screening')) then
+      raise exception 'Ya hay Firma o Screening por separado' using errcode = 'check_violation';
+    end if;
+    if p_kind = 'randomizacion' then
+      select exists (select 1 from public.patient_visits where enrollment_id = p_enrollment_id and kind in ('firma','firma_screening')),
+             exists (select 1 from public.patient_visits where enrollment_id = p_enrollment_id and kind in ('screening','firma_screening'))
+        into v_has_firma, v_has_screening;
+      if not (v_has_firma and v_has_screening) then
+        raise exception 'Para randomizar tiene que haber firma y screening previos' using errcode = 'check_violation';
+      end if;
+    end if;
+  end if;
+
+  -- La suelta nace AGENDADA (estimated_date), no atendida — modelo 0025.
+  insert into public.patient_visits (enrollment_id, kind, estimated_date, notes)
+  values (p_enrollment_id, p_kind, p_date, nullif(btrim(coalesce(p_notes, '')), ''))
+  returning id into v_visit;
+
+  insert into public.visit_added_procedures (visit_id, procedure_id, added_by)
+  select v_visit, t.x, v_uid from unnest(v_procs) as t(x);
+
+  -- Anclaje legacy (sólo protocolos SIN cuadro: el cutover de arriba bloquea este kind si hay cuadro).
+  if p_kind = 'randomizacion' then
+    update public.enrollments set randomization_date = p_date where id = p_enrollment_id;
+  end if;
+
+  return v_visit;
+end $fn$;
+revoke all on function public.register_visit_event(uuid, visit_kind, date, text, uuid[]) from public;
+grant execute on function public.register_visit_event(uuid, visit_kind, date, text, uuid[]) to authenticated;
+
+
+-- 8 · diferir_procedimientos: pasar lo pendiente de una visita a una continuación ------------------
+-- Crea la continuación (una VNP con fecha propia) y sus filas en una sola transacción. Sólo acepta
+-- lo que la visita todavía DEBE (su lista efectiva) y NO hizo: lo hecho ya tiene su reporte en
+-- marcha, y lo que no lleva no tiene nada que pasar.
+create or replace function public.diferir_procedimientos(
+  p_visita_origen uuid, p_procedure_ids uuid[], p_fecha date
+) returns uuid language plpgsql security definer set search_path = pg_catalog, public as $fn$
+declare
+  v_uid uuid := auth.uid();
+  v_enrollment uuid; v_protocol uuid; v_visit uuid;
+  v_procs uuid[] := coalesce(array(select distinct t.x from unnest(p_procedure_ids) as t(x) where t.x is not null), '{}');
+begin
+  if v_uid is null then raise exception 'No autenticado' using errcode = '42501'; end if;
+  if p_fecha is null then raise exception 'La fecha es obligatoria' using errcode = '23502'; end if;
+  if cardinality(v_procs) = 0 then
+    raise exception 'Elegí qué procedimientos pasan a otro día' using errcode = 'check_violation';
+  end if;
+
+  -- El lock serializa dos «pasar a otro día» simultáneos sobre la misma visita: sin él, los dos
+  -- verían el procedimiento pendiente y lo mandarían a dos continuaciones distintas.
+  select pv.enrollment_id, e.protocol_id into v_enrollment, v_protocol
+  from public.patient_visits pv
+  join public.enrollments e on e.id = pv.enrollment_id
+  where pv.id = p_visita_origen
+  for update of pv;
+  if v_enrollment is null then raise exception 'Esa visita ya no existe' using errcode = '23503'; end if;
+  if not public.puede_registrar_visitas(v_protocol) then
+    raise exception 'No tenés permiso para cambiar las visitas de este paciente' using errcode = '42501';
+  end if;
+
+  if exists (
+    select 1 from unnest(v_procs) as t(x)
+    where not exists (select 1 from public.v_visit_procedures vp
+                      where vp.visit_id = p_visita_origen and vp.procedure_id = t.x)
+       or exists (select 1 from public.visit_procedure_completions c
+                  where c.visit_id = p_visita_origen and c.procedure_id = t.x)
+  ) then
+    raise exception 'Solo se pasan a otro día los procedimientos que esta visita todavía no hizo' using errcode = 'check_violation';
+  end if;
+
+  insert into public.patient_visits (enrollment_id, kind, estimated_date)
+  values (v_enrollment, 'vnp', p_fecha)
+  returning id into v_visit;
+
+  insert into public.visit_added_procedures (visit_id, procedure_id, deferred_from_visit_id, added_by)
+  select v_visit, t.x, p_visita_origen, v_uid from unnest(v_procs) as t(x);
+
+  return v_visit;
+end $fn$;
+revoke all on function public.diferir_procedimientos(uuid, uuid[], date) from public;
+grant execute on function public.diferir_procedimientos(uuid, uuid[], date) to authenticated;
+
+
+-- 9 · set_added_procedures: editar lo que lleva una visita suelta ---------------------------------
+-- Reemplaza la lista de una visita SIN cronograma. Quitar un procedimiento que vino de otra visita
+-- es devolvérselo (se borra la fila). Lo que ESTA visita ya pasó a otra no está en su lista
+-- efectiva, así que la pantalla no lo manda: se conserva, porque borrarlo lo dejaría pendiente en
+-- dos visitas a la vez. Lo agregado acá nunca trae origen: una continuación no junta dos.
+create or replace function public.set_added_procedures(p_visit_id uuid, p_procedure_ids uuid[])
+returns void language plpgsql security definer set search_path = pg_catalog, public as $fn$
+declare
+  v_uid uuid := auth.uid();
+  v_kind visit_kind; v_def uuid; v_protocol uuid;
+  v_procs uuid[] := coalesce(array(select distinct t.x from unnest(p_procedure_ids) as t(x) where t.x is not null), '{}');
+begin
+  if v_uid is null then raise exception 'No autenticado' using errcode = '42501'; end if;
+
+  select pv.kind, pv.visit_def_id, e.protocol_id into v_kind, v_def, v_protocol
+  from public.patient_visits pv
+  join public.enrollments e on e.id = pv.enrollment_id
+  where pv.id = p_visit_id
+  for update of pv;
+  if v_protocol is null then raise exception 'Esa visita ya no existe' using errcode = '23503'; end if;
+  if not public.puede_registrar_visitas(v_protocol) then
+    raise exception 'No tenés permiso para cambiar las visitas de este paciente' using errcode = '42501';
+  end if;
+  if v_def is not null then
+    raise exception 'Los procedimientos de una visita del cronograma se editan en el cronograma del protocolo' using errcode = 'check_violation';
+  end if;
+
+  if exists (select 1 from public.visit_added_procedures a
+             join public.visit_procedure_completions c on c.visit_id = a.visit_id and c.procedure_id = a.procedure_id
+             where a.visit_id = p_visit_id and not (a.procedure_id = any (v_procs))) then
+    raise exception 'No se puede quitar un procedimiento que ya está marcado como realizado' using errcode = 'check_violation';
+  end if;
+  if exists (select 1 from unnest(v_procs) as t(x)
+             where not exists (select 1 from public.protocol_procedures pp
+                               where pp.protocol_id = v_protocol and pp.procedure_id = t.x)) then
+    raise exception 'Ese procedimiento no es de este estudio' using errcode = 'check_violation';
+  end if;
+
+  delete from public.visit_added_procedures a
+  where a.visit_id = p_visit_id
+    and not (a.procedure_id = any (v_procs))
+    and not public.procedimiento_diferido(p_visit_id, a.procedure_id);
+
+  insert into public.visit_added_procedures (visit_id, procedure_id, added_by)
+  select p_visit_id, t.x, v_uid from unnest(v_procs) as t(x)
+  on conflict on constraint vap_visita_procedimiento_unico do nothing;
+
+  if v_kind = 'retest' and not exists (select 1 from public.visit_added_procedures a where a.visit_id = p_visit_id) then
+    raise exception 'Un retest lleva al menos un procedimiento' using errcode = 'check_violation';
+  end if;
+end $fn$;
+revoke all on function public.set_added_procedures(uuid, uuid[]) from public;
+grant execute on function public.set_added_procedures(uuid, uuid[]) to authenticated;
+
+
+-- 10 · Guardas --------------------------------------------------------------------------------------
+-- NO son security definer: con definer, current_user sería siempre el dueño y la excepción de
+-- postgres de la segunda dejaría pasar a todos. Las preguntas las hacen las funciones de la
+-- sección 2, que sí son definer, así no dependen de la RLS de quien escribe.
+
+-- (a) Lo que una visita pasó a otra no se tilda en ella. El tilde es un insert directo desde el
+--     front (toggleVisitProcedure), así que la regla tiene que vivir en la base.
+create or replace function public.guard_tildar_diferido()
+returns trigger language plpgsql set search_path = pg_catalog, public as $fn$
+begin
+  if public.procedimiento_diferido(new.visit_id, new.procedure_id) then
+    raise exception 'Ese procedimiento pasó a otra visita: se marca allá' using errcode = 'check_violation';
+  end if;
+  return new;
+end $fn$;
+drop trigger if exists trg_guard_tildar_diferido on public.visit_procedure_completions;
+create trigger trg_guard_tildar_diferido before insert
+  on public.visit_procedure_completions for each row execute function public.guard_tildar_diferido();
+
+-- (b) Una visita suelta con procedimientos hechos no se borra: el cascade se llevaría los tildes y
+--     sus reportes sin que nadie lo decida. postgres pasa (limpiezas a mano desde el editor), y la
+--     pregunta va PRIMERO, antes de leer nada.
+create or replace function public.guard_borrar_suelta_con_realizados()
+returns trigger language plpgsql set search_path = pg_catalog, public as $fn$
+begin
+  if current_user = 'postgres' then return old; end if;
+  if old.visit_def_id is null and public.visita_tiene_realizados(old.id) then
+    raise exception 'Esta visita ya tiene procedimientos marcados como realizados. Desmarcalos antes de borrarla.' using errcode = 'check_violation';
+  end if;
+  return old;
+end $fn$;
+drop trigger if exists trg_guard_borrar_suelta on public.patient_visits;
+create trigger trg_guard_borrar_suelta before delete
+  on public.patient_visits for each row execute function public.guard_borrar_suelta_con_realizados();
