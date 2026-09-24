@@ -38,7 +38,7 @@
 --   · vap_visita_fk, CASCADE: borrar la continuación borra sus filas, y con eso lo diferido vuelve a
 --     figurar pendiente en la visita de origen. Nadie tiene que acordarse de devolverlo.
 --   · vap_origen_fk, SET NULL: los borrados del SISTEMA no se traban. delete_patient (0024) se lleva
---     en cascada la inscripción con el origen y la continuación juntos; cerrar_inscripcion (0127),
+--     en cascada la inscripción con el origen y la continuación juntos; close_enrollment (0127),
 --     delete_visit_definition (0026) y sync_protocol_schedule (0029) borran visitas programadas
 --     pendientes, y una de ésas puede haber pasado procedimientos a otra. Con RESTRICT, cualquiera de
 --     las cuatro reventaba. Con SET NULL, si el sistema borra el origen, la continuación se queda con
@@ -652,7 +652,7 @@ create trigger trg_guard_tildar_diferido before insert
 --     · una visita suelta con procedimientos hechos: el cascade se llevaría los tildes y sus
 --       reportes sin que nadie lo decida.
 --     postgres pasa, y la pregunta va PRIMERO, antes de leer nada: postgres es el SISTEMA — las RPC
---     definer de las que es dueño (delete_patient, cerrar_inscripcion, delete_visit_definition,
+--     definer de las que es dueño (delete_patient, close_enrollment, delete_visit_definition,
 --     sync_protocol_schedule) y las limpiezas a mano desde el editor. Ésos borran el origen a
 --     sabiendas, y vap_origen_fk (SET NULL) le deja a la continuación lo suyo.
 --     Antes se llamaba guard_borrar_suelta_con_realizados / trg_guard_borrar_suelta: el nombre dejó de
@@ -698,3 +698,15 @@ order by 1;
 -- Sonda 3: register_visit_event quedó con UNA sola firma (la de cinco parámetros). Tiene que dar 1.
 select count(*) as firmas from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and p.proname = 'register_visit_event';
+
+-- Sonda 4: la guarda de borrado deja pasar al SISTEMA porque corre como postgres: las cascadas corren
+-- con el dueño de patient_visits, y las RPC que borran visitas son SECURITY DEFINER de postgres. Las
+-- cinco filas tienen que decir `postgres`; si alguna no, esa RPC va a chocar con la guarda y avisarlo.
+select 'patient_visits (tabla)' as objeto, tableowner::text as dueno
+from pg_tables where schemaname = 'public' and tablename = 'patient_visits'
+union all
+select p.proname::text, p.proowner::regrole::text
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in ('delete_patient', 'close_enrollment', 'delete_visit_definition', 'sync_protocol_schedule')
+order by 1;

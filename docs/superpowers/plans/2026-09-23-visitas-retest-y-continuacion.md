@@ -36,7 +36,7 @@
 - Modificar: `src/lib/visits.ts` (título de la continuación), `src/lib/visitTitle.test.ts`, `src/data/visits.ts` (tipo), `src/views/track/VisitHeader.tsx`.
 - Modificar: `src/data/procedures.ts` (lectura por lista efectiva), `src/views/track/resumenVisita.ts` + `.test.ts` (tira del día por visita).
 - Crear: `src/data/continuaciones.ts` (lecturas, RPC y mensajes), `src/views/track/continuacion.ts` + `.test.ts` (reglas puras).
-- Modificar: `src/data/visitEvents.ts` (retest en cualquier etapa, procedimientos al agendar, error del borrado), `src/data/visitDefinitions.ts` (mensaje del bloqueo).
+- Modificar: `src/data/visitEvents.ts` (retest en cualquier etapa, procedimientos al agendar, error del borrado).
 - Crear: `src/views/track/SelectorProcedimientos.tsx`. Modificar: `src/views/track/RegisterVisitFlow.tsx`.
 - Crear: `src/views/track/DesdoblamientoVisita.tsx`, `PasarPendientesModal.tsx`, `EditarProcedimientosModal.tsx`, `DeshacerContinuacionModal.tsx` (todos en `src/views/track/`).
 - Modificar: `src/views/track/PanelResumenVisita.tsx`, `src/views/track/VisitProcedures.tsx`, `src/views/track/VisitDetail.tsx`, `src/components/Modal.tsx`.
@@ -46,6 +46,14 @@
 ---
 
 # PR A — La base
+
+> **Ejecutada el 2026-09-23 como `0144`.** El archivo de la migración es la fuente de verdad; difiere
+> de este texto en lo que corrigieron las revisiones: (1) `v_patient_visits` se recrea con la lista de
+> columnas VIVA (bloque `do` + `execute format`), porque la 0143 sumó columnas a `patient_visits` y `pv.*`
+> daba `42P16`; (2) `vap_origen_fk` es `on delete set null` y la prohibición de borrar una visita que
+> pasó procedimientos a otra vive en la guarda `trg_guard_borrar_visita` (helper `visita_paso_procedimientos`);
+> (3) `register_visit_event` acepta un retest vacío (compat con el front desplegado); (4)
+> `set_added_procedures` sólo edita retest y VNP; (5) `revoke … from public, anon` en las funciones nuevas.
 
 ### Tarea 1: Rama, número y banco de pruebas PGlite
 
@@ -1806,10 +1814,17 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Create: `src/views/track/continuacion.ts`
 - Test: `src/views/track/continuacion.test.ts`
 - Modify: `src/data/visitEvents.ts` (kinds, alta con procedimientos, error del borrado)
-- Modify: `src/data/visitDefinitions.ts` (bloqueo en `deleteDefinition` y `callSync`)
+
+> **Cambio respecto de la primera versión del plan (revisión final de la PR A, 2026-09-23):** en la 0144,
+> `vap_origen_fk` es `on delete set null` y la app no puede borrar una visita que pasó procedimientos a
+> otra porque lo frena la guarda `trg_guard_borrar_visita` con un 23514 en castellano («…Deshacé primero
+> esa continuación.»). Por eso ya no hay que reconocer un 23503 de `vap_origen_fk`: se fueron
+> `bloqueadaPorContinuacion`, `MENSAJE_BLOQUEO_CONTINUACION` y los cambios en `visitDefinitions.ts` (los
+> borrados del sistema ya no se traban). Y `register_visit_event` acepta un retest vacío (compat con el front
+> desplegado): la regla «al menos uno» al crear vive sólo en el front (`faltanProcedimientos`).
 
 **Interfaces:**
-- Produces (`src/data/continuaciones.ts`): `interface DiferidoRow { procedure_id; procedure_name; visit_id; estimated_date: string | null; real_date: string | null }`; `useDiferidosDeVisita(visitId: string | null)`; `diferirProcedimientos(visitaOrigen: string, procedureIds: string[], fecha: string) → Promise<{ id: string | null; error: string | null }>`; `setAddedProcedures(visitId: string, procedureIds: string[]) → Promise<{ error: string | null }>`; `bloqueadaPorContinuacion(code?: string, raw?: string): boolean`; `MENSAJE_BLOQUEO_CONTINUACION: string`.
+- Produces (`src/data/continuaciones.ts`): `interface DiferidoRow { procedure_id; procedure_name; visit_id; estimated_date: string | null; real_date: string | null }`; `useDiferidosDeVisita(visitId: string | null)`; `diferirProcedimientos(visitaOrigen: string, procedureIds: string[], fecha: string) → Promise<{ id: string | null; error: string | null }>`; `setAddedProcedures(visitId: string, procedureIds: string[]) → Promise<{ error: string | null }>`.
 - Produces (`src/views/track/continuacion.ts`): `diferibles<T extends { procedure_id: string }>(items: readonly T[], hecho: (procedureId: string) => boolean): T[]`; `interface DestinoDeDiferidos { visit_id: string; fecha: string | null; procedimientos: string[] }`; `agruparDiferidos(rows: readonly DiferidoRow[]): DestinoDeDiferidos[]`; `faltanProcedimientos(kind: VisitKind, procedureIds: readonly string[]): string | null`.
 - Produces (`src/data/visitEvents.ts`): `registerVisitEvent(enrollmentId, kind, date, notes, procedureIds: string[] = [])`; `availableEventKinds` ofrece `'retest'` en toda etapa.
 
@@ -1940,23 +1955,10 @@ export function useDiferidosDeVisita(visitId: string | null) {
   )
 }
 
-export const MENSAJE_BLOQUEO_CONTINUACION =
-  'Esta visita pasó procedimientos a otra. Deshacé primero esa continuación.'
-
-/**
- * Si un borrado chocó con `vap_origen_fk`: la visita pasó procedimientos a una continuación que
- * sigue existiendo. Se reconoce por el NOMBRE de la constraint porque el código (23503) es el mismo
- * que el de «no existe» que ya usan otras RPC.
- */
-export function bloqueadaPorContinuacion(code?: string, raw?: string): boolean {
-  return code === '23503' && !!raw && raw.includes('vap_origen_fk')
-}
-
 /** Traduce el error de las RPC de continuación (patrón `*ErrorMessage` del repo). */
 function continuacionErrorMessage(code?: string, raw?: string): string {
   if (code === '42501') return 'No tenés permiso para cambiar las visitas de este paciente.'
   if (code === '23502') return 'La fecha es obligatoria.'
-  if (bloqueadaPorContinuacion(code, raw)) return MENSAJE_BLOQUEO_CONTINUACION
   // 23514: las RPC ya hablan en castellano y en términos del dominio («…que esta visita todavía no hizo»).
   if (code === '23514' && raw) return raw
   return 'No pudimos guardar el cambio. Probá de nuevo.'
@@ -2051,7 +2053,7 @@ Expected: PASS.
 
 En `src/data/visitEvents.ts`:
 
-1. Agregar el import: `import { bloqueadaPorContinuacion, MENSAJE_BLOQUEO_CONTINUACION } from './continuaciones'`.
+1. (Sin import nuevo.)
 2. `PRE_RANDO_KINDS` pasa a `['firma', 'screening', 'firma_screening', 'vnp', 'retest', 'randomizacion']`.
 3. En el comentario de `availableEventKinds`, «VNP siempre, Retest solo post-rando» → «VNP y Retest siempre (desde vNNNN el retest también va antes de randomizar: el de screening es el más común)». En el cuerpo:
    ```ts
@@ -2085,33 +2087,19 @@ En `src/data/visitEvents.ts`:
 6. En `deleteVisitEvent`, reemplazar `if (error) return { error: error.message }` por:
    ```ts
      if (error) {
-       if (bloqueadaPorContinuacion(error.code, error.message)) return { error: MENSAJE_BLOQUEO_CONTINUACION }
-       // Otro 23503: un pedido de dispensación apunta a la visita (on delete restrict, 0002).
+       // 23503: un pedido de dispensación apunta a la visita (on delete restrict, 0002).
        if (error.code === '23503') return { error: 'No se puede borrar: la visita ya tiene un pedido de dispensación.' }
-       return { error: error.message } // 23514 de la guarda: «…marcados como realizados…», en castellano
+       // 23514 de la guarda de la 0144, ya en castellano: «…Deshacé primero esa continuación.» o
+       // «…marcados como realizados…».
+       return { error: error.message }
      }
    ```
 
-- [ ] **Paso 7: `visitDefinitions.ts`**
-
-En `src/data/visitDefinitions.ts`, importar `import { bloqueadaPorContinuacion } from './continuaciones'`. En `deleteDefinition`, **antes** de `if (error.code === '23503')`:
-```ts
-    if (bloqueadaPorContinuacion(error.code, error.message)) {
-      return { error: 'Una visita de esta definición pasó procedimientos a una continuación. Deshacé primero esa continuación.' }
-    }
-```
-En `callSync`, antes del `return` del error genérico:
-```ts
-    if (bloqueadaPorContinuacion(error.code, error.message)) {
-      return { plan: null, error: 'Una de las visitas a mover pasó procedimientos a una continuación. Deshacé primero esa continuación.' }
-    }
-```
-
-- [ ] **Paso 8: Verificar y commit**
+- [ ] **Paso 7: Verificar y commit**
 
 ```bash
 npx tsc --noEmit && npx vitest run src/views/track/continuacion.test.ts
-git add src/data/continuaciones.ts src/views/track/continuacion.ts src/views/track/continuacion.test.ts src/data/visitEvents.ts src/data/visitDefinitions.ts && git commit -m "feat(coordinacion): datos y reglas de la continuación; retest en cualquier etapa
+git add src/data/continuaciones.ts src/views/track/continuacion.ts src/views/track/continuacion.test.ts src/data/visitEvents.ts && git commit -m "feat(coordinacion): datos y reglas de la continuación; retest en cualquier etapa
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -2267,6 +2255,7 @@ Expected: typecheck limpio. La verificación en pantalla va en la Tarea 13.
 - Modify: `src/views/track/PanelResumenVisita.tsx`, `src/views/track/VisitProcedures.tsx`, `src/views/track/VisitDetail.tsx`, `src/components/Modal.tsx`
 
 **Interfaces:**
+- Nota: «Editar procedimientos» se ofrece sólo en retest y VNP (la continuación es una VNP), igual que lo que acepta `set_added_procedures` en la 0144.
 - Consumes: `useDiferidosDeVisita`, `diferirProcedimientos`, `setAddedProcedures` (Tarea 9); `diferibles`, `agruparDiferidos`, `faltanProcedimientos`, `DestinoDeDiferidos` (Tarea 9); `deleteVisitEvent` (Tarea 9); `SelectorProcedimientos` (Tarea 10).
 - Produces: `VisitProcedures` con props nuevas `visitKind: VisitKind`, `originVisitId: string | null`, `onAbrirVisita?: (visitId: string) => void`, `onCambio?: () => void`; `PanelResumenVisita` con `pie?: ReactNode`; `modalesAbiertos(): number` exportada de `Modal.tsx`.
 
@@ -2637,7 +2626,7 @@ En el JSX, justo antes de `</Panel>`, agregar `{pie}`. Y reemplazar el texto del
                destinos={destinos}
                origenVisitId={originVisitId}
                puedePasar={pendientes.length > 0}
-               puedeEditar={visitDefId === null}
+               puedeEditar={visitKind === 'vnp' || visitKind === 'retest'}
                readOnly={readOnly}
                onPasar={() => setModal('pasar')}
                onEditar={() => setModal('editar')}
