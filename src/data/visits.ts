@@ -71,6 +71,15 @@ export interface TrackVisitRow {
   date_mode: 'libre' | 'automatica' | null
   /** randomization_date del enrolamiento (migración 0030); null si todavía no randomizó. Para la salvaguarda. */
   enrollment_randomization_date: string | null
+  /**
+   * Continuación (v0144, `v_track_visits`): la visita de la que vinieron sus procedimientos y el
+   * título de esa visita. `null` en toda visita que no es continuación. Opcionales porque varios
+   * tests y el mostrador de Farmacia arman filas sin ellos.
+   */
+  origin_visit_id?: string | null
+  origin_code?: string | null
+  origin_name?: string | null
+  origin_kind?: VisitKind | null
 }
 
 /** Visitas no realizadas que caen dentro de los próximos 7 días (KPI + lista del Resumen). */

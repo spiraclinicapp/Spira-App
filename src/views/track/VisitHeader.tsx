@@ -93,7 +93,8 @@ export function VisitHeader({
         <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{visit.protocol_code}</span>
         <span style={visTag}>
           <Icon name="calendar" size={13} color="var(--spira-primary)" />
-          {code ? `Visita ${code}` : visitTitle(visit)}
+          {/* Una continuación se titula entera: «Visita Cont. V3» no es un nombre. */}
+          {code && !visit.origin_visit_id ? `Visita ${code}` : visitTitle(visit)}
         </span>
 
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
