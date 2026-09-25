@@ -108,7 +108,8 @@ export function VisitDetail({
      `null` mientras carga: sin datos, el lugar de abajo —la lista o la ficha que abrió este modal—
      dice más que una «Visita» pelada. */
   useLugar(visit ? {
-    label: `${visitCode(visit) ? `Visita ${visitCode(visit)}` : visitTitle(visit)} · ${visit.patient_name}`,
+    /* Una continuación se titula entera: «Visita Cont. V3» no es un nombre. */
+    label: `${visitCode(visit) && !visit.origin_visit_id ? `Visita ${visitCode(visit)}` : visitTitle(visit)} · ${visit.patient_name}`,
     target: { visitId: visit.id, visitDate: dia ?? undefined },
   } : null)
 
