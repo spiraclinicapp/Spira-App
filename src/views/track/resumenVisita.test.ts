@@ -98,20 +98,22 @@ describe('porCargar', () => {
 
 describe('armarResumenesDelDia', () => {
   const visitas = [
-    { id: 'v1', visit_def_id: 'def-a', protocol_id: 'P1' },
-    { id: 'v2', visit_def_id: 'def-a', protocol_id: 'P1' },
-    { id: 'v3', visit_def_id: 'def-b', protocol_id: 'P2' },
+    { id: 'v1', protocol_id: 'P1' },
+    { id: 'v2', protocol_id: 'P1' },
+    { id: 'v3', protocol_id: 'P2' },
   ]
   const asignaciones = [
-    { visit_def_id: 'def-a', procedure_id: 'lab', name: 'Laboratorio' },
-    { visit_def_id: 'def-b', procedure_id: 'lab', name: 'Laboratorio' },
+    { visit_id: 'v1', procedure_id: 'lab', name: 'Laboratorio' },
+    { visit_id: 'v3', procedure_id: 'lab', name: 'Laboratorio' },
   ]
 
-  it('dos visitas del mismo cuadro comparten las asignaciones', () => {
+  it('cada visita toma SU lista, aunque dos compartan cuadro', () => {
+    // v2 es del mismo cuadro que v1 pero pasó su laboratorio a otro día: su lista efectiva ya no lo
+    // trae. Cruzar por cuadro (como hasta v0144) le volvería a dibujar la gota.
     const out = armarResumenesDelDia(visitas, asignaciones, [{ protocol_id: 'P1', procedure_id: 'lab', draws_blood: true, tieneReporte: false }], [])
     expect(out.v1?.total).toBe(1)
-    expect(out.v2?.total).toBe(1)
     expect(out.v1?.sangre).toBe('si')
+    expect(out.v2).toBeNull()
   })
 
   it('el MISMO procedimiento del catálogo toma la sangre de SU estudio', () => {
@@ -128,13 +130,18 @@ describe('armarResumenesDelDia', () => {
     expect(out.v1?.sangre).toBeNull()
   })
 
-  it('una visita suelta (sin cuadro) y sin IP no tiene resumen', () => {
-    const out = armarResumenesDelDia([{ id: 'v9', visit_def_id: null, protocol_id: 'P1' }], asignaciones, [], [])
+  it('un retest con procedimientos propios tiene resumen', () => {
+    const out = armarResumenesDelDia([{ id: 'r1', protocol_id: 'P1' }], [{ visit_id: 'r1', procedure_id: 'hem', name: 'Hemograma' }], [], [])
+    expect(out.r1?.total).toBe(1)
+  })
+
+  it('una visita sin procedimientos y sin IP no tiene resumen', () => {
+    const out = armarResumenesDelDia([{ id: 'v9', protocol_id: 'P1' }], asignaciones, [], [])
     expect(out.v9).toBeNull()
   })
 
-  it('una visita suelta CON IP sí lo tiene', () => {
-    const out = armarResumenesDelDia([{ id: 'v9', visit_def_id: null, protocol_id: 'P1' }], asignaciones, [], [{ visit_id: 'v9', cierre: null }])
+  it('una visita sin procedimientos CON IP sí lo tiene', () => {
+    const out = armarResumenesDelDia([{ id: 'v9', protocol_id: 'P1' }], asignaciones, [], [{ visit_id: 'v9', cierre: null }])
     expect(out.v9?.kitIp).toBe(true)
     expect(out.v9?.total).toBe(1)
   })

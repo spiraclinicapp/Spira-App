@@ -59,7 +59,7 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
   accent: string
   readOnly: boolean
 }) {
-  const { data, loading, error, refetch } = useVisitProcedureStatus(visitId, visitDefId, protocolId)
+  const { data, loading, error, refetch } = useVisitProcedureStatus(visitId, protocolId)
   const [pending, setPending] = useState<Set<string>>(new Set())
   const [actionError, setActionError] = useState<string | null>(null)
   const [optDone, setOptDone] = useState<Record<string, boolean>>({})
@@ -81,10 +81,11 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
   }, [data])
 
   /* AL VOLVER A LA PESTAÑA, se releen procedimientos, reportes y el estado del IP.
-     Los procedimientos de una visita NO son una copia: salen de `protocol_activities` por
-     `visit_def_id`, o sea del cuadro del estudio, que se edita en otra pantalla. Abrir el modal ya
-     los trae frescos, pero con la visita YA abierta —y el cuadro editado en otra ventana o en otra
-     sesión— la pantalla se quedaba mostrando la lista vieja sin ninguna señal (Director, 2026-09-15). */
+     Los procedimientos de una visita NO son una copia: salen de la lista efectiva
+     (`v_visit_procedures`): el cuadro del estudio, que se edita en otra pantalla, más lo agregado.
+     Abrir el modal ya los trae frescos, pero con la visita YA abierta —y el cuadro editado en otra
+     ventana o en otra sesión— la pantalla se quedaba mostrando la lista vieja sin ninguna señal
+     (Director, 2026-09-15). */
   useEffect(() => {
     const refrescar = () => {
       if (document.visibilityState !== 'visible') return

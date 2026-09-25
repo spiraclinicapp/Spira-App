@@ -113,9 +113,9 @@ export function porCargar(reportes: readonly { completed: boolean; stage: string
   return reportes.filter(esReportePendiente).length
 }
 
-/** Una asignación del cronograma: este cuadro de visita lleva este procedimiento. */
+/** Un procedimiento que una visita del día lleva, de su lista efectiva (`v_visit_procedures`, v0144). */
 export interface AsignacionDelDia {
-  visit_def_id: string
+  visit_id: string
   procedure_id: string
   name: string
 }
@@ -139,22 +139,22 @@ const clave = (protocolId: string, procedureId: string) => `${protocolId}|${proc
 /**
  * Los resúmenes de todas las visitas de un día, unidos en el cliente.
  *
- * Tres consultas en paralelo y una sola unión acá (misma decisión que `useVisitProcedureStatus`:
- * nada de embeds anidados, que se vuelven ambiguos apenas alguien agrega una FK, y cada tabla
- * filtrada por su propia RLS). Las visitas del mismo cuadro comparten sus asignaciones, así que la
- * consulta de asignaciones es una sola para todo el día.
+ * Las asignaciones vienen POR VISITA (la lista efectiva, v0144) y no por cuadro: dos visitas del
+ * mismo cuadro pueden llevar cosas distintas si una pasó pendientes a otro día, y una suelta (retest,
+ * VNP) lleva lo suyo sin tener cuadro. El cruce con las marcas va SIEMPRE por (estudio,
+ * procedimiento): el catálogo es global y un día mezcla estudios.
  */
 export function armarResumenesDelDia(
-  visitas: readonly { id: string; visit_def_id: string | null; protocol_id: string }[],
+  visitas: readonly { id: string; protocol_id: string }[],
   asignaciones: readonly AsignacionDelDia[],
   delEstudio: readonly ProcedimientoDelEstudio[],
   ips: readonly IpDelDia[],
 ): Record<string, ResumenVisita | null> {
-  const porDef = new Map<string, AsignacionDelDia[]>()
+  const porVisita = new Map<string, AsignacionDelDia[]>()
   for (const a of asignaciones) {
-    const lista = porDef.get(a.visit_def_id) ?? []
+    const lista = porVisita.get(a.visit_id) ?? []
     lista.push(a)
-    porDef.set(a.visit_def_id, lista)
+    porVisita.set(a.visit_id, lista)
   }
 
   const marcas = new Map<string, ProcedimientoDelEstudio>()
@@ -165,10 +165,9 @@ export function armarResumenesDelDia(
 
   const out: Record<string, ResumenVisita | null> = {}
   for (const v of visitas) {
-    const asignados = v.visit_def_id ? porDef.get(v.visit_def_id) ?? [] : []
-    const procs: ProcedimientoDeVisita[] = asignados.map((a) => {
+    const procs: ProcedimientoDeVisita[] = (porVisita.get(v.id) ?? []).map((a) => {
       // Sin fila en el cuadro del estudio, la sangre queda SIN DEFINIR. `false` sería afirmar que no
-      // lleva algo que nadie definió (pasa con un procedimiento recién asignado a una visita).
+      // lleva algo que nadie definió.
       const marca = marcas.get(clave(v.protocol_id, a.procedure_id))
       return {
         procedure_id: a.procedure_id,
