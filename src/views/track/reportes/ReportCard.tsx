@@ -10,6 +10,7 @@ import { estiloTag } from './tonos'
 import { useReportHistory } from '../../../data/reportStatus'
 import type { ReportStatusRow } from '../../../data/reportStatus'
 import { formatDateTimeAR } from '../../../lib/dates'
+import { KIND_SHORT } from '../../../lib/visitLabels'
 
 /**
  * La tarjeta de UN reporte. El MISMO componente en los dos lugares donde aparece: el tablero de
@@ -83,7 +84,8 @@ export function ReportCard({ row, variante, primero = false, canOperate, busy, o
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 10.5, color: 'var(--spira-muted)' }}>{row.protocol_code}</span>
             <span className="spira-mono" style={{ fontSize: 11, fontWeight: 700, color: 'var(--spira-acc-deep-teal)' }}>
-              {row.visit_code ?? '—'}
+              {/* Una suelta no tiene definición: sin código NI nombre, el rótulo es su tipo (v0144). */}
+              {row.visit_code ?? (row.visit_name ? '—' : KIND_SHORT[row.visit_kind])}
             </span>
             <span style={{ fontSize: 11, color: 'var(--spira-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {row.visit_name ?? ''}
