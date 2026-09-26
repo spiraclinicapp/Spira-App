@@ -54,6 +54,14 @@ const cardBase: CSSProperties = {
  */
 const abiertos: object[] = []
 
+/**
+ * Cuántos `Modal` hay abiertos. Lo usa el detalle de visita, que NO es un `Modal` y escucha Escape
+ * por su cuenta: con uno de estos abierto encima, el Esc es del de arriba y la visita queda.
+ */
+export function modalesAbiertos(): number {
+  return abiertos.length
+}
+
 /** Overlay sobrio reutilizable: backdrop + card scrolleable + accesibilidad (Escape, aria, click afuera). */
 export function Modal({ title, onClose, children, subtitle, maxWidth = 440, icon, accent, accentSoft }: ModalProps) {
   const subtitleId = useId()

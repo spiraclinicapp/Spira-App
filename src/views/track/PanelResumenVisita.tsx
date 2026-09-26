@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Panel } from './Panel'
 import { IndicadoresVisita } from '../visitAtoms'
 import type { ResumenVisita as Resumen } from './resumenVisita'
@@ -12,15 +13,17 @@ import type { ResumenVisita as Resumen } from './resumenVisita'
  * panel ya existe, y un cuadro con título y nada adentro se lee como un error (Director,
  * 2026-08-06, el mismo criterio que Dispensación).
  */
-export function PanelResumenVisita({ resumen, porCargar, accent, cargando, error, visitDefId }: {
+export function PanelResumenVisita({ resumen, porCargar, accent, cargando, error, visitDefId, pie }: {
   resumen: Resumen | null
   /** Reportes por cargar. `null` = la visita no define ninguno: el indicador no se dibuja. */
   porCargar: number | null
   accent: string
   cargando: boolean
   error: string | null
-  /** Null = visita suelta: no tiene cuadro del que sacar procedimientos. */
+  /** Null = visita suelta: lleva sólo lo que se le agregó (v0144). */
   visitDefId: string | null
+  /** Lo que va debajo de la tira: el desdoblamiento y sus acciones (v0144). */
+  pie?: ReactNode
 }) {
   return (
     <Panel title="Resumen de la visita" icon="clipboardCheck" accent={accent}>
@@ -36,9 +39,10 @@ export function PanelResumenVisita({ resumen, porCargar, accent, cargando, error
         <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', padding: '2px 0', lineHeight: 1.45 }}>
           {visitDefId
             ? 'Esta visita no tiene procedimientos asignados. Se asignan por visita en el cronograma del protocolo.'
-            : 'Las visitas sueltas no tienen procedimientos del cuadro.'}
+            : 'Esta visita todavía no lleva procedimientos.'}
         </div>
       )}
+      {pie}
     </Panel>
   )
 }

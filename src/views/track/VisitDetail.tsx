@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useVisit, markArrived, startVisitAttention, markReady, markReadyWithOutcome, discontinueEnrollment } from '../../data/dayVisits'
 import { todayISO } from '../../lib/dates'
@@ -19,6 +19,7 @@ import { VisitHeader } from './VisitHeader'
 import { diaDeLaVisita } from './visitHeaderRules'
 import { VisitActionBar } from './VisitActionBar'
 import { DoctorRequestModal } from './DoctorRequestModal'
+import { modalesAbiertos } from '../../components/Modal'
 
 /**
  * Detalle de una visita (rediseño del encabezado, handoff `docs/handoff-visitas-encabezado/`). El
@@ -121,6 +122,11 @@ export function VisitDetail({
   /** Cierre clínico de screening/randomización, y su salida "recitar". */
   const [outcomeFor, setOutcomeFor] = useState<DayVisitRow | null>(null)
   const [recitar, setRecitar] = useState<DayVisitRow | null>(null)
+  /** Otra visita abierta ENCIMA de ésta (la continuación o su origen, v0144). Cerrarla vuelve acá. */
+  const [otraVisita, setOtraVisita] = useState<string | null>(null)
+  /* Los `Modal` que ya estaban abiertos cuando se montó esta visita (si se abrió desde uno). El Esc
+     es nuestro sólo si no se abrió ninguno más encima: un modal hijo lo consume y la visita queda. */
+  const modalesAlMontar = useRef(modalesAbiertos())
 
   /* Los permisos se calculan acá salvo que la vista ya los haya pasado (ver el comentario del
      prop). El modal se edita se abra desde donde se abra: lo único que decide es el rol. */
@@ -148,7 +154,7 @@ export function VisitDetail({
       // Con el popup de "Atención médica" abierto, el teclado es SUYO. Su `Modal` también escucha
       // Escape en `document` y no frena nada, así que sin esto una sola tecla cerraría el popup y
       // la visita de abajo con él; y las flechas navegarían una lista que el usuario ni ve.
-      if (doctorOpen) return
+      if (doctorOpen || otraVisita || modalesAbiertos() > modalesAlMontar.current) return
       const t = e.target as HTMLElement | null
       const enCampo = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
       // El guard por target vale TAMBIÉN para Escape, y no solo para las flechas: con el encabezado
@@ -169,7 +175,7 @@ export function VisitDetail({
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose, onChanged, onPrev, onNext, canNav, doctorOpen])
+  }, [onClose, onChanged, onPrev, onNext, canNav, doctorOpen, otraVisita])
 
   const refrescar = () => { onChanged?.(); q.refetch() }
 
@@ -288,9 +294,13 @@ export function VisitDetail({
                   <VisitProcedures
                     visitId={visit.id}
                     visitDefId={visit.visit_def_id}
+                    visitKind={visit.kind}
+                    originVisitId={visit.origin_visit_id ?? null}
                     protocolId={visit.protocol_id}
                     accent={accent}
                     readOnly={readOnly}
+                    onAbrirVisita={setOtraVisita}
+                    onCambio={refrescar}
                   />
 
                   {/* Comentarios NO está en el mock y se conserva igual (decisión del Director,
@@ -383,6 +393,18 @@ export function VisitDetail({
         accentSolid={accent}
         onClose={() => setRecitar(null)}
         onDone={() => { setRecitar(null); refrescar() }}
+      />
+    )}
+
+    {/* La continuación o su origen, encima. Es el MISMO componente: se edita igual y cerrarlo
+        vuelve a esta visita, que se refresca por si el desdoblamiento cambió. */}
+    {otraVisita && (
+      <VisitDetail
+        visitId={otraVisita}
+        accent={accent}
+        onClose={() => setOtraVisita(null)}
+        onChanged={refrescar}
+        onOpenPatient={onOpenPatient}
       />
     )}
     </>

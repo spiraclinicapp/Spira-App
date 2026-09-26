@@ -11,6 +11,14 @@ import { porCargar as contarPorCargar, resumenDeVisita } from './resumenVisita'
 import { PanelResumenVisita } from './PanelResumenVisita'
 import { ReportesPendientes } from './ReportesPendientes'
 import type { ProcedimientoConReportes } from './ReportesPendientes'
+import type { VisitKind } from '../../lib/visitLabels'
+import { useDiferidosDeVisita } from '../../data/continuaciones'
+import { agruparDiferidos, diferibles } from './continuacion'
+import type { DestinoDeDiferidos } from './continuacion'
+import { DesdoblamientoVisita } from './DesdoblamientoVisita'
+import { PasarPendientesModal } from './PasarPendientesModal'
+import { EditarProcedimientosModal } from './EditarProcedimientosModal'
+import { DeshacerContinuacionModal } from './DeshacerContinuacionModal'
 
 /**
  * Suelta las marcas optimistas que el dato fresco ya confirma. Devuelve el MISMO objeto si no hay
@@ -51,13 +59,21 @@ function settled(
  * salidas del IP se mudaron a la sección «Producto en investigación» de Dispensación.
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readOnly }: {
+export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId, protocolId, accent, readOnly, onAbrirVisita, onCambio }: {
   visitId: string
   visitDefId: string | null
+  /** Tipo de la visita: el retest no se puede quedar sin procedimientos. */
+  visitKind: VisitKind
+  /** Si es una continuación, la visita de la que viene (`origin_visit_id`, v0144). */
+  originVisitId: string | null
   /** El estudio: sin él no se sabe si un procedimiento lleva sangre (es por estudio, 0134). */
   protocolId: string
   accent: string
   readOnly: boolean
+  /** Abre otra visita encima (la continuación o su origen). */
+  onAbrirVisita?: (visitId: string) => void
+  /** Algo cambió que el encabezado de la visita también muestra (el estado). */
+  onCambio?: () => void
 }) {
   const { data, loading, error, refetch } = useVisitProcedureStatus(visitId, protocolId)
   const [pending, setPending] = useState<Set<string>>(new Set())
@@ -70,6 +86,11 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
   /* El IP no se dibuja acá: lo dice el resumen («Lleva kit IP») y se resuelve en Dispensación. Se
      lee igual porque la tira lo necesita, y de la MISMA vista que la fila del día (0119). */
   const ipQ = useVisitIpStatus(visitId)
+
+  /* Lo que esta visita pasó a otro día (v0144). Se relee con lo demás al volver a la pestaña. */
+  const diferidos = useDiferidosDeVisita(visitId)
+  const [modal, setModal] = useState<'pasar' | 'editar' | null>(null)
+  const [deshacer, setDeshacer] = useState<DestinoDeDiferidos | null>(null)
 
   // Reconciliación del optimismo: la marca local se suelta cuando el dato fresco YA dice lo mismo,
   // no apenas responde el RPC. `refetch()` solo bumpea un nonce (la consulta llega uno o dos renders
@@ -92,6 +113,7 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
       refetch()
       reportes.refetch()
       ipQ.refetch()
+      diferidos.refetch()
     }
     window.addEventListener('focus', refrescar)
     document.addEventListener('visibilitychange', refrescar)
@@ -99,7 +121,7 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
       window.removeEventListener('focus', refrescar)
       document.removeEventListener('visibilitychange', refrescar)
     }
-  }, [refetch, reportes.refetch, ipQ.refetch])
+  }, [refetch, reportes.refetch, ipQ.refetch, diferidos.refetch])
 
   const items = useMemo(() => data ?? [], [data])
   const doneOf = (procedureId: string) =>
@@ -158,6 +180,21 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
   /** `null` = la visita no define reportes: el indicador del resumen no se dibuja. */
   const porCargarEnResumen = reportesVista.length > 0 ? cuantosPorCargar : null
 
+  const pendientes = useMemo(
+    () => diferibles(items, doneOf).map((p) => ({ procedure_id: p.procedure_id, name: p.name })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, optDone],
+  )
+  const destinos = useMemo(() => agruparDiferidos(diferidos.data ?? []), [diferidos.data])
+
+  /** Después de pasar, editar o deshacer: cambia la lista, los reportes, el bloque y el estado. */
+  const alCambiar = () => {
+    refetch()
+    reportes.refetch()
+    diferidos.refetch()
+    onCambio?.()
+  }
+
   async function run(procedureId: string, next: boolean) {
     if (pending.has(procedureId)) return
     setActionError(null)
@@ -208,6 +245,19 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
         cargando={loading}
         error={error}
         visitDefId={visitDefId}
+        pie={
+          <DesdoblamientoVisita
+            destinos={destinos}
+            origenVisitId={originVisitId}
+            puedePasar={pendientes.length > 0}
+            puedeEditar={visitKind === 'vnp' || visitKind === 'retest'}
+            readOnly={readOnly}
+            onPasar={() => setModal('pasar')}
+            onEditar={() => setModal('editar')}
+            onAbrirVisita={onAbrirVisita}
+            onDeshacer={setDeshacer}
+          />
+        }
       />
       <ReportesPendientes
         estado={estadoPanelReportes({ loading: reportes.loading, error: reportes.error, rows: conReportes })}
@@ -222,6 +272,34 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
         onToggle={alTildar}
         onStage={(r, s) => void moverReporte(r, s)}
       />
+      {modal === 'pasar' && (
+        <PasarPendientesModal
+          visitId={visitId}
+          pendientes={pendientes}
+          accent={accent}
+          onClose={() => setModal(null)}
+          onDone={() => { setModal(null); alCambiar() }}
+        />
+      )}
+      {modal === 'editar' && (
+        <EditarProcedimientosModal
+          visitId={visitId}
+          protocolId={protocolId}
+          kind={visitKind}
+          actuales={items.map((p) => ({ procedure_id: p.procedure_id, completed: doneOf(p.procedure_id) }))}
+          accent={accent}
+          onClose={() => setModal(null)}
+          onDone={() => { setModal(null); alCambiar() }}
+        />
+      )}
+      {deshacer && (
+        <DeshacerContinuacionModal
+          destino={deshacer}
+          accent={accent}
+          onClose={() => setDeshacer(null)}
+          onDone={() => { setDeshacer(null); alCambiar() }}
+        />
+      )}
     </>
   )
 }
