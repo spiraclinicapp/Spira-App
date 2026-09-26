@@ -606,9 +606,16 @@ begin
              where a.visit_id = p_visit_id and not (a.procedure_id = any (v_procs))) then
     raise exception 'No se puede quitar un procedimiento que ya está marcado como realizado' using errcode = 'check_violation';
   end if;
+  -- Se valida contra el estudio sólo lo que se está AGREGANDO ahora: un procedimiento puede salir del
+  -- estudio (se borra su protocol_procedures) después de que un retest ya lo llevaba. Si además está
+  -- marcado como realizado, no se puede sacar (la regla de arriba) ni se podría volver a poner (ya no
+  -- está en protocol_procedures) — sin este segundo `not exists`, esa visita queda imposible de editar
+  -- para siempre. Lo que la visita YA lleva es historia y se conserva tal cual, sin re-validar.
   if exists (select 1 from unnest(v_procs) as t(x)
              where not exists (select 1 from public.protocol_procedures pp
-                               where pp.protocol_id = v_protocol and pp.procedure_id = t.x)) then
+                               where pp.protocol_id = v_protocol and pp.procedure_id = t.x)
+               and not exists (select 1 from public.visit_added_procedures a
+                               where a.visit_id = p_visit_id and a.procedure_id = t.x)) then
     raise exception 'Ese procedimiento no es de este estudio' using errcode = 'check_violation';
   end if;
 
