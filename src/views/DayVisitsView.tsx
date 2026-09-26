@@ -516,7 +516,11 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
           canReception={canReception}
           canClinical={canClinical(openVisit)}
           onAdvance={advance}
-          onChanged={() => day.refetch()}
+          // Los procedimientos también: desde la visita ahora cambia su lista EFECTIVA («Pasar
+          // pendientes», «Editar», «Deshacer») sin que cambien las visitas del día, así que las deps
+          // de `dayProcs` no se mueven y la fila seguía mostrando lo que ya pasó a otra visita
+          // —y su gota de sangre— hasta recargar.
+          onChanged={() => { day.refetch(); dayProcs.refetch() }}
           onClose={() => setOpenVisit(null)}
           pos={openIdx >= 0 ? `${openIdx + 1} / ${orderedVisible.length}` : undefined}
           onPrev={() => stepOpen(-1)}

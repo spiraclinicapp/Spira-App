@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVisitProcedureStatus, toggleVisitProcedure } from '../../data/procedures'
 import type { VisitProcedureStatus } from '../../data/procedures'
 import { useVisitReportStatus, setReportStage } from '../../data/reportStatus'
@@ -11,6 +11,14 @@ import { porCargar as contarPorCargar, resumenDeVisita } from './resumenVisita'
 import { PanelResumenVisita } from './PanelResumenVisita'
 import { ReportesPendientes } from './ReportesPendientes'
 import type { ProcedimientoConReportes } from './ReportesPendientes'
+import type { VisitKind } from '../../lib/visitLabels'
+import { useDiferidosDeVisita } from '../../data/continuaciones'
+import { agruparDiferidos, diferibles } from './continuacion'
+import type { DestinoDeDiferidos } from './continuacion'
+import { DesdoblamientoVisita } from './DesdoblamientoVisita'
+import { PasarPendientesModal } from './PasarPendientesModal'
+import { EditarProcedimientosModal } from './EditarProcedimientosModal'
+import { DeshacerContinuacionModal } from './DeshacerContinuacionModal'
 
 /**
  * Suelta las marcas optimistas que el dato fresco ya confirma. Devuelve el MISMO objeto si no hay
@@ -51,15 +59,32 @@ function settled(
  * salidas del IP se mudaron a la sección «Producto en investigación» de Dispensación.
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readOnly }: {
+export function VisitProcedures({ visitId, visitDefId, visitKind, fechaVisita, originVisitId, protocolId, accent, readOnly, onAbrirVisita, onCambio, refrescarCuando }: {
   visitId: string
   visitDefId: string | null
+  /** Tipo de la visita: el retest no se puede quedar sin procedimientos. */
+  visitKind: VisitKind
+  /** `real_date ?? estimated_date`: la continuación arranca propuesta para el día siguiente. */
+  fechaVisita: string | null
+  /** Si es una continuación, la visita de la que viene (`origin_visit_id`, v0144). */
+  originVisitId: string | null
   /** El estudio: sin él no se sabe si un procedimiento lleva sangre (es por estudio, 0134). */
   protocolId: string
   accent: string
   readOnly: boolean
+  /** Abre otra visita encima (la continuación o su origen). */
+  onAbrirVisita?: (visitId: string) => void
+  /** Algo cambió que el encabezado de la visita también muestra (el estado). */
+  onCambio?: () => void
+  /**
+   * Sube cada vez que la visita ENCIMA (la continuación o su origen) cierra o avisa un cambio. El
+   * padre (`VisitDetail`) sólo refetchea su propia fila (`refrescar`); las consultas de ACÁ
+   * —procedimientos, reportes, diferidos— son propias y sin esto quedaban con lo diferido/editado
+   * en la visita apilada sin verse reflejado hasta recargar.
+   */
+  refrescarCuando?: number
 }) {
-  const { data, loading, error, refetch } = useVisitProcedureStatus(visitId, visitDefId, protocolId)
+  const { data, loading, error, refetch } = useVisitProcedureStatus(visitId, protocolId)
   const [pending, setPending] = useState<Set<string>>(new Set())
   const [actionError, setActionError] = useState<string | null>(null)
   const [optDone, setOptDone] = useState<Record<string, boolean>>({})
@@ -71,6 +96,11 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
      lee igual porque la tira lo necesita, y de la MISMA vista que la fila del día (0119). */
   const ipQ = useVisitIpStatus(visitId)
 
+  /* Lo que esta visita pasó a otro día (v0144). Se relee con lo demás al volver a la pestaña. */
+  const diferidos = useDiferidosDeVisita(visitId)
+  const [modal, setModal] = useState<'pasar' | 'editar' | null>(null)
+  const [deshacer, setDeshacer] = useState<DestinoDeDiferidos | null>(null)
+
   // Reconciliación del optimismo: la marca local se suelta cuando el dato fresco YA dice lo mismo,
   // no apenas responde el RPC. `refetch()` solo bumpea un nonce (la consulta llega uno o dos renders
   // después, y `useSupabaseQuery` mantiene las filas viejas mientras tanto), así que limpiarla en el
@@ -81,16 +111,18 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
   }, [data])
 
   /* AL VOLVER A LA PESTAÑA, se releen procedimientos, reportes y el estado del IP.
-     Los procedimientos de una visita NO son una copia: salen de `protocol_activities` por
-     `visit_def_id`, o sea del cuadro del estudio, que se edita en otra pantalla. Abrir el modal ya
-     los trae frescos, pero con la visita YA abierta —y el cuadro editado en otra ventana o en otra
-     sesión— la pantalla se quedaba mostrando la lista vieja sin ninguna señal (Director, 2026-09-15). */
+     Los procedimientos de una visita NO son una copia: salen de la lista efectiva
+     (`v_visit_procedures`): el cuadro del estudio, que se edita en otra pantalla, más lo agregado.
+     Abrir el modal ya los trae frescos, pero con la visita YA abierta —y el cuadro editado en otra
+     ventana o en otra sesión— la pantalla se quedaba mostrando la lista vieja sin ninguna señal
+     (Director, 2026-09-15). */
   useEffect(() => {
     const refrescar = () => {
       if (document.visibilityState !== 'visible') return
       refetch()
       reportes.refetch()
       ipQ.refetch()
+      diferidos.refetch()
     }
     window.addEventListener('focus', refrescar)
     document.addEventListener('visibilitychange', refrescar)
@@ -98,7 +130,20 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
       window.removeEventListener('focus', refrescar)
       document.removeEventListener('visibilitychange', refrescar)
     }
-  }, [refetch, reportes.refetch, ipQ.refetch])
+  }, [refetch, reportes.refetch, ipQ.refetch, diferidos.refetch])
+
+  /* Cuando cierra o cambia la visita APILADA encima (ver `refrescarCuando` en el padre): se releen
+     procedimientos, reportes y diferidos, igual que `alCambiar` (sin `onCambio`, que es lo que el
+     padre ya hizo para pedir este refresco). Se salta el primer render: ahí `refrescarCuando` recién
+     llega en 0 y no hay nada que releer todavía. */
+  const refrescarCuandoMontado = useRef(false)
+  useEffect(() => {
+    if (!refrescarCuandoMontado.current) { refrescarCuandoMontado.current = true; return }
+    refetch()
+    reportes.refetch()
+    diferidos.refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refrescarCuando])
 
   const items = useMemo(() => data ?? [], [data])
   const doneOf = (procedureId: string) =>
@@ -157,6 +202,21 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
   /** `null` = la visita no define reportes: el indicador del resumen no se dibuja. */
   const porCargarEnResumen = reportesVista.length > 0 ? cuantosPorCargar : null
 
+  const pendientes = useMemo(
+    () => diferibles(items, doneOf).map((p) => ({ procedure_id: p.procedure_id, name: p.name })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, optDone],
+  )
+  const destinos = useMemo(() => agruparDiferidos(diferidos.data ?? []), [diferidos.data])
+
+  /** Después de pasar, editar o deshacer: cambia la lista, los reportes, el bloque y el estado. */
+  const alCambiar = () => {
+    refetch()
+    reportes.refetch()
+    diferidos.refetch()
+    onCambio?.()
+  }
+
   async function run(procedureId: string, next: boolean) {
     if (pending.has(procedureId)) return
     setActionError(null)
@@ -207,6 +267,19 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
         cargando={loading}
         error={error}
         visitDefId={visitDefId}
+        pie={
+          <DesdoblamientoVisita
+            destinos={destinos}
+            origenVisitId={originVisitId}
+            puedePasar={pendientes.length > 0}
+            puedeEditar={visitKind === 'vnp' || visitKind === 'retest'}
+            readOnly={readOnly}
+            onPasar={() => setModal('pasar')}
+            onEditar={() => setModal('editar')}
+            onAbrirVisita={onAbrirVisita}
+            onDeshacer={setDeshacer}
+          />
+        }
       />
       <ReportesPendientes
         estado={estadoPanelReportes({ loading: reportes.loading, error: reportes.error, rows: conReportes })}
@@ -221,6 +294,36 @@ export function VisitProcedures({ visitId, visitDefId, protocolId, accent, readO
         onToggle={alTildar}
         onStage={(r, s) => void moverReporte(r, s)}
       />
+      {modal === 'pasar' && (
+        <PasarPendientesModal
+          visitId={visitId}
+          fechaVisita={fechaVisita}
+          pendientes={pendientes}
+          accent={accent}
+          onClose={() => setModal(null)}
+          onDone={() => { setModal(null); alCambiar() }}
+        />
+      )}
+      {modal === 'editar' && (
+        <EditarProcedimientosModal
+          visitId={visitId}
+          protocolId={protocolId}
+          kind={visitKind}
+          actuales={items.map((p) => ({ procedure_id: p.procedure_id, name: p.name, completed: doneOf(p.procedure_id) }))}
+          pasados={(diferidos.data ?? []).map((d) => d.procedure_id)}
+          accent={accent}
+          onClose={() => setModal(null)}
+          onDone={() => { setModal(null); alCambiar() }}
+        />
+      )}
+      {deshacer && (
+        <DeshacerContinuacionModal
+          destino={deshacer}
+          accent={accent}
+          onClose={() => setDeshacer(null)}
+          onDone={() => { setDeshacer(null); alCambiar() }}
+        />
+      )}
     </>
   )
 }

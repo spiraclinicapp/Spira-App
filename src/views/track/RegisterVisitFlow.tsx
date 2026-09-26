@@ -11,6 +11,8 @@ import type { VisitKind } from '../../data/visitEvents'
 import { useSchedulableDefinitions, scheduleProtocolVisit } from '../../data/visitDefinitions'
 import type { TrackVisitRow } from '../../data/visits'
 import { todayISO, addDaysISO, formatAR, yearsFromTodayISO } from '../../lib/dates'
+import { SelectorProcedimientos } from './SelectorProcedimientos'
+import { faltanProcedimientos } from './continuacion'
 
 /**
  * Modal único de "Agendar visita". Dos caminos según el protocolo:
@@ -19,7 +21,8 @@ import { todayISO, addDaysISO, formatAR, yearsFromTodayISO } from '../../lib/dat
  *    sumado a VNP suelta. Las visitas automáticas (tratamiento) se generan al randomizar y se
  *    atienden en "Visitas del día", no se agendan acá.
  *  · Sin cuadro (legacy): selector de tipos sueltos permitidos → register_visit_event.
- *  Post-randomización (cualquier caso): solo VNP / Retest sueltas.
+ *  Post-randomización (cualquier caso): solo VNP / Retest sueltas. Retest y VNP llevan sus
+ *  procedimientos del estudio (v0144); el retest, al menos uno.
  * `preselectDefId` preselecciona una definición (para "recitar" la randomización desde el cierre).
  */
 export function RegisterVisitFlow({
@@ -69,6 +72,8 @@ export function RegisterVisitFlow({
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Procedimientos del retest o la VNP (v0144). Se conservan si se cambia de tipo y se vuelve. */
+  const [procs, setProcs] = useState<string[]>([])
 
   // `choice` se DERIVA de las opciones actuales, NO se congela con useState: en el primer render
   // los datos del cuadro todavía cargan (scheds.loading), así que si guardáramos el default ahí
@@ -78,6 +83,8 @@ export function RegisterVisitFlow({
   const choice = picked && options.some((o) => o.value === picked) ? picked : initialChoice
 
   const isRandoEvent = choice === 'evt:randomizacion'
+  const kindElegido = choice.startsWith('evt:') ? (choice.slice(4) as VisitKind) : null
+  const llevaProcedimientos = kindElegido === 'vnp' || kindElegido === 'retest'
 
   // Fecha ESTIMADA para una visita libre del cuadro: tomamos una visita ya agendada como
   // referencia (su fecha − su offset = "día 0" = randomización) y le sumamos el offset de la
@@ -99,11 +106,15 @@ export function RegisterVisitFlow({
       setError('Elegí qué visita registrar.')
       return
     }
+    if (kindElegido && llevaProcedimientos) {
+      const falta = faltanProcedimientos(kindElegido, procs)
+      if (falta) { setError(falta); return }
+    }
     setBusy(true)
     setError(null)
     const res = choice.startsWith('def:')
       ? await scheduleProtocolVisit(enrollmentId, choice.slice(4), date)
-      : await registerVisitEvent(enrollmentId, choice.slice(4) as VisitKind, date, notes.trim() || null)
+      : await registerVisitEvent(enrollmentId, choice.slice(4) as VisitKind, date, notes.trim() || null, llevaProcedimientos ? procs : [])
     setBusy(false)
     if (res.error) {
       setError(res.error)
@@ -114,14 +125,14 @@ export function RegisterVisitFlow({
 
   if (scheds.loading) {
     return (
-      <Modal title="Agendar visita" onClose={onClose}>
+      <Modal title="Agendar visita" onClose={onClose} maxWidth={480}>
         <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', padding: '6px 0' }}>Cargando visitas…</div>
       </Modal>
     )
   }
 
   return (
-    <Modal title="Agendar visita" onClose={onClose}>
+    <Modal title="Agendar visita" onClose={onClose} maxWidth={480}>
       {options.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', lineHeight: 1.5 }}>
@@ -158,6 +169,11 @@ export function RegisterVisitFlow({
           {choice.startsWith('evt:') && (
             <FormField label="Nota">
               <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional" style={fieldInput} />
+            </FormField>
+          )}
+          {llevaProcedimientos && (
+            <FormField label="¿Qué lleva?">
+              <SelectorProcedimientos protocolId={protocolId} value={procs} onChange={setProcs} accent={accentSolid} />
             </FormField>
           )}
 

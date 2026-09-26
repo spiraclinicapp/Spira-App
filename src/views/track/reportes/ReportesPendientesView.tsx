@@ -16,6 +16,7 @@ import { useProtocolReportStatus, setReportStage } from '../../../data/reportSta
 import type { ReportStatusRow } from '../../../data/reportStatus'
 import { formatDateTimeAR } from '../../../lib/dates'
 import { useAuth } from '../../../lib/auth'
+import { KIND_SHORT } from '../../../lib/visitLabels'
 
 /**
  * Tablero de Reportes pendientes de un protocolo: tres columnas y, al pie, las visitas que se
@@ -208,7 +209,7 @@ export function ReportesPendientesView({ protocolId, accent, onOpenVisit, onOpen
                 style={filaCerrada}
               >
                 <span className="spira-mono" style={{ fontSize: 12, fontWeight: 700, color: 'var(--spira-acc-deep-teal)', flex: '0 0 auto' }}>
-                  {r.visit_code ?? '—'}
+                  {r.visit_code ?? (r.visit_name ? '—' : KIND_SHORT[r.visit_kind])}
                 </span>
                 <span className="spira-link-group" style={{ fontSize: 13, color: 'var(--spira-ink)', flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <PatientLink onOpen={abrirPac} label={`Abrir la ficha de ${r.patient_name}`}>

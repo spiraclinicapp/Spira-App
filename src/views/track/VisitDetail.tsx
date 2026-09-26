@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useVisit, markArrived, startVisitAttention, markReady, markReadyWithOutcome, discontinueEnrollment } from '../../data/dayVisits'
 import { todayISO } from '../../lib/dates'
@@ -19,6 +19,7 @@ import { VisitHeader } from './VisitHeader'
 import { diaDeLaVisita } from './visitHeaderRules'
 import { VisitActionBar } from './VisitActionBar'
 import { DoctorRequestModal } from './DoctorRequestModal'
+import { modalesAbiertos } from '../../components/Modal'
 
 /**
  * Detalle de una visita (rediseño del encabezado, handoff `docs/handoff-visitas-encabezado/`). El
@@ -52,7 +53,7 @@ import { DoctorRequestModal } from './DoctorRequestModal'
  */
 export function VisitDetail({
   visitId, accent, onClose, canReception, canClinical,
-  onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient, onVerEnElDia,
+  onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient, onVerEnElDia, visitaDebajo,
 }: {
   visitId: string
   accent: string
@@ -91,6 +92,13 @@ export function VisitDetail({
    * estás—, igual que `onOpenPatient` desde la ficha.
    */
   onVerEnElDia?: (visitId: string, dia: string) => void
+  /**
+   * El id de la visita que queda DEBAJO en esta pila (v0144, la abre quien monta ÉSTA como su
+   * apilada). Si desde acá se pide abrir justo esa —el origen vuelve a pedir la continuación, o al
+   * revés—, en vez de sumar una capa más se cierra ÉSTA y se descubre la de abajo, que ya la tiene
+   * abierta. Sin esto, ir y volver entre las dos apila V3 → C1 → V3 → … sin fin.
+   */
+  visitaDebajo?: string
 }) {
   const q = useVisit(visitId)
   const fetched = q.data?.[0] ?? null
@@ -108,7 +116,8 @@ export function VisitDetail({
      `null` mientras carga: sin datos, el lugar de abajo —la lista o la ficha que abrió este modal—
      dice más que una «Visita» pelada. */
   useLugar(visit ? {
-    label: `${visitCode(visit) ? `Visita ${visitCode(visit)}` : visitTitle(visit)} · ${visit.patient_name}`,
+    /* Una continuación se titula entera: «Visita Cont. V3» no es un nombre. */
+    label: `${visitCode(visit) && !visit.origin_visit_id ? `Visita ${visitCode(visit)}` : visitTitle(visit)} · ${visit.patient_name}`,
     target: { visitId: visit.id, visitDate: dia ?? undefined },
   } : null)
 
@@ -120,6 +129,18 @@ export function VisitDetail({
   /** Cierre clínico de screening/randomización, y su salida "recitar". */
   const [outcomeFor, setOutcomeFor] = useState<DayVisitRow | null>(null)
   const [recitar, setRecitar] = useState<DayVisitRow | null>(null)
+  /** Otra visita abierta ENCIMA de ésta (la continuación o su origen, v0144). Cerrarla vuelve acá. */
+  const [otraVisita, setOtraVisita] = useState<string | null>(null)
+  /**
+   * Sube cuando la visita apilada cierra o avisa un cambio. `refrescar` (abajo) sólo refetchea la
+   * FILA de esta visita; los procedimientos, reportes y diferidos son consultas propias de
+   * `VisitProcedures`, y sin esta cuenta quedaban mostrando lo de antes de pasar/editar/deshacer en
+   * la visita de arriba hasta recargar la página.
+   */
+  const [versionProcedimientos, setVersionProcedimientos] = useState(0)
+  /* Los `Modal` que ya estaban abiertos cuando se montó esta visita (si se abrió desde uno). El Esc
+     es nuestro sólo si no se abrió ninguno más encima: un modal hijo lo consume y la visita queda. */
+  const modalesAlMontar = useRef(modalesAbiertos())
 
   /* Los permisos se calculan acá salvo que la vista ya los haya pasado (ver el comentario del
      prop). El modal se edita se abra desde donde se abra: lo único que decide es el rol. */
@@ -147,7 +168,7 @@ export function VisitDetail({
       // Con el popup de "Atención médica" abierto, el teclado es SUYO. Su `Modal` también escucha
       // Escape en `document` y no frena nada, así que sin esto una sola tecla cerraría el popup y
       // la visita de abajo con él; y las flechas navegarían una lista que el usuario ni ve.
-      if (doctorOpen) return
+      if (doctorOpen || otraVisita || modalesAbiertos() > modalesAlMontar.current) return
       const t = e.target as HTMLElement | null
       const enCampo = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
       // El guard por target vale TAMBIÉN para Escape, y no solo para las flechas: con el encabezado
@@ -168,7 +189,7 @@ export function VisitDetail({
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose, onChanged, onPrev, onNext, canNav, doctorOpen])
+  }, [onClose, onChanged, onPrev, onNext, canNav, doctorOpen, otraVisita])
 
   const refrescar = () => { onChanged?.(); q.refetch() }
 
@@ -287,9 +308,15 @@ export function VisitDetail({
                   <VisitProcedures
                     visitId={visit.id}
                     visitDefId={visit.visit_def_id}
+                    visitKind={visit.kind}
+                    fechaVisita={visit.real_date ?? visit.estimated_date}
+                    originVisitId={visit.origin_visit_id ?? null}
                     protocolId={visit.protocol_id}
                     accent={accent}
                     readOnly={readOnly}
+                    onAbrirVisita={(id) => (id === visitaDebajo ? onClose() : setOtraVisita(id))}
+                    onCambio={refrescar}
+                    refrescarCuando={versionProcedimientos}
                   />
 
                   {/* Comentarios NO está en el mock y se conserva igual (decisión del Director,
@@ -382,6 +409,22 @@ export function VisitDetail({
         accentSolid={accent}
         onClose={() => setRecitar(null)}
         onDone={() => { setRecitar(null); refrescar() }}
+      />
+    )}
+
+    {/* La continuación o su origen, encima. Es el MISMO componente: se edita igual. Al cerrarla o
+        cuando avisa un cambio, se refresca el encabezado (`refrescar`) Y sube
+        `versionProcedimientos`: `refrescar` sólo refetchea la FILA de esta visita, y lo que cambió
+        allá arriba —pasar, editar o deshacer— vive en las consultas propias de `VisitProcedures`
+        (procedimientos, reportes, diferidos), que si no se les avisa quedan mostrando lo de antes. */}
+    {otraVisita && (
+      <VisitDetail
+        visitId={otraVisita}
+        accent={accent}
+        visitaDebajo={visitId}
+        onClose={() => { setOtraVisita(null); setVersionProcedimientos((v) => v + 1); refrescar() }}
+        onChanged={() => { setVersionProcedimientos((v) => v + 1); refrescar() }}
+        onOpenPatient={onOpenPatient ? (patientId, protocolId) => { onClose(); onOpenPatient(patientId, protocolId) } : undefined}
       />
     )}
     </>

@@ -1,5 +1,6 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import type { QueryResult } from '../lib/useSupabaseQuery'
+import type { VisitKind } from '../lib/visitLabels'
 
 /* El canal gemelo del checklist (`v_report_alerts`, 0063 → `useReportAlerts`) se retiró el
    2026-08-06 junto con el checklist clínico del front: la única pantalla que apagaba esas alertas
@@ -39,6 +40,13 @@ export interface ProcedureReportAlertRow {
   patient_name: string
   visit_name: string | null
   visit_code: string | null
+  /**
+   * Tipo de la visita (0144). Un retest o una VNP no tienen código ni nombre —son sueltas—, así que
+   * si algún día se rotula la visita de la alerta, el respaldo es `KIND_LABELS`/`KIND_SHORT` de esto
+   * y no un «Visita» genérico. Hoy ninguna de las dos pantallas que la leen (Alertas y la campana)
+   * nombra la visita del reporte: dicen reporte, procedimiento y paciente.
+   */
+  visit_kind: VisitKind
   /**
    * Médico tratante y coordinador de la visita. Migración **0103**, y existen para que los filtros
    * de Médico y Coordinador de la vista de Alertas puedan decidir también sobre esta lista: esa
