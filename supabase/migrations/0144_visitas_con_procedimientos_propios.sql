@@ -286,7 +286,9 @@ select
   vd.name  as visit_name,    vd.code as visit_code,
   coalesce(pv.treating_physician, pac.treating_physician) as treating_physician,
   pv.coordinator_id,
-  pv.coordinator_name
+  pv.coordinator_name,
+  -- 0144: al final para no alterar el orden anterior. Nombra la visita cuando no tiene definición.
+  pv.kind            as visit_kind
 from public.patient_visits pv
 join public.enrollments e          on e.id  = pv.enrollment_id
 join public.v_visit_procedures vp  on vp.visit_id = pv.id
@@ -305,7 +307,7 @@ where rd.eta_hours is not null
   and now() > vpc.completed_at + (rd.eta_hours * interval '1 hour');
 
 comment on view public.v_procedure_report_alerts is
-  'Reportes vencidos. 0144: los procedimientos salen de v_visit_procedures (lista efectiva). patient_code = IVRS de la inscripción (0126).';
+  'Reportes vencidos. 0144: los procedimientos salen de v_visit_procedures (lista efectiva) y suma visit_kind al final. patient_code = IVRS de la inscripción (0126).';
 
 create or replace view public.v_protocol_report_status with (security_invoker = true) as
 select
@@ -604,9 +606,16 @@ begin
              where a.visit_id = p_visit_id and not (a.procedure_id = any (v_procs))) then
     raise exception 'No se puede quitar un procedimiento que ya está marcado como realizado' using errcode = 'check_violation';
   end if;
+  -- Se valida contra el estudio sólo lo que se está AGREGANDO ahora: un procedimiento puede salir del
+  -- estudio (se borra su protocol_procedures) después de que un retest ya lo llevaba. Si además está
+  -- marcado como realizado, no se puede sacar (la regla de arriba) ni se podría volver a poner (ya no
+  -- está en protocol_procedures) — sin este segundo `not exists`, esa visita queda imposible de editar
+  -- para siempre. Lo que la visita YA lleva es historia y se conserva tal cual, sin re-validar.
   if exists (select 1 from unnest(v_procs) as t(x)
              where not exists (select 1 from public.protocol_procedures pp
-                               where pp.protocol_id = v_protocol and pp.procedure_id = t.x)) then
+                               where pp.protocol_id = v_protocol and pp.procedure_id = t.x)
+               and not exists (select 1 from public.visit_added_procedures a
+                               where a.visit_id = p_visit_id and a.procedure_id = t.x)) then
     raise exception 'Ese procedimiento no es de este estudio' using errcode = 'check_violation';
   end if;
 
