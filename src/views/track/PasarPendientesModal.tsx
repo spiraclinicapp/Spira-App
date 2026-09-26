@@ -9,18 +9,29 @@ import { addDaysISO, todayISO, yearsFromTodayISO } from '../../lib/dates'
 
 /**
  * «Pasar pendientes a otro día»: elige qué pasa y a qué fecha, y crea la continuación (v0144).
- * Ninguna casilla viene marcada: lo que se difiere se elige a propósito. La fecha arranca en mañana,
- * que es el caso común, y admite el pasado para registrar una continuación que ya ocurrió.
+ * Ninguna casilla viene marcada: lo que se difiere se elige a propósito. La fecha arranca en el día
+ * siguiente a la visita, sin bajar de mañana (el caso común: se atendió hoy); admite el pasado para
+ * registrar una continuación que ya ocurrió.
  */
-export function PasarPendientesModal({ visitId, pendientes, accent, onClose, onDone }: {
+export function PasarPendientesModal({ visitId, fechaVisita, pendientes, accent, onClose, onDone }: {
   visitId: string
+  /**
+   * La fecha de la visita (`real_date ?? estimated_date`). Sin ella, arrancar siempre en «mañana»
+   * dejaba la continuación de una visita agendada para la semana que viene ANTES que la visita.
+   */
+  fechaVisita: string | null
   pendientes: readonly { procedure_id: string; name: string }[]
   accent: string
   onClose: () => void
   onDone: (continuacionId: string) => void
 }) {
   const [elegidos, setElegidos] = useState<Set<string>>(new Set())
-  const [fecha, setFecha] = useState<string>(addDaysISO(todayISO(), 1))
+  const [fecha, setFecha] = useState<string>(() => {
+    const manana = addDaysISO(todayISO(), 1)
+    const despues = fechaVisita ? addDaysISO(fechaVisita, 1) : manana
+    // ISO se compara como texto: la mayor de las dos.
+    return despues > manana ? despues : manana
+  })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

@@ -8,7 +8,8 @@ import type { DestinoDeDiferidos } from './continuacion'
 /**
  * Deshacer una continuación = borrarla. El `on delete cascade` de `vap_visita_fk` devuelve sus
  * procedimientos a esta visita solo. Si la continuación ya tiene algo hecho o un pedido de
- * dispensación, el servidor lo frena con un mensaje claro.
+ * dispensación, el servidor lo frena con un mensaje claro. Atendida pero sin tildes NO la frena:
+ * se borra igual, y por eso el texto lo avisa (`destino.atendida`).
  */
 export function DeshacerContinuacionModal({ destino, accent, onClose, onDone }: {
   destino: DestinoDeDiferidos
@@ -19,6 +20,7 @@ export function DeshacerContinuacionModal({ destino, accent, onClose, onDone }: 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const cuando = destino.fecha ? `del ${formatAR(destino.fecha)}` : 'nueva'
+  const vuelven = destino.procedimientos.length === 1 ? 'su procedimiento vuelve' : 'sus procedimientos vuelven'
 
   const deshacer = async () => {
     setBusy(true)
@@ -33,7 +35,10 @@ export function DeshacerContinuacionModal({ destino, accent, onClose, onDone }: 
     <Modal title="Deshacer" onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ fontSize: 13.5, color: 'var(--spira-ink)', lineHeight: 1.5 }}>
-          Se borra la visita {cuando} y {destino.procedimientos.length === 1 ? 'su procedimiento vuelve' : 'sus procedimientos vuelven'} a esta visita.
+          {/* Atendida: el servidor la borra igual (sólo un tilde la frena), así que se avisa antes. */}
+          {destino.atendida
+            ? <>Esa visita ya se atendió. Si la deshacés, se borra igual y {vuelven} a esta visita.</>
+            : <>Se borra la visita {cuando} y {vuelven} a esta visita.</>}
         </div>
         {error && (
           <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>

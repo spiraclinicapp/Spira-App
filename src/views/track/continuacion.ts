@@ -22,6 +22,11 @@ export interface DestinoDeDiferidos {
   visit_id: string
   /** La fecha real si ya se hizo; si no, la agendada. */
   fecha: string | null
+  /**
+   * Ya se atendió (tiene fecha real). Deshacerla la borra igual —sólo un tilde la frena—, así que el
+   * modal de «Deshacer» lo avisa en vez de callarlo.
+   */
+  atendida: boolean
   procedimientos: string[]
 }
 
@@ -29,7 +34,10 @@ export interface DestinoDeDiferidos {
 export function agruparDiferidos(rows: readonly DiferidoRow[]): DestinoDeDiferidos[] {
   const porVisita = new Map<string, DestinoDeDiferidos>()
   for (const r of rows) {
-    const d = porVisita.get(r.visit_id) ?? { visit_id: r.visit_id, fecha: r.real_date ?? r.estimated_date, procedimientos: [] }
+    const d = porVisita.get(r.visit_id)
+      ?? { visit_id: r.visit_id, fecha: r.real_date ?? r.estimated_date, atendida: false, procedimientos: [] }
+    // Todas las filas de un destino traen la misma visita embebida; el `||` es por las dudas.
+    d.atendida = d.atendida || r.real_date !== null
     d.procedimientos.push(r.procedure_name)
     porVisita.set(r.visit_id, d)
   }

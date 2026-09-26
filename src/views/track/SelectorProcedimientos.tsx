@@ -7,13 +7,21 @@ import { useEstudioProcedimientos } from '../../data/protocolProcedures'
  * estudio, porque de `protocol_procedures` cuelgan los reportes: uno del catálogo global no traería
  * ninguno, y el servidor lo rechaza igual.
  *
- * `bloqueados` = no se pueden destildar (ya están marcados como realizados en la visita).
+ * `bloqueados` = no se pueden tocar, con el porqué al lado (procedure_id → «realizado», «pasó a otra
+ * visita»). Es un mapa y no un conjunto porque hay más de un motivo, y una casilla gris sin decir
+ * por qué se lee como un error.
+ *
+ * `nombres` = el nombre de lo que ya está elegido. Sirve para lo elegido que el estudio ya NO tiene
+ * (se sacó después de agregarlo a la visita): va en un grupo aparte, «Fuera del estudio», para que
+ * se pueda destildar. Sin él quedaba invisible y el servidor rechazaba el Guardar por algo que la
+ * pantalla no mostraba.
  */
-export function SelectorProcedimientos({ protocolId, value, onChange, bloqueados, accent }: {
+export function SelectorProcedimientos({ protocolId, value, onChange, bloqueados, nombres, accent }: {
   protocolId: string
   value: readonly string[]
   onChange: (ids: string[]) => void
-  bloqueados?: ReadonlySet<string>
+  bloqueados?: ReadonlyMap<string, string>
+  nombres?: ReadonlyMap<string, string>
   accent: string
 }) {
   const q = useEstudioProcedimientos(protocolId)
@@ -30,6 +38,16 @@ export function SelectorProcedimientos({ protocolId, value, onChange, bloqueados
       .map(([categoria, procs]) => ({ categoria, procs: procs.sort((a, b) => a.name.localeCompare(b.name, 'es')) }))
   }, [q.data])
 
+  /* Lo elegido que no está en la lista del estudio. Va AL FINAL y no ordenado entre las categorías:
+     no es una categoría, es algo que hay que resolver. */
+  const fuera = useMemo(() => {
+    const delEstudio = new Set((q.data ?? []).map((p) => p.procedure_id))
+    return value
+      .filter((id) => !delEstudio.has(id))
+      .map((id) => ({ procedure_id: id, name: nombres?.get(id) ?? 'Procedimiento' }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  }, [q.data, value, nombres])
+
   const elegidos = new Set(value)
   const alternar = (id: string) => {
     if (bloqueados?.has(id)) return
@@ -42,23 +60,26 @@ export function SelectorProcedimientos({ protocolId, value, onChange, bloqueados
   const aviso = { fontSize: 12.5, color: 'var(--spira-muted)', lineHeight: 1.45, padding: '2px 0' } as const
   if (q.error) return <div style={{ ...aviso, color: 'var(--spira-acc-deep-danger)' }}>No se pudieron cargar los procedimientos: {q.error}</div>
   if (q.loading && !q.data) return <div style={aviso}>Cargando procedimientos del estudio…</div>
-  if (grupos.length === 0) {
+  if (grupos.length === 0 && fuera.length === 0) {
     return <div style={aviso}>Este estudio todavía no tiene procedimientos cargados. Se cargan en «Procedimientos» del protocolo.</div>
   }
 
+  const todos = fuera.length > 0 ? [...grupos, { categoria: 'Fuera del estudio', procs: fuera }] : grupos
+
   return (
     <div style={{ maxHeight: 260, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {grupos.map(({ categoria, procs }) => (
+      {todos.map(({ categoria, procs }) => (
         <div key={categoria}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--spira-muted)', marginBottom: 4 }}>
             {categoria}
           </div>
           {procs.map((p) => {
-            const bloqueado = bloqueados?.has(p.procedure_id) ?? false
+            const motivo = bloqueados?.get(p.procedure_id)
+            const bloqueado = motivo !== undefined
             return (
               <label
                 key={p.procedure_id}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px', fontSize: 13.5, color: 'var(--spira-ink)', cursor: bloqueado ? 'default' : 'pointer' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px', fontSize: 13.5, color: bloqueado ? 'var(--spira-muted)' : 'var(--spira-ink)', cursor: bloqueado ? 'default' : 'pointer' }}
               >
                 <input
                   type="checkbox"
@@ -68,7 +89,7 @@ export function SelectorProcedimientos({ protocolId, value, onChange, bloqueados
                   style={{ accentColor: accent }}
                 />
                 {p.name}
-                {bloqueado && <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>· realizado</span>}
+                {bloqueado && <span style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>· {motivo}</span>}
               </label>
             )
           })}

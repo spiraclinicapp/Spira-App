@@ -58,6 +58,8 @@ export function useDiferidosDeVisita(visitId: string | null) {
 function continuacionErrorMessage(code?: string, raw?: string): string {
   if (code === '42501') return 'No tenés permiso para cambiar las visitas de este paciente.'
   if (code === '23502') return 'La fecha es obligatoria.'
+  // 23503: la visita se borró entre que se abrió la pantalla y se guardó (otra pestaña, otra persona).
+  if (code === '23503') return 'Esa visita ya no existe.'
   // 23514: las RPC ya hablan en castellano y en términos del dominio («…que esta visita todavía no hizo»).
   if (code === '23514' && raw) return raw
   return 'No pudimos guardar el cambio. Probá de nuevo.'

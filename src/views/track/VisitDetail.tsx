@@ -309,6 +309,7 @@ export function VisitDetail({
                     visitId={visit.id}
                     visitDefId={visit.visit_def_id}
                     visitKind={visit.kind}
+                    fechaVisita={visit.real_date ?? visit.estimated_date}
                     originVisitId={visit.origin_visit_id ?? null}
                     protocolId={visit.protocol_id}
                     accent={accent}

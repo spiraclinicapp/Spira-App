@@ -59,11 +59,13 @@ function settled(
  * salidas del IP se mudaron a la sección «Producto en investigación» de Dispensación.
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId, protocolId, accent, readOnly, onAbrirVisita, onCambio, refrescarCuando }: {
+export function VisitProcedures({ visitId, visitDefId, visitKind, fechaVisita, originVisitId, protocolId, accent, readOnly, onAbrirVisita, onCambio, refrescarCuando }: {
   visitId: string
   visitDefId: string | null
   /** Tipo de la visita: el retest no se puede quedar sin procedimientos. */
   visitKind: VisitKind
+  /** `real_date ?? estimated_date`: la continuación arranca propuesta para el día siguiente. */
+  fechaVisita: string | null
   /** Si es una continuación, la visita de la que viene (`origin_visit_id`, v0144). */
   originVisitId: string | null
   /** El estudio: sin él no se sabe si un procedimiento lleva sangre (es por estudio, 0134). */
@@ -295,6 +297,7 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId,
       {modal === 'pasar' && (
         <PasarPendientesModal
           visitId={visitId}
+          fechaVisita={fechaVisita}
           pendientes={pendientes}
           accent={accent}
           onClose={() => setModal(null)}
@@ -306,7 +309,8 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId,
           visitId={visitId}
           protocolId={protocolId}
           kind={visitKind}
-          actuales={items.map((p) => ({ procedure_id: p.procedure_id, completed: doneOf(p.procedure_id) }))}
+          actuales={items.map((p) => ({ procedure_id: p.procedure_id, name: p.name, completed: doneOf(p.procedure_id) }))}
+          pasados={(diferidos.data ?? []).map((d) => d.procedure_id)}
           accent={accent}
           onClose={() => setModal(null)}
           onDone={() => { setModal(null); alCambiar() }}
