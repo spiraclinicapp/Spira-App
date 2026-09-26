@@ -54,6 +54,14 @@ const cardBase: CSSProperties = {
  */
 const abiertos: object[] = []
 
+/**
+ * Cuántos `Modal` hay abiertos. Lo usa el detalle de visita, que NO es un `Modal` y escucha Escape
+ * por su cuenta: con uno de estos abierto encima, el Esc es del de arriba y la visita queda.
+ */
+export function modalesAbiertos(): number {
+  return abiertos.length
+}
+
 /** Overlay sobrio reutilizable: backdrop + card scrolleable + accesibilidad (Escape, aria, click afuera). */
 export function Modal({ title, onClose, children, subtitle, maxWidth = 440, icon, accent, accentSoft }: ModalProps) {
   const subtitleId = useId()
@@ -64,6 +72,10 @@ export function Modal({ title, onClose, children, subtitle, maxWidth = 440, icon
     abiertos.push(yo)
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || abiertos[abiertos.length - 1] !== yo) return
+      // Marca el Esc como consumido: quien más lo escuche en `document` (p. ej. `VisitDetail`, que
+      // ya chequea `!e.defaultPrevented`) tiene que saber que este `Modal` ya lo usó, y no cerrar
+      // también la capa de abajo.
+      e.preventDefault()
       onCloseRef.current()
     }
     document.addEventListener('keydown', onKey)

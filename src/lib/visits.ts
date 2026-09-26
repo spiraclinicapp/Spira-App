@@ -24,6 +24,14 @@ export interface VisitTitleFields {
   visit_code: string | null
   visit_name: string | null
   kind: VisitKind
+  /**
+   * La visita de la que viene una continuación (v0144). OPCIONALES: `visitas_dispensables` (el
+   * desplegable de Farmacia) no los trae, y ahí una continuación se lee «VNP», que es lo que es.
+   */
+  origin_visit_id?: string | null
+  origin_code?: string | null
+  origin_name?: string | null
+  origin_kind?: VisitKind | null
 }
 
 /**
@@ -55,11 +63,23 @@ function tituloDeDefinicion(v: VisitTitleFields): string {
 }
 
 /**
+ * El nombre de la visita de la que viene una continuación, o '' si no es continuación. Se arma con
+ * la MISMA regla que cualquier título (la definición, y si no hay, el tipo), para que «V3 W4» diga
+ * lo mismo en la continuación que en la V3.
+ */
+function origenDeContinuacion(v: VisitTitleFields, corto: boolean): string {
+  if (!v.origin_visit_id || !v.origin_kind) return ''
+  const origen = { visit_code: v.origin_code ?? null, visit_name: v.origin_name ?? null, kind: v.origin_kind }
+  return tituloDeDefinicion(origen) || (corto ? KIND_SHORT : KIND_LABELS)[v.origin_kind]
+}
+
+/**
  * Título ancho de una visita: el de su definición ("V5 W4") o el label del kind para las sueltas
  * ("VNP", "Retest"). Para títulos de modal, ficha, lista vertical.
  */
 export function visitTitle(v: VisitTitleFields): string {
-  return tituloDeDefinicion(v) || KIND_LABELS[v.kind]
+  const origen = origenDeContinuacion(v, false)
+  return tituloDeDefinicion(v) || (origen ? `Continuación de ${origen}` : KIND_LABELS[v.kind])
 }
 
 /**
@@ -102,8 +122,9 @@ export function visitTitleConSemanaAparte(v: TrackVisitRow): string {
  * palabra del título, y adivinar habría puesto "Control" en la pastilla de una visita llamada
  * "Control V5".
  */
-export function visitCode(v: TrackVisitRow): string {
-  return tituloDeDefinicion(v) || KIND_SHORT[v.kind]
+export function visitCode(v: VisitTitleFields): string {
+  const origen = origenDeContinuacion(v, true)
+  return tituloDeDefinicion(v) || (origen ? `Cont. ${origen}` : KIND_SHORT[v.kind])
 }
 
 /**

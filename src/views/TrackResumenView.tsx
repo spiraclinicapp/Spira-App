@@ -27,6 +27,7 @@ import type { ReportStatusRow } from '../data/reportStatus'
 import { dueLabel, esReportePendiente, esTarjeta } from './track/reportes/estados'
 import type { TrackVisitRow } from '../data/visits'
 import { visitTitle } from '../lib/visits'
+import { KIND_SHORT } from '../lib/visitLabels'
 import { dayLabel, formatAR, fromNow, todayISO } from '../lib/dates'
 import { GLOSARIO_ESTADOS } from '../lib/glosario'
 import { VISIT_STATES, VisitChip } from './visitStates'
@@ -293,7 +294,8 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
           {visibles.map((r, i) => {
             const plazo = dueLabel(r)
             const abrir = onOpenReportes ? () => onOpenReportes(r.protocol_id) : undefined
-            const visita = r.visit_code ?? r.visit_name ?? '—'
+            // Un retest o una VNP no tienen código ni nombre: se nombran por su tipo, como en `ReportCard`.
+            const visita = r.visit_code ?? r.visit_name ?? KIND_SHORT[r.visit_kind]
             return (
               <FilaDeResumen
                 key={`${r.visit_id}:${r.report_definition_id}`}

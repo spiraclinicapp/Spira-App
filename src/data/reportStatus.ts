@@ -1,5 +1,6 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
+import type { VisitKind } from '../lib/visitLabels'
 
 /**
  * Capa de datos del estado de los reportes (migración 0090).
@@ -66,6 +67,8 @@ export interface ReportStatusRow {
   /** Nombre DESNORMALIZADO del coordinador (0104). La RLS de `users` sólo deja ver el perfil
    *  propio, así que joinear esa tabla habría devuelto null para todos los demás, en silencio. */
   coordinator_name: string | null
+  /** Tipo de la visita (v0144). Nombra en el tablero a las que no tienen definición: retest, VNP. */
+  visit_kind: VisitKind
 }
 
 /** Fila de `report_status_history` (0090): un cambio de etapa, con quién y cuándo. */

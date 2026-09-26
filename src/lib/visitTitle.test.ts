@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackVisitRow } from '../data/visits'
-import { visitTitle, visitTitleConSemanaAparte } from './visits'
+import { visitCode, visitTitle, visitTitleConSemanaAparte } from './visits'
 import type { VisitTitleFields } from './visits'
 
 /**
@@ -118,5 +118,35 @@ describe('visitTitle · el objeto mínimo del mostrador de Farmacia', () => {
     // No es un defecto, es el motivo por el que el desplegable muestra la fecha al lado. Queda
     // fijado acá para que nadie "arregle" el título metiéndole un contador adentro.
     expect(visitTitle(suelta)).toBe(visitTitle({ ...suelta }))
+  })
+})
+
+/**
+ * La continuación (v0144): una VNP que nació de pasar pendientes de otra visita a otro día. Se
+ * nombra por la visita de la que viene. Falla en silencio si vuelve a decir «VNP»: la lista del día
+ * mostraría dos VNP sin relación aparente con la V3 que quedó a medias.
+ */
+describe('continuación', () => {
+  const cont = (campos: Partial<TrackVisitRow>) =>
+    v({ kind: 'vnp', origin_visit_id: 'v3', origin_kind: 'programada', ...campos })
+
+  it('se nombra por el título de la visita de la que viene', () => {
+    expect(visitTitle(cont({ origin_code: null, origin_name: 'V3 W4' }))).toBe('Continuación de V3 W4')
+    expect(visitTitle(cont({ origin_code: 'V3', origin_name: 'V3' }))).toBe('Continuación de V3')
+  })
+
+  it('el rótulo compacto también', () => {
+    expect(visitCode(cont({ origin_code: null, origin_name: 'V3 W4' }))).toBe('Cont. V3 W4')
+  })
+
+  it('si el origen es una suelta, se nombra por su tipo', () => {
+    expect(visitTitle(cont({ origin_kind: 'retest' }))).toBe('Continuación de Retest')
+    expect(visitCode(cont({ origin_kind: 'screening' }))).toBe('Cont. Scr')
+  })
+
+  it('sin origen sigue siendo VNP, y un origen a medio cargar no inventa nada', () => {
+    expect(visitTitle(v({ kind: 'vnp' }))).toBe('VNP')
+    expect(visitTitle(v({ kind: 'vnp', origin_visit_id: 'v3', origin_kind: null }))).toBe('VNP')
+    expect(visitCode(v({ kind: 'vnp' }))).toBe('VNP')
   })
 })
