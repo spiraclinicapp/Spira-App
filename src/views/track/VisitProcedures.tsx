@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVisitProcedureStatus, toggleVisitProcedure } from '../../data/procedures'
 import type { VisitProcedureStatus } from '../../data/procedures'
 import { useVisitReportStatus, setReportStage } from '../../data/reportStatus'
@@ -59,7 +59,7 @@ function settled(
  * salidas del IP se mudaron a la sección «Producto en investigación» de Dispensación.
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId, protocolId, accent, readOnly, onAbrirVisita, onCambio }: {
+export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId, protocolId, accent, readOnly, onAbrirVisita, onCambio, refrescarCuando }: {
   visitId: string
   visitDefId: string | null
   /** Tipo de la visita: el retest no se puede quedar sin procedimientos. */
@@ -74,6 +74,13 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId,
   onAbrirVisita?: (visitId: string) => void
   /** Algo cambió que el encabezado de la visita también muestra (el estado). */
   onCambio?: () => void
+  /**
+   * Sube cada vez que la visita ENCIMA (la continuación o su origen) cierra o avisa un cambio. El
+   * padre (`VisitDetail`) sólo refetchea su propia fila (`refrescar`); las consultas de ACÁ
+   * —procedimientos, reportes, diferidos— son propias y sin esto quedaban con lo diferido/editado
+   * en la visita apilada sin verse reflejado hasta recargar.
+   */
+  refrescarCuando?: number
 }) {
   const { data, loading, error, refetch } = useVisitProcedureStatus(visitId, protocolId)
   const [pending, setPending] = useState<Set<string>>(new Set())
@@ -122,6 +129,19 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId,
       document.removeEventListener('visibilitychange', refrescar)
     }
   }, [refetch, reportes.refetch, ipQ.refetch, diferidos.refetch])
+
+  /* Cuando cierra o cambia la visita APILADA encima (ver `refrescarCuando` en el padre): se releen
+     procedimientos, reportes y diferidos, igual que `alCambiar` (sin `onCambio`, que es lo que el
+     padre ya hizo para pedir este refresco). Se salta el primer render: ahí `refrescarCuando` recién
+     llega en 0 y no hay nada que releer todavía. */
+  const refrescarCuandoMontado = useRef(false)
+  useEffect(() => {
+    if (!refrescarCuandoMontado.current) { refrescarCuandoMontado.current = true; return }
+    refetch()
+    reportes.refetch()
+    diferidos.refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refrescarCuando])
 
   const items = useMemo(() => data ?? [], [data])
   const doneOf = (procedureId: string) =>

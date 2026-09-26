@@ -9,7 +9,7 @@ import { faltanProcedimientos } from './continuacion'
 
 /**
  * «Editar procedimientos» de una visita suelta (retest, VNP, continuación). Lo ya realizado no se
- * puede quitar; quitar algo que vino de otra visita se lo devuelve (lo explica el servidor).
+ * puede quitar; quitar algo que vino de otra visita se lo devuelve: lo resuelve el servidor.
  */
 export function EditarProcedimientosModal({ visitId, protocolId, kind, actuales, accent, onClose, onDone }: {
   visitId: string

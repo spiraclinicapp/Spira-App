@@ -72,6 +72,10 @@ export function Modal({ title, onClose, children, subtitle, maxWidth = 440, icon
     abiertos.push(yo)
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || abiertos[abiertos.length - 1] !== yo) return
+      // Marca el Esc como consumido: quien más lo escuche en `document` (p. ej. `VisitDetail`, que
+      // ya chequea `!e.defaultPrevented`) tiene que saber que este `Modal` ya lo usó, y no cerrar
+      // también la capa de abajo.
+      e.preventDefault()
       onCloseRef.current()
     }
     document.addEventListener('keydown', onKey)

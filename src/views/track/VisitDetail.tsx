@@ -53,7 +53,7 @@ import { modalesAbiertos } from '../../components/Modal'
  */
 export function VisitDetail({
   visitId, accent, onClose, canReception, canClinical,
-  onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient, onVerEnElDia,
+  onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient, onVerEnElDia, visitaDebajo,
 }: {
   visitId: string
   accent: string
@@ -92,6 +92,13 @@ export function VisitDetail({
    * estás—, igual que `onOpenPatient` desde la ficha.
    */
   onVerEnElDia?: (visitId: string, dia: string) => void
+  /**
+   * El id de la visita que queda DEBAJO en esta pila (v0144, la abre quien monta ÉSTA como su
+   * apilada). Si desde acá se pide abrir justo esa —el origen vuelve a pedir la continuación, o al
+   * revés—, en vez de sumar una capa más se cierra ÉSTA y se descubre la de abajo, que ya la tiene
+   * abierta. Sin esto, ir y volver entre las dos apila V3 → C1 → V3 → … sin fin.
+   */
+  visitaDebajo?: string
 }) {
   const q = useVisit(visitId)
   const fetched = q.data?.[0] ?? null
@@ -124,6 +131,13 @@ export function VisitDetail({
   const [recitar, setRecitar] = useState<DayVisitRow | null>(null)
   /** Otra visita abierta ENCIMA de ésta (la continuación o su origen, v0144). Cerrarla vuelve acá. */
   const [otraVisita, setOtraVisita] = useState<string | null>(null)
+  /**
+   * Sube cuando la visita apilada cierra o avisa un cambio. `refrescar` (abajo) sólo refetchea la
+   * FILA de esta visita; los procedimientos, reportes y diferidos son consultas propias de
+   * `VisitProcedures`, y sin esta cuenta quedaban mostrando lo de antes de pasar/editar/deshacer en
+   * la visita de arriba hasta recargar la página.
+   */
+  const [versionProcedimientos, setVersionProcedimientos] = useState(0)
   /* Los `Modal` que ya estaban abiertos cuando se montó esta visita (si se abrió desde uno). El Esc
      es nuestro sólo si no se abrió ninguno más encima: un modal hijo lo consume y la visita queda. */
   const modalesAlMontar = useRef(modalesAbiertos())
@@ -299,8 +313,9 @@ export function VisitDetail({
                     protocolId={visit.protocol_id}
                     accent={accent}
                     readOnly={readOnly}
-                    onAbrirVisita={setOtraVisita}
+                    onAbrirVisita={(id) => (id === visitaDebajo ? onClose() : setOtraVisita(id))}
                     onCambio={refrescar}
+                    refrescarCuando={versionProcedimientos}
                   />
 
                   {/* Comentarios NO está en el mock y se conserva igual (decisión del Director,
@@ -396,15 +411,19 @@ export function VisitDetail({
       />
     )}
 
-    {/* La continuación o su origen, encima. Es el MISMO componente: se edita igual y cerrarlo
-        vuelve a esta visita, que se refresca por si el desdoblamiento cambió. */}
-    {otraVisita && (
+    {/* La continuación o su origen, encima. Es el MISMO componente: se edita igual. Al cerrarla o
+        cuando avisa un cambio, se refresca el encabezado (`refrescar`) Y sube
+        `versionProcedimientos`: `refrescar` sólo refetchea la FILA de esta visita, y lo que cambió
+        allá arriba —pasar, editar o deshacer— vive en las consultas propias de `VisitProcedures`
+        (procedimientos, reportes, diferidos), que si no se les avisa quedan mostrando lo de antes. */}
+    {otraVisita && visit && (
       <VisitDetail
         visitId={otraVisita}
         accent={accent}
-        onClose={() => setOtraVisita(null)}
-        onChanged={refrescar}
-        onOpenPatient={onOpenPatient}
+        visitaDebajo={visit.id}
+        onClose={() => { setOtraVisita(null); setVersionProcedimientos((v) => v + 1); refrescar() }}
+        onChanged={() => { setVersionProcedimientos((v) => v + 1); refrescar() }}
+        onOpenPatient={onOpenPatient ? (patientId, protocolId) => { onClose(); onOpenPatient(patientId, protocolId) } : undefined}
       />
     )}
     </>
