@@ -416,11 +416,11 @@ export function VisitDetail({
         `versionProcedimientos`: `refrescar` sólo refetchea la FILA de esta visita, y lo que cambió
         allá arriba —pasar, editar o deshacer— vive en las consultas propias de `VisitProcedures`
         (procedimientos, reportes, diferidos), que si no se les avisa quedan mostrando lo de antes. */}
-    {otraVisita && visit && (
+    {otraVisita && (
       <VisitDetail
         visitId={otraVisita}
         accent={accent}
-        visitaDebajo={visit.id}
+        visitaDebajo={visitId}
         onClose={() => { setOtraVisita(null); setVersionProcedimientos((v) => v + 1); refrescar() }}
         onChanged={() => { setVersionProcedimientos((v) => v + 1); refrescar() }}
         onOpenPatient={onOpenPatient ? (patientId, protocolId) => { onClose(); onOpenPatient(patientId, protocolId) } : undefined}
