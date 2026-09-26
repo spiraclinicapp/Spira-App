@@ -42,7 +42,7 @@ export function BandaSaludo({
   fecha: string
   saludo: string
   frase: string
-  evento: string | null
+  evento: { texto: string; icono: IconName } | null
   cifras: { n: ReactNode; rotulo: ReactNode; tono?: string }[]
 }) {
   return (
@@ -72,8 +72,8 @@ export function BandaSaludo({
               background: 'rgba(244,241,234,.14)', border: '1px solid rgba(244,241,234,.22)',
             }}
           >
-            <Icon name="gift" size={15} color="#F0E4C9" stroke={1.9} />
-            <span style={{ fontSize: 12.5, fontWeight: 600 }}>{evento}</span>
+            <Icon name={evento.icono} size={15} color="#F0E4C9" stroke={1.9} />
+            <span style={{ fontSize: 12.5, fontWeight: 600 }}>{evento.texto}</span>
           </div>
         )}
       </div>

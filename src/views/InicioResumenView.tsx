@@ -11,7 +11,7 @@ import { fueraDeVentana } from '../lib/visits'
 import { addDaysISO, formatDayLong, todayISO, weekDates } from '../lib/dates'
 import { SPIRA_VERSION } from '../lib/version'
 import { MODULES } from '../modules/registry'
-import { saludoDelDia } from './inicio/saludo'
+import { saludoDelDia, saludoPorHora } from './inicio/saludo'
 import { deMisModulos, modulosDelResumen } from './inicio/alcance'
 import { BandaSaludo, CardFundacion, CardModulo, CardNovedades } from './inicio/piezas'
 import type { Novedad } from './inicio/piezas'
@@ -99,6 +99,9 @@ export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: V
   ).length
 
   const saludo = saludoDelDia(hoy)
+  /* La hora se lee al dibujar, no con un reloj: una pestaña abierta desde la mañana sigue diciendo
+     "Buen día" hasta que la vista se vuelva a dibujar. Para un saludo alcanza. */
+  const buenos = saludoPorHora(new Date().getHours())
   const nombre = (profile?.fullName ?? '').trim().split(/\s+/)[0]
 
   /* Novedades desde el changelog REAL de la app (`lib/version.ts`), que es la única fuente que
@@ -125,7 +128,7 @@ export function InicioResumenView({ onNavigate, onOpenAbout, onOpenFeedback }: V
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <BandaSaludo
           fecha={formatDayLong(hoy)}
-          saludo={nombre ? `Buen día, ${nombre}` : 'Buen día'}
+          saludo={nombre ? `${buenos}, ${nombre}` : buenos}
           frase={saludo.frase}
           evento={saludo.evento}
           cifras={deMisModulos([
