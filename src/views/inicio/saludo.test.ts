@@ -151,6 +151,22 @@ describe('saludoDelDia — feriados', () => {
     expect(s.evento).toEqual({ texto: 'Feriado', icono: 'calendar' })
   })
 
+  /* El aviso mira cinco días adelante, así que a fin de año cruza al siguiente: sin los feriados de 2027
+     cargados, el finde largo de Año Nuevo (viernes 1/1/2027) no se anunciaba. */
+  it('el aviso cruza el cambio de año', () => {
+    const s = saludoDelDia('2026-12-29') // martes
+    expect(s.frase).toBe('Se viene finde largo: el viernes es feriado por Año Nuevo.')
+    expect(s.evento?.texto).toBe('Feriado: viernes 1 de enero')
+  })
+
+  it('los feriados de 2027 se avisan como los de 2026', () => {
+    expect(saludoDelDia('2027-02-05').frase).toBe(
+      'Se viene finde largo de cuatro días: el lunes y el martes son feriados por Carnaval.',
+    )
+    /* El 1° de mayo de 2027 es sábado: no da ningún día libre, así que no se anuncia. */
+    expect(saludoDelDia('2027-04-28').evento).toBeNull()
+  })
+
   it('las fechas cargadas son válidas y no se repiten', () => {
     const fechas = FERIADOS.map((f) => f.fecha)
     expect(new Set(fechas).size).toBe(fechas.length)
