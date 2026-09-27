@@ -42,6 +42,23 @@ export const FERIADOS: Feriado[] = [
   { fecha: '2026-11-23', motivo: 'el Día de la Soberanía Nacional' },
   { fecha: '2026-12-08', motivo: 'la Inmaculada Concepción' },
   { fecha: '2026-12-25', motivo: 'Navidad' },
+
+  /* 2027: los INAMOVIBLES, cargados el 2026-09-27 desde la lista que pasó el Director. FALTAN los cuatro
+     trasladables —Güemes (17/6), San Martín (17/8), Diversidad Cultural (12/10) y Soberanía Nacional
+     (20/11)—, que se corren según el día en que caen y salen en otra tabla del calendario oficial. Hasta
+     que se carguen, esos cuatro no se avisan: el test del vencimiento no lo ve, porque 2027 ya figura. */
+  { fecha: '2027-01-01', motivo: 'Año Nuevo' },
+  { fecha: '2027-02-08', motivo: 'Carnaval' },
+  { fecha: '2027-02-09', motivo: 'Carnaval' },
+  { fecha: '2027-03-24', motivo: 'el Día de la Memoria' },
+  { fecha: '2027-03-26', motivo: 'Viernes Santo' },
+  { fecha: '2027-04-02', motivo: 'Malvinas' },
+  { fecha: '2027-05-01', motivo: 'el Día del Trabajador' },
+  { fecha: '2027-05-25', motivo: 'el 25 de Mayo' },
+  { fecha: '2027-06-20', motivo: 'el Día de la Bandera' },
+  { fecha: '2027-07-09', motivo: 'el Día de la Independencia' },
+  { fecha: '2027-12-08', motivo: 'la Inmaculada Concepción' },
+  { fecha: '2027-12-25', motivo: 'Navidad' },
 ]
 
 /** El último año con feriados cargados. Lo vigila el test. */
