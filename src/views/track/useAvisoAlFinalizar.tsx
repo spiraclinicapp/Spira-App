@@ -2,13 +2,15 @@ import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { fetchVisitProcedureStatus, toggleVisitProcedure } from '../../data/procedures'
 import { dejarPendientes } from '../../data/pendientes'
-import { pendientesAlFinalizar } from './retomar'
+import { pendientesAlFinalizar, seDanPorHechos } from './retomar'
 import type { ProcedimientoElegible } from './retomar'
 import { AvisoPendientesModal } from './AvisoPendientesModal'
 
 interface Aviso {
   visitId: string
   pendientes: ProcedimientoElegible[]
+  /** Lo que no deja reporte: finalizar lo da por hecho, y el aviso lo nombra sin preguntar. */
+  porHechos: ProcedimientoElegible[]
   seguir: () => Promise<void> | void
   /** Resuelve la promesa de `pedir`: el flujo terminó, se haya finalizado o no. */
   terminar: () => void
@@ -65,9 +67,12 @@ export function useAvisoAlFinalizar(accent: string): {
     try {
       const r = await fetchVisitProcedureStatus(visit.id, visit.protocol_id)
       const pendientes = r.data ? pendientesAlFinalizar(r.data) : []
+      /* Sin nada que preguntar no se abre, aunque haya cosas que se den por hechas: nombrarlas en un
+         aviso que salta en cada visita (casi todas llevan signos vitales) lo volvería ruido. */
       if (pendientes.length === 0) { await seguir(); return }
+      const porHechos = seDanPorHechos(r.data ?? [])
       yaTildados.current = new Set()
-      await new Promise<void>((resolve) => setAviso({ visitId: visit.id, pendientes, seguir, terminar: resolve }))
+      await new Promise<void>((resolve) => setAviso({ visitId: visit.id, pendientes, porHechos, seguir, terminar: resolve }))
     } finally {
       enCurso.current = false
     }
@@ -76,6 +81,7 @@ export function useAvisoAlFinalizar(accent: string): {
   const modal = aviso && (
     <AvisoPendientesModal
       pendientes={aviso.pendientes}
+      porHechos={aviso.porHechos}
       accent={accent}
       onFinalizar={async (hechos) => {
         for (const id of hechos) {

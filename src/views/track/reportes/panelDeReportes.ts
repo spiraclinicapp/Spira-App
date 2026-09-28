@@ -51,11 +51,17 @@ export function tagDeReporte(row: FilaTag, now: number = Date.now()): TagReporte
  * Sin tildar dice el TOTAL de reportes que define y NUNCA «al día»: el plazo no arrancó, así que no
  * hay nada que esté al día. Tildado cuenta lo que falta, con la misma definición del badge y del
  * resumen (`esReportePendiente`).
+ *
+ * Sin tildar en una visita YA FINALIZADA no es «sin realizar»: la visita se atendió y nadie dijo si
+ * esto se hizo. Es la anomalía que cuenta `sinMarcar` (`resumenVisita.ts`), y la sublínea la nombra
+ * en vez de seguir hablando como si la atención estuviera en curso.
  */
 export function sublineaProcedimiento(
   completed: boolean,
   reportes: readonly { completed: boolean; stage: string }[],
+  finalizada = false,
 ): string {
+  if (!completed && finalizada) return 'Sin marcar · la visita ya se realizó'
   if (!completed) {
     const n = reportes.length
     return `Sin realizar · ${n} ${n === 1 ? 'reporte' : 'reportes'}`
@@ -65,8 +71,17 @@ export function sublineaProcedimiento(
   return `Realizado · ${faltan} ${faltan === 1 ? 'reporte pendiente' : 'reportes pendientes'}`
 }
 
-/** El badge del encabezado del panel: cuánto falta, o «Al día» en neutro. */
-export function badgePorCargar(n: number): { texto: string; pendiente: boolean } {
+/**
+ * El badge del encabezado del panel: cuánto falta, o «Al día» en neutro.
+ *
+ * `sinMarcar` = procedimientos de una visita finalizada que nadie tildó. Su reporte no arrancó, así
+ * que `n` no los cuenta, y sin esto el badge decía «Al día» sobre un reporte que falta. Van
+ * primero: mientras no se tilden, su reporte ni siquiera puede empezar.
+ */
+export function badgePorCargar(n: number, sinMarcar = 0): { texto: string; pendiente: boolean } {
+  if (sinMarcar > 0) {
+    return { texto: n > 0 ? `${sinMarcar} sin marcar · ${n} por cargar` : `${sinMarcar} sin marcar`, pendiente: true }
+  }
   if (n === 0) return { texto: 'Al día', pendiente: false }
   return { texto: `${n} por cargar`, pendiente: true }
 }

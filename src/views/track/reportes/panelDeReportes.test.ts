@@ -65,6 +65,14 @@ describe('sublineaProcedimiento', () => {
   it('tildado y todo evolucionado: «reportes al día»', () => {
     expect(sublineaProcedimiento(true, [r(true, 'evolucionado')])).toBe('Realizado · reportes al día')
   })
+
+  it('sin tildar en una visita finalizada no es «sin realizar»: se nombra la anomalía', () => {
+    expect(sublineaProcedimiento(false, [r(false, 'pendiente')], true)).toBe('Sin marcar · la visita ya se realizó')
+  })
+
+  it('tildado, que la visita esté finalizada no cambia nada', () => {
+    expect(sublineaProcedimiento(true, [r(true, 'evolucionado')], true)).toBe('Realizado · reportes al día')
+  })
 })
 
 describe('badgePorCargar', () => {
@@ -72,6 +80,11 @@ describe('badgePorCargar', () => {
     expect(badgePorCargar(2)).toEqual({ texto: '2 por cargar', pendiente: true })
     expect(badgePorCargar(1)).toEqual({ texto: '1 por cargar', pendiente: true })
     expect(badgePorCargar(0)).toEqual({ texto: 'Al día', pendiente: false })
+  })
+
+  it('con procedimientos sin marcar NUNCA dice «Al día» (Director, 2026-09-28)', () => {
+    expect(badgePorCargar(0, 1)).toEqual({ texto: '1 sin marcar', pendiente: true })
+    expect(badgePorCargar(2, 1)).toEqual({ texto: '1 sin marcar · 2 por cargar', pendiente: true })
   })
 })
 

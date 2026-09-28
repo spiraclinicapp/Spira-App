@@ -33,12 +33,16 @@ export interface ProcedimientoConReportes {
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 export function ReportesPendientes({
-  estado, error, procedimientos, porCargar, accent, readOnly, enVuelo, movingReport, actionError, onToggle, onStage,
+  estado, error, procedimientos, porCargar, sinMarcar, finalizada, accent, readOnly, enVuelo, movingReport, actionError, onToggle, onStage,
 }: {
   estado: 'cargando' | 'error' | 'oculto' | 'lista'
   error: string | null
   procedimientos: readonly ProcedimientoConReportes[]
   porCargar: number
+  /** Procedimientos con reporte que la visita finalizada dejó sin tildar (`sinMarcar`). */
+  sinMarcar: number
+  /** La atención ya terminó: lo sin tildar deja de ser «lo que falta hacer» y pasa a ser anomalía. */
+  finalizada: boolean
   accent: string
   readOnly: boolean
   /** Procedimientos con el tilde en vuelo: su reporte no puede avanzar todavía. */
@@ -51,7 +55,7 @@ export function ReportesPendientes({
 }) {
   if (estado === 'oculto') return null
 
-  const badge = badgePorCargar(porCargar)
+  const badge = badgePorCargar(porCargar, sinMarcar)
 
   return (
     <Panel
@@ -124,8 +128,14 @@ export function ReportesPendientes({
                     }}>
                       {p.name}
                     </span>
-                    <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: 'var(--spira-ink-soft)' }}>
-                      {sublineaProcedimiento(p.completed, p.reportes)}
+                    {/* Color = significado: sin marcar en una visita finalizada, el reporte no
+                        arranca hasta que alguien lo tilde. El mismo ámbar del badge. */}
+                    <span style={{
+                      display: 'block', marginTop: 2, fontSize: 11.5,
+                      color: !p.completed && finalizada ? 'var(--spira-acc-deep-warn)' : 'var(--spira-ink-soft)',
+                      fontWeight: !p.completed && finalizada ? 600 : 400,
+                    }}>
+                      {sublineaProcedimiento(p.completed, p.reportes, finalizada)}
                     </span>
                   </span>
                   {p.draws_blood === true && (

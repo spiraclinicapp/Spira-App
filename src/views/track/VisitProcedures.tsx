@@ -7,7 +7,7 @@ import { canUntickProcedure } from './reportes/estados'
 import type { ReportStage } from './reportes/estados'
 import { estadoPanelReportes } from './reportes/panelDeReportes'
 import { useVisitIpStatus } from '../../data/visitIp'
-import { porCargar as contarPorCargar, resumenDeVisita } from './resumenVisita'
+import { porCargar as contarPorCargar, resumenDeVisita, sinMarcar as contarSinMarcar } from './resumenVisita'
 import { PanelResumenVisita } from './PanelResumenVisita'
 import { ReportesPendientes } from './ReportesPendientes'
 import type { ProcedimientoConReportes } from './ReportesPendientes'
@@ -65,9 +65,16 @@ function settled(
  * la visita dejó para otro día — que la lista efectiva ya no trae y por eso no está en ningún otro.
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId, protocolId, accent, readOnly, onAbrirVisita, onCambio, refrescarCuando }: {
+export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId, protocolId, finalizada, accent, readOnly, onAbrirVisita, onCambio, refrescarCuando }: {
   visitId: string
   visitDefId: string | null
+  /**
+   * La atención terminó (`fin_atencion`). Finalizar CONFIRMA lo que se hizo —desde la v0145 el aviso
+   * pregunta por lo que deja reporte y da por hecho lo demás—, así que ya no hay nada que dejar para
+   * otro día (Director, 2026-09-28). Y lo que dejaba reporte y quedó sin tildar pasa a ser una
+   * anomalía que se avisa (`sinMarcar`), no «lo que falta hacer».
+   */
+  finalizada: boolean
   /** Tipo de la visita: el retest no se puede quedar sin procedimientos. */
   visitKind: VisitKind
   /** Si es una continuación, la visita de la que viene (`origin_visit_id`, v0144). */
@@ -211,6 +218,7 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId,
   )
 
   const cuantosPorCargar = contarPorCargar(reportesVista)
+  const cuantosSinMarcar = contarSinMarcar(conReportes, finalizada)
   /** `null` = la visita no define reportes: el indicador del resumen no se dibuja. */
   const porCargarEnResumen = reportesVista.length > 0 ? cuantosPorCargar : null
 
@@ -276,6 +284,7 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId,
       <PanelResumenVisita
         resumen={resumen}
         porCargar={porCargarEnResumen}
+        sinMarcar={cuantosSinMarcar}
         accent={accent}
         cargando={loading}
         error={error}
@@ -284,7 +293,7 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId,
           <DesdoblamientoVisita
             destinos={destinos}
             origenVisitId={originVisitId}
-            puedePasar={pendientes.length > 0}
+            puedePasar={!finalizada && pendientes.length > 0}
             puedeEditar={visitKind === 'vnp' || visitKind === 'retest'}
             readOnly={readOnly}
             onPasar={() => setModal('pasar')}
@@ -306,6 +315,8 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId,
         error={reportes.error}
         procedimientos={conReportes}
         porCargar={cuantosPorCargar}
+        sinMarcar={cuantosSinMarcar}
+        finalizada={finalizada}
         accent={accent}
         readOnly={readOnly}
         enVuelo={pending}

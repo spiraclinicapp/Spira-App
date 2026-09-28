@@ -113,6 +113,21 @@ export function porCargar(reportes: readonly { completed: boolean; stage: string
   return reportes.filter(esReportePendiente).length
 }
 
+/**
+ * Cuántos procedimientos con reporte quedaron SIN TILDAR en una visita ya finalizada.
+ *
+ * `porCargar` no los ve, y a propósito: su reporte no arrancó, así que no está «pendiente». Pero
+ * sin esta cuenta la visita decía «Reportes al día» con un laboratorio que nadie marcó, y el reporte
+ * no aparecía en ningún tablero — el hueco en silencio que reportó el Director (2026-09-28).
+ *
+ * Desde la v0145 el aviso al finalizar no deja cerrar con esto abierto (se tilda o pasa a otro día),
+ * así que lo que cae acá son, sobre todo, visitas finalizadas ANTES del aviso. En una visita que
+ * todavía se atiende no hay anomalía: lo sin tildar es simplemente lo que falta hacer.
+ */
+export function sinMarcar(procs: readonly { completed: boolean }[], finalizada: boolean): number {
+  return finalizada ? procs.filter((p) => !p.completed).length : 0
+}
+
 /** Un procedimiento que una visita del día lleva, de su lista efectiva (`v_visit_procedures`, v0144). */
 export interface AsignacionDelDia {
   visit_id: string

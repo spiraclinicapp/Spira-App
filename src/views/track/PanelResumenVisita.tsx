@@ -13,10 +13,12 @@ import type { ResumenVisita as Resumen } from './resumenVisita'
  * panel ya existe, y un cuadro con título y nada adentro se lee como un error (Director,
  * 2026-08-06, el mismo criterio que Dispensación).
  */
-export function PanelResumenVisita({ resumen, porCargar, accent, cargando, error, visitDefId, pie }: {
+export function PanelResumenVisita({ resumen, porCargar, sinMarcar, accent, cargando, error, visitDefId, pie }: {
   resumen: Resumen | null
   /** Reportes por cargar. `null` = la visita no define ninguno: el indicador no se dibuja. */
   porCargar: number | null
+  /** Procedimientos con reporte que la visita finalizada dejó sin tildar. */
+  sinMarcar: number
   accent: string
   cargando: boolean
   error: string | null
@@ -32,7 +34,7 @@ export function PanelResumenVisita({ resumen, porCargar, accent, cargando, error
           No se pudieron cargar los procedimientos: {error}
         </div>
       ) : resumen ? (
-        <IndicadoresVisita resumen={resumen} variante="modal" porCargar={porCargar} />
+        <IndicadoresVisita resumen={resumen} variante="modal" porCargar={porCargar} sinMarcar={sinMarcar} />
       ) : cargando ? (
         <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', padding: '2px 0' }}>Cargando procedimientos…</div>
       ) : (

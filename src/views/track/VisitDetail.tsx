@@ -340,6 +340,7 @@ export function VisitDetail({
                     visitKind={visit.kind}
                     originVisitId={visit.origin_visit_id ?? null}
                     protocolId={visit.protocol_id}
+                    finalizada={visit.operational_stage === 'fin_atencion'}
                     accent={accent}
                     readOnly={readOnly}
                     onAbrirVisita={(id) => (id === visitaDebajo ? onClose() : setOtraVisita(id))}

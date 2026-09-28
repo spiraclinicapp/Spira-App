@@ -3,7 +3,7 @@
 // dibuja igual de prolija diciendo «Sin sangre» en una visita con extracción, contando un kit IP que
 // alguien cerró como «No corresponde», o mostrando los procedimientos de otro estudio.
 import { describe, expect, it } from 'vitest'
-import { armarResumenesDelDia, llevaKitIp, porCargar, resumenDeVisita, sangreDeVisita } from './resumenVisita'
+import { armarResumenesDelDia, llevaKitIp, porCargar, resumenDeVisita, sangreDeVisita, sinMarcar } from './resumenVisita'
 
 /** Un procedimiento del cuadro, como se lo pasa el modal. */
 const proc = (name: string, sangre: boolean | null, tieneReporte = false) => ({
@@ -74,6 +74,16 @@ describe('resumenDeVisita', () => {
     expect(r?.items.map((i) => i.name)).toEqual(['Laboratorio', 'ECG'])
     expect(r?.items.map((i) => i.tieneReporte)).toEqual([true, true])
     expect(r?.sangre).toBe('si')
+  })
+})
+
+describe('sinMarcar', () => {
+  it('en una visita finalizada, cuenta lo que dejaba reporte y nadie tildó', () => {
+    expect(sinMarcar([{ completed: false }, { completed: true }], true)).toBe(1)
+  })
+
+  it('mientras la visita se atiende, lo sin tildar es lo que falta hacer: no es anomalía', () => {
+    expect(sinMarcar([{ completed: false }, { completed: false }], false)).toBe(0)
   })
 })
 

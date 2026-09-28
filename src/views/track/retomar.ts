@@ -38,6 +38,15 @@ export function pendientesAlFinalizar(items: readonly ProcedimientoConEstado[]):
   return items.filter((p) => p.tiene_reporte && !p.completed).map(elegible)
 }
 
+/**
+ * Lo que el aviso al finalizar NOMBRA sin preguntar: lo que no deja reporte. Finalizar lo da por
+ * hecho (decisión 9; `procedimiento_hecho()` en la base), y el Director pidió que se VEA qué se
+ * está confirmando al finalizar (2026-09-28) — sin sumarle una casilla por cada signo vital.
+ */
+export function seDanPorHechos(items: readonly ProcedimientoConEstado[]): ProcedimientoElegible[] {
+  return items.filter((p) => !p.tiene_reporte).map(elegible)
+}
+
 /** Lo que un retest puede repetir de su visita de origen: lo que se hizo ahí. */
 export function procedimientosRepetibles(items: readonly ProcedimientoConEstado[], atendida: boolean): ProcedimientoElegible[] {
   if (!atendida) return []
