@@ -123,8 +123,12 @@ export function pacientesDelEstudio(visitas: readonly TrackVisitRow[]): Paciente
   return [...acc.values()].sort((a, b) => a.patient_name.localeCompare(b.patient_name, 'es'))
 }
 
-/** «V3 W4 · Juan Pérez · 12/9/2026»: cómo se nombra una visita en los desplegables de agendar. */
-export function rotuloDeVisita(v: TrackVisitRow): string {
+/**
+ * «V3 W4 · Juan Pérez · 12/9/2026»: cómo se nombra una visita en los desplegables de agendar. Sin el
+ * paciente (`conPaciente: false`) cuando el modal ya lo tiene fijo arriba (la ficha, v0145): repetirlo
+ * en cada opción es ruido.
+ */
+export function rotuloDeVisita(v: TrackVisitRow, { conPaciente = true }: { conPaciente?: boolean } = {}): string {
   const fecha = v.real_date ?? v.estimated_date
-  return `${visitTitle(v)} · ${v.patient_name}${fecha ? ` · ${formatAR(fecha)}` : ''}`
+  return `${visitTitle(v)}${conPaciente ? ` · ${v.patient_name}` : ''}${fecha ? ` · ${formatAR(fecha)}` : ''}`
 }

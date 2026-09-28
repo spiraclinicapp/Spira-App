@@ -3,11 +3,11 @@ import type { TrackVisitRow } from '../../data/visits'
 import type { MarcaRow } from '../../data/pendientes'
 import {
   agruparPorRetomar, diasEsperando, pacientesDelEstudio, pendientesAlFinalizar, procedimientosRepetibles,
-  visitasParaRetest, visitasParaTraer,
+  rotuloDeVisita, visitasParaRetest, visitasParaTraer,
 } from './retomar'
 
 /**
- * Las reglas de «pendientes por retomar» y del retest con origen (vNNNN).
+ * Las reglas de «pendientes por retomar» y del retest con origen (v0145).
  *
  * Todas fallan EN SILENCIO si quedan al revés: un aviso al finalizar que salta en cada visita (o en
  * ninguna), un retest que ofrece lo que no se hizo, una lista de Pendientes que esconde o que
@@ -122,5 +122,16 @@ describe('pacientesDelEstudio', () => {
       v({ id: '4', enrollment_id: 'e3', patient_name: 'Carla', enrollment_status: 'discontinuado' }),
     ])
     expect(r.map((x) => x.enrollment_id)).toEqual(['e1', 'e2'])
+  })
+})
+
+describe('rotuloDeVisita', () => {
+  const x = v({ visit_name: 'V3', patient_name: 'Ana', estimated_date: '2026-09-12' })
+  it('desde Visitas nombra al paciente: la lista mezcla a todos los del estudio', () => {
+    expect(rotuloDeVisita(x)).toMatch(/^V3 · Ana · /)
+  })
+  it('desde la ficha no: el paciente ya está fijo arriba y repetirlo es ruido', () => {
+    expect(rotuloDeVisita(x, { conPaciente: false })).toMatch(/^V3 · /)
+    expect(rotuloDeVisita(x, { conPaciente: false })).not.toContain('Ana')
   })
 })
