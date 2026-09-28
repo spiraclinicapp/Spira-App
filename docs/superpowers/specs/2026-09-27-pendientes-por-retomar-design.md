@@ -47,6 +47,14 @@ retest» exige ir a la ficha de cada paciente.
 8. Números que fijó el diseño y el Director confirmó al aprobarlo: el retest ofrece visitas atendidas de
    los **últimos 60 días**; en «Continuar pendientes» los procedimientos marcados vienen
    **preseleccionados** (ya se eligieron a propósito al marcarlos).
+9. **Un procedimiento sin reporte se da por hecho cuando la visita se atendió**, salvo que se lo haya
+   dejado para otro día (decidido al armar el plan, 2026-09-27). En la app solo se tildan los
+   procedimientos que dejan reporte (el tilde vive en el panel «Reportes pendientes»); uno sin reporte no
+   tiene casilla en ningún lado y queda «sin tildar» para siempre. Sin esta regla, el aviso al finalizar
+   saldría en casi todas las visitas y el retest no podría repetir nada sin reporte (un ECG). Descartado:
+   sumar una casilla para todos los procedimientos (obliga a tildar signos vitales en cada visita).
+   - «Hecho» = tildado, **o** sin `report_definitions` en el estudio y con la visita atendida
+     (`real_date`), estando en su lista efectiva.
 
 ## Modelo de datos
 
@@ -63,8 +71,9 @@ retest» exige ir a la ficha de cada paciente.
 | `marked_at` | timestamptz not null default `now()` | Da el «hace N días» de Pendientes. |
 
 - `unique (visit_id, procedure_id)`. Constraints **nombradas** (el front puede tener que embeber por FK).
-- RLS: `select` / `insert` / `delete` con `has_module('gerencia') or coordina_visita(visit_id)`, el mismo
-  predicado de los tildes (0064) y de `visit_added_procedures` (0144). Escrituras solo por RPC.
+- RLS igual que `visit_added_procedures` tal como quedó en la 0144: `select` si se ve la visita (subselect
+  sobre `patient_visits` con la RLS de quien consulta); **sin** `insert` / `delete` para `authenticated`.
+  Escrituras solo por RPC, que autorizan con `puede_registrar_visitas(protocolo)`.
 - Trigger `audit_row`.
 - No hay `update`: una marca se pone o se quita.
 
@@ -106,7 +115,7 @@ La lista efectiva pasa a ser:
   - Marca. Solo acepta procedimientos que la visita **debe** (están en su lista efectiva) y **no están
     tildados**. Cualquier otro se rechaza con un mensaje sereno.
   - Idempotente sobre lo ya marcado (`on conflict do nothing`).
-  - Autoriza como los tildes: `gerencia` o `coordina_visita`.
+  - Autoriza con `puede_registrar_visitas(protocolo)`, como las RPC de la 0144.
 - **`quitar_pendiente(p_visit uuid, p_procedure_id uuid)`**
   - Borra la marca: «al final se hizo hoy». El procedimiento vuelve a la lista efectiva y se puede tildar.
 - **`continuar_pendientes(p_visita_origen uuid, p_procedure_ids uuid[], p_fecha date)`**
@@ -125,8 +134,9 @@ La lista efectiva pasa a ser:
   - Cambia la firma: **dropear la versión vieja** explícitamente, o queda una sobrecarga viva (gotcha
     `create or replace` con firma nueva). Revisar que `registrar_vnp` (Farmacia) no se rompa.
   - Si viene, valida: `kind = 'retest'`; el origen es **de la misma inscripción**; el origen está
-    **atendido** (`real_date` no nula); y cada procedimiento del retest está **tildado en el origen**
-    (`visit_procedure_completions`). Cualquier falla, mensaje sereno.
+    **atendido** (`real_date` no nula); y cada procedimiento del retest está **hecho en el origen**
+    (decisión 9: tildado en `visit_procedure_completions`, o en la lista efectiva del origen y sin
+    `report_definitions` en el estudio). Cualquier falla, mensaje sereno.
   - Si no viene, se acepta como hoy (compatibilidad con el front desplegado). La regla «el retest cuelga
     de una visita» la pone el front nuevo, que siempre lo manda.
 
@@ -139,6 +149,11 @@ La lista efectiva pasa a ser:
 - **No borrar una visita con retests.** `guard_borrar_visita` (0144) suma el caso: la app no borra una
   visita de la que cuelga un retest («Esta visita tiene un retest. Borralo primero.»). `postgres` sigue
   pasando primero, como ahora.
+- **Editar un retest o una VNP no borra lo marcado.** `set_added_procedures` (0144) reemplaza lo agregado
+  a mano con la lista que manda la pantalla, y la pantalla lee la lista efectiva, que ya no trae lo
+  marcado: sin cuidado, guardar la edición borraría la fila del procedimiento marcado y dejaría la marca
+  colgando de algo que la visita ya no lleva. Se recrea conservando lo marcado, igual que ya conserva lo
+  diferido.
 - **Borrar una visita con marcas**: el `cascade` se lleva las marcas. No hace falta guarda: la marca no
   representa trabajo hecho.
 
@@ -161,8 +176,9 @@ cortos y sin tecnicismos; en la UI se dice **Coordinación**.
 
 ### 1. Al finalizar la atención
 
-- Al tocar **«Finalizar atención»**, si la visita tiene procedimientos en su lista efectiva **sin tildar**
-  (lo marcado ya no está en esa lista, así que no cuenta), antes de avanzar aparece un modal:
+- Al tocar **«Finalizar atención»**, si la visita tiene procedimientos **con reporte** en su lista
+  efectiva **sin tildar** (lo marcado ya no está en esa lista, así que no cuenta; los que no tienen
+  reporte se dan por hechos, decisión 9), antes de avanzar aparece un modal:
   - Título: **«Esta visita tiene procedimientos pendientes»**.
   - La lista como casillas, **sin preselección** (lo que se pasa se elige a propósito — regla vigente
     desde la 0144).
@@ -194,7 +210,7 @@ cortos y sin tecnicismos; en la UI se dice **Coordinación**.
 |---|---|---|---|
 | **Una visita del estudio** | Solo desde **Visitas** (la ficha ya tiene «Reprogramar») | Las **próximas ya agendadas** para otro día: `real_date` nula, sin ausencia, fecha posterior al día que se mira, ventana no vencida. Programadas y sueltas. «V4 · Juan Pérez · 2/10». | Se trae al día que se mira con `rescheduleVisit` (la de siempre, con su aviso si cae fuera de ventana). |
 | **Continuar pendientes** | Siempre que haya visitas con marcas | Las visitas con marcas: «V3 · Juan Pérez · 12/9 · Hematología, ECG». | Se ven sus procedimientos marcados, **todos preseleccionados**; se destilda lo que no se hace. Llama a `continuar_pendientes`. |
-| **Retest** | En cualquier etapa (como en la 0144) | Las visitas **atendidas** de los **últimos 60 días**, la más reciente primero. | Se ven solo los procedimientos **tildados** en esa visita, sin preselección, al menos uno. Llama a `register_visit_event` con `p_retest_of`. |
+| **Retest** | En cualquier etapa (como en la 0144) | Las visitas **atendidas** de los **últimos 60 días**, la más reciente primero. | Se ven solo los procedimientos **hechos** en esa visita (decisión 9: tildados, o sin reporte), sin preselección, al menos uno. Llama a `register_visit_event` con `p_retest_of`. |
 | **VNP** | Como hoy | — | Procedimientos del estudio, opcionales (sin cambios). |
 | Visitas libres del cuadro | Antes de randomizar, con cuadro (como hoy) | — | Sin cambios (`schedule_protocol_visit`). |
 
@@ -220,6 +236,9 @@ componente nuevo que lo envuelva; lo que **no** se hace es tener dos flujos que 
   **«Agendar»**, que abre el flujo con el paciente fijo y «Continuar pendientes» elegido sobre esa visita.
 - Tono **neutro**, sin umbral de vencimiento por ahora (lo que no se puede descartar no se olvida).
 - Respeta el alcance habitual de Pendientes (por protocolo / coordinación) y la RLS de la tabla.
+- **No lista inscripciones cerradas** (`inscripcionCerrada`): con el paciente fuera del estudio no hay
+  nada que retomar, y como la fila no se puede descartar quedaría para siempre. Mismo criterio que las
+  ventanas vencidas de inscripciones cerradas, que salen de la lista activa.
 
 ### 5. Títulos
 
@@ -227,8 +246,8 @@ componente nuevo que lo envuelva; lo que **no** se hace es tener dos flujos que 
   (compacto **«Retest V1»**), componiendo el título del origen con la misma regla, como «Continuación de
   V3».
 - Retest sin origen: «Retest», como hoy.
-- `v_track_visits` suma **al final** las columnas del origen del retest (`retest_of_code`,
-  `retest_of_name`, `retest_of_kind`), por la misma razón que las `origin_*` de la 0144: componer el
+- `v_track_visits` suma **al final** las columnas del origen del retest (`retest_of_visit_id`,
+  `retest_of_code`, `retest_of_name`, `retest_of_kind`), por la misma razón que las `origin_*` de la 0144: componer el
   título sin una segunda consulta. Lo heredan la ficha, la Agenda, el día, las alertas, las
   notificaciones, el CSV y Farmacia.
 
@@ -237,8 +256,10 @@ componente nuevo que lo envuelva; lo que **no** se hace es tener dos flujos que 
 Criterio del repo (`estados.test.ts`): se testea lo que falla **en silencio**.
 
 - **Vitest, reglas puras:**
-  - «hay pendientes al finalizar»: lista efectiva sin tildar, sin contar lo marcado;
-  - qué visitas ofrece el retest (atendidas, 60 días, orden) y qué procedimientos (solo tildados);
+  - «hay pendientes al finalizar»: lista efectiva con reporte y sin tildar, sin contar lo marcado; uno
+    sin reporte nunca dispara el aviso;
+  - qué visitas ofrece el retest (atendidas, 60 días, orden) y qué procedimientos (tildados o sin
+    reporte);
   - qué visitas lista «Una visita del estudio» (próximas, sin ausencia, sin ventana vencida, posteriores
     al día mirado);
   - el título «Retest de V1» y su compacto;
@@ -251,7 +272,7 @@ Criterio del repo (`estados.test.ts`): se testea lo que falla **en silencio**.
   - `continuar_pendientes` parcial: lo elegido pasa a la continuación y lo demás sigue marcado; rechaza
     un procedimiento no marcado;
   - `register_visit_event` con `p_retest_of`: rechaza otra inscripción, un origen sin atender y un
-    procedimiento no tildado en el origen; acepta el caso bueno;
+    procedimiento con reporte no tildado en el origen; acepta uno tildado y uno sin reporte;
   - la app no borra una visita con retest; `postgres` sí, y el retest queda con origen nulo.
 - **Sondas al final de la migración:** `reloptions` de las vistas recreadas, y que la versión vieja de
   `register_visit_event` ya no exista (una sola sobrecarga).
