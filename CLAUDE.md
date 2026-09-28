@@ -60,7 +60,7 @@ npm run build       # typecheck + tests + build de producción  ← el GATE de v
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
-   número. La última aplicada va por la `0145` (ver `supabase/README.md`).
+   número. La última aplicada va por la `0146` (ver `supabase/README.md`).
    **Y adentro de una función con `set search_path` acotado, calificá todo lo que no sea de
    `public` ni de `pg_catalog`.** `uuid_generate_v4()` (uuid-ossp) vive en el schema `extensions`
    en Supabase: sin calificar, la migración aplica **en verde** —plpgsql no resuelve las llamadas
@@ -265,6 +265,17 @@ RLS en todas las tablas + `audit_log` transversal (inmutable, recuperable) + ope
 privilegiadas (alta/borrado de paciente, generación de visitas/stock) vía funciones
 `SECURITY DEFINER`. El schema pasó dos rondas de revisión adversarial → ver
 `supabase/schema-review.md`. Track se aísla por protocolo; **Pharma es central** (ve todos).
+
+**Una policy pregunta los permisos una vez por consulta, no una vez por fila (0146).** `has_module()`,
+`has_min_role()`, `coordina_visita()` y compañía son `security definer` con `search_path` propio: Postgres
+no las expande en línea, y escritas pelado en una policy corren **por cada fila** y por cada tabla que
+cruza una vista `security_invoker`. Eso hacía tardar 1,1–2,6 s a Pendientes (96 ms sin RLS). Toda policy
+nueva va con esta forma: lo constante envuelto — `(select public.has_module('gerencia'))`,
+`(select auth.uid())`—; la coordinación como pertenencia — `visit_id in (select public.visitas_que_coordino())`,
+`protocol_id in (select public.protocolos_que_coordino())` (y `inscripciones_`/`pacientes_que_coordino`)—;
+y el alcance de Farmacia con su atajo afuera — `((select public.pharma_sin_recorte()) or
+public.pharma_alcanza_protocolo(protocol_id))`. Si una pantalla se siente lenta, compará el tiempo con
+sesión (red del navegador) contra `explain analyze` en el editor, que corre sin RLS: la diferencia es la RLS.
 
 ## Para orientarte
 
