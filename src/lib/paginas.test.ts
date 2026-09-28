@@ -33,6 +33,27 @@ function servidor(total: number, maxRows: number, { sinTotal = false, fallaDesde
 
 const desdes = (pedidos: Array<[number, number, boolean]>) => pedidos.map(([d]) => d)
 
+/*
+ * Como los builders de supabase-js: el pedido NO sale al llamar a `pedir`, sale cada vez que alguien
+ * llama a `.then` — y sale OTRA VEZ con cada `.then`. El servidor de arriba devuelve promesas comunes
+ * y por eso no vio el error de la #337: la página adelantada se esperaba dos veces (una para atajar su
+ * rechazo, otra para usarla) y en prod salía dos veces, la segunda DETRÁS de la primera página, que era
+ * justo lo que había que evitar (verificado con el `fetch` interceptado: tres pedidos, `offset=1000`
+ * repetido). Acá se cuentan las salidas reales a la red.
+ */
+function servidorPerezoso(total: number, maxRows: number) {
+  const filas = Array.from({ length: total }, (_, i) => i)
+  const salidas: number[] = []
+  const pedir = (desde: number, hasta: number, conTotal: boolean): PromiseLike<Pagina<number, string>> => ({
+    then(onOk, onError) {
+      salidas.push(desde)
+      const tope = Math.min(hasta + 1, desde + maxRows)
+      return Promise.resolve({ data: filas.slice(desde, tope), error: null, count: conTotal ? total : null }).then(onOk, onError)
+    },
+  })
+  return { filas, salidas, pedir }
+}
+
 describe('todasLasPaginas', () => {
   it('el caso real: 1.060 visitas con max-rows 1.000 → llegan las 1.060, en orden', async () => {
     const s = servidor(1060, 1000)
@@ -104,6 +125,20 @@ describe('todasLasPaginas', () => {
     const r = await todasLasPaginas(s.pedir)
     expect(r.data).toEqual(s.filas)
     expect(desdes(s.pedidos)).toEqual([0, 1000, 2000, 2100])
+  })
+
+  it('con pedidos perezosos (supabase-js), cada página sale a la red UNA sola vez', async () => {
+    const s = servidorPerezoso(1060, 1000)
+    const r = await todasLasPaginas(s.pedir)
+    expect(r.data).toEqual(s.filas)
+    expect(s.salidas).toEqual([0, 1000])
+  })
+
+  it('con pedidos perezosos y la adelantada descartada, tampoco se repite nada', async () => {
+    const s = servidorPerezoso(1060, 500)
+    const r = await todasLasPaginas(s.pedir)
+    expect(r.data).toEqual(s.filas)
+    expect(s.salidas).toEqual([0, 1000, 500, 1000])
   })
 
   it('sin total, si la segunda viene corta era la última: no pide otra', async () => {

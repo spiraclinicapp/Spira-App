@@ -43,10 +43,14 @@ export async function todasLasPaginas<T, E>(
   pedir: (desde: number, hasta: number, conTotal: boolean) => PromiseLike<Pagina<T, E>>,
   tamaño = 1000,
 ): Promise<{ data: T[] | null; error: E | null }> {
-  const pedidoPrimera = pedir(0, tamaño - 1, true)
-  const adelantada = pedir(tamaño, 2 * tamaño - 1, false)
+  /* `Promise.resolve` y no el pedido pelado: los builders de supabase-js son PEREZOSOS y salen a la red
+     con CADA `.then`. La #337 esperaba la adelantada dos veces —una para atajar su rechazo, otra para
+     usarla— y en prod salía dos veces, la segunda detrás de la primera página: tres pedidos y la misma
+     demora sumada que se venía a sacar. Envuelto, el pedido sale una sola vez y el resultado queda. */
+  const pedidoPrimera = Promise.resolve(pedir(0, tamaño - 1, true))
+  const adelantada = Promise.resolve(pedir(tamaño, 2 * tamaño - 1, false))
   // Si al final no se usa, que un rechazo suyo no quede sin atender.
-  adelantada.then(undefined, () => undefined)
+  adelantada.catch(() => undefined)
 
   const primera = await pedidoPrimera
   if (primera.error) return { data: null, error: primera.error }
