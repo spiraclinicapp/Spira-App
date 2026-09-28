@@ -119,4 +119,16 @@ describe('pendientesPorProtocolo', () => {
     expect(p.porEstado).toEqual([{ estado: 'ventana_vencida', n: 1 }])
     expect(p.peor).toBe('ventana_vencida')
   })
+
+  it('cuenta también lo que espera para otro día (v0145), en el total y aparte', () => {
+    const [f] = pendientesPorProtocolo([v('A', 'item_vencido')], [r('A')], [], [r('A'), r('A')])
+    expect(f.total).toBe(4)
+    expect(f.retomar).toBe(2)
+  })
+
+  it('un protocolo con sólo pendientes por retomar tiene tarjeta, detrás de los que tienen alertas', () => {
+    const filas = pendientesPorProtocolo([v('B', 'ventana_vencida')], [], [], [r('A')])
+    expect(filas.map((x) => x.code)).toEqual(['B', 'A'])
+    expect(filas[1].peor).toBeNull()
+  })
 })

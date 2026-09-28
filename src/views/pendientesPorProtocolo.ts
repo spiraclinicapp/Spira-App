@@ -7,8 +7,9 @@
  * POR QUÉ ES UNA FUNCIÓN PURA CON TEST y no un par de `filter` en el JSX: es aritmética que se lee
  * como verdad. Una tarjeta que dice "3" cuando hay 5 no rompe nada y nadie la va a contar a mano —
  * y lo que esconde es trabajo clínico. El modo de falla clásico acá es **olvidarse de una de las
- * dos listas**: la pantalla cruza alertas de visita con reportes pendientes, que vienen de consultas
- * distintas, y un conteo que sólo mire una se ve perfectamente normal.
+ * dos listas**: la pantalla cruza alertas de visita, reportes pendientes, IP sin entregar y
+ * procedimientos por retomar, que vienen de consultas distintas, y un conteo que sólo mire una se
+ * ve perfectamente normal.
  *
  * PIDE LO MÍNIMO DE CADA FILA, igual que las reglas de `ambito.ts` y `alertFilters.ts`: así las dos
  * listas —que NO comparten tipo— entran por la misma puerta sin escribir la función dos veces, y la
@@ -48,6 +49,8 @@ export interface PendientesDeProtocolo {
   reportes: number
   /** Cuántos IP sin entregar (0119). 0 = no se muestra. */
   ips: number
+  /** Cuántas visitas con procedimientos para otro día (v0145). 0 = no se muestra. */
+  retomar: number
   /** El estado más grave presente, o `null` si el protocolo sólo tiene reportes. Ordena y tiñe. */
   peor: VisitStatus | null
 }
@@ -71,12 +74,15 @@ export function pendientesPorProtocolo(
      Con default para que un llamador que no la pase siga contando igual, pero la pantalla la PASA:
      olvidarla es exactamente el modo de falla que describe el encabezado. */
   ips: readonly ReporteConProtocolo[] = [],
+  /* La cuarta lista (v0145): una fila por VISITA que dejó procedimientos para otro día. Misma forma
+     mínima. Con default, pero la pantalla la PASA: olvidarla es el modo de falla del encabezado. */
+  retomar: readonly ReporteConProtocolo[] = [],
 ): PendientesDeProtocolo[] {
-  const acc = new Map<string, { code: string; estados: Map<VisitStatus, number>; reportes: number; ips: number }>()
+  const acc = new Map<string, { code: string; estados: Map<VisitStatus, number>; reportes: number; ips: number; retomar: number }>()
   const entrada = (id: string, code: string) => {
     const previo = acc.get(id)
     if (previo) return previo
-    const nuevo = { code, estados: new Map<VisitStatus, number>(), reportes: 0, ips: 0 }
+    const nuevo = { code, estados: new Map<VisitStatus, number>(), reportes: 0, ips: 0, retomar: 0 }
     acc.set(id, nuevo)
     return nuevo
   }
@@ -87,6 +93,7 @@ export function pendientesPorProtocolo(
   }
   for (const r of reportes) entrada(r.protocol_id, r.protocol_code).reportes += 1
   for (const r of ips) entrada(r.protocol_id, r.protocol_code).ips += 1
+  for (const r of retomar) entrada(r.protocol_id, r.protocol_code).retomar += 1
 
   const filas: PendientesDeProtocolo[] = [...acc.entries()].map(([protocolId, e]) => {
     /* El desglose sale EN EL ORDEN DE `GRAVEDAD` y no en el de aparición: si la tarjeta listara los
@@ -98,10 +105,11 @@ export function pendientesPorProtocolo(
     return {
       protocolId,
       code: e.code,
-      total: visitas + e.reportes + e.ips,
+      total: visitas + e.reportes + e.ips + e.retomar,
       porEstado,
       reportes: e.reportes,
       ips: e.ips,
+      retomar: e.retomar,
       peor: porEstado[0]?.estado ?? null,
     }
   })
