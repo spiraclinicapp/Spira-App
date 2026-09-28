@@ -186,18 +186,25 @@ cortos y sin tecnicismos; en la UI se dice **Coordinación**.
 
 - Al tocar **«Finalizar atención»**, si la visita tiene procedimientos **con reporte** en su lista
   efectiva **sin tildar** (lo marcado ya no está en esa lista, así que no cuenta; los que no tienen
-  reporte se dan por hechos, decisión 9), antes de avanzar aparece un modal:
-  - Título: **«Esta visita tiene procedimientos pendientes»**.
-  - La lista como casillas, **sin preselección** (lo que se pasa se elige a propósito — regla vigente
-    desde la 0144).
-  - **«Finalizar y dejar para otro día»** (deshabilitado sin nada elegido): llama a `dejar_pendientes` y
-    después avanza.
-  - **«Finalizar sin pasarlos»**: avanza como hoy.
+  reporte se dan por hechos, decisión 9), antes de avanzar aparece un modal. **Se tilda lo que SE HIZO,
+  no lo que queda** (corrección del Director sobre el mock, 2026-09-27: «vos marcás los que sí hiciste y
+  si le das a continuar avisa que estos van a quedar pendientes»):
+  - **Paso 1 — «¿Qué se hizo?»** Título «Esta visita tiene procedimientos sin marcar». La lista como
+    casillas, **sin preselección**: se tilda lo que se hizo. Tildar acá es lo mismo que tildarlo en la
+    visita (`visit_procedure_completions`, arranca el plazo del reporte). Botón **«Continuar»**.
+  - Si quedó todo tildado, «Continuar» tilda y finaliza directo.
+  - **Paso 2 — el aviso**, sólo si quedó algo sin tildar: «Estos procedimientos van a quedar pendientes
+    para otro día» con la lista, y **«Volver»** / **«Finalizar»**. «Finalizar» tilda lo elegido, llama a
+    `dejar_pendientes` con el resto y después avanza.
+  - **No hay «Finalizar sin pasarlos»**: lo que no se hizo queda pendiente. Si un procedimiento no se va
+    a hacer nunca, eso es una desviación o un cambio del cronograma, no una salida de este modal.
+  - Cerrar el modal (Esc, ✕) cancela: no se tilda, no se marca y no se finaliza.
 - Sin pendientes, no aparece nada y se finaliza como hoy.
 - Se intercepta en **los dos lugares** desde donde se finaliza: la fila de Visitas (`DayVisitsView` →
   `advance`) y el detalle (`VisitDetail`, que ya tiene su `ConfirmarAvance`). La regla «hay pendientes»
   es una función pura compartida, no una condición copiada en dos lados.
-- Si `dejar_pendientes` falla, **no se avanza**: se muestra el error y la visita queda en atención.
+- Si un tilde o `dejar_pendientes` falla, **no se avanza**: se muestra el error y la visita queda en
+  atención. Reintentar no vuelve a tildar lo que ya se tildó.
 
 ### 2. La visita de origen, con marcas
 
@@ -290,8 +297,9 @@ Criterio del repo (`estados.test.ts`): se testea lo que falla **en silencio**.
 
 ## Fuera de alcance
 
-- Lo que se **«finaliza sin pasar»** se comporta como hoy: si tiene reporte, la visita queda «realizada
-  con pendientes». Resolver eso es otra conversación.
+- Un procedimiento que **no se va a hacer nunca** (ni hoy ni otro día): desde el aviso al finalizar
+  queda pendiente, y sale con «Se hace hoy» + tilde o documentándolo por otra vía. Una salida propia
+  («no corresponde») es otra conversación.
 - Umbral de vencimiento o color de alerta para lo que espera.
 - Retomar pendientes **dentro de una visita que ya existe** (la V4): sigue fuera, como en la 0144.
 - Dar origen a los retests viejos.

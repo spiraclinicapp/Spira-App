@@ -1151,7 +1151,7 @@ De acá en adelante, `$REPO` es este worktree: `export REPO="$(git rev-parse --s
 
 Un HTML estático, autocontenido, con los tokens de `src/styles/tokens.css` copiados en `:root` (petróleo + papel cálido, Inter), al estilo de `docs/mock-visitas-continuacion.html` (abrilo y seguí su estructura). Cuatro pantallas, una debajo de la otra, cada una con su rótulo:
 
-1. **Al finalizar** — el modal «Esta visita tiene procedimientos pendientes», subtítulo «Elegí los que quedan para otro día. Los vas a encontrar en Pendientes.», dos casillas sin tildar (Laboratorio, Hemograma) y los botones «Finalizar sin pasarlos» (contorno) y «Finalizar y dejar para otro día» (primario, deshabilitado sin nada elegido).
+1. **Al finalizar** — el modal en sus dos pasos. Paso 1: «Esta visita tiene procedimientos sin marcar», subtítulo «Marcá los que se hicieron. Lo que no marques queda para otro día.», «¿Qué se hizo?» con dos casillas (Laboratorio tildado, Hemograma sin tildar) y los botones «Cancelar» (contorno) y «Continuar» (primario). Paso 2: «Van a quedar pendientes», subtítulo «Estos procedimientos quedan para otro día. Los vas a encontrar en Pendientes.», la lista (Hemograma) y los botones «Volver» / «Finalizar». Se tilda lo que SE HIZO (corrección del Director, 2026-09-27).
 2. **La V3 con marcas** — el pie del panel «Resumen de la visita»: la caja «Queda para otro día · 2 procedimientos», un renglón por procedimiento con el botón chico «Se hace hoy», y abajo los botones «Dejar para otro día» y (si es suelta) «Editar procedimientos».
 3. **Agregar visita (desde Visitas)** — modal con «Estudio», «¿Qué vas a hacer?» (desplegable abierto mostrando «Una visita del estudio (3)», «Continuar pendientes (2)», «Retest», «VNP»), y el caso «Continuar pendientes» elegido: el desplegable de la visita («V3 W4 · Juan Pérez · 12/9 · Hematología, ECG») y las casillas preseleccionadas. Botones «Cancelar» / «Agendar».
 4. **Pendientes** — una fila de «Procedimientos por retomar» (tono neutro, ícono de reloj): nombre + IVRS + protocolo, la sublínea «V3 W4 · 12/9 · Hematología, ECG · espera hace 5 d» y el botón con nombre «Agendar» abajo a la derecha.
@@ -1929,7 +1929,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `src/views/track/VisitDetail.tsx:207-249` (`ejecutar`) y el render
 
 **Interfaces:**
-- Consumes: `fetchVisitProcedureStatus` (Tarea 8), `dejarPendientes` (Tarea 8), `pendientesAlFinalizar`, `ProcedimientoElegible` (Tarea 9).
+- Consumes: `fetchVisitProcedureStatus` y `toggleVisitProcedure` (`src/data/procedures.ts`, Tarea 8), `dejarPendientes` (Tarea 8), `pendientesAlFinalizar`, `ProcedimientoElegible` (Tarea 9).
 - Produces:
   - `CasillasDeProcedimientos({ items, elegidos, onChange, accent }: { items: readonly ProcedimientoElegible[]; elegidos: ReadonlySet<string>; onChange: (next: Set<string>) => void; accent: string })`
   - `useAvisoAlFinalizar(accent: string): { pedir: (visit: { id: string; protocol_id: string }, seguir: () => Promise<void> | void) => Promise<void>; modal: ReactNode }` — `pedir` resuelve cuando el flujo TERMINA (se finalizó o se canceló), no cuando se abre el modal.
@@ -1973,6 +1973,8 @@ export function CasillasDeProcedimientos({ items, elegidos, onChange, accent }: 
 
 - [ ] **Paso 2: El modal del aviso**
 
+Se tilda lo que **se hizo**, no lo que queda (corrección del Director sobre el mock, 2026-09-27). Dos pasos: «¿Qué se hizo?» y, si quedó algo sin tildar, el aviso de lo que va a quedar pendiente. Sin «Finalizar sin pasarlos».
+
 Crear `src/views/track/AvisoPendientesModal.tsx`:
 
 ```tsx
@@ -1984,56 +1986,84 @@ import { CasillasDeProcedimientos } from './CasillasDeProcedimientos'
 import type { ProcedimientoElegible } from './retomar'
 
 /**
- * El aviso al tocar «Finalizar atención» con procedimientos que dejan reporte sin tildar (vNNNN).
- * Sin preselección: lo que queda para otro día se elige a propósito (regla vigente desde la 0144).
- * «Finalizar sin pasarlos» finaliza como antes: lo que no se pasa se comporta como hoy.
- * Mientras guarda no se cierra: un Esc a mitad de camino dejaría la marca puesta sin finalizar.
+ * El aviso al tocar «Finalizar atención» con procedimientos que dejan reporte sin tildar (v0145).
+ *
+ * SE TILDA LO QUE SE HIZO, no lo que queda (Director, 2026-09-27: «vos marcás los que sí hiciste y
+ * si le das a continuar avisa que estos van a quedar pendientes»). Es la misma pregunta que ya hace
+ * la visita —¿qué se hizo?—, así que tildar acá es tildar de verdad: arranca el plazo del reporte.
+ * Lo que queda sin tildar pasa a «para otro día», con un segundo paso que lo nombra antes de
+ * finalizar: marcar algo como pendiente sin decirlo sería la postergación silenciosa que esto viene
+ * a evitar. No hay «finalizar sin pasarlos»: lo que no se hizo, queda.
+ *
+ * Mientras guarda no se cierra: un Esc a mitad de camino dejaría tildes o marcas puestas sin
+ * finalizar. Cerrar antes de «Finalizar» cancela todo: no se tilda ni se marca nada.
  */
-export function AvisoPendientesModal({ pendientes, accent, onDejarYFinalizar, onFinalizarSinPasar, onClose }: {
+export function AvisoPendientesModal({ pendientes, accent, onFinalizar, onClose }: {
   pendientes: readonly ProcedimientoElegible[]
   accent: string
-  /** Devuelve el error a mostrar, o `null` si salió bien. */
-  onDejarYFinalizar: (procedureIds: string[]) => Promise<string | null>
-  onFinalizarSinPasar: () => Promise<void>
+  /** Tilda `hechos`, deja el resto para otro día y finaliza. Devuelve el error a mostrar, o `null`. */
+  onFinalizar: (hechos: string[]) => Promise<string | null>
   onClose: () => void
 }) {
-  const [elegidos, setElegidos] = useState<Set<string>>(new Set())
+  const [hechos, setHechos] = useState<Set<string>>(new Set())
+  const [paso, setPaso] = useState<'hechos' | 'aviso'>('hechos')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const dejar = async () => {
-    if (elegidos.size === 0) return
+  const quedan = pendientes.filter((p) => !hechos.has(p.procedure_id))
+
+  const finalizar = async () => {
     setBusy(true); setError(null)
-    const e = await onDejarYFinalizar([...elegidos])
+    const e = await onFinalizar([...hechos])
     setBusy(false)
     if (e) setError(e)
   }
-  const sinPasar = async () => { setBusy(true); await onFinalizarSinPasar(); setBusy(false) }
+  const continuar = () => {
+    if (quedan.length === 0) { void finalizar(); return }
+    setPaso('aviso')
+  }
+
+  const errorBox = error && (
+    <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
+  )
+  const primario = { ...btnPrimary(accent), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }
 
   return (
     <Modal
-      title="Esta visita tiene procedimientos pendientes"
-      subtitle="Elegí los que quedan para otro día. Los vas a encontrar en Pendientes."
+      title={paso === 'hechos' ? 'Esta visita tiene procedimientos sin marcar' : 'Van a quedar pendientes'}
+      subtitle={paso === 'hechos'
+        ? 'Marcá los que se hicieron. Lo que no marques queda para otro día.'
+        : 'Estos procedimientos quedan para otro día. Los vas a encontrar en Pendientes.'}
       onClose={busy ? () => {} : onClose}
       maxWidth={480}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <FormField label="¿Qué queda para otro día?">
-          <CasillasDeProcedimientos items={pendientes} elegidos={elegidos} onChange={setElegidos} accent={accent} />
-        </FormField>
-        {error && (
-          <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
+        {paso === 'hechos' ? (
+          <FormField label="¿Qué se hizo?">
+            <CasillasDeProcedimientos items={pendientes} elegidos={hechos} onChange={setHechos} accent={accent} />
+          </FormField>
+        ) : (
+          <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13.5, color: 'var(--spira-ink)' }}>
+            {quedan.map((p) => <li key={p.procedure_id}>{p.name}</li>)}
+          </ul>
         )}
+        {errorBox}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" onClick={sinPasar} disabled={busy} style={btnOutline}>Finalizar sin pasarlos</button>
-          <button
-            type="button"
-            onClick={dejar}
-            disabled={busy || elegidos.size === 0}
-            style={{ ...btnPrimary(accent), opacity: busy || elegidos.size === 0 ? 0.6 : 1, cursor: busy || elegidos.size === 0 ? 'default' : 'pointer' }}
-          >
-            {busy ? 'Guardando…' : 'Finalizar y dejar para otro día'}
-          </button>
+          {paso === 'hechos' ? (
+            <>
+              <button type="button" onClick={onClose} disabled={busy} style={btnOutline}>Cancelar</button>
+              <button type="button" onClick={continuar} disabled={busy} style={primario}>
+                {busy ? 'Guardando…' : 'Continuar'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={() => { setPaso('hechos'); setError(null) }} disabled={busy} style={btnOutline}>Volver</button>
+              <button type="button" onClick={() => void finalizar()} disabled={busy} style={primario}>
+                {busy ? 'Guardando…' : 'Finalizar'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </Modal>
@@ -2046,9 +2076,9 @@ export function AvisoPendientesModal({ pendientes, accent, onDejarYFinalizar, on
 Crear `src/views/track/useAvisoAlFinalizar.tsx`:
 
 ```tsx
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { fetchVisitProcedureStatus } from '../../data/procedures'
+import { fetchVisitProcedureStatus, toggleVisitProcedure } from '../../data/procedures'
 import { dejarPendientes } from '../../data/pendientes'
 import { pendientesAlFinalizar } from './retomar'
 import type { ProcedimientoElegible } from './retomar'
@@ -2063,7 +2093,7 @@ interface Aviso {
 }
 
 /**
- * El aviso al finalizar (vNNNN), para los DOS lugares desde donde se finaliza: la fila de Visitas y
+ * El aviso al finalizar (v0145), para los DOS lugares desde donde se finaliza: la fila de Visitas y
  * el detalle de la visita. La regla de «hay pendientes» es una sola (`pendientesAlFinalizar`); acá
  * sólo se decide cuándo preguntar y qué hacer con la respuesta.
  *
@@ -2071,20 +2101,26 @@ interface Aviso {
  * de la visita) refresca al volver, y si volviera antes de que la persona elija, refrescaría una
  * visita que todavía no se finalizó.
  *
- * Si la lectura falla, FINALIZA igual (falla abierta). El aviso es una ayuda, no una guarda: frenar
- * el cierre de la atención porque no se pudo leer la lista cortaría el recorrido del día, y el
- * servidor sigue siendo el que decide qué se puede marcar.
+ * El orden al finalizar es tildes → marcas → avance, y cada paso corta si falla: no se finaliza con
+ * algo a medio guardar. Reintentar no vuelve a tildar lo ya tildado (`yaTildados`), que el servidor
+ * rechazaría como duplicado.
+ *
+ * Si la lectura inicial falla, FINALIZA igual (falla abierta). El aviso es una ayuda, no una guarda:
+ * frenar el cierre de la atención porque no se pudo leer la lista cortaría el recorrido del día.
  */
 export function useAvisoAlFinalizar(accent: string): {
   pedir: (visit: { id: string; protocol_id: string }, seguir: () => Promise<void> | void) => Promise<void>
   modal: ReactNode
 } {
   const [aviso, setAviso] = useState<Aviso | null>(null)
+  /** Lo tildado desde este aviso, por si un paso posterior falla y se reintenta. */
+  const yaTildados = useRef<Set<string>>(new Set())
 
   const pedir = async (visit: { id: string; protocol_id: string }, seguir: () => Promise<void> | void) => {
     const r = await fetchVisitProcedureStatus(visit.id, visit.protocol_id)
     const pendientes = r.data ? pendientesAlFinalizar(r.data) : []
     if (pendientes.length === 0) { await seguir(); return }
+    yaTildados.current = new Set()
     await new Promise<void>((resolve) => setAviso({ visitId: visit.id, pendientes, seguir, terminar: resolve }))
   }
 
@@ -2092,18 +2128,22 @@ export function useAvisoAlFinalizar(accent: string): {
     <AvisoPendientesModal
       pendientes={aviso.pendientes}
       accent={accent}
-      onDejarYFinalizar={async (ids) => {
-        const res = await dejarPendientes(aviso.visitId, ids)
-        if (res.error) return res.error
+      onFinalizar={async (hechos) => {
+        for (const id of hechos) {
+          if (yaTildados.current.has(id)) continue
+          const t = await toggleVisitProcedure(aviso.visitId, id, true)
+          if (t.error) return t.error
+          yaTildados.current.add(id)
+        }
+        const quedan = aviso.pendientes.map((p) => p.procedure_id).filter((id) => !hechos.includes(id))
+        if (quedan.length > 0) {
+          const res = await dejarPendientes(aviso.visitId, quedan)
+          if (res.error) return res.error
+        }
         setAviso(null)
         await aviso.seguir()
         aviso.terminar()
         return null
-      }}
-      onFinalizarSinPasar={async () => {
-        setAviso(null)
-        await aviso.seguir()
-        aviso.terminar()
       }}
       onClose={() => { setAviso(null); aviso.terminar() }}
     />
@@ -2112,6 +2152,8 @@ export function useAvisoAlFinalizar(accent: string): {
   return { pedir, modal }
 }
 ```
+
+Ojo con un caso: si se reintenta después de que `dejarPendientes` falló, y en el medio la persona **destildó** en el paso 1 algo que ya se había tildado, ese tilde queda puesto (el aviso no destilda). Es aceptable —se ve en la visita y se destilda ahí—, pero dejalo dicho en una línea del comentario de `yaTildados`.
 
 - [ ] **Paso 4: En Visitas**
 
@@ -3403,7 +3445,7 @@ Sólo con la migración **aplicada**. Desde el worktree, verificá que el previe
 
 Antes de empezar, anotá qué hay en TEST-001 (visitas, procedimientos del estudio): al final se deja igual. Si TEST-QA no tiene procedimientos con reporte, agregá temporalmente uno con reporte y uno sin reporte (como en el QA de la 0144) y sacalos al final.
 
-1. **Aviso al finalizar.** Una visita de TEST-001 hoy, con un procedimiento con reporte sin tildar y otro sin reporte. «Finalizar atención» desde la fila de Visitas → aparece el modal y lista **sólo** el que tiene reporte. «Finalizar y dejar para otro día» con él tildado → la visita pasa a fin de atención y queda **completa** (no «realizada»). Repetí desde el detalle abierto desde la ficha (sin `onAdvance`). Y una visita sin nada pendiente → finaliza sin modal.
+1. **Aviso al finalizar.** Una visita de TEST-001 hoy, con un procedimiento con reporte sin tildar y otro sin reporte. «Finalizar atención» desde la fila de Visitas → aparece el modal y lista **sólo** el que tiene reporte. Sin tildarlo, «Continuar» → el aviso «Van a quedar pendientes» lo nombra → «Finalizar» → la visita pasa a fin de atención y queda **completa** (no «realizada»), con el procedimiento marcado. Con dos con reporte: tildar uno → queda tildado de verdad (su reporte arranca) y sólo el otro queda para otro día. Tildar todos → «Continuar» finaliza directo, sin segundo paso. «Cancelar» → no se tilda, no se marca, no se finaliza. Repetí desde el detalle abierto desde la ficha (sin `onAdvance`). Y una visita sin nada pendiente → finaliza sin modal.
 2. **La visita con marcas.** En su detalle: la caja «Queda para otro día · 1 procedimiento» con «Se hace hoy». Apretalo → vuelve a la lista y se puede tildar. Volvé a dejarlo con el botón «Dejar para otro día» (sin fecha).
 3. **Pendientes.** La fila en «Procedimientos por retomar»; el filtro Estado «Por retomar» la deja sola; el filtro de protocolo la alcanza; la tarjeta de TEST-QA (si hay más de un protocolo con pendientes) dice «Por retomar 1». «Agendar» abre el flujo en «Continuar pendientes» con la visita elegida y la fecha editable.
 4. **Continuar una parte.** Con dos marcados, retomá uno para mañana → la continuación aparece como «Continuación de …» con ese procedimiento; el otro sigue en Pendientes.
@@ -3420,5 +3462,5 @@ Push y PR por la API REST, base `main` (si partiste de la rama de la PR A, reapu
 ## Fuera de este plan (anotar en `TODOS.md` si no está)
 
 - La campana de notificaciones y los conteos de Inicio no cuentan los procedimientos por retomar: sólo Pendientes (spec §4). Si el Director los quiere ahí, es un cambio aparte.
-- «Finalizar sin pasarlos» se comporta como hoy: si lo no hecho tiene reporte, la visita queda «realizada con pendientes».
+- Un procedimiento que no se va a hacer nunca no tiene salida propia en el aviso al finalizar: queda pendiente (spec, «Fuera de alcance»).
 - Gerencia sin rol de Coordinación no ve el botón «Agregar visita» (la regla del front es `canClinical`); el servidor sí la dejaría.
