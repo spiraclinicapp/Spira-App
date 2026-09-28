@@ -208,8 +208,14 @@ cortos y sin tecnicismos; en la UI se dice **Coordinación**.
 
 ### 2. La visita de origen, con marcas
 
-- En `VisitProcedures`, lo marcado se ve **en gris**, con **«Queda para otro día»**, no se puede tildar y
-  tiene un botón chico **«Se hace hoy»** que llama a `quitar_pendiente`.
+- En el pie del «Resumen de la visita», lo marcado va en un bloque **«Queda para otro día»** con el
+  mismo lenguaje visual del panel «Reportes pendientes» (Director sobre el mock, 2026-09-27: «un poco más
+  alerta o llamativo, pero sin irse al carajo»): cabecera con el número en tono de aviso y un renglón por
+  procedimiento con su **casilla vacía**. Sin bloque teñido fuerte ni borde de color.
+- **Tildar una casilla abre «¿Qué se hizo hoy?»**: los pendientes de la visita como casillas, con el
+  tocado ya tildado, y **«Cancelar»** / **«Se hizo hoy»**. Confirmar **saca la marca y lo tilda** en esa
+  visita (`quitar_pendiente` y después el tilde: la guarda no deja tildar lo marcado). Es la misma pregunta
+  del aviso al finalizar. Reemplaza al botón «Se hace hoy» del primer mock, que sólo sacaba la marca.
 - El botón del Resumen **«Pasar pendientes a otro día»** pasa a ser **«Dejar para otro día»**: mismas
   casillas sin preselección, **sin fecha**, llama a `dejar_pendientes`. Sirve también antes de la visita
   («ya se sabe que va en dos días»).
@@ -236,11 +242,23 @@ cortos y sin tecnicismos; en la UI se dice **Coordinación**.
   identidad primaria + IVRS en mono, regla de identidad; el IVRS es el de esa inscripción).
 - VNP desde Visitas pide además el paciente.
 
-**Desde la ficha** (`PatientFichaView`): el mismo componente, con paciente e inscripción ya fijos y la
-fecha **editable** (para dejarlo agendado a futuro: «el jueves vuelve a completar»).
+**Desde la ficha** (`PatientFichaView`): **el mismo modal**, con el mismo paso «¿Qué vas a hacer?» y las
+mismas listas para elegir (decisión del Director, 2026-09-27: «igual que en Visitas»). Cambia sólo lo
+que el contexto ya fija:
+- el paciente y la inscripción vienen dados (no hay paso de estudio ni de paciente);
+- la fecha es **editable**, para dejarlo agendado a futuro («el jueves vuelve a completar»);
+- las opciones son las del paciente: las **visitas libres del cuadro** (antes de randomizar, con cuadro)
+  y los tipos sueltos del protocolo legacy, como hoy; **Continuar pendientes** con lo suyo; **Retest**
+  de sus visitas; **VNP**. Sin «Una visita del estudio»: en la ficha ya está «Reprogramar».
 
-`RegisterVisitFlow` hoy es un selector único de tipo. El plan decide si se extiende o si se arma un
-componente nuevo que lo envuelva; lo que **no** se hace es tener dos flujos que diverjan.
+El modal **reemplaza** a `RegisterVisitFlow` en todos sus usos (la ficha, el «recitar» de la
+randomización, el «Agendar» de Pendientes): un solo flujo, sin dos versiones que diverjan.
+
+**En la ficha, un bloque «Queda para otro día»** con lo que ESE paciente tiene esperando en esta
+inscripción (decisión del Director, 2026-09-27): una fila por visita —título, fecha, procedimientos,
+«espera hace N d»— con el mismo lenguaje del panel «Reportes pendientes» y el botón con nombre
+**«Agendar»**, que abre el modal en «Continuar pendientes» sobre esa visita. Sin nada esperando, el
+bloque no se dibuja.
 
 ### 4. Pendientes: «Procedimientos por retomar»
 
