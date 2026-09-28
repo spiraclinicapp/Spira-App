@@ -16,7 +16,10 @@ import { useDiferidosDeVisita } from '../../data/continuaciones'
 import { agruparDiferidos, diferibles } from './continuacion'
 import type { DestinoDeDiferidos } from './continuacion'
 import { DesdoblamientoVisita } from './DesdoblamientoVisita'
-import { PasarPendientesModal } from './PasarPendientesModal'
+import { DejarParaOtroDiaModal } from './DejarParaOtroDiaModal'
+import { QuedaParaOtroDia } from './QuedaParaOtroDia'
+import { QueSeHizoHoyModal } from './QueSeHizoHoyModal'
+import { useMarcadosDeVisita } from '../../data/pendientes'
 import { EditarProcedimientosModal } from './EditarProcedimientosModal'
 import { DeshacerContinuacionModal } from './DeshacerContinuacionModal'
 
@@ -57,15 +60,16 @@ function settled(
  * El panel de Procedimientos que vivía acá —con los 10 procedimientos del cuadro y la fila del
  * producto en investigación— se retiró: lo que la visita lleva se lee ahora en el resumen, y las
  * salidas del IP se mudaron a la sección «Producto en investigación» de Dispensación.
+ *
+ * Desde la 0145, entre los dos, un tercero: «Queda para otro día» (`QuedaParaOtroDia`), con lo que
+ * la visita dejó para otro día — que la lista efectiva ya no trae y por eso no está en ningún otro.
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-export function VisitProcedures({ visitId, visitDefId, visitKind, fechaVisita, originVisitId, protocolId, accent, readOnly, onAbrirVisita, onCambio, refrescarCuando }: {
+export function VisitProcedures({ visitId, visitDefId, visitKind, originVisitId, protocolId, accent, readOnly, onAbrirVisita, onCambio, refrescarCuando }: {
   visitId: string
   visitDefId: string | null
   /** Tipo de la visita: el retest no se puede quedar sin procedimientos. */
   visitKind: VisitKind
-  /** `real_date ?? estimated_date`: la continuación arranca propuesta para el día siguiente. */
-  fechaVisita: string | null
   /** Si es una continuación, la visita de la que viene (`origin_visit_id`, v0144). */
   originVisitId: string | null
   /** El estudio: sin él no se sabe si un procedimiento lleva sangre (es por estudio, 0134). */
@@ -101,6 +105,12 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, fechaVisita, o
   const [modal, setModal] = useState<'pasar' | 'editar' | null>(null)
   const [deshacer, setDeshacer] = useState<DestinoDeDiferidos | null>(null)
 
+  /* Lo que esta visita dejó para otro día (v0145). Ya no está en la lista efectiva (`items`): la
+     vista lo resta, y por eso tampoco aparece en «Reportes pendientes». Se lee aparte para su panel.
+     `queSeHizo` = la casilla que se tocó ahí; abre «¿Qué se hizo hoy?» con ella tildada. */
+  const marcados = useMarcadosDeVisita(visitId)
+  const [queSeHizo, setQueSeHizo] = useState<string | null>(null)
+
   // Reconciliación del optimismo: la marca local se suelta cuando el dato fresco YA dice lo mismo,
   // no apenas responde el RPC. `refetch()` solo bumpea un nonce (la consulta llega uno o dos renders
   // después, y `useSupabaseQuery` mantiene las filas viejas mientras tanto), así que limpiarla en el
@@ -123,6 +133,7 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, fechaVisita, o
       reportes.refetch()
       ipQ.refetch()
       diferidos.refetch()
+      marcados.refetch()
     }
     window.addEventListener('focus', refrescar)
     document.addEventListener('visibilitychange', refrescar)
@@ -130,7 +141,7 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, fechaVisita, o
       window.removeEventListener('focus', refrescar)
       document.removeEventListener('visibilitychange', refrescar)
     }
-  }, [refetch, reportes.refetch, ipQ.refetch, diferidos.refetch])
+  }, [refetch, reportes.refetch, ipQ.refetch, diferidos.refetch, marcados.refetch])
 
   /* Cuando cierra o cambia la visita APILADA encima (ver `refrescarCuando` en el padre): se releen
      procedimientos, reportes y diferidos, igual que `alCambiar` (sin `onCambio`, que es lo que el
@@ -142,6 +153,7 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, fechaVisita, o
     refetch()
     reportes.refetch()
     diferidos.refetch()
+    marcados.refetch()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refrescarCuando])
 
@@ -214,6 +226,7 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, fechaVisita, o
     refetch()
     reportes.refetch()
     diferidos.refetch()
+    marcados.refetch()
     onCambio?.()
   }
 
@@ -281,6 +294,13 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, fechaVisita, o
           />
         }
       />
+      <QuedaParaOtroDia
+        marcados={marcados.data ?? []}
+        error={marcados.error}
+        accent={accent}
+        readOnly={readOnly}
+        onTildar={setQueSeHizo}
+      />
       <ReportesPendientes
         estado={estadoPanelReportes({ loading: reportes.loading, error: reportes.error, rows: conReportes })}
         error={reportes.error}
@@ -295,9 +315,8 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, fechaVisita, o
         onStage={(r, s) => void moverReporte(r, s)}
       />
       {modal === 'pasar' && (
-        <PasarPendientesModal
+        <DejarParaOtroDiaModal
           visitId={visitId}
-          fechaVisita={fechaVisita}
           pendientes={pendientes}
           accent={accent}
           onClose={() => setModal(null)}
@@ -322,6 +341,18 @@ export function VisitProcedures({ visitId, visitDefId, visitKind, fechaVisita, o
           accent={accent}
           onClose={() => setDeshacer(null)}
           onDone={() => { setDeshacer(null); alCambiar() }}
+        />
+      )}
+      {queSeHizo && (
+        <QueSeHizoHoyModal
+          visitId={visitId}
+          marcados={marcados.data ?? []}
+          inicial={queSeHizo}
+          accent={accent}
+          /* Cerrar también relee: un intento que falló a mitad de camino pudo haber sacado una marca
+             antes del error, y la visita tiene que mostrarlo. Releer sin cambios no cuesta nada. */
+          onClose={() => { setQueSeHizo(null); alCambiar() }}
+          onDone={() => { setQueSeHizo(null); alCambiar() }}
         />
       )}
     </>
