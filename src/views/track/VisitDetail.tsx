@@ -20,6 +20,7 @@ import { diaDeLaVisita } from './visitHeaderRules'
 import { VisitActionBar } from './VisitActionBar'
 import { DoctorRequestModal } from './DoctorRequestModal'
 import { modalesAbiertos } from '../../components/Modal'
+import { useAvisoAlFinalizar } from './useAvisoAlFinalizar'
 
 /**
  * Detalle de una visita (rediseño del encabezado, handoff `docs/handoff-visitas-encabezado/`). El
@@ -138,6 +139,7 @@ export function VisitDetail({
    * la visita de arriba hasta recargar la página.
    */
   const [versionProcedimientos, setVersionProcedimientos] = useState(0)
+  const aviso = useAvisoAlFinalizar(accent)
   /* Los `Modal` que ya estaban abiertos cuando se montó esta visita (si se abrió desde uno). El Esc
      es nuestro sólo si no se abrió ninguno más encima: un modal hijo lo consume y la visita queda. */
   const modalesAlMontar = useRef(modalesAbiertos())
@@ -210,7 +212,7 @@ export function VisitDetail({
    * habilitado y no pasaba nada al apretarlo). Si el padre lo pasa, sigue mandando él: mantiene sus
    * avisos en la lista y su propio cierre clínico.
    */
-  const ejecutar = async (next: OperationalStage) => {
+  const avanzarAhora = async (next: OperationalStage) => {
     if (!visit) return
     setBusy(true); setErr(null)
 
@@ -246,6 +248,22 @@ export function VisitDetail({
     setBusy(false); setConfirmando(null)
     if (res.error) { setErr(res.error); return }
     refrescar()
+  }
+
+  /**
+   * Finalizar pasa antes por el aviso de pendientes (v0145). Si el padre pasó `onAdvance` (Visitas),
+   * el aviso lo pone ÉL —ya lo hace en su `advance`— y acá no se pregunta dos veces.
+   */
+  const ejecutar = async (next: OperationalStage) => {
+    if (!visit) return
+    if (next === 'fin_atencion' && !onAdvance) {
+      setConfirmando(null)
+      setBusy(true)
+      await aviso.pedir(visit, () => avanzarAhora(next))
+      setBusy(false)
+      return
+    }
+    await avanzarAhora(next)
   }
 
   return (
@@ -379,6 +397,8 @@ export function VisitDetail({
         onConfirmar={() => ejecutar(confirmando)}
       />
     )}
+
+    {aviso.modal}
 
     {outcomeFor && (outcomeFor.role === 'screening' || outcomeFor.role === 'randomizacion') && (
       <ReadyOutcomeModal

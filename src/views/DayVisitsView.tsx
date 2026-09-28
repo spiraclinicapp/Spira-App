@@ -31,6 +31,7 @@ import { RescheduleModal } from './track/RescheduleModal'
 import { ReadyOutcomeModal } from './track/ReadyOutcomeModal'
 import { RegisterVisitFlow } from './track/RegisterVisitFlow'
 import { DoctorRequestModal } from './track/DoctorRequestModal'
+import { useAvisoAlFinalizar } from './track/useAvisoAlFinalizar'
 import type { TrackVisitRow } from '../data/visits'
 import type { ViewProps } from './types'
 
@@ -89,6 +90,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   /* Quién puede qué vive en un solo lugar, compartido con el modal de la visita: si la regla se
      duplicara, la fila y el modal podrían terminar diciendo cosas distintas del mismo permiso. */
   const { canReception, canClinical, loading: permisosCargando } = useVisitPermissions()
+  const aviso = useAvisoAlFinalizar(accentSolid)
 
   /* Abrir la ficha del paciente desde la fila (no desde el modal: ese ya tiene la suya, más abajo).
      Esta vista SÍ consume `navTarget`, así que la vuelta puede prometer el día que estabas mirando
@@ -272,7 +274,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
      fila y marcar desde el modal dejarían datos distintos según por dónde entraste. El resto son
      eventos en vivo (now() server-side). "Fin de atención" de una visita de screening/randomización
      NO marca directo: abre el cierre clínico, que captura el IVRS o la randomización. */
-  const advance = async (visit: DayVisitRow, next: OperationalStage) => {
+  const avanzar = async (visit: DayVisitRow, next: OperationalStage) => {
     if (next === 'fin_atencion' && (visit.role === 'screening' || visit.role === 'randomizacion')) {
       setActionError(null)
       setFeedback(null)
@@ -289,6 +291,16 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
     setBusyId(null)
     if (res.error) { setActionError(res.error); return }
     day.refetch()
+  }
+
+  /* Finalizar pasa antes por el aviso de pendientes (v0145): si la visita tiene procedimientos con
+     reporte sin tildar, se pregunta si quedan para otro día. El resto de las etapas, derecho. La fila
+     queda ocupada mientras se lee la lista, para que un doble clic no pida dos veces. */
+  const advance = async (visit: DayVisitRow, next: OperationalStage) => {
+    if (next !== 'fin_atencion') { await avanzar(visit, next); return }
+    setBusyId(visit.id)
+    await aviso.pedir(visit, () => { setBusyId(null); return avanzar(visit, next) })
+    setBusyId(null)
   }
 
   /* "No vino" ahora GUARDA una marca (no abre el modal): la visita queda en "Por reprogramar"
@@ -554,6 +566,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
           onChanged={() => day.refetch()}
         />
       )}
+      {aviso.modal}
     </div>
   )
 }
