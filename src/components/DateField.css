@@ -1,4 +1,13 @@
 /* Calendario de DateField: react-day-picker vestido con tokens Sereno (los tokens ya cambian light/dark solos). */
+
+/* La hoja base de la librería entra ACÁ y no desde los .tsx: tiene que ir SIEMPRE antes que la
+   nuestra, porque declara las mismas variables sobre el mismo `.rdp-root` y gana la que llega
+   última. Importada desde JS, el orden dependía de qué componente se evaluaba primero:
+   `DateField.tsx` traía este archivo antes de `CalendarioPopover` (que traía la de la librería),
+   la base quedaba DESPUÉS y pisaba todo — `--rdp-accent-color: blue` y un
+   `--rdp-selected-border` de 2px azul alrededor del día elegido (2026-09-28). */
+@import 'react-day-picker/style.css';
+
 .rdp-root {
   --rdp-accent-color: var(--spira-primary);
   --rdp-accent-background-color: rgba(15, 95, 87, 0.10);
