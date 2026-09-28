@@ -32,6 +32,14 @@ export interface VisitTitleFields {
   origin_code?: string | null
   origin_name?: string | null
   origin_kind?: VisitKind | null
+  /**
+   * La visita que repite un retest (v0145). Opcionales por lo mismo que los `origin_*`: Farmacia y
+   * varios tests arman filas sin ellos, y ahí un retest se lee «Retest», que es lo que es.
+   */
+  retest_of_visit_id?: string | null
+  retest_of_code?: string | null
+  retest_of_name?: string | null
+  retest_of_kind?: VisitKind | null
 }
 
 /**
@@ -74,12 +82,29 @@ function origenDeContinuacion(v: VisitTitleFields, corto: boolean): string {
 }
 
 /**
+ * El nombre de la visita que repite un retest, o '' si no es un retest con origen. Misma regla que
+ * `origenDeContinuacion`: «V1 Screening» dice lo mismo en el retest que en la V1. Sólo lo lee un
+ * retest: el `check` de la 0145 no deja que otra cosa tenga origen, pero una fila armada a mano sí.
+ */
+function origenDeRetest(v: VisitTitleFields, corto: boolean): string {
+  if (v.kind !== 'retest' || !v.retest_of_visit_id || !v.retest_of_kind) return ''
+  const origen = { visit_code: v.retest_of_code ?? null, visit_name: v.retest_of_name ?? null, kind: v.retest_of_kind }
+  return tituloDeDefinicion(origen) || (corto ? KIND_SHORT : KIND_LABELS)[v.retest_of_kind]
+}
+
+/**
  * Título ancho de una visita: el de su definición ("V5 W4") o el label del kind para las sueltas
  * ("VNP", "Retest"). Para títulos de modal, ficha, lista vertical.
+ * Desde la 0145, un retest con origen se nombra por la visita que repite.
  */
 export function visitTitle(v: VisitTitleFields): string {
-  const origen = origenDeContinuacion(v, false)
-  return tituloDeDefinicion(v) || (origen ? `Continuación de ${origen}` : KIND_LABELS[v.kind])
+  const definicion = tituloDeDefinicion(v)
+  if (definicion) return definicion
+  const continuacion = origenDeContinuacion(v, false)
+  if (continuacion) return `Continuación de ${continuacion}`
+  const retest = origenDeRetest(v, false)
+  if (retest) return `Retest de ${retest}`
+  return KIND_LABELS[v.kind]
 }
 
 /**
@@ -121,10 +146,16 @@ export function visitTitleConSemanaAparte(v: TrackVisitRow): string {
  * pastilla pasa de "V5" a "V5 W4". La alternativa era adivinar el código quedándose con la primera
  * palabra del título, y adivinar habría puesto "Control" en la pastilla de una visita llamada
  * "Control V5".
+ * Desde la 0145, un retest con origen se nombra por la visita que repite.
  */
 export function visitCode(v: VisitTitleFields): string {
-  const origen = origenDeContinuacion(v, true)
-  return tituloDeDefinicion(v) || (origen ? `Cont. ${origen}` : KIND_SHORT[v.kind])
+  const definicion = tituloDeDefinicion(v)
+  if (definicion) return definicion
+  const continuacion = origenDeContinuacion(v, true)
+  if (continuacion) return `Cont. ${continuacion}`
+  const retest = origenDeRetest(v, true)
+  if (retest) return `Retest ${retest}`
+  return KIND_SHORT[v.kind]
 }
 
 /**

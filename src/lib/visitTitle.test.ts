@@ -150,3 +150,36 @@ describe('continuación', () => {
     expect(visitCode(v({ kind: 'vnp' }))).toBe('VNP')
   })
 })
+
+/**
+ * El retest con origen (v0145): repite procedimientos de una visita y se nombra por ella. Falla en
+ * silencio si vuelve a decir «Retest» a secas: con dos retests en el día no se sabe cuál repite qué.
+ */
+describe('retest con origen', () => {
+  const rt = (campos: Partial<TrackVisitRow>) =>
+    v({ kind: 'retest', retest_of_visit_id: 'v1', retest_of_kind: 'programada', ...campos })
+
+  it('se nombra por la visita que repite', () => {
+    expect(visitTitle(rt({ retest_of_code: null, retest_of_name: 'V1 Screening' }))).toBe('Retest de V1 Screening')
+    expect(visitTitle(rt({ retest_of_code: 'V1', retest_of_name: 'V1' }))).toBe('Retest de V1')
+  })
+
+  it('el rótulo compacto también', () => {
+    expect(visitCode(rt({ retest_of_code: null, retest_of_name: 'V1 Screening' }))).toBe('Retest V1 Screening')
+  })
+
+  it('si el origen es una suelta, se nombra por su tipo', () => {
+    expect(visitTitle(rt({ retest_of_kind: 'screening' }))).toBe('Retest de Screening')
+    expect(visitCode(rt({ retest_of_kind: 'screening' }))).toBe('Retest Scr')
+  })
+
+  it('sin origen sigue siendo «Retest», y un origen a medio cargar no inventa nada', () => {
+    expect(visitTitle(v({ kind: 'retest' }))).toBe('Retest')
+    expect(visitTitle(v({ kind: 'retest', retest_of_visit_id: 'v1', retest_of_kind: null }))).toBe('Retest')
+    expect(visitCode(v({ kind: 'retest' }))).toBe('Retest')
+  })
+
+  it('sólo el retest lee su origen: una VNP con esas columnas no se llama «Retest de…»', () => {
+    expect(visitTitle(v({ kind: 'vnp', retest_of_visit_id: 'v1', retest_of_kind: 'programada', retest_of_name: 'V1' }))).toBe('VNP')
+  })
+})

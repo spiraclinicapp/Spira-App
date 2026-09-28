@@ -80,6 +80,14 @@ export interface TrackVisitRow {
   origin_code?: string | null
   origin_name?: string | null
   origin_kind?: VisitKind | null
+  /**
+   * Retest (v0145, `v_track_visits`): la visita que repite y su título. `null` en todo lo que no es
+   * retest y en los retests anteriores a la 0145. Opcionales por lo mismo que los `origin_*`.
+   */
+  retest_of_visit_id?: string | null
+  retest_of_code?: string | null
+  retest_of_name?: string | null
+  retest_of_kind?: VisitKind | null
 }
 
 /** Visitas no realizadas que caen dentro de los próximos 7 días (KPI + lista del Resumen). */
