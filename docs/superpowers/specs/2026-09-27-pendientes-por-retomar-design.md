@@ -154,6 +154,14 @@ La lista efectiva pasa a ser:
   marcado: sin cuidado, guardar la edición borraría la fila del procedimiento marcado y dejaría la marca
   colgando de algo que la visita ya no lleva. Se recrea conservando lo marcado, igual que ya conserva lo
   diferido.
+- **Deshacer devuelve la marca** (decidido al ejecutar la PR A, 2026-09-27). Si se borra una fila diferida
+  de `visit_added_procedures` —se deshace o se borra la continuación, o se le quita el procedimiento con
+  «Editar procedimientos»—, el procedimiento vuelve a su visita de origen **marcado para otro día**, no
+  como algo que debe: «deshacer» significa que no se retomó, no que se olvidó. Así la visita de origen
+  sigue cerrada y el procedimiento reaparece en Pendientes. Vale también para las continuaciones de la
+  v0.90.0. Lo hace un trigger `after delete` (definer, porque escribe una tabla sin escritura directa),
+  que no marca si el origen ya no existe (borrados en cascada del sistema) ni si el procedimiento está
+  tildado en el origen.
 - **Borrar una visita con marcas**: el `cascade` se lleva las marcas. No hace falta guarda: la marca no
   representa trabajo hecho.
 
