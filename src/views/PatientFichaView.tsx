@@ -22,7 +22,11 @@ import { PdVisitFlow } from './track/PdVisitFlow'
 import { PdFullSchedule } from './track/PdFullSchedule'
 import { VisitDetail } from './track/VisitDetail'
 import { RescheduleModal } from './track/RescheduleModal'
-import { RegisterVisitFlow } from './track/RegisterVisitFlow'
+import { AgendarVisitaModal } from './track/agendar/AgendarVisitaModal'
+import type { PacienteFijo } from './track/agendar/opciones'
+import { PorRetomarDelPaciente } from './track/PorRetomarDelPaciente'
+import { agruparPorRetomar } from './track/retomar'
+import { usePorRetomar } from '../data/pendientes'
 import { EditPatientForm } from './EditPatientForm'
 import { PatientMedicationsCard } from './pharma/PatientMedicationsCard'
 import { useAuth } from '../lib/auth'
@@ -96,12 +100,32 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   const adh = adherence(rows)
   const canAct = canWrite && current !== null && current.real_date === null
 
-  /* Para el flujo "Agendar visita": tipos ya registrados (filtra el selector). */
-  const usedKinds = rows.map((r) => r.kind)
+  /* Lo que ESTA inscripción dejó para otro día (v0145): el bloque «Queda para otro día» de la
+     columna derecha. Se lee todo lo que espera y se acota acá: una consulta chica, la misma que usan
+     Pendientes y el modal. */
+  const retomarQ = usePorRetomar()
+  const porRetomar = agruparPorRetomar(retomarQ.data?.marcas ?? [], retomarQ.data?.visitas ?? [])
+    .filter((g) => g.visita.enrollment_id === enrollment?.id)
+  /** El «Agendar» de una fila del bloque: el modal abre ya en «Continuar pendientes» sobre ella. */
+  const [continuarDesde, setContinuarDesde] = useState<string | null>(null)
 
   /* El IVRS del ESTUDIO en contexto, no el del paciente: la misma persona en dos estudios tiene dos
      números, y ésta es la ficha de uno solo (ver `ivrsDelEstudio`). */
   const ivrs = ivrsDelEstudio(patient, protocol.id)
+
+  /* Quién, para «Agendar visita» (v0145): el modal va con el paciente fijo. Sin inscripción en este
+     estudio no hay a quién agendarle, y el modal no abre (igual que antes con `RegisterVisitFlow`). */
+  const pacienteFijo: PacienteFijo | null = enrollment
+    ? {
+        enrollmentId: enrollment.id,
+        patientId: patient.id,
+        protocolId: protocol.id,
+        patientName: patient.full_name,
+        ivrs,
+        protocolCode: protocol.code,
+        randomizationDate: enrollment.randomization_date,
+      }
+    : null
 
   /* Para el feedback: quien reporta desde acá está mirando a ESTE paciente en ESTE estudio, y eso es
      lo que quien supervisa va a querer abrir. El `protocolId` viaja junto al paciente por el mismo
@@ -181,16 +205,14 @@ export function PatientFichaView(props: PatientFichaViewProps) {
       {modal === 'reschedule' && current && (
         <RescheduleModal visit={current} accentSolid={accentSolid} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
       )}
-      {modal === 'register' && enrollment && (
-        <RegisterVisitFlow
-          enrollmentId={enrollment.id}
-          protocolId={protocol.id}
-          randomizationDate={enrollment.randomization_date}
-          usedKinds={usedKinds}
-          referenceVisits={rows}
-          accentSolid={accentSolid}
-          onClose={() => setModal(null)}
-          onDone={() => { setModal(null); visitsQ.refetch() }}
+      {modal === 'register' && pacienteFijo && (
+        <AgendarVisitaModal
+          modo="paciente"
+          paciente={pacienteFijo}
+          preseleccion={continuarDesde ? { tipo: 'continuar', origenId: continuarDesde } : undefined}
+          accent={accentSolid}
+          onClose={() => { setModal(null); setContinuarDesde(null) }}
+          onDone={() => { setModal(null); setContinuarDesde(null); visitsQ.refetch(); retomarQ.refetch() }}
         />
       )}
       {modal === 'edit' && (
@@ -227,7 +249,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
           /* Era la única de las siete pantallas que abren este modal sin `onChanged`: avanzar una
              etapa o editar el encabezado desde acá no refrescaba el cronograma, el resumen de arriba
              ni el botón de alertas, y la ficha quedaba mostrando la visita como estaba antes. */
-          onChanged={() => { visitsQ.refetch(); alertsQ.refetch() }}
+          onChanged={() => { visitsQ.refetch(); alertsQ.refetch(); retomarQ.refetch() }}
           onVerEnElDia={onVerVisitaEnElDia}
         />
       )}
@@ -428,6 +450,15 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                   <PdVisitFlow visits={rows} currentId={current?.id ?? null} accent={accent} />
                 </div>
               </div>
+
+              {/* Lo que este paciente dejó para otro día (v0145), entre la próxima visita y el
+                  cronograma. Sin nada esperando no se dibuja. */}
+              <PorRetomarDelPaciente
+                grupos={porRetomar}
+                error={retomarQ.error}
+                puedeAgendar={canWrite && pacienteFijo !== null}
+                onAgendar={(origenId) => { setContinuarDesde(origenId); setModal('register') }}
+              />
 
               {/* cronograma */}
               <div style={{ ...card, padding: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>

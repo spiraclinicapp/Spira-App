@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
-import { btnOutline } from '../components/buttons'
+import { btnOutline, btnPrimary } from '../components/buttons'
 import { FilterDropdown } from '../components/FilterDropdown'
 import type { FilterOption } from '../components/FilterDropdown'
 import { MultiFilterMenu } from '../components/MultiFilterMenu'
@@ -29,7 +29,9 @@ import { DayVisitRowItem } from './track/DayVisitRowItem'
 import { VisitDetail } from './track/VisitDetail'
 import { RescheduleModal } from './track/RescheduleModal'
 import { ReadyOutcomeModal } from './track/ReadyOutcomeModal'
-import { RegisterVisitFlow } from './track/RegisterVisitFlow'
+import { AgendarVisitaModal } from './track/agendar/AgendarVisitaModal'
+import { pacienteDeVisita } from './track/agendar/opciones'
+import { useProtocols } from '../data/protocols'
 import { DoctorRequestModal } from './track/DoctorRequestModal'
 import { useAvisoAlFinalizar } from './track/useAvisoAlFinalizar'
 import type { TrackVisitRow } from '../data/visits'
@@ -81,6 +83,8 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   const [rescheduleFor, setRescheduleFor] = useState<TrackVisitRow | null>(null)
   const [doctorFor, setDoctorFor] = useState<DayVisitRow | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [agregando, setAgregando] = useState(false)
+  const protocolsQ = useProtocols()
   // Cierre clínico (screening/randomización) y recitación. TrackVisitRow: sirve para una fila
   // del día (DayVisitRow lo extiende) o una de la salvaguarda (que no es de hoy).
   const [readyOutcome, setReadyOutcome] = useState<TrackVisitRow | null>(null)
@@ -90,6 +94,12 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   /* Quién puede qué vive en un solo lugar, compartido con el modal de la visita: si la regla se
      duplicara, la fila y el modal podrían terminar diciendo cosas distintas del mismo permiso. */
   const { canReception, canClinical, loading: permisosCargando } = useVisitPermissions()
+  /* Los estudios en los que se puede agendar desde acá (v0145): activos y en los que la persona
+     tiene la parte clínica (la misma regla que `puede_registrar_visitas`, salvo gerencia, que no
+     opera el día). Sin ninguno, el botón no se dibuja. */
+  const protocolosParaAgregar = (protocolsQ.data ?? [])
+    .filter((p) => p.status === 'activo' && canReception && canClinical({ protocol_id: p.id }))
+    .map((p) => ({ id: p.id, code: p.code, name: p.name }))
   const aviso = useAvisoAlFinalizar(accentSolid)
 
   /* Abrir la ficha del paciente desde la fila (no desde el modal: ese ya tiene la suya, más abajo).
@@ -235,12 +245,25 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   ]
 
   /* La fecha vive en la fila del título del shell (igual que en la cola "Para ver médico"); los
-     filtros del rediseño van en el contenido. Antes del early-return: los hooks no se condicionan. */
+     filtros del rediseño van en el contenido. Al lado de la fecha, «Agregar visita» (v0145). Antes
+     del early-return: los hooks no se condicionan. */
   useEffect(() => {
-    setHeader?.({ content: <DateNavButton accent={accent} date={date} onChange={setDate} /> })
+    setHeader?.({
+      content: (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <DateNavButton accent={accent} date={date} onChange={setDate} />
+          {protocolosParaAgregar.length > 0 && (
+            <button type="button" onClick={() => setAgregando(true)} style={{ ...btnPrimary(accentSolid), height: 36, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Icon name="plus" size={16} color="var(--spira-white)" />
+              Agregar visita
+            </button>
+          )}
+        </div>
+      ),
+    })
     return () => setHeader?.(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, setHeader])
+  }, [date, setHeader, protocolosParaAgregar.length])
 
   /* Orden base: en el centro primero (más avanzada arriba: Inicio de atención → Concurrió), luego
      por llegar, luego las finalizadas; a igual etapa, por orden de llegada. Los grupos parten esta lista. */
@@ -512,15 +535,32 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
         />
       )}
       {recitar && (
-        <RegisterVisitFlow
-          enrollmentId={recitar.enrollment_id}
-          protocolId={recitar.protocol_id}
-          randomizationDate={recitar.enrollment_randomization_date}
-          usedKinds={[]}
-          preselectDefId={recitar.visit_def_id}
-          accentSolid={accentSolid}
+        /* «Recitar» desde el cierre de screening/randomización: el mismo «Agendar visita» de la ficha
+           (v0145), con esa definición del cuadro ya elegida. El modal lee las visitas del paciente
+           por su cuenta, así que ahora también sugiere la fecha estimada, que acá no salía. */
+        <AgendarVisitaModal
+          modo="paciente"
+          paciente={pacienteDeVisita(recitar)}
+          preseleccion={{ tipo: 'def', defId: recitar.visit_def_id }}
+          accent={accentSolid}
           onClose={() => setRecitar(null)}
-          onDone={() => { setRecitar(null); day.refetch(); randoPending.refetch() }}
+          onDone={(mensaje) => { setRecitar(null); setActionError(null); setFeedback(mensaje); day.refetch(); randoPending.refetch() }}
+        />
+      )}
+      {agregando && (
+        <AgendarVisitaModal
+          modo="dia"
+          dia={date}
+          protocolos={protocolosParaAgregar}
+          accent={accentSolid}
+          onClose={() => setAgregando(false)}
+          onDone={(mensaje) => {
+            setAgregando(false)
+            setActionError(null)
+            setFeedback(mensaje)
+            day.refetch()
+            dayProcs.refetch()
+          }}
         />
       )}
       {openVisit && (

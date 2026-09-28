@@ -7,7 +7,8 @@ import { hayPopoverAbierto } from '../../components/usePopover'
 import { visitCode, visitTitle } from '../../lib/visits'
 import { ConfirmarAvance } from './ConfirmarAvance'
 import { ReadyOutcomeModal } from './ReadyOutcomeModal'
-import { RegisterVisitFlow } from './RegisterVisitFlow'
+import { AgendarVisitaModal } from './agendar/AgendarVisitaModal'
+import { pacienteDeVisita } from './agendar/opciones'
 import { useVisitPermissions } from '../../lib/visitPermissions'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { VisitProcedures } from './VisitProcedures'
@@ -429,13 +430,12 @@ export function VisitDetail({
     )}
 
     {recitar && (
-      <RegisterVisitFlow
-        enrollmentId={recitar.enrollment_id}
-        protocolId={recitar.protocol_id}
-        randomizationDate={recitar.enrollment_randomization_date}
-        usedKinds={[]}
-        preselectDefId={recitar.visit_def_id}
-        accentSolid={accent}
+      /* «Recitar»: el mismo «Agendar visita» de la ficha (v0145), con la definición ya elegida. */
+      <AgendarVisitaModal
+        modo="paciente"
+        paciente={pacienteDeVisita(recitar)}
+        preseleccion={{ tipo: 'def', defId: recitar.visit_def_id }}
+        accent={accent}
         onClose={() => setRecitar(null)}
         onDone={() => { setRecitar(null); refrescar() }}
       />
