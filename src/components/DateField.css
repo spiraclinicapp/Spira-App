@@ -33,7 +33,11 @@
   color: var(--spira-acc-deep-track);
   font-weight: 700;
 }
-.rdp-root .rdp-day_button:hover:not([disabled]) {
+/* El hover NO toca al día elegido: este selector pesa más que el de `.rdp-selected` (el `:hover`
+   y el `:not([disabled])` suman), así que sin el `:not(.rdp-selected)` le cambiaba el petróleo por
+   el papel y dejaba el número en blanco sobre blanco: el día desaparecía bajo el mouse. En rango,
+   las puntas también son `.rdp-selected`, y el tramo del medio tiene su propio hover más abajo. */
+.rdp-root .rdp-day:not(.rdp-selected) .rdp-day_button:hover:not([disabled]) {
   background: var(--spira-surface);
   border-radius: 999px;
 }
