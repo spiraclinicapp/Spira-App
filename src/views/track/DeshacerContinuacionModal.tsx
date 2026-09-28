@@ -7,9 +7,13 @@ import type { DestinoDeDiferidos } from './continuacion'
 
 /**
  * Deshacer una continuación = borrarla. El `on delete cascade` de `vap_visita_fk` devuelve sus
- * procedimientos a esta visita solo. Si la continuación ya tiene algo hecho o un pedido de
- * dispensación, el servidor lo frena con un mensaje claro. Atendida pero sin tildes NO la frena:
- * se borra igual, y por eso el texto lo avisa (`destino.atendida`).
+ * procedimientos a esta visita solo, y desde la 0145 vuelven MARCADOS para otro día
+ * (`trg_devolver_marca`): deshacer quiere decir «no se retomó», no «se olvidó», así que la visita
+ * sigue cerrada y el procedimiento reaparece en Pendientes. El texto lo dice así; decir sólo que
+ * «vuelve a esta visita» hacía pensar que quedaba otra vez como algo que la visita debe.
+ * Si la continuación ya tiene algo hecho o un pedido de dispensación, el servidor lo frena con un
+ * mensaje claro. Atendida pero sin tildes NO la frena: se borra igual, y por eso el texto lo avisa
+ * (`destino.atendida`).
  */
 export function DeshacerContinuacionModal({ destino, accent, onClose, onDone }: {
   destino: DestinoDeDiferidos
@@ -20,7 +24,9 @@ export function DeshacerContinuacionModal({ destino, accent, onClose, onDone }: 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const cuando = destino.fecha ? `del ${formatAR(destino.fecha)}` : 'nueva'
-  const vuelven = destino.procedimientos.length === 1 ? 'su procedimiento vuelve' : 'sus procedimientos vuelven'
+  const vuelven = destino.procedimientos.length === 1
+    ? 'su procedimiento vuelve a quedar para otro día'
+    : 'sus procedimientos vuelven a quedar para otro día'
 
   const deshacer = async () => {
     setBusy(true)
@@ -37,8 +43,8 @@ export function DeshacerContinuacionModal({ destino, accent, onClose, onDone }: 
         <div style={{ fontSize: 13.5, color: 'var(--spira-ink)', lineHeight: 1.5 }}>
           {/* Atendida: el servidor la borra igual (sólo un tilde la frena), así que se avisa antes. */}
           {destino.atendida
-            ? <>Esa visita ya se atendió. Si la deshacés, se borra igual y {vuelven} a esta visita.</>
-            : <>Se borra la visita {cuando} y {vuelven} a esta visita.</>}
+            ? <>Esa visita ya se atendió. Si la deshacés, se borra igual y {vuelven} en esta visita.</>
+            : <>Se borra la visita {cuando} y {vuelven} en esta visita.</>}
         </div>
         {error && (
           <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
