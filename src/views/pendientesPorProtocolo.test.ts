@@ -126,6 +126,13 @@ describe('pendientesPorProtocolo', () => {
     expect(f.retomar).toBe(2)
   })
 
+  it('cuenta las visitas con la fecha pasada (2026-09-28), en el total y aparte, sin tocar el desglose', () => {
+    const [f] = pendientesPorProtocolo([v('A', 'por_reprogramar')], [], [], [], [r('A'), r('A'), r('A')])
+    expect(f.total).toBe(4)
+    expect(f.fechaPasada).toBe(3)
+    expect(f.porEstado).toEqual([{ estado: 'por_reprogramar', n: 1 }])
+  })
+
   it('un protocolo con sólo pendientes por retomar tiene tarjeta, detrás de los que tienen alertas', () => {
     const filas = pendientesPorProtocolo([v('B', 'ventana_vencida')], [], [], [r('A')])
     expect(filas.map((x) => x.code)).toEqual(['B', 'A'])

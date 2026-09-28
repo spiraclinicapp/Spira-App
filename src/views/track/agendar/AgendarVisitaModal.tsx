@@ -144,8 +144,10 @@ function Cuerpo({ contexto, accent, onClose, onDone }: Comunes & { contexto: Con
     : (estudioQ.data ?? [])
   const retomar = agruparPorRetomar(retomarQ.data?.marcas ?? [], retomarQ.data?.visitas ?? [])
     .filter((g) => (paciente ? g.visita.enrollment_id === paciente.enrollmentId : g.visita.protocol_id === protocolId))
-  const traer = dia ? visitasParaTraer(visitas, dia) : []
   const defs = scheds.data ?? []
+  /* «Una visita pendiente del estudio» con el paciente fijo sólo cuando se abrió para eso (el
+     «Agendar» de «Se pasó la fecha» en Pendientes). */
+  const ofreceTraer = preseleccion?.tipo === 'traer'
 
   const opciones = paciente
     ? opcionesDeAgendar({
@@ -154,6 +156,7 @@ function Cuerpo({ contexto, accent, onClose, onDone }: Comunes & { contexto: Con
         randomizationDate: paciente.randomizationDate,
         kindsSueltos: availableEventKinds(paciente.randomizationDate, visitas.map((v) => v.kind), tieneCuadro(defs)),
         continuar: retomar.length,
+        traer: ofreceTraer,
       })
     : opcionesDeAgendar({ modo: 'dia', continuar: retomar.length })
 
@@ -177,6 +180,8 @@ function Cuerpo({ contexto, accent, onClose, onDone }: Comunes & { contexto: Con
      fechada DESPUÉS de esa fecha elegida. Con la fecha vacía (a punto de bloquear el «Agendar») se
      usa hoy para no dejar la lista vacía — el formulario igual no va a poder confirmar sin fecha. */
   const retest = visitasParaRetest(visitas, fecha ?? todayISO())
+  /* Las pendientes, contra el día al que se traen: el que se mira, o el elegido arriba. */
+  const traer = dia || ofreceTraer ? visitasParaTraer(visitas, fecha ?? todayISO()) : []
 
   if (cargando) {
     return <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', padding: '6px 0' }}>Cargando visitas…</div>
@@ -222,8 +227,15 @@ function Cuerpo({ contexto, accent, onClose, onDone }: Comunes & { contexto: Con
 
       {/* Cada formulario con `key` por opción: volver a una opción la empieza de cero, sin arrastrar
           lo que se había elegido en otra. */}
-      {eleccion?.tipo === 'traer' && dia && (
-        <FormTraerVisita key={choice} candidatas={traer} dia={dia} {...comunes} />
+      {eleccion?.tipo === 'traer' && (
+        <FormTraerVisita
+          key={choice}
+          candidatas={traer}
+          fecha={fecha}
+          conPaciente={!paciente}
+          preseleccion={preseleccion?.tipo === 'traer' ? preseleccion.visitaId : null}
+          {...comunes}
+        />
       )}
       {eleccion?.tipo === 'continuar' && (
         <FormContinuarPendientes

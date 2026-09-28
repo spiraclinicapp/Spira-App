@@ -17,6 +17,7 @@ import { FilterDropdown } from '../components/FilterDropdown'
 import { ClearFilters, FilterSearch } from '../components/FilterBar'
 import { coincideBusqueda, opcionesCoordinador, opcionesMedico, SIN_VALOR } from './alertFilters'
 import { Modal } from '../components/Modal'
+import { useFechaPasada } from '../data/visits'
 import type { TrackVisitRow } from '../data/visits'
 import { useProtocols } from '../data/protocols'
 import {
@@ -39,7 +40,7 @@ import { VisitDetail } from './track/VisitDetail'
 import { useAbrirFicha } from './useAbrirFicha'
 import type { ViewProps } from './types'
 import { usePorRetomar } from '../data/pendientes'
-import { agruparPorRetomar, diasEsperando } from './track/retomar'
+import { agruparPorRetomar, cierreDeVentana, diasEsperando, visitasConFechaPasada } from './track/retomar'
 import type { VisitaPorRetomar } from './track/retomar'
 import { AgendarVisitaModal } from './track/agendar/AgendarVisitaModal'
 import { pacienteDeVisita } from './track/agendar/opciones'
@@ -109,6 +110,12 @@ const REPORTE_PENDIENTE = 'reporte_pendiente'
 const IP_SIN_ENTREGAR = 'ip_sin_entregar'
 /** La opción del filtro Estado para los procedimientos por retomar (v0145). No es un `computed_status`. */
 const POR_RETOMAR = 'por_retomar'
+/** La opción del filtro Estado para las visitas con la fecha pasada (2026-09-28). Tampoco es un
+ *  `computed_status`: para la base son `proxima`. */
+const FECHA_PASADA = 'fecha_pasada'
+/** Su tinta: el ámbar profundo de «todavía no es un desvío, pero pide atención», el mismo del IP sin
+ *  entregar. Se distinguen por el ícono y el rótulo. Es el token que se aclara en tema oscuro. */
+const TINTA_FECHA_PASADA = 'var(--spira-acc-deep-warn)'
 
 /** Fecha de referencia de una alerta para el filtro de antigüedad. */
 function refDate(a: TrackVisitRow): string | null {
@@ -141,6 +148,12 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     [retomarQ.data],
   )
   const [agendando, setAgendando] = useState<VisitaPorRetomar | null>(null)
+  /* La quinta lista (2026-09-28): visitas cuya fecha pasó sin hacerse, con la ventana abierta. La
+     base no las marca —siguen `proxima`— y por eso no avisaban en ningún lado hasta vencer. Consulta
+     propia, error en línea, como las otras dos que no son estados de la visita. */
+  const fechaQ = useFechaPasada()
+  const fechaRows = useMemo(() => visitasConFechaPasada(fechaQ.data ?? [], todayISO()), [fechaQ.data])
+  const [reprogramando, setReprogramando] = useState<TrackVisitRow | null>(null)
   const protocols = useProtocols()
   /* Varios protocolos a la vez (Director, 2026-08-25). La lista VACÍA es "todos": no hay opción
      "Todos los protocolos" que tildar, porque en un filtro múltiple esa opción tendría que
@@ -212,7 +225,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   /* Con `retomarQ` acá también: sin ella, la lista de retomar podía llegar VACÍA todavía (la consulta
      en vuelo) mientras las otras tres ya estaban, y «Sin pendientes. Todo al día.» se dibujaba un
      instante de más antes de que aparecieran sus filas. */
-  const loading = alertsQ.loading || protocols.loading || retomarQ.loading
+  const loading = alertsQ.loading || protocols.loading || retomarQ.loading || fechaQ.loading
   const error = alertsQ.error || protocols.error
 
   const allRows = alertsQ.visitAlerts
@@ -308,6 +321,20 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     })
   }, [retomarRows, fEstado, protocolFilter, fMed, fCoord, q, ageDays])
 
+  /* Los MISMOS cinco filtros. La antigüedad se mide desde la fecha que se pasó. */
+  const filteredFecha = useMemo(() => {
+    const today = todayISO()
+    return fechaRows.filter((v) => {
+      if (fEstado.length > 0 && !fEstado.includes(FECHA_PASADA)) return false
+      if (protocolFilter.length > 0 && !protocolFilter.includes(v.protocol_id)) return false
+      if (fMed.length > 0 && !fMed.includes(v.treating_physician ?? SIN_VALOR)) return false
+      if (fCoord.length > 0 && !fCoord.includes(v.coordinator_id ?? SIN_VALOR)) return false
+      if (!coincideBusqueda(v, q)) return false
+      if (ageDays > 0 && v.estimated_date && daysDiffISO(v.estimated_date, today) > ageDays) return false
+      return true
+    })
+  }, [fechaRows, fEstado, protocolFilter, fMed, fCoord, q, ageDays])
+
   if (loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title={`Cargando ${submodule.name.toLowerCase()}…`} description="Un momento." />
   }
@@ -331,6 +358,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     for (const r of procRows) byId.set(r.protocol_id, r.protocol_code)
     for (const r of ipRows) byId.set(r.protocol_id, r.protocol_code)
     for (const g of retomarRows) byId.set(g.visita.protocol_id, g.visita.protocol_code)
+    for (const v of fechaRows) byId.set(v.protocol_id, v.protocol_code)
     const list = (protocols.data ?? []).filter((p) => byId.has(p.id))
     return list.map((p) => ({ id: p.id, code: p.code }))
   })()
@@ -348,7 +376,8 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     count: allRows.filter((a) => a.protocol_id === p.id).length
       + procRows.filter((r) => r.protocol_id === p.id).length
       + ipRows.filter((r) => r.protocol_id === p.id).length
-      + retomarRows.filter((g) => g.visita.protocol_id === p.id).length,
+      + retomarRows.filter((g) => g.visita.protocol_id === p.id).length
+      + fechaRows.filter((v) => v.protocol_id === p.id).length,
   }))
 
   /* Los CUATRO avisos de esta pantalla en un solo eje. Los de `GRAVEDAD` son estados calculados de
@@ -368,6 +397,9 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       label: VISIT_STATES[s].label,
       count: allRows.filter((a) => a.computed_status === s).length,
     })),
+    // 2026-09-28: después de los estados de la visita —es su antesala: si nadie la reprograma, se
+    // vuelve «Ventana vencida»— y antes de lo que no es la visita en sí.
+    { value: FECHA_PASADA, label: 'Se pasó la fecha', count: fechaRows.length },
     // 0119: el barrido que pide el aviso de arriba. Va antes del reporte: es más grave.
     { value: IP_SIN_ENTREGAR, label: 'IP sin entregar', count: ipRows.length },
     { value: REPORTE_PENDIENTE, label: 'Reporte pendiente', count: procRows.length },
@@ -377,8 +409,8 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   /* Las cuatro listas juntas: un médico que sólo tiene reportes pendientes (o un IP sin entregar, o
      un procedimiento por retomar) tiene que aparecer igual en el menú, o sus alertas quedan
      inalcanzables por filtro. */
-  const medOptions = opcionesMedico([allRows, procRows, ipRows, retomarRows.map((g) => g.visita)])
-  const coordOptions = opcionesCoordinador([allRows, procRows, ipRows, retomarRows.map((g) => g.visita)])
+  const medOptions = opcionesMedico([allRows, procRows, ipRows, retomarRows.map((g) => g.visita), fechaRows])
+  const coordOptions = opcionesCoordinador([allRows, procRows, ipRows, retomarRows.map((g) => g.visita), fechaRows])
 
   const nFiltros = fEstado.length + protocolFilter.length + fMed.length + fCoord.length + (ageDays > 0 ? 1 : 0)
   const hayFiltros = nFiltros > 0 || q.trim() !== ''
@@ -397,6 +429,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
         reportes={procRows}
         ips={ipRows}
         retomar={retomarRows.map((g) => g.visita)}
+        fechaPasada={fechaRows}
         protocols={protocols.data ?? []}
         seleccionados={protocolFilter}
         accentSolid={module.accentSolid}
@@ -445,9 +478,9 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           acá (ver `ClearFilters`), pegado al número que el filtro cambió. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -6 }}>
         <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
-          {filtered.length + filteredProc.length + filteredIp.length + filteredRetomar.length} de{' '}
-          {allRows.length + procRows.length + ipRows.length + retomarRows.length}{' '}
-          {allRows.length + procRows.length + ipRows.length + retomarRows.length === 1 ? 'pendiente' : 'pendientes'}
+          {filtered.length + filteredProc.length + filteredIp.length + filteredRetomar.length + filteredFecha.length} de{' '}
+          {allRows.length + procRows.length + ipRows.length + retomarRows.length + fechaRows.length}{' '}
+          {allRows.length + procRows.length + ipRows.length + retomarRows.length + fechaRows.length === 1 ? 'pendiente' : 'pendientes'}
         </span>
         {hayFiltros && <ClearFilters n={nFiltros} onClear={limpiarFiltros} />}
         {dismissals.length > 0 && (
@@ -650,10 +683,16 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
             No se pudieron cargar los procedimientos por retomar: {retomarQ.error}
           </div>
         )}
-        {filtered.length === 0 && filteredProc.length === 0 && filteredIp.length === 0 && filteredRetomar.length === 0 ? (
+        {fechaQ.error && (
+          <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', padding: '8px 0 0' }}>
+            No se pudieron cargar las visitas con la fecha pasada: {fechaQ.error}
+          </div>
+        )}
+        {filtered.length === 0 && filteredProc.length === 0 && filteredIp.length === 0 && filteredRetomar.length === 0 && filteredFecha.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
             <Icon name="check" size={16} color="var(--spira-good)" />
-            {allRows.length === 0 && procRows.length === 0 && ipRows.length === 0 && retomarRows.length === 0 && !retomarQ.error
+            {allRows.length === 0 && procRows.length === 0 && ipRows.length === 0 && retomarRows.length === 0 && fechaRows.length === 0
+              && !retomarQ.error && !fechaQ.error
               ? 'Sin pendientes. Todo al día.'
               /* Con el error de retomar puesto, la lista de retomar quedó vacía porque FALLÓ, no
                  porque no había nada: decir "Todo al día" ahí sería mentir sobre datos que no
@@ -860,6 +899,55 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                 </div>
               )
             })}
+            {filteredFecha.map((v) => {
+              /* Se pasó la fecha (2026-09-28). Ámbar: todavía no es un desvío —la ventana sigue
+                 abierta— pero si nadie la reprograma, lo va a ser. SIN tacho: sale de la lista
+                 reprogramándola («Agendar»), haciéndola, o vence y pasa a «Ventana vencida». */
+              const c = TINTA_FECHA_PASADA
+              const cierre = cierreDeVentana(v, todayISO())
+              return (
+                <div key={`fecha:${v.id}`} style={{ position: 'relative' }}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="spira-card-link"
+                    onClick={() => setOpenVisitId(v.id)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenVisitId(v.id) }
+                    }}
+                    aria-label={`Abrir la visita de ${v.patient_name} — se pasó la fecha`}
+                    style={alertItemStyle(c, { conBotonDesviacion: true })}
+                  >
+                    <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="calendar" size={18} color={c} /></span>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="spira-link-group" style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                          <PatientLink onOpen={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))} label={`Abrir la ficha de ${v.patient_name}`}>
+                            {v.patient_name}
+                          </PatientLink>
+                        </span>
+                        <span style={code}>{v.patient_code ?? '—'}</span>
+                        {abrirFicha && <PatientLinkArrow />}
+                        <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}>· <span style={code}>{v.protocol_code}</span></span>
+                      </div>
+                      <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
+                        Se pasó la fecha: {v.estimated_date ? formatAR(v.estimated_date) : '—'} · {visitTitle(v)}{cierre ? ` · ${cierre}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    style={deviationBtn}
+                    className="spira-card-link"
+                    aria-label={`Reprogramar la visita de ${v.patient_name}`}
+                    onClick={() => setReprogramando(v)}
+                  >
+                    Agendar
+                  </button>
+                </div>
+              )
+            })}
             {filteredRetomar.map((g) => {
               /* Procedimientos por retomar (v0145). Tono NEUTRO: no es un desvío ni está vencido, es
                  trabajo que espera fecha. SIN tacho: sale de la lista retomándolo («Agendar») o
@@ -927,6 +1015,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
               lugar al que va alguien que no entiende lo que está viendo. Marcar acá enseña que la
               app se puede preguntar, sin salpicar de punteados la lista de arriba. */}
           {[...GRAVEDAD.map((s) => ({ label: VISIT_STATES[s].label, color: VISIT_STATES[s].color, ayuda: GLOSARIO_ESTADOS[s] })),
+            { label: 'Se pasó la fecha', color: TINTA_FECHA_PASADA, ayuda: GLOSARIO.fechaPasada },
             { label: 'Reporte pendiente', color: 'var(--spira-acc-deep-blue)', ayuda: GLOSARIO.reportePendiente }].map((x) => (
             <span key={x.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: x.color, flex: '0 0 auto' }} />
@@ -961,7 +1050,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           visitId={openVisitId}
           accent={accent}
           onClose={() => setOpenVisitId(null)}
-          onChanged={() => { alertsQ.refetch(); retomarQ.refetch() }}
+          onChanged={() => { alertsQ.refetch(); retomarQ.refetch(); fechaQ.refetch() }}
           // El mismo gesto que ya tiene la fila: reusa `abrirFicha`, que ya cae a `undefined`
           // sin `onNavigate` y así el encabezado del modal degrada solo a texto.
           onOpenPatient={abrirFicha}
@@ -978,6 +1067,20 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           accent={module.accentSolid}
           onClose={() => setAgendando(null)}
           onDone={() => { setAgendando(null); retomarQ.refetch(); alertsQ.refetch() }}
+        />
+      )}
+
+      {reprogramando && (
+        /* El MISMO «Agendar visita», con el paciente fijo y la visita ya elegida en «Una visita
+           pendiente del estudio». La fecha arranca en hoy y se puede cambiar: reprogramar no siempre
+           es «para hoy». */
+        <AgendarVisitaModal
+          modo="paciente"
+          paciente={pacienteDeVisita(reprogramando)}
+          preseleccion={{ tipo: 'traer', visitaId: reprogramando.id }}
+          accent={module.accentSolid}
+          onClose={() => setReprogramando(null)}
+          onDone={() => { setReprogramando(null); fechaQ.refetch(); alertsQ.refetch() }}
         />
       )}
     </div>

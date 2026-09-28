@@ -60,6 +60,12 @@ describe('opcionesDeAgendar, desde la ficha', () => {
     expect(valores(o)).not.toContain('evt:vnp')
   })
 
+  it('desde «Se pasó la fecha» (`traer`): «Una visita pendiente del estudio» primero, y viene elegida', () => {
+    const o = opcionesDeAgendar({ ...pre, definiciones: [], kindsSueltos: ['vnp', 'retest'], traer: true })
+    expect(valores(o)).toEqual(['traer', 'retest', 'vnp'])
+    expect(eleccionInicial(o, { tipo: 'traer', visitaId: 'x' })).toBe('traer')
+  })
+
   it('nunca «Una visita del estudio» (para la propia está «Reprogramar»), y sí lo que el paciente dejó', () => {
     const o = opcionesDeAgendar({ ...pre, definiciones: [], kindsSueltos: ['vnp', 'retest'], continuar: 1 })
     expect(valores(o)).toEqual(['continuar', 'retest', 'vnp'])

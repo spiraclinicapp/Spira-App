@@ -33,6 +33,7 @@ export const GLOSARIO = {
   dia: 'El día del cronograma antes de la randomización, contado hacia atrás: el Día -28 es cuatro semanas antes de randomizar.',
   numeroDeVisita: 'Cuántas veces vino el paciente hasta acá, contando todas las visitas: las del cronograma y las sueltas.',
   reportePendiente: 'Un reporte de un procedimiento que ya se hizo y todavía no se cargó. El plazo empieza a correr cuando el procedimiento se marca realizado.',
+  fechaPasada: 'Pasó el día en que estaba agendada la visita y no se hizo, pero la ventana sigue abierta: todavía se puede hacer sin desvío. Reprogramala antes de que venza.',
 } as const
 
 export type ClaveGlosario = keyof typeof GLOSARIO
