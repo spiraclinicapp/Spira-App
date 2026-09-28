@@ -90,8 +90,16 @@ export function useAvisoAlFinalizar(accent: string): {
           if (res.error) return res.error
         }
         setAviso(null)
-        await aviso.seguir()
-        aviso.terminar()
+        /* `terminar()` SIEMPRE tiene que correr, sea que `seguir()` termine bien o tire: si
+           `seguir()` revienta (por ejemplo el `avanzar` de Visitas al fallar el paso siguiente) y
+           `terminar()` se queda sin llamar, la promesa de `pedir` no se resuelve nunca y `enCurso`
+           queda trabado en `true` para siempre — un segundo intento de finalizar esa (u otra) visita
+           se ignoraría en silencio. */
+        try {
+          await aviso.seguir()
+        } finally {
+          aviso.terminar()
+        }
         return null
       }}
       onClose={() => { setAviso(null); aviso.terminar() }}

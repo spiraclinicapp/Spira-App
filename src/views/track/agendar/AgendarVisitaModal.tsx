@@ -145,7 +145,6 @@ function Cuerpo({ contexto, accent, onClose, onDone }: Comunes & { contexto: Con
   const retomar = agruparPorRetomar(retomarQ.data?.marcas ?? [], retomarQ.data?.visitas ?? [])
     .filter((g) => (paciente ? g.visita.enrollment_id === paciente.enrollmentId : g.visita.protocol_id === protocolId))
   const traer = dia ? visitasParaTraer(visitas, dia) : []
-  const retest = visitasParaRetest(visitas, dia ?? todayISO())
   const defs = scheds.data ?? []
 
   const opciones = paciente
@@ -166,7 +165,18 @@ function Cuerpo({ contexto, accent, onClose, onDone }: Comunes & { contexto: Con
 
   const defId = eleccion?.tipo === 'def' ? eleccion.defId : null
   const estimada = fechaEstimadaDelCuadro(defId ? defs.find((d) => d.id === defId) ?? null : null, visitas)
-  const fecha = dia ?? fechaElegida ?? estimada ?? todayISO()
+  /* `fechaElegida === ''` es el DateField vaciado A PROPÓSITO (emite '' al perder foco con el campo
+     vacío, ver `commitText` en DateField.tsx) — distinto de `null` (todavía no se tocó, vale la
+     sugerida). Vaciarlo no puede caer en silencio a la estimada o a hoy: sería agendar en una fecha
+     que la persona borró adrede. `fecha` en `null` hace que `PieDelFormulario` bloquee «Agendar» y
+     muestre «Elegí la fecha.» sin que ningún formulario llegue a llamar al RPC. */
+  const fecha: string | null = dia ?? (fechaElegida === '' ? null : fechaElegida ?? estimada ?? todayISO())
+
+  /* Las candidatas del retest usan la fecha YA RESUELTA (spec, no la fecha cruda): si se está
+     agendando para el día del cronograma y no para hoy, un retest no puede repetir una visita
+     fechada DESPUÉS de esa fecha elegida. Con la fecha vacía (a punto de bloquear el «Agendar») se
+     usa hoy para no dejar la lista vacía — el formulario igual no va a poder confirmar sin fecha. */
+  const retest = visitasParaRetest(visitas, fecha ?? todayISO())
 
   if (cargando) {
     return <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', padding: '6px 0' }}>Cargando visitas…</div>
@@ -191,7 +201,7 @@ function Cuerpo({ contexto, accent, onClose, onDone }: Comunes & { contexto: Con
         </FormField>
       ) : (
         <FormField label="Fecha de la visita">
-          <DateField value={fecha} onChange={setFechaElegida} min={yearsFromTodayISO(-2)} max={yearsFromTodayISO(2)} />
+          <DateField value={fecha ?? ''} onChange={setFechaElegida} min={yearsFromTodayISO(-2)} max={yearsFromTodayISO(2)} />
           {estimada && fechaElegida === null && (
             <div style={pista}>Estimada según el cronograma: {formatAR(estimada)} · ajustala si hace falta.</div>
           )}

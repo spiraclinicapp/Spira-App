@@ -19,8 +19,9 @@ import { PieDelFormulario, SinCandidatas } from './PieDelFormulario'
  */
 export function FormContinuarPendientes({ candidatas, fecha, conPaciente, preseleccion, accent, onCancel, onDone }: {
   candidatas: readonly VisitaPorRetomar[]
-  /** La fecha de la continuación: el día que se mira (Visitas) o la elegida arriba (la ficha). */
-  fecha: string
+  /** La fecha de la continuación: el día que se mira (Visitas) o la elegida arriba (la ficha).
+   *  `null` = el DateField se vació a propósito; `PieDelFormulario` bloquea «Agendar» solo. */
+  fecha: string | null
   conPaciente: boolean
   /** La visita que ya viene elegida (el «Agendar» de Pendientes y de la ficha). */
   preseleccion?: string | null
@@ -45,6 +46,7 @@ export function FormContinuarPendientes({ candidatas, fecha, conPaciente, presel
 
   const agendar = async () => {
     if (!origen) { setError('Elegí la visita.'); return }
+    if (!fecha) { setError('Elegí la fecha.'); return }
     if (elegidos.size === 0) { setError('Elegí qué procedimientos se retoman.'); return }
     setBusy(true)
     setError(null)
@@ -80,7 +82,7 @@ export function FormContinuarPendientes({ candidatas, fecha, conPaciente, presel
           />
         </FormField>
       )}
-      <PieDelFormulario error={error} busy={busy} accent={accent} onCancel={onCancel} onConfirmar={() => void agendar()} />
+      <PieDelFormulario error={error} busy={busy} accent={accent} fecha={fecha} onCancel={onCancel} onConfirmar={() => void agendar()} />
     </>
   )
 }

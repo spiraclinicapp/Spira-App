@@ -209,7 +209,10 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navTarget, onTargetConsumed])
 
-  const loading = alertsQ.loading || protocols.loading
+  /* Con `retomarQ` acá también: sin ella, la lista de retomar podía llegar VACÍA todavía (la consulta
+     en vuelo) mientras las otras tres ya estaban, y «Sin pendientes. Todo al día.» se dibujaba un
+     instante de más antes de que aparecieran sus filas. */
+  const loading = alertsQ.loading || protocols.loading || retomarQ.loading
   const error = alertsQ.error || protocols.error
 
   const allRows = alertsQ.visitAlerts
@@ -348,9 +351,10 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       + retomarRows.filter((g) => g.visita.protocol_id === p.id).length,
   }))
 
-  /* Los CUATRO avisos de esta pantalla en un solo eje. Los tres primeros son estados calculados de
-     la visita; el último no lo es —es un reporte pendiente, que vive en otra consulta— pero como
-     FILTRO pertenece acá: quien mira piensa "mostrame sólo los reportes", no "cruzá dos listas".
+  /* Los CUATRO avisos de esta pantalla en un solo eje. Los de `GRAVEDAD` son estados calculados de
+     la visita; los otros tres no lo son —IP sin entregar, reporte pendiente y procedimientos por
+     retomar viven cada uno en su propia consulta— pero como FILTRO pertenecen acá: quien mira piensa
+     "mostrame sólo los reportes" (o el IP, o lo por retomar), no "cruzá cuatro listas".
 
      ⚠️ ESTA LISTA ES UN CONSUMIDOR DE LA CLASE DE ALERTA y hay que barrerla cada vez que la clase
      se ensancha. La 0107 sumó "Por reprogramar" y esto quedó con tres opciones: las visitas de
@@ -649,7 +653,12 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
         {filtered.length === 0 && filteredProc.length === 0 && filteredIp.length === 0 && filteredRetomar.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
             <Icon name="check" size={16} color="var(--spira-good)" />
-            {allRows.length === 0 && procRows.length === 0 && ipRows.length === 0 && retomarRows.length === 0 ? 'Sin pendientes. Todo al día.' : 'Ningún pendiente coincide con los filtros.'}
+            {allRows.length === 0 && procRows.length === 0 && ipRows.length === 0 && retomarRows.length === 0 && !retomarQ.error
+              ? 'Sin pendientes. Todo al día.'
+              /* Con el error de retomar puesto, la lista de retomar quedó vacía porque FALLÓ, no
+                 porque no había nada: decir "Todo al día" ahí sería mentir sobre datos que no
+                 llegaron a cargar (el aviso de arriba ya cuenta el error en detalle). */
+              : 'Ningún pendiente coincide con los filtros.'}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -891,7 +900,15 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                       </div>
                     </div>
                   </div>
-                  <button type="button" style={deviationBtn} onClick={() => setAgendando(g)}>Agendar</button>
+                  <button
+                    type="button"
+                    style={deviationBtn}
+                    className="spira-card-link"
+                    aria-label={`Agendar lo pendiente de ${v.patient_name}`}
+                    onClick={() => setAgendando(g)}
+                  >
+                    Agendar
+                  </button>
                 </div>
               )
             })}

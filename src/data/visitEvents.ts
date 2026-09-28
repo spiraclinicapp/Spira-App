@@ -46,7 +46,13 @@ function eventError(code?: string, raw?: string): string {
   if (code === '23505') return 'Esa visita ya está registrada.'
   // 23514: el RPC habla en castellano y en términos del dominio («Elegí al menos un procedimiento…»).
   if (code === '23514' && raw) return raw
-  return raw || 'No pudimos registrar la visita. Probá de nuevo.'
+  // 22007/22008 (invalid_datetime_format / datetime_field_overflow): una fecha con formato inválido
+  // —vacía, por ejemplo— llegó al RPC. La guarda de `PieDelFormulario` ya no debería dejarla pasar,
+  // pero si pasa igual el mensaje de Postgres es un texto técnico en inglés: no se muestra tal cual.
+  if (code === '22007' || code === '22008') return 'La fecha no es válida.'
+  // Cualquier otro código: nunca el texto crudo de Postgres (a diferencia de 23514/42501, acá no
+  // habla en castellano ni en términos del dominio).
+  return 'No pudimos registrar la visita. Probá de nuevo.'
 }
 
 /**

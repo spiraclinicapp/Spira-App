@@ -13,7 +13,8 @@ import { PieDelFormulario } from './PieDelFormulario'
 export function FormVisitaDelCuadro({ enrollmentId, defId, fecha, accent, onCancel, onDone }: {
   enrollmentId: string
   defId: string
-  fecha: string
+  /** `null` = el DateField se vació a propósito; `PieDelFormulario` bloquea «Agendar» solo. */
+  fecha: string | null
   accent: string
   onCancel: () => void
   onDone: (mensaje: string) => void
@@ -22,6 +23,7 @@ export function FormVisitaDelCuadro({ enrollmentId, defId, fecha, accent, onCanc
   const [error, setError] = useState<string | null>(null)
 
   const agendar = async () => {
+    if (!fecha) { setError('Elegí la fecha.'); return }
     setBusy(true)
     setError(null)
     const res = await scheduleProtocolVisit(enrollmentId, defId, fecha)
@@ -30,5 +32,5 @@ export function FormVisitaDelCuadro({ enrollmentId, defId, fecha, accent, onCanc
     onDone(`Listo. La visita quedó para el ${formatAR(fecha)}.`)
   }
 
-  return <PieDelFormulario error={error} busy={busy} accent={accent} onCancel={onCancel} onConfirmar={() => void agendar()} />
+  return <PieDelFormulario error={error} busy={busy} accent={accent} fecha={fecha} onCancel={onCancel} onConfirmar={() => void agendar()} />
 }

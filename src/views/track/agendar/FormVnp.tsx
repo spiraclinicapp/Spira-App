@@ -17,7 +17,8 @@ export function FormVnp({ enrollmentFijo, pacientes, protocolId, fecha, accent, 
   /** A quién, desde Visitas. Se ignora si hay `enrollmentFijo`. */
   pacientes: readonly PacienteDelEstudio[]
   protocolId: string
-  fecha: string
+  /** `null` = el DateField se vació a propósito; `PieDelFormulario` bloquea «Agendar» solo. */
+  fecha: string | null
   accent: string
   onCancel: () => void
   onDone: (mensaje: string) => void
@@ -31,6 +32,7 @@ export function FormVnp({ enrollmentFijo, pacientes, protocolId, fecha, accent, 
 
   const agendar = async () => {
     if (!enrollmentId) { setError('Elegí el paciente.'); return }
+    if (!fecha) { setError('Elegí la fecha.'); return }
     setBusy(true)
     setError(null)
     const res = await registerVisitEvent(enrollmentId, 'vnp', fecha, notas.trim() || null, procs)
@@ -59,7 +61,7 @@ export function FormVnp({ enrollmentFijo, pacientes, protocolId, fecha, accent, 
       <FormField label="Nota">
         <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Opcional" style={fieldInput} />
       </FormField>
-      <PieDelFormulario error={error} busy={busy} accent={accent} onCancel={onCancel} onConfirmar={() => void agendar()} />
+      <PieDelFormulario error={error} busy={busy} accent={accent} fecha={fecha} onCancel={onCancel} onConfirmar={() => void agendar()} />
     </>
   )
 }

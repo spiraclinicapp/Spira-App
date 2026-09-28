@@ -20,7 +20,8 @@ export function FormRetest({ candidatas, protocolId, fecha, conPaciente, accent,
   /** Ya filtradas con `visitasParaRetest`. */
   candidatas: readonly TrackVisitRow[]
   protocolId: string
-  fecha: string
+  /** `null` = el DateField se vació a propósito; `PieDelFormulario` bloquea «Agendar» solo. */
+  fecha: string | null
   conPaciente: boolean
   accent: string
   onCancel: () => void
@@ -41,6 +42,7 @@ export function FormRetest({ candidatas, protocolId, fecha, conPaciente, accent,
 
   const agendar = async () => {
     if (!origen) { setError('Elegí qué visita se repite.'); return }
+    if (!fecha) { setError('Elegí la fecha.'); return }
     if (elegidos.size === 0) { setError('Elegí al menos un procedimiento para el retest.'); return }
     setBusy(true)
     setError(null)
@@ -77,7 +79,7 @@ export function FormRetest({ candidatas, protocolId, fecha, conPaciente, accent,
       <FormField label="Nota">
         <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Opcional" style={fieldInput} />
       </FormField>
-      <PieDelFormulario error={error} busy={busy} accent={accent} onCancel={onCancel} onConfirmar={() => void agendar()} />
+      <PieDelFormulario error={error} busy={busy} accent={accent} fecha={fecha} onCancel={onCancel} onConfirmar={() => void agendar()} />
     </>
   )
 }

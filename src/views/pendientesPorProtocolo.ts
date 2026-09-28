@@ -7,7 +7,7 @@
  * POR QUÉ ES UNA FUNCIÓN PURA CON TEST y no un par de `filter` en el JSX: es aritmética que se lee
  * como verdad. Una tarjeta que dice "3" cuando hay 5 no rompe nada y nadie la va a contar a mano —
  * y lo que esconde es trabajo clínico. El modo de falla clásico acá es **olvidarse de una de las
- * dos listas**: la pantalla cruza alertas de visita, reportes pendientes, IP sin entregar y
+ * cuatro listas**: la pantalla cruza alertas de visita, reportes pendientes, IP sin entregar y
  * procedimientos por retomar, que vienen de consultas distintas, y un conteo que sólo mire una se
  * ve perfectamente normal.
  *
@@ -41,7 +41,7 @@ export interface ReporteConProtocolo {
 export interface PendientesDeProtocolo {
   protocolId: string
   code: string
-  /** Visitas + reportes. Es el número grande de la tarjeta. */
+  /** Visitas + reportes + IP sin entregar + procedimientos por retomar. Es el número grande de la tarjeta. */
   total: number
   /** Cuántas visitas de cada estado de alerta, en el orden de `GRAVEDAD`. Sin ceros. */
   porEstado: { estado: VisitStatus; n: number }[]
@@ -51,12 +51,13 @@ export interface PendientesDeProtocolo {
   ips: number
   /** Cuántas visitas con procedimientos para otro día (v0145). 0 = no se muestra. */
   retomar: number
-  /** El estado más grave presente, o `null` si el protocolo sólo tiene reportes. Ordena y tiñe. */
+  /** El estado más grave presente, o `null` si el protocolo no tiene alertas de VISITA (sólo
+   *  reportes, IP sin entregar o procedimientos por retomar). Ordena y tiñe. */
   peor: VisitStatus | null
 }
 
 /**
- * Agrupa las DOS listas de la pantalla por protocolo.
+ * Agrupa las CUATRO listas de la pantalla por protocolo.
  *
  * EL ORDEN NO ES ALFABÉTICO, y es una decisión: primero el protocolo con la alerta **más grave**
  * (por `GRAVEDAD`), y a igual gravedad el que tiene **más** pendientes; el código desempata al
@@ -115,7 +116,7 @@ export function pendientesPorProtocolo(
   })
 
   const rango = (p: PendientesDeProtocolo) => {
-    if (p.peor === null) return GRAVEDAD.length // sólo reportes: después de cualquier alerta de visita
+    if (p.peor === null) return GRAVEDAD.length // sólo reportes, IP o retomar: después de cualquier alerta de visita
     const i = GRAVEDAD.indexOf(p.peor as (typeof GRAVEDAD)[number])
     return i === -1 ? GRAVEDAD.length : i
   }
