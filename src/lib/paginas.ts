@@ -10,10 +10,18 @@
  *
  * Cómo:
  *  1. La primera página pide además el TOTAL (`count: 'exact'`, ~25 ms más medido en prod).
- *  2. El resto se pide EN PARALELO, avanzando de a lo que el servidor efectivamente entregó en la
+ *  2. La SEGUNDA sale a la vez que la primera, sin esperar el total. Medido en prod con `v0.93.2`: con
+ *     la segunda detrás de la primera, «Todos los pacientes» tardaba lo que las dos sumadas (520 / 633 /
+ *     422 ms) y no ganaba nada contra la versión que cortaba en 1.000. Si la primera vino llena, la
+ *     segunda ya está en camino; si no, vuelve vacía y se descarta — un pedido chico que no espera nadie.
+ *  3. El resto se pide EN PARALELO, avanzando de a lo que el servidor efectivamente entregó en la
  *     primera, no de a `tamaño`: si alguien baja `max-rows` a 500, las páginas son de 500 y no se
  *     saltea nada. Por eso tampoco alcanza con cortar cuando una página viene más corta que `tamaño`.
- *  3. Sin total (no debería pasar), sigue de a una hasta que una página llega vacía.
+ *     En ese caso la segunda adelantada (que pidió desde `tamaño`) no sirve y se descarta.
+ *  4. Sin total (no debería pasar), sigue de a una hasta que una página llega vacía.
+ *
+ * Por el pedido adelantado, conviene para listas que se espera que pasen las 1.000 filas; para una
+ * lista siempre chica es un pedido de más, vacío.
  *
  * ⚠️ La consulta tiene que tener un ORDEN TOTAL —terminar en una columna única, como `id`—. Con un
  * orden que empata (dos visitas sueltas del mismo paciente, las dos con `sort_order` null), Postgres
@@ -35,7 +43,12 @@ export async function todasLasPaginas<T, E>(
   pedir: (desde: number, hasta: number, conTotal: boolean) => PromiseLike<Pagina<T, E>>,
   tamaño = 1000,
 ): Promise<{ data: T[] | null; error: E | null }> {
-  const primera = await pedir(0, tamaño - 1, true)
+  const pedidoPrimera = pedir(0, tamaño - 1, true)
+  const adelantada = pedir(tamaño, 2 * tamaño - 1, false)
+  // Si al final no se usa, que un rechazo suyo no quede sin atender.
+  adelantada.then(undefined, () => undefined)
+
+  const primera = await pedidoPrimera
   if (primera.error) return { data: null, error: primera.error }
   const filas = primera.data ?? []
   const total = primera.count
@@ -43,8 +56,17 @@ export async function todasLasPaginas<T, E>(
   // Nada más que pedir: vino todo, o no vino nada (y pedir de a cero no avanzaría nunca).
   if (paso === 0 || (total != null && paso >= total)) return { data: filas, error: null }
 
+  // La adelantada sólo sirve si la primera vino LLENA: pidió desde `tamaño`, que es donde sigue.
+  const todas = [...filas]
+  if (paso === tamaño) {
+    const segunda = await adelantada
+    if (segunda.error) return { data: null, error: segunda.error }
+    todas.push(...(segunda.data ?? []))
+  }
+
   if (total == null) {
-    const todas = [...filas]
+    // Si la segunda vino más corta que la primera, era la última.
+    if (paso === tamaño && todas.length < 2 * paso) return { data: todas, error: null }
     for (;;) {
       const p = await pedir(todas.length, todas.length + paso - 1, false)
       if (p.error) return { data: null, error: p.error }
@@ -55,9 +77,9 @@ export async function todasLasPaginas<T, E>(
   }
 
   const desdes: number[] = []
-  for (let desde = paso; desde < total; desde += paso) desdes.push(desde)
+  for (let desde = todas.length; desde < total; desde += paso) desdes.push(desde)
   const resto = await Promise.all(desdes.map((desde) => pedir(desde, desde + paso - 1, false)))
   const conError = resto.find((p) => p.error)
   if (conError) return { data: null, error: conError.error }
-  return { data: filas.concat(...resto.map((p) => p.data ?? [])), error: null }
+  return { data: todas.concat(...resto.map((p) => p.data ?? [])), error: null }
 }
