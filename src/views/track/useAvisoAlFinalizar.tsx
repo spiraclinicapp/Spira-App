@@ -29,6 +29,13 @@ interface Aviso {
  *
  * Si la lectura inicial falla, FINALIZA igual (falla abierta). El aviso es una ayuda, no una guarda:
  * frenar el cierre de la atención porque no se pudo leer la lista cortaría el recorrido del día.
+ *
+ * Screening y randomización no cierran acá: `avanzarAhora` (VisitDetail) y `avanzar` (Visitas)
+ * abren `ReadyOutcomeModal` para capturar el desenlace clínico DESPUÉS de este aviso. Los tildes y
+ * las marcas ya quedaron guardados en ese momento —«Finalizar» de este modal ya escribió—, así que
+ * cancelar el desenlace clínico NO los deshace. Es lo que corresponde: la pregunta de acá es «¿qué
+ * se hizo hoy?», no «¿cómo terminó la visita?», y lo que se hizo queda dicho aunque el desenlace se
+ * postergue. Además es visible y reversible desde el propio panel de procedimientos.
  */
 export function useAvisoAlFinalizar(accent: string): {
   pedir: (visit: { id: string; protocol_id: string }, seguir: () => Promise<void> | void) => Promise<void>
@@ -43,13 +50,27 @@ export function useAvisoAlFinalizar(accent: string): {
    * destilda). Aceptable: se ve en la visita y se destilda ahí.
    */
   const yaTildados = useRef<Set<string>>(new Set())
+  /**
+   * Si ya hay un `pedir` en curso —el modal abierto, o la lectura inicial todavía en vuelo—, uno
+   * nuevo se ignora en vez de pisarlo: un doble clic en la fila, o la fila y el detalle mandando a
+   * la vez, dejarían el primer `aviso` reemplazado y su promesa colgada para siempre (nadie vuelve a
+   * llamar a `terminar` de ESE). Se limpia en el `finally`, así que cubre las tres salidas: sin
+   * pendientes, con el aviso resuelto, y si la lectura inicial revienta (falla abierta).
+   */
+  const enCurso = useRef(false)
 
   const pedir = async (visit: { id: string; protocol_id: string }, seguir: () => Promise<void> | void) => {
-    const r = await fetchVisitProcedureStatus(visit.id, visit.protocol_id)
-    const pendientes = r.data ? pendientesAlFinalizar(r.data) : []
-    if (pendientes.length === 0) { await seguir(); return }
-    yaTildados.current = new Set()
-    await new Promise<void>((resolve) => setAviso({ visitId: visit.id, pendientes, seguir, terminar: resolve }))
+    if (enCurso.current) return
+    enCurso.current = true
+    try {
+      const r = await fetchVisitProcedureStatus(visit.id, visit.protocol_id)
+      const pendientes = r.data ? pendientesAlFinalizar(r.data) : []
+      if (pendientes.length === 0) { await seguir(); return }
+      yaTildados.current = new Set()
+      await new Promise<void>((resolve) => setAviso({ visitId: visit.id, pendientes, seguir, terminar: resolve }))
+    } finally {
+      enCurso.current = false
+    }
   }
 
   const modal = aviso && (

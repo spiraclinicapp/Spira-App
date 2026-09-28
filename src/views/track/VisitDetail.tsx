@@ -222,8 +222,15 @@ export function VisitDetail({
        `start_visit_attention`, cuando la atención empieza. */
 
     if (onAdvance) {
+      // El aviso de pendientes (v0145) lo abre el padre DENTRO de `onAdvance`: si `confirmando`
+      // (la visita no es de hoy) sigue en pantalla mientras tanto, quedan dos capas superpuestas.
+      // Se cierra antes, no después: después ya es tarde, el aviso se dibujó encima.
+      if (next === 'fin_atencion') setConfirmando(null)
       await onAdvance(visit, next)
       setBusy(false); setConfirmando(null)
+      // Lo que tildó o marcó el aviso del padre vive en `VisitProcedures`, que tiene su propia
+      // consulta: sin esto el panel se queda mostrando lo de antes de finalizar.
+      if (next === 'fin_atencion') setVersionProcedimientos((v) => v + 1)
       refrescar()
       return
     }
@@ -260,6 +267,9 @@ export function VisitDetail({
       setConfirmando(null)
       setBusy(true)
       await aviso.pedir(visit, () => avanzarAhora(next))
+      // Mismo motivo que en la rama de `onAdvance`: lo que tildó/marcó el aviso no lo sabe
+      // `VisitProcedures` hasta que se le avisa.
+      setVersionProcedimientos((v) => v + 1)
       setBusy(false)
       return
     }

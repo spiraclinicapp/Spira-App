@@ -16,7 +16,9 @@ import type { ProcedimientoElegible } from './retomar'
  * a evitar. No hay «finalizar sin pasarlos»: lo que no se hizo, queda.
  *
  * Mientras guarda no se cierra: un Esc a mitad de camino dejaría tildes o marcas puestas sin
- * finalizar. Cerrar antes de «Finalizar» cancela todo: no se tilda ni se marca nada.
+ * finalizar. Cerrar antes de tocar «Finalizar» cancela todo: no se tilda ni se marca nada. Pero si
+ * «Finalizar» ya se apretó y falló a mitad de camino (algunos tildes guardados, después un error),
+ * cerrar DESPUÉS de eso no los deshace: quedan escritos, tal como quedarían si se reintentara.
  */
 export function AvisoPendientesModal({ pendientes, accent, onFinalizar, onClose }: {
   pendientes: readonly ProcedimientoElegible[]

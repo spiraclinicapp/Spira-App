@@ -301,6 +301,9 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
     setBusyId(visit.id)
     await aviso.pedir(visit, () => { setBusyId(null); return avanzar(visit, next) })
     setBusyId(null)
+    // Lo que el aviso tildó o marcó cambia la tira de indicadores de la fila (qué le queda por
+    // hacer), que sale de `dayProcs` y no de `day`: sin este refetch se queda mostrando lo de antes.
+    dayProcs.refetch()
   }
 
   /* "No vino" ahora GUARDA una marca (no abre el modal): la visita queda en "Por reprogramar"
