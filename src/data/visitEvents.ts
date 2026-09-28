@@ -51,13 +51,16 @@ function eventError(code?: string, raw?: string): string {
 
 /**
  * Registra una visita suelta. El retest y la VNP pueden llevar procedimientos del estudio
- * (v0144); el retest, al menos uno. Las reglas las valida el RPC server-side.
+ * (v0144); el retest, al menos uno. Desde la 0145 el retest lleva la visita que repite
+ * (`retestOf`), y sólo lo que se hizo en ella. Las reglas las valida el RPC server-side.
  */
 export async function registerVisitEvent(
   enrollmentId: string, kind: VisitKind, date: string, notes: string | null, procedureIds: string[] = [],
+  retestOf: string | null = null,
 ): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('register_visit_event', {
     p_enrollment_id: enrollmentId, p_kind: kind, p_date: date, p_notes: notes, p_procedure_ids: procedureIds,
+    p_retest_of: retestOf,
   })
   if (error) return { error: eventError(error.code, error.message) }
   return { error: null }
@@ -89,8 +92,8 @@ export async function deleteVisitEvent(id: string): Promise<{ error: string | nu
   if (error) {
     // 23503: un pedido de dispensación apunta a la visita (on delete restrict, 0002).
     if (error.code === '23503') return { error: 'No se puede borrar: la visita ya tiene un pedido de dispensación.' }
-    // 23514 de la guarda de la 0144, ya en castellano: «…Deshacé primero esa continuación.» o
-    // «…marcados como realizados…».
+    // 23514 de la guarda de la 0144/0145, ya en castellano: «…Deshacé primero esa continuación.»,
+    // «…Borralo primero.» (retest, 0145) o «…marcados como realizados…».
     return { error: error.message }
   }
   if (!data || data.length === 0) return { error: 'No se pudo borrar (es una visita programada/randomización o no tenés permiso).' }

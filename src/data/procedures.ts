@@ -1,5 +1,6 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
+import type { PostgrestError } from '@supabase/supabase-js'
 
 /**
  * Capa de datos de "procedimientos por visita" (migración 0061). Modelo híbrido:
@@ -165,14 +166,80 @@ export interface VisitProcedureStatus {
    * cuadro del estudio. Nunca se degrada a `false`: eso afirmaría que no lleva sangre.
    */
   draws_blood: boolean | null
+  /**
+   * Si el procedimiento deja reporte EN ESTE ESTUDIO (`report_definitions`, 0089). En la app sólo se
+   * tildan los que dejan reporte; uno sin reporte se da por hecho cuando la visita se atendió
+   * (decisión 9 del spec de la 0145). De acá lo leen el aviso al finalizar y el retest.
+   */
+  tiene_reporte: boolean
 }
 
 /**
- * Procedimientos de una visita con estado realizado. Lee la LISTA EFECTIVA (`v_visit_procedures`,
- * v0144): el cronograma menos lo que la visita pasó a otro día, más lo agregado — que es lo único que
- * tiene una visita suelta. TRES consultas en paralelo unidas en el cliente, sin embeds (se vuelven
- * ambiguos apenas alguien agrega una FK) y cada una con su RLS.
+ * La lectura de `useVisitProcedureStatus`, sacada a una función para poder hacerla también FUERA
+ * de un hook: el aviso al finalizar (v0145) la necesita en el momento del clic, desde la fila del
+ * día, donde no hay un hook por visita montado.
+ *
+ * Lee la LISTA EFECTIVA (`v_visit_procedures`, v0144): el cronograma menos lo que la visita pasó a
+ * otro día, más lo agregado — que es lo único que tiene una visita suelta. TRES consultas en
+ * paralelo unidas en el cliente, sin embeds sueltos (se vuelven ambiguos apenas alguien agrega una
+ * FK) salvo el de reportes, que va por la relación NOMBRADA (misma que `useDayProcedureRows`).
  */
+async function cargarProcedimientosDeVisita(
+  c: typeof supabase, visitId: string, protocolId: string | null,
+): Promise<{ data: VisitProcedureStatus[] | null; error: PostgrestError | null }> {
+  const [asg, compRes, sangreRes] = await Promise.all([
+    c
+      .from('v_visit_procedures')
+      .select('procedure_id, suggested_order, origen, deferred_from_visit_id, procedure_code, procedure_name, procedure_category')
+      .eq('visit_id', visitId)
+      .order('suggested_order', { ascending: true, nullsFirst: false })
+      .order('procedure_name', { ascending: true }),
+    c.from('visit_procedure_completions').select('procedure_id, completed_at').eq('visit_id', visitId),
+    protocolId
+      ? c.from('protocol_procedures').select('procedure_id, draws_blood, report_definitions!protocol_procedure_id(id)').eq('protocol_id', protocolId)
+      : Promise.resolve({ data: [], error: null }),
+  ])
+  if (asg.error) return { data: null, error: asg.error }
+  if (compRes.error) return { data: null, error: compRes.error }
+  if (sangreRes.error) return { data: null, error: sangreRes.error }
+
+  const rows = (asg.data ?? []) as unknown as {
+    procedure_id: string
+    suggested_order: number | null
+    origen: OrigenProcedimiento
+    deferred_from_visit_id: string | null
+    procedure_code: string | null
+    procedure_name: string
+    procedure_category: string | null
+  }[]
+  const comp = new Map<string, string>(
+    ((compRes.data ?? []) as { procedure_id: string; completed_at: string }[]).map((r) => [r.procedure_id, r.completed_at]),
+  )
+  const delEstudio = (sangreRes.data ?? []) as unknown as {
+    procedure_id: string; draws_blood: boolean | null; report_definitions: { id: string }[] | null
+  }[]
+  const sangre = new Map<string, boolean | null>(delEstudio.map((r) => [r.procedure_id, r.draws_blood]))
+  const conReporte = new Set(delEstudio.filter((r) => (r.report_definitions ?? []).length > 0).map((r) => r.procedure_id))
+
+  return {
+    data: rows.map((r) => ({
+      procedure_id: r.procedure_id,
+      code: r.procedure_code,
+      name: r.procedure_name,
+      category: r.procedure_category,
+      suggested_order: r.suggested_order,
+      origen: r.origen,
+      deferred_from_visit_id: r.deferred_from_visit_id,
+      completed: comp.has(r.procedure_id),
+      completed_at: comp.get(r.procedure_id) ?? null,
+      // `?? null` y no `?? false`: sin fila en el cuadro del estudio, la sangre está SIN DEFINIR.
+      draws_blood: sangre.get(r.procedure_id) ?? null,
+      tiene_reporte: conReporte.has(r.procedure_id),
+    })),
+    error: null,
+  }
+}
+
 export function useVisitProcedureStatus(
   visitId: string | null,
   /** El estudio de la visita: sin él no se puede saber si el procedimiento lleva sangre (0134),
@@ -180,57 +247,17 @@ export function useVisitProcedureStatus(
   protocolId: string | null,
 ) {
   return useSupabaseQuery<VisitProcedureStatus[]>(
-    async (c) => {
-      if (!visitId) return { data: [], error: null }
-      const [asg, compRes, sangreRes] = await Promise.all([
-        c
-          .from('v_visit_procedures')
-          .select('procedure_id, suggested_order, origen, deferred_from_visit_id, procedure_code, procedure_name, procedure_category')
-          .eq('visit_id', visitId)
-          .order('suggested_order', { ascending: true, nullsFirst: false })
-          .order('procedure_name', { ascending: true }),
-        c.from('visit_procedure_completions').select('procedure_id, completed_at').eq('visit_id', visitId),
-        protocolId
-          ? c.from('protocol_procedures').select('procedure_id, draws_blood').eq('protocol_id', protocolId)
-          : Promise.resolve({ data: [], error: null }),
-      ])
-      if (asg.error) return { data: null, error: asg.error }
-      if (compRes.error) return { data: null, error: compRes.error }
-      if (sangreRes.error) return { data: null, error: sangreRes.error }
-
-      const rows = (asg.data ?? []) as unknown as {
-        procedure_id: string
-        suggested_order: number | null
-        origen: OrigenProcedimiento
-        deferred_from_visit_id: string | null
-        procedure_code: string | null
-        procedure_name: string
-        procedure_category: string | null
-      }[]
-      const comp = new Map<string, string>(
-        ((compRes.data ?? []) as { procedure_id: string; completed_at: string }[]).map((r) => [r.procedure_id, r.completed_at]),
-      )
-      const sangre = new Map<string, boolean | null>(
-        ((sangreRes.data ?? []) as { procedure_id: string; draws_blood: boolean | null }[]).map((r) => [r.procedure_id, r.draws_blood]),
-      )
-
-      const merged: VisitProcedureStatus[] = rows.map((r) => ({
-        procedure_id: r.procedure_id,
-        code: r.procedure_code,
-        name: r.procedure_name,
-        category: r.procedure_category,
-        suggested_order: r.suggested_order,
-        origen: r.origen,
-        deferred_from_visit_id: r.deferred_from_visit_id,
-        completed: comp.has(r.procedure_id),
-        completed_at: comp.get(r.procedure_id) ?? null,
-        // `?? null` y no `?? false`: sin fila en el cuadro del estudio, la sangre está SIN DEFINIR.
-        draws_blood: sangre.get(r.procedure_id) ?? null,
-      }))
-      return { data: merged, error: null }
-    },
+    async (c) => (visitId ? cargarProcedimientosDeVisita(c, visitId, protocolId) : { data: [], error: null }),
     [visitId, protocolId],
   )
+}
+
+/** Lo mismo, leído una vez y fuera de un hook (el aviso al finalizar, v0145). */
+export async function fetchVisitProcedureStatus(
+  visitId: string, protocolId: string,
+): Promise<{ data: VisitProcedureStatus[] | null; error: string | null }> {
+  const r = await cargarProcedimientosDeVisita(supabase, visitId, protocolId)
+  return { data: r.data, error: r.error ? r.error.message : null }
 }
 
 /** Un procedimiento que lleva una visita del día (su lista efectiva, v0144). */
