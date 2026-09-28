@@ -3,7 +3,7 @@ import type { TrackVisitRow } from '../../data/visits'
 import type { MarcaRow } from '../../data/pendientes'
 import {
   agruparPorRetomar, diasEsperando, pacientesDelEstudio, pendientesAlFinalizar, procedimientosRepetibles,
-  contadorDeDias, rotuloDeVisita, visitasParaRetest, visitasParaTraer,
+  cierreDeVentana, contadorDeDias, marcaDePendiente, rotuloDeVisita, visitasConFechaPasada, visitasParaRetest, visitasParaTraer,
 } from './retomar'
 
 /**
@@ -66,7 +66,9 @@ describe('visitasParaRetest', () => {
 
 describe('visitasParaTraer', () => {
   const dia = '2026-09-27'
-  it('las pendientes de antes y de después del día, por fecha: las atrasadas primero', () => {
+  it('TODA visita sin hacer, de antes y de después del día, por fecha: vencidas y faltas incluidas', () => {
+    // El Director (2026-09-28): «¿por qué no figuran estas si son visitas pendientes?». Las vencidas
+    // y las «No vino» se agendan desde acá también.
     const r = visitasParaTraer([
       v({ id: 'b', estimated_date: '2026-10-05' }),
       v({ id: 'a', estimated_date: '2026-10-02' }),
@@ -76,9 +78,57 @@ describe('visitasParaTraer', () => {
       v({ id: 'falto', estimated_date: '2026-10-01', no_show_at: '2026-09-26T10:00:00+00:00' }),
       v({ id: 'vencida', estimated_date: '2026-10-01', computed_status: 'ventana_vencida' }),
       v({ id: 'cerrada', estimated_date: '2026-10-01', enrollment_status: 'completado' }),
+      v({ id: 'encentro', estimated_date: '2026-09-25', computed_status: 'en_atencion' }), // está ahora en el centro
       v({ id: 'sinfecha', estimated_date: null }),
     ], dia)
-    expect(r.map((x) => x.id)).toEqual(['antes', 'a', 'b'])
+    expect(r.map((x) => x.id)).toEqual(['antes', 'falto', 'vencida', 'a', 'b'])
+  })
+})
+
+describe('marcaDePendiente', () => {
+  it('dice por qué no es una pendiente cualquiera; la vencida primero', () => {
+    expect(marcaDePendiente({ computed_status: 'ventana_vencida', no_show_at: null })).toBe('Ventana vencida')
+    expect(marcaDePendiente({ computed_status: 'ventana_vencida', no_show_at: '2026-09-20T10:00:00+00:00' })).toBe('Ventana vencida')
+    expect(marcaDePendiente({ computed_status: 'por_reprogramar', no_show_at: '2026-09-20T10:00:00+00:00' })).toBe('No vino')
+    expect(marcaDePendiente({ computed_status: 'proxima', no_show_at: null })).toBeNull()
+  })
+})
+
+describe('visitasConFechaPasada', () => {
+  // Lo que se escapaba: «pasó el día en el que estaba programada y no se hizo», con la ventana
+  // abierta. Para la base es `proxima`, así que ninguna alerta lo decía.
+  const hoy = '2026-09-28'
+  it('las próximas con la fecha antes de hoy, la más vieja primero; ni hoy, ni futuras, ni cerradas', () => {
+    const r = visitasConFechaPasada([
+      v({ id: 'ayer', estimated_date: '2026-09-27' }),
+      v({ id: 'semana', estimated_date: '2026-09-21' }),
+      v({ id: 'hoy', estimated_date: '2026-09-28' }),
+      v({ id: 'futura', estimated_date: '2026-10-02' }),
+      v({ id: 'cerrada', estimated_date: '2026-09-20', enrollment_status: 'discontinuado' }),
+      v({ id: 'sinfecha', estimated_date: null }),
+    ], hoy)
+    expect(r.map((x) => x.id)).toEqual(['semana', 'ayer'])
+  })
+  it('no repite a las que ya tienen su propio aviso: vencidas, faltas, hechas', () => {
+    const r = visitasConFechaPasada([
+      v({ id: 'vencida', estimated_date: '2026-09-10', computed_status: 'ventana_vencida' }),
+      v({ id: 'falto', estimated_date: '2026-09-20', computed_status: 'por_reprogramar', no_show_at: '2026-09-20T10:00:00+00:00' }),
+      v({ id: 'hecha', estimated_date: '2026-09-20', computed_status: 'completa', real_date: '2026-09-20' }),
+    ], hoy)
+    expect(r).toEqual([])
+  })
+})
+
+describe('cierreDeVentana', () => {
+  const hoy = '2026-09-28'
+  it('cuánto le queda a la ventana, en palabras', () => {
+    expect(cierreDeVentana({ window_end: '2026-09-28' }, hoy)).toBe('la ventana cierra hoy')
+    expect(cierreDeVentana({ window_end: '2026-09-29' }, hoy)).toBe('la ventana cierra mañana')
+    expect(cierreDeVentana({ window_end: '2026-10-01' }, hoy)).toBe('la ventana cierra en 3 días')
+  })
+  it('sin ventana (VNP, retest) no hay plazo que contar; vencida, es otro aviso', () => {
+    expect(cierreDeVentana({ window_end: null }, hoy)).toBeNull()
+    expect(cierreDeVentana({ window_end: '2026-09-27' }, hoy)).toBeNull()
   })
 })
 

@@ -140,6 +140,27 @@ export function useVisitAlerts() {
 }
 
 /**
+ * «Se pasó la fecha» (2026-09-28): las visitas `proxima` con la fecha estimada ANTES de hoy — ni
+ * hechas, ni «No vino», con la ventana todavía abierta. La base no las marca (siguen «próximas»), así
+ * que se piden por fecha. La regla fina —inscripciones cerradas afuera, el orden— vive en
+ * `visitasConFechaPasada` (views/track/retomar.ts), que tiene test; esto sólo acota lo que viaja.
+ * «Hoy» es el de Argentina (`todayISO`): el `current_date` de la vista es UTC y a la noche ya es mañana.
+ */
+export function useFechaPasada() {
+  return useSupabaseQuery<TrackVisitRow[]>(
+    (c) =>
+      c
+        .from('v_track_visits')
+        .select('*')
+        .eq('computed_status', 'proxima')
+        .lt('estimated_date', todayISO())
+        .order('estimated_date', { ascending: true })
+        .returns<TrackVisitRow[]>(),
+    [],
+  )
+}
+
+/**
  * Salvaguarda: visitas de randomización ATENDIDAS (real_date no nulo) cuyo enrolamiento sigue
  * SIN randomization_date — se atendió la visita pero no se confirmó la randomización, así que el
  * tratamiento no se generó. role='randomizacion' lo trae el cuadro (las sueltas no aplican).

@@ -59,17 +59,71 @@ export function visitasParaRetest(visitas: readonly TrackVisitRow[], hoy: string
 }
 
 /**
- * «Una visita pendiente del estudio» (decisión 7 del spec): las visitas sin atender del estudio, para
- * traerlas al día que se mira. Las de más adelante Y las atrasadas cuya ventana sigue abierta (el
- * Director, 2026-09-28: el contador de días va «positivo o negativo»); las atrasadas primero, por
- * fecha. Sin las del mismo día (ya están ahí), las faltas ni las de ventana vencida: ésas tienen su
- * propia salida (Pendientes).
+ * «Una visita pendiente del estudio» (decisión 7 del spec): TODA visita sin hacer, para traerla al
+ * día elegido. Las de más adelante, las atrasadas, las de ventana vencida y las faltas («No vino»).
+ * Las atrasadas primero, por fecha.
+ *
+ * Las vencidas y las faltas quedaban afuera porque «tienen su salida en Pendientes», y el Director lo
+ * dio vuelta (2026-09-28): «¿por qué no figuran estas si son visitas pendientes? … las puedo hacer
+ * siempre desde el agendar visita». Una visita que no se hizo se tiene que poder agendar desde el
+ * lugar donde se agenda. Traer una vencida no la vuelve en ventana —el formulario avisa que queda
+ * afuera, y la desviación se documenta igual—; traer una falta limpia el «No vino», que es la salida
+ * de «Por reprogramar» (`rescheduleVisit`).
+ *
+ * Afuera: las hechas, las del mismo día (ya están ahí), la que está en el centro ahora
+ * (`en_atencion`) y las inscripciones cerradas.
  */
 export function visitasParaTraer(visitas: readonly TrackVisitRow[], dia: string): TrackVisitRow[] {
   return visitas
-    .filter((v) => v.real_date === null && v.no_show_at === null && v.estimated_date !== null
-      && v.estimated_date !== dia && v.computed_status !== 'ventana_vencida' && !inscripcionCerrada(v.enrollment_status))
+    .filter((v) => v.real_date === null && v.estimated_date !== null && v.estimated_date !== dia
+      && v.computed_status !== 'en_atencion' && !inscripcionCerrada(v.enrollment_status))
     .sort((a, b) => (a.estimated_date ?? '').localeCompare(b.estimated_date ?? '') || a.patient_name.localeCompare(b.patient_name, 'es'))
+}
+
+/**
+ * Por qué una visita de «Una visita pendiente del estudio» no es una pendiente cualquiera: la segunda
+ * línea de la opción. `null` = nada que decir (futura, o atrasada con la ventana abierta: eso ya lo
+ * dice el contador). La ventana vencida va primero porque es la que implica una desviación.
+ */
+export function marcaDePendiente(v: Pick<TrackVisitRow, 'computed_status' | 'no_show_at'>): string | null {
+  if (v.computed_status === 'ventana_vencida') return 'Ventana vencida'
+  if (v.no_show_at !== null) return 'No vino'
+  return null
+}
+
+/**
+ * «Se pasó la fecha» (Pendientes, 2026-09-28): visitas cuya fecha ya pasó sin hacerse, que NO son
+ * faltas y cuya ventana sigue abierta. Para la base siguen siendo `proxima`, así que no avisaban en
+ * ningún lado hasta vencerse la ventana — que es justo cuando ya es tarde. El Director: «de alguna
+ * forma yo tengo que poder acceder de forma fácil a este dato para no dejarla pasar».
+ *
+ * Es una regla del FRONT y no un estado nuevo de la base a propósito: un valor nuevo de
+ * `computed_status` lo leen la campana, el Resumen, la ficha y Estadísticas, y cambiaría lo que
+ * cuentan todos. Acá vive sólo en Pendientes, como «Por retomar».
+ *
+ * `proxima` ya garantiza sin hacer, sin «No vino» y con la ventana abierta (ver el `case` de la
+ * vista, 0144); se repiten las dos primeras para que la regla no dependa de eso en silencio. Las
+ * inscripciones cerradas se van: sin paciente en el estudio no hay nada que reprogramar.
+ */
+export function visitasConFechaPasada(visitas: readonly TrackVisitRow[], hoy: string): TrackVisitRow[] {
+  return visitas
+    .filter((v) => v.computed_status === 'proxima' && v.real_date === null && v.no_show_at === null
+      && v.estimated_date !== null && v.estimated_date < hoy && !inscripcionCerrada(v.enrollment_status))
+    .sort((a, b) => (a.estimated_date ?? '').localeCompare(b.estimated_date ?? '') || a.patient_name.localeCompare(b.patient_name, 'es'))
+}
+
+/**
+ * Cuánto le queda a la ventana de una visita con la fecha pasada: lo que dice cuánto apura. `null`
+ * sin ventana (una VNP, un retest: no tienen) — ahí no hay plazo que contar, y lo que se ve es sólo
+ * la fecha que se pasó.
+ */
+export function cierreDeVentana(v: Pick<TrackVisitRow, 'window_end'>, hoy: string): string | null {
+  if (!v.window_end) return null
+  const d = daysDiffISO(hoy, v.window_end)
+  if (d < 0) return null // ya vencida: ése es otro aviso
+  if (d === 0) return 'la ventana cierra hoy'
+  if (d === 1) return 'la ventana cierra mañana'
+  return `la ventana cierra en ${d} días`
 }
 
 /**

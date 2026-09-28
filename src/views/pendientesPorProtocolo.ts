@@ -41,7 +41,7 @@ export interface ReporteConProtocolo {
 export interface PendientesDeProtocolo {
   protocolId: string
   code: string
-  /** Visitas + reportes + IP sin entregar + procedimientos por retomar. Es el número grande de la tarjeta. */
+  /** Visitas + reportes + IP sin entregar + procedimientos por retomar + fechas pasadas. Es el número grande de la tarjeta. */
   total: number
   /** Cuántas visitas de cada estado de alerta, en el orden de `GRAVEDAD`. Sin ceros. */
   porEstado: { estado: VisitStatus; n: number }[]
@@ -51,6 +51,8 @@ export interface PendientesDeProtocolo {
   ips: number
   /** Cuántas visitas con procedimientos para otro día (v0145). 0 = no se muestra. */
   retomar: number
+  /** Cuántas visitas con la fecha pasada y la ventana abierta (2026-09-28). 0 = no se muestra. */
+  fechaPasada: number
   /** El estado más grave presente, o `null` si el protocolo no tiene alertas de VISITA (sólo
    *  reportes, IP sin entregar o procedimientos por retomar). Ordena y tiñe. */
   peor: VisitStatus | null
@@ -78,12 +80,16 @@ export function pendientesPorProtocolo(
   /* La cuarta lista (v0145): una fila por VISITA que dejó procedimientos para otro día. Misma forma
      mínima. Con default, pero la pantalla la PASA: olvidarla es el modo de falla del encabezado. */
   retomar: readonly ReporteConProtocolo[] = [],
+  /* La quinta (2026-09-28): visitas con la fecha pasada y la ventana abierta. Para la base son
+     `proxima`, así que NO pueden ir por `visitas` (contarían un estado que no es alerta): van
+     aparte, con la forma mínima. Con default, pero la pantalla la PASA. */
+  fechaPasada: readonly ReporteConProtocolo[] = [],
 ): PendientesDeProtocolo[] {
-  const acc = new Map<string, { code: string; estados: Map<VisitStatus, number>; reportes: number; ips: number; retomar: number }>()
+  const acc = new Map<string, { code: string; estados: Map<VisitStatus, number>; reportes: number; ips: number; retomar: number; fechaPasada: number }>()
   const entrada = (id: string, code: string) => {
     const previo = acc.get(id)
     if (previo) return previo
-    const nuevo = { code, estados: new Map<VisitStatus, number>(), reportes: 0, ips: 0, retomar: 0 }
+    const nuevo = { code, estados: new Map<VisitStatus, number>(), reportes: 0, ips: 0, retomar: 0, fechaPasada: 0 }
     acc.set(id, nuevo)
     return nuevo
   }
@@ -95,6 +101,7 @@ export function pendientesPorProtocolo(
   for (const r of reportes) entrada(r.protocol_id, r.protocol_code).reportes += 1
   for (const r of ips) entrada(r.protocol_id, r.protocol_code).ips += 1
   for (const r of retomar) entrada(r.protocol_id, r.protocol_code).retomar += 1
+  for (const r of fechaPasada) entrada(r.protocol_id, r.protocol_code).fechaPasada += 1
 
   const filas: PendientesDeProtocolo[] = [...acc.entries()].map(([protocolId, e]) => {
     /* El desglose sale EN EL ORDEN DE `GRAVEDAD` y no en el de aparición: si la tarjeta listara los
@@ -106,11 +113,12 @@ export function pendientesPorProtocolo(
     return {
       protocolId,
       code: e.code,
-      total: visitas + e.reportes + e.ips + e.retomar,
+      total: visitas + e.reportes + e.ips + e.retomar + e.fechaPasada,
       porEstado,
       reportes: e.reportes,
       ips: e.ips,
       retomar: e.retomar,
+      fechaPasada: e.fechaPasada,
       peor: porEstado[0]?.estado ?? null,
     }
   })
