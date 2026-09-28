@@ -372,10 +372,10 @@ begin
   if old.deferred_from_visit_id is null then
     return old; -- lo agregado a mano no tiene adónde volver.
   end if;
-  -- El origen puede haberse ido en la MISMA sentencia (delete_patient, close_enrollment lo borran
-  -- junto con esta fila, por cascade): un insert contra un origen que ya no existe rompería el
-  -- borrado entero por la FK. Y no se marca lo que el origen ya tiene tildado (no se puede marcar
-  -- lo hecho).
+  -- El origen puede haberse ido en la MISMA sentencia (delete_patient, o un borrado manual desde el
+  -- editor de la visita, lo borran junto con esta fila, por cascade): un insert contra un origen
+  -- que ya no existe rompería el borrado entero por la FK. Y no se marca lo que el origen ya tiene
+  -- tildado (no se puede marcar lo hecho).
   if exists (select 1 from public.patient_visits where id = old.deferred_from_visit_id)
      and not exists (select 1 from public.visit_procedure_completions c
                      where c.visit_id = old.deferred_from_visit_id and c.procedure_id = old.procedure_id)
@@ -478,8 +478,13 @@ begin
   -- 0145 · El origen del retest: de la misma inscripción, ya atendido, y sólo lo que se hizo ahí
   -- (procedimiento_hecho: tildado, o sin reporte con la visita atendida).
   if p_retest_of is not null then
-    -- Lock compartido del origen: que no cambie (fecha real, tilde) entre validar y el insert de abajo.
+    -- Dos locks para que nada cambie entre validar y el insert de abajo: el de la visita cubre que
+    -- cambie real_date o los RPCs que la bloquean (dejar/quitar/continuar, arriba); pero destildar es
+    -- un DELETE sobre visit_procedure_completions, que no toca la fila de la visita — por eso el
+    -- segundo lock, sobre esas filas puntuales, bloquea ese borrado hasta el commit.
     perform 1 from public.patient_visits o where o.id = p_retest_of for share;
+    perform 1 from public.visit_procedure_completions c
+      where c.visit_id = p_retest_of and c.procedure_id = any (v_procs) for share;                  -- 0145
     if p_kind <> 'retest' then
       raise exception 'Solo un retest repite una visita' using errcode = 'check_violation';
     end if;
@@ -630,3 +635,27 @@ left join public.visit_definitions rvd on rvd.id = rpv.visit_def_id;
 
 comment on view public.v_track_visits is
   'Visitas de Coordinación. patient_code = IVRS de la inscripción (0126). 0144: origin_* (continuación). 0145: retest_of_* (la visita que repite un retest), al final.';
+
+
+-- 10 · Recarga de PostgREST y sondas --------------------------------------------------------------
+notify pgrst, 'reload schema';
+
+-- Sonda 1: las vistas recreadas corren con los permisos de QUIEN CONSULTA. Las dos tienen que decir
+-- {security_invoker=true}; una sin eso saltea la RLS por estudio en silencio.
+select c.relname, c.reloptions
+from pg_class c
+where c.oid in ('public.v_visit_procedures'::regclass, 'public.v_track_visits'::regclass)
+order by 1;
+
+-- Sonda 2: la lista efectiva resta lo marcado en SUS DOS ramas. Tiene que dar 2.
+select (length(definition) - length(replace(definition, 'visit_pending_procedures', ''))) / length('visit_pending_procedures') as ramas_que_restan
+from pg_views where schemaname = 'public' and viewname = 'v_visit_procedures';
+
+-- Sonda 3: register_visit_event quedó con UNA sola firma (la de seis parámetros). Tiene que dar 1.
+select count(*) as firmas from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'register_visit_event';
+
+-- Sonda 4: v_patient_visits no se enteró de la columna nueva (su lista quedó fija en la 0144). Tiene
+-- que dar 0: si da 1, alguien la recreó con pv.* y el orden de columnas corrió.
+select count(*) as tiene_retest_of from pg_attribute
+where attrelid = 'public.v_patient_visits'::regclass and attname = 'retest_of_visit_id' and not attisdropped;
