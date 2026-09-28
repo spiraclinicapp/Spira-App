@@ -29,6 +29,15 @@ export interface SelectOption {
    *  de la lista. Una lista corta de niveles se compara mejor con las frases a la vista; una larga
    *  de estudios se lee mejor sin ellas, con la explicación a un apunte de distancia. */
   info?: { titulo: string; cuerpo: string }
+  /** Un dato CORTO a la derecha de la opción, en columna (cifras tabulares, alineado a la derecha).
+   *  Nació con el contador de días de «Una visita pendiente del estudio» (2026-09-28: «+2 d», «−5 d»):
+   *  pegado al rótulo, el número se perdía entre la fecha y el nombre; en su columna se lee de un
+   *  vistazo y se compara hacia abajo. Sale también en el disparador cuando la opción está elegida.
+   *  Sin `meta`, la opción se dibuja exactamente como siempre. */
+  meta?: string
+  /** Tiñe el `meta` con el ámbar profundo: para cuando el dato AVISA algo (una visita atrasada), no
+   *  para decorar. El token `--spira-acc-deep-warn` es el que se aclara en tema oscuro. */
+  metaAlerta?: boolean
 }
 
 /** A partir de cuántas opciones aparece el buscador cuando searchable='auto'. */
@@ -182,6 +191,8 @@ export function SearchableSelect(props: Props) {
      no sabemos de qué color es. */
   /* El punto solo tiene sentido cuando el disparador nombra UNA opción: con varias no hay una
      categoría que pintar. */
+  /* El `meta` de la opción elegida, sólo con una: con varias el disparador muestra un recuento. */
+  const currentOpt = !multiple && value ? options.find((o) => o.value === value) : undefined
   const currentDot = multiple
     ? (selected.length === 1 ? options.find((o) => o.value === selected[0])?.dot : undefined)
     : (value ? options.find((o) => o.value === value)?.dot : undefined)
@@ -366,6 +377,9 @@ export function SearchableSelect(props: Props) {
             : { flex: 1, textAlign: 'left', color: current ? 'var(--spira-ink)' : 'var(--spira-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {triggerLabel}
         </span>
+        {variant === 'field' && currentOpt?.meta && (
+          <span style={{ ...optionMeta, color: currentOpt.metaAlerta ? 'var(--spira-acc-deep-warn)' : 'var(--spira-muted)' }}>{currentOpt.meta}</span>
+        )}
         {/* El 'boton' no lleva chevron: no es un campo que muestra un valor y se despliega, es una
             acción. El §04 del handoff lo dice explícito — "ya no es un select con chevron". */}
         {variant !== 'boton' && (
@@ -491,6 +505,9 @@ export function SearchableSelect(props: Props) {
                           </span>
                         ) : (
                           <span className={mono ? 'spira-mono' : undefined} style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
+                        )}
+                        {o.meta && (
+                          <span style={{ ...optionMeta, color: o.metaAlerta ? 'var(--spira-acc-deep-warn)' : 'var(--spira-muted)' }}>{o.meta}</span>
                         )}
                         {/* El tilde solo en múltiple: con una sola opción, el resalte de la fila ya
                             dice cuál está elegida y no hay nada que destildar. En 'sumar' no hay
@@ -621,6 +638,13 @@ const option: CSSProperties = {
  *  la explicación no tiene por qué engordar con él. */
 const optionDesc: CSSProperties = {
   fontSize: 12, lineHeight: 1.35, color: 'var(--spira-muted)', whiteSpace: 'normal', fontWeight: 400,
+}
+/** El dato corto a la derecha (`SelectOption.meta`). Ancho mínimo y cifras tabulares para que los
+ *  números de una lista queden en columna aunque tengan distinta cantidad de dígitos. No hereda el
+ *  600 de la opción elegida: es un dato al margen, no parte del nombre. */
+const optionMeta: CSSProperties = {
+  flex: '0 0 auto', minWidth: 42, textAlign: 'right', fontSize: 12.5, fontWeight: 500,
+  fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
 }
 /** Punto de color opcional de una opción (`SelectOption.dot`). Decorativo: el significado lo lleva
  *  el rótulo de al lado, así que no necesita contraste propio. */

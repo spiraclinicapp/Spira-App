@@ -17,13 +17,14 @@ const def = (id: string, role: DefinicionAgendable['role'], campos: Partial<Defi
 const valores = (o: readonly { value: string }[]) => o.map((x) => x.value)
 
 describe('opcionesDeAgendar, desde Visitas', () => {
-  it('trae una visita del estudio con su número, y nunca el cuadro ni las sueltas', () => {
-    const o = opcionesDeAgendar({ modo: 'dia', traer: 3, continuar: 0 })
+  it('trae una visita pendiente del estudio SIN número, y nunca el cuadro ni las sueltas', () => {
+    // «ese 120 no se entiende qué es» (el Director, 2026-09-28): la cifra se fue del rótulo.
+    const o = opcionesDeAgendar({ modo: 'dia', continuar: 0 })
     expect(valores(o)).toEqual(['traer', 'retest', 'vnp'])
-    expect(o[0].label).toBe('Una visita del estudio (3)')
+    expect(o[0].label).toBe('Una visita pendiente del estudio')
   })
   it('«Continuar pendientes» sólo si hay algo esperando, con cuántas visitas', () => {
-    const o = opcionesDeAgendar({ modo: 'dia', traer: 0, continuar: 2 })
+    const o = opcionesDeAgendar({ modo: 'dia', continuar: 2 })
     expect(valores(o)).toEqual(['traer', 'continuar', 'retest', 'vnp'])
     expect(o[1].label).toBe('Continuar pendientes (2)')
   })

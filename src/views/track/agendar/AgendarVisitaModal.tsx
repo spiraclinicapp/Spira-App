@@ -155,7 +155,7 @@ function Cuerpo({ contexto, accent, onClose, onDone }: Comunes & { contexto: Con
         kindsSueltos: availableEventKinds(paciente.randomizationDate, visitas.map((v) => v.kind), tieneCuadro(defs)),
         continuar: retomar.length,
       })
-    : opcionesDeAgendar({ modo: 'dia', traer: traer.length, continuar: retomar.length })
+    : opcionesDeAgendar({ modo: 'dia', continuar: retomar.length })
 
   /* `choice` se DERIVA de las opciones actuales y no se congela en un useState (la misma razón que
      tenía `RegisterVisitFlow`): si la elección sigue siendo válida manda; si no, cae a la

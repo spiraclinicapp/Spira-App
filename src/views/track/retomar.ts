@@ -59,14 +59,27 @@ export function visitasParaRetest(visitas: readonly TrackVisitRow[], hoy: string
 }
 
 /**
- * «Una visita del estudio» (decisión 7 del spec): las próximas ya agendadas para DESPUÉS del día que
- * se mira. Sin las faltas ni las de ventana vencida: ésas tienen su propia salida (Pendientes).
+ * «Una visita pendiente del estudio» (decisión 7 del spec): las visitas sin atender del estudio, para
+ * traerlas al día que se mira. Las de más adelante Y las atrasadas cuya ventana sigue abierta (el
+ * Director, 2026-09-28: el contador de días va «positivo o negativo»); las atrasadas primero, por
+ * fecha. Sin las del mismo día (ya están ahí), las faltas ni las de ventana vencida: ésas tienen su
+ * propia salida (Pendientes).
  */
 export function visitasParaTraer(visitas: readonly TrackVisitRow[], dia: string): TrackVisitRow[] {
   return visitas
     .filter((v) => v.real_date === null && v.no_show_at === null && v.estimated_date !== null
-      && v.estimated_date > dia && v.computed_status !== 'ventana_vencida' && !inscripcionCerrada(v.enrollment_status))
+      && v.estimated_date !== dia && v.computed_status !== 'ventana_vencida' && !inscripcionCerrada(v.enrollment_status))
     .sort((a, b) => (a.estimated_date ?? '').localeCompare(b.estimated_date ?? '') || a.patient_name.localeCompare(b.patient_name, 'es'))
+}
+
+/**
+ * El contador de «Una visita pendiente del estudio»: cuántos días hay entre el día que se mira y la
+ * fecha de la visita. «+2 d» = le faltan dos; «−5 d» = se pasó hace cinco (va con el signo menos
+ * tipográfico, no el guion, para que la columna quede pareja). `atrasada` tiñe el número en la lista.
+ */
+export function contadorDeDias(fecha: string, dia: string): { texto: string; atrasada: boolean } {
+  const d = daysDiffISO(dia, fecha)
+  return { texto: d === 0 ? '0 d' : `${d > 0 ? '+' : '−'}${Math.abs(d)} d`, atrasada: d < 0 }
 }
 
 /** Una visita con lo que dejó para otro día. */

@@ -9,7 +9,7 @@ import type { VisitKind } from '../../../lib/visitLabels'
  * menos no se ve rota, se ve normal.
  *
  * UN SOLO MODAL, DOS MODOS (decisión del Director, 2026-09-27: «igual que en Visitas»):
- *  · `dia` (Visitas): el estudio se elige y la fecha es el día que se mira. «Una visita del estudio»,
+ *  · `dia` (Visitas): el estudio se elige y la fecha es el día que se mira. «Una visita pendiente del estudio»,
  *    «Continuar pendientes», «Retest», «VNP».
  *  · `paciente` (la ficha, el «recitar», Pendientes): el paciente viene fijo y la fecha se elige. Lo
  *    que ofrecía `RegisterVisitFlow` —las visitas libres del cuadro antes de randomizar, o los tipos
@@ -59,8 +59,6 @@ export type Preseleccion =
 export type ContextoDeOpciones =
   | {
       modo: 'dia'
-      /** Cuántas «Una visita del estudio» hay (`visitasParaTraer`). */
-      traer: number
       /** Cuántas VISITAS tienen algo para retomar. */
       continuar: number
     }
@@ -84,9 +82,10 @@ export function tieneCuadro(defs: readonly Pick<DefinicionAgendable, 'role'>[]):
 const op = (value: string, label: string, eleccion: Eleccion): OpcionDeAgendar => ({ value, label, eleccion })
 
 /**
- * Las opciones de «¿Qué vas a hacer?». Los números dicen cuántas hay ANTES de elegir: una opción que
- * lleva a una lista vacía sin avisarlo es un clic perdido. «Continuar pendientes» sólo aparece con
- * algo esperando (spec §3: «siempre que haya visitas con marcas»).
+ * Las opciones de «¿Qué vas a hacer?». «Continuar pendientes» sólo aparece con algo esperando (spec
+ * §3: «siempre que haya visitas con marcas») y lleva cuántas. «Una visita pendiente del estudio» NO
+ * lleva número (el Director, 2026-09-28: «ese 120 no se entiende qué es»): con un estudio en marcha
+ * son decenas, la cifra no ayuda a decidir, y si no hay ninguna el formulario lo dice.
  */
 export function opcionesDeAgendar(ctx: ContextoDeOpciones): OpcionDeAgendar[] {
   const siempre: OpcionDeAgendar[] = [
@@ -95,7 +94,7 @@ export function opcionesDeAgendar(ctx: ContextoDeOpciones): OpcionDeAgendar[] {
     op('vnp', 'VNP', { tipo: 'vnp' }),
   ]
   if (ctx.modo === 'dia') {
-    return [op('traer', `Una visita del estudio (${ctx.traer})`, { tipo: 'traer' }), ...siempre]
+    return [op('traer', 'Una visita pendiente del estudio', { tipo: 'traer' }), ...siempre]
   }
   // Pre-rando con cuadro: las definiciones libres. Post-rando las automáticas ya se generaron, y sin
   // cuadro no hay definiciones que agendar: van los tipos sueltos (lo que hacía RegisterVisitFlow).

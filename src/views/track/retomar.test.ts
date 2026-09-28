@@ -3,7 +3,7 @@ import type { TrackVisitRow } from '../../data/visits'
 import type { MarcaRow } from '../../data/pendientes'
 import {
   agruparPorRetomar, diasEsperando, pacientesDelEstudio, pendientesAlFinalizar, procedimientosRepetibles,
-  rotuloDeVisita, visitasParaRetest, visitasParaTraer,
+  contadorDeDias, rotuloDeVisita, visitasParaRetest, visitasParaTraer,
 } from './retomar'
 
 /**
@@ -66,19 +66,34 @@ describe('visitasParaRetest', () => {
 
 describe('visitasParaTraer', () => {
   const dia = '2026-09-27'
-  it('las próximas agendadas para después del día, por fecha', () => {
+  it('las pendientes de antes y de después del día, por fecha: las atrasadas primero', () => {
     const r = visitasParaTraer([
       v({ id: 'b', estimated_date: '2026-10-05' }),
       v({ id: 'a', estimated_date: '2026-10-02' }),
       v({ id: 'hoy', estimated_date: '2026-09-27' }),                         // ya es de este día
-      v({ id: 'antes', estimated_date: '2026-09-20' }),
+      v({ id: 'antes', estimated_date: '2026-09-20' }),                       // atrasada, ventana abierta
       v({ id: 'hecha', estimated_date: '2026-10-01', real_date: '2026-09-26' }),
       v({ id: 'falto', estimated_date: '2026-10-01', no_show_at: '2026-09-26T10:00:00+00:00' }),
       v({ id: 'vencida', estimated_date: '2026-10-01', computed_status: 'ventana_vencida' }),
       v({ id: 'cerrada', estimated_date: '2026-10-01', enrollment_status: 'completado' }),
       v({ id: 'sinfecha', estimated_date: null }),
     ], dia)
-    expect(r.map((x) => x.id)).toEqual(['a', 'b'])
+    expect(r.map((x) => x.id)).toEqual(['antes', 'a', 'b'])
+  })
+})
+
+describe('contadorDeDias', () => {
+  // El signo es lo que falla en silencio: al revés, una visita atrasada se leería como futura.
+  const dia = '2026-09-28'
+  it('le faltan días: positivo, sin alerta', () => {
+    expect(contadorDeDias('2026-09-30', dia)).toEqual({ texto: '+2 d', atrasada: false })
+    expect(contadorDeDias('2026-10-14', dia)).toEqual({ texto: '+16 d', atrasada: false })
+  })
+  it('se pasó: negativo con el signo menos tipográfico, y con alerta', () => {
+    expect(contadorDeDias('2026-09-23', dia)).toEqual({ texto: '−5 d', atrasada: true })
+  })
+  it('cruza el cambio de mes sin correrse un día', () => {
+    expect(contadorDeDias('2026-10-01', dia)).toEqual({ texto: '+3 d', atrasada: false })
   })
 })
 
