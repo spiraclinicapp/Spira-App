@@ -277,6 +277,12 @@ y el alcance de Farmacia con su atajo afuera — `((select public.pharma_sin_rec
 public.pharma_alcanza_protocolo(protocol_id))`. Si una pantalla se siente lenta, compará el tiempo con
 sesión (red del navegador) contra `explain analyze` en el editor, que corre sin RLS: la diferencia es la RLS.
 
+**Un cambio de permisos se prueba en el banco antes de pasar el SQL** (`scripts/banco-rls/`, ver su README):
+PGlite con las migraciones REALES, datos sintéticos y doce perfiles. `node scripts/banco-rls/equivalencia.mjs
+NNNN --control` compara, perfil por perfil, lo que se ve antes y después de la migración NNNN, y
+`comparar-con-prod.mjs` confirma que el banco sigue siendo fiel a `pg_policies` de prod. La RLS filtra en
+silencio: sin esto, una policy mal reescrita se descubre cuando alguien deja de ver un dato.
+
 ## Para orientarte
 
 - Estado y narrativa por jornada: `docs/bitacora/` (incluye handoffs).
