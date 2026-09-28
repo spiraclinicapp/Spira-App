@@ -5,48 +5,73 @@ import type { Pagina } from './paginas'
 /*
  * `todasLasPaginas` falla en SILENCIO si se equivoca: una página de menos no da error, da una lista
  * más corta con 200 OK — que es exactamente el bug que vino a arreglar (1.060 visitas, llegaban
- * 1.000). Estos casos fijan que llegue TODO, en orden, con el `max-rows` que sea.
+ * 1.000). Estos casos fijan que llegue TODO, en orden y sin repetir, con el `max-rows` que sea; y
+ * que la segunda página salga SIN esperar a la primera, que es lo que hace que la lista no tarde lo
+ * que las dos sumadas (medido en prod con `v0.93.2`).
  *
- * El servidor de mentira corta cada pedido en `maxRows`, igual que PostgREST, y cuenta los pedidos.
+ * El servidor de mentira corta cada pedido en `maxRows`, igual que PostgREST, cuenta los pedidos y
+ * cuántos llegan a estar en vuelo a la vez.
  */
 function servidor(total: number, maxRows: number, { sinTotal = false, fallaDesde = -1 } = {}) {
   const filas = Array.from({ length: total }, (_, i) => i)
   const pedidos: Array<[number, number, boolean]> = []
-  const pedir = async (desde: number, hasta: number, conTotal: boolean): Promise<Pagina<number, string>> => {
+  let enVuelo = 0
+  let maxEnVuelo = 0
+  const pedir = (desde: number, hasta: number, conTotal: boolean): Promise<Pagina<number, string>> => {
     pedidos.push([desde, hasta, conTotal])
-    if (desde === fallaDesde) return { data: null, error: 'se cayó' }
-    const tope = Math.min(hasta + 1, desde + maxRows)
-    return { data: filas.slice(desde, tope), error: null, count: conTotal && !sinTotal ? total : null }
+    enVuelo++
+    maxEnVuelo = Math.max(maxEnVuelo, enVuelo)
+    return new Promise((resolve) => setTimeout(() => {
+      enVuelo--
+      if (desde === fallaDesde) return resolve({ data: null, error: 'se cayó' })
+      const tope = Math.min(hasta + 1, desde + maxRows)
+      resolve({ data: filas.slice(desde, tope), error: null, count: conTotal && !sinTotal ? total : null })
+    }, 5))
   }
-  return { filas, pedidos, pedir }
+  return { filas, pedidos, pedir, maxEnVuelo: () => maxEnVuelo }
 }
 
-describe('todasLasPaginas', () => {
-  it('con menos filas que el límite, un solo pedido', async () => {
-    const s = servidor(40, 1000)
-    const r = await todasLasPaginas(s.pedir)
-    expect(r).toEqual({ data: s.filas, error: null })
-    expect(s.pedidos).toHaveLength(1)
-  })
+const desdes = (pedidos: Array<[number, number, boolean]>) => pedidos.map(([d]) => d)
 
+describe('todasLasPaginas', () => {
   it('el caso real: 1.060 visitas con max-rows 1.000 → llegan las 1.060, en orden', async () => {
     const s = servidor(1060, 1000)
     const r = await todasLasPaginas(s.pedir)
-    expect(r.data).toEqual(s.filas)
+    expect(r).toEqual({ data: s.filas, error: null })
     expect(s.pedidos).toEqual([[0, 999, true], [1000, 1999, false]])
   })
 
-  it('si max-rows es MÁS CHICO que la página pedida, avanza de a lo que llegó y no saltea nada', async () => {
+  it('la segunda página sale SIN esperar a la primera (las dos en vuelo a la vez)', async () => {
+    const s = servidor(1060, 1000)
+    await todasLasPaginas(s.pedir)
+    expect(s.maxEnVuelo()).toBe(2)
+  })
+
+  it('con más de dos páginas, las siguientes salen juntas cuando llega el total', async () => {
+    const s = servidor(3500, 1000)
+    const r = await todasLasPaginas(s.pedir)
+    expect(r.data).toEqual(s.filas)
+    expect(desdes(s.pedidos)).toEqual([0, 1000, 2000, 3000])
+  })
+
+  it('con menos filas que el límite, llega todo; la segunda adelantada vuelve vacía y no molesta', async () => {
+    const s = servidor(40, 1000)
+    expect(await todasLasPaginas(s.pedir)).toEqual({ data: s.filas, error: null })
+    expect(desdes(s.pedidos)).toEqual([0, 1000])
+  })
+
+  it('justo el límite: no pide nada más allá de la adelantada', async () => {
+    const s = servidor(1000, 1000)
+    expect((await todasLasPaginas(s.pedir)).data).toEqual(s.filas)
+    expect(desdes(s.pedidos)).toEqual([0, 1000])
+  })
+
+  it('si max-rows es MÁS CHICO que la página pedida, descarta la adelantada y no saltea ni repite nada', async () => {
     const s = servidor(1060, 500)
     const r = await todasLasPaginas(s.pedir)
     expect(r.data).toEqual(s.filas)
-    expect(s.pedidos.map(([d]) => d)).toEqual([0, 500, 1000])
-  })
-
-  it('justo el límite: no pide una página de más', async () => {
-    const s = servidor(1000, 1000)
-    await todasLasPaginas(s.pedir)
-    expect(s.pedidos).toHaveLength(1)
+    // 0 y la adelantada (1000, descartada: pidió desde donde no seguía); después de a 500.
+    expect(desdes(s.pedidos)).toEqual([0, 1000, 500, 1000])
   })
 
   it('sin filas: lista vacía, no error', async () => {
@@ -54,7 +79,7 @@ describe('todasLasPaginas', () => {
     expect(await todasLasPaginas(s.pedir)).toEqual({ data: [], error: null })
   })
 
-  it('un error en CUALQUIER página es error de la consulta entera, no una lista más corta', async () => {
+  it('un error en CUALQUIER página que hace falta es error de la consulta entera, no una lista más corta', async () => {
     const s = servidor(2500, 1000, { fallaDesde: 2000 })
     expect(await todasLasPaginas(s.pedir)).toEqual({ data: null, error: 'se cayó' })
   })
@@ -64,10 +89,26 @@ describe('todasLasPaginas', () => {
     expect(await todasLasPaginas(s.pedir)).toEqual({ data: null, error: 'se cayó' })
   })
 
+  it('un error en la adelantada, cuando hacía falta, es error', async () => {
+    const s = servidor(1060, 1000, { fallaDesde: 1000 })
+    expect(await todasLasPaginas(s.pedir)).toEqual({ data: null, error: 'se cayó' })
+  })
+
+  it('un error en la adelantada, cuando NO hacía falta, se ignora', async () => {
+    const s = servidor(40, 1000, { fallaDesde: 1000 })
+    expect(await todasLasPaginas(s.pedir)).toEqual({ data: s.filas, error: null })
+  })
+
   it('sin total, sigue de a una hasta una página vacía', async () => {
     const s = servidor(2100, 1000, { sinTotal: true })
     const r = await todasLasPaginas(s.pedir)
     expect(r.data).toEqual(s.filas)
-    expect(s.pedidos.map(([d]) => d)).toEqual([0, 1000, 2000, 2100])
+    expect(desdes(s.pedidos)).toEqual([0, 1000, 2000, 2100])
+  })
+
+  it('sin total, si la segunda viene corta era la última: no pide otra', async () => {
+    const s = servidor(1500, 1000, { sinTotal: true })
+    expect((await todasLasPaginas(s.pedir)).data).toEqual(s.filas)
+    expect(desdes(s.pedidos)).toEqual([0, 1000])
   })
 })
