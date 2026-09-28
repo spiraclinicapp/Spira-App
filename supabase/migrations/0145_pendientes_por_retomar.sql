@@ -227,6 +227,7 @@ end $fn$;
 -- efectiva del origen, y lo marcado ya no está (la sección 3 lo resta). Acá la validación es otra
 -- —que esté marcado— y el insert se repite, que son dos sentencias. Todo en una transacción: la
 -- continuación, sus filas y el borrado de las marcas. Lo que no se elige sigue marcado.
+-- Deshacer la continuación devuelve la marca (sección 6 c).
 create or replace function public.continuar_pendientes(
   p_visita_origen uuid, p_procedure_ids uuid[], p_fecha date
 ) returns uuid language plpgsql security definer set search_path = pg_catalog, public as $fn$
@@ -357,6 +358,41 @@ end $fn$;
 revoke all on function public.set_added_procedures(uuid, uuid[]) from public, anon;
 grant execute on function public.set_added_procedures(uuid, uuid[]) to authenticated;
 
+-- (c) Deshacer devuelve la marca (decisión del Director). Si se borra una fila de
+--     visit_added_procedures con deferred_from_visit_id no nulo —porque se deshace/borra la
+--     continuación (cascade de vap_visita_fk) o porque set_added_procedures quita un diferido—, el
+--     procedimiento vuelve a la visita de origen MARCADO para otro día, no libre: «deshacer» es «no
+--     se retomó», no «se olvidó». Cadena V3 → C1 → C2: deshacer C2 devuelve la marca a C1 (no a V3:
+--     old.visit_id es C1, y old.deferred_from_visit_id apunta al padre inmediato).
+-- SECURITY DEFINER a propósito (no es una guarda que mire current_user: el gotcha del trigger-guarda
+-- no aplica): escribe visit_pending_procedures, que authenticated no puede escribir directo.
+create or replace function public.devolver_marca_al_deshacer()
+returns trigger language plpgsql security definer set search_path = pg_catalog, public as $fn$
+begin
+  if old.deferred_from_visit_id is null then
+    return old; -- lo agregado a mano no tiene adónde volver.
+  end if;
+  -- El origen puede haberse ido en la MISMA sentencia (delete_patient, close_enrollment lo borran
+  -- junto con esta fila, por cascade): un insert contra un origen que ya no existe rompería el
+  -- borrado entero por la FK. Y no se marca lo que el origen ya tiene tildado (no se puede marcar
+  -- lo hecho).
+  if exists (select 1 from public.patient_visits where id = old.deferred_from_visit_id)
+     and not exists (select 1 from public.visit_procedure_completions c
+                     where c.visit_id = old.deferred_from_visit_id and c.procedure_id = old.procedure_id)
+  then
+    -- auth.uid() es nulo desde el editor de Supabase o un borrado del sistema; marked_by es not null.
+    insert into public.visit_pending_procedures (visit_id, procedure_id, marked_by)
+    values (old.deferred_from_visit_id, old.procedure_id, coalesce(auth.uid(), old.added_by))
+    on conflict on constraint vpp_visita_procedimiento_unico do nothing;
+  end if;
+  return old;
+end $fn$;
+drop trigger if exists trg_devolver_marca on public.visit_added_procedures;
+create trigger trg_devolver_marca after delete on public.visit_added_procedures
+  for each row execute function public.devolver_marca_al_deshacer();
+-- Una función trigger no necesita grant a authenticated.
+revoke all on function public.devolver_marca_al_deshacer() from public, anon;
+
 
 -- 7 · El retest cuelga de una visita --------------------------------------------------------------
 -- Un dato, una casilla: el origen del retest es de la VISITA, no de cada procedimiento (la
@@ -442,6 +478,8 @@ begin
   -- 0145 · El origen del retest: de la misma inscripción, ya atendido, y sólo lo que se hizo ahí
   -- (procedimiento_hecho: tildado, o sin reporte con la visita atendida).
   if p_retest_of is not null then
+    -- Lock compartido del origen: que no cambie (fecha real, tilde) entre validar y el insert de abajo.
+    perform 1 from public.patient_visits o where o.id = p_retest_of for share;
     if p_kind <> 'retest' then
       raise exception 'Solo un retest repite una visita' using errcode = 'check_violation';
     end if;
