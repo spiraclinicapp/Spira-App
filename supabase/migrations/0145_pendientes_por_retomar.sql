@@ -356,3 +356,239 @@ begin
 end $fn$;
 revoke all on function public.set_added_procedures(uuid, uuid[]) from public, anon;
 grant execute on function public.set_added_procedures(uuid, uuid[]) to authenticated;
+
+
+-- 7 · El retest cuelga de una visita --------------------------------------------------------------
+-- Un dato, una casilla: el origen del retest es de la VISITA, no de cada procedimiento (la
+-- continuación, en cambio, deriva su origen de las filas de visit_added_procedures, como en la 0144).
+-- ON DELETE SET NULL, por lo mismo que vap_origen_fk (0144): los borrados del SISTEMA (delete_patient,
+-- close_enrollment, delete_visit_definition, sync_protocol_schedule) no se traban. La APP no puede
+-- borrar una visita de la que cuelga un retest: lo ataja guard_borrar_visita (sección 9).
+-- Los retests que ya existen quedan con el origen en nulo: no se les inventa uno.
+-- Postgres no tiene `add constraint if not exists`: el `do` lo hace idempotente.
+alter table public.patient_visits add column if not exists retest_of_visit_id uuid;
+do $mig$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'pv_retest_de_fk') then
+    alter table public.patient_visits add constraint pv_retest_de_fk
+      foreign key (retest_of_visit_id) references public.patient_visits(id) on delete set null;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'pv_retest_de_solo_retest') then
+    alter table public.patient_visits add constraint pv_retest_de_solo_retest
+      check (retest_of_visit_id is null or kind = 'retest');
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'pv_retest_de_distinto') then
+    alter table public.patient_visits add constraint pv_retest_de_distinto
+      check (retest_of_visit_id is distinct from id);
+  end if;
+end $mig$;
+create index if not exists ix_pv_retest_de on public.patient_visits (retest_of_visit_id)
+  where retest_of_visit_id is not null;
+comment on column public.patient_visits.retest_of_visit_id is
+  'La visita que este retest repite. Nulo en todo lo que no es retest y en los retests anteriores a la 0145.';
+
+-- Si de esta visita cuelga algún retest. Va acá y no en la sección 2: un `language sql` valida las
+-- columnas al crearse, y la columna recién existe desde la línea de arriba.
+create or replace function public.visita_tiene_retests(p_visit_id uuid)
+returns boolean language sql security definer stable set search_path = pg_catalog, public as $fn$
+  select exists (select 1 from public.patient_visits r where r.retest_of_visit_id = p_visit_id);
+$fn$;
+revoke all on function public.visita_tiene_retests(uuid) from public, anon;
+grant execute on function public.visita_tiene_retests(uuid) to authenticated;
+
+
+-- 8 · register_visit_event: el retest recibe su visita de origen -----------------------------------
+-- Cuerpo de la 0144 con tres cambios (señalados): un sexto parámetro con default, la validación del
+-- origen, y el insert que lo guarda. La firma cambia, así que va el DROP de la de cinco: sin él queda
+-- una sobrecarga viva y la llamada del front viejo resolvería a la vieja en silencio. El front viejo
+-- llama con cinco parámetros POR NOMBRE, que la nueva acepta (el sexto tiene default).
+-- Sin origen, el retest se sigue aceptando como antes: compatibilidad con el front desplegado y con
+-- los retests viejos. Que el retest SIEMPRE cuelgue de una visita lo asegura el front nuevo.
+drop function if exists public.register_visit_event(uuid, visit_kind, date, text, uuid[]);
+create or replace function public.register_visit_event(
+  p_enrollment_id uuid, p_kind visit_kind, p_date date, p_notes text default null,
+  p_procedure_ids uuid[] default '{}',
+  p_retest_of uuid default null                                                        -- 0145
+) returns uuid language plpgsql security definer set search_path = pg_catalog, public as $fn$
+declare
+  v_uid uuid := auth.uid();
+  v_protocol uuid; v_rando date; v_visit uuid;
+  v_has_firma boolean; v_has_screening boolean;
+  v_procs uuid[] := coalesce(array(select distinct t.x from unnest(p_procedure_ids) as t(x) where t.x is not null), '{}');
+begin
+  if v_uid is null then raise exception 'No autenticado' using errcode = '42501'; end if;
+  if p_kind = 'programada' then raise exception 'Las visitas programadas no se crean por acá' using errcode = 'check_violation'; end if;
+  if p_date is null then raise exception 'La fecha es obligatoria' using errcode = '23502'; end if;
+
+  select e.protocol_id, e.randomization_date into v_protocol, v_rando
+    from public.enrollments e where e.id = p_enrollment_id;
+  if v_protocol is null then raise exception 'Enrolamiento inexistente' using errcode = '23503'; end if;
+
+  if not public.puede_registrar_visitas(v_protocol) then
+    raise exception 'No tenés permiso para registrar visitas de este paciente' using errcode = '42501';
+  end if;
+
+  if cardinality(v_procs) > 0 and p_kind not in ('vnp', 'retest') then
+    raise exception 'Solo el retest y la VNP llevan procedimientos propios' using errcode = 'check_violation';
+  end if;
+  -- Un retest vacío SIN ORIGEN se acepta (compat, ver la 0144). Con origen lo manda el front nuevo, y
+  -- ahí sí se exige al menos uno (abajo).
+  if exists (select 1 from unnest(v_procs) as t(x)
+             where not exists (select 1 from public.protocol_procedures pp
+                               where pp.protocol_id = v_protocol and pp.procedure_id = t.x)) then
+    raise exception 'Ese procedimiento no es de este estudio' using errcode = 'check_violation';
+  end if;
+
+  -- 0145 · El origen del retest: de la misma inscripción, ya atendido, y sólo lo que se hizo ahí
+  -- (procedimiento_hecho: tildado, o sin reporte con la visita atendida).
+  if p_retest_of is not null then
+    if p_kind <> 'retest' then
+      raise exception 'Solo un retest repite una visita' using errcode = 'check_violation';
+    end if;
+    if not exists (select 1 from public.patient_visits o
+                   where o.id = p_retest_of and o.enrollment_id = p_enrollment_id) then
+      raise exception 'Esa visita no es de este paciente en este estudio' using errcode = 'check_violation';
+    end if;
+    if not exists (select 1 from public.patient_visits o
+                   where o.id = p_retest_of and o.real_date is not null) then
+      raise exception 'Solo se repite una visita que ya se atendió' using errcode = 'check_violation';
+    end if;
+    if cardinality(v_procs) = 0 then
+      raise exception 'Elegí al menos un procedimiento para el retest' using errcode = 'check_violation';
+    end if;
+    if exists (select 1 from unnest(v_procs) as t(x)
+               where not public.procedimiento_hecho(p_retest_of, t.x)) then
+      raise exception 'Solo se repiten los procedimientos que se hicieron en esa visita' using errcode = 'check_violation';
+    end if;
+  end if;
+
+  -- Cutover de la 0030: con cuadro, firma/screening/randomización se agendan desde el cuadro.
+  if p_kind in ('firma','screening','firma_screening','randomizacion')
+     and exists (select 1 from public.visit_definitions vd
+                 where vd.protocol_id = v_protocol and vd.role <> 'comun') then
+    raise exception 'Este protocolo usa el cronograma: agendá screening/randomización desde el cuadro' using errcode = 'check_violation';
+  end if;
+
+  if v_rando is not null then
+    if p_kind not in ('vnp','retest') then
+      raise exception 'Después de la randomización solo se registran VNP o Retest' using errcode = 'check_violation';
+    end if;
+  else
+    if p_kind in ('firma','screening','firma_screening','randomizacion')
+       and exists (select 1 from public.patient_visits where enrollment_id = p_enrollment_id and kind = p_kind) then
+      raise exception 'Esa visita ya está registrada' using errcode = 'check_violation';
+    end if;
+    if p_kind in ('firma','screening')
+       and exists (select 1 from public.patient_visits where enrollment_id = p_enrollment_id and kind = 'firma_screening') then
+      raise exception 'Ya hay una visita de Firma y Screening' using errcode = 'check_violation';
+    end if;
+    if p_kind = 'firma_screening'
+       and exists (select 1 from public.patient_visits where enrollment_id = p_enrollment_id and kind in ('firma','screening')) then
+      raise exception 'Ya hay Firma o Screening por separado' using errcode = 'check_violation';
+    end if;
+    if p_kind = 'randomizacion' then
+      select exists (select 1 from public.patient_visits where enrollment_id = p_enrollment_id and kind in ('firma','firma_screening')),
+             exists (select 1 from public.patient_visits where enrollment_id = p_enrollment_id and kind in ('screening','firma_screening'))
+        into v_has_firma, v_has_screening;
+      if not (v_has_firma and v_has_screening) then
+        raise exception 'Para randomizar tiene que haber firma y screening previos' using errcode = 'check_violation';
+      end if;
+    end if;
+  end if;
+
+  -- La suelta nace AGENDADA (estimated_date), no atendida — modelo 0025.
+  insert into public.patient_visits (enrollment_id, kind, estimated_date, notes, retest_of_visit_id)   -- 0145
+  values (p_enrollment_id, p_kind, p_date, nullif(btrim(coalesce(p_notes, '')), ''), p_retest_of)
+  returning id into v_visit;
+
+  insert into public.visit_added_procedures (visit_id, procedure_id, added_by)
+  select v_visit, t.x, v_uid from unnest(v_procs) as t(x);
+
+  -- Anclaje legacy (sólo protocolos SIN cuadro: el cutover de arriba bloquea este kind si hay cuadro).
+  if p_kind = 'randomizacion' then
+    update public.enrollments set randomization_date = p_date where id = p_enrollment_id;
+  end if;
+
+  return v_visit;
+end $fn$;
+revoke all on function public.register_visit_event(uuid, visit_kind, date, text, uuid[], uuid) from public, anon;
+grant execute on function public.register_visit_event(uuid, visit_kind, date, text, uuid[], uuid) to authenticated;
+
+
+-- 9 · Lo que la app no borra, y el origen del retest en v_track_visits ------------------------------
+-- guard_borrar_visita (0144) suma: la app no borra una visita de la que cuelga un retest. postgres
+-- (el SISTEMA) sigue pasando primero, y pv_retest_de_fk (SET NULL) le deja al retest lo suyo.
+create or replace function public.guard_borrar_visita()
+returns trigger language plpgsql set search_path = pg_catalog, public as $fn$
+begin
+  if current_user = 'postgres' then return old; end if;
+  if public.visita_paso_procedimientos(old.id) then
+    raise exception 'Esta visita pasó procedimientos a otra. Deshacé primero esa continuación.' using errcode = 'check_violation';
+  end if;
+  if public.visita_tiene_retests(old.id) then                                             -- 0145
+    raise exception 'Esta visita tiene un retest. Borralo primero.' using errcode = 'check_violation';
+  end if;
+  if old.visit_def_id is null and public.visita_tiene_realizados(old.id) then
+    raise exception 'Esta visita ya tiene procedimientos marcados como realizados. Desmarcalos antes de borrarla.' using errcode = 'check_violation';
+  end if;
+  return old;
+end $fn$;
+create or replace view public.v_track_visits with (security_invoker = true) as
+select
+  v.id, v.enrollment_id, v.visit_def_id, v.estimated_date, v.real_date,
+  v.window_start, v.window_end, v.notes, v.computed_status,
+  vd.code as visit_code, vd.name as visit_name,
+  coalesce(vd.visit_type, 'presencial') as visit_type, vd.sort_order,
+  e.protocol_id, e.patient_id, e.status as enrollment_status,
+  e.randomization_date as enrollment_randomization_date,
+  pr.code as protocol_code, pr.name as protocol_name,
+  coalesce(e.ivrs_code, pa.code) as patient_code, pa.full_name as patient_name,
+  pa.sex, pa.birth_date,
+  pa.fertility,
+  vd.offset_days, e.enrollment_date,
+  coalesce(v.treating_physician, pa.treating_physician) as treating_physician,
+  v.coordinator_id, v.coordinator_name,
+  v.kind,
+  v.arrived_at, v.ready_at, v.left_at, v.no_show_at,
+  v.attended_at,
+  v.wants_doctor,
+  v.doctor_seen_at,
+  v.doctor_motivo,
+  v.wants_doctor_at, v.doctor_marked_by,
+  coalesce(vd.dispenses, false) as dispenses,
+  coalesce(vd.dispenses_ip, false) as dispenses_ip,
+  v.operational_stage,
+  vd.role, vd.date_mode,
+  (select count(*) from public.visit_comments vc where vc.visit_id = v.id) as comments_count,
+  -- 0144: al final para no alterar el orden anterior.
+  ori.visit_id as origin_visit_id,
+  ovd.code     as origin_code,
+  ovd.name     as origin_name,
+  opv.kind     as origin_kind,
+  -- 0145: el origen del retest, al final para no alterar el orden anterior.
+  self.retest_of_visit_id as retest_of_visit_id,
+  rvd.code     as retest_of_code,
+  rvd.name     as retest_of_name,
+  rpv.kind     as retest_of_kind
+from public.v_patient_visits v
+left join public.visit_definitions vd on vd.id = v.visit_def_id
+join public.enrollments e on e.id = v.enrollment_id
+join public.protocols pr  on pr.id = e.protocol_id
+join public.patients pa   on pa.id = e.patient_id
+left join lateral (
+  select a.deferred_from_visit_id as visit_id
+  from public.visit_added_procedures a
+  where a.visit_id = v.id and a.deferred_from_visit_id is not null
+  order by a.added_at
+  limit 1
+) ori on true
+left join public.patient_visits opv    on opv.id = ori.visit_id
+left join public.visit_definitions ovd on ovd.id = opv.visit_def_id
+-- v_patient_visits no trae retest_of_visit_id (su lista de columnas quedó fija en la 0144): se lee de
+-- la tabla por el id.
+left join public.patient_visits self    on self.id = v.id
+left join public.patient_visits rpv     on rpv.id = self.retest_of_visit_id
+left join public.visit_definitions rvd on rvd.id = rpv.visit_def_id;
+
+comment on view public.v_track_visits is
+  'Visitas de Coordinación. patient_code = IVRS de la inscripción (0126). 0144: origin_* (continuación). 0145: retest_of_* (la visita que repite un retest), al final.';
