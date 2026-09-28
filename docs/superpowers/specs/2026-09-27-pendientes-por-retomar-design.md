@@ -186,23 +186,36 @@ cortos y sin tecnicismos; en la UI se dice **Coordinación**.
 
 - Al tocar **«Finalizar atención»**, si la visita tiene procedimientos **con reporte** en su lista
   efectiva **sin tildar** (lo marcado ya no está en esa lista, así que no cuenta; los que no tienen
-  reporte se dan por hechos, decisión 9), antes de avanzar aparece un modal:
-  - Título: **«Esta visita tiene procedimientos pendientes»**.
-  - La lista como casillas, **sin preselección** (lo que se pasa se elige a propósito — regla vigente
-    desde la 0144).
-  - **«Finalizar y dejar para otro día»** (deshabilitado sin nada elegido): llama a `dejar_pendientes` y
-    después avanza.
-  - **«Finalizar sin pasarlos»**: avanza como hoy.
+  reporte se dan por hechos, decisión 9), antes de avanzar aparece un modal. **Se tilda lo que SE HIZO,
+  no lo que queda** (corrección del Director sobre el mock, 2026-09-27: «vos marcás los que sí hiciste y
+  si le das a continuar avisa que estos van a quedar pendientes»):
+  - **Paso 1 — «¿Qué se hizo?»** Título «Esta visita tiene procedimientos sin marcar». La lista como
+    casillas, **sin preselección**: se tilda lo que se hizo. Tildar acá es lo mismo que tildarlo en la
+    visita (`visit_procedure_completions`, arranca el plazo del reporte). Botón **«Continuar»**.
+  - Si quedó todo tildado, «Continuar» tilda y finaliza directo.
+  - **Paso 2 — el aviso**, sólo si quedó algo sin tildar: «Estos procedimientos van a quedar pendientes
+    para otro día» con la lista, y **«Volver»** / **«Finalizar»**. «Finalizar» tilda lo elegido, llama a
+    `dejar_pendientes` con el resto y después avanza.
+  - **No hay «Finalizar sin pasarlos»**: lo que no se hizo queda pendiente. Si un procedimiento no se va
+    a hacer nunca, eso es una desviación o un cambio del cronograma, no una salida de este modal.
+  - Cerrar el modal (Esc, ✕) cancela: no se tilda, no se marca y no se finaliza.
 - Sin pendientes, no aparece nada y se finaliza como hoy.
 - Se intercepta en **los dos lugares** desde donde se finaliza: la fila de Visitas (`DayVisitsView` →
   `advance`) y el detalle (`VisitDetail`, que ya tiene su `ConfirmarAvance`). La regla «hay pendientes»
   es una función pura compartida, no una condición copiada en dos lados.
-- Si `dejar_pendientes` falla, **no se avanza**: se muestra el error y la visita queda en atención.
+- Si un tilde o `dejar_pendientes` falla, **no se avanza**: se muestra el error y la visita queda en
+  atención. Reintentar no vuelve a tildar lo que ya se tildó.
 
 ### 2. La visita de origen, con marcas
 
-- En `VisitProcedures`, lo marcado se ve **en gris**, con **«Queda para otro día»**, no se puede tildar y
-  tiene un botón chico **«Se hace hoy»** que llama a `quitar_pendiente`.
+- En el pie del «Resumen de la visita», lo marcado va en un bloque **«Queda para otro día»** con el
+  mismo lenguaje visual del panel «Reportes pendientes» (Director sobre el mock, 2026-09-27: «un poco más
+  alerta o llamativo, pero sin irse al carajo»): cabecera con el número en tono de aviso y un renglón por
+  procedimiento con su **casilla vacía**. Sin bloque teñido fuerte ni borde de color.
+- **Tildar una casilla abre «¿Qué se hizo hoy?»**: los pendientes de la visita como casillas, con el
+  tocado ya tildado, y **«Cancelar»** / **«Se hizo hoy»**. Confirmar **saca la marca y lo tilda** en esa
+  visita (`quitar_pendiente` y después el tilde: la guarda no deja tildar lo marcado). Es la misma pregunta
+  del aviso al finalizar. Reemplaza al botón «Se hace hoy» del primer mock, que sólo sacaba la marca.
 - El botón del Resumen **«Pasar pendientes a otro día»** pasa a ser **«Dejar para otro día»**: mismas
   casillas sin preselección, **sin fecha**, llama a `dejar_pendientes`. Sirve también antes de la visita
   («ya se sabe que va en dos días»).
@@ -229,11 +242,23 @@ cortos y sin tecnicismos; en la UI se dice **Coordinación**.
   identidad primaria + IVRS en mono, regla de identidad; el IVRS es el de esa inscripción).
 - VNP desde Visitas pide además el paciente.
 
-**Desde la ficha** (`PatientFichaView`): el mismo componente, con paciente e inscripción ya fijos y la
-fecha **editable** (para dejarlo agendado a futuro: «el jueves vuelve a completar»).
+**Desde la ficha** (`PatientFichaView`): **el mismo modal**, con el mismo paso «¿Qué vas a hacer?» y las
+mismas listas para elegir (decisión del Director, 2026-09-27: «igual que en Visitas»). Cambia sólo lo
+que el contexto ya fija:
+- el paciente y la inscripción vienen dados (no hay paso de estudio ni de paciente);
+- la fecha es **editable**, para dejarlo agendado a futuro («el jueves vuelve a completar»);
+- las opciones son las del paciente: las **visitas libres del cuadro** (antes de randomizar, con cuadro)
+  y los tipos sueltos del protocolo legacy, como hoy; **Continuar pendientes** con lo suyo; **Retest**
+  de sus visitas; **VNP**. Sin «Una visita del estudio»: en la ficha ya está «Reprogramar».
 
-`RegisterVisitFlow` hoy es un selector único de tipo. El plan decide si se extiende o si se arma un
-componente nuevo que lo envuelva; lo que **no** se hace es tener dos flujos que diverjan.
+El modal **reemplaza** a `RegisterVisitFlow` en todos sus usos (la ficha, el «recitar» de la
+randomización, el «Agendar» de Pendientes): un solo flujo, sin dos versiones que diverjan.
+
+**En la ficha, un bloque «Queda para otro día»** con lo que ESE paciente tiene esperando en esta
+inscripción (decisión del Director, 2026-09-27): una fila por visita —título, fecha, procedimientos,
+«espera hace N d»— con el mismo lenguaje del panel «Reportes pendientes» y el botón con nombre
+**«Agendar»**, que abre el modal en «Continuar pendientes» sobre esa visita. Sin nada esperando, el
+bloque no se dibuja.
 
 ### 4. Pendientes: «Procedimientos por retomar»
 
@@ -290,8 +315,9 @@ Criterio del repo (`estados.test.ts`): se testea lo que falla **en silencio**.
 
 ## Fuera de alcance
 
-- Lo que se **«finaliza sin pasar»** se comporta como hoy: si tiene reporte, la visita queda «realizada
-  con pendientes». Resolver eso es otra conversación.
+- Un procedimiento que **no se va a hacer nunca** (ni hoy ni otro día): desde el aviso al finalizar
+  queda pendiente, y sale con «Se hace hoy» + tilde o documentándolo por otra vía. Una salida propia
+  («no corresponde») es otra conversación.
 - Umbral de vencimiento o color de alerta para lo que espera.
 - Retomar pendientes **dentro de una visita que ya existe** (la V4): sigue fuera, como en la 0144.
 - Dar origen a los retests viejos.

@@ -9,7 +9,11 @@ import type { DestinoDeDiferidos } from './continuacion'
  *  · en la visita de origen, un bloque por cada continuación — qué pasó, a qué día, y cómo abrirla
  *    o deshacerla;
  *  · en la continuación, de dónde viene;
- *  · y los dos botones de acción: pasar pendientes a otro día, y editar lo que lleva una suelta.
+ *  · y los dos botones de acción: dejar para otro día (sin fecha desde la 0145) y editar lo que
+ *    lleva una suelta.
+ *
+ * Lo MARCADO para otro día no vive acá: tiene su propio panel debajo del Resumen
+ * (`QuedaParaOtroDia`, v0145).
  *
  * Cada destino tiene su BOTÓN con nombre para abrirlo: el bloque no es un link, porque la tarjeta
  * de una visita lleva a esa visita y no a otra (regla del Director).
@@ -72,7 +76,7 @@ export function DesdoblamientoVisita({
 
       {hayAcciones && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {puedePasar && <button type="button" style={btnChico} onClick={onPasar}>Pasar pendientes a otro día</button>}
+          {puedePasar && <button type="button" style={btnChico} onClick={onPasar}>Dejar para otro día</button>}
           {puedeEditar && <button type="button" style={btnChico} onClick={onEditar}>Editar procedimientos</button>}
         </div>
       )}

@@ -7,7 +7,8 @@ import { hayPopoverAbierto } from '../../components/usePopover'
 import { visitCode, visitTitle } from '../../lib/visits'
 import { ConfirmarAvance } from './ConfirmarAvance'
 import { ReadyOutcomeModal } from './ReadyOutcomeModal'
-import { RegisterVisitFlow } from './RegisterVisitFlow'
+import { AgendarVisitaModal } from './agendar/AgendarVisitaModal'
+import { pacienteDeVisita } from './agendar/opciones'
 import { useVisitPermissions } from '../../lib/visitPermissions'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { VisitProcedures } from './VisitProcedures'
@@ -20,6 +21,7 @@ import { diaDeLaVisita } from './visitHeaderRules'
 import { VisitActionBar } from './VisitActionBar'
 import { DoctorRequestModal } from './DoctorRequestModal'
 import { modalesAbiertos } from '../../components/Modal'
+import { useAvisoAlFinalizar } from './useAvisoAlFinalizar'
 
 /**
  * Detalle de una visita (rediseño del encabezado, handoff `docs/handoff-visitas-encabezado/`). El
@@ -116,8 +118,8 @@ export function VisitDetail({
      `null` mientras carga: sin datos, el lugar de abajo —la lista o la ficha que abrió este modal—
      dice más que una «Visita» pelada. */
   useLugar(visit ? {
-    /* Una continuación se titula entera: «Visita Cont. V3» no es un nombre. */
-    label: `${visitCode(visit) && !visit.origin_visit_id ? `Visita ${visitCode(visit)}` : visitTitle(visit)} · ${visit.patient_name}`,
+    /* Una continuación o un retest con origen se titulan enteros: «Visita Cont. V3» no es un nombre. */
+    label: `${visitCode(visit) && !visit.origin_visit_id && !visit.retest_of_visit_id ? `Visita ${visitCode(visit)}` : visitTitle(visit)} · ${visit.patient_name}`,
     target: { visitId: visit.id, visitDate: dia ?? undefined },
   } : null)
 
@@ -138,6 +140,7 @@ export function VisitDetail({
    * la visita de arriba hasta recargar la página.
    */
   const [versionProcedimientos, setVersionProcedimientos] = useState(0)
+  const aviso = useAvisoAlFinalizar(accent)
   /* Los `Modal` que ya estaban abiertos cuando se montó esta visita (si se abrió desde uno). El Esc
      es nuestro sólo si no se abrió ninguno más encima: un modal hijo lo consume y la visita queda. */
   const modalesAlMontar = useRef(modalesAbiertos())
@@ -210,7 +213,7 @@ export function VisitDetail({
    * habilitado y no pasaba nada al apretarlo). Si el padre lo pasa, sigue mandando él: mantiene sus
    * avisos en la lista y su propio cierre clínico.
    */
-  const ejecutar = async (next: OperationalStage) => {
+  const avanzarAhora = async (next: OperationalStage) => {
     if (!visit) return
     setBusy(true); setErr(null)
 
@@ -220,8 +223,15 @@ export function VisitDetail({
        `start_visit_attention`, cuando la atención empieza. */
 
     if (onAdvance) {
+      // El aviso de pendientes (v0145) lo abre el padre DENTRO de `onAdvance`: si `confirmando`
+      // (la visita no es de hoy) sigue en pantalla mientras tanto, quedan dos capas superpuestas.
+      // Se cierra antes, no después: después ya es tarde, el aviso se dibujó encima.
+      if (next === 'fin_atencion') setConfirmando(null)
       await onAdvance(visit, next)
       setBusy(false); setConfirmando(null)
+      // Lo que tildó o marcó el aviso del padre vive en `VisitProcedures`, que tiene su propia
+      // consulta: sin esto el panel se queda mostrando lo de antes de finalizar.
+      if (next === 'fin_atencion') setVersionProcedimientos((v) => v + 1)
       refrescar()
       return
     }
@@ -246,6 +256,25 @@ export function VisitDetail({
     setBusy(false); setConfirmando(null)
     if (res.error) { setErr(res.error); return }
     refrescar()
+  }
+
+  /**
+   * Finalizar pasa antes por el aviso de pendientes (v0145). Si el padre pasó `onAdvance` (Visitas),
+   * el aviso lo pone ÉL —ya lo hace en su `advance`— y acá no se pregunta dos veces.
+   */
+  const ejecutar = async (next: OperationalStage) => {
+    if (!visit) return
+    if (next === 'fin_atencion' && !onAdvance) {
+      setConfirmando(null)
+      setBusy(true)
+      await aviso.pedir(visit, () => avanzarAhora(next))
+      // Mismo motivo que en la rama de `onAdvance`: lo que tildó/marcó el aviso no lo sabe
+      // `VisitProcedures` hasta que se le avisa.
+      setVersionProcedimientos((v) => v + 1)
+      setBusy(false)
+      return
+    }
+    await avanzarAhora(next)
   }
 
   return (
@@ -309,7 +338,6 @@ export function VisitDetail({
                     visitId={visit.id}
                     visitDefId={visit.visit_def_id}
                     visitKind={visit.kind}
-                    fechaVisita={visit.real_date ?? visit.estimated_date}
                     originVisitId={visit.origin_visit_id ?? null}
                     protocolId={visit.protocol_id}
                     accent={accent}
@@ -380,6 +408,8 @@ export function VisitDetail({
       />
     )}
 
+    {aviso.modal}
+
     {outcomeFor && (outcomeFor.role === 'screening' || outcomeFor.role === 'randomizacion') && (
       <ReadyOutcomeModal
         role={outcomeFor.role}
@@ -400,13 +430,12 @@ export function VisitDetail({
     )}
 
     {recitar && (
-      <RegisterVisitFlow
-        enrollmentId={recitar.enrollment_id}
-        protocolId={recitar.protocol_id}
-        randomizationDate={recitar.enrollment_randomization_date}
-        usedKinds={[]}
-        preselectDefId={recitar.visit_def_id}
-        accentSolid={accent}
+      /* «Recitar»: el mismo «Agendar visita» de la ficha (v0145), con la definición ya elegida. */
+      <AgendarVisitaModal
+        modo="paciente"
+        paciente={pacienteDeVisita(recitar)}
+        preseleccion={{ tipo: 'def', defId: recitar.visit_def_id }}
+        accent={accent}
         onClose={() => setRecitar(null)}
         onDone={() => { setRecitar(null); refrescar() }}
       />

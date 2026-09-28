@@ -4,7 +4,7 @@
 
 **Goal:** que al finalizar una visita lo que no se hizo quede marcado «para otro día» (sin fecha), que se retome desde «Agendar visita» —en la ficha o en Visitas—, que aparezca en Pendientes mientras espera, y que el retest cuelgue siempre de la visita que repite.
 
-**Architecture:** una tabla nueva `visit_pending_procedures` guarda las marcas; `v_visit_procedures` (la lista efectiva de la 0144) las resta, así la visita cierra sola y todo lo que ya lee de ahí lo hereda. Tres RPC nuevas (marcar, desmarcar, retomar) reusan el mecanismo de continuación de la 0144. Una columna `patient_visits.retest_of_visit_id` ata el retest a su origen, validado en `register_visit_event`. En el front: un aviso al finalizar, un flujo de «Agendar visita» con opciones nuevas en la ficha y en Visitas, y una cuarta lista en Pendientes.
+**Architecture:** una tabla nueva `visit_pending_procedures` guarda las marcas; `v_visit_procedures` (la lista efectiva de la 0144) las resta, así la visita cierra sola y todo lo que ya lee de ahí lo hereda. Tres RPC nuevas (marcar, desmarcar, retomar) reusan el mecanismo de continuación de la 0144. Una columna `patient_visits.retest_of_visit_id` ata el retest a su origen, validado en `register_visit_event`. En el front: un aviso al finalizar (se tilda lo que se hizo), el panel «Queda para otro día» en la visita y en la ficha, **un solo modal «Agendar visita»** que reemplaza a `RegisterVisitFlow` en todos sus usos y suma Visitas, y una cuarta lista en Pendientes.
 
 **Tech Stack:** Postgres/Supabase (SQL a mano en el editor), React 18 + TypeScript strict, Vite, vitest. PGlite (Postgres en WASM) como banco descartable fuera del repo.
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Dos PRs, en este orden.** **PR A** = sólo la migración + su fila en el índice (Tareas 1-5). El Director la aplica en prod. **PR B** = el front (Tareas 6-15), que se mergea **después** de que la migración esté aplicada. La migración es **aditiva, va primero**: el front viejo no escribe marcas ni manda origen de retest, y `register_visit_event` conserva sus cinco parámetros con el sexto por defecto. El front nuevo **no** anda sin ella.
+- **Dos PRs, en este orden.** **PR A** = sólo la migración + su fila en el índice (Tareas 1-5). El Director la aplica en prod. **PR B** = el front (Tareas 6-17), que se mergea **después** de que la migración esté aplicada. La migración es **aditiva, va primero**: el front viejo no escribe marcas ni manda origen de retest, y `register_visit_event` conserva sus cinco parámetros con el sexto por defecto. El front nuevo **no** anda sin ella.
 - **Numeración: no fijes el número en ningún documento.** Se toma el siguiente libre en `origin/main` al pushear (al escribir este plan, la última aplicada es la `0144`). En este plan, `NNNN` es ese número; la Tarea 1 lo resuelve y lo deja en `$MIG`. `NNNN` / `vNNNN` en SQL y en comentarios del front se reemplaza por el número real: `git grep -n "NNNN" -- supabase src` tiene que salir vacío antes de cada PR.
 - **Migraciones inmutables.** Una vez que el Director la aplica, no se edita: toda corrección es un archivo nuevo.
 - **Nunca dos signos peso pegados dentro de un comentario SQL** (el editor de Supabase invierte la paridad del dollar-quoting). Cuerpos de función con `$fn$`, bloques `do` con `$mig$`. La Tarea 5 cuenta los marcadores.
@@ -37,13 +37,13 @@
 - Modificar: `src/lib/visits.ts`, `src/lib/visitTitle.test.ts`, `src/data/visits.ts` (título «Retest de V1»).
 - Modificar: `src/data/procedures.ts` (`tiene_reporte` y lectura suelta), `src/data/visitEvents.ts` (origen del retest).
 - Crear: `src/data/pendientes.ts` (lecturas, RPC, mensajes).
-- Crear: `src/views/track/retomar.ts` + `retomar.test.ts` (reglas puras).
-- Crear: `src/views/track/CasillasDeProcedimientos.tsx`, `AvisoPendientesModal.tsx`, `useAvisoAlFinalizar.tsx`.
-- Modificar: `src/views/DayVisitsView.tsx`, `src/views/track/VisitDetail.tsx` (el aviso al finalizar; «Agregar visita»).
-- Modificar: `src/views/track/PasarPendientesModal.tsx` (→ «Dejar para otro día», sin fecha), `DesdoblamientoVisita.tsx`, `VisitProcedures.tsx`.
-- Crear: `src/views/track/agendar/FormContinuarPendientes.tsx`, `FormRetest.tsx`, `FormTraerVisita.tsx`, `FormVnp.tsx`, `AgregarVisitaModal.tsx`, `AgendarDesdePendientes.tsx`.
-- Modificar: `src/views/track/RegisterVisitFlow.tsx`, `src/views/PatientFichaView.tsx`.
-- Modificar: `src/views/TrackAlertsView.tsx`, `src/views/pendientesPorProtocolo.ts` + `.test.ts`, `src/views/PendientesProtocoloCards.tsx`.
+- Crear: `src/views/track/retomar.ts` + `retomar.test.ts` (reglas puras; la Tarea 12 le suma `conPaciente` a `rotuloDeVisita`).
+- Crear: `src/views/track/CasillasDeProcedimientos.tsx`, `AvisoPendientesModal.tsx`, `useAvisoAlFinalizar.tsx` (Tarea 10).
+- Modificar: `src/views/DayVisitsView.tsx`, `src/views/track/VisitDetail.tsx` (el aviso al finalizar, Tarea 10; «Agregar visita» y el «recitar», Tarea 15).
+- Renombrar: `src/views/track/PasarPendientesModal.tsx` → `DejarParaOtroDiaModal.tsx` (sin fecha). Crear: `src/views/track/QuedaParaOtroDia.tsx`, `QueSeHizoHoyModal.tsx`. Modificar: `ReportesPendientes.tsx` (exporta su badge y sus estilos), `DesdoblamientoVisita.tsx`, `VisitProcedures.tsx` (Tarea 11).
+- Crear: `src/views/track/agendar/opciones.ts` + `opciones.test.ts` (Tarea 12); `PieDelFormulario.tsx`, `FormContinuarPendientes.tsx`, `FormRetest.tsx`, `FormTraerVisita.tsx`, `FormVnp.tsx`, `FormVisitaDelCuadro.tsx`, `FormVisitaSuelta.tsx` (Tarea 13); `AgendarVisitaModal.tsx` (Tarea 14).
+- Crear: `src/views/track/PorRetomarDelPaciente.tsx`. Modificar: `src/views/PatientFichaView.tsx`. **Borrar:** `src/views/track/RegisterVisitFlow.tsx` (Tarea 15).
+- Modificar: `src/views/TrackAlertsView.tsx`, `src/views/pendientesPorProtocolo.ts` + `.test.ts`, `src/views/PendientesProtocoloCards.tsx` (Tarea 16).
 
 ---
 
@@ -1149,12 +1149,14 @@ De acá en adelante, `$REPO` es este worktree: `export REPO="$(git rev-parse --s
 
 - [ ] **Paso 1: Armar el mock**
 
-Un HTML estático, autocontenido, con los tokens de `src/styles/tokens.css` copiados en `:root` (petróleo + papel cálido, Inter), al estilo de `docs/mock-visitas-continuacion.html` (abrilo y seguí su estructura). Cuatro pantallas, una debajo de la otra, cada una con su rótulo:
+Un HTML estático, autocontenido, con los tokens de `src/styles/tokens.css` copiados en `:root` (petróleo + papel cálido, Inter), al estilo de `docs/mock-visitas-continuacion.html` (abrilo y seguí su estructura). Seis pantallas, una debajo de la otra, cada una con su rótulo (así quedó tras tres vueltas del Director, 2026-09-27):
 
-1. **Al finalizar** — el modal «Esta visita tiene procedimientos pendientes», subtítulo «Elegí los que quedan para otro día. Los vas a encontrar en Pendientes.», dos casillas sin tildar (Laboratorio, Hemograma) y los botones «Finalizar sin pasarlos» (contorno) y «Finalizar y dejar para otro día» (primario, deshabilitado sin nada elegido).
-2. **La V3 con marcas** — el pie del panel «Resumen de la visita»: la caja «Queda para otro día · 2 procedimientos», un renglón por procedimiento con el botón chico «Se hace hoy», y abajo los botones «Dejar para otro día» y (si es suelta) «Editar procedimientos».
-3. **Agregar visita (desde Visitas)** — modal con «Estudio», «¿Qué vas a hacer?» (desplegable abierto mostrando «Una visita del estudio (3)», «Continuar pendientes (2)», «Retest», «VNP»), y el caso «Continuar pendientes» elegido: el desplegable de la visita («V3 W4 · Juan Pérez · 12/9 · Hematología, ECG») y las casillas preseleccionadas. Botones «Cancelar» / «Agendar».
+1. **Al finalizar** — el modal en sus dos pasos. Paso 1: «Esta visita tiene procedimientos sin marcar», subtítulo «Marcá los que se hicieron. Lo que no marques queda para otro día.», «¿Qué se hizo?» con dos casillas (Laboratorio tildado, Hemograma sin tildar) y los botones «Cancelar» (contorno) y «Continuar» (primario). Paso 2: «Van a quedar pendientes», subtítulo «Estos procedimientos quedan para otro día. Los vas a encontrar en Pendientes.», la lista (Hemograma) y los botones «Volver» / «Finalizar». Se tilda lo que SE HIZO (corrección del Director, 2026-09-27).
+2. **La visita con marcas** — el «Resumen de la visita» con sus botones «Dejar para otro día» y (si es suelta) «Editar procedimientos», y debajo un panel propio **«Queda para otro día»** con el lenguaje de «Reportes pendientes»: ícono de reloj en ámbar, badge «2 para otro día» en el tono de «por cargar», una tarjeta por procedimiento con su banda-casilla **vacía**. Sin «Se hace hoy». Debajo, el modal **«¿Qué se hizo hoy?»** que abre tocar una casilla: los dos marcados como casillas, el tocado ya tildado, «Cancelar» / «Se hizo hoy».
+3. **Agregar visita (desde Visitas)** — modal con «Estudio», «Fecha» fija («Es el día que estás mirando en Visitas.»), «¿Qué vas a hacer?» (desplegable abierto: «Una visita del estudio (3)», «Continuar pendientes (2)», «Retest», «VNP»), y el caso «Continuar pendientes» elegido: «Visita» («V3 W4 · Juan Pérez · 12/9 · Hematología, ECG») y las casillas preseleccionadas. Botones «Cancelar» / «Agendar».
+   **3b. Agendar visita (desde la ficha)** — el mismo modal con el título «Agendar visita», el subtítulo fijo «Juan Pérez · TEST-001-017 · TEST-QA» (nombre en tinta, IVRS y estudio en mono), sin «Estudio», «Fecha de la visita» editable, y las opciones del paciente («V2 - Randomización», «Continuar pendientes (1)», «Retest», «VNP»; sin «Una visita del estudio»). La visita, sin el nombre del paciente.
 4. **Pendientes** — una fila de «Procedimientos por retomar» (tono neutro, ícono de reloj): nombre + IVRS + protocolo, la sublínea «V3 W4 · 12/9 · Hematología, ECG · espera hace 5 d» y el botón con nombre «Agendar» abajo a la derecha.
+5. **Ficha: «Queda para otro día»** — el bloque entre «Próxima visita» y «Cronograma de visitas», mismo lenguaje que el panel de la pantalla 2: badge «1 visita», una fila por visita («V3 W4 · 12/9 · Hematología, ECG», «Espera hace 5 d») con el botón «Agendar». Sin nada esperando, no se dibuja.
 
 Nada de bordes de color para el realce (elevación), y nombre del paciente en tinta + IVRS en mono.
 
@@ -1929,7 +1931,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `src/views/track/VisitDetail.tsx:207-249` (`ejecutar`) y el render
 
 **Interfaces:**
-- Consumes: `fetchVisitProcedureStatus` (Tarea 8), `dejarPendientes` (Tarea 8), `pendientesAlFinalizar`, `ProcedimientoElegible` (Tarea 9).
+- Consumes: `fetchVisitProcedureStatus` y `toggleVisitProcedure` (`src/data/procedures.ts`, Tarea 8), `dejarPendientes` (Tarea 8), `pendientesAlFinalizar`, `ProcedimientoElegible` (Tarea 9).
 - Produces:
   - `CasillasDeProcedimientos({ items, elegidos, onChange, accent }: { items: readonly ProcedimientoElegible[]; elegidos: ReadonlySet<string>; onChange: (next: Set<string>) => void; accent: string })`
   - `useAvisoAlFinalizar(accent: string): { pedir: (visit: { id: string; protocol_id: string }, seguir: () => Promise<void> | void) => Promise<void>; modal: ReactNode }` — `pedir` resuelve cuando el flujo TERMINA (se finalizó o se canceló), no cuando se abre el modal.
@@ -1943,8 +1945,9 @@ import type { ProcedimientoElegible } from './retomar'
 
 /**
  * Una lista de casillas de procedimientos, sin preselección propia: quien la usa decide qué viene
- * tildado. La comparten el aviso al finalizar, «Dejar para otro día», «Continuar pendientes» y el
- * retest (vNNNN) — cuatro modales que eligen procedimientos igual y tienen que verse igual.
+ * tildado. La comparten el aviso al finalizar, «Dejar para otro día», «¿Qué se hizo hoy?»,
+ * «Continuar pendientes» y el retest (v0145) — cinco lugares que eligen procedimientos igual y
+ * tienen que verse igual.
  */
 export function CasillasDeProcedimientos({ items, elegidos, onChange, accent }: {
   items: readonly ProcedimientoElegible[]
@@ -1973,6 +1976,8 @@ export function CasillasDeProcedimientos({ items, elegidos, onChange, accent }: 
 
 - [ ] **Paso 2: El modal del aviso**
 
+Se tilda lo que **se hizo**, no lo que queda (corrección del Director sobre el mock, 2026-09-27). Dos pasos: «¿Qué se hizo?» y, si quedó algo sin tildar, el aviso de lo que va a quedar pendiente. Sin «Finalizar sin pasarlos».
+
 Crear `src/views/track/AvisoPendientesModal.tsx`:
 
 ```tsx
@@ -1984,56 +1989,84 @@ import { CasillasDeProcedimientos } from './CasillasDeProcedimientos'
 import type { ProcedimientoElegible } from './retomar'
 
 /**
- * El aviso al tocar «Finalizar atención» con procedimientos que dejan reporte sin tildar (vNNNN).
- * Sin preselección: lo que queda para otro día se elige a propósito (regla vigente desde la 0144).
- * «Finalizar sin pasarlos» finaliza como antes: lo que no se pasa se comporta como hoy.
- * Mientras guarda no se cierra: un Esc a mitad de camino dejaría la marca puesta sin finalizar.
+ * El aviso al tocar «Finalizar atención» con procedimientos que dejan reporte sin tildar (v0145).
+ *
+ * SE TILDA LO QUE SE HIZO, no lo que queda (Director, 2026-09-27: «vos marcás los que sí hiciste y
+ * si le das a continuar avisa que estos van a quedar pendientes»). Es la misma pregunta que ya hace
+ * la visita —¿qué se hizo?—, así que tildar acá es tildar de verdad: arranca el plazo del reporte.
+ * Lo que queda sin tildar pasa a «para otro día», con un segundo paso que lo nombra antes de
+ * finalizar: marcar algo como pendiente sin decirlo sería la postergación silenciosa que esto viene
+ * a evitar. No hay «finalizar sin pasarlos»: lo que no se hizo, queda.
+ *
+ * Mientras guarda no se cierra: un Esc a mitad de camino dejaría tildes o marcas puestas sin
+ * finalizar. Cerrar antes de «Finalizar» cancela todo: no se tilda ni se marca nada.
  */
-export function AvisoPendientesModal({ pendientes, accent, onDejarYFinalizar, onFinalizarSinPasar, onClose }: {
+export function AvisoPendientesModal({ pendientes, accent, onFinalizar, onClose }: {
   pendientes: readonly ProcedimientoElegible[]
   accent: string
-  /** Devuelve el error a mostrar, o `null` si salió bien. */
-  onDejarYFinalizar: (procedureIds: string[]) => Promise<string | null>
-  onFinalizarSinPasar: () => Promise<void>
+  /** Tilda `hechos`, deja el resto para otro día y finaliza. Devuelve el error a mostrar, o `null`. */
+  onFinalizar: (hechos: string[]) => Promise<string | null>
   onClose: () => void
 }) {
-  const [elegidos, setElegidos] = useState<Set<string>>(new Set())
+  const [hechos, setHechos] = useState<Set<string>>(new Set())
+  const [paso, setPaso] = useState<'hechos' | 'aviso'>('hechos')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const dejar = async () => {
-    if (elegidos.size === 0) return
+  const quedan = pendientes.filter((p) => !hechos.has(p.procedure_id))
+
+  const finalizar = async () => {
     setBusy(true); setError(null)
-    const e = await onDejarYFinalizar([...elegidos])
+    const e = await onFinalizar([...hechos])
     setBusy(false)
     if (e) setError(e)
   }
-  const sinPasar = async () => { setBusy(true); await onFinalizarSinPasar(); setBusy(false) }
+  const continuar = () => {
+    if (quedan.length === 0) { void finalizar(); return }
+    setPaso('aviso')
+  }
+
+  const errorBox = error && (
+    <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
+  )
+  const primario = { ...btnPrimary(accent), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }
 
   return (
     <Modal
-      title="Esta visita tiene procedimientos pendientes"
-      subtitle="Elegí los que quedan para otro día. Los vas a encontrar en Pendientes."
+      title={paso === 'hechos' ? 'Esta visita tiene procedimientos sin marcar' : 'Van a quedar pendientes'}
+      subtitle={paso === 'hechos'
+        ? 'Marcá los que se hicieron. Lo que no marques queda para otro día.'
+        : 'Estos procedimientos quedan para otro día. Los vas a encontrar en Pendientes.'}
       onClose={busy ? () => {} : onClose}
       maxWidth={480}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <FormField label="¿Qué queda para otro día?">
-          <CasillasDeProcedimientos items={pendientes} elegidos={elegidos} onChange={setElegidos} accent={accent} />
-        </FormField>
-        {error && (
-          <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
+        {paso === 'hechos' ? (
+          <FormField label="¿Qué se hizo?">
+            <CasillasDeProcedimientos items={pendientes} elegidos={hechos} onChange={setHechos} accent={accent} />
+          </FormField>
+        ) : (
+          <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13.5, color: 'var(--spira-ink)' }}>
+            {quedan.map((p) => <li key={p.procedure_id}>{p.name}</li>)}
+          </ul>
         )}
+        {errorBox}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" onClick={sinPasar} disabled={busy} style={btnOutline}>Finalizar sin pasarlos</button>
-          <button
-            type="button"
-            onClick={dejar}
-            disabled={busy || elegidos.size === 0}
-            style={{ ...btnPrimary(accent), opacity: busy || elegidos.size === 0 ? 0.6 : 1, cursor: busy || elegidos.size === 0 ? 'default' : 'pointer' }}
-          >
-            {busy ? 'Guardando…' : 'Finalizar y dejar para otro día'}
-          </button>
+          {paso === 'hechos' ? (
+            <>
+              <button type="button" onClick={onClose} disabled={busy} style={btnOutline}>Cancelar</button>
+              <button type="button" onClick={continuar} disabled={busy} style={primario}>
+                {busy ? 'Guardando…' : 'Continuar'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={() => { setPaso('hechos'); setError(null) }} disabled={busy} style={btnOutline}>Volver</button>
+              <button type="button" onClick={() => void finalizar()} disabled={busy} style={primario}>
+                {busy ? 'Guardando…' : 'Finalizar'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </Modal>
@@ -2046,9 +2079,9 @@ export function AvisoPendientesModal({ pendientes, accent, onDejarYFinalizar, on
 Crear `src/views/track/useAvisoAlFinalizar.tsx`:
 
 ```tsx
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { fetchVisitProcedureStatus } from '../../data/procedures'
+import { fetchVisitProcedureStatus, toggleVisitProcedure } from '../../data/procedures'
 import { dejarPendientes } from '../../data/pendientes'
 import { pendientesAlFinalizar } from './retomar'
 import type { ProcedimientoElegible } from './retomar'
@@ -2063,7 +2096,7 @@ interface Aviso {
 }
 
 /**
- * El aviso al finalizar (vNNNN), para los DOS lugares desde donde se finaliza: la fila de Visitas y
+ * El aviso al finalizar (v0145), para los DOS lugares desde donde se finaliza: la fila de Visitas y
  * el detalle de la visita. La regla de «hay pendientes» es una sola (`pendientesAlFinalizar`); acá
  * sólo se decide cuándo preguntar y qué hacer con la respuesta.
  *
@@ -2071,20 +2104,26 @@ interface Aviso {
  * de la visita) refresca al volver, y si volviera antes de que la persona elija, refrescaría una
  * visita que todavía no se finalizó.
  *
- * Si la lectura falla, FINALIZA igual (falla abierta). El aviso es una ayuda, no una guarda: frenar
- * el cierre de la atención porque no se pudo leer la lista cortaría el recorrido del día, y el
- * servidor sigue siendo el que decide qué se puede marcar.
+ * El orden al finalizar es tildes → marcas → avance, y cada paso corta si falla: no se finaliza con
+ * algo a medio guardar. Reintentar no vuelve a tildar lo ya tildado (`yaTildados`), que el servidor
+ * rechazaría como duplicado.
+ *
+ * Si la lectura inicial falla, FINALIZA igual (falla abierta). El aviso es una ayuda, no una guarda:
+ * frenar el cierre de la atención porque no se pudo leer la lista cortaría el recorrido del día.
  */
 export function useAvisoAlFinalizar(accent: string): {
   pedir: (visit: { id: string; protocol_id: string }, seguir: () => Promise<void> | void) => Promise<void>
   modal: ReactNode
 } {
   const [aviso, setAviso] = useState<Aviso | null>(null)
+  /** Lo tildado desde este aviso, por si un paso posterior falla y se reintenta. */
+  const yaTildados = useRef<Set<string>>(new Set())
 
   const pedir = async (visit: { id: string; protocol_id: string }, seguir: () => Promise<void> | void) => {
     const r = await fetchVisitProcedureStatus(visit.id, visit.protocol_id)
     const pendientes = r.data ? pendientesAlFinalizar(r.data) : []
     if (pendientes.length === 0) { await seguir(); return }
+    yaTildados.current = new Set()
     await new Promise<void>((resolve) => setAviso({ visitId: visit.id, pendientes, seguir, terminar: resolve }))
   }
 
@@ -2092,18 +2131,22 @@ export function useAvisoAlFinalizar(accent: string): {
     <AvisoPendientesModal
       pendientes={aviso.pendientes}
       accent={accent}
-      onDejarYFinalizar={async (ids) => {
-        const res = await dejarPendientes(aviso.visitId, ids)
-        if (res.error) return res.error
+      onFinalizar={async (hechos) => {
+        for (const id of hechos) {
+          if (yaTildados.current.has(id)) continue
+          const t = await toggleVisitProcedure(aviso.visitId, id, true)
+          if (t.error) return t.error
+          yaTildados.current.add(id)
+        }
+        const quedan = aviso.pendientes.map((p) => p.procedure_id).filter((id) => !hechos.includes(id))
+        if (quedan.length > 0) {
+          const res = await dejarPendientes(aviso.visitId, quedan)
+          if (res.error) return res.error
+        }
         setAviso(null)
         await aviso.seguir()
         aviso.terminar()
         return null
-      }}
-      onFinalizarSinPasar={async () => {
-        setAviso(null)
-        await aviso.seguir()
-        aviso.terminar()
       }}
       onClose={() => { setAviso(null); aviso.terminar() }}
     />
@@ -2112,6 +2155,8 @@ export function useAvisoAlFinalizar(accent: string): {
   return { pedir, modal }
 }
 ```
+
+Ojo con un caso: si se reintenta después de que `dejarPendientes` falló, y en el medio la persona **destildó** en el paso 1 algo que ya se había tildado, ese tilde queda puesto (el aviso no destilda). Es aceptable —se ve en la visita y se destilda ahí—, pero dejalo dicho en una línea del comentario de `yaTildados`.
 
 - [ ] **Paso 4: En Visitas**
 
@@ -2170,7 +2215,7 @@ En `src/views/track/VisitDetail.tsx`:
 ```bash
 cd "$REPO" && npm run typecheck && npx vitest run
 ```
-Expected: tsc limpio y 0 fallas. El comportamiento se verifica en el QA de la Tarea 15 (es visible: no lleva test).
+Expected: tsc limpio y 0 fallas. El comportamiento se verifica en el QA de la Tarea 17 (es visible: no lleva test).
 
 - [ ] **Paso 7: Commit**
 
@@ -2182,17 +2227,25 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Tarea 11: La visita de origen — «Dejar para otro día» y «Se hace hoy»
+### Tarea 11: La visita de origen — «Queda para otro día», «¿Qué se hizo hoy?» y «Dejar para otro día»
+
+Lo marcado se ve en un **panel propio**, «Queda para otro día», con el lenguaje visual de «Reportes pendientes»: cabecera con la cuenta en tono de aviso y una tarjeta por procedimiento con su **casilla vacía**. Tocar la casilla no tilda: abre «¿Qué se hizo hoy?», que saca la marca y tilda. El spec (§2) dice «en el pie del Resumen»; el mock que el Director aprobó en la tercera vuelta lo dibuja como panel aparte, debajo del Resumen, y manda el mock (es posterior). No hay botón «Se hace hoy».
 
 **Files:**
 - Rename + rewrite: `src/views/track/PasarPendientesModal.tsx` → `src/views/track/DejarParaOtroDiaModal.tsx`
-- Modify: `src/views/track/DesdoblamientoVisita.tsx`
+- Create: `src/views/track/QuedaParaOtroDia.tsx`, `src/views/track/QueSeHizoHoyModal.tsx`
+- Modify: `src/views/track/ReportesPendientes.tsx` (exporta el badge y los estilos de la tarjeta)
+- Modify: `src/views/track/DesdoblamientoVisita.tsx` (rótulo del botón y cabecera)
 - Modify: `src/views/track/VisitProcedures.tsx`
 - Modify: `src/views/track/VisitDetail.tsx` (el prop `fechaVisita` que deja de usarse)
 
 **Interfaces:**
-- Consumes: `useMarcadosDeVisita`, `quitarPendiente`, `dejarPendientes`, `MarcadoRow` (Tarea 8); `CasillasDeProcedimientos` (Tarea 10).
-- Produces: `DejarParaOtroDiaModal({ visitId, pendientes, accent, onClose, onDone })`; `DesdoblamientoVisita` con props nuevas `marcados: readonly MarcadoRow[]`, `quitando: string | null`, `onSeHaceHoy: (procedureId: string) => void`, `error?: string | null`.
+- Consumes: `useMarcadosDeVisita`, `quitarPendiente`, `dejarPendientes`, `MarcadoRow` (`src/data/pendientes.ts`, Tarea 8); `toggleVisitProcedure` (`src/data/procedures.ts`); `CasillasDeProcedimientos` (Tarea 10); `ProcedimientoElegible` (Tarea 9); `Panel` (`src/views/track/Panel.tsx`).
+- Produces:
+  - `DejarParaOtroDiaModal({ visitId, pendientes, accent, onClose, onDone }: { visitId: string; pendientes: readonly ProcedimientoElegible[]; accent: string; onClose: () => void; onDone: () => void })`
+  - `QuedaParaOtroDia({ marcados, error, accent, readOnly, onTildar }: { marcados: readonly MarcadoRow[]; error: string | null; accent: string; readOnly: boolean; onTildar: (procedureId: string) => void })` — `null` sin marcas y sin error.
+  - `QueSeHizoHoyModal({ visitId, marcados, inicial, accent, onClose, onDone }: { visitId: string; marcados: readonly MarcadoRow[]; inicial: string; accent: string; onClose: () => void; onDone: () => void })`
+  - En `ReportesPendientes.tsx`, exportados: `Badge({ texto, pendiente }: { texto: string; pendiente: boolean })`, `tarjeta: CSSProperties`, `banda: CSSProperties`, `casilla(marcado: boolean, accent: string): CSSProperties`.
 
 - [ ] **Paso 1: El modal sin fecha**
 
@@ -2213,7 +2266,7 @@ import { CasillasDeProcedimientos } from './CasillasDeProcedimientos'
 import type { ProcedimientoElegible } from './retomar'
 
 /**
- * «Dejar para otro día» (vNNNN; antes «Pasar pendientes a otro día», 0144, que pedía la fecha): marca
+ * «Dejar para otro día» (v0145; antes «Pasar pendientes a otro día», 0144, que pedía la fecha): marca
  * lo elegido como pendiente, SIN fecha. La fecha la pone la continuación el día que se retoma, desde
  * «Agendar visita → Continuar pendientes». Ninguna casilla viene marcada: se elige a propósito.
  * Sirve también antes de la visita («ya se sabe que va en dos días»).
@@ -2266,85 +2319,274 @@ export function DejarParaOtroDiaModal({ visitId, pendientes, accent, onClose, on
 }
 ```
 
-- [ ] **Paso 2: El bloque de lo marcado**
+- [ ] **Paso 2: El lenguaje visual de «Reportes pendientes», exportado**
+
+«Queda para otro día» (acá y en la ficha, Tarea 15) tiene que verse como «Reportes pendientes». Se reusan sus piezas en vez de copiarlas: dos copias del mismo estilo divergen en el primer ajuste.
+
+En `src/views/track/ReportesPendientes.tsx`:
+
+1. `function Badge(` → `export function Badge(`, y encima de su comentario sumá la línea `/* Exportado (0145): «Queda para otro día» cuenta con el mismo badge. */`.
+2. `const tarjeta: CSSProperties` → `export const tarjeta: CSSProperties`.
+3. `const banda: CSSProperties` → `export const banda: CSSProperties`.
+4. `function casilla(` → `export function casilla(`.
+
+No cambies nada más del archivo.
+
+- [ ] **Paso 3: El panel «Queda para otro día»**
+
+Crear `src/views/track/QuedaParaOtroDia.tsx`:
+
+```tsx
+import type { CSSProperties } from 'react'
+import { Panel } from './Panel'
+import type { MarcadoRow } from '../../data/pendientes'
+import { formatAR, isoDayAR } from '../../lib/dates'
+import { Badge, banda, casilla, tarjeta } from './ReportesPendientes'
+
+/**
+ * ┌─ «Queda para otro día» en la visita de origen (v0145) ──────────────────────────────────────┐
+ *
+ * Lo que esta visita dejó para otro día, sin fecha todavía. Va en su PROPIO panel, debajo del
+ * Resumen, porque ya no está en ningún otro lado de la visita: la lista efectiva lo resta, así que
+ * tampoco aparece en «Reportes pendientes».
+ *
+ * MISMO LENGUAJE que «Reportes pendientes» (Director sobre el mock, 2026-09-27: «un poco más alerta
+ * o llamativo, pero sin irse al carajo»): el badge de la cuenta en ámbar, una tarjeta por
+ * procedimiento con su banda-casilla. Sin teñir la tarjeta ni ponerle borde de color: el color va
+ * en el badge, que es significado (queda trabajo).
+ *
+ * LA CASILLA NO TILDA. Tocarla abre «¿Qué se hizo hoy?» (`QueSeHizoHoyModal`): tildar acá hace dos
+ * cosas —saca la marca y arranca el reporte— y dos cosas juntas se confirman, no se hacen de un
+ * toque optimista. Por eso la casilla está siempre vacía: nunca muestra un estado que no es.
+ *
+ * Si la lectura falla, el panel se dibuja con el error en vez de desaparecer: esconderlo diría «no
+ * quedó nada para otro día» y haría desaparecer trabajo en silencio (mismo criterio que
+ * `estadoPanelReportes`).
+ * └────────────────────────────────────────────────────────────────────────────────────────────┘
+ */
+export function QuedaParaOtroDia({ marcados, error, accent, readOnly, onTildar }: {
+  marcados: readonly MarcadoRow[]
+  error: string | null
+  accent: string
+  readOnly: boolean
+  /** Se tocó la casilla de ese procedimiento: abrir «¿Qué se hizo hoy?» con él tildado. */
+  onTildar: (procedureId: string) => void
+}) {
+  if (!error && marcados.length === 0) return null
+
+  return (
+    <Panel
+      title="Queda para otro día"
+      icon="clock"
+      accent="var(--spira-acc-deep-warn)"
+      aside={error ? undefined : <Badge texto={`${marcados.length} para otro día`} pendiente />}
+    >
+      {error ? (
+        <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', padding: '2px 0' }}>
+          No se pudo cargar lo que quedó para otro día: {error}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {marcados.map((m) => (
+            <div key={m.procedure_id} style={tarjeta}>
+              {/* `role="checkbox"` siempre sin marcar, como la banda de «Reportes pendientes»: el
+                  lector de pantalla anuncia «sin marcar», que es lo que es. Sin borde inferior: acá
+                  la banda es lo único de la tarjeta (en «Reportes» la separa de sus reportes). */}
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={false}
+                aria-disabled={readOnly || undefined}
+                className="spira-no-press"
+                onClick={() => { if (!readOnly) onTildar(m.procedure_id) }}
+                style={{ ...banda, borderWidth: 0, cursor: readOnly ? 'default' : 'pointer' }}
+              >
+                <span style={casilla(false, accent)} />
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span style={nombre}>{m.procedure_name}</span>
+                  <span style={sublinea}>Para otro día · desde el {formatAR(isoDayAR(m.marked_at))}</span>
+                </span>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+const nombre: CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)' }
+const sublinea: CSSProperties = { display: 'block', marginTop: 2, fontSize: 11.5, color: 'var(--spira-ink-soft)' }
+```
+
+La sublínea dice «desde el 12/9/2026» y no «· 1 reporte» como el mock: los reportes de un procedimiento marcado no se leen en ningún lado de la visita (`v_protocol_report_status` sale de la lista efectiva, que lo resta), y traerlos es otra consulta para un dato que el panel no necesita. Si el Director lo pide en el QA, es un agregado aparte.
+
+- [ ] **Paso 4: «¿Qué se hizo hoy?»**
+
+Crear `src/views/track/QueSeHizoHoyModal.tsx`:
+
+```tsx
+import { useRef, useState } from 'react'
+import { Modal } from '../../components/Modal'
+import { btnOutline, btnPrimary } from '../../components/buttons'
+import { quitarPendiente } from '../../data/pendientes'
+import type { MarcadoRow } from '../../data/pendientes'
+import { toggleVisitProcedure } from '../../data/procedures'
+import { CasillasDeProcedimientos } from './CasillasDeProcedimientos'
+
+/**
+ * «¿Qué se hizo hoy?» (v0145): al tocar una casilla de «Queda para otro día». Lista TODO lo marcado
+ * en la visita, con lo tocado ya tildado: si se hizo una cosa, es común que se hayan hecho dos, y
+ * sumarlas acá ahorra abrir el modal otra vez. Es la misma pregunta que el aviso al finalizar.
+ *
+ * Confirmar hace, por cada elegido, DOS pasos y en este orden: `quitar_pendiente` y después el
+ * tilde. Al revés no anda: la guarda de la 0145 (`guard_tildar_diferido`) rechaza tildar lo que
+ * sigue marcado.
+ *
+ * Corta en el primer error y lo muestra; reintentar retoma donde quedó (`avance`): no vuelve a
+ * tildar lo ya tildado, que el servidor rechazaría como duplicado. Si falla el tilde después de
+ * sacar la marca, ese procedimiento queda como algo que la visita DEBE —vuelve a «Reportes
+ * pendientes», sin tildar— y no como marcado. Se ve, y se tilda ahí; volver a marcarlo en el error
+ * sería una tercera escritura que también puede fallar. Lo mismo si, tras un error, se destilda
+ * algo cuya marca ya se había sacado.
+ *
+ * Mientras guarda no se cierra (un Esc a mitad de camino dejaría el trabajo a medias sin avisar).
+ * «Cancelar» antes de confirmar no cambia nada.
+ */
+export function QueSeHizoHoyModal({ visitId, marcados, inicial, accent, onClose, onDone }: {
+  visitId: string
+  marcados: readonly MarcadoRow[]
+  /** La casilla que se tocó: llega tildada. */
+  inicial: string
+  accent: string
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [elegidos, setElegidos] = useState<Set<string>>(() => new Set([inicial]))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  /** Hasta dónde llegó cada procedimiento, por si un paso falla y se reintenta. */
+  const avance = useRef(new Map<string, 'sin_marca' | 'tildado'>())
+
+  const items = marcados.map((m) => ({ procedure_id: m.procedure_id, name: m.procedure_name }))
+
+  const confirmar = async () => {
+    if (elegidos.size === 0) { setError('Elegí qué se hizo hoy.'); return }
+    setBusy(true)
+    setError(null)
+    for (const { procedure_id: id } of items) {
+      if (!elegidos.has(id)) continue
+      if (!avance.current.has(id)) {
+        const q = await quitarPendiente(visitId, id)
+        if (q.error) { setBusy(false); setError(q.error); return }
+        avance.current.set(id, 'sin_marca')
+      }
+      if (avance.current.get(id) !== 'tildado') {
+        const t = await toggleVisitProcedure(visitId, id, true)
+        if (t.error) { setBusy(false); setError(t.error); return }
+        avance.current.set(id, 'tildado')
+      }
+    }
+    setBusy(false)
+    onDone()
+  }
+
+  return (
+    <Modal
+      title="¿Qué se hizo hoy?"
+      subtitle="Se sacan de «Queda para otro día» y quedan hechos en esta visita."
+      onClose={busy ? () => {} : onClose}
+      maxWidth={480}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <CasillasDeProcedimientos items={items} elegidos={elegidos} onChange={setElegidos} accent={accent} />
+        {error && (
+          <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" onClick={onClose} disabled={busy} style={btnOutline}>Cancelar</button>
+          <button
+            type="button"
+            onClick={() => void confirmar()}
+            disabled={busy}
+            style={{ ...btnPrimary(accent), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}
+          >
+            {busy ? 'Guardando…' : 'Se hizo hoy'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+```
+
+- [ ] **Paso 5: El pie del Resumen**
 
 En `src/views/track/DesdoblamientoVisita.tsx`:
 
-1. Import: `import type { MarcadoRow } from '../../data/pendientes'`.
-2. Sumá a las props (y a la desestructuración) `marcados`, `quitando`, `onSeHaceHoy`:
+1. En el comentario de cabecera, reemplazá la línea ` *  · y los dos botones de acción: pasar pendientes a otro día, y editar lo que lleva una suelta.` por:
 
 ```ts
-  /** Lo que esta visita dejó para otro día, sin fecha todavía (vNNNN). */
-  marcados: readonly MarcadoRow[]
-  /** El procedimiento cuya marca se está quitando, para no dejar apretar dos veces. */
-  quitando: string | null
-  /** «Se hace hoy»: saca la marca y el procedimiento vuelve a la visita. */
-  onSeHaceHoy: (procedureId: string) => void
+ *  · y los dos botones de acción: dejar para otro día (sin fecha desde la 0145) y editar lo que
+ *    lleva una suelta.
+ *
+ * Lo MARCADO para otro día no vive acá: tiene su propio panel debajo del Resumen
+ * (`QuedaParaOtroDia`, v0145).
 ```
 
-3. La condición del `return null` suma lo marcado: `if (!origenVisitId && destinos.length === 0 && marcados.length === 0 && !hayAcciones) return null`.
-4. Antes de `{destinos.map(…)}`, el bloque:
+2. El rótulo del botón: `Pasar pendientes a otro día` → `Dejar para otro día`.
 
-```tsx
-      {marcados.length > 0 && (
-        <div style={caja}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <Icon name="clock" size={15} color="var(--spira-muted)" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)' }}>
-              Queda para otro día · {marcados.length} {marcados.length === 1 ? 'procedimiento' : 'procedimientos'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
-            {marcados.map((m) => (
-              <div key={m.procedure_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{m.procedure_name}</span>
-                {!readOnly && (
-                  <button type="button" style={btnChico} disabled={quitando === m.procedure_id} onClick={() => onSeHaceHoy(m.procedure_id)}>
-                    {quitando === m.procedure_id ? 'Quitando…' : 'Se hace hoy'}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-```
-
-5. El botón de acción cambia de rótulo: `Pasar pendientes a otro día` → `Dejar para otro día`.
-6. En el comentario de cabecera del componente, sumá: «· lo que esta visita dejó para otro día, sin fecha, con su «Se hace hoy» (vNNNN)».
-
-- [ ] **Paso 3: El contenedor**
+- [ ] **Paso 6: El contenedor**
 
 En `src/views/track/VisitProcedures.tsx`:
 
-1. Imports: cambiá `import { PasarPendientesModal } from './PasarPendientesModal'` por `import { DejarParaOtroDiaModal } from './DejarParaOtroDiaModal'`, y sumá `import { useMarcadosDeVisita, quitarPendiente } from '../../data/pendientes'`.
-2. Sacá `fechaVisita` de las props y de su tipo (con su comentario): el modal ya no pide fecha.
-3. Después de `const diferidos = useDiferidosDeVisita(visitId)`:
+1. Imports: reemplazá `import { PasarPendientesModal } from './PasarPendientesModal'` por:
 
 ```ts
-  /* Lo que esta visita dejó para otro día (vNNNN). Ya no está en la lista efectiva (`items`): la
-     vista lo resta. Se lee aparte para mostrarlo en gris con su «Se hace hoy». */
+import { DejarParaOtroDiaModal } from './DejarParaOtroDiaModal'
+import { QuedaParaOtroDia } from './QuedaParaOtroDia'
+import { QueSeHizoHoyModal } from './QueSeHizoHoyModal'
+import { useMarcadosDeVisita } from '../../data/pendientes'
+```
+
+2. Sacá `fechaVisita` de la desestructuración de las props y, del tipo, las dos líneas:
+
+```ts
+  /** `real_date ?? estimated_date`: la continuación arranca propuesta para el día siguiente. */
+  fechaVisita: string | null
+```
+
+3. En el comentario de cabecera del componente, después de la línea ` * y «Reportes pendientes» (plan `docs/plan-resumen-de-visita.md`).`, sumá:
+
+```ts
+ * Desde la 0145, entre los dos, un tercero: «Queda para otro día» (`QuedaParaOtroDia`), con lo que
+ * la visita dejó para otro día — que la lista efectiva ya no trae y por eso no está en ningún otro.
+```
+
+4. Después de `const [deshacer, setDeshacer] = useState<DestinoDeDiferidos | null>(null)`:
+
+```ts
+  /* Lo que esta visita dejó para otro día (v0145). Ya no está en la lista efectiva (`items`): la
+     vista lo resta, y por eso tampoco aparece en «Reportes pendientes». Se lee aparte para su panel.
+     `queSeHizo` = la casilla que se tocó ahí; abre «¿Qué se hizo hoy?» con ella tildada. */
   const marcados = useMarcadosDeVisita(visitId)
-  const [quitando, setQuitando] = useState<string | null>(null)
+  const [queSeHizo, setQueSeHizo] = useState<string | null>(null)
 ```
 
-4. Sumá `marcados.refetch()` en los TRES lugares donde hoy se hace `diferidos.refetch()`: el efecto de foco (y a sus deps, `marcados.refetch`), el de `refrescarCuando`, y `alCambiar`.
-5. El handler, junto a `moverReporte`:
+5. Sumá `marcados.refetch()` en los TRES lugares donde hoy se hace `diferidos.refetch()`: dentro de `refrescar` del efecto de foco (y `marcados.refetch` al final de sus deps: `[refetch, reportes.refetch, ipQ.refetch, diferidos.refetch, marcados.refetch]`), en el efecto de `refrescarCuando`, y en `alCambiar`.
 
-```ts
-  /** «Se hace hoy»: saca la marca; el procedimiento vuelve a la lista y se puede tildar. */
-  const seHaceHoy = async (procedureId: string) => {
-    if (quitando) return
-    setQuitando(procedureId)
-    setActionError(null)
-    const res = await quitarPendiente(visitId, procedureId)
-    setQuitando(null)
-    if (res.error) { setActionError(res.error); return }
-    alCambiar()
-  }
+6. En el render, entre `<PanelResumenVisita … />` y `<ReportesPendientes …>`:
+
+```tsx
+      <QuedaParaOtroDia
+        marcados={marcados.data ?? []}
+        error={marcados.error}
+        accent={accent}
+        readOnly={readOnly}
+        onTildar={setQueSeHizo}
+      />
 ```
 
-6. En `<DesdoblamientoVisita …>` sumá `marcados={marcados.data ?? []}`, `quitando={quitando}` y `onSeHaceHoy={(id) => void seHaceHoy(id)}`.
 7. Reemplazá el bloque `{modal === 'pasar' && (<PasarPendientesModal … />)}` por:
 
 ```tsx
@@ -2359,45 +2601,477 @@ En `src/views/track/VisitProcedures.tsx`:
       )}
 ```
 
-8. El error de «Se hace hoy» se muestra donde ya se muestran los del tilde (`actionError` baja a `ReportesPendientes`). Si el procedimiento no tiene reporte, ese panel puede no estar a la vista: pasale también `actionError` al pie. Sumá a `DesdoblamientoVisita` un prop opcional `error?: string | null` y dibujalo arriba de los botones con el mismo estilo de error de los modales; pasale `error={actionError}`.
+8. Después del bloque `{deshacer && (…)}`:
 
-En `src/views/track/VisitDetail.tsx`, en el `<VisitProcedures …>`, sacá el prop `fechaVisita={…}`.
-
-- [ ] **Paso 4: Correr**
-
-```bash
-cd "$REPO" && git grep -n "PasarPendientesModal\|Pasar pendientes a otro día" -- src; npm run typecheck && npx vitest run
+```tsx
+      {queSeHizo && (
+        <QueSeHizoHoyModal
+          visitId={visitId}
+          marcados={marcados.data ?? []}
+          inicial={queSeHizo}
+          accent={accent}
+          /* Cerrar también relee: un intento que falló a mitad de camino pudo haber sacado una marca
+             antes del error, y la visita tiene que mostrarlo. Releer sin cambios no cuesta nada. */
+          onClose={() => { setQueSeHizo(null); alCambiar() }}
+          onDone={() => { setQueSeHizo(null); alCambiar() }}
+        />
+      )}
 ```
-Expected: el `git grep` no devuelve nada (salvo, si quedó, un comentario histórico que diga «antes “Pasar pendientes a otro día”»); tsc limpio; 0 fallas.
 
-- [ ] **Paso 5: Commit**
+En `src/views/track/VisitDetail.tsx`, en el `<VisitProcedures …>`, sacá la línea `fechaVisita={visit.real_date ?? visit.estimated_date}`.
+
+- [ ] **Paso 7: Correr**
 
 ```bash
-cd "$REPO" && git add src/views/track/DejarParaOtroDiaModal.tsx src/views/track/PasarPendientesModal.tsx src/views/track/DesdoblamientoVisita.tsx src/views/track/VisitProcedures.tsx src/views/track/VisitDetail.tsx && git commit -m "feat(coordinacion): dejar para otro día sin fecha y «Se hace hoy»
+cd "$REPO" && git grep -n "PasarPendientesModal\|Pasar pendientes a otro día\|fechaVisita" -- src; npm run typecheck && npx vitest run
+```
+Expected: el `git grep` sólo devuelve el comentario histórico de `DejarParaOtroDiaModal.tsx` («antes «Pasar pendientes a otro día»»); tsc limpio; 0 fallas. Lo visible (el panel, el modal) se verifica en el QA de la Tarea 17.
+
+- [ ] **Paso 8: Commit**
+
+```bash
+cd "$REPO" && git add src/views/track/DejarParaOtroDiaModal.tsx src/views/track/PasarPendientesModal.tsx src/views/track/QuedaParaOtroDia.tsx src/views/track/QueSeHizoHoyModal.tsx src/views/track/ReportesPendientes.tsx src/views/track/DesdoblamientoVisita.tsx src/views/track/VisitProcedures.tsx src/views/track/VisitDetail.tsx && git commit -m "feat(coordinacion): queda para otro día, qué se hizo hoy y dejar sin fecha
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Tarea 12: Los formularios de agendar y la ficha del paciente
+### Tarea 12: Las opciones de «Agendar visita» (reglas puras)
+
+Un solo modal agenda en todos lados (Tareas 13-15). Qué opciones ofrece en cada lugar es una regla que falla **en silencio**: el retest suelto que la 0145 retiró volviendo a aparecer, «Una visita del estudio» colándose en la ficha, el cuadro ofrecido después de randomizar. Nada de eso se ve roto. Va puro y con test.
 
 **Files:**
-- Create: `src/views/track/agendar/FormContinuarPendientes.tsx`, `src/views/track/agendar/FormRetest.tsx`, `src/views/track/agendar/FormTraerVisita.tsx`, `src/views/track/agendar/FormVnp.tsx`
-- Modify: `src/views/track/RegisterVisitFlow.tsx`
-- Modify: `src/views/PatientFichaView.tsx:99-100` y `:184-195`
+- Create: `src/views/track/agendar/opciones.ts`
+- Test: `src/views/track/agendar/opciones.test.ts`
+- Modify: `src/views/track/retomar.ts` (`rotuloDeVisita` sin el paciente) + `src/views/track/retomar.test.ts`
 
 **Interfaces:**
-- Consumes: `continuarPendientes`, `usePorRetomar` (Tarea 8), `registerVisitEvent` con `retestOf` (Tarea 8), `useVisitProcedureStatus` (Tarea 8), `rescheduleVisit` (`src/data/visits.ts`), reglas de la Tarea 9, `CasillasDeProcedimientos` (Tarea 10), `SelectorProcedimientos` (0144).
+- Consumes: `KIND_LABELS`, `VisitKind` (`src/lib/visitLabels.ts`), `addDaysISO` (`src/lib/dates.ts`), `TrackVisitRow` (tipo).
 - Produces:
-  - `FormContinuarPendientes({ candidatas, fecha, fechaEditable, preseleccion, accent, onCancel, onDone })`
-  - `FormRetest({ candidatas, protocolId, fecha, fechaEditable, accent, onCancel, onDone })`
-  - `FormTraerVisita({ candidatas, dia, accent, onCancel, onDone })`
-  - `FormVnp({ pacientes, protocolId, fecha, accent, onCancel, onDone })`
-  - Los cuatro: `onDone: (mensaje: string) => void`, `onCancel: () => void`; cada uno tiene sus propios botones.
-  - `RegisterVisitFlow` con props nuevas opcionales `porRetomar?: readonly VisitaPorRetomar[]` y `preseleccion?: { accion: 'continuar'; origenId: string }`.
+  - `interface DefinicionAgendable { id: string; code: string | null; name: string; role: 'screening' | 'randomizacion' | 'comun'; offset_days: number | null }` (`VisitDefinition` la cumple)
+  - `type Eleccion = { tipo: 'def'; defId: string } | { tipo: 'suelta'; kind: VisitKind } | { tipo: 'traer' } | { tipo: 'continuar' } | { tipo: 'retest' } | { tipo: 'vnp' }`
+  - `interface OpcionDeAgendar { value: string; label: string; eleccion: Eleccion }`
+  - `type Preseleccion = { tipo: 'continuar'; origenId: string } | { tipo: 'def'; defId: string | null }`
+  - `type ContextoDeOpciones = { modo: 'dia'; traer: number; continuar: number } | { modo: 'paciente'; definiciones: readonly DefinicionAgendable[]; randomizationDate: string | null; kindsSueltos: readonly VisitKind[]; continuar: number }`
+  - `tieneCuadro(defs: readonly Pick<DefinicionAgendable, 'role'>[]): boolean`
+  - `opcionesDeAgendar(ctx: ContextoDeOpciones): OpcionDeAgendar[]`
+  - `eleccionInicial(opciones: readonly OpcionDeAgendar[], preseleccion?: Preseleccion): string` — `''` = sin elegir
+  - `fechaEstimadaDelCuadro(def: Pick<DefinicionAgendable, 'id' | 'offset_days'> | null, referencias: readonly Pick<TrackVisitRow, 'visit_def_id' | 'estimated_date' | 'offset_days'>[]): string | null`
+  - `interface PacienteFijo { enrollmentId: string; patientId: string; protocolId: string; patientName: string; ivrs: string | null; protocolCode: string; randomizationDate: string | null }`
+  - `pacienteDeVisita(v: TrackVisitRow): PacienteFijo`
+  - `rotuloDeVisita(v: TrackVisitRow, opciones?: { conPaciente?: boolean }): string` (cambia la firma de la Tarea 9; el default conserva el comportamiento)
 
-- [ ] **Paso 1: Continuar pendientes**
+- [ ] **Paso 1: Los tests que fallan**
+
+Crear `src/views/track/agendar/opciones.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest'
+import { eleccionInicial, fechaEstimadaDelCuadro, opcionesDeAgendar } from './opciones'
+import type { DefinicionAgendable } from './opciones'
+
+/**
+ * Qué ofrece «Agendar visita» en cada lugar (v0145). Un solo modal agenda desde Visitas, la ficha,
+ * el «recitar» y Pendientes, y la lista de opciones es lo que cambia. Todo falla EN SILENCIO: un
+ * retest suelto de vuelta (la 0145 lo retiró: cuelga siempre de una visita), «Una visita del
+ * estudio» en la ficha, el cuadro después de randomizar. Se ve normal, y por eso no se reporta.
+ *
+ * Sin base y sin navegador: son funciones puras.
+ */
+
+const def = (id: string, role: DefinicionAgendable['role'], campos: Partial<DefinicionAgendable> = {}): DefinicionAgendable =>
+  ({ id, code: null, name: id.toUpperCase(), role, offset_days: 0, ...campos })
+
+const valores = (o: readonly { value: string }[]) => o.map((x) => x.value)
+
+describe('opcionesDeAgendar, desde Visitas', () => {
+  it('trae una visita del estudio con su número, y nunca el cuadro ni las sueltas', () => {
+    const o = opcionesDeAgendar({ modo: 'dia', traer: 3, continuar: 0 })
+    expect(valores(o)).toEqual(['traer', 'retest', 'vnp'])
+    expect(o[0].label).toBe('Una visita del estudio (3)')
+  })
+  it('«Continuar pendientes» sólo si hay algo esperando, con cuántas visitas', () => {
+    const o = opcionesDeAgendar({ modo: 'dia', traer: 0, continuar: 2 })
+    expect(valores(o)).toEqual(['traer', 'continuar', 'retest', 'vnp'])
+    expect(o[1].label).toBe('Continuar pendientes (2)')
+  })
+})
+
+describe('opcionesDeAgendar, desde la ficha', () => {
+  const pre = { modo: 'paciente' as const, randomizationDate: null, continuar: 0 }
+
+  it('pre-rando con cuadro: las visitas libres del cuadro, y de las sueltas sólo retest y VNP', () => {
+    const o = opcionesDeAgendar({
+      ...pre,
+      definiciones: [def('v1', 'screening', { code: 'V1', name: 'Screening' }), def('v2', 'randomizacion')],
+      kindsSueltos: ['vnp', 'retest'],
+    })
+    expect(valores(o)).toEqual(['def:v1', 'def:v2', 'retest', 'vnp'])
+    expect(o[0].label).toBe('V1 - Screening')
+    expect(o[1].label).toBe('V2')
+  })
+
+  it('post-rando: el cuadro ya no se agenda a mano', () => {
+    const o = opcionesDeAgendar({ ...pre, randomizationDate: '2026-09-01', definiciones: [def('v1', 'screening')], kindsSueltos: ['vnp', 'retest'] })
+    expect(valores(o)).toEqual(['retest', 'vnp'])
+  })
+
+  it('legacy sin cuadro: los tipos sueltos de siempre, pero el retest nunca suelto', () => {
+    const o = opcionesDeAgendar({
+      ...pre,
+      definiciones: [def('x', 'comun')],
+      kindsSueltos: ['firma', 'screening', 'firma_screening', 'vnp', 'retest'],
+    })
+    expect(valores(o)).toEqual(['evt:firma', 'evt:screening', 'evt:firma_screening', 'retest', 'vnp'])
+    expect(valores(o)).not.toContain('evt:retest')
+    expect(valores(o)).not.toContain('evt:vnp')
+  })
+
+  it('nunca «Una visita del estudio» (para la propia está «Reprogramar»), y sí lo que el paciente dejó', () => {
+    const o = opcionesDeAgendar({ ...pre, definiciones: [], kindsSueltos: ['vnp', 'retest'], continuar: 1 })
+    expect(valores(o)).toEqual(['continuar', 'retest', 'vnp'])
+    expect(o[0].label).toBe('Continuar pendientes (1)')
+  })
+})
+
+describe('eleccionInicial', () => {
+  const ficha = opcionesDeAgendar({
+    modo: 'paciente', randomizationDate: null, continuar: 1,
+    definiciones: [def('v1', 'screening'), def('v2', 'randomizacion')], kindsSueltos: ['vnp', 'retest'],
+  })
+
+  it('sin preselección no elige nada: se elige a propósito', () => {
+    expect(eleccionInicial(ficha)).toBe('')
+  })
+  it('el «Agendar» de Pendientes y de la ficha abre en «Continuar pendientes»', () => {
+    expect(eleccionInicial(ficha, { tipo: 'continuar', origenId: 'v9' })).toBe('continuar')
+  })
+  it('si ya no queda nada esperando, no inventa la opción', () => {
+    const sin = opcionesDeAgendar({ modo: 'paciente', randomizationDate: null, continuar: 0, definiciones: [], kindsSueltos: ['vnp', 'retest'] })
+    expect(eleccionInicial(sin, { tipo: 'continuar', origenId: 'v9' })).toBe('')
+  })
+  it('el «recitar» abre en su definición, si todavía se puede agendar', () => {
+    expect(eleccionInicial(ficha, { tipo: 'def', defId: 'v2' })).toBe('def:v2')
+    expect(eleccionInicial(ficha, { tipo: 'def', defId: 'otra' })).toBe('')
+    expect(eleccionInicial(ficha, { tipo: 'def', defId: null })).toBe('')
+  })
+})
+
+describe('fechaEstimadaDelCuadro', () => {
+  const screening = { visit_def_id: 'v1', estimated_date: '2026-09-01', offset_days: -14 }
+
+  it('ancla en una visita ya agendada: su fecha menos su offset, más el de la elegida', () => {
+    expect(fechaEstimadaDelCuadro({ id: 'v2', offset_days: 0 }, [screening])).toBe('2026-09-15')
+  })
+  it('no se usa a sí misma de referencia', () => {
+    const propia = { visit_def_id: 'v2', estimated_date: '2026-10-01', offset_days: 0 }
+    expect(fechaEstimadaDelCuadro({ id: 'v2', offset_days: 0 }, [propia, screening])).toBe('2026-09-15')
+  })
+  it('sin referencia con offset (sólo sueltas) o sin definición, no sugiere nada', () => {
+    const suelta = { visit_def_id: null, estimated_date: '2026-09-01', offset_days: null }
+    expect(fechaEstimadaDelCuadro({ id: 'v2', offset_days: 0 }, [suelta])).toBeNull()
+    expect(fechaEstimadaDelCuadro(null, [screening])).toBeNull()
+  })
+})
+```
+
+Y al final de `src/views/track/retomar.test.ts` (sumá `rotuloDeVisita` al import de `./retomar`):
+
+```ts
+describe('rotuloDeVisita', () => {
+  const x = v({ visit_name: 'V3', patient_name: 'Ana', estimated_date: '2026-09-12' })
+  it('desde Visitas nombra al paciente: la lista mezcla a todos los del estudio', () => {
+    expect(rotuloDeVisita(x)).toMatch(/^V3 · Ana · /)
+  })
+  it('desde la ficha no: el paciente ya está fijo arriba y repetirlo es ruido', () => {
+    expect(rotuloDeVisita(x, { conPaciente: false })).toMatch(/^V3 · /)
+    expect(rotuloDeVisita(x, { conPaciente: false })).not.toContain('Ana')
+  })
+})
+```
+
+(La fecha no se compara literal: `formatAR` sigue la preferencia de formato de la persona.)
+
+Correr: `cd "$REPO" && npx vitest run src/views/track/agendar/opciones.test.ts src/views/track/retomar.test.ts`
+Expected: FALLA — `Failed to resolve import "./opciones"`, y en `retomar.test.ts` el rótulo sin paciente todavía trae «Ana».
+
+- [ ] **Paso 2: Las reglas**
+
+Crear `src/views/track/agendar/opciones.ts`:
+
+```ts
+import type { TrackVisitRow } from '../../../data/visits'
+import { addDaysISO } from '../../../lib/dates'
+import { KIND_LABELS } from '../../../lib/visitLabels'
+import type { VisitKind } from '../../../lib/visitLabels'
+
+/**
+ * Las reglas puras de «Agendar visita» (v0145): qué ofrece el paso «¿Qué vas a hacer?» en cada lugar,
+ * qué viene elegido y qué fecha se sugiere. Con test (`opciones.test.ts`): una opción de más o de
+ * menos no se ve rota, se ve normal.
+ *
+ * UN SOLO MODAL, DOS MODOS (decisión del Director, 2026-09-27: «igual que en Visitas»):
+ *  · `dia` (Visitas): el estudio se elige y la fecha es el día que se mira. «Una visita del estudio»,
+ *    «Continuar pendientes», «Retest», «VNP».
+ *  · `paciente` (la ficha, el «recitar», Pendientes): el paciente viene fijo y la fecha se elige. Lo
+ *    que ofrecía `RegisterVisitFlow` —las visitas libres del cuadro antes de randomizar, o los tipos
+ *    sueltos del protocolo legacy— más «Continuar pendientes», «Retest» y «VNP». Sin «Una visita del
+ *    estudio»: para la propia ya está «Reprogramar».
+ *
+ * El retest NUNCA es suelto (decisión 5 del spec): cuelga de una visita y tiene su formulario. Por eso
+ * se saca de los tipos sueltos aunque `availableEventKinds` lo siga listando (lo necesita el front
+ * desplegado mientras conviva). La VNP también tiene el suyo.
+ *
+ * Este archivo no importa nada que cargue el cliente de Supabase (`data/visitEvents` lo hace, y el
+ * test no podría importarlo): los tipos sueltos llegan ya calculados, en `kindsSueltos`.
+ */
+
+/** Una definición del cuadro agendable a mano (`date_mode = 'libre'`). `VisitDefinition` la cumple. */
+export interface DefinicionAgendable {
+  id: string
+  code: string | null
+  name: string
+  role: 'screening' | 'randomizacion' | 'comun'
+  offset_days: number | null
+}
+
+/** Lo que se eligió en «¿Qué vas a hacer?». Cada una tiene su formulario. */
+export type Eleccion =
+  | { tipo: 'def'; defId: string }
+  | { tipo: 'suelta'; kind: VisitKind }
+  | { tipo: 'traer' }
+  | { tipo: 'continuar' }
+  | { tipo: 'retest' }
+  | { tipo: 'vnp' }
+
+export interface OpcionDeAgendar {
+  value: string
+  label: string
+  eleccion: Eleccion
+}
+
+/**
+ * Con qué abre el modal: «Continuar pendientes» sobre una visita (el «Agendar» de Pendientes y de la
+ * ficha) o una definición del cuadro (el «recitar» de la randomización).
+ */
+export type Preseleccion =
+  | { tipo: 'continuar'; origenId: string }
+  | { tipo: 'def'; defId: string | null }
+
+export type ContextoDeOpciones =
+  | {
+      modo: 'dia'
+      /** Cuántas «Una visita del estudio» hay (`visitasParaTraer`). */
+      traer: number
+      /** Cuántas VISITAS tienen algo para retomar. */
+      continuar: number
+    }
+  | {
+      modo: 'paciente'
+      definiciones: readonly DefinicionAgendable[]
+      randomizationDate: string | null
+      /** `availableEventKinds(...)`: los tipos sueltos que el protocolo admite en esta etapa. */
+      kindsSueltos: readonly VisitKind[]
+      continuar: number
+    }
+
+/**
+ * El protocolo modela screening/randomización en el cuadro: alguna definición con rol clínico (ésas
+ * son siempre libres). Espeja el cutover de `register_visit_event` (0030).
+ */
+export function tieneCuadro(defs: readonly Pick<DefinicionAgendable, 'role'>[]): boolean {
+  return defs.some((d) => d.role !== 'comun')
+}
+
+const op = (value: string, label: string, eleccion: Eleccion): OpcionDeAgendar => ({ value, label, eleccion })
+
+/**
+ * Las opciones de «¿Qué vas a hacer?». Los números dicen cuántas hay ANTES de elegir: una opción que
+ * lleva a una lista vacía sin avisarlo es un clic perdido. «Continuar pendientes» sólo aparece con
+ * algo esperando (spec §3: «siempre que haya visitas con marcas»).
+ */
+export function opcionesDeAgendar(ctx: ContextoDeOpciones): OpcionDeAgendar[] {
+  const siempre: OpcionDeAgendar[] = [
+    ...(ctx.continuar > 0 ? [op('continuar', `Continuar pendientes (${ctx.continuar})`, { tipo: 'continuar' })] : []),
+    op('retest', 'Retest', { tipo: 'retest' }),
+    op('vnp', 'VNP', { tipo: 'vnp' }),
+  ]
+  if (ctx.modo === 'dia') {
+    return [op('traer', `Una visita del estudio (${ctx.traer})`, { tipo: 'traer' }), ...siempre]
+  }
+  // Pre-rando con cuadro: las definiciones libres. Post-rando las automáticas ya se generaron, y sin
+  // cuadro no hay definiciones que agendar: van los tipos sueltos (lo que hacía RegisterVisitFlow).
+  const defs = ctx.randomizationDate == null && tieneCuadro(ctx.definiciones) ? ctx.definiciones : []
+  const sueltas = ctx.kindsSueltos.filter((k) => k !== 'vnp' && k !== 'retest')
+  return [
+    ...defs.map((d) => op(`def:${d.id}`, d.code ? `${d.code} - ${d.name}` : d.name, { tipo: 'def', defId: d.id })),
+    ...sueltas.map((k) => op(`evt:${k}`, KIND_LABELS[k], { tipo: 'suelta', kind: k })),
+    ...siempre,
+  ]
+}
+
+/**
+ * La opción con la que abre el modal, o `''` (nada: se elige a propósito). Una preselección que ya no
+ * está entre las opciones —lo esperado se retomó en otra pestaña, la definición ya no se agenda— no
+ * se inventa: el modal abre sin elegir.
+ */
+export function eleccionInicial(opciones: readonly OpcionDeAgendar[], preseleccion?: Preseleccion): string {
+  const hay = (value: string) => opciones.some((o) => o.value === value)
+  if (preseleccion?.tipo === 'continuar' && hay('continuar')) return 'continuar'
+  if (preseleccion?.tipo === 'def' && preseleccion.defId && hay(`def:${preseleccion.defId}`)) return `def:${preseleccion.defId}`
+  return ''
+}
+
+/**
+ * La fecha ESTIMADA de una visita libre del cuadro (sacada de `RegisterVisitFlow`, v0145): se toma una
+ * visita ya agendada como referencia —su fecha menos su offset es el «día 0», la randomización— y se
+ * le suma el offset de la elegida. Es una sugerencia editable, no una regla: la fecha se agenda a mano.
+ */
+export function fechaEstimadaDelCuadro(
+  def: Pick<DefinicionAgendable, 'id' | 'offset_days'> | null,
+  referencias: readonly Pick<TrackVisitRow, 'visit_def_id' | 'estimated_date' | 'offset_days'>[],
+): string | null {
+  if (!def || def.offset_days == null) return null
+  const ref = referencias.find((v) => v.estimated_date != null && v.offset_days != null && v.visit_def_id !== def.id)
+  if (!ref || ref.estimated_date == null || ref.offset_days == null) return null
+  return addDaysISO(ref.estimated_date, def.offset_days - ref.offset_days)
+}
+
+/** El paciente fijo del modo `paciente`: quién, en qué estudio y en qué etapa. */
+export interface PacienteFijo {
+  enrollmentId: string
+  patientId: string
+  protocolId: string
+  patientName: string
+  /** El IVRS de ESTA inscripción (la misma persona en dos estudios tiene dos). */
+  ivrs: string | null
+  protocolCode: string
+  randomizationDate: string | null
+}
+
+/** El paciente de una visita, para abrir el modal desde ella (el «recitar», Pendientes). */
+export function pacienteDeVisita(v: TrackVisitRow): PacienteFijo {
+  return {
+    enrollmentId: v.enrollment_id,
+    patientId: v.patient_id,
+    protocolId: v.protocol_id,
+    patientName: v.patient_name,
+    ivrs: v.patient_code,
+    protocolCode: v.protocol_code,
+    randomizationDate: v.enrollment_randomization_date,
+  }
+}
+```
+
+En `src/views/track/retomar.ts`, reemplazá `rotuloDeVisita` (y su comentario) por:
+
+```ts
+/**
+ * «V3 W4 · Juan Pérez · 12/9/2026»: cómo se nombra una visita en los desplegables de agendar. Sin el
+ * paciente (`conPaciente: false`) cuando el modal ya lo tiene fijo arriba (la ficha, v0145): repetirlo
+ * en cada opción es ruido.
+ */
+export function rotuloDeVisita(v: TrackVisitRow, { conPaciente = true }: { conPaciente?: boolean } = {}): string {
+  const fecha = v.real_date ?? v.estimated_date
+  return `${visitTitle(v)}${conPaciente ? ` · ${v.patient_name}` : ''}${fecha ? ` · ${formatAR(fecha)}` : ''}`
+}
+```
+
+- [ ] **Paso 3: Correr**
+
+```bash
+cd "$REPO" && npx vitest run src/views/track/agendar/opciones.test.ts src/views/track/retomar.test.ts && npm run typecheck
+```
+Expected: PASS y tsc limpio.
+
+- [ ] **Paso 4: Commit**
+
+```bash
+cd "$REPO" && git add src/views/track/agendar/opciones.ts src/views/track/agendar/opciones.test.ts src/views/track/retomar.ts src/views/track/retomar.test.ts && git commit -m "feat(coordinacion): reglas puras de las opciones de agendar visita
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+
+### Tarea 13: Los formularios de «Agendar visita»
+
+Un formulario por opción, los mismos en los dos modos. Ninguno tiene casilla de fecha: la fecha es una sola para todas las opciones y vive en el modal (Tarea 14), que se la pasa hecha. Cada uno trae su pie («Cancelar» / «Agendar», el mismo verbo en los seis caminos, como pide el mock) y avisa con `onDone(mensaje)`.
+
+**Files:**
+- Create: `src/views/track/agendar/PieDelFormulario.tsx`
+- Create: `src/views/track/agendar/FormContinuarPendientes.tsx`, `FormRetest.tsx`, `FormTraerVisita.tsx`, `FormVnp.tsx`
+- Create: `src/views/track/agendar/FormVisitaDelCuadro.tsx`, `FormVisitaSuelta.tsx` (lo que hacía `RegisterVisitFlow`, sacado a formularios)
+
+**Interfaces:**
+- Consumes: `continuarPendientes` (Tarea 8), `registerVisitEvent(..., retestOf)` (Tarea 8), `useVisitProcedureStatus` (`src/data/procedures.ts`), `rescheduleVisit` (`src/data/visits.ts`), `scheduleProtocolVisit` (`src/data/visitDefinitions.ts`), `fueraDeVentana` (`src/lib/visits.ts`), reglas de la Tarea 9 (`rotuloDeVisita` con `conPaciente`, Tarea 12), `CasillasDeProcedimientos` (Tarea 10), `SelectorProcedimientos` (0144).
+- Produces (todos con `accent: string; onCancel: () => void; onDone: (mensaje: string) => void`):
+  - `PieDelFormulario({ error, busy, accent, onCancel, onConfirmar }: { error: string | null; busy: boolean; accent: string; onCancel: () => void; onConfirmar: () => void })`, `SinCandidatas({ mensaje, onCancel }: { mensaje: string; onCancel: () => void })`
+  - `FormContinuarPendientes({ candidatas, fecha, conPaciente, preseleccion, … }: { candidatas: readonly VisitaPorRetomar[]; fecha: string; conPaciente: boolean; preseleccion?: string | null; … })`
+  - `FormRetest({ candidatas, protocolId, fecha, conPaciente, … }: { candidatas: readonly TrackVisitRow[]; protocolId: string; fecha: string; conPaciente: boolean; … })`
+  - `FormTraerVisita({ candidatas, dia, … }: { candidatas: readonly TrackVisitRow[]; dia: string; … })`
+  - `FormVnp({ enrollmentFijo, pacientes, protocolId, fecha, … }: { enrollmentFijo: string | null; pacientes: readonly PacienteDelEstudio[]; protocolId: string; fecha: string; … })`
+  - `FormVisitaDelCuadro({ enrollmentId, defId, fecha, … }: { enrollmentId: string; defId: string; fecha: string; … })`
+  - `FormVisitaSuelta({ enrollmentId, kind, fecha, … }: { enrollmentId: string; kind: VisitKind; fecha: string; … })`
+  - Todos devuelven un fragmento: se apilan dentro de la columna del modal, con su mismo `gap`.
+
+- [ ] **Paso 1: El pie compartido**
+
+Crear `src/views/track/agendar/PieDelFormulario.tsx`:
+
+```tsx
+import type { CSSProperties } from 'react'
+import { btnOutline, btnPrimary } from '../../../components/buttons'
+
+/**
+ * El pie de los formularios de «Agendar visita» (v0145): el error, «Cancelar» y «Agendar». Uno solo
+ * para que los seis caminos digan lo mismo del mismo modo —el mock pide «Agendar» en todos— y no
+ * seis copias que un día diverjan.
+ */
+export function PieDelFormulario({ error, busy, accent, onCancel, onConfirmar }: {
+  error: string | null
+  busy: boolean
+  accent: string
+  onCancel: () => void
+  onConfirmar: () => void
+}) {
+  return (
+    <>
+      {error && <div style={cajaDeError}>{error}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button type="button" onClick={onCancel} disabled={busy} style={btnOutline}>Cancelar</button>
+        <button
+          type="button"
+          onClick={onConfirmar}
+          disabled={busy}
+          style={{ ...btnPrimary(accent), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}
+        >
+          {busy ? 'Agendando…' : 'Agendar'}
+        </button>
+      </div>
+    </>
+  )
+}
+
+/** Una opción cuya lista quedó vacía: lo dice y deja cerrar, sin un «Agendar» que no llevaría a nada. */
+export function SinCandidatas({ mensaje, onCancel }: { mensaje: string; onCancel: () => void }) {
+  return (
+    <>
+      <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', lineHeight: 1.5 }}>{mensaje}</div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button type="button" onClick={onCancel} style={btnOutline}>Cerrar</button>
+      </div>
+    </>
+  )
+}
+
+const cajaDeError: CSSProperties = {
+  fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px',
+}
+```
+
+- [ ] **Paso 2: Continuar pendientes**
 
 Crear `src/views/track/agendar/FormContinuarPendientes.tsx`:
 
@@ -2405,80 +3079,77 @@ Crear `src/views/track/agendar/FormContinuarPendientes.tsx`:
 import { useState } from 'react'
 import { FormField } from '../../../components/FormField'
 import { SearchableSelect } from '../../../components/SearchableSelect'
-import { DateField } from '../../../components/DateField'
-import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { continuarPendientes } from '../../../data/pendientes'
-import { formatAR, yearsFromTodayISO } from '../../../lib/dates'
+import { formatAR, todayISO } from '../../../lib/dates'
 import { CasillasDeProcedimientos } from '../CasillasDeProcedimientos'
 import { rotuloDeVisita } from '../retomar'
 import type { VisitaPorRetomar } from '../retomar'
+import { PieDelFormulario, SinCandidatas } from './PieDelFormulario'
 
 /**
- * «Continuar pendientes» (vNNNN): elegís la visita que dejó cosas para otro día y se crea la
- * continuación con lo que se retoma. Lo marcado viene TODO tildado (decisión 8 del spec: ya se
- * eligió a propósito al marcarlo); se destilda lo que hoy no se hace, y eso sigue esperando.
+ * «Continuar pendientes» (v0145): se elige la visita que dejó cosas para otro día y se crea la
+ * continuación con lo que se retoma. Lo marcado viene TODO tildado (decisión 8 del spec: ya se eligió
+ * a propósito al marcarlo); se destilda lo que tampoco se hace ese día, y eso sigue esperando.
+ *
+ * Desde Visitas (`conPaciente`) la lista mezcla pacientes y NO se preelige ninguna visita: agendarle
+ * la continuación al paciente equivocado es fácil y deja un registro auditable mal. Desde la ficha es
+ * uno solo, y viene elegida la primera (o la que trae `preseleccion`).
  */
-export function FormContinuarPendientes({ candidatas, fecha, fechaEditable, preseleccion, accent, onCancel, onDone }: {
+export function FormContinuarPendientes({ candidatas, fecha, conPaciente, preseleccion, accent, onCancel, onDone }: {
   candidatas: readonly VisitaPorRetomar[]
+  /** La fecha de la continuación: el día que se mira (Visitas) o la elegida arriba (la ficha). */
   fecha: string
-  /** Desde la ficha se elige la fecha; desde Visitas es el día que se mira. */
-  fechaEditable: boolean
-  /** La visita que ya viene elegida (el «Agendar» de Pendientes). */
+  conPaciente: boolean
+  /** La visita que ya viene elegida (el «Agendar» de Pendientes y de la ficha). */
   preseleccion?: string | null
   accent: string
   onCancel: () => void
   onDone: (mensaje: string) => void
 }) {
-  const inicial = preseleccion && candidatas.some((c) => c.visita.id === preseleccion) ? preseleccion : candidatas[0]?.visita.id ?? ''
+  const inicial = preseleccion && candidatas.some((c) => c.visita.id === preseleccion)
+    ? preseleccion
+    : conPaciente ? '' : candidatas[0]?.visita.id ?? ''
   const [origenId, setOrigenId] = useState(inicial)
   /* Lo elegido POR visita: cambiar de visita no arrastra la selección de otra, y volver a una
      conserva lo que se había destildado. Sin entrada = todo lo marcado. */
   const [elegidosPor, setElegidosPor] = useState<Record<string, string[]>>({})
-  const [fechaElegida, setFechaElegida] = useState(fecha)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  if (candidatas.length === 0) return <SinCandidatas mensaje="No hay procedimientos esperando." onCancel={onCancel} />
 
   const origen = candidatas.find((c) => c.visita.id === origenId) ?? null
   const elegidos = new Set(elegidosPor[origenId] ?? origen?.procedimientos.map((p) => p.procedure_id) ?? [])
 
-  if (candidatas.length === 0) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', lineHeight: 1.5 }}>No hay procedimientos esperando.</div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onCancel} style={btnOutline}>Cerrar</button>
-        </div>
-      </div>
-    )
-  }
-
   const agendar = async () => {
-    if (!origen) return
+    if (!origen) { setError('Elegí la visita.'); return }
     if (elegidos.size === 0) { setError('Elegí qué procedimientos se retoman.'); return }
-    setBusy(true); setError(null)
-    const res = await continuarPendientes(origen.visita.id, [...elegidos], fechaElegida)
+    setBusy(true)
+    setError(null)
+    const res = await continuarPendientes(origen.visita.id, [...elegidos], fecha)
     setBusy(false)
     if (res.error) { setError(res.error); return }
-    onDone(`Listo. La continuación quedó para el ${formatAR(fechaElegida)}.`)
+    onDone(`Listo. La continuación quedó para el ${formatAR(fecha)}.`)
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <FormField label="¿De qué visita?">
+    <>
+      <FormField label="Visita">
         <SearchableSelect
           value={origenId}
           onChange={setOrigenId}
           options={candidatas.map((c) => ({
             value: c.visita.id,
-            label: `${rotuloDeVisita(c.visita)} · ${c.procedimientos.map((p) => p.name).join(', ')}`,
+            label: `${rotuloDeVisita(c.visita, { conPaciente })} · ${c.procedimientos.map((p) => p.name).join(', ')}`,
           }))}
           placeholder="Elegí una visita"
-          searchPlaceholder="Buscar paciente o visita…"
+          searchPlaceholder={conPaciente ? 'Buscar paciente o visita…' : 'Buscar visita…'}
           entity="visita"
         />
       </FormField>
       {origen && (
-        <FormField label="¿Qué se retoma?">
+        /* «hoy» sólo si la fecha ES hoy: desde la ficha se agenda a futuro («el jueves vuelve»). */
+        <FormField label={fecha === todayISO() ? '¿Qué se hace hoy?' : '¿Qué se retoma?'}>
           <CasillasDeProcedimientos
             items={origen.procedimientos}
             elegidos={elegidos}
@@ -2487,145 +3158,127 @@ export function FormContinuarPendientes({ candidatas, fecha, fechaEditable, pres
           />
         </FormField>
       )}
-      {fechaEditable && (
-        <FormField label="Fecha de la visita">
-          <DateField value={fechaElegida} onChange={setFechaElegida} min={yearsFromTodayISO(-2)} max={yearsFromTodayISO(2)} />
-        </FormField>
-      )}
-      {error && (
-        <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
-      )}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button type="button" onClick={onCancel} style={btnOutline}>Cancelar</button>
-        <button type="button" onClick={agendar} disabled={busy} style={{ ...btnPrimary(accent), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
-          {busy ? 'Agendando…' : 'Agendar'}
-        </button>
-      </div>
-    </div>
+      <PieDelFormulario error={error} busy={busy} accent={accent} onCancel={onCancel} onConfirmar={() => void agendar()} />
+    </>
   )
 }
 ```
 
-- [ ] **Paso 2: Retest**
+- [ ] **Paso 3: Retest**
 
 Crear `src/views/track/agendar/FormRetest.tsx`:
 
 ```tsx
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { FormField, fieldInput } from '../../../components/FormField'
 import { SearchableSelect } from '../../../components/SearchableSelect'
-import { DateField } from '../../../components/DateField'
-import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { registerVisitEvent } from '../../../data/visitEvents'
 import { useVisitProcedureStatus } from '../../../data/procedures'
 import type { TrackVisitRow } from '../../../data/visits'
-import { formatAR, yearsFromTodayISO } from '../../../lib/dates'
+import { formatAR } from '../../../lib/dates'
 import { CasillasDeProcedimientos } from '../CasillasDeProcedimientos'
 import { DIAS_DEL_RETEST, procedimientosRepetibles, rotuloDeVisita } from '../retomar'
+import { PieDelFormulario, SinCandidatas } from './PieDelFormulario'
 
 /**
- * «Retest» (vNNNN): siempre de una visita. Se elige la visita (atendida en los últimos
+ * «Retest» (v0145): siempre DE una visita. Se elige la visita (atendida en los últimos
  * `DIAS_DEL_RETEST` días) y de ella sólo lo que se hizo: tildado, o sin reporte (decisión 9). Sin
- * preselección y al menos uno. El servidor valida lo mismo (`procedimiento_hecho`).
+ * preselección de procedimientos y al menos uno. El servidor valida lo mismo (`procedimiento_hecho`).
+ * Mismo criterio que «Continuar pendientes» para preelegir la visita: desde Visitas, ninguna.
  */
-export function FormRetest({ candidatas, protocolId, fecha, fechaEditable, accent, onCancel, onDone }: {
+export function FormRetest({ candidatas, protocolId, fecha, conPaciente, accent, onCancel, onDone }: {
   /** Ya filtradas con `visitasParaRetest`. */
   candidatas: readonly TrackVisitRow[]
   protocolId: string
   fecha: string
-  fechaEditable: boolean
+  conPaciente: boolean
   accent: string
   onCancel: () => void
   onDone: (mensaje: string) => void
 }) {
-  const [origenId, setOrigenId] = useState(candidatas[0]?.id ?? '')
+  const [origenId, setOrigenId] = useState(conPaciente ? '' : candidatas[0]?.id ?? '')
   const [elegidosPor, setElegidosPor] = useState<Record<string, string[]>>({})
   const [notas, setNotas] = useState('')
-  const [fechaElegida, setFechaElegida] = useState(fecha)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const origen = candidatas.find((v) => v.id === origenId) ?? null
-  const procs = useVisitProcedureStatus(origen?.id ?? null, protocolId)
-  const repetibles = procedimientosRepetibles(procs.data ?? [], origen?.real_date != null)
-  const elegidos = new Set(elegidosPor[origenId] ?? [])
-
   if (candidatas.length === 0) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', lineHeight: 1.5 }}>
-          No hay visitas atendidas en los últimos {DIAS_DEL_RETEST} días.
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onCancel} style={btnOutline}>Cerrar</button>
-        </div>
-      </div>
-    )
+    return <SinCandidatas mensaje={`No hay visitas atendidas en los últimos ${DIAS_DEL_RETEST} días.`} onCancel={onCancel} />
   }
 
+  const origen = candidatas.find((v) => v.id === origenId) ?? null
+  const elegidos = new Set(elegidosPor[origenId] ?? [])
+
   const agendar = async () => {
-    if (!origen) return
+    if (!origen) { setError('Elegí qué visita se repite.'); return }
     if (elegidos.size === 0) { setError('Elegí al menos un procedimiento para el retest.'); return }
-    setBusy(true); setError(null)
-    const res = await registerVisitEvent(origen.enrollment_id, 'retest', fechaElegida, notas.trim() || null, [...elegidos], origen.id)
+    setBusy(true)
+    setError(null)
+    const res = await registerVisitEvent(origen.enrollment_id, 'retest', fecha, notas.trim() || null, [...elegidos], origen.id)
     setBusy(false)
     if (res.error) { setError(res.error); return }
-    onDone(`Listo. El retest quedó para el ${formatAR(fechaElegida)}.`)
+    onDone(`Listo. El retest quedó para el ${formatAR(fecha)}.`)
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <>
       <FormField label="¿Qué visita se repite?">
         <SearchableSelect
           value={origenId}
           onChange={setOrigenId}
-          options={candidatas.map((v) => ({ value: v.id, label: rotuloDeVisita(v) }))}
+          options={candidatas.map((v) => ({ value: v.id, label: rotuloDeVisita(v, { conPaciente }) }))}
           placeholder="Elegí una visita"
-          searchPlaceholder="Buscar paciente o visita…"
+          searchPlaceholder={conPaciente ? 'Buscar paciente o visita…' : 'Buscar visita…'}
           entity="visita"
         />
       </FormField>
       {origen && (
         <FormField label="¿Qué se repite?">
-          {procs.loading && !procs.data ? (
-            <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>Cargando procedimientos…</div>
-          ) : procs.error ? (
-            <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)' }}>No se pudieron cargar los procedimientos: {procs.error}</div>
-          ) : repetibles.length === 0 ? (
-            <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>En esa visita no quedó nada hecho para repetir.</div>
-          ) : (
-            <CasillasDeProcedimientos
-              items={repetibles}
-              elegidos={elegidos}
-              onChange={(next) => setElegidosPor((m) => ({ ...m, [origenId]: [...next] }))}
-              accent={accent}
-            />
-          )}
-        </FormField>
-      )}
-      {fechaEditable && (
-        <FormField label="Fecha del retest">
-          <DateField value={fechaElegida} onChange={setFechaElegida} min={yearsFromTodayISO(-2)} max={yearsFromTodayISO(2)} />
+          <RepetiblesDe
+            key={origen.id}
+            visita={origen}
+            protocolId={protocolId}
+            elegidos={elegidos}
+            onChange={(next) => setElegidosPor((m) => ({ ...m, [origenId]: [...next] }))}
+            accent={accent}
+          />
         </FormField>
       )}
       <FormField label="Nota">
         <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Opcional" style={fieldInput} />
       </FormField>
-      {error && (
-        <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
-      )}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button type="button" onClick={onCancel} style={btnOutline}>Cancelar</button>
-        <button type="button" onClick={agendar} disabled={busy} style={{ ...btnPrimary(accent), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
-          {busy ? 'Agendando…' : 'Agendar retest'}
-        </button>
-      </div>
-    </div>
+      <PieDelFormulario error={error} busy={busy} accent={accent} onCancel={onCancel} onConfirmar={() => void agendar()} />
+    </>
   )
 }
+
+/**
+ * Lo que se puede repetir de UNA visita. Es un componente propio, montado con `key` por visita, por el
+ * stale-while-revalidate de `useSupabaseQuery`: con el hook en el formulario, al cambiar de visita se
+ * seguían viendo —tildables— los procedimientos de la anterior hasta que llegaba la consulta nueva.
+ */
+function RepetiblesDe({ visita, protocolId, elegidos, onChange, accent }: {
+  visita: TrackVisitRow
+  protocolId: string
+  elegidos: ReadonlySet<string>
+  onChange: (next: Set<string>) => void
+  accent: string
+}) {
+  const procs = useVisitProcedureStatus(visita.id, protocolId)
+  if (procs.loading && !procs.data) return <div style={nota}>Cargando procedimientos…</div>
+  if (procs.error) {
+    return <div style={{ ...nota, color: 'var(--spira-acc-deep-danger)' }}>No se pudieron cargar los procedimientos: {procs.error}</div>
+  }
+  const repetibles = procedimientosRepetibles(procs.data ?? [], visita.real_date !== null)
+  if (repetibles.length === 0) return <div style={nota}>En esa visita no quedó nada hecho para repetir.</div>
+  return <CasillasDeProcedimientos items={repetibles} elegidos={elegidos} onChange={onChange} accent={accent} />
+}
+
+const nota: CSSProperties = { fontSize: 12.5, color: 'var(--spira-muted)' }
 ```
 
-- [ ] **Paso 3: Traer una visita, y VNP (los dos sólo desde Visitas)**
+- [ ] **Paso 4: Traer una visita (sólo desde Visitas)**
 
 Crear `src/views/track/agendar/FormTraerVisita.tsx`:
 
@@ -2633,17 +3286,18 @@ Crear `src/views/track/agendar/FormTraerVisita.tsx`:
 import { useState } from 'react'
 import { FormField } from '../../../components/FormField'
 import { SearchableSelect } from '../../../components/SearchableSelect'
-import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { rescheduleVisit } from '../../../data/visits'
 import type { TrackVisitRow } from '../../../data/visits'
 import { formatAR } from '../../../lib/dates'
 import { fueraDeVentana } from '../../../lib/visits'
 import { rotuloDeVisita } from '../retomar'
+import { PieDelFormulario, SinCandidatas } from './PieDelFormulario'
 
 /**
- * «Una visita del estudio» (vNNNN): trae al día que se mira una visita ya agendada para después.
- * Es un reprogramar rápido: usa `rescheduleVisit`, la de siempre, y avisa si el día cae fuera de la
- * ventana (no lo impide: la ventana es del sponsor y el estado calculado lo va a decir igual).
+ * «Una visita del estudio» (v0145): trae al día que se mira una visita ya agendada para después. Es un
+ * reprogramar rápido: usa `rescheduleVisit`, la de siempre, y avisa si el día cae fuera de la ventana
+ * (no lo impide: la ventana es del sponsor y el estado calculado lo va a decir igual). La lista mezcla
+ * a todos los pacientes del estudio: no se preelige ninguna.
  */
 export function FormTraerVisita({ candidatas, dia, accent, onCancel, onDone }: {
   /** Ya filtradas con `visitasParaTraer`. */
@@ -2653,25 +3307,20 @@ export function FormTraerVisita({ candidatas, dia, accent, onCancel, onDone }: {
   onCancel: () => void
   onDone: (mensaje: string) => void
 }) {
-  const [visitaId, setVisitaId] = useState(candidatas[0]?.id ?? '')
+  const [visitaId, setVisitaId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const visita = candidatas.find((v) => v.id === visitaId) ?? null
 
   if (candidatas.length === 0) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', lineHeight: 1.5 }}>Este estudio no tiene visitas agendadas para más adelante.</div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onCancel} style={btnOutline}>Cerrar</button>
-        </div>
-      </div>
-    )
+    return <SinCandidatas mensaje="Este estudio no tiene visitas agendadas para más adelante." onCancel={onCancel} />
   }
 
+  const visita = candidatas.find((v) => v.id === visitaId) ?? null
+
   const traer = async () => {
-    if (!visita) return
-    setBusy(true); setError(null)
+    if (!visita) { setError('Elegí la visita.'); return }
+    setBusy(true)
+    setError(null)
     const res = await rescheduleVisit(visita.id, dia)
     setBusy(false)
     if (res.error) { setError(res.error); return }
@@ -2679,8 +3328,8 @@ export function FormTraerVisita({ candidatas, dia, accent, onCancel, onDone }: {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <FormField label="¿Qué visita?">
+    <>
+      <FormField label="Visita">
         <SearchableSelect
           value={visitaId}
           onChange={setVisitaId}
@@ -2690,24 +3339,18 @@ export function FormTraerVisita({ candidatas, dia, accent, onCancel, onDone }: {
           entity="visita"
         />
       </FormField>
-      {visita && fueraDeVentana(dia, visita.window_start, visita.window_end) && visita.window_start && visita.window_end && (
+      {visita && visita.window_start && visita.window_end && fueraDeVentana(dia, visita.window_start, visita.window_end) && (
         <div style={{ fontSize: 12.5, color: 'var(--spira-ink)', background: 'color-mix(in srgb, var(--spira-warn) 10%, transparent)', borderRadius: 8, padding: '8px 12px' }}>
           Ese día queda fuera de la ventana de la visita ({formatAR(visita.window_start)} al {formatAR(visita.window_end)}).
         </div>
       )}
-      {error && (
-        <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
-      )}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button type="button" onClick={onCancel} style={btnOutline}>Cancelar</button>
-        <button type="button" onClick={traer} disabled={busy} style={{ ...btnPrimary(accent), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
-          {busy ? 'Guardando…' : 'Traer a este día'}
-        </button>
-      </div>
-    </div>
+      <PieDelFormulario error={error} busy={busy} accent={accent} onCancel={onCancel} onConfirmar={() => void traer()} />
+    </>
   )
 }
 ```
+
+- [ ] **Paso 5: VNP, con el paciente fijo o a elegir**
 
 Crear `src/views/track/agendar/FormVnp.tsx`:
 
@@ -2715,17 +3358,20 @@ Crear `src/views/track/agendar/FormVnp.tsx`:
 import { useState } from 'react'
 import { FormField, fieldInput } from '../../../components/FormField'
 import { SearchableSelect } from '../../../components/SearchableSelect'
-import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { registerVisitEvent } from '../../../data/visitEvents'
 import { formatAR } from '../../../lib/dates'
 import { SelectorProcedimientos } from '../SelectorProcedimientos'
 import type { PacienteDelEstudio } from '../retomar'
+import { PieDelFormulario } from './PieDelFormulario'
 
 /**
- * «VNP» desde Visitas (vNNNN): lo mismo que en la ficha, pero hay que elegir el paciente. Los
- * procedimientos son opcionales: una consulta es una VNP válida.
+ * «VNP» (0144, sin cambios de fondo en la 0145): procedimientos del estudio, opcionales — una consulta
+ * es una VNP válida. Desde la ficha el paciente viene fijo (`enrollmentFijo`); desde Visitas se elige,
+ * sin preelegir a nadie (una VNP al paciente equivocado queda en el registro auditable).
  */
-export function FormVnp({ pacientes, protocolId, fecha, accent, onCancel, onDone }: {
+export function FormVnp({ enrollmentFijo, pacientes, protocolId, fecha, accent, onCancel, onDone }: {
+  enrollmentFijo: string | null
+  /** A quién, desde Visitas. Se ignora si hay `enrollmentFijo`. */
   pacientes: readonly PacienteDelEstudio[]
   protocolId: string
   fecha: string
@@ -2733,15 +3379,17 @@ export function FormVnp({ pacientes, protocolId, fecha, accent, onCancel, onDone
   onCancel: () => void
   onDone: (mensaje: string) => void
 }) {
-  const [enrollmentId, setEnrollmentId] = useState(pacientes[0]?.enrollment_id ?? '')
+  const [elegido, setElegido] = useState('')
   const [procs, setProcs] = useState<string[]>([])
   const [notas, setNotas] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const enrollmentId = enrollmentFijo ?? elegido
 
   const agendar = async () => {
     if (!enrollmentId) { setError('Elegí el paciente.'); return }
-    setBusy(true); setError(null)
+    setBusy(true)
+    setError(null)
     const res = await registerVisitEvent(enrollmentId, 'vnp', fecha, notas.trim() || null, procs)
     setBusy(false)
     if (res.error) { setError(res.error); return }
@@ -2749,311 +3397,660 @@ export function FormVnp({ pacientes, protocolId, fecha, accent, onCancel, onDone
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <FormField label="Paciente">
-        <SearchableSelect
-          value={enrollmentId}
-          onChange={setEnrollmentId}
-          options={pacientes.map((p) => ({ value: p.enrollment_id, label: p.patient_code ? `${p.patient_name} · ${p.patient_code}` : p.patient_name }))}
-          placeholder="Elegí un paciente"
-          searchPlaceholder="Buscar paciente…"
-          entity="paciente"
-        />
-      </FormField>
+    <>
+      {enrollmentFijo === null && (
+        <FormField label="Paciente">
+          <SearchableSelect
+            value={elegido}
+            onChange={setElegido}
+            options={pacientes.map((p) => ({ value: p.enrollment_id, label: p.patient_code ? `${p.patient_name} · ${p.patient_code}` : p.patient_name }))}
+            placeholder="Elegí un paciente"
+            searchPlaceholder="Buscar paciente…"
+            entity="paciente"
+          />
+        </FormField>
+      )}
       <FormField label="¿Qué lleva?">
         <SelectorProcedimientos protocolId={protocolId} value={procs} onChange={setProcs} accent={accent} />
       </FormField>
       <FormField label="Nota">
         <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Opcional" style={fieldInput} />
       </FormField>
-      {error && (
-        <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
-      )}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button type="button" onClick={onCancel} style={btnOutline}>Cancelar</button>
-        <button type="button" onClick={agendar} disabled={busy} style={{ ...btnPrimary(accent), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
-          {busy ? 'Agendando…' : 'Agendar VNP'}
-        </button>
-      </div>
-    </div>
+      <PieDelFormulario error={error} busy={busy} accent={accent} onCancel={onCancel} onConfirmar={() => void agendar()} />
+    </>
   )
 }
 ```
 
-- [ ] **Paso 4: `RegisterVisitFlow` con las dos opciones nuevas**
+- [ ] **Paso 6: Lo que hacía `RegisterVisitFlow`: el cuadro y los tipos sueltos**
 
-En `src/views/track/RegisterVisitFlow.tsx`:
-
-1. Imports:
-
-```ts
-import { FormContinuarPendientes } from './agendar/FormContinuarPendientes'
-import { FormRetest } from './agendar/FormRetest'
-import { visitasParaRetest } from './retomar'
-import type { VisitaPorRetomar } from './retomar'
-```
-
-2. Props nuevas (tipo y desestructuración), después de `referenceVisits`:
-
-```ts
-  /**
-   * Lo que ESTA inscripción dejó para otro día (vNNNN). Con algo adentro aparece «Continuar
-   * pendientes». Sólo lo pasa la ficha (y el «Agendar» de Pendientes): el «recitar» no lo necesita.
-   */
-  porRetomar?: readonly VisitaPorRetomar[]
-  /** Abrir ya en «Continuar pendientes» sobre esa visita (el «Agendar» de Pendientes). */
-  preseleccion?: { accion: 'continuar'; origenId: string }
-```
-
-3. Las opciones. El retest suelto deja de ofrecerse (decisión 5 del spec): se reemplaza por `acc:retest`, que sólo existe con `referenceVisits` (la ficha). Reemplazá el armado de `options` por:
-
-```ts
-  /* El retest ya no es suelto (vNNNN): cuelga de una visita, y se agenda por `acc:retest`, que
-     necesita las visitas del paciente (`referenceVisits`). Sin ellas —el «recitar»— no se ofrece. */
-  const kindsSueltos = eventKinds.filter((k) => k !== 'retest')
-  const hayPorRetomar = (porRetomar?.length ?? 0) > 0
-  const options: { value: string; label: string }[] = [
-    ...defOptions.map((d) => ({ value: `def:${d.id}`, label: d.code ? `${d.code} - ${d.name}` : d.name })),
-    ...(hayPorRetomar ? [{ value: 'acc:continuar', label: 'Continuar pendientes' }] : []),
-    ...(referenceVisits ? [{ value: 'acc:retest', label: 'Retest' }] : []),
-    ...kindsSueltos.map((k) => ({ value: `evt:${k}`, label: KIND_LABELS[k] })),
-  ]
-```
-
-4. `initialChoice` respeta la preselección:
-
-```ts
-  const initialChoice =
-    preseleccion?.accion === 'continuar' && hayPorRetomar
-      ? 'acc:continuar'
-      : preselectDefId && defOptions.some((d) => d.id === preselectDefId)
-        ? `def:${preselectDefId}`
-        : options[0]?.value ?? ''
-```
-
-5. `llevaProcedimientos` queda sólo para la VNP: `const llevaProcedimientos = kindElegido === 'vnp'`. Sacá el import de `faltanProcedimientos` y el bloque que lo llama en `submit` (con la VNP no hay mínimo; el retest ya no pasa por acá). Actualizá el comentario de cabecera del componente: «Post-randomización: VNP suelta, y Retest / Continuar pendientes por sus formularios (vNNNN)».
-
-6. El render: el desplegable «Tipo de visita» sale del `<form>` y queda arriba; debajo va el formulario que corresponda. Reemplazá el bloque `<form onSubmit={submit} …>…</form>` por:
+Crear `src/views/track/agendar/FormVisitaDelCuadro.tsx`:
 
 ```tsx
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <FormField label="Tipo de visita">
-            <SearchableSelect
-              value={choice}
-              onChange={setPicked}
-              options={options}
-              placeholder="Elegí una visita"
-              searchPlaceholder="Buscar visita…"
-              entity="visita"
-              autoFocus
-            />
-          </FormField>
+import { useState } from 'react'
+import { scheduleProtocolVisit } from '../../../data/visitDefinitions'
+import { formatAR } from '../../../lib/dates'
+import { PieDelFormulario } from './PieDelFormulario'
 
-          {choice === 'acc:continuar' ? (
-            <FormContinuarPendientes
-              candidatas={porRetomar ?? []}
-              fecha={todayISO()}
-              fechaEditable
-              preseleccion={preseleccion?.origenId}
-              accent={accentSolid}
-              onCancel={onClose}
-              onDone={() => onDone()}
-            />
-          ) : choice === 'acc:retest' ? (
-            <FormRetest
-              candidatas={visitasParaRetest(referenceVisits ?? [], todayISO())}
-              protocolId={protocolId}
-              fecha={todayISO()}
-              fechaEditable
-              accent={accentSolid}
-              onCancel={onClose}
-              onDone={() => onDone()}
-            />
-          ) : (
-            <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* …todo lo que había dentro del <form>, MENOS el FormField «Tipo de visita», que
-                  ahora vive arriba: Fecha, Nota, «¿Qué lleva?», el aviso de randomización, el
-                  error y los botones. Sin cambios. */}
-            </form>
-          )}
+/**
+ * Una visita libre del cuadro, antes de randomizar (V1 Screening, V2 Randomización, las manuales):
+ * `schedule_protocol_visit`, como hacía `RegisterVisitFlow` (0030), sacado a su formulario en la 0145.
+ * No tiene campos propios: la fecha —y su sugerencia «estimada según el cronograma»— vive arriba, en
+ * el modal, porque es la misma casilla para todas las opciones. Las automáticas (tratamiento) se
+ * generan al randomizar y no se agendan acá.
+ */
+export function FormVisitaDelCuadro({ enrollmentId, defId, fecha, accent, onCancel, onDone }: {
+  enrollmentId: string
+  defId: string
+  fecha: string
+  accent: string
+  onCancel: () => void
+  onDone: (mensaje: string) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const agendar = async () => {
+    setBusy(true)
+    setError(null)
+    const res = await scheduleProtocolVisit(enrollmentId, defId, fecha)
+    setBusy(false)
+    if (res.error) { setError(res.error); return }
+    onDone(`Listo. La visita quedó para el ${formatAR(fecha)}.`)
+  }
+
+  return <PieDelFormulario error={error} busy={busy} accent={accent} onCancel={onCancel} onConfirmar={() => void agendar()} />
+}
+```
+
+Crear `src/views/track/agendar/FormVisitaSuelta.tsx`:
+
+```tsx
+import { useState } from 'react'
+import { Icon } from '../../../components/Icon'
+import { FormField, fieldInput } from '../../../components/FormField'
+import { registerVisitEvent } from '../../../data/visitEvents'
+import type { VisitKind } from '../../../data/visitEvents'
+import { formatAR } from '../../../lib/dates'
+import { PieDelFormulario } from './PieDelFormulario'
+
+/**
+ * Un tipo suelto del protocolo legacy, sin cuadro (firma, screening, firma y screening,
+ * randomización): `register_visit_event` con fecha y nota, como hacía `RegisterVisitFlow`. La VNP y
+ * el retest no pasan por acá: tienen su formulario (v0145). Qué tipos se ofrecen lo decide
+ * `availableEventKinds`, que espeja las reglas del RPC (singletons, randomización con firma y
+ * screening hechos).
+ */
+export function FormVisitaSuelta({ enrollmentId, kind, fecha, accent, onCancel, onDone }: {
+  enrollmentId: string
+  kind: VisitKind
+  fecha: string
+  accent: string
+  onCancel: () => void
+  onDone: (mensaje: string) => void
+}) {
+  const [notas, setNotas] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const agendar = async () => {
+    setBusy(true)
+    setError(null)
+    const res = await registerVisitEvent(enrollmentId, kind, fecha, notas.trim() || null)
+    setBusy(false)
+    if (res.error) { setError(res.error); return }
+    onDone(`Listo. La visita quedó para el ${formatAR(fecha)}.`)
+  }
+
+  return (
+    <>
+      <FormField label="Nota">
+        <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Opcional" style={fieldInput} />
+      </FormField>
+      {kind === 'randomizacion' && (
+        /* Teñido con `color-mix` y no concatenando un alfa: el acento puede llegar como `var(--…)`, y
+           `var(--…)0E` es CSS inválido. Sin borde: el realce de un aviso es la superficie. */
+        <div style={{ display: 'flex', gap: 9, padding: '11px 13px', borderRadius: 11, background: `color-mix(in srgb, ${accent} 7%, transparent)` }}>
+          <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="alertCircle" size={17} color={accent} /></span>
+          <div style={{ fontSize: 12.5, lineHeight: 1.45, color: 'var(--spira-ink)' }}>
+            Al agendar la randomización se genera el cronograma de visitas anclado en esta fecha. Cierra la etapa de screening.
+          </div>
         </div>
+      )}
+      <PieDelFormulario error={error} busy={busy} accent={accent} onCancel={onCancel} onConfirmar={() => void agendar()} />
+    </>
+  )
+}
 ```
 
-(El comentario del `<form>` es para vos: pegá ahí adentro el contenido que ya tenía, sin el `FormField` del tipo. No lo dejes en el código.)
-
-- [ ] **Paso 5: La ficha**
-
-En `src/views/PatientFichaView.tsx`:
-
-1. Imports: `import { usePorRetomar } from '../data/pendientes'` y `import { agruparPorRetomar } from './track/retomar'`.
-2. Junto a `const usedKinds = rows.map((r) => r.kind)`:
-
-```ts
-  /* Lo que ESTA inscripción dejó para otro día (vNNNN): alimenta «Continuar pendientes» del
-     «Agendar visita». Se lee todo lo que espera y se acota acá: una consulta chica, y la misma que
-     usan Pendientes y Visitas. */
-  const retomarQ = usePorRetomar()
-  const porRetomar = agruparPorRetomar(retomarQ.data?.marcas ?? [], retomarQ.data?.visitas ?? [])
-    .filter((g) => g.visita.enrollment_id === enrollment?.id)
-```
-
-3. En `<RegisterVisitFlow …>` del `modal === 'register'`: sumá `porRetomar={porRetomar}` y en `onDone` sumá `retomarQ.refetch()`: `onDone={() => { setModal(null); visitsQ.refetch(); retomarQ.refetch() }}`.
-
-- [ ] **Paso 6: Correr y commit**
+- [ ] **Paso 7: Correr y commit**
 
 ```bash
 cd "$REPO" && npm run typecheck && npx vitest run
 ```
-Expected: tsc limpio; 0 fallas. Si algún test de `continuacion.test.ts` usaba `faltanProcedimientos`, sigue andando: la función no se borra, sólo dejó de usarse acá (queda para `EditarProcedimientosModal`). Confirmalo con `git grep -n faltanProcedimientos -- src`.
+Expected: tsc limpio; 0 fallas. (Los formularios todavía no los monta nadie: los usa el modal de la Tarea 14.)
 ```bash
-cd "$REPO" && git add src/views/track/agendar src/views/track/RegisterVisitFlow.tsx src/views/PatientFichaView.tsx && git commit -m "feat(coordinacion): continuar pendientes y retest de una visita al agendar
+cd "$REPO" && git add src/views/track/agendar/PieDelFormulario.tsx src/views/track/agendar/FormContinuarPendientes.tsx src/views/track/agendar/FormRetest.tsx src/views/track/agendar/FormTraerVisita.tsx src/views/track/agendar/FormVnp.tsx src/views/track/agendar/FormVisitaDelCuadro.tsx src/views/track/agendar/FormVisitaSuelta.tsx && git commit -m "feat(coordinacion): formularios de agendar visita
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Tarea 13: «Agregar visita» en Visitas
+### Tarea 14: El modal único «Agendar visita»
 
 **Files:**
-- Create: `src/views/track/agendar/AgregarVisitaModal.tsx`
-- Modify: `src/views/DayVisitsView.tsx` (header y render)
+- Create: `src/views/track/agendar/AgendarVisitaModal.tsx`
 
 **Interfaces:**
-- Consumes: los cuatro formularios (Tarea 12), `useProtocolVisits` (`src/data/visits.ts`), `usePorRetomar` (Tarea 8), reglas de la Tarea 9, `useProtocols` (`src/data/protocols.ts`), `canClinical` de `useVisitPermissions`.
-- Produces: `AgregarVisitaModal({ dia, protocolos, accent, onClose, onDone }: { dia: string; protocolos: readonly { id: string; code: string; name: string }[]; accent: string; onClose: () => void; onDone: (mensaje: string) => void })`.
+- Consumes: los seis formularios y `PieDelFormulario` (Tarea 13); `opcionesDeAgendar`, `eleccionInicial`, `fechaEstimadaDelCuadro`, `tieneCuadro`, `PacienteFijo`, `Preseleccion` (Tarea 12); `usePatientVisits`, `useProtocolVisits` (`src/data/visits.ts`); `usePorRetomar` (Tarea 8); `useSchedulableDefinitions` (`src/data/visitDefinitions.ts`); `availableEventKinds` (`src/data/visitEvents.ts`); `agruparPorRetomar`, `pacientesDelEstudio`, `visitasParaRetest`, `visitasParaTraer` (Tarea 9).
+- Produces:
+  - `interface ProtocoloParaAgendar { id: string; code: string; name: string }`
+  - `type AgendarVisitaModalProps = { accent: string; onClose: () => void; onDone: (mensaje: string) => void } & ({ modo: 'dia'; dia: string; protocolos: readonly ProtocoloParaAgendar[] } | { modo: 'paciente'; paciente: PacienteFijo; preseleccion?: Preseleccion })`
+  - `AgendarVisitaModal(props: AgendarVisitaModalProps)` — título «Agregar visita» (`dia`) o «Agendar visita» (`paciente`).
 
 - [ ] **Paso 1: El modal**
 
-Crear `src/views/track/agendar/AgregarVisitaModal.tsx`:
+Crear `src/views/track/agendar/AgendarVisitaModal.tsx`:
 
 ```tsx
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Modal } from '../../../components/Modal'
-import { FormField } from '../../../components/FormField'
+import { FormField, fieldInput } from '../../../components/FormField'
 import { SearchableSelect } from '../../../components/SearchableSelect'
+import { DateField } from '../../../components/DateField'
 import { btnOutline } from '../../../components/buttons'
-import { useProtocolVisits } from '../../../data/visits'
+import { usePatientVisits, useProtocolVisits } from '../../../data/visits'
 import { usePorRetomar } from '../../../data/pendientes'
-import { formatAR } from '../../../lib/dates'
+import { useSchedulableDefinitions } from '../../../data/visitDefinitions'
+import { availableEventKinds } from '../../../data/visitEvents'
+import { formatAR, todayISO, yearsFromTodayISO } from '../../../lib/dates'
 import { agruparPorRetomar, pacientesDelEstudio, visitasParaRetest, visitasParaTraer } from '../retomar'
-import { FormTraerVisita } from './FormTraerVisita'
+import { eleccionInicial, fechaEstimadaDelCuadro, opcionesDeAgendar, tieneCuadro } from './opciones'
+import type { PacienteFijo, Preseleccion } from './opciones'
 import { FormContinuarPendientes } from './FormContinuarPendientes'
 import { FormRetest } from './FormRetest'
+import { FormTraerVisita } from './FormTraerVisita'
 import { FormVnp } from './FormVnp'
+import { FormVisitaDelCuadro } from './FormVisitaDelCuadro'
+import { FormVisitaSuelta } from './FormVisitaSuelta'
 
-type Accion = 'traer' | 'continuar' | 'retest' | 'vnp'
+/** Un estudio en el que la persona puede agendar desde Visitas. */
+export interface ProtocoloParaAgendar {
+  id: string
+  code: string
+  name: string
+}
 
-/**
- * «Agregar visita» desde Visitas (vNNNN): «hoy voy a hacer tal cosa». Primero el estudio, después
- * qué se va a hacer, y las listas traen a todos los pacientes de ese estudio. La fecha es el día que
- * se está mirando, fija: para agendar a futuro está la ficha del paciente (mismo flujo, con fecha).
- * Los números de cada opción dicen cuántas hay ANTES de elegirla: una opción que lleva a una lista
- * vacía y no lo avisó es un clic perdido.
- */
-export function AgregarVisitaModal({ dia, protocolos, accent, onClose, onDone }: {
-  dia: string
-  /** Los estudios en los que la persona puede agendar. */
-  protocolos: readonly { id: string; code: string; name: string }[]
+interface Comunes {
   accent: string
   onClose: () => void
+  /** Se agendó: `mensaje` es el «Listo…» para quien lo quiera mostrar. */
   onDone: (mensaje: string) => void
-}) {
-  const [protocolId, setProtocolId] = useState(protocolos.length === 1 ? protocolos[0].id : '')
-  const [accion, setAccion] = useState<Accion | ''>('')
-  const visitasQ = useProtocolVisits(protocolId || null)
-  const retomarQ = usePorRetomar()
+}
 
-  const visitas = visitasQ.data ?? []
-  const traer = visitasParaTraer(visitas, dia)
-  const retomar = agruparPorRetomar(retomarQ.data?.marcas ?? [], retomarQ.data?.visitas ?? [])
-    .filter((g) => g.visita.protocol_id === protocolId)
-  const retest = visitasParaRetest(visitas, dia)
-  const pacientes = pacientesDelEstudio(visitas)
+export type AgendarVisitaModalProps = Comunes & (
+  | { modo: 'dia'; dia: string; protocolos: readonly ProtocoloParaAgendar[] }
+  | { modo: 'paciente'; paciente: PacienteFijo; preseleccion?: Preseleccion }
+)
 
-  const opciones: { value: Accion; label: string }[] = [
-    { value: 'traer', label: `Una visita del estudio (${traer.length})` },
-    { value: 'continuar', label: `Continuar pendientes (${retomar.length})` },
-    { value: 'retest', label: 'Retest' },
-    { value: 'vnp', label: 'VNP' },
-  ]
-  const cargando = !!protocolId && (visitasQ.loading || retomarQ.loading) && !visitasQ.data
+/**
+ * ┌─ «Agendar visita»: un flujo, dos lugares (v0145) ────────────────────────────────────────────┐
+ *
+ * REEMPLAZA a `RegisterVisitFlow` en todos sus usos —la ficha, el «recitar» de la randomización,
+ * el «Agendar» de Pendientes— y suma Visitas («Agregar visita»). Un solo flujo, sin dos versiones
+ * que diverjan (spec §3). El mismo paso «¿Qué vas a hacer?» y los mismos formularios; cambia sólo lo
+ * que el contexto ya fija:
+ *  · `dia` (Visitas): primero el estudio, la fecha es el día que se mira y las listas traen a todos
+ *    los pacientes de ese estudio;
+ *  · `paciente`: el paciente y la inscripción vienen dados (arriba, en el subtítulo, con el nombre en
+ *    tinta y el IVRS en mono), y la fecha se elige, para dejarlo agendado a futuro.
+ * Qué opciones hay en cada modo lo deciden las reglas puras de `opciones.ts`, con test.
+ *
+ * El cuerpo es un componente aparte, montado con `key` por estudio (o inscripción): cambiar de
+ * estudio lo vuelve a montar, y con él sus consultas. Sin eso, el stale-while-revalidate de
+ * `useSupabaseQuery` mostraba un momento las visitas —y los números— del estudio anterior.
+ *
+ * LA FECHA ES UNA SOLA para todas las opciones y vive acá, no en cada formulario: cambiar de opción
+ * no la pierde, y la sugerencia del cuadro («estimada según el cronograma») se ve donde está la fecha.
+ * └────────────────────────────────────────────────────────────────────────────────────────────┘
+ */
+export function AgendarVisitaModal(props: AgendarVisitaModalProps) {
+  const { accent, onClose, onDone } = props
+  const [protocolId, setProtocolId] = useState(
+    props.modo === 'dia' && props.protocolos.length === 1 ? props.protocolos[0].id : '',
+  )
 
   return (
-    <Modal title="Agregar visita" subtitle={`Para el ${formatAR(dia)}.`} onClose={onClose} maxWidth={520}>
+    <Modal
+      title={props.modo === 'dia' ? 'Agregar visita' : 'Agendar visita'}
+      subtitle={props.modo === 'paciente' ? <IdentidadFija paciente={props.paciente} /> : undefined}
+      onClose={onClose}
+      maxWidth={520}
+    >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <FormField label="Estudio">
-          <SearchableSelect
-            value={protocolId}
-            onChange={(id) => { setProtocolId(id); setAccion('') }}
-            options={protocolos.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))}
-            placeholder="Elegí un estudio"
-            searchPlaceholder="Buscar estudio…"
-            entity="estudio"
-            autoFocus={protocolos.length > 1}
+        {props.modo === 'dia' ? (
+          <>
+            <FormField label="Estudio">
+              <SearchableSelect
+                value={protocolId}
+                onChange={setProtocolId}
+                options={props.protocolos.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }))}
+                placeholder="Elegí un estudio"
+                searchPlaceholder="Buscar estudio…"
+                entity="estudio"
+                autoFocus={props.protocolos.length > 1}
+              />
+            </FormField>
+            {protocolId ? (
+              <Cuerpo
+                key={protocolId}
+                contexto={{ modo: 'dia', dia: props.dia, protocolId }}
+                accent={accent}
+                onClose={onClose}
+                onDone={onDone}
+              />
+            ) : (
+              <SoloCerrar rotulo="Cancelar" onClose={onClose} />
+            )}
+          </>
+        ) : (
+          <Cuerpo
+            key={props.paciente.enrollmentId}
+            contexto={{ modo: 'paciente', paciente: props.paciente, preseleccion: props.preseleccion }}
+            accent={accent}
+            onClose={onClose}
+            onDone={onDone}
           />
-        </FormField>
-
-        {protocolId && (
-          <FormField label="¿Qué vas a hacer?">
-            <SearchableSelect
-              value={accion}
-              onChange={(a) => setAccion(a as Accion)}
-              options={opciones}
-              placeholder="Elegí qué vas a hacer"
-              entity="opción"
-              searchable="never"
-            />
-          </FormField>
-        )}
-
-        {cargando && <div style={{ fontSize: 13, color: 'var(--spira-muted)' }}>Cargando visitas del estudio…</div>}
-        {(visitasQ.error || retomarQ.error) && (
-          <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>No pudimos cargar las visitas del estudio. Probá de nuevo.</div>
-        )}
-
-        {!cargando && protocolId && accion === 'traer' && (
-          <FormTraerVisita candidatas={traer} dia={dia} accent={accent} onCancel={onClose} onDone={onDone} />
-        )}
-        {!cargando && protocolId && accion === 'continuar' && (
-          <FormContinuarPendientes candidatas={retomar} fecha={dia} fechaEditable={false} accent={accent} onCancel={onClose} onDone={onDone} />
-        )}
-        {!cargando && protocolId && accion === 'retest' && (
-          <FormRetest candidatas={retest} protocolId={protocolId} fecha={dia} fechaEditable={false} accent={accent} onCancel={onClose} onDone={onDone} />
-        )}
-        {!cargando && protocolId && accion === 'vnp' && (
-          <FormVnp pacientes={pacientes} protocolId={protocolId} fecha={dia} accent={accent} onCancel={onClose} onDone={onDone} />
-        )}
-
-        {(!protocolId || !accion) && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="button" onClick={onClose} style={btnOutline}>Cancelar</button>
-          </div>
         )}
       </div>
     </Modal>
   )
 }
+
+type Contexto =
+  | { modo: 'dia'; dia: string; protocolId: string }
+  | { modo: 'paciente'; paciente: PacienteFijo; preseleccion?: Preseleccion }
+
+function Cuerpo({ contexto, accent, onClose, onDone }: Comunes & { contexto: Contexto }) {
+  const paciente = contexto.modo === 'paciente' ? contexto.paciente : null
+  const dia = contexto.modo === 'dia' ? contexto.dia : null
+  const protocolId = contexto.modo === 'dia' ? contexto.protocolId : contexto.paciente.protocolId
+  const preseleccion = contexto.modo === 'paciente' ? contexto.preseleccion : undefined
+
+  const [picked, setPicked] = useState<string | null>(null)
+  /** La fecha que se tocó (modo `paciente`). `null` = la sugerida: la estimada del cuadro, o hoy. */
+  const [fechaElegida, setFechaElegida] = useState<string | null>(null)
+
+  /* Cada modo lee lo suyo; el hook del otro recibe `null` y no consulta nada. Las visitas del
+     paciente se leen ACÁ y no se reciben: así los cuatro lugares que abren el modal en modo
+     `paciente` sólo tienen que decir quién es (el «recitar» antes no pasaba ninguna, y no sugería
+     la fecha estimada). */
+  const estudioQ = useProtocolVisits(dia ? protocolId : null)
+  const pacienteQ = usePatientVisits(paciente?.patientId ?? null, paciente ? protocolId : null)
+  const scheds = useSchedulableDefinitions(paciente ? protocolId : null)
+  const retomarQ = usePorRetomar()
+
+  const cargando = (paciente ? pacienteQ.loading || scheds.loading : estudioQ.loading) || retomarQ.loading
+  const errorDeCarga = (paciente ? pacienteQ.error ?? scheds.error : estudioQ.error) ?? retomarQ.error
+
+  const visitas = paciente
+    ? (pacienteQ.data ?? []).filter((v) => v.enrollment_id === paciente.enrollmentId)
+    : (estudioQ.data ?? [])
+  const retomar = agruparPorRetomar(retomarQ.data?.marcas ?? [], retomarQ.data?.visitas ?? [])
+    .filter((g) => (paciente ? g.visita.enrollment_id === paciente.enrollmentId : g.visita.protocol_id === protocolId))
+  const traer = dia ? visitasParaTraer(visitas, dia) : []
+  const retest = visitasParaRetest(visitas, dia ?? todayISO())
+  const defs = scheds.data ?? []
+
+  const opciones = paciente
+    ? opcionesDeAgendar({
+        modo: 'paciente',
+        definiciones: defs,
+        randomizationDate: paciente.randomizationDate,
+        kindsSueltos: availableEventKinds(paciente.randomizationDate, visitas.map((v) => v.kind), tieneCuadro(defs)),
+        continuar: retomar.length,
+      })
+    : opcionesDeAgendar({ modo: 'dia', traer: traer.length, continuar: retomar.length })
+
+  /* `choice` se DERIVA de las opciones actuales y no se congela en un useState (la misma razón que
+     tenía `RegisterVisitFlow`): si la elección sigue siendo válida manda; si no, cae a la
+     preselección. Congelada, una preselección que llega antes que sus datos quedaría perdida. */
+  const choice = picked && opciones.some((o) => o.value === picked) ? picked : eleccionInicial(opciones, preseleccion)
+  const eleccion = opciones.find((o) => o.value === choice)?.eleccion ?? null
+
+  const defId = eleccion?.tipo === 'def' ? eleccion.defId : null
+  const estimada = fechaEstimadaDelCuadro(defId ? defs.find((d) => d.id === defId) ?? null : null, visitas)
+  const fecha = dia ?? fechaElegida ?? estimada ?? todayISO()
+
+  if (cargando) {
+    return <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', padding: '6px 0' }}>Cargando visitas…</div>
+  }
+  if (errorDeCarga) {
+    return (
+      <>
+        <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)' }}>No pudimos cargar las visitas. Probá de nuevo.</div>
+        <SoloCerrar rotulo="Cerrar" onClose={onClose} />
+      </>
+    )
+  }
+
+  const comunes = { accent, onCancel: onClose, onDone }
+
+  return (
+    <>
+      {dia ? (
+        <FormField label="Fecha">
+          <div style={fechaFija}>{formatAR(dia)}</div>
+          <div style={pista}>Es el día que estás mirando en Visitas.</div>
+        </FormField>
+      ) : (
+        <FormField label="Fecha de la visita">
+          <DateField value={fecha} onChange={setFechaElegida} min={yearsFromTodayISO(-2)} max={yearsFromTodayISO(2)} />
+          {estimada && fechaElegida === null && (
+            <div style={pista}>Estimada según el cronograma: {formatAR(estimada)} · ajustala si hace falta.</div>
+          )}
+        </FormField>
+      )}
+
+      <FormField label="¿Qué vas a hacer?">
+        <SearchableSelect
+          value={choice}
+          onChange={setPicked}
+          options={opciones.map(({ value, label }) => ({ value, label }))}
+          placeholder="Elegí una opción"
+          searchPlaceholder="Buscar…"
+          entity="opción"
+          autoFocus={!dia && !preseleccion}
+        />
+      </FormField>
+
+      {/* Cada formulario con `key` por opción: volver a una opción la empieza de cero, sin arrastrar
+          lo que se había elegido en otra. */}
+      {eleccion?.tipo === 'traer' && dia && (
+        <FormTraerVisita key={choice} candidatas={traer} dia={dia} {...comunes} />
+      )}
+      {eleccion?.tipo === 'continuar' && (
+        <FormContinuarPendientes
+          key={choice}
+          candidatas={retomar}
+          fecha={fecha}
+          conPaciente={!paciente}
+          preseleccion={preseleccion?.tipo === 'continuar' ? preseleccion.origenId : null}
+          {...comunes}
+        />
+      )}
+      {eleccion?.tipo === 'retest' && (
+        <FormRetest key={choice} candidatas={retest} protocolId={protocolId} fecha={fecha} conPaciente={!paciente} {...comunes} />
+      )}
+      {eleccion?.tipo === 'vnp' && (
+        <FormVnp
+          key={choice}
+          enrollmentFijo={paciente?.enrollmentId ?? null}
+          pacientes={paciente ? [] : pacientesDelEstudio(visitas)}
+          protocolId={protocolId}
+          fecha={fecha}
+          {...comunes}
+        />
+      )}
+      {eleccion?.tipo === 'def' && paciente && (
+        <FormVisitaDelCuadro key={choice} enrollmentId={paciente.enrollmentId} defId={eleccion.defId} fecha={fecha} {...comunes} />
+      )}
+      {eleccion?.tipo === 'suelta' && paciente && (
+        <FormVisitaSuelta key={choice} enrollmentId={paciente.enrollmentId} kind={eleccion.kind} fecha={fecha} {...comunes} />
+      )}
+      {!eleccion && <SoloCerrar rotulo="Cancelar" onClose={onClose} />}
+    </>
+  )
+}
+
+/** «Juan Pérez · TEST-001-017 · TEST-QA»: quién y en qué estudio, fijo, en el subtítulo del modal. */
+function IdentidadFija({ paciente }: { paciente: PacienteFijo }) {
+  return (
+    <span>
+      <span style={{ color: 'var(--spira-ink)', fontWeight: 600 }}>{paciente.patientName}</span>
+      {' · '}
+      <span className="spira-mono">{paciente.ivrs ?? 'Sin IVRS'}</span>
+      {' · '}
+      <span className="spira-mono">{paciente.protocolCode}</span>
+    </span>
+  )
+}
+
+function SoloCerrar({ rotulo, onClose }: { rotulo: string; onClose: () => void }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <button type="button" onClick={onClose} style={btnOutline}>{rotulo}</button>
+    </div>
+  )
+}
+
+/** La fecha de Visitas: se ve como un campo, pero no se edita (es el día que se mira). */
+const fechaFija: CSSProperties = {
+  ...fieldInput, display: 'flex', alignItems: 'center', background: 'var(--spira-surface)', color: 'var(--spira-ink-soft)',
+}
+const pista: CSSProperties = { marginTop: 4, fontSize: 12, color: 'var(--spira-muted)' }
 ```
 
-`searchable="never"`: son cuatro opciones fijas, un buscador ahí es ruido. `value=""` con `placeholder` es el mismo patrón que ya usa `RegisterVisitFlow`.
+- [ ] **Paso 2: Correr y commit**
 
-- [ ] **Paso 2: El botón en la cabecera de Visitas**
+```bash
+cd "$REPO" && npm run typecheck && npx vitest run
+```
+Expected: tsc limpio; 0 fallas. (Todavía no lo monta nadie: la Tarea 15 lo pone en su lugar.)
+```bash
+cd "$REPO" && git add src/views/track/agendar/AgendarVisitaModal.tsx && git commit -m "feat(coordinacion): un solo modal para agendar visita
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+
+### Tarea 15: El modal en su lugar — la ficha, Visitas y el «recitar»; adiós a `RegisterVisitFlow`
+
+**Files:**
+- Create: `src/views/track/PorRetomarDelPaciente.tsx`
+- Modify: `src/views/PatientFichaView.tsx`
+- Modify: `src/views/DayVisitsView.tsx` («Agregar visita» y el «recitar»)
+- Modify: `src/views/track/VisitDetail.tsx` (el «recitar»)
+- Delete: `src/views/track/RegisterVisitFlow.tsx`
+
+**Interfaces:**
+- Consumes: `AgendarVisitaModal`, `ProtocoloParaAgendar` (Tarea 14); `PacienteFijo`, `pacienteDeVisita` (Tarea 12); `usePorRetomar` (Tarea 8); `agruparPorRetomar`, `diasEsperando`, `VisitaPorRetomar` (Tarea 9); `Badge`, `tarjeta` (`ReportesPendientes.tsx`, Tarea 11); `Panel`; `useProtocols` (`src/data/protocols.ts`); `canReception`/`canClinical` de `useVisitPermissions`.
+- Produces: `PorRetomarDelPaciente({ grupos, error, puedeAgendar, onAgendar }: { grupos: readonly VisitaPorRetomar[]; error: string | null; puedeAgendar: boolean; onAgendar: (origenId: string) => void })` — `null` sin nada esperando y sin error.
+
+- [ ] **Paso 1: El bloque «Queda para otro día» de la ficha**
+
+Crear `src/views/track/PorRetomarDelPaciente.tsx`:
+
+```tsx
+import type { CSSProperties } from 'react'
+import { btnOutline } from '../../components/buttons'
+import { formatAR, todayISO } from '../../lib/dates'
+import { visitTitle } from '../../lib/visits'
+import { Panel } from './Panel'
+import { Badge, tarjeta } from './ReportesPendientes'
+import { diasEsperando } from './retomar'
+import type { VisitaPorRetomar } from './retomar'
+
+/**
+ * «Queda para otro día» en la ficha del paciente (v0145; spec §3, decisión del Director 2026-09-27):
+ * lo que ESTE paciente tiene esperando en esta inscripción. Una fila por VISITA —no por
+ * procedimiento—, con la misma información que la fila de Pendientes, mirada desde la ficha: acá el
+ * paciente ya está a la vista, así que alcanza con la visita.
+ *
+ * Mismo lenguaje que el panel de la visita (`QuedaParaOtroDia`): el badge ámbar de la cuenta y
+ * tarjetas por elevación, sin borde de color. La fila no es un link ni tiene casilla: lo que hace es
+ * su botón con nombre, «Agendar», que abre el modal ya en «Continuar pendientes» sobre esa visita.
+ *
+ * Sin nada esperando no se dibuja: no hay un «Sin pendientes» que decir (la ficha ya dice «Sin
+ * alertas activas» para lo urgente). Si la lectura falla, sí: esconderlo diría que no hay nada.
+ */
+export function PorRetomarDelPaciente({ grupos, error, puedeAgendar, onAgendar }: {
+  grupos: readonly VisitaPorRetomar[]
+  error: string | null
+  puedeAgendar: boolean
+  onAgendar: (origenId: string) => void
+}) {
+  if (!error && grupos.length === 0) return null
+  const hoy = todayISO()
+
+  return (
+    <Panel
+      title="Queda para otro día"
+      icon="clock"
+      accent="var(--spira-acc-deep-warn)"
+      aside={error ? undefined : <Badge texto={`${grupos.length} ${grupos.length === 1 ? 'visita' : 'visitas'}`} pendiente />}
+    >
+      {error ? (
+        <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', padding: '2px 0' }}>
+          No se pudo cargar lo que quedó para otro día: {error}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {grupos.map((g) => {
+            const v = g.visita
+            const fecha = v.real_date ?? v.estimated_date
+            const dias = diasEsperando(g.desde, hoy)
+            return (
+              <div key={v.id} style={tarjeta}>
+                <div style={fila}>
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span style={nombre}>
+                      {visitTitle(v)}{fecha ? ` · ${formatAR(fecha)}` : ''} · {g.procedimientos.map((p) => p.name).join(', ')}
+                    </span>
+                    <span style={sublinea}>{dias > 0 ? `Espera hace ${dias} d` : 'Desde hoy'}</span>
+                  </span>
+                  {puedeAgendar && (
+                    <button type="button" style={btnChico} onClick={() => onAgendar(v.id)}>Agendar</button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+/** La banda de `ReportesPendientes` sin el control del tilde, que acá no aplica. */
+const fila: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, padding: '9px 14px', background: 'var(--spira-surface)',
+}
+const nombre: CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)' }
+const sublinea: CSSProperties = { display: 'block', marginTop: 2, fontSize: 11.5, color: 'var(--spira-ink-soft)' }
+const btnChico: CSSProperties = { ...btnOutline, height: 32, padding: '0 12px', fontSize: 13, flex: '0 0 auto' }
+```
+
+- [ ] **Paso 2: La ficha**
+
+En `src/views/PatientFichaView.tsx`:
+
+1. Imports: reemplazá `import { RegisterVisitFlow } from './track/RegisterVisitFlow'` por:
+
+```ts
+import { AgendarVisitaModal } from './track/agendar/AgendarVisitaModal'
+import type { PacienteFijo } from './track/agendar/opciones'
+import { PorRetomarDelPaciente } from './track/PorRetomarDelPaciente'
+import { agruparPorRetomar } from './track/retomar'
+import { usePorRetomar } from '../data/pendientes'
+```
+
+2. Borrá las dos líneas de `usedKinds` (el modal ahora lee las visitas del paciente por su cuenta):
+
+```ts
+  /* Para el flujo "Agendar visita": tipos ya registrados (filtra el selector). */
+  const usedKinds = rows.map((r) => r.kind)
+```
+
+y en su lugar:
+
+```ts
+  /* Lo que ESTA inscripción dejó para otro día (v0145): el bloque «Queda para otro día» de la
+     columna derecha. Se lee todo lo que espera y se acota acá: una consulta chica, la misma que usan
+     Pendientes y el modal. */
+  const retomarQ = usePorRetomar()
+  const porRetomar = agruparPorRetomar(retomarQ.data?.marcas ?? [], retomarQ.data?.visitas ?? [])
+    .filter((g) => g.visita.enrollment_id === enrollment?.id)
+  /** El «Agendar» de una fila del bloque: el modal abre ya en «Continuar pendientes» sobre ella. */
+  const [continuarDesde, setContinuarDesde] = useState<string | null>(null)
+```
+
+3. Después de `const ivrs = ivrsDelEstudio(patient, protocol.id)`:
+
+```ts
+  /* Quién, para «Agendar visita» (v0145): el modal va con el paciente fijo. Sin inscripción en este
+     estudio no hay a quién agendarle, y el modal no abre (igual que antes con `RegisterVisitFlow`). */
+  const pacienteFijo: PacienteFijo | null = enrollment
+    ? {
+        enrollmentId: enrollment.id,
+        patientId: patient.id,
+        protocolId: protocol.id,
+        patientName: patient.full_name,
+        ivrs,
+        protocolCode: protocol.code,
+        randomizationDate: enrollment.randomization_date,
+      }
+    : null
+```
+
+4. Reemplazá el bloque `{modal === 'register' && enrollment && (<RegisterVisitFlow … />)}` por:
+
+```tsx
+      {modal === 'register' && pacienteFijo && (
+        <AgendarVisitaModal
+          modo="paciente"
+          paciente={pacienteFijo}
+          preseleccion={continuarDesde ? { tipo: 'continuar', origenId: continuarDesde } : undefined}
+          accent={accentSolid}
+          onClose={() => { setModal(null); setContinuarDesde(null) }}
+          onDone={() => { setModal(null); setContinuarDesde(null); visitsQ.refetch(); retomarQ.refetch() }}
+        />
+      )}
+```
+
+5. En el `<VisitDetail …>` de la ficha, `onChanged` suma `retomarQ.refetch()` (un «¿Qué se hizo hoy?» o un «Dejar para otro día» adentro cambian el bloque; cerrar el detalle también llama a `onChanged`): `onChanged={() => { visitsQ.refetch(); alertsQ.refetch(); retomarQ.refetch() }}`.
+
+6. En la columna derecha, entre el cierre de la card «próxima visita» y el comentario `{/* cronograma */}`:
+
+```tsx
+              {/* Lo que este paciente dejó para otro día (v0145), entre la próxima visita y el
+                  cronograma. Sin nada esperando no se dibuja. */}
+              <PorRetomarDelPaciente
+                grupos={porRetomar}
+                error={retomarQ.error}
+                puedeAgendar={canWrite && pacienteFijo !== null}
+                onAgendar={(origenId) => { setContinuarDesde(origenId); setModal('register') }}
+              />
+```
+
+- [ ] **Paso 3: «Agregar visita» en Visitas, y el «recitar»**
 
 En `src/views/DayVisitsView.tsx`:
 
-1. Imports: `import { AgregarVisitaModal } from './track/agendar/AgregarVisitaModal'`, `import { useProtocols } from '../data/protocols'` y `btnPrimary` junto a `btnOutline` desde `../components/buttons`.
-2. Estado y lista de estudios, junto a los otros `useState`:
+1. Imports: reemplazá `import { RegisterVisitFlow } from './track/RegisterVisitFlow'` por:
+
+```ts
+import { AgendarVisitaModal } from './track/agendar/AgendarVisitaModal'
+import { pacienteDeVisita } from './track/agendar/opciones'
+import { useProtocols } from '../data/protocols'
+```
+
+y `import { btnOutline } from '../components/buttons'` por `import { btnOutline, btnPrimary } from '../components/buttons'`.
+
+2. Junto a los otros `useState` del principio (después de `const [actionError, setActionError] = useState<string | null>(null)`):
 
 ```ts
   const [agregando, setAgregando] = useState(false)
   const protocolsQ = useProtocols()
 ```
 
-y después de `useVisitPermissions()`:
+3. Después de `const { canReception, canClinical, loading: permisosCargando } = useVisitPermissions()`:
 
 ```ts
-  /* Los estudios en los que se puede agendar desde acá (vNNNN): activos y en los que la persona
+  /* Los estudios en los que se puede agendar desde acá (v0145): activos y en los que la persona
      tiene la parte clínica (la misma regla que `puede_registrar_visitas`, salvo gerencia, que no
      opera el día). Sin ninguno, el botón no se dibuja. */
   const protocolosParaAgregar = (protocolsQ.data ?? [])
@@ -3061,9 +4058,12 @@ y después de `useVisitPermissions()`:
     .map((p) => ({ id: p.id, code: p.code, name: p.name }))
 ```
 
-3. El efecto del header suma el botón al lado de la fecha, y `protocolosParaAgregar.length` a las deps (el header es un elemento congelado: sin la dep, no aparece cuando carga la lista — ver la memoria `gotcha-elemento-congelado-en-estado`):
+4. Reemplazá el efecto del header (el de `setHeader?.({ content: <DateNavButton … /> })`) por éste. `protocolosParaAgregar.length` va en las deps: el header es un elemento congelado y sin la dep el botón no aparece cuando carga la lista (memoria `gotcha-elemento-congelado-en-estado`):
 
 ```tsx
+  /* La fecha vive en la fila del título del shell (igual que en la cola "Para ver médico"); los
+     filtros del rediseño van en el contenido. Al lado de la fecha, «Agregar visita» (v0145). Antes
+     del early-return: los hooks no se condicionan. */
   useEffect(() => {
     setHeader?.({
       content: (
@@ -3083,11 +4083,25 @@ y después de `useVisitPermissions()`:
   }, [date, setHeader, protocolosParaAgregar.length])
 ```
 
-4. El modal, junto a los del final:
+5. Reemplazá el bloque `{recitar && (<RegisterVisitFlow … />)}` por:
 
 ```tsx
+      {recitar && (
+        /* «Recitar» desde el cierre de screening/randomización: el mismo «Agendar visita» de la ficha
+           (v0145), con esa definición del cuadro ya elegida. El modal lee las visitas del paciente
+           por su cuenta, así que ahora también sugiere la fecha estimada, que acá no salía. */
+        <AgendarVisitaModal
+          modo="paciente"
+          paciente={pacienteDeVisita(recitar)}
+          preseleccion={{ tipo: 'def', defId: recitar.visit_def_id }}
+          accent={accentSolid}
+          onClose={() => setRecitar(null)}
+          onDone={(mensaje) => { setRecitar(null); setActionError(null); setFeedback(mensaje); day.refetch(); randoPending.refetch() }}
+        />
+      )}
       {agregando && (
-        <AgregarVisitaModal
+        <AgendarVisitaModal
+          modo="dia"
           dia={date}
           protocolos={protocolosParaAgregar}
           accent={accentSolid}
@@ -3103,38 +4117,71 @@ y después de `useVisitPermissions()`:
       )}
 ```
 
-- [ ] **Paso 3: Correr y commit**
+En `src/views/track/VisitDetail.tsx`:
+
+1. Imports: reemplazá `import { RegisterVisitFlow } from './RegisterVisitFlow'` por:
+
+```ts
+import { AgendarVisitaModal } from './agendar/AgendarVisitaModal'
+import { pacienteDeVisita } from './agendar/opciones'
+```
+
+2. Reemplazá el bloque `{recitar && (<RegisterVisitFlow … />)}` por:
+
+```tsx
+    {recitar && (
+      /* «Recitar»: el mismo «Agendar visita» de la ficha (v0145), con la definición ya elegida. */
+      <AgendarVisitaModal
+        modo="paciente"
+        paciente={pacienteDeVisita(recitar)}
+        preseleccion={{ tipo: 'def', defId: recitar.visit_def_id }}
+        accent={accent}
+        onClose={() => setRecitar(null)}
+        onDone={() => { setRecitar(null); refrescar() }}
+      />
+    )}
+```
+
+- [ ] **Paso 4: Borrar `RegisterVisitFlow`**
+
+```bash
+cd "$REPO" && git rm src/views/track/RegisterVisitFlow.tsx && git grep -n "RegisterVisitFlow" -- src; git grep -n "faltanProcedimientos" -- src
+```
+Expected: `RegisterVisitFlow` sólo en comentarios que lo nombran como antecedente (`opciones.ts`, `AgendarVisitaModal.tsx`, los formularios, `PatientFichaView.tsx`); ningún `import`. `faltanProcedimientos` sigue vivo: lo usa `EditarProcedimientosModal.tsx` (y su test en `continuacion.test.ts`), así que **no** se borra.
+
+- [ ] **Paso 5: Correr y commit**
 
 ```bash
 cd "$REPO" && npm run typecheck && npx vitest run
 ```
-Expected: tsc limpio; 0 fallas.
+Expected: tsc limpio (sin `usedKinds` ni imports sin usar); 0 fallas.
 ```bash
-cd "$REPO" && git add src/views/track/agendar/AgregarVisitaModal.tsx src/views/DayVisitsView.tsx && git commit -m "feat(coordinacion): agregar visita desde Visitas
+cd "$REPO" && git add src/views/track/PorRetomarDelPaciente.tsx src/views/PatientFichaView.tsx src/views/DayVisitsView.tsx src/views/track/VisitDetail.tsx src/views/track/RegisterVisitFlow.tsx && git commit -m "feat(coordinacion): agendar visita único en la ficha, Visitas y el recitar
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Tarea 14: «Procedimientos por retomar» en Pendientes
+### Tarea 16: «Procedimientos por retomar» en Pendientes
 
 **Files:**
 - Modify: `src/views/pendientesPorProtocolo.ts` + `src/views/pendientesPorProtocolo.test.ts`
 - Modify: `src/views/PendientesProtocoloCards.tsx`
-- Create: `src/views/track/agendar/AgendarDesdePendientes.tsx`
 - Modify: `src/views/TrackAlertsView.tsx`
 
 **Interfaces:**
-- Consumes: `usePorRetomar` (Tarea 8), `agruparPorRetomar`, `diasEsperando`, `VisitaPorRetomar` (Tarea 9), `RegisterVisitFlow` con `porRetomar`/`preseleccion` (Tarea 12), `usePatientVisits`.
-- Produces: `pendientesPorProtocolo(visitas, reportes, ips = [], retomar = [])` con el campo nuevo `PendientesDeProtocolo.retomar: number`; `AgendarDesdePendientes({ grupo, accent, onClose, onDone })`.
+- Consumes: `usePorRetomar` (Tarea 8), `agruparPorRetomar`, `diasEsperando`, `VisitaPorRetomar` (Tarea 9), `AgendarVisitaModal` (Tarea 14), `pacienteDeVisita` (Tarea 12).
+- Produces: `pendientesPorProtocolo(visitas, reportes, ips = [], retomar = [])` con el campo nuevo `PendientesDeProtocolo.retomar: number`.
+
+El «Agendar» de la fila abre el mismo `AgendarVisitaModal` en modo `paciente`, que ya lee por su cuenta las visitas del paciente: no hace falta un envoltorio (`AgendarDesdePendientes` del plan anterior queda descartado).
 
 - [ ] **Paso 1: El test del conteo que falla**
 
 Agregá a `src/views/pendientesPorProtocolo.test.ts`, dentro del `describe('pendientesPorProtocolo', …)`:
 
 ```ts
-  it('cuenta también lo que espera para otro día (vNNNN), en el total y aparte', () => {
+  it('cuenta también lo que espera para otro día (v0145), en el total y aparte', () => {
     const [f] = pendientesPorProtocolo([v('A', 'item_vencido')], [r('A')], [], [r('A'), r('A')])
     expect(f.total).toBe(4)
     expect(f.retomar).toBe(2)
@@ -3154,11 +4201,11 @@ Expected: FALLA — `f.retomar` es `undefined` y el total da 2.
 
 En `src/views/pendientesPorProtocolo.ts`:
 
-1. En `PendientesDeProtocolo`, después de `ips`: `/** Cuántas visitas con procedimientos para otro día (vNNNN). 0 = no se muestra. */ retomar: number`.
+1. En `PendientesDeProtocolo`, después de `ips`: `/** Cuántas visitas con procedimientos para otro día (v0145). 0 = no se muestra. */ retomar: number`.
 2. La firma suma el cuarto parámetro, con el mismo comentario que el tercero:
 
 ```ts
-  /* La cuarta lista (vNNNN): una fila por VISITA que dejó procedimientos para otro día. Misma forma
+  /* La cuarta lista (v0145): una fila por VISITA que dejó procedimientos para otro día. Misma forma
      mínima. Con default, pero la pantalla la PASA: olvidarla es el modo de falla del encabezado. */
   retomar: readonly ReporteConProtocolo[] = [],
 ```
@@ -3172,7 +4219,7 @@ Correr: `npx vitest run src/views/pendientesPorProtocolo.test.ts`. Expected: PAS
 
 En `src/views/PendientesProtocoloCards.tsx`:
 
-1. Prop nueva, después de `ips`: `/** Procedimientos por retomar SIN filtrar, una fila por visita (vNNNN). */ retomar: readonly ReporteConProtocolo[]`, y en la desestructuración.
+1. Prop nueva, después de `ips`: `/** Procedimientos por retomar SIN filtrar, una fila por visita (v0145). */ retomar: readonly ReporteConProtocolo[]`, y en la desestructuración.
 2. `const filas = pendientesPorProtocolo(visitas, reportes, ips, retomar)`.
 3. En el desglose, después del de «Reporte»:
 
@@ -3192,72 +4239,31 @@ En `src/views/PendientesProtocoloCards.tsx`:
           const tono = p.peor ? VISIT_STATES[p.peor].color : p.ips > 0 ? 'var(--spira-acc-deep-warn)' : p.reportes > 0 ? 'var(--spira-acc-deep-blue)' : 'var(--spira-muted)'
 ```
 
-- [ ] **Paso 4: Agendar desde Pendientes**
-
-Crear `src/views/track/agendar/AgendarDesdePendientes.tsx`:
-
-```tsx
-import { Modal } from '../../../components/Modal'
-import { usePatientVisits } from '../../../data/visits'
-import { RegisterVisitFlow } from '../RegisterVisitFlow'
-import type { VisitaPorRetomar } from '../retomar'
-
-/**
- * El «Agendar» de una fila de «Procedimientos por retomar» (vNNNN): el MISMO «Agendar visita» de la
- * ficha, con el paciente fijo y «Continuar pendientes» ya elegido sobre esa visita. Carga las visitas
- * del paciente porque el flujo las necesita (el retest, la fecha estimada del cuadro).
- */
-export function AgendarDesdePendientes({ grupo, todos, accent, onClose, onDone }: {
-  grupo: VisitaPorRetomar
-  /** Todo lo que espera (ya agrupado): se le pasan al flujo los de la MISMA inscripción. */
-  todos: readonly VisitaPorRetomar[]
-  accent: string
-  onClose: () => void
-  onDone: () => void
-}) {
-  const v = grupo.visita
-  const q = usePatientVisits(v.patient_id, v.protocol_id)
-  if (q.loading && !q.data) {
-    return (
-      <Modal title="Agendar visita" onClose={onClose} maxWidth={480}>
-        <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', padding: '6px 0' }}>Cargando visitas…</div>
-      </Modal>
-    )
-  }
-  const rows = (q.data ?? []).filter((r) => r.enrollment_id === v.enrollment_id)
-  return (
-    <RegisterVisitFlow
-      enrollmentId={v.enrollment_id}
-      protocolId={v.protocol_id}
-      randomizationDate={v.enrollment_randomization_date}
-      usedKinds={rows.map((r) => r.kind)}
-      referenceVisits={rows}
-      porRetomar={todos.filter((g) => g.visita.enrollment_id === v.enrollment_id)}
-      preseleccion={{ accion: 'continuar', origenId: v.id }}
-      accentSolid={accent}
-      onClose={onClose}
-      onDone={onDone}
-    />
-  )
-}
-```
-
-- [ ] **Paso 5: La lista en Pendientes**
+- [ ] **Paso 4: La lista en Pendientes**
 
 En `src/views/TrackAlertsView.tsx`:
 
-1. Imports: `import { usePorRetomar } from '../data/pendientes'`, `import { agruparPorRetomar, diasEsperando } from './track/retomar'`, `import type { VisitaPorRetomar } from './track/retomar'`, `import { AgendarDesdePendientes } from './track/agendar/AgendarDesdePendientes'`.
+1. Imports:
+
+```ts
+import { usePorRetomar } from '../data/pendientes'
+import { agruparPorRetomar, diasEsperando } from './track/retomar'
+import type { VisitaPorRetomar } from './track/retomar'
+import { AgendarVisitaModal } from './track/agendar/AgendarVisitaModal'
+import { pacienteDeVisita } from './track/agendar/opciones'
+```
+
 2. Constante junto a `IP_SIN_ENTREGAR`:
 
 ```ts
-/** La opción del filtro Estado para los procedimientos por retomar (vNNNN). No es un `computed_status`. */
+/** La opción del filtro Estado para los procedimientos por retomar (v0145). No es un `computed_status`. */
 const POR_RETOMAR = 'por_retomar'
 ```
 
 3. Datos, después de `const alertsQ = useActiveAlerts()`:
 
 ```ts
-  /* La cuarta lista (vNNNN): visitas con procedimientos dejados para otro día. Consulta propia: no
+  /* La cuarta lista (v0145): visitas con procedimientos dejados para otro día. Consulta propia: no
      es una alerta de la visita (la visita ya cerró) sino trabajo que espera. Su error se muestra en
      línea, como el del IP: que falle no puede tirar la pantalla entera. */
   const retomarQ = usePorRetomar()
@@ -3296,6 +4302,7 @@ const POR_RETOMAR = 'por_retomar'
    - `<PendientesProtocoloCards … retomar={retomarRows.map((g) => g.visita)} />`.
    - El recuento «N de M pendientes»: sumá `filteredRetomar.length` arriba y `retomarRows.length` abajo (las tres apariciones de `ipRows.length` en ese renglón).
    - El vacío: las dos condiciones del `filtered.length === 0 && …` suman `filteredRetomar.length === 0` y `retomarRows.length === 0`.
+
 6. El error en línea, debajo del de `alertsQ.ipError`:
 
 ```tsx
@@ -3306,13 +4313,13 @@ const POR_RETOMAR = 'por_retomar'
         )}
 ```
 
-7. Las filas, al final de la lista (después de `filteredProc.map(…)`): tono **neutro** y **sin tacho** (no se descarta: se resuelve retomando o quitando la marca). La tarjeta lleva a SU entidad —la visita que dejó los procedimientos— y lo secundario va en un botón con nombre:
+7. Las filas, al final de la lista (después de `filteredProc.map(…)`): tono **neutro** y **sin tacho** (no se descarta: se resuelve retomando o sacando la marca). La tarjeta lleva a SU entidad —la visita que dejó los procedimientos— y lo secundario va en un botón con nombre:
 
 ```tsx
             {filteredRetomar.map((g) => {
-              /* Procedimientos por retomar (vNNNN). Tono NEUTRO: no es un desvío ni está vencido, es
-                 trabajo que espera fecha. SIN tacho: sale de la lista retomando o con «Se hace hoy»
-                 en la visita, no descartándolo. */
+              /* Procedimientos por retomar (v0145). Tono NEUTRO: no es un desvío ni está vencido, es
+                 trabajo que espera fecha. SIN tacho: sale de la lista retomándolo («Agendar») o
+                 dándolo por hecho en la visita («¿Qué se hizo hoy?»), no descartándolo. */
               const c = 'var(--spira-muted)'
               const v = g.visita
               const fecha = v.real_date ?? v.estimated_date
@@ -3359,9 +4366,12 @@ const POR_RETOMAR = 'por_retomar'
 
 ```tsx
       {agendando && (
-        <AgendarDesdePendientes
-          grupo={agendando}
-          todos={retomarRows}
+        /* El MISMO «Agendar visita» de la ficha, con el paciente fijo y «Continuar pendientes» ya
+           elegido sobre esa visita (spec §4): no hay que volver a buscarla. */
+        <AgendarVisitaModal
+          modo="paciente"
+          paciente={pacienteDeVisita(agendando.visita)}
+          preseleccion={{ tipo: 'continuar', origenId: agendando.visita.id }}
           accent={module.accentSolid}
           onClose={() => setAgendando(null)}
           onDone={() => { setAgendando(null); retomarQ.refetch(); alertsQ.refetch() }}
@@ -3369,33 +4379,33 @@ const POR_RETOMAR = 'por_retomar'
       )}
 ```
 
-9. Al cerrar el `VisitDetail` abierto desde esta pantalla, refrescá también `retomarQ` (un «Se hace hoy» o un «Dejar para otro día» adentro cambia esta lista): buscá el `onClose`/`onChanged` del `<VisitDetail …>` de este archivo y sumá `retomarQ.refetch()` donde ya se llama `alertsQ.refetch()`.
+9. Al cerrar el `VisitDetail` abierto desde esta pantalla, refrescá también `retomarQ` (un «¿Qué se hizo hoy?» o un «Dejar para otro día» adentro cambia esta lista): en el `onChanged` del `<VisitDetail …>` de este archivo (cerrar también lo llama), sumá `retomarQ.refetch()` donde ya se llama `alertsQ.refetch()`.
 
-- [ ] **Paso 6: Correr y commit**
+- [ ] **Paso 5: Correr y commit**
 
 ```bash
 cd "$REPO" && npm run typecheck && npx vitest run
 ```
 Expected: tsc limpio; 0 fallas.
 ```bash
-cd "$REPO" && git add src/views/pendientesPorProtocolo.ts src/views/pendientesPorProtocolo.test.ts src/views/PendientesProtocoloCards.tsx src/views/track/agendar/AgendarDesdePendientes.tsx src/views/TrackAlertsView.tsx && git commit -m "feat(coordinacion): procedimientos por retomar en Pendientes
+cd "$REPO" && git add src/views/pendientesPorProtocolo.ts src/views/pendientesPorProtocolo.test.ts src/views/PendientesProtocoloCards.tsx src/views/TrackAlertsView.tsx && git commit -m "feat(coordinacion): procedimientos por retomar en Pendientes
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Tarea 15: Build, QA en el navegador y PR B
+### Tarea 17: Build, QA en el navegador y PR B
 
 **Files:**
-- Modify: `supabase/README.md` (marcar la NNNN **Aplicada en prod (fecha)**, cuando el Director lo confirme)
+- Modify: `supabase/README.md` (marcar la 0145 **Aplicada en prod (fecha)**, cuando el Director lo confirme)
 
 - [ ] **Paso 1: El gate**
 
 ```bash
-cd "$REPO" && git grep -n "NNNN" -- src supabase; npm run build
+cd "$REPO" && git grep -n "NNNN" -- src supabase; git grep -n "import.*RegisterVisitFlow\|PasarPendientesModal" -- src; npm run build
 ```
-Expected: el `git grep` vacío (reemplazá cada `NNNN` por el número real con Edit); `npm run build` verde. Mirá el tamaño del bundle: si da ~300 kB en vez de ~1,5 MB, falta el `.env` y el build «verde» está roto (memoria `gotcha-build-sin-env-pasa-y-esta-roto`).
+Expected: los dos `git grep` vacíos (reemplazá cada `NNNN` que haya quedado por `0145` con Edit); `npm run build` verde. Mirá el tamaño del bundle: si da ~300 kB en vez de ~1,5 MB, falta el `.env` y el build «verde» está roto (memoria `gotcha-build-sin-env-pasa-y-esta-roto`).
 
 - [ ] **Paso 2: QA en el preview, contra prod, sobre TEST-QA / TEST-001**
 
@@ -3403,22 +4413,24 @@ Sólo con la migración **aplicada**. Desde el worktree, verificá que el previe
 
 Antes de empezar, anotá qué hay en TEST-001 (visitas, procedimientos del estudio): al final se deja igual. Si TEST-QA no tiene procedimientos con reporte, agregá temporalmente uno con reporte y uno sin reporte (como en el QA de la 0144) y sacalos al final.
 
-1. **Aviso al finalizar.** Una visita de TEST-001 hoy, con un procedimiento con reporte sin tildar y otro sin reporte. «Finalizar atención» desde la fila de Visitas → aparece el modal y lista **sólo** el que tiene reporte. «Finalizar y dejar para otro día» con él tildado → la visita pasa a fin de atención y queda **completa** (no «realizada»). Repetí desde el detalle abierto desde la ficha (sin `onAdvance`). Y una visita sin nada pendiente → finaliza sin modal.
-2. **La visita con marcas.** En su detalle: la caja «Queda para otro día · 1 procedimiento» con «Se hace hoy». Apretalo → vuelve a la lista y se puede tildar. Volvé a dejarlo con el botón «Dejar para otro día» (sin fecha).
-3. **Pendientes.** La fila en «Procedimientos por retomar»; el filtro Estado «Por retomar» la deja sola; el filtro de protocolo la alcanza; la tarjeta de TEST-QA (si hay más de un protocolo con pendientes) dice «Por retomar 1». «Agendar» abre el flujo en «Continuar pendientes» con la visita elegida y la fecha editable.
-4. **Continuar una parte.** Con dos marcados, retomá uno para mañana → la continuación aparece como «Continuación de …» con ese procedimiento; el otro sigue en Pendientes.
-5. **Agregar visita desde Visitas.** Botón en la cabecera → estudio TEST-QA → cada una de las cuatro opciones muestra su lista (con los números). «Una visita del estudio» trae una visita futura de TEST-001 a hoy.
-6. **Retest.** Desde la ficha: «Retest» → elegir la visita atendida → ofrece lo tildado y lo sin reporte, no lo que tiene reporte y no se tildó. Agendarlo → se titula «Retest de …». Intentá borrar la visita de origen desde su editor → «Esta visita tiene un retest. Borralo primero.».
-7. **Limpieza.** Borrá exactamente lo que creaste (retest, continuaciones, marcas que queden —con «Se hace hoy»—, procedimientos temporales del estudio) y dejá las visitas de TEST-001 con las fechas que tenían. Verificá recargando que TEST-001 quedó como al principio.
+1. **Aviso al finalizar: se tilda lo que SE HIZO.** Una visita de TEST-001 hoy, con dos procedimientos con reporte sin tildar y uno sin reporte. «Finalizar atención» desde la fila de Visitas → aparece «Esta visita tiene procedimientos sin marcar» y lista **sólo** los dos con reporte, **sin preselección**. Tildá uno y «Continuar» → «Van a quedar pendientes» nombra sólo el otro → «Finalizar» → la visita pasa a fin de atención y queda **completa** (no «realizada»); el tildado quedó tildado de verdad (su reporte arrancó) y el otro, marcado. Otra vez con los dos tildados → «Continuar» finaliza directo, sin segundo paso. «Cancelar» (y Esc) → no se tilda, no se marca, no se finaliza. «Volver» en el paso 2 → vuelve al paso 1 con lo tildado. Repetí desde el detalle abierto desde la ficha (sin `onAdvance`). Una visita sin nada pendiente → finaliza sin modal.
+2. **La visita con marcas.** En su detalle, debajo del «Resumen de la visita»: el panel «Queda para otro día» con el badge «1 para otro día» y una tarjeta con la **casilla vacía**; el procedimiento marcado **no** está en «Reportes pendientes». Tocar la casilla → «¿Qué se hizo hoy?» con ése tildado. «Cancelar» → nada cambia. «Se hizo hoy» → sale del panel (el panel desaparece si era el único) y aparece **tildado** en «Reportes pendientes». Con dos marcados: tocar uno y sumar el otro en el modal → salen los dos. Volvé a marcar uno con «Dejar para otro día» (casillas sin preselección, **sin fecha**). En una visita de sólo lectura, la casilla no abre nada.
+3. **Pendientes.** La fila en «Procedimientos por retomar» (tono neutro, sin tacho, «espera hace N d» o «desde hoy»); el filtro Estado «Por retomar» la deja sola; el filtro de protocolo la alcanza; la tarjeta de TEST-QA (si hay más de un protocolo con pendientes) dice «Por retomar 1». «Agendar» abre «Agendar visita» con «TEST-001 · IVRS · TEST-QA» fijo arriba, la fecha editable y «Continuar pendientes (1)» ya elegido sobre esa visita.
+4. **Continuar una parte.** Con dos marcados, retomá uno para mañana → la continuación aparece como «Continuación de …» con ese procedimiento; el otro sigue en Pendientes. El rótulo de las casillas dice «¿Qué se retoma?» con fecha futura y «¿Qué se hace hoy?» con la de hoy.
+5. **La ficha.** El bloque «Queda para otro día» entre «Próxima visita» y «Cronograma de visitas»: una fila por visita («V3 W4 · 12/9/2026 · Hemograma, ECG», «Espera hace N d»), badge «1 visita», botón «Agendar» → el modal en «Continuar pendientes» sobre esa visita. Sin marcas, el bloque no está. «Agendar visita» de la cabecera: la identidad fija arriba, «Fecha de la visita» editable, «¿Qué vas a hacer?» sin elegir, con las opciones del paciente —las visitas libres del cuadro si está pre-rando con cuadro (elegir una sugiere la fecha estimada), o los tipos sueltos si es legacy—, «Continuar pendientes (N)» sólo si hay algo, «Retest», «VNP», y **sin** «Una visita del estudio». La VNP no pide paciente.
+6. **Agregar visita desde Visitas.** Botón «Agregar visita» en la cabecera → estudio TEST-QA → la fecha fija con «Es el día que estás mirando en Visitas.» → «Una visita del estudio (N)», «Continuar pendientes (N)» (si hay), «Retest», «VNP». Cada una muestra su lista, sin nada preelegido; la VNP pide el paciente. «Una visita del estudio» trae una visita futura de TEST-001 a hoy (y avisa si cae fuera de ventana). Cambiar de estudio no muestra un instante los números del anterior.
+7. **Retest.** Desde la ficha y desde Visitas: «Retest» → elegir la visita atendida → ofrece lo tildado y lo sin reporte, no lo que tiene reporte y no se tildó; cambiar de visita no deja ver los procedimientos de la anterior. Agendarlo → se titula «Retest de …». Intentá borrar la visita de origen desde su editor → «Esta visita tiene un retest. Borralo primero.».
+8. **El «recitar».** Si TEST-001 tiene una visita de screening o randomización sin cerrar: en su cierre, la salida «recitar» abre «Agendar visita» con la identidad fija y esa definición ya elegida; «Cancelar» sin agendar. Si no la tiene, no se fuerza (no se crea una para esto): es el mismo modal en modo `paciente` que se probó en el punto 5, y `eleccionInicial` con `{ tipo: 'def' }` tiene test.
+9. **Limpieza.** Borrá exactamente lo que creaste (retest, continuaciones, marcas que queden —con «¿Qué se hizo hoy?» o retomándolas y borrando la continuación—, procedimientos temporales del estudio) y dejá las visitas de TEST-001 con las fechas que tenían. Verificá recargando que TEST-001 quedó como al principio.
 
 - [ ] **Paso 3: PR B**
 
-Push y PR por la API REST, base `main` (si partiste de la rama de la PR A, reapuntala a `main` cuando la A entre). Título «Coordinación: pendientes por retomar y retest atado a una visita». En el cuerpo: qué cambia para quien usa la app (los cuatro flujos, en una línea cada uno), «**requiere la NNNN aplicada** (PR A)», el QA hecho con sus 7 puntos, y el pie `🤖 Generated with [Claude Code](https://claude.com/claude-code)`. Incluí en esta PR la marca **Aplicada en prod (fecha)** de la NNNN en `supabase/README.md`.
+Push y PR por la API REST, base `main` (si partiste de la rama de la PR A, reapuntala a `main` cuando la A entre). Título «Coordinación: pendientes por retomar y retest atado a una visita». En el cuerpo: qué cambia para quien usa la app, en una línea cada uno —el aviso al finalizar (se tilda lo que se hizo), «Queda para otro día» en la visita y en la ficha, un solo «Agendar visita» (ficha, Visitas, recitar, Pendientes) con «Continuar pendientes» y el retest de una visita, «Procedimientos por retomar» en Pendientes—, «**requiere la 0145 aplicada** (PR A)», el QA hecho con sus 9 puntos, y el pie `🤖 Generated with [Claude Code](https://claude.com/claude-code)`. Incluí en esta PR la marca **Aplicada en prod (fecha)** de la 0145 en `supabase/README.md`.
 
 ---
 
 ## Fuera de este plan (anotar en `TODOS.md` si no está)
 
 - La campana de notificaciones y los conteos de Inicio no cuentan los procedimientos por retomar: sólo Pendientes (spec §4). Si el Director los quiere ahí, es un cambio aparte.
-- «Finalizar sin pasarlos» se comporta como hoy: si lo no hecho tiene reporte, la visita queda «realizada con pendientes».
+- Un procedimiento que no se va a hacer nunca no tiene salida propia en el aviso al finalizar: queda pendiente (spec, «Fuera de alcance»).
 - Gerencia sin rol de Coordinación no ve el botón «Agregar visita» (la regla del front es `canClinical`); el servidor sí la dejaría.

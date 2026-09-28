@@ -158,7 +158,8 @@ export function ReportesPendientes({
 }
 
 /** «N por cargar» (ámbar) o «Al día» (neutro). El color acá es significado: queda trabajo. */
-function Badge({ texto, pendiente }: { texto: string; pendiente: boolean }) {
+/* Exportado (0145): «Queda para otro día» cuenta con el mismo badge. */
+export function Badge({ texto, pendiente }: { texto: string; pendiente: boolean }) {
   return (
     <span
       style={{
@@ -175,12 +176,12 @@ function Badge({ texto, pendiente }: { texto: string; pendiente: boolean }) {
   )
 }
 
-const tarjeta: CSSProperties = {
+export const tarjeta: CSSProperties = {
   border: '1px solid var(--spira-line)', borderRadius: 12, overflow: 'hidden',
   background: 'var(--spira-white)',
 }
 
-const banda: CSSProperties = {
+export const banda: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 44,
   padding: '9px 14px', textAlign: 'left',
   background: 'var(--spira-surface)',
@@ -192,7 +193,7 @@ const banda: CSSProperties = {
  * Cuadrito del tilde. Vacío: borde `muted` (el `line-2` de los inputs queda en 1,9:1 sobre blanco,
  * por debajo del 3:1 que WCAG pide para el contorno de un control). Relleno: acento del módulo.
  */
-function casilla(marcado: boolean, accent: string): CSSProperties {
+export function casilla(marcado: boolean, accent: string): CSSProperties {
   return {
     flex: '0 0 auto', width: 20, height: 20, borderRadius: 6,
     display: 'grid', placeItems: 'center',

@@ -36,13 +36,15 @@ import type { ReporteConProtocolo, VisitaConProtocolo } from './pendientesPorPro
  * que verse distinta con el mouse en cualquier lado. Mismo idioma que `MultiFilterMenu` y que las
  * tarjetas de Stock.
  */
-export function PendientesProtocoloCards({ visitas, reportes, ips, protocols, seleccionados, accentSolid, onToggle }: {
+export function PendientesProtocoloCards({ visitas, reportes, ips, retomar, protocols, seleccionados, accentSolid, onToggle }: {
   /** Alertas de visita SIN filtrar. */
   visitas: readonly VisitaConProtocolo[]
   /** Reportes pendientes SIN filtrar. */
   reportes: readonly ReporteConProtocolo[]
   /** IP sin entregar SIN filtrar (0119). */
   ips: readonly ReporteConProtocolo[]
+  /** Procedimientos por retomar SIN filtrar, una fila por visita (v0145). */
+  retomar: readonly ReporteConProtocolo[]
   /**
    * El catálogo, para el NOMBRE y el ESTADO de cada protocolo: las filas de alerta traen el código
    * pero no el resto. Si un protocolo todavía no está acá —la consulta carga por su cuenta— la
@@ -55,7 +57,7 @@ export function PendientesProtocoloCards({ visitas, reportes, ips, protocols, se
   accentSolid: string
   onToggle: (protocolId: string) => void
 }) {
-  const filas = pendientesPorProtocolo(visitas, reportes, ips)
+  const filas = pendientesPorProtocolo(visitas, reportes, ips, retomar)
   const porId = new Map(protocols.map((p) => [p.id, p]))
   /* Con un solo protocolo el atajo no sirve de nada: enfocar en el único que hay deja la lista igual.
      Se esconde entero en vez de dibujar una tarjeta que no cambia nada al tocarla. */
@@ -87,8 +89,8 @@ export function PendientesProtocoloCards({ visitas, reportes, ips, protocols, se
           /* Sin alerta de visita, el IP sin entregar (0119) manda sobre los reportes: mismo orden que
              el punto de la campana (`tonoDelPunto`). Ícono y tono son los de `CLASES.ip`, escritos acá
              porque `views/` no importa de `shell/`. */
-          const icono = p.peor ? SEVERIDAD_ICONO[claseDeAlerta(p.peor)] : p.ips > 0 ? 'pill' : ICONO_REPORTE
-          const tono = p.peor ? VISIT_STATES[p.peor].color : p.ips > 0 ? 'var(--spira-acc-deep-warn)' : 'var(--spira-acc-deep-blue)'
+          const icono = p.peor ? SEVERIDAD_ICONO[claseDeAlerta(p.peor)] : p.ips > 0 ? 'pill' : p.reportes > 0 ? ICONO_REPORTE : 'clock'
+          const tono = p.peor ? VISIT_STATES[p.peor].color : p.ips > 0 ? 'var(--spira-acc-deep-warn)' : p.reportes > 0 ? 'var(--spira-acc-deep-blue)' : 'var(--spira-muted)'
           return (
             <button
               key={p.protocolId}
@@ -164,6 +166,12 @@ export function PendientesProtocoloCards({ visitas, reportes, ips, protocols, se
                       <span style={parte}>
                         <span style={{ ...punto, background: 'var(--spira-acc-deep-blue)' }} />
                         Reporte <b style={cifra}>{p.reportes}</b>
+                      </span>
+                    )}
+                    {p.retomar > 0 && (
+                      <span style={parte}>
+                        <span style={{ ...punto, background: 'var(--spira-muted)' }} />
+                        Por retomar <b style={cifra}>{p.retomar}</b>
                       </span>
                     )}
                   </div>

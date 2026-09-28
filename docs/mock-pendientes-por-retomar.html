@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spira · Mock — Pendientes por retomar y retest atado a una visita</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================================
+   TOKENS — copiados de src/styles/tokens.css el 2026-09-27 (tema claro).
+   Ninguno inventado. El acento de Coordinación es el `accentSolid` de
+   src/modules/registry.ts (#2B766D), que es el que reciben los modales.
+   ========================================================================== */
+:root {
+  --spira-ink:      #14302E;
+  --spira-ink-2:    #2A4744;
+  --spira-ink-soft: #465A57;
+  --spira-primary:  #0F5F57;
+  --spira-paper:    #F4F1EA;
+  --spira-surface:  #FBFAF6;
+  --spira-white:    #FFFFFF;
+  --spira-muted:    #61706C;
+  --spira-faint:    #838C89;
+  --spira-line:     #E4DECF;
+  --spira-line-2:   #D8CBB0;
+  --spira-good:     #5C8A5A;
+  --spira-warn:     #B0823F;
+  --spira-danger:   #A6483B;
+  --spira-track:    #2E7D74;
+  --spira-acc-deep-track:  #0F5F57;
+  --spira-acc-deep-warn:   #6E5620;
+  --spira-acc-deep-danger: #A6483B;
+  --spira-band-track: #0F5F57;
+  --spira-tint-track: rgba(46, 125, 116, 0.10);
+  --spira-on-accent: #F4F1EA;
+  --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif;
+  --spira-font-text:    'Inter', system-ui, sans-serif;
+  --spira-radius-md: 10px;
+  --spira-radius-lg: 16px;
+  --spira-shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.06);
+  --spira-shadow-md: 0 12px 32px rgba(20, 48, 46, 0.10);
+  --spira-shadow-lg: 0 18px 40px rgba(20, 48, 46, 0.14);
+
+  --acento: #2B766D;           /* accentSolid de Coordinación (registry.ts) */
+  --anota: #B0307E;            /* SÓLO para las anotaciones del mock: no es de Spira a propósito */
+}
+
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; background: #EDE9DD; font-family: var(--spira-font-text); color: var(--spira-ink); }
+button, input { font-family: inherit; }
+svg.i { width: 1em; height: 1em; flex: 0 0 auto; display: inline-block; vertical-align: middle; }
+.mono { font-family: var(--spira-font-text); font-variant-numeric: tabular-nums; }
+
+/* —— cromo de la página del mock (no es la app) —————————————————————— */
+.page { max-width: 1185px; margin: 0 auto; padding: 28px 16px 72px; }
+h1 { font-family: var(--spira-font-display); font-size: 22px; letter-spacing: -.02em; margin: 0 0 8px; }
+.mockbar {
+  background: #FFF8E6; border: 1px solid var(--spira-line-2); border-radius: 12px;
+  padding: 13px 16px; font-size: 13px; color: var(--spira-ink-soft); line-height: 1.55; margin-bottom: 8px;
+}
+.mockbar b { color: var(--spira-ink); }
+.mockbar ul { margin: 8px 0 0; padding-left: 20px; }
+.mockbar li { margin: 3px 0; }
+.sec { margin-top: 44px; }
+.sec-t { font-family: var(--spira-font-display); font-size: 17px; font-weight: 700; margin: 0 0 4px; }
+.sec-s { font-size: 13px; color: var(--spira-muted); margin: 0 0 16px; max-width: 88ch; line-height: 1.5; }
+.cap { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--spira-muted); margin: 0 0 8px; }
+.grid2 { display: grid; grid-template-columns: 480px 480px; gap: 32px; align-items: start; }
+.grid-v { display: grid; grid-template-columns: minmax(0, 560px) 480px; gap: 32px; align-items: start; }
+@media (max-width: 1060px) { .grid2, .grid-v { grid-template-columns: minmax(0, 1fr); } }
+.notas { margin-top: 18px; font-size: 12.5px; color: var(--spira-ink-soft); line-height: 1.55; max-width: 92ch; }
+.notas b { color: var(--spira-ink); }
+.notas ul { margin: 6px 0 0; padding-left: 18px; }
+.notas li { margin-bottom: 4px; }
+
+/* Anotación: una etiqueta al margen. NUNCA un contorno — un contorno se leería como el borde de
+   color que el sistema prohíbe. */
+.nuevo { position: relative; }
+.nuevo::after {
+  content: attr(data-nota); position: absolute; top: -9px; right: -8px; z-index: 2;
+  font: 700 9.5px/1 var(--spira-font-text); letter-spacing: .1em; text-transform: uppercase;
+  color: #fff; background: var(--anota); padding: 3px 6px; border-radius: 4px; white-space: nowrap;
+}
+.tag-anota { font: 700 9.5px/1 var(--spira-font-text); letter-spacing: .1em; text-transform: uppercase; color: #fff; background: var(--anota); padding: 3px 6px; border-radius: 4px; }
+
+/* Backdrop del modal (Modal.tsx): lo dibujamos como un paño detrás, para que la card se lea encima. */
+.telon { background: rgba(20, 48, 46, 0.32); border-radius: 18px; padding: 22px; }
+
+/* Lo que no cambia se dibuja como bloque de contexto (anotación, no app). */
+.igual {
+  border-radius: 10px; padding: 14px; font-size: 12px; color: var(--spira-muted); text-align: center;
+  background: repeating-linear-gradient(135deg, rgba(20,48,46,.035) 0 8px, transparent 8px 16px);
+}
+
+/* ============================================================================
+   LA APP — medidas de los componentes reales
+   ========================================================================== */
+
+/* Micro-interacción estándar (tokens.css): lo pulsable se levanta 1px y se asienta al pulsar. */
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled) { transition: transform .12s ease; }
+  button:not(:disabled):hover { transform: translateY(-1px); }
+  button:not(:disabled):active { transform: translateY(0); }
+}
+
+/* —— Modal.tsx —— */
+.modal {
+  background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 16px;
+  box-shadow: var(--spira-shadow-md); width: 100%; overflow: hidden;
+}
+.modal-h { padding: 22px 24px 14px; }
+.modal-hr { display: flex; align-items: center; gap: 12px; }
+.modal-t { flex: 1; font-family: var(--spira-font-display); font-weight: 700; font-size: 20px; letter-spacing: -.02em; color: var(--spira-ink); }
+.modal-x { width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; display: grid; place-items: center; color: var(--spira-muted); font-size: 18px; cursor: pointer; }
+.modal-sub { font-size: 13px; color: var(--spira-muted); line-height: 1.45; margin-top: 4px; }
+.modal-b { padding: 0 24px 22px; }
+.form { display: flex; flex-direction: column; gap: 14px; }
+
+/* —— FormField.tsx —— */
+.ff { display: flex; flex-direction: column; gap: 6px; }
+.ff-l { font-size: 12.5px; font-weight: 600; color: var(--spira-muted); }
+.input {
+  width: 100%; height: 44px; padding: 0 14px; border-radius: 10px;
+  border-width: 1px; border-style: solid; border-color: var(--spira-line-2); background: var(--spira-white);
+  color: var(--spira-ink); font-size: 14px; display: flex; align-items: center; cursor: pointer;
+}
+.input.fijo { background: var(--spira-surface); cursor: default; }
+.input .val { flex: 1; min-width: 0; }
+.input .suf { color: var(--spira-muted); font-size: 16px; display: grid; place-items: center; width: 26px; margin-right: -6px; }
+.hint { margin-top: 4px; font-size: 12px; color: var(--spira-muted); }
+
+/* —— SearchableSelect.tsx: disparador de campo + popover abierto —— */
+.selopen { position: relative; }
+.pop {
+  position: relative; margin-top: 6px; background: var(--spira-white); border: 1px solid var(--spira-line-2);
+  border-radius: 12px; box-shadow: 0 12px 30px rgba(20,48,46,.16); padding: 6px; display: flex; flex-direction: column; gap: 2px;
+}
+.opt {
+  min-height: 36px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; border-radius: 8px;
+  font-size: 13.5px; color: var(--spira-ink); cursor: pointer;
+}
+.opt.on { background: rgba(15,95,87,.10); color: var(--spira-acc-deep-track); font-weight: 600; }
+.opt .n { flex: 1; }
+.opt .c { font-size: 12px; color: var(--spira-muted); font-weight: 400; }
+.opt.on .c { color: var(--spira-acc-deep-track); }
+
+/* —— SelectorProcedimientos (Tarea 10) —— */
+.selector { max-height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.cat { font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--spira-muted); margin-bottom: 4px; }
+.chk { display: flex; align-items: center; gap: 8px; padding: 4px 2px; font-size: 13.5px; color: var(--spira-ink); cursor: pointer; }
+.chk input { accent-color: var(--acento); margin: 0; width: 14px; height: 14px; }
+.chk .motivo { font-size: 11.5px; color: var(--spira-muted); }
+.chk.bloq { cursor: default; color: var(--spira-muted); }
+
+/* —— error / aviso sereno (el mismo de RegisterVisitFlow) —— */
+.err { font-size: 13px; color: var(--spira-acc-deep-danger); background: rgba(166, 72, 59, 0.10); border-radius: 8px; padding: 8px 12px; }
+
+/* —— buttons.ts —— */
+.acciones { display: flex; justify-content: flex-end; gap: 8px; }
+.btn {
+  height: 40px; padding: 0 16px; border-width: 1px; border-style: solid; border-color: var(--spira-line-2);
+  border-radius: 10px; background: var(--spira-white); color: var(--spira-ink);
+  font-weight: 600; font-size: 14px; cursor: pointer; white-space: nowrap;
+}
+.btn-pri { border: none; background: var(--acento); color: var(--spira-on-accent); }
+.btn-pri:disabled { opacity: .45; cursor: default; }
+.btn-pri:disabled:hover { transform: none; }
+/* btnChico de DesdoblamientoVisita (Tarea 11): el outline, a 32px. */
+.btn-chico { height: 32px; padding: 0 12px; font-size: 13px; }
+
+/* —— VisitDetail.tsx: la card de la visita (recortada — sólo lo que usamos) —— */
+.visita {
+  width: 100%; max-width: 1120px; background: var(--spira-paper); border: 1px solid var(--spira-line);
+  border-radius: 20px; box-shadow: var(--spira-shadow-lg); overflow: hidden;
+}
+.v-head { background: var(--spira-white); }
+.v-util { display: flex; align-items: center; gap: 10px; padding: 10px 22px; border-bottom: 1px solid var(--spira-line); min-height: 51px; }
+.v-proto { font-family: var(--spira-font-display); font-size: 13px; font-weight: 700; }
+.v-code { font-size: 12.5px; color: var(--spira-muted); font-variant-numeric: tabular-nums; }
+.v-tag {
+  display: inline-flex; align-items: center; gap: 7px; height: 25px; padding: 0 11px; border-radius: 7px;
+  background: rgba(46, 125, 116, 0.14); font-family: var(--spira-font-display); font-size: 13px;
+  font-weight: 700; color: var(--spira-acc-deep-track); white-space: nowrap; letter-spacing: -.01em;
+}
+.v-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.v-x {
+  width: 30px; height: 30px; border-radius: 9px; padding: 0; border-width: 1px; border-style: solid;
+  border-color: var(--spira-line); background: var(--spira-white); display: grid; place-items: center;
+  color: var(--spira-muted); font-size: 15px; cursor: pointer;
+}
+.v-idw { padding: 15px 22px; display: flex; align-items: stretch; gap: 22px; }
+.v-idn { min-width: 0; flex: 1; border-left: 3px solid var(--spira-track); padding-left: 13px; }
+.v-nm { font-family: var(--spira-font-display); font-weight: 700; font-size: 23px; letter-spacing: -.02em; margin: 0; color: var(--spira-ink-2); line-height: 1.15; }
+.v-pid { display: block; margin-top: 5px; font-size: 17px; font-weight: 600; color: var(--spira-ink-soft); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.v-body { padding: 16px 22px 24px; }
+.v-colL { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+/* —— Panel.tsx —— */
+.panel { border: 1px solid var(--spira-line); border-radius: 14px; padding: 14px 16px; background: var(--spira-surface); }
+.panel-h { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.panel-h .ic { color: var(--acento); font-size: 15px; display: grid; }
+.panel-t { font-family: var(--spira-font-display); font-weight: 700; font-size: 14px; }
+.panel-aside { margin-left: auto; }
+
+/* —— IndicadoresVisita (variante modal) —— */
+.tira { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
+.ind { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; white-space: nowrap; color: var(--spira-ink); }
+.ind.off { color: var(--spira-ink-soft); }
+.ind svg { font-size: 14px; }
+
+/* —— DesdoblamientoVisita (Tarea 11): el pie del Resumen —— */
+.pie { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.fila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* —— Panel «Queda para otro día», MISMO lenguaje visual que ReportesPendientes.tsx ——
+   Una tarjeta por procedimiento con una banda-checkbox (área de 44, no un cuadrito de 20px), como
+   un reporte todavía sin marcar. El acento es de SIGNIFICADO (queda trabajo, mismo ámbar que
+   «N por cargar») y va SÓLO en el ícono del header y en el badge — nunca un borde ni un fondo
+   teñido de la tarjeta: el realce sigue siendo elevación (sombra), nunca color. */
+.badge-warn {
+  display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px;
+  border-width: 1px; border-style: solid; border-color: color-mix(in srgb, #B0823F 30%, var(--spira-white));
+  background: color-mix(in srgb, #B0823F 12%, var(--spira-white)); color: var(--spira-acc-deep-warn);
+  font-size: 11.5px; font-weight: 700; white-space: nowrap;
+}
+.procs { display: flex; flex-direction: column; gap: 10px; }
+.tarjeta { border: 1px solid var(--spira-line); border-radius: 12px; overflow: hidden; background: var(--spira-white); }
+.banda {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 9px 14px;
+  text-align: left; background: var(--spira-surface); border-width: 0; border-bottom: 1px solid var(--spira-line);
+  font-family: var(--spira-font-text); cursor: pointer;
+}
+.tarjeta .banda:last-child { border-bottom: none; }
+.casilla { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; border-width: 1.5px; border-style: solid; border-color: var(--spira-muted); background: transparent; }
+.p-nm { display: block; font-size: 12.5px; font-weight: 600; color: var(--spira-ink); }
+.p-sub { display: block; margin-top: 2px; font-size: 11.5px; color: var(--spira-ink-soft); }
+/* Fila de «Queda para otro día» en la FICHA (paso 5): una visita, no un procedimiento — sin
+   casilla, con su botón con nombre a la derecha. Misma banda que ReportesPendientes, sin el control
+   de tilde que acá no aplica. */
+.qpr-fila { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 9px 14px; background: var(--spira-surface); }
+
+/* —— Fila «Procedimientos por retomar» (TrackAlertsView, tono neutro — alertItem.ts) ——
+   Superficie con fondo/borde teñidos por el TONO, igual que alertItemStyle(), pero acá el tono es
+   `--spira-muted` (neutro): no es una alerta de severidad, es una postergación deliberada. El botón
+   con nombre «Agendar» se superpone abajo a la derecha, como «Documentar desviación» en la ventana
+   vencida — mismo motivo: es la acción que RESUELVE la fila. */
+.retomar {
+  position: relative; display: flex; gap: 11px; width: 100%; padding: 12px 13px 34px 13px; border-radius: 11px;
+  background: color-mix(in srgb, var(--spira-muted) 5.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--spira-muted) 19%, transparent);
+  font-family: var(--spira-font-text); color: var(--spira-ink);
+}
+.retomar-ic { flex: 0 0 auto; margin-top: 1px; color: var(--spira-muted); font-size: 18px; }
+.retomar-l1 { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.retomar-sub { font-size: 12.5px; color: var(--spira-muted); margin-top: 2px; line-height: 1.4; }
+.retomar-btn { position: absolute; right: 12px; bottom: 10px; }
+</style>
+</head>
+<body>
+
+<!-- Íconos Lucide (los mismos nombres que components/Icon.tsx) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-clipboardCheck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></symbol>
+    <symbol id="i-droplet" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></symbol>
+    <symbol id="i-pill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></symbol>
+    <symbol id="i-fileText" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+    <symbol id="i-arrowRight" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-chevronDown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+  </defs>
+</svg>
+
+<div class="page">
+  <h1>Pendientes por retomar y retest atado a una visita</h1>
+  <div class="mockbar">
+    <b>Mock para el visto bueno del Director, antes de escribir la UI (0145).</b> Cuatro pantallas de
+    Coordinación con datos de ficción — protocolo <b>TEST-QA</b> («Protocolo de prueba»), paciente
+    <b>Juan Pérez</b>, IVRS <b>TEST-001-017</b>. Colores, medidas y fuentes salen de <code>tokens.css</code>
+    y de los componentes reales (<code>Modal.tsx</code>, <code>DesdoblamientoVisita.tsx</code>,
+    <code>PasarPendientesModal.tsx</code>, <code>SearchableSelect.tsx</code>, <code>alertItem.ts</code>); el
+    copy es el que va a llevar el código, palabra por palabra.
+    <ul>
+      <li>Todo lo que lleva <span class="tag-anota">Nuevo</span> es pantalla que hoy no existe. Los bloques rayados son partes de la app que no cambian y se omitieron.</li>
+      <li>El hover funciona: los botones se levantan 1px. Ningún realce usa borde de color — la superficie se eleva con sombra chica (<code>--spira-shadow-sm</code>), como ya rige en <code>DesdoblamientoVisita</code>.</li>
+      <li>Nombre del paciente en tinta (identidad primaria) + IVRS en mono (secundario), sin excepción.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════════════════
+       1 · AL FINALIZAR
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="sec">
+    <h2 class="sec-t">1 · Al finalizar la atención</h2>
+    <p class="sec-s">
+      Al tocar «Finalizar atención», si la visita tiene procedimientos con reporte sin tildar (lo que
+      no tiene reporte se da por hecho solo, decisión 9 del spec), aparece este flujo de dos pasos antes
+      de avanzar. Se intercepta en los dos lugares desde donde se finaliza: la fila de Visitas y el
+      detalle de la visita. <b>Acá se tilda lo que SE HIZO</b> — el mismo tilde de siempre, el que arranca
+      el reloj del reporte —, no lo que queda pendiente: lo pendiente es lo que sobra sin tildar.
+    </p>
+
+    <div class="grid2">
+      <div>
+        <p class="cap">Paso 1 · marcar lo que se hizo</p>
+        <div class="telon">
+          <div class="modal nuevo" data-nota="Nuevo" role="dialog" aria-label="Esta visita tiene procedimientos sin marcar">
+            <div class="modal-h">
+              <div class="modal-hr">
+                <div class="modal-t">Esta visita tiene procedimientos sin marcar</div>
+                <button class="modal-x" aria-label="Cerrar"><svg class="i"><use href="#i-x"/></svg></button>
+              </div>
+              <div class="modal-sub">Marcá los que se hicieron. Lo que no marques queda para otro día.</div>
+            </div>
+            <div class="modal-b">
+              <div class="form">
+                <div class="ff">
+                  <span class="ff-l">¿Qué se hizo?</span>
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <label class="chk"><input type="checkbox" /> Hemograma</label>
+                    <label class="chk"><input type="checkbox" checked /> Laboratorio</label>
+                  </div>
+                </div>
+                <div class="acciones">
+                  <button class="btn">Cancelar</button>
+                  <button class="btn btn-pri">Continuar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p class="cap">Paso 2 · sólo si algo quedó sin marcar</p>
+        <div class="telon">
+          <div class="modal nuevo" data-nota="Nuevo" role="dialog" aria-label="Van a quedar pendientes">
+            <div class="modal-h">
+              <div class="modal-hr">
+                <div class="modal-t">Van a quedar pendientes</div>
+                <button class="modal-x" aria-label="Cerrar"><svg class="i"><use href="#i-x"/></svg></button>
+              </div>
+              <div class="modal-sub">Estos procedimientos quedan para otro día. Los vas a encontrar en Pendientes.</div>
+            </div>
+            <div class="modal-b">
+              <div class="form">
+                <div style="font-size:13.5px;color:var(--spira-ink)">Hemograma</div>
+                <div class="acciones">
+                  <button class="btn">Volver</button>
+                  <button class="btn btn-pri">Finalizar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notas">
+      <b>Qué mirar:</b>
+      <ul>
+        <li><b>Sin pendientes, no aparece nada</b>: la visita finaliza como siempre. Esto sólo sale con procedimientos con reporte sin tildar.</li>
+        <li><b>El tilde del paso 1 es el tilde de verdad</b>, el mismo de «Reportes pendientes»: tildar acá arranca el reloj del reporte, no es una preselección aparte. Laboratorio llega tildado en este ejemplo porque ya se hizo antes de finalizar; Hemograma no.</li>
+        <li><b>«Continuar» siempre está habilitado</b>, tilde lo que tilde: no depende de que quede algo pendiente.</li>
+        <li><b>El paso 2 sólo aparece si algo quedó sin marcar.</b> Si se tilda todo, «Continuar» finaliza directo, sin este paso — no hay nada que preguntar.</li>
+        <li><b>El paso 2 es una confirmación, no una segunda elección</b>: lista en texto plano lo que va a quedar pendiente (lo que no se tildó), sin casillas. «Volver» regresa al paso 1 sin perder lo tildado; «Finalizar» llama a <code>dejar_pendientes</code> con esa lista y después finaliza.</li>
+        <li><b>«Cancelar» no cambia nada</b>: cierra el flujo entero, la visita sigue en atención como si no se hubiera tocado nada.</li>
+        <li>Si <code>dejar_pendientes</code> falla, no se avanza: se ve el error y la visita sigue en atención.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════════════════
+       2 · LA V3 CON MARCAS
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="sec">
+    <h2 class="sec-t">2 · La visita de origen, con marcas</h2>
+    <p class="sec-s">
+      Otro finalizar de la V4 W6 de Juan Pérez, esta vez dejando Hemograma y Laboratorio para otro día
+      (con el flujo del paso 1). Lo marcado se ve en un panel nuevo, «Queda para otro día», con el MISMO
+      lenguaje visual que «Reportes pendientes» — tarjeta, banda-checkbox, badge de cuenta — un poco más
+      de alerta (el acento ámbar de «por cargar») pero sin teñir la tarjeta ni ponerle borde de color: el
+      realce sigue siendo elevación. Tildar una fila NO la da por hecha directo: abre una confirmación
+      («¿Qué se hizo hoy?», más abajo). El botón que hoy dice «Pasar pendientes a otro día» pasa a
+      llamarse «Dejar para otro día» y deja de pedir fecha: la fecha se pone recién al retomar (paso 3).
+    </p>
+
+    <div class="visita" style="box-shadow: var(--spira-shadow-md)">
+      <div class="v-head">
+        <div class="v-util">
+          <span class="v-proto">Protocolo de prueba</span>
+          <span class="v-code mono">TEST-QA</span>
+          <span class="v-tag"><svg class="i" style="color:var(--spira-primary);font-size:13px"><use href="#i-calendar"/></svg>Visita V4 W6</span>
+          <span class="v-right"><span class="v-x"><svg class="i"><use href="#i-x"/></svg></span></span>
+        </div>
+        <div class="v-idw">
+          <div class="v-idn">
+            <h3 class="v-nm">Juan Pérez</h3>
+            <b class="v-pid mono">TEST-001-017</b>
+          </div>
+        </div>
+      </div>
+      <div class="v-body" style="padding-top:14px">
+        <div class="v-colL">
+          <!-- Resumen de la visita + el pie con los dos botones -->
+          <div class="panel">
+            <div class="panel-h">
+              <span class="ic"><svg class="i"><use href="#i-clipboardCheck"/></svg></span>
+              <span class="panel-t">Resumen de la visita</span>
+            </div>
+            <div class="tira">
+              <span class="ind"><svg class="i" style="color:var(--spira-track)"><use href="#i-clipboardCheck"/></svg><span>1 procedimiento</span></span>
+              <span class="ind"><svg class="i" style="color:var(--spira-good)"><use href="#i-check"/></svg>Reportes al día</span>
+            </div>
+
+            <div class="pie">
+              <div class="fila" style="align-self:flex-start">
+                <button class="btn btn-chico">Dejar para otro día</button>
+                <button class="btn btn-chico">Editar procedimientos</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- «Queda para otro día»: mismo lenguaje visual que ReportesPendientes.tsx -->
+          <div class="panel nuevo" data-nota="Nuevo">
+            <div class="panel-h">
+              <span class="ic" style="color:var(--spira-acc-deep-warn)"><svg class="i"><use href="#i-clock"/></svg></span>
+              <span class="panel-t">Queda para otro día</span>
+              <span class="panel-aside"><span class="badge-warn">2 para otro día</span></span>
+            </div>
+            <div class="procs">
+              <div class="tarjeta">
+                <button type="button" class="banda">
+                  <span class="casilla"></span>
+                  <span style="min-width:0;flex:1">
+                    <span class="p-nm">Hemograma</span>
+                    <span class="p-sub">Para otro día · 1 reporte</span>
+                  </span>
+                </button>
+              </div>
+              <div class="tarjeta">
+                <button type="button" class="banda">
+                  <span class="casilla"></span>
+                  <span style="min-width:0;flex:1">
+                    <span class="p-nm">Laboratorio</span>
+                    <span class="p-sub">Para otro día · 1 reporte</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="cap" style="margin-top:26px">Al tildar Hemograma: «¿Qué se hizo hoy?»</p>
+    <div class="telon nuevo" data-nota="Nuevo" style="max-width:480px">
+      <div class="modal" role="dialog" aria-label="¿Qué se hizo hoy?">
+        <div class="modal-h">
+          <div class="modal-hr">
+            <div class="modal-t">¿Qué se hizo hoy?</div>
+            <button class="modal-x" aria-label="Cerrar"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>
+          <div class="modal-sub">Se sacan de «Queda para otro día» y arrancan su reporte en esta visita.</div>
+        </div>
+        <div class="modal-b">
+          <div class="form">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <label class="chk"><input type="checkbox" checked /> Hemograma</label>
+              <label class="chk"><input type="checkbox" /> Laboratorio</label>
+            </div>
+            <div class="acciones">
+              <button class="btn">Cancelar</button>
+              <button class="btn btn-pri">Se hizo hoy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notas">
+      <b>Qué mirar:</b>
+      <ul>
+        <li><b>La visita cierra igual</b>: aunque el reporte de Hemograma y Laboratorio siga «pendiente» en su tabla, la lista efectiva ya no los debe — la marca los resta (0145).</li>
+        <li><b>Lo marcado NO aparece en «Reportes pendientes»</b>: ese panel lee la lista efectiva, y ahí ya no está. Por eso a esta visita ya no le queda ningún reporte por cargar (arriba, «Reportes al día») — lo pendiente vive únicamente en el panel nuevo.</li>
+        <li><b>La casilla de «Queda para otro día» no tilda directo</b>: como cualquier casilla de reporte, PERO acá tocarla abre «¿Qué se hizo hoy?» en vez de tildar en el momento — es una confirmación, no un tilde optimista, porque tildar acá hace dos cosas a la vez (saca la marca Y arranca el reporte).</li>
+        <li><b>«¿Qué se hizo hoy?» lista TODO lo que está marcado en esta visita</b>, no sólo lo que se tocó: la fila tocada llega pre-tildada y se puede sumar cualquier otra marca que también se haya hecho hoy. Confirmar llama a <code>quitar_pendiente</code> por cada una y las tilda como realizadas (arranca su reloj de reporte). <b>«Cancelar» no cambia nada</b>: se cierra tal cual estaba, sin sacar ninguna marca.</li>
+        <li><b>«Editar procedimientos» sólo si la visita es suelta</b> (VNP, retest o continuación): las del cronograma se editan desde el cronograma del protocolo.</li>
+        <li><b>«Dejar para otro día» sigue disponible</b> incluso antes de la visita, por si ya se sabe que algo no se va a hacer.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════════════════
+       3 · AGREGAR VISITA (DESDE VISITAS)
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="sec">
+    <h2 class="sec-t">3 · Agregar visita, desde Visitas</h2>
+    <p class="sec-s">
+      Botón nuevo «Agregar visita» en la cabecera de Visitas (las de hoy): la fecha queda fija en el día
+      que se está mirando. Primero se elige el estudio y después «¿Qué vas a hacer?», con cuatro caminos.
+      El mismo flujo vive en la ficha del paciente, con el paciente ya fijo y la fecha editable.
+    </p>
+
+    <div class="grid-v">
+      <div>
+        <p class="cap">«¿Qué vas a hacer?», desplegable abierto</p>
+        <div class="telon nuevo" data-nota="Nuevo">
+          <div class="modal" role="dialog" aria-label="Agregar visita">
+            <div class="modal-h">
+              <div class="modal-hr">
+                <div class="modal-t">Agregar visita</div>
+                <button class="modal-x" aria-label="Cerrar"><svg class="i"><use href="#i-x"/></svg></button>
+              </div>
+            </div>
+            <div class="modal-b">
+              <div class="form">
+                <div class="ff">
+                  <span class="ff-l">Estudio</span>
+                  <div class="input"><span class="val mono">TEST-QA — Protocolo de prueba</span><span class="suf"><svg class="i"><use href="#i-chevronDown"/></svg></span></div>
+                </div>
+                <div class="ff">
+                  <span class="ff-l">Fecha</span>
+                  <div class="input fijo"><span class="val">25/09/2026</span><span class="suf"><svg class="i"><use href="#i-calendar"/></svg></span></div>
+                  <div class="hint">Es el día que estás mirando en Visitas.</div>
+                </div>
+                <div class="ff selopen">
+                  <span class="ff-l">¿Qué vas a hacer?</span>
+                  <div class="input" style="box-shadow:0 5px 14px rgba(20,48,46,.10)"><span class="val ph" style="color:var(--spira-muted)">Elegí una opción</span><span class="suf"><svg class="i" style="transform:rotate(180deg)"><use href="#i-chevronDown"/></svg></span></div>
+                  <div class="pop">
+                    <div class="opt"><span class="n">Una visita del estudio</span><span class="c">3</span></div>
+                    <div class="opt"><span class="n">Continuar pendientes</span><span class="c">2</span></div>
+                    <div class="opt"><span class="n">Retest</span></div>
+                    <div class="opt"><span class="n">VNP</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p class="cap">«Continuar pendientes» elegido, con Juan Pérez</p>
+        <div class="telon nuevo" data-nota="Nuevo">
+          <div class="modal" role="dialog" aria-label="Agregar visita">
+            <div class="modal-h">
+              <div class="modal-hr">
+                <div class="modal-t">Agregar visita</div>
+                <button class="modal-x" aria-label="Cerrar"><svg class="i"><use href="#i-x"/></svg></button>
+              </div>
+            </div>
+            <div class="modal-b">
+              <div class="form">
+                <div class="igual">Estudio y fecha: igual que a la izquierda</div>
+                <div class="ff">
+                  <span class="ff-l">¿Qué vas a hacer?</span>
+                  <div class="input"><span class="val">Continuar pendientes</span><span class="suf"><svg class="i"><use href="#i-chevronDown"/></svg></span></div>
+                </div>
+                <div class="ff">
+                  <span class="ff-l">Visita</span>
+                  <div class="input"><span class="val mono">V3 W4 · Juan Pérez · 12/9 · Hematología, ECG</span><span class="suf"><svg class="i"><use href="#i-chevronDown"/></svg></span></div>
+                </div>
+                <div class="ff">
+                  <span class="ff-l">¿Qué se hace hoy?</span>
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <label class="chk"><input type="checkbox" checked /> Hematología</label>
+                    <label class="chk"><input type="checkbox" checked /> ECG</label>
+                  </div>
+                </div>
+                <div class="acciones">
+                  <button class="btn">Cancelar</button>
+                  <button class="btn btn-pri">Agendar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notas">
+      <b>Qué mirar:</b>
+      <ul>
+        <li><b>«Una visita del estudio (3)»</b> lista las próximas ya agendadas de todo el estudio (todos los pacientes), para traerlas a hoy — no las marcadas.</li>
+        <li><b>«Continuar pendientes (2)»</b> lista visitas CON marcas, de todo el estudio: «V3 W4 · Juan Pérez · 12/9 · Hematología, ECG». El número es cuántas visitas tienen algo para retomar, no cuántos procedimientos.</li>
+        <li><b>Los procedimientos vienen preseleccionados</b>: ya se eligieron a propósito al marcarlos (decisión 8 del spec). Se destilda lo que hoy tampoco se hace, y sigue marcado.</li>
+        <li><b>«Retest» y «VNP» no cambian de lista</b> acá — están para que se vea el desplegable completo. El retest ahora exige elegir de qué visita repite (atendida, últimos 60 días) y sólo ofrece lo que se hizo ahí.</li>
+        <li>El botón final dice <b>«Agendar»</b> en los cuatro caminos: es el mismo verbo que ya usa «Agendar visita» desde la ficha.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════════════════
+       3b · AGREGAR VISITA (DESDE LA FICHA DEL PACIENTE)
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="sec">
+    <h2 class="sec-t">3b · Agregar visita, desde la ficha del paciente</h2>
+    <p class="sec-s">
+      El mismo modal del paso 3, con el paciente ya fijo: sin campo «Estudio», una línea fija con su
+      identidad y el estudio, y la fecha EDITABLE (a diferencia de Visitas, donde queda fija en el día
+      que se mira: acá tiene sentido dejarla agendada a futuro — «el jueves vuelve a completar»). Vive en
+      el botón «Agendar visita» que ya tiene la cabecera de la ficha (<code>PatientFichaView.tsx</code>).
+    </p>
+
+    <div class="grid-v">
+      <div>
+        <p class="cap">«¿Qué vas a hacer?», con Juan Pérez ya fijo</p>
+        <div class="telon nuevo" data-nota="Nuevo">
+          <div class="modal" role="dialog" aria-label="Agendar visita">
+            <div class="modal-h">
+              <div class="modal-hr">
+                <div class="modal-t">Agendar visita</div>
+                <button class="modal-x" aria-label="Cerrar"><svg class="i"><use href="#i-x"/></svg></button>
+              </div>
+              <div class="modal-sub"><span style="color:var(--spira-ink);font-weight:600">Juan Pérez</span> · <span class="mono">TEST-001-017</span> · <span class="mono">TEST-QA</span></div>
+            </div>
+            <div class="modal-b">
+              <div class="form">
+                <div class="ff">
+                  <span class="ff-l">Fecha de la visita</span>
+                  <div class="input"><span class="val">25/09/2026</span><span class="suf"><svg class="i"><use href="#i-calendar"/></svg></span></div>
+                </div>
+                <div class="ff selopen">
+                  <span class="ff-l">¿Qué vas a hacer?</span>
+                  <div class="input" style="box-shadow:0 5px 14px rgba(20,48,46,.10)"><span class="val ph" style="color:var(--spira-muted)">Elegí una opción</span><span class="suf"><svg class="i" style="transform:rotate(180deg)"><use href="#i-chevronDown"/></svg></span></div>
+                  <div class="pop">
+                    <div class="opt"><span class="n">V2 - Randomización</span></div>
+                    <div class="opt"><span class="n">Continuar pendientes</span><span class="c">1</span></div>
+                    <div class="opt"><span class="n">Retest</span></div>
+                    <div class="opt"><span class="n">VNP</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p class="cap">«Continuar pendientes» elegido</p>
+        <div class="telon nuevo" data-nota="Nuevo">
+          <div class="modal" role="dialog" aria-label="Agendar visita">
+            <div class="modal-h">
+              <div class="modal-hr">
+                <div class="modal-t">Agendar visita</div>
+                <button class="modal-x" aria-label="Cerrar"><svg class="i"><use href="#i-x"/></svg></button>
+              </div>
+              <div class="modal-sub"><span style="color:var(--spira-ink);font-weight:600">Juan Pérez</span> · <span class="mono">TEST-001-017</span> · <span class="mono">TEST-QA</span></div>
+            </div>
+            <div class="modal-b">
+              <div class="form">
+                <div class="ff">
+                  <span class="ff-l">Fecha de la visita</span>
+                  <div class="input"><span class="val">28/09/2026</span><span class="suf"><svg class="i"><use href="#i-calendar"/></svg></span></div>
+                </div>
+                <div class="ff">
+                  <span class="ff-l">¿Qué vas a hacer?</span>
+                  <div class="input"><span class="val">Continuar pendientes</span><span class="suf"><svg class="i"><use href="#i-chevronDown"/></svg></span></div>
+                </div>
+                <div class="ff">
+                  <span class="ff-l">Visita</span>
+                  <div class="input"><span class="val mono">V3 W4 · 12/9 · Hematología, ECG</span><span class="suf"><svg class="i"><use href="#i-chevronDown"/></svg></span></div>
+                </div>
+                <div class="ff">
+                  <span class="ff-l">¿Qué se hace hoy?</span>
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <label class="chk"><input type="checkbox" checked /> Hematología</label>
+                    <label class="chk"><input type="checkbox" checked /> ECG</label>
+                  </div>
+                </div>
+                <div class="acciones">
+                  <button class="btn">Cancelar</button>
+                  <button class="btn btn-pri">Agendar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notas">
+      <b>Qué mirar:</b>
+      <ul>
+        <li><b>Sin campo «Estudio»</b>: la ficha ya está parada en un protocolo, no se elige. La línea
+        fija dice quién y en qué estudio, con el mismo criterio de identidad de siempre (nombre en
+        tinta, IVRS en mono) — es el mismo lugar que ocupa el <code>subtitle</code> de <code>Modal.tsx</code>.</li>
+        <li><b>«Fecha de la visita» es editable</b>, a diferencia del paso 3.</li>
+        <li><b>Sin «Una visita del estudio»</b>: esa opción trae visitas de OTROS pacientes para
+        traerlas a hoy, y no aplica parado en la ficha de uno solo — para la propia ya está
+        «Reprogramar», en la cabecera.</li>
+        <li><b>«V2 - Randomización»</b> es un ejemplo de visita libre del cuadro, pre-randomización:
+        mismo camino de siempre (<code>schedule_protocol_visit</code>), sin cambios.</li>
+        <li><b>«Continuar pendientes (1)»</b>: acá el número es cuántas visitas DE ESTE PACIENTE tienen
+        algo para retomar — no de todo el estudio, como en el paso 3.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════════════════
+       4 · PENDIENTES
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="sec">
+    <h2 class="sec-t">4 · Pendientes — «Procedimientos por retomar»</h2>
+    <p class="sec-s">
+      Lista nueva en la vista de Pendientes (<code>TrackAlertsView</code>), al lado de «IP sin entregar» y
+      «Reportes pendientes». Una fila por visita con marcas. Tono neutro — no es una alerta de severidad,
+      es una postergación deliberada — y no se puede descartar: sólo sale cuando se retoma o se quita la marca.
+    </p>
+
+    <p class="cap">Fila en la lista de Pendientes</p>
+    <div class="retomar nuevo" data-nota="Nuevo">
+      <span class="retomar-ic"><svg class="i"><use href="#i-clock"/></svg></span>
+      <div style="min-width:0">
+        <div class="retomar-l1">
+          <span style="color:var(--spira-ink)">Juan Pérez</span>
+          <span class="mono" style="color:var(--spira-muted);font-weight:600;font-size:12.5px">TEST-001-017</span>
+          <span style="color:var(--spira-muted);font-weight:400">· <span class="mono">TEST-QA</span></span>
+        </div>
+        <div class="retomar-sub">V3 W4 · 12/9 · Hematología, ECG · espera hace 5 d</div>
+      </div>
+      <span class="retomar-btn"><button class="btn btn-chico">Agendar</button></span>
+    </div>
+
+    <div class="notas">
+      <b>Qué mirar:</b>
+      <ul>
+        <li><b>Nombre en tinta + IVRS en mono</b>, como cualquier fila de Pendientes — misma identidad que «IP sin entregar» y «Reportes pendientes».</li>
+        <li><b>La sublínea agrupa por visita</b>: la visita, la fecha, TODOS los procedimientos marcados de esa visita juntos, y «espera hace N días» desde la marca más vieja.</li>
+        <li><b>«Agendar» abre el mismo flujo del paso 3</b>, con el paciente ya fijo y «Continuar pendientes» elegido sobre esa visita — no hay que volver a buscarla.</li>
+        <li><b>Sin botón de descartar</b> (a diferencia de un reporte pendiente): lo que no se puede archivar en silencio, no se olvida.</li>
+        <li><b>No lista inscripciones cerradas</b>: si el paciente ya salió del estudio no hay nada que retomar.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════════════════
+       5 · FICHA DEL PACIENTE: «QUEDA PARA OTRO DÍA»
+       ═══════════════════════════════════════════════════════════════════════════════════════ -->
+  <section class="sec">
+    <h2 class="sec-t">5 · Ficha del paciente: «Queda para otro día»</h2>
+    <p class="sec-s">
+      Bloque nuevo en la columna derecha de la ficha (<code>PatientFichaView.tsx</code>), entre la card
+      de «Próxima visita» y la de «Cronograma de visitas». Mismo lenguaje visual que el panel de la
+      visita (paso 2): badge de cuenta en tono ámbar, tarjetas por elevación, sin borde de color. Una
+      fila por VISITA de este paciente con marcas —no por procedimiento— con su botón con nombre
+      «Agendar». Sin nada pendiente, el bloque no se dibuja (no hay «Sin pendientes» vacío que mostrar).
+    </p>
+
+    <div class="panel nuevo" data-nota="Nuevo" style="max-width:640px">
+      <div class="panel-h">
+        <span class="ic" style="color:var(--spira-acc-deep-warn)"><svg class="i"><use href="#i-clock"/></svg></span>
+        <span class="panel-t">Queda para otro día</span>
+        <span class="panel-aside"><span class="badge-warn">1 visita</span></span>
+      </div>
+      <div class="procs">
+        <div class="tarjeta">
+          <div class="qpr-fila">
+            <span style="min-width:0;flex:1">
+              <span class="p-nm">V3 W4 · 12/9 · Hematología, ECG</span>
+              <span class="p-sub">Espera hace 5 d</span>
+            </span>
+            <button class="btn btn-chico">Agendar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notas">
+      <b>Qué mirar:</b>
+      <ul>
+        <li><b>Una fila por visita, no por procedimiento</b>: si esa V3 W4 tiene dos procedimientos
+        marcados, es UNA fila con los dos nombrados juntos — igual que en Pendientes (paso 4).</li>
+        <li><b>«Agendar» abre el modal del paso 3b</b> con esa visita ya preseleccionada en «Continuar
+        pendientes», sin tener que volver a buscarla en el desplegable.</li>
+        <li><b>Es la misma información que la fila de Pendientes (paso 4)</b>, mirada desde la ficha:
+        acá alcanza con la visita porque el paciente ya está a la vista arriba, en la ficha lateral.</li>
+        <li><b>Sin nada marcado, no hay bloque</b>: no se dibuja un «Sin pendientes» — la ficha ya dice
+        «Sin alertas activas» para lo urgente; este bloque es sólo para lo que sí hay.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+</body>
+</html>

@@ -38,6 +38,11 @@ import { VISIT_STATES } from './visitStates'
 import { VisitDetail } from './track/VisitDetail'
 import { useAbrirFicha } from './useAbrirFicha'
 import type { ViewProps } from './types'
+import { usePorRetomar } from '../data/pendientes'
+import { agruparPorRetomar, diasEsperando } from './track/retomar'
+import type { VisitaPorRetomar } from './track/retomar'
+import { AgendarVisitaModal } from './track/agendar/AgendarVisitaModal'
+import { pacienteDeVisita } from './track/agendar/opciones'
 
 const card: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
@@ -102,6 +107,8 @@ const AGE_OPTIONS: { value: number; label: string }[] = [
 const REPORTE_PENDIENTE = 'reporte_pendiente'
 /** La opción del filtro Estado para el IP sin entregar (0119). Tampoco es un `computed_status`. */
 const IP_SIN_ENTREGAR = 'ip_sin_entregar'
+/** La opción del filtro Estado para los procedimientos por retomar (v0145). No es un `computed_status`. */
+const POR_RETOMAR = 'por_retomar'
 
 /** Fecha de referencia de una alerta para el filtro de antigüedad. */
 function refDate(a: TrackVisitRow): string | null {
@@ -125,6 +132,15 @@ function refDate(a: TrackVisitRow): string | null {
 export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed, onNavigate }: ViewProps) {
   const accent = module.accent
   const alertsQ = useActiveAlerts()
+  /* La cuarta lista (v0145): visitas con procedimientos dejados para otro día. Consulta propia: no
+     es una alerta de la visita (la visita ya cerró) sino trabajo que espera. Su error se muestra en
+     línea, como el del IP: que falle no puede tirar la pantalla entera. */
+  const retomarQ = usePorRetomar()
+  const retomarRows = useMemo(
+    () => agruparPorRetomar(retomarQ.data?.marcas ?? [], retomarQ.data?.visitas ?? []),
+    [retomarQ.data],
+  )
+  const [agendando, setAgendando] = useState<VisitaPorRetomar | null>(null)
   const protocols = useProtocols()
   /* Varios protocolos a la vez (Director, 2026-08-25). La lista VACÍA es "todos": no hay opción
      "Todos los protocolos" que tildar, porque en un filtro múltiple esa opción tendría que
@@ -193,7 +209,10 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navTarget, onTargetConsumed])
 
-  const loading = alertsQ.loading || protocols.loading
+  /* Con `retomarQ` acá también: sin ella, la lista de retomar podía llegar VACÍA todavía (la consulta
+     en vuelo) mientras las otras tres ya estaban, y «Sin pendientes. Todo al día.» se dibujaba un
+     instante de más antes de que aparecieran sus filas. */
+  const loading = alertsQ.loading || protocols.loading || retomarQ.loading
   const error = alertsQ.error || protocols.error
 
   const allRows = alertsQ.visitAlerts
@@ -273,6 +292,22 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     })
   }, [ipRows, fEstado, protocolFilter, fMed, fCoord, q, ageDays])
 
+  /* Los MISMOS cinco filtros que las otras tres: una lista que un filtro no alcanza queda siempre
+     entera o siempre vacía, y las dos cosas mienten. */
+  const filteredRetomar = useMemo(() => {
+    const today = todayISO()
+    return retomarRows.filter((g) => {
+      const v = g.visita
+      if (fEstado.length > 0 && !fEstado.includes(POR_RETOMAR)) return false
+      if (protocolFilter.length > 0 && !protocolFilter.includes(v.protocol_id)) return false
+      if (fMed.length > 0 && !fMed.includes(v.treating_physician ?? SIN_VALOR)) return false
+      if (fCoord.length > 0 && !fCoord.includes(v.coordinator_id ?? SIN_VALOR)) return false
+      if (!coincideBusqueda(v, q)) return false
+      if (ageDays > 0 && diasEsperando(g.desde, today) > ageDays) return false
+      return true
+    })
+  }, [retomarRows, fEstado, protocolFilter, fMed, fCoord, q, ageDays])
+
   if (loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title={`Cargando ${submodule.name.toLowerCase()}…`} description="Un momento." />
   }
@@ -295,6 +330,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     for (const a of allRows) byId.set(a.protocol_id, a.protocol_code)
     for (const r of procRows) byId.set(r.protocol_id, r.protocol_code)
     for (const r of ipRows) byId.set(r.protocol_id, r.protocol_code)
+    for (const g of retomarRows) byId.set(g.visita.protocol_id, g.visita.protocol_code)
     const list = (protocols.data ?? []).filter((p) => byId.has(p.id))
     return list.map((p) => ({ id: p.id, code: p.code }))
   })()
@@ -311,12 +347,14 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     label: p.code,
     count: allRows.filter((a) => a.protocol_id === p.id).length
       + procRows.filter((r) => r.protocol_id === p.id).length
-      + ipRows.filter((r) => r.protocol_id === p.id).length,
+      + ipRows.filter((r) => r.protocol_id === p.id).length
+      + retomarRows.filter((g) => g.visita.protocol_id === p.id).length,
   }))
 
-  /* Los CUATRO avisos de esta pantalla en un solo eje. Los tres primeros son estados calculados de
-     la visita; el último no lo es —es un reporte pendiente, que vive en otra consulta— pero como
-     FILTRO pertenece acá: quien mira piensa "mostrame sólo los reportes", no "cruzá dos listas".
+  /* Los CUATRO avisos de esta pantalla en un solo eje. Los de `GRAVEDAD` son estados calculados de
+     la visita; los otros tres no lo son —IP sin entregar, reporte pendiente y procedimientos por
+     retomar viven cada uno en su propia consulta— pero como FILTRO pertenecen acá: quien mira piensa
+     "mostrame sólo los reportes" (o el IP, o lo por retomar), no "cruzá cuatro listas".
 
      ⚠️ ESTA LISTA ES UN CONSUMIDOR DE LA CLASE DE ALERTA y hay que barrerla cada vez que la clase
      se ensancha. La 0107 sumó "Por reprogramar" y esto quedó con tres opciones: las visitas de
@@ -333,12 +371,14 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     // 0119: el barrido que pide el aviso de arriba. Va antes del reporte: es más grave.
     { value: IP_SIN_ENTREGAR, label: 'IP sin entregar', count: ipRows.length },
     { value: REPORTE_PENDIENTE, label: 'Reporte pendiente', count: procRows.length },
+    { value: POR_RETOMAR, label: 'Por retomar', count: retomarRows.length },
   ]
 
-  /* Las tres listas juntas: un médico que sólo tiene reportes pendientes (o un IP sin entregar) tiene
-     que aparecer igual en el menú, o sus alertas quedan inalcanzables por filtro. */
-  const medOptions = opcionesMedico([allRows, procRows, ipRows])
-  const coordOptions = opcionesCoordinador([allRows, procRows, ipRows])
+  /* Las cuatro listas juntas: un médico que sólo tiene reportes pendientes (o un IP sin entregar, o
+     un procedimiento por retomar) tiene que aparecer igual en el menú, o sus alertas quedan
+     inalcanzables por filtro. */
+  const medOptions = opcionesMedico([allRows, procRows, ipRows, retomarRows.map((g) => g.visita)])
+  const coordOptions = opcionesCoordinador([allRows, procRows, ipRows, retomarRows.map((g) => g.visita)])
 
   const nFiltros = fEstado.length + protocolFilter.length + fMed.length + fCoord.length + (ageDays > 0 ? 1 : 0)
   const hayFiltros = nFiltros > 0 || q.trim() !== ''
@@ -356,6 +396,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
         visitas={allRows}
         reportes={procRows}
         ips={ipRows}
+        retomar={retomarRows.map((g) => g.visita)}
         protocols={protocols.data ?? []}
         seleccionados={protocolFilter}
         accentSolid={module.accentSolid}
@@ -404,8 +445,9 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           acá (ver `ClearFilters`), pegado al número que el filtro cambió. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -6 }}>
         <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
-          {filtered.length + filteredProc.length + filteredIp.length} de {allRows.length + procRows.length + ipRows.length}{' '}
-          {allRows.length + procRows.length + ipRows.length === 1 ? 'pendiente' : 'pendientes'}
+          {filtered.length + filteredProc.length + filteredIp.length + filteredRetomar.length} de{' '}
+          {allRows.length + procRows.length + ipRows.length + retomarRows.length}{' '}
+          {allRows.length + procRows.length + ipRows.length + retomarRows.length === 1 ? 'pendiente' : 'pendientes'}
         </span>
         {hayFiltros && <ClearFilters n={nFiltros} onClear={limpiarFiltros} />}
         {dismissals.length > 0 && (
@@ -603,10 +645,20 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
             No se pudieron cargar las alertas de producto en investigación: {alertsQ.ipError}
           </div>
         )}
-        {filtered.length === 0 && filteredProc.length === 0 && filteredIp.length === 0 ? (
+        {retomarQ.error && (
+          <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', padding: '8px 0 0' }}>
+            No se pudieron cargar los procedimientos por retomar: {retomarQ.error}
+          </div>
+        )}
+        {filtered.length === 0 && filteredProc.length === 0 && filteredIp.length === 0 && filteredRetomar.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
             <Icon name="check" size={16} color="var(--spira-good)" />
-            {allRows.length === 0 && procRows.length === 0 && ipRows.length === 0 ? 'Sin pendientes. Todo al día.' : 'Ningún pendiente coincide con los filtros.'}
+            {allRows.length === 0 && procRows.length === 0 && ipRows.length === 0 && retomarRows.length === 0 && !retomarQ.error
+              ? 'Sin pendientes. Todo al día.'
+              /* Con el error de retomar puesto, la lista de retomar quedó vacía porque FALLÓ, no
+                 porque no había nada: decir "Todo al día" ahí sería mentir sobre datos que no
+                 llegaron a cargar (el aviso de arriba ya cuenta el error en detalle). */
+              : 'Ningún pendiente coincide con los filtros.'}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -808,6 +860,58 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                 </div>
               )
             })}
+            {filteredRetomar.map((g) => {
+              /* Procedimientos por retomar (v0145). Tono NEUTRO: no es un desvío ni está vencido, es
+                 trabajo que espera fecha. SIN tacho: sale de la lista retomándolo («Agendar») o
+                 dándolo por hecho en la visita («¿Qué se hizo hoy?»), no descartándolo. */
+              const c = 'var(--spira-muted)'
+              const v = g.visita
+              const fecha = v.real_date ?? v.estimated_date
+              const dias = diasEsperando(g.desde, todayISO())
+              return (
+                <div key={`retomar:${v.id}`} style={{ position: 'relative' }}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="spira-card-link"
+                    onClick={() => setOpenVisitId(v.id)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenVisitId(v.id) }
+                    }}
+                    aria-label={`Abrir la visita de ${v.patient_name} — procedimientos para otro día`}
+                    style={alertItemStyle(c, { conBotonDesviacion: true })}
+                  >
+                    <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="clock" size={18} color={c} /></span>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="spira-link-group" style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                          <PatientLink onOpen={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))} label={`Abrir la ficha de ${v.patient_name}`}>
+                            {v.patient_name}
+                          </PatientLink>
+                        </span>
+                        <span style={code}>{v.patient_code ?? '—'}</span>
+                        {abrirFicha && <PatientLinkArrow />}
+                        <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}>· <span style={code}>{v.protocol_code}</span></span>
+                      </div>
+                      <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
+                        {visitTitle(v)}{fecha ? ` · ${formatAR(fecha)}` : ''} · {g.procedimientos.map((x) => x.name).join(', ')}
+                        {dias > 0 ? ` · espera hace ${dias} d` : ' · desde hoy'}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    style={deviationBtn}
+                    className="spira-card-link"
+                    aria-label={`Agendar lo pendiente de ${v.patient_name}`}
+                    onClick={() => setAgendando(g)}
+                  >
+                    Agendar
+                  </button>
+                </div>
+              )
+            })}
           </div>
         )}
         {/* La leyenda tiene que nombrar el color que se VE, y por eso SE ARMA sola desde
@@ -857,10 +961,23 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           visitId={openVisitId}
           accent={accent}
           onClose={() => setOpenVisitId(null)}
-          onChanged={() => alertsQ.refetch()}
+          onChanged={() => { alertsQ.refetch(); retomarQ.refetch() }}
           // El mismo gesto que ya tiene la fila: reusa `abrirFicha`, que ya cae a `undefined`
           // sin `onNavigate` y así el encabezado del modal degrada solo a texto.
           onOpenPatient={abrirFicha}
+        />
+      )}
+
+      {agendando && (
+        /* El MISMO «Agendar visita» de la ficha, con el paciente fijo y «Continuar pendientes» ya
+           elegido sobre esa visita (spec §4): no hay que volver a buscarla. */
+        <AgendarVisitaModal
+          modo="paciente"
+          paciente={pacienteDeVisita(agendando.visita)}
+          preseleccion={{ tipo: 'continuar', origenId: agendando.visita.id }}
+          accent={module.accentSolid}
+          onClose={() => setAgendando(null)}
+          onDone={() => { setAgendando(null); retomarQ.refetch(); alertsQ.refetch() }}
         />
       )}
     </div>
