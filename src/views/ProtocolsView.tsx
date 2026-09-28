@@ -608,7 +608,8 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
 /**
  * Lista de "Todos los pacientes" (Track): filas plegables `PdPatientRow` con el tracker
  * de visitas, reusando el mismo componente del tablero de protocolo. Trae todas las
- * visitas visibles de una (RLS las scopea) y las agrupa por paciente; cada fila muestra
+ * visitas visibles de una (RLS las scopea), en su forma LIVIANA —sólo lo que dibuja la fila
+ * plegada; ver `COLUMNAS_FILA_PACIENTE`—, y las agrupa por paciente; cada fila muestra
  * solo las del protocolo primario del paciente (evita mezclar V1..Vn entre protocolos).
  * Subcomponente para aislar los hooks (el branch que lo invoca es un return temprano).
  */
@@ -682,7 +683,8 @@ function AllPatientsList({ patients, accent, onOpenPatient }: {
               <PdPatientRow
                 key={pt.id}
                 patient={pt}
-                visits={ptVisits}
+                /* Livianas: sin estado calculado. El cronograma desplegado lo pide aparte. */
+                visits={{ completas: false, filas: ptVisits }}
                 accent={accent}
                 /* El mismo protocolo del que sale el chip: así el IVRS es el de ESA inscripción. */
                 protocolId={proto?.id}

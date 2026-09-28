@@ -6,13 +6,31 @@ import { PatientLink } from '../../components/PatientLink'
 import { ivrsDelEstudio } from '../../lib/ivrs'
 import { inscripcionDelEstudio } from '../../lib/inscripcion'
 import type { PatientRow } from '../../data/patients'
-import type { TrackVisitRow } from '../../data/visits'
+import { usePatientVisits } from '../../data/visits'
+import type { TrackVisitRow, VisitaDeFila } from '../../data/visits'
 import { orderVisits, todaySplit, ubicacionDeHoy, visitShortLabel } from '../../lib/visits'
 import { GLOSARIO } from '../../lib/glosario'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { PdFullSchedule } from './PdFullSchedule'
 
 const microLabel: CSSProperties = { fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }
+
+/**
+ * Las visitas de la fila, en una de DOS formas, y el tipo no deja confundirlas:
+ *
+ *  · `completas` — el tablero del protocolo, que ya las tiene enteras (`useProtocolVisits`): el
+ *    cronograma desplegado se dibuja con ellas, sin otra consulta.
+ *  · livianas — «Todos los pacientes», que trae sólo las columnas de la fila plegada
+ *    (`useAllVisits`, `COLUMNAS_FILA_PACIENTE`) porque pedir el estado calculado de TODAS las visitas
+ *    era lo más lento de la app. El cronograma desplegado sí necesita ese estado (el punto de cada
+ *    visita, «Completa» / «Visita realizada»), así que lo pide al desplegar, sólo para este paciente.
+ *
+ * Una unión y no un `visits` que aceptara las dos: con las livianas, `computed_status` llega
+ * `undefined`, y el cronograma pintaría cada visita atendida como «Visita realizada» sin ningún error.
+ */
+export type VisitasDeLaFila =
+  | { completas: true; filas: TrackVisitRow[] }
+  | { completas: false; filas: VisitaDeFila[] }
 
 /**
  * Fila de paciente del Detalle de Protocolo. Plegada: identidad (nombre + IVRS + médico) +
@@ -26,7 +44,7 @@ const microLabel: CSSProperties = { fontSize: 9.5, textTransform: 'uppercase', l
  */
 export function PdPatientRow({ patient, visits, accent, protocolId, protocolCode, onOpen, onOpenVisit }: {
   patient: PatientRow
-  visits: TrackVisitRow[]
+  visits: VisitasDeLaFila
   accent: string
   /**
    * Protocolo de esta fila. Con él, el número de sujeto que se muestra es el de ESA inscripción
@@ -44,13 +62,15 @@ export function PdPatientRow({ patient, visits, accent, protocolId, protocolCode
   onOpenVisit?: (visitId: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  /* La fila plegada sólo usa lo que tienen las dos formas: una completa también es una de fila. */
+  const filas: VisitaDeFila[] = visits.filas
   /* "Hoy" en la línea de tiempo: anterior, hoy, próxima. */
   const today = todayISO()
-  const { prev: prevByDate, next, todayVisit } = todaySplit(visits, today)
+  const { prev: prevByDate, next, todayVisit } = todaySplit(filas, today)
   /* "Anterior" = la visita inmediatamente anterior a la de hoy en la SECUENCIA, aunque sea del
      mismo día (p. ej. screening + run-in el mismo día: la anterior es la previa, no "—"). Si hoy
      no hay visita, la última con fecha pasada (lo que da todaySplit). */
-  const ordered = orderVisits(visits)
+  const ordered = orderVisits(filas)
   const todayIdx = todayVisit ? ordered.findIndex((v) => v.id === todayVisit.id) : -1
   const prev = todayIdx > 0 ? (ordered[todayIdx - 1] ?? null) : prevByDate
   const flowCurrentId = todayVisit?.id ?? next?.id ?? prev?.id ?? null
@@ -61,12 +81,14 @@ export function PdPatientRow({ patient, visits, accent, protocolId, protocolCode
      2026-09-16 (baja en ACT18301 → se veía de baja en LTS17231). Sin `protocolId` —ninguna
      pantalla hoy— no hay estudio en contexto y cae a "sin dato", que se lee como abierta. */
   const estadoInscripcion = protocolId ? (inscripcionDelEstudio(patient, protocolId)?.status ?? null) : null
-  /* La fila solo se despliega si hay algo que trackear; sin visitas no hay tracker que mostrar. */
-  const expandable = visits.length > 0
+  /* La fila solo se despliega si hay algo que trackear; sin visitas no hay tracker que mostrar. Con
+     las livianas, además, hace falta el protocolo para pedir el cronograma completo — hoy siempre
+     llega (sin protocolo la lista ni siquiera le pasa visitas). */
+  const expandable = filas.length > 0 && (visits.completas || !!protocolId)
 
   /* Etiqueta de la celda del tracker: el código para las programadas; el tipo (Scr/Firma/Rando…)
      para las sueltas. La fecha sale de la estimada (programadas) o la real (sueltas). */
-  const cell = (v: typeof prev) => {
+  const cell = (v: VisitaDeFila | null) => {
     if (!v) return '—'
     const label = visitShortLabel(v)
     const fecha = v.estimated_date ?? v.real_date
@@ -185,16 +207,74 @@ export function PdPatientRow({ patient, visits, accent, protocolId, protocolCode
           de cerrar", antes incluso que el desborde. */}
       {open && expandable && (
         <div style={{ padding: '6px 16px 16px' }}>
-          <PdFullSchedule
-            visits={visits}
-            currentId={flowCurrentId}
-            accent={accent}
-            ventana={3}
-            pie={ubicacionDeHoy(visits, today)}
-            onOpen={onOpenVisit}
-          />
+          {visits.completas ? (
+            <PdFullSchedule
+              visits={visits.filas}
+              currentId={flowCurrentId}
+              accent={accent}
+              ventana={3}
+              pie={ubicacionDeHoy(visits.filas, today)}
+              onOpen={onOpenVisit}
+            />
+          ) : (
+            <CronogramaAlDesplegar
+              patientId={patient.id}
+              protocolId={protocolId ?? null}
+              currentId={flowCurrentId}
+              accent={accent}
+              onOpenVisit={onOpenVisit}
+            />
+          )}
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * El cronograma desplegado de una fila de «Todos los pacientes»: pide las visitas COMPLETAS de este
+ * paciente en este estudio —la misma consulta que la ficha, `usePatientVisits`— recién al desplegar.
+ * Es chica (las visitas de una persona) y se paga sólo en la fila que se abre, en vez de pagar el
+ * estado calculado de todas las visitas del centro para dibujar la lista.
+ *
+ * Vive en su propio componente para que el hook exista sólo mientras la fila está abierta: plegar y
+ * volver a desplegar la vuelve a pedir, y así nunca muestra un estado viejo.
+ */
+function CronogramaAlDesplegar({ patientId, protocolId, currentId, accent, onOpenVisit }: {
+  patientId: string
+  protocolId: string | null
+  currentId: string | null
+  accent: string
+  onOpenVisit?: (visitId: string) => void
+}) {
+  const completas = usePatientVisits(patientId, protocolId)
+  const today = todayISO()
+  if (completas.error) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12.5, color: 'var(--spira-muted)' }}>
+        No pudimos cargar el recorrido.
+        <button
+          type="button"
+          className="spira-disclosure-link spira-no-press"
+          onClick={() => completas.refetch()}
+          style={{ color: accent }}
+        >
+          Reintentar
+        </button>
+      </div>
+    )
+  }
+  if (completas.loading || !completas.data) {
+    return <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>Cargando el recorrido…</div>
+  }
+  return (
+    <PdFullSchedule
+      visits={completas.data}
+      currentId={currentId}
+      accent={accent}
+      ventana={3}
+      pie={ubicacionDeHoy(completas.data, today)}
+      onOpen={onOpenVisit}
+    />
   )
 }

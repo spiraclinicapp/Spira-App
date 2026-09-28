@@ -1,6 +1,7 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
 import { addDaysISO, todayISO } from '../lib/dates'
+import { todasLasPaginas } from '../lib/paginas'
 import type { VisitKind } from './visitEvents'
 
 /** Estado calculado de la visita (enum visit_status; lo deriva v_patient_visits al leer). */
@@ -192,20 +193,55 @@ export function useProtocolVisits(protocolId: string | null) {
 }
 
 /**
+ * Las columnas que dibuja la fila PLEGADA de un paciente —el tracker Anterior → Actualidad →
+ * Próxima—: dónde cae cada visita en el tiempo (`orderVisits`, `todaySplit`) y cómo se llama
+ * (`visitShortLabel`, con el origen de continuaciones y retests). Nada más.
+ *
+ * Existe por el costo, medido el 2026-09-28: «Todos los pacientes» traía `v_track_visits` ENTERA con
+ * `select *` (~360 ms con una coordinadora de cuatro estudios, lo más lento de la app después de la
+ * 0146). Lo caro es `computed_status`: por cada visita atendida recorre sus procedimientos y sus
+ * reportes. Postgres lo saca del plan cuando no se lo pide —el EXPLAIN lo confirma—, y en el banco
+ * (`scripts/banco-rls/`) la misma lista baja de 82 a 21 ms con coordinación y de 162 a 34 con
+ * gerencia. Y viaja un tercio de las columnas.
+ *
+ * Si la fila plegada empieza a mostrar algo más, sumá su columna ACÁ: con `select` explícito, una
+ * columna que falta no da error, llega `undefined`. El tipo `VisitaDeFila` sale de esta misma lista,
+ * así que el compilador frena a quien lea una columna que no se pidió.
+ */
+export const COLUMNAS_FILA_PACIENTE = [
+  'id', 'patient_id', 'protocol_id', 'kind', 'visit_code', 'visit_name',
+  'estimated_date', 'real_date', 'sort_order',
+  'origin_visit_id', 'origin_code', 'origin_name', 'origin_kind',
+  'retest_of_visit_id', 'retest_of_code', 'retest_of_name', 'retest_of_kind',
+] as const satisfies readonly (keyof TrackVisitRow)[]
+
+/** Una visita tal como la trae «Todos los pacientes»: sin estado calculado. */
+export type VisitaDeFila = Pick<TrackVisitRow, (typeof COLUMNAS_FILA_PACIENTE)[number]>
+
+/**
  * Todas las visitas visibles para el usuario (sin filtro de protocolo; la RLS de
- * v_track_visits con security_invoker las scopea). Para la vista "Todos los pacientes":
- * se agrupan por paciente en el front para alimentar el tracker de cada fila. Mismo
- * orden estable patient_code → sort_order que useProtocolVisits.
+ * v_track_visits con security_invoker las scopea), en su forma LIVIANA. Para la vista "Todos los
+ * pacientes": se agrupan por paciente en el front para alimentar el tracker de cada fila. El
+ * cronograma desplegado de una fila, que sí necesita el estado, lo pide aparte y sólo para ese
+ * paciente (`usePatientVisits`). Mismo orden estable patient_code → sort_order que useProtocolVisits.
+ *
+ * PAGINADA (`todasLasPaginas`): PostgREST corta en 1.000 filas con 200 OK, y el 2026-09-28 una
+ * coordinadora ya veía 1.060 — los últimos pacientes por IVRS salían «Sin visitas registradas».
+ * El `id` al final del orden no es cosmético: sin él, las sueltas de un mismo paciente empatan
+ * (`sort_order` null) y la paginación puede repetir unas y saltear otras.
  */
 export function useAllVisits() {
-  return useSupabaseQuery<TrackVisitRow[]>(
+  return useSupabaseQuery<VisitaDeFila[]>(
     (c) =>
-      c
-        .from('v_track_visits')
-        .select('*')
-        .order('patient_code', { ascending: true })
-        .order('sort_order', { ascending: true })
-        .returns<TrackVisitRow[]>(),
+      todasLasPaginas((desde, hasta, conTotal) =>
+        c
+          .from('v_track_visits')
+          .select(COLUMNAS_FILA_PACIENTE.join(','), conTotal ? { count: 'exact' } : undefined)
+          .order('patient_code', { ascending: true })
+          .order('sort_order', { ascending: true })
+          .order('id', { ascending: true })
+          .range(desde, hasta)
+          .returns<VisitaDeFila[]>()),
     [],
   )
 }

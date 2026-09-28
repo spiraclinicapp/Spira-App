@@ -168,13 +168,26 @@ export function visitCode(v: VisitTitleFields): string {
  * Director lo marcó en la ficha (2026-09-14) y el contador se fue de toda la app. `visit_name` es
  * `not null` en `visit_definitions` (0002), así que el título siempre tiene de dónde salir.
  */
-export function visitShortLabel(v: TrackVisitRow): string {
+export function visitShortLabel(v: VisitTitleFields): string {
   return visitCode(v) || visitTitle(v)
 }
 
+/**
+ * Lo MÍNIMO para ubicar una visita en la línea de tiempo: su fecha efectiva y el desempate. Mismo
+ * criterio que `VisitTitleFields`: `TrackVisitRow` lo cumple sin adaptar nada, y la lista de «Todos
+ * los pacientes» —que pide sólo las columnas de la fila plegada (`VisitaDeFila`)— también.
+ */
+export interface VisitaEnLinea {
+  id: string
+  kind: VisitKind
+  estimated_date: string | null
+  real_date: string | null
+  sort_order: number | null
+}
+
 /** Agrupa visitas por patient_id (para alimentar el tracker de cada fila en listas). */
-export function groupVisitsByPatient(rows: TrackVisitRow[]): Map<string, TrackVisitRow[]> {
-  const map = new Map<string, TrackVisitRow[]>()
+export function groupVisitsByPatient<T extends { patient_id: string }>(rows: T[]): Map<string, T[]> {
+  const map = new Map<string, T[]>()
   for (const v of rows) {
     const list = map.get(v.patient_id)
     if (list) list.push(v)
@@ -184,7 +197,7 @@ export function groupVisitsByPatient(rows: TrackVisitRow[]): Map<string, TrackVi
 }
 
 /** Fecha "efectiva" para ordenar/ubicar: estimada (programadas) o real (sueltas). */
-function effectiveDate(v: TrackVisitRow): string {
+function effectiveDate(v: VisitaEnLinea): string {
   return v.estimated_date ?? v.real_date ?? ''
 }
 
@@ -197,7 +210,7 @@ export function scheduledVisits(rows: TrackVisitRow[]): TrackVisitRow[] {
    pre-rando: firma → screening → randomización, y la randomización ANTES de la V1 de tratamiento
    (programada offset 0, sort_order ≥ 0) porque abre el cronograma. Las programadas por su
    sort_order; las demás sueltas (vnp/retest) al final del empate. */
-function tieRank(v: TrackVisitRow): number {
+function tieRank(v: VisitaEnLinea): number {
   if (v.kind === 'programada') return v.sort_order ?? 0
   if (v.kind === 'firma') return -3
   if (v.kind === 'firma_screening' || v.kind === 'screening') return -2
@@ -206,7 +219,7 @@ function tieRank(v: TrackVisitRow): number {
 }
 
 /** Ordena cronológicamente por fecha efectiva; desempata con tieRank (randomización antes de V1). */
-export function orderVisits(rows: TrackVisitRow[]): TrackVisitRow[] {
+export function orderVisits<T extends VisitaEnLinea>(rows: T[]): T[] {
   return [...rows].sort((a, b) => {
     const da = effectiveDate(a)
     const db = effectiveDate(b)
@@ -220,14 +233,14 @@ export function orderVisits(rows: TrackVisitRow[]): TrackVisitRow[] {
  * hoy (`prev`), la primera con fecha posterior (`next`), y la que cae justo hoy (`todayVisit`, si hay).
  * Sirve para marcar "Hoy" en la línea de tiempo (con el tramo a medio llenar cuando cae entre dos).
  */
-export function todaySplit(rows: TrackVisitRow[], today: string): {
-  prev: TrackVisitRow | null
-  next: TrackVisitRow | null
-  todayVisit: TrackVisitRow | null
+export function todaySplit<T extends VisitaEnLinea>(rows: T[], today: string): {
+  prev: T | null
+  next: T | null
+  todayVisit: T | null
 } {
-  let prev: TrackVisitRow | null = null
-  let next: TrackVisitRow | null = null
-  let todayVisit: TrackVisitRow | null = null
+  let prev: T | null = null
+  let next: T | null = null
+  let todayVisit: T | null = null
   for (const v of orderVisits(rows)) {
     const d = effectiveDate(v)
     if (!d) continue
