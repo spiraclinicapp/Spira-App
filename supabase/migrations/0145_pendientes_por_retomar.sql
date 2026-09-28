@@ -155,3 +155,204 @@ revoke all on function public.procedimiento_marcado(uuid, uuid) from public, ano
 revoke all on function public.procedimiento_hecho(uuid, uuid) from public, anon;
 grant execute on function public.procedimiento_marcado(uuid, uuid) to authenticated;
 grant execute on function public.procedimiento_hecho(uuid, uuid) to authenticated;
+
+
+-- 4 · Dejar para otro día, y quitar la marca ------------------------------------------------------
+-- dejar_pendientes sólo acepta lo que la visita todavía DEBE (su lista efectiva) y NO hizo. Lo que ya
+-- estaba marcado se ignora (idempotente): no está en la lista efectiva justamente porque ya se marcó.
+-- El lock serializa dos marcados simultáneos sobre la misma visita.
+create or replace function public.dejar_pendientes(p_visit_id uuid, p_procedure_ids uuid[])
+returns void language plpgsql security definer set search_path = pg_catalog, public as $fn$
+declare
+  v_uid uuid := auth.uid();
+  v_protocol uuid;
+  v_procs uuid[] := coalesce(array(select distinct t.x from unnest(p_procedure_ids) as t(x) where t.x is not null), '{}');
+begin
+  if v_uid is null then raise exception 'No autenticado' using errcode = '42501'; end if;
+  if cardinality(v_procs) = 0 then
+    raise exception 'Elegí qué procedimientos quedan para otro día' using errcode = 'check_violation';
+  end if;
+
+  select e.protocol_id into v_protocol
+  from public.patient_visits pv
+  join public.enrollments e on e.id = pv.enrollment_id
+  where pv.id = p_visit_id
+  for update of pv;
+  if v_protocol is null then raise exception 'Esa visita ya no existe' using errcode = '23503'; end if;
+  if not public.puede_registrar_visitas(v_protocol) then
+    raise exception 'No tenés permiso para cambiar las visitas de este paciente' using errcode = '42501';
+  end if;
+
+  if exists (
+    select 1 from unnest(v_procs) as t(x)
+    where not public.procedimiento_marcado(p_visit_id, t.x)
+      and (not exists (select 1 from public.v_visit_procedures vp
+                       where vp.visit_id = p_visit_id and vp.procedure_id = t.x)
+           or exists (select 1 from public.visit_procedure_completions c
+                      where c.visit_id = p_visit_id and c.procedure_id = t.x))
+  ) then
+    raise exception 'Solo quedan para otro día los procedimientos que esta visita todavía no hizo' using errcode = 'check_violation';
+  end if;
+
+  insert into public.visit_pending_procedures (visit_id, procedure_id, marked_by)
+  select p_visit_id, t.x, v_uid from unnest(v_procs) as t(x)
+  on conflict on constraint vpp_visita_procedimiento_unico do nothing;
+end $fn$;
+
+-- «Se hace hoy». Quitar lo que no está marcado no es un error: dos pestañas pueden apretarlo a la vez.
+create or replace function public.quitar_pendiente(p_visit_id uuid, p_procedure_id uuid)
+returns void language plpgsql security definer set search_path = pg_catalog, public as $fn$
+declare
+  v_uid uuid := auth.uid();
+  v_protocol uuid;
+begin
+  if v_uid is null then raise exception 'No autenticado' using errcode = '42501'; end if;
+  select e.protocol_id into v_protocol
+  from public.patient_visits pv
+  join public.enrollments e on e.id = pv.enrollment_id
+  where pv.id = p_visit_id
+  for update of pv;
+  if v_protocol is null then raise exception 'Esa visita ya no existe' using errcode = '23503'; end if;
+  if not public.puede_registrar_visitas(v_protocol) then
+    raise exception 'No tenés permiso para cambiar las visitas de este paciente' using errcode = '42501';
+  end if;
+  delete from public.visit_pending_procedures m
+  where m.visit_id = p_visit_id and m.procedure_id = p_procedure_id;
+end $fn$;
+
+
+-- 5 · Retomar: la continuación con fecha, y la marca consumida --------------------------------------
+-- Mismo resultado que diferir_procedimientos (0144): una VNP con fecha propia y sus filas con
+-- deferred_from_visit_id. NO se llama a diferir: diferir exige que el procedimiento esté en la lista
+-- efectiva del origen, y lo marcado ya no está (la sección 3 lo resta). Acá la validación es otra
+-- —que esté marcado— y el insert se repite, que son dos sentencias. Todo en una transacción: la
+-- continuación, sus filas y el borrado de las marcas. Lo que no se elige sigue marcado.
+create or replace function public.continuar_pendientes(
+  p_visita_origen uuid, p_procedure_ids uuid[], p_fecha date
+) returns uuid language plpgsql security definer set search_path = pg_catalog, public as $fn$
+declare
+  v_uid uuid := auth.uid();
+  v_enrollment uuid; v_protocol uuid; v_visit uuid;
+  v_procs uuid[] := coalesce(array(select distinct t.x from unnest(p_procedure_ids) as t(x) where t.x is not null), '{}');
+begin
+  if v_uid is null then raise exception 'No autenticado' using errcode = '42501'; end if;
+  if p_fecha is null then raise exception 'La fecha es obligatoria' using errcode = '23502'; end if;
+  if cardinality(v_procs) = 0 then
+    raise exception 'Elegí qué procedimientos se retoman' using errcode = 'check_violation';
+  end if;
+
+  select pv.enrollment_id, e.protocol_id into v_enrollment, v_protocol
+  from public.patient_visits pv
+  join public.enrollments e on e.id = pv.enrollment_id
+  where pv.id = p_visita_origen
+  for update of pv;
+  if v_enrollment is null then raise exception 'Esa visita ya no existe' using errcode = '23503'; end if;
+  if not public.puede_registrar_visitas(v_protocol) then
+    raise exception 'No tenés permiso para cambiar las visitas de este paciente' using errcode = '42501';
+  end if;
+
+  if exists (select 1 from unnest(v_procs) as t(x)
+             where not public.procedimiento_marcado(p_visita_origen, t.x)) then
+    raise exception 'Solo se retoman los procedimientos que quedaron para otro día' using errcode = 'check_violation';
+  end if;
+
+  insert into public.patient_visits (enrollment_id, kind, estimated_date)
+  values (v_enrollment, 'vnp', p_fecha)
+  returning id into v_visit;
+
+  insert into public.visit_added_procedures (visit_id, procedure_id, deferred_from_visit_id, added_by)
+  select v_visit, t.x, p_visita_origen, v_uid from unnest(v_procs) as t(x);
+
+  delete from public.visit_pending_procedures m
+  where m.visit_id = p_visita_origen and m.procedure_id = any (v_procs);
+
+  return v_visit;
+end $fn$;
+
+revoke all on function public.dejar_pendientes(uuid, uuid[]) from public, anon;
+revoke all on function public.quitar_pendiente(uuid, uuid) from public, anon;
+revoke all on function public.continuar_pendientes(uuid, uuid[], date) from public, anon;
+grant execute on function public.dejar_pendientes(uuid, uuid[]) to authenticated;
+grant execute on function public.quitar_pendiente(uuid, uuid) to authenticated;
+grant execute on function public.continuar_pendientes(uuid, uuid[], date) to authenticated;
+
+
+-- 6 · Guardas: no tildar lo marcado, y no perder lo marcado al editar ---------------------------------
+-- (a) guard_tildar_diferido (0144) suma el caso de lo marcado. Mismo nombre y mismo trigger: el
+--     `create or replace` alcanza. Sin security definer (ver la sección 10 de la 0144): las
+--     preguntas las hacen funciones definer.
+create or replace function public.guard_tildar_diferido()
+returns trigger language plpgsql set search_path = pg_catalog, public as $fn$
+begin
+  if public.procedimiento_diferido(new.visit_id, new.procedure_id) then
+    raise exception 'Ese procedimiento pasó a otra visita: se marca allá' using errcode = 'check_violation';
+  end if;
+  if public.procedimiento_marcado(new.visit_id, new.procedure_id) then
+    raise exception 'Quedó para otro día. Quitá la marca si se hace hoy.' using errcode = 'check_violation';
+  end if;
+  return new;
+end $fn$;
+
+-- (b) set_added_procedures (0144, sección 9): la pantalla manda la lista EFECTIVA, que ya no trae lo
+--     marcado. Sin la condición nueva del delete, guardar la edición de un retest borraba la fila del
+--     procedimiento marcado y la marca quedaba colgando de algo que la visita ya no lleva. Se conserva,
+--     igual que ya se conservaba lo diferido. Cuerpo copiado de la 0144; la línea nueva va señalada.
+create or replace function public.set_added_procedures(p_visit_id uuid, p_procedure_ids uuid[])
+returns void language plpgsql security definer set search_path = pg_catalog, public as $fn$
+declare
+  v_uid uuid := auth.uid();
+  v_kind visit_kind; v_def uuid; v_protocol uuid;
+  v_procs uuid[] := coalesce(array(select distinct t.x from unnest(p_procedure_ids) as t(x) where t.x is not null), '{}');
+begin
+  if v_uid is null then raise exception 'No autenticado' using errcode = '42501'; end if;
+
+  select pv.kind, pv.visit_def_id, e.protocol_id into v_kind, v_def, v_protocol
+  from public.patient_visits pv
+  join public.enrollments e on e.id = pv.enrollment_id
+  where pv.id = p_visit_id
+  for update of pv;
+  if v_protocol is null then raise exception 'Esa visita ya no existe' using errcode = '23503'; end if;
+  if not public.puede_registrar_visitas(v_protocol) then
+    raise exception 'No tenés permiso para cambiar las visitas de este paciente' using errcode = '42501';
+  end if;
+  if v_def is not null then
+    raise exception 'Los procedimientos de una visita del cronograma se editan en el cronograma del protocolo' using errcode = 'check_violation';
+  end if;
+  if v_kind not in ('vnp', 'retest') then
+    raise exception 'Solo el retest y la VNP llevan procedimientos propios' using errcode = 'check_violation';
+  end if;
+
+  if exists (select 1 from public.visit_added_procedures a
+             join public.visit_procedure_completions c on c.visit_id = a.visit_id and c.procedure_id = a.procedure_id
+             where a.visit_id = p_visit_id and not (a.procedure_id = any (v_procs))) then
+    raise exception 'No se puede quitar un procedimiento que ya está marcado como realizado' using errcode = 'check_violation';
+  end if;
+  -- Se valida contra el estudio sólo lo que se está AGREGANDO ahora: un procedimiento puede salir del
+  -- estudio (se borra su protocol_procedures) después de que un retest ya lo llevaba. Si además está
+  -- marcado como realizado, no se puede sacar (la regla de arriba) ni se podría volver a poner (ya no
+  -- está en protocol_procedures) — sin este segundo `not exists`, esa visita queda imposible de editar
+  -- para siempre. Lo que la visita YA lleva es historia y se conserva tal cual, sin re-validar.
+  if exists (select 1 from unnest(v_procs) as t(x)
+             where not exists (select 1 from public.protocol_procedures pp
+                               where pp.protocol_id = v_protocol and pp.procedure_id = t.x)
+               and not exists (select 1 from public.visit_added_procedures a
+                               where a.visit_id = p_visit_id and a.procedure_id = t.x)) then
+    raise exception 'Ese procedimiento no es de este estudio' using errcode = 'check_violation';
+  end if;
+
+  delete from public.visit_added_procedures a
+  where a.visit_id = p_visit_id
+    and not (a.procedure_id = any (v_procs))
+    and not public.procedimiento_diferido(p_visit_id, a.procedure_id)
+    and not public.procedimiento_marcado(p_visit_id, a.procedure_id);   -- 0145
+
+  insert into public.visit_added_procedures (visit_id, procedure_id, added_by)
+  select p_visit_id, t.x, v_uid from unnest(v_procs) as t(x)
+  on conflict on constraint vap_visita_procedimiento_unico do nothing;
+
+  if v_kind = 'retest' and not exists (select 1 from public.visit_added_procedures a where a.visit_id = p_visit_id) then
+    raise exception 'Un retest lleva al menos un procedimiento' using errcode = 'check_violation';
+  end if;
+end $fn$;
+revoke all on function public.set_added_procedures(uuid, uuid[]) from public, anon;
+grant execute on function public.set_added_procedures(uuid, uuid[]) to authenticated;
