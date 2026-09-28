@@ -132,10 +132,42 @@ export function useVisitAlerts() {
       c
         .from('v_track_visits')
         .select('*')
-        .in('computed_status', ['ventana_vencida', 'item_vencido', 'por_reprogramar'])
+        .in('computed_status', ESTADOS_DE_ALERTA)
         .order('estimated_date', { ascending: true })
         .returns<TrackVisitRow[]>(),
     [],
+  )
+}
+
+/** Las tres clases de alerta de una visita (ver `useVisitAlerts`). Una sola lista para las dos
+ *  consultas: si una suma una clase y la otra no, la ficha y Pendientes cuentan distinto. */
+const ESTADOS_DE_ALERTA: VisitStatus[] = ['ventana_vencida', 'item_vencido', 'por_reprogramar']
+
+/**
+ * Las alertas de UN paciente, en todos sus estudios: lo mismo que `useVisitAlerts` filtrado por
+ * paciente, pero filtrado en la BASE.
+ *
+ * La ficha pedía `useVisitAlerts()` —todas las alertas que ve la persona— y se quedaba con las del
+ * paciente en el navegador. Medido en prod el 2026-09-28 con una coordinadora de cuatro estudios:
+ * ~260 ms la de todas contra ~190 la de uno, y corre en paralelo con sus visitas, así que la ficha
+ * pasa de esperar la más lenta de las dos a esperar dos parecidas. Y no crece con el centro.
+ *
+ * TODOS sus estudios y no sólo el de la ficha, a propósito: es lo que mostraba antes, y cambiarlo
+ * (sacarlas de `usePatientVisits`, que ya las trae) es una decisión de qué ve la ficha, no de velocidad.
+ */
+export function usePatientAlerts(patientId: string | null) {
+  return useSupabaseQuery<TrackVisitRow[]>(
+    (c) =>
+      patientId
+        ? c
+            .from('v_track_visits')
+            .select('*')
+            .eq('patient_id', patientId)
+            .in('computed_status', ESTADOS_DE_ALERTA)
+            .order('estimated_date', { ascending: true })
+            .returns<TrackVisitRow[]>()
+        : Promise.resolve({ data: [], error: null }),
+    [patientId],
   )
 }
 
