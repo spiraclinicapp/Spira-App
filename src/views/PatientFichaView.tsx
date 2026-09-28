@@ -10,7 +10,7 @@ import { btnOutline } from '../components/buttons'
 import { estaAbierta } from '../lib/inscripcion'
 import { CerrarInscripcionModal } from './track/CerrarInscripcionModal'
 import type { PatientRow } from '../data/patients'
-import { usePatientVisits, useVisitAlerts } from '../data/visits'
+import { usePatientAlerts, usePatientVisits } from '../data/visits'
 import { useUrlEntity } from '../lib/useUrlState'
 import {
   adherence, ageFromBirth, currentVisit, orderVisits, visitTitle, visitTitleConSemanaAparte, studyTime,
@@ -64,7 +64,8 @@ export interface PatientFichaViewProps {
 export function PatientFichaView(props: PatientFichaViewProps) {
   const { patient, protocol, moduleKey, accent, accentSolid, canWrite, setHeader, onBack, onGoList, onPatientUpdated, onVerVisitaEnElDia } = props
   const visitsQ = usePatientVisits(patient.id, protocol.id)
-  const alertsQ = useVisitAlerts()
+  /* Sólo las de ESTE paciente, filtradas en la base (antes traía las de todo el centro y filtraba acá). */
+  const alertsQ = usePatientAlerts(patient.id)
   // La gestión de "Medicación asignada" es de Pharma (operator+) Y solo en el contexto del módulo
   // Pharma: la ficha del paciente es compartida con Track, y ahí la medicación es un dato más de
   // solo lectura. Sin el candado de módulo, un usuario con rol pharma veía la edición también
@@ -159,7 +160,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   const enrollmentDate = enrollment?.enrollment_date ?? null
   const age = ageFromBirth(patient.birth_date)
 
-  const alerts = (alertsQ.data ?? []).filter((a) => a.patient_id === patient.id)
+  const alerts = alertsQ.data ?? []
   const alertColor = alerts.some((a) => a.computed_status === 'ventana_vencida')
     ? VISIT_STATES.ventana_vencida.color
     : VISIT_STATES.item_vencido.color
