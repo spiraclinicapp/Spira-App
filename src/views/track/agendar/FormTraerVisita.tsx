@@ -5,11 +5,12 @@ import { rescheduleVisit } from '../../../data/visits'
 import type { TrackVisitRow } from '../../../data/visits'
 import { formatAR } from '../../../lib/dates'
 import { fueraDeVentana } from '../../../lib/visits'
-import { rotuloDeVisita } from '../retomar'
+import { contadorDeDias, rotuloDeVisita } from '../retomar'
 import { PieDelFormulario, SinCandidatas } from './PieDelFormulario'
 
 /**
- * «Una visita del estudio» (v0145): trae al día que se mira una visita ya agendada para después. Es un
+ * «Una visita pendiente del estudio» (v0145): trae al día que se mira una visita sin atender, de más
+ * adelante o atrasada, con su contador de días a la derecha («+2 d», «−5 d»). Es un
  * reprogramar rápido: usa `rescheduleVisit`, la de siempre, y avisa si el día cae fuera de la ventana
  * (no lo impide: la ventana es del sponsor y el estado calculado lo va a decir igual). La lista mezcla
  * a todos los pacientes del estudio: no se preelige ninguna.
@@ -27,7 +28,7 @@ export function FormTraerVisita({ candidatas, dia, accent, onCancel, onDone }: {
   const [error, setError] = useState<string | null>(null)
 
   if (candidatas.length === 0) {
-    return <SinCandidatas mensaje="Este estudio no tiene visitas agendadas para más adelante." onCancel={onCancel} />
+    return <SinCandidatas mensaje="Este estudio no tiene visitas pendientes." onCancel={onCancel} />
   }
 
   const visita = candidatas.find((v) => v.id === visitaId) ?? null
@@ -48,7 +49,11 @@ export function FormTraerVisita({ candidatas, dia, accent, onCancel, onDone }: {
         <SearchableSelect
           value={visitaId}
           onChange={setVisitaId}
-          options={candidatas.map((v) => ({ value: v.id, label: rotuloDeVisita(v) }))}
+          options={candidatas.map((v) => {
+            // `visitasParaTraer` garantiza la fecha estimada; el `?? dia` sólo calma al tipo.
+            const c = contadorDeDias(v.estimated_date ?? dia, dia)
+            return { value: v.id, label: rotuloDeVisita(v), meta: c.texto, metaAlerta: c.atrasada }
+          })}
           placeholder="Elegí una visita"
           searchPlaceholder="Buscar paciente o visita…"
           entity="visita"
