@@ -53,3 +53,6 @@ supabase/scripts/pacientes-prueba-real/*.xlsx
 # Ídem las entregas y el cierre de procedimientos (2026-09-15): el informe nombra a cada paciente.
 supabase/scripts/entregas-y-procedimientos/out/
 supabase/scripts/entregas-y-procedimientos/*.xlsx
+# Ídem el cruce del listado del 2026-09-28: el informe nombra a cada paciente. El CSV no se copia al repo.
+supabase/scripts/cruce-listado-2026-09-28/out/
+supabase/scripts/cruce-listado-2026-09-28/*.csv
