@@ -1,6 +1,7 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
 import type { VisitKind } from '../lib/visitLabels'
+import type { TrackVisitRow } from './visits'
 
 /**
  * Capa de datos del estado de los reportes (migración 0090).
@@ -183,6 +184,53 @@ export async function setReportStage(
  * `visita_iniciada` es el mismo filtro del tablero: un reporte cuya visita todavía no arrancó no es
  * una tarjeta, porque su plazo ni siquiera empezó a correr.
  */
+/** Un reporte cuyo procedimiento nadie tildó (`completed = false`), de `v_protocol_report_status`. */
+export interface ReporteSinMarcarRow {
+  visit_id: string
+  procedure_id: string
+  procedure_name: string
+}
+
+/**
+ * «Sin marcar» de Pendientes (2026-09-28): visitas FINALIZADAS con un procedimiento que deja
+ * reporte y nadie tildó. Su reporte no arrancó, así que no es una tarjeta del tablero ni cuenta
+ * como pendiente en ningún lado — la visita se queda en «Realizada» para siempre sin avisar.
+ *
+ * Dos consultas, como `usePorRetomar`: los reportes sin tildar y después las visitas de esos
+ * reportes que tienen `ready_at` (finalizadas, el mismo criterio que el modal de la visita). La
+ * vista de reportes lee la lista efectiva (0144/0145), así que lo dejado para otro día NO aparece
+ * acá: `completed = false` es de verdad «nadie dijo si se hizo». La agrupación es pura y con test
+ * (`agruparSinMarcar`).
+ *
+ * Medido en prod el 2026-09-28: 74 reportes sin tildar en 30 visitas, todas finalizadas antes del
+ * aviso de la v0145, que desde entonces no deja cerrar con esto abierto. La lista sólo achica.
+ */
+export function useSinMarcar() {
+  return useSupabaseQuery<{ reportes: ReporteSinMarcarRow[]; visitas: TrackVisitRow[] }>(
+    async (c) => {
+      const r = await c
+        .from('v_protocol_report_status')
+        .select('visit_id, procedure_id, procedure_name')
+        .eq('completed', false)
+        .eq('visita_iniciada', true)
+        .returns<ReporteSinMarcarRow[]>()
+      if (r.error) return { data: null, error: r.error }
+      const reportes = r.data ?? []
+      const ids = [...new Set(reportes.map((x) => x.visit_id))]
+      if (ids.length === 0) return { data: { reportes, visitas: [] }, error: null }
+      const v = await c
+        .from('v_track_visits')
+        .select('*')
+        .in('id', ids)
+        .not('ready_at', 'is', null)
+        .returns<TrackVisitRow[]>()
+      if (v.error) return { data: null, error: v.error }
+      return { data: { reportes, visitas: v.data ?? [] }, error: null }
+    },
+    [],
+  )
+}
+
 export function useReportesPendientes() {
   return useSupabaseQuery<ReportStatusRow[]>(
     (c) =>

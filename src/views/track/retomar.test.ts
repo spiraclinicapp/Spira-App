@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { TrackVisitRow } from '../../data/visits'
 import type { MarcaRow } from '../../data/pendientes'
 import {
-  agruparPorRetomar, diasEsperando, pacientesDelEstudio, pendientesAlFinalizar, procedimientosRepetibles, seDanPorHechos,
+  agruparPorRetomar, agruparSinMarcar, diasEsperando, pacientesDelEstudio, pendientesAlFinalizar, procedimientosRepetibles, seDanPorHechos,
   cierreDeVentana, contadorDeDias, marcaDePendiente, rotuloDeVisita, visitasConFechaPasada, visitasParaRetest, visitasParaTraer,
 } from './retomar'
 
@@ -174,6 +174,38 @@ describe('agruparPorRetomar', () => {
   })
   it('una inscripción cerrada no aparece: no se puede descartar y quedaría para siempre', () => {
     expect(agruparPorRetomar([m('v1', 'lab', '2026-09-20T13:00:00+00:00')], [v({ id: 'v1', enrollment_status: 'completado' })])).toEqual([])
+  })
+})
+
+describe('agruparSinMarcar', () => {
+  const rep = (visit_id: string, procedure_id: string) => ({ visit_id, procedure_id, procedure_name: procedure_id.toUpperCase() })
+  const FIN = '2026-07-29T13:00:00+00:00'
+
+  it('una fila por visita finalizada, la más vieja primero', () => {
+    const r = agruparSinMarcar(
+      [rep('v1', 'lab'), rep('v2', 'ecg'), rep('v1', 'hem')],
+      [v({ id: 'v1', real_date: '2026-08-10', ready_at: FIN }), v({ id: 'v2', real_date: '2026-07-29', ready_at: FIN })],
+    )
+    expect(r.map((g) => g.visita.id)).toEqual(['v2', 'v1'])
+    expect(r[1].procedimientos.map((x) => x.procedure_id)).toEqual(['hem', 'lab'])
+  })
+
+  it('un procedimiento con dos reportes aparece una sola vez: lo que se resuelve es el tilde', () => {
+    const r = agruparSinMarcar([rep('v1', 'lab'), rep('v1', 'lab')], [v({ id: 'v1', real_date: '2026-07-29', ready_at: FIN })])
+    expect(r[0].procedimientos).toHaveLength(1)
+  })
+
+  it('una visita que se sigue atendiendo no es anomalía: lo sin tildar es lo que falta hacer', () => {
+    expect(agruparSinMarcar([rep('v1', 'lab')], [v({ id: 'v1', real_date: '2026-09-28', ready_at: null })])).toEqual([])
+  })
+
+  it('un reporte sin su visita (la RLS no la deja ver) no arma fila', () => {
+    expect(agruparSinMarcar([rep('v9', 'lab')], [])).toEqual([])
+  })
+
+  it('una inscripción cerrada SE QUEDA: lo que pasó en el estudio se puede tildar igual', () => {
+    const r = agruparSinMarcar([rep('v1', 'lab')], [v({ id: 'v1', real_date: '2026-07-29', ready_at: FIN, enrollment_status: 'completado' })])
+    expect(r).toHaveLength(1)
   })
 })
 

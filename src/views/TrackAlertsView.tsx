@@ -40,7 +40,8 @@ import { VisitDetail } from './track/VisitDetail'
 import { useAbrirFicha } from './useAbrirFicha'
 import type { ViewProps } from './types'
 import { usePorRetomar } from '../data/pendientes'
-import { agruparPorRetomar, cierreDeVentana, diasEsperando, visitasConFechaPasada } from './track/retomar'
+import { agruparPorRetomar, agruparSinMarcar, cierreDeVentana, diasEsperando, visitasConFechaPasada } from './track/retomar'
+import { useSinMarcar } from '../data/reportStatus'
 import type { VisitaPorRetomar } from './track/retomar'
 import { AgendarVisitaModal } from './track/agendar/AgendarVisitaModal'
 import { pacienteDeVisita } from './track/agendar/opciones'
@@ -116,6 +117,12 @@ const FECHA_PASADA = 'fecha_pasada'
 /** Su tinta: el ámbar profundo de «todavía no es un desvío, pero pide atención», el mismo del IP sin
  *  entregar. Se distinguen por el ícono y el rótulo. Es el token que se aclara en tema oscuro. */
 const TINTA_FECHA_PASADA = 'var(--spira-acc-deep-warn)'
+/** La opción del filtro Estado para las visitas finalizadas con procedimientos sin marcar
+ *  (2026-09-28). Tampoco es un `computed_status`: para la base son `realizada`. */
+const SIN_MARCAR = 'sin_marcar'
+/** Su tinta: el mismo ámbar, el del aviso «sin marcar» del modal de la visita. Se distingue de la
+ *  fecha pasada y del IP por el ícono (el del panel de reportes) y el rótulo. */
+const TINTA_SIN_MARCAR = 'var(--spira-acc-deep-warn)'
 
 /** Fecha de referencia de una alerta para el filtro de antigüedad. */
 function refDate(a: TrackVisitRow): string | null {
@@ -154,6 +161,14 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const fechaQ = useFechaPasada()
   const fechaRows = useMemo(() => visitasConFechaPasada(fechaQ.data ?? [], todayISO()), [fechaQ.data])
   const [reprogramando, setReprogramando] = useState<TrackVisitRow | null>(null)
+  /* La sexta (2026-09-28): visitas FINALIZADAS con un procedimiento que deja reporte y nadie tildó.
+     Su reporte no arrancó, así que no está en «Reporte pendiente», y la visita se queda en
+     «Realizada» sin avisar en ningún lado. Consulta propia, error en línea, como las otras. */
+  const sinMarcarQ = useSinMarcar()
+  const sinMarcarRows = useMemo(
+    () => agruparSinMarcar(sinMarcarQ.data?.reportes ?? [], sinMarcarQ.data?.visitas ?? []),
+    [sinMarcarQ.data],
+  )
   const protocols = useProtocols()
   /* Varios protocolos a la vez (Director, 2026-08-25). La lista VACÍA es "todos": no hay opción
      "Todos los protocolos" que tildar, porque en un filtro múltiple esa opción tendría que
@@ -225,7 +240,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   /* Con `retomarQ` acá también: sin ella, la lista de retomar podía llegar VACÍA todavía (la consulta
      en vuelo) mientras las otras tres ya estaban, y «Sin pendientes. Todo al día.» se dibujaba un
      instante de más antes de que aparecieran sus filas. */
-  const loading = alertsQ.loading || protocols.loading || retomarQ.loading || fechaQ.loading
+  const loading = alertsQ.loading || protocols.loading || retomarQ.loading || fechaQ.loading || sinMarcarQ.loading
   const error = alertsQ.error || protocols.error
 
   const allRows = alertsQ.visitAlerts
@@ -335,6 +350,21 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     })
   }, [fechaRows, fEstado, protocolFilter, fMed, fCoord, q, ageDays])
 
+  /* Los MISMOS cinco filtros. La antigüedad se mide desde el día en que se hizo la visita. */
+  const filteredSinMarcar = useMemo(() => {
+    const today = todayISO()
+    return sinMarcarRows.filter((g) => {
+      const v = g.visita
+      if (fEstado.length > 0 && !fEstado.includes(SIN_MARCAR)) return false
+      if (protocolFilter.length > 0 && !protocolFilter.includes(v.protocol_id)) return false
+      if (fMed.length > 0 && !fMed.includes(v.treating_physician ?? SIN_VALOR)) return false
+      if (fCoord.length > 0 && !fCoord.includes(v.coordinator_id ?? SIN_VALOR)) return false
+      if (!coincideBusqueda(v, q)) return false
+      if (ageDays > 0 && v.real_date && daysDiffISO(v.real_date, today) > ageDays) return false
+      return true
+    })
+  }, [sinMarcarRows, fEstado, protocolFilter, fMed, fCoord, q, ageDays])
+
   if (loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title={`Cargando ${submodule.name.toLowerCase()}…`} description="Un momento." />
   }
@@ -359,6 +389,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     for (const r of ipRows) byId.set(r.protocol_id, r.protocol_code)
     for (const g of retomarRows) byId.set(g.visita.protocol_id, g.visita.protocol_code)
     for (const v of fechaRows) byId.set(v.protocol_id, v.protocol_code)
+    for (const g of sinMarcarRows) byId.set(g.visita.protocol_id, g.visita.protocol_code)
     const list = (protocols.data ?? []).filter((p) => byId.has(p.id))
     return list.map((p) => ({ id: p.id, code: p.code }))
   })()
@@ -377,7 +408,8 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       + procRows.filter((r) => r.protocol_id === p.id).length
       + ipRows.filter((r) => r.protocol_id === p.id).length
       + retomarRows.filter((g) => g.visita.protocol_id === p.id).length
-      + fechaRows.filter((v) => v.protocol_id === p.id).length,
+      + fechaRows.filter((v) => v.protocol_id === p.id).length
+      + sinMarcarRows.filter((g) => g.visita.protocol_id === p.id).length,
   }))
 
   /* Los CUATRO avisos de esta pantalla en un solo eje. Los de `GRAVEDAD` son estados calculados de
@@ -402,6 +434,9 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     { value: FECHA_PASADA, label: 'Se pasó la fecha', count: fechaRows.length },
     // 0119: el barrido que pide el aviso de arriba. Va antes del reporte: es más grave.
     { value: IP_SIN_ENTREGAR, label: 'IP sin entregar', count: ipRows.length },
+    // 2026-09-28: antes del reporte pendiente. Un procedimiento sin marcar es un reporte que ni
+    // siquiera arrancó: mientras nadie lo tilde, no va a llegar nunca a «Reporte pendiente».
+    { value: SIN_MARCAR, label: 'Sin marcar', count: sinMarcarRows.length },
     { value: REPORTE_PENDIENTE, label: 'Reporte pendiente', count: procRows.length },
     { value: POR_RETOMAR, label: 'Por retomar', count: retomarRows.length },
   ]
@@ -409,9 +444,10 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   /* Las cuatro listas juntas: un médico que sólo tiene reportes pendientes (o un IP sin entregar, o
      un procedimiento por retomar) tiene que aparecer igual en el menú, o sus alertas quedan
      inalcanzables por filtro. */
-  const medOptions = opcionesMedico([allRows, procRows, ipRows, retomarRows.map((g) => g.visita), fechaRows])
-  const coordOptions = opcionesCoordinador([allRows, procRows, ipRows, retomarRows.map((g) => g.visita), fechaRows])
+  const medOptions = opcionesMedico([allRows, procRows, ipRows, retomarRows.map((g) => g.visita), fechaRows, sinMarcarRows.map((g) => g.visita)])
+  const coordOptions = opcionesCoordinador([allRows, procRows, ipRows, retomarRows.map((g) => g.visita), fechaRows, sinMarcarRows.map((g) => g.visita)])
 
+  const totalPendientes = allRows.length + procRows.length + ipRows.length + retomarRows.length + fechaRows.length + sinMarcarRows.length
   const nFiltros = fEstado.length + protocolFilter.length + fMed.length + fCoord.length + (ageDays > 0 ? 1 : 0)
   const hayFiltros = nFiltros > 0 || q.trim() !== ''
   const limpiarFiltros = () => {
@@ -430,6 +466,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
         ips={ipRows}
         retomar={retomarRows.map((g) => g.visita)}
         fechaPasada={fechaRows}
+        sinMarcar={sinMarcarRows.map((g) => g.visita)}
         protocols={protocols.data ?? []}
         seleccionados={protocolFilter}
         accentSolid={module.accentSolid}
@@ -478,9 +515,9 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           acá (ver `ClearFilters`), pegado al número que el filtro cambió. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -6 }}>
         <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
-          {filtered.length + filteredProc.length + filteredIp.length + filteredRetomar.length + filteredFecha.length} de{' '}
-          {allRows.length + procRows.length + ipRows.length + retomarRows.length + fechaRows.length}{' '}
-          {allRows.length + procRows.length + ipRows.length + retomarRows.length + fechaRows.length === 1 ? 'pendiente' : 'pendientes'}
+          {filtered.length + filteredProc.length + filteredIp.length + filteredRetomar.length + filteredFecha.length + filteredSinMarcar.length} de{' '}
+          {totalPendientes}{' '}
+          {totalPendientes === 1 ? 'pendiente' : 'pendientes'}
         </span>
         {hayFiltros && <ClearFilters n={nFiltros} onClear={limpiarFiltros} />}
         {dismissals.length > 0 && (
@@ -688,11 +725,16 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
             No se pudieron cargar las visitas con la fecha pasada: {fechaQ.error}
           </div>
         )}
-        {filtered.length === 0 && filteredProc.length === 0 && filteredIp.length === 0 && filteredRetomar.length === 0 && filteredFecha.length === 0 ? (
+        {sinMarcarQ.error && (
+          <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', padding: '8px 0 0' }}>
+            No se pudieron cargar las visitas con procedimientos sin marcar: {sinMarcarQ.error}
+          </div>
+        )}
+        {filtered.length === 0 && filteredProc.length === 0 && filteredIp.length === 0 && filteredRetomar.length === 0 && filteredFecha.length === 0 && filteredSinMarcar.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--spira-muted)', padding: '14px 0 4px' }}>
             <Icon name="check" size={16} color="var(--spira-good)" />
-            {allRows.length === 0 && procRows.length === 0 && ipRows.length === 0 && retomarRows.length === 0 && fechaRows.length === 0
-              && !retomarQ.error && !fechaQ.error
+            {totalPendientes === 0
+              && !retomarQ.error && !fechaQ.error && !sinMarcarQ.error
               ? 'Sin pendientes. Todo al día.'
               /* Con el error de retomar puesto, la lista de retomar quedó vacía porque FALLÓ, no
                  porque no había nada: decir "Todo al día" ahí sería mentir sobre datos que no
@@ -744,6 +786,48 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                     </div>
                   </div>
                 </div>
+                </div>
+              )
+            })}
+            {filteredSinMarcar.map((g) => {
+              /* Sin marcar (2026-09-28). Ámbar, el del aviso del modal: el reporte no arranca hasta
+                 que alguien tilde el procedimiento, y eso no se arregla solo. SIN tacho y SIN botón:
+                 se resuelve tildándolo en la visita, y a la visita lleva la fila entera. Descartarla
+                 dejaría el reporte sin arrancar, que es justo el hueco que esto vino a tapar. */
+              const c = TINTA_SIN_MARCAR
+              const v = g.visita
+              const nombres = g.procedimientos.map((x) => x.name).join(', ')
+              return (
+                <div key={`sinmarcar:${v.id}`} style={{ position: 'relative' }}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="spira-card-link"
+                    onClick={() => setOpenVisitId(v.id)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenVisitId(v.id) }
+                    }}
+                    aria-label={`Abrir la visita de ${v.patient_name} — procedimientos sin marcar`}
+                    style={alertItemStyle(c, { conBotonDescartar: false })}
+                  >
+                    <span style={{ flex: '0 0 auto', marginTop: 1 }}><Icon name="fileText" size={18} color={c} /></span>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="spira-link-group" style={{ fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                          <PatientLink onOpen={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))} label={`Abrir la ficha de ${v.patient_name}`}>
+                            {v.patient_name}
+                          </PatientLink>
+                        </span>
+                        <span style={code}>{v.patient_code ?? '—'}</span>
+                        {abrirFicha && <PatientLinkArrow />}
+                        <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}>· <span style={code}>{v.protocol_code}</span></span>
+                      </div>
+                      <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2, lineHeight: 1.4 }}>
+                        Sin marcar: {nombres} · {visitTitle(v)}{v.real_date ? ` · realizada el ${formatAR(v.real_date)}` : ''}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )
             })}
@@ -1016,6 +1100,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
               app se puede preguntar, sin salpicar de punteados la lista de arriba. */}
           {[...GRAVEDAD.map((s) => ({ label: VISIT_STATES[s].label, color: VISIT_STATES[s].color, ayuda: GLOSARIO_ESTADOS[s] })),
             { label: 'Se pasó la fecha', color: TINTA_FECHA_PASADA, ayuda: GLOSARIO.fechaPasada },
+            { label: 'Sin marcar', color: TINTA_SIN_MARCAR, ayuda: GLOSARIO.sinMarcar },
             { label: 'Reporte pendiente', color: 'var(--spira-acc-deep-blue)', ayuda: GLOSARIO.reportePendiente }].map((x) => (
             <span key={x.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: x.color, flex: '0 0 auto' }} />
@@ -1050,7 +1135,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
           visitId={openVisitId}
           accent={accent}
           onClose={() => setOpenVisitId(null)}
-          onChanged={() => { alertsQ.refetch(); retomarQ.refetch(); fechaQ.refetch() }}
+          onChanged={() => { alertsQ.refetch(); retomarQ.refetch(); fechaQ.refetch(); sinMarcarQ.refetch() }}
           // El mismo gesto que ya tiene la fila: reusa `abrirFicha`, que ya cae a `undefined`
           // sin `onNavigate` y así el encabezado del modal degrada solo a texto.
           onOpenPatient={abrirFicha}

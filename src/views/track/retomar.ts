@@ -177,6 +177,46 @@ export function agruparPorRetomar(marcas: readonly MarcaRow[], visitas: readonly
   return out.sort((a, b) => a.desde.localeCompare(b.desde) || a.visita.patient_name.localeCompare(b.visita.patient_name, 'es'))
 }
 
+/** Una visita finalizada con procedimientos que dejan reporte y nadie tildó. */
+export interface VisitaSinMarcar {
+  visita: TrackVisitRow
+  procedimientos: ProcedimientoElegible[]
+}
+
+/**
+ * «Sin marcar» (Pendientes, 2026-09-28): agrupa por visita los reportes cuyo procedimiento nadie
+ * tildó, y se queda sólo con las visitas FINALIZADAS (`ready_at`). Mientras la atención sigue, lo sin
+ * tildar es lo que falta hacer, no una anomalía — el mismo corte que `sinMarcar` en el modal.
+ *
+ * UN procedimiento aparece UNA vez aunque defina dos reportes: lo que se resuelve es el tilde, que es
+ * del procedimiento. Contar reportes haría decir «2 sin marcar» a un único laboratorio.
+ *
+ * A diferencia de «Por retomar», las inscripciones cerradas QUEDAN: aquello es trabajo por hacer con
+ * el paciente, que ya no puede hacerse; esto es el registro de algo que pasó mientras estaba en el
+ * estudio, y se puede tildar igual. Una visita que no llegó (la RLS no la deja ver) no dibuja fila.
+ * La más vieja primero: es la que más tiempo lleva con el reporte sin arrancar.
+ */
+export function agruparSinMarcar(
+  reportes: readonly { visit_id: string; procedure_id: string; procedure_name: string }[],
+  visitas: readonly TrackVisitRow[],
+): VisitaSinMarcar[] {
+  const porId = new Map(visitas.map((v) => [v.id, v]))
+  const acc = new Map<string, VisitaSinMarcar>()
+  for (const r of reportes) {
+    const visita = porId.get(r.visit_id)
+    if (!visita || !visita.ready_at) continue
+    const g = acc.get(r.visit_id) ?? { visita, procedimientos: [] }
+    if (!g.procedimientos.some((p) => p.procedure_id === r.procedure_id)) {
+      g.procedimientos.push({ procedure_id: r.procedure_id, name: r.procedure_name })
+    }
+    acc.set(r.visit_id, g)
+  }
+  const out = [...acc.values()]
+  for (const g of out) g.procedimientos.sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  return out.sort((a, b) => (a.visita.real_date ?? '').localeCompare(b.visita.real_date ?? '')
+    || a.visita.patient_name.localeCompare(b.visita.patient_name, 'es'))
+}
+
 /** Hace cuántos días espera, contando en días argentinos (la marca es un timestamptz). */
 export function diasEsperando(desde: string, hoy: string): number {
   return Math.max(0, daysDiffISO(isoDayAR(desde), hoy))
