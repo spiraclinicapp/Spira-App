@@ -35,6 +35,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.96', text: 'Al pedir medicación se ve cuánto hay disponible, y el alta de Farmacia elige el tipo arriba.' },
     { version: '0.95', text: 'Pendientes avisa las visitas realizadas que quedaron con procedimientos sin marcar.' },
     { version: '0.94', text: 'Pendientes avisa las visitas cuya fecha pasó sin hacerse, y todas se pueden agendar.' },
     { version: '0.93', text: 'Pendientes y el resto de las pantallas cargan bastante más rápido.' },
