@@ -35,6 +35,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.95', text: 'Pendientes avisa las visitas realizadas que quedaron con procedimientos sin marcar.' },
     { version: '0.94', text: 'Pendientes avisa las visitas cuya fecha pasó sin hacerse, y todas se pueden agendar.' },
     { version: '0.93', text: 'Pendientes y el resto de las pantallas cargan bastante más rápido.' },
     { version: '0.92', text: 'Lo que no se hizo al finalizar queda para otro día, y el retest cuelga de la visita que repite.' },
