@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StockVisitaRow } from '../../data/pharma'
-import { avisoStock, descripcionStock } from './stockVisita'
+import { avisoStock, indicadorStock } from './stockVisita'
 
 /**
  * El stock que ve Coordinación al pedir medicación de base (0121, plan D6).
@@ -14,19 +14,30 @@ const s = (over: Partial<StockVisitaRow> = {}): StockVisitaRow => ({
   medication_id: 'm1', en_estante: 10, maximo_armable: 10, pedido_esta_visita: 0, pedido_otras: 0, ...over,
 })
 
-describe('descripcionStock', () => {
+describe('indicadorStock', () => {
   it('sin dato no afirma nada (cargando o error)', () => {
-    expect(descripcionStock(undefined)).toBeUndefined()
+    expect(indicadorStock(undefined)).toEqual({})
   })
 
-  it('dice el total y lo ya pedido, con singular y plural', () => {
-    expect(descripcionStock(s())).toBe('10 en stock')
-    expect(descripcionStock(s({ pedido_otras: 1 }))).toBe('10 en stock · 1 ya pedida')
-    expect(descripcionStock(s({ pedido_otras: 2, pedido_esta_visita: 1 }))).toBe('10 en stock · 3 ya pedidas')
+  it('sin pedidos: lo disponible es el estante, y no se repite abajo', () => {
+    expect(indicadorStock(s())).toEqual({ meta: '10 disponibles', desc: undefined })
+    expect(indicadorStock(s({ en_estante: 1, maximo_armable: 1 }))).toEqual({ meta: '1 disponible', desc: undefined })
   })
 
-  it('en cero dice "Sin stock"', () => {
-    expect(descripcionStock(s({ en_estante: 0, maximo_armable: 0 }))).toBe('Sin stock')
+  it('EL CASO QUE IMPORTA: lo ya pedido se RESTA del número grande, y la resta se explica abajo', () => {
+    expect(indicadorStock(s({ pedido_otras: 1 }))).toEqual({ meta: '9 disponibles', desc: '10 en stock · 1 ya pedida' })
+    expect(indicadorStock(s({ pedido_otras: 2, pedido_esta_visita: 1 })))
+      .toEqual({ meta: '7 disponibles', desc: '10 en stock · 3 ya pedidas' })
+  })
+
+  it('todo pedido avisa en ámbar, sin números negativos aunque se haya pedido de más', () => {
+    expect(indicadorStock(s({ pedido_otras: 10 })))
+      .toEqual({ meta: 'Todo pedido', metaAlerta: true, desc: '10 en stock · 10 ya pedidas' })
+    expect(indicadorStock(s({ pedido_otras: 14 })).meta).toBe('Todo pedido')
+  })
+
+  it('en cero dice "Sin stock", en ámbar', () => {
+    expect(indicadorStock(s({ en_estante: 0, maximo_armable: 0 }))).toEqual({ meta: 'Sin stock', metaAlerta: true })
   })
 })
 

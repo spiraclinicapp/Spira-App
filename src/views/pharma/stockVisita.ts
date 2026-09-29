@@ -19,15 +19,30 @@
 import type { StockVisitaRow } from '../../data/pharma'
 
 /**
- * La segunda línea de cada medicamento en el desplegable. `undefined` si no se sabe el stock
- * (todavía cargando, o la consulta falló): mejor no decir nada que afirmar "Sin stock".
+ * Lo que dice cada medicamento en el desplegable, en dos lugares:
+ *
+ *   · `meta` — la columna de la derecha: lo DISPONIBLE, o sea el estante menos lo que ya pidieron
+ *     (esta visita y las demás del protocolo). Es el número que decide si pedir, y como `meta` el
+ *     desplegable lo sigue mostrando en el disparador después de elegir.
+ *   · `desc` — la segunda línea, SÓLO cuando hay algo pedido: explica por qué lo disponible es
+ *     menos que el estante. Sin pedidos sería repetir el mismo número dos veces.
+ *
+ * Antes era sólo la segunda línea ("12 en stock · 3 ya pedidas"): el dato estaba, pero en gris, en
+ * letra de explicación y con la resta a cargo de quien lee. No se leía como un indicador.
+ *
+ * Sin dato (cargando, o la consulta falló) devuelve `{}`: mejor no decir nada que afirmar "Sin
+ * stock". Cero en el estante y "todo pedido" van en ámbar (`metaAlerta`): avisan, no decoran.
  */
-export function descripcionStock(s: StockVisitaRow | undefined): string | undefined {
-  if (!s) return undefined
-  if (s.en_estante <= 0) return 'Sin stock'
+export function indicadorStock(s: StockVisitaRow | undefined): { meta?: string; metaAlerta?: boolean; desc?: string } {
+  if (!s) return {}
+  if (s.en_estante <= 0) return { meta: 'Sin stock', metaAlerta: true }
   const pedidas = s.pedido_esta_visita + s.pedido_otras
-  const base = `${s.en_estante} en stock`
-  return pedidas > 0 ? `${base} · ${pedidas} ya ${pedidas === 1 ? 'pedida' : 'pedidas'}` : base
+  const libre = Math.max(0, s.en_estante - pedidas)
+  const desc = pedidas > 0
+    ? `${s.en_estante} en stock · ${pedidas} ya ${pedidas === 1 ? 'pedida' : 'pedidas'}`
+    : undefined
+  if (libre === 0) return { meta: 'Todo pedido', metaAlerta: true, desc }
+  return { meta: `${libre} ${libre === 1 ? 'disponible' : 'disponibles'}`, desc }
 }
 
 /**

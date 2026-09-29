@@ -32,7 +32,7 @@ import {
 } from '../../data/pharma'
 import type { DispensationRequestRow, HabilitacionRow, IpDocumentRow } from '../../data/pharma'
 import { bumpIpEstado, useMarcaIp, useVisitIpStatus } from '../../data/visitIp'
-import { avisoStock, descripcionStock } from './stockVisita'
+import { avisoStock, indicadorStock } from './stockVisita'
 import { edicionDelPedido } from './edicionPedido'
 import { badgeOf } from './dispensaciones/estados'
 import {
@@ -452,8 +452,9 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     .map((m) => ({
       value: m.medication_id,
       label: m.medication?.name ?? 'Medicamento',
-      // 0121 (D6): el stock, antes de elegir. Sin dato (cargando o error) no se afirma nada.
-      desc: descripcionStock(stockDe(m.medication_id)),
+      // 0121 (D6): el stock, antes de elegir: lo disponible a la derecha y, si hay algo pedido, la
+      // resta abajo. Sin dato (cargando o error) no se afirma nada.
+      ...indicadorStock(stockDe(m.medication_id)),
     }))
 
   // —— «Otro medicamento» (0124, Tanda 3c) ——

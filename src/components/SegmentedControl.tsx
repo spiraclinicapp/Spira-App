@@ -13,9 +13,40 @@ interface Props<T extends string> {
    *  Ver pacientes). Suelto, el control mide 44px; metido en una barra al lado de botones de 38px
    *  quedaba más alto que sus vecinos, y botones equivalentes tienen que medir lo mismo. */
   size?: 'normal' | 'barra'
+  /**
+   * `'botones'` (default): cada opción es un botón suelto, el no elegido con borde.
+   * `'pista'`: las opciones viven DENTRO de un canal hundido y la elegida se levanta como una
+   * pastilla. Es la forma que se lee como UN control de dos posiciones y no como dos botones
+   * parecidos — hace falta cuando el alternador va en un encabezado, al lado de un título, donde
+   * dos botones con borde competían con las acciones del pie. Los estilos viven en `.spira-pista`
+   * (tokens.css) porque el hover cambia el color y un `color` inline le ganaría a la hoja.
+   */
+  forma?: 'botones' | 'pista'
 }
 
-export function SegmentedControl<T extends string>({ options, value, onChange, label, size = 'normal' }: Props<T>) {
+export function SegmentedControl<T extends string>({ options, value, onChange, label, size = 'normal', forma = 'botones' }: Props<T>) {
+  if (forma === 'pista') {
+    return (
+      <div role="radiogroup" aria-label={label} className="spira-pista">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={o.value === value}
+            disabled={o.disabled}
+            onClick={() => !o.disabled && onChange(o.value)}
+            // Sin el levante de la micro-interacción: una pastilla que salta 1px se sale del canal.
+            // El hover lo señala el color de la tinta (ver `.spira-pista__op:hover`).
+            className="spira-pista__op spira-no-press"
+          >
+            {o.label}
+            {o.badge && <span style={badge}>{o.badge}</span>}
+          </button>
+        ))}
+      </div>
+    )
+  }
   const medida: CSSProperties = size === 'barra'
     ? { height: 38, padding: '0 15px', fontSize: 13.5 }
     : { minHeight: 44, padding: '10px 16px', fontSize: 14 }
