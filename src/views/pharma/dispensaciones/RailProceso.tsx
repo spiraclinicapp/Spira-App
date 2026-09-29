@@ -31,7 +31,10 @@ export function RailProceso({ r, actual }: {
   r: DispensationRequestRow
   actual: BoardColumn
 }) {
-  const idx = PASOS.indexOf(actual)
+  // Entregada es el proceso TERMINADO, no el paso 3 en curso: dibujarla como "actual" (relleno,
+  // halo, el número) decía que faltaba entregar algo que ya se llevó el paciente. Con el índice
+  // pasado del último, los tres nodos quedan cumplidos y ninguno lleva `aria-current`.
+  const idx = actual === 'entregada' ? PASOS.length : PASOS.indexOf(actual)
   const reqs = requisitos(r)
   const bloqueo = readyBlockedReason(r)
   // El primer pendiente es el único que va resaltado: es lo que hay que hacer AHORA. Resaltar todos
@@ -42,13 +45,7 @@ export function RailProceso({ r, actual }: {
     <div style={rail}>
       <div className="spira-eyebrow" style={{ marginBottom: 16 }}>Proceso</div>
 
-      {/* La espina es un pseudo-elemento en CSS real (`.spira-rail-flow::before`), no un div: así el
-          tramo recorrido se apila encima sin pelearse por el z-index con los nodos. */}
-      <ol className="spira-rail-flow" style={flow}>
-        {/* Tramo recorrido. Alto por paso, como el mock: 0% en el primero (no hay nada atrás),
-            38% en el segundo, 76% en el tercero. */}
-        <i aria-hidden style={{ ...prog, height: `${[0, 38, 76][Math.max(idx, 0)]}%` }} />
-
+      <ol style={flow}>
         {PASOS.map((key, i) => {
           const done = i < idx
           const cur = i === idx
@@ -64,6 +61,16 @@ export function RailProceso({ r, actual }: {
                 {/* Cumplido muestra tilde en vez del número: el número ya no informa nada. */}
                 {done ? <Icon name="check" size={13} stroke={2.6} /> : i + 1}
               </span>
+
+              {/* El conector sale de ESTE nodo hacia el siguiente, dentro del <li>, así que mide lo
+                  que mide el nodo — con la lista de requisitos desplegada o sin ella. Antes era una
+                  espina única con el tramo recorrido en porcentajes fijos (0/38/76 %): pasaba POR
+                  DETRÁS de los nodos, se veía a través del fondo translúcido de los cumplidos
+                  (la raya cruzaba el tilde) y asomaba debajo del último. Ahora no toca ningún
+                  nodo: arranca y termina a 3px, justo donde termina el halo del actual. */}
+              {i < PASOS.length - 1 && (
+                <i aria-hidden style={{ ...tramo, background: i < idx ? tramoHecho : 'var(--spira-line)' }} />
+              )}
 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ ...tt, ...(done ? ttDone : {}), ...(cur ? ttCur : {}) }}>
@@ -108,7 +115,10 @@ export function RailProceso({ r, actual }: {
                                 ...ct,
                                 color: q.cumplido
                                   ? 'var(--spira-good)'
-                                  : on ? 'var(--spira-primary-deep)' : 'var(--spira-faint)',
+                                  // `--spira-acc-deep-track` y no `--spira-primary-deep`: ése es fijo en los
+                                  // dos temas y en oscuro quedaba en ~1,5:1, ilegible. Éste es el petróleo
+                                  // del primario en claro y se aclara a menta en oscuro.
+                                  : on ? 'var(--spira-acc-deep-track)' : 'var(--spira-faint)',
                               }}
                             >
                               {q.conteo.hechas}/{q.conteo.total}
@@ -154,10 +164,14 @@ const flow: CSSProperties = {
   position: 'relative', listStyle: 'none', margin: 0, padding: 0,
 }
 
-const prog: CSSProperties = {
-  position: 'absolute', left: 11.5, top: 14, width: 1.5,
-  background: 'rgba(46, 125, 116, 0.5)', transition: 'height 0.18s',
+/** Centrado bajo el nodo de 24px: 12 − 1.5/2. Arranca 3px debajo del nodo y corta 3px antes del
+ *  siguiente (el `bottom` cae dentro del `paddingBottom` del <li>, que es el hueco entre los dos). */
+const tramo: CSSProperties = {
+  position: 'absolute', left: 11.25, top: 24 + 3, bottom: 3, width: 1.5, borderRadius: 1,
+  transition: 'background-color 0.18s',
 }
+
+const tramoHecho = 'rgba(46, 125, 116, 0.5)'
 
 const node: CSSProperties = {
   display: 'flex', gap: 11, paddingBottom: 16, position: 'relative',
@@ -218,7 +232,9 @@ const aro: CSSProperties = {
   borderWidth: 1.5, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
 }
 
-const aroOn: CSSProperties = { borderWidth: 2.5, borderColor: 'var(--spira-primary)' }
+/** El mismo token que el contador de la fila: `--spira-primary` no se aclara en oscuro y el aro quedaba
+ *  apagado sobre la card. En claro los dos valen #0F5F57, así que ahí no cambia nada. */
+const aroOn: CSSProperties = { borderWidth: 2.5, borderColor: 'var(--spira-acc-deep-track)' }
 
 /** Con contador, el texto trunca: el `n/total` es lo que no puede perderse. */
 const reqTexto: CSSProperties = {
