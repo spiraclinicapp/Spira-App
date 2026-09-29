@@ -302,9 +302,10 @@ export function AltaAmbulatoria({ onClose, onEntregado }: {
           <button
             type="button" onClick={entregar} disabled={!!bloqueo || busy}
             style={{
-              ...btnPrimary(bloqueo ? 'var(--spira-line-2)' : 'var(--spira-pharma-solid)'),
-              display: 'flex', alignItems: 'center', gap: 8,
-              cursor: bloqueo || busy ? 'default' : 'pointer', opacity: bloqueo || busy ? 0.7 : 1,
+              // Deshabilitado = el acento apagado, no el beige de los bordes (ver PanelNuevaDispensacion).
+              ...btnPrimary('var(--spira-pharma-solid)'),
+              display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
+              cursor: bloqueo || busy ? 'default' : 'pointer', opacity: bloqueo || busy ? 0.45 : 1,
             }}
           >
             <Icon name="arrowUpRight" size={16} color="var(--spira-on-accent)" />

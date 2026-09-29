@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../../components/Icon'
 import { SearchableSelect } from '../../../components/SearchableSelect'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { usePatients } from '../../../data/patients'
 import { usePatientMedications } from '../../../data/pharma'
-import { useVisitasDispensables, createDispensationRequest, registrarVnp, useContextoDispensacion } from '../../../data/pharma'
+import { useVisitasDispensables, createDispensationRequest, registrarVnp, useContextoDispensacion, useStockDeLaVisita } from '../../../data/pharma'
 import type { RequestItemInput, VisitaDispensableRow } from '../../../data/pharma'
 import { formatAR, todayISO } from '../../../lib/dates'
 import { visitTitle } from '../../../lib/visits'
@@ -20,6 +20,7 @@ import { SegmentedControl } from '../../../components/SegmentedControl'
 import { AltaAmbulatoria } from './AltaAmbulatoria'
 import { AvisosDeEntrega } from '../AvisosDeEntrega'
 import { renglonDeSaldo, saldosDeLaVisita } from '../saldoModel'
+import { avisoStock, indicadorStock } from '../stockVisita'
 import type { SaldoCaja } from '../saldoModel'
 
 /** Las dos cosas que se pueden dar de alta desde el mostrador. */
@@ -45,9 +46,14 @@ type TipoAlta = 'protocolo' | 'ambulatoria'
  * arrastrarlo sería llevar un dato al lugar equivocado.
  *
  * El alternador vive AFUERA del cuerpo que scrollea, no adentro: es la decisión de la que cuelga
- * todo lo demás y tiene que seguir a la vista aunque el formulario sea largo.
+ * todo lo demás y tiene que seguir a la vista aunque el formulario sea largo. Y va en el MISMO
+ * renglón que el encabezado del cajón (`encabezado`), a la derecha: abajo ocupaba una franja
+ * entera para dos botones, y como dos botones con borde se leía como acciones y no como la
+ * respuesta a "¿de qué tipo es esto?". Por eso el encabezado entra como prop: el estado del
+ * alternador vive acá y el renglón tiene que ser uno solo.
  */
-export function PanelNuevaDispensacion({ onClose, onCreated, onEntregado }: {
+export function PanelNuevaDispensacion({ encabezado, onClose, onCreated, onEntregado }: {
+  encabezado: ReactNode
   onClose: () => void
   onCreated: (requestId: string) => void
   /** La ambulatoria no crea una solicitud que haya que preparar: nace y termina entregada. */
@@ -57,8 +63,10 @@ export function PanelNuevaDispensacion({ onClose, onCreated, onEntregado }: {
 
   return (
     <>
-      <div style={alternador}>
+      <div style={cabecera}>
+        {encabezado}
         <SegmentedControl<TipoAlta>
+          forma="pista"
           label="Tipo de dispensación"
           value={tipo}
           onChange={setTipo}
@@ -76,7 +84,12 @@ export function PanelNuevaDispensacion({ onClose, onCreated, onEntregado }: {
   )
 }
 
-const alternador: CSSProperties = { padding: '0 22px 16px', flex: '0 0 auto' }
+/* `wrap`: si el cajón se angosta (celular), el alternador baja entero a su propio renglón en vez de
+   aplastar el título. */
+const cabecera: CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap',
+  gap: '12px 16px', padding: '2px 22px 18px', flex: '0 0 auto',
+}
 
 /**
  * Alta manual desde el mostrador (el "Nueva dispensación" del handoff).
@@ -133,6 +146,14 @@ function AltaProtocolo({ onClose, onCreated }: {
    * visita elegida.
    */
   const contexto = useContextoDispensacion(visitId || null, !!visitId)
+  /**
+   * El stock de lo que se puede pedir, el MISMO que ve Coordinación en la tarjeta de la visita
+   * (`stock_de_la_visita`, 0121). Cuelga de la visita y no del paciente porque el estante que
+   * cuenta es el del protocolo de ESA visita: hasta elegirla no hay número que mostrar, y el
+   * desplegable no afirma nada.
+   */
+  const stockQ = useStockDeLaVisita(visitId || null, !!visitId)
+  const stockDe = (medicationId: string) => (stockQ.data ?? []).find((s) => s.medication_id === medicationId)
 
   const opcionesEnrolamiento = useMemo(
     () => opcionesDeEnrolamiento(pacientes.data),
@@ -167,8 +188,12 @@ function AltaProtocolo({ onClose, onCreated }: {
   const opcionesMed = useMemo(
     () => activas
       .filter((m) => !items.some((i) => i.medication_id === m.medication_id))
-      .map((m) => ({ value: m.medication_id, label: m.medication?.name ?? 'Medicamento' })),
-    [activas, items],
+      .map((m) => ({
+        value: m.medication_id,
+        label: m.medication?.name ?? 'Medicamento',
+        ...indicadorStock((stockQ.data ?? []).find((s) => s.medication_id === m.medication_id)),
+      })),
+    [activas, items, stockQ.data],
   )
 
   const visitaElegida: VisitaDispensableRow | null =
@@ -398,6 +423,13 @@ function AltaProtocolo({ onClose, onCreated }: {
           </button>
         </div>
 
+        {/* El mismo aviso que en Coordinación, en memoria sobre la consulta del panel. Nunca bloquea
+            "Agregar": el stock puede cambiar, y quien está en el mostrador puede tener un lote
+            recién recibido que todavía no cargó. */}
+        {medId && avisoStock(stockDe(medId), Number(qty)) && (
+          <div style={avisoStockStyle}>{avisoStock(stockDe(medId), Number(qty))}</div>
+        )}
+
         {/* La medicación habilitada es el candado: si el paciente no tiene ninguna activa, no hay
             nada que pedir y decirlo es más útil que un desplegable vacío. */}
         {enrollmentId && !medicacion.loading && activas.length === 0 && (
@@ -449,9 +481,12 @@ function AltaProtocolo({ onClose, onCreated }: {
           <button
             type="button" onClick={crear} disabled={!!bloqueo || busy}
             style={{
-              ...btnPrimary(bloqueo ? 'var(--spira-line-2)' : 'var(--spira-pharma-solid)'),
-              display: 'flex', alignItems: 'center', gap: 8,
-              cursor: bloqueo || busy ? 'default' : 'pointer', opacity: bloqueo || busy ? 0.7 : 1,
+              // Deshabilitado = el MISMO acento, apagado con opacidad, como el resto de los botones
+              // primarios de la app. Antes se pintaba con `--spira-line-2`, el beige de los bordes
+              // de input: a 0,7 se leía naranja, un color que en Spira quiere decir "atención".
+              ...btnPrimary('var(--spira-pharma-solid)'),
+              display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
+              cursor: bloqueo || busy ? 'default' : 'pointer', opacity: bloqueo || busy ? 0.45 : 1,
             }}
           >
             <Icon name="plus" size={16} color="var(--spira-on-accent)" />
@@ -480,6 +515,11 @@ const cant: CSSProperties = {
   border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
   color: 'var(--spira-ink)', fontFamily: 'var(--spira-font-text)', fontSize: 14,
   boxSizing: 'border-box',
+}
+
+/** Una línea en ámbar, sin caja — informa, no bloquea (mismo estilo que en VisitDispensationPanel). */
+const avisoStockStyle: CSSProperties = {
+  fontSize: 12, color: 'var(--spira-acc-deep-warn)', margin: '-6px 0 12px', padding: '0 2px', lineHeight: 1.4,
 }
 
 const itemRow: CSSProperties = {
