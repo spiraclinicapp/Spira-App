@@ -116,12 +116,14 @@ export function VisitCodeTag({ code }: { code: string }) {
  * queda colgando al final de la línea.
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-export function IndicadoresVisita({ resumen, variante, porCargar }: {
+export function IndicadoresVisita({ resumen, variante, porCargar, sinMarcar = 0 }: {
   resumen: ResumenVisita
   variante: 'fila' | 'modal'
   /** Cuántos reportes quedan por cargar. `null` = la visita no define ninguno (no se dibuja).
    *  Sólo en el modal: en la fila, los reportes no entran (handoff §4). */
   porCargar?: number | null
+  /** Procedimientos con reporte que una visita FINALIZADA dejó sin tildar (`sinMarcar`). Sólo modal. */
+  sinMarcar?: number
 }) {
   const enFila = variante === 'fila'
   return (
@@ -148,7 +150,18 @@ export function IndicadoresVisita({ resumen, variante, porCargar }: {
         <Indicador encendido icono="pill" color="var(--spira-warn)" texto={enFila ? 'Kit IP' : 'Lleva kit IP'} />
       )}
 
-      {!enFila && porCargar != null && (
+      {/* Va ANTES que los reportes y los reemplaza cuando no hay nada por cargar: «Reportes al día»
+          al lado de un procedimiento que nadie marcó se contradice en la misma línea. */}
+      {!enFila && sinMarcar > 0 && (
+        <Indicador
+          encendido
+          icono="alertCircle"
+          color="var(--spira-warn)"
+          texto={`${sinMarcar} ${sinMarcar === 1 ? 'procedimiento' : 'procedimientos'} sin marcar`}
+        />
+      )}
+
+      {!enFila && porCargar != null && !(sinMarcar > 0 && porCargar === 0) && (
         <Indicador
           encendido={porCargar > 0}
           icono="fileText"

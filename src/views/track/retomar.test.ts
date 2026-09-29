@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { TrackVisitRow } from '../../data/visits'
 import type { MarcaRow } from '../../data/pendientes'
 import {
-  agruparPorRetomar, diasEsperando, pacientesDelEstudio, pendientesAlFinalizar, procedimientosRepetibles,
+  agruparPorRetomar, diasEsperando, pacientesDelEstudio, pendientesAlFinalizar, procedimientosRepetibles, seDanPorHechos,
   cierreDeVentana, contadorDeDias, marcaDePendiente, rotuloDeVisita, visitasConFechaPasada, visitasParaRetest, visitasParaTraer,
 } from './retomar'
 
@@ -33,6 +33,13 @@ describe('pendientesAlFinalizar', () => {
   })
   it('un procedimiento sin reporte nunca dispara el aviso', () => {
     expect(pendientesAlFinalizar([p('vit', false, false), p('ecg', false, false)])).toEqual([])
+  })
+})
+
+describe('seDanPorHechos', () => {
+  it('nombra lo que no deja reporte, y sólo eso', () => {
+    const r = seDanPorHechos([p('lab', false, true), p('hem', true, true), p('vit', false, false)])
+    expect(r.map((x) => x.procedure_id)).toEqual(['vit'])
   })
 })
 

@@ -20,8 +20,13 @@ import type { ProcedimientoElegible } from './retomar'
  * «Finalizar» ya se apretó y falló a mitad de camino (algunos tildes guardados, después un error),
  * cerrar DESPUÉS de eso no los deshace: quedan escritos, tal como quedarían si se reintentara.
  */
-export function AvisoPendientesModal({ pendientes, accent, onFinalizar, onClose }: {
+export function AvisoPendientesModal({ pendientes, porHechos, accent, onFinalizar, onClose }: {
   pendientes: readonly ProcedimientoElegible[]
+  /**
+   * Lo que no deja reporte. Finalizar lo da por hecho (decisión 9), así que no lleva casilla: se
+   * NOMBRA, para que se vea todo lo que se confirma al finalizar (Director, 2026-09-28).
+   */
+  porHechos: readonly ProcedimientoElegible[]
   accent: string
   /** Tilda `hechos`, deja el resto para otro día y finaliza. Devuelve el error a mostrar, o `null`. */
   onFinalizar: (hechos: string[]) => Promise<string | null>
@@ -61,9 +66,17 @@ export function AvisoPendientesModal({ pendientes, accent, onFinalizar, onClose 
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {paso === 'hechos' ? (
-          <FormField label="¿Qué se hizo?">
-            <CasillasDeProcedimientos items={pendientes} elegidos={hechos} onChange={setHechos} accent={accent} />
-          </FormField>
+          <>
+            <FormField label="¿Qué se hizo?">
+              <CasillasDeProcedimientos items={pendientes} elegidos={hechos} onChange={setHechos} accent={accent} />
+            </FormField>
+            {porHechos.length > 0 && (
+              <div style={{ fontSize: 12.5, color: 'var(--spira-ink-2)', lineHeight: 1.45 }}>
+                <span style={{ fontWeight: 600 }}>Al finalizar se dan por hechos:</span>{' '}
+                {porHechos.map((p) => p.name).join(' · ')}
+              </div>
+            )}
+          </>
         ) : (
           <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13.5, color: 'var(--spira-ink)' }}>
             {quedan.map((p) => <li key={p.procedure_id}>{p.name}</li>)}
