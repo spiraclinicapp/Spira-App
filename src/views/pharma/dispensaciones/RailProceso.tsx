@@ -115,7 +115,10 @@ export function RailProceso({ r, actual }: {
                                 ...ct,
                                 color: q.cumplido
                                   ? 'var(--spira-good)'
-                                  : on ? 'var(--spira-primary-deep)' : 'var(--spira-faint)',
+                                  // `--spira-acc-deep-track` y no `--spira-primary-deep`: ése es fijo en los
+                                  // dos temas y en oscuro quedaba en ~1,5:1, ilegible. Éste es el petróleo
+                                  // del primario en claro y se aclara a menta en oscuro.
+                                  : on ? 'var(--spira-acc-deep-track)' : 'var(--spira-faint)',
                               }}
                             >
                               {q.conteo.hechas}/{q.conteo.total}
