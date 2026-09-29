@@ -232,7 +232,9 @@ const aro: CSSProperties = {
   borderWidth: 1.5, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
 }
 
-const aroOn: CSSProperties = { borderWidth: 2.5, borderColor: 'var(--spira-primary)' }
+/** El mismo token que el contador de la fila: `--spira-primary` no se aclara en oscuro y el aro quedaba
+ *  apagado sobre la card. En claro los dos valen #0F5F57, así que ahí no cambia nada. */
+const aroOn: CSSProperties = { borderWidth: 2.5, borderColor: 'var(--spira-acc-deep-track)' }
 
 /** Con contador, el texto trunca: el `n/total` es lo que no puede perderse. */
 const reqTexto: CSSProperties = {
