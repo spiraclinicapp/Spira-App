@@ -36,7 +36,7 @@ import type { ReporteConProtocolo, VisitaConProtocolo } from './pendientesPorPro
  * que verse distinta con el mouse en cualquier lado. Mismo idioma que `MultiFilterMenu` y que las
  * tarjetas de Stock.
  */
-export function PendientesProtocoloCards({ visitas, reportes, ips, retomar, fechaPasada, protocols, seleccionados, accentSolid, onToggle }: {
+export function PendientesProtocoloCards({ visitas, reportes, ips, retomar, fechaPasada, sinMarcar, protocols, seleccionados, accentSolid, onToggle }: {
   /** Alertas de visita SIN filtrar. */
   visitas: readonly VisitaConProtocolo[]
   /** Reportes pendientes SIN filtrar. */
@@ -47,6 +47,8 @@ export function PendientesProtocoloCards({ visitas, reportes, ips, retomar, fech
   retomar: readonly ReporteConProtocolo[]
   /** Visitas con la fecha pasada y la ventana abierta, SIN filtrar (2026-09-28). */
   fechaPasada: readonly ReporteConProtocolo[]
+  /** Visitas finalizadas con procedimientos sin marcar, SIN filtrar, una fila por visita (2026-09-28). */
+  sinMarcar: readonly ReporteConProtocolo[]
   /**
    * El catálogo, para el NOMBRE y el ESTADO de cada protocolo: las filas de alerta traen el código
    * pero no el resto. Si un protocolo todavía no está acá —la consulta carga por su cuenta— la
@@ -59,7 +61,7 @@ export function PendientesProtocoloCards({ visitas, reportes, ips, retomar, fech
   accentSolid: string
   onToggle: (protocolId: string) => void
 }) {
-  const filas = pendientesPorProtocolo(visitas, reportes, ips, retomar, fechaPasada)
+  const filas = pendientesPorProtocolo(visitas, reportes, ips, retomar, fechaPasada, sinMarcar)
   const porId = new Map(protocols.map((p) => [p.id, p]))
   /* Con un solo protocolo el atajo no sirve de nada: enfocar en el único que hay deja la lista igual.
      Se esconde entero en vez de dibujar una tarjeta que no cambia nada al tocarla. */
@@ -168,6 +170,12 @@ export function PendientesProtocoloCards({ visitas, reportes, ips, retomar, fech
                       <span style={parte}>
                         <span style={{ ...punto, background: 'var(--spira-acc-deep-warn)' }} />
                         IP <b style={cifra}>{p.ips}</b>
+                      </span>
+                    )}
+                    {p.sinMarcar > 0 && (
+                      <span style={parte}>
+                        <span style={{ ...punto, background: 'var(--spira-acc-deep-warn)' }} />
+                        Sin marcar <b style={cifra}>{p.sinMarcar}</b>
                       </span>
                     )}
                     {p.reportes > 0 && (

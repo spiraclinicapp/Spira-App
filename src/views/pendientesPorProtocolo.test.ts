@@ -133,6 +133,13 @@ describe('pendientesPorProtocolo', () => {
     expect(f.porEstado).toEqual([{ estado: 'por_reprogramar', n: 1 }])
   })
 
+  it('cuenta las visitas con procedimientos sin marcar (2026-09-28), en el total y aparte', () => {
+    const [f] = pendientesPorProtocolo([v('A', 'item_vencido')], [], [], [], [], [r('A'), r('A')])
+    expect(f.total).toBe(3)
+    expect(f.sinMarcar).toBe(2)
+    expect(f.porEstado).toEqual([{ estado: 'item_vencido', n: 1 }])
+  })
+
   it('un protocolo con sólo pendientes por retomar tiene tarjeta, detrás de los que tienen alertas', () => {
     const filas = pendientesPorProtocolo([v('B', 'ventana_vencida')], [], [], [r('A')])
     expect(filas.map((x) => x.code)).toEqual(['B', 'A'])
