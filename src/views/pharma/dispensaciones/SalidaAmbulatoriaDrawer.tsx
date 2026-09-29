@@ -54,7 +54,7 @@ export function SalidaAmbulatoriaDrawer({ salida, cargando, error, onClose }: {
 
           {/* La medicación primero y en grande: es lo que salió del estante. */}
           <div style={cabecera}>
-            <span style={ico}><Icon name="pill" size={20} color="var(--spira-pharma-solid)" /></span>
+            <span style={ico}><Icon name="pill" size={20} color="var(--spira-acc-deep-track)" /></span>
             <div style={{ minWidth: 0 }}>
               {/* SOLO el nombre, sin agregarle `medication_dosis`. En los datos reales el nombre YA
                   la trae ("Alvetide 184/22 mcg"), así que concatenarla la escribía dos veces —
@@ -119,9 +119,10 @@ const cabecera: CSSProperties = {
   border: '1px solid var(--spira-line)', borderRadius: 13, background: 'var(--spira-white)',
 }
 
+/** Mismo círculo que el del alta (`NuevaDispensacionDrawer`), con el mismo arreglo para oscuro. */
 const ico: CSSProperties = {
   width: 40, height: 40, borderRadius: '50%', display: 'grid', placeItems: 'center',
-  background: 'rgba(15, 95, 87, 0.14)', flex: '0 0 auto',
+  background: 'color-mix(in srgb, var(--spira-acc-deep-track) 14%, transparent)', flex: '0 0 auto',
 }
 
 const nombreMed: CSSProperties = {

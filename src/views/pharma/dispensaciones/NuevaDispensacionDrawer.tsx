@@ -29,7 +29,7 @@ export function NuevaDispensacionDrawer({ onClose, onCreated, onEntregado }: {
         <PanelNuevaDispensacion
           encabezado={
             <div style={head}>
-              <span style={ico}><Icon name="plus" size={20} color="var(--spira-pharma-solid)" /></span>
+              <span style={ico}><Icon name="plus" size={20} color="var(--spira-acc-deep-track)" /></span>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 16, fontWeight: 700, color: 'var(--spira-ink)' }}>
                   Nueva dispensación
@@ -49,7 +49,13 @@ export function NuevaDispensacionDrawer({ onClose, onCreated, onEntregado }: {
 
 const head: CSSProperties = { display: 'flex', alignItems: 'center', gap: 13, minWidth: 0 }
 
+/**
+ * El círculo del ícono del encabezado. Glifo y tinte salen de `--spira-acc-deep-track`, no de
+ * `--spira-pharma-solid` ni de un rgba fijo: los dos valen #0F5F57 en claro, pero sólo el acc-deep
+ * se aclara a menta en oscuro. Con el sólido, el ícono quedaba petróleo sobre la card casi negra y
+ * se leía apagado. En claro no cambia nada.
+ */
 const ico: CSSProperties = {
   width: 44, height: 44, borderRadius: '50%', display: 'grid', placeItems: 'center',
-  background: 'rgba(15, 95, 87, 0.14)', flex: '0 0 auto',
+  background: 'color-mix(in srgb, var(--spira-acc-deep-track) 14%, transparent)', flex: '0 0 auto',
 }
