@@ -90,6 +90,19 @@ export function inscripcionCerrada(enrollmentStatus: string): boolean {
 }
 
 /**
+ * ¿La inscripción está FUERA DE CURSO? Cerrada, o inactiva (0147: cargada y todavía sin empezar).
+ *
+ * Es la que usan las alertas, Pendientes y el retest: una visita vencida de alguien que todavía no
+ * empezó no pide acción, igual que la de alguien que ya se fue. Sigue yendo por exclusión y no por
+ * `=== 'activo'` —el porqué está arriba—: `screening` sigue en curso, y un valor futuro que no
+ * conocemos sigue alertando antes que apagarse solo. `inscripcionCerrada` queda para lo que de verdad
+ * pregunta por un cierre.
+ */
+export function inscripcionFueraDeCurso(enrollmentStatus: string): boolean {
+  return inscripcionCerrada(enrollmentStatus) || enrollmentStatus === 'inactivo'
+}
+
+/**
  * ¿Esta visita ya tiene documentada la desviación de ESTA ventana?
  *
  * El ancla es el punto fino, igual que la huella de los descartes: sin ella, documentar una vez

@@ -4,7 +4,7 @@ import { FormField } from '../../components/FormField'
 import { SearchableSelect } from '../../components/SearchableSelect'
 import { btnOutline, btnPrimary } from '../../components/buttons'
 import { closeEnrollment, reopenEnrollment, useVisitasFuturas } from '../../data/enrollments'
-import { estaAbierta, ETIQUETA_ESTADO, MOTIVOS_DE_CIERRE } from '../../lib/inscripcion'
+import { estaCerrada, ETIQUETA_ESTADO, MOTIVOS_DE_CIERRE } from '../../lib/inscripcion'
 import type { EnrollmentStatus } from '../../lib/inscripcion'
 
 /**
@@ -37,7 +37,9 @@ export function CerrarInscripcionModal({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const futuras = useVisitasFuturas(enrollmentId)
-  const abierta = estaAbierta(estado)
+  // «No cerrada» y no «en curso»: una inactiva (0147) se CIERRA, no se reabre —reabrir exige que esté
+  // cerrada y la base lo rebotaría—.
+  const abierta = !estaCerrada(estado)
 
   const cerrar = async () => {
     if (!motivo) return

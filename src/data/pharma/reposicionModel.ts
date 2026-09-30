@@ -16,7 +16,7 @@
 
 export type ModoReposicion = 'mensual' | 'a_demanda' | 'no_se_compra'
 export type EstadoEstudio = 'activo' | 'pausado' | 'cerrado'
-export type EstadoEnrolamiento = 'screening' | 'activo' | 'completado' | 'discontinuado'
+export type EstadoEnrolamiento = 'screening' | 'activo' | 'inactivo' | 'completado' | 'discontinuado'
 
 export interface EstudioInsumo {
   id: string

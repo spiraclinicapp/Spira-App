@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  desviacionLista, inscripcionCerrada, isVisitDeviationRecorded,
+  desviacionLista, inscripcionCerrada, inscripcionFueraDeCurso, isVisitDeviationRecorded,
   type ProtocolDeviationRow,
 } from './deviationModel'
 
@@ -36,6 +36,23 @@ describe('isVisitDeviationRecorded', () => {
 
   it('sin ventana no hay desviación que aplicar', () => {
     expect(isVisitDeviationRecorded([dev()], { id: 'v1', window_end: null })).toBe(false)
+  })
+})
+
+describe('inscripcionFueraDeCurso (0147)', () => {
+  // EL CASO NUEVO: una inactiva (rollover cargado, sin empezar) no pide acción, pero NO está cerrada.
+  it('inactivo está fuera de curso, pero no cerrada', () => {
+    expect(inscripcionFueraDeCurso('inactivo')).toBe(true)
+    expect(inscripcionCerrada('inactivo')).toBe(false)
+  })
+  it('las cerradas también están fuera de curso', () => {
+    expect(inscripcionFueraDeCurso('completado')).toBe(true)
+    expect(inscripcionFueraDeCurso('discontinuado')).toBe(true)
+  })
+  it('screening y activo siguen en curso, y un estado desconocido también', () => {
+    expect(inscripcionFueraDeCurso('screening')).toBe(false)
+    expect(inscripcionFueraDeCurso('activo')).toBe(false)
+    expect(inscripcionFueraDeCurso('en_pausa')).toBe(false)
   })
 })
 
