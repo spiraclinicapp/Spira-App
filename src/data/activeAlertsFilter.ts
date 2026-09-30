@@ -1,6 +1,6 @@
 import { isVisitAlertDismissed } from './alertDismissalModel'
 import type { AlertDismissalRow } from './alertDismissalModel'
-import { inscripcionCerrada, isVisitDeviationRecorded } from './deviationModel'
+import { inscripcionFueraDeCurso, isVisitDeviationRecorded } from './deviationModel'
 import type { ProtocolDeviationRow } from './deviationModel'
 import type { TrackVisitRow } from './visits'
 
@@ -32,7 +32,7 @@ export function alertasVigentes(
 ): TrackVisitRow[] {
   return alertas.filter(
     (a) =>
-      !inscripcionCerrada(a.enrollment_status) &&
+      !inscripcionFueraDeCurso(a.enrollment_status) &&
       !isVisitDeviationRecorded(desviaciones, a) &&
       !isVisitAlertDismissed(descartes, a),
   )

@@ -26,6 +26,7 @@ export {
   desviacionLista,
   ESTADOS_DE_INSCRIPCION_CERRADOS,
   inscripcionCerrada,
+  inscripcionFueraDeCurso,
   isVisitDeviationRecorded,
 } from './deviationModel'
 export type { ProtocolDeviationRow } from './deviationModel'

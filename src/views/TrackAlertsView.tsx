@@ -26,7 +26,7 @@ import {
 } from '../data/alertDismissals'
 import type { AlertKind } from '../data/alertDismissals'
 import {
-  deleteDeviation, deviationReasonLabel, inscripcionCerrada, isVisitDeviationRecorded,
+  deleteDeviation, deviationReasonLabel, inscripcionFueraDeCurso, isVisitDeviationRecorded,
 } from '../data/deviations'
 import { DocumentarDesviacionModal } from './DocumentarDesviacionModal'
 import type { DocumentandoTarget } from './DocumentarDesviacionModal'
@@ -249,14 +249,14 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
   const dismissals = alertsQ.dismissals
   const deviations = alertsQ.deviations
 
-  /* Las que quedaron SIN DOCUMENTAR: ventanas vencidas de inscripciones ya cerradas. Salieron de
-     la lista activa porque no hay nada que hacer con ellas —el paciente no está más en el estudio—
-     pero no desaparecen: se listan acá, con su marca, para que el número no se esconda. Salen de
+  /* Las que quedaron SIN DOCUMENTAR: ventanas vencidas de inscripciones fuera de curso —cerradas, o
+     inactivas desde la 0147—. Salieron de la lista activa porque no hay nada que hacer con ellas
+     —el paciente no está más en el estudio, o todavía no empezó— pero no desaparecen: se listan acá, con su marca, para que el número no se esconda. Salen de
      `allVisitAlerts` (las CRUDAS) justamente porque el filtro de la lista activa ya las sacó. */
   const sinDocumentar = useMemo(
     () => alertsQ.allVisitAlerts.filter(
       (a) => a.computed_status === 'ventana_vencida' &&
-        inscripcionCerrada(a.enrollment_status) &&
+        inscripcionFueraDeCurso(a.enrollment_status) &&
         !isVisitDeviationRecorded(deviations, a),
     ),
     [alertsQ.allVisitAlerts, deviations],
