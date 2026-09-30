@@ -3,7 +3,7 @@ import { textoPeriodo } from './periodoDeCorte'
 import type { Periodo } from './periodoDeCorte'
 import { faltaTxt, numerosDePedidos, pastillaDePedido, seSuperpone, textoDeRecepciones } from './pedidosMedicacionModel'
 import type { PastillaPedido, PedidoMedicacion } from './pedidosMedicacionModel'
-import type { EstudioReposicion, ReposicionDelPeriodo } from './reposicionPeriodoModel'
+import type { EstudioReposicion, RenglonDelPeriodo, ReposicionDelPeriodo } from './reposicionPeriodoModel'
 
 /**
  * ┌─ Lo que dicen la grilla y el estudio (spec 2026-09-16, revisión de diseño RD1, RD4-RD7, RD17) ─────┐
@@ -240,6 +240,45 @@ export function resumenDelEstudio(e: EstudioReposicion, rep: ReposicionDelPeriod
       ? `${plural(e.resumen.medicamentos, 'medicamento', 'medicamentos')} para comprar · ${noLlego ? `el Pedido Nº ${noLlego.numero} no llegó` : 'todavía sin pedido'}`
       : 'No hace falta pedir',
   }
+}
+
+// ═══════════════════════ La tabla del estudio (handoff «renglón abierto», 2026-09-29) ═══════════════════════
+
+/**
+ * La línea arriba de la tabla. Reemplaza los dos encabezados de grupo («Este período…» / «Para el que
+ * viene»): la tabla ya no separa lo que pasó de lo que se compra, así que dice una vez para qué período es.
+ */
+export function encabezadoDeLaTabla(rep: ReposicionDelPeriodo, e: EstudioReposicion, diaCorte: number): { titulo: string; detalle: string } {
+  const corte = `Corte el ${diaCorte} de cada mes`
+  if (!rep.enCurso || !e.objetivo) return { titulo: `Período ${textoPeriodo(rep.periodo)}`, detalle: corte }
+  return { titulo: `Pedido del período ${textoPeriodo(e.objetivo)}`, detalle: `${corte} · hoy ${diaMes(rep.hoy)}` }
+}
+
+/**
+ * Debajo del número de «En el estante»: de dónde salió. «sin movimientos» sólo si de verdad no se movió
+ * nada: con un ajuste solo, decirlo sería falso, y sin él la fila no cierra.
+ */
+export function textoEstante(l: { habia: number; entro: number; salio: number; ajustes: number }): string {
+  if (l.entro === 0 && l.salio === 0 && l.ajustes === 0) return 'sin movimientos'
+  const base = `empezó con ${l.habia} · +${l.entro} −${l.salio}`
+  if (l.ajustes === 0) return base
+  return `${base} · ${l.ajustes > 0 ? '+' : '−'}${Math.abs(l.ajustes)} ${Math.abs(l.ajustes) === 1 ? 'ajuste' : 'ajustes'}`
+}
+
+/** Cómo se repone, en corto: debajo del nombre y al pie del renglón abierto. null si no hay regla que decir. */
+export function reglaDeReposicion(r: Pick<RenglonDelPeriodo, 'modo' | 'envasesPorMes' | 'stockFijo'>): string | null {
+  if (r.modo === 'mensual') return `${envasesTxt(r.envasesPorMes ?? 0)} por mes`
+  if (r.modo === 'a_demanda') return `a demanda, tener ${r.stockFijo ?? 0}`
+  return null
+}
+
+/**
+ * La frase arriba de la ecuación cuando se pide tarde (RD1). Sólo si la cuenta es la de los pacientes: a
+ * demanda no hay nadie a quien «le falte retirar».
+ */
+export function fraseDelPedidoTarde(rep: ReposicionDelPeriodo, e: EstudioReposicion, r: Pick<RenglonDelPeriodo, 'modo'>): string | null {
+  if (!e.tarde || r.modo !== 'mensual') return null
+  return `El período empezó el ${diaMes(rep.periodo.desde)} y todavía no tiene pedido. Se pide lo que les falta retirar a los pacientes de este período; el del ${diaMes(rep.proximo.desde)} se pide en el próximo corte.`
 }
 
 /**

@@ -79,6 +79,24 @@ export function Pastilla({ p }: { p: PastillaPedido }) {
   )
 }
 
+/**
+ * Una etiqueta de estado en píldora (handoff «renglón abierto»): «Alcanza», «Activo», «+90 días», «Terminó ·
+ * no suma». Los tonos son los de `Pastilla`, que ya pasaron por AA en los dos temas: el mock traía hex fijos,
+ * y en oscuro un fondo claro con texto oscuro se lee como un hueco.
+ */
+export function Etiqueta({ tono, punto = false, children }: { tono: 'ok' | 'warn' | 'neutro'; punto?: boolean; children: ReactNode }) {
+  const estilo = tono === 'ok' ? TONO_PASTILLA.recibido : tono === 'warn' ? TONO_PASTILLA.llego : TONO_PASTILLA.sin_recibir
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999,
+      whiteSpace: 'nowrap', borderWidth: 1, borderStyle: 'solid', ...estilo,
+    }}>
+      {punto && <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 999, background: 'currentColor' }} />}
+      {children}
+    </span>
+  )
+}
+
 /** Un aviso de una línea: ícono + frase (los de la boleta, «Armar pedido», el día de corte). */
 export function AvisoLinea({ texto, tono = 'info' }: { texto: ReactNode; tono?: 'info' | 'warn' | 'danger' }) {
   const color = tono === 'warn' ? 'var(--spira-acc-deep-warn)' : tono === 'danger' ? 'var(--spira-acc-deep-danger)' : 'var(--spira-ink-soft)'

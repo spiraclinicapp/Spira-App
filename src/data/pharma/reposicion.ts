@@ -56,6 +56,22 @@ export async function guardarEnvasesDelPaciente(patientMedicationId: string, env
   return { error: null }
 }
 
+/**
+ * El paciente de una inscripción, para «Ver ficha →» en «Pacientes que lo reciben» (handoff «renglón
+ * abierto», 2026-09-29). La ficha se abre por paciente y `reposicion_del_periodo` trae sólo la inscripción:
+ * se resuelve al hacer clic, sin migración (decisión del Director). Farmacia lee `enrollments` de sus estudios
+ * (0146, «ver enrolamientos de mis protocolos»); null si la RLS no la devuelve.
+ */
+export async function pacienteDeLaInscripcion(enrollmentId: string): Promise<{ patientId: string; protocolId: string } | null> {
+  const { data, error } = await supabase
+    .from('enrollments')
+    .select('patient_id, protocol_id')
+    .eq('id', enrollmentId)
+    .maybeSingle()
+  if (error || !data) return null
+  return { patientId: data.patient_id as string, protocolId: data.protocol_id as string }
+}
+
 /** Cómo se repone cada medicamento del estudio (0125), para la línea de «Editar medicación». */
 export interface ReposicionDelEstudioRow {
   medication_id: string

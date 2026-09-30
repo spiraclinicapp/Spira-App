@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { franjaDelCorte, pedidosAMostrar, resumenDelEstudio, subtituloDelPeriodo, tarjetaDe } from './reposicionTarjetaModel'
+import {
+  encabezadoDeLaTabla, franjaDelCorte, fraseDelPedidoTarde, pedidosAMostrar, reglaDeReposicion, resumenDelEstudio, subtituloDelPeriodo,
+  tarjetaDe, textoEstante,
+} from './reposicionTarjetaModel'
 import { armarReposicionDelPeriodo, type InsumosDelPeriodo, type PacientePeriodoInsumo, type RenglonPeriodoInsumo } from './reposicionPeriodoModel'
 import { periodoDe } from './periodoDeCorte'
 import type { EstudioInsumo, LoteInsumo } from './reposicionModel'
@@ -351,5 +354,44 @@ describe('qué pedidos lista el estudio', () => {
   it('en un período cerrado: los que eran para él', () => {
     const r = armarReposicionDelPeriodo(tres(), '2026-09-16', { desde: '2026-07-29', hasta: '2026-08-28' }, CORTE)
     expect(pedidosAMostrar(r.estudios[0], r).map((p) => p.numero)).toEqual([12])
+  })
+})
+
+describe('la tabla del estudio (handoff «renglón abierto», 2026-09-29)', () => {
+  it('la línea de arriba dice para qué período es el pedido, y hoy', () => {
+    const r = rep('2026-09-16', COMPRA_4())
+    expect(encabezadoDeLaTabla(r, r.estudios[0], CORTE)).toEqual({ titulo: 'Pedido del período 29/09 al 28/10', detalle: 'Corte el 28 de cada mes · hoy 16/09' })
+  })
+  it('tarde, el pedido es el del período que empezó', () => {
+    const r = rep('2026-10-01', TARDE())
+    expect(encabezadoDeLaTabla(r, r.estudios[0], CORTE).titulo).toBe('Pedido del período 29/09 al 28/10')
+  })
+  it('en un período cerrado no hay pedido que nombrar', () => {
+    const r = armarReposicionDelPeriodo(COMPRA_4(), '2026-09-16', { desde: '2026-07-29', hasta: '2026-08-28' }, CORTE)
+    expect(encabezadoDeLaTabla(r, r.estudios[0], CORTE)).toEqual({ titulo: 'Período 29/07 al 28/08', detalle: 'Corte el 28 de cada mes' })
+  })
+  it('la celda del estante: de dónde salió lo que hay', () => {
+    expect(textoEstante({ habia: 8, entro: 6, salio: 4, ajustes: 0 })).toBe('empezó con 8 · +6 −4')
+    expect(textoEstante({ habia: 0, entro: 0, salio: 0, ajustes: 0 })).toBe('sin movimientos')
+    // Un ajuste solo NO es «sin movimientos»: la fila no cerraría.
+    expect(textoEstante({ habia: 3, entro: 0, salio: 0, ajustes: -1 })).toBe('empezó con 3 · +0 −0 · −1 ajuste')
+    expect(textoEstante({ habia: 3, entro: 2, salio: 1, ajustes: 2 })).toBe('empezó con 3 · +2 −1 · +2 ajustes')
+  })
+  it('la regla, en corto', () => {
+    expect(reglaDeReposicion({ modo: 'mensual', envasesPorMes: 1, stockFijo: null })).toBe('1 envase por mes')
+    expect(reglaDeReposicion({ modo: 'mensual', envasesPorMes: 2, stockFijo: null })).toBe('2 envases por mes')
+    expect(reglaDeReposicion({ modo: 'a_demanda', envasesPorMes: null, stockFijo: 5 })).toBe('a demanda, tener 5')
+    expect(reglaDeReposicion({ modo: null, envasesPorMes: null, stockFijo: null })).toBeNull()
+    expect(reglaDeReposicion({ modo: 'no_se_compra', envasesPorMes: null, stockFijo: null })).toBeNull()
+  })
+  it('la frase del pedido tarde, sólo cuando la cuenta es la de los pacientes', () => {
+    const r = rep('2026-10-01', TARDE())
+    const e = r.estudios[0]
+    expect(fraseDelPedidoTarde(r, e, { modo: 'mensual' })).toBe(
+      'El período empezó el 29/09 y todavía no tiene pedido. Se pide lo que les falta retirar a los pacientes de este período; el del 29/10 se pide en el próximo corte.',
+    )
+    expect(fraseDelPedidoTarde(r, e, { modo: 'a_demanda' })).toBeNull()
+    const normal = rep('2026-09-16', COMPRA_4())
+    expect(fraseDelPedidoTarde(normal, normal.estudios[0], { modo: 'mensual' })).toBeNull()
   })
 })

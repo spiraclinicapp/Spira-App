@@ -2,13 +2,13 @@ import { useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import {
-  diaMes, pastillaDePedido, pedidosAMostrar, periodoAnterior, periodoSiguiente, resumenDelEstudio, subtituloDelPeriodo, textoPeriodo,
-  ultimoPedidoPara,
+  diaMes, encabezadoDeLaTabla, fraseDelPedidoTarde, pastillaDePedido, pedidosAMostrar, periodoAnterior, periodoSiguiente, resumenDelEstudio,
+  subtituloDelPeriodo, textoPeriodo, ultimoPedidoPara,
 } from '../../../data/pharma'
 import type { EstudioReposicion, PedidoMedicacion, ReposicionDelPeriodo } from '../../../data/pharma'
 import { card } from '../reportes/estilos'
 import { ArmarPedido } from './ArmarPedido'
-import { ANCHO_LIBRO_EN_COLUMNAS, COLUMNAS, COLUMNAS_CERRADO, FilaMedicamento } from './FilaMedicamento'
+import { ANCHO_TABLA_ANCHA, FilaMedicamento, columnasDe } from './FilaMedicamento'
 import { HojaPedido, datosDeHoja, useImpresion } from './HojaPedido'
 import { PedidoDetalle } from './PedidoDetalle'
 import { AvisoLinea, Envases, Informacion, Pastilla, PuntoEstado, TituloSeccion, botonChico, plural, rotuloColumna, useAngosto } from './piezas'
@@ -21,7 +21,6 @@ const flecha: CSSProperties = {
   width: 32, height: 32, borderRadius: 9, border: '1px solid var(--spira-line-2)', background: 'var(--spira-white)',
   display: 'grid', placeItems: 'center', color: 'var(--spira-ink)', padding: 0,
 }
-const grupoEncabezado: CSSProperties = { padding: '10px 16px 7px', fontSize: 11.5, fontWeight: 600, color: 'var(--spira-ink-soft)' }
 
 /**
  * El estudio (mocks «2 · El estudio», «2b», «Un período anterior», «Quien sólo puede mirar», «Ventana
@@ -32,7 +31,7 @@ const grupoEncabezado: CSSProperties = { padding: '10px 16px 7px', fontSize: 11.
  * «Armar pedido» no vive acá: es la acción de la pantalla y va en el encabezado del shell, junto al
  * título (lo registra `ReposicionView`). Acá sólo se abre el modal cuando la piden.
  */
-export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, accent, accentSolid, armando, onSalirDeArmar, onVolver, onPeriodo, onCambio }: {
+export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, accent, accentSolid, armando, onSalirDeArmar, onVolver, onPeriodo, onCambio, onVerFicha }: {
   rep: ReposicionDelPeriodo
   e: EstudioReposicion
   diaCorte: number
@@ -47,6 +46,8 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, accent, accentS
   onPeriodo: (fecha: string) => void
   /** Algo cambió en la base (se emitió, anuló, cerró, reabrió o cargó): volver a pedir. */
   onCambio: () => void
+  /** «Ver ficha →» en «Pacientes que lo reciben». Sin esto (el shell no navega), la tabla va sin la acción. */
+  onVerFicha?: (enrollmentId: string) => Promise<boolean>
 }) {
   const [abierto, setAbierto] = useState<string | null>(null)
   const [editando, setEditando] = useState<string | null>(null)
@@ -55,9 +56,11 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, accent, accentS
   /* La forma del libro (y con él la del resumen y los pedidos) la decide el ancho de ESTA pantalla, no el de
      la ventana: ver `useAngosto`. */
   const raiz = useRef<HTMLDivElement>(null)
-  const angosto = useAngosto(raiz, ANCHO_LIBRO_EN_COLUMNAS)
+  const angosto = useAngosto(raiz, ANCHO_TABLA_ANCHA)
 
   const sub = subtituloDelPeriodo(rep, e)
+  const encabezado = encabezadoDeLaTabla(rep, e, diaCorte)
+  const rotulo: CSSProperties = { ...rotuloColumna, fontSize: 10.5, letterSpacing: '0.08em', padding: angosto ? '11px 12px' : '11px 20px' }
   const resumen = resumenDelEstudio(e, rep)
   const pedidos = pedidosAMostrar(e, rep)
   const pedidoAbierto = e.pedidos.find((p) => p.id === viendo) ?? null
@@ -167,51 +170,29 @@ export function PantallaEstudio({ rep, e, diaCorte, puedeEditar, accent, accentS
         </div>
       )}
 
-      {/* El libro. RD9: encabezado agrupado, había/entró/salió/hay son de ESTE período; «mínimo» y «comprar»,
-          del que viene. */}
+      {/* La tabla (handoff «renglón abierto», 2026-09-29): una línea que dice para qué período es el pedido, y
+          cuatro columnas. Reemplaza los dos encabezados de grupo, «Este período» y «Para el que viene». */}
       <div style={{ ...card, overflow: 'hidden', ...(rep.enCurso ? {} : { maxWidth: 820 }) }}>
-        {angosto ? (
-          <div style={{ display: 'flex', padding: '10px 14px 8px', borderBottom: '1px solid var(--spira-line-2)', fontSize: 11.5, fontWeight: 600, color: 'var(--spira-ink-soft)' }}>
-            <span style={{ flex: 1 }}>{rep.enCurso ? `Este período · ${textoPeriodo(rep.periodo)}` : `Período ${textoPeriodo(rep.periodo)}`}</span>
-            {rep.enCurso && <span>{e.tarde ? 'Para este período' : 'Para el que viene'}</span>}
-          </div>
-        ) : (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: rep.enCurso ? COLUMNAS : COLUMNAS_CERRADO, borderBottom: '1px solid var(--spira-line)' }}>
-              <div />
-              <div style={{ ...grupoEncabezado, gridColumn: 'span 4', textAlign: 'center' }}>
-                {rep.enCurso ? `Este período · ${textoPeriodo(rep.periodo)}` : `Período ${textoPeriodo(rep.periodo)}`}
-              </div>
-              {rep.enCurso && (
-                <>
-                  <div style={{ ...grupoEncabezado, gridColumn: 'span 2', textAlign: 'center', borderLeft: '1px solid var(--spira-line)' }}>{e.tarde ? 'Para este período' : 'Para el que viene'}</div>
-                  <div />
-                </>
-              )}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: rep.enCurso ? COLUMNAS : COLUMNAS_CERRADO, borderBottom: '1px solid var(--spira-line-2)' }}>
-              <div style={rotuloColumna}>Medicamento</div>
-              <div style={{ ...rotuloColumna, textAlign: 'right' }}>Había</div>
-              <div style={{ ...rotuloColumna, textAlign: 'right' }}>Entró</div>
-              <div style={{ ...rotuloColumna, textAlign: 'right' }}>Salió</div>
-              <div style={{ ...rotuloColumna, textAlign: 'right' }}>{rep.enCurso ? 'Hay' : 'Quedó'}</div>
-              {rep.enCurso && (
-                <>
-                  <div style={{ ...rotuloColumna, textAlign: 'right', borderLeft: '1px solid var(--spira-line)' }}>Mínimo</div>
-                  <div style={{ ...rotuloColumna, textAlign: 'right' }}>Comprar</div>
-                  <div />
-                </>
-              )}
-            </div>
-          </>
-        )}
+        <div style={{ display: 'flex', alignItems: 'baseline', columnGap: 12, rowGap: 2, padding: angosto ? '12px 12px' : '14px 20px', borderBottom: '1px solid var(--spira-line)', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)' }}>{encabezado.titulo}</span>
+          <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>{encabezado.detalle}</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: columnasDe(angosto), borderBottom: '1px solid var(--spira-line)' }}>
+          <div style={rotulo}>Medicamento</div>
+          <div style={{ ...rotulo, textAlign: 'right' }}>Pacientes</div>
+          <div style={{ ...rotulo, textAlign: 'right' }}>En el estante</div>
+          <div style={{ ...rotulo, textAlign: 'right' }}>A comprar</div>
+          <div />
+        </div>
         {e.renglones.map((r, i) => (
           <FilaMedicamento
             key={r.clave} r={r} enCurso={rep.enCurso} ultimo={i === e.renglones.length - 1} angosto={angosto}
             puedeEditar={puedeEditar} accentSolid={accentSolid}
             abierto={abierto === r.clave} editando={editando === r.clave}
+            contexto={fraseDelPedidoTarde(rep, e, r)}
             onAlternar={() => alternar(r.clave)} onEditar={() => editar(r.clave)}
             onCerrarEdicion={() => setEditando(null)} onGuardado={() => { setEditando(null); onCambio() }}
+            onVerFicha={onVerFicha}
           />
         ))}
         {e.renglones.length === 0 && (

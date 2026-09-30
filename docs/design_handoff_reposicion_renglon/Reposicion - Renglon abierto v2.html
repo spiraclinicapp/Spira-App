@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Reposición · Renglón abierto v2</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#F4F1EA;font-family:Inter,system-ui,sans-serif;font-size:14px;color:#14302E;-webkit-font-smoothing:antialiased}
+a{color:#0F5F57;text-decoration:none;font-weight:600}a:hover{color:#0B4A42;text-decoration:underline}
+.n{font-variant-numeric:tabular-nums}.g{font-family:'Schibsted Grotesk',system-ui,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:40px 28px 80px}
+.card{background:#fff;border:1px solid #E4DECF;border-radius:16px;overflow:hidden}
+.cap{display:flex;align-items:baseline;gap:12px;padding:14px 20px;border-bottom:1px solid #E4DECF;flex-wrap:wrap}.cap b{font-size:13px;font-weight:600}.cap span{font-size:12.5px;color:#61706C}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 120px 190px 200px 44px;align-items:center;border-bottom:1px solid #E4DECF;cursor:pointer}
+.row:hover{background:#FBFAF6}.row.open{background:#FBFAF6;border-bottom:0}
+.th{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#465A57;padding:11px 20px;white-space:nowrap}
+.td{padding:14px 20px}.r{text-align:right}
+.med{font-size:15px}.sub{font-size:12px;color:#61706C;margin-top:3px}
+.big{font-family:'Schibsted Grotesk';font-size:22px;font-weight:800;letter-spacing:-.02em}.unit{font-family:'Schibsted Grotesk';font-weight:600;color:#465A57;font-size:13px;margin-left:4px}
+.mid{font-size:15px;font-weight:600}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.t-amb{background:#F7EBD2;color:#7A4E0B}.t-ok{background:#E3EFEC;color:#0F5F57}.t-neu{background:#EFEADF;color:#465A57}.dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.body{border-bottom:1px solid #E4DECF;background:#FBFAF6;padding:6px 20px 22px;display:flex;flex-direction:column;gap:24px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#465A57}
+.ctx{font-size:13px;color:#465A57;line-height:1.5;text-wrap:pretty;max-width:720px}.ctx b{color:#14302E;font-weight:600}
+.eq{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap}
+.term{background:#fff;border:1px solid #E4DECF;border-radius:12px;padding:12px 16px;min-width:150px;display:flex;flex-direction:column;gap:4px}
+.term .v{font-family:'Schibsted Grotesk';font-size:26px;font-weight:700;letter-spacing:-.02em}.term .k{font-size:13px;font-weight:600}.term .s{font-size:12px;color:#61706C}
+.term.res{background:#14302E;border-color:#14302E;color:#fff}.term.res .s{color:#B9C7C3}
+.op{align-self:center;font-family:'Schibsted Grotesk';font-size:22px;color:#61706C;width:14px;text-align:center}
+.ledger{display:flex;gap:0;flex-wrap:wrap;background:#fff;border:1px solid #E4DECF;border-radius:12px;overflow:hidden;width:fit-content;max-width:100%}
+.ledger div{padding:10px 16px;display:flex;flex-direction:column;gap:2px;border-right:1px solid #EFEADF}.ledger div:last-child{border-right:0}
+.ledger span:first-child{font-size:11px;color:#61706C}.ledger span:last-child{font-size:15px;font-weight:600}
+.pt{background:#fff;border:1px solid #E4DECF;border-radius:12px;overflow-x:auto}
+table{width:100%;border-collapse:collapse}th{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#465A57;text-align:left;padding:10px 10px;border-bottom:1px solid #E4DECF;white-space:nowrap}
+td{padding:10px 10px;border-bottom:1px solid #EFEADF;font-size:13px;vertical-align:middle;white-space:nowrap}tr:last-child td{border-bottom:0}th.r,td.r{text-align:right}
+.muted{color:#61706C;font-size:12px}.stack{display:block;font-size:11.5px;color:#61706C;margin-top:2px}@media(max-width:1000px){.bar{display:none}}
+.bar{height:6px;border-radius:3px;background:#EFEADF;width:56px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:8px}.bar i{display:block;height:100%;background:#0F5F57}
+.btn{height:34px;border-radius:10px;border:1px solid #D8CBB0;background:#fff;font:600 12.5px Inter;color:#14302E;display:inline-flex;align-items:center;gap:7px;padding:0 12px;cursor:pointer}.btn:hover{background:#F4F1EA}
+.foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.chev{display:block;margin-left:auto}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:start}
+@media(max-width:860px){.cols{grid-template-columns:1fr}.row{grid-template-columns:minmax(0,1fr) 90px 150px 150px 36px}.td,.th{padding-left:12px;padding-right:12px}}
+</style></head><body><div class="wrap">
+<div class="card">
+<div class="cap"><b>Pedido del período 29/09 → 28/10</b><span>Corte el 28 de cada mes · hoy 29/09</span></div>
+<div class="row" style="cursor:default;align-items:stretch"><div class="th">Medicamento</div><div class="th r">Pacientes</div><div class="th r">En el estante</div><div class="th r">A comprar</div><div class="th">&nbsp;</div></div>
+
+<div class="row open">
+<div class="td"><div class="med">Frevia 160/4,5 mcg</div><div class="sub">Aerosol (IDM) · 1 envase por mes</div></div>
+<div class="td r"><span class="mid n">2</span></div>
+<div class="td r"><span class="mid n">0</span><div class="sub">sin movimientos</div></div>
+<div class="td r"><span class="big n">2</span><span class="unit">envases</span></div>
+<div class="td"><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#465A57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg></div>
+</div>
+<div class="body">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div class="lbl">Por qué hay que comprar 2</div>
+<div class="ctx">El período empezó el <b>29/09</b> y todavía no tiene pedido. Se pide lo que les falta retirar <b>a los pacientes de este período</b>; el del 29/10 se pide en el próximo corte.</div>
+<div class="eq">
+<div class="term"><span class="v n">2</span><span class="k">Les falta retirar</span><span class="s">2 pacientes × 1 envase</span></div>
+<span class="op">−</span>
+<div class="term"><span class="v n">0</span><span class="k">Hay en el estante</span><span class="s">sin stock hoy</span></div>
+<span class="op">−</span>
+<div class="term"><span class="v n">0</span><span class="k">En camino</span><span class="s">sin pedidos abiertos</span></div>
+<span class="op">=</span>
+<div class="term res"><span class="v n">2</span><span class="k">A comprar</span><span class="s">envases</span></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:baseline;gap:10px"><div class="lbl">Pacientes que lo reciben</div><span class="muted">2 · ambos suman a la cuenta</span></div>
+<div class="pt"><table>
+<thead><tr><th>Paciente</th><th>Estado</th><th class="r">Por mes</th><th>Retiró</th><th>Último retiro</th><th>Cronograma</th><th></th></tr></thead>
+<tbody>
+<tr><td style="font-weight:600">Octavio Fontana Toledo</td><td><span class="tag t-ok"><span class="dot"></span>Activo</span></td><td class="r n">1<span class="stack">estudio</span></td><td><span class="bar"><i style="width:0"></i></span><span class="n">0 de 1</span></td><td><span class="n">12/06/2026</span><span class="stack"><span class="tag t-amb">+90 días</span></span></td><td class="n">14/03/2027</td><td class="r"><a href="#">Ver ficha →</a></td></tr>
+<tr><td style="font-weight:600">Rosa del Carmen Ríos</td><td><span class="tag t-ok"><span class="dot"></span>Activo</span></td><td class="r n">1<span class="stack">estudio</span></td><td><span class="bar"><i style="width:0"></i></span><span class="n">0 de 1</span></td><td><span class="n">18/05/2026</span><span class="stack"><span class="tag t-amb">+90 días</span></span></td><td class="n">02/12/2026</td><td class="r"><a href="#">Ver ficha →</a></td></tr>
+</tbody></table></div>
+<div class="muted">Sin retiros en más de 90 días: siguen sumando mientras tengan el medicamento asignado.</div>
+</div>
+<div class="cols">
+<div style="display:flex;flex-direction:column;gap:10px"><div class="lbl">Movimientos del estante en el período</div>
+<div class="ledger"><div><span>Empezó con</span><span class="n">0</span></div><div><span>Entró</span><span class="n">+0</span></div><div><span>Salió</span><span class="n">−0</span></div><div><span>Hay hoy</span><span class="n">0</span></div></div></div>
+</div>
+<div class="foot"><button class="btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0F5F57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg>Cambiar cómo se repone</button><span class="muted">Hoy: 1 envase por mes por paciente</span></div>
+</div>
+
+<div class="row">
+<div class="td"><div class="med">Seretide 250/50</div><div class="sub">Aerosol (IDM) · 1 envase por mes</div></div>
+<div class="td r"><span class="mid n">12</span></div>
+<div class="td r"><span class="mid n">10</span><div class="sub n">empezó con 8 · +6 −4</div></div>
+<div class="td r"><span class="tag t-ok"><span class="dot"></span>Alcanza</span><div class="sub">6 en camino</div></div>
+<div class="td"><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#465A57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg></div>
+</div>
+<div class="row" style="border-bottom:0">
+<div class="td"><div class="med">Salbutral 100 mcg</div><div class="sub">Aerosol (IDM) · a demanda, tener 5</div></div>
+<div class="td r"><span class="muted">—</span></div>
+<div class="td r"><span class="mid n">2</span><div class="sub n">empezó con 3 · +0 −1</div></div>
+<div class="td r"><span class="big n">3</span><span class="unit">envases</span></div>
+<div class="td"><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#465A57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg></div>
+</div>
+</div>
+</div></body></html>
