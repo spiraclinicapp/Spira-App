@@ -30,8 +30,11 @@ export function ModalKitsIp({ busy, error, onClose, onConfirm }: {
       title="¿Cuántos kits de IP entregaste?"
       onClose={onClose}
       icon="flask"
-      accent="var(--spira-pharma-solid)"
-      accentSoft="rgba(15, 95, 87, 0.14)"
+      // `accent` pinta el ícono Y el título del modal. Con `--spira-pharma-solid` (#0F5F57 en los dos
+      // temas) el título quedaba ilegible en oscuro; `--spira-acc-deep-track` es el mismo petróleo en
+      // claro y menta en oscuro. El tinte se deriva de él para que acompañe (mismo arreglo que la #357).
+      accent="var(--spira-acc-deep-track)"
+      accentSoft="color-mix(in srgb, var(--spira-acc-deep-track) 14%, transparent)"
     >
       <p style={{ fontSize: 13, color: 'var(--spira-ink-soft)', margin: '0 0 15px', lineHeight: 1.55 }}>
         Quedó en 0 y esta entrega lleva producto en investigación. El número descuenta del stock del
