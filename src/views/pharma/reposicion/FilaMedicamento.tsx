@@ -238,7 +238,9 @@ function Ecuacion({ b }: { b: Boleta }) {
   )
 }
 
-const ESTADO: Record<PacienteDelRenglon['estado'], string> = { activo: 'Activo', screening: 'Screening', completado: 'Completado', discontinuado: 'Discontinuado' }
+const ESTADO: Record<PacienteDelRenglon['estado'], string> = {
+  activo: 'Activo', inactivo: 'Inactivo', screening: 'Screening', completado: 'Completado', discontinuado: 'Discontinuado',
+}
 /** Las marcas que van debajo del nombre. «Sin retiros» va en «Último retiro», que es donde se lee. */
 const MARCA: Partial<Record<MarcaPaciente, { texto: string; tono: 'warn' | 'neutro' }>> = {
   termino_cronograma: { texto: 'Terminó · no suma', tono: 'neutro' },
