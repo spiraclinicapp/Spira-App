@@ -32,8 +32,13 @@ describe('sumarDias', () => {
 })
 
 describe('quién suma (D16, D23)', () => {
-  it('screening o activo sin cronograma suma', () => {
-    expect(sigueEnElMes(paciente({ enrollment_status: 'screening' }), '2026-10-01')).toBe(true)
+  it('activo sin cronograma suma', () => {
+    expect(sigueEnElMes(paciente({ enrollment_status: 'activo' }), '2026-10-01')).toBe(true)
+  })
+  it('screening NO suma (Director, 2026-09-29: sólo quien está en tratamiento)', () => {
+    expect(sigueEnElMes(paciente({ enrollment_status: 'screening' }), '2026-10-01')).toBe(false)
+    const conCronograma = paciente({ enrollment_status: 'screening', tiene_cronograma: true, ultima_programada: '2026-09-03' })
+    expect(terminoCronograma(conCronograma, '2026-10-01')).toBe(false)
   })
   it('completado o discontinuado no suma', () => {
     expect(sigueEnElMes(paciente({ enrollment_status: 'completado' }), '2026-10-01')).toBe(false)

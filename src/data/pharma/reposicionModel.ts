@@ -5,7 +5,7 @@
  * (2026-09-18): los tipos que siguen valiendo y las reglas por paciente y por lote que usa la reposición
  * de corte a corte (reposicionPeriodoModel.ts). La cuenta «para todos» (D8) vive ahora allá.
  *
- *   quién suma    screening|activo que NO terminó su cronograma automático antes del período   D16 D23
+ *   quién suma    activo (screening ya no: 2026-09-29) que NO terminó su cronograma antes del período   D16 D23
  *                 (dos presentaciones activas de la misma droga: suma una)                        D21
  *   estante       lo pendiente del período en curso sale primero de los lotes que vencen antes   D15
  *
@@ -75,16 +75,28 @@ export const diaMes = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 /** Lo que miran las reglas de cronograma. */
 type ConCronograma = Pick<PacienteInsumo, 'enrollment_status' | 'tiene_cronograma' | 'ultima_programada'>
 
+/**
+ * Quién está en tratamiento para Reposición: sólo la inscripción ACTIVA.
+ *
+ * D16 contaba también «screening». El Director lo dio vuelta el 2026-09-29: Reposición compra para quien
+ * está en tratamiento, y los rollover de ACT18301 a LTS17231, anotados antes de empezar, se estacionan en
+ * screening justamente para que no sumen. Es la ÚNICA definición: el conteo de pacientes del renglón, los
+ * avisos y las reglas de cronograma la leen de acá, para que ninguno cuente a alguien que los otros no.
+ */
+export function enTratamiento(p: Pick<PacienteInsumo, 'enrollment_status'>): boolean {
+  return p.enrollment_status === 'activo'
+}
+
 /** D16 + D23: el paciente cuenta en el período que empieza en `desde`. */
 export function sigueEnElMes(p: ConCronograma, desde: string): boolean {
-  if (p.enrollment_status !== 'screening' && p.enrollment_status !== 'activo') return false
+  if (!enTratamiento(p)) return false
   if (!p.tiene_cronograma || !p.ultima_programada) return true
   return p.ultima_programada >= desde
 }
 
 /** Terminó su cronograma automático antes del período y sigue activo: no suma, pero se lista (D23). */
 export function terminoCronograma(p: ConCronograma, desde: string): boolean {
-  return (p.enrollment_status === 'screening' || p.enrollment_status === 'activo')
+  return enTratamiento(p)
     && p.tiene_cronograma && !!p.ultima_programada && p.ultima_programada < desde
 }
 

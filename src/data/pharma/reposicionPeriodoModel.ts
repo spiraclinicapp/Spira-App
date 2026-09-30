@@ -1,5 +1,5 @@
 import {
-  diaMes, envasesTxt, estanteAlComienzo, nombresDePacientes, presentacionesDuplicadas, sigueEnElMes, sumarDias, terminoCronograma,
+  diaMes, enTratamiento, envasesTxt, estanteAlComienzo, nombresDePacientes, presentacionesDuplicadas, sigueEnElMes, sumarDias, terminoCronograma,
 } from './reposicionModel'
 import type { Aviso, EstadoRenglon, EstudioInsumo, LoteInsumo, ModoReposicion, PacienteInsumo } from './reposicionModel'
 import { diasHastaElCorte, enCurso, periodoSiguiente, ventanaTarde } from './periodoDeCorte'
@@ -250,6 +250,14 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
   const asignaciones = ctx.insumos.pacientes.filter(
     (p) => p.protocol_id === r.protocol_id && p.medication_id === r.medication_id && !p.habilitacion_id,
   )
+  /**
+   * Las de una inscripción en tratamiento. El RPC trae la medicación activa de TODAS las inscripciones —la
+   * de un paciente discontinuado sigue `active` en patient_medications—, y el filtro vivía sólo en
+   * `sigueEnElMes`. El resto del renglón usaba la lista entera: «N pacientes lo tienen habilitado» (Cargar
+   * reposición) y los avisos de dos presentaciones y de más de un mes contaban a quien ya no estaba
+   * (Director, 2026-09-29).
+   */
+  const enCurso = asignaciones.filter(enTratamiento)
   const base = {
     clave: r.protocol_medication_id,
     protocolMedicationId: r.protocol_medication_id,
@@ -259,7 +267,7 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
     modo: r.modo,
     envasesPorMes: r.envases_por_mes,
     stockFijo: r.stock_fijo,
-    pacientes: asignaciones.length,
+    pacientes: enCurso.length,
     libro: libroDe(mov, lotes.reduce((s, l) => s + l.quantity, 0)),
   }
   const sinCuenta: Pick<RenglonDelPeriodo, 'comprar' | 'enCamino' | 'faltaEstePeriodo' | 'minimo' | 'boleta' | 'avisos'> =
@@ -280,7 +288,7 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
   let minimo: RenglonDelPeriodo['minimo'] = { envases: r.stock_fijo ?? 0, pacientes: null }
 
   if (r.modo === 'mensual') {
-    const suman = asignaciones.filter((p) => !ctx.duplicados.has(p.patient_medication_id))
+    const suman = enCurso.filter((p) => !ctx.duplicados.has(p.patient_medication_id))
     const mensual = (p: PacientePeriodoInsumo) => p.envases_por_mes ?? r.envases_por_mes ?? 0
 
     const delPeriodo = suman.filter((p) => sigueEnElMes(p, ctx.periodo.desde))
@@ -314,7 +322,7 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
     if (terminaron.length) avisos.push({ tipo: 'termino_cronograma', ambar: false, texto: `Terminó su cronograma y no suma: ${nombresDePacientes(terminaron)}` })
     const sinRetiros = delObjetivo.filter((p) => !p.ultimo_retiro || p.ultimo_retiro.slice(0, 10) < ctx.noventaDias)
     if (sinRetiros.length) avisos.push({ tipo: 'sin_retiros', ambar: false, texto: `Sin retiros en 90 días, suma igual: ${nombresDePacientes(sinRetiros)}` })
-    const dobles = asignaciones.filter((p) => ctx.duplicados.has(p.patient_medication_id))
+    const dobles = enCurso.filter((p) => ctx.duplicados.has(p.patient_medication_id))
     if (dobles.length) avisos.push({ tipo: 'dos_presentaciones', ambar: true, texto: `Tiene otra presentación habilitada, suma una sola: ${nombresDePacientes(dobles)}` })
     const varios = suman.filter((p) => mensual(p) > 0 && p.retirado_periodo > mensual(p))
     if (varios.length) avisos.push({ tipo: 'varios_meses', ambar: false, texto: `Se llevó más de un mes en este período: ${nombresDePacientes(varios)}` })
