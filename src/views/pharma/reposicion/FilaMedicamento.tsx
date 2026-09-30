@@ -180,7 +180,7 @@ function RenglonAbierto({ r, enCurso, contexto, regla, puedeEditar, accentSolid,
           )}
         </div>
       )}
-      {r.modo === 'mensual' && r.boleta && <Pacientes ps={r.detallePacientes} accentSolid={accentSolid} onVerFicha={onVerFicha} />}
+      {r.modo === 'mensual' && r.boleta && <Pacientes ps={r.detallePacientes} onVerFicha={onVerFicha} />}
       <Movimientos libro={r.libro} enCurso />
       {(puedeEditar || hoy) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -209,10 +209,13 @@ function Ecuacion({ b }: { b: Boleta }) {
   const operador = (s: string) => (
     <span aria-hidden="true" style={{ alignSelf: 'center', fontFamily: 'var(--spira-font-display)', fontSize: 22, color: 'var(--spira-ink-soft)', width: 14, textAlign: 'center' }}>{s}</span>
   )
+  /* Cada signo viaja pegado al término que le sigue: si la ecuación no entra en un renglón, baja el par
+     entero y nunca queda un «=» colgado al final de una línea con el resultado solo en la siguiente. */
+  const par: CSSProperties = { display: 'flex', alignItems: 'stretch', gap: 10 }
   return (
     <div style={{ display: 'flex', alignItems: 'stretch', gap: 10, flexWrap: 'wrap' }}>
       {b.lineas.map((l, i) => (
-        <div key={l.tipo} style={{ display: 'contents' }}>
+        <div key={l.tipo} style={par}>
           {i > 0 && operador(l.signo || '+')}
           <div style={termino}>
             <span className="spira-mono" style={{ ...valor, color: 'var(--spira-ink)' }}>{l.valor}</span>
@@ -221,13 +224,15 @@ function Ecuacion({ b }: { b: Boleta }) {
           </div>
         </div>
       ))}
-      {operador('=')}
-      {/* Invertida con los tokens y no con hex: en oscuro la tinta es clara, y la tarjeta se lee igual de
-          destacada con el texto oscuro del papel. */}
-      <div style={{ ...termino, background: 'var(--spira-ink)', borderColor: 'var(--spira-ink)', color: 'var(--spira-paper)' }}>
-        <span className="spira-mono" style={valor}>{b.aComprar}</span>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>A comprar</span>
-        <span style={{ fontSize: 12, opacity: 0.78 }}>{b.aComprar === 1 ? 'envase' : 'envases'}</span>
+      <div style={par}>
+        {operador('=')}
+        {/* Invertida con los tokens y no con hex: en oscuro la tinta es clara, y la tarjeta se lee igual de
+            destacada con el texto oscuro del papel. */}
+        <div style={{ ...termino, background: 'var(--spira-ink)', borderColor: 'var(--spira-ink)', color: 'var(--spira-paper)' }}>
+          <span className="spira-mono" style={valor}>{b.aComprar}</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>A comprar</span>
+          <span style={{ fontSize: 12, opacity: 0.78 }}>{b.aComprar === 1 ? 'envase' : 'envases'}</span>
+        </div>
       </div>
     </div>
   )
@@ -242,7 +247,7 @@ const MARCA: Partial<Record<MarcaPaciente, { texto: string; tono: 'warn' | 'neut
 }
 
 /** «Pacientes que lo reciben»: una fila por paciente, con lo que antes eran avisos al pie. */
-function Pacientes({ ps, accentSolid, onVerFicha }: { ps: PacienteDelRenglon[]; accentSolid: string; onVerFicha?: (enrollmentId: string) => Promise<boolean> }) {
+function Pacientes({ ps, onVerFicha }: { ps: PacienteDelRenglon[]; onVerFicha?: (enrollmentId: string) => Promise<boolean> }) {
   const [abriendo, setAbriendo] = useState<string | null>(null)
   const [fallo, setFallo] = useState<string | null>(null)
   const th: CSSProperties = { ...versalita, fontSize: 10.5, letterSpacing: '0.08em', textAlign: 'left', padding: '10px 10px', borderBottom: '1px solid var(--spira-line)', whiteSpace: 'nowrap' }
@@ -316,7 +321,8 @@ function Pacientes({ ps, accentSolid, onVerFicha }: { ps: PacienteDelRenglon[]; 
                         <button
                           type="button" className="spira-textlink spira-no-press" disabled={abriendo != null}
                           onClick={() => verFicha(p)} aria-label={`Ver la ficha de ${p.nombre}`}
-                          style={{ fontWeight: 600, color: accentSolid, cursor: abriendo != null ? 'default' : 'pointer' }}
+                          // El petróleo profundo y no `accentSolid`: en oscuro éste queda en 1,85:1, invisible (tokens.css).
+                          style={{ fontWeight: 600, color: 'var(--spira-acc-deep-track)', cursor: abriendo != null ? 'default' : 'pointer' }}
                         >
                           {abriendo === p.enrollmentId ? 'Abriendo…' : 'Ver ficha →'}
                         </button>
@@ -340,7 +346,7 @@ function Barra({ valor, total }: { valor: number; total: number }) {
   const ancho = total > 0 ? Math.min(100, (valor / total) * 100) : 0
   return (
     <span aria-hidden="true" style={{ display: 'inline-block', width: 56, height: 6, borderRadius: 3, background: 'var(--spira-line)', overflow: 'hidden', verticalAlign: 'middle', marginRight: 8 }}>
-      <span style={{ display: 'block', height: '100%', width: `${ancho}%`, background: 'var(--spira-pharma-solid)' }} />
+      <span style={{ display: 'block', height: '100%', width: `${ancho}%`, background: 'var(--spira-acc-deep-track)' }} />
     </span>
   )
 }
