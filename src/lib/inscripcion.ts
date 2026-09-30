@@ -8,12 +8,13 @@ import type { PatientEnrollment, PatientRow } from '../data/patients'
  * se llamaban igual en pantalla y por eso dar de baja en ACT18301 daba de baja también en LTS17231,
  * que es su extensión y tiene a las mismas personas inscriptas (prod, 2026-09-16).
  */
-export type EnrollmentStatus = 'screening' | 'activo' | 'completado' | 'discontinuado'
+export type EnrollmentStatus = 'screening' | 'activo' | 'inactivo' | 'completado' | 'discontinuado'
 
 /** Cómo se dice cada estado en pantalla (va al `title` y al `aria-label` del punto y la bandera). */
 export const ETIQUETA_ESTADO: Record<EnrollmentStatus, string> = {
   screening: 'En screening',
   activo: 'Activo en el estudio',
+  inactivo: 'Inactivo: todavía no empezó',
   completado: 'Completó el estudio',
   discontinuado: 'Discontinuado',
 }
@@ -32,6 +33,7 @@ export const ETIQUETA_ESTADO: Record<EnrollmentStatus, string> = {
 export const PALABRA_ESTADO: Record<EnrollmentStatus, string> = {
   screening: 'Screening',
   activo: 'Activo',
+  inactivo: 'Inactivo',
   completado: 'Completado',
   discontinuado: 'Discontinuado',
 }
@@ -61,13 +63,23 @@ export function estadoDelMotivo(motivo: string): EnrollmentStatus | null {
 }
 
 /**
- * ¿La inscripción sigue en curso? Screening y activo sí; completado y discontinuado no.
+ * ¿La inscripción está EN CURSO? Screening y activo sí; inactivo, completado y discontinuado no.
+ *
+ * Desde la 0147 «no en curso» ya no es lo mismo que «cerrada»: una inactiva está cargada y todavía no
+ * empezó, pero no se cerró —no tiene motivo, conserva sus visitas y se activa, no se reabre—. Para
+ * decidir entre CERRAR y REABRIR está `estaCerrada`; ésta responde «¿cuenta como participación viva?»
+ * (el color de la bandera, el recuento de activos del estudio).
  *
  * Sin dato cuenta como ABIERTA a propósito: un `null` llega cuando una consulta no trajo la columna,
  * y pintar de cerrado a medio padrón por una consulta incompleta es peor que no pintar nada.
  */
 export function estaAbierta(status: EnrollmentStatus | null | undefined): boolean {
-  return status !== 'completado' && status !== 'discontinuado'
+  return status !== 'inactivo' && status !== 'completado' && status !== 'discontinuado'
+}
+
+/** ¿Se cerró con un motivo (completado o discontinuado)? Es lo único que se REABRE. */
+export function estaCerrada(status: EnrollmentStatus | null | undefined): boolean {
+  return status === 'completado' || status === 'discontinuado'
 }
 
 /**

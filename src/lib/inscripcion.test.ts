@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PatientEnrollment, PatientRow } from '../data/patients'
 import {
-  estaAbierta, estadoDelMotivo, inscripcionDelEstudio, personaActiva, MOTIVOS_DE_CIERRE,
+  estaAbierta, estaCerrada, estadoDelMotivo, inscripcionDelEstudio, personaActiva, MOTIVOS_DE_CIERRE,
 } from './inscripcion'
 
 /**
@@ -39,6 +39,20 @@ describe('estaAbierta', () => {
   it('completado y discontinuado están cerradas', () => {
     expect(estaAbierta('completado')).toBe(false)
     expect(estaAbierta('discontinuado')).toBe(false)
+  })
+
+  // 0147: inactiva NO está en curso (no suma, gris) pero TAMPOCO está cerrada: se activa, no se reabre.
+  it('inactivo no está en curso, y no está cerrada', () => {
+    expect(estaAbierta('inactivo')).toBe(false)
+    expect(estaCerrada('inactivo')).toBe(false)
+  })
+
+  it('cerrada es sólo completado o discontinuado', () => {
+    expect(estaCerrada('completado')).toBe(true)
+    expect(estaCerrada('discontinuado')).toBe(true)
+    expect(estaCerrada('screening')).toBe(false)
+    expect(estaCerrada('activo')).toBe(false)
+    expect(estaCerrada(null)).toBe(false)
   })
 
   // Sin dato NO es «cerrada»: un null llega cuando una consulta vieja no trajo la columna, y

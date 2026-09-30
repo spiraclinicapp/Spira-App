@@ -64,6 +64,33 @@ export async function reopenEnrollment(enrollmentId: string): Promise<{ error: s
 }
 
 /**
+ * Pasa una participación en curso (screening o activo) a INACTIVA: cargada, todavía sin empezar y
+ * sin cerrar (0147/0148). No toca visitas ni medicación; la RPC valida la transición y la authz.
+ */
+export async function inactivarInscripcion(enrollmentId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('inactivar_inscripcion', { p_enrollment_id: enrollmentId })
+  if (error) return { error: actividadErrorMessage(error.code, error.message) }
+  return { error: null }
+}
+
+/** Pasa una participación inactiva a activa (0148). Tampoco toca visitas ni medicación. */
+export async function activarInscripcion(enrollmentId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('activar_inscripcion', { p_enrollment_id: enrollmentId })
+  if (error) return { error: actividadErrorMessage(error.code, error.message) }
+  return { error: null }
+}
+
+/** Como `cierreErrorMessage`, con el verbo de estas dos acciones y la migración que las trae. */
+function actividadErrorMessage(code: string | undefined, raw?: string): string {
+  if (code === '42501') return 'No tenés permiso para cambiar esta participación.'
+  if (code === '23514') return raw || 'Esa participación no está en un estado que permita la acción.'
+  if (code === '23503') return 'Esa inscripción ya no existe. Actualizá la página.'
+  // 42883 / PGRST202 = falta aplicar la 0148 (la función no existe en el schema cache).
+  if (code === '42883' || code === 'PGRST202') return 'Falta aplicar una actualización de la base para poder cambiar esta participación.'
+  return raw || 'No pudimos completar la acción. Probá de nuevo.'
+}
+
+/**
  * Cuántas visitas futuras sin atender tiene la inscripción. Es el número que el modal pone en la
  * confirmación ANTES de cerrar: «se van a borrar N».
  *

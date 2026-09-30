@@ -7,8 +7,9 @@ import { Modal } from '../components/Modal'
 import type { ProtocolRow } from '../data/protocols'
 import { ivrsDelEstudio } from '../lib/ivrs'
 import { btnOutline } from '../components/buttons'
-import { estaAbierta } from '../lib/inscripcion'
+import { estaCerrada } from '../lib/inscripcion'
 import { CerrarInscripcionModal } from './track/CerrarInscripcionModal'
+import { ActividadInscripcionModal } from './track/ActividadInscripcionModal'
 import type { PatientRow } from '../data/patients'
 import { usePatientAlerts, usePatientVisits } from '../data/visits'
 import { useUrlEntity } from '../lib/useUrlState'
@@ -73,7 +74,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
   // parado en Track (la RLS igual la protege server-side, pero como affordance no corresponde).
   const { hasMinRole } = useAuth()
   const canManagePharma = moduleKey === 'pharma' && hasMinRole('pharma', 'operator')
-  const [modal, setModal] = useState<null | 'reschedule' | 'register' | 'edit' | 'alerts' | 'cerrar'>(null)
+  const [modal, setModal] = useState<null | 'reschedule' | 'register' | 'edit' | 'alerts' | 'cerrar' | 'actividad'>(null)
   // Detalle de una visita del cronograma: el MISMO componente que abre la vista del día
   // (VisitDetail), sincronizado por leer de la misma vista. Guardamos el id y el detalle se
   // trae sus propios datos.
@@ -204,6 +205,18 @@ export function PatientFichaView(props: PatientFichaViewProps) {
           onDone={() => { setModal(null); onPatientUpdated(); visitsQ.refetch(); alertsQ.refetch() }}
         />
       )}
+      {modal === 'actividad' && enrollment && (
+        <ActividadInscripcionModal
+          enrollmentId={enrollment.id}
+          modo={enrollment.status === 'inactivo' ? 'activar' : 'inactivar'}
+          protocolCode={protocol.code}
+          pacienteNombre={patient.full_name}
+          accentSolid={accentSolid}
+          onClose={() => setModal(null)}
+          // El estado viaja en el paciente; las alertas, porque una inactiva sale de ellas.
+          onDone={() => { setModal(null); onPatientUpdated(); alertsQ.refetch() }}
+        />
+      )}
       {modal === 'reschedule' && current && (
         <RescheduleModal visit={current} accentSolid={accentSolid} onClose={() => setModal(null)} onDone={() => { setModal(null); visitsQ.refetch() }} />
       )}
@@ -322,7 +335,18 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                 onClick={() => setModal('cerrar')}
                 style={{ ...btnOutline, marginTop: 5, width: '100%' }}
               >
-                {estaAbierta(enrollment.status) ? 'Cerrar participación' : 'Reabrir participación'}
+                {estaCerrada(enrollment.status) ? 'Reabrir participación' : 'Cerrar participación'}
+              </button>
+            )}
+            {/* Inactivar/activar (0148): sólo mientras no esté cerrada. Mismo botón que el de arriba
+                —son dos decisiones del mismo tamaño sobre la participación—. */}
+            {enrollment && canWrite && !estaCerrada(enrollment.status) && (
+              <button
+                type="button"
+                onClick={() => setModal('actividad')}
+                style={{ ...btnOutline, width: '100%' }}
+              >
+                {enrollment.status === 'inactivo' ? 'Activar participación' : 'Pasar a inactiva'}
               </button>
             )}
           </div>

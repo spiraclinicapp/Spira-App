@@ -1,6 +1,6 @@
 import type { TrackVisitRow } from '../../data/visits'
 import type { MarcaRow } from '../../data/pendientes'
-import { inscripcionCerrada } from '../../data/deviationModel'
+import { inscripcionFueraDeCurso } from '../../data/deviationModel'
 import { daysDiffISO, formatAR, isoDayAR } from '../../lib/dates'
 import { visitTitle } from '../../lib/visits'
 
@@ -60,7 +60,7 @@ export const DIAS_DEL_RETEST = 60
 export function visitasParaRetest(visitas: readonly TrackVisitRow[], hoy: string, dias = DIAS_DEL_RETEST): TrackVisitRow[] {
   return visitas
     .filter((v) => {
-      if (v.real_date === null || inscripcionCerrada(v.enrollment_status)) return false
+      if (v.real_date === null || inscripcionFueraDeCurso(v.enrollment_status)) return false
       const hace = daysDiffISO(v.real_date, hoy)
       return hace >= 0 && hace <= dias
     })
@@ -85,7 +85,7 @@ export function visitasParaRetest(visitas: readonly TrackVisitRow[], hoy: string
 export function visitasParaTraer(visitas: readonly TrackVisitRow[], dia: string): TrackVisitRow[] {
   return visitas
     .filter((v) => v.real_date === null && v.estimated_date !== null && v.estimated_date !== dia
-      && v.computed_status !== 'en_atencion' && !inscripcionCerrada(v.enrollment_status))
+      && v.computed_status !== 'en_atencion' && !inscripcionFueraDeCurso(v.enrollment_status))
     .sort((a, b) => (a.estimated_date ?? '').localeCompare(b.estimated_date ?? '') || a.patient_name.localeCompare(b.patient_name, 'es'))
 }
 
@@ -117,7 +117,7 @@ export function marcaDePendiente(v: Pick<TrackVisitRow, 'computed_status' | 'no_
 export function visitasConFechaPasada(visitas: readonly TrackVisitRow[], hoy: string): TrackVisitRow[] {
   return visitas
     .filter((v) => v.computed_status === 'proxima' && v.real_date === null && v.no_show_at === null
-      && v.estimated_date !== null && v.estimated_date < hoy && !inscripcionCerrada(v.enrollment_status))
+      && v.estimated_date !== null && v.estimated_date < hoy && !inscripcionFueraDeCurso(v.enrollment_status))
     .sort((a, b) => (a.estimated_date ?? '').localeCompare(b.estimated_date ?? '') || a.patient_name.localeCompare(b.patient_name, 'es'))
 }
 
@@ -165,7 +165,7 @@ export function agruparPorRetomar(marcas: readonly MarcaRow[], visitas: readonly
   const acc = new Map<string, VisitaPorRetomar>()
   for (const m of marcas) {
     const visita = porId.get(m.visit_id)
-    if (!visita || inscripcionCerrada(visita.enrollment_status)) continue
+    if (!visita || inscripcionFueraDeCurso(visita.enrollment_status)) continue
     const g = acc.get(m.visit_id) ?? { visita, procedimientos: [], desde: m.marked_at }
     g.procedimientos.push({ procedure_id: m.procedure_id, name: m.procedure_name })
     // ISO con el mismo huso (PostgREST devuelve `+00:00`): se compara como texto.
@@ -233,7 +233,7 @@ export interface PacienteDelEstudio {
 export function pacientesDelEstudio(visitas: readonly TrackVisitRow[]): PacienteDelEstudio[] {
   const acc = new Map<string, PacienteDelEstudio>()
   for (const v of visitas) {
-    if (inscripcionCerrada(v.enrollment_status) || acc.has(v.enrollment_id)) continue
+    if (inscripcionFueraDeCurso(v.enrollment_status) || acc.has(v.enrollment_id)) continue
     acc.set(v.enrollment_id, { enrollment_id: v.enrollment_id, patient_name: v.patient_name, patient_code: v.patient_code })
   }
   return [...acc.values()].sort((a, b) => a.patient_name.localeCompare(b.patient_name, 'es'))
