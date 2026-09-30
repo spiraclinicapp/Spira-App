@@ -72,6 +72,31 @@ describe('libroDe', () => {
   })
 })
 
+describe('sólo cuenta quien está en tratamiento (Director, 2026-09-29)', () => {
+  // EL CASO QUE IMPORTA: la medicación de un discontinuado sigue `active` en patient_medications, así que el RPC
+  // la trae. Antes el número de la cuenta la filtraba, pero «N pacientes lo tienen habilitado» no: decía 3
+  // con uno solo en tratamiento.
+  const mezcla = () => [
+    paciente(),
+    paciente({ enrollment_status: 'discontinuado' }),
+    paciente({ enrollment_status: 'screening' }),
+  ]
+  it('el conteo del renglón deja afuera al discontinuado y al de screening', () => {
+    const r = seretide(insumos({ pacientes: mezcla() }))
+    expect(r.pacientes).toBe(1)
+    expect(r.minimo).toEqual({ envases: 1, pacientes: 1 })
+  })
+  it('también con el medicamento sin configurar (sin cuenta, pero con el conteo)', () => {
+    const r = seretide(insumos({ renglones: [renglon({ modo: null, envases_por_mes: null })], pacientes: mezcla() }))
+    expect(r).toMatchObject({ estado: 'sin_cargar', pacientes: 1 })
+  })
+  it('los avisos no nombran a quien no está en tratamiento', () => {
+    const fuera = paciente({ enrollment_status: 'discontinuado', patient_name: 'Discontinuado', retirado_periodo: 3 })
+    const r = seretide(insumos({ pacientes: [paciente(), fuera], lotes: [lote()] }))
+    expect(r.avisos.map((a) => a.texto).join(' ')).not.toContain('Discontinuado')
+  })
+})
+
 describe('la cuenta del período (R3, R7)', () => {
   it('el ejemplo del Director: había 5, entraron 15, salieron 12, quedan 8 → comprar 4', () => {
     const r = seretide(insumos({ pacientes: grupo(12, 12), lotes: [lote()], movimientos: [mov({ entro: 15, salio: 12, desde_inicio: 3 })] }))
