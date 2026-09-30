@@ -6,10 +6,11 @@ import { todayISO } from '../../../lib/dates'
 import { resolveCode } from '../../../lib/router'
 import { useUrlPath, useUrlState } from '../../../lib/useUrlState'
 import {
-  armarReposicionDelPeriodo, franjaDelCorte, periodoAMirar, tarjetaDe, useDiaCorte, useReposicionDelPeriodo,
+  armarReposicionDelPeriodo, franjaDelCorte, pacienteDeLaInscripcion, periodoAMirar, tarjetaDe, useDiaCorte, useReposicionDelPeriodo,
 } from '../../../data/pharma'
 import { NotFoundView } from '../../../shell/NotFoundView'
 import type { ViewProps } from '../../types'
+import { useAbrirFicha } from '../../useAbrirFicha'
 import { DiaDeCorte } from './DiaDeCorte'
 import { PantallaEstudio } from './PantallaEstudio'
 import { TarjetaDeEstudio } from './TarjetaDeEstudio'
@@ -26,7 +27,7 @@ import { EstadoCaja } from './piezas'
  * pedir nada. La cuenta la hace el modelo (con tests); acá se elige qué mostrar según la URL.
  * └──────────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-export function ReposicionView({ module, setHeader }: ViewProps) {
+export function ReposicionView({ module, submodule, setHeader, onNavigate }: ViewProps) {
   const { hasMinRole } = useAuth()
   const puedeEditar = hasMinRole('pharma', 'operator')
   const hoy = todayISO()
@@ -49,6 +50,22 @@ export function ReposicionView({ module, setHeader }: ViewProps) {
     () => (insumos && periodo && diaCorte != null ? armarReposicionDelPeriodo(insumos, hoy, periodo, diaCorte) : null),
     [insumos, hoy, periodo, diaCorte],
   )
+  /* «Ver ficha →» de «Pacientes que lo reciben». `module.key` y no `'track'`: una farmacéutica sin
+     Coordinación llega igual a la ficha por `pharma/protocolos` (ver `useAbrirFicha`). El «Volver» lleva a
+     la grilla de Reposición: el pasaje de vuelta no sabe reabrir un estudio (el atrás del navegador sí). */
+  const abrirFicha = useAbrirFicha({
+    module,
+    onNavigate,
+    volver: () => ({ moduleKey: module.key, subKey: submodule.key, label: 'Volver a Reposición', hint: 'Volver a Reposición' }),
+  })
+  const verFicha = useMemo(() => (abrirFicha
+    ? async (enrollmentId: string) => {
+        const p = await pacienteDeLaInscripcion(enrollmentId)
+        if (!p) return false
+        abrirFicha(p.patientId, p.protocolId)
+        return true
+      }
+    : undefined), [abrirFicha])
   const [editarCorte, setEditarCorte] = useState(false)
   // resolveCode: el mismo criterio que Pacientes, Dispensaciones y Stock (mayúsculas primero, y si no
   // hay match exacto cae a ignorar la caja — el código se dicta por teléfono).
@@ -123,7 +140,7 @@ export function ReposicionView({ module, setHeader }: ViewProps) {
         rep={rep} e={estudioAbierto} diaCorte={diaCorte} puedeEditar={puedeEditar}
         accent={module.accent} accentSolid={module.accentSolid}
         armando={armandoPara === codigo} onSalirDeArmar={() => setArmandoPara(null)}
-        onVolver={irAGrilla} onPeriodo={setFecha} onCambio={q.refetch}
+        onVolver={irAGrilla} onPeriodo={setFecha} onCambio={q.refetch} onVerFicha={verFicha}
       />
     )
   }

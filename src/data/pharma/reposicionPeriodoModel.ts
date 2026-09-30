@@ -1,7 +1,7 @@
 import {
   diaMes, enTratamiento, envasesTxt, estanteAlComienzo, nombresDePacientes, presentacionesDuplicadas, sigueEnElMes, sumarDias, terminoCronograma,
 } from './reposicionModel'
-import type { Aviso, EstadoRenglon, EstudioInsumo, LoteInsumo, ModoReposicion, PacienteInsumo } from './reposicionModel'
+import type { Aviso, EstadoEnrolamiento, EstadoRenglon, EstudioInsumo, LoteInsumo, ModoReposicion, PacienteInsumo } from './reposicionModel'
 import { diasHastaElCorte, enCurso, periodoSiguiente, ventanaTarde } from './periodoDeCorte'
 import type { Periodo, VentanaTarde } from './periodoDeCorte'
 import { armarPedidos, faltaVerificarTxt, pedidoPara, seSuperpone, sinVerificarDe, textoDePedidos, yaPedidoDe } from './pedidosMedicacionModel'
@@ -19,17 +19,17 @@ import type { PedidoItemInsumo, PedidoMedicacion, PedidoMedicacionInsumo, Recepc
  *     había = en el estante hoy − todo lo que se movió desde el inicio del período
  *     hay   = había + entró − salió + ajustes             (período cerrado: lo que quedó al corte)
  *
- *   BOLETA de P0 (R7), cada renglón sólo si aplica:
- *       Hacen falta para el período que viene   Σ mensual de los pacientes que siguen en P1
+ *   BOLETA de P0 (R7). Las dos restas van siempre, aunque valgan 0 (handoff «renglón abierto», 2026-09-29):
+ *       Necesitan el período que viene          Σ mensual de los pacientes que siguen en P1
  *     (o Tener siempre                         stock fijo, a demanda)
- *     + Faltan para terminar este período      lo pendiente de P0 que el estante no cubre     D31
- *     − Van a quedar en el estante al corte    FEFO: lo vigente menos lo pendiente de P0      D15
+ *     + Faltan para terminar este período      lo pendiente de P0 que el estante no cubre     D31  (sólo si > 0)
+ *     − Quedan en el estante al corte          FEFO: lo vigente menos lo pendiente de P0      D15
  *     − En camino                              faltante abierto de los pedidos            R9 RD12
  *     = A comprar                              nunca negativo
  *
  *   PEDIDO TARDE (RD1): hasta 5 días después del corte, si el período que empezó no tiene pedido y le
  *   falta algo, la cuenta es la de ESE período y pide sólo lo que le falta:
- *       Hacen falta para el período que empezó  lo que les falta retirar a sus pacientes
+ *       Les falta retirar                       lo que les falta retirar a sus pacientes
  *     (o Tener siempre)
  *     − Hay en el estante                      lo vigente hoy
  *     − En camino
@@ -132,6 +132,31 @@ export interface Boleta {
 }
 
 /**
+ * Lo que antes eran avisos al pie del renglón y ahora va en la fila de cada paciente (handoff «renglón
+ * abierto», 2026-09-29). El aviso de vencimiento no es de un paciente: sigue en `avisos`.
+ */
+export type MarcaPaciente = 'sin_retiros' | 'termino_cronograma' | 'dos_presentaciones' | 'varios_meses'
+
+/** Un paciente en tratamiento que tiene asignado el medicamento, con lo que aporta a la cuenta. */
+export interface PacienteDelRenglon {
+  enrollmentId: string
+  nombre: string
+  estado: EstadoEnrolamiento
+  /** Lo que recibe por mes: su cantidad propia o, si no tiene, la del estudio. */
+  porMes: number
+  /** `porMes` es su cantidad propia y no la del estudio. */
+  propia: boolean
+  /** Lo retirado en el período, con tope en `porMes`: la barra no pasa de llena (el exceso es una marca). */
+  retiro: number
+  ultimoRetiro: string | null
+  /** La última visita programada, si tiene cronograma automático (D23). */
+  cronogramaHasta: string | null
+  /** Entra en la cuenta del período para el que se compra. */
+  suma: boolean
+  marcas: MarcaPaciente[]
+}
+
+/**
  * `EstadoRenglon` (la card vieja, `reposicionModel.ts`) más `'sin_cuenta'`: esta vista corta por
  * `enCurso` (R6) y, en un período que no está en curso, NO calcula la compra — mostrar `'alcanza'`
  * sería un dato inventado presentado como real (regla de honestidad de CLAUDE.md).
@@ -175,6 +200,12 @@ export interface RenglonDelPeriodo {
   /** null: sin cargar, no se compra, o período que no está en curso. */
   boleta: Boleta | null
   avisos: Aviso[]
+  /**
+   * Quiénes lo reciben, por nombre. Sólo `mensual` en un período en curso: a demanda no depende de los
+   * pacientes, y sin cuenta no hay «suma» que mostrar. Se arma con los mismos filtros que la boleta, así
+   * la tabla y el número no pueden decir cosas distintas.
+   */
+  detallePacientes: PacienteDelRenglon[]
 }
 
 /** `'sin_cuenta'`: el período no está en curso (R6), no se sabe cubierto de verdad — no confundir con `'cubierto'`. */
@@ -228,6 +259,8 @@ const retiraronTxt = (n: number) => (n === 1 ? 'retiró' : 'retiraron')
 /** RD13: «hay» es lo físico, vencidos incluidos, y se dice cuántos lo están. */
 function textoHay(vigente: number, vencidos: number): string {
   const fisico = vigente + vencidos
+  // La resta en cero se muestra igual (handoff «renglón abierto»): la aclaración dice por qué vale 0.
+  if (fisico === 0) return 'sin stock hoy'
   if (vencidos === 0) return `hay ${fisico}`
   if (vigente === 0) return fisico === 1 ? 'hay 1, vencido' : `hay ${fisico}, todos vencidos`
   return `hay ${fisico}, ${vencidos} ${vencidos === 1 ? 'vencido' : 'vencidos'}`
@@ -270,8 +303,8 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
     pacientes: enCurso.length,
     libro: libroDe(mov, lotes.reduce((s, l) => s + l.quantity, 0)),
   }
-  const sinCuenta: Pick<RenglonDelPeriodo, 'comprar' | 'enCamino' | 'faltaEstePeriodo' | 'minimo' | 'boleta' | 'avisos'> =
-    { comprar: 0, enCamino: 0, faltaEstePeriodo: 0, minimo: null, boleta: null, avisos: [] }
+  const sinCuenta: Pick<RenglonDelPeriodo, 'comprar' | 'enCamino' | 'faltaEstePeriodo' | 'minimo' | 'boleta' | 'avisos' | 'detallePacientes'> =
+    { comprar: 0, enCamino: 0, faltaEstePeriodo: 0, minimo: null, boleta: null, avisos: [], detallePacientes: [] }
   if (r.modo == null) return { ...base, ...sinCuenta, estado: 'sin_cargar' }
   if (r.modo === 'no_se_compra') return { ...base, ...sinCuenta, estado: 'no_se_compra' }
   // Período que no está en curso (R6): sin_cargar/no_se_compra son configuración y ya se resolvieron
@@ -282,6 +315,7 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
   const objetivo = tarde ? ctx.periodo : ctx.proximo
   const lineas: LineaBoleta[] = []
   const avisos: Aviso[] = []
+  const detallePacientes: PacienteDelRenglon[] = []
   let pendiente = 0
   let pendientes = 0
   let pacientesDelPeriodo = 0
@@ -308,13 +342,14 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
     const quienes = delObjetivo.length === 0 ? 'ningún paciente lo recibe'
       : propios > 0 ? `${pacientesTxt(delObjetivo.length)} (${propios} con cantidad propia)`
         : `${pacientesTxt(delObjetivo.length)}, ${envasesTxt(r.envases_por_mes ?? 0)} por mes`
+    // Títulos cortos (handoff «renglón abierto»): van en una tarjeta de la ecuación, no en un renglón ancho.
     lineas.push(tarde
       ? {
-          tipo: 'hacen_falta', titulo: 'Hacen falta para el período que empezó', signo: '', valor: pendiente,
+          tipo: 'hacen_falta', titulo: 'Les falta retirar', signo: '', valor: pendiente,
           aclaracion: delObjetivo.length === 0 ? quienes : `${quienes}; retiraron ${retiraron}`,
         }
       : {
-          tipo: 'hacen_falta', titulo: 'Hacen falta para el período que viene', signo: '',
+          tipo: 'hacen_falta', titulo: 'Necesitan el período que viene', signo: '',
           valor: delObjetivo.reduce((s, p) => s + mensual(p), 0), aclaracion: quienes,
         })
 
@@ -326,6 +361,32 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
     if (dobles.length) avisos.push({ tipo: 'dos_presentaciones', ambar: true, texto: `Tiene otra presentación habilitada, suma una sola: ${nombresDePacientes(dobles)}` })
     const varios = suman.filter((p) => mensual(p) > 0 && p.retirado_periodo > mensual(p))
     if (varios.length) avisos.push({ tipo: 'varios_meses', ambar: false, texto: `Se llevó más de un mes en este período: ${nombresDePacientes(varios)}` })
+
+    // La misma información, paciente por paciente: salen de los MISMOS conjuntos que los avisos y la cuenta,
+    // para que la tabla y el número no puedan contar distinto. Los avisos se quedan: el renglón cerrado los
+    // cuenta en su «N avisos».
+    const en = (lista: readonly PacientePeriodoInsumo[]) => new Set(lista.map((p) => p.patient_medication_id))
+    const sumanAlObjetivo = en(delObjetivo), sinRetirosIds = en(sinRetiros), terminaronIds = en(terminaron), variosIds = en(varios)
+    for (const p of [...enCurso].sort((a, b) => a.patient_name.localeCompare(b.patient_name, 'es'))) {
+      const id = p.patient_medication_id
+      const marcas: MarcaPaciente[] = []
+      if (sinRetirosIds.has(id)) marcas.push('sin_retiros')
+      if (terminaronIds.has(id)) marcas.push('termino_cronograma')
+      if (ctx.duplicados.has(id)) marcas.push('dos_presentaciones')
+      if (variosIds.has(id)) marcas.push('varios_meses')
+      detallePacientes.push({
+        enrollmentId: p.enrollment_id,
+        nombre: p.patient_name,
+        estado: p.enrollment_status,
+        porMes: mensual(p),
+        propia: p.envases_por_mes != null,
+        retiro: Math.min(p.retirado_periodo, mensual(p)),
+        ultimoRetiro: p.ultimo_retiro,
+        cronogramaHasta: p.tiene_cronograma ? p.ultima_programada : null,
+        suma: sumanAlObjetivo.has(id),
+        marcas,
+      })
+    }
   } else {
     lineas.push({ tipo: 'tener_siempre', titulo: 'Tener siempre', signo: '', valor: r.stock_fijo ?? 0, aclaracion: 'a demanda' })
   }
@@ -333,11 +394,13 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
   const est = estanteAlComienzo(lotes, pendiente, ctx.hoy, objetivo)
   const vencidos = lotes.filter((l) => l.expiry_date != null && l.expiry_date < ctx.hoy).reduce((s, l) => s + l.quantity, 0)
 
+  // Las dos restas (el estante y lo en camino) van SIEMPRE, aunque valgan 0 (handoff «renglón abierto»,
+  // 2026-09-29): la cuenta tiene una sola forma y la aclaración dice por qué no resta nada («sin stock hoy»,
+  // «sin pedidos abiertos»). «Faltan para terminar este período» sigue saliendo sólo cuando falta algo: es un
+  // término que SUMA, y «+ 0» no explica nada.
   if (tarde) {
     // Tarde no hay «al corte»: lo vigente hoy es lo que atiende a los que todavía no retiraron.
-    if (est.vigenteHoy + vencidos > 0) {
-      lineas.push({ tipo: 'hay_en_el_estante', titulo: 'Hay en el estante', signo: '−', valor: est.vigenteHoy, aclaracion: textoHay(est.vigenteHoy, vencidos) })
-    }
+    lineas.push({ tipo: 'hay_en_el_estante', titulo: 'Hay en el estante', signo: '−', valor: est.vigenteHoy, aclaracion: textoHay(est.vigenteHoy, vencidos) })
   } else {
     // Lo vigente que no se lleva lo pendiente de P0 y tampoco llega vivo al inicio de P1.
     const vencenAntes = est.vigenteHoy - (pendiente - est.faltaEsteMes) - est.alComienzo
@@ -350,30 +413,26 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
         aclaracion: `${pacientesTxt(pendientes)} todavía no ${retiraronTxt(pendientes)} y en el estante no alcanza`,
       })
     }
-    // También cuando no queda nada VIGENTE (alComienzo = 0) pero sí hay vencidos o algo que vence antes del
-    // período que viene: si el libro dice «Hay 10» y la boleta pidiera igual sin explicarlo, no cierra a la
-    // vista. Se muestra con valor 0 para que la aclaración diga por qué no cuenta.
-    if (est.alComienzo > 0 || vencidos > 0 || vencenAntes > 0) {
-      let aclaracion = textoHay(est.vigenteHoy, vencidos)
-      if (est.vigenteHoy > 0 && pacientesDelPeriodo > 0) {
-        aclaracion += pendientes > 0
-          ? `, y ${pacientesTxt(pendientes)} todavía no ${retiraronTxt(pendientes)}`
-          : `${vencidos > 0 ? ', y' : ' y'} ya retiraron todos`
-      }
-      if (vencenAntes > 0) aclaracion += `, ${vencenAntes} ${vencenAntes === 1 ? 'vence' : 'vencen'} antes del período que viene`
-      lineas.push({ tipo: 'quedan_al_corte', titulo: 'Van a quedar en el estante al corte', signo: '−', valor: est.alComienzo, aclaracion })
+    // Con valor 0 también cuando no queda nada VIGENTE pero hay vencidos o algo que vence antes del período
+    // que viene: si el libro dice «Hay 10» y la boleta pidiera igual sin explicarlo, no cierra a la vista.
+    let aclaracion = textoHay(est.vigenteHoy, vencidos)
+    if (est.vigenteHoy > 0 && pacientesDelPeriodo > 0) {
+      aclaracion += pendientes > 0
+        ? `, y ${pacientesTxt(pendientes)} todavía no ${retiraronTxt(pendientes)}`
+        : `${vencidos > 0 ? ', y' : ' y'} ya retiraron todos`
     }
+    if (vencenAntes > 0) aclaracion += `, ${vencenAntes} ${vencenAntes === 1 ? 'vence' : 'vencen'} antes del período que viene`
+    lineas.push({ tipo: 'quedan_al_corte', titulo: 'Quedan en el estante al corte', signo: '−', valor: est.alComienzo, aclaracion })
   }
 
   const ya = yaPedidoDe(ctx.pedidos, r.protocol_id, r.medication_id)
-  if (ya.envases > 0) {
-    // RD17: si ya llegó y falta verificarlo, se dice acá también, para que no se vuelva a pedir.
-    const llego = sinVerificarDe(ctx.pedidos, r.protocol_id, r.medication_id)
-    lineas.push({
-      tipo: 'ya_pedido', titulo: 'En camino', signo: '−', valor: ya.envases,
-      aclaracion: llego ? `${textoDePedidos(ya.pedidos)} · ${faltaVerificarTxt(llego)}` : textoDePedidos(ya.pedidos),
-    })
-  }
+  // RD17: si ya llegó y falta verificarlo, se dice acá también, para que no se vuelva a pedir.
+  const llego = ya.envases > 0 ? sinVerificarDe(ctx.pedidos, r.protocol_id, r.medication_id) : null
+  lineas.push({
+    tipo: 'ya_pedido', titulo: 'En camino', signo: '−', valor: ya.envases,
+    aclaracion: ya.envases === 0 ? 'sin pedidos abiertos'
+      : llego ? `${textoDePedidos(ya.pedidos)} · ${faltaVerificarTxt(llego)}` : textoDePedidos(ya.pedidos),
+  })
   for (const v of est.vencenEnElMes) {
     avisos.push({ tipo: 'vence', ambar: true, texto: `Vence el ${diaMes(v.expiry_date)}: lote ${v.lot_number}, ${envasesTxt(v.quantity)}` })
   }
@@ -382,8 +441,18 @@ function armarRenglon(r: RenglonPeriodoInsumo, ctx: Contexto, tarde: boolean): R
   const estado: EstadoRenglon = comprar > 0 ? 'comprar' : ya.envases > 0 ? 'en_camino' : 'alcanza'
   return {
     ...base, estado, comprar, enCamino: ya.envases, faltaEstePeriodo: Math.max(0, est.faltaEsteMes - ya.envases), minimo,
-    boleta: { lineas, aComprar: comprar }, avisos,
+    boleta: { lineas, aComprar: comprar }, avisos, detallePacientes,
   }
+}
+
+/** El subtítulo de «Pacientes que lo reciben»: «2 · ambos suman a la cuenta», «3 · 1 no suma». */
+export function textoPacientesQueSuman(ps: readonly Pick<PacienteDelRenglon, 'suma'>[]): string {
+  const n = ps.length
+  if (n === 0) return 'ningún paciente en tratamiento lo tiene asignado'
+  const fuera = ps.filter((p) => !p.suma).length
+  if (fuera === 0) return `${n} · ${n === 1 ? 'suma' : n === 2 ? 'ambos suman' : 'todos suman'} a la cuenta`
+  if (fuera === n) return `${n} · ninguno suma`
+  return `${n} · ${fuera} no ${fuera === 1 ? 'suma' : 'suman'}`
 }
 
 export function armarReposicionDelPeriodo(

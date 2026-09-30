@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  armarReposicionDelPeriodo, borradorDelPedido, cambiosDelBorrador, libroDe, renglonesAEmitir,
+  armarReposicionDelPeriodo, borradorDelPedido, cambiosDelBorrador, libroDe, renglonesAEmitir, textoPacientesQueSuman,
   type InsumosDelPeriodo, type MovimientoInsumo, type PacientePeriodoInsumo, type RenglonPeriodoInsumo,
 } from './reposicionPeriodoModel'
 import type { EstudioInsumo, LoteInsumo } from './reposicionModel'
@@ -105,8 +105,9 @@ describe('la cuenta del período (R3, R7)', () => {
     expect(r.boleta).toEqual({
       aComprar: 4,
       lineas: [
-        { tipo: 'hacen_falta', titulo: 'Hacen falta para el período que viene', signo: '', valor: 12, aclaracion: '12 pacientes, 1 envase por mes' },
-        { tipo: 'quedan_al_corte', titulo: 'Van a quedar en el estante al corte', signo: '−', valor: 8, aclaracion: 'hay 8 y ya retiraron todos' },
+        { tipo: 'hacen_falta', titulo: 'Necesitan el período que viene', signo: '', valor: 12, aclaracion: '12 pacientes, 1 envase por mes' },
+        { tipo: 'quedan_al_corte', titulo: 'Quedan en el estante al corte', signo: '−', valor: 8, aclaracion: 'hay 8 y ya retiraron todos' },
+        { tipo: 'ya_pedido', titulo: 'En camino', signo: '−', valor: 0, aclaracion: 'sin pedidos abiertos' },
       ],
     })
   })
@@ -116,6 +117,7 @@ describe('la cuenta del período (R3, R7)', () => {
     expect(resumenBoleta(i)).toEqual([
       ['hacen_falta', '', 8, '8 pacientes, 1 envase por mes'],
       ['quedan_al_corte', '−', 1, 'hay 5, y 4 pacientes todavía no retiraron'],
+      ['ya_pedido', '−', 0, 'sin pedidos abiertos'],
     ])
   })
   it('si el estante no alcanza para terminar el período, lo que falta se suma (D31)', () => {
@@ -124,6 +126,8 @@ describe('la cuenta del período (R3, R7)', () => {
     expect(resumenBoleta(i)).toEqual([
       ['hacen_falta', '', 8, '8 pacientes, 1 envase por mes'],
       ['faltan_este_periodo', '+', 1, '4 pacientes todavía no retiraron y en el estante no alcanza'],
+      ['quedan_al_corte', '−', 0, 'hay 3, y 4 pacientes todavía no retiraron'],
+      ['ya_pedido', '−', 0, 'sin pedidos abiertos'],
     ])
   })
   it('con cantidad propia lo dice, y el singular se respeta', () => {
@@ -132,6 +136,18 @@ describe('la cuenta del período (R3, R7)', () => {
     expect(resumenBoleta(i)).toEqual([
       ['hacen_falta', '', 4, '3 pacientes (1 con cantidad propia)'],
       ['faltan_este_periodo', '+', 1, '1 paciente todavía no retiró y en el estante no alcanza'],
+      ['quedan_al_corte', '−', 0, 'sin stock hoy'],
+      ['ya_pedido', '−', 0, 'sin pedidos abiertos'],
+    ])
+  })
+  // Handoff «renglón abierto» (2026-09-29): la cuenta tiene siempre la misma forma, así que las restas van
+  // aunque valgan 0 y la aclaración dice por qué. «Faltan para terminar este período» sigue saliendo sólo
+  // cuando falta algo: es un término que se suma, y «+ 0 faltan» no explica nada.
+  it('las restas en cero se muestran igual, con su porqué', () => {
+    expect(resumenBoleta(insumos({ pacientes: grupo(2, 2) }))).toEqual([
+      ['hacen_falta', '', 2, '2 pacientes, 1 envase por mes'],
+      ['quedan_al_corte', '−', 0, 'sin stock hoy'],
+      ['ya_pedido', '−', 0, 'sin pedidos abiertos'],
     ])
   })
 })
@@ -172,7 +188,7 @@ describe('a demanda y renglones sin cuenta', () => {
     const i = insumos({ renglones: [renglon({ modo: 'a_demanda', envases_por_mes: null, stock_fijo: 5 })], lotes: [lote({ quantity: 2 })] })
     expect(seretide(i).comprar).toBe(3)
     expect(seretide(i).minimo).toEqual({ envases: 5, pacientes: null })
-    expect(resumenBoleta(i)).toEqual([['tener_siempre', '', 5, 'a demanda'], ['quedan_al_corte', '−', 2, 'hay 2']])
+    expect(resumenBoleta(i)).toEqual([['tener_siempre', '', 5, 'a demanda'], ['quedan_al_corte', '−', 2, 'hay 2'], ['ya_pedido', '−', 0, 'sin pedidos abiertos']])
   })
   it('sin cargar y no se compra no tienen boleta ni número, pero sí cuántos pacientes lo tienen', () => {
     expect(seretide(insumos({ renglones: [renglon({ modo: null, envases_por_mes: null })], pacientes: grupo(3, 0) })))
@@ -190,6 +206,70 @@ describe('a demanda y renglones sin cuenta', () => {
       estado: 'sin_cuenta', comprar: 0, boleta: null, minimo: null, libro: { habia: 0, entro: 10, salio: 4, ajustes: -1, hay: 5 },
     })
     expect(rep.estudios[0]).toMatchObject({ estadoTarjeta: 'sin_cuenta', objetivo: null, tarde: null })
+  })
+})
+
+describe('los pacientes que lo reciben (handoff «renglón abierto», 2026-09-29)', () => {
+  // Los avisos que antes iban al pie ahora son marcas en la fila de cada uno. Se testea quién SUMA porque es
+  // lo que decide la compra: una fila que dice «suma» de alguien que la cuenta dejó afuera se ve igual de bien.
+  const detalle = (i: InsumosDelPeriodo) => seretide(i).detallePacientes
+  it('uno por asignación en tratamiento, por nombre, con lo que recibe por mes y lo retirado tope al mes', () => {
+    const d = detalle(insumos({
+      pacientes: [
+        paciente({ patient_name: 'Rosa', retirado_periodo: 0, envases_por_mes: 2 }),
+        paciente({ patient_name: 'Octavio', retirado_periodo: 1, tiene_cronograma: true, ultima_programada: '2027-03-14' }),
+        paciente({ patient_name: 'Discontinuada', enrollment_status: 'discontinuado' }),
+        paciente({ patient_name: 'Habilitación', habilitacion_id: 'hab-1' }),
+      ],
+    }))
+    expect(d.map((p) => p.nombre)).toEqual(['Octavio', 'Rosa'])
+    expect(d[0]).toMatchObject({ estado: 'activo', porMes: 1, propia: false, retiro: 1, cronogramaHasta: '2027-03-14', suma: true, marcas: [] })
+    expect(d[1]).toMatchObject({ porMes: 2, propia: true, retiro: 0, cronogramaHasta: null, suma: true })
+    expect(d[1].enrollmentId).toMatch(/^enr-/)
+  })
+  it('sin retiros en 90 días: suma igual, con la marca', () => {
+    const d = detalle(insumos({ pacientes: [paciente({ ultimo_retiro: '2026-06-01' }), paciente({ ultimo_retiro: null })] }))
+    expect(d.map((p) => [p.suma, p.marcas])).toEqual([[true, ['sin_retiros']], [true, ['sin_retiros']]])
+  })
+  it('terminó su cronograma antes del período que viene: se lista, no suma', () => {
+    const d = detalle(insumos({ pacientes: [paciente({ tiene_cronograma: true, ultima_programada: '2026-09-20' })] }))
+    expect(d[0]).toMatchObject({ suma: false, marcas: ['termino_cronograma'] })
+  })
+  it('otra presentación de la misma droga: la que no suma lo dice', () => {
+    const d = detalle(insumos({
+      pacientes: [
+        paciente({ enrollment_id: 'enr-x', patient_name: 'Doble', ultimo_retiro: '2026-09-10' }),
+        paciente({ enrollment_id: 'enr-x', patient_name: 'Doble', medication_id: 'otra', ultimo_retiro: '2026-08-01' }),
+      ],
+    }))
+    // El renglón es Seretide: la otra presentación es de otro renglón y no se lista acá.
+    expect(d).toHaveLength(1)
+    expect(d[0]).toMatchObject({ suma: true, marcas: [] })
+    const otra = armar(insumos({
+      renglones: [renglon(), renglon({ protocol_medication_id: 'pm-otra', medication_id: 'otra', medication_name: 'Seretide 125/25' })],
+      pacientes: [
+        paciente({ enrollment_id: 'enr-x', ultimo_retiro: '2026-09-10' }),
+        paciente({ enrollment_id: 'enr-x', medication_id: 'otra', ultimo_retiro: '2026-08-01' }),
+      ],
+    })).estudios[0].renglones.find((r) => r.medicationId === 'otra')
+    expect(otra?.detallePacientes[0]).toMatchObject({ suma: false, marcas: ['dos_presentaciones'] })
+  })
+  it('se llevó más de un mes: suma, con la marca', () => {
+    expect(detalle(insumos({ pacientes: [paciente({ retirado_periodo: 3 })] }))[0]).toMatchObject({ suma: true, retiro: 1, marcas: ['varios_meses'] })
+  })
+  it('a demanda, sin cargar o en un período cerrado: sin lista', () => {
+    expect(detalle(insumos({ renglones: [renglon({ modo: 'a_demanda', envases_por_mes: null, stock_fijo: 5 })], pacientes: grupo(2, 0) }))).toEqual([])
+    expect(detalle(insumos({ renglones: [renglon({ modo: null, envases_por_mes: null })], pacientes: grupo(2, 0) }))).toEqual([])
+    expect(armar(insumos({ pacientes: grupo(2, 0) }), { desde: '2026-07-29', hasta: '2026-08-28' }).estudios[0].renglones[0].detallePacientes).toEqual([])
+  })
+  it('el subtítulo dice cuántos suman', () => {
+    const suman = (ps: PacientePeriodoInsumo[]) => textoPacientesQueSuman(detalle(insumos({ pacientes: ps })))
+    expect(suman([paciente()])).toBe('1 · suma a la cuenta')
+    expect(suman([paciente(), paciente()])).toBe('2 · ambos suman a la cuenta')
+    expect(suman([paciente(), paciente(), paciente()])).toBe('3 · todos suman a la cuenta')
+    expect(suman([paciente(), paciente(), paciente({ tiene_cronograma: true, ultima_programada: '2026-09-20' })])).toBe('3 · 1 no suma')
+    expect(suman([paciente({ tiene_cronograma: true, ultima_programada: '2026-09-20' }), paciente({ tiene_cronograma: true, ultima_programada: '2026-09-21' })])).toBe('2 · ninguno suma')
+    expect(suman([])).toBe('ningún paciente en tratamiento lo tiene asignado')
   })
 })
 
@@ -234,6 +314,7 @@ describe('vencimientos: «hay» es lo físico (RD13)', () => {
     expect(resumenBoleta(i)).toEqual([
       ['hacen_falta', '', 12, '12 pacientes, 1 envase por mes'],
       ['quedan_al_corte', '−', 0, 'hay 10, todos vencidos'],
+      ['ya_pedido', '−', 0, 'sin pedidos abiertos'],
     ])
   })
 })
@@ -247,8 +328,9 @@ describe('el pedido tarde (RD1)', () => {
     expect(e).toMatchObject({ tarde: { quedan: 3 }, objetivo: P0_TARDE, pedidoDelObjetivo: null })
     expect(e.renglones[0].comprar).toBe(7)
     expect(e.renglones[0].boleta?.lineas.map((l) => [l.tipo, l.titulo, l.signo, l.valor, l.aclaracion])).toEqual([
-      ['hacen_falta', 'Hacen falta para el período que empezó', '', 12, '12 pacientes, 1 envase por mes; retiraron 0'],
+      ['hacen_falta', 'Les falta retirar', '', 12, '12 pacientes, 1 envase por mes; retiraron 0'],
       ['hay_en_el_estante', 'Hay en el estante', '−', 5, 'hay 5'],
+      ['ya_pedido', 'En camino', '−', 0, 'sin pedidos abiertos'],
     ])
   })
   it('lo ya retirado se descuenta de lo que hace falta', () => {
@@ -261,7 +343,16 @@ describe('el pedido tarde (RD1)', () => {
   it('a demanda: tener siempre menos lo que hay', () => {
     const r = tarde(insumos({ renglones: [renglon({ modo: 'a_demanda', envases_por_mes: null, stock_fijo: 5 })], lotes: [lote({ quantity: 2 })] })).estudios[0].renglones[0]
     expect(r.comprar).toBe(3)
-    expect(r.boleta?.lineas.map((l) => [l.tipo, l.valor, l.aclaracion])).toEqual([['tener_siempre', 5, 'a demanda'], ['hay_en_el_estante', 2, 'hay 2']])
+    expect(r.boleta?.lineas.map((l) => [l.tipo, l.valor, l.aclaracion])).toEqual([['tener_siempre', 5, 'a demanda'], ['hay_en_el_estante', 2, 'hay 2'], ['ya_pedido', 0, 'sin pedidos abiertos']])
+  })
+  it('el ejemplo del handoff (Frevia): sin stock ni pedidos, la cuenta tiene igual sus tres términos', () => {
+    const r = tarde(insumos({ pacientes: grupo(2, 0) })).estudios[0].renglones[0]
+    expect(r.boleta?.lineas.map((l) => [l.titulo, l.signo, l.valor, l.aclaracion])).toEqual([
+      ['Les falta retirar', '', 2, '2 pacientes, 1 envase por mes; retiraron 0'],
+      ['Hay en el estante', '−', 0, 'sin stock hoy'],
+      ['En camino', '−', 0, 'sin pedidos abiertos'],
+    ])
+    expect(r.comprar).toBe(2)
   })
   it('si el período que empezó ya tiene su pedido, la cuenta es la del que viene', () => {
     const e = tarde(insumos({ pacientes: grupo(12, 0), lotes: [lote({ quantity: 5 })], pedidos: [cab()], pedido_items: [item()] })).estudios[0]

@@ -1,45 +1,52 @@
+import { useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../../components/Icon'
-import type { Boleta, RenglonDelPeriodo } from '../../../data/pharma'
+import { formatAR } from '../../../lib/dates'
+import { reglaDeReposicion, textoEstante, textoPacientesQueSuman } from '../../../data/pharma'
+import type { Boleta, Libro, MarcaPaciente, PacienteDelRenglon, RenglonDelPeriodo } from '../../../data/pharma'
 import { CargarReposicion } from './CargarReposicion'
-import { AvisoLinea, Envases, botonChico, plural } from './piezas'
+import { AvisoLinea, Envases, Etiqueta, botonChico, plural, versalita } from './piezas'
 
 /**
- * Mock «2 · El estudio»: nombre, había, entró, salió, hay | mínimo, comprar, y la flecha que abre la boleta.
- * «Mínimo» no está en el mock: lo pidió el Director el 2026-09-19 (el stock mínimo de cada medicamento,
- * sacado de la medicación asignada a los pacientes, sin desplegar la cuenta).
+ * Handoff «Reposición: tabla y renglón abierto» (docs/design_handoff_reposicion_renglon, 2026-09-29).
+ *
+ * La tabla quedó en cuatro columnas: medicamento, pacientes, en el estante y a comprar. Había/entró/salió/hay
+ * se juntaron en «En el estante» (el número de hoy, y abajo de dónde salió), y «Mínimo» se fue: repetía el
+ * número de «Comprar», y lo que explica se lee ahora en la cuenta del renglón abierto.
+ *
+ * El renglón abierto son tres bloques, en este orden: por qué hay que comprar N (la cuenta como ecuación),
+ * los pacientes que lo reciben (los avisos que antes iban al pie, ahora en la fila de cada uno) y los
+ * movimientos del estante en el período.
  */
-const FIJAS = [84, 84, 84, 96, 96, 190, 44]
-export const COLUMNAS = `minmax(0, 1fr) ${FIJAS.map((px) => `${px}px`).join(' ')}`
+const FIJAS = [120, 190, 200, 44]
+/** Las mismas columnas en un contenedor angosto (el mock, por debajo de 860 px). */
+const FIJAS_ANGOSTAS = [90, 150, 150, 36]
+const grilla = (fijas: number[]) => `minmax(0, 1fr) ${fijas.map((px) => `${px}px`).join(' ')}`
+export const columnasDe = (angosto: boolean) => grilla(angosto ? FIJAS_ANGOSTAS : FIJAS)
 /**
- * Lo que tiene que quedarle al nombre para que el libro vaya en columnas: 200 px de texto más el padding de la
- * celda. Con 200 entran enteros todos los medicamentos que hay hoy salvo el más largo («Trelegy Ellipta (92)
- * 92/55/22 mcg», 222 px), que se corta con puntos; los demás andan entre 57 y 190.
+ * Lo que tiene que quedarle al nombre: 200 px de texto más el padding de la celda. Con 200 entran enteros
+ * todos los medicamentos que hay hoy salvo el más largo («Trelegy Ellipta (92) 92/55/22 mcg», 222 px), que
+ * se corta con puntos.
  */
-const NOMBRE_MINIMO = 200 + 32
+const NOMBRE_MINIMO = 200 + 40
 /**
- * El ancho de CONTENEDOR por debajo del cual el libro baja a un segundo renglón (RD14): hoy 910 px. Sale de las
- * mismas columnas, así que si una cambia, el umbral la acompaña. Vale también para el período cerrado, que con
- * menos columnas entraría antes: un solo corte para toda la pantalla, así el resumen, el libro y los pedidos
- * cambian de forma juntos.
+ * El ancho de CONTENEDOR por debajo del cual la tabla pasa a las columnas angostas: hoy 794 px. Sale de las
+ * mismas columnas, así que si una cambia, el umbral la acompaña. Es un solo corte para toda la pantalla: el
+ * resumen y los pedidos cambian de forma junto con la tabla.
  */
-export const ANCHO_LIBRO_EN_COLUMNAS = FIJAS.reduce((s, px) => s + px, 0) + NOMBRE_MINIMO
-/** Un período cerrado: había, entró, salió y quedó, sin «comprar» (R6). */
-export const COLUMNAS_CERRADO = 'minmax(0, 1fr) 96px 96px 96px 96px'
-/** El libro en dos renglones (RD14): nombre y cuenta a la izquierda, «comprar» y la flecha a la derecha. */
-const COLUMNAS_ANGOSTA = 'minmax(0, 1fr) auto 36px'
+export const ANCHO_TABLA_ANCHA = FIJAS.reduce((s, px) => s + px, 0) + NOMBRE_MINIMO
 
-const numero: CSSProperties = { padding: '13px 16px', textAlign: 'right', fontSize: 14, color: 'var(--spira-ink)' }
-const nota: CSSProperties = { fontSize: 13, color: 'var(--spira-ink-soft)', margin: '6px 0' }
+export const celda = (angosto: boolean): CSSProperties => ({ padding: angosto ? '12px 12px' : '14px 20px', minWidth: 0 })
+const sub: CSSProperties = { fontSize: 12, color: 'var(--spira-ink-soft)', marginTop: 3 }
+const numeroMedio: CSSProperties = { fontSize: 15, fontWeight: 600, color: 'var(--spira-ink)' }
 const flechaRenglon: CSSProperties = {
   justifySelf: 'center', width: 32, height: 32, display: 'grid', placeItems: 'center',
   background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
 }
+const rotuloBloque: CSSProperties = { ...versalita, fontSize: 10.5, letterSpacing: '0.08em' }
+const nota: CSSProperties = { fontSize: 13, color: 'var(--spira-ink-soft)', margin: 0 }
 
-/** «−1 por ajuste» · «+2 por ajustes»: que la fila cierre (había + entró − salió ± ajustes = hay). */
-const textoAjuste = (a: number) => (a === 0 ? null : `${a > 0 ? '+' : '−'}${Math.abs(a)} por ${Math.abs(a) === 1 ? 'ajuste' : 'ajustes'}`)
-
-export function FilaMedicamento({ r, enCurso, ultimo, angosto, puedeEditar, accentSolid, abierto, editando, onAlternar, onEditar, onCerrarEdicion, onGuardado }: {
+export function FilaMedicamento({ r, enCurso, ultimo, angosto, puedeEditar, accentSolid, abierto, editando, contexto, onAlternar, onEditar, onCerrarEdicion, onGuardado, onVerFicha }: {
   r: RenglonDelPeriodo
   enCurso: boolean
   ultimo: boolean
@@ -48,59 +55,19 @@ export function FilaMedicamento({ r, enCurso, ultimo, angosto, puedeEditar, acce
   accentSolid: string
   abierto: boolean
   editando: boolean
+  /** La frase del pedido tarde, arriba de la ecuación; null si no se pide tarde. */
+  contexto: string | null
   onAlternar: () => void
   onEditar: () => void
   onCerrarEdicion: () => void
   onGuardado: () => void
+  /** Abre la ficha del paciente de esa inscripción; devuelve false si no se pudo. Sin esto, no hay «Ver ficha». */
+  onVerFicha?: (enrollmentId: string) => Promise<boolean>
 }) {
   const avisos = r.avisos.filter((a) => a.ambar).length
-  const ajuste = textoAjuste(r.libro.ajustes)
-
-  const nombre = (
-    <div style={{ padding: angosto ? 0 : '13px 16px', minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--spira-ink)', flexWrap: angosto ? 'wrap' : 'nowrap' }}>
-        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{r.nombre}</span>
-        {/* RD14: el aviso lleva texto, no sólo el ícono. */}
-        {avisos > 0 && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: 'var(--spira-acc-deep-warn)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
-            <Icon name="alert" size={13} stroke={1.9} />{plural(avisos, 'aviso', 'avisos')}
-          </span>
-        )}
-      </div>
-      {r.presentacion && <div style={{ fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 2 }}>{r.presentacion}</div>}
-      {angosto && (
-        <div className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-ink-soft)', marginTop: 4 }}>
-          había {r.libro.habia} · entró {r.libro.entro} · salió {r.libro.salio} · {enCurso ? 'hay' : 'quedó'} {r.libro.hay}{ajuste ? ` (${ajuste})` : ''}
-        </div>
-      )}
-      {angosto && enCurso && r.minimo && (
-        <div style={{ fontSize: 12, color: 'var(--spira-ink-soft)', marginTop: 2 }}>
-          Mínimo <span className="spira-mono">{r.minimo.envases}</span> · {textoMinimo(r.minimo)}
-        </div>
-      )}
-    </div>
-  )
-  const libro = !angosto && (
-    <>
-      <span className="spira-mono" style={numero}>{r.libro.habia}</span>
-      <span className="spira-mono" style={numero}>{r.libro.entro}</span>
-      <span className="spira-mono" style={numero}>{r.libro.salio}</span>
-      <div style={numero}>
-        <span className="spira-mono">{r.libro.hay}</span>
-        {ajuste && <div style={{ fontSize: 11, color: 'var(--spira-ink-soft)', marginTop: 2, whiteSpace: 'nowrap' }}>{ajuste}</div>}
-      </div>
-    </>
-  )
-
-  // Un período cerrado es sólo el libro: sin «comprar» ni boleta (R6).
-  if (!enCurso) {
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: angosto ? 'minmax(0, 1fr)' : COLUMNAS_CERRADO, alignItems: 'center', padding: angosto ? '11px 14px' : 0, borderBottom: ultimo ? 'none' : '1px solid var(--spira-line)' }}>
-        {nombre}
-        {libro}
-      </div>
-    )
-  }
+  const regla = reglaDeReposicion(r)
+  const detalle = [r.presentacion, regla].filter(Boolean).join(' · ')
+  const td = celda(angosto)
 
   return (
     <div style={{ borderBottom: ultimo && !abierto ? 'none' : '1px solid var(--spira-line)' }}>
@@ -108,129 +75,306 @@ export function FilaMedicamento({ r, enCurso, ultimo, angosto, puedeEditar, acce
       <div
         className="spira-row-link spira-no-press"
         onClick={onAlternar}
-        style={{
-          display: 'grid', gridTemplateColumns: angosto ? COLUMNAS_ANGOSTA : COLUMNAS, alignItems: 'center', cursor: 'pointer',
-          gap: angosto ? 10 : 0, padding: angosto ? '11px 14px' : 0, background: abierto ? 'var(--spira-surface)' : undefined,
-        }}
+        style={{ display: 'grid', gridTemplateColumns: columnasDe(angosto), alignItems: 'center', cursor: 'pointer', background: abierto ? 'var(--spira-surface)' : undefined }}
       >
-        {nombre}
-        {libro}
-        {!angosto && <Minimo r={r} />}
-        <div style={{ padding: angosto ? 0 : '13px 16px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, alignSelf: 'stretch' }}>
-          <Comprar r={r} puedeEditar={puedeEditar} accentSolid={accentSolid} onCargar={onEditar} />
+        <div style={td}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, color: 'var(--spira-ink)', flexWrap: angosto ? 'wrap' : 'nowrap' }}>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{r.nombre}</span>
+            {/* RD14: el aviso lleva texto, no sólo el ícono. Se queda aunque el mock no lo dibuje: con el renglón
+                cerrado es lo único que dice que hay un vencimiento o una presentación que no suma. */}
+            {avisos > 0 && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: 'var(--spira-acc-deep-warn)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
+                <Icon name="alert" size={13} stroke={1.9} />{plural(avisos, 'aviso', 'avisos')}
+              </span>
+            )}
+          </div>
+          {detalle && <div style={sub}>{detalle}</div>}
+        </div>
+        <div style={{ ...td, textAlign: 'right' }}>
+          {r.modo === 'a_demanda'
+            ? <span style={{ color: 'var(--spira-muted)' }}>—</span>
+            : <span className="spira-mono" style={numeroMedio}>{r.pacientes}</span>}
+        </div>
+        <div style={{ ...td, textAlign: 'right' }}>
+          <span className="spira-mono" style={numeroMedio}>{r.libro.hay}</span>
+          <div className="spira-mono" style={sub}>{textoEstante(r.libro)}</div>
+        </div>
+        <div style={{ ...td, textAlign: 'right' }}>
+          <AComprar r={r} puedeEditar={puedeEditar && enCurso} accentSolid={accentSolid} onCargar={onEditar} />
         </div>
         <button
           type="button" aria-expanded={abierto}
-          aria-label={`${abierto ? 'Cerrar' : 'Abrir'} la cuenta de ${r.nombre}`}
+          aria-label={`${abierto ? 'Cerrar' : 'Abrir'} el detalle de ${r.nombre}`}
           onClick={(ev) => { ev.stopPropagation(); onAlternar() }}
           style={flechaRenglon}
         >
-          <Icon name={abierto ? 'chevronUp' : 'chevronDown'} size={16} color="var(--spira-muted)" />
+          <Icon name={abierto ? 'chevronUp' : 'chevronDown'} size={16} color="var(--spira-ink-soft)" />
         </button>
       </div>
       {abierto && (
-        <div style={{ padding: '6px 16px 18px', background: 'var(--spira-surface)', borderTop: '1px solid var(--spira-line)' }}>
-          {editando && puedeEditar
+        <div style={{ padding: angosto ? '6px 12px 20px' : '6px 20px 22px', background: 'var(--spira-surface)', display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {editando && puedeEditar && enCurso
             ? <CargarReposicion r={r} accentSolid={accentSolid} onCancelar={onCerrarEdicion} onGuardado={onGuardado} />
-            : <Cuenta r={r} puedeEditar={puedeEditar} accentSolid={accentSolid} onCambiar={onEditar} />}
+            : <RenglonAbierto r={r} enCurso={enCurso} contexto={contexto} regla={regla} puedeEditar={puedeEditar} accentSolid={accentSolid} onCambiar={onEditar} onVerFicha={onVerFicha} />}
         </div>
       )}
     </div>
   )
 }
 
-const textoMinimo = (m: NonNullable<RenglonDelPeriodo['minimo']>) =>
-  m.pacientes == null ? 'a demanda' : plural(m.pacientes, 'paciente', 'pacientes')
-
-/**
- * El stock mínimo del período para el que se compra: la suma de lo que reciben por mes los pacientes que lo
- * tienen asignado, o el «tener siempre» si es a demanda. Abre el grupo «para el que viene»: el borde de la
- * izquierda separa lo que pasó de lo que se compra.
- */
-function Minimo({ r }: { r: RenglonDelPeriodo }) {
-  return (
-    <div style={{ ...numero, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', borderLeft: '1px solid var(--spira-line)' }}>
-      {r.minimo
-        ? <>
-            <span className="spira-mono">{r.minimo.envases}</span>
-            <span style={{ fontSize: 11, color: 'var(--spira-ink-soft)', marginTop: 2, whiteSpace: 'nowrap' }}>{textoMinimo(r.minimo)}</span>
-          </>
-        : <span style={{ color: 'var(--spira-muted)' }}>—</span>}
-    </div>
-  )
-}
-
-/** La celda de la derecha: lo que hay que comprar, o por qué no. */
-function Comprar({ r, puedeEditar, accentSolid, onCargar }: { r: RenglonDelPeriodo; puedeEditar: boolean; accentSolid: string; onCargar: () => void }): ReactNode {
+/** La celda «A comprar»: el número, o «Alcanza», o por qué no hay cuenta. Debajo, lo que está en camino. */
+function AComprar({ r, puedeEditar, accentSolid, onCargar }: { r: RenglonDelPeriodo; puedeEditar: boolean; accentSolid: string; onCargar: () => void }): ReactNode {
+  const enCamino = r.enCamino > 0 && <div style={sub}><span className="spira-mono">{r.enCamino}</span> en camino</div>
   switch (r.estado) {
     case 'comprar':
-      return <Envases n={r.comprar} />
+      return <><Envases n={r.comprar} />{enCamino}</>
     case 'en_camino':
-      return <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)' }}><span className="spira-mono">{r.enCamino}</span> en camino</span>
     case 'alcanza':
-      return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 600, color: 'var(--spira-acc-deep-good)' }}><Icon name="check" size={14} stroke={2} /> Alcanza</span>
+      return <><Etiqueta tono="ok" punto>Alcanza</Etiqueta>{enCamino}</>
     case 'no_se_compra':
-      return <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>No se compra</span>
+      return <span style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>No se compra</span>
     case 'sin_cargar':
       return (
-        <>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-acc-deep-warn)' }}>Sin cargar</span>
           {puedeEditar && (
             <button type="button" className="spira-card-link" style={botonChico} onClick={(ev) => { ev.stopPropagation(); onCargar() }}>
               <Icon name="pencil" size={13} color={accentSolid} /> Cargar
             </button>
           )}
-        </>
+        </div>
       )
     case 'sin_cuenta':
-      return null
+      // R6: fuera del período en curso no se calcula la compra. «Alcanza» sería un dato inventado.
+      return <span style={{ color: 'var(--spira-muted)' }} aria-label="Sin cuenta: el período no está en curso">—</span>
   }
 }
 
-/** El renglón abierto: la boleta (R7), los avisos que no mueven el número y «Cambiar cómo se repone». */
-function Cuenta({ r, puedeEditar, accentSolid, onCambiar }: { r: RenglonDelPeriodo; puedeEditar: boolean; accentSolid: string; onCambiar: () => void }) {
+/** Los tres bloques del renglón abierto y el pie. En un período cerrado, sólo los movimientos. */
+function RenglonAbierto({ r, enCurso, contexto, regla, puedeEditar, accentSolid, onCambiar, onVerFicha }: {
+  r: RenglonDelPeriodo
+  enCurso: boolean
+  contexto: string | null
+  regla: string | null
+  puedeEditar: boolean
+  accentSolid: string
+  onCambiar: () => void
+  onVerFicha?: (enrollmentId: string) => Promise<boolean>
+}) {
+  if (!enCurso) return <Movimientos libro={r.libro} enCurso={false} />
+  const vence = r.avisos.filter((a) => a.tipo === 'vence')
+  const hoy = r.modo === 'mensual' ? `Hoy: ${regla} por paciente` : r.modo === 'a_demanda' ? `Hoy: ${regla}` : r.modo === 'no_se_compra' ? 'Hoy: no se compra' : null
   return (
-    <div style={{ paddingTop: 6 }}>
+    <>
       {r.estado === 'sin_cargar' && <p style={nota}>Todavía no se cargó cómo se repone: no suma a la compra.</p>}
       {r.estado === 'no_se_compra' && <p style={nota}>Marcado como que no se compra: queda fuera de la cuenta.</p>}
-      {r.boleta && <BoletaVista b={r.boleta} />}
-      {r.avisos.length > 0 && (
-        <div style={{ marginTop: 10, maxWidth: 560 }}>
-          {r.avisos.map((a) => <AvisoLinea key={a.tipo + a.texto} tono={a.ambar ? 'warn' : 'info'} texto={`${a.texto}.`} />)}
+      {r.boleta && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={rotuloBloque}>{r.boleta.aComprar > 0 ? `Por qué hay que comprar ${r.boleta.aComprar}` : 'Por qué alcanza'}</div>
+          {contexto && <div style={{ fontSize: 13, color: 'var(--spira-ink-soft)', lineHeight: 1.5, maxWidth: 720, textWrap: 'pretty' }}>{contexto}</div>}
+          <Ecuacion b={r.boleta} />
+          {vence.length > 0 && (
+            <div style={{ maxWidth: 560 }}>
+              {vence.map((a) => <AvisoLinea key={a.texto} tono="warn" texto={`${a.texto}.`} />)}
+            </div>
+          )}
         </div>
       )}
-      {puedeEditar && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-          <button type="button" className="spira-card-link" style={botonChico} onClick={onCambiar}>
-            <Icon name="pencil" size={13} color={accentSolid} /> {r.estado === 'sin_cargar' ? 'Cargar cómo se repone' : 'Cambiar cómo se repone'}
-          </button>
+      {r.modo === 'mensual' && r.boleta && <Pacientes ps={r.detallePacientes} onVerFicha={onVerFicha} />}
+      <Movimientos libro={r.libro} enCurso />
+      {(puedeEditar || hoy) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {puedeEditar && (
+            <button type="button" className="spira-card-link" style={botonChico} onClick={onCambiar}>
+              <Icon name="pencil" size={13} color={accentSolid} /> {r.estado === 'sin_cargar' ? 'Cargar cómo se repone' : 'Cambiar cómo se repone'}
+            </button>
+          )}
+          {hoy && <span style={{ fontSize: 12, color: 'var(--spira-ink-soft)' }}>{hoy}</span>}
         </div>
       )}
+    </>
+  )
+}
+
+/**
+ * La cuenta como ecuación: una tarjeta por término, separadas por su signo, y la de «A comprar» al final. Las
+ * restas en cero se dibujan igual (lo decide el modelo): la cuenta tiene siempre la misma forma.
+ */
+function Ecuacion({ b }: { b: Boleta }) {
+  const termino: CSSProperties = {
+    background: 'var(--spira-white)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)', borderRadius: 12,
+    padding: '12px 16px', minWidth: 150, maxWidth: 240, display: 'flex', flexDirection: 'column', gap: 4,
+  }
+  const valor: CSSProperties = { fontFamily: 'var(--spira-font-display)', fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1 }
+  const operador = (s: string) => (
+    <span aria-hidden="true" style={{ alignSelf: 'center', fontFamily: 'var(--spira-font-display)', fontSize: 22, color: 'var(--spira-ink-soft)', width: 14, textAlign: 'center' }}>{s}</span>
+  )
+  /* Cada signo viaja pegado al término que le sigue: si la ecuación no entra en un renglón, baja el par
+     entero y nunca queda un «=» colgado al final de una línea con el resultado solo en la siguiente. */
+  const par: CSSProperties = { display: 'flex', alignItems: 'stretch', gap: 10 }
+  return (
+    <div style={{ display: 'flex', alignItems: 'stretch', gap: 10, flexWrap: 'wrap' }}>
+      {b.lineas.map((l, i) => (
+        <div key={l.tipo} style={par}>
+          {i > 0 && operador(l.signo || '+')}
+          <div style={termino}>
+            <span className="spira-mono" style={{ ...valor, color: 'var(--spira-ink)' }}>{l.valor}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--spira-ink)' }}>{l.titulo}</span>
+            <span style={{ fontSize: 12, color: 'var(--spira-ink-soft)', lineHeight: 1.4 }}>{l.aclaracion}</span>
+          </div>
+        </div>
+      ))}
+      <div style={par}>
+        {operador('=')}
+        {/* Invertida con los tokens y no con hex: en oscuro la tinta es clara, y la tarjeta se lee igual de
+            destacada con el texto oscuro del papel. */}
+        <div style={{ ...termino, background: 'var(--spira-ink)', borderColor: 'var(--spira-ink)', color: 'var(--spira-paper)' }}>
+          <span className="spira-mono" style={valor}>{b.aComprar}</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>A comprar</span>
+          <span style={{ fontSize: 12, opacity: 0.78 }}>{b.aComprar === 1 ? 'envase' : 'envases'}</span>
+        </div>
+      </div>
     </div>
   )
 }
 
-/** La boleta (variante A del 16/09): arriba lo que hace falta, cada resta en su renglón, abajo «A comprar». */
-function BoletaVista({ b }: { b: Boleta }) {
-  const fila: CSSProperties = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 20px 44px', alignItems: 'baseline', gap: 6 }
+const ESTADO: Record<PacienteDelRenglon['estado'], string> = {
+  activo: 'Activo', inactivo: 'Inactivo', screening: 'Screening', completado: 'Completado', discontinuado: 'Discontinuado',
+}
+/** Las marcas que van debajo del nombre. «Sin retiros» va en «Último retiro», que es donde se lee. */
+const MARCA: Partial<Record<MarcaPaciente, { texto: string; tono: 'warn' | 'neutro' }>> = {
+  termino_cronograma: { texto: 'Terminó · no suma', tono: 'neutro' },
+  dos_presentaciones: { texto: 'Otra presentación · no suma', tono: 'warn' },
+  varios_meses: { texto: 'Se llevó más de un mes', tono: 'neutro' },
+}
+
+/** «Pacientes que lo reciben»: una fila por paciente, con lo que antes eran avisos al pie. */
+function Pacientes({ ps, onVerFicha }: { ps: PacienteDelRenglon[]; onVerFicha?: (enrollmentId: string) => Promise<boolean> }) {
+  const [abriendo, setAbriendo] = useState<string | null>(null)
+  const [fallo, setFallo] = useState<string | null>(null)
+  const th: CSSProperties = { ...versalita, fontSize: 10.5, letterSpacing: '0.08em', textAlign: 'left', padding: '10px 10px', borderBottom: '1px solid var(--spira-line)', whiteSpace: 'nowrap' }
+  const td: CSSProperties = { padding: '10px 10px', fontSize: 13, color: 'var(--spira-ink)', verticalAlign: 'middle', whiteSpace: 'nowrap' }
+  const apilado: CSSProperties = { display: 'block', fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 2 }
+  const sinRetiros = ps.some((p) => p.marcas.includes('sin_retiros'))
+
+  const verFicha = async (p: PacienteDelRenglon) => {
+    if (!onVerFicha) return
+    setAbriendo(p.enrollmentId)
+    setFallo(null)
+    const ok = await onVerFicha(p.enrollmentId)
+    setAbriendo(null)
+    if (!ok) setFallo(`No se pudo abrir la ficha de ${p.nombre}.`)
+  }
+
   return (
-    <div style={{ maxWidth: 470 }}>
-      {b.lineas.map((l) => (
-        <div key={l.tipo} style={{ ...fila, padding: '6px 0' }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, color: 'var(--spira-ink)' }}>{l.titulo}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 2 }}>{l.aclaracion}</div>
-          </div>
-          <span className="spira-mono" style={{ fontSize: 14, color: 'var(--spira-ink-soft)', textAlign: 'right' }}>{l.signo}</span>
-          <span className="spira-mono" style={{ fontSize: 14, color: 'var(--spira-ink)', textAlign: 'right' }}>{l.valor}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <div style={rotuloBloque}>Pacientes que lo reciben</div>
+        <span style={{ fontSize: 12, color: 'var(--spira-ink-soft)' }}>{textoPacientesQueSuman(ps)}</span>
+      </div>
+      {ps.length > 0 && (
+        <div style={{ background: 'var(--spira-white)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)', borderRadius: 12, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={th}>Paciente</th>
+                <th style={th}>Estado</th>
+                <th style={{ ...th, textAlign: 'right' }}>Por mes</th>
+                <th style={th}>Retiró en el período</th>
+                <th style={th}>Último retiro</th>
+                <th style={th}>Cronograma hasta</th>
+                {onVerFicha && <th style={th} aria-label="Ficha" />}
+              </tr>
+            </thead>
+            <tbody>
+              {ps.map((p, i) => {
+                const borde = i < ps.length - 1 ? '1px solid var(--spira-line)' : 'none'
+                const celdaFila: CSSProperties = { ...td, borderBottom: borde }
+                const marcas = p.marcas.map((m) => MARCA[m]).filter((m): m is NonNullable<typeof m> => !!m)
+                return (
+                  // Quien no suma se atenúa: está en la lista para que se sepa por qué no cuenta, no para contarlo.
+                  <tr key={p.enrollmentId} style={{ opacity: p.suma ? 1 : 0.62 }}>
+                    <td style={celdaFila}>
+                      <span style={{ fontWeight: 600 }}>{p.nombre}</span>
+                      {marcas.length > 0 && (
+                        <span style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                          {marcas.map((m) => <Etiqueta key={m.texto} tono={m.tono}>{m.texto}</Etiqueta>)}
+                        </span>
+                      )}
+                    </td>
+                    <td style={celdaFila}><Etiqueta tono={p.estado === 'activo' ? 'ok' : 'neutro'} punto>{ESTADO[p.estado]}</Etiqueta></td>
+                    <td style={{ ...celdaFila, textAlign: 'right' }}>
+                      <span className="spira-mono">{p.porMes}</span>
+                      <span style={apilado}>{p.propia ? 'propia' : 'del estudio'}</span>
+                    </td>
+                    <td style={celdaFila}>
+                      <Barra valor={p.retiro} total={p.porMes} />
+                      <span className="spira-mono">{p.retiro} de {p.porMes}</span>
+                    </td>
+                    <td style={celdaFila}>
+                      <span className="spira-mono">{p.ultimoRetiro ? formatAR(p.ultimoRetiro.slice(0, 10)) : 'Nunca'}</span>
+                      {p.marcas.includes('sin_retiros') && <span style={{ display: 'block', marginTop: 3 }}><Etiqueta tono="warn">+90 días</Etiqueta></span>}
+                    </td>
+                    <td style={celdaFila}>
+                      {p.cronogramaHasta ? <span className="spira-mono">{formatAR(p.cronogramaHasta.slice(0, 10))}</span> : <span style={{ color: 'var(--spira-muted)' }}>—</span>}
+                    </td>
+                    {onVerFicha && (
+                      <td style={{ ...celdaFila, textAlign: 'right' }}>
+                        <button
+                          type="button" className="spira-textlink spira-no-press" disabled={abriendo != null}
+                          onClick={() => verFicha(p)} aria-label={`Ver la ficha de ${p.nombre}`}
+                          // El petróleo profundo y no `accentSolid`: en oscuro éste queda en 1,85:1, invisible (tokens.css).
+                          style={{ fontWeight: 600, color: 'var(--spira-acc-deep-track)', cursor: abriendo != null ? 'default' : 'pointer' }}
+                        >
+                          {abriendo === p.enrollmentId ? 'Abriendo…' : 'Ver ficha →'}
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
-      ))}
-      <div style={{ ...fila, padding: '9px 0 2px', marginTop: 4, borderTop: '1px solid var(--spira-line-2)' }}>
-        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)' }}>
-          A comprar{b.aComprar === 0 && <span style={{ fontWeight: 400, color: 'var(--spira-acc-deep-good)' }}> · alcanza</span>}
-        </span>
-        <span className="spira-mono" style={{ fontSize: 15, color: 'var(--spira-ink-soft)', textAlign: 'right' }}>=</span>
-        <span className="spira-mono" style={{ fontSize: 15, fontWeight: 700, color: 'var(--spira-ink)', textAlign: 'right' }}>{b.aComprar}</span>
+      )}
+      {fallo && <AvisoLinea tono="danger" texto={fallo} />}
+      {sinRetiros && <div style={{ fontSize: 12, color: 'var(--spira-ink-soft)' }}>Sin retiros en más de 90 días: siguen sumando mientras tengan el medicamento asignado.</div>}
+    </div>
+  )
+}
+
+/** Cuánto retiró del mes que le toca. Decorativa: el número va al lado. */
+function Barra({ valor, total }: { valor: number; total: number }) {
+  const ancho = total > 0 ? Math.min(100, (valor / total) * 100) : 0
+  return (
+    <span aria-hidden="true" style={{ display: 'inline-block', width: 56, height: 6, borderRadius: 3, background: 'var(--spira-line)', overflow: 'hidden', verticalAlign: 'middle', marginRight: 8 }}>
+      <span style={{ display: 'block', height: '100%', width: `${ancho}%`, background: 'var(--spira-acc-deep-track)' }} />
+    </span>
+  )
+}
+
+/** «Movimientos del estante en el período»: el libro que antes ocupaba cuatro columnas de la tabla. */
+function Movimientos({ libro, enCurso }: { libro: Libro; enCurso: boolean }) {
+  const datos: [string, string][] = [
+    ['Empezó con', String(libro.habia)],
+    ['Entró', `+${libro.entro}`],
+    ['Salió', `−${libro.salio}`],
+    ...(libro.ajustes !== 0 ? [['Ajustes', `${libro.ajustes > 0 ? '+' : '−'}${Math.abs(libro.ajustes)}`] as [string, string]] : []),
+    [enCurso ? 'Hay hoy' : 'Quedó al corte', String(libro.hay)],
+  ]
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={rotuloBloque}>Movimientos del estante en el período</div>
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', width: 'fit-content', maxWidth: '100%', overflow: 'hidden',
+        background: 'var(--spira-white)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)', borderRadius: 12,
+      }}>
+        {datos.map(([k, v], i) => (
+          <div key={k} style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 2, borderRight: i < datos.length - 1 ? '1px solid var(--spira-line)' : 'none' }}>
+            <span style={{ fontSize: 11, color: 'var(--spira-ink-soft)' }}>{k}</span>
+            <span className="spira-mono" style={{ fontSize: 15, fontWeight: 600, color: 'var(--spira-ink)' }}>{v}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
