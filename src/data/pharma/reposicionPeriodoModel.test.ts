@@ -190,6 +190,19 @@ describe('a demanda y renglones sin cuenta', () => {
     expect(seretide(i).minimo).toEqual({ envases: 5, pacientes: null })
     expect(resumenBoleta(i)).toEqual([['tener_siempre', '', 5, 'a demanda'], ['quedan_al_corte', '−', 2, 'hay 2'], ['ya_pedido', '−', 0, 'sin pedidos abiertos']])
   })
+  it('a demanda cuenta a los pacientes activos que lo tienen, pero no los suma a la compra', () => {
+    const i = insumos({
+      renglones: [renglon({ modo: 'a_demanda', envases_por_mes: null, stock_fijo: 3 })],
+      pacientes: [
+        ...grupo(5, 0),
+        paciente({ enrollment_status: 'discontinuado' }),
+        paciente({ enrollment_status: 'screening' }),
+        paciente({ enrollment_status: 'inactivo' }),
+        paciente({ habilitacion_id: 'hab-1' }),
+      ],
+    })
+    expect(seretide(i)).toMatchObject({ pacientes: 5, comprar: 3, minimo: { envases: 3, pacientes: null } })
+  })
   it('sin cargar y no se compra no tienen boleta ni número, pero sí cuántos pacientes lo tienen', () => {
     expect(seretide(insumos({ renglones: [renglon({ modo: null, envases_por_mes: null })], pacientes: grupo(3, 0) })))
       .toMatchObject({ estado: 'sin_cargar', comprar: 0, boleta: null, minimo: null, pacientes: 3 })
