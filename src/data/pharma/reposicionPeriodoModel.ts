@@ -175,7 +175,10 @@ export interface RenglonDelPeriodo {
   /** Lo cargado en el estudio, para abrir el formulario con el valor actual. */
   envasesPorMes: number | null
   stockFijo: number | null
-  /** Asignaciones activas, sin la habilitación de una entrega: «3 pacientes lo tienen habilitado». */
+  /**
+   * Asignaciones activas de inscripciones activas, sin la habilitación de una entrega: «3 pacientes lo tienen
+   * habilitado». Se cuenta igual a demanda: la tabla lo muestra como «5 · a demanda», aunque no entre en la compra.
+   */
   pacientes: number
   estado: EstadoRenglonPeriodo
   /** Envases a comprar para el período objetivo (0 si no aplica o si el período no está en curso). */

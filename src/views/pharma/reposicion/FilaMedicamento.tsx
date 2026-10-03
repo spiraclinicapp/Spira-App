@@ -90,10 +90,12 @@ export function FilaMedicamento({ r, enCurso, ultimo, angosto, puedeEditar, acce
           </div>
           {detalle && <div style={sub}>{detalle}</div>}
         </div>
+        {/* A demanda también dice cuántos lo tienen asignado (Director, 2026-10-03): el número no entra en la
+            cuenta —se compra el «tener siempre»—, y por eso lleva abajo que es a demanda. Son los mismos
+            pacientes que en un mensual: sólo inscripciones activas (`enTratamiento`). */}
         <div style={{ ...td, textAlign: 'right' }}>
-          {r.modo === 'a_demanda'
-            ? <span style={{ color: 'var(--spira-muted)' }}>—</span>
-            : <span className="spira-mono" style={numeroMedio}>{r.pacientes}</span>}
+          <span className="spira-mono" style={numeroMedio}>{r.pacientes}</span>
+          {r.modo === 'a_demanda' && <div style={sub}>a demanda</div>}
         </div>
         <div style={{ ...td, textAlign: 'right' }}>
           <span className="spira-mono" style={numeroMedio}>{r.libro.hay}</span>
