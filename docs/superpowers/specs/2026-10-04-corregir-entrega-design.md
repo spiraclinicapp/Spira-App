@@ -177,3 +177,19 @@ dispensación» queda como está.
 - **De paso**: el cajón cerraba con CUALQUIER Esc, también el que cerraba un desplegable de adentro, y
   se perdía la corrección a medio cargar. Ahora cierra una capa por vez (`Drawer.tsx`, el mismo patrón
   que `VisitDetail`).
+
+## Fase 3, como quedó (0152)
+
+- **El ticket ofrece «Corregir esta entrega» en TODA entrega** (antes, sólo con IP). Con IP se elige
+  primero qué corregir —la constancia (la cambia Coordinación, 0149) o la medicación (se pide a
+  Farmacia)—; sin IP se va directo a la medicación.
+- **El pedido**: por medicamento entregado, la cantidad que se dio de verdad (0 = no se dio), y lo que
+  se dio y no se registró (de la medicación del paciente, activa o no: una receta vencida también se
+  pudo haber dado). Lo registrado lo pone la base, no el cliente. Coordinación nunca elige lotes.
+- **Uno por entrega**: con un pedido pendiente no se pide otro (índice único parcial). El ticket dice
+  «Corrección pedida a Farmacia · fecha · quién» mientras espera, y «Farmacia no aplicó la corrección»
+  con la nota si se descartó. Aplicado no se dice: ya está en «Corregida».
+- **Farmacia** lo ve en la campana («Correcciones pedidas», lleva al cajón) y arriba del cajón, con
+  «Aplicar…» —abre el panel de la fase 2 ya cargado con lo pedido y su motivo; falta elegir los lotes de
+  lo agregado— y «Descartar…» con nota obligatoria. Aplicar corrige y marca aplicado en UNA
+  transacción (`aplicar_pedido_correccion`): no puede quedar uno sin el otro.

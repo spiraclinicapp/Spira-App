@@ -2,11 +2,16 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { SearchableSelect } from '../../components/SearchableSelect'
-import { IP_MAX_BYTES, IP_MIME_TYPES, formatBytes, reemplazarConstanciaEntregada } from '../../data/pharma'
-import type { CorreccionRow, IpDocumentRow, MotivoCorreccionConstancia } from '../../data/pharma'
+import { IP_MAX_BYTES, IP_MIME_TYPES, formatBytes, pedirCorreccionEntrega, reemplazarConstanciaEntregada } from '../../data/pharma'
+import type { CorreccionRow, IpDocumentRow, MotivoCorreccionConstancia, MotivoPedidoCorreccion } from '../../data/pharma'
 import { ConstanciaDropzone, ConstanciaPendiente } from './ConstanciaIp'
 import { ConstanciaEnTicket } from './ComprobanteTicket'
-import { MOTIVOS_CONSTANCIA, lineaDeCorreccion, motivoCompleto, resumenCorrecciones } from './correccionEntregaModel'
+import {
+  MOTIVOS_CONSTANCIA, MOTIVOS_PEDIDO, edicionPedidoInicial, lineaDeCorreccion, motivoCompleto, renglonesDePedido,
+  resumenCorrecciones,
+} from './correccionEntregaModel'
+import type { AvisoPedido, EdicionPedido, EntregadoPorMedicamento } from './correccionEntregaModel'
+import { WARN_TINT } from './panelDispensacion'
 import { VisorDocumento } from './VisorDocumento'
 import type { DocumentoAVer } from './VisorDocumento'
 
@@ -98,12 +103,6 @@ export function FormCorreccionConstancia({ requestId, protocolId, actual, kits, 
         )}
       </div>
 
-      {/* Honesto sobre el alcance: la medicación todavía no se corrige desde acá (fase 2). Lo que
-          falte se suma con «Nueva dispensación», que es lo que de verdad existe hoy. */}
-      <div style={{ fontSize: 11.5, color: 'var(--spira-muted)', lineHeight: 1.45 }}>
-        La medicación no se corrige desde acá. Si faltó algo, sumalo después con «Nueva dispensación».
-      </div>
-
       {err && <div role="alert" style={{ fontSize: 12, color: 'var(--spira-acc-deep-danger)' }}>{err}</div>}
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -171,7 +170,247 @@ export function CorreccionesDeEntrega({ correcciones }: { correcciones: readonly
   )
 }
 
+/**
+ * El ticket en modo corrección, del lado de Coordinación. Dos cosas se corrigen y cada una tiene su
+ * camino (D1): la CONSTANCIA la reemplaza Coordinación misma (0149); la MEDICACIÓN se le pide a Farmacia
+ * (0152, D3: Coordinación nunca mueve stock). Si la entrega lleva IP, se elige primero qué corregir; si
+ * no, se va directo a la medicación.
+ */
+export function EdicionEntregaTicket({ requestId, protocolId, conIp, actual, kits, entregado, medsDelPaciente, pedidoPendiente, accent, onCancelar, onHecho }: {
+  requestId: string
+  protocolId: string
+  /** La entrega lleva IP: hay constancia que corregir (`llevaIp`). */
+  conIp: boolean
+  actual: IpDocumentRow | null
+  kits: number | null
+  entregado: EntregadoPorMedicamento[]
+  /** La medicación del paciente (activa o no: una receta ya vencida también se pudo haber dado). */
+  medsDelPaciente: { medication_id: string; nombre: string }[]
+  /** Ya hay un pedido de corrección esperando a Farmacia: no se pide otro encima. */
+  pedidoPendiente: boolean
+  accent: string
+  onCancelar: () => void
+  onHecho: () => void
+}) {
+  const [modo, setModo] = useState<'elegir' | 'constancia' | 'medicacion'>(conIp ? 'elegir' : 'medicacion')
+
+  if (modo === 'constancia') {
+    return (
+      <FormCorreccionConstancia
+        requestId={requestId} protocolId={protocolId} actual={actual} kits={kits} accent={accent}
+        onCancelar={onCancelar} onHecho={onHecho}
+      />
+    )
+  }
+  if (modo === 'medicacion') {
+    if (pedidoPendiente) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)', lineHeight: 1.5 }}>
+            Ya hay una corrección de la medicación pedida a Farmacia. Cuando la resuelva, podés pedir otra.
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={onCancelar} style={btnSecundario}>Volver</button>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <FormPedidoCorreccion
+        requestId={requestId} entregado={entregado} medsDelPaciente={medsDelPaciente} accent={accent}
+        onCancelar={onCancelar} onHecho={onHecho}
+      />
+    )
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>¿Qué hay que corregir?</div>
+      <button type="button" className="spira-card-link" onClick={() => setModo('constancia')} style={opcion}>
+        <Icon name="fileText" size={16} color={accent} />
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontWeight: 600 }}>La constancia del IP</span>
+          <span style={{ display: 'block', fontSize: 11.5, color: 'var(--spira-muted)' }}>Se cargó otra, o está ilegible. La cambiás vos.</span>
+        </span>
+      </button>
+      <button type="button" className="spira-card-link" onClick={() => setModo('medicacion')} style={opcion}>
+        <Icon name="pill" size={16} color={accent} />
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontWeight: 600 }}>La medicación</span>
+          <span style={{ display: 'block', fontSize: 11.5, color: 'var(--spira-muted)' }}>
+            {pedidoPendiente ? 'Ya hay una corrección pedida a Farmacia.' : 'Una cantidad, algo que no se dio o que faltó registrar. Se lo pedís a Farmacia.'}
+          </span>
+        </span>
+      </button>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button type="button" onClick={onCancelar} style={btnSecundario}>Cancelar</button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Pedirle a Farmacia la corrección de la medicación (0152). Por medicamento entregado, la cantidad
+ * CORRECTA (0 = no se dio); y lo que se dio y no se registró. Sin lotes: los elige Farmacia al aplicar.
+ */
+function FormPedidoCorreccion({ requestId, entregado, medsDelPaciente, accent, onCancelar, onHecho }: {
+  requestId: string
+  entregado: EntregadoPorMedicamento[]
+  medsDelPaciente: { medication_id: string; nombre: string }[]
+  accent: string
+  onCancelar: () => void
+  onHecho: () => void
+}) {
+  const [edicion, setEdicion] = useState<EdicionPedido>(() => edicionPedidoInicial(entregado))
+  const [motivo, setMotivo] = useState<MotivoPedidoCorreccion | ''>('')
+  const [texto, setTexto] = useState('')
+  const [intentado, setIntentado] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const res = renglonesDePedido(entregado, edicion)
+  const yaEstan = new Set([...entregado.map((e) => e.medication_id), ...edicion.faltantes.map((f) => f.medicationId)])
+  const opcionesFaltante = (elegido: string) => medsDelPaciente
+    .filter((m) => m.medication_id === elegido || !yaEstan.has(m.medication_id))
+    .map((m) => ({ value: m.medication_id, label: m.nombre }))
+  const puede = !busy && !res.vacio && motivoCompleto(motivo, texto)
+
+  async function pedir() {
+    setIntentado(true); setErr(null)
+    if (res.errores.length > 0 || res.vacio || motivo === '' || !motivoCompleto(motivo, texto)) return
+    setBusy(true)
+    const r = await pedirCorreccionEntrega(requestId, res.renglones, motivo, motivo === 'otro' ? texto.trim() : null)
+    setBusy(false)
+    if (r.error) { setErr(r.error); return }
+    onHecho()
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 12, color: 'var(--spira-ink-soft)', lineHeight: 1.45 }}>
+        Poné lo que se dio de verdad. Se lo pedís a Farmacia, que corrige la entrega y el stock.
+      </div>
+
+      {entregado.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {entregado.map((x) => (
+            <div key={x.medication_id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={x.nombre}>{x.nombre}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--spira-muted)', flex: '0 0 auto' }}>registradas {x.cantidad} · se dieron</span>
+              <input
+                type="number" min={0} value={edicion.correctos[x.medication_id] ?? ''} disabled={busy}
+                onChange={(e) => setEdicion((ed) => ({ ...ed, correctos: { ...ed.correctos, [x.medication_id]: e.target.value } }))}
+                aria-label={`Cantidad que se dio de ${x.nombre}`} style={{ ...campo, width: 64, flex: '0 0 auto' }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {edicion.faltantes.map((f) => (
+        <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <SearchableSelect
+              value={f.medicationId}
+              onChange={(v) => setEdicion((ed) => ({ ...ed, faltantes: ed.faltantes.map((y) => (y.key === f.key ? { ...y, medicationId: v } : y)) }))}
+              options={opcionesFaltante(f.medicationId)}
+              placeholder="Qué se dio"
+              entity="medicamento"
+              disabled={busy}
+            />
+          </div>
+          <input
+            type="number" min={1} value={f.cantidad} disabled={busy}
+            onChange={(e) => setEdicion((ed) => ({ ...ed, faltantes: ed.faltantes.map((y) => (y.key === f.key ? { ...y, cantidad: e.target.value } : y)) }))}
+            aria-label="Cantidad que se dio" style={{ ...campo, width: 64, flex: '0 0 auto' }}
+          />
+          <button
+            type="button" aria-label="Sacar este renglón" disabled={busy} style={iconBtn}
+            onClick={() => setEdicion((ed) => ({ ...ed, faltantes: ed.faltantes.filter((y) => y.key !== f.key) }))}
+          >
+            <Icon name="x" size={15} color="var(--spira-muted)" />
+          </button>
+        </div>
+      ))}
+
+      {opcionesFaltante('').length > 0 && (
+        <button
+          type="button" className="spira-enlace-sobrio spira-no-press" disabled={busy} style={{ alignSelf: 'flex-start' }}
+          onClick={() => setEdicion((ed) => ({ ...ed, faltantes: [...ed.faltantes, { key: crypto.randomUUID(), medicationId: '', cantidad: '1' }] }))}
+        >
+          <Icon name="plus" size={12} stroke={2} />
+          Se dio algo que no se registró
+        </button>
+      )}
+
+      <div>
+        <div style={rotulo}>Motivo</div>
+        <SearchableSelect
+          value={motivo}
+          onChange={(v) => setMotivo(v as MotivoPedidoCorreccion)}
+          options={[...MOTIVOS_PEDIDO]}
+          placeholder="¿Por qué se corrige?"
+          searchable="never"
+          disabled={busy}
+        />
+        {motivo === 'otro' && (
+          <input
+            type="text" value={texto} onChange={(e) => setTexto(e.target.value)} disabled={busy}
+            placeholder="Contá el motivo" aria-label="Motivo de la corrección" maxLength={300}
+            style={{ ...campo, marginTop: 8 }}
+          />
+        )}
+      </div>
+
+      {intentado && res.errores.length > 0 && (
+        <div role="alert" style={{ fontSize: 12, color: 'var(--spira-acc-deep-danger)', lineHeight: 1.45 }}>
+          {res.errores.map((e) => <div key={e}>{e}</div>)}
+        </div>
+      )}
+      {err && <div role="alert" style={{ fontSize: 12, color: 'var(--spira-acc-deep-danger)' }}>{err}</div>}
+
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button type="button" onClick={onCancelar} disabled={busy} style={btnSecundario}>Cancelar</button>
+        <button
+          type="button" onClick={() => void pedir()} disabled={!puede}
+          style={{ ...btnGuardar(accent), opacity: puede ? 1 : 0.55, cursor: puede ? 'pointer' : 'default' }}
+        >
+          {busy ? 'Pidiendo…' : 'Pedir corrección a Farmacia'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Lo que el ticket dice del último pedido de corrección (`avisoPedido`): esperando a Farmacia, o
+ * descartado con la nota de Farmacia. Aplicado no se dice: ya está en «Corregida».
+ */
+export function AvisoPedidoTicket({ aviso }: { aviso: AvisoPedido }) {
+  return (
+    <div style={{ padding: '0 12px 10px' }}>
+      <div style={{ ...detalle, background: aviso.tipo === 'pendiente' ? 'var(--spira-surface)' : WARN_TINT }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, color: 'var(--spira-ink)' }}>
+          <Icon name={aviso.tipo === 'pendiente' ? 'clock' : 'info'} size={13} stroke={2} />
+          {aviso.texto}
+        </div>
+        {aviso.tipo === 'descartado' && aviso.nota && <div style={{ color: 'var(--spira-ink-soft)' }}>«{aviso.nota}»</div>}
+      </div>
+    </div>
+  )
+}
+
 /* —— estilos —— */
+const opcion: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '10px 12px',
+  borderRadius: 10, border: '1px solid var(--spira-line)', background: 'var(--spira-white)', cursor: 'pointer',
+  fontFamily: 'var(--spira-font-text)', fontSize: 12.5, color: 'var(--spira-ink)',
+}
+
+const iconBtn: CSSProperties = {
+  width: 24, height: 24, border: 'none', background: 'transparent', cursor: 'pointer',
+  display: 'grid', placeItems: 'center', borderRadius: 6, flex: '0 0 auto',
+}
+
 const rotulo: CSSProperties = {
   fontSize: 10.5, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase',
   color: 'var(--spira-ink-soft)', marginBottom: 6,

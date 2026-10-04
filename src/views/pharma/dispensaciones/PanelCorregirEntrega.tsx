@@ -4,11 +4,13 @@ import { Icon } from '../../../components/Icon'
 import { SearchableSelect } from '../../../components/SearchableSelect'
 import type { SelectOption } from '../../../components/SearchableSelect'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
-import { corregirEntregaFarmacia, useProtocolLots } from '../../../data/pharma'
-import type { DispensationRequestRow, DispensationRow, LotDetailRow, MotivoCorreccionFarmacia } from '../../../data/pharma'
+import { aplicarPedidoCorreccion, corregirEntregaFarmacia, useProtocolLots } from '../../../data/pharma'
+import type {
+  DispensationRequestRow, DispensationRow, LotDetailRow, MotivoCorreccionFarmacia, PedidoCorreccionRow,
+} from '../../../data/pharma'
 import { formatAR } from '../../../lib/dates'
 import {
-  MOTIVOS_FARMACIA, cambiosDeEdicion, edicionInicial, motivoCompleto,
+  MOTIVOS_FARMACIA, cambiosDeEdicion, describirRenglonPedido, edicionDesdePedido, edicionInicial, motivoCompleto,
 } from '../correccionEntregaModel'
 import type { Agregado, EdicionEntrega, RenglonEntregado } from '../correccionEntregaModel'
 
@@ -24,9 +26,15 @@ const ACENTO = 'var(--spira-pharma-solid)'
  * La regla que traduce lo editado a cambios vive en `correccionEntregaModel.ts`, con test: un cambio de
  * más o de menos mueve stock equivocado sin ningún error a la vista.
  */
-export function PanelCorregirEntrega({ r, disp, onCancelar, onHecho }: {
+export function PanelCorregirEntrega({ r, disp, pedido = null, onCancelar, onHecho }: {
   r: DispensationRequestRow
   disp: DispensationRow
+  /**
+   * El pedido de Coordinación que se está aplicando (0152): el panel arranca cargado con lo pedido
+   * (`edicionDesdePedido`) y con su motivo, y guardar lo marca aplicado en la misma transacción.
+   * `null` = una corrección por iniciativa de Farmacia.
+   */
+  pedido?: PedidoCorreccionRow | null
   onCancelar: () => void
   onHecho: () => void
 }) {
@@ -38,9 +46,12 @@ export function PanelCorregirEntrega({ r, disp, onCancelar, onHecho }: {
     .map((l) => ({ id: l.id, medication_id: l.medication_id, nombre: l.medication?.name ?? 'Medicamento', lot_id: l.lot_id!, quantity: l.quantity }))
   const llevaIp = disp.ip_kits !== null || r.includes_ip
 
-  const [edicion, setEdicion] = useState<EdicionEntrega>(() => edicionInicial(renglones, disp.ip_kits))
-  const [motivo, setMotivo] = useState<MotivoCorreccionFarmacia | ''>('')
-  const [texto, setTexto] = useState('')
+  const [edicion, setEdicion] = useState<EdicionEntrega>(() =>
+    pedido ? edicionDesdePedido(renglones, disp.ip_kits, pedido) : edicionInicial(renglones, disp.ip_kits))
+  // Los motivos de Coordinación son un subconjunto de los de Farmacia: el del pedido se hereda tal cual.
+  const [motivo, setMotivo] = useState<MotivoCorreccionFarmacia | ''>(() =>
+    (pedido && MOTIVOS_FARMACIA.some((m) => m.value === pedido.motivo_codigo) ? pedido.motivo_codigo as MotivoCorreccionFarmacia : ''))
+  const [texto, setTexto] = useState(pedido?.motivo_texto ?? '')
   const [intentado, setIntentado] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -58,7 +69,10 @@ export function PanelCorregirEntrega({ r, disp, onCancelar, onHecho }: {
     setIntentado(true); setErr(null)
     if (!listo || motivo === '') return
     setBusy(true)
-    const r2 = await corregirEntregaFarmacia(disp.id, res.cambios, res.kits, motivo, motivo === 'otro' ? texto.trim() : null)
+    const textoMotivo = motivo === 'otro' ? texto.trim() : null
+    const r2 = pedido
+      ? await aplicarPedidoCorreccion(pedido.id, res.cambios, res.kits, motivo, textoMotivo)
+      : await corregirEntregaFarmacia(disp.id, res.cambios, res.kits, motivo, textoMotivo)
     setBusy(false)
     if (r2.error) { setErr(r2.error); return }
     onHecho()
@@ -77,6 +91,17 @@ export function PanelCorregirEntrega({ r, disp, onCancelar, onHecho }: {
         <div style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)', lineHeight: 1.5, marginBottom: 14 }}>
           Lo que cambies se guarda con el motivo. El stock se compensa solo y el comprobante N° {disp.correlative_number} queda marcado «Corregida».
         </div>
+        {pedido && (
+          <div style={pedidoBox}>
+            <div style={{ fontWeight: 600, color: 'var(--spira-ink)' }}>
+              Lo que pidió Coordinación{pedido.requested_by_name ? ` (${pedido.requested_by_name})` : ''}
+            </div>
+            {pedido.renglones.map((x) => <div key={x.medication_id}>{describirRenglonPedido(x)}</div>)}
+            <div style={{ color: 'var(--spira-muted)', marginTop: 2 }}>
+              Ya está cargado abajo. Elegí el lote de lo que faltó registrar y revisá antes de guardar.
+            </div>
+          </div>
+        )}
 
         {renglones.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -131,7 +156,8 @@ export function PanelCorregirEntrega({ r, disp, onCancelar, onHecho }: {
 
         {/* Lo que se dio y no se registró. */}
         {edicion.agregados.map((a) => {
-          const opcionesMed = opcionesDeMedicamento(lotes, enLaEntrega, a.medicationId)
+          const opcionesMed = opcionesDeMedicamento(lotes, enLaEntrega, a.medicationId,
+            (id) => pedido?.renglones.find((x) => x.medication_id === id)?.medicamento ?? null)
           return (
             <div key={a.key} style={{ ...caja, marginTop: 9 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -144,7 +170,7 @@ export function PanelCorregirEntrega({ r, disp, onCancelar, onHecho }: {
                   <Icon name="x" size={15} color="var(--spira-muted)" />
                 </button>
               </div>
-              {opcionesMed.length === 0 && !lotesQ.loading ? (
+              {opcionesMed.length === 0 && !a.medicationId && !lotesQ.loading ? (
                 // Un desplegable vacío diría «no se encuentran resultados para tu búsqueda» sin que
                 // nadie haya buscado: se dice lo que pasa.
                 <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 6, lineHeight: 1.45 }}>
@@ -246,7 +272,7 @@ export function PanelCorregirEntrega({ r, disp, onCancelar, onHecho }: {
             cursor: busy || res.vacio || !motivoCompleto(motivo, texto) ? 'default' : 'pointer',
           }}
         >
-          {busy ? 'Guardando…' : 'Guardar corrección'}
+          {busy ? 'Guardando…' : pedido ? 'Aplicar la corrección' : 'Guardar corrección'}
         </button>
       </div>
     </>
@@ -275,13 +301,23 @@ function opcionesDeLote(lotes: readonly LotDetailRow[], medicationId: string, ac
     }))
 }
 
-/** Los medicamentos del estudio con algún lote con stock, menos los que ya están en la entrega. */
-function opcionesDeMedicamento(lotes: readonly LotDetailRow[], enLaEntrega: Set<string>, elegido: string): SelectOption[] {
+/**
+ * Los medicamentos del estudio con algún lote con stock, menos los que ya están en la entrega. El ya
+ * elegido va SIEMPRE, aunque no tenga stock: si lo trajo un pedido de Coordinación y no se listara, el
+ * renglón quedaría en blanco y nadie sabría qué se pidió. Sin stock, lo dice (y la base no lo deja guardar).
+ */
+function opcionesDeMedicamento(
+  lotes: readonly LotDetailRow[], enLaEntrega: Set<string>, elegido: string, nombreDeRespaldo: (id: string) => string | null,
+): SelectOption[] {
   const vistos = new Map<string, string>()
   for (const l of lotes) {
     if (l.quantity_on_hand <= 0) continue
     if (enLaEntrega.has(l.medication_id) && l.medication_id !== elegido) continue
     if (!vistos.has(l.medication_id)) vistos.set(l.medication_id, [l.name, l.dosis].filter(Boolean).join(' '))
+  }
+  if (elegido && !vistos.has(elegido)) {
+    const nombre = lotes.find((l) => l.medication_id === elegido)?.name ?? nombreDeRespaldo(elegido) ?? 'Medicamento'
+    vistos.set(elegido, `${nombre} · sin stock en el estudio`)
   }
   return [...vistos].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label))
 }
@@ -321,6 +357,11 @@ const btnAgregar: CSSProperties = {
   borderRadius: 9, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
   background: 'var(--spira-white)', color: 'var(--spira-ink)', cursor: 'pointer',
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5,
+}
+
+const pedidoBox: CSSProperties = {
+  display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 14, padding: '10px 12px', borderRadius: 10,
+  background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', fontSize: 12.5, color: 'var(--spira-ink-soft)',
 }
 
 const errBox: CSSProperties = {

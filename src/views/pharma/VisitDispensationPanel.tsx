@@ -13,6 +13,7 @@ import {
   quitarHabilitacion,
   uploadReceta,
   useCorreccionesDeEntregas,
+  usePedidosCorreccion,
   motivoNoHabilitado,
   cantidadConPartes,
   partesDeRenglon,
@@ -50,8 +51,8 @@ import { contenidoSeccionIp, esVisitaHistorica, mostrarAvisoIp, ofrecerRegistrar
 import { HistorialEntregas } from './HistorialEntregas'
 import { VisorDocumento } from './VisorDocumento'
 import type { DocumentoAVer } from './VisorDocumento'
-import { CorreccionesDeEntrega, FormCorreccionConstancia } from './CorregirEntrega'
-import { entregaCorregible } from './correccionEntregaModel'
+import { AvisoPedidoTicket, CorreccionesDeEntrega, EdicionEntregaTicket } from './CorregirEntrega'
+import { avisoPedido, entregaCorregible, entregadoPorMedicamento, llevaIp } from './correccionEntregaModel'
 import { ComprobanteTicket, ConstanciaEnTicket, nombreTicket, renglonTicket } from './ComprobanteTicket'
 import { comprobanteDe, fraseSinEntrega, mostrarSeccionIp, pedidosConComprobante, rechazoParaAvisar } from './comprobanteModel'
 import { vistaVisitaCerrada } from './visitaCerradaModel'
@@ -322,6 +323,9 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   /** Las correcciones de lo entregado, para la línea «Corregida» de cada ticket. Consulta aparte: si
    *  falla (p. ej. sin la 0149), el ticket se dibuja igual, sin esa línea. */
   const corrQ = useCorreccionesDeEntregas(requests.filter((r) => columnOf(r) === 'entregada').map((r) => r.id))
+  /** Los pedidos de corrección a Farmacia (0152): la línea «Corrección pedida» / «no aplicó». Aparte, por
+   *  lo mismo que las correcciones: si falla, el ticket se dibuja igual. */
+  const pedidosQ = usePedidosCorreccion(requests.filter((r) => columnOf(r) === 'entregada').map((r) => r.id))
   /* La visita terminada muestra qué pasó y no invita a cargar. `cerrada` NO reemplaza a `readOnly`,
      que sigue significando permisos: se combinan. `readOnly` sale del ROL (`visitPermissions.ts`),
      no de la pantalla — un operador de Coordinación ve "Corregir entrega" también desde la ficha,
@@ -1124,9 +1128,9 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             // dibujar nada, y un envoltorio vacío con margen dejaba un hueco suelto.
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
               {tickets.map((r) => {
-                /* «Corregir esta entrega» corrige ESTA entrega (0149): pone el ticket en modo edición.
-                   Sólo sobre una entrega con algo que la fase 1 sepa corregir (`entregaCorregible`), y
-                   con ningún otro ticket corrigiéndose. Antes abría el formulario de un pedido nuevo. */
+                /* «Corregir esta entrega» corrige ESTA entrega: pone el ticket en modo edición, con
+                   ningún otro ticket corrigiéndose. La constancia la cambia Coordinación (0149); la
+                   medicación se le pide a Farmacia (0152). Antes abría el formulario de un pedido nuevo. */
                 const editando = corrigiendoEntrega === r.id
                 const c = comprobanteDe(r, {
                   puedeCancelar: !readOnly,
@@ -1135,25 +1139,36 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 if (!c) return null
                 const onEnlace = c.enlace === 'cancelar' ? () => void cancel(r.id)
                   : c.enlace === 'corregir' ? () => { setCorrigiendoEntrega(r.id); setErr(null) } : null
-                const ip = editando ? (
-                  <FormCorreccionConstancia
+                const pedidosDeEste = (pedidosQ.data ?? []).filter((x) => x.request_id === r.id)
+                const edicion = editando ? (
+                  <EdicionEntregaTicket
                     requestId={r.id}
                     // El protocolo SELLADO en el pedido, el mismo que la base compara contra la ruta;
                     // el de la visita sólo si el pedido es anterior a la 0071 y no lo tiene.
                     protocolId={r.protocol?.id ?? visit.protocol_id}
+                    conIp={llevaIp(r)}
                     actual={constanciaVigente(r)}
                     kits={activeDispensation(r)?.ip_kits ?? null}
+                    entregado={entregadoPorMedicamento(r)}
+                    medsDelPaciente={(medsQ.data ?? []).map((m) => ({ medication_id: m.medication_id, nombre: m.medication?.name ?? 'Medicamento' }))}
+                    pedidoPendiente={pedidosDeEste.some((x) => x.estado === 'pendiente')}
                     accent={accent}
                     onCancelar={() => setCorrigiendoEntrega(null)}
-                    onHecho={() => { setCorrigiendoEntrega(null); reqQ.refetch(); corrQ.refetch() }}
+                    onHecho={() => { setCorrigiendoEntrega(null); reqQ.refetch(); corrQ.refetch(); pedidosQ.refetch() }}
                   />
-                ) : ipDe(r)
+                ) : null
                 const deEste = (corrQ.data ?? []).filter((x) => x.request_id === r.id)
+                const aviso = avisoPedido(pedidosDeEste)
                 return (
                   <ComprobanteTicket
-                    key={r.id} c={c} concomitante={renglonesDe(r)} ip={ip}
+                    key={r.id} c={c} concomitante={renglonesDe(r)} ip={ipDe(r)} edicion={edicion}
                     onEnlace={editando ? null : onEnlace} busy={busy} editando={editando}
-                    correcciones={deEste.length > 0 ? <CorreccionesDeEntrega correcciones={deEste} /> : null}
+                    correcciones={deEste.length > 0 || aviso ? (
+                      <>
+                        {deEste.length > 0 && <CorreccionesDeEntrega correcciones={deEste} />}
+                        {aviso && <AvisoPedidoTicket aviso={aviso} />}
+                      </>
+                    ) : null}
                   />
                 )
               })}

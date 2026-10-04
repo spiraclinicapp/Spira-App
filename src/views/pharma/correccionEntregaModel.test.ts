@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import type { CorreccionRow, RenglonCorregido } from '../../data/pharma'
+import type { CorreccionRow, PedidoCorreccionRow, RenglonCorregido } from '../../data/pharma'
 import type { DispensationRequestRow } from '../../data/pharma/dispensationModel'
 import {
+  avisoPedido,
   cambiosDeEdicion,
   constanciasAReimprimir,
+  describirRenglonPedido,
+  edicionDesdePedido,
   edicionInicial,
+  edicionPedidoInicial,
   entregaCorregible,
+  llevaIp,
+  pedidosAResolver,
+  renglonesDePedido,
   etiquetaMotivo,
   lineaDeCorreccion,
   motivoCompleto,
@@ -42,29 +49,32 @@ const ENTREGA = '2026-10-01T14:02:00+00:00'
 const entregada = { status: 'entregada' as const, delivered_at: ENTREGA }
 
 describe('entregaCorregible', () => {
-  it('una entrega con IP y su constancia: sí', () => {
-    expect(entregaCorregible(pedido({ includes_ip: true, disp: entregada, docs: [doc({ uploaded_at: '2026-10-01T14:01:00+00:00' })] }))).toBe(true)
-  })
-
-  it('una entrega con IP y SIN constancia (anterior a la 0071): sí, se carga la que faltó', () => {
+  it('toda entrega hecha, con IP o sin (desde la 0152 la medicación siempre se puede pedir)', () => {
     expect(entregaCorregible(pedido({ includes_ip: true, disp: entregada }))).toBe(true)
-  })
-
-  it('una entrega sin IP: no — en la fase 1 no hay nada que corregir ahí', () => {
-    expect(entregaCorregible(pedido({ includes_ip: false, disp: entregada }))).toBe(false)
-  })
-
-  it('una constancia vigente alcanza aunque `includes_ip` venga apagado (fuera de cronograma viejo)', () => {
-    expect(entregaCorregible(pedido({ includes_ip: false, disp: entregada, docs: [doc({ uploaded_at: ENTREGA })] }))).toBe(true)
-  })
-
-  it('una sola reemplazada no cuenta como constancia', () => {
-    expect(entregaCorregible(pedido({ includes_ip: false, disp: entregada, docs: [doc({ uploaded_at: ENTREGA, superseded_at: ENTREGA })] }))).toBe(false)
+    expect(entregaCorregible(pedido({ includes_ip: false, disp: entregada }))).toBe(true)
   })
 
   it('lo que todavía no se entregó: no (eso se cambia desde el pedido)', () => {
     expect(entregaCorregible(pedido({ status: 'preparando', includes_ip: true, disp: { status: 'lista' } }))).toBe(false)
     expect(entregaCorregible(pedido({ status: 'solicitada', includes_ip: true }))).toBe(false)
+  })
+})
+
+describe('llevaIp (si hay constancia que corregir)', () => {
+  it('con IP y su constancia: sí', () => {
+    expect(llevaIp(pedido({ includes_ip: true, disp: entregada, docs: [doc({ uploaded_at: '2026-10-01T14:01:00+00:00' })] }))).toBe(true)
+  })
+  it('con IP y SIN constancia (anterior a la 0071): sí, se carga la que faltó', () => {
+    expect(llevaIp(pedido({ includes_ip: true, disp: entregada }))).toBe(true)
+  })
+  it('sin IP: no', () => {
+    expect(llevaIp(pedido({ includes_ip: false, disp: entregada }))).toBe(false)
+  })
+  it('una constancia vigente alcanza aunque `includes_ip` venga apagado (fuera de cronograma viejo)', () => {
+    expect(llevaIp(pedido({ includes_ip: false, disp: entregada, docs: [doc({ uploaded_at: ENTREGA })] }))).toBe(true)
+  })
+  it('una sola reemplazada no cuenta como constancia', () => {
+    expect(llevaIp(pedido({ includes_ip: false, disp: entregada, docs: [doc({ uploaded_at: ENTREGA, superseded_at: ENTREGA })] }))).toBe(false)
   })
 })
 
@@ -289,5 +299,111 @@ describe('cambiosDeEdicion', () => {
     const e = edicionInicial(renglones, null)
     expect(e.kits).toBe('')
     expect(cambiosDeEdicion(renglones, e, null).vacio).toBe(true)
+  })
+})
+
+/* —— Fase 3 (0152): el pedido de Coordinación —— */
+
+describe('renglonesDePedido', () => {
+  const entregado = [{ medication_id: 'm1', nombre: 'Salbutamol', cantidad: 5 }, { medication_id: 'm2', nombre: 'Norgestrel', cantidad: 2 }]
+
+  it('sin tocar nada: vacío', () => {
+    expect(renglonesDePedido(entregado, edicionPedidoInicial(entregado))).toEqual({ renglones: [], errores: [], vacio: true })
+  })
+  it('sólo viaja lo que cambia; 0 = no se dio', () => {
+    const e = edicionPedidoInicial(entregado); e.correctos.m1 = '3'; e.correctos.m2 = '0'
+    expect(renglonesDePedido(entregado, e).renglones).toEqual([{ medication_id: 'm1', correcto: 3 }, { medication_id: 'm2', correcto: 0 }])
+  })
+  it('una cantidad que no es entero: error con el nombre, y no cuenta como vacío', () => {
+    const e = edicionPedidoInicial(entregado); e.correctos.m1 = 'dos'
+    const r = renglonesDePedido(entregado, e)
+    expect(r.errores[0]).toMatch(/Salbutamol/)
+    expect(r.vacio).toBe(false)
+  })
+  it('lo que faltó registrar viaja con su cantidad', () => {
+    const e = edicionPedidoInicial(entregado); e.faltantes = [{ key: 'a', medicationId: 'm3', cantidad: '2' }]
+    expect(renglonesDePedido(entregado, e).renglones).toEqual([{ medication_id: 'm3', correcto: 2 }])
+  })
+  it('faltante ya entregado, o sin elegir, o en 0: error', () => {
+    const e = edicionPedidoInicial(entregado)
+    e.faltantes = [{ key: 'a', medicationId: 'm1', cantidad: '1' }]
+    expect(renglonesDePedido(entregado, e).errores).toEqual(['Ese medicamento ya está en la entrega: corregí su cantidad.'])
+    e.faltantes = [{ key: 'a', medicationId: '', cantidad: '1' }]
+    expect(renglonesDePedido(entregado, e).errores).toEqual(['Elegí el medicamento que se dio y no se registró.'])
+    e.faltantes = [{ key: 'a', medicationId: 'm3', cantidad: '0' }]
+    expect(renglonesDePedido(entregado, e).errores[0]).toMatch(/1 o más/)
+  })
+})
+
+describe('describirRenglonPedido', () => {
+  const r = (registrado: number, correcto: number) => ({ medication_id: 'm', medicamento: 'Salbutamol', registrado, correcto })
+  it('los tres casos', () => {
+    expect(describirRenglonPedido(r(5, 3))).toBe('Salbutamol: 5 → 3')
+    expect(describirRenglonPedido(r(2, 0))).toBe('Salbutamol: no se dio (estaban registradas 2)')
+    expect(describirRenglonPedido(r(0, 2))).toBe('Salbutamol: faltó registrar 2')
+  })
+})
+
+describe('edicionDesdePedido (el panel de Farmacia, cargado con lo pedido)', () => {
+  const renglones = [
+    { id: 'i1', medication_id: 'm1', nombre: 'Salbutamol', lot_id: 'L1', quantity: 5 },
+    { id: 'i2', medication_id: 'm2', nombre: 'Norgestrel', lot_id: 'L2', quantity: 2 },
+  ]
+  const pedidoDe = (rs: { medication_id: string; registrado: number; correcto: number }[]) =>
+    ({ renglones: rs.map((x) => ({ ...x, medicamento: 'X' })) })
+
+  it('cantidad pedida en su renglón, 0 como quitar, faltante como agregado SIN lote', () => {
+    const e = edicionDesdePedido(renglones, null, pedidoDe([
+      { medication_id: 'm1', registrado: 5, correcto: 3 },
+      { medication_id: 'm2', registrado: 2, correcto: 0 },
+      { medication_id: 'm3', registrado: 0, correcto: 2 },
+    ]))
+    expect(e.renglones.i1).toEqual({ cantidad: '3', lotId: 'L1', quitar: false })
+    expect(e.renglones.i2.quitar).toBe(true)
+    expect(e.agregados).toEqual([{ key: 'pedido-m3', medicationId: 'm3', lotId: '', cantidad: '2' }])
+  })
+
+  it('cargado así, lo que falta para guardar es el lote del agregado (lo elige Farmacia)', () => {
+    const e = edicionDesdePedido(renglones, null, pedidoDe([{ medication_id: 'm3', registrado: 0, correcto: 2 }]))
+    expect(cambiosDeEdicion(renglones, e, null).errores).toEqual(['Elegí el lote de lo que faltó registrar.'])
+  })
+})
+
+describe('avisoPedido (la línea del ticket)', () => {
+  const p = (x: Partial<PedidoCorreccionRow>): PedidoCorreccionRow => ({
+    id: 'p', dispensation_id: 'd', request_id: 'r', renglones: [], motivo_codigo: 'otro', motivo_texto: 'x',
+    estado: 'pendiente', requested_by_name: 'Lautaro Molina', requested_at: '2026-10-04T14:00:00+00:00',
+    resolved_by_name: null, resolved_at: null, nota_resolucion: null, ...x,
+  })
+  it('sin pedidos: nada', () => expect(avisoPedido([])).toBeNull())
+  it('pendiente: con quién lo pidió', () => {
+    expect(avisoPedido([p({})])).toMatchObject({ tipo: 'pendiente', texto: expect.stringMatching(/^Corrección pedida a Farmacia · .* · Lautaro Molina$/) })
+  })
+  it('descartado: con la nota', () => {
+    const a = avisoPedido([p({ estado: 'descartado', resolved_at: '2026-10-05T14:00:00+00:00', resolved_by_name: 'M. Ferrer', nota_resolucion: 'Se dieron 3' })])
+    expect(a).toMatchObject({ tipo: 'descartado', nota: 'Se dieron 3' })
+  })
+  it('aplicado: nada (ya está en «Corregida»)', () => {
+    expect(avisoPedido([p({ estado: 'aplicado', resolved_at: '2026-10-05T14:00:00+00:00' })])).toBeNull()
+  })
+  it('manda el ÚLTIMO, aunque no venga último', () => {
+    const viejo = p({ id: 'a', estado: 'descartado', resolved_at: '2026-10-03T14:00:00+00:00', nota_resolucion: 'no' })
+    const nuevo = p({ id: 'b', requested_at: '2026-10-06T14:00:00+00:00' })
+    expect(avisoPedido([nuevo, viejo])?.tipo).toBe('pendiente')
+  })
+})
+
+describe('pedidosAResolver (la campana de Farmacia)', () => {
+  it('arma la fila con lo que abre el cajón', () => {
+    expect(pedidosAResolver([{
+      id: 'p', requested_at: '2026-10-04T14:00:00+00:00', requested_by_name: 'Lautaro Molina',
+      dispensation: {
+        dispensation_code: 'D-1-011026-SC', correlative_number: 97, delivered_at: ENTREGA,
+        request: { visit_code: 'V5', protocol: { id: 'pr', code: 'LTS17231' }, enrollment: { ivrs_code: '032001520001', patient: { full_name: 'Maria Julieta Calderon' } } },
+      },
+    }])).toEqual([{
+      id: 'p', paciente: 'Maria Julieta Calderon', ivrs: '032001520001', protocolId: 'pr', protocolCode: 'LTS17231',
+      detalle: 'V5 · N° 97', codigo: 'D-1-011026-SC', deliveredAt: ENTREGA,
+    }])
   })
 })

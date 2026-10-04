@@ -16,7 +16,7 @@
 
 import type {
   ArchivoCorregido, CambioEntrega, ConstanciaSinImprimirRow, CorreccionRow, KitsCorregidos, MotivoCorreccionConstancia,
-  MotivoCorreccionFarmacia, RenglonCorregido,
+  MotivoCorreccionFarmacia, MotivoPedidoCorreccion, PedidoCorreccionRow, PedidoPendienteRow, RenglonCorregido, RenglonPedidoCorreccion,
 } from '../../data/pharma'
 import type { DispensationRequestRow, IpDocumentRow } from '../../data/pharma/dispensationModel'
 import { activeDispensation, columnOf, constanciaImpresa, constanciaVigente } from '../../data/pharma/dispensationModel'
@@ -26,15 +26,19 @@ import { formatDateAR, formatDateTimeAR } from '../../lib/dates'
 type PedidoCorregible = Pick<DispensationRequestRow, 'status' | 'dispensations' | 'includes_ip' | 'ip_documents'>
 
 /**
- * Si la entrega tiene algo que la fase 1 sepa corregir: entregada y con producto en investigación
- * (el pedido lo llevaba, o tiene una constancia). Sin IP no hay constancia que reemplazar, y la
- * medicación todavía no se corrige desde el ticket (fase 2): ahí el enlace NO se ofrece, en vez de
- * abrir un modo edición sin nada adentro. Para sumar algo que faltó sigue «Nueva dispensación».
- *
- * Una entrega con IP y SIN constancia (las anteriores a la 0071) sí se corrige: se carga la que faltó.
+ * Si el ticket ofrece «Corregir esta entrega»: toda entrega hecha. Desde la fase 3 (0152) la medicación
+ * siempre se puede corregir —Coordinación la pide a Farmacia—; la constancia, sólo si la entrega lleva IP
+ * (`llevaIp`). Antes de la 0152 el enlace se ofrecía sólo con IP, porque era lo único corregible.
  */
 export function entregaCorregible(r: PedidoCorregible): boolean {
-  if (columnOf(r as DispensationRequestRow) !== 'entregada') return false
+  return columnOf(r as DispensationRequestRow) === 'entregada'
+}
+
+/**
+ * Si la entrega tiene constancia que corregir: el pedido llevaba IP, o tiene una constancia vigente.
+ * Una entrega con IP y SIN constancia (las anteriores a la 0071) sí: se carga la que faltó.
+ */
+export function llevaIp(r: PedidoCorregible): boolean {
   return r.includes_ip || constanciaVigente(r as DispensationRequestRow) !== null
 }
 
@@ -326,4 +330,158 @@ export function constanciasAReimprimir(rows: readonly ConstanciaSinImprimirRow[]
 export function pedidoParaReimprimir(r: DispensationRequestRow): boolean {
   if (columnOf(r) !== 'entregada') return false
   return paraReimprimir(activeDispensation(r), constanciaVigente(r))
+}
+
+/* ┌─ Fase 3 (0152): Coordinación pide, Farmacia aplica o descarta ───────────────────────────────┐
+   Coordinación dice la cantidad CORRECTA de cada medicamento (0 = no se dio) y lo que faltó
+   registrar; nunca elige lotes ni mueve stock (D3). Farmacia recibe el pedido, lo abre en su panel
+   ya cargado (`edicionDesdePedido`) y elige los lotes.
+   └──────────────────────────────────────────────────────────────────────────────────────────────┘ */
+
+/** Los motivos de Coordinación, en el orden en que se eligen. */
+export const MOTIVOS_PEDIDO: readonly { value: MotivoPedidoCorreccion; label: string }[] = [
+  { value: 'cantidad_mal_registrada', label: 'La cantidad no es la que se dio' },
+  { value: 'medicamento_equivocado', label: 'Se registró un medicamento que no se dio' },
+  { value: 'falto_registrar', label: 'Se dio algo que no se registró' },
+  { value: 'otro', label: 'Otro motivo' },
+]
+
+/** Lo entregado por medicamento (sumado por si un medicamento salió de dos lotes). */
+export interface EntregadoPorMedicamento {
+  medication_id: string
+  nombre: string
+  cantidad: number
+}
+
+export function entregadoPorMedicamento(r: DispensationRequestRow): EntregadoPorMedicamento[] {
+  const porMed = new Map<string, EntregadoPorMedicamento>()
+  for (const l of activeDispensation(r)?.items ?? []) {
+    const prev = porMed.get(l.medication_id)
+    if (prev) prev.cantidad += l.quantity
+    else porMed.set(l.medication_id, { medication_id: l.medication_id, nombre: l.medication?.name ?? 'Medicamento', cantidad: l.quantity })
+  }
+  return [...porMed.values()]
+}
+
+/** Lo que edita Coordinación: la cantidad correcta de cada medicamento entregado, y lo que faltó. */
+export interface EdicionPedido {
+  /** Por `medication_id`: la cantidad correcta, como se tipea. */
+  correctos: Record<string, string>
+  faltantes: { key: string; medicationId: string; cantidad: string }[]
+}
+
+export function edicionPedidoInicial(entregado: readonly EntregadoPorMedicamento[]): EdicionPedido {
+  return { correctos: Object.fromEntries(entregado.map((e) => [e.medication_id, String(e.cantidad)])), faltantes: [] }
+}
+
+/** Lo editado → los renglones que recibe `pedir_correccion_entrega`. Sólo viaja lo que cambia. */
+export function renglonesDePedido(
+  entregado: readonly EntregadoPorMedicamento[],
+  e: EdicionPedido,
+): { renglones: { medication_id: string; correcto: number }[]; errores: string[]; vacio: boolean } {
+  const renglones: { medication_id: string; correcto: number }[] = []
+  const errores: string[] = []
+  const vistos = new Set<string>()
+  for (const x of entregado) {
+    vistos.add(x.medication_id)
+    const n = entero(e.correctos[x.medication_id] ?? String(x.cantidad))
+    if (n === null) { errores.push(`La cantidad correcta de ${x.nombre} tiene que ser un número entero (0 si no se dio).`); continue }
+    if (n !== x.cantidad) renglones.push({ medication_id: x.medication_id, correcto: n })
+  }
+  for (const f of e.faltantes) {
+    if (!f.medicationId) { errores.push('Elegí el medicamento que se dio y no se registró.'); continue }
+    if (vistos.has(f.medicationId)) { errores.push('Ese medicamento ya está en la entrega: corregí su cantidad.'); continue }
+    vistos.add(f.medicationId)
+    const n = entero(f.cantidad)
+    if (n === null || n < 1) { errores.push('La cantidad de lo que se dio tiene que ser un número entero, 1 o más.'); continue }
+    renglones.push({ medication_id: f.medicationId, correcto: n })
+  }
+  return { renglones, errores, vacio: renglones.length === 0 && errores.length === 0 }
+}
+
+/** Un renglón del pedido, como se lee: «Salbutamol: 5 → 3», «no se dio», «faltó registrar 2». */
+export function describirRenglonPedido(r: RenglonPedidoCorreccion): string {
+  if (r.registrado === 0) return `${r.medicamento}: faltó registrar ${r.correcto}`
+  if (r.correcto === 0) return `${r.medicamento}: no se dio (estaban registradas ${r.registrado})`
+  return `${r.medicamento}: ${r.registrado} → ${r.correcto}`
+}
+
+/**
+ * El panel de Farmacia, cargado con lo que pidió Coordinación: cada cantidad pedida en su renglón
+ * (0 = quitar) y lo que faltó como renglón agregado SIN lote —el lote lo elige Farmacia—. Lo que el
+ * pedido no menciona queda como está.
+ */
+export function edicionDesdePedido(
+  renglones: readonly RenglonEntregado[],
+  kitsActuales: number | null,
+  pedido: Pick<PedidoCorreccionRow, 'renglones'>,
+): EdicionEntrega {
+  const e = edicionInicial(renglones, kitsActuales)
+  for (const p of pedido.renglones) {
+    const r = renglones.find((x) => x.medication_id === p.medication_id)
+    if (r) {
+      e.renglones[r.id] = p.correcto === 0
+        ? { ...e.renglones[r.id], quitar: true }
+        : { ...e.renglones[r.id], cantidad: String(p.correcto) }
+    } else if (p.correcto > 0) {
+      e.agregados.push({ key: `pedido-${p.medication_id}`, medicationId: p.medication_id, lotId: '', cantidad: String(p.correcto) })
+    }
+  }
+  return e
+}
+
+/** Qué dice el ticket sobre el último pedido de corrección. `null` = nada (no hay, o se aplicó). */
+export type AvisoPedido =
+  | { tipo: 'pendiente'; texto: string }
+  | { tipo: 'descartado'; texto: string; nota: string }
+
+/**
+ * El ÚLTIMO pedido manda: pendiente se dice mientras espera; descartado se dice con la nota hasta que
+ * se pida otro; aplicado no se dice —ya está en «Corregida», con lo que se hizo de verdad—.
+ */
+export function avisoPedido(pedidos: readonly PedidoCorreccionRow[]): AvisoPedido | null {
+  if (pedidos.length === 0) return null
+  const ultimo = pedidos.reduce((a, b) => (Date.parse(b.requested_at) > Date.parse(a.requested_at) ? b : a))
+  const quien = (n: string | null) => (n ? ` · ${n}` : '')
+  if (ultimo.estado === 'pendiente') {
+    return { tipo: 'pendiente', texto: `Corrección pedida a Farmacia · ${formatDateTimeAR(ultimo.requested_at)}${quien(ultimo.requested_by_name)}` }
+  }
+  if (ultimo.estado === 'descartado') {
+    return {
+      tipo: 'descartado',
+      texto: `Farmacia no aplicó la corrección pedida${ultimo.resolved_at ? ` · ${formatDateTimeAR(ultimo.resolved_at)}` : ''}${quien(ultimo.resolved_by_name)}`,
+      nota: ultimo.nota_resolucion ?? '',
+    }
+  }
+  return null
+}
+
+/** Una fila del bloque «Correcciones pedidas» de la campana de Farmacia. */
+export interface PedidoAResolver {
+  id: string
+  paciente: string
+  ivrs: string | null
+  protocolId: string | null
+  protocolCode: string | null
+  /** «V5 W16 · N° 97». */
+  detalle: string
+  codigo: string | null
+  deliveredAt: string | null
+}
+
+export function pedidosAResolver(rows: readonly PedidoPendienteRow[]): PedidoAResolver[] {
+  return rows.map((p) => {
+    const d = p.dispensation
+    const rq = d?.request
+    return {
+      id: p.id,
+      paciente: rq?.enrollment?.patient?.full_name ?? 'Paciente',
+      ivrs: rq?.enrollment?.ivrs_code ?? null,
+      protocolId: rq?.protocol?.id ?? null,
+      protocolCode: rq?.protocol?.code ?? null,
+      detalle: [rq?.visit_code, d ? `N° ${d.correlative_number}` : null].filter(Boolean).join(' · '),
+      codigo: d?.dispensation_code ?? null,
+      deliveredAt: d?.delivered_at ?? null,
+    }
+  })
 }

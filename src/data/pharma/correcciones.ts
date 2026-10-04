@@ -107,6 +107,141 @@ export async function corregirEntregaFarmacia(
   return { error: error ? pharmaErrorMessage(error.code, error.message) : null }
 }
 
+/* —— Fase 3 (0152): Coordinación pide la corrección, Farmacia la aplica o la descarta —— */
+
+/** Los motivos de Coordinación al pedir una corrección de medicación (0152, `dcr_motivo_chk`). */
+export type MotivoPedidoCorreccion = 'cantidad_mal_registrada' | 'medicamento_equivocado' | 'falto_registrar' | 'otro'
+
+/** Un renglón pedido. `registrado` lo puso la base (lo que decía la entrega al pedir); `correcto` 0 = no se dio. */
+export interface RenglonPedidoCorreccion {
+  medication_id: string
+  medicamento: string
+  registrado: number
+  correcto: number
+}
+
+/** Fila de `dispensation_correction_requests` (0152). */
+export interface PedidoCorreccionRow {
+  id: string
+  dispensation_id: string
+  request_id: string
+  renglones: RenglonPedidoCorreccion[]
+  motivo_codigo: string
+  motivo_texto: string | null
+  estado: 'pendiente' | 'aplicado' | 'descartado'
+  requested_by_name: string | null
+  requested_at: string
+  resolved_by_name: string | null
+  resolved_at: string | null
+  nota_resolucion: string | null
+}
+
+const PEDIDO_COLS =
+  'id, dispensation_id, request_id, renglones, motivo_codigo, motivo_texto, estado, requested_by_name, requested_at, ' +
+  'resolved_by_name, resolved_at, nota_resolucion'
+
+/**
+ * Los pedidos de corrección de unos pedidos de dispensación, del más viejo al más nuevo. Consulta
+ * aparte por lo mismo que `useCorreccionesDeEntregas`: sin la 0152, falla esto y nada más.
+ */
+export function usePedidosCorreccion(requestIds: readonly string[]) {
+  const ids = [...requestIds].sort()
+  return useSupabaseQuery<PedidoCorreccionRow[]>(
+    (c) =>
+      c
+        .from('dispensation_correction_requests')
+        .select(PEDIDO_COLS)
+        .in('request_id', ids.length > 0 ? ids : [NIL_UUID])
+        .order('requested_at', { ascending: true })
+        .returns<PedidoCorreccionRow[]>(),
+    [ids.join(',')],
+    (e) => pharmaErrorMessage(e.code, e.message),
+  )
+}
+
+/** Coordinación pide la corrección de la medicación de una entrega (0152). Nunca mueve stock. */
+export async function pedirCorreccionEntrega(
+  requestId: string,
+  renglones: { medication_id: string; correcto: number }[],
+  motivo: MotivoPedidoCorreccion,
+  motivoTexto: string | null,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('pedir_correccion_entrega', {
+    p_request_id: requestId,
+    p_renglones: renglones,
+    p_motivo: motivo,
+    p_motivo_texto: motivoTexto,
+  })
+  return { error: error ? pharmaErrorMessage(error.code, error.message) : null }
+}
+
+/**
+ * Farmacia aplica un pedido de corrección: corrige (con los lotes que elige) y lo marca aplicado, en
+ * una transacción (0152). Los cambios pueden no ser exactamente lo pedido: se asienta lo que se hizo.
+ */
+export async function aplicarPedidoCorreccion(
+  pedidoId: string,
+  cambios: CambioEntrega[],
+  kits: number | null,
+  motivo: MotivoCorreccionFarmacia,
+  motivoTexto: string | null,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('aplicar_pedido_correccion', {
+    p_pedido_id: pedidoId,
+    p_cambios: cambios,
+    p_kits: kits,
+    p_motivo: motivo,
+    p_motivo_texto: motivoTexto,
+  })
+  return { error: error ? pharmaErrorMessage(error.code, error.message) : null }
+}
+
+/** Farmacia descarta un pedido de corrección, con la nota que Coordinación lee en el ticket (0152). */
+export async function descartarPedidoCorreccion(pedidoId: string, nota: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('descartar_pedido_correccion', { p_pedido_id: pedidoId, p_nota: nota })
+  return { error: error ? pharmaErrorMessage(error.code, error.message) : null }
+}
+
+/** Un pedido de corrección pendiente, con lo que la campana de Farmacia necesita para mostrarlo y abrirlo. */
+export interface PedidoPendienteRow {
+  id: string
+  requested_at: string
+  requested_by_name: string | null
+  dispensation: {
+    dispensation_code: string | null
+    correlative_number: number
+    delivered_at: string | null
+    request: {
+      visit_code: string | null
+      protocol: { id: string; code: string } | null
+      enrollment: { ivrs_code: string | null; patient: { full_name: string } | null } | null
+    } | null
+  } | null
+}
+
+/** Los pedidos de corrección pendientes, para la campana de Farmacia. `enabled = false` no consulta. */
+export function usePedidosCorreccionPendientes(enabled: boolean) {
+  return useSupabaseQuery<PedidoPendienteRow[]>(
+    (c) => {
+      if (!enabled) return Promise.resolve({ data: [] as PedidoPendienteRow[], error: null })
+      return c
+        .from('dispensation_correction_requests')
+        .select(
+          'id, requested_at, requested_by_name, ' +
+          // Embeds calificados por su FK (lección de la 0076).
+          'dispensation:dispensations!dispensation_id(dispensation_code, correlative_number, delivered_at, ' +
+            'request:dispensation_requests!request_id(visit_code, protocol:protocols!protocol_id(id, code), ' +
+              'enrollment:enrollments!enrollment_id(ivrs_code, patient:patients(full_name))))',
+        )
+        .eq('estado', 'pendiente')
+        .order('requested_at', { ascending: true })
+        .returns<PedidoPendienteRow[]>()
+    },
+    [enabled],
+    (e) => pharmaErrorMessage(e.code, e.message),
+  )
+}
+
 /** Una constancia vigente sin marcar como impresa, de un pedido ya entregado (para la campana). */
 export interface ConstanciaSinImprimirRow {
   id: string

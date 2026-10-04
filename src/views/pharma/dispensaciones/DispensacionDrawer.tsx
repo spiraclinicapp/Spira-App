@@ -5,7 +5,7 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PatientLink, PatientLinkArrow } from '../../../components/PatientLink'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
-import type { DispensationRequestRow } from '../../../data/pharma'
+import type { DispensationRequestRow, PedidoCorreccionRow } from '../../../data/pharma'
 import {
   activeDispensation, cancelDispensationPreparation, columnOf, constanciaVigente,
   origenLabel, rejectDispensationRequest, useDispensationRequest,
@@ -63,8 +63,9 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
   const [reasignando, setReasignando] = useState(false)
   const [viendoHistorial, setViendoHistorial] = useState(false)
   const [errAccion, setErrAccion] = useState<string | null>(null)
-  /** «Corregir entrega» (0151): el panel de la entregada pasa a modo corrección. */
-  const [corrigiendo, setCorrigiendo] = useState(false)
+  /** «Corregir entrega» (0151): el panel de la entregada pasa a modo corrección. Con un pedido de
+   *  Coordinación (0152), lo que se aplica; `null` = corrección por iniciativa de Farmacia. */
+  const [corrigiendo, setCorrigiendo] = useState<false | { pedido: PedidoCorreccionRow | null }>(false)
   /** Corregir reescribe stock hacia atrás: es del líder (spec D2), como ajustar o anular una recepción.
    *  La base lo vuelve a exigir; esto sólo evita ofrecer una acción que va a rechazar. */
   const { hasMinRole } = useAuth()
@@ -135,7 +136,7 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
   if (column === 'entregada' && !rechazada && puedeCorregir && !corrigiendo) {
     acciones.push({
       id: 'corregir', label: 'Corregir entrega', icon: 'pencil',
-      onSelect: () => { setErrAccion(null); setCorrigiendo(true) },
+      onSelect: () => { setErrAccion(null); setCorrigiendo({ pedido: null }) },
     })
   }
 
@@ -259,12 +260,19 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
                 <PanelLista r={r} disp={disp} onChanged={refrescar} onClose={onClose} onPrint={() => window.print()} onToast={onToast} />
               ) : column === 'entregada' && disp && corrigiendo ? (
                 <PanelCorregirEntrega
-                  r={r} disp={disp}
+                  r={r} disp={disp} pedido={corrigiendo.pedido}
                   onCancelar={() => setCorrigiendo(false)}
-                  onHecho={() => { setCorrigiendo(false); refrescar(); onToast('Entrega corregida · el stock ya se compensó') }}
+                  onHecho={() => {
+                    const delPedido = corrigiendo.pedido !== null
+                    setCorrigiendo(false); refrescar()
+                    onToast(delPedido ? 'Corrección aplicada · Coordinación la ve en la visita' : 'Entrega corregida · el stock ya se compensó')
+                  }}
                 />
               ) : column === 'entregada' && disp ? (
-                <PanelEntregada r={r} disp={disp} onClose={onClose} onPrint={() => window.print()} onChanged={refrescar} onToast={onToast} />
+                <PanelEntregada
+                  r={r} disp={disp} onClose={onClose} onPrint={() => window.print()} onChanged={refrescar} onToast={onToast}
+                  puedeCorregir={puedeCorregir} onAplicarPedido={(p) => { setErrAccion(null); setCorrigiendo({ pedido: p }) }}
+                />
               ) : (
                 <div style={{ padding: '18px 22px 22px', fontSize: 13, color: 'var(--spira-muted)' }}>
                   Esta solicitud todavía no se tomó. Cerrá el cajón y apretá <b>Preparar</b> en la card.
