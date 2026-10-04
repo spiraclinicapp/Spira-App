@@ -33,7 +33,7 @@ export const nombreTicket: CSSProperties = {
   flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
 }
 
-export function ComprobanteTicket({ c, concomitante, ip, onEnlace, busy, correcciones = null, editando = false }: {
+export function ComprobanteTicket({ c, concomitante, ip, onEnlace, busy, correcciones = null, editando = false, edicion = null }: {
   c: Comprobante
   /** Los renglones de medicación del pedido. `null` = el pedido no lleva concomitante. */
   concomitante: ReactNode | null
@@ -46,6 +46,8 @@ export function ComprobanteTicket({ c, concomitante, ip, onEnlace, busy, correcc
   correcciones?: ReactNode | null
   /** El ticket está en modo corrección: se levanta (elevación, nunca un borde de color). */
   editando?: boolean
+  /** El formulario de corrección (0149-0152). Si está, ocupa el lugar de concomitante e IP. */
+  edicion?: ReactNode | null
 }) {
   return (
     <div
@@ -86,14 +88,21 @@ export function ComprobanteTicket({ c, concomitante, ip, onEnlace, busy, correcc
       <div style={{ fontSize: 11.5, color: 'var(--spira-ink-soft)', padding: '0 12px 10px' }}>{c.contexto}</div>
       {correcciones}
 
-      {concomitante && (
+      {edicion && (
+        <div style={seccion}>
+          <div style={{ ...eyebrow, marginBottom: 9 }}>Corregir la entrega</div>
+          {edicion}
+        </div>
+      )}
+
+      {!edicion && concomitante && (
         <div style={seccion}>
           <div style={{ ...eyebrow, marginBottom: 7 }}>Concomitante</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>{concomitante}</div>
         </div>
       )}
 
-      {ip && (
+      {!edicion && ip && (
         <div style={seccion}>
           <div style={{ ...eyebrow, marginBottom: 7 }}>Producto en investigación</div>
           {ip}

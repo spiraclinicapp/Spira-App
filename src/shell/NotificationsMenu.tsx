@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from '../components/Icon'
+import type { IconName } from '../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { usePopover } from '../components/usePopover'
 import type { AlertKind } from '../data/alertDismissalModel'
@@ -9,13 +10,12 @@ import {
   descarteListo, dismissAlert, DISMISS_REASONS, MOTIVO_OTRO, useActiveAlerts,
 } from '../data/alertDismissals'
 import type { PedidoAviso } from '../data/pharma/dispensationModel'
-import { useConstanciasSinImprimir } from '../data/pharma'
+import { useConstanciasSinImprimir, usePedidosCorreccionPendientes } from '../data/pharma'
 import { repartir } from './avisosPedidos'
 import { CajaDePedido } from './CajaDePedido'
 import { isoDayAR, todayISO } from '../lib/dates'
 import { pushUrl } from '../lib/useUrlState'
-import { constanciasAReimprimir } from '../views/pharma/correccionEntregaModel'
-import type { ConstanciaAReimprimir } from '../views/pharma/correccionEntregaModel'
+import { constanciasAReimprimir, pedidosAResolver } from '../views/pharma/correccionEntregaModel'
 import { MODULES } from '../modules/registry'
 import type { NavTarget, ReturnTo } from '../views/types'
 import { priorizarAlertas } from '../views/visitRules'
@@ -139,7 +139,10 @@ export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos
   /** Las constancias corregidas que Farmacia tiene que reimprimir. Se relee al abrir el panel. */
   const reimprimirQ = useConstanciasSinImprimir(isAllowed('pharma'))
   const releerReimprimir = reimprimirQ.refetch
-  useEffect(() => { if (open) releerReimprimir() }, [open, releerReimprimir])
+  /** Los pedidos de corrección de Coordinación esperando a Farmacia (0152). Ídem: se releen al abrir. */
+  const correccionesQ = usePedidosCorreccionPendientes(isAllowed('pharma'))
+  const releerCorrecciones = correccionesQ.refetch
+  useEffect(() => { if (open) { releerReimprimir(); releerCorrecciones() } }, [open, releerReimprimir, releerCorrecciones])
   /** La visita que muestra el modal, cuando se abrió una desde una caja. */
   const [visitaAbierta, setVisitaAbierta] = useState<string | null>(null)
   const cerrar = useCallback(() => setOpen(false), [])
@@ -310,18 +313,21 @@ export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos
      avisa a Farmacia, sin bloquear nada). Va con los pedidos y NO suma al punto, por lo mismo que
      ellos: es información de Farmacia, no un pendiente clínico. Sólo con el módulo Farmacia. */
   const aReimprimir = constanciasAReimprimir(reimprimirQ.data ?? [])
-  const sinPedidos = mios.length === 0 && nuevos.length === 0 && aReimprimir.length === 0
+  /* «Correcciones pedidas» (0152): lo que Coordinación le pidió corregir a Farmacia. Mismo trato que
+     las constancias: con los pedidos, sin sumar al punto, sólo con el módulo Farmacia. */
+  const aResolver = pedidosAResolver(correccionesQ.data ?? [])
+  const sinPedidos = mios.length === 0 && nuevos.length === 0 && aReimprimir.length === 0 && aResolver.length === 0
   /* El error cuenta como "hay algo que mostrar": si no, un fallo de la consulta caería en el estado
      vacío ("Estás al día") y afirmaría que no pasa nada justo cuando no sabemos. */
   const vacio = cajas.length === 0 && sinPedidos && errorPedidos === null
 
   /* Abre el cajón de esa entrega en el historial de Dispensaciones. El historial arranca en el día
      de `dia` y pagina hacia atrás: con el día de la ENTREGA, el cajón la encuentra en la primera
-     página. Sin código (no debería pasar en una entregada) cae al tablero. */
-  const abrirReimpresion = (c: ConstanciaAReimprimir) => {
+     página. Sin código o sin fecha (no debería pasar en una entregada) cae al tablero. */
+  const abrirEntrega = (codigo: string | null, deliveredAt: string | null) => {
     setOpen(false)
-    if (!c.codigo) { onAbrirTablero(); return }
-    pushUrl({ moduleKey: 'pharma', subKey: 'dispensaciones', path: [c.codigo], query: { vista: 'historial', dia: isoDayAR(c.deliveredAt) } })
+    if (!codigo || !deliveredAt) { onAbrirTablero(); return }
+    pushUrl({ moduleKey: 'pharma', subKey: 'dispensaciones', path: [codigo], query: { vista: 'historial', dia: isoDayAR(deliveredAt) } })
   }
 
   return (
@@ -396,11 +402,25 @@ export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos
                     verMas={() => { setOpen(false); onAbrirTablero() }}
                   />
                 )}
+                {aResolver.length > 0 && (
+                  <>
+                    <div className="spira-eyebrow" style={{ padding: '2px 2px 0' }}>Correcciones pedidas</div>
+                    {aResolver.slice(0, MAX_PEDIDOS).map((c) => (
+                      <CajaEntrega
+                        key={c.id} c={c} motivo="Coordinación pidió corregir la medicación"
+                        icono="pencil" color="var(--spira-acc-deep-teal)" abrir={() => abrirEntrega(c.codigo, c.deliveredAt)}
+                      />
+                    ))}
+                  </>
+                )}
                 {aReimprimir.length > 0 && (
                   <>
                     <div className="spira-eyebrow" style={{ padding: '2px 2px 0' }}>Constancias para reimprimir</div>
                     {aReimprimir.slice(0, MAX_PEDIDOS).map((c) => (
-                      <CajaReimprimir key={c.docId} c={c} abrir={() => abrirReimpresion(c)} />
+                      <CajaEntrega
+                        key={c.docId} c={c} motivo="Constancia corregida · reimprimila para el archivo"
+                        icono="printer" color="var(--spira-warn)" abrir={() => abrirEntrega(c.codigo, c.deliveredAt)}
+                      />
                     ))}
                   </>
                 )}
@@ -763,12 +783,27 @@ const popBtnConfirmar: CSSProperties = {
  */
 const MAX_PEDIDOS = 5
 
+/** Lo que una card de Farmacia sobre una entrega necesita: de quién, qué entrega, y cómo abrirla. */
+interface EntregaEnCampana {
+  paciente: string
+  ivrs: string | null
+  protocolId: string | null
+  protocolCode: string | null
+  detalle: string
+}
+
 /**
- * Una constancia corregida para reimprimir (0149). Misma grilla que la card de un pedido
+ * Una card de Farmacia sobre una entrega ya hecha: una constancia corregida para reimprimir (0149) o
+ * un pedido de corrección de Coordinación (0152). Misma grilla que la card de un pedido
  * (`CajaDePedido`): ícono, quién, qué, datos y la cuarta columna reservada, para que alinee.
  */
-function CajaReimprimir({ c, abrir }: { c: ConstanciaAReimprimir; abrir: () => void }) {
-  const motivo = 'Constancia corregida · reimprimila para el archivo'
+function CajaEntrega({ c, motivo, icono, color, abrir }: {
+  c: EntregaEnCampana
+  motivo: string
+  icono: IconName
+  color: string
+  abrir: () => void
+}) {
   return (
     <div
       className="spira-notif-caja spira-notif-caja--link spira-no-press"
@@ -781,8 +816,8 @@ function CajaReimprimir({ c, abrir }: { c: ConstanciaAReimprimir; abrir: () => v
       }}
       aria-label={`Abrir la entrega de ${c.paciente} — ${motivo}`}
     >
-      <span className="spira-notif-icono" style={{ background: tinte('var(--spira-warn)', 9) }}>
-        <Icon name="printer" size={16} color="var(--spira-warn)" />
+      <span className="spira-notif-icono" style={{ background: tinte(color, 9) }}>
+        <Icon name={icono} size={16} color={color} />
       </span>
       <div className="spira-notif-cuerpo">
         <div className="spira-notif-l1">
