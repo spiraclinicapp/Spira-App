@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MODULES } from '../../modules/registry'
 import { isViewRegistered } from '../registryKeys'
-import { KPI_DESTINOS, nombreDeDestino } from './destinos'
+import { DESTINO_REPORTES, KPI_DESTINOS, nombreDeDestino } from './destinos'
 import type { KpiKey } from './destinos'
 
 /**
@@ -75,6 +75,14 @@ describe('destinos de los KPI del Resumen', () => {
     // como ejemplo de destino inventado, así que el caso usa una key que de verdad no existe.
     expect(nombreDeDestino({ moduleKey: 'track', subKey: 'submodulo-inventado' })).toBeNull()
     expect(nombreDeDestino({ moduleKey: 'inexistente', subKey: 'resumen' })).toBeNull()
+  })
+
+  it('el pie de Reportes lleva a Reportes pendientes y no a Estadísticas', () => {
+    /* Las dos viven en Coordinación y las dos tienen «reportes» en el nombre: la key de Estadísticas es
+       `reportes` (ver `modules/registry.ts`). Confundirlas no falla, manda a la pantalla equivocada. */
+    expect(isViewRegistered(DESTINO_REPORTES.moduleKey, DESTINO_REPORTES.subKey)).toBe(true)
+    expect(nombreDeDestino(DESTINO_REPORTES)).toBe('Reportes')
+    expect(DESTINO_REPORTES.subKey).not.toBe('reportes')
   })
 })
 
