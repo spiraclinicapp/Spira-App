@@ -87,7 +87,10 @@ export function estiloPlazo(p: Plazo): CSSProperties {
   return { color: 'var(--spira-ink-soft)', fontWeight: 500 }
 }
 
+/** Toda evolucionada no tiene plazo que decir: el conteo ya dice «Todo evolucionado» en la misma fila,
+ *  y repetirlo en la columna de al lado se leía como un eco. */
 export function TextoPlazo({ plazo, corto = false }: { plazo: Plazo; corto?: boolean }) {
+  if (plazo.tipo === 'listo') return null
   return <span style={{ ...estiloPlazo(plazo), whiteSpace: 'nowrap' }}>{textoPlazo(plazo, corto)}</span>
 }
 

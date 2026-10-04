@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent } from 'react'
 import { Icon } from '../../../components/Icon'
 import { MultiFilterMenu } from '../../../components/MultiFilterMenu'
@@ -63,6 +63,10 @@ export function ReportesPorPacienteView({ module, submodule, onNavigate, navTarg
 
   const [overlay, setOverlay] = useState<Map<string, ReportStage>>(() => new Map())
   const [ocupados, setOcupados] = useState<Set<string>>(() => new Set())
+  /* Lo que está EN VUELO, en un ref y no en el estado: dos clics en el mismo tick leen el mismo estado
+     (todavía vacío) y mandaban dos pedidos — lo cazó el QA con la RPC interceptada. El estado queda
+     para dibujar el botón deshabilitado; el que decide si se manda es el ref. */
+  const enVuelo = useRef<Set<string>>(new Set())
   const [abiertas, setAbiertas] = useState<Set<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
 
@@ -104,15 +108,17 @@ export function ReportesPorPacienteView({ module, submodule, onNavigate, navTarg
   const mover = useCallback(async (r: FilaReporte, destino: ReportStage) => {
     const clave = claveReporte(r)
     /* Un pedido por reporte: el doble clic no manda dos. Reportes distintos sí pueden ir a la vez. */
-    if (ocupados.has(clave)) return
+    if (enVuelo.current.has(clave)) return
+    enVuelo.current.add(clave)
     setOcupados((s) => new Set(s).add(clave))
     setError(null)
     const res = await setReportStage(r.visit_id, r.report_definition_id, destino)
+    enVuelo.current.delete(clave)
     setOcupados((s) => { const n = new Set(s); n.delete(clave); return n })
     /* Si falla, el estado no cambia: nada se aplica antes de que la base diga que sí. */
     if (res.error) { setError(res.error); return }
     setOverlay((m) => new Map(m).set(clave, destino))
-  }, [ocupados])
+  }, [])
 
   const alternar = (visitId: string) => setAbiertas((s) => {
     const n = new Set(s)
@@ -206,7 +212,8 @@ export function ReportesPorPacienteView({ module, submodule, onNavigate, navTarg
         </div>
       )}
 
-      <div style={tablaCaja}>
+      <div className="spira-scroll" style={tablaCaja}>
+        <div style={{ minWidth: ANCHO_MINIMO }}>
         {visitas.length === 0 ? (
           <div style={vacio}>No te queda ningún reporte pendiente.</div>
         ) : (
@@ -238,6 +245,7 @@ export function ReportesPorPacienteView({ module, submodule, onNavigate, navTarg
             ))}
           </>
         )}
+        </div>
       </div>
     </div>
   )
@@ -350,8 +358,11 @@ function FilaPaciente({ v, unEstudio, abierta, onAlternar, onAbrirFicha, now, ca
             <div key={r.report_definition_id} style={renglon}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                 <Icon name="fileText" size={15} color="var(--spira-muted)" />
-                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                  {reporteTitulo(r.report_name, r.procedure_name)}
+                {/* Sólo el nombre del informe, como el handoff: en datos reales ya viene «Informe
+                    Espirometria Pre», y `reporteTitulo` le sumaba «de Espirometría (Pre)». El
+                    procedimiento queda en el tooltip, para desambiguar sin gastar ancho. */}
+                <span title={reporteTitulo(r.report_name, r.procedure_name)} style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                  {r.report_name}
                 </span>
                 <span style={{ color: 'var(--spira-faint)', flex: '0 0 auto' }}>·</span>
                 <LinkAlPortal reporte={r} />
@@ -379,8 +390,12 @@ const cabecera: CSSProperties = {
   padding: '10px 18px', background: 'var(--spira-surface)', fontSize: 11, fontWeight: 700,
   textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--spira-ink-soft)',
 }
+/* Scroll horizontal y no columnas aplastadas: con las fijas del handoff (28 + 110 + 150 + 230 + 160 + los
+   huecos) por debajo de ~860 px el nombre del paciente quedaba en CERO (medido en un panel de 476 px).
+   Mejor correr la tabla que perder la identidad de la fila. */
+const ANCHO_MINIMO = 860
 const tablaCaja: CSSProperties = {
-  background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 14, overflow: 'hidden',
+  background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 14, overflowX: 'auto',
 }
 const renglon: CSSProperties = {
   display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 130px 160px', gap: 12, alignItems: 'center',
