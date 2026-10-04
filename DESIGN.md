@@ -236,6 +236,12 @@ sombra. La sombra es para lo que flota (modales) o reacciona (foco), nunca decor
 **La regla de la sombra cálida.** Toda sombra usa `rgba(20,48,46,…)` (petróleo tinta), nunca negro
 puro. Una sombra fría delata el sistema.
 
+**La regla de la selección persistente.** El realce es elevación, nunca un borde de color — salvo
+para lo que queda **elegido** (una tarjeta de protocolo enfocada, el disparador de un filtro con algo
+tildado): ahí va borde con el acento + tinte (`accentSolid` al ~7 %). La elevación ya la gasta el
+hover, y lo elegido tiene que verse distinto con el mouse en cualquier lado. Hover, foco y «activo»
+momentáneo siguen yendo por elevación. Ver `AtajoProtocolos` y `MultiFilterMenu`.
+
 ## 5. Components
 
 ### Buttons

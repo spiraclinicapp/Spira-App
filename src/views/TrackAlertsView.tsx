@@ -473,6 +473,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
         onToggle={(id) => setProtocolFilter(
           protocolFilter.includes(id) ? protocolFilter.filter((x) => x !== id) : [...protocolFilter, id],
         )}
+        onVerTodos={() => setProtocolFilter([])}
       />
 
       {/* LA MISMA BARRA QUE "VISITAS DEL DÍA", con los mismos componentes y no con copias parecidas

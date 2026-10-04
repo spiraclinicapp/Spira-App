@@ -93,6 +93,10 @@ export function ClearFilters({ n, onClear }: { n: number; onClear: () => void })
     <button
       type="button"
       onClick={onClear}
+      /* «Limpiar 1» a secas no le dice al lector de pantalla QUÉ limpia. El rótulo contiene el texto
+         visible (WCAG 2.5.3): quien maneja la voz dice lo que ve. Con n en 0 lo único puesto es la
+         búsqueda. */
+      aria-label={n > 0 ? `Limpiar ${n} ${n === 1 ? 'filtro' : 'filtros'}` : 'Limpiar la búsqueda'}
       style={{
         /* El padding agranda el área de click; el margen negativo lo devuelve, así el texto queda
            alineado con el resto del renglón como si no tuviera caja. */
