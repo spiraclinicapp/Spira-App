@@ -13,7 +13,7 @@ import { codecs, oneOf, resolveCode } from '../../lib/router'
 import { useUrlPath, useUrlState } from '../../lib/useUrlState'
 import { useProtocols } from '../../data/protocols'
 import type { ProtocolRow } from '../../data/protocols'
-import { protocolStatusLabel, protocolStatusVar } from '../protocolStatus'
+import { AtajoProtocolos, TarjetaProtocolo } from '../AtajoProtocolos'
 import {
   useProtocolLots,
   useAmbulatoriaLots,
@@ -485,6 +485,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
           seleccionados={protoSel}
           accentSolid={accentSolid}
           onToggle={(id) => setProtoSel(protoSel.includes(id) ? protoSel.filter((x) => x !== id) : [...protoSel, id])}
+          onVerTodos={() => setProtoSel([])}
         />
       )}
 
@@ -516,7 +517,7 @@ export function MedicamentosView({ module, submodule, setHeader }: ViewProps) {
           />
         )}
         {nFiltros > 0 && (
-          <button type="button" onClick={() => { setFiltro('todos'); setProtoSel([]) }} style={clearBtn}>
+          <button type="button" onClick={() => { setFiltro('todos'); setProtoSel([]) }} style={clearBtn} aria-label={`Limpiar ${nFiltros} ${nFiltros === 1 ? 'filtro' : 'filtros'}`}>
             <Icon name="x" size={13} color="var(--spira-muted)" /> Limpiar {nFiltros}
           </button>
         )}
@@ -693,6 +694,8 @@ interface ProtocoloCardsProps {
   seleccionados: string[]
   accentSolid: string
   onToggle: (protocolId: string) => void
+  /** Suelta sólo el filtro de protocolo; el de vencimiento queda como estaba. */
+  onVerTodos: () => void
 }
 /**
  * Misma anatomía que la tarjeta de protocolo de Pacientes (código, estado, nombre, divisor, pie),
@@ -705,8 +708,11 @@ interface ProtocoloCardsProps {
  *
  * Se listan sólo los protocolos que TIENEN algo (lotes o kits): "Farmacia es central y ve todos"
  * no significa empapelar la pantalla con veinte tarjetas vacías.
+ *
+ * La cáscara —cabecera, tarjeta, pie, «Ver todos», el aviso de un protocolo elegido que se quedó sin
+ * stock— es la de Pendientes (`AtajoProtocolos`, 2026-10-03): eran dos copias que ya divergían.
  */
-function ProtocoloCards({ protocols, lotes, ipAll, seleccionados, accentSolid, onToggle }: ProtocoloCardsProps) {
+function ProtocoloCards({ protocols, lotes, ipAll, seleccionados, accentSolid, onToggle, onVerTodos }: ProtocoloCardsProps) {
   const porProto = new Map<string, LotDetailRow[]>()
   for (const l of lotes) {
     if (!l.protocol_id) continue
@@ -717,85 +723,69 @@ function ProtocoloCards({ protocols, lotes, ipAll, seleccionados, accentSolid, o
   const conStock = protocols
     .filter((p) => porProto.has(p.id) || ipByProto.has(p.id))
     .sort((a, b) => a.code.localeCompare(b.code))
-  if (conStock.length === 0) return null
-
-  const hint = seleccionados.length === 0
-    ? 'Elegí uno para enfocar la tabla de abajo'
-    : `Mostrando ${seleccionados.length} de ${conStock.length}`
+  const porId = new Map(protocols.map((p) => [p.id, p]))
+  const haySeleccion = seleccionados.length > 0
 
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <span className="spira-eyebrow">Protocolos con stock</span>
-        <span style={{ flex: 1, height: 1, background: 'var(--spira-line)' }} />
-        <span style={{ fontSize: 12, color: 'var(--spira-muted)' }}>{hint}</span>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
-        {conStock.map((p) => {
-          const sel = seleccionados.includes(p.id)
-          const delProto = porProto.get(p.id) ?? []
-          const ip = ipByProto.get(p.id)
-          const nMeds = new Set(delProto.map((l) => l.medication_id)).size
-          const nBajos = delProto.filter((l) => nivelDeCantidad(l.quantity_on_hand) !== 'ok').length
-          const unidades = stockTotal(delProto)
-          // Un protocolo puede tener IP y lotes a la vez. El titular es lo que más pesa (los kits,
-          // si hay), y la segunda línea nunca omite lo otro.
-          const titular = ip
-            ? `${ip.total_kits} ${ip.total_kits === 1 ? 'kit' : 'kits'} en stock`
-            : `${nMeds} ${nMeds === 1 ? 'medicamento' : 'medicamentos'} · ${delProto.length} ${delProto.length === 1 ? 'lote' : 'lotes'}`
-          /* "IRT" a secas y no "IRT del sponsor": con un protocolo que además tiene lotes, la
-             línea entera no entra en los ~286px de la tarjeta y se corta con puntos suspensivos
-             (medido con datos reales en la notebook de referencia). La frase completa está a un
-             renglón de distancia, en la card de IP de la tabla de abajo. */
-          const partes: string[] = []
-          if (ip) partes.push(`${ip.recepciones} ${ip.recepciones === 1 ? 'recepción' : 'recepciones'} · IRT`)
-          if (ip && delProto.length > 0) partes.push(`${delProto.length} ${delProto.length === 1 ? 'lote' : 'lotes'} más`)
-          if (!ip) partes.push(nBajos > 0 ? `${nBajos} en stock bajo o agotado` : `${unidades} u. en stock`)
-          return (
-            <button
-              key={p.id}
-              type="button"
-              className="spira-card-link"
-              aria-pressed={sel}
-              onClick={() => onToggle(p.id)}
-              style={{
-                ...protoCard,
-                /* Seleccionado se señala con COLOR (borde + tinte), no con elevación: la
-                   elevación ya es el hover, y una tarjeta enfocada tiene que verse distinta con
-                   el mouse en cualquier lado. Mismo idioma que `MultiFilterMenu`.
-                   `accentSolid + '12'` es válido porque llega como hex crudo de `registry.ts`,
-                   no como `var(--…)` — con un token habría que usar `color-mix`. */
-                borderColor: sel ? accentSolid : undefined,
-                background: sel ? accentSolid + '12' : 'var(--spira-white)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <span className="spira-mono" style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 17, color: accentSolid }}>{p.code}</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
-                  <span style={{ width: 7, height: 7, borderRadius: 999, background: protocolStatusVar(p.status) }} />
-                  {protocolStatusLabel(p.status)}
-                </span>
+    <AtajoProtocolos
+      titulo="Protocolos con stock"
+      objeto="tabla"
+      conTarjeta={conStock.map((p) => p.id)}
+      minimo={1}
+      seleccionados={seleccionados}
+      codigoDe={(id) => porId.get(id)?.code ?? null}
+      sinNada={{ uno: 'ya no tiene stock', varios: 'ya no tienen stock' }}
+      resumenTodos={{
+        titular: 'Todo el stock',
+        detalle: `${conStock.length} ${conStock.length === 1 ? 'protocolo' : 'protocolos'} · ${lotes.length} ${lotes.length === 1 ? 'lote' : 'lotes'}`,
+      }}
+      accentSolid={accentSolid}
+      onVerTodos={onVerTodos}
+    >
+      {conStock.map((p) => {
+        const sel = seleccionados.includes(p.id)
+        const delProto = porProto.get(p.id) ?? []
+        const ip = ipByProto.get(p.id)
+        const nMeds = new Set(delProto.map((l) => l.medication_id)).size
+        const nBajos = delProto.filter((l) => nivelDeCantidad(l.quantity_on_hand) !== 'ok').length
+        const unidades = stockTotal(delProto)
+        // Un protocolo puede tener IP y lotes a la vez. El titular es lo que más pesa (los kits,
+        // si hay), y la segunda línea nunca omite lo otro.
+        const titular = ip
+          ? `${ip.total_kits} ${ip.total_kits === 1 ? 'kit' : 'kits'} en stock`
+          : `${nMeds} ${nMeds === 1 ? 'medicamento' : 'medicamentos'} · ${delProto.length} ${delProto.length === 1 ? 'lote' : 'lotes'}`
+        /* "IRT" a secas y no "IRT del sponsor": con un protocolo que además tiene lotes, la
+           línea entera no entra en los ~286px de la tarjeta y se corta con puntos suspensivos
+           (medido con datos reales en la notebook de referencia). La frase completa está a un
+           renglón de distancia, en la card de IP de la tabla de abajo. */
+        const partes: string[] = []
+        if (ip) partes.push(`${ip.recepciones} ${ip.recepciones === 1 ? 'recepción' : 'recepciones'} · IRT`)
+        if (ip && delProto.length > 0) partes.push(`${delProto.length} ${delProto.length === 1 ? 'lote' : 'lotes'} más`)
+        if (!ip) partes.push(nBajos > 0 ? `${nBajos} en stock bajo o agotado` : `${unidades} u. en stock`)
+        return (
+          <TarjetaProtocolo
+            key={p.id}
+            code={p.code}
+            protocolo={p}
+            sel={sel}
+            haySeleccion={haySeleccion}
+            accentSolid={accentSolid}
+            resumen={titular}
+            onClick={() => onToggle(p.id)}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+              <span style={{ ...pillSq, width: 36, height: 36, borderRadius: 10, background: ip ? 'rgba(15,95,87,.12)' : 'rgba(15,95,87,.06)' }}>
+                <Icon name={ip ? 'flask' : 'pill'} size={18} color="var(--spira-primary)" stroke={1.8} />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)' }}>{titular}</div>
+                <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{partes.join(' · ')}</div>
               </div>
-              <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-              <div style={{ height: 1, background: 'var(--spira-line)', margin: '2px 0' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                <span style={{ ...pillSq, width: 36, height: 36, borderRadius: 10, background: ip ? 'rgba(15,95,87,.12)' : 'rgba(15,95,87,.06)' }}>
-                  <Icon name={ip ? 'flask' : 'pill'} size={18} color="var(--spira-primary)" stroke={1.8} />
-                </span>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)' }}>{titular}</div>
-                  <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{partes.join(' · ')}</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5, fontSize: 12, fontWeight: 600, color: sel ? accentSolid : 'var(--spira-muted)' }}>
-                {sel && <Icon name="check" size={14} color={accentSolid} stroke={2.6} />}
-                {sel ? 'Enfocado' : 'Ver sólo este'}
-              </div>
-            </button>
-          )
-        })}
-      </div>
-    </section>
+            </div>
+          </TarjetaProtocolo>
+        )
+      })}
+    </AtajoProtocolos>
   )
 }
 
@@ -1187,15 +1177,6 @@ function PillPronto() {
 /* ── Estilos ────────────────────────────────────────────────────────────────── */
 const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16 }
 const menuGrid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, maxWidth: 1040 }
-/* El borde y el hover los pone `.spira-card-link`; acá va el resto. `borderColor` se pisa inline
-   cuando la tarjeta está seleccionada — la clase declara el borde ABREVIADO, así que pisar sólo
-   el color es seguro (mezclar abreviada con longhands en el MISMO objeto es lo que deja el borde
-   negro al salir del estado). */
-const protoCard: CSSProperties = {
-  display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left', borderRadius: 16,
-  padding: '16px 18px', boxShadow: 'var(--spira-shadow-sm)', cursor: 'pointer',
-  font: 'inherit', color: 'inherit',
-}
 const apartadoCard: CSSProperties = {
   display: 'flex', flexDirection: 'column', textAlign: 'left', background: 'var(--spira-white)', border: '1px solid var(--spira-line)',
   borderRadius: 16, padding: 16, boxShadow: 'var(--spira-shadow-sm)', cursor: 'pointer', fontFamily: 'var(--spira-font-text)',
