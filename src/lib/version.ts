@@ -35,6 +35,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.101', text: '«Ver» abre los documentos dentro de Spira, y una entrega ya hecha se corrige con motivo.' },
     { version: '0.100', text: 'Coordinación suma Reportes, un paciente por fila, y el Resumen deja moverlos ahí mismo.' },
     { version: '0.99', text: 'Pendientes y Stock suman «Ver todos», y Reposición cuenta los pacientes de lo que va a demanda.' },
     { version: '0.98', text: 'Reposición muestra la cuenta de cada medicamento paso a paso, con los pacientes que la suman.' },
