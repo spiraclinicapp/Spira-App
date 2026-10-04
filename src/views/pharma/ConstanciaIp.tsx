@@ -89,10 +89,12 @@ export function ConstanciaDropzone({ accent, busy, onFile, que = 'la constancia'
  * El `objectURL` se revoca al desmontar o al cambiar de archivo: son hasta 10 MB por vista y se
  * acumularían en memoria toda la sesión.
  */
-export function ConstanciaPendiente({ file, accent, onQuitar }: {
+export function ConstanciaPendiente({ file, accent, onQuitar, cuando = 'se envía al solicitar' }: {
   file: File
   accent: string
   onQuitar: () => void
+  /** Cuándo se manda, para la línea del peso. La corrección de una entrega (0149) no «solicita». */
+  cuando?: string
 }) {
   const [url, setUrl] = useState<string | null>(null)
   useEffect(() => {
@@ -119,7 +121,7 @@ export function ConstanciaPendiente({ file, accent, onQuitar }: {
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'block', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</span>
           <span style={{ display: 'block', fontSize: 11.5, color: 'var(--spira-ink-soft)', marginTop: 1 }}>
-            {formatBytes(file.size)} · se envía al solicitar
+            {formatBytes(file.size)} · {cuando}
           </span>
         </span>
         <button type="button" onClick={onQuitar} style={miniBtn}>Quitar</button>

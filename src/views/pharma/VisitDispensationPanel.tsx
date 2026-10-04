@@ -12,6 +12,7 @@ import {
   solicitarHabilitacion,
   quitarHabilitacion,
   uploadReceta,
+  useCorreccionesDeEntregas,
   motivoNoHabilitado,
   cantidadConPartes,
   partesDeRenglon,
@@ -49,6 +50,8 @@ import { contenidoSeccionIp, esVisitaHistorica, mostrarAvisoIp, ofrecerRegistrar
 import { HistorialEntregas } from './HistorialEntregas'
 import { VisorDocumento } from './VisorDocumento'
 import type { DocumentoAVer } from './VisorDocumento'
+import { CorreccionesDeEntrega, FormCorreccionConstancia } from './CorregirEntrega'
+import { entregaCorregible } from './correccionEntregaModel'
 import { ComprobanteTicket, ConstanciaEnTicket, nombreTicket, renglonTicket } from './ComprobanteTicket'
 import { comprobanteDe, fraseSinEntrega, mostrarSeccionIp, pedidosConComprobante, rechazoParaAvisar } from './comprobanteModel'
 import { vistaVisitaCerrada } from './visitaCerradaModel'
@@ -311,6 +314,14 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
   const stockDe = (medicationId: string) => (stockQ.data ?? []).find((s) => s.medication_id === medicationId)
 
   const requests = reqQ.data ?? []
+  /**
+   * El pedido entregado cuyo ticket está en modo corrección (0149, spec 2026-10-04). Uno por vez: es
+   * el ticket el que se edita, en el lugar, y dos abiertos a la vez no se leen.
+   */
+  const [corrigiendoEntrega, setCorrigiendoEntrega] = useState<string | null>(null)
+  /** Las correcciones de lo entregado, para la línea «Corregida» de cada ticket. Consulta aparte: si
+   *  falla (p. ej. sin la 0149), el ticket se dibuja igual, sin esa línea. */
+  const corrQ = useCorreccionesDeEntregas(requests.filter((r) => columnOf(r) === 'entregada').map((r) => r.id))
   /* La visita terminada muestra qué pasó y no invita a cargar. `cerrada` NO reemplaza a `readOnly`,
      que sigue significando permisos: se combinan. `readOnly` sale del ROL (`visitPermissions.ts`),
      no de la pantalla — un operador de Coordinación ve "Corregir entrega" también desde la ficha,
@@ -865,10 +876,11 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
    *  se ofrecen las puertas de «volver a dispensar»: ya se está dispensando. */
   const cargaEnCurso = formularioAbierto || archivo !== null || fueraCronograma || reemplazando
   /**
-   * «Corregir esta entrega» (spec D10): con permiso, sin otra carga en curso y con los pedidos ya
-   * leídos. También con la visita abierta: corregir mientras se atiende es lo mismo que después, una
-   * carga nueva con la nota que lo explica. `puedeCorregir` sigue mandando sobre «Registrar entrega» y
-   * la puerta del IP, que sólo existen con la visita cerrada.
+   * «Corregir esta entrega»: con permiso, sin otra carga en curso y con los pedidos ya leídos. También
+   * con la visita abierta: una entrega se corrige igual mientras se atiende que después. Desde la 0149
+   * corrige la entrega misma (el ticket pasa a modo edición), y no abre una carga nueva como decía la
+   * D10 del spec 2026-09-21. Qué entregas lo ofrecen: `entregaCorregible`. `puedeCorregir` sigue
+   * mandando sobre «Registrar entrega» y la puerta del IP, que sólo existen con la visita cerrada.
    */
   const puedeAbrirCorreccion = !readOnly && !cargaEnCurso && vista.concomitante.tipo !== 'cargando'
   /** El rechazo que nadie volvió a pedir: antes lo mostraba el historial plegado, que se fue al chip. */
@@ -1112,10 +1124,38 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
             // dibujar nada, y un envoltorio vacío con margen dejaba un hueco suelto.
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
               {tickets.map((r) => {
-                const c = comprobanteDe(r, { puedeCancelar: !readOnly, puedeCorregir: puedeAbrirCorreccion })
+                /* «Corregir esta entrega» corrige ESTA entrega (0149): pone el ticket en modo edición.
+                   Sólo sobre una entrega con algo que la fase 1 sepa corregir (`entregaCorregible`), y
+                   con ningún otro ticket corrigiéndose. Antes abría el formulario de un pedido nuevo. */
+                const editando = corrigiendoEntrega === r.id
+                const c = comprobanteDe(r, {
+                  puedeCancelar: !readOnly,
+                  puedeCorregir: puedeAbrirCorreccion && corrigiendoEntrega === null && entregaCorregible(r),
+                })
                 if (!c) return null
-                const onEnlace = c.enlace === 'cancelar' ? () => void cancel(r.id) : c.enlace === 'corregir' ? abrirCorreccion : null
-                return <ComprobanteTicket key={r.id} c={c} concomitante={renglonesDe(r)} ip={ipDe(r)} onEnlace={onEnlace} busy={busy} />
+                const onEnlace = c.enlace === 'cancelar' ? () => void cancel(r.id)
+                  : c.enlace === 'corregir' ? () => { setCorrigiendoEntrega(r.id); setErr(null) } : null
+                const ip = editando ? (
+                  <FormCorreccionConstancia
+                    requestId={r.id}
+                    // El protocolo SELLADO en el pedido, el mismo que la base compara contra la ruta;
+                    // el de la visita sólo si el pedido es anterior a la 0071 y no lo tiene.
+                    protocolId={r.protocol?.id ?? visit.protocol_id}
+                    actual={constanciaVigente(r)}
+                    kits={activeDispensation(r)?.ip_kits ?? null}
+                    accent={accent}
+                    onCancelar={() => setCorrigiendoEntrega(null)}
+                    onHecho={() => { setCorrigiendoEntrega(null); reqQ.refetch(); corrQ.refetch() }}
+                  />
+                ) : ipDe(r)
+                const deEste = (corrQ.data ?? []).filter((x) => x.request_id === r.id)
+                return (
+                  <ComprobanteTicket
+                    key={r.id} c={c} concomitante={renglonesDe(r)} ip={ip}
+                    onEnlace={editando ? null : onEnlace} busy={busy} editando={editando}
+                    correcciones={deEste.length > 0 ? <CorreccionesDeEntrega correcciones={deEste} /> : null}
+                  />
+                )
               })}
             </div>
           )}
@@ -1157,8 +1197,10 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
           {puedeCargar && (!hayTickets || formularioAbierto) && (
             <Sub label="Medicación concomitante" first={!hayTickets}>
               {corrigiendo && formularioAbierto && hayEntregado && (
+                /* Ya no dice «lo que cargues acá la corrige»: esto es un pedido NUEVO, con su propio
+                   comprobante, y la entrega se corrige desde su ticket (0149). */
                 <div style={{ ...muted, padding: '2px 0', marginBottom: 9 }}>
-                  La entrega anterior queda registrada. Lo que cargues acá la corrige.
+                  Esto es un pedido nuevo. La entrega anterior queda como está.
                 </div>
               )}
 
@@ -1390,7 +1432,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
           {/* 7 · VOLVER A DISPENSAR (spec D11), afuera y abajo del ticket: nunca comparte peso con el
               enlace de corregir. Con un pedido que todavía acepta cambios, lo elegido se SUMA a ése, y
               llamarlo «nueva» prometería un segundo comprobante que no va a existir. */}
-          {hayTickets && !cargaEnCurso && !readOnly && (puedeCargar || puedeCorregir) && (
+          {hayTickets && !cargaEnCurso && corrigiendoEntrega === null && !readOnly && (puedeCargar || puedeCorregir) && (
             <button type="button" onClick={volverADispensar} style={btnNueva}>
               <Icon name="plus" size={15} /> {destino ? 'Sumar medicación' : 'Nueva dispensación'}
             </button>

@@ -1,21 +1,52 @@
+import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow, DispensationRow } from '../../../data/pharma'
-import { constanciaVigente } from '../../../data/pharma'
+import { constanciaVigente, markIpDocumentPrinted, printIpDocument } from '../../../data/pharma'
 import { ConstanciaAcciones, ConstanciaVista } from '../ConstanciaIp'
+import { pedidoParaReimprimir } from '../correccionEntregaModel'
+import { WARN_TINT } from '../panelDispensacion'
 import { ItemRow, fromDispensationLine } from './ItemRow'
 import { Comprobante } from './PanelLista'
 import { formatDateTimeAR } from '../../../lib/dates'
 
-/** Entregada: estado terminal. Solo lectura + reimprimir el comprobante. */
-export function PanelEntregada({ r, disp, onClose, onPrint }: {
+/**
+ * Entregada: estado terminal. Lectura + reimprimir el comprobante.
+ *
+ * Lo único que se corrige desde la 0149 es la constancia, desde el ticket de la visita. Acá llega
+ * como AVISO (Director, 2026-10-04): la constancia vigente se cargó después de
+ * entregar y nadie la imprimió, así que el papel archivado con la entrega es el viejo. No bloquea
+ * nada —la entrega ya ocurrió—: avisa y deja imprimirla en un clic.
+ */
+export function PanelEntregada({ r, disp, onClose, onPrint, onChanged, onToast }: {
   r: DispensationRequestRow
   disp: DispensationRow
   onClose: () => void
   onPrint: () => void
+  onChanged: () => void
+  onToast: (msg: string) => void
 }) {
   const constancia = constanciaVigente(r)
+  const reimprimir = pedidoParaReimprimir(r)
+  const [imprimiendo, setImprimiendo] = useState(false)
+  const [errImpresion, setErrImpresion] = useState<string | null>(null)
+
+  /* Imprimir y SELLAR la aserción, como «Imprimir» del visor de la preparación: el sello va después
+     de que la impresión salió, nunca antes (afirmar que se imprimió algo que no se pudo mandar sería
+     el dato inventado que este sistema no se permite). Con el sello, el aviso se apaga. */
+  async function imprimirConstancia() {
+    if (!constancia || imprimiendo) return
+    setImprimiendo(true); setErrImpresion(null)
+    const msg = await printIpDocument(constancia.storage_path)
+    if (msg) { setImprimiendo(false); setErrImpresion(msg); return }
+    const sello = await markIpDocumentPrinted(constancia.id)
+    setImprimiendo(false)
+    if (sello.error) { setErrImpresion(sello.error); return }
+    onChanged()
+    onToast('Constancia impresa · queda para el archivo')
+  }
+
   return (
     <>
       <div style={body}>
@@ -24,6 +55,26 @@ export function PanelEntregada({ r, disp, onClose, onPrint }: {
         {disp.delivered_at && (
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--spira-muted)', marginTop: 10 }}>
             Entregada el {formatDateTimeAR(disp.delivered_at)}
+          </div>
+        )}
+
+        {reimprimir && constancia && (
+          <div role="status" style={avisoReimprimir}>
+            <Icon name="printer" size={16} color="var(--spira-warn)" stroke={2} style={{ marginTop: 1, flex: '0 0 auto' }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600 }}>Constancia corregida: reimprimila para el archivo</div>
+              <div style={{ color: 'var(--spira-ink-soft)', marginTop: 2 }}>
+                Se cambió después de la entrega ({formatDateTimeAR(constancia.uploaded_at)}). La que se archivó con la entrega es la anterior.
+              </div>
+              {errImpresion && <div role="alert" style={{ color: 'var(--spira-acc-deep-danger)', marginTop: 6 }}>{errImpresion}</div>}
+              <button
+                type="button" onClick={() => void imprimirConstancia()} disabled={imprimiendo}
+                style={{ ...btnPrimary('var(--spira-pharma-solid)'), height: 34, fontSize: 12.5, marginTop: 9, display: 'inline-flex', alignItems: 'center', gap: 7, opacity: imprimiendo ? 0.7 : 1 }}
+              >
+                <Icon name="printer" size={14} color="var(--spira-on-accent)" />
+                {imprimiendo ? 'Preparando…' : 'Imprimir la constancia'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -37,8 +88,8 @@ export function PanelEntregada({ r, disp, onClose, onPrint }: {
         )}
 
         {/* El IP, ya sellado. Los kits salen de `ip_kits` —el número que se congeló al entregar—, no
-            de ningún campo editable: acá no se corrige nada. La constancia queda a mano porque el
-            paciente o el monitor pueden pedir otra copia después. */}
+            de ningún campo editable (corregirlos es la fase 2 del spec 2026-10-04). La constancia
+            queda a mano porque el paciente o el monitor pueden pedir otra copia después. */}
         {(disp.ip_kits !== null || constancia) && (
           <>
             <p className="spira-eyebrow" style={{ marginTop: 20, marginBottom: 9 }}>Producto en investigación</p>
@@ -97,6 +148,13 @@ const kitsRow: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 9, padding: '11px 13px', borderRadius: 11,
   border: '1px solid var(--spira-line)', background: 'var(--spira-white)',
   fontSize: 13.5, color: 'var(--spira-ink)',
+}
+
+/** El aviso de reimprimir: texto en TINTA y el ámbar sólo en el ícono y el fondo, como «Falta la
+ *  constancia» (`--spira-warn` como color de texto no llega a AA sobre este tinte). */
+const avisoReimprimir: CSSProperties = {
+  display: 'flex', alignItems: 'flex-start', gap: 9, marginTop: 14, padding: '10px 12px', borderRadius: 10,
+  background: WARN_TINT, fontSize: 12.5, color: 'var(--spira-ink)', lineHeight: 1.45,
 }
 
 const noteBox: CSSProperties = {

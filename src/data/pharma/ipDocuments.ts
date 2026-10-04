@@ -43,6 +43,53 @@ export async function uploadIpDocument(
   protocolId: string,
   file: File,
 ): Promise<{ error: string | null; id?: string }> {
+  return subirYRegistrar(requestId, protocolId, file, (path) => supabase.rpc('attach_ip_document', {
+    p_request_id: requestId,
+    p_path: path,
+    p_file_name: file.name,
+    p_mime: file.type,
+    p_size: file.size,
+  }))
+}
+
+/** Los motivos de corregir la constancia de una entrega ya hecha (0149, spec D6). */
+export type MotivoCorreccionConstancia = 'constancia_equivocada' | 'constancia_ilegible' | 'otro'
+
+/**
+ * Reemplaza la constancia de una entrega YA HECHA (0149, `reemplazar_constancia_entregada`). Mismo
+ * camino que `uploadIpDocument` —validar, subir, registrar, y limpiar el archivo si el registro
+ * falla— con el motivo, que es obligatorio: la corrección queda asentada con el antes, el después y
+ * por qué. La constancia vieja no se borra: queda reemplazada.
+ */
+export async function reemplazarConstanciaEntregada(
+  requestId: string,
+  protocolId: string,
+  file: File,
+  motivo: MotivoCorreccionConstancia,
+  motivoTexto: string | null,
+): Promise<{ error: string | null; id?: string }> {
+  return subirYRegistrar(requestId, protocolId, file, (path) => supabase.rpc('reemplazar_constancia_entregada', {
+    p_request_id: requestId,
+    p_path: path,
+    p_file_name: file.name,
+    p_mime: file.type,
+    p_size: file.size,
+    p_motivo: motivo,
+    p_motivo_texto: motivoTexto,
+  }))
+}
+
+/**
+ * Lo común de cargar una constancia: validar, subir a `{protocolo}/{pedido}/{uuid}.{ext}` y
+ * registrarla con la función que corresponda (`registrar`). Si el registro falla, el archivo ya
+ * subido se intenta borrar (ver abajo).
+ */
+async function subirYRegistrar(
+  requestId: string,
+  protocolId: string,
+  file: File,
+  registrar: (path: string) => PromiseLike<{ data: unknown; error: { code?: string; message: string } | null }>,
+): Promise<{ error: string | null; id?: string }> {
   if (file.size > IP_MAX_BYTES) {
     return { error: `El archivo pesa ${formatBytes(file.size)} y el máximo es 10 MB.` }
   }
@@ -64,13 +111,7 @@ export async function uploadIpDocument(
     return { error: detalle ? `${base} (${detalle})` : base }
   }
 
-  const { data, error } = await supabase.rpc('attach_ip_document', {
-    p_request_id: requestId,
-    p_path: path,
-    p_file_name: file.name,
-    p_mime: file.type,
-    p_size: file.size,
-  })
+  const { data, error } = await registrar(path)
   if (error) {
     // El objeto YA quedó subido al bucket. Si la RPC rechaza el registro (típico: la solicitud
     // pasó a un estado cerrado entre que se abrió el selector de archivo y se confirmó la subida,

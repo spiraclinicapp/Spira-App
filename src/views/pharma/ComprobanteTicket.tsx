@@ -33,7 +33,7 @@ export const nombreTicket: CSSProperties = {
   flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
 }
 
-export function ComprobanteTicket({ c, concomitante, ip, onEnlace, busy }: {
+export function ComprobanteTicket({ c, concomitante, ip, onEnlace, busy, correcciones = null, editando = false }: {
   c: Comprobante
   /** Los renglones de medicación del pedido. `null` = el pedido no lleva concomitante. */
   concomitante: ReactNode | null
@@ -42,9 +42,18 @@ export function ComprobanteTicket({ c, concomitante, ip, onEnlace, busy }: {
   /** Lo que hace el enlace del pie (`c.enlace`). `null` = sin pie. */
   onEnlace: (() => void) | null
   busy: boolean
+  /** La línea «Corregida · …» bajo el contexto (0149). `null` = la entrega no se corrigió. */
+  correcciones?: ReactNode | null
+  /** El ticket está en modo corrección: se levanta (elevación, nunca un borde de color). */
+  editando?: boolean
 }) {
   return (
-    <div style={{ background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)', borderRadius: 12, overflow: 'hidden' }}>
+    <div
+      style={{
+        background: 'var(--spira-white)', border: '1px solid var(--spira-line-2)', borderRadius: 12, overflow: 'hidden',
+        boxShadow: editando ? 'var(--spira-shadow-md)' : undefined,
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 12px 9px' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={eyebrow}>Comprobante</div>
@@ -75,6 +84,7 @@ export function ComprobanteTicket({ c, concomitante, ip, onEnlace, busy }: {
         </span>
       </div>
       <div style={{ fontSize: 11.5, color: 'var(--spira-ink-soft)', padding: '0 12px 10px' }}>{c.contexto}</div>
+      {correcciones}
 
       {concomitante && (
         <div style={seccion}>
