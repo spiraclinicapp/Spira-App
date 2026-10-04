@@ -105,6 +105,14 @@ export const MODULES: ModuleDef[] = [
          la de la URL y la del registro de vistas; sólo cambia el rótulo (mismo criterio que
          Coordinación/Farmacia sobre track/pharma). */
       { key: 'alertas', name: 'Pendientes', icon: 'bell', hint: 'Lo que hay que resolver' },
+      /* Reportes pendientes, una fila por paciente (plan `docs/plan-reportes-pendientes.md`,
+         2026-10-03). Debajo de Pendientes, como pide el handoff.
+         LA KEY ES 'reportes-pendientes' Y NO 'reportes': ésa ya es la de Estadísticas (ver su
+         comentario más abajo) y `SUB_SLUG` es un mapa GLOBAL. Esta key es su propio slug, así que no
+         hace falta tocar el router.
+         El descriptor del handoff («Informes por descargar y evolucionar») medía ~200 px contra los
+         145 útiles; éste está medido con la fuente cargada. */
+      { key: 'reportes-pendientes', name: 'Reportes', icon: 'fileText', hint: 'Informes por evolucionar' },
       /* Tareas vive ACÁ y no en Inicio desde el 2026-09-06. Nació como `inicio/tareas` y el panel
          de submódulos de Inicio no se dibuja, así que no había forma de abrirla con el mouse: se
          llegaba sólo escribiendo la URL. Se evaluó dibujar ese panel y el Director lo descartó al

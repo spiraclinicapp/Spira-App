@@ -24,7 +24,7 @@ describe('tagDeReporte', () => {
   })
 
   it('realizado y dentro del plazo: «Pendiente»', () => {
-    expect(tagDeReporte(fila({ due_at: '2026-09-22T12:00:00+00:00' }), AHORA)).toMatchObject({ texto: 'Pendiente', tono: 'pendiente' })
+    expect(tagDeReporte(fila({ due_at: '2026-09-22T12:00:00+00:00' }), AHORA)).toMatchObject({ texto: 'Sin descargar', tono: 'pendiente' })
   })
 
   it('realizado con el plazo pasado: «Vencido»', () => {
@@ -32,11 +32,11 @@ describe('tagDeReporte', () => {
   })
 
   it('el borde exacto del plazo todavía NO está vencido', () => {
-    expect(tagDeReporte(fila({ due_at: '2026-09-20T12:00:00+00:00' }), AHORA).texto).toBe('Pendiente')
+    expect(tagDeReporte(fila({ due_at: '2026-09-20T12:00:00+00:00' }), AHORA).texto).toBe('Sin descargar')
   })
 
   it('un reporte sin plazo no vence nunca', () => {
-    expect(tagDeReporte(fila({ due_at: null, eta_hours: null }), AHORA).texto).toBe('Pendiente')
+    expect(tagDeReporte(fila({ due_at: null, eta_hours: null }), AHORA).texto).toBe('Sin descargar')
   })
 
   it('descargado y evolucionado tienen su propio tag, y el plazo ya no corre', () => {
@@ -45,7 +45,7 @@ describe('tagDeReporte', () => {
   })
 
   it('una etapa que el front no conoce se trata como pendiente, no rompe el panel', () => {
-    expect(tagDeReporte(fila({ stage: 'archivado' }), AHORA).texto).toBe('Pendiente')
+    expect(tagDeReporte(fila({ stage: 'archivado' }), AHORA).texto).toBe('Sin descargar')
   })
 })
 

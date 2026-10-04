@@ -29,9 +29,15 @@ export interface StageMeta {
  * "Descargado" usa `#3A6B8C` fijo y no un token: el sistema no tiene un color de "en curso" y
  * inventarle uno acá sería fijarlo por la ventana. Si algún día aparece ese token, este es el
  * único lugar a cambiar. Los otros dos sí salen de tokens.
+ *
+ * LA PRIMERA ETAPA SE LLAMA «SIN DESCARGAR» EN PANTALLA, aunque la base diga `pendiente` (plan
+ * `docs/plan-reportes-pendientes.md`, 4A, 2026-10-03). «Pendiente» pasó a ser la UNIDAD de
+ * «Reportes pendientes» —sin descargar MÁS descargado: «10 pendientes»—, y con la etapa llamándose
+ * igual, «3 pendientes» no decía si contaba los descargados. Es copy, no datos: el valor sigue siendo
+ * `pendiente` y no se renombra (lo usan el check de la 0090, la RPC y la vista).
  */
 export const STAGE_META: Record<ReportStage, StageMeta> = {
-  pendiente:    { label: 'Pendiente',    cta: null,                  color: 'var(--spira-muted)' },
+  pendiente:    { label: 'Sin descargar', cta: null,                 color: 'var(--spira-muted)' },
   descargado:   { label: 'Descargado',   cta: 'Marcar descargado',   color: '#3A6B8C' },
   evolucionado: { label: 'Evolucionado', cta: 'Marcar evolucionado', color: 'var(--spira-acc-deep-track)' },
 }
