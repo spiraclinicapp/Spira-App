@@ -243,7 +243,7 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
               ) : column === 'lista' && disp ? (
                 <PanelLista r={r} disp={disp} onChanged={refrescar} onClose={onClose} onPrint={() => window.print()} onToast={onToast} />
               ) : column === 'entregada' && disp ? (
-                <PanelEntregada r={r} disp={disp} onClose={onClose} onPrint={() => window.print()} />
+                <PanelEntregada r={r} disp={disp} onClose={onClose} onPrint={() => window.print()} onChanged={refrescar} onToast={onToast} />
               ) : (
                 <div style={{ padding: '18px 22px 22px', fontSize: 13, color: 'var(--spira-muted)' }}>
                   Esta solicitud todavía no se tomó. Cerrá el cajón y apretá <b>Preparar</b> en la card.
