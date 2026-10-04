@@ -2,9 +2,11 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
-import { habilitarMedicamentoPedido, openIpDocument, useStock } from '../../../data/pharma'
+import { formatBytes, habilitarMedicamentoPedido, useStock } from '../../../data/pharma'
 import type { DispensationRequestRow, HabilitacionRow } from '../../../data/pharma'
 import { ModalNoHabilitar } from './ModalNoHabilitar'
+import { VisorDocumento } from '../VisorDocumento'
+import type { DocumentoAVer } from '../VisorDocumento'
 
 /**
  * «Pide habilitar un medicamento», arriba de todo en el cajón de un pedido en preparación (0124, D22,
@@ -37,10 +39,13 @@ export function SeccionHabilitacion({ r, habilitaciones, onChanged, onToast }: {
     onToast(`${h.medication?.name ?? 'Medicamento'} habilitado y sumado · escanealo con el resto`)
   }
 
-  const verReceta = async (h: HabilitacionRow) => {
-    setErr(null)
-    const e = await openIpDocument(h.receta_path)
-    if (e) setErr(e)
+  /** La receta en `VisorDocumento`, encima del cajón: leerla no saca a la farmacéutica del pedido. */
+  const [viendo, setViendo] = useState<DocumentoAVer | null>(null)
+  const verReceta = (h: HabilitacionRow) => {
+    setViendo({
+      storagePath: h.receta_path, nombre: h.receta_file_name, mime: h.receta_mime,
+      meta: `Receta de ${h.medication?.name ?? 'el medicamento'} · ${formatBytes(h.receta_size)}`,
+    })
   }
 
   return (
@@ -66,7 +71,7 @@ export function SeccionHabilitacion({ r, habilitaciones, onChanged, onToast }: {
                   h.origen_habilitacion_id ? 'receta ya aprobada' : h.receta_file_name,
                 ].filter(Boolean).join(' · ')}
               </div>
-              <button type="button" onClick={() => void verReceta(h)} style={linkBtn}>
+              <button type="button" onClick={() => verReceta(h)} style={linkBtn}>
                 <Icon name="eye" size={14} color="var(--spira-pharma-solid)" /> Ver la receta
               </button>
               <div style={nota}>
@@ -105,6 +110,8 @@ export function SeccionHabilitacion({ r, habilitaciones, onChanged, onToast }: {
           }}
         />
       )}
+
+      {viendo && <VisorDocumento doc={viendo} onClose={() => setViendo(null)} />}
     </section>
   )
 }

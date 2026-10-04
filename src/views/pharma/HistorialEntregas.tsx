@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { usePopover } from '../../components/usePopover'
-import { openIpDocument, useEntregasDelEnrolamiento } from '../../data/pharma'
+import { useEntregasDelEnrolamiento } from '../../data/pharma'
 import { entregasDelHistorial } from './historialEntregasModel'
 import type { EntregaHistorial } from './historialEntregasModel'
+import { VisorDocumento } from './VisorDocumento'
+import type { DocumentoAVer } from './VisorDocumento'
 
 /**
  * El chip «Historial» de la banda de Dispensación y su popover (acceso H1 del handoff
@@ -26,15 +28,13 @@ export function HistorialEntregas({ enrollmentId, visitId }: { enrollmentId: str
   const q = useEntregasDelEnrolamiento(enrollmentId, visitId)
   const [open, setOpen] = useState(false)
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false), true, 'end')
-  const [err, setErr] = useState<string | null>(null)
+  /* La constancia que se está viendo. «Ver» cierra el popover y la abre en `VisorDocumento`, encima
+     de la visita: el visor pasa a ser la capa de arriba, y dos capas flotando sobre la misma visita
+     no se leen. */
+  const [viendo, setViendo] = useState<DocumentoAVer | null>(null)
 
   const entregas = entregasDelHistorial(q.data ?? [], visitId)
   if (entregas.length === 0) return null
-
-  async function ver(path: string) {
-    setErr(null)
-    setErr(await openIpDocument(path))
-  }
 
   return (
     <>
@@ -71,18 +71,19 @@ export function HistorialEntregas({ enrollmentId, visitId }: { enrollmentId: str
               Cerrar
             </button>
           </div>
-          {err && <div role="alert" style={{ fontSize: 11.5, color: 'var(--spira-acc-deep-danger)', marginBottom: 8 }}>{err}</div>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {entregas.map((e) => <Entrega key={e.id} e={e} onVer={(p) => void ver(p)} />)}
+            {entregas.map((e) => <Entrega key={e.id} e={e} onVer={(d) => { setOpen(false); setViendo(d) }} />)}
           </div>
         </div>,
         document.body,
       )}
+
+      {viendo && <VisorDocumento doc={viendo} onClose={() => setViendo(null)} />}
     </>
   )
 }
 
-function Entrega({ e, onVer }: { e: EntregaHistorial; onVer: (path: string) => void }) {
+function Entrega({ e, onVer }: { e: EntregaHistorial; onVer: (d: DocumentoAVer) => void }) {
   let ip: ReactNode
   if (e.ip === null) ip = <span style={valor}>Sin entrega</span>
   else if (e.ip.tipo === 'sin_constancia') {
@@ -92,7 +93,7 @@ function Entrega({ e, onVer }: { e: EntregaHistorial; onVer: (path: string) => v
     ip = (
       <>
         <span style={{ ...valor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={nombre}>{nombre}</span>
-        <button type="button" className="spira-enlace-sobrio spira-no-press" onClick={() => onVer(storagePath)} aria-label={`Ver la constancia ${nombre}`}>
+        <button type="button" className="spira-enlace-sobrio spira-no-press" onClick={() => onVer({ storagePath, nombre, meta: `${e.visita} · ${e.fecha} · comprobante N° ${e.comprobante}` })} aria-label={`Ver la constancia ${nombre}`}>
           Ver
         </button>
       </>
