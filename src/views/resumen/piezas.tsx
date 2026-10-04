@@ -112,7 +112,7 @@ export function CabeceraDeTarjeta({ icon, titulo, extra, color }: {
  *     `color: tono / background: tono+alpha` viene fallando contraste en esta app.
  *   · la fila sangra a los bordes de la tarjeta (`filaAncha`) y NO se levanta al hover: se resalta.
  */
-export function FilaDeResumen({ punto, titular, detalle, derecha, primera, onAbrir, ariaLabel }: {
+export function FilaDeResumen({ punto, titular, detalle, derecha, primera, onAbrir, ariaLabel, expandido }: {
   /** Lo que va ANTES del texto: hoy, el punto de severidad de Pendientes. */
   punto?: ReactNode
   titular: ReactNode
@@ -124,6 +124,12 @@ export function FilaDeResumen({ punto, titular, detalle, derecha, primera, onAbr
      `PatientLink` sin `onOpen` — un botón que no hace nada es peor que no tener botón. */
   onAbrir?: () => void
   ariaLabel?: string
+  /**
+   * Para la fila que DESPLIEGA en vez de navegar (Reportes pendientes, desde el 2026-10-04): la anuncia
+   * como desplegable (`aria-expanded`) y, abierta, queda con el fondo del resaltado — es el mismo
+   * bloque que el panel que se abre abajo. `undefined` = la fila no despliega.
+   */
+  expandido?: boolean
 }) {
   return (
     <div
@@ -137,10 +143,12 @@ export function FilaDeResumen({ punto, titular, detalle, derecha, primera, onAbr
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir() }
       } : undefined}
       aria-label={onAbrir ? ariaLabel : undefined}
+      aria-expanded={onAbrir ? expandido : undefined}
       style={{
         ...filaAncha, alignItems: 'center',
         ...(primera ? { borderTopWidth: 0 } : null),
         ...(onAbrir ? null : { cursor: 'default' }),
+        ...(expandido ? { backgroundColor: 'var(--spira-surface)' } : null),
       }}
     >
       {punto}

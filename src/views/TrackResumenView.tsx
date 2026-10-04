@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { SegmentedControl } from '../components/SegmentedControl'
@@ -7,7 +7,7 @@ import { useAuth } from '../lib/auth'
 import { AlertCardHeader } from './AlertCardHeader'
 import { CabeceraDeTarjeta, card, ChipDestino, DetalleConEstado, filaAncha, FilaDeResumen, MAX_FILAS } from './resumen/piezas'
 import { severidadMaxima } from './alertSeverity'
-import { DESTINO_PENDIENTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
+import { DESTINO_PENDIENTES, DESTINO_REPORTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
 import { proximoDiaConVisitas } from './resumen/proximoDia'
 import { personaActiva } from '../lib/inscripcion'
@@ -22,12 +22,16 @@ import type { SolicitudPendienteRow } from '../data/pharma'
 import { useMyTasks } from '../data/tareas'
 import { estaHecha } from './tareas/estados'
 import { TareasCard } from './resumen/TareasCard'
-import { useReportesPendientes } from '../data/reportStatus'
+import { setReportStage, useReportesPendientes } from '../data/reportStatus'
 import type { FilaReportePendiente } from '../data/reportStatus'
-import { dueLabel, esReportePendiente, esTarjeta } from './track/reportes/estados'
+import { esReportePendiente, esTarjeta, reporteTitulo } from './track/reportes/estados'
+import type { ReportStage } from './track/reportes/estados'
+import { agruparPorVisita, aplicarEtapas, claveReporte, textoPlazo } from './track/reportes/porPaciente'
+import {
+  AccionDeReporte, BarraDeReportes, ConteoDeReportes, EstadoDeReporte, estiloPlazo,
+} from './track/reportes/piezasPaciente'
 import type { TrackVisitRow } from '../data/visits'
 import { visitTitle } from '../lib/visits'
-import { KIND_SHORT } from '../lib/visitLabels'
 import { dayLabel, formatAR, fromNow, todayISO } from '../lib/dates'
 import { GLOSARIO_ESTADOS } from '../lib/glosario'
 import { VISIT_STATES, VisitChip } from './visitStates'
@@ -149,8 +153,9 @@ function VerMas({ nombre, restantes, onClick }: { nombre: string; restantes: num
 
 /**
  * El pie "Ver más" que DESPLIEGA ahí mismo, para las tarjetas que no tienen una pantalla a la que
- * mandar: Reportes pendientes (Coordinación no tiene submódulo Reportes) y Dispensaciones
- * solicitadas (viven en Farmacia, que quien coordina puede no tener).
+ * mandar: hoy, Dispensaciones solicitadas (viven en Farmacia, que quien coordina puede no tener).
+ * Reportes pendientes también lo usaba hasta el 2026-10-04, cuando Coordinación ganó su pantalla
+ * de Reportes y el pie pasó a ser el `VerMas` que navega.
  *
  * Es deliberadamente DISTINTO del que navega, y se nota a simple vista: dice cuántas faltan y lleva
  * un chevron en vez del rótulo de un submódulo. Dos acciones distintas no pueden verse iguales — un
@@ -216,50 +221,94 @@ function VacioDelAmbito({ texto, onVerTodo }: { texto: string; onVerTodo: () => 
 }
 
 /**
- * Tarjeta "Reportes pendientes": los reportes de TODOS los protocolos que la persona coordina,
- * los que vencen primero arriba.
+ * Tarjeta "Reportes pendientes": UNA FILA POR PACIENTE EN UNA VISITA, los más urgentes arriba, que se
+ * despliega para actuar ahí mismo (handoff `design_handoff_reportes_pendientes` §6, plan
+ * `docs/plan-reportes-pendientes.md`, PR2). Antes era una fila por reporte: un paciente con tres
+ * informes ocupaba las tres filas de la tarjeta.
  *
- * TRES COSAS DEL MOCK NO SE PORTAN, y conviene saber por qué:
+ * Usa las MISMAS reglas y piezas que `Coordinación › Reportes` (`porPaciente.ts`,
+ * `piezasPaciente.tsx`): si la tarjeta tuviera su propia cuenta, el Resumen y la pantalla dirían cosas
+ * distintas del mismo paciente.
  *
- * · **El casillero de tildar.** El mock abre cada renglón con un checkbox. Acá mover un reporte de
- *   etapa pasa por la RPC `set_report_stage`, que verifica permiso y sella autor — no es algo que
- *   se haga de pasada desde un resumen. Un casillero que no tilda es un botón que finge acción.
- * · **Los textos de ejemplo.** "Firmar 4 visitas de EFC18419", "Reprogramar 2 visitas fuera de
- *   ventana": eso no son reportes, son tareas. El renglón real dice qué reporte, de qué paciente y
- *   para cuándo, que es lo que la vista sabe.
- * · **Un pie que navegue.** Coordinación no tiene submódulo "Reportes" al que mandar, así que el
- *   pie DESPLIEGA la lista acá mismo en vez de prometer un lugar que no existe. Lo que sí navega es
- *   cada FILA, y va al tablero de SU protocolo con la pestaña ya abierta, que es donde ese reporte
- *   se gestiona de verdad.
+ * LO QUE SE APARTA DEL HANDOFF, y por qué:
  *
- * La barra de progreso son los EVOLUCIONADOS sobre el total, que es el único par de números que
- * significa algo acá: cuántos de los reportes en juego ya están cerrados.
+ * · **Tres filas y no cinco** (12A). El mosaico está medido para `MAX_FILAS` (ver el comentario de la
+ *   grilla, más abajo): cinco filas desplegables empujaban Pendientes fuera de la línea de flotación.
+ * · **El pie es el `VerMas` de la casa** («Ver más (N)» + el nombre del submódulo al apuntarlo) y no
+ *   «Ver los N pacientes en Reportes pendientes»: es el gesto que ya tienen Pendientes y Tareas al lado,
+ *   y dos pies que hacen lo mismo no pueden verse distintos. N cuenta las filas que hay EN EL DESTINO
+ *   y no se muestran acá (2A): la pantalla de Reportes no tiene ámbito, así que con «Lo mío» puede
+ *   haber más allá que acá, y el número tiene que describir a dónde se va.
+ * · **Ahora SÍ hay acciones en la tarjeta**, y es un cambio de criterio a sabiendas: la versión vieja no
+ *   las tenía porque mover un reporte «no se hace de pasada». Lo que lo vuelve razonable es que la
+ *   acción pasa por la misma RPC (`set_report_stage`, permiso y autor del lado del servidor) y que se
+ *   llega a ella desplegando, no de un clic suelto sobre la fila.
+ *
+ * Mover un reporte NO recarga la tarjeta: la etapa nueva se aplica sobre las filas en memoria, y la
+ * fila se queda en su lugar diciendo «Listo» hasta la próxima carga (la cabecera de `porPaciente.ts`
+ * explica por qué la base decide qué se ve y lo actual cómo se ve).
  */
-function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOpenPatient, vacioDelAmbito }: {
+function ReportesCard({ rows, origen, loading, error, onReintentar, onOpenPatient, filasEnDestino, nombreDestino, onVerTodo, vacioDelAmbito, canOperate, accentSolid, onMovido }: {
+  /** Las filas del ÁMBITO elegido (Lo mío / Todo). */
   rows: FilaReportePendiente[]
+  /**
+   * Lo que trajo el servidor, sin filtrar, para saber CUÁNDO hubo una carga nueva. `rows` se recalcula
+   * en cada dibujo de la vista y no sirve para eso: con él, el overlay se vaciaría a cada render.
+   */
+  origen: unknown
   loading: boolean
   error: string | null
   onReintentar: () => void
-  /** Abre el tablero de reportes DEL PROTOCOLO de esa fila (detalle del protocolo, pestaña abierta). */
-  onOpenReportes?: (protocolId: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
-  /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
-   *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
-   *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
+  /** Cuántas filas muestra la pantalla de Reportes (sin ámbito). */
+  filasEnDestino: number
+  nombreDestino: string | null
+  onVerTodo?: () => void
   vacioDelAmbito?: ReactNode
+  canOperate: boolean
+  accentSolid: string
+  /** Avisa que un reporte cambió, para refrescar lo de al lado (el KPI de reportes vencidos). */
+  onMovido: () => void
 }) {
-  const [expandido, setExpandido] = useState(false)
-  /* `esTarjeta` = el procedimiento está marcado realizado. Antes de eso el plazo no arrancó y el
-     reporte no es todavía nada que gestionar (misma regla que el tablero, ya testeada). `pendientes`
-     usa `esReportePendiente` —no un filtro repetido acá— porque es la MISMA definición que decide el
-     aviso de "Lo mío" vacío más abajo en la vista: que coincidan dejó de ser un acuerdo tácito entre
-     dos filtros y pasó a ser una sola función. */
-  const tarjetas = rows.filter(esTarjeta)
+  const [overlay, setOverlay] = useState<Map<string, ReportStage>>(() => new Map())
+  const [abiertas, setAbiertas] = useState<Set<string>>(() => new Set())
+  const [ocupados, setOcupados] = useState<Set<string>>(() => new Set())
+  /* El «en vuelo» en un ref: dos clics en el mismo tick leen el mismo estado (ver el submódulo). */
+  const enVuelo = useRef<Set<string>>(new Set())
+  const [errorAccion, setErrorAccion] = useState<string | null>(null)
+
+  useEffect(() => { setOverlay(new Map()) }, [origen])
+  const now = useMemo(() => Date.now(), [origen])
+
+  const actuales = aplicarEtapas(rows, overlay)
+  const visitas = agruparPorVisita(rows, actuales, now)
+  /* La barra de la cabecera sale de lo ACTUAL: un reporte evolucionado recién la mueve en el acto. */
+  const tarjetas = actuales.filter(esTarjeta)
   const resueltos = tarjetas.filter((r) => r.stage === 'evolucionado').length
-  const pendientes = rows.filter(esReportePendiente)
   const pct = tarjetas.length === 0 ? 0 : Math.round((resueltos / tarjetas.length) * 100)
-  const visibles = expandido ? pendientes : pendientes.slice(0, MAX_FILAS)
-  const restantes = pendientes.length - visibles.length
+  const visibles = visitas.slice(0, MAX_FILAS)
+  const restantes = Math.max(0, filasEnDestino - visibles.length)
+
+  const mover = async (r: FilaReportePendiente, destino: ReportStage) => {
+    const clave = claveReporte(r)
+    if (enVuelo.current.has(clave)) return
+    enVuelo.current.add(clave)
+    setOcupados((s) => new Set(s).add(clave))
+    setErrorAccion(null)
+    const res = await setReportStage(r.visit_id, r.report_definition_id, destino)
+    enVuelo.current.delete(clave)
+    setOcupados((s) => { const n = new Set(s); n.delete(clave); return n })
+    if (res.error) { setErrorAccion(res.error); return }
+    setOverlay((m) => new Map(m).set(clave, destino))
+    onMovido()
+  }
+
+  const alternar = (visitId: string) => setAbiertas((s) => {
+    const n = new Set(s)
+    if (n.has(visitId)) n.delete(visitId)
+    else n.add(visitId)
+    return n
+  })
 
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
@@ -269,13 +318,13 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
         extra={tarjetas.length > 0 ? (
           <span style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '0 0 auto' }}>
             <span
-              style={{ width: 100, height: 6, borderRadius: 'var(--spira-radius-pill)', background: 'var(--spira-line)', overflow: 'hidden', flex: '0 0 auto' }}
+              style={{ width: 96, height: 5, borderRadius: 'var(--spira-radius-pill)', background: 'var(--spira-line)', overflow: 'hidden', flex: '0 0 auto' }}
               role="img"
-              aria-label={`${resueltos} de ${tarjetas.length} reportes cerrados`}
+              aria-label={`${resueltos} de ${tarjetas.length} reportes evolucionados`}
             >
               <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: 'var(--spira-acc-deep-track)' }} />
             </span>
-            <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }} aria-hidden="true">
+            <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }} aria-hidden="true">
               {resueltos} de {tarjetas.length}
             </span>
           </span>
@@ -286,53 +335,94 @@ function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOp
         error={error}
         que="los reportes pendientes"
         onReintentar={onReintentar}
-        vacia={pendientes.length === 0}
-        vacio={<VacioSimple>{tarjetas.length === 0 ? 'Sin reportes en juego.' : 'Todos los reportes están cerrados.'}</VacioSimple>}
+        vacia={visitas.length === 0}
+        vacio={<VacioSimple>{tarjetas.length === 0 ? 'Sin reportes en juego.' : 'Todos los reportes están evolucionados.'}</VacioSimple>}
         vacioDelAmbito={vacioDelAmbito}
       >
         <div style={{ marginTop: 8 }}>
-          {visibles.map((r, i) => {
-            const plazo = dueLabel(r)
-            const abrir = onOpenReportes ? () => onOpenReportes(r.protocol_id) : undefined
-            // Un retest o una VNP no tienen código ni nombre: se nombran por su tipo, como en `ReportCard`.
-            const visita = r.visit_code ?? r.visit_name ?? KIND_SHORT[r.visit_kind]
+          {visibles.map((v, i) => {
+            const abierta = abiertas.has(v.visitId)
+            const plazo = v.plazo.tipo === 'listo' ? null : textoPlazo(v.plazo, true)
             return (
-              <FilaDeResumen
-                key={`${r.visit_id}:${r.report_definition_id}`}
-                primera={i === 0}
-                onAbrir={abrir}
-                ariaLabel={`Abrir los reportes pendientes de ${r.protocol_code} — ${r.report_name} de ${r.patient_name}, ${plazo.texto}`}
-                titular={
-                  <>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{r.report_name}</span>
-                    <span style={{ color: 'var(--spira-muted)', fontWeight: 400, flex: '0 0 auto' }}>·</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                      <PatientLink onOpen={onOpenPatient && (() => onOpenPatient(r.patient_id, r.protocol_id))} label={`Abrir la ficha de ${r.patient_name}`}>
-                        {r.patient_name}
-                      </PatientLink>
+              <div key={v.visitId}>
+                <FilaDeResumen
+                  primera={i === 0}
+                  expandido={abierta}
+                  onAbrir={() => alternar(v.visitId)}
+                  ariaLabel={`${v.patientName}, ${v.protocolCode} ${v.visitLabel}: ${abierta ? 'cerrar' : 'ver'} sus reportes`}
+                  punto={
+                    <Icon name="chevronRight" size={15} color="var(--spira-ink-soft)" style={{ flex: '0 0 auto', transform: abierta ? 'rotate(90deg)' : 'none', transition: 'transform .15s var(--spira-ease-out)' }} />
+                  }
+                  titular={
+                    <>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                        <PatientLink onOpen={onOpenPatient && (() => onOpenPatient(v.patientId, v.protocolId))} label={`Abrir la ficha de ${v.patientName}`}>
+                          {v.patientName}
+                        </PatientLink>
+                      </span>
+                      {onOpenPatient && <PatientLinkArrow />}
+                    </>
+                  }
+                  detalle={
+                    /* Nombre arriba e IVRS acá, en mono: la regla de identidad de la casa (D4). El
+                       tono del plazo lo decide `estiloPlazo`, que sabe si venció. */
+                    <DetalleConEstado
+                      contexto={<>{v.ivrs && <><span className="spira-mono">{v.ivrs}</span> · </>}{v.protocolCode} · {v.visitLabel}</>}
+                      estado={plazo}
+                      tono={estiloPlazo(v.plazo).color}
+                    />
+                  }
+                  derecha={
+                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
+                      <BarraDeReportes reportes={v.reportes} ancho={72} alto={7} now={now} />
+                      <ConteoDeReportes conteo={v.conteo} vencida={v.vencida} corto />
                     </span>
-                    {onOpenPatient && <PatientLinkArrow />}
-                  </>
-                }
-                detalle={
-                  /* El color lo decide `dueLabel`, que ya sabe si venció: así es imposible pintar
-                     de rojo un texto que dice "Vence en 3 días". */
-                  <DetalleConEstado
-                    contexto={<>{visita} · <span className="spira-mono">{r.protocol_code}</span></>}
-                    estado={plazo.texto}
-                    tono={plazo.overdue ? 'var(--spira-acc-deep-danger)' : 'var(--spira-muted)'}
-                  />
-                }
-              />
+                  }
+                />
+                {abierta && (
+                  <div style={panelResumen}>
+                    {v.reportes.map((r, j) => (
+                      <div key={r.report_definition_id} style={{ ...renglonResumen, ...(j === 0 ? { borderTopWidth: 0 } : null) }}>
+                        {/* Sin el prefijo «Informe» (handoff §6.3): en una tarjeta angosta es la palabra
+                            que sobra, y adentro de «Reportes pendientes» se sobreentiende. */}
+                        <span title={reporteTitulo(r.report_name, r.procedure_name)} style={{ fontSize: 13, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                          {r.report_name.replace(/^informe\s+/i, '')}
+                        </span>
+                        <EstadoDeReporte reporte={r} now={now} variante="texto" />
+                        {canOperate
+                          ? <AccionDeReporte reporte={r} compacta busy={ocupados.has(claveReporte(r))} accentSolid={accentSolid} onStage={(d) => void mover(r, d)} />
+                          : <span />}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )
           })}
+          {errorAccion && (
+            <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', padding: '8px 0 2px' }}>
+              <Icon name="alertCircle" size={14} color="var(--spira-danger)" />
+              {errorAccion}
+            </div>
+          )}
         </div>
       </CuerpoDeTarjeta>
-      {(restantes > 0 || expandido) && (
-        <VerMasLocal restantes={restantes} expandido={expandido} onToggle={() => setExpandido((v) => !v)} />
+      {onVerTodo && nombreDestino && visitas.length > 0 && (
+        <VerMas nombre={nombreDestino} restantes={restantes} onClick={onVerTodo} />
       )}
     </div>
   )
+}
+
+/* El panel de una fila abierta: sangra a los bordes de la tarjeta como la fila (ver `filaAncha`), con
+   el fondo del resaltado para leerse como un solo bloque con ella. */
+const panelResumen: CSSProperties = {
+  width: 'calc(100% + 40px)', margin: '0 -20px', padding: '0 20px 10px 46px',
+  background: 'var(--spira-surface)',
+}
+const renglonResumen: CSSProperties = {
+  display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', gap: 10, alignItems: 'center',
+  padding: '7px 0', borderWidth: 0, borderTopWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line)',
 }
 
 /**
@@ -439,8 +529,11 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
      salir del Resumen después de un rato serían quince "atrás". Mismo criterio que el día y el
      buscador de Visitas del día.
      └──────────────────────────────────────────────────────────────────────────────────────────┘ */
-  const { profile } = useAuth()
+  const { profile, hasMinRole, modules } = useAuth()
   const userId = profile?.id ?? null
+  /* Mover un reporte desde la tarjeta: el mismo criterio que el tablero y la pantalla de Reportes.
+     Quien sólo mira, despliega y lee, sin botones. La que manda es la RPC. */
+  const puedeMoverReportes = modules.includes('gerencia') || hasMinRole('track', 'operator')
   const coordinaciones = useMyCoordinations(userId)
   const [ambito, setAmbito] = useUrlState<Ambito>('ambito', 'mio', { codec: oneOf(AMBITOS) })
 
@@ -566,6 +659,13 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const nombrePendientes = nombreDeDestino(DESTINO_PENDIENTES)
   const nombreVisitas = nombreDeDestino(KPI_DESTINOS.visitas)
   const nombreTareas = nombreDeDestino(DESTINO_TAREAS)
+  const nombreReportes = nombreDeDestino(DESTINO_REPORTES)
+  /* Cuántas filas va a mostrar la pantalla de Reportes: SIN ámbito, porque ella no lo tiene (2A). El
+     pie de la tarjeta cuenta lo que hay en el destino, no lo que queda del ámbito. */
+  const filasEnReportes = useMemo(() => {
+    const todas = reportes.data ?? []
+    return agruparPorVisita(todas, todas, Date.now()).length
+  }, [reportes.data])
 
   /* CUÁNTAS DE LAS PRÓXIMAS SON TUYAS. Va en el SUBTÍTULO del KPI y no como KPI propio, aunque el
      handoff pida una tarjeta entera para "Visitas asignadas a mí": el campo existe
@@ -663,14 +763,21 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
           <ReportesCard
             rows={reporteRows}
+            origen={reportes.data}
             loading={reportes.loading || coordinaciones.loading}
             error={reportes.error}
             onReintentar={reportes.refetch}
-            /* Al tablero de reportes DEL PROTOCOLO de esa fila, con la pestaña ya abierta —
-               `/coordinacion/pacientes/<código>?tab=reportes`. Ahí es donde el reporte se mueve de
-               etapa; abrir la visita sería dejar a la persona a un paso todavía. */
-            onOpenReportes={onNavigate && ((protocolId) => onNavigate('track', 'protocolos', { protocolId, protocolTab: 'reportes' }))}
             onOpenPatient={abrirFicha}
+            /* El pie lleva a `Coordinación › Reportes` sin estudio elegido (handoff §6.4). Antes cada
+               FILA navegaba al tablero de su protocolo, porque Coordinación no tenía una pantalla de
+               reportes; ahora la fila despliega y el pie es el que va a la pantalla. */
+            filasEnDestino={filasEnReportes}
+            nombreDestino={nombreReportes}
+            onVerTodo={onNavigate && (() => onNavigate(DESTINO_REPORTES.moduleKey, DESTINO_REPORTES.subKey))}
+            canOperate={puedeMoverReportes}
+            accentSolid={module.accentSolid}
+            /* Mover un reporte puede sacar una visita de «item vencido»: el KPI de al lado lo cuenta. */
+            onMovido={alerts.refetch}
             /* `ReportesCard` no se considera vacía con un `.length > 0` crudo: usa `esReportePendiente`
                (el procedimiento está realizado y el reporte no llegó a `evolucionado`; ver esa
                función en `estados.ts`, la MISMA que usa la tarjeta puertas adentro). Comparar acá
@@ -756,10 +863,12 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
           visitId={visitaAbierta}
           accent={accent}
           onClose={() => setVisitaAbierta(null)}
-          /* Lo que se hace en el modal puede cerrar la solicitud o mover la visita, así que las dos
-             tarjetas que dependen de eso se refrescan al volver. Las otras dos no: sus datos no los
-             toca este modal, y refetchearlas de más haría parpadear media pantalla al cerrar. */
-          onChanged={() => { solicitudes.refetch(); upcoming.refetch() }}
+          /* Lo que se hace en el modal puede cerrar la solicitud, mover la visita o mover un reporte
+             (el panel de reportes vive adentro de la visita), así que las tres tarjetas que dependen
+             de eso se refrescan al volver. Las demás no: sus datos no los toca este modal, y
+             refetchearlas de más haría parpadear media pantalla al cerrar. Reportes se sumó el
+             2026-10-04, con la tarjeta nueva: sin esto quedaba vieja hasta recargar. */
+          onChanged={() => { solicitudes.refetch(); upcoming.refetch(); reportes.refetch() }}
           /* El mismo gesto que ya tienen las filas: `abrirFicha` cae solo a `undefined` sin
              `onNavigate`, y ahí el encabezado del modal degrada a texto pelado. */
           onOpenPatient={abrirFicha}

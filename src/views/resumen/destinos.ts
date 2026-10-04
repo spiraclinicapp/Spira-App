@@ -60,6 +60,13 @@ export const DESTINO_TAREAS: Destino = { moduleKey: 'track', subKey: 'tareas' }
  */
 export const DESTINO_VISITAS: Destino = { moduleKey: 'track', subKey: 'visitas' }
 
+/**
+ * Reportes pendientes, una fila por paciente (desde el 2026-10-04). Lo apunta el pie de la tarjeta de
+ * reportes del Resumen. La key NO es 'reportes' —ésa es Estadísticas— y por eso conviene que viva
+ * escrita una sola vez: confundirlas no falla, lleva a la pantalla equivocada.
+ */
+export const DESTINO_REPORTES: Destino = { moduleKey: 'track', subKey: 'reportes-pendientes' }
+
 export const KPI_DESTINOS: Record<KpiKey, Destino> = {
   protocolos: { moduleKey: 'track', subKey: 'protocolos' },
   pacientes: { moduleKey: 'track', subKey: 'protocolos' },
