@@ -5,6 +5,40 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
+## Coordinación · Reportes: acotar la consulta al trabajo abierto
+
+- **Qué:** que `useReportesPendientes` (`data/reportStatus.ts`) traiga en dos pasos: los reportes NO
+  evolucionados → sus `visit_id` → todos los reportes de esas visitas (la barra por paciente necesita
+  los evolucionados de la misma visita, así que filtrar por `stage` a secas la rompe).
+- **Por qué:** desde `docs/plan-reportes-pendientes.md` la consulta se pagina (`todasLasPaginas`), así
+  que ya no pierde filas en el tope de 1.000 de PostgREST; pero el Resumen y el submódulo bajan el
+  histórico entero de reportes evolucionados, que crece miles por año y nadie mira.
+- **Pros:** peso acotado a lo que está en juego.
+- **Contras:** dos viajes, un `.in('visit_id', …)` que puede ser largo, y un `count` aparte para el
+  «N de M» del widget.
+- **Contexto:** `/plan-eng-review` del 2026-10-03 (9A + la segunda opinión). ~690 filas ese día.
+- **Empezar por:** medir filas y tiempo de carga del Resumen con sesión (red del navegador).
+- **Depende de / bloqueado por:** PR1 del plan. Umbral: ~3.000 filas o > 1 s de carga.
+- **Prioridad:** P3.
+
+---
+
+## Coordinación · Reportes: rotular las continuaciones
+
+- **Qué:** sumar `origin_visit_code` / `origin_kind` al final de `v_protocol_report_status` (como ya los
+  tiene `v_track_visits` desde la 0144) para que la fila de una continuación diga «V3 · cont.».
+- **Por qué:** una continuación es una VNP sin `visit_def_id`; sin el origen, el trabajo diferido de una
+  V3 se lee en Reportes pendientes como una visita suelta («VNP», `KIND_SHORT`).
+- **Pros:** la coordinadora reconoce de qué visita viene el informe.
+- **Contras:** migración aditiva (va primero) con `create or replace view`: repetir el `with
+  (security_invoker = true)` y sondear `reloptions` (gotcha conocido).
+- **Contexto:** segunda opinión del `/plan-eng-review` del 2026-10-03; quedó como límite conocido del PR1.
+- **Empezar por:** la definición vigente de la vista en `supabase/migrations/0144_*.sql`.
+- **Depende de / bloqueado por:** PR1 del plan.
+- **Prioridad:** P3.
+
+---
+
 ## Farmacia · Recepción: saltar pasos del asistente deja los lotes sin cuadrar
 
 - **Qué:** que saltar a un paso anterior del asistente de recepción no permita volver adelante con los
