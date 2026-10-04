@@ -78,6 +78,8 @@ export interface DispensationLineRow {
   id: string
   medication_id: string
   quantity: number
+  /** El lote del renglón. Lo pide `REQUEST_COLS` desde la 0151 (para corregir el lote). */
+  lot_id?: string
   lot_number: string | null
   expiry_date: string | null
   medication: { name: string } | null

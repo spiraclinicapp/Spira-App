@@ -1,3 +1,4 @@
+import { supabase } from '../../lib/supabase'
 import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import { pharmaErrorMessage } from './errors'
 
@@ -8,7 +9,7 @@ import { pharmaErrorMessage } from './errors'
  * quién. Es lo que el comprobante muestra como «Corregida». La fase 1 sólo escribe `constancia`; los
  * otros tipos son de las fases 2 y 3 y ya están en el check de la tabla.
  */
-export type TipoCorreccion = 'constancia' | 'kits_ip' | 'renglon_cantidad' | 'renglon_alta' | 'renglon_baja'
+export type TipoCorreccion = 'constancia' | 'kits_ip' | 'renglon_cantidad' | 'renglon_lote' | 'renglon_alta' | 'renglon_baja'
 
 /** Lo que `antes` / `despues` guardan para una corrección de constancia (0149 §2). */
 export interface ArchivoCorregido {
@@ -18,15 +19,29 @@ export interface ArchivoCorregido {
   mime_type: string
 }
 
-/** Fila de `dispensation_corrections` (0149). */
+/** Lo que guardan las correcciones de un renglón (0151 §4). En una baja, `despues` sólo trae la cantidad 0. */
+export interface RenglonCorregido {
+  medication_id: string
+  medicamento: string
+  lot_id?: string
+  lote?: string
+  cantidad: number
+}
+
+/** Lo que guarda una corrección de kits (0151 §4). `kits` null = la entrega no los había declarado. */
+export interface KitsCorregidos {
+  kits: number | null
+}
+
+/** Fila de `dispensation_corrections` (0149). La forma de `antes`/`despues` depende de `tipo`. */
 export interface CorreccionRow {
   id: string
   dispensation_id: string
   request_id: string
   tipo: TipoCorreccion
-  /** `null` = no había nada (p. ej. la constancia que faltaba en una entrega anterior a la 0071). */
-  antes: ArchivoCorregido | null
-  despues: ArchivoCorregido
+  /** `null` = no había nada (la constancia que faltaba, o un renglón agregado). */
+  antes: ArchivoCorregido | RenglonCorregido | KitsCorregidos | null
+  despues: ArchivoCorregido | RenglonCorregido | KitsCorregidos
   motivo_codigo: string
   motivo_texto: string | null
   /** Copiado al corregir: Coordinación no puede leer `users`. */
@@ -57,6 +72,39 @@ export function useCorreccionesDeEntregas(requestIds: readonly string[]) {
     [ids.join(',')],
     (e) => pharmaErrorMessage(e.code, e.message),
   )
+}
+
+/** Los motivos de Farmacia al corregir renglones o kits (0151, spec D6). */
+export type MotivoCorreccionFarmacia =
+  'cantidad_mal_registrada' | 'medicamento_equivocado' | 'falto_registrar' | 'kits_mal_declarados' | 'otro'
+
+/** Un cambio sobre los renglones de una entrega, como lo recibe `corregir_entrega_farmacia` (0151 §4). */
+export type CambioEntrega =
+  | { op: 'cantidad'; item_id: string; cantidad: number }
+  | { op: 'lote'; item_id: string; lot_id: string }
+  | { op: 'quitar'; item_id: string }
+  | { op: 'agregar'; medication_id: string; lot_id: string; cantidad: number }
+
+/**
+ * Corrige una entrega ya hecha (0151, `corregir_entrega_farmacia`): sólo el líder de Farmacia. Todo en
+ * una llamada y una transacción, con un motivo: o entra la corrección entera o no entra nada. El stock
+ * se compensa en el libro y cada cambio queda asentado. `kits` null = no se tocan.
+ */
+export async function corregirEntregaFarmacia(
+  dispensationId: string,
+  cambios: CambioEntrega[],
+  kits: number | null,
+  motivo: MotivoCorreccionFarmacia,
+  motivoTexto: string | null,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('corregir_entrega_farmacia', {
+    p_dispensation_id: dispensationId,
+    p_cambios: cambios,
+    p_kits: kits,
+    p_motivo: motivo,
+    p_motivo_texto: motivoTexto,
+  })
+  return { error: error ? pharmaErrorMessage(error.code, error.message) : null }
 }
 
 /** Una constancia vigente sin marcar como impresa, de un pedido ya entregado (para la campana). */

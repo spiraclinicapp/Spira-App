@@ -95,7 +95,9 @@ const REQUEST_COLS =
   // `delivered_by_name` es de la 0119 (aplicada en prod el 2026-09-13): el comprobante de la visita
   // dice quién entregó. Una columna más en un embed que ya existía: no toca FKs.
   'dispensations:dispensations(id, status, correlative_number, dispensation_code, daily_number, delivered_at, delivered_by_name, ip_kits, ' +
-    'items:dispensation_items(id, medication_id, quantity, lot_number, expiry_date, medication:medications(name))), ' +
+    // `lot_id` para «Corregir entrega» (0151): cambiar el lote necesita saber cuál es. Una columna más en
+    // un embed que ya existía: no toca FKs.
+    'items:dispensation_items(id, medication_id, quantity, lot_id, lot_number, expiry_date, medication:medications(name))), ' +
   'ip_documents:dispensation_ip_documents(id, storage_path, file_name, mime_type, size_bytes, uploaded_at, superseded_at, printed_at, printed_by), ' +
   // `habilitaciones` son de la 0124: sin ella aplicada, PostgREST no encuentra la relación y voltea la
   // consulta ENTERA (PGRST200). Por eso la 0124 va antes del deploy. Calificada por su FK (lección 0076).

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { CorreccionRow } from '../../data/pharma'
+import type { CorreccionRow, RenglonCorregido } from '../../data/pharma'
 import type { DispensationRequestRow } from '../../data/pharma/dispensationModel'
 import {
+  cambiosDeEdicion,
   constanciasAReimprimir,
+  edicionInicial,
   entregaCorregible,
   etiquetaMotivo,
   lineaDeCorreccion,
@@ -93,7 +95,7 @@ describe('lineaDeCorreccion', () => {
   it('un reemplazo cuenta los dos archivos y deja abrir el anterior', () => {
     const l = lineaDeCorreccion(correccion({}))
     expect(l.titulo).toBe('Constancia reemplazada')
-    expect(l.archivos).toBe('vieja.pdf → nueva.pdf')
+    expect(l.detalle).toBe('vieja.pdf → nueva.pdf')
     expect(l.quien.startsWith('Lautaro Molina · ')).toBe(true)
     expect(l.anterior).toEqual({ storagePath: 'p/r/a.pdf', nombre: 'vieja.pdf', mime: 'application/pdf' })
   })
@@ -101,7 +103,7 @@ describe('lineaDeCorreccion', () => {
   it('la que faltaba no inventa un «antes»', () => {
     const l = lineaDeCorreccion(correccion({ antes: null }))
     expect(l.titulo).toBe('Se cargó la constancia que faltaba')
-    expect(l.archivos).toBe('nueva.pdf')
+    expect(l.detalle).toBe('nueva.pdf')
     expect(l.anterior).toBeNull()
   })
 
@@ -187,5 +189,105 @@ describe('constanciasAReimprimir', () => {
 
   it('sin código de visita no escribe un separador suelto', () => {
     expect(constanciasAReimprimir([fila({ uploaded_at: '2026-10-04T14:00:00+00:00', delivered_at: ENTREGA, visit_code: null })])[0].detalle).toBe('N° 97')
+  })
+})
+
+/* —— Fase 2 (0151): Farmacia corrige renglones y kits —— */
+
+describe('lineaDeCorreccion, los tipos de la fase 2', () => {
+  const r = (x: { lote?: string; cantidad: number }): RenglonCorregido => ({ medication_id: 'm', medicamento: 'Salbutamol', ...x })
+  it('cantidad: antes → después, con el lote', () => {
+    const l = lineaDeCorreccion(correccion({ tipo: 'renglon_cantidad', antes: r({ lote: 'L1', cantidad: 5 }), despues: r({ lote: 'L1', cantidad: 3 }) }))
+    expect([l.titulo, l.detalle, l.anterior]).toEqual(['Cantidad corregida · Salbutamol', '5 → 3 · lote L1', null])
+  })
+  it('lote: los dos números y la cantidad', () => {
+    const l = lineaDeCorreccion(correccion({ tipo: 'renglon_lote', antes: r({ lote: 'L1', cantidad: 3 }), despues: r({ lote: 'L2', cantidad: 3 }) }))
+    expect([l.titulo, l.detalle]).toEqual(['Lote corregido · Salbutamol', 'L1 → L2 · x3'])
+  })
+  it('alta y baja', () => {
+    expect(lineaDeCorreccion(correccion({ tipo: 'renglon_alta', antes: null, despues: r({ lote: 'L2', cantidad: 2 }) })).detalle).toBe('x2 · lote L2')
+    const baja = lineaDeCorreccion(correccion({ tipo: 'renglon_baja', antes: r({ lote: 'L2', cantidad: 2 }), despues: r({ cantidad: 0 }) }))
+    expect([baja.titulo, baja.detalle]).toEqual(['Se quitó · Salbutamol', 'x2 · lote L2 · no se entregó'])
+  })
+  it('kits, en singular, en plural y sin declarar', () => {
+    expect(lineaDeCorreccion(correccion({ tipo: 'kits_ip', antes: { kits: 1 }, despues: { kits: 3 } })).detalle).toBe('1 kit → 3 kits')
+    expect(lineaDeCorreccion(correccion({ tipo: 'kits_ip', antes: { kits: null }, despues: { kits: 2 } })).detalle).toBe('sin declarar → 2 kits')
+  })
+})
+
+describe('cambiosDeEdicion', () => {
+  const renglones = [
+    { id: 'i1', medication_id: 'm1', nombre: 'Salbutamol', lot_id: 'L1', quantity: 5 },
+    { id: 'i2', medication_id: 'm2', nombre: 'Norgestrel', lot_id: 'L2', quantity: 2 },
+  ]
+  const base = () => edicionInicial(renglones, 1)
+
+  it('sin tocar nada: vacío, sin errores', () => {
+    expect(cambiosDeEdicion(renglones, base(), 1)).toEqual({ cambios: [], kits: null, errores: [], vacio: true })
+  })
+
+  it('una cantidad igual no viaja como cambio (ni con espacios)', () => {
+    const e = base(); e.renglones.i1.cantidad = ' 5 '
+    expect(cambiosDeEdicion(renglones, e, 1).vacio).toBe(true)
+  })
+
+  it('lote y cantidad del mismo renglón: primero el lote', () => {
+    const e = base(); e.renglones.i1 = { cantidad: '3', lotId: 'L9', quitar: false }
+    expect(cambiosDeEdicion(renglones, e, 1).cambios).toEqual([
+      { op: 'lote', item_id: 'i1', lot_id: 'L9' },
+      { op: 'cantidad', item_id: 'i1', cantidad: 3 },
+    ])
+  })
+
+  it('quitar manda sólo la baja, aunque se haya tocado la cantidad', () => {
+    const e = base(); e.renglones.i2 = { cantidad: '9', lotId: 'L2', quitar: true }
+    expect(cambiosDeEdicion(renglones, e, 1).cambios).toEqual([{ op: 'quitar', item_id: 'i2' }])
+  })
+
+  it('cantidades que no son un entero de 1 o más: error, con el nombre, y NO cuenta como vacío', () => {
+    for (const mal of ['0', '', '2.5', '-1', 'tres']) {
+      const e = base(); e.renglones.i1.cantidad = mal
+      const r = cambiosDeEdicion(renglones, e, 1)
+      expect(r.errores[0]).toMatch(/Salbutamol/)
+      // Si contara como vacío, el botón quedaría apagado sin decir por qué (pasó en el QA).
+      expect(r.vacio).toBe(false)
+    }
+  })
+
+  it('agregar: completo viaja al final, después de las bajas', () => {
+    const e = base()
+    e.renglones.i2.quitar = true
+    e.agregados = [{ key: 'a', medicationId: 'm2', lotId: 'L7', cantidad: '2' }]
+    expect(cambiosDeEdicion(renglones, e, 1).cambios).toEqual([
+      { op: 'quitar', item_id: 'i2' },
+      { op: 'agregar', medication_id: 'm2', lot_id: 'L7', cantidad: 2 },
+    ])
+  })
+
+  it('agregar uno que ya está (y no se quita): error', () => {
+    const e = base(); e.agregados = [{ key: 'a', medicationId: 'm1', lotId: 'L1', cantidad: '1' }]
+    expect(cambiosDeEdicion(renglones, e, 1).errores).toEqual(['Ese medicamento ya está en la entrega: corregí su cantidad.'])
+  })
+
+  it('agregar a medias: pide lo que falta', () => {
+    const e = base(); e.agregados = [{ key: 'a', medicationId: '', lotId: '', cantidad: '' }]
+    expect(cambiosDeEdicion(renglones, e, 1).errores).toEqual(['Elegí el medicamento que faltó registrar.'])
+    e.agregados = [{ key: 'a', medicationId: 'm3', lotId: '', cantidad: '1' }]
+    expect(cambiosDeEdicion(renglones, e, 1).errores).toEqual(['Elegí el lote de lo que faltó registrar.'])
+  })
+
+  it('kits: igual no cambia; distinto viaja; 0 es error', () => {
+    const e = base()
+    expect(cambiosDeEdicion(renglones, e, 1).kits).toBeNull()
+    e.kits = '3'
+    expect(cambiosDeEdicion(renglones, e, 1)).toMatchObject({ kits: 3, vacio: false })
+    e.kits = '0'
+    expect(cambiosDeEdicion(renglones, e, 1).errores).toEqual(['Los kits entregados tienen que ser 1 o más.'])
+  })
+
+  it('kits sin declarar: vacío no es un cambio', () => {
+    const e = edicionInicial(renglones, null)
+    expect(e.kits).toBe('')
+    expect(cambiosDeEdicion(renglones, e, null).vacio).toBe(true)
   })
 })

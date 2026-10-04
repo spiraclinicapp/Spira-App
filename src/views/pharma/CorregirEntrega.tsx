@@ -147,7 +147,7 @@ export function CorreccionesDeEntrega({ correcciones }: { correcciones: readonly
             return (
               <div key={l.id} style={detalle}>
                 <div style={{ fontWeight: 600, color: 'var(--spira-ink)' }}>{l.titulo}</div>
-                <div style={{ color: 'var(--spira-ink-soft)', overflowWrap: 'anywhere' }}>{l.archivos}</div>
+                <div style={{ color: 'var(--spira-ink-soft)', overflowWrap: 'anywhere' }}>{l.detalle}</div>
                 <div style={{ color: 'var(--spira-ink-soft)' }}>Motivo: {l.motivo}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--spira-muted)' }}>
                   <span style={{ flex: 1, minWidth: 0 }}>{l.quien}</span>

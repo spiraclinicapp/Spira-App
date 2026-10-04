@@ -3,8 +3,9 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../../../components/Icon'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import type { DispensationRequestRow, DispensationRow } from '../../../data/pharma'
-import { constanciaVigente, markIpDocumentPrinted, printIpDocument } from '../../../data/pharma'
+import { constanciaVigente, markIpDocumentPrinted, printIpDocument, useCorreccionesDeEntregas } from '../../../data/pharma'
 import { ConstanciaAcciones, ConstanciaVista } from '../ConstanciaIp'
+import { CorreccionesDeEntrega } from '../CorregirEntrega'
 import { pedidoParaReimprimir } from '../correccionEntregaModel'
 import { WARN_TINT } from '../panelDispensacion'
 import { ItemRow, fromDispensationLine } from './ItemRow'
@@ -29,6 +30,9 @@ export function PanelEntregada({ r, disp, onClose, onPrint, onChanged, onToast }
 }) {
   const constancia = constanciaVigente(r)
   const reimprimir = pedidoParaReimprimir(r)
+  // Se relee sola después de corregir: el cajón cambia a `PanelCorregirEntrega` y vuelve, y al volver
+  // este panel se monta de nuevo.
+  const correccionesQ = useCorreccionesDeEntregas([r.id])
   const [imprimiendo, setImprimiendo] = useState(false)
   const [errImpresion, setErrImpresion] = useState<string | null>(null)
 
@@ -55,6 +59,13 @@ export function PanelEntregada({ r, disp, onClose, onPrint, onChanged, onToast }
         {disp.delivered_at && (
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--spira-muted)', marginTop: 10 }}>
             Entregada el {formatDateTimeAR(disp.delivered_at)}
+          </div>
+        )}
+
+        {/* «Corregida» (0149/0151): la misma línea desplegable que el ticket de la visita. */}
+        {(correccionesQ.data ?? []).length > 0 && (
+          <div style={{ marginTop: 10, marginLeft: -12, marginRight: -12 }}>
+            <CorreccionesDeEntrega correcciones={correccionesQ.data ?? []} />
           </div>
         )}
 

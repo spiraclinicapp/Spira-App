@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from './Icon'
+import { modalesAbiertos } from './Modal'
+import { hayPopoverAbierto } from './usePopover'
 
 /**
  * Overlay deslizable desde la derecha (panel lateral). Espeja el vocabulario de `Modal` (backdrop
@@ -44,6 +46,8 @@ export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusR
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
+  /** Los `Modal` que ya estaban abiertos al montarse el cajón: uno más encima es una capa suya. */
+  const modalesAlMontar = useRef(modalesAbiertos())
 
   useEffect(() => {
     // Recordamos quién tenía el foco para devolvérselo al cerrar.
@@ -62,7 +66,15 @@ export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusR
     ;(initialFocusRef?.current ?? focusables()[0] ?? panel)?.focus()
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onClose(); return }
+      /* Esc cierra UNA capa: si hay un desplegable o un modal abierto encima, es de ellos y el cajón
+         queda. Este listener corre ANTES que el del popover (se registró antes), así que no alcanza
+         con que el popover frene la propagación: se pregunta, igual que `VisitDetail`. Sin esto, un
+         Esc para cerrar el desplegable del motivo cerraba el cajón con la corrección a medio cargar. */
+      if (e.key === 'Escape') {
+        if (e.defaultPrevented || hayPopoverAbierto() || modalesAbiertos() > modalesAlMontar.current) return
+        onClose()
+        return
+      }
       if (e.key !== 'Tab' || !panel) return
       const els = focusables()
       if (els.length === 0) { e.preventDefault(); panel.focus(); return }
