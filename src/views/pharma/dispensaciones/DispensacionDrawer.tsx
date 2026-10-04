@@ -21,6 +21,8 @@ import { VisorConstancia } from './VisorConstancia'
 import { PanelPreparando } from './PanelPreparando'
 import { PanelLista } from './PanelLista'
 import { PanelEntregada } from './PanelEntregada'
+import { PanelCorregirEntrega } from './PanelCorregirEntrega'
+import { useAuth } from '../../../lib/auth'
 import { PanelRechazada } from './PanelRechazada'
 import { ComprobanteImprimible } from './ComprobanteImprimible'
 
@@ -61,6 +63,12 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
   const [reasignando, setReasignando] = useState(false)
   const [viendoHistorial, setViendoHistorial] = useState(false)
   const [errAccion, setErrAccion] = useState<string | null>(null)
+  /** «Corregir entrega» (0151): el panel de la entregada pasa a modo corrección. */
+  const [corrigiendo, setCorrigiendo] = useState(false)
+  /** Corregir reescribe stock hacia atrás: es del líder (spec D2), como ajustar o anular una recepción.
+   *  La base lo vuelve a exigir; esto sólo evita ofrecer una acción que va a rechazar. */
+  const { hasMinRole } = useAuth()
+  const puedeCorregir = hasMinRole('pharma', 'leader')
 
   const disp = activeDispensation(r)
   const column = columnOf(r)
@@ -121,6 +129,13 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
     acciones.push({
       id: 'reasignar', label: 'Reasignar a otra persona', icon: 'users',
       onSelect: () => setReasignando(true),
+    })
+  }
+
+  if (column === 'entregada' && !rechazada && puedeCorregir && !corrigiendo) {
+    acciones.push({
+      id: 'corregir', label: 'Corregir entrega', icon: 'pencil',
+      onSelect: () => { setErrAccion(null); setCorrigiendo(true) },
     })
   }
 
@@ -242,6 +257,12 @@ export function DispensacionDrawer({ r: inicial, onClose: cerrarTablero, onChang
                 />
               ) : column === 'lista' && disp ? (
                 <PanelLista r={r} disp={disp} onChanged={refrescar} onClose={onClose} onPrint={() => window.print()} onToast={onToast} />
+              ) : column === 'entregada' && disp && corrigiendo ? (
+                <PanelCorregirEntrega
+                  r={r} disp={disp}
+                  onCancelar={() => setCorrigiendo(false)}
+                  onHecho={() => { setCorrigiendo(false); refrescar(); onToast('Entrega corregida · el stock ya se compensó') }}
+                />
               ) : column === 'entregada' && disp ? (
                 <PanelEntregada r={r} disp={disp} onClose={onClose} onPrint={() => window.print()} onChanged={refrescar} onToast={onToast} />
               ) : (

@@ -36,9 +36,12 @@ export function ModalKitsIp({ busy, error, onClose, onConfirm }: {
       accent="var(--spira-acc-deep-track)"
       accentSoft="color-mix(in srgb, var(--spira-acc-deep-track) 14%, transparent)"
     >
+      {/* Desde la 0151 los kits SÍ se corrigen después, pero no a la ligera: el líder de Farmacia, con
+          motivo, y queda asentado en el comprobante. Decir «no se puede» sería falso; decir sólo «se
+          puede» invitaría a confirmar sin mirar. */}
       <p style={{ fontSize: 13, color: 'var(--spira-ink-soft)', margin: '0 0 15px', lineHeight: 1.55 }}>
         Quedó en 0 y esta entrega lleva producto en investigación. El número descuenta del stock del
-        protocolo y <b>no se puede corregir después</b>: entregada es definitiva.
+        protocolo y <b>queda en el comprobante</b>: corregirlo después lo hace el líder de Farmacia, con motivo.
       </p>
 
       <label htmlFor="kits-ip" style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--spira-muted)', marginBottom: 6 }}>

@@ -156,3 +156,24 @@ dispensación» queda como está.
   entrega anterior, y no era cierto).
 - Pueden corregir la constancia quien coordina la visita y Farmacia (operador, con alcance): las
   mismas puertas que `attach_ip_document`. En la UI, por ahora, sólo desde el ticket de la visita.
+
+## Fase 2, como quedó (0150 + 0151)
+
+- **Dos migraciones**: la 0150 sólo agrega `correccion_entrega` al enum (va sola: un valor nuevo no se
+  usa en la misma transacción) y la 0151 trae todo lo demás. Se aplican en DOS corridas.
+- **Una llamada, un motivo, todo o nada**: `corregir_entrega_farmacia(dispensación, cambios, kits,
+  motivo)`. Los cambios: `cantidad` (≥ 1), `lote`, `quitar`, `agregar`. Cada uno deja su fila en
+  `dispensation_corrections`; el cambio de lote estrena el tipo `renglon_lote`.
+- **La marca `spira.correccion_entrega`** (sólo la prende la RPC, por transacción) abre los kits en
+  `guard_dispensation_immutable` —que además exige `current_user = 'postgres'`— y saltea el chequeo de
+  medicación ACTIVA de la 0050. Los chequeos de protocolo no ceden.
+- **Reportes y reposición** suman el tipo nuevo. La reposición lo fecha el día de la corrección, como
+  cualquier asiento compensatorio.
+- **No se quita** un renglón del que ya se pidió un saldo (el saldo quedaría sin origen): se corrige
+  la cantidad.
+- **UI**: «Corregir entrega» en el ⋯ del cajón de una entregada, sólo para el líder. El panel reemplaza
+  a `PanelEntregada` mientras se corrige. Lo editado se traduce a cambios con `cambiosDeEdicion`
+  (con test). El cajón muestra el historial «Corregida» igual que el ticket de la visita.
+- **De paso**: el cajón cerraba con CUALQUIER Esc, también el que cerraba un desplegable de adentro, y
+  se perdía la corrección a medio cargar. Ahora cierra una capa por vez (`Drawer.tsx`, el mismo patrón
+  que `VisitDetail`).
