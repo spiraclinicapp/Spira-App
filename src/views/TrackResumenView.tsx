@@ -26,7 +26,7 @@ import { setReportStage, useReportesPendientes } from '../data/reportStatus'
 import type { FilaReportePendiente } from '../data/reportStatus'
 import { esReportePendiente, esTarjeta, reporteTitulo } from './track/reportes/estados'
 import type { ReportStage } from './track/reportes/estados'
-import { agruparPorVisita, aplicarEtapas, claveReporte, textoPlazo } from './track/reportes/porPaciente'
+import { agruparPorVisita, aplicarEtapas, claveReporte, textoPlazo, totales } from './track/reportes/porPaciente'
 import {
   AccionDeReporte, BarraDeReportes, ConteoDeReportes, EstadoDeReporte, estiloPlazo,
 } from './track/reportes/piezasPaciente'
@@ -234,11 +234,12 @@ function VacioDelAmbito({ texto, onVerTodo }: { texto: string; onVerTodo: () => 
  *
  * · **Tres filas y no cinco** (12A). El mosaico está medido para `MAX_FILAS` (ver el comentario de la
  *   grilla, más abajo): cinco filas desplegables empujaban Pendientes fuera de la línea de flotación.
- * · **El pie es el `VerMas` de la casa** («Ver más (N)» + el nombre del submódulo al apuntarlo) y no
- *   «Ver los N pacientes en Reportes pendientes»: es el gesto que ya tienen Pendientes y Tareas al lado,
- *   y dos pies que hacen lo mismo no pueden verse distintos. N cuenta las filas que hay EN EL DESTINO
- *   y no se muestran acá (2A): la pantalla de Reportes no tiene ámbito, así que con «Lo mío» puede
- *   haber más allá que acá, y el número tiene que describir a dónde se va.
+ * · **El pie dice «Ver los N pacientes en Reportes»** (`PieDeReportes`), como el handoff, y NO es el
+ *   `VerMas` de Pendientes y Tareas. Salió con el `VerMas` en la #376 y el Director lo pidió como el
+ *   handoff (2026-10-04): acá el pie no dice «cuántas filas más», dice a cuántos pacientes vas a ver
+ *   allá. N son PACIENTES DISTINTOS EN EL DESTINO (2A): la pantalla de Reportes no tiene ámbito, así
+ *   que con «Lo mío» puede haber más allá que acá, y el número tiene que describir a dónde se va. El
+ *   nombre de la pantalla sale del registry («Reportes», como en el menú), no del texto del mock.
  * · **Ahora SÍ hay acciones en la tarjeta**, y es un cambio de criterio a sabiendas: la versión vieja no
  *   las tenía porque mover un reporte «no se hace de pasada». Lo que lo vuelve razonable es que la
  *   acción pasa por la misma RPC (`set_report_stage`, permiso y autor del lado del servidor) y que se
@@ -248,7 +249,7 @@ function VacioDelAmbito({ texto, onVerTodo }: { texto: string; onVerTodo: () => 
  * fila se queda en su lugar diciendo «Listo» hasta la próxima carga (la cabecera de `porPaciente.ts`
  * explica por qué la base decide qué se ve y lo actual cómo se ve).
  */
-function ReportesCard({ rows, origen, loading, error, onReintentar, onOpenPatient, filasEnDestino, nombreDestino, onVerTodo, vacioDelAmbito, canOperate, accentSolid, onMovido }: {
+function ReportesCard({ rows, origen, loading, error, onReintentar, onOpenPatient, pacientesEnDestino, nombreDestino, onVerTodo, vacioDelAmbito, canOperate, accentSolid, onMovido }: {
   /** Las filas del ÁMBITO elegido (Lo mío / Todo). */
   rows: FilaReportePendiente[]
   /**
@@ -260,8 +261,8 @@ function ReportesCard({ rows, origen, loading, error, onReintentar, onOpenPatien
   error: string | null
   onReintentar: () => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
-  /** Cuántas filas muestra la pantalla de Reportes (sin ámbito). */
-  filasEnDestino: number
+  /** Cuántos pacientes distintos muestra la pantalla de Reportes (sin ámbito). */
+  pacientesEnDestino: number
   nombreDestino: string | null
   onVerTodo?: () => void
   vacioDelAmbito?: ReactNode
@@ -287,7 +288,6 @@ function ReportesCard({ rows, origen, loading, error, onReintentar, onOpenPatien
   const resueltos = tarjetas.filter((r) => r.stage === 'evolucionado').length
   const pct = tarjetas.length === 0 ? 0 : Math.round((resueltos / tarjetas.length) * 100)
   const visibles = visitas.slice(0, MAX_FILAS)
-  const restantes = Math.max(0, filasEnDestino - visibles.length)
 
   const mover = async (r: FilaReportePendiente, destino: ReportStage) => {
     const clave = claveReporte(r)
@@ -407,10 +407,38 @@ function ReportesCard({ rows, origen, loading, error, onReintentar, onOpenPatien
           )}
         </div>
       </CuerpoDeTarjeta>
-      {onVerTodo && nombreDestino && visitas.length > 0 && (
-        <VerMas nombre={nombreDestino} restantes={restantes} onClick={onVerTodo} />
+      {onVerTodo && nombreDestino && visitas.length > 0 && pacientesEnDestino > 0 && (
+        <PieDeReportes pacientes={pacientesEnDestino} nombre={nombreDestino} onClick={onVerTodo} />
       )}
     </div>
+  )
+}
+
+/**
+ * El pie de la tarjeta de reportes (handoff §6.4): «Ver los N pacientes en Reportes» a lo ancho, con la
+ * flecha a la derecha. El texto ya dice a dónde va, así que no lleva el chip de destino del `VerMas`.
+ *
+ * Misma caja y mismo resaltado que los otros pies (`filaAncha`, `.spira-row-link`) y el mismo color:
+ * `--spira-acc-deep-track` y NO `--spira-primary`, aunque el handoff diga primary — en oscuro el primario
+ * daba 2,14:1 sobre la tarjeta (ver el comentario de `VerMas`).
+ */
+function PieDeReportes({ pacientes, nombre, onClick }: { pacientes: number; nombre: string; onClick: () => void }) {
+  const texto = pacientes === 1 ? `Ver el paciente en ${nombre}` : `Ver los ${pacientes} pacientes en ${nombre}`
+  return (
+    <button
+      type="button"
+      className="spira-row-link spira-no-press"
+      onClick={onClick}
+      style={{
+        ...filaAncha,
+        alignItems: 'center', justifyContent: 'space-between',
+        marginTop: 'auto', padding: '12px 20px',
+        fontSize: 13, fontWeight: 600, color: 'var(--spira-acc-deep-track)',
+      }}
+    >
+      {texto}
+      <Icon name="arrowRight" size={15} stroke={2.2} />
+    </button>
   )
 }
 
@@ -660,11 +688,12 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
   const nombreVisitas = nombreDeDestino(KPI_DESTINOS.visitas)
   const nombreTareas = nombreDeDestino(DESTINO_TAREAS)
   const nombreReportes = nombreDeDestino(DESTINO_REPORTES)
-  /* Cuántas filas va a mostrar la pantalla de Reportes: SIN ámbito, porque ella no lo tiene (2A). El
-     pie de la tarjeta cuenta lo que hay en el destino, no lo que queda del ámbito. */
-  const filasEnReportes = useMemo(() => {
+  /* Cuántos PACIENTES muestra la pantalla de Reportes: SIN ámbito, porque ella no lo tiene (2A). El pie
+     de la tarjeta cuenta lo que hay en el destino, no lo que queda del ámbito. Pacientes distintos y no
+     filas: el pie dice «pacientes», y uno con dos visitas pendientes es uno (`totales`). */
+  const pacientesEnReportes = useMemo(() => {
     const todas = reportes.data ?? []
-    return agruparPorVisita(todas, todas, Date.now()).length
+    return totales(agruparPorVisita(todas, todas, Date.now())).pacientes
   }, [reportes.data])
 
   /* CUÁNTAS DE LAS PRÓXIMAS SON TUYAS. Va en el SUBTÍTULO del KPI y no como KPI propio, aunque el
@@ -771,7 +800,7 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
             /* El pie lleva a `Coordinación › Reportes` sin estudio elegido (handoff §6.4). Antes cada
                FILA navegaba al tablero de su protocolo, porque Coordinación no tenía una pantalla de
                reportes; ahora la fila despliega y el pie es el que va a la pantalla. */
-            filasEnDestino={filasEnReportes}
+            pacientesEnDestino={pacientesEnReportes}
             nombreDestino={nombreReportes}
             onVerTodo={onNavigate && (() => onNavigate(DESTINO_REPORTES.moduleKey, DESTINO_REPORTES.subKey))}
             canOperate={puedeMoverReportes}
