@@ -42,7 +42,9 @@ export function tagDeReporte(row: FilaTag, now: number = Date.now()): TagReporte
   if (stage === 'evolucionado') return { texto: 'Evolucionado', tono: 'evolucionado', icono: 'check' }
   return isOverdue(row, now)
     ? { texto: 'Vencido', tono: 'vencido', icono: 'alertCircle' }
-    : { texto: 'Pendiente', tono: 'pendiente', icono: 'clock' }
+    // El rótulo de la etapa sale de `STAGE_META` («Sin descargar» desde el 2026-10-03) y no de un
+    // literal: con su propia copia, el modal y el tablero llamaban distinto a la misma etapa.
+    : { texto: STAGE_META.pendiente.label, tono: 'pendiente', icono: 'clock' }
 }
 
 /**

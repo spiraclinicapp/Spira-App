@@ -23,7 +23,7 @@ import { useMyTasks } from '../data/tareas'
 import { estaHecha } from './tareas/estados'
 import { TareasCard } from './resumen/TareasCard'
 import { useReportesPendientes } from '../data/reportStatus'
-import type { ReportStatusRow } from '../data/reportStatus'
+import type { FilaReportePendiente } from '../data/reportStatus'
 import { dueLabel, esReportePendiente, esTarjeta } from './track/reportes/estados'
 import type { TrackVisitRow } from '../data/visits'
 import { visitTitle } from '../lib/visits'
@@ -236,7 +236,7 @@ function VacioDelAmbito({ texto, onVerTodo }: { texto: string; onVerTodo: () => 
  * significa algo acá: cuántos de los reportes en juego ya están cerrados.
  */
 function ReportesCard({ rows, loading, error, onReintentar, onOpenReportes, onOpenPatient, vacioDelAmbito }: {
-  rows: ReportStatusRow[]
+  rows: FilaReportePendiente[]
   loading: boolean
   error: string | null
   onReintentar: () => void

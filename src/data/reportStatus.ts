@@ -1,5 +1,6 @@
 import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
+import { todasLasPaginas } from '../lib/paginas'
 import type { VisitKind } from '../lib/visitLabels'
 import type { TrackVisitRow } from './visits'
 
@@ -231,15 +232,43 @@ export function useSinMarcar() {
   )
 }
 
+/**
+ * Las columnas que leen «Reportes pendientes» (el submódulo y la tarjeta del Resumen): la mitad de las
+ * de la vista. Esta consulta trae los reportes de TODOS los estudios, evolucionados incluidos —la
+ * barra por paciente los necesita—, así que el peso de cada fila se multiplica por cientos.
+ */
+export const COLUMNAS_REPORTE_PENDIENTE = [
+  'visit_id', 'report_definition_id', 'report_name', 'procedure_name', 'platform', 'link',
+  'completed', 'due_at', 'stage', 'sort_order', 'procedure_order',
+  'protocol_id', 'protocol_code', 'patient_id', 'patient_code', 'patient_name',
+  'visit_code', 'visit_name', 'visit_kind', 'coordinator_id',
+] as const satisfies readonly (keyof ReportStatusRow)[]
+
+export type FilaReportePendiente = Pick<ReportStatusRow, (typeof COLUMNAS_REPORTE_PENDIENTE)[number]>
+
+/**
+ * PAGINADA (`todasLasPaginas`): PostgREST corta en 1.000 filas con 200 OK y el que pidió no se entera.
+ * El 2026-10-03 eran ~690 y crece con cada reporte —los evolucionados no se van—; con el orden viejo
+ * (`due_at` ascendente) lo primero en perderse habrían sido los pendientes que vencen más tarde y los
+ * que no tienen plazo, sin ningún aviso. Lo encontró la segunda opinión del plan
+ * (`docs/plan-reportes-pendientes.md`, 11A). El orden lo ponen las pantallas; acá sólo tiene que ser
+ * TOTAL para que las páginas no se pisen: el par visita + definición es único en la vista.
+ *
+ * Que baje el histórico entero sigue siendo una deuda: ver «acotar la consulta al trabajo abierto» en
+ * `TODOS.md`.
+ */
 export function useReportesPendientes() {
-  return useSupabaseQuery<ReportStatusRow[]>(
+  return useSupabaseQuery<FilaReportePendiente[]>(
     (c) =>
-      c
-        .from('v_protocol_report_status')
-        .select('*')
-        .eq('visita_iniciada', true)
-        .order('due_at', { ascending: true, nullsFirst: false })
-        .returns<ReportStatusRow[]>(),
+      todasLasPaginas((desde, hasta, conTotal) =>
+        c
+          .from('v_protocol_report_status')
+          .select(COLUMNAS_REPORTE_PENDIENTE.join(','), conTotal ? { count: 'exact' } : undefined)
+          .eq('visita_iniciada', true)
+          .order('visit_id', { ascending: true })
+          .order('report_definition_id', { ascending: true })
+          .range(desde, hasta)
+          .returns<FilaReportePendiente[]>()),
     [],
   )
 }
