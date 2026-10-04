@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
-import { formatBytes, openIpDocument } from '../../data/pharma'
+import { formatBytes } from '../../data/pharma'
 import type { IpDocumentRow } from '../../data/pharma'
 import { formatDateTimeAR } from '../../lib/dates'
 import type { Comprobante } from './comprobanteModel'
+import { VisorDocumento } from './VisorDocumento'
 
 /* El comprobante de un pedido de la visita: variante C («Ticket») del handoff
    `design_handoff_dispensacion_estado`. Papel blanco, N° grande, sello a la derecha y las dos
@@ -104,7 +105,8 @@ export function ComprobanteTicket({ c, concomitante, ip, onEnlace, busy }: {
 /**
  * La constancia del IP adentro del ticket: un renglón con el archivo y «Ver», y debajo el peso, cuándo
  * se cargó y, si ya se entregó, los kits. Reemplaza a la vista previa de 140px que usaba la sección:
- * en el comprobante lo que se lee es QUÉ papel es; para leerlo entero está «Ver».
+ * en el comprobante lo que se lee es QUÉ papel es; para leerlo entero está «Ver», que lo abre en
+ * `VisorDocumento` sin salir de la visita.
  *
  * «cargada» y no «firmada», como dice el mock: la base no sabe si una constancia está firmada. Y sin
  * «quién la subió»: `uploaded_by` es un uuid y Coordinación no puede leer `users` (pendiente del spec).
@@ -116,18 +118,15 @@ export function ConstanciaEnTicket({ doc, kits, reemplazo }: {
   /** El enlace «Reemplazar» / «No reemplazar», sólo sobre un pedido que todavía la acepta. */
   reemplazo: { activo: boolean; onToggle: () => void } | null
 }) {
-  const [err, setErr] = useState<string | null>(null)
-  async function ver() {
-    setErr(null)
-    setErr(await openIpDocument(doc.storage_path))
-  }
+  // «Ver» abre la constancia en una ventana encima de la visita, sin salir de Spira (`VisorDocumento`).
+  const [viendo, setViendo] = useState(false)
   const deKits = kits ? ` · ${kits} ${kits === 1 ? 'kit' : 'kits'}` : ''
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, color: 'var(--spira-ink)' }}>
         <Icon name="fileText" size={15} color="var(--spira-muted)" style={{ flex: '0 0 auto' }} />
         <span style={nombreTicket} title={doc.file_name}>{doc.file_name}</span>
-        <button type="button" className="spira-enlace-sobrio spira-no-press" onClick={() => void ver()} aria-label={`Ver la constancia ${doc.file_name}`}>
+        <button type="button" className="spira-enlace-sobrio spira-no-press" onClick={() => setViendo(true)} aria-label={`Ver la constancia ${doc.file_name}`}>
           <Icon name="eye" size={13} />
           Ver
         </button>
@@ -140,7 +139,15 @@ export function ConstanciaEnTicket({ doc, kits, reemplazo }: {
       <div style={{ fontSize: 11, color: 'var(--spira-muted)', marginTop: 4, paddingLeft: 24 }}>
         {formatBytes(doc.size_bytes)} · cargada {formatDateTimeAR(doc.uploaded_at)}{deKits}
       </div>
-      {err && <div role="alert" style={{ fontSize: 11.5, color: 'var(--spira-acc-deep-danger)', marginTop: 6, paddingLeft: 24 }}>{err}</div>}
+      {viendo && (
+        <VisorDocumento
+          doc={{
+            storagePath: doc.storage_path, nombre: doc.file_name, mime: doc.mime_type,
+            meta: `${formatBytes(doc.size_bytes)} · cargada ${formatDateTimeAR(doc.uploaded_at)}${deKits}`,
+          }}
+          onClose={() => setViendo(false)}
+        />
+      )}
     </div>
   )
 }

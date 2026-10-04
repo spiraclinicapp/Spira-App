@@ -6,6 +6,7 @@ import {
 } from '../../data/pharma'
 import type { IpDocumentRow } from '../../data/pharma'
 import { formatDateTimeAR } from '../../lib/dates'
+import { VisorDocumento } from './VisorDocumento'
 
 /**
  * Zona de carga de la constancia. Sugiere el PDF sin prohibir la imagen: el PDF impreso del IRT
@@ -153,21 +154,14 @@ export function ConstanciaVista({ doc, size, accent, onReemplazar }: {
     return () => { vivo = false }
   }, [doc.storage_path])
 
-  const [ampliarError, setAmpliarError] = useState<string | null>(null)
-
   /**
-   * Abre la constancia ENTERA en una pestaña nueva (solo hace falta en "chica": ahí el
-   * previsualizador recorta a 140px y esto es la única forma de ver el resto). Toda la maña del
-   * `window.open` —la pestaña en blanco antes del `await`, el `opener` a mano— vive en
-   * `openIpDocument`, que es también la que usa el botón "Abrir en pestaña" del cajón de Farmacia:
-   * es un contrato del navegador delicado y no conviene tenerlo escrito dos veces.
+   * La constancia ENTERA (solo hace falta en "chica": ahí el previsualizador recorta a 140px y esto
+   * es la única forma de ver el resto). Se abre en `VisorDocumento`, encima de lo que se estaba
+   * mirando, y no en una pestaña nueva: leer el papel no tiene por qué sacar a nadie de Spira
+   * (Director, 2026-10-04). La pestaña sigue a un clic, adentro del visor.
    */
-  async function verEntero() {
-    // Limpia el error anterior mientras la URL nueva está en vuelo: dejarlo en pantalla haría
-    // pensar que el clic recién dado también falló.
-    setAmpliarError(null)
-    setAmpliarError(await openIpDocument(doc.storage_path))
-  }
+  const [ampliada, setAmpliada] = useState(false)
+  const verEntero = () => setAmpliada(true)
 
   const alto = size === 'grande' ? 348 : 140
   const esPdf = doc.mime_type === 'application/pdf'
@@ -230,7 +224,7 @@ export function ConstanciaVista({ doc, size, accent, onReemplazar }: {
            hover sale GRATIS de la micro-interacción global de tokens.css, así que acá no hace
            falta (ni corresponde) escribir ningún :hover a mano. `stopPropagation` porque ahora la
            tarjeta entera también tiene `onClick={verEntero}` — sin cortar el burbujeo, un clic acá
-           dispara las dos veces (dos `ipDocumentUrl`, dos intentos de pestaña). */}
+           dispara las dos veces. */}
         {size === 'chica' && (
           <button
             type="button"
@@ -247,8 +241,14 @@ export function ConstanciaVista({ doc, size, accent, onReemplazar }: {
           </button>
         )}
       </div>
-      {ampliarError && (
-        <div style={{ fontSize: 11.5, color: 'var(--spira-acc-deep-danger)', marginTop: 6 }} role="alert">{ampliarError}</div>
+      {ampliada && (
+        <VisorDocumento
+          doc={{
+            storagePath: doc.storage_path, nombre: doc.file_name, mime: doc.mime_type,
+            meta: `${formatBytes(doc.size_bytes)} · subido ${formatDateTimeAR(doc.uploaded_at)}`,
+          }}
+          onClose={() => setAmpliada(false)}
+        />
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginTop: 9, padding: '10px 12px', border: '1px solid var(--spira-line)', borderRadius: 12, background: 'var(--spira-white)' }}>
         <span style={{ flex: '0 0 auto', width: 32, height: 32, borderRadius: 9, background: `${accent}1F`, display: 'grid', placeItems: 'center' }}>

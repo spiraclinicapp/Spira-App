@@ -12,7 +12,6 @@ import {
   solicitarHabilitacion,
   quitarHabilitacion,
   uploadReceta,
-  openIpDocument,
   motivoNoHabilitado,
   cantidadConPartes,
   partesDeRenglon,
@@ -48,6 +47,8 @@ import { FormularioOtro } from './FormularioOtro'
 import { SeccionIp } from './SeccionIp'
 import { contenidoSeccionIp, esVisitaHistorica, mostrarAvisoIp, ofrecerRegistrarIp } from './seccionIpModel'
 import { HistorialEntregas } from './HistorialEntregas'
+import { VisorDocumento } from './VisorDocumento'
+import type { DocumentoAVer } from './VisorDocumento'
 import { ComprobanteTicket, ConstanciaEnTicket, nombreTicket, renglonTicket } from './ComprobanteTicket'
 import { comprobanteDe, fraseSinEntrega, mostrarSeccionIp, pedidosConComprobante, rechazoParaAvisar } from './comprobanteModel'
 import { vistaVisitaCerrada } from './visitaCerradaModel'
@@ -631,11 +632,13 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     reqQ.refetch(); stockQ.refetch(); ctxQ.refetch()
   }
 
-  /** Abre la receta en una pestaña: la misma maña de `window.open` que la constancia del IP. */
-  async function verReceta(path: string) {
-    setErr(null)
-    const e = await openIpDocument(path)
-    if (e) setErr(e)
+  /** La receta de un «Otro» abierta en `VisorDocumento`, como la constancia: sin salir de la visita. */
+  const [recetaViendo, setRecetaViendo] = useState<DocumentoAVer | null>(null)
+  function verReceta(h: HabilitacionRow) {
+    setRecetaViendo({
+      storagePath: h.receta_path, nombre: h.receta_file_name, mime: h.receta_mime,
+      meta: `Receta de ${h.medication?.name ?? 'el medicamento'} · ${formatBytes(h.receta_size)}`,
+    })
   }
 
   /**
@@ -993,7 +996,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
                 <div style={{ ...lineaBajoRenglon, padding: '3px 0 0' }}>
                   <Icon name="fileText" size={13} color="var(--spira-muted)" style={{ flex: '0 0 auto' }} />
                   <span>Con receta · Farmacia lo habilita al tomar el pedido ·</span>
-                  <button type="button" onClick={() => void verReceta(h.receta_path)} style={verRecetaBtn(accent)}>Ver la receta</button>
+                  <button type="button" onClick={() => verReceta(h)} style={verRecetaBtn(accent)}>Ver la receta</button>
                 </div>
               ) : (
                 <div style={{ ...lineaBajoRenglon, padding: '3px 0 0' }}>
@@ -1093,6 +1096,7 @@ export function VisitDispensationPanel({ visit, accent, readOnly }: {
     >
         <>
           {err && <div style={errBox}>{err}</div>}
+          {recetaViendo && <VisorDocumento doc={recetaViendo} onClose={() => setRecetaViendo(null)} />}
 
           {rechazo && (
             <div role="status" style={rechazoStyle}>
