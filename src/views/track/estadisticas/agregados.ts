@@ -170,8 +170,21 @@ export interface Tiempos {
   cobertura: { espera: number; atencion: number; estadia: number }
 }
 
+/**
+ * Por debajo de esto, una atención no se promedia (Director, 2026-10-08). Con los datos reales, las
+ * atenciones de 0 y 1 min eran visitas cargadas después, con "Iniciar atención" y "Lista" marcados
+ * uno atrás del otro — no visitas de un minuto. Sumadas, bajaban el promedio que se usa para estimar
+ * cuánto dura una visita (LTS daba 29 min con una única atención real de 1 h 27). Quedan afuera
+ * igual que una visita sin sellos: no suman a `cobertura.atencion`, así la tabla dice "sobre N".
+ * Sólo la atención: una espera de 0 min es perfectamente real (el paciente pasó de una).
+ */
+export const ATENCION_MINIMA_MIN = 5
+
 function tiemposDe(vs: readonly VisitaEstadistica[]): Tiempos {
-  const d = vs.map(duracionesDe)
+  const d = vs.map(duracionesDe).map((x) => ({
+    ...x,
+    atencion: x.atencion != null && x.atencion < ATENCION_MINIMA_MIN ? null : x.atencion,
+  }))
   return {
     visitas: vs.length,
     esperaProm: promedioMin(d.map((x) => x.espera)),

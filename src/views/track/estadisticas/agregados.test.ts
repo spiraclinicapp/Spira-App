@@ -148,6 +148,19 @@ describe('porVisita', () => {
     expect(r.filas[0].porVisita[0].cobertura).toEqual({ espera: 0, atencion: 1, estadia: 0 })
   })
 
+  it('una atención de menos de 5 min no se promedia (horarios marcados juntos al cargar después)', () => {
+    const rows = [
+      atendida({ ready_at: '2026-09-10T10:00:00Z' }), // 0 min
+      atendida({ ready_at: '2026-09-10T10:04:00Z' }), // 4 min
+      atendida({ ready_at: '2026-09-10T10:05:00Z' }), // 5 min: entra
+      atendida({ ready_at: '2026-09-10T11:27:00Z' }), // 87 min
+    ]
+    const v = porVisita(rows, RANGO).filas[0].porVisita[0]
+    expect(v.visitas).toBe(4)
+    expect(v.atencionProm).toBe(46) // (5 + 87) / 2
+    expect(v.cobertura.atencion).toBe(2)
+  })
+
   it('promedia la MISMA visita del cuadro dentro de un estudio, y no la mezcla con la de otro estudio', () => {
     const rows = [
       atendida({ protocol_id: 'p1', protocol_code: 'ACT', visit_name: 'V5', ready_at: '2026-09-10T10:20:00Z' }),

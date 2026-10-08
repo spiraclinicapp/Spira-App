@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Icon } from '../../../components/Icon'
 import { formatNumberAR, formatShareAR, sharePct } from '../../../lib/numbers'
-import { formatMinutosLargo } from './agregados'
+import { ATENCION_MINIMA_MIN, formatMinutosLargo } from './agregados'
 import type { FilaPorEstudio, FilaPorVisitaDeEstudio, ResultadoPorVisita, Tiempos } from './agregados'
 import {
   barFill, barTrack, chevron, chevronAbierto, dash, filaDetalle, filaExpandible, subLine, tabla, tablaWrap, td, tdNum, tfootTd, th,
@@ -130,6 +130,10 @@ export function TablaPorVisita({ r }: { r: ResultadoPorVisita }) {
           </tr>
         </tfoot>
       </table>
+      <div style={{ ...subLine, padding: '10px 16px 12px', lineHeight: 1.5, marginTop: 0 }}>
+        «Sobre N» = de cuántas visitas sale el promedio. La atención no cuenta las de menos de {ATENCION_MINIMA_MIN} min:
+        suelen ser visitas cargadas después, con los dos horarios marcados juntos.
+      </div>
     </div>
   )
 }
