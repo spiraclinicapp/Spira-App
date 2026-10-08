@@ -84,10 +84,6 @@ export const filaDetalle: CSSProperties = { background: 'var(--spira-surface)' }
 
 export const detalleInner: CSSProperties = { padding: '14px 16px 16px 46px', display: 'flex', flexDirection: 'column', gap: 9 }
 
-export const detalleLinea: CSSProperties = {
-  display: 'grid', gridTemplateColumns: '1fr 120px 90px', gap: 10, alignItems: 'center', fontSize: 12.5,
-}
-
 /** La caja de aviso ámbar (informe cortado por el techo de filas). */
 export const avisoCaja: CSSProperties = {
   display: 'flex', gap: 9, alignItems: 'flex-start', margin: '0 0 16px', padding: '11px 14px',

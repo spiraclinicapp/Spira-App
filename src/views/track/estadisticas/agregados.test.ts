@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMinutosLargo, porEstudio, porTipo } from './agregados'
+import { formatMinutosLargo, porEstudio, porVisita } from './agregados'
 import type { VisitaEstadistica } from './agregados'
 import type { Rango } from './rango'
 
@@ -111,14 +111,17 @@ describe('porEstudio', () => {
   })
 })
 
-describe('porTipo', () => {
+describe('porVisita', () => {
+  const atendida = (over: Partial<VisitaEstadistica>) =>
+    fila({ real_date: '2026-09-10', attended_at: '2026-09-10T10:00:00Z', ready_at: '2026-09-10T10:30:00Z', ...over })
+
   it('sólo considera visitas ATENDIDAS del período (ignora agendadas a futuro)', () => {
     const rows = [
       fila({ real_date: '2026-09-10', arrived_at: '2026-09-10T10:00:00Z' }),
       fila({ real_date: null, estimated_date: '2026-09-20' }), // agendada, sin atender
     ]
-    const r = porTipo(rows, RANGO)
-    expect(r.totalVisitas).toBe(1)
+    const r = porVisita(rows, RANGO)
+    expect(r.visitas).toBe(1)
   })
 
   it('calcula espera/atención/estadía sólo cuando están los dos sellos que hacen falta', () => {
@@ -131,54 +134,69 @@ describe('porTipo', () => {
         left_at: '2026-09-10T11:10:00Z',
       }),
     ]
-    const r = porTipo(rows, RANGO)
+    const r = porVisita(rows, RANGO)
     expect(r.esperaProm).toBe(20)
     expect(r.atencionProm).toBe(40)
     expect(r.estadiaProm).toBe(70)
     expect(r.estadiaMax).toBe(70)
   })
 
-  it('una visita sin arrived_at no aporta a espera ni estadía, pero sí a atención si tiene attended_at/ready_at', () => {
-    const rows = [
-      fila({
-        real_date: '2026-09-10',
-        arrived_at: null,
-        attended_at: '2026-09-10T10:20:00Z',
-        ready_at: '2026-09-10T11:00:00Z',
-        left_at: null,
-      }),
-    ]
-    const r = porTipo(rows, RANGO)
+  it('una visita sin arrived_at no aporta a espera ni estadía, y la cobertura lo cuenta', () => {
+    const r = porVisita([atendida({ arrived_at: null, left_at: null })], RANGO)
     expect(r.esperaProm).toBeNull()
-    expect(r.atencionProm).toBe(40)
-    expect(r.estadiaProm).toBeNull()
-    expect(r.filas[0].cobertura).toEqual({ espera: 0, atencion: 1, estadia: 0 })
+    expect(r.atencionProm).toBe(30)
+    expect(r.filas[0].porVisita[0].cobertura).toEqual({ espera: 0, atencion: 1, estadia: 0 })
   })
 
-  it('agrupa por tipo en el orden fijo del recorrido clínico, y sólo lista los tipos presentes', () => {
+  it('promedia la MISMA visita del cuadro dentro de un estudio, y no la mezcla con la de otro estudio', () => {
     const rows = [
-      fila({ role: 'screening', real_date: '2026-09-05', visit_name: 'V0' }),
-      fila({ kind: 'vnp', role: null, real_date: '2026-09-06', visit_name: null }),
+      atendida({ protocol_id: 'p1', protocol_code: 'ACT', visit_name: 'V5', ready_at: '2026-09-10T10:20:00Z' }),
+      atendida({ protocol_id: 'p1', protocol_code: 'ACT', visit_name: 'V5', ready_at: '2026-09-10T10:40:00Z' }),
+      atendida({ protocol_id: 'p2', protocol_code: 'LTS', visit_name: 'V5', ready_at: '2026-09-10T11:30:00Z' }),
     ]
-    const r = porTipo(rows, RANGO)
-    expect(r.filas.map((f) => f.tipo)).toEqual(['screening', 'no_programada'])
+    const r = porVisita(rows, RANGO)
+    const act = r.filas.find((f) => f.protocolCode === 'ACT')!
+    expect(act.porVisita.map((v) => [v.label, v.visitas, v.atencionProm])).toEqual([['V5', 2, 30]])
+    expect(r.filas.find((f) => f.protocolCode === 'LTS')!.porVisita[0].atencionProm).toBe(90)
   })
 
-  it('desglosa por estudio dentro de un tipo, ordenado por más visitas primero', () => {
+  it('un retest de la V5 no se promedia con la V5', () => {
     const rows = [
-      fila({ protocol_id: 'p1', protocol_code: 'SCH-1', real_date: '2026-09-05', attended_at: '2026-09-05T10:00:00Z', ready_at: '2026-09-05T10:30:00Z' }),
-      fila({ protocol_id: 'p2', protocol_code: 'SCH-2', real_date: '2026-09-06', attended_at: '2026-09-06T10:00:00Z', ready_at: '2026-09-06T10:20:00Z' }),
-      fila({ protocol_id: 'p2', protocol_code: 'SCH-2', real_date: '2026-09-07', attended_at: '2026-09-07T10:00:00Z', ready_at: '2026-09-07T10:40:00Z' }),
+      atendida({ visit_name: 'V5' }),
+      atendida({ kind: 'retest', role: null, visit_name: 'V5' }),
     ]
-    const r = porTipo(rows, RANGO)
-    expect(r.filas[0].porEstudio.map((e) => e.protocolCode)).toEqual(['SCH-2', 'SCH-1'])
-    expect(r.filas[0].porEstudio[0].atencionProm).toBe(30) // promedio de 20 y 40
+    const r = porVisita(rows, RANGO)
+    expect(r.filas[0].porVisita.map((v) => v.label)).toEqual(['V5', 'Retest · V5'])
+  })
+
+  it('ordena por el recorrido: screening, randomización, el cuadro por número natural, las sueltas al final', () => {
+    const rows = [
+      atendida({ kind: 'vnp', role: null, visit_name: null }),
+      atendida({ visit_name: 'V10 · Semana 40' }),
+      atendida({ visit_name: 'V2 · Semana 4' }),
+      atendida({ role: 'randomizacion', visit_name: 'V1 · Basal' }),
+      atendida({ role: 'screening', visit_name: 'V0 · Selección' }),
+    ]
+    const r = porVisita(rows, RANGO)
+    expect(r.filas[0].porVisita.map((v) => v.label)).toEqual([
+      'V0 · Selección', 'V1 · Basal', 'V2 · Semana 4', 'V10 · Semana 40', 'VNP',
+    ])
+  })
+
+  it('ordena los estudios por más visitas primero, con el resumen de cada uno', () => {
+    const rows = [
+      atendida({ protocol_id: 'p1', protocol_code: 'SCH-1' }),
+      atendida({ protocol_id: 'p2', protocol_code: 'SCH-2', visit_name: 'V1' }),
+      atendida({ protocol_id: 'p2', protocol_code: 'SCH-2', visit_name: 'V2' }),
+    ]
+    const r = porVisita(rows, RANGO)
+    expect(r.filas.map((f) => [f.protocolCode, f.visitas])).toEqual([['SCH-2', 2], ['SCH-1', 1]])
   })
 
   it('sin filas, devuelve resultado vacío sin dividir por cero', () => {
-    const r = porTipo([], RANGO)
+    const r = porVisita([], RANGO)
     expect(r.filas).toEqual([])
-    expect(r.totalVisitas).toBe(0)
+    expect(r.visitas).toBe(0)
     expect(r.esperaProm).toBeNull()
   })
 })
