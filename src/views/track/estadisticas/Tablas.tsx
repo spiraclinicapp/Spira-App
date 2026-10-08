@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '../../../components/Icon'
+import { InfoTip } from '../../../components/InfoTip'
 import { formatNumberAR, formatShareAR, sharePct } from '../../../lib/numbers'
 import { ATENCION_MINIMA_MIN, formatMinutosLargo } from './agregados'
 import type { FilaPorEstudio, FilaPorVisitaDeEstudio, ResultadoPorVisita, Tiempos } from './agregados'
@@ -130,10 +131,6 @@ export function TablaPorVisita({ r }: { r: ResultadoPorVisita }) {
           </tr>
         </tfoot>
       </table>
-      <div style={{ ...subLine, padding: '10px 16px 12px', lineHeight: 1.5, marginTop: 0 }}>
-        «Sobre N» = de cuántas visitas sale el promedio. La atención no cuenta las de menos de {ATENCION_MINIMA_MIN} min:
-        suelen ser visitas cargadas después, con los dos horarios marcados juntos.
-      </div>
     </div>
   )
 }
@@ -166,28 +163,47 @@ function FragmentoEstudio({ fila, abierto, onToggle }: { fila: FilaPorVisitaDeEs
 
 /**
  * Las cinco columnas de números. Si un promedio sale de MENOS visitas que las contadas (faltan
- * sellos), lo dice debajo — "sobre 2" — en vez de presentar un promedio parcial como si fuera de
- * todas. La Atención va en negrita: es la que se usa para estimar cuánto dura la visita, y la que
- * más cobertura tiene (la salida casi nunca se marca, así que la estadía suele quedar en guion).
+ * sellos), el número lleva el subrayado punteado y, al apuntarlo, explica de cuántas sale — en vez
+ * de presentar un promedio parcial como si fuera de todas. Va en un popup y no escrito debajo
+ * (Director, 2026-10-08): un "sobre 2" en cada celda ensuciaba la tabla. La Atención va en negrita:
+ * es la que se usa para estimar cuánto dura la visita, y la que más cobertura tiene (la salida casi
+ * nunca se marca, así que la estadía suele quedar en guion).
  */
 function CeldasTiempos({ t }: { t: Tiempos }) {
   return (
     <>
       <td style={tdNum}>{formatNumberAR(t.visitas)}</td>
-      <td style={tdNum}><Minutos valor={t.esperaProm} sobre={t.cobertura.espera} de={t.visitas} /></td>
-      <td style={{ ...tdNum, fontWeight: 600 }}><Minutos valor={t.atencionProm} sobre={t.cobertura.atencion} de={t.visitas} /></td>
-      <td style={tdNum}><Minutos valor={t.estadiaProm} sobre={t.cobertura.estadia} de={t.visitas} /></td>
+      <td style={tdNum}><Minutos medida="espera" valor={t.esperaProm} sobre={t.cobertura.espera} de={t.visitas} /></td>
+      <td style={{ ...tdNum, fontWeight: 600 }}><Minutos medida="atencion" valor={t.atencionProm} sobre={t.cobertura.atencion} de={t.visitas} /></td>
+      <td style={tdNum}><Minutos medida="estadia" valor={t.estadiaProm} sobre={t.cobertura.estadia} de={t.visitas} /></td>
       <td style={{ ...tdNum, color: 'var(--spira-muted)' }}>{formatMinutosLargo(t.estadiaMax)}</td>
     </>
   )
 }
 
-function Minutos({ valor, sobre, de }: { valor: number | null; sobre: number; de: number }) {
+/** Qué le falta a una visita para entrar en cada promedio. */
+const POR_QUE_FALTA: Record<'espera' | 'atencion' | 'estadia', (resto: number) => string> = {
+  espera: (n) => `${n === 1 ? 'La otra no tiene' : `Las otras ${n} no tienen`} marcadas la llegada y el inicio de la atención.`,
+  atencion: (n) =>
+    `${n === 1 ? 'La otra no tiene' : `Las otras ${n} no tienen`} marcados el inicio y el fin de la atención, ` +
+    `o ${n === 1 ? 'duró' : 'duraron'} menos de ${ATENCION_MINIMA_MIN} min: suelen ser visitas cargadas después, con los dos horarios juntos.`,
+  estadia: (n) => `${n === 1 ? 'La otra no tiene' : `Las otras ${n} no tienen`} marcadas la llegada y la salida.`,
+}
+
+function Minutos({ medida, valor, sobre, de }: {
+  medida: keyof typeof POR_QUE_FALTA
+  valor: number | null
+  sobre: number
+  de: number
+}) {
   if (valor == null) return <span style={dash}>—</span>
+  if (sobre >= de) return <>{formatMinutosLargo(valor)}</>
   return (
-    <>
+    <InfoTip
+      titulo={`Sale de ${formatNumberAR(sobre)} de ${formatNumberAR(de)} visitas`}
+      cuerpo={POR_QUE_FALTA[medida](de - sobre)}
+    >
       {formatMinutosLargo(valor)}
-      {sobre < de && <div style={{ ...subLine, fontWeight: 400 }}>sobre {formatNumberAR(sobre)}</div>}
-    </>
+    </InfoTip>
   )
 }
