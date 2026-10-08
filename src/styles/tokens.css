@@ -900,6 +900,54 @@ input:-webkit-autofill:focus {
 }
 .spira-pista__op:disabled { color: var(--spira-faint); cursor: default; }
 
+/* —— Interruptor con rótulo («Sólo lo mío» del Resumen) ——
+   Texto + pista en un solo botón `role="switch"`. Sin fondo ni borde en reposo: vive en el renglón
+   del título y no tiene que competir con él. El hover oscurece el rótulo a la tinta (mismo gesto que
+   `.spira-pista__op`), sin levante: una pista que salta 1px se siente suelta. Las medidas de la pista
+   son las del `StToggle` de Ajustes. */
+.spira-interruptor {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 6px 0 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--spira-muted);
+  font-family: var(--spira-font-text);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.spira-interruptor:hover,
+.spira-interruptor[aria-checked='true'] { color: var(--spira-ink); }
+.spira-interruptor__pista {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 23px;
+  border-radius: 99px;
+  transition: background-color 0.15s ease;
+}
+.spira-interruptor__perilla {
+  position: absolute;
+  top: 2.5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: left 0.15s var(--spira-ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .spira-interruptor,
+  .spira-interruptor__pista,
+  .spira-interruptor__perilla { transition: none; }
+}
+
 /* —— Micro-interacción estándar de Spira ——
    Todo lo pulsable (botones, links, role=button) se levanta apenas (~1px) en hover y se
    asienta al pulsar. Es la señal universal de "esto se toca", sin depender del cursor.
