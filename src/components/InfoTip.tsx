@@ -47,8 +47,10 @@ const ANCHO = 250
 interface Props {
   /** El nombre de lo que se explica. Va en negrita, arriba. */
   titulo: string
-  /** Qué significa, en castellano. Envuelve: es una frase, no un rótulo. */
-  cuerpo: string
+  /** Qué significa, en castellano. Envuelve: es una frase, no un rótulo. Casi siempre es texto
+   *  plano; acepta marcado para cuando hay que explicar DOS estados de un mismo control (el switch
+   *  «Sólo lo mío» del Resumen), donde cada uno necesita su renglón y su nombre en negrita. */
+  cuerpo: ReactNode
   /** Tamaño del ícono. 14 es el del handoff para el escudito; 15 lee mejor al lado de un campo. */
   size?: number
   /** Qué anuncia el lector de pantalla al llegar al ícono. Por defecto nombra el título. */

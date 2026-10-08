@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
-import { SegmentedControl } from '../components/SegmentedControl'
 import { useAuth } from '../lib/auth'
 import { AlertCardHeader } from './AlertCardHeader'
 import { CabeceraDeTarjeta, card, ChipDestino, DetalleConEstado, filaAncha, FilaDeResumen, MAX_FILAS } from './resumen/piezas'
@@ -22,6 +21,7 @@ import type { SolicitudPendienteRow } from '../data/pharma'
 import { useMyTasks } from '../data/tareas'
 import { estaHecha } from './tareas/estados'
 import { TareasCard } from './resumen/TareasCard'
+import { SoloLoMio } from './resumen/SoloLoMio'
 import { setReportStage, useReportesPendientes } from '../data/reportStatus'
 import type { FilaReportePendiente } from '../data/reportStatus'
 import { esReportePendiente, esTarjeta, reporteTitulo } from './track/reportes/estados'
@@ -94,10 +94,22 @@ function KpiCard({ label, value, sub, dot, cargando, kpi, onNavigate }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)' }}>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flex: '0 0 auto' }} />
         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-        {navega && <ChipDestino nombre={nombre} />}
       </div>
-      <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 38, letterSpacing: '-0.02em', marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>
-        {cargando ? <span style={{ color: 'var(--spira-muted)' }}>—</span> : value}
+      {/* EL RÓTULO DE DESTINO VA EN EL RENGLÓN DEL NÚMERO, no en el del rótulo. Invisible y todo,
+          `.spira-dest` ocupa su ancho desde el primer render (el revelado es opacidad + transform,
+          para no correr el layout), y en el renglón del rótulo ese hueco se lo comía al texto: a
+          1346px de ventana el KPI decía «Prot…» y «Paci…» SIEMPRE, sin hover. Al lado del número
+          sobra lugar —son dos o tres cifras—, y si la tarjeta se angosta lo que se recorta es el
+          rótulo de destino (`minWidth: 0`), que es secundario, y nunca el dato. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+        <div style={{ flex: '0 0 auto', fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 38, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+          {cargando ? <span style={{ color: 'var(--spira-muted)' }}>—</span> : value}
+        </div>
+        {navega && (
+          <span style={{ marginLeft: 'auto', minWidth: 0, display: 'flex', overflow: 'hidden' }}>
+            <ChipDestino nombre={nombre} />
+          </span>
+        )}
       </div>
       <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>{sub}</div>
     </div>
@@ -214,7 +226,8 @@ function VacioDelAmbito({ texto, onVerTodo }: { texto: string; onVerTodo: () => 
           textDecoration: 'underline', textUnderlineOffset: 3,
         }}
       >
-        Ver todo
+        {/* Mismo nombre que el switch apagado: este botón hace exactamente eso. */}
+        Ver lo de todos
       </button>
     </div>
   )
@@ -529,7 +542,7 @@ function SolicitudRow({ s, primera, onOpenVisit, onOpenPatient }: {
  * solía borrar las alertas de ventana vencida, que es información clínica — media pantalla es
  * muchísimo mejor que una vacía. Ver la tabla de estados del plan.
  */
-export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
+export function TrackResumenView({ module, submodule, onNavigate, setHeader }: ViewProps) {
   const accent = module.accent
   const protocols = useProtocols()
   const patients = usePatients()
@@ -578,6 +591,21 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
      recién cuando se sabe que hay coordinaciones, y no parpadea. */
   const esCoordinador = misProtocolos.size > 0
   const ambitoEfectivo: Ambito = esCoordinador ? ambito : 'todo'
+
+  /* El alternador va EN EL RENGLÓN DEL TÍTULO, a la derecha — el slot `content` del shell, el mismo
+     que usan la fecha de Visitas del día y la cola del médico. Antes ocupaba un renglón propio arriba
+     de los KPIs, sin nada al lado: un escalón vacío que empujaba todo el mosaico hacia abajo.
+
+     `setHeader` guarda un ELEMENTO YA CONSTRUIDO en el estado del shell, que queda congelado hasta que
+     este efecto vuelva a correr: por eso `ambito` está en las deps — sin él el switch se quedaría
+     dibujado en la posición vieja. Para quien no coordina nada, el encabezado queda el genérico. */
+  useEffect(() => {
+    setHeader?.(esCoordinador
+      ? { content: <SoloLoMio activo={ambito === 'mio'} onCambiar={(mio) => setAmbito(mio ? 'mio' : 'todo')} color={module.accentSolid} /> }
+      : null)
+    return () => setHeader?.(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esCoordinador, ambito, module.accentSolid, setHeader])
 
   /* La visita abierta en el modal, DESDE ACÁ y sin salir del Resumen.
 
@@ -715,24 +743,6 @@ export function TrackResumenView({ module, submodule, onNavigate }: ViewProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* El alternador sólo existe para quien coordina algo (ver `esCoordinador`). Se apoya en
-          SegmentedControl, que ya resuelve el `role="radiogroup"` (con `aria-label` propio) y no se
-          dibuja a mano para no repetir la accesibilidad. EL TECLADO NO LO RESUELVE: son N `<button>`
-          nativos sin flechas ni roving tabindex — se navega con Tab y se activa con Espacio/Enter,
-          que alcanza para WCAG 2.1.1 pero no es lo mismo que un radiogroup con flechas. El realce del
-          seleccionado es el del componente: ELEVACIÓN (fondo sólido + sombra), sin borde ni fondo
-          de color y sin nada agregado desde un handler. */}
-      {esCoordinador && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <SegmentedControl<Ambito>
-            options={[{ value: 'mio', label: 'Lo mío' }, { value: 'todo', label: 'Todo' }]}
-            value={ambito}
-            onChange={setAmbito}
-            label="Ámbito del resumen"
-          />
-        </div>
-      )}
-
       {/* KPIs — los cuatro navegan a su submódulo (D8). El rótulo del chip sale del registry. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
         <KpiCard kpi="protocolos" onNavigate={onNavigate} label="Protocolos activos" value={activeProtocols} sub={`${allProtocols.length} en total`} dot={accent} cargando={cargandoKpis} />
