@@ -32,7 +32,7 @@ import type { IndicadorTira } from './Resumen'
 import { TablaAmbulatorias, TablaDetalle, TablaMedicamentos, TablaProtocolos } from './Tablas'
 import { HojaImpresa } from './impresion'
 import type { ContextoReporte } from './impresion'
-import { avisoCaja, chip, chipActivo, sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
+import { avisoCaja, sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
 
 /**
  * Farmacia › Estadísticas (el submódulo se llamaba "Reportes" hasta el 2026-08-20; la carpeta, el
@@ -522,21 +522,12 @@ function Filtros({
           desde={rango.desde}
           hasta={rango.hasta}
           onChange={onRango}
+          /* Los atajos viajan ADENTRO del calendario, como en Recepción (ver `atajos` en
+             DateRangeField): escriben el mismo desde/hasta que el calendario. */
+          atajos={([['30dias', '30 días'], ['mesEnCurso', 'Este mes'], ['anio', 'Año']] as const).map(([k, label]) => ({
+            label, activo: preset === k, onClick: () => onPreset(k),
+          }))}
         />
-
-        <div style={{ display: 'inline-flex', gap: 7 }}>
-          {([['30dias', '30 días'], ['mesEnCurso', 'Mes en curso'], ['anio', 'Año']] as const).map(([k, label]) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={preset === k}
-              onClick={() => onPreset(k)}
-              style={{ ...chip, ...(preset === k ? chipActivo : null) }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
 
         <span style={{ width: 1, height: 24, background: 'var(--spira-line)' }} />
 
