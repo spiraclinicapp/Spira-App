@@ -17,13 +17,13 @@ import {
 import type { FiltrosDetalle } from './agregadosEquipo'
 import { rangoDePreset } from './rango'
 import type { Preset, Rango } from './rango'
-import { avisoCaja, chip, chipActivo, filtrosFila, sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
+import { avisoCaja, filtrosFila, sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
 import { TablaPorEstudio, TablaPorVisita } from './Tablas'
 import { DetalleVisitas, ModalVisita, Proyeccion, TablaCarga, TablaTiempos } from './Equipo'
 
 const PRESETS: readonly [Exclude<Preset, 'custom'>, string][] = [
   ['30dias', '30 días'],
-  ['mesEnCurso', 'Mes en curso'],
+  ['mesEnCurso', 'Este mes'],
   ['anio', 'Año'],
 ]
 
@@ -148,20 +148,16 @@ export function TrackEstadisticasView({ module, onNavigate }: ViewProps) {
   return (
     <div>
       <div style={filtrosFila}>
-        <DateRangeField accent={module.accentSolid} desde={rango.desde} hasta={rango.hasta} onChange={elegirRango} />
-        <div style={{ display: 'inline-flex', gap: 7 }}>
-          {PRESETS.map(([k, label]) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={preset === k}
-              onClick={() => elegirPreset(k)}
-              style={{ ...chip, ...(preset === k ? chipActivo : null) }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* Los atajos de período viajan ADENTRO del calendario, como en el resto de la app (ver `atajos`
+            en DateRangeField): escriben el mismo desde/hasta, así que el disparador muestra siempre lo
+            que se está aplicando. */}
+        <DateRangeField
+          accent={module.accentSolid}
+          desde={rango.desde}
+          hasta={rango.hasta}
+          onChange={elegirRango}
+          atajos={PRESETS.map(([k, label]) => ({ label, activo: preset === k, onClick: () => elegirPreset(k) }))}
+        />
       </div>
 
       {cortadas.length > 0 && (

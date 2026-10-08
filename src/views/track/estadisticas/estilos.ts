@@ -12,17 +12,6 @@ export const filtrosFila: CSSProperties = {
   padding: '2px 0 15px', borderBottom: '1px solid var(--spira-line)', marginBottom: 10,
 }
 
-export const chip: CSSProperties = {
-  height: 34, padding: '0 14px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-  background: 'var(--spira-white)', borderWidth: 1, borderStyle: 'solid',
-  borderColor: 'var(--spira-line-2)', color: 'var(--spira-muted)',
-  fontFamily: 'var(--spira-font-text)',
-}
-
-export const chipActivo: CSSProperties = {
-  background: 'var(--spira-tint-track)', borderColor: 'rgba(15, 95, 87, 0.35)', color: 'var(--spira-acc-deep-track)',
-}
-
 export const sectionHead: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 12, margin: '28px 0 12px',
 }
