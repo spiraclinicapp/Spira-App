@@ -1,20 +1,30 @@
 import { InfoTip } from '../../components/InfoTip'
 
 /* ============================================================================
-   «Sólo lo mío» — el alternador de ámbito del Resumen, en el renglón del título.
+   «Sólo lo mío» / «Lo de todos» — el alternador de ámbito del Resumen, en el renglón del título.
 
    ── POR QUÉ UN SWITCH Y NO DOS BOTONES ──
    Antes era un `SegmentedControl` de dos opciones —«Lo mío» / «Todo»— suelto ARRIBA del mosaico,
    en un renglón propio que no tenía nada más: un escalón vacío entre el título y los KPIs. Y dos
    botones con el mismo peso leían como dos destinos, cuando en realidad es UN filtro que está
-   prendido o apagado. Un switch con su nombre dice exactamente eso: «Sólo lo mío», sí o no. Lo
-   apagado no necesita nombre propio: es la pantalla sin recortar, lo que la RLS ya deja ver.
+   prendido o apagado.
 
-   ── EL RÓTULO ES PARTE DEL BOTÓN ──
-   Texto y pista viven en el MISMO `<button role="switch">`, así el clic en «Sólo lo mío» también
-   alterna (como un `<label>` de un checkbox) y el nombre accesible sale del texto visible, sin un
-   `aria-label` que pueda desincronizarse de lo que se lee. El ⓘ queda AFUERA porque un botón no
-   puede contener otro.
+   ── EL RÓTULO DICE LO QUE SE ESTÁ VIENDO, NO EL NOMBRE DEL FILTRO ──
+   La primera versión decía «Sólo lo mío» fijo, prendido o apagado. Apagado no se entendía que la
+   pantalla mostraba todo (lo marcó el Director, 2026-10-08): la pista gris dice "esto no está
+   activo", pero no dice QUÉ estás viendo en su lugar. Por eso el rótulo cambia con el estado:
+   prendido «Sólo lo mío», apagado «Lo de todos».
+
+   Los DOS textos se dibujan siempre, apilados en la misma celda del grid, y el que no corresponde
+   queda con `visibility: hidden`: así el botón mide lo que el más largo y la pista no se corre al
+   alternar — está anclada a la derecha del encabezado, y un control que se desplaza bajo el mouse
+   después del clic hace errar el siguiente.
+
+   ── ACCESIBILIDAD ──
+   Texto y pista viven en el MISMO `<button role="switch">`: el clic en el rótulo también alterna
+   (como el `<label>` de un checkbox) y el nombre accesible sale del texto visible —el oculto no
+   cuenta, `visibility: hidden` lo saca del árbol—, así que lo que se lee y lo que se anuncia
+   coinciden (WCAG 2.5.3). El ⓘ queda AFUERA porque un botón no puede contener otro.
 
    ── LA PISTA ──
    Mismas medidas que el `StToggle` de Ajustes (40×23, perilla de 18): es el mismo control, y dos
@@ -26,6 +36,9 @@ import { InfoTip } from '../../components/InfoTip'
    El movimiento de la perilla vive en `.spira-interruptor` (tokens.css) y no inline: inline no se
    puede apagar con `prefers-reduced-motion`.
    ============================================================================ */
+
+export const ROTULO_MIO = 'Sólo lo mío'
+export const ROTULO_TODOS = 'Lo de todos'
 
 export function SoloLoMio({ activo, onCambiar, color }: {
   /** true = ámbito «Lo mío»; false = «Todo». */
@@ -43,7 +56,10 @@ export function SoloLoMio({ activo, onCambiar, color }: {
         onClick={() => onCambiar(!activo)}
         className="spira-interruptor spira-no-press"
       >
-        <span>Sólo lo mío</span>
+        <span className="spira-interruptor__rotulos">
+          <span style={{ visibility: activo ? 'visible' : 'hidden' }}>{ROTULO_MIO}</span>
+          <span style={{ visibility: activo ? 'hidden' : 'visible' }}>{ROTULO_TODOS}</span>
+        </span>
         <span
           aria-hidden
           className="spira-interruptor__pista"
@@ -52,14 +68,29 @@ export function SoloLoMio({ activo, onCambiar, color }: {
           <span className="spira-interruptor__perilla" style={{ left: activo ? 19.5 : 2.5 }} />
         </span>
       </button>
-      {/* La explicación enumera lo que de verdad recorta cada tarjeta (ver `ambito.ts`): visitas y
-          reportes por estudio, pedidos y tareas por persona. Los KPIs de protocolos y pacientes no
-          se filtran, y por eso no se nombran. */}
+      {/* Explica LAS DOS posiciones, cada una con su nombre: quien abre el ⓘ con el switch apagado
+          tiene que poder leer qué ganaría prendiéndolo, y viceversa. Lo que enumera es lo que de
+          verdad recorta cada tarjeta (ver `ambito.ts`): visitas y reportes por estudio, pedidos y
+          tareas por persona. Los KPIs de protocolos y pacientes no se filtran, y por eso no se
+          nombran. */}
       <InfoTip
-        titulo="Sólo lo mío"
-        cuerpo="Prendido, el resumen muestra lo tuyo: las visitas de tus estudios, lo que pediste a Farmacia y tus tareas. Apagado, muestra todo lo que tenés permitido ver."
-        etiqueta="Qué hace «Sólo lo mío»"
+        titulo="Qué muestra el resumen"
+        etiqueta="Qué muestra cada posición del switch"
+        cuerpo={
+          <>
+            <span style={{ display: 'block' }}>
+              <b style={negrita}>{ROTULO_MIO}:</b> las visitas de tus estudios, lo que pediste a
+              Farmacia y tus tareas.
+            </span>
+            <span style={{ display: 'block', marginTop: 5 }}>
+              <b style={negrita}>{ROTULO_TODOS}:</b> suma lo del resto del equipo en los estudios
+              que podés ver.
+            </span>
+          </>
+        }
       />
     </div>
   )
 }
+
+const negrita = { fontWeight: 600, color: 'var(--spira-ink)' }

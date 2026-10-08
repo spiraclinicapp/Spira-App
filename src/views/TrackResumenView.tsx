@@ -226,7 +226,8 @@ function VacioDelAmbito({ texto, onVerTodo }: { texto: string; onVerTodo: () => 
           textDecoration: 'underline', textUnderlineOffset: 3,
         }}
       >
-        Ver todo
+        {/* Mismo nombre que el switch apagado: este botón hace exactamente eso. */}
+        Ver lo de todos
       </button>
     </div>
   )
