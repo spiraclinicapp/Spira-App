@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
@@ -58,9 +58,16 @@ interface Props {
    *  escudito de quien administra los accesos explica lo que él mismo significa, y ponerle un ⓘ al
    *  lado sería dibujar dos íconos para una sola idea. */
   icono?: IconName
+  /**
+   * El disparador es el DATO mismo, no un ícono: un número de una tabla que explica de dónde sale
+   * ("1 h 27 min" → "sale de 2 de 5 visitas"). Un ⓘ en cada celda de una tabla es ruido; el
+   * subrayado punteado de `.spira-termino` es la marca que la app ya usa para "esto tiene explicación".
+   * Con `children`, `icono` y `size` no se usan.
+   */
+  children?: ReactNode
 }
 
-export function InfoTip({ titulo, cuerpo, size = 15, etiqueta, color, icono = 'info' }: Props) {
+export function InfoTip({ titulo, cuerpo, size = 15, etiqueta, color, icono = 'info', children }: Props) {
   const tipId = useId()
   /* La apertura por hover con su pausa de gracia vive en `useHoverIntent`, compartida con el
      listado de procedimientos del Resumen de la visita: dos copias de ese timer derivan en dos
@@ -89,8 +96,10 @@ export function InfoTip({ titulo, cuerpo, size = 15, etiqueta, color, icono = 'i
       <button
         ref={triggerRef}
         type="button"
-        className="spira-no-press"
-        aria-label={etiqueta ?? `Qué significa «${titulo}»`}
+        className={children ? 'spira-no-press spira-termino' : 'spira-no-press'}
+        /* Con un dato de disparador, su nombre accesible es el dato ("1 h 27 min"); el
+           `aria-describedby` agrega la explicación. Un `aria-label` lo taparía. */
+        aria-label={children ? etiqueta : (etiqueta ?? `Qué significa «${titulo}»`)}
         /* `aria-describedby` y NO `aria-expanded`: esto no despliega una región, describe al
            control de al lado. Es lo que la APG pide para un tooltip. */
         aria-describedby={open ? tipId : undefined}
@@ -99,9 +108,9 @@ export function InfoTip({ titulo, cuerpo, size = 15, etiqueta, color, icono = 'i
         onFocus={abrir}
         onBlur={cerrar}
         onClick={alternar}
-        style={{ ...disparador, width: size + 6, height: size + 6 }}
+        style={children ? disparadorTexto : { ...disparador, width: size + 6, height: size + 6 }}
       >
-        <Icon name={icono} size={size} color={color ?? 'var(--spira-faint)'} />
+        {children ?? <Icon name={icono} size={size} color={color ?? 'var(--spira-faint)'} />}
       </button>
 
       {open && pos && createPortal(
@@ -144,6 +153,12 @@ export function InfoTip({ titulo, cuerpo, size = 15, etiqueta, color, icono = 'i
 const disparador: CSSProperties = {
   flex: '0 0 auto', display: 'grid', placeItems: 'center', padding: 0,
   border: 'none', background: 'transparent', borderRadius: '50%', cursor: 'help',
+}
+
+/** El disparador de texto hereda la letra de la celda: sólo el subrayado punteado dice que se puede apuntar. */
+const disparadorTexto: CSSProperties = {
+  padding: 0, border: 'none', background: 'transparent', cursor: 'help',
+  font: 'inherit', color: 'inherit', letterSpacing: 'inherit',
 }
 
 const panel: CSSProperties = {

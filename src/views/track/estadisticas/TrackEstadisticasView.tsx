@@ -4,12 +4,13 @@ import { DateRangeField } from '../../../components/DateRangeField'
 import { EmptyState } from '../../../components/EmptyState'
 import { Icon } from '../../../components/Icon'
 import { useEstadisticasEquipo } from '../../../data/trackReports'
+import { useAuth } from '../../../lib/auth'
 import type { VisitaEquipo } from '../../../data/trackReports'
 import { formatAR, todayISO } from '../../../lib/dates'
 import { oneOf } from '../../../lib/router'
 import { useUrlState } from '../../../lib/useUrlState'
 import type { ViewProps } from '../../types'
-import { porEstudio, porTipo } from './agregados'
+import { porEstudio, porVisita } from './agregados'
 import {
   cargaMensual, FILTROS_VACIOS, filasDetalle, proyeccion, rangoProyeccion, tiemposPorCoordinadora,
 } from './agregadosEquipo'
@@ -17,7 +18,7 @@ import type { FiltrosDetalle } from './agregadosEquipo'
 import { rangoDePreset } from './rango'
 import type { Preset, Rango } from './rango'
 import { avisoCaja, chip, chipActivo, filtrosFila, sectionHead, sectionHint, sectionRule, sectionTitle } from './estilos'
-import { TablaPorEstudio, TablaPorTipo } from './Tablas'
+import { TablaPorEstudio, TablaPorVisita } from './Tablas'
 import { DetalleVisitas, ModalVisita, Proyeccion, TablaCarga, TablaTiempos } from './Equipo'
 
 const PRESETS: readonly [Exclude<Preset, 'custom'>, string][] = [
@@ -56,13 +57,23 @@ function Seccion({ titulo, hint, grande }: { titulo: string; hint?: ReactNode; g
  * universo — antes del período se leía `v_track_visits`, recortada por la RLS a los estudios
  * asignados, y un líder sin gerencia habría visto dos alcances distintos en la misma pantalla.
  *
- * Tres lecturas, cada una con su rango: el PERÍODO (por estudio, por tipo, tiempos por coordinadora
- * y el detalle), el MES que contiene el último día del período (carga de trabajo) y las cuatro
- * semanas que empiezan mañana (proyección).
+ * Tres lecturas, cada una con su rango: el PERÍODO (por estudio, tiempos por visita, tiempos por
+ * coordinadora y el detalle), el MES que contiene el último día del período (carga de trabajo) y las
+ * cuatro semanas que empiezan mañana (proyección).
+ *
+ * El "Promedio por tipo de visita" del handoff se volvió "Tiempos por visita" (estudio → V1, V2…;
+ * Director, 2026-10-08): el tipo (Screening, Tratamiento…) promediaba visitas muy distintas entre
+ * sí, y lo que se quiere es estimar cuánto va a durar UNA visita concreta. La zona Equipo queda
+ * sólo para gerencia (ver `verEquipo`).
  *
  * Afuera, a propósito: el hero, el gráfico de evolución y la tira de tiempos del handoff.
  */
 export function TrackEstadisticasView({ module, onNavigate }: ViewProps) {
+  // La zona de equipo es sólo de gerencia "por ahora" (Director, 2026-10-08): a un líder de
+  // Coordinación le alcanza con los estudios, los tiempos por visita y la proyección. Es
+  // presentación, no permiso — la 0143 le sigue devolviendo el centro entero a todo jefatura.
+  const { modules } = useAuth()
+  const verEquipo = modules.includes('gerencia')
   const [preset, setPreset] = useUrlState<Preset>('periodo', '30dias', {
     codec: oneOf(['30dias', 'mesEnCurso', 'anio', 'custom'] as const),
   })
@@ -100,7 +111,7 @@ export function TrackEstadisticasView({ module, onNavigate }: ViewProps) {
     const filas = periodo.data ?? []
     return {
       estudio: porEstudio(filas, rango),
-      tipo: porTipo(filas, rango),
+      visita: porVisita(filas, rango),
       tiempos: tiemposPorCoordinadora(filas, rango),
       detalle: filasDetalle(filas, rango),
     }
@@ -183,8 +194,11 @@ export function TrackEstadisticasView({ module, onNavigate }: ViewProps) {
             accentSolid={module.accentSolid}
           />
 
-          <Seccion titulo="Promedio por tipo de visita" hint="abrí una fila para ver el desglose por estudio" />
-          {d.tipo.filas.length === 0 ? (
+          <Seccion
+            titulo="Tiempos por visita"
+            hint="abrí un estudio para ver cada visita · cuanto más largo el período, más visitas hay detrás de cada promedio"
+          />
+          {d.visita.filas.length === 0 ? (
             <EmptyState
               icon="barChart"
               accent={module.accentSolid}
@@ -193,53 +207,8 @@ export function TrackEstadisticasView({ module, onNavigate }: ViewProps) {
               minHeight={200}
             />
           ) : (
-            <TablaPorTipo
-              filas={d.tipo.filas}
-              totalVisitas={d.tipo.totalVisitas}
-              esperaProm={d.tipo.esperaProm}
-              atencionProm={d.tipo.atencionProm}
-              estadiaProm={d.tipo.estadiaProm}
-              estadiaMax={d.tipo.estadiaMax}
-              accentSolid={module.accentSolid}
-            />
+            <TablaPorVisita r={d.visita} />
           )}
-        </>
-      )}
-
-      <div style={{ ...sectionHead, marginTop: 40 }}>
-        <h2 style={{ ...sectionTitle, fontSize: 18 }}>Equipo</h2>
-        <div style={sectionRule} />
-      </div>
-      <p style={{ margin: '-4px 0 0', fontSize: 12.5, color: 'var(--spira-ink-soft)', lineHeight: 1.5 }}>
-        Estos números miran a las personas, no a los estudios. Cada visita atendida se le cuenta a quien inició la
-        atención; las que siguen pendientes, a la coordinadora que tienen asignada.
-      </p>
-
-      <Seccion titulo="Carga de trabajo mensual" hint={`${nombreDelMes(mes.desde)} · abrí una fila para ver el día a día`} />
-      {delMes.loading ? (
-        <div style={sectionHint}>Cargando…</div>
-      ) : delMes.error ? (
-        <div style={sectionHint}>{delMes.error}</div>
-      ) : carga.filas.length === 0 ? (
-        <div style={sectionHint}>No hay visitas en {nombreDelMes(mes.desde)}.</div>
-      ) : (
-        <TablaCarga carga={carga} accentSolid={module.accentSolid} onVerEnDetalle={verEnDetalle} onAbrir={setAbierta} />
-      )}
-
-      {!vacio && d.tiempos.filas.length > 0 && (
-        <>
-          <Seccion titulo="Tiempos por coordinadora" hint="abrí una fila para ver el desglose por tipo de visita" />
-          <TablaTiempos tiempos={d.tiempos} accentSolid={module.accentSolid} onVerEnDetalle={verEnDetalle} onAbrir={setAbierta} />
-
-          <Seccion titulo="Detalle visita por visita" hint="quién marcó cada sello, y a qué hora" />
-          <DetalleVisitas
-            filas={d.detalle}
-            filtros={filtros}
-            setFiltros={setFiltros}
-            accentSolid={module.accentSolid}
-            onAbrir={setAbierta}
-            anclaRef={detalleRef}
-          />
         </>
       )}
 
@@ -250,6 +219,47 @@ export function TrackEstadisticasView({ module, onNavigate }: ViewProps) {
         <div style={sectionHint}>{futuras.error}</div>
       ) : (
         <Proyeccion p={proy} accentSolid={module.accentSolid} />
+      )}
+
+      {verEquipo && (
+        <>
+          <div style={{ ...sectionHead, marginTop: 40 }}>
+            <h2 style={{ ...sectionTitle, fontSize: 18 }}>Equipo</h2>
+            <div style={sectionRule} />
+          </div>
+          <p style={{ margin: '-4px 0 0', fontSize: 12.5, color: 'var(--spira-ink-soft)', lineHeight: 1.5 }}>
+            Estos números miran a las personas, no a los estudios. Cada visita atendida se le cuenta a quien inició la
+            atención; las que siguen pendientes, a la coordinadora que tienen asignada.
+          </p>
+
+          <Seccion titulo="Carga de trabajo mensual" hint={`${nombreDelMes(mes.desde)} · abrí una fila para ver el día a día`} />
+          {delMes.loading ? (
+            <div style={sectionHint}>Cargando…</div>
+          ) : delMes.error ? (
+            <div style={sectionHint}>{delMes.error}</div>
+          ) : carga.filas.length === 0 ? (
+            <div style={sectionHint}>No hay visitas en {nombreDelMes(mes.desde)}.</div>
+          ) : (
+            <TablaCarga carga={carga} accentSolid={module.accentSolid} onVerEnDetalle={verEnDetalle} onAbrir={setAbierta} />
+          )}
+
+          {!vacio && d.tiempos.filas.length > 0 && (
+            <>
+              <Seccion titulo="Tiempos por coordinadora" hint="abrí una fila para ver el desglose por tipo de visita" />
+              <TablaTiempos tiempos={d.tiempos} accentSolid={module.accentSolid} onVerEnDetalle={verEnDetalle} onAbrir={setAbierta} />
+
+              <Seccion titulo="Detalle visita por visita" hint="quién marcó cada sello, y a qué hora" />
+              <DetalleVisitas
+                filas={d.detalle}
+                filtros={filtros}
+                setFiltros={setFiltros}
+                accentSolid={module.accentSolid}
+                onAbrir={setAbierta}
+                anclaRef={detalleRef}
+              />
+            </>
+          )}
+        </>
       )}
 
       {abierta && (

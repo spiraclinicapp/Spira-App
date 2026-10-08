@@ -1,8 +1,9 @@
 import { minutesBetween } from '../../../lib/dates'
 import { fueraDeVentana } from '../../../lib/visits'
-import { bucketTipoVisita, TIPO_VISITA_LABELS } from './tipoVisita'
+import { bucketTipoVisita } from './tipoVisita'
 import type { TipoVisita, VisitaParaTipo } from './tipoVisita'
 import type { Rango } from './rango'
+import { KIND_LABELS } from '../../../lib/visitLabels'
 import type { VisitKind } from '../../../lib/visitLabels'
 import type { VisitStatus } from '../../../data/visits'
 
@@ -40,7 +41,7 @@ const PENDIENTE_STATUSES: ReadonlySet<VisitStatus> = new Set(['ventana_vencida',
  * ¿La visita cae en el período elegido? Dos caminos, nunca los dos: si ya se atendió, cuenta su
  * fecha real; si no, su fecha estimada (agendada o vencida sin atender). Es el mismo criterio que
  * usaría el Hero del handoff para "Visitas del período" — no se construye acá, pero el número de
- * "Visitas" de `porEstudio`/`porTipo` tiene que significar lo mismo el día que se agregue.
+ * "Visitas" de `porEstudio`/`porVisita` tiene que significar lo mismo el día que se agregue.
  */
 function enPeriodo(v: VisitaEstadistica, rango: Rango): boolean {
   const fecha = v.real_date ?? v.estimated_date
@@ -123,7 +124,7 @@ export function porEstudio(rows: readonly VisitaEstadistica[], rango: Rango): Re
   }
 }
 
-/* ───────────────────────────── Promedio por tipo de visita ───────────────────────────── */
+/* ───────────────────────────── Tiempos por visita ───────────────────────────── */
 
 /** Duraciones en minutos de UNA visita; `null` cuando falta alguno de los dos sellos que hacen falta. */
 export interface Duraciones {
@@ -152,23 +153,14 @@ export function maximoMin(valores: readonly (number | null)[]): number | null {
   return nums.length === 0 ? null : Math.max(...nums)
 }
 
-export interface FilaPorEstudioDeTipo {
-  protocolCode: string
-  protocolName: string
-  visitas: number
-  atencionProm: number | null
-}
-
-export interface FilaPorTipo {
-  tipo: TipoVisita
-  label: string
-  /** Visitas ATENDIDAS del período, de este tipo (no exige que tengan los 4 sellos). */
+/** Las medidas de tiempo de un grupo de visitas (una visita del cuadro, o un estudio entero). */
+export interface Tiempos {
+  /** Visitas ATENDIDAS del período en el grupo (no exige que tengan los cuatro sellos). */
   visitas: number
   esperaProm: number | null
   atencionProm: number | null
   estadiaProm: number | null
   estadiaMax: number | null
-  porEstudio: FilaPorEstudioDeTipo[]
   /**
    * Sobre cuántas de las `visitas` se pudo calcular cada promedio (algunas no tienen los cuatro
    * sellos — una visita telefónica, o una que quedó a medio marcar). Si alguna cobertura es menor
@@ -178,79 +170,128 @@ export interface FilaPorTipo {
   cobertura: { espera: number; atencion: number; estadia: number }
 }
 
-export interface ResultadoPorTipo {
-  filas: FilaPorTipo[]
-  totalVisitas: number
-  esperaProm: number | null
-  atencionProm: number | null
-  estadiaProm: number | null
-  estadiaMax: number | null
+/**
+ * Por debajo de esto, una atención no se promedia (Director, 2026-10-08). Con los datos reales, las
+ * atenciones de 0 y 1 min eran visitas cargadas después, con "Iniciar atención" y "Lista" marcados
+ * uno atrás del otro — no visitas de un minuto. Sumadas, bajaban el promedio que se usa para estimar
+ * cuánto dura una visita (LTS daba 29 min con una única atención real de 1 h 27). Quedan afuera
+ * igual que una visita sin sellos: no suman a `cobertura.atencion`, así la tabla dice "sobre N".
+ * Sólo la atención: una espera de 0 min es perfectamente real (el paciente pasó de una).
+ */
+export const ATENCION_MINIMA_MIN = 5
+
+function tiemposDe(vs: readonly VisitaEstadistica[]): Tiempos {
+  const d = vs.map(duracionesDe).map((x) => ({
+    ...x,
+    atencion: x.atencion != null && x.atencion < ATENCION_MINIMA_MIN ? null : x.atencion,
+  }))
+  return {
+    visitas: vs.length,
+    esperaProm: promedioMin(d.map((x) => x.espera)),
+    atencionProm: promedioMin(d.map((x) => x.atencion)),
+    estadiaProm: promedioMin(d.map((x) => x.estadia)),
+    estadiaMax: maximoMin(d.map((x) => x.estadia)),
+    cobertura: {
+      espera: d.filter((x) => x.espera != null).length,
+      atencion: d.filter((x) => x.atencion != null).length,
+      estadia: d.filter((x) => x.estadia != null).length,
+    },
+  }
+}
+
+export interface FilaDeVisita extends Tiempos {
+  /** Estable dentro del estudio: `kind` + nombre de la definición (ver `claveDeVisita`). */
+  clave: string
+  label: string
+}
+
+export interface FilaPorVisitaDeEstudio extends Tiempos {
+  protocolId: string
+  protocolCode: string
+  protocolName: string
+  porVisita: FilaDeVisita[]
+}
+
+export interface ResultadoPorVisita extends Tiempos {
+  filas: FilaPorVisitaDeEstudio[]
 }
 
 /** Orden fijo de exhibición (no alfabético: el recorrido clínico real del paciente por el estudio). */
 export const ORDEN_TIPOS: readonly TipoVisita[] = ['screening', 'randomizacion', 'tratamiento', 'seguimiento', 'no_programada']
 
 /**
- * Agrupa las visitas ATENDIDAS del período (`real_date` en rango) por tipo, con desglose por
- * estudio para la fila expandida. Sólo mira atendidas: una visita agendada a futuro no tiene
- * sellos que promediar.
+ * Rango de una visita dentro de su estudio. Tratamiento y Seguimiento comparten el escalón a
+ * propósito: los dos son visitas comunes del cuadro, y entre ellas manda el orden natural del
+ * nombre (V4, V5, V6…) — si Seguimiento fuera un escalón aparte, una "Seguimiento 1" quedaría
+ * antes de la V10 por la heurística de texto de `bucketTipoVisita`, no por el cuadro.
  */
-export function porTipo(rows: readonly VisitaEstadistica[], rango: Rango): ResultadoPorTipo {
+const RANGO_TIPO: Record<TipoVisita, number> = {
+  screening: 0, randomizacion: 1, tratamiento: 2, seguimiento: 2, no_programada: 3,
+}
+
+/**
+ * Qué es "la misma visita" para promediar. Las del cuadro, por el nombre de su definición: todas
+ * las V5 de un estudio son una fila. Las sueltas, por su `kind` — y si además traen nombre, por
+ * los dos: un retest de la V5 NO es la V5 (repite una prueba, no la visita entera), y mezclarlos
+ * bajaría el promedio que se usa para estimar cuánto dura la V5 de verdad.
+ */
+function claveDeVisita(v: VisitaEstadistica): { clave: string; label: string } {
+  if (v.kind === 'programada' && v.visit_name) return { clave: `programada:${v.visit_name}`, label: v.visit_name }
+  const base = KIND_LABELS[v.kind]
+  return v.visit_name
+    ? { clave: `${v.kind}:${v.visit_name}`, label: `${base} · ${v.visit_name}` }
+    : { clave: v.kind, label: base }
+}
+
+const nombreNatural = new Intl.Collator('es', { numeric: true, sensitivity: 'base' })
+
+/**
+ * Tiempos por visita: las visitas ATENDIDAS del período (`real_date` en rango) agrupadas por
+ * estudio y, adentro, por visita del cuadro — "la V5 de ACT18301 tarda, en promedio, esto". Sirve
+ * para estimar cuánto va a durar una visita antes de agendarla (Director, 2026-10-08). Sólo mira
+ * atendidas: una visita agendada a futuro no tiene sellos que promediar.
+ *
+ * Orden: estudios con más visitas primero; adentro, el recorrido del paciente (Screening,
+ * Randomización, el cuadro por nombre natural, las no programadas al final).
+ */
+export function porVisita(rows: readonly VisitaEstadistica[], rango: Rango): ResultadoPorVisita {
   const atendidas = rows.filter((v) => v.real_date != null && v.real_date >= rango.desde && v.real_date <= rango.hasta)
 
-  const porBucket = new Map<TipoVisita, VisitaEstadistica[]>()
+  const porProtocolo = new Map<string, VisitaEstadistica[]>()
   for (const v of atendidas) {
-    const b = bucketTipoVisita(v)
-    const arr = porBucket.get(b)
+    const arr = porProtocolo.get(v.protocol_id)
     if (arr) arr.push(v)
-    else porBucket.set(b, [v])
+    else porProtocolo.set(v.protocol_id, [v])
   }
 
-  const filas: FilaPorTipo[] = ORDEN_TIPOS.filter((t) => porBucket.has(t)).map((tipo) => {
-    const vs = porBucket.get(tipo)!
-    const duraciones = vs.map(duracionesDe)
+  const filas: FilaPorVisitaDeEstudio[] = [...porProtocolo.values()]
+    .map((vs) => {
+      const grupos = new Map<string, { label: string; rango: number; vs: VisitaEstadistica[] }>()
+      for (const v of vs) {
+        const { clave, label } = claveDeVisita(v)
+        const g = grupos.get(clave)
+        if (g) {
+          g.vs.push(v)
+          // Una misma V5 puede caer en escalones distintos si cambió el rol de la definición: manda el menor.
+          g.rango = Math.min(g.rango, RANGO_TIPO[bucketTipoVisita(v)])
+        } else {
+          grupos.set(clave, { label, rango: RANGO_TIPO[bucketTipoVisita(v)], vs: [v] })
+        }
+      }
+      const porVisitaFilas: FilaDeVisita[] = [...grupos.entries()]
+        .sort(([, a], [, b]) => a.rango - b.rango || nombreNatural.compare(a.label, b.label))
+        .map(([clave, g]) => ({ clave, label: g.label, ...tiemposDe(g.vs) }))
+      return {
+        protocolId: vs[0].protocol_id,
+        protocolCode: vs[0].protocol_code,
+        protocolName: vs[0].protocol_name,
+        ...tiemposDe(vs),
+        porVisita: porVisitaFilas,
+      }
+    })
+    .sort((a, b) => b.visitas - a.visitas)
 
-    const porProtocolo = new Map<string, VisitaEstadistica[]>()
-    for (const v of vs) {
-      const arr = porProtocolo.get(v.protocol_id)
-      if (arr) arr.push(v)
-      else porProtocolo.set(v.protocol_id, [v])
-    }
-    const porEstudioFilas: FilaPorEstudioDeTipo[] = [...porProtocolo.values()]
-      .map((vsE) => ({
-        protocolCode: vsE[0].protocol_code,
-        protocolName: vsE[0].protocol_name,
-        visitas: vsE.length,
-        atencionProm: promedioMin(vsE.map((v) => duracionesDe(v).atencion)),
-      }))
-      .sort((a, b) => b.visitas - a.visitas)
-
-    return {
-      tipo,
-      label: TIPO_VISITA_LABELS[tipo],
-      visitas: vs.length,
-      esperaProm: promedioMin(duraciones.map((d) => d.espera)),
-      atencionProm: promedioMin(duraciones.map((d) => d.atencion)),
-      estadiaProm: promedioMin(duraciones.map((d) => d.estadia)),
-      estadiaMax: maximoMin(duraciones.map((d) => d.estadia)),
-      porEstudio: porEstudioFilas,
-      cobertura: {
-        espera: duraciones.filter((d) => d.espera != null).length,
-        atencion: duraciones.filter((d) => d.atencion != null).length,
-        estadia: duraciones.filter((d) => d.estadia != null).length,
-      },
-    }
-  })
-
-  const todasDuraciones = atendidas.map(duracionesDe)
-  return {
-    filas,
-    totalVisitas: atendidas.length,
-    esperaProm: promedioMin(todasDuraciones.map((d) => d.espera)),
-    atencionProm: promedioMin(todasDuraciones.map((d) => d.atencion)),
-    estadiaProm: promedioMin(todasDuraciones.map((d) => d.estadia)),
-    estadiaMax: maximoMin(todasDuraciones.map((d) => d.estadia)),
-  }
+  return { filas, ...tiemposDe(atendidas) }
 }
 
 /* ───────────────────────────── Formato ───────────────────────────── */
