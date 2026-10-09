@@ -29,7 +29,7 @@ import { esReportePendiente, esTarjeta, reporteTitulo } from './track/reportes/e
 import type { ReportStage } from './track/reportes/estados'
 import { agruparPorVisita, aplicarEtapas, claveReporte, textoPlazo, totales } from './track/reportes/porPaciente'
 import {
-  AccionDeReporte, BarraDeReportes, ConteoDeReportes, EstadoDeReporte, estiloPlazo,
+  AccionDeReporte, BarraDeReportes, ConteoDeReportes, EstadoDeReporte, estiloPlazo, LinkAlPortal,
 } from './track/reportes/piezasPaciente'
 import type { TrackVisitRow } from '../data/visits'
 import { visitTitle } from '../lib/visits'
@@ -421,8 +421,14 @@ function ReportesCard({ rows, origen, loading, error, onReintentar, onOpenPatien
                       <div key={r.report_definition_id} style={{ ...renglonResumen, ...(j === 0 ? { borderTopWidth: 0 } : null) }}>
                         {/* Sin el prefijo «Informe» (handoff §6.3): en una tarjeta angosta es la palabra
                             que sobra, y adentro de «Reportes pendientes» se sobreentiende. */}
-                        <span title={reporteTitulo(r.report_name, r.procedure_name)} style={{ fontSize: 13, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                          {r.report_name.replace(/^informe\s+/i, '')}
+                        {/* El portal DEBAJO del nombre y no al lado, como en Reportes: en una tarjeta
+                            angosta, «· Clario ↗» en la misma línea se comía el nombre del informe.
+                            Sin él, para descargar había que salir del Resumen a buscar dónde. */}
+                        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, minWidth: 0 }}>
+                          <span title={reporteTitulo(r.report_name, r.procedure_name)} style={{ fontSize: 13, color: 'var(--spira-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, maxWidth: '100%' }}>
+                            {r.report_name.replace(/^informe\s+/i, '')}
+                          </span>
+                          <LinkAlPortal reporte={r} />
                         </span>
                         <EstadoDeReporte reporte={r} now={now} variante="texto" />
                         {canOperate

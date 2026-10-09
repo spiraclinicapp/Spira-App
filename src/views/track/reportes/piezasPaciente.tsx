@@ -1,7 +1,7 @@
 import type { CSSProperties, MouseEvent } from 'react'
 import { Icon } from '../../../components/Icon'
 import { platformMeta } from '../procedimientos/reportes'
-import { isOverdue, STAGE_META } from './estados'
+import { isOverdue, prevStage, STAGE_META } from './estados'
 import type { ReportStage } from './estados'
 import { etapaDe, textoPlazo } from './porPaciente'
 import type { Conteo, FilaReporte, Plazo } from './porPaciente'
@@ -172,17 +172,30 @@ const portal: CSSProperties = {
   color: 'var(--spira-ink-soft)', whiteSpace: 'nowrap', textDecoration: 'none', flex: '0 0 auto',
 }
 
-/** Qué ofrece la acción de un reporte según su etapa. La etapa de destino es la que manda la RPC. */
-export function accionDe(r: FilaReporte): { destino: ReportStage; texto: string; tipo: 'descargar' | 'evolucionar' | 'deshacer' } {
+/**
+ * Qué ofrece un reporte según su etapa: el paso de AVANZAR (si queda alguno) y el de VOLVER (si hay
+ * de dónde). La etapa de destino es la que manda la RPC.
+ *
+ * VOLVER EN TODOS LOS PASOS (2026-10-09, pedido del Director). Antes sólo el evolucionado tenía
+ * «Deshacer»: un «Marcar descargado» tocado de más no tenía vuelta desde acá, y había que ir al
+ * tablero —que sí retrocede en cada etapa— a corregirlo. Ahora el renglón ofrece lo mismo que la
+ * tarjeta del tablero (`ReportCard`): avanzar y, al lado, el ↺ que vuelve un paso.
+ */
+export function accionDe(r: FilaReporte): {
+  avanzar: { destino: ReportStage; texto: string; tipo: 'descargar' | 'evolucionar' } | null
+  volver: ReportStage | null
+} {
   const e = etapaDe(r)
-  if (e === 'pendiente') return { destino: 'descargado', texto: STAGE_META.descargado.cta ?? 'Marcar descargado', tipo: 'descargar' }
-  if (e === 'descargado') return { destino: 'evolucionado', texto: 'Evolucionar', tipo: 'evolucionar' }
-  return { destino: 'descargado', texto: 'Deshacer', tipo: 'deshacer' }
+  const volver = prevStage(e)
+  if (e === 'pendiente') return { avanzar: { destino: 'descargado', texto: STAGE_META.descargado.cta ?? 'Marcar descargado', tipo: 'descargar' }, volver }
+  if (e === 'descargado') return { avanzar: { destino: 'evolucionado', texto: 'Evolucionar', tipo: 'evolucionar' }, volver }
+  return { avanzar: null, volver }
 }
 
 /**
- * La acción de un reporte, a la derecha del renglón: «Marcar descargado» (contorno azul),
- * «Evolucionar» (sólido) o «Deshacer» (link, vuelve a descargado). `compacta` es la del Resumen.
+ * La acción de un reporte, a la derecha del renglón: «Marcar descargado» (contorno azul) o
+ * «Evolucionar» (sólido), y el ↺ que vuelve un paso —el mismo gesto, ícono y tooltip que el tablero—.
+ * Ya evolucionado queda sólo el ↺: el estado de al lado dice «Evolucionado». `compacta` es la del Resumen.
  */
 export function AccionDeReporte({ reporte, compacta = false, busy, accentSolid, onStage }: {
   reporte: FilaReporte
@@ -191,25 +204,40 @@ export function AccionDeReporte({ reporte, compacta = false, busy, accentSolid, 
   accentSolid: string
   onStage: (destino: ReportStage) => void
 }) {
-  const a = accionDe(reporte)
-  const nombre = `${a.texto}: ${reporte.report_name}`
-  const click = (e: MouseEvent) => { e.stopPropagation(); if (!busy) onStage(a.destino) }
-  if (a.tipo === 'deshacer') {
-    return (
-      <button type="button" onClick={click} disabled={busy} aria-label={`Deshacer, volver a descargado: ${reporte.report_name}`} className="spira-no-press" style={{ ...deshacer, opacity: busy ? 0.6 : 1 }}>
-        Deshacer
+  const { avanzar, volver } = accionDe(reporte)
+  const alto = compacta ? 26 : 30
+  const ir = (destino: ReportStage) => (e: MouseEvent) => { e.stopPropagation(); if (!busy) onStage(destino) }
+  let boton = null
+  if (avanzar) {
+    const estilo: CSSProperties = avanzar.tipo === 'descargar'
+      ? { ...accion, height: alto, borderRadius: compacta ? 7 : 8, fontSize: compacta ? 12 : 12.5, borderColor: '#3A6B8C', color: 'var(--spira-acc-deep-blue)', background: 'var(--spira-white)' }
+      : { ...accion, height: alto, borderRadius: compacta ? 7 : 8, fontSize: compacta ? 12 : 12.5, borderColor: accentSolid, background: accentSolid, color: 'var(--spira-on-accent)' }
+    boton = (
+      <button type="button" onClick={ir(avanzar.destino)} disabled={busy} aria-label={`${avanzar.texto}: ${reporte.report_name}`} aria-busy={busy} style={{ ...estilo, opacity: busy ? 0.6 : 1 }}>
+        <Icon name={avanzar.tipo === 'descargar' ? 'download' : 'check'} size={compacta ? 13 : 14} color={avanzar.tipo === 'descargar' ? 'var(--spira-acc-deep-blue)' : 'var(--spira-on-accent)'} stroke={2.2} />
+        {avanzar.texto}
       </button>
     )
   }
-  const alto = compacta ? 26 : 30
-  const estilo: CSSProperties = a.tipo === 'descargar'
-    ? { ...accion, height: alto, borderRadius: compacta ? 7 : 8, fontSize: compacta ? 12 : 12.5, borderColor: '#3A6B8C', color: 'var(--spira-acc-deep-blue)', background: 'var(--spira-white)' }
-    : { ...accion, height: alto, borderRadius: compacta ? 7 : 8, fontSize: compacta ? 12 : 12.5, borderColor: accentSolid, background: accentSolid, color: 'var(--spira-on-accent)' }
+  /* El tooltip dice A DÓNDE vuelve, no «Deshacer»: con dos pasos para atrás posibles, «deshacer»
+     no alcanza para saber si el reporte queda descargado o sin descargar. */
+  const aDonde = volver && `Volver a ${STAGE_META[volver].label.toLowerCase()}`
   return (
-    <button type="button" onClick={click} disabled={busy} aria-label={nombre} aria-busy={busy} style={{ ...estilo, opacity: busy ? 0.6 : 1 }}>
-      <Icon name={a.tipo === 'descargar' ? 'download' : 'check'} size={compacta ? 13 : 14} color={a.tipo === 'descargar' ? 'var(--spira-acc-deep-blue)' : 'var(--spira-on-accent)'} stroke={2.2} />
-      {a.texto}
-    </button>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifySelf: 'end' }}>
+      {boton}
+      {volver && (
+        <button
+          type="button"
+          onClick={ir(volver)}
+          disabled={busy}
+          title={aDonde ?? undefined}
+          aria-label={`${aDonde}: ${reporte.report_name}`}
+          style={{ ...volverBtn, width: alto, height: alto, borderRadius: compacta ? 7 : 8, opacity: busy ? 0.6 : 1 }}
+        >
+          <Icon name="rotateCcw" size={13} color="var(--spira-muted)" />
+        </button>
+      )}
+    </span>
   )
 }
 
@@ -219,8 +247,8 @@ const accion: CSSProperties = {
   borderWidth: 1, borderStyle: 'solid', fontFamily: 'var(--spira-font-text)', fontWeight: 600,
   cursor: 'pointer', whiteSpace: 'nowrap', justifySelf: 'end',
 }
-const deshacer: CSSProperties = {
-  border: 'none', background: 'transparent', padding: '4px 2px', cursor: 'pointer', justifySelf: 'end',
-  color: 'var(--spira-ink-soft)', textDecoration: 'underline', textUnderlineOffset: 2,
-  fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5,
+/* El de `ReportCard` (`iconBtn`): borde suave y papel, para que pese menos que avanzar. */
+const volverBtn: CSSProperties = {
+  flex: '0 0 auto', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)',
+  background: 'var(--spira-white)', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 0,
 }
