@@ -151,15 +151,18 @@ export function InfoTip({ titulo, cuerpo, size = 15, etiqueta, color, icono = 'i
 
 /** El disparador no lleva fondo ni borde: es el ícono y nada más (§06 del handoff — "ícono suelto,
  *  nunca pill"). `spira-no-press` lo deja fuera del levante al pulsar: un ⓘ que se hunde parece un
- *  botón que hace algo, y no hace nada más que explicar. */
+ *  botón que hace algo, y no hace nada más que explicar.
+ *  Pero el CURSOR sí es la manito: el clic abre el panel (ver «Y ABRE TAMBIÉN POR CLICK», arriba), y
+ *  el cursor dice qué pasa al hacer clic. Hasta el 2026-10-09 era `help`, la flecha con signo de
+ *  pregunta; el Director lo sacó porque casi ninguna app lo usa y se lee raro. */
 const disparador: CSSProperties = {
   flex: '0 0 auto', display: 'grid', placeItems: 'center', padding: 0,
-  border: 'none', background: 'transparent', borderRadius: '50%', cursor: 'help',
+  border: 'none', background: 'transparent', borderRadius: '50%', cursor: 'pointer',
 }
 
 /** El disparador de texto hereda la letra de la celda: sólo el subrayado punteado dice que se puede apuntar. */
 const disparadorTexto: CSSProperties = {
-  padding: 0, border: 'none', background: 'transparent', cursor: 'help',
+  padding: 0, border: 'none', background: 'transparent', cursor: 'pointer',
   font: 'inherit', color: 'inherit', letterSpacing: 'inherit',
 }
 

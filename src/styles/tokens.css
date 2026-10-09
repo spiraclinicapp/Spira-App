@@ -1291,9 +1291,12 @@ input:-webkit-autofill:focus {
      calculados contra 22. */
   line-height: 13px;
   /* El `title` sigue estando —dice el estado completo, "Completó el estudio" donde la bandera
-     escribe "Completado"—, así que el cursor lo anuncia como en el resto de los datos con
-     explicación. Y de paso no hereda el `pointer` de la tarjeta: la bandera no abre nada. */
-  cursor: help;
+     escribe "Completado"—, pero el cursor no lo anuncia: es la flecha. La bandera es HERMANA del
+     área que abre la ficha, no hija, así que un clic sobre ella no hace nada; con la manito que
+     heredaría de `.spira-card-link` sería un botón que finge. Y el `help` (flecha con signo de
+     pregunta) que tuvo hasta el 2026-10-09 lo sacó el Director: casi ninguna app lo usa y se lee
+     raro. La regla de la casa: el cursor dice qué pasa al HACER CLIC, no si hay un globito. */
+  cursor: default;
   background: color-mix(in srgb, var(--spira-good) 13%, var(--spira-white));
   color: var(--spira-acc-deep-good);
 }
@@ -1598,7 +1601,7 @@ input:-webkit-autofill:focus {
    Una palabra de la jerga del centro (IVRS, VNP, W12, "Ventana vencida") con su explicación al
    apuntarla. El texto vive en `lib/glosario.ts`; acá va sólo la señal de que se puede preguntar.
 
-   LA SEÑAL ES EL SUBRAYADO PUNTEADO Y `cursor: help`, y NADA MÁS: sin color, sin ícono, sin
+   LA SEÑAL ES EL SUBRAYADO PUNTEADO, y NADA MÁS: sin color, sin ícono, sin
    pastilla. El color en esta app significa marca, módulo o estado (DESIGN.md §2), y "acá hay una
    definición" no es ninguna de las tres; teñir la mitad de las palabras de una lista de pacientes
    la volvería un texto marcado con resaltador. El punteado se lee como "hay algo más" sin competir
@@ -1610,13 +1613,21 @@ input:-webkit-autofill:focus {
 
    Es un `<abbr>`: la semántica correcta para un término con expansión, y la que hace que un lector
    de pantalla anuncie la definición sin que haya que agregarle un `aria-label` que duplique el
-   `title`. */
+   `title`.
+
+   EL CURSOR ES LA FLECHA, no `help` ni la manito (decisión del Director, 2026-10-09). El cursor
+   dice qué pasa al hacer clic, y sobre un término no pasa nada: la explicación sale sola al
+   apuntar. `default` y no dejarlo heredar porque sobre texto el heredado es la I de selección.
+   PERO si el término vive ADENTRO de algo que sí abre —el KPI «Ventanas por vencer» de la ficha
+   del protocolo, una fila del cronograma—, el clic sobre la palabra abre eso, y ahí la manito es
+   la verdad: la segunda regla le devuelve el cursor del contenedor. */
 .spira-termino {
   text-decoration: underline dotted var(--spira-faint);
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
-  cursor: help;
+  cursor: default;
 }
+:is(button, a, [role="button"]) .spira-termino { cursor: inherit; }
 /* Va SIEMPRE con `.spira-no-press` (lo pone el componente, no el que lo usa): es un `<button>`, así
    que sin esa marca hereda la micro-interacción global y el texto se LEVANTA 1px al apuntarlo. En un
    botón eso es la señal de "esto se toca"; en un nombre de 23px en medio de un bloque de identidad

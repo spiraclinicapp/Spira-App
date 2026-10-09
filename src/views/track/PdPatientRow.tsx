@@ -147,8 +147,9 @@ export function PdPatientRow({ patient, visits, accent, protocolId, protocolCode
                 {/* `title` sin subrayado punteado: el IVRS se repite en las diez filas de la lista
                     y marcarlo diez veces no enseña nada —la definición es la misma— pero sí
                     convierte la columna en un texto resaltado. La marca visual del glosario se gasta
-                    una sola vez, en los rótulos de KPI de la ficha del protocolo. */}
-                <span className="spira-mono" title={GLOSARIO.ivrs} style={{ fontSize: 13, color: 'var(--spira-muted)', whiteSpace: 'nowrap', cursor: 'help' }}>
+                    una sola vez, en los rótulos de KPI de la ficha del protocolo. Sin cursor
+                    propio: la tarjeta abre la ficha, así que la manito que hereda es la verdad. */}
+                <span className="spira-mono" title={GLOSARIO.ivrs} style={{ fontSize: 13, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
                   {ivrs
                     ? <PatientLink onOpen={() => onOpen(patient.id)} label={`Abrir la ficha del sujeto ${ivrs}`}>{ivrs}</PatientLink>
                     : 'Sin IVRS'}
