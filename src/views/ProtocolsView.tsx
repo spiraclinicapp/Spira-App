@@ -22,11 +22,11 @@ import { NewPatientForm } from './NewPatientForm'
 import { ProtocolDetailView } from './ProtocolDetailView'
 import { PatientFichaView } from './PatientFichaView'
 import { EditProtocolForm } from './EditProtocolForm'
-import { DESTINO_PENDIENTES, DESTINO_VISITAS } from './resumen/destinos'
+import { DESTINO_PENDIENTES, DESTINO_REPORTES, DESTINO_VISITAS } from './resumen/destinos'
 import { navDesdePath, pathDesdeNav, resolverFichaDestino } from './protocolsNav'
 import type { Nav } from './protocolsNav'
 import { NotFoundView } from '../shell/NotFoundView'
-import type { NavTarget, ViewProps } from './types'
+import type { ViewProps } from './types'
 
 /* Identidad de una posición interna, para comparar "¿seguimos donde nos dejaron?". Con el paciente
    incluido: pasar de una ficha a la de otro paciente SÍ es haberse ido. */
@@ -159,10 +159,6 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
   })
   const [creating, setCreating] = useState<null | 'protocol' | 'patient'>(null)
   const [editingProtocol, setEditingProtocol] = useState(false)
-  /* Pestaña con la que abrir el detalle del protocolo cuando llegamos con un objetivo que la
-     declara. Sobrevive al `onTargetConsumed` (que limpia el navTarget) porque el detalle se monta
-     recién en el render siguiente; de ahí en más la URL manda y esto no vuelve a mirarse. */
-  const [tabPendiente, setTabPendiente] = useState<NavTarget['protocolTab']>(undefined)
 
   /* Objetivo del buscador global: abrir la ficha de un paciente directo. La ficha necesita el
      protocolo de contexto; como un paciente puede estar en varios, se toma su enrolamiento
@@ -176,14 +172,20 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
     if (patients.loading || protocols.loading) return
 
     /* SIN paciente pero CON protocolo: no es "abrime la ficha de alguien", es "abrime el detalle de
-       este protocolo" — el salto que hace el Resumen desde su tarjeta de reportes pendientes, que
-       además dice en qué pestaña aterrizar. La pestaña se guarda acá porque `onTargetConsumed`
-       borra el `navTarget` enseguida y el detalle todavía no se montó para leerla. */
+       este protocolo" — Ajustes › Estudios, el buscador, un feedback.
+       Si además pide la pestaña de reportes, es un lugar guardado de cuando el detalle la tenía
+       (hasta el 2026-10-09): esos reportes ahora viven en Coordinación › Reportes, así que el salto
+       va ahí con el estudio ya filtrado, que es lo que esa pestaña mostraba. Sin `onNavigate`, cae
+       al detalle: mejor el estudio correcto que ningún lado. */
     if (!navTarget?.patientId && navTarget?.protocolId) {
+      if (navTarget.protocolTab === 'reportes' && onNavigate) {
+        onTargetConsumed?.()
+        onNavigate(DESTINO_REPORTES.moduleKey, DESTINO_REPORTES.subKey, { protocolFilter: [navTarget.protocolId] })
+        return
+      }
       const existe = (protocols.data ?? []).some((p) => p.id === navTarget.protocolId)
       if (existe) {
         const destino: Nav = { mode: 'protocol', protocolId: navTarget.protocolId }
-        setTabPendiente(navTarget.protocolTab)
         setNav(destino, { resolviendoTarget: true })
         llegada.current = navKey(destino)
       }
@@ -196,7 +198,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
     const destino = resolverFichaDestino(pt, navTarget.protocolId)
     if (destino) { setNav(destino, { resolviendoTarget: true }); llegada.current = navKey(destino) }
     onTargetConsumed?.()
-  }, [navTarget, patients.loading, patients.data, protocols.loading, protocols.data, onTargetConsumed])
+  }, [navTarget, patients.loading, patients.data, protocols.loading, protocols.data, onTargetConsumed, onNavigate])
 
   /* El pasaje de vuelta del shell ("Volver a la visita de X") vale mientras sigas DONDE te dejaron.
      Esta vista navega por adentro sin cambiar de submódulo —de una ficha a la grilla, o a otro
@@ -296,7 +298,6 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
           canManageSchedule={canManageSchedule}
           canCreatePatient={canCreatePatient && !ajeno}
           setHeader={setHeader}
-          initialTab={tabPendiente}
           onBack={() => setNav({ mode: 'list' })}
           onOpenPatient={(patientId) => setNav({ mode: 'patient', protocolId: proto.id, patientId })}
           onNewPatient={() => setCreating('patient')}

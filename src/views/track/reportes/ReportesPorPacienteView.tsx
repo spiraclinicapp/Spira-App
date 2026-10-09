@@ -43,7 +43,10 @@ import {
  * clic bajaría de nuevo cientos de reportes. Qué filas se ven y en qué orden lo decide lo que vino del
  * servidor; ver la cabecera de `porPaciente.ts`.
  *
- * Quién puede mover: el mismo criterio que el tablero del protocolo. Quien sólo mira, ve la pantalla
+ * Desde el 2026-10-09 es el ÚNICO lugar de los reportes pendientes: el tablero que vivía en una
+ * pestaña de la ficha del estudio se fue (Director), y el filtro por estudio de acá lo reemplaza.
+ *
+ * Quién puede mover: gerencia u operador de Coordinación (`canOperate`). Quien sólo mira, ve la pantalla
  * sin botones; la que manda es la RPC, que scopea por `coordina_visita`.
  */
 export function ReportesPorPacienteView({ module, submodule, onNavigate, navTarget, onTargetConsumed }: ViewProps) {
@@ -75,7 +78,8 @@ export function ReportesPorPacienteView({ module, submodule, onNavigate, navTarg
   useEffect(() => { setOverlay(new Map()) }, [q.data])
   const now = useMemo(() => Date.now(), [q.data])
 
-  /* Llegada con estudios para filtrar (p. ej., desde la ficha del protocolo): el mismo setter que las
+  /* Llegada con estudios para filtrar (p. ej., un feedback guardado en la vieja pestaña de reportes
+     de la ficha del estudio, que `ProtocolsView` redirige acá): el mismo setter que las
      tarjetas, así el estado es uno que el usuario podría haber armado a mano y la URL lo dice. */
   useEffect(() => {
     const filtro = navTarget?.protocolFilter
