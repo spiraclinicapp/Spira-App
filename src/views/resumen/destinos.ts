@@ -24,7 +24,7 @@ import { MODULES } from '../../modules/registry'
  */
 
 /** Las cuatro tarjetas de cifras del Resumen de Coordinación, en el orden en que se muestran. */
-export type KpiKey = 'protocolos' | 'pacientes' | 'reportes' | 'visitas'
+export type KpiKey = 'protocolos' | 'pacientes' | 'vencidos' | 'visitas'
 
 export interface Destino {
   moduleKey: string
@@ -70,10 +70,11 @@ export const DESTINO_REPORTES: Destino = { moduleKey: 'track', subKey: 'reportes
 export const KPI_DESTINOS: Record<KpiKey, Destino> = {
   protocolos: { moduleKey: 'track', subKey: 'protocolos' },
   pacientes: { moduleKey: 'track', subKey: 'protocolos' },
-  /* El KPI se llama "Reportes vencidos" y NO "Pendientes vencidos" desde que el submódulo se llama
-     Pendientes: "los pendientes vencidos de Pendientes" no dice nada. Y de paso es más exacto —
-     cuenta `item_vencido`, que es un REPORTE del estudio fuera de plazo. */
-  reportes: DESTINO_PENDIENTES,
+  /* «Vencidos» (antes «Reportes vencidos», key 'reportes'): desde el 2026-10-08 cuenta TODO lo que
+     lista Pendientes —ventanas vencidas, por reprogramar y fuera de plazo—, así que el número y su
+     destino dicen lo mismo. La key cambió con el rótulo para no dejar un 'reportes' que ya no cuenta
+     reportes, al lado de la key 'reportes' de Estadísticas. */
+  vencidos: DESTINO_PENDIENTES,
   visitas: DESTINO_VISITAS,
 }
 

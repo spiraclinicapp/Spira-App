@@ -5,7 +5,7 @@ import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { useAuth } from '../lib/auth'
 import { AlertCardHeader } from './AlertCardHeader'
 import { CabeceraDeTarjeta, card, ChipDestino, DetalleConEstado, filaAncha, FilaDeResumen, MAX_FILAS } from './resumen/piezas'
-import { severidadMaxima } from './alertSeverity'
+import { GRAVEDAD, ordenarPorGravedad, severidadMaxima } from './alertSeverity'
 import { DESTINO_PENDIENTES, DESTINO_REPORTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
 import { proximoDiaConVisitas } from './resumen/proximoDia'
@@ -691,7 +691,18 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
   const activeProtocols = allProtocols.filter((p) => p.status === 'activo').length
   /* Mismo criterio que Inicio: personas con alguna participación abierta (0127). */
   const activePatients = allPatients.filter(personaActiva).length
-  const overdueItems = alertRows.filter((a) => a.computed_status === 'item_vencido').length
+  /* EL KPI «VENCIDOS» CUENTA LO MISMO QUE LA TARJETA PENDIENTES Y LLEVA AHÍ (critique 2026-10-08,
+     decisión del Director). Antes se llamaba «Reportes vencidos», contaba sólo `item_vencido` y
+     llevaba a Pendientes: el número no coincidía con el de su destino, el mismo reporte aparecía con
+     cuatro nombres en la pantalla, y la ventana vencida —lo más grave— no figuraba en ningún número.
+     Ahora el número grande, la cabecera de la tarjeta y la pantalla de destino cuentan lo mismo
+     (`alertRows`, ya filtrado por ámbito), y el subtítulo nombra lo más grave que haya adentro. */
+  const vencidos = alertRows.length
+  const peorVencido = severidadMaxima(alertRows)
+  const ventanasVencidas = alertRows.filter((a) => a.computed_status === 'ventana_vencida').length
+  const subVencidos = ventanasVencidas > 0
+    ? `${ventanasVencidas} con ventana vencida`
+    : vencidos > 0 ? 'para resolver' : 'todo al día'
 
   /* EL PRÓXIMO DÍA CON VISITAS, y no "mañana" a secas.
      El pedido fue "las del día siguiente únicamente", y tomado al pie de la letra la tarjeta queda
@@ -747,7 +758,7 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
         <KpiCard kpi="protocolos" onNavigate={onNavigate} label="Protocolos activos" value={activeProtocols} sub={`${allProtocols.length} en total`} dot={accent} cargando={cargandoKpis} />
         <KpiCard kpi="pacientes" onNavigate={onNavigate} label="Pacientes activos" value={activePatients} sub={`${allPatients.length} registrados`} dot={accent} cargando={cargandoKpis} />
-        <KpiCard kpi="reportes" onNavigate={onNavigate} label="Reportes vencidos" value={overdueItems} sub="fuera de plazo" dot={overdueItems > 0 ? 'var(--spira-warn)' : accent} cargando={cargandoKpis} />
+        <KpiCard kpi="vencidos" onNavigate={onNavigate} label="Vencidos" value={vencidos} sub={subVencidos} dot={peorVencido ? VISIT_STATES[peorVencido].color : accent} cargando={cargandoKpis} />
         <KpiCard kpi="visitas" onNavigate={onNavigate} label="Próximas visitas" value={upcomingRows.length} sub={asignadasAMi > 0 ? `${asignadasAMi} ${asignadasAMi === 1 ? 'asignada' : 'asignadas'} a mí` : 'próximos 7 días'} dot={accent} cargando={cargandoKpis} />
       </div>
 
@@ -943,9 +954,17 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
      cuántas alertas hay — ése es el número que importa. YA NO es el mismo que muestra la campana:
      `NotificationsMenu` usa `useActiveAlerts` sin filtrar por ámbito, así que con "Lo mío" puesto
      acá cuentan menos alertas que las que la campana anuncia (a propósito — es el punto del
-     alternador). */
-  const visibles = rows.slice(0, MAX_FILAS)
+     alternador).
+
+     LAS FILAS SE ORDENAN POR GRAVEDAD ANTES DE CORTAR (critique 2026-10-08). Venían en el orden de la
+     consulta —fecha estimada— y la ventana vencida, que es la que tiñe de rojo la cabecera, podía
+     quedar tercera o detrás de «Ver más». La regla vive en `ordenarPorGravedad`, con test. */
+  const ordenadas = ordenarPorGravedad(rows)
+  const visibles = ordenadas.slice(0, MAX_FILAS)
   const restantes = rows.length - visibles.length
+  /* La leyenda nombra sólo los estados que se VEN en las filas, en orden de gravedad: explicar un
+     punto que no está dibujado es ruido, y antes faltaba «Por reprogramar» aunque apareciera. */
+  const estadosVisibles = GRAVEDAD.filter((s) => visibles.some((a) => a.computed_status === s))
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
       <AlertCardHeader titulo={titulo} severidad={severidadMaxima(rows)} cantidad={rows.length} />
@@ -965,9 +984,15 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
             {visibles.map((a, i) => {
               const c = VISIT_STATES[a.computed_status].color
               const vName = visitTitle(a)
+              /* El motivo empieza con el MISMO nombre del estado que usan la leyenda, el chip y la
+                 pantalla Pendientes (`VISIT_STATES`). Antes cada tarjeta lo contaba con palabras
+                 propias —«Reporte de procedimiento fuera de plazo» al lado de una leyenda que decía
+                 «Pendiente vencido»— y, peor, «Por reprogramar» caía en esa misma rama y se rotulaba
+                 como un reporte fuera de plazo, que es falso. La ventana vencida suma su fecha porque
+                 es lo que la define. */
               const motivo = a.computed_status === 'ventana_vencida'
-                ? `Ventana vencida el ${a.window_end ? formatAR(a.window_end) : '—'} · ${vName}`
-                : `Reporte de procedimiento fuera de plazo · ${vName}`
+                ? `${VISIT_STATES.ventana_vencida.label} el ${a.window_end ? formatAR(a.window_end) : '—'} · ${vName}`
+                : `${VISIT_STATES[a.computed_status].label} · ${vName}`
               const abrir = onOpenAlerta ? () => onOpenAlerta(a.id) : undefined
               return (
                 <FilaDeResumen
@@ -1003,7 +1028,7 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 12, fontSize: 11.5, color: 'var(--spira-muted)' }}>
             {/* La leyenda explica cada estado al apuntarlo, y lleva la marca del glosario: aparece
                 una sola vez en la tarjeta, así que enseña el gesto sin salpicar las filas. */}
-            {(['ventana_vencida', 'item_vencido'] as const).map((s) => (
+            {estadosVisibles.map((s) => (
               <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: VISIT_STATES[s].color }} />
                 <abbr className="spira-termino" title={GLOSARIO_ESTADOS[s]}>{VISIT_STATES[s].label}</abbr>
