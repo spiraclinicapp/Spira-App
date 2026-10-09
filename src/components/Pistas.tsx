@@ -208,8 +208,16 @@ export function Pistas() {
       else cancelarApertura()
     }
 
-    /* Cerrarla al scrollear es más simple y más tranquilo que perseguir al elemento. */
-    const onCambio = () => { if (duenio || pendiente) cerrar() }
+    /* Cerrarla al scrollear es más simple y más tranquilo que perseguir al elemento.
+       Y ese cierre NO deja la pista tibia: al scrollear, el mouse queda quieto pero la página pasa
+       por debajo, así que cae sobre otro `title` a cada rato; tibia, cada uno saldría al instante y
+       una lista con nombres se volvería un parpadeo de carteles. Medido en el banco: el scroll la
+       cerraba y la volvía a abrir en el mismo cuadro. */
+    const onCambio = () => {
+      if (!duenio && !pendiente) return
+      cerrar()
+      ultimoCierre = -Infinity
+    }
 
     document.addEventListener('pointerover', onOver)
     document.addEventListener('pointerout', onOut)
@@ -253,9 +261,9 @@ export function Pistas() {
 
   if (!abierta) return null
   return createPortal(
-    <div ref={panelRef} id={ID_PISTA} role="tooltip" className="spira-pista" data-forma={abierta.forma}>
+    <div ref={panelRef} id={ID_PISTA} role="tooltip" className="spira-ayuda" data-forma={abierta.forma}>
       {abierta.forma === 'termino'
-        ? <><span className="spira-pista-titulo">{abierta.titulo}</span><span className="spira-pista-cuerpo">{abierta.texto}</span></>
+        ? <><span className="spira-ayuda-titulo">{abierta.titulo}</span><span className="spira-ayuda-cuerpo">{abierta.texto}</span></>
         : abierta.texto}
     </div>,
     document.body,

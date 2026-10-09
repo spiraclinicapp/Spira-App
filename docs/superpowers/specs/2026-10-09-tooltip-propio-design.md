@@ -1,6 +1,6 @@
 # Pistas propias: el reemplazo del globo negro del navegador
 
-**Fecha:** 2026-10-09 · **Estado:** propuesta, falta que el Director la apruebe · **Mock:** [`docs/mock-tooltip-propio.html`](../../mock-tooltip-propio.html)
+**Fecha:** 2026-10-09 · **Estado:** aprobada por el Director (2026-10-09, propuesta A · papel); implementada · **Mock:** [`docs/mock-tooltip-propio.html`](../../mock-tooltip-propio.html)
 (se puede usar: hay que abrirlo en el navegador y pasar el mouse, o recorrerlo con Tab)
 
 ## El problema
@@ -50,7 +50,7 @@ Las tomé con el criterio de «dale con lo recomendado»: cada una lleva su porq
 
 ## Enfoques considerados
 
-1. **Delegación global sobre `title` (elegido).** Un componente montado una vez en `AppShell`.
+1. **Delegación global sobre `title` (elegido).** Un componente montado una vez en la raíz (`App.tsx`, así cubre también el Login).
    Escucha `pointerover`/`pointerout`/`focusin`/`focusout`/`keydown` en `document`. Saca el `title`
    mientras dura el hover y dibuja una sola pista portaleada a `body`.
    **A favor:** cero migración, cubre lo que se escriba mañana, una sola pieza para mantener.
@@ -67,15 +67,15 @@ Las tomé con el criterio de «dale con lo recomendado»: cada una lleva su porq
 
 ## Las piezas
 
-- **`src/components/pistas.ts`**: la lógica **pura**, sin DOM real. `formaDePista(...)` (término /
+- **`src/components/reglasDePista.ts`** (no `pistas.ts`: en Windows choca con `Pistas.tsx`): la lógica **pura**, sin DOM real. `formaDePista(...)` (término /
   rótulo / frase / nada), `esRotulo(texto)` y `ubicarPista(rectDelElemento, tamañoDeLaPista,
   ventana)` → `{ top, left }`. Es lo que puede fallar en silencio (una pista que nunca aparece, o que
-  sale tapando el elemento), así que va con **tests** (`pistas.test.ts`), según el criterio de
+  sale tapando el elemento), así que va con **tests** (`reglasDePista.test.ts`), según el criterio de
   `estados.test.ts`.
-- **`src/components/Pistas.tsx`**: el componente que se monta **una vez** en `AppShell`. Los
+- **`src/components/Pistas.tsx`**: el componente que se monta **una vez** en `App.tsx`. Los
   listeners, los timers (450 / 400 / 140), guardar y restaurar el `title` y el portal con
   `role="tooltip"`. No recibe props.
-- **`src/styles/tokens.css`**: `.spira-pista` y sus tres `data-forma`, más la entrada de 120 ms
+- **`src/styles/tokens.css`**: `.spira-ayuda` (no `.spira-pista`: ése es el alternador de `SegmentedControl`) y sus tres `data-forma`, más la entrada de 120 ms
   (desactivada con `prefers-reduced-motion`). El mock trae el CSS listo.
 - **`Termino.tsx` / `InfoTip.tsx`**: solo se actualiza el comentario de cabecera que dice «`title` es
   la convención de la casa», para que nombre la pista.

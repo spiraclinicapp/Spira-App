@@ -985,6 +985,9 @@ input:-webkit-autofill:focus {
 }
 
 /* —— La PISTA: el `title` de toda la app, dibujado en papel (`components/Pistas.tsx`) ——
+   La clase es `.spira-ayuda` y no `.spira-pista`: ése ya es el alternador en pista de
+   `SegmentedControl`, más abajo. Con el mismo nombre, esta regla le ponía `position: fixed` al
+   alternador, y la suya, `inline-flex`, ponía el título del término al lado de la definición.
    Reemplaza al globo negro del navegador, que pintaba Windows en Segoe y no se parecía a nada de
    Spira. Es la MISMA familia que el panel del ⓘ de arriba —papel, borde cálido, sombra suave—, así la
    app tiene un solo lenguaje para "esto se explica" (spec 2026-10-09, propuesta A; la B, en tinta
@@ -993,7 +996,7 @@ input:-webkit-autofill:focus {
    · `overflow-wrap: anywhere`: hay `title` que terminan en una URL («Abrir Medidata… — https://…»),
      y una URL no tiene dónde cortar: sin esto rompía el ancho máximo y salía de la pantalla.
    · La entrada reusa la del ⓘ y, como ella, no anima al cerrar. */
-.spira-pista {
+.spira-ayuda {
   position: fixed; top: 0; left: 0; z-index: var(--spira-z-popover);
   width: max-content; max-width: 280px;
   background: var(--spira-white); color: var(--spira-ink);
@@ -1003,12 +1006,12 @@ input:-webkit-autofill:focus {
   font: 400 12.5px/1.4 var(--spira-font-text);
   text-align: left; white-space: pre-line; overflow-wrap: anywhere;
 }
-.spira-pista[data-forma='rotulo'] { padding: 4px 9px 5px; font-weight: 600; border-radius: 8px; }
-.spira-pista[data-forma='termino'] { padding: 9px 12px 10px; }
-.spira-pista-titulo { display: block; font-size: 13px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 2px; }
-.spira-pista-cuerpo { display: block; color: var(--spira-muted); }
+.spira-ayuda[data-forma='rotulo'] { padding: 4px 9px 5px; font-weight: 600; border-radius: 8px; }
+.spira-ayuda[data-forma='termino'] { padding: 9px 12px 10px; }
+.spira-ayuda-titulo { display: block; font-size: 13px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 2px; }
+.spira-ayuda-cuerpo { display: block; color: var(--spira-muted); }
 @media (prefers-reduced-motion: no-preference) {
-  .spira-pista { animation: spInfoTipIn 0.12s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+  .spira-ayuda { animation: spInfoTipIn 0.12s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 }
 
 /* —— Animación del Drawer (panel deslizable desde la derecha) ——

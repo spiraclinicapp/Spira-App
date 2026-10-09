@@ -28,7 +28,7 @@ export const DEMORA_MS = 450
 export const TIBIA_MS = 400
 
 /** Hay una sola pista en toda la app, así que un id fijo alcanza para el `aria-describedby`. */
-export const ID_PISTA = 'spira-pista'
+export const ID_PISTA = 'spira-ayuda'
 
 const HUECO = 6
 const MARGEN = 8
