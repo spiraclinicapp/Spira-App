@@ -349,12 +349,10 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
             {metaRow('Patología', protocol.description)}
           </div>
 
-          {noAsignado ? (
-            /* En lugar de los cuatro KPIs, que con cero pacientes visibles darían cuatro ceros. */
-            <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)', fontSize: 13, lineHeight: 1.5, color: 'var(--spira-muted)' }}>
-              No estás asignado a este estudio: sus números los ven las personas asignadas.
-            </div>
-          ) : (
+          {/* Sin los cuatro KPIs, que con cero pacientes visibles darían cuatro ceros. No se reemplazan
+              por un aviso: el porqué ya lo dice, grande, la columna de la derecha, y repetirlo acá era
+              leer la misma frase dos veces en la misma pantalla. */}
+          {noAsignado ? null : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
             {/* Los dos números salen de la MISMA lista que el "9 de 10" del filtro (ver `activos`), no
                 de `v_protocol_kpis`: si no, cualquier diferencia entre las dos fuentes vuelve a
@@ -399,9 +397,9 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
         {noAsignado ? (
           /* Sin pestañas: «Pacientes» y «Reportes pendientes» estarían las dos vacías, y una lista
              vacía se lee como un estudio sin nadie. Una sola frase dice lo que pasa de verdad. */
-          <div style={{ ...card, display: 'grid', placeItems: 'center', minHeight: 0 }}>
-            <EmptyState accent={accent} icon="lock" title="No estás asignado a este estudio" description="Sus pacientes y reportes los ven las personas asignadas." minHeight={220} />
-          </div>
+          /* `EmptyState` ya es una card (fondo, borde, radio 16): envuelto en otra quedaba un marco
+             adentro de otro. Va directo como celda de la grilla, que lo estira al alto de la ficha. */
+          <EmptyState accent={accent} icon="lock" title="No estás asignado a este estudio" description="Sus pacientes y reportes los ven las personas asignadas." minHeight={220} />
         ) : (
         <div style={{ ...card, padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '15px 20px', borderBottom: '1px solid var(--spira-line)' }}>
