@@ -32,12 +32,28 @@ export function Login() {
   const [busy, setBusy] = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
   const [resetBusy, setResetBusy] = useState(false)
+  // Los campos nacen de sólo lectura y se habilitan en el primer foco. En una PC compartida del
+  // centro, el navegador completaba solo al cargar la cuenta guardada de otra persona: alcanzaba
+  // con apretar «Ingresá» para entrar —y firmar en el audit_log— como ella, y el cierre por
+  // inactividad quedaba en nada. Chrome y Edge no rellenan un campo `readonly`; al hacer clic ya
+  // es editable y el desplegable de cuentas guardadas aparece igual, así que guardar sigue sirviendo
+  // pero elegir la cuenta es un acto explícito. Se habilitan LOS DOS juntos: si sólo se habilitara el
+  // enfocado, elegir la sugerencia en el email dejaría la contraseña sin completar.
+  // (`autoComplete="off"` no sirve: los navegadores lo ignoran a propósito en los logins.)
+  const [habilitado, setHabilitado] = useState(false)
+  const habilitar = () => setHabilitado(true)
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
     setNote(null)
     clearAuthNotice()
+    // Un campo `readonly` queda fuera de la validación `required` del navegador: sin esto, apretar
+    // «Ingresá» antes de tocar los campos mandaría el formulario vacío.
+    if (!email.trim() || !password) {
+      setError('Completá tu email y tu contraseña.')
+      return
+    }
     setBusy(true)
     const res = await signIn(email.trim(), password)
     if (res.error) setError(res.error)
@@ -123,6 +139,7 @@ export function Login() {
             <input
               type="email" value={email} onChange={(e) => setEmail(e.target.value)}
               placeholder="vos@ejemplo.com" autoComplete="email" required
+              readOnly={!habilitado} onFocus={habilitar}
               style={{ ...fieldInput, paddingLeft: 40 }}
             />
           </div>
@@ -135,7 +152,9 @@ export function Login() {
               {resetBusy ? 'Enviando…' : 'Olvidé mi contraseña'}
             </button>
           </div>
-          <PasswordInput id="password" value={password} onChange={setPassword} autoComplete="current-password" />
+          <PasswordInput id="password" value={password} onChange={setPassword} autoComplete="current-password"
+            readOnly={!habilitado} onFocus={habilitar}
+          />
         </div>
 
         {/* El tono decide el color: un link de recuperación vencido SÍ es un error (rojo), pero que

@@ -10,6 +10,10 @@ interface PasswordInputProps {
   placeholder?: string
   /** 'current-password' al ingresar, 'new-password' al definir una nueva. */
   autoComplete?: string
+  /** Bloqueado hasta el primer foco: el login lo usa para que el navegador no lo complete solo
+      al cargar (ver `Login.tsx`). */
+  readOnly?: boolean
+  onFocus?: () => void
 }
 
 /** Input de contraseña con botón "ojito" para mostrar/ocultar. El toggle es estado local porque
@@ -21,6 +25,8 @@ export function PasswordInput({
   id,
   placeholder = '••••••••',
   autoComplete = 'current-password',
+  readOnly,
+  onFocus,
 }: PasswordInputProps) {
   const [show, setShow] = useState(false)
   return (
@@ -32,6 +38,8 @@ export function PasswordInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         autoComplete={autoComplete}
+        readOnly={readOnly}
+        onFocus={onFocus}
         required
         style={{ ...fieldInput, paddingRight: 44 }}
       />
