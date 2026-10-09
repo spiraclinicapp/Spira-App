@@ -34,22 +34,34 @@ describe('parseSettingsSection', () => {
   })
 })
 
+const nadie = { esGerencia: false, esJefaturaCoordinacion: false }
+const gerencia = { esGerencia: true, esJefaturaCoordinacion: false }
+const jefatura = { esGerencia: false, esJefaturaCoordinacion: true }
+
 describe('seccionVisible', () => {
   it('sin gerencia, «Feedback recibido» cae a Mi cuenta', () => {
     // La sección no está en el menú, pero ?ajustes=feedback es una URL que cualquiera puede
     // escribir. Mostrarla igual dejaría una pantalla que sólo puede fallar: la RLS de la 0044 no le
     // va a devolver ni una fila.
-    expect(seccionVisible('feedback', false)).toBe('cuenta')
+    expect(seccionVisible('feedback', nadie)).toBe('cuenta')
+    expect(seccionVisible('feedback', jefatura)).toBe('cuenta')
   })
 
   it('con gerencia, la deja pasar', () => {
-    expect(seccionVisible('feedback', true)).toBe('feedback')
+    expect(seccionVisible('feedback', gerencia)).toBe('feedback')
   })
 
-  it('las demás secciones no dependen de gerencia', () => {
+  it('«Estudios del centro» es de jefatura de Coordinación', () => {
+    // A una coordinadora la RLS le devolvería sólo sus estudios —los de la grilla—, y gerencia ya los
+    // tiene todos en la grilla con sus pacientes. Ninguna de las dos gana nada con la sección.
+    expect(seccionVisible('estudios', jefatura)).toBe('estudios')
+    expect(seccionVisible('estudios', nadie)).toBe('cuenta')
+    expect(seccionVisible('estudios', gerencia)).toBe('cuenta')
+  })
+
+  it('las demás secciones no dependen de quién mira', () => {
     for (const s of ['cuenta', 'prefs', 'roles', 'plataformas'] as const) {
-      expect(seccionVisible(s, false)).toBe(s)
-      expect(seccionVisible(s, true)).toBe(s)
+      for (const quien of [nadie, gerencia, jefatura]) expect(seccionVisible(s, quien)).toBe(s)
     }
   })
 })

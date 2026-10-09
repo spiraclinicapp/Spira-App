@@ -3,16 +3,13 @@ import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { MultiFilterMenu } from '../components/MultiFilterMenu'
 import type { MultiFilterOption } from '../components/MultiFilterMenu'
-import { SegmentedControl } from '../components/SegmentedControl'
 import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../lib/auth'
 import { groupVisitsByPatient } from '../lib/visits'
 import { useUrlPath, useUrlState } from '../lib/useUrlState'
-import { listOf, oneOf } from '../lib/router'
+import { listOf } from '../lib/router'
 import { useMyCoordinations, useProtocols } from '../data/protocols'
-import { AMBITOS } from './resumen/ambito'
-import type { Ambito } from './resumen/ambito'
-import { protocolosDelAmbito } from './protocolosDelAmbito'
+import { protocolosDeLaGrilla, veSusPacientes } from './protocolosDeLaGrilla'
 import type { ProtocolRow, ProtocolStatus } from '../data/protocols'
 import { protocolStatusLabel, protocolStatusVar } from './protocolStatus'
 import { usePatients } from '../data/patients'
@@ -107,16 +104,18 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
   const { hasMinRole, modules, profile } = useAuth()
   const protocols = useProtocols()
   const patients = usePatients()
-  /* "Mis estudios" / "Todos" (ver `protocolosDelAmbito`). Sólo en Coordinación: Farmacia es central
-     y no tiene estudios asignados, así que ni consulta — con `userId` null el hook no pide nada. */
+  /* Los estudios asignados: la grilla muestra sólo ésos (ver `protocolosDeLaGrilla`). Sólo en
+     Coordinación: Farmacia es central y no tiene estudios asignados, así que ni consulta — con
+     `userId` null el hook no pide nada. */
   const coordinaciones = useMyCoordinations(module.key === 'track' ? profile?.id ?? null : null)
   const misProtocolos = useMemo(
     () => new Set((coordinaciones.data ?? []).map((c) => c.protocol_id)),
     [coordinaciones.data],
   )
-  /* En la URL con `replace` (el default): un filtro no es navegación. Mismo `?ambito=` y mismo codec
-     que el Resumen, para que "Lo mío" y "Mis estudios" sean la misma idea en las dos pantallas. */
-  const [ambito, setAmbito] = useUrlState<Ambito>('ambito', 'mio', { codec: oneOf(AMBITOS) })
+  /* Quién ve los pacientes de todos los estudios: gerencia (la RLS de `enrollments`, 0146) — y
+     cualquier vista que no sea la de Coordinación, donde protocolos y pacientes salen del mismo
+     alcance. Para el resto, un estudio no asignado se puede abrir pero no lista pacientes. */
+  const alcance = { veTodos: module.key !== 'track' || modules.includes('gerencia'), misProtocolos }
 
   /* La posición interna sale del path de la URL. Mientras los datos cargan el path no se puede
      resolver todavía (no sabemos si ese código existe), así que se muestra la grilla — que es lo que
@@ -139,7 +138,7 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
        desde adentro—, así que descartarlos sería una regresión. Lo que NO se conserva es la entidad
        abierta: un `?visita=` arrastrado a otra ficha abriría la visita de otro paciente. */
     setPath(pathDesdeNav(siguiente, protocols.data ?? [], patients.data ?? []), {
-      conservar: ['buscar', 'estado', 'ambito'],
+      conservar: ['buscar', 'estado'],
       /* Resolver un objetivo del buscador NO es navegar: el shell ya apiló su entrada al traerte.
          Apilar otra dejaría el "atrás" a mitad de camino, en la grilla en vez de en la pantalla
          desde la que buscaste. */
@@ -229,21 +228,23 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
      (gerencia o track-admin). NO depende del módulo en el que estés parado. */
   const canManageSchedule = hasMinRole('track', 'admin') || modules.includes('gerencia')
 
-  /* Las asignaciones entran en la espera: sin ellas `misProtocolos` está vacío, la regla cae a
-     "todos" y la grilla se pintaría entera para encogerse un instante después. Su error NO frena la
-     pantalla: con error queda el mismo Set vacío y la grilla degrada a "todos", la dirección segura. */
+  /* Las asignaciones entran en la espera: sin ellas `misProtocolos` está vacío y la grilla se
+     pintaría vacía —«no tenés estudios asignados»— para llenarse un instante después.
+     Y su error SÍ frena la pantalla, al revés que cuando existía «Todos». Entonces el Set vacío
+     degradaba a mostrar todo; ahora la grilla son sólo los asignados, y un Set vacío por error se
+     leería como «no tenés estudios», que es falso. Mejor decir que no se pudo cargar. */
   if (protocols.loading || patients.loading || coordinaciones.loading) {
     return <EmptyState accent={accent} icon={submodule.icon} title="Cargando protocolos…" description="Un momento." />
   }
 
-  if (protocols.error || patients.error) {
+  if (protocols.error || patients.error || coordinaciones.error) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--spira-acc-deep-danger)', background: 'rgba(166, 72, 59, 0.10)', borderRadius: 10, padding: '12px 14px' }}>
           <Icon name="alertCircle" size={18} color="var(--spira-danger)" />
           No pudimos cargar los protocolos. Probá de nuevo.
         </div>
-        <button onClick={() => { protocols.refetch(); patients.refetch() }} style={{ ...btnOutline, alignSelf: 'flex-start' }}>
+        <button onClick={() => { protocols.refetch(); patients.refetch(); coordinaciones.refetch() }} style={{ ...btnOutline, alignSelf: 'flex-start' }}>
           Reintentar
         </button>
       </div>
@@ -278,17 +279,22 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
   const proto = detailProtocolId ? allProtocols.find((p) => p.id === detailProtocolId) : undefined
   if (nav.mode === 'protocol' && proto) {
     const forProtocol = allPatients.filter((pt) => pt.enrollments.some((e) => e.protocol?.id === proto.id))
+    /* Un estudio ajeno se abre (desde Ajustes, el buscador o una URL) para editarlo o armarle el
+       cronograma, pero sus pacientes no llegan: la lista vacía no es «Sin pacientes». Tampoco se
+       ofrece dar de alta un paciente ahí — la RLS de enrolar pide estar asignado (0146). */
+    const ajeno = !veSusPacientes(proto.id, alcance)
     return (
       <>
         <ProtocolDetailView
           key={proto.id}
           protocol={proto}
           patients={forProtocol}
+          noAsignado={ajeno}
           accent={accent}
           accentSolid={accentSolid}
           canEdit={canEditProtocol}
           canManageSchedule={canManageSchedule}
-          canCreatePatient={canCreatePatient}
+          canCreatePatient={canCreatePatient && !ajeno}
           setHeader={setHeader}
           initialTab={tabPendiente}
           onBack={() => setNav({ mode: 'list' })}
@@ -474,17 +480,19 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
      resuelve el protocolo del detalle y el del alta de paciente, y filtrarla dejaría la ficha en
      blanco al cerrar un protocolo que estabas mirando. Las opciones llevan el conteo de cada estado
      sobre el total, así el menú dice cuántos hay antes de elegir. */
-  /* El ámbito va ANTES que el estado, y los conteos del menú de Estado salen de lo que queda: el
-     número de cada opción tiene que contar lo mismo que la grilla que va a mostrar. Igual que el
-     estado, se aplica sobre lo que se LISTA y nunca sobre `allProtocols`: abrir un estudio ajeno por
-     URL o desde el buscador global tiene que seguir andando con "Mis estudios" puesto. */
-  const esCoordinador = isTrack && misProtocolos.size > 0
-  const delAmbito = protocolosDelAmbito(allProtocols, esCoordinador ? ambito : 'todo', misProtocolos)
+  /* Los estudios cuyos pacientes ves van ANTES que el estado, y los conteos del menú de Estado salen
+     de lo que queda: el número de cada opción tiene que contar lo mismo que la grilla que va a
+     mostrar. Igual que el estado, se aplica sobre lo que se LISTA y nunca sobre `allProtocols`: abrir
+     un estudio ajeno por URL, desde el buscador global o desde Ajustes › Estudios del centro tiene que
+     seguir andando — para editarlo o armarle el cronograma. */
+  const deLaGrilla = protocolosDeLaGrilla(allProtocols, alcance)
   const estadoOptions: MultiFilterOption[] = (['activo', 'pausado', 'cerrado'] as ProtocolStatus[])
-    .map((s) => ({ value: s, label: statusLabel(s), count: delAmbito.filter((p) => p.status === s).length }))
+    .map((s) => ({ value: s, label: statusLabel(s), count: deLaGrilla.filter((p) => p.status === s).length }))
     .filter((o) => o.count > 0)
-  const visibles = fEstado.length > 0 ? delAmbito.filter((p) => fEstado.includes(p.status)) : delAmbito
-  const filtraMios = esCoordinador && ambito === 'mio'
+  const visibles = fEstado.length > 0 ? deLaGrilla.filter((p) => fEstado.includes(p.status)) : deLaGrilla
+  /* Sin estudios asignados: la grilla vacía tiene que decir POR QUÉ, y adónde están los demás para
+     quien los gestiona (jefatura, que es a quien la RLS de protocolos le muestra todos). */
+  const sinAsignados = !alcance.veTodos && misProtocolos.size === 0
 
   const matchedProtocols = visibles.filter((p) => includesCI(p.code, q) || includesCI(p.name, q))
   const matchedPatients = allPatients.filter((pt) => includesCI(pt.code ?? '', q) || includesCI(pt.full_name, q))
@@ -519,17 +527,6 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
           selected={fEstado}
           onChange={(next) => setFEstado(next as ProtocolStatus[])}
         />
-        {/* Sólo para quien tiene estudios asignados (ver `protocolosDelAmbito`). SegmentedControl ya
-            resuelve el radiogroup y el realce por elevación, igual que el alternador del Resumen. */}
-        {esCoordinador && (
-          <SegmentedControl<Ambito>
-            options={[{ value: 'mio', label: 'Mis estudios' }, { value: 'todo', label: 'Todos' }]}
-            value={ambito}
-            onChange={setAmbito}
-            label="Qué protocolos mostrar"
-            size="barra"
-          />
-        )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <button onClick={() => setNav({ mode: 'all' })} style={btnOutline}>
             <Icon name="users" size={16} color="var(--spira-muted)" /> Ver pacientes
@@ -547,10 +544,10 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
           accentSolid={accentSolid}
           userId={profile.id}
           onClose={() => setCreating(null)}
-          /* Un protocolo recién creado no está asignado a nadie todavía: con "Mis estudios" puesto, el
-             alta terminaría bien y la tarjeta no aparecería. Se pasa a "Todos" para que se vea lo que
-             se acaba de crear. */
-          onCreated={() => { setCreating(null); setAmbito('todo'); protocols.refetch() }}
+          /* El estudio nuevo queda asignado a quien lo creó (trigger de la 0154), así que aparece en
+             su grilla — por eso se vuelven a pedir también las asignaciones, no sólo los protocolos.
+             Antes no lo asignaba nadie y esto saltaba a «Todos» para que se viera. */
+          onCreated={() => { setCreating(null); protocols.refetch(); coordinaciones.refetch() }}
         />
       )}
 
@@ -587,13 +584,13 @@ export function ProtocolsView({ module, submodule, onNavigate, setHeader, navTar
         <EmptyState
           accent={accent}
           icon={submodule.icon}
-          title={fEstado.length > 0 ? 'Nada con ese estado' : 'Sin protocolos'}
+          title={fEstado.length > 0 ? 'Nada con ese estado' : sinAsignados ? 'Sin estudios asignados' : 'Sin protocolos'}
           description={fEstado.length > 0
-            ? filtraMios
-              ? 'Ninguno de tus estudios está en ese estado. Probá con otro, limpiá el filtro o mirá Todos.'
-              : 'Ningún protocolo está en el estado que elegiste. Probá con otro o limpiá el filtro.'
-            : filtraMios
-              ? 'Tus estudios asignados no están en la lista. Mirá Todos.'
+            ? 'Ningún estudio está en el estado que elegiste. Probá con otro o limpiá el filtro.'
+            : sinAsignados
+              ? hasMinRole('track', 'leader')
+                ? 'Los demás estudios del centro están en Ajustes › Estudios del centro.'
+                : 'Cuando te asignen un estudio, va a aparecer acá.'
               : 'Todavía no hay protocolos para mostrar.'}
         />
       ) : (

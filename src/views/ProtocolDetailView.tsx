@@ -39,6 +39,16 @@ function Bar({ pct, color }: { pct: number; color: string }) {
 export interface ProtocolDetailViewProps {
   protocol: ProtocolRow
   patients: PatientRow[]
+  /**
+   * El estudio NO está asignado a quien mira, y por eso sus pacientes no llegan (la RLS de
+   * `enrollments` sólo deja ver los de tus estudios, salvo gerencia). Jefatura lo abre igual —desde
+   * Ajustes › Estudios del centro— para editarlo o armarle el cronograma.
+   *
+   * Con esto la ficha esconde todo lo que se calcula con los pacientes —KPIs, adherencia, la lista,
+   * los reportes, el CSV— y lo dice en una frase. Sin esto mostraba «0 enrolados», «Adherencia 0 %» y
+   * «Sin pacientes»: tres ceros que no eran datos sino falta de acceso (critique del 2026-10-09).
+   */
+  noAsignado?: boolean
   accent: string
   accentSolid: string
   canEdit: boolean
@@ -70,7 +80,7 @@ export interface ProtocolDetailViewProps {
 
 /** Detalle de Protocolo: ficha lateral (KPIs/adherencia/acciones) + lista de pacientes con tracker. */
 export function ProtocolDetailView(props: ProtocolDetailViewProps) {
-  const { protocol, patients, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onVerPendientes, initialTab } = props
+  const { protocol, patients, noAsignado = false, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onVerPendientes, initialTab } = props
   const kpis = useProtocolKpis(protocol.id)
   const visits = useProtocolVisits(protocol.id)
   /* Arranca en "Activos" (Director, 2026-09-14): la lista es para trabajar, y un paciente inactivo
@@ -339,6 +349,12 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
             {metaRow('Patología', protocol.description)}
           </div>
 
+          {noAsignado ? (
+            /* En lugar de los cuatro KPIs, que con cero pacientes visibles darían cuatro ceros. */
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)', fontSize: 13, lineHeight: 1.5, color: 'var(--spira-muted)' }}>
+              No estás asignado a este estudio: sus números los ven las personas asignadas.
+            </div>
+          ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
             {/* Los dos números salen de la MISMA lista que el "9 de 10" del filtro (ver `activos`), no
                 de `v_protocol_kpis`: si no, cualquier diferencia entre las dos fuentes vuelve a
@@ -361,11 +377,13 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
               </div>
             </div>
           </div>
+          )}
 
           <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: '1px solid var(--spira-line)' }}>
             <div className="spira-eyebrow" style={{ marginBottom: 11 }}>Acciones</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {actBtn('file', 'Exportar reporte', 'ghost', handleExport)}
+              {/* Sin pacientes visibles, el CSV saldría vacío y parecería el reporte de un estudio sin visitas. */}
+              {!noAsignado && actBtn('file', 'Exportar reporte', 'ghost', handleExport)}
               {canEdit && actBtn('settings', 'Editar protocolo', 'ghost', onEdit)}
             </div>
             {/* TEMPORAL: "Ver agenda del protocolo" oculto mientras la Agenda está fuera del
@@ -378,6 +396,13 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
         </div>
 
         {/* columna derecha: pacientes / reportes pendientes */}
+        {noAsignado ? (
+          /* Sin pestañas: «Pacientes» y «Reportes pendientes» estarían las dos vacías, y una lista
+             vacía se lee como un estudio sin nadie. Una sola frase dice lo que pasa de verdad. */
+          <div style={{ ...card, display: 'grid', placeItems: 'center', minHeight: 0 }}>
+            <EmptyState accent={accent} icon="lock" title="No estás asignado a este estudio" description="Sus pacientes y reportes los ven las personas asignadas." minHeight={220} />
+          </div>
+        ) : (
         <div style={{ ...card, padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '15px 20px', borderBottom: '1px solid var(--spira-line)' }}>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -440,6 +465,7 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* El 📎 de una tarjeta del tablero abre el detalle de ESA visita del paciente — el mismo

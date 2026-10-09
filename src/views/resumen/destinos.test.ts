@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MODULES } from '../../modules/registry'
 import { isViewRegistered } from '../registryKeys'
-import { DESTINO_REPORTES, KPI_DESTINOS, nombreDeDestino } from './destinos'
+import { DESTINO_ESTUDIOS, DESTINO_REPORTES, KPI_DESTINOS, nombreDeDestino } from './destinos'
 import type { KpiKey } from './destinos'
 
 /**
@@ -83,6 +83,12 @@ describe('destinos de los KPI del Resumen', () => {
     expect(isViewRegistered(DESTINO_REPORTES.moduleKey, DESTINO_REPORTES.subKey)).toBe(true)
     expect(nombreDeDestino(DESTINO_REPORTES)).toBe('Reportes')
     expect(DESTINO_REPORTES.subKey).not.toBe('reportes')
+  })
+
+  it('el «Abrir» de Ajustes › Estudios del centro lleva a Estudios y pacientes', () => {
+    // Un subKey mal escrito caería al Placeholder sin un error: el estudio no se abriría y nada avisaría.
+    expect(isViewRegistered(DESTINO_ESTUDIOS.moduleKey, DESTINO_ESTUDIOS.subKey)).toBe(true)
+    expect(nombreDeDestino(DESTINO_ESTUDIOS)).toBe('Estudios y pacientes')
   })
 })
 
