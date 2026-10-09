@@ -588,147 +588,179 @@ input:-webkit-autofill:focus {
 .spira-menu-item--danger:hover,
 .spira-menu-item--danger:focus-visible { background: rgba(166, 72, 59, 0.08); }
 
-/* —— Footer "Ver todas las alertas" del desplegable de notificaciones —— */
+/* —— La campana y su panel (handoff v2) ——
+   Geometría de `docs/design_handoff_notificaciones_v2/`, con las decisiones de
+   `docs/plan-notificaciones-v2.md`. Vive acá y no en objetos de estilo de React por una razón
+   concreta: el realce de la tarjeta toca el BORDE, y escribirlo desde un handler sobre un `border`
+   abreviado inline deja el elemento sin borde en el render siguiente. Es la misma trampa que ya
+   documentan `.spira-card-link` y `.spira-row-link`.
+
+   UNA DESVIACIÓN DEL MOCK, Y ES DE CONTRASTE: el handoff pinta en `#838C89` (`--spira-faint`) los
+   rótulos «Paciente»/«Protocolo», la hora exacta y los encabezados de grupo. Medido, `faint` da
+   3,46:1 sobre blanco, y a 10,5-11 px eso es texto NORMAL para WCAG (umbral 4,5:1). Van en
+   `--spira-muted` (4,97:1 en el peor caso), que es lo que ya hacía el panel anterior con la fecha. */
+
+/* —— Pie «Ver todos en Pendientes» —— */
 .spira-notif-all {
   flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 7px;
-  width: 100%; padding: 12px; border: none; background: transparent; cursor: pointer;
+  width: 100%; padding: 12px; border: none; border-top: 1px solid var(--spira-line);
+  background: transparent; cursor: pointer;
   font-family: var(--spira-font-text); font-size: 13px; font-weight: 600; color: var(--spira-acc-deep-track);
 }
 .spira-notif-all:hover,
 .spira-notif-all:focus-visible { background: var(--spira-surface); outline: none; }
 
-/* —— Desplegable de la campana ——
-   Geometría del handoff `docs/design_handoff_notificaciones`, con las decisiones del plan
-   `docs/plan-campana-notificaciones.md`. Vive acá y no en objetos de estilo de React por una razón
-   concreta: el realce de la caja toca el BORDE, y escribirlo desde un handler sobre un `border`
-   abreviado inline deja el elemento sin borde en el render siguiente. Es la misma trampa que ya
-   documentan `.spira-card-link` y `.spira-row-link`. */
-
-/* El indicador de la campana: un PUNTO, no un contador. El número exacto vive en la cabecera del
-   panel y en la lista; sobre el ícono, a 9 px, era ilegible. El punto responde la única pregunta
-   que se hace desde la barra: ¿tengo algo? El color lo pone `tonoDelPunto` (la peor severidad
-   presente), así que además responde "¿y es grave?" sin costar un píxel más. */
+/* El indicador de la campana: un PUNTO, no un contador. Desde el v2 dice «hay algo que no viste»;
+   la cantidad de pendientes vive en la píldora del panel. El color lo pone `tonoDeNoLeidas` (el
+   peor tipo entre lo no leído), así que además responde «¿y es grave?» sin costar un píxel. */
 .spira-notif-punto {
   position: absolute; top: 5px; right: 4px;
   width: 8px; height: 8px; border-radius: 999px;
   border: 2px solid var(--spira-white); box-sizing: content-box;
   pointer-events: none;
 }
+/* Los dos pulsos que emite el punto cuando llega una alerta. Un pseudo-elemento y no el punto
+   mismo: el punto se queda quieto y del mismo tamaño, y lo que crece es su eco. */
+.spira-notif-punto--pulso::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: inherit; opacity: 0;
+}
 
 .spira-notif-panel {
   position: fixed; z-index: 90;
-  width: 440px; max-height: 520px;
+  width: 452px; max-width: calc(100vw - 16px);
   display: flex; flex-direction: column;
   background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 14px;
   box-shadow: 0 14px 34px rgba(20, 48, 46, 0.14);
   overflow: hidden; outline: none;
 }
 
+.spira-notif-cabecera {
+  display: flex; align-items: center; gap: 9px; padding: 14px 16px 12px; flex: 0 0 auto;
+}
+.spira-notif-titulo {
+  font-family: var(--spira-font-display); font-weight: 700; font-size: 15.5px; color: var(--spira-ink);
+}
+.spira-notif-pildora {
+  font-size: 11.5px; font-weight: 700; color: var(--spira-acc-deep-danger);
+  background: color-mix(in srgb, var(--spira-acc-deep-danger) 10%, transparent);
+  border-radius: 999px; padding: 2px 8px; line-height: 1.4; white-space: nowrap;
+}
+.spira-notif-marcar {
+  margin-left: auto; padding: 4px 8px; border: none; border-radius: 7px; background: transparent;
+  font-family: var(--spira-font-text); font-size: 12px; font-weight: 600; color: var(--spira-muted);
+  cursor: pointer; transition: color 0.12s var(--spira-ease-out), background-color 0.12s var(--spira-ease-out);
+}
+.spira-notif-marcar:hover,
+.spira-notif-marcar:focus-visible { color: var(--spira-acc-deep-track); background: var(--spira-surface); outline: none; }
+
 /* `min-height: 0` no es decorativo: sin él, un hijo flex con `overflow: auto` se niega a achicarse
    por debajo de su contenido y la lista empuja la cabecera y el pie fuera de la caja. El
    `overflow: hidden` del radio los recorta y el usuario lo reporta como "no me deja scrollear". */
 .spira-notif-lista {
-  flex: 1 1 auto; min-height: 0; max-height: 420px; overflow-y: auto;
+  flex: 1 1 auto; min-height: 0; max-height: 540px; overflow-y: auto; overflow-x: hidden;
   border-top: 1px solid var(--spira-line);
-  padding: 10px; display: flex; flex-direction: column; gap: 8px;
 }
+.spira-notif-mensaje { padding: 10px 16px 0; font-size: 12.5px; color: var(--spira-acc-deep-danger); }
 
-/* La grilla que hace que TODAS las cajas se lean igual: ícono, cuerpo, datos y acción caen en la
-   misma vertical de arriba abajo, y ninguna caja cambia de alto por el largo del contenido.
-   La cuarta columna se reserva SIEMPRE, con o sin tacho: si apareciera sólo a veces, las cajas
-   dejarían de alinear entre sí, que es el principio entero del diseño. */
-.spira-notif-caja {
-  display: grid; grid-template-columns: 32px minmax(0, 1fr) 76px 22px;
-  column-gap: 11px; align-items: center;
-  padding: 11px; min-height: 66px;
-  border: 1px solid var(--spira-line); border-radius: 10px;
+/* El encabezado de grupo queda fijo arriba al scrollear, con el papel casi opaco y un desenfoque
+   chico: así la tarjeta que pasa por debajo no se lee a través del rótulo. */
+.spira-notif-grupo {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px 6px;
+  background: color-mix(in srgb, var(--spira-white) 96%, transparent);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  font-family: var(--spira-font-text); font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--spira-muted);
+}
+.spira-notif-grupo::after { content: ''; flex: 1; height: 1px; background: var(--spira-line); }
+.spira-notif-grupo-items { padding: 2px 10px 8px; display: flex; flex-direction: column; gap: 6px; }
+
+/* —— La tarjeta (C5 · ícono junto al nombre) ——
+   La MISMA para el listado y para la alerta de la campana: un aviso que se ve igual que la fila del
+   panel no hay que aprenderlo dos veces. */
+.spira-tarjeta {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr);
+  padding: 11px; border: 1px solid var(--spira-line); border-radius: 10px;
   background: var(--spira-white);
   transition: background-color 0.14s var(--spira-ease-out), border-color 0.14s var(--spira-ease-out),
               box-shadow 0.14s var(--spira-ease-out);
 }
-/* La fila NO se levanta: se resalta. Mismo criterio que `.spira-row-link`. Y no lleva
-   `:focus-within` a propósito, por lo mismo que aquella: cuando el foco está en el link del
-   paciente que vive adentro, el destino de un Enter ya no es la caja, y resaltarla afirmaría lo
-   contrario. */
-.spira-notif-caja--link { cursor: pointer; }
-.spira-notif-caja--link:hover {
-  background: var(--spira-surface);
-  border-color: var(--spira-line-2);
-  box-shadow: var(--spira-shadow-sm);
+/* «No leída»: el tinte es del 3,5 % y casi no se ve a propósito; lo que dice «nueva» es el punto. */
+.spira-tarjeta--no-leida {
+  background: linear-gradient(color-mix(in srgb, var(--spira-primary) 3.5%, transparent),
+                              color-mix(in srgb, var(--spira-primary) 3.5%, transparent)),
+              var(--spira-white);
+}
+.spira-tarjeta-punto {
+  position: absolute; left: -6px; top: 50%; margin-top: -3px;
+  width: 6px; height: 6px; border-radius: 999px; background: var(--spira-acc-deep-danger);
+}
+/* La fila NO se levanta: se resalta (mismo criterio que `.spira-row-link`). Y no lleva
+   `:focus-within`: con el foco en el nombre del paciente, el destino de un Enter ya no es la
+   tarjeta, y resaltarla afirmaría lo contrario. */
+.spira-tarjeta--link { cursor: pointer; }
+.spira-tarjeta--link:hover {
+  background: var(--spira-surface); border-color: var(--spira-line-2); box-shadow: var(--spira-shadow-sm);
+}
+.spira-tarjeta--link:focus-visible { outline: none; border-color: var(--spira-line-2); box-shadow: var(--spira-shadow-md); }
+/* Adentro de la alerta va sin borde: el borde lo pone la alerta. */
+.spira-tarjeta--en-alerta { border-color: transparent; padding: 8px 12px 10px; }
+.spira-tarjeta--en-alerta.spira-tarjeta--link:hover { border-color: transparent; box-shadow: none; }
+
+/* Fila 1 · encabezado */
+.spira-tarjeta-enc {
+  display: flex; align-items: center; gap: 14px; min-width: 0;
+  padding-bottom: 6px; margin-bottom: 7px; border-bottom: 1px dashed var(--spira-line);
+  font-family: var(--spira-font-text); font-size: 11px; line-height: 1.3;
+}
+/* En una ventana angosta el encabezado cede con puntos suspensivos en vez de empujar la tarjeta
+   (y la lista) a un scroll horizontal. */
+.spira-tarjeta-dato {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--spira-muted);
+}
+.spira-tarjeta-dato b {
+  margin-left: 3px; font-weight: 600; color: var(--spira-ink); font-variant-numeric: tabular-nums;
+}
+/* La hora y «Descartar» comparten el MISMO lugar: en reposo se ve la hora; en hover, el botón.
+   El hueco tiene alto mínimo de 22 px para que el cambio no mueva la fila. */
+.spira-tarjeta-hora-slot {
+  margin-left: auto; position: relative; min-height: 22px; display: grid; place-items: center end;
+  flex: 0 0 auto;
+}
+.spira-tarjeta-hora {
+  font-weight: 500; color: var(--spira-muted); white-space: nowrap; font-variant-numeric: tabular-nums;
+  transition: opacity 0.12s var(--spira-ease-out);
 }
 
-.spira-notif-icono {
-  width: 32px; height: 32px; border-radius: 8px;
-  display: grid; place-items: center;
-}
-
-.spira-notif-cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.spira-notif-l1 { display: flex; align-items: center; gap: 7px; min-width: 0; }
-/* El nombre es el único que cede ancho. El código va `flex: 0 0 auto` para que no se corra al
-   truncarse el nombre — si los dos se achicaran, la identidad se leería distinta en cada fila. */
-.spira-notif-nombre {
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 12px; font-weight: 600; color: var(--spira-ink);
-}
-.spira-notif-codigo {
-  flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--spira-muted);
-  font-variant-numeric: tabular-nums;
-}
-.spira-notif-motivo {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 12px; line-height: 1.35; color: var(--spira-muted);
-}
-
-.spira-notif-datos {
-  display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 0;
-}
-/* La fecha va en `muted` y no en `faint`, que es lo que pedía el handoff: medido, `faint` da 3,46:1
-   sobre blanco y 3,31:1 sobre el fondo de hover, y 11 px es texto NORMAL para WCAG (umbral 4,5:1).
-   `muted` rinde 4,97:1 en el peor caso. El guion de "sin fecha" sí puede ir en `faint`: no es un
-   dato, es un relleno que mantiene alineadas las cajas. */
-.spira-notif-fecha {
-  font-size: 11px; font-weight: 500; color: var(--spira-muted);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.spira-notif-fecha--vacia { color: var(--spira-faint); }
-
-.spira-notif-accion { width: 22px; display: grid; place-items: center; }
-/* SIEMPRE visible, no en hover: un botón que aparece al pasar el mouse es un botón que no existe
-   en una pantalla táctil.
-
-   ⚠ `padding: 0` NO ES COSMÉTICO. Un `<button>` trae `padding: 1px 6px` del navegador, y con
-   `box-sizing: border-box` eso deja la caja de contenido en 10 px de ancho: el ícono de 15 px no
-   entra, así que `place-items: center` no puede centrarlo —se apoya en el borde de contenido y
-   desborda hacia la derecha— y el glifo termina 2,5 px corrido. Medido: el svg quedaba a 6 px del
-   borde izquierdo y a 1 px del derecho. En vertical no pasaba (15 entra en los 20 que quedan), y
-   por eso se leía como un desprolijo y no como un bug. */
-.spira-notif-tacho {
-  width: 22px; height: 22px; padding: 0; border: none; border-radius: 50%;
-  background: transparent; color: var(--spira-faint);
+/* «Descartar»: círculo de 24 px con el tacho de 14. Aparece en hover o con foco de teclado.
+   ⚠ `padding: 0` NO ES COSMÉTICO: el `1px 6px` que trae el navegador deja el glifo corrido. */
+.spira-tarjeta-descartar {
+  position: absolute; right: -4px; top: 50%; margin-top: -12px;
+  width: 24px; height: 24px; padding: 0; border: none; border-radius: 50%;
+  background: transparent; color: var(--spira-muted);
   display: grid; place-items: center; cursor: pointer;
-  transition: color 0.12s var(--spira-ease-out), filter 0.12s var(--spira-ease-out);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.12s var(--spira-ease-out), background-color 0.12s var(--spira-ease-out),
+              color 0.12s var(--spira-ease-out);
 }
-/* EL REALCE ES LA LÍNEA, Y NADA MÁS QUE LA LÍNEA.
-   Acá hubo dos intentos con fondo y los dos terminaban en lo mismo, un disco: primero teñido al
-   12 % —un halo de color sin desplazamiento, que es decoración y no profundidad— y después blanco
-   con `box-shadow`. Ese segundo tampoco sirve SIN fondo opaco: la sombra de caja se pinta por fuera
-   del borde, así que sobre un botón transparente queda un anillo circular flotando alrededor del
-   ícono. Medido y mirado: el fantasma del disco seguía ahí.
-
-   La sombra va sobre el GLIFO, con `drop-shadow`, que sigue el canal alfa: la sombra la proyecta el
-   trazo del tacho, no una caja detrás. Así el realce es exactamente lo que se ve —la línea se pone
-   en el rojo de la familia y se despega un milímetro del papel— y el levante de 1 px lo pone la
-   micro-interacción global (por eso el botón ya no lleva `spira-no-press`).
-
-   Es deliberadamente MÍNIMA: a tamaño real casi no se percibe, y ese es el punto — el color hace el
-   trabajo y el color, en esta app, se reserva para el significado. Acá significa que este botón
-   borra algo. El tono es el petróleo de la tinta, nunca negro; la alfa es más alta que la de
-   `--spira-shadow-sm` porque un trazo de 1,7 px tiene mucha menos superficie que una caja y al 6 %
-   no se vería. En tema oscuro no rinde, y está bien: ahí la elevación la comunica la claridad. */
-.spira-notif-tacho:hover,
-.spira-notif-tacho:focus-visible {
-  color: var(--spira-acc-deep-danger);
-  filter: drop-shadow(0 1px 1px rgba(20, 48, 46, 0.28));
+.spira-tarjeta:hover .spira-tarjeta-descartar,
+.spira-tarjeta-descartar:focus-visible,
+.spira-tarjeta-descartar[aria-expanded='true'] { opacity: 1; pointer-events: auto; }
+.spira-tarjeta:hover .spira-tarjeta-hora-slot:has(.spira-tarjeta-descartar) .spira-tarjeta-hora,
+.spira-tarjeta-hora-slot:has(.spira-tarjeta-descartar:focus-visible) .spira-tarjeta-hora,
+.spira-tarjeta-hora-slot:has(.spira-tarjeta-descartar[aria-expanded='true']) .spira-tarjeta-hora { opacity: 0; }
+.spira-tarjeta-descartar:hover,
+.spira-tarjeta-descartar:focus-visible {
+  outline: none; color: var(--spira-acc-deep-danger);
+  background: color-mix(in srgb, var(--spira-acc-deep-danger) 12%, transparent);
+}
+/* SIN HOVER NO HAY «APARECE AL PASAR EL MOUSE»: en una pantalla táctil, un botón que sólo se ve en
+   hover es un botón que no existe. Ahí el tacho queda siempre y la hora se corre a su izquierda. */
+@media (hover: none) {
+  .spira-tarjeta-hora-slot:has(.spira-tarjeta-descartar) { padding-right: 26px; }
+  .spira-tarjeta-descartar { opacity: 1; pointer-events: auto; }
+  .spira-tarjeta-hora { opacity: 1 !important; }
 }
 
 /* El popover de confirmación del descarte. Va portaleado a `document.body` (si se anidara dentro de
@@ -752,28 +784,177 @@ input:-webkit-autofill:focus {
   background: color-mix(in srgb, var(--spira-primary) 7%, transparent);
 }
 
-/* —— Entrada del panel ——
-   Crece desde la esquina donde está la campana (`transform-origin: top right`), no desde el centro.
-   NADA se anima al cerrar: una salida animada retrasa la respuesta a un clic que ya fue dado. */
+/* Fila 2 · nombre */
+.spira-tarjeta-fila { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.spira-tarjeta-icono {
+  flex: 0 0 auto; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center;
+}
+.spira-tarjeta-nombre {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--spira-font-text); font-size: 13px; font-weight: 600; color: var(--spira-ink);
+}
+.spira-tarjeta-rel {
+  flex: 0 0 auto; white-space: nowrap; font-size: 11.5px; font-weight: 600; color: var(--spira-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fila 3 · motivo, hasta dos líneas */
+.spira-tarjeta-motivo {
+  margin-top: 3px; font-family: var(--spira-font-text); font-size: 12px; line-height: 1.4;
+  color: var(--spira-muted);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+
+/* —— Dispensación en curso (tarjeta fija arriba del listado) —— */
+.spira-disp {
+  margin: 10px 10px 4px; border: 1px solid color-mix(in srgb, var(--spira-primary) 28%, transparent);
+  border-radius: 12px; overflow: hidden; background: var(--spira-white);
+}
+.spira-disp-cab {
+  display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+  /* `on-accent` y no `paper`, aunque en claro sean el mismo `#F4F1EA`: en oscuro el papel se vuelve
+     casi negro y la cabecera quedaba con texto oscuro sobre petróleo. */
+  background: var(--spira-track); color: var(--spira-on-accent);
+}
+.spira-disp-cab-titulo { font-family: var(--spira-font-display); font-weight: 700; font-size: 13px; }
+.spira-disp-cab-visita { font-size: 12px; opacity: 0.85; }
+.spira-disp-cab-rel { margin-left: auto; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.spira-disp-cuerpo { padding: 12px; }
+.spira-disp-quien { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+.spira-disp-nombre {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13px; font-weight: 600; color: var(--spira-ink);
+}
+.spira-disp-codigo { margin-left: 6px; font-size: 12.5px; font-weight: 500; color: var(--spira-ink-2); font-variant-numeric: tabular-nums; }
+.spira-disp-chip {
+  margin-left: auto; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap;
+}
+.spira-disp-chip-punto { width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
+.spira-disp-pasos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 12px; }
+.spira-disp-barra { height: 4px; border-radius: 2px; background: var(--spira-line); overflow: hidden; }
+.spira-disp-barra-relleno { height: 100%; border-radius: inherit; transform-origin: left center; }
+.spira-disp-paso-nombre { margin-top: 7px; font-size: 11px; font-weight: 600; color: var(--spira-ink); }
+.spira-disp-paso-nombre--futuro { color: var(--spira-muted); font-weight: 500; }
+.spira-disp-paso-hora { margin-top: 1px; font-size: 10.5px; color: var(--spira-muted); font-variant-numeric: tabular-nums; }
+.spira-disp-detalle {
+  margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--spira-line-2);
+  display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; row-gap: 3px;
+  font-size: 12px; line-height: 1.4;
+}
+.spira-disp-detalle dt { color: var(--spira-muted); }
+.spira-disp-detalle dd { margin: 0; color: var(--spira-ink); min-width: 0; }
+.spira-disp-pie {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  background: var(--spira-surface); border-top: 1px solid var(--spira-line);
+  font-size: 12px; color: var(--spira-muted);
+}
+.spira-disp-ver {
+  margin-left: auto; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px;
+  padding: 0; border: none; background: transparent; cursor: pointer; white-space: nowrap;
+  font-family: var(--spira-font-text); font-size: 12.5px; font-weight: 600; color: var(--spira-acc-deep-track);
+}
+.spira-disp-ver:hover,
+.spira-disp-ver:focus-visible { text-decoration: underline; outline: none; }
+
+/* —— La alerta que sale de la campana —— */
+.spira-alerta {
+  position: fixed; z-index: 95; width: 348px; max-width: calc(100vw - 16px);
+  background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 12px;
+  box-shadow: 0 14px 34px rgba(20, 48, 46, 0.14);
+  transform-origin: calc(100% - 25px) -10px;
+}
+/* El pico: un cuadrado rotado con los mismos bordes, a 19 px del borde derecho. */
+.spira-alerta::before {
+  content: ''; position: absolute; top: -6px; right: 19px; width: 11px; height: 11px;
+  background: var(--spira-white); border-left: 1px solid var(--spira-line); border-top: 1px solid var(--spira-line);
+  transform: rotate(45deg); border-top-left-radius: 2px;
+}
+.spira-alerta-rotulo {
+  display: flex; align-items: center; gap: 7px; padding: 8px 8px 0 14px;
+  font-family: var(--spira-font-text); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--spira-muted);
+}
+.spira-alerta-rotulo-punto { width: 6px; height: 6px; border-radius: 999px; flex: 0 0 auto; }
+.spira-alerta-cerrar {
+  margin-left: auto; width: 22px; height: 22px; padding: 0; border: none; border-radius: 50%;
+  background: transparent; color: var(--spira-muted); display: grid; place-items: center; cursor: pointer;
+  transition: background-color 0.12s var(--spira-ease-out), color 0.12s var(--spira-ease-out);
+}
+.spira-alerta-cerrar:hover,
+.spira-alerta-cerrar:focus-visible { background: var(--spira-surface); color: var(--spira-ink); outline: none; }
+.spira-alerta-cuerpo { padding: 4px 2px 2px; }
+.spira-alerta-pista { height: 3px; background: var(--spira-line); border-radius: 0 0 12px 12px; overflow: hidden; }
+/* La barra ES el reloj: cuando su animación termina, la alerta se cierra (`onAnimationEnd`). Así
+   pausarla con el mouse encima pausa también el cierre, sin un temporizador aparte que se pueda
+   desincronizar. Se vacía hacia la izquierda: el origen está a la izquierda. */
+.spira-alerta-barra {
+  height: 100%; transform-origin: left center;
+  animation: spAlertaBarra 6s linear forwards;
+}
+.spira-alerta:hover .spira-alerta-barra,
+.spira-alerta:focus-within .spira-alerta-barra { animation-play-state: paused; }
+@keyframes spAlertaBarra { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* —— Movimiento —— */
 @keyframes spNotifPanelIn {
-  from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+  from { opacity: 0; transform: scale(0.96) translateY(-6px); }
   to   { opacity: 1; transform: none; }
 }
-@keyframes spNotifCajaIn {
-  from { opacity: 0; transform: translateY(-5px); }
+@keyframes spTarjetaNueva {
+  from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: none; }
 }
+@keyframes spAlertaIn {
+  from { transform: scale(0.2); }
+  to   { transform: scale(1); }
+}
+@keyframes spAlertaInOpacity { from { opacity: 0; } to { opacity: 1; } }
+@keyframes spAlertaOut { from { transform: scale(1); } to { transform: scale(0.2); } }
+@keyframes spAlertaOutOpacity { from { opacity: 1; } to { opacity: 0; } }
+@keyframes spCampanaSacude {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(8deg); }
+  60% { transform: rotate(-5deg); }
+  75% { transform: rotate(2deg); }
+  100% { transform: rotate(0); }
+}
+@keyframes spPuntoPulso {
+  from { opacity: 0.6; transform: scale(1); }
+  to   { opacity: 0; transform: scale(2.6); }
+}
+@keyframes spDispLate { 50% { opacity: 0.35; } }
+@keyframes spDispLlena { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
 @media (prefers-reduced-motion: no-preference) {
+  /* Crece desde la esquina donde está la campana. NADA se anima al cerrar el PANEL: una salida
+     animada retrasa la respuesta a un clic que ya fue dado. (La alerta sí sale animada: nadie la
+     cerró, se va sola.) */
   .spira-notif-panel {
     transform-origin: top right;
     animation: spNotifPanelIn 0.19s cubic-bezier(0.2, 0.8, 0.3, 1) both;
   }
-  /* La cascada la escalona `--i`, que pone la caja al montarse. El tope de 10 ítems del panel la
-     mantiene corta: sin él, 43 cajas a 22 ms terminarían de dibujarse casi un segundo después. */
-  .spira-notif-caja {
-    animation: spNotifCajaIn 0.26s cubic-bezier(0.2, 0.8, 0.3, 1) both;
-    animation-delay: calc(var(--i, 0) * 22ms);
+  .spira-tarjeta--nueva { animation: spTarjetaNueva 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+  .spira-alerta--entrando {
+    animation: spAlertaIn 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.15) 0.14s both,
+               spAlertaInOpacity 0.22s ease 0.14s both;
   }
+  .spira-alerta--saliendo {
+    animation: spAlertaOut 0.3s cubic-bezier(0.6, 0, 0.8, 0.4) both,
+               spAlertaOutOpacity 0.25s ease 0.05s both;
+  }
+  .spira-campana--sacude svg { transform-origin: 50% 2px; animation: spCampanaSacude 0.7s ease-out; }
+  .spira-notif-punto--pulso::after { animation: spPuntoPulso 1.6s ease-out 2; }
+  .spira-disp-chip--late .spira-disp-chip-punto { animation: spDispLate 1.4s ease-in-out infinite; }
+  .spira-disp-barra-relleno--actual { animation: spDispLlena 1.2s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+}
+/* Movimiento reducido: todo pasa a un fundido de 150 ms. Sin escala, sin sacudida, sin pulsos. */
+@media (prefers-reduced-motion: reduce) {
+  .spira-tarjeta--nueva { animation: spAlertaInOpacity 0.15s ease both; }
+  .spira-alerta--entrando { animation: spAlertaInOpacity 0.15s ease both; }
+  .spira-alerta--saliendo { animation: spAlertaOutOpacity 0.15s ease both; }
 }
 
 /* —— Animaciones del modal de Ajustes ——

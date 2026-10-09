@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  detectarMovimientos, fechaDeCard, instantanea, pedidosVigentes, repartir, rotuloDeCard,
+  detectarMovimientos, estaAbierto, horasDePasos, instantanea, medicacionEnUnaLinea, mensajeDeEstado,
+  motivoDePedido, pasoActual, pedidosVigentes, repartir, ultimoMovimiento,
 } from './avisosPedidos'
-import { formatAR, formatTimeAR } from '../lib/dates'
 import type { PedidoAviso } from '../data/pharma/dispensationModel'
 
 /**
@@ -32,6 +32,13 @@ const p = (campos: Partial<PedidoAviso>): PedidoAviso => ({
   patient_code: 'LTS-004',
   protocol_id: 'proto-1',
   protocol_code: 'LTS17231',
+  created_at: '2026-09-20T12:58:00-03:00',
+  preparation_started_at: null,
+  prepared_by_name: null,
+  delivered_at: null,
+  dispensacion_updated_at: null,
+  medicacion: 'Fenisona 50 mg × 2',
+  solicitante: null,
   ...campos,
 })
 
@@ -69,7 +76,7 @@ describe('detectarMovimientos', () => {
   it('pero sí del pedido que cargó otro (es lo que ve Farmacia)', () => {
     const movs = detectarMovimientos({}, [p({ id: 'a', requested_by: 'coord-1' })], 'farma-1')
     expect(movs).toHaveLength(1)
-    expect(rotuloDeCard(movs[0].pedido, true)).toBe('Pedido nuevo · V3')
+    expect(motivoDePedido(movs[0].pedido, true)).toMatch(/^Pedido nuevo — V3/)
   })
 
   it('tampoco te avisa de tu propia cancelación, pero sí de un rechazo de Farmacia', () => {
@@ -124,26 +131,89 @@ describe('repartir', () => {
   })
 })
 
-describe('fechaDeCard', () => {
-  /* La hora se compara contra `formatTimeAR` y no contra un literal ("14:05") a propósito: esa
-     función formatea en hora LOCAL y el CI corre en UTC, así que un literal pasaría en esta máquina
-     y caería en la PR. Lo que este test afirma es la RAMA elegida, que es la regla. */
-  it('de hoy muestra la hora; de otro día, la fecha', () => {
-    const hoy = p({ updated_at: '2026-09-20T14:05:00-03:00' })
-    const antes = p({ updated_at: '2026-09-18T14:05:00-03:00' })
-    expect(fechaDeCard(hoy, '2026-09-20')).toBe(formatTimeAR('2026-09-20T14:05:00-03:00'))
-    expect(fechaDeCard(antes, '2026-09-20')).toBe(formatAR('2026-09-18'))
+describe('motivoDePedido', () => {
+  it('Farmacia lee "Pedido nuevo" donde Coordinación lee "Solicitada"', () => {
+    const fila = p({})
+    expect(motivoDePedido(fila, true)).toBe('Pedido nuevo — V3 · Fenisona 50 mg × 2')
+    expect(motivoDePedido(fila, false)).toBe('Solicitada — V3 · Fenisona 50 mg × 2')
+  })
+
+  it('un cerrado se nombra como dispensación, que es lo que es en el listado', () => {
+    const entregado = p({ status: 'atendida', dispensacion: 'entregada' })
+    expect(motivoDePedido(entregado, false)).toBe('Dispensación entregada — V3 · Fenisona 50 mg × 2')
+  })
+
+  it('sin código de visita ni medicación no inventa ninguno de los dos', () => {
+    expect(motivoDePedido(p({ visit_code: null, medicacion: '' }), false)).toBe('Solicitada — Visita')
   })
 })
 
-describe('rotuloDeCard', () => {
-  it('Farmacia lee "Pedido nuevo" donde Coordinación lee "Solicitada"', () => {
-    const fila = p({})
-    expect(rotuloDeCard(fila, true)).toBe('Pedido nuevo · V3')
-    expect(rotuloDeCard(fila, false)).toBe('Solicitada · V3')
+describe('medicacionEnUnaLinea', () => {
+  it('nombre, dosis y cantidad, separados por punto medio', () => {
+    expect(medicacionEnUnaLinea([
+      { quantity: 2, medication: { name: 'Fenisona', dosis: '50 mg' } },
+      { quantity: 1, medication: { name: 'Paracetamol', dosis: null } },
+    ], false)).toBe('Fenisona 50 mg × 2 · Paracetamol × 1')
   })
 
-  it('sin código de visita no inventa uno', () => {
-    expect(rotuloDeCard(p({ visit_code: null }), false)).toBe('Solicitada · Visita')
+  it('un renglón sin medicamento legible no se nombra, y el IP va al final', () => {
+    expect(medicacionEnUnaLinea([{ quantity: 3, medication: null }], true)).toBe('Producto de investigación')
+  })
+})
+
+describe('ultimoMovimiento', () => {
+  /* El bug que motivó el campo: pasar a «Lista» toca la dispensación y no la solicitud. */
+  it('si la dispensación se movió después, manda la dispensación', () => {
+    const lista = p({
+      status: 'preparando', dispensacion: 'lista',
+      updated_at: '2026-09-20T10:00:00-03:00', dispensacion_updated_at: '2026-09-20T10:40:00-03:00',
+    })
+    expect(ultimoMovimiento(lista)).toBe('2026-09-20T10:40:00-03:00')
+  })
+
+  it('sin dispensación, la solicitud', () => {
+    expect(ultimoMovimiento(p({}))).toBe('2026-09-20T13:00:00-03:00')
+  })
+
+  it('una entrega de hoy sobre una solicitud tomada ayer sigue siendo de hoy', () => {
+    const entregada = p({
+      status: 'preparando', dispensacion: 'entregada',
+      updated_at: '2026-09-19T17:00:00-03:00', dispensacion_updated_at: '2026-09-20T09:00:00-03:00',
+    })
+    expect(pedidosVigentes([entregada], '2026-09-20')).toHaveLength(1)
+  })
+})
+
+describe('pasos de la tarjeta fija', () => {
+  it('cada paso lleva su hora, y lo que no llegó queda en null', () => {
+    const preparando = p({ status: 'preparando', preparation_started_at: '2026-09-20T13:04:00-03:00' })
+    expect(pasoActual(preparando)).toBe(1)
+    expect(horasDePasos(preparando)).toEqual(['2026-09-20T12:58:00-03:00', '2026-09-20T13:04:00-03:00', null, null])
+  })
+
+  it('«Lista» toma la hora de la dispensación, no la de cuando se tomó', () => {
+    const lista = p({
+      status: 'preparando', dispensacion: 'lista',
+      preparation_started_at: '2026-09-20T13:04:00-03:00',
+      dispensacion_updated_at: '2026-09-20T13:30:00-03:00',
+    })
+    expect(horasDePasos(lista)[2]).toBe('2026-09-20T13:30:00-03:00')
+  })
+
+  /* Filas anteriores a la 0054 no tienen la marca: la barra se llena, la hora no se inventa. */
+  it('un paso pasado sin marca queda sin hora', () => {
+    const lista = p({ status: 'preparando', dispensacion: 'lista', preparation_started_at: null })
+    expect(horasDePasos(lista)[1]).toBeNull()
+  })
+
+  it('rechazada y cancelada no son pasos', () => {
+    expect(pasoActual(p({ status: 'rechazada' }))).toBeNull()
+    expect(estaAbierto(p({ status: 'rechazada' }))).toBe(false)
+    expect(estaAbierto(p({ status: 'preparando', dispensacion: 'lista' }))).toBe(true)
+  })
+
+  it('el mensaje nombra a quien prepara si se sabe, y si no dice Farmacia', () => {
+    expect(mensajeDeEstado(p({ status: 'preparando', prepared_by_name: 'Ana Ruiz' }))).toBe('Ana Ruiz está preparando la medicación.')
+    expect(mensajeDeEstado(p({ status: 'preparando' }))).toBe('Farmacia está preparando la medicación.')
   })
 })

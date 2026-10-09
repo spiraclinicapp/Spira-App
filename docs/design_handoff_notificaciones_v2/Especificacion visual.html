@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spira · Notificaciones — especificación visual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#14302E;--primary:#0F5F57;--track:#2E7D74;--paper:#F4F1EA;--surface:#FBFAF6;--white:#fff;--muted:#61706C;--faint:#838C89;--line:#E4DECF;--line2:#D8CBB0;--danger:#A6483B;--good:#4A7248;--warn:#8C6520;--fdisp:'Schibsted Grotesk',system-ui,sans-serif;--ftext:'Inter',system-ui,sans-serif;--sh-md:0 14px 34px rgba(20,48,46,.14);--sh-sm:0 1px 2px rgba(20,48,46,.06);--pin:#C2410C}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+html,body{margin:0}
+body{font-family:var(--ftext);color:var(--ink);background:var(--paper);font-size:14px}
+a{color:var(--primary)}a:hover{color:var(--ink)}
+.num{font-variant-numeric:tabular-nums}
+.page{max-width:1080px;margin:0 auto;padding:40px 24px 90px;display:flex;flex-direction:column;gap:44px}
+h1{font-family:var(--fdisp);font-weight:700;font-size:26px;letter-spacing:-.02em;margin:0 0 6px}
+h2{font-family:var(--fdisp);font-weight:700;font-size:18px;letter-spacing:-.01em;margin:0 0 4px;display:flex;align-items:baseline;gap:10px}
+h2 .n{font-size:12px;color:var(--faint);font-weight:600;letter-spacing:.1em}
+.lead{font-size:13.5px;color:var(--muted);line-height:1.55;margin:0;max-width:680px;text-wrap:pretty}
+.sec{display:flex;flex-direction:column;gap:16px}
+.board{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:28px}
+.split{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:32px;align-items:start}
+@media(max-width:860px){.split{grid-template-columns:minmax(0,1fr)}}
+.stagebg{background:var(--paper);border-radius:12px;padding:40px 28px;display:grid;place-items:center;background-image:radial-gradient(rgba(20,48,46,.08) 1px,transparent 1px);background-size:12px 12px}
+.zoom{zoom:1.5;width:420px;max-width:100%}
+.split.anat{grid-template-columns:minmax(0,1fr)}
+.anat .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));column-gap:28px}
+.anat .legend .row{border-bottom:1px solid var(--line)}
+@media(max-width:760px){.zoom{zoom:1}}
+.legend{display:flex;flex-direction:column;gap:0;font-size:12.5px}
+.legend .row{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.legend .row:last-child{border-bottom:none}
+.legend b{display:block;font-weight:600;margin-bottom:2px}
+.legend code,.tbl code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--muted)}
+.pn{width:18px;height:18px;border-radius:50%;background:var(--pin);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;font-style:normal;line-height:1}
+.pin{position:absolute;width:13px;height:13px;border-radius:50%;background:var(--pin);color:#fff;font-size:7.5px;font-weight:700;display:grid;place-items:center;font-style:normal;line-height:1;z-index:5;box-shadow:0 0 0 1.5px #fff;letter-spacing:0;text-transform:none}
+.rel-p{position:relative}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:0 12px 8px 0;border-bottom:1px solid var(--line2)}
+.tbl td{padding:9px 12px 9px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+.sw{width:28px;height:28px;border-radius:7px;border:1px solid rgba(20,48,46,.08)}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.cap{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+.capd{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5;text-wrap:pretty}
+.shot{width:100%;border-radius:12px;border:1px solid var(--line);display:block}
+/* ——— Tarjeta (copia exacta del prototipo) ——— */
+.card{position:relative;display:grid;grid-template-columns:minmax(0,1fr);padding:11px;background:var(--white);border:1px solid var(--line);border-radius:10px;transition:border-color .14s,background-color .14s,box-shadow .14s}
+.card.hover{border-color:var(--line2);background:var(--surface);box-shadow:var(--sh-sm)}
+.card.unread{background:linear-gradient(0deg,rgba(15,95,87,.035),rgba(15,95,87,.035)),var(--white)}
+.card.unread::before{content:"";position:absolute;left:-6px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--danger)}
+.rx{display:flex;align-items:center;gap:14px;font-size:11px;min-width:0;margin:0 0 7px;padding:0 0 6px;border-bottom:1px dashed var(--line)}
+.pl{font-size:11px;color:var(--faint);white-space:nowrap}.pl b{color:var(--ink);font-weight:600;margin-left:3px}
+.tslot{margin-left:auto;position:relative;display:flex;align-items:center;justify-content:flex-end;min-height:22px;flex:0 0 auto}
+.dt{font-size:11px;color:var(--faint);font-weight:500;white-space:nowrap}
+.del{width:24px;height:24px;border-radius:50%;border:none;background:rgba(166,72,59,.12);color:var(--danger);display:grid;place-items:center;margin:0 -3px 0 0}
+.r1{display:flex;align-items:center;gap:8px;min-width:0}
+.mini{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;flex:0 0 auto}
+.pname{flex:1;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.relt{font-size:11.5px;font-weight:600;color:var(--ink);white-space:nowrap}
+.l2{font-size:12px;color:var(--muted);line-height:1.4;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-wrap:pretty}
+/* toast */
+.toast{position:relative;width:348px;background:var(--white);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh-md)}
+.toast::before{content:"";position:absolute;top:-6px;right:19px;width:11px;height:11px;background:var(--white);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
+.thd{display:flex;align-items:center;gap:7px;padding:8px 8px 0 14px;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.thd .d{width:6px;height:6px;border-radius:50%}
+.thd .x{margin-left:auto;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:var(--faint)}
+.tcard{padding:4px 2px 2px}.tcard .card{border-color:transparent}
+.timer{height:3px;background:var(--line);border-radius:0 0 12px 12px;overflow:hidden}.timer i{display:block;height:100%;width:62%}
+.bell{width:38px;height:38px;border-radius:10px;background:var(--surface);display:grid;place-items:center;position:relative;margin-left:auto;margin-right:-6px;margin-bottom:10px}
+.bell .bd{position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--danger);border:2px solid var(--white);box-sizing:content-box}
+.grp{padding:0 0 6px;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:8px}
+.grp::after{content:"";flex:1;height:1px;background:var(--line)}
+.stack{display:flex;flex-direction:column;gap:6px}
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+<h1>Notificaciones — especificación visual</h1>
+<p class="lead">Medidas, colores y estados de la tarjeta de notificación (variante C5 con ícono junto al nombre), la alerta que sale de la campana y el panel. Los números naranjas remiten a la leyenda de cada bloque. Valores en px a tamaño real; los dibujos están ampliados ×1,5.</p>
+</header>
+
+<section class="sec">
+<h2><span class="n">01</span>Anatomía de la tarjeta</h2>
+<div class="board split anat">
+<div class="stagebg"><div class="zoom">
+<div class="card unread rel-p"><i class="pin" style="left:-22px;top:50%;margin-top:-6px">1</i><i class="pin" style="right:-7px;top:-7px">2</i>
+<div class="rx rel-p"><i class="pin" style="left:-7px;top:-9px">3</i>
+<span class="pl num rel-p">Paciente <b>032001520005</b></span>
+<span class="pl num">Protocolo <b>LTS17231</b></span>
+<span class="tslot rel-p"><span class="dt num">16:40 h</span><i class="pin" style="right:-7px;top:-8px">4</i></span>
+<i class="pin" style="left:50%;bottom:-7px">5</i>
+</div>
+<div class="r1 rel-p">
+<span class="mini rel-p" style="color:var(--primary);background:rgba(15,95,87,.09)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg><i class="pin" style="left:-8px;top:-8px">6</i></span>
+<span class="pname rel-p" style="overflow:visible">Rosa del Carmen Juárez<i class="pin" style="left:40%;top:-10px">7</i></span>
+<span class="relt rel-p">hace 2 h<i class="pin" style="right:-8px;top:-10px">8</i></span>
+</div>
+<div class="l2 rel-p" style="overflow:visible">Reporte pendiente — Informe Sangre · V3<i class="pin" style="left:-8px;bottom:-6px">9</i></div>
+</div>
+</div></div>
+<div class="legend">
+<div class="row"><i class="pn">1</i><div><b>Indicador de no leída</b>Punto 6×6 <code>#A6483B</code>, fuera de la tarjeta (left −6px), centrado vertical. Fondo con tinte <code>rgba(15,95,87,.035)</code> sobre blanco.</div></div>
+<div class="row"><i class="pn">2</i><div><b>Contenedor</b>Blanco, borde 1px <code>#E4DECF</code>, radio 10px, padding 11px, una sola columna. Separación entre tarjetas 6px.</div></div>
+<div class="row"><i class="pn">3</i><div><b>Encabezado · etiquetas</b>Inter 11px. Etiqueta «Paciente» / «Protocolo» en <code>#838C89</code> 400; valor en <code>#14302E</code> 600, margen izq. 3px, cifras tabulares. Gap 14px.</div></div>
+<div class="row"><i class="pn">4</i><div><b>Hora exacta</b>Inter 11px 500 <code>#838C89</code>, alineada a la derecha, alto mínimo 22px. En hover se oculta y en su lugar aparece el botón Descartar (ver 03).</div></div>
+<div class="row"><i class="pn">5</i><div><b>Separador</b>1px punteado <code>#E4DECF</code>. Padding inferior 6px, margen inferior 7px.</div></div>
+<div class="row"><i class="pn">6</i><div><b>Ícono de tipo</b>Caja 20×20, radio 6px, fondo y trazo según tipo (ver 02). Glifo 12px, trazo 2.</div></div>
+<div class="row"><i class="pn">7</i><div><b>Nombre del paciente</b>Inter 13px 600 <code>#14302E</code>. Una línea, recorta con «…». Ocupa todo el ancho libre. Gap 8px con ícono y tiempo.</div></div>
+<div class="row"><i class="pn">8</i><div><b>Tiempo relativo</b>Inter 11.5px 600 <code>#14302E</code>, sin corte de línea.</div></div>
+<div class="row"><i class="pn">9</i><div><b>Motivo</b>Inter 12px 400 <code>#61706C</code>, interlineado 1.4, margen sup. 3px, máximo 2 líneas con «…».</div></div>
+</div>
+</div>
+</section>
+
+<section class="sec">
+<h2><span class="n">02</span>Tipos de alerta</h2>
+<div class="board">
+<table class="tbl">
+<thead><tr><th>Ícono</th><th>Tipo</th><th>Trazo</th><th>Fondo</th><th>Ejemplo de motivo</th></tr></thead>
+<tbody>
+<tr><td><span class="mini" style="color:#0F5F57;background:rgba(15,95,87,.09)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span></td><td>Reporte pendiente</td><td><code>#0F5F57</code></td><td><code>rgba(15,95,87,.09)</code></td><td>Reporte pendiente — Informe Sangre · V3</td></tr>
+<tr><td><span class="mini" style="color:#A6483B;background:rgba(166,72,59,.09)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span></td><td>Ventana vencida</td><td><code>#A6483B</code></td><td><code>rgba(166,72,59,.09)</code></td><td>V4 W8 — Ventana vencida el 03 Oct 2026</td></tr>
+<tr><td><span class="mini" style="color:#8C6520;background:rgba(140,101,32,.10)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span></td><td>Pendiente vencido</td><td><code>#8C6520</code></td><td><code>rgba(140,101,32,.10)</code></td><td>Retest de V3 W4 — Pendiente vencido</td></tr>
+<tr><td><span class="mini" style="color:#4A7248;background:rgba(74,114,72,.11)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span></td><td>Dispensación</td><td><code>#4A7248</code></td><td><code>rgba(74,114,72,.11)</code></td><td>Dispensación entregada — V5 W12 · Fenisona 50 mg × 2</td></tr>
+</tbody>
+</table>
+<p class="capd">Íconos: set Lucide (clipboard-check, alert-circle, clock, pill), 24×24, trazo redondeado. Usar el set de íconos que ya tenga la app si es equivalente.</p>
+</div>
+</section>
+
+<section class="sec">
+<h2><span class="n">03</span>Estados de la tarjeta</h2>
+<div class="board grid4">
+<div><div class="cap">Leída · reposo</div>
+<div class="card"><div class="rx"><span class="pl num">Paciente <b>707406</b></span><span class="pl num">Protocolo <b>222714</b></span><span class="tslot"><span class="dt num">11:05 h</span></span></div><div class="r1"><span class="mini" style="color:#0F5F57;background:rgba(15,95,87,.09)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span><span class="pname">Emmanuel Alejandro Azcurra</span><span class="relt">hace 7 h</span></div><div class="l2">Reporte pendiente — Informe Sangre · V2</div></div>
+<p class="capd">Fondo blanco, borde <code>#E4DECF</code>.</p></div>
+<div><div class="cap">No leída</div>
+<div style="padding-left:6px"><div class="card unread"><div class="rx"><span class="pl num">Paciente <b>707405</b></span><span class="pl num">Protocolo <b>222714</b></span><span class="tslot"><span class="dt num">ahora</span></span></div><div class="r1"><span class="mini" style="color:#0F5F57;background:rgba(15,95,87,.09)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span><span class="pname">Rafael Humberto Gibeaud</span><span class="relt">hace 1 min</span></div><div class="l2">Reporte pendiente — Electrocardiograma · V5 W12</div></div></div>
+<p class="capd">Punto rojo a la izquierda y tinte verde 3,5 %. Pasa a leída 2,5 s después de abrir el panel o con «Marcar como leídas».</p></div>
+<div><div class="cap">Hover</div>
+<div class="card hover"><div class="rx"><span class="pl num">Paciente <b>707405</b></span><span class="pl num">Protocolo <b>222714</b></span><span class="tslot"><span class="del"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></span></span></div><div class="r1"><span class="mini" style="color:#A6483B;background:rgba(166,72,59,.09)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span><span class="pname">Rafael Humberto Gibeaud</span><span class="relt">hace 6 d</span></div><div class="l2">V4 W8 — Ventana vencida el 03 Oct 2026</div></div>
+<p class="capd">Borde <code>#D8CBB0</code>, fondo <code>#FBFAF6</code>, sombra <code>0 1px 2px rgba(20,48,46,.06)</code>, 140 ms. La hora se desvanece (120 ms) y aparece Descartar: círculo 24px, ícono 14px. Reposo <code>#838C89</code>; hover sobre el botón fondo <code>rgba(166,72,59,.12)</code> e ícono <code>#A6483B</code> (mostrado). Abre el flujo de descarte con motivo.</p></div>
+</div>
+</section>
+
+<section class="sec">
+<h2><span class="n">04</span>Formato de tiempo</h2>
+<div class="board split">
+<table class="tbl">
+<thead><tr><th>Antigüedad</th><th>Tiempo relativo (8)</th><th>Hora exacta (4)</th></tr></thead>
+<tbody>
+<tr><td>&lt; 1 min</td><td>ahora</td><td>16:40 h</td></tr>
+<tr><td>&lt; 60 min</td><td>hace 12 min</td><td>16:28 h</td></tr>
+<tr><td>&lt; 24 h</td><td>hace 5 h</td><td>11:05 h</td></tr>
+<tr><td>Ayer</td><td>hace 1 d</td><td>08:00 h</td></tr>
+<tr><td>Anterior a ayer</td><td>hace 6 d</td><td>3 oct, 08:00 h</td></tr>
+</tbody>
+</table>
+<div>
+<div class="cap">Grupos del listado</div>
+<div class="stack" style="gap:10px"><div class="grp">Hoy</div><div class="grp">Ayer</div><div class="grp">Esta semana</div><div class="grp">Anteriores</div></div>
+<p class="capd">Encabezado de grupo: Inter 10.5px 700, mayúsculas, tracking .12em, <code>#838C89</code>, línea 1px <code>#E4DECF</code> hasta el borde. Queda fijo arriba al hacer scroll (fondo blanco 96 % + blur 4px). Dentro de cada grupo, de la más reciente a la más antigua. Hoy/Ayer muestran solo la hora porque el día ya lo dice el grupo. «Esta semana» = 2 a 6 días.</p>
+</div>
+</div>
+</section>
+
+<section class="sec">
+<h2><span class="n">05</span>Alerta desde la campana</h2>
+<div class="board split anat">
+<div class="stagebg" style="place-items:start center;padding:24px 28px 40px"><div class="zoom" style="width:360px;display:flex;flex-direction:column">
+<div class="bell rel-p"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="bd"></span><i class="pin" style="left:-8px;top:-6px">1</i></div>
+<div class="toast rel-p"><i class="pin" style="left:-7px;top:-7px">2</i>
+<div class="thd rel-p"><span class="d" style="background:var(--primary)"></span><span>Nueva notificación</span><span class="x rel-p"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg><i class="pin" style="right:-6px;top:-6px">4</i></span><i class="pin" style="left:4px;top:-4px">3</i></div>
+<div class="tcard rel-p"><div class="card"><div class="rx"><span class="pl num">Paciente <b>707405</b></span><span class="pl num">Protocolo <b>222714</b></span><span class="tslot"><span class="dt num">16:41 h</span></span></div><div class="r1"><span class="mini" style="color:#0F5F57;background:rgba(15,95,87,.09)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span><span class="pname">Rafael Humberto Gibeaud</span><span class="relt">ahora</span></div><div class="l2">Reporte pendiente — Electrocardiograma · V5 W12</div></div><i class="pin" style="right:-7px;top:40%">5</i></div>
+<div class="timer rel-p"><i style="background:var(--primary)"></i><i class="pin" style="left:60%;top:-6px;width:13px;height:13px;display:grid">6</i></div>
+</div>
+</div></div>
+<div class="legend">
+<div class="row"><i class="pn">1</i><div><b>Campana</b>Botón 38×38, radio 10px. Al llegar la alerta: la campana se sacude (700 ms) y el punto rojo 8px (borde blanco 2px) emite dos pulsos (1,6 s c/u). El punto queda fijo mientras haya no leídas.</div></div>
+<div class="row"><i class="pn">2</i><div><b>Contenedor</b>348px de ancho, 10px debajo de la campana, alineado a su borde derecho (right −6px). Blanco, borde 1px <code>#E4DECF</code>, radio 12px, sombra <code>0 14px 34px rgba(20,48,46,.14)</code>. Pico de 11px rotado 45° apuntando a la campana.</div></div>
+<div class="row"><i class="pn">3</i><div><b>Rótulo</b>«Nueva notificación» o «Dispensación actualizada». Inter 10.5px 700, mayúsculas, tracking .1em, <code>#838C89</code>. Punto 6px del color del tipo/estado. Padding 8px 8px 0 14px.</div></div>
+<div class="row"><i class="pn">4</i><div><b>Cerrar</b>22×22 circular, ícono 13px <code>#838C89</code>; hover fondo <code>#FBFAF6</code>, ícono <code>#14302E</code>.</div></div>
+<div class="row"><i class="pn">5</i><div><b>Tarjeta</b>Es la misma del listado (01), sin borde ni botón Descartar. Padding del envoltorio 4px 2px 2px. Clic en cualquier parte abre el panel.</div></div>
+<div class="row"><i class="pn">6</i><div><b>Barra de tiempo</b>3px, pista <code>#E4DECF</code>, relleno del color del tipo, se vacía de derecha a izquierda en 6000 ms lineal. Se pausa con hover. Al terminar, la alerta se cierra.</div></div>
+</div>
+</div>
+<div class="board">
+<table class="tbl">
+<thead><tr><th>Movimiento</th><th>Propiedades</th><th>Duración</th><th>Curva</th></tr></thead>
+<tbody>
+<tr><td>Entrada (sale de la campana)</td><td>scale .2 → 1, opacity 0 → 1, origen en la campana</td><td>320 ms / 220 ms</td><td><code>cubic-bezier(.2,.9,.3,1.15)</code> / ease</td></tr>
+<tr><td>Salida (vuelve a la campana)</td><td>scale 1 → .2, opacity 1 → 0</td><td>300 ms / 250 ms (+50 ms)</td><td><code>cubic-bezier(.6,0,.8,.4)</code></td></tr>
+<tr><td>Retardo antes de entrar</td><td>—</td><td>140 ms</td><td>—</td></tr>
+<tr><td>Tarjeta nueva en el listado</td><td>translateY −6px → 0, opacity 0 → 1</td><td>500 ms</td><td><code>cubic-bezier(.2,.8,.3,1)</code></td></tr>
+<tr><td>Apertura del panel</td><td>scale .96 + translateY −6px → normal, opacity</td><td>190 ms / 160 ms</td><td><code>cubic-bezier(.2,.8,.3,1)</code></td></tr>
+</tbody>
+</table>
+<p class="capd">Con <code>prefers-reduced-motion</code>: solo fundido de opacidad (150 ms), sin escala, sin sacudida ni pulsos. Si el panel ya está abierto no se muestra alerta: la tarjeta entra directo al listado. Una alerta nueva reemplaza a la que esté visible.</p>
+</div>
+</section>
+
+<section class="sec">
+<h2><span class="n">06</span>Capturas del prototipo</h2>
+<div class="grid4">
+<div><div class="cap">Panel abierto</div><img class="shot" src="screenshots/01-panel.png" alt="Panel de notificaciones abierto"><p class="capd">Panel 452px, radio 14px. Arriba, la dispensación en curso como tarjeta fija; debajo, el listado agrupado.</p></div>
+<div><div class="cap">Alerta</div><img class="shot" src="screenshots/02-alerta.png" alt="Alerta saliendo de la campana"><p class="capd">Alerta de una notificación nueva con el panel cerrado.</p></div>
+<div><div class="cap">Dispensación en curso</div><img class="shot" src="screenshots/03-dispensacion.png" alt="Tarjeta de dispensación en estado Lista para retirar"><p class="capd">Paso «Lista para retirar», con hora de cada paso, medicación y responsable.</p></div>
+<div><div class="cap">Dispensación entregada</div><img class="shot" src="screenshots/04-entregada.png" alt="Registro de dispensación entregada en el listado"><p class="capd">Al entregarse, la tarjeta fija desaparece y queda un registro «Dispensación entregada» en el listado.</p></div>
+</div>
+</section>
+</div>
+</body>
+</html>

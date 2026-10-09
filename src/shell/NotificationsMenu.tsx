@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from '../components/Icon'
-import type { IconName } from '../components/Icon'
-import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { usePopover } from '../components/usePopover'
 import type { AlertKind } from '../data/alertDismissalModel'
 import {
@@ -11,25 +9,35 @@ import {
 } from '../data/alertDismissals'
 import type { PedidoAviso } from '../data/pharma/dispensationModel'
 import { useConstanciasSinImprimir, usePedidosCorreccionPendientes } from '../data/pharma'
-import { repartir } from './avisosPedidos'
-import { CajaDePedido } from './CajaDePedido'
+import { estadoDe, estaAbierto, loHicisteVos, motivoDePedido, repartir, ultimoMovimiento } from './avisosPedidos'
 import { isoDayAR, todayISO } from '../lib/dates'
 import { pushUrl } from '../lib/useUrlState'
 import { constanciasAReimprimir, pedidosAResolver } from '../views/pharma/correccionEntregaModel'
 import { MODULES } from '../modules/registry'
 import type { NavTarget, ReturnTo } from '../views/types'
 import { priorizarAlertas } from '../views/visitRules'
-import { ProtoTag } from '../views/visitAtoms'
 import { VisitDetail } from '../views/track/VisitDetail'
 import { DESTINO_PENDIENTES, nombreDeDestino } from '../views/resumen/destinos'
-import type { ClaseDeAlerta } from './notificaciones'
 import {
-  CLASES, claseDeAlerta, fechaDeIp, fechaDeReporte, fechaDeVisita, motivoDeAlerta, motivoDeIp, motivoDeReporte,
-  textoDePildora, tinte, tonoDelPunto,
+  agruparPorDia, claseDeAlerta, momentoDe, momentoDeVisita, motivoDeAlerta, motivoDeIp, motivoDeReporte,
+  textoDePildora, tonoDeNoLeidas,
 } from './notificaciones'
+import { guardarLeidas, leerLeidas, marcar, noLeidas, reconciliar } from './leidas'
+import type { Fuente, Novedad } from './leidas'
+import { TarjetaNotificacion } from './TarjetaNotificacion'
+import type { DatosDeTarjeta } from './TarjetaNotificacion'
+import { DispensacionEnCurso } from './DispensacionEnCurso'
+import { AlertaCampana } from './AlertaCampana'
+import type { Alerta } from './AlertaCampana'
 
-/** Cuántos ítems entran en el desplegable. Ver el porqué del recorte donde se aplica. */
+/** Cuántas alertas CLÍNICAS entran en el panel. Ver el porqué del recorte donde se aplica. */
 const MAX_NOTIFICACIONES = 10
+
+/** Cuánto tarda una tarjeta en pasar a leída con el panel abierto (handoff v2). */
+const LEIDA_A_LOS_MS = 2_500
+
+/** Cada cuánto se recalcula «hace N min» (handoff v2). */
+const RELOJ_MS = 30_000
 
 /* El acento con el que se pinta el modal de la visita. Sale del registry y no de un hex escrito a
    mano: la campana no vive en ningún módulo, pero lo que abre es una visita de Coordinación, y tiene
@@ -37,41 +45,40 @@ const MAX_NOTIFICACIONES = 10
 const ACENTO_TRACK = MODULES.find((m) => m.key === 'track')?.accent ?? 'var(--spira-primary)'
 
 /* ============================================================================
-   NotificationsMenu — desplegable de notificaciones (campana, top bar).
+   NotificationsMenu — la campana del top bar, su panel y la alerta que sale de ella.
 
-   Rediseñado según `docs/design_handoff_notificaciones/`, con las doce decisiones de
-   `docs/plan-campana-notificaciones.md`. Las fuentes son REALES: `useActiveAlerts()` —las mismas
-   alertas vigentes que la vista de Pendientes y el resumen de Inicio, ya sin las descartadas—, así
-   que los tres cuentan lo mismo. Un badge que diga 22 sobre una lista de 21 es exactamente la clase
-   de incoherencia que hace desconfiar de un sistema auditable.
+   Handoff v2: `docs/design_handoff_notificaciones_v2/`, con las decisiones de
+   `docs/plan-notificaciones-v2.md`. Rediseña el v1 (`docs/plan-campana-notificaciones.md`), del que
+   conserva las fuentes y las reglas: las alertas son las de `useActiveAlerts()` —las mismas que
+   cuentan Pendientes y el resumen de Inicio, ya sin las descartadas—, así que la píldora de la
+   cabecera y el contador de Pendientes siguen diciendo el mismo número.
 
-   LAS REGLAS NO ESTÁN ACÁ: viven en `./notificaciones.ts`, con test. Este archivo es geometría,
-   estado de UI y gestos. La separación no es estética — el rótulo de la alerta se resolvía acá con
-   un ternario que anunciaba "no vino" como un reporte de procedimiento, y estuvo así en producción
-   sin un solo error.
+   LAS REGLAS NO ESTÁN ACÁ: viven en `./notificaciones.ts` (tipos, tiempos, grupos), `./leidas.ts`
+   (leídas y novedades) y `./avisosPedidos.ts` (pedidos), con test. Este archivo es armado, estado de
+   UI y gestos.
 
-   TRES COSAS QUE VALE LA PENA SABER ANTES DE TOCAR ESTE ARCHIVO:
+   CINCO COSAS QUE VALE LA PENA SABER ANTES DE TOCAR ESTE ARCHIVO:
 
    1. EL PANEL USA `usePopover`, y no es por comodidad. El popover de descarte se portalea a
-      `document.body` (si viviera dentro de la lista, su `overflow-y` lo recortaría). Con el cierre
-      por click afuera decidido a mano —`rootRef.contains(target)`, que es como estaba— ese popover
-      cae "afuera" del panel y lo cierra entero; y como cierra en el `mousedown`, la opción se
-      desmonta antes de que llegue el `click` y el motivo ni siquiera se elige. `usePopover` tiene el
-      registro que reconstruye la cadena lógica que el portal corta, así que entrando ahí el panel
-      reconoce como propios los clicks de los popovers que abrieron sus botones.
+      `document.body`; con el cierre por click afuera decidido a mano, ese popover cae "afuera" del
+      panel y lo cierra entero antes de que el motivo llegue a elegirse. `usePopover` tiene el
+      registro que reconstruye la cadena lógica que el portal corta.
 
-   2. `Esc` CIERRA DE ADENTRO HACIA AFUERA, uno por vez: con el popover de descarte abierto, se lo
-      lleva a él y el panel se queda. El handoff pide lo contrario ("cierra el panel y cualquier
-      popover abierto"), y es peor: un Esc para corregir un motivo mal elegido te tiraría el panel y
-      el formulario a medio llenar. Lo resuelve `usePopover` solo.
+   2. `Esc` CIERRA DE ADENTRO HACIA AFUERA, uno por vez (lo resuelve `usePopover`).
 
    3. EL DESCARTE ESTÁ GATEADO por `isAllowed('track')`, igual que el pie y el link del paciente.
-      Archivar es una escritura auditada y el único lugar donde se puede DESHACER es el panel de
-      descartadas de Coordinación: sin el módulo, quien descarte desde acá silencia para siempre.
+      Archivar es una escritura auditada y el único lugar donde se DESHACE es el panel de descartadas
+      de Coordinación: sin el módulo, quien descarte desde acá silencia para siempre.
 
-   A11y: campana con aria-haspopup/aria-expanded + aria-label con el conteo (el punto ya no lo
-   escribe, pero el lector de pantalla lo sigue diciendo); foco al panel al abrir y de vuelta a la
-   campana si queda huérfano al cerrar.
+   4. EL PUNTO DE LA CAMPANA DICE «NO LEÍDO», Y LA PÍLDORA DICE «PENDIENTES». Son dos números
+      distintos a propósito: la píldora sigue contando lo mismo que Pendientes (las alertas clínicas
+      vigentes), y el punto se apaga cuando ya viste todo lo que hay, aunque siga habiendo trabajo.
+      Leídas viven en el navegador (`leidas.ts`, D1).
+
+   5. LAS NOVEDADES SE SIEMBRAN POR FUENTE (`reconciliar`). La primera vez que cada consulta vuelve
+      no avisa nada; de ahí en más, lo que no estaba es nuevo. Una fuente que está cargando o con
+      error NO se reconcilia: si una lista vacía por error contara como foto, al volver la consulta
+      saltarían de golpe todas sus alertas como recién llegadas.
    ============================================================================ */
 
 interface NotificationsMenuProps {
@@ -82,17 +89,16 @@ interface NotificationsMenuProps {
   /** Los pedidos de dispensación del alcance de quien mira. `null` mientras la consulta no volvió. */
   pedidos: PedidoAviso[] | null
   /**
-   * Por qué no se pudieron traer, si falló.
-   *
-   * NO ALCANZA CON NO MOSTRAR NADA: si la RLS filtra o la consulta se cae, una lista vacía se lee
-   * como "no tenés pedidos", que es exactamente el falso negativo que este aviso existe para
-   * evitar. Mismo criterio que `AvisosDeEntrega` — nunca se calla.
+   * Por qué no se pudieron traer, si falló. NO ALCANZA CON NO MOSTRAR NADA: una lista vacía se lee
+   * como "no tenés pedidos", que es el falso negativo que este aviso existe para evitar.
    */
   errorPedidos: string | null
-  /** Para saber cuáles son tuyos. */
+  /** Para saber cuáles son tuyos, y de quién son las leídas. */
   uid: string | null
-  /** Ir al tablero de Dispensaciones (lo usa el bloque de Farmacia). */
+  /** Ir al tablero de Dispensaciones. */
   onAbrirTablero: () => void
+  /** Parado en el tablero de Dispensaciones, un pedido que se mueve no salta: la pantalla ya lo dice. */
+  enPantallaDelTablero: boolean
 }
 
 /** Lo que hace falta para archivar una alerta desde acá. */
@@ -100,59 +106,46 @@ interface Descarte {
   kind: AlertKind
   visitId: string
   reportDefinitionId: string | null
-  /** Para el `title` del tacho y el encabezado del popover. */
+  /** Para el `aria-label` del tacho. */
   etiqueta: string
 }
 
-/**
- * Una fila del panel, ya normalizada.
- *
- * Las dos clases de origen —alertas de visita y reportes pendientes— vienen de consultas distintas
- * y con forma distinta. Se aplanan acá, ANTES de dibujar, para que la caja se escriba una sola vez:
- * si cada lista tuviera su propio JSX, la grilla se desincronizaría entre las dos y las columnas
- * dejarían de alinear, que es lo único que este diseño promete.
- */
-interface Caja {
-  key: string
-  clase: ClaseDeAlerta
-  /**
-   * La visita de la que HABLA la alerta, que es lo que abre el gesto grande. Las dos clases la
-   * tienen: las de visita SON la visita, y las de reporte cuelgan de aquella donde se hizo el
-   * procedimiento.
-   */
-  visitId: string
-  patientId: string
-  patientName: string
-  patientCode: string | null
-  protocolId: string
-  protocolCode: string
-  motivo: string
-  fecha: string | null
-  /** `null` = esta clase no se archiva (el IP sin entregar, 0119: lo apaga la entrega o un cierre
-   *  explícito en la visita, nunca un descarte). Sin tacho, no con un tacho que no hace nada. */
+/** Una tarjeta del listado (o de la tarjeta fija), con sus gestos. */
+interface Item {
+  datos: DatosDeTarjeta
+  fuente: Fuente
+  /** El gesto grande. `undefined` = la tarjeta no lleva a ningún lado para quien mira. */
+  abrir?: () => void
+  /** El link del nombre: la ficha del paciente. */
+  abrirPaciente?: () => void
+  /** `null` = esta clase no se archiva (el IP sin entregar, 0119). */
   descarte: Descarte | null
+  /** Para `reconciliar`: si su llegada avisa y si la hizo quien mira. */
+  novedad: Novedad
+  /** Rótulo de la alerta si llega mientras el panel está cerrado. */
+  rotulo: string
 }
 
-export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos, uid, onAbrirTablero }: NotificationsMenuProps) {
+export function NotificationsMenu({
+  onNavigate, isAllowed, pedidos, errorPedidos, uid, onAbrirTablero, enPantallaDelTablero,
+}: NotificationsMenuProps) {
   const alerts = useActiveAlerts()
   const [open, setOpen] = useState(false)
+  const verFarmacia = isAllowed('pharma')
   /** Las constancias corregidas que Farmacia tiene que reimprimir. Se relee al abrir el panel. */
-  const reimprimirQ = useConstanciasSinImprimir(isAllowed('pharma'))
+  const reimprimirQ = useConstanciasSinImprimir(verFarmacia)
   const releerReimprimir = reimprimirQ.refetch
-  /** Los pedidos de corrección de Coordinación esperando a Farmacia (0152). Ídem: se releen al abrir. */
-  const correccionesQ = usePedidosCorreccionPendientes(isAllowed('pharma'))
+  /** Los pedidos de corrección de Coordinación esperando a Farmacia (0152). Ídem. */
+  const correccionesQ = usePedidosCorreccionPendientes(verFarmacia)
   const releerCorrecciones = correccionesQ.refetch
   useEffect(() => { if (open) { releerReimprimir(); releerCorrecciones() } }, [open, releerReimprimir, releerCorrecciones])
-  /** La visita que muestra el modal, cuando se abrió una desde una caja. */
+  /** La visita que muestra el modal, cuando se abrió una desde una tarjeta. */
   const [visitaAbierta, setVisitaAbierta] = useState<string | null>(null)
   const cerrar = useCallback(() => setOpen(false), [])
 
-  /* `flip` apagado: la campana vive pegada al borde SUPERIOR de la ventana, así que voltear hacia
-     arriba sacaría el panel de la pantalla. `align: 'end'` lo cuelga por su borde derecho, que es lo
-     que hace que salga de la campana y no del centro de la barra. */
-  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(
-    open, cerrar, false, 'end',
-  )
+  /* `flip` apagado: la campana vive pegada al borde SUPERIOR de la ventana. `align: 'end'` lo cuelga
+     por su borde derecho, que es lo que hace que salga de la campana y no del centro de la barra. */
+  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, cerrar, false, 'end')
 
   const panelRef = useRef<HTMLDivElement | null>(null)
   const montarPanel = useCallback((n: HTMLDivElement | null) => {
@@ -160,27 +153,33 @@ export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos
     popRef(n)
   }, [popRef])
 
+  /* —— El reloj ——
+     «hace N min» se recalcula cada 30 s, pero sólo mientras algo lo muestra (el panel o la alerta):
+     con todo cerrado, repintar la campana cada medio minuto es trabajo para nadie. */
+  const [alerta, setAlerta] = useState<Alerta | null>(null)
+  const [ahoraMs, setAhoraMs] = useState(() => Date.now())
+  const relojVivo = open || alerta !== null
+  useEffect(() => {
+    if (!relojVivo) return
+    setAhoraMs(Date.now())
+    const t = window.setInterval(() => setAhoraMs(Date.now()), RELOJ_MS)
+    return () => window.clearInterval(t)
+  }, [relojVivo])
+  const hoy = todayISO()
+
   const todasLasVisitas = alerts.visitAlerts
   const todosLosReportes = alerts.reportAlerts
   const todosLosIp = alerts.ipAlerts
   const count = todasLasVisitas.length + todosLosReportes.length + todosLosIp.length
 
-  /* ┌─ EL PANEL SE RECORTA; EL CONTADOR NO ────────────────────────────────────────────────────┐
-     El desplegable mapeaba TODO sin tope y ya venía renderizando 43 ítems: para llegar al pie
-     ("Ver todos los pendientes") había que scrollear la lista entera, o sea que el camino a la
-     pantalla que sí tiene filtros y buscador quedaba escondido detrás del problema que resuelve.
-     El punto de la campana, en cambio, no se toca: cuenta TODAS — recortar la vista no puede
-     cambiar cuántas hay.
-
-     Se muestran las MÁS GRAVES, no las primeras: la consulta las trae por fecha, así que sin
-     ordenar el recorte dejaría afuera una ventana vencida por diez pendientes más viejos. El orden
-     lo sabe priorizarAlertas (con test).
-
-     Los reportes van primero y completos hasta llenar el cupo, igual que en la lista sin recortar:
-     el orden entre las dos listas es el que ya tenía el panel y no es lo que este cambio discute.
+  /* ┌─ EL RECORTE ELIGE POR GRAVEDAD; EL LISTADO ORDENA POR FECHA ─────────────────────────────┐
+     El panel muestra hasta 10 alertas clínicas. Cuáles entran lo decide la gravedad, como en el
+     v1: el IP sin entregar primero (un kit que no llegó), después los reportes, después las de
+     visita ordenadas por `priorizarAlertas` (con test) — así una ventana vencida de hace dos semanas
+     nunca queda afuera por diez pendientes más nuevos. Una vez elegidas, el handoff v2 las ordena
+     por fecha y las agrupa por día (D3). El pie dice cuántas quedaron afuera.
+     El punto de la campana y la píldora no se recortan: cuentan TODAS.
      └──────────────────────────────────────────────────────────────────────────────────────────┘ */
-  /* El IP sin entregar (0119) entra PRIMERO al cupo: es un kit que no le llegó a un paciente, y la
-     lista es corta por construcción (una por visita, sólo después de 48 h). */
   const ipRows = todosLosIp.slice(0, MAX_NOTIFICACIONES)
   const procRows = todosLosReportes.slice(0, MAX_NOTIFICACIONES - ipRows.length)
   const rows = priorizarAlertas(todasLasVisitas).slice(0, MAX_NOTIFICACIONES - ipRows.length - procRows.length)
@@ -191,10 +190,8 @@ export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos
   // Al abrir, el foco va al panel.
   useEffect(() => { if (open) panelRef.current?.focus() }, [open])
 
-  /* Al cerrar, el foco vuelve a la campana SÓLO si quedó huérfano. Es la regla honesta y no depende
-     de saber quién cerró: si el panel se desmontó con el foco adentro, `document.body` queda
-     enfocado y no hay dónde seguir tabulando; si el cierre fue por un click en otra cosa, el foco ya
-     está donde el usuario lo puso y robarlo sería peor. */
+  /* Al cerrar, el foco vuelve a la campana SÓLO si quedó huérfano: si el cierre fue por un click en
+     otra cosa, el foco ya está donde el usuario lo puso y robarlo sería peor. */
   const estabaAbierto = useRef(false)
   useEffect(() => {
     if (estabaAbierto.current && !open && document.activeElement === document.body) {
@@ -205,16 +202,9 @@ export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos
 
   const goAll = () => { setOpen(false); onNavigate('track', 'alertas') }
 
-  /* La campana no tiene `module` (no es una vista de contenido), así que no hay `useAbrirFicha`:
-     el destino es siempre `track/protocolos`, con guard EXPLÍCITO — sin el módulo Coordinación
-     el nombre queda como texto pelado (ver `PatientLink`), en vez de un `navigate` que
-     `isAllowed` descartaría en silencio del lado del shell.
-
-     EL PASAJE DE VUELTA apunta a Pendientes y no a "la campana", que no es un lugar al que se pueda
-     volver. Es el mismo destino que promete el pie, y el rótulo sale del registry por la misma
-     razón que aquel: escrito a mano sobrevive a un renombre prometiendo una pantalla que ya no
-     existe. Sin esto, quien abría un paciente desde acá caía en la ficha sin ningún camino de
-     regreso — el panel ya se había cerrado. */
+  /* EL PASAJE DE VUELTA apunta a Pendientes y no a "la campana", que no es un lugar al que se pueda
+     volver. El rótulo sale del registry: escrito a mano sobrevive a un renombre prometiendo una
+     pantalla que ya no existe. */
   const volverAPendientes = (): ReturnTo => {
     const nombre = nombreDeDestino(DESTINO_PENDIENTES) ?? 'Pendientes'
     return {
@@ -229,143 +219,340 @@ export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos
     setOpen(false)
     onNavigate('track', 'protocolos', { patientId, protocolId }, volverAPendientes())
   }
+  /* Sin el módulo Coordinación el nombre queda como texto pelado (ver `PatientLink`), en vez de un
+     `navigate` que `isAllowed` descartaría en silencio del lado del shell. */
   const abrirFicha = (patientId: string, protocolId: string) =>
-    (puedeCoordinar ? () => abrirFichaDe(patientId, protocolId) : undefined)
+    (puedeCoordinar && patientId ? () => abrirFichaDe(patientId, protocolId) : undefined)
 
-  /* EL GESTO GRANDE ABRE LA VISITA, no al paciente — el mismo reparto que la vista de Pendientes:
-     la caja muestra de qué habla la alerta, y el nombre lleva a quién. Antes los dos hacían lo
-     mismo y el panel tenía un solo destino donde la pantalla de al lado tiene dos.
-
-     CIERRA EL PANEL AL ABRIR, y ahí sí nos apartamos de Pendientes: allá la lista es una pantalla y
-     se queda atrás; acá es un popover que se cerraría solo con el primer clic dentro del modal
-     —`usePopover` lo vería "afuera"— y quedaría escondido detrás. Cerrarlo de entrada es lo mismo
-     que va a pasar, dicho de una vez y sin el estado intermedio. */
+  /* EL GESTO GRANDE ABRE LA VISITA y cierra el panel: un popover se cerraría solo con el primer
+     clic dentro del modal —`usePopover` lo vería "afuera"— y quedaría escondido detrás. */
   const abrirVisita = (visitId: string) =>
     (puedeCoordinar ? () => { setOpen(false); setVisitaAbierta(visitId) } : undefined)
 
-  const cajas: Caja[] = [
-    ...ipRows.map((r): Caja => ({
-      key: `ip:${r.visit_id}`,
-      clase: 'ip',
-      visitId: r.visit_id,
-      patientId: r.patient_id,
-      patientName: r.patient_name,
-      patientCode: r.patient_code,
-      protocolId: r.protocol_id,
-      protocolCode: r.protocol_code,
-      motivo: motivoDeIp(r),
-      fecha: fechaDeIp(r),
-      descarte: null,
-    })),
-    ...procRows.map((r): Caja => ({
-      key: `${r.visit_id}:${r.report_definition_id}`,
-      clase: 'reporte',
-      visitId: r.visit_id,
-      patientId: r.patient_id,
-      patientName: r.patient_name,
-      patientCode: r.patient_code,
-      protocolId: r.protocol_id,
-      protocolCode: r.protocol_code,
-      motivo: motivoDeReporte(r),
-      fecha: fechaDeReporte(r),
-      descarte: {
-        kind: 'reporte_procedimiento',
-        visitId: r.visit_id,
-        reportDefinitionId: r.report_definition_id,
-        etiqueta: `${r.report_name} · ${r.patient_name}`,
-      },
-    })),
-    ...rows.map((a): Caja => ({
-      key: a.id,
-      clase: claseDeAlerta(a.computed_status),
-      visitId: a.id,
-      patientId: a.patient_id,
-      patientName: a.patient_name,
-      patientCode: a.patient_code,
-      protocolId: a.protocol_id,
-      protocolCode: a.protocol_code,
-      motivo: motivoDeAlerta(a),
-      fecha: fechaDeVisita(a),
-      descarte: {
-        kind: 'visita',
-        visitId: a.id,
-        reportDefinitionId: null,
-        etiqueta: `${motivoDeAlerta(a)} · ${a.patient_name}`,
-      },
-    })),
-  ]
-
-  const punto = tonoDelPunto(todasLasVisitas, todosLosReportes, todosLosIp)
-  const label = count > 0 ? `Notificaciones, ${count} sin leer` : 'Notificaciones'
-
-  /* ┌─ LOS PEDIDOS NO ENTRAN EN `count` ───────────────────────────────────────────────────────┐
-     El punto de la campana y el contador de Pendientes son el mismo número y tienen que seguir
-     coincidiendo — es lo que el bloque de arriba explica y lo que hace que este panel se pueda
-     creer—. Un pedido de dispensación en curso NO es un pendiente clínico: es información sobre
-     algo que ya está en movimiento, y de él te enteraste por el popup.
-
-     La contracara es que el panel puede mostrar cinco cards con el punto apagado, y eso, sin una
-     palabra que lo separe, se lee como una incoherencia. Por eso el bloque va ROTULADO y arriba:
-     el encabezado es lo que hace honesta a la excepción. Ver `docs/plan-avisos-de-pedidos.md` (D5, D6).
-     └──────────────────────────────────────────────────────────────────────────────────────────┘ */
-  const { mios, nuevos } = repartir(pedidos ?? [], uid)
-  /* «Constancias para reimprimir» (0149, Director 2026-10-04: corregir la constancia de una entrega
-     avisa a Farmacia, sin bloquear nada). Va con los pedidos y NO suma al punto, por lo mismo que
-     ellos: es información de Farmacia, no un pendiente clínico. Sólo con el módulo Farmacia. */
-  const aReimprimir = constanciasAReimprimir(reimprimirQ.data ?? [])
-  /* «Correcciones pedidas» (0152): lo que Coordinación le pidió corregir a Farmacia. Mismo trato que
-     las constancias: con los pedidos, sin sumar al punto, sólo con el módulo Farmacia. */
-  const aResolver = pedidosAResolver(correccionesQ.data ?? [])
-  const sinPedidos = mios.length === 0 && nuevos.length === 0 && aReimprimir.length === 0 && aResolver.length === 0
-  /* El error cuenta como "hay algo que mostrar": si no, un fallo de la consulta caería en el estado
-     vacío ("Estás al día") y afirmaría que no pasa nada justo cuando no sabemos. */
-  const vacio = cajas.length === 0 && sinPedidos && errorPedidos === null
-
   /* Abre el cajón de esa entrega en el historial de Dispensaciones. El historial arranca en el día
      de `dia` y pagina hacia atrás: con el día de la ENTREGA, el cajón la encuentra en la primera
-     página. Sin código o sin fecha (no debería pasar en una entregada) cae al tablero. */
-  const abrirEntrega = (codigo: string | null, deliveredAt: string | null) => {
+     página. Sin código o sin fecha cae al tablero. */
+  const abrirEntrega = (codigo: string | null, deliveredAt: string | null) => () => {
     setOpen(false)
     if (!codigo || !deliveredAt) { onAbrirTablero(); return }
     pushUrl({ moduleKey: 'pharma', subKey: 'dispensaciones', path: [codigo], query: { vista: 'historial', dia: isoDayAR(deliveredAt) } })
   }
+
+  /* —— Las tarjetas clínicas ——
+     Se arman DOS veces: las del recorte, que son las que se dibujan, y todas, que son las que se
+     comparan para saber qué es nuevo. Si la foto fuera sólo del recorte, descartar una alerta haría
+     entrar a la undécima —vieja— y saltaría como «Nueva notificación». */
+  const clinicas = armarClinicas(ipRows, procRows, rows)
+  const todasLasClinicas = armarClinicas(todosLosIp, todosLosReportes, todasLasVisitas)
+
+  function armarClinicas(
+    ips: typeof todosLosIp, reportes: typeof todosLosReportes, visitas: typeof todasLasVisitas,
+  ): Item[] {
+    return [
+    ...ips.map((r): Item => ({
+      datos: {
+        clave: `ip:${r.visit_id}`,
+        tipo: 'ip',
+        pacienteNombre: r.patient_name,
+        pacienteCodigo: r.patient_code,
+        protocoloCodigo: r.protocol_code,
+        motivo: motivoDeIp(r),
+        momento: momentoDe(r.vence_at),
+      },
+      fuente: 'alertas',
+      abrir: abrirVisita(r.visit_id),
+      abrirPaciente: abrirFicha(r.patient_id, r.protocol_id),
+      descarte: null,
+      novedad: { clave: `ip:${r.visit_id}`, avisa: true, propia: false },
+      rotulo: 'Nueva notificación',
+    })),
+    ...reportes.map((r): Item => {
+      const clave = `reporte:${r.visit_id}:${r.report_definition_id}`
+      return {
+        datos: {
+          clave,
+          tipo: 'reporte',
+          pacienteNombre: r.patient_name,
+          pacienteCodigo: r.patient_code,
+          protocoloCodigo: r.protocol_code,
+          motivo: motivoDeReporte(r),
+          momento: momentoDe(r.report_due_at),
+        },
+        fuente: 'alertas',
+        abrir: abrirVisita(r.visit_id),
+        abrirPaciente: abrirFicha(r.patient_id, r.protocol_id),
+        descarte: {
+          kind: 'reporte_procedimiento',
+          visitId: r.visit_id,
+          reportDefinitionId: r.report_definition_id,
+          etiqueta: `${r.report_name} · ${r.patient_name}`,
+        },
+        novedad: { clave, avisa: true, propia: false },
+        rotulo: 'Nueva notificación',
+      }
+    }),
+    ...visitas.map((a): Item => {
+      /* La clase va en la clave: una visita que pasa de «pendiente vencido» a «ventana vencida» es
+         una notificación NUEVA, no la misma con otro color. */
+      const clase = claseDeAlerta(a.computed_status)
+      const clave = `${clase}:${a.id}`
+      return {
+        datos: {
+          clave,
+          tipo: clase,
+          pacienteNombre: a.patient_name,
+          pacienteCodigo: a.patient_code,
+          protocoloCodigo: a.protocol_code,
+          motivo: motivoDeAlerta(a),
+          momento: momentoDeVisita(a),
+        },
+        fuente: 'alertas',
+        abrir: abrirVisita(a.id),
+        abrirPaciente: abrirFicha(a.patient_id, a.protocol_id),
+        descarte: { kind: 'visita', visitId: a.id, reportDefinitionId: null, etiqueta: `${motivoDeAlerta(a)} · ${a.patient_name}` },
+        novedad: { clave, avisa: true, propia: false },
+        rotulo: 'Nueva notificación',
+      }
+    }),
+    ]
+  }
+
+  /* —— Los pedidos ——
+     Lo PROPIO Y ABIERTO va a la tarjeta fija; lo propio cerrado (entregado, rechazado, cancelado hoy)
+     y lo nuevo de Farmacia, al listado. Los pedidos NO suman a la píldora: no son pendientes
+     clínicos. Sí cuentan para el punto de «no leído» — un pedido listo que no viste es algo que no
+     viste. */
+  const { mios, nuevos } = repartir(pedidos ?? [], uid)
+  const fijos = mios.filter(estaAbierto)
+  const pedidoAItem = (p: PedidoAviso, comoFarmacia: boolean): Item => {
+    const estado = estadoDe(p)
+    const clave = `pedido:${p.id}:${estado}`
+    return {
+      datos: {
+        clave,
+        tipo: 'dispensacion',
+        pacienteNombre: p.patient_name,
+        pacienteCodigo: p.patient_code,
+        protocoloCodigo: p.protocol_code,
+        motivo: motivoDePedido(p, comoFarmacia),
+        momento: momentoDe(ultimoMovimiento(p)),
+      },
+      fuente: 'pedidos',
+      abrir: comoFarmacia
+        ? () => { setOpen(false); onAbrirTablero() }
+        : () => { setOpen(false); setVisitaAbierta(p.visit_id) },
+      abrirPaciente: abrirFicha(p.patient_id, p.protocol_id),
+      descarte: null,
+      novedad: { clave, avisa: !enPantallaDelTablero, propia: loHicisteVos(p, estado, uid) },
+      rotulo: estado === 'solicitada' ? 'Nueva notificación' : 'Dispensación actualizada',
+    }
+  }
+  const itemsFijos = fijos.map((p) => pedidoAItem(p, false))
+  const itemsPedidos = [
+    ...mios.filter((p) => !estaAbierto(p)).map((p) => pedidoAItem(p, false)),
+    ...nuevos.map((p) => pedidoAItem(p, true)),
+  ]
+
+  /* «Constancias para reimprimir» (0149) y «Correcciones pedidas» (0152): información de Farmacia,
+     sólo con su módulo, y sin sumar a la píldora por lo mismo que los pedidos. */
+  const itemsConstancias: Item[] = constanciasAReimprimir(reimprimirQ.data ?? []).map((c) => ({
+    datos: {
+      clave: `constancia:${c.docId}`,
+      tipo: 'constancia',
+      pacienteNombre: c.paciente,
+      pacienteCodigo: c.ivrs,
+      protocoloCodigo: c.protocolCode,
+      motivo: `Constancia corregida — reimprimila para el archivo · ${c.detalle}`,
+      momento: momentoDe(c.cargadaAt),
+    },
+    fuente: 'constancias',
+    abrir: abrirEntrega(c.codigo, c.deliveredAt),
+    descarte: null,
+    novedad: { clave: `constancia:${c.docId}`, avisa: true, propia: false },
+    rotulo: 'Nueva notificación',
+  }))
+  const itemsCorrecciones: Item[] = pedidosAResolver(correccionesQ.data ?? []).map((c) => ({
+    datos: {
+      clave: `correccion:${c.id}`,
+      tipo: 'correccion',
+      pacienteNombre: c.paciente,
+      pacienteCodigo: c.ivrs,
+      protocoloCodigo: c.protocolCode,
+      motivo: `Coordinación pidió corregir la medicación · ${c.detalle}`,
+      momento: momentoDe(c.pedidaAt),
+    },
+    fuente: 'correcciones',
+    abrir: abrirEntrega(c.codigo, c.deliveredAt),
+    descarte: null,
+    novedad: { clave: `correccion:${c.id}`, avisa: true, propia: false },
+    rotulo: 'Nueva notificación',
+  }))
+
+  const listado = [...clinicas, ...itemsPedidos, ...itemsCorrecciones, ...itemsConstancias]
+  const grupos = agruparPorDia(listado, (i) => i.datos.momento, hoy)
+
+  /* —— Leídas ——
+     `primeraVez` se decide UNA vez por usuario, al montar: es la diferencia entre «nunca estuvo en
+     este navegador» (todo lo que existe cuenta como leído) y «estuvo y dejó cosas sin leer». */
+  const [{ leidas, primeraVez }, setLecturas] = useState(() => {
+    const guardadas = uid ? leerLeidas(uid) : null
+    return { leidas: guardadas ?? [], primeraVez: guardadas === null }
+  })
+  const fotos = useRef<Partial<Record<Fuente, string[]>>>({})
+  const uidDeLecturas = useRef(uid)
+  useEffect(() => {
+    if (uidDeLecturas.current === uid) return
+    uidDeLecturas.current = uid
+    const guardadas = uid ? leerLeidas(uid) : null
+    setLecturas({ leidas: guardadas ?? [], primeraVez: guardadas === null })
+    fotos.current = {}
+  }, [uid])
+
+  const marcarLeidas = useCallback((claves: readonly string[]) => {
+    setLecturas((prev) => {
+      const nuevas = marcar(prev.leidas, claves)
+      return nuevas === prev.leidas ? prev : { ...prev, leidas: nuevas }
+    })
+  }, [])
+  // Se guarda DESPUÉS de cambiar, y no adentro del updater: el modo estricto lo corre dos veces.
+  const leidasGuardadas = useRef(leidas)
+  useEffect(() => {
+    if (!uid || leidas === leidasGuardadas.current) return
+    leidasGuardadas.current = leidas
+    guardarLeidas(uid, leidas)
+  }, [uid, leidas])
+
+  const todos = [...itemsFijos, ...listado]
+  const clavesSinLeer = noLeidas(todos.map((i) => i.datos.clave), leidas)
+  const sinLeer = new Set(clavesSinLeer)
+  const punto = tonoDeNoLeidas(todos.filter((i) => sinLeer.has(i.datos.clave)).map((i) => i.datos.tipo))
+
+  /* —— Novedades y alerta —— */
+  const [recienLlegadas, setRecienLlegadas] = useState<ReadonlySet<string>>(new Set())
+  const [sacudida, setSacudida] = useState(0)
+  const abiertoRef = useRef(open)
+  abiertoRef.current = open
+  /* Lo que el panel muestra. Una novedad que no entra en el recorte no avisa: la alerta llevaría a
+     un panel donde esa tarjeta no está. Sigue contando en la píldora y en Pendientes. */
+  const visiblesRef = useRef<ReadonlySet<string>>(new Set())
+  visiblesRef.current = new Set([...itemsFijos, ...listado].map((i) => i.datos.clave))
+
+  const llegaron = useCallback((todas: Item[]) => {
+    const items = todas.filter((i) => visiblesRef.current.has(i.datos.clave))
+    if (items.length === 0) return
+    setSacudida((n) => n + 1)
+    if (abiertoRef.current) {
+      // Con el panel abierto no hay alerta: la tarjeta entra directo al listado con su animación.
+      setRecienLlegadas((prev) => new Set([...prev, ...items.map((i) => i.datos.clave)]))
+      return
+    }
+    // Una alerta nueva reemplaza a la visible; si llegan varias juntas, se muestra la más reciente.
+    const ultima = agruparPorDia(items, (i) => i.datos.momento, todayISO())[0]?.items[0] ?? items[0]
+    setAlerta({ datos: ultima.datos, rotulo: ultima.rotulo })
+  }, [])
+
+  const ctx = { fotos, primeraVez, marcarLeidas, llegaron }
+  useNovedades('alertas', !alerts.loading && !alerts.error ? todasLasClinicas : null, ctx)
+  useNovedades('pedidos', pedidos !== null && errorPedidos === null ? [...itemsFijos, ...itemsPedidos] : null, ctx)
+  useNovedades('constancias', verFarmacia && reimprimirQ.data && !reimprimirQ.error ? itemsConstancias : null, ctx)
+  useNovedades('correcciones', verFarmacia && correccionesQ.data && !correccionesQ.error ? itemsCorrecciones : null, ctx)
+
+  /* Con el panel abierto, lo que se ve pasa a leído a los 2,5 s. La firma de lo no leído entra en
+     las dependencias: si llega algo con el panel abierto, su propio plazo arranca de cero. */
+  const firmaSinLeer = clavesSinLeer.join('|')
+  const sinLeerRef = useRef(clavesSinLeer)
+  sinLeerRef.current = clavesSinLeer
+  useEffect(() => {
+    if (!open || firmaSinLeer === '') return
+    const t = window.setTimeout(() => marcarLeidas(sinLeerRef.current), LEIDA_A_LOS_MS)
+    return () => window.clearTimeout(t)
+  }, [open, firmaSinLeer, marcarLeidas])
+
+  // Al cerrar el panel, las recién llegadas dejan de serlo: la próxima vez no vuelven a animarse.
+  useEffect(() => { if (!open) setRecienLlegadas(new Set()) }, [open])
+
+  const alternar = () => {
+    setOpen((v) => {
+      if (!v) setAlerta(null)
+      return !v
+    })
+  }
+  const cerrarAlerta = useCallback(() => setAlerta(null), [])
+  const abrirDesdeAlerta = useCallback(() => { setAlerta(null); setOpen(true) }, [])
+
+  const label = clavesSinLeer.length > 0
+    ? `Notificaciones, ${clavesSinLeer.length} sin leer`
+    : count > 0 ? `Notificaciones, ${textoDePildora(count)}` : 'Notificaciones'
+  /* El error cuenta como "hay algo que mostrar": si no, un fallo de la consulta caería en el estado
+     vacío ("Estás al día") y afirmaría que no pasa nada justo cuando no sabemos. */
+  const vacio = listado.length === 0 && itemsFijos.length === 0 && errorPedidos === null
+
+  /* El panel cuelga 10 px debajo de la campana y se pasa 6 px de su borde derecho (handoff v2).
+     `usePopover` ya lo pega por la derecha a 6 px; el resto se corrige acá, sin salirse de los 8 px
+     de margen de la ventana. */
+  const posPanel = pos
+    ? { top: pos.top + 4, left: Math.max(8, Math.min(pos.left + 6, window.innerWidth - 8 - 452)) }
+    : null
 
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={alternar}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={label}
         title="Notificaciones"
         style={bellBtn}
       >
-        <Icon name="bell" size={18} color="var(--spira-ink)" />
-        {/* El indicador es un PUNTO, no un contador: el número exacto vive en la cabecera del panel
-            y en la lista, y sobre el ícono a 9 px era ilegible. En cero no se dibuja. */}
-        {punto && <span className="spira-notif-punto" style={{ background: punto }} />}
+        {/* La `key` reinicia la sacudida y los pulsos con cada llegada. */}
+        <span key={`c${sacudida}`} className={sacudida > 0 ? 'spira-campana--sacude' : undefined} style={{ display: 'grid' }}>
+          <Icon name="bell" size={18} color="var(--spira-ink)" />
+        </span>
+        {/* Un PUNTO y no un contador: el número vive en la píldora del panel. En cero no se dibuja. */}
+        {punto && (
+          <span
+            key={`p${sacudida}`}
+            className={`spira-notif-punto${sacudida > 0 ? ' spira-notif-punto--pulso' : ''}`}
+            style={{ background: punto }}
+          />
+        )}
       </button>
 
-      {open && pos && createPortal(
+      <AlertaCampana
+        alerta={open ? null : alerta}
+        anclaRef={triggerRef}
+        hoy={hoy}
+        ahoraMs={ahoraMs}
+        onAbrir={abrirDesdeAlerta}
+        onCerrar={cerrarAlerta}
+      />
+
+      {open && posPanel && createPortal(
         <div
           ref={montarPanel}
           tabIndex={-1}
           role="dialog"
           aria-label="Notificaciones"
           className="spira-notif-panel"
-          style={{ top: pos.top, left: pos.left }}
+          style={posPanel}
         >
-          <div style={headerRow}>
-            <span style={headerTitulo}>Notificaciones</span>
-            {count > 0 && <span style={countPill}>{textoDePildora(count)}</span>}
+          <div className="spira-notif-cabecera">
+            <span className="spira-notif-titulo">Notificaciones</span>
+            {count > 0 && <span className="spira-notif-pildora">{textoDePildora(count)}</span>}
+            {/* Sólo cuando hay algo sin leer: un botón que no cambia nada finge una acción. */}
+            {clavesSinLeer.length > 0 && (
+              <button type="button" className="spira-notif-marcar spira-no-press" onClick={() => marcarLeidas(clavesSinLeer)}>
+                Marcar como leídas
+              </button>
+            )}
           </div>
 
           <div className="spira-notif-lista spira-scroll">
             {alerts.loading && vacio ? (
               <div style={emptyBox}>Cargando…</div>
-            ) : alerts.error ? (
+            ) : alerts.error && vacio ? (
               <div style={{ ...emptyBox, color: 'var(--spira-acc-deep-danger)' }}>
                 No pudimos cargar las notificaciones.
               </div>
@@ -379,100 +566,59 @@ export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos
               </div>
             ) : (
               <>
+                {alerts.error && <div className="spira-notif-mensaje">No pudimos cargar las alertas clínicas.</div>}
                 {errorPedidos && (
-                  <div style={{ fontSize: 12.5, color: 'var(--spira-acc-deep-danger)', padding: '4px 2px' }}>
-                    No pudimos ver el estado de los pedidos de dispensación.
-                  </div>
+                  <div className="spira-notif-mensaje">No pudimos ver el estado de los pedidos de dispensación.</div>
                 )}
-                {mios.length > 0 && (
-                  <BloqueDePedidos
-                    titulo="Tus pedidos"
-                    pedidos={mios}
-                    comoFarmacia={false}
-                    abrirPedido={(p) => { setOpen(false); setVisitaAbierta(p.visit_id) }}
-                    verMas={null}
+                {fijos.map((p) => (
+                  <DispensacionEnCurso
+                    key={p.id}
+                    pedido={p}
+                    hoy={hoy}
+                    ahoraMs={ahoraMs}
+                    onAbrir={() => { setOpen(false); setVisitaAbierta(p.visit_id) }}
                   />
-                )}
-                {nuevos.length > 0 && (
-                  <BloqueDePedidos
-                    titulo="Pedidos nuevos"
-                    pedidos={nuevos}
-                    comoFarmacia
-                    abrirPedido={() => { setOpen(false); onAbrirTablero() }}
-                    verMas={() => { setOpen(false); onAbrirTablero() }}
-                  />
-                )}
-                {aResolver.length > 0 && (
-                  <>
-                    <div className="spira-eyebrow" style={{ padding: '2px 2px 0' }}>Correcciones pedidas</div>
-                    {aResolver.slice(0, MAX_PEDIDOS).map((c) => (
-                      <CajaEntrega
-                        key={c.id} c={c} motivo="Coordinación pidió corregir la medicación"
-                        icono="pencil" color="var(--spira-acc-deep-teal)" abrir={() => abrirEntrega(c.codigo, c.deliveredAt)}
-                      />
-                    ))}
-                  </>
-                )}
-                {aReimprimir.length > 0 && (
-                  <>
-                    <div className="spira-eyebrow" style={{ padding: '2px 2px 0' }}>Constancias para reimprimir</div>
-                    {aReimprimir.slice(0, MAX_PEDIDOS).map((c) => (
-                      <CajaEntrega
-                        key={c.docId} c={c} motivo="Constancia corregida · reimprimila para el archivo"
-                        icono="printer" color="var(--spira-warn)" abrir={() => abrirEntrega(c.codigo, c.deliveredAt)}
-                      />
-                    ))}
-                  </>
-                )}
-                {/* Los pendientes clínicos llevan rótulo SÓLO cuando hay un bloque de pedidos
-                    arriba, y es una corrección de algo que se veía mal: con "Tus pedidos" como
-                    único encabezado, las alertas de abajo quedaban leídas bajo ese título —una
-                    alerta de IP sin pedir parecía un pedido tuyo—. Un rótulo que abarca lo que no
-                    le corresponde miente igual que un texto equivocado. Sin pedidos, el panel no
-                    gana un encabezado que nunca necesitó. */}
-                {!sinPedidos && cajas.length > 0 && (
-                  <div className="spira-eyebrow" style={{ padding: '6px 2px 0' }}>
-                    {nombreDeDestino(DESTINO_PENDIENTES) ?? 'Pendientes'}
-                  </div>
-                )}
-                {cajas.map((c, i) => (
-                  <CajaDeAlerta
-                    key={c.key}
-                    caja={c}
-                    indice={i}
-                    abrirVisita={abrirVisita(c.visitId)}
-                    abrirPaciente={abrirFicha(c.patientId, c.protocolId)}
-                    puedeDescartar={puedeCoordinar}
-                  />
+                ))}
+                {grupos.map((g) => (
+                  <section key={g.grupo} aria-label={g.rotulo}>
+                    <div className="spira-notif-grupo" aria-hidden="true">{g.rotulo}</div>
+                    <div className="spira-notif-grupo-items">
+                      {g.items.map((i) => (
+                        <TarjetaNotificacion
+                          key={i.datos.clave}
+                          datos={i.datos}
+                          hoy={hoy}
+                          ahoraMs={ahoraMs}
+                          noLeida={sinLeer.has(i.datos.clave)}
+                          nueva={recienLlegadas.has(i.datos.clave)}
+                          onAbrir={i.abrir}
+                          abrirPaciente={i.abrirPaciente}
+                          descartar={puedeCoordinar && i.descarte ? <BotonDescartar destino={i.descarte} /> : undefined}
+                        />
+                      ))}
+                    </div>
+                  </section>
                 ))}
               </>
             )}
           </div>
 
           {puedeCoordinar && (
-            <>
-              <div style={footerSep} />
-              <button type="button" onClick={goAll} className="spira-notif-all">
-                {/* El pie DICE cuántas quedaron afuera, y NOMBRA el destino desde el registry. Sin el
-                    número, un panel recortado se lee como la lista completa y nadie va a buscar el
-                    resto; con el nombre escrito a mano, el día que ese submódulo se renombre el pie
-                    sigue prometiendo una pantalla que ya no existe, sin un solo error. Ya pasó. */}
-                Ver {ocultas > 0 ? `las ${ocultas} restantes` : 'todos'} en{' '}
-                {nombreDeDestino(DESTINO_PENDIENTES) ?? 'Pendientes'}
-                <Icon name="arrowRight" size={15} color="var(--spira-acc-deep-track)" />
-              </button>
-            </>
+            <button type="button" onClick={goAll} className="spira-notif-all">
+              {/* El pie DICE cuántas quedaron afuera, y NOMBRA el destino desde el registry. */}
+              Ver {ocultas > 0 ? `las ${ocultas} restantes` : 'todos'} en{' '}
+              {nombreDeDestino(DESTINO_PENDIENTES) ?? 'Pendientes'}
+              <Icon name="arrowRight" size={15} color="var(--spira-acc-deep-track)" />
+            </button>
           )}
         </div>,
         document.body,
       )}
 
-      {/* La visita que abrió una caja. Va FUERA del portal del panel a propósito: el panel se cierra
-          al abrirla, y si el modal colgara de ahí adentro se desmontaría con él.
-          `VisitDetail` calcula sus propios permisos (`useVisitPermissions`), así que desde acá sólo
-          hacen falta la visita, el acento del módulo y cómo cerrar. `onChanged` releé las alertas:
-          si en el modal se reagenda la visita o se carga lo que faltaba, la alerta deja de estar
-          vigente y el punto de la campana tiene que enterarse. */}
+      {/* La visita que abrió una tarjeta. Va FUERA del portal del panel a propósito: el panel se
+          cierra al abrirla, y si el modal colgara de ahí adentro se desmontaría con él. `onChanged`
+          relee las alertas: si en el modal se reagenda o se carga lo que faltaba, la alerta deja de
+          estar vigente y la campana tiene que enterarse. */}
       {visitaAbierta && (
         <VisitDetail
           visitId={visitaAbierta}
@@ -487,113 +633,54 @@ export function NotificationsMenu({ onNavigate, isAllowed, pedidos, errorPedidos
 }
 
 /**
- * Una caja de la lista. Grilla de cuatro columnas idéntica en todas las filas.
+ * Reconcilia una fuente cada vez que cambia su CONJUNTO de claves (no cada render).
  *
- * La caja entera es pulsable, pero NO es un `<button>` ni lleva `tabIndex`: el camino de teclado son
- * los `<PatientLink>` del nombre y del código, que van al mismo lado. Hacerla focusable sumaría una
- * cuarta parada de Tab por fila —cuarenta antes de llegar al pie— y tres de ellas irían al mismo
- * destino. La caja es una comodidad de mouse; el teclado ya tiene su camino.
+ * `lista === null` = la fuente no está lista (cargando, con error o sin permiso): no se toca su
+ * foto. Ver el punto 5 del encabezado.
  */
-function CajaDeAlerta({ caja, indice, abrirVisita, abrirPaciente, puedeDescartar }: {
-  caja: Caja
-  indice: number
-  /** El gesto grande: la visita de la que habla la alerta. */
-  abrirVisita?: () => void
-  /** El link del nombre y del código: la ficha del paciente. */
-  abrirPaciente?: () => void
-  puedeDescartar: boolean
-}) {
-  const estilo = CLASES[caja.clase]
-  return (
-    <div
-      /* `spira-no-press` porque `role="button"` la mete en la micro-interacción global y la caja se
-         levantaría 1 px: en una lista, la fila se RESALTA y no se levanta (mismo criterio que
-         `.spira-row-link`). Es la única diferencia deliberada con la fila de Pendientes, que es una
-         card y sí se levanta. */
-      className={`spira-notif-caja${abrirVisita ? ' spira-notif-caja--link spira-no-press' : ''}`}
-      role={abrirVisita ? 'button' : undefined}
-      tabIndex={abrirVisita ? 0 : undefined}
-      onClick={abrirVisita}
-      /* El guard de `e.target !== e.currentTarget` es el mismo que usa Pendientes: sin él, un Enter
-         sobre el nombre del paciente —que vive adentro y tiene su propio destino— dispararía
-         además el de la caja, y se abrirían las dos cosas de un saque. */
-      onKeyDown={abrirVisita
-        ? (e) => {
-          if (e.target !== e.currentTarget) return
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirVisita() }
-        }
-        : undefined}
-      aria-label={abrirVisita ? `Abrir la visita de ${caja.patientName} — ${caja.motivo}` : undefined}
-      // La cascada de entrada: cada caja entra 22 ms después de la anterior.
-      style={{ '--i': indice } as CSSProperties}
-    >
-      {/* `tinte()` y no `estilo.base + '18'`: concatenar un sufijo de alpha sobre un `var()` produce
-          CSS inválido, se descarta sin avisar y el cuadrado queda transparente. Estuvo así en
-          producción para las filas de reporte. */}
-      <span className="spira-notif-icono" style={{ background: tinte(estilo.base, 9) }}>
-        <Icon name={estilo.icono} size={16} color={estilo.tinta} />
-      </span>
-
-      <div className="spira-notif-cuerpo">
-        <div className="spira-link-group spira-notif-l1">
-          <span className="spira-notif-nombre" title={caja.patientName}>
-            <PatientLink onOpen={abrirPaciente} label={`Abrir la ficha de ${caja.patientName}`}>
-              {caja.patientName}
-            </PatientLink>
-          </span>
-          <span className="spira-mono spira-notif-codigo">
-            {caja.patientCode
-              ? (
-                <PatientLink onOpen={abrirPaciente} label={`Abrir la ficha del sujeto ${caja.patientCode}`}>
-                  {caja.patientCode}
-                </PatientLink>
-              )
-              : '—'}
-          </span>
-          {/* Siempre AFUERA del span que trunca: adentro se cortaría antes que el nombre. */}
-          {abrirPaciente && <PatientLinkArrow />}
-        </div>
-        <div className="spira-notif-motivo" title={caja.motivo}>{caja.motivo}</div>
-      </div>
-
-      <div className="spira-notif-datos">
-        <ProtoTag code={caja.protocolCode} protocolId={caja.protocolId} compacto />
-        {/* El guion es deliberado: sin él la celda vacía correría el chip hacia abajo y las cajas
-            dejarían de alinear entre sí. */}
-        <span className={`spira-notif-fecha${caja.fecha ? '' : ' spira-notif-fecha--vacia'}`}>
-          {caja.fecha ?? '—'}
-        </span>
-      </div>
-
-      {/* La columna se reserva SIEMPRE, con o sin tacho: si apareciera sólo a veces, las cajas no
-          alinearían entre sí. */}
-      <div className="spira-notif-accion">
-        {puedeDescartar && caja.descarte && <BotonDescartar destino={caja.descarte} />}
-      </div>
-    </div>
-  )
+function useNovedades(
+  fuente: Fuente,
+  lista: Item[] | null,
+  ctx: {
+    fotos: { current: Partial<Record<Fuente, string[]>> }
+    primeraVez: boolean
+    marcarLeidas: (claves: readonly string[]) => void
+    llegaron: (items: Item[]) => void
+  },
+) {
+  const firma = lista === null ? null : lista.map((i) => i.novedad.clave).join('|')
+  // Lo último, por ref: el efecto depende sólo de la firma, y no de objetos nuevos en cada render.
+  const ultimo = useRef({ lista, ctx })
+  ultimo.current = { lista, ctx }
+  useEffect(() => {
+    const { lista: l, ctx: c } = ultimo.current
+    if (l === null) return
+    const r = reconciliar(c.fotos.current[fuente], l.map((i) => i.novedad), c.primeraVez)
+    c.fotos.current[fuente] = r.foto
+    if (r.marcarLeidas.length > 0) c.marcarLeidas(r.marcarLeidas)
+    if (r.nuevas.length > 0) {
+      const porClave = new Map(l.map((i) => [i.novedad.clave, i]))
+      c.llegaron(r.nuevas.map((n) => porClave.get(n.clave)!).filter(Boolean))
+    }
+  }, [fuente, firma])
 }
 
 /**
- * El tacho y su confirmación.
+ * «Descartar» y su confirmación.
  *
- * Descartar se registra con motivo y autor, así que no se borra en seco: el tacho abre un popover
- * con el catálogo de motivos, y "Otro" exige explicación. El motivo es lo único que se lee después
- * en la auditoría para entender por qué alguien silenció un desvío clínico.
+ * Descartar se registra con motivo y autor, así que no se borra en seco: el botón abre un popover
+ * con el catálogo de motivos, y "Otro" exige explicación. Es el «flujo de descarte con motivo que ya
+ * está definido» que el handoff pide conectar (su prototipo borra directo, para simplificar).
  *
- * SIN UI OPTIMISTA. `dismissAlert` espera al RPC y después llama a `bumpDismissals()`, que ya
- * relee los descartes en las tres instancias montadas —la campana, el resumen y Pendientes—, así
- * que la fila se va sola apenas vuelve el servidor. Adelantarse obligaría a llevar a mano un
- * conjunto de claves compuestas y reconciliarlo con el refetch, y su modo de falla es el peor de
- * todos acá: una alerta que reaparece sola después de archivarla hace dudar del registro entero.
- * Se gana el viaje de ida y vuelta; se paga con eso.
+ * SIN UI OPTIMISTA. `dismissAlert` espera al RPC y después `bumpDismissals()` relee los descartes en
+ * las tres instancias montadas —la campana, el resumen y Pendientes—, así que la tarjeta se va sola
+ * apenas vuelve el servidor. Una alerta que reaparece sola después de archivarla hace dudar del
+ * registro entero; se gana el viaje de ida y vuelta, se paga con eso.
  */
 function BotonDescartar({ destino }: { destino: Descarte }) {
   const [abierto, setAbierto] = useState(false)
   const cerrar = useCallback(() => setAbierto(false), [])
-  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(
-    abierto, cerrar, true, 'end',
-  )
+  const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(abierto, cerrar, true, 'end')
   const [motivo, setMotivo] = useState('')
   const [detalle, setDetalle] = useState('')
   const [ocupado, setOcupado] = useState(false)
@@ -616,25 +703,25 @@ function BotonDescartar({ destino }: { destino: Descarte }) {
     })
     setOcupado(false)
     if (e) { setError(e); return }
-    /* No se cierra el PANEL: sólo el popover. La fila se va sola cuando `bumpDismissals` haga
-       releer los descartes, y quien archivó se queda mirando el resto de su lista. */
+    // No se cierra el PANEL: sólo el popover. La tarjeta se va sola con el refetch.
     setAbierto(false)
   }
 
+  // El botón vive en el mismo lugar que la hora y aparece en hover (handoff v2); ver el CSS.
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
-        className="spira-notif-tacho"
-        title="Eliminar notificación"
+        className="spira-tarjeta-descartar spira-no-press"
+        title="Descartar"
         aria-label={`Descartar la alerta: ${destino.etiqueta}`}
         aria-haspopup="dialog"
         aria-expanded={abierto}
-        // No propaga: el clic es para el tacho, no para abrir la ficha del paciente.
+        // No propaga: el clic es para el tacho, no para abrir la visita.
         onClick={(e) => { e.stopPropagation(); setAbierto((v) => !v) }}
       >
-        <Icon name="trash" size={15} stroke={1.7} />
+        <Icon name="trash" size={14} stroke={1.8} />
       </button>
 
       {abierto && pos && createPortal(
@@ -644,14 +731,11 @@ function BotonDescartar({ destino }: { destino: Descarte }) {
           aria-label="Descartar la alerta"
           className="spira-notif-pop"
           style={{ top: pos.top, left: pos.left }}
-          /* LA OTRA MITAD DEL PORTAL, y la que faltaba. `usePopover` resuelve la contención en el
-             DOM —que este popover no cierre el panel—, pero **React propaga sus eventos por el
-             árbol de REACT, no por el DOM**: aunque este div vive en `document.body`, su padre
-             React es el tacho, que está adentro del `<div onClick>` de la caja. Sin esto, elegir un
-             motivo burbujeaba hasta la caja y abría la ficha del paciente en vez de archivar.
-             Va en el contenedor y no en cada botón: cualquier control que se agregue acá adentro
-             —el textarea, Cancelar, Descartar— hereda la contención sin tener que acordarse. */
+          /* LA OTRA MITAD DEL PORTAL: React propaga los eventos por el árbol de REACT, no por el DOM.
+             Aunque este div vive en `document.body`, su padre React es el tacho, que está adentro
+             del `<div onClick>` de la tarjeta. Sin esto, elegir un motivo abría la visita. */
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
         >
           <div style={popTitulo}>¿Descartar esta alerta?</div>
           <div style={popBajada}>
@@ -696,8 +780,7 @@ function BotonDescartar({ destino }: { destino: Descarte }) {
               className={!listo || ocupado ? 'spira-no-press' : undefined}
               style={{
                 ...popBtnConfirmar,
-                // Deshabilitado hasta que haya motivo: el botón no promete algo que la base va a
-                // rechazar.
+                // Deshabilitado hasta que haya motivo: el botón no promete algo que la base va a rechazar.
                 opacity: listo && !ocupado ? 1 : 0.45,
                 cursor: listo && !ocupado ? 'pointer' : 'default',
               }}
@@ -714,24 +797,11 @@ function BotonDescartar({ destino }: { destino: Descarte }) {
 
 /* —— estilos —— */
 const bellBtn: CSSProperties = {
-  /* `padding: 0` explícito: el `1px 6px` que trae el navegador achica la caja de contenido a 26×36
-     y el ícono se centra ahí adentro, no en el botón. Con 18 px todavía entra y no se nota — el
-     tacho de la caja, con 15 px en 22, no entraba y salía corrido 2,5 px. Se declara para que un
-     ícono más grande mañana no reviva el mismo defecto. */
+  /* `padding: 0` explícito: el `1px 6px` que trae el navegador achica la caja de contenido y el
+     ícono se centra ahí adentro, no en el botón. */
   width: 38, height: 38, padding: 0, borderRadius: 10, border: 'none', background: 'transparent',
   cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--spira-ink)',
   position: 'relative',
-}
-const headerRow: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 9, padding: '13px 15px 11px', flex: '0 0 auto',
-}
-const headerTitulo: CSSProperties = {
-  fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 15, color: 'var(--spira-ink)',
-}
-const countPill: CSSProperties = {
-  fontSize: 11.5, fontWeight: 700, color: 'var(--spira-acc-deep-danger)',
-  background: 'color-mix(in srgb, var(--spira-acc-deep-danger) 10%, transparent)',
-  borderRadius: 999, padding: '2px 8px', lineHeight: 1.4, whiteSpace: 'nowrap',
 }
 const emptyState: CSSProperties = { padding: '30px 16px 34px', textAlign: 'center' }
 const emptyIcon: CSSProperties = {
@@ -741,7 +811,6 @@ const emptyIcon: CSSProperties = {
 const emptyBox: CSSProperties = {
   padding: '26px 16px', textAlign: 'center', color: 'var(--spira-muted)', fontSize: 13.5,
 }
-const footerSep: CSSProperties = { height: 1, background: 'var(--spira-line)', flex: '0 0 auto' }
 
 const popTitulo: CSSProperties = {
   fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 13.5, color: 'var(--spira-ink)',
@@ -772,103 +841,4 @@ const popBtnCancelar: CSSProperties = {
 const popBtnConfirmar: CSSProperties = {
   ...popBtn, borderColor: 'var(--spira-acc-deep-danger)',
   background: 'var(--spira-acc-deep-danger)', color: 'var(--spira-white)',
-}
-
-/**
- * Cuántas cards de pedido entran en el panel.
- *
- * CUPO PROPIO: no le compiten a las alertas clínicas los 10 lugares que tienen. Si compartieran
- * lista, una tarde movida de Farmacia empujaría una ventana vencida fuera del panel — un aviso
- * informativo tapando un desvío clínico, que es exactamente al revés de lo que esta pantalla es.
- */
-const MAX_PEDIDOS = 5
-
-/** Lo que una card de Farmacia sobre una entrega necesita: de quién, qué entrega, y cómo abrirla. */
-interface EntregaEnCampana {
-  paciente: string
-  ivrs: string | null
-  protocolId: string | null
-  protocolCode: string | null
-  detalle: string
-}
-
-/**
- * Una card de Farmacia sobre una entrega ya hecha: una constancia corregida para reimprimir (0149) o
- * un pedido de corrección de Coordinación (0152). Misma grilla que la card de un pedido
- * (`CajaDePedido`): ícono, quién, qué, datos y la cuarta columna reservada, para que alinee.
- */
-function CajaEntrega({ c, motivo, icono, color, abrir }: {
-  c: EntregaEnCampana
-  motivo: string
-  icono: IconName
-  color: string
-  abrir: () => void
-}) {
-  return (
-    <div
-      className="spira-notif-caja spira-notif-caja--link spira-no-press"
-      role="button"
-      tabIndex={0}
-      onClick={abrir}
-      onKeyDown={(e) => {
-        if (e.target !== e.currentTarget) return
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir() }
-      }}
-      aria-label={`Abrir la entrega de ${c.paciente} — ${motivo}`}
-    >
-      <span className="spira-notif-icono" style={{ background: tinte(color, 9) }}>
-        <Icon name={icono} size={16} color={color} />
-      </span>
-      <div className="spira-notif-cuerpo">
-        <div className="spira-notif-l1">
-          <span className="spira-notif-nombre" title={c.paciente}>{c.paciente}</span>
-          <span className="spira-mono spira-notif-codigo">{c.ivrs ?? '—'}</span>
-        </div>
-        <div className="spira-notif-motivo" title={motivo}>{motivo}</div>
-      </div>
-      <div className="spira-notif-datos">
-        {c.protocolCode && c.protocolId && <ProtoTag code={c.protocolCode} protocolId={c.protocolId} compacto />}
-        <span className="spira-notif-fecha">{c.detalle}</span>
-      </div>
-      <div className="spira-notif-accion" />
-    </div>
-  )
-}
-
-/**
- * Un bloque de cards de pedidos, con su rótulo.
- *
- * El rótulo no es decoración: estas cards NO suman al punto de la campana, y sin una palabra que
- * las separe de los pendientes clínicos el panel se lee como si el contador estuviera mal.
- */
-function BloqueDePedidos({ titulo, pedidos, comoFarmacia, abrirPedido, verMas }: {
-  titulo: string
-  pedidos: PedidoAviso[]
-  comoFarmacia: boolean
-  abrirPedido: (p: PedidoAviso) => void
-  /** El "y N más" sólo lleva a algún lado si existe una pantalla que los liste. Coordinación no
-   *  tiene una, y un link que promete una lista que no hay es peor que no tener link. */
-  verMas: (() => void) | null
-}) {
-  const visibles = pedidos.slice(0, MAX_PEDIDOS)
-  const ocultos = pedidos.length - visibles.length
-  // El día se lee UNA vez por bloque y no una por card.
-  const hoy = todayISO()
-  return (
-    <>
-      <div className="spira-eyebrow" style={{ padding: '2px 2px 0' }}>{titulo}</div>
-      {visibles.map((p) => (
-        <CajaDePedido key={p.id} pedido={p} comoFarmacia={comoFarmacia} hoy={hoy} abrir={() => abrirPedido(p)} />
-      ))}
-      {ocultos > 0 && (
-        verMas
-          ? (
-            <button type="button" onClick={verMas} className="spira-notif-all" style={{ fontSize: 12 }}>
-              y {ocultos} más
-            </button>
-          )
-          : <div style={{ fontSize: 11.5, color: 'var(--spira-muted)', padding: '0 2px 2px' }}>y {ocultos} más</div>
-      )}
-    </>
-  )
 }

@@ -1,0 +1,783 @@
+/* ============================================================
+   Spira · tokens (fuente de verdad: Identidad Visual "Sereno")
+   Petróleo + papel cálido · Schibsted Grotesk (títulos) + Inter (texto y códigos).
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* —— Color · base —— */
+  --spira-ink:      #14302E;
+  --spira-primary:  #0F5F57;
+  --spira-primary-deep: #0B4A42;  /* petróleo profundo (sombra del primario) — fijo en ambos temas; fondo del cover de auth */
+  --spira-paper:    #F4F1EA;
+  --spira-surface:  #FBFAF6;
+  --spira-white:    #FFFFFF;
+  --spira-muted:    #7C8C87;
+  --spira-faint:    #A6B0AC;
+  /* Tinta atenuada que SÍ pasa AA en cuerpos chicos (11–13px). Es `ink` mezclado al 72%
+     con `surface`: se lee como texto secundario, pero sin el agujero de contraste de
+     `muted`, que sobre surface da 3.37:1 en claro (AA pide 4.5:1 para texto normal).
+     Usalo para descriptores y segundas líneas; `muted` queda para rótulos grandes,
+     íconos y texto ≥18px. Medido: 5.62:1 en claro, 8.08:1 en oscuro. */
+  --spira-ink-soft: #556966;
+  /* Un punto menos negro que `ink`, para NOMBRES y VALORES (nombre del paciente, médico,
+     coordinador, datos de la rejilla del encabezado de visita). `ink` queda para la estructura
+     —bordes, microcopy fuerte— y esto para lo que se lee como contenido: baja la dureza del
+     bloque sin perder jerarquía, que la hace el peso. Del handoff del encabezado de visita
+     (2026-08-13), donde nace como `--ink-2`. En oscuro NO puede ser un hex fijo: ahí la tinta
+     se invierte, así que va un gris apenas por debajo de `ink` (mismo gesto, tema opuesto). */
+  --spira-ink-2:    #2A4744;
+  --spira-ghost-bg: rgba(15, 95, 87, 0.12);  /* resalte del texto fantasma (autocompletado inline): el texto sugerido va en la MISMA tinta (ink) que lo tipeado —se lee como una sola frase— y este petróleo suave marca el tramo sugerido, como una selección; Tab lo acepta */
+  --spira-line:     #E4DECF;
+  --spira-line-2:   #D8CBB0;
+
+  /* —— Color · semántico —— */
+  --spira-good:     #5C8A5A;
+  --spira-warn:     #B0823F;
+  --spira-danger:   #A6483B;
+
+  /* Aro del avatar de usuario — verde esmeralda de referencia (NO el petróleo de
+     marca; es un acento propio del avatar). Flipea a un tono más claro en oscuro. */
+  --spira-avatar-ring: #059669;   /* emerald-600 */
+
+  /* —— Acentos por módulo (constantes en ambos temas) —— */
+  --spira-track:        #2E7D74;
+  /* Farmacia era ÁMBAR (#C9A24A / #A8842F) y pasa a PETRÓLEO (2026-08-11, decisión del Director).
+     El motivo no es de gusto: `--spira-warn` es #B0823F y el ámbar de identidad era #A8842F —
+     cuatro dígitos hex de distancia, indistinguibles en pantalla. "Esto es de Farmacia" y "esto
+     está por vencer" se veían igual, así que el ámbar queda reservado para ADVERTENCIA y nada más.
+     Consecuencia asumida: comparte tono con el módulo Inicio (`registry.ts`), y en la navegación
+     los dos se distinguen por nombre e ícono, no por color. */
+  --spira-pharma:       #0F5F57;
+  --spira-pharma-solid: #0F5F57;
+  --spira-lab:          #5C8A5A;
+  --spira-contable:     #3A6B8C;
+
+  /* —— Acento PROFUNDO: para TEXTO sobre un tinte del acento ——
+     El acento a secas sobre un tinte al 6% da 4,14:1, y el título de un panel va a 14px en
+     negrita, donde AA pide 4,5:1. El profundo llega a 6,37:1 sin perder el color.
+     REGLA: todo color que se oscurezca para leerse sobre tinte claro necesita su versión
+     CLARA para oscuro (ver abajo) — si no, queda en 1,85:1, o sea invisible. Medido. */
+  --spira-acc-deep-track:  #0F5F57;
+  /* Se llamaba `--spira-acc-deep-pharma`, y era un nombre equivocado: sus SEIS usos son
+     advertencias sobre tinte ámbar —"Fuera de cronograma", "Falta la constancia", "Sin solicitar",
+     "Incompleta"—, ni uno solo es identidad del módulo. Se llamaba así porque el ámbar de Farmacia
+     y el de alerta eran el mismo color. Renombrado, no recoloreado: el valor sigue siendo el mismo
+     y ahora el nombre dice para qué es. */
+  --spira-acc-deep-warn: #6E5620;
+  /* El rojo de la familia. En CLARO no hace falta oscurecerlo —`--spira-danger` sobre su propio
+     tinte ya da 4,97:1, medido—, así que vale lo mismo; existe por el otro lado: en oscuro
+     `--spira-danger` queda en 2,55:1 sobre el tinte y el glifo se pierde. Es la misma trampa que
+     advierte el bloque de arriba, un token más allá. Estrenado por la línea de tiempo del historial
+     de dispensación (2026-08-15), donde el punto de "rechazado" es rojo. */
+  --spira-acc-deep-danger: #A6483B;
+
+  /* —— Banda del rótulo de la tarjeta destacada (Dispensación) ——
+     El acento a secas NO sirve de fondo acá: la tinta papel sobre él da 4,33:1 y el rótulo va a
+     14px en negrita, donde AA pide 4,5:1. Con el petróleo profundo son 8,7:1. Es el mismo motivo
+     por el que existe el acento profundo, un escalón más arriba: allá se oscurece el TEXTO para
+     leerse sobre un tinte; acá se oscurece el FONDO para que el texto claro se lea sobre él. */
+  --spira-band-track: #0F5F57;
+
+  /* —— Tinte del CUERPO de la tarjeta destacada (Dispensación) ——
+     El color pleno lo lleva la banda del rótulo; el cuerpo va apenas teñido para que las cajas
+     blancas de adentro sigan siendo las que se leen.
+     El 10% no es "un poco menos que el 14%": es el techo que deja pasar AA. Los rótulos de
+     subsección van en `ink-soft` a 11px en negrita, y sobre este tinte dan 4,58:1 — al 12% caen a
+     4,47 y al 14% a 4,36, los dos por debajo del 4,5 que se pide. Medido, no estimado.
+     Mismo problema que el acento profundo, y por eso vive al lado: un tinte del acento sobre papel
+     claro OSCURECE la tarjeta y se lee como resaltada; el MISMO tinte sobre fondo oscuro la deja
+     más apagada que las tarjetas neutras de al lado, o sea al revés de lo que se pidió. En oscuro
+     hay que ACLARAR con la menta. Medido, no estimado. */
+  --spira-tint-track: rgba(46, 125, 116, 0.10);
+
+  /* —— Constantes de tema —— */
+  --spira-on-accent:  #F4F1EA;
+  --spira-brand-mark: #0F5F57;
+
+  /* —— Tipografía —— */
+  --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif;
+  --spira-font-text:    'Inter', system-ui, sans-serif;
+  --spira-font-mono:    'Inter', system-ui, sans-serif; /* códigos/IVRS: Inter con tabular-nums vía .spira-mono (ya no IBM Plex Mono) */
+
+  /* —— Radios —— */
+  --spira-radius-sm: 8px;
+  --spira-radius-md: 10px;
+  --spira-radius-lg: 16px;
+  --spira-radius-pill: 999px;
+
+  /* —— Sombras (suaves, cálidas) —— */
+  /* Curva única del sistema: sale rápido y SE ASIENTA, sin overshoot (§6 "el movimiento es corto
+     .12–.18s y se asienta"; nada de bounce ni elastic). Es un ease-out-quart. */
+  --spira-ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --spira-shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.06);
+  --spira-shadow-md: 0 12px 32px rgba(20, 48, 46, 0.10);
+  --spira-shadow-lg: 0 18px 40px rgba(20, 48, 46, 0.14);
+}
+
+/* —— Tema oscuro —— (acentos/primario/semánticos se mantienen) */
+[data-theme='dark'] {
+  --spira-ink:      #EDEDED;   /* texto — gris casi blanco neutro */
+  --spira-paper:    #121212;   /* fondo — casi negro neutro (punto medio, no negro puro) */
+  --spira-surface:  #1C1C1C;   /* superficie elevada (sube con el fondo para conservar el escalón) */
+  --spira-white:    #212121;   /* card / elevado */
+  --spira-muted:    #A1A1A1;   /* texto secundario */
+  --spira-faint:    #6E6E6E;   /* texto terciario / placeholders */
+  --spira-ink-soft: #B2B2B2;   /* tinta atenuada AA para cuerpos chicos (8.08:1 sobre surface) */
+  --spira-ink-2:    #DCDCDC;   /* nombres y valores: un punto por debajo de `ink`, mismo gesto que el #2A4744 del tema claro */
+  --spira-ghost-bg: rgba(157, 230, 214, 0.15); /* resalte del fantasma en oscuro: menta tenue (el petróleo no se ve sobre fondo oscuro) */
+  --spira-line:     #2A2A2A;   /* bordes / divisores */
+  --spira-line-2:   #3A3A3A;   /* bordes de inputs */
+  --spira-brand-mark: #9DE6D6; /* isotipo verde menta — sin cambios */
+  --spira-avatar-ring: #34D399; /* emerald-400 — más claro para contraste en oscuro */
+  --spira-acc-deep-track:  #9DE6D6;  /* menta: en oscuro hay que ACLARAR, no oscurecer */
+  --spira-acc-deep-warn: #E8CE8A;
+  --spira-acc-deep-danger: #EDA093; /* salmón: aclarado, no oscurecido. 7,09:1 sobre el tinte rojo */
+  /* La banda NO se invierte: es un bloque de color pleno con texto claro encima, así que en oscuro
+     funciona igual que en claro (y aclararla con la menta la volvería un bloque brillante con el
+     texto papel ilegible). Se sube un escalón nada más, para que no se confunda con el fondo. */
+  --spira-band-track: #17706A;
+  /* El tinte del CUERPO sí se invierte: con el petróleo, el cuerpo quedaba MÁS OSCURO que las
+     tarjetas neutras (22,33,32 contra 28,28,28) y el realce se leía como un apagón. La menta lo levanta. */
+  --spira-tint-track: rgba(157, 230, 214, 0.13);
+}
+
+/* —— Estilos tipográficos semánticos —— */
+.spira-display { font-family: var(--spira-font-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: var(--spira-ink); }
+.spira-h1      { font-family: var(--spira-font-display); font-weight: 700; font-size: 40px; letter-spacing: -0.02em; line-height: 1.05; color: var(--spira-ink); }
+.spira-h2      { font-family: var(--spira-font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; color: var(--spira-ink); }
+.spira-h3      { font-family: var(--spira-font-display); font-weight: 700; font-size: 17px; color: var(--spira-ink); }
+.spira-eyebrow { font-family: var(--spira-font-text); font-weight: 700; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--spira-faint); }
+.spira-mono    { font-family: var(--spira-font-mono); font-variant-numeric: tabular-nums; }
+
+/* —— Base —— */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--spira-paper);
+  color: var(--spira-ink);
+  font-family: var(--spira-font-text);
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: inherit; }
+
+/* —— Foco visible por teclado (accesibilidad) —— */
+/* Botones, links y focusables custom: outline petróleo accesible (2px). */
+:where(button, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--spira-primary);
+  outline-offset: 2px;
+  border-radius: var(--spira-radius-sm);
+}
+/* Excepción: el chip de selección (variant 'chip' del SearchableSelect — ej. el coordinador en el
+   header del modal de visita). Sobre un pill de 26px el outline de 2px con offset pesa como un
+   recuadro duro, así que el foco por teclado va como HALO suave pegado al borde, en la línea del
+   "foco suave" de los inputs de más abajo: sigue siendo una señal de foco visible (accesible), pero
+   serena. Solo `:focus-visible` — con el mouse no se dibuja nada, que es el comportamiento de todo
+   el resto de la app. */
+.spira-chip-select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(15, 95, 87, 0.20);
+}
+/* En oscuro el petróleo se pierde sobre fondo negro (mismo motivo que --spira-ghost-bg): menta tenue. */
+[data-theme='dark'] .spira-chip-select:focus-visible {
+  box-shadow: 0 0 0 3px rgba(157, 230, 214, 0.22);
+}
+
+/* —— Foco de controles de formulario: ELEVACIÓN SUAVE (estándar de Spira) ——
+   TODO input/select/textarea marca el foco con una sombra cálida tenue + un leve levante —
+   sin outline ni borde de color (nada de recuadro verde). Es el mismo tratamiento del
+   buscador de Pacientes, ahora por DEFAULT: las vistas nuevas lo heredan sin clase extra.
+   La sombra queda como señal de foco visible para teclado (accesible).
+   `.spira-search-input` se conserva como alias explícito del mismo tratamiento. */
+:where(input, select, textarea),
+.spira-search-input {
+  transition: box-shadow 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+}
+:where(input, select, textarea):focus,
+:where(input, select, textarea):focus-visible,
+.spira-search-input:focus,
+.spira-search-input:focus-visible {
+  outline: none;
+  box-shadow: 0 5px 14px rgba(20, 48, 46, 0.1);
+  transform: translateY(-1px);
+}
+/* Reduced-motion: se mantiene la sombra (señal de foco) sin el levante ni la transición. */
+@media (prefers-reduced-motion: reduce) {
+  :where(input, select, textarea),
+  .spira-search-input { transition: none; }
+  :where(input, select, textarea):focus,
+  :where(input, select, textarea):focus-visible,
+  .spira-search-input:focus,
+  .spira-search-input:focus-visible { transform: none; }
+}
+/* Input "pelado" dentro de un recuadro propio (buscador del SearchableSelect): la señal de foco va
+   en el recuadro (borde + halo), NO en el input, así no asoma su sombra rectangular en los extremos.
+   `.spira-bare-input:focus` (especificidad 0,2,0) le gana al `:where(...):focus` de arriba (0,1,0). */
+.spira-bare-input:focus,
+.spira-bare-input:focus-visible { box-shadow: none; transform: none; }
+
+/* —— Ícono afijo dentro de un campo (p. ej. el sobre del email en el login) ——
+   El ícono es un <span> absoluto SOBRE el input, y va ANTES que él en el DOM. El foco de los
+   inputs aplica un `transform` (el levante de 1px de más arriba), que promueve al input a capa /
+   stacking context propio: entonces pasaba a pintarse POR ENCIMA del ícono anterior y su fondo
+   blanco lo tapaba; con la transición y el repintado del autocompletado, eso se veía "parpadear".
+   `z-index:1` mantiene el ícono siempre por encima del input; y acompaña el levante de 1px del
+   campo para no desalinearse del texto al enfocar. */
+.spira-input-affix { position: relative; }
+.spira-input-affix > .spira-input-affix-icon {
+  position: absolute; left: 12px; top: 0; height: 44px;
+  display: grid; place-items: center;
+  color: var(--spira-muted); pointer-events: none; z-index: 1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .spira-input-affix > .spira-input-affix-icon { transition: transform 0.16s ease; }
+  .spira-input-affix:focus-within > .spira-input-affix-icon { transform: translateY(-1px); }
+}
+
+/* —— Tilde de "realizado" (procedimientos de la visita) ——
+   El cuadrito pasa de vacío a relleno con el acento del módulo y el tilde entra escalando desde
+   0.6. Movimiento corto que se asienta (§Movimiento del sistema): sin overshoot, .14s, y el
+   relleno acompaña al tilde en vez de aparecer de golpe. La opacidad/escala del tilde las fija el
+   componente por `style`; acá va solo la transición, para que en reduced-motion el cambio sea
+   instantáneo (el bloque no aplica) sin perder el estado. */
+@media (prefers-reduced-motion: no-preference) {
+  .spira-tick { transition: background-color 0.14s ease-out, border-color 0.14s ease-out; }
+  .spira-tick > svg { transition: opacity 0.14s ease-out, transform 0.14s ease-out; }
+}
+
+/* —— Autocompletado del navegador (Chrome/WebKit) ——
+   Por defecto Chrome pinta el campo autocompletado de celeste y el texto de negro: rompe la
+   paleta Sereno y, al animar/repintar ese fondo, alimentaba el parpadeo del ícono afijo. Lo
+   neutralizamos: fondo blanco de la casa vía el truco del box-shadow inset (el único modo de
+   ganarle al fondo `!important` que inyecta el navegador), texto y caret en ink, y congelamos la
+   transición interna del autofill. Al enfocar, sumamos la sombra de elevación estándar para no
+   perder la señal de foco. Todo por tokens ⇒ correcto también en tema oscuro. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover {
+  -webkit-text-fill-color: var(--spira-ink);
+  caret-color: var(--spira-ink);
+  -webkit-box-shadow: inset 0 0 0 1000px var(--spira-white);
+  box-shadow: inset 0 0 0 1000px var(--spira-white);
+  transition: background-color 9999s ease-in-out 0s;
+}
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: inset 0 0 0 1000px var(--spira-white), 0 5px 14px rgba(20, 48, 46, 0.1);
+  box-shadow: inset 0 0 0 1000px var(--spira-white), 0 5px 14px rgba(20, 48, 46, 0.1);
+}
+
+/* Barra de scroll fina y cálida para las listas de los desplegables (lista del SearchableSelect).
+   La barra nativa (~15px, fría) es ancha y, en desplegables angostos como el mes/año del calendario,
+   se comía el ancho del texto. La reemplazo por una hairline sobria: fina, redondeada, con aire a los
+   lados (padding vía borde transparente) y un leve realce al pasar el mouse por la lista. */
+.spira-scroll { scrollbar-width: thin; scrollbar-color: var(--spira-line-2) transparent; }
+.spira-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.spira-scroll::-webkit-scrollbar-track { background: transparent; }
+.spira-scroll::-webkit-scrollbar-thumb {
+  background: var(--spira-line-2); border-radius: 999px;
+  border: 2px solid transparent; background-clip: padding-box;
+}
+.spira-scroll:hover::-webkit-scrollbar-thumb { background: var(--spira-faint); background-clip: padding-box; }
+
+/* —— Pantallas de acceso (Login / definir contraseña) ——
+   Dos mitades: a la izquierda un panel VERDE (marca) con el logo de Spira arriba y la foto
+   INSERTADA con bordes rectos (un recuadro centrado, NO de fondo); a la derecha el formulario.
+   Mobile-first: en angosto se oculta la foto y queda sólo el formulario; desde ~900px aparece. */
+.spira-auth { min-height: 100%; display: flex; }
+.spira-auth-cover {
+  display: none; /* oculta en angosto; se muestra en el media query de abajo */
+  position: relative; overflow: hidden; /* contiene la marca de agua del Vilano */
+  flex: 1 1 50%;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 28px;
+  padding: 48px;
+  /* Gradiente de marca: petróleo → petróleo profundo. Fijo en ambos temas (no usa --spira-ink,
+     que en oscuro vira a casi-blanco y rompía el degradé). El extremo oscuro es teal profundo,
+     no negro, para no caer en el "SaaS oscuro" que la marca rechaza. */
+  background: linear-gradient(150deg, var(--spira-primary), var(--spira-primary-deep));
+}
+/* Vilano grande y tenue de fondo (marca de agua). Posición DESCENTRADA + rotada a propósito:
+   cruza por detrás de la foto de forma orgánica, sin quedar simétrico. */
+.spira-auth-cover-bg {
+  position: absolute; top: 52%; left: 64%;
+  transform: translate(-50%, -50%) rotate(21deg);
+  opacity: 0.12; pointer-events: none; z-index: 0;
+}
+.spira-auth-cover-brand { align-self: flex-start; position: relative; z-index: 1; } /* logo + bajada arriba a la izquierda */
+/* Card del video de fondo HÍBRIDO: mute/autoplay/loop como fondo, clickeable para activar el
+   sonido. `aspect-ratio: 16/9` le da caja fija sin deformar; bordes redondeados + ring + sombra
+   le dan entidad. El <hit> (button o link) cubre el card y captura el click; el iframe va con
+   pointer-events:none para que el click no se lo coma YouTube. */
+.spira-auth-cover-card {
+  position: relative; z-index: 1;
+  width: 100%; box-sizing: border-box;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px; overflow: hidden;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.14);
+  /* Poster (background-image inline desde AuthLayout): se ve si el iframe de YouTube no carga.
+     El iframe/img van por encima con object-fit:cover y lo tapan cuando sí cargan. */
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+}
+/* Capa clickeable que llena el card (button para togglear sonido; <a> en reduced-motion). */
+.spira-auth-cover-hit {
+  position: absolute; inset: 0; z-index: 1;
+  display: block; width: 100%; height: 100%;
+  padding: 0; border: 0; margin: 0; background: transparent; appearance: none;
+  cursor: pointer;
+}
+.spira-auth-cover-card iframe,
+.spira-auth-cover-card img {
+  display: block; width: 100%; height: 100%; border: 0; object-fit: cover;
+  pointer-events: none; /* el click lo maneja .spira-auth-cover-hit, no el iframe de YouTube */
+}
+/* Botón de bocina (estado de sonido): abajo a la derecha, decorativo (el click es del card). */
+.spira-auth-cover-sound {
+  position: absolute; bottom: 10px; right: 10px; z-index: 2;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(20, 48, 46, 0.6);
+  display: grid; place-items: center;
+  color: var(--spira-on-accent);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+.spira-auth-cover-hit:hover .spira-auth-cover-sound {
+  background: rgba(20, 48, 46, 0.82);
+  transform: scale(1.06);
+}
+.spira-auth-panel {
+  flex: 1 1 50%; display: flex; flex-direction: column;
+  padding: 24px; background: var(--spira-paper); overflow-y: auto;
+}
+/* El formulario ocupa el alto disponible y se centra ahí (no lo descoloca el footer). */
+.spira-auth-form {
+  flex: 1; display: flex; align-items: center; justify-content: center; width: 100%;
+}
+/* © fijo abajo, como footer; no entra en el centrado del formulario. */
+.spira-auth-foot {
+  flex-shrink: 0; text-align: center; color: var(--spira-faint); font-size: 12px; padding-top: 16px;
+}
+@media (min-width: 900px) {
+  .spira-auth-cover { display: flex; }
+}
+
+/* —— Trigger del buscador global (top bar) ——
+   Caja etiquetada "Buscar…" + atajo, que COLAPSA a un botón-ícono en viewports
+   angostos (para no amontonar la barra). Abre el CommandPalette (Ctrl/⌘ K). */
+.spira-search-trigger {
+  display: flex; align-items: center; gap: 8px;
+  width: 210px; height: 38px; padding: 0 8px 0 12px;
+  border: 1px solid var(--spira-line-2); border-radius: 10px;
+  background: var(--spira-surface); color: var(--spira-muted);
+  font-family: var(--spira-font-text); font-size: 13.5px; cursor: pointer;
+}
+.spira-search-trigger .spira-search-label { flex: 1; text-align: left; white-space: nowrap; }
+.spira-search-trigger .spira-search-kbd {
+  font-size: 11.5px; font-weight: 600; color: var(--spira-faint);
+  background: var(--spira-white); border: 1px solid var(--spira-line);
+  border-radius: 6px; padding: 2px 7px;
+}
+@media (max-width: 980px) {
+  .spira-search-trigger { width: 38px; padding: 0; justify-content: center; }
+  .spira-search-trigger .spira-search-label,
+  .spira-search-trigger .spira-search-kbd { display: none; }
+}
+
+/* —— Ítem del menú de usuario (UserMenu) ——
+   Fila del dropdown de la cuenta. El hover/focus resalta con papel cálido; la
+   variante --danger (Cerrar sesión) usa el rojo sereno. focus-visible incluido
+   para que la navegación por teclado se vea. */
+.spira-menu-item {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 9px 10px; border: none; background: transparent; border-radius: 9px;
+  cursor: pointer; text-align: left;
+  font-family: var(--spira-font-text); font-size: 13.5px; font-weight: 500; color: var(--spira-ink);
+}
+.spira-menu-item:hover,
+.spira-menu-item:focus-visible { background: var(--spira-paper); outline: none; }
+.spira-menu-item--danger { color: var(--spira-danger); }
+.spira-menu-item--danger:hover,
+.spira-menu-item--danger:focus-visible { background: rgba(166, 72, 59, 0.08); }
+
+/* —— Footer "Ver todas las alertas" del desplegable de notificaciones —— */
+.spira-notif-all {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; padding: 12px; border: none; background: transparent; cursor: pointer;
+  font-family: var(--spira-font-text); font-size: 13px; font-weight: 600; color: var(--spira-primary);
+}
+.spira-notif-all:hover,
+.spira-notif-all:focus-visible { background: var(--spira-surface); outline: none; }
+
+/* —— Animaciones del modal de Ajustes ——
+   Entrada del overlay (fade) + de la tarjeta (fade + leve subida/escala). Valores
+   del handoff. En reduced-motion la tarjeta entra sólo con fade (sin transform). */
+@keyframes spOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes spModalIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes spModalIn { from { opacity: 0; } to { opacity: 1; } }
+}
+
+/* —— Animación del Drawer (panel deslizable desde la derecha) ——
+   El hilo de comentarios de visita entra desde el borde derecho. Movimiento corto que se asienta
+   (§Movimiento del sistema): deslizado + fade, sin overshoot. En reduced-motion entra sólo con fade. */
+@keyframes spDrawerIn {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes spDrawerIn { from { opacity: 0; } to { opacity: 1; } }
+}
+
+/* —— Animación del Toast (confirmación al pie) ——
+   Sube apenas y se asienta, sin bounce (§Movimiento: corto, .12–.18s, nunca elastic). */
+@keyframes spToastIn {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes spToastIn {
+    from { opacity: 0; transform: translate(-50%, 0); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
+}
+
+/* —— Navegación izquierda plegable (riel de módulos + panel de submódulos) ——
+   El botón «Menú» del top bar oculta/muestra las dos columnas: cada aside anima su ancho a 0
+   (el colapso lo manejan flex:'0 0 auto' + min-width:0 + overflow:hidden en línea). El botón
+   «Menú» es un chip sobrio (fondo surface) que resalta a `line` al pasar el mouse; el
+   `!important` le gana al fondo inline. Se respeta prefers-reduced-motion. */
+.spira-navcol { transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1); }
+.spira-menu-toggle:hover { background: var(--spira-line) !important; }
+@media (prefers-reduced-motion: reduce) { .spira-navcol { transition: none; } }
+
+/* —— Micro-interacción estándar de Spira ——
+   Todo lo pulsable (botones, links, role=button) se levanta apenas (~1px) en hover y se
+   asienta al pulsar. Es la señal universal de "esto se toca", sin depender del cursor.
+   Coherente con §3 "Movimiento" del sistema de diseño (docs/identidad-visual/README.md).
+   Excepciones: deshabilitados/bloqueados (no se mueven) y cualquier elemento marcado con
+   .spira-no-press (p. ej. la navegación, que se señala por resaltado y no por movimiento).
+   Respeta prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, a[href], [role='button'], summary):not(:disabled):not([aria-disabled='true']):not(.spira-no-press) {
+    transition: transform 0.12s ease;
+  }
+  :where(button, a[href], [role='button'], summary):not(:disabled):not([aria-disabled='true']):not(.spira-no-press):hover {
+    transform: translateY(-1px);
+  }
+  :where(button, a[href], [role='button'], summary):not(:disabled):not([aria-disabled='true']):not(.spira-no-press):active {
+    transform: translateY(0);
+  }
+}
+
+/* —— Tarjeta-enlace ——
+   Tarjeta pulsable que lleva a otra vista (en Inicio: las de módulo, "Tu día" y "Lo prioritario").
+
+   ⚠️ REGLA DE LA CASA: el hover NO pinta el borde con el acento. Nada de bordes verdes como
+   señal de estado —decisión del Director, 2026-08-06—: el realce es SIEMPRE elevación, o sea
+   el levante de ~1px de la micro-interacción estándar (arriba) más la sombra media. Es el mismo
+   criterio que ya rige el foco de los inputs (§"foco suave", nunca el outline verde). El borde
+   queda en la línea neutra y no cambia nunca.
+
+   El borde lo declara ESTA clase y no el style inline de cada tarjeta: un `border` inline le
+   gana por especificidad a la hoja de estilos. Y el realce va en CSS, NO en onMouseEnter: cuando
+   un handler le escribe `borderColor` a mano sobre un `border` abreviado, React resuelve el
+   conflicto en el render siguiente VACIANDO todos los longhand (border-*-style/width) y la
+   tarjeta se queda sin borde ("Removing borderColor border" en consola). Es el gotcha de
+   abreviada vs longhand, en su variante imperativa.
+
+   La sombra es la `sm` (0 1px 2px) y NO la `md`: la `md` es `0 12px 32px`, una sombra de overlay
+   —dice "esto flota 12px sobre la página"— y encima de un levante de 1px queda a contramano de sí
+   misma; ese desajuste de escala es lo que hacía ver la animación pegoteada. Sombra y levante
+   comparten duración y curva para llegar juntos. */
+/* El borde acá es el POR DEFECTO. Una tarjeta con borde propio de estado —los ítems de Alertas,
+   teñidos por severidad— lo declara inline y lo pisa; el resto del realce le sigue corriendo. */
+.spira-card-link {
+  border: 1px solid var(--spira-line);
+}
+/* Los mismos `:not(...)` que la micro-interacción global de arriba, y a propósito: sin ellos esa
+   regla —que es más específica— le pisa la transición a la tarjeta y la sombra entra de golpe
+   mientras el levante sí anima. Con la misma especificidad y viniendo después, gana ésta y las
+   dos propiedades viajan juntas. */
+.spira-card-link:not(:disabled):not([aria-disabled='true']) {
+  transition: box-shadow 0.16s var(--spira-ease-out), transform 0.16s var(--spira-ease-out);
+}
+.spira-card-link:hover {
+  box-shadow: var(--spira-shadow-sm);
+}
+
+/* —— Fila-enlace ——
+   La fila de una tarjeta de resumen que lleva a SU ítem (una visita, una alerta), no a la lista.
+
+   Una fila NO se levanta: se resalta. Es lo mismo que ya hacen la navegación y `.spira-menu-item`
+   (por eso las filas llevan también `.spira-no-press`, que las saca de la micro-interacción de
+   pulsado). El levante es el gesto de una SUPERFICIE —una tarjeta, que tiene borde y fondo
+   propios—; una fila transparente que se mueve 1px no tiene nada que elevar y lee como temblor.
+   Y sobre todo: la fila carga el separador de arriba, así que al levantarse se llevaba la línea
+   con ella y la estructura del listado saltaba — ése era el "recorte" que se veía. Quieta la
+   fila, el separador queda donde tiene que estar. Sin radio por el mismo motivo: un radio sobre
+   un elemento cuyo único borde es el de arriba curva las puntas de esa línea de 1px y la regla
+   se ve cortada en los extremos. */
+.spira-row-link {
+  background-color: transparent;
+  transition: background-color 0.14s var(--spira-ease-out);
+}
+.spira-row-link:hover {
+  background-color: var(--spira-surface);
+}
+/* Reduced-motion: el cambio de estado se mantiene (sombra y resaltado siguen ahí, son señal, no
+   adorno) pero llega sin recorrido. El levante ya no corre: vive en el bloque no-preference. */
+@media (prefers-reduced-motion: reduce) {
+  .spira-card-link:not(:disabled):not([aria-disabled='true']),
+  .spira-row-link,
+  .spira-zoom-preview { transition: none; }
+}
+
+/* —— Texto que navega (link en línea) ——
+   Para un dato que ADEMÁS lleva a otro lado: el nombre y el Nº de sujeto del encabezado de visita,
+   que abren la ficha del paciente. Un `<button>` pelado que hereda tipografía y color del texto que
+   reemplaza — no se pinta de otro color ni se subraya en reposo: el dato tiene que seguir leyéndose
+   como el dato, no como un link metido en el medio del bloque de identidad. La señal aparece al
+   apuntarlo (subrayado) y al enfocarlo por teclado.
+   Es el mismo gesto de las migas del encabezado del shell, pero en CSS y no en `onMouseEnter`,
+   que es donde va el realce (ver la regla de `.spira-card-link`). */
+.spira-textlink {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+.spira-textlink:hover,
+.spira-textlink:focus-visible { text-decoration: underline; }
+/* Va SIEMPRE con `.spira-no-press` (lo pone el componente, no el que lo usa): es un `<button>`, así
+   que sin esa marca hereda la micro-interacción global y el texto se LEVANTA 1px al apuntarlo. En un
+   botón eso es la señal de "esto se toca"; en un nombre de 23px en medio de un bloque de identidad
+   es un salto. Acá la señal es el subrayado. */
+
+/* —— Varios disparadores que llevan AL MISMO LADO ——
+   El nombre y el Nº de sujeto del encabezado de visita abren los dos la misma ficha. Apuntar uno
+   subraya los DOS, que es la forma de decir "son la misma puerta" sin agregar ningún adorno: si
+   cada uno se subrayara solo, se leerían como dos destinos distintos.
+   `:has()` en vez de un `:hover` sobre el contenedor, para que el resalte lo dispare el TEXTO y no
+   el aire alrededor. Donde `:has()` no exista, cada enlace se subraya por su cuenta (la regla de
+   arriba): se pierde el emparejado, no la navegación. */
+.spira-link-group:has(.spira-textlink:hover) .spira-textlink,
+.spira-link-group:has(.spira-textlink:focus-visible) .spira-textlink,
+.spira-link-group:has(.spira-textlink:active) .spira-textlink {
+  text-decoration: underline;
+}
+
+/* —— Previsualizador ampliable (constancia de IP, tamaño "chica") ——
+   Toda la tarjeta de 140px invita a ampliar, no solo el botón "Ampliar" de la esquina —el mock
+   (estado 4 de "Tarjeta partida - estados.html") define el hover sobre el `.prev` entero. Mismo
+   criterio de elevación que `.spira-card-link` (levante ~1px + sombra `sm`, nunca borde de color),
+   pero en una clase aparte: el contenedor es un `<div>` con `onClick`, no un `button`/`a[href]`, así
+   que no matchea el selector de tag de la micro-interacción global (arriba) y necesita su propia
+   regla. El cursor lo pone el `style` inline de cada instancia (`zoom-in` en "chica", `default` en
+   "grande" como el mock), no esta clase, porque la clase misma es condicional al tamaño. */
+.spira-zoom-preview {
+  transition: transform 0.14s var(--spira-ease-out), box-shadow 0.14s var(--spira-ease-out);
+}
+.spira-zoom-preview:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--spira-shadow-sm);
+}
+
+/* —— Impresión del comprobante de dispensación ——
+   El comprobante ES la nota fuente: se imprime, se sella y se firma con la medicación al
+   momento del retiro, y va a la carpeta del paciente. Por eso no se imprime la pantalla:
+   se imprime una hoja diseñada (ComprobanteImprimible), y todo lo demás desaparece.
+
+   .spira-print-only vive oculto en pantalla y solo existe en papel.
+
+   Para aislar la rama se usa `visibility`, NO `display`. El comprobante cuelga del árbol de
+   React (dentro de #root), así que ocultar los hijos de body con display:none se lo llevaría
+   puesto. `visibility: hidden` en cambio no impide que un descendiente vuelva a hacerse
+   visible, que es justo lo que hace falta acá.
+
+   Negro sobre blanco a propósito: la paleta Sereno es para pantalla; esto sale en una
+   láser monocromo y los fondos de color se imprimen sucios o se ignoran. */
+.spira-print-only { display: none; }
+
+@media print {
+  /* nada de la app: ni rail, ni submódulos, ni cajón, ni backdrop */
+  body * { visibility: hidden; }
+
+  .spira-print-only,
+  .spira-print-only * { visibility: visible; }
+
+  .spira-print-only {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    background: #fff;
+    color: #000;
+    font-family: var(--spira-font-text);
+    /* sombras y fondos de color se imprimen mal; el documento es plano */
+    box-shadow: none;
+  }
+
+  .spira-print-only * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* El margen lo pone la PÁGINA, no un padding del bloque.
+     Antes era `@page { margin: 0 }` más `padding: 18mm 16mm` en `.spira-print-only`, y para el
+     comprobante —media carilla— daba igual. Para un documento de varias páginas no: el padding de
+     un bloque se aplica una sola vez, al principio y al final, así que de la página 2 en adelante
+     el contenido sale pegado al borde del papel. Con el margen en `@page` lo respeta cada página.
+     Para el comprobante el resultado visible es el mismo (16mm de margen contra 16mm de padding),
+     con la mejora de que si algún día crece a dos hojas, la segunda ya sale bien. */
+  @page { size: A4 portrait; margin: 16mm; }
+
+  /* ── Documento largo (reportes de Farmacia) ───────────────────────────────────
+     Va PORTALEADO a <body>, fuera del árbol de React, y por eso puede usar `display` en vez del
+     truco de `visibility`: sin un ancestro que ocultar, se saca la app entera del flujo. Importa
+     que sea `display` y no `visibility`, porque `visibility: hidden` PRESERVA el layout — la app
+     oculta seguiría ocupando su alto y el navegador escupiría varias páginas en blanco al final.
+
+     El comprobante sigue con el mecanismo de siempre: no se toca lo que anda. */
+  body:has(> .spira-print-doc) > #root { display: none !important; }
+
+  .spira-print-doc,
+  .spira-print-doc * { visibility: visible; }
+
+  .spira-print-doc {
+    display: block !important;
+    background: #fff;
+    color: #000;
+    font-family: var(--spira-font-text);
+  }
+
+  .spira-print-doc * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* Tablas largas: el encabezado se repite en cada página y ninguna fila se parte al medio.
+     Sin `table-header-group`, la página 3 de un detalle de 200 renglones son columnas de números
+     sin título. */
+  /* Excepción al 'todo transparente' de arriba: el encabezado del reporte de dispensaciones va
+     en negro pleno porque es el formato acordado con la Fundación. print-color-adjust obliga al
+     navegador a imprimir el fondo, que por defecto descarta para ahorrar tinta. */
+  .spira-print-doc .spira-print-invert {
+    background: #000 !important;
+    color: #fff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .spira-print-doc thead { display: table-header-group; }
+  .spira-print-doc tfoot { display: table-footer-group; }
+  .spira-print-doc tr { break-inside: avoid; }
+  .spira-print-doc section { break-inside: avoid; }
+}
+
+/* Fuera de @media print las dos hojas no existen. */
+.spira-print-doc { display: none; }
+
+/* ─ Riel de proceso del cajón de dispensación ────────────────────────────────
+   La espina continua va como pseudo-elemento y no como un <div>: así el tramo
+   recorrido (<i class="prog">) se apila encima sin disputarle el z-index a los
+   nodos, que tienen que quedar por delante de las dos líneas.
+   Los 11.5px de `left` centran la línea bajo un nodo de 24px con borde de 1.5. */
+.spira-rail-flow::before {
+  content: '';
+  position: absolute;
+  left: 11.5px;
+  top: 14px;
+  bottom: 14px;
+  width: 1.5px;
+  background: var(--spira-line);
+}
+
+/* —— Botón de ícono del encabezado del cajón (⋯ y ✕) ——
+   El hover aparece un borde NEUTRO (`--line`, el mismo de los divisores) y un fondo de superficie,
+   no un borde de acento: el color se reserva para significado, nunca para decir "el mouse está acá".
+   Los longhands son obligatorios — el borde arranca transparente y el hover le cambia el color, y
+   mezclar la abreviada `border` con `border-color` deja el borde negro al salir del estado. */
+.spira-icon-btn {
+  transition: background-color 0.14s var(--spira-ease-out),
+              border-color 0.14s var(--spira-ease-out),
+              color 0.14s var(--spira-ease-out);
+}
+.spira-icon-btn:hover:not(:disabled) {
+  background-color: var(--spira-surface);
+  border-color: var(--spira-line);
+  color: var(--spira-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .spira-icon-btn { transition: none; }
+}
+
+/* —— Modal de visita · layout responsive ——
+   Del handoff `docs/handoff-visitas-encabezado/` §10. Va en CSS y no en JS a propósito: el layout
+   es del layout, y `matchMedia` en un componente obliga a re-renderizar para algo que el navegador
+   ya sabe hacer solo. Las medidas son de VIEWPORT y no del modal porque el modal es
+   `min(1120px, 95vw)`: por debajo de 1100 ya viene achicándose con la pantalla.
+
+   El estado por defecto vive inline en el componente, como el resto del repo, con UNA excepción:
+   el ancho del bloque de fechas. Va acá porque el quiebre de <1100px tiene que poder cambiarlo, y
+   un ancho inline le ganaría por especificidad a cualquier media query. */
+
+/* Ancho FIJO del bloque de fechas: mide lo mismo se esté leyendo o editando. Sin esto, entrar a
+   editar suma controles, la columna crece por contenido y empuja al resto del encabezado para el
+   costado en cada clic — justo lo que el handoff promete que no pasa. */
+.spira-visit-dates { width: 200px; }
+
+/* < 1100px: las fechas dejan de ser la tercera columna y bajan, en dos columnas, debajo de los
+   datos del paciente. El coordinador no se mueve: sigue en la fila de utilidades. */
+@media (max-width: 1100px) {
+  .spira-visit-idw {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .spira-visit-idw > .spira-visit-dates {
+    grid-column: 2;
+    width: auto;
+    border-left: 0;
+    padding-left: 0;
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 14px;
+  }
+}
+
+/* < 900px: la barra apila etapa arriba y acciones abajo, a lo ancho; y el cuerpo pasa a una sola
+   columna con Procedimientos primero (el orden del DOM ya es ese, así que no hace falta reordenar). */
+@media (max-width: 900px) {
+  .spira-visit-actbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    height: auto;
+  }
+  .spira-visit-actbar > .spira-visit-actions {
+    justify-content: stretch;
+  }
+  .spira-visit-actbar > .spira-visit-actions > * {
+    flex: 1;
+  }
+  .spira-visit-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

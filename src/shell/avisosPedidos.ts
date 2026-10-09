@@ -1,4 +1,4 @@
-import { formatAR, formatTimeAR, isoDayAR } from '../lib/dates'
+import { isoDayAR } from '../lib/dates'
 import { badgeDeEstado, estadoVisible } from '../views/pharma/dispensaciones/estados'
 import type { EstadoVisible } from '../views/pharma/dispensaciones/estados'
 import type { PedidoAviso } from '../data/pharma/dispensationModel'
@@ -90,7 +90,7 @@ export function detectarMovimientos(
  * cada transición. Para las dos que importan alcanza: `cancel_dispensation_request` es de Track y
  * `reject_dispensation_request` es de Farmacia (ver `data/pharma/dispensations.ts`).
  */
-function loHicisteVos(pedido: PedidoAviso, estado: EstadoVisible, uid: string | null): boolean {
+export function loHicisteVos(pedido: PedidoAviso, estado: EstadoVisible, uid: string | null): boolean {
   if (!uid || pedido.requested_by !== uid) return false
   return estado === 'solicitada' || estado === 'cancelada'
 }
@@ -108,33 +108,115 @@ function loHicisteVos(pedido: PedidoAviso, estado: EstadoVisible, uid: string | 
 const PEDIDO_NUEVO = 'Pedido nuevo'
 
 /**
- * El segundo renglón de la card.
+ * El tercer renglón de la tarjeta (el «motivo» del handoff v2): qué pasó, de qué visita y con qué.
+ *
+ *   · Farmacia, pedido sin tomar → «Pedido nuevo — V3 · Fenisona 50 mg × 2»
+ *   · Cerrado (entregada, rechazada, cancelada) → «Dispensación entregada — V5 W12 · Fenisona…»
+ *   · Abierto, visto por quien lo pidió → «Lista para retirar — V5 W12 · Fenisona…»
  *
  * `comoFarmacia` cambia UNA sola cosa: un pedido sin tomar es "Solicitada" para quien lo pidió y
  * "Pedido nuevo" para quien lo tiene que atender. Es la misma fila leída desde dos lugares del
  * circuito, no dos estados distintos.
+ *
+ * El estado se nombra con `badgeDeEstado` —el vocabulario de toda la casa— y sólo los cerrados se
+ * anteponen con «Dispensación», que es como el handoff los rotula en el listado: un «Entregada»
+ * suelto, leído en una lista de alertas clínicas, no dice de qué.
  */
-export function rotuloDeCard(p: PedidoAviso, comoFarmacia: boolean): string {
+export function motivoDePedido(p: PedidoAviso, comoFarmacia: boolean): string {
   const estado = estadoDe(p)
-  const base = comoFarmacia && estado === 'solicitada'
+  const badge = badgeDeEstado(p.status, p.dispensacion).label
+  const que = comoFarmacia && estado === 'solicitada'
     ? PEDIDO_NUEVO
-    : badgeDeEstado(p.status, p.dispensacion).label
-  return `${base} · ${p.visit_code ?? 'Visita'}`
+    : CERRADOS.includes(estado) ? `Dispensación ${badge.toLowerCase()}` : badge
+  const detalle = [p.visit_code ?? 'Visita', p.medicacion].filter(Boolean).join(' · ')
+  return `${que} — ${detalle}`
+}
+
+const CERRADOS: readonly EstadoVisible[] = ['entregada', 'rechazada', 'cancelada']
+
+/** Si el pedido sigue en movimiento. Los abiertos van a la tarjeta fija; los cerrados, al listado. */
+export function estaAbierto(p: PedidoAviso): boolean {
+  return !CERRADOS.includes(estadoDe(p))
 }
 
 /**
- * La fecha que muestra la card, en la misma columna donde las alertas muestran la suya.
+ * Cuándo se movió por última vez: la más nueva entre la solicitud y su dispensación.
  *
- * ESPEJA LA INTENCIÓN de `fechaDeVisita` y `fechaDeIp` (`notificaciones.ts`): la celda no puede
- * quedar vacía o el chip de protocolo se corre hacia arriba y las cajas dejan de alinear entre sí,
- * que es lo único que el diseño de este panel promete.
- *
- * De hoy → la HORA del último movimiento, que es lo que estás siguiendo. De otro día → la fecha:
- * una hora sola sobre un pedido de anteayer se lee como si acabara de pasar.
+ * Mirar sólo `updated_at` mentía en silencio: pasar a «Lista» toca la dispensación y no la solicitud
+ * (ver `dispensacion_updated_at`), así que un pedido listo hace un minuto figuraba con la hora de
+ * cuando Farmacia lo tomó. Y como `pedidosVigentes` decide con esta hora si un pedido cerrado sigue
+ * siendo «de hoy», el mismo error podía sacar del panel una entrega de hoy.
  */
-export function fechaDeCard(p: PedidoAviso, hoy: string): string {
-  const dia = isoDayAR(p.updated_at)
-  return dia === hoy ? formatTimeAR(p.updated_at) : formatAR(dia)
+export function ultimoMovimiento(p: PedidoAviso): string {
+  const d = p.dispensacion_updated_at
+  if (!d) return p.updated_at
+  return Date.parse(d) > Date.parse(p.updated_at) ? d : p.updated_at
+}
+
+/**
+ * Lo pedido, en una línea: «Fenisona 50 mg × 2 · Paracetamol 500 mg × 1».
+ *
+ * La dosis va pegada al nombre porque así se lee en el cajón de Farmacia. Un renglón cuyo
+ * medicamento no se pudo leer (RLS) no se nombra: «Medicamento × 2» diría que se pidió algo que se
+ * llama así. El producto en investigación no es un renglón —va con `includes_ip` (0071)— y se suma
+ * al final con su nombre de siempre.
+ */
+export function medicacionEnUnaLinea(
+  items: readonly { quantity: number; medication: { name: string; dosis: string | null } | null }[],
+  incluyeIp: boolean,
+): string {
+  const partes = items
+    .filter((i) => i.medication)
+    .map((i) => `${i.medication!.name}${i.medication!.dosis ? ` ${i.medication!.dosis}` : ''} × ${i.quantity}`)
+  if (incluyeIp) partes.push('Producto de investigación')
+  return partes.join(' · ')
+}
+
+/** Los cuatro pasos de la tarjeta fija, en orden. Rechazada y cancelada no son pasos: son salidas. */
+export const PASOS_DEL_PEDIDO = ['solicitada', 'preparando', 'lista', 'entregada'] as const
+export type PasoDelPedido = (typeof PASOS_DEL_PEDIDO)[number]
+
+/** En qué paso está (índice de `PASOS_DEL_PEDIDO`). `null` para rechazada y cancelada. */
+export function pasoActual(p: PedidoAviso): number | null {
+  const i = (PASOS_DEL_PEDIDO as readonly string[]).indexOf(estadoDe(p))
+  return i < 0 ? null : i
+}
+
+/**
+ * La hora de cada paso, o `null` si el paso no llegó (la tarjeta dibuja «—»).
+ *
+ * Todas salen de columnas reales, y NINGUNA se completa a ojo:
+ *   · Solicitada → `created_at`.
+ *   · Preparando → `preparation_started_at` (0054). Un pedido que saltó de solicitada a lista sin
+ *     esa marca —no debería, pero hay filas anteriores a la 0054— deja el paso en «—» aunque ya se
+ *     haya pasado: una barra llena sin hora es honesta; una hora inventada, no.
+ *   · Lista → la última transición de la dispensación mientras ESTÁ lista (`ultimoMovimiento`). Una
+ *     vez entregada esa hora se pisa, pero para entonces la tarjeta fija ya no existe.
+ *   · Entregada → `delivered_at`.
+ */
+export function horasDePasos(p: PedidoAviso): (string | null)[] {
+  const paso = pasoActual(p) ?? -1
+  return [
+    p.created_at,
+    paso >= 1 ? p.preparation_started_at : null,
+    paso === 2 ? ultimoMovimiento(p) : null,
+    paso >= 3 ? p.delivered_at : null,
+  ]
+}
+
+/**
+ * El mensaje del pie de la tarjeta fija. Sólo para los tres estados en los que la tarjeta existe.
+ * «Preparando» nombra a quien lo prepara si se sabe (0121); si no, dice «Farmacia» y no inventa.
+ */
+export function mensajeDeEstado(p: PedidoAviso): string {
+  switch (estadoDe(p)) {
+    case 'solicitada': return 'Farmacia recibió el pedido.'
+    case 'preparando': return `${p.prepared_by_name ?? 'Farmacia'} está preparando la medicación.`
+    case 'lista': return 'Ya podés retirarla en farmacia.'
+    case 'entregada': return 'Se entregó y pasó a Dispensaciones.'
+    case 'rechazada': return 'Farmacia rechazó el pedido.'
+    case 'cancelada': return 'El pedido se canceló.'
+  }
 }
 
 /**
@@ -151,7 +233,7 @@ export function pedidosVigentes(pedidos: readonly PedidoAviso[], hoy: string): P
   return pedidos.filter((p) => {
     const estado = estadoDe(p)
     if (estado === 'solicitada' || estado === 'preparando' || estado === 'lista') return true
-    return isoDayAR(p.updated_at) === hoy
+    return isoDayAR(ultimoMovimiento(p)) === hoy
   })
 }
 
