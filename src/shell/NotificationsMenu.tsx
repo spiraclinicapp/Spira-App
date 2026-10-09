@@ -19,7 +19,7 @@ import { priorizarAlertas } from '../views/visitRules'
 import { VisitDetail } from '../views/track/VisitDetail'
 import { DESTINO_PENDIENTES, nombreDeDestino } from '../views/resumen/destinos'
 import {
-  agruparPorDia, claseDeAlerta, momentoDe, momentoDeVisita, motivoDeAlerta, motivoDeIp, motivoDeReporte,
+  agruparPorDia, claseDeAlerta, recortarPorGravedad, momentoDe, momentoDeVisita, motivoDeAlerta, motivoDeIp, motivoDeReporte,
   textoDePildora, tonoDeNoLeidas,
 } from './notificaciones'
 import { guardarLeidas, leerLeidas, marcar, noLeidas, reconciliar } from './leidas'
@@ -173,17 +173,18 @@ export function NotificationsMenu({
   const count = todasLasVisitas.length + todosLosReportes.length + todosLosIp.length
 
   /* ┌─ EL RECORTE ELIGE POR GRAVEDAD; EL LISTADO ORDENA POR FECHA ─────────────────────────────┐
-     El panel muestra hasta 10 alertas clínicas. Cuáles entran lo decide la gravedad, como en el
-     v1: el IP sin entregar primero (un kit que no llegó), después los reportes, después las de
-     visita ordenadas por `priorizarAlertas` (con test) — así una ventana vencida de hace dos semanas
-     nunca queda afuera por diez pendientes más nuevos. Una vez elegidas, el handoff v2 las ordena
-     por fecha y las agrupa por día (D3). El pie dice cuántas quedaron afuera.
+     El panel muestra hasta 10 alertas clínicas. Cuáles entran lo decide la gravedad
+     (`recortarPorGravedad`, con test): el IP sin entregar, las de visita por `priorizarAlertas` y
+     los reportes al final — así una ventana vencida de hace dos semanas nunca queda afuera por diez
+     reportes. Una vez elegidas, el handoff v2 las ordena por fecha y las agrupa por día (D3). El pie
+     dice cuántas quedaron afuera.
      El punto de la campana y la píldora no se recortan: cuentan TODAS.
      └──────────────────────────────────────────────────────────────────────────────────────────┘ */
-  const ipRows = todosLosIp.slice(0, MAX_NOTIFICACIONES)
-  const procRows = todosLosReportes.slice(0, MAX_NOTIFICACIONES - ipRows.length)
-  const rows = priorizarAlertas(todasLasVisitas).slice(0, MAX_NOTIFICACIONES - ipRows.length - procRows.length)
-  const ocultas = count - ipRows.length - procRows.length - rows.length
+  const recorte = recortarPorGravedad(todosLosIp, priorizarAlertas(todasLasVisitas), todosLosReportes, MAX_NOTIFICACIONES)
+  const ipRows = recorte.ips
+  const procRows = recorte.reportes
+  const rows = recorte.visitas
+  const ocultas = recorte.ocultas
 
   const puedeCoordinar = isAllowed('track')
 
