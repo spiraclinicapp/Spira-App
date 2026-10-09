@@ -35,6 +35,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.103', text: 'Las notificaciones se ordenan por día, avisan desde la campana y siguen tu dispensación paso a paso.' },
     { version: '0.102', text: 'Estadísticas muestra cuánto dura cada visita de cada estudio, y el Resumen suma «Sólo lo mío».' },
     { version: '0.101', text: '«Ver» abre los documentos dentro de Spira, y una entrega ya hecha se corrige con motivo.' },
     { version: '0.100', text: 'Coordinación suma Reportes, un paciente por fila, y el Resumen deja moverlos ahí mismo.' },
