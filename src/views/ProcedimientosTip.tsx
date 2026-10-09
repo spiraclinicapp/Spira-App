@@ -10,8 +10,9 @@ import type { ItemDeVisita } from './track/resumenVisita'
    El listado de procedimientos que se abre al APUNTAR el conteo de la tira.
 
    ── NO ES UN BOTÓN, y por eso no se disfraza de uno ──
-   El conteo se subraya con puntitos y toma `cursor: help`; sin chevrón y sin cápsula, que es lo que
-   induce al clic. Mirar qué lleva la visita es una consulta, no una acción: acá no se tilda nada ni
+   El conteo se subraya con puntitos; sin chevrón y sin cápsula, que es lo que induce al clic. El
+   cursor sí es la manito, porque el clic abre el listado (abajo); el `help` que tuvo hasta el
+   2026-10-09 lo sacó el Director. Mirar qué lleva la visita es una consulta, no una acción: acá no se tilda nada ni
    se abre nada. Por eso el listado tampoco muestra si el procedimiento está realizado — el tilde
    vive en «Reportes pendientes», y mostrarlo acá invitaría a tocarlo donde no se puede.
 
@@ -116,7 +117,7 @@ function Leyenda({ children }: { children: React.ReactNode }) {
 const disparador: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6,
   fontSize: 12.5, fontWeight: 600, color: 'var(--spira-ink)', whiteSpace: 'nowrap',
-  cursor: 'help',
+  cursor: 'pointer',
 }
 
 const panel: CSSProperties = {

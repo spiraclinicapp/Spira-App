@@ -142,7 +142,7 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
                   className="spira-termino"
                   title={ayuda}
                   /* `inline-block` + `maxWidth` y NO `block`: en bloque la caja ocupa los 480 px de
-                     la columna, así que el `cursor: help` aparecía sobre el espacio vacío a la
+                     la columna, así que el `title` aparecía sobre el espacio vacío a la
                      derecha de la palabra — una pista de ayuda flotando sobre la nada. Así abraza
                      el texto y sigue recortando si el rótulo no entra. */
                   style={{ ...tituloTexto, color: codigoColor, maxWidth: '100%', verticalAlign: 'bottom' }}
@@ -154,9 +154,10 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
               )}
               {/* El día lleva `title` y NO subrayado: se repite en cada renglón, y marcar los
                   siete volvería la columna un texto resaltado. La explicación está cuando se la
-                  busca; la señal se gasta donde rinde. */}
+                  busca; la señal se gasta donde rinde. Sin cursor propio: hereda el de la fila,
+                  que es la manito si la fila abre la visita y la flecha si no. */}
               {vent != null && (
-                <div title={GLOSARIO.dia} style={{ fontSize: 11.5, color: 'var(--spira-muted)', marginTop: 1, cursor: 'help', width: 'fit-content' }}>
+                <div title={GLOSARIO.dia} style={{ fontSize: 11.5, color: 'var(--spira-muted)', marginTop: 1, width: 'fit-content' }}>
                   {vent}
                 </div>
               )}

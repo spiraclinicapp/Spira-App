@@ -8,7 +8,7 @@ import type { ClaveGlosario } from '../lib/glosario'
  * ES UN `<abbr>` Y NO UN `<span>` CON `title`: es la etiqueta que HTML tiene para un término con
  * expansión, y con ella el lector de pantalla anuncia la definición sin que haya que agregar un
  * `aria-label` que repita el `title` (dos textos para lo mismo se desincronizan solos). El
- * subrayado punteado y el `cursor: help` viven en `.spira-termino`, en tokens.css.
+ * subrayado punteado y el cursor viven en `.spira-termino`, en tokens.css.
  *
  * SE USA CON MEDIDA. La regla es: se marca el término la primera vez que aparece en un bloque, no
  * cada vez que se repite. Subrayar los quince IVRS de una lista no enseña nada —la definición es la

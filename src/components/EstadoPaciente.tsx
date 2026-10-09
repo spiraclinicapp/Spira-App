@@ -97,9 +97,13 @@ function Semaforo({ abierto, palabra, corta, forma, style }: {
       </span>
     )
   }
+  /* El punto y la etiqueta NO declaran cursor: lo heredan de la fila donde viven. En la tabla de
+     Pacientes la fila abre la ficha, así que el clic sobre el estado también la abre y la manito es
+     la verdad; donde la fila no abre nada, la fila ya dice `default`. Hasta el 2026-10-09 llevaban
+     `help`, que tapaba esa manito con una flecha y un signo de pregunta. */
   if (forma === 'etiqueta') {
     return (
-      <span title={palabra} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--spira-ink)', whiteSpace: 'nowrap', cursor: 'help', ...style }}>
+      <span title={palabra} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--spira-ink)', whiteSpace: 'nowrap', ...style }}>
         <Punto color={color} />{palabra}
       </span>
     )
@@ -111,7 +115,7 @@ function Semaforo({ abierto, palabra, corta, forma, style }: {
       role="img"
       aria-label={palabra}
       title={palabra}
-      style={{ display: 'grid', placeItems: 'center', width: 16, height: 16, flex: '0 0 auto', cursor: 'help', ...style }}
+      style={{ display: 'grid', placeItems: 'center', width: 16, height: 16, flex: '0 0 auto', ...style }}
     >
       <Punto color={color} />
     </span>
