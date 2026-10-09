@@ -237,6 +237,35 @@ export function textoDePildora(n: number): string {
    ══════════════════════════════════════════════════════════════════════════════════════════════ */
 
 /**
+ * Qué alertas clínicas entran en el panel cuando no entran todas.
+ *
+ * EL ORDEN ES LA REGLA: primero el IP sin entregar (un kit que no le llegó a un paciente, decisión del
+ * v1), después las de visita ya ordenadas por gravedad (`priorizarAlertas`, que el llamador aplica) y
+ * los reportes AL FINAL, que es su lugar en la escala de gravedad de toda la campana (`tonoDelPunto`).
+ *
+ * Hasta el 2026-10-09 los reportes iban antes que las visitas, y en producción eso vaciaba el panel
+ * de alertas de visita: con 24 reportes pendientes, los diez lugares se los llevaban reportes de hace
+ * uno a cuatro meses y las 15 alertas de visita —ventanas vencidas incluidas— quedaban detrás de
+ * «Ver las 29 restantes». Se vio en el QA logueado del v2, no en un test: el test no existía.
+ */
+export function recortarPorGravedad<I, V, R>(
+  ips: readonly I[],
+  visitasPriorizadas: readonly V[],
+  reportes: readonly R[],
+  max: number,
+): { ips: I[]; visitas: V[]; reportes: R[]; ocultas: number } {
+  const i = ips.slice(0, max)
+  const v = visitasPriorizadas.slice(0, max - i.length)
+  const r = reportes.slice(0, max - i.length - v.length)
+  return {
+    ips: i,
+    visitas: v,
+    reportes: r,
+    ocultas: ips.length + visitasPriorizadas.length + reportes.length - i.length - v.length - r.length,
+  }
+}
+
+/**
  * Todo lo que puede ser una tarjeta: las cinco clases clínicas más las tres de Farmacia.
  *
  * El handoff modela cuatro tipos («reporte», «ventana», «vencido», «disp»). Acá hay ocho, porque la

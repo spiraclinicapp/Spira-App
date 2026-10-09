@@ -20,7 +20,7 @@ las reglas: la píldora sigue contando lo mismo que Pendientes.
 |---|---|---|
 | D1 | **Leídas en el navegador** (`localStorage`, por usuario). La primera vez, todo lo existente cuenta como leído. | Es una comodidad de quien mira, no un dato auditable; sin migración ni RLS. Costo: no se sincroniza entre dispositivos. |
 | D2 | **Los avisos de pedidos pasan a la campana** (6 s, reemplaza). Se borra `AvisosDePedidos` (abajo a la derecha, 30 s). | Los 30 s existían porque el popup era el único rastro. Ahora el punto queda prendido como «no leído» y la tarjeta sigue en el panel. |
-| D3 | **El recorte de 10 elige por gravedad; el listado ordena por fecha.** | Una ventana vencida vieja nunca queda afuera por diez pendientes nuevos (regla de `priorizarAlertas`). |
+| D3 | **El recorte de 10 elige por gravedad; el listado ordena por fecha.** Orden del recorte: IP sin entregar → visitas (`priorizarAlertas`) → reportes (`recortarPorGravedad`). | Una ventana vencida vieja nunca queda afuera por diez reportes. **Corregido el mismo 09** tras el QA logueado: el recorte heredado del v1 ponía los reportes antes que las visitas, y en prod el panel mostraba 10 reportes de hace 1-4 meses y ninguna de las 15 alertas de visita. |
 
 ## Desvíos del mock, con su porqué
 

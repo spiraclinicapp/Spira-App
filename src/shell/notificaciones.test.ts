@@ -7,6 +7,7 @@ import { GRAVEDAD, SEVERIDAD_TINTA } from '../views/alertSeverity'
 import {
   CLASES,
   claseDeAlerta,
+  recortarPorGravedad,
   fechaDeIp,
   fechaDeReporte,
   fechaDeVisita,
@@ -302,5 +303,39 @@ describe('textoDePildora', () => {
     // La píldora no se dibuja sin alertas; si alguien se olvidara de ocultarla, "0 pendientes"
     // anuncia trabajo donde no hay.
     expect(textoDePildora(0)).toBe('')
+  })
+})
+
+describe('recortarPorGravedad', () => {
+  const n = (prefijo: string, k: number) => Array.from({ length: k }, (_, i) => `${prefijo}${i}`)
+
+  /* El caso de producción del 2026-10-09: 24 reportes viejos y 15 alertas de visita. Con los
+     reportes primero, el panel mostraba diez reportes y ninguna visita. */
+  it('las alertas de visita entran antes que los reportes', () => {
+    const r = recortarPorGravedad([], n('v', 15), n('r', 24), 10)
+    expect(r.visitas).toHaveLength(10)
+    expect(r.reportes).toEqual([])
+    expect(r.ocultas).toBe(29)
+  })
+
+  it('el IP sin entregar sigue entrando primero', () => {
+    const r = recortarPorGravedad(n('ip', 2), n('v', 15), n('r', 24), 10)
+    expect(r.ips).toEqual(['ip0', 'ip1'])
+    expect(r.visitas).toEqual(n('v', 8))
+  })
+
+  it('respeta el orden de gravedad que le llega (no reordena las visitas)', () => {
+    const r = recortarPorGravedad([], ['ventana', 'no-vino', 'pendiente'], [], 2)
+    expect(r.visitas).toEqual(['ventana', 'no-vino'])
+  })
+
+  it('con lugar de sobra, los reportes completan el cupo', () => {
+    const r = recortarPorGravedad(n('ip', 1), n('v', 3), n('r', 24), 10)
+    expect(r.reportes).toEqual(n('r', 6))
+    expect(r.ocultas).toBe(18)
+  })
+
+  it('sin recorte, no oculta nada', () => {
+    expect(recortarPorGravedad(n('ip', 1), n('v', 2), n('r', 3), 10).ocultas).toBe(0)
   })
 })
