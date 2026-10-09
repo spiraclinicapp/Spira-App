@@ -84,9 +84,15 @@ export function CabeceraDeTarjeta({ icon, titulo, extra, color }: {
   color?: string
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <Icon name={icon} size={18} color={color ?? 'var(--spira-acc-deep-track)'} stroke={2} />
-      <span style={{ ...cardTitle, flex: 1, minWidth: 0 }}>{titulo}</span>
+    /* `flexWrap` + el título con su ancho natural como base: si el dato al margen (la barra de
+       Reportes) no entra al lado, BAJA DE RENGLÓN en vez de aplastar el título. Antes, a 900 px, la
+       caja de «Reportes pendientes» quedaba en 23 px y la barra le pasaba por encima. El ícono y el
+       título viajan juntos en su propio grupo para que el corte nunca los separe. */
+    <div style={{ display: 'flex', alignItems: 'center', columnGap: 10, rowGap: 8, flexWrap: 'wrap' }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 auto', minWidth: 0 }}>
+        <Icon name={icon} size={18} color={color ?? 'var(--spira-acc-deep-track)'} stroke={2} />
+        <span style={{ ...cardTitle, minWidth: 0 }}>{titulo}</span>
+      </span>
       {extra}
     </div>
   )

@@ -23,8 +23,9 @@ import { MODULES } from '../../modules/registry'
  * cruza contra el registry y contra las vistas realmente registradas.
  */
 
-/** Las cuatro tarjetas de cifras del Resumen de Coordinación, en el orden en que se muestran. */
-export type KpiKey = 'protocolos' | 'pacientes' | 'vencidos' | 'visitas'
+/** Las cuatro tarjetas de cifras del Resumen de Coordinación, en el orden en que se muestran. Desde el
+ *  2026-10-09 el día va primero y el censo último; «Protocolos activos» salió (ver la vista). */
+export type KpiKey = 'hoy' | 'vencidos' | 'visitas' | 'pacientes'
 
 export interface Destino {
   moduleKey: string
@@ -68,14 +69,16 @@ export const DESTINO_VISITAS: Destino = { moduleKey: 'track', subKey: 'visitas' 
 export const DESTINO_REPORTES: Destino = { moduleKey: 'track', subKey: 'reportes-pendientes' }
 
 export const KPI_DESTINOS: Record<KpiKey, Destino> = {
-  protocolos: { moduleKey: 'track', subKey: 'protocolos' },
-  pacientes: { moduleKey: 'track', subKey: 'protocolos' },
+  /* «Visitas de hoy» y «Próximas visitas» van a la MISMA pantalla: la primera sin fecha (Visitas abre
+     en hoy), la segunda con el día que cuenta, que la vista le pasa como objetivo de navegación. */
+  hoy: DESTINO_VISITAS,
   /* «Vencidos» (antes «Reportes vencidos», key 'reportes'): desde el 2026-10-08 cuenta TODO lo que
      lista Pendientes —ventanas vencidas, por reprogramar y fuera de plazo—, así que el número y su
      destino dicen lo mismo. La key cambió con el rótulo para no dejar un 'reportes' que ya no cuenta
      reportes, al lado de la key 'reportes' de Estadísticas. */
   vencidos: DESTINO_PENDIENTES,
   visitas: DESTINO_VISITAS,
+  pacientes: { moduleKey: 'track', subKey: 'protocolos' },
 }
 
 /**

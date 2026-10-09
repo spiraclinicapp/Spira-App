@@ -12,7 +12,8 @@ import { proximoDiaConVisitas } from './resumen/proximoDia'
 import { personaActiva } from '../lib/inscripcion'
 import { AMBITOS, esMiaSinAtender, esDeMisProtocolos, esReporteMio, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
 import type { Ambito } from './resumen/ambito'
-import { useProtocols, useMyCoordinations } from '../data/protocols'
+import { useMyCoordinations } from '../data/protocols'
+import { useVisitsForDay } from '../data/dayVisits'
 import { usePatients } from '../data/patients'
 import { useUpcomingVisits } from '../data/visits'
 import { useActiveAlerts } from '../data/alertDismissals'
@@ -41,7 +42,7 @@ import { useAbrirFicha } from './useAbrirFicha'
 import { VisitDetail } from './track/VisitDetail'
 import { useUrlEntity, useUrlState } from '../lib/useUrlState'
 import { oneOf } from '../lib/router'
-import type { ViewProps } from './types'
+import type { NavTarget, ViewProps } from './types'
 
 /** El punto de color de una fila plana: sustituye a la superficie teñida como marca de severidad. */
 function Punto({ color }: { color: string }) {
@@ -61,7 +62,7 @@ function Punto({ color }: { color: string }) {
  * `cargando` muestra un guión en vez del número: la tarjeta ocupa su lugar desde el primer render y
  * no salta cuando llega el dato. Mostrar 0 mientras carga sería mentir con un número.
  */
-function KpiCard({ label, value, sub, dot, cargando, kpi, onNavigate }: {
+function KpiCard({ label, value, sub, dot, cargando, kpi, onNavigate, target }: {
   label: string
   value: number
   sub: string
@@ -69,6 +70,9 @@ function KpiCard({ label, value, sub, dot, cargando, kpi, onNavigate }: {
   cargando?: boolean
   kpi: KpiKey
   onNavigate?: ViewProps['onNavigate']
+  /** Qué abrir al llegar (p. ej. el día de «Próximas visitas»). Sin él, el destino abre en su estado
+   *  por defecto — Visitas, en hoy. */
+  target?: NavTarget
 }) {
   const destino = KPI_DESTINOS[kpi]
   const nombre = nombreDeDestino(destino)
@@ -76,7 +80,7 @@ function KpiCard({ label, value, sub, dot, cargando, kpi, onNavigate }: {
      chip. Es el mismo criterio que `PatientLink` sin `onOpen` — un botón que no hace nada es peor
      que no tener botón, y un chip que nombre un lugar inexistente es peor todavía. */
   const navega = onNavigate && nombre !== null
-  const ir = () => { if (navega) onNavigate(destino.moduleKey, destino.subKey) }
+  const ir = () => { if (navega) onNavigate(destino.moduleKey, destino.subKey, target) }
 
   return (
     <div
@@ -544,9 +548,11 @@ function SolicitudRow({ s, primera, onOpenVisit, onOpenPatient }: {
  */
 export function TrackResumenView({ module, submodule, onNavigate, setHeader }: ViewProps) {
   const accent = module.accent
-  const protocols = useProtocols()
   const patients = usePatients()
   const upcoming = useUpcomingVisits()
+  /* Las visitas de HOY, con la misma consulta que la pantalla Visitas (`useVisitsForDay`): el KPI
+     tiene que contar lo mismo que muestra su destino, y Visitas abre en hoy. */
+  const hoy = useVisitsForDay(todayISO())
   const alerts = useActiveAlerts()
   const solicitudes = useSolicitudesPendientes()
   const reportes = useReportesPendientes()
@@ -637,12 +643,11 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
      `coordinaciones.data` queda `null` y `misProtocolos` cae al mismo vacío que con loading —
      `ambitoEfectivo` ya degrada solo a "todo", que es la dirección segura, sin que haga falta
      gatear nada. */
-  const cargandoKpis = protocols.loading || patients.loading || upcoming.loading || alerts.loading || coordinaciones.loading
+  const cargandoKpis = hoy.loading || patients.loading || upcoming.loading || alerts.loading || coordinaciones.loading
 
-  /* Los KPIs de protocolos y pacientes NO se filtran, y no es un olvido: ya vienen scopeados por
-     RLS (policies "ver protocolos asignados" 0006:92 y "ver pacientes de mis protocolos" 0006:128),
-     y además un protocolo no se "atiende" — no tiene versión "lo que yo hice". */
-  const allProtocols = protocols.data ?? []
+  /* El KPI de pacientes NO se filtra, y no es un olvido: ya viene scopeado por RLS (policy "ver
+     pacientes de mis protocolos" 0006:128), y un paciente no se "atiende" — no tiene versión "lo que
+     yo hice". */
   const allPatients = patients.data ?? []
 
   /* Las cuatro listas del mosaico, cada una con SU definición de "mío" (spec, D2). El ámbito manda
@@ -651,6 +656,10 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
   /* Próximas visitas usa `esDeMisProtocolos` a secas: son futuras, así que ninguna tiene
      coordinador todavía y no hay nada más fino que preguntar. */
   const upcomingRows = filtrarPorAmbito(ambitoEfectivo, upcoming.data ?? [], (v) =>
+    esDeMisProtocolos(v, misProtocolos))
+  /* Las de hoy, con el mismo criterio que las próximas: por protocolo, porque una visita de hoy que
+     todavía no llegó tampoco tiene coordinador. */
+  const hoyRows = filtrarPorAmbito(ambitoEfectivo, hoy.data ?? [], (v) =>
     esDeMisProtocolos(v, misProtocolos))
   /* Alertas usa `esMiaSinAtender` y NO `loAtendiYo` a secas —la única de las cuatro que se aparta—
      porque la alerta más grave (ventana vencida) exige `real_date is null` (0102) y `real_date`
@@ -688,7 +697,6 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
       ? <VacioDelAmbito texto={texto} onVerTodo={() => setAmbito('todo')} />
       : undefined
 
-  const activeProtocols = allProtocols.filter((p) => p.status === 'activo').length
   /* Mismo criterio que Inicio: personas con alguna participación abierta (0127). */
   const activePatients = allPatients.filter(personaActiva).length
   /* EL KPI «VENCIDOS» CUENTA LO MISMO QUE LA TARJETA PENDIENTES Y LLEVA AHÍ (critique 2026-10-08,
@@ -749,17 +757,44 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
      grande y su subtítulo tienen que contar lo mismo. Y usa `loAtendiYo`, que YA tiene la guarda
      del `userId` nulo y su test; escribir `=== userId` a mano acá reintroduce el bug de declarar
      tuyas todas las visitas sin coordinador durante el render en que la sesión no resolvió. */
-  const asignadasAMi = upcomingRows.filter((v) => loAtendiYo(v, userId)).length
+  const asignadasAMi = visitasDelProximoDia.filter((v) => loAtendiYo(v, userId)).length
+
+  /* ┌─ LA FILA DE KPI MIRA EL DÍA (critique 2026-10-08, P2; decisión del Director 2026-10-09) ─────┐
+     Antes: Protocolos activos · Pacientes activos · Reportes vencidos · Próximas visitas. Los dos
+     primeros eran CENSO —números que no cambian en el día y no se accionan— y se llevaban el mejor
+     lugar de una pantalla que se llama «Cómo viene el día», mientras que ninguna cifra decía nada de
+     HOY. Ahora el día va primero y el censo último; «Protocolos activos» sale (vive en Estudios y
+     pacientes, a un clic).
+
+     «Visitas de hoy» cuenta lo mismo que la pantalla Visitas abierta en hoy, y su subtítulo dice en
+     qué anda la jornada: cuántos están en el centro, o cuántos faltan llegar. Las etapas salen de
+     `operational_stage` (0068), derivada de las marcas: no se infiere nada que no esté registrado.
+
+     «Próximas visitas» cuenta EL PRÓXIMO DÍA CON VISITAS, no los siete. Antes decía «3 · próximos 7
+     días» y llevaba a Visitas de hoy, donde esas tres no estaban: no hay pantalla que junte una
+     semana (la Agenda no está en el menú). Ahora cuenta el mismo día que la tarjeta de abajo y lleva
+     a Visitas CON ESE DÍA puesto, que es lo que ya hacía el pie de la tarjeta: número y destino dicen
+     lo mismo. Las «asignadas a mí» se cuentan sobre ese mismo día por la misma razón.
+     └──────────────────────────────────────────────────────────────────────────────────────────────┘ */
+  const enCentro = hoyRows.filter((v) =>
+    v.operational_stage === 'concurrio_al_centro' || v.operational_stage === 'inicio_atencion').length
+  const porLlegar = hoyRows.filter((v) => v.operational_stage === 'por_llegar' && !v.no_show_at).length
+  const subHoy = enCentro > 0
+    ? `${enCentro} en el centro`
+    : porLlegar > 0 ? `${porLlegar} por llegar` : hoyRows.length > 0 ? 'ninguna en curso' : 'sin visitas hoy'
+  const subProximas = proximoDia
+    ? (asignadasAMi > 0 ? `${dayLabel(proximoDia)} · ${asignadasAMi} a mí` : dayLabel(proximoDia))
+    : 'nada en 7 días'
 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* KPIs — los cuatro navegan a su submódulo (D8). El rótulo del chip sale del registry. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
-        <KpiCard kpi="protocolos" onNavigate={onNavigate} label="Protocolos activos" value={activeProtocols} sub={`${allProtocols.length} en total`} dot={accent} cargando={cargandoKpis} />
-        <KpiCard kpi="pacientes" onNavigate={onNavigate} label="Pacientes activos" value={activePatients} sub={`${allPatients.length} registrados`} dot={accent} cargando={cargandoKpis} />
+        <KpiCard kpi="hoy" onNavigate={onNavigate} label="Visitas de hoy" value={hoyRows.length} sub={subHoy} dot={accent} cargando={cargandoKpis} />
         <KpiCard kpi="vencidos" onNavigate={onNavigate} label="Vencidos" value={vencidos} sub={subVencidos} dot={peorVencido ? VISIT_STATES[peorVencido].color : accent} cargando={cargandoKpis} />
-        <KpiCard kpi="visitas" onNavigate={onNavigate} label="Próximas visitas" value={upcomingRows.length} sub={asignadasAMi > 0 ? `${asignadasAMi} ${asignadasAMi === 1 ? 'asignada' : 'asignadas'} a mí` : 'próximos 7 días'} dot={accent} cargando={cargandoKpis} />
+        <KpiCard kpi="visitas" onNavigate={onNavigate} target={proximoDia ? { visitDate: proximoDia } : undefined} label="Próximas visitas" value={visitasDelProximoDia.length} sub={subProximas} dot={accent} cargando={cargandoKpis} />
+        <KpiCard kpi="pacientes" onNavigate={onNavigate} label="Pacientes activos" value={activePatients} sub={`${allPatients.length} registrados`} dot={accent} cargando={cargandoKpis} />
       </div>
 
       {/*
@@ -809,7 +844,13 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
         `align-items: start` para que ninguna columna estire sus tarjetas al alto de la otra: sin
         eso, una tarjeta de dos renglones al lado de una lista larga se dibuja con un vacío enorme.
       */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
+      {/* DOS COLUMNAS QUE SE APILAN, no dos columnas fijas (critique 2026-10-08, P2). Con '1fr 1fr'
+          las columnas seguían partiéndose al medio en una tablet: a 900 px de ventana medían ~275 px y
+          el nombre del paciente quedaba en «R.» mientras el IVRS conservaba su ancho — volver de hecho
+          a las iniciales que PRODUCT.md prohíbe. Por debajo de 380 px por columna (≈1110 px de ventana
+          con el menú abierto) pasan a una sola, con el eje de la izquierda —lo que hay que cerrar—
+          primero. El `min(…, 100%)` evita que una ventana más angosta que 380 desborde. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: 14, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
           <ReportesCard
             rows={reporteRows}
@@ -928,6 +969,12 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
   )
 }
 
+/** IVRS y protocolo en el titular de Pendientes: se recortan con puntos, sin partirse en dos renglones
+ *  («·» arriba, «222714» abajo), y ceden ancho antes que el nombre. Ver el comentario de la fila. */
+const secundarioQueCede: CSSProperties = {
+  minWidth: 0, flexShrink: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+}
+
 /** Alertas vigentes: cabecera teñida por la PEOR presente, filas planas con punto de severidad. */
 function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenPatient, onVerTodo, nombreDestino, titulo, vacioDelAmbito }: {
   rows: TrackVisitRow[]
@@ -1003,18 +1050,23 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
                   punto={<Punto color={c} />}
                   titular={
                     <>
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                      {/* EL NOMBRE CEDE ÚLTIMO. Antes era el único con `minWidth: 0`, así que absorbía
+                          todo el recorte de una fila angosta (el gotcha «el nombre a cero en un flex
+                          apretado»): «Rosa del Carmen Ríos» quedaba en «R.» con el IVRS entero al lado.
+                          Ahora IVRS y protocolo también pueden recortarse y lo hacen cuatro veces más
+                          rápido (`flexShrink: 4`): la identidad primaria es el nombre (PRODUCT.md §5). */}
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, flexShrink: 1 }}>
                         <PatientLink onOpen={onOpenPatient && (() => onOpenPatient(a.patient_id, a.protocol_id))} label={`Abrir la ficha de ${a.patient_name}`}>
                           {a.patient_name}
                         </PatientLink>
                       </span>
-                      <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 400 }}>
+                      <span className="spira-mono" style={{ ...secundarioQueCede, fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 400 }}>
                         {a.patient_code
                           ? <PatientLink onOpen={onOpenPatient && (() => onOpenPatient(a.patient_id, a.protocol_id))} label={`Abrir la ficha del sujeto ${a.patient_code}`}>{a.patient_code}</PatientLink>
                           : '—'}
                       </span>
                       {onOpenPatient && <PatientLinkArrow />}
-                      <span style={{ color: 'var(--spira-muted)', fontWeight: 400 }}>· <span className="spira-mono" style={{ fontSize: 12.5 }}>{a.protocol_code}</span></span>
+                      <span style={{ ...secundarioQueCede, color: 'var(--spira-muted)', fontWeight: 400 }}>· <span className="spira-mono" style={{ fontSize: 12.5 }}>{a.protocol_code}</span></span>
                     </>
                   }
                   detalle={motivo}

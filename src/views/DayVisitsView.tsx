@@ -167,10 +167,18 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
      a la lista del día en vez de a la pantalla desde la que se navegó. Se consume una sola vez, haya
      o no visita que abrir, para que un refetch no la reabra sola (mismo criterio que la ficha en
      ProtocolsView). Si no aparece, el usuario queda igual en la lista del día: no inventamos un
-     detalle que no encontramos. */
+     detalle que no encontramos.
+
+     Y LLEGADA CON SÓLO UN DÍA, sin visita (2026-10-09). El efecto arrancaba con
+     `if (!navTarget?.visitId) return`, así que un objetivo `{ visitDate }` a secas se descartaba en
+     silencio y la pantalla abría en hoy. Lo mandan tres lugares que prometen un día: el KPI y el pie
+     de «Próximas visitas» del Resumen («Miércoles 14/10») y el «volver» que esta misma vista arma
+     para regresar al día que estabas mirando. Ninguno fallaba a la vista: llegabas a Visitas, sólo
+     que a otro día. Ahora salta al día y se consume ahí. */
   useEffect(() => {
-    if (!navTarget?.visitId) return
+    if (!navTarget || (!navTarget.visitId && !navTarget.visitDate)) return
     if (navTarget.visitDate && navTarget.visitDate !== date) { setDate(navTarget.visitDate); return }
+    if (!navTarget.visitId) { onTargetConsumed?.(); return }
     if (day.loading) return
     const target = (day.data ?? []).find((r) => r.id === navTarget.visitId)
     if (target) moveOpenVisit(target)
