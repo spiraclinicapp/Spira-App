@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spira · Notificaciones — rediseño de la campana</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{--ink:#14302E;--primary:#0F5F57;--paper:#F4F1EA;--surface:#FBFAF6;--white:#fff;--muted:#61706C;--faint:#838C89;--line:#E4DECF;--line2:#D8CBB0;--danger:#A6483B;--good:#5C8A5A;--on-accent:#F4F1EA;--fdisp:'Schibsted Grotesk',system-ui,sans-serif;--ftext:'Inter',system-ui,sans-serif;--sh-md:0 14px 34px rgba(20,48,46,.14);--sh-sm:0 1px 2px rgba(20,48,46,.06)}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+html,body{margin:0}
+body{font-family:var(--ftext);color:var(--ink);background:var(--paper);font-size:14px}
+button{font-family:inherit}
+.mono{font-variant-numeric:tabular-nums}
+.page{max-width:900px;margin:0 auto;padding:40px 28px 90px}
+.intro h1{font-family:var(--fdisp);font-weight:700;font-size:23px;letter-spacing:-.02em;margin:0 0 6px}
+.intro p{font-size:13.5px;color:var(--muted);line-height:1.55;margin:0 0 26px;max-width:620px}
+.picker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.picker button{height:34px;padding:0 15px;border-radius:99px;border:1px solid var(--line2);background:var(--white);color:var(--muted);font-weight:600;font-size:13px;cursor:pointer}
+.picker button.on{border-color:var(--primary);color:var(--primary);background:rgba(15,95,87,.08)}
+.stage{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:60px 40px 40px;min-height:600px;display:flex;justify-content:flex-end;position:relative;overflow:visible}
+.topbar-mock{position:absolute;top:16px;left:16px;right:16px;height:56px;display:flex;align-items:center;gap:10px;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:0 14px}
+.topbar-mock .fill{flex:1}
+.search-mock{height:34px;padding:0 12px;border:1px solid var(--line2);border-radius:8px;background:var(--surface);color:var(--faint);font-size:13px;display:flex;align-items:center;gap:8px;width:200px}
+.avatar-mock{width:30px;height:30px;border-radius:50%;background:var(--primary);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:11.5px;font-family:var(--fdisp)}
+.notif-wrap{position:relative;display:flex;align-items:center}
+.bell-btn{position:relative;flex:0 0 auto;width:38px;height:38px;border-radius:10px;border:none;background:transparent;cursor:pointer;display:grid;place-items:center;color:var(--ink)}
+.bell-btn:hover{background:var(--surface)}
+.badge{position:absolute;border-radius:999px;background:var(--danger);color:#fff;font-family:var(--ftext);font-weight:700;display:grid;place-items:center;box-sizing:content-box;line-height:1}
+.bell-btn.b1 .badge{top:1px;right:0;min-width:14px;height:14px;padding:0 3px;font-size:9.5px;border:1.5px solid var(--white)}
+.bell-btn.b2 .badge{top:0;right:-1px;min-width:16px;height:16px;padding:0 4px;font-size:10.5px;border:2px solid var(--white)}
+.bell-btn.b3 .badge{top:-2px;right:-3px;min-width:18px;height:18px;padding:0 5px;font-size:11.5px;border:2px solid var(--white)}
+.bell-btn.b4 .badge{top:5px;right:4px;min-width:8px;height:8px;padding:0;font-size:0;border:2px solid var(--white)}
+.bell-btn.b5 .badge{top:5px;right:4px;min-width:8px;height:8px;padding:0;font-size:0;border:2px solid var(--white)}
+.bell-btn.b5 .badge::after{content:"";position:absolute;inset:-2px;border-radius:999px;border:1.5px solid var(--danger);animation:pulse 2s cubic-bezier(.2,.7,.4,1) infinite}
+@keyframes pulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(2.4);opacity:0}100%{transform:scale(2.4);opacity:0}}
+.bell-btn.b6{width:auto;padding:0 9px 0 7px;display:flex;gap:7px;place-items:center}
+.bell-btn.b6 .badge{position:static;min-width:0;height:17px;padding:0 7px;font-size:11px;border:none;color:var(--danger);background:rgba(166,72,59,.12)}
+.bell-btn.b7{background:rgba(166,72,59,.1)}
+.bell-btn.b7:hover{background:rgba(166,72,59,.16)}
+.bell-btn.b7 svg path{stroke:var(--danger)}
+.bell-btn.b7 .badge{display:none!important}
+.bell-btn.b8 .badge{top:0;right:-1px;min-width:16px;height:16px;padding:0 4px;border-radius:5px;font-size:10.5px;border:2px solid var(--white)}
+@media(prefers-reduced-motion:reduce){.bell-btn.b5 .badge::after{animation:none;opacity:.4}}
+.panel{position:absolute;top:calc(100% + 8px);right:0;width:440px;max-height:520px;z-index:20;display:flex;flex-direction:column;background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh-md);overflow:hidden;transform-origin:top right;opacity:0;transform:scale(.95) translateY(-8px);pointer-events:none;transition:opacity .16s cubic-bezier(.2,.8,.3,1),transform .19s cubic-bezier(.2,.8,.3,1)}
+.notif-wrap.open .panel{opacity:1;transform:none;pointer-events:auto}
+.notif-wrap.open .plist>.card{animation:cardIn .26s cubic-bezier(.2,.8,.3,1) both}
+@keyframes cardIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.panel{transition:none}.notif-wrap.open .plist>.card{animation:none}}
+.phead{display:flex;align-items:center;gap:9px;padding:13px 15px 11px}
+.phead .t{font-family:var(--fdisp);font-weight:700;font-size:15px}
+.cntpill{font-size:11.5px;font-weight:700;color:var(--danger);background:rgba(166,72,59,.10);border-radius:999px;padding:2px 8px;line-height:1.4;white-space:nowrap}
+.plist{border-top:1px solid var(--line);overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;max-height:420px}
+.card{position:relative;display:grid;align-items:center;flex:0 0 auto;background:var(--white);border:1px solid var(--line);border-radius:10px;cursor:pointer;transition:border-color .14s,background-color .14s,box-shadow .14s}
+.card>*{min-width:0;overflow:hidden}
+.card:hover{border-color:var(--line2);background:var(--surface);box-shadow:var(--sh-sm)}
+.card-a{grid-template-columns:32px 1fr 76px 22px;column-gap:11px;padding:11px 11px;min-height:66px}
+.card-b{grid-template-columns:1fr;padding:0;min-height:0}
+.card-b.delcell{grid-template-columns:1fr 36px;align-items:stretch}
+.card-b.delcell>.bwrap{min-width:0}
+.card-b .bhead{display:grid;grid-template-columns:auto 1fr 22px;align-items:center;column-gap:8px;padding:7px 11px;border-bottom:1px solid var(--line);background:rgba(15,95,87,.03);border-radius:9px 9px 0 0}
+.card-b .bhead .pproto{justify-self:start}
+.card-b .bhead .when{justify-self:end}
+.card-b .bbody{display:grid;grid-template-columns:28px 1fr;column-gap:11px;align-items:center;padding:10px 11px;min-width:0}
+.card-b .bbody>*{min-width:0}
+.card-c{grid-template-columns:28px 1fr 78px 22px;column-gap:10px;padding:9px 11px;min-height:58px}
+.card-c .colr{flex-direction:row;align-items:baseline;gap:7px}
+.card-c.delcell{grid-template-columns:28px 1fr 78px 36px;padding:0 0 0 11px}
+.ricon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center}
+.ricon.sm{width:28px;height:28px;border-radius:7px}
+.rbody{min-width:0}
+.plink{border:none;background:transparent;padding:0;margin:0;cursor:pointer;color:inherit;font:inherit;text-decoration:none;text-underline-offset:3px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom}
+.plink:hover,.plink:focus-visible{text-decoration:underline}
+.l1{display:flex;align-items:baseline;gap:8px;min-width:0;font-size:12px;line-height:1.3}
+.pname{color:var(--ink);font-weight:600;min-width:0}
+.pcode{color:var(--muted);font-weight:600;flex:0 0 auto}
+.l2{font-size:12px;color:var(--muted);line-height:1.35;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pproto{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;white-space:nowrap;justify-self:end}
+.when{font-size:11px;color:var(--faint);font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums;justify-self:end}
+.colr{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.rowdel{opacity:1;width:22px;height:22px;border-radius:50%;border:none;background:transparent;color:var(--faint);display:grid;place-items:center;cursor:pointer;transition:background-color .12s,color .12s;justify-self:end}
+.rowdel:hover{background:rgba(166,72,59,.12);color:var(--danger)}
+.rowdel.cell{width:100%;height:100%;border-radius:0;border-left:1px solid var(--line);justify-self:stretch;align-self:stretch}
+.card-a.delcell{grid-template-columns:32px 1fr 76px 36px;padding:0 0 0 11px;align-items:stretch}
+.card-a.delcell>.ricon{align-self:center}
+.card-a.delcell>.rbody,.card-a.delcell>.colr{align-self:center;padding:11px 0}
+.reasonpop{position:fixed;width:246px;background:var(--white);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh-md);z-index:200;padding:12px}
+.reasonpop .ctitle{font-family:var(--fdisp);font-weight:700;font-size:13.5px;color:var(--ink)}
+.reasonpop .ctext{font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:4px}
+.reasonpop .clbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:10px 0 4px}
+.reasonpop .copt{display:block;width:100%;text-align:left;border:1px solid transparent;background:transparent;padding:6px 8px;border-radius:7px;font-size:12px;color:var(--ink);cursor:pointer;font-family:var(--ftext)}
+.reasonpop .copt:hover{background:var(--surface)}
+.reasonpop .copt.sel{border-color:var(--primary);background:rgba(15,95,87,.07);font-weight:600;color:var(--primary)}
+.reasonpop .cfoot{display:flex;gap:6px;margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
+.reasonpop .cbtn{flex:1;height:30px;border-radius:8px;border:1px solid var(--line2);background:var(--white);color:var(--ink);font-family:var(--ftext);font-size:12.5px;font-weight:600;cursor:pointer}
+.reasonpop .cbtn:hover{background:var(--surface)}
+.reasonpop .cbtn.danger{border-color:var(--danger);background:var(--danger);color:#fff}
+.reasonpop .cbtn.danger:hover{filter:brightness(.94)}
+.reasonpop .cbtn[disabled]{opacity:.45;cursor:default;filter:none}
+.footersep{height:1px;background:var(--line);flex:0 0 auto}
+.footbtn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:12px;border:none;background:transparent;cursor:pointer;font-family:var(--ftext);font-size:13px;font-weight:600;color:var(--primary)}
+.footbtn:hover{background:var(--surface)}
+.empty{padding:30px 16px 34px;text-align:center}
+.empty .ic{display:inline-grid;place-items:center;width:42px;height:42px;border-radius:50%;background:rgba(92,138,90,.12);margin-bottom:10px}
+.empty .t1{font-size:14px;font-weight:600}
+.empty .t2{font-size:12.5px;color:var(--muted);margin-top:2px}
+.notes{margin-top:26px;background:var(--white);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.notes h2{font-family:var(--fdisp);font-size:14.5px;font-weight:700;margin:0 0 8px}
+.notes ul{margin:0;padding-left:18px;font-size:13px;color:var(--ink);line-height:1.6}
+.notes li{margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="intro">
+    <h1>Campana de notificaciones — 3 armados × 4 botones de eliminar</h1>
+    <p>Mismos tokens y tipografía de la app (Schibsted Grotesk + Inter, colores reales de <code>tokens.css</code>). Elegí el armado de la caja, el botón de eliminar y el tamaño del badge; probá la campana para ver la animación de despliegue.</p>
+  </div>
+  <div class="picker" id="picker">
+    <button class="on" data-v="A">A · Caja con columna de datos</button>
+    <button data-v="B">B · Caja con cabecera</button>
+    <button data-v="C">C · Caja tipo tabla</button>
+  </div>
+  <div class="picker" id="picker2">
+    <button data-d="1">1 · Cruz fina sin círculo</button>
+    <button class="on" data-d="2">2 · Tacho</button>
+    <button data-d="3">3 · Kebab</button>
+    <button data-d="4">4 · Celda propia con divisor</button>
+  </div>
+  <div class="picker" id="picker3">
+    <button data-b="1">Badge 14 px</button>
+    <button data-b="2">Badge 16 px</button>
+    <button data-b="3">Badge 18 px</button>
+    <button data-b="8">Cuadrado</button>
+    <button class="on" data-b="4">Solo punto</button>
+    <button data-b="5">Punto con pulso</button>
+    <button data-b="6">Contador al lado</button>
+    <button data-b="7">Campana teñida</button>
+  </div>
+  <div class="picker" id="picker4">
+    <button class="on" data-c="1">5 pendientes</button>
+    <button data-c="2">5 sin resolver</button>
+    <button data-c="3">Pendientes: 5</button>
+    <button data-c="4">Sin texto</button>
+  </div>
+  <div class="stage">
+    <div class="topbar-mock">
+      <div class="search-mock"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#838C89" stroke-width="1.8"/><path d="M20 20l-4-4" stroke="#838C89" stroke-width="1.8" stroke-linecap="round"/></svg>Buscar…</div>
+      <div class="fill"></div>
+      <div class="notif-wrap open" id="notifWrap">
+        <button class="bell-btn b4" id="bellBtn" title="Notificaciones">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14302E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="badge" id="badge"></span>
+        </button>
+        <div class="panel" id="panel">
+          <div class="phead"><span class="t">Notificaciones</span><span class="cntpill" id="cntpill"></span></div>
+          <div class="plist" id="list"></div>
+          <div class="footersep"></div>
+          <button class="footbtn" onclick="alert('Iría a Track › Alertas')">Ver todas las alertas
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="avatar-mock">SC</div>
+    </div>
+  </div>
+  <div class="notes">
+    <h2>Qué cambia respecto a la campana actual</h2>
+    <ul>
+      <li><b>Badge pegado a la campana</b> — antes quedaba flotando separado del ícono; ahora es un <code>&lt;span&gt;</code> posicionado absoluto dentro del propio botón.</li>
+      <li><b>Fila entera clickeable</b> — como en el resto de la app (<code>.spira-row-link</code>), no solo el nombre y el código. El nombre/código siguen siendo el <code>PatientLink</code> real por accesibilidad de teclado.</li>
+      <li><b>Fecha ya no se pisa con el código de protocolo</b> — se movió a la línea del motivo, alineada a la derecha, en vez de un tercer elemento flex apretado contra el nombre.</li>
+      <li><b>Eliminar</b> — el tacho abre un popup de confirmación con el motivo del descarte (obligatorio, los 5 del catálogo de <code>dismiss_alert</code>) y botones Cancelar / Descartar.</li>
+    </ul>
+  </div>
+</div>
+<script>
+const DATA = [
+  {id:1,kind:'reporte',patient:'María González',code:'032001500001',proto:'LTS17231',protoColor:'var(--primary)',reason:'Reporte pendiente — Electrocardiograma (ECG)',when:''},
+  {id:2,kind:'reporte',patient:'María González',code:'032001500002',proto:'LTS17231',protoColor:'var(--primary)',reason:'Reporte pendiente — Espirometría',when:''},
+  {id:3,kind:'ventana',patient:'Jorge Pelaitay',code:'032001500002',proto:'LTS17231',protoColor:'var(--primary)',reason:'V1 — Ventana vencida',when:'02 Jul 2026'},
+  {id:4,kind:'ventana',patient:'Jorge Pelaitay',code:'032001500001',proto:'ACT18301',protoColor:'var(--danger)',reason:'V18 — Ventana vencida',when:'13 Jul 2026'},
+  {id:5,kind:'reporte',patient:'Ana Torres',code:'032001500003',proto:'EFC18244',protoColor:'var(--danger)',reason:'Reporte pendiente — Laboratorio central',when:''}
+];
+const REASONS = [
+  {v:'resuelta_fuera_del_sistema',l:'Ya resuelta fuera del sistema'},
+  {v:'visita_reprogramada',l:'La visita se reprogramó'},
+  {v:'no_aplica',l:'No aplica a este protocolo'},
+  {v:'cargada_por_error',l:'Cargada por error'},
+  {v:'otro',l:'Otro (explicar)'}
+];
+let cntStyle = '1';
+function cntText(c){
+  if (cntStyle === '2') return c + ' sin resolver';
+  if (cntStyle === '3') return 'Pendientes: ' + c;
+  if (cntStyle === '4') return '';
+  return c + ' ' + (c === 1 ? 'pendiente' : 'pendientes');
+}
+let items = DATA.slice();
+let variant = 'A';
+let delStyle = '2';
+const DEL_SVG = {
+  '1':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+  '2':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>',
+  '3':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>',
+  '4':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
+};
+function delHtml(n){
+  const cls = delStyle === '4' ? 'rowdel cell' : 'rowdel';
+  const title = delStyle === '3' ? 'Acciones' : 'Eliminar notificación';
+  return '<button class="'+cls+'" data-del="'+n.id+'" title="'+title+'">'+DEL_SVG[delStyle]+'</button>';
+}
+const list = document.getElementById('list');
+const cntpill = document.getElementById('cntpill');
+const badge = document.getElementById('badge');
+const bellBtn = document.getElementById('bellBtn');
+const panel = document.getElementById('panel');
+const notifWrap = document.getElementById('notifWrap');
+
+function iconFor(kind){
+  const c = kind === 'reporte' ? 'var(--primary)' : 'var(--danger)';
+  const path = kind === 'reporte'
+    ? '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>'
+    : '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>';
+  return '<span class="ricon" style="background:'+c+'18"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+path+'</svg></span>';
+}
+
+function rowHtml(n){
+  const icon = iconFor(n.kind);
+  const proto = '<span class="pproto mono" style="color:'+n.protoColor+';background:'+n.protoColor+'14">'+n.proto+'</span>';
+  const nameCode = '<button class="plink pname" data-open="'+n.id+'" title="Abrir la ficha de '+n.patient+'">'+n.patient+'</button>'
+    + '<span class="pcode mono"><button class="plink" data-open="'+n.id+'" title="Abrir la ficha del sujeto '+n.code+'">'+n.code+'</button></span>';
+  const del = delHtml(n);
+
+  if (variant === 'B') {
+    const cell = delStyle === '4';
+    const inner = '<div class="bhead">' + proto + '<span class="when">'+(n.when || '—')+'</span>' + (cell ? '' : del) + '</div>'
+      + '<div class="bbody">' + icon.replace('ricon','ricon sm')
+      + '<div class="rbody"><div class="l1">' + nameCode + '</div><div class="l2">'+n.reason+'</div></div></div>';
+    return cell
+      ? '<div class="card card-b delcell" data-id="'+n.id+'"><div class="bwrap">'+inner+'</div>'+del+'</div>'
+      : '<div class="card card-b" data-id="'+n.id+'">'+inner+'</div>';
+  }
+  if (variant === 'C') {
+    return '<div class="card card-c'+(delStyle==='4'?' delcell':'')+'" data-id="'+n.id+'">' + icon.replace('ricon','ricon sm')
+      + '<div class="rbody"><div class="l1"><button class="plink pname" data-open="'+n.id+'" title="Abrir la ficha de '+n.patient+'">'+n.patient+'</button><span class="pcode mono" style="font-size:11.5px">'+n.code+'</span></div><div class="l2">'+n.reason+'</div></div>'
+      + '<div class="colr">' + proto + '<span class="when">'+(n.when || '—')+'</span></div>' + del + '</div>';
+  }
+  // Variante A (default)
+  return '<div class="card card-a'+(delStyle==='4'?' delcell':'')+'" data-id="'+n.id+'">' + icon
+    + '<div class="rbody"><div class="l1">' + nameCode + '</div><div class="l2">'+n.reason+'</div></div>'
+    + '<div class="colr">' + proto + '<span class="when">'+(n.when || '—')+'</span></div>' + del + '</div>';
+}
+
+function render(){
+  list.innerHTML = items.length
+    ? items.map(rowHtml).join('')
+    : '<div class="empty"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--good)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><div class="t1">Estás al día</div><div class="t2">No tenés alertas nuevas.</div></div>';
+  const c = items.length;
+  cntpill.textContent = cntText(c);
+  cntpill.style.display = c && cntStyle !== '4' ? '' : 'none';
+  badge.textContent = /b4|b5|b7/.test(bellBtn.className) ? '' : (c > 9 ? '9+' : String(c));
+  badge.style.display = c ? 'grid' : 'none';
+  [...list.children].forEach((el, i) => { el.style.animationDelay = (i * 22) + 'ms'; });
+}
+
+document.getElementById('picker').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-v]');
+  if (!b) return;
+  variant = b.dataset.v;
+  document.querySelectorAll('#picker button').forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+document.getElementById('picker2').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-d]');
+  if (!b) return;
+  delStyle = b.dataset.d;
+  document.querySelectorAll('#picker2 button').forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+bellBtn.addEventListener('click', (e) => { e.stopPropagation(); notifWrap.classList.toggle('open'); });
+document.addEventListener('click', (e) => { if (!notifWrap.contains(e.target) && !e.target.closest('#picker') && !e.target.closest('#picker2') && !e.target.closest('#picker3') && !e.target.closest('#picker4') && !e.target.closest('.reasonpop')) notifWrap.classList.remove('open'); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { document.querySelectorAll('.reasonpop').forEach(p => p.remove()); notifWrap.classList.remove('open'); } });
+document.getElementById('picker4').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-c]');
+  if (!b) return;
+  cntStyle = b.dataset.c;
+  document.querySelectorAll('#picker4 button').forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+document.getElementById('picker3').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-b]');
+  if (!b) return;
+  bellBtn.className = 'bell-btn b' + b.dataset.b;
+  document.querySelectorAll('#picker3 button').forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+
+list.addEventListener('click', (e) => {
+  const openBtn = e.target.closest('[data-open]');
+  if (openBtn) { e.stopPropagation(); alert('Abriría la ficha del paciente (id '+openBtn.dataset.open+')'); return; }
+  const delBtn = e.target.closest('[data-del]');
+  if (delBtn) {
+    e.stopPropagation();
+    document.querySelectorAll('.reasonpop').forEach(p => p.remove());
+    const id = delBtn.closest('.card').dataset.id;
+    const r = delBtn.getBoundingClientRect();
+    const pop = document.createElement('div');
+    pop.className = 'reasonpop';
+    pop.dataset.target = id;
+    pop.innerHTML = '<div class="ctitle">¿Descartar esta alerta?</div>'
+      + '<div class="ctext">Se archiva con motivo y autor; si la condición cambia, vuelve a aparecer.</div>'
+      + '<div class="clbl">Motivo</div>'
+      + REASONS.map(x => '<button class="copt" data-reason="'+x.v+'">'+x.l+'</button>').join('')
+      + '<div class="cfoot"><button class="cbtn" data-cancel="1">Cancelar</button><button class="cbtn danger" data-confirm="1" disabled>Descartar</button></div>';
+    document.body.appendChild(pop);
+    const h = pop.offsetHeight, w = pop.offsetWidth;
+    const left = r.left - w - 10 < 8 ? Math.min(r.right + 10, window.innerWidth - w - 8) : r.left - w - 10;
+    const top = Math.min(Math.max(8, r.top - 4), window.innerHeight - h - 8);
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+    return;
+  }
+  const reasonBtn = e.target.closest('[data-reason]');
+  if (reasonBtn) { e.stopPropagation(); return; }
+  const row = e.target.closest('.card');
+  if (row) alert('Abriría la ficha del paciente de esta alerta');
+});
+document.addEventListener('click', (e) => {
+  const opt = e.target.closest('[data-reason]');
+  if (opt) {
+    const pop = opt.closest('.reasonpop');
+    pop.querySelectorAll('.copt').forEach(x => x.classList.toggle('sel', x === opt));
+    pop.querySelector('[data-confirm]').disabled = false;
+    return;
+  }
+  if (e.target.closest('[data-cancel]')) { e.target.closest('.reasonpop').remove(); return; }
+  const ok = e.target.closest('[data-confirm]');
+  if (ok) {
+    const pop = ok.closest('.reasonpop');
+    const id = Number(pop.dataset.target);
+    pop.remove();
+    items = items.filter(n => n.id !== id);
+    render();
+    return;
+  }
+  if (!e.target.closest('[data-del]') && !e.target.closest('.reasonpop')) document.querySelectorAll('.reasonpop').forEach(p => p.remove());
+});
+render();
+</script>
+</body>
+</html>

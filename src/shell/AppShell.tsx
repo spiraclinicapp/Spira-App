@@ -12,7 +12,6 @@ import type { NavTarget, ReturnTo, ViewHeader, ViewHeaderCrumb } from '../views/
 import { CommandPalette } from './CommandPalette'
 import { UserMenu } from './UserMenu'
 import { NotificationsMenu } from './NotificationsMenu'
-import { AvisosDePedidos } from './AvisosDePedidos'
 import { usePedidosParaAvisar } from '../data/pharma/avisosDePedidos'
 import { pedidosVigentes } from './avisosPedidos'
 import { todayISO } from '../lib/dates'
@@ -416,6 +415,7 @@ export function AppShell() {
             errorPedidos={pedidosQuery.error}
             uid={uid}
             onAbrirTablero={() => navigate('pharma', 'dispensaciones')}
+            enPantallaDelTablero={moduleKey === 'pharma' && subKey === 'dispensaciones'}
           />
 
           <span style={{ width: 1, height: 26, background: 'var(--spira-line)', margin: '0 4px' }} />
@@ -709,21 +709,9 @@ export function AppShell() {
           onIrAlLugar={(mKey, sKey, target) => navigate(mKey, sKey, target as NavTarget)}
         />
       )}
-
-      {/* Los popups de movimiento de un pedido de dispensación. Van acá, a nivel shell y no adentro
-          de la campana, porque tienen que aparecer estés donde estés y con el panel cerrado: de eso
-          se trata el aviso. */}
-      <AvisosDePedidos
-        pedidos={pedidos}
-        uid={uid}
-        enPantallaDelTablero={moduleKey === 'pharma' && subKey === 'dispensaciones'}
-        onAbrir={(p) => {
-          /* Farmacia va al tablero, que es donde ese pedido se trabaja; Coordinación, a la ficha
-             del paciente bajo su protocolo, que es desde donde lo pidió. */
-          if (isAllowed('pharma')) { navigate('pharma', 'dispensaciones'); return }
-          navigate('track', 'protocolos', { patientId: p.patient_id, protocolId: p.protocol_id })
-        }}
-      />
+      {/* Los avisos de movimiento de un pedido ya no viven acá: desde el handoff v2 salen de la
+          campana (`AlertaCampana`, adentro de `NotificationsMenu`), que también está montada estés
+          donde estés. */}
     </div>
   )
 }

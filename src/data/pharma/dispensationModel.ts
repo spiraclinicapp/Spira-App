@@ -549,4 +549,29 @@ export interface PedidoAviso {
   patient_code: string | null
   protocol_id: string
   protocol_code: string
+  /* ── Lo que pide la tarjeta fija «Dispensación en curso» (handoff de notificaciones v2) ──
+     Los cuatro pasos llevan su hora, y las cuatro salen de columnas que YA existen: no hay una
+     tabla de transiciones y no hace falta una. `updated_at` cierra el paso «Lista», ver
+     `horasDePasos` en `shell/avisosPedidos.ts`. */
+  /** Cuándo se pidió (0002). Es la hora del paso «Solicitada». */
+  created_at: string
+  /** Cuándo Farmacia lo tomó (0054). `null` = todavía no. */
+  preparation_started_at: string | null
+  /** Quién lo está preparando (0121), desnormalizado: Coordinación no lee `users` de Farmacia. */
+  prepared_by_name: string | null
+  /** Cuándo se entregó (`dispensations.delivered_at`, 0002). `null` = todavía no. */
+  delivered_at: string | null
+  /**
+   * La última transición de la DISPENSACIÓN (`trg_dispensations_updated_at`, 0003:30).
+   *
+   * Hace falta además de `updated_at` porque pasar a «Lista» o a «Entregada» toca la dispensación y
+   * no siempre la solicitud: `mark_dispensation_ready` escribe sólo `dispensations.status` (0141), y
+   * la solicitud se queda con la hora de cuando se tomó. Sin esto, «Lista» diría la hora de
+   * «Preparando». Ver `ultimoMovimiento`.
+   */
+  dispensacion_updated_at: string | null
+  /** Lo pedido en una línea: «Fenisona 50 mg × 2 · Paracetamol 500 mg × 1». '' si no se pudo leer. */
+  medicacion: string
+  /** Quién lo pidió. `null` si la RLS no deja leerlo: no se inventa un nombre. */
+  solicitante: string | null
 }

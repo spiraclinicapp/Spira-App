@@ -185,6 +185,7 @@ describe('constanciasAReimprimir', () => {
     expect(constanciasAReimprimir([fila({ uploaded_at: '2026-10-04T14:00:00+00:00', delivered_at: ENTREGA })])).toEqual([{
       docId: 'doc1', paciente: 'Maria Julieta Calderon', ivrs: '032001520001', protocolId: 'p', protocolCode: 'LTS17231',
       detalle: 'V5 W16 · N° 97', codigo: 'D-1-011026-SC', deliveredAt: ENTREGA,
+      cargadaAt: '2026-10-04T14:00:00+00:00',
     }])
   })
 
@@ -404,6 +405,7 @@ describe('pedidosAResolver (la campana de Farmacia)', () => {
     }])).toEqual([{
       id: 'p', paciente: 'Maria Julieta Calderon', ivrs: '032001520001', protocolId: 'pr', protocolCode: 'LTS17231',
       detalle: 'V5 · N° 97', codigo: 'D-1-011026-SC', deliveredAt: ENTREGA,
+      pedidaAt: '2026-10-04T14:00:00+00:00',
     }])
   })
 })

@@ -3,7 +3,7 @@ import type { ProcedureReportAlertRow } from '../data/reports'
 import type { IpDeliveryAlertRow } from '../data/visitIp'
 import type { TrackVisitRow, VisitStatus } from '../data/visits'
 import { motivoAlertaIp } from '../views/track/ipEstado'
-import { formatAR, formatDateAR } from '../lib/dates'
+import { daysDiffISO, formatAR, formatDateAR } from '../lib/dates'
 import { visitTitle } from '../lib/visits'
 import type { AlertSeverity } from '../views/alertSeverity'
 import {
@@ -129,9 +129,19 @@ export { claseDeAlerta, esSeveridad } from '../views/alertSeverity'
  * hacia abajo y las cajas mantengan el mismo alto.
  */
 export function fechaDeVisita(a: TrackVisitRow): string | null {
+  const m = momentoDeVisita(a)
+  return m ? formatAR(m.iso) : null
+}
+
+/**
+ * El momento de una alerta de visita: la misma fecha que dice su motivo («venció el 03/10»), y por
+ * eso es SÓLO FECHA. La base no sabe a qué hora venció una ventana —`window_end` es un `date`—, así
+ * que la tarjeta no inventa una: ver `horaExacta`.
+ */
+export function momentoDeVisita(a: TrackVisitRow): Momento | null {
   const iso =
     a.computed_status === 'por_reprogramar' ? a.estimated_date : a.window_end ?? a.estimated_date
-  return iso ? formatAR(iso) : null
+  return iso ? { iso, soloFecha: true } : null
 }
 
 /**
@@ -218,4 +228,181 @@ export function tonoDelPunto(
 export function textoDePildora(n: number): string {
   if (n <= 0) return ''
   return n === 1 ? '1 pendiente' : `${n} pendientes`
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   HANDOFF v2 (`docs/design_handoff_notificaciones_v2/`, plan en `docs/plan-notificaciones-v2.md`)
+   El panel pasó de una lista de pendientes a un listado cronológico agrupado por día, con la
+   misma tarjeta para todo lo que aparece en la campana. Lo que sigue son sus reglas.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Todo lo que puede ser una tarjeta: las cinco clases clínicas más las tres de Farmacia.
+ *
+ * El handoff modela cuatro tipos («reporte», «ventana», «vencido», «disp»). Acá hay ocho, porque la
+ * campana ya mostraba ocho cosas distintas antes de este rediseño y ninguna dejó de existir. Las
+ * tres clínicas del handoff calzan con las nuestras; las demás llevan su propio ícono para no
+ * hacerse pasar por otra.
+ */
+export type TipoDeTarjeta = ClaseDeAlerta | 'dispensacion' | 'correccion' | 'constancia'
+
+export const TIPOS: Record<TipoDeTarjeta, Pick<EstiloDeClase, 'icono' | 'tinta' | 'base'>> = {
+  ...CLASES,
+  /* El «Dispensación» del handoff: píldora en el verde de «bien» (`#4A7248` en el mock, que es
+     `--spira-good`). El glifo va en la familia `acc-deep`, la que se aclara en tema oscuro. */
+  dispensacion: { icono: 'pill', tinta: 'var(--spira-acc-deep-good)', base: 'var(--spira-good)' },
+  correccion: { icono: 'pencil', tinta: 'var(--spira-acc-deep-teal)', base: 'var(--spira-acc-deep-teal)' },
+  constancia: { icono: 'printer', tinta: 'var(--spira-acc-deep-warn)', base: 'var(--spira-warn)' },
+}
+
+/**
+ * El color del punto de la campana sobre lo NO LEÍDO.
+ *
+ * Desde el v2 el punto dice «hay algo que no viste» y ya no «hay pendientes»: lo pide el handoff,
+ * y la cantidad de pendientes sigue en la píldora de la cabecera. El COLOR, en cambio, sigue el
+ * criterio de `tonoDelPunto` y no el rojo fijo del mock: el peor tipo entre lo no leído. Un punto
+ * siempre rojo grita igual por un pedido entregado que por una ventana vencida, y el día que importa
+ * no dice nada distinto.
+ */
+const ORDEN_DEL_PUNTO: readonly TipoDeTarjeta[] = [...GRAVEDAD, 'ip', 'reporte', 'correccion', 'constancia', 'dispensacion']
+
+export function tonoDeNoLeidas(tipos: readonly TipoDeTarjeta[]): string | null {
+  for (const t of ORDEN_DEL_PUNTO) if (tipos.includes(t)) return TIPOS[t].tinta
+  return null
+}
+
+/**
+ * Cuándo pasó lo que cuenta una tarjeta.
+ *
+ * `soloFecha` no es un detalle de formato: las alertas de visita se anclan en un `date` de Postgres
+ * —la base no sabe a qué hora venció una ventana— y el resto en un `timestamptz`. Con una fecha
+ * pura no se puede decir «hace 5 h» ni «16:40 h» sin inventarlo.
+ */
+export interface Momento {
+  iso: string
+  soloFecha: boolean
+}
+
+/** Un `timestamptz` (o nada) como momento. */
+export function momentoDe(ts: string | null | undefined): Momento | null {
+  return ts ? { iso: ts, soloFecha: false } : null
+}
+
+/* EL HUSO VA FIJO, como en `isoDayAR`, y no sale del navegador. No es sólo coherencia: CI corre en
+   UTC, y un test de «la hora exacta» con `getHours()` pasaría en esta máquina y fallaría en la PR
+   (ya pasó con otras fechas). Argentina no tiene horario de verano. */
+const AR_OFFSET_MS = 3 * 3_600_000
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+function enAR(ts: string): Date | null {
+  const t = Date.parse(ts)
+  return Number.isNaN(t) ? null : new Date(t - AR_OFFSET_MS)
+}
+
+/** El día argentino (`YYYY-MM-DD`) del momento. */
+export function diaDe(m: Momento): string {
+  if (m.soloFecha) return m.iso.slice(0, 10)
+  const d = enAR(m.iso)
+  if (!d) return m.iso.slice(0, 10)
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
+export type GrupoDeDia = 'hoy' | 'ayer' | 'semana' | 'anteriores'
+
+export const ROTULO_DE_GRUPO: Record<GrupoDeDia, string> = {
+  hoy: 'Hoy',
+  ayer: 'Ayer',
+  semana: 'Esta semana',
+  anteriores: 'Anteriores',
+}
+
+const ORDEN_DE_GRUPOS: readonly GrupoDeDia[] = ['hoy', 'ayer', 'semana', 'anteriores']
+
+/**
+ * El grupo de una tarjeta, por día CALENDARIO (no por 24 h): Hoy (0), Ayer (1), Esta semana (2 a 6),
+ * Anteriores (7 o más). Sin momento → Anteriores, al fondo: no hay de qué afirmar que es reciente.
+ * Una fecha en el futuro —no debería pasar— cae en Hoy y no en un grupo que no existe.
+ */
+export function grupoDe(m: Momento | null, hoy: string): GrupoDeDia {
+  if (!m) return 'anteriores'
+  const d = daysDiffISO(diaDe(m), hoy)
+  if (d <= 0) return 'hoy'
+  if (d === 1) return 'ayer'
+  if (d <= 6) return 'semana'
+  return 'anteriores'
+}
+
+/**
+ * El tiempo relativo de la fila 2: `ahora` (< 1 min), `hace N min` (< 60), `hace N h` (< 24 h) y
+ * `hace N d` (días calendario, como el grupo: «Ayer» siempre dice «hace 1 d», aunque hayan pasado
+ * 30 h). Una fecha pura no tiene minutos: dice `hoy` o `hace N d`. '' sin momento.
+ */
+export function tiempoRelativo(m: Momento | null, ahoraMs: number, hoy: string): string {
+  if (!m) return ''
+  const dias = daysDiffISO(diaDe(m), hoy)
+  if (m.soloFecha) return dias <= 0 ? 'hoy' : `hace ${dias} d`
+  const t = Date.parse(m.iso)
+  if (Number.isNaN(t)) return ''
+  const min = Math.floor((ahoraMs - t) / 60_000)
+  if (min < 1) return 'ahora'
+  if (min < 60) return `hace ${min} min`
+  if (min < 24 * 60) return `hace ${Math.floor(min / 60)} h`
+  return `hace ${Math.max(1, dias)} d`
+}
+
+/**
+ * La hora exacta del encabezado: `HH:mm h` para Hoy y Ayer (el día ya lo dice el grupo) y
+ * `D mmm, HH:mm h` para el resto —«3 oct, 08:00 h»—, con el año si no es el corriente.
+ *
+ * Una fecha pura dice sólo `D mmm`: la alternativa era «00:00 h», una hora que nadie registró.
+ */
+export function horaExacta(m: Momento | null, hoy: string): string {
+  if (!m) return ''
+  const dia = diaDe(m)
+  const [y, mes, d] = dia.split('-').map(Number)
+  const fecha = `${d} ${MESES[mes - 1]}${String(y) === hoy.slice(0, 4) ? '' : ` ${y}`}`
+  if (m.soloFecha) return fecha
+  const ar = enAR(m.iso)
+  if (!ar) return fecha
+  const hora = `${String(ar.getUTCHours()).padStart(2, '0')}:${String(ar.getUTCMinutes()).padStart(2, '0')} h`
+  const g = grupoDe(m, hoy)
+  return g === 'hoy' || g === 'ayer' ? hora : `${fecha}, ${hora}`
+}
+
+/**
+ * Para ORDENAR: un número creciente con el tiempo. Una fecha pura cuenta como el FINAL de su día
+ * argentino —la ventana vence al terminar `window_end`—, así que dentro de un mismo día queda
+ * arriba de los timestamps de ese día. Es el orden que menos miente: no se sabe la hora, pero sí que
+ * para el final del día ya había vencido.
+ */
+function ordenDe(m: Momento | null): number {
+  if (!m) return Number.NEGATIVE_INFINITY
+  if (m.soloFecha) {
+    const t = Date.parse(`${m.iso.slice(0, 10)}T23:59:59.999-03:00`)
+    return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t
+  }
+  const t = Date.parse(m.iso)
+  return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t
+}
+
+/**
+ * El listado: los grupos en orden (sin los vacíos) y, adentro, de la más reciente a la más antigua.
+ * El orden es ESTABLE: a igual momento, se respeta el orden de entrada.
+ */
+export function agruparPorDia<T>(
+  items: readonly T[],
+  momento: (t: T) => Momento | null,
+  hoy: string,
+): { grupo: GrupoDeDia; rotulo: string; items: T[] }[] {
+  const ordenados = items
+    .map((t, i) => ({ t, i, o: ordenDe(momento(t)) }))
+    .sort((a, b) => (b.o - a.o) || (a.i - b.i))
+    .map((x) => x.t)
+  return ORDEN_DE_GRUPOS
+    .map((grupo) => ({
+      grupo,
+      rotulo: ROTULO_DE_GRUPO[grupo],
+      items: ordenados.filter((t) => grupoDe(momento(t), hoy) === grupo),
+    }))
+    .filter((g) => g.items.length > 0)
 }

@@ -298,6 +298,8 @@ export interface ConstanciaAReimprimir {
   codigo: string | null
   /** La fecha de la entrega: el historial arranca en ese día, y así el cajón la encuentra. */
   deliveredAt: string
+  /** Cuándo se cargó la constancia corregida: es el momento de la notificación (campana v2). */
+  cargadaAt: string
 }
 
 /**
@@ -321,6 +323,7 @@ export function constanciasAReimprimir(rows: readonly ConstanciaSinImprimirRow[]
       detalle: partes.join(' · '),
       codigo: entrega.dispensation_code,
       deliveredAt: entrega.delivered_at,
+      cargadaAt: row.uploaded_at,
     })
   }
   return out
@@ -467,6 +470,8 @@ export interface PedidoAResolver {
   detalle: string
   codigo: string | null
   deliveredAt: string | null
+  /** Cuándo lo pidió Coordinación: es el momento de la notificación (campana v2). */
+  pedidaAt: string
 }
 
 export function pedidosAResolver(rows: readonly PedidoPendienteRow[]): PedidoAResolver[] {
@@ -482,6 +487,7 @@ export function pedidosAResolver(rows: readonly PedidoPendienteRow[]): PedidoARe
       detalle: [rq?.visit_code, d ? `N° ${d.correlative_number}` : null].filter(Boolean).join(' · '),
       codigo: d?.dispensation_code ?? null,
       deliveredAt: d?.delivered_at ?? null,
+      pedidaAt: p.requested_at,
     }
   })
 }

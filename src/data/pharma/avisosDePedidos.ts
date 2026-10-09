@@ -3,6 +3,7 @@ import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 import type { QueryResult } from '../../lib/useSupabaseQuery'
 import { addDaysISO, todayISO } from '../../lib/dates'
 import type { PedidoAviso, RequestStatus } from './dispensationModel'
+import { medicacionEnUnaLinea } from '../../shell/avisosPedidos'
 
 /**
  * Los pedidos de dispensación que alimentan la campana y sus popups.
@@ -47,8 +48,17 @@ const DIAS_ATRAS = 7
  * en la solicitud.
  */
 const COLS =
-  'id, status, updated_at, visit_id, visit_code, requested_by, ' +
-  'dispensations:dispensations(status), ' +
+  'id, status, created_at, updated_at, visit_id, visit_code, requested_by, ' +
+  // De la 0054, la 0071 y la 0121, aplicadas hace semanas: tampoco tienen ventana de despliegue.
+  'preparation_started_at, prepared_by_name, includes_ip, ' +
+  'dispensations:dispensations(status, delivered_at, updated_at), ' +
+  /* `!medication_id` NO SE SACA: desde la 0076 el renglón tiene DOS FKs a `medications`
+     (`substituted_from_medication_id`) y sin el calificador el embed es ambiguo — PostgREST
+     responde 300 y voltea la consulta ENTERA, no sólo el embed. Ver `data/pharma/dispensations.ts`. */
+  'items:dispensation_request_items(quantity, medication:medications!medication_id(name, dosis)), ' +
+  /* Ídem con `users`: la solicitud la referencia dos veces (`requested_by`, `prepared_by`). Si la
+     RLS no deja leer el nombre, el embed vuelve nulo y la tarjeta no dice quién pidió — no se cae. */
+  'solicitante:users!requested_by(full_name), ' +
   // `patients.code` viaja además del `ivrs_code` de la inscripción: ver `aplanar`.
   'enrollment:enrollments!enrollment_id(ivrs_code, patient:patients(id, code, full_name)), ' +
   'protocol:protocols!protocol_id(id, code)'
@@ -57,11 +67,17 @@ const COLS =
 interface FilaCruda {
   id: string
   status: RequestStatus
+  created_at: string
   updated_at: string
+  preparation_started_at: string | null
+  prepared_by_name: string | null
+  includes_ip: boolean | null
+  items: { quantity: number; medication: { name: string; dosis: string | null } | null }[] | null
+  solicitante: { full_name: string | null } | null
   visit_id: string
   visit_code: string | null
   requested_by: string
-  dispensations: { status: string }[] | null
+  dispensations: { status: string; delivered_at: string | null; updated_at: string }[] | null
   enrollment: { ivrs_code: string | null; patient: { id: string; code: string | null; full_name: string } | null } | null
   protocol: { id: string; code: string } | null
 }
@@ -88,6 +104,13 @@ function aplanar(f: FilaCruda): PedidoAviso {
     patient_code: f.enrollment?.ivrs_code ?? f.enrollment?.patient?.code ?? null,
     protocol_id: f.protocol?.id ?? '',
     protocol_code: f.protocol?.code ?? '—',
+    created_at: f.created_at,
+    preparation_started_at: f.preparation_started_at,
+    prepared_by_name: f.prepared_by_name,
+    delivered_at: f.dispensations?.[0]?.delivered_at ?? null,
+    dispensacion_updated_at: f.dispensations?.[0]?.updated_at ?? null,
+    medicacion: medicacionEnUnaLinea(f.items ?? [], f.includes_ip === true),
+    solicitante: f.solicitante?.full_name ?? null,
   }
 }
 
