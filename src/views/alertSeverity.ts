@@ -50,6 +50,30 @@ export function severidadMaxima(
   return null
 }
 
+/**
+ * La lista de alertas EN ORDEN DE GRAVEDAD: primero las ventanas vencidas, después lo que hay que
+ * reprogramar, después lo que quedó fuera de plazo.
+ *
+ * Nace del critique del 2026-10-08: la tarjeta Pendientes del Resumen cortaba en tres filas la lista
+ * tal como venía de la consulta (por fecha estimada), y en vivo la ventana vencida —la que tiñe de
+ * rojo la cabecera— quedó TERCERA, bajo el pliegue de una notebook. Con una alerta más habría quedado
+ * detrás de «Ver más»: la cabecera anunciando una gravedad que el cuerpo no mostraba.
+ *
+ * ESTABLE A PROPÓSITO: a igual gravedad se respeta el orden de entrada, que es el de la consulta
+ * (fecha estimada ascendente = lo más atrasado primero). Ordenar acá también por fecha sería
+ * duplicar un criterio que ya decide la base. `Array.prototype.sort` es estable desde ES2019.
+ *
+ * Un estado que no sea de alerta va AL FINAL, no al principio: mismo criterio que `severidadMaxima`,
+ * preferimos que lo desconocido no le gane el lugar a lo grave. No muta la entrada.
+ */
+export function ordenarPorGravedad<T extends { computed_status: VisitStatus }>(alertas: readonly T[]): T[] {
+  const rango = (s: VisitStatus) => {
+    const i = (GRAVEDAD as readonly VisitStatus[]).indexOf(s)
+    return i === -1 ? GRAVEDAD.length : i
+  }
+  return [...alertas].sort((a, b) => rango(a.computed_status) - rango(b.computed_status))
+}
+
 /** ¿Este estado es una de las tres severidades de alerta? */
 export function esSeveridad(status: VisitStatus): status is AlertSeverity {
   return (GRAVEDAD as readonly VisitStatus[]).includes(status)

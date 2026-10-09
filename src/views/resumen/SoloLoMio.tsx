@@ -20,11 +20,17 @@ import { InfoTip } from '../../components/InfoTip'
    alternar — está anclada a la derecha del encabezado, y un control que se desplaza bajo el mouse
    después del clic hace errar el siguiente.
 
-   ── ACCESIBILIDAD ──
+   ── ACCESIBILIDAD: EL NOMBRE ES FIJO, LO VISIBLE CAMBIA ──
    Texto y pista viven en el MISMO `<button role="switch">`: el clic en el rótulo también alterna
-   (como el `<label>` de un checkbox) y el nombre accesible sale del texto visible —el oculto no
-   cuenta, `visibility: hidden` lo saca del árbol—, así que lo que se lee y lo que se anuncia
-   coinciden (WCAG 2.5.3). El ⓘ queda AFUERA porque un botón no puede contener otro.
+   (como el `<label>` de un checkbox). El ⓘ queda AFUERA porque un botón no puede contener otro.
+
+   El nombre accesible NO sale del texto visible, y no es descuido. La primera versión lo hacía, y el
+   critique del 2026-10-08 lo cazó: apagado, el lector anunciaba «Lo de todos, interruptor, no
+   marcado» — literalmente lo contrario de lo que muestra la pantalla (WCAG 4.1.2). Un switch se
+   anuncia como «NOMBRE, activado/desactivado», así que el nombre tiene que ser la cosa que se prende:
+   «Sólo lo mío», siempre. Apagado, el nombre suma lo que se está viendo («mostrando lo de todos»):
+   así el texto visible queda CONTENIDO en el nombre y el control por voz («clic en lo de todos») lo
+   sigue encontrando (WCAG 2.5.3). Decisión del Director: el texto visible se queda como está.
 
    ── LA PISTA ──
    Mismas medidas que el `StToggle` de Ajustes (40×23, perilla de 18): es el mismo control, y dos
@@ -53,6 +59,7 @@ export function SoloLoMio({ activo, onCambiar, color }: {
         type="button"
         role="switch"
         aria-checked={activo}
+        aria-label={activo ? ROTULO_MIO : `${ROTULO_MIO}: mostrando ${ROTULO_TODOS.toLowerCase()}`}
         onClick={() => onCambiar(!activo)}
         className="spira-interruptor spira-no-press"
       >

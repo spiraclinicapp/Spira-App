@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { VisitStatus } from '../data/visits'
 import {
-  claseDeAlerta, esSeveridad, GRAVEDAD, SEVERIDAD_ICONO, SEVERIDAD_TINTA, severidadMaxima,
+  claseDeAlerta, esSeveridad, GRAVEDAD, ordenarPorGravedad, SEVERIDAD_ICONO, SEVERIDAD_TINTA, severidadMaxima,
 } from './alertSeverity'
 
 /**
@@ -83,6 +83,41 @@ describe('severidadMaxima', () => {
     expect(GRAVEDAD[GRAVEDAD.length - 1]).toBe('item_vencido')
     // Y el del medio, que es el que se agregó: fija la D4 contra un reordenamiento distraído.
     expect([...GRAVEDAD]).toEqual(['ventana_vencida', 'por_reprogramar', 'item_vencido'])
+  })
+})
+
+/**
+ * El ORDEN de la tarjeta Pendientes del Resumen. Falla en silencio igual que `severidadMaxima`: si
+ * queda al revés, la ventana vencida se va al fondo, el corte en tres filas la esconde detrás de
+ * «Ver más», y la cabecera sigue roja anunciando algo que el cuerpo no muestra. Se ve prolijo y miente.
+ */
+describe('ordenarPorGravedad', () => {
+  const fila = (id: string, s: VisitStatus) => ({ id, computed_status: s })
+
+  it('la ventana vencida sube aunque llegue última (el caso del critique del 2026-10-08)', () => {
+    const entrada = [fila('a', 'item_vencido'), fila('b', 'item_vencido'), fila('c', 'ventana_vencida')]
+    expect(ordenarPorGravedad(entrada).map((f) => f.id)).toEqual(['c', 'a', 'b'])
+  })
+
+  it('sigue el orden de GRAVEDAD: ventana, después no vino, después fuera de plazo', () => {
+    const entrada = [fila('i', 'item_vencido'), fila('r', 'por_reprogramar'), fila('v', 'ventana_vencida')]
+    expect(ordenarPorGravedad(entrada).map((f) => f.computed_status)).toEqual([...GRAVEDAD])
+  })
+
+  it('a igual gravedad respeta el orden de entrada (el de la consulta, por fecha)', () => {
+    const entrada = [fila('1', 'item_vencido'), fila('2', 'ventana_vencida'), fila('3', 'item_vencido'), fila('4', 'ventana_vencida')]
+    expect(ordenarPorGravedad(entrada).map((f) => f.id)).toEqual(['2', '4', '1', '3'])
+  })
+
+  it('un estado que no es de alerta va al final, no le gana el lugar a lo grave', () => {
+    const entrada = [fila('x', 'completa'), fila('i', 'item_vencido')]
+    expect(ordenarPorGravedad(entrada).map((f) => f.id)).toEqual(['i', 'x'])
+  })
+
+  it('no muta la lista que recibe', () => {
+    const entrada = [fila('a', 'item_vencido'), fila('b', 'ventana_vencida')]
+    ordenarPorGravedad(entrada)
+    expect(entrada.map((f) => f.id)).toEqual(['a', 'b'])
   })
 })
 
