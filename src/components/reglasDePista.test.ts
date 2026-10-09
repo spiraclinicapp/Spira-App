@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEMORA_MS, demoraDeApertura, esRotulo, formaDePista, quitarId, sumarId, ubicarPista } from './pistas'
+import { DEMORA_MS, demoraDeApertura, esRotulo, formaDePista, quitarId, sumarId, ubicarPista } from './reglasDePista'
 
 /**
  * Las reglas de la pista que reemplaza al globo del navegador (`Pistas.tsx`).

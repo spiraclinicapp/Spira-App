@@ -2,7 +2,7 @@
    Reglas de la PISTA — el cartelito que reemplaza al globo negro del `title` nativo.
 
    El componente (`Pistas.tsx`) es el que escucha el mouse y dibuja; acá vive lo que decide QUÉ se
-   dibuja y DÓNDE, separado porque es justo lo que falla sin que se note (ver `pistas.test.ts`) y
+   dibuja y DÓNDE, separado porque es justo lo que falla sin que se note (ver `reglasDePista.test.ts`) y
    porque así se prueba sin navegador.
 
    Spec: `docs/superpowers/specs/2026-10-09-tooltip-propio-design.md` (aprobado el 2026-10-09).

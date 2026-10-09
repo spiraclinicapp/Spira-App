@@ -11,6 +11,7 @@ import { IdleGuard } from './shell/IdleGuard'
 import { Login } from './shell/Login'
 import { SetNewPassword } from './shell/SetNewPassword'
 import { Vilano } from './components/Vilano'
+import { Pistas } from './components/Pistas'
 
 function Splash() {
   return (
@@ -94,9 +95,12 @@ function Gate() {
 }
 
 export default function App() {
+  /* Las pistas van AFUERA de `Gate` y no adentro del shell: dibujan el `title` de cualquier pantalla,
+     y el Login también tiene los suyos. No dependen de la sesión ni de nada de lo que trae. */
   return (
     <AuthProvider>
       <Gate />
+      <Pistas />
     </AuthProvider>
   )
 }
