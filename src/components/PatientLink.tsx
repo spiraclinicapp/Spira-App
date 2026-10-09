@@ -17,10 +17,14 @@ import { Icon } from './Icon'
  * micro-interacción global y el texto se levanta 1px al pasarle el mouse — bien para un botón, un
  * salto para un nombre en medio de un bloque de identidad.
  */
-export function PatientLink({ onOpen, label, children }: {
+export function PatientLink({ onOpen, label, children, fueraDelTab = false }: {
   onOpen?: () => void
   label: string
   children: ReactNode
+  /** Para el SEGUNDO link a la misma ficha en una fila (el IVRS al lado del nombre): sigue andando con
+   *  el mouse, pero no es una parada de Tab más — dos paradas seguidas al mismo destino son ruido para
+   *  quien navega con teclado (re-critique del Resumen, 2026-10-09). */
+  fueraDelTab?: boolean
 }) {
   if (!onOpen) return <>{children}</>
   return (
@@ -30,6 +34,7 @@ export function PatientLink({ onOpen, label, children }: {
       onClick={(e) => { e.stopPropagation(); onOpen() }}
       title={label}
       aria-label={label}
+      tabIndex={fueraDelTab ? -1 : undefined}
     >
       {children}
     </button>

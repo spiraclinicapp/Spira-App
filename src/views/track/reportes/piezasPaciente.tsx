@@ -22,12 +22,13 @@ import type { TonoReporte } from './tonos'
 /** Tinte de un token, mezclado contra la superficie: vale en los dos temas. */
 const mezcla = (token: string, pct: number) => `color-mix(in srgb, ${token} ${pct}%, var(--spira-white))`
 
-/** Color de un segmento de la barra. Sin descargar va en línea, o en rojo tenue si ya venció. */
-function colorSegmento(r: FilaReporte, now: number): string {
+/** Color de un segmento de la barra. Sin descargar va en línea, o en rojo tenue si ya venció —salvo
+ *  que quien la dibuja ya diga el atraso por otro lado (`atrasoEnNeutro`, la tarjeta del Resumen). */
+function colorSegmento(r: FilaReporte, now: number, atrasoEnNeutro: boolean): string {
   const e = etapaDe(r)
   if (e === 'descargado') return '#3A6B8C'
   if (e === 'evolucionado') return 'var(--spira-good)'
-  return isOverdue({ ...r, stage: 'pendiente' }, now) ? mezcla('var(--spira-danger)', 32) : 'var(--spira-line-2)'
+  return !atrasoEnNeutro && isOverdue({ ...r, stage: 'pendiente' }, now) ? mezcla('var(--spira-danger)', 32) : 'var(--spira-line-2)'
 }
 
 /**
@@ -35,11 +36,13 @@ function colorSegmento(r: FilaReporte, now: number): string {
  * aparecen al desplegar. Deja ver el estado sin abrir la fila. Cada segmento dice su estado en el
  * rótulo accesible: el color nunca va solo.
  */
-export function BarraDeReportes({ reportes, ancho, alto, now }: {
+export function BarraDeReportes({ reportes, ancho, alto, now, atrasoEnNeutro = false }: {
   reportes: readonly FilaReporte[]
   ancho: number
   alto: number
   now: number
+  /** El Resumen dice el atraso en el plazo de la fila; ahí la barra cuenta, sin teñir de rojo. */
+  atrasoEnNeutro?: boolean
 }) {
   return (
     <span role="list" aria-label="Estado de los reportes" style={{ display: 'flex', gap: 3, width: ancho, flex: '0 0 auto' }}>
@@ -51,7 +54,7 @@ export function BarraDeReportes({ reportes, ancho, alto, now }: {
             role="listitem"
             aria-label={rotulo}
             title={rotulo}
-            style={{ flex: 1, height: alto, borderRadius: 3, background: colorSegmento(r, now), minWidth: 4 }}
+            style={{ flex: 1, height: alto, borderRadius: 3, background: colorSegmento(r, now, atrasoEnNeutro), minWidth: 4 }}
           />
         )
       })}

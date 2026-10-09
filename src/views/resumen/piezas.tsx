@@ -140,26 +140,32 @@ export function FilaDeResumen({ punto, titular, detalle, derecha, primera, onAbr
    */
   expandido?: boolean
 }) {
+  /* LA FILA NO ES UN BOTÓN: LLEVA UNO (2026-10-09, re-critique). Era un `div role="button"` con el
+     nombre del paciente —otro `<button>`— adentro, y un `role="button"` tiene hijos presentacionales:
+     para el lector, el botón de la ficha quedaba anidado en otro botón (WCAG 4.1.2), y la guarda de
+     `e.target` del Enter era el parche de ese anidamiento. Ahora es el patrón de «botón estirado»: un
+     `<button>` real cubre toda la fila (`.spira-fila__abrir`, absoluto) y el contenido va ENCIMA sin
+     recibir clics, salvo los controles propios (el nombre), que quedan como HERMANOS del botón y no
+     adentro. Para el mouse no cambia nada; para el teclado y el lector, cada cosa es lo que dice. */
   return (
     <div
-      role={onAbrir ? 'button' : undefined}
-      tabIndex={onAbrir ? 0 : undefined}
-      className={onAbrir ? 'spira-row-link spira-no-press' : undefined}
-      onClick={onAbrir}
-      onKeyDown={onAbrir ? (e) => {
-        // La guarda de siempre: sin ella, Enter sobre el nombre abre la ficha Y el destino de la fila.
-        if (e.target !== e.currentTarget) return
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir() }
-      } : undefined}
-      aria-label={onAbrir ? ariaLabel : undefined}
-      aria-expanded={onAbrir ? expandido : undefined}
+      className={onAbrir ? 'spira-row-link spira-fila' : undefined}
       style={{
-        ...filaAncha, alignItems: 'center',
+        ...filaAncha, alignItems: 'center', position: 'relative',
         ...(primera ? { borderTopWidth: 0 } : null),
         ...(onAbrir ? null : { cursor: 'default' }),
         ...(expandido ? { backgroundColor: 'var(--spira-surface)' } : null),
       }}
     >
+      {onAbrir && (
+        <button
+          type="button"
+          className="spira-fila__abrir spira-no-press"
+          onClick={onAbrir}
+          aria-label={ariaLabel}
+          aria-expanded={expandido}
+        />
+      )}
       {punto}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="spira-link-group" style={titularDeFila}>{titular}</div>

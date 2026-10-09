@@ -25,7 +25,7 @@ import { MODULES } from '../../modules/registry'
 
 /** Las cuatro tarjetas de cifras del Resumen de Coordinación, en el orden en que se muestran. Desde el
  *  2026-10-09 el día va primero y el censo último; «Protocolos activos» salió (ver la vista). */
-export type KpiKey = 'hoy' | 'vencidos' | 'visitas' | 'pacientes'
+export type KpiKey = 'hoy' | 'atrasados' | 'visitas' | 'pacientes'
 
 export interface Destino {
   moduleKey: string
@@ -72,11 +72,10 @@ export const KPI_DESTINOS: Record<KpiKey, Destino> = {
   /* «Visitas de hoy» y «Próximas visitas» van a la MISMA pantalla: la primera sin fecha (Visitas abre
      en hoy), la segunda con el día que cuenta, que la vista le pasa como objetivo de navegación. */
   hoy: DESTINO_VISITAS,
-  /* «Vencidos» (antes «Reportes vencidos», key 'reportes'): desde el 2026-10-08 cuenta TODO lo que
-     lista Pendientes —ventanas vencidas, por reprogramar y fuera de plazo—, así que el número y su
-     destino dicen lo mismo. La key cambió con el rótulo para no dejar un 'reportes' que ya no cuenta
-     reportes, al lado de la key 'reportes' de Estadísticas. */
-  vencidos: DESTINO_PENDIENTES,
+  /* «Atrasados» (antes «Vencidos», y antes «Reportes vencidos» con key 'reportes'): cuenta las tres
+     gravedades de visita y lleva a Pendientes CON ese filtro puesto (`estadoFilter`, que manda la vista),
+     para que el número y la lista coincidan. Ver el comentario del KPI en TrackResumenView. */
+  atrasados: DESTINO_PENDIENTES,
   visitas: DESTINO_VISITAS,
   pacientes: { moduleKey: 'track', subKey: 'protocolos' },
 }
