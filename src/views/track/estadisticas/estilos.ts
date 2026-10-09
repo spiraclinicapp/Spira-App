@@ -7,9 +7,12 @@ import type { CSSProperties } from 'react'
  * juego, ahí conviene extraerlo a un lugar común.
  */
 
+/* Sin borde abajo (Director, 2026-10-09): la primera sección arranca con su propia línea a 28px, y
+   las dos juntas se leían como una doble raya. La línea que sigue al título es el agrupador de la
+   casa (la misma de los días de Recepción); la barra de filtros no necesita otra para separarse. */
 export const filtrosFila: CSSProperties = {
   display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-  padding: '2px 0 15px', borderBottom: '1px solid var(--spira-line)', marginBottom: 10,
+  padding: '2px 0 0', marginBottom: 12,
 }
 
 export const sectionHead: CSSProperties = {

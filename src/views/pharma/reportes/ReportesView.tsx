@@ -593,9 +593,11 @@ function Aviso({ children }: { children: React.ReactNode }) {
 
 /* ── Estilos locales ─────────────────────────────────────────────────────────── */
 
+/* Sin borde abajo, igual que su gemela de Coordinación (Director, 2026-10-09): con la línea de
+   «Resumen del período» unos renglones más abajo, el encabezado quedaba rayado dos veces. */
 const filtrosFila: CSSProperties = {
   display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-  padding: '2px 0 15px', borderBottom: '1px solid var(--spira-line)', marginBottom: 10,
+  padding: '2px 0 0', marginBottom: 12,
 }
 
 
