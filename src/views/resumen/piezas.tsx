@@ -91,7 +91,10 @@ export function CabeceraDeTarjeta({ icon, titulo, extra, color }: {
     <div style={{ display: 'flex', alignItems: 'center', columnGap: 10, rowGap: 8, flexWrap: 'wrap' }}>
       <span style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 auto', minWidth: 0 }}>
         <Icon name={icon} size={18} color={color ?? 'var(--spira-acc-deep-track)'} stroke={2} />
-        <span style={{ ...cardTitle, minWidth: 0 }}>{titulo}</span>
+        {/* `h2` y no `span` (2026-10-09): las tarjetas son las secciones del Resumen, y como encabezados
+            un lector de pantalla las lista y salta de una a otra (H en NVDA/JAWS, el rotor en
+            VoiceOver) en vez de recorrer 27 paradas de Tab. Debajo del `h1` del shell. */}
+        <h2 style={{ ...cardTitle, minWidth: 0, margin: 0 }}>{titulo}</h2>
       </span>
       {extra}
     </div>

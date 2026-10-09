@@ -105,9 +105,12 @@ export function AlertCardHeader({ titulo, severidad, cantidad }: {
       }}
     >
       <Icon name={icono} size={18} color={tinta} />
-      <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 16, flex: 1 }}>
+      {/* `h2`, como el título de las demás tarjetas del Resumen (`CabeceraDeTarjeta`): es una sección
+          y tiene que aparecer en la lista de encabezados del lector. Sirve igual en la pantalla
+          Pendientes, donde la banda cuelga del `h1` del shell. */}
+      <h2 style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 16, flex: 1, margin: 0 }}>
         {titulo}
-      </span>
+      </h2>
       {cantidad !== undefined && cantidad > 0 && (
         <span
           /* El contador va en pastilla blanca sobre la banda teñida y no al revés: el número tiene

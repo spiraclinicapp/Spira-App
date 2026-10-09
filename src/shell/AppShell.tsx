@@ -612,7 +612,14 @@ export function AppShell() {
                       </Fragment>
                     ))}
                   </div>
-                  <div style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', marginTop: 1 }}>{sub.name}</div>
+                  {/* El título de la pantalla es EL `h1` de la app, y el único: hasta el 2026-10-09 era un
+                      `div` y el documento entero no tenía ningún encabezado de nivel 1 (critique del
+                      Resumen: 0 `h1`–`h3` medidos). Quien navega con lector de pantalla salta por
+                      encabezados; sin éste no había dónde aterrizar. Las vistas cuelgan sus secciones
+                      como `h2` (Estadísticas, Reportes de Farmacia, las tarjetas del Resumen). El
+                      `margin` va en una sola abreviada para anular el del navegador sin mezclarla con
+                      longhands. */}
+                  <h1 style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', margin: '1px 0 0' }}>{sub.name}</h1>
                 </div>
                 {viewHeader?.content ? (
                   <div style={{ marginLeft: 'auto', flex: '0 0 auto' }}>{viewHeader.content}</div>
