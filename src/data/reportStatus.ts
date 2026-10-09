@@ -91,30 +91,16 @@ export function reportStatusErrorMessage(code: string | undefined, raw?: string)
   return raw || 'No pudimos completar la acción. Probá de nuevo.'
 }
 
-/**
- * Todos los reportes en juego de un protocolo, en UNA consulta.
- *
- * La vista ya viene desnormalizada (paciente, visita, procedimiento y definición), así que el
- * tablero no arma esto con tres consultas por visita: con cuarenta pacientes por ocho visitas eso
- * serían cientos de viajes. Mismo criterio que `useDayProcedureRows`.
+/*
+ * Hasta el 2026-10-09 vivía acá `useProtocolReportStatus`, los reportes de UN protocolo para el
+ * tablero de la pestaña «Reportes pendientes» de la ficha del estudio. La pestaña se fue (Director:
+ * los reportes pendientes viven SÓLO en Coordinación › Reportes) y el hook quedó sin nadie que lo
+ * llame. Para filtrar por estudio, `useReportesPendientes` y el `?protocolo=` de esa pantalla.
  */
-export function useProtocolReportStatus(protocolId: string | null) {
-  return useSupabaseQuery<ReportStatusRow[]>(
-    (c) =>
-      c
-        .from('v_protocol_report_status')
-        .select('*')
-        .eq('protocol_id', protocolId ?? NIL_UUID)
-        .eq('visita_iniciada', true)
-        .order('due_at', { ascending: true, nullsFirst: false })
-        .returns<ReportStatusRow[]>(),
-    [protocolId],
-  )
-}
 
 /**
- * Los reportes de UNA visita, para el desglose dentro del modal de visita. Misma vista que el
- * tablero: la tarjeta es el mismo componente y tiene que recibir exactamente la misma forma.
+ * Los reportes de UNA visita, para el desglose dentro del modal de visita. Misma vista que
+ * Coordinación › Reportes, así las dos reciben exactamente la misma forma.
  */
 export function useVisitReportStatus(visitId: string | null) {
   return useSupabaseQuery<ReportStatusRow[]>(
@@ -171,7 +157,7 @@ export async function setReportStage(
  * Reportes de TODOS los protocolos, para la tarjeta "Reportes pendientes" del Resumen de
  * Coordinación.
  *
- * Es la misma vista que el tablero por protocolo, sin el `.eq('protocol_id', …)`. Vale la pena
+ * Es la misma vista que usaba el tablero por protocolo (ya borrado), sin el `.eq('protocol_id', …)`. Vale la pena
  * dejarlo escrito porque en la revisión del handoff se dio por sentado lo contrario —"el tablero es
  * por protocolo, no hay consulta global"— y eso hizo que la tarjeta quedara fuera de alcance por
  * una tarde: el filtro por protocolo era una decisión de `useProtocolReportStatus`, no un límite de

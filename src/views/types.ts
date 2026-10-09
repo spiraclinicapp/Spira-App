@@ -69,15 +69,11 @@ export interface NavTarget {
    */
   estadoFilter?: string[]
   /**
-   * Pestaña con la que abrir el DETALLE del protocolo. La manda quien sabe a qué venís: el Resumen
-   * de Coordinación abre en 'reportes' desde su tarjeta de reportes pendientes, porque ahí es donde
-   * ese reporte se gestiona. Sin esto, el salto aterriza en 'pacientes' y hay que buscar la pestaña
-   * a mano, que es medio viaje.
-   *
-   * Va junto con `protocolId` y SIN `patientId`: es el detalle del protocolo, no la ficha de nadie.
-   *
-   * Sin 'cronograma' desde el 2026-09-16: dejó de ser pestaña y se abre como modal desde la ficha
-   * lateral del estudio. Nadie navegaba con ese valor.
+   * LEGADO: la pestaña con la que abría el DETALLE del protocolo. Ya no hay pestañas — «Cronograma»
+   * pasó a modal el 2026-09-16 y «Reportes pendientes» se fue el 2026-10-09 a Coordinación ›
+   * Reportes— y nadie en el código la manda. Sigue tipada porque los feedbacks guardados con su
+   * lugar la traen en el JSON: `ProtocolsView` convierte un 'reportes' en un salto a Reportes con
+   * ese estudio filtrado, y un 'pacientes' es simplemente el detalle.
    */
   protocolTab?: 'pacientes' | 'reportes'
   /** Visita concreta a abrir (su modal en "Visitas del día"). */

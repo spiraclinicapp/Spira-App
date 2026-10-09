@@ -18,11 +18,8 @@ import { PdPatientRow } from './track/PdPatientRow'
 import { useLugar } from '../lib/lugar'
 import { CronogramaTab } from './track/CronogramaTab'
 import { estaAbierta, inscripcionDelEstudio } from '../lib/inscripcion'
-import { ReportesPendientesView } from './track/reportes/ReportesPendientesView'
 import { VisitDetail } from './track/VisitDetail'
-import { useUrlState } from '../lib/useUrlState'
-import { oneOf } from '../lib/router'
-import type { NavTarget, ViewHeader } from './types'
+import type { ViewHeader } from './types'
 
 const card: CSSProperties = {
   background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, padding: '18px 20px',
@@ -66,56 +63,26 @@ export interface ProtocolDetailViewProps {
    * Opcional: sin esto el KPI queda inerte, que es lo correcto cuando no hay a dónde ir.
    */
   onVerPendientes?: () => void
-  /**
-   * Pestaña con la que abrir cuando se llega desde una pantalla que sabe a qué venís: el Resumen de
-   * Coordinación abre en 'reportes' desde su tarjeta de reportes pendientes, porque ahí es donde ese
-   * reporte se gestiona. Sin esto el salto aterriza en 'pacientes' y hay que buscar la pestaña a
-   * mano, que es medio viaje.
-   *
-   * Es sólo el VALOR INICIAL: si la URL trae `tab`, manda la URL; a partir del primer clic, manda
-   * el usuario.
-   */
-  initialTab?: NonNullable<NavTarget['protocolTab']>
 }
 
 /** Detalle de Protocolo: ficha lateral (KPIs/adherencia/acciones) + lista de pacientes con tracker. */
 export function ProtocolDetailView(props: ProtocolDetailViewProps) {
-  const { protocol, patients, noAsignado = false, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onVerPendientes, initialTab } = props
+  const { protocol, patients, noAsignado = false, accent, accentSolid, canEdit, canManageSchedule, canCreatePatient, setHeader, onBack, onOpenPatient, onNewPatient, onEdit, onVerPendientes } = props
   const kpis = useProtocolKpis(protocol.id)
   const visits = useProtocolVisits(protocol.id)
   /* Arranca en "Activos" (Director, 2026-09-14): la lista es para trabajar, y un paciente inactivo
      ya no tiene nada que hacer acá. "Todos" queda a un clic. */
   const [filter, setFilter] = useState<'activos' | 'todos'>('activos')
-  /* Pestaña de la columna derecha: los pacientes o sus reportes pendientes (0090), que los ve todo
-     el que llega acá — un coordinador que no arma el cuadro igual necesita ver qué reportes le
-     quedan por descargar. Quién puede MOVERLOS lo resuelve la propia vista, y en última instancia
-     la RPC.
+  /* La columna derecha es SÓLO la lista de pacientes. Tuvo pestañas: «Cronograma» hasta el
+     2026-09-16 (se mudó a un modal, ver `cronogramaAbierto`) y «Reportes pendientes» —el tablero
+     de la 0090— hasta el 2026-10-09. Ésa se fue por pedido del Director: los reportes pendientes
+     viven ÚNICAMENTE en Coordinación › Reportes, que ya los filtra por estudio (`?protocolo=`).
+     Dos lugares para lo mismo eran dos lugares donde buscar, y dos maneras de contarlo.
+     Un `?tab=reportes` viejo en la URL ya no se lee: aterriza en la lista. Los saltos que todavía
+     lo piden por `NavTarget` (un feedback guardado con ese lugar) los redirige `ProtocolsView`. */
+  useLugar({ label: protocol.code, target: { protocolId: protocol.id } })
 
-     «Cronograma» era una tercera pestaña hasta el 2026-09-16 y se mudó a un botón de la ficha
-     lateral que abre un modal (ver `cronogramaAbierto`). Pedido del Director: el cronograma es del
-     ESTUDIO —la plantilla que comparten todos sus pacientes— y no de la lista de pacientes, que es
-     lo que esta columna muestra. Un `?tab=cronograma` viejo cae a «Pacientes» en silencio (`oneOf`). */
-  /* VIVE EN LA URL, no en `useState`. Dos motivos, y el segundo es el que lo hizo necesario:
-     sobrevive un F5 —antes recargar en "Reportes pendientes" te devolvía a "Pacientes"— y hace que
-     `/coordinacion/pacientes/EFC18419?tab=reportes` sea una dirección dictable, que es exactamente
-     lo que el Resumen necesita para mandarte al tablero del protocolo y no a su lista de pacientes.
-     El default es `initialTab`: quien te trajo decide dónde aterrizás, y si la URL trae `tab` gana
-     la URL. `oneOf` valida contra las tres pestañas — un `?tab=inventado` cae al default en
-     silencio, que es lo correcto para una URL vieja o recortada. */
-  const [rightTab, setRightTab] = useUrlState<'pacientes' | 'reportes'>(
-    'tab',
-    initialTab ?? 'pacientes',
-    { codec: oneOf(['pacientes', 'reportes'] as const) },
-  )
-  /* Para el feedback: acá se está mirando el tablero de UN estudio, y la pestaña forma parte del
-     lugar — «Reportes pendientes» y «Pacientes» son dos pantallas distintas para quien reporta,
-     aunque compartan la dirección. */
-  useLugar({
-    label: `${protocol.code}${rightTab === 'reportes' ? ' · Reportes pendientes' : ''}`,
-    target: { protocolId: protocol.id, protocolTab: rightTab },
-  })
-
-  /** Visita abierta desde el tablero de reportes (el 📎 de la tarjeta). */
+  /** Visita abierta desde el cronograma desplegado de una fila de paciente. */
   const [openVisitId, setOpenVisitId] = useState<string | null>(null)
   /** El modal «Cronograma y procedimientos», que se abre desde la ficha lateral. */
   const [cronogramaAbierto, setCronogramaAbierto] = useState(false)
@@ -393,71 +360,47 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
           </div>
         </div>
 
-        {/* columna derecha: pacientes / reportes pendientes */}
+        {/* columna derecha: pacientes */}
         {noAsignado ? (
-          /* Sin pestañas: «Pacientes» y «Reportes pendientes» estarían las dos vacías, y una lista
-             vacía se lee como un estudio sin nadie. Una sola frase dice lo que pasa de verdad. */
+          /* Sin la lista: estaría vacía, y una lista vacía se lee como un estudio sin nadie. Una sola
+             frase dice lo que pasa de verdad. */
           /* `EmptyState` ya es una card (fondo, borde, radio 16): envuelto en otra quedaba un marco
              adentro de otro. Va directo como celda de la grilla, que lo estira al alto de la ficha. */
           <EmptyState accent={accent} icon="lock" title="No estás asignado a este estudio" description="Sus pacientes y reportes los ven las personas asignadas." minHeight={220} />
         ) : (
         <div style={{ ...card, padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '15px 20px', borderBottom: '1px solid var(--spira-line)' }}>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {(['pacientes', 'reportes'] as const).map((t) => (
+            {/* El título queda donde estaban las pestañas, sin forma de botón: sola, una pestaña
+                seleccionada invitaría a buscar la otra. */}
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--spira-ink)' }}>Pacientes</span>
+            <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{shown.length} de {patients.length}</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+              {(['activos', 'todos'] as const).map((t) => (
                 <button
                   key={t}
-                  onClick={() => setRightTab(t)}
+                  onClick={() => setFilter(t)}
                   className="spira-no-press"
                   style={{
-                    fontSize: 13, fontWeight: 600, padding: '6px 13px', borderRadius: 'var(--spira-radius-pill)', cursor: 'pointer',
-                    color: rightTab === t ? accent : 'var(--spira-muted)', background: rightTab === t ? accent + '14' : 'transparent',
-                    border: rightTab === t ? 'none' : '1px solid var(--spira-line)', fontFamily: 'var(--spira-font-text)',
+                    fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 'var(--spira-radius-pill)', cursor: 'pointer',
+                    color: filter === t ? accent : 'var(--spira-muted)', background: filter === t ? accent + '14' : 'transparent',
+                    border: filter === t ? 'none' : '1px solid var(--spira-line)', textTransform: 'capitalize', fontFamily: 'var(--spira-font-text)',
                   }}
                 >
-                  {t === 'pacientes' ? 'Pacientes' : 'Reportes pendientes'}
+                  {t === 'activos' ? 'Activos' : 'Todos'}
                 </button>
               ))}
             </div>
-            {rightTab === 'pacientes' && (
-              <>
-                <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{shown.length} de {patients.length}</span>
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-                  {(['activos', 'todos'] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setFilter(t)}
-                      className="spira-no-press"
-                      style={{
-                        fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 'var(--spira-radius-pill)', cursor: 'pointer',
-                        color: filter === t ? accent : 'var(--spira-muted)', background: filter === t ? accent + '14' : 'transparent',
-                        border: filter === t ? 'none' : '1px solid var(--spira-line)', textTransform: 'capitalize', fontFamily: 'var(--spira-font-text)',
-                      }}
-                    >
-                      {t === 'activos' ? 'Activos' : 'Todos'}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
           </div>
           <div style={{ overflow: 'auto', padding: '12px 14px', flex: 1 }}>
-            {rightTab === 'reportes' ? (
-              <ReportesPendientesView
-                protocolId={protocol.id}
-                accent={accent}
-                onOpenVisit={(visitId) => setOpenVisitId(visitId)}
-                onOpenPatient={onOpenPatient}
-              />
-            ) : visits.error ? (
+            {visits.error ? (
               <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-danger)', padding: '8px 4px' }}>No pudimos cargar las visitas.</div>
             ) : shown.length === 0 ? (
               <EmptyState accent={accent} icon="users" title="Sin pacientes" description="Este protocolo todavía no tiene pacientes para mostrar." minHeight={220} />
             ) : (
               shown.map((p) => (
-                /* `onOpenVisit` reusa el `VisitDetail` que esta vista ya monta para el tablero de
-                   reportes: el cronograma desplegado de cada fila abre la misma ficha de visita que
-                   el resto de la app, sin agregar una segunda máquina para lo mismo. */
+                /* `onOpenVisit` abre el `VisitDetail` del pie: el cronograma desplegado de cada fila
+                   abre la misma ficha de visita que el resto de la app, sin una segunda máquina
+                   para lo mismo. */
                 <PdPatientRow key={p.id} patient={p} visits={{ completas: true, filas: visitsByPatient.get(p.id) ?? [] }} accent={accent} protocolId={protocol.id} onOpen={onOpenPatient} onOpenVisit={setOpenVisitId} />
               ))
             )}
@@ -466,11 +409,6 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
         )}
       </div>
 
-      {/* El 📎 de una tarjeta del tablero abre el detalle de ESA visita del paciente — el mismo
-          componente que abre Visitas del día y la ficha. NO el modal de procedimientos del
-          cronograma, que edita la plantilla compartida por todos los pacientes del protocolo:
-          desde una tarjeta que muestra un nombre propio, eso cambiaría el cuadro de los cuarenta
-          sin que nadie se entere (decisión 2A de la review). */}
       {/* El mismo `CronogramaTab` que vivía en la pestaña, ahora dentro de un modal: sus dos mitades
           (Visitas / Procedimientos del estudio) y sus modales propios siguen iguales. Los modales que
           abre adentro cierran de a uno con Esc gracias a la pila de `Modal`. `onChanged` refresca la
@@ -494,6 +432,11 @@ export function ProtocolDetailView(props: ProtocolDetailViewProps) {
         </Modal>
       )}
 
+      {/* Una visita de un paciente de la lista abre el detalle de ESA visita — el mismo componente
+          que abre Visitas del día y la ficha. NO el modal de procedimientos del cronograma, que
+          edita la plantilla compartida por todos los pacientes del protocolo: desde una fila que
+          muestra un nombre propio, eso cambiaría el cuadro de los cuarenta sin que nadie se entere
+          (decisión 2A de la review). */}
       {openVisitId && (
         <VisitDetail
           visitId={openVisitId}

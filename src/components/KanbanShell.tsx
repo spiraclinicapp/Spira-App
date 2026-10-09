@@ -10,11 +10,12 @@ export interface KanbanColumn<K extends string> {
 
 /**
  * El armazón de un tablero kanban: la grilla de columnas, el encabezado con punto y contador, el
- * scroll de cada columna y el vacío explicado. Lo comparten el tablero de Dispensaciones (Farmacia)
- * y el de Reportes pendientes (Coordinación).
+ * scroll de cada columna y el vacío explicado. Hoy lo usa sólo el tablero de Dispensaciones
+ * (Farmacia); lo compartía con el de Reportes pendientes de la ficha del estudio (Coordinación)
+ * hasta el 2026-10-09, cuando esos reportes se mudaron enteros a Coordinación › Reportes.
  *
- * Lo que NO comparte es la TARJETA, y es a propósito: la de Farmacia habla de medicamentos y
- * unidades, la de Coordinación de pacientes y plataformas. Cada módulo dibuja la suya con
+ * Lo que NO va acá es la TARJETA, y es a propósito: la de Farmacia habla de medicamentos y
+ * unidades, la de Coordinación hablaba de pacientes y plataformas. Cada tablero dibuja la suya con
  * `renderCard`. Acá vive sólo el armado, que no lleva significado clínico adentro — que es
  * justamente lo que hace seguro compartirlo.
  *
