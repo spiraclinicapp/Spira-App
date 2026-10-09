@@ -93,7 +93,10 @@ function KpiCard({ label, value, sub, dot, cargando, kpi, onNavigate, target }: 
         if (e.target !== e.currentTarget) return
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir() }
       } : undefined}
-      aria-label={navega ? `${label}: ${cargando ? 'cargando' : value}. Ir a ${nombre}` : undefined}
+      /* El subtítulo VA en el nombre accesible (re-critique 2026-10-09): el `aria-label` reemplaza el
+         contenido, y sin él el lector anunciaba «Atrasados: 15. Ir a Pendientes» sin «6 con ventana
+         vencida», que es justamente lo que dice qué tan grave es. */
+      aria-label={navega ? `${label}: ${cargando ? 'cargando' : `${value}, ${sub}`}. Ir a ${nombre}` : undefined}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)' }}>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flex: '0 0 auto' }} />
@@ -382,17 +385,33 @@ function ReportesCard({ rows, origen, loading, error, onReintentar, onOpenPatien
                   }
                   detalle={
                     /* Nombre arriba e IVRS acá, en mono: la regla de identidad de la casa (D4). El
-                       tono del plazo lo decide `estiloPlazo`, que sabe si venció. */
-                    <DetalleConEstado
-                      contexto={<>{v.ivrs && <><span className="spira-mono">{v.ivrs}</span> · </>}{v.protocolCode} · {v.visitLabel}</>}
-                      estado={plazo}
-                      tono={estiloPlazo(v.plazo).color}
-                    />
+                       tono del plazo lo decide `estiloPlazo`, que sabe si venció.
+
+                       EL PLAZO NO SE RECORTA (re-critique 2026-10-09): la línea entera llevaba un solo
+                       ellipsis, así que en una fila angosta lo primero que se perdía era el final —
+                       «Vencido hac…»—, o sea el ESTADO, mientras el IVRS conservaba su ancho. Ahora el
+                       contexto vive en su propio span que cede, y el plazo va aparte, sin encoger. */
+                    <span style={{ display: 'flex', minWidth: 0 }}>
+                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {v.ivrs && <><span className="spira-mono">{v.ivrs}</span> · </>}{v.protocolCode} · {v.visitLabel}
+                      </span>
+                      {plazo && (
+                        <span style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}>
+                          <span style={{ color: 'var(--spira-faint)' }}> · </span>
+                          <span style={{ color: estiloPlazo(v.plazo).color, fontWeight: 700 }}>{plazo}</span>
+                        </span>
+                      )}
+                    </span>
                   }
                   derecha={
+                    /* UN SOLO ROJO POR FILA (re-critique 2026-10-09): el atraso se decía tres veces —
+                       plazo rojo, conteo rojo y barra rosada— y con todo en rojo la ventana vencida de
+                       la tarjeta de arriba dejaba de destacarse («calma sobre alarma», PRODUCT.md). Acá
+                       lo dice el plazo; la barra y el conteo cuentan, sin alarmar. La pantalla Reportes
+                       conserva los tres: ahí la fila es el objeto de trabajo, no un resumen. */
                     <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-                      <BarraDeReportes reportes={v.reportes} ancho={72} alto={7} now={now} />
-                      <ConteoDeReportes conteo={v.conteo} vencida={v.vencida} corto />
+                      <BarraDeReportes reportes={v.reportes} ancho={72} alto={7} now={now} atrasoEnNeutro />
+                      <ConteoDeReportes conteo={v.conteo} vencida={false} corto />
                     </span>
                   }
                 />
@@ -699,18 +718,32 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
 
   /* Mismo criterio que Inicio: personas con alguna participación abierta (0127). */
   const activePatients = allPatients.filter(personaActiva).length
-  /* EL KPI «VENCIDOS» CUENTA LO MISMO QUE LA TARJETA PENDIENTES Y LLEVA AHÍ (critique 2026-10-08,
-     decisión del Director). Antes se llamaba «Reportes vencidos», contaba sólo `item_vencido` y
-     llevaba a Pendientes: el número no coincidía con el de su destino, el mismo reporte aparecía con
-     cuatro nombres en la pantalla, y la ventana vencida —lo más grave— no figuraba en ningún número.
-     Ahora el número grande, la cabecera de la tarjeta y la pantalla de destino cuentan lo mismo
-     (`alertRows`, ya filtrado por ámbito), y el subtítulo nombra lo más grave que haya adentro. */
-  const vencidos = alertRows.length
-  const peorVencido = severidadMaxima(alertRows)
+  /* EL KPI «ATRASADOS»: lo mismo que la TARJETA Pendientes, y lleva a la PANTALLA Pendientes YA
+     FILTRADA a eso.
+
+     Historia, porque se equivocó dos veces. Hasta el 2026-10-08 se llamaba «Reportes vencidos» y
+     contaba sólo `item_vencido`. La #393 lo pasó a contar `alertRows` —las tres gravedades de visita,
+     lo mismo que la tarjeta— y afirmó acá que la pantalla destino contaba lo mismo. NO ERA CIERTO: la
+     pantalla Pendientes suma además reportes de procedimiento, «se pasó la fecha», IP, retomar y sin
+     marcar. En vivo, el KPI decía 15 y el destino «42 de 42», con la primera ventana vencida en la fila
+     30 (re-critique del 2026-10-09; Director: llevar con filtro).
+
+     Ahora navega con `estadoFilter` = las tres gravedades: Pendientes abre con su filtro «Estado»
+     puesto y ordenada por gravedad, así que muestra exactamente estas filas. Medirlo es leer el «N de
+     M» del destino después del clic, no leer este comentario.
+
+     Se llama «Atrasados» y no «Vencidos» porque en el destino «Vencido» es SÓLO `item_vencido` (el
+     rótulo corto de `VISIT_STATES`), y además «por reprogramar» no es un vencimiento.
+
+     Límite conocido: con «Sólo lo mío», `alertRows` deja afuera las alertas que atendió otra persona
+     en un protocolo mío, y la pantalla Pendientes no tiene ámbito — puede mostrar alguna más. Con
+     «Lo de todos», o para quien no coordina, coinciden exacto. */
+  const atrasados = alertRows.length
+  const peorAtrasado = severidadMaxima(alertRows)
   const ventanasVencidas = alertRows.filter((a) => a.computed_status === 'ventana_vencida').length
-  const subVencidos = ventanasVencidas > 0
+  const subAtrasados = ventanasVencidas > 0
     ? `${ventanasVencidas} con ventana vencida`
-    : vencidos > 0 ? 'para resolver' : 'todo al día'
+    : atrasados > 0 ? 'para resolver' : 'todo al día'
 
   /* EL PRÓXIMO DÍA CON VISITAS, y no "mañana" a secas.
      El pedido fue "las del día siguiente únicamente", y tomado al pie de la letra la tarjeta queda
@@ -730,7 +763,9 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
   const { dia: proximoDia, visitas: visitasDelProximoDia } =
     proximoDiaConVisitas(upcomingRows, todayISO())
 
-  const irAAlertas = () => onNavigate?.('track', 'alertas')
+  /* El pie de la tarjeta Pendientes lleva a la pantalla con el MISMO filtro que el KPI «Atrasados»:
+     «Ver más (12)» promete las que faltan de ESTA lista, y sin filtro la pantalla mostraba 42. */
+  const irAAlertas = () => onNavigate?.('track', 'alertas', { estadoFilter: [...GRAVEDAD] })
   const nombrePendientes = nombreDeDestino(DESTINO_PENDIENTES)
   const nombreVisitas = nombreDeDestino(KPI_DESTINOS.visitas)
   const nombreTareas = nombreDeDestino(DESTINO_TAREAS)
@@ -789,28 +824,44 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* KPIs — los cuatro navegan a su submódulo (D8). El rótulo del chip sale del registry. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
+      {/* KPIs — los cuatro navegan a su submódulo (D8). El rótulo del chip sale del registry.
+
+          VAN EN DOS PARES (re-critique 2026-10-09). Con una sola grilla `auto-fit` de 190 px, entre
+          ~950 y ~1150 px de ventana quedaban tres arriba y «Pacientes activos» solo abajo, con 137 px
+          de renglón para una tarjeta. Agrupados de a dos, la fila sólo puede ser 4, 2×2 o 1×4: el par
+          se parte entero o no se parte. Los pares tienen sentido propio: lo de hoy (visitas y lo
+          atrasado) y lo que viene (próximas y el censo). El `min(…, 100%)` evita desbordar en angosto. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(394px, 100%), 1fr))', gap: 14 }}>
+        <div style={parDeKpis}>
         <KpiCard kpi="hoy" onNavigate={onNavigate} label="Visitas de hoy" value={hoyRows.length} sub={subHoy} dot={accent} cargando={cargandoKpis} />
-        <KpiCard kpi="vencidos" onNavigate={onNavigate} label="Vencidos" value={vencidos} sub={subVencidos} dot={peorVencido ? VISIT_STATES[peorVencido].color : accent} cargando={cargandoKpis} />
+        <KpiCard kpi="atrasados" onNavigate={onNavigate} target={{ estadoFilter: [...GRAVEDAD] }} label="Atrasados" value={atrasados} sub={subAtrasados} dot={peorAtrasado ? VISIT_STATES[peorAtrasado].color : accent} cargando={cargandoKpis} />
+        </div>
+        <div style={parDeKpis}>
         <KpiCard kpi="visitas" onNavigate={onNavigate} target={proximoDia ? { visitDate: proximoDia } : undefined} label="Próximas visitas" value={visitasDelProximoDia.length} sub={subProximas} dot={accent} cargando={cargandoKpis} />
         <KpiCard kpi="pacientes" onNavigate={onNavigate} label="Pacientes activos" value={activePatients} sub={`${allPatients.length} registrados`} dot={accent} cargando={cargandoKpis} />
+        </div>
       </div>
 
       {/*
         EL MOSAICO — cinco tarjetas, dos columnas (D2 + D13 + la decisión 12 del 2026-09-06).
 
           ┌──────────────────────────┬──────────────────────────┐
-          │ Reportes pendientes      │ Tareas personales        │
-          │  (lo que hay que cerrar) │  (lo que anotaste vos)   │
+          │ Pendientes               │ Tareas personales        │
+          │  (lo que se pasó)        │  (lo que anotaste vos)   │
           ├──────────────────────────┼──────────────────────────┤
-          │ Pendientes               │ Dispensaciones solicit.  │
-          │  (lo que se pasó)        │  (lo que estás esperando)│
+          │ Reportes pendientes      │ Dispensaciones solicit.  │
+          │  (lo que hay que cerrar) │  (lo que estás esperando)│
           └──────────────────────────┼──────────────────────────┤
                  603 px              │ Próximas visitas         │
                                      │  (quién viene, un día)   │
                                      └──────────────────────────┘
                                                 721 px
+
+        PENDIENTES VA ARRIBA DESDE EL 2026-10-09 (re-critique). Estaba segunda, debajo de Reportes: en
+        una notebook de 1346×633 no entraba ninguna de sus filas —sólo asomaba la banda roja, que avisa
+        de algo que no se veía— y arriba quedaba Reportes con todas sus filas en rojo. La ventana
+        vencida es lo más grave de la pantalla (una visita que ya no se puede hacer); un reporte
+        atrasado se puede cargar mañana. Lo más grave, primero.
 
         EL EJE, REESCRITO al entrar Tareas: a la izquierda **los desvíos del estudio** —reportes que
         cerrar, pendientes que resolver—; a la derecha **lo tuyo y lo que viene**: tus tareas, lo que
@@ -852,6 +903,21 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
           primero. El `min(…, 100%)` evita que una ventana más angosta que 380 desborde. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: 14, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+          <AlertasCard
+            rows={alertRows}
+            loading={alerts.loading || coordinaciones.loading}
+            error={alerts.error}
+            onReintentar={alerts.refetch}
+            onOpenAlerta={onNavigate && ((visitId) => onNavigate('track', 'alertas', { visitId }))}
+            onOpenPatient={abrirFicha}
+            onVerTodo={onNavigate ? irAAlertas : undefined}
+            nombreDestino={nombrePendientes}
+            /* El registry manda; si el submódulo no estuviera, el fallback nombra la pantalla por
+               lo que hace y no por una copia del rótulo. */
+            titulo={nombrePendientes ?? 'Pendientes'}
+            vacioDelAmbito={avisoDeAmbito('Ninguna de tus visitas está en alerta.',
+              alerts.visitAlerts.length > 0)}
+          />
           <ReportesCard
             rows={reporteRows}
             origen={reportes.data}
@@ -882,21 +948,6 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
                gerencia, la única que tiene algo del otro lado. */
             vacioDelAmbito={avisoDeAmbito('No hay reportes pendientes en tus estudios.',
               (reportes.data ?? []).some(esReportePendiente))}
-          />
-          <AlertasCard
-            rows={alertRows}
-            loading={alerts.loading || coordinaciones.loading}
-            error={alerts.error}
-            onReintentar={alerts.refetch}
-            onOpenAlerta={onNavigate && ((visitId) => onNavigate('track', 'alertas', { visitId }))}
-            onOpenPatient={abrirFicha}
-            onVerTodo={onNavigate ? irAAlertas : undefined}
-            nombreDestino={nombrePendientes}
-            /* El registry manda; si el submódulo no estuviera, el fallback nombra la pantalla por
-               lo que hace y no por una copia del rótulo. */
-            titulo={nombrePendientes ?? 'Pendientes'}
-            vacioDelAmbito={avisoDeAmbito('Ninguna de tus visitas está en alerta.',
-              alerts.visitAlerts.length > 0)}
           />
         </div>
 
@@ -967,6 +1018,11 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
       )}
     </div>
   )
+}
+
+/** Un par de KPI: dos columnas iguales, que sólo pasan a una cuando la tarjeta no entra (<150 px). */
+const parDeKpis: CSSProperties = {
+  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))', gap: 14,
 }
 
 /** IVRS y protocolo en el titular de Pendientes: se recortan con puntos, sin partirse en dos renglones
@@ -1062,7 +1118,7 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
                       </span>
                       <span className="spira-mono" style={{ ...secundarioQueCede, fontSize: 12.5, color: 'var(--spira-muted)', fontWeight: 400 }}>
                         {a.patient_code
-                          ? <PatientLink onOpen={onOpenPatient && (() => onOpenPatient(a.patient_id, a.protocol_id))} label={`Abrir la ficha del sujeto ${a.patient_code}`}>{a.patient_code}</PatientLink>
+                          ? <PatientLink onOpen={onOpenPatient && (() => onOpenPatient(a.patient_id, a.protocol_id))} label={`Abrir la ficha del sujeto ${a.patient_code}`} fueraDelTab>{a.patient_code}</PatientLink>
                           : '—'}
                       </span>
                       {onOpenPatient && <PatientLinkArrow />}

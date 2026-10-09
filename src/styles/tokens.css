@@ -1081,32 +1081,24 @@ input:-webkit-autofill:focus {
 }
 .spira-pista__op:disabled { color: var(--spira-faint); cursor: default; }
 
-/* —— Interruptor con rótulo («Sólo lo mío» / «Lo de todos» del Resumen) ——
-   Texto + pista en un solo botón `role="switch"`. Sin fondo ni borde en reposo: vive en el renglón
-   del título y no tiene que competir con él. Sin levante al hover: una pista que salta 1px se siente
-   suelta. El rótulo va en TINTA en las dos posiciones: nombra lo que se está viendo («Lo de todos» no
-   es un estado apagado, es otra vista), y en gris se leía deshabilitado. Las medidas de la pista son
-   las del `StToggle` de Ajustes. */
-.spira-interruptor {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 0 6px 0 10px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--spira-ink);
-  font-family: var(--spira-font-text);
-  font-size: 13.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
+/* —— Ámbito del Resumen: «Lo de todos ◯━ Sólo lo mío» ——
+   Un switch con un rótulo a CADA LADO de la pista (re-critique 2026-10-09). La versión anterior tenía
+   un solo rótulo que cambiaba con el estado, y «Lo de todos» al lado de una pista gris se leía «lo de
+   todos: apagado» — lo contrario de lo que mostraba la pantalla. Con los dos rótulos fijos, la pista
+   es la de «Sólo lo mío» (gris = apagado, como en Ajustes) y el lado activo se lee en tinta; el otro,
+   en `muted` (AA sobre papel). El hover lleva el rótulo a la tinta, sin levante: una pista que salta
+   1px se siente suelta. Las medidas de la pista son las del `StToggle` de Ajustes. */
+.spira-ambito {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--spira-font-text); font-size: 13.5px; font-weight: 600; white-space: nowrap;
 }
-/* Los dos rótulos apilados en la MISMA celda: el botón mide lo que el más largo y la pista no se
-   corre al alternar. Alineados a la derecha, pegados a la pista. */
-.spira-interruptor__rotulos { display: grid; justify-items: end; }
-.spira-interruptor__rotulos > * { grid-area: 1 / 1; }
+.spira-ambito__rotulo { color: var(--spira-muted); cursor: pointer; transition: color 0.15s ease; }
+.spira-ambito__rotulo:hover,
+.spira-ambito__rotulo[data-activo='true'] { color: var(--spira-ink); }
+.spira-ambito__switch {
+  display: inline-flex; align-items: center; padding: 6px 2px; margin: 0;
+  border: none; border-radius: 99px; background: transparent; cursor: pointer;
+}
 .spira-interruptor__pista {
   position: relative;
   flex: 0 0 auto;
@@ -1126,6 +1118,7 @@ input:-webkit-autofill:focus {
   transition: left 0.15s var(--spira-ease-out);
 }
 @media (prefers-reduced-motion: reduce) {
+  .spira-ambito__rotulo,
   .spira-interruptor__pista,
   .spira-interruptor__perilla { transition: none; }
 }
@@ -1227,9 +1220,22 @@ input:-webkit-autofill:focus {
    Va sobre la fila y no `:focus-within`: cuando el foco está en el link del paciente que vive
    ADENTRO, el destino de un Enter ya no es la fila, y resaltarla afirmaría lo contrario. */
 .spira-row-link:hover,
-.spira-row-link:focus-visible {
+.spira-row-link:focus-visible,
+.spira-fila:has(> .spira-fila__abrir:focus-visible) {
   background-color: var(--spira-surface);
 }
+/* —— Fila con botón estirado (`FilaDeResumen`, 2026-10-09) ——
+   El botón cubre toda la fila y recibe el clic; el contenido va encima (posicionado, después en el
+   DOM) pero SIN eventos, para que el clic lo atraviese hasta el botón. Los controles propios del
+   contenido —el nombre del paciente, que abre la ficha— recuperan los eventos y quedan como hermanos
+   del botón, no anidados en él. El foco de teclado lo dibuja el botón sobre la fila entera, y la regla
+   de arriba suma el mismo resaltado que el hover. */
+.spira-fila__abrir {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; padding: 0; border: none; background: transparent; cursor: pointer;
+}
+.spira-fila > :not(.spira-fila__abrir) { position: relative; pointer-events: none; }
+.spira-fila :is(button, a[href]):not(.spira-fila__abrir) { pointer-events: auto; }
 /* Reduced-motion: el cambio de estado se mantiene (sombra y resaltado siguen ahí, son señal, no
    adorno) pero llega sin recorrido. El levante ya no corre: vive en el bloque no-preference. */
 @media (prefers-reduced-motion: reduce) {

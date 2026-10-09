@@ -61,6 +61,14 @@ export interface NavTarget {
    */
   protocolFilter?: string[]
   /**
+   * Estados con los que abrir filtrada la pantalla Pendientes (su filtro «Estado», `?estado=`). Lo
+   * manda el KPI «Atrasados» del Resumen de Coordinación con las tres gravedades de visita: así el
+   * número del KPI y la lista a la que lleva cuentan lo mismo. Sin esto llegaba a la pantalla entera
+   * —42 ítems contra un KPI de 15— y la primera ventana vencida quedaba en la fila 30 (critique del
+   * 2026-10-09).
+   */
+  estadoFilter?: string[]
+  /**
    * Pestaña con la que abrir el DETALLE del protocolo. La manda quien sabe a qué venís: el Resumen
    * de Coordinación abre en 'reportes' desde su tarjeta de reportes pendientes, porque ahí es donde
    * ese reporte se gestiona. Sin esto, el salto aterriza en 'pacientes' y hay que buscar la pestaña

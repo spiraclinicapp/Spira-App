@@ -6,7 +6,7 @@ import { PatientLink, PatientLinkArrow } from '../components/PatientLink'
 import { alertItemStyle } from './alertItem'
 import { AlertCardHeader } from './AlertCardHeader'
 import { PendientesProtocoloCards } from './PendientesProtocoloCards'
-import { claseDeAlerta, GRAVEDAD, ICONO_REPORTE, SEVERIDAD_ICONO, severidadMaxima } from './alertSeverity'
+import { claseDeAlerta, GRAVEDAD, ICONO_REPORTE, ordenarPorGravedad, SEVERIDAD_ICONO, severidadMaxima } from './alertSeverity'
 import { reporteTitulo } from './track/reportes/estados'
 import { motivoAlertaIp } from './track/ipEstado'
 import { EmptyState } from '../components/EmptyState'
@@ -237,6 +237,17 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navTarget, onTargetConsumed])
 
+  /* Llegada CON estados para filtrar (desde el KPI «Atrasados» del Resumen). Mismo criterio que el
+     de protocolo: escribe el filtro «Estado» que el usuario podría haber puesto a mano, así que la URL
+     lo dice y se quita con la misma cruz. Efecto propio por la misma razón que el de arriba. */
+  useEffect(() => {
+    const filtro = navTarget?.estadoFilter
+    if (!filtro || filtro.length === 0) return
+    setFEstado(filtro)
+    onTargetConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navTarget, onTargetConsumed])
+
   /* Con `retomarQ` acá también: sin ella, la lista de retomar podía llegar VACÍA todavía (la consulta
      en vuelo) mientras las otras tres ya estaban, y «Sin pendientes. Todo al día.» se dibujaba un
      instante de más antes de que aparecieran sus filas. */
@@ -262,9 +273,13 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
     [alertsQ.allVisitAlerts, deviations],
   )
 
+  /* Las visitas en alerta se ORDENAN POR GRAVEDAD (2026-10-09), igual que la tarjeta Pendientes del
+     Resumen: ventana vencida, después por reprogramar, después pendiente vencido; a igual gravedad, el
+     orden de la consulta. Antes salían por fecha estimada y, llegando desde el Resumen, la primera
+     ventana vencida quedaba debajo de todo lo demás. */
   const filtered = useMemo(() => {
     const today = todayISO()
-    return allRows.filter((a) => {
+    return ordenarPorGravedad(allRows).filter((a) => {
       if (fEstado.length > 0 && !fEstado.includes(a.computed_status)) return false
       if (protocolFilter.length > 0 && !protocolFilter.includes(a.protocol_id)) return false
       if (fMed.length > 0 && !fMed.includes(a.treating_physician ?? SIN_VALOR)) return false

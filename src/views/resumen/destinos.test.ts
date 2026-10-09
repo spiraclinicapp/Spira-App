@@ -22,7 +22,7 @@ import type { KpiKey } from './destinos'
  * navegador).
  */
 
-const CLAVES: KpiKey[] = ['hoy', 'vencidos', 'visitas', 'pacientes']
+const CLAVES: KpiKey[] = ['hoy', 'atrasados', 'visitas', 'pacientes']
 
 describe('destinos de los KPI del Resumen', () => {
   it('cubre los cuatro KPI de la pantalla, sin sobrantes', () => {
