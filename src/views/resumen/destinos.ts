@@ -68,6 +68,12 @@ export const DESTINO_VISITAS: Destino = { moduleKey: 'track', subKey: 'visitas' 
  */
 export const DESTINO_REPORTES: Destino = { moduleKey: 'track', subKey: 'reportes-pendientes' }
 
+/**
+ * Coordinación › Estudios y pacientes (clave `protocolos`, URL `/pacientes`). Lo apunta Ajustes ›
+ * Estudios del centro para abrir un estudio ajeno —el «Abrir» de cada fila— desde el 2026-10-09.
+ */
+export const DESTINO_ESTUDIOS: Destino = { moduleKey: 'track', subKey: 'protocolos' }
+
 export const KPI_DESTINOS: Record<KpiKey, Destino> = {
   /* «Visitas de hoy» y «Próximas visitas» van a la MISMA pantalla: la primera sin fecha (Visitas abre
      en hoy), la segunda con el día que cuenta, que la vista le pasa como objetivo de navegación. */

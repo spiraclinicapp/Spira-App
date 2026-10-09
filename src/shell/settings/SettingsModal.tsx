@@ -4,12 +4,13 @@ import { Icon } from '../../components/Icon'
 import type { IconName } from '../../components/Icon'
 import { useNavigationGuard } from '../../lib/useUrlState'
 import type { SettingsSection } from './section'
-import { seccionVisible } from './section'
+import { puedeVerSeccion, seccionVisible } from './section'
 import { useAuth } from '../../lib/auth'
 import { ACCENT, btnGhost, btnSolid } from './primitives'
 import { AccountSection } from './AccountSection'
 import { PrefsSection } from './PrefsSection'
 import { EquipoYAccesosSection } from './EquipoYAccesosSection'
+import { EstudiosSection } from './EstudiosSection'
 import { PlataformasSection } from './PlataformasSection'
 import { FeedbackSection } from './FeedbackSection'
 
@@ -57,11 +58,13 @@ const SETTINGS_NAV: NavDef[] = [
   { key: 'cuenta', name: 'Mi cuenta', icon: 'user' },
   { key: 'prefs', name: 'Preferencias', icon: 'settings' },
   { key: 'roles', name: 'Equipo y accesos', icon: 'lock' },
+  { key: 'estudios', name: 'Estudios del centro', icon: 'file' },
   { key: 'plataformas', name: 'Plataformas', icon: 'externalLink' },
   { key: 'feedback', name: 'Feedback recibido', icon: 'message' },
 ]
 const SETTINGS_TITLE: Record<SettingsSection, string> = {
-  cuenta: 'Mi cuenta', prefs: 'Preferencias', roles: 'Equipo y accesos', plataformas: 'Plataformas',
+  cuenta: 'Mi cuenta', prefs: 'Preferencias', roles: 'Equipo y accesos', estudios: 'Estudios del centro',
+  plataformas: 'Plataformas',
   feedback: 'Feedback recibido',
 }
 
@@ -69,7 +72,8 @@ interface SettingsModalProps {
   section: SettingsSection
   setSection: (s: SettingsSection) => void
   onClose: () => void
-  /** Ir al lugar desde donde se reportó un feedback. Lo pasa el shell, que es el que navega. */
+  /** Navegar desde Ajustes: el lugar desde donde se reportó un feedback, o abrir un estudio desde
+      «Estudios del centro». Lo pasa el shell, que es el que navega. */
   onIrAlLugar?: (moduleKey: string, subKey: string, target: Record<string, unknown>) => void
 }
 
@@ -77,13 +81,15 @@ interface SettingsModalProps {
    cuenta, `usePrefs` para las preferencias). El tema viajaba por acá cuando era el único control
    vivo y vivía en un useState del shell; desde la 0093 las preferencias son de la cuenta y tienen
    su propio provider, así que hacerlas pasar por el modal solo agregaba un intermediario. */
-/* La única sección que recibe algo por props es «Feedback recibido», y no es un dato sino un gesto:
-   saltar al lugar desde donde se reportó es NAVEGAR, y el que navega es el shell. */
+/* Las únicas secciones que reciben algo por props son «Feedback recibido» y «Estudios del centro», y
+   no es un dato sino un gesto: saltar al lugar desde donde se reportó, o abrir un estudio, es NAVEGAR,
+   y el que navega es el shell. */
 function renderSection(cur: SettingsSection, onIrAlLugar?: SettingsModalProps['onIrAlLugar']) {
   switch (cur) {
     case 'cuenta': return <AccountSection />
     case 'prefs': return <PrefsSection />
     case 'roles': return <EquipoYAccesosSection />
+    case 'estudios': return <EstudiosSection onIrAlLugar={onIrAlLugar} />
     case 'plataformas': return <PlataformasSection />
     case 'feedback': return <FeedbackSection onIrAlLugar={onIrAlLugar} />
   }
@@ -169,13 +175,13 @@ export function SettingsModal({ section, setSection, onClose, onIrAlLugar }: Set
     return () => { document.body.style.overflow = prevOverflow; document.body.style.paddingRight = prevPad }
   }, [])
 
-  /* «Feedback recibido» es de gerencia: el menú no se la muestra a nadie más y la URL tampoco los
-     deja entrar (`seccionVisible` los manda a «Mi cuenta»). Las dos cosas son presentación: el que
-     decide es la RLS de la 0044, que no le devuelve una fila a nadie más. */
-  const { modules } = useAuth()
-  const esGerencia = modules.includes('gerencia')
-  const navVisible = SETTINGS_NAV.filter((it) => it.key !== 'feedback' || esGerencia)
-  const cur = seccionVisible(section, esGerencia)
+  /* «Feedback recibido» es de gerencia y «Estudios del centro» de jefatura de Coordinación: el menú
+     no se las muestra a nadie más y la URL tampoco los deja entrar (`seccionVisible` los manda a
+     «Mi cuenta»). Las dos cosas son presentación: el que decide es la RLS. */
+  const { modules, hasMinRole } = useAuth()
+  const quien = { esGerencia: modules.includes('gerencia'), esJefaturaCoordinacion: hasMinRole('track', 'leader') }
+  const navVisible = SETTINGS_NAV.filter((it) => puedeVerSeccion(it.key, quien))
+  const cur = seccionVisible(section, quien)
 
   return (
     <div style={scrim} role="presentation" onMouseDown={intentarCerrar}>

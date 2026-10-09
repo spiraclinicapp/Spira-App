@@ -17,20 +17,42 @@
    la editan track-leader y gerencia, que es lo que dice la RLS de la 0111. */
 /* `feedback` (entrega 2 del spec del 2026-09-17) va ÚLTIMA por el mismo criterio que `plataformas`:
    no corre a ninguna de las que ya estaban. Es la única que no ve todo el mundo — ver `seccionVisible`. */
-export type SettingsSection = 'cuenta' | 'prefs' | 'roles' | 'plataformas' | 'feedback'
+/* `estudios` (2026-10-09) va justo después de «Equipo y accesos», que es donde se asigna a quién ve
+   cada estudio: las dos hablan de los estudios del centro. Es la puerta a los protocolos ajenos desde
+   que Coordinación › Estudios y pacientes dejó de tener «Todos» (ver `EstudiosSection`). */
+export type SettingsSection = 'cuenta' | 'prefs' | 'roles' | 'estudios' | 'plataformas' | 'feedback'
 
-export const SECCIONES: SettingsSection[] = ['cuenta', 'prefs', 'roles', 'plataformas', 'feedback']
+export const SECCIONES: SettingsSection[] = ['cuenta', 'prefs', 'roles', 'estudios', 'plataformas', 'feedback']
+
+/** Lo que decide qué secciones ve cada quien. */
+export interface QuienMira {
+  esGerencia: boolean
+  /** Líder o más en Coordinación: a quien la RLS de protocolos (0028) le muestra todos. */
+  esJefaturaCoordinacion: boolean
+}
 
 /**
- * Qué sección mostrar de verdad. «Feedback recibido» es de gerencia: no está en el menú de los
- * demás, pero `?ajustes=feedback` es una URL que cualquiera puede escribir o recibir. Sin gerencia
- * cae a «Mi cuenta», igual que una sección desconocida — quien abrió el link pidió entrar a Ajustes.
- *
- * Esto NO es el control de acceso: el control es la RLS de la 0044, que no le devuelve una fila a
- * nadie más. Acá se evita mostrar una pantalla que sólo puede fallar.
+ * ¿Esta sección va en el menú de esta persona? Dos son de un público acotado:
+ *  · «Feedback recibido», de gerencia (la RLS de la 0044 no le devuelve una fila a nadie más).
+ *  · «Estudios del centro», de jefatura de Coordinación. A una coordinadora la RLS le devolvería sólo
+ *    sus estudios, que ya están en la grilla; y gerencia los tiene todos en la grilla, con pacientes.
  */
-export function seccionVisible(section: SettingsSection, esGerencia: boolean): SettingsSection {
-  return section === 'feedback' && !esGerencia ? 'cuenta' : section
+export function puedeVerSeccion(section: SettingsSection, quien: QuienMira): boolean {
+  if (section === 'feedback') return quien.esGerencia
+  if (section === 'estudios') return quien.esJefaturaCoordinacion
+  return true
+}
+
+/**
+ * Qué sección mostrar de verdad. Una sección que no está en tu menú (ver `puedeVerSeccion`) igual se
+ * puede pedir: `?ajustes=feedback` es una URL que cualquiera puede escribir o recibir. Cae a
+ * «Mi cuenta», igual que una sección desconocida — quien abrió el link pidió entrar a Ajustes.
+ *
+ * Esto NO es el control de acceso: el control es la RLS. Acá se evita mostrar una pantalla que sólo
+ * puede fallar.
+ */
+export function seccionVisible(section: SettingsSection, quien: QuienMira): SettingsSection {
+  return puedeVerSeccion(section, quien) ? section : 'cuenta'
 }
 
 /**
