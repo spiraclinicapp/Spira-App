@@ -219,9 +219,10 @@ export function TrackEstadisticasView({ module, onNavigate }: ViewProps) {
 
       {verEquipo && (
         <>
+          {/* Sin línea: es el título de la ZONA, no de una sección. La lleva «Carga de trabajo
+              mensual» dos renglones más abajo, y con las dos el encabezado quedaba rayado dos veces. */}
           <div style={{ ...sectionHead, marginTop: 40 }}>
             <h2 style={{ ...sectionTitle, fontSize: 18 }}>Equipo</h2>
-            <div style={sectionRule} />
           </div>
           <p style={{ margin: '-4px 0 0', fontSize: 12.5, color: 'var(--spira-ink-soft)', lineHeight: 1.5 }}>
             Estos números miran a las personas, no a los estudios. Cada visita atendida se le cuenta a quien inició la

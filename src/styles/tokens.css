@@ -657,9 +657,11 @@ input:-webkit-autofill:focus {
 /* `min-height: 0` no es decorativo: sin él, un hijo flex con `overflow: auto` se niega a achicarse
    por debajo de su contenido y la lista empuja la cabecera y el pie fuera de la caja. El
    `overflow: hidden` del radio los recorta y el usuario lo reporta como "no me deja scrollear". */
+/* Sin `border-top` (Director, 2026-10-09): el primer rótulo de grupo trae su propia línea a 10px,
+   y las dos juntas eran una doble raya. Al scrollear no se pierde el borde de la cabecera: el rótulo
+   es pegajoso, así que su línea queda siempre arriba de lo que pasa por debajo. */
 .spira-notif-lista {
   flex: 1 1 auto; min-height: 0; max-height: 540px; overflow-y: auto; overflow-x: hidden;
-  border-top: 1px solid var(--spira-line);
 }
 .spira-notif-mensaje { padding: 10px 16px 0; font-size: 12.5px; color: var(--spira-acc-deep-danger); }
 
