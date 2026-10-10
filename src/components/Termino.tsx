@@ -17,8 +17,10 @@ import type { ClaveGlosario } from '../lib/glosario'
  * fila entera, un número), pasá `GLOSARIO.<clave>` a un `title` común y no uses este componente:
  * marcar visualmente algo que no es un término confunde más de lo que ayuda.
  *
- * `title` es la convención de la casa para las pistas (167 usos en la app) y no necesita máquina
- * nueva: funciona con el teclado del sistema, no se rompe si falla el JS y no reserva espacio.
+ * `title` es la convención de la casa para las pistas y no necesita máquina nueva: desde el
+ * 2026-10-09 no lo dibuja el navegador sino `Pistas.tsx`, que lo toma de cualquier elemento de la
+ * app. Con la clase `spira-termino`, esa pista sale con la palabra en negrita arriba y la definición
+ * abajo, sin que este componente tenga que hacer nada.
  */
 export function Termino({ clave, children, style }: {
   clave: ClaveGlosario
