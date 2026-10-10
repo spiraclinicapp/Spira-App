@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEMORA_MS, demoraDeApertura, esRotulo, formaDePista, quitarId, sumarId, ubicarPista } from './reglasDePista'
+import { abrePorFoco, DEMORA_MS, demoraDeApertura, esRotulo, estaCortado, formaDePista, quitarId, sumarId, ubicarPista } from './reglasDePista'
 
 /**
  * Las reglas de la pista que reemplaza al globo del navegador (`Pistas.tsx`).
@@ -70,6 +70,26 @@ describe('demoraDeApertura', () => {
     expect(demoraDeApertura(10_000, 9_800, false)).toBe(0)
     expect(demoraDeApertura(10_000, 9_000, false)).toBe(DEMORA_MS)
     expect(demoraDeApertura(10_000, -Infinity, true)).toBe(0)
+  })
+})
+
+describe('estaCortado', () => {
+  it('cortado de costado (el «…» de una línea)', () => {
+    expect(estaCortado({ scrollWidth: 300, clientWidth: 150, scrollHeight: 20, clientHeight: 20 })).toBe(true)
+  })
+  it('cortado para abajo (line-clamp: el motivo de la tarjeta de notificación)', () => {
+    expect(estaCortado({ scrollWidth: 150, clientWidth: 150, scrollHeight: 60, clientHeight: 36 })).toBe(true)
+  })
+  it('entero: ni el píxel de redondeo cuenta', () => {
+    expect(estaCortado({ scrollWidth: 151, clientWidth: 150, scrollHeight: 21, clientHeight: 20 })).toBe(false)
+  })
+})
+
+describe('abrePorFoco', () => {
+  it('sólo el foco que llega con Tab abre la pista, no el que mueve el código (el autofoco de un cajón)', () => {
+    expect(abrePorFoco('Tab')).toBe(true)
+    expect(abrePorFoco('Enter')).toBe(false)
+    expect(abrePorFoco(null)).toBe(false)
   })
 })
 

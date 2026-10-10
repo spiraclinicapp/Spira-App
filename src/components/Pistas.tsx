@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { GRACIA_MS } from './useHoverIntent'
-import { demoraDeApertura, formaDePista, ID_PISTA, quitarId, sumarId, ubicarPista } from './reglasDePista'
+import { abrePorFoco, demoraDeApertura, estaCortado, formaDePista, ID_PISTA, quitarId, sumarId, ubicarPista } from './reglasDePista'
 import type { FormaPista } from './reglasDePista'
 
 /* ============================================================================
@@ -17,11 +17,21 @@ import type { FormaPista } from './reglasDePista'
    no puede volverse un `<button>` para abrir un panel propio: un botón adentro de otro no existe.
 
    ── EL TRUCO: EL `title` SE VA SÓLO MIENTRAS EL MOUSE ESTÁ ENCIMA ──
-   El globo nativo sale de leer el atributo, así que mientras se apunta se lo muda a
+   El globo nativo sale de leer el atributo, así que mientras se apunta un elemento se le muda a
    `data-pista-texto` y al salir vuelve. Fuera de ese instante el DOM queda igual que siempre, y el
    lector de pantalla —que no apunta con el mouse— sigue leyendo lo mismo que leía. Al devolverlo NO
    se pisa un `title` que ya esté: si React lo reescribió durante el hover (cambió el prop), el suyo es
    el bueno.
+   Dos cosas que salieron de la revisión del 2026-10-09 y que no son obvias:
+     · Se mudan también los `title` de los ANCESTROS. El navegador, si el elemento apuntado no tiene
+       `title`, busca el del ancestro más cercano: el IVRS de la lista de pacientes es un `<span
+       title>` que envuelve al enlace a la ficha, y con sólo el enlace mudado aparecían la pista de
+       papel Y el globo negro del IVRS, a la vez.
+     · El `title` vuelve cuando el mouse SE VA, no cuando la pista se cierra. Un clic, un Esc o un
+       scroll cierran la pista con el mouse todavía encima: devolverlo ahí hacía reabrir la pista al
+       instante al moverse un píxel adentro del mismo botón (y le daba al navegador un `title` "nuevo"
+       para pintar su globo). Por eso el ciclo del `title` (`silenciado`) va aparte del de la pista
+       (`duenio`).
 
    ── WCAG 2.1 AA · 1.4.13, igual que `InfoTip` ──
    Descartable con Esc, apuntable (la gracia de `useHoverIntent` deja entrar el mouse a la pista) y
@@ -60,6 +70,24 @@ function restaurar(el: HTMLElement) {
   delete el.dataset.pistaTexto
 }
 
+/** Muda el `title` del elemento y el de cada ancestro que tenga uno (ver «EL TRUCO», arriba). */
+function guardarCadena(el: HTMLElement) {
+  let n: Element | null = el
+  while (n) {
+    if (n instanceof HTMLElement) guardar(n)
+    n = n.parentElement?.closest('[title]') ?? null
+  }
+}
+
+/** Devuelve todos los que `guardarCadena` mudó. Hay una sola cadena mudada por vez. */
+function restaurarCadena(el: HTMLElement) {
+  let n: Element | null = el
+  while (n) {
+    if (n instanceof HTMLElement) restaurar(n)
+    n = n.parentElement?.closest('[data-pista-texto]') ?? null
+  }
+}
+
 /** El elemento con pista que contiene a `n`, o `null`. `[data-pista-texto]` también cuenta: es el
  *  mismo elemento con el `title` ya mudado, y moverse entre sus hijos no tiene que perderlo. */
 function objetivo(n: EventTarget | null, panel: HTMLElement | null): HTMLElement | null {
@@ -79,6 +107,8 @@ export function Pistas() {
        entera de lo que hay que DIBUJAR (`setAbierta`). */
     let duenio: HTMLElement | null = null // el elemento cuya pista está abierta
     let pendiente: HTMLElement | null = null // el que espera su demora para abrir
+    let silenciado: HTMLElement | null = null // el que está bajo el mouse, con su cadena de `title` mudada
+    let ultimaTecla: string | null = null // para saber si un foco llegó con Tab (`abrePorFoco`)
     let tAbrir = 0
     let tCerrar = 0
     let ultimoCierre = -Infinity
@@ -89,16 +119,27 @@ export function Pistas() {
     const cancelarCierre = () => window.clearTimeout(tCerrar)
     const cancelarApertura = () => {
       window.clearTimeout(tAbrir)
-      if (pendiente) { restaurar(pendiente); pendiente = null }
+      pendiente = null
     }
 
-    /** Desengancha al dueño (su `aria-describedby` y su `title`) sin decidir qué se dibuja. */
+    /* —— el ciclo del `title`: atado al mouse, no a la pista —— */
+    const silenciar = (el: HTMLElement) => {
+      if (silenciado === el) return
+      if (silenciado) restaurarCadena(silenciado)
+      guardarCadena(el)
+      silenciado = el
+    }
+    const liberar = () => {
+      if (silenciado) restaurarCadena(silenciado)
+      silenciado = null
+    }
+
+    /** Desengancha al dueño (su `aria-describedby`) sin decidir qué se dibuja. */
     const soltarDuenio = () => {
       if (!duenio) return
       const ids = quitarId(duenio.getAttribute('aria-describedby'), ID_PISTA)
       if (ids) duenio.setAttribute('aria-describedby', ids)
       else duenio.removeAttribute('aria-describedby')
-      restaurar(duenio)
       duenio = null
       ultimoCierre = performance.now()
     }
@@ -119,17 +160,21 @@ export function Pistas() {
     const mostrar = (el: HTMLElement) => {
       cancelarCierre()
       if (pendiente === el) pendiente = null
+      /* Se desmontó durante la demora (una actualización en vivo, el ↑/↓ que remonta el encabezado de
+         la visita): medido desprendido, su caja es todo ceros y la pista quedaba pegada arriba a la
+         izquierda, sobre la barra, explicando algo que ya no está. */
+      if (!el.isConnected) return
       if (duenio !== el) soltarDuenio()
       const texto = textoDe(el)
       const forma = formaDePista({
         texto,
         esTermino: el.classList.contains('spira-termino'),
         textoVisible: el.textContent ?? '',
-        cortado: el.scrollWidth > el.clientWidth + 1,
+        cortado: estaCortado(el),
       })
-      /* Sin forma (un nombre que se lee entero) no se dibuja nada, pero el `title` SIGUE mudado
-         hasta que el mouse se vaya: devolverlo ahora haría salir el globo nativo, que es justo lo que
-         `formaDePista` decidió que sobra. Lo devuelve el `pointerout`. */
+      /* Sin forma (un nombre que se lee entero) no se dibuja nada, y el `title` sigue mudado hasta
+         que el mouse se vaya: devolverlo ahora haría salir el globo nativo, que es justo lo que
+         `formaDePista` decidió que sobra. */
       if (!forma) { setAbierta(null); return }
       duenio = el
       el.setAttribute('aria-describedby', sumarId(el.getAttribute('aria-describedby'), ID_PISTA))
@@ -145,17 +190,20 @@ export function Pistas() {
         /* También es la red para el dueño que se desmontó con el mouse encima (una fila que se va
            al cambiar de día): no hay `pointerout` de algo que ya no existe, pero el próximo
            `pointerover` cae en otra cosa y la pista se va. */
+        liberar()
+        cancelarApertura()
         if (duenio) cerrarConGracia()
         return
       }
-      if (el === duenio) {
-        cancelarCierre()
-        guardar(el) // abierta por el teclado, todavía con su `title`: que no salgan los dos globos
+      /* Moverse adentro del mismo elemento no cambia nada: ni reabre la pista que un clic acaba de
+         cerrar, ni la vuelve a agendar. */
+      if (el === silenciado) {
+        if (el === duenio) cancelarCierre()
         return
       }
-      if (el === pendiente) return
+      silenciar(el)
+      if (el === duenio) { cancelarCierre(); return } // la abrió el teclado y ahora llegó el mouse
       cancelarApertura()
-      guardar(el)
       pendiente = el
       tAbrir = window.setTimeout(() => mostrar(el), demoraDeApertura(performance.now(), ultimoCierre, duenio != null))
     }
@@ -171,17 +219,19 @@ export function Pistas() {
       if (!el) return
       if (hacia instanceof Node && el.contains(hacia)) return // a un hijo suyo: sigue adentro
       if (enPanel(hacia)) return // entró a leer la pista
+      if (el === pendiente) cancelarApertura()
       if (el === duenio) cerrarConGracia()
-      else if (el === pendiente) cancelarApertura()
-      else restaurar(el)
+      if (el === silenciado) liberar()
     }
 
-    /* —— teclado: sólo con el foco VISIBLE (Tab), no con el que deja un clic ——
+    /* —— teclado: sólo el foco que llega con Tab (`abrePorFoco`) ——
        El `title` no se muda acá: el lector de pantalla arma el anuncio con el foco, y sacarle el
        atributo en ese mismo instante podía dejar a un botón de ícono sin nombre. */
     const onFocusIn = (e: FocusEvent) => {
+      const tecla = ultimaTecla
+      ultimaTecla = null // una tecla abre a lo sumo un foco: el siguiente, si lo mueve el código, no
       const t = e.target
-      if (!(t instanceof HTMLElement) || objetivo(t, panel()) !== t || !t.matches(':focus-visible')) return
+      if (!abrePorFoco(tecla) || !(t instanceof HTMLElement) || objetivo(t, panel()) !== t) return
       cancelarApertura()
       mostrar(t)
     }
@@ -192,6 +242,7 @@ export function Pistas() {
     /* —— tocar: sólo los términos sueltos se abren tocándolos; cualquier otro toque o clic cierra ——
        Un término adentro de un botón o enlace no: ahí el toque ya hace lo que hace la fila. */
     const onDown = (e: PointerEvent) => {
+      ultimaTecla = null
       if (enPanel(e.target)) return
       const el = objetivo(e.target, panel())
       if (e.pointerType === 'touch' && el?.classList.contains('spira-termino') && !el.parentElement?.closest('button, a, [role="button"]')) {
@@ -203,6 +254,7 @@ export function Pistas() {
     }
 
     const onKey = (e: KeyboardEvent) => {
+      ultimaTecla = e.key
       if (e.key !== 'Escape') return
       if (duenio) { e.stopPropagation(); cerrar() }
       else cancelarApertura()
@@ -240,7 +292,7 @@ export function Pistas() {
       window.removeEventListener('blur', onCambio)
       window.clearTimeout(tAbrir)
       window.clearTimeout(tCerrar)
-      if (pendiente) restaurar(pendiente)
+      liberar()
       soltarDuenio()
     }
   }, [])

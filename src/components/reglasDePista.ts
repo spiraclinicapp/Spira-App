@@ -82,6 +82,27 @@ export function ubicarPista(
   return { top, left }
 }
 
+/**
+ * ¿El texto del elemento no se ve entero? De costado (el «…» de una línea) o PARA ABAJO: el motivo de
+ * la tarjeta de notificación se corta a dos líneas con `line-clamp`, que envuelve en vez de desbordar
+ * de costado. Mirando sólo el ancho daba "entero", `formaDePista` devolvía `null` y el motivo cortado
+ * se quedaba sin ninguna forma de leerse completo: ni la pista ni el globo nativo (revisión del
+ * 2026-10-09). El píxel de tolerancia es el del redondeo de las fuentes.
+ */
+export function estaCortado(d: { scrollWidth: number; clientWidth: number; scrollHeight: number; clientHeight: number }): boolean {
+  return d.scrollWidth > d.clientWidth + 1 || d.scrollHeight > d.clientHeight + 1
+}
+
+/**
+ * ¿Este foco abre la pista? Sólo si llegó con Tab. `:focus-visible` solo no alcanza: el navegador
+ * también lo da al foco que mueve el CÓDIGO después de una tecla —el `Drawer` enfoca su «Cerrar» al
+ * abrirse con Enter—, y ahí la pista salía sola y el primer Esc se gastaba en cerrarla en vez de
+ * cerrar el cajón. Shift+Tab también es `Tab`.
+ */
+export function abrePorFoco(ultimaTecla: string | null): boolean {
+  return ultimaTecla === 'Tab'
+}
+
 /** Cuánto esperar antes de abrir: nada si hay una abierta o se cerró una hace un instante (ver
  *  `TIBIA_MS`), medio segundo si no. */
 export function demoraDeApertura(ahora: number, ultimoCierre: number, hayAbierta: boolean): number {
