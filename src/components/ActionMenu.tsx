@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, KeyboardEvent } from 'react'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
+import { teclaDelMenu } from './teclasDelMenu'
 import { usePopover } from './usePopover'
 
 /** Una entrada del menú. `disabled` la deja visible pero inerte (la acción existe y ahora mismo
@@ -46,6 +47,19 @@ export function ActionMenu({ items, ariaLabel = 'Más acciones', width = 226 }: 
   // de su barra y el desplegable es más ancho que él).
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
 
+  /* El teclado se frena para que un Enter sobre el menú no abra también la fila de abajo, salvo el
+     Esc, que tiene su propio camino (ver `teclasDelMenu.ts`). Desde un ítem, el foco vuelve al ⋮: el
+     ítem se desmonta al cerrar, y un foco que se queda en un nodo que ya no existe cae al `body`. */
+  const alTeclear = (e: KeyboardEvent<HTMLButtonElement>, desdeUnItem: boolean) => {
+    const que = teclaDelMenu(e.key, open)
+    if (que === 'dejar-pasar') return
+    e.stopPropagation()
+    if (que === 'cerrar-menu') {
+      setOpen(false)
+      if (desdeUnItem) triggerRef.current?.focus()
+    }
+  }
+
   // Un disparador que no abre nada es un botón que miente. Pasa de verdad: en una recepción sin
   // permisos de gestión no queda ninguna acción.
   if (items.length === 0) return null
@@ -56,7 +70,7 @@ export function ActionMenu({ items, ariaLabel = 'Más acciones', width = 226 }: 
         ref={triggerRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
-        onKeyDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => alTeclear(e, false)}
         aria-label={ariaLabel}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -93,7 +107,7 @@ export function ActionMenu({ items, ariaLabel = 'Más acciones', width = 226 }: 
                 setOpen(false)
                 it.onClick()
               }}
-              onKeyDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => alTeclear(e, true)}
               className={'spira-menu-item' + (it.danger ? ' spira-menu-item--danger' : '')}
               style={it.disabled ? { opacity: 0.55, cursor: 'default' } : undefined}
             >
