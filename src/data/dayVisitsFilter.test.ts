@@ -7,7 +7,7 @@
  * diga nada.
  */
 import { describe, expect, it } from 'vitest'
-import { motivosDelDia } from './dayVisitsFilter'
+import { motivosDelDia, motivosDelRango } from './dayVisitsFilter'
 
 const DIA = '2026-09-17'
 
@@ -40,5 +40,33 @@ describe('motivosDelDia', () => {
 
   it('son cinco motivos y ninguno más', () => {
     expect(motivosDelDia(DIA)).toHaveLength(5)
+  })
+})
+
+/* El rango (Semana y Mes de Visitas) tiene que decir lo MISMO que un día, extendido: los mismos cinco
+   motivos, con la misma regla de la citación y el mismo anclaje a -03:00. Si divergieran, la grilla
+   mostraría una visita en un día y al entrar a ese día la lista no la tendría. */
+describe('motivosDelRango', () => {
+  const DESDE = '2026-10-05'
+  const HASTA = '2026-10-11'
+
+  it('la citación sólo cuenta si la visita NO se atendió', () => {
+    expect(motivosDelRango(DESDE, HASTA)).toContain(`and(real_date.is.null,estimated_date.gte.${DESDE},estimated_date.lte.${HASTA})`)
+  })
+
+  it('la fecha realizada entra por rango, sin condiciones', () => {
+    expect(motivosDelRango(DESDE, HASTA)).toContain(`and(real_date.gte.${DESDE},real_date.lte.${HASTA})`)
+  })
+
+  it('las marcas van del primer minuto del primer día al último del último, en -03:00', () => {
+    const m = motivosDelRango(DESDE, HASTA)
+    for (const marca of ['arrived_at', 'ready_at', 'left_at']) {
+      expect(m).toContain(`and(${marca}.gte.${DESDE}T00:00:00-03:00,${marca}.lte.${HASTA}T23:59:59.999-03:00)`)
+    }
+    for (const c of m) expect(c).not.toMatch(/Tdd:dd:dd(.d+)?Z/)
+  })
+
+  it('son los mismos cinco motivos que un día', () => {
+    expect(motivosDelRango(DESDE, HASTA)).toHaveLength(motivosDelDia(DESDE).length)
   })
 })

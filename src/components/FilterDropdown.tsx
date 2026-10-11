@@ -45,6 +45,13 @@ interface Props {
    * maneras de decir qué hace el menú, y juntas se leería "Antigüedad: Antigüedad".
    */
   neutralLabel?: string
+  /**
+   * Clases para el prefijo y el valor del disparador. Las estrena «Ordenar por» en Visitas (2026-10-11):
+   * su fila de filtros no envuelve, y el handoff esconde el prefijo y después el valor por container
+   * query cuando la lista se angosta. Sin esto el componente no tiene dónde engancharlos.
+   */
+  prefixClassName?: string
+  valueClassName?: string
 }
 
 /**
@@ -54,7 +61,7 @@ interface Props {
  * Comparte `usePopover` (fixed + clamp de viewport) con `SearchableSelect`/`DateField`, así el
  * popover nunca se recorta contra el borde de la pantalla.
  */
-export function FilterDropdown({ accent, value, onChange, options, menuLabel, icon = 'filter', id, deselectable = false, prefix, neutralLabel }: Props) {
+export function FilterDropdown({ accent, value, onChange, options, menuLabel, icon = 'filter', id, deselectable = false, prefix, neutralLabel, prefixClassName, valueClassName }: Props) {
   const [open, setOpen] = useState(false)
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(open, () => setOpen(false))
   const active = options.find((o) => o.value === value) ?? options[0]
@@ -91,8 +98,8 @@ export function FilterDropdown({ accent, value, onChange, options, menuLabel, ic
         }}
       >
         <Icon name={icon} size={15} color={on ? accent : 'var(--spira-muted)'} />
-        {prefix && <span style={prefixLabel}>{prefix}:</span>}
-        <span style={{ ...triggerLabel, color: on ? accent : 'var(--spira-ink)' }}>{triggerText}</span>
+        {prefix && <span className={prefixClassName} style={prefixLabel}>{prefix}:</span>}
+        <span className={valueClassName} style={{ ...triggerLabel, color: on ? accent : 'var(--spira-ink)' }}>{triggerText}</span>
         {active?.count != null && <span style={{ ...badge, background: accent }}>{active.count}</span>}
         <Icon name="chevronDown" size={15} color="var(--spira-muted)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
       </button>

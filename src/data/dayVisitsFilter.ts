@@ -38,3 +38,25 @@ export function motivosDelDia(date: string): string[] {
     `and(left_at.gte.${dayStart},left_at.lte.${dayEnd})`,
   ]
 }
+
+/**
+ * Los mismos motivos que `motivosDelDia`, para un RANGO de días `[desde, hasta]` (inclusive): lo que
+ * piden las vistas Semana y Mes de Visitas (2026-10-11). Una visita entra si entraría en la lista de
+ * ALGUNO de esos días; a qué celda va lo decide después `diasDeLaVisita` (`views/track/visitas/
+ * calendario.ts`), que es el espejo de estas condiciones del lado del cliente.
+ *
+ * Es una función aparte y no un `motivosDelDia` reescrito sobre ésta a propósito: la de un día la usan
+ * la lista y la cola del médico, y está probada en prod con su forma exacta. Ésta se testea contra
+ * los mismos casos.
+ */
+export function motivosDelRango(desde: string, hasta: string): string[] {
+  const inicio = `${desde}T00:00:00-03:00`
+  const fin = `${hasta}T23:59:59.999-03:00`
+  return [
+    `and(real_date.is.null,estimated_date.gte.${desde},estimated_date.lte.${hasta})`,
+    `and(real_date.gte.${desde},real_date.lte.${hasta})`,
+    `and(arrived_at.gte.${inicio},arrived_at.lte.${fin})`,
+    `and(ready_at.gte.${inicio},ready_at.lte.${fin})`,
+    `and(left_at.gte.${inicio},left_at.lte.${fin})`,
+  ]
+}

@@ -1,33 +1,40 @@
-import { useState } from 'react'
-import type { CSSProperties } from 'react'
 import { ActionMenu } from '../../components/ActionMenu'
 import type { ActionMenuItem } from '../../components/ActionMenu'
 import { Icon } from '../../components/Icon'
+import type { IconName } from '../../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
+import { formatTimeAR } from '../../lib/dates'
 import { visitCode } from '../../lib/visits'
 import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import type { ResumenVisita } from './resumenVisita'
 import { OperationalStageChip, OPERATIONAL_STAGES, VisitChip, VISIT_STATES } from '../visitStates'
-import { ProtoTag, IndicadoresVisita, Persona, VisitCodeTag } from '../visitAtoms'
+import { ProtoTag, IndicadoresVisita, VisitCodeTag } from '../visitAtoms'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 import { etapaProgreso } from './visitHeaderRules'
+import { esNoVino, puedeReprogramar } from './visitas/calendario'
 
 /**
- * Fila de "Visitas del día" v2 — layout `paciente` del handoff (`handoff_visitas_dia/`), rebindeada
- * al modelo real. La hora de cita NO existe en el schema → la columna izquierda muestra el chip de
- * ESTADO (decisión del Director). El nombre del paciente va de titular (desde 2026-08-04 se muestra
- * en toda la app, ver CLAUDE.md). Toda la fila abre el modal; los controles internos
- * cortan la propagación para no dispararlo. La columna derecha (médico · CTA · ⋯) es de ancho fijo:
- * queda alineada al pixel entre filas pase lo que pase con el estado.
+ * Fila de la vista Día de Visitas — handoff `docs/design_handoff_visitas_calendario/` §3.1
+ * (2026-10-11), sobre el modelo real. Cinco columnas de ancho DETERMINÍSTICO: estado · datos ·
+ * personas · acciones · ⋯. Con anchos fijos, las columnas coinciden entre filas por construcción y no
+ * por casualidad de que los nombres midan parecido. El responsive (dos renglones a ≤860 px, apilada a
+ * ≤560 px) va por container query sobre la lista, en `visitas/visitas.css`.
+ *
+ * Toda la fila abre el modal de la visita; los controles internos cortan la propagación para no
+ * dispararlo. La hora de cita NO existe en el schema: la columna izquierda es el ESTADO (decisión del
+ * Director) con el riel de cuánto lleva recorrido. El nombre del paciente es el titular (CLAUDE.md:
+ * identidad del paciente, nombre visible) y lleva a su ficha.
+ *
+ * Las ACCIONES quedan siempre en la misma x: «Atención médica» está en TODAS las filas (apagada cuando
+ * no corresponde) y la acción principal tiene un slot fijo de 160 px que no colapsa aunque esté vacío.
  */
 export function DayVisitRowItem({
-  visit, accent, canReception, canClinical, busyId, resumen,
+  visit, canReception, canClinical, busyId, resumen,
   onAdvance, onOpenDoctor, onNoShow, onReschedule, onOpen, onOpenPatient,
 }: {
   visit: DayVisitRow
-  accent: string
-  /** Recepción/Admin: puede marcar la llegada y "No vino". */
+  /** Recepción/Admin: puede marcar la llegada, "No vino" y reprogramar. */
   canReception: boolean
   /** Clínico/Coord asignado a este protocolo: Inicio de atención / Fin de atención / médico. */
   canClinical: boolean
@@ -46,50 +53,30 @@ export function DayVisitRowItem({
 }) {
   const stage = visit.operational_stage
   const busy = busyId === visit.id
-  const [hov, setHov] = useState(false)
+  const noVino = esNoVino(visit)
 
-  // El riel tiene que coincidir con el chip que se muestra (ver más abajo): si la visita está
-  // "Por reprogramar" el chip es el CLÍNICO, así que el riel usa ese mismo color — mostrar riel
-  // operativo (gris de "Por llegar") al lado de un chip marrón contradice al propio chip.
-  const railColor = visit.computed_status === 'por_reprogramar'
+  // El riel tiene que coincidir con el chip que se muestra: si la visita está "Por reprogramar" el
+  // chip es el CLÍNICO, así que el riel usa ese mismo color — un riel gris de "Por llegar" al lado de
+  // un chip marrón contradice al propio chip.
+  const railColor = noVino
     ? VISIT_STATES.por_reprogramar.color
     : OPERATIONAL_STAGES[stage]?.color ?? OPERATIONAL_STAGES.por_llegar.color
   // Mismo cálculo que llena el riel de la barra del modal: una sola fuente para "cuánto lleva
   // recorrido esta visita", así la lista y el detalle no pueden decir cosas distintas.
   const { pct } = etapaProgreso(stage)
-  const visitName = visit.visit_name ?? KIND_LABELS[visit.kind]
-
-  const shell: CSSProperties = {
-    position: 'relative', background: 'var(--spira-white)', borderRadius: 14, cursor: 'pointer',
-    border: `1px solid ${hov ? 'var(--spira-line-2)' : 'var(--spira-line)'}`,
-    boxShadow: hov ? '0 6px 18px rgba(20,48,46,0.10)' : '0 1px 2px rgba(20,48,46,0.06)',
-    transition: 'box-shadow .18s ease, border-color .18s ease',
-    // Padding izquierdo igual al derecho: la barra de color a sangre que ocupaba esos 6px de más
-    // se fue, y su trabajo lo hace ahora el riel de la columna de estado.
-    overflow: 'hidden', padding: '12px 16px', marginBottom: 8,
-    /* GRID y no flex: es una lista de columnas, y con flex cada fila resolvía sus anchos por el
-       largo de SU contenido —la identidad medía lo que midiera su línea más ancha—, así que lo que
-       venía después caía en un x distinto en cada renglón. Con anchos determinísticos, las columnas
-       coinciden entre filas por construcción y no por casualidad de que los nombres midan parecido.
-       Y el sobrante va a la identidad, que es la que lo necesita: con `flex: 1` se depositaba en un
-       vacío muerto en el medio de la fila mientras los nombres truncaban al lado.
-
-       CUATRO grupos y no cinco (Director, 2026-08-25): la visita tuvo su propia columna por un rato
-       y quedaba tocando nada —a ~295px del nombre y ~186px de los responsables—, ni parte de la
-       identidad ni parte de los metadatos. Un elemento alineado pero sin vecino se lee peor que uno
-       pegado a algo. Volvió al renglón de contexto, que es donde tiene vecinos: protocolo e IVRS
-       hablan de la misma visita. */
-    display: 'grid', gridTemplateColumns: '104px minmax(0, 1fr) 206px auto',
-    alignItems: 'center', gap: 16,
-  }
+  // El renglón es protocolo · N° · código, como el mock. El nombre de una visita del cronograma ya va
+  // DENTRO del código («V5 W10», ver `visitCode`); el de una suelta no —el chip dice la sigla, «VNP»—,
+  // así que para ésas la pista del chip dice el tipo completo.
+  const pistaCodigo = visit.visit_name ? undefined : KIND_LABELS[visit.kind]
+  const canReschedule = puedeReprogramar(visit, canReception)
 
   return (
     <div
-      style={shell}
+      className="vcal-row spira-card-link"
       role="button"
       tabIndex={0}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+      aria-label={`Abrir la visita de ${visit.patient_name}`}
+      style={{ cursor: busy ? 'default' : undefined }}
       onClick={() => { if (!busy) onOpen(visit) }}
       onKeyDown={(e) => {
         // Solo si el evento nació en la fila misma: sin esta guarda, Enter sobre un botón
@@ -98,70 +85,73 @@ export function DayVisitRowItem({
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!busy) onOpen(visit) }
       }}
     >
-      {/* Columna izquierda: chip de estado (reemplaza la hora, que no existe en el schema) + el
-          riel del recorrido debajo. El riel trae a la lista el idioma de la barra de acción del
-          modal, y de paso agrega el dato que la fila no tenía: no solo CÓMO SE LLAMA la etapa,
-          sino cuánto lleva recorrido. Reemplaza a la barra de color a sangre que estaba pegada al
-          borde izquierdo — decía menos y pesaba más.
-          Si la visita quedó "Por reprogramar" mandamos el chip CLÍNICO: operativamente sigue en
-          "Por llegar", y dejar ese chip diría que el paciente está por llegar cuando ya se sabe
-          que no viene. Se mira `computed_status` y no `no_show_at` porque la vista ya resuelve la
-          precedencia (ventana vencida le gana a por reprogramar). */}
-      <div>
-        {visit.computed_status === 'por_reprogramar'
-          ? <VisitChip status="por_reprogramar" compact />
-          : <OperationalStageChip stage={stage} compact />}
-        <div style={{ height: 3, borderRadius: 2, background: 'var(--spira-line-2)', marginTop: 7, overflow: 'hidden' }}>
-          <i style={{ display: 'block', height: '100%', width: `${pct}%`, background: railColor, borderRadius: 2 }} />
-        </div>
+      {/* 1 · Estado + riel del recorrido. «Por reprogramar» manda el chip CLÍNICO: operativamente
+          sigue en "Por llegar", y ese chip diría que el paciente está por llegar cuando ya se sabe
+          que no viene (`esNoVino`, el mismo predicado del grupo y del filtro). */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 104, minWidth: 0 }}>
+        <span style={{ alignSelf: 'flex-start' }}>
+          {noVino ? <VisitChip status="por_reprogramar" compact /> : <OperationalStageChip stage={stage} compact />}
+        </span>
+        <span style={{ height: 3, borderRadius: 99, background: 'var(--spira-line)', overflow: 'hidden' }}>
+          <i style={{ display: 'block', height: '100%', width: `${pct}%`, background: railColor }} />
+        </span>
       </div>
 
-      {/* identidad — columna 2 */}
-      <div className="spira-link-group" style={{ minWidth: 0 }}>
-        {/* La flecha va al lado del NOMBRE (Director, 2026-08-25): es el titular y lo que se apunta
-            primero, así que la marca de destino le corresponde a él. Que el número también navega
-            lo dice el subrayado emparejado del `.spira-link-group` —apuntar uno subraya los dos—,
-            que es la señal que ya existía para eso; una segunda flecha abajo sería decir dos veces
-            lo mismo. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <div style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-            <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
-              {visit.patient_name}
-            </PatientLink>
-          </div>
-          {onOpenPatient && <PatientLinkArrow />}
+      {/* 2 · Datos: nombre (+ hora de llegada) · protocolo, N° y código · qué lleva la visita. */}
+      <div className="vcal-row-main spira-link-group">
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
+          {/* La flecha va al lado del NOMBRE: es el titular y lo que se apunta primero. Que el N°
+              también navega lo dice el subrayado emparejado de `.spira-link-group`. */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <span style={{ fontFamily: 'var(--spira-font-display)', fontSize: 17, fontWeight: 700, color: 'var(--spira-ink)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+              <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha de ${visit.patient_name}`}>
+                {visit.patient_name}
+              </PatientLink>
+            </span>
+            {onOpenPatient && <PatientLinkArrow />}
+          </span>
+          {visit.arrived_at && (
+            <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-ink-soft)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              llegó {formatTimeAR(visit.arrived_at)}
+            </span>
+          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 13 }}>
           <ProtoTag code={visit.protocol_code} protocolId={visit.protocol_id} />
-          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
+          <span className="spira-mono" style={{ fontSize: 12.5, color: 'var(--spira-ink-soft)', whiteSpace: 'nowrap' }}>
             {visit.patient_code
               ? <PatientLink onOpen={onOpenPatient} label={`Abrir la ficha del sujeto ${visit.patient_code}`}>{visit.patient_code}</PatientLink>
               : 'Sin IVRS'}
           </span>
-          {/* Visita y semana viven acá, con el protocolo y el IVRS: los cuatro son el contexto
-              de la misma visita, y juntos forman UN renglón de datos en vez de un bloque suelto
-              flotando en el medio de la fila. El código conserva el peso (tinta plena) porque
-              es el que se busca; la semana lo acompaña en gris, atrás. */}
-          <VisitCodeTag code={visitCode(visit)} />
-          <span style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>{visitName}</span>
+          <VisitCodeTag code={visitCode(visit)} title={pistaCodigo} />
         </div>
-        {/* La tira: qué lleva la visita. Sin nada que decir NO se dibuja, ni siquiera un texto de
-            reemplazo — «Sin procedimientos» en cada renglón sería ruido en toda la agenda. */}
-        {resumen && (
-          <div style={{ marginTop: 9 }}><IndicadoresVisita resumen={resumen} variante="fila" /></div>
-        )}
+        {/* La tira: qué lleva la visita. Sin nada que decir NO se dibuja — «Sin procedimientos» en
+            cada renglón sería ruido en toda la agenda (y lo que no se sabe no se dibuja). */}
+        {resumen && <IndicadoresVisita resumen={resumen} variante="fila" />}
       </div>
 
-      {/* responsables — columna 4 (ancho fijo, alineados a la derecha) */}
-      <div style={{ width: 206, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, overflow: 'hidden' }}>
-        <Persona role="Coord." name={visit.coordinator_name} icon="user" />
-        <Persona role="Médico" name={visit.treating_physician} icon="users" />
+      {/* 3 · Personas: rótulo a la derecha de su columna, valor a la izquierda de la suya. */}
+      <div className="vcal-row-people">
+        <Persona icon="user" rol="Coord." nombre={visit.coordinator_name} />
+        <Persona icon="users" rol="Médico" nombre={visit.treating_physician} />
       </div>
 
-      {/* acciones — columna 5 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <DoctorButton visit={visit} accent={accent} canClinical={canClinical} busy={busy} onOpenDoctor={onOpenDoctor} />
-        <AdvanceCTA stage={stage} accent={accent} canAdvance={advanceRole(stage) === 'reception' ? canReception : advanceRole(stage) === 'clinical' ? canClinical : false} busy={busy} onAdvance={(next) => onAdvance(visit, next)} />
+      {/* 4 · Acciones. */}
+      <div className="vcal-row-cta">
+        <AtencionMedica visit={visit} canClinical={canClinical} busy={busy} onOpenDoctor={onOpenDoctor} />
+        <AccionPrincipal
+          stage={stage}
+          noVino={noVino}
+          canAdvance={advanceRole(stage) === 'reception' ? canReception : advanceRole(stage) === 'clinical' ? canClinical : false}
+          canReschedule={canReschedule}
+          busy={busy}
+          onAdvance={(next) => onAdvance(visit, next)}
+          onReschedule={() => onReschedule(visit)}
+        />
+      </div>
+
+      {/* 5 · Más. */}
+      <div className="vcal-row-more">
         <ActionMenu
           ariaLabel={`Más acciones de la visita de ${visit.patient_name}`}
           items={accionesDe(visit, canReception, busy, onNoShow, onReschedule)}
@@ -171,86 +161,109 @@ export function DayVisitRowItem({
   )
 }
 
-/** Botón médico de 3 estados y ancho fijo (134). Abre el modal de derivación (motivo) del padre. */
-function DoctorButton({ visit, accent, canClinical, busy, onOpenDoctor }: {
+/** Un responsable de la visita: ícono + rol en gris, nombre en tinta. Vacío → «Sin asignar», apagado. */
+function Persona({ icon, rol, nombre }: { icon: IconName; rol: string; nombre: string | null }) {
+  return (
+    <>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end', color: 'var(--spira-ink-soft)', whiteSpace: 'nowrap' }}>
+        <Icon name={icon} size={13} color="var(--spira-faint)" />{rol}
+      </span>
+      <span
+        title={nombre ?? undefined}
+        style={{
+          minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          fontWeight: nombre ? 600 : 400, color: nombre ? 'var(--spira-ink-2)' : 'var(--spira-ink-soft)',
+        }}
+      >
+        {nombre ?? 'Sin asignar'}
+      </span>
+    </>
+  )
+}
+
+/**
+ * «Atención médica» (antes «Quiere médico», pedido de Dirección): SIEMPRE presente y de ancho fijo,
+ * para que la acción principal de al lado quede en la misma x en todas las filas.
+ *
+ *   · Visto por médico → marca quieta en verde (lo que ya pasó, no un botón).
+ *   · En cola          → el pedido ya está hecho; sigue abriendo el modal para verlo o editarlo.
+ *   · Habilitado       → sólo con el paciente en el centro (Concurrió / En atención) y permiso clínico.
+ *   · Apagado          → por llegar, cerrada, no vino o sin permiso, con el porqué en la pista.
+ */
+function AtencionMedica({ visit, canClinical, busy, onOpenDoctor }: {
   visit: DayVisitRow
-  accent: string
   canClinical: boolean
   busy: boolean
   onOpenDoctor: (visit: DayVisitRow) => void
 }) {
-  const base: CSSProperties = {
-    width: 134, height: 40, flex: '0 0 auto', borderRadius: 10,
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-    fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap',
-  }
   if (visit.doctor_seen_at) {
     return (
-      <div title="Atendido por el médico" style={{ ...base, background: '#5C8A5A22', color: 'var(--spira-acc-deep-good)', border: '1px solid transparent' }}>
-        <Icon name="users" size={15} color="var(--spira-good)" /> Visto por médico
-      </div>
+      <span className="vcal-btn-med visto" title="Ya lo atendió el médico">
+        <Icon name="check" size={15} color="var(--spira-good)" stroke={2.4} /> Visto por médico
+      </span>
     )
   }
-  const eligible = canClinical && visit.operational_stage !== 'por_llegar' && visit.operational_stage !== 'fin_atencion'
-  if (!eligible) return <div style={{ width: 134, flex: '0 0 auto' }} />
-  const on = visit.wants_doctor
+  const stage = visit.operational_stage
+  const enElCentro = (stage === 'concurrio_al_centro' || stage === 'inicio_atencion') && !esNoVino(visit)
+  const porque = !enElCentro
+    ? stage === 'por_llegar' && !esNoVino(visit) ? 'Disponible cuando el paciente llegue' : 'La visita ya no está en el centro'
+    : !canClinical ? 'Sólo el equipo clínico del estudio puede pedirla' : null
+  const enCola = visit.wants_doctor && enElCentro
   return (
     <button
       type="button"
+      className={'vcal-btn-med' + (enCola ? ' en-cola' : '')}
+      disabled={porque !== null || busy}
+      title={porque ?? (enCola ? 'Ver o editar el pedido de atención médica' : 'Solicitar atención médica')}
       onClick={(e) => { e.stopPropagation(); if (!busy) onOpenDoctor(visit) }}
       onKeyDown={(e) => e.stopPropagation()}
-      disabled={busy}
-      title={on ? 'Ver / editar atención médica' : 'Marcar para ver médico'}
-      style={{
-        ...base, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
-        border: `1px solid ${on ? accent : 'var(--spira-line-2)'}`,
-        background: on ? accent + '14' : 'var(--spira-white)', color: on ? accent : 'var(--spira-muted)',
-      }}
     >
-      <Icon name="users" size={15} color="currentColor" /> {on ? 'En cola' : 'Quiere médico'}
+      <Icon name="users" size={15} /> {enCola ? 'En cola' : 'Atención médica'}
     </button>
   )
 }
 
 /**
- * CTA de avanzar etapa. Ancho fijo (150), relleno de marca, siempre a la derecha. 'fin_atencion'
- * muestra el estado terminal "Realizada"; sin paso o sin permiso deja un hueco del mismo ancho
- * (conserva la alineación de la columna derecha en las demás filas). El desenlace de
- * screening/randomización lo resuelve el padre en `onAdvance` (abre el cierre clínico).
+ * La acción principal del estado, en un slot FIJO de 160 px que nunca colapsa:
+ *   Por llegar → «Marcar llegada →» · Concurrió → «Iniciar atención →» · En atención → «Fin de atención →»
+ *   No vino → «Reprogramar» (secundario) · Realizada, o sin permiso → el hueco del mismo ancho.
+ * El desenlace de screening/randomización lo resuelve el padre en `onAdvance` (abre el cierre clínico).
  */
-function AdvanceCTA({ stage, accent, canAdvance, busy, onAdvance }: {
+function AccionPrincipal({ stage, noVino, canAdvance, canReschedule, busy, onAdvance, onReschedule }: {
   stage: OperationalStage
-  accent: string
+  noVino: boolean
   canAdvance: boolean
+  canReschedule: boolean
   busy: boolean
   onAdvance: (next: OperationalStage) => void
+  onReschedule: () => void
 }) {
-  if (stage === 'fin_atencion') {
+  if (noVino) {
+    if (!canReschedule) return <span className="vcal-slot" aria-hidden="true" />
     return (
-      <div style={{ width: 150, height: 40, borderRadius: 10, background: '#5C8A5A22', color: 'var(--spira-acc-deep-good)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13, flex: '0 0 auto' }}>
-        {/* Trazo 2.4 y no el 1.8 por defecto: al lado de un texto semibold, el check fino se leía
-            desteñido (Director, 2026-09-14). Es el mismo trazo que el "Realizada" del modal. */}
-        <Icon name="check" size={15} color="var(--spira-good)" stroke={2.4} /> Realizada
-      </div>
+      <button
+        type="button"
+        className="vcal-btn-cta secundario"
+        disabled={busy}
+        onClick={(e) => { e.stopPropagation(); if (!busy) onReschedule() }}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        Reprogramar
+      </button>
     )
   }
   const step = NEXT_STEP[stage]
-  if (!step || !canAdvance) return <div style={{ width: 150, flex: '0 0 auto' }} />
+  if (!step || !canAdvance) return <span className="vcal-slot" aria-hidden="true" />
   return (
     <button
       type="button"
+      className="vcal-btn-cta"
+      disabled={busy}
       onClick={(e) => { e.stopPropagation(); if (!busy) onAdvance(step.next) }}
       onKeyDown={(e) => e.stopPropagation()}
-      disabled={busy}
-      style={{
-        width: 150, height: 40, borderRadius: 10, border: 'none', cursor: busy ? 'default' : 'pointer',
-        background: accent, color: 'var(--spira-on-accent)', boxShadow: `0 2px 8px ${accent}3D`,
-        fontFamily: 'var(--spira-font-text)', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, opacity: busy ? 0.6 : 1, flex: '0 0 auto',
-      }}
     >
-      {busy ? 'Guardando…' : step.label}
-      <Icon name="arrowRight" size={14} color="var(--spira-on-accent)" />
+      {busy ? 'Guardando…' : step.short}
+      <Icon name="arrowRight" size={15} color="var(--spira-on-accent)" />
     </button>
   )
 }
@@ -258,17 +271,9 @@ function AdvanceCTA({ stage, accent, canAdvance, busy, onAdvance }: {
 /**
  * Ítems del menú ⋯ de la fila: acciones que SÍ están cableadas (no vino · reprogramar · copiar N°).
  *
- * Era `RowMenu`, una copia privada del menú ⋮ con su propio popover, su propio portal y su propio
- * `MenuItem` de estilos inline. `ActionMenu` salió justamente de acá (PR #89) para que Recepción no
- * copiara el gesto una segunda vez, y esta fila quedó sin migrar a propósito: era otra vista y otro
- * riesgo, y aquella tanda era de Recepción.
- *
- * Ya se habían despegado, que es lo que pasa siempre con dos copias que se ven igual: el de acá no
- * llevaba `aria-label` —sólo `title`, que computa nombre accesible pero es el último recurso del
- * algoritmo— ni los roles `menu`/`menuitem`, y sus ítems no usaban `.spira-menu-item`, así que se
- * perdían el resalte de hover y foco de la casa. Lo destapó el QA visual del 2026-08-31.
- *
- * Lo único que queda acá son los GUARDS, que son de esta vista y no del componente.
+ * Era `RowMenu`, una copia privada del menú ⋮ con su propio popover; `ActionMenu` salió justamente de
+ * acá (PR #89) y la fila se migró después (QA visual del 2026-08-31). Lo único que queda acá son los
+ * GUARDS, que son de esta vista y no del componente.
  */
 function accionesDe(
   visit: DayVisitRow,
@@ -283,11 +288,7 @@ function accionesDe(
   // ya marcada (migración 0067).
   const faltaMarcada = visit.no_show_at !== null
   const canNoShow = visit.operational_stage === 'por_llegar' && canReception
-  // Mismo guard que sus hermanos AgendaView/PatientFichaView: no se reprograma algo que ya pasó.
-  // `rescheduleVisit` es un update directo que solo toca `estimated_date` y no mira `real_date` ni
-  // la etapa (ni la RLS, que solo verifica rol/protocolo) — sin este guard en la UI, reprogramar una
-  // visita ya en `fin_atencion` deja una visita fantasma en la fecha nueva con `real_date` intacto.
-  const canReschedule = canReception && visit.real_date === null
+  const canReschedule = puedeReprogramar(visit, canReception)
 
   /* Los íconos son los del set (no hay uno de "ausente"): la `x` en rojo para la falta —el mismo
      par que usa Anular en Recepción—, `rotateCcw` para deshacerla, `calendar` para reprogramar y
@@ -314,5 +315,3 @@ function accionesDe(
   })
   return items
 }
-
-

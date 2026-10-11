@@ -2,7 +2,8 @@ import { useSupabaseQuery } from '../lib/useSupabaseQuery'
 import type { QueryResult } from '../lib/useSupabaseQuery'
 import { supabase } from '../lib/supabase'
 import type { TrackVisitRow } from './visits'
-import { motivosDelDia } from './dayVisitsFilter'
+import { motivosDelDia, motivosDelRango } from './dayVisitsFilter'
+import { todasLasPaginas } from '../lib/paginas'
 
 /** Etapa del recorrido del paciente en el centro (derivada de las marcas, NO clínica). */
 export type OperationalStage = 'por_llegar' | 'concurrio_al_centro' | 'inicio_atencion' | 'fin_atencion'
@@ -100,16 +101,91 @@ export interface DayVisitRow extends TrackVisitRow {
  * Lee la vista `v_track_visits` extendida en 0023 (security_invoker → la RLS scopea).
  * Orden estable: patient_code asc.
  */
-export function useVisitsForDay(date: string): QueryResult<DayVisitRow[]> {
+export function useVisitsForDay(date: string | null): QueryResult<DayVisitRow[]> {
   return useSupabaseQuery<DayVisitRow[]>(
-    (c) =>
-      c
+    async (c) => {
+      // `null` = no hace falta (Visitas en Semana o Mes): no consulta, y al volver al Día arranca en
+      // «cargando» en vez de mostrar el día de antes.
+      if (date === null) return { data: null, error: null }
+      return await c
         .from('v_track_visits')
         .select('*')
         .or(motivosDelDia(date).join(','))
         .order('patient_code', { ascending: true })
-        .returns<DayVisitRow[]>(),
+        .returns<DayVisitRow[]>()
+    },
     [date],
+  )
+}
+
+/** Clave de un rango, para saber si los datos que hay son los del rango que se está mirando. */
+export const claveRango = (r: { desde: string; hasta: string }) => `${r.desde}..${r.hasta}`
+
+/** Lo mínimo para saber en qué días cae una visita (`diasDeLaVisita`). */
+export interface FechasVisita {
+  id: string
+  real_date: string | null
+  estimated_date: string | null
+  arrived_at: string | null
+  ready_at: string | null
+  left_at: string | null
+}
+
+/**
+ * Las visitas de un RANGO de días (`motivosDelRango`), con las columnas pedidas. Una sola consulta
+ * para las dos lecturas de abajo: si divergieran los motivos o la paginación, el puntito del
+ * calendario y la grilla dirían cosas distintas del mismo día.
+ *
+ * PAGINADA (`todasLasPaginas`): PostgREST corta en 1.000 filas con 200 OK, y la grilla de un mes
+ * ocupado de seis semanas puede acercarse; perder visitas ahí sería un calendario que miente sin
+ * aviso. Orden TOTAL por `id` para que las páginas no se pisen (el orden en pantalla lo pone la vista).
+ */
+function pedirRango<T>(c: typeof supabase, rango: { desde: string; hasta: string }, columnas: string) {
+  return todasLasPaginas((desde, hasta, conTotal) =>
+    c
+      .from('v_track_visits')
+      .select(columnas, conTotal ? { count: 'exact' } : undefined)
+      .or(motivosDelRango(rango.desde, rango.hasta).join(','))
+      .order('id', { ascending: true })
+      .range(desde, hasta)
+      .returns<T[]>())
+}
+
+/**
+ * Visitas de un RANGO, para las vistas Semana y Mes de Visitas (2026-10-11). La celda de cada visita
+ * la decide el cliente con `diasDeLaVisita`, el espejo de `motivosDelRango`.
+ *
+ * Los datos vienen ETIQUETADOS con la clave del rango (`claveRango`). `useSupabaseQuery` deja a la
+ * vista los datos viejos mientras pide los nuevos (para que avanzar una etapa no parpadee), y en un
+ * calendario eso es engañoso: al pasar a la semana siguiente, las visitas de la anterior se recortan
+ * al período nuevo y la grilla dice «0 visitas» hasta que llega la respuesta. Con la etiqueta, la
+ * vista distingue «todavía no llegó» de «no hay».
+ *
+ * Con `rango` null no consulta (la vista Día no la necesita y el hook no se puede llamar condicional).
+ */
+export function useVisitsForRange(rango: { desde: string; hasta: string } | null): QueryResult<{ clave: string; filas: DayVisitRow[] }> {
+  return useSupabaseQuery<{ clave: string; filas: DayVisitRow[] }>(
+    async (c) => {
+      if (!rango) return { data: null, error: null }
+      const { data, error } = await pedirRango<DayVisitRow>(c, rango, '*')
+      return { data: data ? { clave: claveRango(rango), filas: data } : null, error }
+    },
+    [rango?.desde, rango?.hasta],
+  )
+}
+
+/**
+ * Las fechas de las visitas de un rango, SIN el resto de la fila: el calendario desplegable sólo
+ * marca qué días tienen visitas, y pedir la fila entera por cada mes que se hojea sería traer
+ * nombres, protocolos y responsables para dibujar un punto. Con `rango` null no consulta.
+ */
+export function useVisitDates(rango: { desde: string; hasta: string } | null): QueryResult<FechasVisita[]> {
+  return useSupabaseQuery<FechasVisita[]>(
+    async (c) => {
+      if (!rango) return { data: null, error: null }
+      return await pedirRango<FechasVisita>(c, rango, 'id,real_date,estimated_date,arrived_at,ready_at,left_at')
+    },
+    [rango?.desde, rango?.hasta],
   )
 }
 
