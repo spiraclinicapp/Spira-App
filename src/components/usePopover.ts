@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { ID_PISTA } from './reglasDePista'
 
 export interface PopoverPos { top: number; left: number; width: number }
 
@@ -175,6 +176,10 @@ export function usePopover<T extends HTMLElement, P extends HTMLElement>(
     }
     const onDown = (e: MouseEvent) => {
       if (adentro(e.target as Node)) return
+      /* Un clic en la pista de ayuda (`Pistas.tsx`) no es un clic afuera: la pista flota encima de
+         todo, portaleada a `body`, y apuntarla para leerla —o seleccionar su texto— cerraba el menú
+         que estaba explicando. */
+      if (e.target instanceof Element && e.target.closest(`#${ID_PISTA}`)) return
       onCloseRef.current()
     }
     window.addEventListener('scroll', onScroll, true)

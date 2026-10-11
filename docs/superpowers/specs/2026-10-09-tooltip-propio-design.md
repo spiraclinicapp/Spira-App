@@ -105,7 +105,7 @@ Las tomé con el criterio de «dale con lo recomendado»: cada una lleva su porq
 
 ## Cómo se verifica
 
-`npm run build` verde (con los tests de `pistas.test.ts`) y QA en el preview:
+`npm run build` verde (con los tests de `reglasDePista.test.ts`) y QA en el preview:
 
 1. El KPI «Pacientes enrolados» muestra título + definición.
 2. Una fila de íconos del `ScheduleEditor` muestra rótulos y la pista sale tibia al pasar de uno a otro.
