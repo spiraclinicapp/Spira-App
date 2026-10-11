@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { abrePorFoco, DEMORA_MS, demoraDeApertura, esRotulo, estaCortado, formaDePista, quitarId, sumarId, ubicarPista } from './reglasDePista'
+import { abrePorFoco, anclaDePista, DEMORA_MS, describeAparte, demoraDeApertura, esRotulo, estaCortado, formaDePista, quitarId, sumarId, ubicarPista } from './reglasDePista'
 
 /**
  * Las reglas de la pista que reemplaza al globo del navegador (`Pistas.tsx`).
@@ -90,6 +90,32 @@ describe('abrePorFoco', () => {
     expect(abrePorFoco('Tab')).toBe(true)
     expect(abrePorFoco('Enter')).toBe(false)
     expect(abrePorFoco(null)).toBe(false)
+  })
+})
+
+describe('anclaDePista', () => {
+  const chico = { top: 100, bottom: 134, left: 400, width: 34, height: 34 }
+  const fila = { top: 100, bottom: 300, left: 50, width: 900, height: 200 }
+  it('un elemento chico ancla en su caja, esté donde esté el puntero', () => {
+    expect(anclaDePista(chico, { x: 410, y: 110 })).toEqual(chico)
+  })
+  it('un contenedor grande ancla en el puntero, como el globo nativo', () => {
+    expect(anclaDePista(fila, { x: 700, y: 250 })).toEqual({ top: 250, bottom: 268, left: 700, width: 0, height: 18 })
+  })
+  it('sin puntero (llegó con Tab) usa la caja aunque sea grande', () => {
+    expect(anclaDePista(fila, null)).toEqual(fila)
+  })
+})
+
+describe('describeAparte', () => {
+  it('un término describe: su nombre es la palabra, la pista es la definición', () => {
+    expect(describeAparte('Cuántos pacientes están enrolados…', 'Pacientes enrolados')).toBe(true)
+  })
+  it('un botón de ícono que se llama como su pista no la repite («Cerrar, botón, Cerrar»)', () => {
+    expect(describeAparte('Cerrar', 'Cerrar')).toBe(false)
+  })
+  it('sin nombre propio, el `title` ES el nombre: tampoco se repite', () => {
+    expect(describeAparte('Más acciones', '')).toBe(false)
   })
 })
 

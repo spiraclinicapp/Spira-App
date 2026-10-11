@@ -103,6 +103,36 @@ export function abrePorFoco(ultimaTecla: string | null): boolean {
   return ultimaTecla === 'Tab'
 }
 
+/** Desde qué tamaño un elemento es un CONTENEDOR (una fila, una tarjeta) y no un control. */
+const GRANDE = { ancho: 320, alto: 80 }
+/** Alto aproximado del cursor: la pista va debajo de la punta, no tapándola. */
+const ALTO_CURSOR = 18
+
+/**
+ * Contra qué se ubica la pista. Un control chico (un ícono, un nombre, un término) ancla en su caja,
+ * centrada. Un CONTENEDOR grande con `title` —la fila de Equipo, «Ver los sellos de esta visita»—
+ * ancla en el puntero, como el globo nativo: centrada en una fila de 900 px, la pista caía lejos de
+ * donde estaba el mouse y, si abajo no había lugar, fuera de la pantalla. Sin puntero (llegó con Tab)
+ * no hay otra referencia que la caja.
+ */
+export function anclaDePista(
+  caja: { top: number; bottom: number; left: number; width: number; height: number },
+  puntero: { x: number; y: number } | null,
+): { top: number; bottom: number; left: number; width: number; height: number } {
+  if (!puntero || (caja.width <= GRANDE.ancho && caja.height <= GRANDE.alto)) return caja
+  return { top: puntero.y, bottom: puntero.y + ALTO_CURSOR, left: puntero.x, width: 0, height: ALTO_CURSOR }
+}
+
+/**
+ * ¿La pista se anuncia aparte, como descripción (`aria-describedby`)? No cuando dice lo mismo que el
+ * nombre del control: un botón de ícono cuyo nombre sale del propio `title`, o cuyo `aria-label` es el
+ * mismo texto, se oía «Cerrar, botón, Cerrar». Sin nombre propio, el `title` YA es el nombre.
+ */
+export function describeAparte(texto: string, nombreAccesible: string): boolean {
+  const nombre = nombreAccesible.trim()
+  return nombre !== '' && nombre !== texto.trim()
+}
+
 /** Cuánto esperar antes de abrir: nada si hay una abierta o se cerró una hace un instante (ver
  *  `TIBIA_MS`), medio segundo si no. */
 export function demoraDeApertura(ahora: number, ultimoCierre: number, hayAbierta: boolean): number {

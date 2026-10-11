@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { GRACIA_MS } from './useHoverIntent'
-import { abrePorFoco, demoraDeApertura, estaCortado, formaDePista, ID_PISTA, quitarId, sumarId, ubicarPista } from './reglasDePista'
+import { abrePorFoco, anclaDePista, demoraDeApertura, describeAparte, estaCortado, formaDePista, ID_PISTA, quitarId, sumarId, ubicarPista } from './reglasDePista'
 import type { FormaPista } from './reglasDePista'
 
 /* ============================================================================
@@ -16,12 +16,16 @@ import type { FormaPista } from './reglasDePista'
    esto existe. Y `Termino` —que vive adentro de filas que SON botones, las de los KPI del protocolo—
    no puede volverse un `<button>` para abrir un panel propio: un botón adentro de otro no existe.
 
-   ── EL TRUCO: EL `title` SE VA SÓLO MIENTRAS EL MOUSE ESTÁ ENCIMA ──
-   El globo nativo sale de leer el atributo, así que mientras se apunta un elemento se le muda a
-   `data-pista-texto` y al salir vuelve. Fuera de ese instante el DOM queda igual que siempre, y el
-   lector de pantalla —que no apunta con el mouse— sigue leyendo lo mismo que leía. Al devolverlo NO
-   se pisa un `title` que ya esté: si React lo reescribió durante el hover (cambió el prop), el suyo es
-   el bueno.
+   ── EL TRUCO: EL `title` QUEDA VACÍO SÓLO MIENTRAS EL MOUSE ESTÁ ENCIMA ──
+   El globo nativo sale de leer el atributo, así que mientras se apunta un elemento su texto se muda a
+   `data-pista-texto` y el `title` queda en `""` (un `title` vacío no muestra globo y no deja que el
+   navegador use el de un ancestro). Al salir vuelve. Fuera de ese instante el DOM queda igual que
+   siempre, y el lector de pantalla —que no apunta con el mouse— sigue leyendo lo mismo que leía.
+   VACÍO Y NO QUITADO, a propósito (menores de la #414, 2026-10-11): React puede cambiar el `title`
+   durante el hover —el «por qué no» de un botón que se habilita mientras el mouse está encima— y un
+   `MutationObserver` lo ve, porque el atributo existe. Si lo quitábamos, el `removeAttribute` de React
+   sobre un atributo ausente no dejaba rastro, y al salir volvía el texto viejo: un botón habilitado
+   seguía diciendo por qué no se podía.
    Dos cosas que salieron de la revisión del 2026-10-09 y que no son obvias:
      · Se mudan también los `title` de los ANCESTROS. El navegador, si el elemento apuntado no tiene
        `title`, busca el del ancestro más cercano: el IVRS de la lista de pacientes es un `<span
@@ -36,7 +40,10 @@ import type { FormaPista } from './reglasDePista'
    ── WCAG 2.1 AA · 1.4.13, igual que `InfoTip` ──
    Descartable con Esc, apuntable (la gracia de `useHoverIntent` deja entrar el mouse a la pista) y
    persistente (no se va sola por tiempo). Y el Esc es DE LA PISTA cuando hay una abierta: se corta en
-   captura para que no se lleve el modal de atrás. Una capa por vez, como en `usePopover`.
+   captura para que no se lleve el modal de atrás. Una capa por vez, como en `usePopover`. Se corta
+   con `stopImmediatePropagation`: los visores de PDF escuchan el Esc en el MISMO nodo y la misma fase,
+   y un `stopPropagation` no los frena (cerraba pista y visor de un saque). `Pistas` se monta primero,
+   así que su listener corre antes que el de cualquier visor.
 
    Fuera de esto: los `<iframe>` (su `title` es el nombre accesible del marco, no una ayuda) y lo que
    lleve `data-pista="nativa"`, la salida de emergencia por si aparece un caso que se dibuja mal.
@@ -48,33 +55,37 @@ interface PistaAbierta {
   texto: string
   /** Sólo en los términos: la palabra subrayada, que va arriba en negrita. */
   titulo: string | null
+  /** Dónde estaba el mouse al abrir; `null` si abrió el teclado o un toque (ver `anclaDePista`). */
+  puntero: { x: number; y: number } | null
 }
 
 function textoDe(el: HTMLElement): string {
   return el.dataset.pistaTexto ?? el.getAttribute('title') ?? ''
 }
 
-/** Muda el `title` a `data-pista-texto` para que no salga el globo nativo. Idempotente. */
+/** Muda el texto a `data-pista-texto` y deja el `title` vacío. Idempotente. */
 function guardar(el: HTMLElement) {
   const t = el.getAttribute('title')
-  if (t == null) return
+  if (t == null || el.dataset.pistaTexto != null) return
   el.dataset.pistaTexto = t
-  el.removeAttribute('title')
+  el.setAttribute('title', '')
 }
 
-/** Lo devuelve, salvo que React ya haya puesto uno nuevo mientras tanto. */
+/** Lo devuelve. Si React quitó el `title` mientras tanto, el observador ya borró el texto guardado
+ *  y no hay nada que devolver. */
 function restaurar(el: HTMLElement) {
   const t = el.dataset.pistaTexto
   if (t == null) return
-  if (!el.hasAttribute('title')) el.setAttribute('title', t)
+  if (el.getAttribute('title') === '') el.setAttribute('title', t)
   delete el.dataset.pistaTexto
 }
 
-/** Muda el `title` del elemento y el de cada ancestro que tenga uno (ver «EL TRUCO», arriba). */
-function guardarCadena(el: HTMLElement) {
+/** Muda el `title` del elemento y el de cada ancestro que tenga uno (ver «EL TRUCO», arriba), y le
+ *  avisa a `observar` cada nodo que tocó. */
+function guardarCadena(el: HTMLElement, observar: (n: HTMLElement) => void) {
   let n: Element | null = el
   while (n) {
-    if (n instanceof HTMLElement) guardar(n)
+    if (n instanceof HTMLElement) { guardar(n); observar(n) }
     n = n.parentElement?.closest('[title]') ?? null
   }
 }
@@ -109,6 +120,7 @@ export function Pistas() {
     let pendiente: HTMLElement | null = null // el que espera su demora para abrir
     let silenciado: HTMLElement | null = null // el que está bajo el mouse, con su cadena de `title` mudada
     let ultimaTecla: string | null = null // para saber si un foco llegó con Tab (`abrePorFoco`)
+    let puntero: { x: number; y: number } | null = null // dónde está el mouse, para anclar en contenedores grandes
     let tAbrir = 0
     let tCerrar = 0
     let ultimoCierre = -Infinity
@@ -122,14 +134,32 @@ export function Pistas() {
       pendiente = null
     }
 
-    /* —— el ciclo del `title`: atado al mouse, no a la pista —— */
+    /* —— el ciclo del `title`: atado al mouse, no a la pista ——
+       Mientras la cadena está mudada, un observador mira si React le escribe el `title`: si lo cambia,
+       el texto nuevo pasa a ser el guardado (y la pista abierta lo muestra); si lo quita, no queda nada
+       que devolver (y la pista abierta se cierra). El `""` que ponemos nosotros se ignora. Se desconecta
+       ANTES de devolver los textos: si no, tomaría nuestro propio `setAttribute` por uno de React. */
+    const observador = new MutationObserver((cambios) => {
+      for (const c of cambios) {
+        const n = c.target
+        if (!(n instanceof HTMLElement)) continue
+        const ahora = n.getAttribute('title')
+        if (ahora === '') continue
+        if (ahora == null) delete n.dataset.pistaTexto
+        else { n.dataset.pistaTexto = ahora; n.setAttribute('title', '') }
+        if (n === duenio) mostrar(n, puntero)
+      }
+    })
+    const observar = (n: HTMLElement) => observador.observe(n, { attributes: true, attributeFilter: ['title'] })
     const silenciar = (el: HTMLElement) => {
       if (silenciado === el) return
+      observador.disconnect()
       if (silenciado) restaurarCadena(silenciado)
-      guardarCadena(el)
+      guardarCadena(el, observar)
       silenciado = el
     }
     const liberar = () => {
+      observador.disconnect()
       if (silenciado) restaurarCadena(silenciado)
       silenciado = null
     }
@@ -157,7 +187,7 @@ export function Pistas() {
       tCerrar = window.setTimeout(cerrar, GRACIA_MS)
     }
 
-    const mostrar = (el: HTMLElement) => {
+    const mostrar = (el: HTMLElement, desde: { x: number; y: number } | null) => {
       cancelarCierre()
       if (pendiente === el) pendiente = null
       /* Se desmontó durante la demora (una actualización en vivo, el ↑/↓ que remonta el encabezado de
@@ -175,15 +205,18 @@ export function Pistas() {
       /* Sin forma (un nombre que se lee entero) no se dibuja nada, y el `title` sigue mudado hasta
          que el mouse se vaya: devolverlo ahora haría salir el globo nativo, que es justo lo que
          `formaDePista` decidió que sobra. */
-      if (!forma) { setAbierta(null); return }
+      if (!forma) { soltarDuenio(); setAbierta(null); return }
       duenio = el
-      el.setAttribute('aria-describedby', sumarId(el.getAttribute('aria-describedby'), ID_PISTA))
-      setAbierta({ el, forma, texto: texto.trim(), titulo: forma === 'termino' ? (el.textContent ?? '').trim() : null })
+      /* La pista se anuncia aparte sólo si agrega algo al nombre del control (`describeAparte`). */
+      const nombre = (el.getAttribute('aria-label') ?? el.textContent ?? '').trim()
+      if (describeAparte(texto, nombre)) el.setAttribute('aria-describedby', sumarId(el.getAttribute('aria-describedby'), ID_PISTA))
+      setAbierta({ el, forma, texto: texto.trim(), titulo: forma === 'termino' ? (el.textContent ?? '').trim() : null, puntero: desde })
     }
 
     /* —— mouse (y lápiz). El touch no apunta: tocar un botón ya hace lo suyo. —— */
     const onOver = (e: PointerEvent) => {
       if (e.pointerType === 'touch') return
+      puntero = { x: e.clientX, y: e.clientY }
       if (enPanel(e.target)) { cancelarCierre(); return }
       const el = objetivo(e.target, panel())
       if (!el) {
@@ -205,7 +238,14 @@ export function Pistas() {
       if (el === duenio) { cancelarCierre(); return } // la abrió el teclado y ahora llegó el mouse
       cancelarApertura()
       pendiente = el
-      tAbrir = window.setTimeout(() => mostrar(el), demoraDeApertura(performance.now(), ultimoCierre, duenio != null))
+      /* Con el puntero de CUANDO abre, no de cuando entró: en una fila grande, el mouse pudo moverse
+         durante la demora, y el globo nativo también aparece donde está el cursor en ese momento. */
+      tAbrir = window.setTimeout(() => mostrar(el, puntero), demoraDeApertura(performance.now(), ultimoCierre, duenio != null))
+    }
+
+    /* Sólo anota dónde está el mouse: dos números, sin dibujar nada. */
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch') puntero = { x: e.clientX, y: e.clientY }
     }
 
     const onOut = (e: PointerEvent) => {
@@ -233,7 +273,7 @@ export function Pistas() {
       const t = e.target
       if (!abrePorFoco(tecla) || !(t instanceof HTMLElement) || objetivo(t, panel()) !== t) return
       cancelarApertura()
-      mostrar(t)
+      mostrar(t, null)
     }
     const onFocusOut = (e: FocusEvent) => {
       if (e.target === duenio) cerrar()
@@ -247,7 +287,7 @@ export function Pistas() {
       const el = objetivo(e.target, panel())
       if (e.pointerType === 'touch' && el?.classList.contains('spira-termino') && !el.parentElement?.closest('button, a, [role="button"]')) {
         if (el === duenio) cerrar()
-        else { cancelarApertura(); mostrar(el) }
+        else { cancelarApertura(); mostrar(el, null) }
         return
       }
       cerrar()
@@ -256,7 +296,7 @@ export function Pistas() {
     const onKey = (e: KeyboardEvent) => {
       ultimaTecla = e.key
       if (e.key !== 'Escape') return
-      if (duenio) { e.stopPropagation(); cerrar() }
+      if (duenio) { e.stopImmediatePropagation(); cerrar() }
       else cancelarApertura()
     }
 
@@ -273,6 +313,7 @@ export function Pistas() {
 
     document.addEventListener('pointerover', onOver)
     document.addEventListener('pointerout', onOut)
+    document.addEventListener('pointermove', onMove, { passive: true })
     document.addEventListener('focusin', onFocusIn)
     document.addEventListener('focusout', onFocusOut)
     document.addEventListener('pointerdown', onDown, true)
@@ -283,6 +324,7 @@ export function Pistas() {
     return () => {
       document.removeEventListener('pointerover', onOver)
       document.removeEventListener('pointerout', onOut)
+      document.removeEventListener('pointermove', onMove)
       document.removeEventListener('focusin', onFocusIn)
       document.removeEventListener('focusout', onFocusOut)
       document.removeEventListener('pointerdown', onDown, true)
@@ -303,7 +345,7 @@ export function Pistas() {
     const p = panelRef.current
     if (!abierta || !p) return
     const { top, left } = ubicarPista(
-      abierta.el.getBoundingClientRect(),
+      anclaDePista(abierta.el.getBoundingClientRect(), abierta.puntero),
       { width: p.offsetWidth, height: p.offsetHeight },
       { width: window.innerWidth, height: window.innerHeight },
     )
@@ -312,8 +354,15 @@ export function Pistas() {
   }, [abierta])
 
   if (!abierta) return null
+  /* Un clic ADENTRO de la pista (para seleccionar su texto) no es un clic afuera de nadie: se corta acá
+     para los que escuchan el `mousedown` en burbuja (los menús de `AboutMenu`, `UserMenu`…), y
+     `usePopover`, que escucha en captura y llega antes, lo reconoce por el id. Sin esto, el clic
+     cerraba el menú abierto debajo. */
   return createPortal(
-    <div ref={panelRef} id={ID_PISTA} role="tooltip" className="spira-ayuda" data-forma={abierta.forma}>
+    <div
+      ref={panelRef} id={ID_PISTA} role="tooltip" className="spira-ayuda" data-forma={abierta.forma}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       {abierta.forma === 'termino'
         ? <><span className="spira-ayuda-titulo">{abierta.titulo}</span><span className="spira-ayuda-cuerpo">{abierta.texto}</span></>
         : abierta.texto}
