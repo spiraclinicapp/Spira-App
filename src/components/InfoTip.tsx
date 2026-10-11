@@ -9,11 +9,11 @@ import { GRACIA_MS, useHoverIntent } from './useHoverIntent'
 /* ============================================================================
    InfoTip — el ⓘ que explica el valor de al lado.
 
-   Estrena una pieza que la app no tenía: hasta hoy las pistas se daban con el `title` nativo
-   (167 usos, ver `Termino.tsx`), que sigue siendo lo correcto para una línea suelta. Esto es para
-   la otra clase de pista: TÍTULO + CUERPO —"Administrador" / "Ve y edita todo el módulo"— que el
-   globito del navegador no sabe dibujar, tarda un segundo en aparecer y, sobre todo, NO se abre
-   con el foco del teclado.
+   Estrenó una pieza que la app no tenía: hasta acá las pistas se daban con el `title` nativo, que
+   sigue siendo lo correcto para una línea suelta (desde el 2026-10-09 lo dibuja `Pistas.tsx` con
+   este mismo papel, no el navegador). Esto es para la otra clase de pista: TÍTULO + CUERPO
+   escritos a mano —"Administrador" / "Ve y edita todo el módulo"—, con un ⓘ propio que además se
+   abre con un clic, que es lo que lo hace usable en una tablet.
 
    ── POR QUÉ SOBRE `usePopover` Y NO UN `position:absolute` PROPIO ──
    Porque el ⓘ vive DENTRO de otro popover: el menú de niveles de la consola de accesos lleva uno

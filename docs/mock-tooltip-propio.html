@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pistas propias · mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<!--
+  MOCK de la propuesta `docs/superpowers/specs/2026-10-09-tooltip-propio-design.md`.
+
+  No es solo una foto: el <script> del final es una versión chica del mecanismo propuesto —toma los
+  `title` de la página, les apaga el globo nativo y dibuja la pista propia—, así que lo que se ve al
+  pasar el mouse es el comportamiento real que tendría la app (demora, «tibieza», teclado, Esc,
+  recorte contra el borde, el nombre cortado que sólo explica si está cortado).
+
+  Los colores son los tokens de `src/styles/tokens.css` copiados a mano (claro y oscuro).
+-->
+<style>
+  :root {
+    --spira-ink: #14302E; --spira-paper: #F4F1EA; --spira-surface: #FBFAF6; --spira-white: #FFFFFF;
+    --spira-muted: #61706C; --spira-faint: #838C89; --spira-line: #E4DECF; --spira-line-2: #D8CBB0;
+    --spira-warn: #B0823F; --spira-danger: #A6483B; --spira-acc-deep-warn: #6E5620; --spira-track: #0F5F57;
+    --spira-shadow-sm: 0 1px 2px rgba(20,48,46,.06);
+    --spira-shadow-pista: 0 8px 22px rgba(20,48,46,.14);
+    --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif;
+    --spira-font-text: 'Inter', system-ui, sans-serif;
+    --spira-z-popover: 300;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --spira-ink: #EDEDED; --spira-paper: #121212; --spira-surface: #1C1C1C; --spira-white: #212121;
+      --spira-muted: #A1A1A1; --spira-faint: #6E6E6E; --spira-line: #2A2A2A; --spira-line-2: #3A3A3A;
+      --spira-acc-deep-warn: #D9B66E; --spira-track: #5FB3A8;
+      --spira-shadow-pista: 0 8px 22px rgba(0,0,0,.5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --spira-ink: #EDEDED; --spira-paper: #121212; --spira-surface: #1C1C1C; --spira-white: #212121;
+    --spira-muted: #A1A1A1; --spira-faint: #6E6E6E; --spira-line: #2A2A2A; --spira-line-2: #3A3A3A;
+    --spira-acc-deep-warn: #D9B66E; --spira-track: #5FB3A8;
+    --spira-shadow-pista: 0 8px 22px rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--spira-paper); color: var(--spira-ink);
+    font-family: var(--spira-font-text); font-size: 14px; line-height: 1.45;
+  }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 80px; }
+  h1 { font-family: var(--spira-font-display); font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h2 { font-family: var(--spira-font-display); font-size: 17px; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .bajada { color: var(--spira-muted); margin: 0 0 28px; max-width: 70ch; }
+  .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--spira-muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 16px;
+    padding: 18px 20px; box-shadow: var(--spira-shadow-sm);
+  }
+  .card p.nota { color: var(--spira-muted); font-size: 12.5px; margin: 10px 0 0; }
+  section { margin-top: 36px; }
+  .tema { position: fixed; top: 12px; right: 12px; z-index: 10; }
+  .btn {
+    font: inherit; font-size: 13px; font-weight: 600; color: var(--spira-ink);
+    background: var(--spira-white); border: 1px solid var(--spira-line-2); border-radius: 10px;
+    padding: 7px 12px; cursor: pointer;
+  }
+  .btn[disabled] { color: var(--spira-faint); cursor: not-allowed; }
+  .icono {
+    width: 34px; height: 34px; display: inline-grid; place-items: center; border-radius: 9px;
+    border: 1px solid var(--spira-line-2); background: var(--spira-white); color: var(--spira-muted); cursor: pointer;
+  }
+  .icono svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .fila-iconos { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* —— el bloque de la captura del Director: los KPI del protocolo —— */
+  .kpi { display: flex; justify-content: space-between; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--spira-line); }
+  .kpi:last-child { border-bottom: none; }
+  .kpi-num { font-family: var(--spira-font-display); font-weight: 700; font-size: 21px; font-variant-numeric: tabular-nums; }
+  .kpi-sub { font-size: 12px; color: var(--spira-muted); margin-left: 6px; }
+  .spira-termino {
+    font-size: 12.5px; color: var(--spira-muted);
+    text-decoration: underline dotted var(--spira-faint); text-underline-offset: 3px; text-decoration-thickness: 1px;
+    cursor: default;
+  }
+  .nombre-corto { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .lista-nombres { display: grid; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: #B0823F1F; color: var(--spira-acc-deep-warn); }
+
+  /* —— comparación estática: hoy / propuesta / alternativa —— */
+  .muestra { position: relative; height: 158px; display: grid; place-items: start center; padding-top: 18px; }
+  .nativo {
+    position: absolute; top: 52px; left: 50%; transform: translateX(-50%); width: max-content; max-width: 260px;
+    background: #1f1f1f; color: #fff; font: 12px 'Segoe UI', system-ui, sans-serif; padding: 4px 8px;
+    border: 1px solid #555; border-radius: 4px;
+  }
+
+  /* ======================================================================
+     LA PISTA — esto es lo que la propuesta agrega a tokens.css
+     ====================================================================== */
+  .spira-pista {
+    position: fixed; z-index: var(--spira-z-popover);
+    max-width: 280px; width: max-content;
+    background: var(--spira-white); color: var(--spira-ink);
+    border: 1px solid var(--spira-line-2); border-radius: 10px;
+    box-shadow: var(--spira-shadow-pista);
+    padding: 7px 11px 8px;
+    font: 500 12.5px/1.4 var(--spira-font-text);
+    white-space: pre-line;           /* el commit del «Acerca de» trae saltos de línea */
+    pointer-events: auto;            /* WCAG 1.4.13: se puede entrar con el mouse */
+    animation: spPistaIn .12s cubic-bezier(.2,.8,.3,1) both;
+  }
+  .spira-pista[data-forma="rotulo"] { padding: 4px 9px 5px; font-weight: 600; border-radius: 8px; }
+  .spira-pista[data-forma="termino"] { padding: 9px 12px 10px; }
+  .spira-pista .pista-titulo { display: block; font-size: 13px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 2px; }
+  .spira-pista .pista-cuerpo { display: block; color: var(--spira-muted); font-weight: 400; }
+  .spira-pista[data-forma="frase"] { color: var(--spira-ink); font-weight: 400; }
+  /* La alternativa B del spec (tinta invertida) — sólo para la comparación de abajo. */
+  .spira-pista.alt-tinta { background: var(--spira-ink); color: var(--spira-paper); border-color: transparent; }
+  @keyframes spPistaIn { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .spira-pista { animation: none; } }
+  .estatico { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); animation: none; }
+</style>
+</head>
+<body>
+<button class="btn tema" type="button" id="tema" title="Cambiar entre tema claro y oscuro">Tema</button>
+<main>
+  <div class="eyebrow">Propuesta · 2026-10-09</div>
+  <h1>Pistas propias</h1>
+  <p class="bajada">Pasá el mouse por cualquier cosa de esta página, o recorrela con Tab. Los <code>title</code> de acá
+    se dibujan con la pista nueva en vez del globo negro del navegador. El código de la página es
+    una versión chica del mecanismo que propone el spec.</p>
+
+  <section>
+    <h2>1 · Hoy, la propuesta y la alternativa</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="eyebrow">Hoy · el globo del navegador</div>
+        <div class="muestra"><span class="spira-termino">Pacientes enrolados</span>
+          <span class="nativo">Cuántos pacientes están enrolados en este protocolo, y cuántos de ellos siguen activos.</span></div>
+        <p class="nota">Lo pinta Windows: negro, en Segoe, aparece después de ~1 s, no se abre con el teclado ni en tablet.</p>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Propuesta A · papel (recomendada)</div>
+        <div class="muestra"><span class="spira-termino">Pacientes enrolados</span>
+          <span class="spira-pista estatico" data-forma="termino"><span class="pista-titulo">Pacientes enrolados</span><span class="pista-cuerpo">Cuántos pacientes están enrolados en este protocolo, y cuántos de ellos siguen activos.</span></span></div>
+        <p class="nota">La misma familia que el ⓘ de <code>InfoTip</code>: papel, borde cálido, sombra suave. Es lo que ya se ve en Ajustes.</p>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Alternativa B · tinta invertida</div>
+        <div class="muestra"><span class="spira-termino">Pacientes enrolados</span>
+          <span class="spira-pista estatico alt-tinta" data-forma="frase">Cuántos pacientes están enrolados en este protocolo, y cuántos de ellos siguen activos.</span></div>
+        <p class="nota">Es el globo oscuro de siempre, pero en petróleo y con Inter. Resalta más y se parece a lo que ya conoce la gente, pero no combina con el ⓘ de papel.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Probalo: las cuatro formas</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="eyebrow">Término del glosario → título + definición</div>
+        <div style="margin-top:8px">
+          <div class="kpi"><abbr class="spira-termino" title="Cuántos pacientes están enrolados en este protocolo, y cuántos de ellos siguen activos.">Pacientes enrolados</abbr><span><span class="kpi-num">8</span><span class="kpi-sub">5 activos</span></span></div>
+          <div class="kpi"><abbr class="spira-termino" title="Cuántas visitas del cronograma ya se hicieron, sobre el total previsto para los pacientes de este protocolo.">Visitas realizadas</abbr><span class="kpi-num">7/120</span></div>
+          <div class="kpi"><abbr class="spira-termino" title="Cuántas visitas tienen su ventana venciendo en los próximos 7 días. Son las que conviene agendar primero.">Ventanas por vencer</abbr><span><span class="kpi-num" style="color:var(--spira-acc-deep-warn)">1</span><span class="kpi-sub">próx. 7 días</span></span></div>
+          <div class="kpi"><abbr class="spira-termino" title="Qué porcentaje de las visitas previstas del cronograma ya se realizaron.">Adherencia</abbr><span class="kpi-num">6%</span></div>
+        </div>
+        <p class="nota">El título lo pone el propio término subrayado. En tablet se abre tocándolo.</p>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">Botón de ícono → rótulo compacto</div>
+        <div class="fila-iconos" style="margin-top:12px">
+          <button class="icono" type="button" aria-label="Subir" title="Subir"><svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg></button>
+          <button class="icono" type="button" aria-label="Bajar" title="Bajar"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+          <button class="icono" type="button" aria-label="Editar" title="Editar"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+          <button class="icono" type="button" aria-label="Visita anterior" title="Visita anterior (↑)"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+          <button class="icono" type="button" aria-label="Cerrar" title="Cerrar (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <p class="nota">Pasá de un ícono al otro: la primera pista tarda medio segundo y las siguientes aparecen al instante. En tablet no se abre, porque tocar un botón ya hace su acción.</p>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">Explicación → frase</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center">
+          <span class="chip" title="La fecha real cayó fuera de la ventana del cronograma">Fuera de ventana</span>
+          <button class="btn" type="button" disabled title="El pedido está vacío">Enviar pedido</button>
+          <span class="chip" title="Commit 1a2b3c4, compilado el 09/10/2026 18:42
+Build de producción">Versión</span>
+        </div>
+        <p class="nota">También cubre el «por qué no» de un botón deshabilitado y respeta los saltos de línea del texto.</p>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">Nombre cortado → sólo si está cortado</div>
+        <div class="lista-nombres" style="margin-top:10px">
+          <div class="nombre-corto" title="Rosa del Carmen Villanueva Ortúzar">Rosa del Carmen Villanueva Ortúzar</div>
+          <div class="nombre-corto" title="Juan Pérez">Juan Pérez</div>
+        </div>
+        <p class="nota">Hoy los dos muestran el globo. Con la propuesta, «Juan Pérez» no muestra nada porque ya se lee entero.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ==========================================================================
+   Versión chica del mecanismo del spec. Una sola pista para toda la página,
+   por delegación: no hay un componente por sitio.
+   ========================================================================== */
+(() => {
+  const DEMORA = 450        // la primera pista: medio segundo (el nativo tarda ~1 s)
+  const TIBIA = 400         // si se cerró una hace menos que esto, la siguiente sale ya
+  const GRACIA = 140        // la de useHoverIntent: deja entrar el mouse a la pista
+  const MARGEN = 8
+
+  let pista = null, duenio = null, tAbrir = 0, tCerrar = 0, ultimoCierre = 0
+
+  const esRotulo = (t) => t.length <= 32 && !/[.:;]/.test(t.replace(/\(.*\)/, ''))
+  const cortado = (el) => el.scrollWidth > el.clientWidth + 1
+
+  /* Qué forma toma. El sitio no lo declara: sale de lo que ya hay en la app. */
+  function forma(el, texto) {
+    if (el.classList.contains('spira-termino')) return 'termino'
+    if (texto === el.textContent.trim()) return cortado(el) ? 'rotulo' : null
+    return esRotulo(texto) ? 'rotulo' : 'frase'
+  }
+
+  /* El globo nativo se apaga mientras el mouse está encima: el texto pasa a un data-attr y vuelve al
+     salir. Para el lector de pantalla no cambia nada fuera de ese instante. */
+  function guardar(el) {
+    if (el.hasAttribute('title')) { el.dataset.pistaTexto = el.getAttribute('title'); el.removeAttribute('title') }
+  }
+  function restaurar(el) {
+    if (el && el.dataset.pistaTexto != null) {
+      if (!el.hasAttribute('title')) el.setAttribute('title', el.dataset.pistaTexto)
+      delete el.dataset.pistaTexto
+    }
+  }
+
+  function mostrar(el) {
+    const texto = el.dataset.pistaTexto ?? el.getAttribute('title')
+    if (!texto) return
+    const f = forma(el, texto)
+    if (!f) return
+    cerrar(true)
+    duenio = el
+    pista = document.createElement('div')
+    pista.className = 'spira-pista'
+    pista.setAttribute('role', 'tooltip')
+    pista.id = 'spira-pista'
+    pista.dataset.forma = f
+    if (f === 'termino') {
+      pista.innerHTML = '<span class="pista-titulo"></span><span class="pista-cuerpo"></span>'
+      pista.firstChild.textContent = el.textContent.trim()
+      pista.lastChild.textContent = texto
+    } else pista.textContent = texto
+    pista.addEventListener('pointerenter', () => clearTimeout(tCerrar))
+    pista.addEventListener('pointerleave', () => cerrarConGracia())
+    document.body.appendChild(pista)
+    el.setAttribute('aria-describedby', 'spira-pista')
+    ubicar(el)
+  }
+
+  /* Abajo y centrada; arriba si no entra; recortada a 8 px del borde. */
+  function ubicar(el) {
+    const r = el.getBoundingClientRect(), w = pista.offsetWidth, h = pista.offsetHeight
+    let top = r.bottom + 6
+    if (top + h > innerHeight - MARGEN && r.top - 6 - h >= MARGEN) top = r.top - 6 - h
+    const left = Math.max(MARGEN, Math.min(r.left + r.width / 2 - w / 2, innerWidth - MARGEN - w))
+    pista.style.top = top + 'px'; pista.style.left = left + 'px'
+  }
+
+  function cerrar(sinTibieza) {
+    clearTimeout(tAbrir); clearTimeout(tCerrar)
+    if (pista) { pista.remove(); pista = null; if (!sinTibieza) ultimoCierre = performance.now() }
+    if (duenio) { duenio.removeAttribute('aria-describedby'); restaurar(duenio); duenio = null }
+  }
+  function cerrarConGracia() { clearTimeout(tCerrar); tCerrar = setTimeout(() => cerrar(), GRACIA) }
+
+  const objetivo = (n) => n instanceof Element ? n.closest('[title]:not(iframe), [data-pista-texto]') : null
+
+  document.addEventListener('pointerover', (e) => {
+    if (e.pointerType === 'touch') return
+    if (pista && pista.contains(e.target)) return
+    const el = objetivo(e.target)
+    if (!el) { if (pista) cerrarConGracia(); return }
+    if (el === duenio) { clearTimeout(tCerrar); return }
+    guardar(el)
+    clearTimeout(tAbrir)
+    const tibia = performance.now() - ultimoCierre < TIBIA || pista
+    tAbrir = setTimeout(() => mostrar(el), tibia ? 0 : DEMORA)
+  })
+  document.addEventListener('pointerout', (e) => {
+    const el = objetivo(e.target)
+    if (!el) return
+    if (el.contains(e.relatedTarget) || (pista && pista.contains(e.relatedTarget))) return
+    clearTimeout(tAbrir)
+    if (el === duenio) cerrarConGracia(); else restaurar(el)
+  })
+  /* Teclado: sólo con foco VISIBLE (Tab), no con el foco que deja un clic. */
+  document.addEventListener('focusin', (e) => {
+    const el = objetivo(e.target)
+    if (el && e.target.matches(':focus-visible')) mostrar(el)
+  })
+  document.addEventListener('focusout', () => cerrar())
+  /* Tablet: sólo los términos se abren al tocar; un botón ya hace lo suyo al tocarlo. */
+  document.addEventListener('pointerdown', (e) => {
+    const el = objetivo(e.target)
+    if (e.pointerType === 'touch' && el && el.classList.contains('spira-termino') && !el.closest('button, a')) {
+      if (duenio === el) cerrar(); else { guardar(el); mostrar(el) }
+      return
+    }
+    if (!(pista && pista.contains(e.target))) cerrar()
+  }, true)
+  /* Esc cierra la pista y nada más: si hay pista abierta, el Esc es suyo (no se lleva el modal). */
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && pista) { e.stopPropagation(); cerrar() }
+  }, true)
+  addEventListener('scroll', () => cerrar(), true)
+  addEventListener('resize', () => cerrar())
+
+  /* El botón de tema de la demo. */
+  document.getElementById('tema').addEventListener('click', () => {
+    const r = document.documentElement
+    const oscuro = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
+    r.dataset.theme = oscuro ? 'light' : 'dark'
+  })
+})()
+</script>
+</body>
+</html>
