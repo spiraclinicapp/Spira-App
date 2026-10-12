@@ -2,8 +2,8 @@ import { ProtoTag, VisitCodeTag } from '../../visitAtoms'
 import { formatTimeAR, isoDayAR } from '../../../lib/dates'
 import { visitCode } from '../../../lib/visits'
 import type { DayVisitRow } from '../../../data/dayVisits'
-import { codigoCorto, compararVisitas, diaDeLaSemana, esNoVino, estadoDeFila, grillaDelMes, grupoDeVisita, lunesDe, nombreCorto, sumarDias } from './calendario'
-import { ESTADOS } from './estados'
+import { codigoCorto, compararVisitas, diaDeLaSemana, esNoVino, estadoDeFila, grillaDelMes, grupoDeVisita, lunesDe, nombreCorto, resumenDelDia, sumarDias } from './calendario'
+import { ESTADOS, GRUPOS, rotuloGrupo } from './estados'
 
 const DIA_CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
@@ -104,6 +104,11 @@ function TarjetaSemana({ v, dia, onClick }: { v: DayVisitRow; dia: string; onCli
  * Vista MES (handoff §5), celda estilo «Lista»: hasta tres visitas por día (punto de estado · nombre
  * corto · código) y «+N más». Los días de los meses vecinos se dibujan atenuados, con sus visitas: la
  * grilla son semanas enteras y una celda vacía en el 30 de septiembre diría que ese día no hubo nada.
+ *
+ * Cuando la celda queda angosta (una tablet: 96 px a 1024, 59 px a 768) pasa a estilo «Resumen», la
+ * alternativa que el handoff ya traía: un punto y un número por grupo, con el encabezado del período
+ * como leyenda. Con la Lista, a esos anchos los nombres quedaban en una inicial o en nada, y un
+ * «Retest V3» se salía de su celda y se montaba en la de al lado (QA en prod, 2026-10-12).
  */
 export function VistaMes({ fecha, hoy, porDia, conFinDeSemana, onElegirDia }: {
   fecha: string
@@ -134,7 +139,7 @@ export function VistaMes({ fecha, hoy, porDia, conFinDeSemana, onElegirDia }: {
               type="button"
               className={'vcal-mcell spira-no-press' + (d === fecha ? ' elegido' : '') + (fuera ? ' fuera' : '')}
               onClick={() => onElegirDia(d)}
-              aria-label={`Ver las visitas del ${Number(d.slice(8))}/${Number(d.slice(5, 7))}: ${cantidad(lista.length)}`}
+              aria-label={`Ver las visitas del ${Number(d.slice(8))}/${Number(d.slice(5, 7))}: ${cantidad(lista.length)}${desglose(lista)}`}
               style={{
                 borderLeft: i % cols ? '1px solid var(--spira-line)' : 'none',
                 borderTop: i >= cols ? '1px solid var(--spira-line)' : 'none',
@@ -144,7 +149,18 @@ export function VistaMes({ fecha, hoy, porDia, conFinDeSemana, onElegirDia }: {
                 <NumeroDia dia={d} esHoy={d === hoy} size={26} fontSize={14} />
                 {lista.length > 0 && <span className="spira-mono" style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--spira-ink-soft)' }}>{lista.length}</span>}
               </span>
-              <span style={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%' }}>
+              {/* Dos caras y la celda elige por su ancho (`visitas.css`, «celda angosta»): la Lista con
+                  nombres cuando entran, el Resumen por grupo cuando no. Se dibujan las dos y el CSS apaga
+                  una, así no hay que medir nada desde React. */}
+              <span className="vcal-mresumen">
+                {resumenDelDia(lista).map(({ grupo, n }) => (
+                  <span key={grupo} className="vcal-mresumen-fila" title={`${n} ${rotuloGrupo(grupo, n)}`}>
+                    <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 99, flexShrink: 0, background: GRUPOS[grupo].color }} />
+                    <b className="spira-mono">{n}</b>
+                  </span>
+                ))}
+              </span>
+              <span className="vcal-mlista">
                 {lista.slice(0, 3).map((v) => (
                   <span key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--spira-ink-2)', minWidth: 0 }}>
                     <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 99, flexShrink: 0, background: ESTADOS[estadoDeFila(v)].color }} />
@@ -164,6 +180,13 @@ export function VistaMes({ fecha, hoy, porDia, conFinDeSemana, onElegirDia }: {
       </div>
     </div>
   )
+}
+
+/** «(2 por llegar, 1 finalizada)» para el lector de pantalla: lo que el Resumen dice con puntos de
+ *  color, dicho en palabras. Vacío si no hay visitas. */
+function desglose(lista: DayVisitRow[]): string {
+  const partes = resumenDelDia(lista).map(({ grupo, n }) => `${n} ${rotuloGrupo(grupo, n)}`)
+  return partes.length ? ` (${partes.join(', ')})` : ''
 }
 
 /** El número del día; hoy, relleno con el acento (la misma marca en Semana y en Mes). */
