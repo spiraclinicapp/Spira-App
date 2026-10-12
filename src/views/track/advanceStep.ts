@@ -4,11 +4,15 @@ import type { OperationalStage } from '../../data/dayVisits'
  * Etiqueta corta del paso SIGUIENTE por etapa operativa, para el CTA de avanzar (fila del día y
  * detalle). Corta a propósito para que el botón no envuelva. 'fin_atencion' es terminal (no avanza).
  * Compartido para no repetir el mapa en la fila y en el detalle (DRY).
+ *
+ * `short` es el rótulo del botón de la FILA de Visitas (handoff de calendario, 2026-10-11), que tiene
+ * un slot fijo de 160 px: «Finalizar atención» no entra con la flecha, «Fin de atención» sí —y es el
+ * nombre de la etapa a la que lleva—. El modal y la confirmación siguen con el verbo (`label`).
  */
-export const NEXT_STEP: Record<OperationalStage, { label: string; next: OperationalStage } | null> = {
-  por_llegar:          { label: 'Marcar llegada',     next: 'concurrio_al_centro' },
-  concurrio_al_centro: { label: 'Iniciar atención',   next: 'inicio_atencion' },
-  inicio_atencion:     { label: 'Finalizar atención', next: 'fin_atencion' },
+export const NEXT_STEP: Record<OperationalStage, { label: string; short: string; next: OperationalStage } | null> = {
+  por_llegar:          { label: 'Marcar llegada',     short: 'Marcar llegada',   next: 'concurrio_al_centro' },
+  concurrio_al_centro: { label: 'Iniciar atención',   short: 'Iniciar atención', next: 'inicio_atencion' },
+  inicio_atencion:     { label: 'Finalizar atención', short: 'Fin de atención',  next: 'fin_atencion' },
   fin_atencion:        null,
 }
 

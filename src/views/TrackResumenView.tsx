@@ -641,7 +641,7 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
   /* La visita abierta en el modal, DESDE ACÁ y sin salir del Resumen.
 
      Nace por la tarjeta de dispensaciones: llevaba a `track/visitas` con el `visitId`, y esa vista
-     busca la visita ENTRE LAS DEL DÍA CARGADO (DayVisitsView:151). Como una solicitud puede ser de
+     busca la visita ENTRE LAS DEL DÍA CARGADO (`openVisit` en DayVisitsView). Como una solicitud puede ser de
      una visita de cualquier fecha y la fila no trae la suya, el salto aterrizaba en la lista de hoy
      sin abrir nada — un clic que parecía no hacer efecto. `VisitDetail` no tiene ese problema: trae
      sus datos por id (`useVisit`) y resuelve los permisos solo, así que abre cualquier visita

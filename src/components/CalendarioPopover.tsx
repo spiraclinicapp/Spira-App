@@ -24,7 +24,7 @@ import { dateToISO, isoToDate } from '../lib/dates'
  * contenedor de sus descendientes fixed, igual que un `transform`. Dibujado adentro, el menú aterriza
  * lejos del campo.
  */
-export function CalendarioPopover({ popRef, pos, value, min, max, onPick }: {
+export function CalendarioPopover({ popRef, pos, value, min, max, onPick, marcados, onMonthChange }: {
   popRef: (node: HTMLDivElement | null) => void
   pos: PopoverPos
   /** Fecha ISO elegida, o '' si no hay. */
@@ -34,6 +34,14 @@ export function CalendarioPopover({ popRef, pos, value, min, max, onPick }: {
   max?: string
   /** ISO del día elegido, o '' si se tocó el día que ya estaba elegido (DayPicker lo deselecciona). */
   onPick: (iso: string) => void
+  /**
+   * Días que llevan un punto abajo (ISO). Lo estrena el calendario del período de Visitas: los días
+   * con visitas. Opcional: los campos de fecha no marcan nada.
+   */
+  marcados?: ReadonlySet<string>
+  /** El mes que se está mirando cambió (flechas o desplegables); llega el 1° de ese mes en ISO. Para
+   *  quien tiene que pedir los `marcados` del mes nuevo. */
+  onMonthChange?: (primerDia: string) => void
 }) {
   const selected = value ? isoToDate(value) : undefined
   return createPortal(
@@ -49,6 +57,9 @@ export function CalendarioPopover({ popRef, pos, value, min, max, onPick }: {
         defaultMonth={selected}
         selected={selected}
         onSelect={(d) => onPick(d ? dateToISO(d) : '')}
+        modifiers={marcados ? { conVisitas: (d: Date) => marcados.has(dateToISO(d)) } : undefined}
+        modifiersClassNames={marcados ? { conVisitas: 'spira-dia-con-visitas' } : undefined}
+        onMonthChange={onMonthChange ? (m) => onMonthChange(dateToISO(m)) : undefined}
       />
     </div>,
     document.body,

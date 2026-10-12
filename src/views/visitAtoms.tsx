@@ -82,13 +82,21 @@ export function ProtoTag({ code, protocolId, compacto = false }: {
  * Director, 2026-08-25): los dos chips tienen que verse igual en las dos pantallas, y tenerlos
  * inline en cada vista es justo cómo se habían separado.
  */
-export function VisitCodeTag({ code }: { code: string }) {
+export function VisitCodeTag({ code, compacto = false, title }: {
+  code: string
+  /** Escala de las tarjetas de la vista Semana de Visitas (handoff, 2026-10-11): mismo chip, más chico. */
+  compacto?: boolean
+  /** Lo que dice la pista al apuntarlo. En la fila de Visitas, el tipo completo de una visita suelta
+   *  («Visita no programada» detrás de «VNP»); las del cronograma ya traen el nombre en el código. */
+  title?: string
+}) {
   return (
     <span
+      title={title}
       style={{
-        display: 'inline-flex', alignItems: 'center', padding: '2px 9px', borderRadius: 6,
+        display: 'inline-flex', alignItems: 'center', padding: compacto ? '1px 6px' : '2px 9px', borderRadius: compacto ? 5 : 6,
         background: 'var(--spira-ink)', color: 'var(--spira-paper)',
-        fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap',
+        fontSize: compacto ? 11 : 11.5, fontWeight: 800, whiteSpace: 'nowrap',
       }}
     >
       {code}

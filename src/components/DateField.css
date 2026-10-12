@@ -41,6 +41,15 @@
   background: var(--spira-surface);
   border-radius: 999px;
 }
+/* Día con visitas (el calendario del período en Visitas, 2026-10-11): un punto de 3px abajo al centro,
+   como pide el handoff. En el día elegido el punto pasa a la tinta del acento para no perderse sobre
+   el petróleo. `position: relative` va en el botón y no en la celda: es el que tiene la forma redonda. */
+.rdp-root .spira-dia-con-visitas .rdp-day_button { position: relative; }
+.rdp-root .spira-dia-con-visitas .rdp-day_button::after {
+  content: ''; position: absolute; bottom: 4px; left: 50%; width: 3px; height: 3px; margin-left: -1.5px;
+  border-radius: 999px; background: var(--spira-track);
+}
+.rdp-root .rdp-selected.spira-dia-con-visitas .rdp-day_button::after { background: var(--spira-on-accent); }
 .rdp-root .rdp-chevron { fill: var(--spira-muted); }
 .rdp-root .rdp-dropdown,
 .rdp-root .rdp-months_dropdown,
