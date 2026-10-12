@@ -253,3 +253,19 @@
 .vcal-mcell:hover { background: rgba(124, 140, 135, .06); }
 .vcal-mcell.elegido { background: rgba(46, 125, 116, .06); }
 .vcal-mcell.fuera { opacity: .45; }
+
+/* —— Celda angosta: de «Lista» a «Resumen» ——
+   Cada celda es su propio contenedor y decide por SU ancho, no por el de la grilla: un mes sin fines
+   de semana tiene cinco columnas, más anchas que las siete de uno con sábados, y el mismo ancho de
+   pantalla puede dar celdas cómodas en uno y apretadas en el otro. 100 px es lo que pide la Lista
+   (medido sobre el contenido de la celda, sin su padding): «R. Gibeaud» a 12 px, el punto y «V14».
+   Por debajo, los nombres quedaban en una inicial (QA en prod, 2026-10-12, tablet de 768 y 1024). */
+.vcal-mcell { container: vcal-celda / inline-size; }
+.vcal-mlista { display: flex; flex-direction: column; gap: 3px; width: 100%; }
+.vcal-mresumen { display: none; }
+.vcal-mresumen-fila { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--spira-ink-2); }
+.vcal-mresumen-fila b { font-weight: 700; }
+@container vcal-celda (max-width: 100px) {
+  .vcal-mlista { display: none; }
+  .vcal-mresumen { display: flex; flex-direction: column; gap: 3px; }
+}

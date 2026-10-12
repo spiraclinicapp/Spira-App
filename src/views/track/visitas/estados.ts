@@ -1,5 +1,5 @@
 import { OPERATIONAL_STAGES, VISIT_STATES } from '../../visitStates'
-import type { EstadoDeFila } from './calendario'
+import type { EstadoDeFila, GrupoDeVisita } from './calendario'
 import { ESPERA_MEDICO } from './filtrosVisitas'
 
 /**
@@ -15,6 +15,22 @@ export const ESTADOS: Record<EstadoDeFila, { label: string; color: string }> = {
   inicio_atencion: { label: OPERATIONAL_STAGES.inicio_atencion.short, color: OPERATIONAL_STAGES.inicio_atencion.color },
   fin_atencion: { label: OPERATIONAL_STAGES.fin_atencion.short, color: OPERATIONAL_STAGES.fin_atencion.color },
   por_reprogramar: { label: VISIT_STATES.por_reprogramar.short, color: VISIT_STATES.por_reprogramar.color },
+}
+
+/**
+ * Color y rótulo de cada GRUPO (Por llegar · En el centro · Finalizadas): el contador del encabezado del
+ * período y el resumen de la celda angosta del mes. Viven juntos porque el encabezado es la LEYENDA del
+ * resumen —la celda muestra sólo un punto y un número—, y si cada uno tuviera su color, el ámbar de
+ * arriba diría una cosa y el de la celda otra.
+ */
+export const GRUPOS: Record<GrupoDeVisita, { color: string; uno: string; varios: string }> = {
+  llegar: { color: 'var(--spira-warn)', uno: 'por llegar', varios: 'por llegar' },
+  centro: { color: 'var(--spira-track)', uno: 'en el centro', varios: 'en el centro' },
+  fin: { color: 'var(--spira-good)', uno: 'finalizada', varios: 'finalizadas' },
+}
+
+export function rotuloGrupo(grupo: GrupoDeVisita, n: number): string {
+  return n === 1 ? GRUPOS[grupo].uno : GRUPOS[grupo].varios
 }
 
 /** Orden del filtro Estado: el recorrido, «No vino» y por último «Espera al médico» (no es una etapa). */

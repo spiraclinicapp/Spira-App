@@ -5,8 +5,9 @@ import { CalendarioPopover } from '../../../components/CalendarioPopover'
 import { usePopover } from '../../../components/usePopover'
 import { todayISO, yearsFromTodayISO } from '../../../lib/dates'
 import { useVisitDates } from '../../../data/dayVisits'
-import { VISTAS, contieneHoy, diasDeLaVisita, periodoDe, primeroDelMes, rotuloPeriodo } from './calendario'
+import { ORDEN_GRUPOS, VISTAS, contieneHoy, diasDeLaVisita, periodoDe, primeroDelMes, rotuloPeriodo } from './calendario'
 import type { ConteoPorGrupo, VistaCalendario } from './calendario'
+import { GRUPOS, rotuloGrupo } from './estados'
 
 const VISTA: Record<VistaCalendario, { label: string; icon: IconName; tecla: string }> = {
   mes: { label: 'Mes', icon: 'calendarMonth', tecla: 'M' },
@@ -52,9 +53,7 @@ export function BarraPeriodo({ vista, fecha, conFinDeSemana, conteo, onVista, on
 
   const stats: { n: number; label: string; color: string | null }[] = [
     { n: conteo.total, label: conteo.total === 1 ? 'visita' : 'visitas', color: null },
-    { n: conteo.llegar, label: 'por llegar', color: 'var(--spira-warn)' },
-    { n: conteo.centro, label: 'en el centro', color: 'var(--spira-track)' },
-    { n: conteo.fin, label: conteo.fin === 1 ? 'finalizada' : 'finalizadas', color: 'var(--spira-good)' },
+    ...ORDEN_GRUPOS.map((g) => ({ n: conteo[g], label: rotuloGrupo(g, conteo[g]), color: GRUPOS[g].color })),
   ]
 
   return (

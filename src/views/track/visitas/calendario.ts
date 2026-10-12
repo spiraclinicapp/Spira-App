@@ -271,6 +271,20 @@ export function contarPorGrupo(filas: FilaConEstado[]): ConteoPorGrupo {
   return c
 }
 
+/** El orden de los grupos en el encabezado del período, y en el resumen de una celda del mes. */
+export const ORDEN_GRUPOS: GrupoDeVisita[] = ['llegar', 'centro', 'fin']
+
+/**
+ * La celda del mes en estilo «Resumen» (la alternativa del handoff §5): cuántas visitas de cada grupo,
+ * sin nombres. Es lo que se dibuja cuando la celda queda angosta —una tablet—, donde la lista de
+ * nombres se reducía a una inicial o a nada. Sólo los grupos con visitas, en el orden del encabezado
+ * del período, que es la leyenda: un «0 en el centro» en cada celda sería ruido.
+ */
+export function resumenDelDia(filas: FilaConEstado[]): { grupo: GrupoDeVisita; n: number }[] {
+  const c = contarPorGrupo(filas)
+  return ORDEN_GRUPOS.filter((g) => c[g] > 0).map((g) => ({ grupo: g, n: c[g] }))
+}
+
 /**
  * Orden de las visitas dentro de un día (la lista, la columna de la semana y la celda del mes): lo
  * que está pasando arriba —en atención, después las que concurrieron—, luego las que se esperan y al

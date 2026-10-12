@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import {
   codigoCorto, compararVisitas, conFinDeSemana, esNoVino, puedeReprogramar, contarPorGrupo, contieneHoy, diasDeLaVisita, estadoDeFila,
   grillaDelMes, grupoDeVisita, lunesDe, nombreCorto, pasoPeriodo, periodoDe, rangoDeConsulta,
-  rotuloPeriodo, sumarMeses, visitasDelPeriodo, visitasPorDia,
+  resumenDelDia, rotuloPeriodo, sumarMeses, visitasDelPeriodo, visitasPorDia,
 } from './calendario'
 import type { FechasDeVisita } from './calendario'
 
@@ -181,6 +181,16 @@ describe('estado y grupo', () => {
     expect(contarPorGrupo([
       fila('por_llegar'), fila('por_llegar', 'por_reprogramar'), fila('inicio_atencion'), fila('fin_atencion', 'realizada'),
     ])).toEqual({ total: 4, llegar: 1, centro: 1, fin: 2 })
+  })
+
+  it('el resumen de una celda angosta del mes: los grupos con visitas, en el orden del encabezado', () => {
+    expect(resumenDelDia([
+      fila('fin_atencion', 'realizada'), fila('por_llegar'), fila('por_llegar', 'por_reprogramar'), fila('por_llegar'),
+    ])).toEqual([{ grupo: 'llegar', n: 2 }, { grupo: 'fin', n: 2 }])
+  })
+
+  it('un día sin visitas no tiene resumen (la celda queda con su número y nada más)', () => {
+    expect(resumenDelDia([])).toEqual([])
   })
 })
 
