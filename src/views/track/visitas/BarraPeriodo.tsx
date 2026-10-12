@@ -91,10 +91,12 @@ export function BarraPeriodo({ vista, fecha, conFinDeSemana, conteo, onVista, on
               <span style={{ fontSize: 14, color: 'var(--spira-ink-soft)', flexShrink: 0 }}>{rotulo.anio}</span>
               <Icon name="chevronDown" size={15} color="var(--spira-muted)" style={{ alignSelf: 'center', flexShrink: 0, transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
             </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 12, whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%', fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>
+            {/* Los contadores ENVUELVEN en vez de recortarse: con `overflow: hidden` (como el mock), a ~670 px
+                «3 finalizadas» se leía «3 final», un dato distinto. Cada contador es un bloque que no se parte. */}
+            <span style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 12, rowGap: 2, maxWidth: '100%', fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>
               {/* Los que dan 0 no se dibujan, salvo el total: «0 en el centro» es ruido; «0 visitas» es la respuesta. */}
               {stats.filter((s, i) => i === 0 || s.n > 0).map((s) => (
-                <span key={s.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <span key={s.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
                   {s.color && <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 9, background: s.color }} />}
                   <b className="spira-mono" style={{ fontWeight: 700, color: 'var(--spira-ink-2)' }}>{s.n}</b>{s.label}
                 </span>

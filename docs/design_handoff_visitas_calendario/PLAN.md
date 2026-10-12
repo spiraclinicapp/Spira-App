@@ -101,8 +101,22 @@ automático, nombre corto, filtros AND/OR con «Espera al médico», conteo face
   completo, ≈760 px y ≈540 px (las acciones caen en la misma x en todas las filas, sin desbordes),
   Semana, Mes, fin de semana automático, panel de filtros (en vivo, facetado, Esc, foco), fichas,
   calendario desplegable (elegir un día no cambia la vista) y tema oscuro.
-- **Pendiente:** QA con sesión contra datos reales (el preview arranca en el login y el agente no
-  ingresa contraseñas).
+- **QA con sesión contra prod (2026-10-12, sólo lectura):**
+  - Coherencia: 61 días de septiembre y octubre, conteo de cada celda del Mes contra la lista del
+    Día, 0 diferencias. Las semanas también coinciden.
+  - Calendario: los puntitos coinciden con los días con visitas y se recalculan al hojear.
+  - Filtros con rótulos reales, cada categoría suma el total; atajos; modal con ↑↓ y Esc; llegada
+    desde el Resumen; el Mes carga en ~0,2 s.
+  - Lo que encontró y se corrigió:
+    - personas ilegibles entre ~560 y ~980 px de lista: los nombres reales son más largos que los del
+      mock; dos renglones a ≤980 y acciones en su propio renglón a ≤820;
+    - «3 finalizadas» recortado a «3 final»: los contadores envuelven;
+    - en la Semana, la hora de llegada aparecía en el día de la citación;
+    - columnas angostas de la Semana: queda sólo el punto de estado y el nombre en dos renglones;
+    - un `closest` sobre un target que no es elemento en los atajos.
+  - Observación de datos, no de código: hay visitas con marcas en otro día que su fecha (citada el
+    8/10 y llegada el sábado 10), que aparecen en los dos días. Es la regla de siempre de
+    `motivosDelDia`, el calendario sólo la hace visible.
 
 ## GSTACK REVIEW REPORT
 

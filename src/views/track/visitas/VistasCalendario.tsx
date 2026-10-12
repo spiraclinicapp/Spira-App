@@ -1,5 +1,5 @@
 import { ProtoTag, VisitCodeTag } from '../../visitAtoms'
-import { formatTimeAR } from '../../../lib/dates'
+import { formatTimeAR, isoDayAR } from '../../../lib/dates'
 import { visitCode } from '../../../lib/visits'
 import type { DayVisitRow } from '../../../data/dayVisits'
 import { codigoCorto, compararVisitas, diaDeLaSemana, esNoVino, estadoDeFila, grillaDelMes, grupoDeVisita, lunesDe, nombreCorto, sumarDias } from './calendario'
@@ -28,6 +28,7 @@ export function VistaSemana({ fecha, hoy, porDia, conFinDeSemana, onElegirDia }:
   const lunes = lunesDe(fecha)
   const dias = Array.from({ length: conFinDeSemana ? 7 : 5 }, (_, i) => sumarDias(lunes, i))
   return (
+    <div className="vcal-semana-wrap">
     <div className="vcal-semana" style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(0, 1fr))` }}>
       {dias.map((d, i) => {
         const lista = [...(porDia.get(d) ?? [])].sort(compararVisitas)
@@ -58,18 +59,23 @@ export function VistaSemana({ fecha, hoy, porDia, conFinDeSemana, onElegirDia }:
               </span>
             </button>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 8 }}>
-              {lista.map((v) => <TarjetaSemana key={v.id} v={v} onClick={() => onElegirDia(d)} />)}
+              {lista.map((v) => <TarjetaSemana key={v.id} v={v} dia={d} onClick={() => onElegirDia(d)} />)}
             </div>
           </div>
         )
       })}
     </div>
+    </div>
   )
 }
 
-function TarjetaSemana({ v, onClick }: { v: DayVisitRow; onClick: () => void }) {
+function TarjetaSemana({ v, dia, onClick }: { v: DayVisitRow; dia: string; onClick: () => void }) {
   const estado = ESTADOS[estadoDeFila(v)]
   const noVino = esNoVino(v)
+  /* La hora de llegada sólo en el día en que llegó. Una visita puede estar en dos columnas (citada el 8,
+     llegó el 10: ver `diasDeLaVisita`), y «11:37» bajo el jueves decía que llegó el jueves (QA con datos
+     reales, 2026-10-12). */
+  const llego = v.arrived_at && isoDayAR(v.arrived_at) === dia ? formatTimeAR(v.arrived_at) : null
   return (
     <button
       type="button"
@@ -80,10 +86,10 @@ function TarjetaSemana({ v, onClick }: { v: DayVisitRow; onClick: () => void }) 
     >
       <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: 'var(--spira-ink-soft)', minWidth: 0 }}>
         <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 99, flexShrink: 0, background: estado.color }} />
-        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{estado.label}</span>
-        {v.arrived_at && <span className="spira-mono" style={{ marginLeft: 'auto', flexShrink: 0 }}>{formatTimeAR(v.arrived_at)}</span>}
+        <span className="vcal-wcard-estado">{estado.label}</span>
+        {llego && <span className="spira-mono" style={{ marginLeft: 'auto', flexShrink: 0 }}>{llego}</span>}
       </span>
-      <span style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--spira-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: noVino ? 'line-through' : 'none' }}>
+      <span className="vcal-wcard-nombre" title={v.patient_name} style={{ textDecoration: noVino ? 'line-through' : 'none' }}>
         {v.patient_name}
       </span>
       <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap', minWidth: 0 }}>

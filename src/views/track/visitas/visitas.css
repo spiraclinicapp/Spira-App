@@ -64,7 +64,9 @@
   background: var(--spira-white); color: var(--spira-ink);
   box-shadow: 0 1px 2px rgba(20, 48, 46, .12), 0 0 0 1px var(--spira-line);
 }
-@container (max-width: 560px) {
+/* El handoff esconde los rótulos a 560 px; medido con datos reales, a ~760 el período ya se cortaba
+   («Martes 29 d…»): la fecha es lo que se lee, los íconos del selector se reconocen solos. */
+@container (max-width: 760px) {
   .vcal-tab-label { display: none; }
   .vcal-tab { padding: 0 10px; }
 }
@@ -162,12 +164,21 @@
 }
 .vcal-row-cta { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 .vcal-row-more { justify-self: end; }
-@container (max-width: 860px) {
+/* Dos renglones (handoff: ≤860). Sube a 980 por el QA con datos reales: con nombres de verdad
+   («Dra. Daiana Florencia Anci») la columna de personas quedaba en ~90 px a 900 y se leía «Dra. …». */
+@container (max-width: 980px) {
   .vcal-row { grid-template-columns: 112px minmax(0, 1fr) auto 34px; row-gap: 12px; }
   .vcal-row-main { grid-column: 2 / 4; grid-row: 1; }
   .vcal-row-people { grid-column: 2; grid-row: 2; justify-self: start; }
   .vcal-row-cta { grid-column: 3; grid-row: 2; }
   .vcal-row-more { grid-column: 4; grid-row: 1; }
+}
+/* Corte INTERMEDIO que el handoff no tenía (QA con datos reales, 2026-10-12): entre ~820 y ~560 px,
+   las acciones (336 px fijos) dejaban a las personas en ~115 px y se leía «Sin a…», «Dra. …». Acá las
+   acciones bajan a su propio renglón y las personas se quedan con el ancho de la columna de datos. */
+@container (max-width: 820px) {
+  .vcal-row-people { grid-column: 2 / 4; grid-row: 2; }
+  .vcal-row-cta { grid-column: 2 / 4; grid-row: 3; justify-self: start; }
 }
 @container (max-width: 560px) {
   .vcal-row { grid-template-columns: minmax(0, 1fr) 34px; }
@@ -216,6 +227,21 @@
   transition: border-color .15s, background-color .15s;
 }
 .vcal-wcard:hover { border-color: var(--spira-line-2); background: var(--spira-white); }
+.vcal-wcard-estado { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.vcal-wcard-nombre {
+  font-weight: 600; font-size: 13.5px; color: var(--spira-ink); min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Columnas angostas (siete días en una notebook chica, QA 2026-10-12): el rótulo del estado se iba a
+   «C» y el nombre a «Ricard…». El punto de color ya dice el estado; el nombre baja a dos renglones. */
+.vcal-semana-wrap { container-type: inline-size; }
+@container (max-width: 820px) {
+  .vcal-wcard-estado { display: none; }
+  .vcal-wcard-nombre {
+    white-space: normal; overflow-wrap: anywhere; line-height: 1.25;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+}
 
 /* —— Vista Mes —— */
 .vcal-mes { border: 1px solid var(--spira-line); border-radius: 14px; background: var(--spira-white); overflow: hidden; }

@@ -291,7 +291,9 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return
-      const t = e.target as HTMLElement | null
+      /* El target puede no ser un elemento (un evento despachado sobre `document`): sin `closest` ni
+         `tagName`, se lo trata como «nada enfocado». */
+      const t = e.target instanceof HTMLElement ? e.target : null
       /* Un campo de texto, y también un control que ya usa esas teclas: las flechas en el selector de
          vista (`tablist`) o en un menú son de ESE control (patrón ARIA), no del período. */
       const editable = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.closest('[role="tablist"], [role="menu"], [role="listbox"]') !== null)
