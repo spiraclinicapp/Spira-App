@@ -368,6 +368,7 @@ modal). Lo que se recuerda al cerrar y reabrir el panel dentro de la sesión: pe
 0. **T0 — Prueba de herramientas (30 min), antes de todo:** `ffmpeg-static -version` bajo WDAC · 5 s con
    Edge + `recordVideo` a 1536×864 · `Page.startScreencast` por CDP · un `<track>` servido desde Storage
    de otro origen (CORS). Lo que falle ahí decide el plan B **antes** de construir.
+   **Hecho el 2026-10-12, los cuatro en verde** (ver «Resultados de T0», abajo).
 1. **Ambiente demo:** config, guardia de tres cerrojos, resetear, semilla narrativa, sesión. El Director
    crea el proyecto (5 min) y completa `demo.env`.
 2. **Preguntas frecuentes en texto:** `AyudaDrawer` con la pestaña Preguntas, la fila en el menú de
@@ -510,15 +511,20 @@ Sin brechas críticas: nada queda sin test, sin manejo y en silencio a la vez.
 
 ## Riesgos
 
-- **Legibilidad en la tarjeta (DD10).** A 372px de ancho, una grabación de 1536px queda al 24 %: el texto de la
-  app se lee mal (la voz y los subtítulos sí se entienden). Por eso existe «Ver en grande». En el piloto se prueba
-  además grabar con un viewport más chico (p. ej. 1280×720) para que la UI quede más grande dentro del cuadro, y
-  se mira el resultado en la tarjeta y en el reproductor antes de fijarlo para todos.
-- **Nitidez (confianza media).** El bitrate de `recordVideo` es bajo y fijo. Plan B: `Page.startScreencast`
-  por CDP con calidad alta, más `ffmpeg-static`. Se decide en T0.
-- **WDAC.** Si bloquea `ffmpeg-static` y el `ffmpeg` de Playwright, la mezcla va sin binarios propios:
-  se graba por CDP, se codifica con `MediaRecorder`/WebCodecs dentro del mismo Edge y el audio se mezcla
-  con la Web Audio API. Más trabajo, pero sin ejecutables nuevos. Se decide en T0.
+- **Legibilidad en la tarjeta (DD10). CONFIRMADA en T0:** a 372px se leen títulos y botones, **no el texto de
+  cuerpo**, ni grabando a 1280×720. En la tarjeta el sentido lo dan la voz y los subtítulos; el detalle, «Ver en
+  grande». A probar en el piloto: una segunda versión **«recorte»** para la tarjeta, encuadrada sobre la zona
+  donde ocurre la acción (la fábrica conoce la caja de cada elemento que toca, así que puede seguirla con un
+  `crop` + zoom de ffmpeg), que a 372px quedaría cerca del 50 % en vez del 24 %.
+- ~~**Nitidez.**~~ **Resuelta en T0:** `recordVideo` se lee bien en un cuadro quieto (apenas más blando y con el
+  blanco un poco lavado); CDP + H.264 no se distingue de la captura de referencia. Arranque: `recordVideo`
+  (ritmo de cuadros fijo, más simple) **siempre recodificado a mp4 H.264** con `ffmpeg-static` (el webm VP8 no
+  anda en todos los Safari). Si en el piloto el movimiento (scroll, tipeo) se ve con bloques, se pasa a CDP.
+  **Ojo con CDP:** manda un cuadro sólo cuando la pantalla cambia (12 cuadros en ~4 s), así que hay que armar
+  el video con la duración real de cada cuadro (`concat` con `duration`), no con un ritmo fijo.
+- ~~**WDAC.**~~ **Descartado en T0:** `ffmpeg-static` 6.0 corre (desde el scratchpad y desde la ruta del repo),
+  con `libx264` y `aac`; el `ffmpeg` de Playwright también (`recordVideo` anduvo); Edge + playwright-core 1.56.1
+  también. No hace falta el plan sin binarios.
 - **Límite de proyectos gratuitos de Supabase** (2 activos por organización). Si ya están los dos, el
   demo va en otra organización gratuita.
 - **Mantenimiento de la semilla:** es código que acompaña a cada migración. Presupuestado en T2 y
@@ -526,6 +532,22 @@ Sin brechas críticas: nada queda sin test, sin manejo y en silencio a la vez.
 - **`Modal.tsx` no maneja el foco** (TODO existente: «Core · focus trap en `components/Modal.tsx`»). **Entra
   a este plan (DD9, tarea T5a):** foco inicial, trampa y devolución en `Modal.tsx`, copiando el patrón del
   `Drawer`. Toca todos los modales de la app, así que lleva una pasada de QA por los principales.
+
+## Resultados de T0 (2026-10-12)
+
+Corrido en esta máquina (WDAC activo), en el scratchpad de la sesión, contra `docs/mock-tutoriales.html` como
+escena (tiene texto real con los tokens). Nada quedó instalado en el repo.
+
+| Chequeo | Resultado | Detalle |
+|---|---|---|
+| `ffmpeg-static` bajo WDAC | **Verde** | v6.0 (build gyan.dev, 81 MB) corre desde el scratchpad y desde una carpeta del repo; trae `libx264`, `libvpx`, `aac` |
+| Edge + `recordVideo` 1536×864 | **Verde** | `channel: 'msedge'` + playwright-core 1.56.1; también a 1280×720. ~6 s de scroll = ~590 KB webm. El `ffmpeg` propio de Playwright corre |
+| CDP `Page.startScreencast` | **Verde** | JPEG calidad 92 → mp4 H.264 crf 20: indistinguible de la captura de referencia. Cuadros sólo al cambiar la pantalla (12 en ~4 s) |
+| CORS de Storage (prod) | **Verde** | GET y preflight responden `Access-Control-Allow-Origin: *`; el preflight acepta `range`. Medido sobre un objeto inexistente (el bucket aún no existe: «Bucket not found», la 0155 no está aplicada); se reconfirma con un 200 real después de la 0155 |
+| Legibilidad a 372px (tarjeta) | **Como se temía** | títulos y botones sí, texto de cuerpo no (grabando a 1536 o a 1280) → versión «recorte» a probar en el piloto |
+
+Decisión que sale de acá: **grabar con `recordVideo` y recodificar siempre a mp4 H.264**; CDP queda como plan B
+si el movimiento se ve con bloques en el piloto.
 
 ## Paralelización
 
@@ -543,10 +565,10 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
 
 ## Implementation Tasks
 
-- [ ] **T0 (P1, humano: ~2 h / CC: ~30 min)** — herramientas — Prueba en WDAC: ffmpeg-static, Edge+recordVideo 1536×864, screencast CDP, CORS de `<track>` desde Storage
+- [x] **T0 (P1, humano: ~2 h / CC: ~30 min)** — herramientas — Prueba en WDAC: ffmpeg-static, Edge+recordVideo 1536×864, screencast CDP, CORS de `<track>` desde Storage
   - Surfaced by: segunda opinión #5 (D8)
   - Files: `scratchpad` (descartable)
-  - Verify: los cuatro chequeos con resultado anotado en este plan
+  - Verify: los cuatro chequeos con resultado anotado en este plan — **hecho el 2026-10-12, ver «Resultados de T0»**
 - [ ] **T1 (P1, humano: ~4 h / CC: ~30 min)** — demo — Config fuera del repo + guardia de tres cerrojos + tests
   - Surfaced by: D3, D10 (segunda opinión #2, #6)
   - Files: `scripts/demo/config.mjs`, `scripts/demo/guardia.mjs`, `scripts/demo/*.test.ts`
