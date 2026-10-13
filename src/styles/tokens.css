@@ -62,6 +62,12 @@
   --spira-ghost-bg: rgba(15, 95, 87, 0.12);  /* resalte del texto fantasma (autocompletado inline): el texto sugerido va en la MISMA tinta (ink) que lo tipeado —se lee como una sola frase— y este petróleo suave marca el tramo sugerido, como una selección; Tab lo acepta */
   --spira-line:     #E4DECF;
   --spira-line-2:   #D8CBB0;
+  /* Los KPI de Coordinación › Resumen (handoff `design_handoff_kpis_visitas`): la pista de la barra de
+     proporción, el día sin visitas de la tira semanal y el tramo «otros atrasos» de Atrasados. Son
+     escalones del papel, no colores con significado: el significado lo llevan los tramos llenos. */
+  --spira-kpi-track: #EFEBE1;
+  --spira-kpi-empty: #F3EFE6;
+  --spira-warn-soft: #E3C9A0;
 
   /* —— Color · semántico —— */
   --spira-good:     #5C8A5A;
@@ -227,6 +233,12 @@
   --spira-ghost-bg: rgba(157, 230, 214, 0.15); /* resalte del fantasma en oscuro: menta tenue (el petróleo no se ve sobre fondo oscuro) */
   --spira-line:     #2A2A2A;   /* bordes / divisores */
   --spira-line-2:   #3A3A3A;   /* bordes de inputs */
+  /* Los del KPI, derivados de la línea y la superficie como pide el handoff: la pista y el día vacío
+     son huecos en la card, así que bajan (no suben) respecto de ella. El ocre se apaga para no
+     competir con el rojo del tramo «ventana vencida», que es el que importa. */
+  --spira-kpi-track: var(--spira-line);
+  --spira-kpi-empty: var(--spira-surface);
+  --spira-warn-soft: #6B5839;
   --spira-brand-mark: #9DE6D6; /* isotipo verde menta — sin cambios */
   --spira-avatar-ring: #34D399; /* emerald-400 — más claro para contraste en oscuro */
   --spira-acc-deep-track:  #9DE6D6;  /* menta: en oscuro hay que ACLARAR, no oscurecer */
@@ -1281,6 +1293,80 @@ input:-webkit-autofill:focus {
   .spira-card-link:not(:disabled):not([aria-disabled='true']),
   .spira-row-link,
   .spira-zoom-preview { transition: none; }
+}
+
+/* —— KPI del Resumen de Coordinación ——
+   Handoff `design_handoff_kpis_visitas` (2A): la tarjeta ENTERA es el acceso —ya no hay rótulo de
+   destino revelado al lado de la cifra— y el dato secundario se dibuja (barra de proporción o tira
+   semanal) en vez de escribirse.
+
+   El realce es el de `.spira-card-link` (levante + `--spira-shadow-hover`) y NO el del mock, que
+   además oscurecía el borde a `--spira-line-2`: la regla de la casa es que el borde de una
+   tarjeta-enlace no cambia nunca (ver arriba). Lo único propio del KPI es la flecha de la esquina y
+   el rótulo que pasa a tinta. */
+.spira-kpi { position: relative; }
+.spira-kpi__rotulo { transition: color 0.15s var(--spira-ease-out); }
+.spira-kpi:hover .spira-kpi__rotulo,
+.spira-kpi:focus-visible .spira-kpi__rotulo { color: var(--spira-ink); }
+/* El foco de teclado es el anillo global (2px petróleo, offset 2px), que es justo lo que pide el
+   handoff; acá sólo se le devuelve el radio de la tarjeta —el global lo achica a `radius-sm` y el
+   anillo quedaba con esquinas de botón alrededor de una card de 16px— y se le suma el mismo realce
+   del hover, para que teclado y mouse digan lo mismo. */
+.spira-kpi:focus-visible { border-radius: var(--spira-radius-lg); box-shadow: var(--spira-shadow-hover); }
+
+/* La flecha ↗ de la esquina: decorativa (`aria-hidden`), el destino lo anuncia el `aria-label`.
+   `--spira-acc-deep-track` y no `--spira-primary` como el mock: el primario es fijo en los dos temas
+   y en oscuro la flecha quedaba a 2,1:1 sobre la card (mismo motivo que el «Ver más» del Resumen). */
+.spira-kpi__ir {
+  position: absolute; top: 14px; right: 14px;
+  width: 28px; height: 28px; border-radius: 999px;
+  display: grid; place-items: center;
+  color: var(--spira-acc-deep-track);
+  opacity: 0; transform: translate(-4px, 4px);
+  transition: opacity 0.18s var(--spira-ease-out), transform 0.18s var(--spira-ease-out), background 0.18s var(--spira-ease-out);
+}
+.spira-kpi:hover .spira-kpi__ir,
+.spira-kpi:focus-visible .spira-kpi__ir {
+  opacity: 1; transform: none;
+  background: color-mix(in srgb, var(--spira-acc-deep-track) 9%, transparent);
+}
+
+/* Barra de proporción: pista + uno o dos tramos con 2px de aire entre ellos. */
+.spira-kpi__barra {
+  display: flex; gap: 2px; height: 6px; overflow: hidden;
+  border-radius: 999px; background: var(--spira-kpi-track);
+}
+.spira-kpi__tramo { display: block; height: 100%; border-radius: 999px; }
+
+/* Tira semanal: siete columnas que no se achican por debajo de 22px (el handoff). */
+.spira-kpi__semana { display: grid; grid-template-columns: repeat(7, minmax(22px, 1fr)); gap: 4px; }
+.spira-kpi__dia { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.spira-kpi__celda {
+  width: 100%; height: 22px; border-radius: 6px;
+  display: grid; place-items: center;
+  font: 600 10px/1 var(--spira-font-mono);
+  background: var(--spira-kpi-empty); color: var(--spira-faint);
+}
+.spira-kpi__celda--hoy { outline: 1.5px solid var(--spira-line-2); color: var(--spira-ink); }
+/* En oscuro `line-2` (#3A3A3A) sobre la celda vacía casi no se ve y «hoy» se perdía: va `faint`, que
+   ahí es justamente el tono para bordes. */
+[data-theme='dark'] .spira-kpi__celda--hoy { outline-color: var(--spira-faint); }
+/* Después de `--hoy` a propósito: si hoy también tiene visitas, se combinan el contorno de hoy y el
+   fondo de «con visitas», y la letra la pone el fondo (handoff). */
+.spira-kpi__celda--con { background: color-mix(in srgb, var(--spira-track) 18%, transparent); color: var(--spira-acc-deep-track); }
+.spira-kpi__celda--proxima { background: var(--spira-track); color: #fff; }
+/* El conteo «0» y el «–» van en `--spira-muted` y no en `--spira-faint` como el mock: faint no llega
+   a 4,5:1 (3,46:1 en claro, «NO es texto» en oscuro) y esto es texto que se lee. La diferencia con
+   un día con visitas la sigue haciendo el peso y la celda. */
+.spira-kpi__cuenta {
+  font: 600 10.5px/1 var(--spira-font-mono); font-variant-numeric: tabular-nums;
+  color: var(--spira-ink-2);
+}
+.spira-kpi__cuenta--cero { color: var(--spira-muted); font-weight: 500; }
+.spira-kpi__cuenta--proxima { color: var(--spira-acc-deep-track); }
+
+@media (prefers-reduced-motion: reduce) {
+  .spira-kpi__rotulo, .spira-kpi__ir { transition: none; }
 }
 
 /* —— Bandera de estado del paciente ——

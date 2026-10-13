@@ -196,8 +196,17 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
      inventamos un detalle que no encontramos.
 
      Y LLEGADA CON SÓLO UN DÍA, sin visita (2026-10-09): el KPI y el pie de «Próximas visitas» del
-     Resumen y el «volver» de esta misma vista prometen un día; se salta a ese día y se consume ahí. */
+     Resumen y el «volver» de esta misma vista prometen un día; se salta a ese día y se consume ahí.
+
+     Y LLEGADA A LA SEMANA (2026-10-13): el KPI «Próximas visitas» dibuja una semana y lleva a esa
+     semana (`visitView`). Mismos pasos que el día, sin buscar visita: la Semana no abre ninguna. */
   useEffect(() => {
+    if (navTarget?.visitView === 'semana') {
+      if (vista !== 'semana') { setVista('semana'); return }
+      if (navTarget.visitDate && navTarget.visitDate !== date) { setDate(navTarget.visitDate); return }
+      onTargetConsumed?.()
+      return
+    }
     if (!navTarget || (!navTarget.visitId && !navTarget.visitDate)) return
     if (vista !== 'dia') { setVista('dia'); return }
     if (navTarget.visitDate && navTarget.visitDate !== date) { setDate(navTarget.visitDate); return }
