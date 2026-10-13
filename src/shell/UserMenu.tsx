@@ -16,10 +16,16 @@ import type { SettingsSection } from './settings/SettingsModal'
    (diseño "Identidad rica"): header con identidad + ítems con ícono en cajita
    tintada (iguales a los chips de módulo) + Cerrar sesión en rojo sereno.
 
-   Los tres ítems abren Ajustes en su sección (`onOpenSettings`), y Cerrar sesión llama a signOut.
-   Nada de clicks muertos. Eran cinco: Notificaciones y Ayuda se sacaron el 2026-08-25 por decisión
-   del Director — ver el comentario de cabecera de `settings/SettingsModal.tsx` para qué pasó con
-   cada una (resumen: ninguna función se perdió, las dos vivían en otro lado).
+   Los tres ítems de cuenta abren Ajustes en su sección (`onOpenSettings`), y Cerrar sesión llama a
+   signOut. Nada de clicks muertos. Eran cinco: Notificaciones y Ayuda se sacaron el 2026-08-25 por
+   decisión del Director (resumen: ninguna función se perdió, las dos vivían en otro lado).
+
+   «Ayuda» VOLVIÓ el 2026-10-13, y no es la misma: la de agosto era una sección de Ajustes que sólo
+   repetía la versión y las Novedades del popover «Acerca de», así que sobraba. La de ahora abre el
+   panel de Preguntas frecuentes (y, desde T5, los tutoriales): contenido que no vive en ningún otro
+   lado. El lugar lo eligió el Director en la revisión de diseño (docs/plan-tutoriales.md, DD3). Va en
+   su propio grupo porque no abre Ajustes como las de arriba: abre el panel encima de lo que estés
+   haciendo.
 
    A11y: trigger con aria-haspopup/aria-expanded; panel role=menu, ítems
    role=menuitem; foco al primer ítem al abrir, ↑/↓/Home/End mueven el foco,
@@ -40,7 +46,11 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'roles', label: 'Equipo y accesos', icon: 'lock', section: 'roles' },
 ]
 
-export function UserMenu({ onOpenSettings }: { onOpenSettings: (section: SettingsSection) => void }) {
+export function UserMenu({ onOpenSettings, onOpenAyuda }: {
+  onOpenSettings: (section: SettingsSection) => void
+  /** Abre el panel de Ayuda (lo monta el shell, como hermano del resto de las capas). */
+  onOpenAyuda: () => void
+}) {
   const { profile, session, signOut } = useAuth()
   const [open, setOpen] = useState(false)
   /* `auth-js` NO borra la sesión local si signOut() falla por red: la sesión sigue viva aunque la
@@ -161,6 +171,11 @@ export function UserMenu({ onOpenSettings }: { onOpenSettings: (section: Setting
           {NAV_ITEMS.map((it) => (
             <MenuRow key={it.key} item={it} onClick={() => openSettings(it.section)} />
           ))}
+
+          <div style={sep} />
+          {/* Mismo cuidado de foco que Ajustes: cerrar reenfocando el disparador ANTES de montar el panel,
+              así el Drawer captura ese foco y al cerrarse lo devuelve al menú de usuario. */}
+          <MenuRow item={{ label: 'Ayuda', icon: 'helpCircle' }} onClick={() => { close(true); onOpenAyuda() }} />
 
           <div style={sep} />
           <MenuRow

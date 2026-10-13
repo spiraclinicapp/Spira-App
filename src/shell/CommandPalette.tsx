@@ -5,6 +5,7 @@ import type { IconName } from '../components/Icon'
 import { useSearchIndex, TYPE_LABEL } from './search/searchIndex'
 import type { SearchItem, SearchType } from './search/searchIndex'
 import type { SubModule } from '../modules/registry'
+import { normalizar } from '../lib/texto'
 
 /* ============================================================================
    CommandPalette — buscador global (Ctrl/⌘ K).
@@ -32,6 +33,8 @@ interface CommandPaletteProps {
   /** Navegar a un resultado (lo provee el shell = AppShell.navigate). El 3er arg abre la
    *  entidad concreta al llegar (ej. la ficha del paciente). */
   onNavigate: (moduleKey: string, subKey: string, target?: SearchItem['target']) => void
+  /** Un resultado de Ayuda no navega: abre el panel con esa respuesta desplegada (lo monta el shell). */
+  onAbrirAyuda: (preguntaId: string) => void
   onClose: () => void
 }
 
@@ -47,9 +50,10 @@ const CHIP_DEFS: { type: SearchType; label: string; icon: IconName }[] = [
   { type: 'visita', label: 'Visitas', icon: 'clipboardCheck' },
   { type: 'medicamento', label: 'Medicamentos', icon: 'pill' },
   { type: 'pagina', label: 'Páginas', icon: 'file' },
+  { type: 'ayuda', label: 'Ayuda', icon: 'helpCircle' },
 ]
 
-export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, subVisible, onNavigate, onClose }: CommandPaletteProps) {
+export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, subVisible, onNavigate, onAbrirAyuda, onClose }: CommandPaletteProps) {
   const { index, loading, partialError } = useSearchIndex(isAllowed, subVisible)
 
   const [q, setQ] = useState('')
@@ -75,9 +79,10 @@ export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, subVi
 
   // Filtrado: base (índice completo si se filtra, si no RECENT) → texto → tipo → módulo actual.
   const results = useMemo(() => {
-    const query = q.trim().toLowerCase()
+    // Sin tildes ni mayúsculas (2026-10-13): «recepcion» encuentra «Recepción», como ya pasaba en Alertas.
+    const query = normalizar(q.trim())
     let base = isFiltering ? index : recent
-    if (query) base = base.filter((it) => `${it.title} ${it.crumb}`.toLowerCase().includes(query))
+    if (query) base = base.filter((it) => normalizar(`${it.title} ${it.crumb} ${it.buscable ?? ''}`).includes(query))
     if (typeFilter) base = base.filter((it) => it.type === typeFilter)
     if (scoped) base = base.filter((it) => it.mod === moduleKey)
     return base
@@ -105,6 +110,8 @@ export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, subVi
   // sin re-suscribir el listener en cada tecla.
   const resultsRef = useRef(results); resultsRef.current = results
   const selRef = useRef(sel); selRef.current = sel
+  /* El Enter usa la MISMA `go` que el clic (definida abajo; se asigna en cada render). */
+  const goRef = useRef<(it: SearchItem) => void>(() => {})
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { e.preventDefault(); onClose(); return }
@@ -113,7 +120,7 @@ export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, subVi
       if (e.key === 'Enter') {
         e.preventDefault()
         const it = resultsRef.current[selRef.current]
-        if (it) { onNavigate(it.mod, it.sub, it.target); onClose() } else onClose()
+        if (it) goRef.current(it); else onClose()
         return
       }
       if (e.key === 'Tab') {
@@ -132,7 +139,14 @@ export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, subVi
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, onNavigate])
 
-  const go = (it: SearchItem) => { onNavigate(it.mod, it.sub, it.target); onClose() }
+  /* Un solo lugar decide qué hace un resultado, para el clic y para el Enter. Un resultado de Ayuda cierra
+     el buscador y abre el panel: van una capa por vez, nunca el panel adentro del buscador. */
+  const go = (it: SearchItem) => {
+    onClose()
+    if (it.ayuda) onAbrirAyuda(it.ayuda.preguntaId)
+    else onNavigate(it.mod, it.sub, it.target)
+  }
+  goRef.current = go
 
   const header = isFiltering ? `Resultados · ${results.length}` : 'Reciente'
   const listboxId = 'spira-palette-list'

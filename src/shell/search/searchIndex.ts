@@ -12,6 +12,9 @@ import type { TrackVisitRow } from '../../data/visits'
 import { useMedications } from '../../data/pharma/medications'
 import type { MedicationRow } from '../../data/pharma/medications'
 import type { NavTarget } from '../../views/types'
+import { PREGUNTAS } from '../../ayuda/preguntas'
+import { preguntasVisibles } from '../../ayuda/reglas'
+import type { Pregunta } from '../../ayuda/reglas'
 
 /* ============================================================================
    Índice del buscador global (command palette Ctrl/⌘ K).
@@ -27,7 +30,7 @@ import type { NavTarget } from '../../views/types'
    isAllowed es obligatorio. Acceso denegado = la entrada no se lista (en silencio).
    ============================================================================ */
 
-export type SearchType = 'protocolo' | 'paciente' | 'visita' | 'medicamento' | 'pagina'
+export type SearchType = 'protocolo' | 'paciente' | 'visita' | 'medicamento' | 'pagina' | 'ayuda'
 
 /** Rótulo VIGENTE de un submódulo, leído del registry. Las migas lo derivan en vez de
  *  repetirlo a mano: cuando "Medicamentos" pasó a llamarse "Stock", la miga hardcodeada
@@ -50,6 +53,10 @@ export interface SearchItem {
   sub: string
   /** Entidad concreta a abrir al llegar (ej. la ficha del paciente). Ausente = solo la vista. */
   target?: NavTarget
+  /** Texto que también se busca pero no se muestra (la respuesta de una pregunta frecuente). */
+  buscable?: string
+  /** Si está, el resultado NO navega: abre el panel de Ayuda con esta respuesta desplegada. */
+  ayuda?: { preguntaId: string }
 }
 
 export const TYPE_LABEL: Record<SearchType, string> = {
@@ -58,6 +65,7 @@ export const TYPE_LABEL: Record<SearchType, string> = {
   visita: 'Visita',
   medicamento: 'Medicamento',
   pagina: 'Página',
+  ayuda: 'Ayuda',
 }
 
 /** Fuentes ya resueltas (arrays). Los hooks viven en useSearchIndex; el builder es puro. */
@@ -66,6 +74,8 @@ export interface SearchSources {
   patients: PatientRow[]
   visits: TrackVisitRow[]
   medications: MedicationRow[]
+  /** Las preguntas frecuentes (texto del repo, sin RLS: el filtro por módulo lo hace `preguntasVisibles`). */
+  preguntas?: readonly Pregunta[]
 }
 
 type Allowed = (moduleKey: string) => boolean
@@ -150,6 +160,20 @@ export function buildSearchIndex(sources: SearchSources, isAllowed: Allowed, sub
     }
   }
 
+  // Ayuda: las preguntas frecuentes que el usuario puede ver (generales + las de sus módulos). Desde el
+  // 2026-10-13 (docs/plan-tutoriales.md, DD4): la duda se busca donde la gente ya busca, sin saber que existe
+  // el panel. `mod` sólo alimenta el chip «En {módulo}»; las generales quedan en 'inicio'.
+  for (const p of preguntasVisibles(sources.preguntas ?? [], isAllowed)) {
+    items.push({
+      id: `ayuda-${p.id}`, type: 'ayuda', icon: 'helpCircle',
+      title: p.pregunta,
+      crumb: p.modulo === 'general' ? 'Ayuda' : `Ayuda · ${MODULES.find((m) => m.key === p.modulo)?.name ?? p.modulo}`,
+      mod: p.modulo === 'general' ? 'inicio' : p.modulo, sub: '',
+      buscable: [p.respuesta, ...(p.palabras ?? [])].join(' '),
+      ayuda: { preguntaId: p.id },
+    })
+  }
+
   // Páginas: submódulos con VISTA REAL (registrada) de módulos permitidos y no-próximamente.
   for (const mdl of MODULES) {
     if (mdl.key === 'inicio' || mdl.proximamente || !isAllowed(mdl.key)) continue
@@ -198,6 +222,7 @@ export function useSearchIndex(isAllowed: Allowed, subVisible: SubVisible): Sear
           patients: patients.data ?? [],
           visits: visits.data ?? [],
           medications: medications.data ?? [],
+          preguntas: PREGUNTAS,
         },
         isAllowed,
         subVisible,

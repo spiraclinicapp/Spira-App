@@ -16,16 +16,14 @@
  * para corregirle la ortografía.
  */
 
+import { normalizar } from '../lib/texto'
+
 export interface Buscable {
   patient_name: string
   patient_code: string | null
   protocol_code: string
 }
 
-/** Minúsculas y sin diacríticos, para que "Muñoz" encuentre "munoz" y "Benítez" encuentre "benitez". */
-function normalizar(s: string): string {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase()
-}
 
 export function coincideBusqueda(fila: Buscable, termino: string): boolean {
   const t = normalizar(termino.trim())
