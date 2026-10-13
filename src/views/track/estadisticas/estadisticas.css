@@ -73,7 +73,14 @@
   opacity: 0; transform: translateX(8px); visibility: hidden;
   transition: opacity .2s ease-out, transform .2s ease-out, visibility 0s linear .2s;
 }
-.est-renglon.con-detalle { padding-right: calc(26px + var(--ancho-detalle, 0px) + 16px); }
+/* El lugar se le saca al ÍNDICE (su ancho máximo), nunca al renglón. Con `padding-right` en el renglón
+   había un bucle, medido en prod el 2026-10-12 (v0.106.0): el padding achica la caja que miran las
+   container queries de abajo → la búsqueda pasa de 210 a 150 y se va «sólo esta tabla» → el grupo se
+   angosta → el padding baja → la caja vuelve a pasar los 800 → la búsqueda crece… La búsqueda
+   parpadeaba entre 150 y 210 y el ResizeObserver tiraba «loop completed with undelivered
+   notifications» sin parar (124 en medio segundo). La caja del renglón tiene que quedar QUIETA: es la
+   que deciden esas queries. Los 6 px = 16 de aire − los 10 del margen negativo del índice. */
+.est-renglon.con-detalle .est-indice { max-width: calc(100% - var(--ancho-detalle, 0px) - 6px); }
 .est-renglon.con-detalle .est-renglon-detalle {
   opacity: 1; transform: none; visibility: visible; transition-delay: 0s;
 }
