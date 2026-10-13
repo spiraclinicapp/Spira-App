@@ -1305,7 +1305,7 @@ input:-webkit-autofill:focus {
    tarjeta-enlace no cambia nunca (ver arriba). Lo único propio del KPI es la flecha de la esquina y
    el rótulo que pasa a tinta. */
 .spira-kpi { position: relative; }
-.spira-kpi__rotulo { transition: color 0.15s var(--spira-ease-out); }
+.spira-kpi__rotulo { color: var(--spira-muted); transition: color 0.15s var(--spira-ease-out); }
 .spira-kpi:hover .spira-kpi__rotulo,
 .spira-kpi:focus-visible .spira-kpi__rotulo { color: var(--spira-ink); }
 /* El foco de teclado es el anillo global (2px petróleo, offset 2px), que es justo lo que pide el

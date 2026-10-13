@@ -122,7 +122,9 @@ function KpiCard({ label, value, unidad, detalle, visual, leyenda, dot, cargando
         </span>
       )}
       {/* `paddingRight` para que el rótulo largo se recorte antes de pasar por debajo de la flecha. */}
-      <div className="spira-kpi__rotulo" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 28, fontSize: 13, fontWeight: 600, color: 'var(--spira-muted)' }}>
+      {/* El COLOR no va acá sino en `.spira-kpi__rotulo`: inline le ganaba por especificidad al
+          `:hover` de la hoja y el rótulo no pasaba nunca a tinta (QA en prod, 2026-10-13). */}
+      <div className="spira-kpi__rotulo" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 28, fontSize: 13, fontWeight: 600 }}>
         <span style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flex: '0 0 auto' }} />
         <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
       </div>
@@ -134,19 +136,21 @@ function KpiCard({ label, value, unidad, detalle, visual, leyenda, dot, cargando
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, color: 'var(--spira-muted)' }}>{unidad}</span>
         )}
       </div>
-      {/* `marginTop: auto` empuja el dibujo al pie: las cuatro tarjetas tienen el mismo alto (la grilla
-          las estira) y así las barras y la tira quedan alineadas en un mismo renglón. */}
-      <div style={{ marginTop: 'auto' }}>
+      {/* El dibujo va PEGADO A LA CIFRA, no empujado al pie. Rótulo y cifra miden lo mismo en las cuatro
+          tarjetas, así que las barras y la tira arrancan a la misma altura; si una leyenda baja a un
+          segundo renglón, crece hacia abajo. Con `marginTop: auto` (la primera versión) ese renglón
+          extra subía la barra de Atrasados 17 px por encima de las otras (QA en prod, 2026-10-13). */}
+      <div>
         {visual}
         {leyenda && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 9, fontSize: 12, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
-            {/* La izquierda NO se encoge: es la que lleva el dato que importa («7 ventanas vencidas»), y a
-                220 px de tarjeta las dos no entran. Se recorta la derecha. Todas las izquierdas son
-                cortas y acotadas (un número y dos palabras), así que no hay riesgo de desbordar.
-                El nbsp mientras carga mantiene el alto del renglón: sin él la tarjeta crece al llegar
-                el dato. */}
-            <span style={{ flexShrink: 0 }}>{cargando ? '\u00A0' : leyenda[0]}</span>
-            {leyenda[1] && !cargando && <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{leyenda[1]}</span>}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 8, rowGap: 2, marginTop: 9, fontSize: 12, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
+            {/* Si las dos no entran en un renglón, la derecha BAJA a un segundo renglón (alineada a la derecha
+                por el `marginLeft: auto`) en vez de recortarse. Antes se cortaba con «…», y en prod, a 1280 px
+                de ventana —una notebook común—, la tarjeta queda en 222 px y «8 otros atrasos» se leía
+                «8 otros…» (QA del 2026-10-13). Un número cortado es un dato perdido; un renglón más, no.
+                El nbsp mientras carga mantiene el alto del renglón: sin él la tarjeta crece al llegar el dato. */}
+            <span>{cargando ? '\u00A0' : leyenda[0]}</span>
+            {leyenda[1] && !cargando && <span style={{ marginLeft: 'auto' }}>{leyenda[1]}</span>}
           </div>
         )}
       </div>
