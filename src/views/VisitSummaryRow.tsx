@@ -34,7 +34,7 @@ import { FilaDeResumen } from './resumen/piezas'
  * `alertItem.ts`), y eso no es un renglón. Compartir tipo no es compartir forma.
  */
 export function VisitSummaryRow({
-  visit, chip, primera, onClick, ariaLabel, onOpenPatient,
+  visit, chip, cuando, primera, onClick, ariaLabel, onOpenPatient,
 }: {
   visit: TrackVisitRow
   /**
@@ -48,6 +48,12 @@ export function VisitSummaryRow({
    * `null` es un valor esperado y frecuente: ver por qué en `ProximasVisitasCard`.
    */
   chip: ReactNode
+  /**
+   * QUÉ DÍA es la visita ("Mañana", "Miércoles 14/10"), al margen derecho y antes del chip. Desde el
+   * 2026-10-12 la tarjeta lista varios días y el día pasó a ser un dato de la FILA: antes la tarjeta
+   * mostraba una sola jornada y el día iba una vez, en la cabecera.
+   */
+  cuando?: string
   primera: boolean
   onClick: () => void
   ariaLabel: string
@@ -59,7 +65,14 @@ export function VisitSummaryRow({
       primera={primera}
       onAbrir={onClick}
       ariaLabel={ariaLabel}
-      derecha={chip}
+      derecha={cuando || chip ? (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {cuando && (
+            <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>{cuando}</span>
+          )}
+          {chip}
+        </span>
+      ) : null}
       titular={
         <>
           {visit.visit_type === 'telefonica' && (

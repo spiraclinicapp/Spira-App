@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { proximoDiaConVisitas } from './proximoDia'
+import { proximoDiaConVisitas, visitasQueVienen } from './proximoDia'
 
 /**
  * La elección del día de la tarjeta "Próximas visitas" del Resumen.
@@ -64,5 +64,29 @@ describe('proximoDiaConVisitas', () => {
     const r = proximoDiaConVisitas([v('2026-09-07', 'lunes'), v('2026-09-08')], viernes)
     expect(r.dia).toBe('2026-09-07')
     expect(r.visitas.map((x) => x.id)).toEqual(['lunes'])
+  })
+})
+
+/* La lista de la TARJETA (2026-10-12): toda la semana que viene, no un solo día. Mismas tres
+   maneras de fallar en silencio que la regla del KPI. */
+describe('visitasQueVienen', () => {
+  it('trae las de varios días, no sólo el próximo', () => {
+    const r = visitasQueVienen([v('2026-09-06', 'a'), v('2026-09-08', 'b'), v('2026-09-11', 'c')], HOY)
+    expect(r.map((x) => x.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('las de HOY y las sueltas sin fecha quedan afuera', () => {
+    const r = visitasQueVienen([v(HOY, 'hoy'), v(null, 'suelta'), v('2026-09-06', 'manana')], HOY)
+    expect(r.map((x) => x.id)).toEqual(['manana'])
+  })
+
+  /* Ordena por fecha sin confiar en la consulta, y dentro de un mismo día respeta el orden de
+     entrada (la consulta las trae por código de paciente). */
+  it('ordena por fecha y conserva el orden dentro del día', () => {
+    const r = visitasQueVienen(
+      [v('2026-09-09', 'x'), v('2026-09-06', 'b1'), v('2026-09-07', 'y'), v('2026-09-06', 'b2')],
+      HOY,
+    )
+    expect(r.map((x) => x.id)).toEqual(['b1', 'b2', 'y', 'x'])
   })
 })

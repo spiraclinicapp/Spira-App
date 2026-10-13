@@ -1,8 +1,9 @@
 /**
  * ┌─ ¿Cuál es el próximo día con visitas, y cuáles son? ────────────────────────────────────────┐
  *
- * La tarjeta "Próximas visitas" del Resumen muestra UNA jornada: la siguiente que tenga algo. Ésta
- * es la regla que la elige.
+ * El KPI "Próximas visitas" del Resumen cuenta UNA jornada: la siguiente que tenga algo. Ésta es la
+ * regla que la elige. (La TARJETA también la usaba hasta el 2026-10-12; ahora lista la semana con
+ * `visitasQueVienen`, más abajo.)
  *
  * POR QUÉ ES UNA FUNCIÓN Y NO DOS LÍNEAS EN EL JSX: sus tres modos de falla son silenciosos y
  * ninguno rompe la pantalla.
@@ -53,4 +54,25 @@ export function proximoDiaConVisitas<T extends ConFechaEstimada>(
     if (dia === null || v.estimated_date < dia) dia = v.estimated_date
   }
   return { dia, visitas: dia === null ? [] : visitas.filter((v) => v.estimated_date === dia) }
+}
+
+/**
+ * Las visitas POSTERIORES a `hoy`, de la más cercana a la más lejana. Es la lista de la TARJETA
+ * "Próximas visitas" desde el 2026-10-12; el KPI sigue contando sólo el próximo día
+ * (`proximoDiaConVisitas`).
+ *
+ * POR QUÉ LA TARJETA DEJÓ DE MOSTRAR UN SOLO DÍA. Con una jornada, un día con una visita dejaba la
+ * tarjeta en UNA fila —pegada a la cabecera, sin nada abajo— aunque la semana estuviera cargada
+ * (Director, 2026-10-12: "por lo menos las próximas 3, o todas las de los próximos 7 días"). Ahora
+ * muestra las primeras `MAX_FILAS` de la semana y el pie despliega el resto.
+ *
+ * Mismas tres guardas que la regla del KPI, por los mismos motivos: `>` y no `>=` (hoy vive en
+ * Visitas del día), las sueltas sin fecha afuera, y el orden se IMPONE acá en vez de heredarlo de la
+ * consulta. El `sort` es estable: dentro de un mismo día se conserva el orden de entrada (la
+ * consulta las trae por código de paciente).
+ */
+export function visitasQueVienen<T extends ConFechaEstimada>(visitas: readonly T[], hoy: string): T[] {
+  return visitas
+    .filter((v): v is T & { estimated_date: string } => !!v.estimated_date && v.estimated_date > hoy)
+    .sort((a, b) => (a.estimated_date < b.estimated_date ? -1 : a.estimated_date > b.estimated_date ? 1 : 0))
 }
