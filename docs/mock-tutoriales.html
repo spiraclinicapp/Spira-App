@@ -73,7 +73,7 @@
   .como[aria-expanded="true"] { box-shadow: var(--spira-shadow-hover); transform: translateY(-1px); }
   .vista-sub { color: var(--spira-muted); margin: 6px 0 18px; }
   .tabla-fake { background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 16px; height: 150px; }
-  .globo { position: absolute; top: 76px; left: 222px; width: 300px; background: var(--spira-white); border: 1px solid var(--spira-line-2); border-radius: 12px; box-shadow: var(--spira-shadow-lg); padding: 14px; }
+  .globo { position: absolute; top: 76px; left: 222px; width: 400px; background: var(--spira-white); border: 1px solid var(--spira-line-2); border-radius: 12px; box-shadow: var(--spira-shadow-lg); padding: 14px; }
   .globo::before { content: ''; position: absolute; top: -6px; left: 34px; width: 10px; height: 10px; background: var(--spira-white); border-left: 1px solid var(--spira-line-2); border-top: 1px solid var(--spira-line-2); transform: rotate(45deg); }
   .globo h3 { font: 700 14px/1.25 var(--spira-font-display); letter-spacing: -.01em; margin: 0 0 4px; }
   .globo p { margin: 0 0 12px; color: var(--spira-muted); font-size: 13px; line-height: 1.45; }
@@ -214,6 +214,9 @@
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
   <symbol id="i-retry" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
   <symbol id="i-cursor" viewBox="0 0 24 24"><path d="M4 3l7 17 2.5-7.5L21 10z" fill="#14302E" stroke="#fff" stroke-width="1.5"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6A1.4 1.4 0 0 1 5.4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.4 18.4a9 9 0 0 0 0-12.8"/></symbol>
+  <symbol id="i-max" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
 </svg>
 
 <main class="tablero">
@@ -251,7 +254,7 @@
 
   <!-- 2 -->
   <p class="rotulo">2 · En contexto: «Cómo se hace» y su globo</p>
-  <div class="marco vista" style="min-height:400px">
+  <div class="marco vista" style="min-height:470px">
     <div class="vista-enc">
       <h2>Dispensaciones</h2>
       <button class="como pulsable" aria-expanded="true" aria-controls="globo-disp">
@@ -264,21 +267,58 @@
     <div class="globo" id="globo-disp" role="dialog" aria-label="Dispensar una medicación">
       <h3>Dispensar una medicación</h3>
       <p>Elegís el pedido, escaneás el lote y confirmás la entrega. Si el lote no coincide, la app te frena antes.</p>
-      <button class="poster pulsable" aria-label="Ver el tutorial Dispensar una medicación, 1 minuto 20 segundos">
+      <div class="poster" style="cursor:default">
         <span class="app"><span class="riel"></span><span class="cont"><i></i><b></b></span></span>
-        <span class="velo"><span class="disco"><svg><use href="#i-play"/></svg></span></span>
+        <span class="velo"><button class="disco pulsable" style="border:0" aria-label="Reproducir el tutorial Dispensar una medicación, 1 minuto 20 segundos"><svg><use href="#i-play"/></svg></button></span>
         <span class="chip-dur mono">1:20</span>
-      </button>
+      </div>
       <div class="globo-pie">
         <span class="visto"><svg class="i"><use href="#i-check"/></svg>Ya lo viste</span>
-        <button class="enlace">Todos los tutoriales</button>
+        <button class="enlace" style="display:inline-flex;align-items:center;gap:5px"><svg class="i" style="width:13px;height:13px"><use href="#i-max"/></svg>Ver en grande</button>
       </div>
     </div>
   </div>
   <p class="nota">
       <b>Una píldora con palabras, no un ▶ suelto:</b> se lee qué hace sin pasar el mouse (en tablet no hay hover).
-      Va al lado del título de la vista, una sola por pantalla. Al abrir, el foco entra al póster; Esc o un clic afuera
+      Va al lado del título de la vista, una sola por pantalla. Es la misma tarjeta que el tooltip (2b): play adentro, con sonido. Al abrir, el foco entra al play; Esc o un clic afuera
       cierran y el foco vuelve a la píldora.</p>
+
+  <!-- 2b -->
+  <p class="rotulo">2b · El tutorial en el tooltip (con mouse): pausado → play con sonido → se fija</p>
+  <div class="fila">
+    <div class="marco vista" style="flex:1 1 520px;min-height:540px">
+      <p class="vista-sub" style="margin:0 0 12px">Sin fijar: apareció al apoyar el mouse en «Dispensar».</p>
+      <button class="btn btn-prim" style="height:36px">Dispensar</button>
+      <div class="globo tarjeta" style="top:118px;left:22px;width:400px" role="tooltip">
+        <h3>Dispensar</h3>
+        <p>Entrega la medicación del pedido elegido. Tenés que escanear el lote antes de confirmar.</p>
+        <div class="poster" style="cursor:default">
+          <span class="app"><span class="riel"></span><span class="cont"><i></i><b></b></span></span>
+          <span class="velo"><button class="disco pulsable" style="border:0" aria-label="Reproducir el tutorial Dispensar una medicación, 1 minuto 20 segundos"><svg><use href="#i-play"/></svg></button></span>
+          <span class="chip-dur mono">1:20</span>
+        </div>
+        <div class="globo-pie"><span class="visto"><svg class="i"><use href="#i-check"/></svg>Ya lo viste</span><button class="enlace" style="display:inline-flex;align-items:center;gap:5px"><svg class="i" style="width:13px;height:13px"><use href="#i-max"/></svg>Ver en grande</button></div>
+      </div>
+    </div>
+    <div class="marco vista" style="flex:1 1 520px;min-height:540px">
+      <p class="vista-sub" style="margin:0 0 12px">Fijada: le dio play; suena y no se va al sacar el mouse.</p>
+      <button class="btn btn-prim" style="height:36px">Dispensar</button>
+      <div class="globo tarjeta" style="top:118px;left:22px;width:400px" role="dialog" aria-label="Tutorial: Dispensar una medicación">
+        <button class="cerrar" style="position:absolute;top:8px;right:8px;width:28px;height:28px" aria-label="Cerrar y detener"><svg class="i"><use href="#i-x"/></svg></button>
+        <h3>Dispensar</h3>
+        <p>Entrega la medicación del pedido elegido. Tenés que escanear el lote antes de confirmar.</p>
+        <div class="poster" style="cursor:default">
+          <span class="app"><span class="riel"></span><span class="cont"><i></i><b></b></span></span>
+          <span class="subtitulo" style="bottom:34px;font-size:11.5px;padding:4px 8px">Elegí el pedido de la paciente y tocá «Dispensar».</span>
+          <span class="controles" style="height:28px;font-size:11px"><svg class="i" style="width:12px;height:12px;fill:#fff;stroke:none"><use href="#i-pause"/></svg><span class="mono">0:21 / 1:20</span><span class="barra-t"></span><svg class="i" style="width:13px;height:13px"><use href="#i-vol"/></svg></span>
+        </div>
+        <div class="globo-pie"><span class="visto" style="visibility:hidden">·</span><button class="enlace" style="display:inline-flex;align-items:center;gap:5px"><svg class="i" style="width:13px;height:13px"><use href="#i-max"/></svg>Ver en grande</button></div>
+      </div>
+    </div>
+  </div>
+  <p class="nota"><b>Una sola pieza</b> (<code>TarjetaTutorial</code>): ésta es la que sale como tooltip en el control clave del flujo, y la
+    misma que abre la píldora «Cómo se hace» en tablet y con teclado. Nunca arranca sola; el sonido empieza con el play.
+    «Ver en grande» pasa al reproductor (3) en el mismo segundo.</p>
 
   <!-- 3 -->
   <p class="rotulo">3 · El reproductor</p>

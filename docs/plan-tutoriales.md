@@ -199,7 +199,7 @@ se corrige el plan.
 | DD4 | Buscador | **Chip «Ayuda» en `CommandPalette`**: busca en preguntas y títulos de tutoriales | La ayuda aparece donde la gente ya busca; compensa que la entrada esté en un menú |
 | DD5 | Disparador en contexto | **Píldora «▶ Cómo se hace 1:20»** al lado del título de la vista, **una por pantalla** | Se entiende sin hover (tablet); la duración dice cuánto tiempo pide |
 | DD6 | Descubrimiento | **Entrada en Novedades + las píldoras.** Sin avisos emergentes ni tours | No interrumpe a nadie en medio de una visita; Sereno pide calma |
-| DD7 | Pestaña inicial | **Preguntas.** Desde «Todos los tutoriales» del globo abre en Tutoriales | La duda puntual se resuelve leyendo; cada respuesta enlaza a su video |
+| DD7 | Pestaña inicial | **Preguntas.** Desde la pantalla final del último video, «Todos los tutoriales» abre en Tutoriales | La duda puntual se resuelve leyendo; cada respuesta enlaza a su video |
 
 Por recomendación: sin reproducción automática del siguiente; «Contanos» al pie del panel abre el Feedback con
 lugar; el panel arranca en el módulo actual con «Ver todos los módulos» (desde Inicio, o con un solo módulo,
@@ -211,6 +211,7 @@ arranca en todos y el enlace no aparece).
 | DD8b | Búsqueda del panel | Con texto, busca en **las dos pestañas y todos los módulos**; cuentas en el control; vacío sólo si el total es 0 |
 | DD8c | Reproductor en tablet | Video **limitado por alto**; un solo quiebre en 1100 px; transcripción en caja propia; pantalla final fuera del `<video>` |
 | DD8d | Píldora | **La dibuja `AppShell`** al lado del `h1`, según el catálogo; se oculta si el video no está publicado |
+| DD10 | El tutorial **en el tooltip** (pedido del Director) | Los controles clave del flujo (`data-tutorial="<id>"`) muestran, al pasar el mouse, una **tarjeta con el tutorial pausado**: el texto del `title` + el video. **Play adentro, con sonido**. Al dar play **la tarjeta se fija** (no se cierra al sacar el mouse) hasta ✕ / Esc / clic afuera, y al cerrarse el video se detiene. «Ver en grande» lo pasa al reproductor en el mismo segundo. El globo de la píldora es **la misma tarjeta** (`TarjetaTutorial`), así hay una sola pieza |
 | DD9 | Foco del `Modal` | **Se arregla en `Modal.tsx` para toda la app** (foco inicial, trampa y devolución, como el `Drawer`). Cierra el TODO «Core · focus trap en `components/Modal.tsx`» |
 
 ### Capas y foco
@@ -234,8 +235,10 @@ Transiciones, una capa por vez:
 
 | Desde | Acción | Qué pasa |
 |---|---|---|
-| Globo | clic en el póster | cierra el globo → abre el reproductor; al cerrar, el foco vuelve a la **píldora** |
-| Globo | «Todos los tutoriales» | cierra el globo → abre el panel en Tutoriales |
+| Tooltip (tarjeta sin fijar) | sacar el mouse | se cierra como cualquier pista |
+| Tooltip / globo | play | reproduce **ahí mismo con sonido** y la tarjeta se fija |
+| Tarjeta fijada | ✕ / Esc / clic afuera | se cierra y el video se detiene; el foco vuelve al disparador |
+| Tooltip / globo | «Ver en grande» | cierra la tarjeta → abre el reproductor **en el mismo segundo**; al cerrar, el foco vuelve al disparador |
 | Panel | una fila de tutorial / «Ver cómo se hace» | el panel **queda abierto debajo**; el reproductor arriba; al cerrar, el foco vuelve a **la fila** |
 | Panel | «Contanos» | el panel queda debajo; Feedback arriba, con el lugar = la vista de fondo y «Buscaba: "x"» precargado |
 | Reproductor | «Ver siguiente» | cambia de video en el mismo modal |
@@ -254,10 +257,23 @@ modal). Lo que se recuerda al cerrar y reabrir el panel dentro de la sesión: pe
 - **Píldora** (`AyudaTutorial`): alto 30, radio pill, borde 1px `--spira-line-2`, fondo blanco, Inter 600 12.5px
   tinta; disco de 18px en el acento del módulo con ▶ papel; duración en `muted` y `.spira-mono`. Hover y
   abierta: levante de 1px + `--spira-shadow-hover` (nunca un borde de color).
-- **Globo:** ancho 300, blanco, borde `--spira-line-2`, radio 12, sombra **lg**, padding 14, flecha hacia la
-  píldora. Título Schibsted 700 14px; descripción 13px `muted` (dos o tres renglones, del catálogo); **el
-  póster 16:9 ES el botón** (disco de 44px en el acento + chip de duración), con nombre accesible «Ver el
-  tutorial X, 1 minuto 20 segundos»; pie con «✓ Ya lo viste» (si corresponde) y «Todos los tutoriales».
+- **`TarjetaTutorial`** (DD10), la misma pieza en dos lugares: el **tooltip** de los controles clave (con mouse)
+  y el **globo de la píldora** (tablet y teclado). Ancho 400, blanco, borde `--spira-line-2`, radio 12, sombra
+  **lg**, padding 14, flecha hacia el disparador. Título Schibsted 700 14px; texto 13px `muted` (en el tooltip, el
+  del `title`; en el globo, la descripción del catálogo); **el video pausado** 16:9 (372×209), con el primer
+  cuadro de póster, un disco de play de 44px en el acento (nombre accesible «Reproducir el tutorial X, 1 minuto
+  20 segundos») y el chip de duración. Al dar play: **con sonido**, subtítulos activados, barra de tiempo, pausa y
+  silencio propios (chicos, 28px), y la tarjeta **se fija**: aparece un ✕ arriba a la derecha y deja de cerrarse
+  al sacar el mouse. Pie: «⤢ Ver en grande» (abre el reproductor en el mismo segundo y cierra la tarjeta) y, si
+  corresponde, «✓ Ya lo viste».
+- **Cuándo se abre como tooltip:** con la misma demora y la misma gracia de `Pistas` (se puede entrar con el
+  mouse a la tarjeta). Mientras está **sin fijar** se comporta como cualquier pista (se va al sacar el mouse);
+  **fijada**, como un diálogo no modal (`role="dialog"`, el foco entra al control de play). Un solo video
+  sonando a la vez: abrir otra tarjeta o el reproductor pausa el anterior. Nunca arranca solo.
+- **Dónde lo decide el código:** `Pistas` sigue siendo el único que escucha los `title`; cuando el elemento
+  apuntado tiene `data-tutorial`, en vez del papel de texto monta la `TarjetaTutorial` con ese texto. Los
+  controles que lo llevan se eligen a mano: **uno por flujo**, la acción clave (p. ej. «Dispensar»), no los
+  ~180 `title` de la app.
 - **Reproductor** (`TutorialModal` sobre `Modal`): hasta 920px de ancho. Encabezado: título H2 20px + chip del
   módulo + ✕. Cuerpo: video 16:9 **limitado por alto** (`max-height: calc(100vh - 240px)`, el ancho sale del
   16:9), así entra entero en una tablet apaisada de 1024×768. **Capítulos** (240px) a la derecha **desde 1100px**;
@@ -285,7 +301,9 @@ modal). Lo que se recuerda al cerrar y reabrir el panel dentro de la sesión: pe
 ```
   PIEZA            | CARGANDO                  | VACÍO                                  | ERROR                                   | ÉXITO / FIN
   -----------------|---------------------------|----------------------------------------|-----------------------------------------|----------------------------------
-  Globo            | — (datos estáticos)       | — (sólo existe si hay tutorial)        | —                                       | «✓ Ya lo viste» si corresponde
+  Tarjeta (tooltip | póster + spinner nativo   | — (sólo existe si hay tutorial         | 404 / red: el texto de la pista se ve   | «✓ Ya lo viste» si corresponde;
+  y globo)         |   al dar play             |   publicado; si no, pista de texto)    |   igual; en lugar del video, «No se     |   al terminar: [Volver a ver]
+                   |                           |                                        |   pudo cargar el video» [Reintentar]    |   [Ver en grande]
   Reproductor      | póster + spinner nativo   | —                                      | 404: «Este video todavía no está        | Al terminar: «Siguiente: X (1:45)»
                    | del <video>               |                                        |   disponible» + la transcripción sigue  |   [Volver a ver] [Ver siguiente]
                    |                           |                                        | Red: «No se pudo cargar el video.       |   sin cuenta regresiva
@@ -313,6 +331,8 @@ modal). Lo que se recuerda al cerrar y reabrir el panel dentro de la sesión: pe
   -----|--------------------------------------------|-------------------------------|------------------------------------------
   1    | Lee en Novedades «Ahora hay tutoriales»    | curiosidad, sin presión       | Novedades (ya existe), sin emergentes
   2    | En Dispensaciones ve «▶ Cómo se hace 1:20» | «son 80 segundos, va»         | la duración en la píldora
+  2b   | Apoya el mouse en «Dispensar», duda        | «a ver cómo era»              | tarjeta con el video pausado; play ahí
+       |                                            |                               |   mismo, con sonido, sin irse de la pantalla
   3    | Abre el globo                              | sabe qué va a ver antes       | descripción de dos renglones + póster
   4    | Mira el video                              | lo sigue sin perderse         | cursor visible, subtítulos, capítulos
   5    | Termina                                    | completo, no empujado         | «Siguiente» ofrecido, sin autoplay
@@ -326,8 +346,8 @@ modal). Lo que se recuerda al cerrar y reabrir el panel dentro de la sesión: pe
   horizontal** con desplazamiento (quiebre único en 1100px); el video se limita por alto; el globo se reubica
   con el flip de `usePopover`. Filas de 48px (preguntas) y
   64px (tutoriales): por encima de los 44px de toque.
-- **Teclado:** la píldora es un `button` con `aria-expanded`/`aria-controls`; al abrir, el foco va al póster;
-  Tab recorre póster → «Todos los tutoriales»; Esc cierra la capa de arriba (modal antes que globo) y el foco
+- **Teclado:** la píldora es un `button` con `aria-expanded`/`aria-controls`; al abrir, el foco va al play;
+  Tab recorre play → «Ver en grande» (y, fijada, ✕); Esc cierra la capa de arriba (modal antes que globo) y el foco
   vuelve a quien abrió. El panel atrapa el foco (`Drawer`). Las pestañas son `role="tablist"` con flechas;
   cada pregunta es un `button` con `aria-expanded`. Los capítulos son botones con nombre «Ir a 0:38, Escanear el
   lote» y `aria-current` en el actual. Las pestañas son el `radiogroup` de `SegmentedControl` (flechas para
@@ -457,6 +477,9 @@ CÓDIGO                                                   FLUJOS
   ├── [unit] todo id tiene entrada en meta.json            └── [→E2E] captura distinta → falla con el diff
   ├── [unit] meta: duración > 0, versión no vacía
   └── [unit] urlDelTutorial arma <id>/<versión>/<archivo>
+[+] src/components/reglasDePista.ts (DD10)
+  ├── [unit] tieneTarjeta: data-tutorial publicado → tarjeta; sin publicar → pista de texto
+  └── [unit] seQuedaAbierta: sin fijar + mouse afuera → cierra; fijada → no cierra
 [+] src/ayuda/visto.ts
   ├── [unit] marcar / leer
   └── [unit] localStorage que tira → no rompe, «no visto»
@@ -487,6 +510,10 @@ Sin brechas críticas: nada queda sin test, sin manejo y en silencio a la vez.
 
 ## Riesgos
 
+- **Legibilidad en la tarjeta (DD10).** A 372px de ancho, una grabación de 1536px queda al 24 %: el texto de la
+  app se lee mal (la voz y los subtítulos sí se entienden). Por eso existe «Ver en grande». En el piloto se prueba
+  además grabar con un viewport más chico (p. ej. 1280×720) para que la UI quede más grande dentro del cuadro, y
+  se mira el resultado en la tarjeta y en el reproductor antes de fijarlo para todos.
 - **Nitidez (confianza media).** El bitrate de `recordVideo` es bajo y fijo. Plan B: `Page.startScreencast`
   por CDP con calidad alta, más `ffmpeg-static`. Se decide en T0.
 - **WDAC.** Si bloquea `ffmpeg-static` y el `ffmpeg` de Playwright, la mezcla va sin binarios propios:
@@ -540,6 +567,11 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
   - Surfaced by: diseño DD9 (segunda opinión #2); cierra el TODO «Core · focus trap en `components/Modal.tsx`»
   - Files: `src/components/Modal.tsx`, `TODOS.md` (tachar el ítem)
   - Verify: `npm run build` + navegador: Tab no sale del modal; Esc devuelve el foco al disparador, en el reproductor, el Feedback y un modal de Dispensaciones
+- [ ] **T5b (P1, humano: ~1 día / CC: ~1 h)** — app — `TarjetaTutorial` en `Pistas` para los elementos con `data-tutorial` (DD10): video pausado, play con sonido, se fija al reproducir, «Ver en grande» en el mismo segundo
+  - Surfaced by: pedido del Director (el tutorial en el tooltip)
+  - Files: `src/components/Pistas.tsx`, `src/components/reglasDePista.ts` (+ test: `seQuedaAbierta(fijada, reproduciendo)`, `tieneTarjeta(el)`), `src/ayuda/TarjetaTutorial.tsx`, el `data-tutorial` en el botón «Dispensar»
+  - Verify: `npm run build` + navegador contra el mock (recuadro 2b): sin fijar se va al sacar el mouse; play suena y fija; ✕/Esc/afuera cierran y detienen; «Ver en grande» sigue en el mismo segundo; los demás `title` de la app siguen iguales
+  - Depende de: T5. **Ojo:** `Pistas` es global (todos los `title`) y tiene historia de arreglos finos (#414, #416, #418): cambiar sólo la rama de `data-tutorial`, con sus reglas puras testeadas
 - [ ] **T5 (P1, humano: ~1,5 días / CC: ~1 h)** — app — `AyudaProvider` en `AppShell` + píldora dibujada por el shell + `AyudaTutorial` (disclosure sobre `usePopover`) + `TutorialModal` + catálogo + `visto` + pestaña Tutoriales + `header`/`footer` en `Drawer`
   - Surfaced by: D7; diseño DD5, DD8a-d
   - Files: `src/ayuda/AyudaProvider.tsx`, `src/ayuda/AyudaTutorial.tsx`, `src/ayuda/TutorialModal.tsx`, `src/ayuda/tutoriales.ts`, `src/ayuda/tutoriales.meta.json`, `src/ayuda/visto.ts`, `src/shell/AppShell.tsx`, `src/components/Drawer.tsx`, tests
