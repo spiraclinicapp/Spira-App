@@ -29,6 +29,11 @@ interface FeedbackModalProps {
   target: Record<string, unknown> | null
   accent: string
   accentSolid: string
+  /**
+   * Texto con el que arranca el mensaje. Lo usa el «Contanos» de la Ayuda: si alguien buscó una duda y no
+   * estaba, llega con «Buscaba: …» ya escrito, que es justo el dato que sirve para sumar la pregunta que falta.
+   */
+  mensajeInicial?: string
   onClose: () => void
 }
 
@@ -38,12 +43,12 @@ const TYPES: { key: FeedbackType; label: string; icon: IconName }[] = [
   { key: 'idea', label: 'Idea', icon: 'heart' },
 ]
 
-export function FeedbackModal({ moduleKey, subKey, label, target, accent, accentSolid, onClose }: FeedbackModalProps) {
+export function FeedbackModal({ moduleKey, subKey, label, target, accent, accentSolid, mensajeInicial = '', onClose }: FeedbackModalProps) {
   const { profile } = useAuth()
   const userName = profile?.fullName ?? 'Usuario'
 
   const [type, setType] = useState<FeedbackType>('sugerencia')
-  const [msg, setMsg] = useState('')
+  const [msg, setMsg] = useState(mensajeInicial)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
@@ -17,6 +17,7 @@ import { pedidosVigentes } from './avisosPedidos'
 import { todayISO } from '../lib/dates'
 import { AboutMenu } from './AboutMenu'
 import { FeedbackModal } from './FeedbackModal'
+import { AyudaDrawer } from '../ayuda/AyudaDrawer'
 import { armarLugar, lugarActual } from '../lib/lugar'
 import { KBD_BUSCADOR } from '../lib/teclas'
 import { parseSettingsSection, SettingsModal } from './settings/SettingsModal'
@@ -115,6 +116,16 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   /* Modal "Dar feedback" (se abre desde el popover Acerca de, al pie del rail). */
   const [feedbackOpen, setFeedbackOpen] = useState(false)
+  /* Con qué arranca el mensaje del feedback. Sólo lo llena el «Contanos» de la Ayuda («Buscaba: …»); se
+     vacía al cerrar, así el feedback que se abre desde cualquier otro lado arranca en blanco. */
+  const [feedbackMensaje, setFeedbackMensaje] = useState('')
+  /* Panel de Ayuda (preguntas frecuentes): null = cerrado. `preguntaId` = abrir con esa respuesta desplegada
+     (viene del buscador). Vive acá y se monta como HERMANO del feedback, nunca adentro de otra capa: el fondo
+     del Drawer lleva `backdropFilter` y encerraría a cualquier hijo fijo (docs/plan-tutoriales.md, «Capas»). */
+  const [ayuda, setAyuda] = useState<{ preguntaId: string | null } | null>(null)
+  /* Estable a propósito: el Drawer vuelve a correr su efecto de foco cada vez que cambia `onClose`, y una
+     función nueva en cada redibujo del shell le movía el foco a quien estuviera escribiendo en el buscador. */
+  const cerrarAyuda = useCallback(() => setAyuda(null), [])
   /* Popover "Acerca de" (novedades + versión). El estado vive acá y no adentro del componente
      porque se abre desde dos lados: su botón del riel y el "Ver todas" de Novedades. */
   const [aboutOpen, setAboutOpen] = useState(false)
@@ -420,7 +431,7 @@ export function AppShell() {
 
           <span style={{ width: 1, height: 26, background: 'var(--spira-line)', margin: '0 4px' }} />
 
-          <UserMenu onOpenSettings={abrirAjustes} />
+          <UserMenu onOpenSettings={abrirAjustes} onOpenAyuda={() => setAyuda({ preguntaId: null })} />
         </div>
       </header>
 
@@ -676,7 +687,26 @@ export function AppShell() {
           isAllowed={isAllowed}
           subVisible={subVisible}
           onNavigate={navigate}
+          onAbrirAyuda={(preguntaId) => setAyuda({ preguntaId })}
           onClose={() => setPaletteOpen(false)}
+        />
+      )}
+
+      {/* Panel de Ayuda. ANTES del feedback en el DOM: comparten capa (`--spira-z-drawer`) y el orden decide,
+          así el feedback que abre su «Contanos» queda arriba y el panel espera debajo. La `key` lo remonta si el
+          buscador pide otra pregunta con el panel ya abierto, para que arranque desplegada esa. */}
+      {ayuda && (
+        <AyudaDrawer
+          key={ayuda.preguntaId ?? 'panel'}
+          moduleKey={moduleKey}
+          isAllowed={isAllowed}
+          accent={accent}
+          preguntaInicial={ayuda.preguntaId}
+          onContanos={(buscaba) => {
+            setFeedbackMensaje(buscaba ? `Buscaba: ${buscaba}\n\n` : '')
+            setFeedbackOpen(true)
+          }}
+          onClose={cerrarAyuda}
         />
       )}
 
@@ -700,7 +730,8 @@ export function AppShell() {
           })}
           accent={accent}
           accentSolid={mod.accentSolid}
-          onClose={() => setFeedbackOpen(false)}
+          mensajeInicial={feedbackMensaje}
+          onClose={() => { setFeedbackOpen(false); setFeedbackMensaje('') }}
         />
       )}
 

@@ -14,10 +14,19 @@ import { hayPopoverAbierto } from './usePopover'
  * al cerrar devuelve el foco al elemento que lo disparó. Es net-new respecto a `Modal` (que hoy no
  * atrapa el foco); si más adelante se retrofitea `Modal`, este es el patrón a portar.
  */
-export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusRef, chrome = 'default' }: {
+export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusRef, chrome = 'default', cabecera, pie }: {
   title: string
   onClose: () => void
   children: ReactNode
+  /**
+   * Zonas FIJAS del marco por defecto, fuera del cuerpo que scrollea: `cabecera` va debajo del título
+   * (un buscador, un filtro) y `pie` contra el borde de abajo, con su raya. Nacen con el panel de Ayuda
+   * (docs/plan-tutoriales.md, «Diseño»): sin esto el buscador se iba para arriba al bajar por las
+   * preguntas y el «¿No está tu duda? Contanos» quedaba al final de la lista, donde nadie llega.
+   * Con `chrome="propio"` no se usan: ahí el contenido dibuja todo.
+   */
+  cabecera?: ReactNode
+  pie?: ReactNode
   /** Ancho máximo del panel; en pantallas chicas cae a 96vw. Default 460. */
   maxWidth?: number
   /**
@@ -116,8 +125,10 @@ export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusR
                 <Icon name="x" size={18} color="var(--spira-muted)" />
               </button>
             </div>
+            {cabecera != null && <div style={cabeceraStyle}>{cabecera}</div>}
             {/* cuerpo scrolleable */}
             <div style={bodyStyle}>{children}</div>
+            {pie != null && <div style={pieStyle}>{pie}</div>}
           </>
         )}
       </div>
@@ -152,3 +163,5 @@ const closeBtn: CSSProperties = {
   cursor: 'pointer', display: 'grid', placeItems: 'center', flex: '0 0 auto',
 }
 const bodyStyle: CSSProperties = { overflow: 'auto', padding: '0 24px 22px', flex: 1 }
+const cabeceraStyle: CSSProperties = { flex: '0 0 auto', padding: '0 24px 14px', borderBottom: '1px solid var(--spira-line)' }
+const pieStyle: CSSProperties = { flex: '0 0 auto', padding: '12px 24px', borderTop: '1px solid var(--spira-line)' }

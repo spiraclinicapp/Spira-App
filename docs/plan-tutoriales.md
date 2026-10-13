@@ -585,6 +585,12 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
   - Surfaced by: D8 (preguntas en texto antes que los videos); DD3, DD4, DD6, DD7 del diseño
   - Files: `src/ayuda/AyudaDrawer.tsx`, `src/ayuda/preguntas.ts`, `src/ayuda/preguntas.test.ts`, `src/shell/UserMenu.tsx`, `src/shell/CommandPalette.tsx`, `src/shell/search/*`, las Novedades
   - Verify: `npm run build` verde + navegador contra `docs/mock-tutoriales.html` (recuadros 1 y 4): buscar «lote» filtra, «xyz» da el vacío, «Contanos» abre el Feedback
+  - **Decisiones al implementar (2026-10-13):**
+    - La fila del menú dice **«Ayuda»**, no «Ayuda y tutoriales», hasta que exista el primer video (T5).
+    - El panel **no lleva todavía la pestaña Tutoriales**. Una pestaña que lleva a una lista vacía promete algo que no hay. Entra con el primer video.
+    - El panel **no se carga diferido** (`React.lazy`): son unos pocos KB de texto, y la app no usa `lazy` en ningún lado. Estrenarlo sumaba un estado de error sin ganar nada. La carga diferida queda para el reproductor (T5).
+    - La entrada en **Novedades** va en el ritual de cierre, con la versión (`src/lib/version.ts` se cura a mano al sacar release), no en esta PR.
+    - `normalizar` (sin tildes) se mudó a `src/lib/texto.ts`, y el buscador global también dejó de distinguir tildes.
 - [ ] **T4 (P1, humano: ~2 días / CC: ~2 h)** — fábrica — guion, spec único, cursor, TTS (1 adaptador), línea de tiempo, VTT, mezcla, capturas, `tsconfig` propio
   - Surfaced by: D1, D8
   - Files: `tutoriales/playwright.config.ts`, `tutoriales/grabar.spec.ts`, `tutoriales/lib/*`, `tutoriales/tsconfig.json`, `package.json`
