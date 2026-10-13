@@ -42,9 +42,9 @@ export function rotuloEstado(valor: string): string {
   return ESTADOS[valor as EstadoDeFila]?.label ?? valor
 }
 
-/** Color del punto de una opción del filtro Estado. «Espera al médico» va en la arena del botón de
- *  «Atención médica»: es el mismo pedido visto desde el filtro. */
+/** Color del punto de una opción del filtro Estado. «Espera al médico» lleva un siena propio, que no
+ *  es de ninguna etapa (era la arena del botón de «Atención médica», que desde el 2026-10-12 es gris). */
 export function colorEstado(valor: string): string {
-  if (valor === ESPERA_MEDICO) return 'var(--spira-med-line-hover)'
+  if (valor === ESPERA_MEDICO) return 'var(--spira-espera-medico)'
   return ESTADOS[valor as EstadoDeFila]?.color ?? 'var(--spira-muted)'
 }

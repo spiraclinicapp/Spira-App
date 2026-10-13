@@ -147,14 +147,11 @@
      hay que ACLARAR con la menta. Medido, no estimado. */
   --spira-tint-track: rgba(46, 125, 116, 0.10);
 
-  /* «Atención médica» (handoff de Visitas, 2026-10-11): arena cálida, el único botón secundario de la
-     fila que no es neutro. El tono no es del acento a propósito —el verde ya lo lleva la acción
-     principal de al lado— y no es un estado clínico: dice «esto llama a otra persona», no «algo anda
-     mal». `-line` es el borde en reposo, `-line-hover` el del hover y el del pedido ya hecho («En
-     cola»), `-bg-hover` el fondo de esos dos. */
-  --spira-med-line: #E6CDBF;
-  --spira-med-line-hover: #C9876A;
-  --spira-med-bg-hover: #FDF6F2;
+  /* El punto de «Espera al médico» en el filtro Estado (`estados.ts`): un siena que no es de ninguna
+     etapa del recorrido ni un estado de alarma. Nació como el borde del botón «Atención médica»
+     (`--spira-med-line-hover`, handoff de Visitas, 2026-10-11); el botón pasó a gris el 2026-10-12 y
+     el siena quedó sólo acá, donde sí distingue una opción de las otras. */
+  --spira-espera-medico: #C9876A;
 
   /* Cuánto hay que ACLARAR un acento de módulo para que sirva de TEXTO sobre la superficie del
      tema. En claro, cero: el acento ya es oscuro y contrasta contra el papel. En oscuro no alcanza
@@ -246,12 +243,7 @@
   /* El tinte del CUERPO sí se invierte: con el petróleo, el cuerpo quedaba MÁS OSCURO que las
      tarjetas neutras (22,33,32 contra 28,28,28) y el realce se leía como un apagón. La menta lo levanta. */
   --spira-tint-track: rgba(157, 230, 214, 0.13);
-  /* La arena de «Atención médica» en oscuro: el borde baja a un siena apagado que se distingue del
-     gris de las líneas sin encenderse, y el fondo del hover es un tinte (no el #FDF6F2 del claro, que
-     sobre una card casi negra sería un fogonazo). */
-  --spira-med-line: #5A4337;
-  --spira-med-line-hover: #B07A60;
-  --spira-med-bg-hover: rgba(201, 135, 106, 0.12);
+  --spira-espera-medico: #B07A60;
   /* 55%: medido, deja al petróleo del módulo en 8,9:1 sobre el tinte de un chip elegido. */
   --spira-aclarado-acento: 55%;
   /* La ÚNICA sombra que el tema oscuro redefine, y por necesidad: las otras tres tiñen con

@@ -23,6 +23,10 @@ export const CATEGORIA: Record<CategoriaFiltro, { label: string; icon: IconName 
  * el número del botón es el mismo que va a quedar en pantalla, así que no promete nada que la lista
  * no muestre ya.
  *
+ * «Cancelar» (pedido del Director, 2026-10-12) es la salida para el que tildó de más: devuelve los
+ * filtros a como estaban AL ABRIR y cierra. Esc y el clic afuera siguen cerrando sin deshacer, como
+ * todos los popovers de la casa — con la aplicación en el acto, lo que se ve atrás ya es lo elegido.
+ *
  * Reemplaza a los cuatro menús sueltos (Estado / Protocolo / Médico / Coordinador) que ocupaban la
  * fila y la partían en dos en una notebook. Las reglas de filtrado no cambiaron: viven en
  * `filtrosVisitas.ts`, con test.
@@ -43,6 +47,16 @@ export function PanelFiltros({ base, filtros, onChange, rotulo, acento }: {
   const { triggerRef, popRef, pos } = usePopover<HTMLButtonElement, HTMLDivElement>(abierto, () => setAbierto(false))
   const total = totalFiltros(filtros)
   const resultado = base.filter((v) => pasaFiltros(v, filtros)).length
+
+  /* La foto de los filtros al abrir, para «Cancelar». Se toma en el clic del botón y no en un efecto:
+     un efecto la tomaría después del primer render, y con un cambio de filtros que entre en el medio
+     (una ficha quitada) la foto ya no sería la de antes de abrir. */
+  const alAbrir = useRef<Filtros>(filtros)
+  const cancelar = () => {
+    onChange(alAbrir.current)
+    setAbierto(false)
+    triggerRef.current?.focus()
+  }
 
   /* Al abrir, el foco entra a la categoría activa: con teclado, el panel no puede quedar abierto con el
      foco todavía en el botón de atrás (Esc lo cierra; lo maneja `usePopover`). */
@@ -66,7 +80,7 @@ export function PanelFiltros({ base, filtros, onChange, rotulo, acento }: {
         className={'vcal-filter' + (total > 0 ? ' con-filtros' : '')}
         aria-expanded={abierto}
         aria-haspopup="dialog"
-        onClick={() => setAbierto((o) => !o)}
+        onClick={() => { if (!abierto) alAbrir.current = filtros; setAbierto(!abierto) }}
         title="Estado, protocolo, médico y coordinador"
       >
         <Icon name="filter" size={15} color="var(--spira-muted)" />
@@ -152,6 +166,9 @@ export function PanelFiltros({ base, filtros, onChange, rotulo, acento }: {
               Limpiar todo
             </button>
             <span style={{ flex: 1 }} />
+            <button type="button" className="vcal-btn-cta secundario" style={{ width: 'auto', height: 34, padding: '0 14px' }} onClick={cancelar}>
+              Cancelar
+            </button>
             <button type="button" className="vcal-btn-cta" style={{ width: 'auto', height: 34, padding: '0 16px' }} onClick={() => setAbierto(false)}>
               Ver {resultado} {resultado === 1 ? 'visita' : 'visitas'}
             </button>
