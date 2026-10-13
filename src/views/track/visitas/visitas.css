@@ -92,10 +92,12 @@
   font: 600 14px var(--spira-font-text); white-space: nowrap; cursor: pointer; flex-shrink: 0;
   transition: box-shadow .15s, transform .15s, border-color .15s;
 }
-/* Gris neutro en el hover, nunca el acento (regla de la casa). Con filtros puestos y abierto, la
-   profundidad la da la SOMBRA. El levante del abierto lo pone la micro-interacción global mientras
-   el mouse está encima; acá se fija para que no se caiga al salir del botón con el panel abierto. */
-.vcal-filter:hover { border-color: var(--spira-muted); }
+/* El hover es ELEVACIÓN y nada más: el borde no cambia. Hasta el 2026-10-12 se oscurecía a
+   `--spira-muted`, y ese gris (#61706C) tira a verde: sobre el papel se leía como un contorno verde
+   («es un asco», el Director). Con filtros puestos y abierto, la profundidad también la da la SOMBRA.
+   El levante del abierto lo pone la micro-interacción global mientras el mouse está encima; acá se
+   fija para que no se caiga al salir del botón con el panel abierto. */
+.vcal-filter:hover { box-shadow: var(--spira-shadow-hover); }
 .vcal-filter.con-filtros { box-shadow: 0 1px 2px rgba(20, 48, 46, .08), 0 3px 8px rgba(20, 48, 46, .10); }
 .vcal-filter[aria-expanded='true'] {
   box-shadow: 0 1px 2px rgba(20, 48, 46, .08), 0 6px 16px rgba(20, 48, 46, .14);
@@ -129,9 +131,11 @@
    de 1px que tenía se leía como un recuadro, y el foco por teclado le sumaba el outline verde global
    encima (el panel le pasa el foco a la categoría al abrir). Pedido del Director, 2026-10-12: «con la
    profundidad estamos bien». El foco va por la misma vía, un escalón más de sombra. */
-.vcal-fcat[aria-selected='true'] { background: var(--spira-white); color: var(--spira-ink); box-shadow: var(--spira-shadow-sm), 0 2px 6px rgba(20, 48, 46, .08); }
+/* La sombra RODEA, con apenas más peso abajo: una sombra sólo desplazada hacia abajo, sobre una pieza
+   chica y pegada a sus vecinas, se leía como «sombra sólo por abajo» (Director, 2026-10-12). */
+.vcal-fcat[aria-selected='true'] { background: var(--spira-white); color: var(--spira-ink); box-shadow: 0 0 6px rgba(20, 48, 46, .09), 0 1px 2px rgba(20, 48, 46, .06); }
 .vcal-fpanel :focus-visible { outline: none; }
-.vcal-fcat:focus-visible { background: var(--spira-white); box-shadow: var(--spira-shadow-hover); }
+.vcal-fcat:focus-visible { background: var(--spira-white); box-shadow: 0 0 10px rgba(20, 48, 46, .16), 0 1px 2px rgba(20, 48, 46, .08); }
 .vcal-fopt {
   display: flex; align-items: center; gap: 9px; height: 34px; padding: 0 8px; border-radius: 8px; flex-shrink: 0;
   font: 500 13.5px var(--spira-font-text); color: var(--spira-ink-2); cursor: pointer;
@@ -210,18 +214,19 @@
   .vcal-row-cta { flex-wrap: wrap; justify-content: flex-start; }
 }
 
-/* «Atención médica»: un secundario NEUTRO, igual que «Reprogramar» y «Filtros» (borde gris, que se
-   oscurece al apuntarlo). Hasta el 2026-10-12 fue el único cálido de la fila —arena en reposo, siena
-   al hover— y el Director lo bajó: el naranja no significaba nada, y el color se reserva para lo que
-   sí significa algo. «En cola» queda con el borde del hover, que ya dice «esto está tomado».
+/* «Atención médica»: un secundario NEUTRO, igual que «Reprogramar» y «Filtros». Hasta el 2026-10-12
+   fue el único cálido de la fila —arena en reposo, siena al hover— y el Director lo bajó: el naranja
+   no significaba nada, y el color se reserva para lo que sí significa algo. El borde gris NO cambia
+   al apuntarlo (el `--spira-muted` de un primer intento se leía verde): el hover es levante + sombra,
+   como en «Filtros». «En cola» lo dice su rótulo.
    Deshabilitado se apaga del todo —sin borde, fondo gris, sin levante— y explica el porqué en su pista. */
 .vcal-btn-med {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 168px; height: 38px;
   padding: 0 12px; border-radius: 10px; border: 1px solid var(--spira-line-2); background: var(--spira-white);
   font: 600 13.5px var(--spira-font-text); color: var(--spira-ink-2); white-space: nowrap; cursor: pointer;
-  flex-shrink: 0; transition: border-color .15s, background-color .15s;
+  flex-shrink: 0; transition: box-shadow .15s, transform .12s ease;
 }
-.vcal-btn-med:hover:not(:disabled), .vcal-btn-med.en-cola { border-color: var(--spira-muted); }
+.vcal-btn-med:hover:not(:disabled) { box-shadow: var(--spira-shadow-hover); }
 .vcal-btn-med:disabled { background: rgba(124, 140, 135, .12); border-color: transparent; color: var(--spira-faint); cursor: not-allowed; }
 .vcal-btn-med.visto { border-color: transparent; background: rgba(92, 138, 90, .14); color: var(--spira-acc-deep-good); cursor: default; }
 
@@ -232,8 +237,11 @@
 }
 .vcal-btn-cta:hover:not(:disabled) { background: var(--spira-primary); }
 .vcal-btn-cta:disabled { opacity: .6; cursor: default; }
-.vcal-btn-cta.secundario { background: var(--spira-white); color: var(--spira-ink); border: 1px solid var(--spira-line-2); font-weight: 600; }
-.vcal-btn-cta.secundario:hover:not(:disabled) { background: var(--spira-white); border-color: var(--spira-muted); }
+.vcal-btn-cta.secundario {
+  background: var(--spira-white); color: var(--spira-ink); border: 1px solid var(--spira-line-2); font-weight: 600;
+  transition: box-shadow .15s, transform .12s ease;
+}
+.vcal-btn-cta.secundario:hover:not(:disabled) { background: var(--spira-white); box-shadow: var(--spira-shadow-hover); }
 .vcal-slot { width: 160px; flex-shrink: 0; }
 
 /* —— Vista Semana —— */
