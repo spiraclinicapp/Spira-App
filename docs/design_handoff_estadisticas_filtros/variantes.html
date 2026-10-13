@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estadísticas · filtros</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="mock.css">
+</head>
+<body>
+<div class="doc">
+  <h1>Estadísticas: un solo lugar para filtrar</h1>
+  <p class="lead">Hoy la pantalla tiene dos filtros separados por todo el largo de la página, y no hacen lo mismo. Antes de mirar las variantes, esto es lo que ninguna puede esconder:</p>
+  <div class="alcance">
+    <div><b>Período · arriba</b><span>Mueve TODA la página: Por estudio, Tiempos por visita, la carga del mes y el detalle. La proyección siempre mira las próximas cuatro semanas.</span></div>
+    <div><b>Coordinadora, estudio, tipo, espera, día, orden, búsqueda · al pie</b><span>Mueven SÓLO la tabla «Detalle visita por visita» (zona Equipo, sólo gerencia). Ninguna tabla de arriba se entera.</span></div>
+  </div>
+
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div id="stage"></div>
+
+  <div class="foot">
+    <div><b>En todas</b>Sin bordes de color: el realce es levante y sombra. El período pasa a gris neutro, como «Filtros» en Visitas (hoy lleva el borde y el texto del acento).</div>
+    <div><b>Cómo mirarlo</b>Cada marco es la app a tamaño notebook (1536×864). Scrolleá adentro del marco: lo fijo y lo flotante se comportan como se comportarían.</div>
+    <div><b>Datos</b>Inventados para el mock. Los códigos de estudio son los de la prueba real; las personas no existen.</div>
+  </div>
+</div>
+
+<script>
+const ESTUDIOS = [['LTS17231', 31, 1, 29, 2, 34], ['ACT18301', 24, 0, 23, 1, 26], ['222714', 18, 2, 15, 0, 20], ['Victorion-2P', 11, 0, 11, 3, 12], ['TEST-QA', 7, 0, 7, 0, 8]]
+const COORDS = ['Lucía Ferreyra', 'Martina Godoy', 'Paula Herrera', 'Sin asignar']
+const DETALLE = [
+  ['12/10/2026', [['Ana Sosa', 'LTS17231 · V6', 'Tratamiento', '08:12', '08:31', '09:10', '09:22', 19, 39, 70], ['Jorge Medina', 'ACT18301 · V3', 'Tratamiento', '09:05', '09:12', '09:58', '10:04', 7, 46, 59]]],
+  ['09/10/2026', [['Rosa Quiroga', '222714 · V1', 'Screening', '08:40', '09:22', '11:05', '11:20', 42, 103, 160], ['Hugo Pereyra', 'LTS17231 · V2', 'Randomización', '10:10', '10:18', '11:02', '11:15', 8, 44, 65], ['Elena Ruiz', 'Victorion-2P · V4', 'Tratamiento', '11:30', '11:41', '12:10', '12:16', 11, 29, 46]]],
+  ['08/10/2026', [['Marcos Díaz', 'ACT18301 · V5', 'Tratamiento', '08:05', '08:09', '08:51', '09:00', 4, 42, 55], ['Silvia Luna', 'LTS17231 · V7', 'Tratamiento', '09:20', '09:47', '10:30', '10:41', 27, 43, 81], ['Raúl Funes', '222714 · V2', 'Randomización', '10:02', '10:15', '11:12', '11:25', 13, 57, 83]]],
+  ['07/10/2026', [['Carmen Vega', 'TEST-QA · V1', 'Screening', '09:00', '09:05', '09:40', '09:42', 5, 35, 42], ['Luis Torres', 'LTS17231 · V3', 'Tratamiento', '09:45', '10:20', '11:00', '11:08', 35, 40, 83]]],
+]
+const CATS_DETALLE = [
+  ['coord', 'Coordinadora', 'users', COORDS.map((c, i) => [c, [6, 4, 3, 1][i]])],
+  ['est', 'Estudio', 'file-text', ESTUDIOS.map((e, i) => [e[0], [5, 3, 3, 2, 1][i]])],
+  ['tipo', 'Tipo', 'activity', [['Screening', 2], ['Randomización', 2], ['Tratamiento', 9], ['Cierre', 1]]],
+  ['esp', 'Espera', 'clock', [['Hasta 15 min', 7], ['15 a 30 min', 4], ['Más de 30 min', 3]]],
+  ['dia', 'Día', 'calendar', [['12/10/2026', 2], ['09/10/2026', 3], ['08/10/2026', 3], ['07/10/2026', 2]]],
+]
+const CATS_GLOBAL = [CATS_DETALLE[1], CATS_DETALLE[0], CATS_DETALLE[2]]
+
+const VARIANTES = [
+  { k: 'hoy', letra: '·', tab: 'Hoy', titulo: 'Cómo está hoy',
+    texto: 'El período arriba, dentro del área que scrollea: al bajar se va. Los filtros del detalle, siete controles en una caja al pie, a más de dos pantallas de distancia. Y el período lleva el borde verde del acento.',
+    pros: [['Lo que anda', 'El alcance es honesto: cada filtro está pegado a lo que filtra.'], ['Lo que molesta', 'Dos barras que parecen la misma cosa; para cambiar el período desde el detalle hay que volver arriba.']], costo: '—' },
+  { k: 'A', letra: 'A', tab: 'Período en la cabecera', reco: true, titulo: 'A · El período sube a la cabecera',
+    texto: 'El período se muda al lado del título «Estadísticas», que ya es fijo: el shell lo dibuja fuera del área que scrollea. No hace falta ningún renglón nuevo, y nunca se va. Los siete controles del detalle se juntan en un botón «Filtros» con su panel de dos columnas (el mismo de Visitas) más el orden y la búsqueda, y esa barra se queda pegada arriba mientras recorrés la tabla.',
+    pros: [['A favor', 'Lo global queda arriba y lo local junto a su tabla: el lugar dice el alcance. Reusa el panel de Visitas.'], ['En contra', 'Los filtros del detalle siguen al pie (pero sólo sirven ahí, y «Ver en detalle» ya te lleva).']], costo: 'Bajo · el shell ya deja poner contenido junto al título (`viewHeader.content`).' },
+  { k: 'B', letra: 'B', tab: 'Renglón fijo que acompaña', titulo: 'B · Un renglón fijo que acompaña',
+    texto: 'Un renglón pegado arriba con el período y un índice de la página (Por estudio · Tiempos · Proyección · Equipo · Detalle) que marca dónde estás y te lleva con un clic. Al llegar al detalle, sus filtros entran al mismo renglón, rotulados «sólo esta tabla»; al salir, se van.',
+    pros: [['A favor', 'Todo a mano desde cualquier punto, y el índice resuelve también lo de «llegar».'], ['En contra', 'El renglón cambia de contenido según dónde estés, y en la notebook se come ~56 px de alto todo el tiempo.']], costo: 'Medio · seguimiento de scroll y el renglón que cambia.' },
+  { k: 'C', letra: 'C', tab: 'Burbuja flotante', titulo: 'C · La burbuja flotante',
+    texto: 'Al bajar, aparece una píldora flotando sobre el pie: el período y los filtros del detalle, con su número. Se abre un solo panel con dos grupos bien separados: «Período, toda la página» y «Detalle visita por visita, sólo esa tabla».',
+    pros: [['A favor', 'No ocupa lugar fijo, y es un clic desde cualquier punto.'], ['En contra', 'Tapa el pie de las tablas mientras leés, y es un patrón nuevo: hoy nada flota en Spira.']], costo: 'Medio · componente nuevo, sin precedente en la app.' },
+  { k: 'D', letra: 'D', tab: 'Un filtro para todo', titulo: 'D · Un solo filtro para toda la página',
+    texto: 'La más ambiciosa: estudio, coordinadora y tipo dejan de ser del detalle y pasan a filtrar TODA la página, desde un «Filtros» en la cabecera junto al período. «¿Cómo viene LTS17231 este mes?» se responde en todas las secciones a la vez. Al detalle le quedan la espera, el orden y la búsqueda.',
+    pros: [['A favor', 'Un filtro, de verdad. Responde preguntas que hoy no se pueden hacer.'], ['En contra', 'Cambia qué dicen los números: hay que filtrar cada cálculo (con sus tests) y decidir qué hace la proyección.']], costo: 'Alto · toca `agregados.ts` y `agregadosEquipo.ts`, no sólo la pantalla.' },
+]
+
+let actual = 'A'
+const estado = { periodo: '30dias', sel: {}, glob: { est: ['LTS17231'] } }
+const PERIODOS = { '30dias': ['30 días', '13 sep – 12 oct 2026'], mes: ['Este mes', '1 – 12 oct 2026'], anio: ['Año', '1 ene – 12 oct 2026'] }
+const ic = (n, s = '') => `<i data-lucide="${n}" ${s}></i>`
+const cuenta = (obj) => Object.values(obj).reduce((a, v) => a + v.length, 0)
+
+function periodoBtn(variante) {
+  const [, rango] = PERIODOS[estado.periodo]
+  const cls = variante === 'hoy' ? 'btn periodo-actual' : 'btn'
+  return `<button class="${cls}" data-abre="periodo">${ic('calendar')} ${rango} ${ic('chevron-down')}</button>`
+}
+
+function seccion(id, titulo, hint, grande, filtrado) {
+  return `<div class="sec" id="${id}"><h4 class="${grande ? 'g' : ''}">${titulo}</h4><div class="rule"></div><div class="hint ${filtrado ? 'filtrado' : ''}">${hint}</div></div>`
+}
+
+function cuerpo(v) {
+  const D = v === 'D'
+  const filtradoD = D && cuenta(estado.glob) > 0
+  const etiqueta = filtradoD ? `filtrado · ${Object.values(estado.glob).flat().join(', ')}` : null
+  const est = D && estado.glob.est?.length ? ESTUDIOS.filter((e) => estado.glob.est.includes(e[0])) : ESTUDIOS
+  let h = ''
+  if (v === 'hoy' || v === 'C') h += `<div style="padding-top:2px" id="arriba">${periodoBtn(v)}</div>`
+  if (v === 'B') h += barraB()
+  if (D && filtradoD) {
+    h += `<div class="fglob">${Object.entries(estado.glob).flatMap(([k, vals]) => vals.map((x) => `<span class="ficha">${CATS_GLOBAL.find((c) => c[0] === k)[1]}: <b>${x}</b><button data-quita-glob="${k}|${x}" aria-label="Quitar">${ic('x')}</button></span>`)).join('')}<span class="alc">· aplica a toda la página</span></div>`
+  }
+  h += seccion('s-estudio', 'Por estudio', etiqueta ?? `${est.length} estudios con visitas en el período`, true, filtradoD)
+  const tot = est.reduce((a, e) => a + e[1], 0)
+  h += `<div class="tw"><table><thead><tr><th>Estudio</th><th class="c">Visitas</th><th class="c">Perdidas</th><th class="c">En ventana</th><th class="c">Pendientes abiertos</th><th style="text-align:right;width:180px">Participación</th></tr></thead><tbody>`
+  h += est.map((e) => `<tr><td><b>${e[0]}</b><span class="sub">${e[5]} agendadas</span></td><td class="c">${e[1]}</td><td class="c">${e[2]}</td><td class="c">${e[3]}</td><td class="c">${e[4]}</td><td><span class="barra">${Math.round(e[1] / tot * 100)} %<span class="t"><i style="width:${Math.round(e[1] / tot * 100)}%"></i></span></span></td></tr>`).join('')
+  h += `</tbody></table></div>`
+  h += seccion('s-tiempos', 'Tiempos por visita', filtradoD ? etiqueta : 'abrí un estudio para ver cada visita', false, filtradoD)
+  h += `<div class="tw"><table><thead><tr><th>Estudio · visita</th><th class="c">Visitas</th><th class="c">Espera</th><th class="c">Atención</th><th class="c">Estadía total</th><th class="c">Más larga</th></tr></thead><tbody>`
+  h += est.slice(0, 4).map((e, i) => `<tr><td><b>${e[0]}</b><span class="sub">${[6, 5, 3, 4][i]} visitas distintas</span></td><td class="c">${e[1]}</td><td class="c">${[18, 9, 27, 11][i]} min</td><td class="c">${[41, 45, 80, 30][i]} min</td><td class="c">${[1, 1, 2, 0][i]} h ${[12, 4, 1, 49][i]} min</td><td class="c">${[2, 1, 3, 1][i]} h ${[40, 51, 5, 2][i]} min</td></tr>`).join('')
+  h += `</tbody></table></div>`
+  h += seccion('s-proy', 'Proyección del próximo mes', filtradoD ? etiqueta : 'sobre lo agendado al 12/10/2026', false, filtradoD)
+  const pr = D && filtradoD ? [4, 6, 3, 5] : [14, 19, 11, 16]
+  h += `<div class="proy">${pr.map((n, i) => `<div><small>Semana del ${[13, 20, 27, 3][i]}/${i < 3 ? 10 : 11}</small><strong>${n}</strong><div class="t"><i style="width:${n * 5}%"></i></div></div>`).join('')}</div>`
+  h += `<div class="zona" id="s-equipo">Equipo</div><p>Estos números miran a las personas, no a los estudios. Cada visita atendida se le cuenta a quien inició la atención; las que siguen pendientes, a la coordinadora que tienen asignada.</p>`
+  h += seccion('s-carga', 'Carga de trabajo mensual', filtradoD ? etiqueta : 'octubre de 2026 · abrí una fila para ver el día a día', false, filtradoD)
+  h += `<div class="tw"><table><thead><tr><th>Coordinadora</th><th class="c">Agendadas</th><th class="c">Atendidas</th><th class="c">Pendientes</th><th class="c">Días con visitas</th></tr></thead><tbody>`
+  h += COORDS.slice(0, 3).map((c, i) => `<tr><td><b>${c}</b></td><td class="c">${[22, 17, 12][i]}</td><td class="c">${[14, 11, 8][i]}</td><td class="c">${[8, 6, 4][i]}</td><td class="c">${[9, 8, 6][i]}</td></tr>`).join('')
+  h += `</tbody></table></div>`
+  h += seccion('s-tcoord', 'Tiempos por coordinadora', filtradoD ? etiqueta : 'abrí una fila para ver el desglose por tipo de visita', false, filtradoD)
+  h += `<div class="tw"><table><thead><tr><th>Coordinadora</th><th class="c">Atendidas</th><th class="c">Espera</th><th class="c">Atención</th><th class="c">Estadía</th></tr></thead><tbody>`
+  h += COORDS.slice(0, 3).map((c, i) => `<tr><td><b>${c}</b></td><td class="c">${[14, 11, 8][i]}</td><td class="c">${[15, 22, 12][i]} min</td><td class="c">${[44, 39, 51][i]} min</td><td class="c">1 h ${[8, 11, 9][i]} min</td></tr>`).join('')
+  h += `</tbody></table></div>`
+  h += seccion('s-detalle', 'Detalle visita por visita', 'quién marcó cada sello, y a qué hora')
+  h += `<div class="det-wrap">${barraDetalle(v)}${tablaDetalle()}</div>`
+  return h
+}
+
+function barraDetalle(v) {
+  const n = cuenta(estado.sel)
+  const pie = `<div class="pie"><span><b>${Math.max(1, 14 - n * 3)}</b> de 14 visitas</span><span>· ${n ? `${n} ${n === 1 ? 'filtro' : 'filtros'}` : 'sin filtros'}</span></div>`
+  if (v === 'hoy') {
+    const dd = [['users', 'Coordinadora'], ['file-text', 'Estudio'], ['activity', 'Tipo'], ['clock', 'Espera'], ['calendar', 'Día']]
+    return `<div class="dt"><div class="fila">${dd.map(([i, l]) => `<button class="btn">${ic(i)} ${l} ${ic('chevron-down')}</button>`).join('')}<button class="btn">${ic('sliders-horizontal')} <span class="pre">Ordenar:</span> Más recientes ${ic('chevron-down')}</button><div class="search" style="margin-left:auto">${ic('search')} Paciente, código o visita</div></div>${pie}</div>`
+  }
+  if (v === 'B' || v === 'C') {
+    return `<div class="dt"><div class="pie" style="border-top:0;border-radius:16px"><span><b>${Math.max(1, 14 - n * 3)}</b> de 14 visitas</span><span>· ${n ? `${n} ${n === 1 ? 'filtro' : 'filtros'} · ${v === 'B' ? 'se cambian en el renglón de arriba' : 'se cambian en la burbuja'}` : v === 'B' ? 'sin filtros · se filtra desde el renglón de arriba' : 'sin filtros · se filtra desde la burbuja'}</span></div></div>`
+  }
+  const filtroBtn = v === 'D' ? '' : `<button class="btn" data-abre="filtros">${ic('filter')} Filtros ${n ? `<span class="badge">${n}</span>` : ''} ${ic('chevron-down')}</button>`
+  const espera = v === 'D' ? `<button class="btn">${ic('clock')} Espera ${ic('chevron-down')}</button>` : ''
+  return `<div class="dt pegada"><div class="fila">${filtroBtn}${espera}<button class="btn">${ic('sliders-horizontal')} <span class="pre">Ordenar:</span> Más recientes ${ic('chevron-down')}</button><div class="search" style="margin-left:auto">${ic('search')} Paciente, código o visita</div></div>${pie}</div>`
+}
+
+function tablaDetalle() {
+  let h = `<div class="tw"><table class="dense"><thead><tr><th>Paciente</th><th>Estudio · visita</th><th>Tipo</th><th>Llegada</th><th>Inicia atención</th><th>Fin de atención</th><th>Salida</th><th class="c">Espera</th><th class="c">Atención</th><th class="c">Estadía</th></tr></thead><tbody>`
+  for (const [dia, filas] of DETALLE) {
+    h += `<tr class="dia"><td colspan="10"><b>${dia}</b> · ${filas.length} visitas</td></tr>`
+    h += filas.map((f) => `<tr><td><b>${f[0]}</b></td><td>${f[1]}</td><td>${f[2]}</td><td>${f[3]}</td><td>${f[4]}</td><td>${f[5]}</td><td>${f[6]}</td><td class="c">${f[7]} min</td><td class="c">${f[8]} min</td><td class="c">${Math.floor(f[9] / 60) ? `${Math.floor(f[9] / 60)} h ` : ''}${f[9] % 60} min</td></tr>`).join('')
+  }
+  return h + `</tbody></table></div>`
+}
+
+function barraB() {
+  const n = cuenta(estado.sel)
+  const idx = [['s-estudio', 'Por estudio'], ['s-tiempos', 'Tiempos'], ['s-proy', 'Proyección'], ['s-equipo', 'Equipo'], ['s-detalle', 'Detalle']]
+  return `<div class="rbar" id="rbar">${periodoBtn('B')}<div class="indice">${idx.map(([id, l], i) => `<button data-va="${id}" class="${i === 0 ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <div class="det"><span class="sep"></span><span class="alc">sólo esta tabla</span><button class="btn" data-abre="filtros">${ic('filter')} Filtros ${n ? `<span class="badge">${n}</span>` : ''} ${ic('chevron-down')}</button><div class="search" style="min-width:190px">${ic('search')} Buscar</div></div></div>`
+}
+
+function marco(v) {
+  const acc = v === 'A' ? periodoBtn('A') : v === 'D' ? `${periodoBtn('D')}<button class="btn" data-abre="global">${ic('filter')} Filtros ${cuenta(estado.glob) ? `<span class="badge">${cuenta(estado.glob)}</span>` : ''} ${ic('chevron-down')}</button>` : ''
+  const burbuja = v === 'C' ? `<div class="burbuja" id="burbuja"><button data-abre="burbuja">${ic('calendar')} ${PERIODOS[estado.periodo][1]}</button><span class="sep"></span><button data-abre="burbuja">${ic('filter')} Detalle ${cuenta(estado.sel) ? `<span class="badge">${cuenta(estado.sel)}</span>` : ''}</button></div>` : ''
+  return `<div class="app" id="app">
+    <div class="rail"><span class="logo"></span>${['home', 'calendar-days', 'users', 'clipboard-list', 'bar-chart-3'].map((n, i) => `<i class="${i === 4 ? 'on' : ''}">${ic(n, 'style="width:18px;height:18px"')}</i>`).join('')}</div>
+    <div class="top"><div class="buscar">${ic('search', 'style="width:15px;height:15px"')} Buscar… <span style="margin-left:auto;font-size:11px">Ctrl K</span></div><div class="der">${ic('moon', 'style="width:18px;height:18px"')}${ic('bell', 'style="width:18px;height:18px"')}<span class="av">SC</span></div></div>
+    <div class="main">
+      <div class="head"><div><div class="migas">Spira Coordinación ${ic('chevron-right', 'style="width:13px;height:13px"')} <b>Estadísticas</b></div><h3>Estadísticas</h3></div>${acc ? `<div class="acc">${acc}</div>` : ''}</div>
+      <div class="scroll" id="scroll">${cuerpo(v)}</div>
+      ${burbuja}
+    </div>
+  </div>`
+}
+
+function render(conservarScroll) {
+  const prev = conservarScroll ? document.getElementById('scroll')?.scrollTop ?? 0 : 0
+  redibujado = Date.now()
+  const V = VARIANTES.find((x) => x.k === actual)
+  document.getElementById('tabs').innerHTML = VARIANTES.map((x) => `<button class="tab" role="tab" aria-selected="${x.k === actual}" data-tab="${x.k}"><span class="letra">${x.letra}</span>${x.tab}${x.reco ? '<span class="reco">recomendada</span>' : ''}</button>`).join('')
+  document.getElementById('stage').innerHTML = `<div class="nota"><div><h2>${V.titulo}</h2><p>${V.texto}</p></div><div class="pros">${V.pros.map(([b, t]) => `<div><b>${b}</b>${t}</div>`).join('')}<div class="costo"><b>Costo</b>${V.costo.replace(/`([^`]+)`/g, '<code>$1</code>')}</div></div></div>${marco(actual)}`
+  lucide.createIcons()
+  const sc = document.getElementById('scroll')
+  sc.style.scrollBehavior = 'auto'
+  sc.scrollTop = prev
+  sc.style.scrollBehavior = ''
+  sc.addEventListener('scroll', alScroll)
+  alScroll()
+}
+
+function alScroll() {
+  const sc = document.getElementById('scroll')
+  if (!sc) return
+  const dt = sc.querySelector('.dt.pegada')
+  if (dt) dt.classList.toggle('en-el-techo', dt.getBoundingClientRect().top - sc.getBoundingClientRect().top <= 1)
+  const rb = document.getElementById('rbar')
+  if (rb) {
+    rb.classList.toggle('en-el-techo', sc.scrollTop > 4)
+    const ids = ['s-estudio', 's-tiempos', 's-proy', 's-equipo', 's-detalle']
+    let on = ids[0]
+    for (const id of ids) if (document.getElementById(id).offsetTop - 80 <= sc.scrollTop) on = id
+    if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4) on = 's-detalle'
+    rb.querySelectorAll('[data-va]').forEach((b) => b.classList.toggle('on', b.dataset.va === on))
+    rb.classList.toggle('con-detalle', on === 's-detalle')
+  }
+  const bu = document.getElementById('burbuja')
+  if (bu) bu.classList.toggle('visible', sc.scrollTop > 70)
+}
+
+/* —— Popovers —— */
+let pop = null
+function cerrar() { pop?.remove(); pop = null }
+function abrir(html, ancla, alinear) {
+  cerrar()
+  pop = document.createElement('div')
+  pop.className = 'pop ' + alinear.clase
+  pop.innerHTML = html
+  document.body.appendChild(pop)
+  lucide.createIcons()
+  const r = ancla.getBoundingClientRect()
+  const w = pop.offsetWidth, h = pop.offsetHeight
+  let left = alinear.derecha ? r.right - w : alinear.centro ? r.left + r.width / 2 - w / 2 : r.left
+  left = Math.max(8, Math.min(left, innerWidth - w - 8))
+  const top = alinear.arriba ? r.top - h - 10 : (r.bottom + 6 + h > innerHeight - 8 ? r.top - h - 6 : r.bottom + 6)
+  pop.style.left = left + 'px'
+  pop.style.top = top + 'px'
+}
+
+function panelPeriodo() {
+  return `<div>${Object.entries(PERIODOS).map(([k, [l, r]]) => `<button data-periodo="${k}" class="${estado.periodo === k ? 'on' : ''}">${l}<span style="margin-left:auto;font-size:12px;color:var(--ink-soft)">${r}</span></button>`).join('')}<hr><button>${ic('calendar', 'style="width:15px;height:15px;margin-right:8px;color:var(--muted)"')} Elegir fechas…</button></div>`
+}
+
+let catPanel = null
+function panelFiltros(cats, sel, alcance) {
+  catPanel = catPanel && cats.some((c) => c[0] === catPanel) ? catPanel : cats[0][0]
+  const c = cats.find((x) => x[0] === catPanel)
+  const n = cuenta(sel)
+  return `<div class="cols"><div class="fcats">${cats.map(([k, l, i]) => `<button class="fcat ${k === catPanel ? 'on' : ''}" data-cat="${k}">${ic(i)} ${l}${sel[k]?.length ? `<span class="badge">${sel[k].length}</span>` : ''}</button>`).join('')}</div>
+    <div class="fopts"><div class="rot">${c[1]}</div>${c[3].map(([val, cnt]) => { const on = sel[catPanel]?.includes(val); return `<div class="fopt ${on ? 'on' : ''}" data-opt="${val}"><span class="ck">${on ? ic('check') : ''}</span>${val}<span class="n">${cnt}</span></div>` }).join('')}</div></div>
+    <div class="fpie"><button class="link" data-limpiar>Limpiar todo</button><span class="alc">${alcance}</span><span class="esp"></span><button class="btn sm" data-cerrar>Cancelar</button><button class="cta" data-cerrar>${alcance.includes('página') ? 'Aplicar' : `Ver ${Math.max(1, 14 - n * 3)} visitas`}</button></div>`
+}
+
+function panelBurbuja() {
+  const sel = estado.sel
+  return `<div class="grupo"><div class="gt"><b>Período</b><span>toda la página</span></div><div class="fila"><div class="seg">${Object.entries(PERIODOS).map(([k, [l]]) => `<button data-periodo="${k}" class="${estado.periodo === k ? 'on' : ''}">${l}</button>`).join('')}</div><button class="btn sm">${ic('calendar')} Elegir fechas…</button></div></div>
+    <div class="grupo"><div class="gt"><b>Detalle visita por visita</b><span>sólo esa tabla, al pie</span></div><div class="fila">${CATS_DETALLE.map(([k, l, i]) => `<button class="btn sm" data-burbuja-cat="${k}">${ic(i)} ${l}${sel[k]?.length ? ` <span class="badge">${sel[k].length}</span>` : ''} ${ic('chevron-down')}</button>`).join('')}</div></div>`
+}
+
+function anclaDe(tipo, ancla) {
+  if (ancla?.isConnected && !pop?.contains(ancla)) return ancla
+  if (actual === 'C' && tipo !== 'periodo') return document.getElementById('burbuja')
+  return document.querySelector(`#app [data-abre="${tipo}"]`)
+}
+
+function reabrir(tipo, anclaPedida) {
+  const ancla = anclaDe(tipo, anclaPedida)
+  if (tipo === 'periodo') abrir(panelPeriodo(), ancla, { clase: 'ppanel', derecha: actual === 'A' || actual === 'D' })
+  if (tipo === 'filtros') abrir(panelFiltros(CATS_DETALLE, estado.sel, 'sólo el detalle'), ancla, { clase: 'fpanel', derecha: actual === 'B', centro: actual === 'C', arriba: actual === 'C' })
+  if (tipo === 'global') abrir(panelFiltros(CATS_GLOBAL, estado.glob, 'toda la página'), ancla, { clase: 'fpanel', derecha: true })
+  if (tipo === 'burbuja') abrir(panelBurbuja(), document.getElementById('burbuja'), { clase: 'cpanel', centro: true, arriba: true })
+  pop.dataset.tipo = tipo
+  pop._ancla = ancla
+}
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button, [data-opt]')
+  if (pop && !pop.contains(e.target) && !e.target.closest('[data-abre]')) cerrar()
+  if (!t) return
+  if (t.dataset.tab) { actual = t.dataset.tab; cerrar(); catPanel = null; render(false); return }
+  if (t.dataset.abre) {
+    if (pop && pop.dataset.tipo === t.dataset.abre) { cerrar(); return }
+    reabrir(t.dataset.abre, t); return
+  }
+  if (t.dataset.va) { const sc = document.getElementById('scroll'); sc.scrollTop = document.getElementById(t.dataset.va).offsetTop - 64; return }
+  if (t.dataset.quitaGlob) { const [k, x] = t.dataset.quitaGlob.split('|'); estado.glob[k] = estado.glob[k].filter((y) => y !== x); if (!estado.glob[k].length) delete estado.glob[k]; render(true); return }
+  if (!pop || !pop.contains(t)) return
+  const tipo = pop.dataset.tipo, ancla = pop._ancla
+  const sel = tipo === 'global' ? estado.glob : estado.sel
+  if (t.dataset.periodo) { estado.periodo = t.dataset.periodo; cerrar(); render(true); if (tipo === 'burbuja') reabrir('burbuja'); return }
+  if (t.dataset.cat) { catPanel = t.dataset.cat; reabrir(tipo, ancla); return }
+  if (t.dataset.burbujaCat) { catPanel = t.dataset.burbujaCat; reabrir('filtros'); return }
+  if (t.dataset.opt) {
+    const v = t.dataset.opt, arr = sel[catPanel] ?? []
+    sel[catPanel] = arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]
+    if (!sel[catPanel].length) delete sel[catPanel]
+    render(true)
+    reabrir(tipo); return
+  }
+  if (t.hasAttribute('data-limpiar')) { for (const k of Object.keys(sel)) delete sel[k]; render(true); reabrir(tipo); return }
+  if (t.hasAttribute('data-cerrar')) cerrar()
+})
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar() })
+addEventListener('resize', cerrar)
+/* El scrollTop que se repone al redibujar también dispara `scroll`: ése no cuenta como que el usuario se movió. */
+let redibujado = 0
+document.addEventListener('scroll', () => { if (Date.now() - redibujado > 200) cerrar() }, true)
+render(false)
+</script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+/* —— Coordinación › Estadísticas: el renglón que acompaña (Director, 2026-10-12) ——
+   Mock elegido: `docs/design_handoff_estadisticas_filtros/indice.html`, variante 2 («Texto y
+   progreso»), con 34 px entre palabra y palabra. El período se fue a la cabecera, junto al título; acá
+   quedan el índice de la página y, al llegar al detalle, sus filtros.
+
+   Va pegado al techo del área que scrollea (`.spira-content`, padding 16px 26px): los márgenes
+   negativos lo estiran hasta esos bordes, así el contenido pasa POR DEBAJO de un fondo entero y no
+   asoma por los costados. El fondo es el papel, opaco: es lo que tapa las tablas al bajar. */
+.est-renglon {
+  /* `top: -16px` y no 0: el sticky se pega al borde INTERIOR del padding del que scrollea, así que con
+     0 quedaba a 16 px del techo y las tablas asomaban por esa franja al bajar (medido, 2026-10-12). */
+  position: sticky; top: -16px; z-index: 5;
+  margin: -16px -26px 0; padding: 10px 26px;
+  display: flex; align-items: center; gap: 16px; min-height: 58px;
+  background: var(--spira-paper); container-type: inline-size;
+  transition: box-shadow .2s ease-out;
+}
+/* Despegado del techo, se separa por SOMBRA —el realce de la casa—, nunca por una raya. */
+.est-renglon.despegado { box-shadow: var(--spira-shadow-hover); }
+
+/* El índice: sólo palabras. La actual en tinta, las demás en `muted` (4,6:1 sobre el papel: el
+   `faint` del mock daba 3,1 y no pasaba AA para texto de 13 px). Entre palabra y palabra hay
+   10 + 14 + 10 = 34 px, y el punto va centrado en ese hueco. El margen negativo alinea el TEXTO de
+   la primera palabra con el borde de las tablas, no su caja. */
+.est-indice {
+  display: flex; align-items: center; gap: 14px; margin-left: -10px; min-width: 0;
+  overflow-x: auto; scrollbar-width: none;
+}
+.est-indice::-webkit-scrollbar { display: none; }
+/* Cuando no entra (tablet con los filtros del detalle a la vista), el índice se desliza en vez de
+   partirse en dos renglones, y el lado recortado se DESVANECE: una palabra cortada en seco parece un
+   error. `RenglonEstadisticas` marca qué lado está cortado y corre el índice hasta la sección actual. */
+.est-indice.corta-der { mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+.est-indice.corta-izq { mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent); }
+.est-indice.corta-izq.corta-der { mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
+.est-indice button {
+  position: relative; flex-shrink: 0; height: 32px; padding: 0 10px; border: 0; background: none;
+  font: 600 13px var(--spira-font-text); color: var(--spira-muted); white-space: nowrap; cursor: pointer;
+  transition: color .15s;
+}
+.est-indice button:hover { color: var(--spira-ink-2); }
+.est-indice button[aria-current='location'] { color: var(--spira-ink); }
+.est-indice button + button::before {
+  content: ''; position: absolute; left: -8.5px; top: calc(50% - 1.5px);
+  width: 3px; height: 3px; border-radius: 9px; background: var(--spira-line-2);
+}
+/* Foco por teclado: subrayado en tinta, no el contorno verde global (que el Director descartó). */
+.est-indice button:focus-visible { outline: none; color: var(--spira-ink); text-decoration: underline; text-underline-offset: 6px; }
+
+/* La línea de avance. SIN carril de fondo, a propósito: arriba de todo quedaría a 28 px de la raya de
+   «Por estudio» y se leería como doble raya — lo mismo por lo que se le sacó el borde de abajo a la
+   fila de filtros (`estilos.ts`, 2026-10-09). En reposo no se ve; crece a medida que se baja. Se
+   escala con `transform` y no con `width`: corre en cada cuadro del scroll y no recalcula layout. */
+.est-avance {
+  position: absolute; left: 26px; right: 26px; bottom: 0; height: 2px; border-radius: 9px;
+  overflow: hidden; pointer-events: none;
+}
+.est-avance > i {
+  display: block; height: 100%; border-radius: 9px; background: var(--spira-ink); opacity: .45;
+  transform-origin: left center; transform: scaleX(0);
+}
+
+/* Los filtros del detalle: entran solos cuando el detalle es la sección actual, y se van al salir.
+   Ocultos con `visibility` (además de `inert` en el JSX): no se alcanzan con Tab ni los lee un lector
+   de pantalla mientras no se ven. La visibilidad se apaga DESPUÉS del fundido, si no se cortaría. */
+/* Va FUERA del flujo, pegado a la derecha: oculto con `visibility` igual ocuparía su lugar, y el
+   índice quedaba recortado arriba de todo aunque no hubiera nada a su lado (medido a 1024 px). El
+   espacio se le reserva al índice sólo mientras los filtros se ven: `--ancho-detalle` lo escribe
+   `RenglonEstadisticas` con el ancho real del grupo. */
+.est-renglon-detalle {
+  position: absolute; right: 26px; top: 0; bottom: 0;
+  display: flex; align-items: center; gap: 8px;
+  opacity: 0; transform: translateX(8px); visibility: hidden;
+  transition: opacity .2s ease-out, transform .2s ease-out, visibility 0s linear .2s;
+}
+.est-renglon.con-detalle { padding-right: calc(26px + var(--ancho-detalle, 0px) + 16px); }
+.est-renglon.con-detalle .est-renglon-detalle {
+  opacity: 1; transform: none; visibility: visible; transition-delay: 0s;
+}
+.est-renglon-alcance { font-size: 12px; color: var(--spira-ink-soft); white-space: nowrap; }
+/* La búsqueda mide lo que dice esta caja (el `FilterSearch` adentro la llena). En angosto se achica
+   antes de que el índice tenga que deslizarse: medido a 1024 px con el menú abierto (725 de renglón),
+   con 210 el índice perdía 100 px y con 150 entra entero. */
+.est-buscar { display: flex; width: 210px; }
+@container (max-width: 860px) { .est-renglon-alcance { display: none; } }
+@container (max-width: 800px) { .est-buscar { width: 150px; } }
+@media (prefers-reduced-motion: reduce) {
+  .est-renglon-detalle { transform: none; }
+}
+
+/* El panel de filtros del detalle reusa las clases del de Visitas (`visitas/visitas.css`). Lo único
+   distinto: acá cada categoría admite UN valor, así que la marca es redonda —de opción, no de casilla—
+   para no prometer que se pueden tildar varias. */
+.est-radio { border-radius: 99px; }
+.vcal-check.on.est-radio::after {
+  content: ''; width: 6px; height: 6px; border-radius: 99px; background: var(--spira-on-accent);
+}

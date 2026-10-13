@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import type { CSSProperties, ReactNode, Ref } from 'react'
 import { Icon } from '../../../components/Icon'
 import { FilterDropdown } from '../../../components/FilterDropdown'
-import { ClearFilters, FilterSearch } from '../../../components/FilterBar'
+import { ClearFilters } from '../../../components/FilterBar'
 import { Modal } from '../../../components/Modal'
 import { formatAR, formatDayMonth, formatTimeAR, minutesBetween } from '../../../lib/dates'
 import { formatNumberAR, formatShareAR, sharePct } from '../../../lib/numbers'
@@ -16,6 +16,7 @@ import type {
   ResultadoProyeccion, ResultadoTiempos, TonoDesvio,
 } from './agregadosEquipo'
 import { TIPO_VISITA_LABELS } from './tipoVisita'
+import { ALTO_RENGLON } from './RenglonEstadisticas'
 import {
   barFill, barTrack, chevron, chevronAbierto, dash, detalleInner, filaDetalle, filaExpandible,
   subLine, tabla, tablaWrap, td, tdNum, tfootTd, th,
@@ -27,8 +28,9 @@ import {
  * banda ni solapa aparte (las variantes A/B/C del mock sólo cambiaban cómo separarla del resto).
  *
  * Tres desvíos del mock, a propósito:
- *  · Filtros con los desplegables de la app (`FilterDropdown`), no `<select>` nativos: son los de
- *    Visitas y Pendientes, y el handoff mismo pide usar el combo del codebase.
+ *  · Filtros con los componentes de la app, no `<select>` nativos (el handoff mismo pide usar el combo
+ *    del codebase). Desde el 2026-10-12 son el panel de Visitas (`FiltrosDelDetalle`), en el renglón
+ *    que acompaña; acá queda sólo el orden.
  *  · Tooltips nativos (`title`), no el globo propio del prototipo.
  *  · La proyección sin línea de capacidad: ese dato no existe (Director, 2026-09-23).
  */
@@ -372,7 +374,7 @@ function FilaTiemposRow({
 
 /* ───────────────────────────── Detalle visita por visita ───────────────────────────── */
 
-const ESPERA_OPCIONES: { value: RangoEspera; label: string }[] = [
+export const ESPERA_OPCIONES: { value: RangoEspera; label: string }[] = [
   { value: '', label: 'Cualquier espera' },
   { value: 'a', label: 'Hasta 20 min' },
   { value: 'b', label: '21 a 30 min' },
@@ -444,27 +446,19 @@ export function DetalleVisitas({
 
   return (
     <>
-      <div ref={anclaRef} style={{ scrollMarginTop: 16, background: 'var(--spira-white)', border: '1px solid var(--spira-line)', borderRadius: 16, marginBottom: 12 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '11px 14px' }}>
-          <FilterDropdown accent={accentSolid} value={filtros.coord} onChange={(v) => poner({ coord: v })} menuLabel="Coordinadora" neutralLabel="Coordinadora" icon="users" deselectable
-            options={[{ value: '', label: 'Todas las coordinadoras' }, ...opciones.coordinadoras]} />
-          <FilterDropdown accent={accentSolid} value={filtros.est} onChange={(v) => poner({ est: v })} menuLabel="Estudio" neutralLabel="Estudio" icon="file" deselectable
-            options={[{ value: '', label: 'Todos los estudios' }, ...opciones.estudios.map((e) => ({ value: e.value, label: `${e.value} · ${e.nombre}` }))]} />
-          <FilterDropdown accent={accentSolid} value={filtros.tipo} onChange={(v) => poner({ tipo: v as FiltrosDetalle['tipo'] })} menuLabel="Tipo de visita" neutralLabel="Tipo" icon="activity" deselectable
-            options={[{ value: '', label: 'Todos los tipos' }, ...opciones.tipos]} />
-          <FilterDropdown accent={accentSolid} value={filtros.esp} onChange={(v) => poner({ esp: v as RangoEspera })} menuLabel="Espera" neutralLabel="Espera" icon="clock" deselectable
-            options={ESPERA_OPCIONES} />
-          <FilterDropdown accent={accentSolid} value={filtros.fecha} onChange={(v) => poner({ fecha: v })} menuLabel="Día" neutralLabel="Día" icon="calendar" deselectable
-            options={[{ value: '', label: 'Todos los días' }, ...opciones.fechas.map((d) => ({ value: d, label: formatAR(d) }))]} />
+      {/* Desde el 2026-10-12 los filtros no viven acá: coordinadora, estudio, tipo, espera, día y la
+          búsqueda están en el renglón que acompaña (`RenglonEstadisticas` + `FiltrosDelDetalle`), que
+          los muestra mientras se mira esta tabla. Acá queda lo que se lee junto a la tabla: cuántas
+          quedan, QUÉ las está filtrando —las fichas, que se quitan una por una— y el orden, que no
+          filtra nada: dice cómo se lee la lista de abajo. */}
+      <div ref={anclaRef} style={{ scrollMarginTop: ALTO_RENGLON, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '8px 10px 8px 14px', background: 'var(--spira-surface)', border: '1px solid var(--spira-line)', borderRadius: 16, marginBottom: 12, fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>
+        <span><b style={{ color: 'var(--spira-ink)' }}>{formatNumberAR(visibles.length)}</b> de {formatNumberAR(filas.length)} visitas</span>
+        {chips.length === 0 ? <span>· sin filtros</span> : chips.map((c) => <Chip key={c.key} onQuitar={c.quitar}>{c.texto}</Chip>)}
+        {n > 0 && <ClearFilters n={n} onClear={() => setFiltros({ ...FILTROS_VACIOS, orden: filtros.orden })} />}
+        <span style={{ marginLeft: 'auto' }}>
           <FilterDropdown accent={accentSolid} value={filtros.orden} onChange={(v) => poner({ orden: v as OrdenDetalle })} menuLabel="Ordenar" prefix="Ordenar" icon="sliders" deselectable
             options={ORDEN_OPCIONES} />
-          <FilterSearch value={filtros.q} onChange={(q) => poner({ q })} placeholder="Paciente, código o visita" />
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '9px 14px', background: 'var(--spira-surface)', borderTop: '1px solid var(--spira-line)', borderRadius: '0 0 16px 16px', fontSize: 12.5, color: 'var(--spira-ink-soft)' }}>
-          <span><b style={{ color: 'var(--spira-ink)' }}>{formatNumberAR(visibles.length)}</b> de {formatNumberAR(filas.length)} visitas</span>
-          {chips.length === 0 ? <span>· sin filtros</span> : chips.map((c) => <Chip key={c.key} onQuitar={c.quitar}>{c.texto}</Chip>)}
-          {n > 0 && <span style={{ marginLeft: 'auto' }}><ClearFilters n={n} onClear={() => setFiltros({ ...FILTROS_VACIOS, orden: filtros.orden })} /></span>}
-        </div>
+        </span>
       </div>
 
       <div style={tablaWrap}>

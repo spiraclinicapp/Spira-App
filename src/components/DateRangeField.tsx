@@ -45,6 +45,14 @@ interface Props {
    * puesto—; acá sólo se dibujan y se cierra el popover al elegir.
    */
   atajos?: readonly { label: string; activo: boolean; onClick: () => void }[]
+  /**
+   * El disparador en gris neutro aunque haya rango puesto, como «Filtros» en Visitas. Lo estrena
+   * Coordinación › Estadísticas (2026-10-12), donde el período vive junto al título y SIEMPRE está
+   * puesto: teñido con el acento, se leía como un borde verde permanente, que el Director descartó
+   * («con la profundidad estamos bien»). En Reportes y Recepción la fecha es un filtro opcional y el
+   * tinte dice «hay uno puesto»; ahí no se pasa y nada cambia.
+   */
+  neutro?: boolean
 }
 
 /**
@@ -65,7 +73,7 @@ interface Props {
  *     oscuro (el tinte que oscurece sobre papel claro queda invisible sobre fondo oscuro; es el
  *     mismo problema que documenta `--spira-tint-track` en tokens.css).
  */
-export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras = 5, placeholder, ariaLabel, atajos }: Props) {
+export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras = 5, placeholder, ariaLabel, atajos, neutro }: Props) {
   const [open, setOpen] = useState(false)
   /* Sin rango puesto: el calendario tiene que abrir en ALGÚN mes, y `formatAR('')` devolvería
      "undefined/undefined/". Se cae a hoy para el mes visible y al placeholder para el rótulo. */
@@ -149,6 +157,7 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
    *  `--spira-aclarado-acento`). En claro devuelve el acento intacto; en oscuro lo levanta, que es
    *  lo que necesita para ser TEXTO sobre un fondo casi negro. */
   const tono = `color-mix(in oklab, ${accent}, white var(--spira-aclarado-acento))`
+  const teñido = puesto && !neutro
 
   return (
     <>
@@ -159,16 +168,16 @@ export function DateRangeField({ accent, desde, hasta, onChange, max, aniosAtras
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={ariaLabel ?? 'Elegir el período del informe'}
-        style={puesto
+        style={teñido
           ? { ...trigger, borderColor: tono, background: accent + '0F', color: tono }
           : { ...trigger, borderColor: 'var(--spira-line-2)', background: 'var(--spira-white)', color: 'var(--spira-ink)' }}
       >
-        <Icon name="calendar" size={15} color={puesto ? tono : 'var(--spira-muted)'} stroke={1.8} />
+        <Icon name="calendar" size={15} color={teñido ? tono : 'var(--spira-muted)'} stroke={1.8} />
         <span className={puesto ? 'spira-mono' : undefined} style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 14 }}>
           {!puesto ? placeholder : desde === hasta ? formatAR(desde) : `${formatAR(desde)} – ${formatAR(hasta)}`}
         </span>
         <Icon
-          name="chevronDown" size={14} color={puesto ? tono : 'var(--spira-muted)'}
+          name="chevronDown" size={14} color={teñido ? tono : 'var(--spira-muted)'}
           style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}
         />
       </button>
