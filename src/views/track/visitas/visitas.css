@@ -125,7 +125,13 @@
   background: transparent; color: var(--spira-ink-2); transition: background-color .15s;
 }
 .vcal-fcat:hover { background: rgba(124, 140, 135, .10); }
-.vcal-fcat[aria-selected='true'] { background: var(--spira-white); color: var(--spira-ink); box-shadow: 0 0 0 1px var(--spira-line); }
+/* La categoría elegida se levanta del gris de la columna: papel blanco + sombra, SIN anillo. El anillo
+   de 1px que tenía se leía como un recuadro, y el foco por teclado le sumaba el outline verde global
+   encima (el panel le pasa el foco a la categoría al abrir). Pedido del Director, 2026-10-12: «con la
+   profundidad estamos bien». El foco va por la misma vía, un escalón más de sombra. */
+.vcal-fcat[aria-selected='true'] { background: var(--spira-white); color: var(--spira-ink); box-shadow: var(--spira-shadow-sm), 0 2px 6px rgba(20, 48, 46, .08); }
+.vcal-fpanel :focus-visible { outline: none; }
+.vcal-fcat:focus-visible { background: var(--spira-white); box-shadow: var(--spira-shadow-hover); }
 .vcal-fopt {
   display: flex; align-items: center; gap: 9px; height: 34px; padding: 0 8px; border-radius: 8px; flex-shrink: 0;
   font: 500 13.5px var(--spira-font-text); color: var(--spira-ink-2); cursor: pointer;
@@ -134,7 +140,7 @@
 /* El checkbox real queda accesible (foco, teclado, lector) pero invisible; la caja se dibuja al lado.
    `display: none` lo sacaría del orden de tabulación. */
 .vcal-fopt input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
-.vcal-fopt:has(input:focus-visible) { box-shadow: 0 0 0 2px var(--spira-line-2); }
+.vcal-fopt:has(input:focus-visible) { background: var(--spira-white); box-shadow: var(--spira-shadow-hover); }
 .vcal-check {
   width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0; display: grid; place-items: center;
   border: 1.5px solid var(--spira-line-2); background: var(--spira-white);
@@ -145,6 +151,9 @@
   font: 600 12.5px var(--spira-font-text); color: var(--spira-acc-deep-track);
 }
 .vcal-link:disabled { color: var(--spira-faint); cursor: default; }
+.vcal-link:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+/* Los dos botones del pie del panel: el foco es la sombra, como en la categoría. */
+.vcal-fpanel .vcal-btn-cta:focus-visible { box-shadow: var(--spira-shadow-hover); }
 
 /* —— Fichas de filtros activos —— */
 .vcal-ficha {
@@ -201,15 +210,18 @@
   .vcal-row-cta { flex-wrap: wrap; justify-content: flex-start; }
 }
 
-/* «Atención médica»: el único secundario cálido de la fila (tokens `--spira-med-*`). Deshabilitado
-   se apaga del todo —sin borde, fondo gris, sin levante— y explica el porqué en su pista. */
+/* «Atención médica»: un secundario NEUTRO, igual que «Reprogramar» y «Filtros» (borde gris, que se
+   oscurece al apuntarlo). Hasta el 2026-10-12 fue el único cálido de la fila —arena en reposo, siena
+   al hover— y el Director lo bajó: el naranja no significaba nada, y el color se reserva para lo que
+   sí significa algo. «En cola» queda con el borde del hover, que ya dice «esto está tomado».
+   Deshabilitado se apaga del todo —sin borde, fondo gris, sin levante— y explica el porqué en su pista. */
 .vcal-btn-med {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 168px; height: 38px;
-  padding: 0 12px; border-radius: 10px; border: 1px solid var(--spira-med-line); background: var(--spira-white);
+  padding: 0 12px; border-radius: 10px; border: 1px solid var(--spira-line-2); background: var(--spira-white);
   font: 600 13.5px var(--spira-font-text); color: var(--spira-ink-2); white-space: nowrap; cursor: pointer;
   flex-shrink: 0; transition: border-color .15s, background-color .15s;
 }
-.vcal-btn-med:hover:not(:disabled), .vcal-btn-med.en-cola { border-color: var(--spira-med-line-hover); background: var(--spira-med-bg-hover); }
+.vcal-btn-med:hover:not(:disabled), .vcal-btn-med.en-cola { border-color: var(--spira-muted); }
 .vcal-btn-med:disabled { background: rgba(124, 140, 135, .12); border-color: transparent; color: var(--spira-faint); cursor: not-allowed; }
 .vcal-btn-med.visto { border-color: transparent; background: rgba(92, 138, 90, .14); color: var(--spira-acc-deep-good); cursor: default; }
 
