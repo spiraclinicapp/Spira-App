@@ -91,6 +91,13 @@ export interface TrackVisitRow {
   retest_of_kind?: VisitKind | null
 }
 
+/**
+ * Cuántos días hacia adelante trae `useUpcomingVisits`. Exportado porque la tira semanal del KPI
+ * «Próximas visitas» necesita saber hasta dónde SABE: un día más allá no es un día sin visitas, es un
+ * día que nadie consultó, y dibujarlo con un 0 sería afirmar algo que no se miró.
+ */
+export const HORIZONTE_PROXIMAS = 7
+
 /** Visitas no realizadas que caen dentro de los próximos 7 días (KPI + lista del Resumen). */
 export function useUpcomingVisits() {
   const today = todayISO()
@@ -101,7 +108,7 @@ export function useUpcomingVisits() {
         .select('*')
         .is('real_date', null)
         .gte('estimated_date', today)
-        .lte('estimated_date', addDaysISO(today, 7))
+        .lte('estimated_date', addDaysISO(today, HORIZONTE_PROXIMAS))
         .order('estimated_date', { ascending: true })
         .order('patient_code', { ascending: true })
         .returns<TrackVisitRow[]>(),

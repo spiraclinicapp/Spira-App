@@ -8,14 +8,15 @@ import { CabeceraDeTarjeta, card, ChipDestino, DetalleConEstado, filaAncha, Fila
 import { GRAVEDAD, ordenarPorGravedad, severidadMaxima } from './alertSeverity'
 import { DESTINO_PENDIENTES, DESTINO_REPORTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
-import { proximoDiaConVisitas, visitasQueVienen } from './resumen/proximoDia'
+import { proximoDiaConVisitas, tiraDeLaSemana, visitasQueVienen } from './resumen/proximoDia'
+import type { DiaDeLaTira } from './resumen/proximoDia'
 import { personaActiva } from '../lib/inscripcion'
 import { AMBITOS, esMiaSinAtender, esDeMisProtocolos, esReporteMio, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
 import type { Ambito } from './resumen/ambito'
 import { useMyCoordinations } from '../data/protocols'
 import { useVisitsForDay } from '../data/dayVisits'
 import { usePatients } from '../data/patients'
-import { useUpcomingVisits } from '../data/visits'
+import { HORIZONTE_PROXIMAS, useUpcomingVisits } from '../data/visits'
 import { useActiveAlerts } from '../data/alertDismissals'
 import { useSolicitudesPendientes, ESTADO_SOLICITUD } from '../data/pharma'
 import type { SolicitudPendienteRow } from '../data/pharma'
@@ -33,7 +34,7 @@ import {
 } from './track/reportes/piezasPaciente'
 import type { TrackVisitRow } from '../data/visits'
 import { visitTitle } from '../lib/visits'
-import { dayLabel, formatAR, fromNow, todayISO } from '../lib/dates'
+import { dayLabel, dayName, formatAR, fromNow, todayISO } from '../lib/dates'
 import { GLOSARIO_ESTADOS } from '../lib/glosario'
 import { VISIT_STATES, VisitChip } from './visitStates'
 import { VisitSummaryRow } from './VisitSummaryRow'
@@ -50,42 +51,59 @@ function Punto({ color }: { color: string }) {
 }
 
 /**
- * Tarjeta de cifra del Resumen. Desde el rediseño (handoff `design_handoff_resumen_tareas_enfoque`)
- * LLEVA A SU PANTALLA: al apuntarla se eleva y revela, a la derecha del rótulo, el nombre del
- * submódulo al que va.
+ * Tarjeta de cifra del Resumen. LLEVA A SU PANTALLA, y desde el handoff `design_handoff_kpis_visitas`
+ * (2A, 2026-10-13) la tarjeta ENTERA es el acceso: al apuntarla se eleva, el rótulo pasa a tinta y
+ * aparece una flecha ↗ en la esquina. Antes revelaba al lado de la cifra el nombre del submódulo
+ * («Estudios y pacientes →»), que se leía como un botón adentro de otro botón.
+ *
+ * DEBAJO DE LA CIFRA VA EL DATO SECUNDARIO DIBUJADO (`visual`: una barra de proporción o la tira de
+ * la semana) y su leyenda. Las cifras y lo que cuentan no cambiaron con el rediseño: cambió cómo se
+ * ven.
  *
  * ES UN `role="button"` CON TECLADO COMPLETO y no un `<div onClick>`: mudar un gesto a un div deja
- * el destino sin camino de teclado y eso no se ve mirando la pantalla. La guarda
- * `e.target !== e.currentTarget` es la de siempre — acá no hay hijos focusables, pero la fila de al
- * lado sí los tiene y el criterio se mantiene parejo.
+ * el destino sin camino de teclado y eso no se ve mirando la pantalla. Sigue siendo `button` y no
+ * `link` (que el handoff también admite) porque así hereda la micro-interacción de levante de la
+ * casa, que se engancha de `[role='button']`. La guarda `e.target !== e.currentTarget` es la de
+ * siempre — acá no hay hijos focusables, pero la fila de al lado sí los tiene y el criterio se
+ * mantiene parejo.
  *
- * `cargando` muestra un guión en vez del número: la tarjeta ocupa su lugar desde el primer render y
- * no salta cuando llega el dato. Mostrar 0 mientras carga sería mentir con un número.
+ * `cargando` muestra un guión en vez del número y deja el visual vacío: la tarjeta ocupa su lugar
+ * desde el primer render y no salta cuando llega el dato. Mostrar 0 mientras carga sería mentir con
+ * un número.
  */
-function KpiCard({ label, value, sub, dot, cargando, kpi, onNavigate, target }: {
+function KpiCard({ label, value, unidad, detalle, visual, leyenda, dot, cargando, kpi, onNavigate, target }: {
   label: string
   value: number
-  sub: string
+  /** Al lado de la cifra, alineado a la base: «de 65», «Miércoles 14/10». */
+  unidad?: string
+  /** Lo que dice el dibujo, en palabras, para el lector de pantalla: el `aria-label` reemplaza el
+   *  contenido, así que sin esto se anunciaría la cifra sola. */
+  detalle: string
+  visual: ReactNode
+  /** Los dos extremos del renglón de abajo. Sin leyenda (la tira semanal), no hay renglón. */
+  leyenda?: [ReactNode, ReactNode?]
   dot: string
   cargando?: boolean
   kpi: KpiKey
   onNavigate?: ViewProps['onNavigate']
-  /** Qué abrir al llegar (p. ej. el día de «Próximas visitas»). Sin él, el destino abre en su estado
-   *  por defecto — Visitas, en hoy. */
+  /** Qué abrir al llegar (p. ej. la semana de «Próximas visitas»). Sin él, el destino abre en su
+   *  estado por defecto — Visitas, en hoy. */
   target?: NavTarget
 }) {
   const destino = KPI_DESTINOS[kpi]
   const nombre = nombreDeDestino(destino)
   /* Sin `onNavigate` o sin nombre de destino, la tarjeta queda INERTE: sin gesto, sin foco y sin
-     chip. Es el mismo criterio que `PatientLink` sin `onOpen` — un botón que no hace nada es peor
-     que no tener botón, y un chip que nombre un lugar inexistente es peor todavía. */
+     flecha. Es el mismo criterio que `PatientLink` sin `onOpen` — un botón que no hace nada es peor
+     que no tener botón. */
   const navega = onNavigate && nombre !== null
   const ir = () => { if (navega) onNavigate(destino.moduleKey, destino.subKey, target) }
 
   return (
     <div
-      style={card}
-      className={navega ? 'spira-card-link spira-dest-group' : undefined}
+      style={{ ...card, display: 'flex', flexDirection: 'column' }}
+      /* `.spira-kpi` sólo si navega: es la que pone el rótulo en tinta al apuntar, y una tarjeta inerte
+         que reacciona al mouse finge un destino. */
+      className={navega ? 'spira-card-link spira-kpi' : undefined}
       role={navega ? 'button' : undefined}
       tabIndex={navega ? 0 : undefined}
       onClick={navega ? ir : undefined}
@@ -93,32 +111,103 @@ function KpiCard({ label, value, sub, dot, cargando, kpi, onNavigate, target }: 
         if (e.target !== e.currentTarget) return
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir() }
       } : undefined}
-      /* El subtítulo VA en el nombre accesible (re-critique 2026-10-09): el `aria-label` reemplaza el
+      /* El detalle VA en el nombre accesible (re-critique 2026-10-09): el `aria-label` reemplaza el
          contenido, y sin él el lector anunciaba «Atrasados: 15. Ir a Pendientes» sin «6 con ventana
          vencida», que es justamente lo que dice qué tan grave es. */
-      aria-label={navega ? `${label}: ${cargando ? 'cargando' : `${value}, ${sub}`}. Ir a ${nombre}` : undefined}
+      aria-label={navega ? `${label}: ${cargando ? 'cargando' : `${value}, ${detalle}`}. Ir a ${nombre}` : undefined}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--spira-muted)' }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flex: '0 0 auto' }} />
-        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      {navega && (
+        <span className="spira-kpi__ir" aria-hidden="true">
+          <Icon name="arrowUpRight" size={14} stroke={2.2} />
+        </span>
+      )}
+      {/* `paddingRight` para que el rótulo largo se recorte antes de pasar por debajo de la flecha. */}
+      <div className="spira-kpi__rotulo" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 28, fontSize: 13, fontWeight: 600, color: 'var(--spira-muted)' }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flex: '0 0 auto' }} />
+        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
       </div>
-      {/* EL RÓTULO DE DESTINO VA EN EL RENGLÓN DEL NÚMERO, no en el del rótulo. Invisible y todo,
-          `.spira-dest` ocupa su ancho desde el primer render (el revelado es opacidad + transform,
-          para no correr el layout), y en el renglón del rótulo ese hueco se lo comía al texto: a
-          1346px de ventana el KPI decía «Prot…» y «Paci…» SIEMPRE, sin hover. Al lado del número
-          sobra lugar —son dos o tres cifras—, y si la tarjeta se angosta lo que se recorta es el
-          rótulo de destino (`minWidth: 0`), que es secundario, y nunca el dato. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
-        <div style={{ flex: '0 0 auto', fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 38, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, margin: '12px 0' }}>
+        <span style={{ flex: '0 0 auto', fontFamily: 'var(--spira-font-mono)', fontWeight: 600, fontSize: 36, lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: 'var(--spira-ink)' }}>
           {cargando ? <span style={{ color: 'var(--spira-muted)' }}>—</span> : value}
-        </div>
-        {navega && (
-          <span style={{ marginLeft: 'auto', minWidth: 0, display: 'flex', overflow: 'hidden' }}>
-            <ChipDestino nombre={nombre} />
-          </span>
+        </span>
+        {unidad && !cargando && (
+          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, color: 'var(--spira-muted)' }}>{unidad}</span>
         )}
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--spira-muted)', marginTop: 2 }}>{sub}</div>
+      {/* `marginTop: auto` empuja el dibujo al pie: las cuatro tarjetas tienen el mismo alto (la grilla
+          las estira) y así las barras y la tira quedan alineadas en un mismo renglón. */}
+      <div style={{ marginTop: 'auto' }}>
+        {visual}
+        {leyenda && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 9, fontSize: 12, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
+            {/* La izquierda NO se encoge: es la que lleva el dato que importa («7 ventanas vencidas»), y a
+                220 px de tarjeta las dos no entran. Se recorta la derecha. Todas las izquierdas son
+                cortas y acotadas (un número y dos palabras), así que no hay riesgo de desbordar.
+                El nbsp mientras carga mantiene el alto del renglón: sin él la tarjeta crece al llegar
+                el dato. */}
+            <span style={{ flexShrink: 0 }}>{cargando ? '\u00A0' : leyenda[0]}</span>
+            {leyenda[1] && !cargando && <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{leyenda[1]}</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * La barra de proporción del KPI: una pista con uno o dos tramos. Los tramos en cero no se dibujan —
+ * un tramo de 0px igual se lleva los 2px del `gap` y deja una muesca de color donde no hay nada— y
+ * con `total` 0 queda la pista vacía, que es lo que pide el handoff. Mientras carga, la vista le
+ * pasa `total` 0: si no, la barra de pacientes —que suele llegar primero— se dibujaba llena al lado
+ * de un guión.
+ *
+ * El último tramo llena el resto (`flex: 1`) en vez de llevar su porcentaje: con el `gap`, dos
+ * porcentajes que suman 100 desbordan la pista por 2px.
+ */
+function BarraKpi({ tramos, total }: { tramos: { valor: number; color: string }[]; total: number }) {
+  const visibles = total > 0 ? tramos.filter((t) => t.valor > 0) : []
+  return (
+    <div className="spira-kpi__barra" aria-hidden="true">
+      {visibles.map((t, i) => (
+        <span
+          key={i}
+          className="spira-kpi__tramo"
+          style={{
+            background: t.color,
+            ...(i === visibles.length - 1 && visibles.length > 1
+              ? { flex: 1 }
+              : { width: `${Math.min(100, (t.valor / total) * 100)}%` }),
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+/**
+ * La tira de la semana del KPI «Próximas visitas»: lunes a domingo, la celda del día arriba y cuántas
+ * visitas abajo. Qué semana y qué cuenta cada día lo decide `tiraDeLaSemana` (con test); esto sólo
+ * pinta. Un día sin cantidad conocida (ya pasado, o más allá de lo consultado) dice «–», no «0».
+ */
+function TiraSemanal({ dias }: { dias: DiaDeLaTira[] }) {
+  return (
+    <div className="spira-kpi__semana" aria-hidden="true">
+      {dias.map((d) => {
+        const con = (d.cantidad ?? 0) > 0
+        const celda = ['spira-kpi__celda',
+          d.esHoy && 'spira-kpi__celda--hoy',
+          d.esProxima ? 'spira-kpi__celda--proxima' : con && 'spira-kpi__celda--con',
+        ].filter(Boolean).join(' ')
+        const cuenta = ['spira-kpi__cuenta',
+          d.esProxima ? 'spira-kpi__cuenta--proxima' : !con && 'spira-kpi__cuenta--cero',
+        ].filter(Boolean).join(' ')
+        return (
+          <div key={d.iso} className="spira-kpi__dia">
+            <span className={celda}>{d.inicial}</span>
+            <b className={cuenta}>{d.cantidad ?? '–'}</b>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -748,9 +837,14 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
   const atrasados = alertRows.length
   const peorAtrasado = severidadMaxima(alertRows)
   const ventanasVencidas = alertRows.filter((a) => a.computed_status === 'ventana_vencida').length
-  const subAtrasados = ventanasVencidas > 0
-    ? `${ventanasVencidas} con ventana vencida`
-    : atrasados > 0 ? 'para resolver' : 'todo al día'
+  /* EL RESTO SON «OTROS ATRASOS», NO «EN VENTANA» COMO DECÍA EL HANDOFF (2026-10-13). El mock rotulaba
+     así `total − vencidas`, y lo dejó marcado como cuenta a confirmar. No es cierto: las otras dos
+     gravedades son «por reprogramar» (el paciente no vino) y «pendiente vencido» (un reporte fuera de
+     plazo sobre una visita ya atendida), y ninguna de las dos está en ventana. En una app auditable el
+     rótulo dice lo que hay, aunque sea menos lindo. */
+  const otrosAtrasos = atrasados - ventanasVencidas
+  const leyendaVencidas = `${ventanasVencidas} ${ventanasVencidas === 1 ? 'ventana vencida' : 'ventanas vencidas'}`
+  const leyendaOtros = `${otrosAtrasos} ${otrosAtrasos === 1 ? 'otro atraso' : 'otros atrasos'}`
 
   /* EL PRÓXIMO DÍA CON VISITAS, y no "mañana" a secas.
      El pedido fue "las del día siguiente únicamente", y tomado al pie de la letra la tarjeta queda
@@ -813,44 +907,99 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
      HOY. Ahora el día va primero y el censo último; «Protocolos activos» sale (vive en Estudios y
      pacientes, a un clic).
 
-     «Visitas de hoy» cuenta lo mismo que la pantalla Visitas abierta en hoy, y su subtítulo dice en
-     qué anda la jornada: cuántos están en el centro, o cuántos faltan llegar. Las etapas salen de
-     `operational_stage` (0068), derivada de las marcas: no se infiere nada que no esté registrado.
+     «Visitas de hoy» cuenta lo mismo que la pantalla Visitas abierta en hoy, y su barra dice en qué
+     anda la jornada: cuántas se terminaron de atender. Las etapas salen de `operational_stage`
+     (0068), derivada de las marcas: no se infiere nada que no esté registrado.
 
      «Próximas visitas» cuenta EL PRÓXIMO DÍA CON VISITAS, no los siete. Antes decía «3 · próximos 7
-     días» y llevaba a Visitas de hoy, donde esas tres no estaban: no hay pantalla que junte una
-     semana (la Agenda no está en el menú). Ahora cuenta el mismo día que la tarjeta de abajo y lleva
-     a Visitas CON ESE DÍA puesto, que es lo que ya hacía el pie de la tarjeta: número y destino dicen
-     lo mismo. Las «asignadas a mí» se cuentan sobre ese mismo día por la misma razón.
+     días» y llevaba a Visitas de hoy, donde esas tres no estaban. Las «asignadas a mí» se cuentan
+     sobre ese mismo día por la misma razón. Desde el handoff `design_handoff_kpis_visitas`
+     (2026-10-13) lleva a la vista SEMANA de Visitas —que existe desde la #420— y no al día: la
+     tarjeta dibuja la semana entera con el próximo día resaltado, y se llega a esa misma semana.
      └──────────────────────────────────────────────────────────────────────────────────────────────┘ */
-  const enCentro = hoyRows.filter((v) =>
-    v.operational_stage === 'concurrio_al_centro' || v.operational_stage === 'inicio_atencion').length
-  const porLlegar = hoyRows.filter((v) => v.operational_stage === 'por_llegar' && !v.no_show_at).length
-  const subHoy = enCentro > 0
-    ? `${enCentro} en el centro`
-    : porLlegar > 0 ? `${porLlegar} por llegar` : hoyRows.length > 0 ? 'ninguna en curso' : 'sin visitas hoy'
-  const subProximas = proximoDia
+  /* REALIZADAS = atención terminada (`fin_atencion`). PENDIENTES = las que faltan atender, SIN las que
+     se marcaron «no vino»: una ausencia registrada no está pendiente de nada en el día —la levanta
+     Pendientes como «por reprogramar»—. Por eso realizadas + pendientes puede dar menos que el total,
+     y está bien: la barra es realizadas sobre el total del día, que es lo que se avanzó. El handoff
+     dejaba este texto por confirmar; va el par que proponía. */
+  const realizadasHoy = hoyRows.filter((v) => v.operational_stage === 'fin_atencion').length
+  const pendientesHoy = hoyRows.filter((v) => v.operational_stage !== 'fin_atencion' && !v.no_show_at).length
+  const leyendaRealizadas = `${realizadasHoy} ${realizadasHoy === 1 ? 'realizada' : 'realizadas'}`
+  const leyendaPendientes = `${pendientesHoy} ${pendientesHoy === 1 ? 'pendiente' : 'pendientes'}`
+  const unidadProximas = proximoDia
     ? (asignadasAMi > 0 ? `${dayLabel(proximoDia)} · ${asignadasAMi} a mí` : dayLabel(proximoDia))
-    : 'nada en 7 días'
+    : `nada en ${HORIZONTE_PROXIMAS} días`
+  const tira = tiraDeLaSemana(upcomingRows, todayISO(), hoyRows.length, proximoDia, HORIZONTE_PROXIMAS)
+  const inactivos = allPatients.length - activePatients
 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* KPIs — los cuatro navegan a su submódulo (D8). El rótulo del chip sale del registry.
+      {/* KPIs — los cuatro navegan a su submódulo (D8); el destino lo anuncia el `aria-label` y, al
+          apuntar, la flecha de la esquina (handoff `design_handoff_kpis_visitas`, 2A).
 
           VAN EN DOS PARES (re-critique 2026-10-09). Con una sola grilla `auto-fit` de 190 px, entre
           ~950 y ~1150 px de ventana quedaban tres arriba y «Pacientes activos» solo abajo, con 137 px
           de renglón para una tarjeta. Agrupados de a dos, la fila sólo puede ser 4, 2×2 o 1×4: el par
           se parte entero o no se parte. Los pares tienen sentido propio: lo de hoy (visitas y lo
-          atrasado) y lo que viene (próximas y el censo). El `min(…, 100%)` evita desbordar en angosto. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(394px, 100%), 1fr))', gap: 14 }}>
+          atrasado) y lo que viene (próximas y el censo). El `min(…, 100%)` evita desbordar en angosto.
+
+          Y AL ANCHO DEL CONTENEDOR, NO DE LA VENTANA como pedía el handoff (≤900 / ≤520 px): el riel
+          lateral se come una parte que la ventana no sabe. Los pisos salen de la tira semanal, que no
+          baja de 7 × 22 px + 6 × 4 de aire = 178 px de contenido, o sea 220 px de tarjeta con su
+          padding y su borde (el borde se olvida fácil: con 218 la tira desbordaba 2 px, medido): dos
+          tarjetas y el `gap` dan los 454 del par. Con los 394 de antes, la tarjeta de próximas
+          quedaba en 150 px de contenido y la tira desbordaba. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(454px, 100%), 1fr))', gap: 14 }}>
         <div style={parDeKpis}>
-        <KpiCard kpi="hoy" onNavigate={onNavigate} label="Visitas de hoy" value={hoyRows.length} sub={subHoy} dot={accent} cargando={cargandoKpis} />
-        <KpiCard kpi="atrasados" onNavigate={onNavigate} target={{ estadoFilter: [...GRAVEDAD] }} label="Atrasados" value={atrasados} sub={subAtrasados} dot={peorAtrasado ? VISIT_STATES[peorAtrasado].color : accent} cargando={cargandoKpis} />
+          <KpiCard
+            kpi="hoy" onNavigate={onNavigate} label="Visitas de hoy" dot="var(--spira-good)" cargando={cargandoKpis}
+            value={hoyRows.length}
+            detalle={hoyRows.length > 0 ? `${leyendaRealizadas}, ${leyendaPendientes}` : 'sin visitas hoy'}
+            visual={<BarraKpi total={cargandoKpis ? 0 : hoyRows.length} tramos={[{ valor: realizadasHoy, color: 'var(--spira-good)' }]} />}
+            leyenda={hoyRows.length > 0 ? [leyendaRealizadas, leyendaPendientes] : ['sin visitas hoy']}
+          />
+          <KpiCard
+            kpi="atrasados" onNavigate={onNavigate} target={{ estadoFilter: [...GRAVEDAD] }} label="Atrasados" cargando={cargandoKpis}
+            /* El punto es el de la PEOR gravedad, como antes, y no el rojo fijo del mock: con nada atrasado
+               un punto rojo es una alarma sin motivo. */
+            dot={peorAtrasado ? VISIT_STATES[peorAtrasado].color : 'var(--spira-good)'}
+            value={atrasados}
+            detalle={atrasados > 0 ? `${leyendaVencidas}, ${leyendaOtros}` : 'todo al día'}
+            visual={(
+              <BarraKpi total={cargandoKpis ? 0 : atrasados} tramos={[
+                { valor: ventanasVencidas, color: 'var(--spira-danger)' },
+                { valor: otrosAtrasos, color: 'var(--spira-warn-soft)' },
+              ]} />
+            )}
+            leyenda={atrasados > 0
+              ? [
+                  ventanasVencidas > 0
+                    ? <span style={{ color: 'var(--spira-acc-deep-danger)', fontWeight: 600 }}>{leyendaVencidas}</span>
+                    : 'ninguna ventana vencida',
+                  otrosAtrasos > 0 ? leyendaOtros : undefined,
+                ]
+              : ['todo al día']}
+          />
         </div>
         <div style={parDeKpis}>
-        <KpiCard kpi="visitas" onNavigate={onNavigate} target={proximoDia ? { visitDate: proximoDia } : undefined} label="Próximas visitas" value={visitasDelProximoDia.length} sub={subProximas} dot={accent} cargando={cargandoKpis} />
-        <KpiCard kpi="pacientes" onNavigate={onNavigate} label="Pacientes activos" value={activePatients} sub={`${allPatients.length} registrados`} dot={accent} cargando={cargandoKpis} />
+          <KpiCard
+            kpi="visitas" onNavigate={onNavigate} label="Próximas visitas" dot="var(--spira-good)" cargando={cargandoKpis}
+            target={{ visitView: 'semana', visitDate: proximoDia ?? undefined }}
+            value={visitasDelProximoDia.length}
+            unidad={unidadProximas}
+            /* La tira es `aria-hidden`: lo que dibuja va acá en palabras, sólo los días con visitas. */
+            detalle={[unidadProximas, ...tira.filter((d) => (d.cantidad ?? 0) > 0).map((d) => `${dayName(d.iso).toLowerCase()} ${d.cantidad}`)].join(', ')}
+            visual={<TiraSemanal dias={cargandoKpis ? tira.map((d) => ({ ...d, cantidad: null, esProxima: false })) : tira} />}
+          />
+          <KpiCard
+            kpi="pacientes" onNavigate={onNavigate} label="Pacientes activos" dot="var(--spira-good)" cargando={cargandoKpis}
+            value={activePatients}
+            unidad={`de ${allPatients.length}`}
+            detalle={`de ${allPatients.length} registrados, ${inactivos} ${inactivos === 1 ? 'inactivo' : 'inactivos'}`}
+            visual={<BarraKpi total={cargandoKpis ? 0 : allPatients.length} tramos={[{ valor: activePatients, color: 'var(--spira-good)' }]} />}
+            leyenda={[`${allPatients.length} registrados`, `${inactivos} ${inactivos === 1 ? 'inactivo' : 'inactivos'}`]}
+          />
         </div>
       </div>
 
@@ -1032,9 +1181,10 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
   )
 }
 
-/** Un par de KPI: dos columnas iguales, que sólo pasan a una cuando la tarjeta no entra (<150 px). */
+/** Un par de KPI: dos columnas iguales, que sólo pasan a una cuando la tarjeta no entra (<220 px, el
+ *  piso de la tira semanal; ver el comentario de la fila). */
 const parDeKpis: CSSProperties = {
-  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))', gap: 14,
+  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 14,
 }
 
 /** IVRS y protocolo en el titular de Pendientes: se recortan con puntos, sin partirse en dos renglones

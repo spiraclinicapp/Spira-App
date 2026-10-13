@@ -22,6 +22,7 @@
  * testea con objetos de un campo en vez de fabricar cuarenta columnas.
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
+import { lunesDe, sumarDias } from '../track/visitas/calendario'
 
 /** Lo único que esta regla necesita de una visita. */
 export interface ConFechaEstimada {
@@ -75,4 +76,63 @@ export function visitasQueVienen<T extends ConFechaEstimada>(visitas: readonly T
   return visitas
     .filter((v): v is T & { estimated_date: string } => !!v.estimated_date && v.estimated_date > hoy)
     .sort((a, b) => (a.estimated_date < b.estimated_date ? -1 : a.estimated_date > b.estimated_date ? 1 : 0))
+}
+
+/** Un día de la tira semanal del KPI «Próximas visitas». */
+export interface DiaDeLaTira {
+  iso: string
+  /** «L», «M», «M», «J», «V», «S», «D». */
+  inicial: string
+  /**
+   * Cuántas visitas tiene ese día, o `null` si es un día que la consulta NO MIRÓ: los ya pasados de la
+   * semana y los que caen después del horizonte. `null` no es 0 — un 0 dice «no hay», y de esos días
+   * no sabemos nada.
+   */
+  cantidad: number | null
+  esHoy: boolean
+  /** El día que cuenta la cifra grande del KPI (`proximoDiaConVisitas`). */
+  esProxima: boolean
+}
+
+const INICIALES = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+
+/**
+ * ┌─ La tira semanal del KPI «Próximas visitas» (handoff `docs/design_handoff_kpis_visitas/`) ────┐
+ *
+ * Lunes a domingo, con cuántas visitas tiene cada día. Es una regla pura con test por lo mismo que
+ * las de arriba: si se corre un día, la tira se dibuja igual de prolija señalando el miércoles
+ * equivocado.
+ *
+ * QUÉ SEMANA: la del próximo día con visitas, que casi siempre es la que corre. El handoff lo pide
+ * así para que el día resaltado esté siempre en la tira — un viernes sin nada hasta el lunes, la
+ * semana en curso no tendría ningún día que señalar. Sin próximo día, la semana de hoy.
+ *
+ * CUÁNTAS, Y DE DÓNDE:
+ *   · Hoy cuenta `cantidadHoy`, que la vista saca de las visitas de HOY (las mismas del KPI «Visitas
+ *     de hoy»). Las `proximas` no sirven para hoy: sólo traen las que todavía no se atendieron.
+ *   · De mañana al horizonte, las `proximas` de ese día.
+ *   · Antes de hoy y después del horizonte, `null`. El Resumen no consulta el pasado de la semana ni
+ *     más allá de `horizonte` días: dibujar un 0 ahí sería inventar un dato (ver
+ *     `HORIZONTE_PROXIMAS`).
+ *
+ * Las fechas son `YYYY-MM-DD` y la aritmética es la del calendario de Visitas (UTC sobre cadenas),
+ * así que el lunes de la tira es el mismo lunes que abre la vista Semana al hacer clic.
+ * └────────────────────────────────────────────────────────────────────────────────────────────┘
+ */
+export function tiraDeLaSemana(
+  proximas: readonly ConFechaEstimada[],
+  hoy: string,
+  cantidadHoy: number,
+  proximoDia: string | null,
+  horizonte: number,
+): DiaDeLaTira[] {
+  const lunes = lunesDe(proximoDia ?? hoy)
+  const hasta = sumarDias(hoy, horizonte)
+  return INICIALES.map((inicial, i) => {
+    const iso = sumarDias(lunes, i)
+    const cantidad = iso < hoy || iso > hasta ? null
+      : iso === hoy ? cantidadHoy
+      : proximas.filter((v) => v.estimated_date === iso).length
+    return { iso, inicial, cantidad, esHoy: iso === hoy, esProxima: iso === proximoDia }
+  })
 }

@@ -84,6 +84,14 @@ export interface NavTarget {
    * la visita simplemente no estaría cargada y no habría nada que abrir.
    */
   visitDate?: string
+  /**
+   * Con qué vista del calendario abrir Visitas. Sin él, la del Día —la única que abre una visita—, que
+   * es lo que pide todo el que manda `visitId`. Lo manda el KPI «Próximas visitas» del Resumen, que
+   * dibuja una semana y lleva a ESA semana (handoff `design_handoff_kpis_visitas`): llegar a un solo
+   * día después de mirar siete sería otro número que el de la tarjeta. Con `visitDate`, la semana que
+   * lo contiene.
+   */
+  visitView?: 'semana'
 }
 
 /**
