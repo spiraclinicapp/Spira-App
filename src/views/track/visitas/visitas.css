@@ -75,7 +75,7 @@
    (barra de 417 px) eran 110 px para el nombre, el año y la flechita: «Octubre» quedaba en «O…». El
    período es lo que se LEE; los botones se reconocen igual en un renglón aparte.
    650 px sale de medir la fecha más larga que puede tocar, «Miércoles 30 de septiembre 2026»: en un
-   renglón se corta hasta los 640 y entra desde los 660 (banco, 2026-10-13). */
+   renglón se corta hasta los 640 y entra desde los 660 (banco, 2026-10-12). */
 @container (max-width: 650px) {
   .vcal-tbar { grid-template-columns: auto 1fr; grid-template-areas: 'nav tabs' 'periodo periodo'; row-gap: 12px; }
   .vcal-nav { grid-area: nav; }
