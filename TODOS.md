@@ -503,6 +503,9 @@ desplegable (FK a `users`): la farmacéutica ejecuta pero no decide, y sin esa c
 
 ## Core · focus trap en `components/Modal.tsx` (y los primeros tests de componente)
 
+> **Tomado por `docs/plan-tutoriales.md` (tarea T5a, 2026-10-12):** el reproductor de tutoriales lo necesita, y se decidió
+> arreglarlo en `Modal.tsx` para toda la app. Tachar este ítem cuando se mergee esa tarea.
+
 - **Qué:** agregar trap de foco y devolución del foco al disparador en el `Modal` compartido, con
   `initialFocus` explícito para los casos que ya manejan el foco a mano.
 - **Por qué:** `src/components/Modal.tsx:34` sólo maneja Escape. `role="dialog"` y `aria-modal`

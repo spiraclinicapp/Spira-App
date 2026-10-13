@@ -42,9 +42,10 @@ Por recomendación:
 - **«Visto» en localStorage,** igual que las leídas de la campana (v2). Envuelto en try/catch.
 - **Preguntas frecuentes estáticas en el repo** (`src/ayuda/preguntas.ts`), con el patrón de
   `src/lib/glosario.ts`: versionadas con la pantalla que describen, revisadas en PR, sin migración.
-- **El centro de Ayuda es un `Drawer`** que se abre desde `AboutMenu` («Ayuda y tutoriales») y arranca
-  filtrado por el módulo donde estás parado. No es un módulo del registry: los módulos son áreas de
-  trabajo con roles, y la ayuda se abre encima de lo que estás haciendo. (Para `/plan-design-review`.)
+- **El centro de Ayuda es un `Drawer`** que se abre desde el **menú de usuario** («Ayuda y tutoriales»,
+  decisión del Director en `/plan-design-review`) y arranca filtrado por el módulo donde estás parado. No
+  es un módulo del registry: los módulos son áreas de trabajo con roles, y la ayuda se abre encima de lo
+  que estás haciendo. Ver «Diseño».
 - **Subida a Storage, en la v1, por el dashboard:** la fábrica deja una carpeta lista para arrastrar
   (`<id>/<versión>/`). Así no queda ninguna clave de prod en disco. La subida automática va a TODOS.
 
@@ -164,12 +165,12 @@ y dice «El demo está pausado: despausalo desde el dashboard de Supabase», no 
 ### En la app
 
 ```
-  AboutMenu ──«Ayuda y tutoriales»──► AyudaDrawer (lazy)
-                                       ├── Preguntas: buscador sin tildes + acordeón ──«Ver tutorial»──┐
-                                       └── Tutoriales: lista por módulo · duración · ✓ visto ──────────┤
-                                                                                                        ▼
+  UserMenu ──«Ayuda y tutoriales»──► AyudaDrawer (lazy)
+  CommandPalette ──chip «Ayuda»──────┤ ├── Preguntas (primero): buscador sin tildes + acordeón ──«Ver cómo se hace»──┐
+                                       └── Tutoriales: lista por módulo · duración · ✓ visto ────────────────────────┤
+                                                                                                                      ▼
   <AyudaTutorial id="dispensar" />  ──clic──► globo (foco adentro, Esc / clic afuera)          TutorialModal (lazy)
-     botón «▶» junto a la acción clave         ├── explicación (descripción del catálogo)     ├── <video preload="none" poster
+     píldora «▶ Cómo se hace 1:20»             ├── explicación (descripción del catálogo)     ├── <video preload="none" poster
                                                 ├── póster                                      │     controls crossOrigin="anonymous">
                                                 └── [Ver tutorial (1:20)] ─────────────────────►├── <track kind="captions" default>
                                                                                                 ├── transcripción plegable
@@ -183,6 +184,163 @@ y dice «El demo está pausado: despausalo desde el dashboard de Supabase», no 
 - La URL del video se arma en un solo lugar (`urlDelTutorial(id)`): base de Storage + `<id>/<versión>/` +
   archivo, con la versión tomada de `tutoriales.meta.json`.
 
+## Diseño (`/plan-design-review`, 2026-10-12)
+
+**Mock: [`docs/mock-tutoriales.html`](mock-tutoriales.html)** (tokens reales, datos ficticios; el panel de Ayuda
+responde de verdad). Se implementa **desde el mock**, no desde esta descripción. Si algo choca, manda el mock y
+se corrige el plan.
+
+### Decisiones
+
+| # | Qué | Elegido | Por qué |
+|---|---|---|---|
+| DD1 | Mocks | HTML con tokens reales en `docs/` | Convención de la casa; lo aprobado es lo que se construye |
+| DD3 | Entrada | **Fila «Ayuda y tutoriales» en el menú de usuario** (`helpCircle`), en grupo propio entre los ajustes y «Cerrar sesión» | Decisión del Director. Las otras tres filas abren Ajustes; esta abre el panel encima de lo que estás haciendo |
+| DD4 | Buscador | **Chip «Ayuda» en `CommandPalette`**: busca en preguntas y títulos de tutoriales | La ayuda aparece donde la gente ya busca; compensa que la entrada esté en un menú |
+| DD5 | Disparador en contexto | **Píldora «▶ Cómo se hace 1:20»** al lado del título de la vista, **una por pantalla** | Se entiende sin hover (tablet); la duración dice cuánto tiempo pide |
+| DD6 | Descubrimiento | **Entrada en Novedades + las píldoras.** Sin avisos emergentes ni tours | No interrumpe a nadie en medio de una visita; Sereno pide calma |
+| DD7 | Pestaña inicial | **Preguntas.** Desde «Todos los tutoriales» del globo abre en Tutoriales | La duda puntual se resuelve leyendo; cada respuesta enlaza a su video |
+
+Por recomendación: sin reproducción automática del siguiente; «Contanos» al pie del panel abre el Feedback con
+lugar; el panel arranca en el módulo actual con «Ver todos los módulos» (desde Inicio, o con un solo módulo,
+arranca en todos y el enlace no aparece).
+
+| # | Qué (segunda opinión de diseño, verificada en el código) | Elegido |
+|---|---|---|
+| DD8a | Capas | **Un solo dueño en `AppShell`** (ver «Capas y foco») |
+| DD8b | Búsqueda del panel | Con texto, busca en **las dos pestañas y todos los módulos**; cuentas en el control; vacío sólo si el total es 0 |
+| DD8c | Reproductor en tablet | Video **limitado por alto**; un solo quiebre en 1100 px; transcripción en caja propia; pantalla final fuera del `<video>` |
+| DD8d | Píldora | **La dibuja `AppShell`** al lado del `h1`, según el catálogo; se oculta si el video no está publicado |
+| DD9 | Foco del `Modal` | **Se arregla en `Modal.tsx` para toda la app** (foco inicial, trampa y devolución, como el `Drawer`). Cierra el TODO «Core · focus trap en `components/Modal.tsx`» |
+
+### Capas y foco
+
+Verificado: el fondo del `Drawer` lleva `backdropFilter` (`Drawer.tsx:129`), así que todo hijo `position: fixed`
+queda encerrado en sus 440px; `Modal` y `Drawer` comparten `--spira-z-drawer` (50); el globo vive en
+`--spira-z-popover` (300) y `usePopover` cierra con cualquier `mousedown` afuera. Por eso **nada se monta adentro
+de otra capa**:
+
+```
+  AppShell
+  └── AyudaProvider  (estado: panel {abierto, pestaña, alcance, búsqueda, preguntaAbierta}
+       │                     tutorial {id} | null · feedback {buscaba} | null)
+       ├── …la app (la píldora llama abrirGlobo; el globo es un popover suelto)
+       ├── AyudaDrawer        ← hermano
+       ├── TutorialModal      ← hermano, DESPUÉS del Drawer (le gana en el orden del DOM)
+       └── FeedbackModal      ← ya montado en el shell; recibe {buscaba}
+```
+
+Transiciones, una capa por vez:
+
+| Desde | Acción | Qué pasa |
+|---|---|---|
+| Globo | clic en el póster | cierra el globo → abre el reproductor; al cerrar, el foco vuelve a la **píldora** |
+| Globo | «Todos los tutoriales» | cierra el globo → abre el panel en Tutoriales |
+| Panel | una fila de tutorial / «Ver cómo se hace» | el panel **queda abierto debajo**; el reproductor arriba; al cerrar, el foco vuelve a **la fila** |
+| Panel | «Contanos» | el panel queda debajo; Feedback arriba, con el lugar = la vista de fondo y «Buscaba: "x"» precargado |
+| Reproductor | «Ver siguiente» | cambia de video en el mismo modal |
+| Paleta | resultado «Ayuda» (pregunta) | cierra la paleta → abre el panel en Preguntas con esa respuesta desplegada |
+| Paleta | resultado «Ayuda» (tutorial) | cierra la paleta → abre el reproductor |
+
+Esc cierra **sólo la capa de arriba** (el `Modal` frena la propagación; el globo nunca está abierto a la vez que el
+modal). Lo que se recuerda al cerrar y reabrir el panel dentro de la sesión: pestaña y alcance; la búsqueda no.
+
+### Piezas
+
+- **Dónde va la píldora:** la dibuja `AppShell`, **hermana** del `h1` (no adentro: si no, el nombre accesible del
+  título pasaría a ser «Dispensaciones Cómo se hace 1:20»), buscando el tutorial de la vista en el catálogo por
+  `"<modulo>/<sub>"` (`tutorialDeLaVista`). Sólo en la pantalla principal del submódulo, no en las sub-pantallas
+  con migas (el detalle de un paciente). No aparece si el tutorial no tiene versión publicada en el meta.
+- **Píldora** (`AyudaTutorial`): alto 30, radio pill, borde 1px `--spira-line-2`, fondo blanco, Inter 600 12.5px
+  tinta; disco de 18px en el acento del módulo con ▶ papel; duración en `muted` y `.spira-mono`. Hover y
+  abierta: levante de 1px + `--spira-shadow-hover` (nunca un borde de color).
+- **Globo:** ancho 300, blanco, borde `--spira-line-2`, radio 12, sombra **lg**, padding 14, flecha hacia la
+  píldora. Título Schibsted 700 14px; descripción 13px `muted` (dos o tres renglones, del catálogo); **el
+  póster 16:9 ES el botón** (disco de 44px en el acento + chip de duración), con nombre accesible «Ver el
+  tutorial X, 1 minuto 20 segundos»; pie con «✓ Ya lo viste» (si corresponde) y «Todos los tutoriales».
+- **Reproductor** (`TutorialModal` sobre `Modal`): hasta 920px de ancho. Encabezado: título H2 20px + chip del
+  módulo + ✕. Cuerpo: video 16:9 **limitado por alto** (`max-height: calc(100vh - 240px)`, el ancho sale del
+  16:9), así entra entero en una tablet apaisada de 1024×768. **Capítulos** (240px) a la derecha **desde 1100px**;
+  por debajo, una fila horizontal con desplazamiento bajo el video (un solo quiebre). Cada capítulo es un botón
+  «0:38 Escanear el lote» que salta a ese tiempo; el **actual** va en peso 600, el tiempo en tinta, una barrita
+  de progreso de 2px en el acento y `aria-current`. **Sin borde:** cambia solo con la reproducción, no lo elige
+  el usuario, así que no le corresponde la regla de selección persistente. Pie: «Leer la transcripción»
+  plegado, que se abre en **una caja propia con scroll** (`max-height` ~160px) para no empujar el video fuera de
+  la vista, y «Siguiente: …». `playsInline`. Subtítulos activados de entrada; el fondo tinta al 82 % (`::cue`)
+  es una mejora deseable, no una garantía (Safari lo ignora en parte).
+- **Pantalla final:** reemplaza el área del video (no se superpone a sus controles, y sobrevive a salir de la
+  pantalla completa nativa del iPad). Es el estado «al terminar» de la tabla de abajo.
+- **Panel de Ayuda** (`AyudaDrawer` sobre `Drawer`): 440px desde la derecha. Arriba: título «Ayuda» + ✕,
+  buscador (foco sobrio: sombra + levante), `SegmentedControl` Preguntas | Tutoriales (**`radiogroup`**, el de
+  hoy; con texto en el buscador muestra cuentas: «Preguntas 2 · Tutoriales 1») y la línea «Mostrando
+  **Farmacia** · Ver todos los módulos». Preguntas: acordeón de filas de 48px, la respuesta en 13px `muted`
+  con «▶ Ver cómo se hace 1:20» si tiene video. Tutoriales: agrupados por módulo (rótulo en mayúsculas +
+  «1 de 4 vistos»), filas de 64px con miniatura de 96px, título, una línea de qué enseña y, **al lado**, «✓
+  Visto». Pie fijo: «¿No está tu duda? Contanos». **El encabezado y el pie quedan fijos** y solo scrollea el
+  medio: hace falta sumar a `Drawer` los props `header` y `footer` (hoy todo scrollea junto).
+- **«Visto»** = el video terminó (`ended`) o se reprodujo ≥90 %. Abrirlo no alcanza.
+
+### Estados
+
+```
+  PIEZA            | CARGANDO                  | VACÍO                                  | ERROR                                   | ÉXITO / FIN
+  -----------------|---------------------------|----------------------------------------|-----------------------------------------|----------------------------------
+  Globo            | — (datos estáticos)       | — (sólo existe si hay tutorial)        | —                                       | «✓ Ya lo viste» si corresponde
+  Reproductor      | póster + spinner nativo   | —                                      | 404: «Este video todavía no está        | Al terminar: «Siguiente: X (1:45)»
+                   | del <video>               |                                        |   disponible» + la transcripción sigue  |   [Volver a ver] [Ver siguiente]
+                   |                           |                                        | Red: «No se pudo cargar el video.       |   sin cuenta regresiva
+                   |                           |                                        |   Revisá la conexión…» [Reintentar]     |
+  Panel · buscador | —                         | «No encontramos nada con "x"» + «Probá |                                         | filtra mientras tipeás, sin tildes
+                   |                           |   con otra palabra» + [Contanos qué     |                                         |
+                   |                           |   buscabas] (EmptyState)               |                                         |
+  Panel · módulo   | —                         | «Todavía no hay tutoriales de          |                                         |
+  sin tutoriales   |                           |   Coordinación. Las preguntas sí.»     |                                         |
+                   |                           |   + «Ver los de todos los módulos»     |                                         |
+  Último de la     |                           |                                        |                                         | Al terminar, sólo [Volver a ver]
+  lista            |                           |                                        |                                         |   y «Todos los tutoriales»
+  Panel / repro.   | esqueleto con el ancho    |                                        | el chunk lazy no baja (sin red):        |
+  (carga lazy)     |   final (440px / modal)   |                                        |   «No se pudo abrir la Ayuda. Probá de  |
+                   |                           |                                        |   nuevo.» [Reintentar]                  |
+  Póster / VTT 404 |                           |                                        | póster: el cuadro de papel liso con el  |
+  (video sí)       |                           |                                        |   disco; VTT: sin subtítulos, la        |
+                   |                           |                                        |   transcripción sigue                   |
+```
+
+### Recorrido
+
+```
+  PASO | QUIÉN HACE                                 | QUÉ SIENTE                    | LO SOSTIENE
+  -----|--------------------------------------------|-------------------------------|------------------------------------------
+  1    | Lee en Novedades «Ahora hay tutoriales»    | curiosidad, sin presión       | Novedades (ya existe), sin emergentes
+  2    | En Dispensaciones ve «▶ Cómo se hace 1:20» | «son 80 segundos, va»         | la duración en la píldora
+  3    | Abre el globo                              | sabe qué va a ver antes       | descripción de dos renglones + póster
+  4    | Mira el video                              | lo sigue sin perderse         | cursor visible, subtítulos, capítulos
+  5    | Termina                                    | completo, no empujado         | «Siguiente» ofrecido, sin autoplay
+  6    | Días después, duda puntual                 | quiere la respuesta ya        | buscador (chip Ayuda) o Preguntas primero
+  7    | No encuentra su duda                       | escuchado, no frustrado       | «Contanos» → Feedback con lugar
+```
+
+### Tablet y accesibilidad
+
+- **Tablet (768–1100):** el panel mantiene 440px; los capítulos pasan **abajo del video, en una fila
+  horizontal** con desplazamiento (quiebre único en 1100px); el video se limita por alto; el globo se reubica
+  con el flip de `usePopover`. Filas de 48px (preguntas) y
+  64px (tutoriales): por encima de los 44px de toque.
+- **Teclado:** la píldora es un `button` con `aria-expanded`/`aria-controls`; al abrir, el foco va al póster;
+  Tab recorre póster → «Todos los tutoriales»; Esc cierra la capa de arriba (modal antes que globo) y el foco
+  vuelve a quien abrió. El panel atrapa el foco (`Drawer`). Las pestañas son `role="tablist"` con flechas;
+  cada pregunta es un `button` con `aria-expanded`. Los capítulos son botones con nombre «Ir a 0:38, Escanear el
+  lote» y `aria-current` en el actual. Las pestañas son el `radiogroup` de `SegmentedControl` (flechas para
+  moverse), no un `tablist`. **El reproductor pone el foco inicial en el `<video>`** y lo devuelve a quien lo
+  abrió (DD9).
+- **Lector de pantalla:** el globo es `role="dialog"` con `aria-label` del título; el panel, `role="dialog"`
+  «Ayuda»; el reproductor, el `Modal` existente. La transcripción es la alternativa al medio (WCAG 1.2.x).
+- **Tema oscuro:** el mock es solo claro. Las piezas usan tokens, así que lo heredan; lo único fijo es lo que va
+  **sobre el video** (chip de duración, subtítulos, velo del póster), en tinta translúcida, igual en ambos temas.
+  Se verifica en QA con el tema oscuro puesto.
+- **Contraste:** todo texto de lectura en tinta o `muted` (nunca `faint`); el chip de duración sobre el póster va
+  sobre tinta al 78 %. **`prefers-reduced-motion`:** sin levante ni rotación del chevron.
+
 ## Etapas
 
 ### Etapa 1 — Recortada (D8)
@@ -192,14 +350,15 @@ y dice «El demo está pausado: despausalo desde el dashboard de Supabase», no 
    de otro origen (CORS). Lo que falle ahí decide el plan B **antes** de construir.
 1. **Ambiente demo:** config, guardia de tres cerrojos, resetear, semilla narrativa, sesión. El Director
    crea el proyecto (5 min) y completa `demo.env`.
-2. **Preguntas frecuentes en texto:** `AyudaDrawer` con la pestaña Preguntas y la entrada en `AboutMenu`.
+2. **Preguntas frecuentes en texto:** `AyudaDrawer` con la pestaña Preguntas, la fila en el menú de
+   usuario y el chip «Ayuda» en el buscador.
    Las primeras preguntas salen de lo que ya llegó por feedback con lugar.
 3. **Fábrica con una sola voz:** guion, cursor, TTS (un adaptador), línea de tiempo, VTT, mezcla y
    capturas.
 4. **Piloto:** propuesto **Farmacia › Dispensar una medicación** (corto, frecuente, con escritura, popover
    y modal; a confirmar por el Director). Prueba de nitidez a 1536×864 (la notebook de referencia).
 5. **Bucket `tutoriales`** (migración **0155**, aditiva) + `AyudaTutorial` + `TutorialModal` + pestaña
-   Tutoriales + el botón en Dispensaciones.
+   Tutoriales + la píldora en Dispensaciones.
 6. **`tutoriales:verificar`** y su paso en `cierre-jornada`.
 
 **Sale de la etapa 1:** el Director mira el piloto en la app y aprueba voz, ritmo y formato.
@@ -244,7 +403,10 @@ Si falla, ese tutorial se regraba en lote. Ninguna PR queda frenada por eso.
 | `title` → pista de papel global | `src/components/Pistas.tsx` | **No se toca** |
 | Contenido estático versionado | `src/lib/glosario.ts` | Patrón para `preguntas.ts`; las respuestas usan `<Termino>` |
 | Modal / Drawer | `src/components/Modal.tsx`, `Drawer.tsx` | Bases de `TutorialModal` y `AyudaDrawer` |
-| Menú con Novedades y Feedback | `src/shell/AboutMenu.tsx` | Entrada «Ayuda y tutoriales» |
+| Menú de usuario (filas con cajita tintada) | `src/shell/UserMenu.tsx` | Fila «Ayuda y tutoriales» (`helpCircle`) en grupo propio |
+| Buscador con chips por tipo | `src/shell/CommandPalette.tsx` | Chip «Ayuda»: preguntas y títulos de tutoriales |
+| Novedades | `src/shell/AboutMenu.tsx` | La entrada que anuncia la Ayuda el día que sale |
+| Pestañas / estado vacío | `src/components/SegmentedControl.tsx`, `EmptyState.tsx` | Preguntas | Tutoriales; vacío del buscador |
 | Feedback con lugar | `src/shell/FeedbackModal.tsx` | Fuente de las primeras preguntas frecuentes |
 | Orden de aplicación de migraciones | `scripts/banco-rls/base.mjs` | Lo reusa `resetear.mjs`. **La semilla de banco-rls NO** (ver arriba) |
 | Embed de YouTube | `src/shell/CoverVideo.tsx` | Referencia para el espejo futuro (no en v1) |
@@ -270,12 +432,12 @@ Si falla, ese tutorial se regraba en lote. Ninguna PR queda frenada por eso.
 
 ```
 CÓDIGO                                                   FLUJOS
-[+] scripts/demo/guardia.mjs                             [+] Ver un tutorial desde el botón ▶
+[+] scripts/demo/guardia.mjs                             [+] Ver un tutorial desde la píldora
   ├── refPermitido(dbUrl, viteUrl, demoRef)                ├── [navegador] clic abre el globo con foco adentro
   │   ├── [CRÍTICO] URL directa de prod → aborta           ├── [navegador] tablet (768): el toque en «Ver tutorial» llega
   │   ├── [CRÍTICO] pooler, host compartido, usuario       ├── [navegador] teclado: Tab llega al botón del globo
   │   │            postgres.<ref-prod> → aborta            ├── [navegador] Esc: primero el modal, después el globo
-  │   ├── VITE url ≠ DEMO_REF → aborta                     ├── [navegador] clic afuera cierra; el foco vuelve al ▶
+  │   ├── VITE url ≠ DEMO_REF → aborta                     ├── [navegador] clic afuera cierra; el foco vuelve a la píldora
   │   ├── sin SPIRA_DEMO=1 / vacía / malformada → aborta   └── [navegador] subtítulos visibles por defecto
   │   └── todo coincide → sigue
   └── centinela: falta en una base con datos → aborta    [+] Ayuda › Tutoriales / Preguntas
@@ -334,9 +496,9 @@ Sin brechas críticas: nada queda sin test, sin manejo y en silencio a la vez.
   demo va en otra organización gratuita.
 - **Mantenimiento de la semilla:** es código que acompaña a cada migración. Presupuestado en T2 y
   vigilado por `verificar`.
-- **`Modal.tsx` no atrapa el foco** (TODO existente: «Core · focus trap en `components/Modal.tsx`»).
-  `TutorialModal` lo hereda: con Tab se puede salir del modal a la página de atrás. No bloquea la v1,
-  pero si ese TODO se toma, este modal entra en su prueba.
+- **`Modal.tsx` no maneja el foco** (TODO existente: «Core · focus trap en `components/Modal.tsx`»). **Entra
+  a este plan (DD9, tarea T5a):** foco inicial, trampa y devolución en `Modal.tsx`, copiando el patrón del
+  `Drawer`. Toca todos los modales de la app, así que lleva una pasada de QA por los principales.
 
 ## Paralelización
 
@@ -366,39 +528,50 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
   - Surfaced by: D10 (segunda opinión #3, #4, #7)
   - Files: `scripts/demo/resetear.mjs`, `scripts/demo/semilla.mjs`, `package.json`
   - Verify: `npm run demo:resetear`; `npm run dev -- --mode demo` muestra solo datos ficticios creíbles
-- [ ] **T3 (P1, humano: ~1 día / CC: ~1 h)** — app — `AyudaDrawer` con Preguntas + `preguntas.ts` (+test) + entrada en `AboutMenu`
-  - Surfaced by: D8 (preguntas en texto antes que los videos)
-  - Files: `src/ayuda/AyudaDrawer.tsx`, `src/ayuda/preguntas.ts`, `src/ayuda/preguntas.test.ts`, `src/shell/AboutMenu.tsx`
-  - Verify: `npm run build` verde + navegador
+- [ ] **T3 (P1, humano: ~1,5 días / CC: ~1,5 h)** — app — `AyudaDrawer` con Preguntas + `preguntas.ts` (+test) + fila en el menú de usuario + chip «Ayuda» en el buscador + entrada en Novedades
+  - Surfaced by: D8 (preguntas en texto antes que los videos); DD3, DD4, DD6, DD7 del diseño
+  - Files: `src/ayuda/AyudaDrawer.tsx`, `src/ayuda/preguntas.ts`, `src/ayuda/preguntas.test.ts`, `src/shell/UserMenu.tsx`, `src/shell/CommandPalette.tsx`, `src/shell/search/*`, las Novedades
+  - Verify: `npm run build` verde + navegador contra `docs/mock-tutoriales.html` (recuadros 1 y 4): buscar «lote» filtra, «xyz» da el vacío, «Contanos» abre el Feedback
 - [ ] **T4 (P1, humano: ~2 días / CC: ~2 h)** — fábrica — guion, spec único, cursor, TTS (1 adaptador), línea de tiempo, VTT, mezcla, capturas, `tsconfig` propio
   - Surfaced by: D1, D8
   - Files: `tutoriales/playwright.config.ts`, `tutoriales/grabar.spec.ts`, `tutoriales/lib/*`, `tutoriales/tsconfig.json`, `package.json`
   - Verify: `npm run test`; `npm run tutoriales:grabar -- dispensar` deja `tutoriales/salida/dispensar/<versión>/`
-- [ ] **T5 (P1, humano: ~1 día / CC: ~40 min)** — app — `AyudaTutorial` (disclosure sobre `usePopover`) + `TutorialModal` + catálogo + `visto` + pestaña Tutoriales
-  - Surfaced by: D7
-  - Files: `src/ayuda/AyudaTutorial.tsx`, `src/ayuda/TutorialModal.tsx`, `src/ayuda/tutoriales.ts`, `src/ayuda/tutoriales.meta.json`, `src/ayuda/visto.ts`, tests
-  - Verify: `npm run build` + navegador: clic, tablet (768), teclado, Esc en capas, foco devuelto
+- [ ] **T5a (P1, humano: ~1 día / CC: ~1 h)** — core — Foco en `Modal.tsx`: inicial, trampa y devolución (patrón del `Drawer`) + QA de los modales principales
+  - Surfaced by: diseño DD9 (segunda opinión #2); cierra el TODO «Core · focus trap en `components/Modal.tsx`»
+  - Files: `src/components/Modal.tsx`, `TODOS.md` (tachar el ítem)
+  - Verify: `npm run build` + navegador: Tab no sale del modal; Esc devuelve el foco al disparador, en el reproductor, el Feedback y un modal de Dispensaciones
+- [ ] **T5 (P1, humano: ~1,5 días / CC: ~1 h)** — app — `AyudaProvider` en `AppShell` + píldora dibujada por el shell + `AyudaTutorial` (disclosure sobre `usePopover`) + `TutorialModal` + catálogo + `visto` + pestaña Tutoriales + `header`/`footer` en `Drawer`
+  - Surfaced by: D7; diseño DD5, DD8a-d
+  - Files: `src/ayuda/AyudaProvider.tsx`, `src/ayuda/AyudaTutorial.tsx`, `src/ayuda/TutorialModal.tsx`, `src/ayuda/tutoriales.ts`, `src/ayuda/tutoriales.meta.json`, `src/ayuda/visto.ts`, `src/shell/AppShell.tsx`, `src/components/Drawer.tsx`, tests
+  - Depende de: T5a, T3
+  - Verify: `npm run build` + navegador contra el mock (recuadros 2, 3 y 5): clic, tablet (768), teclado, Esc en capas, foco devuelto, los cuatro estados del reproductor
 - [ ] **T6 (P1, humano: ~4 h / CC: ~30 min)** — piloto — Guion de Dispensar + nitidez + migración 0155 (aditiva, va primero)
   - Surfaced by: D2, D9
-  - Files: `tutoriales/guiones/dispensar.ts`, `supabase/migrations/0155_bucket_tutoriales.sql`, `supabase/README.md`, el botón ▶ en Dispensaciones
+  - Files: `tutoriales/guiones/dispensar.ts`, `supabase/migrations/0155_bucket_tutoriales.sql`, `supabase/README.md`, la píldora «Cómo se hace» en Dispensaciones
   - Verify: el Director aplica la 0155, sube la carpeta y mira el piloto en la app
 - [ ] **T7 (P2, humano: ~2 h / CC: ~15 min)** — proceso — `tutoriales:verificar` (selector + captura) + paso en `cierre-jornada`
   - Surfaced by: D6, D10 (segunda opinión #8)
   - Files: `package.json`, `tutoriales/capturas/`, `.claude/skills/cierre-jornada/SKILL.md`
   - Verify: renombrar «Dispensar» en una rama → falla nombrando el paso; mover una columna → falla con el diff
-- [ ] **T8 (P2, etapa 2)** — contenido — Guiones de los flujos elegidos por el Director + sus botones ▶
+- [ ] **T8 (P2, etapa 2)** — contenido — Guiones de los flujos elegidos por el Director + sus píldoras «Cómo se hace»
+
+## Approved Mockups
+
+| Pantalla / pieza | Mock | Dirección | Notas |
+|---|---|---|---|
+| Las cinco piezas (menú de usuario, píldora y globo, reproductor, panel de Ayuda, estados) | [`docs/mock-tutoriales.html`](mock-tutoriales.html) · capturas en `~/.gstack/projects/spiraclinicapp-Spira-App/designs/tutoriales-20261012/` (`mock-1536.png`, `mock-768.png`) | Sereno: papel, borde antes que sombra, sombra `lg` sólo en lo que flota, una píldora por pantalla | El capítulo actual va sin borde (corregido tras la segunda opinión); el panel busca en las dos pestañas con cuentas |
 
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
-| Codex Review | `/codex review` | Independent 2nd opinion | 1 | issues_found (Claude subagent; Codex no instalado) | 10 hallazgos; 9 incorporados vía D7–D10, 1 (piloto manual con Clipchamp) descartado en D8 |
+| Codex Review | `/codex review` | Independent 2nd opinion | 2 | issues_found (Claude subagent; Codex no instalado) | Ingeniería: 10 hallazgos, 9 incorporados. Diseño: 8 hallazgos, todos incorporados (DD8a-d, DD9) |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 14 issues, 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR (FULL) | score: 4/10 → 9/10, 12 decisions |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
-- **CROSS-MODEL:** la segunda opinión dio vuelta tres decisiones de la revisión: D5 (el ⓘ tampoco admite un botón → D7, globo con foco), D4 (git → D9, Storage versionado) y la secuencia de la etapa 1 (→ D8, recortada con T0 primero). Además desmintió que la semilla de `banco-rls` sirviera para filmar (confirmado en `sembrar.mjs`).
-- **VERDICT:** ENG CLEARED — listo para implementar la etapa 1, empezando por T0. Recomendado antes de T5: `/plan-design-review` (globo, modal y Drawer de Ayuda).
+- **CROSS-MODEL:** en diseño, la segunda opinión encontró lo que la revisión no había visto: las capas (el `backdropFilter` del `Drawer` encierra a cualquier modal hijo; `Modal` y `Drawer` comparten z-index), el `Modal` sin manejo de foco, el `h1` que dibuja el shell (la vista no puede poner la píldora al lado) y la búsqueda que daba un vacío falso. Además corrigió el realce del capítulo actual. Todo verificado en el código e incorporado.
+- **VERDICT:** ENG + DESIGN CLEARED — listo para implementar la etapa 1, empezando por T0. Se implementa desde `docs/mock-tutoriales.html`.
 
 NO UNRESOLVED DECISIONS
