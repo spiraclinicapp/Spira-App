@@ -73,7 +73,7 @@ export function BarraPeriodo({ vista, fecha, conFinDeSemana, conteo, onVista, on
           </button>
         </div>
 
-        <div style={{ minWidth: 0 }}>
+        <div className="vcal-tbar-periodo" style={{ minWidth: 0 }}>
           <button
             ref={triggerRef}
             type="button"
