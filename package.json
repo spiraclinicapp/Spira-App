@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "tutoriales:instalar": "npm --prefix tutoriales ci",
+    "tutoriales:grabar": "npm --prefix tutoriales run grabar --",
+    "tutoriales:tipos": "npm --prefix tutoriales run typecheck",
     "demo:verificar": "node scripts/demo/verificar.mjs"
   },
   "dependencies": {

@@ -159,6 +159,9 @@
   .grupo .cuenta { font-size: 12px; color: var(--spira-muted); }
   .tut { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: center; width: 100%; text-align: left; border: 0; background: transparent; padding: 8px 10px; border-radius: 10px; min-height: 64px; cursor: pointer; }
   .tut:hover { background: var(--spira-surface); }
+  /* Sin esto el `display: grid` de arriba le gana al atributo `hidden` y el filtro no esconde nada
+     (lo pescó la primera grabación de prueba de la fábrica, 2026-10-13). */
+  .tut[hidden], .preg[hidden] { display: none; }
   .tut .mini { position: relative; width: 96px; aspect-ratio: 16/9; border-radius: 6px; border: 1px solid var(--spira-line); background: var(--spira-paper); overflow: hidden; }
   .tut .mini::after { content: ''; position: absolute; left: 8px; right: 8px; top: 8px; bottom: 8px; border-radius: 3px; background: var(--spira-white); border: 1px solid var(--spira-line); }
   .tut .mini span { position: absolute; right: 4px; bottom: 4px; z-index: 1; background: rgba(20,48,46,.78); color: #F4F1EA; font: 600 10px/1 var(--spira-font-text); padding: 3px 4px; border-radius: 4px; }

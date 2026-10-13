@@ -16,6 +16,12 @@ supabase/.branches/
 supabase/.temp/
 supabase/.env
 
+# Fábrica de tutoriales (docs/plan-tutoriales.md): los videos van a Storage, no al repo. Sí se versionan
+# los guiones, las capturas de referencia chicas (tutoriales/capturas/) y src/ayuda/tutoriales.meta.json.
+tutoriales/salida/
+tutoriales/.trabajo/
+tutoriales/.cache/
+
 # Brainstorm companion (mockups efímeros)
 .superpowers/
 
