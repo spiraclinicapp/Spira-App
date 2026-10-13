@@ -503,6 +503,9 @@ desplegable (FK a `users`): la farmacéutica ejecuta pero no decide, y sin esa c
 
 ## Core · focus trap en `components/Modal.tsx` (y los primeros tests de componente)
 
+> **Tomado por `docs/plan-tutoriales.md` (tarea T5a, 2026-10-12):** el reproductor de tutoriales lo necesita, y se decidió
+> arreglarlo en `Modal.tsx` para toda la app. Tachar este ítem cuando se mergee esa tarea.
+
 - **Qué:** agregar trap de foco y devolución del foco al disparador en el `Modal` compartido, con
   `initialFocus` explícito para los casos que ya manejan el foco a mano.
 - **Por qué:** `src/components/Modal.tsx:34` sólo maneja Escape. `role="dialog"` y `aria-modal`
@@ -1720,3 +1723,88 @@ Plan y decisiones: `docs/plan-resumen-tareas-en-el-mosaico.md`.
   que sí se hicieron, tarde.
 - **Depende de / bloqueado por:** el caso 1 (la tabla y el catálogo de motivos salen de ahí).
 - **Prioridad:** P2.
+
+---
+
+## Ayuda · espejo de los tutoriales en una lista de YouTube
+
+- **Qué:** subir los mp4 + vtt que deja la fábrica (`tutoriales/salida/<id>/<versión>/`) a una lista no
+  listada de YouTube, con los subtítulos cargados.
+- **Por qué:** para mandarle la lista a alguien que todavía no tiene cuenta en Spira (capacitación previa
+  al alta). Adentro de la app los videos se sirven desde Storage (D9 de `docs/plan-tutoriales.md`).
+- **Pros:** CDN gratis, se comparte con un enlace, sin cuenta.
+- **Contras:** cada regrabación es una resubida manual con ID nuevo; YouTube puede poner publicidad en
+  videos de canales chicos; la lista se desfasa de la app si nadie la resube.
+- **Contexto:** `/plan-eng-review` del 2026-10-12 (D4 → D9). `src/shell/CoverVideo.tsx` ya embebe YouTube
+  con la IFrame API, por si algún día se quiere el espejo también adentro.
+- **Empezar por:** decidir quién es dueño del canal (¿la Fundación?) y subir el piloto.
+- **Depende de / bloqueado por:** la etapa 2 del plan (tener varios videos).
+- **Prioridad:** P3.
+
+---
+
+## Ayuda · recorridos interactivos dentro de la app
+
+- **Qué:** globos que señalan los botones paso a paso sobre la pantalla real («mostrame dónde»), como
+  complemento de los videos.
+- **Por qué:** el video enseña antes de hacer; el recorrido acompaña mientras se hace.
+- **Pros:** sin video que mantener; la pantalla es la real.
+- **Contras:** se rompe con los cambios de pantalla igual que un guion, y corre sobre datos reales
+  (cuidado con no escribir nada). Otra pieza que mantener.
+- **Contexto:** opción C de D1 en `docs/plan-tutoriales.md` (2026-10-12), descartada como método
+  principal y anotada como complemento.
+- **Empezar por:** preguntarle al equipo, después del piloto, si los videos se usan y qué faltó.
+- **Depende de / bloqueado por:** la etapa 1 del plan y saber si los videos se usan.
+- **Prioridad:** P3.
+
+---
+
+## Ayuda · correr `tutoriales:verificar` en CI
+
+- **Qué:** que CI corra `npm run tutoriales:verificar` (reset del demo + guiones sin grabar + capturas
+  comparadas) en cada PR o una vez por semana.
+- **Por qué:** hoy lo corre el skill `cierre-jornada` (D6); una pantalla tocada en un hotfix se puede
+  escapar y el video queda viejo en silencio.
+- **Pros:** imposible mergear un cambio de pantalla filmada sin enterarse.
+- **Contras:** las claves del demo como secretos del repo (hoy viven en `%USERPROFILE%\.spira\demo.env`);
+  el demo gratuito se pausa a los 7 días, así que la PR sale roja por algo ajeno, salvo que se pague el
+  plan o haya un despertador semanal; suma 1-2 min por PR.
+- **Contexto:** D6 del `/plan-eng-review` del 2026-10-12.
+- **Empezar por:** un workflow semanal (no por PR), que ya mantiene despierto al demo.
+- **Depende de / bloqueado por:** T7 de `docs/plan-tutoriales.md`.
+- **Prioridad:** P3.
+
+---
+
+## Ayuda · ¿registro de capacitación? (vio el tutorial Y el día Z)
+
+- **Qué:** guardar en la base, auditable, qué usuario vio qué tutorial y cuándo.
+- **Por qué:** ICH-GCP pide documentar la capacitación del equipo; podría servir de respaldo ante un
+  monitor o ANMAT.
+- **Pros:** dato que hoy no existe; reemplazaría el «visto» en localStorage, que no viaja entre la PC y
+  la tablet.
+- **Contras:** **un video visto NO prueba competencia.** Presentarlo como capacitación roza la regla de
+  honestidad de datos de la app auditable: hay que nombrarlo por lo que es («visualizaciones»), o atarlo
+  a algo que sí pruebe (un cuestionario, una firma). Migración + RLS.
+- **Contexto:** surgió en el `/plan-eng-review` del 2026-10-12 de tutoriales. El «visto» de la v1 vive en
+  localStorage, como las leídas de la campana.
+- **Empezar por:** preguntarle a la Fundación qué acepta como evidencia de capacitación.
+- **Depende de / bloqueado por:** una decisión de la Fundación.
+- **Prioridad:** P3.
+
+---
+
+## Ayuda · subida automática de los videos a Storage
+
+- **Qué:** un `npm run tutoriales:publicar` que suba `tutoriales/salida/<id>/<versión>/` al bucket
+  `tutoriales` (0155), en vez de arrastrar la carpeta en el dashboard.
+- **Por qué:** con 15 videos regrabados en lote, arrastrar carpetas cansa y se presta a subir una versión
+  a la ruta equivocada (la app pediría una versión que no está y mostraría «Todavía no está disponible»).
+- **Pros:** publicar pasa a ser un comando; la ruta la arma el mismo código que la app.
+- **Contras:** escribir en Storage de prod desde la máquina. **No con la clave secreta en disco:** lo
+  seguro es una policy de `storage.objects` acotada al bucket `tutoriales` para gerencia, y el script
+  usando una sesión de esa cuenta.
+- **Contexto:** la v1 sube por el dashboard a propósito (`docs/plan-tutoriales.md`, «Por recomendación»).
+- **Empezar por:** la policy (migración aditiva, va primero) probada en `scripts/banco-rls/`.
+- **Depende de / bloqueado por:** T6 del plan y el volumen real de regrabaciones.
+- **Prioridad:** P3.

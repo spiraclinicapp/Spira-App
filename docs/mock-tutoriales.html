@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tutoriales y Ayuda · mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<!--
+  MOCK de `docs/plan-tutoriales.md` (revisión de diseño del 2026-10-12).
+
+  Es un TABLERO: cada recuadro numerado es una pieza del plan, dibujada con los tokens reales de
+  `src/styles/tokens.css` copiados a mano (el mock no inventa colores). Lo interactivo es chico y a
+  propósito: las pestañas del panel de Ayuda, el acordeón de preguntas y el buscador (con su estado
+  vacío) responden de verdad, para poder juzgar el ritmo y no solo la foto.
+
+  Los datos son FICTICIOS — los mismos de la semilla narrativa del demo. Ningún nombre es de un
+  paciente real.
+-->
+<style>
+  :root {
+    --spira-ink: #14302E; --spira-paper: #F4F1EA; --spira-surface: #FBFAF6; --spira-white: #FFFFFF;
+    --spira-muted: #61706C; --spira-faint: #838C89; --spira-line: #E4DECF; --spira-line-2: #D8CBB0;
+    --spira-primary: #0F5F57; --spira-pharma: #0F5F57; --spira-ok: #5C8A5A; --spira-danger: #A6483B;
+    --spira-on-accent: #F4F1EA;
+    --spira-shadow-sm: 0 1px 2px rgba(20,48,46,.06);
+    --spira-shadow-md: 0 12px 32px rgba(20,48,46,.10);
+    --spira-shadow-lg: 0 18px 40px rgba(20,48,46,.14);
+    --spira-shadow-hover: 0 4px 14px rgba(20,48,46,.12);
+    --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif;
+    --spira-font-text: 'Inter', system-ui, sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--spira-paper); color: var(--spira-ink); font: 400 14px/1.5 var(--spira-font-text); }
+  .tablero { max-width: 1240px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font: 700 28px/1.1 var(--spira-font-display); letter-spacing: -.02em; margin: 0 0 6px; }
+  .intro { color: var(--spira-muted); max-width: 760px; margin: 0 0 28px; }
+  .rotulo { font: 700 10.5px/1 var(--spira-font-text); letter-spacing: .16em; text-transform: uppercase; color: var(--spira-muted); margin: 36px 0 10px; }
+  .nota { color: var(--spira-muted); font-size: 13px; max-width: 760px; margin: 10px 0 0; }
+  .nota b { color: var(--spira-ink); font-weight: 600; }
+  .marco { position: relative; background: var(--spira-paper); border: 1px dashed var(--spira-line-2); border-radius: 16px; padding: 22px; overflow: hidden; }
+  .fila { display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }
+  .mono { font-variant-numeric: tabular-nums; }
+  svg.i { width: 15px; height: 15px; flex: 0 0 auto; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  button { font: inherit; color: inherit; }
+  .pulsable { transition: transform .14s ease, box-shadow .14s ease; cursor: pointer; }
+  .pulsable:hover { transform: translateY(-1px); box-shadow: var(--spira-shadow-hover); }
+  .pulsable:active { transform: none; box-shadow: none; }
+  :focus-visible { outline: 2px solid var(--spira-primary); outline-offset: 2px; }
+
+  /* —— 1. Menú de usuario —— */
+  .barra { height: 60px; background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 12px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 14px; }
+  .btn-icono { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: var(--spira-ink); }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--spira-primary); color: var(--spira-on-accent); display: grid; place-items: center; font: 700 12px var(--spira-font-text); }
+  .menu { width: 248px; background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 14px; box-shadow: var(--spira-shadow-lg); padding: 6px; margin: 8px 0 0 auto; }
+  .menu .sep { height: 1px; background: var(--spira-line); margin: 5px 4px; }
+  .menu-fila { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; background: transparent; border-radius: 9px; text-align: left; font-size: 13.5px; font-weight: 500; }
+  .menu-fila .caja { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: rgba(15,95,87,.08); color: var(--spira-primary); }
+  .menu-fila.nueva { background: var(--spira-surface); }
+  .menu-fila.peligro { color: var(--spira-danger); }
+  .menu-fila.peligro .caja { background: rgba(166,72,59,.08); color: var(--spira-danger); }
+
+  /* —— 2. Encabezado de vista + botón en contexto + globo —— */
+  .vista { background: var(--spira-paper); }
+  .vista-enc { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .vista-enc h2 { font: 700 24px/1.1 var(--spira-font-display); letter-spacing: -.02em; margin: 0; }
+  .como { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px 0 9px; border-radius: 999px; border: 1px solid var(--spira-line-2); background: var(--spira-white); color: var(--spira-ink); font: 600 12.5px/1 var(--spira-font-text); }
+  .como .play { width: 18px; height: 18px; border-radius: 50%; background: var(--spira-pharma); color: var(--spira-on-accent); display: grid; place-items: center; }
+  .como .play svg { width: 9px; height: 9px; fill: currentColor; stroke: none; margin-left: 1px; }
+  .como .dur { color: var(--spira-muted); font-weight: 500; }
+  .como[aria-expanded="true"] { box-shadow: var(--spira-shadow-hover); transform: translateY(-1px); }
+  .vista-sub { color: var(--spira-muted); margin: 6px 0 18px; }
+  .tabla-fake { background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 16px; height: 150px; }
+  .globo { position: absolute; top: 76px; left: 222px; width: 400px; background: var(--spira-white); border: 1px solid var(--spira-line-2); border-radius: 12px; box-shadow: var(--spira-shadow-lg); padding: 14px; }
+  .globo::before { content: ''; position: absolute; top: -6px; left: 34px; width: 10px; height: 10px; background: var(--spira-white); border-left: 1px solid var(--spira-line-2); border-top: 1px solid var(--spira-line-2); transform: rotate(45deg); }
+  .globo h3 { font: 700 14px/1.25 var(--spira-font-display); letter-spacing: -.01em; margin: 0 0 4px; }
+  .globo p { margin: 0 0 12px; color: var(--spira-muted); font-size: 13px; line-height: 1.45; }
+  .poster { position: relative; display: block; width: 100%; aspect-ratio: 16/9; border-radius: 9px; border: 1px solid var(--spira-line); overflow: hidden; background: var(--spira-paper); padding: 0; }
+  .poster .app { position: absolute; inset: 0; padding: 9px; display: grid; grid-template-columns: 22px 1fr; gap: 7px; }
+  .poster .riel { background: var(--spira-white); border-radius: 4px; }
+  .poster .cont { display: grid; grid-template-rows: 9px 1fr; gap: 6px; }
+  .poster .cont i { display: block; background: var(--spira-line); border-radius: 3px; width: 46%; }
+  .poster .cont b { display: block; background: var(--spira-white); border-radius: 5px; border: 1px solid var(--spira-line); }
+  .poster .velo { position: absolute; inset: 0; background: rgba(20,48,46,.18); display: grid; place-items: center; }
+  .poster .disco { width: 44px; height: 44px; border-radius: 50%; background: var(--spira-pharma); color: var(--spira-on-accent); display: grid; place-items: center; box-shadow: 0 4px 14px rgba(20,48,46,.25); }
+  .poster .disco svg { width: 16px; height: 16px; fill: currentColor; stroke: none; margin-left: 2px; }
+  .poster .chip-dur { position: absolute; right: 7px; bottom: 7px; background: rgba(20,48,46,.78); color: var(--spira-on-accent); font: 600 11px/1 var(--spira-font-text); padding: 4px 6px; border-radius: 6px; }
+  .globo-pie { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-size: 12.5px; }
+  .visto { display: inline-flex; align-items: center; gap: 5px; color: var(--spira-muted); }
+  .visto svg { color: var(--spira-ok); width: 14px; height: 14px; }
+  .enlace { color: var(--spira-primary); font-weight: 600; text-decoration: none; border: 0; background: none; padding: 0; cursor: pointer; }
+  .enlace:hover { text-decoration: underline; }
+
+  /* —— 3. Reproductor —— */
+  .backdrop { background: rgba(20,48,46,.32); border-radius: 16px; padding: 28px; }
+  .modal { max-width: 920px; margin: 0 auto; background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 16px; box-shadow: var(--spira-shadow-md); overflow: hidden; }
+  .modal-enc { display: flex; align-items: center; gap: 10px; padding: 14px 16px 14px 20px; border-bottom: 1px solid var(--spira-line); }
+  .modal-enc h3 { font: 700 20px/1.2 var(--spira-font-display); letter-spacing: -.02em; margin: 0; }
+  .chip-mod { font: 600 11.5px/1 var(--spira-font-text); padding: 5px 8px; border-radius: 999px; background: rgba(15,95,87,.10); color: var(--spira-pharma); }
+  .cerrar { margin-left: auto; width: 32px; height: 32px; border-radius: 9px; border: 0; background: transparent; display: grid; place-items: center; color: var(--spira-muted); cursor: pointer; }
+  .modal-cuerpo { display: grid; grid-template-columns: 1fr 240px; gap: 0; }
+  .video { position: relative; aspect-ratio: 16/9; background: var(--spira-paper); border-right: 1px solid var(--spira-line); }
+  .video .app { position: absolute; inset: 0; padding: 18px; display: grid; grid-template-columns: 44px 1fr; gap: 14px; }
+  .video .app .riel { background: var(--spira-white); border-radius: 8px; }
+  .video .app .cont { display: grid; grid-template-rows: 18px 1fr; gap: 12px; }
+  .video .app .cont i { display: block; background: var(--spira-line); border-radius: 5px; width: 38%; }
+  .video .app .cont b { display: block; background: var(--spira-white); border-radius: 10px; border: 1px solid var(--spira-line); }
+  .cursor { position: absolute; left: 58%; top: 46%; width: 18px; height: 18px; }
+  .pulso { position: absolute; left: calc(58% - 9px); top: calc(46% - 9px); width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(15,95,87,.45); }
+  .subtitulo { position: absolute; left: 50%; bottom: 48px; transform: translateX(-50%); background: rgba(20,48,46,.82); color: #F4F1EA; font: 500 15px/1.35 var(--spira-font-text); padding: 6px 12px; border-radius: 8px; max-width: 80%; text-align: center; }
+  .controles { position: absolute; left: 0; right: 0; bottom: 0; height: 38px; background: rgba(20,48,46,.55); display: flex; align-items: center; gap: 10px; padding: 0 12px; color: #fff; font: 600 12px var(--spira-font-text); }
+  .barra-t { flex: 1; height: 4px; border-radius: 4px; background: rgba(255,255,255,.4); position: relative; }
+  .barra-t::before { content: ''; position: absolute; inset: 0 62% 0 0; background: #fff; border-radius: 4px; }
+  .capitulos { padding: 14px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .capitulos .rotulo { margin: 0 6px 8px; }
+  .cap { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; border: 1px solid transparent; background: transparent; padding: 8px 8px; border-radius: 9px; font-size: 13px; cursor: pointer; }
+  .cap .t { color: var(--spira-muted); font-size: 12px; min-width: 32px; }
+  /* El actual NO lleva borde: cambia solo con la reproducción (no lo elige el usuario), así que no le toca la
+     regla de selección persistente. Peso + tiempo en tinta + barrita de progreso. */
+  .cap { position: relative; }
+  .cap.actual { font-weight: 600; }
+  .cap.actual .t { color: var(--spira-ink); }
+  .cap.actual::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: 2px; height: 2px; border-radius: 2px; background: var(--spira-line); }
+  .cap.actual::before { content: ''; position: absolute; left: 8px; width: 45%; bottom: 2px; height: 2px; border-radius: 2px; background: var(--spira-pharma); z-index: 1; }
+  .modal-pie { border-top: 1px solid var(--spira-line); padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+  .modal-pie details { flex: 1; }
+  .modal-pie summary { cursor: pointer; color: var(--spira-primary); font-weight: 600; font-size: 13px; }
+  .modal-pie details p { color: var(--spira-muted); font-size: 13px; margin: 8px 0 0; max-width: 620px; }
+  .fin { position: absolute; inset: 0; background: rgba(244,241,234,.94); display: grid; place-items: center; }
+  .fin-caja { text-align: center; max-width: 340px; }
+  .fin-caja .rotulo { margin: 0 0 8px; }
+  .fin-caja h4 { font: 700 18px/1.25 var(--spira-font-display); letter-spacing: -.01em; margin: 0 0 4px; }
+  .fin-caja p { color: var(--spira-muted); margin: 0 0 16px; font-size: 13px; }
+  .btn { height: 40px; padding: 0 16px; border-radius: 10px; font: 600 14px var(--spira-font-text); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .btn-prim { background: var(--spira-pharma); color: var(--spira-on-accent); border: 0; }
+  .btn-out { background: var(--spira-white); color: var(--spira-ink); border: 1px solid var(--spira-line-2); }
+
+  /* —— 4. Panel de Ayuda —— */
+  .escena { position: relative; height: 640px; background: var(--spira-paper); border-radius: 12px; overflow: hidden; }
+  .escena .fondo { position: absolute; inset: 0; padding: 20px; opacity: .55; }
+  .escena .fondo .tabla-fake { height: 100%; }
+  .escena .velo-d { position: absolute; inset: 0; background: rgba(20,48,46,.32); }
+  .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 440px; max-width: 100%; background: var(--spira-white); border-left: 1px solid var(--spira-line); box-shadow: var(--spira-shadow-md); display: flex; flex-direction: column; }
+  .d-enc { padding: 16px 16px 12px 22px; display: flex; align-items: center; gap: 10px; }
+  .d-enc h3 { font: 700 20px/1.2 var(--spira-font-display); letter-spacing: -.02em; margin: 0; }
+  .d-herr { padding: 0 22px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--spira-line); }
+  .buscar { display: flex; align-items: center; gap: 8px; height: 40px; border: 1px solid var(--spira-line-2); border-radius: 10px; padding: 0 12px; color: var(--spira-muted); background: var(--spira-white); }
+  .buscar input { border: 0; outline: 0; flex: 1; font: 400 14px var(--spira-font-text); color: var(--spira-ink); background: transparent; }
+  .buscar:focus-within { box-shadow: 0 5px 14px rgba(20,48,46,.10); transform: translateY(-1px); }
+  .seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--spira-surface); border: 1px solid var(--spira-line); border-radius: 10px; align-self: flex-start; }
+  .seg button { border: 0; background: transparent; height: 30px; padding: 0 12px; border-radius: 8px; font: 600 13px var(--spira-font-text); color: var(--spira-muted); cursor: pointer; }
+  .seg button[aria-selected="true"] { background: var(--spira-white); color: var(--spira-ink); box-shadow: var(--spira-shadow-sm); }
+  .alcance { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--spira-muted); }
+  .d-cuerpo { flex: 1; overflow: auto; padding: 6px 12px 12px; }
+  .grupo { margin: 12px 10px 4px; display: flex; justify-content: space-between; align-items: baseline; }
+  .grupo .rotulo { margin: 0; }
+  .grupo .cuenta { font-size: 12px; color: var(--spira-muted); }
+  .tut { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: center; width: 100%; text-align: left; border: 0; background: transparent; padding: 8px 10px; border-radius: 10px; min-height: 64px; cursor: pointer; }
+  .tut:hover { background: var(--spira-surface); }
+  .tut .mini { position: relative; width: 96px; aspect-ratio: 16/9; border-radius: 6px; border: 1px solid var(--spira-line); background: var(--spira-paper); overflow: hidden; }
+  .tut .mini::after { content: ''; position: absolute; left: 8px; right: 8px; top: 8px; bottom: 8px; border-radius: 3px; background: var(--spira-white); border: 1px solid var(--spira-line); }
+  .tut .mini span { position: absolute; right: 4px; bottom: 4px; z-index: 1; background: rgba(20,48,46,.78); color: #F4F1EA; font: 600 10px/1 var(--spira-font-text); padding: 3px 4px; border-radius: 4px; }
+  .tut .titulo { font-weight: 600; font-size: 13.5px; line-height: 1.3; }
+  .tut .meta { font-size: 12px; color: var(--spira-muted); margin-top: 3px; display: flex; gap: 8px; align-items: center; }
+  .preg { border-bottom: 1px solid var(--spira-line); margin: 0 10px; }
+  .preg button.q { display: flex; width: 100%; gap: 10px; align-items: center; text-align: left; border: 0; background: transparent; padding: 13px 0; min-height: 48px; font: 600 13.5px/1.35 var(--spira-font-text); cursor: pointer; }
+  .preg button.q svg { margin-left: auto; color: var(--spira-muted); transition: transform .14s ease; }
+  .preg button.q[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .preg .r { padding: 0 0 14px; color: var(--spira-muted); font-size: 13px; line-height: 1.5; }
+  .preg .r[hidden] { display: none; }
+  .preg .r .enlace { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; }
+  .d-pie { border-top: 1px solid var(--spira-line); padding: 12px 22px; font-size: 13px; color: var(--spira-muted); display: flex; align-items: center; gap: 8px; }
+  .vacio { text-align: center; padding: 40px 24px; }
+  .vacio .circ { width: 52px; height: 52px; border-radius: 14px; margin: 0 auto 12px; background: rgba(15,95,87,.08); color: var(--spira-primary); display: grid; place-items: center; }
+  .vacio .circ svg { width: 22px; height: 22px; }
+  .vacio h4 { font: 700 17px/1.25 var(--spira-font-display); margin: 0 0 4px; }
+  .vacio p { color: var(--spira-muted); margin: 0 0 12px; font-size: 13px; }
+
+  /* —— 5. Estados —— */
+  .estados { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .estado { background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 12px; overflow: hidden; }
+  .estado .cab { padding: 10px 12px; border-bottom: 1px solid var(--spira-line); font: 600 12.5px var(--spira-font-text); }
+  .estado .area { aspect-ratio: 16/9; background: var(--spira-paper); display: grid; place-items: center; text-align: center; padding: 16px; }
+  .estado .area p { margin: 6px 0 10px; color: var(--spira-muted); font-size: 13px; max-width: 220px; }
+  .estado .area strong { font-size: 14px; }
+
+  @media (max-width: 900px) {
+    .modal-cuerpo { grid-template-columns: 1fr; }
+    .video { border-right: 0; border-bottom: 1px solid var(--spira-line); }
+    .capitulos { flex-direction: row; overflow-x: auto; }
+    .capitulos .rotulo { display: none; }
+    .cap { white-space: nowrap; width: auto; }
+    .globo { left: 22px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pulsable, .preg button.q svg { transition: none; } .pulsable:hover { transform: none; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-retry" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-cursor" viewBox="0 0 24 24"><path d="M4 3l7 17 2.5-7.5L21 10z" fill="#14302E" stroke="#fff" stroke-width="1.5"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6A1.4 1.4 0 0 1 5.4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.4 18.4a9 9 0 0 0 0-12.8"/></symbol>
+  <symbol id="i-max" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+</svg>
+
+<main class="tablero">
+  <h1>Tutoriales y Ayuda</h1>
+  <p class="intro">Mock de <code>docs/plan-tutoriales.md</code>. Cinco piezas: la entrada en el menú de usuario, el botón
+    «Cómo se hace» en contexto con su globo, el reproductor, el panel de Ayuda y los estados. Tokens reales de
+    <code>tokens.css</code>; datos ficticios del demo. El panel (4) responde de verdad: pestañas, acordeón y buscador.</p>
+
+  <!-- 1 -->
+  <p class="rotulo">1 · Entrada: menú de usuario</p>
+  <div class="marco">
+    <div class="barra">
+      <span class="btn-icono"><svg class="i" style="width:18px;height:18px"><use href="#i-moon"/></svg></span>
+      <span class="btn-icono"><svg class="i" style="width:18px;height:18px"><use href="#i-bell"/></svg></span>
+      <span style="width:1px;height:26px;background:var(--spira-line);margin:0 4px"></span>
+      <span class="avatar">MR</span>
+    </div>
+    <div class="menu" role="menu" aria-label="Menú de usuario">
+      <div style="display:flex;gap:10px;align-items:center;padding:9px 9px 11px">
+        <span class="avatar">MR</span>
+        <div><div style="font-weight:600;font-size:13.5px">Mariana Ríos</div><div style="font-size:12px;color:var(--spira-muted)">farmacia@demo.spira</div></div>
+      </div>
+      <div class="sep"></div>
+      <button class="menu-fila" role="menuitem"><span class="caja"><svg class="i"><use href="#i-user"/></svg></span>Mi cuenta</button>
+      <button class="menu-fila" role="menuitem"><span class="caja"><svg class="i"><use href="#i-sliders"/></svg></span>Preferencias</button>
+      <button class="menu-fila" role="menuitem"><span class="caja"><svg class="i"><use href="#i-lock"/></svg></span>Equipo y accesos</button>
+      <div class="sep"></div>
+      <button class="menu-fila nueva" role="menuitem"><span class="caja"><svg class="i"><use href="#i-help"/></svg></span>Ayuda y tutoriales</button>
+      <div class="sep"></div>
+      <button class="menu-fila peligro" role="menuitem"><span class="caja"><svg class="i"><use href="#i-out"/></svg></span>Cerrar sesión</button>
+    </div>
+    <p class="nota"><b>Grupo propio</b> entre los ajustes y «Cerrar sesión»: no abre Ajustes como las tres de arriba, abre el
+      panel de Ayuda encima de lo que estás haciendo. (El fondo suave de la fila solo marca lo nuevo en este mock.)</p>
+  </div>
+
+  <!-- 2 -->
+  <p class="rotulo">2 · En contexto: «Cómo se hace» y su globo</p>
+  <div class="marco vista" style="min-height:470px">
+    <div class="vista-enc">
+      <h2>Dispensaciones</h2>
+      <button class="como pulsable" aria-expanded="true" aria-controls="globo-disp">
+        <span class="play"><svg><use href="#i-play"/></svg></span>Cómo se hace <span class="dur mono">1:20</span>
+      </button>
+    </div>
+    <p class="vista-sub">Pedidos de medicación de los estudios.</p>
+    <div class="tabla-fake"></div>
+
+    <div class="globo" id="globo-disp" role="dialog" aria-label="Dispensar una medicación">
+      <h3>Dispensar una medicación</h3>
+      <p>Elegís el pedido, escaneás el lote y confirmás la entrega. Si el lote no coincide, la app te frena antes.</p>
+      <div class="poster" style="cursor:default">
+        <span class="app"><span class="riel"></span><span class="cont"><i></i><b></b></span></span>
+        <span class="velo"><button class="disco pulsable" style="border:0" aria-label="Reproducir el tutorial Dispensar una medicación, 1 minuto 20 segundos"><svg><use href="#i-play"/></svg></button></span>
+        <span class="chip-dur mono">1:20</span>
+      </div>
+      <div class="globo-pie">
+        <span class="visto"><svg class="i"><use href="#i-check"/></svg>Ya lo viste</span>
+        <button class="enlace" style="display:inline-flex;align-items:center;gap:5px"><svg class="i" style="width:13px;height:13px"><use href="#i-max"/></svg>Ver en grande</button>
+      </div>
+    </div>
+  </div>
+  <p class="nota">
+      <b>Una píldora con palabras, no un ▶ suelto:</b> se lee qué hace sin pasar el mouse (en tablet no hay hover).
+      Va al lado del título de la vista, una sola por pantalla. Es la misma tarjeta que el tooltip (2b): play adentro, con sonido. Al abrir, el foco entra al play; Esc o un clic afuera
+      cierran y el foco vuelve a la píldora.</p>
+
+  <!-- 2b -->
+  <p class="rotulo">2b · El tutorial en el tooltip (con mouse): pausado → play con sonido → se fija</p>
+  <div class="fila">
+    <div class="marco vista" style="flex:1 1 520px;min-height:540px">
+      <p class="vista-sub" style="margin:0 0 12px">Sin fijar: apareció al apoyar el mouse en «Dispensar».</p>
+      <button class="btn btn-prim" style="height:36px">Dispensar</button>
+      <div class="globo tarjeta" style="top:118px;left:22px;width:400px" role="tooltip">
+        <h3>Dispensar</h3>
+        <p>Entrega la medicación del pedido elegido. Tenés que escanear el lote antes de confirmar.</p>
+        <div class="poster" style="cursor:default">
+          <span class="app"><span class="riel"></span><span class="cont"><i></i><b></b></span></span>
+          <span class="velo"><button class="disco pulsable" style="border:0" aria-label="Reproducir el tutorial Dispensar una medicación, 1 minuto 20 segundos"><svg><use href="#i-play"/></svg></button></span>
+          <span class="chip-dur mono">1:20</span>
+        </div>
+        <div class="globo-pie"><span class="visto"><svg class="i"><use href="#i-check"/></svg>Ya lo viste</span><button class="enlace" style="display:inline-flex;align-items:center;gap:5px"><svg class="i" style="width:13px;height:13px"><use href="#i-max"/></svg>Ver en grande</button></div>
+      </div>
+    </div>
+    <div class="marco vista" style="flex:1 1 520px;min-height:540px">
+      <p class="vista-sub" style="margin:0 0 12px">Fijada: le dio play; suena y no se va al sacar el mouse.</p>
+      <button class="btn btn-prim" style="height:36px">Dispensar</button>
+      <div class="globo tarjeta" style="top:118px;left:22px;width:400px" role="dialog" aria-label="Tutorial: Dispensar una medicación">
+        <button class="cerrar" style="position:absolute;top:8px;right:8px;width:28px;height:28px" aria-label="Cerrar y detener"><svg class="i"><use href="#i-x"/></svg></button>
+        <h3>Dispensar</h3>
+        <p>Entrega la medicación del pedido elegido. Tenés que escanear el lote antes de confirmar.</p>
+        <div class="poster" style="cursor:default">
+          <span class="app"><span class="riel"></span><span class="cont"><i></i><b></b></span></span>
+          <span class="subtitulo" style="bottom:34px;font-size:11.5px;padding:4px 8px">Elegí el pedido de la paciente y tocá «Dispensar».</span>
+          <span class="controles" style="height:28px;font-size:11px"><svg class="i" style="width:12px;height:12px;fill:#fff;stroke:none"><use href="#i-pause"/></svg><span class="mono">0:21 / 1:20</span><span class="barra-t"></span><svg class="i" style="width:13px;height:13px"><use href="#i-vol"/></svg></span>
+        </div>
+        <div class="globo-pie"><span class="visto" style="visibility:hidden">·</span><button class="enlace" style="display:inline-flex;align-items:center;gap:5px"><svg class="i" style="width:13px;height:13px"><use href="#i-max"/></svg>Ver en grande</button></div>
+      </div>
+    </div>
+  </div>
+  <p class="nota"><b>Una sola pieza</b> (<code>TarjetaTutorial</code>): ésta es la que sale como tooltip en el control clave del flujo, y la
+    misma que abre la píldora «Cómo se hace» en tablet y con teclado. Nunca arranca sola; el sonido empieza con el play.
+    «Ver en grande» pasa al reproductor (3) en el mismo segundo.</p>
+
+  <!-- 3 -->
+  <p class="rotulo">3 · El reproductor</p>
+  <div class="backdrop">
+    <div class="modal" role="dialog" aria-label="Dispensar una medicación">
+      <div class="modal-enc">
+        <h3>Dispensar una medicación</h3><span class="chip-mod">Farmacia</span>
+        <button class="cerrar" aria-label="Cerrar"><svg class="i" style="width:18px;height:18px"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="modal-cuerpo">
+        <div class="video">
+          <div class="app"><span class="riel"></span><span class="cont"><i></i><b></b></span></div>
+          <span class="pulso"></span><svg class="cursor"><use href="#i-cursor"/></svg>
+          <span class="subtitulo">Escaneá el código del lote. Si no coincide con el pedido, la app te avisa.</span>
+          <div class="controles"><svg class="i" style="fill:#fff;stroke:none"><use href="#i-play"/></svg><span class="mono">0:49 / 1:20</span><span class="barra-t"></span><span>CC</span></div>
+        </div>
+        <nav class="capitulos" aria-label="Capítulos">
+          <p class="rotulo">Capítulos</p>
+          <button class="cap"><span class="t mono">0:00</span>Entrar a Dispensaciones</button>
+          <button class="cap"><span class="t mono">0:14</span>Elegir el pedido</button>
+          <button class="cap actual" aria-current="true"><span class="t mono">0:38</span>Escanear el lote</button>
+          <button class="cap"><span class="t mono">1:02</span>Confirmar la entrega</button>
+        </nav>
+      </div>
+      <div class="modal-pie">
+        <details><summary>Leer la transcripción</summary>
+          <p>Desde Farmacia, entrá a Dispensaciones. Elegí el pedido de la paciente y tocá «Dispensar». Escaneá el código
+            del lote: si no coincide con el pedido, la app te avisa antes de seguir. Revisá las cantidades y confirmá la entrega.</p>
+        </details>
+        <span style="font-size:12.5px;color:var(--spira-muted)">Siguiente: <b style="color:var(--spira-ink);font-weight:600">Recepción de medicación</b></span>
+      </div>
+    </div>
+    <p class="nota" style="color:#F4F1EA;margin:14px auto 0;max-width:920px">Video primero; capítulos a la derecha (abajo y en horizontal en tablet); la transcripción plegada al pie.
+      Subtítulos activados de entrada. Sin autoplay del siguiente: se ofrece al terminar (ver 5).</p>
+  </div>
+
+  <!-- 4 -->
+  <p class="rotulo">4 · Panel de Ayuda (interactivo)</p>
+  <div class="escena">
+    <div class="fondo"><div class="tabla-fake"></div></div>
+    <div class="velo-d"></div>
+    <aside class="drawer" role="dialog" aria-label="Ayuda">
+      <div class="d-enc">
+        <h3>Ayuda</h3>
+        <button class="cerrar" aria-label="Cerrar"><svg class="i" style="width:18px;height:18px"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="d-herr">
+        <label class="buscar"><svg class="i"><use href="#i-search"/></svg><input id="q" placeholder="Buscá una pregunta o un tutorial" aria-label="Buscar en la Ayuda"></label>
+        <div class="seg" role="tablist" aria-label="Sección">
+          <button role="tab" aria-selected="true" data-tab="preg">Preguntas</button>
+          <button role="tab" aria-selected="false" data-tab="tut">Tutoriales</button>
+        </div>
+        <div class="alcance"><span>Mostrando <b style="color:var(--spira-ink)">Farmacia</b></span><button class="enlace" style="font-size:12.5px">Ver todos los módulos</button></div>
+      </div>
+      <div class="d-cuerpo">
+        <section data-panel="preg">
+          <div class="preg"><button class="q" aria-expanded="true">¿Cómo dispenso una medicación?<svg class="i"><use href="#i-down"/></svg></button>
+            <div class="r">Desde Farmacia › Dispensaciones elegís el pedido, escaneás el lote y confirmás. Si el lote no corresponde al pedido, la app no te deja seguir.<br>
+              <button class="enlace"><svg class="i" style="width:13px;height:13px;fill:currentColor;stroke:none"><use href="#i-play"/></svg>Ver cómo se hace <span class="mono" style="font-weight:500;color:var(--spira-muted)">1:20</span></button></div></div>
+          <div class="preg"><button class="q" aria-expanded="false">¿Qué hago si el lote escaneado no coincide?<svg class="i"><use href="#i-down"/></svg></button>
+            <div class="r" hidden>Revisá que sea la caja del estudio correcto. Si es la correcta y el código no se reconoce, avisale a quien administra el stock: puede tener otro código cargado.</div></div>
+          <div class="preg"><button class="q" aria-expanded="false">¿Puedo corregir una entrega ya confirmada?<svg class="i"><use href="#i-down"/></svg></button>
+            <div class="r" hidden>Sí, desde el detalle de la dispensación, con un motivo. La corrección queda registrada junto a la entrega original.</div></div>
+          <div class="preg"><button class="q" aria-expanded="false">¿Por qué no veo un estudio en Recepción?<svg class="i"><use href="#i-down"/></svg></button>
+            <div class="r" hidden>Recepción muestra los estudios con medicación cargada. Si falta uno, pedile a gerencia que revise su configuración.</div></div>
+        </section>
+        <section data-panel="tut" hidden>
+          <div class="grupo"><p class="rotulo">Farmacia</p><span class="cuenta mono">1 de 4 vistos</span></div>
+          <button class="tut"><span class="mini"><span class="mono">1:20</span></span><span><span class="titulo">Dispensar una medicación</span><span class="meta">Elegir, escanear y entregar<span class="visto"><svg class="i"><use href="#i-check"/></svg>Visto</span></span></span></button>
+          <button class="tut"><span class="mini"><span class="mono">1:45</span></span><span><span class="titulo">Recepción de medicación</span><span class="meta">Ingresar una entrega del sponsor</span></span></button>
+          <button class="tut"><span class="mini"><span class="mono">1:10</span></span><span><span class="titulo">Pedir reposición</span><span class="meta">Armar y enviar un pedido</span></span></button>
+          <button class="tut"><span class="mini"><span class="mono">0:55</span></span><span><span class="titulo">Leer el stock por lote</span><span class="meta">Vencimientos y existencias</span></span></button>
+        </section>
+        <section data-panel="vacio" hidden>
+          <div class="vacio">
+            <div class="circ"><svg class="i"><use href="#i-search"/></svg></div>
+            <h4>No encontramos nada con «<span id="qtxt"></span>»</h4>
+            <p>Probá con otra palabra, o contanos qué estabas buscando y lo sumamos.</p>
+            <button class="btn btn-out pulsable"><svg class="i"><use href="#i-msg"/></svg>Contanos qué buscabas</button>
+          </div>
+        </section>
+      </div>
+      <div class="d-pie"><svg class="i"><use href="#i-msg"/></svg>¿No está tu duda? <button class="enlace">Contanos</button></div>
+    </aside>
+  </div>
+  <p class="nota">Probá: cambiar de pestaña, abrir otra pregunta, buscar «recepción» (cuenta en las dos pestañas) o «xyz» (estado vacío). El panel
+    arranca en el módulo donde estás parado; «Ver todos los módulos» lo abre. «Contanos» abre el Feedback con lugar.</p>
+
+  <!-- 5 -->
+  <p class="rotulo">5 · Estados del reproductor</p>
+  <div class="estados">
+    <div class="estado"><div class="cab">Al terminar</div><div class="area"><div class="fin-caja" style="position:static">
+      <p class="rotulo" style="margin:0 0 6px">Siguiente</p><strong>Recepción de medicación</strong><p>1:45 · Farmacia</p>
+      <div style="display:flex;gap:8px;justify-content:center"><button class="btn btn-out" style="height:34px;font-size:13px"><svg class="i"><use href="#i-retry"/></svg>Volver a ver</button><button class="btn btn-prim" style="height:34px;font-size:13px">Ver siguiente</button></div></div></div></div>
+    <div class="estado"><div class="cab">Todavía no publicado (404)</div><div class="area"><div>
+      <strong>Este video todavía no está disponible</strong><p>Mientras tanto, la transcripción de abajo cuenta los mismos pasos.</p></div></div></div>
+    <div class="estado"><div class="cab">Sin conexión / error de red</div><div class="area"><div>
+      <strong>No se pudo cargar el video</strong><p>Revisá la conexión y probá de nuevo.</p>
+      <button class="btn btn-out" style="height:34px;font-size:13px"><svg class="i"><use href="#i-retry"/></svg>Reintentar</button></div></div></div>
+    <div class="estado"><div class="cab">Módulo sin tutoriales todavía</div><div class="area"><div>
+      <strong>Todavía no hay tutoriales de Coordinación</strong><p>Las preguntas frecuentes sí están.</p>
+      <button class="enlace">Ver los de todos los módulos</button></div></div></div>
+  </div>
+</main>
+
+<script>
+  /* Lo mínimo para juzgar el ritmo del panel: pestañas, acordeón y buscador con estado vacío. */
+  const tabs = document.querySelectorAll('[role="tab"]')
+  const paneles = { preg: document.querySelector('[data-panel="preg"]'), tut: document.querySelector('[data-panel="tut"]'), vacio: document.querySelector('[data-panel="vacio"]') }
+  let actual = 'preg'
+  const sinTildes = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  /* Con texto, busca en LAS DOS pestañas y muestra cuentas: el vacío sale sólo si el total es 0
+     (si no, buscar «recepción» parado en Preguntas decía «no encontramos nada» y el tutorial existía). */
+  function pintar() {
+    const crudo = document.getElementById('q').value.trim()
+    const q = sinTildes(crudo)
+    const cuenta = { preg: 0, tut: 0 }
+    paneles.preg.querySelectorAll('.preg').forEach((el) => { const ok = !q || sinTildes(el.textContent).includes(q); el.hidden = !ok; if (ok) cuenta.preg++ })
+    paneles.tut.querySelectorAll('.tut').forEach((el) => { const ok = !q || sinTildes(el.textContent).includes(q); el.hidden = !ok; if (ok) cuenta.tut++ })
+    tabs.forEach((t) => { t.textContent = (t.dataset.tab === 'preg' ? 'Preguntas' : 'Tutoriales') + (q ? ' ' + cuenta[t.dataset.tab] : '') })
+    const total = cuenta.preg + cuenta.tut
+    paneles.preg.hidden = actual !== 'preg' || total === 0
+    paneles.tut.hidden = actual !== 'tut' || total === 0
+    paneles.vacio.hidden = total !== 0
+    document.getElementById('qtxt').textContent = crudo
+  }
+  tabs.forEach((t) => t.addEventListener('click', () => {
+    actual = t.dataset.tab
+    tabs.forEach((x) => x.setAttribute('aria-selected', String(x === t)))
+    pintar()
+  }))
+  document.getElementById('q').addEventListener('input', pintar)
+  document.querySelectorAll('.preg button.q').forEach((b) => b.addEventListener('click', () => {
+    const abierta = b.getAttribute('aria-expanded') === 'true'
+    b.setAttribute('aria-expanded', String(!abierta))
+    b.nextElementSibling.hidden = abierta
+  }))
+</script>
+</body>
+</html>
