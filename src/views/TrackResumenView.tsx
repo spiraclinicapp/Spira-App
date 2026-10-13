@@ -8,7 +8,7 @@ import { CabeceraDeTarjeta, card, ChipDestino, DetalleConEstado, filaAncha, Fila
 import { GRAVEDAD, ordenarPorGravedad, severidadMaxima } from './alertSeverity'
 import { DESTINO_PENDIENTES, DESTINO_REPORTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
-import { proximoDiaConVisitas } from './resumen/proximoDia'
+import { proximoDiaConVisitas, visitasQueVienen } from './resumen/proximoDia'
 import { personaActiva } from '../lib/inscripcion'
 import { AMBITOS, esMiaSinAtender, esDeMisProtocolos, esReporteMio, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
 import type { Ambito } from './resumen/ambito'
@@ -172,7 +172,8 @@ function VerMas({ nombre, restantes, onClick }: { nombre: string; restantes: num
 
 /**
  * El pie "Ver más" que DESPLIEGA ahí mismo, para las tarjetas que no tienen una pantalla a la que
- * mandar: hoy, Dispensaciones solicitadas (viven en Farmacia, que quien coordina puede no tener).
+ * mandar: Dispensaciones solicitadas (viven en Farmacia, que quien coordina puede no tener) y, desde
+ * el 2026-10-12, Próximas visitas (ninguna pantalla junta "los próximos siete días").
  * Reportes pendientes también lo usaba hasta el 2026-10-04, cuando Coordinación ganó su pantalla
  * de Reportes y el pie pasó a ser el `VerMas` que navega.
  *
@@ -765,7 +766,13 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
      dice — el vacío es honesto y acotado, no un "no hay nada" sobre un rango indefinido.
 
      La regla vive en `proximoDiaConVisitas`, con test: elegir mal el día no rompe nada, dibuja
-     prolijamente la jornada equivocada. */
+     prolijamente la jornada equivocada.
+
+     DESDE EL 2026-10-12 ESTO ES SÓLO DEL KPI. La tarjeta de abajo dejó de mostrar una jornada y
+     lista la semana (`visitasQueVienen`): con un día de una sola visita quedaba en una fila pegada a
+     la cabecera aunque la semana viniera cargada. El KPI sigue en el próximo día porque su destino
+     es la pantalla Visitas en ESE día, y ahí el número que lleva tiene que coincidir con lo que se
+     ve al llegar. */
   const { dia: proximoDia, visitas: visitasDelProximoDia } =
     proximoDiaConVisitas(upcomingRows, todayISO())
 
@@ -773,7 +780,6 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
      «Ver más (12)» promete las que faltan de ESTA lista, y sin filtro la pantalla mostraba 42. */
   const irAAlertas = () => onNavigate?.('track', 'alertas', { estadoFilter: [...GRAVEDAD] })
   const nombrePendientes = nombreDeDestino(DESTINO_PENDIENTES)
-  const nombreVisitas = nombreDeDestino(KPI_DESTINOS.visitas)
   const nombreTareas = nombreDeDestino(DESTINO_TAREAS)
   const nombreReportes = nombreDeDestino(DESTINO_REPORTES)
   /* Cuántos PACIENTES muestra la pantalla de Reportes: SIN ámbito, porque ella no lo tiene (2A). El pie
@@ -859,7 +865,7 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
           │  (lo que hay que cerrar) │  (lo que estás esperando)│
           └──────────────────────────┼──────────────────────────┤
                  603 px              │ Próximas visitas         │
-                                     │  (quién viene, un día)   │
+                                     │  (quién viene, 7 días)   │
                                      └──────────────────────────┘
                                                 721 px
 
@@ -894,6 +900,11 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
         Y con eso se arregla lo que la versión de siete días tenía mal: era la única lista que crecía
         sin techo y empujaba a la de Dispensaciones fuera de vista cada semana cargada. Una jornada
         entra en tres filas.
+
+        TERCERA VUELTA (2026-10-12, Director): vuelve a los siete días, pero CON TECHO. Un día con una
+        sola visita dejaba la tarjeta en una fila pegada a la cabecera aunque la semana viniera
+        cargada. Ahora muestra las primeras tres de la semana, cada una con su día al margen, y el pie
+        despliega el resto ahí mismo — el techo de tres es el que evita lo de crecer sin límite.
 
         Que cada tarjeta sea un componente con nombre y esta grilla sean cuatro líneas es lo que hizo
         que sumar la quinta fuera una línea, no un rediseño.
@@ -989,17 +1000,12 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
               (solicitudes.data ?? []).length > 0)}
           />
           <ProximasVisitasCard
-            dia={proximoDia}
-            rows={visitasDelProximoDia}
+            rows={visitasQueVienen(upcomingRows, todayISO())}
             loading={upcoming.loading || coordinaciones.loading}
             error={upcoming.error}
             onReintentar={upcoming.refetch}
             onOpenVisit={onNavigate && ((visitId, visitDate) => onNavigate('track', 'visitas', { visitId, visitDate }))}
             onOpenPatient={abrirFicha}
-            /* Al MISMO día que muestra la tarjeta, no a "hoy": es lo que vuelve exacta la promesa
-               del pie. Sin `proximoDia` no hay a dónde ir y el pie no se dibuja. */
-            onVerMas={onNavigate && proximoDia ? () => onNavigate('track', 'visitas', { visitDate: proximoDia }) : undefined}
-            nombreDestino={nombreVisitas}
             vacioDelAmbito={avisoDeAmbito('No hay visitas próximas en tus protocolos.',
               (upcoming.data ?? []).length > 0)}
           />
@@ -1163,59 +1169,57 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
 }
 
 /**
- * Quién viene el PRÓXIMO DÍA con visitas. Una sola jornada, no siete.
+ * Quién viene en los PRÓXIMOS SIETE DÍAS: las tres más cercanas, y el resto a un clic.
  *
- * Tercera forma de esta tarjeta y conviene saber por qué, porque las tres fueron deliberadas:
+ * Cuarta forma de esta tarjeta y conviene saber por qué, porque las cuatro fueron deliberadas:
  * empezó como "Próximas visitas · 7 días" agrupadas por día, el 2026-09-05 pasó a "Por reprogramar"
- * (lo atrasado) y ese mismo día volvió a mirar hacia adelante, pero **en corto**. El motivo del
- * último giro: lo atrasado se muda a **Pendientes** como una clase de alerta más —donde
+ * (lo atrasado) y ese mismo día volvió a mirar hacia adelante, pero **en corto**: una sola jornada.
+ * El motivo de ese giro: lo atrasado se muda a **Pendientes** como una clase de alerta más —donde
  * `computed_status` ya resuelve la prioridad y sale UNA fila por visita en vez de dos tarjetas
  * mostrando la misma—, y acá vuelve a hacer falta la pregunta que ninguna otra tarjeta contesta:
  * quién viene.
  *
- * UN DÍA Y NO SIETE porque el Resumen resume: siete días agrupados era la única lista que crecía
- * sin techo, y empujaba a la de Dispensaciones fuera de vista cada semana cargada. Con una jornada
- * entran las tres filas de siempre y el pie manda al resto.
+ * VUELVE A LA SEMANA EL 2026-10-12 (Director): con una sola jornada, un día de UNA visita dejaba la
+ * tarjeta en una fila pegada a la cabecera, aunque el resto de la semana viniera cargado. Lo que la
+ * versión de siete días tenía mal —crecía sin techo y empujaba a Dispensaciones fuera de vista— lo
+ * resuelve el tope de `MAX_FILAS`, igual que en las otras tarjetas: tres filas y el pie dice cuántas
+ * faltan.
  *
- * EL DÍA LO ELIGE LA VISTA (`proximoDia`), no esta tarjeta: acá sólo se muestra el que le den. Y no
- * es "mañana" a secas — ver el comentario de la vista: mañana un viernes es sábado, y la tarjeta
- * quedaría vacía una vez por semana por diseño.
+ * EL DÍA VA EN CADA FILA, al margen derecho ("Mañana", "Miércoles 14/10"), y ya no en la cabecera:
+ * con varios días en pantalla es un dato de la visita, no de la tarjeta. La cabecera cuenta cuántas
+ * hay en la semana, como Dispensaciones cuenta sus pendientes.
  *
- * EL PIE NAVEGA, y por primera vez la promesa es exacta: va a Visitas del día CON ESE DÍA puesto,
- * así que la pantalla de destino muestra literalmente la lista que se estaba mirando. Las dos
- * versiones anteriores no podían decir eso — una prometía siete días que ninguna pantalla junta, la
- * otra atrasadas repartidas en semanas.
+ * EL PIE DESPLIEGA ACÁ MISMO (`VerMasLocal`) y no navega: no hay pantalla que muestre "los próximos
+ * siete días" —la Semana de Visitas es de lunes a domingo, otra ventana—, así que un pie que
+ * navegara prometería una lista que no existe del otro lado. Cada FILA sí navega: abre su visita en
+ * Visitas, en el día de la visita.
  */
-function ProximasVisitasCard({ dia, rows, loading, error, onReintentar, onOpenVisit, onOpenPatient, onVerMas, nombreDestino, vacioDelAmbito }: {
-  /** El día que se muestra, o `null` si no hay ninguno en el horizonte de la consulta. */
-  dia: string | null
-  /** Las visitas de ESE día, ya filtradas por la vista. */
+function ProximasVisitasCard({ rows, loading, error, onReintentar, onOpenVisit, onOpenPatient, vacioDelAmbito }: {
+  /** Las visitas posteriores a hoy dentro del horizonte de la consulta, ya ordenadas por fecha y
+   *  filtradas por ámbito (`visitasQueVienen`). */
   rows: TrackVisitRow[]
   loading: boolean
   error: string | null
   onReintentar: () => void
   onOpenVisit?: (visitId: string, visitDate?: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
-  onVerMas?: () => void
-  /** Cómo se llama el submódulo destino, leído del registry por la vista (ver `AlertasCard`). */
-  nombreDestino?: string | null
   /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
    *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
    *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
   vacioDelAmbito?: ReactNode
 }) {
-  const visibles = rows.slice(0, MAX_FILAS)
+  const [expandido, setExpandido] = useState(false)
+  const visibles = expandido ? rows : rows.slice(0, MAX_FILAS)
   const restantes = rows.length - visibles.length
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
       <CabeceraDeTarjeta
         icon="calendar"
         titulo="Próximas visitas"
-        /* QUÉ día, no "agrupadas por día": con una sola jornada en pantalla, el dato al margen que
-           sirve es cuál es. `dayLabel` dice "Mañana" cuando corresponde y el nombre del día
-           cuando no — que es justo la diferencia que hay que ver de un vistazo un viernes. */
-        extra={dia ? (
-          <span style={{ fontSize: 12.5, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>{dayLabel(dia)}</span>
+        extra={rows.length > 0 ? (
+          <span style={{ fontSize: 12, color: 'var(--spira-muted)', whiteSpace: 'nowrap' }}>
+            {rows.length} en 7 días
+          </span>
         ) : undefined}
       />
       <CuerpoDeTarjeta
@@ -1233,6 +1237,7 @@ function ProximasVisitasCard({ dia, rows, loading, error, onReintentar, onOpenVi
               key={v.id}
               visit={v}
               primera={i === 0}
+              cuando={v.estimated_date ? dayLabel(v.estimated_date) : undefined}
               /* Eje CLÍNICO, no operativo: estas visitas todavía no ocurrieron, así que "por
                  llegar" no querría decir nada. Sin la tira de indicadores por lo mismo: lo que la
                  visita lleva se mira cuando se la va a atender, no acá.
@@ -1250,8 +1255,8 @@ function ProximasVisitasCard({ dia, rows, loading, error, onReintentar, onOpenVi
           ))}
         </div>
       </CuerpoDeTarjeta>
-      {onVerMas && nombreDestino && rows.length > 0 && (
-        <VerMas nombre={nombreDestino} restantes={restantes} onClick={onVerMas} />
+      {(restantes > 0 || expandido) && (
+        <VerMasLocal restantes={restantes} expandido={expandido} onToggle={() => setExpandido((x) => !x)} />
       )}
     </div>
   )
