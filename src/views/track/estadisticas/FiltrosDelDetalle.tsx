@@ -25,7 +25,7 @@ const CATEGORIAS: { k: Categoria; label: string; icon: IconName }[] = [
 const puestos = (f: FiltrosDetalle) => CATEGORIAS.filter((c) => f[c.k]).length
 
 /**
- * El «Filtros» del detalle visita por visita, para el renglón que acompaña (`RenglonEstadisticas`).
+ * El «Filtros» del detalle visita por visita, para el renglón que acompaña (`components/RenglonIndice`).
  * Junta en un panel los cinco desplegables que ocupaban una caja entera al pie (coordinadora, estudio,
  * tipo, espera y día). Es el panel de Visitas (`visitas/PanelFiltros.tsx`) —mismas clases, mismo
  * comportamiento— con una diferencia de fondo: acá cada categoría admite UN valor, porque las reglas

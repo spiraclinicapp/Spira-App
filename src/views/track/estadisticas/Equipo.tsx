@@ -16,7 +16,7 @@ import type {
   ResultadoProyeccion, ResultadoTiempos, TonoDesvio,
 } from './agregadosEquipo'
 import { TIPO_VISITA_LABELS } from './tipoVisita'
-import { ALTO_RENGLON } from './RenglonEstadisticas'
+import { ALTO_RENGLON } from '../../../components/RenglonIndice'
 import {
   barFill, barTrack, chevron, chevronAbierto, dash, detalleInner, filaDetalle, filaExpandible,
   subLine, tabla, tablaWrap, td, tdNum, tfootTd, th,
@@ -447,7 +447,7 @@ export function DetalleVisitas({
   return (
     <>
       {/* Desde el 2026-10-12 los filtros no viven acá: coordinadora, estudio, tipo, espera, día y la
-          búsqueda están en el renglón que acompaña (`RenglonEstadisticas` + `FiltrosDelDetalle`), que
+          búsqueda están en el renglón que acompaña (`RenglonIndice` + `FiltrosDelDetalle`), que
           los muestra mientras se mira esta tabla. Acá queda lo que se lee junto a la tabla: cuántas
           quedan, QUÉ las está filtrando —las fichas, que se quitan una por una— y el orden, que no
           filtra nada: dice cómo se lee la lista de abajo. */}
