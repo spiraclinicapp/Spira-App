@@ -35,6 +35,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.107', text: 'Estadísticas de Farmacia lleva el período y el protocolo junto al título, y un índice al bajar.' },
     { version: '0.106', text: 'Estadísticas lleva el período junto al título y un índice que te acompaña al bajar.' },
     { version: '0.105', text: 'Visitas se ve por mes, semana o día, con filtros en un panel y la atención médica a mano.' },
     { version: '0.104', text: 'Las ayudas al pasar el mouse tienen el estilo de Spira, salen más rápido y también con el teclado.' },
