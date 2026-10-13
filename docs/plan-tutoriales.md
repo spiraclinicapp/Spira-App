@@ -113,7 +113,7 @@ export default guion('dispensar', {
 ```
   %USERPROFILE%\.spira\demo.env  (FUERA del repo: así anda desde cualquier worktree)
   ├── DEMO_REF=<ref del proyecto demo>
-  ├── VITE_SUPABASE_URL=https://<DEMO_REF>.supabase.co
+  ├── (la URL NO va: config.mjs la arma como https://<DEMO_REF>.supabase.co — un dato menos a mano)
   ├── VITE_SUPABASE_PUBLISHABLE_KEY=…
   ├── DEMO_SECRET_KEY=…        (clave secreta del DEMO: crear usuarios, generar sesiones)
   ├── DEMO_DB_URL=postgres://… (sólo el demo)
@@ -122,6 +122,7 @@ export default guion('dispensar', {
   scripts/demo/
   ├── config.mjs    ← lee el archivo de arriba; si falta, «Falta %USERPROFILE%\.spira\demo.env (ver docs/plan-tutoriales.md)»
   ├── guardia.mjs   ← tres cerrojos (abajo), antes de cualquier escritura
+  ├── verificar.mjs ← `npm run demo:verificar`: config + guardia + que las claves respondan, sin mostrar valores (T1)
   ├── resetear.mjs  ← base limpia + supabase/migrations/* en orden + bucket ip-docs + centinela + semilla
   └── semilla.mjs   ← semilla NARRATIVA (abajo)
 ```
@@ -131,7 +132,10 @@ export default guion('dispensar', {
 1. **Lista blanca, no lista negra.** El ref del proyecto tiene que ser `DEMO_REF`, mirando el host **y el
    usuario** de `DEMO_DB_URL`. En el pooler de Supabase el host es compartido entre proyectos
    (`aws-0-<región>.pooler.supabase.com`) y el ref viaja en el usuario (`postgres.<ref>`): una URL copiada
-   de prod pasaría un chequeo solo por host. Exige además `SPIRA_DEMO=1`.
+   de prod pasaría un chequeo solo por host. Exige además que lo lance un `npm run demo:…` (npm deja el nombre
+   en `npm_lifecycle_event`) o `SPIRA_DEMO=1` explícito. No va un `SPIRA_DEMO=1 node …` en `package.json`
+   porque esa sintaxis no anda en `cmd`. Lleva además el ref de prod escrito como lista negra encima de la
+   blanca (no es secreto: viaja en el bundle público).
 2. **Tabla centinela.** Después de conectar y antes de escribir: `select 1 from public.demo_centinela`.
    La crea `resetear.mjs` y **no es una migración**, así que en prod no existe nunca. Excepción única: la
    primera vez, con la base vacía (sin `public.users`), se permite crearla.
@@ -569,10 +573,10 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
   - Surfaced by: segunda opinión #5 (D8)
   - Files: `scratchpad` (descartable)
   - Verify: los cuatro chequeos con resultado anotado en este plan — **hecho el 2026-10-12, ver «Resultados de T0»**
-- [ ] **T1 (P1, humano: ~4 h / CC: ~30 min)** — demo — Config fuera del repo + guardia de tres cerrojos + tests
+- [x] **T1 (P1, humano: ~4 h / CC: ~30 min)** — demo — Config fuera del repo + guardia de tres cerrojos + tests
   - Surfaced by: D3, D10 (segunda opinión #2, #6)
-  - Files: `scripts/demo/config.mjs`, `scripts/demo/guardia.mjs`, `scripts/demo/*.test.ts`
-  - Verify: `npm run test`; con una URL de pooler de prod en `demo.env`, aborta antes de escribir
+  - Files: `scripts/demo/config.mjs`, `scripts/demo/guardia.mjs`, `scripts/demo/verificar.mjs`, `scripts/demo/*.test.ts`, `package.json` (`demo:verificar`)
+  - Verify: `npm run test`; con una URL de pooler de prod en `demo.env`, aborta antes de escribir — **hecho el 2026-10-13**: 29 tests (con una mutación que rompe la lectura del usuario del pooler, fallan 5, entre ellos el crítico); `npm run demo:verificar` pasa contra el demo real y corrido a mano con `node` lo frena la guardia; `npm run build` verde (1948 tests)
 - [ ] **T2 (P1, humano: ~3 días / CC: ~1 día)** — demo — Resetear + semilla narrativa con RPC reales + sesión por `generateLink`
   - Surfaced by: D10 (segunda opinión #3, #4, #7)
   - Files: `scripts/demo/resetear.mjs`, `scripts/demo/semilla.mjs`, `package.json`
