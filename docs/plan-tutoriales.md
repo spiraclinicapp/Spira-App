@@ -591,10 +591,16 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
     - El panel **no se carga diferido** (`React.lazy`): son unos pocos KB de texto, y la app no usa `lazy` en ningún lado. Estrenarlo sumaba un estado de error sin ganar nada. La carga diferida queda para el reproductor (T5).
     - La entrada en **Novedades** va en el ritual de cierre, con la versión (`src/lib/version.ts` se cura a mano al sacar release), no en esta PR.
     - `normalizar` (sin tildes) se mudó a `src/lib/texto.ts`, y el buscador global también dejó de distinguir tildes.
-- [ ] **T4 (P1, humano: ~2 días / CC: ~2 h)** — fábrica — guion, spec único, cursor, TTS (1 adaptador), línea de tiempo, VTT, mezcla, capturas, `tsconfig` propio
+- [x] **T4 (P1, humano: ~2 días / CC: ~2 h)** — fábrica — guion, spec único, cursor, TTS (1 adaptador), línea de tiempo, VTT, mezcla, capturas, `tsconfig` propio
   - Surfaced by: D1, D8
-  - Files: `tutoriales/playwright.config.ts`, `tutoriales/grabar.spec.ts`, `tutoriales/lib/*`, `tutoriales/tsconfig.json`, `package.json`
-  - Verify: `npm run test`; `npm run tutoriales:grabar -- dispensar` deja `tutoriales/salida/dispensar/<versión>/`
+  - Files: `tutoriales/package.json` (paquete propio), `tutoriales/playwright.config.ts`, `tutoriales/grabar.pw.ts`, `tutoriales/lib/*`, `tutoriales/guiones/prueba-mock.ts`, `tutoriales/tsconfig.json`, `package.json`, `.gitignore`
+  - Verify: `npm run test`; `npm run tutoriales:grabar -- dispensar` deja `tutoriales/salida/dispensar/<versión>/` — **hecho el 2026-10-13 con el guion de prueba**: `npm run tutoriales:grabar -- -g prueba-mock` grabó 15,3 s a 1536×864 (mp4 H.264 + AAC, 825 KB). Los cuadros del medio de cada subtítulo muestran lo que dice la voz, con el cursor dibujado. El audio está (−21 dB medio). 13 tests puros, y `npm run build` verde (1977).
+  - **Decisiones al implementar:**
+    - **Paquete propio** (`tutoriales/package.json`): Playwright y el ffmpeg de 80 MB no se descargan en el CI ni en Vercel. Los módulos puros (`vtt`, `lineaDeTiempo`, `wav`) no importan nada pesado y los testea el `vitest` de la app. El chequeo de tipos de la fábrica corre aparte, con `npm run tutoriales:tipos` (no en `npm run build`, que no instala la fábrica).
+    - **El spec es `grabar.pw.ts`, no `.spec.ts`**: el vitest de la app levanta todo `*.spec.ts` y reventaría importando Playwright.
+    - **Voz provisoria: Helena** (Windows, es-ES), gratis y sin claves. La voz final es un adaptador más en `lib/voz.ts`, elegido con `TUTORIALES_VOZ`. Hay caché por voz + texto en `tutoriales/.cache/voz/`.
+    - **Duración del WAV leyendo sus chunks** (`lib/wav.ts`): `ffmpeg-static` no trae `ffprobe`, y Windows mete chunks extra antes de `data`.
+    - **Queda para T6:** la app levantada contra el demo (`webServer` con `--mode demo`), la sesión por `storageState`, el cerrojo 3 de la guardia (`verificarBundle`) y la versión «recorte» para la tarjeta.
 - [ ] **T5a (P1, humano: ~1 día / CC: ~1 h)** — core — Foco en `Modal.tsx`: inicial, trampa y devolución (patrón del `Drawer`) + QA de los modales principales
   - Surfaced by: diseño DD9 (segunda opinión #2); cierra el TODO «Core · focus trap en `components/Modal.tsx`»
   - Files: `src/components/Modal.tsx`, `TODOS.md` (tachar el ítem)
