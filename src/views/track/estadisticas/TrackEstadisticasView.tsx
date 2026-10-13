@@ -22,8 +22,9 @@ import { avisoCaja, sectionHead, sectionHint, sectionRule, sectionTitle } from '
 import { TablaPorEstudio, TablaPorVisita } from './Tablas'
 import { DetalleVisitas, ModalVisita, Proyeccion, TablaCarga, TablaTiempos } from './Equipo'
 import { FiltrosDelDetalle } from './FiltrosDelDetalle'
-import { ALTO_RENGLON, RenglonEstadisticas } from './RenglonEstadisticas'
-import type { EntradaIndice } from './RenglonEstadisticas'
+import { ALTO_RENGLON, RenglonIndice } from '../../../components/RenglonIndice'
+import type { EntradaIndice } from '../../../components/RenglonIndice'
+import './estadisticas.css'
 
 /* Las anclas del índice del renglón: el `id` del título de cada sección. */
 const ANCLA = {
@@ -83,7 +84,7 @@ function Seccion({ id, titulo, hint, grande }: { id?: string; titulo: string; hi
  *
  * Los filtros (Director, 2026-10-12; mocks en `docs/design_handoff_estadisticas_filtros/`): el
  * PERÍODO va en la cabecera, junto al título, que el shell dibuja fuera del área que scrollea, así que
- * nunca se va. Debajo, el renglón que acompaña al bajar (`RenglonEstadisticas`): el índice de la
+ * nunca se va. Debajo, el renglón que acompaña al bajar (`RenglonIndice`, compartido con Farmacia): el índice de la
  * página y, mientras se mira el detalle, sus filtros. Antes eran dos barras —el período arriba y siete
  * controles al pie— que parecían la misma cosa sin serlo: el período mueve TODA la página y los otros
  * sólo el detalle. Ahora el lugar de cada uno dice su alcance.
@@ -201,18 +202,21 @@ export function TrackEstadisticasView({ module, onNavigate, setHeader }: ViewPro
 
   return (
     <div>
-      <RenglonEstadisticas
+      <RenglonIndice
         entradas={entradas}
-        idDetalle={conDetalle ? ANCLA.detalle : undefined}
-        detalle={conDetalle && (
-          <>
-            <FiltrosDelDetalle filas={d.detalle} filtros={filtros} setFiltros={setFiltros} acento={module.accentSolid} />
-            {/* El ancho lo pone la caja (`.est-buscar`, que se achica en angosto); el buscador la llena. */}
-            <span className="est-buscar">
-              <FilterSearch value={filtros.q} onChange={(q) => setFiltros({ ...filtros, q })} placeholder="Paciente, código o visita" minWidth={0} maxWidth={9999} />
-            </span>
-          </>
-        )}
+        local={conDetalle ? {
+          id: ANCLA.detalle,
+          rotulo: 'sólo esta tabla',
+          contenido: (
+            <>
+              <FiltrosDelDetalle filas={d.detalle} filtros={filtros} setFiltros={setFiltros} acento={module.accentSolid} />
+              {/* El ancho lo pone la caja (`.est-buscar`, que se achica en angosto); el buscador la llena. */}
+              <span className="est-buscar">
+                <FilterSearch value={filtros.q} onChange={(q) => setFiltros({ ...filtros, q })} placeholder="Paciente, código o visita" minWidth={0} maxWidth={9999} />
+              </span>
+            </>
+          ),
+        } : undefined}
       />
 
       {cortadas.length > 0 && (

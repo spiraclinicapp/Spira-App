@@ -1,6 +1,6 @@
 /**
  * ¿En qué sección está parado el que lee? La regla del índice del renglón de Estadísticas
- * (`RenglonEstadisticas`), aparte y con test: si queda al revés no se ve mal, se ve CASI bien —el
+ * (`components/RenglonIndice`, Coordinación y Farmacia), aparte y con test: si queda al revés no se ve mal, se ve CASI bien —el
  * índice marca la sección de al lado— y nadie lo reporta.
  *
  * Una sección "empezó" cuando su título pasó por debajo del renglón fijo: su borde de arriba quedó a

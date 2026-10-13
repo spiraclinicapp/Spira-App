@@ -8,7 +8,7 @@ import type { CSSProperties } from 'react'
  */
 
 /* La fila de filtros de arriba (`filtrosFila`) se fue el 2026-10-12: el período subió a la cabecera y
-   el renglón que acompaña la reemplaza (`RenglonEstadisticas`, `estadisticas.css`). La regla que la
+   el renglón que acompaña la reemplaza (`components/RenglonIndice`). La regla que la
    dejó sin borde abajo —«con la primera sección, doble raya» (Director, 2026-10-09)— la hereda la
    línea de avance del renglón, que por eso no tiene carril de fondo. */
 

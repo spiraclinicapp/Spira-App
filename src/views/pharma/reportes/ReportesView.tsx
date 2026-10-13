@@ -6,6 +6,8 @@ import type { MultiFilterOption } from '../../../components/MultiFilterMenu'
 import { Icon } from '../../../components/Icon'
 import { btnOutline, btnPrimary } from '../../../components/buttons'
 import { DateRangeField } from '../../../components/DateRangeField'
+import { ALTO_RENGLON, RenglonIndice } from '../../../components/RenglonIndice'
+import type { EntradaIndice } from '../../../components/RenglonIndice'
 import { useAuth } from '../../../lib/auth'
 import { formatAR } from '../../../lib/dates'
 import { toCsv, downloadCsv } from '../../../lib/csv'
@@ -48,8 +50,26 @@ import { avisoCaja, sectionHead, sectionHint, sectionRule, sectionTitle } from '
  *
  * PISO DE 1024px. Por debajo la pantalla no adivina un diseño que nunca se dibujó: avisa y ofrece
  * la descarga, que es la salida útil en un teléfono.
+ *
+ * LOS FILTROS (Director, 2026-10-12, «algo similar» a lo de Coordinación › Estadísticas): el período y
+ * el protocolo recortan TODO el informe —y salen impresos en el encabezado de cada hoja—, así que van
+ * en la cabecera, junto al título, que el shell dibuja fuera del área que scrollea: se cambian desde
+ * cualquier altura. Debajo, el renglón que acompaña (`RenglonIndice`, compartido con Coordinación):
+ * el índice de las secciones, una línea de avance y «Imprimir informe completo», que también vale para
+ * todo el informe y conviene tener a mano. Antes los tres vivían en una fila arriba de todo que se iba
+ * al bajar. La nota del recorte, el flujo de impresión y el piso de 1024 no cambiaron.
  */
-export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
+
+/* Las anclas del índice del renglón: el `id` del título de cada sección. */
+const ANCLA = {
+  resumen: 'rep-resumen',
+  evolucion: 'rep-evolucion',
+  protocolos: 'rep-protocolos',
+  medicamentos: 'rep-medicamentos',
+  ambulatorias: 'rep-ambulatorias',
+  detalle: 'rep-detalle',
+} as const
+export function ReportesView({ module, submodule, onNavigate, setHeader }: ViewProps) {
   const { profile } = useAuth()
 
   /* `module.key` y no `'track'` fijo: acá puede valer `pharma` (ver el comentario de cabecera de
@@ -289,6 +309,48 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
     setPreset('custom')
   }
 
+  /* El período y el protocolo, en la cabecera. Antes de los early-return: los hooks no se
+     condicionan, y además así se ven mientras el informe carga (es justo lo que se está cargando) y
+     cuando no hubo movimientos (que es cuando más se quiere cambiarlos). Bajo el piso de 1024 no se
+     muestran, como antes: ahí la pantalla sólo ofrece la descarga.
+     Las deps son todo lo que muestran: el elemento queda guardado en el estado del shell y no se
+     repinta por su cuenta (memoria `gotcha-elemento-congelado-en-estado`).
+     El período va neutro (sin el tinte del acento): siempre hay uno puesto, y teñido se leía como un
+     borde de color permanente. El protocolo queda como estaba (`MultiFilterMenu`): su tinte dice que
+     hay un recorte puesto, que es opcional. */
+  const opcionesKey = protoOptions.map((o) => o.value).join('|')
+  useEffect(() => {
+    setHeader?.(angosto ? null : {
+      content: (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <DateRangeField
+            accent={module.accentSolid}
+            desde={rango.desde}
+            hasta={rango.hasta}
+            onChange={elegirRango}
+            /* Los atajos viajan ADENTRO del calendario, como en Recepción (ver `atajos` en
+               DateRangeField): escriben el mismo desde/hasta que el calendario. */
+            atajos={([['30dias', '30 días'], ['mesEnCurso', 'Este mes'], ['anio', 'Año']] as const).map(([k, label]) => ({
+              label, activo: preset === k, onClick: () => elegirPreset(k),
+            }))}
+            neutro
+          />
+          <MultiFilterMenu
+            accent={module.accentSolid}
+            label="Protocolo"
+            icon="file"
+            options={protoOptions}
+            selected={protoSel}
+            onChange={setProtoSel}
+            searchPlaceholder="Buscar protocolo…"
+          />
+        </div>
+      ),
+    })
+    return () => setHeader?.(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setHeader, angosto, module.accentSolid, rango.desde, rango.hasta, preset, protoSel.join('|'), opcionesKey])
+
   /* ── Estados ─────────────────────────────────────────────────────────────── */
 
   if (angosto) {
@@ -355,20 +417,42 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
     && d.ingresos.recepciones === 0
     && ambEnRecorte.salidas === 0
 
+  /* El índice lista lo que HAY en la página: sin movimientos no hay secciones, y con un protocolo
+     elegido la ambulatoria sale del recorte entera (ver `enRecorteAmbulatorio`). */
+  const entradas: EntradaIndice[] = sinMovimientos ? [] : [
+    { id: ANCLA.resumen, label: 'Resumen' },
+    { id: ANCLA.evolucion, label: 'Evolución' },
+    { id: ANCLA.protocolos, label: 'Protocolos' },
+    { id: ANCLA.medicamentos, label: 'Medicamentos' },
+    ...(enRecorteAmbulatorio ? [{ id: ANCLA.ambulatorias, label: 'Ambulatorias' }] : []),
+    { id: ANCLA.detalle, label: 'Detalle' },
+  ]
+
   return (
     <div>
-      <Filtros
-        rango={rango}
-        preset={preset}
-        onPreset={elegirPreset}
-        onRango={elegirRango}
-        protoOptions={protoOptions}
-        protoSel={protoSel}
-        onProtocolos={setProtoSel}
-        accentSolid={module.accentSolid}
-        onImprimirTodo={() => imprimir('todo')}
-        puedeImprimir={puedeImprimir}
+      <RenglonIndice
+        entradas={entradas}
+        acciones={
+          <button
+            type="button"
+            onClick={() => imprimir('todo')}
+            disabled={!puedeImprimir}
+            title={motivoSinImprimir}
+            style={{ ...btnPrimary(module.accentSolid), opacity: puedeImprimir ? 1 : 0.5 }}
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <Icon name="printer" size={16} stroke={1.8} />
+              Imprimir informe completo
+            </span>
+          </button>
+        }
       />
+
+      <p style={aplicada}>
+        El recorte vale para todo el informe: cada reporte que imprimas sale con ese mismo período
+        y ese mismo filtro declarados en el encabezado de la hoja. El reporte de dispensaciones
+        declara sólo el período, como el formato acordado con la Fundación.
+      </p>
 
       {corte && (
         <Aviso>
@@ -390,7 +474,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
         />
       ) : (
         <>
-          <Seccion titulo="Resumen del período" hint="Cada indicador se imprime solo desde su ícono"
+          <Seccion id={ANCLA.resumen} titulo="Resumen del período" hint="Cada indicador se imprime solo desde su ícono"
             reporte="resumen" que="el resumen del período" onImprimir={imprimir} puedeImprimir={puedeImprimir} motivo={motivoSinImprimir} />
 
           <Resumen
@@ -406,21 +490,22 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
             motivo={motivoSinImprimir}
           />
 
-          <Seccion titulo="Evolución y composición" reporte="evolucion" que="la evolución diaria" onImprimir={imprimir} puedeImprimir={puedeImprimir} motivo={motivoSinImprimir} />
+          <Seccion id={ANCLA.evolucion} titulo="Evolución y composición" reporte="evolucion" que="la evolución diaria" onImprimir={imprimir} puedeImprimir={puedeImprimir} motivo={motivoSinImprimir} />
           <div style={chartRow}>
             <GraficoDiario serie={d.serie} />
             <Composicion protocolos={d.protocolos} kits={d.totales.kits} unidades={d.totales.unidades} />
           </div>
 
-          <Seccion titulo="Dispensaciones por protocolo" reporte="protocolos" que="las dispensaciones por protocolo" onImprimir={imprimir} puedeImprimir={puedeImprimir} motivo={motivoSinImprimir} />
+          <Seccion id={ANCLA.protocolos} titulo="Dispensaciones por protocolo" reporte="protocolos" que="las dispensaciones por protocolo" onImprimir={imprimir} puedeImprimir={puedeImprimir} motivo={motivoSinImprimir} />
           <TablaProtocolos filas={d.protocolos} total={d.totales} />
 
-          <Seccion titulo="Medicamentos más dispensados" reporte="medicamentos" que="los medicamentos más dispensados" onImprimir={imprimir} puedeImprimir={puedeImprimir} motivo={motivoSinImprimir} />
+          <Seccion id={ANCLA.medicamentos} titulo="Medicamentos más dispensados" reporte="medicamentos" que="los medicamentos más dispensados" onImprimir={imprimir} puedeImprimir={puedeImprimir} motivo={motivoSinImprimir} />
           <TablaMedicamentos filas={d.medicamentos} totalUnidades={d.totales.unidades} />
 
           {enRecorteAmbulatorio && (
             <>
               <Seccion
+                id={ANCLA.ambulatorias}
                 titulo="Salidas ambulatorias"
                 hint={`${formatNumberAR(ambEnRecorte.salidas)} ${ambEnRecorte.salidas === 1 ? 'salida' : 'salidas'} · ${formatNumberAR(ambEnRecorte.unidades)} u. en el período`}
                 reporte="ambulatorias"
@@ -433,7 +518,7 @@ export function ReportesView({ module, submodule, onNavigate }: ViewProps) {
             </>
           )}
 
-          <div style={sectionHead}>
+          <div id={ANCLA.detalle} style={{ ...sectionHead, scrollMarginTop: ALTO_RENGLON }}>
             <h2 style={sectionTitle}>Detalle de dispensaciones</h2>
             <div style={sectionRule} />
             <div style={sectionHint}>
@@ -499,71 +584,9 @@ function armarIndicadores(
   ]
 }
 
-function Filtros({
-  rango, preset, onPreset, onRango, protoOptions, protoSel, onProtocolos, accentSolid,
-  onImprimirTodo, puedeImprimir,
-}: {
-  rango: { desde: string; hasta: string }
-  preset: Preset
-  onPreset: (p: Exclude<Preset, 'custom'>) => void
-  onRango: (desde: string, hasta: string) => void
-  protoOptions: MultiFilterOption[]
-  protoSel: string[]
-  onProtocolos: (next: string[]) => void
-  accentSolid: string
-  onImprimirTodo: () => void
-  puedeImprimir: boolean
-}) {
-  return (
-    <>
-      <div style={filtrosFila}>
-        <DateRangeField
-          accent={accentSolid}
-          desde={rango.desde}
-          hasta={rango.hasta}
-          onChange={onRango}
-          /* Los atajos viajan ADENTRO del calendario, como en Recepción (ver `atajos` en
-             DateRangeField): escriben el mismo desde/hasta que el calendario. */
-          atajos={([['30dias', '30 días'], ['mesEnCurso', 'Este mes'], ['anio', 'Año']] as const).map(([k, label]) => ({
-            label, activo: preset === k, onClick: () => onPreset(k),
-          }))}
-        />
-
-        <span style={{ width: 1, height: 24, background: 'var(--spira-line)' }} />
-
-        <MultiFilterMenu
-          accent={accentSolid}
-          label="Protocolo"
-          icon="file"
-          options={protoOptions}
-          selected={protoSel}
-          onChange={onProtocolos}
-          searchPlaceholder="Buscar protocolo…"
-        />
-
-        <button
-          type="button"
-          onClick={onImprimirTodo}
-          disabled={!puedeImprimir}
-          style={{ ...btnPrimary(accentSolid), marginLeft: 'auto', opacity: puedeImprimir ? 1 : 0.5 }}
-        >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <Icon name="printer" size={16} stroke={1.8} />
-            Imprimir informe completo
-          </span>
-        </button>
-      </div>
-
-      <p style={aplicada}>
-        El recorte vale para todo el informe: cada reporte que imprimas sale con ese mismo período
-        y ese mismo filtro declarados en el encabezado de la hoja. El reporte de dispensaciones
-        declara sólo el período, como el formato acordado con la Fundación.
-      </p>
-    </>
-  )
-}
-
-function Seccion({ titulo, hint, reporte, que, onImprimir, puedeImprimir, motivo }: {
+function Seccion({ id, titulo, hint, reporte, que, onImprimir, puedeImprimir, motivo }: {
+  /** El ancla del índice del renglón (ver `ANCLA`). */
+  id: string
   titulo: string
   hint?: string
   reporte: string
@@ -573,7 +596,7 @@ function Seccion({ titulo, hint, reporte, que, onImprimir, puedeImprimir, motivo
   motivo?: string
 }) {
   return (
-    <div style={sectionHead}>
+    <div id={id} style={{ ...sectionHead, scrollMarginTop: ALTO_RENGLON }}>
       <h2 style={sectionTitle}>{titulo}</h2>
       <div style={sectionRule} />
       {hint && <div style={sectionHint}>{hint}</div>}
@@ -593,13 +616,10 @@ function Aviso({ children }: { children: React.ReactNode }) {
 
 /* ── Estilos locales ─────────────────────────────────────────────────────────── */
 
-/* Sin borde abajo, igual que su gemela de Coordinación (Director, 2026-10-09): con la línea de
-   «Resumen del período» unos renglones más abajo, el encabezado quedaba rayado dos veces. */
-const filtrosFila: CSSProperties = {
-  display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-  padding: '2px 0 0', marginBottom: 12,
-}
-
+/* La fila de filtros de arriba (`filtrosFila`) se fue el 2026-10-12: el período y el protocolo
+   subieron a la cabecera y «Imprimir informe completo» al renglón que acompaña (`RenglonIndice`). Su
+   regla —sin borde abajo, o con «Resumen del período» quedaba doble raya (2026-10-09)— la hereda la
+   línea de avance del renglón, que por eso no tiene carril de fondo. */
 
 /**
  * La nota del recorte, a lo ANCHO. Tenía un tope de 92ch —696px medidos— que la partía en TRES
@@ -612,7 +632,9 @@ const filtrosFila: CSSProperties = {
  * texto a ~205 caracteres y el copy se deja como está (decisión del Director, 2026-08-31).
  */
 const aplicada: CSSProperties = {
-  fontSize: 12, color: 'var(--spira-ink-soft)', margin: '0 0 16px', lineHeight: 1.55,
+  /* 6 px arriba: debajo del renglón que acompaña quedaba pegada a su borde (medido 0); con los 10 de
+     padding del renglón suman los 16 que la separaban de la fila de filtros de antes. */
+  fontSize: 12, color: 'var(--spira-ink-soft)', margin: '6px 0 16px', lineHeight: 1.55,
 }
 
 const chartRow: CSSProperties = {
