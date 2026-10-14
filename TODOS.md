@@ -501,8 +501,13 @@ desplegable (FK a `users`): la farmacéutica ejecuta pero no decide, y sin esa c
 
 ---
 
-## Core · focus trap en `components/Modal.tsx` (y los primeros tests de componente)
+## ~~Core · focus trap en `components/Modal.tsx` (y los primeros tests de componente)~~ — HECHO el 2026-10-13 (T5a del plan de tutoriales)
 
+> **Hecho en T5a (`docs/plan-tutoriales.md`).** Foco inicial, trampa y devolución en `Modal.tsx`; las reglas
+> en `src/components/reglasDeFoco.ts`, con tests puros en lugar del test de componente que se proponía abajo.
+> El riesgo del lector de códigos se cubre con dos reglas: un `autoFocus` de adentro se respeta, y el foco
+> no se devuelve si quien cerró ya lo puso en otro lado (el escáner).
+>
 > **Tomado por `docs/plan-tutoriales.md` (tarea T5a, 2026-10-12):** el reproductor de tutoriales lo necesita, y se decidió
 > arreglarlo en `Modal.tsx` para toda la app. Tachar este ítem cuando se mergee esa tarea.
 

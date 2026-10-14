@@ -602,7 +602,7 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
       - `sesion.mjs` guarda la entrada tal como la escribe supabase-js, en `%USERPROFILE%\.spira\demo-sesiones\<cuenta>.json`, fuera del repo como `demo.env`.
       - `entrarComo(context, cuenta)` (`tutoriales/lib/sesion.ts`) la pone con `addInitScript`, sólo si no hay una.
       - El refresh token es de un solo uso: se regenera en cada reset, y cada guion arranca de uno.
-    - **`npm run demo:app`** levanta la app contra el demo en el 5252: el `webServer` de T6 y la forma de mirarla a mano.
+    - **`npm run demo:app`** levanta la app contra el demo en el 5290 (el 5252 del primer intento chocaba con el Vite de otra sesión): el `webServer` de T6 y la forma de mirarla a mano.
       - `npm run dev -- --mode demo` solo no alcanza, porque no hay `.env.demo` y Vite completaría con el `.env` de prod.
       - Inyecta las variables en el entorno del proceso y comprueba en el módulo servido que la URL sea la del demo, sin el ref de prod.
     - El GTIN usa el prefijo GS1 `200` (uso interno, no se asigna a empresas) con el verificador bien calculado. El de la receta (`…457`) tenía mal el dígito.
@@ -627,10 +627,23 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
     - **Voz provisoria: Helena** (Windows, es-ES), gratis y sin claves. La voz final es un adaptador más en `lib/voz.ts`, elegido con `TUTORIALES_VOZ`. Hay caché por voz + texto en `tutoriales/.cache/voz/`.
     - **Duración del WAV leyendo sus chunks** (`lib/wav.ts`): `ffmpeg-static` no trae `ffprobe`, y Windows mete chunks extra antes de `data`.
     - **Queda para T6:** la app levantada contra el demo (`webServer` con `--mode demo`), la sesión por `storageState`, el cerrojo 3 de la guardia (`verificarBundle`) y la versión «recorte» para la tarjeta.
-- [ ] **T5a (P1, humano: ~1 día / CC: ~1 h)** — core — Foco en `Modal.tsx`: inicial, trampa y devolución (patrón del `Drawer`) + QA de los modales principales
+- [x] **T5a (P1, humano: ~1 día / CC: ~1 h)** — core — Foco en `Modal.tsx`: inicial, trampa y devolución (patrón del `Drawer`) + QA de los modales principales
   - Surfaced by: diseño DD9 (segunda opinión #2); cierra el TODO «Core · focus trap en `components/Modal.tsx`»
-  - Files: `src/components/Modal.tsx`, `TODOS.md` (tachar el ítem)
-  - Verify: `npm run build` + navegador: Tab no sale del modal; Esc devuelve el foco al disparador, en el reproductor, el Feedback y un modal de Dispensaciones
+  - Files: `src/components/Modal.tsx`, `src/components/reglasDeFoco.ts` (+ test), `TODOS.md` (tachado)
+  - Verify: `npm run build` + navegador: Tab no sale del modal; Esc devuelve el foco al disparador, en el reproductor, el Feedback y un modal de Dispensaciones — **hecho el 2026-10-13**, contra el demo (`demo:app`), con Edge y teclado real:
+    - **Feedback** (`autoFocus` en el texto): el foco abre en el texto, 15 Tab y 15 Shift+Tab no salen, y Esc lo devuelve al botón.
+    - **Documentar la desviación** (sin `autoFocus`): abre en el ✕; con un Esc apenas abierto, cierra y vuelve al disparador.
+    - **Cronograma › Editar visita** (dos modales): sólo el de arriba atrapa; Esc vuelve a «Editar» en el de abajo, y el siguiente a «Cronograma y procedimientos».
+    - **Historial sobre el cajón de dispensación** (`Modal` sobre `Drawer`): atrapa el foco aunque el `Drawer` escuche Tab, y al cerrar el foco queda en el cajón.
+    - El reproductor todavía no existe: entra con T5, y para eso está `initialFocusRef`.
+  - **Decisiones al implementar:**
+    - **El foco inicial respeta un `autoFocus` de adentro.** Más de diez modales lo usan, y React lo aplica antes que el efecto del `Modal`. Sin `autoFocus`, el foco va al `initialFocusRef` y si no, al primer control (el ✕, como el `Drawer`).
+    - **El disparador se lee en el primer render**, no en el efecto: para entonces el `autoFocus` ya movió el foco.
+    - **El foco se devuelve sólo si quedó suelto** (en el `body`). Si quien cerró lo puso en otro lado, como el escáner de `DispensacionDrawer.tsx:290`, no se le roba.
+    - **Sólo el modal de arriba atrapa**, y un foco en otra capa (un cajón encima, un desplegable en su portal) no se toca.
+    - **Después de recorrer con Tab, salir pide dos Esc** si el foco quedó en el ✕: el primero cierra la pista «Cerrar» que abrió el foco por teclado. Es la regla de una capa por vez de `Pistas`, que ya regía antes de este cambio.
+    - **Con el modal abierto desde un menú** (Historial desde «Más acciones»), el ítem ya no existe al cerrar. El foco no se devuelve, y el `Drawer` lo pone en su primer control. No se pierde.
+    - Las reglas van puras en `reglasDeFoco.ts`, con 12 tests, como `reglasDePista.ts`. El TODO proponía el primer test de componente del repo, pero vitest corre sin DOM.
 - [ ] **T5b (P1, humano: ~1 día / CC: ~1 h)** — app — `TarjetaTutorial` en `Pistas` para los elementos con `data-tutorial` (DD10): video pausado, play con sonido, se fija al reproducir, «Ver en grande» en el mismo segundo
   - Surfaced by: pedido del Director (el tutorial en el tooltip)
   - Files: `src/components/Pistas.tsx`, `src/components/reglasDePista.ts` (+ test: `seQuedaAbierta(fijada, reproduciendo)`, `tieneTarjeta(el)`), `src/ayuda/TarjetaTutorial.tsx`, el `data-tutorial` en el botón «Dispensar»
