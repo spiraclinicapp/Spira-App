@@ -68,6 +68,9 @@
   --spira-kpi-track: #EFEBE1;
   --spira-kpi-empty: #F3EFE6;
   --spira-warn-soft: #E3C9A0;
+  /* El tramo «en el centro» de Visitas de hoy: el mismo verde de «realizadas», a medio camino de la
+     pista — se lee como «va por la mitad». Derivado y no fijo: en oscuro sale solo de la pista oscura. */
+  --spira-kpi-en-curso: color-mix(in srgb, var(--spira-good) 50%, var(--spira-kpi-track));
 
   /* —— Color · semántico —— */
   --spira-good:     #5C8A5A;
