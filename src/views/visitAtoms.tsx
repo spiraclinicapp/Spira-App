@@ -122,23 +122,30 @@ export function VisitCodeTag({ code, compacto = false, title }: {
  *
  * La separación va por `gap` y sin divisores: un divisor es un ítem más del flex y, al envolver,
  * queda colgando al final de la línea.
+ *
+ * En la FILA de una visita realizada se suma «Visto por médico» (`vistoPorMedico`, Director 2026-10-14,
+ * opción A2 del plan `docs/plan-visita-cargada-otro-dia.md`): la columna de acciones de una realizada
+ * queda sólo con «Acciones», así todas las realizadas miden lo mismo y el médico queda pegado al botón.
+ * Con eso solo, la tira se dibuja aunque `resumen` sea null.
  * └────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-export function IndicadoresVisita({ resumen, variante, porCargar, sinMarcar = 0 }: {
-  resumen: ResumenVisita
+export function IndicadoresVisita({ resumen, variante, porCargar, sinMarcar = 0, vistoPorMedico = false }: {
+  resumen: ResumenVisita | null
   variante: 'fila' | 'modal'
   /** Cuántos reportes quedan por cargar. `null` = la visita no define ninguno (no se dibuja).
    *  Sólo en el modal: en la fila, los reportes no entran (handoff §4). */
   porCargar?: number | null
   /** Procedimientos con reporte que una visita FINALIZADA dejó sin tildar (`sinMarcar`). Sólo modal. */
   sinMarcar?: number
+  /** La fila de una visita realizada que vio el médico (en el modal lo dice el chip de la barra). */
+  vistoPorMedico?: boolean
 }) {
   const enFila = variante === 'fila'
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: enFila ? '8px 18px' : '10px 20px' }}>
-      <ProcedimientosTip items={resumen.items} variante={variante} />
+      {resumen && <ProcedimientosTip items={resumen.items} variante={variante} />}
 
-      {resumen.sangre !== null && (
+      {resumen && resumen.sangre !== null && (
         <Indicador
           encendido={resumen.sangre === 'si'}
           icono="droplet"
@@ -154,8 +161,12 @@ export function IndicadoresVisita({ resumen, variante, porCargar, sinMarcar = 0 
 
       {/* El kit IP no tiene apagado: o la visita lo lleva, o no se nombra. Decir «Sin kit» en cada
           visita que no entrega sería ruido en toda la agenda. */}
-      {resumen.kitIp && (
+      {resumen?.kitIp && (
         <Indicador encendido icono="pill" color="var(--spira-warn)" texto={enFila ? 'Kit IP' : 'Lleva kit IP'} />
+      )}
+
+      {enFila && vistoPorMedico && (
+        <Indicador encendido icono="check" color="var(--spira-good)" texto="Visto por médico" />
       )}
 
       {/* Va ANTES que los reportes y los reemplaza cuando no hay nada por cargar: «Reportes al día»
