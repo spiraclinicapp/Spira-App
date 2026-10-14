@@ -76,7 +76,8 @@ export const DESTINO_ESTUDIOS: Destino = { moduleKey: 'track', subKey: 'protocol
 
 export const KPI_DESTINOS: Record<KpiKey, Destino> = {
   /* «Visitas de hoy» y «Próximas visitas» van a la MISMA pantalla: la primera sin fecha (Visitas abre
-     en hoy), la segunda con el día que cuenta, que la vista le pasa como objetivo de navegación. */
+     en hoy), la segunda en la vista Semana del próximo día con visitas, que la vista le pasa como
+     objetivo de navegación. */
   hoy: DESTINO_VISITAS,
   /* «Atrasados» (antes «Vencidos», y antes «Reportes vencidos» con key 'reportes'): cuenta las tres
      gravedades de visita y lleva a Pendientes CON ese filtro puesto (`estadoFilter`, que manda la vista),

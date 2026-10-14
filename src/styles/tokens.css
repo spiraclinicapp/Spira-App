@@ -1347,12 +1347,8 @@ input:-webkit-autofill:focus {
   font: 600 10px/1 var(--spira-font-mono);
   background: var(--spira-kpi-empty); color: var(--spira-faint);
 }
-.spira-kpi__celda--hoy { outline: 1.5px solid var(--spira-line-2); color: var(--spira-ink); }
-/* En oscuro `line-2` (#3A3A3A) sobre la celda vacía casi no se ve y «hoy» se perdía: va `faint`, que
-   ahí es justamente el tono para bordes. */
-[data-theme='dark'] .spira-kpi__celda--hoy { outline-color: var(--spira-faint); }
-/* Después de `--hoy` a propósito: si hoy también tiene visitas, se combinan el contorno de hoy y el
-   fondo de «con visitas», y la letra la pone el fondo (handoff). */
+/* Sin celda de «hoy» desde el 2026-10-13: la tira son los siete días que cuenta la cifra, de mañana en
+   adelante, y hoy vive en el KPI «Visitas de hoy». */
 .spira-kpi__celda--con { background: color-mix(in srgb, var(--spira-track) 18%, transparent); color: var(--spira-acc-deep-track); }
 .spira-kpi__celda--proxima { background: var(--spira-track); color: #fff; }
 /* El conteo «0» y el «–» van en `--spira-muted` y no en `--spira-faint` como el mock: faint no llega

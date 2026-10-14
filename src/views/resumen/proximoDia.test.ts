@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { proximoDiaConVisitas, tiraDeLaSemana, visitasQueVienen } from './proximoDia'
+import { proximoDiaConVisitas, tiraDeLosProximos, visitasQueVienen } from './proximoDia'
 
 /**
  * La elección del día de la tarjeta "Próximas visitas" del Resumen.
@@ -91,41 +91,37 @@ describe('visitasQueVienen', () => {
   })
 })
 
-/* La tira semanal del KPI (handoff `design_handoff_kpis_visitas`). Falla en silencio de cuatro
-   maneras: una semana que arranca otro día, un 0 dibujado en un día que nadie consultó, hoy contado
-   con las próximas (que no traen las ya atendidas) y la semana equivocada cuando lo próximo cae en
-   la que viene. */
-describe('tiraDeLaSemana', () => {
+/* La tira del KPI: los siete días que cuenta la cifra (Director, 2026-10-13). Falla en silencio de
+   cuatro maneras: arrancar en hoy, que la suma no dé lo mismo que la tarjeta de abajo, una inicial
+   corrida un día por la zona horaria y la próxima resaltada en el día equivocado. */
+describe('tiraDeLosProximos', () => {
   const MARTES = '2026-10-13'
 
-  it('va de lunes a domingo, con hoy y la próxima marcados', () => {
-    const t = tiraDeLaSemana([v('2026-10-14'), v('2026-10-15'), v('2026-10-15')], MARTES, 4, '2026-10-14', 7)
+  it('va de mañana a siete días, corridos, con la inicial de cada día', () => {
+    const t = tiraDeLosProximos([], MARTES, null, 7)
     expect(t.map((d) => d.iso)).toEqual([
-      '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18',
+      '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20',
     ])
-    expect(t.map((d) => d.inicial).join('')).toBe('LMMJVSD')
-    expect(t.find((d) => d.esHoy)?.iso).toBe(MARTES)
-    expect(t.filter((d) => d.esProxima).map((d) => d.iso)).toEqual(['2026-10-14'])
+    expect(t.map((d) => d.inicial).join('')).toBe('MJVSDLM')
   })
 
-  it('hoy cuenta lo de hoy, no las próximas; los demás días cuentan las suyas', () => {
-    const t = tiraDeLaSemana([v(MARTES), v('2026-10-15'), v('2026-10-15')], MARTES, 4, '2026-10-15', 7)
-    expect(t.map((d) => d.cantidad)).toEqual([null, 4, 0, 2, 0, 0, 0])
+  /* La cifra del KPI es `visitasQueVienen(...).length`: la tira tiene que sumar exactamente eso. */
+  it('suma lo mismo que visitasQueVienen, sin las de hoy ni las sueltas', () => {
+    const proximas = [v(MARTES), v(null), v('2026-10-14'), v('2026-10-15'), v('2026-10-15'), v('2026-10-20')]
+    const t = tiraDeLosProximos(proximas, MARTES, '2026-10-14', 7)
+    expect(t.map((d) => d.cantidad)).toEqual([1, 2, 0, 0, 0, 0, 1])
+    expect(t.reduce((s, d) => s + d.cantidad, 0)).toBe(visitasQueVienen(proximas, MARTES).length)
   })
 
-  /* El lunes ya pasó: el Resumen no lo consultó, así que no se afirma que estuvo vacío. */
-  it('los días ya pasados de la semana no tienen cantidad', () => {
-    const t = tiraDeLaSemana([], MARTES, 0, null, 7)
-    expect(t[0].cantidad).toBeNull()
-    expect(t[1].cantidad).toBe(0)
+  it('marca como próxima sólo el primer día con visitas', () => {
+    const t = tiraDeLosProximos([v('2026-10-16')], MARTES, '2026-10-16', 7)
+    expect(t.filter((d) => d.esProxima).map((d) => d.iso)).toEqual(['2026-10-16'])
   })
 
-  /* Un sábado con lo próximo el martes: la tira muestra ESA semana, y lo que cae después del
-     horizonte (sábado + 7 = el sábado siguiente) tampoco tiene cantidad. */
-  it('si lo próximo es la semana que viene, muestra esa semana y corta en el horizonte', () => {
-    const t = tiraDeLaSemana([v('2026-10-20')], '2026-10-17', 0, '2026-10-20', 7)
-    expect(t[0].iso).toBe('2026-10-19')
-    expect(t.map((d) => d.cantidad)).toEqual([0, 1, 0, 0, 0, 0, null])
-    expect(t.some((d) => d.esHoy)).toBe(false)
+  /* Un sábado: la tira cruza el fin de semana y llega al sábado siguiente, que es el séptimo día. */
+  it('cruza la semana sin cortar en el domingo', () => {
+    const t = tiraDeLosProximos([v('2026-10-24')], '2026-10-17', '2026-10-24', 7)
+    expect(t.map((d) => d.inicial).join('')).toBe('DLMMJVS')
+    expect(t[6]).toMatchObject({ iso: '2026-10-24', cantidad: 1, esProxima: true })
   })
 })
