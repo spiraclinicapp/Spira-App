@@ -12,10 +12,18 @@ import { motivosDelDia, motivosDelRango } from './dayVisitsFilter'
 const DIA = '2026-09-17'
 
 describe('motivosDelDia', () => {
-  it('la citación sólo cuenta si la visita NO se atendió', () => {
+  it('la citación sólo cuenta si la visita NO se atendió y nadie llegó DESPUÉS del día citado', () => {
     // Si esta condición perdiera el `real_date.is.null`, una visita citada para el 17 y atendida
     // el 15 volvería a aparecer en los dos días: es el bug que este cambio vino a cerrar.
-    expect(motivosDelDia(DIA)).toContain(`and(real_date.is.null,estimated_date.eq.${DIA})`)
+    // Y sin los tres `or(...)`, una citada para el 8 a la que llegaron el 10 sin iniciar la atención
+    // (Ricardo Aguero, 2026-10-13) aparece el 8 Y el 10.
+    const fin = `${DIA}T23:59:59.999-03:00`
+    expect(motivosDelDia(DIA)).toContain(
+      `and(real_date.is.null,estimated_date.eq.${DIA},`
+      + `or(arrived_at.is.null,arrived_at.lte.${fin}),`
+      + `or(ready_at.is.null,ready_at.lte.${fin}),`
+      + `or(left_at.is.null,left_at.lte.${fin}))`,
+    )
     expect(motivosDelDia(DIA)).not.toContain(`estimated_date.eq.${DIA}`)
   })
 
@@ -50,8 +58,18 @@ describe('motivosDelRango', () => {
   const DESDE = '2026-10-05'
   const HASTA = '2026-10-11'
 
-  it('la citación sólo cuenta si la visita NO se atendió', () => {
-    expect(motivosDelRango(DESDE, HASTA)).toContain(`and(real_date.is.null,estimated_date.gte.${DESDE},estimated_date.lte.${HASTA})`)
+  it('la citación sólo cuenta si la visita NO se atendió y ninguna marca cae después del rango', () => {
+    // El rango no puede comparar cada marca con SU citación (PostgREST no compara dos columnas):
+    // pide las que no tienen marcas pasado el último día, que es un superconjunto exacto. Una marca
+    // posterior a la citación pero dentro del rango ya trae la visita por su propio motivo, y a qué
+    // celda va lo termina de decidir `diasDeLaVisita`.
+    const fin = `${HASTA}T23:59:59.999-03:00`
+    expect(motivosDelRango(DESDE, HASTA)).toContain(
+      `and(real_date.is.null,estimated_date.gte.${DESDE},estimated_date.lte.${HASTA},`
+      + `or(arrived_at.is.null,arrived_at.lte.${fin}),`
+      + `or(ready_at.is.null,ready_at.lte.${fin}),`
+      + `or(left_at.is.null,left_at.lte.${fin}))`,
+    )
   })
 
   it('la fecha realizada entra por rango, sin condiciones', () => {

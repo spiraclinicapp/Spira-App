@@ -182,7 +182,8 @@ export type FechasDeVisita = Omit<FechasVisita, 'id'>
  * dos reglas divergen, la semana muestra una visita en un día y al hacer clic en ese día, la lista no
  * la tiene. Por eso los dos test describen los mismos casos.
  *
- *   · la citación (`estimated_date`) sólo manda mientras la visita no se atendió;
+ *   · la citación (`estimated_date`) sólo manda mientras la visita no se atendió y ninguna marca cayó
+ *     DESPUÉS del día citado (llegó el 10 a una cita del 8: la cita está cumplida);
  *   · la fecha realizada (`real_date`), siempre;
  *   · las marcas operativas, en el día LOCAL en que pasaron (offset fijo −03:00, `isoDayAR`).
  *
@@ -191,9 +192,11 @@ export type FechasDeVisita = Omit<FechasVisita, 'id'>
  */
 export function diasDeLaVisita(v: FechasDeVisita): string[] {
   const dias = new Set<string>()
-  if (v.real_date === null && v.estimated_date) dias.add(v.estimated_date)
+  const diasDeMarcas = [v.arrived_at, v.ready_at, v.left_at].filter((m): m is string => !!m).map(isoDayAR)
+  const citacion = v.estimated_date
+  if (v.real_date === null && citacion && diasDeMarcas.every((d) => d <= citacion)) dias.add(citacion)
   if (v.real_date) dias.add(v.real_date)
-  for (const marca of [v.arrived_at, v.ready_at, v.left_at]) if (marca) dias.add(isoDayAR(marca))
+  for (const d of diasDeMarcas) dias.add(d)
   return [...dias].sort()
 }
 

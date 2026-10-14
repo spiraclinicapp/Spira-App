@@ -110,6 +110,25 @@ describe('de qué día es una visita (espejo de motivosDelDia)', () => {
     expect(diasDeLaVisita({ ...sinFechas, estimated_date: '2026-10-17', real_date: '2026-10-15' })).toEqual(['2026-10-15'])
   })
 
+  it('llegó DESPUÉS del día citado: la citación queda cumplida y la visita va sólo al día en que vino', () => {
+    // El caso de Ricardo Aguero (2026-10-13): citado el jueves 8, llegó el sábado 10 a las 11:37 y nadie
+    // inició la atención. Sin fecha realizada, la citación seguía contando y la visita salía en los dos días.
+    expect(diasDeLaVisita({ ...sinFechas, estimated_date: '2026-10-08', arrived_at: '2026-10-10T14:37:54+00:00' })).toEqual(['2026-10-10'])
+    // Cualquier marca posterior la cumple, no sólo la llegada.
+    expect(diasDeLaVisita({ ...sinFechas, estimated_date: '2026-10-08', left_at: '2026-10-09T15:00:00+00:00' })).toEqual(['2026-10-09'])
+  })
+
+  it('reprogramada DESPUÉS de la llegada, la citación nueva sigue contando', () => {
+    // Reprogramar no borra `arrived_at`. Si cualquier marca anulara la citación, la visita
+    // desaparecería del día al que se la re-citó: perder el día en que se la espera es peor que
+    // mostrarla en dos.
+    expect(diasDeLaVisita({ ...sinFechas, estimated_date: '2026-10-15', arrived_at: '2026-10-10T14:37:54+00:00' })).toEqual(['2026-10-10', '2026-10-15'])
+  })
+
+  it('llegó el mismo día de la cita a las 23:30: la cita no queda atrás, aunque en UTC ya sea el día siguiente', () => {
+    expect(diasDeLaVisita({ ...sinFechas, estimated_date: '2026-10-08', arrived_at: '2026-10-09T02:30:00+00:00' })).toEqual(['2026-10-08'])
+  })
+
   it('una marca a las 23:30 de Argentina es de ESE día, aunque en UTC ya sea el siguiente', () => {
     expect(diasDeLaVisita({ ...sinFechas, arrived_at: '2026-10-09T02:30:00+00:00' })).toEqual(['2026-10-08'])
   })
