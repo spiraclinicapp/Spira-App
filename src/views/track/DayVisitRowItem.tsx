@@ -1,9 +1,7 @@
-import { ActionMenu } from '../../components/ActionMenu'
-import type { ActionMenuItem } from '../../components/ActionMenu'
 import { Icon } from '../../components/Icon'
 import type { IconName } from '../../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
-import { formatTimeAR } from '../../lib/dates'
+import { formatTimeAR, todayISO } from '../../lib/dates'
 import { visitCode } from '../../lib/visits'
 import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
@@ -13,11 +11,15 @@ import { ProtoTag, IndicadoresVisita, VisitCodeTag } from '../visitAtoms'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 import { etapaProgreso } from './visitHeaderRules'
 import { esNoVino, puedeReprogramar } from './visitas/calendario'
+import { accionesDeVisita, llegadaFueraDeFecha, nombreDeLaVisita } from './accionesDeVisita'
+import type { ClaveAccion, PermisosDeVisita } from './accionesDeVisita'
+import { BotonEtapa } from './BotonEtapa'
+import type { CaraPrincipal } from './BotonEtapa'
 
 /**
  * Fila de la vista Día de Visitas — handoff `docs/design_handoff_visitas_calendario/` §3.1
- * (2026-10-11), sobre el modelo real. Cinco columnas de ancho DETERMINÍSTICO: estado · datos ·
- * personas · acciones · ⋯. Con anchos fijos, las columnas coinciden entre filas por construcción y no
+ * (2026-10-11), sobre el modelo real. Cuatro columnas de ancho DETERMINÍSTICO: estado · datos ·
+ * personas · acciones (el ⋯ del final se fue con el botón de etapa dividido, 2026-10-14). Con anchos fijos, las columnas coinciden entre filas por construcción y no
  * por casualidad de que los nombres midan parecido. El responsive (dos renglones a ≤860 px, apilada a
  * ≤560 px) va por container query sobre la lista, en `visitas/visitas.css`.
  *
@@ -27,26 +29,31 @@ import { esNoVino, puedeReprogramar } from './visitas/calendario'
  * identidad del paciente, nombre visible) y lleva a su ficha.
  *
  * Las ACCIONES quedan siempre en la misma x: «Atención médica» está en TODAS las filas (apagada cuando
- * no corresponde) y la acción principal tiene un slot fijo de 160 px que no colapsa aunque esté vacío.
+ * no corresponde) y el botón de etapa tiene un ancho fijo (`.spira-split--fila`), con cara o sin ella.
  */
 export function DayVisitRowItem({
-  visit, canReception, canClinical, busyId, resumen,
-  onAdvance, onOpenDoctor, onNoShow, onReschedule, onOpen, onOpenPatient,
+  visit, canReception, canClinical, coordina, busyId, resumen,
+  onAdvance, onOpenDoctor, onAccion, onLlegar, onOpen, onOpenPatient, acento,
 }: {
   visit: DayVisitRow
   /** Recepción/Admin: puede marcar la llegada, "No vino" y reprogramar. */
   canReception: boolean
   /** Clínico/Coord asignado a este protocolo: Inicio de atención / Fin de atención / médico. */
   canClinical: boolean
+  /** Coordina ESTE estudio (sin el atajo de admin): deshacer el inicio de atención y adelantar la llegada. */
+  coordina: boolean
   /** id de la visita con mutación en vuelo (deshabilita sus controles). */
   busyId: string | null
   /** Qué lleva la visita, para la tira de indicadores. `null` = nada que decir: no se dibuja. */
   resumen: ResumenVisita | null
   onAdvance: (visit: DayVisitRow, next: OperationalStage) => void
   onOpenDoctor: (visit: DayVisitRow) => void
-  /** Marca (true) o deshace (false) "No vino". */
-  onNoShow: (visit: DayVisitRow, value: boolean) => void
-  onReschedule: (visit: DayVisitRow) => void
+  /** Una acción del menú del botón de etapa (`useAccionesDeVisita` la ejecuta). */
+  onAccion: (visit: DayVisitRow, clave: ClaveAccion) => void
+  /** La llegada confirmada fuera de fecha: `mueveFecha` = adelantada (la citación pasa a hoy). */
+  onLlegar: (visit: DayVisitRow, mueveFecha: boolean) => void
+  /** El `accentSolid` del módulo, relleno del botón de etapa. */
+  acento: string
   onOpen: (visit: DayVisitRow) => void
   /** Abrir la ficha del paciente. Sin esto, nombre e IVRS quedan como texto (ver `PatientLink`). */
   onOpenPatient?: () => void
@@ -63,12 +70,11 @@ export function DayVisitRowItem({
     : OPERATIONAL_STAGES[stage]?.color ?? OPERATIONAL_STAGES.por_llegar.color
   // Mismo cálculo que llena el riel de la barra del modal: una sola fuente para "cuánto lleva
   // recorrido esta visita", así la lista y el detalle no pueden decir cosas distintas.
-  const { pct } = etapaProgreso(stage)
+  const { pct, paso, total } = etapaProgreso(stage)
   // El renglón es protocolo · N° · código, como el mock. El nombre de una visita del cronograma ya va
   // DENTRO del código («V5 W10», ver `visitCode`); el de una suelta no —el chip dice la sigla, «VNP»—,
   // así que para ésas la pista del chip dice el tipo completo.
   const pistaCodigo = visit.visit_name ? undefined : KIND_LABELS[visit.kind]
-  const canReschedule = puedeReprogramar(visit, canReception)
 
   return (
     <div
@@ -136,29 +142,66 @@ export function DayVisitRowItem({
         <Persona icon="users" rol="Médico" nombre={visit.treating_physician} />
       </div>
 
-      {/* 4 · Acciones. */}
+      {/* 4 · Acciones: «Atención médica» y el botón de etapa dividido, que se quedó con lo que vivía en
+          el ⋮ del final (handoff `design_handoff_boton_etapa` §1: el kebab sale de la fila). */}
       <div className="vcal-row-cta">
         <AtencionMedica visit={visit} canClinical={canClinical} busy={busy} onOpenDoctor={onOpenDoctor} />
-        <AccionPrincipal
-          stage={stage}
-          noVino={noVino}
-          canAdvance={advanceRole(stage) === 'reception' ? canReception : advanceRole(stage) === 'clinical' ? canClinical : false}
-          canReschedule={canReschedule}
-          busy={busy}
-          onAdvance={(next) => onAdvance(visit, next)}
-          onReschedule={() => onReschedule(visit)}
-        />
-      </div>
-
-      {/* 5 · Más. */}
-      <div className="vcal-row-more">
-        <ActionMenu
-          ariaLabel={`Más acciones de la visita de ${visit.patient_name}`}
-          items={accionesDe(visit, canReception, busy, onNoShow, onReschedule)}
+        <BotonEtapa
+          tamano="fila"
+          cara={caraDeLaFila(visit, noVino, { recepcion: canReception, clinica: canClinical, coordina }, onAdvance, onAccion, onLlegar)}
+          acciones={accionesDeVisita(visit, { recepcion: canReception, clinica: canClinical, coordina }, todayISO())}
+          encabezado={{
+            visita: nombreDeLaVisita(visit),
+            etapa: `${noVino ? VISIT_STATES.por_reprogramar.short : OPERATIONAL_STAGES[stage]?.short ?? ''} · ${paso} de ${total}`,
+          }}
+          rotuloVisita={nombreDeLaVisita(visit)}
+          etiqueta={`Más acciones de la visita de ${visit.patient_name}`}
+          ocupado={busy}
+          acento={acento}
+          onAccion={(clave) => onAccion(visit, clave)}
         />
       </div>
     </div>
   )
+}
+
+/**
+ * La cara principal del botón en la fila. Es la acción del estado, como antes:
+ *   Por llegar → «Marcar llegada» (fuera de fecha, confirma: `llegadaFueraDeFecha`) · Concurrió →
+ *   «Iniciar atención» · En atención → «Fin de atención» · No vino → «Reprogramar» · Realizada → sin
+ *   cara: el botón es «Acciones».
+ * Sin permiso para la marca, la cara se ve apagada y la pista dice quién la hace (antes, un hueco).
+ * El desenlace de screening/randomización lo resuelve el padre en `onAdvance` (abre el cierre clínico).
+ */
+function caraDeLaFila(
+  visit: DayVisitRow,
+  noVino: boolean,
+  permisos: PermisosDeVisita,
+  onAdvance: (visit: DayVisitRow, next: OperationalStage) => void,
+  onAccion: (visit: DayVisitRow, clave: ClaveAccion) => void,
+  onLlegar: (visit: DayVisitRow, mueveFecha: boolean) => void,
+): CaraPrincipal | null {
+  if (noVino) {
+    return {
+      rotulo: 'Reprogramar',
+      habilitada: puedeReprogramar(visit, permisos.recepcion),
+      pista: 'Sólo Recepción reprograma',
+      onClick: () => onAccion(visit, 'reprogramar'),
+    }
+  }
+  const step = NEXT_STEP[visit.operational_stage]
+  if (!step) return null
+  const rol = advanceRole(visit.operational_stage)
+  const llegada = llegadaFueraDeFecha(visit, todayISO(), permisos.coordina)
+  return {
+    rotulo: step.short,
+    habilitada: rol === 'reception' ? permisos.recepcion : permisos.clinica,
+    pista: rol === 'reception' ? 'La marca Recepción' : 'La marca el equipo clínico del estudio',
+    onClick: () => onAdvance(visit, step.next),
+    confirmar: llegada
+      ? { ...llegada, rotulo: 'Marcar llegada hoy', onConfirmar: () => onLlegar(visit, llegada.mueveFecha) }
+      : undefined,
+  }
 }
 
 /** Un responsable de la visita: ícono + rol en gris, nombre en tinta. Vacío → «Sin asignar», apagado. */
@@ -221,97 +264,4 @@ function AtencionMedica({ visit, canClinical, busy, onOpenDoctor }: {
       <Icon name="users" size={15} /> {enCola ? 'En cola' : 'Atención médica'}
     </button>
   )
-}
-
-/**
- * La acción principal del estado, en un slot FIJO de 160 px que nunca colapsa:
- *   Por llegar → «Marcar llegada →» · Concurrió → «Iniciar atención →» · En atención → «Fin de atención →»
- *   No vino → «Reprogramar» (secundario) · Realizada, o sin permiso → el hueco del mismo ancho.
- * El desenlace de screening/randomización lo resuelve el padre en `onAdvance` (abre el cierre clínico).
- */
-function AccionPrincipal({ stage, noVino, canAdvance, canReschedule, busy, onAdvance, onReschedule }: {
-  stage: OperationalStage
-  noVino: boolean
-  canAdvance: boolean
-  canReschedule: boolean
-  busy: boolean
-  onAdvance: (next: OperationalStage) => void
-  onReschedule: () => void
-}) {
-  if (noVino) {
-    if (!canReschedule) return <span className="vcal-slot" aria-hidden="true" />
-    return (
-      <button
-        type="button"
-        className="vcal-btn-cta secundario"
-        disabled={busy}
-        onClick={(e) => { e.stopPropagation(); if (!busy) onReschedule() }}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
-        Reprogramar
-      </button>
-    )
-  }
-  const step = NEXT_STEP[stage]
-  if (!step || !canAdvance) return <span className="vcal-slot" aria-hidden="true" />
-  return (
-    <button
-      type="button"
-      className="vcal-btn-cta"
-      disabled={busy}
-      onClick={(e) => { e.stopPropagation(); if (!busy) onAdvance(step.next) }}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
-      {busy ? 'Guardando…' : step.short}
-      <Icon name="arrowRight" size={15} color="var(--spira-on-accent)" />
-    </button>
-  )
-}
-
-/**
- * Ítems del menú ⋯ de la fila: acciones que SÍ están cableadas (no vino · reprogramar · copiar N°).
- *
- * Era `RowMenu`, una copia privada del menú ⋮ con su propio popover; `ActionMenu` salió justamente de
- * acá (PR #89) y la fila se migró después (QA visual del 2026-08-31). Lo único que queda acá son los
- * GUARDS, que son de esta vista y no del componente.
- */
-function accionesDe(
-  visit: DayVisitRow,
-  canReception: boolean,
-  busy: boolean,
-  /** Marca (true) o deshace (false) "No vino". */
-  onNoShow: (visit: DayVisitRow, value: boolean) => void,
-  onReschedule: (visit: DayVisitRow) => void,
-): ActionMenuItem[] {
-  // Marcar la falta solo tiene sentido antes de que el paciente llegue; deshacerla, mientras siga
-  // marcada. El server además rechaza marcar como ausente una visita ya atendida o con la llegada
-  // ya marcada (migración 0067).
-  const faltaMarcada = visit.no_show_at !== null
-  const canNoShow = visit.operational_stage === 'por_llegar' && canReception
-  const canReschedule = puedeReprogramar(visit, canReception)
-
-  /* Los íconos son los del set (no hay uno de "ausente"): la `x` en rojo para la falta —el mismo
-     par que usa Anular en Recepción—, `rotateCcw` para deshacerla, `calendar` para reprogramar y
-     `copy` para copiar, que acá es su significado literal. */
-  const items: ActionMenuItem[] = []
-  if (canNoShow && !faltaMarcada) {
-    items.push({ key: 'no-vino', label: 'Marcar como no vino', icon: 'x', danger: true, disabled: busy, onClick: () => onNoShow(visit, true) })
-  }
-  if (canNoShow && faltaMarcada) {
-    items.push({ key: 'deshacer-no-vino', label: 'Deshacer “no vino”', icon: 'rotateCcw', disabled: busy, onClick: () => onNoShow(visit, false) })
-  }
-  if (canReschedule) {
-    items.push({ key: 'reprogramar', label: 'Reprogramar', icon: 'calendar', disabled: busy, onClick: () => onReschedule(visit) })
-  }
-  /* Va siempre, así que el menú nunca queda sin ítems (`ActionMenu` no dibuja el disparador vacío:
-     un botón que no abre nada miente). Inerte si la visita no trae el código — la acción existe y
-     ahora mismo no se puede, que informa más que esconderla. */
-  items.push({
-    key: 'copiar-codigo',
-    label: 'Copiar N° de paciente',
-    icon: 'copy',
-    disabled: !visit.patient_code,
-    onClick: () => { if (visit.patient_code) navigator.clipboard?.writeText(visit.patient_code) },
-  })
-  return items
 }

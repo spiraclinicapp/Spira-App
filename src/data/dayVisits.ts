@@ -370,6 +370,46 @@ export async function markNoShow(visitId: string, value = true): Promise<{ error
   return { error: null }
 }
 
+/**
+ * Errores de las dos RPC de la 0155. Su 23514 habla en castellano y en términos del dominio («Tiene
+ * procedimientos marcados como realizados…», «La visita cambió de etapa…»): se muestra tal cual.
+ * PGRST202 = la 0155 todavía no está aplicada en esta base; es una condición de despliegue y se dice
+ * así, en vez de inventar una causa.
+ */
+function errorDeEtapa(code: string | undefined, raw: string, sinPermiso: string): string {
+  if (code === 'PGRST202') return 'Esta acción todavía no está disponible en esta base. Falta aplicar una actualización.'
+  if (code === '42501') return sinPermiso
+  if (code === '23503') return 'Esa visita ya no existe. Actualizá la lista.'
+  if (code === '23514' && raw) return raw
+  return 'No se pudo completar la acción. Probá de nuevo.'
+}
+
+/**
+ * «Volver a la etapa anterior» (botón de etapa, RPC `retroceder_etapa_visita`, 0155): deshace la marca
+ * hecha HOY. `desde` es la etapa que la pantalla está mostrando: si la visita ya cambió, la base rechaza
+ * en vez de retroceder dos etapas. Devuelve la etapa a la que volvió, para el aviso.
+ */
+export async function retrocederEtapa(
+  visitId: string,
+  desde: OperationalStage,
+): Promise<{ destino: OperationalStage | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('retroceder_etapa_visita', { p_visit_id: visitId, p_desde: desde })
+  if (error) return { destino: null, error: errorDeEtapa(error.code, error.message, 'No tenés permiso para volver atrás esta visita.') }
+  return { destino: (data as OperationalStage | null) ?? null, error: null }
+}
+
+/**
+ * Registra la llegada de una visita citada para MÁS ADELANTE (o sin fecha) y mueve su citación a hoy,
+ * en un solo paso; la base guarda la anterior para devolvérsela si la llegada se deshace (RPC
+ * `registrar_llegada_adelantada`, 0155). Mover fechas es de quien coordina el estudio. Citada para hoy
+ * o para antes se sigue usando `markArrived`: el camino de todos los días no depende de esta migración.
+ */
+export async function registrarLlegadaAdelantada(visitId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('registrar_llegada_adelantada', { p_visit_id: visitId })
+  if (error) return { error: errorDeEtapa(error.code, error.message, 'Mover la fecha de esta visita es de quien coordina el estudio.') }
+  return { error: null }
+}
+
 /** Toggle "Quiere ver el médico" (wants_doctor = value). Clínico/coordinador o gerencia. */
 export async function toggleWantsDoctor(visitId: string, value: boolean): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('toggle_wants_doctor', { p_visit_id: visitId, p_value: value })

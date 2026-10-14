@@ -335,8 +335,12 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 
 ---
 
-## Visitas · retroceder una etapa y ver el historial de la visita
+## Visitas · ~~retroceder una etapa~~ y ver el historial de la visita
 
+- **Estado (2026-10-14):** la parte (a), retroceder, ESTÁ HECHA: «Volver a …» en el menú del botón de
+  etapa dividido, RPC `retroceder_etapa_visita` (0155, `docs/plan-boton-etapa-dividido.md`). La regla de
+  quién deshace quedó simétrica —quien puede hacer la marca, la deshace— y sólo para marcas del mismo
+  día. Queda pendiente la parte (b), el historial, que sigue bloqueada por la decisión sobre `audit_log`.
 - **Qué:** el anexo con chevron del botón primario de la barra de acción, con sus dos acciones:
   deshacer la última marca de etapa y ver quién hizo qué y cuándo en esta visita.
 - **Por qué:** hoy una marca es irreversible desde la pantalla. Si Recepción marca la llegada del
