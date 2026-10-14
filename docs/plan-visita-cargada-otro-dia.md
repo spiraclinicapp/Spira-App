@@ -329,21 +329,25 @@ Implementación secuencial. Todo cuelga de la 0158 y de `marcaTardia`, y casi to
   - Verificado: `scripts/banco-rls/casos-0158.mjs` 38/38; `equivalencia.mjs 0158 --control` sin diferencias de
     permisos (control 12/12); 6 marcadores de dollar-quote (par); la vista y `retroceder` difieren de la
     0145/0155 sólo en lo marcado
-- [ ] **T2 (P1, humano ~2 h / CC ~15 min)** — día — `marcaTardia` + `motivosDelDia`, `motivosDelRango`,
-  `diasDeLaVisita` + tests (invierte `calendario.test.ts:136`) + comentarios de cabecera
-  - Verify: preview, lista del 08 y del 14, Mes de octubre
-- [ ] **T3 (P1, humano ~4 h / CC ~25 min)** — acción — `registrarVisitaEnOtraFecha` (+ errores en castellano);
-  `itemVinoOtroDia` e `itemVolver` con la carga del día + tests; `VinoOtroDiaModal`; caso en
-  `useAccionesDeVisita` + `onCargadaEn`; «¿Vino ese día?» en la confirmación de la llegada; `DayVisitsView` salta
-  al día
-- [ ] **T4 (P1, humano ~2 h / CC ~15 min)** — honestidad — `rotuloDeMarca` + `VisitActionBar`; «llegó HH:MM» de
-  la fila; `duracionesDe` + sellos y línea de tiempo de `Equipo.tsx`; «Atención médica» apagada si no es de hoy
-  (pura + test)
-- [ ] **T5 (P1, humano ~1 h / CC ~10 min)** — fila A2 — realizadas sin «Atención médica»; «Visto por médico» en
-  `IndicadoresVisita`; «Acciones» de ancho natural; comentarios
-  - Verify: preview a 1185 / 980 / 820 / 560, con y sin «Visto», y «Ordenar por: Protocolo»
-- [ ] **T6 (P2, humano ~30 min / CC ~5 min)** — (e) — `fechaParaIniciar` en `VisitDetail` (pura + test)
-- [ ] **T7 (P2, humano ~15 min / CC ~3 min)** — docs — `TODOS.md`: vencimiento de reportes anclado en el tilde
+- [x] **T2 (P1, humano ~2 h / CC ~15 min)** — día — `marcaTardia` (+ `lib/marcaTardia.test.ts`) +
+  `motivosDelDia`, `motivosDelRango`, `diasDeLaVisita` + tests (invierte `calendario.test.ts:136` y adapta el de
+  agrupar por día) + comentarios de cabecera
+- [x] **T3 (P1, humano ~4 h / CC ~25 min)** — acción — `registrarVisitaEnOtraFecha` y `useFechaMinimaParaCargar`
+  (`data/dayVisits.ts`); `itemVinoOtroDia` (ícono `history`: no hay `calendarCheck` en el set) e `itemVolver` con
+  la carga del día + tests; `vinoOtroDia.ts` (defectos, puro + test) y `VinoOtroDiaModal`; caso en
+  `useAccionesDeVisita` + `onCargadaEn`; «¿Vino el 8 oct? Cargala con esa fecha» en la confirmación de la llegada
+  (`vinoEseDia`, link `.spira-split-otro`); `DayVisitsView` salta al día
+- [x] **T4 (P1, humano ~2 h / CC ~15 min)** — honestidad — `rotuloDeMarca` + `VisitActionBar`; «llegó HH:MM» de
+  la fila; `duracionesDe` (y `Equipo.tsx` deja su `duracion` propia) + sellos con día y línea de tiempo sin «+0
+  min»; `atencionMedicaDeOtroDia` en la fila y en el modal (con estado apagado de verdad: sin manito)
+- [x] **T5 (P1, humano ~1 h / CC ~10 min)** — fila A2 — realizadas sin «Atención médica»; `vistoPorMedico` en
+  `IndicadoresVisita` (que acepta `resumen` null); «Acciones» de ancho natural; comentarios
+- [x] **T6 (P2, humano ~30 min / CC ~5 min)** — (e) — `fechaParaIniciar` en `VisitDetail` (pura + test), y
+  `ConfirmarAvance` dice con qué fecha queda la visita al iniciar
+- [x] **T7 (P2, humano ~15 min / CC ~3 min)** — docs — `TODOS.md`: vencimiento de reportes anclado en el tilde
+- [ ] **Verificación en el navegador** — fila realizada a 1185 / 980 / 820 / 560 con y sin «Visto»; el menú
+  con «Vino otro día…»; el modal; el link de la confirmación. Lo que sólo se ve con sesión y la 0158 aplicada
+  (la lista del 08 y del 14, «Volver» de una carga) queda para el QA después de aplicarla.
 
 ## GSTACK REVIEW REPORT
 
