@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useAuth } from './auth'
 import { useMyCoordinations } from '../data/protocols'
+import { coordinaElEstudio } from './coordinaElEstudio'
 
 /**
  * Quién puede tocar una visita. UNA sola definición, usada por la lista del día y por el modal de
@@ -20,7 +21,7 @@ import { useMyCoordinations } from '../data/protocols'
  *   admin del módulo). Es el mismo criterio que ya aplicaba la lista del día.
  */
 export function useVisitPermissions(enabled = true) {
-  const { hasMinRole, profile } = useAuth()
+  const { hasMinRole, profile, modules } = useAuth()
   /* Con `enabled` en falso el hook corre igual —las reglas de hooks no admiten saltearlo— pero con
      `userId` en null `useMyCoordinations` ni siquiera consulta. Sirve para que la vista que YA
      calculó los permisos y se los pasa al modal no dispare la misma consulta dos veces. */
@@ -32,11 +33,12 @@ export function useVisitPermissions(enabled = true) {
   const canClinical = (v: { protocol_id: string }) =>
     isTrackAdmin || (hasMinRole('track', 'operator') && coordSet.has(v.protocol_id))
 
-  /* Coordinar ESE estudio, sin el atajo de admin: es lo que piden las RPC que mueven fechas o deshacen
-     el inicio de atención (0155, igual que `start_visit_attention`). `canClinical` deja pasar a un admin
-     de Coordinación que no coordina el estudio, y ahí la base rechaza: ofrecerlo sería prometer algo
-     que rebota. */
-  const coordina = (v: { protocol_id: string }) => hasMinRole('track', 'operator') && coordSet.has(v.protocol_id)
+  /* Coordinar ESE estudio, o ser gerencia: es lo que piden las RPC que mueven fechas o deshacen el inicio
+     de atención (0155). La regla y su porqué viven en `coordinaElEstudio`, con test. */
+  const esGerencia = modules.includes('gerencia')
+  const esOperador = hasMinRole('track', 'operator')
+  const coordina = (v: { protocol_id: string }) =>
+    coordinaElEstudio({ esGerencia, esOperador, coordinados: coordSet }, v.protocol_id)
 
   return { canReception, canClinical, coordina, loading: coords.loading }
 }

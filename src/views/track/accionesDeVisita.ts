@@ -63,7 +63,7 @@ export interface PermisosDeVisita {
   recepcion: boolean
   /** Equipo clínico del estudio: inicio de atención, retest, borrar (`canClinical`). */
   clinica: boolean
-  /** Coordina ESTE estudio (`coordina`, sin el atajo de admin): deshacer el inicio de atención y mover
+  /** Coordina ESTE estudio, o es gerencia (`coordinaElEstudio`; sin el atajo de admin): deshacer el inicio de atención y mover
    *  la citación al adelantar la llegada, que la base sólo deja a quien coordina o a gerencia (0155). */
   coordina: boolean
 }
@@ -90,7 +90,7 @@ function itemVolver(v: VisitaParaAcciones, p: PermisosDeVisita, hoy: string): Ac
   const titulo = `Volver a ${nombreDeEtapa(destino)}`
   const deshaceLlegada = v.operational_stage === 'concurrio_al_centro'
   // El permiso es el de quien HACE la marca que se deshace (0155): la llegada, Recepción; el inicio
-  // de atención, quien coordina el estudio (como `start_visit_attention`).
+  // de atención, quien coordina el estudio o gerencia (como `start_visit_attention`).
   if (deshaceLlegada ? !p.recepcion : !p.coordina) {
     return { clave: 'volver', titulo, bajada: deshaceLlegada ? 'Sólo Recepción deshace la llegada' : 'Sólo quien coordina el estudio', icono: 'undo', habilitada: false }
   }
@@ -205,7 +205,7 @@ export interface LlegadaFueraDeFecha {
  * frena— y la fecha se mueve SÓLO si la citación es FUTURA (o no hay): el paciente vino antes, la cita
  * de más adelante ya no va a ocurrir, y sin moverla la visita saldría también ese día (`motivosDelDia`).
  * Una citación PASADA no se toca: llegar tarde la da por cumplida (#460) y «citada el 8, vino el 10» es
- * un dato. Mover fechas es de quien coordina el estudio (`puedeMoverFecha`); el resto de Recepción
+ * un dato. Mover fechas es de quien coordina el estudio o de gerencia (`puedeMoverFecha`); el resto de Recepción
  * registra la llegada igual, sin mover la fecha, como hoy.
  *
  * Sólo la llegada: para Iniciar y Finalizar fuera de fecha el modal sigue con `ConfirmarAvance`, sin

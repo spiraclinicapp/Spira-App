@@ -40,7 +40,7 @@ export function DayVisitRowItem({
   canReception: boolean
   /** Clínico/Coord asignado a este protocolo: Inicio de atención / Fin de atención / médico. */
   canClinical: boolean
-  /** Coordina ESTE estudio (sin el atajo de admin): deshacer el inicio de atención y adelantar la llegada. */
+  /** Coordina ESTE estudio o es gerencia (`coordinaElEstudio`, sin el atajo de admin): deshacer el inicio de atención y adelantar la llegada. */
   coordina: boolean
   /** id de la visita con mutación en vuelo (deshabilita sus controles). */
   busyId: string | null

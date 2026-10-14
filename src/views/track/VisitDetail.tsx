@@ -70,7 +70,7 @@ export function VisitDetail({
    */
   canReception?: boolean
   canClinical?: boolean
-  /** Coordina el estudio de la visita (sin el atajo de admin). Lo pasa quien ya calculó los permisos. */
+  /** Coordina el estudio de la visita o es gerencia (`coordinaElEstudio`, sin el atajo de admin). Lo pasa quien ya calculó los permisos. */
   coordina?: boolean
   onAdvance?: (visit: DayVisitRow, next: OperationalStage) => void | Promise<void>
   onChanged?: () => void
