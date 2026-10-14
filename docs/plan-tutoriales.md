@@ -720,6 +720,17 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
     - **Los mensajes nombran el selector** (`resumirError`): con sólo la primera línea de Playwright decían «toBeEnabled failed» y no qué control faltaba.
     - **Las capturas de «dispensar» se refrescaron con `--update-snapshots`, sin regrabar el video** (el de prod no cambia). Sólo cambió la del paso 6, que tenía un aviso.
     - **Ya conocido:** las capturas muestran la píldora «Cómo se hace» y el video no, porque se grabó antes de publicarlo. Queda dentro de la tolerancia, y se iguala en la próxima regrabación.
+- [x] **T6b — publicar sin el dashboard** (2026-10-14, pedido del Director: «pierdo mucho tiempo»): `npm run tutoriales:publicar -- <id> <versión>` sube los tres archivos a Storage de prod y comprueba byte a byte en la URL pública.
+  - **Con una cuenta dedicada, no con una clave S3** (decisión del Director): la clave S3 de Supabase alcanza a TODO Storage, incluido `ip-docs` (constancias del IRT), y no se puede acotar a un bucket.
+    - La cuenta es `tutoriales@fabrica.spira`, sin módulos: en la app no ve nada.
+    - La **0157** la deja SUBIR al bucket `tutoriales` y nada más. Si su contraseña se filtra, lo único expuesto son videos que ya son públicos.
+    - El segundo cerrojo es `claveDeObjeto` (`tutoriales/lib/publicar.mjs`, con test): sólo arma `<id>/<versión>/<archivo>`.
+  - **Lo corre el Director**: la cuenta entra con contraseña (en `%USERPROFILE%\.spira\prod-publicador.env`), y el agente no inicia sesión con contraseñas en servicios reales. Es un comando, en vez del ida y vuelta por el dashboard.
+  - **`--demo`:** lo mismo contra el demo, con sesión sin contraseña. Así se probó.
+    - La cuenta sube.
+    - A `ip-docs`, pisando un video, con otra cuenta (farma) o sin sesión: rechazado por RLS.
+    - Publicar dos veces lo mismo: «ya estaba, idéntico», sin pisar.
+  - **Orden:** se corre ANTES de mergear el meta que publica la versión. La versión va explícita porque ese meta vive en una rama sin mergear.
 - [ ] **T8 (P2, etapa 2)** — contenido — Guiones de los flujos elegidos por el Director + sus píldoras «Cómo se hace»
 
 ## Approved Mockups
