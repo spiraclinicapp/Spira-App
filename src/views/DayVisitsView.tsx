@@ -461,8 +461,13 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
     )
   }
 
+  // Sin tope de ancho, como el resto de las vistas. El handoff traía `max-width: 1240px`, pero en su
+  // prototipo el encabezado («Agregar visita») vivía adentro de esa columna; en la app lo pone el shell
+  // a todo el ancho. Con la ventana ancha (o alejando el zoom) el botón se iba a la otra punta y la
+  // vista quedaba recostada a la izquierda con un hueco a la derecha (Director, 2026-10-13). Lo que se
+  // reacomoda con el ancho ya lo resuelven las container queries de `visitas.css`.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 1240, '--vcal-acc': accentSolid } as CSSProperties}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, '--vcal-acc': accentSolid } as CSSProperties}>
       <BarraPeriodo
         vista={vista}
         fecha={date}
