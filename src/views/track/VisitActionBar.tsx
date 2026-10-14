@@ -29,7 +29,8 @@ import { esNoVino } from './visitas/calendario'
  *
  * La primaria es el BOTÓN DE ETAPA DIVIDIDO (handoff `docs/design_handoff_boton_etapa/`, 2026-10-14): la
  * cara avanza y la flecha abre las acciones sobre la visita —volver a la etapa anterior, reprogramar,
- * copiar el ID, eliminar, pedir retest—, las mismas que en la fila de Visitas (`accionesDeVisita`). Está
+ * vino otro día (0158), copiar el ID, eliminar, pedir retest—, las mismas que en la fila de Visitas
+ * (`accionesDeVisita`). Está
  * SIEMPRE: desde el cronograma de Estudios y pacientes el modal es la única puerta a esas acciones, y
  * ahí se abren visitas de cualquier etapa. Sin permiso para la marca, la cara se apaga y dice de quién es
  * (antes, el bloque punteado); completa, queda «Acciones». Era el «anexo con chevron» del mock de
@@ -139,7 +140,11 @@ export function VisitActionBar({
                 pista: `Requiere acción ${role === 'reception' ? 'de Recepción' : 'del clínico'}`,
                 onClick: () => onAdvance(step.next),
                 confirmar: llegada
-                  ? { ...llegada, rotulo: 'Marcar llegada hoy', onConfirmar: () => onLlegar(llegada.mueveFecha) }
+                  ? {
+                    ...llegada, rotulo: 'Marcar llegada hoy',
+                    onConfirmar: () => onLlegar(llegada.mueveFecha),
+                    onVinoEseDia: () => onAccion('vino-otro-dia'),
+                  }
                   : undefined,
               } satisfies CaraPrincipal : null}
               acciones={accionesDeVisita(visit, permisos, hoy)}

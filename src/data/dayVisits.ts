@@ -79,6 +79,13 @@ export interface DayVisitRow extends TrackVisitRow {
    * `por_reprogramar`.
    */
   no_show_at: string | null
+  /**
+   * Cuándo se cargó la visita con una fecha pasada («Vino otro día», RPC `registrar_visita_en_otra_fecha`,
+   * migración 0158); null = se marcó en su día con los botones, o nunca se fechó. Con esto «Volver» deshace
+   * la carga del mismo día (su inicio no tiene sello `attended_at`: la hora no se sabe y no se inventa).
+   * Viene al final de `v_track_visits`, leída de la tabla.
+   */
+  cargada_en_otra_fecha_at: string | null
 }
 
 /* El checklist clínico por visita (checklist_items / _completions / _report_ready, migraciones
@@ -408,6 +415,45 @@ export async function registrarLlegadaAdelantada(visitId: string): Promise<{ err
   const { error } = await supabase.rpc('registrar_llegada_adelantada', { p_visit_id: visitId })
   if (error) return { error: errorDeEtapa(error.code, error.message, 'Mover la fecha de esta visita es de quien coordina el estudio.') }
   return { error: null }
+}
+
+/**
+ * «Vino otro día» (RPC `registrar_visita_en_otra_fecha`, 0158): una visita POR LLEGAR que pasó y no se
+ * marcó en su día queda «En atención» con su fecha real, a nombre de quien la atendió. No se inventa la
+ * hora de inicio (`attended_at` queda vacío) y no se cierra: se finaliza con el botón de siempre, que
+ * lleva el cierre clínico de screening y randomización. Plan `docs/plan-visita-cargada-otro-dia.md`.
+ *
+ * Los 23514 de la base hablan en castellano y en términos del dominio («La fecha tiene que ser anterior
+ * a hoy…», «No puede ser anterior al 30/09/2026…», «Esa persona no coordina este estudio.»): se muestran
+ * tal cual, como los de la 0155.
+ */
+export async function registrarVisitaEnOtraFecha(
+  visitId: string,
+  fecha: string,
+  atendio: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('registrar_visita_en_otra_fecha', {
+    p_visit_id: visitId, p_fecha: fecha, p_atendio: atendio,
+  })
+  if (error) return { error: errorDeEtapa(error.code, error.message, 'Cargar esta visita es de quien coordina el estudio.') }
+  return { error: null }
+}
+
+/**
+ * La fecha más temprana con la que se puede cargar la visita (RPC `fecha_minima_para_cargar_visita`,
+ * 0158): la de la última visita del cronograma ya realizada que va antes. `null` = sin mínimo. Es la MISMA
+ * función con la que la base valida, así el selector no ofrece una fecha que después rebota. Con
+ * `visitId` null no consulta.
+ */
+export function useFechaMinimaParaCargar(visitId: string | null): QueryResult<string | null> {
+  return useSupabaseQuery<string | null>(
+    async (c) => {
+      if (!visitId) return { data: null, error: null }
+      const { data, error } = await c.rpc('fecha_minima_para_cargar_visita', { p_visit_id: visitId })
+      return { data: (data as string | null) ?? null, error }
+    },
+    [visitId],
+  )
 }
 
 /** Toggle "Quiere ver el médico" (wants_doctor = value). Clínico/coordinador o gerencia. */

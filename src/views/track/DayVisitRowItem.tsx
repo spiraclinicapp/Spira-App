@@ -199,7 +199,11 @@ function caraDeLaFila(
     pista: rol === 'reception' ? 'La marca Recepción' : 'La marca el equipo clínico del estudio',
     onClick: () => onAdvance(visit, step.next),
     confirmar: llegada
-      ? { ...llegada, rotulo: 'Marcar llegada hoy', onConfirmar: () => onLlegar(visit, llegada.mueveFecha) }
+      ? {
+        ...llegada, rotulo: 'Marcar llegada hoy',
+        onConfirmar: () => onLlegar(visit, llegada.mueveFecha),
+        onVinoEseDia: () => onAccion(visit, 'vino-otro-dia'),
+      }
       : undefined,
   }
 }

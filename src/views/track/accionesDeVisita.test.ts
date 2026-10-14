@@ -33,6 +33,7 @@ function visita(extra: Partial<VisitaParaAcciones> = {}): VisitaParaAcciones {
     doctor_seen_at: null,
     window_start: '2026-10-21',
     window_end: '2026-11-04',
+    cargada_en_otra_fecha_at: null,
     ...extra,
   }
 }
@@ -47,11 +48,11 @@ const completa = (extra: Partial<VisitaParaAcciones> = {}) =>
 const item = (lista: AccionDeVisita[], clave: AccionDeVisita['clave']) => lista.find((a) => a.clave === clave)
 
 describe('el orden del menú', () => {
-  it('Por llegar: volver · reprogramar · no vino · copiar · eliminar', () => {
+  it('Por llegar: volver · reprogramar · vino otro día · no vino · copiar · eliminar', () => {
     expect(accionesDeVisita(visita(), todo, HOY).map((a) => a.clave))
-      .toEqual(['volver', 'reprogramar', 'no-vino', 'copiar', 'eliminar'])
+      .toEqual(['volver', 'reprogramar', 'vino-otro-dia', 'no-vino', 'copiar', 'eliminar'])
   })
-  it('en el centro, sin «no vino»', () => {
+  it('en el centro, sin «vino otro día» ni «no vino»', () => {
     expect(accionesDeVisita(concurrio(), todo, HOY).map((a) => a.clave))
       .toEqual(['volver', 'reprogramar', 'copiar', 'eliminar'])
   })
@@ -111,6 +112,41 @@ describe('Volver a la etapa anterior', () => {
   })
   it('pero sí vuelve a Concurrió con el médico visto: el paciente sigue en el centro', () => {
     expect(item(accionesDeVisita(enAtencion({ doctor_seen_at: INICIO }), todo, HOY), 'volver')!.habilitada).toBe(true)
+  })
+  /* 0158: una visita cargada en otra fecha no tiene sello de inicio (la hora no se sabe). Su marca es el
+     momento de la carga: si fue HOY, se deshace —vuelve a Por llegar, nunca llegó— y la bajada nombra el
+     día que dice la visita, no una hora inventada. */
+  it('una carga en otra fecha hecha HOY se deshace, nombrando el día de la visita', () => {
+    const cargada = enAtencion({ arrived_at: null, attended_at: null, real_date: '2026-10-08', cargada_en_otra_fecha_at: INICIO })
+    expect(item(accionesDeVisita(cargada, todo, HOY), 'volver')).toMatchObject({
+      titulo: 'Volver a Por llegar', bajada: 'Deshace la carga del 08 oct', habilitada: true,
+    })
+  })
+  it('una carga en otra fecha hecha OTRO día ya no se deshace', () => {
+    const deAyer = enAtencion({ arrived_at: null, attended_at: null, real_date: '2026-10-08', cargada_en_otra_fecha_at: '2026-10-12T14:52:00.000Z' })
+    expect(item(accionesDeVisita(deAyer, todo, HOY), 'volver')).toMatchObject({ habilitada: false, bajada: 'Se registró el 12 oct: sólo se deshace en el día' })
+  })
+  it('deshacer una carga es de quien coordina el estudio, como el inicio de atención', () => {
+    const cargada = enAtencion({ arrived_at: null, attended_at: null, real_date: '2026-10-08', cargada_en_otra_fecha_at: INICIO })
+    expect(item(accionesDeVisita(cargada, soloRecepcion, HOY), 'volver')).toMatchObject({ habilitada: false, bajada: 'Sólo quien coordina el estudio' })
+  })
+})
+
+describe('Vino otro día', () => {
+  it('sólo Por llegar, habilitado para quien coordina el estudio', () => {
+    expect(item(accionesDeVisita(visita(), todo, HOY), 'vino-otro-dia')).toMatchObject({
+      titulo: 'Vino otro día…', bajada: 'Cargarla con la fecha en que vino', habilitada: true,
+    })
+    expect(item(accionesDeVisita(concurrio(), todo, HOY), 'vino-otro-dia')).toBeUndefined()
+    expect(item(accionesDeVisita(enAtencion(), todo, HOY), 'vino-otro-dia')).toBeUndefined()
+    expect(item(accionesDeVisita(completa(), todo, HOY), 'vino-otro-dia')).toBeUndefined()
+  })
+  it('con «no vino» también: la base lo limpia en el mismo paso (vino)', () => {
+    expect(item(accionesDeVisita(visita({ no_show_at: LLEGADA }), todo, HOY), 'vino-otro-dia')!.habilitada).toBe(true)
+  })
+  it('Recepción sola, o un admin que no coordina el estudio: apagado con su porqué', () => {
+    expect(item(accionesDeVisita(visita(), soloRecepcion, HOY), 'vino-otro-dia')).toMatchObject({ habilitada: false, bajada: 'Lo carga quien coordina el estudio' })
+    expect(item(accionesDeVisita(visita(), { recepcion: true, clinica: true, coordina: false }, HOY), 'vino-otro-dia')!.habilitada).toBe(false)
   })
 })
 
@@ -184,6 +220,7 @@ describe('llegadaFueraDeFecha', () => {
     expect(llegadaFueraDeFecha(visita({ estimated_date: '2026-10-28', window_start: null, window_end: null }), HOY, true)).toEqual({
       antes: 'Esta visita está agendada para el', fecha: '28 oct',
       detalle: 'Se registra la llegada hoy, 13 oct, y la fecha de la visita pasa a ser hoy.', mueveFecha: true,
+      vinoEseDia: null,
     })
   })
   it('adelantarla fuera de la ventana lo dice en la misma confirmación', () => {
@@ -197,7 +234,14 @@ describe('llegadaFueraDeFecha', () => {
     expect(llegadaFueraDeFecha(visita({ estimated_date: '2026-10-08' }), HOY, true)).toEqual({
       antes: 'Esta visita estaba agendada para el', fecha: '08 oct',
       detalle: 'Se registra la llegada hoy, 13 oct. La fecha agendada queda como estaba.', mueveFecha: false,
+      vinoEseDia: '08 oct',
     })
+  })
+  it('citada ANTES: ofrece «¿Vino el 08 oct?» sólo a quien puede fechar la visita (0158)', () => {
+    // El caso que originó la 0158: una visita de la semana pasada marcada hoy. La confirmación es el
+    // momento exacto para ofrecer cargarla con su fecha.
+    expect(llegadaFueraDeFecha(visita({ estimated_date: '2026-10-08' }), HOY, false)!.vinoEseDia).toBeNull()
+    expect(llegadaFueraDeFecha(visita(), HOY, true)!.vinoEseDia).toBeNull() // futura: no se ofrece
   })
   it('sin fecha: queda para hoy', () => {
     expect(llegadaFueraDeFecha(visita({ estimated_date: null, window_start: null, window_end: null }), HOY, true)).toMatchObject({

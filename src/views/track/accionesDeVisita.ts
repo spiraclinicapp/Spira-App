@@ -15,14 +15,16 @@ import { DIAS_DEL_RETEST } from './retomar'
  *
  *   1  Volver a <etapa>       (en Completa: Pedir retest)
  *   2  Reprogramar
- *   3  Marcar / deshacer «no vino»     ← sólo Por llegar (vivía en el ⋮ de la fila)
- *   4  Copiar ID de paciente
+ *   3  Vino otro día…                   ← sólo Por llegar (0158, plan docs/plan-visita-cargada-otro-dia.md)
+ *   4  Marcar / deshacer «no vino»     ← sólo Por llegar (vivía en el ⋮ de la fila)
+ *   5  Copiar ID de paciente
  *   ─────
- *   5  Eliminar visita                  ← en rojo, siempre al final
+ *   6  Eliminar visita                  ← en rojo, siempre al final
  *
  * Una acción que existe pero ahora no se puede va APAGADA y con el porqué en la bajada («Es la primera
  * etapa», «Ya concurrió al centro»): informa más que esconderla, y el menú no cambia de largo entre
- * visitas. Sólo «no vino» aparece y desaparece, porque fuera de Por llegar no es una acción que exista.
+ * visitas. Sólo «vino otro día» y «no vino» aparecen y desaparecen, porque fuera de Por llegar no son
+ * acciones que existan: las dos hablan de si el paciente vino.
  *
  * VIVE ACÁ, PURO Y CON TEST, porque es lo que puede quedar al revés sin verse: un «Volver a Concurrió»
  * sobre una visita que nunca registró la llegada se ve perfecto y miente sobre a dónde va. Y lo usan la
@@ -35,7 +37,8 @@ import { DIAS_DEL_RETEST } from './retomar'
  * └──────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 
-export type ClaveAccion = 'volver' | 'retest' | 'reprogramar' | 'no-vino' | 'deshacer-no-vino' | 'copiar' | 'eliminar'
+export type ClaveAccion =
+  | 'volver' | 'retest' | 'reprogramar' | 'vino-otro-dia' | 'no-vino' | 'deshacer-no-vino' | 'copiar' | 'eliminar'
 
 export interface AccionDeVisita {
   clave: ClaveAccion
@@ -55,7 +58,7 @@ export type VisitaParaAcciones = Pick<
   DayVisitRow,
   | 'operational_stage' | 'arrived_at' | 'attended_at' | 'real_date' | 'estimated_date' | 'no_show_at'
   | 'kind' | 'patient_code' | 'enrollment_status' | 'wants_doctor' | 'doctor_seen_at'
-  | 'window_start' | 'window_end'
+  | 'window_start' | 'window_end' | 'cargada_en_otra_fecha_at'
 >
 
 export interface PermisosDeVisita {
@@ -96,9 +99,11 @@ function itemVolver(v: VisitaParaAcciones, p: PermisosDeVisita, hoy: string): Ac
   }
   /* SÓLO LA MARCA DE HOY (0155): volver atrás corrige un clic equivocado, no reescribe la historia —
      deshacer el inicio de una visita vieja borraría su fecha realizada y le volvería a encender la
-     ventana vencida—. La llegada se mide por `arrived_at`; el inicio, por su sello `attended_at`: uno
-     sin sello es anterior a la 0102 y tampoco se deshace desde acá. */
-  const marca = deshaceLlegada ? v.arrived_at : v.attended_at
+     ventana vencida—. La llegada se mide por `arrived_at`; el inicio, por su sello `attended_at` o, si
+     se cargó en otra fecha, por el momento de la carga (0158: esa visita no tiene sello, la hora no se
+     sabe). Un inicio sin ninguno de los dos es anterior a la 0102 y tampoco se deshace desde acá. */
+  const cargadaHoy = !deshaceLlegada && !v.attended_at && !!v.cargada_en_otra_fecha_at
+  const marca = deshaceLlegada ? v.arrived_at : (v.attended_at ?? v.cargada_en_otra_fecha_at)
   if (!marca || isoDayAR(marca) !== hoy) {
     const dia = marca ? isoDayAR(marca) : v.real_date
     return { clave: 'volver', titulo, bajada: dia ? `Se registró el ${formatDayMonth(dia)}: sólo se deshace en el día` : 'Sólo se deshace en el día', icono: 'undo', habilitada: false }
@@ -108,11 +113,25 @@ function itemVolver(v: VisitaParaAcciones, p: PermisosDeVisita, hoy: string): Ac
   if (destino === 'por_llegar' && (v.wants_doctor || v.doctor_seen_at)) {
     return { clave: 'volver', titulo, bajada: v.doctor_seen_at ? 'Ya lo atendió el médico' : 'Tiene atención médica pedida', icono: 'undo', habilitada: false }
   }
-  // Qué se borra, con la hora del registro.
-  const bajada = deshaceLlegada
-    ? `Borra la llegada de las ${formatTimeAR(marca)}`
+  // Qué se borra, con la hora del registro. Una carga en otra fecha no tiene hora de inicio: se nombra
+  // por el día que dice la visita, que es lo que se deshace.
+  const bajada = deshaceLlegada ? `Borra la llegada de las ${formatTimeAR(marca)}`
+    : cargadaHoy && v.real_date ? `Deshace la carga del ${formatDayMonth(v.real_date)}`
     : `Borra el inicio de atención de las ${formatTimeAR(marca)}`
   return { clave: 'volver', titulo, bajada, icono: 'undo', habilitada: true }
+}
+
+/**
+ * «Vino otro día…» (0158): una visita que pasó y no se marcó en su día se carga con su fecha real, sin
+ * marcar tres etapas hoy. Sólo Por llegar —en el centro o atendida, la fecha ya es otra cosa—, y con o
+ * sin «no vino» (la base lo limpia en el mismo paso: vino). El permiso es el de fechar la visita: quien
+ * coordina el estudio o gerencia (`coordina`, el de la base); Recepción no.
+ */
+function itemVinoOtroDia(v: VisitaParaAcciones, p: PermisosDeVisita): AccionDeVisita | null {
+  if (v.operational_stage !== 'por_llegar') return null
+  const base = { clave: 'vino-otro-dia' as const, titulo: 'Vino otro día…', icono: 'history' as const }
+  if (!p.coordina) return { ...base, bajada: 'Lo carga quien coordina el estudio', habilitada: false }
+  return { ...base, bajada: 'Cargarla con la fecha en que vino', habilitada: true }
 }
 
 /**
@@ -176,10 +195,12 @@ function itemEliminar(v: VisitaParaAcciones, p: PermisosDeVisita): AccionDeVisit
 /** Las acciones del menú, en orden. `hoy` = `todayISO()` (parámetro para que el test no dependa del día). */
 export function accionesDeVisita(v: VisitaParaAcciones, p: PermisosDeVisita, hoy: string): AccionDeVisita[] {
   const primera = v.operational_stage === 'fin_atencion' ? itemRetest(v, p, hoy) : itemVolver(v, p, hoy)
+  const otroDia = itemVinoOtroDia(v, p)
   const noVino = itemNoVino(v, p)
   return [
     primera,
     itemReprogramar(v, p, hoy),
+    ...(otroDia ? [otroDia] : []),
     ...(noVino ? [noVino] : []),
     itemCopiar(v),
     itemEliminar(v, p),
@@ -195,6 +216,12 @@ export interface LlegadaFueraDeFecha {
   detalle: string
   /** `true` → `registrar_llegada_adelantada` (llegada + citación a hoy); `false` → `mark_arrived`. */
   mueveFecha: boolean
+  /**
+   * Citación PASADA y quien mira puede cargar la visita en otra fecha: la confirmación ofrece «¿Vino el
+   * 8 oct?» (0158), que abre «Vino otro día…». Es el momento exacto del error que esto evita —marcar hoy
+   * una visita que pasó la semana pasada—. El día, ya formateado; `null` = no se ofrece.
+   */
+  vinoEseDia: string | null
 }
 
 /**
@@ -206,7 +233,8 @@ export interface LlegadaFueraDeFecha {
  * de más adelante ya no va a ocurrir, y sin moverla la visita saldría también ese día (`motivosDelDia`).
  * Una citación PASADA no se toca: llegar tarde la da por cumplida (#460) y «citada el 8, vino el 10» es
  * un dato. Mover fechas es de quien coordina el estudio o de gerencia (`puedeMoverFecha`); el resto de Recepción
- * registra la llegada igual, sin mover la fecha, como hoy.
+ * registra la llegada igual, sin mover la fecha, como hoy. Con citación pasada, ese mismo permiso —el de
+ * fechar la visita— ofrece además cargarla con la fecha en que vino (`vinoEseDia`, 0158).
  *
  * Sólo la llegada: para Iniciar y Finalizar fuera de fecha el modal sigue con `ConfirmarAvance`, sin
  * cambios (handoff §4).
@@ -222,13 +250,14 @@ export function llegadaFueraDeFecha(
     return {
       antes: 'Esta visita estaba agendada para el', fecha: formatDayMonth(v.estimated_date),
       detalle: `${llega}. La fecha agendada queda como estaba.`, mueveFecha: false,
+      vinoEseDia: puedeMoverFecha ? formatDayMonth(v.estimated_date) : null,
     }
   }
   const primera = v.estimated_date
     ? { antes: 'Esta visita está agendada para el', fecha: formatDayMonth(v.estimated_date) }
     : { antes: 'Esta visita no tiene fecha agendada', fecha: null }
   if (!puedeMoverFecha) {
-    return { ...primera, detalle: `${llega}. La fecha la mueve quien coordina el estudio.`, mueveFecha: false }
+    return { ...primera, detalle: `${llega}. La fecha la mueve quien coordina el estudio.`, mueveFecha: false, vinoEseDia: null }
   }
   /* Adelantarla puede sacarla de su ventana: «Reprogramar» lo pregunta aparte (`RescheduleModal`); acá
      va en la misma confirmación, que ya es la pregunta. */
@@ -238,6 +267,7 @@ export function llegadaFueraDeFecha(
     detalle: `${llega}, y la ${v.estimated_date ? 'fecha de la visita pasa a ser hoy' : 'visita queda para hoy'}.`
       + (fueraDeVentana ? ' Hoy queda fuera de la ventana del protocolo.' : ''),
     mueveFecha: true,
+    vinoEseDia: null,
   }
 }
 

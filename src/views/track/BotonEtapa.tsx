@@ -17,8 +17,9 @@ export interface CaraPrincipal {
   /**
    * Si está, el clic NO avanza: abre esta confirmación en el lugar del menú (llegada de una visita que
    * no está citada para hoy, `llegadaFueraDeFecha`). `onConfirmar` hace la llegada que corresponda.
+   * Con `vinoEseDia` y `onVinoEseDia`, ofrece además cargarla con la fecha en que vino (0158).
    */
-  confirmar?: LlegadaFueraDeFecha & { rotulo: string; onConfirmar: () => void }
+  confirmar?: LlegadaFueraDeFecha & { rotulo: string; onConfirmar: () => void; onVinoEseDia?: () => void }
 }
 
 /**
@@ -215,6 +216,15 @@ export function BotonEtapa({
                 {cara.confirmar.antes}{cara.confirmar.fecha && <> <b>{cara.confirmar.fecha}</b></>}.
                 <span>{cara.confirmar.detalle}</span>
               </p>
+              {cara.confirmar.vinoEseDia && cara.confirmar.onVinoEseDia && (
+                <button
+                  type="button"
+                  className="spira-split-otro"
+                  onClick={() => { const c = cara.confirmar; cerrar(); c?.onVinoEseDia?.() }}
+                >
+                  ¿Vino el {cara.confirmar.vinoEseDia}? Cargala con esa fecha
+                </button>
+              )}
               <div className="spira-split-fila">
                 <button type="button" className="spira-split-btn spira-no-press" onClick={volverALaFlecha}>Cancelar</button>
                 <button

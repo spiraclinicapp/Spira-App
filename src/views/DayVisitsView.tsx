@@ -369,14 +369,17 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
     dayProcs.refetch()
   }
 
-  /* El menú del botón de etapa de cada fila: volver, «no vino», reprogramar, copiar, eliminar, retest
-     y la llegada fuera de fecha. Lo ejecuta el mismo hook que usa el modal de la visita; el aviso sale
-     al pie (el chip que cambia de color en una fila que no se reordena no alcanza como confirmación) y
-     el error, al banner de esta vista. Lo que cambia puede tocar la tira de indicadores (`dayProcs`). */
+  /* El menú del botón de etapa de cada fila: volver, «no vino», reprogramar, vino otro día, copiar,
+     eliminar, retest y la llegada fuera de fecha. Lo ejecuta el mismo hook que usa el modal de la visita;
+     el aviso sale al pie (el chip que cambia de color en una fila que no se reordena no alcanza como
+     confirmación) y el error, al banner de esta vista. Lo que cambia puede tocar la tira de indicadores
+     (`dayProcs`). Una visita cargada en otra fecha pasa a ser de ESE día: la lista va ahí, donde está la
+     visita para finalizarla (0158). */
   const acciones = useAccionesDeVisita({
     acento: accentSolid,
     onCambio: () => { refrescar(); dayProcs.refetch() },
     onError: (msg) => { setActionError(msg); setFeedback(null) },
+    onCargadaEn: setDate,
   })
 
   const cargando = permisosCargando || (vista === 'dia' ? day.loading : !rangoQ.error && !rangoListo)
