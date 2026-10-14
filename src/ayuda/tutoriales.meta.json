@@ -1,37 +1,37 @@
 {
   "dispensar": {
-    "version": "02accad0",
-    "duracionMs": 41520,
+    "version": "b159b215",
+    "duracionMs": 43080,
     "capitulos": [
       {
         "inicioMs": 0,
         "titulo": "Entrar a Dispensaciones"
       },
       {
-        "inicioMs": 10399,
+        "inicioMs": 10817,
         "titulo": "Preparar el pedido"
       },
       {
-        "inicioMs": 15275,
+        "inicioMs": 15821,
         "titulo": "Escanear"
       },
       {
-        "inicioMs": 23583,
+        "inicioMs": 24458,
         "titulo": "Marcar lista"
       },
       {
-        "inicioMs": 32999,
+        "inicioMs": 34062,
         "titulo": "Entregar"
       }
     ],
     "transcripcion": [
       "En Farmacia, entrá a Dispensaciones. Los pedidos que llegan desde Coordinación esperan en Solicitadas.",
       "Cada tarjeta muestra el paciente, el medicamento y cuántas unidades pidieron.",
-      "Tocá «Preparar»: el pedido pasa a Preparando y se abre el detalle.",
+      "Pulsá el botón «Preparar»: el pedido pasa a Preparando y se abre el detalle.",
       "Escaneá cada unidad con el lector. Spira controla que sea el medicamento del pedido.",
       "Una pasada por unidad: el contador muestra cuántas llevás.",
-      "Con todo escaneado, tocá «Marcar lista para retirar». Spira genera el comprobante, asigna el lote que vence primero y descuenta el stock.",
-      "Cuando el paciente la retira, tocá «Marcar como entregado».",
+      "Con todo escaneado, pulsá el botón «Marcar lista para retirar». Spira genera el comprobante, asigna el lote que vence primero y descuenta el stock.",
+      "Cuando se retira la medicación, pulsá el botón «Marcar como entregado».",
       "Listo: la dispensación queda en Entregadas, con su comprobante."
     ]
   }
