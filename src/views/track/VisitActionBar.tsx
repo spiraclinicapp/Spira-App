@@ -73,7 +73,7 @@ export function VisitActionBar({
   const hoy = todayISO()
   const noVino = esNoVino(visit)
   /* Marcar la llegada de una visita que no está citada para hoy confirma antes, en el lugar del menú
-     (`llegadaFueraDeFecha`). Mover la citación es de quien coordina el estudio: `permisos.coordina`. */
+     (`llegadaFueraDeFecha`). Mover la citación es de quien coordina el estudio o de gerencia: `permisos.coordina`. */
   const llegada = llegadaFueraDeFecha(visit, hoy, permisos.coordina)
   const codigo = nombreDeLaVisita(visit)
 
