@@ -14,7 +14,7 @@ import { codecs, oneOf } from '../lib/router'
 import { useUrlEntity, useUrlState } from '../lib/useUrlState'
 import { useAbrirFicha } from './useAbrirFicha'
 import {
-  claveRango, useVisitsForDay, useVisitsForRange, markArrived, startVisitAttention, markReady, markNoShow,
+  claveRango, useVisitsForDay, useVisitsForRange, markArrived, startVisitAttention, markReady,
   markReadyWithOutcome, discontinueEnrollment,
 } from '../data/dayVisits'
 import type { DayVisitRow, OperationalStage } from '../data/dayVisits'
@@ -24,13 +24,13 @@ import { useVisitsIpStatus } from '../data/visitIp'
 import { armarResumenesDelDia } from './track/resumenVisita'
 import { DayVisitRowItem } from './track/DayVisitRowItem'
 import { VisitDetail } from './track/VisitDetail'
-import { RescheduleModal } from './track/RescheduleModal'
 import { ReadyOutcomeModal } from './track/ReadyOutcomeModal'
 import { AgendarVisitaModal } from './track/agendar/AgendarVisitaModal'
 import { pacienteDeVisita } from './track/agendar/opciones'
 import { useProtocols } from '../data/protocols'
 import { DoctorRequestModal } from './track/DoctorRequestModal'
 import { useAvisoAlFinalizar } from './track/useAvisoAlFinalizar'
+import { useAccionesDeVisita } from './track/useAccionesDeVisita'
 import {
   VISTAS, compararVisitas, conFinDeSemana, contarPorGrupo, estadoDeFila, grupoDeVisita, pasoPeriodo,
   periodoDe, rangoDeConsulta, visitasDelPeriodo, visitasPorDia,
@@ -108,7 +108,6 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   }
 
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [rescheduleFor, setRescheduleFor] = useState<TrackVisitRow | null>(null)
   const [doctorFor, setDoctorFor] = useState<DayVisitRow | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [agregando, setAgregando] = useState(false)
@@ -370,19 +369,15 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
     dayProcs.refetch()
   }
 
-  /* "No vino" GUARDA una marca (no abre el modal): la visita queda en "Por reprogramar" hasta que
-     alguien le dé fecha nueva. Limpia/setea `feedback` porque el chip que cambia de color en una
-     fila que no se reordena no alcanza como confirmación visible. */
-  const noShow = async (visit: DayVisitRow, value: boolean) => {
-    setBusyId(visit.id)
-    setActionError(null)
-    setFeedback(null)
-    const res = await markNoShow(visit.id, value)
-    setBusyId(null)
-    if (res.error) { setActionError(res.error); return }
-    setFeedback(value ? 'Falta registrada. La visita queda por reprogramar.' : 'Falta deshecha.')
-    day.refetch()
-  }
+  /* El menú del botón de etapa de cada fila: volver, «no vino», reprogramar, copiar, eliminar, retest
+     y la llegada fuera de fecha. Lo ejecuta el mismo hook que usa el modal de la visita; el aviso sale
+     al pie (el chip que cambia de color en una fila que no se reordena no alcanza como confirmación) y
+     el error, al banner de esta vista. Lo que cambia puede tocar la tira de indicadores (`dayProcs`). */
+  const acciones = useAccionesDeVisita({
+    acento: accentSolid,
+    onCambio: () => { refrescar(); dayProcs.refetch() },
+    onError: (msg) => { setActionError(msg); if (msg) setFeedback(null) },
+  })
 
   const cargando = permisosCargando || (vista === 'dia' ? day.loading : !rangoQ.error && !rangoListo)
   const error = vista === 'dia' ? day.error : rangoQ.error
@@ -394,12 +389,13 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
       visit={v}
       canReception={canReception}
       canClinical={canClinical(v)}
-      busyId={busyId}
+      busyId={busyId ?? acciones.ocupado}
       resumen={resumenes[v.id] ?? null}
       onAdvance={advance}
       onOpenDoctor={(vv) => setDoctorFor(vv)}
-      onNoShow={noShow}
-      onReschedule={setRescheduleFor}
+      onAccion={(vv, clave) => void acciones.ejecutar(vv, clave)}
+      onLlegar={(vv, mueveFecha) => void acciones.llegar(vv, mueveFecha)}
+      acento={accentSolid}
       onOpen={(vv) => setOpenVisit(vv)}
       onOpenPatient={abrirFicha && (() => abrirFicha(v.patient_id, v.protocol_id))}
     />
@@ -552,14 +548,8 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
 
       {cuerpo()}
 
-      {rescheduleFor && (
-        <RescheduleModal
-          visit={rescheduleFor}
-          accentSolid={accentSolid}
-          onClose={() => setRescheduleFor(null)}
-          onDone={() => { setRescheduleFor(null); refrescar() }}
-        />
-      )}
+      {/* «Reprogramar» y «Pedir retest» del menú de las filas. */}
+      {acciones.capas}
       {readyOutcome && (readyOutcome.role === 'screening' || readyOutcome.role === 'randomizacion') && (
         <ReadyOutcomeModal
           role={readyOutcome.role}

@@ -1,18 +1,24 @@
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
-import { OPERATIONAL_STAGES } from '../visitStates'
-import { formatDateTimeAR, formatTimeAR } from '../../lib/dates'
+import { OPERATIONAL_STAGES, VISIT_STATES } from '../visitStates'
+import { formatTimeAR, todayISO } from '../../lib/dates'
+import { visitCode, visitTitle } from '../../lib/visits'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 import { contextoDeEtapa, etapaProgreso, marcaDeEtapa } from './visitHeaderRules'
+import { accionesDeVisita, llegadaFueraDeFecha } from './accionesDeVisita'
+import type { ClaveAccion, PermisosDeVisita } from './accionesDeVisita'
+import { BotonEtapa } from './BotonEtapa'
+import type { CaraPrincipal } from './BotonEtapa'
+import { esNoVino } from './visitas/calendario'
 
 /**
  * Barra de acción del modal de visita (handoff §7). Dos mitades:
  *
  * ```
- * ┌ listón (flex:1, máx 440) ──────────────────┐  ┌ acciones (derecha) ─────────────┐
- * │ Concurrió al centro · 10:31 · sigue …  2 DE 4│  │ [chip] [Solicitar atención médica] [CTA] │
- * │ ▬▬▬▬▬▬▬▬▬▬░░░░░░░░░░  riel al 50 %          │  └─────────────────────────────────┘
+ * ┌ listón (flex:1, máx 440) ──────────────────┐  ┌ acciones (derecha) ──────────────────────────────┐
+ * │ Concurrió al centro · 10:31 · sigue …  2 DE 4│  │ [chip] [Solicitar atención médica] [Iniciar → | ⌄] │
+ * │ ▬▬▬▬▬▬▬▬▬▬░░░░░░░░░░  riel al 50 %          │  └──────────────────────────────────────────────────┘
  * └─────────────────────────────────────────────┘
  * ```
  *
@@ -20,20 +26,29 @@ import { contextoDeEtapa, etapaProgreso, marcaDeEtapa } from './visitHeaderRules
  * del encabezado ya no lleva chip de etapa.
  *
  * **Una sola acción sólida por pantalla, y es la que avanza la etapa.** "Solicitar atención médica"
- * nunca es sólida y no mueve la ruta. Las etapas de otro rol reemplazan la primaria por el bloque
- * punteado.
+ * nunca es sólida y no mueve la ruta.
  *
- * El anexo con chevron del mock (retroceder una etapa / ver historial) NO está: las dos son
- * features de punta a punta sin backend — no hay RPC para deshacer una marca y el historial vive en
- * `audit_log`, que por RLS solo lee gerencia. Anotadas en `TODOS.md`.
+ * La primaria es el BOTÓN DE ETAPA DIVIDIDO (handoff `docs/design_handoff_boton_etapa/`, 2026-10-14): la
+ * cara avanza y la flecha abre las acciones sobre la visita —volver a la etapa anterior, reprogramar,
+ * copiar el ID, eliminar, pedir retest—, las mismas que en la fila de Visitas (`accionesDeVisita`). Está
+ * SIEMPRE: desde el cronograma de Estudios y pacientes el modal es la única puerta a esas acciones, y
+ * ahí se abren visitas de cualquier etapa. Sin permiso para la marca, la cara se apaga y dice de quién es
+ * (antes, el bloque punteado); completa, queda «Acciones». Era el «anexo con chevron» del mock de
+ * encabezado; el historial de la visita sigue afuera (`audit_log` sólo lo lee gerencia, ver `TODOS.md`).
  */
 export function VisitActionBar({
-  visit, readOnly, canAdvance, busy, accent, onAdvance, onSolicitarMedico,
+  visit, readOnly, canAdvance, busy, accent, permisos, onAdvance, onAccion, onLlegar, onSolicitarMedico,
 }: {
   visit: DayVisitRow
   readOnly: boolean
   canAdvance: boolean
   busy: boolean
+  /** Para el menú: qué marcas puede hacer (y deshacer) quien mira (`accionesDeVisita`). */
+  permisos: PermisosDeVisita
+  /** Una acción del menú (`useAccionesDeVisita` la ejecuta). */
+  onAccion: (clave: ClaveAccion) => void
+  /** La llegada confirmada fuera de fecha: `mueveFecha` = adelantada (la citación pasa a hoy). */
+  onLlegar: (mueveFecha: boolean) => void
   /**
    * El acento del módulo desde el que se abrió la visita — el MISMO que ya recibe `VisitDetail`,
    * que es quien monta esta barra.
@@ -56,6 +71,14 @@ export function VisitActionBar({
   const step = NEXT_STEP[stage]
   const role = advanceRole(stage)
   const finalizada = stage === 'fin_atencion'
+  const hoy = todayISO()
+  const noVino = esNoVino(visit)
+  /* Marcar la llegada de una visita que no está citada para hoy confirma antes, en el lugar del menú
+     (`llegadaFueraDeFecha`). Mover la citación es de quien coordina el estudio: `permisos.clinica`. */
+  const llegada = llegadaFueraDeFecha(visit, hoy, permisos.clinica)
+  /* El nombre de la visita como lo dice el encabezado del modal: una continuación se titula entera
+     («Visita Cont. V3» no es un nombre). */
+  const codigo = visitCode(visit) && !visit.origin_visit_id ? visitCode(visit) : visitTitle(visit)
 
   return (
     <div className="spira-visit-actbar" style={actbar}>
@@ -96,39 +119,40 @@ export function VisitActionBar({
             <Icon name="lock" size={15} color="var(--spira-muted)" />
             Se opera desde Visitas del día
           </span>
-        ) : finalizada ? (
-          <span style={fin}>
-            <Icon name="check" size={15} color="var(--spira-primary)" stroke={2.4} />
-            Realizada
-            {/* Sin autor: `patient_visits` guarda `ready_at` pero no quién marcó (no hay
-                `ready_by`). El mock lo muestra; inventarlo sería peor que omitirlo. */}
-            {visit.ready_at && <span style={finD}>{formatDateTimeAR(visit.ready_at)}</span>}
-          </span>
         ) : (
           <>
-            <button type="button" onClick={onSolicitarMedico} disabled={busy} style={sec}>
-              <Icon name="users" size={15} color="var(--spira-track)" />
-              {/* «Solicitar atención médica» y no «Solicitar médico» (Director, 2026-09-16): se pide
-                  la ATENCIÓN, que es lo que abre el popup y el nombre que ya usa la otra cara del
-                  mismo botón. */}
-              {visit.wants_doctor || visit.doctor_seen_at ? 'Ver atención médica' : 'Solicitar atención médica'}
-              <Icon name="externalLink" size={13} color="var(--spira-muted)" />
-            </button>
-
-            {step && canAdvance ? (
-              <button
-                type="button" onClick={() => { if (!busy) onAdvance(step.next) }} disabled={busy}
-                style={{ ...cta(accent), opacity: busy ? 0.6 : 1 }}
-              >
-                {busy ? 'Guardando…' : step.label}
-                <Icon name="arrowRight" size={16} color="var(--spira-on-accent)" />
+            {/* Completa ya no muestra el sello «Realizada · fecha»: lo dice el listón (etapa + hora),
+                y en su lugar va «Acciones», donde vive «Pedir retest» (handoff §1). */}
+            {!finalizada && (
+              <button type="button" onClick={onSolicitarMedico} disabled={busy} style={sec}>
+                <Icon name="users" size={15} color="var(--spira-track)" />
+                {/* «Solicitar atención médica» y no «Solicitar médico» (Director, 2026-09-16): se pide
+                    la ATENCIÓN, que es lo que abre el popup y el nombre que ya usa la otra cara del
+                    mismo botón. */}
+                {visit.wants_doctor || visit.doctor_seen_at ? 'Ver atención médica' : 'Solicitar atención médica'}
+                <Icon name="externalLink" size={13} color="var(--spira-muted)" />
               </button>
-            ) : step ? (
-              <span style={gated}>
-                <Icon name="lock" size={15} color="var(--spira-muted)" />
-                Requiere acción {role === 'reception' ? 'de Recepción' : 'del clínico'}
-              </span>
-            ) : null}
+            )}
+
+            <BotonEtapa
+              tamano="modal"
+              cara={step ? {
+                rotulo: step.label,
+                habilitada: canAdvance,
+                pista: `Requiere acción ${role === 'reception' ? 'de Recepción' : 'del clínico'}`,
+                onClick: () => onAdvance(step.next),
+                confirmar: llegada
+                  ? { ...llegada, rotulo: 'Marcar llegada hoy', onConfirmar: () => onLlegar(llegada.mueveFecha) }
+                  : undefined,
+              } satisfies CaraPrincipal : null}
+              acciones={accionesDeVisita(visit, permisos, hoy)}
+              encabezado={{ visita: codigo, etapa: `${noVino ? VISIT_STATES.por_reprogramar.short : meta.short} · ${paso} de ${total}` }}
+              rotuloVisita={codigo}
+              etiqueta={`Más acciones de la visita de ${visit.patient_name}`}
+              ocupado={busy}
+              acento={accent}
+              onAccion={onAccion}
+            />
           </>
         )}
       </span>
@@ -167,18 +191,8 @@ const railFill: CSSProperties = {
   display: 'block', height: '100%', background: 'var(--spira-track)', borderRadius: 2,
 }
 const grp: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto', flex: '0 0 auto',
+  display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto', flex: '0 0 auto',
 }
-/* Función del acento, como `okBtn(busy)` más abajo: el relleno sale del módulo desde el que se abrió
-   la visita, no de un token fijo. La sombra se DERIVA del mismo acento en vez de llevar el
-   `rgba(46, 125, 116, .24)` que tenía escrito a mano — que era, además, el teal viejo. */
-const cta = (accent: string): CSSProperties => ({
-  border: 'none', cursor: 'pointer', background: accent, color: 'var(--spira-on-accent)',
-  boxShadow: `0 2px 8px color-mix(in srgb, ${accent} 24%, transparent)`,
-  fontFamily: 'var(--spira-font-text)',
-  fontWeight: 700, fontSize: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  gap: 8, height: 42, borderRadius: 11, padding: '0 20px', whiteSpace: 'nowrap',
-})
 const sec: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 8, height: 42, padding: '0 16px', borderRadius: 11,
   borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--spira-line-2)', background: 'var(--spira-white)',
@@ -189,14 +203,6 @@ const gated: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 8, height: 42, padding: '0 15px', borderRadius: 11,
   borderWidth: 1, borderStyle: 'dashed', borderColor: 'var(--spira-line-2)', background: 'var(--spira-white)',
   fontSize: 13, fontWeight: 600, color: 'var(--spira-muted)', whiteSpace: 'nowrap',
-}
-const fin: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 8, height: 42, padding: '0 15px', borderRadius: 11,
-  background: 'rgba(46, 125, 116, 0.14)', fontSize: 13, fontWeight: 700, color: 'var(--spira-acc-deep-track)',
-  whiteSpace: 'nowrap',
-}
-const finD: CSSProperties = {
-  fontWeight: 500, color: 'var(--spira-ink-soft)', fontVariantNumeric: 'tabular-nums',
 }
 const chipWarn: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px', borderRadius: 999,

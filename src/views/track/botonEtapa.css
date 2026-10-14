@@ -1,0 +1,148 @@
+/* —— Botón de etapa dividido ——
+   Handoff `docs/design_handoff_boton_etapa/` §1-§2. Dos <button> pegados (cara principal + flecha) y un
+   menú portaleado a `body`. Vive en una hoja y no en objetos de estilo: el hover de cada mitad, el
+   estado abierto y el giro del chevron son CSS puro (la regla de la casa: el realce va en CSS, no en
+   `onMouseEnter`).
+
+   Las dos mitades llevan `.spira-no-press`: la micro-interacción global levanta CADA botón 1px al
+   apuntarlo, y acá eso partía el botón en dos — la mitad apuntada subía y la otra no. El levante lo
+   hace el conjunto (`:has`), así se mueve como una sola pieza.
+
+   El relleno sale de `--split-acc` (el `accentSolid` del módulo, #2B766D en Coordinación, AA 4,76:1 con
+   texto papel) y no del #2E7D74 del mock, que es el teal de PINTAR y a 4,33:1 no llega a AA: es el mismo
+   ajuste que ya documenta `VisitActionBar`. El hover es el token nuevo del handoff. */
+.spira-split {
+  --split-acc: var(--spira-track);
+  position: relative; display: inline-flex; flex: 0 0 auto; border-radius: 10px;
+  transition: transform .12s ease;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .spira-split:has(> button:not(:disabled):hover) { transform: translateY(-1px); }
+  .spira-split:has(> button:not(:disabled):active) { transform: translateY(0); }
+}
+.spira-split-main,
+.spira-split-more {
+  height: 40px; margin: 0; border: 0; background: var(--split-acc); color: var(--spira-on-accent);
+  cursor: pointer; display: flex; align-items: center; transition: background-color .12s ease;
+}
+.spira-split-main {
+  justify-content: center; gap: 8px; padding: 0 16px 0 18px; border-radius: 10px 0 0 10px;
+  font-family: var(--spira-font-display); font-weight: 700; font-size: 14.5px; white-space: nowrap;
+}
+.spira-split-more {
+  width: 36px; padding: 0; justify-content: center; border-radius: 0 10px 10px 0;
+  border-left: 1px solid rgba(244, 241, 234, .28);
+}
+.spira-split-main:hover:not(:disabled),
+.spira-split-more:hover:not(:disabled),
+.spira-split.abierto .spira-split-more { background: var(--spira-track-hover); }
+.spira-split-more svg { transition: transform .14s ease-out; }
+.spira-split.abierto .spira-split-more svg { transform: rotate(180deg); }
+.spira-split-main:focus-visible,
+.spira-split-more:focus-visible { outline: 2px solid var(--spira-ink); outline-offset: 2px; }
+/* Sin permiso para avanzar: la cara se ve apagada (el tono del mock, derivado del acento) y la pista
+   dice quién lo hace. Guardando, sólo se atenúa: la acción está en curso, no prohibida. */
+.spira-split-main:disabled { cursor: default; }
+.spira-split-main.apagada {
+  background: color-mix(in srgb, var(--split-acc) 25%, var(--spira-paper)); color: #F7F5EF;
+}
+.spira-split-main.guardando { opacity: .7; }
+.spira-split-more:disabled { cursor: default; opacity: .7; }
+
+/* En el modal, un escalón más alto para igualar a «Solicitar atención médica» (42 px). */
+.spira-split--modal .spira-split-main,
+.spira-split--modal .spira-split-more { height: 42px; }
+.spira-split--modal .spira-split-more { width: 38px; }
+
+/* Visita completa: sin etapa siguiente no hay cara principal. Queda un único botón SECUNDARIO,
+   «Acciones», que abre el mismo menú. */
+.spira-split--acciones .spira-split-more {
+  width: auto; gap: 8px; padding: 0 12px 0 16px; border-radius: 10px;
+  border: 1px solid var(--spira-line-2); background: var(--spira-white); color: var(--spira-ink);
+  font-family: var(--spira-font-display); font-weight: 600; font-size: 14px; white-space: nowrap;
+}
+.spira-split--acciones .spira-split-more:hover:not(:disabled),
+.spira-split--acciones.abierto .spira-split-more { background: var(--spira-paper); }
+.spira-split--acciones .spira-split-more svg { color: var(--spira-ink-soft); }
+
+/* —— El menú ——
+   Portaleado a `body` (`usePopover`, alineado a la DERECHA del botón): la fila y la tarjeta del modal
+   recortan lo que se sale de su caja. */
+.spira-split-pop {
+  position: fixed; z-index: var(--spira-z-popover); width: 316px; max-width: calc(100vw - 16px);
+  padding: 6px; background: var(--spira-white); border: 1px solid var(--spira-line); border-radius: 12px;
+  box-shadow: 0 14px 34px rgba(20, 48, 46, .16), 0 2px 6px rgba(20, 48, 46, .06); text-align: left;
+  font-family: var(--spira-font-text);
+}
+.spira-split-pop--confirmar { padding: 14px; }
+.spira-split-cab {
+  display: flex; align-items: center; gap: 8px; margin: -6px -6px 6px; padding: 8px 10px 9px;
+  border-bottom: 1px solid var(--spira-line);
+}
+.spira-split-cab b {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--spira-muted);
+}
+.spira-split-cab span {
+  margin-left: auto; font-size: 12px; font-weight: 600; color: var(--spira-ink-soft); font-variant-numeric: tabular-nums;
+}
+.spira-split-item {
+  width: 100%; display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; margin: 0;
+  border: 0; background: transparent; border-radius: 8px; cursor: pointer; text-align: left;
+  font-family: var(--spira-font-text); font-size: 13.5px; font-weight: 600; color: var(--spira-ink);
+}
+.spira-split-item > svg { margin-top: 2px; flex: 0 0 auto; color: var(--spira-ink-soft); }
+.spira-split-item:hover,
+.spira-split-item:focus-visible { background: var(--spira-paper); outline: none; }
+.spira-split-tx { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.spira-split-sub { font-size: 12px; font-weight: 500; color: var(--spira-muted); margin-top: 1px; }
+.spira-split-aparte {
+  margin-left: auto; margin-top: 1px; font-size: 12px; font-weight: 500; color: var(--spira-muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* Apagado: título e ícono tenues, sin hover; la bajada dice por qué. `aria-disabled` y no `disabled`,
+   para que el lector de pantalla lo lea (handoff §2). */
+.spira-split-item[aria-disabled='true'] { cursor: default; color: var(--spira-faint); }
+.spira-split-item[aria-disabled='true'] > svg { color: var(--spira-faint); }
+.spira-split-item[aria-disabled='true']:hover { background: transparent; }
+/* Peligro: el rojo PROFUNDO para el texto (se aclara en oscuro); el glifo, el de la familia. */
+.spira-split-item--peligro { color: var(--spira-acc-deep-danger); }
+.spira-split-item--peligro > svg { color: var(--spira-danger); }
+.spira-split-item--peligro:hover,
+.spira-split-item--peligro:focus-visible { background: rgba(166, 72, 59, .08); }
+.spira-split-sep { height: 1px; background: var(--spira-line); margin: 6px 2px; }
+
+/* Confirmaciones: eliminar (dentro del mismo menú) y registrar la llegada fuera de fecha (en el mismo
+   lugar que el menú). */
+.spira-split-confirma { padding: 10px 10px 6px; }
+.spira-split-pop--confirmar .spira-split-confirma { padding: 0; }
+.spira-split-confirma p { margin: 0 0 10px; font-size: 13px; line-height: 1.45; color: var(--spira-ink); }
+.spira-split-pop--confirmar .spira-split-confirma p { margin-bottom: 12px; }
+.spira-split-confirma p > span { display: block; margin-top: 2px; font-size: 12px; color: var(--spira-muted); }
+.spira-split-fila { display: flex; gap: 8px; justify-content: flex-end; }
+.spira-split-btn {
+  height: 32px; padding: 0 12px; border-radius: 8px; margin: 0; cursor: pointer;
+  border: 1px solid var(--spira-line-2); background: var(--spira-white); color: var(--spira-ink);
+  font-family: var(--spira-font-text); font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.spira-split-btn:focus-visible { outline: 2px solid var(--spira-ink); outline-offset: 2px; }
+.spira-split-btn--peligro { background: var(--spira-danger); border-color: var(--spira-danger); color: #fff; }
+.spira-split-btn--primario { background: var(--split-acc, var(--spira-track)); border-color: var(--split-acc, var(--spira-track)); color: var(--spira-on-accent); }
+.spira-split-btn:disabled { opacity: .6; cursor: default; }
+
+/* —— El popup «Pedir retest» (captura 08) ——
+   Las opciones de Motivo y Cuándo son botones de radio con forma de chip. La elegida va teñida, con el
+   borde y el texto del acento: es lo que ya hace el selector de motivos del médico (`DoctorRequest`) y
+   dice «elegido», no «el mouse está acá» —el hover es el levante de siempre—. El texto va en el teal
+   PROFUNDO, que se aclara en oscuro. */
+.spira-retest-opcion {
+  height: 32px; padding: 0 12px; margin: 0; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--spira-line-2); background: var(--spira-white); color: var(--spira-ink);
+  font-family: var(--spira-font-text); font-size: 13px; font-weight: 600;
+}
+.spira-retest-opcion.elegida {
+  background: rgba(46, 125, 116, .14); border-color: var(--spira-track); color: var(--spira-acc-deep-track);
+}
+.spira-retest-opcion:focus-visible { outline: 2px solid var(--spira-ink); outline-offset: 2px; }
+/* Las filas de `CasillasDeProcedimientos variante="lista"`: se resaltan, no se levantan (son filas). */
+.spira-casilla-fila { transition: background-color .12s ease; }
+.spira-casilla-fila:hover { background: var(--spira-surface); }

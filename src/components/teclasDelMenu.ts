@@ -22,3 +22,15 @@ export function teclaDelMenu(tecla: string, abierto: boolean): TeclaDelMenu {
   if (tecla !== 'Escape') return 'frenar'
   return abierto ? 'cerrar-menu' : 'dejar-pasar'
 }
+
+/**
+ * A qué ítem va el foco con ↑/↓ dentro de un menú (botón de etapa, handoff
+ * `design_handoff_boton_etapa` §3): recorre sólo los HABILITADOS —los apagados se leen pero no se
+ * enfocan— y da la vuelta en las puntas. `actual` = posición del foco entre los habilitados, o -1 si
+ * todavía no está en ninguno (recién abierto): ↓ va al primero y ↑ al último. `total` 0 → -1 (nada).
+ */
+export function focoSiguiente(total: number, actual: number, paso: 1 | -1): number {
+  if (total <= 0) return -1
+  if (actual < 0) return paso === 1 ? 0 : total - 1
+  return (actual + paso + total) % total
+}
