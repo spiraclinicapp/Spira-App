@@ -8,7 +8,7 @@ import { CabeceraDeTarjeta, card, ChipDestino, DetalleConEstado, filaAncha, Fila
 import { GRAVEDAD, ordenarPorGravedad, severidadMaxima } from './alertSeverity'
 import { DESTINO_PENDIENTES, DESTINO_REPORTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
-import { proximoDiaConVisitas, tiraDeLaSemana, visitasQueVienen } from './resumen/proximoDia'
+import { proximoDiaConVisitas, tiraDeLosProximos, visitasQueVienen } from './resumen/proximoDia'
 import type { DiaDeLaTira } from './resumen/proximoDia'
 import { personaActiva } from '../lib/inscripcion'
 import { AMBITOS, esMiaSinAtender, esDeMisProtocolos, esReporteMio, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
@@ -189,26 +189,26 @@ function BarraKpi({ tramos, total }: { tramos: { valor: number; color: string }[
 }
 
 /**
- * La tira de la semana del KPI «Próximas visitas»: lunes a domingo, la celda del día arriba y cuántas
- * visitas abajo. Qué semana y qué cuenta cada día lo decide `tiraDeLaSemana` (con test); esto sólo
- * pinta. Un día sin cantidad conocida (ya pasado, o más allá de lo consultado) dice «–», no «0».
+ * La tira del KPI «Próximas visitas»: los siete días que cuenta la cifra, de mañana en adelante, con
+ * la celda del día arriba y cuántas visitas abajo. Qué días y qué cuenta cada uno lo decide
+ * `tiraDeLosProximos` (con test); esto sólo pinta. Mientras carga, cada día dice «–»: un «0» antes de
+ * que llegue el dato sería mentir con un número, igual que la cifra.
  */
-function TiraSemanal({ dias }: { dias: DiaDeLaTira[] }) {
+function TiraSemanal({ dias, cargando }: { dias: DiaDeLaTira[]; cargando?: boolean }) {
   return (
     <div className="spira-kpi__semana" aria-hidden="true">
       {dias.map((d) => {
-        const con = (d.cantidad ?? 0) > 0
+        const con = !cargando && d.cantidad > 0
         const celda = ['spira-kpi__celda',
-          d.esHoy && 'spira-kpi__celda--hoy',
-          d.esProxima ? 'spira-kpi__celda--proxima' : con && 'spira-kpi__celda--con',
+          !cargando && d.esProxima ? 'spira-kpi__celda--proxima' : con && 'spira-kpi__celda--con',
         ].filter(Boolean).join(' ')
         const cuenta = ['spira-kpi__cuenta',
-          d.esProxima ? 'spira-kpi__cuenta--proxima' : !con && 'spira-kpi__cuenta--cero',
+          !cargando && d.esProxima ? 'spira-kpi__cuenta--proxima' : !con && 'spira-kpi__cuenta--cero',
         ].filter(Boolean).join(' ')
         return (
           <div key={d.iso} className="spira-kpi__dia">
             <span className={celda}>{d.inicial}</span>
-            <b className={cuenta}>{d.cantidad ?? '–'}</b>
+            <b className={cuenta}>{cargando ? '–' : d.cantidad}</b>
           </div>
         )
       })}
@@ -868,11 +868,14 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
 
      DESDE EL 2026-10-12 ESTO ES SÓLO DEL KPI. La tarjeta de abajo dejó de mostrar una jornada y
      lista la semana (`visitasQueVienen`): con un día de una sola visita quedaba en una fila pegada a
-     la cabecera aunque la semana viniera cargada. El KPI sigue en el próximo día porque su destino
-     es la pantalla Visitas en ESE día, y ahí el número que lleva tiene que coincidir con lo que se
-     ve al llegar. */
-  const { dia: proximoDia, visitas: visitasDelProximoDia } =
-    proximoDiaConVisitas(upcomingRows, todayISO())
+     la cabecera aunque la semana viniera cargada.
+
+     Y DESDE EL 2026-10-13 EL KPI TAMPOCO CUENTA UN DÍA (Director: «tiene que ser todas las visitas de
+     los próximos 7 días»): cuenta `visitasDeLaSemana`, lo mismo que la tarjeta de abajo y que la
+     suma de su tira. El próximo día queda para lo que sí es de un día: cuál va lleno en la tira y a
+     qué semana lleva el clic. */
+  const { dia: proximoDia } = proximoDiaConVisitas(upcomingRows, todayISO())
+  const visitasDeLaSemana = visitasQueVienen(upcomingRows, todayISO())
 
   /* El pie de la tarjeta Pendientes lleva a la pantalla con el MISMO filtro que el KPI «Atrasados»:
      «Ver más (12)» promete las que faltan de ESTA lista, y sin filtro la pantalla mostraba 42. */
@@ -902,7 +905,7 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
      grande y su subtítulo tienen que contar lo mismo. Y usa `loAtendiYo`, que YA tiene la guarda
      del `userId` nulo y su test; escribir `=== userId` a mano acá reintroduce el bug de declarar
      tuyas todas las visitas sin coordinador durante el render en que la sesión no resolvió. */
-  const asignadasAMi = visitasDelProximoDia.filter((v) => loAtendiYo(v, userId)).length
+  const asignadasAMi = visitasDeLaSemana.filter((v) => loAtendiYo(v, userId)).length
 
   /* ┌─ LA FILA DE KPI MIRA EL DÍA (critique 2026-10-08, P2; decisión del Director 2026-10-09) ─────┐
      Antes: Protocolos activos · Pacientes activos · Reportes vencidos · Próximas visitas. Los dos
@@ -915,11 +918,12 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
      anda la jornada: cuántas se terminaron de atender. Las etapas salen de `operational_stage`
      (0068), derivada de las marcas: no se infiere nada que no esté registrado.
 
-     «Próximas visitas» cuenta EL PRÓXIMO DÍA CON VISITAS, no los siete. Antes decía «3 · próximos 7
-     días» y llevaba a Visitas de hoy, donde esas tres no estaban. Las «asignadas a mí» se cuentan
-     sobre ese mismo día por la misma razón. Desde el handoff `design_handoff_kpis_visitas`
-     (2026-10-13) lleva a la vista SEMANA de Visitas —que existe desde la #420— y no al día: la
-     tarjeta dibuja la semana entera con el próximo día resaltado, y se llega a esa misma semana.
+     «Próximas visitas» cuenta LOS SIETE DÍAS QUE VIENEN (de mañana a siete días), desde el
+     2026-10-13 por decisión del Director; entre el 2026-10-09 y esa fecha contó sólo el próximo día.
+     Es lo mismo que cuenta la tarjeta de abajo («N en 7 días») y la suma de la tira que dibuja. Las
+     «asignadas a mí» se cuentan sobre esas mismas siete. Lleva a la vista SEMANA de Visitas (#420),
+     en la semana del próximo día con visitas: ninguna pantalla junta siete días corridos —la Semana
+     va de lunes a domingo—, así que el destino muestra la primera parte y el resto está a un «›».
      └──────────────────────────────────────────────────────────────────────────────────────────────┘ */
   /* REALIZADAS = atención terminada (`fin_atencion`). PENDIENTES = las que faltan atender, SIN las que
      se marcaron «no vino»: una ausencia registrada no está pendiente de nada en el día —la levanta
@@ -930,10 +934,10 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
   const pendientesHoy = hoyRows.filter((v) => v.operational_stage !== 'fin_atencion' && !v.no_show_at).length
   const leyendaRealizadas = `${realizadasHoy} ${realizadasHoy === 1 ? 'realizada' : 'realizadas'}`
   const leyendaPendientes = `${pendientesHoy} ${pendientesHoy === 1 ? 'pendiente' : 'pendientes'}`
-  const unidadProximas = proximoDia
-    ? (asignadasAMi > 0 ? `${dayLabel(proximoDia)} · ${asignadasAMi} a mí` : dayLabel(proximoDia))
-    : `nada en ${HORIZONTE_PROXIMAS} días`
-  const tira = tiraDeLaSemana(upcomingRows, todayISO(), hoyRows.length, proximoDia, HORIZONTE_PROXIMAS)
+  const unidadProximas = asignadasAMi > 0
+    ? `en ${HORIZONTE_PROXIMAS} días · ${asignadasAMi} a mí`
+    : `en ${HORIZONTE_PROXIMAS} días`
+  const tira = tiraDeLosProximos(upcomingRows, todayISO(), proximoDia, HORIZONTE_PROXIMAS)
   const inactivos = allPatients.length - activePatients
 
 
@@ -990,11 +994,11 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
           <KpiCard
             kpi="visitas" onNavigate={onNavigate} label="Próximas visitas" dot="var(--spira-good)" cargando={cargandoKpis}
             target={{ visitView: 'semana', visitDate: proximoDia ?? undefined }}
-            value={visitasDelProximoDia.length}
+            value={visitasDeLaSemana.length}
             unidad={unidadProximas}
             /* La tira es `aria-hidden`: lo que dibuja va acá en palabras, sólo los días con visitas. */
-            detalle={[unidadProximas, ...tira.filter((d) => (d.cantidad ?? 0) > 0).map((d) => `${dayName(d.iso).toLowerCase()} ${d.cantidad}`)].join(', ')}
-            visual={<TiraSemanal dias={cargandoKpis ? tira.map((d) => ({ ...d, cantidad: null, esProxima: false })) : tira} />}
+            detalle={[unidadProximas, ...tira.filter((d) => d.cantidad > 0).map((d) => `${dayName(d.iso).toLowerCase()} ${d.cantidad}`)].join(', ')}
+            visual={<TiraSemanal dias={tira} cargando={cargandoKpis} />}
           />
           <KpiCard
             kpi="pacientes" onNavigate={onNavigate} label="Pacientes activos" dot="var(--spira-good)" cargando={cargandoKpis}
@@ -1153,7 +1157,7 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
               (solicitudes.data ?? []).length > 0)}
           />
           <ProximasVisitasCard
-            rows={visitasQueVienen(upcomingRows, todayISO())}
+            rows={visitasDeLaSemana}
             loading={upcoming.loading || coordinaciones.loading}
             error={upcoming.error}
             onReintentar={upcoming.refetch}
