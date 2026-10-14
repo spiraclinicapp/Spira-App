@@ -6,6 +6,7 @@
   "scripts": {
     "grabar": "playwright test -c playwright.config.ts grabar.pw.ts",
     "verificar": "playwright test -c playwright.config.ts verificar.pw.ts",
+    "publicar": "node publicar.mjs",
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
