@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, Ref } from 'react'
 import { Icon } from '../components/Icon'
 import { duracionCorta, duracionHablada, urlDelTutorial } from './catalogo'
@@ -16,7 +16,7 @@ import { useVideoTutorial } from './useVideoTutorial'
    Nunca arranca sola: el sonido empieza con el play. «Ver en grande» pasa al reproductor EN EL MISMO SEGUNDO.
    ============================================================================ */
 
-export function TarjetaTutorial({ tutorial, base, acento, titulo = tutorial.titulo, texto = tutorial.descripcion, visto, onVisto, onVerEnGrande, playRef }: {
+export function TarjetaTutorial({ tutorial, base, acento, titulo = tutorial.titulo, texto = tutorial.descripcion, visto, onVisto, onVerEnGrande, onArranca, playRef }: {
   tutorial: Publicado
   base: string
   /** El acento del módulo del tutorial: el disco de play y el progreso. */
@@ -28,12 +28,28 @@ export function TarjetaTutorial({ tutorial, base, acento, titulo = tutorial.titu
   visto: boolean
   onVisto: () => void
   onVerEnGrande: (segundo: number) => void
+  /** Le dieron play. En el tooltip (T5b) es lo que FIJA la tarjeta: deja de cerrarse al sacar el mouse. */
+  onArranca?: () => void
   /** Para que quien la abre ponga el foco en el play (plan, «Teclado»). */
   playRef?: Ref<HTMLButtonElement>
 }) {
   const v = useVideoTutorial({ src: urlDelTutorial(base, tutorial, 'video.mp4'), onVisto })
   /* Silencio propio: el control del sistema queda afuera de la tarjeta, y el video arranca con sonido (DD10). */
   const [mudo, setMudo] = useState(false)
+
+  /* El navegador pone los subtítulos al pie del video, y ahí van NUESTROS controles (los del sistema los corren
+     solos; éstos no): quedaban tapados por la barra. Se suben cuatro renglones, como en el mock. Con listeners
+     nativos y no con el `onLoad` de React, que en un `<track>` no llega (QA de T5b); y también en cada cambio
+     de subtítulo, por si los renglones cargan después del primer `load`. */
+  const trackRef = useRef<HTMLTrackElement>(null)
+  useEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+    const subir = () => { for (const cue of Array.from(el.track.cues ?? [])) (cue as VTTCue).line = -4 }
+    el.addEventListener('load', subir)
+    el.track.addEventListener('cuechange', subir)
+    return () => { el.removeEventListener('load', subir); el.track.removeEventListener('cuechange', subir) }
+  }, [])
   const dur = duracionCorta(tutorial.meta.duracionMs)
   const nombrePlay = `Reproducir el tutorial ${tutorial.titulo}, ${duracionHablada(tutorial.meta.duracionMs)}`
   const enMarcha = v.estado === 'reproduciendo' || v.estado === 'pausado' || v.estado === 'cargando'
@@ -56,13 +72,13 @@ export function TarjetaTutorial({ tutorial, base, acento, titulo = tutorial.titu
             style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover', background: 'var(--spira-paper)' }}
             aria-label={`Tutorial: ${tutorial.titulo}`}
           >
-            <track kind="captions" src={urlDelTutorial(base, tutorial, 'subtitulos.vtt')} srcLang="es" label="Español" default />
+            <track ref={trackRef} kind="captions" src={urlDelTutorial(base, tutorial, 'subtitulos.vtt')} srcLang="es" label="Español" default />
           </video>
         )}
 
         {v.estado === 'inicio' && (
           <span style={velo}>
-            <button ref={playRef} type="button" onClick={v.reproducir} aria-label={nombrePlay} title={nombrePlay} style={disco(acento)}>
+            <button ref={playRef} type="button" onClick={() => { onArranca?.(); v.reproducir() }} aria-label={nombrePlay} title={nombrePlay} style={disco(acento)}>
               <Icon name="play" size={16} color="var(--spira-on-accent)" fill="var(--spira-on-accent)" stroke={1} style={{ marginLeft: 2 }} />
             </button>
             <span className="spira-mono" style={chipDur}>{dur}</span>
