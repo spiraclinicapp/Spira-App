@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { abrePorFoco, anclaDePista, DEMORA_MS, describeAparte, demoraDeApertura, esRotulo, estaCortado, formaDePista, quitarId, sumarId, ubicarPista } from './reglasDePista'
+import { abrePorFoco, anclaDePista, cierraLaPista, DEMORA_MS, describeAparte, demoraDeApertura, esRotulo, estaCortado, formaDePista, quitarId, sumarId, tieneTarjeta, ubicarPista } from './reglasDePista'
 
 /**
  * Las reglas de la pista que reemplaza al globo del navegador (`Pistas.tsx`).
@@ -126,5 +126,27 @@ describe('sumarId / quitarId', () => {
     expect(sumarId('ayuda p', 'p')).toBe('ayuda p')
     expect(quitarId('ayuda p', 'p')).toBe('ayuda')
     expect(quitarId('p', 'p')).toBeNull()
+  })
+})
+
+describe('la tarjeta con el tutorial (T5b)', () => {
+  const publicados = new Set(['dispensar'])
+  it('sólo con el tutorial publicado y visible; si no, la pista de texto de siempre', () => {
+    expect(tieneTarjeta('dispensar', publicados)).toBe(true)
+    expect(tieneTarjeta('recepcion', publicados)).toBe(false)
+    expect(tieneTarjeta(undefined, publicados)).toBe(false)
+  })
+  it('sin fijar se cierra como cualquier pista', () => {
+    for (const m of ['mouseAfuera', 'foco', 'scroll', 'clicAfuera', 'esc', 'cerrar'] as const) expect(cierraLaPista(m, false)).toBe(true)
+  })
+  it('CRÍTICO · fijada (sonando) no se va al sacar el mouse, ni al scrollear, ni al perder el foco', () => {
+    expect(cierraLaPista('mouseAfuera', true)).toBe(false)
+    expect(cierraLaPista('scroll', true)).toBe(false)
+    expect(cierraLaPista('foco', true)).toBe(false)
+  })
+  it('fijada se cierra con el ✕, Esc o un clic afuera', () => {
+    expect(cierraLaPista('cerrar', true)).toBe(true)
+    expect(cierraLaPista('esc', true)).toBe(true)
+    expect(cierraLaPista('clicAfuera', true)).toBe(true)
   })
 })

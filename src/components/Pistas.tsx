@@ -1,7 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
+import { useAyudaPublicada } from '../ayuda/puente'
+import { TarjetaTutorial } from '../ayuda/TarjetaTutorial'
+import { MODULES } from '../modules/registry'
+import { Icon } from './Icon'
 import { GRACIA_MS } from './useHoverIntent'
-import { abrePorFoco, anclaDePista, demoraDeApertura, describeAparte, estaCortado, formaDePista, ID_PISTA, quitarId, sumarId, ubicarPista } from './reglasDePista'
+import { abrePorFoco, anclaDePista, cierraLaPista, demoraDeApertura, describeAparte, estaCortado, formaDePista, ID_PISTA, quitarId, sumarId, tieneTarjeta, ubicarPista } from './reglasDePista'
 import type { FormaPista } from './reglasDePista'
 
 /* ============================================================================
@@ -47,6 +52,14 @@ import type { FormaPista } from './reglasDePista'
 
    Fuera de esto: los `<iframe>` (su `title` es el nombre accesible del marco, no una ayuda) y lo que
    lleve `data-pista="nativa"`, la salida de emergencia por si aparece un caso que se dibuja mal.
+
+   ── EL TUTORIAL EN LA PISTA (T5b del plan de tutoriales, DD10) ──
+   Un control con `data-tutorial="<id>"` cuyo video está publicado muestra, en vez del papel, la TARJETA con el
+   video pausado: el texto de su `title` + play adentro, con sonido (`TarjetaTutorial`, la misma pieza que el
+   globo de la píldora «Cómo se hace»). Sin fijar se porta como cualquier pista; al dar play SE FIJA y sólo la
+   cierran el ✕, Esc o un clic afuera (`cierraLaPista`). Lo demás de este archivo no cambia: la máquina de
+   arriba es la misma para los ~180 `title` de siempre. Los controles que lo llevan se eligen a mano, uno por
+   flujo. Lo que sabe la Ayuda llega por `ayuda/puente.ts`: esto vive afuera de AppShell (cubre el login).
    ============================================================================ */
 
 interface PistaAbierta {
@@ -57,6 +70,8 @@ interface PistaAbierta {
   titulo: string | null
   /** Dónde estaba el mouse al abrir; `null` si abrió el teclado o un toque (ver `anclaDePista`). */
   puntero: { x: number; y: number } | null
+  /** El tutorial de la tarjeta, si el elemento lleva `data-tutorial` publicado (T5b). */
+  tutorial: string | null
 }
 
 function textoDe(el: HTMLElement): string {
@@ -111,6 +126,15 @@ function objetivo(n: EventTarget | null, panel: HTMLElement | null): HTMLElement
 export function Pistas() {
   const [abierta, setAbierta] = useState<PistaAbierta | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
+  /* La tarjeta del tutorial (T5b). La Ayuda va por ref: la máquina de abajo vive en un efecto que corre una
+     sola vez, y tiene que ver los publicados de AHORA. `fijada` va dos veces —ref para los listeners, estado
+     para dibujar el ✕—, como el resto de la máquina. */
+  const ayuda = useAyudaPublicada()
+  const ayudaRef = useRef(ayuda)
+  ayudaRef.current = ayuda
+  const fijadaRef = useRef(false)
+  const [fijada, setFijada] = useState(false)
+  const cerrarRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     /* La máquina vive en variables del efecto y no en estado de React: los listeners la leen y la
@@ -177,13 +201,17 @@ export function Pistas() {
     const cerrar = () => {
       cancelarCierre()
       cancelarApertura()
+      fijadaRef.current = false
+      setFijada(false)
       if (!duenio) return
       soltarDuenio()
       setAbierta(null)
     }
+    cerrarRef.current = cerrar
 
     const cerrarConGracia = () => {
       cancelarCierre()
+      if (!cierraLaPista('mouseAfuera', fijadaRef.current)) return
       tCerrar = window.setTimeout(cerrar, GRACIA_MS)
     }
 
@@ -194,8 +222,19 @@ export function Pistas() {
          la visita): medido desprendido, su caja es todo ceros y la pista quedaba pegada arriba a la
          izquierda, sobre la barra, explicando algo que ya no está. */
       if (!el.isConnected) return
+      /* Una tarjeta fijada (sonando) no la reemplaza la pista de otro elemento que el mouse cruce. */
+      if (fijadaRef.current && duenio !== el) return
       if (duenio !== el) soltarDuenio()
       const texto = textoDe(el)
+      const publicados = new Set((ayudaRef.current?.tutoriales ?? []).map((x) => x.id))
+      if (texto.trim() && tieneTarjeta(el.dataset.tutorial, publicados)) {
+        /* Sin `aria-describedby`: la tarjeta tiene controles, y una descripción no puede tenerlos. El texto
+           sigue en el `title`, que el lector de pantalla lee como siempre (el mouse no lo toca para él). */
+        duenio = el
+        const nombre = (el.getAttribute('aria-label') ?? el.textContent ?? '').trim()
+        setAbierta({ el, forma: 'frase', texto: texto.trim(), titulo: nombre, puntero: desde, tutorial: el.dataset.tutorial ?? null })
+        return
+      }
       const forma = formaDePista({
         texto,
         esTermino: el.classList.contains('spira-termino'),
@@ -210,7 +249,7 @@ export function Pistas() {
       /* La pista se anuncia aparte sólo si agrega algo al nombre del control (`describeAparte`). */
       const nombre = (el.getAttribute('aria-label') ?? el.textContent ?? '').trim()
       if (describeAparte(texto, nombre)) el.setAttribute('aria-describedby', sumarId(el.getAttribute('aria-describedby'), ID_PISTA))
-      setAbierta({ el, forma, texto: texto.trim(), titulo: forma === 'termino' ? (el.textContent ?? '').trim() : null, puntero: desde })
+      setAbierta({ el, forma, texto: texto.trim(), titulo: forma === 'termino' ? (el.textContent ?? '').trim() : null, puntero: desde, tutorial: null })
     }
 
     /* —— mouse (y lápiz). El touch no apunta: tocar un botón ya hace lo suyo. —— */
@@ -276,7 +315,7 @@ export function Pistas() {
       mostrar(t, null)
     }
     const onFocusOut = (e: FocusEvent) => {
-      if (e.target === duenio) cerrar()
+      if (e.target === duenio && cierraLaPista('foco', fijadaRef.current)) cerrar()
     }
 
     /* —— tocar: sólo los términos sueltos se abren tocándolos; cualquier otro toque o clic cierra ——
@@ -307,6 +346,7 @@ export function Pistas() {
        cerraba y la volvía a abrir en el mismo cuadro. */
     const onCambio = () => {
       if (!duenio && !pendiente) return
+      if (!cierraLaPista('scroll', fijadaRef.current)) return
       cerrar()
       ultimoCierre = -Infinity
     }
@@ -354,6 +394,43 @@ export function Pistas() {
   }, [abierta])
 
   if (!abierta) return null
+
+  /* —— La tarjeta del tutorial (T5b) —— */
+  const tutorial = abierta.tutorial ? ayuda?.tutoriales.find((x) => x.id === abierta.tutorial) ?? null : null
+  if (tutorial && ayuda) {
+    const acento = MODULES.find((m) => m.key === tutorial.modulo)?.accentSolid ?? 'var(--spira-primary)'
+    return createPortal(
+      <div
+        ref={panelRef} id={ID_PISTA} role="dialog" aria-label={`Tutorial: ${tutorial.titulo}`}
+        className="spira-ayuda" data-forma="tutorial"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {fijada && (
+          <button type="button" onClick={() => cerrarRef.current()} aria-label="Cerrar y detener" style={cerrarTarjeta}>
+            <Icon name="x" size={15} color="var(--spira-muted)" />
+          </button>
+        )}
+        <TarjetaTutorial
+          tutorial={tutorial}
+          base={ayuda.base}
+          acento={acento}
+          titulo={abierta.titulo ?? tutorial.titulo}
+          texto={abierta.texto}
+          visto={ayuda.vistos.has(tutorial.id)}
+          onVisto={() => ayuda.marcarVisto(tutorial.id)}
+          onArranca={() => { fijadaRef.current = true; setFijada(true) }}
+          onVerEnGrande={(segundo) => {
+            // El foco al control ANTES de abrir el reproductor: el `Modal` lo toma como disparador y se lo
+            // devuelve al cerrar (la tarjeta, con su botón, ya no va a estar).
+            abierta.el.focus()
+            cerrarRef.current()
+            ayuda.abrirTutorial(tutorial.id, { segundo })
+          }}
+        />
+      </div>,
+      document.body,
+    )
+  }
   /* Un clic ADENTRO de la pista (para seleccionar su texto) no es un clic afuera de nadie: se corta acá
      para los que escuchan el `mousedown` en burbuja (los menús de `AboutMenu`, `UserMenu`…), y
      `usePopover`, que escucha en captura y llega antes, lo reconoce por el id. Sin esto, el clic
@@ -369,4 +446,10 @@ export function Pistas() {
     </div>,
     document.body,
   )
+}
+
+/* El ✕ de la tarjeta fijada, arriba a la derecha (mock de tutoriales, recuadro 2b). */
+const cerrarTarjeta: CSSProperties = {
+  position: 'absolute', top: 8, right: 8, width: 28, height: 28, border: 'none', borderRadius: 8,
+  background: 'transparent', display: 'grid', placeItems: 'center', cursor: 'pointer', zIndex: 1,
 }

@@ -1030,6 +1030,12 @@ input:-webkit-autofill:focus {
 }
 .spira-ayuda[data-forma='rotulo'] { padding: 4px 9px 5px; font-weight: 600; border-radius: 8px; }
 .spira-ayuda[data-forma='termino'] { padding: 9px 12px 10px; }
+/* La tarjeta con el tutorial (T5b): la del globo de la píldora, con la sombra de lo que flota (mock de tutoriales,
+   recuadro 2b). El ancho lo da su contenido (372 + el padding); `normal` porque adentro hay controles. */
+.spira-ayuda[data-forma='tutorial'] {
+  max-width: calc(100vw - 16px); padding: 14px; border-radius: 12px;
+  box-shadow: var(--spira-shadow-lg); white-space: normal;
+}
 .spira-ayuda-titulo { display: block; font-size: 13px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 2px; }
 .spira-ayuda-cuerpo { display: block; color: var(--spira-muted); }
 @media (prefers-reduced-motion: no-preference) {

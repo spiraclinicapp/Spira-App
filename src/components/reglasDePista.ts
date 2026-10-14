@@ -155,3 +155,26 @@ export function quitarId(actual: string | null, id: string): string | null {
   const ids = (actual ?? '').split(/\s+/).filter((x) => x && x !== id)
   return ids.length ? ids.join(' ') : null
 }
+
+/* —— La TARJETA con el tutorial (T5b del plan de tutoriales, DD10) ——
+   Los controles clave de un flujo llevan `data-tutorial="<id>"`: al apuntarlos, en vez del papel con el texto
+   sale la tarjeta con el video pausado (`TarjetaTutorial`). Son pocos y se eligen a mano, uno por flujo. */
+
+/** ¿Este elemento muestra la tarjeta? Sólo si su tutorial está publicado y esta persona lo ve. Si no —el video
+ *  todavía no se subió, o es de un módulo que no tiene—, sale la pista de texto de siempre con su `title`. */
+export function tieneTarjeta(idTutorial: string | undefined, publicados: ReadonlySet<string>): boolean {
+  return !!idTutorial && publicados.has(idTutorial)
+}
+
+/** Lo que puede cerrar una pista abierta. */
+export type MotivoCierre = 'mouseAfuera' | 'foco' | 'scroll' | 'clicAfuera' | 'esc' | 'cerrar'
+
+/**
+ * ¿Este motivo cierra la pista? Sin fijar, todos: es una pista como cualquiera, y se va al sacar el mouse.
+ * FIJADA (le dieron play), sólo lo que dice «cerrá»: el ✕, Esc o un clic afuera. Si se fuera al correr el mouse
+ * para agarrar el mate, el video se cortaría a la mitad con el sonido puesto. Y al cerrarse el video se detiene
+ * solo: se desmonta con la tarjeta.
+ */
+export function cierraLaPista(motivo: MotivoCierre, fijada: boolean): boolean {
+  return !fijada || motivo === 'clicAfuera' || motivo === 'esc' || motivo === 'cerrar'
+}

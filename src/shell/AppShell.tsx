@@ -20,6 +20,7 @@ import { FeedbackModal } from './FeedbackModal'
 import { AyudaCapas } from '../ayuda/AyudaCapas'
 import { AyudaContextProvider, useEstadoAyuda } from '../ayuda/AyudaProvider'
 import { AyudaTutorial } from '../ayuda/AyudaTutorial'
+import { publicarAyuda } from '../ayuda/puente'
 import { tutorialDeLaVista } from '../ayuda/catalogo'
 import { armarLugar, lugarActual } from '../lib/lugar'
 import { KBD_BUSCADOR } from '../lib/teclas'
@@ -195,6 +196,12 @@ export function AppShell() {
      feedback, nunca adentro de otra capa: el fondo del Drawer lleva `backdropFilter` y encerraría a cualquier
      hijo fijo (docs/plan-tutoriales.md, «Capas y foco»). Ver `ayuda/AyudaProvider.tsx`. */
   const ayuda = useEstadoAyuda(isAllowed, import.meta.env.VITE_SUPABASE_URL)
+  /* `Pistas` vive afuera del shell (también cubre el login): la tarjeta del tutorial le llega por el puente. Al
+     salir de la sesión se despublica, y todo `title` vuelve a ser pista de texto. */
+  useEffect(() => {
+    publicarAyuda(ayuda.api)
+    return () => publicarAyuda(null)
+  }, [ayuda.api])
   /* Además del módulo, el submódulo: uno `soloJefatura` no existe para el resto (menú, navegación y
      buscador preguntan lo mismo, por eso es una sola función). */
   const subVisible = (mKey: string, s: SubModule) => submoduloVisible(mKey, s, roles)

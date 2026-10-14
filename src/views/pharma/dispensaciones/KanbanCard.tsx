@@ -174,6 +174,10 @@ export function KanbanCard({ r, column, canOperate, onOpen, onOpenPatient, onAdv
           type="button"
           disabled={busy || cta.disabled}
           onClick={(e) => { e.stopPropagation(); onAdvance() }}
+          /* «Preparar» es la acción clave del flujo de dispensar: con el tutorial publicado, su pista es la
+             tarjeta con el video (`data-tutorial`, T5b del plan de tutoriales); sin él, este texto en papel. */
+          title={column === 'solicitada' ? 'Pasa el pedido a Preparando y abre el detalle para escanear cada unidad.' : undefined}
+          data-tutorial={column === 'solicitada' ? 'dispensar' : undefined}
           onMouseEnter={() => setCtaHover(true)}
           onMouseLeave={() => setCtaHover(false)}
           style={{
