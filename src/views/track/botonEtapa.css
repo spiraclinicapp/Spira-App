@@ -130,6 +130,17 @@
 .spira-split-btn--peligro { background: var(--spira-danger); border-color: var(--spira-danger); color: #fff; }
 .spira-split-btn--primario { background: var(--split-acc, var(--spira-track)); border-color: var(--split-acc, var(--spira-track)); color: var(--spira-on-accent); }
 .spira-split-btn:disabled { opacity: .6; cursor: default; }
+/* «¿Vino el 8 oct? Cargala con esa fecha» (0158): en la confirmación de la llegada de una visita con la
+   citación pasada, la salida para cargarla con su fecha en vez de marcarla hoy. Un link y no un tercer
+   botón: el par Cancelar / Marcar llegada sigue siendo la decisión de esa confirmación. */
+.spira-split-otro {
+  display: block; margin: -4px 0 12px; padding: 0; border: 0; background: none; cursor: pointer; text-align: left;
+  font-family: var(--spira-font-text); font-size: 12.5px; font-weight: 600; color: var(--spira-acc-deep-track);
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+}
+.spira-split-otro:hover { text-decoration-color: currentColor; }
+.spira-split-otro:focus-visible { outline: 2px solid var(--spira-ink); outline-offset: 2px; border-radius: 4px; }
 
 /* —— El popup «Pedir retest» (captura 08) ——
    Las opciones de Motivo y Cuándo son botones de radio con forma de chip. La elegida va teñida, con el

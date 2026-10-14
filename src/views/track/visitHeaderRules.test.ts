@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   contextoDeEtapa, datosDelPaciente, diaDeLaVisita, estaConcretada, estimadaNoAplica, etapaProgreso, fechaSegunProtocolo,
-  desvioSegunProtocolo, marcaDeEtapa, opcionesDeCoordinador,
+  desvioSegunProtocolo, marcaDeEtapa, opcionesDeCoordinador, rotuloDeMarca, atencionMedicaDeOtroDia, fechaParaIniciar,
   medicoDeVisita, puedeEditarCoordinador, muestraFechaReal, puedeEditarMedico,
 } from './visitHeaderRules'
 import { desvioDias, fueraDeVentana } from '../../lib/visits'
+import { formatTimeAR } from '../../lib/dates'
 
 /**
  * Las reglas del encabezado de la visita.
@@ -365,5 +366,57 @@ describe('desvioSegunProtocolo · la resta sale de la ESTIMADA, no de la citaci�
     // Una suelta: se atendió, pero no existe la estimada. «+N» acá sería inventar la referencia.
     expect(desvioSegunProtocolo(visita({ kind: 'vnp', real_date: '2026-08-26' }))).toBeNull()
     expect(desvioSegunProtocolo(visita({ date_mode: 'libre', real_date: '2026-08-26' }))).toBeNull()
+  })
+})
+
+/* 0158 (plan docs/plan-visita-cargada-otro-dia.md): una visita cargada tarde no muestra una hora que parece
+   de la visita, ni deja pedir un médico para un día que ya pasó. Las horas se comparan contra
+   `formatTimeAR`: CI corre en UTC y la máquina en Argentina. */
+describe('rotuloDeMarca', () => {
+  const base = { arrived_at: null, ready_at: null, real_date: '2026-10-08', cargada_en_otra_fecha_at: null }
+  it('una marca del día de la visita muestra su hora, como siempre', () => {
+    const fin = '2026-10-08T14:20:00Z'
+    expect(rotuloDeMarca({ ...base, operational_stage: 'fin_atencion', ready_at: fin })).toBe(formatTimeAR(fin))
+  })
+  it('una marca TARDÍA dice cuándo se cargó, no una hora suelta', () => {
+    expect(rotuloDeMarca({ ...base, operational_stage: 'fin_atencion', ready_at: '2026-10-14T12:51:00Z' })).toBe('cargada el 14 oct')
+  })
+  it('en atención por «Vino otro día»: cuándo se cargó; en atención de siempre: nada (no hay hora)', () => {
+    expect(rotuloDeMarca({ ...base, operational_stage: 'inicio_atencion', cargada_en_otra_fecha_at: '2026-10-14T12:51:00Z' })).toBe('cargada el 14 oct')
+    expect(rotuloDeMarca({ ...base, operational_stage: 'inicio_atencion' })).toBeNull()
+  })
+  it('la llegada (sin fecha realizada todavía) nunca es tardía', () => {
+    const llegada = '2026-10-14T12:51:00Z'
+    expect(rotuloDeMarca({ ...base, real_date: null, operational_stage: 'concurrio_al_centro', arrived_at: llegada })).toBe(formatTimeAR(llegada))
+  })
+})
+
+describe('fechaParaIniciar', () => {
+  const HOY = '2026-10-14'
+  it('la fecha realizada que ya tiene no se pisa', () => {
+    expect(fechaParaIniciar({ real_date: '2026-10-08', arrived_at: '2026-10-09T12:00:00Z' }, HOY)).toBe('2026-10-08')
+  })
+  it('sin fecha, la del día en que LLEGÓ (no la de hoy: salía en los dos días)', () => {
+    expect(fechaParaIniciar({ real_date: null, arrived_at: '2026-10-08T12:51:00Z' }, HOY)).toBe('2026-10-08')
+    // El día es el argentino: las 23:30 del 8 en AR son el 9 en UTC.
+    expect(fechaParaIniciar({ real_date: null, arrived_at: '2026-10-09T02:30:00Z' }, HOY)).toBe('2026-10-08')
+  })
+  it('sin fecha ni llegada, hoy', () => {
+    expect(fechaParaIniciar({ real_date: null, arrived_at: null }, HOY)).toBe(HOY)
+  })
+})
+
+describe('atencionMedicaDeOtroDia', () => {
+  const HOY = '2026-10-14'
+  it('una visita de hoy (por su fecha o por su llegada) deja pedir el médico', () => {
+    expect(atencionMedicaDeOtroDia({ real_date: HOY, arrived_at: null }, HOY)).toBeNull()
+    expect(atencionMedicaDeOtroDia({ real_date: null, arrived_at: '2026-10-14T12:51:00Z' }, HOY)).toBeNull()
+  })
+  it('una visita de otro día no: el pedido caería en la cola de ese día', () => {
+    expect(atencionMedicaDeOtroDia({ real_date: '2026-10-08', arrived_at: null }, HOY)).toBe('La visita es del 08 oct')
+    expect(atencionMedicaDeOtroDia({ real_date: null, arrived_at: '2026-10-08T12:51:00Z' }, HOY)).toBe('La visita es del 08 oct')
+  })
+  it('sin fecha ni llegada no decide nada (la etapa ya lo apaga)', () => {
+    expect(atencionMedicaDeOtroDia({ real_date: null, arrived_at: null }, HOY)).toBeNull()
   })
 })

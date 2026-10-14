@@ -2,14 +2,14 @@ import { Icon } from '../../components/Icon'
 import type { IconName } from '../../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
 import { formatTimeAR, todayISO } from '../../lib/dates'
-import { visitCode } from '../../lib/visits'
+import { marcaTardia, visitCode } from '../../lib/visits'
 import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import type { ResumenVisita } from './resumenVisita'
 import { OperationalStageChip, OPERATIONAL_STAGES, VisitChip, VISIT_STATES } from '../visitStates'
 import { ProtoTag, IndicadoresVisita, VisitCodeTag } from '../visitAtoms'
 import { NEXT_STEP, advanceRole } from './advanceStep'
-import { etapaProgreso } from './visitHeaderRules'
+import { atencionMedicaDeOtroDia, etapaProgreso } from './visitHeaderRules'
 import { esNoVino, puedeReprogramar } from './visitas/calendario'
 import { accionesDeVisita, llegadaFueraDeFecha, nombreDeLaVisita } from './accionesDeVisita'
 import type { ClaveAccion, PermisosDeVisita } from './accionesDeVisita'
@@ -28,8 +28,12 @@ import type { CaraPrincipal } from './BotonEtapa'
  * Director) con el riel de cuánto lleva recorrido. El nombre del paciente es el titular (CLAUDE.md:
  * identidad del paciente, nombre visible) y lleva a su ficha.
  *
- * Las ACCIONES quedan siempre en la misma x: «Atención médica» está en TODAS las filas (apagada cuando
- * no corresponde) y el botón de etapa tiene un ancho fijo (`.spira-split--fila`), con cara o sin ella.
+ * Las ACCIONES quedan en la misma x en las filas ACTIVAS: «Atención médica» está en todas (apagada
+ * cuando no corresponde) y el botón de etapa tiene un ancho fijo (`.spira-split--fila`). Una REALIZADA es
+ * otra cosa (Director, 2026-10-14, opción A2 del plan `docs/plan-visita-cargada-otro-dia.md`): sin etapa
+ * que avanzar ni médico que pedir, la columna queda sólo con «Acciones» de ancho natural, el médico se
+ * arrima al botón —sin el hueco que dejaba el gris— y «Visto por médico» baja a la tira de indicadores.
+ * Todas las realizadas miden lo mismo, así que se alinean entre sí (en «Finalizadas», el orden por defecto).
  */
 export function DayVisitRowItem({
   visit, canReception, canClinical, coordina, busyId, resumen,
@@ -61,6 +65,9 @@ export function DayVisitRowItem({
   const stage = visit.operational_stage
   const busy = busyId === visit.id
   const noVino = esNoVino(visit)
+  /* Realizada: sin «Atención médica» en la columna de acciones, y «Visto por médico» en la tira (A2). */
+  const realizada = stage === 'fin_atencion'
+  const vistoAbajo = realizada && !!visit.doctor_seen_at
 
   // El riel tiene que coincidir con el chip que se muestra: si la visita está "Por reprogramar" el
   // chip es el CLÍNICO, así que el riel usa ese mismo color — un riel gris de "Por llegar" al lado de
@@ -116,7 +123,9 @@ export function DayVisitRowItem({
             </span>
             {onOpenPatient && <PatientLinkArrow />}
           </span>
-          {visit.arrived_at && (
+          {/* Una llegada TARDÍA (registrada después de la fecha de la visita, `marcaTardia`) no se
+              muestra: «llegó 09:51» en la visita del 8 cargada el 14 dice una hora que no pasó. */}
+          {visit.arrived_at && !marcaTardia(visit.arrived_at, visit.real_date) && (
             <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-ink-soft)', whiteSpace: 'nowrap', flexShrink: 0 }}>
               llegó {formatTimeAR(visit.arrived_at)}
             </span>
@@ -132,8 +141,9 @@ export function DayVisitRowItem({
           <VisitCodeTag code={visitCode(visit)} title={pistaCodigo} />
         </div>
         {/* La tira: qué lleva la visita. Sin nada que decir NO se dibuja — «Sin procedimientos» en
-            cada renglón sería ruido en toda la agenda (y lo que no se sabe no se dibuja). */}
-        {resumen && <IndicadoresVisita resumen={resumen} variante="fila" />}
+            cada renglón sería ruido en toda la agenda (y lo que no se sabe no se dibuja). En una
+            realizada lleva además «Visto por médico» (A2): ya no hay columna de médico para decirlo. */}
+        {(resumen || vistoAbajo) && <IndicadoresVisita resumen={resumen} variante="fila" vistoPorMedico={vistoAbajo} />}
       </div>
 
       {/* 3 · Personas: rótulo a la derecha de su columna, valor a la izquierda de la suya. */}
@@ -145,7 +155,7 @@ export function DayVisitRowItem({
       {/* 4 · Acciones: «Atención médica» y el botón de etapa dividido, que se quedó con lo que vivía en
           el ⋮ del final (handoff `design_handoff_boton_etapa` §1: el kebab sale de la fila). */}
       <div className="vcal-row-cta">
-        <AtencionMedica visit={visit} canClinical={canClinical} busy={busy} onOpenDoctor={onOpenDoctor} />
+        {!realizada && <AtencionMedica visit={visit} canClinical={canClinical} busy={busy} onOpenDoctor={onOpenDoctor} />}
         <BotonEtapa
           tamano="fila"
           cara={caraDeLaFila(visit, noVino, { recepcion: canReception, clinica: canClinical, coordina }, onAdvance, onAccion, onLlegar)}
@@ -199,7 +209,11 @@ function caraDeLaFila(
     pista: rol === 'reception' ? 'La marca Recepción' : 'La marca el equipo clínico del estudio',
     onClick: () => onAdvance(visit, step.next),
     confirmar: llegada
-      ? { ...llegada, rotulo: 'Marcar llegada hoy', onConfirmar: () => onLlegar(visit, llegada.mueveFecha) }
+      ? {
+        ...llegada, rotulo: 'Marcar llegada hoy',
+        onConfirmar: () => onLlegar(visit, llegada.mueveFecha),
+        onVinoEseDia: () => onAccion(visit, 'vino-otro-dia'),
+      }
       : undefined,
   }
 }
@@ -225,13 +239,15 @@ function Persona({ icon, rol, nombre }: { icon: IconName; rol: string; nombre: s
 }
 
 /**
- * «Atención médica» (antes «Quiere médico», pedido de Dirección): SIEMPRE presente y de ancho fijo,
- * para que la acción principal de al lado quede en la misma x en todas las filas.
+ * «Atención médica» (antes «Quiere médico», pedido de Dirección): presente y de ancho fijo en toda fila
+ * ACTIVA, para que la acción principal de al lado quede en la misma x. En una realizada no se dibuja (A2,
+ * ver la cabecera): ahí no hay médico que pedir, y «Visto por médico» lo dice la tira.
  *
  *   · Visto por médico → marca quieta en verde (lo que ya pasó, no un botón).
  *   · En cola          → el pedido ya está hecho; sigue abriendo el modal para verlo o editarlo.
- *   · Habilitado       → sólo con el paciente en el centro (Concurrió / En atención) y permiso clínico.
- *   · Apagado          → por llegar, cerrada, no vino o sin permiso, con el porqué en la pista.
+ *   · Habilitado       → sólo con el paciente en el centro (Concurrió / En atención), HOY, y permiso clínico.
+ *   · Apagado          → por llegar, no vino, de otro día (`atencionMedicaDeOtroDia`: el pedido caería en
+ *                        la cola de ese día, que nadie mira) o sin permiso, con el porqué en la pista.
  */
 function AtencionMedica({ visit, canClinical, busy, onOpenDoctor }: {
   visit: DayVisitRow
@@ -248,10 +264,12 @@ function AtencionMedica({ visit, canClinical, busy, onOpenDoctor }: {
   }
   const stage = visit.operational_stage
   const enElCentro = (stage === 'concurrio_al_centro' || stage === 'inicio_atencion') && !esNoVino(visit)
+  const enCola = visit.wants_doctor && enElCentro
+  // Ver un pedido ya hecho sigue andando aunque la visita sea de otro día; pedir uno nuevo, no.
+  const deOtroDia = enCola ? null : atencionMedicaDeOtroDia(visit, todayISO())
   const porque = !enElCentro
     ? stage === 'por_llegar' && !esNoVino(visit) ? 'Disponible cuando el paciente llegue' : 'La visita ya no está en el centro'
-    : !canClinical ? 'Sólo el equipo clínico del estudio puede pedirla' : null
-  const enCola = visit.wants_doctor && enElCentro
+    : deOtroDia ?? (!canClinical ? 'Sólo el equipo clínico del estudio puede pedirla' : null)
   return (
     <button
       type="button"

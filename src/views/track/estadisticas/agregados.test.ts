@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMinutosLargo, porEstudio, porVisita } from './agregados'
+import { duracionesDe, formatMinutosLargo, porEstudio, porVisita } from './agregados'
 import type { VisitaEstadistica } from './agregados'
 import type { Rango } from './rango'
 
@@ -146,6 +146,20 @@ describe('porVisita', () => {
     expect(r.esperaProm).toBeNull()
     expect(r.atencionProm).toBe(30)
     expect(r.filas[0].porVisita[0].cobertura).toEqual({ espera: 0, atencion: 1, estadia: 0 })
+  })
+
+  it('los sellos TARDÍOS (de un día posterior a la fecha realizada) no miden nada', () => {
+    // La visita del 10 cargada el 14 con los tres botones: 0 min de espera y de atención que no pasaron.
+    const tarde = fila({
+      real_date: '2026-09-10',
+      arrived_at: '2026-09-14T12:51:00Z', attended_at: '2026-09-14T12:51:20Z', ready_at: '2026-09-14T12:51:40Z',
+    })
+    expect(duracionesDe(tarde)).toEqual({ espera: null, atencion: null, estadia: null })
+    // Una cargada con «Vino otro día» (0158) no tiene sello de inicio: su fin, al finalizarla días
+    // después, tampoco arma una «atención» de una semana.
+    expect(duracionesDe(fila({ real_date: '2026-09-10', ready_at: '2026-09-14T12:51:00Z' })).atencion).toBeNull()
+    // Los del mismo día siguen midiendo, como siempre.
+    expect(duracionesDe(atendida({})).atencion).toBe(30)
   })
 
   it('una atención de menos de 5 min no se promedia (horarios marcados juntos al cargar después)', () => {

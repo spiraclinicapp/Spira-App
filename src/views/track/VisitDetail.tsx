@@ -17,7 +17,7 @@ import { VisitDispensationPanel } from '../pharma/VisitDispensationPanel'
 import { advanceRole, necesitaConfirmacion } from './advanceStep'
 import { Panel } from './Panel'
 import { VisitHeader } from './VisitHeader'
-import { diaDeLaVisita } from './visitHeaderRules'
+import { diaDeLaVisita, fechaParaIniciar } from './visitHeaderRules'
 import { VisitActionBar } from './VisitActionBar'
 import { DoctorRequestModal } from './DoctorRequestModal'
 import { modalesAbiertos } from '../../components/Modal'
@@ -266,8 +266,9 @@ export function VisitDetail({
       // Preserva la fecha real que ya tenga: acá "iniciar atención" puede estar corrigiendo el
       // recorrido de una visita vieja, y pisarla con hoy le cambiaría el dato clínico. Desde la
       // 0102 esa preservación la garantiza además el servidor (`coalesce(pv.real_date, …)`), así
-      // que ya no depende de que este call-site se acuerde.
-      : next === 'inicio_atencion' ? await startVisitAttention(visit.id, visit.real_date ?? todayISO())
+      // que ya no depende de que este call-site se acuerde. Sin fecha, la del día en que LLEGÓ, no
+      // la de hoy (`fechaParaIniciar`): si no, la visita salía en los dos días.
+      : next === 'inicio_atencion' ? await startVisitAttention(visit.id, fechaParaIniciar(visit, todayISO()))
       : next === 'fin_atencion' ? await markReady(visit.id)
       : { error: 'Etapa desconocida.' }
 

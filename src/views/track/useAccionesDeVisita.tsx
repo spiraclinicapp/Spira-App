@@ -6,8 +6,10 @@ import { deleteVisitEvent } from '../../data/visitEvents'
 import type { TrackVisitRow } from '../../data/visits'
 import { OPERATIONAL_STAGES } from '../visitStates'
 import type { ClaveAccion } from './accionesDeVisita'
+import { formatDayMonth } from '../../lib/dates'
 import { PedirRetestModal } from './PedirRetestModal'
 import { RescheduleModal } from './RescheduleModal'
+import { VinoOtroDiaModal } from './VinoOtroDiaModal'
 
 /**
  * Lo que HACE cada acción del menú del botón de etapa (`BotonEtapa` dibuja y avisa la clave; esto la
@@ -15,7 +17,7 @@ import { RescheduleModal } from './RescheduleModal'
  * «Volver» no puede hacer una cosa en la lista y otra en el modal.
  *
  *   ejecutar(visita, clave)   volver · no vino · copiar · eliminar → RPC + aviso + `onCambio`
- *                             reprogramar · retest              → abre su modal (en `capas`)
+ *                             reprogramar · retest · vino otro día → abre su modal (en `capas`)
  *   llegar(visita, mueve)     la llegada confirmada fuera de fecha (`llegadaFueraDeFecha`)
  *   ocupado                   id de la visita con una mutación en vuelo
  *   capas                     los modales que abre; van donde el que lo usa monta sus capas
@@ -24,7 +26,7 @@ import { RescheduleModal } from './RescheduleModal'
  * modal lo cierra, y un toast de adentro se iría con él antes de leerse. Los errores suben a `onError`,
  * que los muestra en el banner de cada pantalla, como el resto de sus acciones.
  */
-export function useAccionesDeVisita({ acento, onCambio, onError, onEliminada }: {
+export function useAccionesDeVisita({ acento, onCambio, onError, onEliminada, onCargadaEn }: {
   acento: string
   /** Algo cambió: refrescar lo que se muestra. */
   onCambio: () => void
@@ -32,10 +34,17 @@ export function useAccionesDeVisita({ acento, onCambio, onError, onEliminada }: 
   onError: (mensaje: string | null) => void
   /** La visita ya no existe (el modal se cierra). Sin esto, sólo `onCambio`. */
   onEliminada?: (visita: DayVisitRow) => void
+  /**
+   * Se cargó en otra fecha (`fecha`, ISO). La lista de Visitas lleva el día ahí: la visita deja el día que
+   * se estaba mirando —ahora es de ese otro— y sin esto desaparecía con un «falta finalizarla» y no había
+   * cómo llegar a ella. El modal de la visita no lo necesita: sigue abierto sobre la misma visita.
+   */
+  onCargadaEn?: (fecha: string) => void
 }) {
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [reprogramando, setReprogramando] = useState<TrackVisitRow | null>(null)
   const [retestDe, setRetestDe] = useState<DayVisitRow | null>(null)
+  const [otroDiaDe, setOtroDiaDe] = useState<DayVisitRow | null>(null)
 
   /** Corre una mutación de `visita` con el ocupado, el error y el aviso de todas. `listo` puede ser
    *  una función: se lee DESPUÉS de la mutación (el aviso de «Volver» nombra a dónde volvió). */
@@ -53,6 +62,7 @@ export function useAccionesDeVisita({ acento, onCambio, onError, onEliminada }: 
     switch (clave) {
       case 'reprogramar': setReprogramando(visita); return
       case 'retest': setRetestDe(visita); return
+      case 'vino-otro-dia': setOtroDiaDe(visita); return
       case 'copiar': {
         if (!visita.patient_code) return
         try {
@@ -116,6 +126,19 @@ export function useAccionesDeVisita({ acento, onCambio, onError, onEliminada }: 
           accent={acento}
           onClose={() => setRetestDe(null)}
           onDone={(mensaje) => { setRetestDe(null); avisar(mensaje); onCambio() }}
+        />
+      )}
+      {otroDiaDe && (
+        <VinoOtroDiaModal
+          visit={otroDiaDe}
+          accent={acento}
+          onClose={() => setOtroDiaDe(null)}
+          onDone={(fecha) => {
+            setOtroDiaDe(null)
+            avisar(`Visita cargada el ${formatDayMonth(fecha)}. Falta finalizarla.`)
+            onCargadaEn?.(fecha)
+            onCambio()
+          }}
         />
       )}
     </>

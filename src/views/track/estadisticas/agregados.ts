@@ -1,5 +1,5 @@
 import { minutesBetween } from '../../../lib/dates'
-import { fueraDeVentana } from '../../../lib/visits'
+import { fueraDeVentana, marcaTardia } from '../../../lib/visits'
 import { bucketTipoVisita } from './tipoVisita'
 import type { TipoVisita, VisitaParaTipo } from './tipoVisita'
 import type { Rango } from './rango'
@@ -133,11 +133,22 @@ export interface Duraciones {
   estadia: number | null
 }
 
+/**
+ * Un sello TARDÍO —registrado un día posterior a la fecha realizada (`marcaTardia`)— no cuenta: dice
+ * cuándo se apretó el botón al cargar la visita después, no cuánto esperó o estuvo el paciente. La visita
+ * del 8 cargada el 14 con los tres botones daba 0 min de espera y de atención (2026-10-14; plan
+ * `docs/plan-visita-cargada-otro-dia.md`). Una cargada con «Vino otro día» (0158) no tiene esos sellos.
+ */
 export function duracionesDe(v: VisitaEstadistica): Duraciones {
+  const sello = (ts: string | null) => (ts && !marcaTardia(ts, v.real_date) ? ts : null)
+  const llegada = sello(v.arrived_at)
+  const inicio = sello(v.attended_at)
+  const fin = sello(v.ready_at)
+  const salida = sello(v.left_at)
   return {
-    espera: v.arrived_at && v.attended_at ? minutesBetween(v.arrived_at, v.attended_at) : null,
-    atencion: v.attended_at && v.ready_at ? minutesBetween(v.attended_at, v.ready_at) : null,
-    estadia: v.arrived_at && v.left_at ? minutesBetween(v.arrived_at, v.left_at) : null,
+    espera: llegada && inicio ? minutesBetween(llegada, inicio) : null,
+    atencion: inicio && fin ? minutesBetween(inicio, fin) : null,
+    estadia: llegada && salida ? minutesBetween(llegada, salida) : null,
   }
 }
 

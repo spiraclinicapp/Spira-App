@@ -1,5 +1,5 @@
 import type { TrackVisitRow } from '../data/visits'
-import { daysDiffISO } from './dates'
+import { daysDiffISO, isoDayAR } from './dates'
 import { KIND_LABELS, KIND_SHORT } from './visitLabels'
 import type { VisitKind } from './visitLabels'
 
@@ -340,6 +340,26 @@ export function ventanaDeVisita(v: TrackVisitRow): string | null {
 export function fueraDeVentana(real: string | null, windowStart: string | null, windowEnd: string | null): boolean {
   if (!real || !windowStart || !windowEnd) return false
   return real < windowStart || real > windowEnd
+}
+
+/**
+ * ¿Esta marca (llegada, fin de atención, salida, el sello de inicio) se registró DESPUÉS del día en
+ * que la visita se hizo? Es una CARGA TARDÍA: dice cuándo se apretó el botón, no cuándo pasó.
+ *
+ * Pasa cuando una visita olvidada se carga días después (plan `docs/plan-visita-cargada-otro-dia.md`):
+ * las marcas se sellan con `now()` y la fecha realizada es la del día que el paciente vino. Una marca
+ * así no pone la visita en su día (`diasDeLaVisita`, `motivosDelDia`), no se muestra como hora de la
+ * visita (el listón dice «cargada el 14 oct») y no entra en las duraciones de Estadísticas.
+ *
+ * POSTERIOR y no distinta: una llegada la noche ANTERIOR al inicio de la atención sigue siendo de su
+ * día. El precio: una visita que cruza la medianoche (inicio el 10, fin el 11 a las 00:20) toma el fin
+ * como tardío. Es raro y la visita es del 10.
+ *
+ * El día de la marca es el argentino (`isoDayAR`), el mismo borde que la consulta manda a Postgres.
+ */
+export function marcaTardia(marca: string | null | undefined, realDate: string | null | undefined): boolean {
+  if (!marca || !realDate) return false
+  return isoDayAR(marca) > realDate
 }
 
 /**

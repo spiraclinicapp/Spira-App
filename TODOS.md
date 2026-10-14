@@ -390,6 +390,28 @@ como contexto histórico; borrarla cuando ese PR se mergee.
 
 ---
 
+## Coordinación · el vencimiento de un reporte se cuenta desde el tilde, no desde la visita
+
+- **Qué:** que el plazo de un reporte (`eta_hours`) se cuente desde la fecha de la visita y no desde
+  `visit_procedure_completions.completed_at`, que es el momento en que se TILDÓ el procedimiento
+  (`completed_at default now()`, 0064; la cuenta está en `computed_status` de `v_patient_visits`, 0144, y en
+  las vistas de alertas de reportes).
+- **Por qué:** una visita cargada tarde —con «Vino otro día» (0158) o tildada días después— arranca el reloj
+  el día de la carga. Un reporte que ya estaba vencido desde el día de la visita figura en plazo, y en una app
+  auditable (ANMAT / ICH-GCP) eso es decir que algo está al día cuando no lo está.
+- **Pros:** el semáforo de reportes dice la verdad aunque la carga sea tardía.
+- **Contras:** migración que recrea `v_patient_visits` (la vista de la lista de columnas fija desde la 0144) y
+  las de alertas de reportes; el ancla tiene que ser un instante (`real_date` es un `date` sin hora: ¿las 00:00
+  de Argentina? ¿el fin del día?) y cambia el estado de visitas viejas cuyo procedimiento se tildó tarde.
+- **Contexto:** segunda opinión del `/plan-eng-review` de `docs/plan-visita-cargada-otro-dia.md`
+  (2026-10-14); quedó afuera a propósito de esa PR porque ya pasa hoy con cualquier tilde tardío.
+- **Empezar por:** contar cuántas visitas tienen un tilde de un día posterior a su `real_date` (el tamaño
+  del cambio de estado) y decidir el ancla con el Director.
+- **Depende de / bloqueado por:** la 0158 aplicada.
+- **Prioridad:** P2.
+
+---
+
 ## ~~Pharma · dispensación ambulatoria (feature propia, con pantalla de alta)~~ — HECHO el 2026-09-08 (v0.64.0, migración 0116)
 
 > **Cerrada.** Spec en `docs/superpowers/specs/2026-09-08-dispensacion-ambulatoria-design.md`, mock

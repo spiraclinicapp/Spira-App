@@ -173,7 +173,10 @@
 /* —— Vista Día: la fila de visita ——
    Grid de cuatro columnas con anchos DETERMINÍSTICOS (estado · datos · personas · acciones; el ⋯ del
    final se fue con el botón de etapa dividido, 2026-10-14): las
-   columnas coinciden entre filas por construcción. La tarjeta es `.spira-card-link` (levante +
+   columnas coinciden entre filas por construcción. Cada fila es SU PROPIA grilla: el ancho de sus
+   acciones mueve las otras columnas. Por eso una realizada (sólo «Acciones», A2) corre a Coord/Médico
+   ~280 px a la derecha de las activas, y por eso todas las realizadas tienen que medir lo mismo —«Visto
+   por médico» va en la tira y no en las acciones—. La tarjeta es `.spira-card-link` (levante +
    sombra al apuntarla, la regla de la casa); el borde gris un punto más oscuro es lo único que agrega
    el handoff, y es neutro. */
 .vcal-lista { container-type: inline-size; display: flex; flex-direction: column; gap: 14px; }
@@ -240,13 +243,16 @@
   transition: box-shadow .15s, transform .12s ease;
 }
 .vcal-btn-cta.secundario:hover:not(:disabled) { background: var(--spira-white); box-shadow: var(--spira-shadow-hover); }
-/* El botón de etapa de la fila (`BotonEtapa`, handoff design_handoff_boton_etapa): ancho FIJO, para que
-   «Atención médica» quede en la misma x en todas las filas —la regla de la fila—, tenga cara principal
-   o sea sólo «Acciones» (que se arrima a la derecha del mismo hueco). Medido con la etiqueta más larga,
-   «Iniciar atención» en Schibsted 14,5/700. */
+/* El botón de etapa de la fila (`BotonEtapa`, handoff design_handoff_boton_etapa): ancho FIJO con cara
+   principal, para que «Atención médica» quede en la misma x en todas las filas activas. Medido con la
+   etiqueta más larga, «Iniciar atención» en Schibsted 14,5/700.
+   Sin cara —una realizada, sólo «Acciones»— va de ANCHO NATURAL (Director, 2026-10-14, opción A2 del plan
+   `docs/plan-visita-cargada-otro-dia.md`): antes se arrimaba a la derecha de los 216 px y dejaba ~100 px
+   vacíos entre el gris de «Atención médica» y el botón. Ahora ni el gris ni el hueco: el médico queda
+   pegado a «Acciones». */
 .spira-split--fila { width: 216px; }
 .spira-split--fila .spira-split-main { flex: 1; min-width: 0; }
-.spira-split--fila.spira-split--acciones { justify-content: flex-end; }
+.spira-split--fila.spira-split--acciones { width: auto; }
 
 /* —— Vista Semana —— */
 .vcal-semana {

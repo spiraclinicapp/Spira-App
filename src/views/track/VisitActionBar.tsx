@@ -4,7 +4,7 @@ import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { OPERATIONAL_STAGES, VISIT_STATES } from '../visitStates'
 import { formatTimeAR, todayISO } from '../../lib/dates'
 import { NEXT_STEP, advanceRole } from './advanceStep'
-import { contextoDeEtapa, etapaProgreso, marcaDeEtapa } from './visitHeaderRules'
+import { atencionMedicaDeOtroDia, contextoDeEtapa, etapaProgreso, rotuloDeMarca } from './visitHeaderRules'
 import { accionesDeVisita, llegadaFueraDeFecha, nombreDeLaVisita } from './accionesDeVisita'
 import type { ClaveAccion, PermisosDeVisita } from './accionesDeVisita'
 import { BotonEtapa } from './BotonEtapa'
@@ -29,7 +29,8 @@ import { esNoVino } from './visitas/calendario'
  *
  * La primaria es el BOTÓN DE ETAPA DIVIDIDO (handoff `docs/design_handoff_boton_etapa/`, 2026-10-14): la
  * cara avanza y la flecha abre las acciones sobre la visita —volver a la etapa anterior, reprogramar,
- * copiar el ID, eliminar, pedir retest—, las mismas que en la fila de Visitas (`accionesDeVisita`). Está
+ * vino otro día (0158), copiar el ID, eliminar, pedir retest—, las mismas que en la fila de Visitas
+ * (`accionesDeVisita`). Está
  * SIEMPRE: desde el cronograma de Estudios y pacientes el modal es la única puerta a esas acciones, y
  * ahí se abren visitas de cualquier etapa. Sin permiso para la marca, la cara se apaga y dice de quién es
  * (antes, el bloque punteado); completa, queda «Acciones». Era el «anexo con chevron» del mock de
@@ -66,7 +67,8 @@ export function VisitActionBar({
   const meta = OPERATIONAL_STAGES[stage] ?? OPERATIONAL_STAGES.por_llegar
   const { paso, total, pct } = etapaProgreso(stage)
   const ctx = contextoDeEtapa(stage)
-  const marca = marcaDeEtapa(visit)
+  // La hora de la marca, o «cargada el 14 oct» si la visita se cargó tarde (`rotuloDeMarca`, 0158).
+  const marca = rotuloDeMarca(visit)
   const step = NEXT_STEP[stage]
   const role = advanceRole(stage)
   const finalizada = stage === 'fin_atencion'
@@ -75,6 +77,8 @@ export function VisitActionBar({
   /* Marcar la llegada de una visita que no está citada para hoy confirma antes, en el lugar del menú
      (`llegadaFueraDeFecha`). Mover la citación es de quien coordina el estudio o de gerencia: `permisos.coordina`. */
   const llegada = llegadaFueraDeFecha(visit, hoy, permisos.coordina)
+  const medicoDeOtroDia = atencionMedicaDeOtroDia(visit, hoy)
+  const medicoApagado = !!medicoDeOtroDia && !visit.wants_doctor && !visit.doctor_seen_at
   const codigo = nombreDeLaVisita(visit)
 
   return (
@@ -84,7 +88,7 @@ export function VisitActionBar({
           <b style={topLabel}>{meta.label}</b>
           {/* `inicio_atencion` no tiene hora que mostrar: sale de `real_date`, que es un date sin
               hora. No se inventa una (ver `marcaDeEtapa`). */}
-          {marca && <span style={hr}>{formatTimeAR(marca)}</span>}
+          {marca && <span style={hr}>{marca}</span>}
           {ctx && <span style={ctxStyle}>{marca ? `· ${ctx}` : ctx}</span>}
           <span style={fr}>{paso} de {total}</span>
         </span>
@@ -120,8 +124,16 @@ export function VisitActionBar({
           <>
             {/* Completa ya no muestra el sello «Realizada · fecha»: lo dice el listón (etapa + hora),
                 y en su lugar va «Acciones», donde vive «Pedir retest» (handoff §1). */}
+            {/* De otro día (cargada con «Vino otro día», o abierta desde la ficha), un pedido NUEVO caería
+                en la cola de ese día, que nadie mira: se apaga y dice por qué. Ver uno ya hecho, sí. */}
             {!finalizada && (
-              <button type="button" onClick={onSolicitarMedico} disabled={busy} style={sec}>
+              <button
+                type="button"
+                onClick={onSolicitarMedico}
+                disabled={busy || medicoApagado}
+                title={medicoApagado ? medicoDeOtroDia ?? undefined : undefined}
+                style={medicoApagado ? secApagado : sec}
+              >
                 <Icon name="users" size={15} color="var(--spira-track)" />
                 {/* «Solicitar atención médica» y no «Solicitar médico» (Director, 2026-09-16): se pide
                     la ATENCIÓN, que es lo que abre el popup y el nombre que ya usa la otra cara del
@@ -139,7 +151,11 @@ export function VisitActionBar({
                 pista: `Requiere acción ${role === 'reception' ? 'de Recepción' : 'del clínico'}`,
                 onClick: () => onAdvance(step.next),
                 confirmar: llegada
-                  ? { ...llegada, rotulo: 'Marcar llegada hoy', onConfirmar: () => onLlegar(llegada.mueveFecha) }
+                  ? {
+                    ...llegada, rotulo: 'Marcar llegada hoy',
+                    onConfirmar: () => onLlegar(llegada.mueveFecha),
+                    onVinoEseDia: () => onAccion('vino-otro-dia'),
+                  }
                   : undefined,
               } satisfies CaraPrincipal : null}
               acciones={accionesDeVisita(visit, permisos, hoy)}
@@ -196,6 +212,9 @@ const sec: CSSProperties = {
   fontFamily: 'var(--spira-font-text)', fontWeight: 600, fontSize: 13.5, color: 'var(--spira-ink-2)',
   cursor: 'pointer', whiteSpace: 'nowrap',
 }
+/* Apagado (visita de otro día, `atencionMedicaDeOtroDia`): el mismo botón sin la promesa del clic —flecha y
+   no manito— y en gris, con el porqué en la pista. */
+const secApagado: CSSProperties = { ...sec, cursor: 'default', color: 'var(--spira-faint)', background: 'var(--spira-surface)' }
 const gated: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 8, height: 42, padding: '0 15px', borderRadius: 11,
   borderWidth: 1, borderStyle: 'dashed', borderColor: 'var(--spira-line-2)', background: 'var(--spira-white)',
