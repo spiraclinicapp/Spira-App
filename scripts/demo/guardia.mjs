@@ -11,9 +11,11 @@
 //      (npm deja el nombre en `npm_lifecycle_event`) o `SPIRA_DEMO=1` explícito: correr un script del demo
 //      "a mano" con `node` sin querer no alcanza para escribir. Se usa la marca de npm y no un `SPIRA_DEMO=1` en
 //      el `package.json` porque esa sintaxis no anda en `cmd`, y en esta máquina la terminal puede ser cualquiera.
-//   2. TABLA CENTINELA (`verificarCentinela`). Ya conectado y antes de escribir: `public.demo_centinela` existe
-//      sólo en el demo. La crea `resetear.mjs` y NO es una migración, así que en prod no existe nunca. Única
+//   2. TABLA CENTINELA (`verificarCentinela`). Ya conectado y antes de escribir: `demo.centinela` existe sólo en
+//      el demo. La crea `migrar.mjs` la primera vez y NO es una migración, así que en prod no existe nunca. Única
 //      excepción: la base vacía (sin `public.users`), que es la primera vez, cuando todavía no hubo dónde crearla.
+//      Vive en su PROPIO schema (`demo`) y no en `public` (T2, 2026-10-13): el reset vacía `public`, y una
+//      centinela ahí se iría con él, dejando al reset siguiente sin cerrojo.
 //   3. EN EL NAVEGADOR (`verificarBundle`). El setup de Playwright lee la URL de Supabase del bundle cargado:
 //      Vite completa lo que falte con `.env` / `.env.local`, y un `VITE_SUPABASE_URL` ausente haría que la app
 //      grabada apunte a prod.
@@ -81,11 +83,11 @@ export function verificarDestino({ demoRef, apiUrl, dbUrl = null, env = process.
  */
 export async function verificarCentinela(consultar) {
   const [fila] = await consultar(
-    "select to_regclass('public.demo_centinela') is not null as centinela, to_regclass('public.users') is not null as con_datos",
+    "select to_regclass('demo.centinela') is not null as centinela, to_regclass('public.users') is not null as con_datos",
   )
   if (fila?.centinela) return 'presente'
   if (fila && !fila.con_datos) return 'base-vacia'
-  throw new GuardiaError('La base tiene datos pero no la tabla demo_centinela: NO es el demo. No se escribe nada.')
+  throw new GuardiaError('La base tiene datos pero no la tabla demo.centinela: NO es el demo. No se escribe nada.')
 }
 
 /** Cerrojo 3. La URL de Supabase que de verdad usa la app cargada en el navegador. */

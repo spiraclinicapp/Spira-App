@@ -90,6 +90,12 @@ describe('cerrojo 1 · verificarDestino', () => {
 
 describe('cerrojo 2 · verificarCentinela', () => {
   const con = (fila: object | undefined) => async () => (fila ? [fila] : [])
+  it('mira demo.centinela (su schema propio: el reset vacía public y se la llevaría)', async () => {
+    let sql = ''
+    await verificarCentinela(async (s: string) => { sql = s; return [{ centinela: true, con_datos: true }] })
+    expect(sql).toContain("to_regclass('demo.centinela')")
+    expect(sql).not.toContain('public.demo_centinela')
+  })
   it('la centinela existe → es el demo', async () => {
     await expect(verificarCentinela(con({ centinela: true, con_datos: true }))).resolves.toBe('presente')
   })

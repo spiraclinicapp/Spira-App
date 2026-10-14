@@ -21,7 +21,26 @@ export const REQUERIDAS = ['DEMO_REF', 'VITE_SUPABASE_PUBLISHABLE_KEY', 'DEMO_SE
 /** El ref de un proyecto de Supabase: 20 letras minúsculas. */
 export const FORMA_REF = /^[a-z]{20}$/
 
+/** Lo que piden, además, los scripts que se conectan a la base (migrar, resetear, sembrar). */
+export const REQUERIDAS_DB = [...REQUERIDAS, 'DEMO_DB_URL']
+
+/** El marcador que deja Supabase en la cadena que se copia de «Connect». */
+export const MARCADOR_PASSWORD = '[YOUR-PASSWORD]'
+
 export class ConfigDemoError extends Error {}
+
+/**
+ * La cadena de conexión final. El Director pega la URI TAL CUAL la da Supabase (con `[YOUR-PASSWORD]` adentro)
+ * y la contraseña en `DEMO_DB_PASSWORD`: reemplazar a mano fue justo el paso que se trababa, y una contraseña
+ * con `@`, `/` o `#` sin codificar rompe la URL de una manera que no se entiende. Si la cadena ya trae la
+ * contraseña (sin marcador), se usa como está.
+ */
+export function armarDbUrl(dbUrl, password) {
+  if (!dbUrl) return null
+  if (!dbUrl.includes(MARCADOR_PASSWORD)) return dbUrl
+  if (!password) throw new ConfigDemoError(`DEMO_DB_URL trae ${MARCADOR_PASSWORD}: falta DEMO_DB_PASSWORD con la contraseña de la base.`)
+  return dbUrl.replace(MARCADOR_PASSWORD, encodeURIComponent(password))
+}
 
 /** `CLAVE=valor` por renglón; ignora vacíos y comentarios (`#`), recorta espacios y comillas. */
 export function parsearEnv(texto) {
@@ -57,7 +76,7 @@ export function leerConfigDemo({ ruta = RUTA_DEMO_ENV, requeridas = REQUERIDAS, 
     url: `https://${ref}.supabase.co`,
     publishableKey: env.VITE_SUPABASE_PUBLISHABLE_KEY,
     secretKey: env.DEMO_SECRET_KEY,
-    dbUrl: env.DEMO_DB_URL || null,
+    dbUrl: armarDbUrl(env.DEMO_DB_URL || null, env.DEMO_DB_PASSWORD || null),
     ttsKey: env.TTS_KEY || null,
   }
 }

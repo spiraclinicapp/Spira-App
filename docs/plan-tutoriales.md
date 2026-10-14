@@ -577,9 +577,17 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
   - Surfaced by: D3, D10 (segunda opinión #2, #6)
   - Files: `scripts/demo/config.mjs`, `scripts/demo/guardia.mjs`, `scripts/demo/verificar.mjs`, `scripts/demo/*.test.ts`, `package.json` (`demo:verificar`)
   - Verify: `npm run test`; con una URL de pooler de prod en `demo.env`, aborta antes de escribir — **hecho el 2026-10-13**: 29 tests (con una mutación que rompe la lectura del usuario del pooler, fallan 5, entre ellos el crítico); `npm run demo:verificar` pasa contra el demo real y corrido a mano con `node` lo frena la guardia; `npm run build` verde (1948 tests)
-- [ ] **T2 (P1, humano: ~3 días / CC: ~1 día)** — demo — Resetear + semilla narrativa con RPC reales + sesión por `generateLink`
+- [ ] **T2 (P1, humano: ~3 días / CC: ~1 día)** — demo — Resetear + semilla narrativa con RPC reales + sesión por `generateLink`. **Partida en dos PRs:**
   - Surfaced by: D10 (segunda opinión #3, #4, #7)
-  - Files: `scripts/demo/resetear.mjs`, `scripts/demo/semilla.mjs`, `package.json`
+  - [x] **T2a — migrar y resetear** (2026-10-13): `scripts/demo/{db,migraciones,migrar,resetear}.mjs` + tests, `pg` como devDependency, `npm run demo:migrar` / `demo:resetear`.
+    - **Las 154 migraciones entraron al demo en la primera corrida, sin un error.** Quedaron 63 tablas, 25 vistas, 183 funciones y 136 policies en `public`, el bucket privado `ip-docs` y sus **dos** policies.
+    - El reset vuelve exactamente a lo mismo.
+    - Cada migración va en su transacción, con su fila en `demo.migraciones`. Un hueco o una migración «fantasma» frenan y mandan a resetear.
+    - **La centinela vive en el schema `demo`, no en `public`:** el reset vacía `public` y se la llevaría. La guardia se ajustó y hay un test que lo fija.
+    - **El reset vacía `public` objeto por objeto y no hace `drop schema`:** Supabase guarda privilegios por defecto de `supabase_admin` atados al schema, y `postgres` no los puede recrear. Verificado después del reset: el dueño, el ACL y los 6 privilegios por defecto quedaron intactos.
+    - **Sin la centinela presente, el reset no corre** (test con un cliente falso que confirma que no se ejecuta nada).
+    - `config.mjs` arma la cadena desde `DEMO_DB_URL` (con `[YOUR-PASSWORD]`) + `DEMO_DB_PASSWORD`, codificando la contraseña.
+  - [ ] **T2b — semilla narrativa + cuentas + sesión**: `scripts/demo/semilla.mjs`, que se suma al final del reset.
   - Verify: `npm run demo:resetear`; `npm run dev -- --mode demo` muestra solo datos ficticios creíbles
 - [ ] **T3 (P1, humano: ~1,5 días / CC: ~1,5 h)** — app — `AyudaDrawer` con Preguntas + `preguntas.ts` (+test) + fila en el menú de usuario + chip «Ayuda» en el buscador + entrada en Novedades
   - Surfaced by: D8 (preguntas en texto antes que los videos); DD3, DD4, DD6, DD7 del diseño
