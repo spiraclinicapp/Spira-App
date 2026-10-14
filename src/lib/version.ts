@@ -35,6 +35,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.111', text: 'Próximas visitas lleva a la semana en Visitas, que ya no muestra citado a quien llegó otro día.' },
     { version: '0.110', text: 'Visitas aprovecha todo el ancho; el Resumen cuenta los próximos 7 días y quién está en el centro.' },
     { version: '0.109', text: 'Preguntas frecuentes en tu cuenta, y los números del Resumen de Coordinación con su detalle.' },
     { version: '0.108', text: 'Próximas visitas del Resumen muestra la semana que viene, no sólo el próximo día.' },
