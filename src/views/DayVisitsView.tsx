@@ -120,7 +120,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
 
   /* Quién puede qué vive en un solo lugar, compartido con el modal de la visita: si la regla se
      duplicara, la fila y el modal podrían terminar diciendo cosas distintas del mismo permiso. */
-  const { canReception, canClinical, loading: permisosCargando } = useVisitPermissions()
+  const { canReception, canClinical, coordina, loading: permisosCargando } = useVisitPermissions()
   /* Los estudios en los que se puede agendar desde acá (v0145): activos y en los que la persona
      tiene la parte clínica (la misma regla que `puede_registrar_visitas`, salvo gerencia, que no
      opera el día). Sin ninguno, el botón no se dibuja. */
@@ -376,7 +376,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
   const acciones = useAccionesDeVisita({
     acento: accentSolid,
     onCambio: () => { refrescar(); dayProcs.refetch() },
-    onError: (msg) => { setActionError(msg); if (msg) setFeedback(null) },
+    onError: (msg) => { setActionError(msg); setFeedback(null) },
   })
 
   const cargando = permisosCargando || (vista === 'dia' ? day.loading : !rangoQ.error && !rangoListo)
@@ -389,7 +389,8 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
       visit={v}
       canReception={canReception}
       canClinical={canClinical(v)}
-      busyId={busyId ?? acciones.ocupado}
+      coordina={coordina(v)}
+      busyId={busyId === v.id || acciones.ocupado === v.id ? v.id : null}
       resumen={resumenes[v.id] ?? null}
       onAdvance={advance}
       onOpenDoctor={(vv) => setDoctorFor(vv)}
@@ -615,6 +616,7 @@ export function DayVisitsView({ module, submodule, onNavigate, setHeader, navTar
           accent={accent}
           canReception={canReception}
           canClinical={canClinical(openVisit)}
+          coordina={coordina(openVisit)}
           onAdvance={advance}
           // Los procedimientos también: desde la visita cambia su lista EFECTIVA («Pasar pendientes»,
           // «Editar», «Deshacer») sin que cambien las visitas del día, así que sin este refetch la fila

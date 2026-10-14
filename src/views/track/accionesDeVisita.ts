@@ -2,6 +2,8 @@ import type { IconName } from '../../components/Icon'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { inscripcionFueraDeCurso } from '../../data/deviationModel'
 import { daysDiffISO, formatDayMonth, formatDayMonthYear, formatTimeAR, isoDayAR } from '../../lib/dates'
+import { visitCode, visitTitle } from '../../lib/visits'
+import type { VisitTitleFields } from '../../lib/visits'
 import { OPERATIONAL_STAGES } from '../visitStates'
 import { DIAS_DEL_RETEST } from './retomar'
 
@@ -61,6 +63,9 @@ export interface PermisosDeVisita {
   recepcion: boolean
   /** Equipo clínico del estudio: inicio de atención, retest, borrar (`canClinical`). */
   clinica: boolean
+  /** Coordina ESTE estudio (`coordina`, sin el atajo de admin): deshacer el inicio de atención y mover
+   *  la citación al adelantar la llegada, que la base sólo deja a quien coordina o a gerencia (0155). */
+  coordina: boolean
 }
 
 /** El nombre corto de una etapa, como el chip («Por llegar», «Concurrió»…). */
@@ -85,9 +90,9 @@ function itemVolver(v: VisitaParaAcciones, p: PermisosDeVisita, hoy: string): Ac
   const titulo = `Volver a ${nombreDeEtapa(destino)}`
   const deshaceLlegada = v.operational_stage === 'concurrio_al_centro'
   // El permiso es el de quien HACE la marca que se deshace (0155): la llegada, Recepción; el inicio
-  // de atención, el equipo clínico del estudio.
-  if (deshaceLlegada ? !p.recepcion : !p.clinica) {
-    return { clave: 'volver', titulo, bajada: deshaceLlegada ? 'Sólo Recepción deshace la llegada' : 'Sólo el equipo clínico del estudio', icono: 'undo', habilitada: false }
+  // de atención, quien coordina el estudio (como `start_visit_attention`).
+  if (deshaceLlegada ? !p.recepcion : !p.coordina) {
+    return { clave: 'volver', titulo, bajada: deshaceLlegada ? 'Sólo Recepción deshace la llegada' : 'Sólo quien coordina el estudio', icono: 'undo', habilitada: false }
   }
   /* SÓLO LA MARCA DE HOY (0155): volver atrás corrige un clic equivocado, no reescribe la historia —
      deshacer el inicio de una visita vieja borraría su fecha realizada y le volvería a encender la
@@ -234,4 +239,14 @@ export function llegadaFueraDeFecha(
       + (fueraDeVentana ? ' Hoy queda fuera de la ventana del protocolo.' : ''),
     mueveFecha: true,
   }
+}
+
+/**
+ * Cómo se nombra la visita en el menú («VISITA V2 W4») y en «¿Eliminar la visita …?». El mismo criterio
+ * que el encabezado del modal: una continuación se titula entera, porque «Visita Cont. V3» no es un
+ * nombre. Uno solo para la fila y el modal, así la misma visita no se llama distinto en cada lado.
+ */
+export function nombreDeLaVisita(v: VisitTitleFields): string {
+  const codigo = visitCode(v)
+  return codigo && !v.origin_visit_id ? codigo : visitTitle(v)
 }

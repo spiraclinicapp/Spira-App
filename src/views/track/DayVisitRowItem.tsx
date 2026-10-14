@@ -11,7 +11,7 @@ import { ProtoTag, IndicadoresVisita, VisitCodeTag } from '../visitAtoms'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 import { etapaProgreso } from './visitHeaderRules'
 import { esNoVino, puedeReprogramar } from './visitas/calendario'
-import { accionesDeVisita, llegadaFueraDeFecha } from './accionesDeVisita'
+import { accionesDeVisita, llegadaFueraDeFecha, nombreDeLaVisita } from './accionesDeVisita'
 import type { ClaveAccion, PermisosDeVisita } from './accionesDeVisita'
 import { BotonEtapa } from './BotonEtapa'
 import type { CaraPrincipal } from './BotonEtapa'
@@ -32,7 +32,7 @@ import type { CaraPrincipal } from './BotonEtapa'
  * no corresponde) y el botón de etapa tiene un ancho fijo (`.spira-split--fila`), con cara o sin ella.
  */
 export function DayVisitRowItem({
-  visit, canReception, canClinical, busyId, resumen,
+  visit, canReception, canClinical, coordina, busyId, resumen,
   onAdvance, onOpenDoctor, onAccion, onLlegar, onOpen, onOpenPatient, acento,
 }: {
   visit: DayVisitRow
@@ -40,6 +40,8 @@ export function DayVisitRowItem({
   canReception: boolean
   /** Clínico/Coord asignado a este protocolo: Inicio de atención / Fin de atención / médico. */
   canClinical: boolean
+  /** Coordina ESTE estudio (sin el atajo de admin): deshacer el inicio de atención y adelantar la llegada. */
+  coordina: boolean
   /** id de la visita con mutación en vuelo (deshabilita sus controles). */
   busyId: string | null
   /** Qué lleva la visita, para la tira de indicadores. `null` = nada que decir: no se dibuja. */
@@ -146,13 +148,13 @@ export function DayVisitRowItem({
         <AtencionMedica visit={visit} canClinical={canClinical} busy={busy} onOpenDoctor={onOpenDoctor} />
         <BotonEtapa
           tamano="fila"
-          cara={caraDeLaFila(visit, noVino, { recepcion: canReception, clinica: canClinical }, onAdvance, onAccion, onLlegar)}
-          acciones={accionesDeVisita(visit, { recepcion: canReception, clinica: canClinical }, todayISO())}
+          cara={caraDeLaFila(visit, noVino, { recepcion: canReception, clinica: canClinical, coordina }, onAdvance, onAccion, onLlegar)}
+          acciones={accionesDeVisita(visit, { recepcion: canReception, clinica: canClinical, coordina }, todayISO())}
           encabezado={{
-            visita: visitCode(visit),
+            visita: nombreDeLaVisita(visit),
             etapa: `${noVino ? VISIT_STATES.por_reprogramar.short : OPERATIONAL_STAGES[stage]?.short ?? ''} · ${paso} de ${total}`,
           }}
-          rotuloVisita={visitCode(visit)}
+          rotuloVisita={nombreDeLaVisita(visit)}
           etiqueta={`Más acciones de la visita de ${visit.patient_name}`}
           ocupado={busy}
           acento={acento}
@@ -190,7 +192,7 @@ function caraDeLaFila(
   const step = NEXT_STEP[visit.operational_stage]
   if (!step) return null
   const rol = advanceRole(visit.operational_stage)
-  const llegada = llegadaFueraDeFecha(visit, todayISO(), permisos.clinica)
+  const llegada = llegadaFueraDeFecha(visit, todayISO(), permisos.coordina)
   return {
     rotulo: step.short,
     habilitada: rol === 'reception' ? permisos.recepcion : permisos.clinica,

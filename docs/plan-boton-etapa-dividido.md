@@ -22,7 +22,7 @@ flecha abre un menú con las acciones sobre la visita. Mismo componente en la **
                        popover «Esta visita está agendada para el 28 oct…»
                                   │ Registrar llegada hoy
                                   ▼
-                       RPC registrar_llegada_hoy (0155): llegada + citación a hoy, atómico
+                       citación futura y coordina → registrar_llegada_adelantada (0155); si no, mark_arrived
 
  [⌄] ──► menú (portal, usePopover align:'end')
           ├ Volver a <etapa>   ──► RPC retroceder_etapa_visita (0155)        ┐ fin_atencion:
@@ -79,7 +79,7 @@ diario (llegada del día) no depende de ella.
   llegada— atención médica pedida o ya dada. Volver atrás nunca deja registros huérfanos de algo que «no pasó».
 - Reemplaza el anexo «retroceder» del TODO; el **historial** (parte b) sigue pendiente.
 
-**D3 · Registrar la llegada fuera de fecha mueve la citación a hoy (RPC `registrar_llegada_hoy`).**
+**D3 · Registrar la llegada fuera de fecha mueve la citación a hoy (RPC `registrar_llegada_adelantada`; ajustada después de la revisión, ver abajo).**
 Recomendado por un motivo concreto: `motivosDelDia` mantiene la citación cuando la llegada es ANTERIOR al día
 citado, así que sin mover la fecha la visita aparecería hoy (llegó) y también el 28 (como si se la esperara).
 Atómico en la base porque `mark_arrived` lo puede hacer cualquier operador y la fecha sólo quien coordina (RLS):
@@ -144,7 +144,7 @@ accionesDeVisita.ts
 retest
   ├ notaDelRetest(motivo, comentario)   compone / omite vacíos
   └ proximaVisitaDe(visitas, origen, hoy) la próxima del cronograma sin atender, misma inscripción
-SQL (banco PGlite): retroceder y registrar_llegada_hoy — cada transición, cada guarda, p_desde viejo, permisos
+SQL (banco PGlite): retroceder y registrar_llegada_adelantada — cada transición, cada guarda, p_desde viejo, permisos
 ```
 
 Flujos de usuario (verificación en el navegador, no test): abrir/cerrar el menú con mouse y teclado (Enter/↓,
@@ -153,6 +153,30 @@ fila sin ⋮ en los tres anchos.
 
 **4 · Performance.** El menú se monta sólo abierto (no 60 menús por día). El popup de retest consulta
 procedimientos y visitas del paciente sólo al abrirse. Sin N+1: no se agrega ninguna consulta por fila.
+
+## Después de la revisión externa y del review de código (2026-10-14)
+
+La segunda opinión (subagente independiente) y el review de código cambiaron cinco cosas, todas con la
+opción recomendada:
+
+- **D2 · sólo marcas del mismo día.** Deshacer el inicio de una visita vieja borraba su `real_date`:
+  volvía a encender la ventana vencida, bajaba los KPI y le devolvía la fecha a `sync_protocol_schedule`.
+  Un inicio sin sello (anterior a la 0102) tampoco se deshace.
+- **D3 · se mueve sólo la citación FUTURA**, con una RPC renombrada a `registrar_llegada_adelantada` que
+  guarda la citación anterior (`citacion_antes_de_adelantar`) y la devuelve si la llegada se deshace. Una
+  citación pasada no se toca (#460: llegar tarde la da por cumplida). Si hoy cae fuera de la ventana, la
+  confirmación lo dice. Permiso: el de mover fechas (gerencia o quien coordina el estudio); el resto de
+  Recepción registra la llegada sin mover la fecha, como antes.
+- **Guarda de dispensación** sólo con un pedido preparándose o atendido: uno solicitado se puede hacer antes
+  de que el paciente llegue y no tiene por qué frenar deshacer una llegada equivocada.
+- **Permiso `coordina`** (coordinar ESE estudio, sin el atajo de admin) para deshacer el inicio y para
+  adelantar: `canClinical` deja pasar a un admin que no coordina y la base lo rechazaría.
+- **`AvisoGlobal`**: el aviso al pie vive en el shell, porque «Eliminar» desde el modal lo cierra.
+
+Se mantuvo el handoff en un punto que la revisión cuestionó: **borrar visitas sueltas completas** (el
+handoff lo pide explícito; la base ya frena las que tienen procedimientos, continuación o retest, y todo
+queda en `audit_log`). Y quedó afuera, a propósito: restaurar el «No vino» que borra la llegada
+adelantada al deshacerla (caso muy raro; la marca queda en `audit_log`).
 
 ## NOT in scope
 
@@ -163,7 +187,7 @@ procedimientos y visitas del paciente sólo al abrirse. Sin N+1: no se agrega ni
 
 ## Implementation Tasks
 
-- [ ] **T1 (P1)** — base — migración 0155 (`retroceder_etapa_visita`, `registrar_llegada_hoy`) + índice + banco PGlite
+- [ ] **T1 (P1)** — base — migración 0155 (`retroceder_etapa_visita`, `registrar_llegada_adelantada`) + índice + banco PGlite
 - [ ] **T2 (P1)** — reglas — `accionesDeVisita.ts` + test
 - [ ] **T3 (P1)** — UI — `BotonEtapa` (split + menú + confirmaciones + teclado) + CSS + token
 - [ ] **T4 (P1)** — fila — `DayVisitRowItem` sin ⋮, `DayVisitsView` cablea acciones + toasts

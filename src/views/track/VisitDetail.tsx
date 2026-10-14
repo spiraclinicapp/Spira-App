@@ -56,7 +56,7 @@ import { useAccionesDeVisita } from './useAccionesDeVisita'
  * `docs/plan-boton-etapa-dividido.md`); el historial sigue en `TODOS.md`.
  */
 export function VisitDetail({
-  visitId, accent, onClose, canReception, canClinical,
+  visitId, accent, onClose, canReception, canClinical, coordina,
   onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient, onVerEnElDia, visitaDebajo,
 }: {
   visitId: string
@@ -70,6 +70,8 @@ export function VisitDetail({
    */
   canReception?: boolean
   canClinical?: boolean
+  /** Coordina el estudio de la visita (sin el atajo de admin). Lo pasa quien ya calculó los permisos. */
+  coordina?: boolean
   onAdvance?: (visit: DayVisitRow, next: OperationalStage) => void | Promise<void>
   onChanged?: () => void
   /** Posición dentro de la lista visible ("3 / 14"), para la fila de utilidades. Solo en `day`. */
@@ -156,6 +158,7 @@ export function VisitDetail({
 
   const role = visit ? advanceRole(visit.operational_stage) : null
   const puedeClinica = canClinical ?? (visit ? perms.canClinical(visit) : false)
+  const puedeCoordinar = coordina ?? (visit ? perms.coordina(visit) : false)
   const canAdvance = role === 'reception' ? puedeOperar : role === 'clinical' ? puedeClinica : false
 
   /* CERRAR REFRESCA A LA PANTALLA DE ATRÁS. `onChanged` se llama en vivo desde las acciones que
@@ -334,7 +337,7 @@ export function VisitDetail({
               canAdvance={canAdvance}
               busy={busy || acciones.ocupado === visit.id}
               accent={accent}
-              permisos={{ recepcion: puedeOperar, clinica: puedeClinica }}
+              permisos={{ recepcion: puedeOperar, clinica: puedeClinica, coordina: puedeCoordinar }}
               onAdvance={advance}
               onAccion={(clave) => void acciones.ejecutar(visit, clave)}
               onLlegar={(mueveFecha) => void acciones.llegar(visit, mueveFecha)}

@@ -90,6 +90,14 @@ export function BotonEtapa({
     destino?.focus({ preventScroll: true })
   }, [abierto, montado, confirmandoBorrar])
 
+  /* Si mientras la confirmación de llegada está abierta los datos se refrescan y la visita ya no la
+     necesita (otra pestaña registró la llegada, la citación pasó a hoy), se cierra: no hay nada que
+     confirmar, y abajo no puede caer en el menú. */
+  const confirmaLlegada = !!cara?.confirmar
+  useEffect(() => {
+    if (abierto === 'llegada' && !confirmaLlegada) cerrar()
+  }, [abierto, confirmaLlegada, cerrar])
+
   const volverALaFlecha = () => { cerrar(); masRef.current?.focus() }
 
   /* Teclas dentro del popover. Se frenan para que no las lean la fila (Enter la abre) ni el modal (↑↓
@@ -190,7 +198,7 @@ export function BotonEtapa({
         </button>
       </div>
 
-      {abierto && pos && createPortal(
+      {abierto && pos && !(abierto === 'llegada' && !cara?.confirmar) && createPortal(
         abierto === 'llegada' && cara?.confirmar ? (
           <div
             ref={refPop}

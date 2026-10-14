@@ -14,9 +14,9 @@ const HOY = '2026-10-13'
 const LLEGADA = '2026-10-13T14:37:00.000Z'
 const INICIO = '2026-10-13T14:52:00.000Z'
 
-const todo: PermisosDeVisita = { recepcion: true, clinica: true }
-const soloRecepcion: PermisosDeVisita = { recepcion: true, clinica: false }
-const nada: PermisosDeVisita = { recepcion: false, clinica: false }
+const todo: PermisosDeVisita = { recepcion: true, clinica: true, coordina: true }
+const soloRecepcion: PermisosDeVisita = { recepcion: true, clinica: false, coordina: false }
+const nada: PermisosDeVisita = { recepcion: false, clinica: false, coordina: false }
 
 function visita(extra: Partial<VisitaParaAcciones> = {}): VisitaParaAcciones {
   return {
@@ -101,7 +101,9 @@ describe('Volver a la etapa anterior', () => {
   it('la llegada la deshace Recepción; el inicio de atención, el equipo clínico', () => {
     expect(item(accionesDeVisita(concurrio(), soloRecepcion, HOY), 'volver')!.habilitada).toBe(true)
     expect(item(accionesDeVisita(concurrio(), nada, HOY), 'volver')).toMatchObject({ habilitada: false, bajada: 'Sólo Recepción deshace la llegada' })
-    expect(item(accionesDeVisita(enAtencion(), soloRecepcion, HOY), 'volver')).toMatchObject({ habilitada: false, bajada: 'Sólo el equipo clínico del estudio' })
+    expect(item(accionesDeVisita(enAtencion(), soloRecepcion, HOY), 'volver')).toMatchObject({ habilitada: false, bajada: 'Sólo quien coordina el estudio' })
+    // Un admin de Coordinación que no coordina el estudio: la base lo rechaza (0155), así que no se ofrece.
+    expect(item(accionesDeVisita(enAtencion(), { recepcion: true, clinica: true, coordina: false }, HOY), 'volver')!.habilitada).toBe(false)
   })
   it('no vuelve a Por llegar con el médico de por medio', () => {
     expect(item(accionesDeVisita(concurrio({ wants_doctor: true }), todo, HOY), 'volver')).toMatchObject({ habilitada: false, bajada: 'Tiene atención médica pedida' })

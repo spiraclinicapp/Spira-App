@@ -3,10 +3,9 @@ import { Icon } from '../../components/Icon'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { OPERATIONAL_STAGES, VISIT_STATES } from '../visitStates'
 import { formatTimeAR, todayISO } from '../../lib/dates'
-import { visitCode, visitTitle } from '../../lib/visits'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 import { contextoDeEtapa, etapaProgreso, marcaDeEtapa } from './visitHeaderRules'
-import { accionesDeVisita, llegadaFueraDeFecha } from './accionesDeVisita'
+import { accionesDeVisita, llegadaFueraDeFecha, nombreDeLaVisita } from './accionesDeVisita'
 import type { ClaveAccion, PermisosDeVisita } from './accionesDeVisita'
 import { BotonEtapa } from './BotonEtapa'
 import type { CaraPrincipal } from './BotonEtapa'
@@ -74,11 +73,9 @@ export function VisitActionBar({
   const hoy = todayISO()
   const noVino = esNoVino(visit)
   /* Marcar la llegada de una visita que no está citada para hoy confirma antes, en el lugar del menú
-     (`llegadaFueraDeFecha`). Mover la citación es de quien coordina el estudio: `permisos.clinica`. */
-  const llegada = llegadaFueraDeFecha(visit, hoy, permisos.clinica)
-  /* El nombre de la visita como lo dice el encabezado del modal: una continuación se titula entera
-     («Visita Cont. V3» no es un nombre). */
-  const codigo = visitCode(visit) && !visit.origin_visit_id ? visitCode(visit) : visitTitle(visit)
+     (`llegadaFueraDeFecha`). Mover la citación es de quien coordina el estudio: `permisos.coordina`. */
+  const llegada = llegadaFueraDeFecha(visit, hoy, permisos.coordina)
+  const codigo = nombreDeLaVisita(visit)
 
   return (
     <div className="spira-visit-actbar" style={actbar}>

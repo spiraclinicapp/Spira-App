@@ -32,5 +32,11 @@ export function useVisitPermissions(enabled = true) {
   const canClinical = (v: { protocol_id: string }) =>
     isTrackAdmin || (hasMinRole('track', 'operator') && coordSet.has(v.protocol_id))
 
-  return { canReception, canClinical, loading: coords.loading }
+  /* Coordinar ESE estudio, sin el atajo de admin: es lo que piden las RPC que mueven fechas o deshacen
+     el inicio de atención (0155, igual que `start_visit_attention`). `canClinical` deja pasar a un admin
+     de Coordinación que no coordina el estudio, y ahí la base rechaza: ofrecerlo sería prometer algo
+     que rebota. */
+  const coordina = (v: { protocol_id: string }) => hasMinRole('track', 'operator') && coordSet.has(v.protocol_id)
+
+  return { canReception, canClinical, coordina, loading: coords.loading }
 }
