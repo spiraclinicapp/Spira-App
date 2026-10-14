@@ -1,4 +1,6 @@
+import { expect } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
+import type { Cuenta } from './sesion'
 
 /* ============================================================================
    El guion: la fuente única de un tutorial (docs/plan-tutoriales.md, «El guion»). Del mismo arreglo de pasos
@@ -24,6 +26,11 @@ export interface Guion {
   id: string
   /** Una prueba de la fábrica, no un tutorial: no escribe meta ni capturas de referencia. */
   prueba?: boolean
+  /**
+   * Con qué cuenta del demo entra a la app (`scripts/demo/semilla.mjs`, `CUENTAS`). La sesión es la que deja
+   * el reset del demo, sin contraseña (`entrarComo`); un guion sin cuenta graba lo que haya, sin loguear.
+   */
+  cuenta?: Cuenta
   /** Arma el estado que el guion va a consumir (en el demo, con las RPC reales). Llega en T2/T6. */
   preparar?: (e: Escena) => Promise<void>
   pasos: Paso[]
@@ -57,6 +64,10 @@ export class Escena {
   }
 
   async clic(locator: Locator) {
+    /* El clic va por coordenadas (para que el cursor dibujado lo siga), y eso no espera nada, a diferencia de
+       `locator.click()`: un botón que todavía estaba deshabilitado —«Marcar lista para retirar» mientras se
+       procesa el último escaneo— recibía el clic y no pasaba nada. Se espera a que esté habilitado. */
+    await expect(locator).toBeEnabled()
     const caja = await this.moverA(locator)
     await this.page.waitForTimeout(180)
     await this.page.mouse.click(caja.x + caja.width / 2, caja.y + caja.height / 2)
