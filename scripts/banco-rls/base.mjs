@@ -23,7 +23,9 @@ export const MIGRACIONES = join(RAIZ, 'supabase/migrations')
 //   · los roles: el primer `grant … to authenticated` aborta el exec entero si no existen;
 //   · `supabase_realtime`: la 0007 le agrega tablas a la publicación;
 //   · `auth.uid()`: lee `spira.uid`, así cada consulta elige de quién es (ver comoPerfil);
-//   · `storage`: la 0071 y la 0142 le ponen policies a storage.objects.
+//   · `storage`: la 0071 y la 0142 le ponen policies a storage.objects;
+//   · `auth.users.email_confirmed_at`: la 0157 la lee (`es_fabrica_de_tutoriales`); sin ella el banco
+//     entero deja de arrancar desde esa migración.
 const PRELUDIO = `
 create role anon nologin;
 create role authenticated nologin;
@@ -35,6 +37,7 @@ create schema auth;
 create table auth.users (
   id uuid primary key default gen_random_uuid(),
   email text,
+  email_confirmed_at timestamptz,
   raw_user_meta_data jsonb default '{}'::jsonb,
   raw_app_meta_data jsonb default '{}'::jsonb,
   created_at timestamptz default now(),
