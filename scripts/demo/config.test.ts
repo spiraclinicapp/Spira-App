@@ -4,7 +4,7 @@
  * falta y DÓNDE, y que nunca se cuele un valor (son claves).
  */
 import { describe, expect, it } from 'vitest'
-import { ConfigDemoError, leerConfigDemo, parsearEnv } from './config.mjs'
+import { armarDbUrl, ConfigDemoError, leerConfigDemo, parsearEnv } from './config.mjs'
 
 const RUTA = 'C:/falso/.spira/demo.env'
 const REF = 'demodemodemodemodemo'
@@ -30,6 +30,22 @@ describe('parsearEnv', () => {
   })
   it('un renglón sin "=" o que empieza con "=" no es una clave', () => {
     expect(parsearEnv('suelto\n=valor\nA=1')).toEqual({ A: '1' })
+  })
+})
+
+describe('armarDbUrl', () => {
+  const uri = `postgresql://postgres.${REF}:[YOUR-PASSWORD]@aws-0-sa-east-1.pooler.supabase.com:5432/postgres`
+  it('reemplaza el marcador por la contraseña CODIFICADA (una @ o una / no rompen la URL)', () => {
+    const url = armarDbUrl(uri, 'a@b/c#d')!
+    expect(url).toContain(`postgres.${REF}:a%40b%2Fc%23d@aws-0`)
+    expect(new URL(url).password).toBe('a%40b%2Fc%23d')
+  })
+  it('sin marcador → la cadena tal cual; sin cadena → null', () => {
+    expect(armarDbUrl('postgresql://u:p@h:5432/db', null)).toBe('postgresql://u:p@h:5432/db')
+    expect(armarDbUrl(null, 'x')).toBeNull()
+  })
+  it('con marcador y sin contraseña → error que dice qué falta', () => {
+    expect(() => armarDbUrl(uri, null)).toThrow(/DEMO_DB_PASSWORD/)
   })
 })
 
