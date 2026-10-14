@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import { PREGUNTAS } from './preguntas'
 import { preguntasVisibles } from './reglas'
+import { TUTORIALES } from './tutoriales'
 
 describe('preguntas frecuentes', () => {
   it('hay preguntas de las tres clases', () => {
@@ -38,6 +39,9 @@ describe('preguntas frecuentes', () => {
     expect(preguntasVisibles(PREGUNTAS, () => false).every((p) => p.modulo === 'general')).toBe(true)
   })
 
+  it('el tutorial que enlaza una respuesta existe en el catálogo (si no, el «Ver cómo se hace» no sale nunca)', () => {
+    for (const p of PREGUNTAS) if (p.tutorial) expect(TUTORIALES.some((t) => t.id === p.tutorial), p.id).toBe(true)
+  })
   it('los rótulos de botones van entre comillas latinas, no rectas', () => {
     for (const p of PREGUNTAS) expect(p.respuesta, p.id).not.toMatch(/"/)
   })

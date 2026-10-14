@@ -6,6 +6,7 @@ import { useSearchIndex, TYPE_LABEL } from './search/searchIndex'
 import type { SearchItem, SearchType } from './search/searchIndex'
 import type { SubModule } from '../modules/registry'
 import { normalizar } from '../lib/texto'
+import type { Publicado } from '../ayuda/catalogo'
 
 /* ============================================================================
    CommandPalette — buscador global (Ctrl/⌘ K).
@@ -35,6 +36,10 @@ interface CommandPaletteProps {
   onNavigate: (moduleKey: string, subKey: string, target?: SearchItem['target']) => void
   /** Un resultado de Ayuda no navega: abre el panel con esa respuesta desplegada (lo monta el shell). */
   onAbrirAyuda: (preguntaId: string) => void
+  /** Un tutorial tampoco navega: abre el reproductor (lo monta el shell). */
+  onAbrirTutorial: (id: string) => void
+  /** Los tutoriales publicados que el usuario ve: entran al índice bajo el chip «Ayuda». */
+  tutoriales: readonly Publicado[]
   onClose: () => void
 }
 
@@ -53,8 +58,8 @@ const CHIP_DEFS: { type: SearchType; label: string; icon: IconName }[] = [
   { type: 'ayuda', label: 'Ayuda', icon: 'helpCircle' },
 ]
 
-export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, subVisible, onNavigate, onAbrirAyuda, onClose }: CommandPaletteProps) {
-  const { index, loading, partialError } = useSearchIndex(isAllowed, subVisible)
+export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, subVisible, onNavigate, onAbrirAyuda, onAbrirTutorial, tutoriales, onClose }: CommandPaletteProps) {
+  const { index, loading, partialError } = useSearchIndex(isAllowed, subVisible, tutoriales)
 
   const [q, setQ] = useState('')
   const [typeFilter, setTypeFilter] = useState<SearchType | null>(null)
@@ -144,6 +149,7 @@ export function CommandPalette({ accent, moduleKey, moduleName, isAllowed, subVi
   const go = (it: SearchItem) => {
     onClose()
     if (it.ayuda) onAbrirAyuda(it.ayuda.preguntaId)
+    else if (it.tutorial) onAbrirTutorial(it.tutorial.id)
     else onNavigate(it.mod, it.sub, it.target)
   }
   goRef.current = go

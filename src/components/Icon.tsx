@@ -85,6 +85,12 @@ const ICONS = {
   /* El reloj que vuelve atrás: el chip «Historial» de la tarjeta de Dispensación (handoff
      `design_handoff_dispensacion_estado`). Es `rotateCcw` con las agujas adentro. */
   history: (<><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></>),
+  /* Los controles de los tutoriales (docs/plan-tutoriales.md). El triángulo y las barras se dibujan LLENOS
+     (`fill`) en el disco de play y en los controles chicos, como en el mock: de trazo no se leen a 12px. */
+  play: (<polygon points="6 3 20 12 6 21 6 3" />),
+  pause: (<><rect x="14" y="4" width="4" height="16" rx="1" /><rect x="6" y="4" width="4" height="16" rx="1" /></>),
+  volume: (<><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6A1.4 1.4 0 0 1 5.4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z" /><path d="M16 9a5 5 0 0 1 0 6" /><path d="M19.4 18.4a9 9 0 0 0 0-12.8" /></>),
+  volumeOff: (<><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6A1.4 1.4 0 0 1 5.4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z" /><path d="m22 9-6 6" /><path d="m16 9 6 6" /></>),
 }
 
 export type IconName = keyof typeof ICONS

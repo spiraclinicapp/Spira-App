@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
@@ -17,7 +17,10 @@ import { pedidosVigentes } from './avisosPedidos'
 import { todayISO } from '../lib/dates'
 import { AboutMenu } from './AboutMenu'
 import { FeedbackModal } from './FeedbackModal'
-import { AyudaDrawer } from '../ayuda/AyudaDrawer'
+import { AyudaCapas } from '../ayuda/AyudaCapas'
+import { AyudaContextProvider, useEstadoAyuda } from '../ayuda/AyudaProvider'
+import { AyudaTutorial } from '../ayuda/AyudaTutorial'
+import { tutorialDeLaVista } from '../ayuda/catalogo'
 import { armarLugar, lugarActual } from '../lib/lugar'
 import { KBD_BUSCADOR } from '../lib/teclas'
 import { parseSettingsSection, SettingsModal } from './settings/SettingsModal'
@@ -119,13 +122,6 @@ export function AppShell() {
   /* Con qué arranca el mensaje del feedback. Sólo lo llena el «Contanos» de la Ayuda («Buscaba: …»); se
      vacía al cerrar, así el feedback que se abre desde cualquier otro lado arranca en blanco. */
   const [feedbackMensaje, setFeedbackMensaje] = useState('')
-  /* Panel de Ayuda (preguntas frecuentes): null = cerrado. `preguntaId` = abrir con esa respuesta desplegada
-     (viene del buscador). Vive acá y se monta como HERMANO del feedback, nunca adentro de otra capa: el fondo
-     del Drawer lleva `backdropFilter` y encerraría a cualquier hijo fijo (docs/plan-tutoriales.md, «Capas»). */
-  const [ayuda, setAyuda] = useState<{ preguntaId: string | null } | null>(null)
-  /* Estable a propósito: el Drawer vuelve a correr su efecto de foco cada vez que cambia `onClose`, y una
-     función nueva en cada redibujo del shell le movía el foco a quien estuviera escribiendo en el buscador. */
-  const cerrarAyuda = useCallback(() => setAyuda(null), [])
   /* Popover "Acerca de" (novedades + versión). El estado vive acá y no adentro del componente
      porque se abre desde dos lados: su botón del riel y el "Ver todas" de Novedades. */
   const [aboutOpen, setAboutOpen] = useState(false)
@@ -195,6 +191,10 @@ export function AppShell() {
      desplegable de pantalla de inicio: escrita en dos lados, se desincroniza sin que nada deje de
      compilar, y de los dos lados gobierna un acceso. */
   const isAllowed = (key: string) => moduloHabilitado(key, userModules, MODULES)
+  /* La Ayuda —panel, reproductor de tutoriales, «vistos»— vive acá y sus capas se montan como HERMANAS del
+     feedback, nunca adentro de otra capa: el fondo del Drawer lleva `backdropFilter` y encerraría a cualquier
+     hijo fijo (docs/plan-tutoriales.md, «Capas y foco»). Ver `ayuda/AyudaProvider.tsx`. */
+  const ayuda = useEstadoAyuda(isAllowed, import.meta.env.VITE_SUPABASE_URL)
   /* Además del módulo, el submódulo: uno `soloJefatura` no existe para el resto (menú, navegación y
      buscador preguntan lo mismo, por eso es una sola función). */
   const subVisible = (mKey: string, s: SubModule) => submoduloVisible(mKey, s, roles)
@@ -358,7 +358,10 @@ export function AppShell() {
     ? 'proximamente'
     : 'acceso'
 
+  const tutorialVista = (viewHeader?.crumbs ?? []).length === 0 ? tutorialDeLaVista(ayuda.api.tutoriales, moduleKey, sub.key) : null
+
   return (
+    <AyudaContextProvider value={ayuda.api}>
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--spira-paper)', color: 'var(--spira-ink)' }}>
       {/* ===== top bar unificado ===== */}
       <header
@@ -431,7 +434,7 @@ export function AppShell() {
 
           <span style={{ width: 1, height: 26, background: 'var(--spira-line)', margin: '0 4px' }} />
 
-          <UserMenu onOpenSettings={abrirAjustes} onOpenAyuda={() => setAyuda({ preguntaId: null })} />
+          <UserMenu onOpenSettings={abrirAjustes} onOpenAyuda={() => ayuda.api.abrirPanel()} conTutoriales={ayuda.api.tutoriales.length > 0} />
         </div>
       </header>
 
@@ -630,7 +633,14 @@ export function AppShell() {
                       como `h2` (Estadísticas, Reportes de Farmacia, las tarjetas del Resumen). El
                       `margin` va en una sola abreviada para anular el del navegador sin mezclarla con
                       longhands. */}
-                  <h1 style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', margin: '1px 0 0' }}>{sub.name}</h1>
+                  {/* La píldora «Cómo se hace» va HERMANA del `h1` y no adentro: si no, el nombre accesible del
+                      título pasaría a ser «Dispensaciones Cómo se hace 1:20» (DD8d). Sólo en la pantalla principal
+                      del submódulo, no en sus sub-pantallas con migas (el detalle de un paciente), y sólo si el
+                      tutorial está publicado. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <h1 style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', margin: '1px 0 0' }}>{sub.name}</h1>
+                    {tutorialVista && <AyudaTutorial tutorial={tutorialVista} acento={mod.accentSolid} />}
+                  </div>
                 </div>
                 {viewHeader?.content ? (
                   <div style={{ marginLeft: 'auto', flex: '0 0 auto' }}>{viewHeader.content}</div>
@@ -687,28 +697,28 @@ export function AppShell() {
           isAllowed={isAllowed}
           subVisible={subVisible}
           onNavigate={navigate}
-          onAbrirAyuda={(preguntaId) => setAyuda({ preguntaId })}
+          onAbrirAyuda={(preguntaId) => ayuda.api.abrirPanel({ preguntaId })}
+          onAbrirTutorial={(id) => ayuda.api.abrirTutorial(id)}
+          tutoriales={ayuda.api.tutoriales}
           onClose={() => setPaletteOpen(false)}
         />
       )}
 
-      {/* Panel de Ayuda. ANTES del feedback en el DOM: comparten capa (`--spira-z-drawer`) y el orden decide,
-          así el feedback que abre su «Contanos» queda arriba y el panel espera debajo. La `key` lo remonta si el
-          buscador pide otra pregunta con el panel ya abierto, para que arranque desplegada esa. */}
-      {ayuda && (
-        <AyudaDrawer
-          key={ayuda.preguntaId ?? 'panel'}
-          moduleKey={moduleKey}
-          isAllowed={isAllowed}
-          accent={accent}
-          preguntaInicial={ayuda.preguntaId}
-          onContanos={(buscaba) => {
-            setFeedbackMensaje(buscaba ? `Buscaba: ${buscaba}\n\n` : '')
-            setFeedbackOpen(true)
-          }}
-          onClose={cerrarAyuda}
-        />
-      )}
+      {/* Panel de Ayuda y reproductor de tutoriales. ANTES del feedback en el DOM: comparten capa
+          (`--spira-z-drawer`) y el orden decide, así el feedback que abre su «Contanos» queda arriba y el panel
+          espera debajo. */}
+      <AyudaCapas
+        estado={ayuda}
+        moduleKey={moduleKey}
+        isAllowed={isAllowed}
+        accent={accent}
+        onContanos={(buscaba) => {
+          setFeedbackMensaje(buscaba ? `Buscaba: ${buscaba}
+
+` : '')
+          setFeedbackOpen(true)
+        }}
+      />
 
       {/* Modal "Dar feedback" (se abre desde el popover Acerca de del rail).
 
@@ -751,5 +761,6 @@ export function AppShell() {
           campana (`AlertaCampana`, adentro de `NotificationsMenu`), que también está montada estés
           donde estés. */}
     </div>
+    </AyudaContextProvider>
   )
 }

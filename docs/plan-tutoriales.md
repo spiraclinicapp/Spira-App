@@ -649,15 +649,33 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
   - Files: `src/components/Pistas.tsx`, `src/components/reglasDePista.ts` (+ test: `seQuedaAbierta(fijada, reproduciendo)`, `tieneTarjeta(el)`), `src/ayuda/TarjetaTutorial.tsx`, el `data-tutorial` en el botón «Dispensar»
   - Verify: `npm run build` + navegador contra el mock (recuadro 2b): sin fijar se va al sacar el mouse; play suena y fija; ✕/Esc/afuera cierran y detienen; «Ver en grande» sigue en el mismo segundo; los demás `title` de la app siguen iguales
   - Depende de: T5. **Ojo:** `Pistas` es global (todos los `title`) y tiene historia de arreglos finos (#414, #416, #418): cambiar sólo la rama de `data-tutorial`, con sus reglas puras testeadas
-- [ ] **T5 (P1, humano: ~1,5 días / CC: ~1 h)** — app — `AyudaProvider` en `AppShell` + píldora dibujada por el shell + `AyudaTutorial` (disclosure sobre `usePopover`) + `TutorialModal` + catálogo + `visto` + pestaña Tutoriales + `header`/`footer` en `Drawer`
+- [x] **T5 (P1, humano: ~1,5 días / CC: ~1 h)** — app — `AyudaProvider` en `AppShell` + píldora dibujada por el shell + `AyudaTutorial` (disclosure sobre `usePopover`) + `TutorialModal` + catálogo + `visto` + pestaña Tutoriales + `header`/`footer` en `Drawer`
   - Surfaced by: D7; diseño DD5, DD8a-d
-  - Files: `src/ayuda/AyudaProvider.tsx`, `src/ayuda/AyudaTutorial.tsx`, `src/ayuda/TutorialModal.tsx`, `src/ayuda/tutoriales.ts`, `src/ayuda/tutoriales.meta.json`, `src/ayuda/visto.ts`, `src/shell/AppShell.tsx`, `src/components/Drawer.tsx`, tests
+  - Files: `src/ayuda/{AyudaProvider,AyudaCapas,AyudaTutorial,TarjetaTutorial,TutorialModal}.tsx`, `src/ayuda/{catalogo,tutoriales,visto,useVideoTutorial}.ts`, `src/ayuda/tutoriales.meta.json`, `src/ayuda/AyudaDrawer.tsx`, `src/shell/{AppShell,UserMenu,CommandPalette}.tsx`, `src/shell/search/searchIndex.ts`, `src/components/{Modal,Icon}.tsx`, `src/styles/tokens.css`, `tutoriales/lib/{grabar,mezcla}.ts`, tests
   - Depende de: T5a, T3
-  - Verify: `npm run build` + navegador contra el mock (recuadros 2, 3 y 5): clic, tablet (768), teclado, Esc en capas, foco devuelto, los cuatro estados del reproductor
+  - Verify: `npm run build` + navegador contra el mock (recuadros 2, 3 y 5): clic, tablet (768), teclado, Esc en capas, foco devuelto, los cuatro estados del reproductor — **hecho el 2026-10-13** contra el demo (`demo:app`), con Edge. Para tener qué mirar, el video de `prueba-mock` se publicó en el Storage **del demo** como si fuera «dispensar», con su entrada en el meta **sólo en local** (no se commitea).
+    - **Píldora y globo:** nombre accesible completo, y el `h1` sigue siendo «Dispensaciones». El foco entra al play, y el video suena con subtítulos.
+    - **«Ver en grande» sigue en el mismo segundo**, con el foco en el video. Esc devuelve el foco a la píldora, y después el globo dice «Ya lo viste».
+    - **Reproductor:** capítulos con `aria-current`, pantalla final («Terminaste este tutorial» → «Todos los tutoriales» abre el panel en Tutoriales). A 1024×768 entra entero, con los capítulos abajo. En tema oscuro, toma los tokens.
+    - **Panel:** la fila abre el reproductor encima del panel, y Esc vuelve a la fila. Al buscar, las cuentas van en las pestañas («Preguntas 0 · Tutoriales 1»), y con «xyz» sale el vacío. La respuesta de dispensar lleva «Ver cómo se hace». Al reabrir, recuerda la pestaña.
+    - **Buscador global:** el tutorial sale bajo «Ayuda» y abre el reproductor. El menú dice «Ayuda y tutoriales» para Farmacia y «Ayuda» para Coordinación, que no tiene ni píldora ni pestañas.
+    - Sin errores de página. **Con el meta vacío (lo que se mergea), la app queda exactamente como antes**: sin píldora, sin pestaña, el menú dice «Ayuda».
+  - **Decisiones al implementar:**
+    - **Nada se ve sin un video publicado** (versión y duración en el meta). Ni la píldora, ni la pestaña, ni el buscador, ni el «y tutoriales» del menú. El catálogo puede adelantarse a la grabación sin prometer nada.
+    - **La URL de los videos sale de `VITE_SUPABASE_URL`** (`…/storage/v1/object/public/tutoriales/<id>/<versión>/`). En prod lee el bucket de prod (D9), y en el demo el del demo, sin otra variable de entorno.
+    - **El estado vive en `useEstadoAyuda` (AppShell) y no en un provider que envuelva.** Así las capas quedan antes del Feedback en el DOM: panel → reproductor → Feedback. El contexto sólo reparte las acciones (`useAyuda`), para la píldora y para T5b.
+    - **`TarjetaTutorial` ya existe**: es el globo de la píldora. T5b la monta desde `Pistas` como tooltip.
+    - **El reproductor no se carga diferido**: es un `<video>` nativo, sin dependencias, la misma decisión que el panel en T3. Arranca solo al abrirse (se abrió para mirarlo); la tarjeta, nunca.
+    - **Un video que no carga se distingue por la respuesta del archivo** (`motivoDelError`). Storage da 400 a un objeto que no existe: eso es «todavía no está disponible» y no se reintenta. Sin respuesta es «sin conexión», con «Reintentar».
+    - **La duración se trunca, como el reproductor nativo.** Redondeando, la píldora decía «0:16» y el reproductor «0:15».
+    - **Arreglo en la fábrica: la duración del meta es la del mp4 MEDIDO** (`duracionDelVideo`, leyendo a ffmpeg). Además, el video se corta 0,6 s después del último paso. El crudo de Playwright no tiene un largo confiable: en una corrida duró 17,2 s para un guion de 15,4, y en otra 15,6 para uno de 16,4.
+    - Se sumaron los íconos `play`, `pause`, `volume` y `volumeOff`, de Lucide. El ✓ de «visto» usa `--spira-good`: el `--spira-ok` del mock no existe en la app y el trazo salía vacío.
 - [ ] **T6 (P1, humano: ~4 h / CC: ~30 min)** — piloto — Guion de Dispensar + nitidez + migración 0155 (aditiva, va primero)
   - Surfaced by: D2, D9
   - Files: `tutoriales/guiones/dispensar.ts`, `supabase/migrations/0155_bucket_tutoriales.sql`, `supabase/README.md`, la píldora «Cómo se hace» en Dispensaciones
   - Verify: el Director aplica la 0155, sube la carpeta y mira el piloto en la app
+  - **Para mirar en el piloto (sale del QA de T5):** si el crudo de Playwright arranca a grabar DESPUÉS de `t0`, la voz queda corrida respecto de la imagen. En una corrida, el crudo duró 0,8 s menos que el guion medido desde `t0`. T4 lo dio por bueno mirando el cuadro del medio de cada subtítulo, que puede no notar un corrimiento así. Mirar el piloto con atención en los clics: si la voz llega tarde, medir el arranque del crudo y restarlo a los `inicioMs`.
+  - El demo ya tiene el bucket `tutoriales` (público, creado por la API para el QA de T5) con un video de prueba en `dispensar/1f31fd51/`. La 0155 lo crea con `on conflict do nothing`, así que no choca.
 - [ ] **T7 (P2, humano: ~2 h / CC: ~15 min)** — proceso — `tutoriales:verificar` (selector + captura) + paso en `cierre-jornada`
   - Surfaced by: D6, D10 (segunda opinión #8)
   - Files: `package.json`, `tutoriales/capturas/`, `.claude/skills/cierre-jornada/SKILL.md`

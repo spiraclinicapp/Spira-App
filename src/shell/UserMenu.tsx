@@ -46,10 +46,13 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'roles', label: 'Equipo y accesos', icon: 'lock', section: 'roles' },
 ]
 
-export function UserMenu({ onOpenSettings, onOpenAyuda }: {
+export function UserMenu({ onOpenSettings, onOpenAyuda, conTutoriales = false }: {
   onOpenSettings: (section: SettingsSection) => void
   /** Abre el panel de Ayuda (lo monta el shell, como hermano del resto de las capas). */
   onOpenAyuda: () => void
+  /** Hay tutoriales en video que esta persona puede ver: la fila pasa a decir «Ayuda y tutoriales» (DD3). Hasta
+   *  el primer video dice «Ayuda»: prometer tutoriales que no hay es un rótulo que miente. */
+  conTutoriales?: boolean
 }) {
   const { profile, session, signOut } = useAuth()
   const [open, setOpen] = useState(false)
@@ -175,7 +178,7 @@ export function UserMenu({ onOpenSettings, onOpenAyuda }: {
           <div style={sep} />
           {/* Mismo cuidado de foco que Ajustes: cerrar reenfocando el disparador ANTES de montar el panel,
               así el Drawer captura ese foco y al cerrarse lo devuelve al menú de usuario. */}
-          <MenuRow item={{ label: 'Ayuda', icon: 'helpCircle' }} onClick={() => { close(true); onOpenAyuda() }} />
+          <MenuRow item={{ label: conTutoriales ? 'Ayuda y tutoriales' : 'Ayuda', icon: 'helpCircle' }} onClick={() => { close(true); onOpenAyuda() }} />
 
           <div style={sep} />
           <MenuRow

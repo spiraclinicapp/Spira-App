@@ -30,6 +30,11 @@ interface ModalProps {
    * lo necesita: el foco que ya está adentro se respeta (`focoInicial`).
    */
   initialFocusRef?: React.RefObject<HTMLElement | null>
+  /**
+   * Algo chico al lado del título, antes del ✕: el chip del módulo en el reproductor de tutoriales
+   * (mock de tutoriales, recuadro 3). Va afuera del título, así no entra en su nombre accesible.
+   */
+  junto?: ReactNode
 }
 
 const backdrop: CSSProperties = {
@@ -77,7 +82,7 @@ export function modalesAbiertos(): number {
  * abrió. Las tres decisiones finas —respetar un `autoFocus`, no tocar el foco que está en otra capa, no
  * devolverlo si alguien ya lo puso en otro lado— viven en `reglasDeFoco.ts`, con sus tests.
  */
-export function Modal({ title, onClose, children, subtitle, maxWidth = 440, icon, accent, accentSoft, initialFocusRef }: ModalProps) {
+export function Modal({ title, onClose, children, subtitle, maxWidth = 440, icon, accent, accentSoft, initialFocusRef, junto }: ModalProps) {
   const subtitleId = useId()
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
@@ -157,7 +162,14 @@ export function Modal({ title, onClose, children, subtitle, maxWidth = 440, icon
                 <Icon name={icon} size={18} color={accent ?? 'var(--spira-ink)'} stroke={1.9} />
               </span>
             )}
-            <div className="spira-h2" style={{ flex: 1, fontSize: 20, color: accent }}>{title}</div>
+            {junto ? (
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="spira-h2" style={{ fontSize: 20, color: accent }}>{title}</div>
+                {junto}
+              </div>
+            ) : (
+              <div className="spira-h2" style={{ flex: 1, fontSize: 20, color: accent }}>{title}</div>
+            )}
             <button
               type="button"
               onClick={onClose}

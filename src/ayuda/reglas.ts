@@ -22,6 +22,8 @@ export interface Pregunta {
   respuesta: string
   /** Palabras con las que alguien buscaría esto sin que estén en el texto ("escanear" para "código de barras"). */
   palabras?: string[]
+  /** El tutorial en video que muestra esto (id de `tutoriales.ts`). El «Ver cómo se hace» sale sólo si está publicado. */
+  tutorial?: string
 }
 
 type Permitido = (moduleKey: string) => boolean

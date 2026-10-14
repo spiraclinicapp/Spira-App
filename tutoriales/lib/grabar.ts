@@ -8,7 +8,7 @@ import { Escena } from './guion'
 import type { Guion } from './guion'
 import { armarCapitulos, armarTramos, esperaRestante } from './lineaDeTiempo'
 import type { PasoMedido } from './lineaDeTiempo'
-import { achicar, extraerPoster, mezclar } from './mezcla'
+import { achicar, duracionDelVideo, extraerPoster, mezclar } from './mezcla'
 import { armarVtt } from './vtt'
 import { audioDe, elegirVoz } from './voz'
 
@@ -28,6 +28,9 @@ import { audioDe, elegirVoz } from './voz'
 
 const FABRICA = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO = resolve(FABRICA, '..')
+/** Lo que sigue el video después del último paso, para que el final no se corte en seco. */
+const RESPIRO_FINAL_MS = 600
+
 export const ANCHO = 1536
 export const ALTO = 864
 
@@ -75,13 +78,15 @@ export async function grabarGuion(browser: Browser, g: Guion, opciones: { baseUR
     await page.waitForTimeout(esperaRestante(audioMs, accionMs))
     medidos.push({ inicioMs, audioMs, accionMs, texto: paso.dice.trim(), ...(paso.capitulo ? { capitulo: paso.capitulo } : {}) })
   }
+  /* El video se corta donde termina el último paso, más un respiro corto para que no se corte en seco. */
+  const finMs = Date.now() - t0 + RESPIRO_FINAL_MS
   const video = page.video()
   await ctx.close()
   const crudo = await video!.path()
 
   // 3 · mezcla
   const tmpMp4 = join(trabajo, 'video.mp4')
-  mezclar(crudo, medidos.flatMap((m, i) => (audios[i] ? [{ ruta: audios[i]!.ruta, inicioMs: m.inicioMs }] : [])), tmpMp4)
+  mezclar(crudo, medidos.flatMap((m, i) => (audios[i] ? [{ ruta: audios[i]!.ruta, inicioMs: m.inicioMs }] : [])), tmpMp4, finMs)
   const version = createHash('sha256').update(readFileSync(tmpMp4)).digest('hex').slice(0, 8)
 
   // 4 · salida
@@ -92,7 +97,9 @@ export async function grabarGuion(browser: Browser, g: Guion, opciones: { baseUR
   writeFileSync(join(carpeta, 'subtitulos.vtt'), armarVtt(tramos), 'utf8')
   const iPoster = Math.max(0, g.pasos.findIndex((p) => p.poster))
   extraerPoster(join(carpeta, 'video.mp4'), medidos[iPoster].inicioMs + Math.min(800, medidos[iPoster].audioMs), join(carpeta, 'poster.jpg'))
-  const duracionMs = Math.max(...tramos.map((t) => t.finMs))
+  /* La duración del meta es la del mp4 MEDIDO, no la planeada: la de la píldora tiene que ser la del
+     reproductor (QA de T5: decía «0:15» y el video duraba 0:17). */
+  const duracionMs = duracionDelVideo(join(carpeta, 'video.mp4'))
 
   if (!g.prueba) {
     const dirCapturas = join(FABRICA, 'capturas', g.id)
