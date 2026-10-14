@@ -7,5 +7,6 @@ export interface ConfigDemo {
   secretKey: string
   dbUrl: string | null
   ttsKey: string | null
+  ttsVozId: string | null
 }
 export function leerConfigDemo(opciones?: { requeridas?: string[] }): ConfigDemo
