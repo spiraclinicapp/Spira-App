@@ -30,6 +30,10 @@ export function ScanField({ label, placeholder, value, onChange, onSubmit, accen
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={onKey}
+            /* El rótulo de arriba es un `div` (la eyebrow del sistema) y no un `<label>`: sin esto el campo no
+               tenía nombre, y el lector de pantalla lo anunciaba como «campo de texto» a secas. Lo encontró el
+               guion del tutorial de dispensar, que busca los controles por su nombre (T6, 2026-10-14). */
+            aria-label={label}
             autoFocus
             className="spira-mono spira-search-input"
             placeholder={placeholder}
