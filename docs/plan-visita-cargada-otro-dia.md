@@ -345,9 +345,17 @@ Implementación secuencial. Todo cuelga de la 0158 y de `marcaTardia`, y casi to
 - [x] **T6 (P2, humano ~30 min / CC ~5 min)** — (e) — `fechaParaIniciar` en `VisitDetail` (pura + test), y
   `ConfirmarAvance` dice con qué fecha queda la visita al iniciar
 - [x] **T7 (P2, humano ~15 min / CC ~3 min)** — docs — `TODOS.md`: vencimiento de reportes anclado en el tilde
-- [ ] **Verificación en el navegador** — fila realizada a 1185 / 980 / 820 / 560 con y sin «Visto»; el menú
-  con «Vino otro día…»; el modal; el link de la confirmación. Lo que sólo se ve con sesión y la 0158 aplicada
-  (la lista del 08 y del 14, «Volver» de una carga) queda para el QA después de aplicarla.
+- [x] **Verificación en el navegador (banco sin sesión, 2026-10-14)** — a 1185: las tres realizadas alineadas
+  entre sí (Coord/Médico hasta x=1014, 14 px hasta «Acciones», 278 px a la derecha de las activas); borde
+  derecho del botón igual en todas; «Visto por médico» en la tira aun sin resumen; sin «llegó» tardío; «Atención
+  médica» apagada con «La visita es del 08 oct». A 980 / 820 / 560: sin desbordes ni nombres cortados. La
+  confirmación ofrece «¿Vino el 08 oct? Cargala con esa fecha» (teal profundo, manito) y dispara
+  `vino-otro-dia`; el menú, en el orden del plan. El modal propone la citación (08/10/2026) y no deja cargar sin
+  quién la atendió. **Corregido en el camino:** con la lectura de coordinadores fallida decía «El estudio no
+  tiene coordinadores» y mostraba el error crudo de Postgres.
+- [ ] **QA con sesión, después de aplicar la 0158** — cargar una visita de TEST-001 con «Vino otro día» (la
+  lista salta al día, el listón dice «cargada el …», «Volver» la deshace el mismo día) y mirar la lista del 08 y
+  del 14 con la visita de Rafael.
 
 ## GSTACK REVIEW REPORT
 

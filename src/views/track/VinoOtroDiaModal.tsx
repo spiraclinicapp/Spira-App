@@ -43,7 +43,9 @@ export function VinoOtroDiaModal({ visit, accent, onClose, onDone }: {
   const fecha = fechaTocada ?? (minima.loading ? '' : fechaParaCargarPorDefecto(visit, hoy, minima.data))
   const delEstudio = coords.data ?? []
   const atendio = atendioTocado ?? atendioPorDefecto(visit, delEstudio)
-  const sinCoordinadores = !coords.loading && delEstudio.length === 0
+  // Vacío de verdad, no un error de lectura: con error la lista también viene vacía, y decir «el estudio
+  // no tiene coordinadores» sería afirmar algo que no se sabe.
+  const sinCoordinadores = !coords.loading && !coords.error && delEstudio.length === 0
   const listo = !!fecha && !!atendio && !busy
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
@@ -99,13 +101,16 @@ export function VinoOtroDiaModal({ visit, accent, onClose, onDone }: {
             onChange={setAtendio}
             options={delEstudio.map((c) => ({ value: c.id, label: c.full_name }))}
             placeholder={coords.loading ? 'Cargando…' : sinCoordinadores ? 'El estudio no tiene coordinadores' : 'Elegí quién la atendió'}
-            disabled={busy || coords.loading || sinCoordinadores}
+            disabled={busy || coords.loading || sinCoordinadores || !!coords.error}
             entity="coordinador"
           />
         </FormField>
 
-        {(error || minima.error || coords.error) && (
-          <div style={errorBox}>{error ?? minima.error ?? coords.error}</div>
+        {/* Si la fecha mínima no se pudo leer, el selector cae a dos años atrás y la base valida igual
+            (con un mensaje que nombra la fecha): no es un error para mostrar. Sin los coordinadores, sí:
+            no hay a quién elegir. */}
+        {(error || coords.error) && (
+          <div style={errorBox}>{error ?? 'No se pudo leer quién coordina el estudio. Cerrá y probá de nuevo.'}</div>
         )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
