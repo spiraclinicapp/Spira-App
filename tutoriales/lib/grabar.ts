@@ -4,12 +4,14 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser } from '@playwright/test'
 import { SCRIPT_CURSOR } from './cursor'
+import { verificarAppDelDemo } from './demo'
 import { Escena } from './guion'
 import type { Guion } from './guion'
 import { armarCapitulos, armarTramos, esperaRestante } from './lineaDeTiempo'
 import type { PasoMedido } from './lineaDeTiempo'
 import { achicar, duracionDelVideo, extraerPoster, mezclar } from './mezcla'
 import { armarVtt } from './vtt'
+import { entrarComo } from './sesion'
 import { audioDe, elegirVoz } from './voz'
 
 /* ============================================================================
@@ -50,13 +52,19 @@ export async function grabarGuion(browser: Browser, g: Guion, opciones: { baseUR
   const audios: ({ ruta: string; duracionMs: number } | null)[] = []
   for (const p of g.pasos) audios.push(p.dice.trim() ? await audioDe(voz, p.dice.trim(), join(FABRICA, '.cache', 'voz')) : null)
 
-  // 2 · imagen
+  // 2 · imagen. Un tutorial de verdad se graba contra la app del DEMO, y eso se comprueba (cerrojo 3) antes
+  //     de abrir nada: grabado contra prod, el video publicaría nombres reales.
+  if (!g.prueba) {
+    if (!opciones.baseURL) throw new Error(`«${g.id}» es un tutorial: se graba contra la app del demo (falta baseURL).`)
+    await verificarAppDelDemo(opciones.baseURL)
+  }
   const ctx = await browser.newContext({
     viewport: { width: ANCHO, height: ALTO },
     recordVideo: { dir: trabajo, size: { width: ANCHO, height: ALTO } },
     baseURL: opciones.baseURL,
   })
   await ctx.addInitScript(SCRIPT_CURSOR)
+  if (g.cuenta) await entrarComo(ctx, g.cuenta)
   const page = await ctx.newPage()
   const t0 = Date.now() // el video arranca con la página: las marcas se miden desde acá
   const escena = new Escena(page)

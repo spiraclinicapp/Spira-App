@@ -23,8 +23,8 @@ for (const f of archivos) guiones.push((await import(pathToFileURL(join(dir, f))
 test.describe.configure({ mode: 'serial' })
 
 for (const g of guiones) {
-  test(g.id, async ({ browser }) => {
-    const r = await grabarGuion(browser, g)
+  test(g.id, async ({ browser, baseURL }) => {
+    const r = await grabarGuion(browser, g, { baseURL })
     console.log(`✓ ${g.id} · ${(r.duracionMs / 1000).toFixed(1)} s · versión ${r.version}\n  ${r.carpeta}`)
   })
 }
