@@ -6,7 +6,7 @@ import { useAuth } from '../lib/auth'
 import { AlertCardHeader } from './AlertCardHeader'
 import { CabeceraDeTarjeta, card, ChipDestino, DetalleConEstado, filaAncha, FilaDeResumen, MAX_FILAS } from './resumen/piezas'
 import { GRAVEDAD, ordenarPorGravedad, severidadMaxima } from './alertSeverity'
-import { DESTINO_PENDIENTES, DESTINO_REPORTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
+import { DESTINO_PENDIENTES, DESTINO_REPORTES, DESTINO_TAREAS, DESTINO_VISITAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
 import { proximoDiaConVisitas, tiraDeLosProximos, visitasQueVienen } from './resumen/proximoDia'
 import { avanceDelDia } from './resumen/avanceDelDia'
@@ -223,8 +223,8 @@ function TiraSemanal({ dias, cargando }: { dias: DiaDeLaTira[]; cargando?: boole
 
 /**
  * El pie "Ver más" que NAVEGA: a la izquierda el texto, a la derecha el nombre del submódulo
- * revelado al apuntarlo. Lo llevan las tarjetas cuya lista completa existe como pantalla —Alertas y
- * Próximas visitas—, porque ahí "ver más" es literalmente ir a verla.
+ * revelado al apuntarlo. Lo llevan las tarjetas cuya lista completa existe como pantalla —Pendientes y,
+ * desde el 2026-10-13, otra vez Próximas visitas—, porque ahí "ver más" es literalmente ir a verla.
  *
  * VA EN UN `<button>` A ANCHO COMPLETO, y ahí se separa del mock a propósito. En el handoff el
  * listener de hover vive en un `<span>` que **no tiene ningún `onClick`**: es un pie que parece un
@@ -270,8 +270,8 @@ function VerMas({ nombre, restantes, onClick }: { nombre: string; restantes: num
 
 /**
  * El pie "Ver más" que DESPLIEGA ahí mismo, para las tarjetas que no tienen una pantalla a la que
- * mandar: Dispensaciones solicitadas (viven en Farmacia, que quien coordina puede no tener) y, desde
- * el 2026-10-12, Próximas visitas (ninguna pantalla junta "los próximos siete días").
+ * mandar: Dispensaciones solicitadas (viven en Farmacia, que quien coordina puede no tener). Próximas
+ * visitas lo usó del 2026-10-12 al 13, hasta que el Director prefirió que su pie lleve a la Semana.
  * Reportes pendientes también lo usaba hasta el 2026-10-04, cuando Coordinación ganó su pantalla
  * de Reportes y el pie pasó a ser el `VerMas` que navega.
  *
@@ -888,6 +888,11 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
   const nombrePendientes = nombreDeDestino(DESTINO_PENDIENTES)
   const nombreTareas = nombreDeDestino(DESTINO_TAREAS)
   const nombreReportes = nombreDeDestino(DESTINO_REPORTES)
+  const nombreVisitas = nombreDeDestino(DESTINO_VISITAS)
+  /* El pie de Próximas visitas va a donde va su KPI —la Semana del próximo día con visitas—: el mismo
+     dato no puede llevar a dos lugares según dónde se lo clickee. */
+  const irAProximas = () => onNavigate?.(DESTINO_VISITAS.moduleKey, DESTINO_VISITAS.subKey,
+    { visitView: 'semana', visitDate: proximoDia ?? undefined })
   /* Cuántos PACIENTES muestra la pantalla de Reportes: SIN ámbito, porque ella no lo tiene (2A). El pie
      de la tarjeta cuenta lo que hay en el destino, no lo que queda del ámbito. Pacientes distintos y no
      filas: el pie dice «pacientes», y uno con dos visitas pendientes es uno (`totales`). */
@@ -1178,6 +1183,8 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
             onReintentar={upcoming.refetch}
             onOpenVisit={onNavigate && ((visitId, visitDate) => onNavigate('track', 'visitas', { visitId, visitDate }))}
             onOpenPatient={abrirFicha}
+            onVerTodo={onNavigate ? irAProximas : undefined}
+            nombreDestino={nombreVisitas}
             vacioDelAmbito={avisoDeAmbito('No hay visitas próximas en tus protocolos.',
               (upcoming.data ?? []).length > 0)}
           />
@@ -1362,12 +1369,15 @@ function AlertasCard({ rows, loading, error, onReintentar, onOpenAlerta, onOpenP
  * con varios días en pantalla es un dato de la visita, no de la tarjeta. La cabecera cuenta cuántas
  * hay en la semana, como Dispensaciones cuenta sus pendientes.
  *
- * EL PIE DESPLIEGA ACÁ MISMO (`VerMasLocal`) y no navega: no hay pantalla que muestre "los próximos
- * siete días" —la Semana de Visitas es de lunes a domingo, otra ventana—, así que un pie que
- * navegara prometería una lista que no existe del otro lado. Cada FILA sí navega: abre su visita en
+ * EL PIE NAVEGA (`VerMas`) desde el 2026-10-13 (Director): a Visitas, en la Semana del próximo día
+ * con visitas, el mismo destino que el KPI «Próximas visitas». Del 12 al 13 desplegaba acá mismo,
+ * con el argumento de que ninguna pantalla junta "los próximos siete días" —la Semana es de lunes a
+ * domingo, otra ventana—. Sigue siendo cierto: si los siete días cruzan el domingo, lo que queda
+ * después está en la semana siguiente, a un «›» de distancia. Se prefirió eso a una tarjeta que
+ * crece hasta empujar a Dispensaciones fuera de vista. Cada FILA también navega: abre su visita en
  * Visitas, en el día de la visita.
  */
-function ProximasVisitasCard({ rows, loading, error, onReintentar, onOpenVisit, onOpenPatient, vacioDelAmbito }: {
+function ProximasVisitasCard({ rows, loading, error, onReintentar, onOpenVisit, onOpenPatient, onVerTodo, nombreDestino, vacioDelAmbito }: {
   /** Las visitas posteriores a hoy dentro del horizonte de la consulta, ya ordenadas por fecha y
    *  filtradas por ámbito (`visitasQueVienen`). */
   rows: TrackVisitRow[]
@@ -1376,13 +1386,15 @@ function ProximasVisitasCard({ rows, loading, error, onReintentar, onOpenVisit, 
   onReintentar: () => void
   onOpenVisit?: (visitId: string, visitDate?: string) => void
   onOpenPatient?: (patientId: string, protocolId: string) => void
+  /** El pie: lleva a la Semana de Visitas. Sin él (o sin nombre de destino), no hay pie. */
+  onVerTodo?: () => void
+  nombreDestino?: string | null
   /** Qué mostrar EN LUGAR del vacío propio. La tarjeta no sabe qué es un ámbito ni quién sos: sólo
    *  muestra lo que le den. Así el que decide es el único que tiene el dato para decidirlo —la
    *  vista— y no hay que pasarle a cuatro componentes un ámbito, un usuario y un setter. */
   vacioDelAmbito?: ReactNode
 }) {
-  const [expandido, setExpandido] = useState(false)
-  const visibles = expandido ? rows : rows.slice(0, MAX_FILAS)
+  const visibles = rows.slice(0, MAX_FILAS)
   const restantes = rows.length - visibles.length
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
@@ -1428,8 +1440,11 @@ function ProximasVisitasCard({ rows, loading, error, onReintentar, onOpenVisit, 
           ))}
         </div>
       </CuerpoDeTarjeta>
-      {(restantes > 0 || expandido) && (
-        <VerMasLocal restantes={restantes} expandido={expandido} onToggle={() => setExpandido((x) => !x)} />
+      {/* Gateado por `rows.length > 0`, como el de Pendientes: con la tarjeta vacía el pie competiría
+          con el «Ver todo» del aviso de ámbito, que lleva a otro lado. Con filas, aparece aunque entren
+          todas («Ver todo»): la Semana muestra cada visita con lo que lleva. */}
+      {onVerTodo && nombreDestino && rows.length > 0 && (
+        <VerMas nombre={nombreDestino} restantes={restantes} onClick={onVerTodo} />
       )}
     </div>
   )
