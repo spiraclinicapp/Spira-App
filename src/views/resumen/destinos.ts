@@ -56,7 +56,8 @@ export const DESTINO_TAREAS: Destino = { moduleKey: 'track', subKey: 'tareas' }
 
 /**
  * Visitas del día. Lo apuntan el KPI del Resumen y, desde el 2026-09-15, el «Ver en Visitas» del
- * encabezado de una visita abierta desde la ficha del paciente. Mismo motivo que los dos de arriba
+ * encabezado de una visita abierta desde la ficha del paciente, y desde el 2026-10-13 el pie de la
+ * tarjeta Próximas visitas. Mismo motivo que los dos de arriba
  * para tener nombre en vez de dos literales: un renombre de submódulo no falla, se desincroniza.
  */
 export const DESTINO_VISITAS: Destino = { moduleKey: 'track', subKey: 'visitas' }
