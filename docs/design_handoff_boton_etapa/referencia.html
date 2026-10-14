@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spira · botón de etapa dividido</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#14302E;--primary:#0F5F57;--paper:#F4F1EA;--surface:#FBFAF6;--white:#FFFFFF;--muted:#7C8C87;--faint:#A6B0AC;--ink-soft:#556966;--line:#E4DECF;--line-2:#D8CBB0;--track:#2E7D74;--track-dk:#256A62;--on-accent:#F4F1EA;--danger:#A6483B;--fd:'Schibsted Grotesk',system-ui,sans-serif;--ft:'Inter',system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#EDE9DF;color:var(--ink);font-family:var(--ft);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--primary)}a:hover{color:var(--ink)}
+button{font-family:inherit;color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:38px 26px 120px}
+h1{font-family:var(--fd);font-weight:700;font-size:27px;letter-spacing:-.02em;line-height:1.1;margin:0}
+.lede{color:var(--ink-soft);font-size:14.5px;margin:9px 0 0;max-width:82ch;text-wrap:pretty}
+.vh{display:flex;align-items:baseline;gap:10px;margin:44px 0 4px}
+.vn{flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:var(--track);color:var(--on-accent);font-size:11.5px;font-weight:700;display:grid;place-items:center}
+.vt{font-family:var(--fd);font-weight:700;font-size:17px;letter-spacing:-.01em}
+.vd{color:var(--ink-soft);font-size:13.5px;margin:6px 2px 16px;max-width:86ch;line-height:1.6;text-wrap:pretty}
+.vd b{color:var(--ink)}
+.ico{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+
+/* botón dividido */
+.split{position:relative;display:inline-flex;flex:0 0 auto}
+.split .main,.split .more{height:40px;border:0;background:var(--track);color:var(--on-accent);cursor:pointer;display:flex;align-items:center;transition:background .12s ease}
+.split .main{gap:8px;padding:0 16px 0 18px;border-radius:10px 0 0 10px;font-family:var(--fd);font-weight:700;font-size:14.5px;white-space:nowrap}
+.split .more{width:36px;justify-content:center;border-radius:0 10px 10px 0;border-left:1px solid rgba(244,241,234,.28)}
+.split .main:hover,.split .more:hover,.split.open .more{background:var(--track-dk)}
+.split .more .ico{transition:transform .14s ease-out}
+.split.open .more .ico{transform:rotate(180deg)}
+.split .main:focus-visible,.split .more:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.split.lg .main,.split.lg .more{height:42px}
+.split.lg .more{width:38px}
+
+/* menú */
+.menu{position:absolute;right:0;top:calc(100% + 6px);width:316px;background:var(--white);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 34px rgba(20,48,46,.16),0 2px 6px rgba(20,48,46,.06);padding:6px;z-index:20;display:none;text-align:left}
+.split.open .menu{display:block}
+.mh{padding:8px 10px 9px;border-bottom:1px solid var(--line);margin:-6px -6px 6px;display:flex;align-items:center;gap:8px}
+.mh .k{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.mh .s{margin-left:auto;font-size:12px;font-weight:600;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.mi{width:100%;display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border:0;background:transparent;border-radius:8px;cursor:pointer;text-align:left;font-size:13.5px;font-weight:600;color:var(--ink)}
+.mi .ico{margin-top:2px;color:var(--ink-soft)}
+.mi:hover,.mi:focus-visible{background:var(--paper);outline:none}
+.mi .tx{display:flex;flex-direction:column;min-width:0;flex:1;white-space:nowrap}
+.mi .sub{font-size:12px;font-weight:500;color:var(--muted);margin-top:1px}
+.mi .aside{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:1px}
+.mi.danger,.mi.danger .ico{color:var(--danger)}
+.mi.danger:hover,.mi.danger:focus-visible{background:rgba(166,72,59,.08)}
+.mi[aria-disabled="true"]{cursor:default;color:var(--faint)}
+.mi[aria-disabled="true"] .ico{color:var(--faint)}
+.mi[aria-disabled="true"]:hover{background:transparent}
+.sep{height:1px;background:var(--line);margin:6px 2px}
+.confirm{display:none;padding:10px 10px 6px}
+.menu.ask .confirm{display:block}
+.menu.ask .del{display:none}
+.confirm p{margin:0 0 10px;font-size:13px;color:var(--ink);line-height:1.45}
+.confirm p span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.confirm .row{display:flex;gap:8px;justify-content:flex-end}
+.btn{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line-2);background:var(--white);font-size:13px;font-weight:600;cursor:pointer}
+.btn.d{background:var(--danger);border-color:var(--danger);color:#fff}
+
+.ghost{height:40px;display:flex;align-items:center;gap:8px;padding:0 16px;border:1px solid var(--line-2);border-radius:10px;background:var(--white);font-family:var(--fd);font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap;flex:0 0 auto}
+.ghost .ico{color:var(--ink-soft)}
+
+/* fila de lista */
+.listcard{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:18px 22px;display:flex;flex-wrap:wrap;align-items:center;gap:16px 22px;max-width:1010px}
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(46,125,116,.14);color:var(--primary)}
+.pill i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.bar{height:3px;border-radius:3px;background:var(--line-2);margin-top:9px;overflow:hidden}
+.bar b{display:block;height:100%;width:50%;background:var(--track)}
+.who{min-width:220px;flex:1 1 220px}
+.who .n{font-family:var(--fd);font-weight:700;font-size:17px;display:flex;align-items:baseline;gap:14px;min-width:0;white-space:nowrap}
+.who .n span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.who .n small{white-space:nowrap;flex:0 0 auto;font-family:var(--ft);font-weight:500;font-size:12.5px;color:var(--ink-soft)}
+.tags{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
+.tag{height:22px;padding:0 8px;border-radius:6px;background:rgba(46,125,116,.14);color:var(--primary);font-size:12px;font-weight:700;display:inline-flex;align-items:center}
+.tag.dk{background:var(--ink);color:var(--on-accent)}
+.mono{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.meta{display:grid;grid-template-columns:auto minmax(0,auto);gap:3px 8px;font-size:12.5px;color:var(--ink-soft);flex:0 1 auto;min-width:0;white-space:nowrap}
+.meta b{overflow:hidden;text-overflow:ellipsis}
+.meta b{color:var(--ink);font-weight:600}
+.acts{display:flex;align-items:center;gap:10px;margin-left:auto;flex:0 0 auto}
+
+/* barra de acción del modal */
+.modal{max-width:1120px;background:var(--white);border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 40px rgba(20,48,46,.12)}
+.mtop{padding:16px 24px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
+.mtop .nm{font-family:var(--fd);font-weight:700;font-size:21px;letter-spacing:-.02em;border-left:3px solid var(--track);padding-left:12px;line-height:1.2}
+.mtop .nm span{display:block;font-size:14px;font-weight:600;color:var(--ink-soft);letter-spacing:0;font-variant-numeric:tabular-nums}
+.actbar{display:flex;align-items:center;gap:18px;padding:13px 24px;background:var(--surface);border-radius:0 0 18px 18px}
+.stg{min-width:0;flex:0 1 440px}
+.stg .t{display:flex;align-items:baseline;gap:8px;font-size:12.5px;color:var(--muted)}
+.stg .t b{font-family:var(--fd);font-size:14px;color:var(--ink);white-space:nowrap}
+.stg .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stg .t .c{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.1em;color:var(--ink-soft)}
+.stg .bar{height:4px;margin-top:7px}
+.stg .bar b{width:40%}
+.grp{display:flex;align-items:center;gap:12px;margin-left:auto}
+
+/* tabla de reglas */
+.rules{max-width:1010px;display:grid;grid-template-columns:200px minmax(0,1fr);border:1px solid var(--line);border-radius:12px;background:var(--white);overflow:hidden;font-size:13.5px}
+.rules>div{padding:11px 16px;border-bottom:1px solid var(--line);text-wrap:pretty}
+.rules>div:nth-child(odd){font-weight:600;background:var(--surface);border-right:1px solid var(--line)}
+.rules>div:nth-last-child(-n+2){border-bottom:0}
+.rules em{font-style:normal;color:var(--muted)}
+
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:18px 22px;max-width:1120px}
+.cell{display:flex;flex-direction:column;gap:8px;min-height:420px}
+.cell .lab{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.cell .bar2{display:flex;align-items:center;gap:16px;padding:13px 18px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.cell .stg{flex:1 1 auto}
+.split .main[disabled]{background:#C9D6D2;color:#F7F5EF;cursor:default}
+.split .main[disabled]:hover{background:#C9D6D2}
+.split.out .more{width:auto;gap:8px;padding:0 12px 0 16px;border-radius:10px;border:1px solid var(--line-2);background:var(--white);color:var(--ink);font-family:var(--fd);font-weight:600;font-size:14px}
+.split.out .more:hover,.split.out.open .more{background:var(--paper)}
+.split.out .more .ico{color:var(--ink-soft)}
+.cell .why{font-size:12.5px;color:var(--ink-soft);margin:2px 2px 0;max-width:60ch;text-wrap:pretty}
+.arrive{position:absolute;right:0;top:calc(100% + 6px);width:316px;background:var(--white);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 34px rgba(20,48,46,.16);padding:14px;z-index:21;display:none}
+.split.arr .arrive{display:block}
+.split.arr .menu{display:none}
+.arrive p{margin:0 0 12px;font-size:13px;line-height:1.45}
+.arrive p span{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+.arrive .row{display:flex;gap:8px;justify-content:flex-end}
+.btn.p{background:var(--track);border-color:var(--track);color:var(--on-accent)}
+.btn.p[disabled]{background:#C9D6D2;border-color:#C9D6D2;cursor:default}
+.ov{position:fixed;inset:0;background:rgba(20,48,46,.38);display:none;align-items:center;justify-content:center;padding:24px;z-index:50}
+.ov.on{display:flex}
+.rt{width:min(520px,100%);max-height:calc(100vh - 48px);overflow:auto;background:var(--white);border-radius:16px;box-shadow:0 24px 60px rgba(20,48,46,.25)}
+.rt-h{display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid var(--line)}
+.rt-h h2{font-family:var(--fd);font-weight:700;font-size:18px;letter-spacing:-.01em;margin:0}
+.rt-h p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+.rt-h .xb{margin-left:auto;width:30px;height:30px;border-radius:9px;border:1px solid var(--line);background:var(--white);display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.rt-b{padding:14px 20px 4px;display:flex;flex-direction:column;gap:16px}
+.rt-k{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px;display:flex;justify-content:space-between}
+.rt-k button{border:0;background:none;font-size:12px;font-weight:600;color:var(--primary);cursor:pointer;letter-spacing:0;text-transform:none;padding:0}
+.pl{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.pr{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13.5px;font-weight:600}
+.pr:last-child{border-bottom:0}
+.pr:hover{background:var(--surface)}
+.pr input{width:18px;height:18px;margin:0;accent-color:var(--track);flex:0 0 auto}
+.pr .r{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
+.pr .r.flag{color:var(--danger);font-weight:600}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line-2);background:var(--white);font-size:13px;font-weight:600;cursor:pointer}
+.seg button.on{background:rgba(46,125,116,.14);border-color:var(--track);color:var(--primary)}
+.rt textarea{width:100%;min-height:62px;border:1px solid var(--line-2);border-radius:10px;padding:9px 11px;font:inherit;font-size:13px;resize:vertical;background:var(--white)}
+.rt-f{display:flex;align-items:center;gap:8px;padding:14px 20px 18px}
+.rt-f .cnt{font-size:12.5px;color:var(--muted);margin-right:auto}
+.toast{position:fixed;z-index:60;;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:var(--on-accent);font-size:13px;font-weight:600;padding:10px 16px;border-radius:10px;box-shadow:0 10px 26px rgba(20,48,46,.25);opacity:0;pointer-events:none;transition:opacity .16s ease}
+.toast.on{opacity:1}
+.spacer{height:300px}
+.spacer.s{height:330px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Botón de etapa dividido</h1>
+<p class="lede">El botón que mueve la visita a la etapa siguiente se parte en dos: la cara principal sigue avanzando, y la flecha de la derecha abre las acciones sobre la visita. Es el mismo componente en la lista de Visitas y en el modal, que también se abre desde el cronograma de Estudios y pacientes.</p>
+
+<div class="vh"><span class="vn">1</span><span class="vt">Fila de la lista de Visitas</span></div>
+<p class="vd">Las acciones que hoy viven en el <b>⋮</b> del final pasan al botón, así que el kebab sale de la fila. Tocá la flecha para abrir el menú.</p>
+<div class="listcard">
+<div style="flex:0 0 110px"><span class="pill"><i></i>Concurrió</span><div class="bar"><b></b></div></div>
+<div class="who">
+<div class="n"><span>Ricardo Lucio Aguero</span><small>llegó 11:37</small></div>
+<div class="tags"><span class="tag">LTS17231</span><span class="mono">032001520003</span><span class="tag dk">V2 W4</span></div>
+</div>
+<div class="meta"><span>Coord.</span><b>Sin asignar</b><span>Médico</span><b>Dra. Gabriela Scarano</b></div>
+<div class="acts">
+<button class="ghost"><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6"></path><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.6c1.5.6 2.4 2 2.7 4.4"></path></svg>Atención médica</button>
+<div class="split open" data-split>
+<button class="main">Iniciar atención<svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+<button class="more" aria-haspopup="menu" aria-expanded="true" aria-label="Más acciones de la visita"><svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg></button>
+<div class="menu" role="menu"></div>
+</div>
+</div>
+</div>
+<div class="spacer"></div>
+
+<div class="vh"><span class="vn">2</span><span class="vt">Barra de acción del modal</span></div>
+<p class="vd">Mismo menú, un escalón más alto (42 px) para igualar a <b>Solicitar atención médica</b>. Desde acá también se abre en Estudios y pacientes → Cronograma de visitas.</p>
+<div class="modal">
+<div class="mtop"><div class="nm">Ricardo Lucio Aguero<span>032001520003</span></div></div>
+<div class="actbar">
+<div class="stg"><div class="t"><b>Concurrió al centro</b>11:37 · sigue inicio de atención<span class="c">2 DE 4</span></div><div class="bar"><b></b></div></div>
+<div class="grp">
+<button class="ghost" style="height:42px"><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6"></path></svg>Solicitar atención médica</button>
+<div class="split lg" data-split>
+<button class="main">Iniciar atención<svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+<button class="more" aria-haspopup="menu" aria-expanded="false" aria-label="Más acciones de la visita"><svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg></button>
+<div class="menu" role="menu"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="spacer s"></div>
+
+<div class="vh"><span class="vn">3</span><span class="vt">Desde Estudios y pacientes: el modal en cada etapa</span></div>
+<p class="vd">En el cronograma la única puerta es el modal, y ahí se abren visitas de cualquier etapa: pasadas, de hoy y futuras. Por eso el botón dividido está <b>siempre</b>, aunque la cara principal no tenga nada que hacer. Por etapa cambian la cara principal y qué opciones del menú se habilitan.</p>
+<div class="grid4">
+<div class="cell"><span class="lab">Agendada · fecha futura (V7 W20)</span><div class="bar2"><div class="stg"><div class="t"><b>Agendada</b>28 oct · faltan 15 días<span class="c">1 DE 4</span></div><div class="bar"><b style="width:0"></b></div></div><div class="split lg open" data-split data-pin data-stage="agendada"><button class="main" data-arrive>Registrar llegada<svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button><button class="more" aria-haspopup="menu" aria-expanded="true" aria-label="Más acciones de la visita"><svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg></button><div class="menu" role="menu"></div><div class="arrive" role="dialog" aria-label="Registrar llegada fuera de fecha"><p>Esta visita está agendada para el <b>28 oct</b>.<span>Se registra la llegada hoy, 13 oct, y la fecha de la visita pasa a ser hoy.</span></p><div class="row"><button class="btn" data-x="no">Cancelar</button><button class="btn p" data-x="ok">Registrar llegada hoy</button></div></div></div></div><p class="why">La cara principal funciona aunque la visita no sea de hoy: pide una confirmación que dice la fecha agendada y la de hoy. Desde el cronograma también se puede reprogramar o eliminar desde el menú.</p></div>
+<div class="cell"><span class="lab">Concurrió · hoy</span><div class="bar2"><div class="stg"><div class="t"><b>Concurrió al centro</b>11:37<span class="c">2 DE 4</span></div><div class="bar"><b style="width:40%"></b></div></div><div class="split lg open" data-split data-pin data-stage="concurrio"><button class="main">Iniciar atención<svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button><button class="more" aria-haspopup="menu" aria-expanded="true" aria-label="Más acciones de la visita"><svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg></button><div class="menu" role="menu"></div></div></div><p class="why">Igual que en Visitas. Una vez que llegó al centro, reprogramar ya no aplica.</p></div>
+<div class="cell"><span class="lab">En atención</span><div class="bar2"><div class="stg"><div class="t"><b>En atención</b>11:52<span class="c">3 DE 4</span></div><div class="bar"><b style="width:70%"></b></div></div><div class="split lg open" data-split data-pin data-stage="atencion"><button class="main">Finalizar visita<svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button><button class="more" aria-haspopup="menu" aria-expanded="true" aria-label="Más acciones de la visita"><svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg></button><div class="menu" role="menu"></div></div></div><p class="why">Volver nombra la etapa anterior y lo que se borra.</p></div>
+<div class="cell"><span class="lab">Completa · visita pasada (V6 W16)</span><div class="bar2"><div class="stg"><div class="t"><b>Completa</b>30 sep · 12:40<span class="c">4 DE 4</span></div><div class="bar"><b style="width:100%"></b></div></div><div class="split lg out open" data-split data-pin data-stage="completa"><button class="more" aria-haspopup="menu" aria-expanded="true">Acciones<svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg></button><div class="menu" role="menu"></div></div></div><p class="why">Sin etapa siguiente, la cara principal desaparece y queda un único botón secundario <b>Acciones</b>. La primera opción es <b>Pedir retest</b>: abre un popup para elegir qué procedimientos de la visita se repiten.</p></div>
+</div>
+
+<div class="vh"><span class="vn">4</span><span class="vt">Reglas</span></div>
+<div class="rules">
+<div>Cara principal</div><div>Sin cambios: avanza a la etapa siguiente con el texto de siempre (Registrar llegada, Iniciar atención, Finalizar visita…). Si la visita no es de hoy, «Registrar llegada» pide confirmar antes y mueve la fecha de la visita a hoy.</div>
+<div>Volver a la etapa anterior</div><div>Nombra la etapa destino: «Volver a Agendada». Debajo dice qué se pierde (la hora de llegada, el inicio de atención). Reemplaza al «Deshacer» del toast, que solo duraba unos segundos. En la primera etapa aparece deshabilitado con <em>«Es la primera etapa»</em>.</div>
+<div>Reprogramar</div><div>Abre el mismo selector de fecha que «Reprogramar» del encabezado de Estudios y pacientes. Si la visita ya concurrió, se deshabilita con <em>«Ya concurrió al centro»</em>.</div>
+<div>Pedir retest</div><div>Solo en visitas completas, en el lugar de «Volver». Abre un popup con los procedimientos de la visita para marcar cuáles se repiten, el motivo y la fecha. Crea una visita de retest asociada a la original, que queda completa. Es un atajo del alta manual de retest que ya existe: usa el mismo flujo y la misma visita resultante, con los datos precargados. La creación manual sigue disponible donde está hoy.</div>
+<div>Copiar ID de paciente</div><div>Copia el Nº de sujeto (032001520003), que se muestra a la derecha. Confirma con el toast «ID copiado».</div>
+<div>Eliminar visita</div><div>Siempre al final, separado y en rojo. Pide confirmación dentro del mismo menú, sin abrir otro modal.</div>
+<div>Teclado</div><div>La flecha es un botón propio con foco; Enter o ↓ abre, Esc cierra y devuelve el foco a la flecha.</div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="ov" id="rt" role="dialog" aria-modal="true" aria-labelledby="rt-t"><div class="rt">
+<div class="rt-h"><div><h2 id="rt-t">Pedir retest</h2><p>Visita V6 W16 · completa el 30 sep · Ricardo Lucio Aguero</p></div><button class="xb" data-rt="x" aria-label="Cerrar"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div class="rt-b">
+<div><div class="rt-k"><span>Procedimientos a repetir</span><button data-rt="all">Marcar todos</button></div>
+<div class="pl">
+<label class="pr"><input type="checkbox" checked>Hemograma completo<span class="r flag">Muestra hemolizada</span></label>
+<label class="pr"><input type="checkbox">Química sanguínea<span class="r">Resultado OK</span></label>
+<label class="pr"><input type="checkbox">Espirometría<span class="r">Resultado OK</span></label>
+<label class="pr"><input type="checkbox">ECG<span class="r">Resultado OK</span></label>
+<label class="pr"><input type="checkbox">Signos vitales<span class="r">Resultado OK</span></label>
+</div></div>
+<div><div class="rt-k"><span>Motivo</span></div><div class="seg" data-g="m"><button class="on">Muestra no válida</button><button>Valor fuera de rango</button><button>Pedido del sponsor</button><button>Otro</button></div></div>
+<div><div class="rt-k"><span>Cuándo</span></div><div class="seg" data-g="f"><button class="on">Hoy</button><button>Próxima visita (V7 W20)</button><button>Elegir fecha…</button></div></div>
+<div><div class="rt-k"><span>Comentario (opcional)</span></div><textarea placeholder="Detalle para el equipo o el laboratorio"></textarea></div>
+</div>
+<div class="rt-f"><span class="cnt" id="rt-c">1 procedimiento</span><button class="btn" data-rt="x">Cancelar</button><button class="btn p" data-rt="ok" id="rt-ok">Pedir retest</button></div>
+</div></div>
+
+<script>
+const ICONS={
+back:'<path d="M9 14L4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-2"></path>',
+cal:'<rect x="3.5" y="5" width="17" height="15" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path>',
+copy:'<rect x="8" y="8" width="12" height="12" rx="2.5"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>',
+trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path>',
+redo:'<path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v5h-5"></path>'};
+const ic=k=>`<svg class="ico" viewBox="0 0 24 24">${ICONS[k]}</svg>`;
+const STAGES={
+agendada:{v:'V7 W20',s:'Agendada · 1 de 4',back:['Volver a la etapa anterior','Es la primera etapa',1],re:['Reprogramar','Hoy para el 28 oct 2026',0]},
+concurrio:{v:'V2 W4',s:'Concurrió · 2 de 4',back:['Volver a Agendada','Borra la llegada de las 11:37',0],re:['Reprogramar','Ya concurrió al centro',1]},
+atencion:{v:'V2 W4',s:'En atención · 3 de 4',back:['Volver a Concurrió','Borra el inicio de atención de las 11:52',0],re:['Reprogramar','Ya concurrió al centro',1]},
+completa:{v:'V6 W16',s:'Completa · 4 de 4',retest:1,re:['Reprogramar','La visita está completa',1]}};
+const item=(a,icon,[t,sub,dis])=>`<button class="mi" role="menuitem" data-a="${a}"${dis?' aria-disabled="true"':''}>${ic(icon)}<span class="tx">${t}<span class="sub">${sub}</span></span></button>`;
+const MENU=st=>{const c=STAGES[st];return `<div class="mh"><span class="k">Visita ${c.v}</span><span class="s">${c.s}</span></div>
+${c.retest?`<button class="mi" role="menuitem" data-a="retest">${ic('redo')}<span class="tx">Pedir retest<span class="sub">Repetir procedimientos de esta visita</span></span></button>`:item('back','back',c.back)}${item('resched','cal',c.re)}
+<button class="mi" role="menuitem" data-a="copy">${ic('copy')}<span class="tx">Copiar ID de paciente</span><span class="aside">032001520003</span></button>
+<div class="sep"></div>
+<button class="mi danger del" role="menuitem" data-a="del">${ic('trash')}<span class="tx">Eliminar visita</span></button>
+<div class="confirm"><p>¿Eliminar la visita ${c.v}?<span>Se borra con sus registros. No se puede deshacer.</span></p><div class="row"><button class="btn" data-a="cancel">Cancelar</button><button class="btn d" data-a="delok">Eliminar</button></div></div>`};
+const toast=t=>{const el=document.getElementById('toast');el.textContent=t;el.classList.add('on');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),1800)};
+const rt=document.getElementById('rt');
+const rtCount=()=>{const n=rt.querySelectorAll('.pr input:checked').length;document.getElementById('rt-c').textContent=n?n+(n>1?' procedimientos':' procedimiento'):'Elegí al menos uno';document.getElementById('rt-ok').disabled=!n};
+const openRT=()=>{rt.classList.add('on');rtCount();rt.querySelector('.pr input').focus({preventScroll:true})};
+rt.addEventListener('change',rtCount);
+rt.addEventListener('click',e=>{e.stopPropagation();if(e.target===rt){rt.classList.remove('on');return}const sg=e.target.closest('.seg button');if(sg){sg.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===sg));return}const b=e.target.closest('[data-rt]');if(!b)return;const a=b.dataset.rt;
+if(a==='all'){const ins=[...rt.querySelectorAll('.pr input')];const all=ins.every(i=>i.checked);ins.forEach(i=>i.checked=!all);rtCount();return}
+rt.classList.remove('on');if(a==='ok')toast('Retest pedido · '+document.getElementById('rt-c').textContent)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')rt.classList.remove('on')});
+const splits=[...document.querySelectorAll('[data-split]')];
+const setOpen=(s,o)=>{s.classList.toggle('open',o);s.querySelector('.more').setAttribute('aria-expanded',o);if(!o)s.querySelector('.menu').classList.remove('ask')};
+splits.forEach(s=>{
+const m=s.querySelector('.menu');m.innerHTML=MENU(s.dataset.stage||'concurrio');
+const more=s.querySelector('.more');
+more.addEventListener('click',e=>{e.stopPropagation();const o=!s.classList.contains('open');splits.forEach(x=>{if(x!==s&&!x.hasAttribute('data-pin'))setOpen(x,false)});setOpen(s,o);if(o)m.querySelector('.mi:not([aria-disabled])').focus({preventScroll:true})});
+more.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();more.click()}});
+const mb=s.querySelector('.main');if(mb)mb.addEventListener('click',e=>{if(mb.hasAttribute('data-arrive')){e.stopPropagation();s.classList.toggle('arr');return}toast(mb.textContent.trim()+' ✓')});
+const ar=s.querySelector('.arrive');if(ar)ar.addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('[data-x]');if(!b)return;s.classList.remove('arr');if(b.dataset.x==='ok')toast('Llegada registrada hoy 13 oct')});
+m.addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('[data-a]');if(!b||b.getAttribute('aria-disabled')==='true')return;const a=b.dataset.a;
+if(a==='del'){m.classList.add('ask');m.querySelector('.btn.d').focus();return}
+if(a==='cancel'){m.classList.remove('ask');return}
+if(a==='retest'){setOpen(s,false);openRT();return}
+setOpen(s,false);more.focus();
+toast({back:'Etapa anterior restaurada',resched:'Abriendo calendario…',copy:'ID copiado',delok:'Visita eliminada'}[a])});
+m.addEventListener('keydown',e=>{const items=[...m.querySelectorAll('.mi:not([aria-disabled]),.confirm .btn')].filter(x=>x.offsetParent);const i=items.indexOf(document.activeElement);
+if(e.key==='Escape'){setOpen(s,false);more.focus()}
+if(e.key==='ArrowDown'){e.preventDefault();items[(i+1)%items.length].focus()}
+if(e.key==='ArrowUp'){e.preventDefault();items[(i-1+items.length)%items.length].focus()}});
+});
+document.addEventListener('click',()=>splits.forEach(x=>{if(!x.hasAttribute('data-pin'))setOpen(x,false)}));
+</script>
+</body>
+</html>
