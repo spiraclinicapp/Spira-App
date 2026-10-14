@@ -107,11 +107,16 @@ export function BotonEtapa({
     }
   }
 
+  /* En la flecha se frenan sólo las teclas que son de ella: Enter y Espacio la pulsan, ↓ abre el menú
+     (o entra a él) y ↑ no tiene que navegar visitas por debajo. El resto —j/k, Tab— sigue a la capa de
+     atrás, que en el modal navega entre visitas. La fila no necesita el freno: sólo reacciona a teclas
+     nacidas en ella misma, y el clic lo corta el contenedor. */
   const tecladoDeLaFlecha = (e: KeyboardEvent<HTMLButtonElement>) => {
     const que = teclaDelMenu(e.key, abierto !== null)
     if (que === 'dejar-pasar') return
+    if (que === 'cerrar-menu') { e.stopPropagation(); cerrar(); return }
+    if (!['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(e.key)) return
     e.stopPropagation()
-    if (que === 'cerrar-menu') { cerrar(); return }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       if (abierto === 'menu') enfocables()[0]?.focus()
@@ -163,7 +168,6 @@ export function BotonEtapa({
             disabled={!cara.habilitada || ocupado}
             title={cara.habilitada ? undefined : cara.pista}
             onClick={pulsarCara}
-            onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}
           >
             {guardando ? 'Guardando…' : cara.rotulo}
             <Icon name="arrowRight" size={16} color="currentColor" />

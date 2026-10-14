@@ -46,6 +46,8 @@
 .spira-split-main.apagada {
   background: color-mix(in srgb, var(--split-acc) 25%, var(--spira-paper)); color: #F7F5EF;
 }
+/* En oscuro el papel del mock sobre el teal apagado se leía como un botón encendido: va el gris tenue. */
+[data-theme='dark'] .spira-split-main.apagada { color: var(--spira-faint); }
 .spira-split-main.guardando { opacity: .7; }
 .spira-split-more:disabled { cursor: default; opacity: .7; }
 
