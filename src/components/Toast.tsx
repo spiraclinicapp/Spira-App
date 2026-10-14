@@ -66,6 +66,9 @@ export function Toast({ message, onDone, duration = 2400, tono, onClick, apilado
     <div
       role="status"
       aria-live="polite"
+      /* Lo usa la fábrica de tutoriales para sacar los avisos de las capturas de referencia: aparecen y se van
+         según el milisegundo, y `tutoriales:verificar` los tomaba por un cambio de pantalla (T7). */
+      data-toast=""
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onClick={onClick}

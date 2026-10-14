@@ -698,10 +698,22 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
   - **Orden de despliegue:** la 0155 (otra sesión) → la **0156** en prod → subir la carpeta a Storage › `tutoriales/dispensar/e6584347/` → recién ahí se mergea esta PR. Con el meta publicado y sin el video subido, la píldora aparecería y el reproductor diría «Este video todavía no está disponible».
   - **Para mirar en el piloto (sale del QA de T5):** si el crudo de Playwright arranca a grabar DESPUÉS de `t0`, la voz queda corrida respecto de la imagen. En una corrida, el crudo duró 0,8 s menos que el guion medido desde `t0`. T4 lo dio por bueno mirando el cuadro del medio de cada subtítulo, que puede no notar un corrimiento así. Mirar el piloto con atención en los clics: si la voz llega tarde, medir el arranque del crudo y restarlo a los `inicioMs`.
   - El demo ya tiene el bucket `tutoriales` (público, creado por la API para el QA de T5) con un video de prueba en `dispensar/1f31fd51/`. La 0155 lo crea con `on conflict do nothing`, así que no choca.
-- [ ] **T7 (P2, humano: ~2 h / CC: ~15 min)** — proceso — `tutoriales:verificar` (selector + captura) + paso en `cierre-jornada`
+- [x] **T7 (P2, humano: ~2 h / CC: ~15 min)** — proceso — `tutoriales:verificar` (selector + captura) + paso en `cierre-jornada`
   - Surfaced by: D6, D10 (segunda opinión #8)
-  - Files: `package.json`, `tutoriales/capturas/`, `.claude/skills/cierre-jornada/SKILL.md`
-  - Verify: renombrar «Dispensar» en una rama → falla nombrando el paso; mover una columna → falla con el diff
+  - Files: `package.json`, `tutoriales/{package.json,playwright.config.ts,verificar.pw.ts,grabar.pw.ts}`, `tutoriales/lib/{verificar,captura,demo,grabar}.ts`, `tutoriales/capturas/dispensar/06.png`, `src/components/Toast.tsx`, `.claude/skills/cierre-jornada/SKILL.md`
+  - Verify: renombrar «Dispensar» en una rama → falla nombrando el paso; mover una columna → falla con el diff — **hecho el 2026-10-14** contra el demo, con cambios temporales en la app que no se commitearon:
+    - **Corrida limpia:** pasa, en ~1,1 min con el reset incluido (cuatro veces seguidas).
+    - **«Preparar» renombrado a «Tomar pedido»:** falla en «Tutorial «dispensar», paso 3 («Tocá «Preparar»…»): … Locator: getByRole('button', { name: 'Preparar' })».
+    - **«Solicitadas» y «Entregadas» cambiadas de lugar:** falla en los pasos 1 y 2, «la pantalla cambió desde la grabación», con la imagen de la diferencia en `.trabajo/playwright/`.
+    - **`grabar` deja las capturas al terminar:** probado regrabando «dispensar» (3,3 min con los dos resets). Escribió las 8 capturas. El video de prueba (`7c6df05f`) se descartó: sigue publicado el `e6584347` que está en prod.
+  - **Decisiones al implementar:**
+    - **El reset del demo pasó a la fábrica** (`resetearDemo`, en `lib/demo.ts`): `grabar` y `verificar` lo corren antes de cada tutorial, así ya no hay que resetear a mano. `TUTORIALES_SIN_RESET=1` lo saltea para iterar.
+    - **Las capturas de referencia ya no salen de la toma del video:** las deja `grabar.pw.ts` al terminar, pasando el guion por el mismo camino que después las compara (`lib/verificar.ts`). Sacarlas durante la toma con el estilo que esconde los avisos lo aplicaría a la página filmada.
+    - **Los avisos flotantes se esconden en las capturas** (`data-toast` en `Toast`, `lib/captura.ts`). Aparecen y se van según el milisegundo, y en una corrida limpia hacían fallar dos pasos. El video los sigue mostrando.
+    - **Tolerancia 0,5 %, medida:** una corrida limpia difiere en 30-55 píxeles de 129.600; las dos columnas cambiadas, en ~2.350. Con el 1,5 % del primer intento, el cambio real pasaba apenas.
+    - **Los mensajes nombran el selector** (`resumirError`): con sólo la primera línea de Playwright decían «toBeEnabled failed» y no qué control faltaba.
+    - **Las capturas de «dispensar» se refrescaron con `--update-snapshots`, sin regrabar el video** (el de prod no cambia). Sólo cambió la del paso 6, que tenía un aviso.
+    - **Ya conocido:** las capturas muestran la píldora «Cómo se hace» y el video no, porque se grabó antes de publicarlo. Queda dentro de la tolerancia, y se iguala en la próxima regrabación.
 - [ ] **T8 (P2, etapa 2)** — contenido — Guiones de los flujos elegidos por el Director + sus píldoras «Cómo se hace»
 
 ## Approved Mockups
