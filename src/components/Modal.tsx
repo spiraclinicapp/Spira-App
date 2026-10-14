@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
+import { destinoDelTab, devolverFoco, ENFOCABLES, focoInicial } from './reglasDeFoco'
 
 interface ModalProps {
   title: string
@@ -23,6 +24,12 @@ interface ModalProps {
   accent?: string
   /** Fondo del cuadro del ícono (tinte del acento, ej. 'rgba(15,95,87,.12)'). */
   accentSoft?: string
+  /**
+   * Control que recibe el foco al abrir, en vez del primero (el ✕). Nace con el reproductor de
+   * tutoriales, que lo pone en el `<video>` (docs/plan-tutoriales.md, DD9). Un hijo con `autoFocus` no
+   * lo necesita: el foco que ya está adentro se respeta (`focoInicial`).
+   */
+  initialFocusRef?: React.RefObject<HTMLElement | null>
 }
 
 const backdrop: CSSProperties = {
@@ -62,15 +69,59 @@ export function modalesAbiertos(): number {
   return abiertos.length
 }
 
-/** Overlay sobrio reutilizable: backdrop + card scrolleable + accesibilidad (Escape, aria, click afuera). */
-export function Modal({ title, onClose, children, subtitle, maxWidth = 440, icon, accent, accentSoft }: ModalProps) {
+/**
+ * Overlay sobrio reutilizable: backdrop + card scrolleable + accesibilidad (Escape, aria, click afuera).
+ *
+ * FOCO (WCAG 2.1 AA, desde T5a del plan de tutoriales; el patrón es el del `Drawer`): al abrir lo pone
+ * adentro, Tab y Shift+Tab dan la vuelta sin salir por detrás del fondo, y al cerrar vuelve a quien lo
+ * abrió. Las tres decisiones finas —respetar un `autoFocus`, no tocar el foco que está en otra capa, no
+ * devolverlo si alguien ya lo puso en otro lado— viven en `reglasDeFoco.ts`, con sus tests.
+ */
+export function Modal({ title, onClose, children, subtitle, maxWidth = 440, icon, accent, accentSoft, initialFocusRef }: ModalProps) {
   const subtitleId = useId()
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
+  const cardRef = useRef<HTMLDivElement>(null)
+  /* Quién tenía el foco ANTES de abrir. Se lee en el primer render y no en el efecto: para cuando corre
+     el efecto, el `autoFocus` de un hijo ya movió el foco adentro, y se devolvería a sí mismo. */
+  const disparador = useRef(document.activeElement)
+  const initialFocusRefRef = useRef(initialFocusRef)
   useEffect(() => {
     const yo = {}
     abiertos.push(yo)
+    const card = cardRef.current
+    const enfocables = () => (card ? Array.from(card.querySelectorAll<HTMLElement>(ENFOCABLES)) : [])
+      .filter((el) => el.getAttribute('aria-hidden') !== 'true' && el.getClientRects().length > 0)
+
+    if (card) {
+      const els = enfocables()
+      const destino = focoInicial({
+        yaAdentro: card.contains(document.activeElement),
+        pedido: !!initialFocusRefRef.current?.current,
+        hayEnfocables: els.length > 0,
+      })
+      if (destino === 'pedido') initialFocusRefRef.current?.current?.focus()
+      else if (destino === 'primero') els[0].focus()
+      else if (destino === 'card') card.focus()
+    }
+
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        // Sólo el de arriba: con dos abiertos, el de abajo no tiene que pelearle el foco al de encima.
+        if (!card || abiertos[abiertos.length - 1] !== yo) return
+        const activo = document.activeElement
+        const els = enfocables()
+        const destino = destinoDelTab({
+          total: els.length,
+          indice: activo instanceof HTMLElement ? els.indexOf(activo) : -1,
+          shift: e.shiftKey,
+          afuera: activo && card.contains(activo) ? 'no' : !activo || activo === document.body ? 'suelto' : 'otraCapa',
+        })
+        if (!destino) return
+        e.preventDefault()
+        ;(destino === 'primero' ? els[0] : destino === 'ultimo' ? els[els.length - 1] : card).focus()
+        return
+      }
       if (e.key !== 'Escape' || abiertos[abiertos.length - 1] !== yo) return
       // Marca el Esc como consumido: quien más lo escuche en `document` (p. ej. `VisitDetail`, que
       // ya chequea `!e.defaultPrevented`) tiene que saber que este `Modal` ya lo usó, y no cerrar
@@ -82,12 +133,19 @@ export function Modal({ title, onClose, children, subtitle, maxWidth = 440, icon
     return () => {
       document.removeEventListener('keydown', onKey)
       abiertos.splice(abiertos.indexOf(yo), 1)
+      const quien = disparador.current
+      const activo = document.activeElement
+      if (devolverFoco({
+        focoSuelto: !activo || activo === document.body || !activo.isConnected,
+        disparadorVivo: quien instanceof HTMLElement && quien !== document.body && quien.isConnected,
+      })) (quien as HTMLElement).focus()
     }
   }, [])
 
   return (
     <div style={backdrop} onClick={onClose} role="presentation">
       <div
+        ref={cardRef} tabIndex={-1}
         style={{ ...cardBase, maxWidth }} role="dialog" aria-modal="true" aria-label={title}
         aria-describedby={subtitle ? subtitleId : undefined} onClick={(e) => e.stopPropagation()}
       >
