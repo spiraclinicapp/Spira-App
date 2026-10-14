@@ -2058,3 +2058,70 @@ input:-webkit-autofill:focus {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* —— Tutoriales en video (docs/plan-tutoriales.md, T5; mock docs/mock-tutoriales.html) ——
+   La píldora «Cómo se hace» se realza como todo lo pulsable: levante de 1px (la regla global) + la sombra
+   del hover, también mientras su globo está abierto. Nunca un borde de color (CLAUDE.md, «el realce de
+   estado es ELEVACIÓN»). */
+.spira-pildora-tutorial:hover,
+.spira-pildora-tutorial[aria-expanded='true'] {
+  box-shadow: var(--spira-shadow-hover);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .spira-pildora-tutorial { transition: transform 0.12s ease, box-shadow 0.12s ease; }
+  .spira-pildora-tutorial[aria-expanded='true'] { transform: translateY(-1px); }
+}
+
+/* El reproductor: el video LIMITADO POR ALTO (entra entero en una tablet apaisada de 1024×768) y el ancho
+   sale del 16:9. Un solo quiebre: desde 1100 px los capítulos van a la derecha; por debajo, en una fila
+   horizontal con desplazamiento bajo el video (DD8c). */
+.spira-repro__cuerpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.spira-repro__video {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: min(100%, calc((100vh - 240px) * 16 / 9));
+  justify-self: center;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--spira-line);
+  background: var(--spira-paper);
+}
+.spira-repro__capitulos {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+}
+.spira-repro__rotulo { display: none; margin: 0 6px 8px; }
+.spira-repro__cap {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  white-space: nowrap;
+  border: none;
+  background: transparent;
+  padding: 8px;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--spira-ink);
+  text-align: left;
+  cursor: pointer;
+}
+.spira-repro__cap:hover:not(:disabled) { background: var(--spira-surface); }
+@media (min-width: 1100px) {
+  .spira-repro__cuerpo { grid-template-columns: minmax(0, 1fr) 240px; }
+  .spira-repro__capitulos { flex-direction: column; overflow-x: visible; }
+  .spira-repro__rotulo { display: block; }
+  .spira-repro__cap { white-space: normal; width: 100%; }
+}
+/* Subtítulos sobre tinta translúcida, igual en los dos temas. Es una mejora: Safari la ignora en parte. */
+video[data-tutorial-video]::cue {
+  background: rgba(20, 48, 46, 0.82);
+  color: #F4F1EA;
+  font-family: var(--spira-font-text);
+}

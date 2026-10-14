@@ -15,6 +15,8 @@ import type { NavTarget } from '../../views/types'
 import { PREGUNTAS } from '../../ayuda/preguntas'
 import { preguntasVisibles } from '../../ayuda/reglas'
 import type { Pregunta } from '../../ayuda/reglas'
+import { duracionCorta } from '../../ayuda/catalogo'
+import type { Publicado } from '../../ayuda/catalogo'
 
 /* ============================================================================
    Índice del buscador global (command palette Ctrl/⌘ K).
@@ -57,6 +59,8 @@ export interface SearchItem {
   buscable?: string
   /** Si está, el resultado NO navega: abre el panel de Ayuda con esta respuesta desplegada. */
   ayuda?: { preguntaId: string }
+  /** Si está, el resultado NO navega: abre el reproductor con este tutorial (docs/plan-tutoriales.md, «Capas»). */
+  tutorial?: { id: string }
 }
 
 export const TYPE_LABEL: Record<SearchType, string> = {
@@ -76,6 +80,8 @@ export interface SearchSources {
   medications: MedicationRow[]
   /** Las preguntas frecuentes (texto del repo, sin RLS: el filtro por módulo lo hace `preguntasVisibles`). */
   preguntas?: readonly Pregunta[]
+  /** Los tutoriales publicados que el usuario ve (ya filtrados por módulo en `useEstadoAyuda`). */
+  tutoriales?: readonly Publicado[]
 }
 
 type Allowed = (moduleKey: string) => boolean
@@ -173,6 +179,17 @@ export function buildSearchIndex(sources: SearchSources, isAllowed: Allowed, sub
       ayuda: { preguntaId: p.id },
     })
   }
+  // Y los tutoriales en video publicados, bajo el mismo chip: también son ayuda. Abren el reproductor.
+  for (const t of sources.tutoriales ?? []) {
+    items.push({
+      id: `tutorial-${t.id}`, type: 'ayuda', icon: 'play',
+      title: t.titulo,
+      crumb: `Tutorial · ${duracionCorta(t.meta.duracionMs)}${t.modulo === 'general' ? '' : ` · ${MODULES.find((m) => m.key === t.modulo)?.name ?? t.modulo}`}`,
+      mod: t.modulo === 'general' ? 'inicio' : t.modulo, sub: '',
+      buscable: [t.resumen, t.descripcion].join(' '),
+      tutorial: { id: t.id },
+    })
+  }
 
   // Páginas: submódulos con VISTA REAL (registrada) de módulos permitidos y no-próximamente.
   for (const mdl of MODULES) {
@@ -205,7 +222,7 @@ export interface SearchIndexState {
  * así la PII de paciente entra a memoria únicamente mientras buscás, y cada
  * apertura trae datos frescos (sin cache → sin índice viejo, que en clínica es peor).
  */
-export function useSearchIndex(isAllowed: Allowed, subVisible: SubVisible): SearchIndexState {
+export function useSearchIndex(isAllowed: Allowed, subVisible: SubVisible, tutoriales: readonly Publicado[] = []): SearchIndexState {
   const protocols = useProtocols()
   const patients = usePatients()
   const visits = useUpcomingVisits()
@@ -223,6 +240,7 @@ export function useSearchIndex(isAllowed: Allowed, subVisible: SubVisible): Sear
           visits: visits.data ?? [],
           medications: medications.data ?? [],
           preguntas: PREGUNTAS,
+          tutoriales,
         },
         isAllowed,
         subVisible,
