@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // `npm run demo:resetear` — vuelve el proyecto DEMO a cero: vacía `public`, borra las cuentas y los archivos, y
 // vuelve a aplicar las migraciones. Cada grabación arranca de los mismos datos (docs/plan-tutoriales.md, «Reset»).
 // La semilla narrativa se suma acá en T2b.
