@@ -1,26 +1,26 @@
 {
   "dispensar": {
-    "version": "e6584347",
-    "duracionMs": 51520,
+    "version": "02accad0",
+    "duracionMs": 41520,
     "capitulos": [
       {
         "inicioMs": 0,
         "titulo": "Entrar a Dispensaciones"
       },
       {
-        "inicioMs": 13669,
+        "inicioMs": 10399,
         "titulo": "Preparar el pedido"
       },
       {
-        "inicioMs": 19091,
+        "inicioMs": 15275,
         "titulo": "Escanear"
       },
       {
-        "inicioMs": 30167,
+        "inicioMs": 23583,
         "titulo": "Marcar lista"
       },
       {
-        "inicioMs": 40366,
+        "inicioMs": 32999,
         "titulo": "Entregar"
       }
     ],

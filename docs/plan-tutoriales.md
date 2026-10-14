@@ -684,6 +684,12 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
   - Surfaced by: D2, D9
   - Files: `tutoriales/guiones/dispensar.ts`, `supabase/migrations/0156_bucket_tutoriales.sql`, `supabase/README.md`, `src/ayuda/tutoriales.meta.json` (lo escribe la fábrica), `tutoriales/capturas/dispensar/`, `tutoriales/{playwright.config,grabar.pw}.ts`, `tutoriales/lib/{grabar,guion,demo}.ts`, `scripts/demo/{config,guardia}.d.mts`, `src/views/pharma/wizard/ScanField.tsx`
   - Verify: el Director aplica la 0156, sube la carpeta y mira el piloto en la app
+  - **Voz final: ElevenLabs, «Lionel – Natural and Versatile Narrator»** (decisión del Director, 2026-10-14). Quedó como un adaptador más en `tutoriales/lib/voz.ts`.
+    - La clave y la voz van en `demo.env`: `TTS_KEY` y `TTS_VOZ_ID`, fuera del repo. `npm run demo:verificar` comprueba que respondan y dice el nombre de la voz.
+    - Con las dos puestas, la fábrica usa ElevenLabs. Sin ellas, Helena. Se fuerza con `TUTORIALES_VOZ`.
+    - El modelo es `eleven_multilingual_v2`, y el audio, mp3 de 44,1 kHz pasado a WAV con ffmpeg. La caché va por voz + modelo + texto: regrabar sin cambiar el texto no gasta créditos.
+    - **«Dispensar» regrabado con Lionel:** 41,5 s (Helena: 51,5 s), versión `02accad0`, audio −22 dB de media y −1 dB de pico.
+    - **El guion espera al contador tras cada escaneo** (`escanear(e, '1/2')`). Con la voz más ágil, «el contador muestra cuántas llevás» sonaba con el contador todavía en 1/2: el escaneo va al servidor.
   - **Grabado el 2026-10-14 con la voz provisoria (Helena):** 51,5 s, versión `e6584347`, 1,5 MB, 5 capítulos (Entrar a Dispensaciones · Preparar el pedido · Escanear · Marcar lista · Entregar). Recorre Solicitadas → «Preparar» → dos escaneos → «Marcar lista para retirar» → «Marcar como entregado», contra el demo recién reseteado y como Julieta Paz (farma, operator). La carpeta para subir quedó en `tutoriales/salida/dispensar/e6584347/` de la carpeta del Director (git-ignorada).
     - **Sincronía voz/imagen, mirada cuadro por cuadro:** el clic de «Preparar» cae ~0,8 s después de que arranca «Tocá «Preparar»…», y el de «Marcar lista para retirar» cuando la voz dice el nombre del botón. El corrimiento que se sospechaba en T5 no se ve: no hizo falta corregir los `inicioMs`.
     - **En la app (demo):** la píldora dice «0:51» y el reproductor mide 51,52 s. Los capítulos saltan bien, y «Marcar lista» queda como actual en 0:32. La tarjeta de «Preparar» muestra el video. Sin errores de página.
@@ -714,6 +720,17 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
     - **Los mensajes nombran el selector** (`resumirError`): con sólo la primera línea de Playwright decían «toBeEnabled failed» y no qué control faltaba.
     - **Las capturas de «dispensar» se refrescaron con `--update-snapshots`, sin regrabar el video** (el de prod no cambia). Sólo cambió la del paso 6, que tenía un aviso.
     - **Ya conocido:** las capturas muestran la píldora «Cómo se hace» y el video no, porque se grabó antes de publicarlo. Queda dentro de la tolerancia, y se iguala en la próxima regrabación.
+- [x] **T6b — publicar sin el dashboard** (2026-10-14, pedido del Director: «pierdo mucho tiempo»): `npm run tutoriales:publicar -- <id> <versión>` sube los tres archivos a Storage de prod y comprueba byte a byte en la URL pública.
+  - **Con una cuenta dedicada, no con una clave S3** (decisión del Director): la clave S3 de Supabase alcanza a TODO Storage, incluido `ip-docs` (constancias del IRT), y no se puede acotar a un bucket.
+    - La cuenta es `tutoriales@fabrica.spira`, sin módulos: en la app no ve nada.
+    - La **0157** la deja SUBIR al bucket `tutoriales` y nada más. Si su contraseña se filtra, lo único expuesto son videos que ya son públicos.
+    - El segundo cerrojo es `claveDeObjeto` (`tutoriales/lib/publicar.mjs`, con test): sólo arma `<id>/<versión>/<archivo>`.
+  - **Lo corre el Director**: la cuenta entra con contraseña (en `%USERPROFILE%\.spira\prod-publicador.env`), y el agente no inicia sesión con contraseñas en servicios reales. Es un comando, en vez del ida y vuelta por el dashboard.
+  - **`--demo`:** lo mismo contra el demo, con sesión sin contraseña. Así se probó.
+    - La cuenta sube.
+    - A `ip-docs`, pisando un video, con otra cuenta (farma) o sin sesión: rechazado por RLS.
+    - Publicar dos veces lo mismo: «ya estaba, idéntico», sin pisar.
+  - **Orden:** se corre ANTES de mergear el meta que publica la versión. La versión va explícita porque ese meta vive en una rama sin mergear.
 - [ ] **T8 (P2, etapa 2)** — contenido — Guiones de los flujos elegidos por el Director + sus píldoras «Cómo se hace»
 
 ## Approved Mockups

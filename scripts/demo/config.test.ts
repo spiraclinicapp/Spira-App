@@ -58,6 +58,7 @@ describe('leerConfigDemo', () => {
       secretKey: 'sb_secret_yyy',
       dbUrl: null,
       ttsKey: null,
+      ttsVozId: null,
     })
   })
   it('archivo ausente → error con la ruta', () => {

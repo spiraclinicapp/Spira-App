@@ -78,5 +78,8 @@ export function leerConfigDemo({ ruta = RUTA_DEMO_ENV, requeridas = REQUERIDAS, 
     secretKey: env.DEMO_SECRET_KEY,
     dbUrl: armarDbUrl(env.DEMO_DB_URL || null, env.DEMO_DB_PASSWORD || null),
     ttsKey: env.TTS_KEY || null,
+    /* La voz de ElevenLabs de los tutoriales (su «voice ID»). No es secreta, pero va al lado de la clave: las dos
+       son de la cuenta del proveedor, y cambiar de voz es cambiar de cuenta o de plan, no de código. */
+    ttsVozId: env.TTS_VOZ_ID || null,
   }
 }

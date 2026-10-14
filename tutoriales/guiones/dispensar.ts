@@ -19,6 +19,15 @@ const CODIGO = '2000000123455'
  *  dispensación · Preparando» → «D-1-… · Lista para retirar»), y en esta pantalla es el único diálogo. */
 const cajon = (e: Escena) => e.page.getByRole('dialog')
 
+/** Escanea una unidad y ESPERA a que el contador lo cuente («1/2», «2/2»). El escaneo va al servidor: sin esta
+ *  espera, la voz decía «el contador muestra cuántas llevás» con el contador todavía atrás (grabación con
+ *  Lionel, 2026-10-14). */
+async function escanear(e: Escena, contador: string) {
+  await e.escribir(e.page.getByLabel('Código de barras'), CODIGO)
+  await e.page.keyboard.press('Enter')
+  await cajon(e).getByText(contador, { exact: true }).first().waitFor({ timeout: 15_000 })
+}
+
 export default guion('dispensar', {
   cuenta: 'farma',
   pasos: [
@@ -42,18 +51,12 @@ export default guion('dispensar', {
     },
     {
       dice: 'Escaneá cada unidad con el lector. Spira controla que sea el medicamento del pedido.',
-      hace: async (e) => {
-        await e.escribir(e.page.getByLabel('Código de barras'), CODIGO)
-        await e.page.keyboard.press('Enter')
-      },
+      hace: async (e) => { await escanear(e, '1/2') },
       capitulo: 'Escanear',
     },
     {
       dice: 'Una pasada por unidad: el contador muestra cuántas llevás.',
-      hace: async (e) => {
-        await e.escribir(e.page.getByLabel('Código de barras'), CODIGO)
-        await e.page.keyboard.press('Enter')
-      },
+      hace: async (e) => { await escanear(e, '2/2') },
     },
     {
       dice: 'Con todo escaneado, tocá «Marcar lista para retirar». Spira genera el comprobante, asigna el lote que vence primero y descuenta el stock.',
