@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "tutoriales:instalar": "npm --prefix tutoriales ci",
     "tutoriales:grabar": "npm --prefix tutoriales run grabar --",
+    "tutoriales:verificar": "npm --prefix tutoriales run verificar --",
     "tutoriales:tipos": "npm --prefix tutoriales run typecheck",
     "demo:verificar": "node scripts/demo/verificar.mjs",
     "demo:migrar": "node scripts/demo/migrar.mjs",

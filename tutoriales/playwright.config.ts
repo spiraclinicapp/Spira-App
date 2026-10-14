@@ -1,14 +1,22 @@
 import { defineConfig } from '@playwright/test'
 
 /* Config de la fábrica de tutoriales. Edge del sistema (`channel: 'msedge'`): en esta máquina WDAC bloquea
-   binarios sin firmar, y Edge corre (probado en T0). `testMatch` apunta SÓLO al spec único: con el patrón por
-   defecto, Playwright levantaría también los `lib/*.test.ts`, que son del vitest de la app. */
+   binarios sin firmar, y Edge corre (probado en T0). `testMatch` apunta SÓLO a los dos specs (`grabar` y
+   `verificar`, cada script elige el suyo): con el patrón por defecto, Playwright levantaría también los
+   `lib/*.test.ts`, que son del vitest de la app. */
 const PUERTO = 5291
 const APP = `http://localhost:${PUERTO}`
 
 export default defineConfig({
   testDir: '.',
-  testMatch: /grabar\.pw\.ts$/,
+  testMatch: /(grabar|verificar)\.pw\.ts$/,
+  /* Las capturas de referencia que deja la fábrica al grabar (`tutoriales/capturas/<id>/NN.png`): `verificar`
+     compara contra ésas. La tolerancia deja pasar lo que cambia solo —la fecha de «Hoy», el «hace 1m» de una
+     tarjeta— y no una columna nueva o un botón que se movió. Medido en T7 sobre la captura de 480×270 (129.600
+     píxeles): una corrida limpia difiere en 30-55 píxeles; con dos columnas del tablero cambiadas de lugar, en
+     ~2.350 (1,8 %). El 0,5 % (~650) queda diez veces arriba del ruido y casi cuatro debajo del cambio real. */
+  snapshotPathTemplate: '{testDir}/capturas/{arg}{ext}',
+  expect: { toMatchSnapshot: { maxDiffPixelRatio: 0.005, threshold: 0.2 } },
   timeout: 15 * 60_000,
   workers: 1,
   reporter: [['list']],

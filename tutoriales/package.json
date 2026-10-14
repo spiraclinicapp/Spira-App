@@ -4,7 +4,8 @@
   "description": "Fábrica de tutoriales en video de Spira (docs/plan-tutoriales.md). Paquete aparte para que Playwright y ffmpeg no pesen en el build de la app ni en el CI.",
   "type": "module",
   "scripts": {
-    "grabar": "playwright test -c playwright.config.ts",
+    "grabar": "playwright test -c playwright.config.ts grabar.pw.ts",
+    "verificar": "playwright test -c playwright.config.ts verificar.pw.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {

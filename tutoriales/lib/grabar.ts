@@ -4,12 +4,12 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser } from '@playwright/test'
 import { SCRIPT_CURSOR } from './cursor'
-import { verificarAppDelDemo } from './demo'
+import { resetearDemo, verificarAppDelDemo } from './demo'
 import { Escena } from './guion'
 import type { Guion } from './guion'
 import { armarCapitulos, armarTramos, esperaRestante } from './lineaDeTiempo'
 import type { PasoMedido } from './lineaDeTiempo'
-import { achicar, duracionDelVideo, extraerPoster, mezclar } from './mezcla'
+import { duracionDelVideo, extraerPoster, mezclar } from './mezcla'
 import { armarVtt } from './vtt'
 import { entrarComo } from './sesion'
 import { audioDe, elegirVoz } from './voz'
@@ -22,7 +22,7 @@ import { audioDe, elegirVoz } from './voz'
      3. mezcla  → ffmpeg pone cada audio en el instante en que arrancó su paso → mp4 H.264 + AAC
      4. salida  → tutoriales/salida/<id>/<versión>/ {video.mp4, subtitulos.vtt, poster.jpg}
                   + src/ayuda/tutoriales.meta.json (versión, duración, capítulos, transcripción)
-                  + tutoriales/capturas/<id>/NN.png (referencia chica de cada paso, para `tutoriales:verificar`)
+                  + tutoriales/capturas/<id>/NN.png (referencia chica de cada paso: la deja `grabar.pw.ts` después, por el camino de `verificar`)
 
    La versión es un hash corto del mp4: va en la ruta de Storage, así un video regrabado nunca choca con la
    caché del anterior. Un guion `prueba` (la prueba de la fábrica) sólo deja la carpeta de salida.
@@ -57,6 +57,7 @@ export async function grabarGuion(browser: Browser, g: Guion, opciones: { baseUR
   if (!g.prueba) {
     if (!opciones.baseURL) throw new Error(`«${g.id}» es un tutorial: se graba contra la app del demo (falta baseURL).`)
     await verificarAppDelDemo(opciones.baseURL)
+    resetearDemo()
   }
   const ctx = await browser.newContext({
     viewport: { width: ANCHO, height: ALTO },
@@ -71,16 +72,14 @@ export async function grabarGuion(browser: Browser, g: Guion, opciones: { baseUR
   if (g.preparar) await g.preparar(escena)
 
   const medidos: PasoMedido[] = []
-  const capturas: string[] = []
   for (const [i, paso] of g.pasos.entries()) {
     const inicioMs = Date.now() - t0
     const antes = Date.now()
     if (paso.hace) await paso.hace(escena)
-    // La captura de referencia también tarda: se cuenta como parte de la acción, para que la espera que
-    // sigue sea exactamente lo que le falta al audio (si no, la voz del paso se pisa con la del siguiente).
-    const captura = join(trabajo, `paso-${String(i + 1).padStart(2, '0')}.png`)
-    await page.screenshot({ path: captura })
-    capturas.push(captura)
+    // Una foto de cada paso en `.trabajo/` (para mirar qué pasó si la toma falla; la de referencia de
+    // `verificar` sale aparte). Tarda, y se cuenta como parte de la acción, para que la espera que sigue sea
+    // exactamente lo que le falta al audio (si no, la voz del paso se pisa con la del siguiente).
+    await page.screenshot({ path: join(trabajo, `paso-${String(i + 1).padStart(2, '0')}.png`) })
     const accionMs = Date.now() - antes
     const audioMs = audios[i]?.duracionMs ?? 0
     await page.waitForTimeout(esperaRestante(audioMs, accionMs))
@@ -109,11 +108,10 @@ export async function grabarGuion(browser: Browser, g: Guion, opciones: { baseUR
      reproductor (QA de T5: decía «0:15» y el video duraba 0:17). */
   const duracionMs = duracionDelVideo(join(carpeta, 'video.mp4'))
 
+  /* Las capturas de referencia de `tutoriales:verificar` NO salen de esta toma: las deja `grabar.pw.ts` al
+     terminar, pasando el guion por el mismo camino que después las compara (`lib/verificar.ts`). Sacarlas acá,
+     con el estilo que esconde los avisos, lo aplicaría a la página que se está filmando. */
   if (!g.prueba) {
-    const dirCapturas = join(FABRICA, 'capturas', g.id)
-    rmSync(dirCapturas, { recursive: true, force: true })
-    mkdirSync(dirCapturas, { recursive: true })
-    capturas.forEach((c, i) => achicar(c, 480, join(dirCapturas, `${String(i + 1).padStart(2, '0')}.png`)))
     escribirMeta(g.id, {
       version,
       duracionMs: Math.round(duracionMs),
