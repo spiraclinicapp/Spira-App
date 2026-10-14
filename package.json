@@ -15,7 +15,9 @@
     "tutoriales:tipos": "npm --prefix tutoriales run typecheck",
     "demo:verificar": "node scripts/demo/verificar.mjs",
     "demo:migrar": "node scripts/demo/migrar.mjs",
-    "demo:resetear": "node scripts/demo/resetear.mjs"
+    "demo:resetear": "node scripts/demo/resetear.mjs",
+    "demo:sesion": "node scripts/demo/sesion.mjs",
+    "demo:app": "node scripts/demo/app.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
