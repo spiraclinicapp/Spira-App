@@ -107,7 +107,7 @@ export const PREGUNTAS: readonly Pregunta[] = [
     modulo: 'pharma',
     pregunta: '¿Cómo dispenso una medicación?',
     respuesta:
-      'El pedido llega desde la visita, cuando Coordinación toca «Solicitar dispensación», o lo cargás vos con «Nueva dispensación», y aparece en Dispensaciones, en Solicitadas. Tocá «Preparar», escaneá cada unidad con el lector y, con todo escaneado, tocá «Marcar lista para retirar»: ahí se genera el comprobante, Spira asigna el lote que vence primero y descuenta el stock.\n\nCuando el paciente la retira, tocá «Marcar como entregado».',
+      'El pedido llega desde la visita, cuando Coordinación toca «Solicitar dispensación», o lo cargás vos con «Nueva dispensación», y aparece en Dispensaciones, en Solicitadas. Tocá «Preparar», escaneá cada unidad con el lector y, con todo escaneado, tocá «Marcar lista para retirar»: ahí se genera el comprobante, Spira asigna el lote que vence primero y descuenta el stock.\n\nCuando se retira la medicación, tocá «Marcar como entregado».',
     palabras: ['dispensación', 'entregar', 'escanear', 'código de barras', 'retirar'],
     tutorial: 'dispensar',
   },

@@ -42,7 +42,7 @@ export default guion('dispensar', {
       poster: true,
     },
     {
-      dice: 'Tocá «Preparar»: el pedido pasa a Preparando y se abre el detalle.',
+      dice: 'Pulsá el botón «Preparar»: el pedido pasa a Preparando y se abre el detalle.',
       hace: async (e) => {
         await e.clic(e.page.getByRole('button', { name: 'Preparar' }))
         await e.page.getByLabel('Código de barras').waitFor({ timeout: 15_000 })
@@ -59,7 +59,7 @@ export default guion('dispensar', {
       hace: async (e) => { await escanear(e, '2/2') },
     },
     {
-      dice: 'Con todo escaneado, tocá «Marcar lista para retirar». Spira genera el comprobante, asigna el lote que vence primero y descuenta el stock.',
+      dice: 'Con todo escaneado, pulsá el botón «Marcar lista para retirar». Spira genera el comprobante, asigna el lote que vence primero y descuenta el stock.',
       hace: async (e) => {
         await e.clic(cajon(e).getByRole('button', { name: 'Marcar lista para retirar' }))
         await cajon(e).getByRole('button', { name: 'Marcar como entregado' }).waitFor({ timeout: 15_000 })
@@ -67,7 +67,9 @@ export default guion('dispensar', {
       capitulo: 'Marcar lista',
     },
     {
-      dice: 'Cuando el paciente la retira, tocá «Marcar como entregado».',
+      /* «Cuando se retira», sin decir quién: no siempre es el paciente. Y «pulsá el botón», no «tocá»: lo van a usar
+         personas poco amigas de la tecnología, así que se nombra qué es lo que hay que pulsar (Director, 2026-10-14). */
+      dice: 'Cuando se retira la medicación, pulsá el botón «Marcar como entregado».',
       hace: async (e) => { await e.clic(cajon(e).getByRole('button', { name: 'Marcar como entregado' })) },
       capitulo: 'Entregar',
     },
